@@ -75,7 +75,6 @@ class PhysicsBroadphaseStage
     float m_largestBroadphaseRadius = 0.0f;
     bool m_largestBroadphaseRadiusValid = false;
 #if defined( _DEBUG )
-
     // Debug-only bounded evidence for pairs now suppressed at grid emission.
     PhysicsCandidatePairList m_sleepPrunedPairs { "PhysicsBroadphaseStage.sleepPrunedPairs",
                                                   PhysicsCapacityReason::CandidatePairs };

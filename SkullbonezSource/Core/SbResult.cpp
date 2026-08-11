@@ -51,7 +51,6 @@ std::atomic<std::uint32_t> g_nextDiagnosticThreadToken = 1u;
 
 std::uint32_t CurrentDiagnosticThreadToken() noexcept
 {
-
     // Lifetime: assigning a token once per thread avoids OS or heap-backed
     // identity lookup on every diagnostic lease operation.
     thread_local const std::uint32_t token = g_nextDiagnosticThreadToken.fetch_add( 1u, std::memory_order_relaxed );
@@ -211,7 +210,6 @@ SbDiagnosticStore::~SbDiagnosticStore() noexcept
 
     if ( activeEntries != 0 )
     {
-
         // Hazard: every failed SbResult contains a raw store pointer. Failing
         // here catches the lifetime inversion while the store is still valid,
         // before a later result destructor could dereference dead storage.
@@ -413,7 +411,6 @@ void SbDiagnosticStore::Lock() const noexcept
 
     if ( m_lockOwnerThread.load( std::memory_order_relaxed ) == currentThread )
     {
-
         // Hazard: a diagnostic callback that republishes while this store is
         // locked would otherwise spin forever. Clear the outer ownership only
         // because Lane F terminates immediately after this point.

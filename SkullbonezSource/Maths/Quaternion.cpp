@@ -80,7 +80,6 @@ void Quaternion::RotateAboutAxis( const Vector3& axis, float angle )
 {
 
 #ifdef _DEBUG
-
     // Hazard: normalizing the composed quaternion cannot recover the requested
     // angle when the axis length scales only delta.xyz. Preserve Release math,
     // but expose caller misuse in Debug like Vector3::Normalise.
@@ -101,7 +100,6 @@ void Quaternion::RotateAboutAxis( const Vector3& axis, float angle )
 
 RotationMatrix Quaternion::GetOrientationMatrix() const
 {
-
     // The engine uses right-handed object orientation math; render projection is
     // handled separately by Matrix4.
     return RotationMatrix( 1 - ( 2 * m_y * m_y ) - ( 2 * m_z * m_z ), ( 2 * m_x * m_y ) - ( 2 * m_w * m_z ),

@@ -73,7 +73,6 @@ std::unique_ptr<ShaderDX12> Dx12ResourceBuilder::CreateShader( const char* baseN
 
     if ( !shader->Compile( hlslPath.c_str(), contractBaseName ) )
     {
-
         // Lane R: shader files and compiler output are external inputs. Return
         // a null shader so setup/render owners can skip the dependent draw while
         // the DX12 validation log names the missing program.

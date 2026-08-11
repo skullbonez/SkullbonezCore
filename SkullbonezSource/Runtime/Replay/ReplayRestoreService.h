@@ -90,7 +90,6 @@ class ReplayRestoreService
 
             for ( std::size_t previousIndex = 0; previousIndex < bodyIndex; ++previousIndex )
             {
-
                 // Invariant: one sample row owns one live body. Duplicate ids
                 // would otherwise apply two states to one handle while silently
                 // leaving another body unrestored.

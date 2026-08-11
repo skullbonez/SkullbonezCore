@@ -134,7 +134,6 @@ struct EditorObjectTypeRequestResult
 
 struct EditorPlacementPreModeUICommandResult
 {
-
     // Invariant: flags report accepted UI commands for InputFrame transition
     // recording; mode toggles route camera/cursor work through InputRouter.
     bool setPlaceStatic = false;

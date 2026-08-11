@@ -152,7 +152,6 @@ Physics::PhysicsSceneObjectId ReplayPredictionBodyIdForModelIndex( const RunRepl
 
 bool ReplayModelIndexIsRagdollPart( const SceneEntityStore& entities, int modelIndex )
 {
-
     // Hazard: physics debug contacts use -1 for terrain/world counterparts.
     // That sentinel is not a scene row and must never reach group metadata.
     if ( modelIndex < 0 || modelIndex >= entities.Count() )
@@ -733,7 +732,6 @@ void UpdateReplayPredictionAllBodyTrajectories( RunReplayPredictionState& predic
 
     for ( std::size_t bodyIndex = firstBody; bodyIndex < bodyCount; ++bodyIndex )
     {
-
         // Invariant: a body record is indivisible, so the budget is read between
         // whole bodies. Recording the reached index and keeping allBodyPaths set
         // makes builtAllBodyCount the resume cursor rather than a completion
@@ -928,7 +926,6 @@ std::size_t BuildReplayPredictionAffectedBodyTrails( std::span<const RunReplayPr
 
         for ( std::size_t frameSlot = 1; frameSlot < frameCount; ++frameSlot )
         {
-
             // Why: delaying construction until the first revealed motion keeps
             // both marker publication and drawing from pre-spawning the body.
             if ( frames[frameSlot].frameIndex > revealFrame )

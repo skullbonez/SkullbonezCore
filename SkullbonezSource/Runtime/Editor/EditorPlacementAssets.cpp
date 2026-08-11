@@ -127,7 +127,6 @@ const Json* EditorJsonFindMember( const Json& object, const char* name )
 
 const Json* CachedEditorBuildingLibrary( const SkullbonezCore::Assets::AssetSystem& assets )
 {
-
     // Lifetime: The building asset catalog is process-static editor data.
     // It is read-only after the first successful parse, so placement preview and
     // commit paths share one stable recipe source without repeated disk IO. The
@@ -739,7 +738,6 @@ bool TryComputeEditorBuildingWorldBounds( SkullbonezCore::Core::SbDiagnosticStor
 
 constexpr EditorTreePartDefinition NormalizeEditorTreePart( EditorTreePartDefinition part )
 {
-
     // Why: authored tree parts are already real recipe values. Normalization
     // adds the hull policy directly instead of copying the recipe through a
     // second descriptor with the same fields.

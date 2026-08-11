@@ -114,7 +114,6 @@ enum class ReplayInspectionCameraAction : uint8_t
 
 namespace ReplayPresentationOperations
 {
-
 // Stateless host-camera transitions shared by scrubber and authoring tools.
 // Every owner reference is a synchronous borrow; neither operation stores host
 // or replay authority after returning.
@@ -137,7 +136,6 @@ bool BeginLoadedPresentationActivation( bool hasLoadedPresentation, ReplayScrubb
 
 struct ReplayWorldPointerInput
 {
-
     // Value-only facts for one routed pointer gesture. Mutable and store owners
     // are explicit operands on ReplayRuntime::RouteWorldPointer. UI hit
     // suppression is authoritative; merely requesting a visible native cursor

@@ -49,7 +49,6 @@ class Dx12GeometryOwner;
 } // namespace Rendering
 namespace Text
 {
-
 // Concept: TextBatch is frame-local mutable submission state with renderer
 // lifetime storage. RuntimeRenderer owns one instance, eliminating hidden BSS
 // submission state. The arrays remain fixed-capacity under the runtime
@@ -88,7 +87,6 @@ class Text2d
     inline static uint32_t textBatchVB = 0;                                 // batch text VB: [x,y,u,v,r,g,b] — flushed once per frame
     inline static uint32_t quadBatchVB = 0;                                 // batch quad VB: [x,y,r,g,b,a] — flushed once per frame via FlushQuads()
 #if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
-
     // The CPU unit-test lane intentionally omits backend object code. These
     // process-global shader owners exist only in renderer-bearing builds.
     inline static std::unique_ptr<Rendering::ShaderDX12> pTextShader;

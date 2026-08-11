@@ -428,7 +428,6 @@ inline constexpr int StylizedBasin = 4;
 // values to the sky, volumetric, bloom, fog, shadow, and style passes.
 struct CinematicRenderConfig
 {
-
     // Master switch. The UI can toggle this at runtime; command-line overrides
     // can also force it on/off for quick visual checks.
     bool enabled = false;

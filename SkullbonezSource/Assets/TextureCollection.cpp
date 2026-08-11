@@ -103,14 +103,12 @@ int TextureCollection::FindFreeSlot() const
 
 void TextureCollection::ReleaseTexture( GpuTextureRecord& texture )
 {
-
     // Lifetime: the collection stores renderer-neutral ids, but the backend
     // owns the actual GPU texture object behind each handle.
     if ( texture.backendHandle )
     {
         if ( !m_renderResources )
         {
-
             // Invariant: backend handles can only be destroyed by the resource
             // factory that owns them. Releasing without that facet would leak or
             // orphan the renderer resource.
@@ -159,7 +157,6 @@ SkullbonezCore::Core::SbResult TextureCollection::SelectTexture( uint32_t hash )
 
     if ( !m_renderBindings )
     {
-
         // Invariant: selecting a texture mutates frame draw state and therefore
         // requires the command facet for the active backend.
         SB_FATAL( "TextureCollection", "SelectTexture requires a bound render command context. hash=0x%08X", hash );
@@ -193,7 +190,6 @@ void TextureCollection::BindAssetSystem( Assets::AssetSystem* assets )
 
 void TextureCollection::BindRenderContexts( Dx12TextureOwner* renderResources, Dx12TextureOwner* renderBindings )
 {
-
     // Lifetime: Run owns these backend facets and clears them before backend
     // teardown. TextureCollection keeps only opaque handles created by the same
     // resource factory.
@@ -236,7 +232,6 @@ SkullbonezCore::Core::SbResult TextureCollection::LoadJpegTextureIntoSlot( int s
 {
     if ( slot < 0 || slot >= static_cast<int>( m_textures.size() ) )
     {
-
         // Invariant: callers reserve slots through FindFreeSlot or reuse an
         // existing resident slot. A direct out-of-range slot would corrupt the
         // fixed legacy texture table.
@@ -253,7 +248,6 @@ SkullbonezCore::Core::SbResult TextureCollection::LoadJpegTextureIntoSlot( int s
 
     if ( !m_renderResources )
     {
-
         // Invariant: texture file bytes become a backend resource immediately
         // after decode, so the render resource facet must be bound first.
         SB_FATAL( "TextureCollection",
@@ -325,7 +319,6 @@ SkullbonezCore::Core::SbResult TextureCollection::CreateJpegTexture( const char*
 {
     if ( hash == 0 )
     {
-
         // Invariant: legacy direct texture creation still indexes the fixed
         // table by hash. Zero is the sentinel for "not addressable".
         SB_FATAL( "TextureCollection", "CreateJpegTexture requires a non-zero legacy hash. path=\"%s\"",

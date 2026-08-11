@@ -102,7 +102,6 @@ void ApplyForcesForSolverBody( Physics::PhysicsBodyStore& bodyStore, const Physi
                                const Physics::PhysicsBodyHotFieldsConstView& hotFields, std::span<const uint8_t> sleepState,
                                std::span<float> timeRemaining, const Vector3* mutualGravityForces, int bodyIndex, float dt )
 {
-
     // Invariant: this is the extracted body of the former applyForcesAt lambda.
     // Sleeping rows must keep their cached pose and consume no remaining time;
     // awake dynamic rows still receive the same force application call.
@@ -189,7 +188,6 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* pr
 
     if ( modelCount > MUTUAL_GRAVITY_MAX_BODIES )
     {
-
         // Why: mutual-gravity-large-scene-fallback keeps the compact pair
         // scratch capped at 512 bodies (about 2 MiB) without shrinking the
         // engine's 8,192-body capability. Larger fields use the original exact

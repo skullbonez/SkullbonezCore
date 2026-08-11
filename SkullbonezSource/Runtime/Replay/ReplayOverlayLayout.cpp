@@ -27,7 +27,6 @@ namespace SkullbonezCore::Runtime::ReplayOverlay
 {
 namespace
 {
-
 // Why: the top-right scene/camera badges own the first screen rows, so the
 // draggable cause window starts below them instead of covering status text.
 constexpr int REPLAY_CAUSE_WINDOW_SAFE_TOP = 124;
@@ -146,7 +145,6 @@ float ReplayPredictionHorizonT( float seconds )
 
 float ReplayPredictionHorizonFromMouse( int mouseX, const UI::UIRect& horizon )
 {
-
     // Why: prediction seconds use a normalized slider, but the user drags in
     // pixels. Clamp before scaling so mouse drift outside the slot cannot
     // create an invalid future horizon.
@@ -161,7 +159,6 @@ float ReplayPredictionHorizonFromMouse( int mouseX, const UI::UIRect& horizon )
 
 UI::UIRect ReplayScrubberHotZoneRect( int screenW, int screenH )
 {
-
     // Why: the bottom-left minimized/options UI is also a click target. Only
     // the centered two-thirds of the bottom edge should summon replay controls.
     const float width = static_cast<float>( screenW ) * ( 2.0f / 3.0f );
@@ -191,7 +188,6 @@ void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, Replay
 
         if ( !outSurface.TryAdd( control ) )
         {
-
             // Lane F: a duplicate id or undersized compile-time table makes UI
             // z-order and dispatch ambiguous, so the frame cannot safely continue.
             SB_FATAL( "ReplayScrubberSurface", "Cannot publish replay scrubber control id=%u.", control.id.value );
@@ -379,7 +375,6 @@ float ReplayCauseWindowMaxScroll( const RunReplayCauseTreeState& state )
 
 void ClampReplayCauseWindow( RunReplayCauseTreeState& state, int screenW, int screenH )
 {
-
     // Invariant: the resize handle and title bar must remain reachable after a
     // resolution change, or the inspection window can become permanently
     // off-screen for the session.

@@ -137,7 +137,6 @@ class SceneController;
 
 namespace ReplayLiveRestoreOperations
 {
-
 // Builds the detached result published after one restore transaction reaches a
 // success or recoverable-failure terminal phase.
 ReplayLiveRestoreOutcome BuildOutcome( const ReplayRestoreTransaction& transaction, ReplayLiveRestoreKind kind,
@@ -158,7 +157,6 @@ struct ReplayScrubProbeDiagnostic;
 
 namespace ReplayPresentationOperations
 {
-
 // App-level activation closes both lower Replay presentation state and the
 // sibling Prediction owner before arming the loaded scrub position.
 void ArmLoadedPresentation( float normalized, double now, ReplayScrubber& scrubber, ReplayPresentation& presentation,
@@ -184,7 +182,6 @@ class ReplayProbeRunner
         return m_startup;
     }
 #ifdef _DEBUG
-
     // Installs Debug-only CLI probe state after Configure has copied the
     // product load request and capability bit.
     void ConfigureDebug( const ReplayStartupRequest& request );
@@ -242,7 +239,6 @@ class ReplayRuntime
     // Publishes scalar input decisions without exposing replay owner storage.
     ReplayInputView BuildInputView() const noexcept;
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
-
     // Lifetime: returned references/spans are synchronous validation evidence;
     // callers must rebuild the view after any replay mutation. The method is
     // absent from ordinary builds so diagnostics cannot enter the frame path.
@@ -351,7 +347,6 @@ class ReplayRuntime
     void CompleteLiveRestoreScrubber( const ReplayRestoreTransaction& transaction, const ReplayLiveRestoreRequest& request,
                                       ReplayLiveRestoreOutcome& outcome );
 #ifdef _DEBUG
-
     // Debug probes use the production phase transaction and receive concrete
     // owners only for the synchronous operation that needs them.
     ReplayProbeTickResult TickProbes( SceneController& sceneController, OverlayDebugState& debug, RuntimeTools& runtimeTools,
@@ -509,7 +504,6 @@ class ReplayRuntime
     void ApplyPastTrajectoryUpdate( const ReplayPastTrajectoryUpdate& update );
     void AppendSolverTrajectorySampleToStore( const ReplaySolverFrameSample& sample );
 #ifdef _DEBUG
-
     // Runs the configured Debug startup probes after product artifact loading
     // has completed; early probe failures are returned in the value result.
     ReplayStartupResult RunStartupProbeWorkflows( const ReplayStartupWorkflowState& startup,

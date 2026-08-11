@@ -293,7 +293,6 @@ class Dx12SubmittedWorkState
 
     void MarkSubmitted()
     {
-
         // A new queue submission is not covered by an older fence even if that
         // older marker is still pending, so discard the old proof immediately.
         m_phase = Dx12SubmittedWorkPhase::SubmittedUnfenced;
@@ -302,7 +301,6 @@ class Dx12SubmittedWorkState
 
     void AbandonForRemovedDevice()
     {
-
         // Lifetime: device removal cancels the device lifetime itself, so no
         // command from this queue can execute against resources after terminal
         // COM teardown. This is not a reusable completion proof.
@@ -316,7 +314,6 @@ class Dx12SubmittedWorkState
         {
             if ( HasSubmittedWork() )
             {
-
                 // Preserve a previously known fence when a later drain Signal
                 // fails; MarkSubmitted already clears it for genuinely new work.
                 m_phase = Dx12SubmittedWorkPhase::CompletionUncertain;
@@ -508,7 +505,6 @@ struct Dx12MappedPointerResult
 inline Dx12MappedPointerResult ValidateDx12MappedPointer( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
                                                           HRESULT mapResult, void* mappedPointer, const char* operation )
 {
-
     // Why: ID3D12Resource::Map is a native void-pointer ABI. Validate it at
     // this immediate seam and publish only typed mapped bytes to owners.
     Dx12MappedPointerResult checked;

@@ -37,7 +37,6 @@ FrustumPlane NormalizedPlane( float x, float y, float z, float distance )
 
     if ( lengthSquared <= 1.0e-12f )
     {
-
         // Conservative fallback: a zero normal with positive distance cannot
         // reject a sphere, which is safer than culling from invalid camera math.
         return { Vector::Vector3( 0.0f, 0.0f, 0.0f ), 1.0f };

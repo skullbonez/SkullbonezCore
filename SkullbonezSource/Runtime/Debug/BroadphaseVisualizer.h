@@ -37,7 +37,6 @@ class Dx12GeometryOwner;
 
 namespace Physics
 {
-
 /*
 Concept: Broadphase visualizer
 

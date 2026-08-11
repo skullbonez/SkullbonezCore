@@ -61,7 +61,6 @@ static inline SkullbonezCore::Core::SbResult Dx12TextureStartupResult( Skullbone
 {
     if ( FAILED( hr ) )
     {
-
         // Lane R: generate-mips setup depends on baked shader assets and driver
         // resource creation. Startup reports that environment failure
         // through the render lifecycle result path.
@@ -138,7 +137,6 @@ bool Dx12TextureCommands::UavBarrier( const char* passName, const char* resource
 
 SkullbonezCore::Core::SbResult Dx12TextureOwner::Initialize( Dx12TextureCommands& commands )
 {
-
     // Runtime allocation policy: size every handle slot before steady gameplay.
     // Insert reuses tombstones and fails fatally instead of growing this vector.
     m_registry.Initialize( commands.StaticDescriptorCapacity() );
@@ -243,7 +241,6 @@ SkullbonezCore::Core::SbResult Dx12TextureOwner::Initialize( Dx12TextureCommands
 
     if ( !startupResult.Ok() )
     {
-
         // Lifetime: a failed COM creation is not allowed to leave a partially
         // published mip pipeline behind for a later reusable initialization.
         if ( m_genMipsRS )
@@ -361,7 +358,6 @@ SkullbonezCore::Core::SbResult Dx12TextureOwner::PrepareGenerateMipsShaderReload
 
 void Dx12TextureOwner::AdoptGenerateMipsShaderReload( ID3D12PipelineState* candidate )
 {
-
     // Lifetime: the caller drained the GPU and prepared candidate completely.
     // This no-fail swap is the compute half of the all-shader reload commit.
     if ( m_genMipsPSO )
@@ -452,7 +448,6 @@ bool Dx12TextureOwner::GenerateMips( Dx12TextureCommands& commands, ID3D12Resour
             }
             else
             {
-
                 // Pad with null UAV to keep the debug layer happy
                 D3D12_CPU_DESCRIPTOR_HANDLE nullSrc = commands.StagingCpuHandle( m_genMipsNullUAV );
                 commands.Device()->CopyDescriptorsSimple( 1, cpuHandle, nullSrc, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
@@ -626,7 +621,6 @@ uint32_t Dx12TextureOwner::CreateTexture2D( Dx12TextureCommands& commands, const
 
     if ( FAILED( textureResult ) || !texResource )
     {
-
         // Lane R: texture residency can fail because of the active device or
         // memory budget. The renderer texture handle contract already uses 0
         // for "no usable texture", which TextureCollection reports to callers.
@@ -689,7 +683,6 @@ uint32_t Dx12TextureOwner::CreateTexture2D( Dx12TextureCommands& commands, const
         if ( !GenerateMips( commands, texResource, fmt, static_cast<UINT>( w ), static_cast<UINT>( h ), numMips,
                             graphicsStateInvalidated ) )
         {
-
             // Lifetime: mip generation may already have recorded commands that
             // reference this candidate. Quarantine it behind the normal fence
             // path instead of releasing a command-list dependency immediately.
@@ -735,7 +728,6 @@ uint32_t Dx12TextureOwner::CreateTexture2D( Dx12TextureCommands& commands, const
 
 void Dx12TextureOwner::ClearBoundSlotsForSrv( UINT srvIndex )
 {
-
     // Lifetime: m_boundTexSlot stores descriptor row indices, not texture
     // handles. When an FBO or texture unregisters an SRV, clear any cached slot
     // that still names that row before a later draw can publish the retired

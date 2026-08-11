@@ -47,7 +47,6 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
                                   RunReplayPredictionState& prediction, char* outReason, std::size_t reasonSize );
 
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
-
 // Validation seam: emits an authentic supported schema, including that
 // schema's historical quaternion representation. Runtime save paths use the
 // current-schema builder above.

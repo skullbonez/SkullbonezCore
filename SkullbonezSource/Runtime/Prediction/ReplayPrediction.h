@@ -117,7 +117,6 @@ struct ReplayPredictionBaselineSnapshot
 
 struct RunReplayPredictionRevealClock
 {
-
     // Concept: reveal anchor is the wall-clock start of the causal-unfold
     // animation. The overlay clamps drawn prediction frames to a cursor derived
     // from this anchor, so this rate — not the build — decides how long the
@@ -181,7 +180,6 @@ struct ReplayPredictionChildMarkerScanState
 
 struct RunReplayPredictionFutureNodeCache
 {
-
     // Concept: future-node cache is render-facing topology derived from
     // prediction frames. Build work writes the scratch vector and cursor fields;
     // draw code reads futureNodes only after a coherent prefix is published.
@@ -229,7 +227,6 @@ struct RunReplayPredictionFutureNodeCache
 
 struct RunReplayPredictionTrajectoryBuildState
 {
-
     // Concept: prediction trajectory records follow the same published-prefix
     // contract as buildFrames. Root points are appended when frames publish;
     // child records catch up after the future-node cache publishes topology.
@@ -332,7 +329,6 @@ struct ReplayPredictionIsolatedSimulation
 
 struct ReplayVelocityDragPreviewState
 {
-
     // Invariant: pointer samples replace this fixed-size value without
     // scheduling simulation. The release edge arms exactly one later
     // generation, and no earlier completion may clear its visible estimate.
@@ -734,7 +730,6 @@ inline bool RunReplayPredictionState::BuildFramesAreComplete() const noexcept
 inline bool RunReplayPredictionState::FutureTreeReadyForDraw( Physics::PhysicsSceneObjectId rootId, bool usingBuildFrames,
                                                               std::size_t frameCount ) const noexcept
 {
-
     // Invariant: consumers may submit child paths only when the bounded node
     // cache and trajectory publication describe the same root, source bank,
     // topology generation, and complete frame prefix.

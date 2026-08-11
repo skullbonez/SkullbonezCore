@@ -385,7 +385,6 @@ void CacheHistogramOptions( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState&
 
     if ( cacheChanged )
     {
-
         // Invariant: histogram samples are indexed by cached option slot. Scene
         // startup can append or reorder marker options for several frames, so
         // preserve history by moving old slots to their new key instead of

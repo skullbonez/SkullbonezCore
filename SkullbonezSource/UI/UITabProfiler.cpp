@@ -136,7 +136,6 @@ bool IsMarkerExpanded( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState
 
 void ToggleMarker( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state, uint32_t hash )
 {
-
     // Invariant: Expanded profiler rows are tracked by marker hash in a bounded
     // array so UI state survives marker reordering without heap churn.
     state.defaultExpansionApplied = true;
@@ -586,7 +585,6 @@ bool HandleContentClick( UIProfilerTabState& state, InGameUIInputResult& result,
                          int contentY, float contentW, float scrollY, int mouseX, int mouseY, int currentWorkerThreads,
                          int maxWorkerThreads )
 {
-
     // Concept: The profiler tab owns UI expansion and slider preview state, but
     // worker-thread changes are returned as commands for runtime code to apply.
     SetProfilerContentBounds( state, static_cast<float>( contentX ), static_cast<float>( contentY ), contentW );

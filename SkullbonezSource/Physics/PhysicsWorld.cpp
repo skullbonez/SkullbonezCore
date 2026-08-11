@@ -73,7 +73,6 @@ namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 namespace
 {
-
 // Why: worker fan-out is more expensive than the work for the validation-sized
 // 300-body scenes. Keep all-body jobs inline until there is enough work per
 // chunk for the persistent worker pool to pay for itself.
@@ -204,7 +203,6 @@ CoreAllocation::RuntimeReserveOwnerHandle ReplaySolverSnapshotReserveOwner()
 
 void ReportReplaySolverSnapshotReserveFailure( const char* label, std::size_t requestedCapacity )
 {
-
     // Lane F: a partial solver snapshot cannot support deterministic replay
     // restore. Report the shared owner and cap before terminating.
     SB_FATAL( "Physics/SolverSnapshot",
@@ -216,7 +214,6 @@ void ReportReplaySolverSnapshotReserveFailure( const char* label, std::size_t re
 template <typename T>
 std::size_t ReplaySolverSnapshotReserveCapacity( const std::vector<T>& values, std::size_t requestedCapacity )
 {
-
     // Why: replay snapshots are diagnostics payloads, not steady gameplay
     // storage. Chunking capacity here keeps prediction exploration from logging
     // a chain of tiny reserve events as contact caches discover denser frames.
@@ -397,7 +394,6 @@ void PhysicsWorld::Clear()
 
 void PhysicsWorld::InvalidateBodyTopology()
 {
-
     // Cold boundary: a same-count destroy/create sequence can replace dense
     // rows without exposing a count delta to the next fixed step. Rebuild both
     // derived awake indices and persistent grid membership from owner stores.
@@ -431,7 +427,6 @@ std::size_t PhysicsWorld::PointJointCapacity() const noexcept
 
 void PhysicsWorld::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapshot, int modelCount ) const
 {
-
     // Runtime allocation policy: replay recorder slots pre-reserve these
     // payload vectors outside gameplay. Capture clears the retained slot in
     // place so solver replay does not discard capacity and reallocate per tick.
@@ -593,7 +588,6 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore, const ColliderStore&
                                const PhysicsRuntimeSettings& settings, const PhysicsWorldForces& worldForces,
                                const ExternalForceFrameInput& externalForces, Threading::WorkerPool& workerPool )
 {
-
     // Concept: one fixed physics tick has a predictable data flow.
     //
     // 1. Resize/clear per-frame arrays so every model index has a slot.
@@ -619,7 +613,6 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore, const ColliderStore&
 
     if ( static_cast<int>( m_timeRemaining.size() ) != modelCount || timeStepChanged )
     {
-
         // Cold topology/timestep boundary: preserve the old all-row value
         // contract for replay/diagnostics. Capacity is reserved before play;
         // ordinary same-dt steps below write only bodies that can consume it.
@@ -769,7 +762,6 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
 
     if ( probeDormantUnderwaterLocks )
     {
-
         // Cold/explicit-seed boundary only. Ordinary island transitions probe
         // the exact body as it sleeps, so dormant rows have zero steady cost.
         for ( int x = 0; x < modelCount; ++x )
@@ -881,7 +873,6 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
     }
     else
     {
-
         // Invariant: serial mode commits each pair's side effects immediately.
         // Deferring this loop would change what the next pair observes.
         PROFILE_SCOPED( "Frame/Physics/Narrowphase/SerialPairs" );
@@ -1068,7 +1059,6 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
     PROFILE_END( "Frame/Physics/Integrate" );
 
 #ifdef SKULLBONEZ_PROFILE_ENABLED
-
     // Invariant: scale counters sample the completed fixed step. Perf scenes
     // run exactly one fixed step per render frame, so the profiler's last-value
     // counter semantics map one-to-one onto the measurement ledger.
@@ -1133,7 +1123,6 @@ void PhysicsWorld::AdvancePointJointHandleGeneration()
 
 void PhysicsWorld::DestroyPointJointsForBody( PhysicsBodyHandle body )
 {
-
     // Invariant: remove every joint that names the retiring handle before the
     // body slot can be reused. Runtime joint rows are dense, but moving a row
     // retains its stable handle so unrelated callers are never retargeted.

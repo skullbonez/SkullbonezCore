@@ -31,7 +31,6 @@ class Profiler;
 }
 namespace Physics
 {
-
 // Terrain support classification is not the collision response itself. It is a
 // safety check for the sleep/resting layer: "is this terrain contact stable
 // enough that the body may be treated as supported?" A box can collide with
@@ -48,7 +47,6 @@ static constexpr float BOX_TERRAIN_STABLE_PATCH_DOT = 0.99f; // ~8 degrees from 
 
 struct BoxTerrainVertexSupportProbe
 {
-
     // Number of oriented-box corners whose world-space height is close enough
     // to their sampled terrain height to count as a real terrain footprint.
     // A high count means the box is likely resting on a face/patch rather than
@@ -68,7 +66,6 @@ struct BoxTerrainVertexSupportProbe
 
 struct BoxTerrainSupportClassification
 {
-
     // Sphere-style terrain contacts preserve the legacy support behavior. The
     // stricter face/vertex footprint checks apply to shapes that can balance on
     // a narrow edge or point: OBBs and authored convex hulls.
@@ -91,7 +88,6 @@ struct BoxTerrainSupportClassification
 
 inline Math::Vector::Vector3 GetBoxTerrainLocalCorner( const Math::Vector::Vector3& halfExtents, int cornerIndex )
 {
-
     // cornerIndex uses three bits as signs: bit 0 chooses +/-X, bit 1 chooses
     // +/-Y, and bit 2 chooses +/-Z. This compactly enumerates all eight box
     // corners without a table.
@@ -148,7 +144,6 @@ inline BoxTerrainVertexSupportProbe ProbeBoxTerrainVerticesImpl( const Math::Col
                                                                  const Math::Transformation::RotationMatrix& orientation,
                                                                  const PhysicsTerrainView& terrain, float contactEpsilon )
 {
-
     // Sample visible box corners against the heightfield. The solver may have a
     // contact row from the terrain plane, but sleep support needs a footprint:
     // enough real corners close to terrain that a human would say the box is
@@ -334,7 +329,6 @@ ClassifyBoxTerrainSupportImpl( Core::Profiler* profiler, const ShapeView& shape,
 
     if ( !box && !hull )
     {
-
         // Sphere/capsule-style terrain contacts do not have an oriented face
         // footprint to test here, so leave supportsRestingPolicy at the legacy
         // default. The shared terrain rows still solve their Catto
@@ -353,7 +347,6 @@ ClassifyBoxTerrainSupportImpl( Core::Profiler* profiler, const ShapeView& shape,
 
     if ( contactCount > 0 && contactCount < 4 )
     {
-
         // A one- or two-point manifold may be a valid impact row, but it is not
         // enough evidence that the box is resting on a stable face. Require face
         // alignment first so an edge grazing the terrain does not get rest-only
@@ -383,7 +376,6 @@ ClassifyBoxTerrainSupportImpl( Core::Profiler* profiler, const ShapeView& shape,
         }
         else
         {
-
             // Without terrain samples we cannot prove a heightfield footprint,
             // so choose the conservative answer. The contact can still solve;
             // it simply cannot seed rest/sleep policy from this classifier.

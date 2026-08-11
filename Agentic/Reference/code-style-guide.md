@@ -20,7 +20,10 @@ placement and parameter-order decisions.
   statement, or between an introducing comment and the control flow it explains.
 - Keep `else`, `else if`, and a `do` block's trailing `while` attached to their
   control-flow chain.
-- Leave one blank line above every standalone comment group.
+- Leave one blank line above a standalone comment group when it follows a
+  completed statement or block.
+- Do not insert a blank line between an opening brace or conditional
+  preprocessor directive and the first comment in that scope or arm.
 - A blank line below a comment is optional; use it when the comment introduces
   a distinct paragraph rather than the immediately following statement.
 

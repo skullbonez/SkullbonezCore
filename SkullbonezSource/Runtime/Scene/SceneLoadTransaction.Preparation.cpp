@@ -134,7 +134,6 @@ SceneLoadBeginResult SceneLoadTransaction::PrepareLoad( const SceneController& c
 
     if ( renderFrame )
     {
-
         // Lane R: old scene resources may still be referenced by in-flight GPU
         // work. A failed drain must leave every scene/controller owner intact.
         result.status = renderFrame->FlushGPU();
@@ -151,7 +150,6 @@ SceneLoadBeginResult SceneLoadTransaction::PrepareLoad( const SceneController& c
 
     if ( result.shouldPreserveRuntimeState )
     {
-
         // Lifetime: Snapshot before BeginLoad mutates scene bookkeeping so the
         // restore policy sees the live operator-owned state from the old run.
         result.resetSnapshot = CaptureResetSnapshot( controller, uiOverrides, renderer, debug, camera );
@@ -165,7 +163,6 @@ SceneLoadBeginResult SceneLoadTransaction::PrepareLoad( const SceneController& c
 void SceneLoadTransaction::CommitLoad( SceneController& controller, SceneLoadNavigationState& navigation,
                                        const SceneLoadBeginResult& prepared )
 {
-
     // Invariant: preparation has validated the index and drained the device;
     // the caller has already opened the lifecycle generation and completed the
     // BeforeSceneUnload phase before committing these navigation mutations.

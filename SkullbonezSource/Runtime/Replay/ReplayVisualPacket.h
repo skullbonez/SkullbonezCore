@@ -351,7 +351,6 @@ struct ReplayVisualPacket
 
 namespace ReplayVisualPacketOperations
 {
-
 // Attaches the retained prediction command list to a frame-local packet using
 // the same logical lane order consumed by DX12 and durable visual validation.
 // Stable frames copy cached submission facts; only a packet with moving tails

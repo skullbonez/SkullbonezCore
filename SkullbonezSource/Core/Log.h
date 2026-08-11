@@ -60,7 +60,6 @@ class EngineLog
     void WriteEventf( const char* fmt, ... );
     void FlushAll();
 #if defined( SKULLBONEZ_TEST_ENGINE_LOG )
-
     // Test-only cold boundary: closes retained handles after a concurrency
     // probe so the test can inspect exact bytes on Windows.
     void CloseAllForTests();

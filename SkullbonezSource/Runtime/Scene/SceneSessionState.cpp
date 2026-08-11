@@ -102,7 +102,6 @@ const char* SkullbonezCore::Runtime::SceneRuntimeLifecycleEventName( SceneRuntim
 
 void SceneSessionState::ResetForLoad( const SkullbonezCore::Core::CinematicRenderConfig& cinematicDefaults )
 {
-
     // Lifetime: This clears per-load runtime state only. Queue position, scene
     // paths, and manual reset counts stay with the enclosing SceneSession.
     isScenePhysics = true;
@@ -143,7 +142,6 @@ SkullbonezCore::Physics::PhysicsSceneObjectId SceneSessionState::AllocateSceneOb
 
 SkullbonezCore::Physics::PhysicsSceneObjectId SceneSessionState::AllocateSceneObjectIdRange( int count )
 {
-
     // Invariant: scene object id 0 means "not assigned." Compound creators
     // reserve one contiguous range before appending any child bodies so partial
     // failure cannot interleave another object's replay-facing identity.
@@ -171,7 +169,6 @@ SkullbonezCore::Physics::PhysicsSceneObjectId SceneSessionState::AllocateSceneOb
 
 void SceneSessionState::ResetSceneObjectIdCursor( const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore )
 {
-
     // Why: replay restore can trim runtime-spawned bodies, then replay their
     // creation events. Rebase the scene-owned cursor from live body rows so the
     // next spawn receives the same id it had in the original timeline.
@@ -249,7 +246,6 @@ int SceneSession::NextIndex() const
 
 void SceneSession::BeginLoadAttempt( int index, const SceneLifecycleBeginPolicy& lifecyclePolicy )
 {
-
     // Hazard: generation zero is the observer sentinel. Wrapping would make a
     // real load invisible and could suppress every once-per-generation reset.
     if ( m_lifecyclePacket.generation == UINT64_MAX )
@@ -273,7 +269,6 @@ void SceneSession::BeginLoad( int index )
 
 void SceneSession::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, SceneLifecycleConsumerMask consumers )
 {
-
     // Hazard: accepting a skipped or repeated phase would publish plausible
     // but false progress to every generation observer. A retry must begin a new
     // generation before it can emit BeforeSceneUnload again.

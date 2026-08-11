@@ -78,7 +78,6 @@ bool ConsumeFilterKeyPress( SkullbonezCore::UI::SceneTab::UISceneTabState& state
 
 void AppendFilterChar( SkullbonezCore::UI::SceneTab::UISceneTabState& state, char value )
 {
-
     // Invariant: The scene filter doubles as the create-scene name buffer, so
     // keep it bounded and reset combo scroll whenever it changes.
     const size_t len = strlen( state.filter );
@@ -108,7 +107,6 @@ void BackspaceFilter( SkullbonezCore::UI::SceneTab::UISceneTabState& state )
 
 void RequestNewScene( SkullbonezCore::UI::SceneTab::UISceneTabState& state, SkullbonezCore::UI::InGameUIInputResult& result )
 {
-
     // Concept: The UI requests creation by name; scene runtime owns sanitizing,
     // writing the starter file, refreshing the browser, and loading it.
     if ( state.filter[0] == '\0' )
@@ -149,7 +147,6 @@ namespace SceneTab
 
 int ContentHeight()
 {
-
     // Why: the scroll extent must reach the reveal row placed under simulation
     // speed, or the slider is unreachable at the bottom of the tab.
     return UI_SCENE_CONTENT_HEIGHT + 40;

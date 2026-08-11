@@ -143,7 +143,6 @@ class TracyOwnerZoneScope
 #define SKORE_TRACY_PLOT_VALUE( name, value )                                                                               \
     ::SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::PublishPlot( name, static_cast<double>( value ) )
 #else
-
 // Invariant: the argument tokens are discarded, so disabled builds cannot pay
 // formatting, function-call, allocation, or side-effect cost by accident.
 #define SKORE_TRACY_MARK_SUBMITTED_FRAME() ( (void)0 )

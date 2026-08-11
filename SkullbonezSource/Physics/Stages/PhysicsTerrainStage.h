@@ -73,7 +73,6 @@ struct TerrainDetectionCandidate
 
 struct PreparedTerrainCandidateCommit
 {
-
     // Value transaction split around sequencer-owned diagnostics. This keeps
     // Record -> Emit -> manifold/sleep -> visual -> clock ordering unchanged.
     // The count-only specialization leaves the optional disengaged and never

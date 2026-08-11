@@ -117,7 +117,6 @@ void PhysicsSleepController::LockUnderwaterSleeperIfReady( const PhysicsWorldFor
 bool PhysicsSleepController::WakeDynamicBodyState( PhysicsBodyStore& bodyStore, PhysicsContactCacheWakeAccess contactCache,
                                                    int index )
 {
-
     // Concept: explicit zero-dt wake clears owned sleep/cache rows but leaves
     // the fixed-step CCD clock and force accumulation untouched.
     const int bodyCount = bodyStore.Count();
@@ -171,7 +170,6 @@ bool PhysicsSleepController::WakeDynamicBodyStateWithForces( PhysicsBodyStore& b
                                                              const PhysicsWorldForces& worldForces, std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<float> timeRemaining,
                                                              PhysicsContactCacheWakeAccess contactCache, int index, float dt )
 {
-
     // Invariant: same-step wake preserves state -> clock -> force -> cache ->
     // sorted-awake publication order. Later collision stages observe every
     // mutation in that sequence.
@@ -324,7 +322,6 @@ void PhysicsSleepController::WakeRestingContactIsland( PhysicsBodyStore& bodySto
                                                        PhysicsContactCacheWakeAccess contactCache,
                                                        std::span<const PersistentContact> persistentContacts, int index )
 {
-
     // Hazard: sleeping contacts are pruned, so explicit wake expands through
     // both retained contact edges and the established bounded proximity test.
     const int modelCount = (std::min)( bodyStore.Count(), static_cast<int>( bodyStore.Records().size() ) );
@@ -409,7 +406,6 @@ void PhysicsSleepController::WakeRestingContactIsland( PhysicsBodyStore& bodySto
 
 bool PhysicsSleepController::PrepareExplicitWake( PhysicsBodyStore& bodyStore, int index )
 {
-
     // Why: both explicit-wake entrypoints share the one cold row-resize path;
     // ordinary fixed steps arrive with owner storage already sized.
     const int modelCount = (std::min)( bodyStore.Count(), static_cast<int>( bodyStore.Records().size() ) );
@@ -531,7 +527,6 @@ bool PhysicsNarrowphaseWakeAccess::IsUnderwaterSleepLocked( int bodyIndex ) cons
 
 void PhysicsNarrowphaseWakeAccess::WakeBody( int sleepingIndex ) const
 {
-
     // Why: narrowphase and external-force wakeups must re-enter the body into this
     // tick synchronously; deferring this mutation changes later pair reads.
     if ( sleepingIndex < 0 || sleepingIndex >= m_modelCount ||

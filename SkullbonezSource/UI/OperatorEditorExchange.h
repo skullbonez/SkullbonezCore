@@ -49,7 +49,6 @@ struct InGameUICommands;
 
 struct OperatorEditorSceneView
 {
-
     // Lifetime: sceneName is borrowed only for the current presentation frame.
     const char* sceneName = "";
 
@@ -69,7 +68,6 @@ inline constexpr uint32_t OPERATOR_EDITOR_HIERARCHY_ROW_CAPACITY = 512u;
 
 struct OperatorEditorHierarchyRow
 {
-
     // Lifetime: displayName is borrowed from SceneEntityStore for this frame.
     const char* displayName = "";
     uint32_t sceneObjectId = 0u;
@@ -114,7 +112,6 @@ enum class OperatorEditorInspectorSelectionState : uint8_t
 
 struct OperatorEditorInspectorView
 {
-
     // Lifetime: labels borrow fixed scene/collider strings for this synchronous
     // presentation frame; the UI must not retain their addresses.
     const char* displayName = "";
@@ -249,7 +246,6 @@ struct OperatorEditorDiagnosticsView
 
 struct OperatorEditorViewportView
 {
-
     // Lifetime: labels are borrowed from runtime camera/gesture owners for one
     // synchronous presentation frame.
     const char* cameraModeLabel = "unknown";
@@ -288,7 +284,6 @@ struct OperatorEditorToolView
 
 struct OperatorEditorLookLabView
 {
-
     // Invariant: this is detached status only; Runtime retains candidate and
     // transaction authority. TestOwnerRequestQueues.cpp pins its fingerprint.
     uint64_t seed = 0;

@@ -99,7 +99,6 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::BindContext( ImGuiContext
 
     if ( !m_device.Device() || !m_device.GraphicsQueue() || !m_descriptors.DevelopmentUiHeap() )
     {
-
         // Lane R: device/heap publication depends on the host graphics environment.
         return m_resultDiagnostics
             .Failure( "Rendering/DX12/ImGui",
@@ -186,7 +185,6 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::EnsureGameViewportTexture
 
     if ( FAILED( createResult ) || !candidate )
     {
-
         // Lane R: the editor image is optional development presentation, but a
         // requested visible surface cannot silently display stale pixels.
         return m_resultDiagnostics.Failure( "Rendering/DX12/ImGui",
@@ -322,7 +320,6 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::RenderDrawData( ImGuiCont
 
     if ( m_frame.BackBufferAccess() != RenderGraphResourceAccess::RenderTarget )
     {
-
         // Invariant: RuntimeRenderer schedules UiTargetAcquire before either UI
         // surface submits. The vendor renderer consumes that state and cannot
         // become a second backbuffer barrier authority.

@@ -67,7 +67,6 @@ namespace Runtime
 {
 struct RenderDiagnosticsReadout
 {
-
     // Detached UI-facing diagnostics. The renderer name is copied into bounded
     // storage so no backend-owned character pointer escapes RuntimeRenderer.
     std::array<char, 64> rendererName = {};

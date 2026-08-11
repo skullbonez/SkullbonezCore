@@ -59,7 +59,6 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const RuntimePoi
     MousePickupPointerResult routeResult;
     const auto updatePickupTarget = [&]() -> bool
     {
-
         // Concept: Manipulator drag follows a camera-facing plane at the
         // captured grab depth. Rebuilding that plane from the current camera
         // lets forward/back camera movement change object depth without

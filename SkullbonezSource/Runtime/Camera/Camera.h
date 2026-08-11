@@ -40,7 +40,6 @@ class CameraCollection;                                                      // 
 
 struct CameraMovementSettings
 {
-
     // Snapshot of config values needed while private Camera methods clamp a
     // pose. Camera stays owned by CameraCollection and does not reach into the
     // process-global config service.

@@ -100,7 +100,6 @@ class SceneGeneratedControlPhaseCursor
 
 struct SceneGeneratedControlAction
 {
-
     // Lane R: callers must terminate the current command/frame when a GPU
     // drain failed; no generated model/resource mutation has occurred.
     SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
@@ -190,7 +189,6 @@ class SceneGeneratedControlTransaction
 
         if ( m_kind == RequestKind::ModelCount )
         {
-
             // Invariant: model-count and exact solver overrides are mutually
             // exclusive. Repopulate commits this resolved mode atomically.
             m_modelCount = std::clamp( m_requestedPrimary, 0, m_modelCapacity );
@@ -199,7 +197,6 @@ class SceneGeneratedControlTransaction
 
         if ( m_kind == RequestKind::SolverBallCount )
         {
-
             // Invariant: the newest accepted box override, possibly from a
             // prior frame, wins over stale scene state for this partial request.
             m_solverBoxes = uiOverrides.solverBoxCountOverride >= 0 ? uiOverrides.solverBoxCountOverride
@@ -209,7 +206,6 @@ class SceneGeneratedControlTransaction
         }
         else if ( m_kind == RequestKind::SolverBoxCount )
         {
-
             // Invariant: InputFrame executes ball before box. Read its newest
             // accepted override so the combined request cannot exceed capacity.
             m_solverBalls = uiOverrides.solverBallCountOverride >= 0 ? uiOverrides.solverBallCountOverride

@@ -75,7 +75,6 @@ inline const Quaternion IDENTITY_QUATERNION( 0.0f, 0.0f, 0.0f, 1.0f );
 
 inline void ConjugateQuaternionVectorPart( float& x, float& y, float& z ) noexcept
 {
-
     // Invariant: IEEE-754 negation changes only the sign bit. Applying this
     // migration twice therefore restores every finite component bit-for-bit,
     // including signed zero and subnormal values.

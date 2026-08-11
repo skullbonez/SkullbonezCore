@@ -169,7 +169,6 @@ void EnterFlyModeCamera( InputRouter& inputRouter, CameraControlState& camera,
                          SkullbonezCore::Environment::CameraCollection& cameras, bool authoredScene,
                          const RunEditorPlacementState& editor, const ReplayInputView& replayInput )
 {
-
     // Why: generated demos snap to CAMERA_FREE; authored scenes keep their
     // selected camera so manual controls continue from the visible pose.
     if ( !authoredScene )
@@ -1037,7 +1036,6 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
 
     if ( uiCommands.replayMemory.requestPolicy )
     {
-
         // Invariant: Memory-tab controls only request policy changes. ReplayRuntime
         // owns the reset/reconfigure edge because it knows all recorder windows.
         ReplayMemoryPolicyRequest request;
@@ -1053,7 +1051,6 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
 
     if ( uiCommands.physics.requestPredictionRevealRate )
     {
-
         // Why: the reveal rate is authored on the Physics tab but owned by
         // ReplayPrediction, which Runtime/Interaction may not include. The
         // composition root applies it here instead of widening that edge.

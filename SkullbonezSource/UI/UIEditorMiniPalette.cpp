@@ -167,7 +167,6 @@ int EditorMiniTreeObjectType( int treeType, int placement )
 EditorMiniPaletteLayout BuildEditorMiniPaletteLayout( int screenW, int screenH, const UIRect& minimized,
                                                       int flyoutAnchorEntry, bool flyoutOpen )
 {
-
     // Concept: The mini palette is the minimized editor's primary command
     // surface. One layout object drives drawing, hit boxes, flyout containment,
     // and tooltip placement so visual and input geometry cannot drift apart.

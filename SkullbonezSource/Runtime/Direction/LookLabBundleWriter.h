@@ -50,7 +50,6 @@ enum class LookLabArtifactStatus : uint8_t
 
 struct LookLabBundlePaths
 {
-
     // Invariant: CreateBundleDirectory constructs all four paths from the same
     // exclusively reserved directory; TestLookLabSerialization.cpp pins their
     // relationship and collision behavior.
@@ -62,7 +61,6 @@ struct LookLabBundlePaths
 
 struct LookLabReceiptFacts
 {
-
     // Invariant: one receipt revision consumes this complete fact set together.
     // Artifact diagnostics describe the status beside them and the focused
     // serialization test proves pending-to-failed atomic revision.

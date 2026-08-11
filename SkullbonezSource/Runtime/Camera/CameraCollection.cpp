@@ -118,11 +118,9 @@ void CameraCollection::SetTweenSpeed( float tweenSpeed )
 
 void CameraCollection::SetTweenPath( int fromIndex, int toIndex )
 {
-
     // if the fromIndex is specifying to use the existing tween camera
     if ( fromIndex == -1 )
     {
-
         // use vector difference to determine the tweening vector
         // use the tween camera instead of the toIndex
         m_tweenPath = m_cameraArray[toIndex] - m_tweenCamera;
@@ -131,7 +129,6 @@ void CameraCollection::SetTweenPath( int fromIndex, int toIndex )
     }
     else
     {
-
         // use vector difference to determine the tweening vector
         // use fromIndex and toIndex to determine this
         m_tweenPath = m_cameraArray[toIndex] - m_cameraArray[fromIndex];
@@ -168,7 +165,6 @@ Camera CameraCollection::GetTweenSourcePose() const
 
 void CameraCollection::SelectCamera( uint32_t hash, const bool tween )
 {
-
     // local to store requested camera index
     int selectionRequest = FindIndex( hash );
 
@@ -188,13 +184,11 @@ void CameraCollection::SelectCamera( uint32_t hash, const bool tween )
     // where should the tween camera be referenced FROM?
     if ( m_isTweening && tween )
     {
-
         // if currently tweening, reference from the current tween camera m_position
         SetTweenPath( -1, selectionRequest );
     }
     else if ( tween )
     {
-
         // if not currently tweening, reference from the current selected camera
         SetTweenPath( m_selectedCamera, selectionRequest );
     }
@@ -238,7 +232,6 @@ bool CameraCollection::HasCamera( uint32_t hash ) const
 
 void CameraCollection::RotatePrimary( float xMove, float yMove )
 {
-
     // make sure a camera exists to update
     if ( !m_arrayPosition )
     {
@@ -286,7 +279,6 @@ void CameraCollection::TweenPrimaryToPose( const Vector3& position, const Vector
          Vector::Distance( tweenStart.m_view, destination.m_view ) <= 0.000001f &&
          Vector::Distance( tweenStart.m_upVector, destination.m_upVector ) <= 0.000001f )
     {
-
         // Why: replay inspection can switch ownership to the free camera while
         // keeping the same visible pose. Treat that as a completed transition so
         // the retained tween state does not stay active for a no-op move.
@@ -306,7 +298,6 @@ void CameraCollection::TweenPrimaryToPose( const Vector3& position, const Vector
 
 void CameraCollection::MovePrimary( Camera::TravelDirection direction, float amount )
 {
-
     // make sure a camera exists to update
     if ( !m_arrayPosition )
     {
@@ -377,7 +368,6 @@ void CameraCollection::ResetRelativity()
 
 void CameraCollection::SetCamera()
 {
-
     // make sure a camera exists
     if ( !m_arrayPosition )
     {

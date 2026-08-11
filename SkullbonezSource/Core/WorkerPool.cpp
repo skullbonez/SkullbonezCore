@@ -172,7 +172,6 @@ void WorkerPool::Shutdown()
 
 void WorkerPool::SubmitTaskRecord( void* taskState, TaskDispatcher dispatch )
 {
-
     // Why: SubmitNoAlloc chooses the typed trampoline before this private queue
     // boundary. The caller-owned task remains alive until its completion fence,
     // and the fixed record never allocates or publishes erased state.
@@ -264,7 +263,6 @@ int WorkerPool::BuildChunks( int begin, int end, int minParallelItems, WorkerChu
 
 void WorkerPool::SubmitParallelChunk( void* dispatchState, ParallelTaskDispatcher dispatch, const WorkerChunkRange& chunk )
 {
-
     // Why: ParallelForChunksNoAlloc owns the typed stack state and waits on its
     // fence before returning; this private fixed queue only transports the
     // synchronous borrow plus its matching typed trampoline.

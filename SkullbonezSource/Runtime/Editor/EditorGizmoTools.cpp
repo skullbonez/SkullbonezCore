@@ -344,7 +344,6 @@ void MoveSelectedEditorObjectAlongAxis( RunEditorPlacementState& editor, SceneWo
 
     if ( groupCount > 0 )
     {
-
         // Invariant: Group drags reuse the gesture-start transform snapshot for
         // every member, so multi-part ragdolls move rigidly even if physics
         // wakes during the drag.
@@ -460,7 +459,6 @@ void RotateSelectedEditorObjectAroundAxis( RunEditorPlacementState& editor, Scen
 
     if ( groupCount > 0 )
     {
-
         // Invariant: Rotation groups pivot around the captured selection
         // center, not each part's own center, preserving the authored assembly.
         for ( int groupIndex = 0; groupIndex < groupCount; ++groupIndex )

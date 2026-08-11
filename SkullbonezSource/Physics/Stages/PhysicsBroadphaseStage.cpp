@@ -101,7 +101,6 @@ void AppendCandidatePairIfMissing( Physics::PhysicsCandidatePairList& candidateP
 
     if ( !Physics::BroadphaseCandidateAppendHasCapacity( candidatePairs.size(), candidatePairs.capacity() ) )
     {
-
         // Lane F: growing here would violate the zero-allocation fixed-step
         // contract; dropping the conservative pair could miss a collision.
         SB_FATAL( "Physics/PhysicsBroadphaseStage",
@@ -198,7 +197,6 @@ bool AppendFastSmallSweepPairs( Physics::PhysicsCandidatePairList& candidatePair
 
 void CanonicalizeCandidatePairs( Physics::PhysicsCandidatePairList& candidatePairs )
 {
-
     // Why: grid output is already canonical, but rare fast-sweep augmentation
     // appends pairs after it. Sorting once before pruning keeps the complete
     // solver-visible order independent of which conservative path found a pair.
@@ -389,7 +387,6 @@ void PhysicsBroadphaseStage::Clear()
 
 void PhysicsBroadphaseStage::InvalidateBodyTopology()
 {
-
     // Cold authored mutations may preserve body count while replacing a dense
     // row. The next Run refreshes every range in-place; retaining the fixed grid
     // avoids an O(table capacity) clear for each body in a replay restore batch.
@@ -407,7 +404,6 @@ void PhysicsBroadphaseStage::InvalidateBodyTopology()
 
 void PhysicsBroadphaseStage::ResetTransientAfterReplayRestore()
 {
-
     // Invariant: replay restores collision-cell diagnostic keys from the
     // snapshot, while candidate pairs and grid buckets are rebuilt next tick.
     m_candidatePairs.clear();
@@ -437,7 +433,6 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
     auto& physicsPipelineTrace = stepDiagnostics.MutablePipelineTraceRecorder();
 
     {
-
         // Invariant: Broadphase is the inclusive owner marker. Every direct
         // child below is mutually exclusive so reports can sum children once
         // without adding a nested interval a second time.
@@ -445,7 +440,6 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
 
         if ( !m_largestBroadphaseRadiusValid )
         {
-
             // Cold topology boundary: collider radii do not change during a
             // fixed step, so the scene-wide maximum is not an all-body hot pass.
             m_largestBroadphaseRadius = 0.0f;
@@ -507,7 +501,6 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
 
         if ( fullSeed )
         {
-
             // Cold boundary: seed every persistent membership once, but stamp
             // only awake dynamic bodies as this frame's pair-work sources.
             for ( int bodyIndex = 0; bodyIndex < modelCount; ++bodyIndex )
@@ -523,7 +516,6 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         }
         else
         {
-
             // P3 invariant: sleepers keep their last persistent range. Only
             // awake bodies can move, sweep, or source new narrowphase work.
             for ( int bodyIndex : awakeBodyIndices )
@@ -542,7 +534,6 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         m_spatialGrid.GetFilteredCandidatePairs( m_candidatePairs, bodyStore, colliderStore, sleepState, dt, contactSkin,
                                                  m_sleepPrunedPairs, false );
 #else
-
         // Production visits only cells reached by an awake body this step;
         // sleep-only cells retain membership but emit no candidate work.
         m_spatialGrid.GetFilteredCandidatePairs( m_candidatePairs, bodyStore, colliderStore, sleepState, dt, contactSkin,
@@ -607,7 +598,6 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         else
         {
 #if defined( _DEBUG )
-
             // Compatibility invariant: P2 recorded the canonical geometrically
             // admitted stream before removing sleep-only pairs. Reconstruct that
             // Debug trace by merging the two retained sorted lists; this does not
@@ -721,7 +711,6 @@ void PhysicsBroadphaseStage::AppendCollisionCellKey( int64_t collisionCellKey )
 
 uint64_t PhysicsBroadphaseStage::CollectDynamicMemoryBytes() const
 {
-
     // Invariant: this is the owning contribution used by PhysicsWorld's total.
     // SpatialGrid's inline control/topology is already inside sizeof(PhysicsWorld);
     // its registered backing must be added here exactly once.
@@ -737,7 +726,6 @@ uint64_t PhysicsBroadphaseStage::CollectDynamicMemoryBytes() const
 
 uint64_t PhysicsBroadphaseStage::CollectDebugAndBroadphaseMemoryBytes() const
 {
-
     // Historical diagnostic subset: include the grid's inline bytes plus the
     // same owning dynamic contribution, but do not add this subset to totals.
     return static_cast<uint64_t>( sizeof( m_spatialGrid ) ) + CollectDynamicMemoryBytes();

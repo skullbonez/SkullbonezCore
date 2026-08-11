@@ -147,7 +147,6 @@ Terrain::TryCreateFromHeightMap( SkullbonezCore::Core::SbDiagnosticStore& diagno
                                  SkullbonezCore::Assets::AssetSystem& assets, Dx12ResourceBuilder& resources,
                                  std::unique_ptr<Terrain>& outTerrain )
 {
-
     // Concept: RAW terrain files are external asset input. The factory keeps
     // a failed load out of the scene owner and reports Lane R instead of
     // letting constructor exceptions escape through scene startup.
@@ -246,7 +245,6 @@ Terrain::~Terrain()
 void Terrain::BindRenderContexts( const SkullbonezCore::Core::EngineConfig& config,
                                   SkullbonezCore::Assets::AssetSystem& assets, Dx12ResourceBuilder& resources )
 {
-
     // Lifetime: Terrain keeps these as rebuild-only borrows owned by Run and
     // refreshed by the render pass before lazy resource recreation.
     m_config = &config;
@@ -391,7 +389,6 @@ void Terrain::BuildTerrain()
 
 void Terrain::BuildCollisionCache()
 {
-
     // Precompute the two triangle planes for every terrain quad. At runtime, a
     // physics query only needs to find the quad and choose triangle A or B, then
     // read its plane/normal directly. This turns repeated terrain collision
@@ -484,7 +481,6 @@ void Terrain::QueryCollisionData( float xPosition, float zPosition, float& outHe
 void Terrain::QueryCollisionDataUnchecked( float xPosition, float zPosition, float& outHeight, Vector3* outNormal,
                                            Plane* outPlane )
 {
-
     // This is the main physics terrain lookup. It returns the Y height and, if
     // requested, the contact normal or full plane at a given X/Z point. Callers
     // that already checked bounds use this unchecked version in hot paths.
@@ -512,7 +508,6 @@ int Terrain::GetPixelHeightAt( int worldXCoordinate, int worldZCoordinate )
 SkullbonezCore::Core::SbResult Terrain::LoadTerrainData( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                          const char* fileName )
 {
-
     // Lane R: height-map files are config/scene-selected assets. Missing or
     // truncated bytes report a recoverable load failure at the scene boundary.
     if ( !fileName || fileName[0] == '\0' )
@@ -670,7 +665,6 @@ void Terrain::RenderShadowDepth( Core::Profiler*, const Matrix4& lightView, cons
 
     if ( cinematicOverride )
     {
-
         // If the visible terrain is using render-only cinematic relief, the
         // shadow caster must apply the same vertex offset. Otherwise shadow edges
         // would be produced by the flat CPU terrain while the visible terrain is
@@ -684,7 +678,6 @@ void Terrain::RenderShadowDepth( Core::Profiler*, const Matrix4& lightView, cons
     }
     else
     {
-
         // Normal render mode has no visual terrain relief, but the shader still
         // receives deterministic defaults so no stale uniforms leak in from a
         // prior cinematic scene.
@@ -865,7 +858,6 @@ Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
     // cached PhysicsTerrainView lookup.
     if ( isGradientInfinite || gradient < -1.0f )
     {
-
         // TRIANGLE A
         targetPolygon.v1 = m_postData[targetPostIndex].vPosition;
         targetPolygon.v2 = m_postData[previousXPostIndex].vPosition;
@@ -873,7 +865,6 @@ Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
     }
     else
     {
-
         // TRIANGLE B
         targetPolygon.v1 = m_postData[targetPostIndex].vPosition;
         targetPolygon.v2 = m_postData[previousXNextZPostIndex].vPosition;
@@ -909,7 +900,6 @@ void Terrain::TranslatePostings()
 
 void Terrain::GenerateNormals()
 {
-
     // Concept: each post normal is the weighted sum of the adjacent triangle
     // face normals. Corners, edges, and interior posts have different valid
     // neighborhoods.
@@ -960,14 +950,12 @@ void Terrain::GenerateNormals()
 
             if ( isFirstZPost )
             {
-
                 // x 0 0 0  - we are an 'x'
                 // x 0 0 0
                 // x 0 0 0
                 // x 0 0 0
                 if ( isFirstXPost )
                 {
-
                     // x 0 0 0  - we are 'x'
                     // 0 0 0 0
                     // 0 0 0 0
@@ -985,7 +973,6 @@ void Terrain::GenerateNormals()
                 }
                 else if ( isFinalXPost )
                 {
-
                     // 0 0 0 0  - we are 'x'
                     // 0 0 0 0
                     // 0 0 0 0
@@ -1008,7 +995,6 @@ void Terrain::GenerateNormals()
                 }
                 else
                 {
-
                     // 0 0 0 0  - we are an 'x'
                     // x 0 0 0
                     // x 0 0 0
@@ -1037,14 +1023,12 @@ void Terrain::GenerateNormals()
             }
             else if ( isFinalZPost )
             {
-
                 // 0 0 0 x  - we are an 'x'
                 // 0 0 0 x
                 // 0 0 0 x
                 // 0 0 0 x
                 if ( isFirstXPost )
                 {
-
                     // 0 0 0 x  - we are 'x'
                     // 0 0 0 0
                     // 0 0 0 0
@@ -1067,7 +1051,6 @@ void Terrain::GenerateNormals()
                 }
                 else if ( isFinalXPost )
                 {
-
                     // 0 0 0 0  - we are 'x'
                     // 0 0 0 0
                     // 0 0 0 0
@@ -1085,7 +1068,6 @@ void Terrain::GenerateNormals()
                 }
                 else
                 {
-
                     // 0 0 0 0  - we are an 'x'
                     // 0 0 0 x
                     // 0 0 0 x
@@ -1114,14 +1096,12 @@ void Terrain::GenerateNormals()
             }
             else
             {
-
                 // 0 x x 0  - we are an 'x'
                 // 0 x x 0
                 // 0 x x 0
                 // 0 x x 0
                 if ( isFirstXPost )
                 {
-
                     // 0 x x 0  - we are an 'x'
                     // 0 0 0 0
                     // 0 0 0 0
@@ -1149,7 +1129,6 @@ void Terrain::GenerateNormals()
                 }
                 else if ( isFinalXPost )
                 {
-
                     // 0 0 0 0  - we are an 'x'
                     // 0 0 0 0
                     // 0 0 0 0
@@ -1177,7 +1156,6 @@ void Terrain::GenerateNormals()
                 }
                 else
                 {
-
                     // 0 0 0 0  - we are an 'x'
                     // 0 x x 0
                     // 0 x x 0
@@ -1232,7 +1210,6 @@ void Terrain::GenerateNormals()
 #if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
 void Terrain::BuildMesh()
 {
-
     // Two triangles per quad, three vertices per triangle, and eight floats per
     // vertex (position 3 + normal 3 + texture coordinate 2).
     int quadsPerSide = m_postsPerSide - 1;
@@ -1311,7 +1288,6 @@ std::vector<float> Terrain::BuildRenderVertexData() const
 #if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
 void Terrain::BuildFlatSlopeMesh()
 {
-
     // Generate a 40x40 quad grid over [0,1000] x [0,1000]
     // Height at each point: y = m_slopeBaseY + m_slopeX*x + m_slopeZ*z
     // Constant normal:       normalize(-m_slopeX, 1.0f, -m_slopeZ)

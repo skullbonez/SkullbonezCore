@@ -119,7 +119,6 @@ uint32_t SceneContactMaterialId( const char* materialName )
 
 PhysicsColliderCreateDesc MakeSceneColliderDesc( CollisionShape shape, float restitution, const char* materialName )
 {
-
     // Why: authored scene setup owns the parsed shape/material facts. Importing
     // them as a collider descriptor keeps PhysicsEngine/ColliderStore authoritative
     // for row layout instead of asking SceneController to rediscover them.
@@ -231,7 +230,6 @@ SkullbonezCore::Core::SbResult AppendAuthoredSimpleRagdoll( SkullbonezCore::Core
     {
         if ( !Ragdoll::TryBuildSimplePartName( prefix, i, partNames[i] ) )
         {
-
             // Lane R: preflight the longest generated names before the first
             // append so one bad prefix cannot publish a partial ragdoll.
             return resultDiagnostics.Failure( "Runtime/SceneAuthoredSetup",
@@ -307,7 +305,6 @@ SkullbonezCore::Core::SbResult AppendAuthoredSimpleRagdoll( SkullbonezCore::Core
     {
         for ( int i = 0; i < Ragdoll::SIMPLE_PART_COUNT; ++i )
         {
-
             // Why: authored setup already resolves body handles for joints.
             // Seed sleep through the same physics boundary instead of reopening
             // the collection's model-index command wrapper.
@@ -329,7 +326,6 @@ SkullbonezCore::Core::SbResult ApplySceneBehaviorGroup( SkullbonezCore::Core::Sb
 
     if ( group.kind != SceneObjectGroupKind::ReleasableTree || !group.rootObjectId.IsValid() || group.partIndex < 0 )
     {
-
         // Lane R: authored scene metadata can become invalid when an include or
         // editor save names a group root that cannot be resolved for this hull section.
         return resultDiagnostics.Failure( "Runtime/SceneAuthoredSetup",
@@ -391,7 +387,6 @@ bool IsBroadMaterialTarget( const char* target )
 bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material, const char* displayName,
                                  bool simpleRagdollPart, ColliderShapeKind shapeKind )
 {
-
     // Invariant: broad scene style targets must not recolor generated ragdoll
     // body parts, but a named prefix/exact target may opt one authored ragdoll
     // into a scene-local presentation material.
@@ -457,7 +452,6 @@ int FindModelByName( const SceneEntityStore& entities, const char* name )
 void ApplyAssetAffiliation( SceneEntityCreateDesc& entity, const AuthoredScene& scene, SceneAssetPartSource source,
                             uint32_t sourceIndex )
 {
-
     // Why: parser provenance keeps exact shape-vector indices. Resolve that
     // cold key once during creation so steady runtime rows retain durable asset
     // identity without keeping or searching the parsed AuthoredScene.
@@ -529,7 +523,6 @@ void SceneAuthoredSetup::SetUpCameras( SceneWorld& sceneWorld, const AuthoredSce
 
     if ( scene.IsTerrainHidden() )
     {
-
         // Concept: terrain-hidden authored scenes are the terrainless/space
         // lane. Keep their default wide camera bounds and never enter terrain
         // height queries while a replay or inspection camera is tweening.
@@ -945,7 +938,6 @@ SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore&
 
     for ( int materialIndex = 0; materialIndex < scene.GetObjectMaterialOverrideCount(); ++materialIndex )
     {
-
         // Why: Material overrides are applied after all bodies exist so prefix
         // and exact-name targets can hit authored objects, generated ragdolls,
         // and snapshot bodies uniformly.
@@ -978,7 +970,6 @@ SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore&
 void SceneAuthoredSetup::SetUpRequiredContacts( SceneWorld& sceneWorld, SceneAutomationGateConfiguration& automationGates,
                                                 const AuthoredScene& scene )
 {
-
     // Lifetime: Required contacts store body indices resolved for this load.
     // Scene reloads must rebuild them because model storage is recreated.
     automationGates.ReserveRequiredContacts( static_cast<std::size_t>( scene.GetRequiredContactCount() ) );

@@ -57,7 +57,6 @@ namespace SkullbonezCore::Runtime::ReplayOverlay
 {
 struct ReplayOverlayViewport
 {
-
     // One presentation value keeps width and height coupled at every overlay
     // call site; neither dimension has meaning without the other.
     int width = 1;

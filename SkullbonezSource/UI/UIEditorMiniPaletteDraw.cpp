@@ -526,7 +526,6 @@ void DrawEditorMiniPalette( const UIDrawContext& draw, const EditorMiniPaletteLa
                             bool editorPlaceStatic, int mouseX, int mouseY, int flyoutTreePlacement, int flyoutHoldMode,
                             int pressedEntry, int screenW, int screenH )
 {
-
     // Invariant: Draw order matches hit priority. Flyout options render after
     // root buttons because input tests flyout containment before the compact
     // button strip when the palette is open.

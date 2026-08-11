@@ -295,7 +295,6 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
 
     void ResetDefault( std::size_t count )
     {
-
         // Why: runtime phase owners need to replace a working set without
         // exposing an STL-growth spelling or bypassing this list's capacity
         // check, construction, destruction, and high-water accounting.
@@ -305,7 +304,6 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
 
     void ResetFill( std::size_t count, const T& value )
     {
-
         // Why: runtime owners replace bounded working sets without exposing
         // STL-growth vocabulary that would obscure the fixed-list policy.
         assign( count, value );
@@ -549,7 +547,6 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
         }
         else
         {
-
             // Invariant: CommitBacking allocates the replacement before this
             // loop, and the class constraint makes every element move
             // non-throwing. The old prefix stays live until all replacements

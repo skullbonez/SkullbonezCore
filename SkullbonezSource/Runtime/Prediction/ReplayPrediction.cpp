@@ -134,7 +134,6 @@ bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore, Physics:
 bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore, Physics::PhysicsSceneObjectId id, ModelRowHint& hint,
                                      int modelCount, int& outModelIndex )
 {
-
     // Why: retained replay UI state still carries modelIndex integers until the
     // fable-06 conversion rows are complete. Naming the cache as ModelRowHint
     // keeps stable scene object identity in Physics::PhysicsSceneObjectId while this resolver heals or
@@ -439,7 +438,6 @@ bool CaptureReplayPredictionFrame( RunReplayPredictionState& prediction, const P
 
     if ( debugContacts.size() > frame.debugContacts.capacity() )
     {
-
         // Why: debug contacts feed the optional future-impact tree; the root
         // trajectory line only needs body samples. If a dense contact frame asks
         // for more replay scratch, batch the reserve across every prediction
@@ -483,7 +481,6 @@ bool CaptureReplayPredictionFrame( RunReplayPredictionState& prediction, const P
 
 namespace
 {
-
 // Concept: prediction visualizer section.
 //
 // This block stays after the helper section so job setup, stepping, and drawing
@@ -559,7 +556,6 @@ int RunReplayPredictionWorkerRange( RunReplayPredictionState& prediction, const 
              std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - probeStart ).count() >=
                  REPLAY_PREDICTION_MAX_WORK_MILLISECONDS )
         {
-
             // Invariant: deterministic capture stops on the submitted tick count
             // instead, so the same range completes on the same frame regardless
             // of how much work this machine fits into five milliseconds.
@@ -674,7 +670,6 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayPrediction& predictionOwner
 
     if ( scrubberWasPinnedToPresent )
     {
-
         // Why: prediction extends the normalized solver track by moving the
         // present marker left. A scrub value that meant "live/present" before
         // the swap must remain present, or render will preview the far future and
@@ -711,7 +706,6 @@ ReplayPrediction::BeginFrameSource( PhysicsEngine& physicsEngine, const Skullbon
 
     if ( !predictionOwner.GenerationPermitted() )
     {
-
         // Invariant: artifact verification is load-only. Returning before any
         // snapshot, reserve, worker, or trajectory mutation makes a second
         // visual prediction impossible in that process.
@@ -1042,7 +1036,6 @@ bool StepReplayPredictionJob( ReplayPrediction& predictionOwner, RunReplayPredic
 
     if ( prediction.revealClock.deterministicFrameEnabled )
     {
-
         // Why: the submitted range, not a clock, is the stop condition under
         // deterministic capture. Offering the whole remaining horizon here would
         // let a fast machine finish it in one submit and a slow one take many.
@@ -1102,7 +1095,6 @@ ReplayPredictionFrameSourceAction ReplayPrediction::SelectFrameSource( const Rep
 
     if ( !predictionOwner.GenerationPermitted() )
     {
-
         // Probe assertion lane: the archive may remain visually enabled, but
         // this branch draws only restored values and never reaches a snapshot,
         // reserve, worker, or future-simulation path.
@@ -1140,7 +1132,6 @@ ReplayPredictionFrameSourceAction ReplayPrediction::SelectFrameSource( const Rep
     if ( coalescerAction == ReplayPredictionCoalescerAction::PromoteAndBegin &&
          !predictionOwner.PromoteBuildPrefixToCommitted() )
     {
-
         // Hazard: retain the dirty and pending-restart tokens if promotion
         // cannot acquire a coherent prefix. The next frame retries without
         // discarding the path visible when this request arrived.
@@ -1286,7 +1277,6 @@ void ReplayPrediction::MarkDirty() noexcept
 {
     if ( !m_generationPermitted )
     {
-
         // Why: load-only verification may consume the frozen artifact but can
         // never request a replacement future generation.
         m_state.build.dirty = false;
@@ -1481,7 +1471,6 @@ void ReplayPrediction::ArmDeterministicReveal( ReplayFrameIndex frame, bool rese
 
 RunReplayPredictionState::RunReplayPredictionState()
 {
-
     // Runtime allocation policy: prediction reuses this snapshot throughout
     // the session. Reserve every Gameplay row at construction so per-build
     // seeding and per-tick capture only change logical sizes.
@@ -1636,7 +1625,6 @@ ReplayPastTrajectoryUpdate ReplayPrediction::RefreshPastTrajectoryStore( const R
 
     if ( path.totalFramesEvicted != solverStats.totalFramesEvicted || path.firstFrame != oldestFrame )
     {
-
         // Why: ring eviction advances every live capture once retention is
         // full. Slide the already-published record in place; rebuilding compact
         // solver history here would reconstruct every world snapshot and would
@@ -1657,7 +1645,6 @@ ReplayPastTrajectoryUpdate ReplayPrediction::RefreshPastTrajectoryStore( const R
 
     if ( !body )
     {
-
         // The frame was inspected even when the selected body no longer exists;
         // do not trigger a full historical rebuild on the next render pass.
         update.builtThroughFrame = sample.frameIndex;

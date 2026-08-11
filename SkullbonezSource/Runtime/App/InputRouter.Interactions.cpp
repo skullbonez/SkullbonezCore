@@ -176,7 +176,6 @@ InputRouter::SetWorldInteractionOwner( WorldInteractionOwner owner, InteractionE
                                        CameraControlState& camera, SceneController& sceneController,
                                        ReplayRuntime& replayRuntime, RunCameraMode replayRestoreCameraMode )
 {
-
     // Why: changing the logical owner can eject replay, editor, or camera gestures. InputRouter owns that
     // cleanup because it also reconciles the corresponding capture and cursor state.
     const RuntimeWorkspace workspace = interaction.WorkspaceForOwner( owner );
@@ -396,7 +395,6 @@ void InputRouter::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource 
                                    CameraControlState& camera, SceneController& m_sceneController,
                                    ReplayRuntime& replayRuntime, RuntimeInputContext& runtimeInput )
 {
-
     // Lifetime: all domain owners are synchronous borrows for one semantic
     // mode request. InputRouter retains only its own edge/presentation state.
     // Invariant: interaction cleanup precedes camera/editor mutation, then
@@ -650,7 +648,6 @@ void InputRouter::DispatchCaptureActions( InputActions& actions, DiagnosticsRunt
                                           const GameObjects::PresentationSaveState& presentation,
                                           const ReplayInputView& replayInput )
 {
-
     // Why: capture/reset shortcuts run after UI input so focused controls and
     // panels get first refusal on keyboard ownership.
     const bool flyCamera = RunCameraModeUsesFlyControls( camera.mode, attachedCamera.State().activeFollow,
@@ -705,7 +702,6 @@ void InputRouter::DispatchCaptureActions( InputActions& actions, DiagnosticsRunt
 
             if ( sceneController.State().isSceneMode )
             {
-
                 // Backspace is only a scene-mode reset alias; generated demos keep
                 // the key free for future non-scene tools.
                 sceneController.SubmitResetCurrentScene();
@@ -769,7 +765,6 @@ bool InputRouter::DispatchAfterUiDismiss( InputActions& actions, bool uiUserInte
         }
         else if ( !legacyUiActive )
         {
-
             // ImGui owns Escape/focus policy in this process. Remember the tap
             // for the existing quick-exit gesture without activating Legacy.
             RecordTap( event.action, nowSeconds );

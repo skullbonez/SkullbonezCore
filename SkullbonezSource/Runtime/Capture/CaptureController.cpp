@@ -99,7 +99,6 @@ SkullbonezCore::Core::SbResult CaptureController::QueueScreenshot( const char* p
 
     if ( pathLength == 0 || pathLength >= CAPTURE_REQUEST_PATH_CAPACITY )
     {
-
         // Lane R: file paths originate at tool/input boundaries. Rejecting the
         // request before enqueue prevents the fixed record from truncating to a
         // different destination than the operator selected.
@@ -117,7 +116,6 @@ SkullbonezCore::Core::SbResult CaptureController::QueueScreenshot( const char* p
 
     if ( m_requestCount >= CAPTURE_REQUEST_QUEUE_CAPACITY )
     {
-
         // Lane F: this queue drains once per input frame. Exhaustion means a
         // producer violated the fixed owner budget; runtime growth is forbidden.
         SB_FATAL( "Runtime/CaptureController", "Capture request capacity exhausted. capacity=%d high_water=%d phase=input",

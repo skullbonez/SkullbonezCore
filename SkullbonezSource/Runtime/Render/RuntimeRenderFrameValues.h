@@ -98,7 +98,6 @@ struct RenderToolOverlayView;
 
 struct RuntimeRenderFramePolicy
 {
-
     // Value-only presentation facts sampled after input and before submission.
     // RuntimeRenderer may not retain the debug, timer, camera, or tool owners
     // from which these facts were derived.

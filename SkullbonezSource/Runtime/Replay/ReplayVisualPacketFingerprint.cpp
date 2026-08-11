@@ -77,7 +77,6 @@ void HashQuaternion( uint64_t& hash, const Math::Orientation::Quaternion& value 
 bool TrajectoryRecordParticipatesInCompletedPresentation( const ReplayVisualPacket& packet,
                                                           const ReplayTrajectoryRecord& record )
 {
-
     // During a growing prediction the renderer may switch between committed
     // and worker banks according to prefix readiness, which is intentionally
     // left conservative here. Once completion is published, ReplayPredictionDrawing

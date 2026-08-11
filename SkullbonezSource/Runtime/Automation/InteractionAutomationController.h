@@ -314,7 +314,6 @@ struct InteractionAutomationController
     InteractionAutomationInputDriver inputDriver;
     InteractionAutomationReportWriter reportWriter;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-
     // Applies the bounded editor/window commands for one automation turn. Run
     // retains only the returned process-surface selection and failure boundary.
     InteractionAutomationDevelopmentUiApplyResult

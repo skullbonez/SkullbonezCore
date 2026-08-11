@@ -51,7 +51,6 @@ constexpr int64_t TICKS_PER_AVG_REFRESH_MS = 500;
 
 struct WorkerBeginEndMarker
 {
-
     // Lifetime: the scope row is fixed thread-local storage armed by ambient
     // Begin and closed by the matching End on the same worker thread. Runtime
     // allocation policy: it is stored by value and armed through Open rather
@@ -70,7 +69,6 @@ struct WorkerBeginEndStack
 
 int& CurrentWorkerScopeDepth()
 {
-
     // Invariant: live WorkerProfilerScope nesting on this worker thread. Zero
     // means the next scope opened is the one whose span equals the core's real
     // occupancy for that job.
@@ -80,7 +78,6 @@ int& CurrentWorkerScopeDepth()
 
 WorkerBeginEndStack& CurrentWorkerBeginEndStack()
 {
-
     // Invariant: balanced ambient markers are nested per worker. A thread-local
     // stack keeps unrelated WorkerPool threads from sharing begin/end state.
     thread_local WorkerBeginEndStack stack;
@@ -151,7 +148,6 @@ Profiler::Profiler()
 
 int Profiler::FindOrRegisterCounter( const char* fullPath, uint32_t hash )
 {
-
     // Hazard: counter columns are durable measurement-ledger identities. A
     // collision must fail instead of silently combining unrelated units.
     for ( int i = 0; i < m_counterCount; ++i )
@@ -215,14 +211,12 @@ void Profiler::AbortMismatch( const char* msg, const char* details ) const
 
 int Profiler::FindOrRegister( const char* fullPath, uint32_t hash )
 {
-
     // Hazard: profiler overlays and CSVs rely on stable marker identity. A
     // collision is surfaced immediately instead of silently merging samples.
     for ( int i = 0; i < m_markerCount; ++i )
     {
         if ( m_markers[i].hash == hash )
         {
-
             // Hash collision guard: full-path strcmp must match
             if ( std::strcmp( m_markers[i].name, fullPath ) != 0 )
             {
@@ -295,7 +289,6 @@ int Profiler::FindOrRegister( const char* fullPath, uint32_t hash )
     }
     else
     {
-
         // Parent names are the marker path before the final slash.
         char parentPath[256];
         const char* lastSlash = nullptr;
@@ -433,7 +426,6 @@ void Profiler::RecordWorkerSample( const char* fullPath, uint32_t hash, int work
 
     if ( !outermostOnThread )
     {
-
         // Invariant: a nested span is already inside its parent's measured
         // range. Its marker attribution above is complete; adding it to the
         // core accumulator again would inflate occupancy by the nesting depth.
@@ -827,7 +819,6 @@ Profiler::ProfilerFrameView Profiler::FrameView() const
 
 void Profiler::RestartWarmup()
 {
-
     // Invariant: FrameBegin consumes one warmup tick before frame work runs, so
     // +1 keeps exactly WARMUP_FRAMES completed frames out of stats and CSV rows.
     m_warmupFrames = WARMUP_FRAMES + 1;
@@ -844,7 +835,6 @@ void Profiler::FrameBegin()
 {
     if ( m_resetPending )
     {
-
         // Clear Core values and advance the identity epoch. The concrete render
         // timing owner observes the new epoch at this same frame boundary and
         // invalidates its backend query slots before reading them.
@@ -888,7 +878,6 @@ void Profiler::FrameBegin()
     }
 
     {
-
         // Hazard: a worker slice can outlive the frame that submitted it, so a
         // RecordWorkerSample can land while this reset runs. Clearing the worker
         // accumulator under the same mutex that guards it keeps the reset from
@@ -1171,7 +1160,6 @@ void Profiler::FrameEnd()
 
     if ( SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::CopyStatus().viewerConnected )
     {
-
         // Why: fixed snapshots already computed for the legacy profiler are
         // the cheapest trustworthy capacity facts. No-viewer runs skip these
         // copies, including the renderer memory snapshot.
@@ -1305,7 +1293,6 @@ int Profiler::PerfCSVColumnCount() const
 
     for ( int i = 0; i < m_markerCount; ++i )
     {
-
         // Why: a marker reached from a worker gets its own column instead of
         // being folded into the frame-thread value, so offline analysis can see
         // where worker time went rather than inferring it from a total.
@@ -1443,7 +1430,6 @@ void Profiler::WritePerfCSVRow( FILE* f, int pass, int frame ) const
 
 
 #else // SKULLBONEZ_PROFILE_ENABLED
-
 // Why: unprofiled tools/tests retain the same public no-op Core contract.
 Profiler::Profiler()
     : m_markerCount( 0 ), m_counterCount( 0 ), m_lastPerfCSVColumnCount( -1 ), m_workerCoreSampleCount( 0 ), m_stackTop( 0 ),

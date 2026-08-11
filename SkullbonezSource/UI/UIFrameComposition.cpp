@@ -141,7 +141,6 @@ uint32_t HashRenderTargetPreviewCatalog( uint32_t hash, const InGameUIFrameData&
 
 uint32_t HashProfilerFrameSnapshot( uint32_t hash, const ProfilerTab::FrameSnapshot& frame )
 {
-
     // Invariant: profiler tab draw caching depends on bounded snapshot values,
     // not live singleton reads. Hash only the fixed arrays copied into UIData.
 #if defined( TRACY_ENABLE )
@@ -205,7 +204,6 @@ uint32_t HashProfilerFrameSnapshot( uint32_t hash, const ProfilerTab::FrameSnaps
 
 uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
 {
-
     // Invariant: The content signature is the cache invalidation contract.
     // Include every frame-data value that can change visible UI text, controls,
     // preview resources, or hit-test-derived drawing.

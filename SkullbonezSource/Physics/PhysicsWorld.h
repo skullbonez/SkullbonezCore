@@ -155,7 +155,6 @@ class PhysicsWorld
     uint32_t m_nextPointJointHandleIndex = 0u;
     uint32_t m_pointJointHandleGeneration = PHYSICS_HANDLE_INITIAL_GENERATION;
 #ifdef _DEBUG
-
     // Scoped diagnostic suppression is a sequencer policy override, while every
     // diagnostic row and output sink belongs to its concrete owner.
     bool m_diagnosticsSuppressed = false;

@@ -76,7 +76,6 @@ enum class ObjectNarrowphaseEventKind : uint8_t
 
 struct ObjectNarrowphaseEvent
 {
-
     // Invariant: worker passes fill one event per candidate-pair slot; the
     // PhysicsWorld sequencer commits those slots later in original pair order.
     ObjectNarrowphaseEventKind kind = ObjectNarrowphaseEventKind::None;
@@ -100,7 +99,6 @@ struct ObjectNarrowphaseEvent
 
 struct ObjectNarrowphaseStepPolicy
 {
-
     // Value-only per-step policy: no owner reach-back or borrowed storage may
     // be added here.
     float sleepLinearSq = 0.0f;
@@ -146,7 +144,6 @@ class PhysicsNarrowphaseStage
 
     struct ObjectNarrowphaseIslandStage
     {
-
         // Lifetime: WorkerPool invokes this concrete callable synchronously;
         // these direct borrows expire before TryRunParallel returns.
         PhysicsNarrowphaseStage& stage;

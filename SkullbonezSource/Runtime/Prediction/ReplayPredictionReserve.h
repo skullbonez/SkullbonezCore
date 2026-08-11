@@ -168,7 +168,6 @@ bool ReserveReplayPredictionFramePayloadVectors( std::vector<Frame>& frames, std
                                                  std::size_t requestedCapacityPerFrame, int frameNumber,
                                                  const char* targetName, std::vector<T> Frame::* member )
 {
-
     // Runtime allocation policy: prediction captures many future frames. Batch
     // the per-frame payload reserves under one replay approval so validation
     // sees one setup event instead of one growth request per future frame.

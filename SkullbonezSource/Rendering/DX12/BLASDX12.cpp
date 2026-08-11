@@ -60,7 +60,6 @@ SkullbonezCore::Core::SbResult BLAS::Build( ID3D12Device5* device, ID3D12Graphic
                                             D3D12_GPU_VIRTUAL_ADDRESS vbVA, int vertexCount, int vertexStride,
                                             DXGI_FORMAT vertexPosFormat, bool preferFastTrace )
 {
-
     // Geometry description tells DXR where the triangle vertices live. This
     // engine path uses non-indexed triangles, so each consecutive group of
     // three position vertices is one triangle.

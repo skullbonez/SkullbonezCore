@@ -127,7 +127,6 @@ void ReplayScrubber::CompleteRestore( const ReplayLiveRestoreRequest& request, b
 
     if ( restored )
     {
-
         // Why: the restored historical frame is now the live timeline edge;
         // retaining the parent cursor would advertise authority that no longer exists.
         m_state.activeTrack = RunReplayTrack::Solver;
@@ -164,7 +163,6 @@ void ReplayScrubber::PublishRestoreResult( double now, bool restored, RunReplayT
 
 namespace
 {
-
 // Why: entering scrubber inspection from sibling replay tools should preserve
 // replay-owned pointer/camera state. Non-replay owners still release through the
 // interaction controller before scrubber mode takes over.
@@ -247,7 +245,6 @@ void SkullbonezCore::Runtime::ReplayPresentationOperations::EnterInspectionCamer
                                                                                    RunCameraMode normalizedCurrentMode, RuntimeInteractionController& interaction, InputRouter& inputRouter,
                                                                                    RunMousePickupState& mousePickup )
 {
-
     // Lifetime: Replay camera activation captures the current camera/mode so
     // exiting scrub/velocity/cause inspection can restore the operator's view.
     if ( !cameras )
@@ -352,7 +349,6 @@ void SkullbonezCore::Runtime::ReplayPresentationOperations::ExitInspectionCamera
 
     if ( cameras )
     {
-
         // Hazard: scene-load cleanup can run after CameraCollection::Reset()
         // and before authored/generated cameras are registered. A replay
         // restore hash from the old scene must not be looked up until a matching
@@ -440,7 +436,6 @@ bool SkullbonezCore::Runtime::ReplayPresentationOperations::BeginLoadedPresentat
 void SkullbonezCore::Runtime::ReplayPresentationOperations::ArmLoadedPresentation( float normalized, double now, ReplayScrubber& scrubber, ReplayPresentation& presentation, ReplayAuthoring& authoring,
                                                                                    ReplayPrediction& prediction, RuntimeInteractionController& interaction )
 {
-
     // Invariant: the host camera has exited the previous inspection before the
     // new loaded-track state becomes visible.
     presentation.ClearPathState();
@@ -474,7 +469,6 @@ void ReplayRuntime::ExitInspectionCamera( Environment::CameraCollection* cameras
 
 bool ReplayRuntime::SavePresentationFromScrubber( double now )
 {
-
     // Invariant: the timeline advances the process-local sequence and the
     // scrubber publishes success only after the binary v2 writer completes.
     char path[256] = {};
@@ -536,7 +530,6 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
 
     if ( !input.legacyPointerSurfaceActive )
     {
-
         // Why: semantic commands from ImGui have already reached ReplayRuntime.
         // The inactive Legacy pointer surface must neither compete for capture
         // nor interpret its hidden window as a reason to reset durable replay state.
@@ -753,7 +746,6 @@ void ReplayRuntime::ApplyRestoredBranchTimeline( ReplayRestoreTransaction& trans
 void ReplayRuntime::CompleteLiveRestoreScrubber( const ReplayRestoreTransaction& transaction,
                                                  const ReplayLiveRestoreRequest& request, ReplayLiveRestoreOutcome& outcome )
 {
-
     // Invariant: scrubber publication is the last restore phase. A caller
     // cannot publish success before branch provenance is committed, or publish
     // failure before rollback reaches a terminal cursor.
@@ -787,7 +779,6 @@ bool IsReplayToolGesture( RuntimeInteractionGestureKind kind )
 
 void CancelReplayToolDragState( RuntimeInteractionController& interaction, InputRouter& inputRouter )
 {
-
     // Invariant: a stale replay cleanup must not end editor, manipulator, or
     // camera capture that became active later in the same input turn.
     const RuntimeInteractionGestureKind gesture = interaction.Gesture().kind;
@@ -813,7 +804,6 @@ void ApplyReplayLiveAdvanceAction( ReplayPrediction& predictionOwner, ReplayPres
                                    RuntimeInteractionController& interaction, CameraControlState& camera,
                                    bool& outEnterInteractive )
 {
-
     // Concept: live advance is scrubber state; prediction and presentation
     // receive explicit reactions here without reopening ReplayRuntime state.
     const bool liveAdvanceChanged = scrubber.SetLiveAdvanceHeld( held );
@@ -834,7 +824,6 @@ void ApplyReplayLiveAdvanceAction( ReplayPrediction& predictionOwner, ReplayPres
 
         if ( predictionOwner.BuildPrefixShouldBePresented() )
         {
-
             // Why: Play freezes the prediction prefix currently visible to the
             // operator, not an older committed path hidden behind worker state.
             promotedBuildPrefix = predictionOwner.PromoteBuildPrefixToCommitted();
@@ -907,7 +896,6 @@ void HandleReplayVelocityEditPressed( ReplayAuthoring& authoring, ReplayPredicti
 
     if ( authoring.SetVelocityEditEnabled( enableVelocityEdit ) )
     {
-
         // Why: authoring emits a value command so prediction is refreshed in
         // this composition turn without storing an owner pointer or callback.
         const ReplayAuthoringPredictionRequest request = authoring.TakePredictionRequest();
@@ -1041,7 +1029,6 @@ void EndReplayScrubberGesture( InputRouter& inputRouter, RuntimeInteractionContr
 
 bool SelectReplayPresentationArtifact( ReplayScrubber& scrubber, HWND window, double now, char ( &outPath )[MAX_PATH] )
 {
-
     // Why: the native picker is cold UI. It runs only after typed Load dispatch
     // and never becomes a stored callback or per-frame service dependency.
     OPENFILENAMEA openFile = {};

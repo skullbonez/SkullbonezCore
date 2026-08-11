@@ -82,7 +82,6 @@ namespace SkullbonezCore::Core::Allocation
 DevelopmentToolAllocationScope::DevelopmentToolAllocationScope( DevelopmentToolAllocationOwner owner ) noexcept
     : m_ownerScope( ToolOwnerHandle( owner ) )
 {
-
     // Invariant: RuntimeReserveOwnerScope changes only this thread's owner. It
     // deliberately leaves the global phase untouched so other engine threads
     // continue to fail the gameplay allocation guard.

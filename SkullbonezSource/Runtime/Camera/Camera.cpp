@@ -82,7 +82,6 @@ void Camera::SetAll( const Vector3& position, const Vector3& view, const Vector3
 
 void Camera::MoveCamera( const TravelDirection direction, float amount, const CameraMovementSettings& settings )
 {
-
     // declare local variable to store movement results
     Vector3 movementResults = Vector::ZERO_VECTOR;
 
@@ -92,7 +91,6 @@ void Camera::MoveCamera( const TravelDirection direction, float amount, const Ca
 
         if ( m_isLockedMode )
         {
-
             // in locked mode we only want to be able to translate the camera
             // within a certain m_distance to the view point, so here we test to
             // ensure this rule is not violated
@@ -114,7 +112,6 @@ void Camera::MoveCamera( const TravelDirection direction, float amount, const Ca
         // left movement does not exist in locked mode
         if ( !m_isLockedMode )
         {
-
             // movement result is along the right vector, negative direction
             movementResults = GetRightVector() * -amount;
         }
@@ -126,7 +123,6 @@ void Camera::MoveCamera( const TravelDirection direction, float amount, const Ca
         // right movement does not exist in locked mode
         if ( !m_isLockedMode )
         {
-
             // movement result is along the right vector, positive direction
             movementResults = GetRightVector() * amount;
         }
@@ -137,7 +133,6 @@ void Camera::MoveCamera( const TravelDirection direction, float amount, const Ca
 
         if ( m_isLockedMode )
         {
-
             // in locked mode we only want to be able to translate the camera
             // within a certain m_distance from the view point, so here we test to
             // ensure this rule is not violated
@@ -180,7 +175,6 @@ void Camera::ApplyMovementBuffer( const CameraMovementSettings& settings )
 
 void Camera::RotateCamera( float xMove, float yMove, const CameraMovementSettings& settings )
 {
-
     // caps the y rotation quantity to avoid view-up collisions
     float yMoveCapped = UpVectorViewVectorRotationCap( yMove, settings );
 
@@ -188,7 +182,6 @@ void Camera::RotateCamera( float xMove, float yMove, const CameraMovementSetting
     // in locked mode
     if ( !m_isLockedMode )
     {
-
         /*
             NOTE: view member is set to original m_position plus our rotation result
             vector - this translates our new view vector into a point relative
@@ -209,7 +202,6 @@ void Camera::RotateCamera( float xMove, float yMove, const CameraMovementSetting
     }
     else
     {
-
         /*
             NOTE: m_position member is set to original view plus our rotation result
             vector - this translates our new m_position vector into a point relative
@@ -242,7 +234,6 @@ void Camera::RotateCamera( float xMove, float yMove, const CameraMovementSetting
 
 void Camera::PrepareTranslation()
 {
-
     // Bounds recovery needs the pre-translation X/Z in case clamping moves the
     // camera back to an edge.
     m_xzStore.x = m_position.x;
@@ -298,7 +289,6 @@ void Camera::FinishTranslation( const CameraMovementSettings& settings )
     }
     else
     {
-
         // test to see if we need to recover lost view magnitude
         RecoverViewMagnitude( isOnBoundX, isOnBoundZ, settings );
     }
@@ -307,7 +297,6 @@ void Camera::FinishTranslation( const CameraMovementSettings& settings )
 
 void Camera::RecoverViewMagnitude( const bool isOnBoundX, const bool isOnBoundZ, const CameraMovementSettings& settings )
 {
-
     // only recover view magnitude if the camera has been set to do so
     if ( !m_doPreserveViewMagnitude )
     {
@@ -342,7 +331,6 @@ void Camera::RecoverViewMagnitude( const bool isOnBoundX, const bool isOnBoundZ,
             // if neither X or Z are on their boundary
             if ( !isOnBoundX && !isOnBoundZ )
             {
-
                 // determine component distances from m_boundaries
                 float dxMin = positionStore.x - m_boundary.m_xMin + settings.minCameraHeight;
                 float dxMax = m_boundary.m_xMax - settings.minCameraHeight - positionStore.x;
@@ -356,7 +344,6 @@ void Camera::RecoverViewMagnitude( const bool isOnBoundX, const bool isOnBoundZ,
                 // restore the component who is closest to their closest boundary
                 if ( dx > dz )
                 {
-
                     // restore X component
                     m_position.x = positionStore.x;
 
@@ -365,7 +352,6 @@ void Camera::RecoverViewMagnitude( const bool isOnBoundX, const bool isOnBoundZ,
                 }
                 else
                 {
-
                     // restore Z component
                     m_position.z = positionStore.z;
 
@@ -375,7 +361,6 @@ void Camera::RecoverViewMagnitude( const bool isOnBoundX, const bool isOnBoundZ,
             }
             else if ( isOnBoundZ )
             {
-
                 // restore X if already maxed
                 m_position.x = positionStore.x;
 
@@ -384,7 +369,6 @@ void Camera::RecoverViewMagnitude( const bool isOnBoundX, const bool isOnBoundZ,
             }
             else
             {
-
                 // restore Z if already maxed
                 m_position.z = positionStore.z;
 
@@ -424,7 +408,6 @@ void Camera::RecoverViewMagnitude( const bool isOnBoundX, const bool isOnBoundZ,
         // if the current view magnitude is over quota
         else if ( viewMagTmp > m_viewMagnitude )
         {
-
             // cap the magnitude to what it is set to
             m_view = m_position + ( GetViewVectorNormalised() * m_viewMagnitude );
         }
@@ -439,7 +422,6 @@ float Camera::UpVectorViewVectorRotationCap( float requestRadians, const CameraM
 
     if ( !effectiveUp.TryNormalise() )
     {
-
         // A missing authored up basis uses world Y for pitch policy while
         // GetRightVector supplies world X as the matching rotation axis.
         effectiveUp = Vector3( 0.0f, 1.0f, 0.0f );
@@ -478,7 +460,6 @@ Vector3 Camera::GetRightVector()
 
     if ( !vRight.TryNormalise() )
     {
-
         // Fallback: coincident/parallel camera axes use world +X as a stable
         // right direction until the next valid pose arrives.
         vRight = Vector3( 1.0f, 0.0f, 0.0f );
@@ -496,7 +477,6 @@ Vector3 Camera::GetViewVectorRaw()
 
 Vector3 Camera::GetViewVectorNormalised()
 {
-
     /*
         Recall that vector subtraction works the following way:
 
@@ -545,7 +525,6 @@ Vector3 Camera::GetViewVectorNormalised()
 
     if ( !vView.TryNormalise() )
     {
-
         // Fallback: a camera looking at its own position keeps the engine's
         // conventional forward direction instead of publishing NaNs.
         vView = Vector3( 0.0f, 0.0f, -1.0f );

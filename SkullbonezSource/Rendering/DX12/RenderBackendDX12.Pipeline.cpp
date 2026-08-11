@@ -155,7 +155,6 @@ void Dx12PipelineOwner::BuildInstancedInputLayout( const InstancedMeshDX12& im, 
     // Slot 0: static vertex data
     if ( im.numStaticAttribs > 0 )
     {
-
         // Multi-attribute layout (e.g. POSITION + NORMAL + TEXCOORD)
         static const char* staticSemantics[] = { "POSITION", "NORMAL", "TEXCOORD" };
         UINT staticOffset = 0;
@@ -190,7 +189,6 @@ void Dx12PipelineOwner::BuildInstancedInputLayout( const InstancedMeshDX12& im, 
     }
     else
     {
-
         // Legacy: single POSITION attribute
         out[count++] = { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
     }
@@ -364,7 +362,6 @@ ID3D12PipelineState* Dx12PipelineOwner::FindOrCreatePSO( ID3D12Device* device, c
 
     if ( m_psoCacheCount >= m_psoCache.size() )
     {
-
         // Invariant: PSO variants are bounded by the fixed cache in the
         // backend. A new draw-state family needs an intentional cache budget,
         // not growth from pass preparation or draw submission.
@@ -417,7 +414,6 @@ ID3D12PipelineState* Dx12PipelineOwner::CreatePSO( ID3D12Device* device, VertexF
 
     if ( !m_activeShader->ValidateInputLayout( elements, numElements, inputContractError ) )
     {
-
         // Lane R: mesh/layout selection is startup-owned pipeline input. A
         // reflected mismatch skips PSO publication and names the owning path.
         SkullbonezCore::Core::Log().WriteEventf( "dx12_shader_input_contract_rejected owner=Dx12PipelineOwner reason=%s",
@@ -490,7 +486,6 @@ ID3D12PipelineState* Dx12PipelineOwner::CreatePSO( ID3D12Device* device, VertexF
 
     if ( FAILED( hr ) && attachedCachedBlob )
     {
-
         // Lane R: cached bytes are external driver-specific cold-start input.
         // Retry the exact recipe once without them and evict the rejected row.
         SkullbonezCore::Core::Log()
@@ -504,7 +499,6 @@ ID3D12PipelineState* Dx12PipelineOwner::CreatePSO( ID3D12Device* device, VertexF
 
     if ( FAILED( hr ) || !pso )
     {
-
         // Lane R: a graphics PSO can fail because the active shader/input layout
         // or device state is invalid. The draw path can skip this submission and
         // keep the renderer alive; fixed cache-cap exhaustion above remains fatal.
@@ -557,7 +551,6 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device, ID3D12GraphicsCommand
                                      bool instanced, const InstancedMeshDX12* im, const DynamicVBDX12* dvb,
                                      const RasterStateDesc& rasterState )
 {
-
     // Concept: the PSO cache key is the complete "shape" of a draw pipeline.
     //
     // DX12 cannot cheaply toggle individual pieces of fixed-function state the
@@ -580,7 +573,6 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device, ID3D12GraphicsCommand
 
     if ( !psoChanged && !textures.BindingsDirty() && !m_targetsDirty )
     {
-
         // The last bound PSO is a cache reuse even though the fast path avoids
         // walking the fixed array.
         ++m_psoCacheHitCount;
@@ -712,7 +704,6 @@ void Dx12PipelineOwner::SetActiveShader( const ShaderDX12* shader )
 
 void Dx12PipelineOwner::ReleaseShaderPipelinesForReload()
 {
-
     // Lifetime: Dx12ShaderDevelopment proved the GPU drain and staged every
     // replacement. Persist old blobs while their source PSOs remain live.
     m_persistentPsoCache.Shutdown();
@@ -733,7 +724,6 @@ void Dx12PipelineOwner::ReleaseShaderPipelinesForReload()
 
 void Dx12PipelineOwner::RestoreShaderPipelinesAfterReload()
 {
-
     // Invariant: bytecode adoption is complete and cannot fail. Reopen the
     // persistent cache against the new manifest before the next PSO lookup.
     m_lastPSOHash = 0;
@@ -832,7 +822,6 @@ void Dx12PipelineOwner::SetCurrentColorTarget( D3D12_CPU_DESCRIPTOR_HANDLE rtv )
 
 void Dx12PipelineOwner::BindCurrentOutputs( ID3D12GraphicsCommandList* commandList ) const
 {
-
     // Invariant: target and viewport/scissor state are one draw-output recipe.
     // Special draw paths use this operation rather than reaching into owner
     // fields and accidentally publishing only half of that recipe.
@@ -880,7 +869,6 @@ uint64_t Dx12PipelineOwner::PrecompiledPsoCount() const
 
 void Dx12PipelineOwner::Shutdown()
 {
-
     // Lifetime: serialize while the blob store and source PSOs are still live.
     // This is bounded cold shutdown I/O, never per-frame cache growth.
     m_persistentPsoCache.Shutdown();

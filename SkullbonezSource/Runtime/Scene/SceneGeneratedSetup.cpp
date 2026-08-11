@@ -58,7 +58,6 @@ using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 
 int NextSceneRand( unsigned int& state )
 {
-
     // Invariant: Match the MSVC CRT sequence so seeded scene layouts stay
     // stable while avoiding global RNG state.
     state = state * 214013u + 2531011u;
@@ -67,7 +66,6 @@ int NextSceneRand( unsigned int& state )
 
 PhysicsColliderCreateDesc MakeGeneratedColliderDesc( CollisionShape shape, float restitution )
 {
-
     // Why: generated setup already owns the exact shape parameters at spawn
     // time. Passing this value into physics avoids cold model-side collider
     // recapture and keeps store rows descriptor-owned.
@@ -448,7 +446,6 @@ SceneGeneratedSetup::TrySetUpRequestedModels( SceneSessionState& scene, const Sk
                                               SceneWorld& sceneWorld, GeneratedObjectTypeOverride objectTypeOverride,
                                               GeneratedPopulationMode mode, int modelCount, int balls, int boxes )
 {
-
     // Concept: Scene load resolves which request source is authoritative. This
     // helper dispatches that resolved mode beside the deterministic spawn
     // algorithms and reports whether generated setup owned population.

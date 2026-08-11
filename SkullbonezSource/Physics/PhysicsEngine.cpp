@@ -173,7 +173,6 @@ ColliderRecord MakeColliderRecordFromDesc( const PhysicsColliderCreateDesc& desc
 
 ColliderAuthoringRecord MakeColliderAuthoringRecordFromDesc( const PhysicsColliderCreateDesc& desc )
 {
-
     // Invariant: this text is preserved for scene/editor round trips but never
     // re-enters the fixed-step ColliderRecord scan.
     ColliderAuthoringRecord record;
@@ -196,7 +195,6 @@ bool BodyPassesQueryFilters( const PhysicsBodyHotFieldsConstView& hotFields, std
 
 float EffectiveColliderRadius( const ColliderRecord& collider )
 {
-
     // Invariant: a conservative query sphere must include a collider's local
     // offset or a broadphase candidate can disappear before exact testing.
     const float shapeRadius = GetShapeBoundingRadius( collider.shape ) + VectorMag( GetShapePosition( collider.shape ) );
@@ -268,7 +266,6 @@ void PhysicsEngine::BindProfiler( SkullbonezCore::Core::Profiler* profiler ) noe
 
 void PhysicsEngine::ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config )
 {
-
     // Concept: this is the one process-config-to-Physics stamp boundary. Every
     // fixed-step consumer below receives values owned by PhysicsEngine.
     m_runtimeSettings = RuntimeSettingsFromConfig( config );
@@ -565,7 +562,6 @@ void PhysicsEngine::LoadBodyDescriptors( const std::vector<PhysicsBodyCreateDesc
 PhysicsAuthoredBodyRegistration PhysicsEngine::RegisterAuthoredBody( const PhysicsBodyCreateDesc& bodyDesc,
                                                                      PhysicsColliderCreateDesc colliderDesc )
 {
-
     // Invariant: authored registration must never let an invalid variant reach
     // std::visit, whose exception-disabled failure otherwise loses the owning
     // subsystem and descriptor stage from captured automation logs.
@@ -610,7 +606,6 @@ PhysicsAuthoredBodyRegistration PhysicsEngine::RegisterAuthoredBody( const Physi
 
     if ( !collider.IsValid() )
     {
-
         // Invariant: registration is all-or-nothing even if a future collider
         // capacity rule rejects after body append. Retiring the handle here
         // prevents a partial live body from escaping the physics boundary.
@@ -786,7 +781,6 @@ bool PhysicsEngine::UpdateAuthoredBodyAndCollider( const PhysicsBodyUpdateDesc& 
                                                  colliderDesc.shape, MakeColliderAuthoringRecordFromDesc( colliderDesc ),
                                                  colliderDesc.hullIdentity ) )
     {
-
         // Lane F: preflighted fixed-capacity rows disappearing during one
         // synchronous owner command is internal handle-map corruption.
         SB_FATAL( "Physics/PhysicsEngine", "Coordinated body/collider update lost a preflighted row." );
@@ -935,7 +929,6 @@ bool PhysicsEngine::ReleaseFixedBodyAndAttachedTreeParts( PhysicsBodyHandle sour
 
     if ( hotFields.fixed[static_cast<std::size_t>( sourceIndex )] != 0u )
     {
-
         // Hazard: authored fixed props only become dynamic when their store
         // policy accepts the tool impulse. The source body receives the actual
         // launcher impulse separately, so its release preserves current velocity
@@ -1074,7 +1067,6 @@ void PhysicsEngine::SeedBodyAsleep( PhysicsBodyHandle body )
 void PhysicsEngine::SetPendingBodyImpulse( PhysicsBodyHandle body, const Math::Vector::Vector3& impulse,
                                            const Math::Vector::Vector3& worldApplicationOffset )
 {
-
     // Why: initial authored/generated impulses are one-shot physics state.
     // Writing them into the body store avoids routing setup through the
     // collection-owned model-index command wrappers.
@@ -1128,7 +1120,6 @@ void PhysicsEngine::ClearPointJointConstraints()
 
 PhysicsConstraintHandle PhysicsEngine::CreatePointJoint( const PhysicsPointJointCreateDesc& desc )
 {
-
     // Why: stale body handles should fail at the scene/store boundary before
     // the solver receives an append-only point-joint row.
     if ( !m_bodyStore.Contains( desc.bodyA ) || !m_bodyStore.Contains( desc.bodyB ) || desc.bodyA == desc.bodyB )

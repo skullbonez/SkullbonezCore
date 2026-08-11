@@ -48,7 +48,6 @@ namespace Physics
 
 struct PersistentContact
 {
-
     // One solver row for one contact point. bodyB == -1 means static terrain.
     // Accumulated impulses are cache-sensitive and validation-sensitive.
     int bodyA = -1;

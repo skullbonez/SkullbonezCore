@@ -79,7 +79,6 @@ struct ReplayPredictionDrawRecordCursor
 
 struct ReplayPredictionDrawListState
 {
-
     // 200 future nodes can publish incoming/outgoing records for both build and
     // committed banks, plus root/baseline/past rows.
     static constexpr std::size_t MAX_RECORD_CURSORS = 2048;
@@ -112,7 +111,6 @@ struct ReplayPredictionDrawListState
 
     void Reset() noexcept
     {
-
         // Hazard: assigning this whole state from {} materializes a
         // hundreds-of-KiB temporary and can exhaust nested Debug render stacks.
         for ( ReplayPredictionDrawRecordCursor& cursor : recordCursors )
@@ -193,7 +191,6 @@ constexpr bool ReplayPredictionUsesAuthoredBodyColor( bool showAllFuturePaths, R
 
 struct ReplayPathVisualizerRenderContext
 {
-
     // Lifetime: every reference is a frame-local borrow after Prediction has
     // published for this frame.
     const ReplayPredictionPresentationView& prediction;

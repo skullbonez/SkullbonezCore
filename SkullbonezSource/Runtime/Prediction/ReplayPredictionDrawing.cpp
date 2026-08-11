@@ -104,7 +104,6 @@ bool TryResolveReplayAuthoredPathColor( const SceneEntityStore& entities, Physic
 
 struct ReplayRibbonDrawQuota
 {
-
     // Counts internal ribbon records, not logical trajectory lines. The tracer
     // merges legacy two-style inputs into one record per path segment.
     std::size_t remainingRibbonSegments = 0;
@@ -224,7 +223,6 @@ float ReplayColorLerp( float a, float b, float t )
 
 void ReplayDepthPalette( int depth, float& r, float& g, float& b )
 {
-
     // Concept: child depth is encoded as hue first and brightness second. This
     // keeps grandchildren readable even when many branches overlap in the same
     // prediction horizon.
@@ -265,7 +263,6 @@ void ReplayDepthPalette( int depth, float& r, float& g, float& b )
 
 void ReplayLaneFlatColor( ReplayTrajectoryLane lane, float& r, float& g, float& b )
 {
-
     // Concept: lane-flat is intentionally categorical. A segment's position in
     // time or its body speed cannot change its lane identity.
     switch ( lane )
@@ -341,7 +338,6 @@ void ReplayTimeGradientColor( float pathT, float& r, float& g, float& b )
 
 void ReplayHueColor( Physics::PhysicsSceneObjectId bodyId, float& r, float& g, float& b )
 {
-
     // Why: multiplying stable object identity by the golden-ratio conjugate
     // spreads adjacent ids around the hue wheel without retained palette state.
     constexpr double goldenRatioConjugate = 0.6180339887498948482;
@@ -393,7 +389,6 @@ void ReplayHueColor( Physics::PhysicsSceneObjectId bodyId, float& r, float& g, f
 void ResolveReplayPathColor( ReplayPathColorMode mode, ReplayTrajectoryLane lane, Physics::PhysicsSceneObjectId bodyId,
                              int causalDepth, float pathT, float speed, float& r, float& g, float& b )
 {
-
     // Invariant: this resolver consumes only values already available at draw
     // time. It cannot allocate, mutate captured trajectories, or affect replay
     // simulation/determinism.
@@ -420,7 +415,6 @@ void ResolveReplayPathColor( ReplayPathColorMode mode, ReplayTrajectoryLane lane
 
 float ReplayTrajectorySegmentSpeed( const ReplayTrajectoryPoint& previous, const ReplayTrajectoryPoint& current )
 {
-
     // Units: simulation distance per second. Stored path points deliberately do
     // not retain velocity, so color derives it from the fixed-timestep frame
     // delta without changing trajectory storage or allocating draw-time state.
@@ -784,7 +778,6 @@ void DrawReplayPredictionRetainedMarkers( const ReplayPredictionPresentationView
                                           bool usingBuildFrames, ReplayFrameIndex revealFrame, ReplayFrameIndex lastFrame,
                                           const ColliderStore& colliderStore, EditorTracer& tracer )
 {
-
     // Invariant: marker emission is bounded by SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS and independent
     // of the visualizer budget. Lines may degrade under load; already-revealed
     // yellow/grey boxes must not.
@@ -909,7 +902,6 @@ void DrawReplayPredictionSmallSceneBodyTrajectories( std::span<const RunReplayPr
             {
                 if ( sampleStride > requestedStride && ShouldDrawReplayPathFrame( frame.frameIndex, requestedStride ) )
                 {
-
                     // The adaptive quota deliberately merges this logical
                     // segment into a longer ribbon. Count the omission in the
                     // same lane the all-body preview would have emitted.
@@ -1729,7 +1721,6 @@ UpdateReplayPredictionDrawList( const ReplayPredictionPresentationView& predicti
 
     if ( !reset && state.saturated )
     {
-
         // The bounded list already owns its complete drawable prefix. Later
         // publication cannot add a command, so advance tokens without scanning
         // the 800+ source records.
@@ -1757,7 +1748,6 @@ UpdateReplayPredictionDrawList( const ReplayPredictionPresentationView& predicti
 
     if ( prediction.trajectoryRecords.size() > ReplayPredictionDrawListState::MAX_RECORD_CURSORS )
     {
-
         // The prediction store is bounded well below this presentation limit.
         // Returning an empty list keeps this defensive path allocation-free.
         retainedGeometry.Clear();
@@ -1788,7 +1778,6 @@ UpdateReplayPredictionDrawList( const ReplayPredictionPresentationView& predicti
     }
     else
     {
-
         // Record and marker vectors publish append-only prefixes. Grow cursor
         // banks in place so discovering a new causal body never rebuilds old
         // commands; replacement of an existing record is still caught above.
@@ -2012,7 +2001,6 @@ UpdateReplayPredictionDrawList( const ReplayPredictionPresentationView& predicti
 
         if ( record.key != cursor.key || record.version != cursor.recordVersion )
         {
-
             // Record replacement is already a reset condition for the primary
             // cursor bank. Keep this defensive seam from reading a stale index.
             continue;
@@ -2074,7 +2062,6 @@ UpdateReplayPredictionDrawList( const ReplayPredictionPresentationView& predicti
 
     if ( reset )
     {
-
         // Marker topology is immutable for one draw-list generation, so these
         // shape commands are appended once and never revisited on stable frames.
         for ( const ReplayPredictionBaselineBodyPose& pose : prediction.baselineBodyPoses )

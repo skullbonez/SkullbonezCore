@@ -804,7 +804,6 @@ Vector3 CalculateBuoyancyRightingTorque( const PhysicsBodyRecord& record, const 
 void ApplyWorldImpulse( const PhysicsBodyRecord& record, PhysicsBodyHotState& hot, const Vector3& worldImpulse,
                         const Vector3& worldTorqueImpulse )
 {
-
     // Why: malformed zero mass/inertia is caller-reachable authored data, not
     // lane F. On failure the invalid component absorbs the impulse, and no
     // partial velocity write escapes.

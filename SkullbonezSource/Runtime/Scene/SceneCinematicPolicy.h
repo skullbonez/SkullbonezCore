@@ -49,7 +49,6 @@ struct OverlayDebugState;
 inline void ApplyCinematicSceneOverrides( SkullbonezCore::Core::CinematicRenderConfig& target, uint64_t mask,
                                           const SkullbonezCore::Core::CinematicRenderConfig& source )
 {
-
     // Concept: the parser mask is the compatibility boundary. Set bits replace
     // every atom in their grouped field; unset bits retain process defaults.
 #define APPLY_CINEMATIC_OVERRIDE( bit, field )                                                                              \

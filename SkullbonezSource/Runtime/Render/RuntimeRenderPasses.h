@@ -208,7 +208,6 @@ class RenderResourceLifecycleLog
 
 struct RenderCameraLighting
 {
-
     // Cohesive value sampled after SetCamera(). It carries no owner or resource
     // pointer and cannot grant a pass access to unrelated runtime state.
     Math::Transformation::Matrix4 baseView;
@@ -225,7 +224,6 @@ struct RenderCameraLighting
 
 struct RenderResourceContext
 {
-
     // Creation/rebuild-only contract. Passes receive this context from
     // RuntimeRenderer::EnsureFrameResources() or explicit ensure calls; draw
     // phases borrow only their concrete resources.
@@ -240,7 +238,6 @@ struct RenderResourceContext
 
 struct ObjectPassInputs
 {
-
     // Object pass view of the body collection. It can act as the opaque
     // pass or the transparent debug pass, but target binding stays with the
     // caller.
@@ -266,7 +263,6 @@ struct ObjectPassInputs
 
 struct TerrainPassInputs
 {
-
     // Terrain reads the same camera/light contract as objects, plus the
     // terrain shadow frame when shadows were built for the current frame.
     const RenderCameraLighting& camera;
@@ -283,7 +279,6 @@ struct TerrainPassInputs
 
 struct ReflectionPassInputs
 {
-
     // Produces the texture sampled by water. The pass may choose the DXR
     // raytraced path or the mirrored-camera render-target path, but both
     // must return a texture handle and matching sample transform.
@@ -323,7 +318,6 @@ struct ReflectionPassOutput
 
 struct WaterPassInputs
 {
-
     // Water is deliberately downstream of reflection. It must not rebuild
     // reflection itself; it only receives the texture/sample transform that
     // the reflection pass produced for this frame.
@@ -355,7 +349,6 @@ struct RuntimeRenderTargetPreview
 
 struct RuntimeRenderTargetPreviewSnapshot
 {
-
     // Renderer-owned frame snapshot. Runtime/Render projects only label,
     // dimensions, format flags, and availability into UI; texture handles stay
     // here and are resolved from the recorded catalog identity at submission.
@@ -387,7 +380,6 @@ struct WaterPassDebugInfo
 
 struct DebugOverlaySnapshot
 {
-
     // Frame-level overlay decisions sampled before graph callback execution.
     // The pass may draw multiple overlay families, but it should not reopen
     // broad runtime debug/tool/replay state while drawing them.
@@ -400,7 +392,6 @@ struct DebugOverlaySnapshot
 
 struct DebugOverlayPassInputs
 {
-
     // Debug overlays draw after production geometry and use the final world
     // view-projection. They do not participate in material or pass-resource
     // ownership.
@@ -418,7 +409,6 @@ struct DebugOverlayPassInputs
 
 struct ShadowPassInputs
 {
-
     // Shadows are optional. A null cinematic pointer means no shadow maps
     // should be built and receivers should get null shadow outputs.
     const RenderCameraLighting& camera;
@@ -437,7 +427,6 @@ struct ShadowPassInputs
 
 struct ShadowPassOutput
 {
-
     // Borrowed pointers into ShadowPassResources. Receivers must consume
     // them during the same RuntimeRenderer::RenderPreparedFrame() call; ShadowPass resource
     // release and the next frame both invalidate them.

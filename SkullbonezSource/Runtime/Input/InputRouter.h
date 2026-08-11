@@ -134,7 +134,6 @@ struct EditorPointerRouteResult
 
 struct RuntimePointerRouteResult
 {
-
     // Invariant: actions preserve editor/end-before-begin and domain priority;
     // composition applies them after the router finishes synchronous borrows.
     static constexpr std::size_t MAX_MODE_ACTIONS = 2;
@@ -194,7 +193,6 @@ class InputKeySnapshot
 
 struct DeviceInputFrame
 {
-
     // Lifetime: capture code finishes this value before handing it to the
     // router. Router and downstream consumers receive it as const and never
     // retain references beyond the frame.
@@ -214,7 +212,6 @@ struct DeviceInputFrame
 
 struct UiInputCaptureIntent
 {
-
     // Value-only arbitration from an external tool UI. InputRouter filters the
     // corresponding device class and resynchronizes held levels when ownership
     // returns so a tool keystroke cannot become a gameplay press.
@@ -239,7 +236,6 @@ struct UiInputCaptureIntent
 
 struct UiInputHitSnapshot
 {
-
     // Lifetime: published once after UI hit testing and retained by InputRouter
     // only until the next DeviceInputFrame begins.
     RuntimeMouseEdges mouse;
@@ -256,7 +252,6 @@ struct UiInputHitSnapshot
 
 struct PointerPresentationState
 {
-
     // Value boundary between the platform-neutral router and Win32 hardware.
     bool nativeCapture = false;
     bool cursorVisible = true;
@@ -265,7 +260,6 @@ struct PointerPresentationState
 
 struct PointerPresentationPolicyInput
 {
-
     // Value-only owner facts joined with InputRouter's device/UI snapshots.
     bool editorModeEnabled = false;
     bool editorViewportLookActive = false;

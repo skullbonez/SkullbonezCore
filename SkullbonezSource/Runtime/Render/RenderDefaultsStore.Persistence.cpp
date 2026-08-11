@@ -296,7 +296,6 @@ bool WriteConfigLines( const std::string& configPath, const std::vector<std::str
 
 void StampCurrentConfigVersion( std::vector<std::string>& lines )
 {
-
     // Invariant: native Save Defaults is a config writer and must apply owned
     // deletion migrations, not merely relabel legacy text as current. Unknown
     // rows remain untouched; only explicitly retired settings are removed.
@@ -323,7 +322,6 @@ void StampCurrentConfigVersion( std::vector<std::string>& lines )
 SkullbonezCore::Core::SbResult
 RenderDefaultsStore::PersistOrdinary( const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary )
 {
-
     // Concept: Saving ordinary defaults is a text rewrite, not a full config
     // serialization. Unknown keys and comments must survive the round trip.
     const std::string configPath = std::string( DATA_ROOT ) + "engine.cfg";
@@ -332,7 +330,6 @@ RenderDefaultsStore::PersistOrdinary( const SkullbonezCore::Core::OrdinaryRender
 
     if ( !versionResult.Ok() )
     {
-
         // Hazard: writers must never turn a future document into an older
         // version merely because this build does not understand its fields.
         return versionResult;
@@ -342,7 +339,6 @@ RenderDefaultsStore::PersistOrdinary( const SkullbonezCore::Core::OrdinaryRender
 
     if ( !LoadConfigLines( configPath, lines ) )
     {
-
         // Lane R: the user-facing config may be missing, locked, or unreadable.
         return m_resultDiagnostics.Failure( "Runtime/RenderDefaultsStore", "Could not read render defaults file: %s",
                                             configPath.c_str() );

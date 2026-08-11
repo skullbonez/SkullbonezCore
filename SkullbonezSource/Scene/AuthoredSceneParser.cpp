@@ -678,7 +678,6 @@ SkullbonezCore::Core::SbResult AuthoredSceneParser::TryLoadDocument( const char*
 
         if ( !ParserFailed() )
         {
-
             // Invariant: explicit and legacy group names are resolved only
             // after includes and version-1 ids have reached their final form.
             ValidateReleasableTreeGroups( m_scene.m_convexHulls, path ? path : "" );

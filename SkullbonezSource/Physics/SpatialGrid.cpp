@@ -96,7 +96,6 @@ void ValidateBroadphaseBounds( int index, const Vector3& minBounds, const Vector
     constexpr double MAX_CONVERTIBLE_CELL_COORDINATE = static_cast<double>( INT_MAX ) - 1024.0;
     const auto cellCoordinateIsRepresentable = [&]( float value )
     {
-
         // Why: perform the guard in double. Converting INT_MAX-1 to float rounds
         // up to 2^31 on MSVC, which would bless the very value the later int
         // conversion cannot represent.
@@ -111,7 +110,6 @@ void ValidateBroadphaseBounds( int index, const Vector3& minBounds, const Vector
 
     if ( !insideExtent || !ordered || !convertible )
     {
-
         // Lane F: non-finite, inverted, or unrepresentable physics bounds are
         // corrupt engine state. Continuing would either hide the body from
         // broadphase or invoke undefined float-to-int conversion behavior.
@@ -124,7 +122,6 @@ void ValidateBroadphaseBounds( int index, const Vector3& minBounds, const Vector
 
 int16_t ClampVisualizationCell( int cell )
 {
-
     // The hash key retains the full cell coordinate. Only the debug
     // visualization payload is narrowed, so saturate instead of wrapping it.
     return static_cast<int16_t>( (std::max)( SpatialGrid::MIN_VISUALIZATION_CELL_COORDINATE,
@@ -186,7 +183,6 @@ void SpatialGrid::SetCellSize( float requestedCellSize )
 {
     if ( requestedCellSize < MIN_CELL_SIZE || !std::isfinite( requestedCellSize ) )
     {
-
         // Lane F: an invalid cell size makes every subsequent float-to-cell
         // conversion unsafe; construction and runtime reconfiguration share
         // this owner boundary.
@@ -211,7 +207,6 @@ void SpatialGrid::SetCellSize( float requestedCellSize )
 // Full reset is intentionally cold. BeginFrame owns the steady-step transition.
 void SpatialGrid::Clear()
 {
-
     // Cold path: scene load, replay restore, or a cell-size change may invalidate
     // every dense-row membership. Steady fixed steps use BeginFrame instead.
     std::fill( cellObjectSeen.begin(), cellObjectSeen.end(), 0u );
@@ -790,7 +785,6 @@ void SpatialGrid::ResetSweptOverlay()
 
 void SpatialGrid::InsertOverlayCell( int index, int ix, int iy, int iz )
 {
-
     // The body's ordinary membership wins when the swept volume revisits its
     // current cell. The overlay stores velocity-dependent cells only.
     for ( int current = bodyMemberships[index].entryHead; current != -1; current = entries[current].nextForObject )
@@ -1084,7 +1078,6 @@ void SpatialGrid::MarkPairSourceCells( int index )
 // mandatory performance gate without changing the byte-exact physics stream.
 void SpatialGrid::ResetCandidatePairDedup()
 {
-
     // Dedup bits are frame-local; stale bits would hide candidate pairs.
     assert( objectCount >= 0 && objectCount <= SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS && "objectCount OOB" );
 
@@ -1115,7 +1108,6 @@ void SpatialGrid::ResetCandidatePairDedup()
 
 bool SpatialGrid::MarkCandidatePairFirstSeen( int a, int b )
 {
-
     // Triangular index: b*(b-1)/2 + a (requires the normalized a < b pair).
     assert( a >= 0 && a < b && b < objectCount && "candidate pair identity out of bounds" );
 
@@ -1162,7 +1154,6 @@ bool SpatialGrid::MarkFilteredCandidatePairFirstSeen( int a, int b,
 
     if ( SkullbonezCore::Physics::BroadphaseCandidateBothSleeping( sleepState, a, b ) )
     {
-
         // Preserve the old diagnostic boundary: SleepPrunedPair described a
         // geometrically admitted candidate, not every dormant co-cell pair.
         if ( !SkullbonezCore::Physics::BroadphaseCandidateGeometryCanTouch( bodyStore, colliderStore, dt, contactSkin, a,
@@ -1198,7 +1189,6 @@ bool SpatialGrid::MarkFilteredCandidatePairFirstSeen( int a, int b,
 // makes the byte-exact baseline for later broadphase work.
 void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs, bool restrictToPairSourceCells )
 {
-
     // Why: unfiltered tooling/tests need pure co-cell membership without a
     // nullable physics-filter authority. Keep this traversal explicit so the
     // production overload always receives concrete stores and step values.
@@ -1372,7 +1362,6 @@ void SpatialGrid::GetFilteredCandidatePairsImpl( SkullbonezCore::Physics::Physic
                                                  SkullbonezCore::Physics::PhysicsCandidatePairList* sleepPrunedPairs,
                                                  bool restrictToPairSourceCells )
 {
-
     // Lifetime: sleepPrunedPairs is only an optional Debug evidence sink. It
     // carries no filtering authority; all admission facts are concrete borrows
     // whose lifetime ends when this synchronous collection returns.
@@ -1470,7 +1459,6 @@ void SpatialGrid::GetFilteredCandidatePairsImpl( SkullbonezCore::Physics::Physic
 
                 if ( static_cast<size_t>( candidatePairNodeCount ) >= callerCapacity )
                 {
-
                     // Lane F: growing or dropping the list would respectively
                     // violate the runtime allocation policy or hide a collision.
                     SB_FATAL( "Physics/SpatialGrid",

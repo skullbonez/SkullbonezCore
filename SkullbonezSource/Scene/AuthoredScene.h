@@ -265,7 +265,6 @@ struct SceneConvexHull
 
 enum SceneCinematicOverrideBits : uint64_t
 {
-
     // Scene files may specify any subset of cinematic JSON fields. Each bit says
     // "this exact field was authored in the scene." That lets the loader merge
     // scene-specific values over engine.cfg without wiping unspecified defaults.

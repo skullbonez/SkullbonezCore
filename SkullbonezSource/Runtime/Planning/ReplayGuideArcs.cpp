@@ -90,7 +90,6 @@ void ReplayGuideArcs::ClearPublication() noexcept
 
 void ReplayGuideArcs::Update( const ReplayGuideArcsUpdateInput& input ) noexcept
 {
-
     // Why: the disabled fast path is the common case and does not even resolve
     // orbital elements, preserving the plan's zero-cost default presentation.
     if ( !m_enabled )

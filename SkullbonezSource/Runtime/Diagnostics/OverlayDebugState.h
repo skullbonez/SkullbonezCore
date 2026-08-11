@@ -85,7 +85,6 @@ struct OverlayDebugState
 
     void ResetForSceneLoad()
     {
-
         // Operator HUD selection and top-text preference intentionally survive;
         // scene-authored presentation/debug values are rebuilt after this reset.
         isWaterFreezeDebug = false;

@@ -64,7 +64,6 @@ enum class MarkerContext
 
 uint32_t HashRuntimeName( const char* name )
 {
-
     // Concept: runtime-generated marker names use the same FNV-1a family as
     // compile-time profiler markers so colors remain stable across captures.
     uint32_t hash = 2166136261u;

@@ -40,7 +40,6 @@ namespace Physics
 {
 struct ObjectContactBodyView
 {
-
     // Narrowphase contact geometry needs pose plus shape. PhysicsBodyRecord
     // callers fill this view directly while ColliderRecord borrows the exact
     // shape from ColliderStore's per-kind payload storage.
@@ -52,7 +51,6 @@ inline constexpr int MAX_OBJECT_CONTACT_CANDIDATES = 32;
 
 struct ObjectContactCandidate
 {
-
     // Concept: clipping can yield more geometry than the four-row solver
     // budget. Candidate rows keep geometry and warm-start identity together
     // until the deterministic reducer chooses the rows that survive.
@@ -63,7 +61,6 @@ struct ObjectContactCandidate
 
 struct ObjectContactCandidateSelection
 {
-
     // Lifetime: indices borrow the caller's synchronous candidate array; this
     // value retains neither the candidates nor any owner authority.
     int indices[4] = {};

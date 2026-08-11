@@ -81,7 +81,6 @@ double ReplayPredictionRemainingMilliseconds( const std::chrono::steady_clock::t
 
 double ReplayPredictionRevealSecondsPerSecond( const RunReplayPredictionState& prediction )
 {
-
     // Why: authored shot-list data is allowed to be imperfect. Non-positive
     // rates fall back to real-time pacing instead of freezing the reveal cursor
     // or dividing by zero while the prediction build catches up.
@@ -109,7 +108,6 @@ ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& pre
 
     if ( prediction.build.buildMode == ReplayPredictionBuildMode::Instant )
     {
-
         // Why: instant mode presents the completed future at once. The causal
         // unfold clock remains an amortized-mode presentation affordance.
         prediction.revealClock.presentedFrame = lastAvailableFrame;
@@ -165,7 +163,6 @@ std::size_t ReplayPredictionBuildPresentationFrameCountForRefresh( RunReplayPred
 
 int ReplayPredictionSimulationSlice::operator()( int beginTickIndex, int endTickIndex ) const
 {
-
     // Lifetime: CancelPredictionJob waits for the enclosing AmortizedTask before
     // any of these prediction-owned borrows can be cleared or replaced.
     if ( prediction && config && workerPool )
@@ -178,7 +175,6 @@ int ReplayPredictionSimulationSlice::operator()( int beginTickIndex, int endTick
 
 RunReplayPredictionState::~RunReplayPredictionState()
 {
-
     // Hazard: WorkerPool tasks capture this replay state by reference. Destruct
     // only after the in-flight slice has dropped ownership of build scratch.
     build.schedule.WaitForIdle();

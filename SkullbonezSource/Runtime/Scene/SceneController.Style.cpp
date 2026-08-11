@@ -129,7 +129,6 @@ bool IsBroadMaterialTarget( const char* target )
 bool SceneMaterialTargetMatches( const char* target, const char* displayName, bool simpleRagdollPart,
                                  ColliderShapeKind shapeKind )
 {
-
     // Invariant: Simple ragdoll parts keep their authored body materials; broad
     // style targets apply to ordinary scene bodies only. Exact and prefix
     // targets still opt a named ragdoll into scene-local showcase material.

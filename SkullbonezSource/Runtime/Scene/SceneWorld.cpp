@@ -131,7 +131,6 @@ SceneWorld::SceneWorld( SkullbonezCore::Core::SbDiagnosticStore& diagnostics )
 
 void SceneWorld::ReserveForActiveSceneObjectCapacity()
 {
-
     // Admission-sized presentation/gameplay storage remains a config concern.
     // Dense Physics backing is committed separately from parsed/generated
     // topology so a small scene never pays the default 4,000-row allocation.
@@ -417,7 +416,6 @@ SkullbonezCore::Core::SbResult SceneWorld::ReserveAdditionalPhysicsSceneCapacity
 ScenePhysicsPostStepOutput SceneWorld::StepPhysics( float fixedDt, const Physics::PhysicsWorldForces& worldForces,
                                                     Threading::WorkerPool& workerPool )
 {
-
     // Invariant: PhysicsBodyStore is the per-tick body authority. Descriptor
     // sidecars are imported only when topology changes; same-count editor or
     // replay mutations must commit explicitly before this step reads rows.
@@ -488,7 +486,6 @@ SceneEntityCreateResult SceneWorld::TryCreateSceneEntity( SceneEntityCreateDesc 
     }
 
     {
-
         // Cold editor and tool mutations may append beyond the load-time
         // topology. The initial scene commit makes this a no-op during loading;
         // later additions grow only the concrete body and shape owners needed.
@@ -533,7 +530,6 @@ SceneEntityCreateResult SceneWorld::TryCreateSceneEntity( SceneEntityCreateDesc 
     bodyDesc.diagnosticName = nullptr;
     PhysicsAuthoredBodyRegistration registration;
     {
-
         // Shape payload backing is scene topology, even when an editor command
         // appends it after startup. Attribute that cold mutation to scene load
         // so a newly introduced concrete shape kind can reserve its own store.
@@ -546,7 +542,6 @@ SceneEntityCreateResult SceneWorld::TryCreateSceneEntity( SceneEntityCreateDesc 
 
     if ( !bodyRecord )
     {
-
         // Invariant: RegisterAuthoredBody returns the handle for the row it just
         // appended. A failed immediate lookup means collection/body-store
         // topology diverged after mutation.
@@ -557,7 +552,6 @@ SceneEntityCreateResult SceneWorld::TryCreateSceneEntity( SceneEntityCreateDesc 
 
     if ( !registration.IsValid() || !colliderRecord )
     {
-
         // Invariant: collider registration is the physics half of the creation
         // transaction. No collider handle means owner topology diverged after
         // preflight and cannot safely enter physics or render snapshots.
@@ -740,7 +734,6 @@ bool SceneWorld::TrimForReplayRestore( int bodyCount )
 
 void SceneWorld::BeginPhysicsStepPresentationCapture()
 {
-
     // Invariant: this hook now precedes StepPhysics, whose first action used to
     // repair supported physics topology drift. Preserve that repair boundary
     // before RenderInstanceStore validates paired dense rows.
@@ -765,7 +758,6 @@ void SceneWorld::CompletePhysicsStepPresentationCapture()
 
 void SceneWorld::PrepareRenderInstances( float presentationAlpha )
 {
-
     // Why: object rendering now reads the render instance store for transforms.
     // Preparing it once here prevents each render pass from re-importing the
     // same physics pose repeatedly.
@@ -826,7 +818,6 @@ bool SceneWorld::RepairPhysicsBodyTopology()
     if ( BodyStore().Count() != SceneEntityCount() ||
          static_cast<int>( Physics::PhysicsEngine::ReadBuoyancyFacts( m_physics ).size() ) != SceneEntityCount() )
     {
-
         // Invariant: topology repair imports construction rows only. Same-count
         // state edits are physics-store authority and must not be overwritten by
         // a convenience read that rebuilds descriptor rows.
@@ -848,7 +839,6 @@ bool SceneWorld::RepairPhysicsBodyAndColliderTopology()
 
     if ( bodyTopologyChanged || colliderTopologyChanged || buoyancyTopologyChanged )
     {
-
         // Why: body rows can be repaired from explicit body descriptors, but
         // collider shape/material rows are store-owned once created. Count drift
         // in ColliderStore is a construction bug, not a reason to rediscover
@@ -961,7 +951,6 @@ void SceneWorld::RefreshRenderInstances( float presentationAlpha )
 
     if ( !m_physics.RefreshColliderSnapshot() )
     {
-
         // Hazard: render rows consume collider shape/material data. If topology
         // drift has removed collider rows, do not manufacture a partial render
         // snapshot from stale model-owned shape fields.

@@ -34,7 +34,6 @@ using namespace SkullbonezCore::Rendering;
 
 static DXGI_FORMAT ToDX12ColorFormat( FramebufferColorFormat format )
 {
-
     // Keep the public engine enum small and translate it once at the DX12 edge.
     // RGBA16F is the HDR format used by cinematic rendering.
     return ( format == FramebufferColorFormat::RGBA16F ) ? DXGI_FORMAT_R16G16B16A16_FLOAT : DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -64,7 +63,6 @@ FramebufferDX12::~FramebufferDX12()
 
 bool FramebufferDX12::Create( int width, int height )
 {
-
     // Invariant: off-screen targets borrow stable descriptor, texture, pipeline,
     // retirement, and device owners. Without a device there is no recoverable
     // framebuffer creation boundary inside this helper.
@@ -109,7 +107,6 @@ bool FramebufferDX12::Create( int width, int height )
 
     if ( FAILED( colorResult ) )
     {
-
         // Lane R: off-screen targets are optional render resources for
         // reflection, shadow, and post passes. The factory returns null and the
         // owning pass skips until a later recreate succeeds.

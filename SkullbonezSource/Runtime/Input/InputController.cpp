@@ -188,7 +188,6 @@ RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( CameraCont
 
     if ( cameraMouseLookActive )
     {
-
         // Why: raw mouse input gives stable deltas during native mouse-look, and
         // client-position deltas keep remote-desktop or automation paths usable
         // when raw packets are unavailable.

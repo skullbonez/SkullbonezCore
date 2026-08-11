@@ -150,7 +150,6 @@ void Dx12FrameOwner::ResetAfterShutdown()
 
 bool Dx12FrameOwner::TransitionBackbuffer( const char* passName, RenderGraphResourceAccess after )
 {
-
     // Exception boundary: this helper is reserved for Present, cold synchronous
     // capture, the editor viewport copy/restore pair, and lifecycle
     // reconciliation. Executable frame passes use compiled graph transitions.
@@ -177,7 +176,6 @@ bool Dx12FrameOwner::TransitionBackbuffer( const char* passName, RenderGraphReso
     if ( !record.hasConcreteStates || !record.hasNativeResource || record.missingCommandList ||
          record.beforeState == record.afterState || !record.emitted )
     {
-
         // Hazard: advance the tracked state only after exactly one native
         // barrier was emitted for the current swap-chain image.
         SB_FATAL( "Dx12FrameOwner", "DX12 backbuffer transition did not emit exactly one concrete barrier. pass=%s",
@@ -272,7 +270,6 @@ bool Dx12FrameOwner::PrepareDraw()
 
     if ( !m_pipeline.RenderingToFramebuffer() && m_backBufferAccess != RenderGraphResourceAccess::RenderTarget )
     {
-
         // Invariant: executable graph callbacks acquire the normal render
         // target state. Draw submission is a consumer and must never recreate
         // the retired implicit transition fallback.
@@ -993,7 +990,6 @@ void Dx12FrameOwner::RetireResource( ID3D12Resource* resource, UINT descriptorIn
 
 void Dx12FrameOwner::RetireStaticDescriptor( UINT descriptorIndex )
 {
-
     // Lifetime: descriptor rows use the resource retirement proof because a
     // transient shader-visible copy may outlive the registry entry that named
     // its staging row. Reuse is legal only after all covering frame fences.
@@ -1205,7 +1201,6 @@ Dx12CaptureSubmitOutcome Dx12CaptureFrame::SubmitAndWait()
 
     if ( !outcome.result.Ok() )
     {
-
         // Invariant: SubmitClosed reports failure only before ExecuteCommandLists;
         // the local readback remains safe for ordinary destruction.
         outcome.failedOperation = "Submit";

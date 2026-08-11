@@ -131,7 +131,6 @@ std::size_t ReplayRecorderReserveCapacity( std::size_t currentCapacity, std::siz
 
 std::size_t ReplayRecorderDeltaReserveCapacity( std::size_t currentCapacity, std::size_t requestedCapacity )
 {
-
     // Why: solver-world deltas include contact/debug vectors whose natural
     // capacity is not bounded by SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS, so they use the byte-budget
     // reserve gate without the body-vector element-count clamp.
@@ -155,7 +154,6 @@ template <typename T> uint64_t ReplayRecorderVectorBytes( std::size_t capacity )
 
     if ( capacity > maxCapacity )
     {
-
         // Lane F: a capacity arithmetic overflow means the replay retention
         // contract can no longer bound its sample storage.
         SB_FATAL( "Runtime/Replay", "Replay sample reserve byte overflow. capacity=%llu element_bytes=%llu",
@@ -167,7 +165,6 @@ template <typename T> uint64_t ReplayRecorderVectorBytes( std::size_t capacity )
 
 void ReportReplayRecorderReserveFailure( const char* targetName, std::size_t requestedCapacity, uint64_t requestedBytes )
 {
-
     // Lane F: if a retained sample cannot fit inside the replay reserve budget,
     // continuing would make scrub/restore state partial and nondeterministic.
     SB_FATAL( "Runtime/Replay",
@@ -283,7 +280,6 @@ void ReserveReplayRecorderDeltaVector( std::vector<T>& values, std::size_t reque
 
 void ReserveReplayLauncherVisualSample( ReplayLauncherVisualSample& visual )
 {
-
     // Runtime allocation policy: launcher rays and laser shots are fixed-size
     // visual rings in RuntimeTools/LauncherLaser, so replay reserves matching
     // payload capacity before capture starts.
@@ -738,7 +734,6 @@ void ApplySolverWorldScalarsToSnapshot( const ReplaySolverWorldScalarState& sour
 
 template <typename T> bool SameSolverValueBytes( const T& a, const T& b )
 {
-
     // Why: the solver hash treats these rows as exact replay state. Byte
     // comparison may over-report changes when padding differs, but it never
     // drops a restore-visible field from the delta stream.
@@ -880,7 +875,6 @@ void StoreSolverWorldDeltaFrame( ReplaySolverWorldDeltaFrame& frame,
                                  const SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& previous, bool forceKeyframe,
                                  ReplayFrameIndex frameIndex )
 {
-
     // Concept: world-snapshot vectors are compacted independently. A solver
     // frame can carry a full payload for one vector whose length changed while
     // other vectors stay as sparse indexed edits.
@@ -1003,7 +997,6 @@ uint64_t HashBool( uint64_t hash, bool value )
 
 uint64_t HashFloat( uint64_t hash, float value )
 {
-
     // Invariant: hash the exact IEEE bytes, not formatted text or rounded
     // values. Replay validation expects byte-exact drift detection.
     uint32_t packed = 0;
@@ -1806,7 +1799,6 @@ uint64_t SkullbonezCore::Runtime::ReplayRecorderOperations::ComputePresentationS
 
 bool ReplayRecorder::Configure( const ReplayRecorderConfig& config )
 {
-
     // Concept: the recorder is a bounded live-capture ring. ArtifactIO owns
     // chronological materialization and every file stream.
     //
@@ -1944,7 +1936,6 @@ void ReplayRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_t even
 
     if ( physicsDt <= 0.0f )
     {
-
         // Lane F: recorder time is derived from its monotonic frame index.
         // A non-positive fixed step would make artifact time ambiguous.
         SB_FATAL( "Runtime/ReplayRecorder", "Capture requires a positive physics step" );
@@ -2266,7 +2257,6 @@ const ReplayPresentationSample* ReplayRecorder::SampleAtNormalized( float normal
 
 std::size_t ReplayRecorder::AcquireSampleSlotIndex()
 {
-
     // Lifetime: returned slot indices stay valid until the next capture that
     // wraps the ring buffer onto the same slot.
     if ( m_sampleCount < m_samples.size() )
@@ -2681,7 +2671,6 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_
 
     if ( physicsDt <= 0.0f )
     {
-
         // Lane F: solver hashes and presentation hashes share recorder-local
         // time, so every capture must advance by one positive fixed step.
         SB_FATAL( "Runtime/ReplaySolverRecorder", "Capture requires a positive physics step" );
@@ -2979,7 +2968,6 @@ const ReplaySolverFrameSample* ReplaySolverRecorder::SampleAtNormalized( float n
 
 std::size_t ReplaySolverRecorder::AcquireSampleSlotIndex()
 {
-
     // Lifetime: compact solver frames follow the same ring position as their
     // public sample headers, so a slot index is the join key for reconstruction.
     if ( m_sampleCount < m_samples.size() )
@@ -3053,7 +3041,6 @@ void ReplaySolverRecorder::StoreSolverFramePayload( std::size_t slotIndex, const
                                                     const SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& worldSnapshot,
                                                     bool forceKeyframe, bool updateCarry )
 {
-
     // Invariant: slotIndex addresses both the retained sample header and the
     // compact solver payload. Saved replay artifacts still see a dense sample
     // because readers reconstruct through ResolveSolverSampleAtOffset().
@@ -3130,7 +3117,6 @@ void ReplaySolverRecorder::StoreSolverFramePayload( std::size_t slotIndex, const
 
 bool ReplaySolverRecorder::ResolveSolverSampleAtOffset( std::size_t offset, ReplaySolverFrameSample& outSample ) const
 {
-
     // Concept: public solver samples are a compatibility view over compact
     // storage. Start from the nearest retained keyframe, replay sparse deltas,
     // then rebuild the old dense body/world snapshot shape.

@@ -236,7 +236,6 @@ void PhysicsNarrowphaseStage::Clear()
 
 void PhysicsNarrowphaseStage::ObjectNarrowphaseIslandStage::operator()( int islandIndex ) const
 {
-
     // Why: the worker selects once per island so the pair loop contains no
     // runtime diagnostic-mode branch.
     if ( policy.retainPipelineRecords )

@@ -53,7 +53,6 @@ struct PhysicsSolverContactCacheSample
 
 struct PhysicsSolverPersistentContactSample
 {
-
     // Persistent contacts are solver rows, not just debug visuals. The cached
     // impulses below are warm-start inputs for deterministic next-frame replay.
     int bodyA = -1;
@@ -100,7 +99,6 @@ struct PhysicsSolverStatsSample
 
 struct PhysicsSolverSnapshot
 {
-
     // Snapshot payload for hidden physics state. Body poses live in
     // ReplaySolverBodySample; this struct stores the caches that make the next
     // fixed physics step match after restore.
@@ -136,7 +134,6 @@ struct PhysicsSolverSnapshot
 
     void ClearPreservingCapacity() noexcept
     {
-
         // Lifetime: replay prediction cancels and restarts in steady runtime.
         // Clear logical state without replacing vectors so the reserve-phase
         // storage remains registered and reusable by the next prediction.

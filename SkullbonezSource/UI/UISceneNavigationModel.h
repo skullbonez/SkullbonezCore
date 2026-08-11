@@ -51,7 +51,6 @@ struct RunSceneUIOverrideState
 
 struct SceneNavigationModel
 {
-
     // Invariant: browser pointer views and live override sentinels share the
     // UI owner's lifetime; Runtime consumers may borrow but never retain them.
     RunSceneBrowserState browser;

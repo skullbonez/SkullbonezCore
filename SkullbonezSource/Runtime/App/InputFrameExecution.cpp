@@ -300,7 +300,6 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
         if ( launchOptions.developmentUiModeExplicit || m_imguiEditor.HasActivatedSurfaceSelection() )
         {
-
             // Invariant: scene load may apply a Legacy default during input. An
             // explicit process selection wins before either UI begins its frame.
             SelectDevelopmentUiSurface( m_imguiEditor.SelectedSurface() );
@@ -345,7 +344,6 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
     const auto runUIStressBatch = [&]()
     {
-
         // Invariant: the scene-authored stress harness mutates Legacy UI state.
         // Once ImGui owns the development surface, allowing that harness to
         // re-show Legacy would violate the exclusive focus/visibility contract.
@@ -433,7 +431,6 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
     }
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-
     // Concept: the last completed UI frame publishes the fitted image value.
     // Mapping immediately after the sole device sample gives every existing
     // world interaction owner one coherent source-space point this frame.
@@ -454,7 +451,6 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
         if ( DevelopmentTools::MapImGuiGameViewportPoint( viewport, static_cast<float>( deviceFrame.clientX ),
                                                           static_cast<float>( deviceFrame.clientY ), mappedX, mappedY ) )
         {
-
             // Invariant: every downstream pointer consumer sees the same mapped
             // source pixel; no tool resamples Win32 coordinates independently.
             deviceFrame.clientX = mappedX;
@@ -475,7 +471,6 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
     {
         if ( externalUiCapture.mouse )
         {
-
             // Hazard: imgui_impl_win32 owns the same HWND capture while a tool
             // drag is active. Do not let the engine release it at a frame edge;
 
@@ -509,7 +504,6 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
     if ( externalUiCapture.nativePointerStateTouched )
     {
-
         // The vendor backend may have changed shared HWND capture/cursor state
         // while translating a mouse message. Reassert the input owner's full
         // native policy even when its desired value is otherwise unchanged.
@@ -530,7 +524,6 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
         if ( !stressResult.Ok() )
         {
-
             // Lane R: focus loss still routes stress churn through the same guarded
             // rebuild path. End the run before returning to the frame loop.
             ReportRuntimeInputFailure( stressResult );
@@ -960,7 +953,6 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
         {
             if ( event.action == RuntimeInputAction::ToggleUIVisibility && !legacyDevelopmentUiActive )
             {
-
                 // Invariant: the legacy visibility shortcut is inert while the
                 // active ImGui surface owns focus and input.
                 break;
@@ -968,7 +960,6 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
             if ( event.action == RuntimeInputAction::ToggleUIVisibility && deviceFrame.keys.IsDown( VK_CONTROL ) )
             {
-
                 // The input owner interprets the chord once; Run retains only
                 // the process-wide decision about which surface becomes active.
                 requestDevelopmentUiSurfaceSwap = true;
@@ -1199,7 +1190,6 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
     if ( !uiFrameResult.status.Ok() )
     {
-
         // Lane R: a generated-resource rebuild could not prove its GPU drain.
         // Stop this frame and end the run before any later world/input mutation.
         ReportRuntimeInputFailure( uiFrameResult.status );

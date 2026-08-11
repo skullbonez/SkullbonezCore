@@ -148,7 +148,6 @@ PhysicsAuthoredBodyRegistration RegisterPhysicsSmokeBody( PhysicsEngine& engine,
 
 PhysicsEngineLifecycleScenarioResult RunPhysicsEngineLifecycleScenario()
 {
-
     // Lifetime: PhysicsEngine retains the terrain view across Clear(). Declare
     // config, terrain, then the cold heap engine so reverse destruction retires
     // the borrower before both retained-view owners.
@@ -495,7 +494,6 @@ bool RunGeneratedCapacityPreflightSmoke( SkullbonezCore::Core::SbDiagnosticStore
 
 PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample( SkullbonezCore::Core::SbDiagnosticStore& diagnostics )
 {
-
     // Why: this smoke proves runtime-created bodies keep their returned physics
     // handles aligned with body/collider stores and render snapshots without opening the
     // window or renderer. WinMain runs the normal command-line/config bootstrap
@@ -618,7 +616,6 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample( SkullbonezCo
     bool colliderUpdateAccepted = false;
 
     {
-
         // Why: this authoring probe intentionally introduces the first box shape
         // after scene creation. Per-kind shape backing may grow only at the same
         // cold topology boundary used by real scene/editor authoring.

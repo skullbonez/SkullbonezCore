@@ -52,7 +52,6 @@ namespace Math
 {
 namespace CollisionDetection
 {
-
 // Concept: a collision shape is a tagged value. Callers visit the active
 // sphere, box, or convex hull directly, so a new shape makes every incomplete
 // dispatch fail to compile instead of hiding behind a base-class fallback.
@@ -142,7 +141,6 @@ template <typename ShapeT, typename ShapeLike> bool HoldsShape( const ShapeLike&
 
 inline CollisionShape CopyCollisionShape( const CollisionShapeReference& shape )
 {
-
     // Explicit cold bridge for authoring transactions that truly require an
     // owned value. Frame, pick, editor-overlay, and replay drawing scans consume
     // CollisionShapeReference directly and therefore never copy hull payload.
@@ -190,7 +188,6 @@ template <typename ShapeLike> inline float GetShapeBoundingRadius( const ShapeLi
 
 template <typename ShapeLike> inline float GetShapeTerrainBottomOffset( const ShapeLike& shape )
 {
-
     // For all shape types, the terrain bottom offset equals the bounding radius
     // (the farthest point from the shape's local origin). For a sphere this is
     // simply the radius. For a box it is the corner distance sqrt(a²+b²+c²).
@@ -270,7 +267,6 @@ template <typename FocusShape, typename TargetShape>
 inline float TestShapeCollision( const FocusShape& focus, const TargetShape& target, const Geometry::Ray& focusRay,
                                  const Geometry::Ray& targetRay )
 {
-
     // Double visit is the collision-shape switchboard. If focus is a sphere and
     // target is a box, the compiler chooses BoundingSphere::TestCollision(box).
     // If both are boxes, it chooses BoundingBox::TestCollision(box), and so on.

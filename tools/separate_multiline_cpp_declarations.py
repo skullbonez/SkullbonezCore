@@ -6,9 +6,10 @@ Purpose:
   It also rejects assignment lines that strand `=` without the expression.
   One-to-three short parenthesized arguments remain on one line. Wider
   expressions keep the first argument beside the opening parenthesis and align
-  continuations beneath it. Standalone comments receive paragraph space above
-  them. Control-flow blocks are separated from prior executable statements but
-  remain attached to an introducing comment or opening brace.
+  continuations beneath it. Standalone comments receive paragraph space after
+  completed statements but remain attached to an opening brace or conditional
+  preprocessor directive. Control-flow blocks are separated from prior
+  executable statements but remain attached to an introducing comment or brace.
 
 Summary:
   clang-format owns token layout but intentionally does not create semantic
@@ -40,7 +41,8 @@ Invariants:
     most 125 columns.
   - A wrapped expression never leaves its opening parenthesis on an otherwise
     parameter-free line.
-  - Standalone comment groups have one blank line above them.
+  - Standalone comment groups have one blank line above them after completed
+    statements, never when they lead a scope or conditional preprocessor arm.
   - Condition/loop blocks have a leading blank line only after a completed
     executable statement or block, never after an introducing comment or `{`.
   - Blank lines contain no spaces or tabs.
@@ -396,24 +398,36 @@ def control_flow_attaches_to_previous_line(line: str) -> bool:
     return stripped == "{" or standalone_comment_start(line) or stripped.endswith("*/")
 
 
+def comment_attaches_to_previous_line(line: str) -> bool:
+    """Keep a leading comment beside its scope or conditional directive."""
+    stripped = line.strip()
+    return stripped == "{" or re.match(r"^#(?:if|ifdef|ifndef|elif|else)\b", stripped) is not None
+
+
 def ensure_comment_spacing(text: str) -> tuple[str, int]:
-    """Insert one blank line above each standalone comment group."""
+    """Separate comment paragraphs while keeping leading comments attached."""
     trailing_newline = text.endswith("\n")
     lines = text.splitlines()
     output: list[str] = []
     inserted_breaks = 0
 
     for line in lines:
-        if (
-            standalone_comment_start(line)
-            and output
-            and output[-1].strip()
-            and not standalone_comment_start(output[-1])
-            and not output[-1].rstrip().endswith("\\")
-            and not line.rstrip().endswith("\\")
-        ):
-            output.append("")
-            inserted_breaks += 1
+        if standalone_comment_start(line) and output:
+            previous_nonempty = next(
+                (candidate for candidate in reversed(output) if candidate.strip()),
+                "",
+            )
+            if comment_attaches_to_previous_line(previous_nonempty):
+                while output and not output[-1].strip():
+                    output.pop()
+            elif (
+                output[-1].strip()
+                and not standalone_comment_start(output[-1])
+                and not output[-1].rstrip().endswith("\\")
+                and not line.rstrip().endswith("\\")
+            ):
+                output.append("")
+                inserted_breaks += 1
 
         output.append(line)
 
@@ -1183,6 +1197,41 @@ def run_self_test() -> int:
         print("SELF_TEST_FAIL: standalone comment groups did not receive space above them.", file=sys.stderr)
         return 1
 
+    attached_comment_spacing = """void Example()
+{
+
+    // Why: this comment introduces the first operation in the scope.
+    Prepare();
+#if defined( ENABLE_EXAMPLE )
+
+    // Why: this comment introduces the conditional arm.
+    if ( ready )
+    {
+
+        // Why: this comment introduces the nested operation.
+        Apply();
+    }
+#endif
+}
+"""
+    attached_comment_spacing_expected = """void Example()
+{
+    // Why: this comment introduces the first operation in the scope.
+    Prepare();
+#if defined( ENABLE_EXAMPLE )
+    // Why: this comment introduces the conditional arm.
+    if ( ready )
+    {
+        // Why: this comment introduces the nested operation.
+        Apply();
+    }
+#endif
+}
+"""
+    if separate_multiline_statements(attached_comment_spacing).text != attached_comment_spacing_expected:
+        print("SELF_TEST_FAIL: a leading comment was separated from its scope or conditional arm.", file=sys.stderr)
+        return 1
+
     attached_control_flow = """void Example()
 {
 
@@ -1200,7 +1249,6 @@ def run_self_test() -> int:
 """
     attached_control_flow_expected = """void Example()
 {
-
     // Why: readiness owns whether the operation can run.
     if ( ready )
     {

@@ -91,7 +91,6 @@ bool TryGetReplayProbeBodyHotState( const SceneWorld& world, int modelIndex, Phy
 
 float ReplayProbePredictionFutureSeconds( const RunReplayPredictionState& prediction )
 {
-
     // Concept: validation projects whichever immutable bank is currently
     // presentation-coherent; it never opens the prediction worker's write bank.
     std::span<const RunReplayPredictionFrame> frames;
@@ -114,7 +113,6 @@ float ReplayProbePredictionFutureSeconds( const RunReplayPredictionState& predic
 
 float ReplayProbeSolverPresentTrackPosition( const ReplayTimeline& timeline, const ReplayPrediction& prediction )
 {
-
     // Units: past and future spans are seconds derived from fixed-step frame
     // indices before they are normalized onto the combined scrubber track.
     const ReplayRecorderStats stats = timeline.Solver().GetStats();
@@ -131,7 +129,6 @@ void ApplyReplayProbePredictionResult( const ReplayPredictionUpdateResult& resul
                                        ReplayScrubber& scrubber, ReplayPresentation& presentation,
                                        ReplayPrediction& prediction )
 {
-
     // Invariant: the probe applies the same owner-to-owner publication facts as
     // production without receiving mutable prediction storage.
     if ( result.targetModelRowRepaired )
@@ -170,7 +167,6 @@ void PrepareReplayProbePredictionPresentation( ReplayTimeline& timeline, ReplayS
                                                ReplayPresentation& presentation, ReplayPrediction& prediction,
                                                PhysicsEngine& physics, const SceneEntityStore& entities )
 {
-
     // Why: durable visual verification runs after the normal scheduler stops,
     // so it prepares CPU presentation explicitly without scheduling new work.
     const RunReplayPathVisualizerState& path = presentation.PathVisualizer();
@@ -240,7 +236,6 @@ bool TryPrepareReplayProbeRenderPosition( SceneWorld& world, int modelIndex, Vec
 bool ApplyReplayProbePresentationSampleForRender( SceneWorld& world, ReplayPresentation& presentation,
                                                   const ReplayPresentationSample& sample )
 {
-
     // Why: probes consume replay scrub poses exactly where the renderer consumes
     // them: after the live render snapshot refresh and before draw submission.
     // This proves presentation overrides do not mutate live body rows.
@@ -686,7 +681,6 @@ ReplayRuntime::TickProbes( SceneController& sceneController, OverlayDebugState& 
                            InputRouter& inputRouter, RuntimeInteractionController& interaction, CameraControlState& camera,
                            RunCameraMode restoreMode, bool attachedFollow )
 {
-
     // Invariant: each probe receives only the restore/topology authority its
     // replay operation already requires; adding a whole-world fixture here
     // would recreate the application shell behind a Debug-only name.
@@ -708,7 +702,6 @@ ReplayRuntime::TickProbes( SceneController& sceneController, OverlayDebugState& 
 
         if ( result.status.Ok() && restoreRequest.sample )
         {
-
             // The successful restore resets recorder storage, so copy the
             // selected sample before executing the owner-to-owner transaction.
             const ReplaySolverFrameSample selected = *restoreRequest.sample;
@@ -1538,7 +1531,6 @@ ReplayFailureProbeRequest ReplayProbeRunner::BeginFailureFileProbe( const char* 
 ReplayFailureProbeRequest ReplayProbeRunner::AdvanceFailureFileProbe( const ReplayFailureProbeRequest& request,
                                                                       const ReplayFailureProbeStepResult& result )
 {
-
     // Concept: the runner owns expected-failure order and verdicts; the replay
     // composition root merely executes the requested restore/capture primitive.
     ReplayFailureProbeRequest next;

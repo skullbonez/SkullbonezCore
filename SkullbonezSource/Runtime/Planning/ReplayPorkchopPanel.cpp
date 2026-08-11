@@ -59,7 +59,6 @@ void ReplayPorkchopPanel::Toggle() noexcept
 
     if ( m_view.visible )
     {
-
         // Why: reopening is the explicit on-demand refresh affordance. Hidden
         // frames retain pixels but perform neither body reads nor sweep work.
         m_refreshRequested = true;

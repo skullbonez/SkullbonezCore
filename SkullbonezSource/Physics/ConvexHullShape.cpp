@@ -151,7 +151,6 @@ SkullbonezCore::Core::SbResult ParseUint16( SkullbonezCore::Core::SbDiagnosticSt
 SkullbonezCore::Core::SbResult RequireNoExtraTokens( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, char* context,
                                                      const char* path, int lineNumber, const char* directive )
 {
-
     // Hazard: hull files are deterministic physics inputs. Extra tokens usually
     // mean the bake format changed or the asset is corrupted, so fail loudly.
     if ( strtok_s( nullptr, " \t\r\n", &context ) )
@@ -992,7 +991,6 @@ void ConvexHullShape::ScaleAxis( int axis, float factor )
 
         if ( magnitudeSquared <= 1.0e-10f )
         {
-
             // Invariant: positive finite copy-scale must preserve baked hull
             // topology. Degeneration here is an engine/data bug, not user input.
             SB_FATAL( HULL_LOAD_OWNER, "Degenerate scaled convex hull face.  (ConvexHullShape::ScaleAxis)" );

@@ -60,7 +60,6 @@ class PhysicsDebugVisualizer
   private:
     struct TrackedContact
     {
-
         // Contact visuals linger briefly after the solver row disappears so a
         // human can actually see a one-frame impact. This is display-only state.
         PhysicsDebugContact contact;

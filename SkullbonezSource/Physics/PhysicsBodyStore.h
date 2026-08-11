@@ -158,7 +158,6 @@ struct PhysicsBodyPreservedRefreshState
 
 struct PhysicsBodyRestoreState
 {
-
     // Concept: one Physics-owned body state crosses cold replay/validation
     // restore boundaries. It carries identity and values only—never a Replay
     // type, mutable store, or callback—and is consumed synchronously.

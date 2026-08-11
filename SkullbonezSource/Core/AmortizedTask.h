@@ -59,7 +59,6 @@ template <typename WorkFunctionT> class AmortizedTask
     {
         if ( IsInFlight() )
         {
-
             // Hazard: SubmitNoAlloc stores this object's address in the fixed
             // worker ring. Returning from destruction would turn the queued
             // callback into a use-after-free.
@@ -78,7 +77,6 @@ template <typename WorkFunctionT> class AmortizedTask
 
         if ( !m_inFlight.compare_exchange_strong( expected, true, std::memory_order_acq_rel ) )
         {
-
             // Invariant: callers may tick this every frame, but the worker owns
             // the current range until it clears m_inFlight.
             return;
@@ -149,7 +147,6 @@ template <typename WorkFunctionT> class AmortizedTask
         }
         else
         {
-
             // Invariant: only the contiguous completed prefix advances. This
             // lets a timer stop work between indivisible items without losing
             // the unprocessed tail of the claimed range.

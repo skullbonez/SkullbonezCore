@@ -349,7 +349,6 @@ void ApplyReplayQueryPrimaryPathTarget( RunReplayPathVisualizerState& visualizer
 
 ReplayPresentation::ReplayPresentation( Core::Profiler* )
 {
-
     // Runtime allocation policy: path target selection is a live replay UI
     // action, so it rotates entries within a fixed pre-gameplay vector budget.
     m_pathVisualizer.targets.reserve( REPLAY_PATH_MAX_ROOT_TARGETS );
@@ -711,7 +710,6 @@ ReplayPresentation::TryPickPathTarget( const ReplayPathPickInput& input, const S
 
         if ( !target )
         {
-
             // Invariant: constructor-reserved target storage rotates entries;
             // live picking never grows the vector.
             if ( m_pathVisualizer.targets.capacity() < REPLAY_PATH_MAX_ROOT_TARGETS )

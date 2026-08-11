@@ -91,7 +91,6 @@ class ReplayPredictionWorkerSchedule
 
     void WaitForIdle() const noexcept
     {
-
         // Hazard: cancellation is a scene/branch mutation edge. Build scratch
         // remains worker-owned until the submitted slice drops its in-flight bit.
         while ( m_task && m_task->IsInFlight() )
@@ -169,7 +168,6 @@ inline ReplayPredictionBuildMode ChooseReplayPredictionBuildMode( double measure
 
     if ( instantBudgetMs <= 0.0 || bodyCount > REPLAY_PREDICTION_INSTANT_MAX_BODY_COUNT )
     {
-
         // Why: the probe samples the cheap beginning of a prediction. In a
         // large contact scene such as the 200-box wall, that prefix cannot
         // predict the later solver fan-out; allowing it to select Instant made
@@ -224,7 +222,6 @@ inline ReplayPredictionCoalescerAction ChooseReplayPredictionCoalescerAction( bo
 
     if ( mode == ReplayPredictionBuildMode::Instant || !replacementPrefixPresented )
     {
-
         // Invariant: held edits cannot cancel a replacement generation before
         // the frame thread presents one coherent changed prefix. The pending
         // bit keeps only the newest follow-up request.

@@ -328,7 +328,6 @@ SkullbonezCore::Core::SbResult ImGuiEditorOwner::Start( HWND window, Rendering::
 
     if ( !m_context )
     {
-
         // Lane F: a development editor context that cannot establish its sole
         // owner cannot safely continue into frame calls.
         SB_FATAL( "DevelopmentTools/ImGui", "Dear ImGui context creation failed." );
@@ -421,7 +420,6 @@ void ImGuiEditorOwner::Shutdown() noexcept
 
     if ( m_frameActive )
     {
-
         // Hazard: early runtime failure may leave the CPU-only frame open.
         // End it before context destruction so ImGui can validate its stacks.
         ImGui::EndFrame();
@@ -441,7 +439,6 @@ void ImGuiEditorOwner::Shutdown() noexcept
 
     if ( m_renderer )
     {
-
         // Lifetime: Run explicitly calls Shutdown only after its renderer
         // resource-release drain. The context remains current while the vendor
         // frees its two-frame buffers, font texture, and descriptor row.
@@ -643,7 +640,6 @@ ImGuiEditorNativeMessageRoute ImGuiEditorOwner::HandleNativeMessage( HWND window
 
     if ( !m_visible && route.messageClass != ImGuiEditorMessageClass::Platform )
     {
-
         // Invariant: Legacy mode retains its native input/cursor behavior.
         // Focus, DPI, display, and device messages continue keeping the dormant
         // backend synchronized for a later atomic switch to ImGui.
@@ -658,7 +654,6 @@ ImGuiEditorNativeMessageRoute ImGuiEditorOwner::HandleNativeMessage( HWND window
 
     if ( route.messageClass == ImGuiEditorMessageClass::Mouse )
     {
-
         // Hazard: imgui_impl_win32 may call SetCapture, ReleaseCapture, or
         // SetCursor even when the live game viewport ultimately keeps the
         // event. The engine input owner must republish its native intent.
@@ -752,7 +747,6 @@ UiInputCaptureIntent ImGuiEditorOwner::ConsumeInputCaptureIntent() noexcept
 
 void ImGuiEditorOwner::SetGameViewportInputState( bool hovered, bool focused ) noexcept
 {
-
     // Concept: the fitted E11 image item publishes hover/focus through the E7
     // policy seam; gameplay callbacks never learn about ImGui windows.
     m_gameViewportHovered = m_visible && hovered;
@@ -768,7 +762,6 @@ bool ImGuiEditorOwner::BeginFrame( const ImGuiEditorFrameInput& input )
 
     if ( m_frameActive )
     {
-
         // Lane F: nested frames corrupt ImGui retained stacks and settings.
         SB_FATAL( "DevelopmentTools/ImGui", "BeginFrame called while an editor frame is already active." );
     }
@@ -795,7 +788,6 @@ bool ImGuiEditorOwner::BeginFrame( const ImGuiEditorFrameInput& input )
 
     if ( platformMouseCursor != m_lastPlatformMouseCursor )
     {
-
         // The backend may just have changed the shared Win32 cursor shape.
         // When viewport/game input owns the pointer, the next input edge must
         // republish its established visibility/capture policy.
@@ -1098,7 +1090,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
         if ( ImGui::IsItemActivated() )
         {
-
             // Concept: only one pointer-driven scalar can be active. Its value
             // is presentation state until release emits one owner-side commit.
             m_propertyEdit.active = true;
@@ -1176,7 +1167,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                                         int parameter, int setIndex, int bandIndex, float sourceValue, float speed,
                                         float minimum, float maximum, const char* format, const auto& submitValue )
     {
-
         // Invariant: action plus parameter/set/band is the complete edit
         // identity. Values stay presentation-local until this exact item is
         // released, preventing a rebuilt rail from committing stale state.
@@ -1232,7 +1222,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
         if ( !m_frameInput.tracyInitialized )
         {
-
             // Concept: ImGui emits a value command; the runtime composition
             // boundary starts Tracy and recreates workers after this frame.
             // Presentation never receives the profiler lifetime owner.
@@ -1377,7 +1366,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
         {
             if ( ImGui::MenuItem( "Switch to Legacy UI", "Ctrl+0" ) )
             {
-
                 // The composition root consumes this after the ImGui frame and
                 // hides this source before activating the Legacy target.
                 m_frameCommands.requestSurfaceSwap = true;
@@ -1531,7 +1519,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
         if ( panelName && ( CopyPanelVisibilityMask() & ImGuiEditorPanelBit( panel ) ) != 0u )
         {
-
             // Automation focuses by stable panel identity after the dock host
             // exists; it never synthesizes brittle title-bar coordinates.
             ImGui::SetWindowFocus( panelName );
@@ -1933,7 +1920,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
             if ( textureId != 0u && m_gameViewportRect.valid )
             {
-
                 // Lifetime: textureId names the owner's stable descriptor row;
                 // the resource behind it may change only after a drained
                 // swap-chain resize, never while this draw list is in flight.
@@ -3121,7 +3107,6 @@ ImGuiEditorFrameResult ImGuiEditorOwner::EndFrame()
 
 SkullbonezCore::Core::SbResult ImGuiEditorOwner::RenderPreparedDrawData()
 {
-
     // Lifetime: EndFrame publishes draw data inside this owned context; the
     // live frame-graph callback consumes it synchronously before Present.
     if ( !m_context || !m_renderer )

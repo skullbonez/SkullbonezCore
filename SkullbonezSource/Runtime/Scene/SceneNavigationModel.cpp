@@ -171,7 +171,6 @@ SceneLoadRequest LoadAdjacentScene( const SkullbonezCore::UI::SceneNavigationMod
 
     if ( currentSceneBrowserIndex >= 0 && IsCineScenePath( navigation.browser.paths[currentSceneBrowserIndex] ) )
     {
-
         // The browser path list is stable for this synchronous decision, so a
         // count pass followed by a selection pass needs no runtime allocation.
         int currentCinePosition = -1;

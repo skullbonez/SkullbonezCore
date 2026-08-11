@@ -152,7 +152,6 @@ bool RuntimeTools::CommitSelectionCommand( const RuntimeInteractionSelectionPlan
 
 bool RuntimeTools::ApplySelectionCommand( const RuntimeInteractionCommand& command, const SceneWorld& world )
 {
-
     // Why: owner-claiming commands need composition to apply transition cleanup
     // between prepare and commit. The convenience path is intentionally limited
     // to commands whose interaction owner is already established.
@@ -221,7 +220,6 @@ void RuntimeTools::ObserveSceneLifecycle( const SceneLifecyclePacket& packet, Sc
 
 void RuntimeTools::CancelMousePickup( InputRouter& inputRouter, RuntimeInteractionController& interaction )
 {
-
     // Invariant: the controller gesture is the sole capture fact. Clear native
     // presentation only when this owner actually held the typed pickup gesture.
     if ( interaction.Gesture().kind == RuntimeInteractionGestureKind::MousePickupDrag )
@@ -446,7 +444,6 @@ const char* RuntimeTools::LauncherFireModeLabel() const
 
 void RuntimeTools::BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample ) const
 {
-
     // Concept: Replay captures visible launcher/tool feedback separately from
     // physics state so scrubbed frames can redraw rays and laser afterimages
     // without re-firing the tool.
@@ -890,7 +887,6 @@ EditorTracer& RuntimeTools::Tracer()
 void RuntimeTools::PrepareOverlayTrace( SceneWorld& world, const Assets::AssetSystem& assets,
                                         const ToolOverlayBuildInput& input )
 {
-
     // Invariant: one owner clears and rebuilds the shared tracer exactly once
     // before replay appends its records for the same frame.
     m_editorTracer.Clear();

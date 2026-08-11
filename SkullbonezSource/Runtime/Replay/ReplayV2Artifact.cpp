@@ -154,7 +154,6 @@ struct ByteCursor
 
 template <typename T> void AppendPod( std::vector<uint8_t>& out, const T& value )
 {
-
     // Hazard: v2 chunks intentionally write POD bytes directly. Only use this
     // for fixed-layout file records whose fields are mirrored by the reader.
     static_assert( std::is_trivially_copyable<T>::value, "Replay v2 payload values must be POD" );
@@ -215,7 +214,6 @@ bool SkipBytes( ByteCursor& cursor, std::size_t size )
 
 void AppendChunkId( std::vector<uint8_t>& out, const char ( &id )[4] )
 {
-
     // Invariant: preserving the array extent writes the four-character chunk
     // id itself; accepting a decayed pointer would serialize an address.
     AppendBytes( out, id );
@@ -1233,7 +1231,6 @@ bool ParsePresentationSamples( const std::vector<uint8_t>& fileBytes, const Chun
 
     for ( const IndexedFrame& indexed : indexedFrames )
     {
-
         // Invariant: INDX offsets are relative to the PRES payload, not the
         // whole file. Add the chunk offset only after proving the relative seek
         // stays inside the presentation chunk.
@@ -1344,7 +1341,6 @@ bool ParsePresentationSamples( const std::vector<uint8_t>& fileBytes, const Chun
         if ( version >= REPLAY_PRESENTATION_VISUAL_VERSION &&
              ReplayRecorderOperations::ComputePresentationStateHash( sample ) != sample.stateHash )
         {
-
             // Invariant: v3 is not merely parseable. Every loaded body field
             // must reproduce the writer's presentation hash before scrub can
             // expose the sample to rendering.
@@ -1353,7 +1349,6 @@ bool ParsePresentationSamples( const std::vector<uint8_t>& fileBytes, const Chun
 
         if ( version < REPLAY_CANONICAL_QUATERNION_VERSION )
         {
-
             // Invariant: validate the historical bytes against their historical
             // hash before migrating. Published samples then carry a hash of the
             // canonical in-memory values exposed to current replay consumers.

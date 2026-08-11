@@ -186,7 +186,6 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch, RunLaunchOptions&
 
     if ( launch.predictTargetName[0] != '\0' )
     {
-
         // Why: this policy is copied, not merged. A later scene load reapplies
         // launch policy through the same call, and Run's one-shot latch — not a
         // cleared name — is what stops the request from re-arming.
@@ -419,7 +418,6 @@ Run::~Run()
 
     if ( !releaseResult.Ok() )
     {
-
         // Lane F: a destructor cannot propagate Lane R to a caller, and letting
         // member destruction continue after an uncertain GPU drain is unsafe.
         SB_FATAL( "Runtime/Run", "Backend resource release could not establish GPU safety. owner=%s reason=%s",
@@ -432,7 +430,6 @@ Run::~Run()
     // content branch or a retained backend pointer.
     m_sceneController.Scene().Tornado().ReleaseVisualResources();
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-
     // Lifetime: the preceding release path proved all submitted frames complete.
     // Destroy vendor GPU objects and return its descriptor rows while both the
     // ImGui context and concrete DX12 owners still exist.
@@ -444,7 +441,6 @@ Run::~Run()
 
 SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverrides& overrides )
 {
-
     // Why: Runtime/Init owns CLI parsing, but Run owns the live side effects
     // needed to make those startup policies active. Keep the public boundary as
     // one launch packet and preserve the old setter order because several
@@ -459,7 +455,6 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
 
     if ( launch.replayGuideArcsAtStartup )
     {
-
         // Why: startup overrides are applied after the initial scene transaction;
         // later scene loads reapply the same explicit request after activation.
         m_replayRuntime.SetGuideArcsEnabled( true );
@@ -533,7 +528,6 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
 
     return result;
 #else
-
     // Lane R: interaction scripts are external validation input. Ordinary game
     // builds reject them instead of linking the diagnostic controller into the
     // frame loop; tools must use the dedicated Automation configuration.
@@ -615,7 +609,6 @@ void Run::ApplyStartupPredictionRequest()
 
     if ( pauseScene && !m_sceneController.CrossScenePauseLocked() )
     {
-
         // Why: a paused scene stops changing the solver source, so the horizon
         // builds once and holds instead of restarting every frame.
         // --predict-running keeps the scene advancing for sustained worker load.
@@ -632,7 +625,6 @@ void Run::ApplyStartupPredictionRequest()
 
 void Run::Initialise()
 {
-
     // Why: timers default to inert storage so Run construction cannot throw
     // before the startup reporter exists. Initialise them at this boundary and
     // return platform counter failures through the normal Lane R process path.
@@ -775,7 +767,6 @@ void Run::Initialise()
 
     m_skipExecute = replayStartup.skipExecute;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-
     // Scene-authored legacy window defaults run during load. Reapply the
     // selected surface so an inactive implementation cannot become a second input owner.
     ApplyDevelopmentUiMode();
@@ -786,14 +777,12 @@ void Run::Initialise()
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 void Run::ApplyDevelopmentUiMode()
 {
-
     // Initialize once from CLI, then preserve an explicit hot swap across
     // scene/replay loads rather than treating scene defaults as UI authority.
     m_imguiEditor.InitializeSurfaceSelection( m_launchOptions.developmentUiMode );
 
     if ( !m_launchOptions.developmentUiModeExplicit && !m_imguiEditor.HasActivatedSurfaceSelection() )
     {
-
         // Invariant: an omitted selector chooses the Legacy implementation but
         // preserves the scene-authored Legacy visibility default. This keeps
         // ordinary launches and capture baselines stable while ImGui stays dormant.
@@ -806,7 +795,6 @@ void Run::ApplyDevelopmentUiMode()
 
 void Run::SelectDevelopmentUiSurface( DevelopmentUiMode surface )
 {
-
     // Invariant: deactivate the source before activating the target. The two
     // implementations coexist in the build but never own focus in one instant.
     if ( DevelopmentUiModeShowsLegacy( surface ) )

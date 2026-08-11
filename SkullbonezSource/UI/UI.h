@@ -138,7 +138,6 @@ struct UIProfilerMarkerOption
 // code, input hit-testing, and runtime state changes separated.
 struct InGameUIFrameData
 {
-
     // Shared domain view consumed by both operator front ends. Legacy
     // flat fields remain while later campaign panels migrate incrementally.
     OperatorEditorFrameView operatorEditor;

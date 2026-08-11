@@ -45,7 +45,6 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-
 // Lifetime: startup presentation activation borrows input, interaction,
 // camera, and terrain owners only for the synchronous load call. Solver,
 // scene-rebuild, and diagnostic authority is intentionally excluded.
@@ -461,7 +460,6 @@ class ReplayRestoreTransaction
 
         if ( !m_phase.TryAdvance( next ) )
         {
-
             // Lane F: accepting an out-of-order restore phase could publish a
             // partial topology or return after mutation without rollback.
             SB_FATAL( "Runtime/ReplayRestoreTransaction", "Illegal phase transition. operation=%s current=%u next=%u",
@@ -495,7 +493,6 @@ class ReplayRestoreTransaction
     uint64_t m_branchSolverHash = 0;
     char m_failureReason[320] = {};
 #ifdef _DEBUG
-
     // Lifetime: diagnostic strings are copied into transaction-owned bounded
     // storage so publication never borrows an artifact or stack reason buffer.
     ReplayRestoreProbeDiagnostic m_restoreProbeDiagnostic;

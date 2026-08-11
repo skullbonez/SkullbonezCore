@@ -143,7 +143,6 @@ static const PassRasterStateBucket& PrimitiveVisibleRasterState( bool isTranspar
 
 static uint8_t MaterialByte( float value )
 {
-
     // The material table is an 8-bit texture, so clamp and round normalized
     // material parameters at the CPU boundary before the shader samples them.
     return static_cast<uint8_t>( std::clamp( value, 0.0f, 1.0f ) * 255.0f + 0.5f );
@@ -151,7 +150,6 @@ static uint8_t MaterialByte( float value )
 
 static void EnsureMaterialTableTexture( const PrimitiveRenderContext& context, PrimitiveBatchRendererState& state )
 {
-
     // Concept: the current object material table is a tiny texture, not a
     // structured buffer or bindless descriptor table.
     //
@@ -189,7 +187,6 @@ static void EnsureMaterialTableTexture( const PrimitiveRenderContext& context, P
 
 static void AppendMaterialInstancePayload( std::vector<float>& out, const Matrix4& model, const RenderMaterial& material )
 {
-
     // Invariant: every primitive batch uses the same instance stream layout:
     // model matrix columns followed by material0/material1/material2/material3. The DX12
     // input layout and both instanced shaders must stay in lockstep with this
@@ -340,7 +337,6 @@ static void ApplyBatchLightConstants( PrimitiveBatchShaderConstants& constants, 
 
 static int ObjectStyleForShader( const SkullbonezCore::Core::CinematicRenderConfig* cinematicOverride )
 {
-
     // Encode render mode separately from the light vector. Negative values mean
     // "cinematic style", while ordinary batches use style 0 and may still use a
     // directional lightPosition.w of 0 for the sun/shadow-map contract.
@@ -757,7 +753,6 @@ void PrimitiveBatchRenderer::EnsureShadowDepthShader( const PrimitiveRenderConte
 {
     if ( !m_state.shadowDepthShader )
     {
-
         // One shared instanced depth shader is enough for balls, boxes, and pine
         // visuals because all three meshes expose the same static attributes and
         // per-instance material layout. The fragment output is irrelevant; the
@@ -1011,7 +1006,6 @@ void PrimitiveBatchRenderer::DrawShadowDepthSphereBatchEnd( const PrimitiveRende
 
     if ( m_state.sphereBatchReady && instanceCount > 0 && m_state.activeSphereInstMesh != 0 )
     {
-
         // Upload only the compact per-instance stream, then issue one instanced
         // draw for every sphere caster. This keeps the shadow pass draw-call
         // count predictable even in scenes with hundreds of balls.
@@ -1155,7 +1149,6 @@ void PrimitiveBatchRenderer::DrawShadowDepthBoxBatchEnd( const PrimitiveRenderCo
 
     if ( m_state.boxBatchReady && instanceCount > 0 && m_state.boxInstMesh != 0 )
     {
-
         // This draw is the box-caster fix point: if a scene has boxes and shadow
         // maps are active, their depth is written here before terrain/objects
         // sample the map in the forward pass.

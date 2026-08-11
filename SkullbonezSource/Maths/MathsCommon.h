@@ -60,7 +60,6 @@ constexpr float ZERO_TAKE_TOLERANCE = -0.00005f;
 
 namespace SkullbonezCore::Math
 {
-
 // Invariant: inverse-trig inputs derived from normalized float vectors use
 // this visible domain clamp before acos/asin. Rounding can otherwise move an
 // exact pole just outside [-1, 1], where the NaN result makes comparisons fail open.

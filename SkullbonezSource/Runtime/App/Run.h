@@ -169,7 +169,6 @@ class Run
     ReplayRuntime m_replayRuntime;                                                               // Constructs and sequences the concrete replay domain owners.
     RuntimeTools m_runtimeTools;                                                                 // Launcher, editor, manipulator state, and transient render feedback.
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-
     // Lifetime: the development editor owns only its ImGui CPU context and
     // presentation lifecycle; it receives no subsystem owner references.
     DevelopmentTools::ImGuiEditorOwner m_imguiEditor;

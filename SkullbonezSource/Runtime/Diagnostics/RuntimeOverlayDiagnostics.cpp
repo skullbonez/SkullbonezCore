@@ -228,7 +228,6 @@ RuntimeRenderFramePolicy RuntimeOverlayDiagnostics::BuildFramePolicy( double sim
 void RuntimeOverlayDiagnostics::ObserveSceneLifecycle( const SceneLifecyclePacket& packet,
                                                        const OverlayDebugState& scenePresentation )
 {
-
     // Invariant: scene loading is synchronous. This boundary observes the final
     // phase reached by the attempt, so the detached value already contains all
     // authored overrides applied before success or recoverable failure.

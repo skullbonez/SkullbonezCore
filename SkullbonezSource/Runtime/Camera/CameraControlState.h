@@ -95,7 +95,6 @@ struct CameraControlState
 
     void ResetForSceneLoad( bool authoredScene )
     {
-
         // Scene activation chooses only the initial workspace. Camera-local
         // tracking, automation, and frame input memory are reset here.
         mode = authoredScene ? RunCameraMode::Scene : RunCameraMode::Demo;

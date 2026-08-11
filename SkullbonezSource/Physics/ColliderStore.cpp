@@ -657,7 +657,6 @@ bool ColliderStore::UpdateRecordForHandle( PhysicsColliderHandle handle, const C
 
 void ColliderStore::ApplyPhysicsMaterial( const PhysicsMaterial& material )
 {
-
     // Concept: runtime material config is scalar policy, not shape authoring.
     // Keep the existing per-kind payload topology in place and touch only the
     // fields consumed by contact response and fluid drag.

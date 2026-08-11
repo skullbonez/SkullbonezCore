@@ -144,7 +144,6 @@ Matrix4 Matrix4::LookAt( const Vector3& eye, const Vector3& center, const Vector
 
     if ( !u.TryNormalise() )
     {
-
         // Fallback: authored cameras may omit up; world +Y is deterministic
         // and the parallel-axis branch below still handles a top-down view.
         u = Vector3( 0.0f, 1.0f, 0.0f );
@@ -215,7 +214,6 @@ Matrix4 Matrix4::Scale( float uniform )
 
 Matrix4 Matrix4::FromQuaternion( const Quaternion& q )
 {
-
     // Unit quaternion q = (qx, qy, qz, qw) becomes a 4x4 column-major rotation matrix.
     //
     // Derivation:
@@ -275,7 +273,6 @@ Matrix4 Matrix4::FromQuaternion( const Quaternion& q )
 Matrix4 Matrix4::operator*( const Matrix4& rhs ) const
 {
 #ifdef _DEBUG
-
     // Debug: scalar triple-loop — each intermediate value is individually inspectable.
     // result[col][row] = sum_k( lhs[k][row] * rhs[col][k] )
     Matrix4 result;
@@ -295,7 +292,6 @@ Matrix4 Matrix4::operator*( const Matrix4& rhs ) const
 
     return result;
 #else
-
     // Release/Profile: column-major 4×4 × 4×4 using SSE.
     //
     // STRATEGY: for each output column c, compute all 4 rows simultaneously using
@@ -331,7 +327,6 @@ Matrix4 Matrix4::operator*( const Matrix4& rhs ) const
 
     for ( int c = 0; c < 4; ++c )
     {
-
         // Broadcast each RHS scalar for output column c, scale the matching LHS column,
         // accumulate four contributions with two paired adds (avoids a 4-way add chain).
         _mm_storeu_ps( r + c * 4, _mm_add_ps( _mm_add_ps( _mm_mul_ps( lhsC0, _mm_set1_ps( rhs.m[c * 4 + 0] ) ),
@@ -360,7 +355,6 @@ const float* Matrix4::Data() const
 
 Matrix4 Matrix4::Inverse() const
 {
-
     // This cofactor expansion assumes the engine's column-major storage order.
     float inv[16];
     float det;

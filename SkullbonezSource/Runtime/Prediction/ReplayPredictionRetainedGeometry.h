@@ -126,7 +126,6 @@ inline bool AppendPredictionRetainedRecord( std::span<float> arena, Rendering::R
 
         if ( samePresentation && dx * dx + dy * dy + dz * dz <= continuityToleranceSquared )
         {
-
             // Invariant: adjacent records repair both ends of the shared join,
             // leaving unrelated fixed slices untouched.
             record[13] = previous[0];

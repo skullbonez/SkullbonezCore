@@ -36,7 +36,6 @@ namespace Runtime
 {
 enum class SceneRuntimeLifecycleEvent
 {
-
     // Invariant: declaration order is transaction order because observers use
     // ordinal comparison to answer whether a required phase was reached.
     None,

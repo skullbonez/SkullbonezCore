@@ -40,7 +40,6 @@ using AuthoredSceneParserDetail::RequireObject;
 
 void AuthoredSceneParser::ApplyPlayback( const Json& playback, const std::string& path )
 {
-
     // Concept: playback fields are deterministic-run policy, not presentation
     // hints. Fixed-step and completion settings therefore remain authored scene
     // state and are validated before the runtime sees them.
@@ -109,7 +108,6 @@ void AuthoredSceneParser::ApplyPlayback( const Json& playback, const std::string
 Physics::MutualGravitySettings AuthoredSceneParser::ReadMutualGravitySettings( const Json& mutualGravity,
                                                                                const std::string& path )
 {
-
     // Invariant: an enabled gravity model must arrive complete and physically
     // bounded; accepting partial values would make defaults machine-dependent.
     RequireObject( mutualGravity, path, "simulation.world.mutualGravity" );
@@ -375,7 +373,6 @@ void AuthoredSceneParser::ApplyTornadoSystem( const Json& tornadoSystem, const s
 
     if ( vortices.size() > MAX_AUTHORED_TORNADO_VORTICES )
     {
-
         // Lane R: authored input must fail before TornadoGameplay sees a value
         // that would exhaust its fixed steady-gameplay force-field storage.
         Fail( path, "Gameplay.TornadoGameplay tornadoSystem.vortices requested " + std::to_string( vortices.size() ) +

@@ -252,7 +252,6 @@ class PersistentContactSolveTransaction
 
 struct PersistentContactSolverSideEffects
 {
-
     // These are values, not callbacks: the sequencer applies them in the same
     // deterministic order after Solve returns.
     // Invariant: a step publishes either ordered pipelineRecords or their

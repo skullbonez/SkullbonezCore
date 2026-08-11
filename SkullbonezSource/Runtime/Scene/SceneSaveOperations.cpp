@@ -44,7 +44,6 @@ Core::SbResult SaveCompletePublication( Core::SbDiagnosticStore& diagnostics, co
                                         const SceneWorldSaveState& world, const SceneSessionSaveState& session,
                                         const PresentationSaveState& presentation )
 {
-
     // Why: these callers are production entry policies, not test adapters.
     // Centralizing only request composition makes a partial publication
     // impossible while each public operation retains its own path policy.

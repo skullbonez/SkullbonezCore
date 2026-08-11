@@ -70,7 +70,6 @@ class PrimitiveBatchRenderer;
 
 struct PrimitiveRenderContext
 {
-
     // Lifetime: commands and diagnostics are borrowed only for the receiving
     // call. PrimitiveBatchRenderer may remember the three concrete resource
     // owners until its owner destroys the renderer for backend teardown/rebuild.

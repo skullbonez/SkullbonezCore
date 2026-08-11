@@ -35,7 +35,6 @@ struct Dx12PipelineCommandState
 {
     void Reset()
     {
-
         // Invariant: lifecycle reuse must behave like a fresh owner, including
         // dirty flags that force complete publication on the first draw.
         m_activeShader = nullptr;

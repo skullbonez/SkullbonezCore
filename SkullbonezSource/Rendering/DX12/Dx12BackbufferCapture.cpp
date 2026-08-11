@@ -65,7 +65,6 @@ SkullbonezCore::Core::SbResult Dx12BackbufferCapture::CaptureBackbuffer( std::ve
 
     if ( !device || !commandList || !backbuffer || width <= 0 || height <= 0 )
     {
-
         // Lane R: capture dimensions and device resources are external frame
         // readiness, so report the unavailable operation to automation.
         outWidth = 0;
@@ -98,7 +97,6 @@ SkullbonezCore::Core::SbResult Dx12BackbufferCapture::CaptureBackbuffer( std::ve
 
     if ( !readback.InitBuffer( device, totalBytes, L"Skullbonez DX12 Screenshot Readback Buffer" ) )
     {
-
         // Why: restore the command stream before returning a recoverable
         // allocation failure; leaving CopySource active would poison Present.
         frame.TransitionBackbuffer( "BackbufferReadbackRestoreAfterFailure", accessBeforeCopy );
@@ -171,7 +169,6 @@ SkullbonezCore::Core::SbResult Dx12BackbufferCapture::CaptureBackbuffer( std::ve
 
 void Dx12BackbufferCapture::ReleaseAfterTerminalDrain()
 {
-
     // Lifetime: the caller's terminal drain is the proof that makes every
     // detached readback reference safe to release.
     for ( size_t index = 0; index < m_quarantinedCount; ++index )

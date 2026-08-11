@@ -162,7 +162,6 @@ struct InstancedMeshDX12
 // compatible PSOs instead of compiling a new one for every draw.
 struct PSOKey12
 {
-
     // Stable owner-issued identity only. A COM address may be recycled after
     // root-signature recreation, so it cannot prove PSO recipe compatibility.
     // Bytecode hashes keep recompiled identical shaders from exploding the
@@ -752,7 +751,6 @@ class RenderBackendDX12
     Dx12ResourceBuilder m_resourceBuilder;
     Dx12RaytracingOwner m_raytracingOwner;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-
     // Lifetime: this development renderer borrows the preceding concrete
     // device/descriptor/frame owners and is unbound before their shutdown.
     Dx12ImGuiRendererOwner m_imguiRenderer;

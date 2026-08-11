@@ -121,7 +121,6 @@ TornadoFieldConfig ProjectAuthoredTornadoField( const AuthoredTornadoFieldConfig
 
 TornadoSystemConfig ProjectAuthoredTornadoSystem( const AuthoredTornadoSystemConfig& authored )
 {
-
     // Boundary: Scene owns cold authored DTOs. Runtime performs the exhaustive
     // copy so Gameplay never depends upward on Scene or parser vocabulary.
     TornadoSystemConfig projected;
@@ -185,7 +184,6 @@ Quaternion MakeSceneEulerQuaternion( float eulerXDeg, float eulerYDeg, float eul
 
 void LogSceneLoadFailure( const SkullbonezCore::Core::SbResult& result, const std::string& scenePath )
 {
-
     // Why: scene setup is a recoverable load boundary. Logging the owner keeps
     // automation and operators on a concrete failing subsystem without treating
     // malformed scene/generated input as an engine invariant failure.
@@ -218,7 +216,6 @@ Json& EnsureJsonObject( Json& parent, const char* key )
 void SetTouchedCinematicSceneProperties( Json& root, uint64_t touchedMask,
                                          const SkullbonezCore::Core::CinematicRenderConfig& c )
 {
-
     // Concept: save only values the UI actually touched.
     //
     // Scene JSON can include reusable style files plus a few local overrides.
@@ -425,7 +422,6 @@ SkullbonezCore::Core::SbResult UseDefaultTerrain( SkullbonezCore::Core::SbDiagno
 
             if ( !flushResult.Ok() )
             {
-
                 // Lane R: keep the currently owned terrain alive when its GPU
                 // references cannot be proven drained.
                 return flushResult;
@@ -440,7 +436,6 @@ SkullbonezCore::Core::SbResult UseDefaultTerrain( SkullbonezCore::Core::SbDiagno
 
         if ( !terrainResult.Ok() )
         {
-
             // Why: RAW terrain is external scene/config input. Report the load
             // failure before replacing the currently owned terrain.
             return terrainResult;
@@ -479,7 +474,6 @@ SkullbonezCore::Core::SbResult UseFlatSlopeTerrain( SkullbonezCore::Core::SbDiag
 
         if ( !flushResult.Ok() )
         {
-
             // Lane R: assignment below destroys the old terrain. Leave it
             // untouched unless the GPU drain and command-list reopen succeeded.
             return flushResult;
@@ -530,7 +524,6 @@ void SceneLoadTransaction::AdvanceOrFatal( SceneLoadPhaseCursor::Phase next, con
 
     if ( !m_phase.TryAdvance( next ) )
     {
-
         // Lane F: accepting an out-of-order phase would expose partially
         // updated scene owners or publish presentation before reactions.
         SB_FATAL( "Runtime/SceneLoadTransaction", "Illegal phase transition. operation=%s current=%u next=%u", operation,
@@ -559,7 +552,6 @@ void SceneLoadTransaction::CaptureSubmittedState( const CameraControlState& came
                                                   const SceneLoadNavigationState& navigation, const OverlayDebugState& debug,
                                                   const char* rendererName, double sceneTimeSeconds )
 {
-
     // Why: submitted navigation and presentation values own growable cold-load
     // storage. Attribute their copies to SceneLoad even when the transaction is
     // opened from the steady-gameplay frame boundary.
@@ -686,7 +678,6 @@ void SceneLoadTransaction::ApplyRuntimeReactions( const RunLaunchOptions& launch
 
     if ( launchOptions.replayGuideArcsAtStartup && lifecycle.event == SceneRuntimeLifecycleEvent::AfterSceneActivated )
     {
-
         // Why: clear-phase processing restores the product's default-off state.
         // An explicit cold CLI request is reapplied only after activation.
         replayRuntime.SetGuideArcsEnabled( true );
@@ -768,7 +759,6 @@ void SceneLoadTransaction::ApplyPresentationOutputs( Window& window, UI::InGameU
 
     if ( outputs.refreshSceneBrowser )
     {
-
         // Why: scene creation writes editor-authored IO inside the scene owner,
         // but UI keeps display names and stable c-string views. Rebuild those
         // views after the request batch returns to the UI boundary.
@@ -818,7 +808,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 
     if ( !request.accepted )
     {
-
         // Lane R: a rejected navigation value cannot identify a scene to load;
         // preserve the active scene and report the owner boundary violation.
         return m_resultDiagnostics.Failure( "SceneController", "Rejected scene load request reached execution." );
@@ -852,7 +841,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 
     if ( !loadBegin.status.Ok() )
     {
-
         // Lane R: preparation has not mutated or destroyed the old
         // scene after a failed GPU drain, so preserve that state and end load.
         lastSceneLoadResult = loadBegin.status;
@@ -969,7 +957,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 
         if ( shouldPreserveRuntimeState )
         {
-
             // Restore setup-affecting live controls before the generated model pool is rebuilt.
             // Other visual/debug controls are restored later after scene JSON has loaded.
             const Environment::WorldOverrideChange
@@ -1195,7 +1182,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 
         if ( shouldPreserveRuntimeState )
         {
-
             // World sliders/keyboard water edits are part of the live scene controls.
             // Restore them after terrain/world JSON and --no-water have resolved,
             // so a plain reset keeps the operator's current environment.
@@ -1382,7 +1368,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 
     if ( sceneMutualGravityEnabled )
     {
-
         // Why: n-body space scenes have no contacts to wake quiet bodies later;
         // authored mutual gravity owns sleep policy for the duration of setup.
         sceneController.Scene().Physics().SetSleepEnabled( false );
@@ -1410,7 +1395,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 
     if ( launchOptions.graphicsStress )
     {
-
         // Invariant: scene reloads reset authored scene automation, but a
         // graphics-stress run is operator-owned and must keep running until the
         // launcher or timeout stops the process.

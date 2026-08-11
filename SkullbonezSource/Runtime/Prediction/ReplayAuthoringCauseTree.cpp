@@ -319,7 +319,6 @@ bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const Run
 
     if ( !authoring.CauseTreeRowCapacityCovers( estimatedRows ) )
     {
-
         // Hazard: this path runs from input/render. If a future scene exceeds
         // the preallocated explanation budget, hide the overlay for the frame
         // instead of growing row storage on the hot path.

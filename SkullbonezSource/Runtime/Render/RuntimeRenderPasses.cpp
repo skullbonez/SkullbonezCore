@@ -167,7 +167,6 @@ PhysicsDebugFrameView BuildPhysicsDebugFrameView( const RuntimeRenderModelFrameV
 void BindRenderTextureSlots( SkullbonezCore::Rendering::Dx12TextureOwner& renderTextures, uint32_t slot0, uint32_t slot1,
                              uint32_t slot2, uint32_t slot3, uint32_t slot4 = 0, uint32_t slot5 = 0 )
 {
-
     // Invariant: ordinary raster shaders expose t0..t5. Slot t4 is reserved for
     // the object material table, but pass hygiene still clears it to the typed
     // null SRV; object batches bind the material table again immediately before
@@ -226,7 +225,6 @@ bool ResolveRenderTextureHandle( Textures::TextureCollection& textures, uint32_t
 
 Vector3 NormalizeShadowLightDirection( Vector3 lightDirectionWorld )
 {
-
     // Why: scene/config data can omit or zero the sun vector. Shadows still need
     // a normalized direction so matrix construction cannot divide by a zero
     // length vector.
@@ -278,7 +276,6 @@ constexpr float FULLSCREEN_QUAD_VERTS[] = {
 void DrawFullscreenQuad( SkullbonezCore::Rendering::Dx12GeometryOwner& renderCommands, uint32_t quadVB,
                          const SkullbonezCore::Rendering::PassRasterStateBucket& rasterState )
 {
-
     // Shared post vertex contract: clip-space xy followed by UV. Keeping one
     // copy prevents sky, volumetric, and tonemap from quietly drifting apart.
     renderCommands.UploadAndDrawDynamicVB( quadVB, FULLSCREEN_QUAD_VERTS, rasterState );
@@ -370,7 +367,6 @@ void FullscreenQuadPass::EnsureGpuResources( const RenderResourceContext& resour
 
     if ( m_resources.quadVB == 0 )
     {
-
         // Full-screen shaders draw one rectangle; each vertex stores screen xy
         // plus uv, and every pass gives that same geometry its own shader meaning.
         const int attribs[] = { 2, 2 };
@@ -399,7 +395,6 @@ void SkyPass::EnsureGpuResources( const RenderResourceContext& resources )
 
     if ( !m_skyResources.atmosphereShader )
     {
-
         // Procedural sky shader: draws generated sunset/cloud color when the
         // cinematic config opts out of the authored cube-map skybox.
         m_skyResources.atmosphereShader = resources.assets.CreateShader( RenderResources( resources ),
@@ -430,7 +425,6 @@ void SceneTargetPass::EnsureGpuResources( const RenderResourceContext& resources
 
     if ( needsSceneTarget )
     {
-
         // RGBA16F preserves bright sky/fog values until TonemapPass compresses
         // them back to display color on the window backbuffer.
         if ( m_resources.hdrTarget )
@@ -464,7 +458,6 @@ bool SceneTargetPass::IsReady() const
 
 void ReflectionPass::EnsureGpuResources( const RenderResourceContext& resources )
 {
-
     // Why: the reflection texture is intentionally supersampled relative to the
     // window. Water can then sample it at grazing angles without making the
     // mirrored scene look blocky.
@@ -552,7 +545,6 @@ void ShadowPass::LogResourceLifecycleStep( const char* phase, const char* step )
 
 void ShadowPass::ReleaseGpuResources()
 {
-
     // Lifetime: drop both the backing framebuffer and the per-frame payload.
     // Framebuffer handles are owned by the current device/backend, so any
     // device reset, resize rebuild, or future backend bring-up must force a
@@ -824,7 +816,6 @@ void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target, const Prim
 
 ShadowPassOutput ShadowPass::ResetFrameOutputs()
 {
-
     // Invariant: always clear the receiver payloads at the start of the pass.
     // If shadows are disabled, downstream terrain/object passes must see null
     // outputs instead of last frame's depth texture handles.
@@ -841,7 +832,6 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
 
     if ( inputs.cinematic )
     {
-
         // Build shadow maps before any receiver pass. Terrain receives the broad
         // map, while objects receive a second tight map centered on nearby bodies
         // so ball-on-ball shadows have enough texel density.
@@ -907,7 +897,6 @@ void SkyPass::RenderCinematicSky( const RenderCameraLighting& camera, const Math
                                   const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                   Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12TextureOwner& renderTextures )
 {
-
     // Invariant: the active cinematic choice is a frame snapshot, while the
     // generated-sky shader and fullscreen vertex buffer are pass resources.
     // This path should not reach back through Run state for either.
@@ -961,7 +950,6 @@ void SceneTargetPass::Begin( const RenderCameraLighting& camera,
                              Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12Diagnostics& renderDiagnostics,
                              Rendering::RenderGpuTimingOwner* gpuTiming )
 {
-
     // Invariant: from this point onward, draw the world into the HDR scene
     // target instead of directly into the window. The post pass later moves it
     // to the backbuffer with the cinematic effects applied.
@@ -999,7 +987,6 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs 
 
     if ( useDxrReflection )
     {
-
         // Lifetime: the DX12 backend owns the raytracing acceleration
         // structures. The prepared render store streams current per-model
         // transforms into the TLAS before one reflection ray per texture pixel.
@@ -1096,7 +1083,6 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs 
 
         if ( inputs.collisionStateColorsVisible )
         {
-
             // Pass contract: collision-state solids are vertex-colored and do
             // not sample textures.
             ClearAllRenderTextureSlots( renderTextures );
@@ -1114,7 +1100,6 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs 
         }
         else
         {
-
             // Pass contract: reflected lit models read material color from slot
             // 0 and optional shadow depth from slot 3.
             ClearRenderTextureSlotsExcept( renderTextures,
@@ -1161,7 +1146,6 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
 
     if ( inputs.collisionStateColorsVisible )
     {
-
         // Pass contract: collision-state solids are vertex-colored and do not
         // sample textures.
         ClearAllRenderTextureSlots( renderTextures );
@@ -1179,7 +1163,6 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
     }
     else
     {
-
         // Pass contract: lit model shaders read the material texture in slot 0
         // and optionally the shadow depth texture in slot 3.
         ClearRenderTextureSlotsExcept( renderTextures,
@@ -1200,7 +1183,6 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
 
 void ObjectPass::EnsureGpuResources( const RenderResourceContext& /*resources*/ )
 {
-
     // Object mesh/shader resources live behind the scene view; this pass owns
     // the draw contract and texture-slot hygiene, not the model cache.
 }
@@ -1238,7 +1220,6 @@ void TerrainPass::Render( const TerrainPassInputs& inputs )
 
 void TerrainPass::EnsureGpuResources( const RenderResourceContext& resources )
 {
-
     // Terrain mesh/material resources live on Terrain; this pass owns ordering
     // and the receiver texture-slot contract.
     if ( m_terrain.Get() )
@@ -1300,7 +1281,6 @@ void WaterPass::Render( const WaterPassInputs& inputs )
 
 void WaterPass::EnsureGpuResources( const RenderResourceContext& resources )
 {
-
     // Water shader/mesh resources are owned by WorldEnvironment; this pass
     // makes reflection input explicit and keeps water downstream of reflection.
     m_world.EnsureRenderResources( m_config, resources.assets, RenderResources( resources ) );
@@ -1309,14 +1289,12 @@ void WaterPass::EnsureGpuResources( const RenderResourceContext& resources )
 
 void WaterPass::ReleaseGpuResources()
 {
-
     // WorldEnvironment owns fluid render resources.
 }
 
 
 bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
 {
-
     // Debug overlays intentionally stay out of the object/material pass. They
     // draw diagnostic geometry over the final world view and should not inherit
     // production material binding assumptions.
@@ -1455,7 +1433,6 @@ bool DebugOverlayPass::HasOverlayWork( const DebugOverlayPassInputs& inputs ) co
 
 void DebugOverlayPass::EnsureGpuResources( const RenderResourceContext& /*resources*/ )
 {
-
     // Debug visualizers own their transient geometry; this pass owns late-frame
     // ordering so diagnostics draw over production geometry.
 }
@@ -1470,7 +1447,6 @@ void VolumetricPass::EnsureGpuResources( const RenderResourceContext& resources 
 
     if ( !m_volumetricResources.shader )
     {
-
         // Half-resolution pass: creates warm light shafts that tonemap can add
         // without making every world shader understand volumetric lighting.
         m_volumetricResources.shader = resources.assets.CreateShader( RenderResources( resources ),
@@ -1575,7 +1551,6 @@ void TonemapPass::EnsureGpuResources( const RenderResourceContext& resources )
 
     if ( !m_tonemapResources.shader )
     {
-
         // Final full-screen shader: combines HDR scene color, depth fog, bloom,
         // grade, vignette, and optional volumetric light into the backbuffer.
         m_tonemapResources.shader = resources.assets.CreateShader( RenderResources( resources ), "shader.post_tonemap" );

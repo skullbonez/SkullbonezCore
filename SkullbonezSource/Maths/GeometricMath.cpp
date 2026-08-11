@@ -32,7 +32,6 @@ using namespace SkullbonezCore::Geometry;
 
 namespace
 {
-
 // Triangle normal via cross product.
 //
 // Given two edges of a CCW-wound triangle:
@@ -48,7 +47,6 @@ Vector3 ComputeTriangleNormal( const Triangle& triangle )
 
     if ( !normal.TryNormalise() )
     {
-
         // Fallback: a degenerate triangle has no direction-bearing plane; a
         // zero normal lets missable queries report NO_COLLISION deterministically.
         return ZERO_VECTOR;
@@ -74,7 +72,6 @@ Plane GeometricMath::ComputePlane( const Triangle& triangle )
 //   t = -( dot( n, origin ) - d ) / dot( n, direction )
 float GeometricMath::CalculateIntersectionTime( const Plane& plane, const Ray& ray )
 {
-
     // Why: malformed query geometry is caller-reachable input, not lane F.
     // Debug diagnoses misuse; Release falls through to the ordinary parallel
     // denominator path and reports NO_COLLISION.

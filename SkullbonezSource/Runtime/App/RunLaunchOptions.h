@@ -112,7 +112,6 @@ struct RunLaunchOptions
     bool hasPhysicsDebugContactLingerOverride = false;
     float physicsDebugContactLingerOverride = 0.45f;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-
     // CLI --dev-ui imgui opts into the docked editor; omitted remains Legacy.
     // Invariant: exactly one development UI owns window focus and input for a
     // process and there is no parallel/Both mode.
@@ -123,7 +122,6 @@ struct RunLaunchOptions
 
 struct RunStartupOverrides
 {
-
     // Concept: Init builds this packet from parsed CLI state and immediately
     // hands it to Run. Path pointers borrow ParsedArgs storage only for that
     // synchronous apply call; Run-owned systems copy or consume paths before it

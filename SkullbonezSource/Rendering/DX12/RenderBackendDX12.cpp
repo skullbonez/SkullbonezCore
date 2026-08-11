@@ -123,7 +123,6 @@ Dx12BackendInitResult( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostic
 {
     if ( FAILED( hr ) )
     {
-
         // Lane R: renderer startup depends on the adapter, driver, window, and
         // available descriptor resources. Return a bounded owner/message so the
         // process bootstrap can report the environment failure cleanly.
@@ -139,7 +138,6 @@ Dx12BackendOperationResult( SkullbonezCore::Core::SbDiagnosticStore& resultDiagn
 {
     if ( FAILED( hr ) )
     {
-
         // Lane R: runtime presentation, resize, and render-target creation
         // depend on the active adapter/driver/window state. Report the device
         // operation that failed instead of escaping through exception unwinding.
@@ -253,7 +251,6 @@ size_t Dx12GraphTransientPool::ExecuteGraphTransitions( const RenderGraph& graph
 
         if ( isCurrentBackbuffer && transition.before != m_frame.BackBufferAccess() )
         {
-
             // Hazard: graph compilation uses the tracked access sampled by the
             // wrapper. A mismatch means an untracked frame-edge transition ran
             // between declaration and callback execution.
@@ -580,7 +577,6 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, 
 
 SkullbonezCore::Core::SbResult Dx12PipelineOwner::Initialize( ID3D12Device* device )
 {
-
     // Lifetime: initialization is reusable after a prior Shutdown or partial
     // startup failure. Command bindings return to cold defaults before publishing
     // a new root signature.
@@ -589,7 +585,6 @@ SkullbonezCore::Core::SbResult Dx12PipelineOwner::Initialize( ID3D12Device* devi
 
     if ( !ValidateGeneratedUnifiedRasterRootSignature( reflectedContractError ) )
     {
-
         // Lane R: checked-in DXIL is startup input. Reject a stale or incompatible
         // family before publishing a native root signature or any PSO that uses it.
         return m_resultDiagnostics.Failure( "Dx12PipelineOwner", "%s reflection rejected: %s",
@@ -767,7 +762,6 @@ void RenderBackendDX12::Shutdown()
     {
         if ( m_frameOwner.HasSubmittedWork() )
         {
-
             // Lane F: terminal shutdown cannot release a partially owned device
             // after losing the only fence path that could prove queue completion.
             SB_FATAL( "RenderBackendDX12",
@@ -794,7 +788,6 @@ void RenderBackendDX12::Shutdown()
 
         if ( !openResult.Ok() )
         {
-
             // Lane F: shutdown cannot return a recoverable result, and Present
             // cannot legally drain a back buffer left in render-target state.
             SB_FATAL( "RenderBackendDX12",
@@ -844,7 +837,6 @@ void RenderBackendDX12::Shutdown()
 
     if ( !initialDrainResult.Ok() )
     {
-
         // Lane F: releasing any backend object after this point could race a
         // submitted command stream. Terminal shutdown must stop instead.
         SB_FATAL( "RenderBackendDX12", "Shutdown could not prove initial GPU queue completion. owner=%s reason=%s",
@@ -969,7 +961,6 @@ void RenderBackendDX12::Shutdown()
 
     if ( m_imguiRenderer.IsInitialized() )
     {
-
         // Lane F: only the ImGui context owner can safely invoke the vendor
         // shutdown API. Reaching device teardown still bound would release
         // descriptor/device storage before its context-owned resources.
@@ -1135,7 +1126,6 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::FlushGPU()
     if ( !CommandList() || !m_device.GraphicsQueue() || !m_device.FrameFence().IsReady() ||
          !m_device.CommandAllocator( AllocatorIndex() ) )
     {
-
         // Lane R: an active resource-mutation drain cannot claim success unless
         // it can both wait for submitted work and reopen the recording epoch.
         return RetainFailure( m_resultDiagnostics
@@ -1158,7 +1148,6 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::FlushGPU()
 
         if ( !drainProgress.CommitClose() || !drainProgress.CanSubmit() )
         {
-
             // Lane F: this local sequence can advance only after the successful
             // Close above; disagreement means the engine's ordering proof broke.
             SB_FATAL( "Dx12FrameOwner", "FlushGPU drain order rejected a successful command-list Close." );
@@ -1225,7 +1214,6 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::DrainForResourceRelease()
 
     if ( DeviceLost() )
     {
-
         // Lifetime: DXGI device removal terminates this device/queue lifetime;
         // the submitted commands can no longer execute against resources from
         // it. Do not issue a fence Signal after removal. Abandon the completion
@@ -1471,7 +1459,6 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
 
     if ( !m_pipeline.RenderingToFramebuffer() && BackBufferAccess() != RenderGraphResourceAccess::RenderTarget )
     {
-
         // Invariant: BackbufferClear is an executable graph pass. Clear only
         // records the operation after that pass has acquired RenderTarget.
         SB_FATAL( "Dx12FrameOwner", "Backbuffer clear reached the frame owner without graph acquisition. tracked=%s",
@@ -1491,7 +1478,6 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-rssetscissorrects
     if ( target.color )
     {
-
         // Clear the render target to a solid color (wipes the entire back buffer).
         // Docs:
         // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-clearrendertargetview
@@ -1500,7 +1486,6 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
 
     if ( target.depth )
     {
-
         // Clear the depth buffer to 1.0 (maximum distance), so all subsequent draws will pass
         // the depth test. This is done at the start of each frame or when switching render targets.
         // Docs:

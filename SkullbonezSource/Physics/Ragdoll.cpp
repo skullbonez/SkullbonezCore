@@ -297,7 +297,6 @@ float Ragdoll::SurfaceEpsilon()
 
 const RagdollPartDesc* Ragdoll::SimpleParts()
 {
-
     // Invariant: this table order is the prefab body index order and is paired
     // with SimpleJoints plus SIMPLE_PART_COUNT.
     static const RagdollPartDesc parts[PART_COUNT] = {

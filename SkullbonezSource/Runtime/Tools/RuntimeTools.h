@@ -179,7 +179,6 @@ struct ToolOverlayBuildInput
 };
 
 #ifdef _DEBUG
-
 // Lifetime: a synchronous Debug dump borrows SceneWorld once and resolves its
 // cameras, terrain, entities, and physics rows locally. Scalar process policy
 // values are copied or borrowed only until the file write returns.
@@ -221,7 +220,6 @@ struct RunMousePickupState
 
 struct EditorPointerPreviewInput
 {
-
     // Lifetime: one post-UI pointer sample; world rays are values so the tool
     // never reaches back into Window, CameraCollection, or InputRouter.
     bool blocksCameraMouse = false;
@@ -234,7 +232,6 @@ struct EditorPointerPreviewInput
 
 struct EditorPointerSelectionInput
 {
-
     // Invariant: selection preparation is side-effect free. InputRouter applies
     // the returned owner transition before CommitSelectionCommand mutates state.
     bool inspectGizmoActive = false;
@@ -245,7 +242,6 @@ struct EditorPointerSelectionInput
 
 struct EditorPlacementScalePointerResult
 {
-
     // Composition consumes these facts after the tool has atomically ended or
     // committed the placement gesture; no callback reaches back into Run.
     ReplayEventCommand replayEvent;
@@ -257,7 +253,6 @@ struct EditorPlacementScalePointerResult
 
 struct EditorGizmoDragPointerInput
 {
-
     // Lifetime: one routed pointer frame. The sampled ray remains stable while
     // the tool mutates physics and records the release event.
     bool leftDown = false;
@@ -271,7 +266,6 @@ struct EditorGizmoDragPointerInput
 
 struct EditorGizmoDragPointerResult
 {
-
     // Composition publishes the input-mode edge after owner teardown.
     ReplayEventCommandBatch replayEvents;
     bool consumed = false;
@@ -288,7 +282,6 @@ enum class EditorGizmoGestureKind
 
 struct EditorGizmoGesturePlan
 {
-
     // Invariant: preparation captures every value needed after InputRouter
     // performs cross-owner cleanup; commit never reads a Run callback/context.
     EditorGizmoGestureKind kind = EditorGizmoGestureKind::None;
@@ -314,7 +307,6 @@ struct EditorGizmoGestureResult
 
 struct EditorPlacementScaleStartResult
 {
-
     // Composition publishes the semantic begin edge only for a started gesture.
     bool consumed = false;
     bool beganGesture = false;
@@ -322,7 +314,6 @@ struct EditorPlacementScaleStartResult
 
 struct EditorViewportPlacementInput
 {
-
     // Lifetime: one post-UI device sample; wheel and pointer facts cannot be
     // resampled while the tool mutates its durable placement state.
     int unhandledWheelDelta = 0;
@@ -346,7 +337,6 @@ enum class EditorViewportModeAction
 
 struct EditorViewportPlacementResult
 {
-
     // Composition applies camera/input-mode effects after the tool mutation.
     bool resetMouseLook = false;
     bool enteredInteractiveScene = false;

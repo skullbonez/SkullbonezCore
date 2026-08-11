@@ -78,7 +78,6 @@ LauncherLaser::LauncherLaser()
 
 LauncherLaser::~LauncherLaser()
 {
-
     // Lifetime: backend-owned handles are explicitly released by Run while the
     // renderer is live. Destruction may happen after backend teardown, so it
     // only clears CPU-owned state.
@@ -352,7 +351,6 @@ void LauncherLaser::Render( const Matrix4& viewProjection, const Vector3& camera
 
     if ( !m_rasterStatePrepared )
     {
-
         // Why: compile the additive overlay recipe before the first submission
         // instead of discovering a new PSO from setter history inside the draw.
         m_rasterStatePrepared = renderCommands.PrecompileDynamicVBRasterState( m_dynamicVB, LASER_RASTER_BUCKET );

@@ -69,7 +69,6 @@ RenderCapabilities Dx12Diagnostics::GetCapabilities() const
 
 RenderMemoryStats Dx12Diagnostics::GetRenderMemoryStats() const
 {
-
     // Concept: one value snapshot combines bounded engine tables with the
     // operating system's memory charge for the adapter backing this device.
     // It observes every owner but cannot resize or mutate any of them.
@@ -131,7 +130,6 @@ RenderMemoryStats Dx12Diagnostics::GetRenderMemoryStats() const
 
     if ( IDXGIFactory4* factory = m_device->Factory() )
     {
-
         // Why: adapter zero is not necessarily the adapter that created the
         // device. Match the device LUID before sampling graphics-kernel budgets.
         const LUID deviceLuid = m_device->Device()->GetAdapterLuid();
@@ -254,7 +252,6 @@ SkullbonezCore::Core::SbResult Dx12Diagnostics::InitializeGpuTimers( ID3D12Devic
 
     if ( FAILED( device->CreateQueryHeap( &heapDesc, IID_PPV_ARGS( &m_gpuTimers.queryHeap ) ) ) )
     {
-
         // Lane R: GPU timing is optional diagnostics. Renderer startup remains
         // usable when the driver cannot expose a timestamp query heap.
         return SkullbonezCore::Core::SbResult::Success();
@@ -275,7 +272,6 @@ SkullbonezCore::Core::SbResult Dx12Diagnostics::InitializeGpuTimers( ID3D12Devic
 
     if ( FAILED( frequencyResult ) )
     {
-
         // Lane R: frequency is driver/device capability discovered at startup.
         ShutdownGpuTimers();
         return m_resultDiagnostics.Failure( "Dx12Diagnostics", "GetTimestampFrequency failed (HRESULT 0x%08X)",
@@ -325,7 +321,6 @@ void Dx12Diagnostics::ConsumeGpuTimerReadback( Dx12DiagnosticsFrame& frame, bool
     }
     else if ( frame.CompletedFenceValue() < m_gpuTimers.readFenceValue )
     {
-
         // Why: catch a fence that is only a few microseconds behind without a
         // kernel wait. A genuinely incomplete sample remains pending.
         for ( int spin = 0; spin < 512; ++spin )

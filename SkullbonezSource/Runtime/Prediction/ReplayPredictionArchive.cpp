@@ -135,7 +135,6 @@ class ArchiveWriter
 
         if ( m_schema < REPLAY_PREDICTION_ARCHIVE_SCHEMA )
         {
-
             // Compatibility: schema v2 stored the conjugate representation.
             // This validation writer produces authentic historical bytes so the
             // reader's migration is tested against the actual old convention.
@@ -245,7 +244,6 @@ class ArchiveReader
 
         if ( schema < REPLAY_PREDICTION_ARCHIVE_SCHEMA )
         {
-
             // Compatibility: schema v2 stored the conjugate representation.
             // Negating xyz changes only their sign bits and preserves w.
             Math::Orientation::ConjugateQuaternionVectorPart( x, y, z );
@@ -461,7 +459,6 @@ bool BuildReplayPredictionArchiveForSchemaValidation( const RunReplayPathVisuali
 
         if ( IsInactivePredictionWorkerBankRecord( record ) )
         {
-
             // Hazard: this double-buffer bank is renderer-inactive after
             // completion, but its schedule-selected keys and point payloads
             // used to leak into the durable artifact. Keep one fixed-width

@@ -55,7 +55,6 @@ void WriteAutomationReason( char* destination, std::size_t size, const char* mes
 
 bool VerifyReplayPredictionArchiveRoundTrip( std::span<const uint8_t> bytes, char* outReason, std::size_t reasonSize )
 {
-
     // Lane P: this is bounded validation work performed after the sole live
     // capture. Temporary vectors are diagnostics artifacts, never steady-state
     // replay storage or a second presentation path.

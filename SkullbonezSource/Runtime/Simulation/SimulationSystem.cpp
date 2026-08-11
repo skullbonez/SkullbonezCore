@@ -111,7 +111,6 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
 
     if ( canStepPhysics )
     {
-
         // The impulse solver uses discrete overlap tests and needs small fixed
         // steps for stability. The runtime owner executes the returned count;
         // camera and miscellaneous UI updates use one frame-level dt.

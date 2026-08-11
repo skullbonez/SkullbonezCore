@@ -58,7 +58,6 @@ void StepDiagnosticsPhysicsPipelineStage( OverlayDebugState& debug, int directio
 DiagnosticsPhysicsOverlayUICommandResult ApplyDiagnosticsPhysicsOverlayUICommands( OverlayDebugState& debug,
                                                                                    const UI::UIPhysicsCommands& commands )
 {
-
     // Why: UI names presentation layers, while Runtime owns the only mapping to
     // Physics flags and the overlay state consumed by the concrete visualizer.
     DiagnosticsPhysicsOverlayUICommandResult result;

@@ -34,7 +34,6 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-
 // Semantic scrubber actions are owner vocabulary, not screen-layout policy.
 // The layout publishes action ids; ReplayScrubber resolves one action from the
 // current pointer/frame values before the composition root applies cross-owner
@@ -164,7 +163,6 @@ struct ReplayLiveRestoreRequest
     ReplayFrameIndex requestedFrame = 0;
     bool makeLiveBranch = false;
 #ifdef _DEBUG
-
     // Debug-only probe seam: corrupt expected target metadata after artifact
     // selection so rollback is exercised after live-state mutation.
     bool injectTargetHashMismatchForProbe = false;
@@ -350,7 +348,6 @@ class ReplayScrubber
 
     void ArmLoadedPresentation( float normalized, double now, double holdSeconds ) noexcept
     {
-
         // Invariant: a loaded artifact owns the presentation cursor while the
         // live solver cursor stays parked at its present edge.
         SelectTrack( RunReplayTrack::Presentation );
