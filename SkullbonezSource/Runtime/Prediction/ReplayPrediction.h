@@ -630,8 +630,9 @@ class ReplayPrediction
                                 float maxHorizonSeconds );
     void DisableAndClearCache();
 
-    // Play freezes the visible committed prefix and cancels any worker; unlike
-    // an authored enable toggle, that transition must not request a rebuild.
+    // An explicit transition back to live time freezes the visible committed
+    // prefix and cancels any worker; unlike an authored enable toggle, that
+    // transition must not request a rebuild.
     void DisableForLiveAdvance() noexcept
     {
         m_state.enabled = false;

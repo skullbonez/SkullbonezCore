@@ -2901,11 +2901,14 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             const char* playPauseLabel = replay.scrubber.historicalSamplePaused || replay.scrubber.liveAdvanceHeld
                                              ? ( compact ? ">" : "PLAY" )
                                              : ( compact ? "||" : "PAUSE" );
+            ImGui::BeginDisabled( replay.prediction.enabled );
 
             if ( ImGui::Button( playPauseLabel ) )
             {
                 submitReplay( UI::OperatorEditorReplayCommandType::TogglePlayPause );
             }
+
+            ImGui::EndDisabled();
 
             ImGui::SameLine();
 

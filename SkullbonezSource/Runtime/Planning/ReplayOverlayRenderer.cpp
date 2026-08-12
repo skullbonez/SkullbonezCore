@@ -147,6 +147,7 @@ void RenderReplayScrubberOverlay( UiDrawSubmission& submission, Text::TextBatch&
     surfaceInput.screenW = screenW;
     surfaceInput.screenH = screenH;
     surfaceInput.gesture = gesture;
+    surfaceInput.predictionEnabled = replay.prediction.enabled;
     ReplayScrubberSurface surface;
     BuildReplayScrubberSurface( surfaceInput, surface );
     surface.ResolvePointer( scrubber.mouseX, scrubber.mouseY );
@@ -279,26 +280,27 @@ void RenderReplayScrubberOverlay( UiDrawSubmission& submission, Text::TextBatch&
     {
         const UI::UIRect pauseButton = control( ReplayScrubberControl::Pause ).drawRect;
         const bool liveAdvanceHeld = scrubber.liveAdvanceHeld;
-        const bool pauseHover = solverToolsEnabled && isHotControl( ReplayScrubberControl::Pause );
+        const bool playbackEnabled = control( ReplayScrubberControl::Pause ).enabled;
+        const bool pauseHover = playbackEnabled && isHotControl( ReplayScrubberControl::Pause );
         draw.RoundedRect( pauseButton.x, pauseButton.y, pauseButton.w, pauseButton.h, radii.smallButton,
                           pauseHover ? palette.controlHover.r : palette.control.r,
                           pauseHover ? palette.controlHover.g : palette.control.g,
                           pauseHover ? palette.controlHover.b : palette.control.b,
-                          fadeA( solverToolsEnabled ? ( pauseHover || liveAdvanceHeld ? 0.94f : 0.78f ) : 0.38f ) );
+                          fadeA( playbackEnabled ? ( pauseHover || liveAdvanceHeld ? 0.94f : 0.78f ) : 0.38f ) );
 
         draw.Outline( pauseButton.x, pauseButton.y, pauseButton.w, pauseButton.h,
                       liveAdvanceHeld ? palette.accentStrong.r : palette.accent.r,
                       liveAdvanceHeld ? palette.accentStrong.g : palette.accent.g,
                       liveAdvanceHeld ? palette.accentStrong.b : palette.accent.b,
-                      fadeA( solverToolsEnabled ? ( pauseHover || liveAdvanceHeld ? 0.78f : 0.36f ) : 0.14f ) );
+                      fadeA( playbackEnabled ? ( pauseHover || liveAdvanceHeld ? 0.78f : 0.36f ) : 0.14f ) );
 
         drawText( pauseButton.x + 9.0f, pauseButton.y + 5.0f, 9.5f,
-                  !solverToolsEnabled ? palette.textMuted.r
-                                      : ( liveAdvanceHeld ? palette.accentStrong.r : palette.textSecondary.r ),
-                  !solverToolsEnabled ? palette.textMuted.g
-                                      : ( liveAdvanceHeld ? palette.accentStrong.g : palette.textSecondary.g ),
-                  !solverToolsEnabled ? palette.textMuted.b
-                                      : ( liveAdvanceHeld ? palette.accentStrong.b : palette.textSecondary.b ),
+                  !playbackEnabled ? palette.textMuted.r
+                                   : ( liveAdvanceHeld ? palette.accentStrong.r : palette.textSecondary.r ),
+                  !playbackEnabled ? palette.textMuted.g
+                                   : ( liveAdvanceHeld ? palette.accentStrong.g : palette.textSecondary.g ),
+                  !playbackEnabled ? palette.textMuted.b
+                                   : ( liveAdvanceHeld ? palette.accentStrong.b : palette.textSecondary.b ),
                   liveAdvanceHeld ? "PLAY" : "PAUSE" );
 
         {

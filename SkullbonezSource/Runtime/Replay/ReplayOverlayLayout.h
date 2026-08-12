@@ -96,6 +96,7 @@ struct ReplayScrubberSurfaceInput
     RuntimeInteractionGestureKind gesture = RuntimeInteractionGestureKind::None;
     bool loadedPresentation = false;
     bool solverToolsEnabled = false;
+    bool predictionEnabled = false;
     bool predictionToolsEnabled = false;
     bool pastPathToolsEnabled = false;
     bool branchTargetAvailable = false;

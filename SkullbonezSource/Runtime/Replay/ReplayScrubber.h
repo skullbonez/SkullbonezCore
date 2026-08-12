@@ -107,6 +107,7 @@ struct ReplayScrubberPointerFrame
     bool uiMinimized = false;
     bool loadedPresentation = false;
     bool pathTargetAvailable = false;
+    bool predictionEnabled = false;
     bool predictionTimelineAvailable = false;
     bool currentPresentationAvailable = false;
     bool currentSolverAvailable = false;

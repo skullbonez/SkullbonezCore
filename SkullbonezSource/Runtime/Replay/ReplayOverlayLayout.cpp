@@ -220,7 +220,7 @@ void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, Replay
                 branch, true, input.branchTargetAvailable );
 
     addControl( ReplayScrubberControl::Pause, ReplayScrubberAction::TogglePause, RuntimeUiControlKind::Button, pause, pause,
-                !input.loadedPresentation, input.solverToolsEnabled );
+                !input.loadedPresentation, input.solverToolsEnabled && !input.predictionEnabled );
 
     addControl( ReplayScrubberControl::VelocityEdit, ReplayScrubberAction::ToggleVelocityEdit, RuntimeUiControlKind::Toggle,
                 velocity, velocity, !input.loadedPresentation, input.solverToolsEnabled );

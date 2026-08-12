@@ -291,6 +291,20 @@ TEST_CASE( "Replay overlay: surface description publishes owner availability as 
     CHECK( surface.hasHotControl );
     CHECK( surface.hotControl == pause->id );
 
+    input.predictionEnabled = true;
+    BuildReplayScrubberSurface( input, surface );
+    pause = surface.Find( ReplayScrubberControlId( ReplayScrubberControl::Pause ) );
+    REQUIRE( pause != nullptr );
+    CHECK_FALSE( pause->enabled );
+    surface.ResolvePointer( RectCenterX( pause->hitRect ), RectCenterY( pause->hitRect ) );
+    CHECK( surface.hasPointerControl );
+    CHECK_FALSE( surface.hasHotControl );
+    CHECK( surface.consumesPointer );
+
+    input.predictionEnabled = false;
+    BuildReplayScrubberSurface( input, surface );
+    pause = surface.Find( ReplayScrubberControlId( ReplayScrubberControl::Pause ) );
+    REQUIRE( pause != nullptr );
     surface.ResolvePointer( RectCenterX( pause->hitRect ), RectCenterY( pause->hitRect ), true );
     CHECK_FALSE( surface.hasPointerControl );
     CHECK_FALSE( surface.hasHotControl );

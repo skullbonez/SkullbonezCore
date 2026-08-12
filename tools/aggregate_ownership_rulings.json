@@ -406,7 +406,7 @@
                        },
                        {
                            "key":  "ReplayLiveRestoreRequest",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayScrubber.h:159",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayScrubber.h:160",
                            "members":  9,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
@@ -524,7 +524,7 @@
                        {
                            "key":  "ReplayScrubberSurfaceInput",
                            "site":  "SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h:91",
-                           "members":  11,
+                           "members":  12,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
                            "reason":  "Screen extent, track, gesture, loaded state, tool capabilities, target availability, and drag/hot-zone policy are one layout hit-test snapshot; geometry and interaction must share it.",
