@@ -5,7 +5,7 @@
     {
       "file": "SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp",
       "signature": "void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view, const ReplayOverlay::ReplayOverlayStateView& replay )",
-      "body_sha256": "1e047ac13a7b0b552b1a6767bda99c9473fe815e6c99426b0365efb1dc491428",
+      "body_sha256": "b6d0ec02a50a063b54ce40ba8b10d4e65ff6ddcb57804276084614ed5e5177b2",
       "owner": "ImGuiEditorOwner development-shell frame pass",
       "disposition": "retain-owner",
       "reason": "One immediate-mode development-shell composition pass consumes detached frame views, including bounded Look Lab status; its window and tree branches plus local widget values all expire at return, while helper extraction without a new invariant would only relay the same frame authority.",
@@ -135,7 +135,7 @@
     {
       "file": "SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.cpp",
       "signature": "void RenderReplayScrubberOverlay( UiDrawSubmission& submission, Text::TextBatch& textBatch, UI::UIDrawList& drawList, const ReplayOverlayStateView& replay, Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderCommands, Rendering::Dx12Diagnostics& renderDiagnostics, Core::Profiler* profiler, bool scenePhysicsEnabled, RuntimeInteractionGestureKind gesture, ReplayOverlayViewport viewport, double nowSeconds )",
-      "body_sha256": "0861608a70f1d3bc85c1e4ef458313e6e68bdc4fb07356819aac5289c0e2ed2f",
+      "body_sha256": "6968da79e2e368c33015c526d649c51811e5db9346cb63ed67561f731d6e3986",
       "owner": "Replay scrubber overlay pass",
       "disposition": "retain-owner",
       "reason": "One presentation pass converts a detached replay overlay snapshot into an ordered draw submission for one viewport and time; renderer owners are synchronous sinks and no overlay state is retained.",

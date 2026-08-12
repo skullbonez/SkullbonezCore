@@ -49,5 +49,5 @@ if errorlevel 1 exit /b 1
 "%PYTHON_EXE%" "%~dp0align_header_inline_comments.py" --repo "%REPO%" --write --clang-format "%CLANG_FMT%"
 if errorlevel 1 exit /b 1
 
-echo Formatted %COUNT% C++ files, kept assignment heads and compact calls together, separated multiline statements/control blocks, and aligned header inline comments.
+echo Formatted %COUNT% C++ files, kept ordinary statements, assignment heads, and compact calls together, separated control-flow/comment paragraphs, and aligned header inline comments.
 exit /b 0

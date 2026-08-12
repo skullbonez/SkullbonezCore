@@ -1,9 +1,9 @@
 """File: tools/separate_multiline_cpp_declarations.py
 
 Purpose:
-  Adds paragraph breaks after wrapped local statements and completed
-  condition/loop blocks once clang-format has made their boundaries clear.
-  It also rejects assignment lines that strand `=` without the expression.
+  Adds paragraph breaks around completed condition/loop blocks once
+  clang-format has made their boundaries clear. It also rejects assignment
+  lines that strand `=` without the expression.
   One-to-three short parenthesized arguments remain on one line. Wider
   expressions keep the first argument beside the opening parenthesis and align
   continuations beneath it. Standalone comments receive paragraph space after
@@ -13,10 +13,10 @@ Purpose:
 
 Summary:
   clang-format owns token layout but intentionally does not create semantic
-  paragraph breaks. This post-pass recognizes indented multiline statements
-  with an unambiguous declaration, assignment, or call start. It also matches
-  braces to separate completed if/else, switch, for, while, and do/while blocks
-  from the next statement without splitting a control-flow chain.
+  paragraph breaks. This post-pass keeps ordinary statements compact and
+  matches braces to separate completed if/else, switch, for, while, and
+  do/while blocks from adjacent statements without splitting a control-flow
+  chain.
 
 Glossary:
   Paragraph break: One empty line between adjacent local statements.
@@ -29,8 +29,8 @@ Glossary:
 
 Invariants:
   - The pass changes whitespace only; it never changes or reorders code tokens.
-  - Global statements, single-line statements, functions, and ordinary scopes
-    are outside the rule.
+  - Wrapped and single-line ordinary statements remain adjacent; semantic
+    paragraph spacing is reserved for control flow and standalone comments.
   - A break is never inserted between `}` and `else`, before an enclosing `}`,
     or between a `do` body and its trailing `while`.
   - An assignment line never ends at `=`; the first expression token stays on
@@ -67,22 +67,6 @@ from pathlib import Path
 from typing import Iterable
 
 
-MULTILINE_STATEMENT_END = re.compile(
-    r"^(?P<indent>[ \t]*)(?P<body>.+);(?:\s*//.*)?$"
-)
-DECLARATION_START = re.compile(
-    r"^(?:(?:const|constexpr|consteval|constinit|static|thread_local|volatile)\s+)*"
-    r"(?:[A-Za-z_]\w*(?:::[A-Za-z_]\w*)*(?:\s*<.*>)?)"
-    r"(?:\s*[*&]+\s*|\s+)"
-    r"[A-Za-z_]\w*(?:\s*(?:=|\{|\[))"
-)
-ASSIGNMENT_START = re.compile(
-    r"^[A-Za-z_]\w*(?:(?:\.|->)[A-Za-z_]\w*|\[[^\]]+\])*\s*=\s*.+$"
-)
-CALL_START = re.compile(
-    r"^(?:[A-Za-z_]\w*::)*[A-Za-z_]\w*"
-    r"(?:(?:\.|->)[A-Za-z_]\w*)*\s*\(.+$"
-)
 FOLLOWING_CLOSERS = ("}", "else", "catch", ")", "]", ",", "#else", "#elif", "#endif")
 CONTROL_FLOW_HEADER = re.compile(r"^(?P<kind>if|else(?:\s+if)?|for|while|switch|do)\b")
 STRANDED_ASSIGNMENT = re.compile(r"(?<![=!<>])=(?!=)\s*(?://.*)?$")
@@ -593,45 +577,6 @@ def control_flow_end_lines(text: str, lines: list[str]) -> set[int]:
     return result
 
 
-def is_local_statement_start(line: str, expected_indent: str | None, maximum_indent: int) -> bool:
-    line_indent = indentation(line)
-    if not line_indent:
-        return False
-    if expected_indent is not None and line_indent != expected_indent:
-        return False
-    if len(line_indent) > maximum_indent:
-        return False
-
-    stripped = line.strip()
-    if CONTROL_FLOW_HEADER.match(stripped) is not None:
-        return False
-    return (
-        DECLARATION_START.match(stripped) is not None
-        or ASSIGNMENT_START.match(stripped) is not None
-        or CALL_START.match(stripped) is not None
-    )
-
-
-def find_statement_start(lines: list[str], end_index: int, expected_indent: str | None) -> int | None:
-    maximum_indent = len(indentation(lines[end_index]))
-    for index in range(end_index - 1, -1, -1):
-        line = lines[index]
-        if not line.strip():
-            return None
-
-        line_indent = indentation(line)
-        if expected_indent is not None and len(line_indent) < len(expected_indent):
-            return None
-        if line.lstrip().startswith("#"):
-            return None
-        if line.rstrip().endswith(";"):
-            return None
-        if is_local_statement_start(line, expected_indent, maximum_indent):
-            return index
-
-    return None
-
-
 def following_line_allows_break(lines: list[str], end_index: int) -> bool:
     next_index = end_index + 1
     if next_index >= len(lines) or not lines[next_index].strip():
@@ -639,19 +584,6 @@ def following_line_allows_break(lines: list[str], end_index: int) -> bool:
 
     next_line = lines[next_index].lstrip()
     return not next_line.startswith(FOLLOWING_CLOSERS)
-
-
-def should_separate_after(lines: list[str], end_index: int) -> bool:
-    match = MULTILINE_STATEMENT_END.match(lines[end_index])
-    if match is None:
-        return False
-
-    body = match.group("body").strip()
-    expected_indent = match.group("indent") if body in (")", "}") else None
-    return find_statement_start(lines, end_index, expected_indent) is not None and following_line_allows_break(
-        lines,
-        end_index,
-    )
 
 
 def ensure_control_flow_spacing(text: str) -> tuple[str, int]:
@@ -696,26 +628,11 @@ def separate_multiline_statements(text: str) -> SpacingResult:
     text, joined_assignments, joined_compact_calls = normalize_expression_layout(text)
     text, comment_breaks = ensure_comment_spacing(text)
     text, control_breaks = ensure_control_flow_spacing(text)
-    trailing_newline = text.endswith("\n")
-    lines = text.splitlines()
-    output: list[str] = []
-    inserted_breaks = 0
-
-    for index, line in enumerate(lines):
-        output.append(line)
-        separates_multiline_statement = should_separate_after(lines, index)
-        if separates_multiline_statement:
-            output.append("")
-            inserted_breaks += 1
-
-    formatted = "\n".join(output)
-    if trailing_newline:
-        formatted += "\n"
-    formatted = normalize_blank_lines(formatted)
+    formatted = normalize_blank_lines(text)
 
     return SpacingResult(
         formatted,
-        inserted_breaks + comment_breaks + control_breaks,
+        comment_breaks + control_breaks,
         joined_assignments,
         joined_compact_calls,
     )
@@ -828,17 +745,13 @@ def run_self_test() -> int:
     Owners owners{
         first
     };
-
     const Input second{
         owners
     };
-
     m_lastResult = loader.Load( first,
                                 second );
-
     ApplyFirst( m_lastResult,
                 second );
-
     ApplySecond( m_lastResult,
                  first );
 
@@ -856,8 +769,8 @@ def run_self_test() -> int:
 """
     first = separate_multiline_statements(compact)
     second = separate_multiline_statements(first.text)
-    if first.text != expected or first.inserted_breaks != 6:
-        print("SELF_TEST_FAIL: multiline statements were not separated as expected.", file=sys.stderr)
+    if first.text != expected or first.inserted_breaks != 2:
+        print("SELF_TEST_FAIL: ordinary statements did not retain compact spacing.", file=sys.stderr)
         return 1
     if second.text != expected or second.inserted_breaks != 0:
         print("SELF_TEST_FAIL: the spacing pass is not idempotent.", file=sys.stderr)
@@ -874,12 +787,23 @@ def run_self_test() -> int:
 {
     Owners owners { first,
                     second };
-
     Use( owners );
 }
 """
     if separate_multiline_statements(brace_line).text != brace_line_expected:
-        print("SELF_TEST_FAIL: brace-line initializer was not separated.", file=sys.stderr)
+        print("SELF_TEST_FAIL: brace-line initializer did not retain compact spacing.", file=sys.stderr)
+        return 1
+
+    adjacent_wrapped_statement = """void Example()
+{
+    const char* label = state.held
+                            ? "PLAY"
+                            : "PAUSE";
+    BeginDisabled( state.predictionEnabled );
+}
+"""
+    if separate_multiline_statements(adjacent_wrapped_statement).text != adjacent_wrapped_statement:
+        print("SELF_TEST_FAIL: a wrapped statement forced obsolete paragraph spacing.", file=sys.stderr)
         return 1
 
     compact_control = """void Example()
@@ -1298,7 +1222,7 @@ def run_self_test() -> int:
         return 1
 
     print(
-        "SELF_TEST_PASS: multiline spacing, assignment heads, and compact calls are stable."
+        "SELF_TEST_PASS: compact statement spacing, assignment heads, and calls are stable."
     )
     return 0
 
@@ -1395,8 +1319,8 @@ def main() -> int:
         return 0 if mode == "write" else 1
 
     print(
-        f"PASS: {len(sources)} source file(s) already separate multiline statements/control blocks "
-        "and keep assignment heads/compact calls together."
+        f"PASS: {len(sources)} source file(s) already separate control-flow/comment paragraphs "
+        "and keep ordinary statements, assignment heads, and compact calls together."
     )
     return 0
 
