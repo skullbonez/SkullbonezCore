@@ -1393,8 +1393,8 @@ const RunReplayPredictionFrame* ReplayRuntime::CurrentPredictionScrubFrame() con
     // Concept: prediction frames extend the solver track past the present
     // marker. They are not retained history, so only the future side of the
     // normalized track can resolve to a prediction frame. Prediction.enabled is
-    // deliberately not checked here: Play can freeze rebuilds while keeping the
-    // committed future scrubbable.
+    // deliberately not checked here: an explicit transition back to live time
+    // can freeze rebuilds while keeping the committed future scrubbable.
     std::size_t frameCount = 0;
     const std::vector<RunReplayPredictionFrame>& frames = ReplayRuntimeTimelinePredictionFrames( m_predictionOwner.State(),
                                                                                                  frameCount );

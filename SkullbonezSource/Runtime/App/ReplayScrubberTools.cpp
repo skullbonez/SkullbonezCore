@@ -824,8 +824,9 @@ void ApplyReplayLiveAdvanceAction( ReplayPrediction& predictionOwner, ReplayPres
 
         if ( predictionOwner.BuildPrefixShouldBePresented() )
         {
-            // Why: Play freezes the prediction prefix currently visible to the
-            // operator, not an older committed path hidden behind worker state.
+            // Why: an explicit transition back to live time freezes the
+            // prediction prefix currently visible to the operator, not an
+            // older committed path hidden behind worker state.
             promotedBuildPrefix = predictionOwner.PromoteBuildPrefixToCommitted();
         }
 
@@ -877,6 +878,14 @@ void HandleReplayPausePressed( ReplayPrediction& predictionOwner, ReplayPresenta
                                InputRouter& inputRouter, RuntimeInteractionController& interaction,
                                CameraControlState& camera, double now, bool& outEnterInteractive )
 {
+    // Invariant: an enabled prediction is rooted at one held live frame. The
+    // operator must disable prediction before live simulation can advance.
+    if ( predictionOwner.State().enabled )
+    {
+        KeepReplayScrubberVisible( scrubber, now );
+        return;
+    }
+
     ApplyReplayLiveAdvanceAction( predictionOwner, presentation, scrubber, !scrubber.View().liveAdvanceHeld,
                                   solverPresentTrackPosition, velocityEditEnabled, hasCameraFocus, inputRouter, interaction,
                                   camera, outEnterInteractive );
@@ -964,6 +973,15 @@ void HandleReplayPredictionPressed( ReplayPrediction& predictionOwner, ReplayScr
 {
     outEnterInteractive = true;
     const bool predictionEnabled = predictionOwner.ToggleEnabled();
+
+    if ( predictionEnabled )
+    {
+        // Why: prediction paths and markers describe a future from the current
+        // live state. Holding that state prevents the world moving through a
+        // stale committed future while the operator inspects it.
+        (void)scrubber.SetLiveAdvanceHeld( true );
+    }
+
     interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
                                                      predictionEnabled ? WorldInteractionOwner::ReplayPrediction
                                                                        : WorldInteractionOwner::ReplayScrub,
@@ -1217,6 +1235,7 @@ ReplayScrubberPointerDecision ReplayScrubber::ResolvePointerAction( const Replay
                                                                                   frame.currentSolverAvailable,
                                                                                   frame.scenePhysicsEnabled );
 
+    surfaceInput.predictionEnabled = frame.predictionEnabled;
     surfaceInput.hotZoneEnabled = !frame.uiBlocksMouse;
     surfaceInput.screenW = frame.screenWidth;
     surfaceInput.screenH = frame.screenHeight;
@@ -1549,6 +1568,7 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput( bool uiBlocksMous
     pointerFrame.uiMinimized = uiMinimized;
     pointerFrame.loadedPresentation = loadedPresentation;
     pointerFrame.pathTargetAvailable = m_visualPresentation.PathVisualizer().hasTarget;
+    pointerFrame.predictionEnabled = m_predictionOwner.State().enabled;
     pointerFrame.predictionTimelineAvailable = m_predictionOwner.ActiveFrames().size() >= 2 ||
                                                m_predictionOwner.State().BuildPrefixShouldBePresented();
 
