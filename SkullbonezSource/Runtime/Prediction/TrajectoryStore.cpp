@@ -7,7 +7,9 @@ Purpose:
 Summary:
   A trajectory record is immutable to readers up to its published prefix.
   Builders reactivate capacity-compatible dormant records, append unpublished
-  points, then publish a larger prefix once those points are coherent.
+  points, then publish a larger prefix once those points are coherent. A
+  completed committed flip compacts the obsolete prediction bank behind the active
+  prefix so final output cannot retain cadence-dependent scratch state.
 
 Glossary:
   Replay allocation scope: RuntimeAllocationTracker phase used while approved
@@ -182,6 +184,108 @@ void ReplayTrajectoryStore::PublishPrefix( ReplayTrajectoryRecord& record, std::
         record.publishedPointCount = publishedPointCount;
         ++publicationVersion;
     }
+}
+
+std::size_t ReplayTrajectoryStore::RetirePredictionBankRecords( ReplayPredictionTrajectoryBank bank,
+                                                                uint16_t futureRootBuildBranch,
+                                                                uint16_t firstChildBuildBranch ) noexcept
+{
+    const auto recordUsesBank = [bank, futureRootBuildBranch, firstChildBuildBranch]( const ReplayTrajectoryRecord& record )
+    {
+        if ( record.key.lane == ReplayTrajectoryLane::FutureRoot )
+        {
+            const bool usesBuildBranch = record.key.branchOrdinal == futureRootBuildBranch;
+            const bool usesCommittedBranch = record.key.branchOrdinal == 0u;
+            return bank == ReplayPredictionTrajectoryBank::Build ? usesBuildBranch : usesCommittedBranch;
+        }
+
+        if ( record.key.lane != ReplayTrajectoryLane::FutureChildIncoming &&
+             record.key.lane != ReplayTrajectoryLane::FutureChildOutgoing )
+        {
+            return false;
+        }
+
+        const bool usesBuildBranch = record.key.branchOrdinal >= firstChildBuildBranch;
+        return bank == ReplayPredictionTrajectoryBank::Build ? usesBuildBranch : !usesBuildBranch;
+    };
+
+    const std::size_t previousActiveCount = activeRecordCount;
+    std::size_t retainedCount = 0u;
+
+    // Invariant: swapping each next retained record into the earliest hole is
+    // a stable compaction of the reader-visible prefix. Committed draw order is
+    // unchanged, while every retired vector keeps its warmed point capacity.
+    for ( std::size_t readIndex = 0u; readIndex < previousActiveCount; ++readIndex )
+    {
+        if ( recordUsesBank( records[readIndex] ) )
+        {
+            continue;
+        }
+
+        if ( retainedCount != readIndex )
+        {
+            std::iter_swap( records.begin() + static_cast<std::ptrdiff_t>( retainedCount ),
+                            records.begin() + static_cast<std::ptrdiff_t>( readIndex ) );
+        }
+
+        ++retainedCount;
+    }
+
+    activeRecordCount = retainedCount;
+    return previousActiveCount - retainedCount;
+}
+
+std::size_t ReplayTrajectoryStore::RetirePredictionBank( ReplayPredictionTrajectoryBank bank, uint16_t futureRootBuildBranch,
+                                                         uint16_t firstChildBuildBranch ) noexcept
+{
+    const std::size_t retiredCount = RetirePredictionBankRecords( bank, futureRootBuildBranch, firstChildBuildBranch );
+
+    if ( retiredCount > 0u )
+    {
+        ++publicationVersion;
+    }
+
+    return retiredCount;
+}
+
+std::size_t ReplayTrajectoryStore::CommitPredictionReplacementBank( ReplayPredictionTrajectoryBank replacementBank,
+                                                                    uint16_t futureRootBuildBranch,
+                                                                    uint16_t firstChildBuildBranch ) noexcept
+{
+    const ReplayPredictionTrajectoryBank visibleBank = replacementBank == ReplayPredictionTrajectoryBank::Build
+                                                           ? ReplayPredictionTrajectoryBank::Committed
+                                                           : ReplayPredictionTrajectoryBank::Build;
+    const std::size_t retiredCount = RetirePredictionBankRecords( visibleBank, futureRootBuildBranch,
+                                                                  firstChildBuildBranch );
+    std::size_t normalizedCount = 0u;
+
+    if ( replacementBank == ReplayPredictionTrajectoryBank::Build )
+    {
+        for ( ReplayTrajectoryRecord& record : std::span<ReplayTrajectoryRecord>( records.data(), activeRecordCount ) )
+        {
+            if ( record.key.lane == ReplayTrajectoryLane::FutureRoot && record.key.branchOrdinal == futureRootBuildBranch )
+            {
+                record.key.branchOrdinal = 0u;
+                ++normalizedCount;
+            }
+            else if ( ( record.key.lane == ReplayTrajectoryLane::FutureChildIncoming ||
+                        record.key.lane == ReplayTrajectoryLane::FutureChildOutgoing ) &&
+                      record.key.branchOrdinal >= firstChildBuildBranch )
+            {
+                record.key.branchOrdinal = static_cast<uint16_t>( record.key.branchOrdinal - firstChildBuildBranch );
+                ++normalizedCount;
+            }
+        }
+    }
+
+    // Invariant: readers observe one token transition for the bank swap. Record
+    // versions remain the versions assigned while the hidden bank was built.
+    if ( retiredCount > 0u || normalizedCount > 0u )
+    {
+        ++publicationVersion;
+    }
+
+    return retiredCount + normalizedCount;
 }
 
 std::size_t ReplayTrajectoryStore::TrimPublishedPointsBeforeFrame( ReplayTrajectoryRecord& record,

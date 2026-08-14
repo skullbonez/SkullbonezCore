@@ -6,7 +6,7 @@ Purpose:
 Summary:
   ReplayPrediction owns isolated future simulation and coherent completed-prefix publication.
   Readers consume a never-stored presentation view whose trajectory bank remains visible while
-  its committed duplicate resumes.
+  its hidden replacement resumes in the opposite trajectory bank.
 Invariants:
   - Worker publication retains the release/acquire prefix protocol.
   - Presentation consumers cannot observe rows beyond the prepared prefix.
@@ -14,8 +14,8 @@ Invariants:
   - Cancellation waits for an in-flight worker slice before clearing state.
 
 Related:
-  - ReplayRuntime.h
-  - ReplayRecorder.h
+  - SkullbonezSource/Runtime/App/ReplayRuntime.h
+  - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
@@ -477,6 +477,15 @@ struct ReplayPredictionCommittedPublicationState
     bool PublicationTargetAvailable( bool requestedTargetAvailable ) const noexcept
     {
         return pending ? visibleTargetAvailable : requestedTargetAvailable;
+    }
+
+    ReplayPredictionTrajectoryBank ReplacementTrajectoryBank() const noexcept
+    {
+        // Invariant: hidden duplication owns the bank opposite the captured
+        // reader-visible trajectory. This remains stable until the atomic flip.
+        return visibleSnapshotCaptured && !visibleTrajectoryBuild.usingBuildFrames
+                   ? ReplayPredictionTrajectoryBank::Build
+                   : ReplayPredictionTrajectoryBank::Committed;
     }
 };
 

@@ -13,12 +13,12 @@ Glossary:
 Invariants:
   - Topology never reads beyond the acquire-visible prediction prefix.
   - Published marker and topology versions change only on coherent replacement.
-  - A completed build bank remains visible until its committed topology and
-    trajectory duplicate reaches one generation-matched ready transition.
+  - The captured visible bank remains unchanged until its hidden topology and
+    trajectory replacement reaches one generation-matched ready transition.
 
 Related:
-  - ReplayPredictionPublication.cpp
-  - ReplayPredictionPublicationOperations.h
+  - SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.cpp
+  - SkullbonezSource/Runtime/Prediction/ReplayPredictionPublicationOperations.h
 */
 #include "ReplayPredictionPublicationOperations.h"
 #include "../Scene/SceneEntityStore.h"
@@ -1054,8 +1054,10 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const
     const Physics::PhysicsSceneObjectId publicationTargetId = prediction.committedPublication.PublicationTargetId( targetId );
     const ModelRowHint publicationTargetModelRow = prediction.committedPublication.PublicationTargetModelRow( targetModelRow );
     const bool publicationTargetAvailable = prediction.committedPublication.PublicationTargetAvailable( targetAvailable );
-    const bool usingBuildFrames = presentingBuildPrefix || committedPublicationPending;
-    const bool publicationUsingBuildFrames = committedPublicationPending ? false : usingBuildFrames;
+    const bool publicationUsingBuildFrames = committedPublicationPending
+                                                 ? prediction.committedPublication.ReplacementTrajectoryBank() ==
+                                                       ReplayPredictionTrajectoryBank::Build
+                                                 : presentingBuildPrefix;
     const std::vector<RunReplayPredictionFrame>& activePredictionFrames = presentingBuildPrefix
                                                                               ? prediction.build.buildFrames
                                                                               : prediction.simulation.frames;
@@ -1225,26 +1227,8 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const
 
     if ( committedPublicationPending )
     {
-        const std::size_t nodeCount = (std::min)( prediction.futureNodeCache.futureNodes.size(),
-                                                  static_cast<std::size_t>( REPLAY_PATH_MAX_FUTURE_NODES ) );
-        const ReplayPredictionChildMarkerScanState& markerScan = prediction.futureNodeCache.childMarkerScan;
-        const bool markerPublicationReady = nodeCount == 0u ||
-                                            markerScan.Matches( prediction.build.generationBeginCount,
-                                                                prediction.futureNodeCache.futureNodesTopologyVersion,
-                                                                nodeCount, publicationTargetId, activePredictionFrameCount,
-                                                                drawWindow.revealFrame, false );
-
-        if ( prediction.FutureTreePublicationComplete( prediction.trajectoryBuild, publicationTargetId, false,
-                                                       activePredictionFrameCount ) &&
-             markerPublicationReady && !ReplayPredictionBudgetExpired( overlayBudgetStart, budgetMilliseconds ) )
-        {
-            // Invariant: topology, child/all-body trajectories, and every
-            // retained marker have now completed against the same committed
-            // generation. This is the only point that retires the visible
-            // build snapshot.
-            prediction.futureNodeCache.futureNodesBuiltFromBuildFrames = false;
-            prediction.committedPublication.Reset();
-        }
+        (void)TryFlipReplayPredictionCommittedPublication( prediction, publicationTargetId, activePredictionFrameCount,
+                                                           drawWindow.revealFrame, overlayBudgetStart, budgetMilliseconds );
     }
 }
 

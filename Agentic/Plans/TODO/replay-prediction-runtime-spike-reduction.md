@@ -1,7 +1,7 @@
 # Replay Prediction Runtime Spike Reduction
 
 Date: 2026-08-14
-Status: Active - 2/5 phases complete
+Status: Active - 3/5 phases complete
 Impact area: Runtime/Prediction publication and presentation, Replay scrubber
 composition, focused CPU tests, Automation diagnostics
 Owner: Replay Prediction owns publication/cache storage; ReplayRuntime composes
@@ -132,7 +132,7 @@ trajectory record through one frame-thread pass.
   replacement bank is incomplete. Switch the reader-visible bank/version only
   after future-node topology and trajectory records describe the same complete
   generation.
-- [ ] Preserve deterministic record ordering, branch identity, publication
+- [x] Preserve deterministic record ordering, branch identity, publication
   versions, final fingerprints, and Automation/offline artifact output across
   different budget-expiry schedules.
 - [x] Delete the zero-budget completion path once no reader depends on it; do
@@ -178,10 +178,27 @@ RP1 implementation evidence (Automation, four completed 120-second predictions):
 - Focused production-path fixtures cover pending presentation, fast completion,
   failed begin, Promote-and-Begin, node-count marker invalidation, and a
   deterministic nonzero all-body resume prefix whose record versions match an
-  uninterrupted build. The visual-fidelity engine again
-  captures all 2,401 authoritative reveal ticks, then the excluded 4,200-frame
-  harness enters its known second live-playback pass. The exact fingerprint
-  checkbox therefore remains open and RP1 is not counted complete.
+  uninterrupted build. The schedule fixture now drives narrow, varied, and
+  uninterrupted committed-publication passes through the production flip
+  predicate and proves identical record order, versions, points, presentation
+  facts, and visual-packet fingerprints.
+- Completion before the first presented build prefix now selects the trajectory
+  bank opposite the captured committed prediction. A focused A-to-B fixture
+  proves A's root/child keys, versions, points, and publication token remain
+  unchanged while B publishes, then proves the flip retires A and normalizes B
+  to canonical committed branch identities. The flip also canonicalizes the
+  marker-scan bank key, avoiding a redundant next-frame rescan.
+- The rebuilt Automation determinism probe matches two cadence schedules at
+  trajectory fingerprint `0x0702E1DFBB57F16D` (402 active records, 73,021
+  points, 361 active frames); submitted geometry remains
+  `0xF06608D189EFEEAD` for at least 120 frames. The shortened four-generation
+  diagnostic no longer observes completion trajectory publication; child-marker
+  context is 0.0007-0.4411 ms and Predict-off clear is 0.0047-0.0123 ms.
+- The immutable visual-fidelity wrapper was bounded to two minutes and again
+  remained inside its excluded long interaction after producing the mid-reveal
+  capture. No harness or restart behavior was changed. RP1 closes on the
+  dedicated schedule, packet, and Automation determinism proofs; the harness
+  remains RP2/excluded closure evidence rather than an RP1 publication blocker.
 
 ## Phase RP2 - Make Child-Marker Discovery Incremental
 

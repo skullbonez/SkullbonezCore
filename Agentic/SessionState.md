@@ -2,7 +2,7 @@
 
 Date: 2026-08-15
 Branch: `nightrunner-14th-AUG-26`
-Status: Active - 2/5 phases complete
+Status: Active - 3/5 phases complete
 
 Replay Prediction Runtime Spike Reduction is the only live plan. It owns the
 measured completion-publication, child-marker, and Predict-off runtime stalls.
@@ -29,13 +29,20 @@ request; hidden topology, trajectories, and markers stay bound to the promoted
 target through its coherent flip. Committed topology, child/all-body
 trajectories, and markers resume under the overlay budget and flip together. The
 latest four-generation run no longer observes the previous 97.0515-116.7760 ms
-completion marker;
-child markers measure 0.0006-0.6583 ms and Predict-off 0.0045-0.0105 ms. Its
-p99/p99.9 frames are 15.2249/15.8814 ms; the 119.8513 ms maximum is excluded
-Automation report serialization. RP1 remains open only for its exact immutable
-fingerprint checkbox behind the same excluded harness failure. Final closure
-still awaits that immutable-oracle harness repair and an owner threshold ruling;
-no timing threshold has been added.
+completion marker. RP1 is complete: hidden publication selects the bank opposite
+the captured prediction, fast completion cannot overwrite visible root/child
+records, and the flip canonicalizes trajectory plus marker-cache bank identity.
+Narrow, varied, and uninterrupted budget schedules produce identical ordered
+records and packet fingerprints. The rebuilt Automation probe matches at
+trajectory fingerprint `0x0702E1DFBB57F16D` and submitted geometry
+`0xF06608D189EFEEAD`; 86 Replay cases pass with 2,496 assertions. The latest
+diagnostic measures child markers at 0.0007-0.4411 ms and Predict-off at
+0.0047-0.0123 ms, with p99/p99.9 frames at 15.2930/16.1074 ms; the 121.4658 ms
+maximum is excluded Automation report serialization. The two-minute visual
+fidelity attempt remained in the existing excluded long interaction and was
+stopped without changing its harness. Final closure still awaits RP2's
+full-scan oracle and an owner threshold ruling; no timing threshold has been
+added.
 
 Source Modernization Sweep, Dense Pile Sleep Resolution, Broadphase Dense
 Dedup Restoration, and Look Lab Random Style Authoring remain closed by owner

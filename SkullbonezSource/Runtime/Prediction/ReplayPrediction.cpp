@@ -698,7 +698,13 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayPrediction& predictionOwner
         return false;
     }
 
-    (void)RebuildReplayPredictionCommittedRootTrajectory( prediction );
+    const ReplayPredictionTrajectoryBank replacementBank = prediction.committedPublication.ReplacementTrajectoryBank();
+
+    if ( !RebuildReplayPredictionReplacementRootTrajectory( prediction, replacementBank ) )
+    {
+        prediction.build.dirty = true;
+        return false;
+    }
 
     if ( prediction.baseline.valid )
     {

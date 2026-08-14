@@ -6,7 +6,9 @@ Purpose:
 Summary:
   Builders mutate an active record prefix while dormant slots retain their
   nested point capacity across Predict toggles. Renderers see only published
-  points in the active prefix; archive restore intentionally replaces storage.
+  points in the active prefix. A coherent committed flip retires obsolete
+  prediction-bank records into dormant capacity without disturbing retained order;
+  archive restore intentionally replaces storage.
 
 Invariants:
   - Points append only while capacity is already reserved; append failure must
@@ -31,6 +33,14 @@ Related:
 
 namespace SkullbonezCore::Runtime
 {
+// Concept: bank names identify future-trajectory key partitions, independently
+// of which frame vector currently owns the captured visible prefix.
+enum class ReplayPredictionTrajectoryBank : uint8_t
+{
+    Committed,
+    Build
+};
+
 namespace ReplayTrajectoryStoreOperations
 {
 // Selects same-key capacity first, then any sufficient slot, then the largest
@@ -99,6 +109,16 @@ struct ReplayTrajectoryStore
     bool TryAppendPoint( ReplayTrajectoryRecord& record, const ReplayTrajectoryPoint& point );
     void PublishPrefix( ReplayTrajectoryRecord& record, std::size_t pointCount ) noexcept;
 
+    // Retires one hidden prediction bank before replacement starts. Kept
+    // records preserve relative order; retired records remain dormant capacity.
+    std::size_t RetirePredictionBank( ReplayPredictionTrajectoryBank bank, uint16_t futureRootBuildBranch,
+                                      uint16_t firstChildBuildBranch ) noexcept;
+
+    // Atomically removes the old visible bank and normalizes a build-bank
+    // replacement to committed keys. Non-prediction lanes remain untouched.
+    std::size_t CommitPredictionReplacementBank( ReplayPredictionTrajectoryBank replacementBank,
+                                                 uint16_t futureRootBuildBranch, uint16_t firstChildBuildBranch ) noexcept;
+
     // Removes expired published points without replacing the record/version, so
     // the renderer always sees one continuous retained-path publication.
     std::size_t TrimPublishedPointsBeforeFrame( ReplayTrajectoryRecord& record,
@@ -120,6 +140,8 @@ struct ReplayTrajectoryStore
     std::vector<ReplayTrajectoryRecord> records;
     std::size_t activeRecordCount = 0;
 
+    std::size_t RetirePredictionBankRecords( ReplayPredictionTrajectoryBank bank, uint16_t futureRootBuildBranch,
+                                             uint16_t firstChildBuildBranch ) noexcept;
     uint32_t AllocateVersion() noexcept;
 };
 } // namespace SkullbonezCore::Runtime
