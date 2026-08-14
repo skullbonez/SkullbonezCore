@@ -407,7 +407,13 @@ struct ReplayPredictionIsolatedSimulation
     bool predictionEngineReady = false;
     ReplaySolverWorldSnapshot predictionWorld;
     std::vector<RunReplayPredictionBodyBackup> predictionBodies;
+
+    // Concept: frames is a retained allocation bank; committedFrameCount is
+    // the published prefix. Invalidating prediction must hide that prefix in
+    // O(1) without destructing every frame's nested body/contact capacities.
+    // Invariant: readers never infer publication from frames.size().
     std::vector<RunReplayPredictionFrame> frames;
+    std::size_t committedFrameCount = 0;
 };
 
 struct ReplayVelocityDragPreviewState
@@ -477,6 +483,15 @@ struct RunReplayPredictionState
     // worker-owned build can tighten ownership without changing every overlay.
     std::size_t PublishedBuildFrameCount() const noexcept;
     bool HasPublishedBuildFramePrefix( std::size_t minFrameCount = 2u ) const noexcept;
+    std::size_t CommittedFrameCount() const noexcept;
+    std::span<const RunReplayPredictionFrame> CommittedFrames() const noexcept;
+    bool HasCommittedFramePrefix( std::size_t minFrameCount = 2u ) const noexcept;
+    static void InvalidateCommittedFrameBank( std::size_t& committedFrameCount ) noexcept;
+    static void PromoteFrameBanks( std::vector<RunReplayPredictionFrame>& committedFrames, std::size_t& committedFrameCount,
+                                   std::vector<RunReplayPredictionFrame>& completedBuildFrames,
+                                   std::size_t frameCount ) noexcept;
+    void InvalidateCommittedFrames() noexcept;
+    void PromoteBuildFramesToCommitted( std::size_t frameCount ) noexcept;
     bool BuildPrefixShouldBePresented() const noexcept;
     bool BuildPrefixHasBeenPresented() const noexcept;
     bool BuildFramesAreComplete() const noexcept;
@@ -575,9 +590,12 @@ class ReplayPrediction
 
     std::span<const RunReplayPredictionFrame> ActiveFrames() const noexcept
     {
-        const std::vector<RunReplayPredictionFrame>& frames = m_state.BuildFramesAreComplete() ? m_state.build.buildFrames
-                                                                                               : m_state.simulation.frames;
-        return { frames.data(), frames.size() };
+        if ( m_state.BuildFramesAreComplete() )
+        {
+            return m_state.build.buildFrames;
+        }
+
+        return m_state.CommittedFrames();
     }
 
     ReplayPredictionPresentationView PresentationView() const noexcept
@@ -594,7 +612,7 @@ class ReplayPrediction
         }
         else
         {
-            view.frames = m_state.simulation.frames;
+            view.frames = m_state.CommittedFrames();
         }
 
         view.futureNodes = m_state.futureNodeCache.futureNodes;
@@ -787,10 +805,49 @@ inline bool RunReplayPredictionState::HasPublishedBuildFramePrefix( std::size_t 
     return build.building && PublishedBuildFrameCount() >= minFrameCount;
 }
 
+inline std::size_t RunReplayPredictionState::CommittedFrameCount() const noexcept
+{
+    return (std::min)( simulation.committedFrameCount, simulation.frames.size() );
+}
+
+inline std::span<const RunReplayPredictionFrame> RunReplayPredictionState::CommittedFrames() const noexcept
+{
+    return { simulation.frames.data(), CommittedFrameCount() };
+}
+
+inline bool RunReplayPredictionState::HasCommittedFramePrefix( std::size_t minFrameCount ) const noexcept
+{
+    return CommittedFrameCount() >= minFrameCount;
+}
+
+inline void RunReplayPredictionState::InvalidateCommittedFrames() noexcept
+{
+    InvalidateCommittedFrameBank( simulation.committedFrameCount );
+}
+
+inline void RunReplayPredictionState::PromoteBuildFramesToCommitted( std::size_t frameCount ) noexcept
+{
+    PromoteFrameBanks( simulation.frames, simulation.committedFrameCount, build.buildFrames, frameCount );
+}
+
+inline void RunReplayPredictionState::InvalidateCommittedFrameBank( std::size_t& committedFrameCount ) noexcept
+{
+    committedFrameCount = 0;
+}
+
+inline void RunReplayPredictionState::PromoteFrameBanks( std::vector<RunReplayPredictionFrame>& committedFrames,
+                                                         std::size_t& committedFrameCount,
+                                                         std::vector<RunReplayPredictionFrame>& completedBuildFrames,
+                                                         std::size_t frameCount ) noexcept
+{
+    committedFrames.swap( completedBuildFrames );
+    committedFrameCount = (std::min)( frameCount, committedFrames.size() );
+}
+
 inline bool RunReplayPredictionState::BuildPrefixShouldBePresented() const noexcept
 {
     const std::size_t publishedCount = PublishedBuildFrameCount();
-    const std::size_t requiredFrameCount = simulation.frames.empty() || build.buildPresentationFrameCount < 2u
+    const std::size_t requiredFrameCount = !HasCommittedFramePrefix() || build.buildPresentationFrameCount < 2u
                                                ? std::size_t { 2u }
                                                : build.buildPresentationFrameCount;
     return build.building && publishedCount >= requiredFrameCount;

@@ -9,7 +9,8 @@ Summary:
   before geometry, that reordered or truncated submission buffers identify
   their exact owner lane and float, that an in-flight worker cannot change the
   prepared prefix halfway through one rendered frame, and that prediction draw
-  commands append without revisiting a stable publication.
+  commands append without revisiting a stable publication. Prediction frame
+  bank tests also prove invalidation hides retained nested storage in O(1).
 
 Glossary:
   Packet span: Non-owning view of one ordered production submission stream.
@@ -22,6 +23,8 @@ Glossary:
     geometry with frame-local moving tails without copying either span.
   Retained chunk: Stable compact range whose continuation repairs only the
     previous chunk's open adjacency tail.
+  Committed frame prefix: Reader-visible portion of a retained prediction frame
+    bank; slots beyond the count are allocation storage, not published future.
 
 Invariants:
   - Packet comparison is bit-exact and order-sensitive.
@@ -51,6 +54,34 @@ Related:
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Runtime::ReplayVisualPacketFingerprintOperations;
 using namespace SkullbonezCore::Runtime::ReplayVisualPacketOperations;
+
+TEST_CASE( "Replay committed frame invalidation retains both allocation banks" )
+{
+    std::vector<RunReplayPredictionFrame> committedFrames( 2u );
+    committedFrames[0].bodies.reserve( 8u );
+    std::size_t committedFrameCount = 2u;
+
+    RunReplayPredictionFrame* const committedBank = committedFrames.data();
+    const std::size_t committedBodyCapacity = committedFrames[0].bodies.capacity();
+
+    std::vector<RunReplayPredictionFrame> completedBuildFrames( 3u );
+    completedBuildFrames[0].bodies.reserve( 16u );
+    RunReplayPredictionFrame* const completedBuildBank = completedBuildFrames.data();
+
+    RunReplayPredictionState::PromoteFrameBanks( committedFrames, committedFrameCount, completedBuildFrames, 2u );
+
+    CHECK( committedFrameCount == 2u );
+    CHECK( committedFrames.data() == completedBuildBank );
+    CHECK( completedBuildFrames.data() == committedBank );
+    CHECK( completedBuildFrames[0].bodies.capacity() == committedBodyCapacity );
+
+    RunReplayPredictionState::InvalidateCommittedFrameBank( committedFrameCount );
+
+    CHECK( committedFrameCount == 0u );
+    CHECK( committedFrames.size() == 3u );
+    CHECK( committedFrames.data() == completedBuildBank );
+    CHECK( committedFrames[0].bodies.capacity() == 16u );
+}
 
 TEST_CASE( "Replay child marker scan key rejects every publication input change" )
 {

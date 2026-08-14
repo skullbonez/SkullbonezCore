@@ -142,7 +142,7 @@ ReplayRuntimeTimelinePredictionFrames( const RunReplayPredictionState& predictio
     }
 
     const std::vector<RunReplayPredictionFrame>& frames = ReplayRuntimeActivePredictionFrames( prediction );
-    outFrameCount = frames.size();
+    outFrameCount = prediction.CommittedFrameCount();
     return frames;
 }
 

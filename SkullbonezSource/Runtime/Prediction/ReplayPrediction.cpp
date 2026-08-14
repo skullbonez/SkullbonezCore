@@ -613,7 +613,7 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayPrediction& predictionOwner
 {
     if ( prediction.build.publication.WorkerFailed() )
     {
-        const bool preserveCommittedFuture = prediction.simulation.frames.size() >= 2u;
+        const bool preserveCommittedFuture = prediction.HasCommittedFramePrefix();
         predictionOwner.CancelJob( !preserveCommittedFuture );
         prediction.build.dirty = true;
         return false;
@@ -639,7 +639,7 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayPrediction& predictionOwner
         prediction.simulation.predictionWorld.tornadoEjectCooldownSeconds = tornadoGameplay.EjectCooldownSeconds();
     }
 
-    const bool hadCommittedPredictionFrames = prediction.simulation.frames.size() >= 2;
+    const bool hadCommittedPredictionFrames = prediction.HasCommittedFramePrefix();
     const bool solverWasOldLiveEdge = !hadCommittedPredictionFrames &&
                                       ReplayAtPresentTrackPosition( solverTrackPosition, 1.0f );
 
@@ -655,7 +655,8 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayPrediction& predictionOwner
                                                                                   prediction.build.jobStart )
                                            .count();
 
-    prediction.simulation.frames.swap( prediction.build.buildFrames );
+    const std::size_t completedFrameCount = prediction.build.buildFrames.size();
+    prediction.PromoteBuildFramesToCommitted( completedFrameCount );
 
     // Why: the swapped-out committed bank is the next build's allocation-free
     // scratch. Reset publication below; do not destroy its per-frame capacities.
@@ -665,7 +666,7 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayPrediction& predictionOwner
     if ( prediction.baseline.valid )
     {
         UpdateReplayPredictionBaselineDivergence( prediction, prediction.simulation.frames,
-                                                  prediction.simulation.frames.size() );
+                                                  prediction.CommittedFrameCount() );
     }
 
     if ( scrubberWasPinnedToPresent )
@@ -729,7 +730,7 @@ ReplayPrediction::BeginFrameSource( PhysicsEngine& physicsEngine, const Skullbon
     const uint64_t previousSourceSolverHash = prediction.simulation.sourceSolverHash;
     const bool preserveCommittedFuture = prediction.enabled && scenePhysics && requestedTargetId.value != 0 &&
                                          prediction.simulation.targetId.value == requestedTargetId.value &&
-                                         prediction.simulation.frames.size() >= 2u;
+                                         prediction.HasCommittedFramePrefix();
 
     const std::size_t
         buildPresentationFrameCount = preserveCommittedFuture
@@ -992,7 +993,7 @@ bool StepReplayPredictionJob( ReplayPrediction& predictionOwner, RunReplayPredic
     if ( !prediction.simulation.predictionEngineReady || !prediction.simulation.predictionEngine ||
          !prediction.build.schedule.Active() )
     {
-        const bool preserveCommittedFuture = prediction.simulation.frames.size() >= 2u;
+        const bool preserveCommittedFuture = prediction.HasCommittedFramePrefix();
         predictionOwner.CancelJob( !preserveCommittedFuture );
         prediction.build.dirty = true;
         return false;
@@ -1116,7 +1117,7 @@ ReplayPredictionFrameSourceAction ReplayPrediction::SelectFrameSource( const Rep
                                prediction.simulation.sourceSolverHash != latestHash;
 
     const bool refreshDue = ( now - prediction.build.lastBuildTime ) >= REPLAY_PREDICTION_REFRESH_SECONDS;
-    const bool hasCommittedPrediction = prediction.simulation.frames.size() >= 2;
+    const bool hasCommittedPrediction = prediction.HasCommittedFramePrefix();
 
     // Invariant: a committed prediction is a frozen future for the current
     // branch. Space-stepping the paused live scene changes solver frame/hash,
@@ -1181,11 +1182,10 @@ void ReplayPrediction::PrepareFrameRebuild( Physics::PhysicsSceneObjectId target
         ++result.rebuildCauses[static_cast<std::size_t>( SkullbonezCore::Core::MainMemoryReplayRebuildCause::AutomaticRefresh )];
     }
 
-    if ( prediction.baseline.comparisonActive && !prediction.baseline.valid && prediction.simulation.frames.size() >= 2 )
+    if ( prediction.baseline.comparisonActive && !prediction.baseline.valid && prediction.HasCommittedFramePrefix() )
     {
         if ( !CaptureReplayPredictionBaselineSnapshot( prediction, prediction.simulation.frames,
-                                                       prediction.simulation.frames.size(), targetId,
-                                                       targetModelRow.value ) )
+                                                       prediction.CommittedFrameCount(), targetId, targetModelRow.value ) )
         {
             prediction.baseline.comparisonActive = false;
         }
@@ -1383,7 +1383,7 @@ bool ReplayPrediction::RevealProgress01( float& outProgress ) const noexcept
     const std::vector<RunReplayPredictionFrame>& frames = usingBuildFrames ? m_state.build.buildFrames
                                                                            : m_state.simulation.frames;
 
-    const std::size_t frameCount = usingBuildFrames ? m_state.PublishedBuildFrameCount() : frames.size();
+    const std::size_t frameCount = usingBuildFrames ? m_state.PublishedBuildFrameCount() : m_state.CommittedFrameCount();
 
     if ( frameCount < 2u || !m_state.revealClock.anchorValid )
     {
@@ -1432,7 +1432,7 @@ void ReplayPrediction::SetRevealRatePreservingCursor( double revealRate ) noexce
 
 bool ReplayPrediction::PrepareVelocityMutationBaseline() noexcept
 {
-    if ( ( !m_state.build.complete || m_state.simulation.frames.size() < 2u ) && !m_state.baseline.comparisonActive )
+    if ( ( !m_state.build.complete || !m_state.HasCommittedFramePrefix() ) && !m_state.baseline.comparisonActive )
     {
         return false;
     }
@@ -1456,7 +1456,7 @@ void ReplayPrediction::CommitVelocityMutation() noexcept
 
 bool ReplayPrediction::ReadyForDeterministicReveal() const noexcept
 {
-    return !m_state.build.building && m_state.simulation.frames.size() >= 2u && m_state.build.complete;
+    return !m_state.build.building && m_state.HasCommittedFramePrefix() && m_state.build.complete;
 }
 
 void ReplayPrediction::ArmDeterministicReveal( ReplayFrameIndex frame, bool resetPresentedFrame ) noexcept
@@ -1530,7 +1530,11 @@ void ReplayPrediction::ClearCacheFromReplayInput()
 
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/ClearCache/InvalidateFrames" );
-        m_state.simulation.frames.clear();
+
+        // Why: the two prediction banks retain millions of nested payload
+        // slots. Publication count is the authority boundary, so Predict-off
+        // can hide the committed bank without paying its destructor walk.
+        m_state.InvalidateCommittedFrames();
     }
 
     {

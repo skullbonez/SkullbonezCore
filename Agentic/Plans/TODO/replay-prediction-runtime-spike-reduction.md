@@ -1,7 +1,7 @@
 # Replay Prediction Runtime Spike Reduction
 
 Date: 2026-08-14
-Status: Active - 0/5 phases complete
+Status: Active - 2/5 phases complete
 Impact area: Runtime/Prediction publication and presentation, Replay scrubber
 composition, focused CPU tests, Automation diagnostics
 Owner: Replay Prediction owns publication/cache storage; ReplayRuntime composes
@@ -97,7 +97,7 @@ and call the spike closed.
 - [x] Capture a fresh before-change run and record generation count, final
   prediction fingerprint facts, marker ranges, reserve growth counters, and
   interaction-frame identities.
-- [ ] Add focused CPU fixtures for coherent bank switching, marker-scan resume,
+- [x] Add focused CPU fixtures for coherent bank switching, marker-scan resume,
   and trajectory-record reuse before changing production behavior.
 
 Primary files:
@@ -227,10 +227,10 @@ vector's active elements, releasing nested point-vector capacity synchronously.
 - [x] Reuse record slots and nested point-vector capacity on the next generation.
   Permit physical release only in an existing cold scene-reset/shutdown owner,
   not in pointer input or per-frame Prediction work.
-- [ ] Use RP0 markers to adjudicate baseline/build-frame or other reset costs;
+- [x] Use RP0 markers to adjudicate baseline/build-frame or other reset costs;
   apply the same logical-reset rule only where evidence shows material hot-path
   destruction. Do not broaden this into an unrelated memory rewrite.
-- [ ] Prove Predict-off still hides future overlays in the action frame, leaves
+- [x] Prove Predict-off still hides future overlays in the action frame, leaves
   no worker borrow in flight, and cannot resurrect stale records when Predict is
   enabled again.
 
@@ -259,9 +259,28 @@ Current RP0/RP3 evidence (Automation, four completed 120-second predictions):
 - After active-prefix/keyed-capacity reuse: Predict-off is 15.6154-16.2350 ms;
   trajectory-store invalidation is 0.0043-0.0047 ms, all 776 records publish,
   and reserve growth stays flat after warm-up (1720 at start and end).
-- The remaining RP3 work is the independently measured 7,201-frame nested
-  payload destruction. Completion publication remains 101.3209-116.7351 ms;
-  child-marker context remains 0.0021-35.5981 ms.
+- After committed-frame active-prefix invalidation: two repeated diagnostics
+  place Predict-off at 0.0043-0.0110 ms and its containing frames at
+  8.9767-9.3338 ms. `InvalidateFrames` no longer destroys the 14,401 retained
+  nested frame payloads; both banks keep their outer and per-frame capacities.
+- The focused bank test passes 8/8 assertions. The disable/enable allocation
+  probe's engine report passes two generations, keeps the restored prediction
+  path visible, publishes 121 final frames, and holds trajectory reserve growth
+  flat at 1459 events. Its wrapper still rejects the current 208-frame report
+  because it hard-codes an obsolete 180/181 end-frame check; harness repair is
+  excluded from this plan.
+- Predict-off publication is now count-authoritative across presentation,
+  scrubber timelines, archive serialization, topology/trajectory rebuilds,
+  deterministic reveal, and validation probes. `CancelJob` joins the worker
+  before the count is invalidated, and a later generation can become visible
+  only by promoting a newly published build bank.
+- The repeated diagnostic's final trajectory fingerprint and point count are
+  not stable between executions, so RP1/RP4 must not treat that informational
+  report as an immutable oracle or refresh a baseline from it. The existing
+  visual-fidelity gate still captures all 2,401 authoritative reveal ticks and
+  then fails when its 4,200-frame harness enters a second live-playback pass.
+- Completion publication remains 97.0515-116.7760 ms. Child-marker context is
+  0.0004-0.7588 ms across the same repeated post-change runs.
 
 ## Phase RP4 - Closure, Threshold Ratification, And Documentation
 

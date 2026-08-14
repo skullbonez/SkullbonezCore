@@ -21,10 +21,13 @@ Other completed plan files were deleted; git history is the archive.
 
 ## Portfolio Progress
 
-The active portfolio contains one plan with five open phases. RP2's incremental
+The active portfolio contains one plan with two completed and three open phases.
+RP0 now has focused fixtures for coherent bank switching, marker resume, and
+trajectory reuse. RP3 is complete: count-authoritative frame invalidation and
+trajectory active-prefix reuse reduce Predict-off from 26.0907-26.4603 ms to
+0.0043-0.0110 ms while retaining both warmed prediction banks. RP2's incremental
 child-marker scan reduces its measured direct range from 0.0021-35.5981 ms to
 0.0006-0.9382 ms, but its immutable visual-oracle checkbox remains open because
 the existing 4,200-frame harness enters a second live-playback pass after all
-2,401 reveal ticks. RP0 attribution and RP3 trajectory-capacity reuse are also
-partially implemented; the next binding slice is RP1's coherent, budgeted
-completion publication.
+2,401 reveal ticks. The next binding slice is RP1's coherent, budgeted completion
+publication; its current direct range is 97.0515-116.7760 ms.

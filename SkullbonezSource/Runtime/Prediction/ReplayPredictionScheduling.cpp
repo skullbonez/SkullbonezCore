@@ -148,14 +148,15 @@ std::size_t ReplayPredictionBuildPresentationFrameCountForRefresh( RunReplayPred
                                                                    Physics::PhysicsSceneObjectId requestedTargetId )
 {
     if ( requestedTargetId.value == 0 || prediction.simulation.targetId.value != requestedTargetId.value ||
-         prediction.simulation.frames.size() < 2u )
+         !prediction.HasCommittedFramePrefix() )
     {
         return 2u;
     }
 
     // Why: auto-refresh should replace the old future only after the rebuilding
     // prefix catches the causal story the user can already see.
-    const ReplayFrameIndex lastCommittedFrame = prediction.simulation.frames.back().frameIndex;
+    const ReplayFrameIndex lastCommittedFrame = prediction.simulation.frames[prediction.CommittedFrameCount() - 1u]
+                                                    .frameIndex;
     const ReplayFrameIndex revealFrame = ReplayPredictionRevealFrameIndex( prediction, lastCommittedFrame );
     return (std::max)( std::size_t { 2u }, static_cast<std::size_t>( revealFrame ) + 1u );
 }
@@ -206,8 +207,7 @@ bool ReplayPrediction::PromoteBuildPrefixToCommitted()
     m_state.build.schedule.Reset();
     m_state.build.building = false;
     m_state.build.complete = true;
-    m_state.simulation.frames.swap( m_state.build.buildFrames );
-    m_state.simulation.frames.resize( promotedFrameCount );
+    m_state.PromoteBuildFramesToCommitted( promotedFrameCount );
     m_state.ResetBuildFramePublication();
 
     if ( !RebuildReplayPredictionCommittedRootTrajectory( m_state ) )
@@ -251,7 +251,11 @@ void ReplayPrediction::CancelJob( bool clearSamples )
         m_state.simulation.probeElapsedMs = 0.0;
         m_state.simulation.probeTicksCompleted = 0;
         m_state.simulation.calibratedModelCount = -1;
-        m_state.simulation.frames.clear();
+
+        // Why: invalidation is publication state, not storage retirement. The
+        // old committed bank becomes allocation-free scratch after the next
+        // swap, including when Predict-off interrupted a completed horizon.
+        m_state.InvalidateCommittedFrames();
         m_state.trajectoryStore.Clear();
         ClearFutureNodeCache();
     }

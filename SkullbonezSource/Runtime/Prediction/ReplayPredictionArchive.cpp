@@ -358,10 +358,11 @@ bool BuildReplayPredictionArchiveForSchemaValidation( const RunReplayPathVisuali
                                                       std::vector<uint8_t>& outBytes )
 {
     outBytes.clear();
+    const std::span<const RunReplayPredictionFrame> committedFrames = prediction.CommittedFrames();
 
     if ( schema < REPLAY_PREDICTION_ARCHIVE_MINIMUM_SCHEMA || schema > REPLAY_PREDICTION_ARCHIVE_SCHEMA ||
-         prediction.build.building || !prediction.build.complete || prediction.simulation.frames.size() < 2u ||
-         prediction.simulation.frames.size() > REPLAY_PREDICTION_ARCHIVE_MAX_FRAMES ||
+         prediction.build.building || !prediction.build.complete || committedFrames.size() < 2u ||
+         committedFrames.size() > REPLAY_PREDICTION_ARCHIVE_MAX_FRAMES ||
          prediction.futureNodeCache.retainedMarkerCount > prediction.futureNodeCache.retainedMarkers.size() ||
          prediction.trajectoryStore.RecordCount() > REPLAY_PREDICTION_ARCHIVE_MAX_RECORDS )
     {
@@ -399,9 +400,9 @@ bool BuildReplayPredictionArchiveForSchemaValidation( const RunReplayPathVisuali
     writer.Double( prediction.simulation.sourceSimulationSeconds );
     writer.Scalar( prediction.build.generationBeginCount );
 
-    writer.Scalar( static_cast<uint32_t>( prediction.simulation.frames.size() ) );
+    writer.Scalar( static_cast<uint32_t>( committedFrames.size() ) );
 
-    for ( const RunReplayPredictionFrame& frame : prediction.simulation.frames )
+    for ( const RunReplayPredictionFrame& frame : committedFrames )
     {
         if ( frame.bodies.size() > REPLAY_PREDICTION_ARCHIVE_MAX_BODIES )
         {
@@ -601,6 +602,7 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
     pathVisualizer.targets.clear();
     pathVisualizer.pastTrajectory = {};
 
+    prediction.InvalidateCommittedFrames();
     prediction.simulation.frames.clear();
     prediction.futureNodeCache.futureNodes.clear();
     prediction.baseline.rootPolyline.clear();
@@ -856,7 +858,8 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
     prediction.build.building = false;
     prediction.build.complete = true;
     prediction.ResetBuildFramePublication();
-    prediction.futureNodeCache.futureNodesBuiltFrameCount = prediction.simulation.frames.size();
+    prediction.simulation.committedFrameCount = prediction.simulation.frames.size();
+    prediction.futureNodeCache.futureNodesBuiltFrameCount = prediction.CommittedFrameCount();
     prediction.futureNodeCache.futureNodesBuiltContactIndex = 0;
     prediction.futureNodeCache.futureNodesBuiltTargetId = prediction.simulation.targetId;
     prediction.futureNodeCache.futureNodesBuiltFromBuildFrames = false;

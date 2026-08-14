@@ -499,9 +499,9 @@ bool AdvanceReplayPredictionChildMarkerScan( ReplayPredictionChildMarkerScanStat
     const std::size_t nodeCount = (std::min)( prediction.futureNodeCache.futureNodes.size(), REPLAY_PATH_MAX_FUTURE_NODES );
     const uint32_t topologyVersion = prediction.futureNodeCache.futureNodesTopologyVersion;
 
-    const bool sourceChanged = !scan.initialized || scan.generation != generation ||
-                               scan.targetId.value != targetId.value || scan.usingBuildFrames != usingBuildFrames ||
-                               frameCount < scan.frameCount || revealFrame < scan.revealFrame;
+    const bool sourceChanged = !scan.initialized || scan.generation != generation || scan.targetId.value != targetId.value ||
+                               scan.usingBuildFrames != usingBuildFrames || frameCount < scan.frameCount ||
+                               revealFrame < scan.revealFrame;
 
     if ( sourceChanged )
     {
@@ -578,8 +578,9 @@ bool AdvanceReplayPredictionChildMarkerScan( ReplayPredictionChildMarkerScanStat
 
             if ( !drawState.active && visibleMotion )
             {
-                const RunReplayPredictionBodySample* frameZeroSample =
-                    FindReplayPredictionBodyByIdWithHint( frames[0], drawState.node.id, body->modelRow.value );
+                const RunReplayPredictionBodySample*
+                    frameZeroSample = FindReplayPredictionBodyByIdWithHint( frames[0], drawState.node.id,
+                                                                            body->modelRow.value );
                 initialSample = frameZeroSample ? frameZeroSample : body;
             }
 
@@ -1020,7 +1021,9 @@ void RebuildReplayPredictionCommittedTreeAfterWorkerCompletion( RunReplayPredict
                                                                 const SceneEntityStore& modelCollection,
                                                                 Physics::PhysicsSceneObjectId rootId )
 {
-    if ( rootId.value == 0 || prediction.simulation.frames.size() < 2u )
+    const std::size_t committedFrameCount = prediction.CommittedFrameCount();
+
+    if ( rootId.value == 0 || committedFrameCount < 2u )
     {
         return;
     }
@@ -1034,8 +1037,8 @@ void RebuildReplayPredictionCommittedTreeAfterWorkerCompletion( RunReplayPredict
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/PublishCompletedFrame/FutureNodeCache" );
         ClearReplayPredictionFutureNodeCache( prediction );
-        UpdateReplayPredictionFutureNodeCache( prediction, prediction.simulation.frames, prediction.simulation.frames.size(),
-                                               false, modelCollection, rootId, rebuildStart, 0.0 );
+        UpdateReplayPredictionFutureNodeCache( prediction, prediction.simulation.frames, committedFrameCount, false,
+                                               modelCollection, rootId, rebuildStart, 0.0 );
     }
 
     // Why 0.0: a zero budget never expires. This is the post-completion rebuild
@@ -1043,8 +1046,8 @@ void RebuildReplayPredictionCommittedTreeAfterWorkerCompletion( RunReplayPredict
     // per-frame overlay path is the one that yields, not this one.
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/PublishCompletedFrame/TrajectoryStore" );
-        UpdateReplayPredictionTrajectoryStore( prediction, prediction.simulation.frames, prediction.simulation.frames.size(),
-                                               false, rootId, rebuildStart, 0.0 );
+        UpdateReplayPredictionTrajectoryStore( prediction, prediction.simulation.frames, committedFrameCount, false, rootId,
+                                               rebuildStart, 0.0 );
     }
 }
 
@@ -1058,7 +1061,8 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const
     const std::vector<RunReplayPredictionFrame>& activePredictionFrames = usingBuildFrames ? prediction.build.buildFrames
                                                                                            : prediction.simulation.frames;
 
-    std::size_t activePredictionFrameCount = activePredictionFrames.size();
+    std::size_t activePredictionFrameCount = usingBuildFrames ? activePredictionFrames.size()
+                                                              : prediction.CommittedFrameCount();
 
     if ( usingBuildFrames )
     {

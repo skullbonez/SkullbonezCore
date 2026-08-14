@@ -242,8 +242,8 @@ ReplayTrajectoryRecord* BeginReplayTrajectoryRecord( ReplayTrajectoryStore& stor
         return nullptr;
     }
 
-    ReplayTrajectoryRecord* record =
-        store.BeginReplaceRecord( key, styleId, parentId, depth, firstFrame, contactDerived, pointCapacity );
+    ReplayTrajectoryRecord* record = store.BeginReplaceRecord( key, styleId, parentId, depth, firstFrame, contactDerived,
+                                                               pointCapacity );
 
     if ( !record || !store.ReserveRecordPoints( *record, pointCapacity, frameNumber ) )
     {
@@ -408,7 +408,9 @@ bool PublishReplayPredictionBuildRootTrajectoryPrefix( RunReplayPredictionState&
 
 bool RebuildReplayPredictionCommittedRootTrajectory( RunReplayPredictionState& prediction )
 {
-    if ( prediction.simulation.targetId.value == 0 || prediction.simulation.frames.size() < 2u )
+    const std::size_t committedFrameCount = prediction.CommittedFrameCount();
+
+    if ( prediction.simulation.targetId.value == 0 || committedFrameCount < 2u )
     {
         return true;
     }
@@ -418,7 +420,7 @@ bool RebuildReplayPredictionCommittedRootTrajectory( RunReplayPredictionState& p
                                                                                        ReplayTrajectoryLane::FutureRoot,
                                                                                        REPLAY_TRAJECTORY_COMMITTED_BRANCH ),
                                                                   0, Physics::PhysicsSceneObjectId {}, 0, 0, false,
-                                                                  prediction.simulation.frames.size() );
+                                                                  committedFrameCount );
 
     if ( !record )
     {
@@ -426,8 +428,9 @@ bool RebuildReplayPredictionCommittedRootTrajectory( RunReplayPredictionState& p
         return false;
     }
 
-    for ( const RunReplayPredictionFrame& frame : prediction.simulation.frames )
+    for ( std::size_t frameIndex = 0; frameIndex < committedFrameCount; ++frameIndex )
     {
+        const RunReplayPredictionFrame& frame = prediction.simulation.frames[frameIndex];
         const RunReplayPredictionBodySample*
             body = FindReplayPredictionBodyByIdWithHint( frame, prediction.simulation.targetId,
                                                          prediction.simulation.targetModelRow.value );
