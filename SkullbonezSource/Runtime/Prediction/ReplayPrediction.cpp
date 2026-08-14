@@ -661,6 +661,8 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayPrediction& predictionOwner
     // Why: the swapped-out committed bank is the next build's allocation-free
     // scratch. Reset publication below; do not destroy its per-frame capacities.
     prediction.ResetBuildFramePublication();
+    prediction.committedPublication.Begin( prediction.trajectoryBuild, prediction.build.generationBeginCount,
+                                           completedFrameCount );
     (void)RebuildReplayPredictionCommittedRootTrajectory( prediction );
 
     if ( prediction.baseline.valid )
@@ -1261,7 +1263,12 @@ bool ReplayPrediction::AdvanceFrameWorker( SkullbonezCore::Threading::WorkerPool
 void ReplayPrediction::PublishCompletedFrame( const SceneEntityStore& entities, Physics::PhysicsSceneObjectId targetId )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/PublishCompletedFrame" );
-    RebuildReplayPredictionCommittedTreeAfterWorkerCompletion( m_state, entities, targetId );
+    (void)entities;
+    (void)targetId;
+
+    // Why: the completed build bank remains the coherent visible publication.
+    // PrepareOverlay duplicates it into the committed bank under its existing
+    // frame budget, then flips branches when every node is ready.
 }
 
 
@@ -1535,6 +1542,7 @@ void ReplayPrediction::ClearCacheFromReplayInput()
         // slots. Publication count is the authority boundary, so Predict-off
         // can hide the committed bank without paying its destructor walk.
         m_state.InvalidateCommittedFrames();
+        m_state.committedPublication.Reset();
     }
 
     {

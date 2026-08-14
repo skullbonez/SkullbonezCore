@@ -119,23 +119,23 @@ node cache, then calls
 passes `0.0` as the budget, deliberately forcing every future-node and
 trajectory record through one frame-thread pass.
 
-- [ ] Introduce a Prediction-owned committed-publication state with generation,
+- [x] Introduce a Prediction-owned committed-publication state with generation,
   source-frame count, topology/trajectory resume cursors, pending/visible bank,
   and a single coherent-ready transition. This state owns an invariant; it must
   not be a parameter bag.
-- [ ] Change `PublishCompletedFrame` to arm the pending committed publication,
+- [x] Change `PublishCompletedFrame` to arm the pending committed publication,
   not scan all completed frames synchronously.
-- [ ] Continue publication from `PrepareReplayPredictionOverlay` under the
+- [x] Continue publication from `PrepareReplayPredictionOverlay` under the
   existing presentation budget. Budget checks must occur inside the expensive
   frame/node/body loops at resumable boundaries.
-- [ ] Keep the previous coherent/build trajectory bank visible while the
+- [x] Keep the previous coherent/build trajectory bank visible while the
   replacement bank is incomplete. Switch the reader-visible bank/version only
   after future-node topology and trajectory records describe the same complete
   generation.
 - [ ] Preserve deterministic record ordering, branch identity, publication
   versions, final fingerprints, and Automation/offline artifact output across
   different budget-expiry schedules.
-- [ ] Delete the zero-budget completion path once no reader depends on it; do
+- [x] Delete the zero-budget completion path once no reader depends on it; do
   not retain it as a fallback that can reintroduce the stall.
 
 Primary files:
@@ -157,6 +157,26 @@ RP1 acceptance:
 - No single `PublishCompletedFrame/TrajectoryStore` call performs the complete
   14,401-frame scan; measured work follows the configured presentation budget
   plus bounded publication overhead.
+
+RP1 implementation evidence (Automation, four completed 120-second predictions):
+
+- The 97.0515-116.7760 ms `PublishCompletedFrame/TrajectoryStore` marker is no
+  longer observed. All four completion assertions pass with 14,401 active
+  frames, 200 future nodes, 776 trajectory records, and flat reserve growth at
+  1718 events.
+- Committed duplication resumes between whole causal nodes under the existing
+  overlay budget. Across two accepted runs, the resumed trajectory slices span
+  0.9804-5.2610 ms; the worst runtime frame is 30.6322 ms and is now led by a
+  14.4368 ms retained-render refresh rather than publication scanning.
+- A Prediction-owned pending state captures generation, source-frame count, and
+  the coherent completed-build topology/trajectory facts. Presentation keeps
+  that bank visible until the committed cursor reaches the identical complete
+  prefix, then flips once and resets the generation-bound pending token.
+- The focused pending-publication fixture passes 12/12 assertions and all 89
+  Replay doctests pass with 1,655 assertions. The visual-fidelity engine again
+  captures all 2,401 authoritative reveal ticks, then the excluded 4,200-frame
+  harness enters its known second live-playback pass. The exact fingerprint
+  checkbox therefore remains open and RP1 is not counted complete.
 
 ## Phase RP2 - Make Child-Marker Discovery Incremental
 

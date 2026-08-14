@@ -10,7 +10,8 @@ Summary:
   their exact owner lane and float, that an in-flight worker cannot change the
   prepared prefix halfway through one rendered frame, and that prediction draw
   commands append without revisiting a stable publication. Prediction frame
-  bank tests also prove invalidation hides retained nested storage in O(1).
+  bank tests also prove invalidation hides retained nested storage in O(1), and
+  committed-publication snapshots preserve generation-bound visible facts.
 
 Glossary:
   Packet span: Non-owning view of one ordered production submission stream.
@@ -81,6 +82,36 @@ TEST_CASE( "Replay committed frame invalidation retains both allocation banks" )
     CHECK( committedFrames.size() == 3u );
     CHECK( committedFrames.data() == completedBuildBank );
     CHECK( committedFrames[0].bodies.capacity() == 16u );
+}
+
+TEST_CASE( "Replay committed publication retains coherent visible build facts" )
+{
+    RunReplayPredictionTrajectoryBuildState build;
+    build.rootId.value = 41u;
+    build.usingBuildFrames = true;
+    build.childFrameCount = 14401u;
+    build.builtNodeCount = 200u;
+    build.topologyVersion = 7u;
+    build.valid = true;
+
+    ReplayPredictionCommittedPublicationState publication;
+    publication.Begin( build, 9u, 14401u );
+    build = {};
+
+    CHECK( publication.pending );
+    CHECK( publication.visibleTrajectoryBuild.rootId.value == 41u );
+    CHECK( publication.visibleTrajectoryBuild.usingBuildFrames );
+    CHECK( publication.visibleTrajectoryBuild.childFrameCount == 14401u );
+    CHECK( publication.visibleTrajectoryBuild.builtNodeCount == 200u );
+    CHECK( publication.visibleTrajectoryBuild.topologyVersion == 7u );
+    CHECK( publication.visibleTrajectoryBuild.valid );
+    CHECK( publication.generation == 9u );
+    CHECK( publication.sourceFrameCount == 14401u );
+
+    publication.Reset();
+    CHECK_FALSE( publication.pending );
+    CHECK( publication.generation == 0u );
+    CHECK( publication.sourceFrameCount == 0u );
 }
 
 TEST_CASE( "Replay child marker scan key rejects every publication input change" )

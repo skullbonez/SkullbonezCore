@@ -242,6 +242,7 @@ void ReplayPrediction::CancelJob( bool clearSamples )
     // the double-buffered frame payloads warm for the next replay rebuild.
     m_state.ResetBuildFramePublication();
     m_state.trajectoryBuild = RunReplayPredictionTrajectoryBuildState {};
+    m_state.committedPublication.Reset();
 
     if ( clearSamples )
     {

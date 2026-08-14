@@ -188,9 +188,6 @@ bool ReplayPredictionBodyRestingPose( const std::vector<RunReplayPredictionFrame
                                       Physics::PhysicsSceneObjectId id, int modelIndexHint,
                                       Math::Vector::Vector3& outPosition, Math::Orientation::Quaternion& outOrientation );
 void ClearReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction );
-void RebuildReplayPredictionCommittedTreeAfterWorkerCompletion( RunReplayPredictionState& prediction,
-                                                                const SceneEntityStore& entities,
-                                                                Physics::PhysicsSceneObjectId rootId );
 void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const SceneEntityStore& entities,
                                      const Physics::ColliderStore& colliderStore, Physics::PhysicsSceneObjectId targetId,
                                      Physics::ModelRowHint targetModelRow, bool targetAvailable, double budgetMilliseconds,

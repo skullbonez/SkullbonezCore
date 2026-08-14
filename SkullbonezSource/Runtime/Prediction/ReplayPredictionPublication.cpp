@@ -5,7 +5,8 @@ Purpose:
 
 Summary:
   Isolated simulation supplies completed frame rows. This owner derives the
-  contiguous trajectory and causal-topology records consumed by presentation.
+  contiguous trajectory and causal-topology records consumed by presentation,
+  resuming whole-node committed duplication at budget boundaries.
 
 Invariants:
   - Derived rows never outpace the acquire-visible prediction frame prefix.
@@ -818,6 +819,19 @@ void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction
                                prediction.trajectoryBuild.childFrameCount > frameCount ||
                                prediction.trajectoryBuild.builtNodeCount > nodeCount;
 
+    if ( sourceChanged )
+    {
+        // Invariant: establish the committed-bank identity before yielding.
+        // builtNodeCount then owns the exact next whole-node resume boundary;
+        // the visible completed-build snapshot remains separate until closure.
+        prediction.trajectoryBuild.rootId = rootId;
+        prediction.trajectoryBuild.usingBuildFrames = usingBuildFrames;
+        prediction.trajectoryBuild.childFrameCount = frameCount;
+        prediction.trajectoryBuild.builtNodeCount = 0u;
+        prediction.trajectoryBuild.topologyVersion = topologyVersion;
+        prediction.trajectoryBuild.valid = true;
+    }
+
     if ( !sourceChanged && prediction.trajectoryBuild.childFrameCount == frameCount &&
          prediction.trajectoryBuild.builtNodeCount == nodeCount )
     {
@@ -847,10 +861,17 @@ void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction
         }
     }
 
-    const std::size_t firstNode = sourceChanged ? 0u : prediction.trajectoryBuild.builtNodeCount;
+    const std::size_t firstNode = prediction.trajectoryBuild.builtNodeCount;
+    std::size_t completedNodeCount = nodeCount;
 
     for ( std::size_t i = firstNode; i < nodeCount; ++i )
     {
+        if ( ReplayPredictionSchedulingOperations::ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+        {
+            completedNodeCount = i;
+            break;
+        }
+
         const RunReplayPathTraceNode& node = prediction.futureNodeCache.futureNodes[i];
 
         if ( !BuildReplayPredictionChildTrajectoryRecord( prediction, frames, frameCount, node, i, usingBuildFrames,
@@ -862,18 +883,11 @@ void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction
         }
     }
 
-    if ( sourceChanged )
-    {
-        prediction.trajectoryBuild.rootId = rootId;
-        prediction.trajectoryBuild.usingBuildFrames = usingBuildFrames;
-        prediction.trajectoryBuild.valid = true;
-    }
-
     // New causal nodes are appended records. A version change alone therefore
     // advances readiness without replacing already-published record prefixes.
     prediction.trajectoryBuild.topologyVersion = topologyVersion;
     prediction.trajectoryBuild.childFrameCount = frameCount;
-    prediction.trajectoryBuild.builtNodeCount = nodeCount;
+    prediction.trajectoryBuild.builtNodeCount = completedNodeCount;
 }
 
 bool ReplayPredictionBodyHasVisibleLinearMotion( const RunReplayPredictionBodySample& body )

@@ -6,7 +6,8 @@ Purpose:
 Summary:
   ReplayPrediction simulates an isolated future and publishes completed prefixes
   while readers consume a never-stored presentation view.
-  Trajectory views expose only the store's active, coherently published prefix.
+  Trajectory views expose only the store's active, coherently published prefix;
+  a completed build bank remains visible while its committed duplicate resumes.
 Invariants:
   - Worker publication retains the release/acquire prefix protocol.
   - Presentation consumers cannot observe rows beyond the prepared prefix.
@@ -332,6 +333,35 @@ struct RunReplayPredictionTrajectoryBuildState
     bool valid = false;
 };
 
+struct ReplayPredictionCommittedPublicationState
+{
+    // Concept: worker completion leaves the finished build trajectory visible
+    // while the committed duplicate catches up under the overlay budget. This
+    // snapshot owns the visible-bank facts that trajectoryBuild must relinquish
+    // to become the resumable committed-bank cursor.
+    RunReplayPredictionTrajectoryBuildState visibleTrajectoryBuild;
+    uint32_t generation = 0;
+    std::size_t sourceFrameCount = 0;
+    bool pending = false;
+
+    void Begin( const RunReplayPredictionTrajectoryBuildState& visibleBuild, uint32_t owningGeneration,
+                std::size_t owningSourceFrameCount ) noexcept
+    {
+        visibleTrajectoryBuild = visibleBuild;
+        generation = owningGeneration;
+        sourceFrameCount = owningSourceFrameCount;
+        pending = true;
+    }
+
+    void Reset() noexcept
+    {
+        visibleTrajectoryBuild = {};
+        generation = 0;
+        sourceFrameCount = 0;
+        pending = false;
+    }
+};
+
 struct RunReplayPredictionBuildState
 {
     bool dirty = true;
@@ -497,6 +527,9 @@ struct RunReplayPredictionState
     bool BuildFramesAreComplete() const noexcept;
     bool FutureTreeReadyForDraw( Physics::PhysicsSceneObjectId rootId, bool usingBuildFrames,
                                  std::size_t frameCount ) const noexcept;
+    bool FutureTreeReadyForDraw( const RunReplayPredictionTrajectoryBuildState& trajectory,
+                                 Physics::PhysicsSceneObjectId rootId, bool usingBuildFrames,
+                                 std::size_t frameCount ) const noexcept;
     void ResetBuildFramePublication() noexcept;
     void PublishBuildFrameSlot( std::size_t frameSlot ) noexcept;
 
@@ -512,6 +545,7 @@ struct RunReplayPredictionState
     // when they need orientation or velocity, not just trajectory points.
     ReplayTrajectoryStore trajectoryStore;
     RunReplayPredictionTrajectoryBuildState trajectoryBuild;
+    ReplayPredictionCommittedPublicationState committedPublication;
 
     // Concept: the butterfly baseline is a retained presentation snapshot of
     // the pre-nudge future. It is intentionally smaller than the committed
@@ -601,9 +635,10 @@ class ReplayPrediction
     ReplayPredictionPresentationView PresentationView() const noexcept
     {
         ReplayPredictionPresentationView view;
-        view.usingBuildFrames = m_state.BuildPrefixShouldBePresented();
+        const bool presentingBuildPrefix = m_state.BuildPrefixShouldBePresented();
+        view.usingBuildFrames = presentingBuildPrefix || m_state.committedPublication.pending;
 
-        if ( view.usingBuildFrames )
+        if ( presentingBuildPrefix )
         {
             const std::size_t presentedFrameCount = m_state.build.presentationPublication
                                                         .PresentedCount( m_state.PublishedBuildFrameCount(),
@@ -625,15 +660,19 @@ class ReplayPrediction
         view.velocityDragPreview.active = m_state.velocityDragPreview.active;
         view.targetId = m_state.simulation.targetId;
         view.baselineRootId = m_state.baseline.rootId;
-        view.trajectoryBuildRootId = m_state.trajectoryBuild.rootId;
+        const RunReplayPredictionTrajectoryBuildState& presentedTrajectory = m_state.committedPublication.pending
+                                                                                  ? m_state.committedPublication
+                                                                                        .visibleTrajectoryBuild
+                                                                                  : m_state.trajectoryBuild;
+        view.trajectoryBuildRootId = presentedTrajectory.rootId;
         view.sourceFrame = m_state.simulation.sourceFrameIndex;
         view.revealFrame = m_state.revealClock.presentedFrame;
         view.generation = m_state.build.generationBeginCount;
         view.topologyVersion = m_state.futureNodeCache.futureNodesTopologyVersion;
-        view.trajectoryBuildTopologyVersion = m_state.trajectoryBuild.topologyVersion;
+        view.trajectoryBuildTopologyVersion = presentedTrajectory.topologyVersion;
         view.trajectoryPublicationVersion = m_state.trajectoryStore.publicationVersion;
-        view.trajectoryBuiltNodeCount = m_state.trajectoryBuild.builtNodeCount;
-        view.trajectoryChildFrameCount = m_state.trajectoryBuild.childFrameCount;
+        view.trajectoryBuiltNodeCount = presentedTrajectory.builtNodeCount;
+        view.trajectoryChildFrameCount = presentedTrajectory.childFrameCount;
         view.buildMode = m_state.build.buildMode;
         view.horizonSeconds = m_state.simulation.horizonSeconds;
         view.revealSecondsPerSecond = m_state.revealClock.secondsPerSecond;
@@ -643,10 +682,11 @@ class ReplayPrediction
         view.building = m_state.build.building;
         view.complete = m_state.build.complete;
         view.futureNodesCacheValid = m_state.futureNodeCache.futureNodesCacheValid;
-        view.trajectoryBuildValid = m_state.trajectoryBuild.valid;
-        view.trajectoryBuildUsingBuildFrames = m_state.trajectoryBuild.usingBuildFrames;
-        view.futureTreeReady = m_state.FutureTreeReadyForDraw( view.targetId, view.usingBuildFrames, view.frames.size() );
-        view.showAllFuturePaths = m_state.trajectoryBuild.allBodyPaths;
+        view.trajectoryBuildValid = presentedTrajectory.valid;
+        view.trajectoryBuildUsingBuildFrames = presentedTrajectory.usingBuildFrames;
+        view.futureTreeReady = m_state.FutureTreeReadyForDraw( presentedTrajectory, view.targetId,
+                                                               view.usingBuildFrames, view.frames.size() );
+        view.showAllFuturePaths = presentedTrajectory.allBodyPaths;
         view.ragdollVisualsEnabled = m_state.ragdollVisualsEnabled;
         view.baselineValid = m_state.baseline.valid;
         view.baselineComparisonActive = m_state.baseline.comparisonActive;
@@ -873,16 +913,23 @@ inline bool RunReplayPredictionState::BuildFramesAreComplete() const noexcept
 inline bool RunReplayPredictionState::FutureTreeReadyForDraw( Physics::PhysicsSceneObjectId rootId, bool usingBuildFrames,
                                                               std::size_t frameCount ) const noexcept
 {
+    return FutureTreeReadyForDraw( trajectoryBuild, rootId, usingBuildFrames, frameCount );
+}
+
+inline bool RunReplayPredictionState::FutureTreeReadyForDraw(
+    const RunReplayPredictionTrajectoryBuildState& trajectory, Physics::PhysicsSceneObjectId rootId,
+    bool usingBuildFrames, std::size_t frameCount ) const noexcept
+{
     // Invariant: consumers may submit child paths only when the bounded node
     // cache and trajectory publication describe the same root, source bank,
     // topology generation, and complete frame prefix.
     const std::size_t nodeCount = (std::min)( futureNodeCache.futureNodes.size(),
                                               static_cast<std::size_t>( REPLAY_VISUAL_FUTURE_NODE_CAPACITY ) );
     return nodeCount > 0 && futureNodeCache.futureNodesCacheValid && futureNodeCache.futureNodesTopologyVersion != 0 &&
-           trajectoryBuild.valid && trajectoryBuild.rootId.value == rootId.value &&
-           trajectoryBuild.usingBuildFrames == usingBuildFrames &&
-           trajectoryBuild.topologyVersion == futureNodeCache.futureNodesTopologyVersion &&
-           trajectoryBuild.builtNodeCount == nodeCount && trajectoryBuild.childFrameCount >= frameCount;
+           trajectory.valid && trajectory.rootId.value == rootId.value &&
+           trajectory.usingBuildFrames == usingBuildFrames &&
+           trajectory.topologyVersion == futureNodeCache.futureNodesTopologyVersion &&
+           trajectory.builtNodeCount == nodeCount && trajectory.childFrameCount >= frameCount;
 }
 
 inline void RunReplayPredictionState::ResetBuildFramePublication() noexcept

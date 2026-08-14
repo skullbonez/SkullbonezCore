@@ -13,6 +13,8 @@ Glossary:
 Invariants:
   - Topology never reads beyond the acquire-visible prediction prefix.
   - Published marker and topology versions change only on coherent replacement.
+  - A completed build bank remains visible until its committed topology and
+    trajectory duplicate reaches one generation-matched ready transition.
 
 Related:
   - ReplayPredictionPublication.cpp
@@ -1017,54 +1019,32 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
 }
 
 
-void RebuildReplayPredictionCommittedTreeAfterWorkerCompletion( RunReplayPredictionState& prediction,
-                                                                const SceneEntityStore& modelCollection,
-                                                                Physics::PhysicsSceneObjectId rootId )
-{
-    const std::size_t committedFrameCount = prediction.CommittedFrameCount();
-
-    if ( rootId.value == 0 || committedFrameCount < 2u )
-    {
-        return;
-    }
-
-    // Why: the worker publishes physics frames; the frame thread owns topology.
-    // Build the committed child tree once from the full finished buffer so
-    // automation and draw records do not depend on how many budgeted render
-    // passes ran before the worker completed.
-    const auto rebuildStart = std::chrono::steady_clock::now();
-
-    {
-        PROFILE_SCOPED( "Frame/Replay/Prediction/PublishCompletedFrame/FutureNodeCache" );
-        ClearReplayPredictionFutureNodeCache( prediction );
-        UpdateReplayPredictionFutureNodeCache( prediction, prediction.simulation.frames, committedFrameCount, false,
-                                               modelCollection, rootId, rebuildStart, 0.0 );
-    }
-
-    // Why 0.0: a zero budget never expires. This is the post-completion rebuild
-    // of the committed tree, which must publish every body path in one pass; the
-    // per-frame overlay path is the one that yields, not this one.
-    {
-        PROFILE_SCOPED( "Frame/Replay/Prediction/PublishCompletedFrame/TrajectoryStore" );
-        UpdateReplayPredictionTrajectoryStore( prediction, prediction.simulation.frames, committedFrameCount, false, rootId,
-                                               rebuildStart, 0.0 );
-    }
-}
-
-
 void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const SceneEntityStore& modelCollection,
                                      const ColliderStore& colliderStore, Physics::PhysicsSceneObjectId targetId,
                                      ModelRowHint targetModelRow, bool targetAvailable, double budgetMilliseconds,
                                      ReplayPredictionUpdateResult& result )
 {
-    const bool usingBuildFrames = prediction.BuildPrefixShouldBePresented();
-    const std::vector<RunReplayPredictionFrame>& activePredictionFrames = usingBuildFrames ? prediction.build.buildFrames
-                                                                                           : prediction.simulation.frames;
+    if ( prediction.committedPublication.pending &&
+         ( prediction.committedPublication.generation != prediction.build.generationBeginCount ||
+           prediction.committedPublication.sourceFrameCount != prediction.CommittedFrameCount() ) )
+    {
+        // Hazard: an explicit restart may supersede a pending duplicate. Its
+        // visible-bank facts belong to the prior generation and must never be
+        // used to authorize a later branch flip.
+        prediction.committedPublication.Reset();
+    }
 
-    std::size_t activePredictionFrameCount = usingBuildFrames ? activePredictionFrames.size()
-                                                              : prediction.CommittedFrameCount();
+    const bool presentingBuildPrefix = prediction.BuildPrefixShouldBePresented();
+    const bool committedPublicationPending = prediction.committedPublication.pending;
+    const bool usingBuildFrames = presentingBuildPrefix || committedPublicationPending;
+    const std::vector<RunReplayPredictionFrame>& activePredictionFrames = presentingBuildPrefix
+                                                                              ? prediction.build.buildFrames
+                                                                              : prediction.simulation.frames;
 
-    if ( usingBuildFrames )
+    std::size_t activePredictionFrameCount = presentingBuildPrefix ? activePredictionFrames.size()
+                                                                   : prediction.CommittedFrameCount();
+
+    if ( presentingBuildPrefix )
     {
         // Invariant: the frame thread owns this latch. A worker may release more
         // rows after preparation, but topology, trajectories, markers, ghosts,
@@ -1105,14 +1085,14 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const
                                                              activePredictionFrameCount );
     }
 
-    const bool bufferComplete = !usingBuildFrames;
+    const bool bufferComplete = !presentingBuildPrefix;
 
     if ( !targetAvailable || targetId.value == 0 )
     {
         return;
     }
 
-    if ( usingBuildFrames && !prediction.revealClock.deterministicFrameEnabled &&
+    if ( presentingBuildPrefix && !prediction.revealClock.deterministicFrameEnabled &&
          !PublishReplayPredictionBuildRootTrajectoryPrefix( prediction, activePredictionFrameCount ) )
     {
         return;
@@ -1137,7 +1117,8 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const
         {
             PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/TrajectoryStore" );
             UpdateReplayPredictionTrajectoryStore( prediction, activePredictionFrames, activePredictionFrameCount,
-                                                   usingBuildFrames, targetId, overlayBudgetStart, budgetMilliseconds );
+                                                   committedPublicationPending ? false : usingBuildFrames, targetId,
+                                                   overlayBudgetStart, budgetMilliseconds );
         }
 
         (void)ReplayPredictionBudgetExpiredForPass( result,
@@ -1145,7 +1126,22 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const
                                                     overlayBudgetStart, budgetMilliseconds );
     }
 
-    const bool futureTreeReady = prediction.FutureTreeReadyForDraw( targetId, usingBuildFrames, activePredictionFrameCount );
+    const RunReplayPredictionTrajectoryBuildState visibleTrajectory = committedPublicationPending
+                                                                          ? prediction.committedPublication
+                                                                                .visibleTrajectoryBuild
+                                                                          : prediction.trajectoryBuild;
+    const bool futureTreeReady = prediction.FutureTreeReadyForDraw( visibleTrajectory, targetId, usingBuildFrames,
+                                                                    activePredictionFrameCount );
+
+    if ( committedPublicationPending &&
+         prediction.FutureTreeReadyForDraw( targetId, false, activePredictionFrameCount ) )
+    {
+        // Invariant: this is the single coherent-ready transition. The current
+        // frame may finish against its captured build-bank facts; the next view
+        // selects the complete committed duplicate and matching frame bank.
+        prediction.futureNodeCache.futureNodesBuiltFromBuildFrames = false;
+        prediction.committedPublication.Reset();
+    }
 
     // Why: the scan cache is the resume token. Skipping the block leaves
     // markerScan.Matches false, so the next frame retries the whole rebuild

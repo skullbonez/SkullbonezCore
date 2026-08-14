@@ -20,9 +20,13 @@ in place: per-node suffix cursors and inner-loop budget checks reduce
 retaining all 776 final records and flat reserve growth. RP2 remains open
 because the immutable visual gate captures
 all 2,401 reveal ticks, then its existing 4,200-frame interaction enters a
-second live-playback pass; this plan excludes harness changes. The next binding
-slice is RP1's coherent completion bank, currently measured at
-97.0515-116.7760 ms direct.
+second live-playback pass; this plan excludes harness changes. RP1's pending
+publication state now keeps the completed build bank visible while committed
+records resume between nodes under the overlay budget. The previous
+97.0515-116.7760 ms completion marker is no longer observed; trajectory slices
+are 0.9804-5.2610 ms across two runs and the new worst runtime frame is 30.6322 ms, led by a
+14.4368 ms retained-render refresh. RP1 remains open only for its exact immutable
+fingerprint checkbox behind the same excluded harness failure.
 
 Source Modernization Sweep, Dense Pile Sleep Resolution, Broadphase Dense
 Dedup Restoration, and Look Lab Random Style Authoring remain closed by owner

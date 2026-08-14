@@ -29,5 +29,8 @@ trajectory active-prefix reuse reduce Predict-off from 26.0907-26.4603 ms to
 child-marker scan reduces its measured direct range from 0.0021-35.5981 ms to
 0.0006-0.9382 ms, but its immutable visual-oracle checkbox remains open because
 the existing 4,200-frame harness enters a second live-playback pass after all
-2,401 reveal ticks. The next binding slice is RP1's coherent, budgeted completion
-publication; its current direct range is 97.0515-116.7760 ms.
+2,401 reveal ticks. RP1's coherent budgeted publication is implemented and the
+97.0515-116.7760 ms completion marker is no longer observed; its exact immutable
+fingerprint checkbox remains open behind the same excluded harness failure. The
+next measured runtime frame is 30.6322 ms, led by a 14.4368 ms retained-render
+refresh after the coherent branch flip.
