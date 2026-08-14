@@ -12,6 +12,7 @@ Summary:
 Invariants:
   - Tests use temporary files and never mutate repository scenes or artifacts.
   - No test introduces a frame-time threshold or performance pass/fail budget.
+  - Grouped runtime and excluded-marker ranges preserve their scope labels.
 
 Related:
   - tools/analyze_replay_prediction_spikes.py
@@ -131,7 +132,16 @@ pass,frame,Frame,Frame/Replay/Prediction/BeginJob,Frame/Replay/Prediction/Worker
                 }
             ],
             "assertions": [],
-            "finalState": {"predictionGenerationCount": 4},
+            "finalState": {
+                "predictionGenerationCount": 4,
+                "predictionTrajectoryFingerprintReady": True,
+                "predictionTrajectoryFingerprint": "0x1234",
+                "predictionTrajectoryRecordCount": 9,
+                "predictionTrajectoryPointCount": 81,
+                "predictionTrajectorySteadyStateNoReserveGrowth": True,
+                "predictionTrajectoryReserveGrowthEventsAtStart": 12,
+                "predictionTrajectoryReserveGrowthEventsAtEnd": 12,
+            },
         }
 
         report = diagnostic.analyze(rows, interaction, top_count=2, correlation_radius=2)
@@ -147,6 +157,45 @@ pass,frame,Frame,Frame/Replay/Prediction/BeginJob,Frame/Replay/Prediction/Worker
         self.assertEqual(direct["Frame/Replay/Prediction/BeginJob/SeedPrivateEngine"], 15.0)
         self.assertEqual(direct["Frame/Replay/Prediction/BeginJob"], 5.0)
         self.assertNotIn("Counter/Physics/TotalBodies", direct)
+        self.assertEqual(report["schema_version"], 2)
+        self.assertEqual(report["prediction_oracle"]["trajectory_fingerprint"], "0x1234")
+        self.assertTrue(report["prediction_oracle"]["steady_state_no_reserve_growth"])
+
+    def test_analyze_groups_named_runtime_and_excluded_markers_by_range(self) -> None:
+        rows = [
+            {
+                "pass": 1,
+                "frame": 10,
+                "timings": {
+                    "Frame": 42.0,
+                    "Frame/Replay/Prediction/PrepareOverlay/BuildChildMarkerContext": 21.0,
+                    "Frame/PostDraw/InteractionAutomation": 3.0,
+                },
+            },
+            {
+                "pass": 1,
+                "frame": 11,
+                "timings": {
+                    "Frame": 55.0,
+                    "Frame/Replay/Prediction/PrepareOverlay/BuildChildMarkerContext": 34.0,
+                    "Frame/PostDraw/InteractionAutomation": 4.0,
+                },
+            },
+        ]
+        interaction = {"ok": True, "actions": [], "assertions": [], "finalState": {}}
+
+        report = diagnostic.analyze(rows, interaction)
+        groups = {group["name"]: group for group in report["marker_groups"]}
+        child = groups["child_marker_context"]
+        harness = groups["automation_report_serialization"]
+
+        self.assertEqual(child["marker_ms"], {"minimum": 21.0, "maximum": 34.0})
+        self.assertEqual(child["frame_ms"], {"minimum": 42.0, "maximum": 55.0})
+        self.assertEqual(child["observation_count"], 2)
+        self.assertEqual(child["worst_frame"], 11)
+        self.assertFalse(child["excluded"])
+        self.assertTrue(harness["excluded"])
+        self.assertIsNone(groups["predict_off_cache_clear"]["marker_ms"])
 
     def test_validate_interaction_rejects_overlap_and_accepts_completed_generations(self) -> None:
         valid_actions = [

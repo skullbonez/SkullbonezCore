@@ -5,9 +5,8 @@ Purpose:
 
 Summary:
   ReplayPrediction simulates an isolated future and publishes completed prefixes
-
   while readers consume a never-stored presentation view.
-
+  Trajectory views expose only the store's active, coherently published prefix.
 Invariants:
   - Worker publication retains the release/acquire prefix protocol.
   - Presentation consumers cannot observe rows beyond the prepared prefix.
@@ -515,7 +514,7 @@ class ReplayPrediction
         }
 
         view.futureNodes = m_state.futureNodeCache.futureNodes;
-        view.trajectoryRecords = m_state.trajectoryStore.records;
+        view.trajectoryRecords = m_state.trajectoryStore.ActiveRecords();
         view.retainedMarkers = { m_state.futureNodeCache.retainedMarkers.data(),
                                  m_state.futureNodeCache.retainedMarkerCount };
         view.baselineBodyPoses = m_state.baseline.bodyPoses;
@@ -618,6 +617,8 @@ class ReplayPrediction
     bool PromoteBuildPrefixToCommitted();
     void CancelJob( bool clearSamples );
     void ClearCache();
+    // Profiles Predict-off invalidation while preserving the generic cold/reset path.
+    void ClearCacheFromReplayInput();
     void MarkDirty() noexcept;
     void EnterOfflineVerification();
     void ResetVerificationMarkers() noexcept;

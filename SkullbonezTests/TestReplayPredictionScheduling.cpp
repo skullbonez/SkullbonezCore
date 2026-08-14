@@ -25,6 +25,7 @@ Invariants:
     coherent changed prefix has been presented.
   - Publication exposes only a contiguous bounded prefix and reset clears failure.
   - A build-root trajectory exposes exactly the frame-thread presentation prefix.
+  - Dormant trajectory reuse selects sufficient capacity without changing active order.
   - Solver lookup may preserve a negative sentinel; prediction-style lookup rejects it.
 
 Related:
@@ -48,6 +49,10 @@ using SkullbonezCore::Runtime::ReplayPredictionPublicationOperations::SceneObjec
 using SkullbonezCore::Runtime::ReplayPredictionSchedulingOperations::ChooseReplayPredictionBuildMode;
 using SkullbonezCore::Runtime::ReplayPredictionSchedulingOperations::ChooseReplayPredictionCoalescerAction;
 using SkullbonezCore::Runtime::ReplayPredictionSchedulingOperations::UpdateReplayPredictionTicksPerMs;
+using SkullbonezCore::Runtime::ReplayTrajectoryLane;
+using SkullbonezCore::Runtime::ReplayTrajectoryRecord;
+using SkullbonezCore::Runtime::ReplayTrajectoryRecordKey;
+using SkullbonezCore::Runtime::ReplayTrajectoryStoreOperations::SelectDormantRecordIndex;
 
 TEST_CASE( "Replay prediction scheduling: measured cost selects instant or amortized mode" )
 {
@@ -102,6 +107,25 @@ TEST_CASE( "Replay prediction publication: build root follows the acquired prese
     CHECK( ReplayPredictionBuildRootPrefixCount( 0u, 4u ) == 0u );
     CHECK( ReplayPredictionBuildRootPrefixCount( 3u, 4u ) == 3u );
     CHECK( ReplayPredictionBuildRootPrefixCount( 99u, 4u ) == 4u );
+}
+
+TEST_CASE( "Replay trajectory reuse selects a sufficient dormant record deterministically" )
+{
+    std::vector<ReplayTrajectoryRecord> records( 4u );
+    records[1].key = ReplayTrajectoryRecordKey { { 11u }, ReplayTrajectoryLane::FutureRoot, 0u };
+    records[2].key = ReplayTrajectoryRecordKey { { 22u }, ReplayTrajectoryLane::FutureRoot, 0u };
+    records[3].key = ReplayTrajectoryRecordKey { { 33u }, ReplayTrajectoryLane::FutureRoot, 0u };
+    records[1].points.reserve( 4u );
+    records[2].points.reserve( 16u );
+    records[3].points.reserve( 8u );
+
+    const ReplayTrajectoryRecordKey matchingKey { { 22u }, ReplayTrajectoryLane::FutureRoot, 0u };
+    const ReplayTrajectoryRecordKey newKey { { 44u }, ReplayTrajectoryLane::FutureRoot, 0u };
+
+    CHECK( SelectDormantRecordIndex( records, 1u, matchingKey, 12u ) == 2u );
+    CHECK( SelectDormantRecordIndex( records, 1u, newKey, 7u ) == 2u );
+    CHECK( SelectDormantRecordIndex( records, 1u, newKey, 32u ) == 2u );
+    CHECK( SelectDormantRecordIndex( records, records.size(), newKey, 1u ) == records.size() );
 }
 
 TEST_CASE( "Replay sample lookup: stable id and explicit negative-row policy survive fallback scans" )

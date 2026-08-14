@@ -21,5 +21,6 @@ Other completed plan files were deleted; git history is the archive.
 
 ## Portfolio Progress
 
-The active portfolio contains one plan with five open phases (RP0-RP4). The next
-handoff is RP0 attribution/oracle lock through the repository-local orchestrator.
+The active portfolio contains one plan with five open phases (RP0-RP4). RP0
+attribution and RP3 trajectory-capacity reuse are implemented; the next handoff
+finishes the remaining CPU fixtures and the measured nested-frame invalidation.

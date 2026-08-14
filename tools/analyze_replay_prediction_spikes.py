@@ -6,13 +6,15 @@ Purpose:
 Summary:
   Generates an isolated perf-enabled scene copy, launches the engine under a
   caller-selected watchdog, verifies prediction interactions do not overlap,
-  and attributes the largest frames without imposing a performance budget.
+  attributes the largest frames, and reports named marker ranges plus final
+  prediction-oracle facts without imposing a performance budget.
 
 Invariants:
   - The source scene is read-only; perf logging is injected into TestOutput.
   - The engine process is killed when its diagnostic watchdog expires.
   - Dynamic CSV headers govern only the rows that follow them.
   - Spike magnitude is diagnostic data and never changes the process exit code.
+  - Harness and target-restart marker groups remain explicitly excluded evidence.
 
 Related:
   - SkullbonezData/interaction/replay_prediction_120s_frame_spike.json
@@ -28,6 +30,35 @@ import math
 import subprocess
 from pathlib import Path
 from typing import Any
+
+
+MARKER_GROUPS = (
+    (
+        "completion_trajectory_publication",
+        "Frame/Replay/Prediction/PublishCompletedFrame/TrajectoryStore",
+        False,
+    ),
+    (
+        "child_marker_context",
+        "Frame/Replay/Prediction/PrepareOverlay/BuildChildMarkerContext",
+        False,
+    ),
+    (
+        "predict_off_cache_clear",
+        "Frame/Replay/Prediction/ClearCache",
+        False,
+    ),
+    (
+        "automation_report_serialization",
+        "Frame/PostDraw/InteractionAutomation",
+        True,
+    ),
+    (
+        "prediction_restart_input",
+        "Frame/Input",
+        True,
+    ),
+)
 
 
 def prepare_scene(source: Path, output: Path, perf_log: str) -> None:
@@ -240,6 +271,54 @@ def _percentile(values: list[float], percentile: float) -> float:
     return ordered[lower] + (ordered[upper] - ordered[lower]) * fraction
 
 
+def _marker_groups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    groups: list[dict[str, Any]] = []
+
+    for name, marker, excluded in MARKER_GROUPS:
+        observations = [row for row in rows if row["timings"].get(marker, 0.0) > 0.0]
+
+        if not observations:
+            groups.append(
+                {
+                    "name": name,
+                    "marker": marker,
+                    "excluded": excluded,
+                    "observation_count": 0,
+                    "frame_ms": None,
+                    "marker_ms": None,
+                    "worst_frame": None,
+                }
+            )
+            continue
+
+        worst = max(observations, key=lambda row: row["timings"][marker])
+        frame_values = [row["timings"].get("Frame", 0.0) for row in observations]
+        marker_values = [row["timings"][marker] for row in observations]
+        groups.append(
+            {
+                "name": name,
+                "marker": marker,
+                "excluded": excluded,
+                "observation_count": len(observations),
+                "frame_ms": {
+                    "minimum": round(min(frame_values), 4),
+                    "maximum": round(max(frame_values), 4),
+                },
+                "marker_ms": {
+                    "minimum": round(min(marker_values), 4),
+                    "maximum": round(max(marker_values), 4),
+                },
+                "worst_frame": worst["frame"],
+            }
+        )
+
+    groups.sort(
+        key=lambda group: group["marker_ms"]["maximum"] if group["marker_ms"] is not None else -1.0,
+        reverse=True,
+    )
+    return groups
+
+
 def analyze(
     rows: list[dict[str, Any]],
     interaction: dict[str, Any],
@@ -272,8 +351,9 @@ def analyze(
         )
 
     frame_values = [row["timings"]["Frame"] for row in frame_rows]
+    final_state = interaction.get("finalState", {})
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "diagnostic_only": True,
         "automation_ok": bool(interaction.get("ok", False)),
         "frames_analyzed": len(frame_rows),
@@ -282,7 +362,17 @@ def analyze(
             "p99": round(_percentile(frame_values, 0.99), 4),
             "p99_9": round(_percentile(frame_values, 0.999), 4),
         },
-        "prediction_generation_count": interaction.get("finalState", {}).get("predictionGenerationCount"),
+        "prediction_generation_count": final_state.get("predictionGenerationCount"),
+        "prediction_oracle": {
+            "trajectory_fingerprint_ready": final_state.get("predictionTrajectoryFingerprintReady"),
+            "trajectory_fingerprint": final_state.get("predictionTrajectoryFingerprint"),
+            "trajectory_record_count": final_state.get("predictionTrajectoryRecordCount"),
+            "trajectory_point_count": final_state.get("predictionTrajectoryPointCount"),
+            "steady_state_no_reserve_growth": final_state.get("predictionTrajectorySteadyStateNoReserveGrowth"),
+            "reserve_growth_events_at_start": final_state.get("predictionTrajectoryReserveGrowthEventsAtStart"),
+            "reserve_growth_events_at_end": final_state.get("predictionTrajectoryReserveGrowthEventsAtEnd"),
+        },
+        "marker_groups": _marker_groups(frame_rows),
         "spikes": spikes,
     }
 
@@ -355,6 +445,22 @@ def print_report(report: dict[str, Any]) -> None:
         f"max={frame_stats['maximum']:.4f} ms p99={frame_stats['p99']:.4f} ms "
         f"p99.9={frame_stats['p99_9']:.4f} ms"
     )
+
+    print("\nGrouped marker ranges (worst marker first):")
+
+    for group in report["marker_groups"]:
+        scope = "excluded" if group["excluded"] else "in scope"
+
+        if group["marker_ms"] is None:
+            print(f"  {group['name']}: not observed ({scope})")
+            continue
+
+        print(
+            f"  {group['name']}: marker {group['marker_ms']['minimum']:.4f}-"
+            f"{group['marker_ms']['maximum']:.4f} ms; frame {group['frame_ms']['minimum']:.4f}-"
+            f"{group['frame_ms']['maximum']:.4f} ms; observations={group['observation_count']} "
+            f"worst_frame={group['worst_frame']} ({scope})"
+        )
 
     for spike in report["spikes"]:
         print(

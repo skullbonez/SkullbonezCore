@@ -1,15 +1,16 @@
 # Session State
 
 Date: 2026-08-14
-Branch: `codex/replay-prediction-frame-spike-diagnostic`
+Branch: `nightrunner-14th-AUG-26`
 Status: Active - 0/5 phases complete
 
 Replay Prediction Runtime Spike Reduction is the only live plan. It owns the
 measured completion-publication, child-marker, and Predict-off runtime stalls.
 Automation report serialization and prediction target-restart work remain
-explicitly excluded. The next handoff is RP0 attribution/oracle lock through
-the repository-local orchestrator; implementation moves to the resolved Night
-Runner branch before source edits.
+explicitly excluded. RP0 now reports named marker ranges and final oracle facts;
+RP3 retains keyed trajectory-record capacity, reducing Predict-off from
+26.0907-26.4603 ms to 15.6154-16.2350 ms. The remaining measured cost is nested
+prediction-frame destruction; RP0 still needs the bank/marker resume fixtures.
 
 Source Modernization Sweep, Dense Pile Sleep Resolution, Broadphase Dense
 Dedup Restoration, and Look Lab Random Style Authoring remain closed by owner

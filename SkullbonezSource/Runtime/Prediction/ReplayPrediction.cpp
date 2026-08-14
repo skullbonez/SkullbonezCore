@@ -1509,6 +1509,70 @@ void ReplayPrediction::ClearCache()
     m_state.velocityDragPreview.Clear();
 }
 
+void ReplayPrediction::ClearCacheFromReplayInput()
+{
+    PROFILE_SCOPED( "Frame/Replay/Prediction/ClearCache" );
+
+    {
+        PROFILE_SCOPED( "Frame/Replay/Prediction/ClearCache/CancelJob" );
+        CancelJob( false );
+    }
+
+    {
+        PROFILE_SCOPED( "Frame/Replay/Prediction/ClearCache/ResetSampleMetadata" );
+        m_state.build.supersededRestartCount = 0;
+        m_state.build.latestRestartBeginCount = 0;
+        m_state.simulation.measuredTicksPerMs.store( 0.0, std::memory_order_release );
+        m_state.simulation.probeElapsedMs = 0.0;
+        m_state.simulation.probeTicksCompleted = 0;
+        m_state.simulation.calibratedModelCount = -1;
+    }
+
+    {
+        PROFILE_SCOPED( "Frame/Replay/Prediction/ClearCache/InvalidateFrames" );
+        m_state.simulation.frames.clear();
+    }
+
+    {
+        PROFILE_SCOPED( "Frame/Replay/Prediction/ClearCache/InvalidateWorkerTrajectoryStore" );
+        m_state.trajectoryStore.Clear();
+    }
+
+    {
+        PROFILE_SCOPED( "Frame/Replay/Prediction/ClearCache/InvalidateFutureNodeCache" );
+        ClearFutureNodeCache();
+    }
+
+    {
+        PROFILE_SCOPED( "Frame/Replay/Prediction/ClearCache/ResetSource" );
+        m_state.simulation.targetId = Physics::PhysicsSceneObjectId {};
+        m_state.simulation.sourceFrameIndex = 0;
+        m_state.simulation.sourceSolverHash = 0;
+        m_state.simulation.sourceSimulationSeconds = 0.0;
+        m_state.build.lastBuildTime = 0.0;
+    }
+
+    {
+        PROFILE_SCOPED( "Frame/Replay/Prediction/ClearCache/ResetTrajectoryBuild" );
+        m_state.trajectoryBuild = RunReplayPredictionTrajectoryBuildState {};
+    }
+
+    {
+        PROFILE_SCOPED( "Frame/Replay/Prediction/ClearCache/InvalidateTrajectoryStore" );
+        m_state.trajectoryStore.Clear();
+    }
+
+    {
+        PROFILE_SCOPED( "Frame/Replay/Prediction/ClearCache/ResetBaseline" );
+        m_state.baseline = ReplayPredictionBaselineSnapshot {};
+    }
+
+    {
+        PROFILE_SCOPED( "Frame/Replay/Prediction/ClearCache/ResetVelocityPreview" );
+        m_state.velocityDragPreview.Clear();
+    }
+}
+
 ReplayPastTrajectoryUpdate ReplayPrediction::RefreshPastTrajectoryStore( const ReplaySolverRecorder& solver,
                                                                          const ReplayPastTrajectoryView& path )
 {
@@ -1728,7 +1792,7 @@ ReplayPredictionMemoryStats ReplayPrediction::CollectMemoryStats() const
                                         ? static_cast<uint64_t>( m_state.trajectoryStore.nextVersion - 1u )
                                         : 0u;
 
-    for ( const ReplayTrajectoryRecord& record : m_state.trajectoryStore.records )
+    for ( const ReplayTrajectoryRecord& record : m_state.trajectoryStore.ActiveRecords() )
     {
         stats.trajectory.publishedPointCount += static_cast<uint64_t>( (std::min)( record.publishedPointCount, record.points.size() ) );
         stats.trajectory.maxRecordVersion = (std::max)( stats.trajectory.maxRecordVersion, record.version );

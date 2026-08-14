@@ -62,7 +62,7 @@ uint32_t CountCanonicalTrajectoryVersions( const ReplayTrajectoryStore& store ) 
 {
     uint32_t count = 0;
 
-    for ( const ReplayTrajectoryRecord& record : store.records )
+    for ( const ReplayTrajectoryRecord& record : store.ActiveRecords() )
     {
         if ( !IsInactivePredictionWorkerBankRecord( record ) )
         {
@@ -363,7 +363,7 @@ bool BuildReplayPredictionArchiveForSchemaValidation( const RunReplayPathVisuali
          prediction.build.building || !prediction.build.complete || prediction.simulation.frames.size() < 2u ||
          prediction.simulation.frames.size() > REPLAY_PREDICTION_ARCHIVE_MAX_FRAMES ||
          prediction.futureNodeCache.retainedMarkerCount > prediction.futureNodeCache.retainedMarkers.size() ||
-         prediction.trajectoryStore.records.size() > REPLAY_PREDICTION_ARCHIVE_MAX_RECORDS )
+         prediction.trajectoryStore.RecordCount() > REPLAY_PREDICTION_ARCHIVE_MAX_RECORDS )
     {
         return false;
     }
@@ -444,11 +444,11 @@ bool BuildReplayPredictionArchiveForSchemaValidation( const RunReplayPathVisuali
 
     const uint32_t canonicalTrajectoryVersionCount = CountCanonicalTrajectoryVersions( prediction.trajectoryStore );
     writer.Scalar( canonicalTrajectoryVersionCount + 1u );
-    writer.Scalar( static_cast<uint32_t>( prediction.trajectoryStore.records.size() ) );
+    writer.Scalar( static_cast<uint32_t>( prediction.trajectoryStore.RecordCount() ) );
     uint64_t totalPointCount = 0;
     uint32_t canonicalTrajectoryVersion = 1u;
 
-    for ( const ReplayTrajectoryRecord& record : prediction.trajectoryStore.records )
+    for ( const ReplayTrajectoryRecord& record : prediction.trajectoryStore.ActiveRecords() )
     {
         totalPointCount += record.points.size();
 
@@ -603,7 +603,6 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
 
     prediction.simulation.frames.clear();
     prediction.futureNodeCache.futureNodes.clear();
-    prediction.trajectoryStore.records.clear();
     prediction.baseline.rootPolyline.clear();
     prediction.baseline.bodyPoses.clear();
     prediction.futureNodeCache.ResetRetainedMarkers();
@@ -708,7 +707,8 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
         return false;
     }
 
-    prediction.trajectoryStore.records.reserve( recordCount );
+    std::vector<ReplayTrajectoryRecord> loadedTrajectoryRecords;
+    loadedTrajectoryRecords.reserve( recordCount );
     uint64_t totalPointCount = 0;
 
     for ( uint32_t recordIndex = 0; recordIndex < recordCount; ++recordIndex )
@@ -751,7 +751,7 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
             }
         }
 
-        prediction.trajectoryStore.records.push_back( std::move( record ) );
+        loadedTrajectoryRecords.push_back( std::move( record ) );
     }
 
     uint32_t rootFrameCount = 0;
@@ -774,7 +774,7 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
     const uint16_t activeRootBranch = prediction.trajectoryBuild.usingBuildFrames ? REPLAY_TRAJECTORY_BUILD_BRANCH
                                                                                   : REPLAY_TRAJECTORY_COMMITTED_BRANCH;
 
-    for ( const ReplayTrajectoryRecord& record : prediction.trajectoryStore.records )
+    for ( const ReplayTrajectoryRecord& record : loadedTrajectoryRecords )
     {
         if ( record.key.lane != ReplayTrajectoryLane::FutureRoot || record.key.branchOrdinal != activeRootBranch ||
              record.key.bodyId.value == prediction.trajectoryBuild.rootId.value )
@@ -843,6 +843,8 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
         WriteReason( outReason, reasonSize, "prediction archive has trailing bytes" );
         return false;
     }
+
+    prediction.trajectoryStore.ReplaceRecordsFromArchive( std::move( loadedTrajectoryRecords ) );
 
     pathVisualizer.hasTarget = archivedHasTarget;
     pathVisualizer.pastPathVisible = archivedPastPathVisible;

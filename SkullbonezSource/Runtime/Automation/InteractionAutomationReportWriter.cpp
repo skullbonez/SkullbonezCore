@@ -736,7 +736,7 @@ SkullbonezCore::Runtime::InteractionAutomationReportWriter::BuildPredictionTraje
 
     const ReplayTrajectoryStore& store = replay.prediction.trajectoryStore;
 
-    for ( const ReplayTrajectoryRecord& record : store.records )
+    for ( const ReplayTrajectoryRecord& record : store.ActiveRecords() )
     {
         const std::size_t publishedPointCount = (std::min)( record.publishedPointCount, record.points.size() );
 
@@ -854,7 +854,7 @@ std::size_t SkullbonezCore::Runtime::InteractionAutomationReportWriter::ReplayPa
     // advances, independent of machine-specific frame timing.
     const RunReplayPathVisualizerState& visualizer = replay.path;
 
-    for ( const ReplayTrajectoryRecord& record : replay.prediction.trajectoryStore.records )
+    for ( const ReplayTrajectoryRecord& record : replay.prediction.trajectoryStore.ActiveRecords() )
     {
         if ( record.key.lane == ReplayTrajectoryLane::PastRoot && record.key.bodyId.value == visualizer.targetId.value )
         {

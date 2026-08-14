@@ -242,7 +242,8 @@ ReplayTrajectoryRecord* BeginReplayTrajectoryRecord( ReplayTrajectoryStore& stor
         return nullptr;
     }
 
-    ReplayTrajectoryRecord* record = store.BeginReplaceRecord( key, styleId, parentId, depth, firstFrame, contactDerived );
+    ReplayTrajectoryRecord* record =
+        store.BeginReplaceRecord( key, styleId, parentId, depth, firstFrame, contactDerived, pointCapacity );
 
     if ( !record || !store.ReserveRecordPoints( *record, pointCapacity, frameNumber ) )
     {

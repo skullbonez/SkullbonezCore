@@ -88,13 +88,13 @@ and call the spike closed.
 
 ## Phase RP0 - Lock Attribution And Behavioral Oracles
 
-- [ ] Add nested markers around the Predict-off path: worker cancellation,
+- [x] Add nested markers around the Predict-off path: worker cancellation,
   trajectory-store invalidation, baseline reset, and other retained-state
   resets. Keep `Frame/Replay/ScrubberInput` as the parent marker.
-- [ ] Extend the diagnostic analysis only as needed to report the three named
+- [x] Extend the diagnostic analysis only as needed to report the three named
   classes consistently across repeated runs; keep harness and target-restart
   findings labeled as excluded evidence.
-- [ ] Capture a fresh before-change run and record generation count, final
+- [x] Capture a fresh before-change run and record generation count, final
   prediction fingerprint facts, marker ranges, reserve growth counters, and
   interaction-frame identities.
 - [ ] Add focused CPU fixtures for coherent bank switching, marker-scan resume,
@@ -202,13 +202,13 @@ RP2 acceptance:
 `ReplayTrajectoryStore::Clear` clears each record and then destroys the record
 vector's active elements, releasing nested point-vector capacity synchronously.
 
-- [ ] Split logical invalidation from physical release. Predict-off must cancel
+- [x] Split logical invalidation from physical release. Predict-off must cancel
   the worker and make records invisible immediately, then reset active counts,
   cursors, and publication versions without freeing retained capacities.
-- [ ] Give `ReplayTrajectoryStore` an explicit active-record prefix or equivalent
+- [x] Give `ReplayTrajectoryStore` an explicit active-record prefix or equivalent
   invariant-owning reuse mechanism. `FindRecord`, iteration, packet publication,
   and diagnostics must ignore inactive retained slots.
-- [ ] Reuse record slots and nested point-vector capacity on the next generation.
+- [x] Reuse record slots and nested point-vector capacity on the next generation.
   Permit physical release only in an existing cold scene-reset/shutdown owner,
   not in pointer input or per-frame Prediction work.
 - [ ] Use RP0 markers to adjudicate baseline/build-frame or other reset costs;
@@ -234,6 +234,18 @@ RP3 acceptance:
   prediction output and no reserve growth after warm-up.
 - `Frame/Replay/ScrubberInput` no longer contains the measured synchronous
   trajectory-store destruction burst.
+
+Current RP0/RP3 evidence (Automation, four completed 120-second predictions):
+
+- Before nested attribution: Predict-off grouped marker 26.0907-26.4603 ms.
+  `InvalidateFrames` owned 15.3099-15.3103 ms and trajectory-store destruction
+  owned 10.7711-11.1330 ms; worker cancellation was 0.0013 ms.
+- After active-prefix/keyed-capacity reuse: Predict-off is 15.6154-16.2350 ms;
+  trajectory-store invalidation is 0.0043-0.0047 ms, all 776 records publish,
+  and reserve growth stays flat after warm-up (1720 at start and end).
+- The remaining RP3 work is the independently measured 7,201-frame nested
+  payload destruction. Completion publication remains 101.3209-116.7351 ms;
+  child-marker context remains 0.0021-35.5981 ms.
 
 ## Phase RP4 - Closure, Threshold Ratification, And Documentation
 
