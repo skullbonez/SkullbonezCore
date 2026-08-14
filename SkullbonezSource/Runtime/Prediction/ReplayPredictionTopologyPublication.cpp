@@ -21,6 +21,7 @@ Related:
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionPublicationOperations.h
 */
 #include "ReplayPredictionPublicationOperations.h"
+#include "ReplayPredictionPublication.MarkerScan.inl"
 #include "../Scene/SceneEntityStore.h"
 #include "../Editor/EditorHullAssets.h"
 #include "../Replay/ReplayOverlayLayout.h"
@@ -72,8 +73,6 @@ constexpr float REPLAY_PREDICTION_CHILD_LINEAR_SPEED_SQ = 8.0f * 8.0f;
 constexpr float REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE = 0.05f;
 constexpr float REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE_SQ = REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE *
                                                                  REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE;
-constexpr double REPLAY_PREDICTION_REST_GRACE_SECONDS = 0.4;
-constexpr ReplayFrameIndex REPLAY_PREDICTION_REST_GRACE_FRAMES = static_cast<ReplayFrameIndex>( REPLAY_PREDICTION_REST_GRACE_SECONDS / PHYSICS_FIXED_DT );
 constexpr float REPLAY_PREDICTION_REST_POSITION_EPSILON_SQ = 0.5f * 0.5f;
 
 // Concept: topology publication and drawing sample the same revealed prefix.
@@ -271,14 +270,6 @@ bool BuildReplayFutureNodesFromContacts( const ContactRange& contacts, ReplayFra
     return true;
 }
 
-using ReplayPathChildDrawState = ReplayPredictionChildMarkerNodeScanState;
-
-struct ReplayPathChildDrawContext
-{
-    std::array<ReplayPathChildDrawState, REPLAY_PATH_MAX_FUTURE_NODES> nodes = {};
-    std::size_t nodeCount = 0;
-};
-
 // Why: downstream replay markers should show the collider's real authored
 // shape, not the broadphase radius used for cheap collision culling.
 const ColliderRecord* ReplayColliderRecordForModelIndex( const ColliderStore* colliderStore, int modelIndex )
@@ -301,87 +292,6 @@ const ColliderRecord* ReplayColliderRecordForModelIndex( const ColliderStore* co
 
     return collider;
 }
-
-ReplayPredictionRetainedMarker* FindOrAddReplayPredictionRetainedMarker( RunReplayPredictionState& prediction,
-                                                                         Physics::PhysicsSceneObjectId id, int modelIndex )
-{
-    if ( id.value == 0 )
-    {
-        return nullptr;
-    }
-
-    for ( std::size_t i = 0; i < prediction.futureNodeCache.retainedMarkerCount; ++i )
-    {
-        ReplayPredictionRetainedMarker& marker = prediction.futureNodeCache.retainedMarkers[i];
-
-        if ( marker.id.value == id.value )
-        {
-            if ( modelIndex >= 0 )
-            {
-                marker.modelRow.value = modelIndex;
-            }
-
-            return &marker;
-        }
-    }
-
-    if ( prediction.futureNodeCache.retainedMarkerCount >= prediction.futureNodeCache.retainedMarkers.size() )
-    {
-        return nullptr;
-    }
-
-    ReplayPredictionRetainedMarker& marker = prediction.futureNodeCache
-                                                 .retainedMarkers[prediction.futureNodeCache.retainedMarkerCount++];
-
-    marker = ReplayPredictionRetainedMarker {};
-
-    marker.id = id;
-    marker.modelRow.value = modelIndex;
-    return &marker;
-}
-
-void RetainReplayPredictionEntryMarker( RunReplayPredictionState& prediction, Physics::PhysicsSceneObjectId id,
-                                        int modelIndex, const Vector3& position, Quaternion orientation )
-{
-    if ( ReplayPredictionRetainedMarker* marker = FindOrAddReplayPredictionRetainedMarker( prediction, id, modelIndex ) )
-    {
-        marker->hasEntryPose = true;
-        marker->entryPosition = position;
-        marker->entryOrientation = orientation;
-        marker->entryOrientation.Normalise();
-    }
-}
-
-void RetainReplayPredictionRestMarker( RunReplayPredictionState& prediction, Physics::PhysicsSceneObjectId id,
-                                       int modelIndex, const Vector3& position, Quaternion orientation )
-{
-    if ( ReplayPredictionRetainedMarker* marker = FindOrAddReplayPredictionRetainedMarker( prediction, id, modelIndex ) )
-    {
-        marker->hasRestPose = true;
-        marker->hasHorizonPose = false;
-        marker->restPosition = position;
-        marker->restOrientation = orientation;
-        marker->restOrientation.Normalise();
-    }
-}
-
-void RetainReplayPredictionHorizonMarker( RunReplayPredictionState& prediction, Physics::PhysicsSceneObjectId id,
-                                          int modelIndex, const Vector3& position, Quaternion orientation )
-{
-    if ( ReplayPredictionRetainedMarker* marker = FindOrAddReplayPredictionRetainedMarker( prediction, id, modelIndex ) )
-    {
-        if ( marker->hasRestPose )
-        {
-            return;
-        }
-
-        marker->hasHorizonPose = true;
-        marker->horizonPosition = position;
-        marker->horizonOrientation = orientation;
-        marker->horizonOrientation.Normalise();
-    }
-}
-
 
 void RetainReplayPredictionEndStateMarkers( RunReplayPredictionState& prediction, ReplayFrameIndex revealFrame,
                                             const std::vector<RunReplayPredictionFrame>& completeFrames,
@@ -437,161 +347,6 @@ void RetainReplayPredictionEndStateMarkers( RunReplayPredictionState& prediction
         RetainReplayPredictionHorizonMarker( prediction, marker.id, finalBody->modelRow.value, finalBody->position,
                                              finalBody->orientation );
     }
-}
-
-// Concept: causal markers are the two-box story of each affected body.
-//
-// Yellow is fixed at the body's last still pose before it visibly moved - for
-// a wall brick, its perfect-formation pose. Grey pops in ONLY at the body's
-// final resting pose, and only when the completed prediction actually ends
-// with it at rest; a body still moving at the horizon end gets a travel line
-// and nothing else. Neither box ever slides.
-void RetainReplayPredictionCausalMarkers( RunReplayPredictionState& prediction, ReplayPathChildDrawContext& context,
-                                          ReplayFrameIndex revealFrame,
-                                          const std::vector<RunReplayPredictionFrame>* completeFrames,
-                                          std::size_t completeFrameCount )
-{
-    for ( std::size_t i = 0; i < context.nodeCount; ++i )
-    {
-        const ReplayPathChildDrawState& drawState = context.nodes[i];
-
-        if ( drawState.hasEntryPose )
-        {
-            RetainReplayPredictionEntryMarker( prediction, drawState.node.id, drawState.entryModelIndex,
-                                               drawState.entryPosition, drawState.entryOrientation );
-        }
-
-        // Why: completeFrames is null while the job is still building - a
-        // growing prefix has no authoritative ending, so no grey box may
-        // exist yet. The reveal timing check keeps the grey pop causal: it
-        // appears only after the cursor has watched the body stop.
-        if ( !drawState.active || !completeFrames )
-        {
-            continue;
-        }
-
-        if ( revealFrame < drawState.lastMotionFrame + REPLAY_PREDICTION_REST_GRACE_FRAMES )
-        {
-            continue;
-        }
-
-        Vector3 restPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
-        Quaternion restOrientation = IDENTITY_QUATERNION;
-
-        if ( !ReplayPredictionBodyRestingPose( *completeFrames, completeFrameCount, drawState.node.id,
-                                               drawState.node.modelRow.value, restPosition, restOrientation ) )
-        {
-            continue;
-        }
-
-        RetainReplayPredictionRestMarker( prediction, drawState.node.id, drawState.node.modelRow.value, restPosition,
-                                          restOrientation );
-    }
-}
-
-bool AdvanceReplayPredictionChildMarkerScan( ReplayPredictionChildMarkerScanState& scan,
-                                             const RunReplayPredictionState& prediction,
-                                             const std::vector<RunReplayPredictionFrame>& frames, std::size_t frameCount,
-                                             ReplayFrameIndex revealFrame, uint32_t generation,
-                                             Physics::PhysicsSceneObjectId targetId, bool usingBuildFrames,
-                                             const std::chrono::steady_clock::time_point& budgetStart,
-                                             double budgetMilliseconds )
-{
-    frameCount = (std::min)( frameCount, frames.size() );
-    const std::size_t nodeCount = (std::min)( prediction.futureNodeCache.futureNodes.size(), REPLAY_PATH_MAX_FUTURE_NODES );
-    const uint32_t topologyVersion = prediction.futureNodeCache.futureNodesTopologyVersion;
-
-    const bool sourceChanged = !scan.initialized || scan.generation != generation || scan.targetId.value != targetId.value ||
-                               scan.usingBuildFrames != usingBuildFrames || frameCount < scan.frameCount ||
-                               revealFrame < scan.revealFrame;
-
-    if ( sourceChanged )
-    {
-        scan.Reset();
-        scan.generation = generation;
-        scan.targetId = targetId;
-        scan.usingBuildFrames = usingBuildFrames;
-        scan.initialized = true;
-    }
-
-    const std::size_t previousNodeCount = sourceChanged ? 0u : scan.nodeCount;
-
-    for ( std::size_t i = 0; i < nodeCount; ++i )
-    {
-        (void)scan.PreserveOrResetNode( i, previousNodeCount, prediction.futureNodeCache.futureNodes[i] );
-    }
-
-    scan.nodeCount = nodeCount;
-    scan.topologyVersion = topologyVersion;
-    scan.valid = false;
-
-    if ( frameCount < 2 || nodeCount == 0 )
-    {
-        scan.Commit( generation, topologyVersion, targetId, frameCount, revealFrame, usingBuildFrames );
-        return true;
-    }
-
-    // Invariant: prediction frames publish in increasing solver-frame order.
-    // Binary search therefore finds the revealed prefix without rewalking a
-    // 14,401-frame horizon merely to locate its end.
-    const auto visibleEnd = std::upper_bound( frames.begin(), frames.begin() + static_cast<std::ptrdiff_t>( frameCount ),
-                                              revealFrame,
-                                              []( ReplayFrameIndex frame, const RunReplayPredictionFrame& sample )
-                                              { return frame < sample.frameIndex; } );
-
-    const std::size_t visibleFrameCount = static_cast<std::size_t>( std::distance( frames.begin(), visibleEnd ) );
-
-    // Concept: every node owns an independent frame cursor. Topology growth
-    // initializes only new or changed nodes; reveal growth scans only the new
-    // suffix for stable nodes. Marker side effects remain deferred until every
-    // node reaches this call's coherent visible prefix.
-    for ( std::size_t i = 0; i < nodeCount; ++i )
-    {
-        ReplayPathChildDrawState& drawState = scan.nodes[i];
-
-        while ( drawState.scannedFrameCount < visibleFrameCount )
-        {
-            if ( ( drawState.scannedFrameCount & 63u ) == 0u &&
-                 ReplayPredictionSchedulingOperations::ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
-            {
-                scan.frameCount = frameCount;
-                scan.revealFrame = revealFrame;
-                return false;
-            }
-
-            const RunReplayPredictionFrame& frame = frames[drawState.scannedFrameCount];
-            ++drawState.scannedFrameCount;
-
-            if ( frame.frameIndex < drawState.node.firstFrame )
-            {
-                continue;
-            }
-
-            const RunReplayPredictionBodySample*
-                body = FindReplayPredictionBodyByIdWithHint( frame, drawState.node.id, drawState.node.modelRow.value );
-
-            if ( !body )
-            {
-                continue;
-            }
-
-            const bool visibleMotion = ReplayPredictionBodyHasVisibleLinearMotion( *body );
-            const RunReplayPredictionBodySample* initialSample = body;
-
-            if ( !drawState.active && visibleMotion )
-            {
-                const RunReplayPredictionBodySample*
-                    frameZeroSample = FindReplayPredictionBodyByIdWithHint( frames[0], drawState.node.id,
-                                                                            body->modelRow.value );
-                initialSample = frameZeroSample ? frameZeroSample : body;
-            }
-
-            drawState.ObserveBody( frame.frameIndex, *body, *initialSample, visibleMotion );
-        }
-    }
-
-    scan.Commit( generation, topologyVersion, targetId, frameCount, revealFrame, usingBuildFrames );
-    return true;
 }
 
 ReplayFrameIndex ReplayPredictionVisibleRootMotionFrame( const std::vector<RunReplayPredictionFrame>& frames,
@@ -1182,17 +937,9 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const
             // presentation bookkeeping cannot be skipped by marker discovery.
             if ( markerScanComplete )
             {
-                ReplayPathChildDrawContext childDraw;
-                childDraw.nodeCount = markerScan.nodeCount;
-
-                for ( std::size_t i = 0; i < childDraw.nodeCount; ++i )
-                {
-                    childDraw.nodes[i] = markerScan.nodes[i];
-                }
-
                 {
                     PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/RetainCausalMarkers" );
-                    RetainReplayPredictionCausalMarkers( prediction, childDraw, drawWindow.revealFrame,
+                    RetainReplayPredictionCausalMarkers( prediction, markerScan, drawWindow.revealFrame,
                                                          bufferComplete ? &activePredictionFrames : nullptr,
                                                          bufferComplete ? activePredictionFrameCount : 0 );
                 }

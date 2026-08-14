@@ -15,7 +15,9 @@ Summary:
   Cross-target promotion tests also lock the hidden publication to the
   promoted source until the coherent bank flip releases the requested target.
   Budget-schedule and fast-completion tests prove hidden prediction work cannot
-  change the retained visible bank or the final canonical trajectory output.
+  change the retained visible bank or the final canonical trajectory output. A
+  200-child oracle also proves incremental marker scans and retained poses match
+  the legacy full scan through prefix, topology, generation, and bank changes.
 
 Glossary:
   Packet span: Non-owning view of one ordered production submission stream.
@@ -51,6 +53,7 @@ Related:
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.h"
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.h"
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionPublicationOperations.h"
+#include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.MarkerScan.inl"
 
 #include <algorithm>
 #include <array>
@@ -1089,6 +1092,285 @@ TEST_CASE( "Replay child marker suffix accumulation matches a full scan" )
     CHECK( incrementalW == fullW );
     CHECK( incremental.lastMotionFrame == full.lastMotionFrame );
     CHECK( incremental.lastMotionFrame == 4u );
+}
+
+TEST_CASE( "Replay incremental child marker scan matches the legacy full scan across publication transitions" )
+{
+    constexpr std::size_t completedFrameCount = 361u;
+    constexpr std::size_t childCount = REPLAY_VISUAL_FUTURE_NODE_CAPACITY;
+    const SkullbonezCore::Physics::PhysicsSceneObjectId rootId { 1u };
+    auto prediction = std::make_unique<RunReplayPredictionState>();
+    std::vector<RunReplayPredictionFrame> frames( completedFrameCount );
+
+    for ( std::size_t frameIndex = 0u; frameIndex < frames.size(); ++frameIndex )
+    {
+        RunReplayPredictionFrame& frame = frames[frameIndex];
+        frame.frameIndex = static_cast<ReplayFrameIndex>( frameIndex );
+        frame.bodies.resize( childCount + 1u );
+
+        for ( std::size_t bodyIndex = 0u; bodyIndex < frame.bodies.size(); ++bodyIndex )
+        {
+            RunReplayPredictionBodySample& body = frame.bodies[bodyIndex];
+            body.id.value = static_cast<uint32_t>( bodyIndex + 1u );
+            body.modelRow.value = static_cast<int>( bodyIndex );
+            body.position.x = static_cast<float>( bodyIndex * 10u + frameIndex );
+            body.position.y = static_cast<float>( bodyIndex % 17u );
+            const bool visibleMotion = bodyIndex > 0u && frameIndex >= bodyIndex % 29u &&
+                                       ( frameIndex + bodyIndex * 3u ) % 53u < 2u;
+            body.linearVelocity.x = visibleMotion ? 20.0f : 0.0f;
+        }
+    }
+
+    const auto initializeNode = [&]( std::size_t nodeIndex )
+    {
+        RunReplayPathTraceNode& node = prediction->futureNodeCache.futureNodes[nodeIndex];
+        node.id.value = static_cast<uint32_t>( nodeIndex + 2u );
+        node.parentId = rootId;
+        node.modelRow.value = static_cast<int>( nodeIndex + 1u );
+        node.parentModelRow.value = 0;
+        node.firstFrame = static_cast<ReplayFrameIndex>( nodeIndex % 29u );
+        node.depth = 1 + static_cast<int>( nodeIndex % 3u );
+        node.contactDerived = nodeIndex % 2u == 0u;
+    };
+
+    prediction->futureNodeCache.futureNodes.resize( 32u );
+
+    for ( std::size_t nodeIndex = 0u; nodeIndex < prediction->futureNodeCache.futureNodes.size(); ++nodeIndex )
+    {
+        initializeNode( nodeIndex );
+    }
+
+    prediction->futureNodeCache.futureNodesTopologyVersion = 1u;
+    ReplayPredictionChildMarkerScanState incremental;
+
+    const auto legacyFullScan = [&]( std::size_t frameCount, ReplayFrameIndex revealFrame,
+                                     uint32_t generation, bool usingBuildFrames )
+    {
+        ReplayPredictionChildMarkerScanState full;
+        frameCount = (std::min)( frameCount, frames.size() );
+        full.nodeCount = (std::min)( prediction->futureNodeCache.futureNodes.size(), childCount );
+
+        for ( std::size_t nodeIndex = 0u; nodeIndex < full.nodeCount; ++nodeIndex )
+        {
+            full.nodes[nodeIndex].node = prediction->futureNodeCache.futureNodes[nodeIndex];
+        }
+
+        std::size_t visibleFrameCount = 0u;
+
+        for ( std::size_t frameIndex = 0u; frameIndex < frameCount; ++frameIndex )
+        {
+            const RunReplayPredictionFrame& frame = frames[frameIndex];
+
+            if ( frame.frameIndex > revealFrame )
+            {
+                break;
+            }
+
+            ++visibleFrameCount;
+
+            for ( std::size_t nodeIndex = 0u; nodeIndex < full.nodeCount; ++nodeIndex )
+            {
+                ReplayPredictionChildMarkerNodeScanState& drawState = full.nodes[nodeIndex];
+
+                if ( frame.frameIndex < drawState.node.firstFrame )
+                {
+                    continue;
+                }
+
+                const RunReplayPredictionBodySample*
+                    body = FindReplayPredictionBodyByIdWithHint( frame, drawState.node.id,
+                                                                 drawState.node.modelRow.value );
+
+                if ( !body )
+                {
+                    continue;
+                }
+
+                if ( !drawState.active )
+                {
+                    if ( !ReplayPredictionBodyHasVisibleLinearMotion( *body ) )
+                    {
+                        continue;
+                    }
+
+                    const RunReplayPredictionBodySample*
+                        initialSample = FindReplayPredictionBodyByIdWithHint( frames[0], drawState.node.id,
+                                                                             body->modelRow.value );
+                    drawState.active = true;
+                    drawState.hasEntryPose = true;
+                    drawState.entryModelIndex = body->modelRow.value;
+                    drawState.entryPosition = initialSample ? initialSample->position : body->position;
+                    drawState.entryOrientation = initialSample ? initialSample->orientation : body->orientation;
+                    drawState.entryOrientation.Normalise();
+                    drawState.lastMotionFrame = frame.frameIndex;
+                    continue;
+                }
+
+                if ( ReplayPredictionBodyHasVisibleLinearMotion( *body ) )
+                {
+                    drawState.lastMotionFrame = frame.frameIndex;
+                }
+            }
+        }
+
+        for ( std::size_t nodeIndex = 0u; nodeIndex < full.nodeCount; ++nodeIndex )
+        {
+            full.nodes[nodeIndex].scannedFrameCount = visibleFrameCount;
+        }
+
+        full.Commit( generation, prediction->futureNodeCache.futureNodesTopologyVersion, rootId, frameCount,
+                     revealFrame, usingBuildFrames );
+        return full;
+    };
+
+    const auto compareWithLegacy = [&]( std::size_t frameCount, ReplayFrameIndex revealFrame,
+                                        uint32_t generation, bool usingBuildFrames )
+    {
+        const auto budgetStart = std::chrono::steady_clock::now();
+        REQUIRE( AdvanceReplayPredictionChildMarkerScan( incremental, *prediction, frames, frameCount, revealFrame,
+                                                         generation, rootId, usingBuildFrames, budgetStart, 0.0 ) );
+        const ReplayPredictionChildMarkerScanState full = legacyFullScan( frameCount, revealFrame, generation,
+                                                                          usingBuildFrames );
+        REQUIRE( incremental.nodeCount == full.nodeCount );
+        CHECK( incremental.Matches( generation, prediction->futureNodeCache.futureNodesTopologyVersion,
+                                    full.nodeCount, rootId, (std::min)( frameCount, frames.size() ), revealFrame,
+                                    usingBuildFrames ) );
+
+        for ( std::size_t nodeIndex = 0u; nodeIndex < full.nodeCount; ++nodeIndex )
+        {
+            const ReplayPredictionChildMarkerNodeScanState& actual = incremental.nodes[nodeIndex];
+            const ReplayPredictionChildMarkerNodeScanState& expected = full.nodes[nodeIndex];
+            CHECK( actual.node.id.value == expected.node.id.value );
+            CHECK( actual.node.modelRow.value == expected.node.modelRow.value );
+            CHECK( actual.node.firstFrame == expected.node.firstFrame );
+            CHECK( actual.scannedFrameCount == expected.scannedFrameCount );
+            CHECK( actual.active == expected.active );
+            CHECK( actual.hasEntryPose == expected.hasEntryPose );
+            CHECK( actual.entryModelIndex == expected.entryModelIndex );
+            CHECK( actual.entryPosition == expected.entryPosition );
+            CHECK( actual.lastMotionFrame == expected.lastMotionFrame );
+            float actualX = 0.0f;
+            float actualY = 0.0f;
+            float actualZ = 0.0f;
+            float actualW = 0.0f;
+            float expectedX = 0.0f;
+            float expectedY = 0.0f;
+            float expectedZ = 0.0f;
+            float expectedW = 0.0f;
+            actual.entryOrientation.GetComponents( actualX, actualY, actualZ, actualW );
+            expected.entryOrientation.GetComponents( expectedX, expectedY, expectedZ, expectedW );
+            CHECK( actualX == expectedX );
+            CHECK( actualY == expectedY );
+            CHECK( actualZ == expectedZ );
+            CHECK( actualW == expectedW );
+        }
+
+        auto actualMarkers = std::make_unique<RunReplayPredictionState>();
+        auto expectedMarkers = std::make_unique<RunReplayPredictionState>();
+        const bool bufferComplete = (std::min)( frameCount, frames.size() ) == frames.size();
+        const std::vector<RunReplayPredictionFrame>* completeFrames = bufferComplete ? &frames : nullptr;
+        const std::size_t completeFrameCount = bufferComplete ? frames.size() : 0u;
+        RetainReplayPredictionCausalMarkers( *actualMarkers, incremental, revealFrame, completeFrames,
+                                             completeFrameCount );
+        RetainReplayPredictionCausalMarkers( *expectedMarkers, full, revealFrame, completeFrames,
+                                             completeFrameCount );
+        REQUIRE( actualMarkers->futureNodeCache.retainedMarkerCount ==
+                 expectedMarkers->futureNodeCache.retainedMarkerCount );
+
+        const auto compareOrientation = []( const SkullbonezCore::Math::Orientation::Quaternion& actual,
+                                            const SkullbonezCore::Math::Orientation::Quaternion& expected )
+        {
+            float actualX = 0.0f;
+            float actualY = 0.0f;
+            float actualZ = 0.0f;
+            float actualW = 0.0f;
+            float expectedX = 0.0f;
+            float expectedY = 0.0f;
+            float expectedZ = 0.0f;
+            float expectedW = 0.0f;
+            actual.GetComponents( actualX, actualY, actualZ, actualW );
+            expected.GetComponents( expectedX, expectedY, expectedZ, expectedW );
+            CHECK( actualX == expectedX );
+            CHECK( actualY == expectedY );
+            CHECK( actualZ == expectedZ );
+            CHECK( actualW == expectedW );
+        };
+
+        for ( std::size_t markerIndex = 0u; markerIndex < actualMarkers->futureNodeCache.retainedMarkerCount;
+              ++markerIndex )
+        {
+            const ReplayPredictionRetainedMarker& actual = actualMarkers->futureNodeCache.retainedMarkers[markerIndex];
+            const ReplayPredictionRetainedMarker& expected =
+                expectedMarkers->futureNodeCache.retainedMarkers[markerIndex];
+            CHECK( actual.id.value == expected.id.value );
+            CHECK( actual.modelRow.value == expected.modelRow.value );
+            CHECK( actual.hasEntryPose == expected.hasEntryPose );
+            CHECK( actual.hasRestPose == expected.hasRestPose );
+            CHECK( actual.hasHorizonPose == expected.hasHorizonPose );
+            CHECK( actual.entryPosition == expected.entryPosition );
+            compareOrientation( actual.entryOrientation, expected.entryOrientation );
+            CHECK( actual.restPosition == expected.restPosition );
+            compareOrientation( actual.restOrientation, expected.restOrientation );
+            CHECK( actual.horizonPosition == expected.horizonPosition );
+            compareOrientation( actual.horizonOrientation, expected.horizonOrientation );
+        }
+    };
+
+    compareWithLegacy( 64u, 30u, 1u, false );
+    CHECK( incremental.nodes[0].scannedFrameCount == 31u );
+    compareWithLegacy( 128u, 100u, 1u, false );
+    CHECK( incremental.nodes[0].scannedFrameCount == 101u );
+
+    const std::size_t previousNodeCount = prediction->futureNodeCache.futureNodes.size();
+    prediction->futureNodeCache.futureNodes.resize( childCount );
+
+    for ( std::size_t nodeIndex = previousNodeCount; nodeIndex < childCount; ++nodeIndex )
+    {
+        initializeNode( nodeIndex );
+    }
+
+    prediction->futureNodeCache.futureNodesTopologyVersion = 2u;
+    compareWithLegacy( 240u, 180u, 1u, false );
+    CHECK( incremental.nodeCount == childCount );
+    CHECK( incremental.nodes[0].scannedFrameCount == 181u );
+    CHECK( incremental.nodes[childCount - 1u].scannedFrameCount == 181u );
+
+    const std::size_t stableCursor = incremental.nodes[0].scannedFrameCount;
+    prediction->futureNodeCache.futureNodes[5].firstFrame += 17u;
+    prediction->futureNodeCache.futureNodesTopologyVersion = 3u;
+    compareWithLegacy( 240u, 180u, 1u, false );
+    CHECK( incremental.nodes[0].scannedFrameCount == stableCursor );
+    CHECK( incremental.nodes[5].scannedFrameCount == 181u );
+
+    compareWithLegacy( completedFrameCount, static_cast<ReplayFrameIndex>( completedFrameCount - 1u ), 1u, false );
+    CHECK( incremental.nodeCount == childCount );
+
+    for ( RunReplayPredictionFrame& frame : frames )
+    {
+        frame.bodies[1].linearVelocity.x = 0.0f;
+        frame.bodies[1].position.x += 5000.0f;
+    }
+
+    prediction->futureNodeCache.futureNodesTopologyVersion = 4u;
+    compareWithLegacy( completedFrameCount, static_cast<ReplayFrameIndex>( completedFrameCount - 1u ), 2u, false );
+    CHECK_FALSE( incremental.nodes[0].active );
+    compareWithLegacy( completedFrameCount, 50u, 2u, false );
+    CHECK( incremental.nodes[0].scannedFrameCount == 51u );
+
+    // Hazard: changing only the bank token would let a stale completed cursor
+    // falsely pass. This second bank gives the first child a new entry/rest
+    // story inside the same reveal window, so replacement must restart work.
+    for ( std::size_t frameIndex = 0u; frameIndex < frames.size(); ++frameIndex )
+    {
+        RunReplayPredictionBodySample& child = frames[frameIndex].bodies[1];
+        child.position.x = -1000.0f + static_cast<float>( frameIndex );
+        child.linearVelocity.x = frameIndex >= 5u && frameIndex <= 7u ? 20.0f : 0.0f;
+    }
+
+    compareWithLegacy( completedFrameCount, 50u, 2u, true );
+    CHECK( incremental.usingBuildFrames );
+    CHECK( incremental.nodes[0].active );
+    CHECK( incremental.nodes[0].entryPosition.x == -1000.0f );
 }
 
 TEST_CASE( "Replay prediction draw cursor resumes at its suffix and reuses stable tokens" )

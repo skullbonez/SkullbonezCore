@@ -432,15 +432,6 @@
                            "destructures_at_entry":  "no"
                        },
                        {
-                           "key":  "ReplayPathChildDrawContext",
-                           "site":  "SkullbonezSource/Runtime/Prediction/ReplayPredictionTopologyPublication.cpp:276",
-                           "members":  2,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Prediction",
-                           "reason":  "Node storage and its validated count are one bounded traversal range; keeping them together prevents a draw walk from using a count derived from another topology buffer.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
                            "key":  "ReplayPathPickInput",
                            "site":  "SkullbonezSource/Runtime/Replay/ReplayPresentation.h:91",
                            "members":  5,
@@ -469,7 +460,7 @@
                        },
                        {
                            "key":  "ReplayPredictionFutureContext",
-                           "site":  "SkullbonezSource/Runtime/Prediction/ReplayPredictionTopologyPublication.cpp:695",
+                           "site":  "SkullbonezSource/Runtime/Prediction/ReplayPredictionTopologyPublication.cpp:450",
                            "members":  5,
                            "verdict":  "retain-prior",
                            "owner":  "prior owner ruling carried by CA0",

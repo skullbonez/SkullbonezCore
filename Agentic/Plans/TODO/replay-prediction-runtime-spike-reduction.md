@@ -1,7 +1,7 @@
 # Replay Prediction Runtime Spike Reduction
 
 Date: 2026-08-14
-Status: Active - 3/5 phases complete
+Status: Active - 4/5 phases complete
 Impact area: Runtime/Prediction publication and presentation, Replay scrubber
 composition, focused CPU tests, Automation diagnostics
 Owner: Replay Prediction owns publication/cache storage; ReplayRuntime composes
@@ -218,7 +218,7 @@ again from frame zero.
 - [x] Keep retained-marker side effects idempotent. Entry markers publish once;
   rest/horizon markers appear only when the same authoritative reveal and
   completion conditions used today are satisfied.
-- [ ] Compare incremental results with the existing full-scan oracle over
+- [x] Compare incremental results with the existing full-scan oracle over
   growing prefixes, reveal jumps, topology additions, generation replacement,
   and completed 200-brick predictions before deleting the full scan.
 
@@ -247,6 +247,20 @@ RP2 evidence (Automation, four completed 120-second predictions):
   topology resets the affected node, and suffix accumulation produces the same
   entry/last-motion facts as a full scan. Retained marker effects publish only
   after every node reaches the requested coherent prefix.
+- The closing production-path oracle passes 46,477 assertions over 361 published
+  frames and all 200 child rows. It compares every incremental scan fact and the
+  exact retained entry/rest marker identities, model rows, flags, positions, and
+  orientations against an independently reconstructed legacy full scan through
+  growing prefixes, reveal jumps/regression, topology growth/change, generation
+  replacement, completed prediction, and a materially different frame bank.
+- `ReplayPredictionPublication.MarkerScan.inl` is the single implementation used
+  by production and the oracle. Moving it out of an independently compiled test
+  translation unit keeps project configuration fingerprints unchanged; the
+  build-configuration inventory and both project-filter checks report zero
+  blockers.
+- The closing `tools/validate_full.bat` run passes end to end in 648.3 seconds;
+  formatting, dependencies, ownership/ruling inventories, compiled-symbol
+  reachability, CPU suites, and bounded engine probes all accept the slice.
 - The immutable visual gate's 17 CPU controls passed and its authoritative
   engine run captured all 2,401 reveal ticks, but the gate then failed because
   the 4,200-frame interaction entered a second live-playback pass after the
@@ -354,7 +368,7 @@ Current RP4 evidence:
   p99.9 is 15.8814 ms. The 119.8513 ms maximum belongs to excluded Automation
   report serialization, whose marker spans 3.6416-113.3068 ms. Target restart
   remains a separately labeled 3.7529-6.7798 ms exclusion.
-- The complete Replay CPU family passes 84 cases and 1,734 assertions. Focused
+- The complete Replay CPU family passes 87 cases and 48,973 assertions. Focused
   coherent-publication fixtures cover committed, pending, fast/failure,
   Promote-and-Begin, cross-target promotion, and marker-key cases. The all-body
   fixture executes the production builder with a deterministic nonzero prefix,
@@ -373,8 +387,9 @@ Current RP4 evidence:
   a second live-playback pass. The allocation-policy engine report likewise
   passes two generations and flat reserve growth, while its wrapper retains an
   obsolete 180/181 check against the current 208-frame report. Those harness
-  repairs remain outside this plan, so RP1/RP2 immutable-oracle closure remains
-  open rather than refreshing either baseline.
+  repairs remain outside this plan. RP2 instead closes on the production-path
+  200-child full-scan equivalence oracle above; no visual, replay, physics, or
+  fingerprint baseline was refreshed.
 
 ## Validation Map
 

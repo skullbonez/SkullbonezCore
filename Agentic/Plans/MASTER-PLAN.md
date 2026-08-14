@@ -21,15 +21,17 @@ Other completed plan files were deleted; git history is the archive.
 
 ## Portfolio Progress
 
-The active portfolio contains one plan with three completed and two open phases.
+The active portfolio contains one plan with four completed and one open phase.
 RP0 now has focused fixtures for coherent bank switching, marker resume, and
 trajectory reuse. RP3 is complete: count-authoritative frame invalidation and
 trajectory active-prefix reuse reduce Predict-off from 26.0907-26.4603 ms to
-0.0043-0.0110 ms while retaining both warmed prediction banks. RP2's incremental
-child-marker scan reduces its measured direct range from 0.0021-35.5981 ms to
-0.0006-0.9382 ms, but its immutable visual-oracle checkbox remains open because
-the existing 4,200-frame harness enters a second live-playback pass after all
-2,401 reveal ticks. RP1 is complete: opposite-bank committed publication now
+0.0043-0.0110 ms while retaining both warmed prediction banks. RP2 is complete:
+its incremental child-marker scan reduces the measured direct range from
+0.0021-35.5981 ms to 0.0006-0.9382 ms, and a 46,477-assertion production-path
+oracle proves all 200 child rows plus retained entry/rest marker output match an
+independent legacy full scan through prefix, reveal, topology, generation,
+completion, and frame-bank transitions. The excluded 4,200-frame visual harness
+remains unchanged. RP1 is complete: opposite-bank committed publication now
 preserves the captured prediction through fast completion, converges to
 canonical record identities across narrow/varied/uninterrupted budget schedules,
 and matches two Automation cadences at trajectory fingerprint
@@ -37,5 +39,5 @@ and matches two Automation cadences at trajectory fingerprint
 four-generation run does not observe completion trajectory publication; child
 markers measure 0.0007-0.4411 ms, Predict-off 0.0047-0.0123 ms, and p99/p99.9
 frames 15.2930/16.1074 ms. Its 121.4658 ms maximum is excluded Automation report
-serialization. Final plan deletion still requires RP2's full-scan oracle and an
-owner timing-threshold decision; the excluded visual harness remains untouched.
+serialization. Final plan deletion now requires only an owner timing-threshold
+decision; the excluded visual harness remains untouched.

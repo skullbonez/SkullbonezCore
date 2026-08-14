@@ -67,6 +67,9 @@
     <Filter Include="Source Files\Runtime\Prediction">
       <UniqueIdentifier>{E99C3DDA-C628-4F5D-A75D-B537DE91807B}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Runtime\Prediction">
+      <UniqueIdentifier>{01E9219E-F472-46FB-9629-CF09D4A71A21}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Runtime\Planning">
       <UniqueIdentifier>{E858DBAF-986E-4C68-9C84-CA4756DD08E5}</UniqueIdentifier>
     </Filter>
@@ -444,6 +447,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\TrajectoryStore.cpp">
       <Filter>Source Files\Runtime\Prediction</Filter>
     </ClCompile>
+    <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionPublication.MarkerScan.inl">
+      <Filter>Header Files\Runtime\Prediction</Filter>
+    </ClInclude>
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionPublication.cpp">
       <Filter>Source Files\Runtime\Prediction</Filter>
     </ClCompile>

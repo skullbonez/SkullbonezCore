@@ -184,6 +184,13 @@ bool TryFlipReplayPredictionCommittedPublication( RunReplayPredictionState& pred
                                                   const std::chrono::steady_clock::time_point& budgetStart,
                                                   double budgetMilliseconds );
 bool ReplayPredictionBodyHasVisibleLinearMotion( const RunReplayPredictionBodySample& body );
+
+// Advances the production suffix scan to one coherent prefix. False means the
+// budget expired and the per-node cursors own the exact resume point.
+inline bool AdvanceReplayPredictionChildMarkerScan( ReplayPredictionChildMarkerScanState& scan, const RunReplayPredictionState& prediction,
+                                                    const std::vector<RunReplayPredictionFrame>& frames, std::size_t frameCount, ReplayFrameIndex revealFrame,
+                                                    uint32_t generation, Physics::PhysicsSceneObjectId targetId, bool usingBuildFrames,
+                                                    const std::chrono::steady_clock::time_point& budgetStart, double budgetMilliseconds );
 std::size_t BuildReplayPredictionAffectedBodyTrails( std::span<const RunReplayPredictionFrame> frames,
                                                      std::size_t frameCount, ReplayFrameIndex revealFrame,
                                                      Physics::PhysicsSceneObjectId rootId, int rootModelIndex,

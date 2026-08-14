@@ -2,7 +2,7 @@
 
 Date: 2026-08-15
 Branch: `nightrunner-14th-AUG-26`
-Status: Active - 3/5 phases complete
+Status: Active - 4/5 phases complete
 
 Replay Prediction Runtime Spike Reduction is the only live plan. It owns the
 measured completion-publication, child-marker, and Predict-off runtime stalls.
@@ -17,11 +17,13 @@ growth at 1459 events, although its wrapper retains the known obsolete 180/181
 end-frame check against the current 208-frame script. RP2's implementation is
 in place: per-node suffix cursors and inner-loop budget checks reduce
 `BuildChildMarkerContext` from 0.0021-35.5981 ms to 0.0006-0.9382 ms while
-retaining all 776 final records and flat reserve growth. RP2 remains open
-because the immutable visual gate captures
-all 2,401 reveal ticks, then its existing 4,200-frame interaction enters a
-second live-playback pass; this plan excludes harness changes. RP1's pending
-publication state now keeps the exact visible frame prefix/storage bank,
+retaining all 776 final records and flat reserve growth. RP2 is complete: a
+46,477-assertion production-path oracle covers 361 frames and all 200 children,
+then proves the incremental scan and its exact retained entry/rest marker values
+match an independent legacy full scan through prefix, reveal, topology,
+generation, completion, and materially different frame-bank transitions. The
+existing 4,200-frame visual interaction remains excluded and unchanged. RP1's
+pending publication state now keeps the exact visible frame prefix/storage bank,
 topology, retained markers, trajectory facts, and publication token coherent
 through same-target builds, failed begins/workers, fast completion, and
 Promote-and-Begin. A queued cross-target click remains only the next dirty
@@ -35,14 +37,13 @@ records, and the flip canonicalizes trajectory plus marker-cache bank identity.
 Narrow, varied, and uninterrupted budget schedules produce identical ordered
 records and packet fingerprints. The rebuilt Automation probe matches at
 trajectory fingerprint `0x0702E1DFBB57F16D` and submitted geometry
-`0xF06608D189EFEEAD`; 86 Replay cases pass with 2,496 assertions. The latest
+`0xF06608D189EFEEAD`; 87 Replay cases pass with 48,973 assertions. The latest
 diagnostic measures child markers at 0.0007-0.4411 ms and Predict-off at
 0.0047-0.0123 ms, with p99/p99.9 frames at 15.2930/16.1074 ms; the 121.4658 ms
 maximum is excluded Automation report serialization. The two-minute visual
 fidelity attempt remained in the existing excluded long interaction and was
-stopped without changing its harness. Final closure still awaits RP2's
-full-scan oracle and an owner threshold ruling; no timing threshold has been
-added.
+stopped without changing its harness. Final closure now awaits only an owner
+threshold ruling; no timing threshold has been added.
 
 Source Modernization Sweep, Dense Pile Sleep Resolution, Broadphase Dense
 Dedup Restoration, and Look Lab Random Style Authoring remain closed by owner
