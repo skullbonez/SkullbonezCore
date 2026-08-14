@@ -40,7 +40,8 @@ validation.
 | `validate_physics_query.bat` | SkullScope query-output baseline check | ~depends |
 | `validate_perf.bat` | Hard gate for DX12, physics, and hot-path perf budgets/regressions | ~1 min |
 | `validate_replay_allocation_policy.bat` | Strict two-generation Replay allocation/owner probe | ~20 s |
-| `validate_full.bat` | Default broad PR gate: mandatory CPU, Automation replay smoke, DX12 renderer, and core physics | CPU tests + 5 engine processes |
+| `validate_replay_prediction_frame_spikes.bat` | Full-only informational four-generation, 120-second replay-prediction spike capture; never a frame-time gate | ~27 min; one engine process |
+| `validate_full.bat` | Default broad PR gate plus the non-blocking replay-prediction spike diagnostic | CPU tests + 6 engine processes |
 | `watch_ui_stress.bat` | Repeated UI stress watcher, finite by default | ~depends |
 | `watch_demo_stress.bat` | Repeated generated demo stress watcher, finite by default | ~depends |
 
@@ -60,7 +61,11 @@ order and stops before any engine launch when a CPU target fails:
 4. The Debug build, DX12 renderer gate, and core physics determinism gate run
    only after the mandatory CPU and automation lanes pass. Automation launches
    two engine processes, rendering launches one, and physics launches its
-    engine lifecycle smoke and regression scene, for five engine processes in total.
+    engine lifecycle smoke and regression scene, for five gated engine processes.
+5. `validate_replay_prediction_frame_spikes.bat` then runs four completed
+   120-second future-prediction generations and reports the largest frames. It
+   is full-only and informational: missing artifacts, runner errors, and frame
+   times are printed but cannot change `validate_full.bat` from pass to fail.
 
 ## Unit Coverage Floors
 

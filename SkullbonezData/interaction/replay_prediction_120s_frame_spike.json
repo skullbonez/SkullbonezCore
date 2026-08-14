@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 45, "showReplayScrubber": true },
+    { "frame": 60, "setReplayPathTarget": "prediction_striker_ball" },
+    { "frame": 61, "setReplayPredictionHorizonSeconds": 120.0 },
+    { "frame": 62, "clickReplayControl": "predict" },
+
+    { "frame": 26000, "assert": { "predictionFullHorizonComplete": true } },
+    { "frame": 26000, "assert": { "replayPathTarget": "prediction_striker_ball" } },
+    { "frame": 26010, "clickReplayControl": "past" },
+    { "frame": 26020, "clickReplayControl": "past" },
+    { "frame": 26030, "setReplayPathTarget": "prediction_wall_brick_r00_c00" },
+
+    { "frame": 52000, "assert": { "predictionFullHorizonComplete": true } },
+    { "frame": 52000, "assert": { "replayPathTarget": "prediction_wall_brick_r00_c00" } },
+    { "frame": 52010, "clickReplayControl": "predict" },
+    { "frame": 52020, "clickReplayControl": "predict" },
+
+    { "frame": 78000, "assert": { "predictionFullHorizonComplete": true } },
+    { "frame": 78010, "clickReplayControl": "predict" },
+    { "frame": 78020, "clickReplayControl": "pause" },
+    { "frame": 78030, "scrubReplaySolverTrack": 0.5 },
+    { "frame": 78040, "assert": { "replayHistoricalSamplePaused": true } },
+    { "frame": 78050, "clickReplayControl": "branch" },
+    { "frame": 78060, "assert": { "replayHistoricalSamplePaused": false } },
+    { "frame": 78070, "setReplayPathTarget": "prediction_wall_brick_r09_c19" },
+    { "frame": 78080, "clickReplayControl": "predict" },
+
+    { "frame": 104500, "assert": { "predictionFullHorizonComplete": true } },
+    { "frame": 104500, "assert": { "replayPathTarget": "prediction_wall_brick_r09_c19" } },
+    { "frame": 104500, "assert": { "predictionBuildMode": "Amortized" } }
+  ]
+}

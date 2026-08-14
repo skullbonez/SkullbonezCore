@@ -1017,16 +1017,23 @@ void RebuildReplayPredictionCommittedTreeAfterWorkerCompletion( RunReplayPredict
     // Build the committed child tree once from the full finished buffer so
     // automation and draw records do not depend on how many budgeted render
     // passes ran before the worker completed.
-    ClearReplayPredictionFutureNodeCache( prediction );
     const auto rebuildStart = std::chrono::steady_clock::now();
-    UpdateReplayPredictionFutureNodeCache( prediction, prediction.simulation.frames, prediction.simulation.frames.size(),
-                                           false, modelCollection, rootId, rebuildStart, 0.0 );
+
+    {
+        PROFILE_SCOPED( "Frame/Replay/Prediction/PublishCompletedFrame/FutureNodeCache" );
+        ClearReplayPredictionFutureNodeCache( prediction );
+        UpdateReplayPredictionFutureNodeCache( prediction, prediction.simulation.frames, prediction.simulation.frames.size(),
+                                               false, modelCollection, rootId, rebuildStart, 0.0 );
+    }
 
     // Why 0.0: a zero budget never expires. This is the post-completion rebuild
     // of the committed tree, which must publish every body path in one pass; the
     // per-frame overlay path is the one that yields, not this one.
-    UpdateReplayPredictionTrajectoryStore( prediction, prediction.simulation.frames, prediction.simulation.frames.size(),
-                                           false, rootId, rebuildStart, 0.0 );
+    {
+        PROFILE_SCOPED( "Frame/Replay/Prediction/PublishCompletedFrame/TrajectoryStore" );
+        UpdateReplayPredictionTrajectoryStore( prediction, prediction.simulation.frames, prediction.simulation.frames.size(),
+                                               false, rootId, rebuildStart, 0.0 );
+    }
 }
 
 

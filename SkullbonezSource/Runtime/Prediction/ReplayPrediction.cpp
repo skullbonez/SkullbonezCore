@@ -1260,6 +1260,7 @@ bool ReplayPrediction::AdvanceFrameWorker( SkullbonezCore::Threading::WorkerPool
 
 void ReplayPrediction::PublishCompletedFrame( const SceneEntityStore& entities, Physics::PhysicsSceneObjectId targetId )
 {
+    PROFILE_SCOPED( "Frame/Replay/Prediction/PublishCompletedFrame" );
     RebuildReplayPredictionCommittedTreeAfterWorkerCompletion( m_state, entities, targetId );
 }
 
