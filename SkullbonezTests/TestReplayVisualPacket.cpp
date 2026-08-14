@@ -12,6 +12,8 @@ Summary:
   commands append without revisiting a stable publication. Prediction frame
   bank tests also prove invalidation hides retained nested storage in O(1), and
   committed-publication snapshots preserve generation-bound visible facts.
+  Cross-target promotion tests also lock the hidden publication to the
+  promoted source until the coherent bank flip releases the requested target.
 
 Glossary:
   Packet span: Non-owning view of one ordered production submission stream.
@@ -42,19 +44,56 @@ Related:
 
 #include "../SkullbonezSource/Runtime/Replay/ReplayVisualPacket.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayVisualPacketFingerprint.h"
+#include "../SkullbonezSource/Physics/PhysicsEngine.h"
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPrediction.h"
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.h"
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.h"
+#include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionPublicationOperations.h"
 
 #include <algorithm>
 #include <array>
 #include <bit>
+#include <chrono>
+#include <memory>
+#include <optional>
 #include <string_view>
 #include <vector>
 
 using namespace SkullbonezCore::Runtime;
+using namespace SkullbonezCore::Runtime::ReplayPredictionPublicationOperations;
 using namespace SkullbonezCore::Runtime::ReplayVisualPacketFingerprintOperations;
 using namespace SkullbonezCore::Runtime::ReplayVisualPacketOperations;
+
+namespace SkullbonezCore::Runtime
+{
+ReplayPredictionIsolatedSimulation::~ReplayPredictionIsolatedSimulation() = default;
+RunReplayPredictionState::RunReplayPredictionState() = default;
+RunReplayPredictionState::~RunReplayPredictionState() = default;
+}
+
+namespace SkullbonezCore::Runtime::ReplayPredictionSchedulingOperations
+{
+namespace
+{
+std::optional<std::size_t> forcedBudgetExpiryCheck;
+std::size_t budgetExpiryCheckCount = 0u;
+}
+
+bool ReplayPredictionBudgetExpired( const std::chrono::steady_clock::time_point& start, double budgetMilliseconds )
+{
+    // Why: this test target links the production trajectory publisher but not
+    // the runtime scheduler. A deterministic check index proves resume cursors
+    // without relying on machine speed; unset state preserves production time.
+    if ( forcedBudgetExpiryCheck )
+    {
+        return budgetExpiryCheckCount++ >= *forcedBudgetExpiryCheck;
+    }
+
+    return budgetMilliseconds > 0.0 &&
+           std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - start ).count() >=
+               budgetMilliseconds;
+}
+}
 
 TEST_CASE( "Replay committed frame invalidation retains both allocation banks" )
 {
@@ -94,24 +133,393 @@ TEST_CASE( "Replay committed publication retains coherent visible build facts" )
     build.topologyVersion = 7u;
     build.valid = true;
 
-    ReplayPredictionCommittedPublicationState publication;
-    publication.Begin( build, 9u, 14401u );
-    build = {};
+    auto visibleCache = std::make_unique<RunReplayPredictionFutureNodeCache>();
+    visibleCache->futureNodes.resize( 200u );
+    visibleCache->futureNodes[0].id.value = 52u;
+    visibleCache->futureNodesTopologyVersion = 7u;
+    visibleCache->futureNodesCacheValid = true;
+    visibleCache->retainedMarkers[0].id.value = 53u;
+    visibleCache->retainedMarkers[0].hasEntryPose = true;
+    visibleCache->retainedMarkerCount = 1u;
 
-    CHECK( publication.pending );
-    CHECK( publication.visibleTrajectoryBuild.rootId.value == 41u );
-    CHECK( publication.visibleTrajectoryBuild.usingBuildFrames );
-    CHECK( publication.visibleTrajectoryBuild.childFrameCount == 14401u );
-    CHECK( publication.visibleTrajectoryBuild.builtNodeCount == 200u );
-    CHECK( publication.visibleTrajectoryBuild.topologyVersion == 7u );
-    CHECK( publication.visibleTrajectoryBuild.valid );
-    CHECK( publication.generation == 9u );
-    CHECK( publication.sourceFrameCount == 14401u );
+    auto publication = std::make_unique<ReplayPredictionCommittedPublicationState>();
+    publication->visibleFutureNodes.reserve( REPLAY_VISUAL_FUTURE_NODE_CAPACITY );
+    REQUIRE( publication->Begin( build, *visibleCache, 9u, 14401u,
+                                 SkullbonezCore::Physics::ModelRowHint { 3 }, true, false, 120u, 81u ) );
+    build = {};
+    visibleCache->futureNodes.clear();
+    visibleCache->futureNodesTopologyVersion = 0u;
+    visibleCache->futureNodesCacheValid = false;
+    visibleCache->retainedMarkerCount = 0u;
+
+    CHECK( publication->pending );
+    CHECK( publication->visibleTrajectoryBuild.rootId.value == 41u );
+    CHECK( publication->visibleTrajectoryBuild.usingBuildFrames );
+    CHECK( publication->visibleTrajectoryBuild.childFrameCount == 14401u );
+    CHECK( publication->visibleTrajectoryBuild.builtNodeCount == 200u );
+    CHECK( publication->visibleTrajectoryBuild.topologyVersion == 7u );
+    CHECK( publication->visibleTrajectoryBuild.valid );
+    REQUIRE( publication->visibleFutureNodes.size() == 200u );
+    CHECK( publication->visibleFutureNodes[0].id.value == 52u );
+    CHECK( publication->visibleTopologyVersion == 7u );
+    CHECK( publication->visibleFutureNodesCacheValid );
+    REQUIRE( publication->visibleRetainedMarkerCount == 1u );
+    CHECK( publication->visibleRetainedMarkers[0].id.value == 53u );
+    CHECK( publication->visibleRetainedMarkers[0].hasEntryPose );
+    CHECK( RunReplayPredictionState::FutureTreeReadyForDraw(
+        publication->visibleTrajectoryBuild, SkullbonezCore::Physics::PhysicsSceneObjectId { 41u }, true, 14401u,
+        publication->visibleFutureNodes.size(), publication->visibleTopologyVersion,
+        publication->visibleFutureNodesCacheValid ) );
+    CHECK( publication->generation == 9u );
+    CHECK( publication->sourceFrameCount == 14401u );
+    CHECK( publication->visibleFrameCount == 120u );
+    CHECK( publication->PresentedTrajectoryPublicationVersion( 99u ) == 81u );
+    CHECK( ReplayOverlay::IsReplayPredictionDrawListPublicationStable(
+        false, 81u, 2400, publication->PresentedTrajectoryPublicationVersion( 99u ), 2400 ) );
+
+    publication->Reset();
+    CHECK_FALSE( publication->pending );
+    CHECK( publication->visibleFutureNodes.empty() );
+    CHECK( publication->visibleRetainedMarkerCount == 0u );
+    CHECK( publication->generation == 0u );
+    CHECK( publication->sourceFrameCount == 0u );
+    CHECK( publication->PresentedTrajectoryPublicationVersion( 99u ) == 99u );
+    CHECK_FALSE( ReplayOverlay::IsReplayPredictionDrawListPublicationStable(
+        false, 81u, 2400, publication->PresentedTrajectoryPublicationVersion( 99u ), 2400 ) );
+}
+
+TEST_CASE( "Replay committed all-body publication retains its resume cursor" )
+{
+    const SkullbonezCore::Physics::PhysicsSceneObjectId rootId { 1u };
+    RunReplayPredictionTrajectoryBuildState cursor;
+    cursor.rootId = rootId;
+    cursor.usingBuildFrames = false;
+    cursor.allBodyPaths = true;
+    cursor.allBodyFrameCount = 0u;
+    cursor.builtAllBodyCount = 0u;
+    cursor.allBodyBodyCount = 4u;
+
+    CHECK_FALSE( cursor.AllBodyPublicationSourceChanged( rootId, false, 2u, 4u, false ) );
+    CHECK( cursor.AllBodyPublicationSourceChanged( rootId, false, 2u, 4u, true ) );
+    CHECK( cursor.AllBodyPublicationSourceChanged( rootId, false, 2u, 5u, false ) );
+
+    cursor.builtAllBodyCount = 2u;
+    cursor.allBodyFrameCount = 2u;
+    CHECK_FALSE( cursor.AllBodyPublicationSourceChanged( rootId, false, 2u, 4u, false ) );
+}
+
+TEST_CASE( "Replay committed all-body builder resumes an expired production pass" )
+{
+    std::vector<RunReplayPredictionFrame> frames( 2u );
+
+    for ( std::size_t frameIndex = 0; frameIndex < frames.size(); ++frameIndex )
+    {
+        frames[frameIndex].frameIndex = static_cast<ReplayFrameIndex>( frameIndex );
+        frames[frameIndex].bodies.resize( 4u );
+
+        for ( std::size_t bodyIndex = 0; bodyIndex < frames[frameIndex].bodies.size(); ++bodyIndex )
+        {
+            RunReplayPredictionBodySample& body = frames[frameIndex].bodies[bodyIndex];
+            body.id.value = static_cast<uint32_t>( bodyIndex + 1u );
+            body.modelRow.value = static_cast<int>( bodyIndex );
+            body.position.x = static_cast<float>( bodyIndex );
+            body.position.y = static_cast<float>( frameIndex );
+        }
+    }
+
+    auto resumed = std::make_unique<RunReplayPredictionState>();
+    auto uninterrupted = std::make_unique<RunReplayPredictionState>();
+    const SkullbonezCore::Physics::PhysicsSceneObjectId rootId { 1u };
+
+    for ( RunReplayPredictionState* state : { resumed.get(), uninterrupted.get() } )
+    {
+        state->simulation.predictionWorldForces.mutualGravity.enabled = true;
+        state->trajectoryBuild.rootId = rootId;
+        state->trajectoryBuild.usingBuildFrames = false;
+    }
+
+    ReplayPredictionSchedulingOperations::budgetExpiryCheckCount = 0u;
+    ReplayPredictionSchedulingOperations::forcedBudgetExpiryCheck = 2u;
+    UpdateReplayPredictionTrajectoryStore( *resumed, frames, frames.size(), false, rootId,
+                                           std::chrono::steady_clock::now(), 1.0 );
+    ReplayPredictionSchedulingOperations::forcedBudgetExpiryCheck.reset();
+    CHECK( resumed->trajectoryBuild.allBodyPaths );
+    CHECK( resumed->trajectoryBuild.builtAllBodyCount > 0u );
+    CHECK( resumed->trajectoryBuild.builtAllBodyCount < resumed->trajectoryBuild.allBodyBodyCount );
+    CHECK( resumed->trajectoryBuild.allBodyBodyCount == 4u );
+
+    const auto findCommittedBodyRecord = []( const RunReplayPredictionState& state,
+                                             SkullbonezCore::Physics::PhysicsSceneObjectId bodyId )
+        -> const ReplayTrajectoryRecord*
+    {
+        const std::span<const ReplayTrajectoryRecord> records = state.trajectoryStore.ActiveRecords();
+        const auto found = std::find_if( records.begin(), records.end(),
+                                         [bodyId]( const ReplayTrajectoryRecord& record )
+                                         {
+                                             return record.key.lane == ReplayTrajectoryLane::FutureRoot &&
+                                                    record.key.bodyId.value == bodyId.value;
+                                         } );
+        return found != records.end() ? &*found : nullptr;
+    };
+
+    const ReplayTrajectoryRecord* retainedPrefixRecord =
+        findCommittedBodyRecord( *resumed, SkullbonezCore::Physics::PhysicsSceneObjectId { 2u } );
+    REQUIRE( retainedPrefixRecord );
+    const uint32_t retainedPrefixVersion = retainedPrefixRecord->version;
+
+    UpdateReplayPredictionTrajectoryStore( *resumed, frames, frames.size(), false, rootId,
+                                           std::chrono::steady_clock::now(), 0.0 );
+    UpdateReplayPredictionTrajectoryStore( *uninterrupted, frames, frames.size(), false, rootId,
+                                           std::chrono::steady_clock::now(), 0.0 );
+
+    CHECK( resumed->trajectoryBuild.builtAllBodyCount == 4u );
+    CHECK( resumed->trajectoryBuild.allBodyFrameCount == frames.size() );
+    retainedPrefixRecord =
+        findCommittedBodyRecord( *resumed, SkullbonezCore::Physics::PhysicsSceneObjectId { 2u } );
+    REQUIRE( retainedPrefixRecord );
+    CHECK( retainedPrefixRecord->version == retainedPrefixVersion );
+    const std::span<const ReplayTrajectoryRecord> resumedRecords = resumed->trajectoryStore.ActiveRecords();
+    const std::span<const ReplayTrajectoryRecord> uninterruptedRecords = uninterrupted->trajectoryStore.ActiveRecords();
+    REQUIRE( resumedRecords.size() == uninterruptedRecords.size() );
+
+    for ( std::size_t recordIndex = 0; recordIndex < resumedRecords.size(); ++recordIndex )
+    {
+        const ReplayTrajectoryRecord& lhs = resumedRecords[recordIndex];
+        const ReplayTrajectoryRecord& rhs = uninterruptedRecords[recordIndex];
+        CHECK( lhs.key.lane == rhs.key.lane );
+        CHECK( lhs.key.bodyId.value == rhs.key.bodyId.value );
+        CHECK( lhs.key.branchOrdinal == rhs.key.branchOrdinal );
+        CHECK( lhs.version == rhs.version );
+        CHECK( lhs.publishedPointCount == rhs.publishedPointCount );
+        REQUIRE( lhs.points.size() == rhs.points.size() );
+
+        for ( std::size_t pointIndex = 0; pointIndex < lhs.points.size(); ++pointIndex )
+        {
+            CHECK( lhs.points[pointIndex].frameIndex == rhs.points[pointIndex].frameIndex );
+            CHECK( lhs.points[pointIndex].position.x == rhs.points[pointIndex].position.x );
+            CHECK( lhs.points[pointIndex].position.y == rhs.points[pointIndex].position.y );
+            CHECK( lhs.points[pointIndex].position.z == rhs.points[pointIndex].position.z );
+        }
+    }
+}
+
+TEST_CASE( "Replay presentation holds the exact pending frame and version bank" )
+{
+    auto state = std::make_unique<RunReplayPredictionState>();
+    state->simulation.frames.resize( 200u );
+    state->simulation.committedFrameCount = 200u;
+    state->simulation.targetId.value = 41u;
+    state->trajectoryStore.publicationVersion = 99u;
+    state->committedPublication.pending = true;
+    state->committedPublication.visibleFrameCount = 120u;
+    state->committedPublication.visibleTrajectoryPublicationVersion = 81u;
+    state->committedPublication.visibleTopologyVersion = 7u;
+    state->committedPublication.visibleFutureNodesCacheValid = true;
+    state->committedPublication.visibleFutureNodes.resize( 2u );
+    state->committedPublication.visibleTrajectoryBuild.rootId.value = 41u;
+    state->committedPublication.visibleTrajectoryBuild.usingBuildFrames = true;
+    state->committedPublication.visibleTrajectoryBuild.childFrameCount = 120u;
+    state->committedPublication.visibleTrajectoryBuild.builtNodeCount = 2u;
+    state->committedPublication.visibleTrajectoryBuild.topologyVersion = 7u;
+    state->committedPublication.visibleTrajectoryBuild.valid = true;
+
+    const ReplayPredictionPresentationView pending = ReplayPrediction::PresentationViewFromState( *state, true );
+    CHECK( pending.frames.size() == 120u );
+    CHECK( pending.frames.data() == state->simulation.frames.data() );
+    CHECK( pending.futureNodes.data() == state->committedPublication.visibleFutureNodes.data() );
+    CHECK( pending.trajectoryPublicationVersion == 81u );
+    CHECK( pending.futureTreeReady );
+
+    state->trajectoryStore.publicationVersion = 100u;
+    const ReplayPredictionPresentationView hiddenSlice = ReplayPrediction::PresentationViewFromState( *state, true );
+    CHECK( hiddenSlice.frames.size() == 120u );
+    CHECK( hiddenSlice.trajectoryPublicationVersion == 81u );
+    CHECK( ReplayOverlay::IsReplayPredictionDrawListPublicationStable(
+        false, pending.trajectoryPublicationVersion, pending.revealFrame, hiddenSlice.trajectoryPublicationVersion,
+        hiddenSlice.revealFrame ) );
+
+    state->committedPublication.Reset();
+    const ReplayPredictionPresentationView flipped = ReplayPrediction::PresentationViewFromState( *state, true );
+    CHECK( flipped.frames.size() == 200u );
+    CHECK( flipped.trajectoryPublicationVersion == 100u );
+}
+
+TEST_CASE( "Replay fast completion retains the committed bank before first build presentation" )
+{
+    auto state = std::make_unique<RunReplayPredictionState>();
+    state->simulation.frames.resize( 120u );
+    state->simulation.committedFrameCount = 120u;
+    state->simulation.targetId.value = 41u;
+    state->trajectoryStore.publicationVersion = 81u;
+    state->trajectoryBuild.rootId.value = 41u;
+    state->trajectoryBuild.usingBuildFrames = false;
+    state->trajectoryBuild.childFrameCount = 120u;
+    state->trajectoryBuild.builtNodeCount = 2u;
+    state->trajectoryBuild.topologyVersion = 7u;
+    state->trajectoryBuild.valid = true;
+    state->futureNodeCache.futureNodes.resize( 2u );
+    state->futureNodeCache.futureNodesTopologyVersion = 7u;
+    state->futureNodeCache.futureNodesCacheValid = true;
+    state->committedPublication.visibleFutureNodes.reserve( 2u );
+
+    REQUIRE( state->committedPublication.CaptureVisible( state->trajectoryBuild, state->futureNodeCache,
+                                                         state->simulation.targetModelRow, true, false,
+                                                         state->CommittedFrameCount(),
+                                                         state->trajectoryStore.publicationVersion ) );
+
+    state->build.buildFrames.resize( 200u );
+    state->build.building = true;
+    state->trajectoryBuild.usingBuildFrames = true;
+    state->trajectoryBuild.topologyVersion = 12u;
+    state->futureNodeCache.futureNodesTopologyVersion = 12u;
+    state->trajectoryStore.publicationVersion = 100u;
+
+    const ReplayPredictionPresentationView building = ReplayPrediction::PresentationViewFromState( *state, true );
+    CHECK( building.frames.size() == 120u );
+    CHECK( building.frames.data() == state->simulation.frames.data() );
+    CHECK( building.topologyVersion == 7u );
+    CHECK( building.trajectoryPublicationVersion == 81u );
+    CHECK( building.futureTreeReady );
+
+    state->build.building = false;
+    state->trajectoryBuild = {};
+    const ReplayPredictionPresentationView failedBegin = ReplayPrediction::PresentationViewFromState( *state, true );
+    CHECK( failedBegin.frames.size() == 120u );
+    CHECK( failedBegin.frames.data() == state->simulation.frames.data() );
+    CHECK( failedBegin.topologyVersion == 7u );
+    CHECK( failedBegin.trajectoryPublicationVersion == 81u );
+    CHECK( failedBegin.futureTreeReady );
+
+    state->PromoteBuildFramesToCommitted( 200u );
+    state->committedPublication.visibleFramesUseBuildBank = true;
+    REQUIRE( state->committedPublication.ActivateCaptured( 2u, 200u ) );
+
+    const ReplayPredictionPresentationView pending = ReplayPrediction::PresentationViewFromState( *state, true );
+    CHECK( pending.frames.size() == 120u );
+    CHECK( pending.frames.data() == state->build.buildFrames.data() );
+    CHECK( pending.topologyVersion == 7u );
+    CHECK( pending.trajectoryPublicationVersion == 81u );
+    CHECK( pending.futureTreeReady );
+}
+
+TEST_CASE( "Replay promote and begin defers replacement until the promoted trajectory flips" )
+{
+    auto state = std::make_unique<RunReplayPredictionState>();
+    state->simulation.frames.resize( 120u );
+    state->simulation.committedFrameCount = 120u;
+    state->simulation.targetId.value = 41u;
+    state->build.buildFrames.resize( 200u );
+    state->simulation.targetModelRow.value = 0;
+
+    for ( std::size_t frameIndex = 0; frameIndex < state->build.buildFrames.size(); ++frameIndex )
+    {
+        RunReplayPredictionFrame& frame = state->build.buildFrames[frameIndex];
+        frame.frameIndex = static_cast<ReplayFrameIndex>( frameIndex );
+        frame.bodies.resize( 1u );
+        frame.bodies[0].id.value = 41u;
+        frame.bodies[0].modelRow.value = 0;
+        frame.bodies[0].position.x = static_cast<float>( frameIndex );
+    }
+
+    REQUIRE( PrepareReplayPredictionTrajectoryBuild( *state, state->simulation.targetId,
+                                                      state->build.buildFrames.size(), 1u ) );
+
+    for ( std::size_t frameIndex = 0; frameIndex < 150u; ++frameIndex )
+    {
+        REQUIRE( PublishReplayPredictionRootTrajectoryFrame( *state, state->build.buildFrames[frameIndex],
+                                                             frameIndex ) );
+    }
+
+    REQUIRE( PublishReplayPredictionBuildRootTrajectoryPrefix( *state, 150u ) );
+    state->trajectoryBuild.childFrameCount = 150u;
+    state->trajectoryBuild.builtNodeCount = 2u;
+    state->trajectoryBuild.topologyVersion = 12u;
+    state->trajectoryBuild.valid = true;
+    state->futureNodeCache.futureNodes.resize( 2u );
+    state->futureNodeCache.futureNodesTopologyVersion = 12u;
+    state->futureNodeCache.futureNodesCacheValid = true;
+    state->committedPublication.visibleFutureNodes.reserve( 2u );
+
+    const auto findPromotedBuildRoot = [&]() -> const ReplayTrajectoryRecord*
+    {
+        const std::span<const ReplayTrajectoryRecord> records = state->trajectoryStore.ActiveRecords();
+        const auto found = std::find_if( records.begin(), records.end(),
+                                         []( const ReplayTrajectoryRecord& record )
+                                         {
+                                             return record.key.lane == ReplayTrajectoryLane::FutureRoot &&
+                                                    record.key.bodyId.value == 41u && record.key.branchOrdinal == 1u;
+                                         } );
+        return found != records.end() ? &*found : nullptr;
+    };
+
+    const ReplayTrajectoryRecord* promotedBuildRoot = findPromotedBuildRoot();
+    REQUIRE( promotedBuildRoot );
+    const uint32_t promotedVersion = promotedBuildRoot->version;
+    const std::size_t promotedPointCount = promotedBuildRoot->publishedPointCount;
+    const float promotedFirstPointX = promotedBuildRoot->points[0].position.x;
+
+    REQUIRE( state->committedPublication.CaptureVisible( state->trajectoryBuild, state->futureNodeCache,
+                                                         state->simulation.targetModelRow, true, true, 150u,
+                                                         state->trajectoryStore.publicationVersion ) );
+    state->PromoteBuildFramesToCommitted( 200u );
+    state->committedPublication.visibleFramesUseBuildBank = false;
+    REQUIRE( RebuildReplayPredictionCommittedRootTrajectory( *state ) );
+    REQUIRE( state->committedPublication.ActivateCaptured( 2u, 200u ) );
+
+    const ReplayPredictionPresentationView promoted = ReplayPrediction::PresentationViewFromState( *state, true );
+    CHECK( promoted.frames.size() == 150u );
+    CHECK( promoted.frames.data() == state->simulation.frames.data() );
+    CHECK( promoted.usingBuildFrames );
+    CHECK( promoted.topologyVersion == 12u );
+    CHECK( promoted.futureTreeReady );
+    CHECK( state->committedPublication.pending );
+
+    promotedBuildRoot = findPromotedBuildRoot();
+    REQUIRE( promotedBuildRoot );
+    CHECK( promotedBuildRoot->key.branchOrdinal == 1u );
+    CHECK( promotedBuildRoot->version == promotedVersion );
+    CHECK( promotedBuildRoot->publishedPointCount == promotedPointCount );
+    CHECK( promotedBuildRoot->points[0].position.x == promotedFirstPointX );
+}
+
+TEST_CASE( "Replay pending committed publication binds the promoted target until its coherent flip" )
+{
+    ReplayPredictionCommittedPublicationState publication;
+    publication.visibleTrajectoryBuild.rootId.value = 41u;
+    publication.visibleTargetModelRow.value = 3;
+    publication.visibleTargetAvailable = true;
+    publication.visibleSnapshotCaptured = true;
+    REQUIRE( publication.ActivateCaptured( 2u, 200u ) );
+
+    const SkullbonezCore::Physics::PhysicsSceneObjectId requestedTarget { 52u };
+    const SkullbonezCore::Physics::ModelRowHint requestedModelRow { 7 };
+    CHECK( publication.PublicationTargetId( requestedTarget ).value == 41u );
+    CHECK( publication.PublicationTargetModelRow( requestedModelRow ).value == 3 );
+    CHECK( publication.PublicationTargetAvailable( false ) );
 
     publication.Reset();
-    CHECK_FALSE( publication.pending );
-    CHECK( publication.generation == 0u );
-    CHECK( publication.sourceFrameCount == 0u );
+    CHECK( publication.PublicationTargetId( requestedTarget ).value == 52u );
+    CHECK( publication.PublicationTargetModelRow( requestedModelRow ).value == 7 );
+    CHECK_FALSE( publication.PublicationTargetAvailable( false ) );
+}
+
+TEST_CASE( "Replay committed topology allocates one version across budget slices" )
+{
+    ReplayPredictionCommittedPublicationState publication;
+    uint32_t allocationCount = 0u;
+    const auto allocateVersion = [&allocationCount]()
+    {
+        ++allocationCount;
+        return 17u + allocationCount;
+    };
+
+    CHECK( publication.AcquireReplacementTopologyVersion( allocateVersion ) == 18u );
+    CHECK( publication.AcquireReplacementTopologyVersion( allocateVersion ) == 18u );
+    CHECK( allocationCount == 1u );
+
+    publication.Reset();
+    CHECK( publication.AcquireReplacementTopologyVersion( allocateVersion ) == 19u );
+    CHECK( allocationCount == 2u );
 }
 
 TEST_CASE( "Replay child marker scan key rejects every publication input change" )
@@ -119,19 +527,21 @@ TEST_CASE( "Replay child marker scan key rejects every publication input change"
     ReplayPredictionChildMarkerScanState scan;
     const SkullbonezCore::Physics::PhysicsSceneObjectId target { 41u };
     const SkullbonezCore::Physics::PhysicsSceneObjectId otherTarget { 42u };
-    CHECK_FALSE( scan.Matches( 3u, 7u, target, 120u, 99u, false ) );
+    CHECK_FALSE( scan.Matches( 3u, 7u, 2u, target, 120u, 99u, false ) );
 
+    scan.nodeCount = 2u;
     scan.Commit( 3u, 7u, target, 120u, 99u, false );
-    CHECK( scan.Matches( 3u, 7u, target, 120u, 99u, false ) );
-    CHECK_FALSE( scan.Matches( 4u, 7u, target, 120u, 99u, false ) );
-    CHECK_FALSE( scan.Matches( 3u, 8u, target, 120u, 99u, false ) );
-    CHECK_FALSE( scan.Matches( 3u, 7u, otherTarget, 120u, 99u, false ) );
-    CHECK_FALSE( scan.Matches( 3u, 7u, target, 121u, 99u, false ) );
-    CHECK_FALSE( scan.Matches( 3u, 7u, target, 120u, 100u, false ) );
-    CHECK_FALSE( scan.Matches( 3u, 7u, target, 120u, 99u, true ) );
+    CHECK( scan.Matches( 3u, 7u, 2u, target, 120u, 99u, false ) );
+    CHECK_FALSE( scan.Matches( 4u, 7u, 2u, target, 120u, 99u, false ) );
+    CHECK_FALSE( scan.Matches( 3u, 8u, 2u, target, 120u, 99u, false ) );
+    CHECK_FALSE( scan.Matches( 3u, 7u, 3u, target, 120u, 99u, false ) );
+    CHECK_FALSE( scan.Matches( 3u, 7u, 2u, otherTarget, 120u, 99u, false ) );
+    CHECK_FALSE( scan.Matches( 3u, 7u, 2u, target, 121u, 99u, false ) );
+    CHECK_FALSE( scan.Matches( 3u, 7u, 2u, target, 120u, 100u, false ) );
+    CHECK_FALSE( scan.Matches( 3u, 7u, 2u, target, 120u, 99u, true ) );
 
     scan.Reset();
-    CHECK_FALSE( scan.Matches( 3u, 7u, target, 120u, 99u, false ) );
+    CHECK_FALSE( scan.Matches( 3u, 7u, 2u, target, 120u, 99u, false ) );
 }
 
 TEST_CASE( "Replay child marker scan preserves stable-node suffix cursors" )

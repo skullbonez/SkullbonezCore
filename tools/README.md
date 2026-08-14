@@ -66,6 +66,10 @@ order and stops before any engine launch when a CPU target fails:
    120-second future-prediction generations and reports the largest frames. It
    is full-only and informational: missing artifacts, runner errors, and frame
    times are printed but cannot change `validate_full.bat` from pass to fail.
+   Its grouped leaderboard separates completion publication, incremental child
+   markers, and Predict-off invalidation from the explicitly excluded report
+   serialization and target-restart paths. No marker or frame threshold is a
+   build gate until the runtime owner ratifies one from repeated measurements.
 
 ## Unit Coverage Floors
 

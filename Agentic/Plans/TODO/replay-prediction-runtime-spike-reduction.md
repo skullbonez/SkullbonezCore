@@ -165,15 +165,20 @@ RP1 implementation evidence (Automation, four completed 120-second predictions):
   frames, 200 future nodes, 776 trajectory records, and flat reserve growth at
   1718 events.
 - Committed duplication resumes between whole causal nodes under the existing
-  overlay budget. Across two accepted runs, the resumed trajectory slices span
-  0.9804-5.2610 ms; the worst runtime frame is 30.6322 ms and is now led by a
-  14.4368 ms retained-render refresh rather than publication scanning.
-- A Prediction-owned pending state captures generation, source-frame count, and
-  the coherent completed-build topology/trajectory facts. Presentation keeps
-  that bank visible until the committed cursor reaches the identical complete
-  prefix, then flips once and resets the generation-bound pending token.
-- The focused pending-publication fixture passes 12/12 assertions and all 89
-  Replay doctests pass with 1,655 assertions. The visual-fidelity engine again
+  overlay budget. The latest accepted run places `FutureNodeCache` slices at up
+  to 3.9078 ms and `TrajectoryStore` slices at up to 5.1593 ms; no synchronous
+  completion-publication marker is observed.
+- A Prediction-owned visible snapshot captures the exact frame prefix and
+  storage bank, topology, retained markers, trajectory facts, and trajectory
+  publication token before a same-target build can mutate them. Fast
+  completion, failed begin/worker paths, and Promote-and-Begin storage swaps
+  retain that coherent snapshot. Hidden committed topology uses one replacement
+  version and flips only after topology, child/all-body records, and marker scan
+  all reach the same complete prefix.
+- Focused production-path fixtures cover pending presentation, fast completion,
+  failed begin, Promote-and-Begin, node-count marker invalidation, and a
+  deterministic nonzero all-body resume prefix whose record versions match an
+  uninterrupted build. The visual-fidelity engine again
   captures all 2,401 authoritative reveal ticks, then the excluded 4,200-frame
   harness enters its known second live-playback pass. The exact fingerprint
   checkbox therefore remains open and RP1 is not counted complete.
@@ -299,17 +304,18 @@ Current RP0/RP3 evidence (Automation, four completed 120-second predictions):
   report as an immutable oracle or refresh a baseline from it. The existing
   visual-fidelity gate still captures all 2,401 authoritative reveal ticks and
   then fails when its 4,200-frame harness enters a second live-playback pass.
-- Completion publication remains 97.0515-116.7760 ms. Child-marker context is
-  0.0004-0.7588 ms across the same repeated post-change runs.
+- At the end of this RP3 slice, completion publication remained
+  97.0515-116.7760 ms and child-marker context measured 0.0004-0.7588 ms. RP1
+  subsequently removed the completion marker as recorded above.
 
 ## Phase RP4 - Closure, Threshold Ratification, And Documentation
 
-- [ ] Run the shortened four-generation diagnostic repeatedly from one current
+- [x] Run the shortened four-generation diagnostic repeatedly from one current
   Automation build and record before/after ranges for all three in-scope marker
   classes. Report excluded harness/restart rows separately.
-- [ ] Run the focused CPU tests, replay visual-fidelity oracle, prediction
+- [x] Run the focused CPU tests, replay visual-fidelity oracle, prediction
   determinism checks, replay allocation policy, dependency graph, and full gate.
-- [ ] Perform the required touched-source comment audit and independent
+- [x] Perform the required touched-source comment audit and independent
   ownership review. Reopen any phase that leaves mixed-bank visibility,
   unbounded work, hidden capacity release, a new growth privilege, or App-owned
   Prediction state.
@@ -317,11 +323,41 @@ Current RP0/RP3 evidence (Automation, four completed 120-second predictions):
   marker/frame limits become hard failures in
   `validate_replay_prediction_frame_spikes.bat`; keep the gate informational if
   no limits are ratified.
-- [ ] Update `Agentic/Reference/runtime-reference.md` and `tools/README.md` with
+- [x] Update `Agentic/Reference/runtime-reference.md` and `tools/README.md` with
   the final publication, marker-scan, cache-reuse, and validation contracts.
 - [ ] Delete this plan after all three runtime classes meet the ratified closure
   decision and update the master/session ledgers in the same commit. Git
   history remains the detailed execution archive.
+
+Current RP4 evidence:
+
+- Four accepted four-generation diagnostics no longer observe completion
+  publication. The final full-gate run places child-marker discovery at
+  0.0006-0.6583 ms and Predict-off at 0.0045-0.0105 ms; p99 is 15.2249 ms and
+  p99.9 is 15.8814 ms. The 119.8513 ms maximum belongs to excluded Automation
+  report serialization, whose marker spans 3.6416-113.3068 ms. Target restart
+  remains a separately labeled 3.7529-6.7798 ms exclusion.
+- The complete Replay CPU family passes 84 cases and 1,734 assertions. Focused
+  coherent-publication fixtures cover committed, pending, fast/failure,
+  Promote-and-Begin, cross-target promotion, and marker-key cases. The all-body
+  fixture executes the production builder with a deterministic nonzero prefix,
+  resumes it, and proves unchanged prefix versions plus byte-equal final record
+  facts against an uninterrupted schedule.
+- The touched-source comment audit checked all eight source-bearing files with
+  zero deferrals. Independent ownership review found no remaining concrete
+  blocker after cross-target pending publication was bound to the promoted
+  snapshot through its coherent flip.
+- `tools/validate_full.bat` passes end to end after formatting the
+  touched Prediction files and deleting an unused mutable `ActiveRecords`
+  overload identified by compiled-symbol reachability. Dependency, ownership,
+  complexity, glossary, all CPU lanes, and bounded engine probes pass.
+- The visual-fidelity process passes its 17 CPU controls and captures all 2,401
+  authoritative reveal ticks, then its excluded 4,200-frame interaction enters
+  a second live-playback pass. The allocation-policy engine report likewise
+  passes two generations and flat reserve growth, while its wrapper retains an
+  obsolete 180/181 check against the current 208-frame report. Those harness
+  repairs remain outside this plan, so RP1/RP2 immutable-oracle closure remains
+  open rather than refreshing either baseline.
 
 ## Validation Map
 

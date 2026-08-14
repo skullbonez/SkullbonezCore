@@ -72,7 +72,7 @@ void ReplayTrajectoryStore::Clear() noexcept
 {
     const bool hadPublishedState = activeRecordCount != 0u;
 
-    for ( ReplayTrajectoryRecord& record : ActiveRecords() )
+    for ( ReplayTrajectoryRecord& record : std::span<ReplayTrajectoryRecord>( records.data(), activeRecordCount ) )
     {
         record.publishedPointCount = 0;
     }
@@ -85,19 +85,9 @@ void ReplayTrajectoryStore::Clear() noexcept
     }
 }
 
-std::span<ReplayTrajectoryRecord> ReplayTrajectoryStore::ActiveRecords() noexcept
-{
-    return { records.data(), activeRecordCount };
-}
-
-std::span<const ReplayTrajectoryRecord> ReplayTrajectoryStore::ActiveRecords() const noexcept
-{
-    return { records.data(), activeRecordCount };
-}
-
 ReplayTrajectoryRecord* ReplayTrajectoryStore::FindRecord( const ReplayTrajectoryRecordKey& key ) noexcept
 {
-    for ( ReplayTrajectoryRecord& record : ActiveRecords() )
+    for ( ReplayTrajectoryRecord& record : std::span<ReplayTrajectoryRecord>( records.data(), activeRecordCount ) )
     {
         if ( record.key == key )
         {
@@ -130,8 +120,9 @@ ReplayTrajectoryRecord* ReplayTrajectoryStore::BeginReplaceRecord( const ReplayT
 
     if ( !record )
     {
-        const std::size_t dormantIndex = ReplayTrajectoryStoreOperations::SelectDormantRecordIndex(
-            records, activeRecordCount, key, requiredPointCapacity );
+        const std::size_t dormantIndex = ReplayTrajectoryStoreOperations::SelectDormantRecordIndex( records,
+                                                                                                    activeRecordCount, key,
+                                                                                                    requiredPointCapacity );
 
         if ( dormantIndex < records.size() )
         {

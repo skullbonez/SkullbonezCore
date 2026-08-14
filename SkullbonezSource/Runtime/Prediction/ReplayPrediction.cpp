@@ -614,7 +614,7 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayPrediction& predictionOwner
     if ( prediction.build.publication.WorkerFailed() )
     {
         const bool preserveCommittedFuture = prediction.HasCommittedFramePrefix();
-        predictionOwner.CancelJob( !preserveCommittedFuture );
+        predictionOwner.CancelJob( !preserveCommittedFuture, preserveCommittedFuture );
         prediction.build.dirty = true;
         return false;
     }
@@ -648,6 +648,11 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayPrediction& predictionOwner
                                                                           solverPresentTrackPosition ) ||
                                             solverWasOldLiveEdge;
 
+    // Invariant: the trajectory builder switches to the build bank before its
+    // prefix is necessarily presented. Only this presentation latch proves the
+    // completed build replaced the coherent snapshot captured at job start.
+    const bool buildPrefixWasPresented = prediction.BuildPrefixHasBeenPresented();
+
     prediction.build.schedule.Reset();
     prediction.build.building = false;
     prediction.build.complete = true;
@@ -656,13 +661,43 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayPrediction& predictionOwner
                                            .count();
 
     const std::size_t completedFrameCount = prediction.build.buildFrames.size();
+    const std::size_t presentedBuildFrameCount = prediction.build.presentationPublication
+                                                     .PresentedCount( prediction.PublishedBuildFrameCount(),
+                                                                      completedFrameCount );
     prediction.PromoteBuildFramesToCommitted( completedFrameCount );
 
     // Why: the swapped-out committed bank is the next build's allocation-free
     // scratch. Reset publication below; do not destroy its per-frame capacities.
     prediction.ResetBuildFramePublication();
-    prediction.committedPublication.Begin( prediction.trajectoryBuild, prediction.build.generationBeginCount,
-                                           completedFrameCount );
+
+    const bool retainCapturedCommittedBank = hadCommittedPredictionFrames && !buildPrefixWasPresented;
+    const std::size_t visibleFrameCount = buildPrefixWasPresented ? presentedBuildFrameCount : completedFrameCount;
+
+    if ( retainCapturedCommittedBank )
+    {
+        // Lifetime: the prior committed bank moved to build storage in the
+        // frame swap above; its trajectory branch identity does not change.
+        prediction.committedPublication.visibleFramesUseBuildBank = true;
+    }
+
+    const bool publicationBegan = retainCapturedCommittedBank
+                                      ? prediction.committedPublication
+                                            .ActivateCaptured( prediction.build.generationBeginCount, completedFrameCount )
+                                      : prediction.committedPublication
+                                            .Begin( prediction.trajectoryBuild, prediction.futureNodeCache,
+                                                    prediction.build.generationBeginCount, completedFrameCount,
+                                                    prediction.simulation.targetModelRow, true, false, visibleFrameCount,
+                                                    prediction.trajectoryStore.publicationVersion );
+
+    if ( !publicationBegan )
+    {
+        // Invariant: begin-job reserve owns this fixed snapshot capacity. A
+        // failure is therefore a rejected generation, never permission to
+        // allocate or expose a mixed bank on the completion frame.
+        prediction.build.dirty = true;
+        return false;
+    }
+
     (void)RebuildReplayPredictionCommittedRootTrajectory( prediction );
 
     if ( prediction.baseline.valid )
@@ -741,7 +776,21 @@ ReplayPrediction::BeginFrameSource( PhysicsEngine& physicsEngine, const Skullbon
                                           : 2u;
 
     const bool clearSamplesOnCancel = !preserveCommittedFuture;
-    predictionOwner.CancelJob( clearSamplesOnCancel );
+
+    if ( preserveCommittedFuture && !prediction.committedPublication.visibleSnapshotCaptured &&
+         !prediction.committedPublication.CaptureVisible( prediction.trajectoryBuild, prediction.futureNodeCache,
+                                                          prediction.simulation.targetModelRow, true, false,
+                                                          prediction.CommittedFrameCount(),
+                                                          prediction.trajectoryStore.publicationVersion ) )
+    {
+        prediction.build.dirty = true;
+        return ReplayPredictionSourcePreparation::Declined;
+    }
+
+    // Lifetime: same-target cancellation retires worker state but retains the
+    // coherent reader bank captured above until the replacement prefix is
+    // actually presented. New-target cancellation clears both banks.
+    predictionOwner.CancelJob( clearSamplesOnCancel, preserveCommittedFuture );
 
     if ( clearSamplesOnCancel )
     {
@@ -858,7 +907,7 @@ bool ReplayPrediction::BeginFrameSimulation( PhysicsEngine& physicsEngine, const
     if ( !ReserveReplayPredictionVector( prediction.build.buildFrames, buildFrameCapacity, 0,
                                          "RunReplayPredictionBuildState::buildFrames" ) )
     {
-        predictionOwner.CancelJob( clearSamplesOnCancel );
+        predictionOwner.CancelJob( clearSamplesOnCancel, !clearSamplesOnCancel );
         prediction.build.dirty = true;
         return false;
     }
@@ -875,7 +924,7 @@ bool ReplayPrediction::BeginFrameSimulation( PhysicsEngine& physicsEngine, const
                                                       "RunReplayPredictionFrame::bodies",
                                                       &RunReplayPredictionFrame::bodies ) )
     {
-        predictionOwner.CancelJob( clearSamplesOnCancel );
+        predictionOwner.CancelJob( clearSamplesOnCancel, !clearSamplesOnCancel );
         prediction.build.dirty = true;
         return false;
     }
@@ -893,9 +942,11 @@ bool ReplayPrediction::BeginFrameSimulation( PhysicsEngine& physicsEngine, const
     if ( !ReserveReplayPredictionVector( prediction.futureNodeCache.futureNodes, REPLAY_PATH_MAX_FUTURE_NODES, 0,
                                          "RunReplayPredictionFutureNodeCache::futureNodes" ) ||
          !ReserveReplayPredictionVector( prediction.futureNodeCache.futureNodeBuildScratch, REPLAY_PATH_MAX_FUTURE_NODES, 0,
-                                         "RunReplayPredictionFutureNodeCache::futureNodeBuildScratch" ) )
+                                         "RunReplayPredictionFutureNodeCache::futureNodeBuildScratch" ) ||
+         !ReserveReplayPredictionVector( prediction.committedPublication.visibleFutureNodes, REPLAY_PATH_MAX_FUTURE_NODES, 0,
+                                         "ReplayPredictionCommittedPublicationState::visibleFutureNodes" ) )
     {
-        predictionOwner.CancelJob( clearSamplesOnCancel );
+        predictionOwner.CancelJob( clearSamplesOnCancel, !clearSamplesOnCancel );
         prediction.build.dirty = true;
         return false;
     }
@@ -903,7 +954,7 @@ bool ReplayPrediction::BeginFrameSimulation( PhysicsEngine& physicsEngine, const
     if ( !PrepareReplayPredictionTrajectoryBuild( prediction, prediction.simulation.targetId, buildFrameCapacity,
                                                   static_cast<std::size_t>( modelCount ) ) )
     {
-        predictionOwner.CancelJob( clearSamplesOnCancel );
+        predictionOwner.CancelJob( clearSamplesOnCancel, !clearSamplesOnCancel );
         prediction.build.dirty = true;
         return false;
     }
@@ -913,7 +964,7 @@ bool ReplayPrediction::BeginFrameSimulation( PhysicsEngine& physicsEngine, const
          !CaptureReplayPredictionBodyState( liveBodyStore, workerPool, predictionOwner.ProfilerBorrow(),
                                             prediction.simulation.predictionBodies ) )
     {
-        predictionOwner.CancelJob( clearSamplesOnCancel );
+        predictionOwner.CancelJob( clearSamplesOnCancel, !clearSamplesOnCancel );
         return false;
     }
 
@@ -936,7 +987,7 @@ bool ReplayPrediction::BeginFrameSimulation( PhysicsEngine& physicsEngine, const
     if ( !SeedReplayPredictionEngine( prediction, predictionOwner.ProfilerBorrow(), physicsEngine, config, worldForces,
                                       modelCount ) )
     {
-        predictionOwner.CancelJob( clearSamplesOnCancel );
+        predictionOwner.CancelJob( clearSamplesOnCancel, !clearSamplesOnCancel );
         prediction.build.dirty = true;
         return false;
     }
@@ -944,7 +995,7 @@ bool ReplayPrediction::BeginFrameSimulation( PhysicsEngine& physicsEngine, const
     if ( !prediction.simulation.predictionEngine ||
          !CaptureReplayPredictionFrame( prediction, *prediction.simulation.predictionEngine, workerPool, modelCount, 0 ) )
     {
-        predictionOwner.CancelJob( clearSamplesOnCancel );
+        predictionOwner.CancelJob( clearSamplesOnCancel, !clearSamplesOnCancel );
         prediction.build.dirty = true;
         return false;
     }
@@ -996,7 +1047,7 @@ bool StepReplayPredictionJob( ReplayPrediction& predictionOwner, RunReplayPredic
          !prediction.build.schedule.Active() )
     {
         const bool preserveCommittedFuture = prediction.HasCommittedFramePrefix();
-        predictionOwner.CancelJob( !preserveCommittedFuture );
+        predictionOwner.CancelJob( !preserveCommittedFuture, preserveCommittedFuture );
         prediction.build.dirty = true;
         return false;
     }
@@ -1081,11 +1132,6 @@ ReplayPredictionFrameSourceAction ReplayPrediction::SelectFrameSource( const Rep
 
     PROFILE_SCOPED( "Frame/Replay/Prediction/SelectSource" );
 
-    if ( !targetAvailable )
-    {
-        predictionOwner.ClearFutureNodeCache();
-    }
-
     if ( !prediction.enabled )
     {
         if ( prediction.build.building )
@@ -1094,6 +1140,19 @@ ReplayPredictionFrameSourceAction ReplayPrediction::SelectFrameSource( const Rep
         }
 
         return ReplayPredictionFrameSourceAction::Stop;
+    }
+
+    if ( prediction.committedPublication.pending )
+    {
+        // Lifetime: completion may still present the swapped-out committed
+        // frame bank. Defer a requested restart until the hidden replacement
+        // flips, so begin-job reserve cannot resize that visible storage.
+        return ReplayPredictionFrameSourceAction::Continue;
+    }
+
+    if ( !targetAvailable )
+    {
+        predictionOwner.ClearFutureNodeCache();
     }
 
     if ( !predictionOwner.GenerationPermitted() )
@@ -1132,12 +1191,19 @@ ReplayPredictionFrameSourceAction ReplayPrediction::SelectFrameSource( const Rep
                                                                  prediction.build.pendingLatestRestart,
                                                                  prediction.BuildPrefixHasBeenPresented() );
 
-    if ( coalescerAction == ReplayPredictionCoalescerAction::PromoteAndBegin &&
-         !predictionOwner.PromoteBuildPrefixToCommitted() )
+    if ( coalescerAction == ReplayPredictionCoalescerAction::PromoteAndBegin )
     {
-        // Hazard: retain the dirty and pending-restart tokens if promotion
-        // cannot acquire a coherent prefix. The next frame retries without
-        // discarding the path visible when this request arrived.
+        if ( !predictionOwner.PromoteBuildPrefixToCommitted() )
+        {
+            // Hazard: retain the dirty and pending-restart tokens if promotion
+            // cannot acquire a coherent prefix. The next frame retries without
+            // discarding the path visible when this request arrived.
+            return ReplayPredictionFrameSourceAction::Continue;
+        }
+
+        // Lifetime: the promoted build trajectory remains the visible branch
+        // until budgeted committed duplication flips it. Preserve the dirty
+        // restart request; the pending-state guard begins it after that flip.
         return ReplayPredictionFrameSourceAction::Continue;
     }
 
@@ -1778,7 +1844,8 @@ ReplayPredictionMemoryStats ReplayPrediction::CollectMemoryStats() const
         MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
                                           SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionFutureTree,
                                           ReplayPredictionVectorCapacityBytes( m_state.futureNodeCache.futureNodes ) +
-                                              ReplayPredictionVectorCapacityBytes( m_state.futureNodeCache.futureNodeBuildScratch ) );
+                                              ReplayPredictionVectorCapacityBytes( m_state.futureNodeCache.futureNodeBuildScratch ) +
+                                              ReplayPredictionVectorCapacityBytes( m_state.committedPublication.visibleFutureNodes ) );
 
     for ( const RunReplayPredictionFrame& frame : m_state.simulation.frames )
     {

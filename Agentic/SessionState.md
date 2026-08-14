@@ -1,6 +1,6 @@
 # Session State
 
-Date: 2026-08-14
+Date: 2026-08-15
 Branch: `nightrunner-14th-AUG-26`
 Status: Active - 2/5 phases complete
 
@@ -21,12 +21,21 @@ retaining all 776 final records and flat reserve growth. RP2 remains open
 because the immutable visual gate captures
 all 2,401 reveal ticks, then its existing 4,200-frame interaction enters a
 second live-playback pass; this plan excludes harness changes. RP1's pending
-publication state now keeps the completed build bank visible while committed
-records resume between nodes under the overlay budget. The previous
-97.0515-116.7760 ms completion marker is no longer observed; trajectory slices
-are 0.9804-5.2610 ms across two runs and the new worst runtime frame is 30.6322 ms, led by a
-14.4368 ms retained-render refresh. RP1 remains open only for its exact immutable
-fingerprint checkbox behind the same excluded harness failure.
+publication state now keeps the exact visible frame prefix/storage bank,
+topology, retained markers, trajectory facts, and publication token coherent
+through same-target builds, failed begins/workers, fast completion, and
+Promote-and-Begin. A queued cross-target click remains only the next dirty
+request; hidden topology, trajectories, and markers stay bound to the promoted
+target through its coherent flip. Committed topology, child/all-body
+trajectories, and markers resume under the overlay budget and flip together. The
+latest four-generation run no longer observes the previous 97.0515-116.7760 ms
+completion marker;
+child markers measure 0.0006-0.6583 ms and Predict-off 0.0045-0.0105 ms. Its
+p99/p99.9 frames are 15.2249/15.8814 ms; the 119.8513 ms maximum is excluded
+Automation report serialization. RP1 remains open only for its exact immutable
+fingerprint checkbox behind the same excluded harness failure. Final closure
+still awaits that immutable-oracle harness repair and an owner threshold ruling;
+no timing threshold has been added.
 
 Source Modernization Sweep, Dense Pile Sleep Resolution, Broadphase Dense
 Dedup Restoration, and Look Lab Random Style Authoring remain closed by owner

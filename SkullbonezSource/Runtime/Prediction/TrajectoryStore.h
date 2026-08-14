@@ -35,8 +35,7 @@ namespace ReplayTrajectoryStoreOperations
 {
 // Selects same-key capacity first, then any sufficient slot, then the largest
 // remaining slot. Returning records.size() means no dormant slot exists.
-inline std::size_t SelectDormantRecordIndex( std::span<const ReplayTrajectoryRecord> records,
-                                             std::size_t activeRecordCount,
+inline std::size_t SelectDormantRecordIndex( std::span<const ReplayTrajectoryRecord> records, std::size_t activeRecordCount,
                                              const ReplayTrajectoryRecordKey& key,
                                              std::size_t requiredPointCapacity ) noexcept
 {
@@ -85,9 +84,12 @@ struct ReplayTrajectoryStore
 
     // Logically removes every record without releasing warmed nested vectors.
     void Clear() noexcept;
+
     // Returns the only record range that presentation and serialization may read.
-    std::span<ReplayTrajectoryRecord> ActiveRecords() noexcept;
-    std::span<const ReplayTrajectoryRecord> ActiveRecords() const noexcept;
+    std::span<const ReplayTrajectoryRecord> ActiveRecords() const noexcept
+    {
+        return { records.data(), activeRecordCount };
+    }
     ReplayTrajectoryRecord* FindRecord( const ReplayTrajectoryRecordKey& key ) noexcept;
     const ReplayTrajectoryRecord* FindRecord( const ReplayTrajectoryRecordKey& key ) const noexcept;
     ReplayTrajectoryRecord* BeginReplaceRecord( const ReplayTrajectoryRecordKey& key, uint16_t styleId,
@@ -106,10 +108,12 @@ struct ReplayTrajectoryStore
     std::size_t RecordCount() const noexcept;
     std::size_t PointCount() const noexcept;
     uint64_t CapacityBytes() const noexcept;
+
     // Cold archive restore replaces both active content and retained capacity.
     void ReplaceRecordsFromArchive( std::vector<ReplayTrajectoryRecord>&& loadedRecords ) noexcept;
 
   private:
+
     // Invariant: readers see only this prefix. Clear retires its keys without
     // destroying nested point vectors; BeginReplaceRecord first reactivates a
     // dormant slot with the same key so each trajectory keeps its warmed cap.

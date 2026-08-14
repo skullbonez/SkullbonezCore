@@ -448,7 +448,11 @@ bool RebuildReplayPredictionCommittedRootTrajectory( RunReplayPredictionState& p
     prediction.trajectoryBuild.rootFrameCount = record->points.size();
     prediction.trajectoryBuild.childFrameCount = 0;
     prediction.trajectoryBuild.builtNodeCount = 0;
+    prediction.trajectoryBuild.allBodyFrameCount = 0;
+    prediction.trajectoryBuild.builtAllBodyCount = 0;
+    prediction.trajectoryBuild.allBodyBodyCount = 0;
     prediction.trajectoryBuild.topologyVersion = 0;
+    prediction.trajectoryBuild.allBodyPaths = false;
     prediction.trajectoryBuild.valid = true;
     return true;
 }
@@ -680,6 +684,7 @@ void UpdateReplayPredictionAllBodyTrajectories( RunReplayPredictionState& predic
     {
         prediction.trajectoryBuild.allBodyFrameCount = 0;
         prediction.trajectoryBuild.builtAllBodyCount = 0;
+        prediction.trajectoryBuild.allBodyBodyCount = 0;
         prediction.trajectoryBuild.allBodyPaths = false;
         return;
     }
@@ -689,25 +694,35 @@ void UpdateReplayPredictionAllBodyTrajectories( RunReplayPredictionState& predic
 
     const uint16_t activeBranch = usingBuildFrames ? REPLAY_TRAJECTORY_BUILD_BRANCH : REPLAY_TRAJECTORY_COMMITTED_BRANCH;
 
-    bool activeBankMissing = false;
+    const std::size_t builtPrefixCount = (std::min)( prediction.trajectoryBuild.builtAllBodyCount, bodyCount );
+    bool builtPrefixMissing = false;
 
-    for ( std::size_t bodyIndex = 0; bodyIndex < bodyCount; ++bodyIndex )
+    for ( std::size_t bodyIndex = 0; bodyIndex < builtPrefixCount; ++bodyIndex )
     {
         const RunReplayPredictionBodySample& seedBody = frames[0].bodies[bodyIndex];
 
         if ( seedBody.id.value != 0u && seedBody.id.value != rootId.value &&
              !prediction.trajectoryStore.FindRecord( ReplayTrajectoryKey( seedBody.id, ReplayTrajectoryLane::FutureRoot, activeBranch ) ) )
         {
-            activeBankMissing = true;
+            builtPrefixMissing = true;
             break;
         }
     }
 
-    const bool sourceChanged = !prediction.trajectoryBuild.allBodyPaths || activeBankMissing ||
-                               prediction.trajectoryBuild.rootId.value != rootId.value ||
-                               prediction.trajectoryBuild.usingBuildFrames != usingBuildFrames ||
-                               prediction.trajectoryBuild.allBodyFrameCount > frameCount ||
-                               prediction.trajectoryBuild.builtAllBodyCount > bodyCount;
+    const bool sourceChanged = prediction.trajectoryBuild.AllBodyPublicationSourceChanged( rootId, usingBuildFrames,
+                                                                                           frameCount, bodyCount,
+                                                                                           builtPrefixMissing );
+
+    if ( sourceChanged )
+    {
+        // Invariant: establish the bank identity once. Missing records beyond
+        // builtAllBodyCount are pending work, not evidence that the source
+        // changed; treating them as a mismatch restarts at body zero forever.
+        prediction.trajectoryBuild.allBodyFrameCount = 0;
+        prediction.trajectoryBuild.builtAllBodyCount = 0;
+        prediction.trajectoryBuild.allBodyBodyCount = bodyCount;
+        prediction.trajectoryBuild.allBodyPaths = true;
+    }
 
     // Concept: every space-body record is independent of the contact-derived
     // future tree. Extending a prediction therefore appends only the new frame
@@ -732,7 +747,7 @@ void UpdateReplayPredictionAllBodyTrajectories( RunReplayPredictionState& predic
         }
     }
 
-    const std::size_t firstBody = sourceChanged ? 0u : prediction.trajectoryBuild.builtAllBodyCount;
+    const std::size_t firstBody = prediction.trajectoryBuild.builtAllBodyCount;
     std::size_t completedBodies = bodyCount;
 
     for ( std::size_t bodyIndex = firstBody; bodyIndex < bodyCount; ++bodyIndex )
@@ -762,6 +777,7 @@ void UpdateReplayPredictionAllBodyTrajectories( RunReplayPredictionState& predic
 
     prediction.trajectoryBuild.allBodyFrameCount = frameCount;
     prediction.trajectoryBuild.builtAllBodyCount = completedBodies;
+    prediction.trajectoryBuild.allBodyBodyCount = bodyCount;
     prediction.trajectoryBuild.allBodyPaths = true;
 }
 
@@ -779,6 +795,7 @@ void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction
         prediction.trajectoryBuild.builtNodeCount = 0;
         prediction.trajectoryBuild.allBodyFrameCount = 0;
         prediction.trajectoryBuild.builtAllBodyCount = 0;
+        prediction.trajectoryBuild.allBodyBodyCount = 0;
         prediction.trajectoryBuild.allBodyPaths = false;
         return;
     }

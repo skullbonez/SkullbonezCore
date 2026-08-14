@@ -932,7 +932,18 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
 
         if ( topologyChanged )
         {
-            prediction.futureNodeCache.futureNodesTopologyVersion = AllocateReplayFutureNodeTopologyVersion( prediction.futureNodeCache );
+            if ( prediction.committedPublication.pending )
+            {
+                // Invariant: this cache is hidden behind the completed-build
+                // snapshot. Every budget slice shares one replacement token;
+                // only the coherent-ready flip makes it reader-visible.
+                prediction.futureNodeCache
+                    .futureNodesTopologyVersion = prediction.committedPublication.AcquireReplacementTopologyVersion( [&prediction]() { return AllocateReplayFutureNodeTopologyVersion( prediction.futureNodeCache ); } );
+            }
+            else
+            {
+                prediction.futureNodeCache.futureNodesTopologyVersion = AllocateReplayFutureNodeTopologyVersion( prediction.futureNodeCache );
+            }
         }
     };
 
@@ -1036,7 +1047,15 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const
 
     const bool presentingBuildPrefix = prediction.BuildPrefixShouldBePresented();
     const bool committedPublicationPending = prediction.committedPublication.pending;
+
+    // Lifetime: a target click is allowed to queue the next generation while
+    // the promoted prediction is still being duplicated. Every hidden phase
+    // must nevertheless use the promoted snapshot's source through the flip.
+    const Physics::PhysicsSceneObjectId publicationTargetId = prediction.committedPublication.PublicationTargetId( targetId );
+    const ModelRowHint publicationTargetModelRow = prediction.committedPublication.PublicationTargetModelRow( targetModelRow );
+    const bool publicationTargetAvailable = prediction.committedPublication.PublicationTargetAvailable( targetAvailable );
     const bool usingBuildFrames = presentingBuildPrefix || committedPublicationPending;
+    const bool publicationUsingBuildFrames = committedPublicationPending ? false : usingBuildFrames;
     const std::vector<RunReplayPredictionFrame>& activePredictionFrames = presentingBuildPrefix
                                                                               ? prediction.build.buildFrames
                                                                               : prediction.simulation.frames;
@@ -1087,7 +1106,7 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const
 
     const bool bufferComplete = !presentingBuildPrefix;
 
-    if ( !targetAvailable || targetId.value == 0 )
+    if ( !publicationTargetAvailable || publicationTargetId.value == 0 )
     {
         return;
     }
@@ -1102,7 +1121,8 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/RootRestMarker" );
         RetainReplayPredictionRootRestMarker( prediction, activePredictionFrames, activePredictionFrameCount,
-                                              drawWindow.revealFrame, targetId, targetModelRow.value, colliderStore );
+                                              drawWindow.revealFrame, publicationTargetId, publicationTargetModelRow.value,
+                                              colliderStore );
     }
 
     if ( prediction.enabled )
@@ -1110,15 +1130,15 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const
         {
             PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/FutureNodeCache" );
             UpdateReplayPredictionFutureNodeCache( prediction, activePredictionFrames, activePredictionFrameCount,
-                                                   usingBuildFrames, modelCollection, targetId, overlayBudgetStart,
-                                                   budgetMilliseconds );
+                                                   publicationUsingBuildFrames, modelCollection, publicationTargetId,
+                                                   overlayBudgetStart, budgetMilliseconds );
         }
 
         {
             PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/TrajectoryStore" );
             UpdateReplayPredictionTrajectoryStore( prediction, activePredictionFrames, activePredictionFrameCount,
-                                                   committedPublicationPending ? false : usingBuildFrames, targetId,
-                                                   overlayBudgetStart, budgetMilliseconds );
+                                                   publicationUsingBuildFrames, publicationTargetId, overlayBudgetStart,
+                                                   budgetMilliseconds );
         }
 
         (void)ReplayPredictionBudgetExpiredForPass( result,
@@ -1126,22 +1146,8 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const
                                                     overlayBudgetStart, budgetMilliseconds );
     }
 
-    const RunReplayPredictionTrajectoryBuildState visibleTrajectory = committedPublicationPending
-                                                                          ? prediction.committedPublication
-                                                                                .visibleTrajectoryBuild
-                                                                          : prediction.trajectoryBuild;
-    const bool futureTreeReady = prediction.FutureTreeReadyForDraw( visibleTrajectory, targetId, usingBuildFrames,
+    const bool futureTreeReady = prediction.FutureTreeReadyForDraw( publicationTargetId, publicationUsingBuildFrames,
                                                                     activePredictionFrameCount );
-
-    if ( committedPublicationPending &&
-         prediction.FutureTreeReadyForDraw( targetId, false, activePredictionFrameCount ) )
-    {
-        // Invariant: this is the single coherent-ready transition. The current
-        // frame may finish against its captured build-bank facts; the next view
-        // selects the complete committed duplicate and matching frame bank.
-        prediction.futureNodeCache.futureNodesBuiltFromBuildFrames = false;
-        prediction.committedPublication.Reset();
-    }
 
     // Why: the scan cache is the resume token. Skipping the block leaves
     // markerScan.Matches false, so the next frame retries the whole rebuild
@@ -1151,9 +1157,11 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const
         ReplayPredictionChildMarkerScanState& markerScan = prediction.futureNodeCache.childMarkerScan;
         const uint32_t generation = prediction.build.generationBeginCount;
         const uint32_t topologyVersion = prediction.futureNodeCache.futureNodesTopologyVersion;
+        const std::size_t markerNodeCount = (std::min)( prediction.futureNodeCache.futureNodes.size(),
+                                                        static_cast<std::size_t>( REPLAY_PATH_MAX_FUTURE_NODES ) );
 
-        if ( !markerScan.Matches( generation, topologyVersion, targetId, activePredictionFrameCount, drawWindow.revealFrame,
-                                  usingBuildFrames ) )
+        if ( !markerScan.Matches( generation, topologyVersion, markerNodeCount, publicationTargetId,
+                                  activePredictionFrameCount, drawWindow.revealFrame, publicationUsingBuildFrames ) )
         {
             bool markerScanComplete = false;
 
@@ -1161,8 +1169,9 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const
                 PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/BuildChildMarkerContext" );
                 markerScanComplete = AdvanceReplayPredictionChildMarkerScan( markerScan, prediction, activePredictionFrames,
                                                                              activePredictionFrameCount,
-                                                                             drawWindow.revealFrame, generation, targetId,
-                                                                             usingBuildFrames, overlayBudgetStart,
+                                                                             drawWindow.revealFrame, generation,
+                                                                             publicationTargetId,
+                                                                             publicationUsingBuildFrames, overlayBudgetStart,
                                                                              budgetMilliseconds );
             }
 
@@ -1199,8 +1208,9 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const
         // look when the overlay shows a steady cost with nothing rebuilding.
         PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/AffectedBodyMarkers" );
         RetainReplayPredictionAffectedBodyMarkers( activePredictionFrames, activePredictionFrameCount, prediction,
-                                                   drawWindow.revealFrame, bufferComplete, targetId, targetModelRow.value,
-                                                   prediction.futureNodeCache.futureNodes, modelCollection, colliderStore );
+                                                   drawWindow.revealFrame, bufferComplete, publicationTargetId,
+                                                   publicationTargetModelRow.value, prediction.futureNodeCache.futureNodes,
+                                                   modelCollection, colliderStore );
     }
 
     if ( bufferComplete && !ReplayPredictionBudgetExpired( overlayBudgetStart, budgetMilliseconds ) )
@@ -1211,6 +1221,30 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const
         PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/EndStateMarkers" );
         RetainReplayPredictionEndStateMarkers( prediction, drawWindow.revealFrame, activePredictionFrames,
                                                activePredictionFrameCount );
+    }
+
+    if ( committedPublicationPending )
+    {
+        const std::size_t nodeCount = (std::min)( prediction.futureNodeCache.futureNodes.size(),
+                                                  static_cast<std::size_t>( REPLAY_PATH_MAX_FUTURE_NODES ) );
+        const ReplayPredictionChildMarkerScanState& markerScan = prediction.futureNodeCache.childMarkerScan;
+        const bool markerPublicationReady = nodeCount == 0u ||
+                                            markerScan.Matches( prediction.build.generationBeginCount,
+                                                                prediction.futureNodeCache.futureNodesTopologyVersion,
+                                                                nodeCount, publicationTargetId, activePredictionFrameCount,
+                                                                drawWindow.revealFrame, false );
+
+        if ( prediction.FutureTreePublicationComplete( prediction.trajectoryBuild, publicationTargetId, false,
+                                                       activePredictionFrameCount ) &&
+             markerPublicationReady && !ReplayPredictionBudgetExpired( overlayBudgetStart, budgetMilliseconds ) )
+        {
+            // Invariant: topology, child/all-body trajectories, and every
+            // retained marker have now completed against the same committed
+            // generation. This is the only point that retires the visible
+            // build snapshot.
+            prediction.futureNodeCache.futureNodesBuiltFromBuildFrames = false;
+            prediction.committedPublication.Reset();
+        }
     }
 }
 

@@ -1,6 +1,6 @@
 # MASTER PLAN - Active
 
-Date: 2026-08-14
+Date: 2026-08-15
 Status: Active; one live implementation plan
 
 ## Owner Direction
@@ -32,5 +32,8 @@ the existing 4,200-frame harness enters a second live-playback pass after all
 2,401 reveal ticks. RP1's coherent budgeted publication is implemented and the
 97.0515-116.7760 ms completion marker is no longer observed; its exact immutable
 fingerprint checkbox remains open behind the same excluded harness failure. The
-next measured runtime frame is 30.6322 ms, led by a 14.4368 ms retained-render
-refresh after the coherent branch flip.
+latest full-gate four-generation run measures child markers at 0.0006-0.6583 ms,
+Predict-off at 0.0045-0.0105 ms, and p99/p99.9 frames at 15.2249/15.8814 ms;
+its 119.8513 ms maximum is excluded Automation report serialization. Final plan
+deletion still requires the excluded immutable-oracle harness repair and an
+owner timing-threshold decision.

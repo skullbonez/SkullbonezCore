@@ -189,7 +189,7 @@ void ReplayPrediction::WaitForJobIdle()
 
 bool ReplayPrediction::PromoteBuildPrefixToCommitted()
 {
-    if ( !m_state.BuildPrefixShouldBePresented() )
+    if ( !m_state.BuildPrefixHasBeenPresented() )
     {
         return false;
     }
@@ -202,15 +202,34 @@ bool ReplayPrediction::PromoteBuildPrefixToCommitted()
         return false;
     }
 
+    const std::size_t visibleFrameCount = m_state.build.presentationPublication
+                                              .PresentedCount( promotedFrameCount, m_state.build.buildFrames.size() );
+
+    // Invariant: promotion changes only frame storage ownership. Snapshot the
+    // actually presented build topology/trajectory bank before root rebuilding
+    // mutates the live cursor, then retarget its frame storage after the swap.
+    if ( !m_state.committedPublication.CaptureVisible( m_state.trajectoryBuild, m_state.futureNodeCache,
+                                                       m_state.simulation.targetModelRow, true, true, visibleFrameCount,
+                                                       m_state.trajectoryStore.publicationVersion ) )
+    {
+        return false;
+    }
+
     // Hazard: this is the Play-button ownership transfer. The worker has
     // released buildFrames before the visible prefix becomes committed state.
     m_state.build.schedule.Reset();
     m_state.build.building = false;
     m_state.build.complete = true;
     m_state.PromoteBuildFramesToCommitted( promotedFrameCount );
+    m_state.committedPublication.visibleFramesUseBuildBank = false;
     m_state.ResetBuildFramePublication();
 
     if ( !RebuildReplayPredictionCommittedRootTrajectory( m_state ) )
+    {
+        return false;
+    }
+
+    if ( !m_state.committedPublication.ActivateCaptured( m_state.build.generationBeginCount, promotedFrameCount ) )
     {
         return false;
     }
@@ -222,7 +241,7 @@ bool ReplayPrediction::PromoteBuildPrefixToCommitted()
     return true;
 }
 
-void ReplayPrediction::CancelJob( bool clearSamples )
+void ReplayPrediction::CancelJob( bool clearSamples, bool preserveVisibleSnapshot )
 {
     WaitForJobIdle();
     m_state.build.schedule.Reset();
@@ -242,7 +261,13 @@ void ReplayPrediction::CancelJob( bool clearSamples )
     // the double-buffered frame payloads warm for the next replay rebuild.
     m_state.ResetBuildFramePublication();
     m_state.trajectoryBuild = RunReplayPredictionTrajectoryBuildState {};
-    m_state.committedPublication.Reset();
+
+    // Lifetime: same-target replacement failures keep the captured presentation
+    // selected until a later prefix replaces it. Other cancellation paths retire it.
+    if ( !preserveVisibleSnapshot )
+    {
+        m_state.committedPublication.Reset();
+    }
 
     if ( clearSamples )
     {
