@@ -4,9 +4,9 @@
 @rem   Runs the diagnostic 120-second replay-prediction restart workload.
 @rem
 @rem Summary:
-@rem   Builds Automation, generates a perf-enabled copy of the 200-brick scene,
-@rem   waits for four scripted prediction generations, and reports the largest
-@rem   frames with their direct CPU and worker profiler markers.
+@rem   Uses the Automation build already produced by validate_full, generates a
+@rem   perf-enabled copy of the 200-brick scene, waits for four closely spaced
+@rem   prediction generations, and reports the largest profiler frames.
 @rem
 @rem Invariants:
 @rem   - Prediction completion assertions precede every later replay interaction.
@@ -14,6 +14,8 @@
 @rem   - Frame times are diagnostic findings and never fixed-threshold failures.
 @rem   - validate_full is the only validation pipeline that invokes this script,
 @rem     and it deliberately treats every exit code as informational.
+@rem   - The engine process has a 105-second watchdog so setup and analysis keep
+@rem     the complete informational diagnostic inside a two-minute budget.
 @rem
 @rem Related:
 @rem   - tools/analyze_replay_prediction_spikes.py
@@ -30,10 +32,6 @@ if errorlevel 1 goto fail
 
 echo [replay-prediction-spikes] Running focused diagnostic-tool tests...
 "%PYTHON_EXE%" -m unittest tools.test_analyze_replay_prediction_spikes -v
-if errorlevel 1 goto fail
-
-echo [replay-prediction-spikes] Building Automation...
-call "%~dp0validate_build.bat" Automation
 if errorlevel 1 goto fail
 
 set "OUTPUT_DIR=TestOutput\diagnostics\replay_prediction_frame_spikes"
@@ -53,10 +51,17 @@ if errorlevel 1 goto fail
 "%PYTHON_EXE%" tools\analyze_replay_prediction_spikes.py prepare-scene --source SkullbonezData\scenes\prediction_ragdoll_wall_200.scene.json --output "%GENERATED_SCENE%" --perf-log "TestOutput/diagnostics/replay_prediction_frame_spikes/perf.csv"
 if errorlevel 1 goto fail
 
-echo [replay-prediction-spikes] Running four completed 120-second prediction generations...
-Automation\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --cinematic off --hide-top-text --automation-hidden-window --scene "%GENERATED_SCENE%" --interaction-script "%INTERACTION_SCRIPT%" --interaction-report "%INTERACTION_REPORT%" --frames 105000 --replay on --replay-seconds 121 --fixed-step > "%RUN_LOG%" 2>&1
+echo [replay-prediction-spikes] Running four completed 120-second prediction generations with a 105-second watchdog...
+"%PYTHON_EXE%" tools\analyze_replay_prediction_spikes.py run-workload ^
+    --executable Automation\SKULLBONEZ_CORE.exe ^
+    --scene "%GENERATED_SCENE%" ^
+    --script "%INTERACTION_SCRIPT%" ^
+    --report "%INTERACTION_REPORT%" ^
+    --log "%RUN_LOG%" ^
+    --frames 3800 ^
+    --timeout-seconds 105
 if errorlevel 1 (
-    echo FAIL: replay-prediction spike workload exited nonzero. See "%RUN_LOG%".
+    echo FAIL: replay-prediction spike workload failed or exceeded its watchdog. See "%RUN_LOG%".
     goto fail
 )
 

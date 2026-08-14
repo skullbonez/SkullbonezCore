@@ -1,15 +1,16 @@
 """
 File: tools/analyze_replay_prediction_spikes.py
 Purpose:
-  Prepares and analyzes the replay-prediction frame-spike diagnostic.
+  Prepares, bounds, and analyzes the replay-prediction frame-spike diagnostic.
 
 Summary:
-  Generates an isolated perf-enabled scene copy, verifies prediction-generating
-  interactions do not overlap, and attributes the largest recorded frames to
-  direct CPU and worker profiler markers without imposing a timing budget.
+  Generates an isolated perf-enabled scene copy, launches the engine under a
+  caller-selected watchdog, verifies prediction interactions do not overlap,
+  and attributes the largest frames without imposing a performance budget.
 
 Invariants:
   - The source scene is read-only; perf logging is injected into TestOutput.
+  - The engine process is killed when its diagnostic watchdog expires.
   - Dynamic CSV headers govern only the rows that follow them.
   - Spike magnitude is diagnostic data and never changes the process exit code.
 
@@ -24,6 +25,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +39,66 @@ def prepare_scene(source: Path, output: Path, perf_log: str) -> None:
     }
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def run_workload(
+    executable: Path,
+    scene: Path,
+    script: Path,
+    report: Path,
+    log: Path,
+    *,
+    frames: int,
+    timeout_seconds: float,
+) -> None:
+    if frames <= 0:
+        raise ValueError("workload frame count must be positive")
+
+    if timeout_seconds <= 0.0:
+        raise ValueError("workload timeout must be positive")
+
+    command = [
+        str(executable),
+        "--renderer",
+        "dx12",
+        "--vsync",
+        "off",
+        "--shadows",
+        "off",
+        "--cinematic",
+        "off",
+        "--hide-top-text",
+        "--automation-hidden-window",
+        "--scene",
+        str(scene),
+        "--interaction-script",
+        str(script),
+        "--interaction-report",
+        str(report),
+        "--frames",
+        str(frames),
+        "--replay",
+        "on",
+        "--replay-seconds",
+        "121",
+        "--fixed-step",
+    ]
+    log.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        with log.open("w", encoding="utf-8") as output:
+            result = subprocess.run(
+                command,
+                stdout=output,
+                stderr=subprocess.STDOUT,
+                timeout=timeout_seconds,
+                check=False,
+            )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"replay-prediction workload exceeded {timeout_seconds:g} seconds") from exc
+
+    if result.returncode != 0:
+        raise RuntimeError(f"replay-prediction workload exited with code {result.returncode}")
 
 
 def parse_perf_csv(path: Path) -> list[dict[str, Any]]:
@@ -323,6 +385,15 @@ def _build_parser() -> argparse.ArgumentParser:
     validate = subparsers.add_parser("validate-script")
     validate.add_argument("--script", type=Path, required=True)
 
+    run = subparsers.add_parser("run-workload")
+    run.add_argument("--executable", type=Path, required=True)
+    run.add_argument("--scene", type=Path, required=True)
+    run.add_argument("--script", type=Path, required=True)
+    run.add_argument("--report", type=Path, required=True)
+    run.add_argument("--log", type=Path, required=True)
+    run.add_argument("--frames", type=int, required=True)
+    run.add_argument("--timeout-seconds", type=float, required=True)
+
     analyze_parser = subparsers.add_parser("analyze")
     analyze_parser.add_argument("--csv", type=Path, required=True)
     analyze_parser.add_argument("--interaction-report", type=Path, required=True)
@@ -343,6 +414,19 @@ def main() -> int:
     if args.command == "validate-script":
         validate_interaction_script(args.script)
         print(f"Validated non-overlapping 120-second prediction sequence: {args.script}")
+        return 0
+
+    if args.command == "run-workload":
+        run_workload(
+            args.executable,
+            args.scene,
+            args.script,
+            args.report,
+            args.log,
+            frames=args.frames,
+            timeout_seconds=args.timeout_seconds,
+        )
+        print(f"Completed bounded replay-prediction workload: {args.report}")
         return 0
 
     interaction = json.loads(args.interaction_report.read_text(encoding="utf-8"))

@@ -24,11 +24,51 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from tools import analyze_replay_prediction_spikes as diagnostic
 
 
 class ReplayPredictionSpikeDiagnosticTests(unittest.TestCase):
+    def test_run_workload_applies_the_engine_watchdog(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            log = root / "run.log"
+            completed = mock.Mock(returncode=0)
+
+            with mock.patch.object(diagnostic.subprocess, "run", return_value=completed) as run:
+                diagnostic.run_workload(
+                    Path("Automation/SKULLBONEZ_CORE.exe"),
+                    Path("generated.scene.json"),
+                    Path("interaction.json"),
+                    Path("report.json"),
+                    log,
+                    frames=3800,
+                    timeout_seconds=105.0,
+                )
+
+        command = run.call_args.args[0]
+        self.assertEqual(command[command.index("--frames") + 1], "3800")
+        self.assertEqual(run.call_args.kwargs["timeout"], 105.0)
+        self.assertIs(run.call_args.kwargs["stderr"], diagnostic.subprocess.STDOUT)
+
+    def test_run_workload_reports_watchdog_expiration(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            log = Path(temp_dir) / "run.log"
+            expired = diagnostic.subprocess.TimeoutExpired(cmd="Automation/SKULLBONEZ_CORE.exe", timeout=105.0)
+
+            with mock.patch.object(diagnostic.subprocess, "run", side_effect=expired):
+                with self.assertRaisesRegex(RuntimeError, "exceeded 105 seconds"):
+                    diagnostic.run_workload(
+                        Path("Automation/SKULLBONEZ_CORE.exe"),
+                        Path("generated.scene.json"),
+                        Path("interaction.json"),
+                        Path("report.json"),
+                        log,
+                        frames=3800,
+                        timeout_seconds=105.0,
+                    )
+
     def test_prepare_scene_injects_perf_logging_without_mutating_source(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

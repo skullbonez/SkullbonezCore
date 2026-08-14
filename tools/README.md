@@ -40,7 +40,7 @@ validation.
 | `validate_physics_query.bat` | SkullScope query-output baseline check | ~depends |
 | `validate_perf.bat` | Hard gate for DX12, physics, and hot-path perf budgets/regressions | ~1 min |
 | `validate_replay_allocation_policy.bat` | Strict two-generation Replay allocation/owner probe | ~20 s |
-| `validate_replay_prediction_frame_spikes.bat` | Full-only informational four-generation, 120-second replay-prediction spike capture; never a frame-time gate | ~27 min; one engine process |
+| `validate_replay_prediction_frame_spikes.bat` | Full-only informational four-generation, 120-second replay-prediction spike capture; never a frame-time gate | ~1 min; hard limit under 2 min |
 | `validate_full.bat` | Default broad PR gate plus the non-blocking replay-prediction spike diagnostic | CPU tests + 6 engine processes |
 | `watch_ui_stress.bat` | Repeated UI stress watcher, finite by default | ~depends |
 | `watch_demo_stress.bat` | Repeated generated demo stress watcher, finite by default | ~depends |
