@@ -136,15 +136,90 @@ struct RunReplayPredictionRevealClock
     bool anchorValid = false;
 };
 
+// Concept: each causal child owns a persistent suffix cursor and the two-box
+// marker facts derived before that cursor. The entry pose is the body's frame-0
+// in-place pose; lastMotionFrame determines when the later rest marker may
+// appear. Advancing one child can never mutate another child's result.
+struct ReplayPredictionChildMarkerNodeScanState
+{
+    RunReplayPathTraceNode node;
+    std::size_t scannedFrameCount = 0;
+    bool active = false;
+    bool hasEntryPose = false;
+    int entryModelIndex = -1;
+    ReplayFrameIndex lastMotionFrame = 0;
+    Math::Vector::Vector3 entryPosition = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion entryOrientation = Math::Orientation::IDENTITY_QUATERNION;
+
+    // Accumulates one body observation. Callers own frame filtering and pass
+    // the immutable frame-0 sample that anchors a newly activated entry pose.
+    void ObserveBody( ReplayFrameIndex frame, const RunReplayPredictionBodySample& body,
+                      const RunReplayPredictionBodySample& initialSample, bool visibleMotion ) noexcept
+    {
+        if ( !active )
+        {
+            if ( !visibleMotion )
+            {
+                return;
+            }
+
+            active = true;
+            hasEntryPose = true;
+            entryModelIndex = body.modelRow.value;
+            entryPosition = initialSample.position;
+            entryOrientation = initialSample.orientation;
+            entryOrientation.Normalise();
+            lastMotionFrame = frame;
+            return;
+        }
+
+        if ( visibleMotion )
+        {
+            lastMotionFrame = frame;
+        }
+    }
+};
+
 struct ReplayPredictionChildMarkerScanState
 {
+    // Invariant: nodes describe one generation/source identity. Stable topology
+    // preserves each node's suffix cursor, while a changed node is reset before
+    // any frame from its new meaning is observed. TestReplayVisualPacket.cpp
+    // locks both halves of this state transition.
     uint32_t generation = 0;
     uint32_t topologyVersion = 0;
     std::size_t frameCount = 0;
+    std::size_t nodeCount = 0;
     ReplayFrameIndex revealFrame = 0;
     Physics::PhysicsSceneObjectId targetId;
+    std::array<ReplayPredictionChildMarkerNodeScanState, REPLAY_VISUAL_FUTURE_NODE_CAPACITY> nodes = {};
     bool usingBuildFrames = false;
+    bool initialized = false;
     bool valid = false;
+
+    // Preserves derived facts only when the caller supplies the same topology
+    // row at the same stable index; returns false after initializing a new row.
+    bool PreserveOrResetNode( std::size_t index, std::size_t previousNodeCount,
+                              const RunReplayPathTraceNode& candidate ) noexcept
+    {
+        ReplayPredictionChildMarkerNodeScanState& state = nodes[index];
+        const RunReplayPathTraceNode& retained = state.node;
+        const bool unchanged = index < previousNodeCount && retained.id.value == candidate.id.value &&
+                               retained.parentId.value == candidate.parentId.value &&
+                               retained.modelRow.value == candidate.modelRow.value &&
+                               retained.parentModelRow.value == candidate.parentModelRow.value &&
+                               retained.firstFrame == candidate.firstFrame && retained.depth == candidate.depth &&
+                               retained.contactDerived == candidate.contactDerived;
+
+        if ( unchanged )
+        {
+            return true;
+        }
+
+        state = ReplayPredictionChildMarkerNodeScanState {};
+        state.node = candidate;
+        return false;
+    }
 
     // Invariant: retained causal markers already hold the scan's effects. An
     // exact key match means repeating the frame-by-node walk cannot publish any
@@ -168,11 +243,20 @@ struct ReplayPredictionChildMarkerScanState
         frameCount = candidateFrameCount;
         revealFrame = candidateRevealFrame;
         usingBuildFrames = candidateUsingBuildFrames;
+        initialized = true;
         valid = true;
     }
 
     void Reset() noexcept
     {
+        generation = 0;
+        topologyVersion = 0;
+        frameCount = 0;
+        nodeCount = 0;
+        revealFrame = 0;
+        targetId = {};
+        usingBuildFrames = false;
+        initialized = false;
         valid = false;
     }
 };

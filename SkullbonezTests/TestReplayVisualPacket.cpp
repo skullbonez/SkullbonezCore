@@ -72,6 +72,85 @@ TEST_CASE( "Replay child marker scan key rejects every publication input change"
     CHECK_FALSE( scan.Matches( 3u, 7u, target, 120u, 99u, false ) );
 }
 
+TEST_CASE( "Replay child marker scan preserves stable-node suffix cursors" )
+{
+    ReplayPredictionChildMarkerScanState scan;
+    RunReplayPathTraceNode firstNode;
+    firstNode.id.value = 9u;
+    firstNode.modelRow.value = 4;
+    firstNode.firstFrame = 11u;
+
+    CHECK_FALSE( scan.PreserveOrResetNode( 0u, 0u, firstNode ) );
+    scan.nodeCount = 1u;
+    scan.nodes[0].scannedFrameCount = 120u;
+    scan.nodes[0].active = true;
+    scan.nodes[0].lastMotionFrame = 99u;
+
+    CHECK( scan.PreserveOrResetNode( 0u, scan.nodeCount, firstNode ) );
+    CHECK( scan.nodes[0].scannedFrameCount == 120u );
+    CHECK( scan.nodes[0].active );
+    CHECK( scan.nodes[0].lastMotionFrame == 99u );
+
+    RunReplayPathTraceNode changedNode = firstNode;
+    changedNode.firstFrame = 12u;
+    CHECK_FALSE( scan.PreserveOrResetNode( 0u, scan.nodeCount, changedNode ) );
+    CHECK( scan.nodes[0].scannedFrameCount == 0u );
+    CHECK_FALSE( scan.nodes[0].active );
+    CHECK( scan.nodes[0].node.firstFrame == 12u );
+}
+
+TEST_CASE( "Replay child marker suffix accumulation matches a full scan" )
+{
+    std::array<RunReplayPredictionBodySample, 5u> samples;
+
+    for ( std::size_t i = 0; i < samples.size(); ++i )
+    {
+        samples[i].id.value = 9u;
+        samples[i].modelRow.value = 4;
+        samples[i].position.x = static_cast<float>( i );
+    }
+
+    const std::array<bool, 5u> moving = { false, true, false, false, true };
+    ReplayPredictionChildMarkerNodeScanState full;
+    ReplayPredictionChildMarkerNodeScanState incremental;
+
+    for ( std::size_t i = 0; i < samples.size(); ++i )
+    {
+        full.ObserveBody( i, samples[i], samples[0], moving[i] );
+    }
+
+    for ( std::size_t i = 0; i < 3u; ++i )
+    {
+        incremental.ObserveBody( i, samples[i], samples[0], moving[i] );
+    }
+
+    for ( std::size_t i = 3u; i < samples.size(); ++i )
+    {
+        incremental.ObserveBody( i, samples[i], samples[0], moving[i] );
+    }
+
+    CHECK( incremental.active == full.active );
+    CHECK( incremental.hasEntryPose == full.hasEntryPose );
+    CHECK( incremental.entryModelIndex == full.entryModelIndex );
+    CHECK( incremental.entryPosition == full.entryPosition );
+    float incrementalX = 0.0f;
+    float incrementalY = 0.0f;
+    float incrementalZ = 0.0f;
+    float incrementalW = 0.0f;
+    float fullX = 0.0f;
+    float fullY = 0.0f;
+    float fullZ = 0.0f;
+    float fullW = 0.0f;
+    incremental.entryOrientation.GetComponents( incrementalX, incrementalY, incrementalZ, incrementalW );
+    full.entryOrientation.GetComponents( fullX, fullY, fullZ, fullW );
+    CHECK( incrementalX == fullX );
+    CHECK( incrementalY == fullY );
+    CHECK( incrementalZ == fullZ );
+    CHECK( incrementalW == fullW );
+    CHECK( incremental.lastMotionFrame == full.lastMotionFrame );
+    CHECK( incremental.lastMotionFrame == 4u );
+}
+
 TEST_CASE( "Replay prediction draw cursor resumes at its suffix and reuses stable tokens" )
 {
     CHECK( ReplayOverlay::IsReplayPredictionDrawListPublicationStable( false, 19u, 2400, 19u, 2400 ) );

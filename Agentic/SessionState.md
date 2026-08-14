@@ -9,8 +9,15 @@ measured completion-publication, child-marker, and Predict-off runtime stalls.
 Automation report serialization and prediction target-restart work remain
 explicitly excluded. RP0 now reports named marker ranges and final oracle facts;
 RP3 retains keyed trajectory-record capacity, reducing Predict-off from
-26.0907-26.4603 ms to 15.6154-16.2350 ms. The remaining measured cost is nested
-prediction-frame destruction; RP0 still needs the bank/marker resume fixtures.
+26.0907-26.4603 ms to 15.6154-16.2350 ms. RP2's implementation is in place:
+per-node suffix cursors and inner-loop budget checks reduce
+`BuildChildMarkerContext` from 0.0021-35.5981 ms to 0.0006-0.9382 ms while
+retaining all 776 final records and
+flat reserve growth. RP2 remains open because the immutable visual gate captures
+all 2,401 reveal ticks, then its existing 4,200-frame interaction enters a
+second live-playback pass; this plan excludes harness changes. The next binding
+slice is RP1's coherent completion bank; RP0 still needs its coherent-bank
+fixture, and RP3 still owns nested prediction-frame destruction.
 
 Source Modernization Sweep, Dense Pile Sleep Resolution, Broadphase Dense
 Dedup Restoration, and Look Lab Random Style Authoring remain closed by owner

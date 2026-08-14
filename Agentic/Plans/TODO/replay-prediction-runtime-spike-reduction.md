@@ -165,15 +165,15 @@ walks every visible frame for every future node. The exact cache key includes
 frame count and reveal frame, so normal growth invalidates the result and starts
 again from frame zero.
 
-- [ ] Replace exact-result caching with Prediction-owned incremental scan state:
+- [x] Replace exact-result caching with Prediction-owned incremental scan state:
   generation/topology identity, revealed-frame cursor, per-node activation,
   entry pose, last-motion frame, and catch-up cursor for newly published nodes.
-- [ ] Scan only the newly revealed/published suffix for stable nodes. A topology
+- [x] Scan only the newly revealed/published suffix for stable nodes. A topology
   change may initialize new nodes, but it must not rescan unchanged nodes.
-- [ ] Put budget checks inside marker discovery and resume from the exact
+- [x] Put budget checks inside marker discovery and resume from the exact
   frame/node cursor. Do not wrap another unbounded frame-by-node loop in one
   outer budget check.
-- [ ] Keep retained-marker side effects idempotent. Entry markers publish once;
+- [x] Keep retained-marker side effects idempotent. Entry markers publish once;
   rest/horizon markers appear only when the same authoritative reveal and
   completion conditions used today are satisfied.
 - [ ] Compare incremental results with the existing full-scan oracle over
@@ -194,6 +194,22 @@ RP2 acceptance:
   presentation frame.
 - `BuildChildMarkerContext` no longer owns an unbudgeted frame-by-node burst;
   any retained replacement marker exposes the resumable work clearly.
+
+RP2 evidence (Automation, four completed 120-second predictions):
+
+- The grouped `BuildChildMarkerContext` marker fell from 0.0021-35.5981 ms to
+  0.0006-0.9382 ms; its worst whole frame fell from 48.8738 ms to 15.6957 ms.
+- The completed run retained all 776 trajectory records, published 5,596,532
+  points, and held reserve growth flat at 1720 events from start to end.
+- Focused doctests prove stable topology preserves suffix cursors, changed
+  topology resets the affected node, and suffix accumulation produces the same
+  entry/last-motion facts as a full scan. Retained marker effects publish only
+  after every node reaches the requested coherent prefix.
+- The immutable visual gate's 17 CPU controls passed and its authoritative
+  engine run captured all 2,401 reveal ticks, but the gate then failed because
+  the 4,200-frame interaction entered a second live-playback pass after the
+  reveal. Harness changes are excluded from this plan, so the full-scan oracle
+  checkbox and RP2 phase remain open pending an owner-approved harness repair.
 
 ## Phase RP3 - Separate Predict-Off Invalidation From Capacity Reclamation
 
