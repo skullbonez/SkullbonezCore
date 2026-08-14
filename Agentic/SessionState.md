@@ -1,13 +1,19 @@
 # Session State
 
-Date: 2026-08-03
-Branch: `main`
-Status: Complete
+Date: 2026-08-14
+Branch: `codex/replay-prediction-frame-spike-diagnostic`
+Status: Active - 0/5 phases complete
 
-The master portfolio has no remaining work. Source Modernization Sweep, Dense
-Pile Sleep Resolution, Broadphase Dense Dedup Restoration, and Look Lab Random
-Style Authoring are closed by owner direction. `Agentic/Plans/TODO/` is empty,
-and no next handoff exists.
+Replay Prediction Runtime Spike Reduction is the only live plan. It owns the
+measured completion-publication, child-marker, and Predict-off runtime stalls.
+Automation report serialization and prediction target-restart work remain
+explicitly excluded. The next handoff is RP0 attribution/oracle lock through
+the repository-local orchestrator; implementation moves to the resolved Night
+Runner branch before source edits.
+
+Source Modernization Sweep, Dense Pile Sleep Resolution, Broadphase Dense
+Dedup Restoration, and Look Lab Random Style Authoring remain closed by owner
+direction.
 
 ## Repository Presentation Cleanup (owner-directed, this session)
 

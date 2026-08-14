@@ -1,10 +1,14 @@
-# MASTER PLAN — Complete
+# MASTER PLAN - Active
 
-Date: 2026-08-03
-Status: Complete; no live or future implementation plans
+Date: 2026-08-14
+Status: Active; one live implementation plan
 
 ## Owner Direction
 
+- Replay Prediction Runtime Spike Reduction is active under
+  `TODO/replay-prediction-runtime-spike-reduction.md`. It owns the measured
+  completion-publication, child-marker, and Predict-off runtime stalls; harness
+  serialization and target-restart work are excluded.
 - Source Modernization Sweep is complete. No further work remains.
 - Dense Pile Sleep Resolution is complete by owner direction. No further work
   will be performed and no additional baseline or solver change is requested.
@@ -13,10 +17,9 @@ Status: Complete; no live or future implementation plans
   CandidatePairs CPU regression.
 - Look Lab Random Style Authoring is closed. No further work remains.
 
-`Agentic/Plans/TODO/` is empty. Completed plan files were deleted; git history
-is the archive.
+Other completed plan files were deleted; git history is the archive.
 
 ## Portfolio Progress
 
-There is no active/future denominator. The master portfolio is complete and
-has no next handoff.
+The active portfolio contains one plan with five open phases (RP0-RP4). The next
+handoff is RP0 attribution/oracle lock through the repository-local orchestrator.
