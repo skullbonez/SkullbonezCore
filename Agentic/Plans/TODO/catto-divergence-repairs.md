@@ -1,24 +1,27 @@
 # Catto Divergence Repairs
 
 Date: 2026-08-15
-Status: **UNRATIFIED — review artifact, not live work. 0/6 phases complete.**
+Status: **Live — registered by owner direction 2026-08-15. 0/6 phases complete.**
 Impact area: Physics contact solver, joints, CCD sequencing, terrain rest
 policy, physics baselines, tests, documentation
 Owner: Physics contact solver
-Priority: Owner review pending
+Priority: CD0 owner scope ratification before any implementation phase
 
-## Registration Status — Read First
+## Scope Gate — Read First
 
-This plan is **deliberately not registered in `Agentic/Plans/MASTER-PLAN.md`**.
-The master ledger is the authoritative selector for the nightly agent loop, so
-an unregistered file in `TODO/` is inert: no run will select a task from it.
+This plan is registered in `Agentic/Plans/MASTER-PLAN.md` and is selectable by
+a plan runner. Registration authorizes **CD0 only**.
 
-It was written as a review document at owner request. Activating it is a
-one-line owner action — add it to the MASTER-PLAN ledger with a task count.
-Do not self-register it, and do not begin implementation from this file alone.
+CD0 is owner scope ratification. A run may not select CD1 or any later phase
+until the owner has recorded, in this file, which of R1-R6 are in scope and in
+what order. **A run may not answer CD0 on the owner's behalf.** Deciding which
+repairs to perform is the owner's judgement, not a task an agent completes by
+reasoning about it; a run that finds CD0 unanswered must stop and report rather
+than proceed.
 
 Every repair below changes physics-visible behavior and therefore changes
-byte-exact CSV baselines. Baselines are owner-controlled. No repair may be
+byte-exact CSV baselines. Baselines are owner-controlled, and this registration
+pre-authorizes no baseline transition whatsoever. No repair may be
 implemented-and-rebaselined in one motion; each needs an explicit owner ruling
 on that exact baseline transition first.
 
@@ -96,7 +99,8 @@ Independent of the solver work, and cheap.
 
 ## Non-Goals
 
-- Do not register this plan in `MASTER-PLAN.md` without an explicit owner decision.
+- Do not select CD1 or later while CD0 is unanswered, and do not answer CD0 on
+  the owner's behalf.
 - Do not refresh any physics CSV, SkullScope, replay or visual baseline. Each
   repair needs a separate owner ruling on its exact baseline transition.
 - Do not raise the production solver iteration cap above 12.
@@ -130,8 +134,9 @@ so replay fidelity is a cumulative gate rather than an alternative one.
 
 ## Phases
 
-- [ ] **CD0 — Owner ratification.** Owner decides which of R1-R6 are in scope,
-  in what order, and pre-authorizes the baseline transitions each will require.
+- [ ] **CD0 — Owner scope ratification.** Owner records here which of R1-R6 are
+  in scope, in what order, and pre-authorizes the baseline transitions each will
+  require. Owner-only: a run that finds this unanswered stops and reports.
   Nothing below starts before this.
 - [ ] **CD1 — R1 position projection.** Per-body accumulation with max-based
   reduction, plus the four-row-versus-one-row displacement test.
