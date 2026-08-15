@@ -39,13 +39,23 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           $llvmVersion = "21.1.8"
-          choco upgrade llvm --version=$llvmVersion --yes --no-progress --allow-downgrade
+
+          # Hazard: the Chocolatey community feed drops superseded LLVM versions.
+          # On 2026-08-15 `choco upgrade llvm --version=21.1.8` reported
+          # "llvm was not found with the source(s) listed", upgraded 0/1 packages,
+          # and still exited 0, leaving the runner's pre-installed clang-format
+          # 20.1.8 in place. Only the version assertion below caught it. The PyPI
+          # wheel ships the same official LLVM binary and retains exact versions,
+          # so the pin cannot silently resolve to a different formatter.
+          # Downgrading the pin is not an option: .clang-format uses
+          # BinPackLongBracedList, which clang-format 20 rejects outright.
+          python -m pip install --disable-pip-version-check --quiet "clang-format==$llvmVersion"
           if ($LASTEXITCODE -ne 0) {
-            throw "Chocolatey failed to install LLVM $llvmVersion (exit $LASTEXITCODE)"
+            throw "pip failed to install clang-format $llvmVersion (exit $LASTEXITCODE)"
           }
 
-          $formatter = "C:\Program Files\LLVM\bin\clang-format.exe"
-          if (-not (Test-Path -LiteralPath $formatter)) {
+          $formatter = & python -c "import clang_format, os; print(os.path.join(os.path.dirname(clang_format.__file__), 'data', 'bin', 'clang-format.exe'))"
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $formatter)) {
             throw "Pinned clang-format executable was not installed: $formatter"
           }
           $versionText = (& $formatter --version 2>&1 | Out-String).Trim()
