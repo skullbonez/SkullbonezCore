@@ -39,13 +39,27 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           $llvmVersion = "21.1.8"
-          choco upgrade llvm --version=$llvmVersion --yes --no-progress --allow-downgrade
+
+          # Hazard: this pin used to come from the Chocolatey community feed,
+          # which proved unreliable on 2026-08-15. `choco upgrade llvm
+          # --version=21.1.8` reported "llvm was not found with the source(s)
+          # listed", upgraded 0/1 packages, and still exited 0, leaving the
+          # runner's pre-installed clang-format 20.1.8 in place; the same feed
+          # was returning 504 Gateway Timeout for another package minutes later,
+          # so whether the version was withdrawn or the feed was simply degraded
+          # was never established. Either way a silent wrong-version resolution
+          # is unacceptable for a formatting gate, and only the version assertion
+          # below caught it. The PyPI wheel ships the same official LLVM binary,
+          # is version-addressed, and installs in seconds rather than timing out.
+          # Downgrading the pin is not an option: .clang-format uses
+          # BinPackLongBracedList, which clang-format 20 rejects outright.
+          python -m pip install --disable-pip-version-check --quiet "clang-format==$llvmVersion"
           if ($LASTEXITCODE -ne 0) {
-            throw "Chocolatey failed to install LLVM $llvmVersion (exit $LASTEXITCODE)"
+            throw "pip failed to install clang-format $llvmVersion (exit $LASTEXITCODE)"
           }
 
-          $formatter = "C:\Program Files\LLVM\bin\clang-format.exe"
-          if (-not (Test-Path -LiteralPath $formatter)) {
+          $formatter = & python -c "import clang_format, os; print(os.path.join(os.path.dirname(clang_format.__file__), 'data', 'bin', 'clang-format.exe'))"
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $formatter)) {
             throw "Pinned clang-format executable was not installed: $formatter"
           }
           $versionText = (& $formatter --version 2>&1 | Out-String).Trim()
@@ -70,9 +84,50 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          choco install opencppcoverage --version=0.9.9.0 --yes --no-progress
-          if ($LASTEXITCODE -ne 0) {
-            throw "Chocolatey failed to install OpenCppCoverage 0.9.9.0 (exit $LASTEXITCODE)"
+          $coverageVersion = "0.9.9.0"
+
+          # Why not Chocolatey: the community feed served this package two
+          # different ways on 2026-08-15 — 504 Gateway Timeout, then not-found —
+          # and a mandatory gate must not depend on a third-party feed choosing to
+          # retain an exact version. The upstream release asset is
+          # version-addressed and content-verified below, so the pin cannot drift
+          # and no unpinned fallback is possible. A coverage gate that silently
+          # ran a different OpenCppCoverage build would be worse than a red lane.
+          $installerUrl = "https://github.com/OpenCppCoverage/OpenCppCoverage/releases/download/release-$coverageVersion/OpenCppCoverageSetup-x64-$coverageVersion.exe"
+          $expectedSha256 = "2295A733DA39412C61E4F478677519DD0BB1893D88313CE56B468C9E50517888"
+          $installer = Join-Path $env:RUNNER_TEMP "OpenCppCoverageSetup-x64-$coverageVersion.exe"
+
+          $attempts = 3
+          for ($attempt = 1; $attempt -le $attempts; $attempt++) {
+            try {
+              Invoke-WebRequest -Uri $installerUrl -OutFile $installer -UseBasicParsing
+              break
+            }
+            catch {
+              if ($attempt -eq $attempts) {
+                throw "Failed to download OpenCppCoverage $coverageVersion after $attempts attempts: $_"
+              }
+              $delaySeconds = 15 * $attempt
+              Write-Host "OpenCppCoverage download attempt $attempt failed; retrying in $delaySeconds s"
+              Start-Sleep -Seconds $delaySeconds
+            }
+          }
+
+          # Hazard: never execute an unverified downloaded binary. This digest is
+          # the exact release asset's bytes; a mismatch means the pin no longer
+          # describes what upstream serves, which is a stop condition rather than
+          # something to retry around.
+          $actualSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $installer).Hash
+          if ($actualSha256 -ne $expectedSha256) {
+            throw "OpenCppCoverage installer digest mismatch. expected=$expectedSha256 actual=$actualSha256"
+          }
+
+          # OpenCppCoverageSetup is an Inno Setup 6 package, so /VERYSILENT is the
+          # unattended switch and a successful install returns 0.
+          $installProcess = Start-Process -FilePath $installer `
+            -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait -PassThru
+          if ($installProcess.ExitCode -ne 0) {
+            throw "OpenCppCoverage $coverageVersion installer failed (exit $($installProcess.ExitCode))"
           }
           $coverageExe = "C:\Program Files\OpenCppCoverage\OpenCppCoverage.exe"
           if (-not (Test-Path -LiteralPath $coverageExe)) {
