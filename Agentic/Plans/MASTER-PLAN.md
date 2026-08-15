@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-15
-Status: Two active plans; 0/17 tasks complete
+Status: Two active plans; 0/18 tasks complete
 
 ## Owner Direction
 
@@ -32,7 +32,7 @@ Completed plan files were deleted; git history is the archive.
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
 | Determinism Envelope Tier-2 Hardening | `TIER2_DETERMINISM` | 9 | 0 | `TODO/determinism-envelope-tier2-hardening.md` |
-| Causal Event Inspection | `CAUSAL_INSPECT` | 8 | 0 | `TODO/causal-event-inspection.md` |
+| Causal Event Inspection | `CAUSAL_INSPECT` | 9 | 0 | `TODO/causal-event-inspection.md` |
 
 ## Binding Order
 
@@ -46,19 +46,22 @@ Completed plan files were deleted; git history is the archive.
    sanitizer lane, hosted cross-machine evidence. Independent of T3 and T4 and
    safe to run in parallel with the owner baseline decision.
 4. `CAUSAL_INSPECT` C0 — fix the seek contract. Unblocked, and independent of the
-   determinism work. C1 through C7 follow it in order; C2 owns the regeneration
-   decision every later task depends on.
+   determinism work. C1 through C8 follow it in order. C2 owns the transport
+   semantics that define what "fast forward" means for the whole feature, and C3
+   owns the regeneration decision every later task depends on.
 5. `TIER2_DETERMINISM` T3, T4 — blocked. Do not begin either without an explicit
    owner approval of that exact baseline transition, recorded in the owning
    commit body.
 
 The two plans are independent in source but coupled in argument.
-`CAUSAL_INSPECT` C2 regenerates solver detail by re-stepping a restored frame and
+`CAUSAL_INSPECT` C3 regenerates solver detail by re-stepping a restored frame and
 trusting byte-exact reproduction, so it consumes the determinism guarantee that
-`TIER2_DETERMINISM` is hardening. Neither blocks the other; a reviewer of C2's
-equivalence proof should know the envelope's current limits.
+`TIER2_DETERMINISM` is hardening. Separately, if `CAUSAL_INSPECT` C2 chooses true
+slerp for the camera arrival it will trigger the `TIER2_DETERMINISM` T2 math gate
+and need a presentation-only ruling; that plan's cross-plan note records the
+placement hazard. Neither plan blocks the other.
 
 ## Portfolio Progress
 
-0/17 tasks complete across two active plans. Two of the seventeen are
+0/18 tasks complete across two active plans. Two of the eighteen are
 owner-blocked by design rather than by sequencing.

@@ -5,7 +5,7 @@ Branch: `claude/codebase-overview-jatmcg`
 Status: Two active plans registered; no implementation started
 
 Determinism Envelope Tier-2 Hardening (9 tasks) and Causal Event Inspection
-(8 tasks) are registered under `Agentic/Plans/TODO/`, 0 complete.
+(9 tasks) are registered under `Agentic/Plans/TODO/`, 0 complete.
 `MASTER-PLAN.md` carries the binding order.
 
 The mandatory CPU CI lane was repaired this session; see the CI note below
@@ -21,7 +21,10 @@ source edit.
 
 `CAUSAL_INSPECT` C0. Fix the seek contract: confirm every cause row kind
 addresses a frame the scrubber can restore, and define the refusal behavior for a
-row whose frame has aged out of the recorder ring.
+row whose frame has aged out of the recorder ring. C2 then picks the transport
+semantics, which decides what "fast forward to the causal moment" means for the
+whole feature; the plan recommends restoring to a short lead-in and running
+forward while the camera arrives.
 
 `TIER2_DETERMINISM` T1, T2, T5 through T8 and all of `CAUSAL_INSPECT` are
 unblocked and change no physics output.

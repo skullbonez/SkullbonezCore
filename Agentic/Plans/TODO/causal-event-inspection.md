@@ -1,20 +1,21 @@
 # Causal Event Inspection
 
 Date: 2026-08-15
-Status: Active. 0/8 tasks complete.
-Impact area: Runtime/Planning operator surface, replay transport, contact
-manifold presentation, solver diagnostics regeneration, Rendering value
-contracts, tests
+Status: Active. 0/9 tasks complete.
+Impact area: Runtime/Planning operator surface, replay transport, camera
+arrival, contact manifold presentation, solver diagnostics regeneration,
+Rendering value contracts, tests
 Owner: Replay planning operator surface
 Priority: Active — C0 is unblocked; every later task depends on C0's seek
-contract and C2's regeneration decision.
+contract, C1's transport semantics, and C3's regeneration decision.
 
 ## Owner Direction
 
 The causal window currently lists cause rows. This plan makes a selected row
 *navigable and inspectable*: the transport seeks the simulation to the frame the
-event occurred, the two participating objects and their contact manifold are
-drawn at that frame, and an adjacent floating panel shows the solver rows the
+event occurred, the camera lerps and slerps into place as the simulation runs
+forward to that moment, the two participating objects and their contact manifold
+are drawn at that frame, and an adjacent floating panel shows the solver rows the
 contact produced in as much detail as the engine can honestly reconstruct.
 
 Placement is fixed by the `AGENTS.md` Replay-Family Placement Rule. This is a new
@@ -55,6 +56,14 @@ and defines `ReplayScrubberAction::RestoreBranch`, with `ReplayRuntime`
 sequencing prediction cancellation, physics restore, and camera reaction. Live
 restore to an arbitrary recorded frame is therefore an existing capability.
 
+`SkullbonezSource/Runtime/Camera/` already owns a tween system.
+`CameraCollection` holds `m_tweenCamera` ("Interpolated pose while tweening")
+and `m_tweenSpeed`, and `AttachedCameraController` carries `needsEntryTween`
+with existing handling for a transition that begins while another is still
+visible. `ReplayPresentation::ApplyCameraFocus( const RunReplayCauseTreeRow&, ... )`
+already focuses the camera from a cause row through `RunReplayCameraFocusKind`.
+Camera arrival is therefore a refinement of existing owners, not a new one.
+
 `SkullbonezSource/Physics/PhysicsSolverSnapshot.h` defines
 `PhysicsSolverPersistentContactSample`, which carries full per-row solver state:
 `normal`, `tangent1`, `tangent2`, `rA`, `rB`, `penetration`, `normalMass`,
@@ -62,7 +71,7 @@ restore to an arbitrary recorded frame is therefore an existing capability.
 `accN`, `accT1`, `accT2`. `ReplayRecorder` records solver frames on a
 keyframe-plus-delta ring, so this state is recoverable at any restorable frame.
 
-### The three real gaps
+### The four real gaps
 
 1. **No transport from a cause row.** The row knows `firstFrame`; nothing acts on
    it. Selecting a row does not move the simulation.
@@ -70,7 +79,19 @@ keyframe-plus-delta ring, so this state is recoverable at any restorable frame.
    plus a `manifoldPointCount`. The remaining contact points, the reference and
    incident features, and the two bodies' poses at that frame are not presented
    together as a focused visual.
-3. **Per-iteration solver detail is not recorded.** `PhysicsPipelineRecord` in
+3. **Camera arrival is a componentwise linear blend.** `CameraCollection`
+   builds its tween as a whole-`Camera` vector difference —
+   `m_tweenPath = m_cameraArray[toIndex] - m_cameraArray[fromIndex]`
+   (`SkullbonezSource/Runtime/Camera/CameraCollection.cpp:126` and `:134`) — so
+   eye position, look target, and up vector are all lerped componentwise.
+   Linearly interpolating a *look target* produces a non-constant angular rate
+   and can sweep badly through large reorientations, because the eye-to-target
+   distance and the view direction both change on their own schedules. The
+   camera is a look-at triple (`m_position`, `m_view`, `m_upVector`) with no
+   orientation quaternion, so "slerp" has no existing meaning to inherit and
+   must be defined.
+
+4. **Per-iteration solver detail is not recorded.** `PhysicsPipelineRecord` in
    `SkullbonezSource/Physics/PhysicsDebugData.h` carries the `ManifoldRow`,
    `WarmStart`, `SolverIteration`, `VelocityWriteback`, `PositionCorrection`, and
    `CacheStore` breadcrumbs that would make the panel genuinely detailed, but
@@ -78,7 +99,7 @@ keyframe-plus-delta ring, so this state is recoverable at any restorable frame.
    compile-time parameter on `PersistentContactSolveTransaction`. They are not in
    the replay artifact and cannot be read back from it.
 
-Gap 3 is the design crux and C2 owns it.
+Gap 4 is the design crux and C3 owns it. Gap 3 is owned by C2.
 
 ### Why regeneration rather than recording
 
@@ -97,8 +118,30 @@ stored for every tick of the timeline.
 
 This is a deliberate dependency on the determinism envelope. If the envelope does
 not hold, the regenerated detail silently stops describing the recorded event —
-so C2 must prove equivalence rather than assume it, and the acceptance criteria
+so C3 must prove equivalence rather than assume it, and the acceptance criteria
 below make that proof explicit.
+
+### Cross-Plan Note: Slerp And The Determinism Math Gate
+
+If C2 chooses true slerp, it needs `acos` and `sin`, and
+`TIER2_DETERMINISM` T2 adds a gate that scopes `SkullbonezSource/Maths` as well
+as `SkullbonezSource/Physics`. A camera slerp will therefore trigger that gate
+and require a ruling.
+
+The ruling is legitimate — camera state is presentation and is never
+physics-reachable, exactly like the existing `retain-owner` cases for
+`SkullbonezSource/Maths/RotationMatrix.h`'s `RotatePointAboutArbitrary` and
+`SkullbonezSource/Maths/Matrix4.cpp`'s `tanf`. But
+placement matters more than the ruling. Do not add a slerp to
+`SkullbonezSource/Maths/Quaternion.cpp` beside `Quaternion::RotateAboutAxis`,
+which *is* physics-reachable through `IntegrateBodyRecordPose`: that turns one
+file into a mixed-reachability surface where a future caller can pull physics
+into a transcendental without any rule visibly breaking. Put a presentation-only
+interpolant where its non-reachability is structural rather than a comment.
+
+Choosing normalized-lerp sidesteps the gate, the ruling, and the placement
+hazard entirely. That is not a reason to choose it on its own, but it is a real
+part of the cost of slerp here and C2 should weigh it rather than discover it.
 
 ## Goal
 
@@ -138,7 +181,7 @@ rather than recorded.
   whose frame has aged out of the recorder ring. Define the exact behavior for a
   non-restorable row — a disabled transport with a stated reason, never a silent
   no-op or a nearest-frame guess. No new retained state; this phase produces the
-  contract that C1 and C2 depend on.
+  contract that C1, C2, and C3 depend on.
 
 - [ ] **C1 — Add transport from the selected causal row.** Add a Planning-owned
   action that seeks the simulation to the selected row's frame through the
@@ -149,7 +192,45 @@ rather than recorded.
   root applies it. Prove the transport cannot run while a restore or prediction
   cancellation is already in flight.
 
-- [ ] **C2 — Add the deterministic solver-detail regeneration owner.** Restore to
+- [ ] **C2 — Define transport semantics and add camera arrival.** Decide first
+  what "fast forward to the causal moment" means, because C1's restore is
+  instantaneous and an instant jump has no duration for a camera to move across.
+  Three candidates, and the phase must pick one and record why:
+
+  1. Instant restore to the event frame with the camera tweening afterwards over
+     wall-clock. Cheapest, but nothing is seen to fast-forward.
+  2. Accelerated playback from the current frame to the event frame. Literal, but
+     unbounded: the cost scales with timeline distance, so it needs a cap and a
+     fallback when the event is far away.
+  3. Restore to a short lead-in before the event, then run forward at a chosen
+     rate while the camera arrives, so the operator is in position before the
+     contact resolves and watches it happen. Recommended: bounded like option 1,
+     legible like option 2.
+
+  Then make the arrival lerp the eye position and slerp the orientation. The
+  camera is a look-at triple with no orientation quaternion, so define the
+  interpolant explicitly: slerp the normalized eye-to-target direction on the
+  unit sphere, hold or re-derive `m_upVector` rather than lerping it
+  independently, and interpolate the eye-to-target distance separately so the
+  look target cannot collapse into the eye mid-flight. Extend the existing
+  `CameraCollection` tween rather than adding a second tween owner;
+  `AttachedCameraController` already carries entry-tween and
+  transition-in-flight handling that must keep working. Define what happens when
+  the operator selects another row or scrubs mid-flight, and honour the existing
+  precedent that a new transition may begin while another is still visible.
+
+  Two invariants bound this phase. Camera state is presentation and must never
+  reach physics: a differently-timed or interrupted arrival must not change one
+  simulation bit. And whatever playback the chosen option uses must keep the
+  fixed timestep, so a faster or slower arrival cannot alter fixed-step output.
+
+  Decide slerp against normalized-lerp on evidence rather than reflex. True slerp
+  gives constant angular velocity and needs `acos` and `sin`; nlerp needs neither
+  and is often indistinguishable for the modest reorientations a camera arrival
+  performs. If slerp is chosen, see the cross-plan note below — it is not free
+  here.
+
+- [ ] **C3 — Add the deterministic solver-detail regeneration owner.** Restore to
   the frame preceding the event, step once with pipeline capture enabled, and
   collect the `ManifoldRow`, `WarmStart`, `SolverIteration`, `VelocityWriteback`,
   `PositionCorrection`, and `CacheStore` records for the selected contact into a
@@ -162,7 +243,7 @@ rather than recorded.
   work: one step, one selected event, with a stated cost and an explicit
   truncation state when the selected contact produces more records than capacity.
 
-- [ ] **C3 — Publish the manifold as a feature-neutral Rendering value contract.**
+- [ ] **C4 — Publish the manifold as a feature-neutral Rendering value contract.**
   Present the two bodies' poses at the event frame and the full manifold — every
   contact point, the normal, both tangents, and penetration per point — through
   generic Rendering value contracts. `ObjectContactManifold` reduces to at
@@ -170,24 +251,24 @@ rather than recorded.
   from `MAX_OBJECT_CONTACT_CANDIDATES` of 32 pre-reduction candidates, so the
   packet is small and fixed capacity. Decide whether the discarded candidates are
   worth presenting alongside the surviving rows: which points survived reduction,
-  and why, is often the interesting part of a contact, and C2's `ManifoldRow`
+  and why, is often the interesting part of a contact, and C3's `ManifoldRow`
   records carry it. Rendering must not learn what a cause row is; Planning supplies
   layout, capacity, and presentation data. Reuse the existing contact debug
   presentation path where it already serves this, rather than adding a parallel
   submission route.
 
-- [ ] **C4 — Add the adjacent solver-row detail panel.** Add the floating detail
+- [ ] **C5 — Add the adjacent solver-row detail panel.** Add the floating detail
   surface next to the manifold visual, showing per-row solver state at the event:
   the `PhysicsSolverPersistentContactSample` fields recovered from the restored
   frame — normal, both tangents, `rA`/`rB`, penetration, `normalMass`, both
   tangent masses, `bias`, `frictionLimit`, and accumulated `accN`/`accT1`/`accT2`
-  — plus the C2 per-iteration trail: warm-start impulse applied, per-iteration
+  — plus the C3 per-iteration trail: warm-start impulse applied, per-iteration
   normal and friction impulse deltas, the friction-cone clamp state per
   iteration, and the final cache store. Rows are fixed capacity with an explicit
   truncation state. Units and sign conventions must be stated in the panel, not
   inferred by the reader.
 
-- [ ] **C5 — Pair the visual and the panel as one focused surface.** Place the
+- [ ] **C6 — Pair the visual and the panel as one focused surface.** Place the
   detail panel adjacent to the manifold visual and keep the pairing coherent
   under drag, resize, scene reload, and a scrub that leaves the event frame.
   Selecting a different causal row re-targets both together or neither. Define
@@ -196,7 +277,7 @@ rather than recorded.
   existing `RunReplayCauseTreeState` window placement fields are the precedent
   for placement ownership; do not introduce a second placement convention.
 
-- [ ] **C6 — Prove the cost and the allocation posture.** Measure the regeneration
+- [ ] **C7 — Prove the cost and the allocation posture.** Measure the regeneration
   step and the added presentation work against the existing overlay budget, on a
   representative dense scene rather than the marble-run fixture alone. Prove zero
   steady-state allocation: every buffer added here is fixed or reserved before
@@ -205,7 +286,7 @@ rather than recorded.
   updated in the same commit. State the cost of an inspection so an operator
   action with a visible frame cost is a known trade rather than a surprise.
 
-- [ ] **C7 — Close with tests, gates, and an independent ownership review.** Add
+- [ ] **C8 — Close with tests, gates, and an independent ownership review.** Add
   focused tests named for the subsystems they pin, not for this plan: seek
   targeting and non-restorable-row refusal, regeneration equivalence against the
   recorded frame, manifold packet capacity and truncation, and panel value
@@ -225,12 +306,13 @@ replaces the normal gate.
 |---|---|
 | C0 | `tools\validate_fast.bat` |
 | C1 | `tools\validate_full.bat` (Runtime), then `tools\validate_replay_visual_fidelity.bat` |
-| C2 | `tools\validate_physics.bat` for the equivalence proof, `tools\validate_full.bat`, then `tools\validate_replay_visual_fidelity.bat` |
-| C3 | `tools\validate_dx12_renderer.bat` plus `tools\run_graphics_stress.bat 1`, then `tools\validate_replay_visual_fidelity.bat` |
-| C4 | `tools\validate_full.bat`, then `tools\validate_ui_boundary_tests.bat` |
-| C5 | `tools\validate_full.bat`, then `tools\validate_replay_visual_fidelity.bat` |
-| C6 | `tools\validate_perf.bat`, then `tools\validate_replay_allocation_policy.bat` |
-| C7 | `tools\validate_full.bat` and `tools\validate_all_cpu_tests.bat` |
+| C2 | `tools\validate_full.bat`, then `tools\validate_replay_visual_fidelity.bat`; add `tools\validate_physics.bat` to prove a differently-timed or interrupted arrival changed no simulation bit |
+| C3 | `tools\validate_physics.bat` for the equivalence proof, `tools\validate_full.bat`, then `tools\validate_replay_visual_fidelity.bat` |
+| C4 | `tools\validate_dx12_renderer.bat` plus `tools\run_graphics_stress.bat 1`, then `tools\validate_replay_visual_fidelity.bat` |
+| C5 | `tools\validate_full.bat`, then `tools\validate_ui_boundary_tests.bat` |
+| C6 | `tools\validate_full.bat`, then `tools\validate_replay_visual_fidelity.bat` |
+| C7 | `tools\validate_perf.bat`, then `tools\validate_replay_allocation_policy.bat` |
+| C8 | `tools\validate_full.bat` and `tools\validate_all_cpu_tests.bat` |
 
 Every phase touching `SkullbonezSource/Runtime/Replay/*` or replay-facing
 presentation additionally requires `tools\validate_replay_visual_fidelity.bat`.
@@ -255,7 +337,13 @@ Rendering feature-neutrality rule are both mechanically enforced.
   no part of the feature lives in `Runtime/Replay/` or `Runtime/Prediction/`.
 - Zero steady-state allocation, with any replay-phase growth registered and the
   reserve inventory updated in the same commit.
-- Measured cost against the overlay budget is recorded, on a dense scene.
+- The camera arrives with the eye position lerped and the orientation slerped or
+  nlerped by an explicitly recorded decision, the look target cannot collapse
+  into the eye mid-flight, and no second tween owner was introduced.
+- A differently-timed, interrupted, or repeated camera arrival changes no
+  simulation bit, proved by the physics gate rather than asserted.
+- Measured cost against the overlay budget is recorded, on a dense scene, and
+  includes whatever playback the chosen transport semantics performs.
 - An independent ownership review finds no unrelated responsibility absorbed into
   the new Planning owner.
 
@@ -267,14 +355,21 @@ Resolve these inside the owning phase; do not treat them as settled.
    prediction rows need a distinct rule? C0 answers this and its answer shapes
    C1's refusal path.
 2. Does regeneration require the isolated engine clone, or is a save-restore
-   bracket around the live engine sufficient and cheaper? C2 decides by measured
+   bracket around the live engine sufficient and cheaper? C3 decides by measured
    cost and by whether the bracket can be proven not to perturb live state.
 3. Is the existing contact debug presentation path the right carrier for the
    manifold visual, or does a focused single-manifold view need its own packet?
-   C3 decides by whether reuse forces feature vocabulary into Rendering.
+   C4 decides by whether reuse forces feature vocabulary into Rendering.
 4. What is the correct invalidation behavior when the operator scrubs away from
    the event frame while the panel is open — close, freeze with an explicit stale
-   marker, or re-target? C5 decides, and the choice must not leave stale rows
+   marker, or re-target? C6 decides, and the choice must not leave stale rows
    that read as current.
-5. Should an inspection be possible during live simulation, or only while paused?
-   This bounds C2's isolation requirement and C6's cost budget.
+5. Which transport semantics does the operator actually want — instant restore,
+   accelerated playback, or restore-to-lead-in then run forward? C2 picks one and
+   records why. The plan recommends the third, but the choice is the owner's and
+   it sets what "fast forward to the causal moment" means for the whole feature.
+6. Should the camera arrival slerp or normalized-lerp? C2 decides on measured
+   visual difference at realistic reorientation magnitudes, weighed against the
+   gate, ruling, and placement cost recorded in the cross-plan note above.
+7. Should an inspection be possible during live simulation, or only while paused?
+   This bounds C3's isolation requirement and C7's cost budget.
