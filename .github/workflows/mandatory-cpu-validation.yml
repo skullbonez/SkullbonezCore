@@ -40,13 +40,17 @@ jobs:
           $ErrorActionPreference = "Stop"
           $llvmVersion = "21.1.8"
 
-          # Hazard: the Chocolatey community feed drops superseded LLVM versions.
-          # On 2026-08-15 `choco upgrade llvm --version=21.1.8` reported
-          # "llvm was not found with the source(s) listed", upgraded 0/1 packages,
-          # and still exited 0, leaving the runner's pre-installed clang-format
-          # 20.1.8 in place. Only the version assertion below caught it. The PyPI
-          # wheel ships the same official LLVM binary and retains exact versions,
-          # so the pin cannot silently resolve to a different formatter.
+          # Hazard: this pin used to come from the Chocolatey community feed,
+          # which proved unreliable on 2026-08-15. `choco upgrade llvm
+          # --version=21.1.8` reported "llvm was not found with the source(s)
+          # listed", upgraded 0/1 packages, and still exited 0, leaving the
+          # runner's pre-installed clang-format 20.1.8 in place; the same feed
+          # was returning 504 Gateway Timeout for another package minutes later,
+          # so whether the version was withdrawn or the feed was simply degraded
+          # was never established. Either way a silent wrong-version resolution
+          # is unacceptable for a formatting gate, and only the version assertion
+          # below caught it. The PyPI wheel ships the same official LLVM binary,
+          # is version-addressed, and installs in seconds rather than timing out.
           # Downgrading the pin is not an option: .clang-format uses
           # BinPackLongBracedList, which clang-format 20 rejects outright.
           python -m pip install --disable-pip-version-check --quiet "clang-format==$llvmVersion"
@@ -80,9 +84,26 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          choco install opencppcoverage --version=0.9.9.0 --yes --no-progress
-          if ($LASTEXITCODE -ne 0) {
-            throw "Chocolatey failed to install OpenCppCoverage 0.9.9.0 (exit $LASTEXITCODE)"
+
+          # Hazard: the Chocolatey community feed returned 504 Gateway Timeout for
+          # this package on 2026-08-15, failing the lane after 108 seconds of
+          # internal retries. That is a transient service fault rather than a
+          # withdrawn package, so a bounded retry is the proportionate fix; a
+          # single attempt makes the mandatory gate hostage to one feed's uptime.
+          # No unpinned fallback is permitted here — a coverage gate that silently
+          # ran a different OpenCppCoverage build would be worse than a red lane.
+          $attempts = 3
+          for ($attempt = 1; $attempt -le $attempts; $attempt++) {
+            choco install opencppcoverage --version=0.9.9.0 --yes --no-progress
+            if ($LASTEXITCODE -eq 0) {
+              break
+            }
+            if ($attempt -eq $attempts) {
+              throw "Chocolatey failed to install OpenCppCoverage 0.9.9.0 after $attempts attempts (exit $LASTEXITCODE)"
+            }
+            $delaySeconds = 15 * $attempt
+            Write-Host "OpenCppCoverage install attempt $attempt failed; retrying in $delaySeconds s"
+            Start-Sleep -Seconds $delaySeconds
           }
           $coverageExe = "C:\Program Files\OpenCppCoverage\OpenCppCoverage.exe"
           if (-not (Test-Path -LiteralPath $coverageExe)) {
