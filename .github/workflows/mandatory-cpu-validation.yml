@@ -84,26 +84,50 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
+          $coverageVersion = "0.9.9.0"
 
-          # Hazard: the Chocolatey community feed returned 504 Gateway Timeout for
-          # this package on 2026-08-15, failing the lane after 108 seconds of
-          # internal retries. That is a transient service fault rather than a
-          # withdrawn package, so a bounded retry is the proportionate fix; a
-          # single attempt makes the mandatory gate hostage to one feed's uptime.
-          # No unpinned fallback is permitted here — a coverage gate that silently
+          # Why not Chocolatey: the community feed served this package two
+          # different ways on 2026-08-15 — 504 Gateway Timeout, then not-found —
+          # and a mandatory gate must not depend on a third-party feed choosing to
+          # retain an exact version. The upstream release asset is
+          # version-addressed and content-verified below, so the pin cannot drift
+          # and no unpinned fallback is possible. A coverage gate that silently
           # ran a different OpenCppCoverage build would be worse than a red lane.
+          $installerUrl = "https://github.com/OpenCppCoverage/OpenCppCoverage/releases/download/release-$coverageVersion/OpenCppCoverageSetup-x64-$coverageVersion.exe"
+          $expectedSha256 = "2295A733DA39412C61E4F478677519DD0BB1893D88313CE56B468C9E50517888"
+          $installer = Join-Path $env:RUNNER_TEMP "OpenCppCoverageSetup-x64-$coverageVersion.exe"
+
           $attempts = 3
           for ($attempt = 1; $attempt -le $attempts; $attempt++) {
-            choco install opencppcoverage --version=0.9.9.0 --yes --no-progress
-            if ($LASTEXITCODE -eq 0) {
+            try {
+              Invoke-WebRequest -Uri $installerUrl -OutFile $installer -UseBasicParsing
               break
             }
-            if ($attempt -eq $attempts) {
-              throw "Chocolatey failed to install OpenCppCoverage 0.9.9.0 after $attempts attempts (exit $LASTEXITCODE)"
+            catch {
+              if ($attempt -eq $attempts) {
+                throw "Failed to download OpenCppCoverage $coverageVersion after $attempts attempts: $_"
+              }
+              $delaySeconds = 15 * $attempt
+              Write-Host "OpenCppCoverage download attempt $attempt failed; retrying in $delaySeconds s"
+              Start-Sleep -Seconds $delaySeconds
             }
-            $delaySeconds = 15 * $attempt
-            Write-Host "OpenCppCoverage install attempt $attempt failed; retrying in $delaySeconds s"
-            Start-Sleep -Seconds $delaySeconds
+          }
+
+          # Hazard: never execute an unverified downloaded binary. This digest is
+          # the exact release asset's bytes; a mismatch means the pin no longer
+          # describes what upstream serves, which is a stop condition rather than
+          # something to retry around.
+          $actualSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $installer).Hash
+          if ($actualSha256 -ne $expectedSha256) {
+            throw "OpenCppCoverage installer digest mismatch. expected=$expectedSha256 actual=$actualSha256"
+          }
+
+          # OpenCppCoverageSetup is an Inno Setup 6 package, so /VERYSILENT is the
+          # unattended switch and a successful install returns 0.
+          $installProcess = Start-Process -FilePath $installer `
+            -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait -PassThru
+          if ($installProcess.ExitCode -ne 0) {
+            throw "OpenCppCoverage $coverageVersion installer failed (exit $($installProcess.ExitCode))"
           }
           $coverageExe = "C:\Program Files\OpenCppCoverage\OpenCppCoverage.exe"
           if (-not (Test-Path -LiteralPath $coverageExe)) {
