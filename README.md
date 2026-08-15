@@ -143,7 +143,8 @@ for any agent, not one vendor's.
 
 A few consequences visible in the tree: zero `TODO`/`FIXME`/`HACK` markers in
 engine source, zero `throw` statements in engine code, zero raw `new`/`delete`
-outside the allocator, and exactly one inheritance relationship in 230k lines.
+outside the allocator, and two inheritance relationships in 230k lines — only one
+of which uses runtime polymorphism.
 
 ## What Is Not Here
 
