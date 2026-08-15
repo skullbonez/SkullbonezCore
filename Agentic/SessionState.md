@@ -2,31 +2,47 @@
 
 Date: 2026-08-15
 Branch: `claude/codebase-overview-jatmcg`
-Status: One active plan registered; no implementation started
+Status: Two active plans registered; no implementation started
 
-Determinism Envelope Tier-2 Hardening is registered at
-`Agentic/Plans/TODO/determinism-envelope-tier2-hardening.md` with 9 tasks, 0
-complete. The portfolio is no longer empty; `MASTER-PLAN.md` carries the binding
-order.
+Determinism Envelope Tier-2 Hardening (9 tasks) and Causal Event Inspection
+(8 tasks) are registered under `Agentic/Plans/TODO/`, 0 complete.
+`MASTER-PLAN.md` carries the binding order.
+
+The mandatory CPU CI lane was repaired this session; see the CI note below
+before assuming a red lane is your change.
 
 ## Next Work
 
-T0. Establish the pre-change envelope and determine whether the statically
-linked UCRT dispatches on processor features for `sinf`, `cosf`, and `acosf`.
-This needs a Windows build and either a disassembly of the linked routines or the
-same binary executed on two different microarchitectures. No source edit.
+`TIER2_DETERMINISM` T0. Establish the pre-change envelope and determine whether
+the statically linked UCRT dispatches on processor features for `sinf`, `cosf`,
+and `acosf`. This needs a Windows build and either a disassembly of the linked
+routines or the same binary executed on two different microarchitectures. No
+source edit.
 
-T1, T2, and T5 through T8 are unblocked and do not change physics output. T3 and
-T4 are blocked on an explicit owner baseline decision and must not be started
-without it.
+`CAUSAL_INSPECT` C0. Fix the seek contract: confirm every cause row kind
+addresses a frame the scrubber can restore, and define the refusal behavior for a
+row whose frame has aged out of the recorder ring.
+
+`TIER2_DETERMINISM` T1, T2, T5 through T8 and all of `CAUSAL_INSPECT` are
+unblocked and change no physics output.
 
 ## Blockers
 
-- T3 and T4 change physics bits by construction. The plan grants no
-  baseline-refresh authority; each needs its own owner approval of that exact
-  transition, reviewed as behavior.
+- `TIER2_DETERMINISM` T3 and T4 change physics bits by construction. The plan
+  grants no baseline-refresh authority; each needs its own owner approval of that
+  exact transition, reviewed as behavior.
 - T0's CRT dispatch question cannot be answered from a Linux session. It needs
   Windows tooling.
+
+## CI Note
+
+`.github/workflows/mandatory-cpu-validation.yml` now installs the pinned
+clang-format 21.1.8 from the PyPI wheel instead of the Chocolatey community feed.
+The feed dropped that version on 2026-08-15, `choco` still exited 0 after
+upgrading 0/1 packages, and only the workflow's explicit version assertion caught
+that the runner's pre-installed 20.1.8 had been left in place. Do not repin
+downward: `.clang-format:43` sets `BinPackLongBracedList`, which clang-format 20
+rejects outright, and all 651 tracked C++ sources format differently under 20.
 
 ## Finding That Motivated The Plan
 
