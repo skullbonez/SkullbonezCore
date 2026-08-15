@@ -1,10 +1,16 @@
-# MASTER PLAN — Complete
+# MASTER PLAN
 
-Date: 2026-08-03
-Status: Complete; no live or future implementation plans
+Date: 2026-08-15
+Status: One active plan; 0/9 tasks complete
 
 ## Owner Direction
 
+- Determinism Envelope Tier-2 Hardening is active. It removes
+  implementation-defined transcendentals from physics-visible paths, gates their
+  return, adds a portable CPU test target, and adds the cross-machine byte
+  comparison that would observe a tier-2 envelope violation. T3 and T4 change
+  physics output bits and are blocked on an explicit owner baseline decision;
+  every other task is unblocked.
 - Source Modernization Sweep is complete. No further work remains.
 - Dense Pile Sleep Resolution is complete by owner direction. No further work
   will be performed and no additional baseline or solver change is requested.
@@ -13,10 +19,30 @@ Status: Complete; no live or future implementation plans
   CandidatePairs CPU regression.
 - Look Lab Random Style Authoring is closed. No further work remains.
 
-`Agentic/Plans/TODO/` is empty. Completed plan files were deleted; git history
-is the archive.
+Completed plan files were deleted; git history is the archive.
+
+## Active Plans
+
+| Plan | Commit name | Tasks | Done | File |
+|---|---|---|---|---|
+| Determinism Envelope Tier-2 Hardening | `TIER2_DETERMINISM` | 9 | 0 | `TODO/determinism-envelope-tier2-hardening.md` |
+
+## Binding Order
+
+1. `TIER2_DETERMINISM` T0 — establish the pre-change envelope and CRT dispatch
+   evidence. No source edit; its finding decides whether the transcendental gap
+   is a live or latent tier-2 break and is a stated input to T3's baseline
+   decision.
+2. `TIER2_DETERMINISM` T1, T2 — add the deterministic transcendental owner and
+   the policy gate. Neither changes physics output.
+3. `TIER2_DETERMINISM` T5 through T8 — portable target, test split, Linux
+   sanitizer lane, hosted cross-machine evidence. Independent of T3 and T4 and
+   safe to run in parallel with the owner baseline decision.
+4. `TIER2_DETERMINISM` T3, T4 — blocked. Do not begin either without an explicit
+   owner approval of that exact baseline transition, recorded in the owning
+   commit body.
 
 ## Portfolio Progress
 
-There is no active/future denominator. The master portfolio is complete and
-has no next handoff.
+0/9 tasks complete across one active plan. Two of the nine are owner-blocked by
+design rather than by sequencing.
