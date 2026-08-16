@@ -35,11 +35,11 @@
     {
       "file": "SkullbonezSource/Runtime/App/InputFrameExecution.cpp",
       "signature": "Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput )",
-      "body_sha256": "52338eb461144b83ef8fb9ee4c334a2503ca40c60329dbbe4fa8e624046f6820",
+      "body_sha256": "08111b8121d12a62568812e41f37f5651fd0eabbda613f4ae6f8bb2028dede70",
       "owner": "Runtime input frame phase",
       "disposition": "retain-owner",
-      "reason": "One ordered input turn runs from automation sampling through device routing and typed command production, including edge-triggered F10/F11 authoring dispatch; lifecycle clearing is now an explicit scene-transition operation outside the idle turn, every participant is a synchronous Run-owned borrow, and wrapping them would create a broad frame context rather than a new invariant.",
-      "evidence": "git history: look-lab-random-style-authoring-ll5-breadth-reuse-idle (2026-08-01)",
+      "reason": "One ordered input turn runs from automation sampling through device routing, typed command production, and terminal restore publication; the causal-transition token participates in that same restore transaction so Planning cannot observe completion before Replay has committed the result. Every participant is a synchronous Run-owned borrow, and wrapping them would create a broad frame context rather than a new invariant.",
+      "evidence": "git history: look-lab-random-style-authoring-ll5-breadth-reuse-idle (2026-08-01); C1 causal-row transport owner review (2026-08-17)",
       "plan": ""
     },
     {
@@ -105,11 +105,11 @@
     {
       "file": "SkullbonezSource/Runtime/App/InputFrame.cpp",
       "signature": "RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, bool keyboardToggleEditorMode, const RuntimeInputFrameFacts& facts )",
-      "body_sha256": "37e73a73703e819fd5fd5931ae79f7fb2f6a0ece3a8964ad28037d76608fb232",
+      "body_sha256": "a5adb903ce684eeca6195a3980dc13351c248c50cb60ea6e37237bc6e62ddc5f",
       "owner": "Runtime input-command application phase",
       "disposition": "retain-owner",
-      "reason": "One post-routing phase applies the complete typed command set in frame order and returns the resulting UI frame value; all owner access is synchronous and ordering is the operation invariant. The prediction reveal rate is applied here for the same reason the replay memory policy is: the owning package sits above Runtime/Interaction, so the composition root forwards it rather than widening that edge.",
-      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); re-ruled when the Physics-tab reveal rate joined the same phase",
+      "reason": "One post-routing phase applies the complete typed command set in frame order and returns the resulting UI frame value; all owner access is synchronous and ordering is the operation invariant. Space state and the causal-transition token are value facts of the existing replay workspace/restore command, not a second command authority. The composition root forwards them because Planning and Replay remain above Runtime/Interaction.",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); re-ruled for C1 causal-row transport (2026-08-17)",
       "plan": ""
     },
     {

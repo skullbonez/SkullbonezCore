@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-16
-Status: Three active plans; 2/24 tasks complete
+Status: Three active plans; 3/24 tasks complete
 
 ## Owner Direction
 
@@ -44,7 +44,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Causal Event Inspection | `CAUSAL_INSPECT` | 9 | 1 | `TODO/causal-event-inspection.md` |
+| Causal Event Inspection | `CAUSAL_INSPECT` | 9 | 2 | `TODO/causal-event-inspection.md` |
 | Determinism Envelope Tier-2 Hardening | `TIER2_DETERMINISM` | 9 | 0 | `TODO/determinism-envelope-tier2-hardening.md` |
 | Catto Divergence Repairs | `CATTO_REPAIRS` | 6 | 1 | `TODO/catto-divergence-repairs.md` |
 
@@ -79,10 +79,11 @@ states elsewhere, and both are recorded rather than silently corrected:
 
 ## Binding Order
 
-1. `CAUSAL_INSPECT` C1 through C8 — complete the causal inspection plan first.
+1. `CAUSAL_INSPECT` C2 through C8 — complete the causal inspection plan first.
    C0 proved exact-frame addressability and the `Replay frame expired` refusal;
-   C1-C2 add synchronized replay/detail-camera transport, dedicated orbit/follow,
-   Space aftermath, and return-to-main behavior; C3-C8 add honest solver-detail
+   C1 added generation-gated replay/detail-camera transport, Space aftermath,
+   and return-to-main policy. C2 adds the shared arrival curve and dedicated
+   orbit/follow path; C3-C8 add honest solver-detail
    availability, manifold presentation, the four-row scrolling panel, lifecycle,
    cost evidence, tests, and independent review.
 2. `TIER2_DETERMINISM` T0, T1, T2 — establish the pre-change envelope, add the
@@ -111,5 +112,5 @@ tests must pin field mapping and availability, not pre-Catto impulse values.
 
 ## Portfolio Progress
 
-2/24 tasks complete across three active plans. Causal C1 is the next selectable
-task; Causal C0 and Catto CD0 are complete.
+3/24 tasks complete across three active plans. Causal C2 is the next selectable
+task; Causal C0-C1 and Catto CD0 are complete.

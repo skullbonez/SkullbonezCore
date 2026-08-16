@@ -46,3 +46,7 @@ constexpr std::uint32_t TEXTURE_SKY_DOWN = HashStr( "SkyDown" );
 constexpr std::uint32_t CAMERA_SCENE_OBJECT_1 = 0x76EECD4Fu;
 constexpr std::uint32_t CAMERA_SCENE_OBJECT_2 = 0x77EECEE2u;
 constexpr std::uint32_t CAMERA_FREE = HashStr( "Free" );
+
+// Planning selects this scene-resident slot explicitly; ordinary camera cycling
+// names only the authored/generated main slots and therefore cannot enter it.
+constexpr std::uint32_t CAMERA_CAUSAL_DETAIL = HashStr( "CausalDetail" );

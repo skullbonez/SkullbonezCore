@@ -521,6 +521,10 @@ void SceneAuthoredSetup::SetUpCameras( SceneWorld& sceneWorld, const AuthoredSce
         sceneWorld.Cameras().AddCamera( firstPosition, firstView, firstUp, CAMERA_FREE );
     }
 
+    // The detail slot starts from a valid authored pose but is never part of
+    // authored camera enumeration or normal cycling.
+    sceneWorld.Cameras().AddCamera( firstPosition, firstView, firstUp, CAMERA_CAUSAL_DETAIL );
+
     if ( scene.IsTerrainHidden() )
     {
         // Concept: terrain-hidden authored scenes are the terrainless/space

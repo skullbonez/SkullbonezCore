@@ -200,6 +200,11 @@ void SceneGeneratedSetup::SetUpCameras( SceneWorld& sceneWorld )
                                     Vector3( 0.0f, 1.0f, 0.0f ),       // Up
                                     CAMERA_FREE );
 
+    // Why: causal inspection retargets its own fixed slot, leaving the selected
+    // main camera pose untouched for an interruption-safe return.
+    sceneWorld.Cameras().AddCamera( Vector3( 900.0f, 110.0f, 900.0f ), Vector3( 313.0f, 31.0f, 282.0f ),
+                                    Vector3( 0.0f, 1.0f, 0.0f ), CAMERA_CAUSAL_DETAIL );
+
     sceneWorld.Cameras().SetCameraXZBounds( sceneWorld.Terrain().Get()->GetXZBounds() );
     sceneWorld.Cameras().SetTerrain( sceneWorld.Terrain().Get() );
     sceneWorld.Cameras().SetLockedMode( true );

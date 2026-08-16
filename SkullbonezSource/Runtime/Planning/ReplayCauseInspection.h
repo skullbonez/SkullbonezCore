@@ -7,15 +7,23 @@ Summary:
   Cause rows address either the retained solver ring or the active prediction
   bank. This value contract keeps the chosen frame, source track, and refusal
   state together so later transport cannot silently clamp to a nearby frame.
+  ReplayCauseInspection owns one selected-event transition generation, including
+  request coalescing and the pause/return policy consumed by App composition.
 
 Glossary:
   Seek source: Timeline bank that must contain the row's exact frame before
     transport is enabled.
+  Transition generation: Monotonic token that prevents an obsolete restore
+    completion from changing a newer causal selection.
 
 Invariants:
   - Available results identify one exact frame in the selected source bank.
   - Missing frames refuse transport with `Replay frame expired`.
   - Solver-detail availability is independent of frame transport eligibility.
+  - At most one transport request is in flight; a newer selection replaces the
+    pending request and cannot be completed by an older generation.
+  - Camera identity remains in ReplayPresentation; this owner retains only the
+    transition and pause policy, never a second restore-camera copy.
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayAuthoringPackets.h
@@ -27,6 +35,7 @@ Related:
 #include "../Replay/ReplayCapturePackets.h"
 
 #include <span>
+#include <cstdint>
 
 namespace SkullbonezCore::Runtime
 {
@@ -58,4 +67,60 @@ struct ReplayCauseSeekResult
 
 ReplayCauseSeekResult EvaluateReplayCauseSeek( const RunReplayCauseTreeRow& row, const ReplayRecorderStats& solverStats,
                                                std::span<const RunReplayPredictionFrame> predictionFrames ) noexcept;
+
+enum class ReplayCauseInspectionMode : uint8_t
+{
+    Inactive,
+    Transporting,
+    DetailPaused,
+    AftermathFollow,
+    Returning
+};
+
+struct ReplayCauseTransportRequest
+{
+    uint64_t generation = 0;
+    ReplayFrameIndex sourceFrame = 0;
+    ReplayFrameIndex targetFrame = 0;
+    ReplayCauseSeekSource source = ReplayCauseSeekSource::SolverHistory;
+};
+
+struct ReplayCauseInspectionView
+{
+    ReplayCauseInspectionMode mode = ReplayCauseInspectionMode::Inactive;
+    uint64_t generation = 0;
+    ReplayFrameIndex sourceFrame = 0;
+    ReplayFrameIndex targetFrame = 0;
+    ReplayCauseSeekSource seekSource = ReplayCauseSeekSource::SolverHistory;
+    int selectedRow = -1;
+    bool detailVisible = false;
+    bool ownsPause = false;
+    bool transportInFlight = false;
+    bool transportPending = false;
+    bool returnIssued = false;
+};
+
+struct ReplayCauseExitAction
+{
+    bool apply = false;
+    bool releasePause = false;
+};
+
+class ReplayCauseInspection
+{
+  public:
+    bool Select( int rowIndex, const ReplayCauseSeekResult& seek, ReplayFrameIndex presentedFrame,
+                 bool simulationAlreadyPaused ) noexcept;
+    bool TakeTransportRequest( ReplayCauseTransportRequest& outRequest ) noexcept;
+    void CompleteTransport( uint64_t generation, bool succeeded ) noexcept;
+    bool BeginAftermath( bool& outReleasePause ) noexcept;
+    ReplayCauseExitAction BeginReturn() noexcept;
+    void CompleteReturn() noexcept;
+    void Reset() noexcept;
+    ReplayCauseInspectionView View() const noexcept;
+
+  private:
+    ReplayCauseInspectionView m_state;
+    uint64_t m_inFlightGeneration = 0;
+};
 } // namespace SkullbonezCore::Runtime

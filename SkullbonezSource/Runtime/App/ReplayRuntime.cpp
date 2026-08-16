@@ -1143,13 +1143,13 @@ ReplaySceneTimelineResetResult ReplayRuntime::BeginSceneTimelineReset( const Rep
         m_authoring.ResetBranch();
     }
 
-    if ( m_scrubberOwner.LiveAdvanceHeld() )
+    if ( !input.preserveReplayInspection && m_scrubberOwner.LiveAdvanceHeld() )
     {
         m_scrubberOwner.SetLiveAdvanceHeld( false );
         m_visualPresentation.SetCameraPauseOwnership( false );
     }
 
-    if ( m_scrubberOwner.ResetState( m_visualPresentation.CameraView().active ) )
+    if ( !input.preserveReplayInspection && m_scrubberOwner.ResetState( m_visualPresentation.CameraView().active ) )
     {
         result.exitInspectionCamera = true;
     }
@@ -1162,9 +1162,14 @@ ReplaySceneTimelineResetResult ReplayRuntime::FinishSceneTimelineReset( const Re
 {
     ReplaySceneTimelineResetResult result;
     m_timeline.ClearLoadedPresentation();
-    ClearCameraFocusForRestore();
-    result.exitInspectionCamera = true;
-    ClearPathVisualizerState();
+
+    if ( !input.preserveReplayInspection )
+    {
+        ClearCameraFocusForRestore();
+        result.exitInspectionCamera = true;
+        ClearPathVisualizerState();
+    }
+
     m_authoring.ResetVelocityEdit();
 
     if ( !m_timeline.Presentation().IsEnabled() )

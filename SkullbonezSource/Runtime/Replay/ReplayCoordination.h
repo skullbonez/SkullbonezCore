@@ -98,6 +98,7 @@ struct ReplayWorkspaceFrameInput
     bool scenePhysicsEnabled = false;
     bool uiVisible = false;
     bool uiMinimized = false;
+    bool spaceDown = false;
     int screenWidth = 0;
     int screenHeight = 0;
     double now = 0.0;
@@ -108,6 +109,10 @@ struct ReplayWorkspaceOutput
     ReplayLiveRestoreRequest restoreRequest;
     bool consumesMouse = false;
     bool enterInteractive = false;
+
+    // Zero denotes ordinary replay transport. Planning uses a non-zero token to
+    // match a causal restore completion without adding state to ReplayScrubber.
+    uint64_t planningTransitionToken = 0;
 
     // Cold native-file selection remains at TickWorkspace, after the scrubber
     // has completed its pointer and visibility phase.
@@ -243,6 +248,7 @@ struct ReplaySceneTimelineResetInput
 {
     const char* sceneLabel = nullptr;
     bool preserveBranchMetadata = false;
+    bool preserveReplayInspection = false;
     bool isSceneMode = false;
     int modelCount = 0;
     int solverBallCount = 0;

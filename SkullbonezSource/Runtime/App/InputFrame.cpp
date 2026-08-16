@@ -572,20 +572,19 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( SkullbonezCore::Core::SbDiagnosticStor
     // the completed interaction policy exists. Publish current post-UI pointer
     // and key facts now; RunInputPhase republishes the final policy facts below.
     inputRouter.PublishRuntimeSnapshot( RuntimeInteractionFrameInput {}, result.suppressWorldActionThisFrame );
-    replayRuntime.TickWorkspace( ReplayWorkspaceFrameInput { windowHandle,
-                                                             ui.BlocksCameraMouse() || facts.externalUiCapture.mouse,
-                                                             facts.legacyDevelopmentUiActive,
-                                                             result.editorUnhandledWheelDelta, replayPointerRay,
-                                                             facts.replayCurrentCameraMode, facts.replayRestoreCameraMode,
-                                                             attachedCamera.State().activeFollow, camera.director.grabbed,
-                                                             runtimeTools.Editor().editorModeEnabled,
-                                                             sceneController.State().isScenePhysics, ui.IsVisible(),
-                                                             ui.IsMinimized(), window.ClientWidth(), window.ClientHeight(),
-                                                             timers.simulationTimer.GetTotalTime() },
-                                 inputRouter, interaction, sceneController.Scene().Physics(),
-                                 sceneController.Scene().Entities(), sceneController.Scene().RenderPresentationRecords(),
-                                 &sceneController.Scene().Cameras(), sceneController.Scene().Terrain().Get(), camera,
-                                 runtimeTools.MousePickup(), result.replayWorkspace );
+    replayRuntime
+        .TickWorkspace( ReplayWorkspaceFrameInput { windowHandle, ui.BlocksCameraMouse() || facts.externalUiCapture.mouse,
+                                                    facts.legacyDevelopmentUiActive, result.editorUnhandledWheelDelta,
+                                                    replayPointerRay, facts.replayCurrentCameraMode,
+                                                    facts.replayRestoreCameraMode, attachedCamera.State().activeFollow,
+                                                    camera.director.grabbed, runtimeTools.Editor().editorModeEnabled,
+                                                    sceneController.State().isScenePhysics, ui.IsVisible(), ui.IsMinimized(),
+                                                    inputRouter.DeviceFrame().keys.IsDown( VK_SPACE ), window.ClientWidth(),
+                                                    window.ClientHeight(), timers.simulationTimer.GetTotalTime() },
+                        inputRouter, interaction, sceneController.Scene().Physics(), sceneController.Scene().Entities(),
+                        sceneController.Scene().RenderPresentationRecords(), &sceneController.Scene().Cameras(),
+                        sceneController.Scene().Terrain().Get(), camera, runtimeTools.MousePickup(),
+                        result.replayWorkspace );
 
     result.enterInteractiveScene = result.enterInteractiveScene || result.replayWorkspace.enterInteractive;
     result.suppressWorldActionThisFrame = result.suppressWorldActionThisFrame || result.replayWorkspace.consumesMouse;
@@ -742,6 +741,7 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
              transportOutput.restoreRequest.kind != ReplayLiveRestoreKind::None )
         {
             result.replayWorkspace.restoreRequest = transportOutput.restoreRequest;
+            result.replayWorkspace.planningTransitionToken = transportOutput.planningTransitionToken;
         }
     }
 

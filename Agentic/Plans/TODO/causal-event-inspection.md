@@ -1,14 +1,14 @@
 # Causal Event Inspection
 
 Date: 2026-08-15
-Status: Active. 1/9 tasks complete.
+Status: Active. 2/9 tasks complete.
 Impact area: Runtime/Planning operator surface, replay transport, camera
 arrival, contact manifold presentation, solver-detail availability,
 Rendering value contracts, tests
 Owner: Replay planning operator surface
-Priority: Active — C1 is next; it consumes C0's exact-frame seek contract and
-the owner-ratified synchronized transport below. C3 owns the later detail
-availability contract.
+Priority: Active — C2 is next; C1 landed the dedicated camera slot, exact-frame
+transport generation, pause/aftermath policy, and return paths. C2 owns the
+shared 1.5-second curve, true-slerp arrival, and continuing orbit/follow path.
 
 ## Owner Direction
 
@@ -327,7 +327,7 @@ detail.
   `tools\validate_replay_visual_fidelity.bat` both passed without a baseline
   refresh or new retained state.
 
-- [ ] **C1 — Add transport from the selected causal row.** Add a Planning-owned
+- [x] **C1 — Add transport from the selected causal row.** Add a Planning-owned
   synchronized transition command whose temporal endpoints are the currently
   presented frame and the selected row's frame. Register one dedicated
   causal-detail camera in each scene, capture the selected main-camera hash on
@@ -346,6 +346,20 @@ detail.
   pre-paused, live, Space, cancellation, failure, click-exit, scrub-exit, and
   interrupted-return paths so none can spuriously resume, strand the simulation,
   or lose the saved camera identity.
+
+  Evidence (2026-08-17): `ReplayCauseInspection` now owns the monotonic
+  generation, one in-flight plus newest-pending request, pause acquisition,
+  Space aftermath, and cancellation/return policy. App applies recorded targets
+  through the existing solver restore transaction and exact prediction targets
+  through the published prediction cursor; obsolete completion tokens cannot
+  reveal detail. Authored and generated scenes reserve a non-cycling
+  `CausalDetail` camera while `ReplayPresentation` remains the only saved-main
+  identity owner. Six focused cases passed 84 assertions, including pre-paused,
+  live, coalesced, Space, direct-retarget, click/scrub, failure, and cancellation
+  paths. `tools\validate_full.bat` passed (548 tests, 2,479,420 assertions,
+  coverage, Automation, DX12, and byte-exact physics baseline), followed by
+  `tools\validate_replay_visual_fidelity.bat` (2,401 ticks, 200 causal nodes,
+  181 toppled wall bricks, and every false-pass control). No baseline changed.
 
 - [ ] **C2 — Share one frame-independent power curve with camera arrival.**
   Replace the current recursive camera progress update with the owner-ratified

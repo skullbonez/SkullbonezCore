@@ -1144,10 +1144,11 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
     if ( restoreRequest.kind != ReplayLiveRestoreKind::None )
     {
-        const ReplaySceneTimelineResetInput
+        ReplaySceneTimelineResetInput
             timelineReset = DescribeReplaySceneTimeline( sceneController, ui.SceneNavigation().overrides, SceneState(),
                                                          SkullbonezCore::Core::ActiveSceneObjectCapacity( config ),
                                                          static_cast<uint32_t>( launchOptions.generatedObjectTypeOverride ) );
+        timelineReset.preserveReplayInspection = uiFrameResult.replayWorkspace.planningTransitionToken != 0;
 
         ReplayRestoreTransaction transaction { timelineReset };
         bool restored = false;
@@ -1181,6 +1182,8 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
                                                    attachedCamera.State().activeFollow, camera.director.grabbed );
 
         replayRuntime.CompleteLiveRestoreScrubber( transaction, restoreRequest, restoreOutcome );
+        replayRuntime.CompletePlanningTransition( uiFrameResult.replayWorkspace.planningTransitionToken,
+                                                  restoreOutcome.restored );
 
         if ( restoreOutcome.enterInteractive )
         {

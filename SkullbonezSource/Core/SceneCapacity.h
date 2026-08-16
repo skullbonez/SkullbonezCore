@@ -31,7 +31,10 @@ Related:
 
 namespace SkullbonezCore::Scene::Capacity
 {
-constexpr int TOTAL_CAMERA_COUNT = 8;
+// Invariant: authored scenes may supply eight cameras. Runtime reserves one
+// fallback Free slot and one causal-detail slot without heap growth at entry.
+constexpr int AUTHORED_CAMERA_COUNT = 8;
+constexpr int TOTAL_CAMERA_COUNT = 10;
 constexpr int TOTAL_TEXTURE_COUNT = 8;
 constexpr int DEFAULT_SCENE_OBJECT_CAPACITY = 4000;
 constexpr int MAX_SCENE_OBJECTS = 8192;

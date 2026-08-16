@@ -14,7 +14,7 @@ Glossary:
   Candidate mutation: One planner-produced velocity value for Physics to apply.
 
 Invariants:
-  - Intercept, guide, porkchop, and trip-planner state lives only in this owner.
+  - Cause inspection, intercept, guide, porkchop, and trip-planner state lives only in this owner.
   - Replay and Prediction inputs expire when the consuming method returns.
   - A candidate velocity is baseline-gated before Physics mutation and prediction refresh.
   - Hidden planning surfaces do not scan scene or Physics stores.
@@ -27,6 +27,7 @@ Related:
 #pragma once
 
 #include "ReplayGuideArcs.h"
+#include "ReplayCauseInspection.h"
 #include "ReplayInterceptReadout.h"
 #include "ReplayPorkchopPanel.h"
 #include "ReplayTripPlanner.h"
@@ -64,6 +65,8 @@ class ReplayPlanningRuntime
     ReplayInterceptView InterceptView() const noexcept;
     const ReplayPorkchopPanelView& PorkchopView() const noexcept;
     const ReplayTripPlannerView& TripPlannerView() const noexcept;
+    ReplayCauseInspection& CauseInspection() noexcept;
+    ReplayCauseInspectionView CauseInspectionView() const noexcept;
     bool HasActiveState() const noexcept;
     bool HasInterceptTarget() const noexcept;
 
@@ -106,6 +109,7 @@ class ReplayPlanningRuntime
     ReplayGuideArcs m_guideArcs;
     ReplayPorkchopPanel m_porkchopPanel;
     ReplayTripPlanner m_tripPlanner;
+    ReplayCauseInspection m_causeInspection;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

@@ -378,8 +378,17 @@
                            "destructures_at_entry":  "no"
                        },
                        {
+                           "key":  "ReplayCauseTransportRequest",
+                           "site":  "SkullbonezSource/Runtime/Planning/ReplayCauseInspection.h:80",
+                           "members":  4,
+                           "verdict":  "retain",
+                           "owner":  "C1 / Runtime/Planning",
+                           "reason":  "Generation, source frame, target frame, and seek source identify one causal-inspection transport command; replay restore completion must acknowledge the exact generation that Planning issued.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
                            "key":  "ReplayInteractionExitInput",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:183",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:188",
                            "members":  5,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
@@ -397,7 +406,7 @@
                        },
                        {
                            "key":  "ReplayKeyboardVelocityEditInput",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:292",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:298",
                            "members":  4,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
@@ -505,8 +514,8 @@
                        },
                        {
                            "key":  "ReplaySceneTimelineResetInput",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:242",
-                           "members":  11,
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:247",
+                           "members":  12,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
                            "reason":  "Scene identity, preservation mode, topology counts, seed, capacity, generation override, and UI overrides define one timeline origin; reset commits that complete origin before recording resumes.",
@@ -532,7 +541,7 @@
                        },
                        {
                            "key":  "ReplayStartupRequest",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:201",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:206",
                            "members":  12,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
@@ -541,7 +550,7 @@
                        },
                        {
                            "key":  "ReplayTransportHostContext",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:147",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:152",
                            "members":  6,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
@@ -578,7 +587,7 @@
                        {
                            "key":  "ReplayWorkspaceFrameInput",
                            "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:83",
-                           "members":  16,
+                           "members":  17,
                            "verdict":  "retain-prior",
                            "owner":  "prior owner ruling carried by CA0",
                            "reason":  "Window, pointer arbitration/ray/wheel, replay modes, camera/director ownership, editor/physics/UI state, viewport extent, and time are frozen for one replay workspace input turn.",

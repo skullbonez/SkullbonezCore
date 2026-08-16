@@ -7,6 +7,8 @@
 //   Recorded and predicted cause rows use different bounded timeline banks.
 //   These tests prove each row kind either resolves its exact frame or emits the
 //   stable expired-frame refusal without consulting transient solver detail.
+//   The Planning transition tests also pin request coalescing, pause ownership,
+//   Space aftermath, and saved-camera return policy without host owners.
 //
 // Invariants:
 //   - Retained-window boundaries are inclusive at the oldest frame and exclusive at the live edge.
@@ -111,4 +113,130 @@ TEST_CASE( "Replay cause inspection: prediction row kinds require an exact publi
         CHECK( result.frame == 43u );
         CHECK( std::strcmp( result.Feedback(), "Replay frame expired" ) == 0 );
     }
+}
+
+TEST_CASE( "Replay cause inspection: newest selection coalesces behind one in-flight restore" )
+{
+    ReplayCauseInspection inspection;
+    ReplayCauseSeekResult seek;
+    seek.availability = ReplayCauseSeekAvailability::Available;
+    seek.source = ReplayCauseSeekSource::SolverHistory;
+    seek.frame = 80u;
+
+    REQUIRE( inspection.Select( 1, seek, 89u, false ) );
+    ReplayCauseTransportRequest first;
+    REQUIRE( inspection.TakeTransportRequest( first ) );
+    CHECK( first.sourceFrame == 89u );
+    CHECK( first.targetFrame == 80u );
+
+    seek.frame = 85u;
+    REQUIRE( inspection.Select( 2, seek, 84u, true ) );
+    ReplayCauseTransportRequest blocked;
+    CHECK_FALSE( inspection.TakeTransportRequest( blocked ) );
+
+    inspection.CompleteTransport( first.generation, true );
+    const ReplayCauseInspectionView waiting = inspection.View();
+    CHECK( waiting.mode == ReplayCauseInspectionMode::Transporting );
+    CHECK( waiting.transportPending );
+    CHECK( waiting.selectedRow == 2 );
+
+    ReplayCauseTransportRequest newest;
+    REQUIRE( inspection.TakeTransportRequest( newest ) );
+    CHECK( newest.generation > first.generation );
+    CHECK( newest.sourceFrame == 84u );
+    CHECK( newest.targetFrame == 85u );
+
+    inspection.CompleteTransport( first.generation, false );
+    CHECK( inspection.View().mode == ReplayCauseInspectionMode::Transporting );
+    inspection.CompleteTransport( newest.generation, true );
+    CHECK( inspection.View().mode == ReplayCauseInspectionMode::DetailPaused );
+    CHECK( inspection.View().detailVisible );
+}
+
+TEST_CASE( "Replay cause inspection: pause ownership survives pre-pause, Space, failure, and return" )
+{
+    ReplayCauseSeekResult seek;
+    seek.availability = ReplayCauseSeekAvailability::Available;
+    seek.frame = 12u;
+
+    SUBCASE( "inspection-owned pause is released to Space aftermath" )
+    {
+        ReplayCauseInspection inspection;
+        REQUIRE( inspection.Select( 0, seek, 20u, false ) );
+        ReplayCauseTransportRequest request;
+        REQUIRE( inspection.TakeTransportRequest( request ) );
+        inspection.CompleteTransport( request.generation, true );
+
+        bool releasePause = false;
+        REQUIRE( inspection.BeginAftermath( releasePause ) );
+        CHECK( releasePause );
+        CHECK( inspection.View().mode == ReplayCauseInspectionMode::AftermathFollow );
+        CHECK_FALSE( inspection.View().detailVisible );
+
+        // Direct retargeting from aftermath reacquires only the pause released
+        // above and keeps the same bounded transition owner.
+        ReplayCauseSeekResult retarget = seek;
+        retarget.frame = 15u;
+        REQUIRE( inspection.Select( 1, retarget, 13u, false ) );
+        CHECK( inspection.View().ownsPause );
+        ReplayCauseTransportRequest retargetRequest;
+        REQUIRE( inspection.TakeTransportRequest( retargetRequest ) );
+        inspection.CompleteTransport( retargetRequest.generation, true );
+
+        const ReplayCauseExitAction exit = inspection.BeginReturn();
+        CHECK( exit.apply );
+        CHECK( exit.releasePause );
+        inspection.CompleteReturn();
+        CHECK( inspection.View().mode == ReplayCauseInspectionMode::Inactive );
+    }
+
+    SUBCASE( "click or scrub return from aftermath does not release an external pause" )
+    {
+        ReplayCauseInspection inspection;
+        REQUIRE( inspection.Select( 0, seek, 20u, true ) );
+        ReplayCauseTransportRequest request;
+        REQUIRE( inspection.TakeTransportRequest( request ) );
+        inspection.CompleteTransport( request.generation, true );
+
+        bool releasePause = true;
+        REQUIRE( inspection.BeginAftermath( releasePause ) );
+        CHECK_FALSE( releasePause );
+        const ReplayCauseExitAction exit = inspection.BeginReturn();
+        CHECK( exit.apply );
+        CHECK_FALSE( exit.releasePause );
+    }
+
+    SUBCASE( "operator-owned pre-pause is never released by inspection failure" )
+    {
+        ReplayCauseInspection inspection;
+        REQUIRE( inspection.Select( 0, seek, 20u, true ) );
+        ReplayCauseTransportRequest request;
+        REQUIRE( inspection.TakeTransportRequest( request ) );
+        inspection.CompleteTransport( request.generation, false );
+        CHECK( inspection.View().mode == ReplayCauseInspectionMode::Returning );
+        CHECK_FALSE( inspection.View().ownsPause );
+
+        inspection.CompleteReturn();
+        CHECK( inspection.View().mode == ReplayCauseInspectionMode::Inactive );
+    }
+}
+
+TEST_CASE( "Replay cause inspection: cancellation invalidates an interrupted transport completion" )
+{
+    ReplayCauseInspection inspection;
+    ReplayCauseSeekResult seek;
+    seek.availability = ReplayCauseSeekAvailability::Available;
+    seek.source = ReplayCauseSeekSource::Prediction;
+    seek.frame = 45u;
+    REQUIRE( inspection.Select( 3, seek, 40u, false ) );
+
+    ReplayCauseTransportRequest request;
+    REQUIRE( inspection.TakeTransportRequest( request ) );
+    const ReplayCauseExitAction exit = inspection.BeginReturn();
+    REQUIRE( exit.apply );
+    CHECK( exit.releasePause );
+
+    inspection.CompleteTransport( request.generation, true );
+    CHECK( inspection.View().mode == ReplayCauseInspectionMode::Returning );
+    CHECK_FALSE( inspection.View().detailVisible );
 }
