@@ -10,7 +10,8 @@ Summary:
   commands across existing replay owners. Causal inspection uses a dedicated
   camera slot, Planning's one eased clock, and the existing attached-camera
   follow owner while Replay remains the sole owner of the saved main-camera
-  identity and live restore transaction.
+  identity and live restore transaction. Exact-frame contact presentation is
+  copied before the final restore can retire its source solver ring.
 
 Glossary:
   Live restore: Applying a retained replay sample back into the current scene.
@@ -32,6 +33,8 @@ Invariants:
     a typed command has arrived from the selected ImGui surface.
   - Causal restore completion must acknowledge the generation that issued it;
     an interrupted or superseded row cannot reveal stale detail.
+  - Causal contact geometry and body poses are copied from the selected solver
+    sample before BuildRestoreRequest can authorize a destructive branch reset.
 
 Related:
   - SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp
@@ -637,8 +640,10 @@ void ReplayRuntime::ApplyCauseInspectionTransition( const ReplayWorkspaceFrameIn
                 sources.solverSample->worldSnapshot.physics.persistentContacts,
                 sources.solverSample->worldSnapshot.physics.pipelineTrace,
             };
-            transition.PublishSolverDetail( transport.generation,
-                                            EvaluateReplayCauseSolverDetail( selectedRow, detailSeek, detailSource ) );
+            const ReplayCauseSolverDetailResult detail = EvaluateReplayCauseSolverDetail( selectedRow, detailSeek,
+                                                                                          detailSource );
+            transition.PublishSolverDetail( transport.generation, detail,
+                                            BuildReplayCauseContactPresentation( detail, *sources.solverSample ) );
         }
 
         (void)m_scrubberOwner.BuildRestoreRequest( sources, input.now, output.restoreRequest );

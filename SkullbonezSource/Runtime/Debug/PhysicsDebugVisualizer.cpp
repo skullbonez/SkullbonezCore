@@ -6,7 +6,8 @@ Purpose:
 Summary:
   Current-frame solver records become colored line primitives. Contact rows
   linger briefly for readability, while terrain probes draw the exact triangle
-  selected by the World terrain owner.
+  selected by the World terrain owner. Owned detached contact patches reuse the
+  same point, normal, and tangent glyphs plus event-pose axes without lingering.
 
 Glossary:
   Pipeline record: Bounded diagnostic breadcrumb emitted by one physics stage.
@@ -19,10 +20,13 @@ Invariants:
   - Diagnostic state never feeds physics, sleep, collision response, or terrain
     selection.
   - Terrain probes check bounds before asking Terrain for the selected polygon.
+  - Detached patch rendering clears and submits its own line batch; it does not
+    mutate the live-contact linger cache.
 
 Related:
   - SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.h
   - SkullbonezSource/Physics/PhysicsDebugData.h
+  - SkullbonezSource/Rendering/ContactManifoldPresentation.h
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/engine-glossary.md
 */
@@ -250,6 +254,19 @@ void PhysicsDebugVisualizer::EmitArrow( const Vector3& a, const Vector3& b, floa
     EmitLine( b, base - side * ( head * 0.45f ), r, g, bl );
 }
 
+void PhysicsDebugVisualizer::EmitContactGlyph( const ContactPointPresentation& point, float normalImpulse, float fade )
+{
+    const float size = 0.35f + (std::min)( point.penetration, 2.0f ) * 0.25f;
+    const float normalLen = 2.5f + (std::min)( point.penetration, 4.0f ) * 0.8f + (std::min)( normalImpulse, 8.0f ) * 0.08f;
+    const float pointRed = point.exactSourcePoint ? 1.0f : 1.0f;
+    const float pointGreen = point.exactSourcePoint ? 0.95f : 0.62f;
+
+    EmitCross( point.point, size, pointRed * fade, pointGreen * fade, 0.15f * fade );
+    EmitArrow( point.point, point.point + point.normal * normalLen, 0.0f, 0.9f * fade, 1.0f * fade );
+    EmitLine( point.point, point.point + point.tangent1 * 1.25f, 1.0f * fade, 0.45f * fade, 0.05f * fade );
+    EmitLine( point.point, point.point + point.tangent2 * 1.25f, 1.0f * fade, 0.45f * fade, 0.05f * fade );
+}
+
 void PhysicsDebugVisualizer::EmitRingXZ( const Vector3& center, float radius, float yOffset, float r, float g, float bl )
 {
     constexpr int segments = 24;
@@ -334,14 +351,14 @@ void PhysicsDebugVisualizer::EmitContacts( const PhysicsDebugFrameView& view )
     {
         const PhysicsDebugContact& contact = tracked.contact;
         const float fade = ContactFade( tracked );
-        float size = 0.35f + (std::min)( contact.penetration, 2.0f ) * 0.25f;
-        float normalLen = 2.5f + (std::min)( contact.penetration, 4.0f ) * 0.8f +
-                          (std::min)( contact.normalImpulse, 8.0f ) * 0.08f;
-
-        EmitCross( contact.point, size, 1.0f * fade, 0.95f * fade, 0.15f * fade );
-        EmitArrow( contact.point, contact.point + contact.normal * normalLen, 0.0f, 0.9f * fade, 1.0f * fade );
-        EmitLine( contact.point, contact.point + contact.tangent1 * 1.25f, 1.0f * fade, 0.45f * fade, 0.05f * fade );
-        EmitLine( contact.point, contact.point + contact.tangent2 * 1.25f, 1.0f * fade, 0.45f * fade, 0.05f * fade );
+        ContactPointPresentation point;
+        point.point = contact.point;
+        point.normal = contact.normal;
+        point.tangent1 = contact.tangent1;
+        point.tangent2 = contact.tangent2;
+        point.penetration = contact.penetration;
+        point.exactSourcePoint = true;
+        EmitContactGlyph( point, contact.normalImpulse, fade );
         const auto& bodies = view.bodies.Records();
         const auto hotFields = view.bodies.HotFields();
 
@@ -637,6 +654,47 @@ void PhysicsDebugVisualizer::Render( const PhysicsDebugFrameView& view, const Ma
     {
         // Why: DebugOverlayPass resolves renderer readiness once per frame; this
         // visualizer only owns physics diagnostic geometry.
+        renderCommands.DrawLinesColored( m_lineData, viewProj, PHYSICS_DEBUG_LINE_RASTER );
+    }
+}
+
+void PhysicsDebugVisualizer::RenderContactManifold( const ContactManifoldPresentation& presentation, const Matrix4& viewProj,
+                                                    Dx12GeometryOwner& renderCommands, bool supportsDebugLines )
+{
+    if ( !presentation.HasGeometry() || !supportsDebugLines )
+    {
+        return;
+    }
+
+    m_lineData.clear();
+
+    for ( uint8_t bodyIndex = 0; bodyIndex < presentation.bodyCount && bodyIndex < 2u; ++bodyIndex )
+    {
+        const ContactBodyPosePresentation& pose = presentation.bodies[bodyIndex];
+
+        if ( !pose.valid )
+        {
+            continue;
+        }
+
+        const RotationMatrix rotation = pose.orientation.GetOrientationMatrix();
+        EmitArrow( pose.position, pose.position + rotation * Vector3( 1.5f, 0.0f, 0.0f ), 1.0f, 0.05f, 0.04f );
+        EmitArrow( pose.position, pose.position + rotation * Vector3( 0.0f, 1.5f, 0.0f ), 0.05f, 0.9f, 0.12f );
+        EmitArrow( pose.position, pose.position + rotation * Vector3( 0.0f, 0.0f, 1.5f ), 0.08f, 0.35f, 1.0f );
+    }
+
+    if ( presentation.bodyCount == 2u && presentation.bodies[0].valid && presentation.bodies[1].valid )
+    {
+        EmitLine( presentation.bodies[0].position, presentation.bodies[1].position, 0.55f, 0.55f, 0.55f );
+    }
+
+    for ( uint8_t pointIndex = 0; pointIndex < presentation.pointCount; ++pointIndex )
+    {
+        EmitContactGlyph( presentation.points[pointIndex], 0.0f, 1.0f );
+    }
+
+    if ( !m_lineData.empty() )
+    {
         renderCommands.DrawLinesColored( m_lineData, viewProj, PHYSICS_DEBUG_LINE_RASTER );
     }
 }

@@ -1,14 +1,14 @@
 # Causal Event Inspection
 
 Date: 2026-08-15
-Status: Active. 4/9 tasks complete.
+Status: Active. 5/9 tasks complete.
 Impact area: Runtime/Planning operator surface, replay transport, camera
 arrival, contact manifold presentation, solver-detail availability,
 Rendering value contracts, tests
 Owner: Replay planning operator surface
-Priority: Active — C4 is next; C3 landed exact retained solver-detail
-availability without re-stepping or extending diagnostic lifetime. C4 owns the
-feature-neutral manifold presentation contract.
+Priority: Active — C5 is next; C4 landed the feature-neutral fixed-capacity
+manifold presentation contract and reused the existing contact-glyph path. C5
+owns the adjacent four-row solver-detail panel.
 
 ## Owner Direction
 
@@ -457,7 +457,7 @@ detail.
   `tools\validate_replay_visual_fidelity.bat` passed 2,401 ticks and every
   false-pass control. No baseline changed.
 
-- [ ] **C4 — Publish the manifold as a feature-neutral Rendering value contract.**
+- [x] **C4 — Publish the manifold as a feature-neutral Rendering value contract.**
   Present the two bodies' poses at the event frame and the full manifold — every
   contact point, the normal, both tangents, and penetration per point — through
   generic Rendering value contracts. `ObjectContactManifold` reduces to at
@@ -469,6 +469,26 @@ detail.
   is; Planning supplies layout, capacity, and presentation data. Reuse the
   existing contact debug presentation path where it already serves this, rather
   than adding a parallel submission route.
+
+  Landed 2026-08-17. `Rendering::ContactManifoldPresentation` owns two detached
+  event-frame body poses and eight fixed-capacity contact frames, covering the
+  four-point object maximum and the existing eight-point terrain maximum without
+  feature vocabulary or source borrows. Planning copies the complete selected
+  patch before restore may retire the solver ring, prefers exact retained
+  `ManifoldRow` point/normal/penetration values, and otherwise derives only a
+  surviving solver row's point from its exact body pose and contact arm; it
+  never reconstructs discarded candidates. `PhysicsDebugVisualizer` reuses its
+  existing point, normal, tangent, and body-axis line path without adding the
+  packet to the linger cache or requiring live physics-debug flags. Focused tests
+  passed 11 cases and 148 assertions. The strict reachability census removed
+  C3's now-production `HasDetail`, contact-row, and pipeline-row repair rulings;
+  C5 still owns the sole `Feedback` panel-text ruling. Touched-file comment audit
+  completed for all twelve source-bearing files, with no checklist required.
+  `tools\validate_dx12_renderer.bat` passed water and space exactly and solver
+  smoke at average diff 0.0003, maximum 33, seven pixels over 10;
+  `tools\run_graphics_stress.bat 1` completed normally; and
+  `tools\validate_replay_visual_fidelity.bat` passed 2,401 ticks plus every
+  false-pass control. No baseline changed.
 
 - [ ] **C5 — Add the adjacent solver-row detail panel.** Add the floating detail
   surface next to the manifold visual and show all available rows immediately,

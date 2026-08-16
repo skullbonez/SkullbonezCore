@@ -64,8 +64,8 @@
                        },
                        {
                            "key":  "DebugOverlayPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:393",
-                           "members":  10,
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:396",
+                           "members":  11,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render pass ruling",
                            "reason":  "Distinct concrete render-pass input; it is a pass boundary rather than a cross-domain authority bag.",
@@ -244,7 +244,7 @@
                        },
                        {
                            "key":  "ObjectPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:239",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:242",
                            "members":  16,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render pass ruling",
@@ -307,7 +307,7 @@
                        },
                        {
                            "key":  "ReflectionPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:280",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:283",
                            "members":  22,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render pass ruling",
@@ -325,7 +325,7 @@
                        },
                        {
                            "key":  "RenderResourceContext",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:225",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:228",
                            "members":  7,
                            "verdict":  "retain",
                            "owner":  "prior owner ruling carried by CA0",
@@ -379,7 +379,7 @@
                        },
                        {
                            "key":  "ReplayCauseTransportRequest",
-                           "site":  "SkullbonezSource/Runtime/Planning/ReplayCauseInspection.h:131",
+                           "site":  "SkullbonezSource/Runtime/Planning/ReplayCauseInspection.h:142",
                            "members":  4,
                            "verdict":  "retain",
                            "owner":  "C1 / Runtime/Planning",
@@ -694,7 +694,7 @@
                        },
                        {
                            "key":  "ShadowPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:410",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:414",
                            "members":  12,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render pass ruling",
@@ -730,7 +730,7 @@
                        },
                        {
                            "key":  "TerrainPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:264",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:267",
                            "members":  10,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render pass ruling",
@@ -766,7 +766,7 @@
                        },
                        {
                            "key":  "WaterPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:319",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:322",
                            "members":  13,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render pass ruling",

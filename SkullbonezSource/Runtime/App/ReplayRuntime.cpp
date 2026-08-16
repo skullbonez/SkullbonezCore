@@ -9,7 +9,8 @@ Summary:
   transactional restore, prediction, artifact, publication, and validation
   behavior without storing sibling backpointers inside those owners. During a
   causal transition it retains the source replay ring across intermediate
-  restores, then applies the normal reset only at the exact endpoint.
+  restores, then applies the normal reset only at the exact endpoint. Render
+  publication exposes Planning's detached contact packet only while detail is visible.
 
 Glossary:
   Branch: Child replay timeline created from a restored source frame.
@@ -31,6 +32,8 @@ Invariants:
     replay-owned scratch.
   - Intermediate causal restores cannot clear the timeline that owns their
     later exact-frame targets.
+  - The render frame receives only the owned generic contact packet, never the
+    Planning transition owner or borrowed solver diagnostics.
   - Tracy plots sample existing owner stats only; they never traverse retained
     payloads or influence replay state.
 
@@ -764,6 +767,7 @@ ReplayRenderFrameView ReplayRuntime::BuildRenderFrameView( const ReplayFrameSele
     const ReplaySolverFrameSample* solverSample = selection.replay.currentSolver;
     const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
     const ReplayInputView inputView = BuildInputView();
+    const ReplayCauseInspectionView causeInspection = m_planningOwner.CauseInspectionView();
     bool focusFadeActive = false;
 
     if ( !inputView.predictionEnabled && !collisionVisualizer && !debugTransparentBodyPass )
@@ -783,6 +787,7 @@ ReplayRenderFrameView ReplayRuntime::BuildRenderFrameView( const ReplayFrameSele
              ( presentationSample || solverSample ) ? nullptr : predictionFrame,
              &m_predictionOwner.PresentationOwner().PublishedVisualPacketView(),
              focusFadeActive ? &m_predictionOwner.PresentationOwner().FocusModelMaskView() : nullptr,
+             causeInspection.detailVisible ? causeInspection.contactPresentation : Rendering::ContactManifoldPresentation {},
              inputView.predictionEnabled,
              inputView.liveAdvanceHeld,
              focusFadeActive };

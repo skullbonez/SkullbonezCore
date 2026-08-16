@@ -9,6 +9,8 @@
 //   stable expired-frame refusal without consulting transient solver detail.
 //   Exact-frame detail tests then prove manifold-row grouping, stage joins, and
 //   distinct expired-versus-unavailable outcomes without retaining source data.
+//   Presentation tests pin event-frame body poses, exact ManifoldRow points,
+//   derived surviving-row points, and owned packet publication.
 //   The Planning transition tests also pin request coalescing, pause ownership,
 //   Space aftermath, total-elapsed cubic easing, symmetric discrete frame
 //   rounding, and saved-camera return policy without host owners.
@@ -18,6 +20,8 @@
 //   - Prediction rows require an exact published frame, including terrain-independent contact rows.
 //   - Missing pipeline detail never disables transport for a retained frame.
 //   - A current or coincident diagnostics row never substitutes for a mismatched frame stamp or row index.
+//   - Detached contact packets use exact retained points when present and derive
+//     only surviving rows when an exact point record is unavailable.
 //   - Forward and reverse transport are monotonic and land on the exact target.
 //
 // Related:
@@ -29,6 +33,7 @@
 
 #include "../SkullbonezSource/Runtime/Planning/ReplayCauseInspection.h"
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionView.h"
+#include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
 
 #include <array>
 #include <cstring>
@@ -243,6 +248,85 @@ TEST_CASE( "Replay cause solver detail: unavailable states never substitute diag
         const ReplayCauseSolverDetailResult detail = EvaluateReplayCauseSolverDetail( row, seek, { 84u, contacts, {} } );
         CHECK( detail.availability == ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable );
     }
+}
+
+TEST_CASE( "Replay cause manifold presentation: exact records and event poses form one owned packet" )
+{
+    using SkullbonezCore::Math::Vector::Vector3;
+    using SkullbonezCore::Physics::PhysicsPipelineRecord;
+    using SkullbonezCore::Physics::PhysicsPipelineStage;
+    using SkullbonezCore::Physics::PhysicsSolverPersistentContactSample;
+
+    RunReplayCauseTreeRow row;
+    row.kind = RunReplayCauseTreeRowKind::Manifold;
+    row.firstFrame = 84u;
+    row.modelRow.value = 3;
+    row.counterpartModelRow.value = 7;
+    row.contactIndex = 0;
+    row.featureId = 101;
+
+    ReplayCauseSeekResult seek;
+    seek.availability = ReplayCauseSeekAvailability::Available;
+    seek.source = ReplayCauseSeekSource::SolverHistory;
+    seek.frame = 84u;
+
+    std::array<PhysicsSolverPersistentContactSample, 2> contacts;
+    contacts[0].bodyA = 3;
+    contacts[0].bodyB = 7;
+    contacts[0].featureId = 101u;
+    contacts[0].rA = Vector3( 0.5f, 0.0f, 0.0f );
+    contacts[0].normal = Vector3( 0.0f, 1.0f, 0.0f );
+    contacts[0].tangent1 = Vector3( 1.0f, 0.0f, 0.0f );
+    contacts[0].tangent2 = Vector3( 0.0f, 0.0f, 1.0f );
+    contacts[0].penetration = 0.25f;
+    contacts[0].manifoldPointCount = 2u;
+    contacts[1] = contacts[0];
+    contacts[1].bodyA = 7;
+    contacts[1].bodyB = 3;
+    contacts[1].featureId = 102u;
+    contacts[1].rA = Vector3( -0.25f, 0.5f, 0.0f );
+    contacts[1].penetration = 0.5f;
+
+    PhysicsPipelineRecord exactPoint;
+    exactPoint.stage = PhysicsPipelineStage::ManifoldRow;
+    exactPoint.bodyA = 3;
+    exactPoint.bodyB = 7;
+    exactPoint.featureId = 101u;
+    exactPoint.point = Vector3( 4.0f, 5.0f, 6.0f );
+    exactPoint.normal = Vector3( 0.0f, 0.0f, 1.0f );
+    exactPoint.scalarA = 0.125f;
+    const std::array records = { exactPoint };
+
+    const ReplayCauseSolverDetailResult detail = EvaluateReplayCauseSolverDetail( row, seek, { 84u, contacts, records } );
+    REQUIRE( detail.HasDetail() );
+
+    ReplaySolverFrameSample sample;
+    sample.frameIndex = 84u;
+    sample.bodies.resize( 2u );
+    sample.bodies[0].modelRow.value = 3;
+    sample.bodies[0].position = Vector3( 10.0f, 20.0f, 30.0f );
+    sample.bodies[1].modelRow.value = 7;
+    sample.bodies[1].position = Vector3( 40.0f, 50.0f, 60.0f );
+
+    const SkullbonezCore::Rendering::ContactManifoldPresentation presentation =
+        BuildReplayCauseContactPresentation( detail, sample );
+    REQUIRE( presentation.HasGeometry() );
+    CHECK( presentation.bodyCount == 2u );
+    CHECK( presentation.pointCount == 2u );
+    CHECK( presentation.bodies[0].position.x == doctest::Approx( 10.0f ) );
+    CHECK( presentation.bodies[1].position.x == doctest::Approx( 40.0f ) );
+    CHECK( presentation.points[0].exactSourcePoint );
+    CHECK( presentation.points[0].point.x == doctest::Approx( 4.0f ) );
+    CHECK( presentation.points[0].normal.z == doctest::Approx( 1.0f ) );
+    CHECK( presentation.points[0].penetration == doctest::Approx( 0.125f ) );
+    CHECK_FALSE( presentation.points[1].exactSourcePoint );
+    CHECK( presentation.points[1].point.x == doctest::Approx( 39.75f ) );
+    CHECK( presentation.points[1].point.y == doctest::Approx( 50.5f ) );
+
+    ReplayCauseInspection inspection;
+    REQUIRE( inspection.Select( 4, seek, 88u, false, 1.0 ) );
+    inspection.PublishSolverDetail( inspection.View().generation, detail, presentation );
+    CHECK( inspection.View().contactPresentation.pointCount == 2u );
 }
 
 TEST_CASE( "Replay cause inspection: newest selection coalesces behind one in-flight restore" )

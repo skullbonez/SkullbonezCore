@@ -6,6 +6,7 @@ Purpose:
 Summary:
   Renderer-facing code samples one camera-lighting value, constructs focused
   pass inputs, and appends named callbacks to the live graph in image order.
+  Feature owners cross this boundary only through already-published generic values.
 
 Invariants:
   - The live RenderGraph owns pass order from world clear through late UI;
@@ -14,6 +15,8 @@ Invariants:
     framebuffers, shaders, and dynamic vertex buffers can own backend objects.
   - Pass input/output structs borrow data for one frame only. Do not cache
     pointers returned from ShadowPassOutput or ReflectionPassOutput consumers.
+  - Detached contact geometry reaches DebugOverlayPass as a Rendering value;
+    RuntimeRenderer does not inspect its feature origin.
   - UI-text scheduling executes frame metrics before one graph compile, then
     chrome, focused operator projection/submission, HUD overlay, Replay, and
     final flush callbacks in visual order. Font, timing, and ray-tracing
@@ -2264,7 +2267,8 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
                                                &m_resources.GpuTiming(),
                                                debugSnapshot,
                                                runtimeTools,
-                                               *replayFrame.visualPacket };
+                                               *replayFrame.visualPacket,
+                                               replayFrame.contactPresentation };
 
     const bool debugOverlayRendered = ExecuteDebugOverlayThroughRenderGraph( { debugInputs, useCinematicTarget } );
 

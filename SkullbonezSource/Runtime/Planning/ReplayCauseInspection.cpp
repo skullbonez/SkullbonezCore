@@ -9,7 +9,9 @@ Summary:
   bank; neither path guesses, clamps, or reconstructs a missing frame. The
   solver-detail projection scans only an explicitly stamped exact-frame source,
   groups every row in the selected manifold, and joins its retained pipeline
-  stages without allocating or retaining source borrows. The
+  stages without allocating or retaining source borrows. Before restore can
+  retire those borrows, Planning copies the event-frame body poses and every
+  bounded contact frame into a feature-neutral Rendering value. The
   transition owner derives a fixed cubic curve from total wall-clock elapsed,
   coalesces its discrete frame requests, rejects stale completion tokens, and
   publishes pause/return actions for App to apply through concrete owners.
@@ -26,6 +28,8 @@ Invariants:
   - Prediction matching is exact because publication may replace the frame bank.
   - Detail joins fail closed when the selected contact, identity, or source-frame
     stamp disagrees, while transport remains independently usable.
+  - Contact presentation fails closed when either body pose or the complete
+    bounded patch cannot be proven from the same solver frame.
   - Only the current generation may reveal detail or complete a return.
   - Forward and reverse transport round symmetrically and reach the exact target
     only at eased progress 1, independent of render cadence.
@@ -35,10 +39,12 @@ Related:
   - SkullbonezSource/Runtime/Planning/ReplayCauseInspection.h
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionView.h
   - SkullbonezSource/Physics/PhysicsDebugData.h
+  - SkullbonezSource/Rendering/ContactManifoldPresentation.h
 */
 #include "ReplayCauseInspection.h"
 
 #include "../Prediction/ReplayPredictionView.h"
+#include "../Replay/ReplayRecorder.h"
 
 #include <algorithm>
 
@@ -288,6 +294,98 @@ ReplayCauseSolverDetailResult EvaluateReplayCauseSolverDetail( const RunReplayCa
     return result;
 }
 
+Rendering::ContactManifoldPresentation BuildReplayCauseContactPresentation( const ReplayCauseSolverDetailResult& detail,
+                                                                            const ReplaySolverFrameSample& sample ) noexcept
+{
+    Rendering::ContactManifoldPresentation presentation;
+
+    // Invariant: a partial packet would claim to show the complete patch while
+    // silently dropping rows. Fail closed if the retained patch exceeds the
+    // generic Rendering capacity or belongs to another frame.
+    if ( !detail.HasDetail() || sample.frameIndex != detail.frame || detail.contactRowCount == 0u ||
+         detail.contactRowCount > Rendering::CONTACT_MANIFOLD_PRESENTATION_POINT_CAPACITY )
+    {
+        return presentation;
+    }
+
+    auto findBody = [&]( int modelRow ) -> const ReplaySolverBodySample*
+    {
+        const auto found = std::find_if( sample.bodies.begin(), sample.bodies.end(),
+                                         [&]( const ReplaySolverBodySample& body )
+                                         { return body.modelRow.value == modelRow; } );
+        return found == sample.bodies.end() ? nullptr : &*found;
+    };
+
+    auto publishBody = [&]( int modelRow, std::size_t presentationIndex ) -> bool
+    {
+        const ReplaySolverBodySample* body = findBody( modelRow );
+
+        if ( !body )
+        {
+            return false;
+        }
+
+        Rendering::ContactBodyPosePresentation& pose = presentation.bodies[presentationIndex];
+        pose.position = body->position;
+        pose.orientation = Math::Orientation::Quaternion( body->orientation[0], body->orientation[1], body->orientation[2],
+                                                          body->orientation[3] );
+        pose.valid = true;
+        ++presentation.bodyCount;
+        return true;
+    };
+
+    if ( !publishBody( detail.bodyA, 0u ) || ( !detail.terrain && !publishBody( detail.bodyB, 1u ) ) )
+    {
+        return Rendering::ContactManifoldPresentation {};
+    }
+
+    for ( std::size_t contactIndex = 0; contactIndex < detail.contactRowCount; ++contactIndex )
+    {
+        const Physics::PhysicsSolverPersistentContactSample* contact = detail.ContactRowAt( contactIndex );
+
+        if ( !contact )
+        {
+            return Rendering::ContactManifoldPresentation {};
+        }
+
+        const Physics::PhysicsPipelineRecord* manifoldRecord = nullptr;
+
+        // Prefer the original narrowphase point when that bounded record still
+        // exists. A missing record permits only the surviving solver row's own
+        // pose-plus-arm point; discarded candidates are never reconstructed.
+        for ( std::size_t pipelineIndex = 0; pipelineIndex < detail.pipelineRecordCount; ++pipelineIndex )
+        {
+            const Physics::PhysicsPipelineRecord* candidate = detail.PipelineRecordAt( pipelineIndex );
+
+            if ( candidate && candidate->stage == Physics::PhysicsPipelineStage::ManifoldRow &&
+                 candidate->featureId == contact->featureId )
+            {
+                manifoldRecord = candidate;
+                break;
+            }
+        }
+
+        Rendering::ContactPointPresentation& point = presentation.points[contactIndex];
+        const ReplaySolverBodySample* contactBodyA = findBody( contact->bodyA );
+
+        if ( !manifoldRecord && !contactBodyA )
+        {
+            return Rendering::ContactManifoldPresentation {};
+        }
+
+        point.point = manifoldRecord ? manifoldRecord->point : contactBodyA->position + contact->rA;
+        point.normal = manifoldRecord ? manifoldRecord->normal
+                                      : ( contact->isTerrain ? contact->terrainNormal : contact->normal );
+        point.tangent1 = contact->tangent1;
+        point.tangent2 = contact->tangent2;
+        point.penetration = manifoldRecord ? manifoldRecord->scalarA : contact->penetration;
+        point.exactSourcePoint = manifoldRecord != nullptr;
+        ++presentation.pointCount;
+    }
+
+    return presentation;
+}
+
 ReplayCauseSeekResult EvaluateReplayCauseSeek( const RunReplayCauseTreeRow& row, const ReplayRecorderStats& solverStats,
                                                std::span<const RunReplayPredictionFrame> predictionFrames ) noexcept
 {
@@ -358,6 +456,7 @@ bool ReplayCauseInspection::Select( int rowIndex, const ReplayCauseSeekResult& s
     m_state.solverDetailAvailability = ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable;
     m_state.solverDetailContactRowCount = 0u;
     m_state.solverDetailPipelineRecordCount = 0u;
+    m_state.contactPresentation = {};
     m_state.detailVisible = false;
     m_state.transportPending = false;
     m_state.easedProgress = 0.0f;
@@ -413,18 +512,20 @@ bool ReplayCauseInspection::TakeTransportRequest( ReplayCauseTransportRequest& o
     return true;
 }
 
-void ReplayCauseInspection::PublishSolverDetail( uint64_t generation, const ReplayCauseSolverDetailResult& detail ) noexcept
+void ReplayCauseInspection::PublishSolverDetail( uint64_t generation, const ReplayCauseSolverDetailResult& detail,
+                                                 const Rendering::ContactManifoldPresentation& contactPresentation ) noexcept
 {
     if ( generation == 0u || generation != m_state.generation || detail.frame != m_state.targetFrame )
     {
         return;
     }
 
-    // Lifetime: retain only scalar publication facts. The exact-frame spans
-    // belong to ReplayRecorder and are borrowed afresh by presentation.
+    // Lifetime: the source spans remain ReplayRecorder borrows. Only scalar
+    // facts and the small owned Rendering packet survive the restore.
     m_state.solverDetailAvailability = detail.availability;
     m_state.solverDetailContactRowCount = detail.contactRowCount;
     m_state.solverDetailPipelineRecordCount = detail.pipelineRecordCount;
+    m_state.contactPresentation = detail.HasDetail() ? contactPresentation : Rendering::ContactManifoldPresentation {};
 }
 
 void ReplayCauseInspection::CompleteTransport( uint64_t generation, bool succeeded ) noexcept

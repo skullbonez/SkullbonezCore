@@ -9,8 +9,8 @@ Summary:
   state together so later transport cannot silently clamp to a nearby frame.
   ReplayCauseInspection owns one selected-event transition generation, including
   the total-elapsed 1.5-second cubic progress sample, discrete request
-  coalescing, pause/return policy, and scalar publication of exact-frame solver
-  detail availability consumed by App composition.
+  coalescing, pause/return policy, exact-frame solver-detail availability, and
+  one owned feature-neutral contact packet consumed by App composition.
 
 Glossary:
   Seek source: Timeline bank that must contain the row's exact frame before
@@ -26,6 +26,8 @@ Invariants:
   - Solver-detail availability is independent of frame transport eligibility.
   - A detail join requires the exact row index, contact identity, and diagnostics
     frame stamp; current or nearest-frame records are never substituted.
+  - Contact presentation copies bounded values before restore may retire the
+    source ring; no source span survives in the transition state.
   - At most one transport request is in flight; a newer selection replaces the
     pending request and cannot be completed by an older generation.
   - The published eased sample is the single causal-transition clock consumed
@@ -37,12 +39,14 @@ Related:
   - SkullbonezSource/Runtime/Replay/ReplayAuthoringPackets.h
   - SkullbonezSource/Runtime/Replay/ReplayCapturePackets.h
   - SkullbonezSource/Physics/PhysicsSolverSnapshot.h
+  - SkullbonezSource/Rendering/ContactManifoldPresentation.h
 */
 #pragma once
 
 #include "../Replay/ReplayAuthoringPackets.h"
 #include "../Replay/ReplayCapturePackets.h"
 #include "../../Physics/PhysicsSolverSnapshot.h"
+#include "../../Rendering/ContactManifoldPresentation.h"
 
 #include <span>
 #include <cstdint>
@@ -50,6 +54,7 @@ Related:
 namespace SkullbonezCore::Runtime
 {
 struct RunReplayPredictionFrame;
+struct ReplaySolverFrameSample;
 
 enum class ReplayCauseSeekSource
 {
@@ -116,6 +121,12 @@ ReplayCauseSolverDetailResult EvaluateReplayCauseSolverDetail( const RunReplayCa
                                                                const ReplayCauseSeekResult& seek,
                                                                const ReplayCauseSolverDetailSource& source ) noexcept;
 
+// Projects exact-frame solver values into an owned, feature-neutral Rendering
+// packet. An empty packet means the frame, body rows, or bounded patch could not
+// be proven without reconstructing discarded source evidence.
+Rendering::ContactManifoldPresentation BuildReplayCauseContactPresentation( const ReplayCauseSolverDetailResult& detail,
+                                                                            const ReplaySolverFrameSample& sample ) noexcept;
+
 ReplayCauseSeekResult EvaluateReplayCauseSeek( const RunReplayCauseTreeRow& row, const ReplayRecorderStats& solverStats,
                                                std::span<const RunReplayPredictionFrame> predictionFrames ) noexcept;
 
@@ -150,6 +161,7 @@ struct ReplayCauseInspectionView
     int selectedRow = -1;
     std::size_t solverDetailContactRowCount = 0;
     std::size_t solverDetailPipelineRecordCount = 0;
+    Rendering::ContactManifoldPresentation contactPresentation;
     bool detailVisible = false;
     bool ownsPause = false;
     bool transportInFlight = false;
@@ -171,7 +183,8 @@ class ReplayCauseInspection
                  bool simulationAlreadyPaused, double nowSeconds ) noexcept;
     void Advance( double nowSeconds ) noexcept;
     bool TakeTransportRequest( ReplayCauseTransportRequest& outRequest ) noexcept;
-    void PublishSolverDetail( uint64_t generation, const ReplayCauseSolverDetailResult& detail ) noexcept;
+    void PublishSolverDetail( uint64_t generation, const ReplayCauseSolverDetailResult& detail,
+                              const Rendering::ContactManifoldPresentation& contactPresentation = {} ) noexcept;
     void CompleteTransport( uint64_t generation, bool succeeded ) noexcept;
     bool BeginAftermath( bool& outReleasePause ) noexcept;
     ReplayCauseExitAction BeginReturn() noexcept;

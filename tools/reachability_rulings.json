@@ -714,38 +714,11 @@
     },
     {
       "file": "SkullbonezSource/Runtime/Planning/ReplayCauseInspection.cpp",
-      "signature": "bool ReplayCauseSolverDetailResult::HasDetail() const noexcept",
-      "owner": "Causal Event Inspection solver-detail view",
-      "disposition": "repair-plan",
-      "reason": "C3 defines the typed borrowed detail view; C5 owns its production panel consumer and must remove this ruling when that caller lands.",
-      "evidence": "C3 focused tests exercise the availability predicate; current synchronized Automation/Debug/Profile census classifies it own-TU-and-test-only before the C5 panel exists.",
-      "plan": "Agentic/Plans/TODO/causal-event-inspection.md"
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Planning/ReplayCauseInspection.cpp",
       "signature": "const char* ReplayCauseSolverDetailResult::Feedback() const noexcept",
       "owner": "Causal Event Inspection solver-detail view",
       "disposition": "repair-plan",
       "reason": "C3 defines the stable unavailable/expired text seam; C5 owns its production panel consumer and must remove this ruling when that caller lands.",
       "evidence": "C3 focused tests pin both exact messages; current synchronized Automation/Debug/Profile census classifies it test-only before the C5 panel exists.",
-      "plan": "Agentic/Plans/TODO/causal-event-inspection.md"
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Planning/ReplayCauseInspection.cpp",
-      "signature": "const Physics::PhysicsSolverPersistentContactSample* ReplayCauseSolverDetailResult::ContactRowAt( std::size_t detailRow ) const noexcept",
-      "owner": "Causal Event Inspection solver-detail view",
-      "disposition": "repair-plan",
-      "reason": "C3 defines allocation-free exact-manifold row access; C5 owns its production panel consumer and must remove this ruling when that caller lands.",
-      "evidence": "C3 focused tests pin multiple matching rows and the bounded end condition; current synchronized Automation/Debug/Profile census classifies it test-only before the C5 panel exists.",
-      "plan": "Agentic/Plans/TODO/causal-event-inspection.md"
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Planning/ReplayCauseInspection.cpp",
-      "signature": "const Physics::PhysicsPipelineRecord* ReplayCauseSolverDetailResult::PipelineRecordAt( std::size_t detailRecord ) const noexcept",
-      "owner": "Causal Event Inspection solver-detail view",
-      "disposition": "repair-plan",
-      "reason": "C3 defines allocation-free retained-stage access; C5 owns its production panel consumer and must remove this ruling when that caller lands.",
-      "evidence": "C3 focused tests pin all six admitted stage families and the bounded end condition; current synchronized Automation/Debug/Profile census classifies it test-only before the C5 panel exists.",
       "plan": "Agentic/Plans/TODO/causal-event-inspection.md"
     },
     {
