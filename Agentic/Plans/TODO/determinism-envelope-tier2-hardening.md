@@ -1,11 +1,11 @@
 # Determinism Envelope Tier-2 Hardening
 
 Date: 2026-08-15
-Status: Active. 0/9 tasks complete.
+Status: Active. 1/9 tasks complete.
 Impact area: Maths transcendentals, Physics pose integration, ragdoll neck
 constraint, determinism tooling, portable CPU test target, CI lanes
 Owner: Physics determinism envelope
-Priority: Active — T0 through T2 and T5 through T8 are unblocked; T3 and T4
+Priority: Active — T1, T2, and T5 through T8 are unblocked; T3 and T4
 require an explicit owner baseline decision before any source edit.
 
 ## Owner Direction
@@ -177,7 +177,7 @@ violation if one exists.
 
 ## Phases
 
-- [ ] **T0 — Establish the pre-change envelope and CRT dispatch evidence.**
+- [x] **T0 — Establish the pre-change envelope and CRT dispatch evidence.**
   Record the current physics regression hashes and the exact toolchain from one
   authoritative Debug build. Determine empirically whether the statically linked
   UCRT `sinf`, `cosf`, and `acosf` dispatch on processor features, by
@@ -186,6 +186,40 @@ violation if one exists.
   results. Record the finding either way: it decides whether Gap 1 is a live
   tier-2 break or a latent one, and that distinction belongs in the plan before
   any behavior changes. No source edit.
+
+  Evidence (2026-08-17): the authoritative Debug executable at commit
+  `cea7683ea3efa8ac787fdecbf85408b98450b882` is
+  `B088D21FABA5E3BBDF9346635D09C720BCF0C6980A85F0D28EB8241133287D5D`
+  (SHA-256); its PDB is
+  `C836776A4A51CB286D25084C74945A0D4E5AAE187CE01FAD420126427681F38F`.
+  The varied-scene gate emitted two byte-identical 6,328,076-byte runs. Each
+  canonical run and the committed 44,401-line baseline hash to
+  `4DCE1BE8AD1DDE337281C7F37C25FCF3FD7B9268BCFE0B382FEFB4F85DFE69AA`;
+  the repeated output file hashes to
+  `4C7F3533A14A8D60F6E64B2B8244E262C929FD97C18E70695C3BCF133E1784C6`.
+  The authored scene hash is
+  `1D73FEF58565EB71C655780220DB771B88285DB35901F6BD6F3304A8C669355C`.
+
+  The build used Visual Studio 18.7.8/MSBuild 18.7.8.30822, platform toolset
+  v145, MSVC tools 14.51.36231, compiler 19.51.36248.0, linker
+  14.51.36248.0, Windows SDK 10.0.26100.0, `/MTd`, `/fp:precise`, and no
+  `/arch:` override. The linked `libucrtd.lib` hashes to
+  `082A3E21FF32BEEEE86864DA52FCAF861B80B09D80B4F77FDC0A39FF549AD0CB`.
+  The observation host is Windows 11 build 26200 on an AMD Ryzen Threadripper
+  3970X (32 cores, 64 logical processors).
+
+  LLVM 22.1.3 PDB symbols plus executable disassembly answer the dispatch
+  question affirmatively. The linked `__acrt_initialize_fma3` executes
+  `cpuid`, `xgetbv`, and `cpuid(7)` and stores processor-dependent values in
+  `__use_fma3_lib`. Linked `sinf` and `cosf` test that value: zero branches to
+  `sinf_sse2`/`cosf_sse2`, while nonzero stays in bodies containing explicit
+  `vfmadd*` instructions. Linked `acosf` masks the same value and dispatches
+  value 3 to `acosf_fma`, whose body contains `vfmsub*`/`vfmadd*`; other values
+  use the non-FMA body. This is a live tier-2 exposure, not merely a latent CRT
+  portability concern: one shipped binary chooses a different arithmetic
+  implementation from host CPU/OS feature state before the physics-reachable
+  call sites execute. T1 therefore owns removal even though this host's current
+  varied-scene output matches the tier-1 golden exactly.
 
 - [ ] **T1 — Add the deterministic transcendental owner with a byte-exact oracle.**
   Introduce one owner under `SkullbonezSource/Maths` providing

@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-17
-Status: Two active plans; 10/24 tasks complete
+Status: Two active plans; 11/24 tasks complete
 
 ## Owner Direction
 
@@ -21,7 +21,9 @@ Status: Two active plans; 10/24 tasks complete
   return, adds a portable CPU test target, and adds the cross-machine byte
   comparison that would observe a tier-2 envelope violation. T3 and T4 change
   physics output bits and are blocked on an explicit owner baseline decision;
-  every other task is unblocked.
+  every other task is unblocked. T0 proved the linked static UCRT selects FMA3
+  or non-FMA `sinf`, `cosf`, and `acosf` bodies from processor features, making
+  the tier-2 exposure live rather than merely latent.
 - Source Modernization Sweep is complete. No further work remains.
 - Dense Pile Sleep Resolution is complete by owner direction. No further work
   will be performed and no additional baseline or solver change is requested.
@@ -40,7 +42,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Determinism Envelope Tier-2 Hardening | `TIER2_DETERMINISM` | 9 | 0 | `TODO/determinism-envelope-tier2-hardening.md` |
+| Determinism Envelope Tier-2 Hardening | `TIER2_DETERMINISM` | 9 | 1 | `TODO/determinism-envelope-tier2-hardening.md` |
 | Catto Divergence Repairs | `CATTO_REPAIRS` | 6 | 1 | `TODO/catto-divergence-repairs.md` |
 
 ## Parked, Backlog, And Completed Plans
@@ -74,8 +76,8 @@ states elsewhere, and both are recorded rather than silently corrected:
 
 ## Binding Order
 
-1. `TIER2_DETERMINISM` T0, T1, T2 — establish the pre-change envelope, add the
-   deterministic transcendental owner, and add the math policy gate. Causal C2's
+1. `TIER2_DETERMINISM` T1, T2 — add the deterministic transcendental owner and
+   the math policy gate. Causal C2's
    presentation-only slerp becomes an explicit `retain-owner` site under T2; it
    does not block completing Causal first because it is not physics-reachable.
 2. `TIER2_DETERMINISM` T5 through T8 — portable target, test split, Linux
@@ -100,5 +102,5 @@ tests must pin field mapping and availability, not pre-Catto impulse values.
 
 ## Portfolio Progress
 
-10/24 tasks complete across two active plans. Causal C0-C8 and Catto CD0 are
-complete; Determinism T0 is the next selectable task.
+11/24 tasks complete across two active plans. Causal C0-C8, Determinism T0, and
+Catto CD0 are complete; Determinism T1 is the next selectable task.

@@ -2,13 +2,13 @@
 
 Date: 2026-08-17
 Branch: `codex/master-plan-2026-08-16`
-Status: Two active plans; 10/24 tasks complete
+Status: Two active plans; 11/24 tasks complete
 
 Determinism Envelope Tier-2 Hardening (9 tasks) and Catto Divergence Repairs
-(6 tasks) are registered under `Agentic/Plans/TODO/`; Causal C0-C8 and Catto CD0
-are complete. `MASTER-PLAN.md` carries the binding order, with Determinism T0
-next. The completed causal plan was deleted under the repository convention;
-Git history retains its phase evidence.
+(6 tasks) are registered under `Agentic/Plans/TODO/`; Causal C0-C8,
+Determinism T0, and Catto CD0 are complete. `MASTER-PLAN.md` carries the binding
+order, with Determinism T1 next. The completed causal plan was deleted under the
+repository convention; Git history retains its phase evidence.
 
 Replay Prediction Adversarial Repair completed on
 `codex/replay-prediction-adversarial-fixes` in two `REPLAY_ADVERSARIAL` commits.
@@ -49,9 +49,9 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-`TIER2_DETERMINISM` T0. Establish the pre-change determinism envelope and retain
-its artifacts before changing any physics-visible transcendental. Continue in
-the plan's recorded order, then run `CATTO_REPAIRS` CD1-CD5.
+`TIER2_DETERMINISM` T1. Add the single deterministic transcendental owner and
+its byte-pattern oracle without adopting it in Physics. Continue in the plan's
+recorded order, then run `CATTO_REPAIRS` CD1-CD5.
 `future_physics.md` remains unregistered.
 
 ## Blockers
