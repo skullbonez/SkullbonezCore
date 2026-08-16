@@ -7,6 +7,8 @@
 //   Recorded and predicted cause rows use different bounded timeline banks.
 //   These tests prove each row kind either resolves its exact frame or emits the
 //   stable expired-frame refusal without consulting transient solver detail.
+//   Exact-frame detail tests then prove manifold-row grouping, stage joins, and
+//   distinct expired-versus-unavailable outcomes without retaining source data.
 //   The Planning transition tests also pin request coalescing, pause ownership,
 //   Space aftermath, total-elapsed cubic easing, symmetric discrete frame
 //   rounding, and saved-camera return policy without host owners.
@@ -15,6 +17,7 @@
 //   - Retained-window boundaries are inclusive at the oldest frame and exclusive at the live edge.
 //   - Prediction rows require an exact published frame, including terrain-independent contact rows.
 //   - Missing pipeline detail never disables transport for a retained frame.
+//   - A current or coincident diagnostics row never substitutes for a mismatched frame stamp or row index.
 //   - Forward and reverse transport are monotonic and land on the exact target.
 //
 // Related:
@@ -114,6 +117,131 @@ TEST_CASE( "Replay cause inspection: prediction row kinds require an exact publi
         CHECK_FALSE( result.CanTransport() );
         CHECK( result.frame == 43u );
         CHECK( std::strcmp( result.Feedback(), "Replay frame expired" ) == 0 );
+    }
+}
+
+TEST_CASE( "Replay cause solver detail: exact frame publishes every row and matching pipeline stage" )
+{
+    RunReplayCauseTreeRow row;
+    row.kind = RunReplayCauseTreeRowKind::Manifold;
+    row.firstFrame = 84u;
+    row.modelRow.value = 3;
+    row.counterpartModelRow.value = 7;
+    row.contactIndex = 1;
+    row.featureId = 101;
+
+    ReplayCauseSeekResult seek;
+    seek.availability = ReplayCauseSeekAvailability::Available;
+    seek.source = ReplayCauseSeekSource::SolverHistory;
+    seek.frame = 84u;
+
+    std::array<SkullbonezCore::Physics::PhysicsSolverPersistentContactSample, 4> contacts;
+    contacts[0].bodyA = 1;
+    contacts[0].bodyB = 2;
+    contacts[0].featureId = 10u;
+    contacts[1].bodyA = 3;
+    contacts[1].bodyB = 7;
+    contacts[1].featureId = 101u;
+    contacts[2].bodyA = 7;
+    contacts[2].bodyB = 3;
+    contacts[2].featureId = 102u;
+    contacts[3].bodyA = 3;
+    contacts[3].bodyB = 8;
+    contacts[3].featureId = 103u;
+
+    using SkullbonezCore::Physics::PhysicsPipelineRecord;
+    using SkullbonezCore::Physics::PhysicsPipelineStage;
+    std::array<PhysicsPipelineRecord, 9> records;
+    records[0] = { .stage = PhysicsPipelineStage::ManifoldRow, .bodyA = 3, .bodyB = 7, .featureId = 101u };
+    records[1] = { .stage = PhysicsPipelineStage::WarmStart, .bodyA = 7, .bodyB = 3, .featureId = 102u };
+    records[2] = { .stage = PhysicsPipelineStage::SolverIteration, .bodyA = 3, .bodyB = 7, .featureId = 101u };
+    records[3] = { .stage = PhysicsPipelineStage::VelocityWriteback, .bodyA = 3 };
+    records[4] = { .stage = PhysicsPipelineStage::VelocityWriteback, .bodyA = 7 };
+    records[5] = { .stage = PhysicsPipelineStage::PositionCorrection, .bodyA = 3, .bodyB = 7, .featureId = 102u };
+    records[6] = { .stage = PhysicsPipelineStage::CacheStore, .bodyA = 3, .bodyB = 7, .featureId = 101u };
+    records[7] = { .stage = PhysicsPipelineStage::SolverIteration, .bodyA = 3, .bodyB = 8, .featureId = 103u };
+    records[8] = { .stage = PhysicsPipelineStage::BroadphaseCandidate, .bodyA = 3, .bodyB = 7, .featureId = 101u };
+
+    const ReplayCauseSolverDetailResult detail = EvaluateReplayCauseSolverDetail( row, seek, { 84u, contacts, records } );
+    REQUIRE( detail.HasDetail() );
+    CHECK( detail.availability == ReplayCauseSolverDetailAvailability::Available );
+    CHECK( detail.contactRowCount == 2u );
+    CHECK( detail.pipelineRecordCount == 7u );
+    REQUIRE( detail.ContactRowAt( 0u ) );
+    REQUIRE( detail.ContactRowAt( 1u ) );
+    CHECK( detail.ContactRowAt( 0u )->featureId == 101u );
+    CHECK( detail.ContactRowAt( 1u )->featureId == 102u );
+    CHECK( detail.ContactRowAt( 2u ) == nullptr );
+    CHECK( detail.PipelineRecordAt( 6u )->stage == PhysicsPipelineStage::CacheStore );
+    CHECK( detail.PipelineRecordAt( 7u ) == nullptr );
+    CHECK( std::strcmp( detail.Feedback(), "" ) == 0 );
+
+    ReplayCauseInspection inspection;
+    REQUIRE( inspection.Select( 4, seek, 88u, false, 1.0 ) );
+    inspection.PublishSolverDetail( inspection.View().generation, detail );
+    CHECK( inspection.View().solverDetailAvailability == ReplayCauseSolverDetailAvailability::Available );
+    CHECK( inspection.View().solverDetailContactRowCount == 2u );
+    CHECK( inspection.View().solverDetailPipelineRecordCount == 7u );
+}
+
+TEST_CASE( "Replay cause solver detail: unavailable states never substitute diagnostics" )
+{
+    RunReplayCauseTreeRow row;
+    row.kind = RunReplayCauseTreeRowKind::SolverRow;
+    row.firstFrame = 84u;
+    row.modelRow.value = 3;
+    row.counterpartModelRow.value = 7;
+    row.contactIndex = 0;
+    row.featureId = 101;
+
+    ReplayCauseSeekResult seek;
+    seek.availability = ReplayCauseSeekAvailability::Available;
+    seek.source = ReplayCauseSeekSource::SolverHistory;
+    seek.frame = 84u;
+
+    SkullbonezCore::Physics::PhysicsSolverPersistentContactSample contact;
+    contact.bodyA = 3;
+    contact.bodyB = 7;
+    contact.featureId = 101u;
+    const std::array contacts = { contact };
+
+    SUBCASE( "absent selected row" )
+    {
+        const ReplayCauseSolverDetailResult detail = EvaluateReplayCauseSolverDetail( row, seek, { 84u, {}, {} } );
+        CHECK_FALSE( detail.HasDetail() );
+        CHECK( detail.availability == ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable );
+        CHECK( std::strcmp( detail.Feedback(), "Solver detail not available" ) == 0 );
+    }
+
+    SUBCASE( "overwritten diagnostics carry a different frame stamp" )
+    {
+        const ReplayCauseSolverDetailResult detail = EvaluateReplayCauseSolverDetail( row, seek, { 85u, contacts, {} } );
+        CHECK_FALSE( detail.HasDetail() );
+        CHECK( detail.availability == ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable );
+        CHECK( detail.contactRowCount == 0u );
+    }
+
+    SUBCASE( "coincident row at the wrong index is not searched by feature" )
+    {
+        row.contactIndex = 1;
+        const ReplayCauseSolverDetailResult detail = EvaluateReplayCauseSolverDetail( row, seek, { 84u, contacts, {} } );
+        CHECK_FALSE( detail.HasDetail() );
+    }
+
+    SUBCASE( "expired transport remains distinct from retained detail absence" )
+    {
+        seek.availability = ReplayCauseSeekAvailability::ReplayFrameExpired;
+        const ReplayCauseSolverDetailResult detail = EvaluateReplayCauseSolverDetail( row, seek, { 84u, contacts, {} } );
+        CHECK( detail.availability == ReplayCauseSolverDetailAvailability::ReplayFrameExpired );
+        CHECK( std::strcmp( detail.Feedback(), "Replay frame expired" ) == 0 );
+    }
+
+    SUBCASE( "prediction contact has no retained solver diagnostics" )
+    {
+        row.prediction = true;
+        seek.source = ReplayCauseSeekSource::Prediction;
+        const ReplayCauseSolverDetailResult detail = EvaluateReplayCauseSolverDetail( row, seek, { 84u, contacts, {} } );
+        CHECK( detail.availability == ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable );
     }
 }
 

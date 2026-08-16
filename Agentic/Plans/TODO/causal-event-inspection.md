@@ -1,14 +1,14 @@
 # Causal Event Inspection
 
 Date: 2026-08-15
-Status: Active. 3/9 tasks complete.
+Status: Active. 4/9 tasks complete.
 Impact area: Runtime/Planning operator surface, replay transport, camera
 arrival, contact manifold presentation, solver-detail availability,
 Rendering value contracts, tests
 Owner: Replay planning operator surface
-Priority: Active — C3 is next; C2 landed the shared 1.5-second curve,
-true-slerp arrival, continuing orbit/follow path, and intermediate source-ring
-preservation. C3 owns exact retained solver-detail availability.
+Priority: Active — C4 is next; C3 landed exact retained solver-detail
+availability without re-stepping or extending diagnostic lifetime. C4 owns the
+feature-neutral manifold presentation contract.
 
 ## Owner Direction
 
@@ -429,7 +429,7 @@ detail.
   drift only when normalized config bytes equal the baseline's recorded capture
   commit. No baseline changed.
 
-- [ ] **C3 — Define and implement solver-detail availability.** Read every
+- [x] **C3 — Define and implement solver-detail availability.** Read every
   `PhysicsSolverPersistentContactSample` associated with the selected contact
   from the exact restored solver frame. Join `ManifoldRow`, `WarmStart`,
   `SolverIteration`, `VelocityWriteback`, `PositionCorrection`, and `CacheStore`
@@ -440,6 +440,22 @@ detail.
   the preceding frame, re-simulate, or add long-lived per-iteration recording.
   Pin multiple contact rows, absent rows, overwritten diagnostics, and mismatched
   frame stamps.
+
+  Landed 2026-08-17. `ReplayCauseSolverDetailSource` borrows exact-frame
+  persistent contact and solver-pipeline spans without allocation, while
+  `EvaluateReplayCauseSolverDetail` validates the indexed contact identity,
+  gathers every row for the selected body pair/manifold, and joins only the six
+  named diagnostic stage families. The typed result distinguishes available,
+  overwritten/mismatched `Solver detail not available`, and expired transport;
+  prediction never claims replay solver evidence. Focused tests pin multiple
+  rows, exact-index refusal, all stage joins and exclusions, overwritten stamps,
+  absent detail, prediction, and scalar state publication. Four result accessors
+  carry temporary `repair-plan` reachability rulings that C5 must remove when
+  its production panel consumes them. `tools\validate_full.bat` passed 554 cases
+  and 2,479,481 assertions, the 44,401-line byte-exact physics baseline, DX12,
+  Automation, dependency, ownership, reachability, and coverage gates;
+  `tools\validate_replay_visual_fidelity.bat` passed 2,401 ticks and every
+  false-pass control. No baseline changed.
 
 - [ ] **C4 — Publish the manifold as a feature-neutral Rendering value contract.**
   Present the two bodies' poses at the event frame and the full manifold — every

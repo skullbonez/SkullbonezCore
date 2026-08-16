@@ -2,11 +2,11 @@
 
 Date: 2026-08-17
 Branch: `codex/master-plan-2026-08-16`
-Status: Three active plans; 4/24 tasks complete
+Status: Three active plans; 5/24 tasks complete
 
 Causal Event Inspection (9 tasks), Determinism Envelope Tier-2 Hardening
 (9 tasks), and Catto Divergence Repairs (6 tasks) are registered under
-`Agentic/Plans/TODO/`; Causal C0-C2 and Catto CD0 are complete. `MASTER-PLAN.md`
+`Agentic/Plans/TODO/`; Causal C0-C3 and Catto CD0 are complete. `MASTER-PLAN.md`
 carries the binding order, with Causal first by owner direction on 2026-08-16.
 
 Replay Prediction Adversarial Repair completed on
@@ -48,12 +48,14 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-`CAUSAL_INSPECT` C3. Define exact retained solver-detail availability for the
-restored event frame, joining only matching diagnostic stamps and distinguishing
-available detail, overwritten `Solver detail not available`, and expired-frame
-transport refusal. C4-C8 then add manifold presentation, the four-row scrolling
-panel, lifecycle and cost evidence, and final tests/review. Missing detail is
-reported rather than regenerated.
+`CAUSAL_INSPECT` C4. Publish both event-frame body poses and every reduced
+manifold point through a small fixed-capacity, feature-neutral Rendering value
+contract, reusing the contact-debug presentation path where it already fits.
+Planning owns layout and presentation meaning; Rendering must not learn causal
+feature vocabulary. C5-C8 then add the four-row scrolling panel, lifecycle and
+cost evidence, and final tests/review. C5 must replace C3's four temporary
+solver-result accessor `repair-plan` reachability rulings with production panel
+callers.
 
 After all of `CAUSAL_INSPECT`, run `TIER2_DETERMINISM` in its recorded order,
 then `CATTO_REPAIRS` CD1-CD5. `future_physics.md` remains unregistered.

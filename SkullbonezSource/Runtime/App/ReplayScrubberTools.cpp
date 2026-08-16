@@ -620,6 +620,27 @@ void ReplayRuntime::ApplyCauseInspectionTransition( const ReplayWorkspaceFrameIn
 
         ReplayScrubberRestoreSources sources;
         sources.solverSample = CurrentSolverScrubSample();
+
+        // Lifetime: the final branch reset may retire the source ring. Resolve
+        // stamped diagnostics while the exact selected sample is still borrowed;
+        // Planning retains only scalar availability facts for this generation.
+        RunReplayCauseTreeRow selectedRow;
+
+        if ( sources.solverSample && m_authoring.TryGetCauseTreeRow( view.selectedRow, selectedRow ) )
+        {
+            ReplayCauseSeekResult detailSeek;
+            detailSeek.frame = selectedRow.firstFrame;
+            detailSeek.source = ReplayCauseSeekSource::SolverHistory;
+            detailSeek.availability = ReplayCauseSeekAvailability::Available;
+            const ReplayCauseSolverDetailSource detailSource {
+                sources.solverSample->frameIndex,
+                sources.solverSample->worldSnapshot.physics.persistentContacts,
+                sources.solverSample->worldSnapshot.physics.pipelineTrace,
+            };
+            transition.PublishSolverDetail( transport.generation,
+                                            EvaluateReplayCauseSolverDetail( selectedRow, detailSeek, detailSource ) );
+        }
+
         (void)m_scrubberOwner.BuildRestoreRequest( sources, input.now, output.restoreRequest );
 
         if ( output.restoreRequest.kind != ReplayLiveRestoreKind::None )
@@ -652,6 +673,19 @@ void ReplayRuntime::ApplyCauseInspectionTransition( const ReplayWorkspaceFrameIn
     m_scrubberOwner.SelectTrack( RunReplayTrack::Solver );
     m_scrubberOwner.SetTrackPosition( RunReplayTrack::Solver, trackT );
     m_scrubberOwner.SetHistoricalSamplePaused( true );
+    ReplayCauseSeekResult predictionSeek;
+    predictionSeek.frame = transport.targetFrame;
+    predictionSeek.source = ReplayCauseSeekSource::Prediction;
+    predictionSeek.availability = ReplayCauseSeekAvailability::Available;
+    RunReplayCauseTreeRow selectedRow;
+
+    if ( m_authoring.TryGetCauseTreeRow( view.selectedRow, selectedRow ) )
+    {
+        transition.PublishSolverDetail( transport.generation,
+                                        EvaluateReplayCauseSolverDetail( selectedRow, predictionSeek,
+                                                                         { transport.targetFrame, {}, {} } ) );
+    }
+
     transition.CompleteTransport( transport.generation, true );
 }
 
