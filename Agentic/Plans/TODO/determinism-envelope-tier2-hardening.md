@@ -238,6 +238,25 @@ violation if one exists.
   determinism oracle is wanted here it is a separate Linux-envelope baseline with
   its own provenance.
 
+  **ASan already exists on Windows; scope this task around what does not.**
+  `.github/workflows/native-diagnostics.yml` runs MSVC AddressSanitizer against
+  the full CPU suite every Monday, driven by
+  `tools/validate_native_diagnostics.py`. It proves the detector with an injected
+  use-after-free before running real code. This plan was written without
+  referencing that lane, so read T7's ASan mention as a second opinion rather
+  than new coverage: MSVC supports AddressSanitizer and nothing else, so **TSan
+  and UBSan are the only sanitizers Linux uniquely provides**, and TSan is the
+  reason the lane is worth building. Note also the coverage direction — T6's
+  portable target is a *subset* of the suite the Windows lane already covers, so
+  Linux ASan would test less code under a different ASan implementation. Decide
+  that trade deliberately (Open Question 5) rather than inheriting it.
+
+  Sequencing note: as of 2026-08-15 the existing ASan lane has failed four
+  consecutive scheduled runs (last green 2026-07-13) with one doctest case and
+  four assertions failing. Do not stand up a second sanitizer lane that copies
+  its reporting approach; a scheduled sanitizer job whose red runs cannot be read
+  manufactures the appearance of coverage.
+
 - [ ] **T8 — Add cross-machine byte evidence to the hosted Windows lane.**
   Extend `.github/workflows/mandatory-cpu-validation.yml` so the physics
   regression comparison executes on the hosted `windows-latest` fleet, whose
@@ -308,3 +327,10 @@ Resolve these inside the owning phase; do not treat them as settled.
 4. Does removing the `omegaMag > 0.0001f` branch change sleep or wake behavior
    for near-stationary bodies? This must be measured, not assumed, before the T3
    baseline transition is presented.
+5. Should the Linux lane run ASan at all, given
+   `.github/workflows/native-diagnostics.yml` already runs MSVC ASan over a
+   superset of T6's portable target? The case for keeping it is that Clang's and
+   MSVC's ASan implementations do not catch identical defects; the case against
+   is runtime cost and a second red lane to watch for a marginal second opinion.
+   T7 decides and records the reason. TSan and UBSan are not in question — MSVC
+   provides neither, and they are the lane's actual justification.
