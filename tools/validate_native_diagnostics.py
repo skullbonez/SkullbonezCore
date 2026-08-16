@@ -50,6 +50,12 @@ SUPPRESSION_PATH = REPO / "tools" / "native_diagnostics_suppressions.json"
 VSWHERE = Path(r"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe")
 MAX_LOG_CHARS = 240_000
 LOG_HEAD_CHARS = 160_000
+# Why: a failing lane must print the failure itself, not an arbitrary window of
+# whatever ran last. doctest emits nothing for a passing assertion, so with
+# per-case duration reporting off the test output is only failing assertions
+# plus the summary, and this budget surfaces it whole in the common case.
+FAILURE_EXCERPT_CHARS = 24_000
+FAILURE_EXCERPT_HEAD_CHARS = 16_000
 WARNING_PATTERN = re.compile(
     r"^(?P<path>.+?)\((?P<line>\d+)(?:,\d+)?\):\s+warning\s+(?P<code>C\d+):\s*(?P<message>.*)$",
     re.MULTILINE | re.IGNORECASE,
@@ -82,6 +88,18 @@ def bounded_text(text: str) -> str:
     # Invariant: the marker consumes part of the fixed log budget; otherwise
     # a file advertised as capped at MAX_LOG_CHARS would exceed that cap.
     return text[:LOG_HEAD_CHARS] + marker + text[-tail_chars:]
+
+
+def failure_excerpt(text: str) -> str:
+    # Invariant: the first failure and the trailing summary must both survive.
+    # A tail-only slice loses the first failure whenever several cases fail, and
+    # a head-only slice loses the doctest summary that says how many did.
+    if len(text) <= FAILURE_EXCERPT_CHARS:
+        return text
+    tail_chars = FAILURE_EXCERPT_CHARS - FAILURE_EXCERPT_HEAD_CHARS
+    omitted = len(text) - FAILURE_EXCERPT_HEAD_CHARS - tail_chars
+    marker = f"\n\n[validate_native_diagnostics omitted {omitted} characters]\n\n"
+    return text[:FAILURE_EXCERPT_HEAD_CHARS] + marker + text[-tail_chars:]
 
 
 def display_path(path: Path) -> str:
@@ -372,6 +390,28 @@ def run_self_tests() -> list[str]:
         or int(marker_match.group(1)) <= 100
     ):
         failures.append("bounded log did not retain the expected head/tail marker")
+
+    short_failure = "FAILED: one case\n[doctest] Status: FAILURE!"
+    if failure_excerpt(short_failure) != short_failure:
+        failures.append("failure excerpt truncated output that fits the budget")
+
+    # A red run must show the first failure and the trailing summary, which is
+    # exactly what the previous tail-only slice could not do.
+    long_failure = "FIRST_FAILURE\n" + ("x" * FAILURE_EXCERPT_CHARS) + "\n[doctest] Status: FAILURE!"
+    excerpt = failure_excerpt(long_failure)
+    excerpt_match = re.search(r"\n\n\[validate_native_diagnostics omitted (\d+) characters\]\n\n", excerpt)
+    if excerpt_match is None:
+        failures.append("failure excerpt did not emit an omission marker")
+    else:
+        # Unlike bounded_text, the marker is additive here: this is console
+        # output, not a file advertising a fixed cap, so the kept head and tail
+        # are each exactly their budget.
+        expected_length = FAILURE_EXCERPT_CHARS + len(excerpt_match.group(0))
+        omitted_characters = len(long_failure) - FAILURE_EXCERPT_CHARS
+        if len(excerpt) != expected_length or int(excerpt_match.group(1)) != omitted_characters:
+            failures.append("failure excerpt did not retain the expected head/tail budget")
+    if not excerpt.startswith("FIRST_FAILURE") or not excerpt.endswith("[doctest] Status: FAILURE!"):
+        failures.append("failure excerpt dropped the first failure or the summary")
     return failures
 
 
@@ -414,7 +454,7 @@ def evaluate_warnings(warnings: Iterable[dict[str, str]], suppressions: list[dic
     )
 
 
-def run_asan_tests(msbuild: Path) -> float:
+def run_asan_tests(msbuild: Path, *, report_durations: bool = False) -> float:
     project = REPO / "SKULLBONEZ_TESTS.vcxproj"
     toolset = choose_toolset(msbuild, project)
     props = ARTIFACT_ROOT / "asan" / "asan_settings.props"
@@ -439,15 +479,23 @@ def run_asan_tests(msbuild: Path) -> float:
     if not executable.exists():
         raise NativeDiagnosticsError(f"AddressSanitizer test executable was not produced: {executable}")
     asan_env = asan_runtime_environment(msbuild)
+    # Hazard: --duration=true makes doctest print a header and timing block for
+    # every test case, passing or not. At 527 cases that is roughly 180 KB of
+    # pass-noise per run, which pushed the actual failure out of every bounded
+    # excerpt and left four consecutive red scheduled runs undiagnosable. Keep it
+    # opt-in: without it doctest reports only failing assertions and the summary.
+    test_command = [str(executable)]
+    if report_durations:
+        test_command.append("--duration=true")
     run_code, run_output, run_elapsed = run_logged(
         "ASan CPU-test run",
-        [str(executable), "--duration=true"],
+        test_command,
         ARTIFACT_ROOT / "asan" / "run.log",
         env=asan_env,
         timeout_seconds=300,
     )
     if run_code != 0 or "AddressSanitizer" in run_output:
-        print(run_output[-6000:])
+        print(failure_excerpt(run_output))
         raise NativeDiagnosticsError("AddressSanitizer CPU tests reported a failure.")
     return build_elapsed + run_elapsed
 
@@ -630,6 +678,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help="Generate a temporary heap-use-after-free fixture and require ASan to catch it.",
     )
+    parser.add_argument(
+        "--test-durations",
+        action="store_true",
+        help="Report per-test-case timings. Off by default because the per-case "
+        "output buries the failure a red run exists to show.",
+    )
     return parser.parse_args(argv)
 
 
@@ -656,7 +710,7 @@ def main(argv: list[str]) -> int:
             proof_elapsed = run_asan_proof_fixture(msbuild)
             print(f"  ASan detector proof: {proof_elapsed:.3f}s")
         if args.lane in ("all", "asan"):
-            asan_elapsed = run_asan_tests(msbuild)
+            asan_elapsed = run_asan_tests(msbuild, report_durations=args.test_durations)
             print(f"  Healthy ASan CPU lane: {asan_elapsed:.3f}s")
         if args.lane in ("all", "static-analysis"):
             static_elapsed = run_static_analysis(msbuild)
