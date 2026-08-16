@@ -7,7 +7,9 @@ Summary:
   Run still stores the camera shelf, but camera/input/director helpers consume
   this named aggregate instead of reaching through the shared RunState staging
   header. The shelf records operator intent and presentation timers; camera pose
-  authority remains inside CameraCollection.
+  authority remains inside CameraCollection. A cached config-derived mouse
+  scale lets the earlier replay turn interpret the same raw deltas without
+  reopening configuration ownership.
 
 Glossary:
   Operator camera mode: Current user-facing workspace such as Demo, Inspect,
@@ -80,6 +82,7 @@ struct CameraControlState
     POINT mouseLookLastClient = {};
     bool mouseLookOwnsCursor = false;                          // Resolved post-UI pointer policy captured with this frame's camera input.
     float travelSpeedMultiplier = 1.0f;                        // Captured Shift modifier; late camera update never reopens device state.
+    float mouseRadiansPerPixel = ( 1.0f / 60.0f ) * 0.2f;      // Last applied config sample reused by the earlier replay input turn.
     float cameraTime = 0.0f;                                   // Camera helper clock
     Physics::ModelRowHint trackBallRow;                        // Cache for camera tracking; never object identity.
     float trackHeight = 300.0f;                                // Camera height above tracked ball

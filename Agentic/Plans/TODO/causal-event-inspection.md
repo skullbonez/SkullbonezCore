@@ -1,14 +1,14 @@
 # Causal Event Inspection
 
 Date: 2026-08-15
-Status: Active. 2/9 tasks complete.
+Status: Active. 3/9 tasks complete.
 Impact area: Runtime/Planning operator surface, replay transport, camera
 arrival, contact manifold presentation, solver-detail availability,
 Rendering value contracts, tests
 Owner: Replay planning operator surface
-Priority: Active — C2 is next; C1 landed the dedicated camera slot, exact-frame
-transport generation, pause/aftermath policy, and return paths. C2 owns the
-shared 1.5-second curve, true-slerp arrival, and continuing orbit/follow path.
+Priority: Active — C3 is next; C2 landed the shared 1.5-second curve,
+true-slerp arrival, continuing orbit/follow path, and intermediate source-ring
+preservation. C3 owns exact retained solver-detail availability.
 
 ## Owner Direction
 
@@ -361,7 +361,7 @@ detail.
   `tools\validate_replay_visual_fidelity.bat` (2,401 ticks, 200 causal nodes,
   181 toppled wall bricks, and every false-pass control). No baseline changed.
 
-- [ ] **C2 — Share one frame-independent power curve with camera arrival.**
+- [x] **C2 — Share one frame-independent power curve with camera arrival.**
   Replace the current recursive camera progress update with the owner-ratified
   finite-duration ease-out curve. A Planning transition owns elapsed time and
   publishes one eased progress value; replay-frame interpolation and
@@ -408,6 +408,26 @@ detail.
   reorientations. A near-parallel numerical fallback may use normalized-lerp,
   but nlerp is not the general interpolation policy. See the cross-plan note
   above for the required determinism ruling and presentation-only placement.
+
+  Evidence (2026-08-17): `ReplayCauseInspection` now derives one cubic
+  ease-out sample from total elapsed wall time and uses symmetric monotonic
+  integer-frame selection with exact endpoint landing. App publishes that same
+  sample to `CameraCollection`, coalesces intermediate restores without clearing
+  their source replay ring, and performs the normal branch reset only at the
+  target. Camera arrival linearly interpolates eye and look distance, true-slerps
+  normalized direction with clamped-dot parallel/antipodal fallbacks, re-derives
+  a finite up basis, and keeps a live destination without restarting the entry
+  tween. `AttachedCameraController` remains the sole fixed-relative follow/orbit
+  owner, temporarily suspending and restoring ordinary Attach state while raw
+  mouse and wheel input continue through transition, detail pause, and aftermath.
+  Focused cadence, forward/reverse, coalescing, slerp, antipodal, and endpoint
+  cases passed within 552 tests and 2,479,455 assertions. `tools\validate_full.bat`
+  passed all CPU/coverage/Automation/DX12/physics phases;
+  `tools\validate_replay_visual_fidelity.bat` passed 2,401 ticks and every
+  false-pass control; and `tools\validate_physics.bat` retained the 44,401-line
+  byte-exact baseline. The visual provenance checker now tolerates line-ending
+  drift only when normalized config bytes equal the baseline's recorded capture
+  commit. No baseline changed.
 
 - [ ] **C3 — Define and implement solver-detail availability.** Read every
   `PhysicsSolverPersistentContactSample` associated with the selected contact

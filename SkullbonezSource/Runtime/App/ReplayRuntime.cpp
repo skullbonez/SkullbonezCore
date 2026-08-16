@@ -7,7 +7,9 @@ Summary:
   ReplayRuntime is the application composition boundary between concrete
   Replay, Prediction, and Planning owners. It orders workspace input,
   transactional restore, prediction, artifact, publication, and validation
-  behavior without storing sibling backpointers inside those owners.
+  behavior without storing sibling backpointers inside those owners. During a
+  causal transition it retains the source replay ring across intermediate
+  restores, then applies the normal reset only at the exact endpoint.
 
 Glossary:
   Branch: Child replay timeline created from a restored source frame.
@@ -27,6 +29,8 @@ Invariants:
     stay beside each other.
   - Scene and branch reset edges wait for prediction workers before clearing
     replay-owned scratch.
+  - Intermediate causal restores cannot clear the timeline that owns their
+    later exact-frame targets.
   - Tracy plots sample existing owner stats only; they never traverse retained
     payloads or influence replay state.
 
@@ -1161,6 +1165,17 @@ ReplaySceneTimelineResetResult ReplayRuntime::BeginSceneTimelineReset( const Rep
 ReplaySceneTimelineResetResult ReplayRuntime::FinishSceneTimelineReset( const ReplaySceneTimelineResetInput& input )
 {
     ReplaySceneTimelineResetResult result;
+
+    if ( input.preserveReplaySourceTimeline )
+    {
+        // Invariant: synchronized causal transport may restore several
+        // coalesced intermediate frames. Keep the retained source ring and
+        // loaded cursor intact until the Planning transition reaches its exact
+        // endpoint; resetting here would erase every later restore target.
+        m_authoring.ResetVelocityEdit();
+        return result;
+    }
+
     m_timeline.ClearLoadedPresentation();
 
     if ( !input.preserveReplayInspection )

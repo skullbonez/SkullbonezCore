@@ -7,7 +7,8 @@ Summary:
   Recorded rows are valid only inside the solver recorder's current bounded
   window. Prediction rows require an exact frame match in the published frame
   bank; neither path guesses, clamps, or reconstructs a missing frame. The
-  transition owner coalesces row requests, rejects stale completion tokens, and
+  transition owner derives a fixed cubic curve from total wall-clock elapsed,
+  coalesces its discrete frame requests, rejects stale completion tokens, and
   publishes pause/return actions for App to apply through concrete owners.
 
 Glossary:
@@ -19,6 +20,8 @@ Invariants:
   - Recorder statistics describe a contiguous half-open frame range.
   - Prediction matching is exact because publication may replace the frame bank.
   - Only the current generation may reveal detail or complete a return.
+  - Forward and reverse transport round symmetrically and reach the exact target
+    only at eased progress 1, independent of render cadence.
   - Planning publishes pause actions but never mutates Replay or camera owners directly.
 
 Related:
@@ -36,6 +39,34 @@ namespace SkullbonezCore::Runtime
 namespace
 {
 constexpr const char* REPLAY_FRAME_EXPIRED_FEEDBACK = "Replay frame expired";
+constexpr double REPLAY_CAUSE_TRANSITION_SECONDS = 1.5;
+} // namespace
+
+float EvaluateReplayCauseTransitionProgress( double elapsedSeconds ) noexcept
+{
+    const double u = std::clamp( elapsedSeconds / REPLAY_CAUSE_TRANSITION_SECONDS, 0.0, 1.0 );
+    const double remaining = 1.0 - u;
+    return static_cast<float>( 1.0 - remaining * remaining * remaining );
+}
+
+ReplayFrameIndex EvaluateReplayCauseTransitionFrame( ReplayFrameIndex sourceFrame, ReplayFrameIndex targetFrame,
+                                                     float easedProgress ) noexcept
+{
+    const double progress = std::clamp( static_cast<double>( easedProgress ), 0.0, 1.0 );
+
+    if ( progress >= 1.0 )
+    {
+        return targetFrame;
+    }
+
+    if ( sourceFrame <= targetFrame )
+    {
+        const ReplayFrameIndex distance = targetFrame - sourceFrame;
+        return sourceFrame + static_cast<ReplayFrameIndex>( static_cast<double>( distance ) * progress );
+    }
+
+    const ReplayFrameIndex distance = sourceFrame - targetFrame;
+    return sourceFrame - static_cast<ReplayFrameIndex>( static_cast<double>( distance ) * progress );
 }
 
 bool ReplayCauseSeekResult::CanTransport() const noexcept
@@ -82,7 +113,7 @@ ReplayCauseSeekResult EvaluateReplayCauseSeek( const RunReplayCauseTreeRow& row,
 }
 
 bool ReplayCauseInspection::Select( int rowIndex, const ReplayCauseSeekResult& seek, ReplayFrameIndex presentedFrame,
-                                    bool simulationAlreadyPaused ) noexcept
+                                    bool simulationAlreadyPaused, double nowSeconds ) noexcept
 {
     if ( rowIndex < 0 || !seek.CanTransport() )
     {
@@ -112,11 +143,43 @@ bool ReplayCauseInspection::Select( int rowIndex, const ReplayCauseSeekResult& s
     m_state.mode = ReplayCauseInspectionMode::Transporting;
     m_state.sourceFrame = presentedFrame;
     m_state.targetFrame = seek.frame;
+    m_state.presentedFrame = presentedFrame;
     m_state.seekSource = seek.source;
     m_state.selectedRow = rowIndex;
     m_state.detailVisible = false;
-    m_state.transportPending = true;
+    m_state.transportPending = false;
+    m_state.easedProgress = 0.0f;
+    m_startedAtSeconds = nowSeconds;
+    m_pendingFrame = presentedFrame;
     return true;
+}
+
+void ReplayCauseInspection::Advance( double nowSeconds ) noexcept
+{
+    if ( m_state.mode != ReplayCauseInspectionMode::Transporting )
+    {
+        return;
+    }
+
+    // Invariant: total elapsed time, not prior progress, owns the curve. A
+    // backwards host clock clamps to the source rather than reversing a turn.
+    m_state.easedProgress = EvaluateReplayCauseTransitionProgress( nowSeconds - m_startedAtSeconds );
+    const ReplayFrameIndex requested = EvaluateReplayCauseTransitionFrame( m_state.sourceFrame, m_state.targetFrame,
+                                                                           m_state.easedProgress );
+
+    if ( requested != m_state.presentedFrame && ( !m_state.transportInFlight || requested != m_inFlightFrame ) )
+    {
+        // Coalescing replaces an obsolete not-yet-issued intermediate frame.
+        m_pendingFrame = requested;
+        m_state.transportPending = true;
+    }
+
+    if ( m_state.easedProgress >= 1.0f && m_state.presentedFrame == m_state.targetFrame && !m_state.transportInFlight &&
+         !m_state.transportPending )
+    {
+        m_state.mode = ReplayCauseInspectionMode::DetailPaused;
+        m_state.detailVisible = true;
+    }
 }
 
 bool ReplayCauseInspection::TakeTransportRequest( ReplayCauseTransportRequest& outRequest ) noexcept
@@ -128,11 +191,13 @@ bool ReplayCauseInspection::TakeTransportRequest( ReplayCauseTransportRequest& o
 
     outRequest.generation = m_state.generation;
     outRequest.sourceFrame = m_state.sourceFrame;
-    outRequest.targetFrame = m_state.targetFrame;
+    outRequest.targetFrame = m_pendingFrame;
     outRequest.source = m_state.seekSource;
     m_state.transportPending = false;
     m_state.transportInFlight = true;
     m_inFlightGeneration = outRequest.generation;
+    m_inFlightFrame = outRequest.targetFrame;
+    m_state.transportFrame = outRequest.targetFrame;
     return true;
 }
 
@@ -154,8 +219,20 @@ void ReplayCauseInspection::CompleteTransport( uint64_t generation, bool succeed
         return;
     }
 
-    m_state.mode = succeeded ? ReplayCauseInspectionMode::DetailPaused : ReplayCauseInspectionMode::Returning;
-    m_state.detailVisible = succeeded;
+    if ( !succeeded )
+    {
+        m_state.mode = ReplayCauseInspectionMode::Returning;
+        m_state.detailVisible = false;
+        return;
+    }
+
+    m_state.presentedFrame = m_inFlightFrame;
+
+    if ( m_state.easedProgress >= 1.0f && m_state.presentedFrame == m_state.targetFrame && !m_state.transportPending )
+    {
+        m_state.mode = ReplayCauseInspectionMode::DetailPaused;
+        m_state.detailVisible = true;
+    }
 }
 
 bool ReplayCauseInspection::BeginAftermath( bool& outReleasePause ) noexcept
@@ -213,6 +290,9 @@ void ReplayCauseInspection::CompleteReturn() noexcept
 void ReplayCauseInspection::Reset() noexcept
 {
     m_state = ReplayCauseInspectionView {};
+    m_startedAtSeconds = 0.0;
+    m_pendingFrame = 0;
+    m_inFlightFrame = 0;
     m_inFlightGeneration = 0;
 }
 

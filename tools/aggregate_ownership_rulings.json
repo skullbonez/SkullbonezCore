@@ -379,7 +379,7 @@
                        },
                        {
                            "key":  "ReplayCauseTransportRequest",
-                           "site":  "SkullbonezSource/Runtime/Planning/ReplayCauseInspection.h:80",
+                           "site":  "SkullbonezSource/Runtime/Planning/ReplayCauseInspection.h:83",
                            "members":  4,
                            "verdict":  "retain",
                            "owner":  "C1 / Runtime/Planning",
@@ -388,7 +388,7 @@
                        },
                        {
                            "key":  "ReplayInteractionExitInput",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:188",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:189",
                            "members":  5,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
@@ -406,7 +406,7 @@
                        },
                        {
                            "key":  "ReplayKeyboardVelocityEditInput",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:298",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:300",
                            "members":  4,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
@@ -433,7 +433,7 @@
                        },
                        {
                            "key":  "ReplayOverlayBuildInput",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayPresentation.h:84",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayPresentation.h:86",
                            "members":  3,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
@@ -442,7 +442,7 @@
                        },
                        {
                            "key":  "ReplayPathPickInput",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayPresentation.h:91",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayPresentation.h:93",
                            "members":  5,
                            "verdict":  "retain",
                            "owner":  "prior owner ruling carried by CA0",
@@ -514,11 +514,11 @@
                        },
                        {
                            "key":  "ReplaySceneTimelineResetInput",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:247",
-                           "members":  12,
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:248",
+                           "members":  13,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Scene identity, preservation mode, topology counts, seed, capacity, generation override, and UI overrides define one timeline origin; reset commits that complete origin before recording resumes.",
+                           "reason":  "Scene identity, inspection/source preservation modes, topology counts, seed, capacity, generation override, and UI overrides define one timeline origin; reset commits that complete origin before recording resumes, while an intermediate causal restore explicitly retains its later source targets.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -541,7 +541,7 @@
                        },
                        {
                            "key":  "ReplayStartupRequest",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:206",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:207",
                            "members":  12,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
@@ -550,7 +550,7 @@
                        },
                        {
                            "key":  "ReplayTransportHostContext",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:152",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:153",
                            "members":  6,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
@@ -587,15 +587,15 @@
                        {
                            "key":  "ReplayWorkspaceFrameInput",
                            "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:83",
-                           "members":  17,
+                           "members":  18,
                            "verdict":  "retain-prior",
                            "owner":  "prior owner ruling carried by CA0",
-                           "reason":  "Window, pointer arbitration/ray/wheel, replay modes, camera/director ownership, editor/physics/UI state, viewport extent, and time are frozen for one replay workspace input turn.",
+                           "reason":  "Window, pointer arbitration/ray/wheel, replay modes, camera/director ownership, editor/physics/UI state, viewport extent, cached mouse-angle scale, and time are frozen for one replay workspace input turn.",
                            "destructures_at_entry":  "no"
                        },
                        {
                            "key":  "ReplayWorldPointerInput",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayPresentation.h:137",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayPresentation.h:139",
                            "members":  9,
                            "verdict":  "retain-prior",
                            "owner":  "prior owner ruling carried by CA0",

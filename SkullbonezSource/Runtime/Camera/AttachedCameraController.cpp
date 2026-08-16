@@ -7,7 +7,9 @@ Summary:
   The controller owns Attach target selection, durable follow/orbit state, and
   synchronous camera pose mutation. It borrows model stores and cameras for one
   command at a time; composition code publishes returned selection facts to UI
-  and input owners without reaching back into controller state.
+  and input owners without reaching back into controller state. Replay causal
+  focus temporarily suspends ordinary Attach state inside this same owner and
+  seeds fixed-relative orbit from the visible render pose.
 
 Glossary:
   Ragdoll eyes: Attach submode that places the camera near a resolved head body
@@ -22,6 +24,8 @@ Invariants:
   - Orbit pitch and distance are clamped before producing a camera pose.
   - Invalid or degenerate pose math fails closed without changing the camera.
   - Presentation sampling never changes the durable attached target identity.
+  - Focused inspection follows the live stable-id target without restarting its
+    entry tween; exit restores the suspended ordinary Attach state exactly once.
 
 Related:
   - SkullbonezSource/Runtime/Camera/AttachedCameraController.h
@@ -436,6 +440,84 @@ bool AttachedCameraController::ApplyOrbitInput( Runtime::SceneWorld& collection,
     }
 
     return ApplyOrbitWheel( m_state, target, unhandledWheelDelta );
+}
+
+
+bool AttachedCameraController::BeginFocusedInspection( Runtime::SceneWorld& collection,
+                                                       Physics::PhysicsSceneObjectId focusedId,
+                                                       Physics::ModelRowHint modelRow )
+{
+    if ( !m_hasSuspendedState )
+    {
+        // Lifetime: replay borrows the one camera-follow owner. Its ordinary
+        // Attach target is suspended here and restored when inspection exits.
+        m_suspendedState = m_state;
+        m_hasSuspendedState = true;
+    }
+
+    AttachedCameraTarget target;
+    target.sceneObjectId = focusedId;
+    target.modelRow = modelRow;
+    int modelIndex = -1;
+
+    if ( !TryResolveTargetIdentity( collection, target, modelIndex ) )
+    {
+        return false;
+    }
+
+    AttachedCameraPhysicsTarget physicsTarget;
+
+    if ( !TryResolvePhysicsTarget( collection, target, physicsTarget, &modelIndex ) )
+    {
+        return false;
+    }
+
+    Environment::CameraCollection& cameras = collection.Cameras();
+    const AttachedCameraPose visiblePose { cameras.GetRenderCameraTranslation(), cameras.GetRenderCameraView(),
+                                           cameras.GetRenderCameraUp() };
+    m_state.target = target;
+    m_state.submode = AttachedCameraSubmode::FixedRelative;
+    m_state.activeFollow = true;
+    CaptureFixedOffset( m_state, visiblePose, physicsTarget );
+    m_state.needsEntryTween = true;
+    return true;
+}
+
+
+bool AttachedCameraController::TickFocusedInspection( Runtime::SceneWorld& collection, float orbitYawDelta,
+                                                      float orbitPitchDelta, int wheelDelta, float presentationAlpha )
+{
+    if ( !m_hasSuspendedState )
+    {
+        return false;
+    }
+
+    AttachedCameraPhysicsTarget target;
+
+    if ( !TryResolvePhysicsTarget( collection, m_state.target, target ) )
+    {
+        return false;
+    }
+
+    if ( wheelDelta != 0 )
+    {
+        (void)ApplyOrbitWheel( m_state, target, wheelDelta );
+    }
+
+    return TickFollow( collection, orbitYawDelta, orbitPitchDelta, presentationAlpha );
+}
+
+
+void AttachedCameraController::EndFocusedInspection()
+{
+    if ( !m_hasSuspendedState )
+    {
+        return;
+    }
+
+    m_state = m_suspendedState;
+    m_suspendedState = AttachedCameraState {};
+    m_hasSuspendedState = false;
 }
 
 

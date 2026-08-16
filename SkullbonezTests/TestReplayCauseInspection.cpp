@@ -8,12 +8,14 @@
 //   These tests prove each row kind either resolves its exact frame or emits the
 //   stable expired-frame refusal without consulting transient solver detail.
 //   The Planning transition tests also pin request coalescing, pause ownership,
-//   Space aftermath, and saved-camera return policy without host owners.
+//   Space aftermath, total-elapsed cubic easing, symmetric discrete frame
+//   rounding, and saved-camera return policy without host owners.
 //
 // Invariants:
 //   - Retained-window boundaries are inclusive at the oldest frame and exclusive at the live edge.
 //   - Prediction rows require an exact published frame, including terrain-independent contact rows.
 //   - Missing pipeline detail never disables transport for a retained frame.
+//   - Forward and reverse transport are monotonic and land on the exact target.
 //
 // Related:
 //   - SkullbonezSource/Runtime/Planning/ReplayCauseInspection.h
@@ -123,14 +125,16 @@ TEST_CASE( "Replay cause inspection: newest selection coalesces behind one in-fl
     seek.source = ReplayCauseSeekSource::SolverHistory;
     seek.frame = 80u;
 
-    REQUIRE( inspection.Select( 1, seek, 89u, false ) );
+    REQUIRE( inspection.Select( 1, seek, 89u, false, 10.0 ) );
+    inspection.Advance( 10.5 );
     ReplayCauseTransportRequest first;
     REQUIRE( inspection.TakeTransportRequest( first ) );
     CHECK( first.sourceFrame == 89u );
-    CHECK( first.targetFrame == 80u );
+    CHECK( first.targetFrame == 83u );
 
     seek.frame = 85u;
-    REQUIRE( inspection.Select( 2, seek, 84u, true ) );
+    REQUIRE( inspection.Select( 2, seek, 84u, true, 10.5 ) );
+    inspection.Advance( 12.0 );
     ReplayCauseTransportRequest blocked;
     CHECK_FALSE( inspection.TakeTransportRequest( blocked ) );
 
@@ -162,7 +166,8 @@ TEST_CASE( "Replay cause inspection: pause ownership survives pre-pause, Space, 
     SUBCASE( "inspection-owned pause is released to Space aftermath" )
     {
         ReplayCauseInspection inspection;
-        REQUIRE( inspection.Select( 0, seek, 20u, false ) );
+        REQUIRE( inspection.Select( 0, seek, 20u, false, 1.0 ) );
+        inspection.Advance( 2.5 );
         ReplayCauseTransportRequest request;
         REQUIRE( inspection.TakeTransportRequest( request ) );
         inspection.CompleteTransport( request.generation, true );
@@ -177,7 +182,8 @@ TEST_CASE( "Replay cause inspection: pause ownership survives pre-pause, Space, 
         // above and keeps the same bounded transition owner.
         ReplayCauseSeekResult retarget = seek;
         retarget.frame = 15u;
-        REQUIRE( inspection.Select( 1, retarget, 13u, false ) );
+        REQUIRE( inspection.Select( 1, retarget, 13u, false, 3.0 ) );
+        inspection.Advance( 4.5 );
         CHECK( inspection.View().ownsPause );
         ReplayCauseTransportRequest retargetRequest;
         REQUIRE( inspection.TakeTransportRequest( retargetRequest ) );
@@ -193,7 +199,8 @@ TEST_CASE( "Replay cause inspection: pause ownership survives pre-pause, Space, 
     SUBCASE( "click or scrub return from aftermath does not release an external pause" )
     {
         ReplayCauseInspection inspection;
-        REQUIRE( inspection.Select( 0, seek, 20u, true ) );
+        REQUIRE( inspection.Select( 0, seek, 20u, true, 1.0 ) );
+        inspection.Advance( 2.5 );
         ReplayCauseTransportRequest request;
         REQUIRE( inspection.TakeTransportRequest( request ) );
         inspection.CompleteTransport( request.generation, true );
@@ -209,7 +216,8 @@ TEST_CASE( "Replay cause inspection: pause ownership survives pre-pause, Space, 
     SUBCASE( "operator-owned pre-pause is never released by inspection failure" )
     {
         ReplayCauseInspection inspection;
-        REQUIRE( inspection.Select( 0, seek, 20u, true ) );
+        REQUIRE( inspection.Select( 0, seek, 20u, true, 1.0 ) );
+        inspection.Advance( 2.5 );
         ReplayCauseTransportRequest request;
         REQUIRE( inspection.TakeTransportRequest( request ) );
         inspection.CompleteTransport( request.generation, false );
@@ -228,7 +236,8 @@ TEST_CASE( "Replay cause inspection: cancellation invalidates an interrupted tra
     seek.availability = ReplayCauseSeekAvailability::Available;
     seek.source = ReplayCauseSeekSource::Prediction;
     seek.frame = 45u;
-    REQUIRE( inspection.Select( 3, seek, 40u, false ) );
+    REQUIRE( inspection.Select( 3, seek, 40u, false, 1.0 ) );
+    inspection.Advance( 1.5 );
 
     ReplayCauseTransportRequest request;
     REQUIRE( inspection.TakeTransportRequest( request ) );
@@ -239,4 +248,49 @@ TEST_CASE( "Replay cause inspection: cancellation invalidates an interrupted tra
     inspection.CompleteTransport( request.generation, true );
     CHECK( inspection.View().mode == ReplayCauseInspectionMode::Returning );
     CHECK_FALSE( inspection.View().detailVisible );
+}
+
+TEST_CASE( "Replay cause inspection: elapsed curve is cadence independent and completes exactly" )
+{
+    constexpr std::array<double, 4> cadences = { 1.0 / 30.0, 1.0 / 60.0, 1.0 / 120.0, 0.007 };
+    const float reference = EvaluateReplayCauseTransitionProgress( 0.75 );
+
+    for ( double cadence : cadences )
+    {
+        double elapsed = 0.0;
+
+        while ( elapsed + cadence < 0.75 )
+        {
+            elapsed += cadence;
+        }
+
+        // The owner samples total wall-clock elapsed, so render cadence does
+        // not enter the curve evaluation even when the last interval is partial.
+        elapsed = 0.75;
+        CHECK( EvaluateReplayCauseTransitionProgress( elapsed ) == doctest::Approx( reference ) );
+    }
+
+    CHECK( EvaluateReplayCauseTransitionProgress( 0.0 ) == 0.0f );
+    CHECK( EvaluateReplayCauseTransitionProgress( 1.5 ) == 1.0f );
+    CHECK( EvaluateReplayCauseTransitionProgress( 4.0 ) == 1.0f );
+}
+
+TEST_CASE( "Replay cause inspection: forward and reverse frame rounding stay monotonic" )
+{
+    constexpr std::array<float, 7> progress = { 0.0f, 0.01f, 0.24f, 0.5f, 0.76f, 0.99f, 1.0f };
+    ReplayFrameIndex previousForward = 10u;
+    ReplayFrameIndex previousReverse = 20u;
+
+    for ( float sample : progress )
+    {
+        const ReplayFrameIndex forward = EvaluateReplayCauseTransitionFrame( 10u, 20u, sample );
+        const ReplayFrameIndex reverse = EvaluateReplayCauseTransitionFrame( 20u, 10u, sample );
+        CHECK( forward >= previousForward );
+        CHECK( reverse <= previousReverse );
+        previousForward = forward;
+        previousReverse = reverse;
+    }
+
+    CHECK( previousForward == 20u );
+    CHECK( previousReverse == 10u );
 }

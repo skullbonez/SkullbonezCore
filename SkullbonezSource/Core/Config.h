@@ -99,7 +99,7 @@ struct CameraConfig
     float frustumFar = 5500.0f;
     float mouseSensitivity = 0.2f;
     float keySpeed = 200.0f;
-    float cameraTweenRate = 3.0f;
+    float cameraTweenRate = 3.0f;          // Legacy config compatibility; finite-duration camera transitions ignore this rate.
     float cameraCollisionThreshold = 0.01f;
     float minCameraHeight = 1.5f;
     float maxCameraHeight = 110.0f;

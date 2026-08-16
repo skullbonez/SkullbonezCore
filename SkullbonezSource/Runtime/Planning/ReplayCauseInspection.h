@@ -8,7 +8,8 @@ Summary:
   bank. This value contract keeps the chosen frame, source track, and refusal
   state together so later transport cannot silently clamp to a nearby frame.
   ReplayCauseInspection owns one selected-event transition generation, including
-  request coalescing and the pause/return policy consumed by App composition.
+  the total-elapsed 1.5-second cubic progress sample, discrete request
+  coalescing, and the pause/return policy consumed by App composition.
 
 Glossary:
   Seek source: Timeline bank that must contain the row's exact frame before
@@ -22,6 +23,8 @@ Invariants:
   - Solver-detail availability is independent of frame transport eligibility.
   - At most one transport request is in flight; a newer selection replaces the
     pending request and cannot be completed by an older generation.
+  - The published eased sample is the single causal-transition clock consumed
+    by both replay-frame selection and CameraCollection presentation.
   - Camera identity remains in ReplayPresentation; this owner retains only the
     transition and pause policy, never a second restore-camera copy.
 
@@ -91,6 +94,8 @@ struct ReplayCauseInspectionView
     uint64_t generation = 0;
     ReplayFrameIndex sourceFrame = 0;
     ReplayFrameIndex targetFrame = 0;
+    ReplayFrameIndex presentedFrame = 0;
+    ReplayFrameIndex transportFrame = 0;
     ReplayCauseSeekSource seekSource = ReplayCauseSeekSource::SolverHistory;
     int selectedRow = -1;
     bool detailVisible = false;
@@ -98,6 +103,7 @@ struct ReplayCauseInspectionView
     bool transportInFlight = false;
     bool transportPending = false;
     bool returnIssued = false;
+    float easedProgress = 0.0f;
 };
 
 struct ReplayCauseExitAction
@@ -110,7 +116,8 @@ class ReplayCauseInspection
 {
   public:
     bool Select( int rowIndex, const ReplayCauseSeekResult& seek, ReplayFrameIndex presentedFrame,
-                 bool simulationAlreadyPaused ) noexcept;
+                 bool simulationAlreadyPaused, double nowSeconds ) noexcept;
+    void Advance( double nowSeconds ) noexcept;
     bool TakeTransportRequest( ReplayCauseTransportRequest& outRequest ) noexcept;
     void CompleteTransport( uint64_t generation, bool succeeded ) noexcept;
     bool BeginAftermath( bool& outReleasePause ) noexcept;
@@ -121,6 +128,14 @@ class ReplayCauseInspection
 
   private:
     ReplayCauseInspectionView m_state;
+    double m_startedAtSeconds = 0.0;
+    ReplayFrameIndex m_pendingFrame = 0;
+    ReplayFrameIndex m_inFlightFrame = 0;
     uint64_t m_inFlightGeneration = 0;
 };
+
+// Pure transition helpers keep cadence and integer rounding independently testable.
+float EvaluateReplayCauseTransitionProgress( double elapsedSeconds ) noexcept;
+ReplayFrameIndex EvaluateReplayCauseTransitionFrame( ReplayFrameIndex sourceFrame, ReplayFrameIndex targetFrame,
+                                                     float easedProgress ) noexcept;
 } // namespace SkullbonezCore::Runtime

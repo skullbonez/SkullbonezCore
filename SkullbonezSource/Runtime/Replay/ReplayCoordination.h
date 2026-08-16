@@ -101,6 +101,7 @@ struct ReplayWorkspaceFrameInput
     bool spaceDown = false;
     int screenWidth = 0;
     int screenHeight = 0;
+    float cameraMouseRadiansPerPixel = 0.0f;   // Cached config sample; replay never reopens device/config ownership.
     double now = 0.0;
 };
 
@@ -249,6 +250,7 @@ struct ReplaySceneTimelineResetInput
     const char* sceneLabel = nullptr;
     bool preserveBranchMetadata = false;
     bool preserveReplayInspection = false;
+    bool preserveReplaySourceTimeline = false; // Intermediate causal restore retains later exact-frame targets.
     bool isSceneMode = false;
     int modelCount = 0;
     int solverBallCount = 0;
@@ -298,7 +300,7 @@ struct ReplaySceneTimelineResetResult
 struct ReplayKeyboardVelocityEditInput
 {
     bool altDown = false;
-    bool toggleAllowed = true; // False records the key edge while the editor owns Alt.
+    bool toggleAllowed = true;                 // False records the key edge while the editor owns Alt.
     WorldInteractionOwner currentWorldOwner = WorldInteractionOwner::None;
     double now = 0.0;
 };

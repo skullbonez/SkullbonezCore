@@ -580,11 +580,10 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( SkullbonezCore::Core::SbDiagnosticStor
                                                     camera.director.grabbed, runtimeTools.Editor().editorModeEnabled,
                                                     sceneController.State().isScenePhysics, ui.IsVisible(), ui.IsMinimized(),
                                                     inputRouter.DeviceFrame().keys.IsDown( VK_SPACE ), window.ClientWidth(),
-                                                    window.ClientHeight(), timers.simulationTimer.GetTotalTime() },
-                        inputRouter, interaction, sceneController.Scene().Physics(), sceneController.Scene().Entities(),
-                        sceneController.Scene().RenderPresentationRecords(), &sceneController.Scene().Cameras(),
-                        sceneController.Scene().Terrain().Get(), camera, runtimeTools.MousePickup(),
-                        result.replayWorkspace );
+                                                    window.ClientHeight(), camera.mouseRadiansPerPixel,
+                                                    timers.simulationTimer.GetTotalTime() },
+                        inputRouter, interaction, sceneController.Scene(), camera, attachedCamera,
+                        runtimeTools.MousePickup(), result.replayWorkspace );
 
     result.enterInteractiveScene = result.enterInteractiveScene || result.replayWorkspace.enterInteractive;
     result.suppressWorldActionThisFrame = result.suppressWorldActionThisFrame || result.replayWorkspace.consumesMouse;

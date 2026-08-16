@@ -9,7 +9,9 @@ Summary:
   capture/timeline/scrub package; Prediction and Planning retain their own state.
   ReplayRuntime is an App composition root, not a Replay-package owner. It
   sequences owner-to-owner work while concrete package owners retain state and
-  implement their domain transitions.
+  implement their domain transitions. Causal inspection synchronizes Planning
+  progress, Replay transport, and Camera presentation without moving state into
+  this composition surface.
 
 Glossary:
   Solver track: Physics-facing samples and snapshots used for deterministic
@@ -134,6 +136,8 @@ class ReplayRuntime;
 class InputRouter;
 class RuntimeTools;
 class SceneController;
+class SceneWorld;
+class AttachedCameraController;
 
 namespace ReplayLiveRestoreOperations
 {
@@ -379,11 +383,9 @@ class ReplayRuntime
     // builders, leaving this boundary as composition only.
     void SubmitEvent( const ReplayEventCommand& command );
     void TickWorkspace( const ReplayWorkspaceFrameInput& input, InputRouter& inputRouter,
-                        RuntimeInteractionController& interaction, Physics::PhysicsEngine& physics,
-                        const SceneEntityStore& entities,
-                        std::span<const Rendering::RenderInstancePresentationRecord> presentation,
-                        Environment::CameraCollection* cameras, Geometry::Terrain* terrain, CameraControlState& camera,
-                        RunMousePickupState& mousePickup, ReplayWorkspaceOutput& output );
+                        RuntimeInteractionController& interaction, SceneWorld& world, CameraControlState& camera,
+                        AttachedCameraController& attachedCamera, RunMousePickupState& mousePickup,
+                        ReplayWorkspaceOutput& output );
 
     // Applies one editor/legacy-independent transport value through the same
     // concrete replay owners used by pointer controls. Recoverable unavailable
@@ -492,15 +494,18 @@ class ReplayRuntime
     // App applies the published camera/restore actions synchronously; Planning
     // retains only causal selection, generation, and pause policy.
     void ApplyCauseTreeSelection( int requestedRow, const ReplayWorkspaceFrameInput& input, InputRouter& inputRouter,
-                                  RuntimeInteractionController& interaction, const Physics::PhysicsBodyStore& bodyStore,
-                                  const Physics::ColliderStore& colliderStore, Environment::CameraCollection* cameras,
-                                  CameraControlState& camera, RunMousePickupState& mousePickup,
-                                  ReplayWorkspaceOutput& output );
+                                  RuntimeInteractionController& interaction, SceneWorld& world,
+                                  AttachedCameraController& attachedCamera, CameraControlState& camera,
+                                  RunMousePickupState& mousePickup, ReplayWorkspaceOutput& output );
+    void ApplyCauseInspectionTransition( const ReplayWorkspaceFrameInput& input, bool pointerBlocked, SceneWorld& world,
+                                         AttachedCameraController& attachedCamera, CameraControlState& camera,
+                                         ReplayWorkspaceOutput& output );
     void ApplyCauseInspectionLifecycle( int requestedRow, bool exitCauseTreeInspection,
                                         ReplayInspectionCameraAction scrubberHostAction,
                                         const ReplayWorkspaceFrameInput& input, InputRouter& inputRouter,
                                         RuntimeInteractionController& interaction, Environment::CameraCollection* cameras,
-                                        Geometry::Terrain* terrain, CameraControlState& camera );
+                                        Geometry::Terrain* terrain, CameraControlState& camera,
+                                        AttachedCameraController& attachedCamera );
 
   private:
     float SolverPresentTrackPosition() const;
