@@ -1,14 +1,14 @@
 # Causal Event Inspection
 
 Date: 2026-08-15
-Status: Active. 6/9 tasks complete.
+Status: Active. 7/9 tasks complete.
 Impact area: Runtime/Planning operator surface, replay transport, camera
 arrival, contact manifold presentation, solver-detail availability,
 Rendering value contracts, tests
 Owner: Replay planning operator surface
-Priority: Active — C6 is next; C5 landed the adjacent four-row solver-detail
-panel over Planning-owned exact-frame copies. C6 owns paired lifecycle and
-coherent retarget/exit behavior.
+Priority: Active — C7 is next; C6 paired the solver-detail panel and manifold
+as one focused surface across every exit and reset edge. C7 owns measured cost
+and allocation evidence.
 
 ## Owner Direction
 
@@ -521,7 +521,7 @@ detail.
   the ordered `tools\validate_ui_boundary_tests.bat` rerun passed 11 detached UI
   surfaces. No baseline changed.
 
-- [ ] **C6 — Pair the visual and the panel as one focused surface.** Place the
+- [x] **C6 — Pair the visual and the panel as one focused surface.** Place the
   detail panel adjacent to the manifold visual and keep the pairing coherent
   under drag, resize, and scene reload. Selecting a different causal row retargets
   panel, manifold, time, and the detail camera together or none. Space hides the
@@ -531,6 +531,22 @@ detail.
   ordinary action continues. No stale marker or frozen detail remains. The
   existing `RunReplayCauseTreeState` window placement fields are the precedent
   for placement ownership; do not introduce a second placement convention.
+
+  Evidence: `ReplayCauseInspection::ClearFocusedSurface` now clears copied row
+  spans, scroll state, feedback, manifold geometry, and visibility through one
+  edge used by retarget, failed transport, Space aftermath, and return. A
+  non-preserved scene/timeline reset clears the Planning owner before old scene
+  identities can be republished, while causal restore keeps its in-flight
+  generation. Panel input and drawing continue to project adjacency from the
+  existing cause-window placement, so drag and resize introduce no second
+  placement owner. The focused lifecycle and placement tests extended the suite
+  to 557 cases and 2,479,558 assertions. The touched-source comment audit passed
+  for all four source-bearing files, and the aggregate inventory passed with all
+  88 gated values ruled. `tools\validate_full.bat` passed the complete CPU,
+  coverage, Automation, DX12, and byte-exact 44,401-line physics gates after the
+  required Automation freshness rebuild. `tools\validate_replay_visual_fidelity.bat`
+  passed 2,401 ticks, 200 causal nodes, one presented cascade, durable save/load
+  equivalence, and every false-pass control. No baseline changed.
 
 - [ ] **C7 — Prove the cost and the allocation posture.** Measure solver-detail
   lookup, four-row viewport layout, scrolling, and manifold presentation against

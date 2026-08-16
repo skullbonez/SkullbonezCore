@@ -33,6 +33,8 @@ Invariants:
     replay-owned scratch.
   - Intermediate causal restores cannot clear the timeline that owns their
     later exact-frame targets.
+  - A non-preserved scene/timeline reset clears Planning's paired causal surface
+    before old scene identities or exact-frame detail can be published again.
   - The render frame receives only the generic contact packet and synchronous
     spans into Planning-owned solver copies, never the transition owner or
     ReplayRecorder borrows.
@@ -1149,6 +1151,13 @@ ReplaySceneTimelineResetResult ReplayRuntime::BeginSceneTimelineReset( const Rep
     // Prediction workers hold only replay-owned values, but cancellation still
     // waits here before old private-engine snapshots are cleared or replaced.
     m_predictionOwner.CancelJob( true );
+
+    if ( !input.preserveReplayInspection )
+    {
+        // Scene and generated-timeline resets share this edge. Clearing only
+        // ReplayAuthoring rows would leave Planning's old panel/manifold visible.
+        m_planningOwner.CauseInspection().Reset();
+    }
 
     if ( SceneTimelineResetClearsBranch( input ) )
     {

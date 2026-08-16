@@ -34,6 +34,8 @@ Invariants:
     bounded patch cannot be proven from the same solver frame.
   - Solver-detail publication fails closed before exposing partial copied spans;
     its scroll offset always clamps to the four-row viewport.
+  - The panel and manifold packet share one visibility edge and are cleared
+    together before any retarget, aftermath, return, failure, or scene reset.
   - Only the current generation may reveal detail or complete a return.
   - Forward and reverse transport round symmetrically and reach the exact target
     only at eased progress 1, independent of render cadence.
@@ -513,15 +515,7 @@ bool ReplayCauseInspection::Select( int rowIndex, const ReplayCauseSeekResult& s
     m_state.presentedFrame = presentedFrame;
     m_state.seekSource = seek.source;
     m_state.selectedRow = rowIndex;
-    m_state.solverDetailAvailability = ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable;
-    m_state.solverDetailContactRowCount = 0u;
-    m_state.solverDetailPipelineRecordCount = 0u;
-    m_state.solverDetailContacts = {};
-    m_state.solverDetailPipelineRecords = {};
-    m_state.solverDetailFeedback = SOLVER_DETAIL_UNAVAILABLE_FEEDBACK;
-    m_state.solverDetailFirstRow = 0;
-    m_state.contactPresentation = {};
-    m_state.detailVisible = false;
+    ClearFocusedSurface();
     m_state.transportPending = false;
     m_state.easedProgress = 0.0f;
     m_startedAtSeconds = nowSeconds;
@@ -661,7 +655,7 @@ void ReplayCauseInspection::CompleteTransport( uint64_t generation, bool succeed
     if ( !succeeded )
     {
         m_state.mode = ReplayCauseInspectionMode::Returning;
-        m_state.detailVisible = false;
+        ClearFocusedSurface();
         return;
     }
 
@@ -684,7 +678,7 @@ bool ReplayCauseInspection::BeginAftermath( bool& outReleasePause ) noexcept
     }
 
     m_state.mode = ReplayCauseInspectionMode::AftermathFollow;
-    m_state.detailVisible = false;
+    ClearFocusedSurface();
     outReleasePause = m_state.ownsPause;
     m_state.ownsPause = false;
     return true;
@@ -702,7 +696,7 @@ ReplayCauseExitAction ReplayCauseInspection::BeginReturn() noexcept
     action.apply = true;
     action.releasePause = m_state.ownsPause;
     m_state.ownsPause = false;
-    m_state.detailVisible = false;
+    ClearFocusedSurface();
     m_state.transportPending = false;
     m_state.mode = ReplayCauseInspectionMode::Returning;
     m_state.returnIssued = true;
@@ -763,6 +757,21 @@ void ReplayCauseInspection::Reset() noexcept
     m_pendingFrame = 0;
     m_inFlightFrame = 0;
     m_inFlightGeneration = 0;
+}
+
+void ReplayCauseInspection::ClearFocusedSurface() noexcept
+{
+    // Lifetime: fixed backing arrays remain allocated, but no stale row is
+    // reachable once its synchronous spans and paired Rendering packet clear.
+    m_state.solverDetailAvailability = ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable;
+    m_state.solverDetailContactRowCount = 0u;
+    m_state.solverDetailPipelineRecordCount = 0u;
+    m_state.solverDetailContacts = {};
+    m_state.solverDetailPipelineRecords = {};
+    m_state.solverDetailFeedback = SOLVER_DETAIL_UNAVAILABLE_FEEDBACK;
+    m_state.solverDetailFirstRow = 0;
+    m_state.contactPresentation = {};
+    m_state.detailVisible = false;
 }
 
 ReplayCauseInspectionView ReplayCauseInspection::View() const noexcept

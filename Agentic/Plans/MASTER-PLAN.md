@@ -44,7 +44,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Causal Event Inspection | `CAUSAL_INSPECT` | 9 | 6 | `TODO/causal-event-inspection.md` |
+| Causal Event Inspection | `CAUSAL_INSPECT` | 9 | 7 | `TODO/causal-event-inspection.md` |
 | Determinism Envelope Tier-2 Hardening | `TIER2_DETERMINISM` | 9 | 0 | `TODO/determinism-envelope-tier2-hardening.md` |
 | Catto Divergence Repairs | `CATTO_REPAIRS` | 6 | 1 | `TODO/catto-divergence-repairs.md` |
 
@@ -79,15 +79,16 @@ states elsewhere, and both are recorded rather than silently corrected:
 
 ## Binding Order
 
-1. `CAUSAL_INSPECT` C6 through C8 — complete the causal inspection plan first.
+1. `CAUSAL_INSPECT` C7 through C8 — complete the causal inspection plan first.
    C0 proved exact-frame addressability and the `Replay frame expired` refusal;
    C1 added generation-gated replay/detail-camera transport, Space aftermath,
    and return-to-main policy. C2 added the shared arrival curve and dedicated
    orbit/follow path; C3 added honest exact-frame solver-detail availability;
    C4 added feature-neutral manifold presentation through the existing contact
    glyph path. C5 added the four-row scrolling solver panel over Planning-owned
-   copies. C6-C8 close paired lifecycle, cost evidence, tests, and independent
-   review.
+   copies, and C6 paired the panel and manifold lifecycle across every retarget,
+   aftermath, return, and reset edge. C7-C8 close cost evidence, tests, and
+   independent review.
 2. `TIER2_DETERMINISM` T0, T1, T2 — establish the pre-change envelope, add the
    deterministic transcendental owner, and add the math policy gate. Causal C2's
    presentation-only slerp becomes an explicit `retain-owner` site under T2; it
@@ -114,5 +115,5 @@ tests must pin field mapping and availability, not pre-Catto impulse values.
 
 ## Portfolio Progress
 
-7/24 tasks complete across three active plans. Causal C6 is the next selectable
-task; Causal C0-C5 and Catto CD0 are complete.
+8/24 tasks complete across three active plans. Causal C7 is the next selectable
+task; Causal C0-C6 and Catto CD0 are complete.

@@ -33,6 +33,8 @@ Invariants:
     fixed arrays and remain synchronous views.
   - Drawing and input use the same solver-panel layout, whose content height is
     exactly four complete rows even when iteration evidence makes rows taller.
+  - Panel rows and manifold geometry are one focused surface: every retarget,
+    aftermath, return, failure, or reset hides both and drops all published views.
   - At most one transport request is in flight; a newer selection replaces the
     pending request and cannot be completed by an older generation.
   - The published eased sample is the single causal-transition clock consumed
@@ -242,6 +244,8 @@ class ReplayCauseInspection
     ReplayCauseInspectionView View() const noexcept;
 
   private:
+    void ClearFocusedSurface() noexcept;
+
     ReplayCauseInspectionView m_state;
 
     // Lifetime: these fixed arrays detach exact-frame evidence before Replay

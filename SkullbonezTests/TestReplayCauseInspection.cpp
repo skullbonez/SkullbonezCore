@@ -23,6 +23,8 @@
 //   - A current or coincident diagnostics row never substitutes for a mismatched frame stamp or row index.
 //   - Detached contact packets use exact retained points when present and derive
 //     only surviving rows when an exact point record is unavailable.
+//   - Retarget, aftermath, return, failure, and reset clear the panel and
+//     manifold packet through one paired visibility edge.
 //   - Forward and reverse transport are monotonic and land on the exact target.
 //
 // Related:
@@ -318,8 +320,17 @@ TEST_CASE( "Replay cause solver panel: copied rows survive restore sources and s
     const ReplayCauseSolverPanelLayout layout = BuildReplayCauseSolverPanelLayout( published, causeTree, 1920, 1080 );
     CHECK( layout.content.h == doctest::Approx( layout.rowHeight * 4.0f ) );
 
-    const int panelX = static_cast<int>( layout.panel.x + 20.0f );
-    const int panelY = static_cast<int>( layout.panel.y + 20.0f );
+    // The panel has no second placement state: every cause-window drag or
+    // resize moves the adjacent surface through this same projection.
+    causeTree.x = 120;
+    causeTree.y = 180;
+    causeTree.width = 460;
+    const ReplayCauseSolverPanelLayout moved = BuildReplayCauseSolverPanelLayout( published, causeTree, 1920, 1080 );
+    CHECK( moved.panel.x == doctest::Approx( 590.0f ) );
+    CHECK( moved.panel.y == doctest::Approx( 180.0f ) );
+
+    const int panelX = static_cast<int>( moved.panel.x + 20.0f );
+    const int panelY = static_cast<int>( moved.panel.y + 20.0f );
     REQUIRE( inspection.TickSolverDetailPanelInput( causeTree, panelX, panelY, true, false, -120, 1920, 1080 ) );
     CHECK( inspection.View().solverDetailFirstRow == 1 );
     REQUIRE( inspection.TickSolverDetailPanelInput( causeTree, panelX, panelY, true, false, -120, 1920, 1080 ) );
@@ -335,6 +346,7 @@ TEST_CASE( "Replay cause manifold presentation: exact records and event poses fo
     using SkullbonezCore::Physics::PhysicsPipelineRecord;
     using SkullbonezCore::Physics::PhysicsPipelineStage;
     using SkullbonezCore::Physics::PhysicsSolverPersistentContactSample;
+    using SkullbonezCore::Rendering::ContactManifoldPresentation;
 
     RunReplayCauseTreeRow row;
     row.kind = RunReplayCauseTreeRowKind::Manifold;
@@ -387,8 +399,7 @@ TEST_CASE( "Replay cause manifold presentation: exact records and event poses fo
     sample.bodies[1].modelRow.value = 7;
     sample.bodies[1].position = Vector3( 40.0f, 50.0f, 60.0f );
 
-    const SkullbonezCore::Rendering::ContactManifoldPresentation presentation =
-        BuildReplayCauseContactPresentation( detail, sample );
+    const ContactManifoldPresentation presentation = BuildReplayCauseContactPresentation( detail, sample );
     REQUIRE( presentation.HasGeometry() );
     CHECK( presentation.bodyCount == 2u );
     CHECK( presentation.pointCount == 2u );
@@ -517,6 +528,86 @@ TEST_CASE( "Replay cause inspection: pause ownership survives pre-pause, Space, 
 
         inspection.CompleteReturn();
         CHECK( inspection.View().mode == ReplayCauseInspectionMode::Inactive );
+    }
+}
+
+TEST_CASE( "Replay cause inspection: focused panel and manifold clear together across every lifecycle edge" )
+{
+    using SkullbonezCore::Math::Vector::Vector3;
+    using SkullbonezCore::Physics::PhysicsSolverPersistentContactSample;
+
+    ReplayCauseSeekResult seek;
+    seek.availability = ReplayCauseSeekAvailability::Available;
+    seek.source = ReplayCauseSeekSource::SolverHistory;
+    seek.frame = 12u;
+
+    const auto publishFocusedSurface = [&]( ReplayCauseInspection& inspection )
+    {
+        std::array<PhysicsSolverPersistentContactSample, 1> contacts;
+        contacts[0].bodyA = 1;
+        contacts[0].bodyB = 2;
+        contacts[0].featureId = 9u;
+        ReplayCauseSolverDetailResult detail;
+        detail.frame = 12u;
+        detail.availability = ReplayCauseSolverDetailAvailability::Available;
+        detail.sourceContacts = contacts;
+        detail.bodyA = 1;
+        detail.bodyB = 2;
+        detail.contactRowCount = 1u;
+        SkullbonezCore::Rendering::ContactManifoldPresentation presentation;
+        presentation.pointCount = 1u;
+        presentation.points[0].point = Vector3( 1.0f, 2.0f, 3.0f );
+
+        REQUIRE( inspection.Select( 0, seek, 20u, false, 1.0 ) );
+        inspection.Advance( 2.5 );
+        ReplayCauseTransportRequest request;
+        REQUIRE( inspection.TakeTransportRequest( request ) );
+        inspection.PublishSolverDetail( request.generation, detail, presentation );
+        inspection.CompleteTransport( request.generation, true );
+        REQUIRE( inspection.View().detailVisible );
+        REQUIRE( inspection.View().solverDetailContacts.size() == 1u );
+        REQUIRE( inspection.View().contactPresentation.HasGeometry() );
+    };
+    const auto checkSurfaceCleared = []( const ReplayCauseInspectionView& view )
+    {
+        CHECK_FALSE( view.detailVisible );
+        CHECK( view.solverDetailContacts.empty() );
+        CHECK( view.solverDetailPipelineRecords.empty() );
+        CHECK_FALSE( view.contactPresentation.HasGeometry() );
+        CHECK( view.solverDetailFirstRow == 0 );
+    };
+
+    SUBCASE( "Space aftermath drops every visible value while camera follow state survives" )
+    {
+        ReplayCauseInspection inspection;
+        publishFocusedSurface( inspection );
+        bool releasePause = false;
+        REQUIRE( inspection.BeginAftermath( releasePause ) );
+        CHECK( inspection.View().mode == ReplayCauseInspectionMode::AftermathFollow );
+        checkSurfaceCleared( inspection.View() );
+    }
+
+    SUBCASE( "direct retarget hides the old surface before the new transport" )
+    {
+        ReplayCauseInspection inspection;
+        publishFocusedSurface( inspection );
+        ReplayCauseSeekResult retarget = seek;
+        retarget.frame = 15u;
+        REQUIRE( inspection.Select( 4, retarget, 12u, true, 3.0 ) );
+        CHECK( inspection.View().selectedRow == 4 );
+        CHECK( inspection.View().targetFrame == 15u );
+        checkSurfaceCleared( inspection.View() );
+    }
+
+    SUBCASE( "return and reset cannot leave a frozen surface" )
+    {
+        ReplayCauseInspection inspection;
+        publishFocusedSurface( inspection );
+        REQUIRE( inspection.BeginReturn().apply );
+        checkSurfaceCleared( inspection.View() );
+        inspection.CompleteReturn();
+        CHECK( inspection.View().mode == ReplayCauseInspectionMode::Inactive );
+        checkSurfaceCleared( inspection.View() );
     }
 }
 
