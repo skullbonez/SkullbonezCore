@@ -25,7 +25,7 @@ Invariants:
     coherent changed prefix has been presented.
   - Publication exposes only a contiguous bounded prefix and reset clears failure.
   - A build-root trajectory exposes exactly the frame-thread presentation prefix.
-  - Dormant trajectory reuse selects sufficient capacity without changing active order.
+  - Dormant trajectory reuse selects the smallest sufficient capacity without changing active order.
   - Solver lookup may preserve a negative sentinel; prediction-style lookup rejects it.
 
 Related:
@@ -123,7 +123,7 @@ TEST_CASE( "Replay trajectory reuse selects a sufficient dormant record determin
     const ReplayTrajectoryRecordKey newKey { { 44u }, ReplayTrajectoryLane::FutureRoot, 0u };
 
     CHECK( SelectDormantRecordIndex( records, 1u, matchingKey, 12u ) == 2u );
-    CHECK( SelectDormantRecordIndex( records, 1u, newKey, 7u ) == 2u );
+    CHECK( SelectDormantRecordIndex( records, 1u, newKey, 7u ) == 3u );
     CHECK( SelectDormantRecordIndex( records, 1u, newKey, 32u ) == 2u );
     CHECK( SelectDormantRecordIndex( records, records.size(), newKey, 1u ) == records.size() );
 }

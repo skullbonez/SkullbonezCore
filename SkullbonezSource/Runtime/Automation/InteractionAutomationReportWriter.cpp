@@ -14,9 +14,12 @@ Glossary:
   Report fact: Derived validation value shared by live assertions and final JSON.
   RVIS (Replay Visual Instance State): Ordered visual packet rows stored beside
     replay samples for offline fidelity verification.
+  Committed frame prefix: Reader-visible prediction rows; retained rows beyond
+    its count remain private allocation storage.
 
 Invariants:
   - JSON field names and replay byte/order calculations are validation contracts.
+  - Prediction reports and fidelity capture never read beyond the committed prefix.
   - Runtime-owner references are never stored on the writer.
   - A report failure never replaces an earlier probe failure.
 
@@ -221,6 +224,7 @@ void SkullbonezCore::Runtime::InteractionAutomationReportWriter::Configure( cons
     m_replayVisualPredictionDrawCameraValid = false;
     m_replayVisualFidelityStartFrame = -1;
     m_replayVisualFidelityCaptureEnabled = false;
+    m_replayVisualFidelityCaptureComplete = false;
     m_replayVisualFidelityTrajectoryHash = 0;
     m_replayVisualFidelityTrajectoryRecordCount = 0;
     m_replayVisualFidelityTrajectoryPointCount = 0;
@@ -284,6 +288,7 @@ void SkullbonezCore::Runtime::InteractionAutomationReportWriter::AddScreenshot( 
 void SkullbonezCore::Runtime::InteractionAutomationReportWriter::BeginReplayVisualCapture( std::size_t tickCapacity )
 {
     m_replayVisualFidelityCaptureEnabled = true;
+    m_replayVisualFidelityCaptureComplete = false;
     m_replayVisualFidelityStartFrame = -1;
     m_replayVisualFidelityTicks.clear();
     m_replayVisualFidelityTicks.reserve( tickCapacity );
@@ -318,9 +323,11 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::UpdateReplayVis
         return false;
     }
 
-    if ( liveAdvanceHeld )
+    // Invariant: capture closure is one-way. The script may keep the process
+    // alive for final assertions, but it must not issue another reveal intent.
+    if ( m_replayVisualFidelityCaptureComplete )
     {
-        status.Fail( "replay visual fidelity probe entered a second live playback pass" );
+        return false;
     }
 
     if ( m_replayVisualFidelityStartFrame < 0 && sceneFrame == fixedStartFrame )
@@ -348,13 +355,21 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::UpdateReplayVis
         return false;
     }
 
+    // Invariant: liveAdvanceHeld means the authoritative scene is paused. Once
+    // fixed reveal begins, losing that hold would advance a second wall fall
+    // underneath the one captured prediction cascade.
+    if ( !liveAdvanceHeld )
+    {
+        status.Fail( "replay visual fidelity probe entered a second live playback pass" );
+    }
+
     outRevealFrame = static_cast<ReplayFrameIndex>( (std::max)( 0, sceneFrame - m_replayVisualFidelityStartFrame ) );
     return true;
 }
 
 bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::CaptureReplayVisualFrame( int sceneFrame, const ReplayAutomationView& replay, InteractionAutomationRunStatus& status )
 {
-    if ( !m_replayVisualFidelityCaptureEnabled )
+    if ( !m_replayVisualFidelityCaptureEnabled || m_replayVisualFidelityCaptureComplete )
     {
         return true;
     }
@@ -367,7 +382,7 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::CaptureReplayVi
     }
 
     if ( m_replayVisualFidelityStartFrame < 0 ||
-         m_replayVisualFidelityTicks.size() >= replay.prediction.simulation.frames.size() )
+         m_replayVisualFidelityTicks.size() >= replay.prediction.CommittedFrameCount() )
     {
         return true;
     }
@@ -473,7 +488,7 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::CaptureReplayVi
     m_replayVisualFidelityTicks.push_back( tick );
     m_replayCausalProofTicks.push_back( BuildReplayCausalProofTick( packet ) );
 
-    const std::vector<RunReplayPredictionFrame>& predictionFrames = replay.prediction.simulation.frames;
+    const std::span<const RunReplayPredictionFrame> predictionFrames = replay.prediction.CommittedFrames();
 
     if ( m_replayVisualFidelityTicks.size() == predictionFrames.size() && !predictionFrames.empty() )
     {
@@ -496,6 +511,8 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::CaptureReplayVi
                                                                                node.firstFrame, node.depth,
                                                                                node.contactDerived } );
         }
+
+        m_replayVisualFidelityCaptureComplete = true;
     }
 
     return true;
@@ -719,7 +736,7 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::FinishReplayVis
         (void)VerifyReplayVisualOfflineProjection( status, runtimeTools, world, replay.latestSolverSample );
     }
 
-    return status.failed || m_replayVisualFidelityTicks.size() == replay.prediction.simulation.frames.size();
+    return status.failed || m_replayVisualFidelityCaptureComplete;
 }
 
 std::string SkullbonezCore::Runtime::InteractionAutomationReportWriter::FormatPredictionHash( uint64_t hash )
@@ -871,20 +888,16 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::ReplayPredictio
     // from a partial contact-derived tree, because contact reserve failures are
     // intentionally non-fatal to prediction drawing.
     const RunReplayPredictionState& prediction = replay.prediction;
-    const std::vector<RunReplayPredictionFrame>* frames = &prediction.simulation.frames;
-    std::size_t frameCount = frames->size();
+    std::span<const RunReplayPredictionFrame> frames = prediction.CommittedFrames();
 
     if ( prediction.BuildPrefixShouldBePresented() )
     {
-        frames = &prediction.build.buildFrames;
-        frameCount = prediction.PublishedBuildFrameCount();
+        frames = { prediction.build.buildFrames.data(), prediction.PublishedBuildFrameCount() };
     }
 
-    frameCount = (std::min)( frameCount, frames->size() );
-
-    for ( std::size_t i = 0; i < frameCount; ++i )
+    for ( const RunReplayPredictionFrame& frame : frames )
     {
-        if ( ( *frames )[i].contactsIncomplete )
+        if ( frame.contactsIncomplete )
         {
             return true;
         }
@@ -1315,6 +1328,8 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
 
     const bool replayPastPathVisible = replay.path.hasTarget && replay.path.pastPathVisible;
     const std::size_t predictionVisibleFrameCount = VisiblePredictionFrameCount( replay );
+    const RunReplayPredictionState& predictionState = replay.prediction;
+    const std::span<const RunReplayPredictionFrame> committedPredictionFrames = predictionState.CommittedFrames();
     const bool predictionPathVisible = ReplayPredictionPathVisible( replay );
     const bool predictionContactsIncomplete = ReplayPredictionContactsIncomplete( replay );
     uint64_t predictionSourceSolverHash = 0;
@@ -1336,7 +1351,6 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
     predictionTargetDisplacementValid = TryPredictionTargetDisplacement( replay, predictionTargetDisplacement,
                                                                          &predictionTargetFirst, &predictionTargetLast );
 
-    const RunReplayPredictionState& predictionState = replay.prediction;
     const ReplayPredictionBaselineSnapshot& predictionBaseline = predictionState.baseline;
     const bool predictionBaselineVisible = predictionBaseline.valid && predictionBaseline.comparisonActive;
     int predictionAuthoredWallBrickCount = 0;
@@ -1345,13 +1359,13 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
     int predictionToppledWallBrickCount = 0;
     int predictionSustainedToppledWallBrickCount = 0;
     int predictionSettledWallBrickCount = 0;
-    const RunReplayPredictionFrame* predictionFirstFrame = predictionState.simulation.frames.empty()
+    const RunReplayPredictionFrame* predictionFirstFrame = committedPredictionFrames.empty()
                                                                ? nullptr
-                                                               : &predictionState.simulation.frames.front();
+                                                               : &committedPredictionFrames.front();
 
-    const RunReplayPredictionFrame* predictionLastFrame = predictionState.simulation.frames.empty()
+    const RunReplayPredictionFrame* predictionLastFrame = committedPredictionFrames.empty()
                                                               ? nullptr
-                                                              : &predictionState.simulation.frames.back();
+                                                              : &committedPredictionFrames.back();
 
     const auto findPredictionBodyByModelRow = []( const RunReplayPredictionFrame* sample,
                                                   int modelIndex ) -> const RunReplayPredictionBodySample*
@@ -1455,16 +1469,16 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
         predictionToppledWallBrickCount += toppledAtEnd ? 1 : 0;
         bool toppledThroughoutFinalSecond = toppledAtEnd;
         bool settledThroughoutFinalSecond = firstBody && lastBody;
-        const std::size_t finalSecondStart = predictionState.simulation.frames.size() > 120u
-                                                 ? predictionState.simulation.frames.size() - 121u
+        const std::size_t finalSecondStart = committedPredictionFrames.size() > 120u
+                                                 ? committedPredictionFrames.size() - 121u
                                                  : 0u;
 
         for ( std::size_t frameIndex = finalSecondStart; ( toppledThroughoutFinalSecond || settledThroughoutFinalSecond ) &&
-                                                         frameIndex < predictionState.simulation.frames.size();
+                                                         frameIndex < committedPredictionFrames.size();
               ++frameIndex )
         {
             const RunReplayPredictionBodySample*
-                finalSecondBody = findPredictionBodyByModelRow( &predictionState.simulation.frames[frameIndex], modelIndex );
+                finalSecondBody = findPredictionBodyByModelRow( &committedPredictionFrames[frameIndex], modelIndex );
 
             if ( toppledThroughoutFinalSecond )
             {
@@ -1659,7 +1673,7 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
                                 { "predictionSourceSolverHash", predictionSourceSolverHash },
                                 { "liveSolverHash", liveSolverHash },
                                 { "predictionActiveFrameCount", static_cast<int>( predictionVisibleFrameCount ) },
-                                { "predictionFrameCount", static_cast<int>( predictionState.simulation.frames.size() ) },
+                                { "predictionFrameCount", static_cast<int>( committedPredictionFrames.size() ) },
                                 { "predictionBuildFrameCount",
                                   static_cast<int>( predictionState.PublishedBuildFrameCount() ) },
                                 { "predictionTargetDisplacementValid", predictionTargetDisplacementValid },

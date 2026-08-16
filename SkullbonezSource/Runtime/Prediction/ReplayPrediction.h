@@ -194,6 +194,7 @@ struct ReplayPredictionChildMarkerScanState
     Physics::PhysicsSceneObjectId targetId;
     std::array<ReplayPredictionChildMarkerNodeScanState, REPLAY_VISUAL_FUTURE_NODE_CAPACITY> nodes = {};
     bool usingBuildFrames = false;
+    bool bufferComplete = false;
     bool initialized = false;
     bool valid = false;
 
@@ -224,19 +225,23 @@ struct ReplayPredictionChildMarkerScanState
     // Invariant: retained causal markers already hold the scan's effects. An
     // exact key match means repeating the frame-by-node walk cannot publish any
     // new entry/rest pose and is therefore pure wasted presentation work.
+    // Buffer completion belongs to that key because only an authoritative end
+    // can publish a rest pose or authorize a committed-bank flip.
     bool Matches( uint32_t candidateGeneration, uint32_t candidateTopologyVersion, std::size_t candidateNodeCount,
                   Physics::PhysicsSceneObjectId candidateTargetId, std::size_t candidateFrameCount,
-                  ReplayFrameIndex candidateRevealFrame, bool candidateUsingBuildFrames ) const noexcept
+                  ReplayFrameIndex candidateRevealFrame, bool candidateUsingBuildFrames,
+                  bool candidateBufferComplete ) const noexcept
     {
         return valid && generation == candidateGeneration && topologyVersion == candidateTopologyVersion &&
                nodeCount == candidateNodeCount && targetId.value == candidateTargetId.value &&
                frameCount == candidateFrameCount && revealFrame == candidateRevealFrame &&
-               usingBuildFrames == candidateUsingBuildFrames;
+               usingBuildFrames == candidateUsingBuildFrames && bufferComplete == candidateBufferComplete;
     }
 
     void Commit( uint32_t candidateGeneration, uint32_t candidateTopologyVersion,
                  Physics::PhysicsSceneObjectId candidateTargetId, std::size_t candidateFrameCount,
-                 ReplayFrameIndex candidateRevealFrame, bool candidateUsingBuildFrames ) noexcept
+                 ReplayFrameIndex candidateRevealFrame, bool candidateUsingBuildFrames,
+                 bool candidateBufferComplete ) noexcept
     {
         generation = candidateGeneration;
         topologyVersion = candidateTopologyVersion;
@@ -244,6 +249,7 @@ struct ReplayPredictionChildMarkerScanState
         frameCount = candidateFrameCount;
         revealFrame = candidateRevealFrame;
         usingBuildFrames = candidateUsingBuildFrames;
+        bufferComplete = candidateBufferComplete;
         initialized = true;
         valid = true;
     }
@@ -257,6 +263,7 @@ struct ReplayPredictionChildMarkerScanState
         revealFrame = 0;
         targetId = {};
         usingBuildFrames = false;
+        bufferComplete = false;
         initialized = false;
         valid = false;
     }
@@ -319,6 +326,12 @@ struct RunReplayPredictionTrajectoryBuildState
     std::size_t rootFrameCount = 0;
     std::size_t childFrameCount = 0;
     std::size_t builtNodeCount = 0;
+
+    // Invariant: childFrameCount advances only after every previously built
+    // node reaches childAppendTargetFrameCount. childAppendNodeIndex names the
+    // next whole-node append boundary when the presentation budget expires.
+    std::size_t childAppendTargetFrameCount = 0;
+    std::size_t childAppendNodeIndex = 0;
 
     // Concept: mutual-gravity scenes publish every body's future independently
     // of contact causality. These cursors extend that record bank without

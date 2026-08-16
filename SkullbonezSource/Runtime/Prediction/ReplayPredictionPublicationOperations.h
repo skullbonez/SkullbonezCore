@@ -189,7 +189,7 @@ bool ReplayPredictionBodyHasVisibleLinearMotion( const RunReplayPredictionBodySa
 // budget expired and the per-node cursors own the exact resume point.
 inline bool AdvanceReplayPredictionChildMarkerScan( ReplayPredictionChildMarkerScanState& scan, const RunReplayPredictionState& prediction,
                                                     const std::vector<RunReplayPredictionFrame>& frames, std::size_t frameCount, ReplayFrameIndex revealFrame,
-                                                    uint32_t generation, Physics::PhysicsSceneObjectId targetId, bool usingBuildFrames,
+                                                    uint32_t generation, Physics::PhysicsSceneObjectId targetId, bool usingBuildFrames, bool bufferComplete,
                                                     const std::chrono::steady_clock::time_point& budgetStart, double budgetMilliseconds );
 std::size_t BuildReplayPredictionAffectedBodyTrails( std::span<const RunReplayPredictionFrame> frames,
                                                      std::size_t frameCount, ReplayFrameIndex revealFrame,

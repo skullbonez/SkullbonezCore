@@ -22,6 +22,8 @@ Invariants:
   - Evidence storage exists only in the Automation configuration.
   - The writer never retains runtime-owner references from verification or `Write`.
   - Offline projection cannot submit rendering or start another prediction.
+  - Completing the committed frame prefix latches capture closure; later
+    scripted assertions cannot restart reveal control before offline proof.
   - Report failure is Lane R and must not overwrite an earlier probe failure.
 
 Related:
@@ -297,6 +299,7 @@ class InteractionAutomationReportWriter
     bool m_replayVisualPredictionDrawCameraValid = false;
     int m_replayVisualFidelityStartFrame = -1;
     bool m_replayVisualFidelityCaptureEnabled = false;
+    bool m_replayVisualFidelityCaptureComplete = false;
     uint64_t m_replayVisualFidelityTrajectoryHash = 0;
     uint64_t m_replayVisualFidelityTrajectoryRecordCount = 0;
     uint64_t m_replayVisualFidelityTrajectoryPointCount = 0;

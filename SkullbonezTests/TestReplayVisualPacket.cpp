@@ -126,6 +126,15 @@ TEST_CASE( "Replay committed frame invalidation retains both allocation banks" )
     CHECK( committedFrames.size() == 3u );
     CHECK( committedFrames.data() == completedBuildBank );
     CHECK( committedFrames[0].bodies.capacity() == 16u );
+
+    auto state = std::make_unique<RunReplayPredictionState>();
+    state->simulation.frames.resize( 4u );
+    state->simulation.committedFrameCount = 2u;
+    CHECK( state->CommittedFrameCount() == 2u );
+    CHECK( state->CommittedFrames().size() == 2u );
+    state->InvalidateCommittedFrames();
+    CHECK( state->CommittedFrames().empty() );
+    CHECK( state->simulation.frames.size() == 4u );
 }
 
 TEST_CASE( "Replay committed publication retains coherent visible build facts" )
@@ -334,7 +343,7 @@ TEST_CASE( "Replay committed trajectory publication is identical across budget s
         }
     }
 
-    const auto prepareState = [&]( RunReplayPredictionState& state, bool alternateWorkerScratch )
+    const auto prepareState = [&]( RunReplayPredictionState& state )
     {
         state.simulation.frames = frames;
         state.simulation.committedFrameCount = frames.size();
@@ -379,10 +388,10 @@ TEST_CASE( "Replay committed trajectory publication is identical across budget s
             return true;
         };
 
-        // Hazard: completed worker child records are scratch. Their split and
-        // firstFrame can legitimately depend on how much topology presentation
-        // observed before the worker finished; final output must retire them.
-        const std::size_t incomingPointCount = alternateWorkerScratch ? 3u : 2u;
+        // Invariant: these build-child rows model the already-presented first
+        // generation. The coherent flip preserves them for legacy packet
+        // fidelity; the next replacement generation owns retiring the bank.
+        constexpr std::size_t incomingPointCount = 2u;
 
         if ( !seedWorkerRecord( ReplayTrajectoryLane::FutureChildIncoming, incomingPointCount,
                                 static_cast<ReplayFrameIndex>( incomingPointCount ) ) ||
@@ -424,7 +433,7 @@ TEST_CASE( "Replay committed trajectory publication is identical across budget s
         state.futureNodeCache.retainedMarkerCount = 1u;
         state.futureNodeCache.childMarkerScan.nodeCount = nodeCount;
         state.futureNodeCache.childMarkerScan.Commit( state.build.generationBeginCount, topologyVersion, rootId,
-                                                      frames.size(), state.revealClock.presentedFrame, false );
+                                                      frames.size(), state.revealClock.presentedFrame, false, true );
 
         RunReplayPredictionTrajectoryBuildState visibleBuild;
         visibleBuild.rootId = rootId;
@@ -483,9 +492,9 @@ TEST_CASE( "Replay committed trajectory publication is identical across budget s
     auto narrowSlices = std::make_unique<RunReplayPredictionState>();
     auto variedSlices = std::make_unique<RunReplayPredictionState>();
     auto uninterrupted = std::make_unique<RunReplayPredictionState>();
-    REQUIRE( prepareState( *narrowSlices, false ) );
-    REQUIRE( prepareState( *variedSlices, true ) );
-    REQUIRE( prepareState( *uninterrupted, false ) );
+    REQUIRE( prepareState( *narrowSlices ) );
+    REQUIRE( prepareState( *variedSlices ) );
+    REQUIRE( prepareState( *uninterrupted ) );
     const ReplayPredictionPresentationView pending = ReplayPrediction::PresentationViewFromState( *narrowSlices, true );
     CHECK( pending.futureTreeReady );
     CHECK_FALSE( pending.showAllFuturePaths );
@@ -511,8 +520,85 @@ TEST_CASE( "Replay committed trajectory publication is identical across budget s
     CHECK( variedSlices->trajectoryBuild.allBodyPaths );
     CHECK( uninterrupted->trajectoryBuild.allBodyPaths );
 
+    const std::size_t originalFrameCount = frames.size();
+    frames.resize( originalFrameCount + 3u );
+
+    for ( std::size_t frameIndex = originalFrameCount; frameIndex < frames.size(); ++frameIndex )
+    {
+        RunReplayPredictionFrame& frame = frames[frameIndex];
+        frame.frameIndex = static_cast<ReplayFrameIndex>( frameIndex );
+        frame.bodies.resize( bodyCount );
+
+        for ( std::size_t bodyIndex = 0u; bodyIndex < frame.bodies.size(); ++bodyIndex )
+        {
+            RunReplayPredictionBodySample& body = frame.bodies[bodyIndex];
+            body.id.value = static_cast<uint32_t>( bodyIndex + 1u );
+            body.modelRow.value = static_cast<int>( bodyIndex );
+            body.position.x = static_cast<float>( frameIndex * 10u + bodyIndex );
+            body.position.y = static_cast<float>( bodyIndex * 3u );
+            body.position.z = static_cast<float>( frameIndex + bodyIndex * 2u );
+        }
+    }
+
+    const auto runAppendSchedule = [&]( RunReplayPredictionState& state,
+                                        std::span<const std::size_t> expiryChecks,
+                                        bool& observedPartialAppend )
+    {
+        std::size_t passCount = 0u;
+
+        for ( ; passCount < 64u && state.trajectoryBuild.childFrameCount < frames.size(); ++passCount )
+        {
+            ReplayPredictionSchedulingOperations::budgetExpiryCheckCount = 0u;
+            const double budgetMilliseconds = expiryChecks.empty() ? 0.0 : 1.0;
+
+            if ( expiryChecks.empty() )
+            {
+                ReplayPredictionSchedulingOperations::forcedBudgetExpiryCheck.reset();
+            }
+            else
+            {
+                ReplayPredictionSchedulingOperations::forcedBudgetExpiryCheck =
+                    expiryChecks[passCount % expiryChecks.size()];
+            }
+
+            UpdateReplayPredictionTrajectoryStore( state, frames, frames.size(), false, rootId,
+                                                   std::chrono::steady_clock::now(), budgetMilliseconds );
+            observedPartialAppend = observedPartialAppend ||
+                                    ( state.trajectoryBuild.childAppendNodeIndex > 0u &&
+                                      state.trajectoryBuild.childFrameCount < frames.size() );
+        }
+
+        ReplayPredictionSchedulingOperations::forcedBudgetExpiryCheck.reset();
+        return passCount;
+    };
+
+    const std::array<std::size_t, 2u> variedAppendSchedule { 2u, 1u };
+    bool narrowObservedPartialAppend = false;
+    bool variedObservedPartialAppend = false;
+    bool uninterruptedObservedPartialAppend = false;
+    const std::size_t narrowAppendPassCount =
+        runAppendSchedule( *narrowSlices, narrowSchedule, narrowObservedPartialAppend );
+    const std::size_t variedAppendPassCount =
+        runAppendSchedule( *variedSlices, variedAppendSchedule, variedObservedPartialAppend );
+    const std::size_t uninterruptedAppendPassCount =
+        runAppendSchedule( *uninterrupted, {}, uninterruptedObservedPartialAppend );
+    CHECK( narrowAppendPassCount > 1u );
+    CHECK( variedAppendPassCount > 1u );
+    CHECK( uninterruptedAppendPassCount == 1u );
+    CHECK( narrowObservedPartialAppend );
+    CHECK( variedObservedPartialAppend );
+    CHECK_FALSE( uninterruptedObservedPartialAppend );
+    CHECK( narrowSlices->trajectoryBuild.childFrameCount == frames.size() );
+    CHECK( variedSlices->trajectoryBuild.childFrameCount == frames.size() );
+    CHECK( uninterrupted->trajectoryBuild.childFrameCount == frames.size() );
+    CHECK( narrowSlices->trajectoryBuild.childAppendNodeIndex == 0u );
+    CHECK( variedSlices->trajectoryBuild.childAppendNodeIndex == 0u );
+
     const std::span<const ReplayTrajectoryRecord> narrowRecords = narrowSlices->trajectoryStore.ActiveRecords();
-    REQUIRE( narrowRecords.size() == 11u );
+    // Invariant: the first coherent flip preserves the two already-presented
+    // build child records beside the canonical five-body and six-child bank.
+    // The next replacement generation owns retiring those build rows.
+    REQUIRE( narrowRecords.size() == bodyCount + nodeCount * 2u + 2u );
 
     for ( const RunReplayPredictionState* candidate : { variedSlices.get(), uninterrupted.get() } )
     {
@@ -520,6 +606,9 @@ TEST_CASE( "Replay committed trajectory publication is identical across budget s
         CHECK( narrowSlices->trajectoryBuild.usingBuildFrames == candidate->trajectoryBuild.usingBuildFrames );
         CHECK( narrowSlices->trajectoryBuild.childFrameCount == candidate->trajectoryBuild.childFrameCount );
         CHECK( narrowSlices->trajectoryBuild.builtNodeCount == candidate->trajectoryBuild.builtNodeCount );
+        CHECK( narrowSlices->trajectoryBuild.childAppendTargetFrameCount ==
+               candidate->trajectoryBuild.childAppendTargetFrameCount );
+        CHECK( narrowSlices->trajectoryBuild.childAppendNodeIndex == candidate->trajectoryBuild.childAppendNodeIndex );
         CHECK( narrowSlices->trajectoryBuild.allBodyFrameCount == candidate->trajectoryBuild.allBodyFrameCount );
         CHECK( narrowSlices->trajectoryBuild.builtAllBodyCount == candidate->trajectoryBuild.builtAllBodyCount );
         CHECK( narrowSlices->trajectoryBuild.allBodyBodyCount == candidate->trajectoryBuild.allBodyBodyCount );
@@ -749,7 +838,13 @@ TEST_CASE( "Replay fast completion keeps committed trajectories visible until th
     CHECK( hiddenRoot->points[0].position.x == state->simulation.frames[0].bodies[0].position.x );
     state->futureNodeCache.childMarkerScan.nodeCount = 1u;
     state->futureNodeCache.childMarkerScan.Commit( state->build.generationBeginCount, topologyVersion, rootId,
-                                                   frameCount, state->revealClock.presentedFrame, true );
+                                                   frameCount, state->revealClock.presentedFrame, true, false );
+    CHECK_FALSE( TryFlipReplayPredictionCommittedPublication( *state, rootId, frameCount,
+                                                              state->revealClock.presentedFrame,
+                                                              std::chrono::steady_clock::now(), 0.0 ) );
+    CHECK( state->committedPublication.pending );
+    state->futureNodeCache.childMarkerScan.Commit( state->build.generationBeginCount, topologyVersion, rootId,
+                                                   frameCount, state->revealClock.presentedFrame, true, true );
     REQUIRE( TryFlipReplayPredictionCommittedPublication( *state, rootId, frameCount,
                                                           state->revealClock.presentedFrame,
                                                           std::chrono::steady_clock::now(), 0.0 ) );
@@ -759,7 +854,7 @@ TEST_CASE( "Replay fast completion keeps committed trajectories visible until th
     CHECK_FALSE( state->futureNodeCache.futureNodesBuiltFromBuildFrames );
     CHECK( state->futureNodeCache.childMarkerScan.Matches( state->build.generationBeginCount, topologyVersion, 1u,
                                                            rootId, frameCount, state->revealClock.presentedFrame,
-                                                           false ) );
+                                                           false, true ) );
     REQUIRE( state->FutureTreeReadyForDraw( rootId, false, frameCount ) );
     const ReplayTrajectoryRecord* committedRoot = findRecord( rootId, ReplayTrajectoryLane::FutureRoot, 0u );
     const ReplayTrajectoryRecord* committedIncoming = findRecord( childId, ReplayTrajectoryLane::FutureChildIncoming, 0u );
@@ -998,21 +1093,22 @@ TEST_CASE( "Replay child marker scan key rejects every publication input change"
     ReplayPredictionChildMarkerScanState scan;
     const SkullbonezCore::Physics::PhysicsSceneObjectId target { 41u };
     const SkullbonezCore::Physics::PhysicsSceneObjectId otherTarget { 42u };
-    CHECK_FALSE( scan.Matches( 3u, 7u, 2u, target, 120u, 99u, false ) );
+    CHECK_FALSE( scan.Matches( 3u, 7u, 2u, target, 120u, 99u, false, false ) );
 
     scan.nodeCount = 2u;
-    scan.Commit( 3u, 7u, target, 120u, 99u, false );
-    CHECK( scan.Matches( 3u, 7u, 2u, target, 120u, 99u, false ) );
-    CHECK_FALSE( scan.Matches( 4u, 7u, 2u, target, 120u, 99u, false ) );
-    CHECK_FALSE( scan.Matches( 3u, 8u, 2u, target, 120u, 99u, false ) );
-    CHECK_FALSE( scan.Matches( 3u, 7u, 3u, target, 120u, 99u, false ) );
-    CHECK_FALSE( scan.Matches( 3u, 7u, 2u, otherTarget, 120u, 99u, false ) );
-    CHECK_FALSE( scan.Matches( 3u, 7u, 2u, target, 121u, 99u, false ) );
-    CHECK_FALSE( scan.Matches( 3u, 7u, 2u, target, 120u, 100u, false ) );
-    CHECK_FALSE( scan.Matches( 3u, 7u, 2u, target, 120u, 99u, true ) );
+    scan.Commit( 3u, 7u, target, 120u, 99u, false, false );
+    CHECK( scan.Matches( 3u, 7u, 2u, target, 120u, 99u, false, false ) );
+    CHECK_FALSE( scan.Matches( 4u, 7u, 2u, target, 120u, 99u, false, false ) );
+    CHECK_FALSE( scan.Matches( 3u, 8u, 2u, target, 120u, 99u, false, false ) );
+    CHECK_FALSE( scan.Matches( 3u, 7u, 3u, target, 120u, 99u, false, false ) );
+    CHECK_FALSE( scan.Matches( 3u, 7u, 2u, otherTarget, 120u, 99u, false, false ) );
+    CHECK_FALSE( scan.Matches( 3u, 7u, 2u, target, 121u, 99u, false, false ) );
+    CHECK_FALSE( scan.Matches( 3u, 7u, 2u, target, 120u, 100u, false, false ) );
+    CHECK_FALSE( scan.Matches( 3u, 7u, 2u, target, 120u, 99u, true, false ) );
+    CHECK_FALSE( scan.Matches( 3u, 7u, 2u, target, 120u, 99u, false, true ) );
 
     scan.Reset();
-    CHECK_FALSE( scan.Matches( 3u, 7u, 2u, target, 120u, 99u, false ) );
+    CHECK_FALSE( scan.Matches( 3u, 7u, 2u, target, 120u, 99u, false, false ) );
 }
 
 TEST_CASE( "Replay child marker scan preserves stable-node suffix cursors" )
@@ -1219,22 +1315,55 @@ TEST_CASE( "Replay incremental child marker scan matches the legacy full scan ac
         }
 
         full.Commit( generation, prediction->futureNodeCache.futureNodesTopologyVersion, rootId, frameCount,
-                     revealFrame, usingBuildFrames );
+                     revealFrame, usingBuildFrames, frameCount == frames.size() );
         return full;
     };
 
+    bool observedPartialMarkerScan = false;
     const auto compareWithLegacy = [&]( std::size_t frameCount, ReplayFrameIndex revealFrame,
                                         uint32_t generation, bool usingBuildFrames )
     {
-        const auto budgetStart = std::chrono::steady_clock::now();
-        REQUIRE( AdvanceReplayPredictionChildMarkerScan( incremental, *prediction, frames, frameCount, revealFrame,
-                                                         generation, rootId, usingBuildFrames, budgetStart, 0.0 ) );
+        constexpr std::array<std::size_t, 4u> expirySchedule { 3u, 1u, 4u, 2u };
+        const bool bufferComplete = (std::min)( frameCount, frames.size() ) == frames.size();
+        bool scanComplete = false;
+        std::size_t passCount = 0u;
+
+        // Invariant: every pass gets a fresh deterministic budget while the
+        // production per-node cursors retain the interrupted scan prefix.
+        for ( ; passCount < 2048u && !scanComplete; ++passCount )
+        {
+            ReplayPredictionSchedulingOperations::budgetExpiryCheckCount = 0u;
+            ReplayPredictionSchedulingOperations::forcedBudgetExpiryCheck =
+                expirySchedule[passCount % expirySchedule.size()];
+            const auto budgetStart = std::chrono::steady_clock::now();
+            scanComplete = AdvanceReplayPredictionChildMarkerScan( incremental, *prediction, frames, frameCount,
+                                                                   revealFrame, generation, rootId, usingBuildFrames,
+                                                                   bufferComplete, budgetStart, 1.0 );
+
+            if ( !scanComplete )
+            {
+                const std::size_t visibleFrameCount =
+                    (std::min)( frameCount, static_cast<std::size_t>( revealFrame ) + 1u );
+                const bool anyProgress = std::any_of( incremental.nodes.begin(),
+                                                      incremental.nodes.begin() + incremental.nodeCount,
+                                                      []( const ReplayPredictionChildMarkerNodeScanState& node )
+                                                      { return node.scannedFrameCount > 0u; } );
+                const bool anyIncomplete = std::any_of(
+                    incremental.nodes.begin(), incremental.nodes.begin() + incremental.nodeCount,
+                    [visibleFrameCount]( const ReplayPredictionChildMarkerNodeScanState& node )
+                    { return node.scannedFrameCount < visibleFrameCount; } );
+                observedPartialMarkerScan = observedPartialMarkerScan || ( anyProgress && anyIncomplete );
+            }
+        }
+
+        ReplayPredictionSchedulingOperations::forcedBudgetExpiryCheck.reset();
+        REQUIRE( scanComplete );
         const ReplayPredictionChildMarkerScanState full = legacyFullScan( frameCount, revealFrame, generation,
                                                                           usingBuildFrames );
         REQUIRE( incremental.nodeCount == full.nodeCount );
         CHECK( incremental.Matches( generation, prediction->futureNodeCache.futureNodesTopologyVersion,
                                     full.nodeCount, rootId, (std::min)( frameCount, frames.size() ), revealFrame,
-                                    usingBuildFrames ) );
+                                    usingBuildFrames, bufferComplete ) );
 
         for ( std::size_t nodeIndex = 0u; nodeIndex < full.nodeCount; ++nodeIndex )
         {
@@ -1267,7 +1396,6 @@ TEST_CASE( "Replay incremental child marker scan matches the legacy full scan ac
 
         auto actualMarkers = std::make_unique<RunReplayPredictionState>();
         auto expectedMarkers = std::make_unique<RunReplayPredictionState>();
-        const bool bufferComplete = (std::min)( frameCount, frames.size() ) == frames.size();
         const std::vector<RunReplayPredictionFrame>* completeFrames = bufferComplete ? &frames : nullptr;
         const std::size_t completeFrameCount = bufferComplete ? frames.size() : 0u;
         RetainReplayPredictionCausalMarkers( *actualMarkers, incremental, revealFrame, completeFrames,
@@ -1331,6 +1459,7 @@ TEST_CASE( "Replay incremental child marker scan matches the legacy full scan ac
 
     prediction->futureNodeCache.futureNodesTopologyVersion = 2u;
     compareWithLegacy( 240u, 180u, 1u, false );
+    CHECK( observedPartialMarkerScan );
     CHECK( incremental.nodeCount == childCount );
     CHECK( incremental.nodes[0].scannedFrameCount == 181u );
     CHECK( incremental.nodes[childCount - 1u].scannedFrameCount == 181u );

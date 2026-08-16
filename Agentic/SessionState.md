@@ -1,7 +1,7 @@
 # Session State
 
 Date: 2026-08-16
-Branch: `main`
+Branch: `codex/replay-prediction-adversarial-fixes`
 Status: Four active plans; 4/29 tasks complete
 
 Determinism Envelope Tier-2 Hardening (9 tasks), Causal Event Inspection
@@ -22,6 +22,15 @@ longer observed at all. The Automation probe pins trajectory fingerprint
 evidence lives in `Agentic/Plans/TODO/replay-prediction-runtime-spike-reduction.md`
 under Current RP4 evidence; it is not duplicated here.
 
+Replay Prediction Adversarial Repair completed on
+`codex/replay-prediction-adversarial-fixes` in two `REPLAY_ADVERSARIAL` commits.
+It corrected all five committed-frame readers, repaired the Automation evidence
+harnesses, added deterministic best-fit reuse and whole-node append resume,
+bound markers to complete coherent publication, and recorded real-run retained
+high water. Its completed plan was deleted from the live queue; Git history is
+the audit archive. No baseline was refreshed, and the original spike-reduction
+plan's owner-only RP4 threshold task remains unchanged.
+
 Source Modernization Sweep, Dense Pile Sleep Resolution, Broadphase Dense
 Dedup Restoration, and Look Lab Random Style Authoring remain closed by owner
 direction.
@@ -41,6 +50,12 @@ merge had no source-level conflict and only the two ledger files needed
 reconciliation. Treat the first validation run on `main` after this merge as
 the gate that was deferred, and do not read the branch's green full-gate result
 as covering the merged tree.
+
+That deferred merged-tree gate is now discharged by the adversarial-repair
+branch. Its exact final source state passed `tools\validate_fast.bat` and
+`tools\validate_full.bat` without a baseline refresh, along with the focused
+Replay CPU family, visual-fidelity, allocation-policy, dependency, and spike
+diagnostic gates. The repair's two commit bodies retain the measured output.
 
 `claude/codebase-overview-jatmcg` needed no merge. It landed earlier via PR #152
 (`5dd31893d`) and was already an ancestor of `main`; the remote branch is stale.

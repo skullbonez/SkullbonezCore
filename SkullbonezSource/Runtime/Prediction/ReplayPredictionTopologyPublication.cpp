@@ -918,7 +918,8 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const
                                                         static_cast<std::size_t>( REPLAY_PATH_MAX_FUTURE_NODES ) );
 
         if ( !markerScan.Matches( generation, topologyVersion, markerNodeCount, publicationTargetId,
-                                  activePredictionFrameCount, drawWindow.revealFrame, publicationUsingBuildFrames ) )
+                                  activePredictionFrameCount, drawWindow.revealFrame, publicationUsingBuildFrames,
+                                  bufferComplete ) )
         {
             bool markerScanComplete = false;
 
@@ -928,8 +929,8 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const
                                                                              activePredictionFrameCount,
                                                                              drawWindow.revealFrame, generation,
                                                                              publicationTargetId,
-                                                                             publicationUsingBuildFrames, overlayBudgetStart,
-                                                                             budgetMilliseconds );
+                                                                             publicationUsingBuildFrames, bufferComplete,
+                                                                             overlayBudgetStart, budgetMilliseconds );
             }
 
             // Why: expiry defers only this coherent marker replacement. The

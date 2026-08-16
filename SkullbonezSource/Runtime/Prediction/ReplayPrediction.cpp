@@ -1572,6 +1572,8 @@ void ReplayPrediction::ClearFutureNodeCache()
     m_state.futureNodeCache.ResetRetainedMarkers();
     m_state.trajectoryBuild.childFrameCount = 0;
     m_state.trajectoryBuild.builtNodeCount = 0;
+    m_state.trajectoryBuild.childAppendTargetFrameCount = 0;
+    m_state.trajectoryBuild.childAppendNodeIndex = 0;
 }
 
 void ReplayPrediction::ClearCache()

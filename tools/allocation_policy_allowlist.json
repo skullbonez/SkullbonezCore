@@ -173,7 +173,7 @@
       "owner": "ReplayPrediction private working set",
       "phase": "replay",
       "reason": "Prediction frames, frame payload pools, private prediction engine storage, and trajectory records share one registered replay growth gate.",
-      "cap": "ReplayPredictionRetainedMemory policy registers replay_prediction_working_set with a 256 MiB hard byte cap; the strict two-generation probe measured 110,979,828 bytes high-water.",
+      "cap": "ReplayPredictionRetainedMemory policy registers replay_prediction_working_set with a 256 MiB hard byte cap; the strict two-generation Predict-off/rebuild probe measured 18,701,760 bytes high-water, preserving 14.353486x measured headroom.",
       "removal_or_wrapper_plan": "Keep prediction growth behind RequestReplayPredictionReserveGrowth/ReserveReplayPredictionVector or replace the working set with a fixed prediction arena."
     },
     {
