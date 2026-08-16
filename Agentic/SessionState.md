@@ -1,26 +1,13 @@
 # Session State
 
 Date: 2026-08-16
-Branch: `codex/replay-prediction-adversarial-fixes`
-Status: Four active plans; 4/29 tasks complete
+Branch: `main`
+Status: Three active plans; 1/24 tasks complete
 
-Determinism Envelope Tier-2 Hardening (9 tasks), Causal Event Inspection
+Causal Event Inspection (9 tasks), Determinism Envelope Tier-2 Hardening
 (9 tasks), and Catto Divergence Repairs (6 tasks) are registered under
-`Agentic/Plans/TODO/`, 0 complete. `MASTER-PLAN.md` carries the binding order.
-
-Replay Prediction Runtime Spike Reduction (5 tasks, 4 complete) merged into
-`main` this session from `nightrunner-14th-AUG-26`. It owns the measured
-completion-publication, child-marker, and Predict-off runtime stalls; Automation
-report serialization and prediction target-restart work remain explicitly
-excluded. RP0 through RP3 are complete: committed opposite-bank publication,
-incremental child-marker scanning, and count-authoritative frame invalidation
-with trajectory active-prefix reuse. The measured effect is Predict-off from
-26.0907-26.4603 ms down to 0.0043-0.0110 ms and child markers from
-0.0021-35.5981 ms down to 0.0006-0.9382 ms, with completion publication no
-longer observed at all. The Automation probe pins trajectory fingerprint
-`0x0702E1DFBB57F16D` and submitted geometry `0xF06608D189EFEEAD`. Full per-phase
-evidence lives in `Agentic/Plans/TODO/replay-prediction-runtime-spike-reduction.md`
-under Current RP4 evidence; it is not duplicated here.
+`Agentic/Plans/TODO/`; Catto CD0 is complete. `MASTER-PLAN.md` carries the
+binding order, with Causal first by owner direction on 2026-08-16.
 
 Replay Prediction Adversarial Repair completed on
 `codex/replay-prediction-adversarial-fixes` in two `REPLAY_ADVERSARIAL` commits.
@@ -28,8 +15,7 @@ It corrected all five committed-frame readers, repaired the Automation evidence
 harnesses, added deterministic best-fit reuse and whole-node append resume,
 bound markers to complete coherent publication, and recorded real-run retained
 high water. Its completed plan was deleted from the live queue; Git history is
-the audit archive. No baseline was refreshed, and the original spike-reduction
-plan's owner-only RP4 threshold task remains unchanged.
+the audit archive. No baseline was refreshed.
 
 Source Modernization Sweep, Dense Pile Sleep Resolution, Broadphase Dense
 Dedup Restoration, and Look Lab Random Style Authoring remain closed by owner
@@ -62,43 +48,28 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-`TIER2_DETERMINISM` T0. Establish the pre-change envelope and determine whether
-the statically linked UCRT dispatches on processor features for `sinf`, `cosf`,
-and `acosf`. This needs a Windows build and either a disassembly of the linked
-routines or the same binary executed on two different microarchitectures. No
-source edit.
-
 `CAUSAL_INSPECT` C0. Fix the seek contract: confirm every cause row kind
 addresses a frame the scrubber can restore, and define the refusal behavior for a
-row whose frame has aged out of the recorder ring. C2 then picks the transport
-semantics, which decides what "fast forward to the causal moment" means for the
-whole feature; the plan recommends restoring to a short lead-in and running
-forward while the camera arrives.
+row whose frame has aged out of the recorder ring as `Replay frame expired`.
+C1-C8 then implement the approved synchronized replay/detail-camera transition,
+dedicated orbit/follow camera, Space aftermath, exact retained solver-detail
+availability, four-row scrolling panel, and click/scrub return to the saved main
+camera. Missing detail is reported rather than regenerated.
 
-`TIER2_DETERMINISM` T1, T2, T5 through T8 and all of `CAUSAL_INSPECT` are
-unblocked and change no physics output.
+After all of `CAUSAL_INSPECT`, run `TIER2_DETERMINISM` in its recorded order,
+then `CATTO_REPAIRS` CD1-CD5. `future_physics.md` remains unregistered.
 
 ## Blockers
 
 - `TIER2_DETERMINISM` T3 and T4 change physics bits by construction. The plan
   grants no baseline-refresh authority; each needs its own owner approval of that
   exact transition, reviewed as behavior.
-- T0's CRT dispatch question cannot be answered from a Linux session. It needs
-  Windows tooling.
-- All of `CATTO_REPAIRS` is gated behind CD0, which is an owner-only scope
-  ratification: the owner picks which solver repairs R1 through R6 are in scope
-  and in what order. A run may not answer CD0 by reasoning about it. CD1 through
-  CD5 each additionally change byte-exact physics baselines and need their own
-  owner ruling, so no task in that plan is currently selectable.
-- Replay Prediction Spike Reduction RP4 is owner-only and is the plan's last
-  task. The post-fix distributions are recorded in the plan; the owner either
-  picks the marker/frame limits that make
-  `tools/validate_replay_prediction_frame_spikes.bat` a hard failure, or rules
-  that the gate stays informational. The gate is informational as merged. Plan
-  deletion follows that ruling in the same commit. No agent task remains, so a
-  run that selects this plan has nothing it may legitimately do.
+- `CATTO_REPAIRS` CD0 is complete. CD1-CD5 are selectable only after Causal and
+  Determinism finish, in the approved R1, R5, R6, R3, R2(a), R4 order. An
+  unexpected measured effect outside a repair's described behavior returns to
+  the owner; do not re-ask the approved scope questions.
 - `TIER2_DETERMINISM` T3/T4 baseline sequencing now has a downstream consumer.
-  The replay plan's RP1 oracle pins trajectory fingerprint
+  The landed replay-prediction oracle pins trajectory fingerprint
   `0x0702E1DFBB57F16D` and submitted geometry `0xF06608D189EFEEAD`, which a
   physics-bit transition would be expected to move. Decide the baseline ruling
   knowing those replay fingerprints follow from it.

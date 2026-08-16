@@ -23,6 +23,30 @@ lands. An agent must not regenerate `TestOutput/baselines/physics_regression_var
 or any other physics golden under this plan without that approval recorded in
 the owning commit body.
 
+### Approved deterministic-rotation direction (2026-08-16)
+
+Follow Erin Catto's modern Box2D/Box3D practice at the determinism boundary:
+physics-visible angle construction uses repository-owned deterministic
+`ComputeCosSin` and `Atan2` routines rather than CRT transcendentals. These are
+fixed approximations with explicit range reduction, evaluation order, and
+bit-pattern tests; they are not lookup tables and must not depend on fast-math,
+FMA contraction, or processor dispatch.
+
+Preserve SkullbonezCore's existing exponential-map integration shape. The
+authoritative integrator currently applies one axis-angle delta for the fixed
+step, left-multiplied because angular velocity is expressed in world space. For
+angular displacement `theta`, that update represents the frozen-angular-velocity
+rotation directly; a normalized first-order quaternion update instead advances
+by the smaller effective angle `2 * atan(theta / 2)`. Box3D controls that error
+with solver substeps and a maximum angular displacement. SkullbonezCore has no
+equivalent bound at this integration seam, so copying that update would trade
+away useful accuracy, especially for fast rotation and partial-time collision
+steps. Adopt Catto's deterministic math ownership, not a mismatched integration
+approximation.
+
+This ruling settles the T1, T3, and T4 design direction only. It does not approve
+the resulting baseline transitions and grants no baseline-refresh authority.
+
 ## Problem And Evidence
 
 Dated 2026-08-15, measured against the current tree.
@@ -95,7 +119,10 @@ evidence, not design.
 `SkullbonezSource/Physics/Ragdoll.cpp:253` passes an unclamped dot product to
 `acosf`. A dot product of two normalized vectors routinely exceeds 1.0 by an ULP
 after rounding, and `acos` of a value outside [-1, 1] returns NaN. This is a
-live correctness defect independent of the determinism work.
+live correctness defect independent of the determinism work. T4 removes the
+domain hazard entirely by constructing the vector angle as
+`Atan2(length(cross(a, b)), clamp(dot(a, b), -1, 1))`; no repository-owned
+`acos` is needed.
 
 ## Determinism Tiers
 
@@ -148,17 +175,24 @@ violation if one exists.
   any behavior changes. No source edit.
 
 - [ ] **T1 — Add the deterministic transcendental owner with a byte-exact oracle.**
-  Introduce one owner under `SkullbonezSource/Maths` providing the half-angle
-  rotation coefficients and `acos`, implemented using only `+`, `−`, `×`, `÷`,
-  and `sqrtf`, with a fixed evaluation order and no reliance on contraction.
-  Establish the input domain from measured data, not assumption: instrument the
-  regression scenes to report the observed distribution of
-  `omegaMag * deltaSeconds` and fit over that domain with a stated maximum error
-  in ULP. A naive Taylor series is insufficient at the upper end of a realistic
-  angular-velocity range and must not be assumed adequate. Commit an
-  input-to-output bit-pattern table and assert byte-equality against it, so a
-  toolchain upgrade that re-associates the polynomial fails loudly. Adopt
-  nothing in this phase; physics output must not change.
+  Introduce one owner under `SkullbonezSource/Maths` providing
+  `ComputeCosSin(angle)` and `Atan2(y, x)`, following the ownership and numerical
+  strategy of modern Box2D/Box3D: fixed repository-controlled approximations,
+  explicit range reduction, stable normalization where required, and a fixed
+  evaluation order. Do not add `acos`, a lookup table, an external dependency,
+  fast-math, or explicit FMA. The implementation may use only `+`, `−`, `×`,
+  `÷`, comparison, and `sqrtf`.
+
+  Establish the rotation input domain from measured data, not assumption:
+  instrument the regression scenes to report the observed distribution of
+  `omegaMag * deltaSeconds`, then verify `ComputeCosSin` over both that domain
+  and the complete range-reduction boundaries. Verify `Atan2` in every quadrant,
+  on both axes, around signed zero if the contract distinguishes it, and near
+  parallel and anti-parallel vector inputs. State maximum angular and coefficient
+  error; do not describe a large-domain approximation only in ULP near zero.
+  Commit input-to-output bit-pattern tables and assert byte-equality against
+  them, so a toolchain upgrade that re-associates either approximation fails
+  loudly. Adopt nothing in this phase; physics output must not change.
 
 - [ ] **T2 — Add the determinism math policy gate.**
   Add `tools/check_determinism_math_policy.py` and
@@ -179,27 +213,42 @@ violation if one exists.
   checker into `tools\validate_fast.bat`. No physics behavior change.
 
 - [ ] **T3 — Adopt the deterministic rotation in the pose integrator.**
-  **Owner baseline decision required before this phase begins.** Replace the
-  `sinf`/`cosf` pair in `Quaternion::RotateAboutAxis`, or supply a dedicated
-  integration entry point, so `IntegrateBodyRecordPose` composes the orientation
-  delta from the T1 coefficients. Prefer the exponential-map form in which the
-  vector part is built from the angular velocity scaled by a half-angle sinc
-  term: it needs neither the axis normalisation division nor the
-  `omegaMag > 0.0001f` guard, which removes a knife-edge branch of exactly the
-  kind `AGENTS.md` warns about, and it is more accurate in the small-angle regime
-  that dominates. Prove worker-count invariance is retained. Present the
+  **Owner baseline decision required before this phase begins.** Add a dedicated
+  physics integration entry point and keep its current semantics explicit:
+  angular velocity is world-space, the delta quaternion is left-multiplied, and
+  the update is the exponential map of angular velocity held constant across
+  `deltaSeconds`. Build the delta from T1's `ComputeCosSin` using the stable form
+  `vectorPart = omega * (0.5 * deltaSeconds * sinc(halfAngle))`, where
+  `halfAngle = 0.5 * length(omega) * deltaSeconds` and the zero limit of `sinc`
+  is exact. Normalize the composed orientation using the existing deterministic
+  normalization contract.
+
+  Remove both the axis-normalization division and the arbitrary
+  `omegaMag > 0.0001f` cutoff without introducing a new near-zero discontinuity.
+  Do not replace this with Box3D's normalized first-order quaternion update:
+  that approximation is appropriate only with a measured maximum angular
+  displacement and substep policy that this engine does not currently have.
+  Exercise zero, sub-threshold, ordinary, high-speed, and partial-time-step
+  rotations, and prove worker-count invariance is retained. Present the
   resulting baseline diff as a behavior change for owner review; do not refresh
   the golden until that approval is recorded.
 
-- [ ] **T4 — Adopt deterministic `acos` and clamp the ragdoll neck input.**
+- [ ] **T4 — Adopt deterministic vector-angle construction for the ragdoll neck.**
   **Owner baseline decision required before this phase begins.** Replace
-  `acosf` at `SkullbonezSource/Physics/Ragdoll.cpp:253` with the T1 routine and
-  clamp its argument to [-1, 1] before the call. Land the clamp as its own
-  reviewable change with a regression test that drives the dot product past 1.0,
-  since the NaN is a correctness defect that should be fixed whether or not the
-  determinism transition is approved. Update the T2 rulings to remove both
-  `repair-plan` rows; after this phase the physics-reachable transcendental set
-  is empty.
+  `acosf(dot)` at `SkullbonezSource/Physics/Ragdoll.cpp:253` with T1's
+  `Atan2(length(cross), clampedDot)`. Reuse the already-computed cross vector for
+  both its magnitude and correction axis, clamp the dot product to [-1, 1] as a
+  bounded geometric invariant, and preserve the existing deterministic fallback
+  axis when the vectors are parallel or anti-parallel. The correction quaternion
+  must use the same T1 `ComputeCosSin` owner as pose integration through
+  `Quaternion::RotateAboutAxis`; no second trig implementation and no
+  deterministic `acos` are allowed.
+
+  Land the NaN repair as its own reviewable behavior change. Add focused tests
+  for dot values just outside both ends of [-1, 1], aligned and opposed vectors,
+  fallback-axis selection, and the maximum-correction cap. Update the T2 rulings
+  to remove both `repair-plan` rows; after this phase the physics-reachable CRT
+  transcendental set is empty.
 
 - [ ] **T5 — Build the portable CPU target.**
   Add a CMake build covering `Maths`, `Physics`, `Scene`, `World`, `Assets`, and
@@ -306,9 +355,14 @@ byte-exactly rather than copied.
 - No implementation-defined transcendental is reachable from
   `SkullbonezSource/Physics`, proved by the checker rather than by a manual grep.
 - The deterministic routines carry a committed bit-pattern oracle with a stated
-  maximum error in ULP over a measured input domain.
-- `Ragdoll.cpp` cannot pass an out-of-range argument to `acos`, with a regression
-  test that fails without the clamp.
+  maximum angular/coefficient error over measured and boundary input domains.
+- Physics-visible angle construction uses the single repository-owned
+  `ComputeCosSin` and `Atan2` implementation; no deterministic `acos` or lookup
+  table exists.
+- `Ragdoll.cpp` no longer has an `acos` domain failure, with regressions covering
+  out-of-range rounded dot products and the anti-parallel fallback axis.
+- Pose integration preserves the existing world-space, left-multiplied
+  exponential-map semantics and has no arbitrary near-zero angular cutoff.
 - Worker-count invariance at 0/1/4 workers still holds after T3 and T4.
 - The portable target builds and passes on Linux under Clang and GCC, and is
   clean under ASan, UBSan, and TSan.
@@ -330,14 +384,13 @@ Resolve these inside the owning phase; do not treat them as settled.
 2. What is the true upper bound of `omegaMag * deltaSeconds` across the gated
    regression content? T1's approximation domain depends on the measurement, and
    a spinning body at a realistic angular velocity produces an argument large
-   enough that series truncation error is not automatically negligible.
-3. Is `Quaternion::RotateAboutAxis` the right seam to change, or should physics
-   integration call a dedicated entry point so camera and editor callers keep the
-   general-purpose implementation? T3 decides by ownership, not convenience.
-4. Does removing the `omegaMag > 0.0001f` branch change sleep or wake behavior
+   enough that approximation error is not automatically negligible. This
+   measurement validates range reduction and error bounds; it does not reopen
+   the approved exponential-map integration shape.
+3. Does removing the `omegaMag > 0.0001f` branch change sleep or wake behavior
    for near-stationary bodies? This must be measured, not assumed, before the T3
    baseline transition is presented.
-5. Should the Linux lane run ASan at all, given
+4. Should the Linux lane run ASan at all, given
    `.github/workflows/native-diagnostics.yml` already runs MSVC ASan over a
    superset of T6's portable target? The case for keeping it is that Clang's and
    MSVC's ASan implementations do not catch identical defects; the case against

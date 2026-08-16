@@ -1,16 +1,17 @@
 # Catto Divergence Repairs
 
 Date: 2026-08-15
-Status: **Live — registered by owner direction 2026-08-15. 0/6 phases complete.**
+Status: **Live — registered by owner direction 2026-08-15. 1/6 phases complete.**
 Impact area: Physics contact solver, joints, CCD sequencing, terrain rest
 policy, physics baselines, tests, documentation
 Owner: Physics contact solver
-Priority: CD0 owner scope ratification before any implementation phase
+Priority: CD1 R1 position projection
 
 ## Scope Gate — Read First
 
 This plan is registered in `Agentic/Plans/MASTER-PLAN.md` and is selectable by
-a plan runner. Registration authorizes **CD0 only**.
+a plan runner. The completed CD0 ruling below authorizes CD1-CD5 in the recorded
+order and scope.
 
 CD0 is owner scope ratification. A run may not select CD1 or any later phase
 until the owner has recorded, in this file, which of R1-R6 are in scope and in
@@ -19,11 +20,12 @@ repairs to perform is the owner's judgement, not a task an agent completes by
 reasoning about it; a run that finds CD0 unanswered must stop and report rather
 than proceed.
 
-Every repair below changes physics-visible behavior and therefore changes
-byte-exact CSV baselines. Baselines are owner-controlled, and this registration
-pre-authorizes no baseline transition whatsoever. No repair may be
-implemented-and-rebaselined in one motion; each needs an explicit owner ruling
-on that exact baseline transition first.
+Every repair below can change physics-visible behavior and byte-exact CSV
+baselines. The owner's `Include` answers authorize the behavior described for
+each selected repair and baseline movement isolated to that behavior. Never
+blindly rebaseline: run the focused evidence first, inspect the diff, and stop
+for owner review only when output moves outside the approved repair's stated
+effect.
 
 ## Evidence Basis
 
@@ -49,15 +51,15 @@ Third column states the benefit of performing the repair.
 | **R1. Position projection stacked on Baumgarte, and it multiplies by manifold row count.** `PersistentContactSolver.cpp:1802-1873`. Catto uses velocity bias only (Section 4.2). Here each row applies its own 35 percent correction from its own stale `c.penetration`, never re-reading position or re-deriving separation, so a four-point face manifold receives roughly 1.4x the intended correction rather than 0.35x. Also linear-only: no orientation correction. | Accumulate per-body correction in a scratch array during the row loop, reduce by **max required per normal direction** rather than sum, then apply once after the loop. Alternatively re-derive separation per row from current positions, as Box2D 2.4's position solver does. Add a focused test pinning that a four-row manifold produces the same body displacement as the one-row case at equal penetration. Do **not** fold in split-impulse here; that is CS3 in the parked WNF plan. | Penetration recovery stops depending on how many points the clipper happened to emit. Removes a hidden coupling between narrowphase row count and positional behavior. Establishes an honest baseline: split impulse cannot be evaluated fairly against a projection pass that itself over-corrects. |
 | **R2. Joints sit outside the constraint system and lose warm start.** `Ragdoll.cpp:383-491`. Catto lists "joints and contacts are handled in the same way" as an advantage of the formulation (Section 1). Here joints run as a separate pass after contacts, with no accumulated impulse and no warm start, a scalar row along the current error axis instead of a 3-DOF point-to-point block, ad-hoc softness `(relVel + biasSpeed) * (1 + damping)`, and their own direct position projection. | Staged. (a) Give joints an accumulated impulse cached on constraint handle, reusing the contact cache pattern; measure ragdoll sag under load before and after. (b) Replace the scalar error-axis row with a 3-DOF point-to-point block so the constraint pins coincidence, not distance. (c) Replace the damping multiplier with either Baumgarte consistent with the contact rows or an explicit documented soft constraint. (d) Only then consider folding joint rows into the shared PGS array so one sweep sees both families. | Ragdolls stop being materially softer under load than the contact system. Contacts and joints stop fighting each other across passes — today a body pinned under a box is pushed out by contacts and pulled back by joints, with neither seeing the other's impulses. Joint stiffness becomes a physical parameter instead of an iteration-count artifact. |
 | **R3. Global solver early-out uses a sum where Catto specifies a max.** `PersistentContactSolver.cpp:1372`. Breaks when total squared delta-lambda across all rows falls below a fixed 1e-6. Catto Section 7.1 lists `max abs(delta x_i)` below tolerance; a sum reports nothing about any individual row, and an absolute threshold unscaled by row count makes the criterion scene-size dependent. | Track maximum per-row squared delta-lambda alongside the existing sum and gate on the max, which is Catto's stated criterion. Keep the sum for diagnostics only. Island-local termination is strictly better but depends on CS1 in the parked WNF plan, so do not couple the two. | Converged small islands stop burning iterations held up by one large island; unconverged islands stop exiting early because many neighbours went quiet. Removes a scene-size-dependent term from a simulation whose contract is byte-exactness. |
-| **R4. CCD advances bodies mid-tick, but the solver still uses the full `dt`.** `PersistentContactSolver.cpp:901` and `:1087`. Catto Section 6 assumes one uniform delta-t across the system; Equations 34-35 are written for it. Here swept narrowphase and terrain advance bodies to time-of-impact and consume per-body fractions of the tick via `m_timeRemaining`, the solve runs on that mixed configuration, then remaining time integrates per body — yet `invDt` and the friction bound `mu * m_c * g * dt` both use the whole tick. | Two options, not to be bundled. Cheap and local: feed per-body remaining time into the bias and friction-bound terms so the numbers mean what Catto's derivation says they mean. Structural and preferred: adopt speculative contacts so bodies are never position-advanced mid-tick — create the contact with positive separation and let the normal row's bias prevent the tunnel, preserving a uniform step. | The solver operates on the system its own mathematics describes. Removes per-body time skew from the contact solve. The friction budget becomes correct for partially-advanced bodies. The structural option likely deletes the TOI-advance path outright, simplifying the tick. |
+| **R4. CCD advances bodies mid-tick, but the solver still uses the full `dt`.** `PersistentContactSolver.cpp:901` and `:1087`. Catto Section 6 assumes one uniform delta-t across the system; Equations 34-35 are written for it. Here swept narrowphase and terrain advance bodies to time-of-impact and consume per-body fractions of the tick via `m_timeRemaining`, the solve runs on that mixed configuration, then remaining time integrates per body — yet `invDt` and the friction bound `mu * m_c * g * dt` both use the whole tick. | Retain the owner-authored partial-TOI architecture: advance to impact, solve the redirected velocity, and integrate that velocity through the remainder of the same fixed step. Define an explicit contact interval from the participating bodies' remaining-time values, then use that interval consistently for Baumgarte scaling and friction impulse bounds. Prove terrain, dynamic/dynamic, fixed/dynamic, near-zero remainder, and unequal-remainder cases. Speculative contacts are a separate future design in `Agentic/Plans/TODO/future_physics.md`; they are not part of R4. | The solver's time-scaled row terms describe the interval in which the contact actually exists without discarding the partial-step CCD design. The friction budget and penetration correction become consistent with post-impact integration while speculative-contact risk remains separately reviewable. |
 | **R5. Terrain restitution is divided by manifold point count; object contacts are not.** `PersistentContactSolver.cpp:1033` versus `:1051`. One physical quantity, two formulas. Bounce becomes a function of how many rows the manifold emitted, so a flat landing on four points behaves differently from an edge landing on two, beyond what the physics justifies. | Delete the `/pointCount` division and use one restitution formula on both paths. If the division exists to suppress multi-row bounce amplification, then the real defect is restitution being applied per row: compute the restitution target once per manifold from the pre-solve approach velocity and distribute it, rather than scaling each row. | Bounce height stops depending on manifold cardinality. One restitution formula to reason about and test instead of two. Removes a damping term that is currently disguised as restitution and therefore invisible to anyone tuning damping. |
 | **R6. Velocity snapped to zero on hardcoded thresholds inside the solve transaction.** `PersistentContactSolver.cpp:1649-1660` in `ApplyTerrainRestPolicy`. Unconditional energy destruction below 0.05 linear and 0.02 angular, hardcoded while every neighbouring threshold is config-exposed, and applied before writeback where the closed-solve energy oracle cannot attribute it. Catto Section 9.1 is explicit that his stack needed no damping. | Delete the snap and move the responsibility to `PhysicsSleepController`, which already owns quiet-frame counting with configurable thresholds. If a snap is genuinely required to reach sleep, derive its thresholds from the sleep thresholds rather than restating them as literals, and apply it after writeback so `ContactEnergyOracle` can see it. | Removes unaccounted energy destruction from inside the solve. Restores one owner for "is this body quiet" instead of two disagreeing ones. Makes the thresholds tunable and visible. Lets the energy oracle measure the true solve rather than a post-damped one. |
 
 ### Repair Sequencing Note
 
 R1, R5 and R6 are local and independently landable. R3 is local but changes
-convergence behavior on every scene. R2 and R4 are structural and each deserve
-their own owner decision. None of these are the parked stack-stability
+convergence behavior on every scene. R2(a) and the local R4 interval repair each
+deserve their own measured baseline decision. None of these are the parked stack-stability
 experiments — they are correctness repairs to the current solver, and the WNF
 plan's non-goal "do not bundle multiple solver techniques into one
 experimental result" applies to them equally.
@@ -65,6 +67,48 @@ experimental result" applies to them equally.
 R1's structural alternative (Bullet-style split impulse) is **CS3 in
 `Agentic/Plans/WNF/contact-stack-stability-techniques.md`** and stays parked.
 Do not import it into this plan.
+
+### Owner Scope Ruling — 2026-08-16
+
+The owner selected this execution order:
+
+1. R1 position projection.
+2. R5 terrain restitution.
+3. R6 sleep-owned quieting.
+4. R3 max-based convergence.
+5. R2 stage (a) only: accumulated joint-impulse caching and warm start, followed
+   by the planned ragdoll-sag measurement.
+6. R4 local interval consistency, retaining the partial-TOI architecture.
+
+R2 stages (b) through (d) and speculative contacts are excluded from this plan.
+They are described as unregistered future work in
+`Agentic/Plans/TODO/future_physics.md`, which is intentionally absent from
+`Agentic/Plans/MASTER-PLAN.md` by owner direction.
+
+The owner's earlier `Include` answers approve both the selected scope and the
+primary repair behavior described in the R1-R6 table; they are not merely
+permission to ask the same repair questions again in finer language. R2 is
+limited to stage (a), and R4 preserves the owner-authored partial-TOI design.
+Baseline movement is authorized only where focused evidence attributes it to the
+selected repair. An unexpected or unrelated physics, replay, SkullScope, or
+visual difference still blocks the touching phase and returns to the owner with
+the measured evidence.
+
+### R1 Exact Behavior And Baseline Ruling — 2026-08-16
+
+The owner approved one position correction per contact manifold, using the
+deepest retained penetration rather than summing a correction for every manifold
+point. Apply that linear correction once along the manifold normal and share it
+between the participating bodies according to their existing inverse-mass
+weights. Retain the current contact slop and 35 percent correction strength. R1
+does not add angular position correction, split impulse, or any other solver
+technique.
+
+The expected R1 baseline transition is approved where removing manifold
+point-count multiplication changes motion. The one-point and four-point forms
+of an otherwise equivalent face contact must produce the same separation. Any
+other physics, replay, SkullScope, or visual difference remains unapproved and
+blocks the transition.
 
 ---
 
@@ -99,10 +143,11 @@ Independent of the solver work, and cheap.
 
 ## Non-Goals
 
-- Do not select CD1 or later while CD0 is unanswered, and do not answer CD0 on
-  the owner's behalf.
-- Do not refresh any physics CSV, SkullScope, replay or visual baseline. Each
-  repair needs a separate owner ruling on its exact baseline transition.
+- Do not expand the completed CD0 scope or reorder repairs without a new owner
+  ruling.
+- Do not refresh a physics CSV, SkullScope, replay, or visual baseline until
+  focused evidence attributes every changed value to the approved repair; an
+  unexpected difference returns to the owner with measurements.
 - Do not raise the production solver iteration cap above 12.
 - Do not bundle two repairs into one commit or one measurement.
 - Do not import Bullet or Box2D source, or add compatibility abstractions,
@@ -115,9 +160,9 @@ Independent of the solver work, and cheap.
 ## Acceptance
 
 A repair is complete when it has: a focused behavioral test that would fail
-against the pre-repair code, an owner-approved baseline transition where
-behavior moved, the mapped validation gates run with pasted output, and an
-independent ownership review of the touched surface.
+against the pre-repair code, a baseline transition isolated to the approved
+behavior where output moved, the mapped validation gates run with pasted output,
+and an independent ownership review of the touched surface.
 
 ## Validation Mapping
 
@@ -134,21 +179,23 @@ so replay fidelity is a cumulative gate rather than an alternative one.
 
 ## Phases
 
-- [ ] **CD0 — Owner scope ratification.** Owner records here which of R1-R6 are
-  in scope, in what order, and pre-authorizes the baseline transitions each will
-  require. Owner-only: a run that finds this unanswered stops and reports.
-  Nothing below starts before this.
+- [x] **CD0 — Owner scope and baseline ratification.** The 2026-08-16 rulings
+  settle scope, order, primary repair behavior, and the boundary for isolated
+  baseline movement. Unexpected measured effects still return to the owner; the
+  included repairs do not require their scope questions to be asked again.
 - [ ] **CD1 — R1 position projection.** Per-body accumulation with max-based
-  reduction, plus the four-row-versus-one-row displacement test.
+  reduction under the approved R1 ruling, plus the
+  four-row-versus-one-row displacement test.
 - [ ] **CD2 — R5 and R6.** One restitution formula across both paths; snap
   responsibility moved to the sleep controller. Land as two commits.
 - [ ] **CD3 — R3 termination criterion.** Max-based early-out; sum retained for
   diagnostics only.
-- [ ] **CD4 — R2 joints.** Sub-steps (a) through (d) in order, each measured
-  against ragdoll sag under load. Stop and re-decide after (a) if warm start
-  alone closes the gap.
-- [ ] **CD5 — R4 stepping.** Owner picks the local or structural option before
-  any code moves. Structural option is a pipeline change, not a solver tweak.
+- [ ] **CD4 — R2(a) joint warm start only.** Cache the accumulated joint
+  impulse on the constraint handle and measure ragdoll sag under load. Stages
+  (b) through (d) remain future work regardless of this phase's result.
+- [ ] **CD5 — R4 local interval consistency.** Preserve partial-TOI advancement
+  and remaining-time integration. Define and test the contact interval used by
+  Baumgarte and friction terms. Speculative contacts remain future work.
 
 ## Reference Sites
 
