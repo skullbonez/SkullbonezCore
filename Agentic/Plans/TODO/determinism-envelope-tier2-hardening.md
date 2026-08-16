@@ -363,7 +363,7 @@ violation if one exists.
   to remove both `repair-plan` rows; after this phase the physics-reachable CRT
   transcendental set is empty.
 
-- [ ] **T5 — Build the portable CPU target.**
+- [x] **T5 — Build the portable CPU target.**
   Add a CMake build covering `Maths`, `Physics`, `Scene`, `World`, `Assets`, and
   the portable part of `Core`. The port surface is four files: Win32 file I/O in
   `SkullbonezSource/Core/AtomicTextFileWriter.cpp`, one
@@ -377,6 +377,38 @@ violation if one exists.
   `#pragma fp_contract(off)` is MSVC spelling; the portable build must pass
   `-ffp-contract=off` and fail the build if it is absent rather than silently
   compiling with contraction enabled.
+
+  Evidence (2026-08-17): root `CMakeLists.txt` now builds the renderer-free
+  `skullbonez_portable_cpu` static library from 57 production sources. The
+  target contains all 7 Maths and all 29 Physics translation units plus the
+  portable Core, `AssetSystem`, authored-scene parsing/style writing, and
+  `Terrain` closure. Configure-time inventories fail if a Maths or Physics
+  `.cpp` is omitted or if either domain includes `PlatformWin32.h` or
+  `PlatformPosix.h`; the current inventory has zero such includes.
+
+  `PlatformWin32.h` and the new `PlatformPosix.h` own the native file,
+  environment, debugger, and image-base operations needed by the four planned
+  port-surface files. The Windows adapter retains exclusive creation,
+  full-write failure, durable flush, and replace/write-through semantics. The
+  POSIX adapter uses `O_EXCL`, advances partial writes, calls `fsync`, and
+  performs the same-directory replacement. The established Visual Studio
+  Profile solution builds without warnings, and project/filter plus build-
+  configuration inventories report zero errors or blockers.
+
+  Visual Studio 18 CMake Release and Clang 22.1.3 with Ninja both built the
+  complete library. The Clang command line proves the non-MSVC path carries
+  `SKULLBONEZ_FFP_CONTRACT_OFF=1`, `-ffp-contract=off`, `-fno-exceptions`,
+  `-fno-rtti`, and the forced include of `FloatingPointContract.h`. A focused
+  negative compile without the marker was rejected; the paired marker/flag
+  compile passed.
+
+  `tools\validate_fast.bat` passed end to end: formatting, 814 project/filter
+  items, dependency proof, every ownership inventory, Profile/Automation/Debug
+  builds, the 569-case unit suite, and strict compiled-symbol reachability.
+  The touched-source comment audit inspected 9/9 files with zero deferred.
+  Independent review reported no blocking or non-blocking findings and accepted
+  compile-only POSIX proof for T5 because T6 owns portable execution. No Physics
+  behavior or baseline changed.
 
 - [ ] **T6 — Split the portable test target.**
   24 of 58 files in `SkullbonezTests/` already have no Runtime or Rendering

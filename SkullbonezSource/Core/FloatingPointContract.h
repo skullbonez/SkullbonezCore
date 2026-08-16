@@ -30,6 +30,13 @@ Related:
 
 // Hazard: fp-envelope-hardening disables contraction before vector-width or
 // optimizer policy can make `a * b + c` round differently. MSVC
-// 19.51 rejects `/fp:contract-`, so all projects force-include this equivalent
-// pragma instead.
+// 19.51 rejects `/fp:contract-`, so all Visual Studio projects force-include
+// this equivalent pragma. Portable targets must pair their marker with the
+// compiler's enforced `-ffp-contract=off` option.
+#if defined( _MSC_VER )
 #pragma fp_contract( off )
+#elif defined( SKULLBONEZ_FFP_CONTRACT_OFF )
+#pragma STDC FP_CONTRACT OFF
+#else
+#error "Non-MSVC builds must force-include this header and compile with -ffp-contract=off."
+#endif

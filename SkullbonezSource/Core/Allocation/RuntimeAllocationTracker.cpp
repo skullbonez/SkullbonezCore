@@ -45,6 +45,7 @@ Related:
 */
 #include "RuntimeAllocationTracker.h"
 
+#include "../PlatformWin32.h"
 #include "RuntimeReserveAllocator.h"
 #if defined( TRACY_ENABLE )
 #include "DevelopmentToolAllocation.h"
@@ -56,13 +57,6 @@ Related:
 #include <cstdlib>
 #include <limits>
 #include <new>
-
-#if defined( _MSC_VER )
-#include <intrin.h>
-#endif
-#if defined( _WIN32 )
-#include "../PlatformWin32.h"
-#endif
 
 namespace
 {
@@ -165,13 +159,9 @@ uint64_t AllocationOwnershipCookie( const AllocationHeader& header, const void* 
 
 uintptr_t ProcessImageBase() noexcept
 {
-#if defined( _WIN32 )
-    // Why: module handles are address-shaped Win32 ABI values. Diagnostics use
-    // the integer only to normalize captured callsites against this image base.
-    return reinterpret_cast<uintptr_t>( GetModuleHandleW( nullptr ) );
-#else
-    return 0u;
-#endif
+    // Why: diagnostics normalize captured callsites when their platform can
+    // expose an image base; portable builds retain zero as the honest sentinel.
+    return SkullbonezCore::Core::Platform::ProcessImageBase();
 }
 
 std::size_t NormalizeAlignment( std::size_t alignment ) noexcept
@@ -519,15 +509,11 @@ bool TryCopyAllocationHeader( const AllocationHeader* header, AllocationHeader& 
                    pointer, SkullbonezCore::Core::Allocation::RuntimeAllocationPhaseName( phase ),
                    static_cast<unsigned int>( owner ), headerState, static_cast<unsigned long long>( foreignFreeCount ) );
 
-#if defined( _WIN32 )
-    OutputDebugStringA( message );
-#endif
+    SkullbonezCore::Core::Platform::WriteDebugger( message );
     std::fputs( message, stderr );
     std::fflush( stderr );
 
-#if defined( _MSC_VER )
-    __debugbreak();
-#endif
+    SkullbonezCore::Core::Platform::DebugBreak();
 
     std::abort();
 }
@@ -547,9 +533,7 @@ void HandleForeignFree( void* pointer, const char* headerState ) noexcept
                    pointer, SkullbonezCore::Core::Allocation::RuntimeAllocationPhaseName( phase ),
                    static_cast<unsigned int>( owner ), headerState, static_cast<unsigned long long>( foreignFreeCount ) );
 
-#if defined( _WIN32 )
-    OutputDebugStringA( message );
-#endif
+    SkullbonezCore::Core::Platform::WriteDebugger( message );
     std::fputs( message, stderr );
     std::fflush( stderr );
 
@@ -615,14 +599,12 @@ void FreeTrackedMemory( void* pointer ) noexcept
                    "FATAL[Runtime/Allocation]: global operator new failed. reason=%s size=%llu alignment=%llu\n", reason,
                    static_cast<unsigned long long>( size ), static_cast<unsigned long long>( alignment ) );
 
-#if defined( _WIN32 )
-    OutputDebugStringA( message );
-#endif
+    SkullbonezCore::Core::Platform::WriteDebugger( message );
     std::fputs( message, stderr );
     std::fflush( stderr );
 
-#if ( defined( _DEBUG ) || defined( SKULLBONEZ_PROFILE_ENABLED ) ) && defined( _MSC_VER )
-    __debugbreak();
+#if defined( _DEBUG ) || defined( SKULLBONEZ_PROFILE_ENABLED )
+    SkullbonezCore::Core::Platform::DebugBreak();
 #endif
 
     std::abort();

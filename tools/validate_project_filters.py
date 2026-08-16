@@ -550,6 +550,7 @@ CORE_PREFIXES = (
     "Log",
     "MainMemoryStats",
     "PlatformProfiler",
+    "PlatformPosix",
     "PlatformWin32",
     "Profiler",
     "SbDiagnosticStore",
