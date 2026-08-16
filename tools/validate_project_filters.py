@@ -123,6 +123,7 @@ SOURCE_PROJECT_SUFFIX_TYPES = {
 }
 
 MATH_PREFIXES = (
+    "DeterministicMath",
     "Frustum",
     "GeometricMath",
     "GeometricStructures",

@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-17
-Status: Two active plans; 12/24 tasks complete
+Status: Two active plans; 13/24 tasks complete
 
 ## Owner Direction
 
@@ -42,7 +42,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Determinism Envelope Tier-2 Hardening | `TIER2_DETERMINISM` | 9 | 2 | `TODO/determinism-envelope-tier2-hardening.md` |
+| Determinism Envelope Tier-2 Hardening | `TIER2_DETERMINISM` | 9 | 3 | `TODO/determinism-envelope-tier2-hardening.md` |
 | Catto Divergence Repairs | `CATTO_REPAIRS` | 6 | 1 | `TODO/catto-divergence-repairs.md` |
 
 ## Parked, Backlog, And Completed Plans
@@ -76,17 +76,12 @@ states elsewhere, and both are recorded rather than silently corrected:
 
 ## Binding Order
 
-1. `TIER2_DETERMINISM` T2 — add the deterministic math policy gate. T1's
-   repository-owned transcendental seam and exact-bit oracle are complete.
-   Causal C2's
-   presentation-only slerp becomes an explicit `retain-owner` site under T2; it
-   does not block completing Causal first because it is not physics-reachable.
-2. `TIER2_DETERMINISM` T5 through T8 — portable target, test split, Linux
+1. `TIER2_DETERMINISM` T5 through T8 — portable target, test split, Linux
    sanitizer lane, and hosted cross-machine evidence.
-3. `TIER2_DETERMINISM` T3 and T4 — adopt deterministic rotation and `acos` after
+2. `TIER2_DETERMINISM` T3 and T4 — adopt deterministic rotation and `acos` after
    the earlier evidence isolates their behavior transitions. Preserve each
    baseline-failing executable and continue; acceptance remains an owner review.
-4. `CATTO_REPAIRS` CD1 through CD5 — CD0 is complete. Execute the approved order:
+3. `CATTO_REPAIRS` CD1 through CD5 — CD0 is complete. Execute the approved order:
    R1; R5 then R6 as separate commits; R3; R2 stage (a) only; and the local R4
    interval-consistency repair that preserves partial-TOI advancement.
 
@@ -103,5 +98,5 @@ tests must pin field mapping and availability, not pre-Catto impulse values.
 
 ## Portfolio Progress
 
-12/24 tasks complete across two active plans. Causal C0-C8, Determinism T0-T1,
-and Catto CD0 are complete; Determinism T2 is the next selectable task.
+13/24 tasks complete across two active plans. Causal C0-C8, Determinism T0-T2,
+and Catto CD0 are complete; Determinism T5 is the next selectable task.

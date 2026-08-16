@@ -65,6 +65,24 @@
       "plan": ""
     },
     {
+      "file": "SkullbonezSource/Maths/DeterministicMath.cpp",
+      "signature": "CosSin ComputeCosSin( float radians ) noexcept",
+      "owner": "Physics deterministic sine/cosine production seam",
+      "disposition": "repair-plan",
+      "reason": "T1 deliberately exposes the certified approximation before T3 adopts it in the authoritative pose integrator and Quaternion axis-angle construction.",
+      "evidence": "Current Debug/Profile objects classify the symbol test-only; TestDeterministicMath pins bit oracles, certified range, measured Physics envelope, and actual reduction transitions while T3 remains open.",
+      "plan": "Agentic/Plans/TODO/determinism-envelope-tier2-hardening.md"
+    },
+    {
+      "file": "SkullbonezSource/Maths/DeterministicMath.cpp",
+      "signature": "float Atan2( float y, float x ) noexcept",
+      "owner": "Physics deterministic vector-angle production seam",
+      "disposition": "repair-plan",
+      "reason": "T1 deliberately exposes the certified approximation before T4 replaces the ragdoll neck's implementation-defined inverse-cosine path.",
+      "evidence": "Current Debug/Profile objects classify the symbol test-only; TestDeterministicMath pins axis, quadrant, signed-zero, and bit-oracle behavior while T4 remains open.",
+      "plan": "Agentic/Plans/TODO/determinism-envelope-tier2-hardening.md"
+    },
+    {
       "file": "SkullbonezSource/Physics/SpatialGrid.cpp",
       "signature": "void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs, bool restrictToPairSourceCells )",
       "owner": "Math::CollisionDetection::SpatialGrid pure membership seam",

@@ -741,6 +741,31 @@ calls. Allowlist rows must name the owner, phase, reason, cap, and
 removal/wrapper plan; do not add ad-hoc regex gates, frozen count ratchets, or
 new runtime allocation exceptions without an owner decision.
 
+## Determinism Math Policy
+
+Physics-visible arithmetic must not depend silently on implementation-defined
+`<cmath>` transcendental results. Static enforcement lives in
+`tools/check_determinism_math_policy.py` with exact current-source judgements in
+`tools/determinism_math_rulings.json`. The checker scans both
+`SkullbonezSource/Physics` and `SkullbonezSource/Maths`; scanning Physics alone
+misses shared Maths code that Physics invokes.
+
+Basic arithmetic and comparison plus the certified exact or correctly-rounded
+families (`sqrt`, `fabs`, `floor`, `ceil`, `trunc`, `round`, `copysign`,
+`ldexp`, `frexp`, and `fmod`, including their standard float/long-double
+spellings) pass directly. Every other `<cmath>` entry point requires an exact
+current ruling. Explicit fused multiply-add also requires a ruling: the
+operation is correctly rounded, but this repository deliberately disables
+implicit contraction, so an explicit fused operation must record its owner and
+intent.
+
+A `retain-owner` ruling must name a concrete current purpose and prove the call
+is not Physics-reachable. A Physics-visible call remains a `repair-plan` row
+that names an existing canonical plan until the deterministic owner replaces
+it. Unruled calls, stale source fingerprints, malformed rows, and missing repair
+plans fail `validate_fast`. Rulings are reviewable judgements, not allowances;
+never turn the inventory into a count threshold or frozen budget.
+
 ## Error Handling Policy
 
 Exceptions are banned for engine code. The strict source throw inventory is
@@ -839,6 +864,7 @@ render, or tool gate; it does not replace it.
 | `Agentic/Tests/*` or a new standalone CPU test project/script | `validate_all_cpu_tests` |
 | `Core/Allocation/*` | `validate_perf` |
 | `tools/check_allocation_policy.py`, `tools/allocation_policy_allowlist.json` | `validate_fast`, then `python tools\check_allocation_policy.py --self-test` and `python tools\check_allocation_policy.py --repo .`; add `validate_perf` if runtime guard or reserve semantics change |
+| `tools/check_determinism_math_policy.py`, `tools/determinism_math_rulings.json` | `validate_fast`, then `python tools\check_determinism_math_policy.py --self-test` and `python tools\check_determinism_math_policy.py --repo .` |
 | `tools/inventory_authority_free_aggregates.py`, `tools/inventory_extraction_scars.py`, `tools/cpp_source_scan.py`, `tools/aggregate_ownership_rulings.json` | `validate_fast`, which runs both `--self-test` invocations, the aggregate repository scan in `--strict` mode, and the extraction-scar repository scan |
 | `tools/inventory_function_complexity.py`, `tools/function_complexity_rulings.json` | `validate_fast`, which runs the complexity `--self-test` and current-tree `--strict` scan; then run the changed script directly |
 | `tools/inventory_glossary_terms.py`, `tools/glossary_term_rulings.json`, `Agentic/Reference/engine-glossary.md`, `Agentic/Reference/comment-style-guide.md`, `Agentic/Skills/comment-style-audit/skill.md`, or `Agentic/Skills/rubber-duck/SKILL.md` glossary rules | `validate_fast`, which runs the glossary `--self-test` and current-tree `--strict` scan; then run `python tools\inventory_glossary_terms.py --self-test` and `python tools\inventory_glossary_terms.py --repo . --strict` directly |

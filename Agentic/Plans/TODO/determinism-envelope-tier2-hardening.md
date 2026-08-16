@@ -1,11 +1,11 @@
 # Determinism Envelope Tier-2 Hardening
 
 Date: 2026-08-15
-Status: Active. 2/9 tasks complete.
+Status: Active. 3/9 tasks complete.
 Impact area: Maths transcendentals, Physics pose integration, ragdoll neck
 constraint, determinism tooling, portable CPU test target, CI lanes
 Owner: Physics determinism envelope
-Priority: Active — T1, T2, and T5 through T8 are unblocked; T3 and T4
+Priority: Active — T5 through T8 are unblocked; T3 and T4
 require an explicit owner baseline decision before any source edit.
 
 ## Owner Direction
@@ -281,7 +281,7 @@ violation if one exists.
   inspected 3/3 files with 0 deferred. No Physics file or call site changed, so
   the byte-exact physics baseline remains untouched in T1.
 
-- [ ] **T2 — Add the determinism math policy gate.**
+- [x] **T2 — Add the determinism math policy gate.**
   Add `tools/check_determinism_math_policy.py` and
   `tools/determinism_math_rulings.json`, modelled on
   `tools/check_allocation_policy.py` and `tools/allocation_policy_allowlist.json`,
@@ -298,6 +298,32 @@ violation if one exists.
   naming this plan, and the camera, gizmo, and projection sites as
   `retain-owner` with their non-reachability as the stated reason. Wire the
   checker into `tools\validate_fast.bat`. No physics behavior change.
+
+  Evidence: `tools/check_determinism_math_policy.py` scans all 93 tracked C++
+  source/header files under both Physics and Maths. It reports 32 current
+  non-certified references, 32 exact rulings, zero unruled findings, zero stale
+  rulings, and zero blockers. The inventory includes the Planning-only
+  `OrbitalMechanics` family that the original site sketch omitted. The two
+  Quaternion calls and one Ragdoll call are `repair-plan` rows owned by T3/T4;
+  projection and the shared Camera/Editor arbitrary-axis helper have current
+  `retain-owner` reachability evidence.
+
+  The self-test proves both scan roots, exact ruled/unruled/currentness joins,
+  missing repair-plan rejection, explicit FMA classification, C++ special-math
+  coverage, split-line calls, standard/global function references, namespace
+  aliases, same-line and continued macro aliases, and member-access false-
+  positive rejection. `validate_fast` runs both its self-test and repository
+  mode. The gate also exposed and repaired the missing DeterministicMath project
+  filter prefix and added exact reachability repair rows for the intentionally
+  test-only T1 production seams.
+
+  Validation: `tools\validate_fast.bat` passed end to end in about 5m48s,
+  including Profile/Automation/Debug builds, 569 unit-test cases, and strict
+  reachability with 83/83 rows ruled. Direct `--self-test` and `--repo .`
+  invocations passed with the 32/32 inventory above. The touched-tool comment
+  audit inspected 3/3 source-bearing files with zero deferred, and independent
+  review closed every parser, ownership, and reachability finding. No Physics
+  source, executable behavior, or baseline changed in T2.
 
 - [ ] **T3 — Adopt the deterministic rotation in the pose integrator.**
   **Owner baseline decision required before this phase begins.** Add a dedicated
