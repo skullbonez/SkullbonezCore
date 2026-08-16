@@ -144,7 +144,8 @@ ReplayCauseSolverDetailResult EvaluateReplayCauseSolverDetail( const RunReplayCa
                                                                const ReplayCauseSolverDetailSource& source ) noexcept;
 
 // Projects exact-frame solver values into an owned, feature-neutral Rendering
-// packet. An empty packet means the frame, body rows, or bounded patch could not
+// packet. Patches above the generic Rendering capacity publish the bounded
+// prefix with `truncated`; an empty packet means frame/body evidence could not
 // be proven without reconstructing discarded source evidence.
 Rendering::ContactManifoldPresentation BuildReplayCauseContactPresentation( const ReplayCauseSolverDetailResult& detail,
                                                                             const ReplaySolverFrameSample& sample ) noexcept;
@@ -196,6 +197,12 @@ struct ReplayCauseInspectionView
     float easedProgress = 0.0f;
 };
 
+// These host-decision seams keep keyboard and pointer mapping testable while
+// ReplayCauseInspection remains the sole retained transition owner.
+bool ShouldBeginReplayCauseAftermath( const ReplayCauseInspectionView& inspection, bool spaceDown ) noexcept;
+bool ShouldBeginReplayCauseReturn( const ReplayCauseInspectionView& inspection, bool nonSelectionClick,
+                                   bool scrubExit ) noexcept;
+
 inline constexpr int REPLAY_CAUSE_SOLVER_PANEL_VISIBLE_ROWS = 4;
 inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_WIDTH = 1080.0f;
 inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_TITLE_HEIGHT = 38.0f;
@@ -203,6 +210,23 @@ inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_GUIDE_HEIGHT = 54.0f;
 inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_BASE_ROW_HEIGHT = 94.0f;
 inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_ITERATION_LINE_HEIGHT = 14.0f;
 inline constexpr int REPLAY_CAUSE_SOLVER_PANEL_ITERATIONS_PER_LINE = 4;
+inline constexpr const char* REPLAY_CAUSE_SOLVER_PANEL_UNITS = "UNITS: point/rA/rB/penetration/correction = scene units; "
+                                                               "bias/linear writeback = u/s; angular = rad/s; impulses = "
+                                                               "mass*u/s; effective masses = mass.";
+inline constexpr const char* REPLAY_CAUSE_SOLVER_PANEL_SIGNS = "SIGNS: +penetration means overlap; normal/t1/t2 are "
+                                                               "world-space; signed accT1/accT2 follow t1/t2. CLAMP means "
+                                                               "|tangent impulse| reached frictionLimit.";
+
+struct ReplayCauseSolverPanelRowText
+{
+    // Invariant: this detached projection is the exact text consumed by the
+    // panel. Tests can pin value-to-label mapping without a renderer backend.
+    char headline[128] = {};
+    char basis[256] = {};
+    char geometry[256] = {};
+    char masses[256] = {};
+    char impulses[256] = {};
+};
 
 struct ReplayCauseSolverPanelLayout
 {
@@ -217,6 +241,8 @@ ReplayCauseSolverPanelLayout BuildReplayCauseSolverPanelLayout( const ReplayCaus
                                                                 const RunReplayCauseTreeState& causeTree, int screenWidth,
                                                                 int screenHeight ) noexcept;
 int ReplayCauseSolverDetailIterationCount( const ReplayCauseInspectionView& inspection, std::size_t contactRow ) noexcept;
+ReplayCauseSolverPanelRowText BuildReplayCauseSolverPanelRowText( const ReplayCauseInspectionView& inspection,
+                                                                  int rowIndex ) noexcept;
 
 struct ReplayCauseExitAction
 {

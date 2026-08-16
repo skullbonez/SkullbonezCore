@@ -78,14 +78,13 @@ void CameraControlState::UpdateViewingOrientation( RunTimerState& timers, Runtim
         cameraTime = 0.0f;
     }
 
-    constexpr int cameraSlots[] = { CAMERA_SCENE_OBJECT_1, CAMERA_SCENE_OBJECT_2, CAMERA_FREE };
-    cameras.SelectCamera( cameraSlots[selectedCamera], true );
+    cameras.SelectCamera( DEMO_CAMERA_CYCLE_SLOTS[static_cast<std::size_t>( selectedCamera )], true );
 
     // Why: the two authored tracking slots follow presentation rows 0 and 1;
     // a missing row leaves the previous view target intact for this frame.
     for ( int modelIndex = 0; modelIndex < 2; ++modelIndex )
     {
-        if ( !cameras.IsCameraSelected( cameraSlots[modelIndex] ) )
+        if ( !cameras.IsCameraSelected( DEMO_CAMERA_CYCLE_SLOTS[static_cast<std::size_t>( modelIndex )] ) )
         {
             continue;
         }

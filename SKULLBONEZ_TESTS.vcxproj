@@ -279,6 +279,7 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Camera\Camera.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Camera\CameraCollection.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Camera\AttachedCameraController.InspectionPolicy.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Direction\DemoDirector.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabBundleWriter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabController.cpp" />

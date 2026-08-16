@@ -45,6 +45,9 @@ Related:
 #include "RuntimeCameraMode.h"
 #include "../Scene/SceneLifecycle.h"
 #include "../../Physics/PhysicsHandles.h"
+#include "../../Assets/AssetKeys.h"
+
+#include <array>
 
 namespace SkullbonezCore
 {
@@ -67,6 +70,11 @@ class Terrain;
 }
 namespace Runtime
 {
+// Invariant: unattended cycling is a closed list of operator-visible slots.
+// The causal detail slot is selected only by causal inspection.
+inline constexpr std::array<uint32_t, 3> DEMO_CAMERA_CYCLE_SLOTS = { CAMERA_SCENE_OBJECT_1, CAMERA_SCENE_OBJECT_2,
+                                                                     CAMERA_FREE };
+
 class AttachedCameraController;
 struct RunTimerState;
 struct CameraControlState

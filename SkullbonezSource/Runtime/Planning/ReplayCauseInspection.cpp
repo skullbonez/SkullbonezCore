@@ -55,6 +55,7 @@ Related:
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 
 namespace SkullbonezCore::Runtime
 {
@@ -153,6 +154,77 @@ int ReplayCauseSolverDetailIterationCount( const ReplayCauseInspectionView& insp
     }
 
     return count;
+}
+
+ReplayCauseSolverPanelRowText BuildReplayCauseSolverPanelRowText( const ReplayCauseInspectionView& inspection,
+                                                                  int rowIndex ) noexcept
+{
+    ReplayCauseSolverPanelRowText text;
+
+    if ( rowIndex < 0 || static_cast<std::size_t>( rowIndex ) >= inspection.solverDetailContacts.size() )
+    {
+        return text;
+    }
+
+    const Physics::PhysicsSolverPersistentContactSample&
+        contact = inspection.solverDetailContacts[static_cast<std::size_t>( rowIndex )];
+    Math::Vector::Vector3 point = Math::Vector::ZERO_VECTOR;
+    const bool hasPresentationPoint = static_cast<std::size_t>( rowIndex ) < inspection.contactPresentation.pointCount;
+
+    if ( hasPresentationPoint )
+    {
+        point = inspection.contactPresentation.points[static_cast<std::size_t>( rowIndex )].point;
+    }
+
+    float previousNormalImpulse = 0.0f;
+    bool hasPreviousNormalImpulse = false;
+
+    for ( const Physics::PhysicsPipelineRecord& record : inspection.solverDetailPipelineRecords )
+    {
+        if ( record.featureId != contact.featureId )
+        {
+            continue;
+        }
+
+        if ( record.stage == Physics::PhysicsPipelineStage::ManifoldRow && !hasPresentationPoint )
+        {
+            point = record.point;
+        }
+        else if ( record.stage == Physics::PhysicsPipelineStage::WarmStart && !hasPreviousNormalImpulse )
+        {
+            previousNormalImpulse = record.scalarB;
+            hasPreviousNormalImpulse = true;
+        }
+    }
+
+    sprintf_s( text.headline, sizeof( text.headline ), "ROW %d  FEATURE %u  BODIES %d / %d  POINT (%.4f, %.4f, %.4f)",
+               rowIndex, contact.featureId, contact.bodyA, contact.bodyB, point.x, point.y, point.z );
+    sprintf_s( text.basis, sizeof( text.basis ), "n (%.4f %.4f %.4f)  t1 (%.4f %.4f %.4f)  t2 (%.4f %.4f %.4f)",
+               contact.normal.x, contact.normal.y, contact.normal.z, contact.tangent1.x, contact.tangent1.y,
+               contact.tangent1.z, contact.tangent2.x, contact.tangent2.y, contact.tangent2.z );
+    sprintf_s( text.geometry, sizeof( text.geometry ), "rA (%.4f %.4f %.4f)  rB (%.4f %.4f %.4f)  penetration %.5f",
+               contact.rA.x, contact.rA.y, contact.rA.z, contact.rB.x, contact.rB.y, contact.rB.z, contact.penetration );
+    sprintf_s( text.masses, sizeof( text.masses ),
+               "normalMass %.5f  tangentMass (%.5f, %.5f)  bias %.5f  frictionLimit %.5f", contact.normalMass,
+               contact.tangentMass1, contact.tangentMass2, contact.bias, contact.frictionLimit );
+    sprintf_s( text.impulses, sizeof( text.impulses ),
+               "accN %.5f  accT1 %.5f  accT2 %.5f  warm-start %s  previous normal impulse %.5f", contact.accN, contact.accT1,
+               contact.accT2, contact.warmStarted ? "YES" : "NO", previousNormalImpulse );
+    return text;
+}
+
+
+bool ShouldBeginReplayCauseAftermath( const ReplayCauseInspectionView& inspection, bool spaceDown ) noexcept
+{
+    return spaceDown && inspection.mode == ReplayCauseInspectionMode::DetailPaused;
+}
+
+
+bool ShouldBeginReplayCauseReturn( const ReplayCauseInspectionView& inspection, bool nonSelectionClick,
+                                   bool scrubExit ) noexcept
+{
+    return inspection.mode != ReplayCauseInspectionMode::Inactive &&
+           ( nonSelectionClick || scrubExit || inspection.mode == ReplayCauseInspectionMode::Returning );
 }
 
 ReplayCauseSolverPanelLayout BuildReplayCauseSolverPanelLayout( const ReplayCauseInspectionView& inspection,
@@ -365,11 +437,7 @@ Rendering::ContactManifoldPresentation BuildReplayCauseContactPresentation( cons
     PROFILE_SCOPED( "Frame/Replay/CauseInspection/ManifoldPresentation" );
     Rendering::ContactManifoldPresentation presentation;
 
-    // Invariant: a partial packet would claim to show the complete patch while
-    // silently dropping rows. Fail closed if the retained patch exceeds the
-    // generic Rendering capacity or belongs to another frame.
-    if ( !detail.HasDetail() || sample.frameIndex != detail.frame || detail.contactRowCount == 0u ||
-         detail.contactRowCount > Rendering::CONTACT_MANIFOLD_PRESENTATION_POINT_CAPACITY )
+    if ( !detail.HasDetail() || sample.frameIndex != detail.frame || detail.contactRowCount == 0u )
     {
         return presentation;
     }
@@ -405,7 +473,14 @@ Rendering::ContactManifoldPresentation BuildReplayCauseContactPresentation( cons
         return Rendering::ContactManifoldPresentation {};
     }
 
-    for ( std::size_t contactIndex = 0; contactIndex < detail.contactRowCount; ++contactIndex )
+    // Invariant: Rendering receives a truthful bounded prefix. The explicit
+    // truncation bit prevents eight presented points from claiming a larger
+    // retained patch was complete.
+    const std::size_t presentedContactCount = (std::min)( detail.contactRowCount,
+                                                          Rendering::CONTACT_MANIFOLD_PRESENTATION_POINT_CAPACITY );
+    presentation.truncated = detail.contactRowCount > presentedContactCount;
+
+    for ( std::size_t contactIndex = 0; contactIndex < presentedContactCount; ++contactIndex )
     {
         const Physics::PhysicsSolverPersistentContactSample* contact = detail.ContactRowAt( contactIndex );
 

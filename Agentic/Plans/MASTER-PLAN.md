@@ -1,13 +1,15 @@
 # MASTER PLAN
 
-Date: 2026-08-16
-Status: Three active plans; 9/24 tasks complete
+Date: 2026-08-17
+Status: Two active plans; 10/24 tasks complete
 
 ## Owner Direction
 
-- Causal Event Inspection is first in the binding order by owner direction on
-  2026-08-16. Complete C0 through C8 before beginning determinism or Catto source
-  work.
+- Causal Event Inspection is complete. Its synchronized exact-frame transport,
+  dedicated camera follow, bounded manifold presentation, and four-row solver
+  panel closed with focused host/policy tests, every ownership inventory green,
+  and an independent ownership review finding no second retained transport,
+  camera, pivot, input, or diagnostics owner.
 
 - Physics-baseline mismatches in Determinism or Catto phases do not stop this
   orchestration run. Preserve every gate executable under a plan-and-phase name,
@@ -20,12 +22,6 @@ Status: Three active plans; 9/24 tasks complete
   comparison that would observe a tier-2 envelope violation. T3 and T4 change
   physics output bits and are blocked on an explicit owner baseline decision;
   every other task is unblocked.
-- Causal Event Inspection is active. It makes a selected causal row navigable and
-  inspectable through a synchronized replay/detail-camera transition, a dedicated
-  orbit/follow camera, the two participating objects and their full contact
-  manifold, and a four-row-high scrolling solver panel. It shows retained exact-
-  frame diagnostics when available and reports expired or overwritten detail;
-  it does not regenerate missing solver evidence.
 - Source Modernization Sweep is complete. No further work remains.
 - Dense Pile Sleep Resolution is complete by owner direction. No further work
   will be performed and no additional baseline or solver change is requested.
@@ -44,7 +40,6 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Causal Event Inspection | `CAUSAL_INSPECT` | 9 | 8 | `TODO/causal-event-inspection.md` |
 | Determinism Envelope Tier-2 Hardening | `TIER2_DETERMINISM` | 9 | 0 | `TODO/determinism-envelope-tier2-hardening.md` |
 | Catto Divergence Repairs | `CATTO_REPAIRS` | 6 | 1 | `TODO/catto-divergence-repairs.md` |
 
@@ -79,26 +74,16 @@ states elsewhere, and both are recorded rather than silently corrected:
 
 ## Binding Order
 
-1. `CAUSAL_INSPECT` C8 — complete the causal inspection plan first.
-   C0 proved exact-frame addressability and the `Replay frame expired` refusal;
-   C1 added generation-gated replay/detail-camera transport, Space aftermath,
-   and return-to-main policy. C2 added the shared arrival curve and dedicated
-   orbit/follow path; C3 added honest exact-frame solver-detail availability;
-   C4 added feature-neutral manifold presentation through the existing contact
-   glyph path. C5 added the four-row scrolling solver panel over Planning-owned
-   copies, and C6 paired the panel and manifold lifecycle across every retarget,
-   aftermath, return, and reset edge. C7 measured the dense-scene cost and proved
-   zero steady-state allocation; C8 closes tests and independent review.
-2. `TIER2_DETERMINISM` T0, T1, T2 — establish the pre-change envelope, add the
+1. `TIER2_DETERMINISM` T0, T1, T2 — establish the pre-change envelope, add the
    deterministic transcendental owner, and add the math policy gate. Causal C2's
    presentation-only slerp becomes an explicit `retain-owner` site under T2; it
    does not block completing Causal first because it is not physics-reachable.
-3. `TIER2_DETERMINISM` T5 through T8 — portable target, test split, Linux
+2. `TIER2_DETERMINISM` T5 through T8 — portable target, test split, Linux
    sanitizer lane, and hosted cross-machine evidence.
-4. `TIER2_DETERMINISM` T3 and T4 — adopt deterministic rotation and `acos` after
+3. `TIER2_DETERMINISM` T3 and T4 — adopt deterministic rotation and `acos` after
    the earlier evidence isolates their behavior transitions. Preserve each
    baseline-failing executable and continue; acceptance remains an owner review.
-5. `CATTO_REPAIRS` CD1 through CD5 — CD0 is complete. Execute the approved order:
+4. `CATTO_REPAIRS` CD1 through CD5 — CD0 is complete. Execute the approved order:
    R1; R5 then R6 as separate commits; R3; R2 stage (a) only; and the local R4
    interval-consistency repair that preserves partial-TOI advancement.
 
@@ -115,5 +100,5 @@ tests must pin field mapping and availability, not pre-Catto impulse values.
 
 ## Portfolio Progress
 
-9/24 tasks complete across three active plans. Causal C8 is the next selectable
-task; Causal C0-C7 and Catto CD0 are complete.
+10/24 tasks complete across two active plans. Causal C0-C8 and Catto CD0 are
+complete; Determinism T0 is the next selectable task.

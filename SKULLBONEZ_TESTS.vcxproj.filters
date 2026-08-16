@@ -345,6 +345,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Camera\CameraCollection.cpp">
       <Filter>Source Files\Runtime\Camera</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Camera\AttachedCameraController.InspectionPolicy.cpp">
+      <Filter>Source Files\Runtime\Camera</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Direction\DemoDirector.cpp">
       <Filter>Source Files\Runtime\Demo</Filter>
     </ClCompile>

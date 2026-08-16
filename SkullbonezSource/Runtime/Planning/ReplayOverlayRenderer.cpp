@@ -101,7 +101,6 @@ const Physics::PhysicsPipelineRecord* FindSolverDetailRecord( const ReplayCauseI
 
     return nullptr;
 }
-
 void RenderReplayCauseSolverDetailPanel( const UI::UIDrawContext& draw, const ReplayOverlayStateView& replay, int screenW,
                                          int screenH )
 {
@@ -131,16 +130,18 @@ void RenderReplayCauseSolverDetailPanel( const UI::UIDrawContext& draw, const Re
     draw.Text( layout.panel.x + 176.0f, layout.panel.y + 12.0f, 10.0f, palette.accent.r, palette.accent.g, palette.accent.b,
                frameLabel );
 
+    if ( inspection.contactPresentation.truncated )
+    {
+        draw.Text( layout.panel.x + 700.0f, layout.panel.y + 12.0f, 10.0f, palette.warningAccent.r, palette.warningAccent.g,
+                   palette.warningAccent.b, "CONTACT PATCH TRUNCATED TO 8 POINTS" );
+    }
+
     // Sign/units are rendered as part of the surface so a captured frame remains
     // interpretable without consulting solver implementation comments.
     draw.Text( layout.panel.x + 12.0f, layout.panel.y + REPLAY_CAUSE_SOLVER_PANEL_TITLE_HEIGHT + 2.0f, 9.5f,
-               palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
-               "UNITS: point/rA/rB/penetration/correction = scene units; bias/linear writeback = u/s; angular = rad/s; "
-               "impulses = mass*u/s; effective masses = mass." );
+               palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b, REPLAY_CAUSE_SOLVER_PANEL_UNITS );
     draw.Text( layout.panel.x + 12.0f, layout.panel.y + REPLAY_CAUSE_SOLVER_PANEL_TITLE_HEIGHT + 19.0f, 9.5f,
-               palette.textMuted.r, palette.textMuted.g, palette.textMuted.b,
-               "SIGNS: +penetration means overlap; normal/t1/t2 are world-space; signed accT1/accT2 follow t1/t2. CLAMP "
-               "means |tangent impulse| reached frictionLimit." );
+               palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, REPLAY_CAUSE_SOLVER_PANEL_SIGNS );
 
     if ( inspection.solverDetailAvailability != ReplayCauseSolverDetailAvailability::Available ||
          inspection.solverDetailContacts.empty() )
@@ -164,54 +165,28 @@ void RenderReplayCauseSolverDetailPanel( const UI::UIDrawContext& draw, const Re
         draw.RoundedRect( rowRect.x, rowRect.y, rowRect.w, rowRect.h, radii.control, palette.window.r, palette.window.g,
                           palette.window.b, 0.56f );
 
-        Math::Vector::Vector3 point = Math::Vector::ZERO_VECTOR;
-
-        if ( static_cast<std::size_t>( rowIndex ) < inspection.contactPresentation.pointCount )
-        {
-            point = inspection.contactPresentation.points[static_cast<std::size_t>( rowIndex )].point;
-        }
-        else if ( const Physics::PhysicsPipelineRecord*
-                      manifold = FindSolverDetailRecord( inspection, contact.featureId,
-                                                         Physics::PhysicsPipelineStage::ManifoldRow ) )
-        {
-            point = manifold->point;
-        }
-
-        const Physics::PhysicsPipelineRecord* warm = FindSolverDetailRecord( inspection, contact.featureId,
-                                                                             Physics::PhysicsPipelineStage::WarmStart );
         const Physics::PhysicsPipelineRecord*
             correction = FindSolverDetailRecord( inspection, contact.featureId,
                                                  Physics::PhysicsPipelineStage::PositionCorrection );
         const Physics::PhysicsPipelineRecord* cache = FindSolverDetailRecord( inspection, contact.featureId,
                                                                               Physics::PhysicsPipelineStage::CacheStore );
-        const float previousNormalImpulse = warm ? warm->scalarB : 0.0f;
+        const ReplayCauseSolverPanelRowText values = BuildReplayCauseSolverPanelRowText( inspection, rowIndex );
         char line[768] = {};
         float textY = rowY + 5.0f;
-        sprintf_s( line, sizeof( line ), "ROW %d  FEATURE %u  BODIES %d / %d  POINT (%.4f, %.4f, %.4f)", rowIndex,
-                   contact.featureId, contact.bodyA, contact.bodyB, point.x, point.y, point.z );
         draw.Text( rowRect.x + 8.0f, textY, 10.5f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b,
-                   line );
+                   values.headline );
         textY += 14.0f;
-        sprintf_s( line, sizeof( line ), "n (%.4f %.4f %.4f)  t1 (%.4f %.4f %.4f)  t2 (%.4f %.4f %.4f)", contact.normal.x,
-                   contact.normal.y, contact.normal.z, contact.tangent1.x, contact.tangent1.y, contact.tangent1.z,
-                   contact.tangent2.x, contact.tangent2.y, contact.tangent2.z );
         draw.Text( rowRect.x + 8.0f, textY, 9.5f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
-                   line );
+                   values.basis );
         textY += 14.0f;
-        sprintf_s( line, sizeof( line ), "rA (%.4f %.4f %.4f)  rB (%.4f %.4f %.4f)  penetration %.5f", contact.rA.x,
-                   contact.rA.y, contact.rA.z, contact.rB.x, contact.rB.y, contact.rB.z, contact.penetration );
         draw.Text( rowRect.x + 8.0f, textY, 9.5f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
-                   line );
+                   values.geometry );
         textY += 14.0f;
-        sprintf_s( line, sizeof( line ), "normalMass %.5f  tangentMass (%.5f, %.5f)  bias %.5f  frictionLimit %.5f",
-                   contact.normalMass, contact.tangentMass1, contact.tangentMass2, contact.bias, contact.frictionLimit );
         draw.Text( rowRect.x + 8.0f, textY, 9.5f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
-                   line );
+                   values.masses );
         textY += 14.0f;
-        sprintf_s( line, sizeof( line ), "accN %.5f  accT1 %.5f  accT2 %.5f  warm-start %s  previous normal impulse %.5f",
-                   contact.accN, contact.accT1, contact.accT2, contact.warmStarted ? "YES" : "NO", previousNormalImpulse );
         draw.Text( rowRect.x + 8.0f, textY, 9.5f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
-                   line );
+                   values.impulses );
         textY += 15.0f;
 
         int iterationColumn = 0;

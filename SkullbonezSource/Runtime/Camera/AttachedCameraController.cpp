@@ -33,6 +33,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "AttachedCameraController.h"
+#include "AttachedCameraController.InspectionPolicy.h"
 #include "CameraCollection.h"
 #include "../Interaction/RuntimePickService.h"
 #include "../Scene/SceneWorld.h"
@@ -56,14 +57,6 @@ namespace Runtime
 {
 namespace
 {
-constexpr int ATTACHED_CAMERA_WHEEL_DELTA = 120;
-constexpr float ATTACHED_CAMERA_ORBIT_DEFAULT_PITCH = 0.30f;
-constexpr float ATTACHED_CAMERA_ORBIT_MOUSE_PITCH_MIN = -1.35f;
-constexpr float ATTACHED_CAMERA_ORBIT_MOUSE_PITCH_MAX = 1.35f;
-constexpr float ATTACHED_CAMERA_ORBIT_MIN_DISTANCE_RADIUS = 1.25f;
-constexpr float ATTACHED_CAMERA_ORBIT_MAX_DISTANCE_RADIUS = 40.0f;
-constexpr float ATTACHED_CAMERA_ORBIT_WHEEL_FACTOR = 0.88f;
-
 bool IsFiniteVector( const Vector3& v )
 {
     return std::isfinite( v.x ) && std::isfinite( v.y ) && std::isfinite( v.z );
@@ -122,12 +115,6 @@ Vector3 TargetToWorldVector( const RotationMatrix& rotation, const Vector3& loca
 }
 
 
-Vector3 WorldToTargetVector( const RotationMatrix& rotation, const Vector3& worldVector )
-{
-    return rotation.TransposeMultiply( worldVector );
-}
-
-
 float AttachedCameraTargetRadius( float bodyBoundingRadius, const ColliderRecord& collider )
 {
     return (std::max)( (std::max)( collider.boundingRadius, bodyBoundingRadius ), 1.0f );
@@ -160,63 +147,6 @@ bool EndsWith( const char* value, const char* suffix )
 }
 
 
-float WrapAttachedCameraOrbitYaw( float yaw )
-{
-    while ( yaw > _PI )
-    {
-        yaw -= _2PI;
-    }
-
-    while ( yaw < -_PI )
-    {
-        yaw += _2PI;
-    }
-
-    return yaw;
-}
-
-
-float AttachedCameraOrbitMinDistance( float targetRadius )
-{
-    return (std::max)( 1.0f, targetRadius * ATTACHED_CAMERA_ORBIT_MIN_DISTANCE_RADIUS );
-}
-
-
-float AttachedCameraOrbitMaxDistance( float targetRadius )
-{
-    const float minDistance = AttachedCameraOrbitMinDistance( targetRadius );
-    return (std::max)( minDistance + 1.0f, targetRadius * ATTACHED_CAMERA_ORBIT_MAX_DISTANCE_RADIUS );
-}
-
-
-float ClampAttachedCameraOrbitDistance( float targetRadius, float distance )
-{
-    if ( !std::isfinite( distance ) )
-    {
-        distance = targetRadius * 8.0f;
-    }
-
-    return std::clamp( distance, AttachedCameraOrbitMinDistance( targetRadius ),
-                       AttachedCameraOrbitMaxDistance( targetRadius ) );
-}
-
-
-float ClampAttachedCameraOrbitPitch( float pitch )
-{
-    if ( !std::isfinite( pitch ) )
-    {
-        return ATTACHED_CAMERA_ORBIT_DEFAULT_PITCH;
-    }
-
-    return std::clamp( pitch, ATTACHED_CAMERA_ORBIT_MOUSE_PITCH_MIN, ATTACHED_CAMERA_ORBIT_MOUSE_PITCH_MAX );
-}
-
-
-Vector3 AttachedCameraOrbitOffset( float yaw, float pitch, float distance )
-{
-    const float cosPitch = cosf( pitch );
-    return Vector3( sinf( yaw ) * cosPitch * distance, sinf( pitch ) * distance, cosf( yaw ) * cosPitch * distance );
-}
 } // namespace
 
 
@@ -478,7 +408,7 @@ bool AttachedCameraController::BeginFocusedInspection( Runtime::SceneWorld& coll
     m_state.target = target;
     m_state.submode = AttachedCameraSubmode::FixedRelative;
     m_state.activeFollow = true;
-    CaptureFixedOffset( m_state, visiblePose, physicsTarget );
+    SeedAttachedCameraFixedRelative( m_state, visiblePose, physicsTarget );
     m_state.needsEntryTween = true;
     return true;
 }
@@ -879,66 +809,21 @@ bool AttachedCameraController::CycleSubmode( const SceneWorld& collection, Attac
 void AttachedCameraController::CaptureFixedOffset( AttachedCameraState& state, const AttachedCameraPose& currentPose,
                                                    const AttachedCameraPhysicsTarget& target )
 {
-    state.localEyeOffset = WorldToTargetVector( target.rotation, currentPose.eye - target.position );
-    state.localViewOffset = WorldToTargetVector( target.rotation, currentPose.view - target.position );
-    state.localUp = NormalizedOr( WorldToTargetVector( target.rotation, currentPose.up ), Vector3( 0.0f, 1.0f, 0.0f ) );
-    Vector3 look = currentPose.view - currentPose.eye;
-
-    if ( TryNormalizeVector( look ) )
-    {
-        state.lastLookDirection = look;
-        state.hasLastLookDirection = true;
-    }
-
-    state.hasFixedOffset = true;
-    CaptureOrbit( state, currentPose, target );
+    SeedAttachedCameraFixedRelative( state, currentPose, target );
 }
 
 
 void AttachedCameraController::CaptureOrbit( AttachedCameraState& state, const AttachedCameraPose& currentPose,
                                              const AttachedCameraPhysicsTarget& target )
 {
-    Vector3 offset = currentPose.eye - target.position;
-    float distance = sqrtf( VectorMagSquared( offset ) );
-
-    if ( !std::isfinite( distance ) || distance < AttachedCameraOrbitMinDistance( target.radius ) )
-    {
-        Vector3 look = currentPose.view - currentPose.eye;
-
-        if ( !TryNormalizeVector( look ) )
-        {
-            look = Vector3( 0.0f, 0.0f, 1.0f );
-        }
-
-        distance = target.radius * 8.0f;
-        offset = -look * distance;
-    }
-
-    const float pitchDistance = (std::max)( distance, 0.001f );
-    const float normalizedY = SkullbonezCore::Math::ClampUnit( offset.y / pitchDistance );
-    state.orbitDistance = ClampAttachedCameraOrbitDistance( target.radius, distance );
-    state.orbitPitchRadians = ClampAttachedCameraOrbitPitch( asinf( normalizedY ) );
-    state.orbitYawRadians = WrapAttachedCameraOrbitYaw( atan2f( offset.x, offset.z ) );
-    state.hasOrbit = true;
+    CaptureAttachedCameraOrbit( state, currentPose, target );
 }
 
 
 bool AttachedCameraController::ApplyOrbitWheel( AttachedCameraState& state, const AttachedCameraPhysicsTarget& target,
                                                 int unhandledWheelDelta )
 {
-    const int wheelSteps = unhandledWheelDelta / ATTACHED_CAMERA_WHEEL_DELTA;
-
-    if ( wheelSteps == 0 )
-    {
-        return false;
-    }
-
-    const float nextDistance = state.orbitDistance *
-                               powf( ATTACHED_CAMERA_ORBIT_WHEEL_FACTOR, static_cast<float>( wheelSteps ) );
-
-    state.orbitDistance = ClampAttachedCameraOrbitDistance( target.radius, nextDistance );
-    state.hasOrbit = true;
-    return true;
+    return ApplyAttachedCameraOrbitWheel( state, target, unhandledWheelDelta );
 }
 
 
@@ -994,57 +879,7 @@ bool AttachedCameraController::BuildFollowPose( const SceneWorld& collection, At
         state.submode = AttachedCameraSubmode::FixedRelative;
     }
 
-    if ( !state.hasOrbit )
-    {
-        CaptureOrbit( state, currentPose, target );
-    }
-
-    if ( orbitYawDelta != 0.0f || orbitPitchDelta != 0.0f )
-    {
-        state.orbitYawRadians = WrapAttachedCameraOrbitYaw( state.orbitYawRadians + orbitYawDelta );
-        state.orbitPitchRadians = ClampAttachedCameraOrbitPitch( state.orbitPitchRadians + orbitPitchDelta );
-    }
-
-    state.orbitDistance = ClampAttachedCameraOrbitDistance( target.radius, state.orbitDistance );
-
-    const Vector3 targetPosition = target.position;
-    const Vector3 eye = targetPosition +
-                        AttachedCameraOrbitOffset( state.orbitYawRadians, state.orbitPitchRadians, state.orbitDistance );
-
-    Vector3 view = targetPosition;
-    Vector3 up = Vector3( 0.0f, 1.0f, 0.0f );
-
-    if ( state.submode == AttachedCameraSubmode::VelocityForward )
-    {
-        Vector3 direction = target.linearVelocity;
-
-        if ( !TryNormalizeVector( direction ) )
-        {
-            direction = state.hasLastLookDirection ? state.lastLookDirection : currentPose.view - currentPose.eye;
-
-            if ( !TryNormalizeVector( direction ) )
-            {
-                direction = NormalizedOr( view - eye, Vector3( 0.0f, 0.0f, 1.0f ) );
-            }
-        }
-
-        view = targetPosition + direction * (std::max)( target.radius, state.orbitDistance * 0.25f );
-        state.lastLookDirection = direction;
-        state.hasLastLookDirection = true;
-    }
-
-    if ( !IsFiniteVector( eye ) || !IsFiniteVector( view ) || !IsFiniteVector( up ) ||
-         VectorMagSquared( view - eye ) <= TOLERANCE * TOLERANCE )
-    {
-        return false;
-    }
-
-    outCommand.pose.eye = eye;
-    outCommand.pose.view = view;
-    outCommand.pose.up = up;
-    outCommand.startEntryTween = state.needsEntryTween;
-    state.needsEntryTween = false;
-    return true;
+    return BuildAttachedCameraOrbitPose( state, target, currentPose, orbitYawDelta, orbitPitchDelta, outCommand );
 }
 } // namespace Runtime
 } // namespace SkullbonezCore

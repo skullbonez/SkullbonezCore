@@ -190,7 +190,7 @@
                        },
                        {
                            "key":  "KeyboardContextFacts",
-                           "site":  "SkullbonezSource/Runtime/App/InputFrame.h:143",
+                           "site":  "SkullbonezSource/Runtime/App/InputFrame.h:144",
                            "members":  10,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/App",
@@ -379,7 +379,7 @@
                        },
                        {
                            "key":  "ReplayCauseTransportRequest",
-                           "site":  "SkullbonezSource/Runtime/Planning/ReplayCauseInspection.h:164",
+                           "site":  "SkullbonezSource/Runtime/Planning/ReplayCauseInspection.h:165",
                            "members":  4,
                            "verdict":  "retain",
                            "owner":  "C1 / Runtime/Planning",
@@ -388,7 +388,7 @@
                        },
                        {
                            "key":  "ReplayInteractionExitInput",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:189",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:190",
                            "members":  5,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
@@ -406,7 +406,7 @@
                        },
                        {
                            "key":  "ReplayKeyboardVelocityEditInput",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:300",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:301",
                            "members":  4,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
@@ -514,7 +514,7 @@
                        },
                        {
                            "key":  "ReplaySceneTimelineResetInput",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:248",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:249",
                            "members":  13,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
@@ -541,7 +541,7 @@
                        },
                        {
                            "key":  "ReplayStartupRequest",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:207",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:208",
                            "members":  12,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
@@ -550,7 +550,7 @@
                        },
                        {
                            "key":  "ReplayTransportHostContext",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:153",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:154",
                            "members":  6,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
@@ -587,7 +587,7 @@
                        {
                            "key":  "ReplayWorkspaceFrameInput",
                            "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:83",
-                           "members":  18,
+                           "members":  19,
                            "verdict":  "retain-prior",
                            "owner":  "prior owner ruling carried by CA0",
                            "reason":  "Window, pointer arbitration/ray/wheel, replay modes, camera/director ownership, editor/physics/UI state, viewport extent, cached mouse-angle scale, and time are frozen for one replay workspace input turn.",
@@ -623,7 +623,7 @@
                        {
                            "key":  "RuntimeInputFrameFacts",
                            "site":  "SkullbonezSource/Runtime/App/InputFrame.h:97",
-                           "members":  8,
+                           "members":  9,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/App",
                            "reason":  "Replay camera modes, enabled-mask, action suppression, scene capacity, external command sources, and active UI lane are resolved once for one input frame; downstream routing reads one coherent verdict.",

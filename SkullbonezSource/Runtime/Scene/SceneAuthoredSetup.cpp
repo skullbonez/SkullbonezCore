@@ -29,6 +29,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "SceneAuthoredSetup.h"
+#include "SceneAuthoredSetup.CameraSlots.h"
 #include "SceneAuthoredSetup.InitialImpulse.h"
 #include "../Automation/RuntimeValidationHarness.h"
 #include "../../Assets/AssetKeys.h"
@@ -523,7 +524,7 @@ void SceneAuthoredSetup::SetUpCameras( SceneWorld& sceneWorld, const AuthoredSce
 
     // The detail slot starts from a valid authored pose but is never part of
     // authored camera enumeration or normal cycling.
-    sceneWorld.Cameras().AddCamera( firstPosition, firstView, firstUp, CAMERA_CAUSAL_DETAIL );
+    RegisterCausalDetailCamera( sceneWorld.Cameras(), firstPosition, firstView, firstUp );
 
     if ( scene.IsTerrainHidden() )
     {

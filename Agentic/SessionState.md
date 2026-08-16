@@ -2,12 +2,13 @@
 
 Date: 2026-08-17
 Branch: `codex/master-plan-2026-08-16`
-Status: Three active plans; 8/24 tasks complete
+Status: Two active plans; 10/24 tasks complete
 
-Causal Event Inspection (9 tasks), Determinism Envelope Tier-2 Hardening
-(9 tasks), and Catto Divergence Repairs (6 tasks) are registered under
-`Agentic/Plans/TODO/`; Causal C0-C6 and Catto CD0 are complete. `MASTER-PLAN.md`
-carries the binding order, with Causal first by owner direction on 2026-08-16.
+Determinism Envelope Tier-2 Hardening (9 tasks) and Catto Divergence Repairs
+(6 tasks) are registered under `Agentic/Plans/TODO/`; Causal C0-C8 and Catto CD0
+are complete. `MASTER-PLAN.md` carries the binding order, with Determinism T0
+next. The completed causal plan was deleted under the repository convention;
+Git history retains its phase evidence.
 
 Replay Prediction Adversarial Repair completed on
 `codex/replay-prediction-adversarial-fixes` in two `REPLAY_ADVERSARIAL` commits.
@@ -48,14 +49,10 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-`CAUSAL_INSPECT` C7. Measure solver-detail lookup, four-row layout and scrolling,
-and manifold presentation on a representative dense scene; prove the focused
-surface performs no steady-state allocation and record its fixed resident cost
-and visible operator-action frame cost. C8 then closes final tests, gates, and
-the independent ownership review.
-
-After all of `CAUSAL_INSPECT`, run `TIER2_DETERMINISM` in its recorded order,
-then `CATTO_REPAIRS` CD1-CD5. `future_physics.md` remains unregistered.
+`TIER2_DETERMINISM` T0. Establish the pre-change determinism envelope and retain
+its artifacts before changing any physics-visible transcendental. Continue in
+the plan's recorded order, then run `CATTO_REPAIRS` CD1-CD5.
+`future_physics.md` remains unregistered.
 
 ## Blockers
 

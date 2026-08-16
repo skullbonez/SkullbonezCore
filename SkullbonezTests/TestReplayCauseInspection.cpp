@@ -12,6 +12,7 @@
 //   Presentation tests pin event-frame body poses, exact ManifoldRow points,
 //   derived surviving-row points, owned packet publication, solver-row copy
 //   lifetime, and the fixed four-row scrolling viewport.
+//   The UI projection test pins exact solver-value text, units, and signs.
 //   The Planning transition tests also pin request coalescing, pause ownership,
 //   Space aftermath, total-elapsed cubic easing, symmetric discrete frame
 //   rounding, and saved-camera return policy without host owners.
@@ -54,6 +55,7 @@ ReplayRecorderStats RetainedSolverWindow()
     stats.sampleCapacity = 10u;
     return stats;
 }
+
 } // namespace
 
 TEST_CASE( "Replay cause inspection: recorded row kinds keep exact retained frame eligibility" )
@@ -227,6 +229,7 @@ TEST_CASE( "Replay cause solver detail: unavailable states never substitute diag
         CHECK_FALSE( detail.HasDetail() );
         CHECK( detail.availability == ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable );
         CHECK( detail.contactRowCount == 0u );
+        CHECK( std::strcmp( detail.Feedback(), "Solver detail not available" ) == 0 );
     }
 
     SUBCASE( "coincident row at the wrong index is not searched by feature" )
@@ -417,6 +420,106 @@ TEST_CASE( "Replay cause manifold presentation: exact records and event poses fo
     REQUIRE( inspection.Select( 4, seek, 88u, false, 1.0 ) );
     inspection.PublishSolverDetail( inspection.View().generation, detail, presentation );
     CHECK( inspection.View().contactPresentation.pointCount == 2u );
+}
+
+TEST_CASE( "Contact manifold presentation: capacity publishes a truthful truncated prefix" )
+{
+    using SkullbonezCore::Math::Vector::Vector3;
+    using SkullbonezCore::Physics::PhysicsSolverPersistentContactSample;
+
+    std::array<PhysicsSolverPersistentContactSample, 9> contacts;
+    for ( std::size_t index = 0; index < contacts.size(); ++index )
+    {
+        contacts[index].bodyA = 3;
+        contacts[index].bodyB = 7;
+        contacts[index].featureId = static_cast<uint32_t>( 100u + index );
+        contacts[index].rA = Vector3( static_cast<float>( index ), 0.0f, 0.0f );
+        contacts[index].normal = Vector3( 0.0f, 1.0f, 0.0f );
+    }
+
+    ReplayCauseSolverDetailResult detail;
+    detail.frame = 84u;
+    detail.availability = ReplayCauseSolverDetailAvailability::Available;
+    detail.sourceContacts = contacts;
+    detail.bodyA = 3;
+    detail.bodyB = 7;
+    detail.contactRowCount = contacts.size();
+
+    ReplaySolverFrameSample sample;
+    sample.frameIndex = 84u;
+    sample.bodies.resize( 2u );
+    sample.bodies[0].modelRow.value = 3;
+    sample.bodies[0].position = Vector3( 10.0f, 0.0f, 0.0f );
+    sample.bodies[1].modelRow.value = 7;
+    sample.bodies[1].position = Vector3( 20.0f, 0.0f, 0.0f );
+
+    const auto presentation = BuildReplayCauseContactPresentation( detail, sample );
+    CHECK( presentation.pointCount == SkullbonezCore::Rendering::CONTACT_MANIFOLD_PRESENTATION_POINT_CAPACITY );
+    CHECK( presentation.truncated );
+    CHECK( presentation.points[7].point.x == doctest::Approx( 17.0f ) );
+
+    detail.contactRowCount = SkullbonezCore::Rendering::CONTACT_MANIFOLD_PRESENTATION_POINT_CAPACITY;
+    CHECK_FALSE( BuildReplayCauseContactPresentation( detail, sample ).truncated );
+}
+
+TEST_CASE( "Replay solver panel: value mapping includes exact values units and sign conventions" )
+{
+    using SkullbonezCore::Math::Vector::Vector3;
+    using SkullbonezCore::Physics::PhysicsSolverPersistentContactSample;
+    PhysicsSolverPersistentContactSample contact;
+    contact.bodyA = 3;
+    contact.bodyB = 7;
+    contact.featureId = 101u;
+    contact.normal = Vector3( 0.1f, 0.2f, 0.3f );
+    contact.tangent1 = Vector3( 0.4f, 0.5f, 0.6f );
+    contact.tangent2 = Vector3( 0.7f, 0.8f, 0.9f );
+    contact.rA = Vector3( 1.25f, 2.5f, 3.75f );
+    contact.rB = Vector3( 4.0f, 5.0f, 6.0f );
+    contact.penetration = 0.125f;
+    contact.normalMass = 2.0f;
+    contact.tangentMass1 = 2.25f;
+    contact.tangentMass2 = 2.5f;
+    contact.bias = 2.75f;
+    contact.frictionLimit = 3.0f;
+    contact.accN = 3.5f;
+    contact.accT1 = -3.75f;
+    contact.accT2 = 4.0f;
+    contact.warmStarted = true;
+    const std::array contacts = { contact };
+    std::array<SkullbonezCore::Physics::PhysicsPipelineRecord, 2> pipelineRecords;
+    pipelineRecords[0].stage = SkullbonezCore::Physics::PhysicsPipelineStage::WarmStart;
+    pipelineRecords[0].featureId = contact.featureId;
+    pipelineRecords[0].scalarB = 11.25f;
+    pipelineRecords[1] = pipelineRecords[0];
+    pipelineRecords[1].scalarB = 99.0f;
+
+    ReplayCauseInspectionView inspection;
+    inspection.detailVisible = true;
+    inspection.targetFrame = 84u;
+    inspection.solverDetailAvailability = ReplayCauseSolverDetailAvailability::Available;
+    inspection.solverDetailContacts = contacts;
+    inspection.solverDetailPipelineRecords = pipelineRecords;
+    inspection.contactPresentation.pointCount = 1u;
+    inspection.contactPresentation.points[0].point = Vector3( 7.0f, 8.0f, 9.0f );
+    const ReplayCauseSolverPanelRowText values = BuildReplayCauseSolverPanelRowText( inspection, 0 );
+
+    CHECK( std::strcmp( REPLAY_CAUSE_SOLVER_PANEL_UNITS,
+                        "UNITS: point/rA/rB/penetration/correction = scene units; bias/linear writeback = u/s; angular = "
+                        "rad/s; impulses = mass*u/s; effective masses = mass." ) == 0 );
+    CHECK( std::strcmp( REPLAY_CAUSE_SOLVER_PANEL_SIGNS,
+                        "SIGNS: +penetration means overlap; normal/t1/t2 are world-space; signed accT1/accT2 follow "
+                        "t1/t2. CLAMP means |tangent impulse| reached frictionLimit." ) == 0 );
+    CHECK( std::strcmp( values.headline, "ROW 0  FEATURE 101  BODIES 3 / 7  POINT (7.0000, 8.0000, 9.0000)" ) == 0 );
+    CHECK( std::strcmp( values.basis,
+                        "n (0.1000 0.2000 0.3000)  t1 (0.4000 0.5000 0.6000)  t2 (0.7000 0.8000 0.9000)" ) == 0 );
+    CHECK( std::strcmp( values.geometry,
+                        "rA (1.2500 2.5000 3.7500)  rB (4.0000 5.0000 6.0000)  penetration 0.12500" ) == 0 );
+    CHECK( std::strcmp( values.masses,
+                        "normalMass 2.00000  tangentMass (2.25000, 2.50000)  bias 2.75000  frictionLimit 3.00000" ) ==
+           0 );
+    CHECK( std::strcmp( values.impulses,
+                        "accN 3.50000  accT1 -3.75000  accT2 4.00000  warm-start YES  previous normal impulse 11.25000" ) ==
+           0 );
 }
 
 TEST_CASE( "Replay cause inspection: newest selection coalesces behind one in-flight restore" )
@@ -630,6 +733,49 @@ TEST_CASE( "Replay cause inspection: cancellation invalidates an interrupted tra
     inspection.CompleteTransport( request.generation, true );
     CHECK( inspection.View().mode == ReplayCauseInspectionMode::Returning );
     CHECK_FALSE( inspection.View().detailVisible );
+}
+
+TEST_CASE( "Replay cause inspection: click or scrub return is accepted during entry and aftermath" )
+{
+    ReplayCauseSeekResult seek;
+    seek.availability = ReplayCauseSeekAvailability::Available;
+    seek.frame = 12u;
+
+    SUBCASE( "entry" )
+    {
+        for ( bool scrubExit : { false, true } )
+        {
+            ReplayCauseInspection inspection;
+            REQUIRE( inspection.Select( 0, seek, 20u, false, 1.0 ) );
+            REQUIRE( ShouldBeginReplayCauseReturn( inspection.View(), !scrubExit, scrubExit ) );
+            const ReplayCauseExitAction exit = inspection.BeginReturn();
+            CHECK( exit.apply );
+            CHECK( exit.releasePause );
+            CHECK( inspection.View().mode == ReplayCauseInspectionMode::Returning );
+        }
+    }
+
+    SUBCASE( "aftermath" )
+    {
+        for ( bool scrubExit : { false, true } )
+        {
+            ReplayCauseInspection inspection;
+            REQUIRE( inspection.Select( 0, seek, 20u, false, 1.0 ) );
+            inspection.Advance( 2.5 );
+            ReplayCauseTransportRequest request;
+            REQUIRE( inspection.TakeTransportRequest( request ) );
+            inspection.CompleteTransport( request.generation, true );
+            REQUIRE( ShouldBeginReplayCauseAftermath( inspection.View(), true ) );
+            bool releasePause = false;
+            REQUIRE( inspection.BeginAftermath( releasePause ) );
+            CHECK_FALSE( inspection.View().detailVisible );
+            REQUIRE( ShouldBeginReplayCauseReturn( inspection.View(), !scrubExit, scrubExit ) );
+            const ReplayCauseExitAction exit = inspection.BeginReturn();
+            CHECK( exit.apply );
+            CHECK_FALSE( exit.releasePause );
+            CHECK( inspection.View().mode == ReplayCauseInspectionMode::Returning );
+        }
+    }
 }
 
 TEST_CASE( "Replay cause inspection: elapsed curve is cadence independent and completes exactly" )

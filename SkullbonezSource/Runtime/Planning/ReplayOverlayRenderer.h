@@ -58,7 +58,7 @@ class TextBatch;
 namespace SkullbonezCore::UI
 {
 class UIDrawList;
-}
+} // namespace SkullbonezCore::UI
 
 namespace SkullbonezCore::Physics
 {

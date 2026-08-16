@@ -735,7 +735,7 @@ void ReplayRuntime::ApplyCauseInspectionLifecycle( int requestedRow, bool exitCa
         return;
     }
 
-    if ( input.spaceDown && inspection.mode == ReplayCauseInspectionMode::DetailPaused )
+    if ( ShouldBeginReplayCauseAftermath( inspection, input.spaceDown ) )
     {
         bool releasePause = false;
 
@@ -751,8 +751,7 @@ void ReplayRuntime::ApplyCauseInspectionLifecycle( int requestedRow, bool exitCa
     const bool scrubExit = scrubberHostAction == ReplayInspectionCameraAction::Exit;
     inspection = m_planningOwner.CauseInspectionView();
 
-    if ( inspection.mode == ReplayCauseInspectionMode::Inactive ||
-         ( !nonSelectionClick && !scrubExit && inspection.mode != ReplayCauseInspectionMode::Returning ) )
+    if ( !ShouldBeginReplayCauseReturn( inspection, nonSelectionClick, scrubExit ) )
     {
         return;
     }

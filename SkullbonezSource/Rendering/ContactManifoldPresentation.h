@@ -15,8 +15,10 @@ Glossary:
 
 Invariants:
   - The packet owns all values and retains no source pointer or subsystem authority.
-  - Eight points cover the engine's largest reduced object or terrain patch.
+  - At most eight points are retained; larger diagnostic patches report truncation.
   - A valid point carries one world-space normal, two tangents, and penetration.
+  - `truncated` reports that the publisher supplied the bounded prefix of a
+    larger patch; consumers must not present that prefix as the complete patch.
 
 Related:
   - SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.h
@@ -61,6 +63,7 @@ struct ContactManifoldPresentation
     ContactPointPresentation points[CONTACT_MANIFOLD_PRESENTATION_POINT_CAPACITY];
     uint8_t bodyCount = 0;
     uint8_t pointCount = 0;
+    bool truncated = false;
 
     bool HasGeometry() const noexcept
     {

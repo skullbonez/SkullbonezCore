@@ -312,6 +312,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
         <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
       </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Camera\AttachedCameraController.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Camera\AttachedCameraController.InspectionPolicy.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Capture\CaptureController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Capture\CaptureSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RenderDefaultsStore.cpp" />
@@ -525,6 +526,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
       <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorLayoutPolicy.h" />
       <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12ImGuiRendererOwner.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Camera\AttachedCameraController.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Camera\AttachedCameraController.InspectionPolicy.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Capture\CaptureController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Capture\CaptureSystem.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RenderDefaultsStore.h" />
@@ -617,6 +619,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\UI\RenderDiagnosticsProjection.h" />
     <ClInclude Include="SkullbonezSource\Runtime\UI\RuntimeViewModel.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneAuthoredSetup.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneAuthoredSetup.CameraSlots.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneAuthoredSetup.InitialImpulse.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneAutomationGateConfiguration.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneController.h" />
