@@ -4,7 +4,7 @@ Purpose:
   Runs the bounded native lifetime-safety lane: AddressSanitizer over the main
   CPU test project and MSVC static analysis over the engine maths library.
 
-Mental model:
+Summary:
   The normal lane imports temporary MSBuild settings from ignored TestOutput,
   so diagnostic binaries never replace the developer's Debug/Profile outputs.
   An explicit proof mode also creates a short-lived faulty project, verifies
@@ -65,6 +65,11 @@ FAILURE_CONTEXT_AFTER = 12
 # The lane fails on either, so both must survive into the printed excerpt.
 FAILURE_MARKER_PATTERN = re.compile(
     r"\)\s*:\s*(?:FATAL )?ERROR:|==\d+==ERROR:|^\[doctest\]|^Assertion failed"
+)
+ASAN_FAILURE_SIGNATURES = (
+    "ERROR: AddressSanitizer:",
+    "SUMMARY: AddressSanitizer:",
+    "AddressSanitizer:DEADLYSIGNAL",
 )
 WARNING_PATTERN = re.compile(
     r"^(?P<path>.+?)\((?P<line>\d+)(?:,\d+)?\):\s+warning\s+(?P<code>C\d+):\s*(?P<message>.*)$",
@@ -140,6 +145,12 @@ def failure_excerpt(text: str) -> str:
     # budget. Bound the assembled excerpt rather than the raw output, so the
     # first failures and the summary are what survive the second trim.
     return excerpt if len(excerpt) <= FAILURE_EXCERPT_CHARS else positional_excerpt(excerpt)
+
+
+def has_asan_failure(text: str) -> bool:
+    # Invariant: a nonzero test exit is not sanitizer evidence. Only a runtime
+    # signature may classify an ordinary doctest failure as an ASan finding.
+    return any(signature in text for signature in ASAN_FAILURE_SIGNATURES)
 
 
 def display_path(path: Path) -> str:
@@ -435,6 +446,11 @@ def run_self_tests() -> list[str]:
     if failure_excerpt(short_failure) != short_failure:
         failures.append("failure excerpt truncated output that fits the budget")
 
+    if has_asan_failure(short_failure):
+        failures.append("doctest failure was misclassified as an AddressSanitizer finding")
+    if not has_asan_failure("==123==ERROR: AddressSanitizer: heap-use-after-free"):
+        failures.append("AddressSanitizer finding signature was not recognized")
+
     # The real shape this lane produces: a failing assertion buried in megabytes
     # of engine reservation logging. Any position-based excerpt lands in the
     # noise, so this pins content selection rather than a head/tail budget.
@@ -561,9 +577,12 @@ def run_asan_tests(msbuild: Path, *, report_durations: bool = False) -> float:
         env=asan_env,
         timeout_seconds=300,
     )
-    if run_code != 0 or "AddressSanitizer" in run_output:
+    asan_failure = has_asan_failure(run_output)
+    if run_code != 0 or asan_failure:
         print(failure_excerpt(run_output))
-        raise NativeDiagnosticsError("AddressSanitizer CPU tests reported a failure.")
+        if asan_failure:
+            raise NativeDiagnosticsError("AddressSanitizer detected a memory error in CPU tests.")
+        raise NativeDiagnosticsError("ASan-instrumented CPU tests failed.")
     return build_elapsed + run_elapsed
 
 

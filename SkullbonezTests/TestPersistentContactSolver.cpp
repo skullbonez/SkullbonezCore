@@ -82,6 +82,7 @@ using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::CollisionShape;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Math::Vector::ZERO_VECTOR;
 using SkullbonezCore::Physics::BuildObjectContactManifold;
 using SkullbonezCore::Physics::BuildTerrainContactManifold;
 using SkullbonezCore::Physics::BuoyancyBodyFacts;
@@ -212,7 +213,8 @@ struct SolverFixture
         body.hot.position = position;
         body.hot.linearVelocity = linearVelocity;
         body.cold.rotationalInertia = Vector3( inertia, inertia, inertia );
-        body.hot.inverseRotationalInertia = isFixed ? Vector3() : Vector3( 1.0f / inertia, 1.0f / inertia, 1.0f / inertia );
+        body.hot.inverseRotationalInertia =
+            isFixed ? ZERO_VECTOR : Vector3( 1.0f / inertia, 1.0f / inertia, 1.0f / inertia );
         body.cold.mass = mass;
         body.hot.inverseMass = isFixed ? 0.0f : 1.0f / mass;
         body.hot.boundingRadius = radius;
@@ -910,7 +912,7 @@ TEST_CASE( "Persistent contact solver: restitution follows loaded contact-featur
         constexpr float restitution = 0.75f;
         fixture.config.solver.slop = 0.0f;
         fixture.config.solver.baumgarteBeta = 0.2f;
-        fixture.AddDynamicSphere( Vector3( 0.0f, 0.0f, 0.0f ), Vector3(), restitution, true );
+        fixture.AddDynamicSphere( Vector3( 0.0f, 0.0f, 0.0f ), ZERO_VECTOR, restitution, true );
         fixture.AddDynamicSphere( Vector3( 0.0f, 1.99f, 0.0f ), Vector3( 0.0f, -6.0f, 0.0f ), restitution );
         fixture.candidatePairs.emplace_back( 0, 1 );
     };
