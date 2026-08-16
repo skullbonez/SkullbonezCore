@@ -238,6 +238,16 @@ violation if one exists.
   determinism oracle is wanted here it is a separate Linux-envelope baseline with
   its own provenance.
 
+  **Runner and trigger (owner ruling 2026-08-15).** Use the GitHub-hosted
+  `ubuntu-latest` image — whatever standard hosted Linux is cheapest to stand up.
+  No self-hosted runner, no container image to maintain, no third-party runner
+  service. Add it as its own workflow file rather than a job inside
+  `mandatory-cpu-validation.yml`, so a red Linux lane can never block a Windows
+  merge; the existing non-goal forbidding that fold is the reason. Trigger on
+  `schedule` plus `workflow_dispatch`, matching `native-diagnostics.yml`, and
+  name an owner in the workflow header who is expected to act on a red run —
+  the lane below went red for four weeks precisely because nobody owned it.
+
   **ASan already exists on Windows; scope this task around what does not.**
   `.github/workflows/native-diagnostics.yml` runs MSVC AddressSanitizer against
   the full CPU suite every Monday, driven by
