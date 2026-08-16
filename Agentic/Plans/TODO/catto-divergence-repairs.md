@@ -110,6 +110,20 @@ of an otherwise equivalent face contact must produce the same separation. Any
 other physics, replay, SkullScope, or visual difference remains unapproved and
 blocks the transition.
 
+### Owner Baseline Artifact Ruling — 2026-08-16
+
+A physics-baseline mismatch in a Catto repair phase is evidence to preserve,
+not a stop condition for this orchestration run. Before another build can
+overwrite a failing candidate, copy every executable used by the gate and name
+each copy with the plan and phase (for example,
+`SKULLBONEZ_CORE_CATTO_REPAIRS_CD3.exe`). Record the baseline diff and saved
+artifact path in the phase evidence, then continue in plan order. This ruling
+supersedes the earlier instruction to stop solely for unexpected baseline
+movement during this run; it neither refreshes a golden nor accepts the changed
+physics behavior. The owner will inspect all preserved candidates and decide
+which phases are acceptable. Build failures, crashes, invariant failures, and
+non-physics correctness failures remain blocking.
+
 ---
 
 ## Section 2 — Divergences To Keep

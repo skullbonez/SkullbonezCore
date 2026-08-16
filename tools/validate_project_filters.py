@@ -424,6 +424,7 @@ RUNTIME_PREDICTION_PREFIXES = (
 )
 
 RUNTIME_PLANNING_PREFIXES = (
+    "ReplayCauseInspection",
     "ReplayGuideArcs",
     "ReplayInterceptReadout",
     "ReplayOverlayPackets",

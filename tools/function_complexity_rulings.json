@@ -155,11 +155,11 @@
     {
       "file": "SkullbonezSource/Runtime/Prediction/ReplayAuthoringCauseTree.cpp",
       "signature": "bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const RunReplayPathVisualizerState& path, const ReplaySolverFrameSample* solverSample, std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords, const PhysicsBodyStore& bodyStore, const RunReplayCameraState& camera, int& outCameraFocusedRow )",
-      "body_sha256": "350435c3ebb4b0acaed84018040d4eab63489c0c0e3accce1a747f4454165fce",
+      "body_sha256": "2057925b2bf252d56494d7ae2c38e802d5046b745c4ff04d43814ca1936d26cd",
       "owner": "ReplayPrediction cause-tree projection",
       "disposition": "retain-owner",
-      "reason": "One prediction owner projects a solver sample, retained presentation rows, body identities, and camera focus into a coherent cause-tree row set; row identity and focus arbitration are one result invariant.",
-      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
+      "reason": "One prediction owner projects a solver sample, retained presentation rows, body identities, exact source-bank frames, and camera focus into a coherent cause-tree row set; row identity, frame addressability, and focus arbitration are one result invariant.",
+      "evidence": "CAUSAL_INSPECT C0 owner review (2026-08-16)",
       "plan": ""
     },
     {

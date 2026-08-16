@@ -43,6 +43,10 @@ struct RunReplayCauseTreeRow
     Physics::PhysicsSceneObjectId id;
     Physics::PhysicsSceneObjectId parentId;
     Physics::PhysicsSceneObjectId counterpartId;
+
+    // Invariant: this is the exact source-bank frame for the row. Recorded
+    // children inherit their solver sample frame; prediction rows address the
+    // published prediction bank. Consumers never clamp it to another frame.
     ReplayFrameIndex firstFrame = 0;
     int depth = 0;
     Physics::ModelRowHint modelRow;

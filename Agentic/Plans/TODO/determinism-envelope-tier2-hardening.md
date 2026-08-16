@@ -47,6 +47,19 @@ approximation.
 This ruling settles the T1, T3, and T4 design direction only. It does not approve
 the resulting baseline transitions and grants no baseline-refresh authority.
 
+### Owner Baseline Artifact Ruling — 2026-08-16
+
+A physics-baseline mismatch in a Determinism phase is evidence to preserve, not
+a stop condition for this orchestration run. When a phase produces that
+mismatch, copy every executable used by the failing gate before another build
+can overwrite it. Name each copy with the plan and phase (for example,
+`SKULLBONEZ_CORE_TIER2_DETERMINISM_T3.exe`), record the baseline diff and saved
+artifact path in the phase evidence, and continue to the next phase. Do not
+refresh a golden and do not treat the mismatch as accepted behavior; the owner
+will compare the preserved candidates and decide which transitions to accept.
+Build failures, crashes, invariant failures, and non-physics correctness
+failures remain blocking.
+
 ## Problem And Evidence
 
 Dated 2026-08-15, measured against the current tree.

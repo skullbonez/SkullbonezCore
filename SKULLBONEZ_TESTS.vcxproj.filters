@@ -237,6 +237,9 @@
     <ClCompile Include="SkullbonezTests\TestReplayTripPlanner.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestReplayCauseInspection.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestReplayPorkchopPanel.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
@@ -418,6 +421,9 @@
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayPlanningOverlayLayout.cpp">
+      <Filter>Source Files\Runtime\Planning</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayCauseInspection.cpp">
       <Filter>Source Files\Runtime\Planning</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayGuideArcs.cpp">

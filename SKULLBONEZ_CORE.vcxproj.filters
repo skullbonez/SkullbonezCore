@@ -342,6 +342,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayPlanningRuntime.cpp">
       <Filter>Source Files\Runtime\Planning</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayCauseInspection.cpp">
+      <Filter>Source Files\Runtime\Planning</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayGuideArcs.cpp">
       <Filter>Source Files\Runtime\Planning</Filter>
     </ClCompile>
@@ -1226,6 +1229,9 @@
       <Filter>Header Files\Runtime\Planning</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Planning\ReplayPlanningRuntime.h">
+      <Filter>Header Files\Runtime\Planning</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Planning\ReplayCauseInspection.h">
       <Filter>Header Files\Runtime\Planning</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Planning\ReplayInterceptReadout.h">

@@ -1,13 +1,13 @@
 # Session State
 
-Date: 2026-08-16
-Branch: `main`
-Status: Three active plans; 1/24 tasks complete
+Date: 2026-08-17
+Branch: `codex/master-plan-2026-08-16`
+Status: Three active plans; 2/24 tasks complete
 
 Causal Event Inspection (9 tasks), Determinism Envelope Tier-2 Hardening
 (9 tasks), and Catto Divergence Repairs (6 tasks) are registered under
-`Agentic/Plans/TODO/`; Catto CD0 is complete. `MASTER-PLAN.md` carries the
-binding order, with Causal first by owner direction on 2026-08-16.
+`Agentic/Plans/TODO/`; Causal C0 and Catto CD0 are complete. `MASTER-PLAN.md`
+carries the binding order, with Causal first by owner direction on 2026-08-16.
 
 Replay Prediction Adversarial Repair completed on
 `codex/replay-prediction-adversarial-fixes` in two `REPLAY_ADVERSARIAL` commits.
@@ -48,13 +48,13 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-`CAUSAL_INSPECT` C0. Fix the seek contract: confirm every cause row kind
-addresses a frame the scrubber can restore, and define the refusal behavior for a
-row whose frame has aged out of the recorder ring as `Replay frame expired`.
-C1-C8 then implement the approved synchronized replay/detail-camera transition,
-dedicated orbit/follow camera, Space aftermath, exact retained solver-detail
-availability, four-row scrolling panel, and click/scrub return to the saved main
-camera. Missing detail is reported rather than regenerated.
+`CAUSAL_INSPECT` C1. Implement the approved Planning-owned synchronized
+replay/detail-camera transition from the currently presented frame to the exact
+row frame, including the dedicated camera slot, coalesced restore requests,
+pause ownership, Space aftermath, and click/scrub return paths. C2-C8 then add
+frame-independent arrival, orbit/follow behavior, exact retained solver-detail
+availability, the four-row scrolling panel, lifecycle and cost evidence, and
+final tests/review. Missing detail is reported rather than regenerated.
 
 After all of `CAUSAL_INSPECT`, run `TIER2_DETERMINISM` in its recorded order,
 then `CATTO_REPAIRS` CD1-CD5. `future_physics.md` remains unregistered.
@@ -62,12 +62,13 @@ then `CATTO_REPAIRS` CD1-CD5. `future_physics.md` remains unregistered.
 ## Blockers
 
 - `TIER2_DETERMINISM` T3 and T4 change physics bits by construction. The plan
-  grants no baseline-refresh authority; each needs its own owner approval of that
-  exact transition, reviewed as behavior.
+  grants no baseline-refresh authority. A baseline mismatch no longer stops this
+  run: preserve every gate executable under a plan-and-phase name, record the
+  diff and artifact path, and continue for later owner behavior review.
 - `CATTO_REPAIRS` CD0 is complete. CD1-CD5 are selectable only after Causal and
   Determinism finish, in the approved R1, R5, R6, R3, R2(a), R4 order. An
-  unexpected measured effect outside a repair's described behavior returns to
-  the owner; do not re-ask the approved scope questions.
+  baseline-failing candidates are preserved and execution continues for later
+  owner review; do not re-ask the approved scope questions or refresh a golden.
 - `TIER2_DETERMINISM` T3/T4 baseline sequencing now has a downstream consumer.
   The landed replay-prediction oracle pins trajectory fingerprint
   `0x0702E1DFBB57F16D` and submitted geometry `0xF06608D189EFEEAD`, which a

@@ -1,13 +1,13 @@
 # Causal Event Inspection
 
 Date: 2026-08-15
-Status: Active. 0/9 tasks complete.
+Status: Active. 1/9 tasks complete.
 Impact area: Runtime/Planning operator surface, replay transport, camera
 arrival, contact manifold presentation, solver-detail availability,
 Rendering value contracts, tests
 Owner: Replay planning operator surface
-Priority: Active — C0 is unblocked; every later task depends on C0's seek
-contract, the owner-ratified synchronized transport below, and C3's detail
+Priority: Active — C1 is next; it consumes C0's exact-frame seek contract and
+the owner-ratified synchronized transport below. C3 owns the later detail
 availability contract.
 
 ## Owner Direction
@@ -135,6 +135,16 @@ keep the cause row visible but disable transport with `Replay frame expired`.
 If the frame remains restorable but its solver detail is absent or overwritten,
 continue to allow transport and manifold inspection while the panel displays
 `Solver detail not available`. Never substitute detail from a nearby frame.
+
+### Owner Resource Ruling — 2026-08-16
+
+The owner accepts modest measured performance and memory regressions needed to
+support causal inspection. C7 must report the observed resource change and the
+feature benefit it buys; a small regression is not, by itself, a reason to
+remove the feature. This ruling does not authorize unbounded growth,
+steady-state heap allocation, an unregistered replay growth privilege, or
+skipping the existing performance and allocation evidence gates. Retained
+capacity and lifetime must remain explicit and owned.
 
 ## Problem And Evidence
 
@@ -297,7 +307,7 @@ detail.
 
 ## Phases
 
-- [ ] **C0 — Fix the seek contract and prove the frame is addressable.** Confirm
+- [x] **C0 — Fix the seek contract and prove the frame is addressable.** Confirm
   that `RunReplayCauseTreeRow::firstFrame` addresses a frame the scrubber can
   restore for every row kind, including terrain rows, prediction rows, and rows
   whose frame has aged out of the recorder ring. Define the exact behavior for a
@@ -307,6 +317,15 @@ detail.
   row still transports and C3 reports `Solver detail not available`. No new
   retained state; this phase produces the contract that C1, C2, and C3 depend
   on.
+
+  Evidence (2026-08-17): recorded body, manifold, terrain, and solver rows now
+  inherit the selected solver sample's exact frame; prediction rows retain their
+  published frame identity. Planning classifies exact membership in the bounded
+  solver or prediction bank without clamping, keeps absent-detail frames
+  transportable, and returns `Replay frame expired` for non-restorable rows.
+  Three focused cases passed 39 assertions. `tools\validate_fast.bat` and
+  `tools\validate_replay_visual_fidelity.bat` both passed without a baseline
+  refresh or new retained state.
 
 - [ ] **C1 — Add transport from the selected causal row.** Add a Planning-owned
   synchronized transition command whose temporal endpoints are the currently

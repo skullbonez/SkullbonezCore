@@ -1,13 +1,18 @@
 # MASTER PLAN
 
 Date: 2026-08-16
-Status: Three active plans; 1/24 tasks complete
+Status: Three active plans; 2/24 tasks complete
 
 ## Owner Direction
 
 - Causal Event Inspection is first in the binding order by owner direction on
   2026-08-16. Complete C0 through C8 before beginning determinism or Catto source
   work.
+
+- Physics-baseline mismatches in Determinism or Catto phases do not stop this
+  orchestration run. Preserve every gate executable under a plan-and-phase name,
+  record the mismatch and artifact path, and continue without refreshing a
+  golden; the owner will review the candidate behaviors afterward.
 
 - Determinism Envelope Tier-2 Hardening is active. It removes
   implementation-defined transcendentals from physics-visible paths, gates their
@@ -39,7 +44,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Causal Event Inspection | `CAUSAL_INSPECT` | 9 | 0 | `TODO/causal-event-inspection.md` |
+| Causal Event Inspection | `CAUSAL_INSPECT` | 9 | 1 | `TODO/causal-event-inspection.md` |
 | Determinism Envelope Tier-2 Hardening | `TIER2_DETERMINISM` | 9 | 0 | `TODO/determinism-envelope-tier2-hardening.md` |
 | Catto Divergence Repairs | `CATTO_REPAIRS` | 6 | 1 | `TODO/catto-divergence-repairs.md` |
 
@@ -74,8 +79,8 @@ states elsewhere, and both are recorded rather than silently corrected:
 
 ## Binding Order
 
-1. `CAUSAL_INSPECT` C0 through C8 — complete the causal inspection plan first.
-   C0 proves exact-frame addressability and the `Replay frame expired` refusal;
+1. `CAUSAL_INSPECT` C1 through C8 — complete the causal inspection plan first.
+   C0 proved exact-frame addressability and the `Replay frame expired` refusal;
    C1-C2 add synchronized replay/detail-camera transport, dedicated orbit/follow,
    Space aftermath, and return-to-main behavior; C3-C8 add honest solver-detail
    availability, manifold presentation, the four-row scrolling panel, lifecycle,
@@ -87,8 +92,8 @@ states elsewhere, and both are recorded rather than silently corrected:
 3. `TIER2_DETERMINISM` T5 through T8 — portable target, test split, Linux
    sanitizer lane, and hosted cross-machine evidence.
 4. `TIER2_DETERMINISM` T3 and T4 — adopt deterministic rotation and `acos` after
-   the earlier evidence isolates their behavior transitions. Only unexpected or
-   unrelated baseline movement returns to the owner.
+   the earlier evidence isolates their behavior transitions. Preserve each
+   baseline-failing executable and continue; acceptance remains an owner review.
 5. `CATTO_REPAIRS` CD1 through CD5 — CD0 is complete. Execute the approved order:
    R1; R5 then R6 as separate commits; R3; R2 stage (a) only; and the local R4
    interval-consistency repair that preserves partial-TOI advancement.
@@ -106,5 +111,5 @@ tests must pin field mapping and availability, not pre-Catto impulse values.
 
 ## Portfolio Progress
 
-1/24 tasks complete across three active plans. Causal C0 is the next selectable
-task; Catto CD0 is the completed owner-ratification phase.
+2/24 tasks complete across three active plans. Causal C1 is the next selectable
+task; Causal C0 and Catto CD0 are complete.

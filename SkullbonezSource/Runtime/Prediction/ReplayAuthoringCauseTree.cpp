@@ -599,6 +599,7 @@ bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const Run
             manifoldRow.id = bodyRow.id;
             manifoldRow.parentId = bodyRow.parentId;
             manifoldRow.counterpartId = otherId;
+            manifoldRow.firstFrame = bodyRow.firstFrame;
             manifoldRow.depth = bodyRow.depth + 1;
             manifoldRow.modelRow.value = bodyRow.modelRow.value;
             manifoldRow.counterpartModelRow.value = group.otherModelIndex;
@@ -641,6 +642,7 @@ bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const Run
                 solverRow.id = bodyRow.id;
                 solverRow.parentId = bodyRow.parentId;
                 solverRow.counterpartId = otherId;
+                solverRow.firstFrame = bodyRow.firstFrame;
                 solverRow.depth = bodyRow.depth + 2;
                 solverRow.modelRow.value = bodyRow.modelRow.value;
                 solverRow.counterpartModelRow.value = group.otherModelIndex;
@@ -734,7 +736,16 @@ bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const Run
         return !rowOverflow;
     };
 
-    if ( !addBodyRow( path.targetId, Physics::PhysicsSceneObjectId {}, 0, 0, path.targetModelRow.value, path.targetName ) )
+    // Invariant: every visible root addresses the same bounded bank as its
+    // children. Recorded roots inherit the selected solver sample; predicted
+    // roots begin at the first exact published frame rather than frame zero.
+    const ReplayFrameIndex rootFrame = usePrediction
+                                           ? ( activePredictionFrames.empty() ? 0
+                                                                              : activePredictionFrames.front().frameIndex )
+                                           : ( solverSample ? solverSample->frameIndex : 0 );
+
+    if ( !addBodyRow( path.targetId, Physics::PhysicsSceneObjectId {}, rootFrame, 0, path.targetModelRow.value,
+                      path.targetName ) )
     {
         authoring.FailCauseTreeRowBuild();
         return false;
