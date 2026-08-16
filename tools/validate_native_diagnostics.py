@@ -51,11 +51,21 @@ VSWHERE = Path(r"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswher
 MAX_LOG_CHARS = 240_000
 LOG_HEAD_CHARS = 160_000
 # Why: a failing lane must print the failure itself, not an arbitrary window of
-# whatever ran last. doctest emits nothing for a passing assertion, so with
-# per-case duration reporting off the test output is only failing assertions
-# plus the summary, and this budget surfaces it whole in the common case.
+# whatever ran last. Position-based excerpting cannot do that here. A passing run
+# emits ~2 MB of [runtime-reserve] reservation diagnostics from the engine under
+# test, so a head/tail slice of any affordable size lands in reservation noise
+# whichever end it takes. Select failure blocks by content instead, and keep the
+# positional budget below only as a fallback when no marker is recognized.
 FAILURE_EXCERPT_CHARS = 24_000
 FAILURE_EXCERPT_HEAD_CHARS = 16_000
+FAILURE_CONTEXT_BEFORE = 8
+FAILURE_CONTEXT_AFTER = 12
+# doctest prints "<file>(<line>): ERROR:" (or FATAL ERROR) per failing assertion
+# and a trailing "[doctest]" summary; ASan prints its own "==pid==ERROR:" banner.
+# The lane fails on either, so both must survive into the printed excerpt.
+FAILURE_MARKER_PATTERN = re.compile(
+    r"\)\s*:\s*(?:FATAL )?ERROR:|==\d+==ERROR:|^\[doctest\]|^Assertion failed"
+)
 WARNING_PATTERN = re.compile(
     r"^(?P<path>.+?)\((?P<line>\d+)(?:,\d+)?\):\s+warning\s+(?P<code>C\d+):\s*(?P<message>.*)$",
     re.MULTILINE | re.IGNORECASE,
@@ -90,16 +100,46 @@ def bounded_text(text: str) -> str:
     return text[:LOG_HEAD_CHARS] + marker + text[-tail_chars:]
 
 
-def failure_excerpt(text: str) -> str:
-    # Invariant: the first failure and the trailing summary must both survive.
-    # A tail-only slice loses the first failure whenever several cases fail, and
-    # a head-only slice loses the doctest summary that says how many did.
+def positional_excerpt(text: str) -> str:
+    # Fallback only. Used when no failure marker is recognized at all, so there
+    # is nothing better than a head and a tail to show.
     if len(text) <= FAILURE_EXCERPT_CHARS:
         return text
     tail_chars = FAILURE_EXCERPT_CHARS - FAILURE_EXCERPT_HEAD_CHARS
     omitted = len(text) - FAILURE_EXCERPT_HEAD_CHARS - tail_chars
     marker = f"\n\n[validate_native_diagnostics omitted {omitted} characters]\n\n"
     return text[:FAILURE_EXCERPT_HEAD_CHARS] + marker + text[-tail_chars:]
+
+
+def failure_excerpt(text: str) -> str:
+    # Invariant: every recognized failure block and the trailing summary survive,
+    # regardless of how much unrelated output the run produced around them.
+    if len(text) <= FAILURE_EXCERPT_CHARS:
+        return text
+    lines = text.splitlines()
+    marked = [index for index, line in enumerate(lines) if FAILURE_MARKER_PATTERN.search(line)]
+    if not marked:
+        return positional_excerpt(text)
+
+    kept: set[int] = set()
+    for index in marked:
+        start = max(0, index - FAILURE_CONTEXT_BEFORE)
+        end = min(len(lines), index + FAILURE_CONTEXT_AFTER + 1)
+        kept.update(range(start, end))
+
+    selected: list[str] = []
+    previous: int | None = None
+    for index in sorted(kept):
+        if previous is not None and index != previous + 1:
+            selected.append(f"[validate_native_diagnostics skipped {index - previous - 1} lines]")
+        selected.append(lines[index])
+        previous = index
+
+    excerpt = "\n".join(selected)
+    # Hazard: a run that fails thousands of assertions can still overflow the
+    # budget. Bound the assembled excerpt rather than the raw output, so the
+    # first failures and the summary are what survive the second trim.
+    return excerpt if len(excerpt) <= FAILURE_EXCERPT_CHARS else positional_excerpt(excerpt)
 
 
 def display_path(path: Path) -> str:
@@ -395,23 +435,50 @@ def run_self_tests() -> list[str]:
     if failure_excerpt(short_failure) != short_failure:
         failures.append("failure excerpt truncated output that fits the budget")
 
-    # A red run must show the first failure and the trailing summary, which is
-    # exactly what the previous tail-only slice could not do.
-    long_failure = "FIRST_FAILURE\n" + ("x" * FAILURE_EXCERPT_CHARS) + "\n[doctest] Status: FAILURE!"
-    excerpt = failure_excerpt(long_failure)
-    excerpt_match = re.search(r"\n\n\[validate_native_diagnostics omitted (\d+) characters\]\n\n", excerpt)
-    if excerpt_match is None:
-        failures.append("failure excerpt did not emit an omission marker")
-    else:
-        # Unlike bounded_text, the marker is additive here: this is console
-        # output, not a file advertising a fixed cap, so the kept head and tail
-        # are each exactly their budget.
-        expected_length = FAILURE_EXCERPT_CHARS + len(excerpt_match.group(0))
-        omitted_characters = len(long_failure) - FAILURE_EXCERPT_CHARS
-        if len(excerpt) != expected_length or int(excerpt_match.group(1)) != omitted_characters:
-            failures.append("failure excerpt did not retain the expected head/tail budget")
-    if not excerpt.startswith("FIRST_FAILURE") or not excerpt.endswith("[doctest] Status: FAILURE!"):
-        failures.append("failure excerpt dropped the first failure or the summary")
+    # The real shape this lane produces: a failing assertion buried in megabytes
+    # of engine reservation logging. Any position-based excerpt lands in the
+    # noise, so this pins content selection rather than a head/tail budget.
+    noise = "\n".join(
+        f"[runtime-reserve] growth owner=Store.field{index} phase=scene_load status=granted"
+        for index in range(40_000)
+    )
+    buried = "\n".join(
+        [
+            noise,
+            "D:\\repo\\SkullbonezTests\\TestExample.cpp(42):",
+            "TEST CASE:  Example case that fails",
+            "",
+            "D:\\repo\\SkullbonezTests\\TestExample.cpp(47): ERROR: CHECK( a == b ) is NOT correct!",
+            "  values: CHECK( 1 == 2 )",
+            noise,
+            "[doctest] test cases: 527 | 526 passed | 1 failed | 0 skipped",
+            "[doctest] Status: FAILURE!",
+        ]
+    )
+    excerpt = failure_excerpt(buried)
+    if len(excerpt) > FAILURE_EXCERPT_CHARS:
+        failures.append("failure excerpt exceeded its budget")
+    for required in (
+        "TEST CASE:  Example case that fails",
+        "ERROR: CHECK( a == b ) is NOT correct!",
+        "values: CHECK( 1 == 2 )",
+        "[doctest] Status: FAILURE!",
+    ):
+        if required not in excerpt:
+            failures.append(f"failure excerpt dropped required content: {required}")
+    # The fixture carries three marker lines (one ERROR, two summary), so the
+    # retained noise cannot exceed three context windows however large the input
+    # grows. This pins selection, not a hand-tuned line count.
+    marker_count = 3
+    if excerpt.count("[runtime-reserve]") > marker_count * (
+        FAILURE_CONTEXT_BEFORE + FAILURE_CONTEXT_AFTER + 1
+    ):
+        failures.append("failure excerpt retained unbounded surrounding noise")
+
+    # No recognizable marker at all still has to show something.
+    unmarked = "z" * (FAILURE_EXCERPT_CHARS + 500)
+    if "omitted" not in failure_excerpt(unmarked):
+        failures.append("unmarked oversized output did not fall back to a bounded excerpt")
     return failures
 
 
