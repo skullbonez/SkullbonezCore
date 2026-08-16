@@ -48,6 +48,7 @@ using SkullbonezCore::Math::CollisionDetection::GetShapeBoundingRadius;
 using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Transformation::RotationMatrix;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Math::Vector::ZERO_VECTOR;
 using SkullbonezCore::Physics::BuoyancyBodyFacts;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderShapeKind;
@@ -255,8 +256,8 @@ TEST_CASE( "Physics API frames: point-joint anchors are body-local rather than w
     const Vector3 dynamicStart( 10.0f, 24.0f, 29.0f );
     const PhysicsBodyHotState localAnchorResult = SolveAnchorCase( Vector3( 4.0f, 0.0f, 0.0f ) );
     CheckVectorApprox( localAnchorResult.position, dynamicStart );
-    CheckVectorApprox( localAnchorResult.linearVelocity, Vector3() );
-    CheckVectorApprox( localAnchorResult.angularVelocity, Vector3() );
+    CheckVectorApprox( localAnchorResult.linearVelocity, ZERO_VECTOR );
+    CheckVectorApprox( localAnchorResult.angularVelocity, ZERO_VECTOR );
 
     // A world point is numerically plausible input but means a very different
     // lever after the body-to-world rotation. Its response proves the API does
@@ -273,7 +274,7 @@ TEST_CASE( "Physics API frames: anisotropic angular drag clamps in body-principa
     constexpr float gasDensity = 1.0f;
     const Vector3 bodyPrincipalInertia( 1.0f, 10.0f, 100.0f );
     const Vector3 initialWorldAngularVelocity( 1.0f, 2.0f, 0.5f );
-    const CollisionShape shape = BoundingBox( Vector3( 1.0f, 0.5f, 0.25f ), Vector3() );
+    const CollisionShape shape = BoundingBox( Vector3( 1.0f, 0.5f, 0.25f ), ZERO_VECTOR );
     Quaternion orientation;
     orientation.RotateAboutAxis( Vector3( 0.0f, 0.0f, 1.0f ), 0.7853981633974483f );
     const RotationMatrix rotation = orientation.GetOrientationMatrix();
@@ -307,7 +308,7 @@ TEST_CASE( "Physics API frames: isotropic angular drag retains exact world-path 
     constexpr float gasDensity = 2.0f;
     const Vector3 isotropicInertia( 4.0f, 4.0f, 4.0f );
     const Vector3 initialWorldAngularVelocity( 1.25f, -0.5f, 0.75f );
-    const CollisionShape shape = BoundingSphere( 1.0f, Vector3(), 0.0f );
+    const CollisionShape shape = BoundingSphere( 1.0f, ZERO_VECTOR, 0.0f );
     Quaternion orientation;
     orientation.RotateAboutAxis( Vector3( 0.0f, 1.0f, 0.0f ), 0.6f );
     const RotationMatrix rotation = orientation.GetOrientationMatrix();
