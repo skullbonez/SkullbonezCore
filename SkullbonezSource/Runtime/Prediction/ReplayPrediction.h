@@ -334,8 +334,8 @@ struct RunReplayPredictionTrajectoryBuildState
     std::size_t childAppendNodeIndex = 0;
 
     // Concept: mutual-gravity scenes publish every body's future independently
-    // of contact causality. These cursors extend that record bank without
-    // disturbing the causal child publication used by ordinary scenes.
+    // of contact causality. builtAllBodyCount resumes record allocation;
+    // allBodyFrameCount is the shared time watermark published across them.
     std::size_t allBodyFrameCount = 0;
     std::size_t builtAllBodyCount = 0;
     std::size_t allBodyBodyCount = 0;

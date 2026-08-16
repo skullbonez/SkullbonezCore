@@ -6,12 +6,12 @@ Purpose:
 Summary:
   Isolated simulation supplies completed frame rows. This owner derives the
   contiguous trajectory and causal-topology records consumed by presentation,
-  resuming whole-node hidden duplication at budget boundaries.
+  resuming causal nodes and coherent cross-body time slices at budget boundaries.
 
 Invariants:
   - Derived rows never outpace the acquire-visible prediction frame prefix.
-  - Trajectory and topology versions advance only after complete replacement data exists.
-  - All-body records reserve their full frame capacity once, then append only new points.
+  - All-body prefixes advance only after every retained body reaches the same time row.
+  - Production all-body records reserve the full horizon before appending new points.
 
 Related:
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.h
@@ -34,6 +34,7 @@ Related:
 #include "../../Physics/PhysicsTimestep.h"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <cfloat>
 #include <cmath>
@@ -600,10 +601,8 @@ bool AppendReplayPredictionChildTrajectoryFrames( RunReplayPredictionState& pred
     return true;
 }
 
-bool BuildReplayPredictionAllBodyTrajectoryRecord( RunReplayPredictionState& prediction,
-                                                   const std::vector<RunReplayPredictionFrame>& frames,
-                                                   std::size_t frameCount, const RunReplayPredictionBodySample& seedBody,
-                                                   bool usingBuildFrames )
+bool BeginReplayPredictionAllBodyTrajectoryRecord( RunReplayPredictionState& prediction, std::size_t frameCount,
+                                                   const RunReplayPredictionBodySample& seedBody, bool usingBuildFrames )
 {
     const uint16_t branchOrdinal = usingBuildFrames ? REPLAY_TRAJECTORY_BUILD_BRANCH : REPLAY_TRAJECTORY_COMMITTED_BRANCH;
 
@@ -621,61 +620,6 @@ bool BuildReplayPredictionAllBodyTrajectoryRecord( RunReplayPredictionState& pre
     {
         prediction.trajectoryBuild.valid = false;
         return false;
-    }
-
-    for ( std::size_t frameIndex = 0; frameIndex < frameCount; ++frameIndex )
-    {
-        const RunReplayPredictionFrame& frame = frames[frameIndex];
-        const RunReplayPredictionBodySample* body = FindReplayPredictionBodyByIdWithHint( frame, seedBody.id,
-                                                                                          seedBody.modelRow.value );
-
-        if ( body && !AppendReplayTrajectoryPoint( prediction.trajectoryStore, *record, frame.frameIndex, body->position ) )
-        {
-            prediction.trajectoryBuild.valid = false;
-            return false;
-        }
-    }
-
-    return true;
-}
-
-bool AppendReplayPredictionAllBodyTrajectoryFrames( RunReplayPredictionState& prediction,
-                                                    const std::vector<RunReplayPredictionFrame>& frames,
-                                                    std::size_t beginFrame, std::size_t frameCount,
-                                                    const RunReplayPredictionBodySample& seedBody, bool usingBuildFrames )
-{
-    const uint16_t branchOrdinal = usingBuildFrames ? REPLAY_TRAJECTORY_BUILD_BRANCH : REPLAY_TRAJECTORY_COMMITTED_BRANCH;
-
-    ReplayTrajectoryRecord* record = prediction.trajectoryStore.FindRecord( ReplayTrajectoryKey( seedBody.id, ReplayTrajectoryLane::FutureRoot, branchOrdinal ) );
-
-    if ( !record )
-    {
-        return BuildReplayPredictionAllBodyTrajectoryRecord( prediction, frames, frameCount, seedBody, usingBuildFrames );
-    }
-
-    const int frameNumber = frameCount > 0u ? ReplayTrajectoryFrameNumberForReserve( frames[frameCount - 1u].frameIndex )
-                                            : 0;
-
-    const std::size_t pointCapacity = usingBuildFrames ? prediction.build.buildFrames.size()
-                                                       : prediction.simulation.frames.size();
-
-    if ( !prediction.trajectoryStore.ReserveRecordPoints( *record, (std::max)( frameCount, pointCapacity ), frameNumber ) )
-    {
-        prediction.trajectoryBuild.valid = false;
-        return false;
-    }
-
-    for ( std::size_t frameIndex = beginFrame; frameIndex < frameCount; ++frameIndex )
-    {
-        const RunReplayPredictionFrame& frame = frames[frameIndex];
-        const RunReplayPredictionBodySample* body = FindReplayPredictionBodyByIdWithHint( frame, seedBody.id,
-                                                                                          seedBody.modelRow.value );
-
-        if ( body && !AppendReplayTrajectoryPoint( prediction.trajectoryStore, *record, frame.frameIndex, body->position ) )
-        {
-            prediction.trajectoryBuild.valid = false;
-            return false;
-        }
     }
 
     return true;
@@ -722,7 +666,8 @@ void UpdateReplayPredictionAllBodyTrajectories( RunReplayPredictionState& predic
         const RunReplayPredictionBodySample& seedBody = frames[0].bodies[bodyIndex];
 
         if ( seedBody.id.value != 0u && seedBody.id.value != rootId.value &&
-             !prediction.trajectoryStore.FindRecord( ReplayTrajectoryKey( seedBody.id, ReplayTrajectoryLane::FutureRoot, activeBranch ) ) )
+             !prediction.trajectoryStore.FindRecord(
+                 ReplayTrajectoryKey( seedBody.id, ReplayTrajectoryLane::FutureRoot, activeBranch ) ) )
         {
             builtPrefixMissing = true;
             break;
@@ -744,38 +689,14 @@ void UpdateReplayPredictionAllBodyTrajectories( RunReplayPredictionState& predic
         prediction.trajectoryBuild.allBodyPaths = true;
     }
 
-    // Concept: every space-body record is independent of the contact-derived
-    // future tree. Extending a prediction therefore appends only the new frame
-    // suffix to each body record; topology churn cannot rebuild these paths.
-    if ( !sourceChanged && prediction.trajectoryBuild.allBodyFrameCount < frameCount )
-    {
-        for ( std::size_t bodyIndex = 0; bodyIndex < prediction.trajectoryBuild.builtAllBodyCount; ++bodyIndex )
-        {
-            const RunReplayPredictionBodySample& seedBody = frames[0].bodies[bodyIndex];
-
-            if ( seedBody.id.value == rootId.value )
-            {
-                continue;
-            }
-
-            if ( !AppendReplayPredictionAllBodyTrajectoryFrames( prediction, frames,
-                                                                 prediction.trajectoryBuild.allBodyFrameCount, frameCount,
-                                                                 seedBody, usingBuildFrames ) )
-            {
-                return;
-            }
-        }
-    }
-
     const std::size_t firstBody = prediction.trajectoryBuild.builtAllBodyCount;
     std::size_t completedBodies = bodyCount;
 
     for ( std::size_t bodyIndex = firstBody; bodyIndex < bodyCount; ++bodyIndex )
     {
-        // Invariant: a body record is indivisible, so the budget is read between
-        // whole bodies. Recording the reached index and keeping allBodyPaths set
-        // makes builtAllBodyCount the resume cursor rather than a completion
-        // claim; the next frame continues from here instead of restarting.
+        // Invariant: record allocation is a resumable setup phase. No trajectory
+        // point is published until every body has a destination record, so the
+        // later time-slice cursor can advance all visible paths together.
         if ( ReplayPredictionSchedulingOperations::ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
         {
             completedBodies = bodyIndex;
@@ -789,16 +710,101 @@ void UpdateReplayPredictionAllBodyTrajectories( RunReplayPredictionState& predic
             continue;
         }
 
-        if ( !BuildReplayPredictionAllBodyTrajectoryRecord( prediction, frames, frameCount, seedBody, usingBuildFrames ) )
+        if ( !BeginReplayPredictionAllBodyTrajectoryRecord( prediction, frameCount, seedBody, usingBuildFrames ) )
         {
             return;
         }
     }
 
-    prediction.trajectoryBuild.allBodyFrameCount = frameCount;
     prediction.trajectoryBuild.builtAllBodyCount = completedBodies;
     prediction.trajectoryBuild.allBodyBodyCount = bodyCount;
     prediction.trajectoryBuild.allBodyPaths = true;
+
+    if ( completedBodies < bodyCount )
+    {
+        return;
+    }
+
+    std::array<ReplayTrajectoryRecord*, REPLAY_VISUAL_FUTURE_NODE_CAPACITY> bodyRecords = {};
+    const int frameNumber = ReplayTrajectoryFrameNumberForReserve( frames[frameCount - 1u].frameIndex );
+    const std::size_t pointCapacity = usingBuildFrames ? prediction.build.buildFrames.size()
+                                                       : prediction.simulation.frames.size();
+
+    for ( std::size_t bodyIndex = 0; bodyIndex < bodyCount; ++bodyIndex )
+    {
+        const RunReplayPredictionBodySample& seedBody = frames[0].bodies[bodyIndex];
+
+        if ( seedBody.id.value == 0u || seedBody.id.value == rootId.value )
+        {
+            continue;
+        }
+
+        bodyRecords[bodyIndex] = prediction.trajectoryStore.FindRecord(
+            ReplayTrajectoryKey( seedBody.id, ReplayTrajectoryLane::FutureRoot, activeBranch ) );
+
+        if ( !bodyRecords[bodyIndex] )
+        {
+            prediction.trajectoryBuild.valid = false;
+            return;
+        }
+
+        // Why: production banks are pre-sized to the whole horizon, but the
+        // publication operation also accepts a caller-supplied prefix that may
+        // grow later. Preserve the append-only contract before exposing a row.
+        if ( !prediction.trajectoryStore.ReserveRecordPoints( *bodyRecords[bodyIndex],
+                                                              (std::max)( frameCount, pointCapacity ), frameNumber ) )
+        {
+            prediction.trajectoryBuild.valid = false;
+            return;
+        }
+    }
+
+    // Concept: the resume cursor is a shared simulation-time watermark, not a
+    // body index. Append one frame row to every body, publish the completed row,
+    // then consult the render-frame budget. Presentation therefore sees paths
+    // grow as prediction proceeds without ever mixing different time horizons.
+    for ( std::size_t frameIndex = prediction.trajectoryBuild.allBodyFrameCount; frameIndex < frameCount; ++frameIndex )
+    {
+        if ( ReplayPredictionSchedulingOperations::ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+        {
+            return;
+        }
+
+        const RunReplayPredictionFrame& frame = frames[frameIndex];
+
+        for ( std::size_t bodyIndex = 0; bodyIndex < bodyCount; ++bodyIndex )
+        {
+            ReplayTrajectoryRecord* record = bodyRecords[bodyIndex];
+
+            if ( !record )
+            {
+                continue;
+            }
+
+            const RunReplayPredictionBodySample& seedBody = frames[0].bodies[bodyIndex];
+            const RunReplayPredictionBodySample* body = FindReplayPredictionBodyByIdWithHint( frame, seedBody.id,
+                                                                                              seedBody.modelRow.value );
+
+            if ( body && !prediction.trajectoryStore.TryAppendPoint( *record, { frame.frameIndex, body->position } ) )
+            {
+                prediction.trajectoryBuild.valid = false;
+                return;
+            }
+        }
+
+        // Invariant: appends above remain reader-hidden until the entire body
+        // row succeeds. Drawing can run only after this synchronous operation,
+        // so publishing each record here exposes one coherent time watermark.
+        for ( ReplayTrajectoryRecord* record : bodyRecords )
+        {
+            if ( record )
+            {
+                prediction.trajectoryStore.PublishPrefix( *record, record->points.size() );
+            }
+        }
+
+        prediction.trajectoryBuild.allBodyFrameCount = frameIndex + 1u;
+    }
 }
 
 void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction,

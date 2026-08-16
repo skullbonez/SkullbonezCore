@@ -15,7 +15,8 @@ Summary:
   Cross-target promotion tests also lock the hidden publication to the
   promoted source until the coherent bank flip releases the requested target.
   Budget-schedule and fast-completion tests prove hidden prediction work cannot
-  change the retained visible bank or the final canonical trajectory output. A
+  change the retained visible bank or the final canonical trajectory output.
+  All-body tests prove each budget slice exposes one shared frame watermark. A
   200-child oracle also proves incremental marker scans and retained poses match
   the legacy full scan through prefix, topology, generation, and bank changes.
 
@@ -222,9 +223,9 @@ TEST_CASE( "Replay committed all-body publication retains its resume cursor" )
     CHECK_FALSE( cursor.AllBodyPublicationSourceChanged( rootId, false, 2u, 4u, false ) );
 }
 
-TEST_CASE( "Replay committed all-body builder resumes an expired production pass" )
+TEST_CASE( "Replay committed all-body builder publishes coherent frame slices across budget passes" )
 {
-    std::vector<RunReplayPredictionFrame> frames( 2u );
+    std::vector<RunReplayPredictionFrame> frames( 8u );
 
     for ( std::size_t frameIndex = 0; frameIndex < frames.size(); ++frameIndex )
     {
@@ -253,18 +254,19 @@ TEST_CASE( "Replay committed all-body builder resumes an expired production pass
     }
 
     ReplayPredictionSchedulingOperations::budgetExpiryCheckCount = 0u;
-    ReplayPredictionSchedulingOperations::forcedBudgetExpiryCheck = 2u;
-    UpdateReplayPredictionTrajectoryStore( *resumed, frames, frames.size(), false, rootId,
-                                           std::chrono::steady_clock::now(), 1.0 );
+    ReplayPredictionSchedulingOperations::forcedBudgetExpiryCheck = 6u;
+    UpdateReplayPredictionTrajectoryStore( *resumed, frames, frames.size(), false, rootId, std::chrono::steady_clock::now(),
+                                           1.0 );
     ReplayPredictionSchedulingOperations::forcedBudgetExpiryCheck.reset();
     CHECK( resumed->trajectoryBuild.allBodyPaths );
-    CHECK( resumed->trajectoryBuild.builtAllBodyCount > 0u );
-    CHECK( resumed->trajectoryBuild.builtAllBodyCount < resumed->trajectoryBuild.allBodyBodyCount );
+    CHECK( resumed->trajectoryBuild.builtAllBodyCount == resumed->trajectoryBuild.allBodyBodyCount );
     CHECK( resumed->trajectoryBuild.allBodyBodyCount == 4u );
+    CHECK( resumed->trajectoryBuild.allBodyFrameCount > 0u );
+    CHECK( resumed->trajectoryBuild.allBodyFrameCount < frames.size() );
 
-    const auto findCommittedBodyRecord = []( const RunReplayPredictionState& state,
-                                             SkullbonezCore::Physics::PhysicsSceneObjectId bodyId )
-        -> const ReplayTrajectoryRecord*
+    const auto findCommittedBodyRecord =
+        []( const RunReplayPredictionState& state,
+            SkullbonezCore::Physics::PhysicsSceneObjectId bodyId ) -> const ReplayTrajectoryRecord*
     {
         const std::span<const ReplayTrajectoryRecord> records = state.trajectoryStore.ActiveRecords();
         const auto found = std::find_if( records.begin(), records.end(),
@@ -276,22 +278,33 @@ TEST_CASE( "Replay committed all-body builder resumes an expired production pass
         return found != records.end() ? &*found : nullptr;
     };
 
-    const ReplayTrajectoryRecord* retainedPrefixRecord =
-        findCommittedBodyRecord( *resumed, SkullbonezCore::Physics::PhysicsSceneObjectId { 2u } );
-    REQUIRE( retainedPrefixRecord );
-    const uint32_t retainedPrefixVersion = retainedPrefixRecord->version;
+    std::array<uint32_t, 3u> retainedVersions = {};
 
-    UpdateReplayPredictionTrajectoryStore( *resumed, frames, frames.size(), false, rootId,
-                                           std::chrono::steady_clock::now(), 0.0 );
+    for ( std::size_t bodyIndex = 0; bodyIndex < retainedVersions.size(); ++bodyIndex )
+    {
+        const ReplayTrajectoryRecord* record = findCommittedBodyRecord( *resumed,
+                                                                        SkullbonezCore::Physics::PhysicsSceneObjectId {
+                                                                            static_cast<uint32_t>( bodyIndex + 2u ) } );
+        REQUIRE( record );
+        CHECK( record->publishedPointCount == resumed->trajectoryBuild.allBodyFrameCount );
+        retainedVersions[bodyIndex] = record->version;
+    }
+
+    UpdateReplayPredictionTrajectoryStore( *resumed, frames, frames.size(), false, rootId, std::chrono::steady_clock::now(),
+                                           0.0 );
     UpdateReplayPredictionTrajectoryStore( *uninterrupted, frames, frames.size(), false, rootId,
                                            std::chrono::steady_clock::now(), 0.0 );
 
     CHECK( resumed->trajectoryBuild.builtAllBodyCount == 4u );
     CHECK( resumed->trajectoryBuild.allBodyFrameCount == frames.size() );
-    retainedPrefixRecord =
-        findCommittedBodyRecord( *resumed, SkullbonezCore::Physics::PhysicsSceneObjectId { 2u } );
-    REQUIRE( retainedPrefixRecord );
-    CHECK( retainedPrefixRecord->version == retainedPrefixVersion );
+    for ( std::size_t bodyIndex = 0; bodyIndex < retainedVersions.size(); ++bodyIndex )
+    {
+        const ReplayTrajectoryRecord* record = findCommittedBodyRecord( *resumed,
+                                                                        SkullbonezCore::Physics::PhysicsSceneObjectId {
+                                                                            static_cast<uint32_t>( bodyIndex + 2u ) } );
+        REQUIRE( record );
+        CHECK( record->version == retainedVersions[bodyIndex] );
+    }
     const std::span<const ReplayTrajectoryRecord> resumedRecords = resumed->trajectoryStore.ActiveRecords();
     const std::span<const ReplayTrajectoryRecord> uninterruptedRecords = uninterrupted->trajectoryStore.ActiveRecords();
     REQUIRE( resumedRecords.size() == uninterruptedRecords.size() );
