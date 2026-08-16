@@ -554,6 +554,8 @@ const char* ActionTypeName( RunInteractionAutomationActionType type )
         return "loseFocus";
     case RunInteractionAutomationActionType::MoveMouse:
         return "moveMouse";
+    case RunInteractionAutomationActionType::ScrollPoint:
+        return "scrollPoint";
     case RunInteractionAutomationActionType::ClickObject:
         return "clickObject";
     case RunInteractionAutomationActionType::ClickPoint:
@@ -562,6 +564,8 @@ const char* ActionTypeName( RunInteractionAutomationActionType type )
         return "clickReplayControl";
     case RunInteractionAutomationActionType::ScrubReplaySolverTrack:
         return "scrubReplaySolverTrack";
+    case RunInteractionAutomationActionType::SelectReplayCauseRow:
+        return "selectReplayCauseRow";
     case RunInteractionAutomationActionType::ScrubEditorReplayTrack:
         return "scrubEditorReplayTrack";
     case RunInteractionAutomationActionType::SetReplayPredictionEnabled:
@@ -1458,6 +1462,37 @@ bool ParseClickPointAction( const Json& entry, RunInteractionAutomationAction& o
         outAction.holdFrames = (std::max)( 1, entry["holdFrames"].get<int>() );
     }
 
+    return true;
+}
+
+bool ParseScrollPointAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
+{
+    const Json& scroll = entry["scrollPoint"];
+
+    if ( !scroll.is_array() || scroll.size() != 3 || !scroll[0].is_number_integer() || !scroll[1].is_number_integer() ||
+         !scroll[2].is_number_integer() || scroll[2].get<int>() == 0 )
+    {
+        outError = "scrollPoint must be an [x, y, non-zero wheel delta] integer array";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::ScrollPoint;
+    outAction.mouse = { scroll[0].get<long>(), scroll[1].get<long>() };
+    outAction.integerValue = scroll[2].get<int>();
+    outAction.hasMouse = true;
+    return true;
+}
+
+bool ParseSelectReplayCauseRowAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
+{
+    if ( !entry["selectReplayCauseRow"].is_number_integer() || entry["selectReplayCauseRow"].get<int>() < 0 )
+    {
+        outError = "selectReplayCauseRow must be a non-negative row index";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::SelectReplayCauseRow;
+    outAction.integerValue = entry["selectReplayCauseRow"].get<int>();
     return true;
 }
 
@@ -2675,6 +2710,8 @@ constexpr std::pair<const char*, InteractionActionParser> INTERACTION_ACTION_PAR
     { "setCameraPose", ParseSetCameraPoseAction },
     { "clickObject", ParseClickObjectAction },
     { "clickPoint", ParseClickPointAction },
+    { "scrollPoint", ParseScrollPointAction },
+    { "selectReplayCauseRow", ParseSelectReplayCauseRowAction },
     { "loseFocus", ParseLoseFocusAction },
     { "moveMouse", ParseMoveMouseAction },
     { "clickReplayControl", ParseClickReplayControlAction },
@@ -4155,6 +4192,33 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
             AppendReportAction( state, frame, action.type, nullptr, &action.mouse, true, "mouse press injected" );
             action.processed = true;
             break;
+        case RunInteractionAutomationActionType::ScrollPoint:
+            state.inputDriver.MoveMouse( action.mouse );
+            state.inputDriver.ScrollMouse( action.integerValue );
+            AppendReportAction( state, frame, action.type, nullptr, &action.mouse, true, "mouse wheel injected" );
+            action.processed = true;
+            break;
+        case RunInteractionAutomationActionType::SelectReplayCauseRow:
+        {
+            const bool available = action.integerValue >= 0 &&
+                                   action.integerValue < static_cast<int>( replayView.causeTree.rows.size() );
+
+            if ( available )
+            {
+                result.requestedReplayCauseRow = action.integerValue;
+            }
+            else
+            {
+                FailAutomation( state, "requested replay cause row is unavailable" );
+            }
+
+            char row[32] = {};
+            sprintf_s( row, sizeof( row ), "%d", action.integerValue );
+            AppendReportAction( state, frame, action.type, row, nullptr, available,
+                                available ? "cause row intent published" : "cause row unavailable" );
+            action.processed = true;
+            break;
+        }
         case RunInteractionAutomationActionType::LoseFocus:
             state.inputDriver.LoseFocus( action.holdFrames );
             AppendReportAction( state, frame, action.type, "input", nullptr, true, "focus loss injected" );

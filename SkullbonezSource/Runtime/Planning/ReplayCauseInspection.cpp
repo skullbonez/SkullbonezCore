@@ -49,6 +49,7 @@ Related:
 */
 #include "ReplayCauseInspection.h"
 
+#include "../../Core/Profiler.h"
 #include "../Prediction/ReplayPredictionView.h"
 #include "../Replay/ReplayRecorder.h"
 
@@ -158,6 +159,7 @@ ReplayCauseSolverPanelLayout BuildReplayCauseSolverPanelLayout( const ReplayCaus
                                                                 const RunReplayCauseTreeState& causeTree, int screenWidth,
                                                                 int screenHeight ) noexcept
 {
+    PROFILE_SCOPED( "Frame/Replay/CauseInspection/PanelLayout" );
     ReplayCauseSolverPanelLayout layout;
     int maximumIterations = 0;
 
@@ -293,6 +295,7 @@ ReplayCauseSolverDetailResult EvaluateReplayCauseSolverDetail( const RunReplayCa
                                                                const ReplayCauseSeekResult& seek,
                                                                const ReplayCauseSolverDetailSource& source ) noexcept
 {
+    PROFILE_SCOPED( "Frame/Replay/CauseInspection/SolverDetailLookup" );
     ReplayCauseSolverDetailResult result;
     result.frame = row.firstFrame;
 
@@ -359,6 +362,7 @@ ReplayCauseSolverDetailResult EvaluateReplayCauseSolverDetail( const RunReplayCa
 Rendering::ContactManifoldPresentation BuildReplayCauseContactPresentation( const ReplayCauseSolverDetailResult& detail,
                                                                             const ReplaySolverFrameSample& sample ) noexcept
 {
+    PROFILE_SCOPED( "Frame/Replay/CauseInspection/ManifoldPresentation" );
     Rendering::ContactManifoldPresentation presentation;
 
     // Invariant: a partial packet would claim to show the complete patch while
@@ -729,6 +733,7 @@ bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTree
         return false;
     }
 
+    PROFILE_SCOPED( "Frame/Replay/CauseInspection/PanelInput" );
     const ReplayCauseSolverPanelLayout layout = BuildReplayCauseSolverPanelLayout( m_state, causeTree, screenWidth,
                                                                                    screenHeight );
 

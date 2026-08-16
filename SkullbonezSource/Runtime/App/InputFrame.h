@@ -88,7 +88,7 @@ struct RuntimeUIFrameResult
     bool suppressWorldActionThisFrame = false;
     bool frameActive = false;
     bool enterInteractiveScene = false;
-    bool requestSceneStep = false; // One accepted paused-scene step for the later runtime-input snapshot.
+    bool requestSceneStep = false;    // One accepted paused-scene step for the later runtime-input snapshot.
     int editorUnhandledWheelDelta = 0;
 };
 
@@ -110,6 +110,7 @@ struct RuntimeInputFrameFacts
     // Invariant: only the selected Legacy surface may sample its pointer tools
     // or scene-authored stress actions during this input turn.
     bool legacyDevelopmentUiActive = true;
+    int requestedReplayCauseRow = -1; // Automation-only typed equivalent of one cause-window row hit.
 };
 
 // Copies one sampled Runtime input turn into the passive UI-owned value. The

@@ -262,6 +262,14 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 #else
     (void)automationBeforeInput;
 #endif
+    int requestedReplayCauseRow = -1;
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
+
+    if ( automationBeforeInput )
+    {
+        requestedReplayCauseRow = automationBeforeInput->requestedReplayCauseRow;
+    }
+#endif
     bool requestDevelopmentUiSurfaceSwap = false;
     InputRouter& inputRouter = m_inputRouter;
     SkullbonezCore::Core::EngineConfig& config = m_config;
@@ -1081,7 +1089,8 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
                                                    SkullbonezCore::Core::ActiveSceneObjectCapacity( config ),
                                                    externalUiCapture,
                                                    externalEditorCommands,
-                                                   legacyDevelopmentUiActive };
+                                                   legacyDevelopmentUiActive,
+                                                   requestedReplayCauseRow };
 
     RuntimeUIFrameResult uiFrameResult = BeginRuntimeUIFrame( m_resultDiagnostics, window, inputRouter, camera, runtimeTools,
                                                               attachedCamera, interaction, ui, timers, sceneController,
@@ -1119,7 +1128,8 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
                                                 SkullbonezCore::Core::ActiveSceneObjectCapacity( config ),
                                                 externalUiCapture,
                                                 externalEditorCommands,
-                                                legacyDevelopmentUiActive };
+                                                legacyDevelopmentUiActive,
+                                                requestedReplayCauseRow };
 
     presentationEdit.Commit();
     uiFrameResult = ApplyInputCommandsPhase( uiFrameResult, keyboardToggleEditorMode, commandFacts );

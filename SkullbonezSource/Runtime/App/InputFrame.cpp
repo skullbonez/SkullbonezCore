@@ -581,7 +581,7 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( SkullbonezCore::Core::SbDiagnosticStor
                                                     sceneController.State().isScenePhysics, ui.IsVisible(), ui.IsMinimized(),
                                                     inputRouter.DeviceFrame().keys.IsDown( VK_SPACE ), window.ClientWidth(),
                                                     window.ClientHeight(), camera.mouseRadiansPerPixel,
-                                                    timers.simulationTimer.GetTotalTime() },
+                                                    timers.simulationTimer.GetTotalTime(), facts.requestedReplayCauseRow },
                         inputRouter, interaction, sceneController.Scene(), camera, attachedCamera,
                         runtimeTools.MousePickup(), result.replayWorkspace );
 

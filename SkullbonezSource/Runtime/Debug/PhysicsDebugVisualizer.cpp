@@ -53,6 +53,9 @@ using namespace SkullbonezCore::Geometry;
 namespace
 {
 constexpr int PIPELINE_STAGE_COUNT = static_cast<int>( PhysicsPipelineStage::Count );
+constexpr std::size_t CONTACT_MANIFOLD_MAX_LINE_COUNT = 2u * 3u * 3u + 1u +
+                                                        CONTACT_MANIFOLD_PRESENTATION_POINT_CAPACITY * 8u;
+constexpr std::size_t CONTACT_MANIFOLD_LINE_FLOAT_CAPACITY = CONTACT_MANIFOLD_MAX_LINE_COUNT * 12u;
 constexpr PassRasterStateBucket PHYSICS_DEBUG_LINE_RASTER = MakePassRasterStateBucket( 0,
                                                                                        { false, false, false,
                                                                                          BlendFactor::One, BlendFactor::Zero,
@@ -168,6 +171,14 @@ void PipelineStageColor( PhysicsPipelineStage stage, float& r, float& g, float& 
     }
 }
 } // namespace
+
+PhysicsDebugVisualizer::PhysicsDebugVisualizer()
+{
+    // Invariant: Detached manifold rendering can emit at most two pose-axis
+    // triplets, one body-pair line, and eight lines per bounded contact point.
+    // Reserve that complete batch before steady-state rendering begins.
+    m_lineData.reserve( CONTACT_MANIFOLD_LINE_FLOAT_CAPACITY );
+}
 
 // Contact debug rows are produced by the solver only for the current physics
 // step, but a one-frame manifold is too easy to miss visually.  The visualizer

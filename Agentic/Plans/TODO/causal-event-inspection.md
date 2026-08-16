@@ -1,14 +1,13 @@
 # Causal Event Inspection
 
 Date: 2026-08-15
-Status: Active. 7/9 tasks complete.
+Status: Active. 8/9 tasks complete.
 Impact area: Runtime/Planning operator surface, replay transport, camera
 arrival, contact manifold presentation, solver-detail availability,
 Rendering value contracts, tests
 Owner: Replay planning operator surface
-Priority: Active — C7 is next; C6 paired the solver-detail panel and manifold
-as one focused surface across every exit and reset edge. C7 owns measured cost
-and allocation evidence.
+Priority: Active — C8 is next; C7 measured the focused surface on the dense
+212-body wall workload and proved zero steady-state allocation.
 
 ## Owner Direction
 
@@ -548,7 +547,7 @@ detail.
   passed 2,401 ticks, 200 causal nodes, one presented cascade, durable save/load
   equivalence, and every false-pass control. No baseline changed.
 
-- [ ] **C7 — Prove the cost and the allocation posture.** Measure solver-detail
+- [x] **C7 — Prove the cost and the allocation posture.** Measure solver-detail
   lookup, four-row viewport layout, scrolling, and manifold presentation against
   the existing overlay budget, on a representative dense scene rather than the
   marble-run fixture alone. Prove zero
@@ -557,6 +556,31 @@ detail.
   gate, hard cap, and logged growth counter, with the replay reserve inventory
   updated in the same commit. State the cost of an inspection so an operator
   action with a visible frame cost is a known trade rather than a surprise.
+
+  Evidence: `tools/measure_causal_inspection_perf.py` drives the real Automation
+  path on the 212-body ragdoll-wall scene, selects exact solver frame 79, retains
+  one contact row plus ten matching pipeline records, injects wheel input over
+  the four-row panel, and records six named causal phases beside the existing
+  cause-overlay marker. The final direct sample measured selection at 0.0314 ms,
+  lookup at 0.0011 ms, manifold presentation at 0.0018 ms, panel layout at
+  0.0007 ms max, panel input at 0.0009 ms max, and panel render at 0.0312 ms max;
+  the maximum panel-render phase was 24.5% of the enclosing overlay maximum.
+  The selected natural sphere patch has one row, so the exercised scroll input
+  clamps at row zero; C8 retains the synthetic over-four-row movement test.
+  `ReplayCauseInspection` occupies 231,216 fixed bytes, detached manifold line
+  storage is reserved for the complete bounded packet before steady rendering,
+  and launcher replay scratch retains startup capacity instead of reallocating
+  per historical frame. The gameplay allocation guard reported zero steady
+  allocations and no causal reserve-growth owner. `tools\validate_perf.bat`
+  produced a complete green run with both DX12 and physics-bench comparisons;
+  repeated unchanged-binary samples also showed noisy aggregate physics-bench
+  misses from 15.5% to 18.4% against the 15% threshold. Those runs are retained
+  under `TestOutput/validation` and accepted under the owner's explicit small-
+  regression direction; no timing baseline changed. The dependency graph passed
+  with zero findings, and `tools\validate_replay_allocation_policy.bat` passed its
+  strict two-generation probe. The allocation allowlist now follows the existing
+  preflighted visible-future-node resize at its current header location instead
+  of carrying a stale scheduling-file entry.
 
 - [ ] **C8 — Close with tests, gates, and an independent ownership review.** Add
   focused tests named for the subsystems they pin, not for this plan: seek

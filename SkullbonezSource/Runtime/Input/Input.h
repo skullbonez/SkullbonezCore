@@ -121,6 +121,7 @@ class Input
         POINT mouseClientPosition = {};
         bool leftMouseDown = false;
         bool rightMouseDown = false;
+        int mouseWheelDelta = 0;                                                                                        // One-frame wheel delta routed through the normal device snapshot.
         int keyVirtualKey = 0;                                                                                          // Optional one-key automation override.
         bool keyDown = false;
         bool controlDown = false;                                                                                       // Optional modifier paired with the injected key.

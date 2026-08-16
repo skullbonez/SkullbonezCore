@@ -81,6 +81,8 @@ void ReplayPresentation::ReserveLauncherVisualCaptureBuffers()
     constexpr std::size_t launcherLaserShotCapacity = 32;
     m_launcherVisualCaptureScratch.rayLines.reserve( RunRayCastTestState::MAX_LINES );
     m_launcherVisualCaptureScratch.laserShots.reserve( launcherLaserShotCapacity );
+    m_launcherVisualBackup.rayLines.reserve( RunRayCastTestState::MAX_LINES );
+    m_launcherVisualBackup.laserShots.reserve( launcherLaserShotCapacity );
 }
 
 void ReplayPresentation::StoreLauncherVisualBackupFrom( RuntimeTools& runtimeTools )
@@ -833,7 +835,17 @@ bool ReplayPresentation::PrepareRenderPoseBodyMatch( int modelCount ) noexcept
 
 void ReplayPresentation::ClearLauncherVisualBackup()
 {
-    m_launcherVisualBackup = ReplayLauncherVisualSample {};
+    // Invariant: historical rendering borrows this scratch every frame. Clear
+    // semantic values while retaining startup capacity so entering inspection
+    // cannot allocate twice per presented solver sample.
+    m_launcherVisualBackup.rayLines.clear();
+    m_launcherVisualBackup.laserShots.clear();
+    m_launcherVisualBackup.nextRayLine = 0;
+    m_launcherVisualBackup.nextLaserShot = 0;
+    m_launcherVisualBackup.fireMode = ReplayLauncherFireMode::Laser;
+    m_launcherVisualBackup.visualizeRays = false;
+    m_launcherVisualBackup.impulseStrength = 0.0f;
+    m_launcherVisualBackup.projectileSpeed = 0.0f;
     m_launcherVisualBackupActive = false;
 }
 

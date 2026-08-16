@@ -103,6 +103,7 @@ struct ReplayWorkspaceFrameInput
     int screenHeight = 0;
     float cameraMouseRadiansPerPixel = 0.0f;   // Cached config sample; replay never reopens device/config ownership.
     double now = 0.0;
+    int requestedCauseRow = -1;                // Frame-local typed input; production pointer hit-testing publishes the same value.
 };
 
 struct ReplayWorkspaceOutput

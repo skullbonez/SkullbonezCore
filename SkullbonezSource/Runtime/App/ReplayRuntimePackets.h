@@ -68,6 +68,8 @@ struct ReplayAutomationView
     const RunReplayPredictionState& prediction;
     const ReplayPorkchopPanelView& porkchop;
     const ReplayTripPlannerView& tripPlanner;
+    const RunReplayCauseTreeState& causeTree;
+    ReplayCauseInspectionView causeInspection;
     const RunReplayPathVisualizerState& path;
     ReplayInterceptView intercept;
     const ReplayRecorder& presentationRecorder;

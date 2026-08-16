@@ -522,6 +522,8 @@ void ReplayRuntime::ApplyCauseTreeSelection( int requestedRow, const ReplayWorks
         return;
     }
 
+    PROFILE_SCOPED( "Frame/Replay/CauseInspection/Selection" );
+
     RunReplayCauseTreeRow selectedRow;
 
     if ( !m_authoring.TryGetCauseTreeRow( requestedRow, selectedRow ) )
@@ -558,6 +560,24 @@ void ReplayRuntime::ApplyCauseTreeSelection( int requestedRow, const ReplayWorks
                                                     input.now ) )
     {
         return;
+    }
+
+    if ( seek.source == ReplayCauseSeekSource::SolverHistory && presentedSolver &&
+         presentedSolver->frameIndex == seek.frame )
+    {
+        // Lifetime: cause rows are rebuilt as replay time moves. Detach the
+        // exact selected row's diagnostics before the transition can replace
+        // that authoring surface with rows from another frame.
+        const ReplayCauseSolverDetailSource detailSource {
+            presentedSolver->frameIndex,
+            presentedSolver->worldSnapshot.physics.persistentContacts,
+            presentedSolver->worldSnapshot.physics.pipelineTrace,
+        };
+        const ReplayCauseSolverDetailResult detail = EvaluateReplayCauseSolverDetail( selectedRow, seek, detailSource );
+        const ReplayCauseInspectionView inspection = m_planningOwner.CauseInspectionView();
+        m_planningOwner.CauseInspection().PublishSolverDetail( inspection.generation, detail,
+                                                               BuildReplayCauseContactPresentation( detail,
+                                                                                                    *presentedSolver ) );
     }
 
     // Invariant: camera focus and transport generation begin in the same turn.
@@ -876,6 +896,13 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
                                                                     input.wheelDelta, input.editorModeEnabled,
                                                                     input.screenWidth, input.screenHeight,
                                                                     requestedCauseTreeFocusRow, exitCauseTreeInspection );
+
+    if ( requestedCauseTreeFocusRow < 0 && input.requestedCauseRow >= 0 )
+    {
+        // Automation publishes the same row value produced by the legacy
+        // hit-test above; all seek, camera, pause, and restore policy remains here.
+        requestedCauseTreeFocusRow = input.requestedCauseRow;
+    }
 
     ApplyCauseTreeSelection( requestedCauseTreeFocusRow, input, inputRouter, interaction, world, attachedCamera, camera,
                              mousePickup, output );

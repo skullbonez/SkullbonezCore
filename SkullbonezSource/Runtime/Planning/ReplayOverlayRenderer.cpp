@@ -112,6 +112,7 @@ void RenderReplayCauseSolverDetailPanel( const UI::UIDrawContext& draw, const Re
         return;
     }
 
+    PROFILE_SCOPED( "Frame/Replay/CauseInspection/PanelRender" );
     const ReplayCauseSolverPanelLayout layout = BuildReplayCauseSolverPanelLayout( inspection, replay.causeTree, screenW,
                                                                                    screenH );
     const UI::Style::UIPalette& palette = UI::Style::Palette();

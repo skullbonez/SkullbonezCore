@@ -580,6 +580,8 @@ ReplayAutomationView ReplayRuntime::BuildAutomationView() const
     return { m_predictionOwner.State(),
              m_planningOwner.PorkchopView(),
              m_planningOwner.TripPlannerView(),
+             m_authoring.CauseTree(),
+             m_planningOwner.CauseInspectionView(),
              m_visualPresentation.PathVisualizer(),
              m_planningOwner.InterceptView(),
              m_timeline.Presentation(),

@@ -92,6 +92,8 @@ class PhysicsDebugVisualizer
     void EmitTerrainContactProbe( const PhysicsDebugFrameView& view, Geometry::Terrain* terrain );
 
   public:
+    PhysicsDebugVisualizer();
+
     void SetFlags( uint32_t flags )
     {
         m_flags = flags & PHYSICS_DEBUG_ALL;
