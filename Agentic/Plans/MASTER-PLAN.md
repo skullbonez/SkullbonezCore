@@ -53,6 +53,35 @@ which predates the short ALL-CAPS convention the other three rows follow. Its
 only remaining task is owner-only, so the token is retained as written rather
 than renamed to keep the existing history resolvable against this ledger.
 
+## Parked, Backlog, And Completed Plans
+
+These plan files exist in the repository but are not active work. They are
+recorded here because a plan file the ledger never names is invisible to the
+governance this document owns: a reader cannot tell whether it was parked
+deliberately or dropped by accident. None of the rows below is selectable. A
+plan runner may not begin one, and moving a row into the Active table above is
+an owner decision, not a run decision.
+
+| Plan | Status | Phases | File |
+|---|---|---|---|
+| Contact Stack Stability Techniques | Owner-parked 2026-08-02 | 0/7 | `WNF/contact-stack-stability-techniques.md` |
+| DX12 Frame Path Comment-Rot Sweep | Owner-parked 2026-07-12 | 0/3 | `WNF/dx12-frame-path-comment-rot-sweep.md` |
+| Reversible GPU Fracture Replay | Backlog; blocked | 0/7 | `WNF/fracture-replay-feature.md` |
+| ImGui + Tracy E17 Comment Audit | Complete | 96/96, 0 deferred | `DONE/imgui-tracy-e17-comment-audit.md` |
+
+Two details in that table are inconsistent with the conventions this ledger
+states elsewhere, and both are recorded rather than silently corrected:
+
+- `WNF/fracture-replay-feature.md` sits in `WNF/` but its own header reads
+  `Status: Backlog`, not the owner-parked wording the other two WNF plans use.
+  Parked and backlog are different dispositions, so the file and this row
+  disagree with the directory. An owner ruling should settle which it is.
+- The Owner Direction note above states that completed plan files were deleted
+  and git history is the archive. `DONE/imgui-tracy-e17-comment-audit.md`
+  survives that rule as the sole retained completed plan. Either the rule has an
+  unstated exception or the file is a leftover; deleting it is an owner call
+  because it is the only record of that audit outside git history.
+
 ## Binding Order
 
 1. `TIER2_DETERMINISM` T0 — establish the pre-change envelope and CRT dispatch
