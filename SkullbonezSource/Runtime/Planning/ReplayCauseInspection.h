@@ -10,13 +10,15 @@ Summary:
   ReplayCauseInspection owns one selected-event transition generation, including
   the total-elapsed 1.5-second cubic progress sample, discrete request
   coalescing, pause/return policy, exact-frame solver-detail availability, and
-  one owned feature-neutral contact packet consumed by App composition.
+  fixed-capacity copies of the feature-neutral contact packet, contact rows,
+  and pipeline records consumed synchronously by App composition. It also owns
+  the four-row solver-panel scroll offset and shared layout projection.
 
 Glossary:
   Seek source: Timeline bank that must contain the row's exact frame before
     transport is enabled.
-  Solver-detail source: Borrowed contact and pipeline spans stamped with the
-    exact replay frame that produced them.
+  Solver-detail source: Contact and pipeline spans stamped with the exact
+    replay frame that produced them; publication copies them into Planning.
   Transition generation: Monotonic token that prevents an obsolete restore
     completion from changing a newer causal selection.
 
@@ -26,8 +28,11 @@ Invariants:
   - Solver-detail availability is independent of frame transport eligibility.
   - A detail join requires the exact row index, contact identity, and diagnostics
     frame stamp; current or nearest-frame records are never substituted.
-  - Contact presentation copies bounded values before restore may retire the
-    source ring; no source span survives in the transition state.
+  - Contact presentation and solver detail copy bounded values before restore
+    may retire the source ring; published spans point only into Planning-owned
+    fixed arrays and remain synchronous views.
+  - Drawing and input use the same solver-panel layout, whose content height is
+    exactly four complete rows even when iteration evidence makes rows taller.
   - At most one transport request is in flight; a newer selection replaces the
     pending request and cannot be completed by an older generation.
   - The published eased sample is the single causal-transition clock consumed
@@ -46,8 +51,11 @@ Related:
 #include "../Replay/ReplayAuthoringPackets.h"
 #include "../Replay/ReplayCapturePackets.h"
 #include "../../Physics/PhysicsSolverSnapshot.h"
+#include "../../Physics/PhysicsStageCapacity.h"
 #include "../../Rendering/ContactManifoldPresentation.h"
+#include "../../UI/UIDraw.h"
 
+#include <array>
 #include <span>
 #include <cstdint>
 
@@ -109,7 +117,19 @@ struct ReplayCauseSolverDetailResult
     std::size_t pipelineRecordCount = 0;
 
     bool HasDetail() const noexcept;
-    const char* Feedback() const noexcept;
+    const char* Feedback() const noexcept
+    {
+        switch ( availability )
+        {
+        case ReplayCauseSolverDetailAvailability::Available:
+            return "";
+        case ReplayCauseSolverDetailAvailability::ReplayFrameExpired:
+            return "Replay frame expired";
+        case ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable:
+        default:
+            return "Solver detail not available";
+        }
+    }
     const Physics::PhysicsSolverPersistentContactSample* ContactRowAt( std::size_t detailRow ) const noexcept;
     const Physics::PhysicsPipelineRecord* PipelineRecordAt( std::size_t detailRecord ) const noexcept;
 };
@@ -161,6 +181,10 @@ struct ReplayCauseInspectionView
     int selectedRow = -1;
     std::size_t solverDetailContactRowCount = 0;
     std::size_t solverDetailPipelineRecordCount = 0;
+    std::span<const Physics::PhysicsSolverPersistentContactSample> solverDetailContacts;
+    std::span<const Physics::PhysicsPipelineRecord> solverDetailPipelineRecords;
+    const char* solverDetailFeedback = "Solver detail not available";
+    int solverDetailFirstRow = 0;
     Rendering::ContactManifoldPresentation contactPresentation;
     bool detailVisible = false;
     bool ownsPause = false;
@@ -169,6 +193,28 @@ struct ReplayCauseInspectionView
     bool returnIssued = false;
     float easedProgress = 0.0f;
 };
+
+inline constexpr int REPLAY_CAUSE_SOLVER_PANEL_VISIBLE_ROWS = 4;
+inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_WIDTH = 1080.0f;
+inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_TITLE_HEIGHT = 38.0f;
+inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_GUIDE_HEIGHT = 54.0f;
+inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_BASE_ROW_HEIGHT = 94.0f;
+inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_ITERATION_LINE_HEIGHT = 14.0f;
+inline constexpr int REPLAY_CAUSE_SOLVER_PANEL_ITERATIONS_PER_LINE = 4;
+
+struct ReplayCauseSolverPanelLayout
+{
+    UI::UIRect panel;
+    UI::UIRect content;
+    float rowHeight = REPLAY_CAUSE_SOLVER_PANEL_BASE_ROW_HEIGHT;
+};
+
+// The custom replay overlay and App input composition share this pure layout
+// projection so hit-testing and drawing cannot disagree about the four-row viewport.
+ReplayCauseSolverPanelLayout BuildReplayCauseSolverPanelLayout( const ReplayCauseInspectionView& inspection,
+                                                                const RunReplayCauseTreeState& causeTree, int screenWidth,
+                                                                int screenHeight ) noexcept;
+int ReplayCauseSolverDetailIterationCount( const ReplayCauseInspectionView& inspection, std::size_t contactRow ) noexcept;
 
 struct ReplayCauseExitAction
 {
@@ -189,11 +235,21 @@ class ReplayCauseInspection
     bool BeginAftermath( bool& outReleasePause ) noexcept;
     ReplayCauseExitAction BeginReturn() noexcept;
     void CompleteReturn() noexcept;
+    bool TickSolverDetailPanelInput( const RunReplayCauseTreeState& causeTree, int mouseX, int mouseY,
+                                     bool hasClientPosition, bool pointerBlocked, int wheelDelta, int screenWidth,
+                                     int screenHeight ) noexcept;
     void Reset() noexcept;
     ReplayCauseInspectionView View() const noexcept;
 
   private:
     ReplayCauseInspectionView m_state;
+
+    // Lifetime: these fixed arrays detach exact-frame evidence before Replay
+    // restore can retire its ring. They never grow and their spans remain valid
+    // until the next selection or reset.
+    std::array<Physics::PhysicsSolverPersistentContactSample, Rendering::CONTACT_MANIFOLD_PRESENTATION_POINT_CAPACITY>
+        m_solverDetailContacts {};
+    std::array<Physics::PhysicsPipelineRecord, Physics::PHYSICS_MAX_PIPELINE_TRACE_RECORDS> m_solverDetailPipelineRecords {};
     double m_startedAtSeconds = 0.0;
     ReplayFrameIndex m_pendingFrame = 0;
     ReplayFrameIndex m_inFlightFrame = 0;

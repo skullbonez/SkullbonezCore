@@ -1,14 +1,14 @@
 # Causal Event Inspection
 
 Date: 2026-08-15
-Status: Active. 5/9 tasks complete.
+Status: Active. 6/9 tasks complete.
 Impact area: Runtime/Planning operator surface, replay transport, camera
 arrival, contact manifold presentation, solver-detail availability,
 Rendering value contracts, tests
 Owner: Replay planning operator surface
-Priority: Active — C5 is next; C4 landed the feature-neutral fixed-capacity
-manifold presentation contract and reused the existing contact-glyph path. C5
-owns the adjacent four-row solver-detail panel.
+Priority: Active — C6 is next; C5 landed the adjacent four-row solver-detail
+panel over Planning-owned exact-frame copies. C6 owns paired lifecycle and
+coherent retarget/exit behavior.
 
 ## Owner Direction
 
@@ -490,7 +490,7 @@ detail.
   `tools\validate_replay_visual_fidelity.bat` passed 2,401 ticks plus every
   false-pass control. No baseline changed.
 
-- [ ] **C5 — Add the adjacent solver-row detail panel.** Add the floating detail
+- [x] **C5 — Add the adjacent solver-row detail panel.** Add the floating detail
   surface next to the manifold visual and show all available rows immediately,
   without an advanced-mode expander. Fix the viewport height to four complete
   solver rows and provide vertical scrolling for every additional row. Each row
@@ -502,6 +502,24 @@ detail.
   velocity writeback, and final cache store. Units and sign conventions must be
   stated in the panel, not inferred by the reader. When C3 reports unavailable
   detail, render exactly `Solver detail not available` in place of the row list.
+
+  Evidence (2026-08-17): `ReplayCauseInspection` now copies as many as eight
+  exact manifold rows and 4,096 joined pipeline records into fixed Planning
+  arrays before Replay restore may retire the source ring. The adjacent panel
+  states units and signs, exposes every requested row field and available solver
+  stage, fixes its content viewport to four complete rows, and shares one pure
+  layout projection with bounded wheel input and its scrollbar. Unavailable
+  detail renders the exact stable refusal. The fixed storage adds 230,656 bytes
+  (225.25 KiB) per inspection owner and performs no growth or steady-state heap
+  allocation; C7 retains ownership of the final measured cost evidence. One
+  focused case extended the suite to 556 cases and 2,479,514 assertions, proving
+  restore-source detachment and scroll clamping. C3's last temporary `Feedback`
+  reachability ruling is gone; its small value mapping is now an inline contract
+  consumed by production. The touched-source comment audit completed for all
+  nine files, with no checklist required. `tools\validate_full.bat` passed the
+  full CPU, coverage, Automation, DX12, and 44,401-line byte-exact physics gates;
+  the ordered `tools\validate_ui_boundary_tests.bat` rerun passed 11 detached UI
+  surfaces. No baseline changed.
 
 - [ ] **C6 — Pair the visual and the panel as one focused surface.** Place the
   detail panel adjacent to the manifold visual and keep the pairing coherent

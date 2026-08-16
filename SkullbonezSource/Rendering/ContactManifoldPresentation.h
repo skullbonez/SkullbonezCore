@@ -1,15 +1,15 @@
 /*
 File: SkullbonezSource/Rendering/ContactManifoldPresentation.h
 Purpose:
-  Defines a feature-neutral contact-patch value for diagnostic line rendering.
+  Defines a feature-neutral contact presentation value for diagnostic line rendering.
 
 Summary:
   Upper layers may publish two detached body poses and a bounded set of contact
   frames. Rendering consumes only geometry, orientation, and source-fidelity
-  facts; it never learns which product workflow selected the patch.
+  facts; it never learns which product workflow selected the presentation patch.
 
 Glossary:
-  Contact patch: Small bounded set of points sharing a body pair and contact frame.
+  Presentation patch: Detached bounded points and poses submitted together for drawing.
   Exact source point: Point copied from the original producer record rather
     than derived later from a surviving body pose and contact arm.
 

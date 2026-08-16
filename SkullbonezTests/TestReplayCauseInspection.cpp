@@ -10,7 +10,8 @@
 //   Exact-frame detail tests then prove manifold-row grouping, stage joins, and
 //   distinct expired-versus-unavailable outcomes without retaining source data.
 //   Presentation tests pin event-frame body poses, exact ManifoldRow points,
-//   derived surviving-row points, and owned packet publication.
+//   derived surviving-row points, owned packet publication, solver-row copy
+//   lifetime, and the fixed four-row scrolling viewport.
 //   The Planning transition tests also pin request coalescing, pause ownership,
 //   Space aftermath, total-elapsed cubic easing, symmetric discrete frame
 //   rounding, and saved-camera return policy without host owners.
@@ -248,6 +249,84 @@ TEST_CASE( "Replay cause solver detail: unavailable states never substitute diag
         const ReplayCauseSolverDetailResult detail = EvaluateReplayCauseSolverDetail( row, seek, { 84u, contacts, {} } );
         CHECK( detail.availability == ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable );
     }
+}
+
+TEST_CASE( "Replay cause solver panel: copied rows survive restore sources and scroll four at a time" )
+{
+    using SkullbonezCore::Physics::PhysicsPipelineRecord;
+    using SkullbonezCore::Physics::PhysicsPipelineStage;
+    using SkullbonezCore::Physics::PhysicsSolverPersistentContactSample;
+
+    RunReplayCauseTreeRow row;
+    row.kind = RunReplayCauseTreeRowKind::Manifold;
+    row.firstFrame = 84u;
+    row.modelRow.value = 3;
+    row.counterpartModelRow.value = 7;
+    row.contactIndex = 0;
+    row.featureId = 100;
+
+    ReplayCauseSeekResult seek;
+    seek.availability = ReplayCauseSeekAvailability::Available;
+    seek.source = ReplayCauseSeekSource::SolverHistory;
+    seek.frame = 84u;
+
+    std::array<PhysicsSolverPersistentContactSample, 6> contacts;
+    std::array<PhysicsPipelineRecord, 6> records;
+
+    for ( std::size_t index = 0; index < contacts.size(); ++index )
+    {
+        contacts[index].bodyA = 3;
+        contacts[index].bodyB = 7;
+        contacts[index].featureId = 100u + static_cast<uint32_t>( index );
+        contacts[index].accN = 1.0f + static_cast<float>( index );
+        records[index].stage = PhysicsPipelineStage::SolverIteration;
+        records[index].bodyA = 3;
+        records[index].bodyB = 7;
+        records[index].featureId = contacts[index].featureId;
+        records[index].iteration = 0;
+        records[index].scalarA = 0.25f;
+    }
+
+    const ReplayCauseSolverDetailResult detail = EvaluateReplayCauseSolverDetail( row, seek, { 84u, contacts, records } );
+    REQUIRE( detail.HasDetail() );
+    REQUIRE( detail.contactRowCount == 6u );
+
+    ReplayCauseInspection inspection;
+    REQUIRE( inspection.Select( 2, seek, 88u, false, 1.0 ) );
+    inspection.Advance( 2.5 );
+    ReplayCauseTransportRequest request;
+    REQUIRE( inspection.TakeTransportRequest( request ) );
+    inspection.PublishSolverDetail( request.generation, detail );
+
+    contacts[0].accN = 99.0f;
+    records[0].scalarA = 88.0f;
+    inspection.CompleteTransport( request.generation, true );
+    const ReplayCauseInspectionView published = inspection.View();
+    REQUIRE( published.detailVisible );
+    REQUIRE( published.solverDetailContacts.size() == 6u );
+    REQUIRE( published.solverDetailPipelineRecords.size() == 6u );
+    CHECK( published.solverDetailContacts[0].accN == doctest::Approx( 1.0f ) );
+    CHECK( published.solverDetailPipelineRecords[0].scalarA == doctest::Approx( 0.25f ) );
+    CHECK( ReplayCauseSolverDetailIterationCount( published, 0u ) == 1 );
+
+    RunReplayCauseTreeState causeTree;
+    causeTree.hasWindowPlacement = true;
+    causeTree.x = 1500;
+    causeTree.y = 100;
+    causeTree.width = 380;
+    causeTree.height = 420;
+    const ReplayCauseSolverPanelLayout layout = BuildReplayCauseSolverPanelLayout( published, causeTree, 1920, 1080 );
+    CHECK( layout.content.h == doctest::Approx( layout.rowHeight * 4.0f ) );
+
+    const int panelX = static_cast<int>( layout.panel.x + 20.0f );
+    const int panelY = static_cast<int>( layout.panel.y + 20.0f );
+    REQUIRE( inspection.TickSolverDetailPanelInput( causeTree, panelX, panelY, true, false, -120, 1920, 1080 ) );
+    CHECK( inspection.View().solverDetailFirstRow == 1 );
+    REQUIRE( inspection.TickSolverDetailPanelInput( causeTree, panelX, panelY, true, false, -120, 1920, 1080 ) );
+    CHECK( inspection.View().solverDetailFirstRow == 2 );
+    REQUIRE( inspection.TickSolverDetailPanelInput( causeTree, panelX, panelY, true, false, -120, 1920, 1080 ) );
+    CHECK( inspection.View().solverDetailFirstRow == 2 );
+    CHECK_FALSE( inspection.TickSolverDetailPanelInput( causeTree, 1919, 1079, true, false, -120, 1920, 1080 ) );
 }
 
 TEST_CASE( "Replay cause manifold presentation: exact records and event poses form one owned packet" )

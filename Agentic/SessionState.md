@@ -48,13 +48,12 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-`CAUSAL_INSPECT` C5. Add the adjacent four-row-high scrolling solver-detail
-panel over C3's exact borrowed result, copying presentation values before the
-source ring can retire them. The panel must show stable unavailable/expired
-feedback, make ordering and overflow explicit, and remove the remaining
-`ReplayCauseSolverDetailResult::Feedback` repair-plan ruling through a production
-caller. C6-C8 then close lifecycle, cost evidence, final tests, and independent
-ownership review.
+`CAUSAL_INSPECT` C6. Pair the manifold visual and solver-detail panel as one
+focused surface across retarget, drag, resize, scene reload, Space aftermath,
+outside-click exit, and scrub exit. A different causal row must retarget time,
+camera, manifold, and panel together or reveal none; exits must clear stale
+detail before returning to the captured main camera. C7-C8 then close measured
+cost evidence, final tests, and independent ownership review.
 
 After all of `CAUSAL_INSPECT`, run `TIER2_DETERMINISM` in its recorded order,
 then `CATTO_REPAIRS` CD1-CD5. `future_physics.md` remains unregistered.

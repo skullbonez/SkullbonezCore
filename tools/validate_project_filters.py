@@ -253,6 +253,7 @@ DX12_RENDERING_PREFIXES = (
 )
 
 RENDERING_PREFIXES = (
+    "ContactManifoldPresentation",
     "DrawCallTrace",
     "RenderInstanceRenderer",
     "Helper",

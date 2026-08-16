@@ -6,11 +6,13 @@ Purpose:
 
 Summary:
   ReplayRuntime selects immutable owner views once. UI composition may copy or
-  borrow those values plus a detached viewport for the current late pass, but
-  cannot reach Replay mutation or prediction scheduling through them.
+  borrow those values plus a detached viewport for the current late pass. The
+  cause-inspection view may contain spans into Planning-owned fixed arrays, but
+  the packet cannot reach Replay mutation or prediction scheduling through them.
 
 Invariants:
-  - References and sample pointers remain valid for one synchronous late pass.
+  - References, sample pointers, and cause-detail spans remain valid for one
+    synchronous late pass.
   - Packets contain no mutable Replay owner and must never be retained.
 
 Related:
@@ -23,6 +25,7 @@ Related:
 #include "../Replay/ReplayCapturePackets.h"
 #include "../Replay/ReplayAuthoringPackets.h"
 #include "ReplayInterceptReadout.h"
+#include "ReplayCauseInspection.h"
 #include "ReplayPorkchopPanel.h"
 #include "ReplayTripPlanner.h"
 #include "../Prediction/ReplayPredictionView.h"
@@ -73,6 +76,7 @@ struct ReplayOverlayStateView
     const RunReplayPathVisualizerState& pathVisualizer;
     const RunReplayVelocityEditState& velocityEdit;
     const RunReplayCauseTreeState& causeTree;
+    ReplayCauseInspectionView causeInspection;
     ReplayRecorderStats solverStats;
 
     // Concept: overlay consumers receive the lower Presentation selection plus

@@ -713,15 +713,6 @@
       "plan": ""
     },
     {
-      "file": "SkullbonezSource/Runtime/Planning/ReplayCauseInspection.cpp",
-      "signature": "const char* ReplayCauseSolverDetailResult::Feedback() const noexcept",
-      "owner": "Causal Event Inspection solver-detail view",
-      "disposition": "repair-plan",
-      "reason": "C3 defines the stable unavailable/expired text seam; C5 owns its production panel consumer and must remove this ruling when that caller lands.",
-      "evidence": "C3 focused tests pin both exact messages; current synchronized Automation/Debug/Profile census classifies it test-only before the C5 panel exists.",
-      "plan": "Agentic/Plans/TODO/causal-event-inspection.md"
-    },
-    {
       "file": "SkullbonezSource/World/Terrain.cpp",
       "signature": "SkullbonezCore::Core::SbResult Terrain::TryCreatePhysicsFromHeightMap( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* fileName, int mapSize, int stepSize, int textureWrap, const SkullbonezCore::Core::EngineConfig& config, std::unique_ptr<Terrain>& outTerrain )",
       "owner": "Terrain authoritative height-map physics construction",

@@ -11,8 +11,10 @@ Summary:
   groups every row in the selected manifold, and joins its retained pipeline
   stages without allocating or retaining source borrows. Before restore can
   retire those borrows, Planning copies the event-frame body poses and every
-  bounded contact frame into a feature-neutral Rendering value. The
-  transition owner derives a fixed cubic curve from total wall-clock elapsed,
+  bounded contact frame into a feature-neutral Rendering value, and copies the
+  joined contact and pipeline records into fixed arrays. One shared layout
+  projection fixes the detail viewport at four complete rows and owns bounded
+  wheel scrolling. The transition owner derives a fixed cubic curve from total wall-clock elapsed,
   coalesces its discrete frame requests, rejects stale completion tokens, and
   publishes pause/return actions for App to apply through concrete owners.
 
@@ -30,6 +32,8 @@ Invariants:
     stamp disagrees, while transport remains independently usable.
   - Contact presentation fails closed when either body pose or the complete
     bounded patch cannot be proven from the same solver frame.
+  - Solver-detail publication fails closed before exposing partial copied spans;
+    its scroll offset always clamps to the four-row viewport.
   - Only the current generation may reveal detail or complete a return.
   - Forward and reverse transport round symmetrically and reach the exact target
     only at eased progress 1, independent of render cadence.
@@ -47,6 +51,7 @@ Related:
 #include "../Replay/ReplayRecorder.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace SkullbonezCore::Runtime
 {
@@ -117,7 +122,76 @@ bool PipelineRecordMatches( const ReplayCauseSolverDetailResult& result,
 
     return false;
 }
+
+bool PointInside( const UI::UIRect& rect, int x, int y ) noexcept
+{
+    const float pointX = static_cast<float>( x );
+    const float pointY = static_cast<float>( y );
+    return pointX >= rect.x && pointX <= rect.x + rect.w && pointY >= rect.y && pointY <= rect.y + rect.h;
+}
 } // namespace
+
+int ReplayCauseSolverDetailIterationCount( const ReplayCauseInspectionView& inspection, std::size_t contactRow ) noexcept
+{
+    if ( contactRow >= inspection.solverDetailContacts.size() )
+    {
+        return 0;
+    }
+
+    const uint32_t featureId = inspection.solverDetailContacts[contactRow].featureId;
+    int count = 0;
+
+    for ( const Physics::PhysicsPipelineRecord& record : inspection.solverDetailPipelineRecords )
+    {
+        if ( record.stage == Physics::PhysicsPipelineStage::SolverIteration && record.featureId == featureId )
+        {
+            ++count;
+        }
+    }
+
+    return count;
+}
+
+ReplayCauseSolverPanelLayout BuildReplayCauseSolverPanelLayout( const ReplayCauseInspectionView& inspection,
+                                                                const RunReplayCauseTreeState& causeTree, int screenWidth,
+                                                                int screenHeight ) noexcept
+{
+    ReplayCauseSolverPanelLayout layout;
+    int maximumIterations = 0;
+
+    for ( std::size_t row = 0; row < inspection.solverDetailContacts.size(); ++row )
+    {
+        maximumIterations = (std::max)( maximumIterations, ReplayCauseSolverDetailIterationCount( inspection, row ) );
+    }
+
+    const int iterationLines = ( maximumIterations + REPLAY_CAUSE_SOLVER_PANEL_ITERATIONS_PER_LINE - 1 ) /
+                               REPLAY_CAUSE_SOLVER_PANEL_ITERATIONS_PER_LINE;
+    layout.rowHeight = REPLAY_CAUSE_SOLVER_PANEL_BASE_ROW_HEIGHT +
+                       static_cast<float>( iterationLines ) * REPLAY_CAUSE_SOLVER_PANEL_ITERATION_LINE_HEIGHT;
+
+    const float margin = 8.0f;
+    const float gap = 10.0f;
+    const float panelWidth = (std::min)( REPLAY_CAUSE_SOLVER_PANEL_WIDTH,
+                                         static_cast<float>( (std::max)( 1, screenWidth ) ) - margin * 2.0f );
+    const float panelHeight = REPLAY_CAUSE_SOLVER_PANEL_TITLE_HEIGHT + REPLAY_CAUSE_SOLVER_PANEL_GUIDE_HEIGHT +
+                              layout.rowHeight * static_cast<float>( REPLAY_CAUSE_SOLVER_PANEL_VISIBLE_ROWS ) + 12.0f;
+    const float leftX = static_cast<float>( causeTree.x ) - gap - panelWidth;
+    const float rightX = static_cast<float>( causeTree.x + causeTree.width ) + gap;
+    float panelX = leftX >= margin ? leftX : rightX;
+
+    if ( panelX + panelWidth > static_cast<float>( screenWidth ) - margin )
+    {
+        panelX = (std::max)( margin, static_cast<float>( screenWidth ) - margin - panelWidth );
+    }
+
+    const float maximumY = (std::max)( margin, static_cast<float>( screenHeight ) - margin - panelHeight );
+    const float panelY = std::clamp( static_cast<float>( causeTree.y ), margin, maximumY );
+    layout.panel = { panelX, panelY, panelWidth, panelHeight };
+    layout.content = { panelX + 8.0f,
+                       panelY + REPLAY_CAUSE_SOLVER_PANEL_TITLE_HEIGHT + REPLAY_CAUSE_SOLVER_PANEL_GUIDE_HEIGHT,
+                       panelWidth - 16.0f, layout.rowHeight * static_cast<float>( REPLAY_CAUSE_SOLVER_PANEL_VISIBLE_ROWS ) };
+    return layout;
+}
 
 float EvaluateReplayCauseTransitionProgress( double elapsedSeconds ) noexcept
 {
@@ -159,20 +233,6 @@ const char* ReplayCauseSeekResult::Feedback() const noexcept
 bool ReplayCauseSolverDetailResult::HasDetail() const noexcept
 {
     return availability == ReplayCauseSolverDetailAvailability::Available;
-}
-
-const char* ReplayCauseSolverDetailResult::Feedback() const noexcept
-{
-    switch ( availability )
-    {
-    case ReplayCauseSolverDetailAvailability::Available:
-        return "";
-    case ReplayCauseSolverDetailAvailability::ReplayFrameExpired:
-        return REPLAY_FRAME_EXPIRED_FEEDBACK;
-    case ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable:
-    default:
-        return SOLVER_DETAIL_UNAVAILABLE_FEEDBACK;
-    }
 }
 
 const Physics::PhysicsSolverPersistentContactSample*
@@ -456,6 +516,10 @@ bool ReplayCauseInspection::Select( int rowIndex, const ReplayCauseSeekResult& s
     m_state.solverDetailAvailability = ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable;
     m_state.solverDetailContactRowCount = 0u;
     m_state.solverDetailPipelineRecordCount = 0u;
+    m_state.solverDetailContacts = {};
+    m_state.solverDetailPipelineRecords = {};
+    m_state.solverDetailFeedback = SOLVER_DETAIL_UNAVAILABLE_FEEDBACK;
+    m_state.solverDetailFirstRow = 0;
     m_state.contactPresentation = {};
     m_state.detailVisible = false;
     m_state.transportPending = false;
@@ -520,12 +584,60 @@ void ReplayCauseInspection::PublishSolverDetail( uint64_t generation, const Repl
         return;
     }
 
-    // Lifetime: the source spans remain ReplayRecorder borrows. Only scalar
-    // facts and the small owned Rendering packet survive the restore.
+    // Lifetime: copy every bounded row before the restore retires its source
+    // sample. The published spans point only into this Planning owner.
     m_state.solverDetailAvailability = detail.availability;
+    m_state.solverDetailFeedback = detail.Feedback();
+    m_state.solverDetailContactRowCount = 0u;
+    m_state.solverDetailPipelineRecordCount = 0u;
+    m_state.solverDetailContacts = {};
+    m_state.solverDetailPipelineRecords = {};
+    m_state.solverDetailFirstRow = 0;
+    m_state.contactPresentation = {};
+
+    if ( !detail.HasDetail() || detail.contactRowCount > m_solverDetailContacts.size() ||
+         detail.pipelineRecordCount > m_solverDetailPipelineRecords.size() )
+    {
+        return;
+    }
+
+    for ( std::size_t row = 0; row < detail.contactRowCount; ++row )
+    {
+        const Physics::PhysicsSolverPersistentContactSample* contact = detail.ContactRowAt( row );
+
+        if ( !contact )
+        {
+            m_state.solverDetailAvailability = ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable;
+            m_state.solverDetailFeedback = SOLVER_DETAIL_UNAVAILABLE_FEEDBACK;
+            return;
+        }
+
+        m_solverDetailContacts[row] = *contact;
+    }
+
+    for ( std::size_t recordIndex = 0; recordIndex < detail.pipelineRecordCount; ++recordIndex )
+    {
+        const Physics::PhysicsPipelineRecord* record = detail.PipelineRecordAt( recordIndex );
+
+        if ( !record )
+        {
+            m_state.solverDetailAvailability = ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable;
+            m_state.solverDetailFeedback = SOLVER_DETAIL_UNAVAILABLE_FEEDBACK;
+            return;
+        }
+
+        m_solverDetailPipelineRecords[recordIndex] = *record;
+    }
+
     m_state.solverDetailContactRowCount = detail.contactRowCount;
     m_state.solverDetailPipelineRecordCount = detail.pipelineRecordCount;
-    m_state.contactPresentation = detail.HasDetail() ? contactPresentation : Rendering::ContactManifoldPresentation {};
+    m_state.solverDetailContacts = std::span<const Physics::PhysicsSolverPersistentContactSample>( m_solverDetailContacts
+                                                                                                       .data(),
+                                                                                                   detail.contactRowCount );
+    m_state
+        .solverDetailPipelineRecords = std::span<const Physics::PhysicsPipelineRecord>( m_solverDetailPipelineRecords.data(),
+                                                                                        detail.pipelineRecordCount );
+    m_state.contactPresentation = contactPresentation;
 }
 
 void ReplayCauseInspection::CompleteTransport( uint64_t generation, bool succeeded ) noexcept
@@ -612,6 +724,36 @@ void ReplayCauseInspection::CompleteReturn() noexcept
     {
         Reset();
     }
+}
+
+bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTreeState& causeTree, int mouseX, int mouseY,
+                                                        bool hasClientPosition, bool pointerBlocked, int wheelDelta,
+                                                        int screenWidth, int screenHeight ) noexcept
+{
+    if ( !m_state.detailVisible || !hasClientPosition || pointerBlocked || screenWidth <= 0 || screenHeight <= 0 )
+    {
+        return false;
+    }
+
+    const ReplayCauseSolverPanelLayout layout = BuildReplayCauseSolverPanelLayout( m_state, causeTree, screenWidth,
+                                                                                   screenHeight );
+
+    if ( !PointInside( layout.panel, mouseX, mouseY ) )
+    {
+        return false;
+    }
+
+    if ( wheelDelta != 0 && !m_state.solverDetailContacts.empty() )
+    {
+        const int direction = wheelDelta > 0 ? -1 : 1;
+        const int wheelSteps = (std::max)( 1, std::abs( wheelDelta ) / 120 );
+        const int maximumFirstRow = (std::max)( 0, static_cast<int>( m_state.solverDetailContacts.size() ) -
+                                                       REPLAY_CAUSE_SOLVER_PANEL_VISIBLE_ROWS );
+        m_state.solverDetailFirstRow = std::clamp( m_state.solverDetailFirstRow + direction * wheelSteps, 0,
+                                                   maximumFirstRow );
+    }
+
+    return true;
 }
 
 void ReplayCauseInspection::Reset() noexcept

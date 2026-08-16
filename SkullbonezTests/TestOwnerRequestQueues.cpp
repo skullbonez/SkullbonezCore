@@ -1943,7 +1943,8 @@ TEST_CASE( "Compact causality projection is bounded and exposes explicit edge st
     RunReplayVelocityEditState velocity;
     RunReplayCauseTreeState tree;
     ReplayRecorderStats solverStats;
-    ReplayOverlayStateView replay { scrubber, prediction, intercept, porkchop, planner, path, velocity, tree, solverStats };
+    ReplayOverlayStateView replay { scrubber, prediction, intercept, porkchop, planner, path, velocity, tree, {},
+                                    solverStats };
 
     ImGuiEditorCausalityContext context = BuildImGuiEditorCausalityContext( replay );
     CHECK( context.state == ImGuiEditorCausalityState::Empty );

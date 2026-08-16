@@ -10,7 +10,8 @@ Summary:
   behavior without storing sibling backpointers inside those owners. During a
   causal transition it retains the source replay ring across intermediate
   restores, then applies the normal reset only at the exact endpoint. Render
-  publication exposes Planning's detached contact packet only while detail is visible.
+  publication exposes Planning's detached contact packet and copied solver rows
+  only while detail is visible.
 
 Glossary:
   Branch: Child replay timeline created from a restored source frame.
@@ -32,8 +33,9 @@ Invariants:
     replay-owned scratch.
   - Intermediate causal restores cannot clear the timeline that owns their
     later exact-frame targets.
-  - The render frame receives only the owned generic contact packet, never the
-    Planning transition owner or borrowed solver diagnostics.
+  - The render frame receives only the generic contact packet and synchronous
+    spans into Planning-owned solver copies, never the transition owner or
+    ReplayRecorder borrows.
   - Tracy plots sample existing owner stats only; they never traverse retained
     payloads or influence replay state.
 
@@ -622,6 +624,7 @@ ReplayOverlay::ReplayOverlayStateView ReplayRuntime::BuildOverlayStateView( bool
              m_visualPresentation.PathVisualizer(),
              m_authoring.VelocityEdit(),
              m_authoring.CauseTree(),
+             m_planningOwner.CauseInspectionView(),
              m_timeline.Solver().GetStats(),
              selection.replay,
              selection.selectedPrediction,

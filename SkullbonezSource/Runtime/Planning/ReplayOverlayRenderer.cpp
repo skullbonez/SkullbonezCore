@@ -1,18 +1,23 @@
 /*
 File: SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.cpp
 Purpose:
-  Draws replay scrubber and cause-tree overlays from replay-owned state.
+  Draws replay scrubber, cause-tree, and solver-detail overlays from owner views.
 
 Summary:
   Replay overlay rendering is a late UI pass. Keep the same screen-space layout
   and pointer eligibility as replay input by rebuilding the same fixed-capacity
-  surfaces from ReplayOverlayLayout.
+  surfaces from ReplayOverlayLayout. The causal solver panel renders exact-frame
+  copied evidence beside its cause tree through Planning's shared four-row layout.
 
 Invariants:
   - Drawn controls use the same surface rows and pointer-block fact as input, so
     visible hover and actionable hit state stay identical.
   - Overlay rendering reads replay state only; replay mutation belongs to input
     and runtime replay helpers.
+  - Solver rows expose their units and sign conventions on the surface; missing
+    stages render neutral values without inventing a replacement record.
+  - Solver-panel draw bounds come from the same pure projection used by input,
+    and no more than four complete contact rows appear at once.
 
 Related:
   - SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.h
@@ -80,6 +85,209 @@ void FlushReplayDrawList( UiDrawSubmission& submission, const UI::UIDrawList& dr
                           Rendering::Dx12Diagnostics& renderDiagnostics, int screenW, int screenH )
 {
     submission.Submit( drawList, textBatch, nullptr, renderTextures, renderCommands, renderDiagnostics, screenW, screenH );
+}
+
+const Physics::PhysicsPipelineRecord* FindSolverDetailRecord( const ReplayCauseInspectionView& inspection,
+                                                              uint32_t featureId,
+                                                              Physics::PhysicsPipelineStage stage ) noexcept
+{
+    for ( const Physics::PhysicsPipelineRecord& record : inspection.solverDetailPipelineRecords )
+    {
+        if ( record.stage == stage && record.featureId == featureId )
+        {
+            return &record;
+        }
+    }
+
+    return nullptr;
+}
+
+void RenderReplayCauseSolverDetailPanel( const UI::UIDrawContext& draw, const ReplayOverlayStateView& replay, int screenW,
+                                         int screenH )
+{
+    const ReplayCauseInspectionView& inspection = replay.causeInspection;
+
+    if ( !inspection.detailVisible )
+    {
+        return;
+    }
+
+    const ReplayCauseSolverPanelLayout layout = BuildReplayCauseSolverPanelLayout( inspection, replay.causeTree, screenW,
+                                                                                   screenH );
+    const UI::Style::UIPalette& palette = UI::Style::Palette();
+    const UI::Style::UIRadii& radii = UI::Style::Radii();
+    UI::Style::UIColor panelFill = palette.windowSubtle;
+    panelFill.a = 0.96f;
+    UI::Style::UIColor panelBorder = palette.innerBorder;
+    panelBorder.a = 0.68f;
+    draw.RoundedPanel( layout.panel, radii.window, panelFill, panelBorder );
+    draw.Text( layout.panel.x + 12.0f, layout.panel.y + 10.0f, 13.5f, palette.textPrimary.r, palette.textPrimary.g,
+               palette.textPrimary.b, "SOLVER ROW DETAIL" );
+
+    char frameLabel[96] = {};
+    sprintf_s( frameLabel, sizeof( frameLabel ), "EXACT FRAME %llu | %zu CONTACT ROWS",
+               static_cast<unsigned long long>( inspection.targetFrame ), inspection.solverDetailContacts.size() );
+    draw.Text( layout.panel.x + 176.0f, layout.panel.y + 12.0f, 10.0f, palette.accent.r, palette.accent.g, palette.accent.b,
+               frameLabel );
+
+    // Sign/units are rendered as part of the surface so a captured frame remains
+    // interpretable without consulting solver implementation comments.
+    draw.Text( layout.panel.x + 12.0f, layout.panel.y + REPLAY_CAUSE_SOLVER_PANEL_TITLE_HEIGHT + 2.0f, 9.5f,
+               palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
+               "UNITS: point/rA/rB/penetration/correction = scene units; bias/linear writeback = u/s; angular = rad/s; "
+               "impulses = mass*u/s; effective masses = mass." );
+    draw.Text( layout.panel.x + 12.0f, layout.panel.y + REPLAY_CAUSE_SOLVER_PANEL_TITLE_HEIGHT + 19.0f, 9.5f,
+               palette.textMuted.r, palette.textMuted.g, palette.textMuted.b,
+               "SIGNS: +penetration means overlap; normal/t1/t2 are world-space; signed accT1/accT2 follow t1/t2. CLAMP "
+               "means |tangent impulse| reached frictionLimit." );
+
+    if ( inspection.solverDetailAvailability != ReplayCauseSolverDetailAvailability::Available ||
+         inspection.solverDetailContacts.empty() )
+    {
+        draw.Text( layout.content.x + 12.0f, layout.content.y + 18.0f, 13.0f, palette.textSecondary.r,
+                   palette.textSecondary.g, palette.textSecondary.b, inspection.solverDetailFeedback );
+        return;
+    }
+
+    const int rowCount = static_cast<int>( inspection.solverDetailContacts.size() );
+    const int firstRow = std::clamp( inspection.solverDetailFirstRow, 0,
+                                     (std::max)( 0, rowCount - REPLAY_CAUSE_SOLVER_PANEL_VISIBLE_ROWS ) );
+    const int endRow = (std::min)( rowCount, firstRow + REPLAY_CAUSE_SOLVER_PANEL_VISIBLE_ROWS );
+
+    for ( int rowIndex = firstRow; rowIndex < endRow; ++rowIndex )
+    {
+        const Physics::PhysicsSolverPersistentContactSample&
+            contact = inspection.solverDetailContacts[static_cast<std::size_t>( rowIndex )];
+        const float rowY = layout.content.y + static_cast<float>( rowIndex - firstRow ) * layout.rowHeight;
+        const UI::UIRect rowRect { layout.content.x, rowY, layout.content.w - 8.0f, layout.rowHeight - 3.0f };
+        draw.RoundedRect( rowRect.x, rowRect.y, rowRect.w, rowRect.h, radii.control, palette.window.r, palette.window.g,
+                          palette.window.b, 0.56f );
+
+        Math::Vector::Vector3 point = Math::Vector::ZERO_VECTOR;
+
+        if ( static_cast<std::size_t>( rowIndex ) < inspection.contactPresentation.pointCount )
+        {
+            point = inspection.contactPresentation.points[static_cast<std::size_t>( rowIndex )].point;
+        }
+        else if ( const Physics::PhysicsPipelineRecord*
+                      manifold = FindSolverDetailRecord( inspection, contact.featureId,
+                                                         Physics::PhysicsPipelineStage::ManifoldRow ) )
+        {
+            point = manifold->point;
+        }
+
+        const Physics::PhysicsPipelineRecord* warm = FindSolverDetailRecord( inspection, contact.featureId,
+                                                                             Physics::PhysicsPipelineStage::WarmStart );
+        const Physics::PhysicsPipelineRecord*
+            correction = FindSolverDetailRecord( inspection, contact.featureId,
+                                                 Physics::PhysicsPipelineStage::PositionCorrection );
+        const Physics::PhysicsPipelineRecord* cache = FindSolverDetailRecord( inspection, contact.featureId,
+                                                                              Physics::PhysicsPipelineStage::CacheStore );
+        const float previousNormalImpulse = warm ? warm->scalarB : 0.0f;
+        char line[768] = {};
+        float textY = rowY + 5.0f;
+        sprintf_s( line, sizeof( line ), "ROW %d  FEATURE %u  BODIES %d / %d  POINT (%.4f, %.4f, %.4f)", rowIndex,
+                   contact.featureId, contact.bodyA, contact.bodyB, point.x, point.y, point.z );
+        draw.Text( rowRect.x + 8.0f, textY, 10.5f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b,
+                   line );
+        textY += 14.0f;
+        sprintf_s( line, sizeof( line ), "n (%.4f %.4f %.4f)  t1 (%.4f %.4f %.4f)  t2 (%.4f %.4f %.4f)", contact.normal.x,
+                   contact.normal.y, contact.normal.z, contact.tangent1.x, contact.tangent1.y, contact.tangent1.z,
+                   contact.tangent2.x, contact.tangent2.y, contact.tangent2.z );
+        draw.Text( rowRect.x + 8.0f, textY, 9.5f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
+                   line );
+        textY += 14.0f;
+        sprintf_s( line, sizeof( line ), "rA (%.4f %.4f %.4f)  rB (%.4f %.4f %.4f)  penetration %.5f", contact.rA.x,
+                   contact.rA.y, contact.rA.z, contact.rB.x, contact.rB.y, contact.rB.z, contact.penetration );
+        draw.Text( rowRect.x + 8.0f, textY, 9.5f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
+                   line );
+        textY += 14.0f;
+        sprintf_s( line, sizeof( line ), "normalMass %.5f  tangentMass (%.5f, %.5f)  bias %.5f  frictionLimit %.5f",
+                   contact.normalMass, contact.tangentMass1, contact.tangentMass2, contact.bias, contact.frictionLimit );
+        draw.Text( rowRect.x + 8.0f, textY, 9.5f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
+                   line );
+        textY += 14.0f;
+        sprintf_s( line, sizeof( line ), "accN %.5f  accT1 %.5f  accT2 %.5f  warm-start %s  previous normal impulse %.5f",
+                   contact.accN, contact.accT1, contact.accT2, contact.warmStarted ? "YES" : "NO", previousNormalImpulse );
+        draw.Text( rowRect.x + 8.0f, textY, 9.5f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
+                   line );
+        textY += 15.0f;
+
+        int iterationColumn = 0;
+
+        for ( const Physics::PhysicsPipelineRecord& record : inspection.solverDetailPipelineRecords )
+        {
+            if ( record.stage != Physics::PhysicsPipelineStage::SolverIteration || record.featureId != contact.featureId )
+            {
+                continue;
+            }
+
+            // Physics emits scalarC as the tangent-impulse magnitude. Treat a
+            // value at the cone radius as clamped; no UI-only solver state is retained.
+            const bool clamped = contact.frictionLimit > 0.0f && record.scalarC >= contact.frictionLimit - 1.0e-5f;
+            const int column = iterationColumn % REPLAY_CAUSE_SOLVER_PANEL_ITERATIONS_PER_LINE;
+            const int lineIndex = iterationColumn / REPLAY_CAUSE_SOLVER_PANEL_ITERATIONS_PER_LINE;
+            const float columnWidth = ( rowRect.w - 16.0f ) /
+                                      static_cast<float>( REPLAY_CAUSE_SOLVER_PANEL_ITERATIONS_PER_LINE );
+            sprintf_s( line, sizeof( line ), "i%d dN %.4f accN %.4f |T| %.4f %s", record.iteration, record.scalarA,
+                       record.scalarB, record.scalarC, clamped ? "CLAMP" : "free" );
+            draw.Text( rowRect.x + 8.0f + static_cast<float>( column ) * columnWidth,
+                       textY + static_cast<float>( lineIndex ) * REPLAY_CAUSE_SOLVER_PANEL_ITERATION_LINE_HEIGHT, 8.8f,
+                       clamped ? palette.accentStrong.r : palette.textMuted.r,
+                       clamped ? palette.accentStrong.g : palette.textMuted.g,
+                       clamped ? palette.accentStrong.b : palette.textMuted.b, line );
+            ++iterationColumn;
+        }
+
+        const int iterationLines = ( iterationColumn + REPLAY_CAUSE_SOLVER_PANEL_ITERATIONS_PER_LINE - 1 ) /
+                                   REPLAY_CAUSE_SOLVER_PANEL_ITERATIONS_PER_LINE;
+        textY += static_cast<float>( iterationLines ) * REPLAY_CAUSE_SOLVER_PANEL_ITERATION_LINE_HEIGHT;
+
+        char velocityText[256] = "writeback none";
+        int velocityCount = 0;
+
+        for ( const Physics::PhysicsPipelineRecord& record : inspection.solverDetailPipelineRecords )
+        {
+            if ( record.stage != Physics::PhysicsPipelineStage::VelocityWriteback ||
+                 ( record.bodyA != contact.bodyA && record.bodyA != contact.bodyB ) )
+            {
+                continue;
+            }
+
+            char append[96] = {};
+            sprintf_s( append, sizeof( append ), "%sB%d lin %.4f ang %.4f", velocityCount == 0 ? "" : " | ", record.bodyA,
+                       record.scalarA, record.scalarB );
+
+            if ( velocityCount == 0 )
+            {
+                strcpy_s( velocityText, sizeof( velocityText ), "writeback " );
+            }
+
+            strcat_s( velocityText, sizeof( velocityText ), append );
+            ++velocityCount;
+        }
+
+        sprintf_s( line, sizeof( line ),
+                   "position correction %.5f (penetration %.5f, slop %.5f) | %s | cache store (%.5f, %.5f, %.5f)",
+                   correction ? correction->scalarA : 0.0f, correction ? correction->scalarB : 0.0f,
+                   correction ? correction->scalarC : 0.0f, velocityText, cache ? cache->scalarA : 0.0f,
+                   cache ? cache->scalarB : 0.0f, cache ? cache->scalarC : 0.0f );
+        draw.Text( rowRect.x + 8.0f, textY, 8.9f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, line );
+    }
+
+    if ( rowCount > REPLAY_CAUSE_SOLVER_PANEL_VISIBLE_ROWS )
+    {
+        const float trackX = layout.content.x + layout.content.w - 5.0f;
+        const int maximumFirst = rowCount - REPLAY_CAUSE_SOLVER_PANEL_VISIBLE_ROWS;
+        const float knobH = layout.content.h * static_cast<float>( REPLAY_CAUSE_SOLVER_PANEL_VISIBLE_ROWS ) /
+                            static_cast<float>( rowCount );
+        const float travel = layout.content.h - knobH;
+        const float knobY = layout.content.y + travel * static_cast<float>( firstRow ) / static_cast<float>( maximumFirst );
+        draw.Rect( trackX, layout.content.y, 3.0f, layout.content.h, palette.control.r, palette.control.g, palette.control.b,
+                   0.72f );
+        draw.RoundedRect( trackX - 1.0f, knobY, 5.0f, knobH, 2.0f, palette.accent.r, palette.accent.g, palette.accent.b,
+                          0.82f );
+    }
 }
 } // namespace
 
@@ -1201,6 +1409,8 @@ void RenderReplayCauseTreeOverlay( UiDrawSubmission& submission, Text::TextBatch
 
     draw.Rect( resize.x + resize.w - 5.0f, resize.y + 4.0f, 1.0f, resize.h - 7.0f, palette.innerBorder.r,
                palette.innerBorder.g, palette.innerBorder.b, 0.68f );
+
+    RenderReplayCauseSolverDetailPanel( draw, replay, screenW, screenH );
 
     FlushReplayDrawList( submission, drawList, textBatch, renderTextures, renderCommands, renderDiagnostics, screenW,
                          screenH );

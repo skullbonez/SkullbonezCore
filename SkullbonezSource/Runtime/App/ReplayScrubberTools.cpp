@@ -11,7 +11,9 @@ Summary:
   camera slot, Planning's one eased clock, and the existing attached-camera
   follow owner while Replay remains the sole owner of the saved main-camera
   identity and live restore transaction. Exact-frame contact presentation is
-  copied before the final restore can retire its source solver ring.
+  copied before the final restore can retire its source solver ring. The
+  adjacent solver panel shares one Planning layout projection between drawing
+  and hit-testing, and App composes its mouse ownership ahead of the cause tree.
 
 Glossary:
   Live restore: Applying a retained replay sample back into the current scene.
@@ -35,6 +37,8 @@ Invariants:
     an interrupted or superseded row cannot reveal stale detail.
   - Causal contact geometry and body poses are copied from the selected solver
     sample before BuildRestoreRequest can authorize a destructive branch reset.
+  - Solver-panel wheel input is consumed only inside the visible shared panel
+    bounds and cannot fall through to the cause-tree surface.
 
 Related:
   - SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp
@@ -846,9 +850,29 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
 
     int requestedCauseTreeFocusRow = -1;
     bool exitCauseTreeInspection = false;
+    bool solverDetailOwnsMouse = false;
+
+    if ( !input.editorModeEnabled && causeTreeRowsReady )
+    {
+        const RuntimePointerEvent& pointer = inputRouter.RuntimeSnapshot().pointer;
+        solverDetailOwnsMouse = m_planningOwner.CauseInspection()
+                                    .TickSolverDetailPanelInput( m_authoring.CauseTree(), pointer.clientX, pointer.clientY,
+                                                                 pointer.hasClientPosition,
+                                                                 input.uiBlocksMouse || scrubberOwnsMouse, input.wheelDelta,
+                                                                 input.screenWidth, input.screenHeight );
+
+        if ( solverDetailOwnsMouse && input.wheelDelta != 0 )
+        {
+            interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
+                                                             WorldInteractionOwner::ReplayCauseTree,
+                                                             InteractionExitReason::EnterReplay );
+        }
+    }
+
     const bool causeTreeOwnsMouse = m_authoring.TickCauseTreeInput( m_visualPresentation, m_scrubberOwner, inputRouter,
                                                                     interaction, causeTreeRowsReady,
-                                                                    input.uiBlocksMouse || scrubberOwnsMouse,
+                                                                    input.uiBlocksMouse || scrubberOwnsMouse ||
+                                                                        solverDetailOwnsMouse,
                                                                     input.wheelDelta, input.editorModeEnabled,
                                                                     input.screenWidth, input.screenHeight,
                                                                     requestedCauseTreeFocusRow, exitCauseTreeInspection );
@@ -898,7 +922,7 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
 
     ApplyAuthoringPredictionRequest();
 
-    output.consumesMouse = output.consumesMouse || causeTreeOwnsMouse || velocityEditOwnsMouse;
+    output.consumesMouse = output.consumesMouse || causeTreeOwnsMouse || solverDetailOwnsMouse || velocityEditOwnsMouse;
     output.enterInteractive = output.enterInteractive || output.restoreRequest.enterInteractive;
 }
 
