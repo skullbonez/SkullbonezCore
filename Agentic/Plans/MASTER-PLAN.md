@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-16
-Status: Five active plans; 5/31 tasks complete
+Status: Four active plans; 4/29 tasks complete
 
 ## Owner Direction
 
@@ -24,11 +24,6 @@ Status: Five active plans; 5/31 tasks complete
   complete and RP4 is open on two owner-only items: the timing-threshold ruling
   that would make `validate_replay_prediction_frame_spikes.bat` a hard gate, and
   the plan deletion that follows it. No agent task remains.
-- Replay Prediction Adversarial Repair is active under
-  `TODO/replay-prediction-adversarial-repair.md`. The owner selected all five
-  committed-frame readers, a standalone repair plan, and a two-commit landing.
-  AR0 closes the reader and evidence-harness defects; AR1 owns the resumable
-  publication, deterministic reuse, coherent marker key, and final closure.
 - Source Modernization Sweep is complete. No further work remains.
 - Dense Pile Sleep Resolution is complete by owner direction. No further work
   will be performed and no additional baseline or solver change is requested.
@@ -52,7 +47,6 @@ Completed plan files were deleted; git history is the archive.
 | Causal Event Inspection | `CAUSAL_INSPECT` | 9 | 0 | `TODO/causal-event-inspection.md` |
 | Catto Divergence Repairs | `CATTO_REPAIRS` | 6 | 0 | `TODO/catto-divergence-repairs.md` |
 | Replay Prediction Spike Reduction | `Replay Prediction Spike Reduction` | 5 | 4 | `TODO/replay-prediction-runtime-spike-reduction.md` |
-| Replay Prediction Adversarial Repair | `REPLAY_ADVERSARIAL` | 2 | 1 | `TODO/replay-prediction-adversarial-repair.md` |
 
 The replay row records the subject token its four landed commits actually used,
 which predates the short ALL-CAPS convention the other three rows follow. Its
@@ -90,33 +84,29 @@ states elsewhere, and both are recorded rather than silently corrected:
 
 ## Binding Order
 
-1. `REPLAY_ADVERSARIAL` AR1 — close the already-started post-merge repair before
-   unrelated work. It owns resumable child appends, deterministic dormant-slot
-   selection, coherent marker retention/keying, real-run retained-memory
-   evidence, and the final no-baseline-refresh validation record.
-2. `TIER2_DETERMINISM` T0 — establish the pre-change envelope and CRT dispatch
+1. `TIER2_DETERMINISM` T0 — establish the pre-change envelope and CRT dispatch
    evidence. No source edit; its finding decides whether the transcendental gap
    is a live or latent tier-2 break and is a stated input to T3's baseline
    decision.
-3. `TIER2_DETERMINISM` T1, T2 — add the deterministic transcendental owner and
+2. `TIER2_DETERMINISM` T1, T2 — add the deterministic transcendental owner and
    the policy gate. Neither changes physics output.
-4. `TIER2_DETERMINISM` T5 through T8 — portable target, test split, Linux
+3. `TIER2_DETERMINISM` T5 through T8 — portable target, test split, Linux
    sanitizer lane, hosted cross-machine evidence. Independent of T3 and T4 and
    safe to run in parallel with the owner baseline decision.
-5. `CAUSAL_INSPECT` C0 — fix the seek contract. Unblocked, and independent of the
+4. `CAUSAL_INSPECT` C0 — fix the seek contract. Unblocked, and independent of the
    determinism work. C1 through C8 follow it in order. C2 owns the transport
    semantics that define what "fast forward" means for the whole feature, and C3
    owns the regeneration decision every later task depends on.
-6. `TIER2_DETERMINISM` T3, T4 — blocked. Do not begin either without an explicit
+5. `TIER2_DETERMINISM` T3, T4 — blocked. Do not begin either without an explicit
    owner approval of that exact baseline transition, recorded in the owning
    commit body.
-7. `CATTO_REPAIRS` CD0 — owner-only, and it gates the whole plan. CD0 is the
+6. `CATTO_REPAIRS` CD0 — owner-only, and it gates the whole plan. CD0 is the
    owner's scope ratification of which solver repairs R1 through R6 are in
    scope and in what order. A run may not answer it by reasoning; a run that
    finds it unanswered stops and reports. CD1 through CD5 are unselectable
    until CD0 is recorded, and each additionally changes byte-exact physics
    baselines, so each needs its own owner baseline ruling on top.
-8. Replay Prediction Spike Reduction RP4 — owner-only, and nothing is selectable
+7. Replay Prediction Spike Reduction RP4 — owner-only, and nothing is selectable
    beneath it. The measured post-fix distributions are recorded in the plan; the
    owner picks the marker/frame limits, or rules that the spike gate stays
    informational. Plan deletion follows that ruling in the same commit.
@@ -149,9 +139,8 @@ replay fingerprints are downstream of it.
 
 ## Portfolio Progress
 
-5/31 tasks complete across five active plans. Of the twenty-six open tasks,
+4/29 tasks complete across four active plans. Of the twenty-five open tasks,
 two are owner-blocked on a baseline decision by design rather than by
 sequencing, a further six sit behind an owner-only scope ratification, and one
 is the replay plan's owner-only threshold ruling. The remaining sixteen are
-joined by the adversarial repair's binding AR1 task, for seventeen unblocked
-agent tasks.
+unblocked agent work.

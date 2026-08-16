@@ -43,8 +43,10 @@ enum class ReplayPredictionTrajectoryBank : uint8_t
 
 namespace ReplayTrajectoryStoreOperations
 {
-// Selects same-key capacity first, then any sufficient slot, then the largest
-// remaining slot. Returning records.size() means no dormant slot exists.
+// Selects same-key capacity first, then the smallest sufficient slot, then the
+// largest remaining slot. Best-fit preserves larger dormant capacities for
+// later records instead of ratcheting total retained bytes after key churn.
+// Returning records.size() means no dormant slot exists.
 inline std::size_t SelectDormantRecordIndex( std::span<const ReplayTrajectoryRecord> records, std::size_t activeRecordCount,
                                              const ReplayTrajectoryRecordKey& key,
                                              std::size_t requiredPointCapacity ) noexcept
@@ -54,7 +56,7 @@ inline std::size_t SelectDormantRecordIndex( std::span<const ReplayTrajectoryRec
         return records.size();
     }
 
-    std::size_t fallbackIndex = records.size();
+    std::size_t bestFitIndex = records.size();
     std::size_t largestIndex = activeRecordCount;
 
     for ( std::size_t index = activeRecordCount; index < records.size(); ++index )
@@ -68,9 +70,10 @@ inline std::size_t SelectDormantRecordIndex( std::span<const ReplayTrajectoryRec
             return index;
         }
 
-        if ( fallbackIndex == records.size() && candidate.points.capacity() >= requiredPointCapacity )
+        if ( candidate.points.capacity() >= requiredPointCapacity &&
+             ( bestFitIndex == records.size() || candidate.points.capacity() < records[bestFitIndex].points.capacity() ) )
         {
-            fallbackIndex = index;
+            bestFitIndex = index;
         }
 
         if ( candidate.points.capacity() > records[largestIndex].points.capacity() )
@@ -79,7 +82,7 @@ inline std::size_t SelectDormantRecordIndex( std::span<const ReplayTrajectoryRec
         }
     }
 
-    return fallbackIndex != records.size() ? fallbackIndex : largestIndex;
+    return bestFitIndex != records.size() ? bestFitIndex : largestIndex;
 }
 } // namespace ReplayTrajectoryStoreOperations
 

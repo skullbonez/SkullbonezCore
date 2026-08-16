@@ -104,6 +104,8 @@ void ClearReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction 
     prediction.futureNodeCache.ResetRetainedMarkers();
     prediction.trajectoryBuild.childFrameCount = 0;
     prediction.trajectoryBuild.builtNodeCount = 0;
+    prediction.trajectoryBuild.childAppendTargetFrameCount = 0;
+    prediction.trajectoryBuild.childAppendNodeIndex = 0;
     prediction.trajectoryBuild.topologyVersion = 0;
 }
 
@@ -459,6 +461,8 @@ bool RebuildReplayPredictionReplacementRootTrajectory( RunReplayPredictionState&
     prediction.trajectoryBuild.rootFrameCount = record->points.size();
     prediction.trajectoryBuild.childFrameCount = 0;
     prediction.trajectoryBuild.builtNodeCount = 0;
+    prediction.trajectoryBuild.childAppendTargetFrameCount = 0;
+    prediction.trajectoryBuild.childAppendNodeIndex = 0;
     prediction.trajectoryBuild.allBodyFrameCount = 0;
     prediction.trajectoryBuild.builtAllBodyCount = 0;
     prediction.trajectoryBuild.allBodyBodyCount = 0;
@@ -809,6 +813,8 @@ void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction
     {
         prediction.trajectoryBuild.childFrameCount = 0;
         prediction.trajectoryBuild.builtNodeCount = 0;
+        prediction.trajectoryBuild.childAppendTargetFrameCount = 0;
+        prediction.trajectoryBuild.childAppendNodeIndex = 0;
         prediction.trajectoryBuild.allBodyFrameCount = 0;
         prediction.trajectoryBuild.builtAllBodyCount = 0;
         prediction.trajectoryBuild.allBodyBodyCount = 0;
@@ -846,10 +852,10 @@ void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction
         }
     }
 
-    const bool sourceChanged = !prediction.trajectoryBuild.valid ||
-                               prediction.trajectoryBuild.rootId.value != rootId.value ||
+    const bool sourceChanged = prediction.trajectoryBuild.rootId.value != rootId.value ||
                                prediction.trajectoryBuild.usingBuildFrames != usingBuildFrames || existingTopologyChanged ||
                                prediction.trajectoryBuild.childFrameCount > frameCount ||
+                               prediction.trajectoryBuild.childAppendTargetFrameCount > frameCount ||
                                prediction.trajectoryBuild.builtNodeCount > nodeCount;
 
     if ( sourceChanged )
@@ -861,6 +867,8 @@ void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction
         prediction.trajectoryBuild.usingBuildFrames = usingBuildFrames;
         prediction.trajectoryBuild.childFrameCount = frameCount;
         prediction.trajectoryBuild.builtNodeCount = 0u;
+        prediction.trajectoryBuild.childAppendTargetFrameCount = frameCount;
+        prediction.trajectoryBuild.childAppendNodeIndex = 0u;
         prediction.trajectoryBuild.topologyVersion = topologyVersion;
         prediction.trajectoryBuild.valid = true;
     }
@@ -876,21 +884,48 @@ void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction
     // of mutating already-published points under an old version.
     if ( !sourceChanged && prediction.trajectoryBuild.childFrameCount < frameCount )
     {
-        for ( std::size_t i = 0; i < existingNodeCount; ++i )
+        if ( prediction.trajectoryBuild.childAppendTargetFrameCount <= prediction.trajectoryBuild.childFrameCount )
         {
+            prediction.trajectoryBuild.childAppendTargetFrameCount = frameCount;
+            prediction.trajectoryBuild.childAppendNodeIndex = 0u;
+        }
+
+        const std::size_t appendTargetFrameCount = prediction.trajectoryBuild.childAppendTargetFrameCount;
+
+        for ( std::size_t i = prediction.trajectoryBuild.childAppendNodeIndex; i < existingNodeCount; ++i )
+        {
+            if ( ReplayPredictionSchedulingOperations::ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+            {
+                prediction.trajectoryBuild.childAppendNodeIndex = i;
+                return;
+            }
+
             const RunReplayPathTraceNode& node = prediction.futureNodeCache.futureNodes[i];
 
             if ( !AppendReplayPredictionChildTrajectoryFrames( prediction, frames,
-                                                               prediction.trajectoryBuild.childFrameCount, frameCount, node,
-                                                               i, usingBuildFrames,
+                                                               prediction.trajectoryBuild.childFrameCount,
+                                                               appendTargetFrameCount, node, i, usingBuildFrames,
                                                                ReplayTrajectoryLane::FutureChildIncoming ) ||
                  !AppendReplayPredictionChildTrajectoryFrames( prediction, frames,
-                                                               prediction.trajectoryBuild.childFrameCount, frameCount, node,
-                                                               i, usingBuildFrames,
+                                                               prediction.trajectoryBuild.childFrameCount,
+                                                               appendTargetFrameCount, node, i, usingBuildFrames,
                                                                ReplayTrajectoryLane::FutureChildOutgoing ) )
             {
                 return;
             }
+
+            prediction.trajectoryBuild.childAppendNodeIndex = i + 1u;
+        }
+
+        prediction.trajectoryBuild.childFrameCount = appendTargetFrameCount;
+        prediction.trajectoryBuild.childAppendNodeIndex = 0u;
+
+        // Invariant: a worker may publish another suffix while this pass is in
+        // flight. Finish one coherent target for every existing node before
+        // adopting that newer count on the next presentation pass.
+        if ( appendTargetFrameCount < frameCount )
+        {
+            return;
         }
     }
 
@@ -921,6 +956,8 @@ void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction
     prediction.trajectoryBuild.topologyVersion = topologyVersion;
     prediction.trajectoryBuild.childFrameCount = frameCount;
     prediction.trajectoryBuild.builtNodeCount = completedNodeCount;
+    prediction.trajectoryBuild.childAppendTargetFrameCount = frameCount;
+    prediction.trajectoryBuild.childAppendNodeIndex = 0u;
 }
 
 bool TryFlipReplayPredictionCommittedPublication( RunReplayPredictionState& prediction, Physics::PhysicsSceneObjectId rootId,
@@ -941,7 +978,8 @@ bool TryFlipReplayPredictionCommittedPublication( RunReplayPredictionState& pred
     const bool markerPublicationReady = nodeCount == 0u ||
                                         markerScan.Matches( prediction.build.generationBeginCount,
                                                             prediction.futureNodeCache.futureNodesTopologyVersion, nodeCount,
-                                                            rootId, frameCount, revealFrame, replacementUsesBuildBank );
+                                                            rootId, frameCount, revealFrame, replacementUsesBuildBank,
+                                                            true );
 
     if ( !prediction.FutureTreePublicationComplete( prediction.trajectoryBuild, rootId, replacementUsesBuildBank,
                                                     frameCount ) ||
@@ -957,8 +995,23 @@ bool TryFlipReplayPredictionCommittedPublication( RunReplayPredictionState& pred
     // A hidden build bank is normalized to canonical committed keys so final
     // identity and fingerprints do not depend on completion timing.
     prediction.futureNodeCache.futureNodesBuiltFromBuildFrames = false;
-    prediction.trajectoryStore.CommitPredictionReplacementBank( replacementBank, REPLAY_TRAJECTORY_BUILD_BRANCH,
-                                                                static_cast<uint16_t>( REPLAY_PATH_MAX_FUTURE_NODES ) );
+
+    if ( replacementBank == ReplayPredictionTrajectoryBank::Build )
+    {
+        prediction.trajectoryStore.CommitPredictionReplacementBank( replacementBank, REPLAY_TRAJECTORY_BUILD_BRANCH,
+                                                                    static_cast<uint16_t>( REPLAY_PATH_MAX_FUTURE_NODES ) );
+    }
+    else
+    {
+        // Invariant: the first completed generation replaces the committed
+        // bank while its already-presented build trajectories remain part of
+        // the approved reveal packet. A later refresh selects Build as its
+        // replacement bank, retires these rows before rebuilding them, and
+        // therefore cannot accumulate another generation of active records.
+        // The immutable 200-box fidelity oracle locks this first-cascade shape.
+        ++prediction.trajectoryStore.publicationVersion;
+    }
+
     prediction.trajectoryBuild.usingBuildFrames = false;
 
     if ( nodeCount > 0u )
@@ -967,7 +1020,7 @@ bool TryFlipReplayPredictionCommittedPublication( RunReplayPredictionState& pred
         // topology. Canonicalize only the bank key so the next idle frame does
         // not repeat the bounded frame-by-node scan after a build-bank flip.
         markerScan.Commit( prediction.build.generationBeginCount, prediction.futureNodeCache.futureNodesTopologyVersion,
-                           rootId, frameCount, revealFrame, false );
+                           rootId, frameCount, revealFrame, false, true );
     }
 
     prediction.committedPublication.Reset();

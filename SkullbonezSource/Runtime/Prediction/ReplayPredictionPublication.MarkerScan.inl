@@ -14,6 +14,8 @@ Summary:
 Invariants:
   - A scan commits its publication key only after every node reaches the same
     revealed frame prefix.
+  - Buffer completion is part of that key because only an authoritative end
+    may publish rest poses or authorize a committed-bank flip.
   - Source regression or bank/generation replacement resets every node; topology
     growth resets only new or changed rows.
   - Frame rows are read only through the caller's bounded published prefix.
@@ -163,7 +165,7 @@ inline void RetainReplayPredictionCausalMarkers( RunReplayPredictionState& predi
 inline bool AdvanceReplayPredictionChildMarkerScan(
     ReplayPredictionChildMarkerScanState& scan, const RunReplayPredictionState& prediction,
     const std::vector<RunReplayPredictionFrame>& frames, std::size_t frameCount, ReplayFrameIndex revealFrame,
-    uint32_t generation, Physics::PhysicsSceneObjectId targetId, bool usingBuildFrames,
+    uint32_t generation, Physics::PhysicsSceneObjectId targetId, bool usingBuildFrames, bool bufferComplete,
     const std::chrono::steady_clock::time_point& budgetStart, double budgetMilliseconds )
 {
     frameCount = (std::min)( frameCount, frames.size() );
@@ -197,7 +199,7 @@ inline bool AdvanceReplayPredictionChildMarkerScan(
 
     if ( frameCount < 2 || nodeCount == 0 )
     {
-        scan.Commit( generation, topologyVersion, targetId, frameCount, revealFrame, usingBuildFrames );
+        scan.Commit( generation, topologyVersion, targetId, frameCount, revealFrame, usingBuildFrames, bufferComplete );
         return true;
     }
 
@@ -260,7 +262,7 @@ inline bool AdvanceReplayPredictionChildMarkerScan(
         }
     }
 
-    scan.Commit( generation, topologyVersion, targetId, frameCount, revealFrame, usingBuildFrames );
+    scan.Commit( generation, topologyVersion, targetId, frameCount, revealFrame, usingBuildFrames, bufferComplete );
     return true;
 }
 } // namespace SkullbonezCore::Runtime::ReplayPredictionPublicationOperations
