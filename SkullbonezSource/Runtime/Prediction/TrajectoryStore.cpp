@@ -6,8 +6,10 @@ Purpose:
 
 Summary:
   A trajectory record is immutable to readers up to its published prefix.
-  Builders may reserve storage, replace records, append unpublished points, then
-  publish a larger prefix once those points are coherent.
+  Builders reactivate capacity-compatible dormant records, append unpublished
+  points, then publish a larger prefix once those points are coherent. A
+  completed committed flip compacts the obsolete prediction bank behind the active
+  prefix so final output cannot retain cadence-dependent scratch state.
 
 Glossary:
   Replay allocation scope: RuntimeAllocationTracker phase used while approved
@@ -17,6 +19,7 @@ Invariants:
   - Reserve helpers use `replay_prediction_working_set` and fail before vector
     reserve when the shared replay prediction hard cap would be exceeded.
   - Append never calls reserve; callers must reserve record point capacity first.
+  - Clear changes logical visibility but does not reclaim nested record storage.
 
 Related:
   - SkullbonezSource/Runtime/Prediction/TrajectoryStore.h
@@ -69,15 +72,14 @@ bool operator!=( const ReplayTrajectoryRecordKey& lhs, const ReplayTrajectoryRec
 
 void ReplayTrajectoryStore::Clear() noexcept
 {
-    const bool hadPublishedState = !records.empty();
+    const bool hadPublishedState = activeRecordCount != 0u;
 
-    for ( ReplayTrajectoryRecord& record : records )
+    for ( ReplayTrajectoryRecord& record : std::span<ReplayTrajectoryRecord>( records.data(), activeRecordCount ) )
     {
-        record.points.clear();
         record.publishedPointCount = 0;
     }
 
-    records.clear();
+    activeRecordCount = 0;
 
     if ( hadPublishedState )
     {
@@ -87,7 +89,7 @@ void ReplayTrajectoryStore::Clear() noexcept
 
 ReplayTrajectoryRecord* ReplayTrajectoryStore::FindRecord( const ReplayTrajectoryRecordKey& key ) noexcept
 {
-    for ( ReplayTrajectoryRecord& record : records )
+    for ( ReplayTrajectoryRecord& record : std::span<ReplayTrajectoryRecord>( records.data(), activeRecordCount ) )
     {
         if ( record.key == key )
         {
@@ -100,7 +102,7 @@ ReplayTrajectoryRecord* ReplayTrajectoryStore::FindRecord( const ReplayTrajector
 
 const ReplayTrajectoryRecord* ReplayTrajectoryStore::FindRecord( const ReplayTrajectoryRecordKey& key ) const noexcept
 {
-    for ( const ReplayTrajectoryRecord& record : records )
+    for ( const ReplayTrajectoryRecord& record : ActiveRecords() )
     {
         if ( record.key == key )
         {
@@ -113,19 +115,40 @@ const ReplayTrajectoryRecord* ReplayTrajectoryStore::FindRecord( const ReplayTra
 
 ReplayTrajectoryRecord* ReplayTrajectoryStore::BeginReplaceRecord( const ReplayTrajectoryRecordKey& key, uint16_t styleId,
                                                                    Physics::PhysicsSceneObjectId parentId, int depth,
-                                                                   ReplayFrameIndex firstFrame, bool contactDerived )
+                                                                   ReplayFrameIndex firstFrame, bool contactDerived,
+                                                                   std::size_t requiredPointCapacity )
 {
     ReplayTrajectoryRecord* record = FindRecord( key );
 
     if ( !record )
     {
-        if ( records.size() >= records.capacity() )
+        const std::size_t dormantIndex = ReplayTrajectoryStoreOperations::SelectDormantRecordIndex( records,
+                                                                                                    activeRecordCount, key,
+                                                                                                    requiredPointCapacity );
+
+        if ( dormantIndex < records.size() )
         {
-            return nullptr;
+            // Why: the selector prefers the same stable key, then any slot
+            // already large enough, then the largest remaining slot. This
+            // keeps replay reserve accounting flat without making record order
+            // depend on the dormant bank's previous generation.
+            std::iter_swap( records.begin() + static_cast<std::ptrdiff_t>( activeRecordCount ),
+                            records.begin() + static_cast<std::ptrdiff_t>( dormantIndex ) );
+            record = &records[activeRecordCount];
+            ++activeRecordCount;
+        }
+        else
+        {
+            if ( records.size() >= records.capacity() )
+            {
+                return nullptr;
+            }
+
+            records.emplace_back();
+            record = &records.back();
+            ++activeRecordCount;
         }
 
-        records.emplace_back();
-        record = &records.back();
         record->key = key;
     }
 
@@ -161,6 +184,108 @@ void ReplayTrajectoryStore::PublishPrefix( ReplayTrajectoryRecord& record, std::
         record.publishedPointCount = publishedPointCount;
         ++publicationVersion;
     }
+}
+
+std::size_t ReplayTrajectoryStore::RetirePredictionBankRecords( ReplayPredictionTrajectoryBank bank,
+                                                                uint16_t futureRootBuildBranch,
+                                                                uint16_t firstChildBuildBranch ) noexcept
+{
+    const auto recordUsesBank = [bank, futureRootBuildBranch, firstChildBuildBranch]( const ReplayTrajectoryRecord& record )
+    {
+        if ( record.key.lane == ReplayTrajectoryLane::FutureRoot )
+        {
+            const bool usesBuildBranch = record.key.branchOrdinal == futureRootBuildBranch;
+            const bool usesCommittedBranch = record.key.branchOrdinal == 0u;
+            return bank == ReplayPredictionTrajectoryBank::Build ? usesBuildBranch : usesCommittedBranch;
+        }
+
+        if ( record.key.lane != ReplayTrajectoryLane::FutureChildIncoming &&
+             record.key.lane != ReplayTrajectoryLane::FutureChildOutgoing )
+        {
+            return false;
+        }
+
+        const bool usesBuildBranch = record.key.branchOrdinal >= firstChildBuildBranch;
+        return bank == ReplayPredictionTrajectoryBank::Build ? usesBuildBranch : !usesBuildBranch;
+    };
+
+    const std::size_t previousActiveCount = activeRecordCount;
+    std::size_t retainedCount = 0u;
+
+    // Invariant: swapping each next retained record into the earliest hole is
+    // a stable compaction of the reader-visible prefix. Committed draw order is
+    // unchanged, while every retired vector keeps its warmed point capacity.
+    for ( std::size_t readIndex = 0u; readIndex < previousActiveCount; ++readIndex )
+    {
+        if ( recordUsesBank( records[readIndex] ) )
+        {
+            continue;
+        }
+
+        if ( retainedCount != readIndex )
+        {
+            std::iter_swap( records.begin() + static_cast<std::ptrdiff_t>( retainedCount ),
+                            records.begin() + static_cast<std::ptrdiff_t>( readIndex ) );
+        }
+
+        ++retainedCount;
+    }
+
+    activeRecordCount = retainedCount;
+    return previousActiveCount - retainedCount;
+}
+
+std::size_t ReplayTrajectoryStore::RetirePredictionBank( ReplayPredictionTrajectoryBank bank, uint16_t futureRootBuildBranch,
+                                                         uint16_t firstChildBuildBranch ) noexcept
+{
+    const std::size_t retiredCount = RetirePredictionBankRecords( bank, futureRootBuildBranch, firstChildBuildBranch );
+
+    if ( retiredCount > 0u )
+    {
+        ++publicationVersion;
+    }
+
+    return retiredCount;
+}
+
+std::size_t ReplayTrajectoryStore::CommitPredictionReplacementBank( ReplayPredictionTrajectoryBank replacementBank,
+                                                                    uint16_t futureRootBuildBranch,
+                                                                    uint16_t firstChildBuildBranch ) noexcept
+{
+    const ReplayPredictionTrajectoryBank visibleBank = replacementBank == ReplayPredictionTrajectoryBank::Build
+                                                           ? ReplayPredictionTrajectoryBank::Committed
+                                                           : ReplayPredictionTrajectoryBank::Build;
+    const std::size_t retiredCount = RetirePredictionBankRecords( visibleBank, futureRootBuildBranch,
+                                                                  firstChildBuildBranch );
+    std::size_t normalizedCount = 0u;
+
+    if ( replacementBank == ReplayPredictionTrajectoryBank::Build )
+    {
+        for ( ReplayTrajectoryRecord& record : std::span<ReplayTrajectoryRecord>( records.data(), activeRecordCount ) )
+        {
+            if ( record.key.lane == ReplayTrajectoryLane::FutureRoot && record.key.branchOrdinal == futureRootBuildBranch )
+            {
+                record.key.branchOrdinal = 0u;
+                ++normalizedCount;
+            }
+            else if ( ( record.key.lane == ReplayTrajectoryLane::FutureChildIncoming ||
+                        record.key.lane == ReplayTrajectoryLane::FutureChildOutgoing ) &&
+                      record.key.branchOrdinal >= firstChildBuildBranch )
+            {
+                record.key.branchOrdinal = static_cast<uint16_t>( record.key.branchOrdinal - firstChildBuildBranch );
+                ++normalizedCount;
+            }
+        }
+    }
+
+    // Invariant: readers observe one token transition for the bank swap. Record
+    // versions remain the versions assigned while the hidden bank was built.
+    if ( retiredCount > 0u || normalizedCount > 0u )
+    {
+        ++publicationVersion;
+    }
+
+    return retiredCount + normalizedCount;
 }
 
 std::size_t ReplayTrajectoryStore::TrimPublishedPointsBeforeFrame( ReplayTrajectoryRecord& record,
@@ -303,14 +428,14 @@ bool ReplayTrajectoryStore::ReserveRecordPoints( ReplayTrajectoryRecord& record,
 
 std::size_t ReplayTrajectoryStore::RecordCount() const noexcept
 {
-    return records.size();
+    return activeRecordCount;
 }
 
 std::size_t ReplayTrajectoryStore::PointCount() const noexcept
 {
     std::size_t count = 0;
 
-    for ( const ReplayTrajectoryRecord& record : records )
+    for ( const ReplayTrajectoryRecord& record : ActiveRecords() )
     {
         count += record.points.size();
     }
@@ -343,6 +468,13 @@ uint64_t ReplayTrajectoryStore::CapacityBytes() const noexcept
     }
 
     return total;
+}
+
+void ReplayTrajectoryStore::ReplaceRecordsFromArchive( std::vector<ReplayTrajectoryRecord>&& loadedRecords ) noexcept
+{
+    records = std::move( loadedRecords );
+    activeRecordCount = records.size();
+    ++publicationVersion;
 }
 
 uint32_t ReplayTrajectoryStore::AllocateVersion() noexcept

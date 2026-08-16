@@ -1171,6 +1171,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionPublicationOperations.h">
       <Filter>Header Files\Runtime\Prediction</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionPublication.MarkerScan.inl">
+      <Filter>Header Files\Runtime\Prediction</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayArtifactHashLog.h">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>

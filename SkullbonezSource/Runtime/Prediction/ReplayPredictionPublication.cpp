@@ -5,7 +5,8 @@ Purpose:
 
 Summary:
   Isolated simulation supplies completed frame rows. This owner derives the
-  contiguous trajectory and causal-topology records consumed by presentation.
+  contiguous trajectory and causal-topology records consumed by presentation,
+  resuming whole-node hidden duplication at budget boundaries.
 
 Invariants:
   - Derived rows never outpace the acquire-visible prediction frame prefix.
@@ -13,9 +14,9 @@ Invariants:
   - All-body records reserve their full frame capacity once, then append only new points.
 
 Related:
-  - ReplayPredictionPublication.h
-  - ReplayPredictionPublicationOperations.h
-  - ReplayPredictionScheduling.h
+  - SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.h
+  - SkullbonezSource/Runtime/Prediction/ReplayPredictionPublicationOperations.h
+  - SkullbonezSource/Runtime/Prediction/ReplayPredictionScheduling.h
   - Agentic/Reference/engine-glossary.md
 */
 #include "ReplayPredictionPublicationOperations.h"
@@ -204,9 +205,9 @@ const RunReplayPredictionBodySample* FindReplayPredictionBodyByIdWithHint( const
 }
 
 // Concept: TrajectoryStore records are the future line-draw source. Branch
-// ordinal 0 is the committed prediction; branch 1 is the in-progress build
-// preview; child branches are offset by source so same-target refreshes do not
-// overwrite the old visible future before the published prefix catches up.
+// ordinal 0 is the canonical committed prediction; branch 1 is the worker or
+// alternate hidden replacement. Child branches are offset by bank so a refresh
+// cannot overwrite the trajectory bank still owned by readers.
 constexpr uint16_t REPLAY_TRAJECTORY_COMMITTED_BRANCH = 0;
 constexpr uint16_t REPLAY_TRAJECTORY_BUILD_BRANCH = 1;
 
@@ -242,7 +243,8 @@ ReplayTrajectoryRecord* BeginReplayTrajectoryRecord( ReplayTrajectoryStore& stor
         return nullptr;
     }
 
-    ReplayTrajectoryRecord* record = store.BeginReplaceRecord( key, styleId, parentId, depth, firstFrame, contactDerived );
+    ReplayTrajectoryRecord* record = store.BeginReplaceRecord( key, styleId, parentId, depth, firstFrame, contactDerived,
+                                                               pointCapacity );
 
     if ( !record || !store.ReserveRecordPoints( *record, pointCapacity, frameNumber ) )
     {
@@ -405,19 +407,32 @@ bool PublishReplayPredictionBuildRootTrajectoryPrefix( RunReplayPredictionState&
     return true;
 }
 
-bool RebuildReplayPredictionCommittedRootTrajectory( RunReplayPredictionState& prediction )
+bool RebuildReplayPredictionReplacementRootTrajectory( RunReplayPredictionState& prediction,
+                                                       ReplayPredictionTrajectoryBank replacementBank )
 {
-    if ( prediction.simulation.targetId.value == 0 || prediction.simulation.frames.size() < 2u )
+    const std::size_t committedFrameCount = prediction.CommittedFrameCount();
+
+    if ( prediction.simulation.targetId.value == 0 || committedFrameCount < 2u )
     {
         return true;
     }
 
+    const bool replacementUsesBuildBank = replacementBank == ReplayPredictionTrajectoryBank::Build;
+    const uint16_t replacementRootBranch = replacementUsesBuildBank ? REPLAY_TRAJECTORY_BUILD_BRANCH
+                                                                    : REPLAY_TRAJECTORY_COMMITTED_BRANCH;
+
+    // Invariant: only the bank opposite the captured visible snapshot is
+    // cleared here. Its dormant vectors are immediately reusable by the hidden
+    // root/child rebuild without touching the branch still owned by readers.
+    prediction.trajectoryStore.RetirePredictionBank( replacementBank, REPLAY_TRAJECTORY_BUILD_BRANCH,
+                                                     static_cast<uint16_t>( REPLAY_PATH_MAX_FUTURE_NODES ) );
+
     ReplayTrajectoryRecord* record = BeginReplayTrajectoryRecord( prediction.trajectoryStore,
                                                                   ReplayTrajectoryKey( prediction.simulation.targetId,
                                                                                        ReplayTrajectoryLane::FutureRoot,
-                                                                                       REPLAY_TRAJECTORY_COMMITTED_BRANCH ),
+                                                                                       replacementRootBranch ),
                                                                   0, Physics::PhysicsSceneObjectId {}, 0, 0, false,
-                                                                  prediction.simulation.frames.size() );
+                                                                  committedFrameCount );
 
     if ( !record )
     {
@@ -425,8 +440,9 @@ bool RebuildReplayPredictionCommittedRootTrajectory( RunReplayPredictionState& p
         return false;
     }
 
-    for ( const RunReplayPredictionFrame& frame : prediction.simulation.frames )
+    for ( std::size_t frameIndex = 0; frameIndex < committedFrameCount; ++frameIndex )
     {
+        const RunReplayPredictionFrame& frame = prediction.simulation.frames[frameIndex];
         const RunReplayPredictionBodySample*
             body = FindReplayPredictionBodyByIdWithHint( frame, prediction.simulation.targetId,
                                                          prediction.simulation.targetModelRow.value );
@@ -439,13 +455,22 @@ bool RebuildReplayPredictionCommittedRootTrajectory( RunReplayPredictionState& p
     }
 
     prediction.trajectoryBuild.rootId = prediction.simulation.targetId;
-    prediction.trajectoryBuild.usingBuildFrames = false;
+    prediction.trajectoryBuild.usingBuildFrames = replacementUsesBuildBank;
     prediction.trajectoryBuild.rootFrameCount = record->points.size();
     prediction.trajectoryBuild.childFrameCount = 0;
     prediction.trajectoryBuild.builtNodeCount = 0;
+    prediction.trajectoryBuild.allBodyFrameCount = 0;
+    prediction.trajectoryBuild.builtAllBodyCount = 0;
+    prediction.trajectoryBuild.allBodyBodyCount = 0;
     prediction.trajectoryBuild.topologyVersion = 0;
+    prediction.trajectoryBuild.allBodyPaths = false;
     prediction.trajectoryBuild.valid = true;
     return true;
+}
+
+bool RebuildReplayPredictionCommittedRootTrajectory( RunReplayPredictionState& prediction )
+{
+    return RebuildReplayPredictionReplacementRootTrajectory( prediction, ReplayPredictionTrajectoryBank::Committed );
 }
 
 bool BuildReplayPredictionChildTrajectoryRecord( RunReplayPredictionState& prediction,
@@ -675,6 +700,7 @@ void UpdateReplayPredictionAllBodyTrajectories( RunReplayPredictionState& predic
     {
         prediction.trajectoryBuild.allBodyFrameCount = 0;
         prediction.trajectoryBuild.builtAllBodyCount = 0;
+        prediction.trajectoryBuild.allBodyBodyCount = 0;
         prediction.trajectoryBuild.allBodyPaths = false;
         return;
     }
@@ -684,25 +710,35 @@ void UpdateReplayPredictionAllBodyTrajectories( RunReplayPredictionState& predic
 
     const uint16_t activeBranch = usingBuildFrames ? REPLAY_TRAJECTORY_BUILD_BRANCH : REPLAY_TRAJECTORY_COMMITTED_BRANCH;
 
-    bool activeBankMissing = false;
+    const std::size_t builtPrefixCount = (std::min)( prediction.trajectoryBuild.builtAllBodyCount, bodyCount );
+    bool builtPrefixMissing = false;
 
-    for ( std::size_t bodyIndex = 0; bodyIndex < bodyCount; ++bodyIndex )
+    for ( std::size_t bodyIndex = 0; bodyIndex < builtPrefixCount; ++bodyIndex )
     {
         const RunReplayPredictionBodySample& seedBody = frames[0].bodies[bodyIndex];
 
         if ( seedBody.id.value != 0u && seedBody.id.value != rootId.value &&
              !prediction.trajectoryStore.FindRecord( ReplayTrajectoryKey( seedBody.id, ReplayTrajectoryLane::FutureRoot, activeBranch ) ) )
         {
-            activeBankMissing = true;
+            builtPrefixMissing = true;
             break;
         }
     }
 
-    const bool sourceChanged = !prediction.trajectoryBuild.allBodyPaths || activeBankMissing ||
-                               prediction.trajectoryBuild.rootId.value != rootId.value ||
-                               prediction.trajectoryBuild.usingBuildFrames != usingBuildFrames ||
-                               prediction.trajectoryBuild.allBodyFrameCount > frameCount ||
-                               prediction.trajectoryBuild.builtAllBodyCount > bodyCount;
+    const bool sourceChanged = prediction.trajectoryBuild.AllBodyPublicationSourceChanged( rootId, usingBuildFrames,
+                                                                                           frameCount, bodyCount,
+                                                                                           builtPrefixMissing );
+
+    if ( sourceChanged )
+    {
+        // Invariant: establish the bank identity once. Missing records beyond
+        // builtAllBodyCount are pending work, not evidence that the source
+        // changed; treating them as a mismatch restarts at body zero forever.
+        prediction.trajectoryBuild.allBodyFrameCount = 0;
+        prediction.trajectoryBuild.builtAllBodyCount = 0;
+        prediction.trajectoryBuild.allBodyBodyCount = bodyCount;
+        prediction.trajectoryBuild.allBodyPaths = true;
+    }
 
     // Concept: every space-body record is independent of the contact-derived
     // future tree. Extending a prediction therefore appends only the new frame
@@ -727,7 +763,7 @@ void UpdateReplayPredictionAllBodyTrajectories( RunReplayPredictionState& predic
         }
     }
 
-    const std::size_t firstBody = sourceChanged ? 0u : prediction.trajectoryBuild.builtAllBodyCount;
+    const std::size_t firstBody = prediction.trajectoryBuild.builtAllBodyCount;
     std::size_t completedBodies = bodyCount;
 
     for ( std::size_t bodyIndex = firstBody; bodyIndex < bodyCount; ++bodyIndex )
@@ -757,6 +793,7 @@ void UpdateReplayPredictionAllBodyTrajectories( RunReplayPredictionState& predic
 
     prediction.trajectoryBuild.allBodyFrameCount = frameCount;
     prediction.trajectoryBuild.builtAllBodyCount = completedBodies;
+    prediction.trajectoryBuild.allBodyBodyCount = bodyCount;
     prediction.trajectoryBuild.allBodyPaths = true;
 }
 
@@ -774,6 +811,7 @@ void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction
         prediction.trajectoryBuild.builtNodeCount = 0;
         prediction.trajectoryBuild.allBodyFrameCount = 0;
         prediction.trajectoryBuild.builtAllBodyCount = 0;
+        prediction.trajectoryBuild.allBodyBodyCount = 0;
         prediction.trajectoryBuild.allBodyPaths = false;
         return;
     }
@@ -814,6 +852,19 @@ void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction
                                prediction.trajectoryBuild.childFrameCount > frameCount ||
                                prediction.trajectoryBuild.builtNodeCount > nodeCount;
 
+    if ( sourceChanged )
+    {
+        // Invariant: establish the committed-bank identity before yielding.
+        // builtNodeCount then owns the exact next whole-node resume boundary;
+        // the visible completed-build snapshot remains separate until closure.
+        prediction.trajectoryBuild.rootId = rootId;
+        prediction.trajectoryBuild.usingBuildFrames = usingBuildFrames;
+        prediction.trajectoryBuild.childFrameCount = frameCount;
+        prediction.trajectoryBuild.builtNodeCount = 0u;
+        prediction.trajectoryBuild.topologyVersion = topologyVersion;
+        prediction.trajectoryBuild.valid = true;
+    }
+
     if ( !sourceChanged && prediction.trajectoryBuild.childFrameCount == frameCount &&
          prediction.trajectoryBuild.builtNodeCount == nodeCount )
     {
@@ -843,10 +894,17 @@ void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction
         }
     }
 
-    const std::size_t firstNode = sourceChanged ? 0u : prediction.trajectoryBuild.builtNodeCount;
+    const std::size_t firstNode = prediction.trajectoryBuild.builtNodeCount;
+    std::size_t completedNodeCount = nodeCount;
 
     for ( std::size_t i = firstNode; i < nodeCount; ++i )
     {
+        if ( ReplayPredictionSchedulingOperations::ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+        {
+            completedNodeCount = i;
+            break;
+        }
+
         const RunReplayPathTraceNode& node = prediction.futureNodeCache.futureNodes[i];
 
         if ( !BuildReplayPredictionChildTrajectoryRecord( prediction, frames, frameCount, node, i, usingBuildFrames,
@@ -858,18 +916,62 @@ void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction
         }
     }
 
-    if ( sourceChanged )
-    {
-        prediction.trajectoryBuild.rootId = rootId;
-        prediction.trajectoryBuild.usingBuildFrames = usingBuildFrames;
-        prediction.trajectoryBuild.valid = true;
-    }
-
     // New causal nodes are appended records. A version change alone therefore
     // advances readiness without replacing already-published record prefixes.
     prediction.trajectoryBuild.topologyVersion = topologyVersion;
     prediction.trajectoryBuild.childFrameCount = frameCount;
-    prediction.trajectoryBuild.builtNodeCount = nodeCount;
+    prediction.trajectoryBuild.builtNodeCount = completedNodeCount;
+}
+
+bool TryFlipReplayPredictionCommittedPublication( RunReplayPredictionState& prediction, Physics::PhysicsSceneObjectId rootId,
+                                                  std::size_t frameCount, ReplayFrameIndex revealFrame,
+                                                  const std::chrono::steady_clock::time_point& budgetStart,
+                                                  double budgetMilliseconds )
+{
+    if ( !prediction.committedPublication.pending )
+    {
+        return false;
+    }
+
+    const ReplayPredictionTrajectoryBank replacementBank = prediction.committedPublication.ReplacementTrajectoryBank();
+    const bool replacementUsesBuildBank = replacementBank == ReplayPredictionTrajectoryBank::Build;
+    const std::size_t nodeCount = (std::min)( prediction.futureNodeCache.futureNodes.size(),
+                                              static_cast<std::size_t>( REPLAY_PATH_MAX_FUTURE_NODES ) );
+    ReplayPredictionChildMarkerScanState& markerScan = prediction.futureNodeCache.childMarkerScan;
+    const bool markerPublicationReady = nodeCount == 0u ||
+                                        markerScan.Matches( prediction.build.generationBeginCount,
+                                                            prediction.futureNodeCache.futureNodesTopologyVersion, nodeCount,
+                                                            rootId, frameCount, revealFrame, replacementUsesBuildBank );
+
+    if ( !prediction.FutureTreePublicationComplete( prediction.trajectoryBuild, rootId, replacementUsesBuildBank,
+                                                    frameCount ) ||
+         !markerPublicationReady ||
+         ReplayPredictionSchedulingOperations::ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+    {
+        return false;
+    }
+
+    // Invariant: topology, child/all-body trajectories, retained markers, and
+    // the active trajectory prefix now describe one committed generation. The
+    // obsolete visible records become dormant in this same reader-visible flip.
+    // A hidden build bank is normalized to canonical committed keys so final
+    // identity and fingerprints do not depend on completion timing.
+    prediction.futureNodeCache.futureNodesBuiltFromBuildFrames = false;
+    prediction.trajectoryStore.CommitPredictionReplacementBank( replacementBank, REPLAY_TRAJECTORY_BUILD_BRANCH,
+                                                                static_cast<uint16_t>( REPLAY_PATH_MAX_FUTURE_NODES ) );
+    prediction.trajectoryBuild.usingBuildFrames = false;
+
+    if ( nodeCount > 0u )
+    {
+        // Why: the retained marker values already belong to this completed
+        // topology. Canonicalize only the bank key so the next idle frame does
+        // not repeat the bounded frame-by-node scan after a build-bank flip.
+        markerScan.Commit( prediction.build.generationBeginCount, prediction.futureNodeCache.futureNodesTopologyVersion,
+                           rootId, frameCount, revealFrame, false );
+    }
+
+    prediction.committedPublication.Reset();
+    return true;
 }
 
 bool ReplayPredictionBodyHasVisibleLinearMotion( const RunReplayPredictionBodySample& body )

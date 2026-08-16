@@ -25,9 +25,9 @@ Invariants:
   - Trail derivation writes only to caller-owned spans and never allocates.
 
 Related:
-  - ReplayPredictionPublication.cpp
-  - ReplayPredictionTopologyPublication.cpp
-  - ReplayPrediction.cpp
+  - SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.cpp
+  - SkullbonezSource/Runtime/Prediction/ReplayPredictionTopologyPublication.cpp
+  - SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
@@ -160,6 +160,8 @@ bool PublishReplayPredictionRootTrajectoryFrame( RunReplayPredictionState& predi
 bool PublishReplayPredictionBuildRootTrajectoryPrefix( RunReplayPredictionState& prediction,
                                                        std::size_t presentedFrameCount );
 bool RebuildReplayPredictionCommittedRootTrajectory( RunReplayPredictionState& prediction );
+bool RebuildReplayPredictionReplacementRootTrajectory( RunReplayPredictionState& prediction,
+                                                       ReplayPredictionTrajectoryBank replacementBank );
 bool CaptureReplayPredictionBaselineSnapshot( RunReplayPredictionState& prediction,
                                               const std::vector<RunReplayPredictionFrame>& frames, std::size_t frameCount,
                                               Physics::PhysicsSceneObjectId rootId, int rootModelIndex );
@@ -177,7 +179,18 @@ void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction
                                             bool usingBuildFrames, Physics::PhysicsSceneObjectId rootId,
                                             const std::chrono::steady_clock::time_point& budgetStart,
                                             double budgetMilliseconds );
+bool TryFlipReplayPredictionCommittedPublication( RunReplayPredictionState& prediction, Physics::PhysicsSceneObjectId rootId,
+                                                  std::size_t frameCount, ReplayFrameIndex revealFrame,
+                                                  const std::chrono::steady_clock::time_point& budgetStart,
+                                                  double budgetMilliseconds );
 bool ReplayPredictionBodyHasVisibleLinearMotion( const RunReplayPredictionBodySample& body );
+
+// Advances the production suffix scan to one coherent prefix. False means the
+// budget expired and the per-node cursors own the exact resume point.
+inline bool AdvanceReplayPredictionChildMarkerScan( ReplayPredictionChildMarkerScanState& scan, const RunReplayPredictionState& prediction,
+                                                    const std::vector<RunReplayPredictionFrame>& frames, std::size_t frameCount, ReplayFrameIndex revealFrame,
+                                                    uint32_t generation, Physics::PhysicsSceneObjectId targetId, bool usingBuildFrames,
+                                                    const std::chrono::steady_clock::time_point& budgetStart, double budgetMilliseconds );
 std::size_t BuildReplayPredictionAffectedBodyTrails( std::span<const RunReplayPredictionFrame> frames,
                                                      std::size_t frameCount, ReplayFrameIndex revealFrame,
                                                      Physics::PhysicsSceneObjectId rootId, int rootModelIndex,
@@ -188,9 +201,6 @@ bool ReplayPredictionBodyRestingPose( const std::vector<RunReplayPredictionFrame
                                       Physics::PhysicsSceneObjectId id, int modelIndexHint,
                                       Math::Vector::Vector3& outPosition, Math::Orientation::Quaternion& outOrientation );
 void ClearReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction );
-void RebuildReplayPredictionCommittedTreeAfterWorkerCompletion( RunReplayPredictionState& prediction,
-                                                                const SceneEntityStore& entities,
-                                                                Physics::PhysicsSceneObjectId rootId );
 void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const SceneEntityStore& entities,
                                      const Physics::ColliderStore& colliderStore, Physics::PhysicsSceneObjectId targetId,
                                      Physics::ModelRowHint targetModelRow, bool targetAvailable, double budgetMilliseconds,

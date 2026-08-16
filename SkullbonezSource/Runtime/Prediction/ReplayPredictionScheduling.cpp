@@ -148,14 +148,15 @@ std::size_t ReplayPredictionBuildPresentationFrameCountForRefresh( RunReplayPred
                                                                    Physics::PhysicsSceneObjectId requestedTargetId )
 {
     if ( requestedTargetId.value == 0 || prediction.simulation.targetId.value != requestedTargetId.value ||
-         prediction.simulation.frames.size() < 2u )
+         !prediction.HasCommittedFramePrefix() )
     {
         return 2u;
     }
 
     // Why: auto-refresh should replace the old future only after the rebuilding
     // prefix catches the causal story the user can already see.
-    const ReplayFrameIndex lastCommittedFrame = prediction.simulation.frames.back().frameIndex;
+    const ReplayFrameIndex lastCommittedFrame = prediction.simulation.frames[prediction.CommittedFrameCount() - 1u]
+                                                    .frameIndex;
     const ReplayFrameIndex revealFrame = ReplayPredictionRevealFrameIndex( prediction, lastCommittedFrame );
     return (std::max)( std::size_t { 2u }, static_cast<std::size_t>( revealFrame ) + 1u );
 }
@@ -188,7 +189,7 @@ void ReplayPrediction::WaitForJobIdle()
 
 bool ReplayPrediction::PromoteBuildPrefixToCommitted()
 {
-    if ( !m_state.BuildPrefixShouldBePresented() )
+    if ( !m_state.BuildPrefixHasBeenPresented() )
     {
         return false;
     }
@@ -201,16 +202,34 @@ bool ReplayPrediction::PromoteBuildPrefixToCommitted()
         return false;
     }
 
+    const std::size_t visibleFrameCount = m_state.build.presentationPublication
+                                              .PresentedCount( promotedFrameCount, m_state.build.buildFrames.size() );
+
+    // Invariant: promotion changes only frame storage ownership. Snapshot the
+    // actually presented build topology/trajectory bank before root rebuilding
+    // mutates the live cursor, then retarget its frame storage after the swap.
+    if ( !m_state.committedPublication.CaptureVisible( m_state.trajectoryBuild, m_state.futureNodeCache,
+                                                       m_state.simulation.targetModelRow, true, true, visibleFrameCount,
+                                                       m_state.trajectoryStore.publicationVersion ) )
+    {
+        return false;
+    }
+
     // Hazard: this is the Play-button ownership transfer. The worker has
     // released buildFrames before the visible prefix becomes committed state.
     m_state.build.schedule.Reset();
     m_state.build.building = false;
     m_state.build.complete = true;
-    m_state.simulation.frames.swap( m_state.build.buildFrames );
-    m_state.simulation.frames.resize( promotedFrameCount );
+    m_state.PromoteBuildFramesToCommitted( promotedFrameCount );
+    m_state.committedPublication.visibleFramesUseBuildBank = false;
     m_state.ResetBuildFramePublication();
 
     if ( !RebuildReplayPredictionCommittedRootTrajectory( m_state ) )
+    {
+        return false;
+    }
+
+    if ( !m_state.committedPublication.ActivateCaptured( m_state.build.generationBeginCount, promotedFrameCount ) )
     {
         return false;
     }
@@ -222,7 +241,7 @@ bool ReplayPrediction::PromoteBuildPrefixToCommitted()
     return true;
 }
 
-void ReplayPrediction::CancelJob( bool clearSamples )
+void ReplayPrediction::CancelJob( bool clearSamples, bool preserveVisibleSnapshot )
 {
     WaitForJobIdle();
     m_state.build.schedule.Reset();
@@ -243,6 +262,13 @@ void ReplayPrediction::CancelJob( bool clearSamples )
     m_state.ResetBuildFramePublication();
     m_state.trajectoryBuild = RunReplayPredictionTrajectoryBuildState {};
 
+    // Lifetime: same-target replacement failures keep the captured presentation
+    // selected until a later prefix replaces it. Other cancellation paths retire it.
+    if ( !preserveVisibleSnapshot )
+    {
+        m_state.committedPublication.Reset();
+    }
+
     if ( clearSamples )
     {
         m_state.build.supersededRestartCount = 0;
@@ -251,7 +277,11 @@ void ReplayPrediction::CancelJob( bool clearSamples )
         m_state.simulation.probeElapsedMs = 0.0;
         m_state.simulation.probeTicksCompleted = 0;
         m_state.simulation.calibratedModelCount = -1;
-        m_state.simulation.frames.clear();
+
+        // Why: invalidation is publication state, not storage retirement. The
+        // old committed bank becomes allocation-free scratch after the next
+        // swap, including when Predict-off interrupted a completed horizon.
+        m_state.InvalidateCommittedFrames();
         m_state.trajectoryStore.Clear();
         ClearFutureNodeCache();
     }

@@ -999,7 +999,7 @@ void HandleReplayPredictionPressed( ReplayPrediction& predictionOwner, ReplayScr
             scrubber.SetHistoricalSamplePaused( false );
         }
 
-        predictionOwner.ClearCache();
+        predictionOwner.ClearCacheFromReplayInput();
     }
 
     predictionOwner.MarkDirty();

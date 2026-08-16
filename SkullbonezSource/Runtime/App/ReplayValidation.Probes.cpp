@@ -105,7 +105,7 @@ float ReplayProbePredictionFutureSeconds( const RunReplayPredictionState& predic
     }
     else
     {
-        frames = prediction.simulation.frames;
+        frames = prediction.CommittedFrames();
     }
 
     return frames.size() < 2 ? 0.0f : static_cast<float>( frames.back().frameIndex ) * PHYSICS_FIXED_DT;
