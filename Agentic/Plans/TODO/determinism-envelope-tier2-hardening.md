@@ -1,7 +1,7 @@
 # Determinism Envelope Tier-2 Hardening
 
 Date: 2026-08-15
-Status: Active. 1/9 tasks complete.
+Status: Active. 2/9 tasks complete.
 Impact area: Maths transcendentals, Physics pose integration, ragdoll neck
 constraint, determinism tooling, portable CPU test target, CI lanes
 Owner: Physics determinism envelope
@@ -221,7 +221,7 @@ violation if one exists.
   call sites execute. T1 therefore owns removal even though this host's current
   varied-scene output matches the tier-1 golden exactly.
 
-- [ ] **T1 — Add the deterministic transcendental owner with a byte-exact oracle.**
+- [x] **T1 — Add the deterministic transcendental owner with a byte-exact oracle.**
   Introduce one owner under `SkullbonezSource/Maths` providing
   `ComputeCosSin(angle)` and `Atan2(y, x)`, following the ownership and numerical
   strategy of modern Box2D/Box3D: fixed repository-controlled approximations,
@@ -240,6 +240,46 @@ violation if one exists.
   Commit input-to-output bit-pattern tables and assert byte-equality against
   them, so a toolchain upgrade that re-associates either approximation fails
   loudly. Adopt nothing in this phase; physics output must not change.
+
+  Evidence (2026-08-17): the existing varied-scene regression instrumentation
+  already emits `omegaMag` for every body/frame row, so T1 derived the input
+  distribution from all three committed omega-bearing gated CSVs without
+  touching a Physics source file: varied (44,400 rows), shooting-reaction (640
+  rows), and three-body chaos (360 rows). Across the 45,400 rows, 22,570 rotate;
+  at the fixed 1/120-second step, `omegaMag * deltaSeconds` has p50 `0`, p90
+  `0.0190475`, p99 `0.0366666667`, p99.9 `0.0416666667`, and maximum
+  `4.2022033333` radians. The maximum is `target_box_08` at shooting-reaction
+  frame 0 (`omegaMag = 504.2644`); the three-body baseline has zero angular
+  speed throughout. The three bullet-sweep goldens contain collision-time rows
+  rather than body-state/omega samples and therefore do not contribute values
+  to this measured distribution.
+
+  `Maths/DeterministicMath` now owns `ComputeCosSin` and `Atan2`, adapted from
+  Box3D commit `30c67b5e6d0a3a66f0f506c69ce9e9e0587e3b7c` with retained MIT terms.
+  SkullbonezCore replaces `remainderf` with bounded subtraction and certifies
+  `ComputeCosSin` over the closed interval `[-64*pi, 64*pi]`; the measured
+  regression maximum is about 2.1% of the positive certified limit. The owner
+  uses only arithmetic, comparison, and `sqrtf`, and the Maths project's forced
+  floating-point contract keeps contraction disabled.
+
+  A 1,000,001-point MSVC binary32 sweep over the certified cosine/sine domain
+  measured maximum coefficient error `0.00166492605` and maximum angular error
+  `0.00170106891` radians. A 1,000,001-point full-circle Atan2 sweep measured
+  maximum angular error `0.0000277435148` radians. The committed focused tests
+  enforce slightly wider `0.00167`, `0.00171`, and `0.000028` bounds, exercise
+  all 64 actual adjacent repeated-subtraction transition pairs and their outer
+  neighboring floats, cover the measured input envelope, all quadrants and
+  axes, the signed-zero canonicalization, and near-parallel/anti-parallel
+  inputs. Fifteen cosine/sine rows and twenty Atan2 rows pin exact input/output
+  binary32 bits, including the true measured maximum.
+
+  `tools\validate_tests.bat` passed 569 cases and 2,479,868 assertions in
+  Profile. The focused Debug run passed 6 cases and 251 assertions. The strict
+  glossary inventory reports 1,001 unique definitions with no duplicate or
+  unruled term, and the build-configuration inventory reports 0 dropped
+  inheritance and 0 blocking diagnostics. The touched-source comment audit
+  inspected 3/3 files with 0 deferred. No Physics file or call site changed, so
+  the byte-exact physics baseline remains untouched in T1.
 
 - [ ] **T2 — Add the determinism math policy gate.**
   Add `tools/check_determinism_math_policy.py` and
@@ -428,12 +468,11 @@ Resolve these inside the owning phase; do not treat them as settled.
 1. Does the statically linked UCRT dispatch on processor features for `sinf`,
    `cosf`, or `acosf`? T0 answers this and determines whether Gap 1 is live or
    latent.
-2. What is the true upper bound of `omegaMag * deltaSeconds` across the gated
-   regression content? T1's approximation domain depends on the measurement, and
-   a spinning body at a realistic angular velocity produces an argument large
-   enough that approximation error is not automatically negligible. This
-   measurement validates range reduction and error bounds; it does not reopen
-   the approved exponential-map integration shape.
+2. Resolved by T1: the true observed upper bound of `omegaMag * deltaSeconds`
+   across all three omega-bearing gated regression CSVs is `4.2022033333`
+   radians (`target_box_08`, shooting-reaction frame 0). The measurement
+   validates range reduction and error bounds; it does not reopen the approved
+   exponential-map integration shape.
 3. Does removing the `omegaMag > 0.0001f` branch change sleep or wake behavior
    for near-stationary bodies? This must be measured, not assumed, before the T3
    baseline transition is presented.

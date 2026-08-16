@@ -11,6 +11,14 @@ would add more moving parts than the dependency itself.
 - Header: https://raw.githubusercontent.com/doctest/doctest/v2.4.12/doctest/doctest.h
 - License: MIT
 
+## Box3D Deterministic Math
+
+`SkullbonezSource/Maths/DeterministicMath.cpp` adapts the deterministic
+`b3ComputeCosSin` and `b3Atan2` algorithms from Box3D commit
+`30c67b5e6d0a3a66f0f506c69ce9e9e0587e3b7c`. The engine owns a different
+bounded range-reduction policy and API; the retained upstream MIT terms are in
+`box3d_math_LICENSE.txt`.
+
 ## Development Tool Dependencies
 
 Dear ImGui and Tracy are pinned Git submodules used only by the
@@ -48,6 +56,8 @@ all seven sources and do not import the property sheet.
 
 Current license SHA-256 values:
 
+- Box3D adapted deterministic math `box3d_math_LICENSE.txt`:
+  `DA5E31A26BF3CFD5BA5C96D6823E480128C81E76C107EF9D3EE5D94789184B90`
 - Dear ImGui `LICENSE.txt`:
   `F20418B409E53C8C9F4E90917FF395554A60320D4DFBF833DA89B339CAD8628A`
 - Tracy `LICENSE`:

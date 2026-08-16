@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-17
-Status: Two active plans; 11/24 tasks complete
+Status: Two active plans; 12/24 tasks complete
 
 ## Owner Direction
 
@@ -42,7 +42,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Determinism Envelope Tier-2 Hardening | `TIER2_DETERMINISM` | 9 | 1 | `TODO/determinism-envelope-tier2-hardening.md` |
+| Determinism Envelope Tier-2 Hardening | `TIER2_DETERMINISM` | 9 | 2 | `TODO/determinism-envelope-tier2-hardening.md` |
 | Catto Divergence Repairs | `CATTO_REPAIRS` | 6 | 1 | `TODO/catto-divergence-repairs.md` |
 
 ## Parked, Backlog, And Completed Plans
@@ -76,8 +76,9 @@ states elsewhere, and both are recorded rather than silently corrected:
 
 ## Binding Order
 
-1. `TIER2_DETERMINISM` T1, T2 — add the deterministic transcendental owner and
-   the math policy gate. Causal C2's
+1. `TIER2_DETERMINISM` T2 — add the deterministic math policy gate. T1's
+   repository-owned transcendental seam and exact-bit oracle are complete.
+   Causal C2's
    presentation-only slerp becomes an explicit `retain-owner` site under T2; it
    does not block completing Causal first because it is not physics-reachable.
 2. `TIER2_DETERMINISM` T5 through T8 — portable target, test split, Linux
@@ -102,5 +103,5 @@ tests must pin field mapping and availability, not pre-Catto impulse values.
 
 ## Portfolio Progress
 
-11/24 tasks complete across two active plans. Causal C0-C8, Determinism T0, and
-Catto CD0 are complete; Determinism T1 is the next selectable task.
+12/24 tasks complete across two active plans. Causal C0-C8, Determinism T0-T1,
+and Catto CD0 are complete; Determinism T2 is the next selectable task.

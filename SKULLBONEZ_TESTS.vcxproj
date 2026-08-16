@@ -204,6 +204,7 @@
     <ClCompile Include="SkullbonezTests\TestApplicationExitState.cpp" />
     <ClCompile Include="SkullbonezTests\TestConfig.cpp" />
     <ClCompile Include="SkullbonezTests\TestConvexHull.cpp" />
+    <ClCompile Include="SkullbonezTests\TestDeterministicMath.cpp" />
     <ClCompile Include="SkullbonezTests\TestDeterminism.cpp" />
     <ClCompile Include="SkullbonezTests\TestDx12OnlyRuntime.cpp" />
     <ClCompile Include="SkullbonezTests\TestDx12CachedPsoStore.cpp" />
