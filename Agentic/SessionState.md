@@ -1,8 +1,8 @@
 # Session State
 
 Date: 2026-08-16
-Branch: `main`
-Status: Four active plans; 4/29 tasks complete
+Branch: `codex/replay-prediction-adversarial-fixes`
+Status: Five active plans; 5/31 tasks complete
 
 Determinism Envelope Tier-2 Hardening (9 tasks), Causal Event Inspection
 (9 tasks), and Catto Divergence Repairs (6 tasks) are registered under
@@ -21,6 +21,15 @@ longer observed at all. The Automation probe pins trajectory fingerprint
 `0x0702E1DFBB57F16D` and submitted geometry `0xF06608D189EFEEAD`. Full per-phase
 evidence lives in `Agentic/Plans/TODO/replay-prediction-runtime-spike-reduction.md`
 under Current RP4 evidence; it is not duplicated here.
+
+Replay Prediction Adversarial Repair is active at 1/2 tasks complete under
+`Agentic/Plans/TODO/replay-prediction-adversarial-repair.md`. Owner direction
+selects all five committed-frame readers, a standalone repair plan, and two
+commits. AR0 repairs Automation reader boundaries, visual-capture closure, and
+semantic allocation-policy evidence. AR1 is binding next and owns best-fit
+dormant reuse, resumable whole-node child append, coherent marker keying, the
+real-run retained-memory ruling, production-path equivalence tests, and final
+closure without baseline refresh.
 
 Source Modernization Sweep, Dense Pile Sleep Resolution, Broadphase Dense
 Dedup Restoration, and Look Lab Random Style Authoring remain closed by owner
@@ -46,6 +55,11 @@ as covering the merged tree.
 (`5dd31893d`) and was already an ancestor of `main`; the remote branch is stale.
 
 ## Next Work
+
+`REPLAY_ADVERSARIAL` AR1. Close the active post-merge repair and delete its
+completed plan from the live queue in the same commit. The final tree must keep
+the original spike-reduction plan's RP4 timing gate informational and preserve
+all established visual and replay fingerprints.
 
 `TIER2_DETERMINISM` T0. Establish the pre-change envelope and determine whether
 the statically linked UCRT dispatches on processor features for `sinf`, `cosf`,

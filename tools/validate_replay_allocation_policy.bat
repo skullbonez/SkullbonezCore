@@ -22,6 +22,8 @@
 @rem     inherit success from an earlier run.
 @rem   - Exit 0 requires both zero guard violations and a completed interaction
 @rem     report; a clean early exit cannot create a false pass.
+@rem   - Report proof is semantic JSON: at least 180 frames, a successful frame
+@rem     180 path assertion, and exactly two completed prediction generations.
 @rem
 @rem Related:
 @rem   - SkullbonezData/interaction/replay_allocation_policy_two_generation.json
@@ -30,6 +32,8 @@
 @echo off
 setlocal
 cd /d "%~dp0\.."
+call tools\find_python.bat
+if errorlevel 1 exit /b 1
 
 echo [replay-allocation-policy] Building Automation...
 call tools\validate_build.bat Automation
@@ -58,19 +62,9 @@ if errorlevel 1 (
     echo FAIL: zero reserve-policy evidence is missing. See "%LOG%"
     exit /b 1
 )
-findstr /C:"\"ok\": true" "%REPORT%" >nul
+"%PYTHON_EXE%" -c "import json,sys; report=json.load(open(sys.argv[1], encoding='utf-8')); final=report.get('finalState', {}); assertions=report.get('assertions', []); visible=any(row.get('frame') == 180 and row.get('name') == 'predictionPathVisible' and row.get('passed') is True for row in assertions); ok=report.get('ok') is True and report.get('framesRun', 0) >= 180 and visible and final.get('predictionGenerationCount') == 2; sys.exit(0 if ok else 1)" "%REPORT%"
 if errorlevel 1 (
-    echo FAIL: interaction report did not complete successfully. See "%REPORT%"
-    exit /b 1
-)
-findstr /R /C:"\"framesRun\": 18[01]" "%REPORT%" >nul
-if errorlevel 1 (
-    echo FAIL: interaction report ended before the second generation proof. See "%REPORT%"
-    exit /b 1
-)
-findstr /C:"\"predictionGenerationCount\": 2" "%REPORT%" >nul
-if errorlevel 1 (
-    echo FAIL: interaction report did not prove exactly two prediction generations. See "%REPORT%"
+    echo FAIL: interaction report did not prove the completed two-generation sequence. See "%REPORT%"
     exit /b 1
 )
 

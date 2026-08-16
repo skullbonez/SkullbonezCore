@@ -26,6 +26,8 @@ Invariants:
     replay state with hidden direct mutations.
   - Assertions and reports consume ReplayAutomationView; replay mutation uses
     named owner commands and never a mutable prediction/recorder reference.
+  - Prediction assertions read only the committed frame prefix; retained rows
+    beyond that prefix are allocation storage, not observable future state.
   - Published samples are frame-local; this file must not retain their spans or
     pointers beyond the synchronous automation turn.
   - Surface selection accepts Legacy or ImGui only; one frame can publish at
@@ -3032,8 +3034,9 @@ InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
     }
     case RunInteractionAutomationAssertKind::PredictionPresentedRootVelocityDeltaMin:
     {
+        const std::span<const RunReplayPredictionFrame> committedFrames = replay.prediction.CommittedFrames();
         float velocityDelta = 0.0f;
-        bool comparable = replay.prediction.BuildPrefixHasBeenPresented() && !replay.prediction.simulation.frames.empty() &&
+        bool comparable = replay.prediction.BuildPrefixHasBeenPresented() && !committedFrames.empty() &&
                           !replay.prediction.build.buildFrames.empty();
 
         if ( comparable )
@@ -3055,7 +3058,7 @@ InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
 
             Vector3 committedVelocity = SkullbonezCore::Math::Vector::ZERO_VECTOR;
             Vector3 replacementVelocity = SkullbonezCore::Math::Vector::ZERO_VECTOR;
-            comparable = findTargetVelocity( replay.prediction.simulation.frames.front(), committedVelocity ) &&
+            comparable = findTargetVelocity( committedFrames.front(), committedVelocity ) &&
                          findTargetVelocity( replay.prediction.build.buildFrames.front(), replacementVelocity );
 
             if ( comparable )
@@ -3076,7 +3079,7 @@ InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
                                                1u;
 
         const bool complete = prediction.build.complete && !prediction.build.building &&
-                              prediction.simulation.frames.size() == expectedFrameCount;
+                              prediction.CommittedFrameCount() == expectedFrameCount;
 
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( complete );

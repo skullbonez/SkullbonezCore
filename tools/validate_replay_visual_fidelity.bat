@@ -1,13 +1,30 @@
+@rem
+@rem File: tools/validate_replay_visual_fidelity.bat
+@rem Purpose:
+@rem   Runs the immutable 200-box prediction-visual oracle and its false-pass
+@rem   controls.
+@rem
+@rem Summary:
+@rem   One hidden Automation engine process generates prediction exactly once.
+@rem   Every later check is a non-engine CPU or durable-artifact comparison.
+@rem
+@rem Glossary:
+@rem   Generation: Single future-simulation build triggered by the interaction
+@rem     script; offline checks inspect its report and artifact bytes.
+@rem
+@rem Invariants:
+@rem   - A gate invocation starts exactly one SKULLBONEZ_CORE process.
+@rem   - That process presents one reveal and exits without advancing the live
+@rem     scene.
+@rem   - The immutable approved manifest is the independent determinism oracle.
+@rem   - Generated report, log, and artifact paths are cleared before launch so
+@rem     an early process exit cannot reuse evidence from a previous invocation.
+@rem
+@rem Related:
+@rem   - tools/check_replay_visual_fidelity.py
+@rem   - SkullbonezData/interaction/prediction_ragdoll_wall_200_full_reveal.json
+@rem
 @echo off
-REM File: tools/validate_replay_visual_fidelity.bat
-REM Purpose: Run the immutable 200-box prediction-visual oracle and its controls.
-REM Summary: One hidden Automation engine process generates prediction exactly
-REM once. Every later check is a non-engine CPU/artifact comparison.
-REM Glossary: Generation is the single future-simulation build triggered by the
-REM interaction script; offline checks inspect its report and artifact bytes.
-REM Invariant: A gate invocation starts exactly one SKULLBONEZ_CORE process.
-REM That process presents one reveal and exits without advancing the live scene.
-REM The immutable approved manifest is the independent determinism oracle.
 setlocal
 cd /d "%~dp0\.."
 
@@ -26,6 +43,10 @@ if errorlevel 1 exit /b %errorlevel%
 if not exist TestOutput\validation\replay_visual_fidelity mkdir TestOutput\validation\replay_visual_fidelity
 set REPORT=TestOutput\validation\replay_visual_fidelity\full_reveal_probe_profile.json
 set LOG=TestOutput\validation\replay_visual_fidelity\full_reveal_probe_profile.log
+set ARTIFACT=TestOutput\validation\replay_visual_fidelity\full_reveal_probe_profile.skreplay
+if exist %REPORT% del /q %REPORT%
+if exist %LOG% del /q %LOG%
+if exist %ARTIFACT% del /q %ARTIFACT%
 
 echo [replay-visual-fidelity] Authoritative run: the only engine process and prediction generation...
 REM The prediction horizon remains the approved 20 seconds. Recording keeps a
