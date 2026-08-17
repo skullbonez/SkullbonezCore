@@ -48,18 +48,22 @@ Status: Three active plans; 24/47 tasks complete
   time interval. Its deterministic physics and replay candidates are preserved
   without refreshing goldens. R2 stages (b)-(d) and speculative contacts remain
   outside the active ledger.
-- Deterministic Trigonometry Adoption is registered after Catto by owner
-  direction on 2026-08-17. It inventories all 120 direct CPU production
-  sine/cosine calls, qualifies float and double deterministic owners, migrates
-  callers by risk, and closes with exact-tick headless solar-system
-  fast-forward evidence rather than increasing `dt` or relying on the runtime
-  time-scale cap.
+- Deterministic Trigonometry Adoption is registered last in the active order by
+  owner direction. It inventories all 120 direct CPU production sine/cosine
+  calls, qualifies float and double deterministic owners, and migrates callers
+  only where the approximation satisfies their measured contract. Platform
+  calls may remain when it does not, but each retained site requires a nearby
+  source explanation and an exact validation ruling that rejects additions or
+  changed sites. The plan closes with exact-tick headless solar-system fast-
+  forward evidence rather than increasing `dt` or relying on the runtime time-
+  scale cap.
 - Continuous Orbital Forecast was reactivated by owner direction on
-  2026-08-17. It follows deterministic trig and owns the separate interactive
-  continuous prediction mode, coherent rolling 120-second path window, and
-  observed-stability diagnostics without changing bounded `PREDICT`.
-- Predicted Solver Cause Hierarchy was registered last by owner direction on
-  2026-08-18. It restores the selected-object contact cascade in both replay
+  2026-08-17. It follows predicted solver detail and owns the separate
+  interactive continuous prediction mode, coherent rolling 120-second path
+  window, and observed-stability diagnostics without changing bounded
+  `PREDICT`.
+- Predicted Solver Cause Hierarchy is first in the active order by owner
+  direction. It restores the selected-object contact cascade in both replay
   detail modes and adds an on-by-default High Detail timeline toggle for exact
   predicted Body -> Manifold -> SolverRow inspection. Low remains the compact
   capture/playback mode, hides causal inspection, and releases all exact-detail
@@ -71,9 +75,9 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Deterministic Trigonometry Adoption | `TRIG_DETERMINISM` | 8 | 0 | `TODO/deterministic-trigonometry-adoption.md` |
-| Continuous Orbital Forecast | `ORBIT_FORECAST` | 7 | 0 | `TODO/continuous-orbital-forecast.md` |
 | Predicted Solver Cause Hierarchy | `PREDICT_SOLVER_DETAIL` | 8 | 0 | `TODO/predicted-solver-cause-hierarchy.md` |
+| Continuous Orbital Forecast | `ORBIT_FORECAST` | 7 | 0 | `TODO/continuous-orbital-forecast.md` |
+| Deterministic Trigonometry Adoption | `TRIG_DETERMINISM` | 8 | 0 | `TODO/deterministic-trigonometry-adoption.md` |
 
 ## Parked, Backlog, And Completed Plans
 
@@ -106,16 +110,17 @@ states elsewhere, and both are recorded rather than silently corrected:
 
 ## Binding Order
 
-1. `TRIG_DETERMINISM` DT0 through DT7 — widen static enforcement, establish
-   A/B and exact-tick solar evidence before replacement, certify float and
-   double owners, migrate callers by risk, then close the production surface.
-2. `ORBIT_FORECAST` OF0 through OF6 — ratify the authored stability contract,
-   add coherent circular publication and continuous isolated prediction, then
-   wire Planning-owned diagnostics and rolling orbital presentation.
-3. `PREDICT_SOLVER_DETAIL` PSD0 through PSD7 — preserve the compact Low mode
+1. `PREDICT_SOLVER_DETAIL` PSD0 through PSD7 — preserve the compact Low mode
    and selected-root causal topology, then add bounded exact predicted solver
    evidence, mode-aware archives, observable release, and the High Detail
    operator workflow.
+2. `ORBIT_FORECAST` OF0 through OF6 — ratify the authored stability contract,
+   add coherent circular publication and continuous isolated prediction, then
+   wire Planning-owned diagnostics and rolling orbital presentation.
+3. `TRIG_DETERMINISM` DT0 through DT7 — widen static enforcement, establish
+   A/B and exact-tick solar evidence, certify deterministic owners, migrate only
+   callers whose contracts the approximation satisfies, and retain any proved
+   platform exceptions under exact source comments and validation rulings.
 
 `CAUSAL_INSPECT` no longer re-steps an old frame to regenerate solver detail, so
 it does not consume the tier-2 determinism guarantee and has no ordering
@@ -126,15 +131,17 @@ physics-reachable Maths owner.
 `CATTO_REPAIRS` changes the solver values the causal panel may display, but the
 panel reads exact retained values rather than freezing expected numbers. Its
 tests must pin field mapping and availability, not pre-Catto impulse values.
-`PREDICT_SOLVER_DETAIL` follows `ORBIT_FORECAST` so bounded and continuous
-prediction presentation policies are already explicit before solver evidence
-is attached. It must not feed per-tick solver evidence into the continuous
-forecast or infer all-body presentation from generic Physics force state.
+`PREDICT_SOLVER_DETAIL` runs against the current bounded prediction owner before
+`ORBIT_FORECAST` adds continuous publication. The later forecast work must not
+feed per-tick solver evidence into its continuous path or infer all-body
+presentation from generic Physics force state. `TRIG_DETERMINISM` runs last so
+its inventory and numerical evidence cover the final production call surface
+left by both prediction plans.
 `future_physics.md` remains intentionally absent from this ledger.
 
 ## Portfolio Progress
 
 24/47 tasks complete with three active plans. Causal C0-C8, Determinism T0-T8,
-and Catto CD0-CD5 are complete. Deterministic Trigonometry DT0-DT7 is next, then
-Continuous Orbital Forecast OF0-OF6, then Predicted Solver Cause Hierarchy
-PSD0-PSD7.
+and Catto CD0-CD5 are complete. Predicted Solver Cause Hierarchy PSD0-PSD7 is
+next, then Continuous Orbital Forecast OF0-OF6, then Deterministic Trigonometry
+DT0-DT7.

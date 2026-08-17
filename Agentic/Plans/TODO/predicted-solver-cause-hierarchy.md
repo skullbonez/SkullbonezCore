@@ -5,15 +5,14 @@ Status: Registered; 0/8 phases complete
 Impact area: Runtime Prediction and Planning, replay cause-tree UI/input,
 prediction archives, retained-memory reporting, tests, documentation, and visual QA
 Owner: Runtime Prediction detail retention with Planning-owned causal inspection
-Priority: Fourth and last in the active binding order, after `ORBIT_FORECAST`
+Priority: First in the active binding order
 Commit name: `PREDICT_SOLVER_DETAIL`
 
 ## Registration Note
 
 The owner directed registration in `Agentic/Plans/MASTER-PLAN.md` on
-2026-08-18, at the bottom of the active order after Continuous Orbital
-Forecast. This supersedes the earlier branch-local instruction not to edit the
-master ledger.
+2026-08-18, then moved this plan to the front of the active order. This
+supersedes the earlier branch-local instruction not to edit the master ledger.
 
 Plan authoring is documentation-only and requires no repository validation.
 Implementation follows the repo-local orchestrator skill when explicitly
