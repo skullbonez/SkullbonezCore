@@ -216,6 +216,20 @@ jobs:
           persist-credentials: false
           submodules: recursive
 
+      - name: Install pinned NuGet client
+        uses: NuGet/setup-nuget@fd55a6f3b34392fa83fde1454582407d8c714123 # v4.0
+        with:
+          nuget-version: 6.14.3
+
+      - name: Restore pinned PIX runtime package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          nuget restore packages.config -PackagesDirectory packages -NonInteractive
+          if ($LASTEXITCODE -ne 0) {
+            throw "Pinned PIX runtime restore failed (exit $LASTEXITCODE)"
+          }
+
       - name: Install pinned shader formatter
         shell: pwsh
         run: |
