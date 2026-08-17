@@ -6,9 +6,9 @@
 #   binary artifact into GPT or validation output.
 #
 # Summary:
-#   Replay artifacts are chunked binary files. This script reads only the
-#   requested tables or ranges and emits bounded text/JSON summaries for
-#   validation, debugging, and agent analysis.
+#   Replay artifacts are chunked binary files. Parsing keeps their bytes local;
+#   commands emit bounded table/range selections as text or JSON for validation,
+#   debugging, and agent analysis.
 #
 # Glossary:
 #   ReplayV2Artifact: Established API/file-family name for chunked .skreplay
@@ -70,6 +70,10 @@ TORNADO_CONFIG = struct.Struct("<BB2s" + ("f" * 14))
 TORNADO_SYSTEM_HEADER = struct.Struct("<BB2sI")
 TORNADO_VORTEX_CONFIG_BYTES = TORNADO_CONFIG.size + COUNTED_FLOAT.size * 9
 SOLVER_STATS = struct.Struct("<iiiiiiiff")
+# Nested solver-snapshot v3 order: topology ordinal, endpoint scene ids, two
+# local anchors, slack/stiffness/damping/accumulated impulse, group, flags. This
+# schema version is independent of outer replay artifact versions 2 through 5.
+POINT_JOINT_RECORD = struct.Struct("<3I10fIB")
 SOLVER_BODY = struct.Struct("<I" + ("f" * 21) + "5s3siHHff")
 VISUAL_PACKET_RECORD = struct.Struct("<" + ("Q" * 5) + ("I" * 9) + ("f" * 6) + ("Q" * 18) + ("I" * 13))
 
@@ -272,6 +276,7 @@ class SolverCheckpointInfo:
     debug_contact_count: int
     pipeline_trace_count: int
     collision_cell_key_count: int
+    point_joint_count: int
     bodies: list[dict[str, object]]
 
 
@@ -795,7 +800,7 @@ class ReplayV2:
             struct.Struct("<IiiBB2s")
         )
         reader.unpack(TORNADO_CONFIG)
-        if version < 1 or version > 2:
+        if version < 1 or version > 3:
             raise ReplayQueryError(f"unsupported solver snapshot version {version}")
         tornado_system_vortex_count = 0
         if version >= 2:
@@ -834,6 +839,7 @@ class ReplayV2:
         pipeline_trace_count = reader.u32()
         reader.skip(56 * pipeline_trace_count)
         collision_cell_key_count = ReplayV2._skip_counted(reader, COUNTED_I64)
+        point_joint_count = ReplayV2._skip_counted(reader, POINT_JOINT_RECORD) if version >= 3 else 0
         return {
             "version": int(version),
             "modelCount": int(model_count),
@@ -842,6 +848,7 @@ class ReplayV2:
             "debugContactCount": debug_contact_count,
             "pipelineTraceCount": pipeline_trace_count,
             "collisionCellKeyCount": collision_cell_key_count,
+            "pointJointCount": point_joint_count,
             "tornadoSystemVortexCount": tornado_system_vortex_count,
         }
 
@@ -945,6 +952,7 @@ class ReplayV2:
                     debug_contact_count=snapshot["debugContactCount"],
                     pipeline_trace_count=snapshot["pipelineTraceCount"],
                     collision_cell_key_count=snapshot["collisionCellKeyCount"],
+                    point_joint_count=snapshot["pointJointCount"],
                     bodies=body_records,
                 )
             )
@@ -1447,6 +1455,7 @@ class ReplayV2:
                         "debugContactCount": row.debug_contact_count,
                         "pipelineTraceCount": row.pipeline_trace_count,
                         "collisionCellKeyCount": row.collision_cell_key_count,
+                        "pointJointCount": row.point_joint_count,
                     },
                     "bodiesReturned": min(len(row.bodies), max(body_limit, 0)),
                     "bodies": row.bodies[: max(body_limit, 0)],

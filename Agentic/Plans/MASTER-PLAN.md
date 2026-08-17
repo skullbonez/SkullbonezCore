@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-18
-Status: Four active plans; 22/47 tasks complete
+Status: Four active plans; 23/47 tasks complete
 
 ## Owner Direction
 
@@ -32,7 +32,7 @@ Status: Four active plans; 22/47 tasks complete
   CandidatePairs CPU regression.
 - Look Lab Random Style Authoring is closed. No further work remains.
 - Catto Divergence Repairs is registered as live by owner direction on
-  2026-08-15. CD0-CD3 are complete. CD1 removes manifold-row multiplication
+  2026-08-15. CD0-CD4 are complete. CD1 removes manifold-row multiplication
   from position correction; its physics and replay candidates remain preserved,
   the same-scene attribution review is clear, and the owner accepted the
   improved simulation and authorized its physics-derived golden refresh on
@@ -40,8 +40,10 @@ Status: Four active plans; 22/47 tasks complete
   snapping, preserved the divergence executables, and refreshed the affected
   physics/replay goldens by explicit owner direction. CD3 replaced summed
   convergence with max-row stopping and preserved its deterministic physics and
-  replay divergences without refreshing goldens. R2 stage (a) and the local
-  partial-TOI R4 repair remain approved in that order. R2 stages (b)-(d) and
+  replay divergences without refreshing goldens. CD4 added scalar point-joint
+  warm starting plus durable v3 solver-checkpoint state and preserved its
+  deterministic physics and replay divergences without refreshing goldens. The
+  local partial-TOI R4 repair remains approved. R2 stages (b)-(d) and
   speculative contacts remain outside the active ledger.
 - Deterministic Trigonometry Adoption is registered after Catto by owner
   direction on 2026-08-17. It inventories all 120 direct CPU production
@@ -66,7 +68,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Catto Divergence Repairs | `CATTO_REPAIRS` | 6 | 4 | `TODO/catto-divergence-repairs.md` |
+| Catto Divergence Repairs | `CATTO_REPAIRS` | 6 | 5 | `TODO/catto-divergence-repairs.md` |
 | Deterministic Trigonometry Adoption | `TRIG_DETERMINISM` | 8 | 0 | `TODO/deterministic-trigonometry-adoption.md` |
 | Continuous Orbital Forecast | `ORBIT_FORECAST` | 7 | 0 | `TODO/continuous-orbital-forecast.md` |
 | Predicted Solver Cause Hierarchy | `PREDICT_SOLVER_DETAIL` | 8 | 0 | `TODO/predicted-solver-cause-hierarchy.md` |
@@ -102,10 +104,8 @@ states elsewhere, and both are recorded rather than silently corrected:
 
 ## Binding Order
 
-1. `CATTO_REPAIRS` CD4 through CD5 — CD0-CD3 are complete. Execute the remaining
-   approved order: R2 stage (a) only; and
-   the local R4 interval-consistency repair that preserves partial-TOI
-   advancement.
+1. `CATTO_REPAIRS` CD5 — CD0-CD4 are complete. Execute the local R4 interval-
+   consistency repair that preserves partial-TOI advancement.
 2. `TRIG_DETERMINISM` DT0 through DT7 — widen static enforcement, establish
    A/B and exact-tick solar evidence before replacement, certify float and
    double owners, migrate callers by risk, then close the production surface.
@@ -134,8 +134,9 @@ forecast or infer all-body presentation from generic Physics force state.
 
 ## Portfolio Progress
 
-22/47 tasks complete with four active plans. Causal C0-C8, Determinism T0-T8,
-and Catto CD0-CD3 are complete; Catto CD4 (R2(a) joint warm start) is next.
+23/47 tasks complete with four active plans. Causal C0-C8, Determinism T0-T8,
+and Catto CD0-CD4 are complete; Catto CD5 (R4 contact-interval consistency) is
+next.
 Deterministic Trigonometry DT0-DT7 follows Catto, then
 Continuous Orbital Forecast OF0-OF6, then Predicted Solver Cause Hierarchy
 PSD0-PSD7.

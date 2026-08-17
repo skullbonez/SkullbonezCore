@@ -175,7 +175,7 @@ PhysicsBodyHotState SolveAnchorCase( const Vector3& anchorForBodyA )
     joint.localAnchorA = anchorForBodyA;
     joint.localAnchorB = Vector3( 0.0f, 1.0f, 0.0f );
     joint.slack = 0.001f;
-    const std::array<PointJointConstraint, 1> constraints = { joint };
+    std::array<PointJointConstraint, 1> constraints = { joint };
     const std::array<uint8_t, 2> sleepState = { 0u, 0u };
     CHECK( Ragdoll::SolvePointJoints( bodies, constraints, sleepState, 1.0f / 120.0f ) );
 

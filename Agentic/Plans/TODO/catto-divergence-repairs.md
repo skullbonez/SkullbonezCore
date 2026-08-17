@@ -1,11 +1,11 @@
 # Catto Divergence Repairs
 
 Date: 2026-08-15
-Status: **Live — registered by owner direction 2026-08-15. 4/6 phases complete.**
+Status: **Live — registered by owner direction 2026-08-15. 5/6 phases complete.**
 Impact area: Physics contact solver, joints, CCD sequencing, terrain rest
 policy, physics baselines, tests, documentation
 Owner: Physics contact solver
-Priority: CD4 R2(a) joint accumulated-impulse warm start
+Priority: CD5 R4 local contact-interval consistency
 
 ## Scope Gate — Read First
 
@@ -212,7 +212,7 @@ so replay fidelity is a cumulative gate rather than an alternative one.
   responsibility moved to the sleep controller. Land as two commits.
 - [x] **CD3 — R3 termination criterion.** Max-based early-out; sum retained for
   diagnostics only.
-- [ ] **CD4 — R2(a) joint warm start only.** Cache the accumulated joint
+- [x] **CD4 — R2(a) joint warm start only.** Cache the accumulated joint
   impulse on the constraint handle and measure ragdoll sag under load. Stages
   (b) through (d) remain future work regardless of this phase's result.
 - [ ] **CD5 — R4 local interval consistency.** Preserve partial-TOI advancement
@@ -441,6 +441,87 @@ implementation, ownership, dependency, Replay, allocation, schema, or evidence
 blocker after correcting stale diagnostics and plan prose. Touched-source
 comment audit: 3/3 checked, 0 deferred; the two related reference documents
 were also reconciled.
+
+### CD4 Evidence — 2026-08-18
+
+R2(a) now retains one signed accumulated point-joint impulse on the stable
+constraint row, reapplies it along the current error axis on the row's first
+visit in solver iteration zero, and accumulates subsequent scalar deltas. Body,
+anchor, and solver-policy authoring changes invalidate the cache; group and flag
+edits preserve it. Prediction cloning copies the cached value bit-exactly. This
+phase does not claim a 3-DOF block, shared contact/joint PGS array, or revised
+softness model: R2(b) through R2(d) remain future work.
+
+The focused loaded-chain A/B ran ten dynamic links below a fixed anchor for 240
+steps at 120 Hz. Clearing the cache before every solve produced 0.0350838 metres
+final sag and 0.0500002 metres peak sag. Retaining it produced 0.0243788 metres
+final sag and 0.0441046 metres peak sag with 0.789728 accumulated impulse:
+approximately 30.5 percent less final sag and 11.8 percent less peak sag.
+
+Because the cache is next-step solver state, CD4 also advances solver snapshots
+to version 3. Capture, restore, recorder deltas, retained-memory sizing, solver
+hashes, and replay artifacts now carry the scalar cache. Artifact identity uses
+the constraint survivor ordinal plus durable body scene-object IDs and the
+authored descriptor rather than process-local handle generations. Restore
+preflights the complete topology before mutation; point-joint trimming is
+stable and happens while body handles remain live. Version 1 and 2 checkpoints
+explicitly cold-start live joint caches. Focused tests cover nonzero clone
+equality, solver-policy invalidation, historical temporal restore, preflight
+rejection without mutation, legacy cold restore, sparse recorder deltas, disk
+round trips, solver hashes, a cold Clear/recreate handle epoch, and trim order
+with a doomed constraint before two survivors. `tools\validate_tests.bat`
+passed 584 cases / 2,480,611 assertions. `tools\validate_replay_v2_artifact.bat`
+passed its 24-frame, two-body, one-branch, seven-event, one-cursor, one-
+checkpoint fixture, including legacy v2 and durable 57-byte v3 point-joint rows.
+
+`tools\validate_physics.bat` completed its Debug build, lifecycle smoke, and
+scene run before the intentionally immutable golden comparison reported the
+same 13,369-row mismatch first seen in CD3. The CD4 scene CSV and its repeat are
+byte-identical to each other and to the CD3 candidate because the varied scene
+contains no point joints. The preserved direct candidate under
+`TestOutput/validation/candidates/CATTO_REPAIRS_CD4/` has CORE hash
+`C6C96F68B4A86AC0C9CD8E8BDC18F943CFE34096D8228C2E33635A546F68934A`,
+TESTS hash
+`FD08CD6CBE4034A9A3EF463753AEC3577930C3A184706E4645E7CD46D870D7E7`,
+gate-log hash
+`96E38CA5A5F9AC67D735DAF6F9D6792A95C9CC180C95A58DE0844369D9B1D332`,
+and CSV hash
+`61D7EFC266A5740DC8FD71A0C8AA89F85B13703EE1193DCFFAF2F997AF4B86E7`.
+No CD4 golden was refreshed.
+
+The replay-visual gate passed its launcher proof, Automation build, and 17
+focused cases / 75 assertions before the intentionally immutable causal golden
+reported `topology[0].firstFrame` moving from 137 to 138. Against CD3, the CD4
+report retains 4,200 frames, 2,401 causal ticks, 2,401 visual ticks, 200
+topology nodes, target 1, and every topology identity field. Point-joint warm
+starting changes activation timing for 155 nodes: 138 later and 17 earlier,
+with deltas from -25 to +24 frames. The preserved candidate under
+`TestOutput/validation/candidates/CATTO_REPAIRS_CD4_REPLAY_VISUAL_FIDELITY/`
+has Automation CORE hash
+`774C227EE6F88806E6CCFA65BA572F0EFBF936F1EED3AD5A6A9EE46B1A17B0D5`,
+Profile TESTS hash
+`FD08CD6CBE4034A9A3EF463753AEC3577930C3A184706E4645E7CD46D870D7E7`,
+report hash
+`5345DED9550D7D95EE65A6D4D702C7D7BD3781009C5049B49A3103008CEC61C8`,
+capture-log hash
+`8806250C5F2501696000FA29E40D5F7A1FB0EB2AF518D34E1C75C7F1418057B6`,
+replay-artifact hash
+`59C44FF317E8D2AD731C325FD7B14EB8BB6CC4934540662250DBC72241BFC2E9`,
+and outer gate-log hash
+`1B754B8356E26C42D25D185F84E426180FC0D51B70AB59EE0BBD0CB14855FC85`.
+No CD4 replay golden was refreshed.
+
+`tools\validate_fast.bat` passed, including Debug/Profile/Automation builds,
+the dependency proof, and all seven governance inventories: 88/88 aggregate
+rulings, the sole extraction scar ruled, every wide signature ruled, 40/40
+complexity rulings, and build configuration, strict reachability, and glossary
+inventories with zero blockers. The strict two-generation allocation-policy
+probe passed after the final snapshot layout: solver snapshot high water is
+3,401,552 bytes (2.466112x headroom under 8 MiB) and recorder high water is
+16,223,044 bytes (2.068319x under 32 MiB). The independent
+`/root/catto_cd4_duck` re-review found no remaining implementation, lifecycle,
+schema, identity, trim, hashing, allocation, dependency, or evidence blocker.
+Touched-source comment audit: 19/19 checked, 0 deferred.
 
 ## Reference Sites
 

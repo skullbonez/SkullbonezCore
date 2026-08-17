@@ -2,16 +2,31 @@
 
 Date: 2026-08-18
 Branch: `nightrunner-18th-AUG-26`
-Status: Four active plans; 22/47 tasks complete
+Status: Four active plans; 23/47 tasks complete
 
 Catto Divergence Repairs (6 tasks), Deterministic Trigonometry Adoption
 (8 tasks), Continuous Orbital Forecast (7 tasks), and Predicted Solver Cause
 Hierarchy (8 tasks) are registered under `Agentic/Plans/TODO/`; Causal C0-C8,
-Determinism T0-T8, and Catto CD0-CD3 are complete. `MASTER-PLAN.md` carries the
-binding order: Catto CD4 next, deterministic trig following Catto, then
+Determinism T0-T8, and Catto CD0-CD4 are complete. `MASTER-PLAN.md` carries the
+binding order: Catto CD5 next, deterministic trig following Catto, then
 continuous orbital forecast, then predicted solver detail. The completed causal
 and determinism plans were deleted under the repository convention; Git history
 retains their phase evidence.
+
+Catto CD4 added scalar accumulated-impulse warm starting to point joints and
+proved a loaded ten-link chain reduces final sag by about 30.5 percent and peak
+sag by about 11.8 percent. Because the cache is next-step state, solver
+checkpoints now persist it through durable scene identity in version 3, with
+preflight-before-mutation restore, stable topology trimming, legacy cold-cache
+compatibility, sparse deltas, hashing, and cold Clear/recreate coverage. The
+full test gate passes 584 cases / 2,480,611 assertions; replay artifact and
+strict allocation gates pass with snapshot high water 3,401,552 bytes and
+recorder high water 16,223,044 bytes. The varied physics candidate remains
+byte-identical to CD3; replay timing moves for 155 nodes. Fresh executables,
+CSV, report, logs, and replay are preserved under
+`TestOutput/validation/candidates/CATTO_REPAIRS_CD4*`; no golden was refreshed.
+All governance inventories, the 19/19 touched-source comment audit, and the
+independent re-review are green.
 
 Predicted Solver Cause Hierarchy was registered last on 2026-08-18 after an
 adversarial plan review. Its High mode retains exact predicted Body -> Manifold
@@ -123,9 +138,9 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `CATTO_REPAIRS` CD4: add R2(a) accumulated joint-impulse warm starting
-on the constraint handle and measure ragdoll sag under load. Then execute R4.
-Preserve any new divergence
+Execute `CATTO_REPAIRS` CD5: define one explicit local contact interval for R4
+and use it consistently for Baumgarte scaling and friction impulse bounds while
+preserving the authored partial-TOI advancement. Preserve any new divergence
 executables by phase; the CD2 golden authorization does not pre-approve later
 phase movement. `future_physics.md` remains unregistered.
 

@@ -5,8 +5,9 @@ Purpose:
 
 Summary:
   Composes and sequences the extracted force, broadphase, narrowphase,
-  terrain, contact, sleep, and diagnostics owners. It retains only
-  cross-stage clocks and top-level sibling lanes.
+  terrain, contact, sleep, and diagnostics owners. It retains cross-stage
+  clocks, top-level sibling lanes, and handle-keyed point-joint rows whose
+  descriptor and warm-start state participate in byte-exact next-step replay.
 
 Glossary:
   SoA (Structure of Arrays): Data layout that stores each field in a separate
@@ -307,11 +308,14 @@ void ReserveReplaySolverSnapshotVector( std::vector<T>& values, std::size_t requ
     VISIT( persistentContacts, m_contactSolverStage.GetPersistentContacts(), "persistentContacts" )                         \
     VISIT( persistentContactCache, m_contactSolverStage.GetPersistentContactCache(), "persistentContactCache" )
 
+#define SB_REPLAY_SOLVER_POINT_JOINT_VECTOR_FIELDS( VISIT ) VISIT( pointJoints, m_pointJointConstraints, "pointJoints" )
+
 #define SB_REPLAY_SOLVER_VECTOR_FIELDS( VISIT )                                                                             \
     SB_REPLAY_SOLVER_FIXED_LIST_FIELDS( VISIT )                                                                             \
     SB_REPLAY_SOLVER_SLEEP_VECTOR_FIELDS( VISIT )                                                                           \
     SB_REPLAY_SOLVER_DIAGNOSTIC_VECTOR_FIELDS( VISIT )                                                                      \
-    SB_REPLAY_SOLVER_CONTACT_STAGE_VECTOR_FIELDS( VISIT )
+    SB_REPLAY_SOLVER_CONTACT_STAGE_VECTOR_FIELDS( VISIT )                                                                   \
+    SB_REPLAY_SOLVER_POINT_JOINT_VECTOR_FIELDS( VISIT )
 
 
 PhysicsWorld::PhysicsWorld() = default;
@@ -425,7 +429,8 @@ std::size_t PhysicsWorld::PointJointCapacity() const noexcept
 }
 
 
-void PhysicsWorld::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapshot, int modelCount ) const
+void PhysicsWorld::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapshot, int modelCount,
+                                                const PhysicsBodyStore& bodyStore ) const
 {
     // Runtime allocation policy: replay recorder slots pre-reserve these
     // payload vectors outside gameplay. Capture clears the retained slot in
@@ -435,7 +440,7 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapsh
 #undef CLEAR_REPLAY_SOLVER_VECTOR_FIELD
     outSnapshot.solverStats = PhysicsSolverStatsSample();
 
-    outSnapshot.version = 2;
+    outSnapshot.version = PHYSICS_SOLVER_SNAPSHOT_VERSION;
     outSnapshot.modelCount = modelCount;
 
     // Runtime allocation policy: a solver snapshot owns many typed vectors.
@@ -514,12 +519,98 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapsh
     m_sleepController.CaptureReplayState( outSnapshot );
     m_stepDiagnostics.CaptureReplayState( outSnapshot );
     m_contactSolverStage.CaptureReplayState( outSnapshot );
+
+    const std::span<const PhysicsBodyRecord> bodyRecords = bodyStore.Records();
+    uint32_t topologyOrdinal = 0u;
+
+    for ( const PointJointConstraint& constraint : m_pointJointConstraints )
+    {
+        const int bodyA = constraint.BodyAIndex( bodyStore );
+        const int bodyB = constraint.BodyBIndex( bodyStore );
+
+        if ( bodyA < 0 || bodyA >= modelCount || bodyB < 0 || bodyB >= modelCount )
+        {
+            continue;
+        }
+
+        PhysicsSolverPointJointSample sample;
+        sample.topologyOrdinal = topologyOrdinal++;
+        sample.bodyASceneObjectId = bodyRecords[static_cast<std::size_t>( bodyA )].sceneObjectId;
+        sample.bodyBSceneObjectId = bodyRecords[static_cast<std::size_t>( bodyB )].sceneObjectId;
+        sample.localAnchorA = constraint.localAnchorA;
+        sample.localAnchorB = constraint.localAnchorB;
+        sample.slack = constraint.slack;
+        sample.stiffness = constraint.stiffness;
+        sample.damping = constraint.damping;
+        sample.accumulatedImpulse = constraint.accumulatedImpulse;
+        sample.groupId = constraint.groupId;
+        sample.flags = constraint.flags;
+        outSnapshot.pointJoints.push_back( sample );
+    }
 }
 
 
-bool PhysicsWorld::RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, int modelCount )
+bool PhysicsWorld::CanRestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, int modelCount,
+                                                   const PhysicsBodyStore& bodyStore ) const
 {
-    if ( snapshot.version < 1 || snapshot.version > 2 || snapshot.modelCount != modelCount )
+    if ( snapshot.version < 1 || snapshot.version > PHYSICS_SOLVER_SNAPSHOT_VERSION || snapshot.modelCount != modelCount )
+    {
+        return false;
+    }
+
+    if ( snapshot.version >= 3u )
+    {
+        const std::span<const PhysicsBodyRecord> bodyRecords = bodyStore.Records();
+        std::size_t survivingConstraintIndex = 0u;
+
+        for ( const PointJointConstraint& constraint : m_pointJointConstraints )
+        {
+            const int bodyA = constraint.BodyAIndex( bodyStore );
+            const int bodyB = constraint.BodyBIndex( bodyStore );
+
+            if ( bodyA >= 0 && bodyA < modelCount && bodyB >= 0 && bodyB < modelCount )
+            {
+                if ( survivingConstraintIndex >= snapshot.pointJoints.size() )
+                {
+                    return false;
+                }
+
+                const PhysicsSolverPointJointSample& sample = snapshot.pointJoints[survivingConstraintIndex];
+
+                // Invariant: the filtered row ordinal and durable scene ids are
+                // the persisted topology identity. Public constraint/body handle
+                // generations are intentionally absent because Clear advances them.
+                if ( sample.topologyOrdinal != survivingConstraintIndex ||
+                     bodyRecords[static_cast<std::size_t>( bodyA )].sceneObjectId != sample.bodyASceneObjectId ||
+                     bodyRecords[static_cast<std::size_t>( bodyB )].sceneObjectId != sample.bodyBSceneObjectId ||
+                     std::memcmp( &constraint.localAnchorA, &sample.localAnchorA, sizeof( sample.localAnchorA ) ) != 0 ||
+                     std::memcmp( &constraint.localAnchorB, &sample.localAnchorB, sizeof( sample.localAnchorB ) ) != 0 ||
+                     std::memcmp( &constraint.slack, &sample.slack, sizeof( sample.slack ) ) != 0 ||
+                     std::memcmp( &constraint.stiffness, &sample.stiffness, sizeof( sample.stiffness ) ) != 0 ||
+                     std::memcmp( &constraint.damping, &sample.damping, sizeof( sample.damping ) ) != 0 ||
+                     constraint.groupId != sample.groupId || constraint.flags != sample.flags )
+                {
+                    return false;
+                }
+
+                ++survivingConstraintIndex;
+            }
+        }
+
+        if ( survivingConstraintIndex != snapshot.pointJoints.size() )
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+
+bool PhysicsWorld::RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, int modelCount,
+                                                const PhysicsBodyStore& bodyStore )
+{
+    if ( !CanRestoreReplaySolverSnapshot( snapshot, modelCount, bodyStore ) )
     {
         return false;
     }
@@ -538,6 +629,33 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& sna
     m_sleepController.RestoreReplayState( snapshot );
     m_stepDiagnostics.RestoreReplayState( snapshot );
     m_contactSolverStage.RestoreReplayState( snapshot );
+
+    if ( snapshot.version >= 3u )
+    {
+        std::size_t sampleIndex = 0u;
+
+        for ( PointJointConstraint& constraint : m_pointJointConstraints )
+        {
+            const int bodyA = constraint.BodyAIndex( bodyStore );
+            const int bodyB = constraint.BodyBIndex( bodyStore );
+
+            if ( bodyA >= 0 && bodyA < modelCount && bodyB >= 0 && bodyB < modelCount )
+            {
+                constraint.accumulatedImpulse = snapshot.pointJoints[sampleIndex++].accumulatedImpulse;
+            }
+        }
+    }
+    else
+    {
+        // Compatibility: v1/v2 artifacts predate point-joint warm starting.
+        // Restoring them must reproduce their cold-cache behavior instead of
+        // retaining an unrelated live impulse.
+        for ( PointJointConstraint& constraint : m_pointJointConstraints )
+        {
+            constraint.accumulatedImpulse = 0.0f;
+        }
+    }
+
     m_terrain.Clear();
     m_narrowphase.Clear();
     m_broadphase.ResetTransientAfterReplayRestore();
@@ -548,6 +666,7 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& sna
 #undef SB_REPLAY_SOLVER_SLEEP_VECTOR_FIELDS
 #undef SB_REPLAY_SOLVER_DIAGNOSTIC_VECTOR_FIELDS
 #undef SB_REPLAY_SOLVER_CONTACT_STAGE_VECTOR_FIELDS
+#undef SB_REPLAY_SOLVER_POINT_JOINT_VECTOR_FIELDS
 #undef SB_REPLAY_SOLVER_VECTOR_FIELDS
 
 
@@ -1124,23 +1243,63 @@ void PhysicsWorld::AdvancePointJointHandleGeneration()
 void PhysicsWorld::DestroyPointJointsForBody( PhysicsBodyHandle body )
 {
     // Invariant: remove every joint that names the retiring handle before the
-    // body slot can be reused. Runtime joint rows are dense, but moving a row
-    // retains its stable handle so unrelated callers are never retargeted.
-    for ( std::size_t index = 0; index < m_pointJointConstraints.size(); )
-    {
-        const PointJointConstraint& constraint = m_pointJointConstraints[index];
+    // body slot can be reused. Stable compaction preserves survivor relative
+    // order; subsequent snapshot capture assigns filtered ordinals in that
+    // order.
+    std::size_t writeIndex = 0u;
 
-        if ( constraint.bodyA != body && constraint.bodyB != body )
+    for ( std::size_t readIndex = 0; readIndex < m_pointJointConstraints.size(); ++readIndex )
+    {
+        const PointJointConstraint& constraint = m_pointJointConstraints[readIndex];
+
+        if ( constraint.bodyA == body || constraint.bodyB == body )
         {
-            ++index;
             continue;
         }
 
-        if ( index + 1u != m_pointJointConstraints.size() )
+        if ( writeIndex != readIndex )
         {
-            m_pointJointConstraints[index] = m_pointJointConstraints.back();
+            m_pointJointConstraints[writeIndex] = constraint;
         }
 
+        ++writeIndex;
+    }
+
+    while ( m_pointJointConstraints.size() > writeIndex )
+    {
+        m_pointJointConstraints.pop_back();
+    }
+}
+
+
+void PhysicsWorld::TrimPointJointsToBodyCount( const PhysicsBodyStore& bodyStore, int bodyCount )
+{
+    // Invariant: replay body trim retires every joint that references a removed
+    // model row before body handles are invalidated. Stable compaction preserves
+    // the filtered ordinal order accepted by the pre-mutation restore check.
+    std::size_t writeIndex = 0u;
+
+    for ( std::size_t readIndex = 0; readIndex < m_pointJointConstraints.size(); ++readIndex )
+    {
+        const PointJointConstraint& constraint = m_pointJointConstraints[readIndex];
+        const int bodyA = constraint.BodyAIndex( bodyStore );
+        const int bodyB = constraint.BodyBIndex( bodyStore );
+
+        if ( bodyA < 0 || bodyA >= bodyCount || bodyB < 0 || bodyB >= bodyCount )
+        {
+            continue;
+        }
+
+        if ( writeIndex != readIndex )
+        {
+            m_pointJointConstraints[writeIndex] = constraint;
+        }
+
+        ++writeIndex;
+    }
+
+    while ( m_pointJointConstraints.size() > writeIndex )
+    {
         m_pointJointConstraints.pop_back();
     }
 }
@@ -1201,6 +1360,7 @@ bool PhysicsWorld::UpdatePointJoint( const PhysicsPointJointUpdateDesc& desc )
     }
 
     PointJointConstraint& joint = *found;
+    bool invalidateWarmStart = false;
 
     if ( desc.updateMask & PHYSICS_POINT_JOINT_UPDATE_BODIES )
     {
@@ -1211,6 +1371,7 @@ bool PhysicsWorld::UpdatePointJoint( const PhysicsPointJointUpdateDesc& desc )
     {
         joint.localAnchorA = desc.localAnchorA;
         joint.localAnchorB = desc.localAnchorB;
+        invalidateWarmStart = true;
     }
 
     if ( desc.updateMask & PHYSICS_POINT_JOINT_UPDATE_SOLVER )
@@ -1218,12 +1379,21 @@ bool PhysicsWorld::UpdatePointJoint( const PhysicsPointJointUpdateDesc& desc )
         joint.slack = desc.slack;
         joint.stiffness = desc.stiffness;
         joint.damping = desc.damping;
+        invalidateWarmStart = true;
     }
 
     if ( desc.updateMask & PHYSICS_POINT_JOINT_UPDATE_GROUP )
     {
         joint.groupId = desc.groupId;
         joint.flags = desc.flags;
+    }
+
+    if ( invalidateWarmStart )
+    {
+        // Invariant: a scalar impulse is meaningful only for the bodies,
+        // anchors, and solver policy that produced it. Handle identity survives
+        // authoring updates, but stale solver state must not.
+        joint.accumulatedImpulse = 0.0f;
     }
 
     return true;

@@ -5,9 +5,10 @@ Purpose:
 
 Summary:
   Solver snapshots are not render poses. A restorable replay tick also needs
-  the persistent contact cache, sleep state, and diagnostics
-  that determine the next fixed physics step. Physics owns this value contract;
-  Runtime replay may retain and serialize it without defining solver state.
+  the persistent contact cache, point-joint descriptors and accumulated warm-
+  start impulses, sleep state, and diagnostics that determine the next fixed
+  physics step. Physics owns this value contract; Runtime replay may retain and
+  serialize it without defining solver state.
 
 Glossary:
   Contact cache: Persistent contact rows and accumulated impulses reused by the
@@ -15,7 +16,7 @@ Glossary:
   Sleep state: Per-body flag that lets stable bodies skip simulation until woken.
 
 Invariants:
-  - Snapshot field order stays stable for replay artifact compatibility.
+  - Snapshot compatibility is explicit and versioned when fields are added.
   - Restored snapshots contain enough state for the next fixed step to match.
   - Replay-only vector growth is registered under one fixed owner and cannot
     exceed the measured 8 MiB hard cap.
@@ -29,6 +30,7 @@ Related:
 #pragma once
 
 #include "PhysicsDebugData.h"
+#include "PhysicsHandles.h"
 #include "../Maths/Vector3.h"
 
 #include <cstdint>
@@ -38,9 +40,10 @@ Related:
 namespace SkullbonezCore::Physics
 {
 inline constexpr const char* PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER = "replay_solver_snapshot";
+inline constexpr uint32_t PHYSICS_SOLVER_SNAPSHOT_VERSION = 3u;
 
-// The strict two-generation prediction probe measured 2,877,186 bytes.
-// Eight MiB preserves 2.92x measured headroom.
+// Lane P: the strict two-generation prediction probe measured 3,401,552 bytes.
+// Eight MiB preserves 2.466112x measured headroom.
 inline constexpr int PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES = 8 * 1024 * 1024;
 
 struct PhysicsSolverContactCacheSample
@@ -49,6 +52,25 @@ struct PhysicsSolverContactCacheSample
     float accN = 0.0f;
     float accT1 = 0.0f;
     float accT2 = 0.0f;
+};
+
+struct PhysicsSolverPointJointSample
+{
+    // Invariant: persisted replay identity cannot depend on process-local handle
+    // generations. The filtered topology ordinal and durable body ids accompany
+    // the descriptor so cold rebuilds can restore the same row while reordered
+    // or edited topology rejects before mutation.
+    uint32_t topologyOrdinal = 0;
+    PhysicsSceneObjectId bodyASceneObjectId;
+    PhysicsSceneObjectId bodyBSceneObjectId;
+    Math::Vector::Vector3 localAnchorA = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 localAnchorB = Math::Vector::ZERO_VECTOR;
+    float slack = 0.0f;
+    float stiffness = 0.0f;
+    float damping = 0.0f;
+    float accumulatedImpulse = 0.0f;
+    uint32_t groupId = 0;
+    uint8_t flags = 0;
 };
 
 struct PhysicsSolverPersistentContactSample
@@ -102,7 +124,7 @@ struct PhysicsSolverSnapshot
     // Snapshot payload for hidden physics state. Body poses live in
     // ReplaySolverBodySample; this struct stores the caches that make the next
     // fixed physics step match after restore.
-    uint32_t version = 2;
+    uint32_t version = PHYSICS_SOLVER_SNAPSHOT_VERSION;
     int modelCount = 0;
     int nextSleepIslandVisualId = 1;
     bool sleepEnabled = true;
@@ -125,6 +147,7 @@ struct PhysicsSolverSnapshot
     std::vector<uint8_t> sleepIslandCanSleep;
     std::vector<PhysicsSolverPersistentContactSample> persistentContacts;
     std::vector<PhysicsSolverContactCacheSample> persistentContactCache;
+    std::vector<PhysicsSolverPointJointSample> pointJoints;
     PhysicsSolverStatsSample solverStats;
     std::vector<uint16_t> persistentContactCounts;
     std::vector<uint16_t> persistentRestingContactCounts;
@@ -137,7 +160,7 @@ struct PhysicsSolverSnapshot
         // Lifetime: replay prediction cancels and restarts in steady runtime.
         // Clear logical state without replacing vectors so the reserve-phase
         // storage remains registered and reusable by the next prediction.
-        version = 2;
+        version = PHYSICS_SOLVER_SNAPSHOT_VERSION;
         modelCount = 0;
         nextSleepIslandVisualId = 1;
         sleepEnabled = true;
@@ -160,6 +183,7 @@ struct PhysicsSolverSnapshot
         sleepIslandCanSleep.clear();
         persistentContacts.clear();
         persistentContactCache.clear();
+        pointJoints.clear();
         solverStats = {};
         persistentContactCounts.clear();
         persistentRestingContactCounts.clear();

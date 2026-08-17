@@ -72,7 +72,7 @@ constexpr uint32_t REPLAY_INVALID_METADATA_INDEX = ( std::numeric_limits<uint32_
 // Runtime allocation policy: retained replay body payloads now grow per active
 // scene size instead of preallocating every future slot at game_model_capacity.
 // Invariant: every retained recorder vector shares one aggregate 32 MiB owner
-// cap. The strict two-generation probe measured 17,737,640 bytes high-water;
+// cap. The strict two-generation probe measured 16,223,044 bytes high-water;
 // growth count is telemetry, not a separate allowance per vector.
 constexpr int REPLAY_RECORDER_SAMPLE_RESERVE_GROWTH_LIMIT = CoreAllocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
 constexpr uint64_t FNV64_OFFSET = 14695981039346656037ull;
@@ -328,6 +328,7 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
     VISIT( sleepIslandCanSleep )                                                                                            \
     VISIT( persistentContacts )                                                                                             \
     VISIT( persistentContactCache )                                                                                         \
+    VISIT( pointJoints )                                                                                                    \
     VISIT( persistentContactCounts )                                                                                        \
     VISIT( persistentRestingContactCounts )                                                                                 \
     VISIT( debugContacts )                                                                                                  \
@@ -380,6 +381,7 @@ uint64_t SolverWorldSnapshotMemoryBytes( const SkullbonezCore::Runtime::ReplaySo
     bytes += VectorCapacityBytes( physics.sleepIslandCanSleep );
     bytes += VectorCapacityBytes( physics.persistentContacts );
     bytes += VectorCapacityBytes( physics.persistentContactCache );
+    bytes += VectorCapacityBytes( physics.pointJoints );
     bytes += VectorCapacityBytes( physics.persistentContactCounts );
     bytes += VectorCapacityBytes( physics.persistentRestingContactCounts );
     bytes += VectorCapacityBytes( physics.debugContacts );
@@ -749,7 +751,7 @@ template <typename T> void ClearSolverVectorDelta( ReplaySolverVectorDelta<T>& d
 
 void ClearSolverWorldDeltaFrame( ReplaySolverWorldDeltaFrame& frame )
 {
-    frame.scalarState.version = 2;
+    frame.scalarState.version = Physics::PHYSICS_SOLVER_SNAPSHOT_VERSION;
     frame.scalarState.modelCount = 0;
     frame.scalarState.nextSleepIslandVisualId = 1;
     frame.scalarState.sleepEnabled = true;
@@ -851,7 +853,7 @@ void CopySolverWorldSnapshotWithReserve( SkullbonezCore::Runtime::ReplaySolverWo
 
 void ClearSolverWorldSnapshotValues( SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& snapshot )
 {
-    snapshot.physics.version = 2;
+    snapshot.physics.version = Physics::PHYSICS_SOLVER_SNAPSHOT_VERSION;
     snapshot.physics.modelCount = 0;
     snapshot.physics.nextSleepIslandVisualId = 1;
     snapshot.physics.sleepEnabled = true;
@@ -1425,6 +1427,24 @@ uint64_t HashContactCache( uint64_t hash, const SkullbonezCore::Physics::Physics
     return hash;
 }
 
+// Invariant: hash exactly the persisted durable joint identity, descriptor, and
+// cached impulse. Process-local handle generations are intentionally excluded.
+uint64_t HashPointJoint( uint64_t hash, const SkullbonezCore::Physics::PhysicsSolverPointJointSample& joint )
+{
+    hash = HashUint32( hash, joint.topologyOrdinal );
+    hash = HashUint32( hash, joint.bodyASceneObjectId.value );
+    hash = HashUint32( hash, joint.bodyBSceneObjectId.value );
+    hash = HashVector( hash, joint.localAnchorA );
+    hash = HashVector( hash, joint.localAnchorB );
+    hash = HashFloat( hash, joint.slack );
+    hash = HashFloat( hash, joint.stiffness );
+    hash = HashFloat( hash, joint.damping );
+    hash = HashFloat( hash, joint.accumulatedImpulse );
+    hash = HashUint32( hash, joint.groupId );
+    hash = HashUint32( hash, static_cast<uint32_t>( joint.flags ) );
+    return hash;
+}
+
 uint64_t HashSolverStats( uint64_t hash, const SkullbonezCore::Physics::PhysicsSolverStatsSample& stats )
 {
     hash = HashInt( hash, stats.rowCount );
@@ -1515,6 +1535,16 @@ uint64_t HashSolverWorldSnapshot( uint64_t hash, const SkullbonezCore::Runtime::
     for ( const SkullbonezCore::Physics::PhysicsSolverContactCacheSample& cache : physics.persistentContactCache )
     {
         hash = HashContactCache( hash, cache );
+    }
+
+    if ( physics.version >= 3u )
+    {
+        hash = HashSize( hash, physics.pointJoints.size() );
+
+        for ( const SkullbonezCore::Physics::PhysicsSolverPointJointSample& joint : physics.pointJoints )
+        {
+            hash = HashPointJoint( hash, joint );
+        }
     }
 
     hash = HashSolverStats( hash, physics.solverStats );

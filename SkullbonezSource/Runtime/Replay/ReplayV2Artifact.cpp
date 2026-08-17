@@ -550,6 +550,21 @@ void AppendContactCache( std::vector<uint8_t>& out, const SkullbonezCore::Physic
     AppendPod( out, cache.accT2 );
 }
 
+void AppendPointJoint( std::vector<uint8_t>& out, const SkullbonezCore::Physics::PhysicsSolverPointJointSample& joint )
+{
+    AppendPod( out, joint.topologyOrdinal );
+    AppendPod( out, joint.bodyASceneObjectId.value );
+    AppendPod( out, joint.bodyBSceneObjectId.value );
+    AppendVec3( out, joint.localAnchorA );
+    AppendVec3( out, joint.localAnchorB );
+    AppendPod( out, joint.slack );
+    AppendPod( out, joint.stiffness );
+    AppendPod( out, joint.damping );
+    AppendPod( out, joint.accumulatedImpulse );
+    AppendPod( out, joint.groupId );
+    AppendPod( out, joint.flags );
+}
+
 void AppendPhysicsDebugContact( std::vector<uint8_t>& out, const SkullbonezCore::Physics::PhysicsDebugContact& contact )
 {
     AppendPod( out, static_cast<int32_t>( contact.bodyA ) );
@@ -650,6 +665,19 @@ void AppendSolverSnapshot( std::vector<uint8_t>& out, const SkullbonezCore::Runt
     }
 
     AppendCountedPodVector( out, physics.collisionCellKeys );
+
+    // Wire schema: nested solver snapshot v3 appends counted point-joint rows
+    // after collision-cell keys. Snapshot v1/v2 omit this tail independently
+    // of the outer replay artifact's v2-v5 version.
+    if ( physics.version >= 3u )
+    {
+        AppendPod( out, CheckedU32( physics.pointJoints.size() ) );
+
+        for ( const SkullbonezCore::Physics::PhysicsSolverPointJointSample& joint : physics.pointJoints )
+        {
+            AppendPointJoint( out, joint );
+        }
+    }
 }
 
 bool AppendSolverBodyRecord( std::vector<uint8_t>& out, const std::vector<BodyDictionaryEntry>& dictionary,
@@ -1618,6 +1646,16 @@ bool ReadContactCache( ByteCursor& cursor, SkullbonezCore::Physics::PhysicsSolve
            ReadPod( cursor, outCache.accT2 );
 }
 
+bool ReadPointJoint( ByteCursor& cursor, SkullbonezCore::Physics::PhysicsSolverPointJointSample& outJoint )
+{
+    return ReadPod( cursor, outJoint.topologyOrdinal ) && ReadPod( cursor, outJoint.bodyASceneObjectId.value ) &&
+           ReadPod( cursor, outJoint.bodyBSceneObjectId.value ) && ReadVec3( cursor, outJoint.localAnchorA ) &&
+           ReadVec3( cursor, outJoint.localAnchorB ) && ReadPod( cursor, outJoint.slack ) &&
+           ReadPod( cursor, outJoint.stiffness ) && ReadPod( cursor, outJoint.damping ) &&
+           ReadPod( cursor, outJoint.accumulatedImpulse ) && ReadPod( cursor, outJoint.groupId ) &&
+           ReadPod( cursor, outJoint.flags );
+}
+
 bool ReadPhysicsDebugContact( ByteCursor& cursor, SkullbonezCore::Physics::PhysicsDebugContact& outContact )
 {
     int32_t bodyA = 0;
@@ -1675,7 +1713,7 @@ bool ReadSolverSnapshot( ByteCursor& cursor, SkullbonezCore::Runtime::ReplaySolv
         return false;
     }
 
-    if ( physics.version < 1 || physics.version > 2 )
+    if ( physics.version < 1 || physics.version > SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_VERSION )
     {
         return false;
     }
@@ -1714,6 +1752,13 @@ bool ReadSolverSnapshot( ByteCursor& cursor, SkullbonezCore::Runtime::ReplaySolv
          !ReadCountedStructVector( cursor, physics.debugContacts, ReadPhysicsDebugContact ) ||
          !ReadCountedStructVector( cursor, physics.pipelineTrace, ReadPipelineRecord ) ||
          !ReadCountedPodVector( cursor, physics.collisionCellKeys ) )
+    {
+        return false;
+    }
+
+    // Wire schema: this conditional is the nested solver snapshot version, not
+    // the outer replay artifact version; v1/v2 end after collision-cell keys.
+    if ( physics.version >= 3u && !ReadCountedStructVector( cursor, physics.pointJoints, ReadPointJoint ) )
     {
         return false;
     }

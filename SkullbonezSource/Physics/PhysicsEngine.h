@@ -224,7 +224,11 @@ class PhysicsEngine
     // exposing mutable body/collider or broadphase-owner state.
     PhysicsRayCastHit RayCast( const PhysicsRayCastDesc& desc ) const;
     PhysicsBroadphaseQueryResultView QueryBroadphaseCells( const PhysicsBroadphaseCellQueryDesc& desc ) const;
+
+    // Replay caller contract: CanRestore is a non-mutating preflight and must
+    // precede topology trim. Restore revalidates the snapshot before commit.
     void CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapshot, PhysicsBodyCount bodyCount ) const;
+    bool CanRestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, PhysicsBodyCount bodyCount ) const;
     bool RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, PhysicsBodyCount bodyCount );
     PhysicsDiagnosticsView GetDiagnosticsView() const;
     uint64_t CollectPhysicsWorldMemoryBytes() const;

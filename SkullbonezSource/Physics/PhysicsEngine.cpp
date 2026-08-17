@@ -821,6 +821,11 @@ bool PhysicsEngine::TrimBodiesToCount( PhysicsBodyCount bodyCount )
         return false;
     }
 
+    // Lifetime: point joints must inspect the still-live body-handle map before
+    // TrimToCount retires removed slots.
+    // Invariant: stable world compaction preserves the survivor order already
+    // accepted by replay's pre-mutation topology check.
+    m_world->TrimPointJointsToBodyCount( m_bodyStore, targetCount );
     const bool trimmed = m_bodyStore.TrimToCount( targetCount );
 
     if ( trimmed )
@@ -1275,13 +1280,19 @@ PhysicsBroadphaseQueryResultView PhysicsEngine::QueryBroadphaseCells( const Phys
 
 void PhysicsEngine::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapshot, PhysicsBodyCount bodyCount ) const
 {
-    m_world->CaptureReplaySolverSnapshot( outSnapshot, CountAsInt( bodyCount ) );
+    m_world->CaptureReplaySolverSnapshot( outSnapshot, CountAsInt( bodyCount ), m_bodyStore );
+}
+
+
+bool PhysicsEngine::CanRestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, PhysicsBodyCount bodyCount ) const
+{
+    return m_world->CanRestoreReplaySolverSnapshot( snapshot, CountAsInt( bodyCount ), m_bodyStore );
 }
 
 
 bool PhysicsEngine::RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, PhysicsBodyCount bodyCount )
 {
-    const bool restored = m_world->RestoreReplaySolverSnapshot( snapshot, CountAsInt( bodyCount ) );
+    const bool restored = m_world->RestoreReplaySolverSnapshot( snapshot, CountAsInt( bodyCount ), m_bodyStore );
 
     if ( restored )
     {

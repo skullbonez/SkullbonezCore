@@ -6,10 +6,11 @@ Purpose:
 Summary:
   This is deliberately a small bridge toward a future generic constraint
   system. Ragdoll prefab data is value metadata; scene/authored owners decide
-  how those values become renderable objects while physics only keeps handle-
-  keyed point-joint descriptors and solver math. The neck policy exposes one
-  deterministic vector-angle seam so rounded endpoint and fallback behavior can
-  be tested without constructing a complete solver world.
+  how those values become renderable objects while physics keeps handle-keyed
+  point-joint descriptors, solver math, and one retained scalar warm-start
+  impulse per row. That scalar participates in byte-exact replay continuation.
+  The neck policy exposes one deterministic vector-angle seam so rounded
+  endpoint and fallback behavior can be tested without a complete solver world.
 
 Glossary:
   Preview lines: Editor-only visualization geometry for placement feedback.
@@ -20,8 +21,9 @@ Invariants:
   - Constraint order is deterministic and scene-authored.
   - Constraint bodies refer to PhysicsBodyHandle values; only owners with a live
     PhysicsBodyStore may resolve those handles to current model-order rows.
-  - The joint solver mutates PhysicsBodyStore records only; later presentation
-    mirrors are owner-side side effects, not ragdoll solver state.
+  - The joint solver mutates PhysicsBodyStore records and the handle-keyed
+    accumulated impulse only; later presentation mirrors are owner-side side
+    effects, not ragdoll solver state.
   - Every simple-ragdoll part name is preflighted against the engine's 64-byte
     display-name field before the first part is appended.
   - Neck swing angle construction clamps its dot input, derives angle from the
@@ -84,6 +86,7 @@ struct PointJointConstraint
     float slack = 0.25f;
     float stiffness = 0.22f;
     float damping = 0.35f;
+    float accumulatedImpulse = 0.0f;         // Signed scalar warm start retained with this stable handle.
     uint32_t groupId = 0;
     uint8_t flags = 0;
 
@@ -91,6 +94,10 @@ struct PointJointConstraint
     {
         bodyA = bodyAHandle;
         bodyB = bodyBHandle;
+
+        // Invariant: an impulse cached for another body pair is not valid for
+        // the newly authored constraint, even when the handle is unchanged.
+        accumulatedImpulse = 0.0f;
     }
 
     int BodyAIndex( const PhysicsBodyStore& bodyStore ) const;
@@ -165,7 +172,11 @@ class Ragdoll
     static bool TryBuildNeckSwingCorrection( float rawDot, const Math::Vector::Vector3& correctionCross,
                                              const Math::Vector::Vector3& fallbackAxis,
                                              Math::Vector::Vector3& outCorrectionAxis, float& outCorrectionAngle ) noexcept;
-    static bool SolvePointJoints( PhysicsBodyStore& bodyStore, std::span<const PointJointConstraint> constraints,
+
+    // Caller contract: constraints are mutable solver rows. Their accumulated
+    // impulses persist across steps, so body, anchor, or solver-policy edits
+    // must invalidate the cache before the next call.
+    static bool SolvePointJoints( PhysicsBodyStore& bodyStore, std::span<PointJointConstraint> constraints,
                                   std::span<const uint8_t> sleepState, float dt );
 };
 } // namespace Physics

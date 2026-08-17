@@ -4,7 +4,7 @@
 #   Validates the versioned ReplayV2Artifact file family, saved checkpoint
 #   restore, and bounded query export.
 #
-# Mental model:
+# Summary:
 #   The runtime owns replay capture, artifact writing, and checkpoint restore.
 #   This script drives the Debug executable through the CLI save/load/restore
 #   probes, then asks replay_query and physics_query small questions instead of
@@ -44,6 +44,12 @@ from replay_query import (
     EVENT_RECORD,
     FRAME_HEADER,
     HEADER,
+    POINT_JOINT_RECORD,
+    SOLVER_STATS,
+    TORNADO_CONFIG,
+    TORNADO_SYSTEM_HEADER,
+    U32,
+    ChunkReader,
     ReplayQueryError,
     ReplayV2,
 )
@@ -73,6 +79,41 @@ def remove_if_exists(path):
         path.unlink()
     except FileNotFoundError:
         pass
+
+
+def validate_snapshot_query_versions():
+    # Lane P / Invariant: synthetic v2/v3 payloads pin the nested solver-
+    # snapshot schema and point-joint tail without launching the runtime.
+    def make_fixture(version, point_joint_count):
+        raw = bytearray()
+        raw.extend(struct.pack("<IiiBB2s", version, 0, 1, 1, 0, b"\0\0"))
+        raw.extend(bytes(TORNADO_CONFIG.size))
+        if version >= 2:
+            raw.extend(bytes(TORNADO_SYSTEM_HEADER.size))
+            raw.extend(struct.pack("<f", 0.0))
+
+        # Eighteen leading counted vectors, contact/cache counts, two counted
+        # contact-stat vectors, debug/pipeline counts, and collision-cell keys.
+        raw.extend(U32.pack(0) * 20)
+        raw.extend(bytes(SOLVER_STATS.size))
+        raw.extend(U32.pack(0) * 5)
+
+        if version >= 3:
+            raw.extend(U32.pack(point_joint_count))
+            for index in range(point_joint_count):
+                raw.extend(POINT_JOINT_RECORD.pack(index, 501, 502, *([0.0] * 10), 7, 1))
+        return bytes(raw)
+
+    for version, expected_joint_count in ((2, 0), (3, 1)):
+        raw = make_fixture(version, expected_joint_count)
+        reader = ChunkReader(raw, f"snapshot-v{version}-fixture")
+        summary = ReplayV2._parse_snapshot_summary(reader)
+        if reader.offset != len(raw):
+            raise RuntimeError(f"snapshot v{version} fixture left trailing bytes")
+        if int(summary.get("version") or 0) != version:
+            raise RuntimeError(f"snapshot v{version} fixture reported the wrong version")
+        if int(summary.get("pointJointCount") or 0) != expected_joint_count:
+            raise RuntimeError(f"snapshot v{version} fixture reported the wrong point-joint count")
 
 
 def run_checked(args, cwd):
@@ -953,7 +994,7 @@ def query_artifact():
     if int(first_checkpoint.get("bodyCount") or 0) <= 0 or not first_checkpoint.get("bodies"):
         raise RuntimeError("replay checkpoint query did not return solver body payloads")
     snapshot = first_checkpoint.get("snapshot") or {}
-    if int(snapshot.get("version") or 0) not in (1, 2):
+    if int(snapshot.get("version") or 0) not in (1, 2, 3):
         raise RuntimeError("replay checkpoint query returned an unsupported snapshot version")
     if int(snapshot.get("modelCount") or 0) != int(first_checkpoint.get("bodyCount") or 0):
         raise RuntimeError("replay checkpoint snapshot model count did not match body count")
@@ -1004,6 +1045,8 @@ def query_artifact():
 
 def main():
     try:
+        print("  Checking replay query snapshot v2/v3 fixtures...")
+        validate_snapshot_query_versions()
         print("  Generating replay v2 artifact...")
         generate_artifact()
         print("  Probing loaded replay v2 artifact...")

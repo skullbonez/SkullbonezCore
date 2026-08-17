@@ -83,15 +83,15 @@ struct ReplayGrowthOwnerPolicy
 
 inline constexpr const char* REPLAY_RECORDER_SAMPLE_RESERVE_OWNER = "replay_recorder_samples";
 
-// The strict two-generation prediction probe measured 17,737,640 aggregate
-// recorder bytes. Thirty-two MiB preserves 1.89x measured headroom.
+// The strict two-generation prediction probe measured 16,223,044 aggregate
+// recorder bytes. Thirty-two MiB preserves 2.068319x measured headroom.
 inline constexpr int REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES = 32 * 1024 * 1024;
 inline constexpr std::array<ReplayGrowthOwnerPolicy, 2> REPLAY_CORE_GROWTH_OWNER_POLICIES = { ReplayGrowthOwnerPolicy { REPLAY_RECORDER_SAMPLE_RESERVE_OWNER,
                                 SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
-                                REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES, 17737640u,
+                                REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES, 16223044u,
                                 ReplayGrowthExhaustionRule::FatalRetainedState },
       ReplayGrowthOwnerPolicy { Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER,
                                 SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
-                                Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES, 2877186u,
+                                Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES, 3401552u,
                                 ReplayGrowthExhaustionRule::FatalRetainedState } };
 } // namespace SkullbonezCore::Runtime
