@@ -6,6 +6,31 @@ Owner: Engine owner
 Priority: Not selectable until the owner reactivates it in `MASTER-PLAN.md`
 Commit name: `TRIG_DETERMINISM`
 
+## Parked DT0 Starting Point - 2026-08-18
+
+The reviewed but incomplete DT0 implementation is preserved beside this plan
+at `Agentic/Plans/WNF/deterministic-trigonometry-dt0-reviewed-wip.patch`.
+Its SHA-256 is
+`C71532CF7C49FE76CDD12FB2304D412DB18FFCE73FA69A58AA595DA5EEC66496`.
+`git apply --check` passes against commit `366a9e02a`; treat the file as a
+starting point, not as accepted implementation.
+
+The patch widens the policy scan to the complete CPU production and separate
+test roots, adds exact scoped rulings, fixes whitespace-separated member and
+custom-namespace classification, recognizes the first parenthesized alias
+form, fingerprints split-line call expressions, and documents token-pasted
+macro synthesis as outside the raw-spelling boundary. Its last reconciled
+inventory was 120 production trig references across 15 files, 20 test trig
+references across 5 files, and 149 total findings matched by 149 current
+rulings (including the retained broad Maths/Physics non-trig findings).
+
+DT0 remains blocked because the scanner still misses valid unqualified
+function-reference contexts including `((cosf))`, unary `+sinf`, and
+`Use(sinf)`. Resume by replacing the assignment-form-specific reference
+detection with token/context classification, add positive fixtures for those
+three forms, rerun the self-test and exact inventory/ruling reconciliation,
+then obtain a fresh independent review before considering DT0 complete.
+
 ## Goal
 
 Replace direct CPU production calls to the C/C++ runtime sine and cosine

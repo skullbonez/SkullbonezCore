@@ -1,0 +1,2416 @@
+diff --git a/tools/check_determinism_math_policy.py b/tools/check_determinism_math_policy.py
+index b7b8e936c..ebc2cad58 100644
+--- a/tools/check_determinism_math_policy.py
++++ b/tools/check_determinism_math_policy.py
+@@ -2,22 +2,29 @@
+ """
+ File: tools/check_determinism_math_policy.py
+ Purpose:
+-  Inventory implementation-defined math entry-point uses in Physics and Maths.
++  Inventory implementation-defined math entry points and repository-wide CPU
++  sine/cosine references.
+ 
+ Summary:
+-  The checker strips comments and literals, identifies C/C++ math entry-point
+-  references, and reconciles every non-certified use against an exact
+-  current-source owner ruling. It reports current structure; rulings document
+-  review rather than creating a numerical allowance or count budget.
++  The checker preserves the broad Physics/Maths transcendental policy while
++  projecting sine/cosine references across every production source and first-
++  party test root. Production and test-oracle findings are separate scopes;
++  every live finding joins one exact current-source owner ruling.
+ 
+ Glossary:
+   Certified call: Exact or correctly-rounded operation admitted directly by the
+     tier-2 determinism envelope.
+   Source fingerprint: SHA-256 of the stripped source line containing a call;
+     edits invalidate the ruling even when a spelling remains nearby.
++  Test oracle: First-party test code that may retain platform trig as an
++    independent reference but can never authorize a production call.
+ 
+ Invariants:
+-  - Scan roots are both SkullbonezSource/Physics and SkullbonezSource/Maths.
++  - Broad math policy remains rooted in Physics and Maths; sine/cosine policy
++    spans all SkullbonezSource CPU files plus separate first-party test roots.
++  - A test-scoped ruling cannot satisfy a production finding.
++  - Token-pasted synthesis is outside this raw-spelling policy; fixtures pin
++    that boundary instead of claiming preprocessor expansion.
+   - Unruled findings, stale rulings, malformed rulings, and missing repair plans
+     fail the command.
+   - Explicit fused multiply-add calls always require a ruling even though the
+@@ -43,10 +50,33 @@ from pathlib import Path
+ from typing import Iterable
+ 
+ 
+-SOURCE_ROOTS = ("SkullbonezSource/Physics", "SkullbonezSource/Maths")
+-SOURCE_SUFFIXES = {".cpp", ".h", ".hpp", ".inl"}
++BROAD_MATH_ROOTS = ("SkullbonezSource/Physics", "SkullbonezSource/Maths")
++PRODUCTION_ROOTS = ("SkullbonezSource",)
++TEST_ROOTS = ("SkullbonezTests", "Agentic/Tests")
++SOURCE_SUFFIXES = {
++    ".c",
++    ".cc",
++    ".cpp",
++    ".cxx",
++    ".h",
++    ".hh",
++    ".hpp",
++    ".hxx",
++    ".inl",
++}
+ RULING_DISPOSITIONS = {"retain-owner", "repair-plan"}
+-REQUIRED_RULING_FIELDS = ("path", "line", "column", "call", "source_fingerprint", "disposition", "owner", "reason")
++RULING_SCOPES = {"production", "test"}
++REQUIRED_RULING_FIELDS = (
++    "scope",
++    "path",
++    "line",
++    "column",
++    "call",
++    "source_fingerprint",
++    "disposition",
++    "owner",
++    "reason",
++)
+ 
+ # IEEE/basic operations and exact classification are certified directly. Both
+ # suffixed C spellings and overloaded std spellings represent the same operation
+@@ -165,6 +195,7 @@ IMPLEMENTATION_DEFINED_CALLS = (
+ )
+ EXPLICIT_FMA_CALLS = {"fma", "fmaf", "fmal"}
+ KNOWN_MATH_CALLS = CERTIFIED_CALLS | IMPLEMENTATION_DEFINED_CALLS | EXPLICIT_FMA_CALLS
++TRIG_CALLS = family_spellings({"sin", "cos"})
+ # Hazard: requiring an immediately following '(' on the same line would let
+ # line breaks, function pointers, using declarations, and aliases bypass the
+ # policy. Qualified references are always evidence; unqualified identifiers
+@@ -174,6 +205,12 @@ QUALIFIED_REFERENCE_PATTERN = re.compile(r"(?<![A-Za-z0-9_])std\s*::\s*(?P<call>
+ GLOBAL_REFERENCE_PATTERN = re.compile(r"(?<![A-Za-z0-9_:])::\s*(?P<call>[A-Za-z_]\w*)\b")
+ UNQUALIFIED_CALL_PATTERN = re.compile(r"(?<![A-Za-z0-9_:.>])(?P<call>[A-Za-z_]\w*)\s*\(")
+ UNQUALIFIED_ALIAS_PATTERN = re.compile(r"(?:&\s*|\busing\s+(?:::)?\s*)(?P<call>[A-Za-z_]\w*)\b")
++UNQUALIFIED_ASSIGNMENT_ALIAS_PATTERN = re.compile(
++    r"=\s*(?P<call>[A-Za-z_]\w*)\s*(?=[,;)])"
++)
++PARENTHESIZED_ALIAS_PATTERN = re.compile(
++    r"(?:=|&)\s*\(\s*(?P<call>[A-Za-z_]\w*)\s*\)"
++)
+ STD_NAMESPACE_ALIAS_PATTERN = re.compile(
+     r"\bnamespace\s+(?P<alias>[A-Za-z_]\w*)\s*=\s*(?:::)?\s*std\s*;"
+ )
+@@ -184,6 +221,7 @@ FINGERPRINT_PATTERN = re.compile(r"[0-9a-f]{64}")
+ 
+ @dataclass(frozen=True)
+ class Finding:
++    scope: str
+     path: str
+     line: int
+     column: int
+@@ -193,8 +231,17 @@ class Finding:
+     source_fingerprint: str
+ 
+     @property
+-    def identity(self) -> tuple[str, int, int, str, str]:
+-        return (self.path, self.line, self.column, self.call, self.source_fingerprint)
++    def identity(self) -> tuple[str, str, int, int, str, str]:
++        return (self.scope, self.path, self.line, self.column, self.call, self.source_fingerprint)
++
++
++@dataclass(frozen=True)
++class ScanSummary:
++    broad_math_source_files: int
++    production_source_files: int
++    test_source_files: int
++    production_trig_findings: int
++    test_trig_findings: int
+ 
+ 
+ def normalize_path(path: Path | str) -> str:
+@@ -266,81 +313,186 @@ def strip_comments_and_literals(source: str) -> str:
+     return "".join(result)
+ 
+ 
+-def source_fingerprint(stripped_line: str) -> str:
+-    # Why: whitespace-only formatting may move a call without changing its
+-    # reviewed arithmetic expression; any semantic line edit still goes stale.
+-    normalized = " ".join(stripped_line.split())
++def source_fingerprint(stripped_span: str) -> str:
++    # Why: whitespace-only formatting may move a reference without changing
++    # its reviewed expression; edits inside the complete call/alias span stale
++    # the ruling even when an argument continues on another physical line.
++    normalized = " ".join(stripped_span.split())
+     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+ 
+ 
+-def findings_in_text(relative_path: str, source: str) -> list[Finding]:
++def has_member_or_qualified_prefix(stripped: str, offset: int) -> bool:
++    prefix = stripped[:offset].rstrip()
++    return prefix.endswith(".") or prefix.endswith("->") or prefix.endswith("::")
++
++
++def is_global_qualification(stripped: str, qualifier_offset: int) -> bool:
++    prefix = stripped[:qualifier_offset].rstrip()
++    word = re.search(r"([A-Za-z_]\w*)$", prefix)
++    # `custom :: sin` is a namespace member even with whitespace. Keywords can
++    # precede a genuine root qualifier (`return ::sin`, `decltype(::sin)`).
++    return word is None or word.group(1) in {
++        "case",
++        "co_return",
++        "decltype",
++        "noexcept",
++        "return",
++        "sizeof",
++        "throw",
++        "using",
++    }
++
++
++def fingerprint_span(stripped: str, offset: int, call: str, macro_span: tuple[int, int] | None) -> str:
++    if macro_span is not None:
++        return stripped[macro_span[0] : macro_span[1]]
++    cursor = offset + len(call)
++    while cursor < len(stripped) and stripped[cursor].isspace():
++        cursor += 1
++    if cursor < len(stripped) and stripped[cursor] == "(":
++        depth = 0
++        end = cursor
++        while end < len(stripped):
++            if stripped[end] == "(":
++                depth += 1
++            elif stripped[end] == ")":
++                depth -= 1
++                if depth == 0:
++                    end += 1
++                    break
++            end += 1
++        return stripped[offset:end]
++    line_start = stripped.rfind("\n", 0, offset) + 1
++    line_end = stripped.find("\n", offset)
++    return stripped[line_start:] if line_end < 0 else stripped[line_start:line_end]
++
++
++def findings_in_text(
++    relative_path: str, source: str, scope: str = "production"
++) -> list[Finding]:
+     stripped = strip_comments_and_literals(source)
+     original_lines = source.splitlines()
+-    stripped_lines = stripped.splitlines()
+-    candidates: set[tuple[int, str]] = set()
++    candidates: dict[tuple[int, str], tuple[int, int] | None] = {}
++    for match in QUALIFIED_REFERENCE_PATTERN.finditer(stripped):
++        candidates[(match.start("call"), match.group("call"))] = None
++    for match in GLOBAL_REFERENCE_PATTERN.finditer(stripped):
++        if is_global_qualification(stripped, match.start()):
++            candidates[(match.start("call"), match.group("call"))] = None
+     for pattern in (
+-        QUALIFIED_REFERENCE_PATTERN,
+-        GLOBAL_REFERENCE_PATTERN,
+         UNQUALIFIED_CALL_PATTERN,
+         UNQUALIFIED_ALIAS_PATTERN,
++        UNQUALIFIED_ASSIGNMENT_ALIAS_PATTERN,
++        PARENTHESIZED_ALIAS_PATTERN,
+     ):
+         for match in pattern.finditer(stripped):
+-            candidates.add((match.start("call"), match.group("call")))
++            offset = match.start("call")
++            if not has_member_or_qualified_prefix(stripped, offset):
++                candidates[(offset, match.group("call"))] = None
+     for alias_match in STD_NAMESPACE_ALIAS_PATTERN.finditer(stripped):
+         alias_pattern = re.compile(
+             rf"(?<![A-Za-z0-9_]){re.escape(alias_match.group('alias'))}\s*::\s*(?P<call>[A-Za-z_]\w*)\b"
+         )
+         for match in alias_pattern.finditer(stripped):
+-            candidates.add((match.start("call"), match.group("call")))
++            candidates[(match.start("call"), match.group("call"))] = None
+     for macro_match in MACRO_DEFINITION_PATTERN.finditer(stripped):
+         for token_match in TOKEN_PATTERN.finditer(macro_match.group()):
+-            candidates.add((macro_match.start() + token_match.start("call"), token_match.group("call")))
++            offset = macro_match.start() + token_match.start("call")
++            if not has_member_or_qualified_prefix(stripped, offset):
++                candidates.setdefault(
++                    (offset, token_match.group("call")),
++                    (macro_match.start(), macro_match.end()),
++                )
+ 
+     findings: list[Finding] = []
+-    for offset, call in sorted(candidates):
++    for (offset, call), macro_span in sorted(candidates.items()):
+         if call not in KNOWN_MATH_CALLS or call in CERTIFIED_CALLS:
+             continue
+         line_number = stripped.count("\n", 0, offset) + 1
+         line_start = stripped.rfind("\n", 0, offset) + 1
+         column = offset - line_start
+-        stripped_line = stripped_lines[line_number - 1]
+-        original = original_lines[line_number - 1] if line_number <= len(original_lines) else stripped_line
++        original = original_lines[line_number - 1] if line_number <= len(original_lines) else ""
+         kind = "explicit-fma" if call in EXPLICIT_FMA_CALLS else "implementation-defined"
+         findings.append(
+             Finding(
++                scope,
+                 relative_path,
+                 line_number,
+                 column,
+                 call,
+                 kind,
+                 original.strip(),
+-                source_fingerprint(stripped_line),
++                source_fingerprint(fingerprint_span(stripped, offset, call, macro_span)),
+             )
+         )
+     return findings
+ 
+ 
+-def iter_source_files(repo: Path) -> Iterable[Path]:
+-    for root in SOURCE_ROOTS:
++def iter_source_files(repo: Path, roots: Iterable[str]) -> Iterable[Path]:
++    seen: set[Path] = set()
++    for root in roots:
+         base = repo / root
+         if not base.exists():
+             continue
+         for path in sorted(base.rglob("*")):
+-            if path.is_file() and path.suffix.lower() in SOURCE_SUFFIXES:
++            if path.is_file() and path.suffix.lower() in SOURCE_SUFFIXES and path not in seen:
++                seen.add(path)
+                 yield path
+ 
+ 
+-def scan_repository(repo: Path) -> tuple[list[Finding], int]:
++def scan_roots(
++    repo: Path,
++    roots: Iterable[str],
++    scope: str,
++    calls: set[str] | None = None,
++) -> tuple[list[Finding], int]:
+     findings: list[Finding] = []
+     scanned = 0
+-    for path in iter_source_files(repo):
++    for path in iter_source_files(repo, roots):
+         scanned += 1
+         relative_path = normalize_path(path.relative_to(repo))
+-        findings.extend(findings_in_text(relative_path, path.read_text(encoding="utf-8", errors="replace")))
++        path_findings = findings_in_text(
++            relative_path,
++            path.read_text(encoding="utf-8", errors="replace"),
++            scope,
++        )
++        findings.extend(
++            path_findings
++            if calls is None
++            else (finding for finding in path_findings if finding.call in calls)
++        )
+     findings.sort(key=lambda item: (item.path.lower(), item.line, item.column, item.call))
+     return findings, scanned
+ 
+ 
++def scan_repository(repo: Path) -> tuple[list[Finding], ScanSummary]:
++    broad_findings, broad_scanned = scan_roots(repo, BROAD_MATH_ROOTS, "production")
++    production_trig, production_scanned = scan_roots(repo, PRODUCTION_ROOTS, "production", TRIG_CALLS)
++    test_trig, test_scanned = scan_roots(repo, TEST_ROOTS, "test", TRIG_CALLS)
++    # Invariant: the broad Physics/Maths scan and repository trig scan overlap.
++    # Exact identity deduplication keeps one production ruling per live call.
++    merged = {
++        finding.identity: finding
++        for finding in (*broad_findings, *production_trig, *test_trig)
++    }
++    findings = sorted(
++        merged.values(),
++        key=lambda item: (
++            item.scope,
++            item.path.lower(),
++            item.line,
++            item.column,
++            item.call,
++        ),
++    )
++    return findings, ScanSummary(
++        broad_math_source_files=broad_scanned,
++        production_source_files=production_scanned,
++        test_source_files=test_scanned,
++        production_trig_findings=len(production_trig),
++        test_trig_findings=len(test_trig),
++    )
++
++
+ def load_rulings(path: Path) -> tuple[list[dict[str, object]], list[str]]:
+     if not path.exists():
+         return [], [f"rulings file not found: {path}"]
+@@ -348,8 +500,12 @@ def load_rulings(path: Path) -> tuple[list[dict[str, object]], list[str]]:
+         data = json.loads(path.read_text(encoding="utf-8"))
+     except (OSError, json.JSONDecodeError) as error:
+         return [], [f"failed to read rulings: {error}"]
+-    if not isinstance(data, dict) or data.get("version") != 1 or not isinstance(data.get("rulings"), list):
+-        return [], ["rulings file must contain version 1 and a rulings array"]
++    if (
++        not isinstance(data, dict)
++        or data.get("version") != 2
++        or not isinstance(data.get("rulings"), list)
++    ):
++        return [], ["rulings file must contain version 2 and a rulings array"]
+     return data["rulings"], []
+ 
+ 
+@@ -367,6 +523,9 @@ def validate_ruling(row: object, index: int, repo: Path) -> list[str]:
+     disposition = row.get("disposition")
+     if disposition not in RULING_DISPOSITIONS:
+         errors.append(f"ruling {index} has invalid disposition: {disposition}")
++    scope = row.get("scope")
++    if scope not in RULING_SCOPES:
++        errors.append(f"ruling {index} has invalid scope: {scope}")
+     fingerprint = row.get("source_fingerprint")
+     if isinstance(fingerprint, str) and FINGERPRINT_PATTERN.fullmatch(fingerprint) is None:
+         errors.append(f"ruling {index} has invalid source_fingerprint")
+@@ -382,8 +541,15 @@ def validate_ruling(row: object, index: int, repo: Path) -> list[str]:
+     return errors
+ 
+ 
+-def ruling_identity(row: dict[str, object]) -> tuple[object, object, object, object, object]:
+-    return (row.get("path"), row.get("line"), row.get("column"), row.get("call"), row.get("source_fingerprint"))
++def ruling_identity(row: dict[str, object]) -> tuple[object, object, object, object, object, object]:
++    return (
++        row.get("scope"),
++        row.get("path"),
++        row.get("line"),
++        row.get("column"),
++        row.get("call"),
++        row.get("source_fingerprint"),
++    )
+ 
+ 
+ def reconcile(
+@@ -393,7 +559,7 @@ def reconcile(
+     # structurally valid rulings. Historical rows cannot satisfy current code.
+     errors: list[str] = []
+     valid_rulings: list[dict[str, object]] = []
+-    seen: set[tuple[object, object, object, object, object]] = set()
++    seen: set[tuple[object, object, object, object, object, object]] = set()
+     for index, row in enumerate(rulings):
+         row_errors = validate_ruling(row, index, repo)
+         errors.extend(row_errors)
+@@ -427,6 +593,8 @@ float fused(float x) { return fmaf(x, x, 1.0f); }
+ float split(float x) { return std::sin
+ (x); }
+ auto pointer = &std::cos;
++auto bare_pointer = sinf;
++auto parenthesized_pointer = (cosf);
+ #define SYNTHETIC_TAN std::tan
+ #define SYNTHETIC_ASIN asinf
+ float global_call(float x) { return ::sinf(x); }
+@@ -436,6 +604,10 @@ float namespace_alias(float x) { return cm::sin(x); }
+ #define SYNTHETIC_CONTINUED \
+     cosf
+ float member_call(auto& value) { return value.remainder(); }
++float spaced_member(auto& value, float x) { return value . sin(x) + value -> cos(x); }
++float custom_namespace(float x) { return custom :: sin(x); }
++#define MEMBER_CALL(v) (v).sinf()
++#define TOKEN_PASTE_CALL(v) si##nf(v)
+ // cosf(x) and "atan2f(" are evidence text, not calls.
+ """
+     findings = findings_in_text("SkullbonezSource/Maths/Synthetic.cpp", synthetic)
+@@ -447,6 +619,8 @@ float member_call(auto& value) { return value.remainder(); }
+         ("fmaf", "explicit-fma"),
+         ("sin", "implementation-defined"),
+         ("cos", "implementation-defined"),
++        ("sinf", "implementation-defined"),
++        ("cosf", "implementation-defined"),
+         ("tan", "implementation-defined"),
+         ("asinf", "implementation-defined"),
+         ("sinf", "implementation-defined"),
+@@ -457,6 +631,22 @@ float member_call(auto& value) { return value.remainder(); }
+         print("SELF_TEST_FAIL: call classification or comment stripping changed", file=sys.stderr)
+         return 1
+ 
++    split_original = findings_in_text(
++        "SkullbonezSource/Maths/Split.cpp",
++        "float Split(float x) { return std::sin\n(x); }\n",
++    )
++    split_edited = findings_in_text(
++        "SkullbonezSource/Maths/Split.cpp",
++        "float Split(float x) { return std::sin\n(x + 99.0f); }\n",
++    )
++    if (
++        len(split_original) != 1
++        or len(split_edited) != 1
++        or split_original[0].identity == split_edited[0].identity
++    ):
++        print("SELF_TEST_FAIL: split-line operand edits did not stale identity", file=sys.stderr)
++        return 1
++
+     with tempfile.TemporaryDirectory() as directory:
+         repo = Path(directory)
+         plan = repo / "Agentic/Plans/TODO/synthetic.md"
+@@ -466,6 +656,7 @@ float member_call(auto& value) { return value.remainder(); }
+         for finding in findings:
+             disposition = "repair-plan" if finding.call == "acosf" else "retain-owner"
+             row: dict[str, object] = {
++                "scope": finding.scope,
+                 "path": finding.path,
+                 "line": finding.line,
+                 "column": finding.column,
+@@ -507,29 +698,58 @@ float member_call(auto& value) { return value.remainder(); }
+ 
+         maths_source = repo / "SkullbonezSource/Maths/Root.h"
+         physics_source = repo / "SkullbonezSource/Physics/Root.cpp"
++        gameplay_source = repo / "SkullbonezSource/Gameplay/Root.cpp"
++        test_source = repo / "SkullbonezTests/Root.cpp"
+         maths_source.parent.mkdir(parents=True)
+         physics_source.parent.mkdir(parents=True)
++        gameplay_source.parent.mkdir(parents=True)
++        test_source.parent.mkdir(parents=True)
+         maths_source.write_text("#define ROOT_COS std::cos\n", encoding="utf-8")
+         physics_source.write_text("float Root(float x) { return std::sin\n(x); }\n", encoding="utf-8")
+-        root_findings, scanned = scan_repository(repo)
+-        root_projection = [(finding.path, finding.call) for finding in root_findings]
+-        if scanned != 2 or root_projection != [
+-            ("SkullbonezSource/Maths/Root.h", "cos"),
+-            ("SkullbonezSource/Physics/Root.cpp", "sin"),
++        gameplay_source.write_text("auto root_pointer = &::cosf;\n", encoding="utf-8")
++        test_source.write_text("#define TEST_SIN std::sin\n", encoding="utf-8")
++        root_findings, summary = scan_repository(repo)
++        root_projection = [(finding.scope, finding.path, finding.call) for finding in root_findings]
++        if summary != ScanSummary(2, 3, 1, 3, 1) or root_projection != [
++            ("production", "SkullbonezSource/Gameplay/Root.cpp", "cosf"),
++            ("production", "SkullbonezSource/Maths/Root.h", "cos"),
++            ("production", "SkullbonezSource/Physics/Root.cpp", "sin"),
++            ("test", "SkullbonezTests/Root.cpp", "sin"),
+         ]:
+-            print("SELF_TEST_FAIL: both required roots or bypass forms were not scanned", file=sys.stderr)
++            print("SELF_TEST_FAIL: broad, production, or test scopes lost a bypass form", file=sys.stderr)
+             return 1
+ 
+-    print("SELF_TEST_PASS: math references, both roots, exact rulings, and currentness are enforced.")
++        production_finding = root_findings[0]
++        test_alias = {
++            "scope": "test",
++            "path": production_finding.path,
++            "line": production_finding.line,
++            "column": production_finding.column,
++            "call": production_finding.call,
++            "source_fingerprint": production_finding.source_fingerprint,
++            "disposition": "retain-owner",
++            "owner": "synthetic test oracle",
++            "reason": "independent reference",
++        }
++        errors, unruled, _ = reconcile([production_finding], [test_alias], repo)
++        if len(unruled) != 1 or not errors:
++            print("SELF_TEST_FAIL: a test ruling authorized production scope", file=sys.stderr)
++            return 1
++
++    print("SELF_TEST_PASS: broad math, repository trig, test scope, bypass forms, and exact rulings are enforced.")
+     return 0
+ 
+ 
+ def render_text(
+-    findings: list[Finding], scanned: int, rulings: list[dict[str, object]], errors: list[str], unruled: list[Finding], stale: list[dict[str, object]]
++    findings: list[Finding], summary: ScanSummary, rulings: list[dict[str, object]], errors: list[str], unruled: list[Finding], stale: list[dict[str, object]]
+ ) -> str:
+     lines = [
+         "Determinism math policy inventory",
+-        f"source files: {scanned}",
++        f"broad Maths/Physics source files: {summary.broad_math_source_files}",
++        f"production source files: {summary.production_source_files}",
++        f"test source files: {summary.test_source_files}",
++        f"production sine/cosine findings: {summary.production_trig_findings}",
++        f"test sine/cosine findings: {summary.test_trig_findings}",
+         f"policy findings: {len(findings)}",
+         f"current rulings: {len(findings) - len(unruled)}",
+         f"unruled findings: {len(unruled)}",
+@@ -537,14 +757,17 @@ def render_text(
+         f"blocking diagnostics: {len(errors)}",
+     ]
+     for finding in findings:
+-        lines.append(f"  {finding.path}:{finding.line}:{finding.column + 1} {finding.kind} {finding.call}: {finding.source}")
++        lines.append(
++            f"  [{finding.scope}] {finding.path}:{finding.line}:{finding.column + 1} "
++            f"{finding.kind} {finding.call}: {finding.source}"
++        )
+     for error in errors:
+         lines.append(f"ERROR: {error}")
+     return "\n".join(lines)
+ 
+ 
+ def main() -> int:
+-    parser = argparse.ArgumentParser(description="Inventory non-certified math calls in Physics and Maths.")
++    parser = argparse.ArgumentParser(description="Inventory broad Maths/Physics calls and repository CPU sine/cosine references.")
+     parser.add_argument("--repo", default=".", help="repository root")
+     parser.add_argument("--rulings", help="rulings JSON; defaults to tools/determinism_math_rulings.json")
+     parser.add_argument("--self-test", action="store_true", help="run bounded parser/currentness fixtures")
+@@ -556,14 +779,14 @@ def main() -> int:
+ 
+     repo = Path(args.repo).resolve()
+     rulings_path = Path(args.rulings).resolve() if args.rulings else repo / "tools/determinism_math_rulings.json"
+-    findings, scanned = scan_repository(repo)
++    findings, summary = scan_repository(repo)
+     rulings, load_errors = load_rulings(rulings_path)
+     errors, unruled, stale = reconcile(findings, rulings, repo)
+     errors = load_errors + errors
+ 
+     if args.format == "json":
+         payload = {
+-            "source_files": scanned,
++            "scan_summary": asdict(summary),
+             "findings": [asdict(finding) for finding in findings],
+             "rulings": len(rulings),
+             "unruled": len(unruled),
+@@ -572,7 +795,7 @@ def main() -> int:
+         }
+         print(json.dumps(payload, indent=2, sort_keys=True))
+     else:
+-        print(render_text(findings, scanned, rulings, errors, unruled, stale))
++        print(render_text(findings, summary, rulings, errors, unruled, stale))
+     return 1 if errors else 0
+ 
+ 
+diff --git a/tools/determinism_math_rulings.json b/tools/determinism_math_rulings.json
+index 63f7c6aa2..98de28413 100644
+--- a/tools/determinism_math_rulings.json
++++ b/tools/determinism_math_rulings.json
+@@ -1,295 +1,1780 @@
+ {
+-  "version": 1,
++  "version": 2,
+   "rulings": [
+     {
++      "scope": "production",
++      "path": "SkullbonezSource/Gameplay/TornadoField.cpp",
++      "line": 290,
++      "column": 37,
++      "call": "cosf",
++      "source_fingerprint": "54c8585c983e254835ee3ccd90c381e5b3c9ef7d2f5dbb48fa6418a8e57f47bd",
++      "disposition": "repair-plan",
++      "owner": "Tornado gameplay force-field simulation",
++      "reason": "Gameplay force-field trig is scheduled for deterministic migration in TRIG_DETERMINISM DT5.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Gameplay/TornadoField.cpp",
++      "line": 290,
++      "column": 74,
++      "call": "cosf",
++      "source_fingerprint": "472888e5e41f71f68a242bcfe96b727d23624eefdc023f1681a35c95a20ef293",
++      "disposition": "repair-plan",
++      "owner": "Tornado gameplay force-field simulation",
++      "reason": "Gameplay force-field trig is scheduled for deterministic migration in TRIG_DETERMINISM DT5.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Gameplay/TornadoField.cpp",
++      "line": 291,
++      "column": 37,
++      "call": "sinf",
++      "source_fingerprint": "0e397c479e729bb49a984259215eeb4efd32a9da285658d541b654924ea84f80",
++      "disposition": "repair-plan",
++      "owner": "Tornado gameplay force-field simulation",
++      "reason": "Gameplay force-field trig is scheduled for deterministic migration in TRIG_DETERMINISM DT5.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Gameplay/TornadoField.cpp",
++      "line": 291,
++      "column": 74,
++      "call": "sinf",
++      "source_fingerprint": "af1d5ae3802375660e40c3e91c2511fd38b837b0534046b16d355ebc9d952521",
++      "disposition": "repair-plan",
++      "owner": "Tornado gameplay force-field simulation",
++      "reason": "Gameplay force-field trig is scheduled for deterministic migration in TRIG_DETERMINISM DT5.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Gameplay/TornadoField.cpp",
++      "line": 335,
++      "column": 37,
++      "call": "cosf",
++      "source_fingerprint": "2a28dfdac15cb40a72f42b401575ec5a9d09e5f9d86aba9485201e381f9bd549",
++      "disposition": "repair-plan",
++      "owner": "Tornado gameplay force-field simulation",
++      "reason": "Gameplay force-field trig is scheduled for deterministic migration in TRIG_DETERMINISM DT5.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Gameplay/TornadoField.cpp",
++      "line": 335,
++      "column": 66,
++      "call": "sinf",
++      "source_fingerprint": "6e1aafd5a9c6d490be2598e438acd04862179fc76e524f738b240e5b78ae1158",
++      "disposition": "repair-plan",
++      "owner": "Tornado gameplay force-field simulation",
++      "reason": "Gameplay force-field trig is scheduled for deterministic migration in TRIG_DETERMINISM DT5.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Gameplay/TornadoGameplay.cpp",
++      "line": 294,
++      "column": 72,
++      "call": "cosf",
++      "source_fingerprint": "7f57670eee19305648d8df7691880506df39f14acca8edab743595b7d12ba33a",
++      "disposition": "repair-plan",
++      "owner": "Tornado gameplay spawn authoring",
++      "reason": "Gameplay spawn-ring trig is scheduled for deterministic migration in TRIG_DETERMINISM DT5.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Gameplay/TornadoGameplay.cpp",
++      "line": 295,
++      "column": 72,
++      "call": "sinf",
++      "source_fingerprint": "03636c48e8decce077437723786530c0f1970d18e454d8a45da6af67ca19823f",
++      "disposition": "repair-plan",
++      "owner": "Tornado gameplay spawn authoring",
++      "reason": "Gameplay spawn-ring trig is scheduled for deterministic migration in TRIG_DETERMINISM DT5.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Gameplay/TornadoVisualPass.cpp",
++      "line": 85,
++      "column": 20,
++      "call": "cosf",
++      "source_fingerprint": "7f57670eee19305648d8df7691880506df39f14acca8edab743595b7d12ba33a",
++      "disposition": "repair-plan",
++      "owner": "Tornado presentation geometry",
++      "reason": "Visual funnel trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Gameplay/TornadoVisualPass.cpp",
++      "line": 85,
++      "column": 50,
++      "call": "sinf",
++      "source_fingerprint": "03636c48e8decce077437723786530c0f1970d18e454d8a45da6af67ca19823f",
++      "disposition": "repair-plan",
++      "owner": "Tornado presentation geometry",
++      "reason": "Visual funnel trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Gameplay/TornadoVisualPass.cpp",
++      "line": 355,
++      "column": 74,
++      "call": "sinf",
++      "source_fingerprint": "adf14c236bf159b554d8ce2077de2be14070962502123e10f79c372f3bc8e089",
++      "disposition": "repair-plan",
++      "owner": "Tornado presentation geometry",
++      "reason": "Visual funnel trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Gameplay/TornadoVisualPass.cpp",
++      "line": 358,
++      "column": 74,
++      "call": "sinf",
++      "source_fingerprint": "a6f44369f79f706227ba25130c7a8c85b58d6ac31d063f66dde570ad4cdd9d0c",
++      "disposition": "repair-plan",
++      "owner": "Tornado presentation geometry",
++      "reason": "Visual funnel trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Gameplay/TornadoVisualPass.cpp",
++      "line": 373,
++      "column": 58,
++      "call": "sinf",
++      "source_fingerprint": "501dcc6fd7b16e9e8acc6515b4a40027ec8a5936431005283572b47b3d28bcc7",
++      "disposition": "repair-plan",
++      "owner": "Tornado presentation geometry",
++      "reason": "Visual funnel trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Gameplay/TornadoVisualPass.cpp",
++      "line": 417,
++      "column": 93,
++      "call": "sinf",
++      "source_fingerprint": "450fd074de3ad7ec35d71bc83a6c1abbdbda0f06a0195288b489e6fc3b94dfa4",
++      "disposition": "repair-plan",
++      "owner": "Tornado presentation geometry",
++      "reason": "Visual funnel trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Gameplay/TornadoVisualPass.cpp",
++      "line": 419,
++      "column": 93,
++      "call": "sinf",
++      "source_fingerprint": "5bd98fb75893223ef8dbaba48ded7fa6dc3acffeac2b4705dcdad71d41d50b8d",
++      "disposition": "repair-plan",
++      "owner": "Tornado presentation geometry",
++      "reason": "Visual funnel trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
+       "path": "SkullbonezSource/Maths/Matrix4.cpp",
+       "line": 73,
+       "column": 20,
+       "call": "tanf",
+-      "source_fingerprint": "71707ef270537a3efa99d3e42ff8fe6619b11f0c65af5dfd04836f0f716222bc",
++      "source_fingerprint": "b328b5069e6564e9aeb7035722104dcf305c78a223317da16bb6f157221586b0",
+       "disposition": "retain-owner",
+       "owner": "Rendering perspective projection",
+       "reason": "PerspectiveZeroToOne builds a render projection matrix and is not reachable from Physics."
+     },
+     {
++      "scope": "production",
+       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
+       "line": 88,
+       "column": 16,
+       "call": "atan2",
+-      "source_fingerprint": "f0fa4eec1868b2cf77c4b63be2f52db7c3b5258ec43087cbf419da5632d984aa",
++      "source_fingerprint": "a6420f19fb4c07889d0ddbcdc2caace3c7309b90e3c29e7d386d0dca6114dfda",
+       "disposition": "retain-owner",
+       "owner": "Runtime Planning orbital mechanics value library",
+       "reason": "Directed orbital-angle construction serves Planning guide, trip, and porkchop products and is not reachable from Physics."
+     },
+     {
++      "scope": "production",
+       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
+       "line": 93,
+       "column": 36,
+       "call": "cos",
+-      "source_fingerprint": "4b7eee26846f7183dd403edf2d073f337684821bbbdd972b4fa49a74d1beb630",
+-      "disposition": "retain-owner",
++      "source_fingerprint": "3d4d920403164d2b0c0b48a95c3d640add9ba3a067eed60339e6a5e37e3065eb",
++      "disposition": "repair-plan",
+       "owner": "Runtime Planning orbital mechanics value library",
+-      "reason": "Perifocal presentation rotation serves Planning products and is not reachable from Physics."
++      "reason": "Orbital trig participates in convergence-sensitive Planning products and is scheduled for certified float/double migration in TRIG_DETERMINISM DT6.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
+     },
+     {
++      "scope": "production",
+       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
+       "line": 94,
+       "column": 36,
+       "call": "sin",
+-      "source_fingerprint": "30a1e8b3bb95de1272a2fa6cea3665ed14639c20cc085c3e9c5af25ba3b2680c",
+-      "disposition": "retain-owner",
++      "source_fingerprint": "0fc4788800abe0e77e17799aef78f6bc32c113d01b80a34cd356783b8e5908fe",
++      "disposition": "repair-plan",
+       "owner": "Runtime Planning orbital mechanics value library",
+-      "reason": "Perifocal presentation rotation serves Planning products and is not reachable from Physics."
++      "reason": "Orbital trig participates in convergence-sensitive Planning products and is scheduled for certified float/double migration in TRIG_DETERMINISM DT6.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
+     },
+     {
++      "scope": "production",
+       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
+       "line": 95,
+       "column": 35,
+       "call": "cos",
+-      "source_fingerprint": "37eb3a365dcd9e6ca634b5bb7100f46bf0e944317d20a7dc80dc95f6b147b763",
+-      "disposition": "retain-owner",
++      "source_fingerprint": "6a4ce7b908e3eb30d8f0e3db5cf5555fe5cf6243175f050e625b79d447dd7e62",
++      "disposition": "repair-plan",
+       "owner": "Runtime Planning orbital mechanics value library",
+-      "reason": "Perifocal presentation rotation serves Planning products and is not reachable from Physics."
++      "reason": "Orbital trig participates in convergence-sensitive Planning products and is scheduled for certified float/double migration in TRIG_DETERMINISM DT6.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
+     },
+     {
++      "scope": "production",
+       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
+       "line": 96,
+       "column": 35,
+       "call": "sin",
+-      "source_fingerprint": "b52f0e4c506e66ac1a79c2a9f51f7116ca5ef89b5ace4d0e639e34db2cedbe39",
+-      "disposition": "retain-owner",
++      "source_fingerprint": "6daddb3d63bb941f81dc37449e7b5607f20f2c69b9a03a0916d577d565a665bc",
++      "disposition": "repair-plan",
+       "owner": "Runtime Planning orbital mechanics value library",
+-      "reason": "Perifocal presentation rotation serves Planning products and is not reachable from Physics."
++      "reason": "Orbital trig participates in convergence-sensitive Planning products and is scheduled for certified float/double migration in TRIG_DETERMINISM DT6.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
+     },
+     {
++      "scope": "production",
+       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
+       "line": 97,
+       "column": 38,
+       "call": "cos",
+-      "source_fingerprint": "8db91295591039095442fe4735187e9f2bfcf23be78b7a4de808b37c05782134",
+-      "disposition": "retain-owner",
++      "source_fingerprint": "86ca60d7f7366b707b86b9c2caf77662d76ab0b0623c22010c42c67532945d6b",
++      "disposition": "repair-plan",
+       "owner": "Runtime Planning orbital mechanics value library",
+-      "reason": "Perifocal presentation rotation serves Planning products and is not reachable from Physics."
++      "reason": "Orbital trig participates in convergence-sensitive Planning products and is scheduled for certified float/double migration in TRIG_DETERMINISM DT6.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
+     },
+     {
++      "scope": "production",
+       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
+       "line": 98,
+       "column": 38,
+       "call": "sin",
+-      "source_fingerprint": "85fce455f42fd0e642839158fd6016db74cf2812efc79072d71e06ba107d345f",
+-      "disposition": "retain-owner",
++      "source_fingerprint": "b74c0cf1bbb6f7220126586ca48863e112a29ab7587bf69aaf21e6f8016a4905",
++      "disposition": "repair-plan",
+       "owner": "Runtime Planning orbital mechanics value library",
+-      "reason": "Perifocal presentation rotation serves Planning products and is not reachable from Physics."
++      "reason": "Orbital trig participates in convergence-sensitive Planning products and is scheduled for certified float/double migration in TRIG_DETERMINISM DT6.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
+     },
+     {
++      "scope": "production",
+       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
+       "line": 120,
+       "column": 63,
+       "call": "sin",
+-      "source_fingerprint": "7a7388f1e9ecbd1a36c82abae355a5d75583443eeab39f658e6b8990f9cbc321",
+-      "disposition": "retain-owner",
++      "source_fingerprint": "a20c9ff14ba639f69796bed837463bf38c6758fda26a5e855905b99cb311b6bf",
++      "disposition": "repair-plan",
+       "owner": "Runtime Planning orbital mechanics value library",
+-      "reason": "Kepler iteration serves Planning products and is not reachable from Physics."
++      "reason": "Orbital trig participates in convergence-sensitive Planning products and is scheduled for certified float/double migration in TRIG_DETERMINISM DT6.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
+     },
+     {
++      "scope": "production",
+       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
+       "line": 124,
+       "column": 70,
+       "call": "sin",
+-      "source_fingerprint": "4961a65ca72778a6e78761601d7e50b5280358b36807eda71cbb933dfc891328",
+-      "disposition": "retain-owner",
++      "source_fingerprint": "5b8b06b4b669837a01ea79a4908b8fd484fa3f69b468c8593b5467654a3e1c13",
++      "disposition": "repair-plan",
+       "owner": "Runtime Planning orbital mechanics value library",
+-      "reason": "Kepler iteration serves Planning products and is not reachable from Physics."
++      "reason": "Orbital trig participates in convergence-sensitive Planning products and is scheduled for certified float/double migration in TRIG_DETERMINISM DT6.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
+     },
+     {
++      "scope": "production",
+       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
+       "line": 125,
+       "column": 60,
+       "call": "cos",
+-      "source_fingerprint": "c995abbf84b14e2f1af91aa683b58ff74299df5c54bc17e65638b513a884fe05",
+-      "disposition": "retain-owner",
++      "source_fingerprint": "fb266c3bc460e7c4d873ef7ca6a83cd6a564361696dd4e66c8f1da3730644a06",
++      "disposition": "repair-plan",
+       "owner": "Runtime Planning orbital mechanics value library",
+-      "reason": "Kepler iteration serves Planning products and is not reachable from Physics."
++      "reason": "Orbital trig participates in convergence-sensitive Planning products and is scheduled for certified float/double migration in TRIG_DETERMINISM DT6.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
+     },
+     {
++      "scope": "production",
+       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
+       "line": 157,
+       "column": 28,
+       "call": "cos",
+-      "source_fingerprint": "368fd0160964cd64d9c6e466149d5a5488563448c054356587609ec9a3a35385",
+-      "disposition": "retain-owner",
++      "source_fingerprint": "e257894a8ee9e3b1770ce6100dc272aa82a26ff2c2cca4f94caa7d0c48bd9065",
++      "disposition": "repair-plan",
+       "owner": "Runtime Planning orbital mechanics value library",
+-      "reason": "Lambert Stumpff evaluation serves Planning products and is not reachable from Physics."
++      "reason": "Orbital trig participates in convergence-sensitive Planning products and is scheduled for certified float/double migration in TRIG_DETERMINISM DT6.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
+     },
+     {
++      "scope": "production",
+       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
+       "line": 158,
+       "column": 29,
+       "call": "sin",
+-      "source_fingerprint": "79488e02ce57c35fc2de61692635653450a2a3b83970909b821dba1620f47505",
+-      "disposition": "retain-owner",
++      "source_fingerprint": "7abe614bf7b391740e2973dfdf5fbfca755673ddbb7a6ce0e72bc187d5eb1437",
++      "disposition": "repair-plan",
+       "owner": "Runtime Planning orbital mechanics value library",
+-      "reason": "Lambert Stumpff evaluation serves Planning products and is not reachable from Physics."
++      "reason": "Orbital trig participates in convergence-sensitive Planning products and is scheduled for certified float/double migration in TRIG_DETERMINISM DT6.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
+     },
+     {
++      "scope": "production",
+       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
+       "line": 163,
+       "column": 18,
+       "call": "cosh",
+-      "source_fingerprint": "0e62eeb8644c3c14e4f27381e05ec09f872829599078fda2fb358f3c420c23d2",
++      "source_fingerprint": "8aa5c30ef1e34248cf4aeae11f3608f0d8bb05221330305cb5f1d40d2bb70ab3",
+       "disposition": "retain-owner",
+       "owner": "Runtime Planning orbital mechanics value library",
+       "reason": "Lambert Stumpff evaluation serves Planning products and is not reachable from Physics."
+     },
+     {
++      "scope": "production",
+       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
+       "line": 164,
+       "column": 18,
+       "call": "sinh",
+-      "source_fingerprint": "4bef7344f3bb3d96efbc6695962b054ecb8f8b6135d675582b07f9265d04d603",
++      "source_fingerprint": "f5666211d72f75e23b814b31699b3391a3ed1b31cb5f4c069e3b706cb9a577e6",
+       "disposition": "retain-owner",
+       "owner": "Runtime Planning orbital mechanics value library",
+       "reason": "Lambert Stumpff evaluation serves Planning products and is not reachable from Physics."
+     },
+     {
++      "scope": "production",
+       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
+       "line": 259,
+       "column": 38,
+       "call": "atan2",
+-      "source_fingerprint": "91980e51b674a42af66e4e402549d9d26311a6ca5d526f951a00b59a1212d9ba",
++      "source_fingerprint": "8da4b5f46b7187a3a238460db38b25324e18dc359d0ead8c983b9c042df00d21",
+       "disposition": "retain-owner",
+       "owner": "Runtime Planning orbital mechanics value library",
+       "reason": "Orbital-element reconstruction serves Planning products and is not reachable from Physics."
+     },
+     {
++      "scope": "production",
+       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
+       "line": 275,
+       "column": 37,
+       "call": "atan2",
+-      "source_fingerprint": "686716ab84b5430588d54b54011536a27b8934794f652598bddbbdbf102fc354",
++      "source_fingerprint": "e3c00f0cb490c7d9228d29995712cdd57ebdc6af8a7a9d14647ffc4be3a8d43b",
+       "disposition": "retain-owner",
+       "owner": "Runtime Planning orbital mechanics value library",
+       "reason": "Orbital-element reconstruction serves Planning products and is not reachable from Physics."
+     },
+     {
++      "scope": "production",
+       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
+       "line": 287,
+       "column": 27,
+       "call": "atan2",
+-      "source_fingerprint": "cb8fdc7d494417e982b0caf1351d7852f411b03970c88446bb30300024c1bfdf",
++      "source_fingerprint": "9e57620171ce8afe1ed358e067afda5d248a82afe27cbf44535b2e83e27f2127",
+       "disposition": "retain-owner",
+       "owner": "Runtime Planning orbital mechanics value library",
+       "reason": "Orbital-element reconstruction serves Planning products and is not reachable from Physics."
+     },
+     {
++      "scope": "production",
+       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
+       "line": 290,
+       "column": 47,
+       "call": "atan2",
+-      "source_fingerprint": "630633ceb0a258bdbcb8421418fd41b1dddbc6ce67bf0c7cc0481991f5a9c7c8",
++      "source_fingerprint": "9459427ee14d231ad2b88af3d5b68c346bdc92655fca584f00f05382458bf4d2",
+       "disposition": "retain-owner",
+       "owner": "Runtime Planning orbital mechanics value library",
+       "reason": "Orbital-element reconstruction serves Planning products and is not reachable from Physics."
+     },
+     {
++      "scope": "production",
+       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
+       "line": 290,
+       "column": 94,
+       "call": "sin",
+-      "source_fingerprint": "630633ceb0a258bdbcb8421418fd41b1dddbc6ce67bf0c7cc0481991f5a9c7c8",
+-      "disposition": "retain-owner",
++      "source_fingerprint": "b7fcd62201a2c1879fc8485880cfaeaf4f6a30598473c1d5ed8fcb2081ad51fd",
++      "disposition": "repair-plan",
+       "owner": "Runtime Planning orbital mechanics value library",
+-      "reason": "Orbital-element reconstruction serves Planning products and is not reachable from Physics."
++      "reason": "Orbital trig participates in convergence-sensitive Planning products and is scheduled for certified float/double migration in TRIG_DETERMINISM DT6.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
+     },
+     {
++      "scope": "production",
+       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
+       "line": 291,
+       "column": 94,
+       "call": "cos",
+-      "source_fingerprint": "8a255c37e3e50cc6677801b87f221e23bd6493c3ee7f41d4a71e0577db9f3665",
+-      "disposition": "retain-owner",
++      "source_fingerprint": "6b17fb1db9f3a6fe97196ac1bb83c10093eec0e78786c02af236b81ddfb27b51",
++      "disposition": "repair-plan",
+       "owner": "Runtime Planning orbital mechanics value library",
+-      "reason": "Orbital-element reconstruction serves Planning products and is not reachable from Physics."
++      "reason": "Orbital trig participates in convergence-sensitive Planning products and is scheduled for certified float/double migration in TRIG_DETERMINISM DT6.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
+     },
+     {
++      "scope": "production",
+       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
+       "line": 295,
+       "column": 27,
+       "call": "acos",
+-      "source_fingerprint": "98e132a8b1a11b5a1a28470effc00447b64976344a7d618218165c869c870b06",
++      "source_fingerprint": "73239c7daca95b1e0906b6e1187bf672f6b21ed68b464e2e01cc46a04898f263",
+       "disposition": "retain-owner",
+       "owner": "Runtime Planning orbital mechanics value library",
+       "reason": "Orbital-element reconstruction serves Planning products and is not reachable from Physics."
+     },
+     {
++      "scope": "production",
+       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
+       "line": 298,
+       "column": 81,
+       "call": "sin",
+-      "source_fingerprint": "c280ecb63bbec2f2e6179d792fc26742be27fc1a53b0bf851512f4e3788674bb",
+-      "disposition": "retain-owner",
++      "source_fingerprint": "5b8b06b4b669837a01ea79a4908b8fd484fa3f69b468c8593b5467654a3e1c13",
++      "disposition": "repair-plan",
+       "owner": "Runtime Planning orbital mechanics value library",
+-      "reason": "Orbital-element reconstruction serves Planning products and is not reachable from Physics."
++      "reason": "Orbital trig participates in convergence-sensitive Planning products and is scheduled for certified float/double migration in TRIG_DETERMINISM DT6.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
+     },
+     {
++      "scope": "production",
+       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
+       "line": 327,
+       "column": 36,
+       "call": "cos",
+-      "source_fingerprint": "95ad88b67e5a4fe924c350aa99e7279a941016806e5fe93338fdd8fbece053dd",
+-      "disposition": "retain-owner",
++      "source_fingerprint": "fb266c3bc460e7c4d873ef7ca6a83cd6a564361696dd4e66c8f1da3730644a06",
++      "disposition": "repair-plan",
+       "owner": "Runtime Planning orbital mechanics value library",
+-      "reason": "Orbit propagation serves Planning products and is not reachable from Physics."
++      "reason": "Orbital trig participates in convergence-sensitive Planning products and is scheduled for certified float/double migration in TRIG_DETERMINISM DT6.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
+     },
+     {
++      "scope": "production",
+       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
+       "line": 328,
+       "column": 36,
+       "call": "sin",
+-      "source_fingerprint": "37733c859bdd884e6d86c424af38fac4bc55a5b2337ff7c1d78bdbeb0f166085",
+-      "disposition": "retain-owner",
++      "source_fingerprint": "5b8b06b4b669837a01ea79a4908b8fd484fa3f69b468c8593b5467654a3e1c13",
++      "disposition": "repair-plan",
+       "owner": "Runtime Planning orbital mechanics value library",
+-      "reason": "Orbit propagation serves Planning products and is not reachable from Physics."
++      "reason": "Orbital trig participates in convergence-sensitive Planning products and is scheduled for certified float/double migration in TRIG_DETERMINISM DT6.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
+     },
+     {
++      "scope": "production",
+       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
+       "line": 362,
+       "column": 56,
+       "call": "cos",
+-      "source_fingerprint": "30796aec8bee4fda84980b45439a3e3bf7e0858c5abdfbc6bd56080cb60115ee",
+-      "disposition": "retain-owner",
++      "source_fingerprint": "fb266c3bc460e7c4d873ef7ca6a83cd6a564361696dd4e66c8f1da3730644a06",
++      "disposition": "repair-plan",
+       "owner": "Runtime Planning orbital mechanics value library",
+-      "reason": "Orbit-polyline sampling serves Planning presentation and is not reachable from Physics."
++      "reason": "Orbital trig participates in convergence-sensitive Planning products and is scheduled for certified float/double migration in TRIG_DETERMINISM DT6.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
+     },
+     {
++      "scope": "production",
+       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
+       "line": 363,
+       "column": 74,
+       "call": "sin",
+-      "source_fingerprint": "846dc801ec05595f7422632a80fec62f9a2678e7b6bc37c7630054bcc05bcd5c",
+-      "disposition": "retain-owner",
++      "source_fingerprint": "5b8b06b4b669837a01ea79a4908b8fd484fa3f69b468c8593b5467654a3e1c13",
++      "disposition": "repair-plan",
+       "owner": "Runtime Planning orbital mechanics value library",
+-      "reason": "Orbit-polyline sampling serves Planning presentation and is not reachable from Physics."
++      "reason": "Orbital trig participates in convergence-sensitive Planning products and is scheduled for certified float/double migration in TRIG_DETERMINISM DT6.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
+     },
+     {
++      "scope": "production",
+       "path": "SkullbonezSource/Maths/RotationMatrix.h",
+       "line": 88,
+       "column": 21,
+       "call": "sinf",
+-      "source_fingerprint": "c94d9d10cbcac1811ad448b888483e161888b65e57f7a05988493b4aff97472a",
+-      "disposition": "retain-owner",
++      "source_fingerprint": "0a044ad66a3a847b713a31de68545d0e2a117c8581dc8050ec0b2b931d68cf8f",
++      "disposition": "repair-plan",
+       "owner": "Runtime camera and editor arbitrary-axis transforms",
+-      "reason": "RotatePointAboutArbitrary serves Camera orbit/follow movement and EditorGizmoTools manipulation; neither path is reachable from Physics."
++      "reason": "Presentation transform trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
+     },
+     {
++      "scope": "production",
+       "path": "SkullbonezSource/Maths/RotationMatrix.h",
+       "line": 89,
+       "column": 21,
+       "call": "cosf",
+-      "source_fingerprint": "d8fd1c4f2f967633c6f49f1728c723b970f9117ba101580069131191b3545b03",
+-      "disposition": "retain-owner",
++      "source_fingerprint": "82b3c82ed5a0bef9a2b484986fe3da42129451deddfaeeaafcedef08276ac8ae",
++      "disposition": "repair-plan",
+       "owner": "Runtime camera and editor arbitrary-axis transforms",
+-      "reason": "RotatePointAboutArbitrary serves Camera orbit/follow movement and EditorGizmoTools manipulation; neither path is reachable from Physics."
++      "reason": "Presentation transform trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 93,
++      "column": 30,
++      "call": "sinf",
++      "source_fingerprint": "8ace42076c9ed4f7cb058aebda809ec511f59c24907a1bec37727a8186fd422c",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 93,
++      "column": 45,
++      "call": "sinf",
++      "source_fingerprint": "d3fbe28889b5b2d3a79ed23d5136b384a6d9b7b1677da70cbc4736f01a0348d8",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 93,
++      "column": 67,
++      "call": "cosf",
++      "source_fingerprint": "bb616584559ec58c284d941de53c186d2c27af53f12d965139f69347d3244793",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 93,
++      "column": 88,
++      "call": "sinf",
++      "source_fingerprint": "8ace42076c9ed4f7cb058aebda809ec511f59c24907a1bec37727a8186fd422c",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 93,
++      "column": 103,
++      "call": "cosf",
++      "source_fingerprint": "5e9db111a591639ff73740ab6e0ba563f729f64aeb2e0935b9026204ac272300",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 94,
++      "column": 30,
++      "call": "sinf",
++      "source_fingerprint": "8ace42076c9ed4f7cb058aebda809ec511f59c24907a1bec37727a8186fd422c",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 94,
++      "column": 45,
++      "call": "sinf",
++      "source_fingerprint": "06f2c041eea3d1e650039f8eac8ebe7a2269bbaf4b18c033b12b9631c3c051cf",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 94,
++      "column": 67,
++      "call": "cosf",
++      "source_fingerprint": "bb616584559ec58c284d941de53c186d2c27af53f12d965139f69347d3244793",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 94,
++      "column": 88,
++      "call": "sinf",
++      "source_fingerprint": "8ace42076c9ed4f7cb058aebda809ec511f59c24907a1bec37727a8186fd422c",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 94,
++      "column": 103,
++      "call": "cosf",
++      "source_fingerprint": "d732572c301208e519d91338e4639e82a6cecec9d3328b9847d641a5131be58f",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 95,
++      "column": 30,
++      "call": "sinf",
++      "source_fingerprint": "3152f330ea631dc35391b85aaa5eac45cc4a627a3d07e2dd1c0433528a17d9d3",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 95,
++      "column": 45,
++      "call": "sinf",
++      "source_fingerprint": "d3fbe28889b5b2d3a79ed23d5136b384a6d9b7b1677da70cbc4736f01a0348d8",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 95,
++      "column": 67,
++      "call": "cosf",
++      "source_fingerprint": "af3574153d88b1c92eef2df3f633a9254f7e4b5eac141fd6cd15fe67e37059d2",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 95,
++      "column": 88,
++      "call": "sinf",
++      "source_fingerprint": "3152f330ea631dc35391b85aaa5eac45cc4a627a3d07e2dd1c0433528a17d9d3",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 95,
++      "column": 103,
++      "call": "cosf",
++      "source_fingerprint": "5e9db111a591639ff73740ab6e0ba563f729f64aeb2e0935b9026204ac272300",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 96,
++      "column": 30,
++      "call": "sinf",
++      "source_fingerprint": "3152f330ea631dc35391b85aaa5eac45cc4a627a3d07e2dd1c0433528a17d9d3",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 96,
++      "column": 45,
++      "call": "sinf",
++      "source_fingerprint": "06f2c041eea3d1e650039f8eac8ebe7a2269bbaf4b18c033b12b9631c3c051cf",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 96,
++      "column": 67,
++      "call": "cosf",
++      "source_fingerprint": "af3574153d88b1c92eef2df3f633a9254f7e4b5eac141fd6cd15fe67e37059d2",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 96,
++      "column": 88,
++      "call": "sinf",
++      "source_fingerprint": "3152f330ea631dc35391b85aaa5eac45cc4a627a3d07e2dd1c0433528a17d9d3",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 96,
++      "column": 103,
++      "call": "cosf",
++      "source_fingerprint": "d732572c301208e519d91338e4639e82a6cecec9d3328b9847d641a5131be58f",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 175,
++      "column": 36,
++      "call": "sinf",
++      "source_fingerprint": "8ace42076c9ed4f7cb058aebda809ec511f59c24907a1bec37727a8186fd422c",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 175,
++      "column": 51,
++      "call": "sinf",
++      "source_fingerprint": "d3fbe28889b5b2d3a79ed23d5136b384a6d9b7b1677da70cbc4736f01a0348d8",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 175,
++      "column": 67,
++      "call": "cosf",
++      "source_fingerprint": "bb616584559ec58c284d941de53c186d2c27af53f12d965139f69347d3244793",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 175,
++      "column": 82,
++      "call": "sinf",
++      "source_fingerprint": "8ace42076c9ed4f7cb058aebda809ec511f59c24907a1bec37727a8186fd422c",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 175,
++      "column": 97,
++      "call": "cosf",
++      "source_fingerprint": "5e9db111a591639ff73740ab6e0ba563f729f64aeb2e0935b9026204ac272300",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 178,
++      "column": 36,
++      "call": "sinf",
++      "source_fingerprint": "8ace42076c9ed4f7cb058aebda809ec511f59c24907a1bec37727a8186fd422c",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 178,
++      "column": 51,
++      "call": "sinf",
++      "source_fingerprint": "06f2c041eea3d1e650039f8eac8ebe7a2269bbaf4b18c033b12b9631c3c051cf",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 178,
++      "column": 67,
++      "call": "cosf",
++      "source_fingerprint": "bb616584559ec58c284d941de53c186d2c27af53f12d965139f69347d3244793",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 178,
++      "column": 82,
++      "call": "sinf",
++      "source_fingerprint": "8ace42076c9ed4f7cb058aebda809ec511f59c24907a1bec37727a8186fd422c",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 178,
++      "column": 97,
++      "call": "cosf",
++      "source_fingerprint": "d732572c301208e519d91338e4639e82a6cecec9d3328b9847d641a5131be58f",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 181,
++      "column": 36,
++      "call": "sinf",
++      "source_fingerprint": "3152f330ea631dc35391b85aaa5eac45cc4a627a3d07e2dd1c0433528a17d9d3",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 181,
++      "column": 51,
++      "call": "sinf",
++      "source_fingerprint": "d3fbe28889b5b2d3a79ed23d5136b384a6d9b7b1677da70cbc4736f01a0348d8",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 181,
++      "column": 67,
++      "call": "cosf",
++      "source_fingerprint": "af3574153d88b1c92eef2df3f633a9254f7e4b5eac141fd6cd15fe67e37059d2",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 181,
++      "column": 82,
++      "call": "sinf",
++      "source_fingerprint": "3152f330ea631dc35391b85aaa5eac45cc4a627a3d07e2dd1c0433528a17d9d3",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 181,
++      "column": 97,
++      "call": "cosf",
++      "source_fingerprint": "5e9db111a591639ff73740ab6e0ba563f729f64aeb2e0935b9026204ac272300",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 184,
++      "column": 36,
++      "call": "sinf",
++      "source_fingerprint": "3152f330ea631dc35391b85aaa5eac45cc4a627a3d07e2dd1c0433528a17d9d3",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 184,
++      "column": 51,
++      "call": "sinf",
++      "source_fingerprint": "06f2c041eea3d1e650039f8eac8ebe7a2269bbaf4b18c033b12b9631c3c051cf",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 184,
++      "column": 67,
++      "call": "cosf",
++      "source_fingerprint": "af3574153d88b1c92eef2df3f633a9254f7e4b5eac141fd6cd15fe67e37059d2",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 184,
++      "column": 82,
++      "call": "sinf",
++      "source_fingerprint": "3152f330ea631dc35391b85aaa5eac45cc4a627a3d07e2dd1c0433528a17d9d3",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Rendering/PrimitiveMeshBuilder.h",
++      "line": 184,
++      "column": 97,
++      "call": "cosf",
++      "source_fingerprint": "d732572c301208e519d91338e4639e82a6cecec9d3328b9847d641a5131be58f",
++      "disposition": "repair-plan",
++      "owner": "Rendering primitive mesh generation",
++      "reason": "Generated-mesh trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Camera/AttachedCameraController.InspectionPolicy.cpp",
++      "line": 130,
++      "column": 29,
++      "call": "cosf",
++      "source_fingerprint": "1493995c9b8443e61bf1f712c37681bb33fe457bb9844698a7957ef950afabf5",
++      "disposition": "repair-plan",
++      "owner": "Runtime camera presentation",
++      "reason": "Inspection-camera trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Camera/AttachedCameraController.InspectionPolicy.cpp",
++      "line": 131,
++      "column": 20,
++      "call": "sinf",
++      "source_fingerprint": "124960c6f8c6513b9e40a00351e3137d9dc1f997421f7bbacf701003ad66c908",
++      "disposition": "repair-plan",
++      "owner": "Runtime camera presentation",
++      "reason": "Inspection-camera trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Camera/AttachedCameraController.InspectionPolicy.cpp",
++      "line": 131,
++      "column": 46,
++      "call": "sinf",
++      "source_fingerprint": "a412ff92ebc34b31a314e149b59bfcbc550d2e7f5758ebce81b08cf305662986",
++      "disposition": "repair-plan",
++      "owner": "Runtime camera presentation",
++      "reason": "Inspection-camera trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Camera/AttachedCameraController.InspectionPolicy.cpp",
++      "line": 131,
++      "column": 72,
++      "call": "cosf",
++      "source_fingerprint": "6e3973fca44a31a34a146cfbaf09bba44067463eee593281d4fc381c31240134",
++      "disposition": "repair-plan",
++      "owner": "Runtime camera presentation",
++      "reason": "Inspection-camera trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Camera/CameraCollection.cpp",
++      "line": 95,
++      "column": 35,
++      "call": "cosf",
++      "source_fingerprint": "7f57670eee19305648d8df7691880506df39f14acca8edab743595b7d12ba33a",
++      "disposition": "repair-plan",
++      "owner": "Runtime camera presentation",
++      "reason": "Camera interpolation trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Camera/CameraCollection.cpp",
++      "line": 95,
++      "column": 64,
++      "call": "sinf",
++      "source_fingerprint": "03636c48e8decce077437723786530c0f1970d18e454d8a45da6af67ca19823f",
++      "disposition": "repair-plan",
++      "owner": "Runtime camera presentation",
++      "reason": "Camera interpolation trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Camera/CameraCollection.cpp",
++      "line": 101,
++      "column": 39,
++      "call": "sinf",
++      "source_fingerprint": "03636c48e8decce077437723786530c0f1970d18e454d8a45da6af67ca19823f",
++      "disposition": "repair-plan",
++      "owner": "Runtime camera presentation",
++      "reason": "Camera interpolation trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Camera/CameraCollection.cpp",
++      "line": 102,
++      "column": 29,
++      "call": "sinf",
++      "source_fingerprint": "50b5bdf31973baca32afa598026d1ee418fb6ca4075f04fe28c648f00803b1c2",
++      "disposition": "repair-plan",
++      "owner": "Runtime camera presentation",
++      "reason": "Camera interpolation trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Camera/CameraCollection.cpp",
++      "line": 103,
++      "column": 27,
++      "call": "sinf",
++      "source_fingerprint": "7810e6f60831e2fcf6cbc9bbbf8e50c444d3e8e6b31f3cca1733d550457e7ac3",
++      "disposition": "repair-plan",
++      "owner": "Runtime camera presentation",
++      "reason": "Camera interpolation trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.cpp",
++      "line": 291,
++      "column": 33,
++      "call": "cosf",
++      "source_fingerprint": "672fbaf27342847f4b80076b795a869fc8630417c4cf98031cf9476434f1c458",
++      "disposition": "repair-plan",
++      "owner": "Physics debug presentation geometry",
++      "reason": "Debug-overlay trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.cpp",
++      "line": 291,
++      "column": 67,
++      "call": "sinf",
++      "source_fingerprint": "84bd782cc41037bbce575fb7535999e64193162fa92506b7441bf50e8b4ec402",
++      "disposition": "repair-plan",
++      "owner": "Physics debug presentation geometry",
++      "reason": "Debug-overlay trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Editor/EditorPlacementAssets.cpp",
++      "line": 463,
++      "column": 33,
++      "call": "sinf",
++      "source_fingerprint": "db1cfe3f97547f4f3ff79f6400347ec7e55fa7b0b0aca9abac8995a385322f9d",
++      "disposition": "repair-plan",
++      "owner": "Editor authored orientation placement",
++      "reason": "Editor Euler conversion is scheduled for consolidation and deterministic migration in TRIG_DETERMINISM DT4.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Editor/EditorPlacementAssets.cpp",
++      "line": 463,
++      "column": 60,
++      "call": "cosf",
++      "source_fingerprint": "e586977aa1e6c7c749a8ab16c6f072995c2cde48c7b02a05d8ae0dae5095c80d",
++      "disposition": "repair-plan",
++      "owner": "Editor authored orientation placement",
++      "reason": "Editor Euler conversion is scheduled for consolidation and deterministic migration in TRIG_DETERMINISM DT4.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Editor/EditorPlacementAssets.cpp",
++      "line": 464,
++      "column": 39,
++      "call": "sinf",
++      "source_fingerprint": "c70d3dcf73fb6eee5bd1393c9433f346158ee59115edfc95ae87885ebdcaa365",
++      "disposition": "repair-plan",
++      "owner": "Editor authored orientation placement",
++      "reason": "Editor Euler conversion is scheduled for consolidation and deterministic migration in TRIG_DETERMINISM DT4.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Editor/EditorPlacementAssets.cpp",
++      "line": 464,
++      "column": 60,
++      "call": "cosf",
++      "source_fingerprint": "44b57f6f6841634f9a7eb1b1f6acf4d0a5e3ac7ef33c72fc0f6025edad7b4ed7",
++      "disposition": "repair-plan",
++      "owner": "Editor authored orientation placement",
++      "reason": "Editor Euler conversion is scheduled for consolidation and deterministic migration in TRIG_DETERMINISM DT4.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Editor/EditorPlacementAssets.cpp",
++      "line": 465,
++      "column": 45,
++      "call": "sinf",
++      "source_fingerprint": "8d79040f539cbe88356d4461359a0e2f87e4d6ca0aaf96d0d5f55d9faeeb886f",
++      "disposition": "repair-plan",
++      "owner": "Editor authored orientation placement",
++      "reason": "Editor Euler conversion is scheduled for consolidation and deterministic migration in TRIG_DETERMINISM DT4.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Editor/EditorPlacementAssets.cpp",
++      "line": 465,
++      "column": 60,
++      "call": "cosf",
++      "source_fingerprint": "17a1e3cb2fbd6fa3355dc7ef61d585e9c47a16eee019ac9c498756a222ac77c1",
++      "disposition": "repair-plan",
++      "owner": "Editor authored orientation placement",
++      "reason": "Editor Euler conversion is scheduled for consolidation and deterministic migration in TRIG_DETERMINISM DT4.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Editor/EditorTracer.cpp",
++      "line": 414,
++      "column": 49,
++      "call": "cosf",
++      "source_fingerprint": "6bd68b3538c3fbdab8839dc074b88669d129845eac995b60c9e3865ed71e0c48",
++      "disposition": "repair-plan",
++      "owner": "Editor diagnostic presentation geometry",
++      "reason": "Editor tracing trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Editor/EditorTracer.cpp",
++      "line": 414,
++      "column": 87,
++      "call": "sinf",
++      "source_fingerprint": "89dd4d7782b487e19691ce0be950977810262fdecba8c8054c5577335108fedd",
++      "disposition": "repair-plan",
++      "owner": "Editor diagnostic presentation geometry",
++      "reason": "Editor tracing trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Editor/EditorTracer.cpp",
++      "line": 433,
++      "column": 28,
++      "call": "cosf",
++      "source_fingerprint": "6bd68b3538c3fbdab8839dc074b88669d129845eac995b60c9e3865ed71e0c48",
++      "disposition": "repair-plan",
++      "owner": "Editor diagnostic presentation geometry",
++      "reason": "Editor tracing trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Editor/EditorTracer.cpp",
++      "line": 434,
++      "column": 28,
++      "call": "sinf",
++      "source_fingerprint": "89dd4d7782b487e19691ce0be950977810262fdecba8c8054c5577335108fedd",
++      "disposition": "repair-plan",
++      "owner": "Editor diagnostic presentation geometry",
++      "reason": "Editor tracing trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Editor/EditorTracer.cpp",
++      "line": 627,
++      "column": 32,
++      "call": "cosf",
++      "source_fingerprint": "6bd68b3538c3fbdab8839dc074b88669d129845eac995b60c9e3865ed71e0c48",
++      "disposition": "repair-plan",
++      "owner": "Editor diagnostic presentation geometry",
++      "reason": "Editor tracing trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Editor/EditorTracer.cpp",
++      "line": 628,
++      "column": 32,
++      "call": "sinf",
++      "source_fingerprint": "89dd4d7782b487e19691ce0be950977810262fdecba8c8054c5577335108fedd",
++      "disposition": "repair-plan",
++      "owner": "Editor diagnostic presentation geometry",
++      "reason": "Editor tracing trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp",
++      "line": 106,
++      "column": 33,
++      "call": "sinf",
++      "source_fingerprint": "db1cfe3f97547f4f3ff79f6400347ec7e55fa7b0b0aca9abac8995a385322f9d",
++      "disposition": "repair-plan",
++      "owner": "Authored Euler orientation conversion",
++      "reason": "Generated scene Euler conversion is scheduled for consolidation and deterministic migration in TRIG_DETERMINISM DT4.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp",
++      "line": 106,
++      "column": 60,
++      "call": "cosf",
++      "source_fingerprint": "e586977aa1e6c7c749a8ab16c6f072995c2cde48c7b02a05d8ae0dae5095c80d",
++      "disposition": "repair-plan",
++      "owner": "Authored Euler orientation conversion",
++      "reason": "Generated scene Euler conversion is scheduled for consolidation and deterministic migration in TRIG_DETERMINISM DT4.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp",
++      "line": 107,
++      "column": 39,
++      "call": "sinf",
++      "source_fingerprint": "c70d3dcf73fb6eee5bd1393c9433f346158ee59115edfc95ae87885ebdcaa365",
++      "disposition": "repair-plan",
++      "owner": "Authored Euler orientation conversion",
++      "reason": "Generated scene Euler conversion is scheduled for consolidation and deterministic migration in TRIG_DETERMINISM DT4.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp",
++      "line": 107,
++      "column": 60,
++      "call": "cosf",
++      "source_fingerprint": "44b57f6f6841634f9a7eb1b1f6acf4d0a5e3ac7ef33c72fc0f6025edad7b4ed7",
++      "disposition": "repair-plan",
++      "owner": "Authored Euler orientation conversion",
++      "reason": "Generated scene Euler conversion is scheduled for consolidation and deterministic migration in TRIG_DETERMINISM DT4.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp",
++      "line": 108,
++      "column": 45,
++      "call": "sinf",
++      "source_fingerprint": "8d79040f539cbe88356d4461359a0e2f87e4d6ca0aaf96d0d5f55d9faeeb886f",
++      "disposition": "repair-plan",
++      "owner": "Authored Euler orientation conversion",
++      "reason": "Generated scene Euler conversion is scheduled for consolidation and deterministic migration in TRIG_DETERMINISM DT4.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp",
++      "line": 108,
++      "column": 60,
++      "call": "cosf",
++      "source_fingerprint": "17a1e3cb2fbd6fa3355dc7ef61d585e9c47a16eee019ac9c498756a222ac77c1",
++      "disposition": "repair-plan",
++      "owner": "Authored Euler orientation conversion",
++      "reason": "Generated scene Euler conversion is scheduled for consolidation and deterministic migration in TRIG_DETERMINISM DT4.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Scene/SceneController.Load.cpp",
++      "line": 174,
++      "column": 33,
++      "call": "sinf",
++      "source_fingerprint": "db1cfe3f97547f4f3ff79f6400347ec7e55fa7b0b0aca9abac8995a385322f9d",
++      "disposition": "repair-plan",
++      "owner": "Authored Euler orientation conversion",
++      "reason": "Scene-load Euler conversion is scheduled for consolidation and deterministic migration in TRIG_DETERMINISM DT4.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Scene/SceneController.Load.cpp",
++      "line": 174,
++      "column": 60,
++      "call": "cosf",
++      "source_fingerprint": "e586977aa1e6c7c749a8ab16c6f072995c2cde48c7b02a05d8ae0dae5095c80d",
++      "disposition": "repair-plan",
++      "owner": "Authored Euler orientation conversion",
++      "reason": "Scene-load Euler conversion is scheduled for consolidation and deterministic migration in TRIG_DETERMINISM DT4.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Scene/SceneController.Load.cpp",
++      "line": 175,
++      "column": 39,
++      "call": "sinf",
++      "source_fingerprint": "c70d3dcf73fb6eee5bd1393c9433f346158ee59115edfc95ae87885ebdcaa365",
++      "disposition": "repair-plan",
++      "owner": "Authored Euler orientation conversion",
++      "reason": "Scene-load Euler conversion is scheduled for consolidation and deterministic migration in TRIG_DETERMINISM DT4.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Scene/SceneController.Load.cpp",
++      "line": 175,
++      "column": 60,
++      "call": "cosf",
++      "source_fingerprint": "44b57f6f6841634f9a7eb1b1f6acf4d0a5e3ac7ef33c72fc0f6025edad7b4ed7",
++      "disposition": "repair-plan",
++      "owner": "Authored Euler orientation conversion",
++      "reason": "Scene-load Euler conversion is scheduled for consolidation and deterministic migration in TRIG_DETERMINISM DT4.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Scene/SceneController.Load.cpp",
++      "line": 176,
++      "column": 45,
++      "call": "sinf",
++      "source_fingerprint": "8d79040f539cbe88356d4461359a0e2f87e4d6ca0aaf96d0d5f55d9faeeb886f",
++      "disposition": "repair-plan",
++      "owner": "Authored Euler orientation conversion",
++      "reason": "Scene-load Euler conversion is scheduled for consolidation and deterministic migration in TRIG_DETERMINISM DT4.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Scene/SceneController.Load.cpp",
++      "line": 176,
++      "column": 60,
++      "call": "cosf",
++      "source_fingerprint": "17a1e3cb2fbd6fa3355dc7ef61d585e9c47a16eee019ac9c498756a222ac77c1",
++      "disposition": "repair-plan",
++      "owner": "Authored Euler orientation conversion",
++      "reason": "Scene-load Euler conversion is scheduled for consolidation and deterministic migration in TRIG_DETERMINISM DT4.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Scene/SceneController.Style.cpp",
++      "line": 52,
++      "column": 31,
++      "call": "cosf",
++      "source_fingerprint": "0a524bae00e9a8e7857de05dfc8d4fcbf5076c63ce16d4826078325eb9375d0f",
++      "disposition": "repair-plan",
++      "owner": "Authored scene lighting presentation",
++      "reason": "Sun-direction trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Scene/SceneController.Style.cpp",
++      "line": 53,
++      "column": 37,
++      "call": "sinf",
++      "source_fingerprint": "797fa2c0ca3f8268a43f6c881a2301dc5a7572dc18a44632d1164b9aa41149c1",
++      "disposition": "repair-plan",
++      "owner": "Authored scene lighting presentation",
++      "reason": "Sun-direction trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Scene/SceneController.Style.cpp",
++      "line": 53,
++      "column": 69,
++      "call": "sinf",
++      "source_fingerprint": "0e32ec03f5f791a0a1426420a3c04799d35651a2b2584a2bfb470364538b9dd0",
++      "disposition": "repair-plan",
++      "owner": "Authored scene lighting presentation",
++      "reason": "Sun-direction trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Runtime/Scene/SceneController.Style.cpp",
++      "line": 53,
++      "column": 88,
++      "call": "cosf",
++      "source_fingerprint": "cc26376b14f27991a8739d122c9af52926d359f81836183545c771485416673a",
++      "disposition": "repair-plan",
++      "owner": "Authored scene lighting presentation",
++      "reason": "Sun-direction trig is scheduled for deterministic migration in TRIG_DETERMINISM DT3.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Scene/AuthoredSceneParserSchema.h",
++      "line": 124,
++      "column": 52,
++      "call": "sinf",
++      "source_fingerprint": "db1cfe3f97547f4f3ff79f6400347ec7e55fa7b0b0aca9abac8995a385322f9d",
++      "disposition": "repair-plan",
++      "owner": "Authored Euler orientation conversion",
++      "reason": "Parser Euler conversion is scheduled for consolidation and deterministic migration in TRIG_DETERMINISM DT4.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Scene/AuthoredSceneParserSchema.h",
++      "line": 124,
++      "column": 79,
++      "call": "cosf",
++      "source_fingerprint": "e586977aa1e6c7c749a8ab16c6f072995c2cde48c7b02a05d8ae0dae5095c80d",
++      "disposition": "repair-plan",
++      "owner": "Authored Euler orientation conversion",
++      "reason": "Parser Euler conversion is scheduled for consolidation and deterministic migration in TRIG_DETERMINISM DT4.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Scene/AuthoredSceneParserSchema.h",
++      "line": 125,
++      "column": 58,
++      "call": "sinf",
++      "source_fingerprint": "c70d3dcf73fb6eee5bd1393c9433f346158ee59115edfc95ae87885ebdcaa365",
++      "disposition": "repair-plan",
++      "owner": "Authored Euler orientation conversion",
++      "reason": "Parser Euler conversion is scheduled for consolidation and deterministic migration in TRIG_DETERMINISM DT4.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Scene/AuthoredSceneParserSchema.h",
++      "line": 125,
++      "column": 79,
++      "call": "cosf",
++      "source_fingerprint": "44b57f6f6841634f9a7eb1b1f6acf4d0a5e3ac7ef33c72fc0f6025edad7b4ed7",
++      "disposition": "repair-plan",
++      "owner": "Authored Euler orientation conversion",
++      "reason": "Parser Euler conversion is scheduled for consolidation and deterministic migration in TRIG_DETERMINISM DT4.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Scene/AuthoredSceneParserSchema.h",
++      "line": 126,
++      "column": 64,
++      "call": "sinf",
++      "source_fingerprint": "8d79040f539cbe88356d4461359a0e2f87e4d6ca0aaf96d0d5f55d9faeeb886f",
++      "disposition": "repair-plan",
++      "owner": "Authored Euler orientation conversion",
++      "reason": "Parser Euler conversion is scheduled for consolidation and deterministic migration in TRIG_DETERMINISM DT4.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "production",
++      "path": "SkullbonezSource/Scene/AuthoredSceneParserSchema.h",
++      "line": 126,
++      "column": 79,
++      "call": "cosf",
++      "source_fingerprint": "17a1e3cb2fbd6fa3355dc7ef61d585e9c47a16eee019ac9c498756a222ac77c1",
++      "disposition": "repair-plan",
++      "owner": "Authored Euler orientation conversion",
++      "reason": "Parser Euler conversion is scheduled for consolidation and deterministic migration in TRIG_DETERMINISM DT4.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "test",
++      "path": "SkullbonezTests/TestDeterministicMath.cpp",
++      "line": 77,
++      "column": 34,
++      "call": "cosf",
++      "source_fingerprint": "7f57670eee19305648d8df7691880506df39f14acca8edab743595b7d12ba33a",
++      "disposition": "retain-owner",
++      "owner": "Independent deterministic-math platform reference",
++      "reason": "Platform sine/cosine remains an independent approximation-error oracle and cannot authorize production use."
++    },
++    {
++      "scope": "test",
++      "path": "SkullbonezTests/TestDeterministicMath.cpp",
++      "line": 78,
++      "column": 32,
++      "call": "sinf",
++      "source_fingerprint": "03636c48e8decce077437723786530c0f1970d18e454d8a45da6af67ca19823f",
++      "disposition": "retain-owner",
++      "owner": "Independent deterministic-math platform reference",
++      "reason": "Platform sine/cosine remains an independent approximation-error oracle and cannot authorize production use."
++    },
++    {
++      "scope": "test",
++      "path": "SkullbonezTests/TestDeterministicMath.cpp",
++      "line": 256,
++      "column": 24,
++      "call": "sinf",
++      "source_fingerprint": "03636c48e8decce077437723786530c0f1970d18e454d8a45da6af67ca19823f",
++      "disposition": "retain-owner",
++      "owner": "Independent deterministic-math platform reference",
++      "reason": "Platform sine/cosine remains an independent approximation-error oracle and cannot authorize production use."
++    },
++    {
++      "scope": "test",
++      "path": "SkullbonezTests/TestDeterministicMath.cpp",
++      "line": 257,
++      "column": 24,
++      "call": "cosf",
++      "source_fingerprint": "7f57670eee19305648d8df7691880506df39f14acca8edab743595b7d12ba33a",
++      "disposition": "retain-owner",
++      "owner": "Independent deterministic-math platform reference",
++      "reason": "Platform sine/cosine remains an independent approximation-error oracle and cannot authorize production use."
++    },
++    {
++      "scope": "test",
++      "path": "SkullbonezTests/TestOrbitalMechanics.cpp",
++      "line": 147,
++      "column": 49,
++      "call": "cos",
++      "source_fingerprint": "ef67ba2d788674e8c67298d5d4ecf67995e0bcb5bda41b526e55fbebb298fe8f",
++      "disposition": "repair-plan",
++      "owner": "Orbital high-precision fixture oracle",
++      "reason": "Platform-trig fixture construction is scheduled for independent committed oracle replacement in TRIG_DETERMINISM.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "test",
++      "path": "SkullbonezTests/TestOrbitalMechanics.cpp",
++      "line": 147,
++      "column": 94,
++      "call": "sin",
++      "source_fingerprint": "478cb4349765ce33fd7949164f9a9f4edfe3d768284628751ab332e22b40278a",
++      "disposition": "repair-plan",
++      "owner": "Orbital high-precision fixture oracle",
++      "reason": "Platform-trig fixture construction is scheduled for independent committed oracle replacement in TRIG_DETERMINISM.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "test",
++      "path": "SkullbonezTests/TestOrbitalMechanics.cpp",
++      "line": 163,
++      "column": 59,
++      "call": "cos",
++      "source_fingerprint": "385f3863270d0f7f9befe91d7187d6652503bf6321b507057aaef15823a35c30",
++      "disposition": "repair-plan",
++      "owner": "Orbital high-precision fixture oracle",
++      "reason": "Platform-trig fixture construction is scheduled for independent committed oracle replacement in TRIG_DETERMINISM.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "test",
++      "path": "SkullbonezTests/TestOrbitalMechanics.cpp",
++      "line": 163,
++      "column": 101,
++      "call": "sin",
++      "source_fingerprint": "94cdbba858a56745d33c6d4cc411ee9158db70ea293b96aa19f5b2bceac0c028",
++      "disposition": "repair-plan",
++      "owner": "Orbital high-precision fixture oracle",
++      "reason": "Platform-trig fixture construction is scheduled for independent committed oracle replacement in TRIG_DETERMINISM.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "test",
++      "path": "SkullbonezTests/TestOrbitalMechanics.cpp",
++      "line": 164,
++      "column": 59,
++      "call": "sin",
++      "source_fingerprint": "94cdbba858a56745d33c6d4cc411ee9158db70ea293b96aa19f5b2bceac0c028",
++      "disposition": "repair-plan",
++      "owner": "Orbital high-precision fixture oracle",
++      "reason": "Platform-trig fixture construction is scheduled for independent committed oracle replacement in TRIG_DETERMINISM.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "test",
++      "path": "SkullbonezTests/TestOrbitalMechanics.cpp",
++      "line": 164,
++      "column": 100,
++      "call": "cos",
++      "source_fingerprint": "385f3863270d0f7f9befe91d7187d6652503bf6321b507057aaef15823a35c30",
++      "disposition": "repair-plan",
++      "owner": "Orbital high-precision fixture oracle",
++      "reason": "Platform-trig fixture construction is scheduled for independent committed oracle replacement in TRIG_DETERMINISM.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "test",
++      "path": "SkullbonezTests/TestPersistentContactSolver.cpp",
++      "line": 1743,
++      "column": 43,
++      "call": "cosf",
++      "source_fingerprint": "f6d9d5e85989433f96c9e79849175cb6abe0d168154740de2540a3f96f28ccb0",
++      "disposition": "repair-plan",
++      "owner": "Persistent-contact geometric fixture oracle",
++      "reason": "Platform-trig fixture construction is scheduled for independent committed constant replacement in TRIG_DETERMINISM.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "test",
++      "path": "SkullbonezTests/TestPersistentContactSolver.cpp",
++      "line": 1743,
++      "column": 66,
++      "call": "sinf",
++      "source_fingerprint": "f9b5dbe8e721fdf79b3729e41ae899d937f06a1ae29dc4b840c843cec1f6430d",
++      "disposition": "repair-plan",
++      "owner": "Persistent-contact geometric fixture oracle",
++      "reason": "Platform-trig fixture construction is scheduled for independent committed constant replacement in TRIG_DETERMINISM.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "test",
++      "path": "SkullbonezTests/TestReplayPorkchopPanel.cpp",
++      "line": 60,
++      "column": 48,
++      "call": "cos",
++      "source_fingerprint": "aa09d4f9d22d60e81d6d89251703976d08cc580d8eb5a48d3c64c666f1256520",
++      "disposition": "repair-plan",
++      "owner": "Porkchop planning fixture oracle",
++      "reason": "Platform-trig fixture construction is scheduled for independent committed oracle replacement in TRIG_DETERMINISM.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "test",
++      "path": "SkullbonezTests/TestReplayPorkchopPanel.cpp",
++      "line": 60,
++      "column": 76,
++      "call": "sin",
++      "source_fingerprint": "4e82ddc5b3dec888d48e7f6b22569501a0303f612b8302050b1cd947ede15899",
++      "disposition": "repair-plan",
++      "owner": "Porkchop planning fixture oracle",
++      "reason": "Platform-trig fixture construction is scheduled for independent committed oracle replacement in TRIG_DETERMINISM.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "test",
++      "path": "SkullbonezTests/TestReplayPorkchopPanel.cpp",
++      "line": 61,
++      "column": 73,
++      "call": "sin",
++      "source_fingerprint": "4e82ddc5b3dec888d48e7f6b22569501a0303f612b8302050b1cd947ede15899",
++      "disposition": "repair-plan",
++      "owner": "Porkchop planning fixture oracle",
++      "reason": "Platform-trig fixture construction is scheduled for independent committed oracle replacement in TRIG_DETERMINISM.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "test",
++      "path": "SkullbonezTests/TestReplayPorkchopPanel.cpp",
++      "line": 62,
++      "column": 72,
++      "call": "cos",
++      "source_fingerprint": "aa09d4f9d22d60e81d6d89251703976d08cc580d8eb5a48d3c64c666f1256520",
++      "disposition": "repair-plan",
++      "owner": "Porkchop planning fixture oracle",
++      "reason": "Platform-trig fixture construction is scheduled for independent committed oracle replacement in TRIG_DETERMINISM.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "test",
++      "path": "SkullbonezTests/TestReplayTripPlanner.cpp",
++      "line": 60,
++      "column": 48,
++      "call": "cos",
++      "source_fingerprint": "385f3863270d0f7f9befe91d7187d6652503bf6321b507057aaef15823a35c30",
++      "disposition": "repair-plan",
++      "owner": "Trip-planning fixture oracle",
++      "reason": "Platform-trig fixture construction is scheduled for independent committed oracle replacement in TRIG_DETERMINISM.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "test",
++      "path": "SkullbonezTests/TestReplayTripPlanner.cpp",
++      "line": 60,
++      "column": 80,
++      "call": "sin",
++      "source_fingerprint": "94cdbba858a56745d33c6d4cc411ee9158db70ea293b96aa19f5b2bceac0c028",
++      "disposition": "repair-plan",
++      "owner": "Trip-planning fixture oracle",
++      "reason": "Platform-trig fixture construction is scheduled for independent committed oracle replacement in TRIG_DETERMINISM.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "test",
++      "path": "SkullbonezTests/TestReplayTripPlanner.cpp",
++      "line": 61,
++      "column": 73,
++      "call": "sin",
++      "source_fingerprint": "94cdbba858a56745d33c6d4cc411ee9158db70ea293b96aa19f5b2bceac0c028",
++      "disposition": "repair-plan",
++      "owner": "Trip-planning fixture oracle",
++      "reason": "Platform-trig fixture construction is scheduled for independent committed oracle replacement in TRIG_DETERMINISM.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
++    },
++    {
++      "scope": "test",
++      "path": "SkullbonezTests/TestReplayTripPlanner.cpp",
++      "line": 62,
++      "column": 72,
++      "call": "cos",
++      "source_fingerprint": "385f3863270d0f7f9befe91d7187d6652503bf6321b507057aaef15823a35c30",
++      "disposition": "repair-plan",
++      "owner": "Trip-planning fixture oracle",
++      "reason": "Platform-trig fixture construction is scheduled for independent committed oracle replacement in TRIG_DETERMINISM.",
++      "plan": "Agentic/Plans/TODO/deterministic-trigonometry-adoption.md"
+     }
+   ]
+ }
