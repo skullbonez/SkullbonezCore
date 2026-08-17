@@ -14,10 +14,12 @@ convention; Git history retains their phase evidence.
 
 The owner parked Deterministic Trigonometry under `Agentic/Plans/WNF/` on
 2026-08-18 and replaced its active slot with At-Rest Ball Stability. The new
-plan keeps the authored `at_rest.scene.json` witness unchanged, requires bounded
-SkullScope diagnosis and semantic false-pass controls before tuning, and treats
-vertical vibration, excessive sliding, rolling reversals, and delayed supported
-sleep as separate completion metrics. Friction and sleep policy remain valid
+plan removes the authored witness's arbitrary 1,800-frame timeout: `at_rest`
+now runs unlimited and must not auto-exit until a generic authored requirement
+proves `ball_a`, `ball_b`, and `ball_c` are all Physics-asleep. SkullScope
+diagnosis and semantic false-pass controls precede tuning, and vertical
+vibration, excessive sliding, rolling reversals, and delayed supported sleep
+remain separate quality metrics. Friction and sleep policy remain valid
 diagnostic hypotheses, but proper contact/solver/support fixes come first and
 any production policy change is blocked on isolated evidence plus explicit
 owner approval.
@@ -174,14 +176,16 @@ diagnostics, operator controls, and rolling orbital presentation without
 changing bounded `PREDICT` or feeding detailed solver evidence into the
 continuous path.
 
-After orbital forecast closes, execute `REST_STABILITY` RS0-RS7. Preserve the
-unchanged at-rest scene and baseline executables, then use SkullScope summary,
-why-not-resting, rolling, convergence, energy, body, contact, and island queries
-to identify the owning causes before implementation. Semantic oracles must pin
-all three balls' vertical tail motion, slip, rolling reversals, support/sleep
-latency, and final sleeping state while retaining the boxes as controls. Repair
-normal vibration, tangent/rolling response, and sleep transition separately,
-preserve candidate artifacts, and refresh no baseline without owner approval.
+After orbital forecast closes, execute `REST_STABILITY` RS0-RS7. First add the
+authored all-three-ball sleep completion gate; no frame/time cap or aborted run
+may complete the unlimited scene. Preserve baseline executables, then use
+SkullScope summary, why-not-resting, rolling, convergence, energy, body,
+contact, and island queries to identify the owning causes before implementation.
+Semantic oracles must pin all three balls' vertical tail motion, slip, rolling
+reversals, support/sleep latency, and final sleeping state while retaining the
+boxes as controls. Repair normal vibration, tangent/rolling response, and sleep
+transition separately, preserve candidate artifacts, and refresh no baseline
+without owner approval.
 
 Deterministic Trigonometry remains owner-parked in `Agentic/Plans/WNF/` and is
 not part of the active queue.

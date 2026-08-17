@@ -13,8 +13,8 @@
     }
   },
   "playback": {
-    "frames": 1800,
-    "exitOnComplete": true,
+    "frames": "unlimited",
+    "exitOnComplete": false,
     "fixedStep": true
   },
   "debug": {

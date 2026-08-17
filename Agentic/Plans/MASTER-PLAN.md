@@ -58,6 +58,8 @@ Status: Three active plans; 24/47 tasks complete
   manufacture a pass or reintroducing a solver-local velocity snap. Proper
   contact/solver/support fixes must be exhausted first; any production friction
   or sleep-policy change requires isolated evidence and explicit owner approval.
+  The retired 1,800-frame playback timeout is not a completion criterion: the
+  unlimited witness must keep stepping until all three named balls are asleep.
 - Continuous Orbital Forecast was reactivated by owner direction on
   2026-08-17. It follows predicted solver detail and owns the separate
   interactive continuous prediction mode, coherent rolling 120-second path
@@ -119,10 +121,11 @@ states elsewhere, and both are recorded rather than silently corrected:
 2. `ORBIT_FORECAST` OF0 through OF6 — ratify the authored stability contract,
    add coherent circular publication and continuous isolated prediction, then
    wire Planning-owned diagnostics and rolling orbital presentation.
-3. `REST_STABILITY` RS0 through RS7 — preserve and diagnose the unchanged
-   `at_rest` scene with SkullScope, build semantic false-pass-resistant oracles,
-   adjudicate the owning causes, then repair vertical vibration, sliding/rolling
-   response, and supported sleep before integrated deterministic closure.
+3. `REST_STABILITY` RS0 through RS7 — add the authored all-three-ball sleep
+   completion gate, preserve and diagnose the unlimited `at_rest` witness with
+   SkullScope, build semantic false-pass-resistant oracles, adjudicate the
+   owning causes, then repair vertical vibration, sliding/rolling response, and
+   supported sleep before integrated deterministic closure.
 
 `CAUSAL_INSPECT` no longer re-steps an old frame to regenerate solver detail, so
 it does not consume the tier-2 determinism guarantee and has no ordering

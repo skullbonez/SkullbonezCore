@@ -30,8 +30,14 @@ solver-local velocity snap.
 ## Owner Direction
 
 - Keep the authored `at_rest` masses, radii, restitution, gravity, timestep,
-  playback length, and initial poses as the primary witness. Do not make the
-  scene easier to pass to hide an engine defect.
+  time scale, and initial poses as the primary witness. The retired 1,800-frame
+  playback cap was an arbitrary timeout, not a physics requirement; do not
+  replace it with another time or frame cap to make the scene appear complete.
+- The authoritative scene completion predicate is exact: `ball_a`, `ball_b`,
+  and `ball_c` must all be in the Physics-owned sleeping state. The scene must
+  continue stepping while any one of those balls remains awake. An operator
+  may abort a diagnostic run, but an abort is a failed/incomplete witness and
+  can never be reported as scene completion.
 - Friction coefficients and sleep thresholds are owner-gated fallback
   hypotheses, not assumptions. Diagnose whether the existing values are truly
   insufficient, but first exhaust contact geometry, solver response, cache,
@@ -57,10 +63,12 @@ solver-local velocity snap.
 
 ## Current Evidence
 
-- The authored witness runs 1,800 fixed-step frames at `timeScale: 10` and
-  contains three dynamic balls (`ball_a`, `ball_b`, `ball_c`) plus three boxes.
-  The boxes are useful control bodies; a ball-only fix must not destabilize
-  them.
+- The authored witness previously stopped after 1,800 fixed-step frames because
+  `playback.frames` was `1800` and `exitOnComplete` was `true`. That arbitrary
+  stop has been removed: playback is unlimited and cannot auto-exit until the
+  plan adds an authored all-three-ball sleep requirement. The three boxes remain
+  control bodies; they need not sleep to complete the witness, but a ball-only
+  fix must not destabilize them.
 - `tools/validate_physics_deep.bat` already produces
   `Debug/physics_known_at_rest.csv`. The committed known-issue signature calls
   out mixed resting jitter/interpenetration, but an exact file hash is only a
@@ -76,8 +84,10 @@ solver-local velocity snap.
 
 ## SkullScope Diagnostic Contract
 
-Generate the baseline trace from the unchanged scene and a preserved Debug
-executable:
+First add the generic authored sleep-completion gate described by RS0, then
+generate the baseline trace from the unlimited scene and a preserved Debug
+executable. The executable must exit only after all three named balls are
+simultaneously asleep:
 
 ```bat
 Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData\scenes\at_rest.scene.json --physics-diag Debug\at_rest_before.physicsdiag.ndjson
@@ -89,9 +99,9 @@ Start broad and narrow to named balls, frames, contacts, and islands:
 tools\physics_query.bat Debug\at_rest_before.physicsdiag.ndjson summary
 tools\physics_query.bat Debug\at_rest_before.physicsdiag.ndjson questions why_not_resting
 tools\physics_query.bat Debug\at_rest_before.physicsdiag.ndjson events --type failed_to_sleep,sleep_inhibited_quiet,unsupported_sleep,rolling_slip,friction_saturation,energy_spike,penetration_sustained,penetration_growing --limit 40
-tools\physics_query.bat Debug\at_rest_before.physicsdiag.ndjson rolling --frames 0:1800 --limit 30
-tools\physics_query.bat Debug\at_rest_before.physicsdiag.ndjson solver --frames 0:1800 --include-convergence --limit 30
-tools\physics_query.bat Debug\at_rest_before.physicsdiag.ndjson energy --frames 0:1800
+tools\physics_query.bat Debug\at_rest_before.physicsdiag.ndjson rolling --limit 30
+tools\physics_query.bat Debug\at_rest_before.physicsdiag.ndjson solver --include-convergence --limit 30
+tools\physics_query.bat Debug\at_rest_before.physicsdiag.ndjson energy
 ```
 
 For each ball, follow suspicious windows with bounded `body`, `contacts`, and
@@ -102,7 +112,8 @@ size, total GPT-read size, and whether output was truncated, as required by
 `Agentic/Skills/skore-skullscope/skill.md`.
 
 Capture these semantic measures for each ball from first sustained terrain
-support through sleep or end-of-run:
+support through its sleep transition. There is no successful end-of-run before
+all three transitions have occurred:
 
 - time of last material impact, first sustained support, and sleep transition;
 - sleep-counter resets, inhibition reasons, island membership, and support
@@ -114,16 +125,26 @@ support through sleep or end-of-run:
   vertical oscillation; and
 - kinetic-energy decay, any late energy injection, and wake events.
 
-RS0 ratifies exact completion thresholds from engine units and the unchanged
-baseline. They must require all three balls to settle materially sooner after
-their last real impact, eliminate visible tail vibration and repeated rolling
-reversals, bound pre-sleep slip, and enter supported sleep before the authored
-run ends. Thresholds cannot merely sit just beyond the old maximum.
+RS0 ratifies exact quality thresholds from engine units and the baseline. They
+must require all three balls to settle materially sooner after their last real
+impact, eliminate visible tail vibration and repeated rolling reversals, and
+bound pre-sleep slip. A missed quality threshold is a failure measurement, not
+a reason to stop playback: the scene continues until all three balls sleep.
 
 ## Phases
 
-### RS0 — Preserve And Diagnose The Unchanged Scene
+### RS0 — Establish Sleep Completion, Preserve, And Diagnose
 
+- [ ] Extend authored scene requirements with a generic named-dynamic-body sleep
+  gate, resolve `ball_a`, `ball_b`, and `ball_c` at load, and feed its status
+  through the existing Scene automation-gate owner. Do not add a second Physics
+  sleep owner or let Runtime infer sleep from velocity thresholds.
+- [ ] Author `at_rest.scene.json` to auto-exit on that requirement while keeping
+  `playback.frames: "unlimited"`. Prove it keeps stepping with any named ball
+  awake and completes only when all three are simultaneously Physics-asleep.
+- [ ] Add parser/runtime tests for missing names, fixed bodies, one remaining
+  awake ball, all three asleep, and wake-before-completion. No frame timeout or
+  manually aborted trace may satisfy this gate.
 - [ ] Preserve the baseline Debug CORE/TESTS executables, known-issue CSV,
   SkullScope trace/cache, and exact hashes before any behavior-bearing edit.
 - [ ] Run the broad SkullScope packet, then bounded per-ball body/contact/island
@@ -208,7 +229,8 @@ rolling tests, and cross-scene motion controls.
   to the existing linear/angular thresholds or quiet-frame count. If policy is
   still the isolated cause, block the edit on explicit owner approval.
 - [ ] Ensure all three supported balls accumulate consecutive quiet frames and
-  sleep within the RS0 target after their last material impact.
+  sleep after their last material impact; report the measured latency against
+  the RS0 quality target without using that target to stop the scene.
 - [ ] Prove unsupported, externally forced, materially impacted, or island-
   connected bodies do not sleep early and wake exactly once when required.
 - [ ] Add focused counter-reset and supported-transition tests that fail the old
@@ -250,6 +272,9 @@ hashes, baseline decision, and terminal plan-completion output.
 
 - [ ] All three balls meet the RS0 semantic targets for vertical stability,
   slip, reversal count, supported sleep latency, and final sleeping state.
+- [ ] The authoritative `at_rest` run has no frame/time completion cap and exits
+  only after `ball_a`, `ball_b`, and `ball_c` are all Physics-asleep. Any abort
+  or watchdog termination is reported as incomplete, never as a pass.
 - [ ] The boxes remain stable controls and no slope/moving-contact case is
   falsely pinned or slept.
 - [ ] Late kinetic energy decays without solver-induced spikes, repeated resting
@@ -280,7 +305,8 @@ hashes, baseline decision, and terminal plan-completion output.
 ## Non-Goals
 
 - Do not change the scene's masses, radii, restitution, poses, gravity,
-  timestep, playback length, or time scale to manufacture a pass.
+  timestep, or time scale to manufacture a pass. Do not reintroduce a playback
+  frame/time cap; the only completion boundary is all three named balls asleep.
 - Do not add unconditional global damping, a contact-solver velocity snap, or a
   second retained rest/sleep state owner.
 - Do not change terrain/object/rolling/spin friction coefficients or any sleep
@@ -290,8 +316,9 @@ hashes, baseline decision, and terminal plan-completion output.
   classification, or wake propagation to reduce visible motion.
 - Do not tune material response or sleep policy merely to move the pass line
   around defective contact, solver, cache, support, or counter behavior.
-- Do not accept “eventually sleeps by frame 1800” while visible sliding,
-  vertical vibration, or repeated rolling reversals remain.
+- Do not accept all-balls sleep as sufficient while visible sliding, vertical
+  vibration, or repeated rolling reversals remain; completion and motion
+  quality are separate requirements.
 - Do not ingest raw NDJSON/SQLite artifacts into model context or refresh a
   baseline before owner review.
 
