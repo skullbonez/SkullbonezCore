@@ -290,17 +290,6 @@
       "disposition": "retain-owner",
       "owner": "Runtime camera and editor arbitrary-axis transforms",
       "reason": "RotatePointAboutArbitrary serves Camera orbit/follow movement and EditorGizmoTools manipulation; neither path is reachable from Physics."
-    },
-    {
-      "path": "SkullbonezSource/Physics/Ragdoll.cpp",
-      "line": 253,
-      "column": 50,
-      "call": "acosf",
-      "source_fingerprint": "9b987b3c4181e47ee7980240fbb5702caaa65f9eec2e694a370f78863ea2bbf4",
-      "disposition": "repair-plan",
-      "owner": "Ragdoll neck swing correction",
-      "reason": "The unclamped inverse-cosine path is Physics-visible and T4 replaces it with deterministic vector-angle construction.",
-      "plan": "Agentic/Plans/TODO/determinism-envelope-tier2-hardening.md"
     }
   ]
 }

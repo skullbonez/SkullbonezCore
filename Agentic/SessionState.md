@@ -2,13 +2,30 @@
 
 Date: 2026-08-17
 Branch: `codex/master-plan-2026-08-16`
-Status: Two active plans; 18/24 tasks complete
+Status: One active plan; 19/24 tasks complete
 
-Determinism Envelope Tier-2 Hardening (9 tasks) and Catto Divergence Repairs
-(6 tasks) are registered under `Agentic/Plans/TODO/`; Causal C0-C8,
-Determinism T0-T3 and T5-T8, and Catto CD0 are complete. `MASTER-PLAN.md` carries
-the binding order, with Determinism T4 next. The completed causal plan was
-deleted under the repository convention; Git history retains its phase evidence.
+Catto Divergence Repairs (6 tasks) is the one registered active plan under
+`Agentic/Plans/TODO/`; Causal C0-C8, Determinism T0-T8, and Catto CD0 are
+complete. `MASTER-PLAN.md` carries the binding order, with Catto CD1 next. The
+completed causal and determinism plans were deleted under the repository
+convention; Git history retains their phase evidence.
+
+Determinism T4 replaced ragdoll `acosf` with the shared deterministic vector-
+angle owner and closed the Physics-reachable CRT transcendental set. Focused
+ragdoll tests passed 4 cases / 31 assertions, the 0/1/4-worker oracle passed
+30,709 assertions, and independent ownership review returned clear. The full
+gate passed 578 cases / 2,479,932 assertions, coverage, standalone CPU suites,
+Automation, and DX12 before the expected inherited 40,909-row Physics mismatch.
+The direct candidate is retained under
+`TestOutput/validation/candidates/TIER2_DETERMINISM_T4/` with CORE hash
+`8DAAB85DAF180C7292FB4203AA64FC671FA52EB26892C439816795929F46819D`,
+TESTS hash `44F60FD4EEDDBCB1B75A00BC7A32D83FE39FD95F7BC11B25DF29B1568F0B96C8`,
+and CSV hash `0F25F3B6813401B7D9EA4B52CBB088D30E03EEBAFFEFCAF15FEE63B3DFF72FFD`.
+The final full-gate candidate in the same directory has CORE hash
+`C09EEF7B8B616349BD979BDFC1AD10D58FB36214322F8338EA0A417C8AB8B774`,
+TESTS hash `182D75A1CB79294AB9A51A5622B0331B9F4A95C629F0CD5C744F174AFF24D5C3`,
+and the identical CSV hash. That CSV is also byte-identical to T3, proving T4
+added no further drift in the varied regression scene. No golden was refreshed.
 
 Replay Prediction Adversarial Repair completed on
 `codex/replay-prediction-adversarial-fixes` in two `REPLAY_ADVERSARIAL` commits.
@@ -49,33 +66,17 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-`TIER2_DETERMINISM` T4. Adopt deterministic vector-angle construction for the
-ragdoll neck, preserve every baseline-failing executable and record its diff,
-then continue into Catto without refreshing a golden. T3 adopted the shared
-rotation owner and retained both the direct physics-gate and full-gate candidate
-payloads for later owner behavior review. T8's hosted run
-`31990868600` proved one Debug executable byte-exact on two fresh hosted runner
-identities under the same current Windows image and AMD EPYC model. T1's
-deterministic math owner is now Physics-reachable through T3. Continue in
-the plan's recorded order, then run
-`CATTO_REPAIRS` CD1-CD5.
+`CATTO_REPAIRS` CD1 (approved R1). Continue through CD5 in the plan's recorded
+R1, R5, R6, R3, R2(a), R4 order. Preserve every baseline-failing executable by
+plan and phase, record its diff, and continue without refreshing a golden.
 `future_physics.md` remains unregistered.
 
 ## Blockers
 
-- `TIER2_DETERMINISM` T4 changes physics bits by construction. The plan
-  grants no baseline-refresh authority. A baseline mismatch no longer stops this
-  run: preserve every gate executable under a plan-and-phase name, record the
-  diff and artifact path, and continue for later owner behavior review.
-- `CATTO_REPAIRS` CD0 is complete. CD1-CD5 are selectable only after Causal and
-  Determinism finish, in the approved R1, R5, R6, R3, R2(a), R4 order.
-  Baseline-failing candidates are preserved and execution continues for later
-  owner review; do not re-ask the approved scope questions or refresh a golden.
-- `TIER2_DETERMINISM` T4 baseline sequencing has a downstream consumer.
-  The landed replay-prediction oracle pins trajectory fingerprint
-  `0x0702E1DFBB57F16D` and submitted geometry `0xF06608D189EFEEAD`, which a
-  physics-bit transition would be expected to move. Decide the baseline ruling
-  knowing those replay fingerprints follow from it.
+- None. `CATTO_REPAIRS` CD1-CD5 are selectable now that Causal and Determinism
+  are complete. Execute them in the approved R1, R5, R6, R3, R2(a), R4 order.
+  Preserve baseline-failing candidates and continue for later owner review; do
+  not re-ask the approved scope questions or refresh a golden.
 
 ## CI Note
 

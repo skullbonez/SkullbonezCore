@@ -6,16 +6,18 @@
 @rem
 @rem Summary:
 @rem   Full validation is the trustworthy PR fan-in: cheap failures surface
-@rem   first, after a required Debug build makes two-configuration reachability
-@rem   evidence current. Each CPU test target then runs once before automation,
-@rem   DX12, and deterministic physics provide three runtime lanes. The
-@rem   automation lane launches a negative Profile boundary plus one positive
-@rem   replay smoke. After every gate passes, the informational replay spike
-@rem   workload records findings without changing validation success.
+@rem   first, after required Automation and Debug builds join the Profile build
+@rem   performed by validate_fast to make all reachability evidence current.
+@rem   Each CPU test target then runs once before automation, DX12, and
+@rem   deterministic physics provide three runtime lanes. The automation lane
+@rem   launches a negative Profile boundary plus one positive replay smoke.
+@rem   After every gate passes, the informational replay spike workload records
+@rem   findings without changing validation success.
 @rem
 @rem Glossary:
 @rem   CPU preflight: Formatting, project metadata, staged-size, Profile build,
-@rem   and Debug/Profile reachability checks that do not launch a test or engine.
+@rem   and Automation/Debug/Profile reachability checks that do not launch a
+@rem   test or engine.
 @rem   Validation gate: Repository script that proves a class of changes before
 @rem   commit or PR.
 @rem
@@ -48,7 +50,16 @@ set "PREVIOUS_ASSUME_PROFILE_BUILT=%SKULLBONEZ_ASSUME_PROFILE_BUILT%"
 set "PREVIOUS_ASSUME_DEBUG_BUILT=%SKULLBONEZ_ASSUME_DEBUG_BUILT%"
 set "SKULLBONEZ_SKIP_READY_BUILDS=1"
 
-echo === Phase 0: Build Debug Configuration ===
+echo === Phase 0A: Build Automation Configuration for Reachability ===
+call "%~dp0validate_build.bat" Automation
+if errorlevel 1 (
+    echo.
+    echo VALIDATE_FULL: FAILED at Automation reachability build.
+    exit /b 1
+)
+
+echo.
+echo === Phase 0B: Build Debug Configuration ===
 call "%~dp0validate_build.bat" Debug
 if errorlevel 1 (
     echo.

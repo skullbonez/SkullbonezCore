@@ -26,7 +26,7 @@ Invariants:
 
 Related:
   - tools/determinism_math_rulings.json
-  - Agentic/Plans/TODO/determinism-envelope-tier2-hardening.md
+  - Agentic/Reference/physics-overview.md
   - tools/validate_fast.bat
 """
 

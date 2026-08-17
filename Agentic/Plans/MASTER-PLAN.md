@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-17
-Status: Two active plans; 18/24 tasks complete
+Status: One active plan; 19/24 tasks complete
 
 ## Owner Direction
 
@@ -16,18 +16,14 @@ Status: Two active plans; 18/24 tasks complete
   record the mismatch and artifact path, and continue without refreshing a
   golden; the owner will review the candidate behaviors afterward.
 
-- Determinism Envelope Tier-2 Hardening is active. It removes
-  implementation-defined transcendentals from physics-visible paths, gates their
-  return, adds a portable CPU test target, and adds the cross-machine byte
-  comparison that would observe a tier-2 envelope violation. T8 proved one
-  shared Debug artifact byte-exact on two fresh hosted Windows runners. T3
-  adopted deterministic rotation, preserved both baseline-failing executable
-  sets, and recorded the deterministic sleep/contact divergence without a
-  golden refresh. T4 changes physics output bits; preserve its candidate
-  executable and diff for later owner review without stopping. T0 proved the
-  linked static UCRT selects FMA3 or non-FMA `sinf`, `cosf`, and `acosf` bodies
-  from processor features, making the tier-2 exposure live rather than merely
-  latent.
+- Determinism Envelope Tier-2 Hardening is complete. Physics-visible rotation
+  and vector-angle construction now use the repository-owned deterministic math
+  owner, the policy checker reports no Physics-reachable CRT transcendental,
+  portable Linux diagnostics cover both compilers and three sanitizers, and T8
+  proved one shared Debug artifact byte-exact on two fresh hosted Windows
+  runners. T3 and T4 retained their direct and full-gate candidate executables
+  under `TestOutput/validation/candidates/` for later behavior review; their
+  produced CSVs are byte-identical to each other, and no golden was refreshed.
 - Source Modernization Sweep is complete. No further work remains.
 - Dense Pile Sleep Resolution is complete by owner direction. No further work
   will be performed and no additional baseline or solver change is requested.
@@ -46,7 +42,6 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Determinism Envelope Tier-2 Hardening | `TIER2_DETERMINISM` | 9 | 8 | `TODO/determinism-envelope-tier2-hardening.md` |
 | Catto Divergence Repairs | `CATTO_REPAIRS` | 6 | 1 | `TODO/catto-divergence-repairs.md` |
 
 ## Parked, Backlog, And Completed Plans
@@ -80,10 +75,7 @@ states elsewhere, and both are recorded rather than silently corrected:
 
 ## Binding Order
 
-1. `TIER2_DETERMINISM` T4 — adopt deterministic vector-angle construction after
-   T3 isolated the rotation behavior transition. Preserve each
-   baseline-failing executable and continue; acceptance remains an owner review.
-2. `CATTO_REPAIRS` CD1 through CD5 — CD0 is complete. Execute the approved order:
+1. `CATTO_REPAIRS` CD1 through CD5 — CD0 is complete. Execute the approved order:
    R1; R5 then R6 as separate commits; R3; R2 stage (a) only; and the local R4
    interval-consistency repair that preserves partial-TOI advancement.
 
@@ -100,6 +92,5 @@ tests must pin field mapping and availability, not pre-Catto impulse values.
 
 ## Portfolio Progress
 
-18/24 tasks complete across two active plans. Causal C0-C8, Determinism T0-T3
-and T5-T8, and Catto CD0 are complete; Determinism T4 is the next selectable
-task.
+19/24 tasks complete with one active plan. Causal C0-C8, Determinism T0-T8, and
+Catto CD0 are complete; Catto CD1 is the next selectable task.

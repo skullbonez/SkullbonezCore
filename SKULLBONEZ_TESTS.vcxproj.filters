@@ -207,6 +207,9 @@
     <ClCompile Include="SkullbonezTests\TestQuaternion.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestRagdoll.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestReserveAllocator.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>

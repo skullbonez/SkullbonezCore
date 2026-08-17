@@ -142,6 +142,7 @@ set(SKULLBONEZ_PORTABLE_TEST_SOURCES
     SkullbonezTests/TestPhysicsPoseIntegration.cpp
     SkullbonezTests/TestPhysicsStageState.cpp
     SkullbonezTests/TestQuaternion.cpp
+    SkullbonezTests/TestRagdoll.cpp
     SkullbonezTests/TestReserveAllocator.cpp
     SkullbonezTests/TestSbResult.cpp
     SkullbonezTests/TestSceneParserUnit.cpp
