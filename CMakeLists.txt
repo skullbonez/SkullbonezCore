@@ -59,6 +59,7 @@ set(SKULLBONEZ_PORTABLE_CPU_SOURCES
     SkullbonezSource/Physics/ObjectContactManifold.cpp
     SkullbonezSource/Physics/PersistentContactSolver.cpp
     SkullbonezSource/Physics/PhysicsBodyStore.cpp
+    SkullbonezSource/Physics/PhysicsPoseIntegration.cpp
     SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp
     SkullbonezSource/Physics/PhysicsEngine.cpp
     SkullbonezSource/Physics/PhysicsObjectPolicy.cpp
@@ -138,6 +139,7 @@ set(SKULLBONEZ_PORTABLE_TEST_SOURCES
     SkullbonezTests/TestOrbitalMechanics.cpp
     SkullbonezTests/TestPersistentContactSolver.cpp
     SkullbonezTests/TestPhysicsApi.cpp
+    SkullbonezTests/TestPhysicsPoseIntegration.cpp
     SkullbonezTests/TestPhysicsStageState.cpp
     SkullbonezTests/TestQuaternion.cpp
     SkullbonezTests/TestReserveAllocator.cpp

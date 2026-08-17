@@ -1,11 +1,11 @@
 # Determinism Envelope Tier-2 Hardening
 
 Date: 2026-08-15
-Status: Active. 7/9 tasks complete.
+Status: Active. 8/9 tasks complete.
 Impact area: Maths transcendentals, Physics pose integration, ragdoll neck
 constraint, determinism tooling, portable CPU test target, CI lanes
 Owner: Physics determinism envelope
-Priority: Active — T8 is complete; T3 and T4 are next under the recorded
+Priority: Active — T8 and T3 are complete; T4 is next under the recorded
 baseline-artifact ruling.
 
 ## Owner Direction
@@ -325,7 +325,7 @@ violation if one exists.
   review closed every parser, ownership, and reachability finding. No Physics
   source, executable behavior, or baseline changed in T2.
 
-- [ ] **T3 — Adopt the deterministic rotation in the pose integrator.**
+- [x] **T3 — Adopt the deterministic rotation in the pose integrator.**
   **Owner baseline decision required before this phase begins.** Add a dedicated
   physics integration entry point and keep its current semantics explicit:
   angular velocity is world-space, the delta quaternion is left-multiplied, and
@@ -345,6 +345,54 @@ violation if one exists.
   rotations, and prove worker-count invariance is retained. Present the
   resulting baseline diff as a behavior change for owner review; do not refresh
   the golden until that approval is recorded.
+
+  Evidence (2026-08-17): `PhysicsPoseIntegration` now owns the public, focused
+  pose-update kernel used by `PhysicsBodyStore`. It preserves world-space
+  angular velocity, left multiplication, constant-omega exponential-map
+  integration, and the existing normalization contract while constructing the
+  delta with `Deterministic::ComputeCosSin`. The vector part uses the exact-zero
+  sinc limit and has no normalized-axis division or `omegaMag > 0.0001f`
+  discontinuity. `Quaternion::RotateAboutAxis`, which is Physics-reachable
+  through ragdoll correction, now uses the same deterministic cosine/sine owner.
+  The corresponding math-policy and reachability repair rows were removed.
+
+  Focused Debug tests passed 19 cases / 315 assertions across deterministic
+  math, quaternion behavior, and pose integration, covering zero, the retired
+  threshold, asymmetric left multiplication, the measured maximum, and a
+  partial time step. The 0/1/4-worker PhysicsEngine invariant remained exact:
+  the serial reference and one- and four-worker executions passed 30,709
+  assertions. A pre-existing shoreline solver fixture was corrected without
+  relaxing its 31 assertions: its center height is now derived through the same
+  normalized quaternion and rotation-matrix support-extent path as `AddBox`, so
+  the intended two-point edge geometry survives a trig implementation change.
+
+  `tools\validate_full.bat` passed formatting, project/filter ownership,
+  dependency and all ownership inventories, Debug/Profile builds, compiled-
+  symbol reachability, 574 Profile cases / 2,479,901 assertions, every coverage
+  floor, all six mandatory CPU lanes, Automation boundary/smoke, and DX12
+  validation with zero InfoQueue errors and passing screenshot comparisons. It
+  then reached the expected Physics comparison and reported 40,909 changed
+  lines in `physics_regression_varied.csv`, first at line 2 in quaternion
+  components. Two independently generated 44,400-row replicas were byte-exact
+  with each other. Relative to the committed golden, 4,702 rows changed a sleep
+  or inhibition fact: 3,739 `sleeping`, 1,074 `sleepInhibited`, and 4,380
+  `grounded` rows changed. The golden was not refreshed.
+
+  Before any subsequent build, the first failing physics-gate payload was
+  preserved under `TestOutput/validation/candidates/TIER2_DETERMINISM_T3/` as
+  `SKULLBONEZ_CORE_TIER2_DETERMINISM_T3.exe` (SHA-256
+  `D388E3D787482501F477E4A23BED7F797D34EDEA48A4B07CA6C3A22F62FB0937`),
+  `SKULLBONEZ_TESTS_TIER2_DETERMINISM_T3.exe` (SHA-256
+  `9E55317EA8B8A8D97E327AF5A196F63BFB60C5B27120762C2252ED161B00A231`),
+  and its CSV (SHA-256
+  `0F25F3B6813401B7D9EA4B52CBB088D30E03EEBAFFEFCAF15FEE63B3DFF72FFD`).
+  The later full-gate payload is separately retained there as
+  `SKULLBONEZ_CORE_TIER2_DETERMINISM_T3_VALIDATE_FULL.exe` (SHA-256
+  `D270C3CCA1A12FC570C26C68B77D4DE3D0691F81EC55CA2717F78148D0298C45`),
+  `SKULLBONEZ_TESTS_TIER2_DETERMINISM_T3_VALIDATE_FULL.exe` (SHA-256
+  `A8382F02F4B41BA94890B62F1254139B5CF4F46AFE934AF36322873C6123F470`),
+  and its identical produced CSV. These ignored candidate artifacts are for the
+  owner's later behavior review, not golden-transition authority.
 
 - [ ] **T4 — Adopt deterministic vector-angle construction for the ragdoll neck.**
   **Owner baseline decision required before this phase begins.** Replace
@@ -614,9 +662,13 @@ Resolve these inside the owning phase; do not treat them as settled.
    radians (`target_box_08`, shooting-reaction frame 0). The measurement
    validates range reduction and error bounds; it does not reopen the approved
    exponential-map integration shape.
-3. Does removing the `omegaMag > 0.0001f` branch change sleep or wake behavior
-   for near-stationary bodies? This must be measured, not assumed, before the T3
-   baseline transition is presented.
+3. Resolved by T3: removing the `omegaMag > 0.0001f` branch and adopting the
+   deterministic rotation owner changes downstream contact/sleep evolution.
+   Across the 44,400-row varied regression, 4,702 rows changed at least one of
+   `sleeping` or `sleepInhibited`; including `grounded` raises that union to
+   6,391 rows. The individual field counts were 3,739, 1,074, and 4,380
+   respectively. The two fresh replicas were exact, and both failing executable
+   sets were preserved for owner behavior review.
 4. Should the Linux lane run ASan at all, given
    `.github/workflows/native-diagnostics.yml` already runs MSVC ASan over a
    superset of T6's portable target? The case for keeping it is that Clang's and

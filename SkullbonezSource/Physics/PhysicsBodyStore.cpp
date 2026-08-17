@@ -30,6 +30,7 @@ Related:
 #include "ColliderStore.h"
 #include "PhysicsApi.h"
 #include "PhysicsEngine.ReplayPredictionCloneScope.h"
+#include "PhysicsPoseIntegration.h"
 #include "TerrainSupportClassifier.h"
 #include "PhysicsWorldForces.h"
 
@@ -985,27 +986,6 @@ void ApplyWorldForces( PhysicsBodyRecord& record, const BuoyancyBodyFacts& buoya
     }
 
     ApplyWorldImpulse( record, hot, worldForce * deltaSeconds, worldTorque * deltaSeconds );
-}
-
-// Concept: store-owned pose integration advances the authoritative body row.
-//
-// Keeping this here means solver hot paths mutate only physics records when
-// advancing position and orientation.
-void IntegrateBodyRecordPose( PhysicsBodyHotState& hot, float deltaSeconds )
-{
-    hot.linearVelocity.Simplify();
-    hot.angularVelocity.Simplify();
-
-    hot.position += hot.linearVelocity * deltaSeconds;
-
-    const Vector3 omega = hot.angularVelocity;
-    const float omegaMag = sqrtf( omega.x * omega.x + omega.y * omega.y + omega.z * omega.z );
-
-    if ( omegaMag > 0.0001f )
-    {
-        const Vector3 axis( omega.x / omegaMag, omega.y / omegaMag, omega.z / omegaMag );
-        hot.orientation.RotateAboutAxis( axis, omegaMag * deltaSeconds );
-    }
 }
 
 void ApplyBodyDescriptorState( const PhysicsBodyCreateDesc& desc, PhysicsBodyRecord& cold, PhysicsBodyHotState& hot )
@@ -2108,10 +2088,11 @@ bool PhysicsBodyStore::SetPendingBodyImpulse( PhysicsBodyHandle body, const Vect
 }
 
 
-// Concept: pending impulses are one-shot velocity edits owned by hot arrays.
+// Concept: pose integration is one hot-row transaction.
 //
-// Runtime force integration consumes them through this store hook so impulse
-// math stays in one cache-local body path.
+// The store loads one dense row, delegates deterministic kinematics to
+// PhysicsPoseIntegration, applies terrain support, then publishes the complete
+// row. Stages never retain a pointer into the independently allocated arrays.
 
 
 bool PhysicsBodyStore::IntegrateBodyPose( Core::Profiler* profiler, const ColliderStore& colliderStore,

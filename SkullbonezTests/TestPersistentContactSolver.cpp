@@ -56,6 +56,7 @@
 
 #include "../SkullbonezSource/Core/Common.h"
 #include "../SkullbonezSource/Core/Config.h"
+#include "../SkullbonezSource/Maths/Quaternion.h"
 #include "../SkullbonezSource/Physics/BoundingBox.h"
 #include "../SkullbonezSource/Physics/BoundingSphere.h"
 #include "../SkullbonezSource/Physics/BuoyancySystem.h"
@@ -81,6 +82,7 @@
 using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::CollisionShape;
+using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Math::Vector::ZERO_VECTOR;
 using SkullbonezCore::Physics::BuildObjectContactManifold;
@@ -1032,7 +1034,13 @@ TEST_CASE( "Persistent contact solver: shoreline seed prevents one-frame edge bo
     // linked restoration report records the rejected removal experiment.
     constexpr float shorelineScale = 0.35f;
     constexpr float tiltedEdgeRadians = 0.75f;
-    const float tiltedBoxCenterY = cosf( tiltedEdgeRadians ) + sinf( tiltedEdgeRadians );
+    // Invariant: derive the center from the same normalized quaternion and
+    // rotation-matrix path as AddBox. This keeps the lowest corners exactly on
+    // the plane even when the axis-angle implementation changes numerically.
+    Quaternion tiltedEdgeOrientation;
+    tiltedEdgeOrientation.RotateAboutAxis( Vector3( 1.0f, 0.0f, 0.0f ), tiltedEdgeRadians );
+    const float tiltedBoxCenterY =
+        tiltedEdgeOrientation.GetOrientationMatrix().SupportExtentY( Vector3( 1.0f, 1.0f, 1.0f ) );
 
     auto buildUnsupportedTerrainEdge = [&]( SolverFixture& fixture, float downwardSpeed )
     {

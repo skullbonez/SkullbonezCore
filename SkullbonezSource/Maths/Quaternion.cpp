@@ -5,7 +5,9 @@ Purpose:
 
 Summary:
   Quaternion implements normalized rigid-body and camera orientation updates,
-  with world-axis deltas composed in the engine's active-rotation order.
+  with world-axis deltas composed in the engine's active-rotation order. The
+  shared axis-angle entry point uses repository-owned deterministic cosine and
+  sine because Physics reaches it through ragdoll correction.
 
 Glossary:
   World-axis delta: Incremental rotation expressed around a world-space axis
@@ -16,14 +18,19 @@ Invariants:
     matrices or solver rows.
   - RotateAboutAxis requires a normalized world-space axis and interprets its
     angle in radians.
+  - Axis-angle construction uses DeterministicMath, so its evaluation order can
+    alter byte-exact Physics baselines.
   - World-axis deltas left-multiply the current orientation so call order stays
     visible in active-rotation space.
 
 Related:
   - SkullbonezSource/Maths/Quaternion.h
+  - SkullbonezSource/Maths/DeterministicMath.h
   - Agentic/Reference/engine-glossary.md
 */
 #include "Quaternion.h"
+
+#include "DeterministicMath.h"
 
 #include <cassert>
 
@@ -58,7 +65,7 @@ void Quaternion::Normalise()
 
     // Guard against zero or near-zero magnitude quaternions that can arise from
     // pathological floating-point cancellation during collision impulse resolution.
-    // Reset to identity rather than crash — the object retains its last valid orientation.
+    // Reset to identity rather than crash so the object retains a valid orientation.
     static constexpr float EPSILON_SQ = 1e-12f;
 
     if ( magSq < EPSILON_SQ )
@@ -90,9 +97,9 @@ void Quaternion::RotateAboutAxis( const Vector3& axis, float angle )
     // A positive right-handed world-axis delta left-multiplies the current
     // orientation. Hamilton composition then exposes the same order as the
     // corresponding active matrices: R(delta * current) = R(delta)R(current).
-    float halfAngle = angle * 0.5f;
-    float s = sinf( halfAngle );
-    Quaternion delta( axis.x * s, axis.y * s, axis.z * s, cosf( halfAngle ) );
+    const float halfAngle = angle * 0.5f;
+    const Deterministic::CosSin cosSin = Deterministic::ComputeCosSin( halfAngle );
+    Quaternion delta( axis.x * cosSin.sine, axis.y * cosSin.sine, axis.z * cosSin.sine, cosSin.cosine );
     *this = delta * *this;
     Normalise();
 }

@@ -272,28 +272,6 @@
       "reason": "Orbit-polyline sampling serves Planning presentation and is not reachable from Physics."
     },
     {
-      "path": "SkullbonezSource/Maths/Quaternion.cpp",
-      "line": 94,
-      "column": 14,
-      "call": "sinf",
-      "source_fingerprint": "db95be3387e0c69a9b476818af41a1d6b7d0287fb0aa540d62d761e3d0314e58",
-      "disposition": "repair-plan",
-      "owner": "Physics axis-angle rotation construction",
-      "reason": "RotateAboutAxis is reached by the authoritative pose integrator and ragdoll correction; T3 adopts the deterministic owner.",
-      "plan": "Agentic/Plans/TODO/determinism-envelope-tier2-hardening.md"
-    },
-    {
-      "path": "SkullbonezSource/Maths/Quaternion.cpp",
-      "line": 95,
-      "column": 58,
-      "call": "cosf",
-      "source_fingerprint": "ff1129b3acd6f78dc14441f665d624c1ad1955e34fceb17f913de711b9e44b39",
-      "disposition": "repair-plan",
-      "owner": "Physics axis-angle rotation construction",
-      "reason": "RotateAboutAxis is reached by the authoritative pose integrator and ragdoll correction; T3 adopts the deterministic owner.",
-      "plan": "Agentic/Plans/TODO/determinism-envelope-tier2-hardening.md"
-    },
-    {
       "path": "SkullbonezSource/Maths/RotationMatrix.h",
       "line": 88,
       "column": 21,

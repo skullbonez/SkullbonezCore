@@ -227,6 +227,7 @@
     <ClCompile Include="SkullbonezTests\TestPersistentContactSolver.cpp" />
     <ClCompile Include="SkullbonezTests\TestPhysicsApi.cpp" />
     <ClCompile Include="SkullbonezTests\TestPhysicsHandles.cpp" />
+    <ClCompile Include="SkullbonezTests\TestPhysicsPoseIntegration.cpp" />
     <ClCompile Include="SkullbonezTests\TestPhysicsStageState.cpp" />
     <ClCompile Include="SkullbonezTests\TestSleepController.cpp" />
     <ClCompile Include="SkullbonezTests\TestQuaternion.cpp" />

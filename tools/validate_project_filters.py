@@ -155,6 +155,7 @@ PHYSICS_BODY_PREFIXES = (
     "PhysicsHandles",
     "PhysicsMass",
     "PhysicsObjectPolicy",
+    "PhysicsPoseIntegration",
     "Ragdoll",
 )
 

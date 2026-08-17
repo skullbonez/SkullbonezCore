@@ -96,6 +96,7 @@
     <ClCompile Include="..\..\..\SkullbonezSource\Core\FatalError.cpp" />
     <ClCompile Include="..\..\..\SkullbonezSource\Core\SbResult.cpp" />
     <ClCompile Include="..\..\..\SkullbonezSource\Core\Log.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Maths\DeterministicMath.cpp" />
     <ClCompile Include="..\..\..\SkullbonezSource\Maths\Matrix4.cpp" />
     <ClCompile Include="..\..\..\SkullbonezSource\Maths\Quaternion.cpp" />
     <ClCompile Include="..\..\..\SkullbonezSource\Maths\RotationMatrix.cpp" />
