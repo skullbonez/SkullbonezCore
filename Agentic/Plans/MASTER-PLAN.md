@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-17
-Status: Two active plans; 20/32 tasks complete
+Status: Three active plans; 20/39 tasks complete
 
 ## Owner Direction
 
@@ -45,6 +45,10 @@ Status: Two active plans; 20/32 tasks complete
   callers by risk, and closes with exact-tick headless solar-system
   fast-forward evidence rather than increasing `dt` or relying on the runtime
   time-scale cap.
+- Continuous Orbital Forecast was reactivated by owner direction on
+  2026-08-17. It follows deterministic trig and owns the separate interactive
+  continuous prediction mode, coherent rolling 120-second path window, and
+  observed-stability diagnostics without changing bounded `PREDICT`.
 
 Completed plan files were deleted; git history is the archive.
 
@@ -54,6 +58,7 @@ Completed plan files were deleted; git history is the archive.
 |---|---|---|---|---|
 | Catto Divergence Repairs | `CATTO_REPAIRS` | 6 | 2 | `TODO/catto-divergence-repairs.md` |
 | Deterministic Trigonometry Adoption | `TRIG_DETERMINISM` | 8 | 0 | `TODO/deterministic-trigonometry-adoption.md` |
+| Continuous Orbital Forecast | `ORBIT_FORECAST` | 7 | 0 | `TODO/continuous-orbital-forecast.md` |
 
 ## Parked, Backlog, And Completed Plans
 
@@ -66,7 +71,6 @@ an owner decision, not a run decision.
 
 | Plan | Status | Phases | File |
 |---|---|---|---|
-| Continuous Orbital Forecast | Owner-parked 2026-08-17 | 0/7 | `WNF/continuous-orbital-forecast.md` |
 | Contact Stack Stability Techniques | Owner-parked 2026-08-02 | 0/7 | `WNF/contact-stack-stability-techniques.md` |
 | DX12 Frame Path Comment-Rot Sweep | Owner-parked 2026-07-12 | 0/3 | `WNF/dx12-frame-path-comment-rot-sweep.md` |
 | Reversible GPU Fracture Replay | Backlog; blocked | 0/7 | `WNF/fracture-replay-feature.md` |
@@ -94,6 +98,9 @@ states elsewhere, and both are recorded rather than silently corrected:
 2. `TRIG_DETERMINISM` DT0 through DT7 — widen static enforcement, establish
    A/B and exact-tick solar evidence before replacement, certify float and
    double owners, migrate callers by risk, then close the production surface.
+3. `ORBIT_FORECAST` OF0 through OF6 — ratify the authored stability contract,
+   add coherent circular publication and continuous isolated prediction, then
+   wire Planning-owned diagnostics and rolling orbital presentation.
 
 `CAUSAL_INSPECT` no longer re-steps an old frame to regenerate solver detail, so
 it does not consume the tier-2 determinism guarantee and has no ordering
@@ -108,6 +115,7 @@ tests must pin field mapping and availability, not pre-Catto impulse values.
 
 ## Portfolio Progress
 
-20/32 tasks complete with two active plans. Causal C0-C8, Determinism T0-T8,
+20/39 tasks complete with three active plans. Causal C0-C8, Determinism T0-T8,
 and Catto CD0-CD1 are complete; Catto CD2 is next, beginning with R5 and then
-R6 as separate commits. Deterministic Trigonometry DT0-DT7 follows Catto.
+R6 as separate commits. Deterministic Trigonometry DT0-DT7 follows Catto, then
+Continuous Orbital Forecast OF0-OF6.

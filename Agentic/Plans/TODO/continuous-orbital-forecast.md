@@ -1,13 +1,13 @@
 # Continuous Orbital Forecast
 
 Date: 2026-08-17
-Status: WNF - owner-parked 2026-08-17; restore to `TODO/` only by explicit
-owner decision. 0/7 phases complete.
+Status: Registered; 0/7 phases complete
 Impact area: Runtime Planning and Prediction, replay overlay UI/input, bounded
 trajectory publication, mutual-gravity diagnostics, tests, documentation, and
 DX12 visual verification
 Owner: Runtime Planning continuous orbital forecast
-Priority: Parked owner-requested feature
+Priority: Active after `TRIG_DETERMINISM`
+Commit name: `ORBIT_FORECAST`
 
 ## Owner Direction
 
@@ -24,9 +24,10 @@ a mathematical proof of N-body stability. It records the first detected
 instability and its cause, but the simulation may continue so the operator can
 watch the later behavior.
 
-This file is planning authority only. It grants no production-edit, validation,
-commit, reserve-cap, or baseline-refresh authority while it remains under
-`WNF/`.
+The owner reactivated this plan on 2026-08-17. Implementation begins only when
+the master binding order reaches `ORBIT_FORECAST` and follows the repo-local
+orchestrator skill. Registration grants implementation and mapped validation
+authority, but it does not grant a reserve-cap increase or baseline refresh.
 
 ## Current Evidence - 2026-08-17
 
@@ -236,8 +237,7 @@ one final source state:
 
 ## Validation Mapping
 
-Validation remains deferred until implementation is restored to `TODO/` and a
-phase is being prepared for commit.
+Validation remains deferred until a phase is being prepared for commit.
 
 | Scope | Required pre-commit evidence |
 |---|---|
@@ -249,14 +249,13 @@ phase is being prepared for commit.
 | Continuous hot path | `tools\validate_perf.bat` plus a three-wrap retained-byte/growth witness |
 | Final combined source state | `tools\validate_full.bat --plan-completion` after the focused gates above |
 
-## Reactivation Condition
+## Registration State
 
-Move this file from `WNF/` to `TODO/` and register it in the active table only
-when the owner explicitly resumes implementation. At reactivation, refresh the
-source evidence, settle OF0, confirm the then-current prediction reserve
-inventory and Runtime package rules, and implement through the repo-local
-orchestrator skill. Do not begin it ahead of the currently binding active plan
-merely because the document exists.
+The owner reactivated this plan and moved it from `WNF/` to `TODO/` on
+2026-08-17. When the binding order reaches OF0, refresh the source evidence,
+settle OF0, confirm the then-current prediction reserve inventory and Runtime
+package rules, and implement through the repo-local orchestrator skill. Do not
+begin it ahead of Catto or deterministic trig merely because it is active.
 
 ## Reference Sites
 

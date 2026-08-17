@@ -2,12 +2,13 @@
 
 Date: 2026-08-17
 Branch: `main`
-Status: Two active plans; 20/32 tasks complete
+Status: Three active plans; 20/39 tasks complete
 
-Catto Divergence Repairs (6 tasks) and Deterministic Trigonometry Adoption
-(8 tasks) are registered under `Agentic/Plans/TODO/`; Causal C0-C8,
-Determinism T0-T8, and Catto CD0-CD1 are complete. `MASTER-PLAN.md` carries the
-binding order, with Catto CD2 next and deterministic trig following Catto. The
+Catto Divergence Repairs (6 tasks), Deterministic Trigonometry Adoption
+(8 tasks), and Continuous Orbital Forecast (7 tasks) are registered under
+`Agentic/Plans/TODO/`; Causal C0-C8, Determinism T0-T8, and Catto CD0-CD1 are
+complete. `MASTER-PLAN.md` carries the binding order: Catto CD2 next,
+deterministic trig following Catto, then continuous orbital forecast. The
 completed causal and determinism plans were deleted under the repository
 convention; Git history retains their phase evidence.
 
@@ -100,6 +101,13 @@ calls across 5 files. Establish the A/B oracles and exact-tick headless solar
 fast-forward before migrating callers; the current fixed-step time-scale path
 caps work at five ticks per presented frame and drops excess ticks, so it is not
 the long-horizon test instrument.
+
+After deterministic trig closes, execute `ORBIT_FORECAST` OF0-OF6. The owner
+reactivated it from `WNF/` on 2026-08-17. OF0 first ratifies the authored solar
+stability cohort and thresholds; later phases add coherent circular
+publication, continuous isolated prediction, Planning-owned stability
+diagnostics, operator controls, and rolling orbital presentation without
+changing bounded `PREDICT`.
 
 ## Blockers
 
