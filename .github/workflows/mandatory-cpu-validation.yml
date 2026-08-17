@@ -268,16 +268,19 @@ jobs:
           # Invariant: every execution replica receives these exact runtime
           # bytes. Repository data, scenes, and baselines come from the same
           # checked-out GITHUB_SHA, but no replica may rebuild this payload.
-          $runtimeFiles = @(
-            "SKULLBONEZ_CORE.exe"
-            "dxcompiler.dll"
-            "dxil.dll"
-            "WinPixEventRuntime.dll"
-          )
-          foreach ($name in $runtimeFiles) {
-            $source = Join-Path $env:GITHUB_WORKSPACE "Debug\$name"
+          $runtimeSources = [ordered]@{
+            "SKULLBONEZ_CORE.exe" = "Debug\SKULLBONEZ_CORE.exe"
+            "dxcompiler.dll" = "Debug\dxcompiler.dll"
+            "dxil.dll" = "Debug\dxil.dll"
+            # The NuGet targets do not reliably copy this runtime DLL for the
+            # solution-level hosted build, so package the pinned restored byte.
+            "WinPixEventRuntime.dll" = "packages\WinPixEventRuntime.1.0.240308001\bin\x64\WinPixEventRuntime.dll"
+          }
+          foreach ($entry in $runtimeSources.GetEnumerator()) {
+            $name = $entry.Key
+            $source = Join-Path $env:GITHUB_WORKSPACE $entry.Value
             if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
-              throw "Debug build did not produce required runtime file: $source"
+              throw "Artifact build did not produce or restore required runtime file: $source"
             }
             Copy-Item -LiteralPath $source -Destination (Join-Path $payloadDir $name)
           }
@@ -305,7 +308,7 @@ jobs:
           )
 
           $hashes = @(
-            foreach ($name in $runtimeFiles) {
+            foreach ($name in $runtimeSources.Keys) {
               $path = Join-Path $payloadDir $name
               [ordered]@{
                 name = $name
