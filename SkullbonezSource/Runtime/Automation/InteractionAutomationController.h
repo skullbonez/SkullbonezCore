@@ -106,10 +106,12 @@ enum class RunInteractionAutomationActionType
     SetCameraMode,
     LoseFocus,
     MoveMouse,
+    ScrollPoint,
     ClickObject,
     ClickPoint,
     ClickReplayControl,
     ScrubReplaySolverTrack,
+    SelectReplayCauseRow,
     ScrubEditorReplayTrack,
     SetReplayPredictionEnabled,
     SetReplayPredictionHorizonSeconds,
@@ -280,6 +282,7 @@ struct RunInteractionAutomationAction
     RunCameraMode cameraMode = RunCameraMode::Inspect;
     DemoCameraPose cameraPose;
     int keyVirtualKey = 0;
+    int integerValue = 0;
     int holdFrames = 1;
     bool boolValue = false;
     float numberValue = 0.0f;
@@ -343,6 +346,7 @@ struct InteractionAutomationFrameResult
     // Value-only replay mutations are applied once by the frame composition
     // boundary after automation has finished producing its synthetic input.
     ReplayFrameIntent replayIntent;
+    int requestedReplayCauseRow = -1;
 
     // Value-only editor automation joins the same bounded command arbitration
     // used by a real ImGui widget; the sequencer never reaches into replay state.

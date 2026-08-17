@@ -37,6 +37,7 @@ class InteractionAutomationInputDriver
     void Reset();
     void AdvanceReleases( int frame );
     void MoveMouse( POINT position );
+    void ScrollMouse( int wheelDelta );
     void PressMouse( bool rightButton, int frame, int holdFrames );
     void PressKey( int virtualKey, bool controlDown, int frame );
     void LoseFocus( int frameCount );
@@ -47,6 +48,7 @@ class InteractionAutomationInputDriver
     bool m_hasMouseClientPosition = false;
     bool m_leftMouseDown = false;
     bool m_rightMouseDown = false;
+    int m_mouseWheelDelta = 0;
     int m_keyVirtualKey = 0;
     bool m_keyDown = false;
     bool m_controlDown = false;

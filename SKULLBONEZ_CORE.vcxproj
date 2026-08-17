@@ -312,6 +312,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
         <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
       </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Camera\AttachedCameraController.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Camera\AttachedCameraController.InspectionPolicy.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Capture\CaptureController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Capture\CaptureSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RenderDefaultsStore.cpp" />
@@ -353,6 +354,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayOverlayRenderer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayPlanningOverlayLayout.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayPlanningRuntime.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayCauseInspection.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayGuideArcs.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayInterceptReadout.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayTripPlanner.cpp" />
@@ -524,6 +526,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
       <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorLayoutPolicy.h" />
       <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12ImGuiRendererOwner.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Camera\AttachedCameraController.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Camera\AttachedCameraController.InspectionPolicy.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Capture\CaptureController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Capture\CaptureSystem.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RenderDefaultsStore.h" />
@@ -544,6 +547,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Core\ByteView.h" />
     <ClInclude Include="SkullbonezSource\Core\Common.h" />
     <ClInclude Include="SkullbonezSource\Core\FloatingPointContract.h" />
+    <ClInclude Include="SkullbonezSource\Core\PlatformPosix.h" />
     <ClInclude Include="SkullbonezSource\Core\PlatformWin32.h" />
     <ClInclude Include="SkullbonezSource\Core\FatalError.h" />
     <ClInclude Include="SkullbonezSource\Core\MainMemoryStats.h" />
@@ -616,6 +620,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\UI\RenderDiagnosticsProjection.h" />
     <ClInclude Include="SkullbonezSource\Runtime\UI\RuntimeViewModel.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneAuthoredSetup.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneAuthoredSetup.CameraSlots.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneAuthoredSetup.InitialImpulse.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneAutomationGateConfiguration.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneController.h" />
@@ -662,6 +667,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Planning\ReplayPorkchopPanel.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Planning\ReplayPlanningOverlayLayout.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Planning\ReplayPlanningRuntime.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Planning\ReplayCauseInspection.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPathPackets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionPackets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionView.h" />
@@ -706,6 +712,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Core\Profiler.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderResourceTypes.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderCommandTypes.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\ContactManifoldPresentation.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderDiagnosticsTypes.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderGpuTimingOwner.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderRaytracingTypes.h" />

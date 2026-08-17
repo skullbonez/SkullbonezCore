@@ -6,7 +6,8 @@ Purpose:
 Summary:
   CameraControlState owns mode and generated-demo cycling state, while
   CameraCollection owns camera poses. The update borrows pose/model owners for
-  one synchronous selection pass and retains no cross-owner pointers.
+  one synchronous selection pass and retains no cross-owner pointers. It also
+  publishes the current mouse-angle scale for an earlier replay input phase.
 
 Glossary:
   Generated-demo camera: One of the three legacy unattended camera slots.
@@ -15,6 +16,8 @@ Glossary:
 Invariants:
   - Replay, authored-scene, and manual camera ownership suppresses demo cycling.
   - Object-follow views sample model presentation positions without reopening physics storage.
+  - CameraCollection receives frame delta, not a recurrence rate; total elapsed
+    time owns finite-duration tween progress.
 
 Related:
   - SkullbonezSource/Runtime/Camera/CameraControlState.h
@@ -75,14 +78,13 @@ void CameraControlState::UpdateViewingOrientation( RunTimerState& timers, Runtim
         cameraTime = 0.0f;
     }
 
-    constexpr int cameraSlots[] = { CAMERA_SCENE_OBJECT_1, CAMERA_SCENE_OBJECT_2, CAMERA_FREE };
-    cameras.SelectCamera( cameraSlots[selectedCamera], true );
+    cameras.SelectCamera( DEMO_CAMERA_CYCLE_SLOTS[static_cast<std::size_t>( selectedCamera )], true );
 
     // Why: the two authored tracking slots follow presentation rows 0 and 1;
     // a missing row leaves the previous view target intact for this frame.
     for ( int modelIndex = 0; modelIndex < 2; ++modelIndex )
     {
-        if ( !cameras.IsCameraSelected( cameraSlots[modelIndex] ) )
+        if ( !cameras.IsCameraSelected( DEMO_CAMERA_CYCLE_SLOTS[static_cast<std::size_t>( modelIndex )] ) )
         {
             continue;
         }
@@ -114,6 +116,7 @@ void CameraControlState::TickControls( Runtime::SceneWorld& world, AttachedCamer
     Environment::CameraCollection& cameras = world.Cameras();
     Geometry::Terrain& terrain = *world.Terrain().Get();
     constexpr float CAMERA_MOUSE_REFERENCE_DT = 1.0f / 60.0f;
+    mouseRadiansPerPixel = CAMERA_MOUSE_REFERENCE_DT * config.camera.mouseSensitivity;
     const bool attachedOrbitOwnsCamera = RunCameraModeIsAttached( mode ) && attachedCamera.State().activeFollow &&
                                          attachedCamera.State().submode != AttachedCameraSubmode::RagdollEyes;
 
@@ -147,6 +150,6 @@ void CameraControlState::TickControls( Runtime::SceneWorld& world, AttachedCamer
         (void)attachedCamera.TickFollow( world, orbitYawDelta, orbitPitchDelta, presentationAlpha );
     }
 
-    cameras.SetTweenSpeed( config.camera.cameraTweenRate * cameraDt );
+    cameras.SetTweenDeltaSeconds( cameraDt );
 }
 } // namespace SkullbonezCore::Runtime

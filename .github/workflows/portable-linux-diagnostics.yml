@@ -1,0 +1,137 @@
+name: Portable Linux diagnostics
+
+# Owner: Physics determinism envelope. The owning maintainer triages every red
+# scheduled run and records whether the failure is a warning, sanitizer report,
+# or test regression before the next scheduled run.
+#
+# Linux ASan is retained as a second implementation opinion even though the
+# Windows native-diagnostics lane covers a larger suite. UBSan and TSan are the
+# unique coverage here; TSan exercises WorkerPool through the portable
+# worker-count determinism cases.
+"on":
+  schedule:
+    - cron: "41 5 * * 3"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  portable-linux:
+    name: ${{ matrix.lane }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - lane: GCC warning-clean
+            compiler: gcc
+            cc: gcc
+            cxx: g++
+            sanitizer: none
+          - lane: Clang warning-clean
+            compiler: clang
+            cc: clang
+            cxx: clang++
+            sanitizer: none
+          - lane: Clang ASan
+            compiler: clang
+            cc: clang
+            cxx: clang++
+            sanitizer: address
+          - lane: Clang UBSan
+            compiler: clang
+            cc: clang
+            cxx: clang++
+            sanitizer: undefined
+          - lane: GCC TSan
+            compiler: gcc
+            cc: gcc
+            cxx: g++
+            sanitizer: thread
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Configure, build, and test portable target
+        env:
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
+          SKULLBONEZ_COMPILER: ${{ matrix.compiler }}
+          SKULLBONEZ_LANE: ${{ matrix.lane }}
+          SKULLBONEZ_SANITIZER: ${{ matrix.sanitizer }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          lane_slug="${SKULLBONEZ_COMPILER}-${SKULLBONEZ_SANITIZER}"
+          build_dir="TestOutput/build/portable-linux-${lane_slug}"
+          evidence_dir="TestOutput/validation/portable_linux/${lane_slug}"
+          mkdir -p "${evidence_dir}"
+
+          {
+            echo "lane=${SKULLBONEZ_LANE}"
+            echo "compiler=${SKULLBONEZ_COMPILER}"
+            echo "sanitizer=${SKULLBONEZ_SANITIZER}"
+            echo "runner_os=${RUNNER_OS}"
+            echo "runner_arch=${RUNNER_ARCH}"
+            echo "image_os=${ImageOS:-unknown}"
+            echo "image_version=${ImageVersion:-unknown}"
+            uname -a
+            cmake --version
+            ninja --version
+            "${CXX}" --version
+          } > "${evidence_dir}/context.txt" 2>&1
+
+          warning_flags="-Wall -Wextra -Wpedantic -Werror"
+          sanitizer_flags=""
+          case "${SKULLBONEZ_SANITIZER}" in
+            address)
+              sanitizer_flags="-fsanitize=address -fno-omit-frame-pointer"
+              export ASAN_OPTIONS="detect_leaks=1:halt_on_error=1:strict_string_checks=1"
+              ;;
+            undefined)
+              sanitizer_flags="-fsanitize=undefined -fno-omit-frame-pointer -fno-sanitize-recover=all"
+              export UBSAN_OPTIONS="halt_on_error=1:print_stacktrace=1"
+              ;;
+            thread)
+              sanitizer_flags="-fsanitize=thread -fno-omit-frame-pointer"
+              export TSAN_OPTIONS="halt_on_error=1:history_size=7:second_deadlock_stack=1"
+              ;;
+            none)
+              ;;
+            *)
+              echo "Unknown sanitizer: ${SKULLBONEZ_SANITIZER}" >&2
+              exit 2
+              ;;
+          esac
+
+          cmake -S . -B "${build_dir}" -G Ninja \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_C_COMPILER="${CC}" \
+            -DCMAKE_CXX_COMPILER="${CXX}" \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            "-DCMAKE_CXX_FLAGS=${warning_flags} ${sanitizer_flags}" \
+            "-DCMAKE_EXE_LINKER_FLAGS=${sanitizer_flags}" \
+            2>&1 | tee "${evidence_dir}/configure.log"
+
+          cmake --build "${build_dir}" --target skullbonez_portable_tests --parallel 2 \
+            2>&1 | tee "${evidence_dir}/build.log"
+
+          ctest --test-dir "${build_dir}" --output-on-failure \
+            --output-junit "${evidence_dir}/ctest.xml" \
+            2>&1 | tee "${evidence_dir}/test.log"
+
+      - name: Upload portable Linux evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: portable-linux-${{ matrix.compiler }}-${{ matrix.sanitizer }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: TestOutput/validation/portable_linux/**
+          if-no-files-found: warn
+          retention-days: 14

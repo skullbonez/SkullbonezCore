@@ -30,6 +30,16 @@ Related:
 
 // Hazard: fp-envelope-hardening disables contraction before vector-width or
 // optimizer policy can make `a * b + c` round differently. MSVC
-// 19.51 rejects `/fp:contract-`, so all projects force-include this equivalent
-// pragma instead.
+// 19.51 rejects `/fp:contract-`, so all Visual Studio projects force-include
+// this equivalent pragma. Portable targets must pair their marker with the
+// compiler's enforced `-ffp-contract=off` option.
+#if defined( _MSC_VER )
 #pragma fp_contract( off )
+#elif defined( SKULLBONEZ_FFP_CONTRACT_OFF ) && defined( __clang__ )
+#pragma STDC FP_CONTRACT OFF
+#elif defined( SKULLBONEZ_FFP_CONTRACT_OFF ) && defined( __GNUC__ )
+// Why: GCC does not implement STDC FP_CONTRACT and warns on the pragma. The
+// CMake flag probe and this paired marker make -ffp-contract=off the GCC owner.
+#else
+#error "Portable builds require supported Clang/GCC plus the verified -ffp-contract=off marker."
+#endif

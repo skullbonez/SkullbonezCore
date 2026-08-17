@@ -193,6 +193,7 @@ void ReplayPlanningRuntime::ResetTransientPlanState() noexcept
 {
     m_porkchopPanel.Reset();
     m_tripPlanner.ResetForSceneDiscard();
+    m_causeInspection.Reset();
 }
 
 bool ReplayPlanningRuntime::CancelActivePlan( Physics::PhysicsEngine& physics, ReplayPrediction& predictionOwner )
@@ -220,10 +221,20 @@ const ReplayTripPlannerView& ReplayPlanningRuntime::TripPlannerView() const noex
     return m_tripPlanner.View();
 }
 
+ReplayCauseInspection& ReplayPlanningRuntime::CauseInspection() noexcept
+{
+    return m_causeInspection;
+}
+
+ReplayCauseInspectionView ReplayPlanningRuntime::CauseInspectionView() const noexcept
+{
+    return m_causeInspection.View();
+}
+
 bool ReplayPlanningRuntime::HasActiveState() const noexcept
 {
     return m_interceptReadout.HasTarget() || m_guideArcs.Enabled() || m_porkchopPanel.Visible() ||
-           m_tripPlanner.RequiresLiveInput();
+           m_tripPlanner.RequiresLiveInput() || m_causeInspection.View().mode != ReplayCauseInspectionMode::Inactive;
 }
 
 bool ReplayPlanningRuntime::HasInterceptTarget() const noexcept

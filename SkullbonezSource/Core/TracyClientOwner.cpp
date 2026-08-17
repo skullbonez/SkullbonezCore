@@ -9,8 +9,8 @@ Summary:
   Standard capture at a cold editor boundary and recreates those workers. It
   shuts Tracy down after joining them. A fixed source-location registry maps
   the engine profiler's established owner paths into Tracy. Standard mode
-  records zones and capacity plots; explicit heavy mode also records call
-  enables the Core allocation owner to emit global C++ allocation events.
+  records zones and capacity plots; explicit heavy mode also enables the Core
+  allocation owner to emit global C++ allocation events.
 
 Glossary:
   On-demand client: Tracy mode that records only while an external viewer is
@@ -41,6 +41,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Core/TracyClientOwner.h
+  - SkullbonezSource/Core/PlatformWin32.h
   - SkullbonezSource/Runtime/App/Init.cpp
   - SkullbonezSource/Runtime/App/RunFrame.cpp
   - SkullbonezSource/Core/WorkerPool.cpp
@@ -129,19 +130,20 @@ std::mutex g_ownerSourceLocationMutex;
 RequestedCaptureMode ReadRequestedCaptureMode() noexcept
 {
     char value[16] = {};
-    const DWORD copied = GetEnvironmentVariableA( CAPTURE_MODE_ENVIRONMENT, value, static_cast<DWORD>( sizeof( value ) ) );
+    const std::size_t copied = SkullbonezCore::Core::Platform::ReadEnvironmentVariable( CAPTURE_MODE_ENVIRONMENT, value,
+                                                                                        sizeof( value ) );
 
     if ( copied == 0u || copied >= sizeof( value ) )
     {
         return RequestedCaptureMode::Off;
     }
 
-    if ( _stricmp( value, STANDARD_MODE_VALUE ) == 0 )
+    if ( SkullbonezCore::Core::Platform::CompareCaseInsensitive( value, STANDARD_MODE_VALUE ) == 0 )
     {
         return RequestedCaptureMode::Standard;
     }
 
-    if ( _stricmp( value, HEAVY_MODE_VALUE ) == 0 )
+    if ( SkullbonezCore::Core::Platform::CompareCaseInsensitive( value, HEAVY_MODE_VALUE ) == 0 )
     {
         return RequestedCaptureMode::Heavy;
     }

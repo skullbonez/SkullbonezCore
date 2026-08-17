@@ -204,13 +204,17 @@
     <ClCompile Include="SkullbonezTests\TestApplicationExitState.cpp" />
     <ClCompile Include="SkullbonezTests\TestConfig.cpp" />
     <ClCompile Include="SkullbonezTests\TestConvexHull.cpp" />
+    <ClCompile Include="SkullbonezTests\TestDeterministicMath.cpp" />
     <ClCompile Include="SkullbonezTests\TestDeterminism.cpp" />
+    <ClCompile Include="SkullbonezTests\TestReplayDeterminism.cpp" />
     <ClCompile Include="SkullbonezTests\TestDx12OnlyRuntime.cpp" />
     <ClCompile Include="SkullbonezTests\TestDx12CachedPsoStore.cpp" />
     <ClCompile Include="SkullbonezTests\TestShaderReflectionContracts.cpp" />
     <ClCompile Include="SkullbonezTests\TestShadow.cpp" />
     <ClCompile Include="SkullbonezTests\TestGeometricMath.cpp" />
-    <ClCompile Include="SkullbonezTests\TestMain.cpp" />
+    <ClCompile Include="SkullbonezTests\TestMain.cpp">
+      <PreprocessorDefinitions>SKULLBONEZ_RUNTIME_FATAL_TESTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestFrustum.cpp" />
     <ClCompile Include="SkullbonezTests\TestMatrix4.cpp" />
     <ClCompile Include="SkullbonezTests\TestObjectContactManifold.cpp" />
@@ -223,9 +227,11 @@
     <ClCompile Include="SkullbonezTests\TestPersistentContactSolver.cpp" />
     <ClCompile Include="SkullbonezTests\TestPhysicsApi.cpp" />
     <ClCompile Include="SkullbonezTests\TestPhysicsHandles.cpp" />
+    <ClCompile Include="SkullbonezTests\TestPhysicsPoseIntegration.cpp" />
     <ClCompile Include="SkullbonezTests\TestPhysicsStageState.cpp" />
     <ClCompile Include="SkullbonezTests\TestSleepController.cpp" />
     <ClCompile Include="SkullbonezTests\TestQuaternion.cpp" />
+    <ClCompile Include="SkullbonezTests\TestRagdoll.cpp" />
     <ClCompile Include="SkullbonezTests\TestReserveAllocator.cpp" />
     <ClCompile Include="SkullbonezTests\TestRuntimeInputBindings.cpp" />
     <ClCompile Include="SkullbonezTests\TestLookLabController.cpp" />
@@ -239,6 +245,7 @@
     <ClCompile Include="SkullbonezTests\TestReplayPredictionScheduling.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayGuideArcs.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayTripPlanner.cpp" />
+    <ClCompile Include="SkullbonezTests\TestReplayCauseInspection.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayPorkchopPanel.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayInterceptReadout.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayVisualPacket.cpp" />
@@ -278,6 +285,7 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Camera\Camera.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Camera\CameraCollection.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Camera\AttachedCameraController.InspectionPolicy.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Direction\DemoDirector.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabBundleWriter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabController.cpp" />
@@ -306,6 +314,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\OperatorCommandTransaction.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayPlanningOverlayLayout.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayCauseInspection.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayGuideArcs.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayTripPlanner.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayPorkchopPanel.cpp" />

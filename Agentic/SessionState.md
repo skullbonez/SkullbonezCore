@@ -1,13 +1,53 @@
 # Session State
 
-Date: 2026-08-16
-Branch: `main`
-Status: Three active plans; 1/24 tasks complete
+Date: 2026-08-17
+Branch: `codex/master-plan-2026-08-16`
+Status: One active plan; 20/24 tasks complete
 
-Causal Event Inspection (9 tasks), Determinism Envelope Tier-2 Hardening
-(9 tasks), and Catto Divergence Repairs (6 tasks) are registered under
-`Agentic/Plans/TODO/`; Catto CD0 is complete. `MASTER-PLAN.md` carries the
-binding order, with Causal first by owner direction on 2026-08-16.
+Catto Divergence Repairs (6 tasks) is the one registered active plan under
+`Agentic/Plans/TODO/`; Causal C0-C8, Determinism T0-T8, and Catto CD0-CD1 are
+complete. `MASTER-PLAN.md` carries the binding order, with Catto CD2 next. The
+completed causal and determinism plans were deleted under the repository
+convention; Git history retains their phase evidence.
+
+Catto CD1 replaced per-contact-row position projection with one deepest-row
+linear correction per contiguous manifold, inverse-mass shared and accumulated
+to one body-store publication. The focused family passed 13 cases / 172
+assertions and the full test gate passed 579 cases / 2,479,944 assertions. The
+physics gate reached its expected immutable-golden mismatch (40,905 lines); a
+direct T4 comparison is identical through frame 289 and first differs at frame
+290. The replay gate's build and 17 cases / 75 assertions passed before its
+older causal golden reported firstFrame 185 -> 184.
+
+The independent review required and cleared a same-scene Automation A/B. Its
+non-physics envelope was identical, while the Physics-owned trajectory and RVPD
+hashes diverged; a second CD1 run reproduced canonical projection hash
+`E16AD39C7CA4CAF8E3DE4F809F3E7FACB313B5AF13CA72216FE0CA59D0D465D3`
+and byte-exact replay hash
+`932DC9FADFBEED901D27743C4D90C2F1849BBCAC7406C0B62B138C1657F53765`.
+Direct, replay, and pre-CD1 attribution candidates are retained under
+`TestOutput/validation/candidates/CATTO_REPAIRS_CD1*`. The owner accepted the
+improved CD1 simulation on 2026-08-17 and authorized the varied, shooting,
+space, known-issue, query, replay-visual, and causal golden refresh. All seven
+ownership inventories are green and the touched-source comment audit is 4/4
+checked, 0 deferred.
+
+Determinism T4 replaced ragdoll `acosf` with the shared deterministic vector-
+angle owner and closed the Physics-reachable CRT transcendental set. Focused
+ragdoll tests passed 4 cases / 31 assertions, the 0/1/4-worker oracle passed
+30,709 assertions, and independent ownership review returned clear. The full
+gate passed 578 cases / 2,479,932 assertions, coverage, standalone CPU suites,
+Automation, and DX12 before the expected inherited 40,909-row Physics mismatch.
+The direct candidate is retained under
+`TestOutput/validation/candidates/TIER2_DETERMINISM_T4/` with CORE hash
+`8DAAB85DAF180C7292FB4203AA64FC671FA52EB26892C439816795929F46819D`,
+TESTS hash `44F60FD4EEDDBCB1B75A00BC7A32D83FE39FD95F7BC11B25DF29B1568F0B96C8`,
+and CSV hash `0F25F3B6813401B7D9EA4B52CBB088D30E03EEBAFFEFCAF15FEE63B3DFF72FFD`.
+The final full-gate candidate in the same directory has CORE hash
+`C09EEF7B8B616349BD979BDFC1AD10D58FB36214322F8338EA0A417C8AB8B774`,
+TESTS hash `182D75A1CB79294AB9A51A5622B0331B9F4A95C629F0CD5C744F174AFF24D5C3`,
+and the identical CSV hash. That CSV is also byte-identical to T3, proving T4
+added no further drift in the varied regression scene. No golden was refreshed.
 
 Replay Prediction Adversarial Repair completed on
 `codex/replay-prediction-adversarial-fixes` in two `REPLAY_ADVERSARIAL` commits.
@@ -48,31 +88,17 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-`CAUSAL_INSPECT` C0. Fix the seek contract: confirm every cause row kind
-addresses a frame the scrubber can restore, and define the refusal behavior for a
-row whose frame has aged out of the recorder ring as `Replay frame expired`.
-C1-C8 then implement the approved synchronized replay/detail-camera transition,
-dedicated orbit/follow camera, Space aftermath, exact retained solver-detail
-availability, four-row scrolling panel, and click/scrub return to the saved main
-camera. Missing detail is reported rather than regenerated.
-
-After all of `CAUSAL_INSPECT`, run `TIER2_DETERMINISM` in its recorded order,
-then `CATTO_REPAIRS` CD1-CD5. `future_physics.md` remains unregistered.
+Pause before `CATTO_REPAIRS` CD2 by owner request. When resumed, implement R5
+and then R6 as separate commits, followed by R3, R2(a), and R4. Preserve every
+baseline-failing executable by plan and phase, record its diff, and continue
+without refreshing a golden. `future_physics.md` remains unregistered.
 
 ## Blockers
 
-- `TIER2_DETERMINISM` T3 and T4 change physics bits by construction. The plan
-  grants no baseline-refresh authority; each needs its own owner approval of that
-  exact transition, reviewed as behavior.
-- `CATTO_REPAIRS` CD0 is complete. CD1-CD5 are selectable only after Causal and
-  Determinism finish, in the approved R1, R5, R6, R3, R2(a), R4 order. An
-  unexpected measured effect outside a repair's described behavior returns to
-  the owner; do not re-ask the approved scope questions.
-- `TIER2_DETERMINISM` T3/T4 baseline sequencing now has a downstream consumer.
-  The landed replay-prediction oracle pins trajectory fingerprint
-  `0x0702E1DFBB57F16D` and submitted geometry `0xF06608D189EFEEAD`, which a
-  physics-bit transition would be expected to move. Decide the baseline ruling
-  knowing those replay fingerprints follow from it.
+- None. Work is intentionally paused by owner direction before CD2. When
+  resumed, execute R5, R6, R3, R2(a), and R4 in order. Preserve baseline-failing
+  candidates for later owner review; do not re-ask the approved scope questions
+  or refresh a golden.
 
 ## CI Note
 
@@ -83,6 +109,13 @@ upgrading 0/1 packages, and only the workflow's explicit version assertion caugh
 that the runner's pre-installed 20.1.8 had been left in place. Do not repin
 downward: `.clang-format:43` sets `BinPackLongBracedList`, which clang-format 20
 rejects outright, and all 651 tracked C++ sources format differently under 20.
+
+The same workflow now builds one Debug physics runtime artifact after restoring
+the pinned PIX package with patched NuGet 6.14.3, then runs that exact
+manifest-hashed payload on two fresh hosted runners without rebuilding. Run
+`31990868600` passed end to end on `eddb25e88`, with both replicas reporting
+`byte_comparison=PASS` for executable SHA-256
+`2C5CFEF85DAD5595A104277A2A2185D3ACBE18ECF2C2B8FCCA288CD5CA27EDE8`.
 
 ## Finding That Motivated The Plan
 

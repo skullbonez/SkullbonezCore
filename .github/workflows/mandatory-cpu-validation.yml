@@ -72,7 +72,10 @@ jobs:
             throw "Pinned clang-format cannot parse the repository .clang-format"
           }
 
-          "CLANG_FMT=$formatter" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          @(
+            "CLANG_FMT=$formatter"
+            "SKULLBONEZ_CLANG_FORMAT=$formatter"
+          ) | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           @(
             "clang_format_path=$formatter"
             "clang_format_version=$versionText"
@@ -196,5 +199,320 @@ jobs:
             Profile/*.log
             Profile/*.txt
             Agentic/Tests/**/x64/**/*.log
+          if-no-files-found: warn
+          retention-days: 14
+
+  physics-artifact:
+    name: Build shared Debug physics artifact
+    needs: cpu-tests
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Install pinned NuGet client
+        uses: NuGet/setup-nuget@fd55a6f3b34392fa83fde1454582407d8c714123 # v4.0
+        with:
+          nuget-version: 6.14.3
+
+      - name: Restore pinned PIX runtime package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          nuget restore packages.config -PackagesDirectory packages -NonInteractive
+          if ($LASTEXITCODE -ne 0) {
+            throw "Pinned PIX runtime restore failed (exit $LASTEXITCODE)"
+          }
+
+      - name: Install pinned shader formatter
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $llvmVersion = "21.1.8"
+
+          # BakeShippingShaders formats generated reflection metadata during a
+          # clean build, so this job needs the same verified formatter as the
+          # prerequisite lane rather than the hosted image's older LLVM tool.
+          python -m pip install --disable-pip-version-check --quiet "clang-format==$llvmVersion"
+          if ($LASTEXITCODE -ne 0) {
+            throw "pip failed to install clang-format $llvmVersion (exit $LASTEXITCODE)"
+          }
+
+          $formatter = & python -c "import clang_format, os; print(os.path.join(os.path.dirname(clang_format.__file__), 'data', 'bin', 'clang-format.exe'))"
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $formatter)) {
+            throw "Pinned clang-format executable was not installed: $formatter"
+          }
+          $versionText = (& $formatter --version 2>&1 | Out-String).Trim()
+          if ($LASTEXITCODE -ne 0 -or $versionText -notmatch "\bversion 21\.1\.8\b") {
+            throw "Installed formatter does not report clang-format 21.1.8: $versionText"
+          }
+          & $formatter --style=file --dump-config | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            throw "Pinned clang-format cannot parse the repository .clang-format"
+          }
+
+          "SKULLBONEZ_CLANG_FORMAT=$formatter" |
+            Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Build Debug artifact once
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          if (Test-Path variable:PSNativeCommandUseErrorActionPreference) {
+            $PSNativeCommandUseErrorActionPreference = $false
+          }
+
+          $evidenceDir = Join-Path $env:GITHUB_WORKSPACE "TestOutput\validation\ci"
+          $payloadDir = Join-Path $evidenceDir "shared-physics-runtime"
+          New-Item -ItemType Directory -Force -Path $payloadDir | Out-Null
+          $buildLog = Join-Path $evidenceDir "shared-physics-build.log"
+
+          & cmd.exe /d /c "tools\validate_build.bat Debug" 2>&1 |
+            Tee-Object -FilePath $buildLog
+          if ($LASTEXITCODE -ne 0) {
+            throw "Debug artifact build failed (exit $LASTEXITCODE)"
+          }
+
+          # Invariant: every execution replica receives these exact runtime
+          # bytes. Repository data, scenes, and baselines come from the same
+          # checked-out GITHUB_SHA, but no replica may rebuild this payload.
+          $runtimeSources = [ordered]@{
+            "SKULLBONEZ_CORE.exe" = "Debug\SKULLBONEZ_CORE.exe"
+            "dxcompiler.dll" = "Debug\dxcompiler.dll"
+            "dxil.dll" = "Debug\dxil.dll"
+            # The NuGet targets do not reliably copy this runtime DLL for the
+            # solution-level hosted build, so package the pinned restored byte.
+            "WinPixEventRuntime.dll" = "packages\WinPixEventRuntime.1.0.240308001\bin\x64\WinPixEventRuntime.dll"
+          }
+          foreach ($entry in $runtimeSources.GetEnumerator()) {
+            $name = $entry.Key
+            $source = Join-Path $env:GITHUB_WORKSPACE $entry.Value
+            if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
+              throw "Artifact build did not produce or restore required runtime file: $source"
+            }
+            Copy-Item -LiteralPath $source -Destination (Join-Path $payloadDir $name)
+          }
+
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsVersion = if (Test-Path -LiteralPath $vswhere) {
+            (& $vswhere -latest -products * -property installationVersion | Out-String).Trim()
+          }
+          else {
+            "unavailable"
+          }
+          $buildText = Get-Content -Raw -LiteralPath $buildLog
+          $effectiveToolset = if (
+            $buildText -match "falling back to VS2022 toolset ([A-Za-z0-9]+)"
+          ) {
+            $Matches[1]
+          }
+          else {
+            "v145"
+          }
+          $msvcToolVersions = @(
+            [regex]::Matches($buildText, "VC\\Tools\\MSVC\\([^\\\s]+)") |
+              ForEach-Object { $_.Groups[1].Value } |
+              Sort-Object -Unique
+          )
+
+          $hashes = @(
+            foreach ($name in $runtimeSources.Keys) {
+              $path = Join-Path $payloadDir $name
+              [ordered]@{
+                name = $name
+                sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $path).Hash
+                bytes = (Get-Item -LiteralPath $path).Length
+              }
+            }
+          )
+          $processor = Get-CimInstance Win32_Processor | Select-Object -First 1
+          $manifest = [ordered]@{
+            schema = 1
+            source_sha = $env:GITHUB_SHA
+            evidence_form = "one Debug build, byte-identical artifact executed on two fresh hosted runners"
+            build_runner = [ordered]@{
+              computer_name = $env:COMPUTERNAME
+              runner_name = $env:RUNNER_NAME
+              runner_os = $env:RUNNER_OS
+              runner_arch = $env:RUNNER_ARCH
+              image_os = $env:ImageOS
+              image_version = $env:ImageVersion
+              processor = $processor.Name
+              visual_studio_version = $vsVersion
+              platform_toolset = $effectiveToolset
+              msvc_tools_versions = $msvcToolVersions
+            }
+            files = $hashes
+          }
+          $manifest |
+            ConvertTo-Json -Depth 6 |
+            Set-Content -Encoding utf8NoBOM -Path (Join-Path $payloadDir "manifest.json")
+
+      - name: Upload shared Debug physics artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hosted-physics-debug-${{ github.run_id }}-${{ github.run_attempt }}
+          path: TestOutput/validation/ci/shared-physics-runtime
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload artifact-build failure evidence
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hosted-physics-build-failure-${{ github.run_id }}-${{ github.run_attempt }}
+          path: TestOutput/validation/ci/**
+          if-no-files-found: warn
+          retention-days: 14
+
+  physics-byte-evidence:
+    name: Physics byte evidence (replica ${{ matrix.replica }})
+    needs: physics-artifact
+    runs-on: windows-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        replica: [1, 2]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Download exact shared artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: hosted-physics-debug-${{ github.run_id }}-${{ github.run_attempt }}
+          path: Debug
+
+      - name: Verify provenance and compare physics bytes
+        env:
+          PHYSICS_REPLICA: ${{ matrix.replica }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          if (Test-Path variable:PSNativeCommandUseErrorActionPreference) {
+            $PSNativeCommandUseErrorActionPreference = $false
+          }
+
+          $manifestPath = Join-Path $env:GITHUB_WORKSPACE "Debug\manifest.json"
+          if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
+            throw "Downloaded artifact has no manifest: $manifestPath"
+          }
+          $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
+          if ($manifest.schema -ne 1) {
+            throw "Unsupported shared-artifact manifest schema: $($manifest.schema)"
+          }
+          if ($manifest.source_sha -ne $env:GITHUB_SHA) {
+            throw "Artifact source mismatch. expected=$env:GITHUB_SHA actual=$($manifest.source_sha)"
+          }
+          foreach ($file in $manifest.files) {
+            $path = Join-Path $env:GITHUB_WORKSPACE "Debug\$($file.name)"
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+              throw "Downloaded artifact is missing $($file.name)"
+            }
+            $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $path).Hash
+            $actualBytes = (Get-Item -LiteralPath $path).Length
+            if ($actualHash -ne $file.sha256 -or $actualBytes -ne $file.bytes) {
+              throw "Downloaded artifact differs for $($file.name): expected_sha=$($file.sha256) actual_sha=$actualHash expected_bytes=$($file.bytes) actual_bytes=$actualBytes"
+            }
+          }
+
+          $evidenceDir = Join-Path $env:GITHUB_WORKSPACE "TestOutput\validation\ci"
+          New-Item -ItemType Directory -Force -Path $evidenceDir | Out-Null
+          $evidencePath = Join-Path $evidenceDir "hosted-physics-replica-$env:PHYSICS_REPLICA.txt"
+          $processor = Get-CimInstance Win32_Processor | Select-Object -First 1
+          @(
+            "evidence_form=$($manifest.evidence_form)"
+            "source_sha=$env:GITHUB_SHA"
+            "replica=$env:PHYSICS_REPLICA"
+            "computer_name=$env:COMPUTERNAME"
+            "runner_name=$env:RUNNER_NAME"
+            "runner_os=$env:RUNNER_OS"
+            "runner_arch=$env:RUNNER_ARCH"
+            "image_os=$env:ImageOS"
+            "image_version=$env:ImageVersion"
+            "processor_name=$($processor.Name)"
+            "processor_manufacturer=$($processor.Manufacturer)"
+            "processor_id=$($processor.ProcessorId)"
+            "executable_sha256=$((Get-FileHash -Algorithm SHA256 -LiteralPath 'Debug\SKULLBONEZ_CORE.exe').Hash)"
+          ) | Set-Content -Encoding utf8NoBOM -Path $evidencePath
+
+          $logPath = Join-Path $evidenceDir "hosted-physics-replica-$env:PHYSICS_REPLICA.log"
+          $smokeStdout = Join-Path $evidenceDir "hosted-physics-smoke-$env:PHYSICS_REPLICA.stdout.txt"
+          $smokeStderr = Join-Path $evidenceDir "hosted-physics-smoke-$env:PHYSICS_REPLICA.stderr.txt"
+          $smoke = Start-Process `
+            -FilePath ".\Debug\SKULLBONEZ_CORE.exe" `
+            -ArgumentList "--physics-standalone-smoke" `
+            -WorkingDirectory $env:GITHUB_WORKSPACE `
+            -RedirectStandardOutput $smokeStdout `
+            -RedirectStandardError $smokeStderr `
+            -Wait `
+            -PassThru
+          Get-Content -ErrorAction SilentlyContinue $smokeStdout, $smokeStderr |
+            Tee-Object -FilePath $logPath -Append
+          if ($smoke.ExitCode -ne 0) {
+            throw "PhysicsEngine lifecycle smoke failed (exit $($smoke.ExitCode))"
+          }
+
+          $sceneStdout = Join-Path $evidenceDir "hosted-physics-scene-$env:PHYSICS_REPLICA.stdout.txt"
+          $sceneStderr = Join-Path $evidenceDir "hosted-physics-scene-$env:PHYSICS_REPLICA.stderr.txt"
+          $scene = Start-Process `
+            -FilePath ".\Debug\SKULLBONEZ_CORE.exe" `
+            -ArgumentList @(
+              "--renderer", "dx12",
+              "--vsync", "off",
+              "--fixed-step",
+              "--shadows", "off",
+              "--scene", "SkullbonezData/scenes/physics_bench_varied.scene.json",
+              "--physics-regression-log", "Debug/physics_regression_varied.csv"
+            ) `
+            -WorkingDirectory $env:GITHUB_WORKSPACE `
+            -RedirectStandardOutput $sceneStdout `
+            -RedirectStandardError $sceneStderr `
+            -Wait `
+            -PassThru
+          Get-Content -ErrorAction SilentlyContinue $sceneStdout, $sceneStderr |
+            Tee-Object -FilePath $logPath -Append
+          if ($scene.ExitCode -ne 0) {
+            throw "physics_bench_varied failed (exit $($scene.ExitCode))"
+          }
+
+          $env:SKORE_REPO = $env:GITHUB_WORKSPACE
+          & python tools/check_physics_regression.py 2>&1 |
+            Tee-Object -FilePath $logPath -Append
+          if ($LASTEXITCODE -ne 0) {
+            throw "Byte-exact physics comparison failed (exit $LASTEXITCODE)"
+          }
+
+          $actual = "Debug\physics_regression_varied.csv"
+          $baseline = "TestOutput\baselines\physics_regression_varied.csv"
+          @(
+            "actual_raw_sha256=$((Get-FileHash -Algorithm SHA256 -LiteralPath $actual).Hash)"
+            "actual_raw_bytes=$((Get-Item -LiteralPath $actual).Length)"
+            "baseline_raw_sha256=$((Get-FileHash -Algorithm SHA256 -LiteralPath $baseline).Hash)"
+            "baseline_raw_bytes=$((Get-Item -LiteralPath $baseline).Length)"
+            "byte_comparison=PASS"
+          ) | Add-Content -Encoding utf8NoBOM -Path $evidencePath
+
+      - name: Upload replica evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hosted-physics-evidence-replica-${{ matrix.replica }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            TestOutput/validation/ci/hosted-physics-replica-${{ matrix.replica }}.*
+            Debug/physics_regression_varied.csv
           if-no-files-found: warn
           retention-days: 14

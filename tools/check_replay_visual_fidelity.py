@@ -19,6 +19,8 @@ Glossary:
 Invariants:
   - Ordinary validation never updates the baseline; only an explicit cold
     approval command may replace it.
+  - Config provenance prefers the approved raw hash; line-ending drift passes
+    only when normalized bytes equal the config in the recorded capture commit.
   - Reveal rows are contiguous ReplayFrameIndex values 0 through 2400.
   - All 200 authored wall bricks participate, every causal path reveals, and
     more than half the wall is grounded and sleeping throughout the final second.
@@ -78,6 +80,35 @@ REPLAY_VISUAL_FNV_PRIME = 1099511628211
 
 def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def normalized_text_bytes(data: bytes) -> bytes:
+    """Canonicalize line endings without changing any other config byte."""
+    return data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+
+
+def config_matches_approved_capture(baseline: dict[str, Any]) -> bool:
+    if baseline.get("configSha256") == sha256(CONFIG):
+        return True
+
+    capture_commit = baseline.get("captureCommit")
+    if not isinstance(capture_commit, str) or not capture_commit:
+        return False
+
+    try:
+        approved = subprocess.run(
+            ["git", "show", f"{capture_commit}:SkullbonezData/engine.cfg"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return False
+
+    # Why: Git tracks this file as LF, but historical Windows worktrees could
+    # retain CRLF or mixed endings. The capture commit remains the independent
+    # semantic oracle; whitespace and value changes still fail byte-for-byte.
+    return normalized_text_bytes(CONFIG.read_bytes()) == normalized_text_bytes(approved)
 
 
 def shader_tree_sha256() -> str:
@@ -1435,6 +1466,8 @@ def main() -> int:
         "shadersSha256": shader_tree_sha256(),
     }
     for field, actual_hash in current_provenance.items():
+        if field == "configSha256" and config_matches_approved_capture(baseline):
+            continue
         if baseline.get(field) != actual_hash:
             print(
                 f"FAIL replay visual fidelity provenance: {field} "

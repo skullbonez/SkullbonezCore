@@ -5,12 +5,13 @@ Purpose:
 
 Summary:
   The implementation validates the destination, creates its parent tree, then
-  uses exclusive Win32 file creation, durable flush, and same-volume rename.
-  Every recoverable filesystem failure returns one bounded diagnostic.
+  uses the Core platform contract for exclusive creation, durable flush, and
+  same-directory rename. Every recoverable filesystem failure returns one
+  bounded diagnostic.
 
 Glossary:
-  Atomic replacement: MOVEFILE_REPLACE_EXISTING rename after the temporary
-    sibling is fully written and flushed.
+  Atomic replacement: Platform rename after the temporary sibling is fully
+    written and flushed.
 
 Invariants:
   - Temporary names combine process id and a monotonic attempt number.
@@ -22,11 +23,9 @@ Related:
   - SkullbonezSource/Rendering/DX12/Dx12CachedPsoStore.cpp
 */
 #include "AtomicTextFileWriter.h"
+#include "PlatformWin32.h"
 #include "SbDiagnosticStore.h"
 
-#include <Windows.h>
-
-#include <algorithm>
 #include <atomic>
 #include <filesystem>
 #include <string>
@@ -38,10 +37,10 @@ namespace
 std::atomic<uint32_t> s_temporarySequence { 1 };
 
 SbResult Failure( SbDiagnosticStore& diagnostics, const char* owner, const char* action, const char* path,
-                  DWORD error ) noexcept
+                  Platform::NativeError error ) noexcept
 {
-    return diagnostics.Failure( owner ? owner : "Core/AtomicTextFileWriter", "%s '%s' failed (win32=%lu).", action,
-                                path ? path : "", static_cast<unsigned long>( error ) );
+    return diagnostics.Failure( owner ? owner : "Core/AtomicTextFileWriter", "%s '%s' failed (%s=%llu).", action,
+                                path ? path : "", Platform::ErrorDomainName(), static_cast<unsigned long long>( error ) );
 }
 } // namespace
 
@@ -68,25 +67,27 @@ SbResult WriteTextFileAtomic( SbDiagnosticStore& diagnostics, const char* owner,
         }
     }
 
-    // Hazard: CREATE_NEW is essential. Reusing a predictable .tmp path could
-    // truncate another writer's in-flight artifact before either rename.
+    // Hazard: exclusive creation is essential. Reusing a predictable .tmp
+    // path could truncate another writer's in-flight artifact before either
+    // rename.
     std::filesystem::path temporary;
-    HANDLE file = INVALID_HANDLE_VALUE;
+    Platform::NativeFileHandle file = Platform::InvalidFileHandle();
 
-    for ( int attempt = 0; attempt < 16 && file == INVALID_HANDLE_VALUE; ++attempt )
+    for ( int attempt = 0; attempt < 16 && file == Platform::InvalidFileHandle(); ++attempt )
     {
         const uint32_t sequence = s_temporarySequence.fetch_add( 1, std::memory_order_relaxed );
         temporary = destination;
-        temporary += L".tmp." + std::to_wstring( GetCurrentProcessId() ) + L"." + std::to_wstring( sequence );
-        file = CreateFileW( temporary.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr );
+        temporary += ".tmp." + std::to_string( Platform::CurrentProcessId() ) + "." + std::to_string( sequence );
+        Platform::NativeError createError = {};
+        file = Platform::CreateExclusiveFile( temporary.c_str(), createError );
 
-        if ( file == INVALID_HANDLE_VALUE && GetLastError() != ERROR_FILE_EXISTS )
+        if ( file == Platform::InvalidFileHandle() && !Platform::IsFileExistsError( createError ) )
         {
-            return Failure( diagnostics, owner, "Create temporary sibling for", path, GetLastError() );
+            return Failure( diagnostics, owner, "Create temporary sibling for", path, createError );
         }
     }
 
-    if ( file == INVALID_HANDLE_VALUE )
+    if ( file == Platform::InvalidFileHandle() )
     {
         return diagnostics.Failure( owner ? owner : "Core/AtomicTextFileWriter",
                                     "Could not reserve a temporary sibling for '%s'.", path );
@@ -94,42 +95,43 @@ SbResult WriteTextFileAtomic( SbDiagnosticStore& diagnostics, const char* owner,
 
     bool wrote = true;
     size_t offset = 0;
+    Platform::NativeError writeError = {};
 
     while ( offset < bytes.size() )
     {
         const size_t remaining = bytes.size() - offset;
-        const DWORD chunk = static_cast<DWORD>( (std::min)( remaining, static_cast<size_t>( MAXDWORD ) ) );
-        DWORD written = 0;
-        const bool writeCallSucceeded = WriteFile( file, bytes.data() + offset, chunk, &written, nullptr ) != FALSE;
-        wrote = writeCallSucceeded && written == chunk;
+        size_t written = 0;
+        const bool writeCallSucceeded = Platform::WriteFileChunk( file, bytes.data() + offset, remaining, written,
+                                                                  writeError );
+        wrote = writeCallSucceeded && written > 0u;
 
         if ( !wrote )
         {
-            if ( writeCallSucceeded )
-            {
-                SetLastError( ERROR_WRITE_FAULT );
-            }
-
+            writeError = writeCallSucceeded ? Platform::ShortWriteError() : writeError;
             break;
         }
 
         offset += written;
     }
 
-    wrote = wrote && FlushFileBuffers( file );
-    const DWORD writeError = wrote ? ERROR_SUCCESS : GetLastError();
-    CloseHandle( file );
+    if ( wrote )
+    {
+        wrote = Platform::FlushFile( file, writeError );
+    }
+
+    Platform::CloseFile( file );
 
     if ( !wrote )
     {
-        DeleteFileW( temporary.c_str() );
+        Platform::DeleteFileIfPresent( temporary.c_str() );
         return Failure( diagnostics, owner, "Write temporary sibling for", path, writeError );
     }
 
-    if ( !MoveFileExW( temporary.c_str(), destination.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH ) )
+    Platform::NativeError renameError = {};
+
+    if ( !Platform::ReplaceFile( temporary.c_str(), destination.c_str(), renameError ) )
     {
-        const DWORD renameError = GetLastError();
-        DeleteFileW( temporary.c_str() );
+        Platform::DeleteFileIfPresent( temporary.c_str() );
         return Failure( diagnostics, owner, "Replace destination", path, renameError );
     }
 

@@ -65,6 +65,8 @@ if errorlevel 1 exit /b 9
 if errorlevel 1 exit /b 9
 "%PYTHON_EXE%" "%REPO%\tools\generate_physics_scale_sleepy_scene.py" --check
 if errorlevel 1 exit /b 9
+"%PYTHON_EXE%" "%REPO%\tools\measure_causal_inspection_perf.py" --self-test
+if errorlevel 1 exit /b 9
 
 echo [3/5] Cleaning old perf artifacts...
 del /q "%REPO%\Profile\perf_log.csv" 2>nul
@@ -116,6 +118,13 @@ if not exist "%SELECTED_PATH_REPORT%" (
     exit /b 9
 )
 echo PASS: selected-ball path used one initial build, incremental ring trims, and a continuously published prefix.
+echo.
+echo Running dense causal-inspection performance and allocation proof...
+"%PYTHON_EXE%" "%REPO%\tools\measure_causal_inspection_perf.py" --repo "%REPO%"
+if errorlevel 1 (
+    echo FAIL: causal-inspection performance/allocation proof failed.
+    exit /b 9
+)
 echo.
 echo Running dx12 perf test...
 del /q "%REPO%\Profile\perf_log.csv" 2>nul

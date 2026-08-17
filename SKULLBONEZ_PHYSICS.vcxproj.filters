@@ -78,6 +78,9 @@
     <ClCompile Include="SkullbonezSource\Physics\PhysicsBodyStore.cpp">
       <Filter>Source Files\Bodies</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\PhysicsPoseIntegration.cpp">
+      <Filter>Source Files\Bodies</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\PhysicsTerrainView.cpp">
       <Filter>Source Files\Collision</Filter>
     </ClCompile>
@@ -177,6 +180,9 @@
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsBodyStore.h">
+      <Filter>Header Files\Bodies</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsPoseIntegration.h">
       <Filter>Header Files\Bodies</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsBroadphaseDebugView.h">

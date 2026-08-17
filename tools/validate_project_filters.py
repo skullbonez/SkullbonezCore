@@ -123,6 +123,7 @@ SOURCE_PROJECT_SUFFIX_TYPES = {
 }
 
 MATH_PREFIXES = (
+    "DeterministicMath",
     "Frustum",
     "GeometricMath",
     "GeometricStructures",
@@ -154,6 +155,7 @@ PHYSICS_BODY_PREFIXES = (
     "PhysicsHandles",
     "PhysicsMass",
     "PhysicsObjectPolicy",
+    "PhysicsPoseIntegration",
     "Ragdoll",
 )
 
@@ -253,6 +255,7 @@ DX12_RENDERING_PREFIXES = (
 )
 
 RENDERING_PREFIXES = (
+    "ContactManifoldPresentation",
     "DrawCallTrace",
     "RenderInstanceRenderer",
     "Helper",
@@ -424,6 +427,7 @@ RUNTIME_PREDICTION_PREFIXES = (
 )
 
 RUNTIME_PLANNING_PREFIXES = (
+    "ReplayCauseInspection",
     "ReplayGuideArcs",
     "ReplayInterceptReadout",
     "ReplayOverlayPackets",
@@ -547,6 +551,7 @@ CORE_PREFIXES = (
     "Log",
     "MainMemoryStats",
     "PlatformProfiler",
+    "PlatformPosix",
     "PlatformWin32",
     "Profiler",
     "SbDiagnosticStore",

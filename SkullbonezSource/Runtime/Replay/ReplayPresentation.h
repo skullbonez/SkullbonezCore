@@ -7,6 +7,7 @@ Summary:
   ReplayPresentation is the lower Replay visual owner. Prediction pose, ghost,
   trajectory, and packet state belong to ReplayPredictionPresentation above it;
   Runtime/App passes only synchronous path and camera values between siblings.
+  One saved main-camera identity serves every temporary inspection slot.
 
 Glossary:
   Path target: Stable replay body selected for visualization.
@@ -17,6 +18,7 @@ Invariants:
   - Physics::PhysicsSceneObjectId is identity; ModelRowHint is only a dense-row hint.
   - Render-pose matching uses a fixed model-capacity mask and never allocates.
   - ReplayHudStatus borrows no owner and is coherent for one UI frame.
+  - Switching between inspection slots never replaces the saved return camera.
 
 Related:
   - SkullbonezSource/Runtime/App/ReplayRuntime.h
@@ -120,7 +122,7 @@ namespace ReplayPresentationOperations
 void EnterInspectionCamera( ReplayPresentation& presentation, Environment::CameraCollection* cameras,
                             CameraControlState& camera, RunCameraMode normalizedCurrentMode,
                             RuntimeInteractionController& interaction, InputRouter& inputRouter,
-                            RunMousePickupState& mousePickup );
+                            RunMousePickupState& mousePickup, uint32_t inspectionCameraHash = CAMERA_FREE );
 void ExitInspectionCamera( ReplayPresentation& presentation, const ReplayAuthoring& authoring,
                            Environment::CameraCollection* cameras, Geometry::Terrain* terrain, CameraControlState& camera,
                            RunCameraMode normalizedRestoreMode, bool attachedFollow, bool directorGrabbed,

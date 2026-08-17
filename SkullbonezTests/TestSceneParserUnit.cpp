@@ -39,7 +39,6 @@
 #include <cstdio>
 #include <fstream>
 #include <iterator>
-#include <stdexcept>
 #include <string>
 
 using SkullbonezCore::Core::SbResult;
@@ -69,11 +68,7 @@ struct TemporaryMalformedSceneFile
     {
         std::ofstream output( path );
 
-        if ( !output )
-        {
-            throw std::runtime_error( "AuthoredSceneParser: failed to create malformed scene fixture" );
-        }
-
+        REQUIRE_MESSAGE( output.good(), "AuthoredSceneParser: failed to create malformed scene fixture" );
         output << contents;
     }
 

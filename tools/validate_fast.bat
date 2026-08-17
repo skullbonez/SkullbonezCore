@@ -67,11 +67,11 @@ call "%~dp0validate_dependency_graph.bat"
 if errorlevel 1 exit /b 7
 
 echo [4/9] Checking ownership rulings...
-REM Why: the build-config, shape, signature, complexity, reachability, and
-REM glossary inventories report current structure and fail on missing/stale
-REM owner judgements. Their triggers start qualitative review; none is a
-REM ceiling or count budget. Self-tests run first so a scanner regression is
-REM distinguishable from a source finding.
+REM Why: the build-config, shape, signature, complexity, reachability, glossary,
+REM and determinism-math inventories report current structure and fail on
+REM missing/stale owner judgements. Their triggers start qualitative review;
+REM none is a ceiling or count budget. Self-tests run first so a scanner
+REM regression is distinguishable from a source finding.
 python "%~dp0check_build_config_consistency.py" --self-test
 if errorlevel 1 exit /b 8
 python "%~dp0inventory_unreachable_symbols.py" --self-test
@@ -86,6 +86,8 @@ python "%~dp0inventory_function_complexity.py" --self-test
 if errorlevel 1 exit /b 8
 python "%~dp0inventory_glossary_terms.py" --self-test
 if errorlevel 1 exit /b 8
+python "%~dp0check_determinism_math_policy.py" --self-test
+if errorlevel 1 exit /b 8
 python "%~dp0inventory_authority_free_aggregates.py" --repo "%~dp0.." --strict
 if errorlevel 1 exit /b 8
 python "%~dp0inventory_extraction_scars.py" --repo "%~dp0.."
@@ -97,6 +99,8 @@ if errorlevel 1 exit /b 8
 python "%~dp0inventory_glossary_terms.py" --repo "%~dp0.." --strict --format json >nul
 if errorlevel 1 exit /b 8
 python "%~dp0check_build_config_consistency.py" --repo "%~dp0.." --format json >nul
+if errorlevel 1 exit /b 8
+python "%~dp0check_determinism_math_policy.py" --repo "%~dp0.." --format json >nul
 if errorlevel 1 exit /b 8
 
 echo [5/9] Checking staged file sizes...

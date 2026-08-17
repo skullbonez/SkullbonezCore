@@ -362,6 +362,14 @@ UI::UIRect ReplayCauseWindowResizeRect( const RunReplayCauseTreeState& state )
              REPLAY_CAUSE_WINDOW_RESIZE_SIZE, REPLAY_CAUSE_WINDOW_RESIZE_SIZE };
 }
 
+bool ReplayCauseWindowContainsPoint( const RunReplayCauseTreeState& state, int x, int y )
+{
+    const UI::UIRect panel = ReplayCauseWindowRect( state );
+    const float pointX = static_cast<float>( x );
+    const float pointY = static_cast<float>( y );
+    return pointX >= panel.x && pointX <= panel.x + panel.w && pointY >= panel.y && pointY <= panel.y + panel.h;
+}
+
 float ReplayCauseWindowContentHeight( const RunReplayCauseTreeState& state )
 {
     return static_cast<float>( state.rows.size() ) * REPLAY_CAUSE_WINDOW_ROW_HEIGHT;

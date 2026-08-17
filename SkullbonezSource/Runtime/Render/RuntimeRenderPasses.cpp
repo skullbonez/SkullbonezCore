@@ -7,7 +7,8 @@ Summary:
   RuntimeRenderer.cpp should read like a frame story: sample shared camera
   values, run focused named passes, then hand each output to its downstream
   consumer. This file owns rendering guts and GPU lifetime hooks so pass
-  contracts remain visible where the work happens.
+  contracts remain visible where the work happens. The debug overlay routes
+  detached contact patches through the existing physics glyph visualizer.
 
 Glossary:
   GPU resource: Backend-owned texture, framebuffer, shader, descriptor, or
@@ -22,6 +23,8 @@ Invariants:
     cache borrowed pointers from those structs.
   - Every PSO-affecting draw selects a complete pass-local raster bucket; no
     pass saves, mutates, or restores another pass's fixed-function state.
+  - Generic contact patches render independently of the operator's live physics
+    debug flags and never enter the live-contact linger cache.
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h declares pass contracts.
@@ -1364,6 +1367,14 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
     inputs.runtimeTools.Laser().Render( inputs.camera.viewProjection, inputs.camera.eye, inputs.camera.up, inputs.assets,
                                         inputs.renderResources, inputs.renderGeometry, inputs.renderGeometry );
 
+    if ( inputs.contactPresentation.HasGeometry() )
+    {
+        DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "ContactManifold" );
+        m_physicsDebugVisualizer.RenderContactManifold( inputs.contactPresentation, inputs.camera.viewProjection,
+                                                        inputs.renderGeometry,
+                                                        inputs.renderDiagnostics.GetCapabilities().supportsDebugLines );
+    }
+
     if ( snapshot.physicsDebugFlags != PHYSICS_DEBUG_NONE )
     {
         if ( detailMarkers )
@@ -1416,6 +1427,11 @@ bool DebugOverlayPass::HasOverlayWork( const DebugOverlayPassInputs& inputs ) co
     }
 
     if ( snapshot.physicsDebugFlags != PHYSICS_DEBUG_NONE )
+    {
+        return true;
+    }
+
+    if ( inputs.contactPresentation.HasGeometry() )
     {
         return true;
     }

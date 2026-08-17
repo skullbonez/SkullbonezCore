@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 6, "setDevelopmentUiSurface": "legacy" },
+    { "frame": 45, "showReplayScrubber": true },
+    { "frame": 60, "clickObject": "prediction_striker_ball", "button": "left" },
+    { "frame": 90, "assert": { "replayPathTarget": "prediction_striker_ball" } },
+    { "frame": 100, "scrubReplaySolverTrack": 0.8 },
+    { "frame": 102, "selectReplayCauseRow": 2 },
+    { "frame": 110, "screenshot": "TestOutput/interaction/causal_tree_first_click.bmp" },
+    { "frame": 125, "screenshot": "TestOutput/interaction/causal_tree_before_second_click.bmp" },
+    { "frame": 895, "screenshot": "TestOutput/interaction/causal_tree_late_detail.bmp" },
+    { "frame": 900, "clickPoint": [1510, 218], "button": "left" },
+    { "frame": 910, "screenshot": "TestOutput/interaction/causal_tree_second_click.bmp" },
+    { "frame": 1100, "clickPoint": [1510, 263], "button": "left" },
+    { "frame": 1200, "screenshot": "TestOutput/interaction/causal_tree_third_click.bmp" }
+  ]
+}

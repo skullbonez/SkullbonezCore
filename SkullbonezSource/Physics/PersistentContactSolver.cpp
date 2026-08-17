@@ -1799,8 +1799,33 @@ void PersistentContactSolveTransaction::CorrectPositions( PhysicsContactSolverSt
     // Fourth pass: remove any visible leftover overlap. The velocity solver does
     // most of the work, but this direct correction keeps persistent contacts from
     // sinking deeper into each other over many frames.
-    for ( const PersistentContact& c : stage.m_persistentContacts )
+    //
+    // Invariant: one manifold contributes at most one correction. A face contact
+    // may retain four impulse rows, but adding the same overlap four times makes
+    // the cleanup strength depend on tessellation rather than geometry. Rows are
+    // emitted contiguously and carry their retained manifold size, so the deepest
+    // row is the deterministic representative.
+    std::size_t manifoldBegin = 0u;
+
+    while ( manifoldBegin < stage.m_persistentContacts.size() )
     {
+        const PersistentContact& firstRow = stage.m_persistentContacts[manifoldBegin];
+        const std::size_t declaredRowCount = std::max<std::size_t>( firstRow.manifoldPointCount, 1u );
+        const std::size_t manifoldEnd = std::min( manifoldBegin + declaredRowCount, stage.m_persistentContacts.size() );
+        const PersistentContact* deepestRow = &firstRow;
+
+        for ( std::size_t rowIndex = manifoldBegin + 1u; rowIndex < manifoldEnd; ++rowIndex )
+        {
+            const PersistentContact& candidate = stage.m_persistentContacts[rowIndex];
+
+            if ( candidate.penetration > deepestRow->penetration )
+            {
+                deepestRow = &candidate;
+            }
+        }
+
+        manifoldBegin = manifoldEnd;
+        const PersistentContact& c = *deepestRow;
         const float rowContactSlop = c.isTerrain ? stepPolicy.terrainSlop : stepPolicy.objectSlop;
 
         if ( c.penetration <= rowContactSlop )
@@ -1857,19 +1882,24 @@ void PersistentContactSolveTransaction::CorrectPositions( PhysicsContactSolverSt
             stage.m_sideEffects.pipelineRecords.push_back( record );
         }
 
-        Vector3 positionA = PhysicsBodyPosition( hotRead, bodyAIndex ) - correction * invMassA;
-        hotFields.positionX[bodyAIndex] = positionA.x;
-        hotFields.positionY[bodyAIndex] = positionA.y;
-        hotFields.positionZ[bodyAIndex] = positionA.z;
+        m_bodies[bodyAIndex].positionCorrection -= correction * invMassA;
 
         if ( hasBodyB )
         {
             const size_t bodyBIndex = static_cast<size_t>( c.bodyB );
-            Vector3 positionB = PhysicsBodyPosition( hotRead, bodyBIndex ) + correction * invMassB;
-            hotFields.positionX[bodyBIndex] = positionB.x;
-            hotFields.positionY[bodyBIndex] = positionB.y;
-            hotFields.positionZ[bodyBIndex] = positionB.z;
+            m_bodies[bodyBIndex].positionCorrection += correction * invMassB;
         }
+    }
+
+    // Invariant: body positions remain the pre-correction snapshot while every
+    // manifold is reduced. Publishing once per body removes row-order feedback
+    // without adding angular correction or a second authoritative body store.
+    for ( std::size_t bodyIndex = 0u; bodyIndex < m_bodies.size(); ++bodyIndex )
+    {
+        const Vector3 position = PhysicsBodyPosition( hotRead, bodyIndex ) + m_bodies[bodyIndex].positionCorrection;
+        hotFields.positionX[bodyIndex] = position.x;
+        hotFields.positionY[bodyIndex] = position.y;
+        hotFields.positionZ[bodyIndex] = position.z;
     }
 }
 

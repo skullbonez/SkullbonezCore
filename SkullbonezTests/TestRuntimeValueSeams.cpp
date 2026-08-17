@@ -521,6 +521,8 @@ TEST_CASE( "Replay overlay: cause-window packets clamp placement and scrolling" 
     CHECK( surface.controlCount == 4u );
     CHECK( surface.controls[0].id == ReplayCauseWindowControlId( ReplayCauseWindowControl::Resize ) );
     CHECK( surface.controls[1].id == ReplayCauseWindowControlId( ReplayCauseWindowControl::Title ) );
+    CHECK( ReplayCauseWindowContainsPoint( state, state.x + 20, state.y + 60 ) );
+    CHECK_FALSE( ReplayCauseWindowContainsPoint( state, state.x - 1, state.y + 60 ) );
 
     RunReplayCauseTreeState fresh;
     EnsureReplayCauseWindowPlacement( fresh, 1024, 768 );

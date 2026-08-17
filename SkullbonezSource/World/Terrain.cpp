@@ -38,10 +38,13 @@ Related:
 #include "../Core/Profiler.h"
 #endif
 #include "../Core/SbResult.h"
+#include "../Core/SbDiagnosticStore.h"
 #if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
 #include "../Rendering/DX12/Dx12ResourceBuilder.h"
 #include "../Rendering/DX12/MeshDX12.h"
 #include "../Rendering/DX12/ShaderDX12.h"
+#include "../Rendering/RenderCommandTypes.h"
+#include "../Rendering/Shadow.h"
 #endif
 
 #include <algorithm>

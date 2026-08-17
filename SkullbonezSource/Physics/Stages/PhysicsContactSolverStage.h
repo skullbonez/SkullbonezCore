@@ -67,6 +67,7 @@ class Profiler;
 namespace Physics
 {
 struct PersistentContactSolveTransactionTestAccess;
+struct PersistentContactPositionCorrectionTestAccess;
 class ColliderStore;
 class PhysicsBodyStore;
 struct ColliderRecord;
@@ -195,6 +196,7 @@ class PersistentContactSolveTransaction
   private:
     friend class PhysicsContactSolverStage;
     friend struct PersistentContactSolveTransactionTestAccess;
+    friend struct PersistentContactPositionCorrectionTestAccess;
 
     void SetupBodies( const PhysicsBodyStore& bodyStore, std::span<const uint8_t> sleepState, int modelCount,
                       Core::Profiler* profiler );
@@ -289,6 +291,7 @@ class PhysicsContactSolverStage
 {
   private:
     friend class PersistentContactSolveTransaction;
+    friend struct PersistentContactPositionCorrectionTestAccess;
 
     PersistentContactList m_persistentContacts { "PhysicsContactSolverStage.persistentContacts",
                                                  PhysicsCapacityReason::PersistentContacts };

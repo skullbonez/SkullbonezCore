@@ -263,8 +263,10 @@ TEST_CASE( "RuntimeAllocationTracker: measured allocations are attributed and fr
     REQUIRE( output != nullptr );
     SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Measure );
     SetRuntimeAllocationPhase( RuntimeAllocationPhase::Diagnostics );
-    int* reported = new int( 23 );
-    delete reported;
+    // Invariant: explicit allocation-function calls cannot be removed by the
+    // standard new-expression elision that Clang applies at high optimization.
+    void* reported = ::operator new( sizeof( int ) );
+    ::operator delete( reported );
     PrintRuntimeAllocationSummary( output );
     SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Off );
 
@@ -286,8 +288,8 @@ TEST_CASE( "RuntimeAllocationTracker: gameplay guard reports a physics allocatio
     SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Gameplay );
     SetRuntimeAllocationPhase( RuntimeAllocationPhase::Physics );
 
-    int* value = new int( 31 );
-    delete value;
+    void* value = ::operator new( sizeof( int ) );
+    ::operator delete( value );
     const uint64_t violations = RuntimeAllocationGuardViolationCount();
     const bool hasViolations = RuntimeAllocationGuardHasGameplayViolations();
     PrintRuntimeAllocationSummary( output );

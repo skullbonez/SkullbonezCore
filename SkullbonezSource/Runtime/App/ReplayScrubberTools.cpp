@@ -7,7 +7,13 @@ Summary:
   The scrubber maps mouse/UI intent to retained solver or presentation samples.
   ReplayScrubber owns cursor transitions; ReplayRuntime receives a frame-scoped
   workspace view and coordinates typed transport, restore, and application
-  commands across existing replay owners.
+  commands across existing replay owners. Causal inspection uses a dedicated
+  camera slot, Planning's one eased clock, and the existing attached-camera
+  follow owner while Replay remains the sole owner of the saved main-camera
+  identity and live restore transaction. Exact-frame contact presentation is
+  copied before the final restore can retire its source solver ring. The
+  adjacent solver panel shares one Planning layout projection between drawing
+  and hit-testing, and App composes its mouse ownership ahead of the cause tree.
 
 Glossary:
   Live restore: Applying a retained replay sample back into the current scene.
@@ -23,8 +29,16 @@ Invariants:
   - Hit testing must resolve through the scrubber surface; domain handlers may
     not recreate per-button rectangles or fall-through exclusions.
   - Transport dispatch borrows host owners synchronously and retains none.
+  - Intermediate causal restores retain their source timeline; only the exact
+    endpoint may commit the normal branch reset.
   - The inactive Legacy pointer surface cannot reset durable replay state after
     a typed command has arrived from the selected ImGui surface.
+  - Causal restore completion must acknowledge the generation that issued it;
+    an interrupted or superseded row cannot reveal stale detail.
+  - Causal contact geometry and body poses are copied from the selected solver
+    sample before BuildRestoreRequest can authorize a destructive branch reset.
+  - Solver-panel wheel input is consumed only inside the visible shared panel
+    bounds and cannot fall through to the cause-tree surface.
 
 Related:
   - SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp
@@ -35,6 +49,7 @@ Related:
 #include "ReplayRuntime.h"
 #include "../../Assets/AssetKeys.h"
 #include "../Camera/CameraCollection.h"
+#include "../Camera/AttachedCameraController.h"
 #include "../Input/InputRouter.h"
 #include "../Interaction/RuntimeInteractionCommands.h"
 #include "../Camera/CameraControlState.h"
@@ -176,35 +191,6 @@ bool IsReplayScrubberToolOwner( WorldInteractionOwner owner )
 bool SelectReplayPresentationArtifact( ReplayScrubber& scrubber, HWND window, double now, char ( &outPath )[MAX_PATH] );
 void PublishReplayLoadResult( ReplayScrubber& scrubber, const char* path, bool loaded, double now );
 
-void PositionReplayCauseTreeCamera( SkullbonezCore::Environment::CameraCollection* cameras, const Vector3& targetPosition,
-                                    float targetRadius )
-{
-    if ( !cameras )
-    {
-        return;
-    }
-
-    // Invariant: EnterInspectionCamera has already captured the operator's
-    // restore pose before this function moves the free camera to the cause row.
-    const Vector3 eye = cameras->GetRenderCameraTranslation();
-    Vector3 direction = eye - targetPosition;
-    const float directionLengthSquared = direction.x * direction.x + direction.y * direction.y + direction.z * direction.z;
-
-    if ( directionLengthSquared > TOLERANCE * TOLERANCE )
-    {
-        direction *= 1.0f / sqrtf( directionLengthSquared );
-    }
-    else
-    {
-        direction = Vector3( 0.45f, 0.28f, 0.85f );
-        direction *= 1.0f / sqrtf( direction.x * direction.x + direction.y * direction.y + direction.z * direction.z );
-    }
-
-    const float distance = (std::max)( 12.0f, targetRadius * 5.5f );
-    const Vector3 newEye = targetPosition + direction * distance + Vector3( 0.0f, targetRadius * 0.35f, 0.0f );
-    cameras->TweenPrimaryToPose( newEye, targetPosition, cameras->GetRenderCameraUp() );
-    cameras->ResetRelativity();
-}
 } // namespace
 
 void SkullbonezCore::Runtime::ReplayInteractionOperations::CancelToolGesture( RuntimeInteractionController& interaction )
@@ -243,7 +229,7 @@ void SkullbonezCore::Runtime::ReplayInteractionOperations::CancelToolDragState( 
 
 void SkullbonezCore::Runtime::ReplayPresentationOperations::EnterInspectionCamera( ReplayPresentation& presentation, Environment::CameraCollection* cameras, CameraControlState& camera,
                                                                                    RunCameraMode normalizedCurrentMode, RuntimeInteractionController& interaction, InputRouter& inputRouter,
-                                                                                   RunMousePickupState& mousePickup )
+                                                                                   RunMousePickupState& mousePickup, uint32_t inspectionCameraHash )
 {
     // Lifetime: Replay camera activation captures the current camera/mode so
     // exiting scrub/velocity/cause inspection can restore the operator's view.
@@ -283,8 +269,15 @@ void SkullbonezCore::Runtime::ReplayPresentationOperations::EnterInspectionCamer
         }
 
         presentation.BeginCameraInspection( normalizedCurrentMode, restoreCameraHash, eye, view, up );
-        cameras->SelectCamera( CAMERA_FREE, false );
+        cameras->SelectCamera( inspectionCameraHash, false );
         cameras->TweenPrimaryToPose( eye, view, up );
+    }
+    else if ( !cameras->IsCameraSelected( inspectionCameraHash ) )
+    {
+        // A causal selection may begin while a generic Free-camera replay
+        // inspection is already visible. Move to the dedicated slot from that
+        // visible pose without replacing the saved main-camera identity.
+        cameras->SelectCamera( inspectionCameraHash, true );
     }
 
     XZBounds unbounded;
@@ -292,7 +285,7 @@ void SkullbonezCore::Runtime::ReplayPresentationOperations::EnterInspectionCamer
     unbounded.m_xMax = 99999.9f;
     unbounded.m_zMin = -99999.9f;
     unbounded.m_zMax = 99999.9f;
-    cameras->SetCameraXZBounds( CAMERA_FREE, unbounded );
+    cameras->SetCameraXZBounds( inspectionCameraHash, unbounded );
     camera.cameraTime = 0.0f;
 
     if ( interaction.Gesture().kind == RuntimeInteractionGestureKind::MousePickupDrag )
@@ -364,7 +357,7 @@ void SkullbonezCore::Runtime::ReplayPresentationOperations::ExitInspectionCamera
 
         if ( restoreCameraAvailable )
         {
-            cameras->SelectCamera( restoreCameraHash, false );
+            cameras->SelectCamera( restoreCameraHash, true );
 
             if ( replayCamera.hasRestorePose )
             {
@@ -451,10 +444,11 @@ void SkullbonezCore::Runtime::ReplayPresentationOperations::ArmLoadedPresentatio
 
 void ReplayRuntime::EnterInspectionCamera( Environment::CameraCollection* cameras, CameraControlState& camera,
                                            RunCameraMode normalizedCurrentMode, RuntimeInteractionController& interaction,
-                                           InputRouter& inputRouter, RunMousePickupState& mousePickup )
+                                           InputRouter& inputRouter, RunMousePickupState& mousePickup,
+                                           uint32_t inspectionCameraHash )
 {
     ReplayPresentationOperations::EnterInspectionCamera( m_visualPresentation, cameras, camera, normalizedCurrentMode,
-                                                         interaction, inputRouter, mousePickup );
+                                                         interaction, inputRouter, mousePickup, inspectionCameraHash );
 }
 
 void ReplayRuntime::ExitInspectionCamera( Environment::CameraCollection* cameras, Geometry::Terrain* terrain,
@@ -517,16 +511,287 @@ void ReplayRuntime::ArmLoadedPresentationScrubber( float normalized, double now,
                                                          m_predictionOwner, interaction );
 }
 
+void ReplayRuntime::ApplyCauseTreeSelection( int requestedRow, const ReplayWorkspaceFrameInput& input,
+                                             InputRouter& inputRouter, RuntimeInteractionController& interaction,
+                                             SceneWorld& world, AttachedCameraController& attachedCamera,
+                                             CameraControlState& camera, RunMousePickupState& mousePickup,
+                                             ReplayWorkspaceOutput& output )
+{
+    if ( requestedRow < 0 )
+    {
+        return;
+    }
+
+    PROFILE_SCOPED( "Frame/Replay/CauseInspection/Selection" );
+
+    RunReplayCauseTreeRow selectedRow;
+
+    if ( !m_authoring.TryGetCauseTreeRow( requestedRow, selectedRow ) )
+    {
+        return;
+    }
+
+    const ReplayCauseSeekResult seek = EvaluateReplayCauseSeek( selectedRow, m_timeline.Solver().GetStats(),
+                                                                m_predictionOwner.ActiveFrames() );
+
+    if ( !seek.CanTransport() )
+    {
+        m_scrubberOwner.PublishFeedback( RunReplayTrack::Solver, seek.Feedback(), input.now, 3.0 );
+        return;
+    }
+
+    const RunReplayPredictionFrame* presentedPrediction = CurrentPredictionScrubFrame();
+    const ReplaySolverFrameSample* presentedSolver = CurrentSolverScrubSample();
+    const ReplaySolverFrameSample* latestSolver = m_timeline.Solver().LatestSample();
+    const ReplayFrameIndex presentedFrame = presentedPrediction ? presentedPrediction->frameIndex
+                                            : presentedSolver   ? presentedSolver->frameIndex
+                                            : latestSolver      ? latestSolver->frameIndex
+                                                                : 0;
+    const bool simulationAlreadyPaused = m_scrubberOwner.View().liveAdvanceHeld;
+    Vector3 targetPosition = Vector3( 0.0f, 0.0f, 0.0f );
+    float targetRadius = 0.0f;
+    const Physics::PhysicsBodyStore& bodyStore = world.BodyStore();
+    const Physics::ColliderStore& colliderStore = world.Colliders();
+
+    if ( !m_predictionOwner.ActivateCauseTreeRow( m_authoring, requestedRow, m_visualPresentation, m_scrubberOwner,
+                                                  CurrentSolverScrubSample(), bodyStore, colliderStore, interaction,
+                                                  targetPosition, targetRadius ) ||
+         !m_planningOwner.CauseInspection().Select( requestedRow, seek, presentedFrame, simulationAlreadyPaused,
+                                                    input.now ) )
+    {
+        return;
+    }
+
+    if ( seek.source == ReplayCauseSeekSource::SolverHistory && presentedSolver &&
+         presentedSolver->frameIndex == seek.frame )
+    {
+        // Lifetime: cause rows are rebuilt as replay time moves. Detach the
+        // exact selected row's diagnostics before the transition can replace
+        // that authoring surface with rows from another frame.
+        const ReplayCauseSolverDetailSource detailSource {
+            presentedSolver->frameIndex,
+            presentedSolver->worldSnapshot.physics.persistentContacts,
+            presentedSolver->worldSnapshot.physics.pipelineTrace,
+        };
+        const ReplayCauseSolverDetailResult detail = EvaluateReplayCauseSolverDetail( selectedRow, seek, detailSource );
+        const ReplayCauseInspectionView inspection = m_planningOwner.CauseInspectionView();
+        m_planningOwner.CauseInspection().PublishSolverDetail( inspection.generation, detail,
+                                                               BuildReplayCauseContactPresentation( detail,
+                                                                                                    *presentedSolver ) );
+    }
+
+    // Invariant: camera focus and transport generation begin in the same turn.
+    // A restore completion can therefore acknowledge only the detail view that
+    // issued it, while a later row selection supersedes the pending generation.
+    output.enterInteractive = true;
+    EnterInspectionCamera( &world.Cameras(), camera, input.normalizedCurrentMode, interaction, inputRouter, mousePickup,
+                           CAMERA_CAUSAL_DETAIL );
+
+    if ( !attachedCamera.BeginFocusedInspection( world, selectedRow.id, selectedRow.modelRow ) )
+    {
+        // A disappeared focus object has no honest orbit endpoint. Reuse the
+        // stable refusal text rather than transporting time under a stale pivot.
+        m_scrubberOwner.PublishFeedback( RunReplayTrack::Solver, "Replay frame expired", input.now, 3.0 );
+        (void)m_planningOwner.CauseInspection().BeginReturn();
+        return;
+    }
+
+    (void)attachedCamera.TickFocusedInspection( world, 0.0f, 0.0f, 0, 1.0f );
+    InputController::ResetMouseLook( camera );
+    inputRouter.RequestCursorVisible( true );
+}
+
+void ReplayRuntime::ApplyCauseInspectionTransition( const ReplayWorkspaceFrameInput& input, bool pointerBlocked,
+                                                    SceneWorld& world, AttachedCameraController& attachedCamera,
+                                                    CameraControlState& camera, ReplayWorkspaceOutput& output )
+{
+    ReplayCauseInspection& transition = m_planningOwner.CauseInspection();
+    transition.Advance( input.now );
+    const ReplayCauseInspectionView view = transition.View();
+
+    if ( view.mode == ReplayCauseInspectionMode::Transporting )
+    {
+        // Invariant: the same Planning-owned sample selects replay time and the
+        // visible detail-camera pose. CameraCollection owns interpolation only.
+        world.Cameras().SetTweenProgress( view.easedProgress );
+    }
+
+    if ( view.mode == ReplayCauseInspectionMode::Transporting || view.mode == ReplayCauseInspectionMode::DetailPaused ||
+         view.mode == ReplayCauseInspectionMode::AftermathFollow )
+    {
+        const float mouseScale = pointerBlocked ? 0.0f : input.cameraMouseRadiansPerPixel;
+        const float yaw = static_cast<float>( camera.input.xMove ) * mouseScale;
+        const float pitch = static_cast<float>( camera.input.yMove ) * mouseScale;
+        const int wheel = pointerBlocked ? 0 : input.wheelDelta;
+        (void)attachedCamera.TickFocusedInspection( world, yaw, pitch, wheel, 1.0f );
+    }
+
+    ReplayCauseTransportRequest transport;
+
+    if ( !transition.TakeTransportRequest( transport ) )
+    {
+        return;
+    }
+
+    if ( transport.source == ReplayCauseSeekSource::SolverHistory )
+    {
+        const ReplayRecorderStats stats = m_timeline.Solver().GetStats();
+        const ReplayFrameIndex retainedCount = static_cast<ReplayFrameIndex>( stats.sampleCount );
+        const ReplayFrameIndex oldest = stats.nextFrameIndex > retainedCount ? stats.nextFrameIndex - retainedCount : 0;
+        const float normalized = stats.sampleCount > 1 ? static_cast<float>( transport.targetFrame - oldest ) /
+                                                             static_cast<float>( stats.sampleCount - 1u )
+                                                       : 1.0f;
+        m_scrubberOwner.SelectTrack( RunReplayTrack::Solver );
+        m_scrubberOwner.SetTrackPosition( RunReplayTrack::Solver, normalized );
+        m_scrubberOwner.SetHistoricalSamplePaused( true );
+
+        ReplayScrubberRestoreSources sources;
+        sources.solverSample = CurrentSolverScrubSample();
+
+        // Lifetime: the final branch reset may retire the source ring. Resolve
+        // stamped diagnostics while the exact selected sample is still borrowed;
+        // Planning retains only scalar availability facts for this generation.
+        RunReplayCauseTreeRow selectedRow;
+
+        if ( sources.solverSample && m_authoring.TryGetCauseTreeRow( view.selectedRow, selectedRow ) )
+        {
+            ReplayCauseSeekResult detailSeek;
+            detailSeek.frame = selectedRow.firstFrame;
+            detailSeek.source = ReplayCauseSeekSource::SolverHistory;
+            detailSeek.availability = ReplayCauseSeekAvailability::Available;
+            const ReplayCauseSolverDetailSource detailSource {
+                sources.solverSample->frameIndex,
+                sources.solverSample->worldSnapshot.physics.persistentContacts,
+                sources.solverSample->worldSnapshot.physics.pipelineTrace,
+            };
+            const ReplayCauseSolverDetailResult detail = EvaluateReplayCauseSolverDetail( selectedRow, detailSeek,
+                                                                                          detailSource );
+            transition.PublishSolverDetail( transport.generation, detail,
+                                            BuildReplayCauseContactPresentation( detail, *sources.solverSample ) );
+        }
+
+        (void)m_scrubberOwner.BuildRestoreRequest( sources, input.now, output.restoreRequest );
+
+        if ( output.restoreRequest.kind != ReplayLiveRestoreKind::None )
+        {
+            output.planningTransitionToken = transport.generation;
+        }
+        else
+        {
+            transition.CompleteTransport( transport.generation, false );
+        }
+
+        return;
+    }
+
+    const auto frames = m_predictionOwner.ActiveFrames();
+    const auto found = std::find_if( frames.begin(), frames.end(),
+                                     [&]( const auto& frame ) { return frame.frameIndex == transport.targetFrame; } );
+
+    if ( found == frames.end() )
+    {
+        transition.CompleteTransport( transport.generation, false );
+        return;
+    }
+
+    const float predictionT = frames.size() > 1
+                                  ? static_cast<float>( found - frames.begin() ) / static_cast<float>( frames.size() - 1u )
+                                  : 1.0f;
+    const float presentT = SolverPresentTrackPosition();
+    const float trackT = presentT + ( 1.0f - presentT ) * predictionT;
+    m_scrubberOwner.SelectTrack( RunReplayTrack::Solver );
+    m_scrubberOwner.SetTrackPosition( RunReplayTrack::Solver, trackT );
+    m_scrubberOwner.SetHistoricalSamplePaused( true );
+    ReplayCauseSeekResult predictionSeek;
+    predictionSeek.frame = transport.targetFrame;
+    predictionSeek.source = ReplayCauseSeekSource::Prediction;
+    predictionSeek.availability = ReplayCauseSeekAvailability::Available;
+    RunReplayCauseTreeRow selectedRow;
+
+    if ( m_authoring.TryGetCauseTreeRow( view.selectedRow, selectedRow ) )
+    {
+        transition.PublishSolverDetail( transport.generation,
+                                        EvaluateReplayCauseSolverDetail( selectedRow, predictionSeek,
+                                                                         { transport.targetFrame, {}, {} } ) );
+    }
+
+    transition.CompleteTransport( transport.generation, true );
+}
+
+void ReplayRuntime::ApplyCauseInspectionLifecycle( int requestedRow, bool exitCauseTreeInspection,
+                                                   ReplayInspectionCameraAction scrubberHostAction,
+                                                   const ReplayWorkspaceFrameInput& input, InputRouter& inputRouter,
+                                                   RuntimeInteractionController& interaction,
+                                                   Environment::CameraCollection* cameras, Geometry::Terrain* terrain,
+                                                   CameraControlState& camera, AttachedCameraController& attachedCamera )
+{
+    ReplayCauseInspectionView inspection = m_planningOwner.CauseInspectionView();
+
+    if ( requestedRow < 0 && exitCauseTreeInspection && inspection.mode == ReplayCauseInspectionMode::Inactive )
+    {
+        attachedCamera.EndFocusedInspection();
+        ExitInspectionCamera( cameras, terrain, camera, input.normalizedRestoreMode, input.attachedFollow,
+                              input.directorGrabbed, interaction, inputRouter );
+        return;
+    }
+
+    if ( ShouldBeginReplayCauseAftermath( inspection, input.spaceDown ) )
+    {
+        bool releasePause = false;
+
+        if ( m_planningOwner.CauseInspection().BeginAftermath( releasePause ) && releasePause )
+        {
+            m_scrubberOwner.SetLiveAdvanceHeld( false );
+            m_visualPresentation.SetCameraPauseOwnership( false );
+        }
+    }
+
+    const RuntimeMouseEdges& mouse = inputRouter.UiSnapshot().mouse;
+    const bool nonSelectionClick = requestedRow < 0 && ( mouse.leftPressed || mouse.rightPressed );
+
+    // Why: the scrubber evaluates its own surface before the cause window has
+    // published a row intent, so a valid row click can also look like an
+    // outside-scrubber exit. The row selection wins this turn; a later genuine
+    // non-selection click still returns from causal inspection.
+    const bool scrubExit = requestedRow < 0 && scrubberHostAction == ReplayInspectionCameraAction::Exit;
+    inspection = m_planningOwner.CauseInspectionView();
+
+    if ( !ShouldBeginReplayCauseReturn( inspection, nonSelectionClick, scrubExit ) )
+    {
+        return;
+    }
+
+    const ReplayCauseExitAction exit = m_planningOwner.CauseInspection().BeginReturn();
+
+    if ( !exit.apply )
+    {
+        return;
+    }
+
+    if ( exit.releasePause )
+    {
+        m_scrubberOwner.SetLiveAdvanceHeld( false );
+        m_visualPresentation.SetCameraPauseOwnership( false );
+    }
+
+    attachedCamera.EndFocusedInspection();
+    ExitInspectionCamera( cameras, terrain, camera, input.normalizedRestoreMode, input.attachedFollow, input.directorGrabbed,
+                          interaction, inputRouter );
+    m_planningOwner.CauseInspection().CompleteReturn();
+}
+
 
 void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, InputRouter& inputRouter,
-                                   RuntimeInteractionController& interaction, Physics::PhysicsEngine& physics,
-                                   const SceneEntityStore& entities,
-                                   std::span<const Rendering::RenderInstancePresentationRecord> presentation,
-                                   Environment::CameraCollection* cameras, Geometry::Terrain* terrain,
-                                   CameraControlState& camera, RunMousePickupState& mousePickup,
+                                   RuntimeInteractionController& interaction, SceneWorld& world, CameraControlState& camera,
+                                   AttachedCameraController& attachedCamera, RunMousePickupState& mousePickup,
                                    ReplayWorkspaceOutput& output )
 {
     output = ReplayWorkspaceOutput {};
+    Physics::PhysicsEngine& physics = world.Physics();
+    const SceneEntityStore& entities = world.Entities();
+    const auto presentation = world.RenderPresentationRecords();
+    Environment::CameraCollection* cameras = &world.Cameras();
+    Geometry::Terrain* terrain = world.Terrain().Get();
 
     if ( !input.legacyPointerSurfaceActive )
     {
@@ -539,7 +804,17 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
 
     const bool planningOwnsMouse = m_planningOwner.TickPointerSurface( input.uiBlocksMouse, input.screenWidth, inputRouter );
 
-    const ReplayInspectionCameraAction scrubberHostAction = TickScrubberInput( input.uiBlocksMouse || planningOwnsMouse,
+    const RuntimePointerEvent& preScrubberPointer = inputRouter.RuntimeSnapshot().pointer;
+    const bool pointerOverCauseWindow = !m_authoring.CauseTree().rows.empty() && preScrubberPointer.hasClientPosition &&
+                                        ReplayOverlay::ReplayCauseWindowContainsPoint( m_authoring.CauseTree(),
+                                                                                       preScrubberPointer.clientX,
+                                                                                       preScrubberPointer.clientY );
+
+    // Why: the scrubber runs before cause-row hit testing. Treat the visible
+    // cause panel as an upstream surface now so its click cannot first mutate
+    // scrubber/camera state and invalidate the row it intends to retarget.
+    const ReplayInspectionCameraAction scrubberHostAction = TickScrubberInput( input.uiBlocksMouse || planningOwnsMouse ||
+                                                                                   pointerOverCauseWindow,
                                                                                input.editorModeEnabled,
                                                                                input.scenePhysicsEnabled, input.uiVisible,
                                                                                input.uiMinimized, input.screenWidth,
@@ -592,7 +867,6 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
     }
 
     const Physics::PhysicsBodyStore& bodyStore = Physics::PhysicsEngine::ReadBodies( physics );
-    const Physics::ColliderStore& colliderStore = Physics::PhysicsEngine::ReadColliders( physics );
     int focusedCameraRow = -1;
     bool causeTreeRowsReady = false;
 
@@ -610,32 +884,46 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
 
     int requestedCauseTreeFocusRow = -1;
     bool exitCauseTreeInspection = false;
+    bool solverDetailOwnsMouse = false;
+
+    if ( !input.editorModeEnabled && causeTreeRowsReady )
+    {
+        const RuntimePointerEvent& pointer = inputRouter.RuntimeSnapshot().pointer;
+        solverDetailOwnsMouse = m_planningOwner.CauseInspection()
+                                    .TickSolverDetailPanelInput( m_authoring.CauseTree(), pointer.clientX, pointer.clientY,
+                                                                 pointer.hasClientPosition,
+                                                                 input.uiBlocksMouse || scrubberOwnsMouse, input.wheelDelta,
+                                                                 input.screenWidth, input.screenHeight );
+
+        if ( solverDetailOwnsMouse && input.wheelDelta != 0 )
+        {
+            interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
+                                                             WorldInteractionOwner::ReplayCauseTree,
+                                                             InteractionExitReason::EnterReplay );
+        }
+    }
+
     const bool causeTreeOwnsMouse = m_authoring.TickCauseTreeInput( m_visualPresentation, m_scrubberOwner, inputRouter,
                                                                     interaction, causeTreeRowsReady,
-                                                                    input.uiBlocksMouse || scrubberOwnsMouse,
+                                                                    input.uiBlocksMouse || scrubberOwnsMouse ||
+                                                                        solverDetailOwnsMouse,
                                                                     input.wheelDelta, input.editorModeEnabled,
                                                                     input.screenWidth, input.screenHeight,
                                                                     requestedCauseTreeFocusRow, exitCauseTreeInspection );
 
-    Vector3 causeTreeTargetPosition = Vector3( 0.0f, 0.0f, 0.0f );
-    float causeTreeTargetRadius = 0.0f;
+    if ( requestedCauseTreeFocusRow < 0 && input.requestedCauseRow >= 0 )
+    {
+        // Automation publishes the same row value produced by the legacy
+        // hit-test above; all seek, camera, pause, and restore policy remains here.
+        requestedCauseTreeFocusRow = input.requestedCauseRow;
+    }
 
-    if ( requestedCauseTreeFocusRow >= 0 &&
-         m_predictionOwner.ActivateCauseTreeRow( m_authoring, requestedCauseTreeFocusRow, m_visualPresentation,
-                                                 m_scrubberOwner, CurrentSolverScrubSample(), bodyStore, colliderStore,
-                                                 interaction, causeTreeTargetPosition, causeTreeTargetRadius ) )
-    {
-        output.enterInteractive = true;
-        EnterInspectionCamera( cameras, camera, input.normalizedCurrentMode, interaction, inputRouter, mousePickup );
-        PositionReplayCauseTreeCamera( cameras, causeTreeTargetPosition, causeTreeTargetRadius );
-        InputController::ResetMouseLook( camera );
-        inputRouter.RequestCursorVisible( true );
-    }
-    else if ( exitCauseTreeInspection )
-    {
-        ExitInspectionCamera( cameras, terrain, camera, input.normalizedRestoreMode, input.attachedFollow,
-                              input.directorGrabbed, interaction, inputRouter );
-    }
+    ApplyCauseTreeSelection( requestedCauseTreeFocusRow, input, inputRouter, interaction, world, attachedCamera, camera,
+                             mousePickup, output );
+    ApplyCauseInspectionTransition( input, input.uiBlocksMouse || causeTreeOwnsMouse, world, attachedCamera, camera,
+                                    output );
+    ApplyCauseInspectionLifecycle( requestedCauseTreeFocusRow, exitCauseTreeInspection, scrubberHostAction, input,
+                                   inputRouter, interaction, cameras, terrain, camera, attachedCamera );
 
     ApplyAuthoringPredictionRequest();
 
@@ -675,7 +963,7 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
 
     ApplyAuthoringPredictionRequest();
 
-    output.consumesMouse = output.consumesMouse || causeTreeOwnsMouse || velocityEditOwnsMouse;
+    output.consumesMouse = output.consumesMouse || causeTreeOwnsMouse || solverDetailOwnsMouse || velocityEditOwnsMouse;
     output.enterInteractive = output.enterInteractive || output.restoreRequest.enterInteractive;
 }
 
@@ -728,6 +1016,14 @@ void ReplayRuntime::ApplyRestoredBranchTimeline( ReplayRestoreTransaction& trans
     {
         ReplaySceneTimelineResetInput reset = transaction.TimelineReset();
         reset.preserveBranchMetadata = true;
+
+        if ( reset.preserveReplayInspection )
+        {
+            const ReplayCauseInspectionView inspection = m_planningOwner.CauseInspectionView();
+            reset.preserveReplaySourceTimeline = inspection.easedProgress < 1.0f ||
+                                                 inspection.transportFrame != inspection.targetFrame;
+        }
+
         SceneWorld& world = sceneController.Scene();
         ResetSceneTimeline( reset, inputRouter, interaction, &world.Cameras(), world.Terrain().Get(), camera,
                             normalizedRestoreMode, attachedFollow, directorGrabbed );
@@ -755,6 +1051,14 @@ void ReplayRuntime::CompleteLiveRestoreScrubber( const ReplayRestoreTransaction&
     strncpy_s( outcome.reason, sizeof( outcome.reason ), reason, _TRUNCATE );
     m_scrubberOwner.CompleteRestore( request, outcome.restored, transaction.Result(), reason, &outcome.v2Result,
                                      outcome.reason, sizeof( outcome.reason ) );
+}
+
+void ReplayRuntime::CompletePlanningTransition( uint64_t token, bool succeeded ) noexcept
+{
+    if ( token != 0 )
+    {
+        m_planningOwner.CauseInspection().CompleteTransport( token, succeeded );
+    }
 }
 
 namespace

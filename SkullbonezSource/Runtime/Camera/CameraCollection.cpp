@@ -6,7 +6,8 @@ Purpose:
 Summary:
   CameraCollection owns fixed scene camera slots, selection and tween state,
   and the frame's render-pose snapshot while borrowing optional terrain for
-  movement clamps.
+  movement clamps. Finite-duration tweens interpolate eye position and look
+  distance linearly while spherical interpolation owns view-direction travel.
 
 Invariants:
   - Camera slots are fixed-size and keyed by m_cameraHashes; scene code must
@@ -14,8 +15,11 @@ Invariants:
   - m_renderCamera is a frame snapshot and may differ from the primary camera
 
     while a tween is active.
-  - Zero or cancelled up vectors fall back to world +Y at the collection
-    boundary before a render pose is published.
+  - Planning may publish one eased progress sample for a causal transition;
+    ordinary camera-only transitions derive the same curve from total elapsed
+    time and both paths land on the exact authored endpoint.
+  - Degenerate direction/up bases use deterministic presentation-only fallbacks
+    before a finite render pose is published.
 
 Related:
   - SkullbonezSource/Runtime/Camera/CameraCollection.h
@@ -26,12 +30,118 @@ Related:
 
 #include "../../Core/FatalError.h"
 
+#include <algorithm>
+#include <cmath>
+
 
 using namespace SkullbonezCore::Environment;
 using namespace SkullbonezCore::Math;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Geometry;
+
+namespace
+{
+constexpr float CAMERA_TWEEN_DURATION_SECONDS = 1.5f;
+constexpr float CAMERA_DIRECTION_EPSILON = 0.00001f;
+
+float EvaluateCameraTweenProgress( float elapsedSeconds )
+{
+    const float u = std::clamp( elapsedSeconds / CAMERA_TWEEN_DURATION_SECONDS, 0.0f, 1.0f );
+    const float remaining = 1.0f - u;
+    return 1.0f - remaining * remaining * remaining;
+}
+
+Vector3 NormalizeOr( Vector3 value, const Vector3& fallback )
+{
+    return value.TryNormalise() ? value : fallback;
+}
+
+Vector3 StableOrthogonal( const Vector3& direction )
+{
+    const Vector3 basis = fabsf( direction.x ) <= fabsf( direction.y ) && fabsf( direction.x ) <= fabsf( direction.z )
+                              ? Vector3( 1.0f, 0.0f, 0.0f )
+                          : fabsf( direction.y ) <= fabsf( direction.z ) ? Vector3( 0.0f, 1.0f, 0.0f )
+                                                                         : Vector3( 0.0f, 0.0f, 1.0f );
+    return NormalizeOr( basis - direction * Dot( basis, direction ), Vector3( 1.0f, 0.0f, 0.0f ) );
+}
+
+Vector3 SlerpDirection( const Vector3& fromValue, const Vector3& toValue, float progress )
+{
+    const Vector3 from = NormalizeOr( fromValue, Vector3( 0.0f, 0.0f, 1.0f ) );
+    const Vector3 to = NormalizeOr( toValue, from );
+
+    if ( progress <= 0.0f )
+    {
+        return from;
+    }
+
+    if ( progress >= 1.0f )
+    {
+        return to;
+    }
+
+    const float dot = std::clamp( Dot( from, to ), -1.0f, 1.0f );
+
+    if ( dot > 1.0f - CAMERA_DIRECTION_EPSILON )
+    {
+        return NormalizeOr( from * ( 1.0f - progress ) + to * progress, from );
+    }
+
+    if ( dot < -1.0f + CAMERA_DIRECTION_EPSILON )
+    {
+        const Vector3 orthogonal = StableOrthogonal( from );
+        const float angle = 3.14159265358979323846f * progress;
+        return NormalizeOr( from * cosf( angle ) + orthogonal * sinf( angle ), from );
+    }
+
+    // Concept: this presentation-only spherical interpolant makes eased
+    // progress describe angular travel. Physics cannot include Runtime/Camera.
+    const float angle = acosf( dot );
+    const float reciprocalSin = 1.0f / sinf( angle );
+    const float fromWeight = sinf( ( 1.0f - progress ) * angle ) * reciprocalSin;
+    const float toWeight = sinf( progress * angle ) * reciprocalSin;
+    return NormalizeOr( from * fromWeight + to * toWeight, from );
+}
+
+} // namespace
+
+Camera CameraCollection::InterpolatePose( const Camera& from, const Camera& to, float progress )
+{
+    if ( progress <= 0.0f )
+    {
+        return from;
+    }
+
+    if ( progress >= 1.0f )
+    {
+        return to;
+    }
+
+    Camera result = from;
+    result.m_position = from.m_position + ( to.m_position - from.m_position ) * progress;
+
+    const Vector3 fromLook = from.m_view - from.m_position;
+    const Vector3 toLook = to.m_view - to.m_position;
+    const float fromDistance = sqrtf( Dot( fromLook, fromLook ) );
+    const float toDistance = sqrtf( Dot( toLook, toLook ) );
+    const float distance = fromDistance + ( toDistance - fromDistance ) * progress;
+    const Vector3 direction = SlerpDirection( fromLook, toLook, progress );
+    result.m_view = result.m_position + direction * (std::max)( distance, CAMERA_DIRECTION_EPSILON );
+
+    // Why: independently lerping up can cancel at opposed endpoints. Project
+    // the source basis onto the current view plane and use deterministic
+    // destination/world fallbacks; exact endpoint branches preserve authored up.
+    Vector3 up = from.m_upVector - direction * Dot( from.m_upVector, direction );
+
+    if ( !up.TryNormalise() )
+    {
+        up = to.m_upVector - direction * Dot( to.m_upVector, direction );
+    }
+
+    result.m_upVector = NormalizeOr( up, StableOrthogonal( direction ) );
+    return result;
+}
 
 
 CameraCollection::CameraCollection()
@@ -40,7 +150,9 @@ CameraCollection::CameraCollection()
     m_selectedCamera = 0;
     m_isTweening = 0;
     m_tweenProgress = 0;
-    m_tweenSpeed = 0;
+    m_tweenDeltaSeconds = 0.0f;
+    m_tweenElapsedSeconds = 0.0f;
+    m_hasPublishedTweenProgress = false;
     m_terrain = 0;
 
     for ( int count = 0; count < SkullbonezCore::Scene::Capacity::TOTAL_CAMERA_COUNT; ++count )
@@ -65,7 +177,9 @@ void CameraCollection::Reset()
     m_selectedCamera = 0;
     m_isTweening = false;
     m_tweenProgress = 0.0f;
-    m_tweenSpeed = 0.0f;
+    m_tweenDeltaSeconds = 0.0f;
+    m_tweenElapsedSeconds = 0.0f;
+    m_hasPublishedTweenProgress = false;
 
     for ( int i = 0; i < SkullbonezCore::Scene::Capacity::TOTAL_CAMERA_COUNT; ++i )
     {
@@ -74,7 +188,6 @@ void CameraCollection::Reset()
     }
 
     m_primaryStore.ZeroCamera();
-    m_tweenPath.ZeroCamera();
     m_tweenCamera.ZeroCamera();
     m_tweenStart.ZeroCamera();
     m_renderCamera.ZeroCamera();
@@ -110,37 +223,34 @@ void CameraCollection::AddCamera( const Vector3& position, const Vector3& view, 
 }
 
 
-void CameraCollection::SetTweenSpeed( float tweenSpeed )
+void CameraCollection::SetTweenDeltaSeconds( float deltaSeconds )
 {
-    m_tweenSpeed = tweenSpeed;
+    m_tweenDeltaSeconds = (std::max)( deltaSeconds, 0.0f );
 }
 
 
-void CameraCollection::SetTweenPath( int fromIndex, int toIndex )
+void CameraCollection::SetTweenProgress( float easedProgress )
 {
-    // if the fromIndex is specifying to use the existing tween camera
+    if ( !m_isTweening )
+    {
+        return;
+    }
+
+    m_tweenProgress = std::clamp( easedProgress, 0.0f, 1.0f );
+    m_hasPublishedTweenProgress = true;
+}
+
+
+void CameraCollection::SetTweenStart( int fromIndex )
+{
     if ( fromIndex == -1 )
     {
-        // use vector difference to determine the tweening vector
-        // use the tween camera instead of the toIndex
-        m_tweenPath = m_cameraArray[toIndex] - m_tweenCamera;
-
         m_tweenStart = m_tweenCamera;
     }
     else
     {
-        // use vector difference to determine the tweening vector
-        // use fromIndex and toIndex to determine this
-        m_tweenPath = m_cameraArray[toIndex] - m_cameraArray[fromIndex];
-
         m_tweenStart = m_cameraArray[fromIndex];
     }
-}
-
-
-void CameraCollection::UpdateTweenPath()
-{
-    m_tweenPath = m_cameraArray[m_selectedCamera] - m_tweenStart;
 }
 
 
@@ -185,12 +295,12 @@ void CameraCollection::SelectCamera( uint32_t hash, const bool tween )
     if ( m_isTweening && tween )
     {
         // if currently tweening, reference from the current tween camera m_position
-        SetTweenPath( -1, selectionRequest );
+        SetTweenStart( -1 );
     }
     else if ( tween )
     {
         // if not currently tweening, reference from the current selected camera
-        SetTweenPath( m_selectedCamera, selectionRequest );
+        SetTweenStart( m_selectedCamera );
     }
 
     // turn off view magnitude preservation for the current camera
@@ -205,6 +315,8 @@ void CameraCollection::SelectCamera( uint32_t hash, const bool tween )
     m_isTweening = tween;
 
     m_tweenProgress = 0;
+    m_tweenElapsedSeconds = 0.0f;
+    m_hasPublishedTweenProgress = false;
 
     ResetRelativity();
 }
@@ -284,14 +396,17 @@ void CameraCollection::TweenPrimaryToPose( const Vector3& position, const Vector
         // the retained tween state does not stay active for a no-op move.
         m_isTweening = false;
         m_tweenProgress = 0.0f;
+        m_tweenElapsedSeconds = 0.0f;
+        m_hasPublishedTweenProgress = false;
         ResetRelativity();
         return;
     }
 
     m_tweenStart = tweenStart;
-    UpdateTweenPath();
     m_isTweening = true;
     m_tweenProgress = 0.0f;
+    m_tweenElapsedSeconds = 0.0f;
+    m_hasPublishedTweenProgress = false;
     ResetRelativity();
 }
 
@@ -338,6 +453,7 @@ const Vector3& CameraCollection::GetRenderCameraUp() const
 void CameraCollection::CancelTween()
 {
     m_isTweening = false;
+    m_hasPublishedTweenProgress = false;
 }
 
 
@@ -382,26 +498,16 @@ void CameraCollection::SetCamera()
     }
     else
     {
-        m_tweenProgress += ( ( 1 - m_tweenProgress ) * m_tweenSpeed );
-
-        // turn off tweening if the current tween is complete
-        if ( m_tweenProgress > 0.99999f )
+        if ( !m_hasPublishedTweenProgress )
         {
-            m_isTweening = false;
+            m_tweenElapsedSeconds += m_tweenDeltaSeconds;
+            m_tweenProgress = EvaluateCameraTweenProgress( m_tweenElapsedSeconds );
         }
+
+        m_hasPublishedTweenProgress = false;
 
         // Keep the destination live; the target camera may move during a tween.
-        UpdateTweenPath();
-
-        m_tweenCamera = m_tweenStart;
-
-        m_tweenCamera += m_tweenPath * m_tweenProgress;
-
-        // Opposed endpoint up vectors can cancel at the tween midpoint.
-        if ( !m_tweenCamera.m_upVector.TryNormalise() )
-        {
-            m_tweenCamera.m_upVector = Vector3( 0.0f, 1.0f, 0.0f );
-        }
+        m_tweenCamera = InterpolatePose( m_tweenStart, m_cameraArray[m_selectedCamera], m_tweenProgress );
 
         // Avoid going through terrain during tweens when the scene owns a
         // terrain surface. Terrainless authored scenes deliberately bind null;
@@ -417,6 +523,11 @@ void CameraCollection::SetCamera()
         }
 
         SetViewMatrix( m_tweenCamera );
+
+        if ( m_tweenProgress >= 1.0f )
+        {
+            m_isTweening = false;
+        }
     }
 }
 

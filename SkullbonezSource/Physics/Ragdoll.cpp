@@ -7,7 +7,8 @@ Summary:
   The body layout is prefab value data. Scene owners turn the descriptors into
   authored objects; Physics keeps only handle-keyed point-joint descriptors and
   solver rows. This keeps the ragdoll feature isolated and leaves a clear
-  migration path to a full constraint solver.
+  migration path to a full constraint solver. Neck swing correction uses the
+  repository-owned deterministic vector-angle and axis-angle routines.
 
 Glossary:
   Neck swing limit: Special angular clamp applied to the head/torso joint.
@@ -19,15 +20,19 @@ Invariants:
   - Constraint solving must not allocate per row while physics is stepping.
   - This file does not construct scene objects; callers build renderable bodies
     from descriptors before registering point joints by handle.
+  - Neck correction reuses one cross product for angle magnitude and axis,
+    clamps its rounded dot input, and caps each correction at 0.20 radians.
 
 Related:
   - SkullbonezSource/Physics/Ragdoll.h
   - SkullbonezSource/Physics/PhysicsWorld.cpp
+  - SkullbonezSource/Maths/DeterministicMath.h
   - Agentic/Reference/engine-glossary.md
 */
 #include "Ragdoll.h"
 
 #include "../Core/Common.h"
+#include "../Maths/DeterministicMath.h"
 #include "ContactSolverCommon.h"
 #include "PhysicsBodyStore.h"
 
@@ -232,26 +237,17 @@ bool ApplyNeckSwingLimits( PhysicsBodyStore& bodyStore, std::span<const PointJoi
         torsoUp.Normalise();
         headUp.Normalise();
 
-        // Invariant: this shared spelling preserves the former std::clamp
-        // bounds exactly; ordinary solver inputs must remain byte-identical.
-        const float dot = SkullbonezCore::Math::ClampUnit( Dot( headUp, torsoUp ) );
+        const float rawDot = Dot( headUp, torsoUp );
+        const Vector3 correctionCross = CrossProduct( headUp, torsoUp );
+        const Vector3 fallbackAxis = torsoRot * Vector3( 1.0f, 0.0f, 0.0f );
+        Vector3 correctionAxis;
+        float correctionAngle = 0.0f;
 
-        if ( dot >= RAGDOLL_NECK_MAX_SWING_COSINE )
+        if ( !Ragdoll::TryBuildNeckSwingCorrection( rawDot, correctionCross, fallbackAxis, correctionAxis,
+                                                    correctionAngle ) )
         {
             continue;
         }
-
-        Vector3 correctionAxis = CrossProduct( headUp, torsoUp );
-
-        if ( VectorMag( correctionAxis ) <= TOLERANCE )
-        {
-            correctionAxis = torsoRot * Vector3( 1.0f, 0.0f, 0.0f );
-        }
-
-        correctionAxis.Normalise();
-
-        const float correctionAngle = (std::min)( acosf( dot ) - RAGDOLL_NECK_MAX_SWING_RADIANS,
-                                                  RAGDOLL_NECK_MAX_CORRECTION_RADIANS );
 
         Quaternion orientation = headHot.orientation;
         orientation.RotateAboutAxis( correctionAxis, correctionAngle );
@@ -292,6 +288,44 @@ float Ragdoll::ClampScale( float scale )
 float Ragdoll::SurfaceEpsilon()
 {
     return RAGDOLL_SURFACE_EPSILON;
+}
+
+
+bool Ragdoll::TryBuildNeckSwingCorrection( float rawDot, const Vector3& correctionCross, const Vector3& fallbackAxis,
+                                           Vector3& outCorrectionAxis, float& outCorrectionAngle ) noexcept
+{
+    // Invariant: roundoff may move a dot just outside [-1, 1]. Clamp before
+    // deterministic Atan2 so both endpoint domains remain finite and explicit.
+    const float dot = SkullbonezCore::Math::ClampUnit( rawDot );
+
+    if ( dot >= RAGDOLL_NECK_MAX_SWING_COSINE )
+    {
+        return false;
+    }
+
+    // Concept: vector angle is atan2(|cross|, dot). The same cross vector owns
+    // both the sine-like magnitude and correction axis, avoiding acos domain
+    // failure and keeping the geometric inputs paired.
+    const float crossMagnitude = VectorMag( correctionCross );
+    const float swingAngle = SkullbonezCore::Math::Deterministic::Atan2( crossMagnitude, dot );
+
+    if ( swingAngle <= RAGDOLL_NECK_MAX_SWING_RADIANS )
+    {
+        return false;
+    }
+
+    outCorrectionAxis = correctionCross;
+
+    if ( crossMagnitude <= TOLERANCE )
+    {
+        // Invariant: the torso's world X axis is the established deterministic
+        // choice when parallel or anti-parallel up vectors provide no axis.
+        outCorrectionAxis = fallbackAxis;
+    }
+
+    outCorrectionAxis.Normalise();
+    outCorrectionAngle = (std::min)( swingAngle - RAGDOLL_NECK_MAX_SWING_RADIANS, RAGDOLL_NECK_MAX_CORRECTION_RADIANS );
+    return true;
 }
 
 

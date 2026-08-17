@@ -7,7 +7,9 @@ Summary:
   The cause tree is an explanatory replay UI over retained solver contacts and
   predicted movement. ReplayPrediction builds bounded rows into ReplayAuthoring
   storage, then activates a selected row through explicit solver, prediction,
-  and live-store values without retaining a lower Replay owner.
+  and live-store values without retaining a lower Replay owner. Recorded
+  contacts expand counterpart bodies once, producing a cycle-free spanning
+  hierarchy rather than repeating both directions of the contact graph.
 
 Glossary:
   Focus row: Cause-tree row selected for replay inspection camera targeting.
@@ -15,6 +17,7 @@ Glossary:
 Invariants:
   - Focus changes hold live replay advance so selected historical rows remain visible.
   - Row composition never grows storage on the input/render path.
+  - Recorded body expansion visits each model row at most once.
   - Replay path, solver, camera, and store borrows expire before each command returns.
 
 Related:
@@ -29,6 +32,7 @@ Related:
 #include "../Replay/ReplayPresentation.h"
 #include "../../Assets/AssetKeys.h"
 #include "../../Core/Profiler.h"
+#include "../../Core/SceneCapacity.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Rendering/RenderInstanceStore.h"
@@ -327,6 +331,20 @@ bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const Run
     }
 
     bool rowOverflow = false;
+    struct RecordedBodyWork
+    {
+        Physics::PhysicsSceneObjectId id;
+        Physics::PhysicsSceneObjectId parentId;
+        int modelIndex = -1;
+        int depth = 0;
+    };
+
+    std::array<RecordedBodyWork, static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS )>
+        recordedBodyWork = {};
+    std::array<bool, static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS )> recordedBodyQueued = {};
+    std::size_t recordedBodyWorkCount = 0;
+    std::size_t recordedBodyWorkCursor = 0;
+
     auto appendCauseTreeRow = [&]( const RunReplayCauseTreeRow& row ) -> bool
     {
         if ( !authoring.AppendCauseTreeRow( row ) )
@@ -583,6 +601,13 @@ bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const Run
             centroid /= static_cast<float>( pointCount );
             const Physics::PhysicsSceneObjectId otherId = idForModelIndex( group.otherModelIndex );
 
+            if ( !group.terrain && group.otherModelIndex >= 0 &&
+                 group.otherModelIndex < static_cast<int>( recordedBodyQueued.size() ) &&
+                 recordedBodyQueued[static_cast<std::size_t>( group.otherModelIndex )] )
+            {
+                continue;
+            }
+
             char otherName[64] = {};
 
             if ( group.terrain )
@@ -599,6 +624,7 @@ bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const Run
             manifoldRow.id = bodyRow.id;
             manifoldRow.parentId = bodyRow.parentId;
             manifoldRow.counterpartId = otherId;
+            manifoldRow.firstFrame = bodyRow.firstFrame;
             manifoldRow.depth = bodyRow.depth + 1;
             manifoldRow.modelRow.value = bodyRow.modelRow.value;
             manifoldRow.counterpartModelRow.value = group.otherModelIndex;
@@ -641,6 +667,7 @@ bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const Run
                 solverRow.id = bodyRow.id;
                 solverRow.parentId = bodyRow.parentId;
                 solverRow.counterpartId = otherId;
+                solverRow.firstFrame = bodyRow.firstFrame;
                 solverRow.depth = bodyRow.depth + 2;
                 solverRow.modelRow.value = bodyRow.modelRow.value;
                 solverRow.counterpartModelRow.value = group.otherModelIndex;
@@ -684,6 +711,27 @@ bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const Run
                 {
                     return;
                 }
+            }
+
+            if ( !group.terrain && otherId.value != 0 && group.otherModelIndex >= 0 &&
+                 group.otherModelIndex < static_cast<int>( recordedBodyQueued.size() ) )
+            {
+                if ( recordedBodyWorkCount >= recordedBodyWork.size() )
+                {
+                    rowOverflow = true;
+                    return;
+                }
+
+                // Invariant: a recorded contact graph may contain cycles.
+                // Queue each model row once so counterpart expansion produces
+                // a bounded spanning hierarchy instead of A -> B -> A loops.
+                recordedBodyQueued[static_cast<std::size_t>( group.otherModelIndex )] = true;
+                recordedBodyWork[recordedBodyWorkCount++] = {
+                    otherId,
+                    bodyRow.id,
+                    group.otherModelIndex,
+                    bodyRow.depth + 2,
+                };
             }
         }
     };
@@ -734,7 +782,22 @@ bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const Run
         return !rowOverflow;
     };
 
-    if ( !addBodyRow( path.targetId, Physics::PhysicsSceneObjectId {}, 0, 0, path.targetModelRow.value, path.targetName ) )
+    // Invariant: every visible root addresses the same bounded bank as its
+    // children. Recorded roots inherit the selected solver sample; predicted
+    // roots begin at the first exact published frame rather than frame zero.
+    const ReplayFrameIndex rootFrame = usePrediction
+                                           ? ( activePredictionFrames.empty() ? 0
+                                                                              : activePredictionFrames.front().frameIndex )
+                                           : ( solverSample ? solverSample->frameIndex : 0 );
+
+    const int rootModelIndex = modelIndexForId( path.targetId, path.targetModelRow.value );
+
+    if ( !usePrediction && rootModelIndex >= 0 && rootModelIndex < static_cast<int>( recordedBodyQueued.size() ) )
+    {
+        recordedBodyQueued[static_cast<std::size_t>( rootModelIndex )] = true;
+    }
+
+    if ( !addBodyRow( path.targetId, Physics::PhysicsSceneObjectId {}, rootFrame, 0, rootModelIndex, path.targetName ) )
     {
         authoring.FailCauseTreeRowBuild();
         return false;
@@ -760,6 +823,12 @@ bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const Run
     };
 
     addChildren( addChildren, path.targetId, 1 );
+
+    while ( !usePrediction && recordedBodyWorkCursor < recordedBodyWorkCount && !rowOverflow )
+    {
+        const RecordedBodyWork work = recordedBodyWork[recordedBodyWorkCursor++];
+        (void)addBodyRow( work.id, work.parentId, rootFrame, work.depth, work.modelIndex, nullptr );
+    }
 
     if ( rowOverflow )
     {

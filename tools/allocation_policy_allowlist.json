@@ -1133,15 +1133,15 @@
       "removal_or_wrapper_plan": "Move publication buffers behind a fixed replay prediction arena, then delete this mechanically relocated row."
     },
     {
-      "path": "SkullbonezSource/Runtime/Prediction/ReplayPredictionScheduling.cpp",
+      "path": "SkullbonezSource/Runtime/Prediction/ReplayPrediction.h",
       "patterns": [
         ".resize("
       ],
       "owner": "ReplayPrediction private working set",
       "phase": "replay",
-      "reason": "Prefix promotion retains the existing allocation-free shrink of the committed frame bank; RC2 moved that ownership transfer beside cancellation without changing capacity.",
-      "cap": "The frame bank remains inside replay_prediction_working_set's existing 256 MiB cap and resize only shrinks its logical size.",
-      "removal_or_wrapper_plan": "Delete this row when the checker distinguishes shrinking resize calls from capacity growth."
+      "reason": "Same-target replacement first rejects a future-node snapshot larger than the already reserved visible bank, then resizes only its logical prefix before copying. The call cannot grow capacity.",
+      "cap": "The visible future-node bank is reserved through replay_prediction_working_set and remains inside that owner's 256 MiB cap.",
+      "removal_or_wrapper_plan": "Replace the visible future-node vector with fixed-capacity storage, then delete this row."
     },
     {
       "path": "SkullbonezSource/Runtime/Prediction/ReplayPredictionTopologyPublication.cpp",

@@ -38,19 +38,22 @@ void SkullbonezCore::Runtime::InteractionAutomationInputDriver::Reset()
 
 void SkullbonezCore::Runtime::InteractionAutomationInputDriver::AdvanceReleases( int frame )
 {
-    if ( m_releaseLeftFrame == frame )
+    // Invariant: replay transport can advance the automation frame beyond a
+    // scheduled release. The first observed frame at or after the deadline
+    // must release the synthetic input instead of leaving it latched forever.
+    if ( m_releaseLeftFrame >= 0 && frame >= m_releaseLeftFrame )
     {
         m_leftMouseDown = false;
         m_releaseLeftFrame = -1;
     }
 
-    if ( m_releaseRightFrame == frame )
+    if ( m_releaseRightFrame >= 0 && frame >= m_releaseRightFrame )
     {
         m_rightMouseDown = false;
         m_releaseRightFrame = -1;
     }
 
-    if ( m_releaseKeyFrame == frame )
+    if ( m_releaseKeyFrame >= 0 && frame >= m_releaseKeyFrame )
     {
         m_keyVirtualKey = 0;
         m_keyDown = false;
@@ -63,6 +66,11 @@ void SkullbonezCore::Runtime::InteractionAutomationInputDriver::MoveMouse( POINT
 {
     m_mouseClientPosition = position;
     m_hasMouseClientPosition = true;
+}
+
+void SkullbonezCore::Runtime::InteractionAutomationInputDriver::ScrollMouse( int wheelDelta )
+{
+    m_mouseWheelDelta += wheelDelta;
 }
 
 void SkullbonezCore::Runtime::InteractionAutomationInputDriver::PressMouse( bool rightButton, int frame, int holdFrames )
@@ -104,10 +112,12 @@ void SkullbonezCore::Runtime::InteractionAutomationInputDriver::PublishFrame()
     inputState.mouseClientPosition = m_mouseClientPosition;
     inputState.leftMouseDown = m_leftMouseDown;
     inputState.rightMouseDown = m_rightMouseDown;
+    inputState.mouseWheelDelta = m_mouseWheelDelta;
     inputState.keyVirtualKey = m_keyVirtualKey;
     inputState.keyDown = m_keyDown;
     inputState.controlDown = m_controlDown;
     Input::SetAutomationState( inputState );
+    m_mouseWheelDelta = 0;
 
     if ( m_unfocusedInputFrames > 0 )
     {

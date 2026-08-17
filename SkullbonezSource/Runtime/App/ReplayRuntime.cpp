@@ -7,7 +7,11 @@ Summary:
   ReplayRuntime is the application composition boundary between concrete
   Replay, Prediction, and Planning owners. It orders workspace input,
   transactional restore, prediction, artifact, publication, and validation
-  behavior without storing sibling backpointers inside those owners.
+  behavior without storing sibling backpointers inside those owners. During a
+  causal transition it retains the source replay ring across intermediate
+  restores, then applies the normal reset only at the exact endpoint. Render
+  publication exposes Planning's detached contact packet and copied solver rows
+  only while detail is visible.
 
 Glossary:
   Branch: Child replay timeline created from a restored source frame.
@@ -27,6 +31,13 @@ Invariants:
     stay beside each other.
   - Scene and branch reset edges wait for prediction workers before clearing
     replay-owned scratch.
+  - Intermediate causal restores cannot clear the timeline that owns their
+    later exact-frame targets.
+  - A non-preserved scene/timeline reset clears Planning's paired causal surface
+    before old scene identities or exact-frame detail can be published again.
+  - The render frame receives only the generic contact packet and synchronous
+    spans into Planning-owned solver copies, never the transition owner or
+    ReplayRecorder borrows.
   - Tracy plots sample existing owner stats only; they never traverse retained
     payloads or influence replay state.
 
@@ -569,6 +580,8 @@ ReplayAutomationView ReplayRuntime::BuildAutomationView() const
     return { m_predictionOwner.State(),
              m_planningOwner.PorkchopView(),
              m_planningOwner.TripPlannerView(),
+             m_authoring.CauseTree(),
+             m_planningOwner.CauseInspectionView(),
              m_visualPresentation.PathVisualizer(),
              m_planningOwner.InterceptView(),
              m_timeline.Presentation(),
@@ -615,6 +628,7 @@ ReplayOverlay::ReplayOverlayStateView ReplayRuntime::BuildOverlayStateView( bool
              m_visualPresentation.PathVisualizer(),
              m_authoring.VelocityEdit(),
              m_authoring.CauseTree(),
+             m_planningOwner.CauseInspectionView(),
              m_timeline.Solver().GetStats(),
              selection.replay,
              selection.selectedPrediction,
@@ -760,6 +774,7 @@ ReplayRenderFrameView ReplayRuntime::BuildRenderFrameView( const ReplayFrameSele
     const ReplaySolverFrameSample* solverSample = selection.replay.currentSolver;
     const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
     const ReplayInputView inputView = BuildInputView();
+    const ReplayCauseInspectionView causeInspection = m_planningOwner.CauseInspectionView();
     bool focusFadeActive = false;
 
     if ( !inputView.predictionEnabled && !collisionVisualizer && !debugTransparentBodyPass )
@@ -779,6 +794,7 @@ ReplayRenderFrameView ReplayRuntime::BuildRenderFrameView( const ReplayFrameSele
              ( presentationSample || solverSample ) ? nullptr : predictionFrame,
              &m_predictionOwner.PresentationOwner().PublishedVisualPacketView(),
              focusFadeActive ? &m_predictionOwner.PresentationOwner().FocusModelMaskView() : nullptr,
+             causeInspection.detailVisible ? causeInspection.contactPresentation : Rendering::ContactManifoldPresentation {},
              inputView.predictionEnabled,
              inputView.liveAdvanceHeld,
              focusFadeActive };
@@ -1138,18 +1154,25 @@ ReplaySceneTimelineResetResult ReplayRuntime::BeginSceneTimelineReset( const Rep
     // waits here before old private-engine snapshots are cleared or replaced.
     m_predictionOwner.CancelJob( true );
 
+    if ( !input.preserveReplayInspection )
+    {
+        // Scene and generated-timeline resets share this edge. Clearing only
+        // ReplayAuthoring rows would leave Planning's old panel/manifold visible.
+        m_planningOwner.CauseInspection().Reset();
+    }
+
     if ( SceneTimelineResetClearsBranch( input ) )
     {
         m_authoring.ResetBranch();
     }
 
-    if ( m_scrubberOwner.LiveAdvanceHeld() )
+    if ( !input.preserveReplayInspection && m_scrubberOwner.LiveAdvanceHeld() )
     {
         m_scrubberOwner.SetLiveAdvanceHeld( false );
         m_visualPresentation.SetCameraPauseOwnership( false );
     }
 
-    if ( m_scrubberOwner.ResetState( m_visualPresentation.CameraView().active ) )
+    if ( !input.preserveReplayInspection && m_scrubberOwner.ResetState( m_visualPresentation.CameraView().active ) )
     {
         result.exitInspectionCamera = true;
     }
@@ -1161,10 +1184,26 @@ ReplaySceneTimelineResetResult ReplayRuntime::BeginSceneTimelineReset( const Rep
 ReplaySceneTimelineResetResult ReplayRuntime::FinishSceneTimelineReset( const ReplaySceneTimelineResetInput& input )
 {
     ReplaySceneTimelineResetResult result;
+
+    if ( input.preserveReplaySourceTimeline )
+    {
+        // Invariant: synchronized causal transport may restore several
+        // coalesced intermediate frames. Keep the retained source ring and
+        // loaded cursor intact until the Planning transition reaches its exact
+        // endpoint; resetting here would erase every later restore target.
+        m_authoring.ResetVelocityEdit();
+        return result;
+    }
+
     m_timeline.ClearLoadedPresentation();
-    ClearCameraFocusForRestore();
-    result.exitInspectionCamera = true;
-    ClearPathVisualizerState();
+
+    if ( !input.preserveReplayInspection )
+    {
+        ClearCameraFocusForRestore();
+        result.exitInspectionCamera = true;
+        ClearPathVisualizerState();
+    }
+
     m_authoring.ResetVelocityEdit();
 
     if ( !m_timeline.Presentation().IsEnabled() )

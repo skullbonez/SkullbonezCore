@@ -669,7 +669,7 @@ void AuthoredSceneParser::ApplyCamera( const Json& camera, const std::string& pa
     // vectors; invalid cardinality or degenerate vectors fail the whole parse.
     RequireObject( camera, path, "camera" );
 
-    if ( static_cast<int>( m_scene.m_cameras.size() ) >= SkullbonezCore::Scene::Capacity::TOTAL_CAMERA_COUNT )
+    if ( static_cast<int>( m_scene.m_cameras.size() ) >= SkullbonezCore::Scene::Capacity::AUTHORED_CAMERA_COUNT )
     {
         Fail( path, "Too many cameras in scene" );
     }

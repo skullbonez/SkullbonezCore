@@ -98,9 +98,12 @@ struct ReplayWorkspaceFrameInput
     bool scenePhysicsEnabled = false;
     bool uiVisible = false;
     bool uiMinimized = false;
+    bool spaceDown = false;
     int screenWidth = 0;
     int screenHeight = 0;
+    float cameraMouseRadiansPerPixel = 0.0f;   // Cached config sample; replay never reopens device/config ownership.
     double now = 0.0;
+    int requestedCauseRow = -1;                // Frame-local typed input; production pointer hit-testing publishes the same value.
 };
 
 struct ReplayWorkspaceOutput
@@ -108,6 +111,10 @@ struct ReplayWorkspaceOutput
     ReplayLiveRestoreRequest restoreRequest;
     bool consumesMouse = false;
     bool enterInteractive = false;
+
+    // Zero denotes ordinary replay transport. Planning uses a non-zero token to
+    // match a causal restore completion without adding state to ReplayScrubber.
+    uint64_t planningTransitionToken = 0;
 
     // Cold native-file selection remains at TickWorkspace, after the scrubber
     // has completed its pointer and visibility phase.
@@ -243,6 +250,8 @@ struct ReplaySceneTimelineResetInput
 {
     const char* sceneLabel = nullptr;
     bool preserveBranchMetadata = false;
+    bool preserveReplayInspection = false;
+    bool preserveReplaySourceTimeline = false; // Intermediate causal restore retains later exact-frame targets.
     bool isSceneMode = false;
     int modelCount = 0;
     int solverBallCount = 0;
@@ -292,7 +301,7 @@ struct ReplaySceneTimelineResetResult
 struct ReplayKeyboardVelocityEditInput
 {
     bool altDown = false;
-    bool toggleAllowed = true; // False records the key edge while the editor owns Alt.
+    bool toggleAllowed = true;                 // False records the key edge while the editor owns Alt.
     WorldInteractionOwner currentWorldOwner = WorldInteractionOwner::None;
     double now = 0.0;
 };

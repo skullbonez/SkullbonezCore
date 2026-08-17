@@ -109,6 +109,15 @@ toolset, floating-point flags, x64 instruction policy, fixed-step ordering,
 worker reduction order, scenes, config, or baselines changes the certified
 envelope and requires the mapped gates.
 
+Hosted evidence from 2026-08-17 narrows the machine part of that statement with
+one observed result: run `31990868600` built one Debug artifact with Visual
+Studio 18.8 / toolset v145 / MSVC 14.51.36231, then two fresh hosted Windows
+runner identities executed the exact same executable bytes and each matched the
+committed varied-scene baseline. Both runners used image
+`win25-vs2026` version `20260810.198.2` and reported an AMD EPYC 7763, so this is
+evidence across two hosted allocations, not yet across CPU vendors, Windows
+images, separately rebuilt binaries, compiler versions, or toolsets.
+
 Release and `Profile-WPO` retain whole-program optimization for the engine and
 for non-solver physics code, but three arithmetic owners are deliberate native
 object boundaries: `ObjectContactManifold.cpp`, `TerrainContactManifold.cpp`,

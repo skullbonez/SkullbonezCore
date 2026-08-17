@@ -23,9 +23,12 @@ Invariants:
   - Orientation interpolation normalizes its result and clamps alpha to [0,1].
   - RotateAboutAxis requires a normalized world-space axis and interprets angle
     in radians.
+  - RotateAboutAxis constructs its delta with the repository-owned deterministic
+    cosine/sine routine; its arithmetic can change byte-exact Physics baselines.
 
 Related:
   - SkullbonezSource/Maths/Quaternion.cpp
+  - SkullbonezSource/Maths/DeterministicMath.h
 */
 #pragma once
 

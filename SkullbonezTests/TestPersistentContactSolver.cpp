@@ -39,6 +39,8 @@
 //   - Diagnostic samples observe solver work but never enter replay state.
 //   - Full and count-only pipeline lanes produce identical logical event counts
 //     and byte-identical body writeback; only full mode retains payload rows.
+//   - Position cleanup reduces each manifold to its deepest row, accumulates the
+//     inverse-mass shares per body, and publishes each body position once.
 //   - Closed energy cases disable external work and compare the whole solve;
 //     Baumgarte cases name their explicit separation-work allowance instead.
 //
@@ -56,6 +58,7 @@
 
 #include "../SkullbonezSource/Core/Common.h"
 #include "../SkullbonezSource/Core/Config.h"
+#include "../SkullbonezSource/Maths/Quaternion.h"
 #include "../SkullbonezSource/Physics/BoundingBox.h"
 #include "../SkullbonezSource/Physics/BoundingSphere.h"
 #include "../SkullbonezSource/Physics/BuoyancySystem.h"
@@ -81,6 +84,7 @@
 using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::CollisionShape;
+using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Math::Vector::ZERO_VECTOR;
 using SkullbonezCore::Physics::BuildObjectContactManifold;
@@ -93,7 +97,9 @@ using SkullbonezCore::Physics::ContactEnergyMeasurement;
 using SkullbonezCore::Physics::MAX_SLEEP_SUPPORT_EDGES;
 using SkullbonezCore::Physics::ObjectContactBodyView;
 using SkullbonezCore::Physics::ObjectContactManifold;
+using SkullbonezCore::Physics::PersistentContact;
 using SkullbonezCore::Physics::PersistentContactCacheEntry;
+using SkullbonezCore::Physics::PersistentContactSolverStepPolicy;
 using SkullbonezCore::Physics::PersistentContactSolveTransaction;
 using SkullbonezCore::Physics::PhysicsBodyCreateRecord;
 using SkullbonezCore::Physics::PhysicsBodyLinearVelocity;
@@ -110,6 +116,48 @@ using SkullbonezCore::Physics::PreparedTerrainCandidateCommit;
 using SkullbonezCore::Physics::TerrainContactBodyView;
 using SkullbonezCore::Physics::TerrainContactManifold;
 using SkullbonezCore::Physics::TerrainContactSweepResult;
+
+namespace SkullbonezCore::Physics
+{
+// Why: the production transaction keeps row ownership private. This seam lets
+// the test inject exact face rows while still executing the guarded correction
+// phase and authoritative body-store writeback.
+struct PersistentContactPositionCorrectionTestAccess
+{
+    static void Apply( PhysicsContactSolverStage& stage, PhysicsBodyStore& bodyStore,
+                       const PersistentContactSolverStepPolicy& policy, std::span<const uint8_t> sleepState,
+                       std::span<const PersistentContact> contacts )
+    {
+        stage.m_persistentContacts.clear();
+
+        for ( const PersistentContact& contact : contacts )
+        {
+            stage.m_persistentContacts.push_back( contact );
+        }
+
+        stage.m_persistentContactSolverStats = PersistentContactSolverStats();
+        stage.m_sideEffects.pipelineEventCount = 0u;
+        PersistentContactSolveTransaction& transaction = stage.m_solveTransaction;
+        transaction.Clear();
+        transaction.ResetBodies( static_cast<std::size_t>( bodyStore.Count() ) );
+        transaction.BeginEntryPolicySetup();
+
+        using Phase = PersistentContactSolvePhaseCursor::Phase;
+        constexpr std::array phasesToCorrection { Phase::BodySetup,         Phase::BuildManifolds,
+                                                  Phase::TerrainRows,       Phase::Precompute,
+                                                  Phase::SolveRows,         Phase::PointSupportInstability,
+                                                  Phase::TerrainRestPolicy, Phase::WriteBack,
+                                                  Phase::DebugContacts };
+
+        for ( const Phase phase : phasesToCorrection )
+        {
+            transaction.AdvanceOrFatal( phase, "PositionCorrectionTestAccess" );
+        }
+
+        transaction.CorrectPositions<false>( stage, bodyStore, policy, sleepState, 0u, nullptr );
+    }
+};
+} // namespace SkullbonezCore::Physics
 
 namespace
 {
@@ -361,6 +409,73 @@ struct SolverFixture
                       nullptr );
     }
 };
+
+struct PositionCorrectionResult
+{
+    Vector3 bodyAPosition = ZERO_VECTOR;
+    Vector3 bodyBPosition = ZERO_VECTOR;
+    SkullbonezCore::Physics::PersistentContactSolverStats stats;
+};
+
+PositionCorrectionResult ApplySyntheticFacePositionCorrection( std::span<const float> penetrations )
+{
+    REQUIRE( !penetrations.empty() );
+    REQUIRE( penetrations.size() <= 4u );
+
+    SolverFixture fixture;
+    fixture.AddDynamicSphere( Vector3( -1.0f, 0.0f, 0.0f ), ZERO_VECTOR );
+    fixture.AddDynamicSphere( Vector3( 1.0f, 0.0f, 0.0f ), ZERO_VECTOR );
+
+    std::array<PersistentContact, 4u> contacts;
+
+    for ( std::size_t rowIndex = 0u; rowIndex < penetrations.size(); ++rowIndex )
+    {
+        PersistentContact& contact = contacts[rowIndex];
+        contact.bodyA = 0;
+        contact.bodyB = 1;
+        contact.featureId = static_cast<uint32_t>( rowIndex + 1u );
+        contact.normal = Vector3( 1.0f, 0.0f, 0.0f );
+        contact.rA = Vector3( 1.0f, rowIndex < 2u ? -1.0f : 1.0f, rowIndex % 2u == 0u ? -1.0f : 1.0f );
+        contact.rB = contact.rA * -1.0f;
+        contact.penetration = penetrations[rowIndex];
+        contact.manifoldPointCount = static_cast<uint8_t>( penetrations.size() );
+    }
+
+    PersistentContactSolverStepPolicy policy;
+    policy.objectSlop = 0.1f;
+    policy.objectPositionCorrectionPercent = 0.35f;
+    SkullbonezCore::Physics::PersistentContactPositionCorrectionTestAccess::
+        Apply( fixture.solver, fixture.bodyStore, policy, fixture.sleepState,
+               std::span<const PersistentContact>( contacts.data(), penetrations.size() ) );
+
+    const auto hotFields = fixture.bodyStore.HotFields();
+    PositionCorrectionResult result;
+    result.bodyAPosition = PhysicsBodyPosition( hotFields, 0u );
+    result.bodyBPosition = PhysicsBodyPosition( hotFields, 1u );
+    result.stats = fixture.solver.GetStats();
+    return result;
+}
+
+TEST_CASE( "Persistent contact solver: face position correction uses one deepest manifold row" )
+{
+    constexpr std::array oneRowPenetrations { 0.6f };
+    constexpr std::array fourRowPenetrations { 0.2f, 0.4f, 0.6f, 0.3f };
+    const PositionCorrectionResult oneRow = ApplySyntheticFacePositionCorrection( oneRowPenetrations );
+    const PositionCorrectionResult fourRows = ApplySyntheticFacePositionCorrection( fourRowPenetrations );
+
+    // One 0.6-deep manifold with 0.1 slop and 35% correction separates two
+    // equal inverse masses by 0.175, shared evenly along the manifold normal.
+    constexpr float expectedBodyAX = -1.0875f;
+    constexpr float expectedBodyBX = 1.0875f;
+    CHECK( oneRow.bodyAPosition.x == doctest::Approx( expectedBodyAX ) );
+    CHECK( oneRow.bodyBPosition.x == doctest::Approx( expectedBodyBX ) );
+    CHECK( fourRows.bodyAPosition.x == doctest::Approx( oneRow.bodyAPosition.x ) );
+    CHECK( fourRows.bodyBPosition.x == doctest::Approx( oneRow.bodyBPosition.x ) );
+    CHECK( fourRows.bodyAPosition.y == doctest::Approx( 0.0f ) );
+    CHECK( fourRows.bodyAPosition.z == doctest::Approx( 0.0f ) );
+    CHECK( fourRows.stats.positionCorrectionRows == 1 );
+    CHECK( fourRows.stats.positionCorrectionTotal == doctest::Approx( 0.175f ) );
+}
 
 void ConfigureClosedSolve( SolverFixture& fixture )
 {
@@ -1032,7 +1147,13 @@ TEST_CASE( "Persistent contact solver: shoreline seed prevents one-frame edge bo
     // linked restoration report records the rejected removal experiment.
     constexpr float shorelineScale = 0.35f;
     constexpr float tiltedEdgeRadians = 0.75f;
-    const float tiltedBoxCenterY = cosf( tiltedEdgeRadians ) + sinf( tiltedEdgeRadians );
+    // Invariant: derive the center from the same normalized quaternion and
+    // rotation-matrix path as AddBox. This keeps the lowest corners exactly on
+    // the plane even when the axis-angle implementation changes numerically.
+    Quaternion tiltedEdgeOrientation;
+    tiltedEdgeOrientation.RotateAboutAxis( Vector3( 1.0f, 0.0f, 0.0f ), tiltedEdgeRadians );
+    const float tiltedBoxCenterY =
+        tiltedEdgeOrientation.GetOrientationMatrix().SupportExtentY( Vector3( 1.0f, 1.0f, 1.0f ) );
 
     auto buildUnsupportedTerrainEdge = [&]( SolverFixture& fixture, float downwardSpeed )
     {

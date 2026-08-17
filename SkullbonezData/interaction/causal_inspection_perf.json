@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 45, "showReplayScrubber": true },
+    { "frame": 60, "clickObject": "prediction_striker_ball", "button": "left" },
+    { "frame": 90, "assert": { "replayPathTarget": "prediction_striker_ball" } },
+    { "frame": 100, "scrubReplaySolverTrack": 0.8 },
+    { "frame": 102, "selectReplayCauseRow": 2 },
+    { "frame": 104, "assert": { "replayActiveTrack": "Solver" } },
+    { "frame": 900, "scrollPoint": [1000, 300, -120] },
+    { "frame": 1100, "assert": { "replayActiveTrack": "Solver" } }
+  ]
+}

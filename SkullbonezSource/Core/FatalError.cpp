@@ -25,15 +25,11 @@ Related:
 */
 #include "FatalError.h"
 #include "Log.h"
+#include "PlatformWin32.h"
 
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
-
-#if ( defined( _DEBUG ) || defined( SKULLBONEZ_PROFILE_ENABLED ) ) && defined( _MSC_VER )
-#include <intrin.h>
-#endif
-
 
 namespace SkullbonezCore
 {
@@ -62,8 +58,8 @@ const char* SafeText( const char* text )
     std::fflush( stderr );
     EngineLog::Get().FlushAll();
 
-#if ( defined( _DEBUG ) || defined( SKULLBONEZ_PROFILE_ENABLED ) ) && defined( _MSC_VER )
-    __debugbreak();
+#if defined( _DEBUG ) || defined( SKULLBONEZ_PROFILE_ENABLED )
+    Platform::DebugBreak();
 #endif
 
     std::abort();

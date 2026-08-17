@@ -230,7 +230,8 @@ SkullbonezCore::Core::SbResult Input::CaptureDeviceInputFrame( SkullbonezCore::C
                                                 : ( keyboardState[VK_RBUTTON] & 0x80u ) != 0u;
 
     frame.middleDown = ( keyboardState[VK_MBUTTON] & 0x80u ) != 0u;
-    frame.wheelDelta = ConsumeMouseWheelDelta();
+    const int callbackWheelDelta = ConsumeMouseWheelDelta();
+    frame.wheelDelta = s_automationState.enabled ? s_automationState.mouseWheelDelta : callbackWheelDelta;
     (void)ConsumeRawMouseDelta( frame.rawMouseX, frame.rawMouseY );
     return SkullbonezCore::Core::SbResult::Success();
 }

@@ -117,6 +117,9 @@
     <ClCompile Include="SkullbonezTests\TestDeterminism.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestReplayDeterminism.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestDx12OnlyRuntime.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
@@ -177,6 +180,9 @@
     <ClCompile Include="SkullbonezTests\TestApplicationExitState.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestDeterministicMath.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestConfig.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
@@ -189,6 +195,9 @@
     <ClCompile Include="SkullbonezTests\TestPhysicsHandles.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestPhysicsPoseIntegration.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestPhysicsStageState.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
@@ -196,6 +205,9 @@
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestQuaternion.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestRagdoll.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestReserveAllocator.cpp">
@@ -235,6 +247,9 @@
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestReplayTripPlanner.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestReplayCauseInspection.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestReplayPorkchopPanel.cpp">
@@ -342,6 +357,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Camera\CameraCollection.cpp">
       <Filter>Source Files\Runtime\Camera</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Camera\AttachedCameraController.InspectionPolicy.cpp">
+      <Filter>Source Files\Runtime\Camera</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Direction\DemoDirector.cpp">
       <Filter>Source Files\Runtime\Demo</Filter>
     </ClCompile>
@@ -418,6 +436,9 @@
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayPlanningOverlayLayout.cpp">
+      <Filter>Source Files\Runtime\Planning</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayCauseInspection.cpp">
       <Filter>Source Files\Runtime\Planning</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayGuideArcs.cpp">

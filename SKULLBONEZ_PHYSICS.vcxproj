@@ -178,6 +178,7 @@
       <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</WholeProgramOptimization>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\PhysicsBodyStore.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\PhysicsPoseIntegration.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsTerrainView.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Diagnostics\SkullScope.cpp" />
@@ -216,6 +217,7 @@
     <ClInclude Include="SkullbonezSource\Physics\PersistentContactSolver.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsApi.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsBodyStore.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsPoseIntegration.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsBroadphaseDebugView.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsTerrainView.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsDebugData.h" />

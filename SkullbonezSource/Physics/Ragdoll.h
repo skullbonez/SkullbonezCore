@@ -7,7 +7,9 @@ Summary:
   This is deliberately a small bridge toward a future generic constraint
   system. Ragdoll prefab data is value metadata; scene/authored owners decide
   how those values become renderable objects while physics only keeps handle-
-  keyed point-joint descriptors and solver math.
+  keyed point-joint descriptors and solver math. The neck policy exposes one
+  deterministic vector-angle seam so rounded endpoint and fallback behavior can
+  be tested without constructing a complete solver world.
 
 Glossary:
   Preview lines: Editor-only visualization geometry for placement feedback.
@@ -22,10 +24,14 @@ Invariants:
     mirrors are owner-side side effects, not ragdoll solver state.
   - Every simple-ragdoll part name is preflighted against the engine's 64-byte
     display-name field before the first part is appended.
+  - Neck swing angle construction clamps its dot input, derives angle from the
+    paired cross magnitude, and retains the torso-local fallback axis for
+    parallel or anti-parallel vectors.
 
 Related:
   - SkullbonezSource/Physics/Ragdoll.cpp
   - SkullbonezSource/Physics/PhysicsWorld.cpp
+  - SkullbonezSource/Maths/DeterministicMath.h
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
@@ -153,6 +159,12 @@ class Ragdoll
                                                        const Math::Orientation::Quaternion& orientation );
     static void AddPreviewLines( std::vector<float>& lineData, const Math::Vector::Vector3& terrainPoint, float scale,
                                  const Math::Orientation::Quaternion& orientation, float r, float g, float b );
+
+    // correctionCross and rawDot must come from the same normalized vector pair;
+    // false means the authored cone requires no orientation mutation.
+    static bool TryBuildNeckSwingCorrection( float rawDot, const Math::Vector::Vector3& correctionCross,
+                                             const Math::Vector::Vector3& fallbackAxis,
+                                             Math::Vector::Vector3& outCorrectionAxis, float& outCorrectionAngle ) noexcept;
     static bool SolvePointJoints( PhysicsBodyStore& bodyStore, std::span<const PointJointConstraint> constraints,
                                   std::span<const uint8_t> sleepState, float dt );
 };

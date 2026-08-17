@@ -666,8 +666,7 @@ void UpdateReplayPredictionAllBodyTrajectories( RunReplayPredictionState& predic
         const RunReplayPredictionBodySample& seedBody = frames[0].bodies[bodyIndex];
 
         if ( seedBody.id.value != 0u && seedBody.id.value != rootId.value &&
-             !prediction.trajectoryStore.FindRecord(
-                 ReplayTrajectoryKey( seedBody.id, ReplayTrajectoryLane::FutureRoot, activeBranch ) ) )
+             !prediction.trajectoryStore.FindRecord( ReplayTrajectoryKey( seedBody.id, ReplayTrajectoryLane::FutureRoot, activeBranch ) ) )
         {
             builtPrefixMissing = true;
             break;
@@ -739,8 +738,7 @@ void UpdateReplayPredictionAllBodyTrajectories( RunReplayPredictionState& predic
             continue;
         }
 
-        bodyRecords[bodyIndex] = prediction.trajectoryStore.FindRecord(
-            ReplayTrajectoryKey( seedBody.id, ReplayTrajectoryLane::FutureRoot, activeBranch ) );
+        bodyRecords[bodyIndex] = prediction.trajectoryStore.FindRecord( ReplayTrajectoryKey( seedBody.id, ReplayTrajectoryLane::FutureRoot, activeBranch ) );
 
         if ( !bodyRecords[bodyIndex] )
         {

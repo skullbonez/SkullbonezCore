@@ -1354,6 +1354,7 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
     const ReplayPredictionBaselineSnapshot& predictionBaseline = predictionState.baseline;
     const bool predictionBaselineVisible = predictionBaseline.valid && predictionBaseline.comparisonActive;
     int predictionAuthoredWallBrickCount = 0;
+    int replayCauseTreeMaximumDepth = 0;
     int predictionAffectedWallBrickCount = 0;
     int predictionMovedWallBrickCount = 0;
     int predictionToppledWallBrickCount = 0;
@@ -1501,6 +1502,11 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
         }
         predictionSustainedToppledWallBrickCount += toppledThroughoutFinalSecond ? 1 : 0;
         predictionSettledWallBrickCount += settledThroughoutFinalSecond ? 1 : 0;
+    }
+
+    for ( const RunReplayCauseTreeRow& row : replay.causeTree.rows )
+    {
+        replayCauseTreeMaximumDepth = (std::max)( replayCauseTreeMaximumDepth, row.depth );
     }
 
     PredictionTrajectoryFingerprint predictionTrajectoryFingerprint = BuildPredictionTrajectoryFingerprint( replay );
@@ -1750,6 +1756,29 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
                                   static_cast<int>( predictionRetainedRestMarkerCount ) },
                                 { "predictionRetainedHorizonMarkerCount",
                                   static_cast<int>( predictionRetainedHorizonMarkerCount ) },
+                                { "replayCauseTreeRowCount", static_cast<int>( replay.causeTree.rows.size() ) },
+                                { "replayCauseTreeMaximumDepth", replayCauseTreeMaximumDepth },
+                                { "replayCauseTreeSelectedRow", replay.causeTree.selectedRow },
+                                { "replayCauseTreeHasWindowPlacement", replay.causeTree.hasWindowPlacement },
+                                { "replayCauseTreeWindowX", replay.causeTree.x },
+                                { "replayCauseTreeWindowY", replay.causeTree.y },
+                                { "replayCauseTreeWindowWidth", replay.causeTree.width },
+                                { "replayCauseTreeWindowHeight", replay.causeTree.height },
+                                { "replayCauseTreeMouseX", replay.causeTree.mouseX },
+                                { "replayCauseTreeMouseY", replay.causeTree.mouseY },
+                                { "replayCauseTreePointerBlocked", replay.causeTree.pointerBlocked },
+                                { "replayCauseInspectionMode", static_cast<int>( replay.causeInspection.mode ) },
+                                { "replayCauseInspectionDetailVisible", replay.causeInspection.detailVisible },
+                                { "replayCauseInspectionSelectedRow", replay.causeInspection.selectedRow },
+                                { "replayCauseInspectionTargetFrame", replay.causeInspection.targetFrame },
+                                { "replayCauseInspectionPresentedFrame", replay.causeInspection.presentedFrame },
+                                { "replayCauseInspectionContactRowCount",
+                                  static_cast<int>( replay.causeInspection.solverDetailContactRowCount ) },
+                                { "replayCauseInspectionPipelineRecordCount",
+                                  static_cast<int>( replay.causeInspection.solverDetailPipelineRecordCount ) },
+                                { "replayCauseInspectionFirstVisibleRow", replay.causeInspection.solverDetailFirstRow },
+                                { "replayCauseInspectionFixedStorageBytes",
+                                  static_cast<uint64_t>( sizeof( ReplayCauseInspection ) ) },
                                 { "replayActiveTrack", ReplayTrackName( replay.scrubber.activeTrack ) },
                                 { "replayHistoricalSamplePaused", replay.scrubber.historicalSamplePaused },
                                 { "replaySolverTrackPosition", replaySolverTrackPosition },

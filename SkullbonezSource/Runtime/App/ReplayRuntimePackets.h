@@ -6,7 +6,8 @@ Purpose:
 Summary:
   Runtime/App is the composition boundary for the three replay-family packages.
   These packets may name all three siblings, while ReplayCoordination remains a
-  lower Replay-only seam.
+  lower Replay-only seam. Render publication copies feature-neutral detached
+  contact geometry rather than exposing Planning state to render passes.
 
 Glossary:
   Replay family: The Replay, Prediction, and Planning sibling packages.
@@ -16,10 +17,12 @@ Invariants:
   - References and spans are synchronous evidence and expire at the next owner mutation.
   - Intent values contain no callback, owner pointer, or retained authority.
   - Lower Replay headers never include this application aggregation.
+  - Detached Rendering packets own their values and carry no replay authority.
 
 Related:
   - SkullbonezSource/Runtime/App/ReplayRuntime.h
   - SkullbonezSource/Runtime/Replay/ReplayCoordination.h
+  - SkullbonezSource/Rendering/ContactManifoldPresentation.h
 */
 #pragma once
 
@@ -27,6 +30,7 @@ Related:
 #include "../Replay/ReplayPresentationPackets.h"
 #include "../Prediction/ReplayPrediction.h"
 #include "../Planning/ReplayPlanningRuntime.h"
+#include "../../Rendering/ContactManifoldPresentation.h"
 
 #include <vector>
 
@@ -52,6 +56,7 @@ struct ReplayRenderFrameView
     const RunReplayPredictionFrame* predictionFrame = nullptr;
     const ReplayVisualPacket* visualPacket = nullptr;
     const std::vector<uint8_t>* focusModelMask = nullptr;
+    Rendering::ContactManifoldPresentation contactPresentation;
     bool predictionEnabled = false;
     bool liveAdvanceHeld = false;
     bool focusFadeActive = false;
@@ -63,6 +68,8 @@ struct ReplayAutomationView
     const RunReplayPredictionState& prediction;
     const ReplayPorkchopPanelView& porkchop;
     const ReplayTripPlannerView& tripPlanner;
+    const RunReplayCauseTreeState& causeTree;
+    ReplayCauseInspectionView causeInspection;
     const RunReplayPathVisualizerState& path;
     ReplayInterceptView intercept;
     const ReplayRecorder& presentationRecorder;

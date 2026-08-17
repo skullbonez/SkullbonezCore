@@ -7,7 +7,9 @@ Summary:
   Attach mode selects and follows a physics body through stable body/collider
   handles, then turns the current body snapshot and camera pose into the next
   camera pose. AttachedCameraController owns that durable state and performs
-  synchronous commands through borrowed model stores and cameras.
+  synchronous commands through borrowed model stores and cameras. The same
+  owner lends fixed-relative follow to replay inspection while preserving the
+  operator's ordinary Attach state for restoration.
 
 Glossary:
   Attach target: Physics body/collider identity plus scene object id used to recover a
@@ -24,6 +26,8 @@ Invariants:
   - Pose commands are finite and never point eye and view at the same point.
   - Scene clearing invalidates the attached target at most once per lifecycle
     generation.
+  - Focused inspection never creates a second retained target owner; its saved
+    ordinary state and temporary replay target remain private to this controller.
 
 Related:
   - SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp
@@ -152,6 +156,11 @@ class AttachedCameraController
     bool TogglePin( Runtime::SceneWorld& collection );
     bool ApplyOrbitInput( Runtime::SceneWorld& collection, bool attachModeActive, int unhandledWheelDelta,
                           bool uiBlocksCameraMouse );
+    bool BeginFocusedInspection( Runtime::SceneWorld& collection, Physics::PhysicsSceneObjectId focusedId,
+                                 Physics::ModelRowHint modelRow );
+    bool TickFocusedInspection( Runtime::SceneWorld& collection, float orbitYawDelta, float orbitPitchDelta, int wheelDelta,
+                                float presentationAlpha );
+    void EndFocusedInspection();
     bool SetTarget( Runtime::SceneWorld& collection, int modelIndex, AttachedCameraTargetSelection& outSelection );
     AttachedCameraSeedResult SeedTarget( Runtime::SceneWorld& collection, int seedModelIndex,
                                          AttachedCameraTargetSelection& outSelection );
@@ -187,6 +196,8 @@ class AttachedCameraController
         if ( m_sceneLifecycleObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
         {
             Reset( m_state );
+            Reset( m_suspendedState );
+            m_hasSuspendedState = false;
         }
     }
 
@@ -194,6 +205,8 @@ class AttachedCameraController
     static bool SelectTarget( const Runtime::SceneWorld& collection, AttachedCameraState& state, int modelIndex,
                               AttachedCameraTargetSelection& outSelection );
     AttachedCameraState m_state;
+    AttachedCameraState m_suspendedState;
+    bool m_hasSuspendedState = false;
     SceneLifecycleGenerationObserver m_sceneLifecycleObserver;
 };
 } // namespace Runtime

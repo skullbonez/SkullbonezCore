@@ -5,16 +5,19 @@ Purpose:
 
 Summary:
   PhysicsDebugVisualizer converts copied solver records into presentation-only
-  line primitives and a short-lived contact cache; diagnostics never feed back
-  into physics.
+  line primitives and a short-lived contact cache. Detached contact-patch values
+  reuse the same glyph emitter without entering that cache; diagnostics never
+  feed back into physics.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
-  are the validation contract.
+    are the validation contract.
+  - Detached contact packets are consumed synchronously and never retained.
 
 Related:
   - SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.cpp
   - SkullbonezSource/Physics/PhysicsDebugData.h
+  - SkullbonezSource/Rendering/ContactManifoldPresentation.h
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/engine-glossary.md
 */
@@ -25,6 +28,7 @@ Related:
 #include "../../Maths/Matrix4.h"
 #include "../../Maths/Vector3.h"
 #include "../../Physics/PhysicsDebugData.h"
+#include "../../Rendering/ContactManifoldPresentation.h"
 
 namespace SkullbonezCore
 {
@@ -78,6 +82,7 @@ class PhysicsDebugVisualizer
     void EmitLine( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float bl );
     void EmitCross( const Math::Vector::Vector3& p, float size, float r, float g, float bl );
     void EmitArrow( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float bl );
+    void EmitContactGlyph( const Rendering::ContactPointPresentation& point, float normalImpulse, float fade );
     void EmitRingXZ( const Math::Vector::Vector3& center, float radius, float yOffset, float r, float g, float bl );
     void EmitObjectAxes( const PhysicsDebugFrameView& view );
     void EmitConvexHullWireframes( const PhysicsDebugFrameView& view );
@@ -87,6 +92,8 @@ class PhysicsDebugVisualizer
     void EmitTerrainContactProbe( const PhysicsDebugFrameView& view, Geometry::Terrain* terrain );
 
   public:
+    PhysicsDebugVisualizer();
+
     void SetFlags( uint32_t flags )
     {
         m_flags = flags & PHYSICS_DEBUG_ALL;
@@ -112,6 +119,12 @@ class PhysicsDebugVisualizer
     void Render( const PhysicsDebugFrameView& view, const Math::Transformation::Matrix4& viewProj,
                  Rendering::Dx12GeometryOwner& renderCommands, bool supportsDebugLines,
                  Geometry::Terrain* terrain = nullptr );
+
+    // Reuses the contact glyph path for an upper-layer-owned detached patch.
+    // The packet is consumed synchronously and never enters the linger cache.
+    void RenderContactManifold( const Rendering::ContactManifoldPresentation& presentation,
+                                const Math::Transformation::Matrix4& viewProj, Rendering::Dx12GeometryOwner& renderCommands,
+                                bool supportsDebugLines );
 };
 } // namespace Physics
 } // namespace SkullbonezCore

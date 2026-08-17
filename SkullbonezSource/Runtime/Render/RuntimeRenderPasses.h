@@ -6,7 +6,8 @@ Purpose:
 Summary:
   Runtime render passes are small frame-order units with explicit constructor
   owners and frame input structs. The declarations live outside Run so pass
-  ownership stays with RuntimeRenderer instead of growing Run.h.
+  ownership stays with RuntimeRenderer instead of growing Run.h. Debug-overlay
+  input may borrow generic detached geometry without reopening feature owners.
 
 Glossary:
   Pass: Ordered unit of frame rendering owned by RuntimeRenderer.
@@ -20,6 +21,7 @@ Invariants:
   - Pass constructors receive named long-lived owners; per-frame runtime data
     travels through explicit pass input structs.
   - Pass order is owned by RuntimeRenderer::RenderPreparedFrame.
+  - Debug contact packets are synchronous Rendering values, not Replay or Planning state.
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderHost.h
@@ -88,6 +90,7 @@ class Dx12RaytracingOwner;
 class Dx12ResourceBuilder;
 class Dx12TextureOwner;
 class RenderInstanceStore;
+struct ContactManifoldPresentation;
 class ShaderDX12;
 struct RenderInstancePresentationRecord;
 struct RenderGraphTextureBinding;
@@ -405,6 +408,7 @@ struct DebugOverlayPassInputs
     const DebugOverlaySnapshot& snapshot;
     RuntimeTools& runtimeTools;
     const ReplayVisualPacket& replayVisualPacket;
+    const Rendering::ContactManifoldPresentation& contactPresentation;
 };
 
 struct ShadowPassInputs
