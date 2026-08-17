@@ -43,6 +43,8 @@
 //     inverse-mass shares per body, and publishes each body position once.
 //   - Terrain restitution targets are independent of retained manifold row count;
 //     symmetric one-row and four-row impacts agree within sequential-solver residue.
+//   - Terrain rest policy preserves quiet residual motion; only the sleep owner
+//     zeros velocity after its configurable quiet-frame transition.
 //   - Closed energy cases disable external work and compare the whole solve;
 //     Baumgarte cases name their explicit separation-work allowance instead.
 //
@@ -1455,8 +1457,30 @@ TEST_CASE( "Persistent contact solver: terrain restitution ignores manifold row 
     // impact, not a budget divided among whichever contact rows terrain retained.
     // Symmetric rows may retain sub-percent sequential-solver residue, while the
     // retired point-count division reduced the four-row target by 75 percent.
-    CHECK( onePointBounceSpeed > 0.0f );
+    CHECK( onePointBounceSpeed == doctest::Approx( 6.0f * 0.75f ) );
     CHECK( fourPointBounceSpeed == doctest::Approx( onePointBounceSpeed ).epsilon( 0.01 ) );
+}
+
+
+TEST_CASE( "Persistent contact solver: terrain rest policy preserves quiet residual motion" )
+{
+    SolverFixture fixture;
+    fixture.config.material.terrainFrictionCoefficient = 0.0f;
+    fixture.config.material.rollingFrictionCoefficient = 0.0f;
+    fixture.AddMovingBox( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 1.0f, 1.0f, 1.0f ),
+                          Vector3( 0.0f, 1.0f, 0.0f ), 0.0f, Vector3( 0.04f, 0.0f, 0.0f ),
+                          Vector3( 0.01f, 0.0f, 0.0f ), 1.0f, 0.0f, false );
+    fixture.AddTerrainContact( 0, 101u, 0.0f );
+
+    fixture.Solve();
+
+    const auto hotFields = fixture.bodyStore.HotFields();
+
+    // Invariant: the contact transaction publishes physical residual motion.
+    // PhysicsSleepController alone may quantize it to zero after the body has
+    // satisfied configurable support and quiet-frame policy.
+    CHECK( hotFields.linearVelocityX[0] == doctest::Approx( 0.04f ) );
+    CHECK( hotFields.angularVelocityX[0] == doctest::Approx( 0.01f ) );
 }
 
 

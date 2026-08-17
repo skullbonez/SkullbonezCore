@@ -1,11 +1,11 @@
 # Catto Divergence Repairs
 
 Date: 2026-08-15
-Status: **Live — registered by owner direction 2026-08-15. 2/6 phases complete.**
+Status: **Live — registered by owner direction 2026-08-15. 3/6 phases complete.**
 Impact area: Physics contact solver, joints, CCD sequencing, terrain rest
 policy, physics baselines, tests, documentation
 Owner: Physics contact solver
-Priority: CD2 R5 terrain restitution, then R6 sleep-owned quieting
+Priority: CD3 R3 max-based solver termination
 
 ## Scope Gate — Read First
 
@@ -208,7 +208,7 @@ so replay fidelity is a cumulative gate rather than an alternative one.
 - [x] **CD1 — R1 position projection.** Per-body accumulation with max-based
   reduction under the approved R1 ruling, plus the
   four-row-versus-one-row displacement test.
-- [ ] **CD2 — R5 and R6.** One restitution formula across both paths; snap
+- [x] **CD2 — R5 and R6.** One restitution formula across both paths; snap
   responsibility moved to the sleep controller. Land as two commits.
 - [ ] **CD3 — R3 termination criterion.** Max-based early-out; sum retained for
   diagnostics only.
@@ -328,6 +328,68 @@ and replay-artifact hash
 The touched-source comment audit is 2/2 checked, 0 deferred. The independent
 ownership review remains scheduled for the completed CD2 checkpoint after R6,
 so CD2 stays unchecked in this R5-only commit.
+
+### CD2 R6 And Checkpoint Evidence — 2026-08-18
+
+R6 deleted the solver-local `0.05` linear / `0.02` angular velocity snap from
+`ApplyTerrainRestPolicy`. The focused oracle disables terrain and rolling
+friction, enters the old snap window at `0.04` metres per second linear and
+`0.01` radians per second angular velocity, and proves both residuals survive
+the contact transaction. The retired implementation zeroed both values. The R5
+oracle was also hardened after review to pin the absolute `6 * 0.75 = 4.5`
+metres-per-second restitution target as well as one-row/four-row agreement.
+`tools\validate_tests.bat` passed 581 cases / 2,479,964 assertions.
+
+Before baseline approval, `tools\validate_physics.bat` produced two
+byte-identical 44,401-row R6 runs. Relative to R5, R6 changes 20,626 rows across
+27 terrain-supported bodies beginning at frame 98, when residual motion starts
+surviving the solver. Relative to the then-current golden, the cumulative R5+R6
+state changed 25,116 rows, first at frame 34. The preserved direct candidate
+under `TestOutput/validation/candidates/CATTO_REPAIRS_CD2_R6/` has CORE hash
+`E5938CF74CE2CB983C102C6D36E121E76A293D8E5AFB3FD388D4B8CC87E6AE02`,
+TESTS hash
+`D27A2D62D6C565E55611EBECBB502A684CF199AD612C014EF43E69A4A4D74027`,
+and CSV hash
+`A7714E1DF42D3E92CEF69DC1D98C3BD4391CF52DF90DC3919CB3A66719F7B103`.
+
+The first R6 replay attempt stopped at frame 61 on a transient profiler
+begin/end mismatch; its Automation/Profile executables and log were preserved.
+A clean retry completed and isolated the physics-derived changes: causal first
+activation moved from frame 184 to 137 and sustained toppled bricks moved from
+184 to 181. The completed divergence capture under
+`TestOutput/validation/candidates/CATTO_REPAIRS_CD2_R6_REPLAY_VISUAL_FIDELITY/`
+has Automation CORE hash
+`EF1D2662062D19D89A90500DD373ECAC20DB854E3B649A73908758A94381571F`,
+Profile TESTS hash
+`04B807FAEBFA1787DE6D61F7B026F3A30519C33AAF9BFD4DEF6296874CC13253`,
+report hash
+`6003BB0BFF0F6780ED12FFC1636BF624ED7B61C909A80C947ADD5E5EC3BEDCF1`,
+capture-log hash
+`2DE3A541A7A587A8307778F882B92D09EF51E3D815CE017AFBA948211D77E01C`,
+and replay-artifact hash
+`97FFD27074FFC3A87A48F8AC33D93B6D5E3B92C83E97FC2A4565EB2E3ADAF9A5`.
+
+The owner then explicitly accepted the measured CD2 movement, directed that
+the divergence executables remain available for later assessment, and
+authorized the affected goldens to be updated. The canonical physics golden is
+`E875C0558AD2C35EACCC660545E04154334E77FA6B6203634D70A7B2CA3BEB43`;
+the replay visual and rebound causal goldens are
+`498304F1FE366E558023F37DAC5711F5BEF51084237B6BD857E42B57AAF58983`
+and `CBE0F6CF5EDEB796CAACE6FE384948ACCDD3BA51BCE4F6D5A95888962749B46E`.
+After refresh, `tools\validate_physics.bat` and the complete
+`tools\validate_replay_visual_fidelity.bat` passed, including every causal,
+artifact-byte, determinism, and reserve-growth false-pass control.
+
+All seven governance inventories are green: build configuration and strict
+reachability have zero blockers; aggregates are 88/88 ruled; the sole
+extraction scar is ruled; every triggered wide signature is ruled; glossary
+inventory reports 599 files with no duplicate or drifted term; and function
+complexity is 40/40 ruled. The independent `/root/catto_cd2_duck` review found
+no implementation blocker, no downward Replay include, and no Replay growth
+privilege change. It confirmed `PrecomputeRows` remains one cohesive
+row-precompute owner; the reviewed body digest was renewed, and its only test
+false-pass concern was closed by the absolute restitution assertion. Touched-
+source comment audit: 2/2 checked, 0 deferred.
 
 ## Reference Sites
 

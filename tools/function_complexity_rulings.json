@@ -25,11 +25,11 @@
     {
       "file": "SkullbonezSource/Physics/PersistentContactSolver.cpp",
       "signature": "template <bool RetainPipelineRecords> void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy, std::size_t pipelineRecordCapacity, float dt, Core::Profiler* )",
-      "body_sha256": "e4113c21c4760a39c366780af0b77e17c7dcac484141a26747bebaded4aedf1c",
+      "body_sha256": "3239bb448a97dda876ce208755158de54ef43f225337ad6d96f34cd67e6ef8e9",
       "owner": "Persistent contact row-precompute phase",
       "disposition": "retain-owner",
       "reason": "One guarded phase transforms constructed rows and the previous cache into effective masses, exact-feature lifetime bias, friction bounds, warm-start impulses, and optional trace values; the fused exact-feature lifecycle/warm-start lookup and compile-time trace retention preserve that single pre-solve row invariant and no owner borrow survives return.",
-      "evidence": "git history: contact-energy-and-warm-start-integrity-es5 (2026-08-02)",
+      "evidence": "git history: contact-energy-and-warm-start-integrity-es5 (2026-08-02); Catto CD2 R5 independent ownership review (2026-08-18)",
       "plan": ""
     },
     {

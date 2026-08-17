@@ -1647,19 +1647,6 @@ void PersistentContactSolveTransaction::ApplyTerrainRestPolicy( const PhysicsBod
                 body.angularVelocity -= ( body.angularVelocity / omegaMag ) * deltaOmega;
             }
         }
-
-        constexpr float sleepLinear = 0.05f;
-        constexpr float sleepAngular = 0.02f;
-
-        if ( ( Dot( body.linearVelocity, body.linearVelocity ) ) < sleepLinear * sleepLinear &&
-             ( Dot( body.angularVelocity, body.angularVelocity ) ) < sleepAngular * sleepAngular )
-        {
-            // Snap only near-zero supported motion. This avoids tiny solver
-            // residue keeping a legitimately settled terrain body awake,
-            // while leaving unsupported impacts and sliding bodies untouched.
-            body.linearVelocity = ZERO_VECTOR;
-            body.angularVelocity = ZERO_VECTOR;
-        }
     }
 }
 

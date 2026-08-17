@@ -2,13 +2,13 @@
 
 Date: 2026-08-18
 Branch: `nightrunner-18th-AUG-26`
-Status: Four active plans; 20/47 tasks complete
+Status: Four active plans; 21/47 tasks complete
 
 Catto Divergence Repairs (6 tasks), Deterministic Trigonometry Adoption
 (8 tasks), Continuous Orbital Forecast (7 tasks), and Predicted Solver Cause
 Hierarchy (8 tasks) are registered under `Agentic/Plans/TODO/`; Causal C0-C8,
-Determinism T0-T8, and Catto CD0-CD1 are complete. `MASTER-PLAN.md` carries the
-binding order: Catto CD2 next, deterministic trig following Catto, then
+Determinism T0-T8, and Catto CD0-CD2 are complete. `MASTER-PLAN.md` carries the
+binding order: Catto CD3 next, deterministic trig following Catto, then
 continuous orbital forecast, then predicted solver detail. The completed causal
 and determinism plans were deleted under the repository convention; Git history
 retains their phase evidence.
@@ -19,6 +19,20 @@ adversarial plan review. Its High mode retains exact predicted Body -> Manifold
 hiding causal inspection and releasing all detail capacity through an
 observable F6 checkpoint. The bottom-timeline `HIGH DETAIL` checkbox replaces
 the mouse Pause button, remains on by default, and preserves keyboard `P`.
+
+Catto CD2 landed R5 and R6 as separate commits. R5 removed terrain manifold-
+count scaling from restitution; R6 removed the hardcoded solver-local quiet
+velocity snap so `PhysicsSleepController` remains the configured transition
+owner. Focused tests pin the 4.5 metres-per-second target, one-row/four-row
+agreement, and preservation of `0.04` linear / `0.01` angular residual motion.
+The full test gate passes 581 cases / 2,479,964 assertions. R5 and R6 divergence
+executables, reports, logs, CSVs, and replay artifacts remain under
+`TestOutput/validation/candidates/CATTO_REPAIRS_CD2_*` for later owner
+assessment. By explicit owner direction, the canonical physics, replay visual,
+and replay causal goldens were refreshed; `validate_physics` and the complete
+replay visual-fidelity gate now pass. All seven governance inventories are
+green, the touched-source comment audit is 2/2 checked with none deferred, and
+independent review found no implementation or ownership blocker.
 
 Catto CD1 replaced per-contact-row position projection with one deepest-row
 linear correction per contiguous manifold, inverse-mass shared and accumulated
@@ -98,10 +112,11 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Pause before `CATTO_REPAIRS` CD2 by owner request. When resumed, implement R5
-and then R6 as separate commits, followed by R3, R2(a), and R4. Preserve every
-baseline-failing executable by plan and phase, record its diff, and continue
-without refreshing a golden. `future_physics.md` remains unregistered.
+Execute `CATTO_REPAIRS` CD3: replace the global sum-based convergence early-out
+with the maximum per-row squared delta-lambda while retaining the sum for
+diagnostics. Then execute R2(a) and R4 in order. Preserve any new divergence
+executables by phase; the CD2 golden authorization does not pre-approve later
+phase movement. `future_physics.md` remains unregistered.
 
 After Catto closes, execute `TRIG_DETERMINISM` DT0-DT7. Its dated inventory is
 120 direct CPU production sine/cosine calls across 15 files plus 20 test-only
@@ -125,10 +140,7 @@ High/Low release workflow.
 
 ## Blockers
 
-- None. Work is intentionally paused by owner direction before CD2. When
-  resumed, execute R5, R6, R3, R2(a), and R4 in order. Preserve baseline-failing
-  candidates for later owner review; do not re-ask the approved scope questions
-  or refresh a golden.
+- None. Continue with R3, R2(a), and R4 in the approved order.
 
 ## CI Note
 
