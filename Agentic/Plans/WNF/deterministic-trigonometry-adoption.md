@@ -1,9 +1,9 @@
 # Deterministic Trigonometry Adoption
 
 Date: 2026-08-17
-Status: Registered; 0/8 tasks complete
+Status: Owner-parked 2026-08-18; 0/8 tasks complete
 Owner: Engine owner
-Priority: Third and last in the active binding order, after `ORBIT_FORECAST`
+Priority: Not selectable until the owner reactivates it in `MASTER-PLAN.md`
 Commit name: `TRIG_DETERMINISM`
 
 ## Goal

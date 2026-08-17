@@ -5,12 +5,20 @@ Branch: `nightrunner-18th-AUG-26`
 Status: Three active plans; 24/47 tasks complete
 
 Predicted Solver Cause Hierarchy (8 tasks), Continuous Orbital Forecast
-(7 tasks), and Deterministic Trigonometry Adoption (8 tasks) are registered
+(7 tasks), and At-Rest Ball Stability (8 tasks) are registered
 under `Agentic/Plans/TODO/`; Causal C0-C8, Determinism T0-T8, and Catto CD0-CD5
 are complete. `MASTER-PLAN.md` carries the binding order: predicted solver detail
-next, then continuous orbital forecast, then deterministic trig. The completed
+next, then continuous orbital forecast, then at-rest ball stability. The completed
 causal, determinism, and Catto plans were deleted under the repository
 convention; Git history retains their phase evidence.
+
+The owner parked Deterministic Trigonometry under `Agentic/Plans/WNF/` on
+2026-08-18 and replaced its active slot with At-Rest Ball Stability. The new
+plan keeps the authored `at_rest.scene.json` witness unchanged, requires bounded
+SkullScope diagnosis and semantic false-pass controls before tuning, and treats
+vertical vibration, excessive sliding, rolling reversals, and delayed supported
+sleep as separate completion metrics. Friction coefficients and the existing
+sleep speed/frame thresholds are frozen; changing either is an explicit non-fix.
 
 Catto CD5 retained the authored partial-TOI sequence and derives one local
 contact interval from the remaining time of each awake dynamic participant.
@@ -164,16 +172,17 @@ diagnostics, operator controls, and rolling orbital presentation without
 changing bounded `PREDICT` or feeding detailed solver evidence into the
 continuous path.
 
-After orbital forecast closes, execute `TRIG_DETERMINISM` DT0-DT7. Its dated
-inventory is 120 direct CPU production sine/cosine calls across 15 files plus
-20 test-only calls across 5 files. Establish the A/B oracles and exact-tick
-headless solar fast-forward before migrating callers. Platform `sin`/`cos` may
-remain when the deterministic approximation fails the owning caller's measured
-accuracy or convergence contract, but each retained site must explain that
-decision in source and carry an exact validation ruling that rejects additions
-or changed sites. The current fixed-step time-scale path caps work at five ticks
-per presented frame and drops excess ticks, so it is not the long-horizon test
-instrument.
+After orbital forecast closes, execute `REST_STABILITY` RS0-RS7. Preserve the
+unchanged at-rest scene and baseline executables, then use SkullScope summary,
+why-not-resting, rolling, convergence, energy, body, contact, and island queries
+to identify the owning causes before implementation. Semantic oracles must pin
+all three balls' vertical tail motion, slip, rolling reversals, support/sleep
+latency, and final sleeping state while retaining the boxes as controls. Repair
+normal vibration, tangent/rolling response, and sleep transition separately,
+preserve candidate artifacts, and refresh no baseline without owner approval.
+
+Deterministic Trigonometry remains owner-parked in `Agentic/Plans/WNF/` and is
+not part of the active queue.
 
 ## Blockers
 

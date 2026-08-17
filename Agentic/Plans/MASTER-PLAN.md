@@ -48,15 +48,16 @@ Status: Three active plans; 24/47 tasks complete
   time interval. Its deterministic physics and replay candidates are preserved
   without refreshing goldens. R2 stages (b)-(d) and speculative contacts remain
   outside the active ledger.
-- Deterministic Trigonometry Adoption is registered last in the active order by
-  owner direction. It inventories all 120 direct CPU production sine/cosine
-  calls, qualifies float and double deterministic owners, and migrates callers
-  only where the approximation satisfies their measured contract. Platform
-  calls may remain when it does not, but each retained site requires a nearby
-  source explanation and an exact validation ruling that rejects additions or
-  changed sites. The plan closes with exact-tick headless solar-system fast-
-  forward evidence rather than increasing `dt` or relying on the runtime time-
-  scale cap.
+- Deterministic Trigonometry Adoption was moved to `WNF/` by owner direction on
+  2026-08-18. Its exact-site platform-trig exception policy remains authored,
+  but none of DT0-DT7 is selectable until the owner reactivates the plan.
+- At-Rest Ball Stability replaces deterministic trig in the third active slot
+  by owner direction. It uses bounded SkullScope evidence to diagnose and fix
+  the `at_rest.scene.json` balls' vertical vibration, excessive sliding,
+  repeated rolling reversals, and delayed sleep without changing the scene to
+  manufacture a pass or reintroducing a solver-local velocity snap. Friction
+  coefficients and sleep thresholds/frame counts are explicitly frozen non-
+  fixes.
 - Continuous Orbital Forecast was reactivated by owner direction on
   2026-08-17. It follows predicted solver detail and owns the separate
   interactive continuous prediction mode, coherent rolling 120-second path
@@ -77,7 +78,7 @@ Completed plan files were deleted; git history is the archive.
 |---|---|---|---|---|
 | Predicted Solver Cause Hierarchy | `PREDICT_SOLVER_DETAIL` | 8 | 0 | `TODO/predicted-solver-cause-hierarchy.md` |
 | Continuous Orbital Forecast | `ORBIT_FORECAST` | 7 | 0 | `TODO/continuous-orbital-forecast.md` |
-| Deterministic Trigonometry Adoption | `TRIG_DETERMINISM` | 8 | 0 | `TODO/deterministic-trigonometry-adoption.md` |
+| At-Rest Ball Stability | `REST_STABILITY` | 8 | 0 | `TODO/at-rest-ball-stability.md` |
 
 ## Parked, Backlog, And Completed Plans
 
@@ -91,6 +92,7 @@ an owner decision, not a run decision.
 | Plan | Status | Phases | File |
 |---|---|---|---|
 | Contact Stack Stability Techniques | Owner-parked 2026-08-02 | 0/7 | `WNF/contact-stack-stability-techniques.md` |
+| Deterministic Trigonometry Adoption | Owner-parked 2026-08-18 | 0/8 | `WNF/deterministic-trigonometry-adoption.md` |
 | DX12 Frame Path Comment-Rot Sweep | Owner-parked 2026-07-12 | 0/3 | `WNF/dx12-frame-path-comment-rot-sweep.md` |
 | Reversible GPU Fracture Replay | Backlog; blocked | 0/7 | `WNF/fracture-replay-feature.md` |
 | ImGui + Tracy E17 Comment Audit | Complete | 96/96, 0 deferred | `DONE/imgui-tracy-e17-comment-audit.md` |
@@ -117,10 +119,10 @@ states elsewhere, and both are recorded rather than silently corrected:
 2. `ORBIT_FORECAST` OF0 through OF6 — ratify the authored stability contract,
    add coherent circular publication and continuous isolated prediction, then
    wire Planning-owned diagnostics and rolling orbital presentation.
-3. `TRIG_DETERMINISM` DT0 through DT7 — widen static enforcement, establish
-   A/B and exact-tick solar evidence, certify deterministic owners, migrate only
-   callers whose contracts the approximation satisfies, and retain any proved
-   platform exceptions under exact source comments and validation rulings.
+3. `REST_STABILITY` RS0 through RS7 — preserve and diagnose the unchanged
+   `at_rest` scene with SkullScope, build semantic false-pass-resistant oracles,
+   adjudicate the owning causes, then repair vertical vibration, sliding/rolling
+   response, and supported sleep before integrated deterministic closure.
 
 `CAUSAL_INSPECT` no longer re-steps an old frame to regenerate solver detail, so
 it does not consume the tier-2 determinism guarantee and has no ordering
@@ -134,14 +136,14 @@ tests must pin field mapping and availability, not pre-Catto impulse values.
 `PREDICT_SOLVER_DETAIL` runs against the current bounded prediction owner before
 `ORBIT_FORECAST` adds continuous publication. The later forecast work must not
 feed per-tick solver evidence into its continuous path or infer all-body
-presentation from generic Physics force state. `TRIG_DETERMINISM` runs last so
-its inventory and numerical evidence cover the final production call surface
-left by both prediction plans.
+presentation from generic Physics force state. `REST_STABILITY` follows both;
+their exact-value displays must continue mapping Physics-owned values rather
+than pinning pre-repair impulses, activation times, or sleep frames.
 `future_physics.md` remains intentionally absent from this ledger.
 
 ## Portfolio Progress
 
 24/47 tasks complete with three active plans. Causal C0-C8, Determinism T0-T8,
 and Catto CD0-CD5 are complete. Predicted Solver Cause Hierarchy PSD0-PSD7 is
-next, then Continuous Orbital Forecast OF0-OF6, then Deterministic Trigonometry
-DT0-DT7.
+next, then Continuous Orbital Forecast OF0-OF6, then At-Rest Ball Stability
+RS0-RS7. Deterministic Trigonometry is owner-parked and excluded from progress.
