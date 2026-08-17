@@ -2,13 +2,13 @@
 
 Date: 2026-08-18
 Branch: `nightrunner-18th-AUG-26`
-Status: Four active plans; 21/47 tasks complete
+Status: Four active plans; 22/47 tasks complete
 
 Catto Divergence Repairs (6 tasks), Deterministic Trigonometry Adoption
 (8 tasks), Continuous Orbital Forecast (7 tasks), and Predicted Solver Cause
 Hierarchy (8 tasks) are registered under `Agentic/Plans/TODO/`; Causal C0-C8,
-Determinism T0-T8, and Catto CD0-CD2 are complete. `MASTER-PLAN.md` carries the
-binding order: Catto CD3 next, deterministic trig following Catto, then
+Determinism T0-T8, and Catto CD0-CD3 are complete. `MASTER-PLAN.md` carries the
+binding order: Catto CD4 next, deterministic trig following Catto, then
 continuous orbital forecast, then predicted solver detail. The completed causal
 and determinism plans were deleted under the repository convention; Git history
 retains their phase evidence.
@@ -19,6 +19,17 @@ adversarial plan review. Its High mode retains exact predicted Body -> Manifold
 hiding causal inspection and releasing all detail capacity through an
 observable F6 checkpoint. The bottom-timeline `HIGH DETAIL` checkbox replaces
 the mouse Pause button, remains on by default, and preserves keyboard `P`.
+
+Catto CD3 replaced the global summed squared impulse-delta early-out with the
+maximum per-contact-row squared delta while retaining the historical sum for
+diagnostics only. The focused eight-contact oracle fails the retired gate and
+the full test gate passes 582 cases / 2,479,968 assertions. The deterministic
+physics mismatch changes 13,369 rows across 23 bodies from frame 102, while the
+replay causal candidate moves `topology[1].firstFrame` from 154 to 174. Exact
+Debug and Automation/Profile executables, CSV, report, log, and replay remain
+under `TestOutput/validation/candidates/CATTO_REPAIRS_CD3*`; no golden was
+refreshed. Performance, dependency proof, all seven inventories, a 3/3 touched-
+source comment audit, and independent review are green.
 
 Catto CD2 landed R5 and R6 as separate commits. R5 removed terrain manifold-
 count scaling from restitution; R6 removed the hardcoded solver-local quiet
@@ -112,9 +123,9 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `CATTO_REPAIRS` CD3: replace the global sum-based convergence early-out
-with the maximum per-row squared delta-lambda while retaining the sum for
-diagnostics. Then execute R2(a) and R4 in order. Preserve any new divergence
+Execute `CATTO_REPAIRS` CD4: add R2(a) accumulated joint-impulse warm starting
+on the constraint handle and measure ragdoll sag under load. Then execute R4.
+Preserve any new divergence
 executables by phase; the CD2 golden authorization does not pre-approve later
 phase movement. `future_physics.md` remains unregistered.
 

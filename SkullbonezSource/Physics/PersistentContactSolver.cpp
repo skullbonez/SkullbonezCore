@@ -23,8 +23,8 @@ Invariants:
     are the validation contract.
   - Contact setting clamps resolve once before row construction and iteration.
   - Every solve phase crosses the transaction cursor before its pass body runs.
-  - Convergence attribution observes the historical squared-delta expression
-    after each row; it never participates in impulse arithmetic or early-out.
+  - Maximum per-row squared impulse delta owns convergence stopping; the
+    historical summed delta remains diagnostic-only and cannot affect early-out.
   - Count-only pipeline specializations preserve canonical event counts while
     compiling payload reads, fills, and diagnostic magnitudes out of row loops.
 
@@ -1248,6 +1248,7 @@ void PersistentContactSolveTransaction::SolveRowsIterations( PhysicsContactSolve
     {
         stage.m_persistentContactSolverStats.solverIterations = iter + 1;
         float iterImpulseSq = 0.0f;
+        float maxRowImpulseDeltaSq = 0.0f;
         PersistentContactIterationDiagnosticsStorage<CollectConvergenceDiagnostics> diagnosticsStorage;
 
         if constexpr ( CollectConvergenceDiagnostics )
@@ -1305,18 +1306,38 @@ void PersistentContactSolveTransaction::SolveRowsIterations( PhysicsContactSolve
             float deltaT1 = c.accT1 - oldAccT1;
             float deltaT2 = c.accT2 - oldAccT2;
             ApplyImpulse( c, c.tangent1 * deltaT1 + c.tangent2 * deltaT2 );
-            iterImpulseSq += deltaN * deltaN + deltaT1 * deltaT1 + deltaT2 * deltaT2;
+
+            const float normalDeltaSq = deltaN * deltaN;
+            const float tangentDeltaSq = deltaT1 * deltaT1 + deltaT2 * deltaT2;
+            const float rowDeltaSq = normalDeltaSq + tangentDeltaSq;
+
+            // Invariant: convergence is a per-row property. Adding individually
+            // quiet rows must not change whether this global sweep is complete.
+            if ( rowDeltaSq > maxRowImpulseDeltaSq )
+            {
+                maxRowImpulseDeltaSq = rowDeltaSq;
+
+                if constexpr ( CollectConvergenceDiagnostics )
+                {
+                    PersistentContactIterationDiagnostics& iterationDiagnostics = diagnosticsStorage.value;
+                    iterationDiagnostics.maxRowImpulseDeltaSq = rowDeltaSq;
+                    iterationDiagnostics.maxRowNormalImpulseDeltaSq = normalDeltaSq;
+                    iterationDiagnostics.maxRowTangentImpulseDeltaSq = tangentDeltaSq;
+                    iterationDiagnostics.maxRowBodyA = c.bodyA;
+                    iterationDiagnostics.maxRowBodyB = c.bodyB;
+                    iterationDiagnostics.maxRowFeatureId = c.featureId;
+                    iterationDiagnostics.maxRowIsTerrain = c.isTerrain;
+                }
+            }
 
             if constexpr ( CollectConvergenceDiagnostics )
             {
                 PersistentContactIterationDiagnostics& iterationDiagnostics = diagnosticsStorage.value;
 
-                // Why: retain independent diagnostic sums after the historical
-                // stopping expression above. These values do not feed
-                // simulation, and inactive/private worlds skip the work.
-                const float normalDeltaSq = deltaN * deltaN;
-                const float tangentDeltaSq = deltaT1 * deltaT1 + deltaT2 * deltaT2;
-                const float rowDeltaSq = normalDeltaSq + tangentDeltaSq;
+                // Why: retain the historical sum for diagnostic scale and row-
+                // family attribution only. It no longer controls simulation,
+                // and inactive/private worlds skip this accumulation.
+                iterImpulseSq += rowDeltaSq;
                 iterationDiagnostics.normalImpulseDeltaSq += normalDeltaSq;
                 iterationDiagnostics.tangentImpulseDeltaSq += tangentDeltaSq;
 
@@ -1328,17 +1349,6 @@ void PersistentContactSolveTransaction::SolveRowsIterations( PhysicsContactSolve
                 if ( deltaT1 != 0.0f || deltaT2 != 0.0f )
                 {
                     ++iterationDiagnostics.tangentChangedRowCount;
-                }
-
-                if ( rowDeltaSq > iterationDiagnostics.maxRowImpulseDeltaSq )
-                {
-                    iterationDiagnostics.maxRowImpulseDeltaSq = rowDeltaSq;
-                    iterationDiagnostics.maxRowNormalImpulseDeltaSq = normalDeltaSq;
-                    iterationDiagnostics.maxRowTangentImpulseDeltaSq = tangentDeltaSq;
-                    iterationDiagnostics.maxRowBodyA = c.bodyA;
-                    iterationDiagnostics.maxRowBodyB = c.bodyB;
-                    iterationDiagnostics.maxRowFeatureId = c.featureId;
-                    iterationDiagnostics.maxRowIsTerrain = c.isTerrain;
                 }
             }
 
@@ -1366,12 +1376,12 @@ void PersistentContactSolveTransaction::SolveRowsIterations( PhysicsContactSolve
             stage.m_persistentContactConvergenceTrace.Append( iterationDiagnostics );
         }
 
-        // ENGINE-SPECIFIC:
-        //   Catto lists residual/delta-based termination as a possible
-        //   Gauss-Seidel criterion on PDF p. 15, Section 7.1, then uses fixed
-        //   iterations for simplicity. This deterministic early-out is a local
-        //   optimization using total squared impulse delta.
-        if ( iterImpulseSq < 1.0e-6f )
+        // CATTO REF:
+        //   Catto lists max(abs(delta lambda_i)) convergence on PDF p. 15,
+        //   Section 7.1. Squaring both sides preserves that max-row decision
+        //   while avoiding a square root; diagnostic sums cannot make it depend
+        //   on how many otherwise independent rows the scene contains.
+        if ( maxRowImpulseDeltaSq < 1.0e-6f )
         {
             break;
         }

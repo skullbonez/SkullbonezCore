@@ -226,8 +226,8 @@ tools\physics_query.bat Debug\scene.physicsdiag.ndjson contacts --top penetratio
 ```
 
 The importer stores the engine's bounded convergence summaries in its local
-SQLite cache, including the exact squared impulse-delta stopping metric and
-row attribution. Request them with:
+SQLite cache, including the maximum per-row squared impulse delta that owns
+stopping, the historical diagnostic sum, and row attribution. Request them with:
 
 ```bat
 tools\physics_query.bat Debug\scene.physicsdiag.ndjson solver --include-convergence --limit 20

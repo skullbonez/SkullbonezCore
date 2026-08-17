@@ -26,8 +26,8 @@
 //     sleep eligibility through an object stack.
 //   Solver step policy: Once-per-solve normalized contact limits shared by
 //     object and terrain rows.
-//   Convergence trace: Bounded per-iteration attribution of the solver's
-//     stopping metric.
+//   Convergence trace: Bounded per-iteration record of the maximum per-row
+//     stopping metric plus diagnostic summed attribution.
 //
 // Invariants:
 //   - The fixture always bypasses broadphase. Terrain cases own their exact row;
@@ -45,6 +45,8 @@
 //     symmetric one-row and four-row impacts agree within sequential-solver residue.
 //   - Terrain rest policy preserves quiet residual motion; only the sleep owner
 //     zeros velocity after its configurable quiet-frame transition.
+//   - Convergence stops on the maximum row delta; diagnostic sums never make
+//     independently quiet contacts consume another global iteration.
 //   - Closed energy cases disable external work and compare the whole solve;
 //     Baumgarte cases name their explicit separation-work allowance instead.
 //
@@ -1511,7 +1513,7 @@ TEST_CASE( "Persistent contact solver: object support chain exposes honest norma
 
     // Invariant: this aligned object-only chain has negligible tangent demand.
     // If it reaches the configured cap, a single normal row still exceeds the
-    // broad stopping threshold; the cap is honest non-convergence, not merely
+    // max-row stopping threshold; the cap is honest non-convergence, not merely
     // the sum of many individually quiet rows or stale terrain/friction work.
     CHECK( finalIteration.iteration == fixture.config.solver.iterations );
     CHECK( finalIteration.stoppingImpulseDeltaSq > 1.0e-6f );
@@ -1528,6 +1530,32 @@ TEST_CASE( "Persistent contact solver: object support chain exposes honest norma
     CHECK( finalIteration.maxRowBodyA >= 0 );
     CHECK( finalIteration.maxRowBodyB >= 0 );
     CHECK( fixture.solver.GetStats().solverIterations == fixture.config.solver.iterations );
+}
+
+
+TEST_CASE( "Persistent contact solver: individually quiet rows stop independently of row count" )
+{
+    constexpr int quietContactCount = 8;
+    SolverFixture fixture;
+    fixture.config.worldForces.gravity = 0.0f;
+    fixture.config.material.terrainFrictionCoefficient = 0.0f;
+    fixture.config.solver.iterations = 4;
+
+    for ( int bodyIndex = 0; bodyIndex < quietContactCount; ++bodyIndex )
+    {
+        fixture.AddDynamicSphere( Vector3( static_cast<float>( bodyIndex ) * 3.0f, 1.0f, 0.0f ),
+                                  Vector3( 0.0f, -0.0003f, 0.0f ) );
+        fixture.AddTerrainContact( bodyIndex, 200u + static_cast<uint32_t>( bodyIndex ), 0.0f );
+    }
+
+    fixture.Solve();
+
+    const auto samples = fixture.solver.GetConvergenceTrace().Samples();
+    REQUIRE( samples.size() == 1u );
+    CHECK( samples.front().stoppingImpulseDeltaSq > 1.0e-6f );
+    CHECK( samples.front().maxRowImpulseDeltaSq < 1.0e-6f );
+    CHECK( samples.front().normalChangedRowCount == quietContactCount );
+    CHECK( fixture.solver.GetStats().solverIterations == 1 );
 }
 
 

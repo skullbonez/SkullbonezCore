@@ -1,11 +1,11 @@
 # Catto Divergence Repairs
 
 Date: 2026-08-15
-Status: **Live — registered by owner direction 2026-08-15. 3/6 phases complete.**
+Status: **Live — registered by owner direction 2026-08-15. 4/6 phases complete.**
 Impact area: Physics contact solver, joints, CCD sequencing, terrain rest
 policy, physics baselines, tests, documentation
 Owner: Physics contact solver
-Priority: CD3 R3 max-based solver termination
+Priority: CD4 R2(a) joint accumulated-impulse warm start
 
 ## Scope Gate — Read First
 
@@ -50,7 +50,7 @@ Third column states the benefit of performing the repair.
 |---|---|---|
 | **R1. Position projection stacked on Baumgarte, and it multiplies by manifold row count.** `PersistentContactSolver.cpp:1802-1873`. Catto uses velocity bias only (Section 4.2). Here each row applies its own 35 percent correction from its own stale `c.penetration`, never re-reading position or re-deriving separation, so a four-point face manifold receives roughly 1.4x the intended correction rather than 0.35x. Also linear-only: no orientation correction. | Accumulate per-body correction in a scratch array during the row loop, reduce by **max required per normal direction** rather than sum, then apply once after the loop. Alternatively re-derive separation per row from current positions, as Box2D 2.4's position solver does. Add a focused test pinning that a four-row manifold produces the same body displacement as the one-row case at equal penetration. Do **not** fold in split-impulse here; that is CS3 in the parked WNF plan. | Penetration recovery stops depending on how many points the clipper happened to emit. Removes a hidden coupling between narrowphase row count and positional behavior. Establishes an honest baseline: split impulse cannot be evaluated fairly against a projection pass that itself over-corrects. |
 | **R2. Joints sit outside the constraint system and lose warm start.** `Ragdoll.cpp:383-491`. Catto lists "joints and contacts are handled in the same way" as an advantage of the formulation (Section 1). Here joints run as a separate pass after contacts, with no accumulated impulse and no warm start, a scalar row along the current error axis instead of a 3-DOF point-to-point block, ad-hoc softness `(relVel + biasSpeed) * (1 + damping)`, and their own direct position projection. | Staged. (a) Give joints an accumulated impulse cached on constraint handle, reusing the contact cache pattern; measure ragdoll sag under load before and after. (b) Replace the scalar error-axis row with a 3-DOF point-to-point block so the constraint pins coincidence, not distance. (c) Replace the damping multiplier with either Baumgarte consistent with the contact rows or an explicit documented soft constraint. (d) Only then consider folding joint rows into the shared PGS array so one sweep sees both families. | Ragdolls stop being materially softer under load than the contact system. Contacts and joints stop fighting each other across passes — today a body pinned under a box is pushed out by contacts and pulled back by joints, with neither seeing the other's impulses. Joint stiffness becomes a physical parameter instead of an iteration-count artifact. |
-| **R3. Global solver early-out uses a sum where Catto specifies a max.** `PersistentContactSolver.cpp:1372`. Breaks when total squared delta-lambda across all rows falls below a fixed 1e-6. Catto Section 7.1 lists `max abs(delta x_i)` below tolerance; a sum reports nothing about any individual row, and an absolute threshold unscaled by row count makes the criterion scene-size dependent. | Track maximum per-row squared delta-lambda alongside the existing sum and gate on the max, which is Catto's stated criterion. Keep the sum for diagnostics only. Island-local termination is strictly better but depends on CS1 in the parked WNF plan, so do not couple the two. | Converged small islands stop burning iterations held up by one large island; unconverged islands stop exiting early because many neighbours went quiet. Removes a scene-size-dependent term from a simulation whose contract is byte-exactness. |
+| **R3. Global solver early-out uses a sum where Catto specifies a max.** `PersistentContactSolver.cpp:1372`. Breaks when total squared delta-lambda across all rows falls below a fixed 1e-6. Catto Section 7.1 lists `max abs(delta x_i)` below tolerance; a sum obscures whether any individual row exceeds tolerance, and an absolute threshold unscaled by row count makes the criterion scene-size dependent. | Track maximum per-row squared delta-lambda alongside the existing sum and gate on the max, which is Catto's stated criterion. Keep the sum for diagnostics only. Island-local termination is strictly better but depends on CS1 in the parked WNF plan, so do not couple the two. | A global sweep can stop when every row satisfies the tolerance even if many individually quiet rows make their diagnostic sum exceed it. One unconverged row still keeps every island iterating until island-local termination has an owner. Removes a scene-size-dependent term from a simulation whose contract is byte-exactness. |
 | **R4. CCD advances bodies mid-tick, but the solver still uses the full `dt`.** `PersistentContactSolver.cpp:901` and `:1087`. Catto Section 6 assumes one uniform delta-t across the system; Equations 34-35 are written for it. Here swept narrowphase and terrain advance bodies to time-of-impact and consume per-body fractions of the tick via `m_timeRemaining`, the solve runs on that mixed configuration, then remaining time integrates per body — yet `invDt` and the friction bound `mu * m_c * g * dt` both use the whole tick. | Retain the owner-authored partial-TOI architecture: advance to impact, solve the redirected velocity, and integrate that velocity through the remainder of the same fixed step. Define an explicit contact interval from the participating bodies' remaining-time values, then use that interval consistently for Baumgarte scaling and friction impulse bounds. Prove terrain, dynamic/dynamic, fixed/dynamic, near-zero remainder, and unequal-remainder cases. Speculative contacts are a separate future design in `Agentic/Plans/TODO/future_physics.md`; they are not part of R4. | The solver's time-scaled row terms describe the interval in which the contact actually exists without discarding the partial-step CCD design. The friction budget and penetration correction become consistent with post-impact integration while speculative-contact risk remains separately reviewable. |
 | **R5. Terrain restitution is divided by manifold point count; object contacts are not.** `PersistentContactSolver.cpp:1033` versus `:1051`. One physical quantity, two formulas. Bounce becomes a function of how many rows the manifold emitted, so a flat landing on four points behaves differently from an edge landing on two, beyond what the physics justifies. | Delete the `/pointCount` division and use one restitution formula on both paths. If the division exists to suppress multi-row bounce amplification, then the real defect is restitution being applied per row: compute the restitution target once per manifold from the pre-solve approach velocity and distribute it, rather than scaling each row. | Bounce height stops depending on manifold cardinality. One restitution formula to reason about and test instead of two. Removes a damping term that is currently disguised as restitution and therefore invisible to anyone tuning damping. |
 | **R6. Velocity snapped to zero on hardcoded thresholds inside the solve transaction.** `PersistentContactSolver.cpp:1649-1660` in `ApplyTerrainRestPolicy`. Unconditional energy destruction below 0.05 linear and 0.02 angular, hardcoded while every neighbouring threshold is config-exposed, and applied before writeback where the closed-solve energy oracle cannot attribute it. Catto Section 9.1 is explicit that his stack needed no damping. | Delete the snap and move the responsibility to `PhysicsSleepController`, which already owns quiet-frame counting with configurable thresholds. If a snap is genuinely required to reach sleep, derive its thresholds from the sleep thresholds rather than restating them as literals, and apply it after writeback so `ContactEnergyOracle` can see it. | Removes unaccounted energy destruction from inside the solve. Restores one owner for "is this body quiet" instead of two disagreeing ones. Makes the thresholds tunable and visible. Lets the energy oracle measure the true solve rather than a post-damped one. |
@@ -210,7 +210,7 @@ so replay fidelity is a cumulative gate rather than an alternative one.
   four-row-versus-one-row displacement test.
 - [x] **CD2 — R5 and R6.** One restitution formula across both paths; snap
   responsibility moved to the sleep controller. Land as two commits.
-- [ ] **CD3 — R3 termination criterion.** Max-based early-out; sum retained for
+- [x] **CD3 — R3 termination criterion.** Max-based early-out; sum retained for
   diagnostics only.
 - [ ] **CD4 — R2(a) joint warm start only.** Cache the accumulated joint
   impulse on the constraint handle and measure ragdoll sag under load. Stages
@@ -390,6 +390,57 @@ privilege change. It confirmed `PrecomputeRows` remains one cohesive
 row-precompute owner; the reviewed body digest was renewed, and its only test
 false-pass concern was closed by the absolute restitution assertion. Touched-
 source comment audit: 2/2 checked, 0 deferred.
+
+### CD3 Evidence — 2026-08-18
+
+R3 now computes the squared normal-plus-tangent impulse delta for every contact
+row, tracks the maximum independently of diagnostics, and uses that maximum for
+the global convergence early-out. The historical summed delta remains available
+as `stoppingImpulseDeltaSq` only when convergence diagnostics are collected; it
+cannot affect production stopping. The focused eight-contact oracle proves all
+eight individually quiet rows contributed, their diagnostic sum exceeds
+`1e-6`, every row remains below `1e-6`, and the solver stops after one sweep.
+The pre-repair implementation took two sweeps and failed the one-sample
+requirement. `tools\validate_tests.bat` passed 582 cases / 2,479,968 assertions;
+the final hardened focused case passed 1 case / 5 assertions.
+
+`tools\validate_physics.bat` completed its Debug build, lifecycle smoke, and
+scene run before the intentionally immutable golden comparison reported 13,369
+different rows across 23 bodies from frame 102 through frame 1199. A second
+scene run was byte-identical. The preserved direct candidate under
+`TestOutput/validation/candidates/CATTO_REPAIRS_CD3/` has CORE hash
+`64567500D2998B962141B96E994B7E3A47022DAF6CBBD2F03DD38EB0887516F2`,
+TESTS hash
+`895A4E113C8D2832468A7DC0AA68F4ED9B92F5476D3DD24B3B6DEE865E9464C8`,
+and CSV hash
+`61D7EFC266A5740DC8FD71A0C8AA89F85B13703EE1193DCFFAF2F997AF4B86E7`.
+
+The replay-visual launcher, Automation build, and 17 focused cases / 75
+assertions passed before the physics-derived causal golden reported
+`topology[1].firstFrame` moving from 154 to 174. The preserved candidate under
+`TestOutput/validation/candidates/CATTO_REPAIRS_CD3_REPLAY_VISUAL_FIDELITY/`
+has Automation CORE hash
+`F40010952E53709A834EC2F4663A626A8B98C7448612E1BFB987035A02A39488`,
+Profile TESTS hash
+`247D67EBCAE947867D8EA4D4CDA66546E0B5A6F6DB1AFDAA4903DBB82E5FA30A`,
+report hash
+`D254A1C5A5D59E2C7515056E136A156FE72146E2FF9A00EEDADC09AA43C88EFE`,
+capture-log hash
+`C88B091E095B2CCBBA55DED40113B21B66579068FEBB8D11ECD74C70AE240A4E`,
+and replay-artifact hash
+`FA97A3B1C661967E4CDAD96CD67E9F872AA581C8DB500DA1755B8B08B8444664`.
+No CD3 golden was refreshed.
+
+`tools\validate_perf.bat` passed its allocation-policy and DX12 scale gates.
+The dependency proof reports zero findings. All seven governance inventories
+are green: 88/88 aggregate rulings, the sole extraction scar ruled, every wide
+signature ruled, 40/40 complexity rulings, build configuration and strict
+reachability with zero blockers, and 599 glossary files with no duplicate or
+drifted term. The independent `/root/catto_cd3_duck` review found no remaining
+implementation, ownership, dependency, Replay, allocation, schema, or evidence
+blocker after correcting stale diagnostics and plan prose. Touched-source
+comment audit: 3/3 checked, 0 deferred; the two related reference documents
+were also reconciled.
 
 ## Reference Sites
 

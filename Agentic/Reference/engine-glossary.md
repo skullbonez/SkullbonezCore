@@ -87,7 +87,7 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 | Contact sweep | Conservative object/object time-of-impact query used before exact manifold generation and solver response. |
 | Content signature | Hash of UI-visible values used to invalidate cached draws. |
 | Control surface | Fixed-capacity per-frame table shared by scrubber hit testing and, in later phases, drawing. |
-| Convergence trace | Bounded per-iteration attribution for the solver's squared-impulse stopping metric. |
+| Convergence trace | Bounded per-iteration record of the solver's maximum per-row squared-impulse stopping metric plus diagnostic summed attribution. |
 | Convex hull | Collision shape made from a closed convex set of authored points. |
 | Covering fence | Queue counter proving all earlier GPU references are finished. |
 | Cross-scene pause lock | Scene-owned fact that forces step-held physics even when the active camera or tool would normally keep simulation running. |
