@@ -2,13 +2,13 @@
 
 Date: 2026-08-17
 Branch: `codex/master-plan-2026-08-16`
-Status: Two active plans; 16/24 tasks complete
+Status: Two active plans; 17/24 tasks complete
 
 Determinism Envelope Tier-2 Hardening (9 tasks) and Catto Divergence Repairs
 (6 tasks) are registered under `Agentic/Plans/TODO/`; Causal C0-C8,
-Determinism T0-T2 and T5-T7, and Catto CD0 are complete. `MASTER-PLAN.md` carries
-the binding order, with Determinism T8 next. The completed causal plan was deleted under the
-repository convention; Git history retains its phase evidence.
+Determinism T0-T2 and T5-T8, and Catto CD0 are complete. `MASTER-PLAN.md` carries
+the binding order, with Determinism T3 next. The completed causal plan was
+deleted under the repository convention; Git history retains its phase evidence.
 
 Replay Prediction Adversarial Repair completed on
 `codex/replay-prediction-adversarial-fixes` in two `REPLAY_ADVERSARIAL` commits.
@@ -49,11 +49,13 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-`TIER2_DETERMINISM` T8. Extend the hosted Windows lane with direct byte-exact
-physics evidence while pinning and recording enough toolchain/runner provenance
-to distinguish machine variation from image drift. Observe one complete hosted
-run green before closing the phase. T1's deterministic math owner remains
-unadopted in Physics until T3/T4. Continue in the plan's recorded order, then run
+`TIER2_DETERMINISM` T3. Adopt the deterministic rotation owner in the Physics
+pose integrator, preserve every baseline-failing executable and record its diff,
+then continue through T4 without refreshing a golden. T8's hosted run
+`31990868600` proved one Debug executable byte-exact on two fresh hosted runner
+identities under the same current Windows image and AMD EPYC model. T1's
+deterministic math owner remains unadopted in Physics until T3/T4. Continue in
+the plan's recorded order, then run
 `CATTO_REPAIRS` CD1-CD5.
 `future_physics.md` remains unregistered.
 
@@ -82,6 +84,13 @@ upgrading 0/1 packages, and only the workflow's explicit version assertion caugh
 that the runner's pre-installed 20.1.8 had been left in place. Do not repin
 downward: `.clang-format:43` sets `BinPackLongBracedList`, which clang-format 20
 rejects outright, and all 651 tracked C++ sources format differently under 20.
+
+The same workflow now builds one Debug physics runtime artifact after restoring
+the pinned PIX package with patched NuGet 6.14.3, then runs that exact
+manifest-hashed payload on two fresh hosted runners without rebuilding. Run
+`31990868600` passed end to end on `eddb25e88`, with both replicas reporting
+`byte_comparison=PASS` for executable SHA-256
+`2C5CFEF85DAD5595A104277A2A2185D3ACBE18ECF2C2B8FCCA288CD5CA27EDE8`.
 
 ## Finding That Motivated The Plan
 

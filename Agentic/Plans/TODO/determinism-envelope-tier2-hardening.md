@@ -1,12 +1,12 @@
 # Determinism Envelope Tier-2 Hardening
 
 Date: 2026-08-15
-Status: Active. 6/9 tasks complete.
+Status: Active. 7/9 tasks complete.
 Impact area: Maths transcendentals, Physics pose integration, ragdoll neck
 constraint, determinism tooling, portable CPU test target, CI lanes
 Owner: Physics determinism envelope
-Priority: Active — T5 through T8 are unblocked; T3 and T4
-require an explicit owner baseline decision before any source edit.
+Priority: Active — T8 is complete; T3 and T4 are next under the recorded
+baseline-artifact ruling.
 
 ## Owner Direction
 
@@ -512,7 +512,7 @@ violation if one exists.
   re-review returned no blocking or non-blocking findings. T8 owns the first
   observed hosted run; no Physics baseline or golden changed here.
 
-- [ ] **T8 — Add cross-machine byte evidence to the hosted Windows lane.**
+- [x] **T8 — Add cross-machine byte evidence to the hosted Windows lane.**
   Extend `.github/workflows/mandatory-cpu-validation.yml` so the physics
   regression comparison executes on the hosted `windows-latest` fleet, whose
   runners span multiple CPU vendors and generations. This is the only phase that
@@ -522,6 +522,38 @@ violation if one exists.
   clang-format and OpenCppCoverage steps already do, or build once and execute
   the same artifact on multiple runners. Record which form of evidence the lane
   actually produces; a passing run whose confound is undocumented is not proof.
+
+  Evidence (2026-08-17): hosted run
+  [31990868600](https://github.com/skullbonez/SkullbonezCore/actions/runs/31990868600)
+  passed on source SHA `eddb25e88f1f8ea65dd2936eebc48c0633ff7c93`.
+  The existing mandatory Windows CPU job passed in 27m27s. A separate artifact
+  job then restored pinned `WinPixEventRuntime` `1.0.240308001` with patched
+  NuGet `6.14.3`, built Debug exactly once, recorded Visual Studio
+  `18.8.12023.21` / toolset `v145` / MSVC `14.51.36231`, and uploaded one
+  manifest-hashed runtime payload. The build allocation was runner
+  `GitHub Actions 1000000130` on image `win25-vs2026` version
+  `20260810.198.2`, reporting an AMD EPYC 7763.
+
+  Two later matrix jobs, runner identities `GitHub Actions 1000000131` and
+  `GitHub Actions 1000000132`, downloaded that payload and did not rebuild it.
+  Both verified executable SHA-256
+  `2C5CFEF85DAD5595A104277A2A2185D3ACBE18ECF2C2B8FCCA288CD5CA27EDE8`,
+  emitted identical two-run raw CSV SHA-256
+  `4C7F3533A14A8D60F6E64B2B8244E262C929FD97C18E70695C3BCF133E1784C6`,
+  and passed the authoritative canonical comparison against committed baseline
+  SHA-256
+  `4DCE1BE8AD1DDE337281C7F37C25FCF3FD7B9268BCFE0B382FEFB4F85DFE69AA`.
+  The raw output is twice the baseline size because each replica intentionally
+  executes two runs; the checker reported `output runs=2, baseline runs=1` and
+  a byte-exact match.
+
+  This proves the same MSVC Debug artifact on two fresh hosted-runner
+  allocations other than the owner's machine. It does not claim CPU-vendor or
+  hosted-image diversity: both replicas reported the same Windows image and AMD
+  EPYC model, and the image's computer-name string was identical even though the
+  runner identities were distinct. `tools\validate_fast.bat` passed on the
+  final workflow tree, independent review was clear, and no Physics source,
+  baseline, or golden changed.
 
 ## Validation
 
