@@ -32,13 +32,18 @@ solver-local velocity snap.
 - Keep the authored `at_rest` masses, radii, restitution, gravity, timestep,
   playback length, and initial poses as the primary witness. Do not make the
   scene easier to pass to hide an engine defect.
-- Friction coefficients are frozen. Changing terrain, object, rolling, or spin
-  friction values is a non-fix. A diagnosed repair may correct how the existing
-  coefficients are applied, accumulated, bounded, or persisted, but may not
-  increase them to force earlier rest.
-- Sleep thresholds are frozen. Changing `PhysicsSleepConfig.linearSpeed`,
-  `angularSpeed`, or `frames` is a non-fix. The engine must remove the spurious
-  motion/support churn so bodies satisfy the existing policy naturally.
+- Friction coefficients and sleep thresholds are owner-gated fallback
+  hypotheses, not assumptions. Diagnose whether the existing values are truly
+  insufficient, but first exhaust contact geometry, solver response, cache,
+  support, and counter-reset defects that can manufacture the same symptoms.
+- Non-production one-variable A/B probes may vary terrain/object/rolling/spin
+  friction or `PhysicsSleepConfig.linearSpeed`, `angularSpeed`, and `frames` to
+  measure sensitivity. No production policy value may change without an
+  evidence packet and the owner's explicit approval.
+- If a policy value is the only explanation consistent with the evidence,
+  report the exact requested value/delta, affected consumers, before/after
+  metrics, cross-scene consequences, and rejected proper fixes. Block that
+  production edit until the owner says yes.
 - `PhysicsSleepController` remains the only owner that transitions a body into
   sleep and zeroes residual velocities. Contact solving may publish support and
   quieting evidence, but it may not reintroduce a solver-local hard snap.
@@ -153,8 +158,10 @@ the unchanged baseline failing the new semantic target for the expected reason.
   resistance, warm-start/cache continuity, and sleep policy separately.
 - [ ] For every proposed edit, name the invariant-owning function/stage and the
   exact symptom/metric it owns. Reject broad global tuning without causal proof.
-- [ ] Reject friction-coefficient and sleep-threshold changes explicitly; they
-  may be diagnostic probes only and cannot enter the candidate source state.
+- [ ] Treat friction-coefficient and sleep-threshold changes as diagnostic
+  probes only while proper solver/contact/support fixes remain viable. If the
+  evidence isolates a policy deficiency, prepare the owner-decision packet and
+  stop before changing production values.
 - [ ] Record why each non-owning candidate was ruled out and whether the three
   balls share one cause or need distinct repairs.
 - [ ] Update the plan with the selected repair behavior before implementation.
@@ -180,8 +187,10 @@ and unchanged initial-impact behavior where the repair should be inactive.
 - [ ] Repair the diagnosed tangent/rolling response without injecting generic
   damping or forcing angular velocity to zero in the contact solver.
 - [ ] Keep static/dynamic friction and rolling resistance dimensionally and
-  timestep consistent while preserving every existing friction coefficient
-  bit-exactly; preserve credible no-slip rolling before rest.
+  timestep consistent; preserve credible no-slip rolling before rest.
+- [ ] Preserve existing friction coefficients unless isolated A/B evidence
+  proves they are insufficient and the owner explicitly approves the recorded
+  production change.
 - [ ] Prove reduced tail slip, bounded friction saturation, monotonic late
   energy decay, and no repeated back-and-forth direction changes after the last
   material impact.
@@ -195,8 +204,9 @@ rolling tests, and cross-scene motion controls.
 
 - [ ] Keep quiet thresholds, support propagation, inhibition, and final
   transition under `PhysicsSleepController` ownership.
-- [ ] Preserve the existing linear/angular speed thresholds and quiet-frame
-  count bit-exactly; fix the motion and counter-reset causes instead.
+- [ ] Fix spurious motion and counter-reset causes before proposing any change
+  to the existing linear/angular thresholds or quiet-frame count. If policy is
+  still the isolated cause, block the edit on explicit owner approval.
 - [ ] Ensure all three supported balls accumulate consecutive quiet frames and
   sleep within the RS0 target after their last material impact.
 - [ ] Prove unsupported, externally forced, materially impacted, or island-
@@ -247,7 +257,8 @@ hashes, baseline decision, and terminal plan-completion output.
 - [ ] Sleep occurs only through `PhysicsSleepController` after consecutive quiet
   supported frames; wake behavior remains exact.
 - [ ] Friction coefficients and sleep thresholds/frame counts are unchanged
-  from the pre-plan source state.
+  unless the final evidence packet records the owner's explicit approval for an
+  exact policy change and its cross-scene validation scope.
 - [ ] Candidate runs and 0/1/4-worker results are deterministic.
 - [ ] The semantic oracle includes planted false-pass controls and does not use
   the known-issue hash as its only correctness signal.
@@ -273,11 +284,12 @@ hashes, baseline decision, and terminal plan-completion output.
 - Do not add unconditional global damping, a contact-solver velocity snap, or a
   second retained rest/sleep state owner.
 - Do not change terrain/object/rolling/spin friction coefficients or any sleep
-  speed/frame threshold. Those are explicitly ruled non-fixes.
+  speed/frame threshold without isolated causal evidence and explicit owner
+  approval. Diagnostic-only probes do not authorize a production edit.
 - Do not disable warm starting, CCD, partial-TOI integration, support
   classification, or wake propagation to reduce visible motion.
-- Do not tune material response or sleep policy to move the pass line around
-  the existing defective motion.
+- Do not tune material response or sleep policy merely to move the pass line
+  around defective contact, solver, cache, support, or counter behavior.
 - Do not accept “eventually sleeps by frame 1800” while visible sliding,
   vertical vibration, or repeated rolling reversals remain.
 - Do not ingest raw NDJSON/SQLite artifacts into model context or refresh a

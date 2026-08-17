@@ -17,8 +17,10 @@ The owner parked Deterministic Trigonometry under `Agentic/Plans/WNF/` on
 plan keeps the authored `at_rest.scene.json` witness unchanged, requires bounded
 SkullScope diagnosis and semantic false-pass controls before tuning, and treats
 vertical vibration, excessive sliding, rolling reversals, and delayed supported
-sleep as separate completion metrics. Friction coefficients and the existing
-sleep speed/frame thresholds are frozen; changing either is an explicit non-fix.
+sleep as separate completion metrics. Friction and sleep policy remain valid
+diagnostic hypotheses, but proper contact/solver/support fixes come first and
+any production policy change is blocked on isolated evidence plus explicit
+owner approval.
 
 Catto CD5 retained the authored partial-TOI sequence and derives one local
 contact interval from the remaining time of each awake dynamic participant.

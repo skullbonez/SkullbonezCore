@@ -55,9 +55,9 @@ Status: Three active plans; 24/47 tasks complete
   by owner direction. It uses bounded SkullScope evidence to diagnose and fix
   the `at_rest.scene.json` balls' vertical vibration, excessive sliding,
   repeated rolling reversals, and delayed sleep without changing the scene to
-  manufacture a pass or reintroducing a solver-local velocity snap. Friction
-  coefficients and sleep thresholds/frame counts are explicitly frozen non-
-  fixes.
+  manufacture a pass or reintroducing a solver-local velocity snap. Proper
+  contact/solver/support fixes must be exhausted first; any production friction
+  or sleep-policy change requires isolated evidence and explicit owner approval.
 - Continuous Orbital Forecast was reactivated by owner direction on
   2026-08-17. It follows predicted solver detail and owns the separate
   interactive continuous prediction mode, coherent rolling 120-second path
