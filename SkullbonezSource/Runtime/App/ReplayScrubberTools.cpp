@@ -748,7 +748,12 @@ void ReplayRuntime::ApplyCauseInspectionLifecycle( int requestedRow, bool exitCa
 
     const RuntimeMouseEdges& mouse = inputRouter.UiSnapshot().mouse;
     const bool nonSelectionClick = requestedRow < 0 && ( mouse.leftPressed || mouse.rightPressed );
-    const bool scrubExit = scrubberHostAction == ReplayInspectionCameraAction::Exit;
+
+    // Why: the scrubber evaluates its own surface before the cause window has
+    // published a row intent, so a valid row click can also look like an
+    // outside-scrubber exit. The row selection wins this turn; a later genuine
+    // non-selection click still returns from causal inspection.
+    const bool scrubExit = requestedRow < 0 && scrubberHostAction == ReplayInspectionCameraAction::Exit;
     inspection = m_planningOwner.CauseInspectionView();
 
     if ( !ShouldBeginReplayCauseReturn( inspection, nonSelectionClick, scrubExit ) )
@@ -799,7 +804,17 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
 
     const bool planningOwnsMouse = m_planningOwner.TickPointerSurface( input.uiBlocksMouse, input.screenWidth, inputRouter );
 
-    const ReplayInspectionCameraAction scrubberHostAction = TickScrubberInput( input.uiBlocksMouse || planningOwnsMouse,
+    const RuntimePointerEvent& preScrubberPointer = inputRouter.RuntimeSnapshot().pointer;
+    const bool pointerOverCauseWindow = !m_authoring.CauseTree().rows.empty() && preScrubberPointer.hasClientPosition &&
+                                        ReplayOverlay::ReplayCauseWindowContainsPoint( m_authoring.CauseTree(),
+                                                                                       preScrubberPointer.clientX,
+                                                                                       preScrubberPointer.clientY );
+
+    // Why: the scrubber runs before cause-row hit testing. Treat the visible
+    // cause panel as an upstream surface now so its click cannot first mutate
+    // scrubber/camera state and invalidate the row it intends to retarget.
+    const ReplayInspectionCameraAction scrubberHostAction = TickScrubberInput( input.uiBlocksMouse || planningOwnsMouse ||
+                                                                                   pointerOverCauseWindow,
                                                                                input.editorModeEnabled,
                                                                                input.scenePhysicsEnabled, input.uiVisible,
                                                                                input.uiMinimized, input.screenWidth,

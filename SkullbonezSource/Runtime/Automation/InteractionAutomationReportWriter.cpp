@@ -1354,6 +1354,7 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
     const ReplayPredictionBaselineSnapshot& predictionBaseline = predictionState.baseline;
     const bool predictionBaselineVisible = predictionBaseline.valid && predictionBaseline.comparisonActive;
     int predictionAuthoredWallBrickCount = 0;
+    int replayCauseTreeMaximumDepth = 0;
     int predictionAffectedWallBrickCount = 0;
     int predictionMovedWallBrickCount = 0;
     int predictionToppledWallBrickCount = 0;
@@ -1501,6 +1502,11 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
         }
         predictionSustainedToppledWallBrickCount += toppledThroughoutFinalSecond ? 1 : 0;
         predictionSettledWallBrickCount += settledThroughoutFinalSecond ? 1 : 0;
+    }
+
+    for ( const RunReplayCauseTreeRow& row : replay.causeTree.rows )
+    {
+        replayCauseTreeMaximumDepth = (std::max)( replayCauseTreeMaximumDepth, row.depth );
     }
 
     PredictionTrajectoryFingerprint predictionTrajectoryFingerprint = BuildPredictionTrajectoryFingerprint( replay );
@@ -1751,6 +1757,7 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
                                 { "predictionRetainedHorizonMarkerCount",
                                   static_cast<int>( predictionRetainedHorizonMarkerCount ) },
                                 { "replayCauseTreeRowCount", static_cast<int>( replay.causeTree.rows.size() ) },
+                                { "replayCauseTreeMaximumDepth", replayCauseTreeMaximumDepth },
                                 { "replayCauseTreeSelectedRow", replay.causeTree.selectedRow },
                                 { "replayCauseTreeHasWindowPlacement", replay.causeTree.hasWindowPlacement },
                                 { "replayCauseTreeWindowX", replay.causeTree.x },

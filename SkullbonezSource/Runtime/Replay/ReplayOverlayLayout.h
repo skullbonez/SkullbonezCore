@@ -147,6 +147,9 @@ UI::UIRect ReplayCauseWindowRect( const RunReplayCauseTreeState& state );
 UI::UIRect ReplayCauseWindowTitleRect( const RunReplayCauseTreeState& state );
 UI::UIRect ReplayCauseWindowContentRect( const RunReplayCauseTreeState& state );
 UI::UIRect ReplayCauseWindowResizeRect( const RunReplayCauseTreeState& state );
+
+// Includes the panel edges so input ownership matches RuntimeUiSurface hit tests.
+bool ReplayCauseWindowContainsPoint( const RunReplayCauseTreeState& state, int x, int y );
 float ReplayCauseWindowContentHeight( const RunReplayCauseTreeState& state );
 float ReplayCauseWindowMaxScroll( const RunReplayCauseTreeState& state );
 void ClampReplayCauseWindow( RunReplayCauseTreeState& state, int screenW, int screenH );

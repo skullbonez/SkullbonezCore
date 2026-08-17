@@ -85,11 +85,11 @@
     {
       "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.cpp",
       "signature": "SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( InteractionAutomationRunStatus& status, const char* scriptPath, const SceneWorld& world, const SceneSessionState& scene, const char* scenePath, const RuntimeTools& runtimeTools, const ReplayAutomationView& replay, const RuntimeInteractionController& interaction, const CameraControlState& camera, const UI::InGameUI& ui, const Rendering::RenderSceneSnapshot& renderSnapshot )",
-      "body_sha256": "1c32575b23f13f1c4338221f4d142f8f8fc045c4e973f072fdaf7bacd79941e5",
+      "body_sha256": "728444cb8af5ec98cf1d8fd9f3fd4764cda2b7558579f7e7bcf94f872b986978",
       "owner": "InteractionAutomationReportWriter report transaction",
       "disposition": "retain-owner",
       "reason": "One writer projects the bounded automation result schema from synchronized runtime snapshots and emits one durable report; field ordering and failure cleanup are one serialization invariant.",
-      "evidence": "adversarial replay-prediction repair owner review (2026-08-16)",
+      "evidence": "causal hierarchy and repeated-click regression review (2026-08-17)",
       "plan": ""
     },
     {
@@ -155,11 +155,11 @@
     {
       "file": "SkullbonezSource/Runtime/Prediction/ReplayAuthoringCauseTree.cpp",
       "signature": "bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const RunReplayPathVisualizerState& path, const ReplaySolverFrameSample* solverSample, std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords, const PhysicsBodyStore& bodyStore, const RunReplayCameraState& camera, int& outCameraFocusedRow )",
-      "body_sha256": "2057925b2bf252d56494d7ae2c38e802d5046b745c4ff04d43814ca1936d26cd",
+      "body_sha256": "45b8177ff0242b871bb830c19328426f7ec13747e444e403aedd0deb67f8c236",
       "owner": "ReplayPrediction cause-tree projection",
       "disposition": "retain-owner",
       "reason": "One prediction owner projects a solver sample, retained presentation rows, body identities, exact source-bank frames, and camera focus into a coherent cause-tree row set; row identity, frame addressability, and focus arbitration are one result invariant.",
-      "evidence": "CAUSAL_INSPECT C0 owner review (2026-08-16)",
+      "evidence": "causal hierarchy and repeated-click regression review (2026-08-17)",
       "plan": ""
     },
     {
