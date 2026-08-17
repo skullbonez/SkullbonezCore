@@ -41,6 +41,8 @@
 //     and byte-identical body writeback; only full mode retains payload rows.
 //   - Position cleanup reduces each manifold to its deepest row, accumulates the
 //     inverse-mass shares per body, and publishes each body position once.
+//   - Terrain restitution targets are independent of retained manifold row count;
+//     symmetric one-row and four-row impacts agree within sequential-solver residue.
 //   - Closed energy cases disable external work and compare the whole solve;
 //     Baumgarte cases name their explicit separation-work allowance instead.
 //
@@ -1412,6 +1414,49 @@ TEST_CASE( "Persistent contact solver: restitution creates separating terrain ve
     CHECK( fixture.diagnostics.GetDebugContacts()[0].separationBias == 0.0f );
     CHECK( fixture.bodyStore.HotFields().linearVelocityY[0] > 0.0f );
     CHECK( fixture.bodyStore.HotFields().linearVelocityY[0] <= 6.0f * 0.75f + 0.0001f );
+}
+
+
+TEST_CASE( "Persistent contact solver: terrain restitution ignores manifold row count" )
+{
+    const std::array onePoint { Vector3( 0.0f, -1.0f, 0.0f ) };
+    const std::array fourPoints { Vector3( -0.75f, -1.0f, -0.75f ), Vector3( 0.75f, -1.0f, -0.75f ),
+                                  Vector3( -0.75f, -1.0f, 0.75f ), Vector3( 0.75f, -1.0f, 0.75f ) };
+
+    auto measureBounceSpeed = []( auto contactOffsets )
+    {
+        SolverFixture fixture;
+        fixture.config.material.terrainFrictionCoefficient = 0.0f;
+        fixture.AddMovingBox( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 1.0f, 1.0f, 1.0f ),
+                              Vector3( 0.0f, 1.0f, 0.0f ), 0.0f, Vector3( 0.0f, -6.0f, 0.0f ), ZERO_VECTOR,
+                              1.0f, 0.75f, false );
+        fixture.AddTerrainContactAtOffset( 0, 100u, 0.0f, contactOffsets[0], true, false );
+
+        TerrainContactManifold& manifold = fixture.terrainContactManifolds[0];
+        manifold.pointCount = static_cast<uint8_t>( contactOffsets.size() );
+        const auto hotFields = fixture.bodyStore.HotFields();
+
+        for ( std::size_t pointIndex = 0; pointIndex < contactOffsets.size(); ++pointIndex )
+        {
+            manifold.points[pointIndex].featureId = 100u + static_cast<uint32_t>( pointIndex );
+            manifold.points[pointIndex].rA = contactOffsets[pointIndex];
+            manifold.points[pointIndex].point = PhysicsBodyPosition( hotFields, 0u ) + contactOffsets[pointIndex];
+            manifold.points[pointIndex].penetration = 0.0f;
+        }
+
+        fixture.Solve();
+        return fixture.bodyStore.HotFields().linearVelocityY[0];
+    };
+
+    const float onePointBounceSpeed = measureBounceSpeed( onePoint );
+    const float fourPointBounceSpeed = measureBounceSpeed( fourPoints );
+
+    // Invariant: restitution is a target separating speed for the physical
+    // impact, not a budget divided among whichever contact rows terrain retained.
+    // Symmetric rows may retain sub-percent sequential-solver residue, while the
+    // retired point-count division reduced the four-row target by 75 percent.
+    CHECK( onePointBounceSpeed > 0.0f );
+    CHECK( fourPointBounceSpeed == doctest::Approx( onePointBounceSpeed ).epsilon( 0.01 ) );
 }
 
 

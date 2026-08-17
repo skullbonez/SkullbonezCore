@@ -1026,11 +1026,13 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
             }
             else if ( vn < -restitutionThreshold )
             {
-                const uint8_t pointCount = c.manifoldPointCount > 0 ? c.manifoldPointCount : 1;
                 const float restitution = elasticCollisions ? 1.0f
                                                             : colliderRecords[static_cast<size_t>( c.bodyA )].restitution;
 
-                c.bias = ( -restitution * vn ) / static_cast<float>( pointCount );
+                // Invariant: restitution targets the separating speed at every
+                // retained contact point. Dividing by manifold row count makes
+                // byte-exact bounce behavior depend on terrain tessellation.
+                c.bias = -restitution * vn;
             }
         }
         else

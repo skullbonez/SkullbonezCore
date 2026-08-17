@@ -286,6 +286,49 @@ files / 144 ruled divergences / 0 blocking, 599 glossary files / 0 blocking,
 and strict reachability 81 rows / 0 blockers; the wide-signature inventory also
 has no blocking row. Touched-source comment audit: 4/4 checked, 0 deferred.
 
+### CD2 R5 Evidence â€” 2026-08-18
+
+R5 removed the terrain-only division of restitution bias by retained manifold
+point count. The focused symmetric-box oracle compares one center row with four
+corner rows: the separating speeds are 4.50000 and 4.46926 metres per second.
+The sub-percent difference is ordinary sequential-row residue; the retired
+formula divided every four-row target by four, so this test would fail against
+the pre-R5 implementation. `tools\validate_tests.bat` passed 580 cases /
+2,479,962 assertions after the test was added.
+
+`tools\validate_physics.bat` completed its Debug build, test, and lifecycle
+stages before the owner-authorized immutable-golden comparison reported 23,333
+different rows, first at frame 34 for `base_c`. The transition covers 27
+ground-impact bodies; each body's first difference begins at or after its
+terrain-impact sequence and then propagates through later motion. The gate's
+two 44,401-row current runs are byte-identical. No baseline was refreshed.
+The preserved direct candidate under
+`TestOutput/validation/candidates/CATTO_REPAIRS_CD2_R5/` has CORE hash
+`FED181C1D49119B7C7E720E906E553D44E340611B4CAA8FCF9DA3D28C6073E3B`,
+TESTS hash
+`E6360E3004C3091AA3DE44D79219042660454F9EE1CAAF610A275C12B506DF29`,
+and CSV hash
+`CB515CB2E0B61A86B4F3A62CABB27FBE322554C22C0099236B6E26F5ED7DD25E`.
+
+`tools\validate_replay_visual_fidelity.bat` passed its launcher proof, Automation
+build, and 17 focused cases / 75 assertions before the physics-derived causal
+golden moved `topology[0].firstFrame` from 184 to 139. The preserved candidate
+under
+`TestOutput/validation/candidates/CATTO_REPAIRS_CD2_R5_REPLAY_VISUAL_FIDELITY/`
+has Automation CORE hash
+`DFDDD3F1E3DDE2E60BBD240823B034961DC875E15CB514655DA17CF1BA1B151D`,
+Profile TESTS hash
+`9207A68028CB64EBFEC24E295ABEBAAE2FCB17095993DDCDDC1493E5E39E87CA`,
+report hash
+`5204FB0D3A5B6B8F94C93C55524223212D608A65DCB8B1CFCF8E24999A891CC4`,
+log hash
+`AE669FDEA483AA7C9E7222B7F689BB4AC1E5F75DB4A4E5D86DFCE6B16F44D3AE`,
+and replay-artifact hash
+`12B779FA8A0D79FE89F67DAFEF826C2763F58BC1342B74F2916C7B14F198B943`.
+The touched-source comment audit is 2/2 checked, 0 deferred. The independent
+ownership review remains scheduled for the completed CD2 checkpoint after R6,
+so CD2 stays unchecked in this R5-only commit.
+
 ## Reference Sites
 
 - `SkullbonezSource/Physics/PersistentContactSolver.cpp`
