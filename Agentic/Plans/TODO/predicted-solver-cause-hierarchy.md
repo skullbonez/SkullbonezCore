@@ -1,19 +1,19 @@
 # Predicted Solver Cause Hierarchy
 
 Date: 2026-08-18
-Status: Owner-approved branch plan; 0/7 phases complete
+Status: Registered; 0/8 phases complete
 Impact area: Runtime Prediction and Planning, replay cause-tree UI/input,
 prediction archives, retained-memory reporting, tests, documentation, and visual QA
 Owner: Runtime Prediction detail retention with Planning-owned causal inspection
-Priority: Branch-local; placed last in `TODO/` and selectable only by explicit owner request
+Priority: Fourth and last in the active binding order, after `ORBIT_FORECAST`
 Commit name: `PREDICT_SOLVER_DETAIL`
 
 ## Registration Note
 
-The owner explicitly directed that this branch-local plan must not update
-`Agentic/Plans/MASTER-PLAN.md`. It is therefore selectable only by an explicit
-owner request naming this plan; a default plan runner must not infer portfolio
-order from its presence under `TODO/`.
+The owner directed registration in `Agentic/Plans/MASTER-PLAN.md` on
+2026-08-18, at the bottom of the active order after Continuous Orbital
+Forecast. This supersedes the earlier branch-local instruction not to edit the
+master ledger.
 
 Plan authoring is documentation-only and requires no repository validation.
 Implementation follows the repo-local orchestrator skill when explicitly
@@ -77,6 +77,10 @@ retaining detail capacity after switching to low detail.
 - `ReplayPredictionArchive` schema v3 serializes frame bodies and derived
   future-node topology, but no solver evidence. A loaded high-detail prediction
   cannot preserve exact inspection without an archive schema extension.
+- Full `PhysicsPipelineRecord` production is consumer-gated. The private
+  prediction engine must explicitly acquire that existing gate for High builds
+  and balance it on every finish, cancellation, restart, cap denial, and mode
+  transition; merely copying the trace after a step can still produce no rows.
 - `UpdateReplayPredictionAllBodyTrajectories` currently selects all-body mode
   directly from `predictionWorldForces.mutualGravity.enabled` and creates one
   `FutureRoot` trajectory record for every body. That is intentional for
@@ -95,6 +99,10 @@ retaining detail capacity after switching to low detail.
 - `TestReplayCauseInspection.cpp` explicitly pins Prediction as unavailable for
   solver detail. That obsolete expectation is the negative control for this
   plan.
+- The current archive loader mutates/clears destination state before the whole
+  artifact is proven valid. High-detail payloads also challenge the existing
+  archive byte ceiling, so schema work must become staged and transactional
+  rather than extending that destructive load path in place.
 
 ## Product Contract
 
@@ -102,8 +110,11 @@ retaining detail capacity after switching to low detail.
 
 - `ReplayPrediction` is the sole retained owner of a
   `ReplayPredictionDetailMode` value with `High` and `Low` states. It defaults to
-  `High` for a fresh process, scene, or prediction owner reset. UI and App pass
-  typed commands; neither retains a second truth.
+  `High` once when the application owner is constructed. The operator's choice
+  survives scene changes, Predict off/on, target or horizon rebuilds, worker
+  restarts, and prediction-owner resets. UI and App pass typed commands;
+  neither retains a second truth. An archive's captured capability is metadata,
+  not permission to overwrite the active operator preference.
 - The `HIGH DETAIL` checkbox occupies the existing bottom-timeline pause-button
   rectangle beside `ALT VEL`. `ReplayScrubberControl::Pause` and the pointer
   `ReplayScrubberAction::TogglePause` route are removed rather than moved or
@@ -118,14 +129,17 @@ retaining detail capacity after switching to low detail.
   prediction from the current exact source. No generation mixes modes.
 - Switching to `Low` destroys high-detail capacities after worker join and
   before the low-detail rebuild starts. Clearing vector sizes is insufficient:
-  the Prediction owner must release the backing allocations and publish zero
-  high-detail capacity bytes to F6 in the same transition.
+  the Prediction owner must release the backing allocations and publish an
+  observable post-join/pre-rebuild F6 checkpoint with zero current high-detail
+  capacity bytes.
 - Switching to `High` reacquires detail capacity only through the existing
   Replay-phase reserve owner as the new generation builds. Ordinary low-detail
   body/debug-contact/trajectory capacities retain their existing reuse policy.
 - Turning Predict itself off keeps its existing warmed lightweight behavior.
   High-detail capacity release is specifically guaranteed by selecting Low
   detail, because the user is choosing the capture/playback memory profile.
+  The checkbox remains enabled while Predict is off: selecting Low immediately
+  releases retained High evidence and controls the next generation.
 
 ### Exact high-detail evidence
 
@@ -134,28 +148,37 @@ retaining detail capacity after switching to low detail.
   These are detached Physics-owned values, not a second Physics state owner and
   not a full `PhysicsSolverSnapshot` per tick.
 - Use a paired build/committed `ReplayPredictionSolverEvidenceStore`, not two
-  new heap vectors inside every prediction frame. Each store owns contiguous
-  contact and pipeline arenas plus fixed frame-stamped range metadata. This
-  keeps range identity stable across arena growth, makes bank promotion atomic,
-  avoids thousands of small allocations, and lets one mode transition release
-  the entire high-detail working set observably.
-- Each evidence-frame record names its `ReplayFrameIndex`, contact offset/count,
-  pipeline offset/count, and completeness. Body samples, debug contacts, and
-  evidence ranges for a frame share that stamp. Publication of the frame slot is
-  the release boundary; readers never see ranges before all payloads and flags
-  are final.
+  new heap vectors inside every prediction frame. Each store owns coarse,
+  immutable fixed-capacity segments for contacts and pipeline rows plus
+  frame-stamped range metadata. Growth appends a segment but never relocates or
+  mutates storage reachable from an already published frame. Bank promotion is
+  atomic, published spans never survive retirement, and one mode transition can
+  release every segment observably without thousands of per-frame allocations.
+- Each evidence-frame record names its prediction generation, detail mode,
+  evidence-bank epoch, publication/topology version, `ReplayFrameIndex`, contact
+  ranges, pipeline ranges, and completeness. Body samples, debug contacts,
+  topology, cause rows, and evidence ranges carry the same identity tuple.
+  Publication of a sealed frame record is the release boundary; readers never
+  see ranges before every referenced segment and flag is final, and a replaced
+  same-index frame can never satisfy an old row.
 - Existing debug contacts remain the future-node topology input in the first
   implementation so high detail does not silently change which bodies enter
   the predicted causal chain. Persistent contacts and pipeline records explain
   that topology; they do not redefine it in the same phase.
 - Low detail never allocates or appends to the evidence stores. Its publication,
-  topology, trajectories, capture/playback artifacts, and flat hierarchy remain
-  behaviorally identical to the current implementation.
+  trajectories, capture/playback artifacts, and lightweight per-body
+  explanation format remain behaviorally identical except for the separately
+  required selected-root topology repair.
 - High-detail capacity growth is bounded, overflow-checked, and routed through
   the existing Prediction reserve adapter. A denied request must cancel the
   high-detail generation with specific feedback identifying the retained limit;
   it must not publish a partly detailed hierarchy or silently fall back to a
   nearby frame.
+- High mode explicitly enables the existing full-pipeline-record consumer on
+  the private prediction `PhysicsEngine` before stepping and balances it on all
+  exits. Low mode keeps it disabled. Reused private engines must be reset to the
+  requested state; the live-world Physics engine is never enabled by this
+  feature.
 
 ### High-detail hierarchy and row identity
 
@@ -167,7 +190,10 @@ retaining detail capacity after switching to low detail.
   Manifold -> SolverRow. A manifold carries point count, centroid, normal,
   maximum penetration, counterpart identity, and exact frame; each solver row
   carries feature id, accumulated impulses, bias, effective mass, friction
-  limit, warm-start state, and matching pipeline index.
+  limit, warm-start state, and a durable ordered pipeline range/sequence
+  identity. Stage, iteration, point/feature identity, and record order must
+  distinguish the multiple pipeline records that one contact can produce; a
+  coincident numeric index is not an exact join.
 - The manifold on the causal parent edge appears first. Other simultaneous
   manifolds involving the body remain visible because they participate in the
   solver transaction that determined its response. Counterpart traversal stays
@@ -200,10 +226,13 @@ retaining detail capacity after switching to low detail.
   `PredictionContact` / `PredictionMotion` explanation under the correct body
   chain. It may not flatten body ancestry or publish every body as a root.
 - All-body `FutureRoot` publication is a separate explicitly qualified space
-  presentation. Audit the qualification from live/authored world forces through
-  prediction seeding, archive load, bank promotion, and draw-list state. Ordinary
-  generated demo and non-mutual-gravity authored scenes must prove it false;
-  authored mutual-gravity scenes must retain their intentional all-body paths.
+  presentation owned by a typed `ReplayPredictionPathPresentation` policy with
+  `SelectedCausalTree` and `AllBodiesSpace` states. Authored space/demo setup
+  selects it explicitly and prediction seeding, archive load, bank promotion,
+  and draw-list state preserve it. Generic/private `mutualGravity.enabled`
+  cannot infer or change presentation policy. Ordinary generated demos and
+  non-space scenes must prove `SelectedCausalTree`; explicitly authored space
+  scenes retain `AllBodiesSpace`.
 - Topology is a bounded rooted tree/forest projection of a cyclic contact graph:
   the selected root is queued first, each body is assigned at most once, parent
   edges are durable scene-object ids, and cycles/back-edges never create another
@@ -215,9 +244,13 @@ retaining detail capacity after switching to low detail.
   accepts SolverHistory evidence only for recorded rows and Prediction evidence
   only for predicted rows, requiring exact row frame, evidence frame, contact
   range/index, feature, focused body, counterpart, and terrain agreement.
-- Selecting a predicted manifold or solver row resolves the exact committed
-  evidence range and detaches bounded matching rows into the Planning inspection
-  owner before a rebuild can retire the source bank.
+- A cause-tree view may inspect a committed bank or a sealed, coherently
+  published prefix of the current build bank. Every row retains the complete
+  generation/mode/bank-epoch/frame/publication identity. Selecting a predicted
+  manifold or solver row validates that tuple, resolves the exact immutable
+  evidence ranges, and detaches bounded matching rows into the Planning
+  inspection owner before a rebuild can retire the source bank. No borrowed
+  span crosses segment growth, bank promotion, or retirement.
 - Predicted manifold geometry uses the exact predicted frame's body poses and
   matching ManifoldRow pipeline points. It must not construct a fake
   `ReplaySolverFrameSample`, borrow the live pose, or re-step prediction.
@@ -228,36 +261,53 @@ retaining detail capacity after switching to low detail.
 - Switching to Low while an inspection is active exits the detail lifecycle,
   releases any inspection-owned pause, clears focus/manifold packets, and hides
   the cause window before the low-detail rebuild begins.
+- Low retains the selected-root body topology for trajectory playback and
+  archives, but the causal window is neither rendered nor interactive while
+  Low is selected. The bottom-timeline checkbox remains the re-entry control.
 
 ### Archive behavior
 
-- A prediction archive records its detail mode. Low-detail archives keep the
+- A prediction archive records captured detail capability separately from the
+  operator's active detail preference. Low-detail archives keep the
   lightweight body/topology/trajectory payload and do not serialize empty
   solver-evidence blocks merely to satisfy a schema shape.
 - The new high-detail archive schema retains exact solver evidence for the root
   event frame and every unique contact-derived future-node `firstFrame` needed
   by the visible hierarchy. It does not serialize diagnostics for ticks no
   visible cause row can address.
-- Loading a high-detail archive restores body -> manifold -> solver-row
-  inspection without a live Physics source. Loading a low-detail archive keeps
-  the flat hierarchy and capture/playback memory profile.
+- Loading a high-detail archive while the active preference is High restores
+  body -> manifold -> solver-row inspection without a live Physics source.
+  Loading it while the active preference is Low validates the full artifact but
+  commits only its lightweight projection and allocates no evidence bank; a
+  later High selection requires a fresh live build or explicit archive reload.
+  Loading a Low archive never upgrades it, and selecting High without an exact
+  source reports that rebuild/reload is required rather than fabricating rows.
 - Legacy schema v2/v3 archives remain readable as Low detail. They never join
   loaded topology to live or coincident diagnostics.
-- Archive contact counts, pipeline counts, event-frame counts, and total bytes
-  are checked before allocation. Current-schema round trips remain canonical
-  and unsupported future schemas fail closed.
+- Archive section sizes, contact/pipeline/event counts, cumulative offsets,
+  ordering, non-overlap, referential closure, and total bytes are
+  overflow-checked before allocation. Parsing uses a reserve-accounted staging
+  owner and commits atomically only after complete validation; any failure
+  preserves the previous prediction state byte-for-byte. Reconcile the artifact
+  byte ceiling with the retained working-set cap including old-state plus parse
+  staging peak. Current-schema round trips remain canonical and unsupported
+  future schemas fail closed.
 
 ### Memory reporting and release proof
 
 - Add explicit F6 categories/rows for prediction solver-contact evidence,
   prediction pipeline evidence, and their combined high-detail capacity. Counts
   report committed and build banks separately where both coexist.
-- F6 reports allocator-owned capacity bytes, not merely logical sizes. On a
+- F6 reports allocator-owned current capacity bytes separately from lifetime
+  peak/high-water, not merely logical sizes. On a
   High -> Low transition, contact/pipeline evidence sizes, capacities, ranges,
-  and combined category bytes reach zero after the worker join. Total tracked
-  replay and engine bytes fall by exactly the released category total; the
-  process OS resident set is not used as the release oracle because the Windows
-  heap may retain freed pages.
+  and combined category bytes reach zero after the worker join. Before any Low
+  rebuild allocation, a release checkpoint reconciles the same-snapshot total
+  tracked replay/engine delta to the released evidence categories. Lifetime
+  peaks remain historical. A later Low-build snapshot may differ in lightweight
+  categories and must be reconciled category-by-category rather than forced to
+  the release delta. The process OS resident set is not used as the release
+  oracle because the Windows heap may retain freed pages.
 - Measure retained bytes for `at_rest.scene.json`,
   `replay_velocity_four_ball.scene.json`, `replay_path_pool.scene.json`, and a
   dense contact scene at 20 and 120 seconds in both modes. Record High/Low delta,
@@ -294,15 +344,17 @@ retaining detail capacity after switching to low detail.
 - [ ] **PSD0 - Pin both modes and the current failure.** Preserve the current
   Prediction-unavailable result as a negative-control oracle, then add pure
   mode-transition tests: High default, no-op same-mode command, exact generation
-  restart, High -> Low clear/hide/release request, Low -> High rebuild, and
-  recorded inspection independence. Capture an `at_rest.scene.json` witness of
+  restart, preference persistence across scene/owner/Predict resets, archive
+  capability independence, High -> Low clear/hide/release request, Low -> High
+  rebuild, and recorded inspection independence. Capture an `at_rest.scene.json` witness of
   the current flat detail and generic unavailable panel. Capture the ordinary
   generated-demo regression with the selected id, private mutual-gravity flag,
   every trajectory record's lane/body/parent/depth/firstFrame, future-node
   topology, and draw-list `showAllFuturePaths` value. Add a failing oracle that
   requires exactly one root plus only transitively contacted descendants, and a
   separate positive oracle preserving intentional all-body roots in an authored
-  mutual-gravity scene.
+  space scene. Name the one presentation-policy owner and prove generic force
+  configuration alone cannot select all-body roots.
 - [ ] **PSD1 - Add the typed mode command and timeline control.** Put the sole
   mode value on `ReplayPrediction`; route one typed command through the
   established replay input/command seams. Replace the bottom timeline's Pause
@@ -312,32 +364,46 @@ retaining detail capacity after switching to low detail.
   the shared layout surface so drawing and hit-testing use the same checkbox
   rectangle. Prove pointer ownership, timeline geometry, keyboard/mouse
   blocking, active-inspection exit, low-mode re-enable reachability, and that
-  clicking the former pause slot never changes pause state.
+  clicking the former pause slot never changes pause state. Audit every removed
+  Pause enum, switch, layout, help-text, and automation route while proving
+  programmatic and inspection-owned pause remain intentionally separate.
 - [ ] **PSD2 - Implement bounded, releasable evidence banks.** Add paired
-  build/committed contiguous evidence stores with frame-stamped range metadata,
+  build/committed immutable segmented evidence stores with the full generation,
+  mode, bank-epoch, frame, and publication/topology identity tuple,
   overflow-safe reserve operations, bank promotion, reset, and explicit
-  `ReleaseCapacity`. Extend memory categories and F6 rows. Measure the scene and
-  horizon matrix, select exact chunks/cap, and reconcile every reserve-policy
-  inventory/ruling. Unit tests cover empty, append, growth, range stability,
-  promotion, cancellation, denied cap, repeated release, and zero-capacity F6
-  accounting.
+  `ReleaseCapacity`. Extend current-capacity and lifetime-peak F6 rows and add a
+  post-join/pre-rebuild release checkpoint. Measure the scene and horizon
+  matrix, select exact segment sizes/cap, and reconcile every reserve-policy
+  inventory/ruling. Unit tests cover empty, append, published-prefix concurrent
+  growth, range stability, same-frame replacement, promotion, cancellation,
+  denied cap, repeated release, committed/build banks independently and
+  together, and zero-current-capacity F6 accounting with historical peaks.
 - [ ] **PSD3 - Restore one-root causal trajectory publication.** Trace the
   generated-demo all-body qualification and every root/child record producer,
   then restore the original selected-root -> first contact -> downstream contact
   publication contract without removing intentional space-scene all-body paths.
+  Introduce the explicit `ReplayPredictionPathPresentation` owner and carry it
+  through scene/demo seeding, archive metadata, bank promotion, and draw lists;
+  do not derive it from private Physics force configuration.
   Keep topology discovery on existing debug contacts so High and Low publish
   identical parent ids, depths, first frames, reveal order, and trajectory
   points. Prove disconnected bodies stay absent; cycles queue each body once;
   partial budget slices never expose a promoted root; archive/load and bank
   promotion keep the same qualification; and ordinary demo plus authored
-  non-mutual-gravity scenes have exactly one FutureRoot.
+  non-space scenes have exactly one FutureRoot.
 - [ ] **PSD4 - Capture and publish exact high-detail evidence.** In High mode,
-  copy persistent contacts and pipeline trace from the private Physics engine
-  after each complete step and publish a frame only after its evidence range is
-  final. In Low mode, execute none of that reserve/copy path. Prove initial
-  frame, no-contact, object contact, terrain, dense growth, worker cancellation,
-  build-prefix publication, promotion, restart, and generation isolation. Pin
-  unchanged low-detail hashes and unchanged live/private solver hashes.
+  acquire the existing full-pipeline-record consumer on the private Physics
+  engine, copy persistent contacts and ordered stage/iteration pipeline ranges
+  after each complete step, and publish a frame only after its evidence ranges
+  are final. Balance the gate on completion, cancellation, restart, cap denial,
+  and mode transition, including engine reuse; never acquire it on the live
+  engine. In Low mode, keep the gate disabled and execute none of that
+  reserve/copy path. Prove initial frame, no-contact, object contact, terrain,
+  dense growth, worker cancellation,
+  sealed build-prefix publication during later appends, promotion, restart, and
+  generation isolation. Profile tests require non-empty exact High pipeline
+  rows, zero Low rows, balanced consumer counts, and unchanged low-detail,
+  live-solver, and private-solver/body hashes while toggling.
 - [ ] **PSD5 - Build and inspect body/manifold/solver hierarchy.** Refactor the
   recorded-only manifold grouping into source-neutral exact-frame logic. In High
   mode emit causal-parent manifold first, simultaneous manifolds next, and exact
@@ -346,21 +412,32 @@ retaining detail capacity after switching to low detail.
   geometry from predicted poses, and detach selected evidence into Planning.
   Tests pin row order/depth, multi-point contacts, terrain, simultaneous pairs,
   cycles, iterations, labels/units, camera focus, retargeting, retirement, and
-  strict wrong-bank/frame/index/feature rejection.
-- [ ] **PSD6 - Make archives mode-aware and close the feature.** Introduce the next RVPD schema with a
-  mode field and bounded unique event-frame evidence for High archives. Keep Low
-  artifacts lightweight and load v2/v3 as Low. Prove current High and Low
-  canonical round trips, legacy migration, future-schema rejection, truncated
-  evidence rejection, loaded High inspection without Physics, and loaded Low
-  flat playback without evidence allocation. Then automate a full
+  strict wrong-generation/mode/bank-epoch/frame/publication/range/sequence/
+  feature rejection. Include a same-frame replacement race proving old rows
+  cannot resolve new evidence.
+- [ ] **PSD6 - Make archives mode-aware and transactional.** Introduce the next
+  RVPD schema with captured capability, explicit path-presentation policy, and
+  bounded unique event-frame evidence for High archives. Keep Low artifacts
+  lightweight and load v2/v3 as Low. Preflight cumulative sizes and range
+  closure, parse into reserve-accounted staging, and swap only after complete
+  validation. Reconcile artifact and working-set caps including old-state plus
+  staging peak. Prove current High and Low canonical round trips, legacy
+  migration, future-schema rejection, section reorder/overlap/overflow and
+  dangling-range rejection, prior-state byte identity after every failure,
+  loaded High inspection without Physics under an active High preference, High
+  artifact load under active Low with zero evidence allocation, and loaded Low
+  playback without evidence allocation.
+- [ ] **PSD7 - Close the combined operator workflow.** Automate a full
   High-build -> inspect -> Low-toggle -> low rebuild -> High-toggle sequence.
   Require the cause window to disappear in Low, the compact re-enable control to
-  remain usable, evidence categories/capacities to reach zero, total tracked
-  bytes to fall by the exact evidence total, and fresh High detail to rebuild
-  correctly. Run `at_rest` and multi-body chain visual witnesses, focused tests,
+  remain usable, evidence categories/current capacities to reach zero at the
+  pre-rebuild checkpoint, same-snapshot total bytes to reconcile exactly, and
+  fresh High detail to rebuild correctly. Run `at_rest` and multi-body chain
+  visual witnesses, focused tests,
   replay allocation/frame-spike/archive/visual gates, dependency and ownership
   inventories, mapped fast/Physics/DX12/performance validation, touched-source
-  comment audit, and independent ownership review.
+  comment audit, project-file/build-configuration consistency checks, and final
+  independent ownership review.
 
 ## Acceptance
 
@@ -376,14 +453,16 @@ The plan closes only when one final source state proves all of the following:
 - In ordinary demo/collision scenes, both High and Low have exactly one selected
   FutureRoot. Only bodies reached by the contact cascade appear, each with one
   causal parent, stable depth, and first activation frame. No disconnected ball
-  is drawn as a root. Explicit mutual-gravity space scenes retain their separate
-  all-body-path presentation.
+  is drawn as a root. Explicitly authored space scenes retain their separate
+  all-body-path presentation independent of generic force configuration.
 - Turning High detail off during a completed build or active inspection joins
   work, exits inspection safely, hides/clears the causal window, releases all
   high-detail backing capacity, and starts a Low rebuild from the current exact
   source.
 - F6 shows zero prediction solver-contact/pipeline evidence capacity after the
-  transition and total tracked memory drops by exactly the released amount. The
+  post-join/pre-rebuild transition checkpoint, its lifetime peak remains
+  historical, and the same-snapshot total tracked memory delta reconciles to the
+  released categories. Later Low allocations are reported separately. The
   bottom timeline High Detail checkbox remains available to turn it back on.
 - The old mouse pause button/control/action no longer exists. Pressing `P`
   retains the current play/pause behavior in both detail modes, including
@@ -396,10 +475,13 @@ The plan closes only when one final source state proves all of the following:
   hierarchy/detail; no stale Low/High bank, selection, pause, focus, or geometry
   crosses the transition.
 - High frame publication is coherent under worker execution, cancellation,
-  build-prefix reads, bank promotion, restart, and cap denial. No recorded,
+  sealed build-prefix reads during later appends, same-frame generation
+  replacement, bank promotion, restart, and cap denial. No recorded,
   live, nearby, or re-simulated frame substitutes for exact evidence.
-- High archives restore exact inspection without Physics; Low and legacy
-  archives remain lightweight and never allocate or fabricate solver evidence.
+- High archives restore exact inspection without Physics when High is active;
+  active Low never allocates their evidence, and Low/legacy archives remain
+  lightweight. Archive failure preserves the prior state byte-for-byte and no
+  load path fabricates solver evidence.
 - The representative 120-second matrix fits the recorded finite policy including
   peak committed/build coexistence. Same-mode second-generation reuse does not
   grow; High -> Low still releases rather than warms detail capacity.
@@ -416,10 +498,10 @@ Validation is deferred until each implementation phase is prepared for commit.
 |---|---|
 | Mode state, commands, layout, and input | Focused owner-request/layout/input tests, then `tools\validate_tests.bat` |
 | Evidence store, release, and F6 accounting | Focused memory/store tests plus `tools\validate_replay_allocation_policy.bat` |
-| Frame capture, banks, worker publication | Focused prediction scheduling/publication tests and `tools\validate_replay_prediction_frame_spikes.bat` |
+| Frame capture, banks, worker publication | Focused prediction scheduling/publication/consumer-gate Profile tests and `tools\validate_replay_prediction_frame_spikes.bat` |
 | Runtime package or cap/policy change | `tools\validate_dependency_graph.bat` and `tools\validate_fast.bat` |
 | Hierarchy, detail, and exact geometry | Focused `TestReplayCauseInspection` and cause-tree filters plus `tools\validate_replay_visual_fidelity.bat` |
-| Prediction archive schema | Focused RVPD schema/round-trip automation plus High/Low artifact size evidence |
+| Prediction archive schema | Focused transactional RVPD schema/round-trip/failure-preservation automation plus High/Low artifact and staging-peak evidence |
 | Overlay and mode-transition visuals | `tools\validate_dx12_renderer.bat` and `tools\run_graphics_stress.bat 1` |
 | Physics-adjacent diagnostic capture | `tools\validate_physics.bat` and unchanged solver-hash witnesses |
 | High-detail hot path and 120-second memory | `tools\validate_perf.bat` plus High/Low/release and two-generation evidence |
@@ -443,8 +525,12 @@ Validation is deferred until each implementation phase is prepared for commit.
 - `SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.cpp`
 - `SkullbonezSource/Runtime/App/ReplayScrubberTools.cpp`
 - `SkullbonezSource/Runtime/App/ReplayReserveInventory.h`
+- `SkullbonezSource/Runtime/App/RunFrame.cpp`
 - `SkullbonezSource/Runtime/Replay/ReplayRetainedMemory.h`
 - `SkullbonezSource/Physics/PhysicsDebugData.h`
+- `SkullbonezSource/Physics/PhysicsEngine.h`
+- `SkullbonezSource/Physics/PhysicsStepDiagnostics.h`
+- `SkullbonezSource/Physics/PhysicsStepDiagnostics.cpp`
 - `SkullbonezSource/Core/MainMemoryStats.h`
 - `SkullbonezSource/UI/UITabMemory.cpp`
 - `SkullbonezTests/TestReplayCauseInspection.cpp`

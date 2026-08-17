@@ -1,16 +1,24 @@
 # Session State
 
-Date: 2026-08-17
-Branch: `main`
-Status: Three active plans; 20/39 tasks complete
+Date: 2026-08-18
+Branch: `nightrunner-18th-AUG-26`
+Status: Four active plans; 20/47 tasks complete
 
 Catto Divergence Repairs (6 tasks), Deterministic Trigonometry Adoption
-(8 tasks), and Continuous Orbital Forecast (7 tasks) are registered under
-`Agentic/Plans/TODO/`; Causal C0-C8, Determinism T0-T8, and Catto CD0-CD1 are
-complete. `MASTER-PLAN.md` carries the binding order: Catto CD2 next,
-deterministic trig following Catto, then continuous orbital forecast. The
-completed causal and determinism plans were deleted under the repository
-convention; Git history retains their phase evidence.
+(8 tasks), Continuous Orbital Forecast (7 tasks), and Predicted Solver Cause
+Hierarchy (8 tasks) are registered under `Agentic/Plans/TODO/`; Causal C0-C8,
+Determinism T0-T8, and Catto CD0-CD1 are complete. `MASTER-PLAN.md` carries the
+binding order: Catto CD2 next, deterministic trig following Catto, then
+continuous orbital forecast, then predicted solver detail. The completed causal
+and determinism plans were deleted under the repository convention; Git history
+retains their phase evidence.
+
+Predicted Solver Cause Hierarchy was registered last on 2026-08-18 after an
+adversarial plan review. Its High mode retains exact predicted Body -> Manifold
+-> SolverRow evidence; Low keeps the selected-root trajectory topology while
+hiding causal inspection and releasing all detail capacity through an
+observable F6 checkpoint. The bottom-timeline `HIGH DETAIL` checkbox replaces
+the mouse Pause button, remains on by default, and preserves keyboard `P`.
 
 Catto CD1 replaced per-contact-row position projection with one deepest-row
 linear correction per contiguous manifold, inverse-mass shared and accumulated
@@ -108,6 +116,12 @@ stability cohort and thresholds; later phases add coherent circular
 publication, continuous isolated prediction, Planning-owned stability
 diagnostics, operator controls, and rolling orbital presentation without
 changing bounded `PREDICT`.
+
+After orbital forecast closes, execute `PREDICT_SOLVER_DETAIL` PSD0-PSD7. Start
+by pinning mode persistence and the ordinary-demo all-root regression, then add
+immutable segmented evidence banks, exact private-pipeline capture, the body ->
+manifold -> solver-row hierarchy, transactional archives, and the combined
+High/Low release workflow.
 
 ## Blockers
 

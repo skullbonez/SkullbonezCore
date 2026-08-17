@@ -1,7 +1,7 @@
 # MASTER PLAN
 
-Date: 2026-08-17
-Status: Three active plans; 20/39 tasks complete
+Date: 2026-08-18
+Status: Four active plans; 20/47 tasks complete
 
 ## Owner Direction
 
@@ -49,6 +49,12 @@ Status: Three active plans; 20/39 tasks complete
   2026-08-17. It follows deterministic trig and owns the separate interactive
   continuous prediction mode, coherent rolling 120-second path window, and
   observed-stability diagnostics without changing bounded `PREDICT`.
+- Predicted Solver Cause Hierarchy was registered last by owner direction on
+  2026-08-18. It restores the selected-object contact cascade in both replay
+  detail modes and adds an on-by-default High Detail timeline toggle for exact
+  predicted Body -> Manifold -> SolverRow inspection. Low remains the compact
+  capture/playback mode, hides causal inspection, and releases all exact-detail
+  backing capacity observably through F6.
 
 Completed plan files were deleted; git history is the archive.
 
@@ -59,6 +65,7 @@ Completed plan files were deleted; git history is the archive.
 | Catto Divergence Repairs | `CATTO_REPAIRS` | 6 | 2 | `TODO/catto-divergence-repairs.md` |
 | Deterministic Trigonometry Adoption | `TRIG_DETERMINISM` | 8 | 0 | `TODO/deterministic-trigonometry-adoption.md` |
 | Continuous Orbital Forecast | `ORBIT_FORECAST` | 7 | 0 | `TODO/continuous-orbital-forecast.md` |
+| Predicted Solver Cause Hierarchy | `PREDICT_SOLVER_DETAIL` | 8 | 0 | `TODO/predicted-solver-cause-hierarchy.md` |
 
 ## Parked, Backlog, And Completed Plans
 
@@ -101,6 +108,10 @@ states elsewhere, and both are recorded rather than silently corrected:
 3. `ORBIT_FORECAST` OF0 through OF6 — ratify the authored stability contract,
    add coherent circular publication and continuous isolated prediction, then
    wire Planning-owned diagnostics and rolling orbital presentation.
+4. `PREDICT_SOLVER_DETAIL` PSD0 through PSD7 — preserve the compact Low mode
+   and selected-root causal topology, then add bounded exact predicted solver
+   evidence, mode-aware archives, observable release, and the High Detail
+   operator workflow.
 
 `CAUSAL_INSPECT` no longer re-steps an old frame to regenerate solver detail, so
 it does not consume the tier-2 determinism guarantee and has no ordering
@@ -111,11 +122,16 @@ physics-reachable Maths owner.
 `CATTO_REPAIRS` changes the solver values the causal panel may display, but the
 panel reads exact retained values rather than freezing expected numbers. Its
 tests must pin field mapping and availability, not pre-Catto impulse values.
+`PREDICT_SOLVER_DETAIL` follows `ORBIT_FORECAST` so bounded and continuous
+prediction presentation policies are already explicit before solver evidence
+is attached. It must not feed per-tick solver evidence into the continuous
+forecast or infer all-body presentation from generic Physics force state.
 `future_physics.md` remains intentionally absent from this ledger.
 
 ## Portfolio Progress
 
-20/39 tasks complete with three active plans. Causal C0-C8, Determinism T0-T8,
+20/47 tasks complete with four active plans. Causal C0-C8, Determinism T0-T8,
 and Catto CD0-CD1 are complete; Catto CD2 is next, beginning with R5 and then
 R6 as separate commits. Deterministic Trigonometry DT0-DT7 follows Catto, then
-Continuous Orbital Forecast OF0-OF6.
+Continuous Orbital Forecast OF0-OF6, then Predicted Solver Cause Hierarchy
+PSD0-PSD7.
