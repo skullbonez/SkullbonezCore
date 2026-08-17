@@ -9,7 +9,7 @@ index b7b8e936c..ebc2cad58 100644
 -  Inventory implementation-defined math entry-point uses in Physics and Maths.
 +  Inventory implementation-defined math entry points and repository-wide CPU
 +  sine/cosine references.
- 
+
  Summary:
 -  The checker strips comments and literals, identifies C/C++ math entry-point
 -  references, and reconciles every non-certified use against an exact
@@ -19,7 +19,7 @@ index b7b8e936c..ebc2cad58 100644
 +  projecting sine/cosine references across every production source and first-
 +  party test root. Production and test-oracle findings are separate scopes;
 +  every live finding joins one exact current-source owner ruling.
- 
+
  Glossary:
    Certified call: Exact or correctly-rounded operation admitted directly by the
      tier-2 determinism envelope.
@@ -27,7 +27,7 @@ index b7b8e936c..ebc2cad58 100644
      edits invalidate the ruling even when a spelling remains nearby.
 +  Test oracle: First-party test code that may retain platform trig as an
 +    independent reference but can never authorize a production call.
- 
+
  Invariants:
 -  - Scan roots are both SkullbonezSource/Physics and SkullbonezSource/Maths.
 +  - Broad math policy remains rooted in Physics and Maths; sine/cosine policy
@@ -40,8 +40,8 @@ index b7b8e936c..ebc2cad58 100644
    - Explicit fused multiply-add calls always require a ruling even though the
 @@ -43,10 +50,33 @@ from pathlib import Path
  from typing import Iterable
- 
- 
+
+
 -SOURCE_ROOTS = ("SkullbonezSource/Physics", "SkullbonezSource/Maths")
 -SOURCE_SUFFIXES = {".cpp", ".h", ".hpp", ".inl"}
 +BROAD_MATH_ROOTS = ("SkullbonezSource/Physics", "SkullbonezSource/Maths")
@@ -72,7 +72,7 @@ index b7b8e936c..ebc2cad58 100644
 +    "owner",
 +    "reason",
 +)
- 
+
  # IEEE/basic operations and exact classification are certified directly. Both
  # suffixed C spellings and overloaded std spellings represent the same operation
 @@ -165,6 +195,7 @@ IMPLEMENTATION_DEFINED_CALLS = (
@@ -97,7 +97,7 @@ index b7b8e936c..ebc2cad58 100644
      r"\bnamespace\s+(?P<alias>[A-Za-z_]\w*)\s*=\s*(?:::)?\s*std\s*;"
  )
 @@ -184,6 +221,7 @@ FINGERPRINT_PATTERN = re.compile(r"[0-9a-f]{64}")
- 
+
  @dataclass(frozen=True)
  class Finding:
 +    scope: str
@@ -106,7 +106,7 @@ index b7b8e936c..ebc2cad58 100644
      column: int
 @@ -193,8 +231,17 @@ class Finding:
      source_fingerprint: str
- 
+
      @property
 -    def identity(self) -> tuple[str, int, int, str, str]:
 -        return (self.path, self.line, self.column, self.call, self.source_fingerprint)
@@ -121,13 +121,13 @@ index b7b8e936c..ebc2cad58 100644
 +    test_source_files: int
 +    production_trig_findings: int
 +    test_trig_findings: int
- 
- 
+
+
  def normalize_path(path: Path | str) -> str:
 @@ -266,81 +313,186 @@ def strip_comments_and_literals(source: str) -> str:
      return "".join(result)
- 
- 
+
+
 -def source_fingerprint(stripped_line: str) -> str:
 -    # Why: whitespace-only formatting may move a call without changing its
 -    # reviewed arithmetic expression; any semantic line edit still goes stale.
@@ -138,8 +138,8 @@ index b7b8e936c..ebc2cad58 100644
 +    # the ruling even when an argument continues on another physical line.
 +    normalized = " ".join(stripped_span.split())
      return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
- 
- 
+
+
 -def findings_in_text(relative_path: str, source: str) -> list[Finding]:
 +def has_member_or_qualified_prefix(stripped: str, offset: int) -> bool:
 +    prefix = stripped[:offset].rstrip()
@@ -229,7 +229,7 @@ index b7b8e936c..ebc2cad58 100644
 +                    (offset, token_match.group("call")),
 +                    (macro_match.start(), macro_match.end()),
 +                )
- 
+
      findings: list[Finding] = []
 -    for offset, call in sorted(candidates):
 +    for (offset, call), macro_span in sorted(candidates.items()):
@@ -256,8 +256,8 @@ index b7b8e936c..ebc2cad58 100644
              )
          )
      return findings
- 
- 
+
+
 -def iter_source_files(repo: Path) -> Iterable[Path]:
 -    for root in SOURCE_ROOTS:
 +def iter_source_files(repo: Path, roots: Iterable[str]) -> Iterable[Path]:
@@ -271,8 +271,8 @@ index b7b8e936c..ebc2cad58 100644
 +            if path.is_file() and path.suffix.lower() in SOURCE_SUFFIXES and path not in seen:
 +                seen.add(path)
                  yield path
- 
- 
+
+
 -def scan_repository(repo: Path) -> tuple[list[Finding], int]:
 +def scan_roots(
 +    repo: Path,
@@ -299,8 +299,8 @@ index b7b8e936c..ebc2cad58 100644
 +        )
      findings.sort(key=lambda item: (item.path.lower(), item.line, item.column, item.call))
      return findings, scanned
- 
- 
+
+
 +def scan_repository(repo: Path) -> tuple[list[Finding], ScanSummary]:
 +    broad_findings, broad_scanned = scan_roots(repo, BROAD_MATH_ROOTS, "production")
 +    production_trig, production_scanned = scan_roots(repo, PRODUCTION_ROOTS, "production", TRIG_CALLS)
@@ -346,8 +346,8 @@ index b7b8e936c..ebc2cad58 100644
 +    ):
 +        return [], ["rulings file must contain version 2 and a rulings array"]
      return data["rulings"], []
- 
- 
+
+
 @@ -367,6 +523,9 @@ def validate_ruling(row: object, index: int, repo: Path) -> list[str]:
      disposition = row.get("disposition")
      if disposition not in RULING_DISPOSITIONS:
@@ -360,8 +360,8 @@ index b7b8e936c..ebc2cad58 100644
          errors.append(f"ruling {index} has invalid source_fingerprint")
 @@ -382,8 +541,15 @@ def validate_ruling(row: object, index: int, repo: Path) -> list[str]:
      return errors
- 
- 
+
+
 -def ruling_identity(row: dict[str, object]) -> tuple[object, object, object, object, object]:
 -    return (row.get("path"), row.get("line"), row.get("column"), row.get("call"), row.get("source_fingerprint"))
 +def ruling_identity(row: dict[str, object]) -> tuple[object, object, object, object, object, object]:
@@ -373,8 +373,8 @@ index b7b8e936c..ebc2cad58 100644
 +        row.get("call"),
 +        row.get("source_fingerprint"),
 +    )
- 
- 
+
+
  def reconcile(
 @@ -393,7 +559,7 @@ def reconcile(
      # structurally valid rulings. Historical rows cannot satisfy current code.
@@ -417,7 +417,7 @@ index b7b8e936c..ebc2cad58 100644
 @@ -457,6 +631,22 @@ float member_call(auto& value) { return value.remainder(); }
          print("SELF_TEST_FAIL: call classification or comment stripping changed", file=sys.stderr)
          return 1
- 
+
 +    split_original = findings_in_text(
 +        "SkullbonezSource/Maths/Split.cpp",
 +        "float Split(float x) { return std::sin\n(x); }\n",
@@ -446,7 +446,7 @@ index b7b8e936c..ebc2cad58 100644
                  "line": finding.line,
                  "column": finding.column,
 @@ -507,29 +698,58 @@ float member_call(auto& value) { return value.remainder(); }
- 
+
          maths_source = repo / "SkullbonezSource/Maths/Root.h"
          physics_source = repo / "SkullbonezSource/Physics/Root.cpp"
 +        gameplay_source = repo / "SkullbonezSource/Gameplay/Root.cpp"
@@ -475,7 +475,7 @@ index b7b8e936c..ebc2cad58 100644
 -            print("SELF_TEST_FAIL: both required roots or bypass forms were not scanned", file=sys.stderr)
 +            print("SELF_TEST_FAIL: broad, production, or test scopes lost a bypass form", file=sys.stderr)
              return 1
- 
+
 -    print("SELF_TEST_PASS: math references, both roots, exact rulings, and currentness are enforced.")
 +        production_finding = root_findings[0]
 +        test_alias = {
@@ -496,8 +496,8 @@ index b7b8e936c..ebc2cad58 100644
 +
 +    print("SELF_TEST_PASS: broad math, repository trig, test scope, bypass forms, and exact rulings are enforced.")
      return 0
- 
- 
+
+
  def render_text(
 -    findings: list[Finding], scanned: int, rulings: list[dict[str, object]], errors: list[str], unruled: list[Finding], stale: list[dict[str, object]]
 +    findings: list[Finding], summary: ScanSummary, rulings: list[dict[str, object]], errors: list[str], unruled: list[Finding], stale: list[dict[str, object]]
@@ -525,8 +525,8 @@ index b7b8e936c..ebc2cad58 100644
      for error in errors:
          lines.append(f"ERROR: {error}")
      return "\n".join(lines)
- 
- 
+
+
  def main() -> int:
 -    parser = argparse.ArgumentParser(description="Inventory non-certified math calls in Physics and Maths.")
 +    parser = argparse.ArgumentParser(description="Inventory broad Maths/Physics calls and repository CPU sine/cosine references.")
@@ -534,7 +534,7 @@ index b7b8e936c..ebc2cad58 100644
      parser.add_argument("--rulings", help="rulings JSON; defaults to tools/determinism_math_rulings.json")
      parser.add_argument("--self-test", action="store_true", help="run bounded parser/currentness fixtures")
 @@ -556,14 +779,14 @@ def main() -> int:
- 
+
      repo = Path(args.repo).resolve()
      rulings_path = Path(args.rulings).resolve() if args.rulings else repo / "tools/determinism_math_rulings.json"
 -    findings, scanned = scan_repository(repo)
@@ -542,7 +542,7 @@ index b7b8e936c..ebc2cad58 100644
      rulings, load_errors = load_rulings(rulings_path)
      errors, unruled, stale = reconcile(findings, rulings, repo)
      errors = load_errors + errors
- 
+
      if args.format == "json":
          payload = {
 -            "source_files": scanned,
@@ -557,8 +557,8 @@ index b7b8e936c..ebc2cad58 100644
 -        print(render_text(findings, scanned, rulings, errors, unruled, stale))
 +        print(render_text(findings, summary, rulings, errors, unruled, stale))
      return 1 if errors else 0
- 
- 
+
+
 diff --git a/tools/determinism_math_rulings.json b/tools/determinism_math_rulings.json
 index 63f7c6aa2..98de28413 100644
 --- a/tools/determinism_math_rulings.json

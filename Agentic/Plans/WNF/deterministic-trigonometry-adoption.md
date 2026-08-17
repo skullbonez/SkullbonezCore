@@ -11,7 +11,7 @@ Commit name: `TRIG_DETERMINISM`
 The reviewed but incomplete DT0 implementation is preserved beside this plan
 at `Agentic/Plans/WNF/deterministic-trigonometry-dt0-reviewed-wip.patch`.
 Its SHA-256 is
-`C71532CF7C49FE76CDD12FB2304D412DB18FFCE73FA69A58AA595DA5EEC66496`.
+`D02E53C609038FC88CF03372EC744C8A37FE842C373CA9A097D43EF106DAC6E5`.
 `git apply --check` passes against commit `366a9e02a`; treat the file as a
 starting point, not as accepted implementation.
 
