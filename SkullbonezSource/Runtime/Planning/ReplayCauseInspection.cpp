@@ -13,8 +13,8 @@ Summary:
   retire those borrows, Planning copies the event-frame body poses and every
   bounded contact frame into a feature-neutral Rendering value, and copies the
   joined contact and pipeline records into fixed arrays. One shared layout
-  projection fixes the detail viewport at four complete rows and owns bounded
-  wheel scrolling. The transition owner derives a fixed cubic curve from total wall-clock elapsed,
+  projection shows up to four complete rows, collapses the unavailable state,
+  and owns bounded wheel scrolling. The transition owner derives a fixed cubic curve from total wall-clock elapsed,
   coalesces its discrete frame requests, rejects stale completion tokens, and
   publishes pause/return actions for App to apply through concrete owners.
 
@@ -33,7 +33,7 @@ Invariants:
   - Contact presentation fails closed when either body pose or the complete
     bounded patch cannot be proven from the same solver frame.
   - Solver-detail publication fails closed before exposing partial copied spans;
-    its scroll offset always clamps to the four-row viewport.
+    its scroll offset always clamps to the projected visible-row viewport.
   - The panel and manifold packet share one visibility edge and are cleared
     together before any retarget, aftermath, return, failure, or scene reset.
   - Only the current generation may reveal detail or complete a return.
@@ -247,10 +247,27 @@ ReplayCauseSolverPanelLayout BuildReplayCauseSolverPanelLayout( const ReplayCaus
 
     const float margin = 8.0f;
     const float gap = 10.0f;
-    const float panelWidth = (std::min)( REPLAY_CAUSE_SOLVER_PANEL_WIDTH,
-                                         static_cast<float>( (std::max)( 1, screenWidth ) ) - margin * 2.0f );
-    const float panelHeight = REPLAY_CAUSE_SOLVER_PANEL_TITLE_HEIGHT + REPLAY_CAUSE_SOLVER_PANEL_GUIDE_HEIGHT +
-                              layout.rowHeight * static_cast<float>( REPLAY_CAUSE_SOLVER_PANEL_VISIBLE_ROWS ) + 12.0f;
+    const float availableWidth = (std::max)( 1.0f, static_cast<float>( screenWidth ) - margin * 2.0f );
+    const float panelWidth = (std::min)( REPLAY_CAUSE_SOLVER_PANEL_WIDTH, availableWidth );
+    const bool hasRows = inspection.solverDetailAvailability == ReplayCauseSolverDetailAvailability::Available &&
+                         !inspection.solverDetailContacts.empty();
+    const float fixedHeight = REPLAY_CAUSE_SOLVER_PANEL_TITLE_HEIGHT + REPLAY_CAUSE_SOLVER_PANEL_GUIDE_HEIGHT + 12.0f;
+    const float availableContentHeight = (std::max)( layout.rowHeight,
+                                                     static_cast<float>( screenHeight ) - margin * 2.0f - fixedHeight );
+
+    if ( hasRows )
+    {
+        // Invariant: a normal viewport shows four complete rows. Short windows
+        // reduce only the visible row count and keep the same wheel/scroll owner,
+        // so the panel cannot consume the viewport merely to preserve a
+        // desktop-sized height.
+        layout.visibleRows = std::clamp( static_cast<int>( availableContentHeight / layout.rowHeight ), 1,
+                                         REPLAY_CAUSE_SOLVER_PANEL_VISIBLE_ROWS );
+    }
+
+    const float contentHeight = hasRows ? layout.rowHeight * static_cast<float>( layout.visibleRows )
+                                        : REPLAY_CAUSE_SOLVER_PANEL_EMPTY_HEIGHT;
+    const float panelHeight = fixedHeight + contentHeight;
     const float leftX = static_cast<float>( causeTree.x ) - gap - panelWidth;
     const float rightX = static_cast<float>( causeTree.x + causeTree.width ) + gap;
     float panelX = leftX >= margin ? leftX : rightX;
@@ -265,7 +282,7 @@ ReplayCauseSolverPanelLayout BuildReplayCauseSolverPanelLayout( const ReplayCaus
     layout.panel = { panelX, panelY, panelWidth, panelHeight };
     layout.content = { panelX + 8.0f,
                        panelY + REPLAY_CAUSE_SOLVER_PANEL_TITLE_HEIGHT + REPLAY_CAUSE_SOLVER_PANEL_GUIDE_HEIGHT,
-                       panelWidth - 16.0f, layout.rowHeight * static_cast<float>( REPLAY_CAUSE_SOLVER_PANEL_VISIBLE_ROWS ) };
+                       panelWidth - 16.0f, contentHeight };
     return layout;
 }
 
@@ -817,12 +834,12 @@ bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTree
         return false;
     }
 
-    if ( wheelDelta != 0 && !m_state.solverDetailContacts.empty() )
+    if ( wheelDelta != 0 && layout.visibleRows > 0 )
     {
         const int direction = wheelDelta > 0 ? -1 : 1;
         const int wheelSteps = (std::max)( 1, std::abs( wheelDelta ) / 120 );
         const int maximumFirstRow = (std::max)( 0, static_cast<int>( m_state.solverDetailContacts.size() ) -
-                                                       REPLAY_CAUSE_SOLVER_PANEL_VISIBLE_ROWS );
+                                                       layout.visibleRows );
         m_state.solverDetailFirstRow = std::clamp( m_state.solverDetailFirstRow + direction * wheelSteps, 0,
                                                    maximumFirstRow );
     }

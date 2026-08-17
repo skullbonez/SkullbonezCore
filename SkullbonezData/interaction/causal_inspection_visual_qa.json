@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 5, "resizeWindow": [1125, 640] },
+    { "frame": 6, "setDevelopmentUiSurface": "legacy" },
+    { "frame": 45, "showReplayScrubber": true },
+    { "frame": 60, "clickObject": "prediction_striker_ball", "button": "left" },
+    { "frame": 90, "assert": { "replayPathTarget": "prediction_striker_ball" } },
+    { "frame": 100, "scrubReplaySolverTrack": 0.8 },
+    { "frame": 102, "selectReplayCauseRow": 0 },
+    { "frame": 104, "assert": { "replayActiveTrack": "Solver" } },
+    { "frame": 900, "scrollPoint": [500, 300, -120] },
+    { "frame": 1095, "moveMouse": [8, 628] },
+    { "frame": 1100, "screenshot": "TestOutput/interaction/causal_inspection_compact.bmp" }
+  ]
+}

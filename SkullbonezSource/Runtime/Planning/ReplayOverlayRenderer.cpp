@@ -7,7 +7,8 @@ Summary:
   Replay overlay rendering is a late UI pass. Keep the same screen-space layout
   and pointer eligibility as replay input by rebuilding the same fixed-capacity
   surfaces from ReplayOverlayLayout. The causal solver panel renders exact-frame
-  copied evidence beside its cause tree through Planning's shared four-row layout.
+  copied evidence in a translucent compact panel beside its cause tree through
+  Planning's shared layout, with a scrollbar after the fourth visible row.
 
 Invariants:
   - Drawn controls use the same surface rows and pointer-block fact as input, so
@@ -16,8 +17,9 @@ Invariants:
     and runtime replay helpers.
   - Solver rows expose their units and sign conventions on the surface; missing
     stages render neutral values without inventing a replacement record.
-  - Solver-panel draw bounds come from the same pure projection used by input,
-    and no more than four complete contact rows appear at once.
+  - Solver-panel draw bounds come from the same pure projection used by input;
+    no more than four complete contact rows appear at once, and unavailable
+    detail never reserves row-sized empty space.
 
 Related:
   - SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.h
@@ -117,44 +119,47 @@ void RenderReplayCauseSolverDetailPanel( const UI::UIDrawContext& draw, const Re
     const UI::Style::UIPalette& palette = UI::Style::Palette();
     const UI::Style::UIRadii& radii = UI::Style::Radii();
     UI::Style::UIColor panelFill = palette.windowSubtle;
-    panelFill.a = 0.96f;
+    panelFill.a = REPLAY_CAUSE_SOLVER_PANEL_OPACITY;
     UI::Style::UIColor panelBorder = palette.innerBorder;
-    panelBorder.a = 0.68f;
+    panelBorder.a = 0.62f;
     draw.RoundedPanel( layout.panel, radii.window, panelFill, panelBorder );
-    draw.Text( layout.panel.x + 12.0f, layout.panel.y + 10.0f, 13.5f, palette.textPrimary.r, palette.textPrimary.g,
+    draw.Text( layout.panel.x + 12.0f, layout.panel.y + 8.0f, 12.5f, palette.textPrimary.r, palette.textPrimary.g,
                palette.textPrimary.b, "SOLVER ROW DETAIL" );
 
     char frameLabel[96] = {};
-    sprintf_s( frameLabel, sizeof( frameLabel ), "EXACT FRAME %llu | %zu CONTACT ROWS",
-               static_cast<unsigned long long>( inspection.targetFrame ), inspection.solverDetailContacts.size() );
-    draw.Text( layout.panel.x + 176.0f, layout.panel.y + 12.0f, 10.0f, palette.accent.r, palette.accent.g, palette.accent.b,
-               frameLabel );
-
-    if ( inspection.contactPresentation.truncated )
-    {
-        draw.Text( layout.panel.x + 700.0f, layout.panel.y + 12.0f, 10.0f, palette.warningAccent.r, palette.warningAccent.g,
-                   palette.warningAccent.b, "CONTACT PATCH TRUNCATED TO 8 POINTS" );
-    }
+    sprintf_s( frameLabel, sizeof( frameLabel ), "FRAME %llu | %zu ROWS%s",
+               static_cast<unsigned long long>( inspection.targetFrame ), inspection.solverDetailContacts.size(),
+               inspection.contactPresentation.truncated ? " | PATCH TRUNCATED" : "" );
+    draw.Text( layout.panel.x + 154.0f, layout.panel.y + 10.0f, 9.0f,
+               inspection.contactPresentation.truncated ? palette.warningAccent.r : palette.accent.r,
+               inspection.contactPresentation.truncated ? palette.warningAccent.g : palette.accent.g,
+               inspection.contactPresentation.truncated ? palette.warningAccent.b : palette.accent.b, frameLabel );
 
     // Sign/units are rendered as part of the surface so a captured frame remains
     // interpretable without consulting solver implementation comments.
-    draw.Text( layout.panel.x + 12.0f, layout.panel.y + REPLAY_CAUSE_SOLVER_PANEL_TITLE_HEIGHT + 2.0f, 9.5f,
+    draw.Text( layout.panel.x + 12.0f, layout.panel.y + REPLAY_CAUSE_SOLVER_PANEL_TITLE_HEIGHT + 1.0f, 8.3f,
                palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b, REPLAY_CAUSE_SOLVER_PANEL_UNITS );
-    draw.Text( layout.panel.x + 12.0f, layout.panel.y + REPLAY_CAUSE_SOLVER_PANEL_TITLE_HEIGHT + 19.0f, 9.5f,
+    draw.Text( layout.panel.x + 12.0f, layout.panel.y + REPLAY_CAUSE_SOLVER_PANEL_TITLE_HEIGHT + 13.0f, 8.3f,
+               palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
+               REPLAY_CAUSE_SOLVER_PANEL_UNITS_MORE );
+    draw.Text( layout.panel.x + 12.0f, layout.panel.y + REPLAY_CAUSE_SOLVER_PANEL_TITLE_HEIGHT + 29.0f, 8.3f,
                palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, REPLAY_CAUSE_SOLVER_PANEL_SIGNS );
+    draw.Text( layout.panel.x + 12.0f, layout.panel.y + REPLAY_CAUSE_SOLVER_PANEL_TITLE_HEIGHT + 41.0f, 8.3f,
+               palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, REPLAY_CAUSE_SOLVER_PANEL_SIGNS_MORE );
 
     if ( inspection.solverDetailAvailability != ReplayCauseSolverDetailAvailability::Available ||
          inspection.solverDetailContacts.empty() )
     {
-        draw.Text( layout.content.x + 12.0f, layout.content.y + 18.0f, 13.0f, palette.textSecondary.r,
+        draw.RoundedRect( layout.content.x, layout.content.y, layout.content.w, layout.content.h, radii.control,
+                          palette.window.r, palette.window.g, palette.window.b, 0.30f );
+        draw.Text( layout.content.x + 10.0f, layout.content.y + 15.0f, 11.5f, palette.textSecondary.r,
                    palette.textSecondary.g, palette.textSecondary.b, inspection.solverDetailFeedback );
         return;
     }
 
     const int rowCount = static_cast<int>( inspection.solverDetailContacts.size() );
-    const int firstRow = std::clamp( inspection.solverDetailFirstRow, 0,
-                                     (std::max)( 0, rowCount - REPLAY_CAUSE_SOLVER_PANEL_VISIBLE_ROWS ) );
-    const int endRow = (std::min)( rowCount, firstRow + REPLAY_CAUSE_SOLVER_PANEL_VISIBLE_ROWS );
+    const int firstRow = std::clamp( inspection.solverDetailFirstRow, 0, (std::max)( 0, rowCount - layout.visibleRows ) );
+    const int endRow = (std::min)( rowCount, firstRow + layout.visibleRows );
 
     for ( int rowIndex = firstRow; rowIndex < endRow; ++rowIndex )
     {
@@ -163,7 +168,7 @@ void RenderReplayCauseSolverDetailPanel( const UI::UIDrawContext& draw, const Re
         const float rowY = layout.content.y + static_cast<float>( rowIndex - firstRow ) * layout.rowHeight;
         const UI::UIRect rowRect { layout.content.x, rowY, layout.content.w - 8.0f, layout.rowHeight - 3.0f };
         draw.RoundedRect( rowRect.x, rowRect.y, rowRect.w, rowRect.h, radii.control, palette.window.r, palette.window.g,
-                          palette.window.b, 0.56f );
+                          palette.window.b, 0.44f );
 
         const Physics::PhysicsPipelineRecord*
             correction = FindSolverDetailRecord( inspection, contact.featureId,
@@ -172,22 +177,22 @@ void RenderReplayCauseSolverDetailPanel( const UI::UIDrawContext& draw, const Re
                                                                               Physics::PhysicsPipelineStage::CacheStore );
         const ReplayCauseSolverPanelRowText values = BuildReplayCauseSolverPanelRowText( inspection, rowIndex );
         char line[768] = {};
-        float textY = rowY + 5.0f;
-        draw.Text( rowRect.x + 8.0f, textY, 10.5f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b,
+        float textY = rowY + 4.0f;
+        draw.Text( rowRect.x + 7.0f, textY, 9.3f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b,
                    values.headline );
-        textY += 14.0f;
-        draw.Text( rowRect.x + 8.0f, textY, 9.5f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
+        textY += 12.0f;
+        draw.Text( rowRect.x + 7.0f, textY, 8.2f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
                    values.basis );
-        textY += 14.0f;
-        draw.Text( rowRect.x + 8.0f, textY, 9.5f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
+        textY += 11.0f;
+        draw.Text( rowRect.x + 7.0f, textY, 8.2f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
                    values.geometry );
-        textY += 14.0f;
-        draw.Text( rowRect.x + 8.0f, textY, 9.5f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
+        textY += 11.0f;
+        draw.Text( rowRect.x + 7.0f, textY, 8.2f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
                    values.masses );
-        textY += 14.0f;
-        draw.Text( rowRect.x + 8.0f, textY, 9.5f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
+        textY += 11.0f;
+        draw.Text( rowRect.x + 7.0f, textY, 8.2f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
                    values.impulses );
-        textY += 15.0f;
+        textY += 12.0f;
 
         int iterationColumn = 0;
 
@@ -205,10 +210,10 @@ void RenderReplayCauseSolverDetailPanel( const UI::UIDrawContext& draw, const Re
             const int lineIndex = iterationColumn / REPLAY_CAUSE_SOLVER_PANEL_ITERATIONS_PER_LINE;
             const float columnWidth = ( rowRect.w - 16.0f ) /
                                       static_cast<float>( REPLAY_CAUSE_SOLVER_PANEL_ITERATIONS_PER_LINE );
-            sprintf_s( line, sizeof( line ), "i%d dN %.4f accN %.4f |T| %.4f %s", record.iteration, record.scalarA,
+            sprintf_s( line, sizeof( line ), "i%d dN %.3g N %.3g T %.3g %s", record.iteration, record.scalarA,
                        record.scalarB, record.scalarC, clamped ? "CLAMP" : "free" );
-            draw.Text( rowRect.x + 8.0f + static_cast<float>( column ) * columnWidth,
-                       textY + static_cast<float>( lineIndex ) * REPLAY_CAUSE_SOLVER_PANEL_ITERATION_LINE_HEIGHT, 8.8f,
+            draw.Text( rowRect.x + 7.0f + static_cast<float>( column ) * columnWidth,
+                       textY + static_cast<float>( lineIndex ) * REPLAY_CAUSE_SOLVER_PANEL_ITERATION_LINE_HEIGHT, 7.0f,
                        clamped ? palette.accentStrong.r : palette.textMuted.r,
                        clamped ? palette.accentStrong.g : palette.textMuted.g,
                        clamped ? palette.accentStrong.b : palette.textMuted.b, line );
@@ -219,7 +224,7 @@ void RenderReplayCauseSolverDetailPanel( const UI::UIDrawContext& draw, const Re
                                    REPLAY_CAUSE_SOLVER_PANEL_ITERATIONS_PER_LINE;
         textY += static_cast<float>( iterationLines ) * REPLAY_CAUSE_SOLVER_PANEL_ITERATION_LINE_HEIGHT;
 
-        char velocityText[256] = "writeback none";
+        char velocityText[256] = "wb none";
         int velocityCount = 0;
 
         for ( const Physics::PhysicsPipelineRecord& record : inspection.solverDetailPipelineRecords )
@@ -231,32 +236,30 @@ void RenderReplayCauseSolverDetailPanel( const UI::UIDrawContext& draw, const Re
             }
 
             char append[96] = {};
-            sprintf_s( append, sizeof( append ), "%sB%d lin %.4f ang %.4f", velocityCount == 0 ? "" : " | ", record.bodyA,
+            sprintf_s( append, sizeof( append ), "%sB%d L %.3g A %.3g", velocityCount == 0 ? "" : " / ", record.bodyA,
                        record.scalarA, record.scalarB );
 
             if ( velocityCount == 0 )
             {
-                strcpy_s( velocityText, sizeof( velocityText ), "writeback " );
+                strcpy_s( velocityText, sizeof( velocityText ), "wb " );
             }
 
             strcat_s( velocityText, sizeof( velocityText ), append );
             ++velocityCount;
         }
 
-        sprintf_s( line, sizeof( line ),
-                   "position correction %.5f (penetration %.5f, slop %.5f) | %s | cache store (%.5f, %.5f, %.5f)",
+        sprintf_s( line, sizeof( line ), "corr %.4g (pen %.4g slop %.4g) | %s | cache (%.4g %.4g %.4g)",
                    correction ? correction->scalarA : 0.0f, correction ? correction->scalarB : 0.0f,
                    correction ? correction->scalarC : 0.0f, velocityText, cache ? cache->scalarA : 0.0f,
                    cache ? cache->scalarB : 0.0f, cache ? cache->scalarC : 0.0f );
-        draw.Text( rowRect.x + 8.0f, textY, 8.9f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, line );
+        draw.Text( rowRect.x + 7.0f, textY, 7.8f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, line );
     }
 
-    if ( rowCount > REPLAY_CAUSE_SOLVER_PANEL_VISIBLE_ROWS )
+    if ( rowCount > layout.visibleRows )
     {
         const float trackX = layout.content.x + layout.content.w - 5.0f;
-        const int maximumFirst = rowCount - REPLAY_CAUSE_SOLVER_PANEL_VISIBLE_ROWS;
-        const float knobH = layout.content.h * static_cast<float>( REPLAY_CAUSE_SOLVER_PANEL_VISIBLE_ROWS ) /
-                            static_cast<float>( rowCount );
+        const int maximumFirst = rowCount - layout.visibleRows;
+        const float knobH = layout.content.h * static_cast<float>( layout.visibleRows ) / static_cast<float>( rowCount );
         const float travel = layout.content.h - knobH;
         const float knobY = layout.content.y + travel * static_cast<float>( firstRow ) / static_cast<float>( maximumFirst );
         draw.Rect( trackX, layout.content.y, 3.0f, layout.content.h, palette.control.r, palette.control.g, palette.control.b,

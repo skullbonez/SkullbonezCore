@@ -12,7 +12,7 @@ Summary:
   coalescing, pause/return policy, exact-frame solver-detail availability, and
   fixed-capacity copies of the feature-neutral contact packet, contact rows,
   and pipeline records consumed synchronously by App composition. It also owns
-  the four-row solver-panel scroll offset and shared layout projection.
+  the solver-panel scroll offset and shared compact layout projection.
 
 Glossary:
   Seek source: Timeline bank that must contain the row's exact frame before
@@ -31,8 +31,9 @@ Invariants:
   - Contact presentation and solver detail copy bounded values before restore
     may retire the source ring; published spans point only into Planning-owned
     fixed arrays and remain synchronous views.
-  - Drawing and input use the same solver-panel layout, whose content height is
-    exactly four complete rows even when iteration evidence makes rows taller.
+  - Drawing and input use the same solver-panel layout. Normal viewports show
+    four complete rows, short viewports show fewer complete rows, and missing
+    detail collapses to one compact feedback strip.
   - Panel rows and manifold geometry are one focused surface: every retarget,
     aftermath, return, failure, or reset hides both and drops all published views.
   - At most one transport request is in flight; a newer selection replaces the
@@ -204,18 +205,21 @@ bool ShouldBeginReplayCauseReturn( const ReplayCauseInspectionView& inspection, 
                                    bool scrubExit ) noexcept;
 
 inline constexpr int REPLAY_CAUSE_SOLVER_PANEL_VISIBLE_ROWS = 4;
-inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_WIDTH = 1080.0f;
-inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_TITLE_HEIGHT = 38.0f;
-inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_GUIDE_HEIGHT = 54.0f;
-inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_BASE_ROW_HEIGHT = 94.0f;
-inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_ITERATION_LINE_HEIGHT = 14.0f;
+inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_WIDTH = 520.0f;
+inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_TITLE_HEIGHT = 32.0f;
+inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_GUIDE_HEIGHT = 56.0f;
+inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_EMPTY_HEIGHT = 44.0f;
+inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_BASE_ROW_HEIGHT = 82.0f;
+inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_ITERATION_LINE_HEIGHT = 12.0f;
+inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_OPACITY = 0.78f;
 inline constexpr int REPLAY_CAUSE_SOLVER_PANEL_ITERATIONS_PER_LINE = 4;
-inline constexpr const char* REPLAY_CAUSE_SOLVER_PANEL_UNITS = "UNITS: point/rA/rB/penetration/correction = scene units; "
-                                                               "bias/linear writeback = u/s; angular = rad/s; impulses = "
-                                                               "mass*u/s; effective masses = mass.";
-inline constexpr const char* REPLAY_CAUSE_SOLVER_PANEL_SIGNS = "SIGNS: +penetration means overlap; normal/t1/t2 are "
-                                                               "world-space; signed accT1/accT2 follow t1/t2. CLAMP means "
-                                                               "|tangent impulse| reached frictionLimit.";
+inline constexpr const char*
+    REPLAY_CAUSE_SOLVER_PANEL_UNITS = "UNITS: vectors/penetration/correction = scene units; bias/linear writeback = u/s;";
+inline constexpr const char*
+    REPLAY_CAUSE_SOLVER_PANEL_UNITS_MORE = "angular = rad/s; impulses = mass*u/s; effective masses = mass.";
+inline constexpr const char* REPLAY_CAUSE_SOLVER_PANEL_SIGNS = "SIGNS: +penetration = overlap; normal/t1/t2 = world-space;";
+inline constexpr const char*
+    REPLAY_CAUSE_SOLVER_PANEL_SIGNS_MORE = "signed accT1/accT2 follow t1/t2; CLAMP = frictionLimit reached.";
 
 struct ReplayCauseSolverPanelRowText
 {
@@ -233,10 +237,12 @@ struct ReplayCauseSolverPanelLayout
     UI::UIRect panel;
     UI::UIRect content;
     float rowHeight = REPLAY_CAUSE_SOLVER_PANEL_BASE_ROW_HEIGHT;
+    int visibleRows = 0;
 };
 
 // The custom replay overlay and App input composition share this pure layout
-// projection so hit-testing and drawing cannot disagree about the four-row viewport.
+// projection so hit-testing and drawing cannot disagree about the compact
+// four-row viewport or its short-screen fallback.
 ReplayCauseSolverPanelLayout BuildReplayCauseSolverPanelLayout( const ReplayCauseInspectionView& inspection,
                                                                 const RunReplayCauseTreeState& causeTree, int screenWidth,
                                                                 int screenHeight ) noexcept;

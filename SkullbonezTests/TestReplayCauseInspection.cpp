@@ -11,7 +11,8 @@
 //   distinct expired-versus-unavailable outcomes without retaining source data.
 //   Presentation tests pin event-frame body poses, exact ManifoldRow points,
 //   derived surviving-row points, owned packet publication, solver-row copy
-//   lifetime, and the fixed four-row scrolling viewport.
+//   lifetime, the compact unavailable state, and the up-to-four-row scrolling
+//   viewport.
 //   The UI projection test pins exact solver-value text, units, and signs.
 //   The Planning transition tests also pin request coalescing, pause ownership,
 //   Space aftermath, total-elapsed cubic easing, symmetric discrete frame
@@ -321,6 +322,8 @@ TEST_CASE( "Replay cause solver panel: copied rows survive restore sources and s
     causeTree.width = 380;
     causeTree.height = 420;
     const ReplayCauseSolverPanelLayout layout = BuildReplayCauseSolverPanelLayout( published, causeTree, 1920, 1080 );
+    CHECK( layout.panel.w == doctest::Approx( 520.0f ) );
+    CHECK( layout.visibleRows == 4 );
     CHECK( layout.content.h == doctest::Approx( layout.rowHeight * 4.0f ) );
 
     // The panel has no second placement state: every cause-window drag or
@@ -332,6 +335,25 @@ TEST_CASE( "Replay cause solver panel: copied rows survive restore sources and s
     CHECK( moved.panel.x == doctest::Approx( 590.0f ) );
     CHECK( moved.panel.y == doctest::Approx( 180.0f ) );
 
+    ReplayCauseInspectionView unavailable = published;
+    unavailable.solverDetailAvailability = ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable;
+    unavailable.solverDetailContacts = {};
+    unavailable.solverDetailPipelineRecords = {};
+    causeTree.x = 1114;
+    causeTree.y = 28;
+    causeTree.width = 380;
+    const ReplayCauseSolverPanelLayout compactUnavailable =
+        BuildReplayCauseSolverPanelLayout( unavailable, causeTree, 1125, 541 );
+    CHECK( compactUnavailable.panel.w == doctest::Approx( REPLAY_CAUSE_SOLVER_PANEL_WIDTH ) );
+    CHECK( compactUnavailable.panel.h < 200.0f );
+    CHECK( compactUnavailable.panel.w < 1125.0f * 0.5f );
+    CHECK( compactUnavailable.content.h == doctest::Approx( REPLAY_CAUSE_SOLVER_PANEL_EMPTY_HEIGHT ) );
+    CHECK( compactUnavailable.visibleRows == 0 );
+    CHECK( REPLAY_CAUSE_SOLVER_PANEL_OPACITY == doctest::Approx( 0.78f ) );
+
+    causeTree.x = 120;
+    causeTree.y = 180;
+    causeTree.width = 460;
     const int panelX = static_cast<int>( moved.panel.x + 20.0f );
     const int panelY = static_cast<int>( moved.panel.y + 20.0f );
     REQUIRE( inspection.TickSolverDetailPanelInput( causeTree, panelX, panelY, true, false, -120, 1920, 1080 ) );
@@ -504,11 +526,13 @@ TEST_CASE( "Replay solver panel: value mapping includes exact values units and s
     const ReplayCauseSolverPanelRowText values = BuildReplayCauseSolverPanelRowText( inspection, 0 );
 
     CHECK( std::strcmp( REPLAY_CAUSE_SOLVER_PANEL_UNITS,
-                        "UNITS: point/rA/rB/penetration/correction = scene units; bias/linear writeback = u/s; angular = "
-                        "rad/s; impulses = mass*u/s; effective masses = mass." ) == 0 );
+                        "UNITS: vectors/penetration/correction = scene units; bias/linear writeback = u/s;" ) == 0 );
+    CHECK( std::strcmp( REPLAY_CAUSE_SOLVER_PANEL_UNITS_MORE,
+                        "angular = rad/s; impulses = mass*u/s; effective masses = mass." ) == 0 );
     CHECK( std::strcmp( REPLAY_CAUSE_SOLVER_PANEL_SIGNS,
-                        "SIGNS: +penetration means overlap; normal/t1/t2 are world-space; signed accT1/accT2 follow "
-                        "t1/t2. CLAMP means |tangent impulse| reached frictionLimit." ) == 0 );
+                        "SIGNS: +penetration = overlap; normal/t1/t2 = world-space;" ) == 0 );
+    CHECK( std::strcmp( REPLAY_CAUSE_SOLVER_PANEL_SIGNS_MORE,
+                        "signed accT1/accT2 follow t1/t2; CLAMP = frictionLimit reached." ) == 0 );
     CHECK( std::strcmp( values.headline, "ROW 0  FEATURE 101  BODIES 3 / 7  POINT (7.0000, 8.0000, 9.0000)" ) == 0 );
     CHECK( std::strcmp( values.basis,
                         "n (0.1000 0.2000 0.3000)  t1 (0.4000 0.5000 0.6000)  t2 (0.7000 0.8000 0.9000)" ) == 0 );
