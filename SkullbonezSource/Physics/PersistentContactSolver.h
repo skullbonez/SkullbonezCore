@@ -89,6 +89,7 @@ struct SolverBodyState
     Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 invInertia = Math::Vector::ZERO_VECTOR;
+
     // Invariant: per-solve positional cleanup accumulates every manifold
     // contribution here, then publishes one authoritative write per body.
     Math::Vector::Vector3 positionCorrection = Math::Vector::ZERO_VECTOR;

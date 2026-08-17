@@ -33,9 +33,10 @@ Status: One active plan; 20/24 tasks complete
 - Look Lab Random Style Authoring is closed. No further work remains.
 - Catto Divergence Repairs is registered as live by owner direction on
   2026-08-15. CD0-CD1 are complete. CD1 removes manifold-row multiplication
-  from position correction; its physics and replay candidates are preserved
-  for later owner behavior review, the same-scene attribution review is clear,
-  and no golden was refreshed. R5, R6, R3, R2 stage (a), and the local
+  from position correction; its physics and replay candidates remain preserved,
+  the same-scene attribution review is clear, and the owner accepted the
+  improved simulation and authorized its physics-derived golden refresh on
+  2026-08-17. R5, R6, R3, R2 stage (a), and the local
   partial-TOI R4 repair remain approved in that order. R2 stages (b)-(d) and
   speculative contacts remain outside the active ledger.
 

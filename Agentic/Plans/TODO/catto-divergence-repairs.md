@@ -124,6 +124,14 @@ physics behavior. The owner will inspect all preserved candidates and decide
 which phases are acceptable. Build failures, crashes, invariant failures, and
 non-physics correctness failures remain blocking.
 
+### CD1 Baseline Acceptance — 2026-08-17
+
+After reviewing the preserved CD1 candidates and independent same-scene
+attribution, the owner accepted CD1's simulation behavior as an improvement and
+authorized the affected physics-derived baselines to be overwritten. This
+acceptance is specific to CD1; later Catto phases still preserve and report
+their candidates until the owner accepts each result.
+
 ---
 
 ## Section 2 — Divergences To Keep
@@ -225,7 +233,8 @@ physics build and lifecycle smoke passed, then the immutable varied golden
 reported the expected physics-visible mismatch: 40,905 lines differ. Against
 the preserved T4 candidate rather than the older golden, frames 0-289 are
 byte-identical; CD1 first diverges at frame 290 and changes 27,242 later rows
-through frame 1199 across 22 stack/drop bodies. No golden was refreshed.
+through frame 1199 across 22 stack/drop bodies. Those measurements were retained
+before the owner accepted CD1 and authorized the baseline refresh.
 
 The direct CD1 candidate is retained under
 `TestOutput/validation/candidates/CATTO_REPAIRS_CD1/`: CORE
@@ -267,8 +276,9 @@ hashes `094668365D071EA0FF61D4A1D847776DC6F08BFD3FAF0BD9D78817CB258B118F`,
 and `B34F1123483E31D8094E0E823536AC2E92D878FD681A985490C618F62BD8DB7A`.
 The independent re-review therefore returned **CLEAR**: changed activation
 timing and wall outcomes are deterministic downstream R1 Physics behavior, not
-a replay correctness regression. Golden acceptance remains the owner's later
-candidate decision.
+a replay correctness regression. The owner subsequently accepted the CD1
+behavior and the varied, shooting, space, known-issue, query, replay-visual, and
+causal goldens were refreshed from the validated candidate.
 
 All seven ownership inventories are green: 88/88 aggregate rulings, 1/1
 extraction-scar ruling, 40/40 complexity rulings, 1,780 build rows / 72 shared

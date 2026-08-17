@@ -26,9 +26,11 @@ hashes diverged; a second CD1 run reproduced canonical projection hash
 and byte-exact replay hash
 `932DC9FADFBEED901D27743C4D90C2F1849BBCAC7406C0B62B138C1657F53765`.
 Direct, replay, and pre-CD1 attribution candidates are retained under
-`TestOutput/validation/candidates/CATTO_REPAIRS_CD1*`; no golden was refreshed.
-All seven ownership inventories are green and the touched-source comment audit
-is 4/4 checked, 0 deferred.
+`TestOutput/validation/candidates/CATTO_REPAIRS_CD1*`. The owner accepted the
+improved CD1 simulation on 2026-08-17 and authorized the varied, shooting,
+space, known-issue, query, replay-visual, and causal golden refresh. All seven
+ownership inventories are green and the touched-source comment audit is 4/4
+checked, 0 deferred.
 
 Determinism T4 replaced ragdoll `acosf` with the shared deterministic vector-
 angle owner and closed the Physics-reachable CRT transcendental set. Focused
