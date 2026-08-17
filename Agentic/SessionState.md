@@ -2,13 +2,33 @@
 
 Date: 2026-08-17
 Branch: `codex/master-plan-2026-08-16`
-Status: One active plan; 19/24 tasks complete
+Status: One active plan; 20/24 tasks complete
 
 Catto Divergence Repairs (6 tasks) is the one registered active plan under
-`Agentic/Plans/TODO/`; Causal C0-C8, Determinism T0-T8, and Catto CD0 are
-complete. `MASTER-PLAN.md` carries the binding order, with Catto CD1 next. The
+`Agentic/Plans/TODO/`; Causal C0-C8, Determinism T0-T8, and Catto CD0-CD1 are
+complete. `MASTER-PLAN.md` carries the binding order, with Catto CD2 next. The
 completed causal and determinism plans were deleted under the repository
 convention; Git history retains their phase evidence.
+
+Catto CD1 replaced per-contact-row position projection with one deepest-row
+linear correction per contiguous manifold, inverse-mass shared and accumulated
+to one body-store publication. The focused family passed 13 cases / 172
+assertions and the full test gate passed 579 cases / 2,479,944 assertions. The
+physics gate reached its expected immutable-golden mismatch (40,905 lines); a
+direct T4 comparison is identical through frame 289 and first differs at frame
+290. The replay gate's build and 17 cases / 75 assertions passed before its
+older causal golden reported firstFrame 185 -> 184.
+
+The independent review required and cleared a same-scene Automation A/B. Its
+non-physics envelope was identical, while the Physics-owned trajectory and RVPD
+hashes diverged; a second CD1 run reproduced canonical projection hash
+`E16AD39C7CA4CAF8E3DE4F809F3E7FACB313B5AF13CA72216FE0CA59D0D465D3`
+and byte-exact replay hash
+`932DC9FADFBEED901D27743C4D90C2F1849BBCAC7406C0B62B138C1657F53765`.
+Direct, replay, and pre-CD1 attribution candidates are retained under
+`TestOutput/validation/candidates/CATTO_REPAIRS_CD1*`; no golden was refreshed.
+All seven ownership inventories are green and the touched-source comment audit
+is 4/4 checked, 0 deferred.
 
 Determinism T4 replaced ragdoll `acosf` with the shared deterministic vector-
 angle owner and closed the Physics-reachable CRT transcendental set. Focused
@@ -66,17 +86,17 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-`CATTO_REPAIRS` CD1 (approved R1). Continue through CD5 in the plan's recorded
-R1, R5, R6, R3, R2(a), R4 order. Preserve every baseline-failing executable by
-plan and phase, record its diff, and continue without refreshing a golden.
-`future_physics.md` remains unregistered.
+Pause before `CATTO_REPAIRS` CD2 by owner request. When resumed, implement R5
+and then R6 as separate commits, followed by R3, R2(a), and R4. Preserve every
+baseline-failing executable by plan and phase, record its diff, and continue
+without refreshing a golden. `future_physics.md` remains unregistered.
 
 ## Blockers
 
-- None. `CATTO_REPAIRS` CD1-CD5 are selectable now that Causal and Determinism
-  are complete. Execute them in the approved R1, R5, R6, R3, R2(a), R4 order.
-  Preserve baseline-failing candidates and continue for later owner review; do
-  not re-ask the approved scope questions or refresh a golden.
+- None. Work is intentionally paused by owner direction before CD2. When
+  resumed, execute R5, R6, R3, R2(a), and R4 in order. Preserve baseline-failing
+  candidates for later owner review; do not re-ask the approved scope questions
+  or refresh a golden.
 
 ## CI Note
 

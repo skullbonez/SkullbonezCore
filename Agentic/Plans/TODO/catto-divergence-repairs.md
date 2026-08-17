@@ -1,11 +1,11 @@
 # Catto Divergence Repairs
 
 Date: 2026-08-15
-Status: **Live — registered by owner direction 2026-08-15. 1/6 phases complete.**
+Status: **Live — registered by owner direction 2026-08-15. 2/6 phases complete.**
 Impact area: Physics contact solver, joints, CCD sequencing, terrain rest
 policy, physics baselines, tests, documentation
 Owner: Physics contact solver
-Priority: CD1 R1 position projection
+Priority: CD2 R5 terrain restitution, then R6 sleep-owned quieting
 
 ## Scope Gate — Read First
 
@@ -197,7 +197,7 @@ so replay fidelity is a cumulative gate rather than an alternative one.
   settle scope, order, primary repair behavior, and the boundary for isolated
   baseline movement. Unexpected measured effects still return to the owner; the
   included repairs do not require their scope questions to be asked again.
-- [ ] **CD1 — R1 position projection.** Per-body accumulation with max-based
+- [x] **CD1 — R1 position projection.** Per-body accumulation with max-based
   reduction under the approved R1 ruling, plus the
   four-row-versus-one-row displacement test.
 - [ ] **CD2 — R5 and R6.** One restitution formula across both paths; snap
@@ -210,6 +210,71 @@ so replay fidelity is a cumulative gate rather than an alternative one.
 - [ ] **CD5 — R4 local interval consistency.** Preserve partial-TOI advancement
   and remaining-time integration. Define and test the contact interval used by
   Baumgarte and friction terms. Speculative contacts remain future work.
+
+### CD1 Evidence — 2026-08-17
+
+CD1 now selects the deepest retained row in each contiguous manifold, applies
+the existing slop and terrain/object strengths, accumulates inverse-mass-
+weighted linear corrections in transaction scratch, and publishes each body
+position once. It adds no angular correction or split impulse. The focused
+one-row/four-row oracle passed as part of 13 persistent-solver cases / 172
+assertions and would fail against the pre-CD1 row-summing implementation.
+
+`tools\validate_tests.bat` passed 579 cases / 2,479,944 assertions. The Debug
+physics build and lifecycle smoke passed, then the immutable varied golden
+reported the expected physics-visible mismatch: 40,905 lines differ. Against
+the preserved T4 candidate rather than the older golden, frames 0-289 are
+byte-identical; CD1 first diverges at frame 290 and changes 27,242 later rows
+through frame 1199 across 22 stack/drop bodies. No golden was refreshed.
+
+The direct CD1 candidate is retained under
+`TestOutput/validation/candidates/CATTO_REPAIRS_CD1/`: CORE
+`80CB5C1591D987CF63D261DE22F7BD389269781C9741794A84750857379BFB27`,
+TESTS `A737E6089D208922F8CC2C48A8AA7F8DA76C8C3291E60993B6987B3F5E75DBAD`,
+and varied CSV
+`BAB33781538AAAB360B887988ADD88E5C9FE4376F382B0A9B804F58B76993854`.
+
+The replay-visual launcher, Automation build, and 17 focused cases / 75
+assertions passed before the immutable causal golden reported
+`topology[0].firstFrame` 185 -> 184. The candidate is retained under
+`TestOutput/validation/candidates/CATTO_REPAIRS_CD1_REPLAY_VISUAL_FIDELITY/`:
+Automation CORE
+`D048842BC0B7F0745060C2E211224E8B038C29EEFCED326FAFCF2100B1E2945D`,
+Profile TESTS
+`128DC837608278B63CB34A206027E3509B68E443A9EC9C190B4990EE8E5E6075`,
+report `5E96E0421EC3D7FC6F0C847FF8119659513473C2AB302853D7BD083116B4B6F8`,
+and replay artifact
+`932DC9FADFBEED901D27743C4D90C2F1849BBCAC7406C0B62B138C1657F53765`.
+
+The independent reviewer initially required same-scene attribution beyond the
+golden's first difference. A fresh Automation build of exact pre-CD1 commit
+`4bdd2603a` and the CD1 executable then ran the same scene, script, config,
+shaders, and 6,800-frame command. Schema/counts, target/branch/source/event
+mapping, cameras, topology identity `(id, parentId, depth)`, live replay
+packets/events/cursors, generation/restart/readiness/reserve state, and artifact
+structure all matched. Both runs proved `predictionSourceSolverHash ==
+liveSolverHash` and stable across prediction. Divergence began only in the
+Physics-owned private prediction: trajectory fingerprint
+`0x70AF9D193F6E10E3 -> 0x1545457413BB5355` and RVPD hash
+`8214111599449249960 -> 16376692502313136880`. A second CD1 run produced the
+same canonical report projection
+`E16AD39C7CA4CAF8E3DE4F809F3E7FACB313B5AF13CA72216FE0CA59D0D465D3`
+and byte-identical replay artifact. The pre-CD1 attribution executable, report,
+and replay are retained under
+`TestOutput/validation/candidates/CATTO_REPAIRS_CD1_REPLAY_ATTRIBUTION/` with
+hashes `094668365D071EA0FF61D4A1D847776DC6F08BFD3FAF0BD9D78817CB258B118F`,
+`2E972D6DA314C77A35015CF7847C2AB48F169CFA1B98769179B7427A47F3EC25`,
+and `B34F1123483E31D8094E0E823536AC2E92D878FD681A985490C618F62BD8DB7A`.
+The independent re-review therefore returned **CLEAR**: changed activation
+timing and wall outcomes are deterministic downstream R1 Physics behavior, not
+a replay correctness regression. Golden acceptance remains the owner's later
+candidate decision.
+
+All seven ownership inventories are green: 88/88 aggregate rulings, 1/1
+extraction-scar ruling, 40/40 complexity rulings, 1,780 build rows / 72 shared
+files / 144 ruled divergences / 0 blocking, 599 glossary files / 0 blocking,
+and strict reachability 81 rows / 0 blockers; the wide-signature inventory also
+has no blocking row. Touched-source comment audit: 4/4 checked, 0 deferred.
 
 ## Reference Sites
 

@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-17
-Status: One active plan; 19/24 tasks complete
+Status: One active plan; 20/24 tasks complete
 
 ## Owner Direction
 
@@ -32,9 +32,12 @@ Status: One active plan; 19/24 tasks complete
   CandidatePairs CPU regression.
 - Look Lab Random Style Authoring is closed. No further work remains.
 - Catto Divergence Repairs is registered as live by owner direction on
-  2026-08-15. CD0 is complete by the 2026-08-16 owner rulings: R1, R5, R6, R3,
-  R2 stage (a), and the local partial-TOI R4 repair are approved in that order.
-  R2 stages (b)-(d) and speculative contacts remain outside the active ledger.
+  2026-08-15. CD0-CD1 are complete. CD1 removes manifold-row multiplication
+  from position correction; its physics and replay candidates are preserved
+  for later owner behavior review, the same-scene attribution review is clear,
+  and no golden was refreshed. R5, R6, R3, R2 stage (a), and the local
+  partial-TOI R4 repair remain approved in that order. R2 stages (b)-(d) and
+  speculative contacts remain outside the active ledger.
 
 Completed plan files were deleted; git history is the archive.
 
@@ -42,7 +45,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Catto Divergence Repairs | `CATTO_REPAIRS` | 6 | 1 | `TODO/catto-divergence-repairs.md` |
+| Catto Divergence Repairs | `CATTO_REPAIRS` | 6 | 2 | `TODO/catto-divergence-repairs.md` |
 
 ## Parked, Backlog, And Completed Plans
 
@@ -75,9 +78,10 @@ states elsewhere, and both are recorded rather than silently corrected:
 
 ## Binding Order
 
-1. `CATTO_REPAIRS` CD1 through CD5 — CD0 is complete. Execute the approved order:
-   R1; R5 then R6 as separate commits; R3; R2 stage (a) only; and the local R4
-   interval-consistency repair that preserves partial-TOI advancement.
+1. `CATTO_REPAIRS` CD2 through CD5 — CD0-CD1 are complete. Execute the remaining
+   approved order: R5 then R6 as separate commits; R3; R2 stage (a) only; and
+   the local R4 interval-consistency repair that preserves partial-TOI
+   advancement.
 
 `CAUSAL_INSPECT` no longer re-steps an old frame to regenerate solver detail, so
 it does not consume the tier-2 determinism guarantee and has no ordering
@@ -92,5 +96,6 @@ tests must pin field mapping and availability, not pre-Catto impulse values.
 
 ## Portfolio Progress
 
-19/24 tasks complete with one active plan. Causal C0-C8, Determinism T0-T8, and
-Catto CD0 are complete; Catto CD1 is the next selectable task.
+20/24 tasks complete with one active plan. Causal C0-C8, Determinism T0-T8, and
+Catto CD0-CD1 are complete; Catto CD2 is next, beginning with R5 and then R6 as
+separate commits.
