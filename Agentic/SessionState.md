@@ -1,12 +1,13 @@
 # Session State
 
 Date: 2026-08-17
-Branch: `codex/master-plan-2026-08-16`
-Status: One active plan; 20/24 tasks complete
+Branch: `main`
+Status: Two active plans; 20/32 tasks complete
 
-Catto Divergence Repairs (6 tasks) is the one registered active plan under
-`Agentic/Plans/TODO/`; Causal C0-C8, Determinism T0-T8, and Catto CD0-CD1 are
-complete. `MASTER-PLAN.md` carries the binding order, with Catto CD2 next. The
+Catto Divergence Repairs (6 tasks) and Deterministic Trigonometry Adoption
+(8 tasks) are registered under `Agentic/Plans/TODO/`; Causal C0-C8,
+Determinism T0-T8, and Catto CD0-CD1 are complete. `MASTER-PLAN.md` carries the
+binding order, with Catto CD2 next and deterministic trig following Catto. The
 completed causal and determinism plans were deleted under the repository
 convention; Git history retains their phase evidence.
 
@@ -92,6 +93,13 @@ Pause before `CATTO_REPAIRS` CD2 by owner request. When resumed, implement R5
 and then R6 as separate commits, followed by R3, R2(a), and R4. Preserve every
 baseline-failing executable by plan and phase, record its diff, and continue
 without refreshing a golden. `future_physics.md` remains unregistered.
+
+After Catto closes, execute `TRIG_DETERMINISM` DT0-DT7. Its dated inventory is
+120 direct CPU production sine/cosine calls across 15 files plus 20 test-only
+calls across 5 files. Establish the A/B oracles and exact-tick headless solar
+fast-forward before migrating callers; the current fixed-step time-scale path
+caps work at five ticks per presented frame and drops excess ticks, so it is not
+the long-horizon test instrument.
 
 ## Blockers
 

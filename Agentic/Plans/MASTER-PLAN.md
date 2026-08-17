@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-17
-Status: One active plan; 20/24 tasks complete
+Status: Two active plans; 20/32 tasks complete
 
 ## Owner Direction
 
@@ -39,6 +39,12 @@ Status: One active plan; 20/24 tasks complete
   2026-08-17. R5, R6, R3, R2 stage (a), and the local
   partial-TOI R4 repair remain approved in that order. R2 stages (b)-(d) and
   speculative contacts remain outside the active ledger.
+- Deterministic Trigonometry Adoption is registered after Catto by owner
+  direction on 2026-08-17. It inventories all 120 direct CPU production
+  sine/cosine calls, qualifies float and double deterministic owners, migrates
+  callers by risk, and closes with exact-tick headless solar-system
+  fast-forward evidence rather than increasing `dt` or relying on the runtime
+  time-scale cap.
 
 Completed plan files were deleted; git history is the archive.
 
@@ -47,6 +53,7 @@ Completed plan files were deleted; git history is the archive.
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
 | Catto Divergence Repairs | `CATTO_REPAIRS` | 6 | 2 | `TODO/catto-divergence-repairs.md` |
+| Deterministic Trigonometry Adoption | `TRIG_DETERMINISM` | 8 | 0 | `TODO/deterministic-trigonometry-adoption.md` |
 
 ## Parked, Backlog, And Completed Plans
 
@@ -84,6 +91,9 @@ states elsewhere, and both are recorded rather than silently corrected:
    approved order: R5 then R6 as separate commits; R3; R2 stage (a) only; and
    the local R4 interval-consistency repair that preserves partial-TOI
    advancement.
+2. `TRIG_DETERMINISM` DT0 through DT7 — widen static enforcement, establish
+   A/B and exact-tick solar evidence before replacement, certify float and
+   double owners, migrate callers by risk, then close the production surface.
 
 `CAUSAL_INSPECT` no longer re-steps an old frame to regenerate solver detail, so
 it does not consume the tier-2 determinism guarantee and has no ordering
@@ -98,6 +108,6 @@ tests must pin field mapping and availability, not pre-Catto impulse values.
 
 ## Portfolio Progress
 
-20/24 tasks complete with one active plan. Causal C0-C8, Determinism T0-T8, and
-Catto CD0-CD1 are complete; Catto CD2 is next, beginning with R5 and then R6 as
-separate commits.
+20/32 tasks complete with two active plans. Causal C0-C8, Determinism T0-T8,
+and Catto CD0-CD1 are complete; Catto CD2 is next, beginning with R5 and then
+R6 as separate commits. Deterministic Trigonometry DT0-DT7 follows Catto.
