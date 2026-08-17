@@ -193,6 +193,36 @@ TEST_CASE( "ReplayRecorder: Configure does not pre-reserve future sample payload
 }
 
 
+TEST_CASE( "Replay prediction world reset preserves reserved Gameplay snapshot storage" )
+{
+    ReplaySolverWorldSnapshot world;
+    world.tornadoSystemConfig.vortices.reserve( 64u );
+    world.tornadoCaptureSeconds.reserve( 1024u );
+    world.tornadoEjectCooldownSeconds.reserve( 1024u );
+    const auto* vortexStorage = world.tornadoSystemConfig.vortices.data();
+    const auto* captureStorage = world.tornadoCaptureSeconds.data();
+    const auto* cooldownStorage = world.tornadoEjectCooldownSeconds.data();
+    const std::size_t vortexCapacity = world.tornadoSystemConfig.vortices.capacity();
+    const std::size_t captureCapacity = world.tornadoCaptureSeconds.capacity();
+    const std::size_t cooldownCapacity = world.tornadoEjectCooldownSeconds.capacity();
+
+    world.ClearPreservingCapacity();
+    CHECK( world.tornadoSystemConfig.vortices.data() == vortexStorage );
+    CHECK( world.tornadoCaptureSeconds.data() == captureStorage );
+    CHECK( world.tornadoEjectCooldownSeconds.data() == cooldownStorage );
+    CHECK( world.tornadoSystemConfig.vortices.capacity() == vortexCapacity );
+    CHECK( world.tornadoCaptureSeconds.capacity() == captureCapacity );
+    CHECK( world.tornadoEjectCooldownSeconds.capacity() == cooldownCapacity );
+
+    // Invariant: repeated cancellation invalidation remains allocation-free;
+    // the first reset must not merely leave a fresh snapshot with zero reserve.
+    world.ClearPreservingCapacity();
+    CHECK( world.tornadoSystemConfig.vortices.data() == vortexStorage );
+    CHECK( world.tornadoCaptureSeconds.data() == captureStorage );
+    CHECK( world.tornadoEjectCooldownSeconds.data() == cooldownStorage );
+}
+
+
 TEST_CASE( "ReplayRecorder: presentation resolution reuses a bounded dense-buffer pool" )
 {
     constexpr int bodyCount = 64;

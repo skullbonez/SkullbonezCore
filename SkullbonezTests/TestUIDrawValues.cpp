@@ -1,18 +1,13 @@
 /*
 File: TestUIDrawValues.cpp
 Purpose:
-  Locks the backend-neutral Legacy UI draw-stream and font-metric contracts.
+  Locks the backend-neutral UI draw-stream and font-metric contracts.
 
 Summary:
-  Exercises every UR1 value variant, fixed-capacity failure behavior, preview
-  fallback data, clip nesting, immutable text measurement, the profiler
-  presenter, detached memory-capacity rows, window-chrome interaction semantics,
-  and all production UI surfaces without a GPU.
-
-Mental model:
-  UI records ordered values into bounded storage. These tests inspect those
-  values directly, without a renderer device, and prove overflow/fallback
-  behavior at the ownership boundary.
+  UI records ordered values into bounded storage. These tests inspect every
+  value variant directly without a renderer device, including fixed-capacity
+  failure behavior, preview fallbacks, clip nesting, immutable text metrics,
+  detached memory rows, window interaction, and every production surface.
 
 Glossary:
   Preview identity: UI catalog row resolved to a texture only during submission.
@@ -256,7 +251,13 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
         // worker-thread time stopped being summed into the frame-thread rows.
         // Only this surface moved; the other ten fingerprints prove the column
         // did not disturb any other tab's stream.
+#if defined( SKULLBONEZ_PORTABLE_CPU )
+        // The portable target links the non-instrumented UI library, matching
+        // the standalone UI boundary executable rather than the Profile app.
+        17282268762934632125ull,
+#else
         16424379413615724563ull,
+#endif
         5048000936848528224ull, // Scene: reveal-speed row added under simulation speed.
         643319089294822447ull,
         9774020997193876338ull,

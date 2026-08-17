@@ -40,8 +40,6 @@ Related:
 #include "../Maths/GeometricStructures.h"
 #include "../Maths/GeometricMath.h"
 #include "../Physics/PhysicsTerrainView.h"
-#include "../Rendering/RenderCommandTypes.h"
-#include "../Rendering/Shadow.h"
 #include <memory>
 #include <cstdint>
 #include <vector>
@@ -62,8 +60,11 @@ class AssetSystem;
 namespace Rendering
 {
 class Dx12ResourceBuilder;
+class Dx12TextureOwner;
 class MeshDX12;
+struct PassRasterStateBucket;
 class ShaderDX12;
+struct ShadowFrameData;
 } // namespace Rendering
 
 namespace Geometry

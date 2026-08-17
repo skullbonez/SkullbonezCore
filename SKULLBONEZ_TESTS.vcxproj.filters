@@ -117,6 +117,9 @@
     <ClCompile Include="SkullbonezTests\TestDeterminism.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestReplayDeterminism.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestDx12OnlyRuntime.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>

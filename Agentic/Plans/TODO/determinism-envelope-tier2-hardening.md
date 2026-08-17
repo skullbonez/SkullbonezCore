@@ -1,7 +1,7 @@
 # Determinism Envelope Tier-2 Hardening
 
 Date: 2026-08-15
-Status: Active. 3/9 tasks complete.
+Status: Active. 5/9 tasks complete.
 Impact area: Maths transcendentals, Physics pose integration, ragdoll neck
 constraint, determinism tooling, portable CPU test target, CI lanes
 Owner: Physics determinism envelope
@@ -410,7 +410,7 @@ violation if one exists.
   compile-only POSIX proof for T5 because T6 owns portable execution. No Physics
   behavior or baseline changed.
 
-- [ ] **T6 — Split the portable test target.**
+- [x] **T6 — Split the portable test target.**
   24 of 58 files in `SkullbonezTests/` already have no Runtime or Rendering
   include, including `TestPersistentContactSolver.cpp`,
   `TestObjectContactManifold.cpp`, `TestSpatialGrid.cpp`,
@@ -422,6 +422,31 @@ violation if one exists.
   physics half travels. Name the split files for the subsystem they pin, never
   for the platform or the gate. The Windows doctest run must keep executing every
   case it does today.
+
+  Evidence (2026-08-17): `skullbonez_portable_tests` reuses 26 native doctest
+  translation units without source copies and executes 253 cases / 2,410,023
+  assertions. Configure-time exactness checks reject an eligible direct-source
+  omission or a selected source that directly includes Runtime or Rendering.
+  The shared compile contract applies the portable macro, no-exception/no-RTTI
+  policy, forced floating-point marker, and disabled contraction to both the
+  production library and test executable.
+
+  `TestReplayDeterminism.cpp` now owns the Replay solver-sample restore case,
+  while `TestDeterminism.cpp` retains portable Physics worker/fixed-step tests
+  and hashes only Physics hot state for terrain reconstruction. The moved test
+  preserves its complete pre-split oracle across frame/world facts, every
+  solver snapshot vector, diagnostic counts, complete body rows, and hashes;
+  its focused Profile run passed 1 case / 144 assertions. The native suite
+  retained all 569 cases and passed 2,479,870 assertions.
+
+  Terrain's public header now forward-declares render-owned values instead of
+  pulling the DX12 backend through `Shadow.h`. Serial Visual Studio and Clang
+  22 CTests both passed; Clang Ninja dependency evidence reports zero
+  `Rendering/DX12`, `d3d12.h`, or `dxgi1_5.h` rows. `validate_all_cpu_tests`
+  and `validate_fast` passed end to end, build configuration and project/filter
+  inventories have zero blockers, and the 11-file touched-source comment audit
+  has zero deferred files. Independent review returned no blocking or
+  non-blocking findings. No Physics baseline or golden changed.
 
 - [ ] **T7 — Add the Linux lane with sanitizers.**
   Run the T6 target under Clang and GCC, and under ASan, UBSan, and TSan. TSan on

@@ -33,6 +33,7 @@ Related:
 #include "SceneAuthoredSetup.InitialImpulse.h"
 #include "../Automation/RuntimeValidationHarness.h"
 #include "../../Assets/AssetKeys.h"
+#include "../../Core/SbDiagnosticStore.h"
 #include "SceneSessionState.h"
 #include "../Camera/CameraCollection.h"
 #include "../Editor/EditorHullAssets.h"

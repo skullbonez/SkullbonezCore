@@ -38,6 +38,7 @@ Related:
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/CollisionShape.h"
 #include "../../Physics/PhysicsBodyStore.h"
+#include "../../Rendering/DX12/RenderBackendDX12.h"
 #include "../../Rendering/RenderCommandTypes.h"
 #include "../../Maths/Quaternion.h"
 #include "../../World/Terrain.h"

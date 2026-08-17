@@ -195,13 +195,16 @@ tools\validate_build.bat Release
 
 Outputs to `Debug\`, `Profile\`, `Release\SKULLBONEZ_CORE.exe`.
 
-The renderer-free CPU library also builds through CMake for second-toolchain
-validation. The target contains complete Maths and Physics source sets plus the
-portable Core, authored-scene, terrain, and asset-system closure:
+The renderer-free CPU library and tests also build through CMake for
+second-toolchain validation. The library contains complete Maths, Physics, and
+UI source sets plus the portable Core, Gameplay, authored-scene, terrain, and
+asset-system closure. The test executable reuses every `SkullbonezTests` source
+that has no direct Runtime or Rendering include:
 
 ```bat
 cmake -S . -B build\portable -DCMAKE_BUILD_TYPE=Release
-cmake --build build\portable --config Release --target skullbonez_portable_cpu
+cmake --build build\portable --config Release --target skullbonez_portable_tests
+ctest --test-dir build\portable -C Release --output-on-failure
 ```
 
 ## Run
