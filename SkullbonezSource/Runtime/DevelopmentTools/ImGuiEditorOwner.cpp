@@ -341,7 +341,7 @@ SkullbonezCore::Core::SbResult ImGuiEditorOwner::Start( HWND window, Rendering::
     io.ConfigDpiScaleFonts = true;
     io.IniFilename = IMGUI_LAYOUT_PATH;
 
-    // Why: the repository intentionally carries no extra font license in E5.
+    // Why: the repository intentionally carries no separately licensed editor font.
     // A future optional asset can occupy this stable path; the pinned embedded
     // vector font keeps startup deterministic on every current machine.
     ImFont* editorFont = nullptr;
@@ -747,8 +747,8 @@ UiInputCaptureIntent ImGuiEditorOwner::ConsumeInputCaptureIntent() noexcept
 
 void ImGuiEditorOwner::SetGameViewportInputState( bool hovered, bool focused ) noexcept
 {
-    // Concept: the fitted E11 image item publishes hover/focus through the E7
-    // policy seam; gameplay callbacks never learn about ImGui windows.
+    // Concept: the fitted game-viewport image publishes hover/focus through the
+    // editor input-policy seam; gameplay callbacks never learn about ImGui windows.
     m_gameViewportHovered = m_visible && hovered;
     m_gameViewportFocused = m_visible && focused;
 }
@@ -1900,7 +1900,7 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             ImGui::BeginDisabled();
             ImGui::SmallButton( "Pop-out: single window" );
             ImGui::EndDisabled();
-            DrawDisabledReason( "Native platform viewports remain disabled by the campaign's single-window policy" );
+            DrawDisabledReason( "Native platform viewports are disabled; the editor owns one application window" );
 
             const ImVec2 available = ImGui::GetContentRegionAvail();
             const ImVec2 availableMin = ImGui::GetCursorScreenPos();

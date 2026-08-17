@@ -655,7 +655,7 @@ void PhysicsSleepController::RunIslandStageMode( PhysicsBodyStore& bodyStore, co
         }
     }
 
-    // P4 invariant: the awake list is ascending dense order, so this walk
+    // Invariant: the awake list is ascending dense order, so this walk
     // performs the same per-body arithmetic in the same order while skipping
     // fixed and sleeping guard reads entirely.
 

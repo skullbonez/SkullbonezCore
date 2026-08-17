@@ -297,7 +297,7 @@ For implementation work:
 | Change | Validation |
 |--------|------------|
 | Solver row/body cache changes | `tools\validate_physics.bat` and `tools\validate_perf.bat` |
-| `SkullbonezGameModelCollection*` changes | Prefer `tools\validate_full.bat` because repo mapping includes renderer and perf coverage |
+| `SkullbonezGameModelCollection*` changes | Run `tools\validate_fast.bat` plus the mapped renderer and performance gates; reserve full validation for terminal plan closure |
 | Contact manifold or broadphase changes | `tools\validate_physics.bat` and `tools\validate_perf.bat` |
 | Removing roll alignment or changing orientation behavior | `tools\validate_physics.bat` plus renderer validation if visual baselines move |
 

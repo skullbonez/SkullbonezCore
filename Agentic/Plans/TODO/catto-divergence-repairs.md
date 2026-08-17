@@ -195,7 +195,7 @@ so replay fidelity is a cumulative gate rather than an alternative one.
 | Scope | Required pre-commit gate |
 |---|---|
 | Any of R1-R6 in `PersistentContactSolver.cpp` or `Ragdoll.cpp` | `tools\validate_physics.bat`, then `tools\validate_replay_visual_fidelity.bat` |
-| R3 or R4 (convergence and stepping semantics) | Add `tools\validate_perf.bat`; broad scope makes `tools\validate_full.bat` the safer gate |
+| R3 or R4 (convergence and stepping semantics) | Add `tools\validate_perf.bat`; run `tools\validate_full.bat --plan-completion` only when the entire plan closes |
 | New or changed tests in `SkullbonezTests/` | `tools\validate_tests.bat` |
 | Documentation repairs only | No validation required |
 

@@ -24,7 +24,6 @@
 @rem Related:
 @rem   - tools/check_coverage.py
 @rem   - tools/coverage_floors.json
-@rem   - Agentic/Plans/TODO/unit-test-coverage-campaign.md
 @rem
 @echo off
 setlocal enabledelayedexpansion

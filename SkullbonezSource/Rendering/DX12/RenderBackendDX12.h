@@ -420,7 +420,7 @@ class Dx12PipelineOwner
     uint64_t m_psoCacheMissCount = 0;
     uint64_t m_precompiledPsoCount = 0;
 
-    // Canonical UnifiedRaster bytes reopen the P4 cache after a changed manifest
+    // Canonical UnifiedRaster bytes reopen the PSO cache after a changed manifest
     // without retaining the temporary root-signature serialization blob.
     std::array<std::uint8_t, ROOT_SIGNATURE_SERIALIZED_CAPACITY> m_rootSignatureSerialized = {};
     size_t m_rootSignatureSerializedSize = 0;

@@ -16,7 +16,8 @@ Glossary:
   Receive predicate: Dynamic, positive-inverse-mass, awake body eligibility.
 
 Invariants:
-  - Float expressions and loop order are unchanged from the P2 implementation.
+  - Parallel and serial lanes use the same float expressions and model-order
+    reduction.
   - The pair table never represents more than 512 bodies (130,816 rows).
   - Apply-forces worker dispatch uses the same threshold, label, and hash.
   - Worker slots map deterministically to ascending awake body indices; dormant

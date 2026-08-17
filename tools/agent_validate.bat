@@ -1,17 +1,19 @@
 @rem
 @rem File: tools/agent_validate.bat
 @rem Purpose:
-@rem   Provides agents one default entry point for broad PR validation.
+@rem   Provides agents one explicit entry point for terminal plan validation.
 @rem
 @rem Mental model:
-@rem   This is a stable alias, not another pipeline. validate_full owns the CPU
-@rem   umbrella and runtime ordering so this wrapper cannot duplicate a test.
+@rem   This is a stable alias, not another pipeline. Both this wrapper and
+@rem   validate_full require --plan-completion so ordinary PR preparation cannot
+@rem   accidentally launch the terminal gate.
 @rem
 @rem Glossary:
-@rem   Validation gate: Repository script that proves a class of changes before
-@rem   commit or PR.
+@rem   Plan-completion gate: Terminal repository proof run once after every task
+@rem   in an implementation plan is complete and independently reviewed.
 @rem
 @rem Invariants:
+@rem   - Reject calls that do not explicitly declare plan completion.
 @rem   - Delegate exactly once and return validate_full's exit code unchanged.
 @rem
 @rem Related:
@@ -22,14 +24,24 @@
 @rem
 @echo off
 REM ===============================================================
-REM  agent_validate.bat - The default PR gate for agents.
+REM  agent_validate.bat - The terminal plan-completion gate for agents.
 REM  Delegates exactly once to validate_full.bat, which owns mandatory CPU
 REM  validation and the render+physics runtime lanes.
 REM
-REM  Usage: tools\agent_validate.bat
-REM  Exit 0 = default validation passed.
+REM  Usage: tools\agent_validate.bat --plan-completion
+REM  Exit 0 = plan-completion validation passed.
 REM  Non-zero = failure; see output for details.
 REM ===============================================================
 
-call "%~dp0validate_full.bat"
+if /I not "%~1"=="--plan-completion" goto :usage_error
+if not "%~2"=="" goto :usage_error
+
+call "%~dp0validate_full.bat" --plan-completion
 exit /b %errorlevel%
+
+:usage_error
+echo ERROR: agent_validate is reserved for completion of an entire plan.
+echo Usage: tools\agent_validate.bat --plan-completion
+echo For ordinary commit or PR validation, run the cumulative focused gates
+echo mapped in AGENTS.md.
+exit /b 64

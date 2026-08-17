@@ -218,9 +218,12 @@ Return findings with file/line references and a clear verdict.
 6. Repeat the rubber-duck pass only if the fix changed meaningful behavior in
    the reviewed risk area or the reviewer requested a follow-up. Record every
    repeat as its own accounting row.
-7. Run the smallest required pre-commit validation from `AGENTS.md` for that
-   plan's final changed-file set. Documentation-only changes require no
-   validation.
+7. Run the smallest cumulative pre-commit validation from `AGENTS.md` for that
+   task's changed-file set. Documentation-only changes require no validation.
+   Do not run full validation for an intermediate task or ordinary PR commit.
+   Run `tools\agent_validate.bat --plan-completion` once, after independent
+   review and immediately before the terminal commit that closes the entire
+   implementation plan.
 8. Update `Agentic/SessionState.md` whenever a task or phase completes, a plan
     closes, a blocker is recorded, or the portfolio denominator moves. This is a
     write step, not a read step: steps 9 and 10 stage and report the update, but
@@ -256,7 +259,8 @@ mirror output to a log when practical. Never claim validation success without
 command output. Quote the key result lines and log path in the handoff.
 
 Use `AGENTS.md` as the source of truth for validation selection. If scope is
-broad or unclear, use `tools\agent_validate.bat`.
+broad or unclear, accumulate every affected focused gate. `agent_validate` is
+reserved for the terminal plan-completion cadence above.
 
 ## Final Handoff
 

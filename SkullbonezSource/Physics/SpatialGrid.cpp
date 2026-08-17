@@ -1185,8 +1185,8 @@ bool SpatialGrid::MarkFilteredCandidatePairFirstSeen( int a, int b,
 // Buckets and their linked lists are storage details whose order changes when
 // the grid becomes persistent. Each newly discovered pair is therefore staged
 // under its smaller body index, radix-sorted by its larger index, and only then
-// emitted. The result is the history-free (minIndex,maxIndex) order that P1
-// makes the byte-exact baseline for later broadphase work.
+// emitted. The result is the history-free (minIndex,maxIndex) order used by
+// the byte-exact baseline for later broadphase work.
 void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs, bool restrictToPairSourceCells )
 {
     // Why: unfiltered tooling/tests need pure co-cell membership without a

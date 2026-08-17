@@ -130,9 +130,11 @@ and replay.
 Documentation-only changes require no validation.
 
 For new or changed detector code that touches `SkullbonezRun*` or physics
-behavior, use the stricter pre-commit/PR validation required by `AGENTS.md`.
-When the PR-bound scope is truly unsure, run:
+behavior, use the cumulative focused pre-commit/PR validation required by
+`AGENTS.md`. Do not run the terminal full-plan gate for an ordinary detector
+commit.
 
 ```bat
-tools\validate_full.bat
+tools\validate_fast.bat
+tools\validate_physics.bat
 ```

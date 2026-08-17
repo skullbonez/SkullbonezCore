@@ -12,7 +12,7 @@ Glossary:
     rejects the same class of defect it is intended to prevent.
 
 Invariants:
-  - There are 43 raster/compute stages in the pinned P2 inventory.
+  - The pinned reflection inventory contains 43 raster/compute stages.
   - Compute reflection remains represented even though it has no raster PSO.
 
 Related:

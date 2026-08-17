@@ -785,18 +785,19 @@ owning plan when the lane is not obvious from the API being used.
 
 Do not run validation scripts automatically after every edit. Formal repository
 validation runs only as a pre-commit/PR gate, or when the user explicitly asks
-for it. When preparing PR-bound work, choose the smallest script from `tools\`
-that matches the fix. The default broad PR gate runs the mandatory CPU umbrella
-first, then three runtime lanes: the Automation boundary plus replay/prediction
-smoke, one DX12 renderer process, and the physics lane's standalone-smoke plus
-regression-scene processes (five engine processes total).
+for it. When preparing PR-bound work, choose the smallest cumulative set of
+scripts from `tools\` that matches the fix. Broad or uncertain PR scope means
+combining the affected focused gates; it does not authorize full validation.
 Use deep, perf, and UI validation only when the change actually needs them.
 Every DX12 modification also requires the mandatory bounded graphics-stress
 run defined below.
 
-`validate_full.bat` and its `agent_validate.bat` alias are the mandatory broad
-superset. The CPU umbrella includes the ratified product coverage floors. A new
-standalone CPU test executable must join
+`validate_full.bat --plan-completion` and its
+`agent_validate.bat --plan-completion` alias are reserved for terminal
+completion of an entire implementation plan, after independent review and
+focused task gates. Both
+entry points reject calls without the explicit token. The CPU umbrella includes
+the ratified product coverage floors. A new standalone CPU test executable must join
 `validate_all_cpu_tests.bat`, `tools/README.md`, and the file-to-gate mapping in
 the same commit; a test target reachable only through a direct script or
 `validate_select.bat` is not merge-gated.
@@ -810,8 +811,9 @@ Coverage-floor enforcement has three invocation rules:
   explicit confirmation that every subsystem remains above its ratified floor.
 - Do not duplicate it when running `tools\validate_all_cpu_tests.bat`:
   that umbrella runs the coverage gate automatically, as do
-  `tools\validate_full.bat`, `tools\agent_validate.bat`, and the hosted
-  mandatory CPU CI lane through the same call chain.
+  `tools\validate_full.bat --plan-completion`,
+  `tools\agent_validate.bat --plan-completion`, and the hosted mandatory CPU CI
+  lane through the same call chain.
 
 | Change Type | Pre-Commit/PR Command | Runtime |
 |-------------|---------|---------|
@@ -825,8 +827,8 @@ Coverage-floor enforcement has three invocation rules:
 | Broad physics baseline, bullet sweep, or SkullScope diagnostics | `tools\validate_physics_deep.bat` | ~45s+ |
 | Performance-sensitive hot path | `tools\validate_perf.bat` | ~1 min |
 | General DX12 graphics stress, crash reproduction, or memory-growth investigation | `tools\run_graphics_stress.bat 1`; use `overnight` only when intentionally soaking | bounded or overnight |
-| Broad or uncertain scope | `tools\validate_full.bat` | CPU tests + 5 engine processes |
-| Unsure what to run at the PR gate | `tools\agent_validate.bat` | CPU tests + 5 engine processes |
+| Broad or uncertain scope | `tools\validate_fast.bat` plus every affected focused gate | cumulative focused runtime |
+| Entire implementation plan is complete | `tools\agent_validate.bat --plan-completion` | CPU tests + 5 engine processes |
 | Comment-only source or documentation cleanup | No repository validation required; prove the diff is comments/docs only | N/A |
 
 Profiling marker or platform-profiler changes must also run:
@@ -855,7 +857,7 @@ render, or tool gate; it does not replace it.
 | `Config*`, `SkullbonezData/engine.cfg` physics defaults such as gravity, fluid, drag, friction, sleep, solver, or broadphase values | `validate_physics` |
 | `TestOutput/baselines/physics_regression_varied.csv` | `validate_physics` |
 | Other physics CSV baselines or `TestOutput/baselines/physics_query*.json` | `validate_physics_deep` |
-| `Common.h` | `validate_full` |
+| `Common.h` | `validate_fast` + `validate_all_cpu_tests` + every affected focused runtime gate |
 | `SkullbonezTests/*`, `SKULLBONEZ_TESTS.vcxproj`, `SKULLBONEZ_TESTS.vcxproj.filters` | `validate_tests`; add `validate_coverage` when the tests are intended to raise subsystem coverage |
 | `SkullbonezSource/Runtime/Replay/*`, `RunReplay*`, or replay-facing presentation/submission changes in `EditorTracer*` or `RuntimeRender*` | `validate_replay_visual_fidelity.bat` in addition to the normal mapped gate |
 | `SkullbonezTests/TestReplay*` or replay artifact/presentation test changes | `validate_tests`, then `validate_replay_visual_fidelity.bat` |
@@ -872,13 +874,13 @@ render, or tool gate; it does not replace it.
 | `tools/check_build_config_consistency.py`, `tools/build_config_rulings.json`, or any root first-party `*.vcxproj` | `validate_fast`, then `python tools\check_build_config_consistency.py --self-test` and `python tools\check_build_config_consistency.py --repo .` |
 | `CMakeLists.txt`, `Core/PlatformWin32.h`, `Core/PlatformPosix.h`, or `Core/FloatingPointContract.h` portable-build behavior | `validate_fast`, then configure, build, and run the `skullbonez_portable_tests` CMake target |
 | `tools/inventory_unreachable_symbols.py`, `tools/reachability_rulings.json`, or externally declared C++ symbol reachability | Build Debug and Profile, then `validate_fast`; run `python tools\inventory_unreachable_symbols.py --self-test` and `python tools\inventory_unreachable_symbols.py --repo . --strict` directly |
-| `Run*`, `Runtime/*` | `validate_full` |
-| `Window*` | `validate_full` |
-| `Init*` | `validate_full` |
-| `SkullbonezData/assets/*.assets.json` | `validate_full` |
-| `SkullbonezData/hulls/*.hull` | `validate_full` |
-| `SkullbonezData/scenes/*.scene.json` | `validate_full` |
-| Multiple areas or unsure | `validate_full` |
+| `Run*`, `Runtime/*` | `validate_fast` plus every more-specific matching focused gate |
+| `Window*` | `validate_fast` + `validate_automation` |
+| `Init*` | `validate_fast` + `validate_automation` |
+| `SkullbonezData/assets/*.assets.json` | `validate_fast` + the affected renderer/scene gate |
+| `SkullbonezData/hulls/*.hull` | `validate_fast` + the affected physics/scene gate |
+| `SkullbonezData/scenes/*.scene.json` | `validate_fast` + every affected physics/renderer/automation gate |
+| Multiple areas or unsure | `validate_fast` + every more-specific matching focused gate; never infer plan completion |
 | Documentation-only `Agentic/*` (excluding `Agentic/Tests/*`), `*.md`, docs | No validation required when documentation-only |
 | `tools/*` | `validate_fast`, then run the changed script; `validate_fast` includes `validate_tests` |
 
@@ -887,6 +889,7 @@ render, or tool gate; it does not replace it.
 ## Rules
 
 - **Repository validation scripts are PR/commit gates.** Do not run `tools\validate_*` merely as you go. During iteration, use targeted builds, launches, focused tests, or inspections only when they answer a specific question about the fix.
+- **Full validation is a terminal plan gate.** Run `tools\agent_validate.bat --plan-completion` once only when an entire implementation plan is closing. Never run it for an intermediate task, ordinary commit/PR preparation, comment cleanup, documentation, or because scope is merely broad or uncertain.
 - **Renderer validation must fail fast.** `tools\validate_dx12_renderer.bat` builds `Profile` first and must stop before launching DX12 if compilation fails. Renderer launches in that script use PID-scoped timeouts, then `tools\check_dx12_baselines.py` handles image comparison artifacts.
 - **DX12-only validation is the production safety net.** `tools\validate_dx12_renderer.bat` builds `Profile`, launches only DX12, checks `dx12_validation.txt`, and compares captures against committed DX12 baselines.
 - **Every DX12 modification requires a crash-free stress run of at least 10 seconds.** This applies to DX12 runtime source, shaders, resource/binding contracts, and DX12 validation tooling. The standard bounded command is `tools\run_graphics_stress.bat 1` (one minute); record its command, measured runtime, and successful exit evidence. A shorter custom launch is acceptable only when its measured runtime is at least 10 seconds and the process exits without a crash.

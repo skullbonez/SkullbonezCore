@@ -15,7 +15,7 @@ Invariants:
 
 Related:
   - SkullbonezTests/TestLookLabSerialization.cpp
-  - Agentic/Plans/TODO/look-lab-random-style-authoring.md
+  - SkullbonezSource/Runtime/Direction/LookLabBundleWriter.cpp
 """
 
 from __future__ import annotations

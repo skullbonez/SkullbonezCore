@@ -72,8 +72,9 @@ CosSin ComputeCosSin( float radians ) noexcept
     // cosine/sine estimates followed by unit-length normalization.
     //
     // ENGINE-SPECIFIC:
-    // SkullbonezCore uses bounded subtraction instead of remainderf so this
-    // owner stays inside T1's basic-arithmetic operation set.
+    // Why: platform remainderf implementations may produce different boundary
+    // bits. The certified input range bounds this explicit binary32 reduction to
+    // 32 iterations, preserving identical evaluation order across toolchains.
     float cosine = 0.0f;
 
     if ( x < -0.5f * PI )

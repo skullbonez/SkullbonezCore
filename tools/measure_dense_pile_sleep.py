@@ -29,7 +29,6 @@
 # Related:
 #   - tools/physics_query.py
 #   - SkullbonezData/scenes/box_pile_throw_300.scene.json
-#   - Agentic/Plans/TODO/dense-pile-sleep-resolution.md
 #   - Agentic/Reference/engine-glossary.md
 #
 """Measure sleep resolution and kinetic-energy history from a Physics trace."""

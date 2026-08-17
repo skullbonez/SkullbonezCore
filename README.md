@@ -227,7 +227,8 @@ smallest script that covers what changed:
 | Physics, collision, solver, determinism | `tools\validate_physics.bat` |
 | Renderer or shaders | `tools\validate_dx12_renderer.bat` + `tools\run_graphics_stress.bat 1` |
 | Hot path or allocation | `tools\validate_perf.bat` |
-| Broad, or unsure | `tools\validate_full.bat` |
+| Broad, or unsure | `tools\validate_fast.bat` plus every affected focused gate |
+| Entire implementation plan is complete | `tools\agent_validate.bat --plan-completion` |
 
 The complete file-to-gate mapping is in `AGENTS.md`; per-script detail is in
 `tools/README.md`. Physics baseline changes are behaviour changes and require explicit

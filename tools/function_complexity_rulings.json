@@ -5,7 +5,7 @@
     {
       "file": "SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp",
       "signature": "void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view, const ReplayOverlay::ReplayOverlayStateView& replay )",
-      "body_sha256": "b6d0ec02a50a063b54ce40ba8b10d4e65ff6ddcb57804276084614ed5e5177b2",
+      "body_sha256": "644e34919a9a55e63e5315662344f09e53ee4cca77ebeb29dd12c806946fcb3e",
       "owner": "ImGuiEditorOwner development-shell frame pass",
       "disposition": "retain-owner",
       "reason": "One immediate-mode development-shell composition pass consumes detached frame views, including bounded Look Lab status; its window and tree branches plus local widget values all expire at return, while helper extraction without a new invariant would only relay the same frame authority.",
@@ -145,7 +145,7 @@
     {
       "file": "SkullbonezSource/Runtime/UI/OperatorEditorFrameComposer.cpp",
       "signature": "void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels, const FramePresentationFacts& presentationFacts )",
-      "body_sha256": "e7bc732084bd611dd109b90a2c840406874d52ffb4e35d9d1e837a2c4e29f2cd",
+      "body_sha256": "618e639182963e56f865620afca55aed29bef23c057870987d205f79a220ff4e",
       "owner": "Runtime operator UI frame phase",
       "disposition": "retain-owner",
       "reason": "One composition-root phase projects render-model, presentation, and the UI-owned detached Look Lab cache, runs the active operator UI, submits its commands, and latches any process failure before returning; Runtime Direction is not polled on the idle path and all borrows share that synchronous frame lifetime.",

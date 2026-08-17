@@ -102,15 +102,15 @@ codegraph status .
 ## Validation Scripts
 
 Validation scripts are formal pre-commit/PR gates, or explicit setup smoke
-checks when requested. Do not run full validation during ordinary implementation
-work. When verifying a fresh setup or PR-bound work whose scope is truly
-uncertain, run from the repository root:
+checks when requested. Do not run full validation during setup, ordinary
+implementation, or routine PR preparation. Use the cumulative focused gates in
+`AGENTS.md`. Only when an entire implementation plan is complete, run:
 
 ```powershell
-tools\agent_validate.bat
+tools\agent_validate.bat --plan-completion
 ```
 
-This delegates once to `tools\validate_full.bat`, which runs every mandatory
+This delegates once to `tools\validate_full.bat --plan-completion`, which runs every mandatory
 CPU test target before the DX12 renderer and deterministic physics runtime
 lanes. Performance validation remains a separate targeted gate.
 

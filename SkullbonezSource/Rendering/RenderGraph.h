@@ -92,10 +92,10 @@ Concept: RenderGraph as the DX12 render-architecture contract
     - what DX12-style access the pass expects,
     - whether a reviewed pass body is called by the graph.
 
-    Barrier derivation moved here on 2026-07-20 (render-graph-completion
-    G0-G5). Dx12RenderGraphExecutor turns the compiled plan into
-    ResourceBarrier calls, with a DryRun mode that records candidates without
-    emitting so the contract stays testable off-device.
+    RenderGraph derives barriers as part of compilation.
+    Dx12RenderGraphExecutor turns the compiled plan into ResourceBarrier calls,
+    with a DryRun mode that records candidates without emitting so the contract
+    stays testable off-device.
 
     Four bounded transitions remain outside this flow and are deliberate, not
     leftovers: Present, cold capture/readback, the development ImGui viewport

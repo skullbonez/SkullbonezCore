@@ -20,6 +20,8 @@
 //   - Flat-slope height must match `baseY + slopeX*x + slopeZ*z`.
 //   - Bounds exclude the exact upper edge so quad lookup never selects a
 //     non-existent terrain cell.
+//   - Scalar height queries outside those bounds return the lowest finite float
+//     even when fluid-min support is requested.
 //   - Terrain-stage detection touches only body indices supplied by the awake
 //     list, leaving fixed and sleeping candidate slots untested.
 //   - Sphere, box, and convex-hull terrain sweeps publish finite manifolds with
@@ -50,6 +52,7 @@
 #include <cmath>
 #include <cstdio>
 #include <fstream>
+#include <limits>
 #include <memory>
 #include "../SkullbonezSource/Core/SbDiagnosticStore.h"
 
@@ -119,6 +122,12 @@ TEST_CASE( "Terrain: flat slope reports analytic height, plane, and bounds" )
     CHECK( terrain.IsInBounds( Terrain::FLAT_SLOPE_EXTENT - 0.01f, Terrain::FLAT_SLOPE_EXTENT - 0.01f ) );
     CHECK_FALSE( terrain.IsInBounds( -0.01f, 0.0f ) );
     CHECK_FALSE( terrain.IsInBounds( Terrain::FLAT_SLOPE_EXTENT, 0.0f ) );
+
+    const float noTerrainHeight = -( std::numeric_limits<float>::max )();
+    CHECK( terrain.GetTerrainHeightAt( -0.01f, 0.0f, false ) == noTerrainHeight );
+    CHECK( terrain.GetTerrainHeightAt( -0.01f, 0.0f, true ) == noTerrainHeight );
+    CHECK( terrain.GetTerrainHeightAt( Terrain::FLAT_SLOPE_EXTENT, 0.0f, false ) == noTerrainHeight );
+    CHECK( terrain.GetTerrainHeightAt( Terrain::FLAT_SLOPE_EXTENT, 0.0f, true ) == noTerrainHeight );
 
     const float x = 20.0f;
     const float z = 30.0f;

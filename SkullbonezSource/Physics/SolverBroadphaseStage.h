@@ -24,7 +24,7 @@ Invariants:
   - False positives are allowed; false negatives can drop real collisions and
     break deterministic physics baselines.
   - The geometry-only predicate remains available to Debug diagnostics so
-    SleepPrunedPair retains its pre-P3 admission boundary.
+    SleepPrunedPair observes the admission boundary before sleep pruning.
 
 Related:
   - SkullbonezSource/Physics/PhysicsWorld.cpp

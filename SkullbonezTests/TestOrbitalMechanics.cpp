@@ -18,7 +18,7 @@
 //
 // Related:
 //   - SkullbonezSource/Maths/OrbitalMechanics.h
-//   - Agentic/Plans/TODO/solar-system-trajectory-planner.md
+//   - SkullbonezSource/Runtime/Planning/ReplayTripPlanner.h
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"

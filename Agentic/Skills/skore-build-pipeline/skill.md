@@ -11,8 +11,9 @@ commit, or readied for PR. Documentation-only changes do not require validation.
 ## Scope
 
 Validation scripts are pre-commit/PR gates, not normal iteration steps. Choose
-the narrowest validation that matches the touched files. If the PR-bound scope
-is truly unsure, run the full pipeline.
+the narrowest validation that matches the touched files. Broad PR-bound work
+accumulates the affected focused gates. Reserve full validation for terminal
+closure of an entire implementation plan.
 
 | Change | Command |
 |--------|---------|
@@ -21,7 +22,8 @@ is truly unsure, run the full pipeline.
 | Renderer backend, shaders, screenshots, visual baselines | `tools\validate_dx12_renderer.bat` |
 | Physics, collision, solver, determinism | `tools\validate_physics.bat` |
 | Hot path, allocation-sensitive, performance work | `tools\validate_perf.bat` |
-| Broad or uncertain scope | `tools\validate_full.bat` |
+| Broad or uncertain scope | `tools\validate_fast.bat` plus every affected focused gate |
+| Entire implementation plan is complete | `tools\agent_validate.bat --plan-completion` |
 
 ## Artifact Helpers
 

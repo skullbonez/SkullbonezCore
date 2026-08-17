@@ -516,7 +516,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         }
         else
         {
-            // P3 invariant: sleepers keep their last persistent range. Only
+            // Invariant: sleepers keep their last persistent range. Only
             // awake bodies can move, sweep, or source new narrowphase work.
             for ( int bodyIndex : awakeBodyIndices )
             {
@@ -598,8 +598,8 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         else
         {
 #if defined( _DEBUG )
-            // Compatibility invariant: P2 recorded the canonical geometrically
-            // admitted stream before removing sleep-only pairs. Reconstruct that
+            // Compatibility invariant: Debug diagnostics record the canonical
+            // geometrically admitted stream before removing sleep-only pairs. Reconstruct that
             // Debug trace by merging the two retained sorted lists; this does not
             // restore dormant solver work to the production candidate vector.
             std::sort( m_sleepPrunedPairs.begin(), m_sleepPrunedPairs.end() );

@@ -21,6 +21,8 @@ Glossary:
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
     are the validation contract.
+  - Scalar height queries return the lowest finite float outside the authored
+    X/Z domain; normal and plane queries remain strict in-bounds operations.
   - A degenerate accumulated render normal falls back to world +Y; terrain
     mesh construction never publishes NaN normals.
 
@@ -695,8 +697,17 @@ void Terrain::RenderShadowDepth( Core::Profiler*, const Matrix4& lightView, cons
 
 float Terrain::GetTerrainHeightAt( float xPosition, float zPosition, bool isFluidMin )
 {
+    if ( !PhysicsView().IsInBounds( xPosition, zPosition ) )
+    {
+        // Why: camera and presentation probes may legitimately leave the
+        // authored terrain while following replay targets. A lowest-height
+        // sentinel means "no support" without clamping those views or asking
+        // the strict normal/plane query to invent surface geometry.
+        return -( std::numeric_limits<float>::max )();
+    }
+
     float terrainHeight = 0.0f;
-    QueryCollisionData( xPosition, zPosition, terrainHeight, nullptr, nullptr );
+    QueryCollisionDataUnchecked( xPosition, zPosition, terrainHeight, nullptr, nullptr );
 
     if ( isFluidMin )
     {

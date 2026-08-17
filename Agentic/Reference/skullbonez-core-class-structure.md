@@ -137,7 +137,8 @@ features should prefer the narrowest concrete owner available.
 
 ## Validation map
 
-- Scene-controller or runtime ownership changes: `tools\validate_full.bat`.
+- Scene-controller or runtime ownership changes: `tools\validate_fast.bat` plus
+  every affected focused runtime gate mapped in `AGENTS.md`.
 - Physics behavior changes: `tools\validate_physics.bat`.
 - Render/DX12 changes: `tools\validate_dx12_renderer.bat` and
   `tools\run_graphics_stress.bat 1`.

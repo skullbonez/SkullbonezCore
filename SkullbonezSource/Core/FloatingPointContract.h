@@ -23,12 +23,11 @@ Invariants:
   - Contraction stays disabled before any vector-width or optimizer policy change.
 
 Related:
-  - Agentic/Plans/MASTER-PLAN.md
   - Agentic/Reference/physics-overview.md
 */
 #pragma once
 
-// Hazard: fp-envelope-hardening disables contraction before vector-width or
+// Hazard: floating-point contraction must be disabled before vector-width or
 // optimizer policy can make `a * b + c` round differently. MSVC
 // 19.51 rejects `/fp:contract-`, so all Visual Studio projects force-include
 // this equivalent pragma. Portable targets must pair their marker with the

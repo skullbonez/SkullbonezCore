@@ -23,8 +23,8 @@ Glossary:
 Invariants:
   - Worker chunks write disjoint pair-list slices and never reduce forces.
   - Model-order accumulation, serial fallback arithmetic, worker thresholds,
-    and worker hashes match the certified P2 implementation. The Reduce marker
-    is additive observation around that unchanged arithmetic.
+    and worker hashes are part of the certified byte-exact contract. The Reduce
+    marker is additive observation around that unchanged arithmetic.
   - Borrowed spans and returned force pointers are valid only during the
     enclosing fixed step; the force pointer expires on the next prepare/clear.
   - Integration borrows the PhysicsWorld-owned CCD clock and mutates no retained

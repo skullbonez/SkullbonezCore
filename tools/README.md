@@ -9,7 +9,7 @@ validation.
 
 | Script | Use When | Runtime |
 |--------|----------|---------|
-| `agent_validate.bat` | PR gate when truly unsure; delegates once to `validate_full.bat` | CPU tests + 5 engine processes |
+| `agent_validate.bat --plan-completion` | Terminal gate after an entire implementation plan is complete | CPU tests + 5 engine processes |
 | `validate_select.bat` | Run any subset of validations by name | ~depends |
 | `validate_fast.bat` | Small code refactors: preflight plus the doctest runner | ~30s |
 | `validate_all_cpu_tests.bat` | Run every mandatory CPU test and coverage gate with fail-fast attribution | incremental builds + 7 console launches |
@@ -41,14 +41,16 @@ validation.
 | `validate_perf.bat` | Hard gate for DX12, physics, and hot-path perf budgets/regressions | ~1 min |
 | `validate_replay_allocation_policy.bat` | Strict two-generation Replay allocation/owner probe | ~20 s |
 | `validate_replay_prediction_frame_spikes.bat` | Full-only informational four-generation, 120-second replay-prediction spike capture; never a frame-time gate | ~1 min; hard limit under 2 min |
-| `validate_full.bat` | Default broad PR gate plus the non-blocking replay-prediction spike diagnostic | CPU tests + 6 engine processes |
+| `validate_full.bat --plan-completion` | Terminal full-plan gate plus the non-blocking replay-prediction spike diagnostic | CPU tests + 6 engine processes |
 | `watch_ui_stress.bat` | Repeated UI stress watcher, finite by default | ~depends |
 | `watch_demo_stress.bat` | Repeated generated demo stress watcher, finite by default | ~depends |
 
-## Broad Gate Composition
+## Plan Completion Gate Composition
 
-`validate_full.bat` is the broad mandatory superset. It runs these owners in
-order and stops before any engine launch when a CPU target fails:
+`validate_full.bat --plan-completion` is the terminal full-plan superset. It is
+not an ordinary commit or PR gate. The script rejects calls without that exact
+token, then runs these owners in order and stops before any engine launch when a
+CPU target fails:
 
 1. `validate_fast.bat --preflight-only` runs formatting, production project
    metadata, staged-size policy, and the Profile build without a test launch.
@@ -65,7 +67,7 @@ order and stops before any engine launch when a CPU target fails:
 5. `validate_replay_prediction_frame_spikes.bat` then runs four completed
    120-second future-prediction generations and reports the largest frames. It
    is full-only and informational: missing artifacts, runner errors, and frame
-   times are printed but cannot change `validate_full.bat` from pass to fail.
+   times are printed but cannot change the plan-completion gate from pass to fail.
    Its grouped leaderboard separates completion publication, incremental child
    markers, and Predict-off invalidation from the explicitly excluded report
    serialization and target-restart paths. No marker or frame threshold is a
@@ -75,17 +77,17 @@ order and stops before any engine launch when a CPU target fails:
 
 `validate_coverage.bat` builds the Debug doctest runner, captures product-line
 Cobertura XML with OpenCppCoverage, then applies the versioned tier map in
-`coverage_floors.json`. It is part of `validate_all_cpu_tests.bat`, so the full
-PR gate enforces Tier 1 at 85%, Tier 2 at 70%, and Tier 3 at 50%; whole-product
-coverage remains informational.
+`coverage_floors.json`. It is part of `validate_all_cpu_tests.bat`, so the
+terminal plan-completion gate enforces Tier 1 at 85%, Tier 2 at 70%, and Tier 3
+at 50%; whole-product coverage remains informational.
 
 Run `tools\validate_coverage.bat` directly when changing coverage floors,
 exclusions, instrumentation scope, coverage tooling, or tests intended to raise
 subsystem coverage. Also run it as the final pre-commit/PR gate when explicit
 confirmation against the ratified floors is required. Do not run it again after
 `validate_all_cpu_tests.bat`: that umbrella already invokes it, and
-`validate_full.bat`, `agent_validate.bat`, and hosted mandatory CPU CI all use
-the same umbrella.
+`validate_full.bat --plan-completion`, `agent_validate.bat --plan-completion`,
+and hosted mandatory CPU CI all use the same umbrella.
 
 Each subsystem also lists `required_instrumented_sources`. The checker fails if
 one of those translation units disappears from the XML, preventing a link or
@@ -100,8 +102,9 @@ python tools\check_coverage.py --self-test
 Direct `validate_fast.bat` use still runs `SKULLBONEZ_TESTS.exe`. Its
 `--preflight-only` switch is an internal composition mode for `validate_full`;
 it prevents the doctest runner from being executed both by fast validation and
-the CPU umbrella. `agent_validate.bat` delegates once to `validate_full.bat`, so
-it has the same ordering and exit status.
+the CPU umbrella. `agent_validate.bat --plan-completion` delegates once to
+`validate_full.bat --plan-completion`, so it has the same ordering and exit
+status.
 
 The file-size preflight reads the git index for local pending commits. Hosted
 pull-request jobs set `SKORE_SIZE_DIFF_BASE` so the same gate compares changed

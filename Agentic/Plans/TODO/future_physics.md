@@ -301,9 +301,9 @@ strictly ordered and each carries a stop-and-review boundary.
 
 | Future change | Required pre-commit evidence |
 |---|---|
-| Speculative contact geometry or solver rows | Focused CCD tests; `tools\validate_physics.bat`; `tools\validate_physics_deep.bat`; `tools\validate_perf.bat`; `tools\validate_replay_visual_fidelity.bat`; `tools\validate_full.bat` |
+| Speculative contact geometry or solver rows | Focused CCD tests; `tools\validate_physics.bat`; `tools\validate_physics_deep.bat`; `tools\validate_perf.bat`; `tools\validate_replay_visual_fidelity.bat`; `tools\validate_full.bat --plan-completion` only at plan closure |
 | Ragdoll FP2 or FP3 | Focused ragdoll and solver tests; `tools\validate_physics.bat`; `tools\validate_replay_visual_fidelity.bat`; `tools\validate_perf.bat` |
-| Shared solver FP4 | Focused contact/joint tests; `tools\validate_physics.bat`; `tools\validate_replay_visual_fidelity.bat`; `tools\validate_perf.bat`; `tools\validate_full.bat` |
+| Shared solver FP4 | Focused contact/joint tests; `tools\validate_physics.bat`; `tools\validate_replay_visual_fidelity.bat`; `tools\validate_perf.bat`; `tools\validate_full.bat --plan-completion` only at plan closure |
 | Authored joint-setting schema change | Versioned migration tests; `tools\migrate_data_formats.py --check`; mapped physics and full gates |
 | Documentation-only refinement | No validation required |
 

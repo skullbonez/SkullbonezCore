@@ -247,7 +247,7 @@ phase is being prepared for commit.
 | Replay/Prediction value or overlay changes | `tools\validate_replay_visual_fidelity.bat` |
 | Overlay/DX12 path changes | `tools\validate_dx12_renderer.bat` and `tools\run_graphics_stress.bat 1` |
 | Continuous hot path | `tools\validate_perf.bat` plus a three-wrap retained-byte/growth witness |
-| Final combined source state | `tools\validate_full.bat` after the focused gates above |
+| Final combined source state | `tools\validate_full.bat --plan-completion` after the focused gates above |
 
 ## Reactivation Condition
 

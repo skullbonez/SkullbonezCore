@@ -52,9 +52,9 @@ constexpr int TRACY_HEAP_CALLSTACK_DEPTH = 16;
 constexpr const char* TRACY_RUNTIME_HEAP_NAME = "Skore Runtime C++ Heap";
 #endif
 
-// Measured E17 standard captures peak near 400 MiB of Tracy-owned process
-// backing. A 512 MiB ceiling leaves bounded headroom without misrepresenting
-// the earlier nominal 256 MiB row as an enforceable production value.
+// Why: standard validation captures peak near 400 MiB of Tracy-owned process
+// backing. A 512 MiB ceiling leaves bounded headroom; the smaller nominal
+// estimate was never an enforceable production cap.
 constexpr int TRACY_ACTIVE_BYTE_CAP = 512 * MEBIBYTE_BYTES;
 std::atomic<bool> g_tracyAllocationTracingEnabled { false };
 

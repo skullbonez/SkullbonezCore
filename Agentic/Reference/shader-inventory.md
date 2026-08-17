@@ -88,5 +88,5 @@ parameter overrides.
 Run `python tools/validate_shaders.py` for shader inventory/contract checks,
 including high-risk HLSL cbuffer uniform and texture resource slot drift.
 Renderer-visible shader behavior is covered by `tools/validate_dx12_renderer.bat`;
-use `tools/validate_full.bat` when shader cleanup also changes broad runtime or
-project loading behavior.
+when shader cleanup also changes runtime or project loading behavior, add the
+focused gates mapped for those areas in `AGENTS.md`.

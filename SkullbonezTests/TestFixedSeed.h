@@ -19,7 +19,7 @@
 //   - Callers choose ranges that avoid undefined or fatal product inputs.
 //
 // Related:
-//   - Agentic/Plans/TODO/unit-test-coverage-campaign.md
+//   - tools/validate_coverage.bat
 //
 #pragma once
 

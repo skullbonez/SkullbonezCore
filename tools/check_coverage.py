@@ -28,7 +28,6 @@ Invariants:
 Related:
   - tools/coverage_floors.json
   - tools/validate_coverage.bat
-  - Agentic/Plans/TODO/unit-test-coverage-campaign.md
 """
 
 from __future__ import annotations

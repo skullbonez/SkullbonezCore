@@ -148,8 +148,11 @@ class Terrain
 
     // http://www.simoneschbach.com/images/FindingArbitraryPolygon.gif
     bool IsInBounds( float xPosition, float zPosition );                                              // World X/Z coordinates inside the terrain collision domain.
-    float GetTerrainHeightAt( float xPosition, float zPosition,
-                              bool isFluidMin = false );                                              // Height sample; isFluidMin asks water tests for the lowest terrain support.
+
+    // Returns the lowest finite float outside the collision domain so camera
+    // and presentation callers can treat missing terrain as no vertical support.
+    // isFluidMin applies only to valid terrain samples.
+    float GetTerrainHeightAt( float xPosition, float zPosition, bool isFluidMin = false );
 
     // Surface normal used by contact rows and slope alignment.
     void GetTerrainHeightAndNormalAt( float xPosition, float zPosition, float& outHeight,

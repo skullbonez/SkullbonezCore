@@ -14,8 +14,8 @@ Glossary:
     runtime startup binds the production backend.
 
 Invariants:
-  - DX12 is the only runtime renderer. Extra entries here are a product-contract
-    change and must be backed by a deliberate renderer plan.
+  - DX12 is the only runtime renderer. Extra entries change the product contract
+    and require an owner-reviewed backend implementation and validation matrix.
   - `d3d12` is a compatibility alias for older automation; it still launches
     the same DX12 backend.
 

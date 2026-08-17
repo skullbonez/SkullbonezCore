@@ -103,8 +103,8 @@ ShadowCasterStream ResolveRegisteredShadowCasterStream( const ColliderRecord& co
         return ShadowCasterStream::ConvexHull;
     case ColliderShapeKind::Box:
 
-        // Why: the data-driven-shadow-caster-streams plan confines legacy pine
-        // content knowledge to this scene-owner instance-build boundary. Frame
+        // Why: this scene-owner instance-build boundary confines legacy pine
+        // content knowledge to the scene package. Frame
         // submission consumes only the resulting opaque stream id.
         if ( material.kind == RenderMaterialKind::Pine ||
              ( material.textureMode > 1.25f &&

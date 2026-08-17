@@ -384,7 +384,7 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
                                   m_assets.FindAssetLibrarySourceAsset( "assetlib.buildings" ) != nullptr };
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    // Why: the legacy surface does not consume E12 contextual detail. Sampling
+    // Why: the legacy surface does not consume secondary-editor contextual detail. Sampling
     // cold body/collider/buoyancy/material rows only while the secondary editor is
     // visible keeps ordinary Profile and shipping frames on their prior path.
     if ( operatorEditorView.surfaces.secondaryVisible )

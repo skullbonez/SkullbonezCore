@@ -5,7 +5,9 @@
 @rem
 @rem Mental model:
 @rem   This is a developer convenience router. Each selected target delegates to
-@rem   its owning script; mandatory broad ordering remains in validate_full.
+@rem   its owning script. The terminal plan-completion selector is explicit;
+@rem   generic full/agent aliases are rejected so routine validation cannot
+@rem   accidentally invoke validate_full.
 @rem
 @rem Glossary:
 @rem   CPU umbrella: Five first-party CPU/coverage gates run fail-fast through
@@ -15,7 +17,8 @@
 @rem
 @rem Invariants:
 @rem   - Every advertised selector maps to one concrete owning script.
-@rem   - Successful broad targets suppress the redundant ready-build footer.
+@rem   - Only plan-completion can reach validate_full.
+@rem   - Successful composite targets suppress the redundant ready-build footer.
 @rem   - The fast selector builds Debug before delegating because validate_fast
 @rem   owns a two-configuration compiled-symbol reachability gate.
 @rem
@@ -125,18 +128,20 @@ for %%A in (%*) do (
     ) else if /I "!ARG!"=="perf" (
         call "%ROOT%validate_perf.bat"
         if errorlevel 1 set "FAILED=1"
-    ) else if /I "!ARG!"=="full" (
-        call "%ROOT%validate_full.bat"
+    ) else if /I "!ARG!"=="plan-completion" (
+        call "%ROOT%agent_validate.bat" --plan-completion
         if errorlevel 1 set "FAILED=1"
         if not errorlevel 1 set "READY_BUILDS_HANDLED=1"
     ) else if /I "!ARG!"=="deep" (
         call "%ROOT%validate_deep.bat"
         if errorlevel 1 set "FAILED=1"
         if not errorlevel 1 set "READY_BUILDS_HANDLED=1"
+    ) else if /I "!ARG!"=="full" (
+        echo ERROR: the full selector is retired; use plan-completion only when an entire plan is closing.
+        set "FAILED=1"
     ) else if /I "!ARG!"=="agent" (
-        call "%ROOT%agent_validate.bat"
-        if errorlevel 1 set "FAILED=1"
-        if not errorlevel 1 set "READY_BUILDS_HANDLED=1"
+        echo ERROR: the agent selector is retired; use plan-completion only when an entire plan is closing.
+        set "FAILED=1"
     ) else if /I "!ARG!"=="format" (
         call "%ROOT%validate_format.bat"
         if errorlevel 1 set "FAILED=1"
@@ -204,7 +209,7 @@ echo   tools\validate_select.bat physics
 echo   tools\validate_select.bat physics-deep
 echo   tools\validate_select.bat physics-query
 echo   tools\validate_select.bat perf
-echo   tools\validate_select.bat full
+echo   tools\validate_select.bat plan-completion
 echo   tools\validate_select.bat deep
 echo.
 echo   tools\validate_select.bat format

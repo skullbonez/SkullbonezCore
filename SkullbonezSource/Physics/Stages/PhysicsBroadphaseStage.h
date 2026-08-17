@@ -18,7 +18,7 @@ Glossary:
     settled bodies retain their entries without per-step reinsertion.
 
 Invariants:
-  - Solver-visible candidates use the P1 canonical `(minIndex, maxIndex)`
+  - Solver-visible candidates use canonical `(minIndex, maxIndex)`
     order; rare fast-sweep additions are re-canonicalized before pruning.
   - Pruning predicates and pipeline-trace side effects keep their established
     per-pair order after that explicit canonical transition.

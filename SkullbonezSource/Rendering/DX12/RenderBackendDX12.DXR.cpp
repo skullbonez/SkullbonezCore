@@ -114,7 +114,7 @@ void Dx12RaytracingOwner::ProbeCapability( ID3D12Device* device )
 
     m_supported = true;
 
-    // Why: plan and stress evidence must distinguish a DXR-capable run from a
+    // Why: validation and stress evidence must distinguish a DXR-capable run from a
     // raster-fallback pass without inferring support from missing warnings.
     SkullbonezCore::Core::Log().WriteEventf( "dxr_capability supported=1 tier=%u",
                                              static_cast<unsigned int>( opts5.RaytracingTier ) );

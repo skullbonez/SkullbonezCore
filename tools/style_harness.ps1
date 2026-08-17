@@ -256,7 +256,7 @@ switch ($Command) {
         Ensure-Harness
         $exe = Resolve-RepoPath "Profile\SKULLBONEZ_CORE.exe"
         if (-not (Test-Path $exe)) {
-            throw "Profile executable not found. Run tools\validate_build.bat Profile or tools\validate_full.bat first."
+            throw "Profile executable not found. Run tools\validate_build.bat Profile first."
         }
         $scenePath = Resolve-RepoPath $Scene
         $args = @(

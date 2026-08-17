@@ -29,7 +29,8 @@
 #     measures the ordinary .gitmodules blob that makes each pin reproducible.
 #   - Baselines and SkullbonezData are the only broad large-file locations.
 #   - Self-tests run without touching the real git index.
-#     plan retired 2026-07-09; history in git)
+#
+# Related:
 #   - tools/validate_fast.bat
 #   - .github/workflows/mandatory-cpu-validation.yml
 #

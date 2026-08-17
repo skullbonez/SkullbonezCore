@@ -1,13 +1,16 @@
 @rem
 @rem File: tools/validate_full.bat
 @rem Purpose:
-@rem   Runs the mandatory CPU preflight/tests and default runtime gates, then
-@rem   collects the full-only replay-prediction frame-spike diagnostic.
+@rem   Runs the terminal full-plan closure gate and collects the replay-prediction
+@rem   frame-spike diagnostic.
 @rem
 @rem Summary:
-@rem   Full validation is the trustworthy PR fan-in: cheap failures surface
-@rem   first, after required Automation and Debug builds join the Profile build
-@rem   performed by validate_fast to make all reachability evidence current.
+@rem   Full validation is reserved for completion of an entire implementation
+@rem   plan. An explicit --plan-completion token prevents routine commits, pull
+@rem   requests, and convenience selectors from invoking this expensive fan-in.
+@rem   Cheap failures surface first, after required Automation and Debug builds
+@rem   join the Profile build performed by validate_fast to make all
+@rem   reachability evidence current.
 @rem   Each CPU test target then runs once before automation, DX12, and
 @rem   deterministic physics provide three runtime lanes. The automation lane
 @rem   launches a negative Profile boundary plus one positive replay smoke.
@@ -18,10 +21,11 @@
 @rem   CPU preflight: Formatting, project metadata, staged-size, Profile build,
 @rem   and Automation/Debug/Profile reachability checks that do not launch a
 @rem   test or engine.
-@rem   Validation gate: Repository script that proves a class of changes before
-@rem   commit or PR.
+@rem   Plan-completion gate: Terminal repository proof run once after every task
+@rem   in an implementation plan is complete and independently reviewed.
 @rem
 @rem Invariants:
+@rem   - Invocation fails unless the caller explicitly declares plan completion.
 @rem   - No runtime launch occurs until all mandatory CPU tests pass.
 @rem   - validate_fast runs in preflight-only mode so validate_tests runs exactly
 @rem   once through validate_all_cpu_tests.
@@ -39,9 +43,12 @@
 @echo off
 setlocal
 
+if /I not "%~1"=="--plan-completion" goto :usage_error
+if not "%~2"=="" goto :usage_error
+
 echo.
 echo ============================================================
-echo   VALIDATE_FULL - Default PR Validation
+echo   VALIDATE_FULL - Full Plan Completion Gate
 echo ============================================================
 echo.
 
@@ -135,6 +142,13 @@ echo [ready] Profile, Automation, and Debug were built before validation.
 
 echo.
 echo ============================================================
-echo   VALIDATE_FULL: DEFAULT GATE PASSED
+echo   VALIDATE_FULL: PLAN COMPLETION GATE PASSED
 echo ============================================================
 exit /b 0
+
+:usage_error
+echo ERROR: validate_full is reserved for completion of an entire plan.
+echo Usage: tools\validate_full.bat --plan-completion
+echo For ordinary commit or PR validation, run the cumulative focused gates
+echo mapped in AGENTS.md.
+exit /b 64

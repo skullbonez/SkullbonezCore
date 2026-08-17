@@ -93,8 +93,8 @@ constexpr uint64_t LogicalStreamBytes( std::size_t elementBytes, uint64_t elemen
 }
 
 // Concept: this is a logical dense-stream census, not a hardware bandwidth
-// counter. P4 moved sixteen bytes of guard/bookkeeping work from every scene
-// row to the ascending awake set: steady sleep mirroring, CCD-clock reset,
+// counter. Sixteen bytes of guard/bookkeeping work live on the ascending awake
+// set: steady sleep mirroring, CCD-clock reset,
 // underwater census, and sleep transition guards. The remaining all-row term
 // counts unavoidable island construction/support streams. Each operation is
 // one array-element read or write in one pass.
@@ -1071,7 +1071,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
     // and is sampled after the solver finishes owning the row set.
     PROFILE_COUNTER( m_profiler, "Counter/Physics/PersistentContactRows", m_contactSolverStage.GetStats().rowCount );
 
-    // P2 contract: a body counts only when its integer cell range changes.
+    // Invariant: a body counts only when its integer cell range changes.
     // First insertion and swept-overlay cells have separate meanings and do not
     // inflate this steady-step maintenance witness.
     PROFILE_COUNTER( m_profiler, "Counter/Physics/BodiesReinserted",
