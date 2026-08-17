@@ -59,6 +59,7 @@ an owner decision, not a run decision.
 
 | Plan | Status | Phases | File |
 |---|---|---|---|
+| Continuous Orbital Forecast | Owner-parked 2026-08-17 | 0/7 | `WNF/continuous-orbital-forecast.md` |
 | Contact Stack Stability Techniques | Owner-parked 2026-08-02 | 0/7 | `WNF/contact-stack-stability-techniques.md` |
 | DX12 Frame Path Comment-Rot Sweep | Owner-parked 2026-07-12 | 0/3 | `WNF/dx12-frame-path-comment-rot-sweep.md` |
 | Reversible GPU Fracture Replay | Backlog; blocked | 0/7 | `WNF/fracture-replay-feature.md` |
