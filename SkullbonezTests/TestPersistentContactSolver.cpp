@@ -10,7 +10,8 @@
 //   geometry without running a full PhysicsEngine frame. Convergence cases pin
 //   the diagnostic cap, replay exclusion, and a normal-row saturation cause.
 //   Complete-solve cases measure energy and momentum across sphere, box,
-//   friction, bias, and matching-cache matrices, including planted failures.
+//   friction, bias, local CCD contact intervals, and matching-cache matrices,
+//   including planted failures.
 //
 // Glossary:
 //   Contact row: Solver constraint row that applies one normal impulse and two
@@ -47,6 +48,9 @@
 //     zeros velocity after its configurable quiet-frame transition.
 //   - Convergence stops on the maximum row delta; diagnostic sums never make
 //     independently quiet contacts consume another global iteration.
+//   - CCD contact rows scale Baumgarte and constant friction from the dynamic
+//     participants' post-impact remainder, not from the whole fixed step;
+//     authored-fixed and sleeping solver-static participants contribute no clock.
 //   - Closed energy cases disable external work and compare the whole solve;
 //     Baumgarte cases name their explicit separation-work allowance instead.
 //
@@ -222,6 +226,7 @@ struct SolverFixture
     ColliderStore& colliderStore;
     std::vector<std::pair<int, int>> candidatePairs;
     std::vector<uint8_t> sleepState;
+    std::vector<float> timeRemaining;
     SkullbonezCore::Physics::PhysicsCandidatePairList
         sleepSupportEdges { "TestPersistentContactSolver.sleepSupportEdges",
                             SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity };
@@ -284,6 +289,7 @@ struct SolverFixture
         (void)SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliderStore, collider, shape );
 
         sleepState.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
+        timeRemaining.assign( static_cast<std::size_t>( bodyStore.Count() ), kSolverDt );
         sleepSupportedThisFrame.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
     }
 
@@ -321,6 +327,7 @@ struct SolverFixture
         (void)SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliderStore, collider, shape );
 
         sleepState.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
+        timeRemaining.assign( static_cast<std::size_t>( bodyStore.Count() ), kSolverDt );
         sleepSupportedThisFrame.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
     }
 
@@ -362,6 +369,7 @@ struct SolverFixture
         (void)SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliderStore, collider, shape );
 
         sleepState.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
+        timeRemaining.assign( static_cast<std::size_t>( bodyStore.Count() ), kSolverDt );
         sleepSupportedThisFrame.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
     }
 
@@ -410,7 +418,7 @@ struct SolverFixture
         diagnostics.BeginStep( bodyStore.Count() );
         auto policy = PhysicsContactSolverStage::ResolveStepPolicy( config, worldForces );
         policy.collectConvergenceDiagnostics = collectConvergenceDiagnostics;
-        solver.Solve( bodyStore, colliderStore, policy, candidatePairs, sleepState, sleepSupportEdges,
+        solver.Solve( bodyStore, colliderStore, policy, candidatePairs, sleepState, timeRemaining, sleepSupportEdges,
                       terrainContactManifolds, terrainRestApplied, sleepSupportedThisFrame, diagnostics, kSolverDt,
                       nullptr );
     }
@@ -999,6 +1007,141 @@ TEST_CASE( "Persistent contact solver: count-only specialization matches the ful
     CHECK( PhysicsBodyPosition( countOnlyHotFields, 0u ) == fullPosition );
     CHECK( PhysicsBodyLinearVelocity( countOnlyHotFields, 0u ) == fullLinearVelocity );
     CHECK( PhysicsBodyAngularVelocity( countOnlyHotFields, 0u ) == fullAngularVelocity );
+}
+
+TEST_CASE( "Persistent contact solver: terrain rows use the post-impact contact interval" )
+{
+    SolverFixture fixture;
+    fixture.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), ZERO_VECTOR );
+    fixture.AddTerrainContact( 0, 901u, 0.02f );
+    const float contactInterval = kSolverDt * 0.25f;
+    fixture.timeRemaining[0] = contactInterval;
+    fixture.Solve();
+
+    REQUIRE( fixture.solver.GetPersistentContacts().size() == 1u );
+    const PersistentContact& contact = fixture.solver.GetPersistentContacts()[0];
+    const float expectedBias = fixture.config.terrain.baumgarteBeta * contact.penetration / contactInterval;
+    const float expectedSupportImpulse = fixture.bodyStore.Records()[0].mass * fabsf( fixture.config.worldForces.gravity ) *
+                                         contactInterval;
+    CHECK( contact.bias == doctest::Approx( expectedBias ).epsilon( 0.0001 ) );
+    CHECK( contact.separationBias == doctest::Approx( expectedBias ).epsilon( 0.0001 ) );
+    CHECK( contact.terrainWarmStart == doctest::Approx( expectedSupportImpulse ).epsilon( 0.0001 ) );
+    CHECK(
+        contact.frictionLimit ==
+        doctest::Approx( fixture.config.material.terrainFrictionCoefficient * expectedSupportImpulse ).epsilon( 0.0001 ) );
+}
+
+TEST_CASE( "Persistent contact solver: equal dynamic remainders own the object contact interval" )
+{
+    SolverFixture fixture;
+    fixture.config.solver.slop = 0.0f;
+    fixture.AddDynamicSphere( Vector3( 0.0f, 0.0f, 0.0f ), ZERO_VECTOR );
+    fixture.AddDynamicSphere( Vector3( 1.98f, 0.0f, 0.0f ), ZERO_VECTOR );
+    fixture.candidatePairs.emplace_back( 0, 1 );
+    const float contactInterval = kSolverDt * 0.5f;
+    fixture.timeRemaining[0] = contactInterval;
+    fixture.timeRemaining[1] = contactInterval;
+    fixture.Solve();
+
+    REQUIRE( fixture.solver.GetPersistentContacts().size() == 1u );
+    const PersistentContact& contact = fixture.solver.GetPersistentContacts()[0];
+    REQUIRE_FALSE( contact.normalCoupledFriction );
+    const float expectedBias = fixture.config.solver.baumgarteBeta * contact.penetration / contactInterval;
+    const float expectedFrictionLimit = fixture.config.material.objectFrictionCoefficient *
+                                        fixture.bodyStore.Records()[0].mass * fabsf( fixture.config.worldForces.gravity ) *
+                                        contactInterval;
+    CHECK( contact.bias == doctest::Approx( expectedBias ).epsilon( 0.0001 ) );
+    CHECK( contact.frictionLimit == doctest::Approx( expectedFrictionLimit ).epsilon( 0.0001 ) );
+}
+
+TEST_CASE( "Persistent contact solver: fixed bodies do not shorten a dynamic contact interval" )
+{
+    SolverFixture fixture;
+    fixture.config.solver.slop = 0.0f;
+    fixture.AddDynamicSphere( Vector3( 0.0f, 0.0f, 0.0f ), ZERO_VECTOR, 0.0f, true );
+    fixture.AddDynamicSphere( Vector3( 1.98f, 0.0f, 0.0f ), ZERO_VECTOR );
+    fixture.candidatePairs.emplace_back( 0, 1 );
+    const float dynamicInterval = kSolverDt * 0.75f;
+    fixture.timeRemaining[0] = TOLERANCE * 0.5f;
+    fixture.timeRemaining[1] = dynamicInterval;
+    fixture.Solve();
+
+    REQUIRE( fixture.solver.GetPersistentContacts().size() == 1u );
+    const PersistentContact& contact = fixture.solver.GetPersistentContacts()[0];
+    REQUIRE_FALSE( contact.normalCoupledFriction );
+    const float expectedBias = fixture.config.solver.baumgarteBeta * contact.penetration / dynamicInterval;
+    const float expectedFrictionLimit = fixture.config.material.objectFrictionCoefficient *
+                                        fixture.bodyStore.Records()[1].mass * fabsf( fixture.config.worldForces.gravity ) *
+                                        dynamicInterval;
+    CHECK( contact.bias == doctest::Approx( expectedBias ).epsilon( 0.0001 ) );
+    CHECK( contact.frictionLimit == doctest::Approx( expectedFrictionLimit ).epsilon( 0.0001 ) );
+}
+
+TEST_CASE( "Persistent contact solver: sleeping anchors do not shorten an awake contact interval" )
+{
+    SolverFixture fixture;
+    fixture.config.solver.slop = 0.0f;
+    fixture.AddDynamicSphere( Vector3( 0.0f, 0.0f, 0.0f ), ZERO_VECTOR );
+    fixture.AddDynamicSphere( Vector3( 1.98f, 0.0f, 0.0f ), ZERO_VECTOR );
+    fixture.candidatePairs.emplace_back( 0, 1 );
+    const float awakeInterval = kSolverDt * 0.5f;
+    fixture.sleepState[0] = 1u;
+    fixture.timeRemaining[0] = 0.0f;
+    fixture.timeRemaining[1] = awakeInterval;
+    fixture.Solve();
+
+    REQUIRE( fixture.solver.GetPersistentContacts().size() == 1u );
+    const PersistentContact& contact = fixture.solver.GetPersistentContacts()[0];
+    REQUIRE_FALSE( contact.normalCoupledFriction );
+    const float expectedBias = fixture.config.solver.baumgarteBeta * contact.penetration / awakeInterval;
+    const float expectedFrictionLimit = fixture.config.material.objectFrictionCoefficient *
+                                        fixture.bodyStore.Records()[1].mass * fabsf( fixture.config.worldForces.gravity ) *
+                                        awakeInterval;
+    CHECK( contact.bias == doctest::Approx( expectedBias ).epsilon( 0.0001 ) );
+    CHECK( contact.frictionLimit == doctest::Approx( expectedFrictionLimit ).epsilon( 0.0001 ) );
+}
+
+TEST_CASE( "Persistent contact solver: unequal dynamic remainders use their shared minimum" )
+{
+    SolverFixture fixture;
+    fixture.config.solver.slop = 0.0f;
+    fixture.AddDynamicSphere( Vector3( 0.0f, 0.0f, 0.0f ), ZERO_VECTOR );
+    fixture.AddDynamicSphere( Vector3( 1.98f, 0.0f, 0.0f ), ZERO_VECTOR );
+    fixture.candidatePairs.emplace_back( 0, 1 );
+    const float shorterInterval = kSolverDt * 0.25f;
+    fixture.timeRemaining[0] = kSolverDt * 0.75f;
+    fixture.timeRemaining[1] = shorterInterval;
+    fixture.Solve();
+
+    REQUIRE( fixture.solver.GetPersistentContacts().size() == 1u );
+    const PersistentContact& contact = fixture.solver.GetPersistentContacts()[0];
+    REQUIRE_FALSE( contact.normalCoupledFriction );
+    const float expectedBias = fixture.config.solver.baumgarteBeta * contact.penetration / shorterInterval;
+    const float expectedFrictionLimit = fixture.config.material.objectFrictionCoefficient *
+                                        fixture.bodyStore.Records()[0].mass * fabsf( fixture.config.worldForces.gravity ) *
+                                        shorterInterval;
+    CHECK( contact.bias == doctest::Approx( expectedBias ).epsilon( 0.0001 ) );
+    CHECK( contact.frictionLimit == doctest::Approx( expectedFrictionLimit ).epsilon( 0.0001 ) );
+}
+
+TEST_CASE( "Persistent contact solver: near-zero remainder disables Baumgarte but retains impact restitution" )
+{
+    SolverFixture fixture;
+    constexpr float restitution = 0.25f;
+    fixture.config.solver.slop = 0.0f;
+    fixture.AddDynamicSphere( Vector3( 0.0f, 0.0f, 0.0f ), ZERO_VECTOR, restitution, true );
+    fixture.AddDynamicSphere( Vector3( 1.98f, 0.0f, 0.0f ), Vector3( -3.0f, 0.0f, 0.0f ), restitution );
+    fixture.candidatePairs.emplace_back( 0, 1 );
+    fixture.timeRemaining[1] = TOLERANCE * 0.5f;
+    fixture.Solve();
+
+    REQUIRE( fixture.solver.GetPersistentContacts().size() == 1u );
+    const PersistentContact& contact = fixture.solver.GetPersistentContacts()[0];
+    REQUIRE_FALSE( contact.normalCoupledFriction );
+    CHECK( contact.separationBias == 0.0f );
+    CHECK( contact.frictionLimit == 0.0f );
+    CHECK( contact.bias == doctest::Approx( restitution * 3.0f ).epsilon( 0.0001 ) );
+    CHECK( fixture.bodyStore.HotFields().linearVelocityX[1] > 0.0f );
 }
 
 

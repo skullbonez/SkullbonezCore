@@ -2,16 +2,29 @@
 
 Date: 2026-08-18
 Branch: `nightrunner-18th-AUG-26`
-Status: Four active plans; 23/47 tasks complete
+Status: Three active plans; 24/47 tasks complete
 
-Catto Divergence Repairs (6 tasks), Deterministic Trigonometry Adoption
-(8 tasks), Continuous Orbital Forecast (7 tasks), and Predicted Solver Cause
-Hierarchy (8 tasks) are registered under `Agentic/Plans/TODO/`; Causal C0-C8,
-Determinism T0-T8, and Catto CD0-CD4 are complete. `MASTER-PLAN.md` carries the
-binding order: Catto CD5 next, deterministic trig following Catto, then
-continuous orbital forecast, then predicted solver detail. The completed causal
-and determinism plans were deleted under the repository convention; Git history
-retains their phase evidence.
+Deterministic Trigonometry Adoption (8 tasks), Continuous Orbital Forecast
+(7 tasks), and Predicted Solver Cause Hierarchy (8 tasks) are registered under
+`Agentic/Plans/TODO/`; Causal C0-C8, Determinism T0-T8, and Catto CD0-CD5 are
+complete. `MASTER-PLAN.md` carries the binding order: deterministic trig next,
+then continuous orbital forecast, then predicted solver detail. The completed
+causal, determinism, and Catto plans were deleted under the repository
+convention; Git history retains their phase evidence.
+
+Catto CD5 retained the authored partial-TOI sequence and derives one local
+contact interval from the remaining time of each awake dynamic participant.
+Terrain uses its dynamic body's interval, two awake dynamics use the shorter
+interval, and authored-fixed or sleeping solver-static bodies contribute no
+clock. Baumgarte, terrain support/friction, and object constant friction use
+that interval; near-zero intervals disable bias and friction while retaining
+impact restitution. Six focused interval cases are included. The full tests
+pass 590 cases / 2,480,638 assertions, performance and the independent review
+are green, and the terminal gate passes preflight, CPU/coverage, Automation,
+and DX12 before the approved immutable physics golden reports 20,394 changed
+rows. Physics and replay candidates plus their generating executables remain
+under `TestOutput/validation/candidates/CATTO_REPAIRS_CD5*`; no golden was
+refreshed.
 
 Catto CD4 added scalar accumulated-impulse warm starting to point joints and
 proved a loaded ten-link chain reduces final sag by about 30.5 percent and peak
@@ -138,13 +151,7 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `CATTO_REPAIRS` CD5: define one explicit local contact interval for R4
-and use it consistently for Baumgarte scaling and friction impulse bounds while
-preserving the authored partial-TOI advancement. Preserve any new divergence
-executables by phase; the CD2 golden authorization does not pre-approve later
-phase movement. `future_physics.md` remains unregistered.
-
-After Catto closes, execute `TRIG_DETERMINISM` DT0-DT7. Its dated inventory is
+Execute `TRIG_DETERMINISM` DT0-DT7. Its dated inventory is
 120 direct CPU production sine/cosine calls across 15 files plus 20 test-only
 calls across 5 files. Establish the A/B oracles and exact-tick headless solar
 fast-forward before migrating callers; the current fixed-step time-scale path
@@ -166,7 +173,7 @@ High/Low release workflow.
 
 ## Blockers
 
-- None. Continue with R3, R2(a), and R4 in the approved order.
+- None. Continue with `TRIG_DETERMINISM` DT0.
 
 ## CI Note
 

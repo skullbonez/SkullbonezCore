@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-18
-Status: Four active plans; 23/47 tasks complete
+Status: Three active plans; 24/47 tasks complete
 
 ## Owner Direction
 
@@ -31,8 +31,8 @@ Status: Four active plans; 23/47 tasks complete
   is retained because its roughly 4 MiB maximum memory cost avoids the measured
   CandidatePairs CPU regression.
 - Look Lab Random Style Authoring is closed. No further work remains.
-- Catto Divergence Repairs is registered as live by owner direction on
-  2026-08-15. CD0-CD4 are complete. CD1 removes manifold-row multiplication
+- Catto Divergence Repairs is complete by owner direction. CD1 removed
+  manifold-row multiplication
   from position correction; its physics and replay candidates remain preserved,
   the same-scene attribution review is clear, and the owner accepted the
   improved simulation and authorized its physics-derived golden refresh on
@@ -42,9 +42,12 @@ Status: Four active plans; 23/47 tasks complete
   convergence with max-row stopping and preserved its deterministic physics and
   replay divergences without refreshing goldens. CD4 added scalar point-joint
   warm starting plus durable v3 solver-checkpoint state and preserved its
-  deterministic physics and replay divergences without refreshing goldens. The
-  local partial-TOI R4 repair remains approved. R2 stages (b)-(d) and
-  speculative contacts remain outside the active ledger.
+  deterministic physics and replay divergences without refreshing goldens. CD5
+  retained partial-TOI advancement while deriving Baumgarte and constant-
+  friction terms from the participating awake dynamic bodies' local remaining-
+  time interval. Its deterministic physics and replay candidates are preserved
+  without refreshing goldens. R2 stages (b)-(d) and speculative contacts remain
+  outside the active ledger.
 - Deterministic Trigonometry Adoption is registered after Catto by owner
   direction on 2026-08-17. It inventories all 120 direct CPU production
   sine/cosine calls, qualifies float and double deterministic owners, migrates
@@ -68,7 +71,6 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Catto Divergence Repairs | `CATTO_REPAIRS` | 6 | 5 | `TODO/catto-divergence-repairs.md` |
 | Deterministic Trigonometry Adoption | `TRIG_DETERMINISM` | 8 | 0 | `TODO/deterministic-trigonometry-adoption.md` |
 | Continuous Orbital Forecast | `ORBIT_FORECAST` | 7 | 0 | `TODO/continuous-orbital-forecast.md` |
 | Predicted Solver Cause Hierarchy | `PREDICT_SOLVER_DETAIL` | 8 | 0 | `TODO/predicted-solver-cause-hierarchy.md` |
@@ -104,15 +106,13 @@ states elsewhere, and both are recorded rather than silently corrected:
 
 ## Binding Order
 
-1. `CATTO_REPAIRS` CD5 — CD0-CD4 are complete. Execute the local R4 interval-
-   consistency repair that preserves partial-TOI advancement.
-2. `TRIG_DETERMINISM` DT0 through DT7 — widen static enforcement, establish
+1. `TRIG_DETERMINISM` DT0 through DT7 — widen static enforcement, establish
    A/B and exact-tick solar evidence before replacement, certify float and
    double owners, migrate callers by risk, then close the production surface.
-3. `ORBIT_FORECAST` OF0 through OF6 — ratify the authored stability contract,
+2. `ORBIT_FORECAST` OF0 through OF6 — ratify the authored stability contract,
    add coherent circular publication and continuous isolated prediction, then
    wire Planning-owned diagnostics and rolling orbital presentation.
-4. `PREDICT_SOLVER_DETAIL` PSD0 through PSD7 — preserve the compact Low mode
+3. `PREDICT_SOLVER_DETAIL` PSD0 through PSD7 — preserve the compact Low mode
    and selected-root causal topology, then add bounded exact predicted solver
    evidence, mode-aware archives, observable release, and the High Detail
    operator workflow.
@@ -134,9 +134,7 @@ forecast or infer all-body presentation from generic Physics force state.
 
 ## Portfolio Progress
 
-23/47 tasks complete with four active plans. Causal C0-C8, Determinism T0-T8,
-and Catto CD0-CD4 are complete; Catto CD5 (R4 contact-interval consistency) is
-next.
-Deterministic Trigonometry DT0-DT7 follows Catto, then
+24/47 tasks complete with three active plans. Causal C0-C8, Determinism T0-T8,
+and Catto CD0-CD5 are complete. Deterministic Trigonometry DT0-DT7 is next, then
 Continuous Orbital Forecast OF0-OF6, then Predicted Solver Cause Hierarchy
 PSD0-PSD7.

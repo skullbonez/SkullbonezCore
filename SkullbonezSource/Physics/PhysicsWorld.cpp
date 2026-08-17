@@ -1143,7 +1143,11 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
     // no sink, so its fixed amortization budget remains simulation-only.
     contactPolicy.collectConvergenceDiagnostics = ShouldEmitStepDiagnostics();
 
-    m_contactSolverStage.Solve( bodyStore, colliderStore, contactPolicy, candidatePairs, sleepStates,
+    // Invariant: narrowphase and terrain detection have already consumed any
+    // time-of-impact advancement from m_timeRemaining. The contact solver must
+    // borrow these exact rows so its time-scaled terms describe the remaining
+    // integration interval without changing the partial-CCD sequence.
+    m_contactSolverStage.Solve( bodyStore, colliderStore, contactPolicy, candidatePairs, sleepStates, m_timeRemaining,
                                 m_sleepController.MutableSupportEdgesForContactSolver(), m_terrain.GetContactManifolds(),
                                 m_terrain.GetRestApplied(), m_sleepController.MutableSupportedStatesForTerrain(),
                                 m_stepDiagnostics, dt, m_profiler );
