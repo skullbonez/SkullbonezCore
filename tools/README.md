@@ -132,6 +132,13 @@ classification and bounded-log guards without invoking Visual Studio.
 lanes weekly and on manual dispatch. It is an informational signal rather than
 a required pull-request check.
 
+`.github/workflows/portable-linux-diagnostics.yml` independently runs the
+portable CMake test target on `ubuntu-latest` each Wednesday and on manual
+dispatch. Warning-clean GCC/Clang plus isolated ASan, UBSan, and TSan rows upload
+runner context and configure/build/test/JUnit evidence on both success and
+failure. This scheduled signal never compares against a Windows golden and is
+not a pull-request merge gate.
+
 ### Selection Example
 
 Run only the targeted gate you need:

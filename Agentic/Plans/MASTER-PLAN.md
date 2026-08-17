@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-17
-Status: Two active plans; 15/24 tasks complete
+Status: Two active plans; 16/24 tasks complete
 
 ## Owner Direction
 
@@ -42,7 +42,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Determinism Envelope Tier-2 Hardening | `TIER2_DETERMINISM` | 9 | 5 | `TODO/determinism-envelope-tier2-hardening.md` |
+| Determinism Envelope Tier-2 Hardening | `TIER2_DETERMINISM` | 9 | 6 | `TODO/determinism-envelope-tier2-hardening.md` |
 | Catto Divergence Repairs | `CATTO_REPAIRS` | 6 | 1 | `TODO/catto-divergence-repairs.md` |
 
 ## Parked, Backlog, And Completed Plans
@@ -76,8 +76,8 @@ states elsewhere, and both are recorded rather than silently corrected:
 
 ## Binding Order
 
-1. `TIER2_DETERMINISM` T7 through T8 — Linux sanitizer lane and hosted
-   cross-machine evidence. T6's portable split is complete.
+1. `TIER2_DETERMINISM` T8 — hosted cross-machine evidence. T6's portable split
+   and T7's Linux compiler/sanitizer lane are complete.
 2. `TIER2_DETERMINISM` T3 and T4 — adopt deterministic rotation and `acos` after
    the earlier evidence isolates their behavior transitions. Preserve each
    baseline-failing executable and continue; acceptance remains an owner review.
@@ -98,6 +98,6 @@ tests must pin field mapping and availability, not pre-Catto impulse values.
 
 ## Portfolio Progress
 
-15/24 tasks complete across two active plans. Causal C0-C8, Determinism T0-T2
-and T5-T6, and Catto CD0 are complete; Determinism T7 is the next selectable
+16/24 tasks complete across two active plans. Causal C0-C8, Determinism T0-T2
+and T5-T7, and Catto CD0 are complete; Determinism T8 is the next selectable
 task.

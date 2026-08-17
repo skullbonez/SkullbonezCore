@@ -2,12 +2,12 @@
 
 Date: 2026-08-17
 Branch: `codex/master-plan-2026-08-16`
-Status: Two active plans; 15/24 tasks complete
+Status: Two active plans; 16/24 tasks complete
 
 Determinism Envelope Tier-2 Hardening (9 tasks) and Catto Divergence Repairs
 (6 tasks) are registered under `Agentic/Plans/TODO/`; Causal C0-C8,
-Determinism T0-T2 and T5-T6, and Catto CD0 are complete. `MASTER-PLAN.md` carries
-the binding order, with Determinism T7 next. The completed causal plan was deleted under the
+Determinism T0-T2 and T5-T7, and Catto CD0 are complete. `MASTER-PLAN.md` carries
+the binding order, with Determinism T8 next. The completed causal plan was deleted under the
 repository convention; Git history retains its phase evidence.
 
 Replay Prediction Adversarial Repair completed on
@@ -49,12 +49,11 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-`TIER2_DETERMINISM` T7. Add the independent scheduled/manual `ubuntu-latest`
-lane for the T6 portable target, with Clang and GCC warning-clean builds and
-actionable UBSan/TSan evidence. Decide and record whether Linux ASan's second
-opinion is worth its duplicate coverage cost; never compare this lane against a
-Windows-generated golden. T1's deterministic math owner remains unadopted in
-Physics until T3/T4. Continue in the plan's recorded order, then run
+`TIER2_DETERMINISM` T8. Extend the hosted Windows lane with direct byte-exact
+physics evidence while pinning and recording enough toolchain/runner provenance
+to distinguish machine variation from image drift. Observe one complete hosted
+run green before closing the phase. T1's deterministic math owner remains
+unadopted in Physics until T3/T4. Continue in the plan's recorded order, then run
 `CATTO_REPAIRS` CD1-CD5.
 `future_physics.md` remains unregistered.
 

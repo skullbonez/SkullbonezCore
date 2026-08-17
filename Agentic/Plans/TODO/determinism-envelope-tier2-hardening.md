@@ -1,7 +1,7 @@
 # Determinism Envelope Tier-2 Hardening
 
 Date: 2026-08-15
-Status: Active. 5/9 tasks complete.
+Status: Active. 6/9 tasks complete.
 Impact area: Maths transcendentals, Physics pose integration, ragdoll neck
 constraint, determinism tooling, portable CPU test target, CI lanes
 Owner: Physics determinism envelope
@@ -448,7 +448,7 @@ violation if one exists.
   has zero deferred files. Independent review returned no blocking or
   non-blocking findings. No Physics baseline or golden changed.
 
-- [ ] **T7 — Add the Linux lane with sanitizers.**
+- [x] **T7 — Add the Linux lane with sanitizers.**
   Run the T6 target under Clang and GCC, and under ASan, UBSan, and TSan. TSan on
   `SkullbonezSource/Core/WorkerPool.cpp` and the parallel merge discipline is the
   highest-value item: worker-count invariance tests prove results agree, not that
@@ -485,6 +485,32 @@ violation if one exists.
   four assertions failing. Do not stand up a second sanitizer lane that copies
   its reporting approach; a scheduled sanitizer job whose red runs cannot be read
   manufactures the appearance of coverage.
+
+  Evidence (2026-08-17): `.github/workflows/portable-linux-diagnostics.yml`
+  is an independent `ubuntu-latest` workflow with only Wednesday schedule and
+  manual-dispatch triggers, so it cannot become a Windows pull-request merge
+  gate. Its five fail-independent rows cover warning-clean GCC and Clang plus
+  isolated Clang ASan, Clang UBSan, and GCC TSan builds of the complete T6 test
+  target. Every row promotes `-Wall -Wextra -Wpedantic` to errors; sanitizer
+  compile/link flags and fail-fast runtime options are explicit.
+
+  The workflow header assigns red-run triage to the Physics determinism
+  envelope owner. Each row records runner/compiler context and bounded
+  configure, build, test, and JUnit evidence, then uploads it even on failure.
+  No Linux job downloads or compares a Windows golden. Linux ASan remains as a
+  deliberate second implementation opinion despite the broader Windows ASan
+  suite; UBSan and the WorkerPool/parallel-determinism TSan row are the unique
+  coverage that justifies the lane.
+
+  Independent review found and then cleared one Linux-specific defect: GCC
+  warns because it does not implement `#pragma STDC FP_CONTRACT`. The forced
+  floating-point header now emits that pragma only for Clang; GCC relies on the
+  already-probed `-ffp-contract=off` flag and paired marker. A warning-as-error
+  GCC-branch simulation passed, while a missing-marker probe failed as required.
+  YAML/matrix assertions and `bash -n` passed, `validate_fast` passed end to end,
+  the one-file source comment audit has zero deferred files, and independent
+  re-review returned no blocking or non-blocking findings. T8 owns the first
+  observed hosted run; no Physics baseline or golden changed here.
 
 - [ ] **T8 — Add cross-machine byte evidence to the hosted Windows lane.**
   Extend `.github/workflows/mandatory-cpu-validation.yml` so the physics
