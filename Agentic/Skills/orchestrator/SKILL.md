@@ -89,41 +89,84 @@ plans. Select the next unfinished, dependency-safe item in binding order. Ignore
 MASTER-PLAN after every pushed slice because the queue and denominator may have
 changed.
 
-## Execution Timing And Token Ledger
+## Live Work Ledger
 
-Keep a simple in-memory execution ledger for the whole orchestrator goal and
-emit it in the final handoff. Do not create a repository report file unless the
-user explicitly asks for one.
+Use the batch-owned live ledger for the complete orchestrator goal. It writes
+`Agentic/Plans/WORK_LEDGER.md` beside `MASTER-PLAN.md`; the path is ignored by
+Git because the final post-push hash update cannot be part of the commit whose
+hash it records. Never stage or hand-edit this runtime artifact.
 
-For every plan task or committed source slice:
+Every batch call reads the exact cumulative token counter for
+`CODEX_THREAD_ID`, captures a local ISO-8601 timestamp with timezone, and
+atomically rewrites the Markdown plus its embedded recovery state. A failed
+call is an orchestration blocker: do not replace exact telemetry with an
+estimate or an in-memory row. The unfinished row identifies the live step, so
+the owner can inspect the ledger at any time while work is running.
 
-1. Record `Started at` immediately after selecting the task and before task
-   work begins.
-2. Record `Sent at` immediately before sending the task-completion/blocker
-   update and advancing the queue. This is after its required commit and push.
-3. Compute elapsed wall-clock time from those timestamps.
-4. Record input, output, and cached-input tokens when the model/tooling exposes
-   exact usage. Use task-boundary counter deltas or sum non-overlapping per-turn
-   usage. Never estimate, infer from characters, or double-count cached tokens;
-   write `n/a` when exact usage is unavailable.
+Start the ledger immediately after branch/goal bootstrap:
 
-Record the goal start at bootstrap and the goal send time immediately before
-the final handoff. Report total goal elapsed time. Sum task token values into a
-goal total only when every included value is exact and non-overlapping;
-otherwise report `n/a` for that goal token field. Preserve ledger rows across
-context compaction.
-
-Use local ISO-8601 timestamps with timezone and these compact tables:
-
-```markdown
-| Task | Started at | Sent at | Total time | Input tokens | Output tokens | Cached input tokens | Outcome |
-|------|------------|---------|------------|--------------|---------------|---------------------|---------|
-| PLAN T1 | 2026-08-18T09:00:00+10:00 | 2026-08-18T09:42:00+10:00 | 42m | n/a | n/a | n/a | pushed |
-
-| Goal | Started at | Sent at | Total time | Input tokens | Output tokens | Cached input tokens |
-|------|------------|---------|------------|--------------|---------------|---------------------|
-| MASTER-PLAN | 2026-08-18T09:00:00+10:00 | 2026-08-18T17:30:00+10:00 | 8h 30m | n/a | n/a | n/a |
+```bat
+Agentic\Skills\orchestrator\scripts\work_ledger.bat start-goal -Goal "MASTER-PLAN"
 ```
+
+Start every selected plan task before reading, editing, or investigating it.
+The call opens both the task and its first step:
+
+```bat
+Agentic\Skills\orchestrator\scripts\work_ledger.bat start-task -Task "<PLAN>-T<n>" -Title "<task title>" -Step "implementation-01" -Kind implementation -Label "Implementation"
+```
+
+Use one `transition` call at each boundary. It closes the active step and opens
+the next step with one shared parent-session timestamp/counter, so no parent
+tokens or wall time are lost or double-counted:
+
+```bat
+Agentic\Skills\orchestrator\scripts\work_ledger.bat transition -Task "<PLAN>-T<n>" -Outcome "ready for review" -Step "rubber-duck-01" -Kind rubber-duck -Label "Rubber duck pass 1"
+```
+
+For a newly created rubber-duck agent/thread, transition before launching it,
+then attach its returned thread/session id with a zero baseline. Zero is the
+exact start of that new reviewer session, including its prompt and context:
+
+```bat
+Agentic\Skills\orchestrator\scripts\work_ledger.bat attach-worker -Task "<PLAN>-T<n>" -WorkerThreadId "<reviewer id>" -WorkerBaselineZero
+```
+
+Use the reviewer's actual `CODEX_THREAD_ID`, not an orchestration handle that
+cannot be resolved under `.codex\sessions`. If the launch API returns only a
+handle, have the reviewer read and return `$env:CODEX_THREAD_ID`; attaching it
+afterward with a zero baseline still accounts for that complete new session.
+
+When reusing an existing reviewer session, attach or open the step with
+`-WorkerThreadId` and omit `-WorkerBaselineZero`; the helper snapshots its
+current cumulative counter. Close every rubber-duck step with `-Findings <n>`.
+Count every enumerated item under the review's Findings and Missing evidence
+sections. Put the verdict in `-Outcome`. Use `finding-fix`, `rubber-duck`, and
+`validation` kinds for repeats so the ledger derives duck-pass count, fix-cycle
+count, total findings, reviewer tokens, and cumulative validation duration.
+
+At minimum, record implementation/investigation, every rubber-duck pass, every
+finding-fix cycle, final validation, and commit/push as separate steps. Use
+`other` for another material phase. After validation, transition to
+`commit-push`; after the commit has been pushed, close the task with its commit:
+
+```bat
+Agentic\Skills\orchestrator\scripts\work_ledger.bat finish-task -Task "<PLAN>-T<n>" -Outcome "pushed" -Commit HEAD
+```
+
+`finish-task` resolves the full commit hash and refuses to close until that
+commit is an ancestor of the configured upstream. After the final task, close
+the goal immediately before the final handoff:
+
+```bat
+Agentic\Skills\orchestrator\scripts\work_ledger.bat finish-goal -Outcome "complete"
+```
+
+The ledger groups step rows beneath each task and maintains task/run summaries
+with elapsed time, main/reviewer token splits, combined input/output/cached
+tokens, duck passes, fix cycles, findings, validation time, outcomes, and full
+commit hashes. Its embedded state survives context compaction and process
+restart.
 
 ## Blocker Continuation
 
@@ -196,32 +239,25 @@ the review is for.
 
 ## Rubber-Duck Accounting
 
-Default to zero rubber-duck rows while ordinary implementation is in progress.
-Keep an in-memory row for every rubber-duck review pass that actually runs.
-Assign each pass a
-stable run id such as `<plan-stem>-duck-01`, `<plan-stem>-duck-02`, and so on.
-For each row, record:
-
-- plan path,
-- run id and reviewer/thread identifier,
-- pass reason, such as initial review or follow-up after fixes,
-- prompt/context characters sent to the sub-agent, including any pasted diff or
-  artifact text,
-- review response characters returned by the sub-agent,
-- token counts if the sub-agent tool exposes them, otherwise `n/a`,
-- elapsed wall-clock time for the review pass when measurable,
-- verdict and whether follow-up work was required.
-
-Do not invent token counts. If token usage is unavailable, report character
-counts and mark token columns `n/a`. Keep this accounting separate from
-SkullScope diagnostics accounting; it measures review-agent prompt/response
-usage, not repository artifacts or validation logs.
+Default to zero rubber-duck steps while ordinary implementation is in progress.
+Assign every pass a stable step id such as `rubber-duck-01`,
+`rubber-duck-02`, and so on. Use the live-ledger transition and worker-session
+attachment sequence above for every pass; do not maintain a second in-memory
+review table. The worker-session delta is the exact reviewer usage, while the
+same row separately retains main-agent orchestration usage, elapsed wall time,
+finding count, and verdict. Keep this accounting separate from SkullScope
+diagnostics accounting; it measures agent-session usage, not repository
+artifacts or validation logs.
 
 ## Plan Loop
 
 For each plan or source slice, in order:
 
-1. Read the plan enough to understand scope and required validation. Read the
+1. Select the task from MASTER-PLAN, resolve its stable task id/title, and call
+   `work_ledger.bat start-task` before deeper plan reading, investigation, or
+   implementation. The live file must show the task as in progress before work
+   consumes time or tokens.
+2. Read the plan enough to understand scope and required validation. Read the
    authoritative progress ledger in `Agentic/Plans/MASTER-PLAN.md`, resolve the
    owning plan's post-slice completed-task count and total, and include this
    fully resolved line in the active implementation prompt/task framing before
@@ -232,11 +268,13 @@ Required commit subject first line: <PLAN_NAME>, TASK <DONE>/<TASK_COUNT> — <A
 ```
 
    Recalculate it if scope or task completion changes before commit.
-2. Complete exactly that plan in the main agent. Do not launch an implementation
+3. Complete exactly that plan in the main agent. Do not launch an implementation
    worker or ask a sub-agent to edit files.
-3. Inspect the result with `git status --short` and targeted file reads or
+4. Inspect the result with `git status --short` and targeted file reads or
    diffs.
-4. For ordinary incremental slices, skip rubber-duck review and keep moving.
+5. For ordinary incremental slices, skip rubber-duck review and transition
+   directly from implementation to validation. When review is required,
+   transition to `rubber-duck-<nn>` before creating or messaging the reviewer.
    Launch a separate read-only rubber-duck review sub-agent only when the slice
    completes a major plan/checkpoint or whole job, when the user explicitly
    asks for review, or when repeated failures show that independent critique is
@@ -249,36 +287,47 @@ baseline mistakes, determinism risks, DX12 validation risks, and hot-path alloca
 Return findings with file/line references and a clear verdict.
 ```
 
-5. Address blocking rubber-duck findings in the main agent before committing
-   when a review was actually run.
-6. Repeat the rubber-duck pass only if the fix changed meaningful behavior in
-   the reviewed risk area or the reviewer requested a follow-up. Record every
-   repeat as its own accounting row.
-7. Run the smallest cumulative pre-commit validation from `AGENTS.md` for that
+6. Attach the new reviewer thread id to the active ledger step immediately
+   after creation. When its response arrives, count its findings and transition
+   to `finding-fix-<nn>` before addressing blocking findings in the main agent.
+   If there are no fixes, transition directly to validation.
+7. Repeat the rubber-duck pass only if the fix changed meaningful behavior in
+   the reviewed risk area or the reviewer requested a follow-up. Transition at
+   both sides of every repeat so each pass and fix cycle is a separate live
+   ledger row.
+8. Open the `validation` ledger step before running the smallest cumulative
+   pre-commit validation from `AGENTS.md` for that
    task's changed-file set. Documentation-only changes require no validation.
-   Do not run full validation for an intermediate task or ordinary PR commit.
+   Still record a bounded documentation/diff inspection in the validation row
+   so its duration and outcome are explicit. Do not run full validation for an
+   intermediate task or ordinary PR commit.
    Run `tools\agent_validate.bat --plan-completion` once, after independent
    review and immediately before the terminal commit that closes the entire
    implementation plan.
-8. Update `Agentic/SessionState.md` whenever a task or phase completes, a plan
+9. Update `Agentic/SessionState.md` whenever a task or phase completes, a plan
     closes, a blocker is recorded, or the portfolio denominator moves. This is a
-    write step, not a read step: steps 9 and 10 stage and report the update, but
+    write step, not a read step: steps 10 and 11 stage and report the update, but
     neither creates it. At minimum the Current State table's objective and
     active/future progress figure, and the Live Queue's binding next task, must
     match the post-commit MASTER-PLAN ledger exactly. Recompute the progress
     figure from the ledger; never carry the previous value forward. A closed plan
     that left the live inventory under rule 4 changes both the numerator and the
     denominator, so the figure usually moves more than one task's worth.
-9. Run `git status --short --branch` before staging.
-10. Stage only files belonging to the completed plan and its required
-    reports/session-state updates.
-11. Commit with the required MASTER progress header as the subject's first
+10. Run `git status --short --branch` before staging.
+11. Stage only files belonging to the completed plan and its required
+    reports/session-state updates. Never stage the ignored live work ledger.
+12. After validation succeeds, transition to the `commit-push` ledger step.
+    Commit with the required MASTER progress header as the subject's first
     fields, followed by a concise action summary. Use the post-commit ledger
     values and update MASTER in the same commit whenever task completion or the
     portfolio denominator changes. The body records what changed, why,
     implementation details by area, exact validation command and result, and
     baseline/report/session-state updates.
-12. Push normally. Never force-push.
+13. Push normally. Never force-push.
+14. Call `work_ledger.bat finish-task -Commit HEAD` only after the push
+    succeeds. This closes commit/push timing, verifies upstream containment,
+    writes the full hash into the task group, and makes the completed ledger
+    immediately queryable before advancing the queue.
 
 Advance after the current item is either reviewed, validated, committed, and
 pushed, or its blocker record is committed and pushed under Blocker
@@ -317,13 +366,8 @@ Report:
   how good the work was.
 - Total elapsed wall-clock time and timings for long builds, validations,
   launches, or investigations.
-- The task and goal execution-ledger tables, including exact input/output/
-  cached-input token usage when available and `n/a` otherwise.
-- A final rubber-duck accounting table, one row per review pass. If no review
-  was appropriate, say that no rubber-duck pass was run for the slice:
-
-```markdown
-| Plan | Duck run | Reviewer/thread | Reason | Prompt chars | Response chars | Tokens | Elapsed | Verdict | Follow-up |
-|------|----------|-----------------|--------|--------------|----------------|--------|---------|---------|-----------|
-| Agentic/Plans/example.md | example-duck-01 | thread id/name | Initial review | 1234 | 5678 | n/a | 2m 10s | No blockers | None |
-```
+- The live `Agentic/Plans/WORK_LEDGER.md` path and its exact goal/task summary:
+  elapsed time; main, reviewer, and combined tokens; duck passes; fix cycles;
+  findings; cumulative validation time; outcomes; and full commit hashes.
+- Rubber-duck verdicts keyed to their ledger step ids. If no review was
+  appropriate, report the task's zero duck-pass count from the ledger.

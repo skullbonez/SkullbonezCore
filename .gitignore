@@ -53,6 +53,10 @@ Agentic/style-harness/
 Agentic/Runs/
 Agentic/Temp/
 
+# Live orchestrator ledger. It is updated after pushed commits, so keeping it
+# local avoids an impossible self-referential "commit contains its own hash".
+/Agentic/Plans/WORK_LEDGER.md
+
 # Python
 __pycache__/
 *.pyc
