@@ -56,6 +56,7 @@ Agentic/Temp/
 # Live orchestrator ledger. It is updated after pushed commits, so keeping it
 # local avoids an impossible self-referential "commit contains its own hash".
 /Agentic/Plans/WORK_LEDGER.md
+/Agentic/Plans/WORK_LEDGER.csv
 
 # Python
 __pycache__/

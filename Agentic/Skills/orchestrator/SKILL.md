@@ -92,16 +92,20 @@ changed.
 ## Live Work Ledger
 
 Use the batch-owned live ledger for the complete orchestrator goal. It writes
-`Agentic/Plans/WORK_LEDGER.md` beside `MASTER-PLAN.md`; the path is ignored by
+`Agentic/Plans/WORK_LEDGER.csv` beside `MASTER-PLAN.md`; the path is ignored by
 Git because the final post-push hash update cannot be part of the commit whose
 hash it records. Never stage or hand-edit this runtime artifact.
 
 Every batch call reads the exact cumulative token counter for
 `CODEX_THREAD_ID`, captures a local ISO-8601 timestamp with timezone, and
-atomically rewrites the Markdown plus its embedded recovery state. A failed
+atomically rewrites valid CSV plus its final embedded recovery-state row. A failed
 call is an orchestration blocker: do not replace exact telemetry with an
 estimate or an in-memory row. The unfinished row identifies the live step, so
 the owner can inspect the ledger at any time while work is running.
+
+Run `work_ledger.bat show` before inspecting the CSV. `show` refreshes the open
+row's current elapsed time, input/output/cached-input counters, API-cost
+estimate, and master-plan progress without closing the step.
 
 Start the ledger immediately after branch/goal bootstrap:
 
@@ -143,7 +147,8 @@ current cumulative counter. Close every rubber-duck step with `-Findings <n>`.
 Count every enumerated item under the review's Findings and Missing evidence
 sections. Put the verdict in `-Outcome`. Use `finding-fix`, `rubber-duck`, and
 `validation` kinds for repeats so the ledger derives duck-pass count, fix-cycle
-count, total findings, reviewer tokens, and cumulative validation duration.
+count, total findings, reviewer input/output/cached-input counters and cost, and
+cumulative validation duration.
 
 At minimum, record implementation/investigation, every rubber-duck pass, every
 finding-fix cycle, final validation, and commit/push as separate steps. Use
@@ -165,10 +170,14 @@ Agentic\Skills\orchestrator\scripts\work_ledger.bat finish-goal -Outcome "comple
 The ledger groups step rows beneath each task and maintains task/run summaries
 with elapsed time; explicit input, output, and cached-input counters; main and
 reviewer splits; duck passes; fix cycles; findings; validation time; outcomes;
-and full commit hashes. Never report an unqualified `tokens` or `total tokens`
-column. Codex input includes the cached-input subset, so show cached input
-separately but do not add it to input again. The embedded state survives context
-compaction and process restart.
+full commit hashes; portfolio and active-plan progress; and estimated API cost
+in USD. Never report an unqualified `tokens` or `total tokens` column. Codex
+input includes the cached-input subset, so calculate cost as uncached input
+(`input - cached`) at the input rate, cached input at the cached rate, and
+output at the output rate. Record the model, rates, Standard/Short pricing
+basis, and official pricing URL in the CSV. Unknown models are blockers rather
+than occasions to guess a rate. The embedded state survives context compaction
+and process restart.
 
 ## Blocker Continuation
 
@@ -368,9 +377,10 @@ Report:
   how good the work was.
 - Total elapsed wall-clock time and timings for long builds, validations,
   launches, or investigations.
-- The live `Agentic/Plans/WORK_LEDGER.md` path and its exact goal/task summary:
+- The live `Agentic/Plans/WORK_LEDGER.csv` path and its exact goal/task summary:
   elapsed time; explicit input, output, and cached-input counters with main and
-  reviewer splits; duck passes; fix cycles; findings; cumulative validation
-  time; outcomes; and full commit hashes.
+  reviewer splits; Standard/Short API-cost estimate and rates; overall and
+  active-plan progress; duck passes; fix cycles; findings; cumulative
+  validation time; outcomes; and full commit hashes.
 - Rubber-duck verdicts keyed to their ledger step ids. If no review was
   appropriate, report the task's zero duck-pass count from the ledger.
