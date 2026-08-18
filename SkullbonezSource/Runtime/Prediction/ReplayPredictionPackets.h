@@ -44,6 +44,14 @@ enum class ReplayPredictionDetailMode : uint8_t
     Low
 };
 
+// One policy predicate gates every predicted cause-window consumer. Recorded
+// cause rows remain available in Low because the preference owns future-solver
+// evidence only; predicted rows require High for both drawing and hit testing.
+constexpr bool ReplayPredictionCauseWindowAvailable( ReplayPredictionDetailMode mode, bool predictionRows ) noexcept
+{
+    return !predictionRows || mode == ReplayPredictionDetailMode::High;
+}
+
 struct ReplayPredictionDetailModeCommand
 {
     ReplayPredictionDetailMode mode = ReplayPredictionDetailMode::High;

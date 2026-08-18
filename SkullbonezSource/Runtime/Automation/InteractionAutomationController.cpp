@@ -717,6 +717,16 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "predictionEvidencePipelineRowsMin";
     case RunInteractionAutomationAssertKind::PredictionEvidenceCurrentCapacityMax:
         return "predictionEvidenceCurrentCapacityMax";
+    case RunInteractionAutomationAssertKind::PredictionDetailMode:
+        return "predictionDetailMode";
+    case RunInteractionAutomationAssertKind::PredictionCauseDetailVisible:
+        return "predictionCauseDetailVisible";
+    case RunInteractionAutomationAssertKind::PredictionCauseWindowAvailable:
+        return "predictionCauseWindowAvailable";
+    case RunInteractionAutomationAssertKind::PredictionEvidenceCapacityReleased:
+        return "predictionEvidenceCapacityReleased";
+    case RunInteractionAutomationAssertKind::PredictionEvidenceMemoryReconciled:
+        return "predictionEvidenceMemoryReconciled";
     case RunInteractionAutomationAssertKind::PredictionCauseManifoldRowsMin:
         return "predictionCauseManifoldRowsMin";
     case RunInteractionAutomationAssertKind::PredictionCauseManifoldRowsMax:
@@ -2377,6 +2387,46 @@ AssertionParseStatus ParseReplayAssertion( const std::string& name, const Json& 
         return AssertionParseStatus::Success;
     }
 
+    if ( name == "predictionDetailMode" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionDetailMode;
+        CopyText( outAction.text, sizeof( outAction.text ), expected.get<std::string>() );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "predictionCauseDetailVisible" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionCauseDetailVisible;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "predictionCauseWindowAvailable" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionCauseWindowAvailable;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "predictionEvidenceCapacityReleased" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionEvidenceCapacityReleased;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "predictionEvidenceMemoryReconciled" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionEvidenceMemoryReconciled;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
     if ( ParsePredictionCauseAssertion( name, expected, outAction ) == AssertionParseStatus::Success )
     {
         return AssertionParseStatus::Success;
@@ -3339,6 +3389,51 @@ InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
         evaluation.expected = "<=" + std::to_string( static_cast<uint64_t>( action.numberValue ) );
         evaluation.actual = std::to_string( bytes );
         evaluation.passed = bytes <= static_cast<uint64_t>( action.numberValue );
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionDetailMode:
+    {
+        const char* mode = replay.predictionDetailMode == ReplayPredictionDetailMode::High ? "High" : "Low";
+        evaluation.expected = action.text;
+        evaluation.actual = mode;
+        evaluation.passed = evaluation.actual == evaluation.expected;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionCauseDetailVisible:
+    {
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( replay.causeInspection.detailVisible );
+        evaluation.passed = replay.causeInspection.detailVisible == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionCauseWindowAvailable:
+    {
+        const bool predictionRows = !replay.causeTree.rows.empty() && replay.causeTree.rows.front().prediction;
+        const bool available = !replay.causeTree.rows.empty() &&
+                               ReplayPredictionCauseWindowAvailable( replay.predictionDetailMode, predictionRows );
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( available );
+        evaluation.passed = available == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionEvidenceCapacityReleased:
+    {
+        const ReplayPredictionSolverEvidenceBanksMemoryStats& memory = replay.predictionEvidenceMemory;
+        const bool released = memory.releaseCheckpointCount > 0u && memory.currentContactCapacityBytes == 0u &&
+                              memory.currentPipelineCapacityBytes == 0u && memory.currentFrameCapacityBytes == 0u &&
+                              memory.currentCapacityBytes == 0u && memory.lastReleaseBeforeCapacityBytes > 0u &&
+                              memory.lastReleaseAfterCapacityBytes == 0u;
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( released );
+        evaluation.passed = released == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionEvidenceMemoryReconciled:
+    {
+        const bool reconciled = SkullbonezCore::Core::MainMemoryReplayPredictionEvidenceReleaseReconciles( replay.memoryStats );
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( reconciled );
+        evaluation.passed = reconciled == action.boolValue;
         break;
     }
     case RunInteractionAutomationAssertKind::PredictionCauseManifoldRowsMin:

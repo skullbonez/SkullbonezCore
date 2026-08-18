@@ -1127,8 +1127,10 @@ void RenderReplayCauseTreeOverlay( UiDrawSubmission& submission, Text::TextBatch
                                    Rendering::Dx12Diagnostics& renderDiagnostics, Core::Profiler*, int screenW, int screenH )
 {
     PROFILE_SCOPED( "Frame/Replay/CauseTree/Overlay" );
+    const bool predictionRows = !replay.causeTree.rows.empty() && replay.causeTree.rows.front().prediction;
 
-    if ( screenW <= 0 || screenH <= 0 || replay.causeTree.rows.empty() )
+    if ( screenW <= 0 || screenH <= 0 || replay.causeTree.rows.empty() ||
+         !ReplayPredictionCauseWindowAvailable( replay.prediction.detailMode, predictionRows ) )
     {
         return;
     }
@@ -1174,7 +1176,6 @@ void RenderReplayCauseTreeOverlay( UiDrawSubmission& submission, Text::TextBatch
     draw.Text( panel.x + 136.0f, panel.y + 12.0f, 11.0f, palette.textSecondary.r, palette.textSecondary.g,
                palette.textSecondary.b, "CAUSE" );
 
-    const bool predictionRows = !replay.causeTree.rows.empty() && replay.causeTree.rows.front().prediction;
     const char* sourceLabel = predictionRows ? "PREDICT" : "REPLAY";
     const float sourceW = Text2d::MeasureText( 9.5f, sourceLabel );
     draw.RoundedRect( panel.x + panel.w - sourceW - 26.0f, panel.y + 9.0f, sourceW + 14.0f, 18.0f, radii.smallButton,

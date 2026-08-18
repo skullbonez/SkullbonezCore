@@ -343,6 +343,13 @@ bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const Run
     const bool usePrediction = prediction.enabled && predictionPrefixVisible &&
                                prediction.simulation.targetId.value == path.targetId.value;
 
+    if ( usePrediction && !ReplayPredictionCauseWindowAvailable( m_detailMode, true ) )
+    {
+        // Low retains the compact scrubber control and lightweight path, but
+        // publishes no predicted cause surface for rendering or hit testing.
+        return false;
+    }
+
     static const std::vector<RunReplayPathTraceNode> EMPTY_PREDICTION_NODES;
     const std::vector<RunReplayPathTraceNode>& nodes = usePrediction ? prediction.futureNodeCache.futureNodes
                                                                      : EMPTY_PREDICTION_NODES;

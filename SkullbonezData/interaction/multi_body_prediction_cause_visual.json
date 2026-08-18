@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 10, "showReplayScrubber": true },
+    { "frame": 18, "clickReplayControl": "predict" },
+    { "frame": 28, "clickObject": "prediction_striker", "button": "left" },
+    { "frame": 90, "assert": { "predictionDetailMode": "High" } },
+    { "frame": 90, "assert": { "predictionEvidencePipelineRowsMin": 1 } },
+    { "frame": 90, "assert": { "predictionCauseManifoldRowsMin": 3 } },
+    { "frame": 90, "assert": { "predictionCauseSolverRowsMin": 3 } },
+    { "frame": 92, "selectReplayCauseRow": 2 },
+    { "frame": 1000, "assert": { "predictionCauseDetailVisible": true } },
+    { "frame": 1000, "assert": { "predictionCauseWindowAvailable": true } },
+    { "frame": 1002, "screenshot": "TestOutput/interaction/multi_body_prediction_cause_high.bmp" }
+  ]
+}

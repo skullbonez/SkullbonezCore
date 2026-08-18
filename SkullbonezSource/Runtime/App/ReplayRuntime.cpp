@@ -1558,6 +1558,10 @@ SkullbonezCore::Core::MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() 
     stats.predictionEvidence.releaseCheckpointCount = predictionMemory.evidence.releaseCheckpointCount;
     stats.predictionEvidence.lastReleaseBeforeCapacityBytes = predictionMemory.evidence.lastReleaseBeforeCapacityBytes;
     stats.predictionEvidence.lastReleaseAfterCapacityBytes = predictionMemory.evidence.lastReleaseAfterCapacityBytes;
+    stats.predictionEvidence.lastReleaseBeforeReplayTotalBytes = m_predictionEvidenceReleaseBeforeReplayTotalBytes;
+    stats.predictionEvidence.lastReleaseAfterReplayTotalBytes = m_predictionEvidenceReleaseAfterReplayTotalBytes;
+    stats.predictionEvidence.lastReleaseBeforeCategoryTotalBytes = m_predictionEvidenceReleaseBeforeCategoryTotalBytes;
+    stats.predictionEvidence.lastReleaseAfterCategoryTotalBytes = m_predictionEvidenceReleaseAfterCategoryTotalBytes;
     stats.predictionEvidence.buildContactCount = predictionMemory.evidence.build.contactCount;
     stats.predictionEvidence.buildPipelineCount = predictionMemory.evidence.build.pipelineCount;
     stats.predictionEvidence.buildFrameCount = predictionMemory.evidence.build.publishedFrameCount;

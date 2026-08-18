@@ -497,6 +497,52 @@ TEST_CASE( "Replay event recorder: chronological cursor survives bounded ring wr
     CHECK( events.empty() );
 }
 
+TEST_CASE( "Replay memory: one Low-detail snapshot reconciles released evidence" )
+{
+    SkullbonezCore::Core::MainMemoryReplayStats stats;
+    SkullbonezCore::Core::
+        MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
+                                          SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionOwner, 4096u );
+    stats.totalBytes = SkullbonezCore::Core::MainMemoryReplayCategoryTotalBytes( stats.categoryBytes );
+    stats.predictionEvidence.releaseCheckpointCount = 1u;
+    stats.predictionEvidence.lastReleaseBeforeCapacityBytes = 1536u;
+    stats.predictionEvidence.lastReleaseBeforeReplayTotalBytes = stats.totalBytes + 1536u;
+    stats.predictionEvidence.lastReleaseAfterReplayTotalBytes = stats.totalBytes;
+    stats.predictionEvidence.lastReleaseBeforeCategoryTotalBytes = stats.totalBytes + 1536u;
+    stats.predictionEvidence.lastReleaseAfterCategoryTotalBytes = stats.totalBytes;
+
+    CHECK( SkullbonezCore::Core::MainMemoryReplayPredictionEvidenceReleaseReconciles( stats ) );
+
+    // A stale total or category row must fail even when the release checkpoint
+    // itself says that both banks reached zero.
+    ++stats.totalBytes;
+    CHECK_FALSE( SkullbonezCore::Core::MainMemoryReplayPredictionEvidenceReleaseReconciles( stats ) );
+    --stats.totalBytes;
+
+    stats.predictionEvidence.currentCapacityBytes = 64u;
+    CHECK_FALSE( SkullbonezCore::Core::MainMemoryReplayPredictionEvidenceReleaseReconciles( stats ) );
+    stats.predictionEvidence.currentCapacityBytes = 0u;
+
+    ++stats.predictionEvidence.lastReleaseBeforeReplayTotalBytes;
+    CHECK_FALSE( SkullbonezCore::Core::MainMemoryReplayPredictionEvidenceReleaseReconciles( stats ) );
+    --stats.predictionEvidence.lastReleaseBeforeReplayTotalBytes;
+
+    ++stats.predictionEvidence.lastReleaseBeforeCategoryTotalBytes;
+    CHECK_FALSE( SkullbonezCore::Core::MainMemoryReplayPredictionEvidenceReleaseReconciles( stats ) );
+    --stats.predictionEvidence.lastReleaseBeforeCategoryTotalBytes;
+
+    // Subtraction is guarded before it can underflow, including an extreme
+    // fabricated checkpoint that would have overflowed the retired add-back proof.
+    stats.predictionEvidence.lastReleaseBeforeReplayTotalBytes = 0u;
+    stats.predictionEvidence.lastReleaseAfterReplayTotalBytes = UINT64_MAX;
+    CHECK_FALSE( SkullbonezCore::Core::MainMemoryReplayPredictionEvidenceReleaseReconciles( stats ) );
+    stats.predictionEvidence.lastReleaseBeforeReplayTotalBytes = UINT64_MAX;
+    stats.predictionEvidence.lastReleaseAfterReplayTotalBytes = 0u;
+    stats.predictionEvidence.lastReleaseBeforeCategoryTotalBytes = UINT64_MAX;
+    stats.predictionEvidence.lastReleaseAfterCategoryTotalBytes = 0u;
+    CHECK_FALSE( SkullbonezCore::Core::MainMemoryReplayPredictionEvidenceReleaseReconciles( stats ) );
+}
+
 TEST_CASE( "Replay overlay: cause-window packets clamp placement and scrolling" )
 {
     RunReplayCauseTreeState state;

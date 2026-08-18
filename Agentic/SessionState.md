@@ -2,15 +2,15 @@
 
 Date: 2026-08-19
 Branch: `nightrunner-18th-AUG-26`
-Status: Three active plans; 31/47 tasks complete
+Status: Two active plans; 32/47 tasks complete
 
-Predicted Solver Cause Hierarchy (8 tasks), Continuous Orbital Forecast
-(7 tasks), and At-Rest Ball Stability (8 tasks) are registered
-under `Agentic/Plans/TODO/`; Causal C0-C8, Determinism T0-T8, and Catto CD0-CD5
-are complete. `MASTER-PLAN.md` carries the binding order: predicted solver detail
-next, then continuous orbital forecast, then at-rest ball stability. The completed
-causal, determinism, and Catto plans were deleted under the repository
-convention; Git history retains their phase evidence.
+Continuous Orbital Forecast (7 tasks) and At-Rest Ball Stability (8 tasks) are
+registered under `Agentic/Plans/TODO/`; Causal C0-C8, Determinism T0-T8, Catto
+CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
+`MASTER-PLAN.md` carries the binding order: continuous orbital forecast next,
+then at-rest ball stability. The completed causal, determinism, Catto, and
+predicted-solver-detail plans were deleted under the repository convention;
+Git history retains their phase evidence.
 
 The owner parked Deterministic Trigonometry under `Agentic/Plans/WNF/` on
 2026-08-18 and replaced its active slot with At-Rest Ball Stability. The new
@@ -171,6 +171,33 @@ archive controls complete. Performance passes DX12 and absolute Physics
 budgets; the unchanged relative Physics sample oscillates around its threshold
 across three runs while memory improves, so no baseline was refreshed.
 
+PSD7 is complete. App now samples complete replay totals and independently
+summed categories immediately before and after the synchronous High -> Low
+evidence release. The release oracle rejects stale totals, mismatched category
+snapshots, capacity disagreement, underflow, and fabricated extreme values; the
+final witness proves matching positive evidence/replay/category deltas of
+1,925,120 bytes. One shared availability predicate governs predicted cause-row
+publication, rendering, hit testing, automation, and transition clearing, so
+Low visibly removes the cause window while leaving the compact High Detail
+control available. The at-rest workflow passes 19 assertions through frame
+2,094 and rebuilds fresh High detail; the multi-body witness passes six
+assertions through frame 1,002 with three manifolds and three solver rows.
+
+The full 604-case / 2,484,279-assertion terminal suite, all seven ownership
+inventories, strict replay allocation, four-generation frame-spike, replay
+artifact, dependency, fast, Automation, and DX12 gates pass. Touched-source
+comment audit: 13/13 checked, zero deferred. The independent review first found
+the retired tautological memory proof and solver-panel-only Low assertion; both
+were corrected, and the fresh post-fix review found no remaining blocker. The
+immutable visual oracle still stops at inherited reveal-0
+`header.topologyVersion`, Physics retains its inherited 20,394-line mismatch
+from frame 102, and relative Physics performance remains noisy while absolute
+budgets pass. The terminal `tools\agent_validate.bat --plan-completion` rerun
+passes preflight, every mandatory CPU lane, Automation, and DX12 before
+stopping at that exact inherited Physics mismatch; its verbatim log is
+`TestOutput/validation/PREDICT_SOLVER_DETAIL_PSD7_agent_validate.log`. No
+baseline was refreshed.
+
 Catto CD3 replaced the global summed squared impulse-delta early-out with the
 maximum per-contact-row squared delta while retaining the historical sum for
 diagnostics only. The focused eight-contact oracle fails the retired gate and
@@ -274,10 +301,7 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `PREDICT_SOLVER_DETAIL` PSD7. Close the combined High/Low release,
-memory-accounting, inspection, archive, and operator workflow.
-
-After predicted solver detail closes, execute `ORBIT_FORECAST` OF0-OF6. The
+Execute `ORBIT_FORECAST` OF0-OF6. The
 owner reactivated it from `WNF/` on 2026-08-17. OF0 first ratifies the authored
 solar stability cohort and thresholds; later phases add coherent circular
 publication, continuous isolated prediction, Planning-owned stability
@@ -301,7 +325,7 @@ not part of the active queue.
 
 ## Blockers
 
-- None. Continue with `PREDICT_SOLVER_DETAIL` PSD7. The stale Physics CSV,
+- None. Continue with `ORBIT_FORECAST` OF0. The stale Physics CSV,
   noisy relative Physics performance sample, and
   corrected-topology visual oracle remain owner-controlled validation findings;
   do not refresh any of them without approval.

@@ -66,7 +66,9 @@ constexpr std::array<uint64_t, kTabs.size()> kExpectedFingerprints = {
     5057719176066529734ull,
     3243788985155815295ull,
     15645422141942934428ull,
-    5868520363750485546ull,
+    // Memory: prediction evidence bank and release-checkpoint rows are part of
+    // the detached UI contract; this must match the production unit fixture.
+    14809053394253860312ull,
 };
 
 std::unique_ptr<InGameUIFrameData> MakeFrameData()

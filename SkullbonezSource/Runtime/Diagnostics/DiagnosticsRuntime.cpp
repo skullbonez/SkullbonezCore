@@ -234,6 +234,8 @@ void WriteReplayPredictionEvidence( FILE* file, const SkullbonezCore::Core::Main
              "    \"prediction_evidence\": { \"current_capacity_bytes\": %llu, "
              "\"lifetime_peak_capacity_bytes\": %llu, \"release_checkpoint_count\": %llu, "
              "\"last_release_before_capacity_bytes\": %llu, \"last_release_after_capacity_bytes\": %llu, "
+             "\"last_release_before_replay_total_bytes\": %llu, \"last_release_after_replay_total_bytes\": %llu, "
+             "\"last_release_before_category_total_bytes\": %llu, \"last_release_after_category_total_bytes\": %llu, "
              "\"build\": { \"contact_capacity_bytes\": %llu, \"pipeline_capacity_bytes\": %llu, "
              "\"frame_capacity_bytes\": %llu, \"contacts\": %llu, \"pipeline_rows\": %llu, \"frames\": %llu }, "
              "\"committed\": { \"contact_capacity_bytes\": %llu, \"pipeline_capacity_bytes\": %llu, "
@@ -243,6 +245,10 @@ void WriteReplayPredictionEvidence( FILE* file, const SkullbonezCore::Core::Main
              static_cast<unsigned long long>( evidence.releaseCheckpointCount ),
              static_cast<unsigned long long>( evidence.lastReleaseBeforeCapacityBytes ),
              static_cast<unsigned long long>( evidence.lastReleaseAfterCapacityBytes ),
+             static_cast<unsigned long long>( evidence.lastReleaseBeforeReplayTotalBytes ),
+             static_cast<unsigned long long>( evidence.lastReleaseAfterReplayTotalBytes ),
+             static_cast<unsigned long long>( evidence.lastReleaseBeforeCategoryTotalBytes ),
+             static_cast<unsigned long long>( evidence.lastReleaseAfterCategoryTotalBytes ),
              static_cast<unsigned long long>( evidence.buildContactCapacityBytes ),
              static_cast<unsigned long long>( evidence.buildPipelineCapacityBytes ),
              static_cast<unsigned long long>( evidence.buildFrameCapacityBytes ),

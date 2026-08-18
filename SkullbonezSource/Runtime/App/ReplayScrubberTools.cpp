@@ -827,7 +827,12 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
     const bool planningOwnsMouse = m_planningOwner.TickPointerSurface( input.uiBlocksMouse, input.screenWidth, inputRouter );
 
     const RuntimePointerEvent& preScrubberPointer = inputRouter.RuntimeSnapshot().pointer;
-    const bool pointerOverCauseWindow = !m_authoring.CauseTree().rows.empty() && preScrubberPointer.hasClientPosition &&
+    const bool predictionCauseRows = !m_authoring.CauseTree().rows.empty() &&
+                                     m_authoring.CauseTree().rows.front().prediction;
+    const bool causeWindowAvailable = !m_authoring.CauseTree().rows.empty() &&
+                                      ReplayPredictionCauseWindowAvailable( m_predictionOwner.PresentationView().detailMode,
+                                                                            predictionCauseRows );
+    const bool pointerOverCauseWindow = causeWindowAvailable && preScrubberPointer.hasClientPosition &&
                                         ReplayOverlay::ReplayCauseWindowContainsPoint( m_authoring.CauseTree(),
                                                                                        preScrubberPointer.clientX,
                                                                                        preScrubberPointer.clientY );
@@ -1655,6 +1660,63 @@ ReplayScrubberPointerDecision ReplayScrubber::ResolvePointerAction( const Replay
     return decision;
 }
 
+ReplayPredictionDetailTransitionAction
+ReplayRuntime::ApplyPredictionDetailModeCommand( ReplayPredictionDetailMode requestedMode )
+{
+    const ReplayPredictionDetailTransitionAction
+        expectedActions = EvaluateReplayPredictionDetailTransition( m_predictionOwner.PresentationView().detailMode,
+                                                                    requestedMode );
+    const bool releasesEvidence = ReplayPredictionDetailTransitionHas( expectedActions,
+                                                                       ReplayPredictionDetailTransitionAction::
+                                                                           ReleaseHighDetailCapacity );
+    SkullbonezCore::Core::MainMemoryReplayStats before;
+
+    if ( releasesEvidence )
+    {
+        before = CollectMemoryStats();
+    }
+
+    const ReplayPredictionDetailTransitionAction actions = m_predictionOwner.ApplyDetailModeCommand( ReplayPredictionDetailModeCommand { requestedMode } );
+
+    if ( releasesEvidence )
+    {
+        const SkullbonezCore::Core::MainMemoryReplayStats after = CollectMemoryStats();
+
+        // Invariant: these four scalars come from the same synchronous command
+        // as the evidence-bank before/after capacities. No frame work can run
+        // between the two complete replay snapshots.
+        m_predictionEvidenceReleaseBeforeReplayTotalBytes = before.totalBytes;
+        m_predictionEvidenceReleaseAfterReplayTotalBytes = after.totalBytes;
+        m_predictionEvidenceReleaseBeforeCategoryTotalBytes = SkullbonezCore::Core::MainMemoryReplayCategoryTotalBytes( before.categoryBytes );
+        m_predictionEvidenceReleaseAfterCategoryTotalBytes = SkullbonezCore::Core::MainMemoryReplayCategoryTotalBytes( after.categoryBytes );
+    }
+
+    return actions;
+}
+
+bool ReplayRuntime::ClearPredictionCauseWindowForDetailTransition( ReplayPredictionDetailTransitionAction actions )
+{
+    if ( !ReplayPredictionDetailTransitionHas( actions, ReplayPredictionDetailTransitionAction::ClearPredictionInspection ) )
+    {
+        return false;
+    }
+
+    const RunReplayCauseTreeState& causeTree = m_authoring.CauseTree();
+    const bool predictionCauseWindow = !causeTree.rows.empty() && causeTree.rows.front().prediction;
+
+    if ( !predictionCauseWindow )
+    {
+        return false;
+    }
+
+    const bool predictionInspection = causeTree.selectedRow >= 0 &&
+                                      causeTree.selectedRow < static_cast<int>( causeTree.rows.size() ) &&
+                                      causeTree.rows[static_cast<std::size_t>( causeTree.selectedRow )].prediction;
+    m_authoring.ResetCauseTreeRows();
+    m_planningOwner.CauseInspection().Reset();
+    return predictionInspection;
+}
+
 void ReplayRuntime::ApplyTransportCommand( const ReplayTransportCommand& command, const ReplayTransportHostContext& host,
                                            InputRouter& inputRouter, RuntimeInteractionController& interaction,
                                            Environment::CameraCollection* cameras, Geometry::Terrain* terrain,
@@ -1805,23 +1867,12 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayTransportCommand& command
     {
         const ReplayPredictionDetailMode requestedMode = command.enabled ? ReplayPredictionDetailMode::High
                                                                          : ReplayPredictionDetailMode::Low;
-        const ReplayPredictionDetailTransitionAction actions = m_predictionOwner.ApplyDetailModeCommand( ReplayPredictionDetailModeCommand { requestedMode } );
+        const ReplayPredictionDetailTransitionAction actions = ApplyPredictionDetailModeCommand( requestedMode );
 
-        if ( ReplayPredictionDetailTransitionHas( actions,
-                                                  ReplayPredictionDetailTransitionAction::ClearPredictionInspection ) )
+        if ( ClearPredictionCauseWindowForDetailTransition( actions ) )
         {
-            const RunReplayCauseTreeState& causeTree = m_authoring.CauseTree();
-            const bool predictionInspection = causeTree.selectedRow >= 0 &&
-                                              causeTree.selectedRow < static_cast<int>( causeTree.rows.size() ) &&
-                                              causeTree.rows[static_cast<std::size_t>( causeTree.selectedRow )].prediction;
-
-            if ( predictionInspection )
-            {
-                m_authoring.ResetCauseTreeRows();
-                m_planningOwner.CauseInspection().Reset();
-                ExitInspectionCamera( cameras, terrain, camera, host.normalizedRestoreMode, host.attachedFollow,
-                                      host.directorGrabbed, interaction, inputRouter );
-            }
+            ExitInspectionCamera( cameras, terrain, camera, host.normalizedRestoreMode, host.attachedFollow,
+                                  host.directorGrabbed, interaction, inputRouter );
         }
 
         feedback( requestedMode == ReplayPredictionDetailMode::High ? "HIGH DETAIL" : "LOW DETAIL" );
@@ -1983,22 +2034,11 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput( bool uiBlocksMous
                                                                  ReplayPredictionDetailMode::High
                                                              ? ReplayPredictionDetailMode::Low
                                                              : ReplayPredictionDetailMode::High;
-        const ReplayPredictionDetailTransitionAction actions = m_predictionOwner.ApplyDetailModeCommand( { requestedMode } );
+        const ReplayPredictionDetailTransitionAction actions = ApplyPredictionDetailModeCommand( requestedMode );
 
-        if ( ReplayPredictionDetailTransitionHas( actions,
-                                                  ReplayPredictionDetailTransitionAction::ClearPredictionInspection ) )
+        if ( ClearPredictionCauseWindowForDetailTransition( actions ) )
         {
-            const RunReplayCauseTreeState& causeTree = m_authoring.CauseTree();
-            const bool predictionInspection = causeTree.selectedRow >= 0 &&
-                                              causeTree.selectedRow < static_cast<int>( causeTree.rows.size() ) &&
-                                              causeTree.rows[static_cast<std::size_t>( causeTree.selectedRow )].prediction;
-
-            if ( predictionInspection )
-            {
-                m_authoring.ResetCauseTreeRows();
-                m_planningOwner.CauseInspection().Reset();
-                hostAction = ReplayInspectionCameraAction::Exit;
-            }
+            hostAction = ReplayInspectionCameraAction::Exit;
         }
 
         KeepReplayScrubberVisible( m_scrubberOwner, now );

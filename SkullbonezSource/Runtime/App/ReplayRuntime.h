@@ -520,6 +520,8 @@ class ReplayRuntime
     const ReplaySolverFrameSample* CurrentSolverScrubSample() const;
     const RunReplayPredictionFrame* CurrentPredictionScrubFrame() const;
 
+    ReplayPredictionDetailTransitionAction ApplyPredictionDetailModeCommand( ReplayPredictionDetailMode requestedMode );
+    bool ClearPredictionCauseWindowForDetailTransition( ReplayPredictionDetailTransitionAction actions );
     void ApplyAuthoringPredictionRequest();
     void ApplyPredictionUpdateResult( const ReplayPredictionUpdateResult& result );
     void ApplyPastTrajectoryUpdate( const ReplayPastTrajectoryUpdate& update );
@@ -546,6 +548,13 @@ class ReplayRuntime
     ReplayAuthoring m_authoring;
     ReplayPrediction m_predictionOwner;
     ReplayPlanningRuntime m_planningOwner;
+
+    // Invariant: App records both complete replay aggregates around the exact
+    // synchronous evidence release; Prediction cannot observe sibling owners.
+    uint64_t m_predictionEvidenceReleaseBeforeReplayTotalBytes = 0;
+    uint64_t m_predictionEvidenceReleaseAfterReplayTotalBytes = 0;
+    uint64_t m_predictionEvidenceReleaseBeforeCategoryTotalBytes = 0;
+    uint64_t m_predictionEvidenceReleaseAfterCategoryTotalBytes = 0;
     SceneLifecycleGenerationObserver m_sceneClearObserver;
     SceneLifecycleGenerationObserver m_sceneActivationObserver;
 };

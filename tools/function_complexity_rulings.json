@@ -65,11 +65,21 @@
     {
       "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",
       "signature": "template <typename InspectGizmoInteractionActive> InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools, const InteractionAutomationController& automation, const ReplayAutomationView& replay, RuntimeInteractionController& interaction, const InputRouter& inputRouter, CameraControlState& camera, const SceneWorld& world, SkullbonezCore::UI::InGameUI& ui, const InteractionAutomationDevelopmentUiView& developmentUi, const Rendering::RenderSceneSnapshot& renderSnapshot, const RunInteractionAutomationAction& action, InspectGizmoInteractionActive inspectGizmoInteractionActive )",
-      "body_sha256": "c27868d1eaeb155bab5a4dc8c6782a15857d49d24d16e3aa0b90903cb07e21cd",
+      "body_sha256": "72f16e6d31dd22f93f3ad561254840e039983e1a83e779fbf8def3c441c830ee",
       "owner": "Interaction automation assertion phase",
       "disposition": "retain-owner",
-      "reason": "One assertion phase reads the selected action against detached snapshots and synchronous runtime owners, then emits one evaluation; typed High/Low cause-row counts are observations of that same closed assertion schema and retain no evidence authority.",
-      "evidence": "PREDICT_SOLVER_DETAIL PSD5 High/Low cause-row assertion review (2026-08-18)",
+      "reason": "One exhaustive assertion phase reads one selected action against detached snapshots and synchronous runtime owners, then emits one evaluation; PSD7 detail-mode, solver-panel visibility, shared cause-window availability, release, and memory-reconciliation cases are read-only observations of that same closed assertion schema and retain no evidence authority.",
+      "evidence": "PREDICT_SOLVER_DETAIL PSD7 combined-workflow assertion review (2026-08-19)",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",
+      "signature": "AssertionParseStatus ParseReplayAssertion( const std::string& name, const Json& expected, RunInteractionAutomationAction& outAction, std::string& )",
+      "body_sha256": "59b5db64a5ca3b15d3a39301a046dac803602602560cd73d67061d2cf7af1b42",
+      "owner": "Replay interaction-assertion parser",
+      "disposition": "retain-owner",
+      "reason": "One flat depth-two dispatcher maps the closed replay and prediction assertion namespace into one typed action value; every branch writes only that output and returns immediately, so extracting category helpers would relay the same parse authority without creating an independent invariant or lifetime.",
+      "evidence": "PREDICT_SOLVER_DETAIL PSD7 combined-workflow parser review (2026-08-19)",
       "plan": ""
     },
     {
@@ -85,11 +95,11 @@
     {
       "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.cpp",
       "signature": "SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( InteractionAutomationRunStatus& status, const char* scriptPath, const SceneWorld& world, const SceneSessionState& scene, const char* scenePath, const RuntimeTools& runtimeTools, const ReplayAutomationView& replay, const RuntimeInteractionController& interaction, const CameraControlState& camera, const UI::InGameUI& ui, const Rendering::RenderSceneSnapshot& renderSnapshot )",
-      "body_sha256": "08e89e00bbbeac9ae71653f2274a2d3f1b67005daeb74090e0b52d939c0cd8f9",
+      "body_sha256": "9119ffa499ded2a90488f2817f56468011e5c7d46895a652697af248bd230216",
       "owner": "InteractionAutomationReportWriter report transaction",
       "disposition": "retain-owner",
-      "reason": "One writer projects the bounded automation result schema from synchronized runtime snapshots and emits one durable report; exact cause-row evidence stamps and indices participate in the same field-order and failure-cleanup invariant.",
-      "evidence": "PREDICT_SOLVER_DETAIL PSD5 exact cause-row report-schema review (2026-08-18)",
+      "reason": "One writer projects the bounded automation result schema from synchronized runtime snapshots and emits one durable report; PSD7 detail mode, cause-window availability, evidence-bank capacities, both sides of the release checkpoint, and replay-total reconciliation fields join the same field-order, single-write, and failure-cleanup invariant.",
+      "evidence": "PREDICT_SOLVER_DETAIL PSD7 combined-workflow report-schema review (2026-08-19)",
       "plan": ""
     },
     {
@@ -155,11 +165,11 @@
     {
       "file": "SkullbonezSource/Runtime/Prediction/ReplayAuthoringCauseTree.cpp",
       "signature": "bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const RunReplayPathVisualizerState& path, const ReplaySolverFrameSample* solverSample, std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords, const PhysicsBodyStore& bodyStore, const RunReplayCameraState& camera, int& outCameraFocusedRow )",
-      "body_sha256": "c0d217f70d023c2ac9ddf2e186eca5fabfbec7fcc8fedc3e59272a26c50e881b",
+      "body_sha256": "7afdca29c45e9292935f341c7593b5eb3e0b8c3eeeb7238c91445d5169fb5a11",
       "owner": "ReplayPrediction cause-tree projection",
       "disposition": "retain-owner",
-      "reason": "One prediction owner projects an exact recorded or predicted event frame, retained presentation rows, body identities, and camera focus into one coherent cause-tree row set; source-neutral manifold grouping, causal-parent order, immutable-bank stamps, frame addressability, and focus arbitration are one result invariant.",
-      "evidence": "PREDICT_SOLVER_DETAIL PSD5 exact body/manifold/solver hierarchy review (2026-08-18)",
+      "reason": "One prediction owner projects an exact recorded or High-detail predicted event frame, retained presentation rows, body identities, and camera focus into one coherent cause-tree row set; the Low-mode early exit is the same publication invariant that prevents a predicted cause surface from becoming renderable or interactive without retained evidence.",
+      "evidence": "PREDICT_SOLVER_DETAIL PSD7 Low cause-window availability review (2026-08-19)",
       "plan": ""
     },
     {

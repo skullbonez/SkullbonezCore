@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-19
-Status: Three active plans; 31/47 tasks complete
+Status: Two active plans; 32/47 tasks complete
 
 ## Owner Direction
 
@@ -65,12 +65,29 @@ Status: Three active plans; 31/47 tasks complete
   interactive continuous prediction mode, coherent rolling 120-second path
   window, and observed-stability diagnostics without changing bounded
   `PREDICT`.
-- Predicted Solver Cause Hierarchy is first in the active order by owner
-  direction. It restores the selected-object contact cascade in both replay
-  detail modes and adds an on-by-default High Detail timeline toggle for exact
-  predicted Body -> Manifold -> SolverRow inspection. Low remains the compact
-  capture/playback mode, hides causal inspection, and releases all exact-detail
-  backing capacity observably through F6.
+- Predicted Solver Cause Hierarchy is complete. High retains exact predicted
+  Body -> Manifold -> SolverRow evidence behind the on-by-default timeline
+  toggle; Low keeps the lightweight selected-root path, clears and suppresses
+  the predicted cause window, and releases every exact-detail bank. The final
+  workflow records complete replay/category snapshots on both sides of the
+  synchronous High -> Low release and proves the identical positive delta of
+  1,925,120 bytes instead of relying on a reconstructed total.
+- PSD7's at-rest High -> inspect -> Low -> rebuild -> High workflow passes 19
+  assertions through frame 2,094, and its multi-body witness passes six
+  assertions through frame 1,002 with three manifolds and three solver rows.
+  All seven ownership inventories, 604 tests / 2,484,279 assertions, strict
+  replay allocation, four-generation frame-spike, replay artifact, dependency,
+  fast, Automation, and DX12 gates pass. The 13/13 touched-source comment audit
+  has zero deferred files, and the post-fix independent review is clean.
+- The immutable replay visual gate still stops at the inherited reveal-0
+  `header.topologyVersion` mismatch after its launcher and 17/17 false-pass
+  controls pass. Physics still reproduces the inherited 20,394-line varied CSV
+  mismatch beginning at frame 102, and the relative Physics performance sample
+  remains noisy while absolute DX12/Physics budgets pass. No baseline was
+  refreshed. The terminal `tools\agent_validate.bat --plan-completion` rerun
+  passes preflight, every mandatory CPU lane, Automation, and DX12 before
+  stopping at that exact inherited Physics mismatch; its verbatim log is
+  `TestOutput/validation/PREDICT_SOLVER_DETAIL_PSD7_agent_validate.log`.
 
 Completed plan files were deleted; git history is the archive.
 
@@ -78,7 +95,6 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Predicted Solver Cause Hierarchy | `PREDICT_SOLVER_DETAIL` | 8 | 7 | `TODO/predicted-solver-cause-hierarchy.md` |
 | Continuous Orbital Forecast | `ORBIT_FORECAST` | 7 | 0 | `TODO/continuous-orbital-forecast.md` |
 | At-Rest Ball Stability | `REST_STABILITY` | 8 | 0 | `TODO/at-rest-ball-stability.md` |
 
@@ -114,12 +130,10 @@ states elsewhere, and both are recorded rather than silently corrected:
 
 ## Binding Order
 
-1. `PREDICT_SOLVER_DETAIL` PSD7 — close observable release and the combined
-   High Detail operator workflow.
-2. `ORBIT_FORECAST` OF0 through OF6 — ratify the authored stability contract,
+1. `ORBIT_FORECAST` OF0 through OF6 — ratify the authored stability contract,
    add coherent circular publication and continuous isolated prediction, then
    wire Planning-owned diagnostics and rolling orbital presentation.
-3. `REST_STABILITY` RS0 through RS7 — add the authored all-three-ball sleep
+2. `REST_STABILITY` RS0 through RS7 — add the authored all-three-ball sleep
    completion gate, preserve and diagnose the unlimited `at_rest` witness with
    SkullScope, build semantic false-pass-resistant oracles, adjudicate the
    owning causes, then repair vertical vibration, sliding/rolling response, and
@@ -134,8 +148,8 @@ physics-reachable Maths owner.
 `CATTO_REPAIRS` changes the solver values the causal panel may display, but the
 panel reads exact retained values rather than freezing expected numbers. Its
 tests must pin field mapping and availability, not pre-Catto impulse values.
-`PREDICT_SOLVER_DETAIL` runs against the current bounded prediction owner before
-`ORBIT_FORECAST` adds continuous publication. The later forecast work must not
+`PREDICT_SOLVER_DETAIL` is complete against the bounded prediction owner before
+`ORBIT_FORECAST` adds continuous publication. Forecast work must not
 feed per-tick solver evidence into its continuous path or infer all-body
 presentation from generic Physics force state. `REST_STABILITY` follows both;
 their exact-value displays must continue mapping Physics-owned values rather
@@ -144,8 +158,8 @@ than pinning pre-repair impulses, activation times, or sleep frames.
 
 ## Portfolio Progress
 
-31/47 tasks complete with three active plans. Causal C0-C8, Determinism T0-T8,
-Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD6 are complete.
-Predicted Solver Cause Hierarchy PSD7 is next, then Continuous Orbital
-Forecast OF0-OF6, then At-Rest Ball Stability RS0-RS7. Deterministic
+32/47 tasks complete with two active plans. Causal C0-C8, Determinism T0-T8,
+Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
+Continuous Orbital Forecast OF0-OF6 is next, then At-Rest Ball Stability
+RS0-RS7. Deterministic
 Trigonometry is owner-parked and excluded from progress.
