@@ -1,7 +1,7 @@
 # Continuous Orbital Forecast
 
 Date: 2026-08-17
-Status: Registered; 0/7 phases complete
+Status: Active; 1/7 phases complete
 Impact area: Runtime Planning and Prediction, replay overlay UI/input, bounded
 trajectory publication, mutual-gravity diagnostics, tests, documentation, and
 DX12 visual verification
@@ -141,6 +141,79 @@ orbital bodies, and ship as an auxiliary body with its own status. OF0 must
 ratify the exact core cohort, radial envelopes, escape rule/grace interval, and
 whether the ship can end the system-wide stable horizon before implementation.
 
+## OF0 Owner Rulings And Pre-Change Witness - 2026-08-19
+
+These rulings are the implementation contract for OF1-OF6. Later phases may
+make the authoring syntax more precise, but they must not change the following
+semantics without reopening OF0 and recording the owner decision here.
+
+### Stability and lifecycle rulings
+
+| Question | Ratified owner answer |
+|---|---|
+| Primary and core cohort | The scene-authored stability contract identifies the fixed sun as primary and Earth plus Mars as the two core orbiters. Scene loading resolves explicit authored membership to body IDs; runtime policy must not infer membership from names, colors, order, mass, or model rows. Numerical health is globally blocking for every configured member, including the auxiliary ship. The system-wide orbital-configuration horizon covers the blocking set formed by the primary plus both core orbiters. |
+| Auxiliary ship | The ship is an explicitly authored auxiliary member with its own envelope, escape, and collision status. A ship-only orbital-configuration failure is visible and latched in that auxiliary status but does not end the system-wide stable horizon. Non-finite or unrepresentable ship pose/velocity remains a globally blocking numerical-health failure, as do private-step failure and invalid or incomplete publication. A later physical disturbance of Earth, Mars, or the primary ends the horizon only when a blocking-set rule itself fails. The existing bounded witness predicts a ship/Earth contact, so treating every configured contact as a system-wide orbital-configuration failure would contradict this ruling. |
+| Radial envelopes | Radius is center-to-center distance from the authored primary on each complete private tick. The inclusive core pass intervals are Earth `[60, 100]` units and Mars `[90, 155]` units. The auxiliary ship interval is `[60, 100]` units. Crossing below the inner value or above the outer value is an immediate blocking failure for a core orbiter and an auxiliary-only failure for the ship. The primary is the reference and has no radial-envelope check. |
+| Sustained escape | For each orbiter, the scene authors an escape-start radius and a 5.0 simulated-second grace interval: Earth `90`, Mars `140`, ship `90` units. Let `r = bodyPosition - primaryPosition`, `v = bodyVelocity - primaryVelocity`, and `epsilon = 0.5 * dot(v, v) - G * primaryMass / sqrt(dot(r, r) + softening^2)`, using the authored mutual-gravity `G` and softening. The predicate is true only when `epsilon > 0`, `dot(r, v) > 0`, and `length(r)` is at or beyond the authored escape-start radius. All three facts must hold continuously for 600 complete ticks at `PHYSICS_FIXED_DT == 1/120 s`; any false tick resets that body's consecutive count. The 600th consecutive tick latches the failure. Positive instantaneous energy alone never fails the body. Core/auxiliary treatment follows the cohort ruling above. |
+| Collision | The collision-blocking set is the primary plus both core orbiters. A complete private tick whose Physics collision/contact summary identifies contact between any pair wholly inside that set immediately ends the system-wide stable horizon at that tick; this includes sun/Earth and sun/Mars, and there is no grace period. A contact involving the auxiliary ship latches the ship's auxiliary collision status only. Collision identity comes from resolved authored body IDs, never display names or geometry guesses. |
+| Conservation | Conservation covers all configured members. Total mechanical energy is the sum of every member's `0.5 * mass * dot(velocity, velocity)` plus `-G * massA * massB / sqrt(dot(deltaPosition, deltaPosition) + softening^2)` for every unordered configured pair. Total angular momentum is the vector sum of `mass * cross(position - primaryPosition, velocity - primaryVelocity)` for every non-primary member. The UI reports signed energy drift `(E - E0) / abs(E0)`, non-negative angular-momentum drift `length(L - L0) / length(L0)`, maximum absolute energy drift, and maximum angular-momentum drift since the fresh seed. A non-finite seed is a globally blocking numerical-health failure. If `E0 == 0` or `length(L0) == 0`, that normalized diagnostic is typed unavailable rather than divided by zero or treated as instability. Conservation remains informational and cannot end either the core or auxiliary horizon. |
+| Explicit reset | Reset first joins any in-flight worker slice, retires the current publication, snapshots the then-current authoritative live solver state, clears all latched failures and conservation maxima, and restarts absolute continuous tick/time at zero. It retains already-authorized warmed capacity. Ring wrap never performs any of these resets. |
+| Other retirement paths | Disable, scene change, replay branch restore, and target/cohort change join in-flight work before retirement. Re-entry always seeds from a fresh live snapshot and may reuse warmed capacity. Bounded `PREDICT`, live Physics, and Replay remain separate and are not reset or rewritten by continuous-mode reset. |
+| Full-speed CPU budget | Yes: the existing worker-local `5.0 ms` slice is the intended first-version full-speed speculative-physics budget. Current bounded `PREDICT` has two clocks: `Runtime/App/ReplayRuntime.cpp` uses a frame-side `budgetStart` to stop source preparation/admission after 5 ms, then `RunReplayPredictionWorkerRange` starts its own `probeStart` and yields only after the first indivisible completed tick at or beyond another 5 ms. Continuous mode preserves that exact dual-check behavior; it does not falsely claim setup time is subtracted from worker time. It supplies no finite horizon, reveal delay, or ordinary tick-count cap. The bounded deterministic-capture path's eight-tick submit cap is a test scheduler and must not apply to `CONTINUOUS`, including fixed-step automation. This ruling grants no background loop, reserve-cap increase, unified-deadline rewrite, or additional budget. |
+
+The current reserve inventory remains unchanged: all Prediction storage uses the
+Replay-phase `replay_prediction_working_set` owner with its 960 MiB hard cap.
+The current closed-world Runtime package rules admit Planning as the product
+owner and Prediction as the generic producer; OF0 adds neither a package edge
+nor a growth privilege.
+
+### Pre-change witnesses
+
+- The witnessed source state is
+  `b09584b2b75b7e4d5277188a0ed9b8b3d98e1ff2`. The Automation executable
+  SHA-256 is
+  `35ED4619399CD7CF1527BA96594F253A9AEF0025207697ECC3268338A1BE7C1A`,
+  the Debug executable SHA-256 is
+  `5E536AC5ED27DDCF7D68E5AC4B2482721C25C80184ED259E1D0080055295BCF3`,
+  and the authored scene SHA-256 is
+  `A35A8FF3BD9B4E076D221D413F1ECAF28FD9DD4E21705B69AF5127104DE5862D`.
+- The tracked automation workflow
+  `SkullbonezData/interaction/continuous_orbit_of0_baseline.json` ran twice in
+  isolated Automation processes from the same source and scene. Both reports
+  passed four assertions, completed all 14,401 bounded frames, retained
+  13,066,240 prediction-evidence capacity bytes and 709,699,964 total Replay
+  tracked-capacity bytes, and produced the same rendered submission hash
+  `0x0E0FF9DB0F2EF6E0`.
+- The two bounded reports are
+  `TestOutput/validation/ORBIT_FORECAST_OF0/solar_system_bounded_prediction_report.json`
+  and
+  `TestOutput/validation/ORBIT_FORECAST_OF0/solar_system_bounded_prediction_report_repeat.json`;
+  the screenshot is the sibling `solar_system_bounded_prediction.bmp`. The
+  workflow asserts completion, path visibility, selected target, and
+  fingerprint readiness; it deliberately does not pin an expected hash and is
+  baseline evidence rather than a determinism proof.
+- The two bounded private-simulation hashes were
+  `0x8FCE7296D4B3401D` and `0x8885F59E0BA29A27`; the corresponding trajectory
+  fingerprints were `0x222E4424B4F7890F` and `0xF1CD311109C25B23`.
+  This pre-change witness therefore records a real bounded-prediction
+  determinism defect even though the final submitted geometry hash matched.
+  OF2 must preserve the bounded publication boundary, and OF6 must close the
+  acceptance requirement for byte-identical bounded value and visual witnesses
+  rather than treating the common submission hash as sufficient. The authored
+  solar scene starts paused, so these reports correctly expose zero source/live
+  solver hashes; they are not used as a live-state witness.
+- Separate Debug fixed-step live-scene captures advanced 14,400 ticks (120
+  simulated seconds) twice and produced byte-identical 57,601-line CSV files
+  with SHA-256
+  `F3D71F660228561D155E11511FDF58DBAD8F5EF966765A21B92B711420C2AE62`.
+  Over that interval the primary-relative radial ranges were Earth
+  `79.007632-80.827554`, Mars `119.792720-123.244592`, and ship
+  `75.779818-84.226036` units. These observations ground the authored
+  envelopes but do not themselves prove long-term stability.
+  The files are
+  `TestOutput/validation/ORBIT_FORECAST_OF0/solar_system_live_120s.csv` and
+  `TestOutput/validation/ORBIT_FORECAST_OF0/solar_system_live_120s_repeat.csv`.
+
 ## Non-Goals
 
 - Do not remove or raise the ordinary 120-second bounded prediction limit.
@@ -163,7 +236,7 @@ whether the ship can end the system-wide stable horizon before implementation.
 
 ## Phases
 
-- [ ] **OF0 - Ratify observable stability and interaction semantics.** Record
+- [x] **OF0 - Ratify observable stability and interaction semantics.** Record
   exact owner answers for the solar-system core cohort, ship treatment, radial
   envelopes, sustained escape condition, collision policy, reset behavior, and
   whether the existing five-millisecond slice is the intended full-speed CPU
@@ -248,7 +321,7 @@ Validation remains deferred until a phase is being prepared for commit.
 | Replay/Prediction value or overlay changes | `tools\validate_replay_visual_fidelity.bat` |
 | Overlay/DX12 path changes | `tools\validate_dx12_renderer.bat` and `tools\run_graphics_stress.bat 1` |
 | Continuous hot path | `tools\validate_perf.bat` plus a three-wrap retained-byte/growth witness |
-| Final combined source state | `tools\validate_full.bat --plan-completion` after the focused gates above |
+| Final combined source state | `tools\agent_validate.bat --plan-completion` after the focused gates above |
 
 ## Registration State
 

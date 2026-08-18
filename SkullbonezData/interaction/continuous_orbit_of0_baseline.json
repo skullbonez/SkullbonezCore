@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 1, "setReplayPathTarget": "earth" },
+    { "frame": 1, "setReplayPredictionHorizonSeconds": 120.0 },
+    { "frame": 1, "setReplayPredictionEnabled": true },
+    { "frame": 2600, "assert": { "predictionFullHorizonComplete": true } },
+    { "frame": 2600, "assert": { "predictionPathVisible": true } },
+    { "frame": 2600, "assert": { "replayPathTarget": "earth" } },
+    { "frame": 2600, "assert": { "predictionTrajectoryFingerprintReady": true } },
+    { "frame": 2602, "screenshot": "TestOutput/validation/ORBIT_FORECAST_OF0/solar_system_bounded_prediction.bmp" }
+  ]
+}

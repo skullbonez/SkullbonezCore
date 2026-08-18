@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-19
-Status: Two active plans; 32/47 tasks complete
+Status: Two active plans; 33/47 tasks complete
 
 ## Owner Direction
 
@@ -89,13 +89,28 @@ Status: Two active plans; 32/47 tasks complete
   stopping at that exact inherited Physics mismatch; its verbatim log is
   `TestOutput/validation/PREDICT_SOLVER_DETAIL_PSD7_agent_validate.log`.
 
+- ORBIT_FORECAST OF0 is complete. The scene-authored fixed sun is the primary,
+  Earth and Mars are the system-wide core cohort, and the ship is an auxiliary
+  whose own orbital-configuration failure stays visible without ending the
+  core horizon; numerical health remains globally blocking. Exact radial
+  envelopes, sustained positive-energy/outward/radius escape with a 600-tick
+  grace, core-only collision blocking, reset/retirement behavior, informational
+  conservation drift, and the existing 5.0 ms worker slice plus separate
+  frame-admission deadline are ratified in the owning plan. Two fixed-step
+  120-second live captures are byte-identical
+  at SHA-256
+  `F3D71F660228561D155E11511FDF58DBAD8F5EF966765A21B92B711420C2AE62`.
+  The two isolated bounded witnesses pass and share their submitted-geometry
+  hash, but their private simulation hashes and value fingerprints differ; OF2
+  and OF6 explicitly own closure of that pre-existing determinism defect.
+
 Completed plan files were deleted; git history is the archive.
 
 ## Active Plans
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Continuous Orbital Forecast | `ORBIT_FORECAST` | 7 | 0 | `TODO/continuous-orbital-forecast.md` |
+| Continuous Orbital Forecast | `ORBIT_FORECAST` | 7 | 1 | `TODO/continuous-orbital-forecast.md` |
 | At-Rest Ball Stability | `REST_STABILITY` | 8 | 0 | `TODO/at-rest-ball-stability.md` |
 
 ## Parked, Backlog, And Completed Plans
@@ -130,9 +145,9 @@ states elsewhere, and both are recorded rather than silently corrected:
 
 ## Binding Order
 
-1. `ORBIT_FORECAST` OF0 through OF6 — ratify the authored stability contract,
-   add coherent circular publication and continuous isolated prediction, then
-   wire Planning-owned diagnostics and rolling orbital presentation.
+1. `ORBIT_FORECAST` OF1 through OF6 — add coherent circular publication and
+   continuous isolated prediction under the ratified OF0 contract, then wire
+   Planning-owned diagnostics and rolling orbital presentation.
 2. `REST_STABILITY` RS0 through RS7 — add the authored all-three-ball sleep
    completion gate, preserve and diagnose the unlimited `at_rest` witness with
    SkullScope, build semantic false-pass-resistant oracles, adjudicate the
@@ -158,8 +173,8 @@ than pinning pre-repair impulses, activation times, or sleep frames.
 
 ## Portfolio Progress
 
-32/47 tasks complete with two active plans. Causal C0-C8, Determinism T0-T8,
+33/47 tasks complete with two active plans. Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
-Continuous Orbital Forecast OF0-OF6 is next, then At-Rest Ball Stability
-RS0-RS7. Deterministic
+Continuous Orbital Forecast OF0 is complete and OF1-OF6 are next, then At-Rest
+Ball Stability RS0-RS7. Deterministic
 Trigonometry is owner-parked and excluded from progress.

@@ -2,15 +2,29 @@
 
 Date: 2026-08-19
 Branch: `nightrunner-18th-AUG-26`
-Status: Two active plans; 32/47 tasks complete
+Status: Two active plans; 33/47 tasks complete
 
 Continuous Orbital Forecast (7 tasks) and At-Rest Ball Stability (8 tasks) are
 registered under `Agentic/Plans/TODO/`; Causal C0-C8, Determinism T0-T8, Catto
 CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
-`MASTER-PLAN.md` carries the binding order: continuous orbital forecast next,
-then at-rest ball stability. The completed causal, determinism, Catto, and
+`MASTER-PLAN.md` carries the binding order: continuous orbital forecast OF1
+next, then at-rest ball stability. The completed causal, determinism, Catto, and
 predicted-solver-detail plans were deleted under the repository convention;
 Git history retains their phase evidence.
+
+ORBIT_FORECAST OF0 is complete. It ratifies the fixed sun as the primary,
+Earth and Mars as core bodies, and the ship as an auxiliary whose orbital-
+configuration failure does not by itself end the system-wide horizon;
+numerical health remains globally blocking. The owning plan records exact radial
+envelopes, a 600-tick sustained escape rule, core collision policy,
+reset/retirement semantics, informational conservation drift, and the existing
+5.0 ms worker slice plus separate frame-admission deadline. Two 120-second
+fixed-step live captures
+are byte-identical at SHA-256
+`F3D71F660228561D155E11511FDF58DBAD8F5EF966765A21B92B711420C2AE62`.
+Two isolated bounded forecasts both pass and share their rendered submission
+hash, but their private simulation hashes and trajectory fingerprints differ;
+OF2 and OF6 own that pre-existing determinism closure.
 
 The owner parked Deterministic Trigonometry under `Agentic/Plans/WNF/` on
 2026-08-18 and replaced its active slot with At-Rest Ball Stability. The new
@@ -301,9 +315,9 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `ORBIT_FORECAST` OF0-OF6. The
-owner reactivated it from `WNF/` on 2026-08-17. OF0 first ratifies the authored
-solar stability cohort and thresholds; later phases add coherent circular
+Execute `ORBIT_FORECAST` OF1-OF6. The
+owner reactivated it from `WNF/` on 2026-08-17. OF0 ratified the authored
+solar stability cohort and thresholds; remaining phases add coherent circular
 publication, continuous isolated prediction, Planning-owned stability
 diagnostics, operator controls, and rolling orbital presentation without
 changing bounded `PREDICT` or feeding detailed solver evidence into the
@@ -325,7 +339,7 @@ not part of the active queue.
 
 ## Blockers
 
-- None. Continue with `ORBIT_FORECAST` OF0. The stale Physics CSV,
+- None. Continue with `ORBIT_FORECAST` OF1. The stale Physics CSV,
   noisy relative Physics performance sample, and
   corrected-topology visual oracle remain owner-controlled validation findings;
   do not refresh any of them without approval.
