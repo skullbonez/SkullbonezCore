@@ -4,20 +4,30 @@ Purpose:
   Serializes and restores the presentation-bearing state of one completed prediction.
 
 Summary:
-  The writer captures typed frames, trajectory records, causal topology,
-  retained marker poses, and butterfly baseline values. The reader validates
-  all counts before allocating and restores a completed, non-generating future.
+  Schema v4 wraps the canonical lightweight prediction payload in an ordered
+  section table and adds only the unique root/contact-event solver frames when
+  the captured capability is High. The reader validates byte closure, counts,
+  references, and path policy into replay-reserve-accounted candidate owners,
+  then swaps them into the caller only after the complete artifact succeeds.
 
 Glossary:
   Scalar codec: Explicit little-endian encoding for one integer or float field.
   Presentation cache: Derived prediction values consumed by overlay drawing.
   All-body bank: Additional body-keyed FutureRoot records used by space scenes.
+  Captured capability: Detail present in the artifact, independent of the
+    reader's active High/Low preference.
 
 Invariants:
   - Every vector count is checked against a presentation-specific hard limit.
   - The complete payload fails closed above 128 MiB.
-  - The writer emits schema v3 canonical Hamilton quaternion components; the
-    reader conjugates schema v2 vector parts exactly once.
+  - High evidence contains frame zero plus each unique contact-derived node's
+    first frame in ascending order; Low archives have no evidence section.
+  - Schema v4 and v3 use canonical Hamilton quaternion components; the reader
+    conjugates schema v2 vector parts exactly once.
+  - Active Low validates a High evidence section but commits zero evidence
+    capacity; v2/v3 artifacts always load with Low captured capability.
+  - A failed load leaves prior lightweight state, evidence rows, capacity, and
+    publication identity unchanged.
   - No deserialized value can create or schedule prediction physics work.
 
 Related:
@@ -26,13 +36,18 @@ Related:
 */
 #include "ReplayPredictionArchive.h"
 #include "ReplayPrediction.h"
+#include "ReplayPredictionReserve.h"
 
 #include "../Replay/ReplayPathPackets.h"
 
+#include <algorithm>
+#include <array>
 #include <bit>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <limits>
+#include <memory>
 #include <type_traits>
 
 namespace SkullbonezCore::Runtime
@@ -41,7 +56,8 @@ namespace
 {
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAGIC = 0x44505652u; // "RVPD"
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MINIMUM_SCHEMA = 2u;
-constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_SCHEMA = 3u;
+constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_LEGACY_SCHEMA = 3u;
+constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_SCHEMA = 4u;
 constexpr uint16_t REPLAY_TRAJECTORY_COMMITTED_BRANCH = 0u;
 constexpr uint16_t REPLAY_TRAJECTORY_BUILD_BRANCH = 1u;
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAX_FRAMES = 7201u;
@@ -84,7 +100,7 @@ void WriteReason( char* destination, std::size_t size, const char* message )
 class ArchiveWriter
 {
   public:
-    explicit ArchiveWriter( uint32_t schema = REPLAY_PREDICTION_ARCHIVE_SCHEMA ) : m_schema( schema )
+    explicit ArchiveWriter( uint32_t schema = REPLAY_PREDICTION_ARCHIVE_LEGACY_SCHEMA ) : m_schema( schema )
     {
     }
 
@@ -133,7 +149,7 @@ class ArchiveWriter
         float w = 1.0f;
         value.GetComponents( x, y, z, w );
 
-        if ( m_schema < REPLAY_PREDICTION_ARCHIVE_SCHEMA )
+        if ( m_schema < REPLAY_PREDICTION_ARCHIVE_LEGACY_SCHEMA )
         {
             // Compatibility: schema v2 stored the conjugate representation.
             // This validation writer produces authentic historical bytes so the
@@ -145,6 +161,20 @@ class ArchiveWriter
         Float( y );
         Float( z );
         Float( w );
+    }
+    void Bytes( std::span<const uint8_t> bytes )
+    {
+        if ( m_overflow || bytes.size() > REPLAY_PREDICTION_ARCHIVE_MAX_BYTES - m_bytes.size() )
+        {
+            m_overflow = true;
+            return;
+        }
+
+        m_bytes.insert( m_bytes.end(), bytes.begin(), bytes.end() );
+    }
+    std::size_t Size() const noexcept
+    {
+        return m_bytes.size();
     }
     bool Valid() const noexcept
     {
@@ -242,7 +272,7 @@ class ArchiveReader
             return false;
         }
 
-        if ( schema < REPLAY_PREDICTION_ARCHIVE_SCHEMA )
+        if ( schema < REPLAY_PREDICTION_ARCHIVE_LEGACY_SCHEMA )
         {
             // Compatibility: schema v2 stored the conjugate representation.
             // Negating xyz changes only their sign bits and preserves w.
@@ -255,6 +285,10 @@ class ArchiveReader
     bool Finished() const noexcept
     {
         return m_offset == m_bytes.size();
+    }
+    std::size_t Offset() const noexcept
+    {
+        return m_offset;
     }
 
   private:
@@ -377,7 +411,7 @@ bool BuildReplayPredictionArchiveForSchemaValidation( const RunReplayPathVisuali
     outBytes.clear();
     const std::span<const RunReplayPredictionFrame> committedFrames = prediction.CommittedFrames();
 
-    if ( schema < REPLAY_PREDICTION_ARCHIVE_MINIMUM_SCHEMA || schema > REPLAY_PREDICTION_ARCHIVE_SCHEMA ||
+    if ( schema < REPLAY_PREDICTION_ARCHIVE_MINIMUM_SCHEMA || schema > REPLAY_PREDICTION_ARCHIVE_LEGACY_SCHEMA ||
          prediction.build.building || !prediction.build.complete || committedFrames.size() < 2u ||
          committedFrames.size() > REPLAY_PREDICTION_ARCHIVE_MAX_FRAMES ||
          prediction.futureNodeCache.retainedMarkerCount > prediction.futureNodeCache.retainedMarkers.size() ||
@@ -561,15 +595,16 @@ bool BuildReplayPredictionArchiveForSchemaValidation( const RunReplayPathVisuali
     return valid && !outBytes.empty();
 }
 
-bool BuildReplayPredictionArchive( const RunReplayPathVisualizerState& pathVisualizer,
-                                   const RunReplayPredictionState& prediction, std::vector<uint8_t>& outBytes )
+static bool BuildLegacyReplayPredictionArchive( const RunReplayPathVisualizerState& pathVisualizer,
+                                                const RunReplayPredictionState& prediction, std::vector<uint8_t>& outBytes )
 {
-    return BuildReplayPredictionArchiveForSchemaValidation( pathVisualizer, prediction, REPLAY_PREDICTION_ARCHIVE_SCHEMA,
-                                                            outBytes );
+    return BuildReplayPredictionArchiveForSchemaValidation( pathVisualizer, prediction,
+                                                            REPLAY_PREDICTION_ARCHIVE_LEGACY_SCHEMA, outBytes );
 }
 
-bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathVisualizerState& pathVisualizer,
-                                  RunReplayPredictionState& prediction, char* outReason, std::size_t reasonSize )
+static bool LoadLegacyReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathVisualizerState& pathVisualizer,
+                                               RunReplayPredictionState& prediction, char* outReason,
+                                               std::size_t reasonSize )
 {
     if ( bytes.size() > REPLAY_PREDICTION_ARCHIVE_MAX_BYTES )
     {
@@ -587,7 +622,7 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
     pathVisualizer.targetName[0] = '\0';
 
     if ( !reader.Scalar( magic ) || !reader.Scalar( schema ) || magic != REPLAY_PREDICTION_ARCHIVE_MAGIC ||
-         schema < REPLAY_PREDICTION_ARCHIVE_MINIMUM_SCHEMA || schema > REPLAY_PREDICTION_ARCHIVE_SCHEMA ||
+         schema < REPLAY_PREDICTION_ARCHIVE_MINIMUM_SCHEMA || schema > REPLAY_PREDICTION_ARCHIVE_LEGACY_SCHEMA ||
          !reader.Boolean( archivedHasTarget ) || !reader.Boolean( archivedPastPathVisible ) ||
          !reader.Scalar( pathVisualizer.targetId.value ) || !reader.Scalar( pathVisualizer.targetModelRow.value ) ||
          !reader.Scalar( targetNameLength ) || targetNameLength >= sizeof( pathVisualizer.targetName ) )
@@ -893,6 +928,737 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
     prediction.revealClock.deterministicFrame = 0;
     prediction.revealClock.presentedFrame = 0;
     prediction.revealClock.anchorValid = false;
+    return true;
+}
+
+namespace
+{
+enum class ReplayPredictionArchiveSection : uint32_t
+{
+    Lightweight = 1u,
+    SolverEvidence = 2u
+};
+
+constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_SECTION_COUNT_LOW = 1u;
+constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_SECTION_COUNT_HIGH = 2u;
+constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAX_EVENT_FRAMES = REPLAY_PREDICTION_MARKER_CAPACITY;
+constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAX_EVENT_CONTACTS = 1000000u;
+constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAX_EVENT_PIPELINE_ROWS = 4000000u;
+constexpr uint64_t REPLAY_PREDICTION_ARCHIVE_HEADER_BYTES = 24u;
+constexpr uint64_t REPLAY_PREDICTION_ARCHIVE_SECTION_DESCRIPTOR_BYTES = 24u;
+
+struct ReplayPredictionArchiveSectionDescriptor
+{
+    ReplayPredictionArchiveSection kind = ReplayPredictionArchiveSection::Lightweight;
+    uint32_t count = 0;
+    uint64_t offset = 0;
+    uint64_t size = 0;
+};
+
+bool AddBounded( uint64_t left, uint64_t right, uint64_t maximum, uint64_t& out ) noexcept
+{
+    if ( left > maximum || right > maximum - left )
+    {
+        return false;
+    }
+
+    out = left + right;
+    return true;
+}
+
+void WriteContact( ArchiveWriter& writer, const Physics::PhysicsSolverPersistentContactSample& contact )
+{
+    writer.Scalar( contact.bodyA );
+    writer.Scalar( contact.bodyB );
+    writer.Scalar( contact.featureId );
+    writer.Scalar( contact.key );
+    writer.Vector( contact.normal );
+    writer.Vector( contact.tangent1 );
+    writer.Vector( contact.tangent2 );
+    writer.Vector( contact.rA );
+    writer.Vector( contact.rB );
+    writer.Float( contact.penetration );
+    writer.Float( contact.normalMass );
+    writer.Float( contact.tangentMass1 );
+    writer.Float( contact.tangentMass2 );
+    writer.Float( contact.bias );
+    writer.Float( contact.frictionLimit );
+    writer.Float( contact.accN );
+    writer.Float( contact.accT1 );
+    writer.Float( contact.accT2 );
+    writer.Boolean( contact.warmStarted );
+    writer.Boolean( contact.isTerrain );
+    writer.Boolean( contact.supportsRestingPolicy );
+    writer.Boolean( contact.allowsTangentFriction );
+    writer.Boolean( contact.normalCoupledFriction );
+    writer.Boolean( contact.inhibitsSleep );
+    writer.Scalar( contact.manifoldPointCount );
+    writer.Vector( contact.terrainNormal );
+    writer.Float( contact.terrainWarmStart );
+}
+
+bool ReadContact( ArchiveReader& reader, Physics::PhysicsSolverPersistentContactSample& contact )
+{
+    return reader.Scalar( contact.bodyA ) && reader.Scalar( contact.bodyB ) && reader.Scalar( contact.featureId ) &&
+           reader.Scalar( contact.key ) && reader.Vector( contact.normal ) && reader.Vector( contact.tangent1 ) &&
+           reader.Vector( contact.tangent2 ) && reader.Vector( contact.rA ) && reader.Vector( contact.rB ) &&
+           reader.Float( contact.penetration ) && reader.Float( contact.normalMass ) &&
+           reader.Float( contact.tangentMass1 ) && reader.Float( contact.tangentMass2 ) && reader.Float( contact.bias ) &&
+           reader.Float( contact.frictionLimit ) && reader.Float( contact.accN ) && reader.Float( contact.accT1 ) &&
+           reader.Float( contact.accT2 ) && reader.Boolean( contact.warmStarted ) && reader.Boolean( contact.isTerrain ) &&
+           reader.Boolean( contact.supportsRestingPolicy ) && reader.Boolean( contact.allowsTangentFriction ) &&
+           reader.Boolean( contact.normalCoupledFriction ) && reader.Boolean( contact.inhibitsSleep ) &&
+           reader.Scalar( contact.manifoldPointCount ) && reader.Vector( contact.terrainNormal ) &&
+           reader.Float( contact.terrainWarmStart );
+}
+
+void WritePipeline( ArchiveWriter& writer, const Physics::PhysicsPipelineRecord& record )
+{
+    writer.Scalar( static_cast<uint8_t>( record.stage ) );
+    writer.Scalar( record.bodyA );
+    writer.Scalar( record.bodyB );
+    writer.Scalar( record.iteration );
+    writer.Scalar( record.featureId );
+    writer.Vector( record.point );
+    writer.Vector( record.normal );
+    writer.Float( record.scalarA );
+    writer.Float( record.scalarB );
+    writer.Float( record.scalarC );
+}
+
+bool ReadPipeline( ArchiveReader& reader, Physics::PhysicsPipelineRecord& record )
+{
+    uint8_t stage = 0;
+
+    if ( !reader.Scalar( stage ) || stage >= static_cast<uint8_t>( Physics::PhysicsPipelineStage::Count ) ||
+         !reader.Scalar( record.bodyA ) || !reader.Scalar( record.bodyB ) || !reader.Scalar( record.iteration ) ||
+         !reader.Scalar( record.featureId ) || !reader.Vector( record.point ) || !reader.Vector( record.normal ) ||
+         !reader.Float( record.scalarA ) || !reader.Float( record.scalarB ) || !reader.Float( record.scalarC ) )
+    {
+        return false;
+    }
+
+    record.stage = static_cast<Physics::PhysicsPipelineStage>( stage );
+    return true;
+}
+
+std::size_t CollectRequiredEvidenceFrames( const RunReplayPredictionState& prediction,
+                                           std::array<ReplayFrameIndex, REPLAY_PREDICTION_ARCHIVE_MAX_EVENT_FRAMES>& out )
+{
+    std::size_t count = 1u;
+    out[0] = 0u;
+
+    for ( const RunReplayPathTraceNode& node : prediction.futureNodeCache.futureNodes )
+    {
+        if ( !node.contactDerived )
+        {
+            continue;
+        }
+
+        const ReplayFrameIndex frame = node.firstFrame;
+        const auto end = out.begin() + static_cast<std::ptrdiff_t>( count );
+
+        if ( std::find( out.begin(), end, frame ) == end )
+        {
+            if ( count >= out.size() )
+            {
+                return 0u;
+            }
+
+            out[count++] = frame;
+        }
+    }
+
+    std::sort( out.begin(), out.begin() + static_cast<std::ptrdiff_t>( count ) );
+    return count;
+}
+
+const ReplayPredictionSolverEvidenceFrame* FindEvidenceFrameByNumber( const ReplayPredictionSolverEvidenceStore& evidence,
+                                                                      ReplayFrameIndex frame ) noexcept
+{
+    for ( std::size_t index = evidence.PublishedFrameCount(); index > 0u; --index )
+    {
+        const ReplayPredictionSolverEvidenceFrame* candidate = evidence.PublishedFrame( index - 1u );
+
+        if ( candidate && candidate->complete && candidate->identity.frame == frame )
+        {
+            return candidate;
+        }
+    }
+
+    return nullptr;
+}
+
+bool BuildEvidenceSection( const RunReplayPredictionState& prediction, const ReplayPredictionSolverEvidenceStore& evidence,
+                           std::vector<uint8_t>& outBytes, uint32_t& outEventCount )
+{
+    std::array<ReplayFrameIndex, REPLAY_PREDICTION_ARCHIVE_MAX_EVENT_FRAMES> requiredFrames = {};
+    const std::size_t eventCount = CollectRequiredEvidenceFrames( prediction, requiredFrames );
+
+    if ( eventCount == 0u || evidence.Mode() != ReplayPredictionDetailMode::High )
+    {
+        return false;
+    }
+
+    ArchiveWriter writer;
+    writer.Scalar( static_cast<uint32_t>( eventCount ) );
+    uint64_t totalContacts = 0;
+    uint64_t totalPipeline = 0;
+
+    for ( std::size_t eventIndex = 0; eventIndex < eventCount; ++eventIndex )
+    {
+        const ReplayPredictionSolverEvidenceFrame* frame = FindEvidenceFrameByNumber( evidence, requiredFrames[eventIndex] );
+
+        if ( !frame || frame->identity.generation != prediction.build.generationBeginCount ||
+             frame->identity.mode != ReplayPredictionDetailMode::High || frame->identity.bankEpoch != evidence.BankEpoch() )
+        {
+            return false;
+        }
+
+        // Invariant: topology and publication stamps are process-local
+        // invalidation tokens captured when each worker frame seals, while the
+        // topology is still growing. The durable identity is this committed
+        // bank/generation/frame tuple. Load assigns one new canonical topology
+        // and publication stamp to the reconstructed committed bank.
+
+        totalContacts += frame->contacts.count;
+        totalPipeline += frame->pipeline.count;
+
+        if ( totalContacts > REPLAY_PREDICTION_ARCHIVE_MAX_EVENT_CONTACTS ||
+             totalPipeline > REPLAY_PREDICTION_ARCHIVE_MAX_EVENT_PIPELINE_ROWS )
+        {
+            return false;
+        }
+
+        writer.Scalar( frame->identity.frame );
+        writer.Scalar( frame->contacts.count );
+        writer.Scalar( frame->pipeline.count );
+
+        for ( std::size_t index = 0; index < frame->contacts.count; ++index )
+        {
+            const Physics::PhysicsSolverPersistentContactSample* contact = evidence.Contact( frame->contacts, index );
+
+            if ( !contact )
+            {
+                return false;
+            }
+
+            WriteContact( writer, *contact );
+        }
+
+        for ( std::size_t index = 0; index < frame->pipeline.count; ++index )
+        {
+            const Physics::PhysicsPipelineRecord* record = evidence.Pipeline( frame->pipeline, index );
+
+            if ( !record )
+            {
+                return false;
+            }
+
+            WritePipeline( writer, *record );
+        }
+    }
+
+    outEventCount = static_cast<uint32_t>( eventCount );
+    const bool valid = writer.Valid();
+    outBytes = writer.Finish();
+    return valid && !outBytes.empty();
+}
+
+bool BodyIndexValidForFrame( int bodyIndex, std::size_t bodyCount ) noexcept
+{
+    return bodyIndex >= -1 && ( bodyIndex < 0 || static_cast<std::size_t>( bodyIndex ) < bodyCount );
+}
+
+std::size_t BodyCountForFrame( const RunReplayPredictionState& prediction, ReplayFrameIndex frame ) noexcept
+{
+    for ( const RunReplayPredictionFrame& candidate : prediction.CommittedFrames() )
+    {
+        if ( candidate.frameIndex == frame )
+        {
+            return candidate.bodies.size();
+        }
+    }
+
+    return 0u;
+}
+
+bool ValidateEvidenceRows( std::span<const Physics::PhysicsSolverPersistentContactSample> contacts,
+                           std::span<const Physics::PhysicsPipelineRecord> pipeline, std::size_t bodyCount ) noexcept
+{
+    if ( bodyCount == 0u )
+    {
+        return false;
+    }
+
+    for ( const Physics::PhysicsSolverPersistentContactSample& contact : contacts )
+    {
+        if ( !BodyIndexValidForFrame( contact.bodyA, bodyCount ) || !BodyIndexValidForFrame( contact.bodyB, bodyCount ) ||
+             contact.bodyA < 0 || contact.manifoldPointCount == 0u )
+        {
+            return false;
+        }
+    }
+
+    for ( const Physics::PhysicsPipelineRecord& record : pipeline )
+    {
+        if ( !BodyIndexValidForFrame( record.bodyA, bodyCount ) || !BodyIndexValidForFrame( record.bodyB, bodyCount ) ||
+             !std::isfinite( record.scalarA ) || !std::isfinite( record.scalarB ) || !std::isfinite( record.scalarC ) )
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool ParseEvidenceSection( std::span<const uint8_t> bytes, const RunReplayPredictionState& prediction,
+                           ReplayPredictionDetailMode activePreference, ReplayPredictionSolverEvidenceBanks& outEvidence,
+                           char* outReason, std::size_t reasonSize )
+{
+    ArchiveReader reader( bytes );
+    uint32_t eventCount = 0;
+    std::array<ReplayFrameIndex, REPLAY_PREDICTION_ARCHIVE_MAX_EVENT_FRAMES> requiredFrames = {};
+    const std::size_t requiredCount = CollectRequiredEvidenceFrames( prediction, requiredFrames );
+
+    if ( requiredCount == 0u || !ReadBoundedCount( reader, REPLAY_PREDICTION_ARCHIVE_MAX_EVENT_FRAMES, eventCount ) ||
+         eventCount != requiredCount )
+    {
+        WriteReason( outReason, reasonSize, "prediction evidence event-frame closure mismatch" );
+        return false;
+    }
+
+    if ( activePreference == ReplayPredictionDetailMode::High )
+    {
+        outEvidence.BeginBuild( prediction.build.generationBeginCount, ReplayPredictionDetailMode::High );
+    }
+
+    uint64_t totalContacts = 0;
+    uint64_t totalPipeline = 0;
+
+    for ( uint32_t eventIndex = 0; eventIndex < eventCount; ++eventIndex )
+    {
+        ReplayFrameIndex frame = 0;
+        uint32_t contactCount = 0;
+        uint32_t pipelineCount = 0;
+
+        if ( !reader.Scalar( frame ) || frame != requiredFrames[eventIndex] ||
+             !ReadBoundedCount( reader, REPLAY_PREDICTION_ARCHIVE_MAX_EVENT_CONTACTS, contactCount ) ||
+             !ReadBoundedCount( reader, REPLAY_PREDICTION_ARCHIVE_MAX_EVENT_PIPELINE_ROWS, pipelineCount ) )
+        {
+            WriteReason( outReason, reasonSize, "invalid prediction evidence frame header" );
+            return false;
+        }
+
+        totalContacts += contactCount;
+        totalPipeline += pipelineCount;
+
+        if ( totalContacts > REPLAY_PREDICTION_ARCHIVE_MAX_EVENT_CONTACTS ||
+             totalPipeline > REPLAY_PREDICTION_ARCHIVE_MAX_EVENT_PIPELINE_ROWS )
+        {
+            WriteReason( outReason, reasonSize, "prediction evidence row budget exceeded" );
+            return false;
+        }
+
+        std::vector<Physics::PhysicsSolverPersistentContactSample> contacts;
+        std::vector<Physics::PhysicsPipelineRecord> pipeline;
+
+        if ( !ReplayPredictionReserveOperations::ReserveReplayPredictionVector( contacts, contactCount,
+                                                                                static_cast<int>( frame ),
+                                                                                "ReplayPredictionArchive.contactStaging" ) ||
+             !ReplayPredictionReserveOperations::ReserveReplayPredictionVector( pipeline, pipelineCount,
+                                                                                static_cast<int>( frame ),
+                                                                                "ReplayPredictionArchive.pipelineStaging" ) )
+        {
+            WriteReason( outReason, reasonSize, "prediction archive staging reserve denied" );
+            return false;
+        }
+
+        contacts.resize( contactCount );
+        pipeline.resize( pipelineCount );
+
+        for ( Physics::PhysicsSolverPersistentContactSample& contact : contacts )
+        {
+            if ( !ReadContact( reader, contact ) )
+            {
+                WriteReason( outReason, reasonSize, "truncated prediction evidence contact" );
+                return false;
+            }
+        }
+
+        for ( Physics::PhysicsPipelineRecord& record : pipeline )
+        {
+            if ( !ReadPipeline( reader, record ) )
+            {
+                WriteReason( outReason, reasonSize, "truncated prediction evidence pipeline" );
+                return false;
+            }
+        }
+
+        if ( !ValidateEvidenceRows( contacts, pipeline, BodyCountForFrame( prediction, frame ) ) )
+        {
+            WriteReason( outReason, reasonSize, "prediction evidence referential closure failed" );
+            return false;
+        }
+
+        if ( activePreference == ReplayPredictionDetailMode::High &&
+             ( !outEvidence.ReserveBuild( eventIndex + 1u, static_cast<std::size_t>( totalContacts ),
+                                          static_cast<std::size_t>( totalPipeline ), static_cast<int>( frame ) ) ||
+               !outEvidence.AppendBuildFrame( frame, prediction.futureNodeCache.futureNodesTopologyVersion,
+                                              prediction.trajectoryStore.publicationVersion, contacts, pipeline,
+                                              static_cast<int>( frame ) ) ) )
+        {
+            WriteReason( outReason, reasonSize, "prediction evidence bank reserve denied" );
+            return false;
+        }
+    }
+
+    if ( !reader.Finished() )
+    {
+        WriteReason( outReason, reasonSize, "prediction evidence section has trailing bytes" );
+        return false;
+    }
+
+    if ( activePreference == ReplayPredictionDetailMode::High && !outEvidence.PromoteBuild() )
+    {
+        WriteReason( outReason, reasonSize, "prediction evidence bank promotion failed" );
+        return false;
+    }
+
+    return true;
+}
+
+void CommitArchivePayload( RunReplayPathVisualizerState& destinationPath, RunReplayPredictionState& destinationPrediction,
+                           ReplayPredictionSolverEvidenceBanks& destinationEvidence,
+                           RunReplayPathVisualizerState& candidatePath, RunReplayPredictionState& candidatePrediction,
+                           ReplayPredictionSolverEvidenceBanks& candidateEvidence ) noexcept
+{
+    using std::swap;
+    destinationPath.hasTarget = candidatePath.hasTarget;
+    destinationPath.pastPathVisible = candidatePath.pastPathVisible;
+    destinationPath.targetId = candidatePath.targetId;
+    destinationPath.targetModelRow = candidatePath.targetModelRow;
+    std::memcpy( destinationPath.targetName, candidatePath.targetName, sizeof( destinationPath.targetName ) );
+    destinationPath.targets.clear();
+    destinationPath.pastTrajectory = {};
+
+    destinationPrediction.enabled = candidatePrediction.enabled;
+    destinationPrediction.ragdollVisualsEnabled = candidatePrediction.ragdollVisualsEnabled;
+    destinationPrediction.build.dirty = false;
+    destinationPrediction.build.pendingLatestRestart = false;
+    destinationPrediction.build.building = false;
+    destinationPrediction.build.complete = true;
+    destinationPrediction.build.generationBeginCount = candidatePrediction.build.generationBeginCount;
+    destinationPrediction.build.buildFrames.clear();
+    destinationPrediction.ResetBuildFramePublication();
+
+    destinationPrediction.simulation.horizonSeconds = candidatePrediction.simulation.horizonSeconds;
+    destinationPrediction.simulation.targetModelRow = candidatePrediction.simulation.targetModelRow;
+    destinationPrediction.simulation.targetId = candidatePrediction.simulation.targetId;
+    destinationPrediction.simulation.sourceFrameIndex = candidatePrediction.simulation.sourceFrameIndex;
+    destinationPrediction.simulation.sourceSolverHash = candidatePrediction.simulation.sourceSolverHash;
+    destinationPrediction.simulation.sourceSimulationSeconds = candidatePrediction.simulation.sourceSimulationSeconds;
+    destinationPrediction.simulation.predictionEngine.swap( candidatePrediction.simulation.predictionEngine );
+    destinationPrediction.simulation.predictionEngineReserveBytes = 0;
+    destinationPrediction.simulation.predictionEngineReady = false;
+    swap( destinationPrediction.simulation.predictionWorld, candidatePrediction.simulation.predictionWorld );
+    destinationPrediction.simulation.predictionBodies.swap( candidatePrediction.simulation.predictionBodies );
+    destinationPrediction.simulation.measuredTicksPerMs.store( 0.0, std::memory_order_release );
+    destinationPrediction.simulation.probeElapsedMs = 0.0;
+    destinationPrediction.simulation.probeTicksCompleted = 0;
+    destinationPrediction.simulation.calibratedModelCount = -1;
+    destinationPrediction.simulation.frames.swap( candidatePrediction.simulation.frames );
+    destinationPrediction.simulation.committedFrameCount = candidatePrediction.simulation.committedFrameCount;
+
+    destinationPrediction.futureNodeCache.futureNodes.swap( candidatePrediction.futureNodeCache.futureNodes );
+    destinationPrediction.futureNodeCache.futureNodeBuildScratch.clear();
+    destinationPrediction.futureNodeCache.futureNodesBuiltFrameCount = candidatePrediction.futureNodeCache
+                                                                           .futureNodesBuiltFrameCount;
+    destinationPrediction.futureNodeCache.futureNodesBuiltContactIndex = 0u;
+    destinationPrediction.futureNodeCache.futureNodesAffectedBodyCursor = 0u;
+    destinationPrediction.futureNodeCache.futureNodesAffectedFrameCount = 0u;
+    destinationPrediction.futureNodeCache.futureNodesAffectedComplete = true;
+    destinationPrediction.futureNodeCache.futureNodesBuiltTargetId = candidatePrediction.futureNodeCache
+                                                                         .futureNodesBuiltTargetId;
+    destinationPrediction.futureNodeCache.futureNodesTopologyVersion = candidatePrediction.futureNodeCache
+                                                                           .futureNodesTopologyVersion;
+    destinationPrediction.futureNodeCache.nextFutureNodesTopologyVersion = candidatePrediction.futureNodeCache
+                                                                               .nextFutureNodesTopologyVersion;
+    destinationPrediction.futureNodeCache.futureNodesBuiltRagdollVisuals = candidatePrediction.futureNodeCache
+                                                                               .futureNodesBuiltRagdollVisuals;
+    destinationPrediction.futureNodeCache.futureNodesBuiltFromBuildFrames = false;
+    destinationPrediction.futureNodeCache.futureNodesCacheValid = true;
+    destinationPrediction.futureNodeCache.retainedMarkers = candidatePrediction.futureNodeCache.retainedMarkers;
+    destinationPrediction.futureNodeCache.retainedMarkerCount = candidatePrediction.futureNodeCache.retainedMarkerCount;
+    destinationPrediction.futureNodeCache.childMarkerScan.Reset();
+
+    swap( destinationPrediction.trajectoryStore, candidatePrediction.trajectoryStore );
+    destinationPrediction.trajectoryBuild = candidatePrediction.trajectoryBuild;
+    destinationPrediction.committedPublication.Reset();
+    destinationPrediction.baseline = std::move( candidatePrediction.baseline );
+    destinationPrediction.velocityDragPreview.Clear();
+    destinationPrediction.revealClock = candidatePrediction.revealClock;
+    destinationEvidence.SwapArchiveState( candidateEvidence );
+}
+
+bool AllocateArchiveCandidates( std::unique_ptr<RunReplayPredictionState>& prediction,
+                                std::unique_ptr<ReplayPredictionSolverEvidenceBanks>& evidence )
+{
+    const uint64_t requestedBytes = sizeof( RunReplayPredictionState ) + sizeof( ReplayPredictionSolverEvidenceBanks );
+    Core::Allocation::RuntimeReserveGrowthResult result = {};
+
+    if ( requestedBytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) ||
+         !ReplayPredictionReserveOperations::
+             RequestReplayPredictionReserveGrowth( "ReplayPredictionArchive.transactionStaging", -1, 0,
+                                                   static_cast<int>( requestedBytes ), 1, result ) )
+    {
+        return false;
+    }
+
+    const Core::Allocation::RuntimeReserveOwnerHandle
+        owner = ReplayPredictionReserveOperations::ReplayPredictionReserveOwner();
+    Core::Allocation::RuntimeAllocationScope allocationScope( Core::Allocation::RuntimeAllocationPhase::Replay );
+    Core::Allocation::RuntimeReserveOwnerScope ownerScope( owner );
+    Core::Allocation::RuntimeReserveGrowthScope growthScope( owner, Core::Allocation::RuntimeReservePhase::Replay, result );
+    prediction = std::make_unique<RunReplayPredictionState>();
+    evidence = std::make_unique<ReplayPredictionSolverEvidenceBanks>();
+    return prediction && evidence;
+}
+
+bool ParseCurrentArchiveHeader( std::span<const uint8_t> bytes, ReplayPredictionArchiveDetailCapability& capability,
+                                ReplayPredictionPathPresentation& pathPresentation,
+                                std::array<ReplayPredictionArchiveSectionDescriptor, 2>& sections, uint32_t& sectionCount,
+                                char* outReason, std::size_t reasonSize )
+{
+    ArchiveReader reader( bytes );
+    uint32_t magic = 0;
+    uint32_t schema = 0;
+    uint8_t encodedCapability = 0;
+    uint8_t encodedPresentation = 0;
+    uint16_t reserved = 0;
+    uint64_t totalBytes = 0;
+
+    if ( !reader.Scalar( magic ) || !reader.Scalar( schema ) || magic != REPLAY_PREDICTION_ARCHIVE_MAGIC ||
+         schema != REPLAY_PREDICTION_ARCHIVE_SCHEMA || !reader.Scalar( encodedCapability ) ||
+         encodedCapability > static_cast<uint8_t>( ReplayPredictionArchiveDetailCapability::High ) ||
+         !reader.Scalar( encodedPresentation ) ||
+         encodedPresentation > static_cast<uint8_t>( ReplayPredictionPathPresentation::AllBodiesSpace ) ||
+         !reader.Scalar( reserved ) || reserved != 0u || !reader.Scalar( sectionCount ) ||
+         ( sectionCount != REPLAY_PREDICTION_ARCHIVE_SECTION_COUNT_LOW &&
+           sectionCount != REPLAY_PREDICTION_ARCHIVE_SECTION_COUNT_HIGH ) ||
+         !reader.Scalar( totalBytes ) || totalBytes != bytes.size() )
+    {
+        WriteReason( outReason, reasonSize, "invalid prediction archive header" );
+        return false;
+    }
+
+    capability = static_cast<ReplayPredictionArchiveDetailCapability>( encodedCapability );
+    pathPresentation = static_cast<ReplayPredictionPathPresentation>( encodedPresentation );
+
+    if ( ( capability == ReplayPredictionArchiveDetailCapability::Low &&
+           sectionCount != REPLAY_PREDICTION_ARCHIVE_SECTION_COUNT_LOW ) ||
+         ( capability == ReplayPredictionArchiveDetailCapability::High &&
+           sectionCount != REPLAY_PREDICTION_ARCHIVE_SECTION_COUNT_HIGH ) )
+    {
+        WriteReason( outReason, reasonSize, "prediction archive capability/section mismatch" );
+        return false;
+    }
+
+    for ( uint32_t index = 0; index < sectionCount; ++index )
+    {
+        uint32_t kind = 0;
+        uint32_t count = 0;
+        uint64_t offset = 0;
+        uint64_t size = 0;
+
+        if ( !reader.Scalar( kind ) || !reader.Scalar( count ) || !reader.Scalar( offset ) || !reader.Scalar( size ) )
+        {
+            WriteReason( outReason, reasonSize, "truncated prediction archive section table" );
+            return false;
+        }
+
+        sections[index] = { static_cast<ReplayPredictionArchiveSection>( kind ), count, offset, size };
+    }
+
+    uint64_t expectedOffset = REPLAY_PREDICTION_ARCHIVE_HEADER_BYTES +
+                              static_cast<uint64_t>( sectionCount ) * REPLAY_PREDICTION_ARCHIVE_SECTION_DESCRIPTOR_BYTES;
+
+    for ( uint32_t index = 0; index < sectionCount; ++index )
+    {
+        const ReplayPredictionArchiveSection expectedKind = index == 0u ? ReplayPredictionArchiveSection::Lightweight
+                                                                        : ReplayPredictionArchiveSection::SolverEvidence;
+        uint64_t end = 0;
+
+        if ( sections[index].kind != expectedKind || sections[index].offset != expectedOffset ||
+             sections[index].size == 0u || !AddBounded( sections[index].offset, sections[index].size, bytes.size(), end ) )
+        {
+            WriteReason( outReason, reasonSize, "invalid prediction archive section layout" );
+            return false;
+        }
+
+        expectedOffset = end;
+    }
+
+    if ( expectedOffset != bytes.size() || sections[0].count != 1u ||
+         ( sectionCount == 2u &&
+           ( sections[1].count == 0u || sections[1].count > REPLAY_PREDICTION_ARCHIVE_MAX_EVENT_FRAMES ) ) )
+    {
+        WriteReason( outReason, reasonSize, "prediction archive section closure mismatch" );
+        return false;
+    }
+
+    return true;
+}
+} // namespace
+
+bool BuildReplayPredictionArchive( const RunReplayPathVisualizerState& pathVisualizer,
+                                   const RunReplayPredictionState& prediction, ReplayPredictionDetailMode detailMode,
+                                   const ReplayPredictionSolverEvidenceStore& evidence, std::vector<uint8_t>& outBytes )
+{
+    std::vector<uint8_t> legacyBytes;
+
+    if ( !BuildLegacyReplayPredictionArchive( pathVisualizer, prediction, legacyBytes ) || legacyBytes.size() <= 8u )
+    {
+        return false;
+    }
+
+    const bool highCapability = detailMode == ReplayPredictionDetailMode::High && evidence.PublishedFrameCount() > 0u;
+    std::vector<uint8_t> evidenceBytes;
+    uint32_t eventCount = 0;
+
+    if ( highCapability && !BuildEvidenceSection( prediction, evidence, evidenceBytes, eventCount ) )
+    {
+        return false;
+    }
+
+    const uint32_t sectionCount = highCapability ? REPLAY_PREDICTION_ARCHIVE_SECTION_COUNT_HIGH
+                                                 : REPLAY_PREDICTION_ARCHIVE_SECTION_COUNT_LOW;
+    const uint64_t firstOffset = REPLAY_PREDICTION_ARCHIVE_HEADER_BYTES +
+                                 static_cast<uint64_t>( sectionCount ) * REPLAY_PREDICTION_ARCHIVE_SECTION_DESCRIPTOR_BYTES;
+    const uint64_t lightweightSize = legacyBytes.size() - 8u;
+    uint64_t evidenceOffset = 0;
+    uint64_t totalBytes = 0;
+
+    if ( !AddBounded( firstOffset, lightweightSize, REPLAY_PREDICTION_ARCHIVE_MAX_BYTES, evidenceOffset ) ||
+         !AddBounded( evidenceOffset, evidenceBytes.size(), REPLAY_PREDICTION_ARCHIVE_MAX_BYTES, totalBytes ) )
+    {
+        return false;
+    }
+
+    ArchiveWriter writer( REPLAY_PREDICTION_ARCHIVE_SCHEMA );
+    writer.Scalar( REPLAY_PREDICTION_ARCHIVE_MAGIC );
+    writer.Scalar( REPLAY_PREDICTION_ARCHIVE_SCHEMA );
+    writer.Scalar( static_cast<uint8_t>( highCapability ? ReplayPredictionArchiveDetailCapability::High
+                                                        : ReplayPredictionArchiveDetailCapability::Low ) );
+    writer.Scalar( static_cast<uint8_t>( prediction.trajectoryBuild.pathPresentation ) );
+    writer.Scalar( static_cast<uint16_t>( 0u ) );
+    writer.Scalar( sectionCount );
+    writer.Scalar( totalBytes );
+    writer.Scalar( static_cast<uint32_t>( ReplayPredictionArchiveSection::Lightweight ) );
+    writer.Scalar( static_cast<uint32_t>( 1u ) );
+    writer.Scalar( firstOffset );
+    writer.Scalar( lightweightSize );
+
+    if ( highCapability )
+    {
+        writer.Scalar( static_cast<uint32_t>( ReplayPredictionArchiveSection::SolverEvidence ) );
+        writer.Scalar( eventCount );
+        writer.Scalar( evidenceOffset );
+        writer.Scalar( static_cast<uint64_t>( evidenceBytes.size() ) );
+    }
+
+    writer.Bytes( std::span<const uint8_t>( legacyBytes ).subspan( 8u ) );
+    writer.Bytes( evidenceBytes );
+    const bool valid = writer.Valid() && writer.Size() == totalBytes;
+    outBytes = writer.Finish();
+    return valid && !outBytes.empty();
+}
+
+bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathVisualizerState& pathVisualizer,
+                                  RunReplayPredictionState& prediction, ReplayPredictionSolverEvidenceBanks& evidence,
+                                  ReplayPredictionDetailMode activePreference,
+                                  ReplayPredictionArchiveDetailCapability& outCapturedCapability, char* outReason,
+                                  std::size_t reasonSize )
+{
+    if ( bytes.size() > REPLAY_PREDICTION_ARCHIVE_MAX_BYTES || bytes.size() < 8u || prediction.build.building )
+    {
+        WriteReason( outReason, reasonSize,
+                     prediction.build.building ? "prediction archive load requires an idle owner"
+                                               : "prediction archive exceeds byte cap" );
+        return false;
+    }
+
+    uint32_t schema = static_cast<uint32_t>( bytes[4] ) | ( static_cast<uint32_t>( bytes[5] ) << 8u ) |
+                      ( static_cast<uint32_t>( bytes[6] ) << 16u ) | ( static_cast<uint32_t>( bytes[7] ) << 24u );
+    ReplayPredictionArchiveDetailCapability capability = ReplayPredictionArchiveDetailCapability::Low;
+    ReplayPredictionPathPresentation pathPresentation = ReplayPredictionPathPresentation::SelectedCausalTree;
+    std::array<ReplayPredictionArchiveSectionDescriptor, 2> sections = {};
+    uint32_t sectionCount = 0;
+    std::span<const uint8_t> lightweightBytes = bytes;
+    std::span<const uint8_t> evidenceBytes;
+    std::vector<uint8_t> reconstructedLegacy;
+
+    if ( schema == REPLAY_PREDICTION_ARCHIVE_SCHEMA )
+    {
+        if ( !ParseCurrentArchiveHeader( bytes, capability, pathPresentation, sections, sectionCount, outReason,
+                                         reasonSize ) )
+        {
+            return false;
+        }
+
+        ArchiveWriter legacyWriter( REPLAY_PREDICTION_ARCHIVE_LEGACY_SCHEMA );
+        legacyWriter.Scalar( REPLAY_PREDICTION_ARCHIVE_MAGIC );
+        legacyWriter.Scalar( REPLAY_PREDICTION_ARCHIVE_LEGACY_SCHEMA );
+        legacyWriter.Bytes( bytes.subspan( static_cast<std::size_t>( sections[0].offset ), static_cast<std::size_t>( sections[0].size ) ) );
+        reconstructedLegacy = legacyWriter.Finish();
+        lightweightBytes = reconstructedLegacy;
+
+        if ( sectionCount == REPLAY_PREDICTION_ARCHIVE_SECTION_COUNT_HIGH )
+        {
+            evidenceBytes = bytes.subspan( static_cast<std::size_t>( sections[1].offset ),
+                                           static_cast<std::size_t>( sections[1].size ) );
+        }
+    }
+    else if ( schema < REPLAY_PREDICTION_ARCHIVE_MINIMUM_SCHEMA || schema > REPLAY_PREDICTION_ARCHIVE_LEGACY_SCHEMA )
+    {
+        WriteReason( outReason, reasonSize, "invalid prediction archive header" );
+        return false;
+    }
+
+    std::unique_ptr<RunReplayPredictionState> candidatePrediction;
+    std::unique_ptr<ReplayPredictionSolverEvidenceBanks> candidateEvidence;
+
+    if ( !AllocateArchiveCandidates( candidatePrediction, candidateEvidence ) )
+    {
+        WriteReason( outReason, reasonSize, "prediction archive transaction staging reserve denied" );
+        return false;
+    }
+
+    RunReplayPathVisualizerState candidatePath;
+
+    if ( !LoadLegacyReplayPredictionArchive( lightweightBytes, candidatePath, *candidatePrediction, outReason, reasonSize ) )
+    {
+        return false;
+    }
+
+    if ( schema == REPLAY_PREDICTION_ARCHIVE_SCHEMA )
+    {
+        if ( candidatePrediction->trajectoryBuild.pathPresentation != pathPresentation )
+        {
+            WriteReason( outReason, reasonSize, "prediction archive path presentation mismatch" );
+            return false;
+        }
+
+        if ( capability == ReplayPredictionArchiveDetailCapability::High &&
+             !ParseEvidenceSection( evidenceBytes, *candidatePrediction, activePreference, *candidateEvidence, outReason,
+                                    reasonSize ) )
+        {
+            return false;
+        }
+    }
+
+    CommitArchivePayload( pathVisualizer, prediction, evidence, candidatePath, *candidatePrediction, *candidateEvidence );
+    outCapturedCapability = capability;
     return true;
 }
 

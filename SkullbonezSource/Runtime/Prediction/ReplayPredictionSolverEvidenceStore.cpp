@@ -8,13 +8,15 @@ Summary:
   Replay-phase owner, copies rows into previously unpublished slots, writes one
   complete frame record, then advances an acquire/release prefix. Promotion
   flips bank identity without clearing the retired committed bank, so a reader
-  that already observed it cannot race a storage reuse.
+  that already observed it cannot race a storage reuse. Archive load uses the
+  same physical-bank swap only after a cold candidate is fully validated.
 
 Invariants:
   - A frame prefix advances only after all referenced rows and metadata are final.
   - Capacity denial leaves no partially published frame.
   - Logical reset preserves segments; explicit release destroys them.
   - Current capacity is the exact sum of live segment allocations.
+  - Archive swap performs no allocation and exposes no partially decoded bank.
 
 Related:
   - ReplayPredictionSolverEvidenceStore.h
@@ -525,6 +527,71 @@ ReplayPredictionSolverEvidenceBanksMemoryStats ReplayPredictionSolverEvidenceBan
     stats.lastReleaseBeforeCapacityBytes = m_lastReleaseBeforeCapacityBytes;
     stats.lastReleaseAfterCapacityBytes = m_lastReleaseAfterCapacityBytes;
     return stats;
+}
+
+void ReplayPredictionSolverEvidenceBanks::SwapArchiveState( ReplayPredictionSolverEvidenceBanks& other ) noexcept
+{
+    const uint64_t priorLifetimePeak = m_lifetimePeakCapacityBytes;
+    const auto swapStore = []( ReplayPredictionSolverEvidenceStore& destination,
+                              ReplayPredictionSolverEvidenceStore& candidate ) noexcept
+    {
+        const uint64_t combinedLifetimePeak = (std::max)( destination.m_lifetimePeakCapacityBytes,
+                                                          candidate.m_lifetimePeakCapacityBytes );
+        using std::swap;
+        swap( destination.m_frameSegments, candidate.m_frameSegments );
+        swap( destination.m_contactSegments, candidate.m_contactSegments );
+        swap( destination.m_pipelineSegments, candidate.m_pipelineSegments );
+
+        const std::size_t published = destination.m_publishedFrameCount.exchange( candidate.m_publishedFrameCount.load( std::memory_order_acquire ),
+                                                                                  std::memory_order_acq_rel );
+        candidate.m_publishedFrameCount.store( published, std::memory_order_release );
+        swap( destination.m_frameCount, candidate.m_frameCount );
+        swap( destination.m_contactCount, candidate.m_contactCount );
+        swap( destination.m_pipelineCount, candidate.m_pipelineCount );
+        swap( destination.m_frameSegmentCount, candidate.m_frameSegmentCount );
+        swap( destination.m_contactSegmentCount, candidate.m_contactSegmentCount );
+        swap( destination.m_pipelineSegmentCount, candidate.m_pipelineSegmentCount );
+        swap( destination.m_generation, candidate.m_generation );
+        swap( destination.m_mode, candidate.m_mode );
+        swap( destination.m_bankEpoch, candidate.m_bankEpoch );
+        destination.m_lifetimePeakCapacityBytes = (std::max)( combinedLifetimePeak,
+                                                              destination.CollectMemoryStats().currentCapacityBytes );
+        candidate.m_lifetimePeakCapacityBytes = (std::max)( combinedLifetimePeak,
+                                                            candidate.CollectMemoryStats().currentCapacityBytes );
+    };
+    swapStore( m_banks[0], other.m_banks[0] );
+    swapStore( m_banks[1], other.m_banks[1] );
+
+    const uint8_t committed = m_committedIndex.exchange( other.m_committedIndex.load( std::memory_order_acquire ),
+                                                         std::memory_order_acq_rel );
+    other.m_committedIndex.store( committed, std::memory_order_release );
+    using std::swap;
+    swap( m_buildIndex, other.m_buildIndex );
+
+    ReplayPredictionSolverEvidenceStore& committedStore = m_banks[m_committedIndex.load( std::memory_order_acquire )];
+
+    if ( committedStore.PublishedFrameCount() > 0u )
+    {
+        // Invariant: candidate banks begin their epoch sequence independently.
+        // Rebase every published identity to the destination owner's next
+        // epoch so a pre-load row cannot resolve replacement storage by reuse.
+        const uint64_t archiveEpoch = m_nextEpoch++;
+        committedStore.m_bankEpoch = archiveEpoch;
+
+        for ( std::size_t index = 0; index < committedStore.PublishedFrameCount(); ++index )
+        {
+            ReplayPredictionSolverEvidenceFrame* frame = committedStore.MutableFrame( index );
+
+            if ( frame )
+            {
+                frame->identity.bankEpoch = archiveEpoch;
+            }
+        }
+    }
+
+    // Why: replacement changes current capacity, but it is not a release
+    // checkpoint and must not erase this owner's historical accounting.
+    m_lifetimePeakCapacityBytes = (std::max)( priorLifetimePeak, CollectMemoryStats().currentCapacityBytes );
 }
 
 void ReplayPredictionSolverEvidenceBanks::RefreshLifetimePeak() noexcept

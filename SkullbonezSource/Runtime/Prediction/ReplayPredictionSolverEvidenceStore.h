@@ -13,7 +13,9 @@ Summary:
   128-frame, 256-contact, and 1,024-pipeline-row segments with a 320 MiB
   per-bank cap; the dense 120-second witness measured 317,157,376 bytes.
   A frame view hides segment layout while preserving a synchronous borrow of
-  one sealed frame for cause-tree construction and Planning inspection.
+  one sealed frame for cause-tree construction and Planning inspection. A
+  validated archive candidate can exchange complete bank state without copying
+  rows or allocating during commit.
 
 Glossary:
   Evidence bank: One generation-stamped segmented store of exact contact and
@@ -31,6 +33,7 @@ Invariants:
   - Every release records one before/after checkpoint after worker join and
     before the caller can start a new build.
   - Every allocation uses the existing replay_prediction_working_set owner.
+  - Archive commit swaps complete banks and never publishes a partially decoded prefix.
   - Frame views are valid only while their bank remains the selected published
     source; callers copy any retained result before promotion or replacement.
 
@@ -239,6 +242,7 @@ class ReplayPredictionSolverEvidenceBanks
     const ReplayPredictionSolverEvidenceStore& Build() const noexcept;
     const ReplayPredictionSolverEvidenceStore& Committed() const noexcept;
     ReplayPredictionSolverEvidenceBanksMemoryStats CollectMemoryStats() const noexcept;
+    void SwapArchiveState( ReplayPredictionSolverEvidenceBanks& other ) noexcept;
 
   private:
     void RefreshLifetimePeak() noexcept;

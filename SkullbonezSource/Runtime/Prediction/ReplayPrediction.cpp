@@ -1646,13 +1646,23 @@ void ReplayPrediction::DisableAndClearCache()
 bool ReplayPrediction::LoadArchive( std::span<const uint8_t> bytes, RunReplayPathVisualizerState& pathVisualizer,
                                     char* outReason, std::size_t reasonSize )
 {
-    return LoadReplayPredictionArchive( bytes, pathVisualizer, m_state, outReason, reasonSize );
+    ReplayPredictionArchiveDetailCapability capturedCapability = ReplayPredictionArchiveDetailCapability::Low;
+
+    if ( !LoadReplayPredictionArchive( bytes, pathVisualizer, m_state, m_solverEvidence, m_detailMode, capturedCapability,
+                                       outReason, reasonSize ) )
+    {
+        return false;
+    }
+
+    m_loadedArchiveCapability = capturedCapability;
+    m_hasLoadedArchiveCapability = true;
+    return true;
 }
 
 bool ReplayPrediction::BuildArchive( const RunReplayPathVisualizerState& pathVisualizer,
                                      std::vector<uint8_t>& outBytes ) const
 {
-    return BuildReplayPredictionArchive( pathVisualizer, m_state, outBytes );
+    return BuildReplayPredictionArchive( pathVisualizer, m_state, m_detailMode, m_solverEvidence.Committed(), outBytes );
 }
 
 void ReplayPrediction::SetHorizonSeconds( float horizonSeconds ) noexcept
@@ -1798,6 +1808,8 @@ void ReplayPrediction::ClearCache()
     m_state.trajectoryStore.Clear();
     m_state.baseline = ReplayPredictionBaselineSnapshot {};
     m_state.velocityDragPreview.Clear();
+    m_loadedArchiveCapability = ReplayPredictionArchiveDetailCapability::Low;
+    m_hasLoadedArchiveCapability = false;
 }
 
 void ReplayPrediction::ClearCacheFromReplayInput()
@@ -1867,6 +1879,9 @@ void ReplayPrediction::ClearCacheFromReplayInput()
         PROFILE_SCOPED( "Frame/Replay/Prediction/ClearCache/ResetVelocityPreview" );
         m_state.velocityDragPreview.Clear();
     }
+
+    m_loadedArchiveCapability = ReplayPredictionArchiveDetailCapability::Low;
+    m_hasLoadedArchiveCapability = false;
 }
 
 ReplayPastTrajectoryUpdate ReplayPrediction::RefreshPastTrajectoryStore( const ReplaySolverRecorder& solver,

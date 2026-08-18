@@ -650,6 +650,15 @@
       "plan": ""
     },
     {
+      "file": "SkullbonezSource/Runtime/Scene/SceneRequestQueue.cpp",
+      "signature": "std::size_t SceneRequestQueue::Size() const",
+      "owner": "SceneRequestQueue fixed-ring observation seam",
+      "disposition": "retain-owner",
+      "reason": "Tests must observe the private occupied-slot count to prove rejected create text consumes no slot and TakePending fully drains the fixed owner ring.",
+      "evidence": "TestOwnerRequestQueues checks Size before and after TakePending; production mutates and drains through Submit and TakePending instead. 2026-08-18 census: classification=test-only; required_arity=0/0.",
+      "plan": ""
+    },
+    {
       "file": "SkullbonezSource/Runtime/Simulation/SimulationSystem.cpp",
       "signature": "uint64_t SimulationSystem::DroppedPhysicsTickCount() const noexcept",
       "owner": "Simulation fixed-step diagnostics",
@@ -755,15 +764,6 @@
       "disposition": "retain-owner",
       "reason": "Each successful category growth must update the store's historical peak without coupling category-specific allocators.",
       "evidence": "The scanner sees six ambiguous same-name calls; the compiled private identity is exact. 2026-08-18 census: classification=no-reference; mapping=exact; ambiguous_production_calls=6; required_arity=0/0.",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
-      "signature": "bool ReplayPredictionSolverEvidenceBanks::ReserveBuild( std::size_t requiredFrameCount, std::size_t requiredContactCount, std::size_t requiredPipelineCount, int frameNumber )",
-      "owner": "ReplayPredictionSolverEvidenceBanks build-bank reserve seam",
-      "disposition": "retain-owner",
-      "reason": "Prediction orchestration must reserve only the hidden build bank while preserving the committed bank on denial.",
-      "evidence": "TestReplayVisualPacket verifies denial and committed visibility; later prediction orchestration consumes this owner. 2026-08-18 census: classification=test-only; test_calls=1; required_arity=4/4.",
       "plan": ""
     },
     {

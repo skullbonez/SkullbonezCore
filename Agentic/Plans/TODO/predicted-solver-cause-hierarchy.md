@@ -1,7 +1,7 @@
 # Predicted Solver Cause Hierarchy
 
-Date: 2026-08-18
-Status: Active; 6/8 phases complete
+Date: 2026-08-19
+Status: Active; 7/8 phases complete
 Impact area: Runtime Prediction and Planning, replay cause-tree UI/input,
 prediction archives, retained-memory reporting, tests, documentation, and visual QA
 Owner: Runtime Prediction detail retention with Planning-owned causal inspection
@@ -414,7 +414,7 @@ retaining detail capacity after switching to low detail.
   strict wrong-generation/mode/bank-epoch/frame/publication/range/sequence/
   feature rejection. Include a same-frame replacement race proving old rows
   cannot resolve new evidence.
-- [ ] **PSD6 - Make archives mode-aware and transactional.** Introduce the next
+- [x] **PSD6 - Make archives mode-aware and transactional.** Introduce the next
   RVPD schema with captured capability, explicit path-presentation policy, and
   bounded unique event-frame evidence for High archives. Keep Low artifacts
   lightweight and load v2/v3 as Low. Preflight cumulative sizes and range
@@ -674,6 +674,41 @@ retaining detail capacity after switching to low detail.
   flat topology versus 201 contact-derived nodes and 806 records). Neither
   baseline was refreshed, and neither mismatch is introduced by PSD5 detail
   projection.
+
+### PSD6 - Mode-aware transactional archives
+
+- RVPD schema 4 records captured High/Low capability, explicit path policy,
+  ordered section descriptors, cumulative byte closure, and optional bounded
+  High solver evidence. High archives store sorted unique event frames plus
+  exact persistent-contact and ordered pipeline rows; Low remains lightweight,
+  and v2/v3 migrate as Low.
+- Load preflights descriptor order, offsets, sizes, non-overlap, total closure,
+  row counts, identities, and caps before reserve-accounted candidate creation.
+  It validates the complete candidate before swapping prediction state and both
+  physical evidence banks. Corruption, future schema, path-policy mismatch,
+  capability mismatch, truncation, overflow, reordered/overlapping sections,
+  and invalid evidence ranges leave the prior archive bytes, capability, bank
+  identity, capacity, and accounting unchanged.
+- High load restores exact inspection without borrowing Physics. Loading High
+  while active Low validates every evidence byte but allocates zero evidence;
+  loading Low while active High cannot upgrade it. Repeated successful High
+  loads rebase bank epochs, so pre-load rows cannot resolve replacement storage.
+- Strict allocation policy and self-tests pass. `validate_automation` passes
+  Profile exclusion plus Automation replay/prediction smoke; the replay-v2
+  artifact gate passes legacy/current policy, restores, mutation rejection,
+  generated topology, queries, and exports. All nine `validate_fast` stages
+  pass, including 603 tests / 2,485,922 assertions, three ready configurations
+  with zero warnings/errors, and 86/86 current compiled-symbol rulings.
+  Touched-source comment audit: 11/11 checked, zero deferred; this plan's PSD6
+  row and evidence section are the completion checklist.
+- The authoritative replay visual run completes schema-4 archive staging,
+  reconstruction, Low/High compatibility controls, and corruption rejection,
+  then reaches the unchanged reveal-0 `header.topologyVersion` oracle mismatch.
+  No golden was refreshed. `validate_perf` passes DX12 and absolute Physics
+  budgets; its unchanged relative Physics-bench sample is noisy across three
+  runs (one pass, failures at `Frame.avg` +17.9% and at `Frame.avg` +19.2% /
+  `Frame.p50` +17.0%). PSD6 changes no Physics source, memory improves by
+  3.5-5.2 MiB, and no performance baseline was refreshed.
 
 ## Acceptance
 

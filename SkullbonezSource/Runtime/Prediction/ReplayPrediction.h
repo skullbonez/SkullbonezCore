@@ -8,7 +8,8 @@ Summary:
   Readers consume a never-stored presentation view whose trajectory bank remains visible while
   its hidden replacement resumes in the opposite trajectory bank. Paired solver-evidence banks
   retain exact High-detail contact and pipeline rows until promotion or an explicit Low-detail
-  release boundary.
+  release boundary. A loaded artifact's captured capability remains separate
+  from the active High/Low preference even when Low discards its evidence rows.
 Invariants:
   - Worker publication retains the release/acquire prefix protocol.
   - Presentation consumers cannot observe rows beyond the prepared prefix.
@@ -806,6 +807,7 @@ class ReplayPrediction
     {
         ReplayPredictionPresentationView view = PresentationViewFromState( m_state, m_generationPermitted );
         view.detailMode = m_detailMode;
+        view.archiveDetailCapability = ArchiveDetailCapability();
         return view;
     }
 
@@ -1034,6 +1036,26 @@ class ReplayPrediction
     ReplayPredictionMemoryStats CollectMemoryStats() const;
 
     ReplayPredictionSolverEvidenceCaptureStats SolverEvidenceCaptureStats() const noexcept;
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
+    ReplayPredictionDetailMode AutomationDetailMode() const noexcept
+    {
+        return m_detailMode;
+    }
+    const ReplayPredictionSolverEvidenceStore& AutomationCommittedSolverEvidence() const noexcept
+    {
+        return m_solverEvidence.Committed();
+    }
+#endif
+    ReplayPredictionArchiveDetailCapability ArchiveDetailCapability() const noexcept
+    {
+        if ( m_hasLoadedArchiveCapability )
+        {
+            return m_loadedArchiveCapability;
+        }
+
+        return m_solverEvidence.Committed().PublishedFrameCount() > 0u ? ReplayPredictionArchiveDetailCapability::High
+                                                                       : ReplayPredictionArchiveDetailCapability::Low;
+    }
 
     // Returns a synchronous exact-frame borrow from the currently presented
     // evidence bank. An invalid view means the frame is not sealed High detail.
@@ -1056,6 +1078,11 @@ class ReplayPrediction
     ReplayPredictionSolverEvidenceBanks m_solverEvidence;
     ReplayPredictionSolverEvidenceCaptureStats m_solverEvidenceCaptureStats;
     ReplayPredictionDetailMode m_detailMode = ReplayPredictionDetailMode::High;
+
+    // Captured archive capability describes the loaded source, not retained
+    // capacity under the active preference. ClearCache returns to live derivation.
+    ReplayPredictionArchiveDetailCapability m_loadedArchiveCapability = ReplayPredictionArchiveDetailCapability::Low;
+    bool m_hasLoadedArchiveCapability = false;
     bool m_generationPermitted = true;
 };
 

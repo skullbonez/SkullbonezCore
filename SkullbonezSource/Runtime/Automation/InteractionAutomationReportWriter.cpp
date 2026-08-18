@@ -612,7 +612,8 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::CaptureReplayVi
         m_replayVisualFidelityTrajectoryPointCount = revealFingerprint.pointCount;
         m_replayVisualFidelityTrajectoryCaptured = revealFingerprint.Ready();
 
-        if ( !BuildReplayPredictionArchive( replay.path, replay.prediction, m_replayVisualPredictionArchive ) )
+        if ( !BuildReplayPredictionArchive( replay.path, replay.prediction, replay.predictionDetailMode,
+                                            replay.predictionEvidence, m_replayVisualPredictionArchive ) )
         {
             status.Fail( "replay visual fidelity probe could not freeze prediction presentation state" );
         }

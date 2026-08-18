@@ -578,6 +578,8 @@ ReplayInputView ReplayRuntime::BuildInputView() const noexcept
 ReplayAutomationView ReplayRuntime::BuildAutomationView() const
 {
     return { m_predictionOwner.State(),
+             m_predictionOwner.AutomationCommittedSolverEvidence(),
+             m_predictionOwner.AutomationDetailMode(),
              m_planningOwner.PorkchopView(),
              m_planningOwner.TripPlannerView(),
              m_authoring.CauseTree(),

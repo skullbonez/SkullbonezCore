@@ -1024,15 +1024,18 @@
     {
       "path": "SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.cpp",
       "patterns": [
+        ".insert(",
         ".push_back(",
         ".reserve(",
         ".resize(",
-        "std::vector<"
+        "std::vector<",
+        "std::make_unique<RunReplayPredictionState>",
+        "std::make_unique<ReplayPredictionSolverEvidenceBanks>"
       ],
       "owner": "Replay prediction artifact IO",
-      "phase": "cold_replay_artifact_io",
-      "reason": "Durable prediction archive encoding and offline reconstruction allocate only while writing or reading an explicit replay artifact, never while stepping or presenting live prediction.",
-      "cap": "Every decoded vector is bounded by validated artifact counts and the replay prediction hard capacities before storage is populated.",
+      "phase": "cold_replay_artifact_io_and_transaction_staging",
+      "reason": "Durable prediction archive encoding and offline reconstruction allocate only while writing or reading an explicit replay artifact, never while stepping or presenting live prediction. Each load obtains replay-reserve permission before constructing one cold candidate prediction state and evidence-bank pair, validates all sections into that candidate, and swaps only after success.",
+      "cap": "Artifacts are capped at 128 MiB; decoded vectors are bounded by validated artifact counts and prediction hard capacities. A load holds exactly one candidate RunReplayPredictionState plus one ReplayPredictionSolverEvidenceBanks beside the caller-owned old state until atomic commit or rejection.",
       "removal_or_wrapper_plan": "Move archive byte and decode scratch storage behind the cold replay artifact reader/writer wrappers when artifact IO ownership is consolidated."
     },
     {
@@ -1374,12 +1377,14 @@
     {
       "path": "SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.Automation.cpp",
       "patterns": [
-        "std::make_unique<RunReplayPredictionState>"
+        ".assign(",
+        "std::make_unique<RunReplayPredictionState>",
+        "std::make_unique<ReplayPredictionSolverEvidenceBanks>"
       ],
       "owner": "replay_prediction_archive_verification",
       "phase": "Diagnostics",
-      "reason": "RunReplayPredictionState is 792,936 bytes and the round-trip verifier needs three live at once to compare restored, migrated and rejected decodes. As locals they asked for about 2.3 MB of frame and faulted in __chkstk against the roughly 840 KB of stack left at this call depth, so the probe crashed before writing its report. This translation unit links only in Automation, runs once after the sole live capture, and never touches steady gameplay, presentation, or a second prediction path.",
-      "cap": "Exactly three RunReplayPredictionState allocations per VerifyReplayPredictionArchiveRoundTrip call, which runs once per fidelity probe process.",
+      "reason": "RunReplayPredictionState is 792,936 bytes and the round-trip verifier needs three live at once for restored High, legacy migration, and active-Low projection. Matching evidence banks prove retained-capacity behavior for those three states. Keeping these owners on the stack faulted in __chkstk before report output. One mutation vector is reused sequentially for bounded corrupt-artifact cases. This translation unit links only in Automation, runs once after the sole live capture, and never touches steady gameplay or presentation.",
+      "cap": "Exactly three RunReplayPredictionState allocations and three ReplayPredictionSolverEvidenceBanks allocations per VerifyReplayPredictionArchiveRoundTrip call. One mutation vector is repeatedly reassigned from the already capped input artifact; failure cases run serially.",
       "removal_or_wrapper_plan": "Delete when the verifier can compare decodes one at a time against a streamed encoder, or when prediction state moves behind a handle whose value type is small enough to keep on the frame."
     }
   ]
