@@ -163,10 +163,12 @@ Agentic\Skills\orchestrator\scripts\work_ledger.bat finish-goal -Outcome "comple
 ```
 
 The ledger groups step rows beneath each task and maintains task/run summaries
-with elapsed time, main/reviewer token splits, combined input/output/cached
-tokens, duck passes, fix cycles, findings, validation time, outcomes, and full
-commit hashes. Its embedded state survives context compaction and process
-restart.
+with elapsed time; explicit input, output, and cached-input counters; main and
+reviewer splits; duck passes; fix cycles; findings; validation time; outcomes;
+and full commit hashes. Never report an unqualified `tokens` or `total tokens`
+column. Codex input includes the cached-input subset, so show cached input
+separately but do not add it to input again. The embedded state survives context
+compaction and process restart.
 
 ## Blocker Continuation
 
@@ -367,7 +369,8 @@ Report:
 - Total elapsed wall-clock time and timings for long builds, validations,
   launches, or investigations.
 - The live `Agentic/Plans/WORK_LEDGER.md` path and its exact goal/task summary:
-  elapsed time; main, reviewer, and combined tokens; duck passes; fix cycles;
-  findings; cumulative validation time; outcomes; and full commit hashes.
+  elapsed time; explicit input, output, and cached-input counters with main and
+  reviewer splits; duck passes; fix cycles; findings; cumulative validation
+  time; outcomes; and full commit hashes.
 - Rubber-duck verdicts keyed to their ledger step ids. If no review was
   appropriate, report the task's zero duck-pass count from the ledger.

@@ -545,11 +545,12 @@ function Render-Ledger {
     $null = $builder.AppendLine()
     $null = $builder.AppendLine("- Master plan: ``$($State.MasterPlan)``")
     $null = $builder.AppendLine("- Last updated: ``$(Format-Timestamp -Value $UpdatedAt)``")
+    $null = $builder.AppendLine('- Token semantics: input includes the cached-input subset; cached input is reported separately, not added again.')
     $null = $builder.AppendLine()
     $null = $builder.AppendLine('## Goal Runs')
     $null = $builder.AppendLine()
-    $null = $builder.AppendLine('| Run | Goal | Started | Finished | Elapsed | Main tokens | Reviewer tokens | Total tokens | Latest commit | Outcome |')
-    $null = $builder.AppendLine('|-----|------|---------|----------|---------|-------------|-----------------|--------------|---------------|---------|')
+    $null = $builder.AppendLine('| Run | Goal | Started | Finished | Elapsed | Main input | Main output | Main cached input | Reviewer input | Reviewer output | Reviewer cached input | Combined input | Combined output | Combined cached input | Latest commit | Outcome |')
+    $null = $builder.AppendLine('|-----|------|---------|----------|---------|------------|-------------|-------------------|----------------|-----------------|-----------------------|----------------|-----------------|-----------------------|---------------|---------|')
 
     foreach ($run in $State.Runs) {
         $finished = if ([string]::IsNullOrWhiteSpace([string]$run.FinishedAt)) { 'in progress' } else { $run.FinishedAt }
@@ -562,7 +563,16 @@ function Render-Ledger {
         $workerTotal = Get-RunWorkerTotal -Run $run
         $combinedTotal = if ($null -eq $mainTotal) { $null } else { Add-TokenDeltas -Deltas @($mainTotal, $workerTotal) }
         $latestCommit = if ($run.Commits.Count -gt 0) { $run.Commits[-1].Hash } else { 'n/a' }
-        $null = $builder.AppendLine("| $(Escape-MarkdownCell $run.Id) | $(Escape-MarkdownCell $run.Goal) | ``$($run.StartedAt)`` | $(Escape-MarkdownCell $finished) | $(Escape-MarkdownCell $elapsed) | $(Escape-MarkdownCell $(if ($null -eq $mainTotal) { $null } else { $mainTotal.Total })) | $(Escape-MarkdownCell $(if ($null -eq $mainTotal) { $null } else { $workerTotal.Total })) | $(Escape-MarkdownCell $(if ($null -eq $combinedTotal) { $null } else { $combinedTotal.Total })) | $(Escape-MarkdownCell $latestCommit) | $(Escape-MarkdownCell $run.Outcome) |")
+        $mainInput = if ($null -eq $mainTotal) { $null } else { $mainTotal.Input }
+        $mainOutput = if ($null -eq $mainTotal) { $null } else { $mainTotal.Output }
+        $mainCached = if ($null -eq $mainTotal) { $null } else { $mainTotal.CachedInput }
+        $reviewerInput = if ($null -eq $mainTotal) { $null } else { $workerTotal.Input }
+        $reviewerOutput = if ($null -eq $mainTotal) { $null } else { $workerTotal.Output }
+        $reviewerCached = if ($null -eq $mainTotal) { $null } else { $workerTotal.CachedInput }
+        $combinedInput = if ($null -eq $combinedTotal) { $null } else { $combinedTotal.Input }
+        $combinedOutput = if ($null -eq $combinedTotal) { $null } else { $combinedTotal.Output }
+        $combinedCached = if ($null -eq $combinedTotal) { $null } else { $combinedTotal.CachedInput }
+        $null = $builder.AppendLine("| $(Escape-MarkdownCell $run.Id) | $(Escape-MarkdownCell $run.Goal) | ``$($run.StartedAt)`` | $(Escape-MarkdownCell $finished) | $(Escape-MarkdownCell $elapsed) | $(Escape-MarkdownCell $mainInput) | $(Escape-MarkdownCell $mainOutput) | $(Escape-MarkdownCell $mainCached) | $(Escape-MarkdownCell $reviewerInput) | $(Escape-MarkdownCell $reviewerOutput) | $(Escape-MarkdownCell $reviewerCached) | $(Escape-MarkdownCell $combinedInput) | $(Escape-MarkdownCell $combinedOutput) | $(Escape-MarkdownCell $combinedCached) | $(Escape-MarkdownCell $latestCommit) | $(Escape-MarkdownCell $run.Outcome) |")
     }
 
     foreach ($run in $State.Runs) {
@@ -573,8 +583,8 @@ function Render-Ledger {
         $null = $builder.AppendLine()
         $null = $builder.AppendLine('### Task Summary')
         $null = $builder.AppendLine()
-        $null = $builder.AppendLine('| Task | Started | Finished | Elapsed | Total tokens | Duck passes | Fix cycles | Findings | Validation | Commit | Outcome |')
-        $null = $builder.AppendLine('|------|---------|----------|---------|--------------|-------------|------------|----------|------------|--------|---------|')
+        $null = $builder.AppendLine('| Task | Started | Finished | Elapsed | Input tokens | Output tokens | Cached input tokens | Duck passes | Fix cycles | Findings | Validation | Commit | Outcome |')
+        $null = $builder.AppendLine('|------|---------|----------|---------|--------------|---------------|---------------------|-------------|------------|----------|------------|--------|---------|')
 
         foreach ($taskRecord in $run.Tasks) {
             $finished = if ([string]::IsNullOrWhiteSpace([string]$taskRecord.FinishedAt)) { 'in progress' } else { $taskRecord.FinishedAt }
@@ -593,15 +603,15 @@ function Render-Ledger {
             $validation = Get-TaskValidationElapsed -TaskRecord $taskRecord
             $commitHash = if ($taskRecord.Commits.Count -gt 0) { $taskRecord.Commits[-1].Hash } else { 'n/a' }
             $taskDisplay = Escape-MarkdownCell -Value ($taskRecord.Id + ' - ' + $taskRecord.Title)
-            $null = $builder.AppendLine("| $taskDisplay | ``$($taskRecord.StartedAt)`` | $(Escape-MarkdownCell $finished) | $(Escape-MarkdownCell $elapsed) | $($totals.Total) | $($duckSteps.Count) | $($fixSteps.Count) | $findingTotal | $(Format-Elapsed -Value $validation) | $(Escape-MarkdownCell $commitHash) | $(Escape-MarkdownCell $taskRecord.Outcome) |")
+            $null = $builder.AppendLine("| $taskDisplay | ``$($taskRecord.StartedAt)`` | $(Escape-MarkdownCell $finished) | $(Escape-MarkdownCell $elapsed) | $($totals.Input) | $($totals.Output) | $($totals.CachedInput) | $($duckSteps.Count) | $($fixSteps.Count) | $findingTotal | $(Format-Elapsed -Value $validation) | $(Escape-MarkdownCell $commitHash) | $(Escape-MarkdownCell $taskRecord.Outcome) |")
         }
 
         foreach ($taskRecord in $run.Tasks) {
             $null = $builder.AppendLine()
             $null = $builder.AppendLine("### Task $(Escape-MarkdownCell $taskRecord.Id): $(Escape-MarkdownCell $taskRecord.Title)")
             $null = $builder.AppendLine()
-            $null = $builder.AppendLine('| Step | Kind | Token sessions | Started | Finished | Elapsed | Main tokens | Reviewer tokens | Input | Cached input | Output | Total | Findings | Outcome |')
-            $null = $builder.AppendLine('|------|------|----------------|---------|----------|---------|-------------|-----------------|-------|--------------|--------|-------|----------|---------|')
+            $null = $builder.AppendLine('| Step | Kind | Token sessions | Started | Finished | Elapsed | Main input | Main output | Main cached input | Reviewer input | Reviewer output | Reviewer cached input | Combined input | Combined output | Combined cached input | Findings | Outcome |')
+            $null = $builder.AppendLine('|------|------|----------------|---------|----------|---------|------------|-------------|-------------------|----------------|-----------------|-----------------------|----------------|-----------------|-----------------------|----------|---------|')
 
             foreach ($stepRecord in $taskRecord.Steps) {
                 $deltas = Get-StepDeltas -StepRecord $stepRecord
@@ -612,14 +622,17 @@ function Render-Ledger {
                 if ($null -ne $stepRecord.WorkerSource) {
                     $sessions += " + $(Get-SourceLabel -Source $stepRecord.WorkerSource)"
                 }
-                $mainTokens = if ($null -eq $deltas) { $null } else { $deltas.Main.Total }
-                $workerTokens = if ($null -eq $deltas -or $null -eq $deltas.Worker) { $null } else { $deltas.Worker.Total }
-                $inputTokens = if ($null -eq $deltas) { $null } else { $deltas.Combined.Input }
-                $cachedTokens = if ($null -eq $deltas) { $null } else { $deltas.Combined.CachedInput }
-                $outputTokens = if ($null -eq $deltas) { $null } else { $deltas.Combined.Output }
-                $totalTokens = if ($null -eq $deltas) { $null } else { $deltas.Combined.Total }
+                $mainInput = if ($null -eq $deltas) { $null } else { $deltas.Main.Input }
+                $mainOutput = if ($null -eq $deltas) { $null } else { $deltas.Main.Output }
+                $mainCached = if ($null -eq $deltas) { $null } else { $deltas.Main.CachedInput }
+                $workerInput = if ($null -eq $deltas -or $null -eq $deltas.Worker) { $null } else { $deltas.Worker.Input }
+                $workerOutput = if ($null -eq $deltas -or $null -eq $deltas.Worker) { $null } else { $deltas.Worker.Output }
+                $workerCached = if ($null -eq $deltas -or $null -eq $deltas.Worker) { $null } else { $deltas.Worker.CachedInput }
+                $combinedInput = if ($null -eq $deltas) { $null } else { $deltas.Combined.Input }
+                $combinedOutput = if ($null -eq $deltas) { $null } else { $deltas.Combined.Output }
+                $combinedCached = if ($null -eq $deltas) { $null } else { $deltas.Combined.CachedInput }
                 $stepDisplay = Escape-MarkdownCell -Value ($stepRecord.Id + ' - ' + $stepRecord.Label)
-                $null = $builder.AppendLine("| $stepDisplay | $(Escape-MarkdownCell $stepRecord.Kind) | $(Escape-MarkdownCell $sessions) | ``$($stepRecord.StartedAt)`` | $(Escape-MarkdownCell $finished) | $(Escape-MarkdownCell $elapsedText) | $(Escape-MarkdownCell $mainTokens) | $(Escape-MarkdownCell $workerTokens) | $(Escape-MarkdownCell $inputTokens) | $(Escape-MarkdownCell $cachedTokens) | $(Escape-MarkdownCell $outputTokens) | $(Escape-MarkdownCell $totalTokens) | $(Escape-MarkdownCell $stepRecord.Findings) | $(Escape-MarkdownCell $stepRecord.Outcome) |")
+                $null = $builder.AppendLine("| $stepDisplay | $(Escape-MarkdownCell $stepRecord.Kind) | $(Escape-MarkdownCell $sessions) | ``$($stepRecord.StartedAt)`` | $(Escape-MarkdownCell $finished) | $(Escape-MarkdownCell $elapsedText) | $(Escape-MarkdownCell $mainInput) | $(Escape-MarkdownCell $mainOutput) | $(Escape-MarkdownCell $mainCached) | $(Escape-MarkdownCell $workerInput) | $(Escape-MarkdownCell $workerOutput) | $(Escape-MarkdownCell $workerCached) | $(Escape-MarkdownCell $combinedInput) | $(Escape-MarkdownCell $combinedOutput) | $(Escape-MarkdownCell $combinedCached) | $(Escape-MarkdownCell $stepRecord.Findings) | $(Escape-MarkdownCell $stepRecord.Outcome) |")
             }
 
             if ($taskRecord.Commits.Count -gt 0) {
@@ -971,12 +984,20 @@ function Invoke-SelfTest {
         foreach ($expected in @(
             'PLAN-T1 - Test task',
             'rubber-duck-01 - Rubber duck pass 1',
-            '| 1 | 1 | 2 | 00:10:00 |',
+            'Token semantics: input includes the cached-input subset',
+            '| Input tokens | Output tokens | Cached input tokens |',
+            '| 370 | 85 | 180 | 1 | 1 | 2 | 00:10:00 |',
+            '| 20 | 5 | 10 | 100 | 20 | 60 | 120 | 25 | 70 | 2 | two blocking findings |',
             $head,
             '<!-- WORK_LEDGER_STATE:'
         )) {
             if ($content.IndexOf($expected, [StringComparison]::Ordinal) -lt 0) {
                 throw "Rendered-ledger self-test did not find: $expected"
+            }
+        }
+        foreach ($retiredHeader in @('Main tokens', 'Reviewer tokens', 'Total tokens', '| Total |')) {
+            if ($content.IndexOf($retiredHeader, [StringComparison]::Ordinal) -ge 0) {
+                throw "Rendered-ledger self-test retained ambiguous token header: $retiredHeader"
             }
         }
 
