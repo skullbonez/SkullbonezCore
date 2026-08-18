@@ -1,0 +1,4 @@
+interface:
+  display_name: "Work Ledger Infographic"
+  short_description: "Turn live work telemetry into a polished visual"
+  default_prompt: "Use $render-work-ledger to render the current MASTER-PLAN work ledger as an infographic."
