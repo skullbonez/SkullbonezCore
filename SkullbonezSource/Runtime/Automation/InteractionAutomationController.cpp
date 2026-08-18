@@ -711,6 +711,12 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "predictionTargetLastNear";
     case RunInteractionAutomationAssertKind::LiveSolverHashStableAcrossPrediction:
         return "liveSolverHashStableAcrossPrediction";
+    case RunInteractionAutomationAssertKind::PredictionEvidenceConsumerBalanced:
+        return "predictionEvidenceConsumerBalanced";
+    case RunInteractionAutomationAssertKind::PredictionEvidencePipelineRowsMin:
+        return "predictionEvidencePipelineRowsMin";
+    case RunInteractionAutomationAssertKind::PredictionEvidenceCurrentCapacityMax:
+        return "predictionEvidenceCurrentCapacityMax";
     case RunInteractionAutomationAssertKind::PredictionTrajectoryFingerprintReady:
         return "predictionTrajectoryFingerprintReady";
     case RunInteractionAutomationAssertKind::PredictionAppearanceInvalidationCountMin:
@@ -2305,6 +2311,30 @@ AssertionParseStatus ParseReplayAssertion( const std::string& name, const Json& 
         return AssertionParseStatus::Success;
     }
 
+    if ( name == "predictionEvidenceConsumerBalanced" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionEvidenceConsumerBalanced;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "predictionEvidencePipelineRowsMin" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionEvidencePipelineRowsMin;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "predictionEvidenceCurrentCapacityMax" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionEvidenceCurrentCapacityMax;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
     if ( name == "predictionTrajectoryFingerprintReady" )
     {
         outAction.assertKind = RunInteractionAutomationAssertKind::PredictionTrajectoryFingerprintReady;
@@ -2638,7 +2668,8 @@ bool ParseAssertAction( const Json& entry, RunInteractionAutomationAction& outAc
                                name == "predictionSupersededRestartCountMax" ||
                                name == "predictionVelocityPreviewDeltaMin" || name == "predictionPresentedGenerationMin" ||
                                name == "predictionPresentedRootVelocityDeltaMin" || name == "predictionDivergenceMin" ||
-                               name == "predictionTargetDisplacementMin" ||
+                               name == "predictionTargetDisplacementMin" || name == "predictionEvidencePipelineRowsMin" ||
+                               name == "predictionEvidenceCurrentCapacityMax" ||
                                name == "predictionAppearanceInvalidationCountMin" || name == "imguiLayoutResetCountMin" ||
                                name == "imguiFocusCountMin" || name == "imguiDpiScale" ||
                                name == "imguiDescriptorHighWaterMax" || name == "imguiViewportRecreationsMin";
@@ -2651,6 +2682,7 @@ bool ParseAssertAction( const Json& entry, RunInteractionAutomationAction& outAc
                              name == "replayPorkchopComplete" || name == "replayPorkchopSelected" ||
                              name == "replaySolverTrackAtPresent" || name == "predictionScrubFrameActive" ||
                              name == "liveSolverHashStableAcrossPrediction" ||
+                             name == "predictionEvidenceConsumerBalanced" ||
                              name == "predictionTrajectoryFingerprintReady" || name == "shadowPassExecuted" ||
                              name == "terrainShadowValid" || name == "objectShadowValid" ||
                              name == "reflectionPassExecuted" || name == "gizmoVisible" || name == "mousePickupActive" ||
@@ -3232,6 +3264,31 @@ InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( stable );
         evaluation.passed = stable == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionEvidenceConsumerBalanced:
+    {
+        const ReplayPredictionSolverEvidenceCaptureStats capture = replay.predictionEvidenceCapture;
+        const bool balanced = !capture.consumerActive && capture.consumerAcquireCount == capture.consumerReleaseCount;
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( balanced );
+        evaluation.passed = balanced == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionEvidencePipelineRowsMin:
+    {
+        const uint64_t count = replay.predictionEvidenceCapture.copiedPipelineCount;
+        evaluation.expected = ">=" + std::to_string( static_cast<uint64_t>( action.numberValue ) );
+        evaluation.actual = std::to_string( count );
+        evaluation.passed = count >= static_cast<uint64_t>( action.numberValue );
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionEvidenceCurrentCapacityMax:
+    {
+        const uint64_t bytes = replay.predictionEvidenceMemory.currentCapacityBytes;
+        evaluation.expected = "<=" + std::to_string( static_cast<uint64_t>( action.numberValue ) );
+        evaluation.actual = std::to_string( bytes );
+        evaluation.passed = bytes <= static_cast<uint64_t>( action.numberValue );
         break;
     }
     case RunInteractionAutomationAssertKind::PredictionTrajectoryFingerprintReady:

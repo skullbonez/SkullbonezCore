@@ -65,11 +65,11 @@
     {
       "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",
       "signature": "template <typename InspectGizmoInteractionActive> InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools, const InteractionAutomationController& automation, const ReplayAutomationView& replay, RuntimeInteractionController& interaction, const InputRouter& inputRouter, CameraControlState& camera, const SceneWorld& world, SkullbonezCore::UI::InGameUI& ui, const InteractionAutomationDevelopmentUiView& developmentUi, const Rendering::RenderSceneSnapshot& renderSnapshot, const RunInteractionAutomationAction& action, InspectGizmoInteractionActive inspectGizmoInteractionActive )",
-      "body_sha256": "b796c2ba47ca11fd33d73277f68be3fd670dbf246a223824a8996fef3afd258c",
+      "body_sha256": "abd74fc780c3758e3df535e6def75db21100c516e5e01cae7728b22c84902405",
       "owner": "Interaction automation assertion phase",
       "disposition": "retain-owner",
       "reason": "One assertion phase reads the selected action against detached snapshots and synchronous runtime owners, then emits one evaluation; its branches are the closed assertion schema rather than independent retained authorities.",
-      "evidence": "adversarial replay-prediction repair owner review (2026-08-16)",
+      "evidence": "predicted solver exact-evidence assertion-schema review (2026-08-18)",
       "plan": ""
     },
     {
@@ -85,11 +85,11 @@
     {
       "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.cpp",
       "signature": "SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( InteractionAutomationRunStatus& status, const char* scriptPath, const SceneWorld& world, const SceneSessionState& scene, const char* scenePath, const RuntimeTools& runtimeTools, const ReplayAutomationView& replay, const RuntimeInteractionController& interaction, const CameraControlState& camera, const UI::InGameUI& ui, const Rendering::RenderSceneSnapshot& renderSnapshot )",
-      "body_sha256": "4bb6ec4c5e1a6ce5b6f4ce582276b86e0d3b78b5f33dd7192cb543f71836914e",
+      "body_sha256": "df750d0898f7583bd483e74861256ad7f4f248f6436c01fbaf125ec60d1fc97d",
       "owner": "InteractionAutomationReportWriter report transaction",
       "disposition": "retain-owner",
       "reason": "One writer projects the bounded automation result schema from synchronized runtime snapshots and emits one durable report; field ordering and failure cleanup are one serialization invariant.",
-      "evidence": "predicted solver detail topology-witness review (2026-08-18)",
+      "evidence": "predicted solver exact-evidence report-schema review (2026-08-18)",
       "plan": ""
     },
     {

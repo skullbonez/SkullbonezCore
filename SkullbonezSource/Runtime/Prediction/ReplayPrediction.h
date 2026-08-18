@@ -14,6 +14,9 @@ Invariants:
   - Presentation consumers cannot observe rows beyond the prepared prefix.
   - Prediction owns its private engine and never mutates live physics stores.
   - Cancellation waits for an in-flight worker slice before clearing state.
+  - Only the private prediction engine enables full solver-pipeline capture;
+    every acquisition is paired with release on promotion, cancellation, mode
+    transition, restart, or destruction.
 
 Related:
   - SkullbonezSource/Runtime/App/ReplayRuntime.h
@@ -760,6 +763,19 @@ struct ReplayPredictionMemoryStats
     std::size_t futureNodeCount = 0;
 };
 
+// Validation snapshot for the paired private-engine diagnostics consumer and
+// the exact rows copied into prediction-owned evidence banks.
+struct ReplayPredictionSolverEvidenceCaptureStats
+{
+    uint64_t buildBeginCount = 0;
+    uint64_t consumerAcquireCount = 0;
+    uint64_t consumerReleaseCount = 0;
+    uint64_t sealedFrameCount = 0;
+    uint64_t copiedContactCount = 0;
+    uint64_t copiedPipelineCount = 0;
+    bool consumerActive = false;
+};
+
 class ReplayPrediction
 {
   public:
@@ -767,6 +783,7 @@ class ReplayPrediction
         : m_profiler( profiler ), m_presentation( resultDiagnostics, profiler )
     {
     }
+    ~ReplayPrediction();
 
     const RunReplayPredictionState& State() const noexcept
     {
@@ -1014,6 +1031,16 @@ class ReplayPrediction
                                      const ReplaySolverFrameSample& sample, ReplayPastTrajectoryUpdate& update );
     ReplayPredictionMemoryStats CollectMemoryStats() const;
 
+    ReplayPredictionSolverEvidenceCaptureStats SolverEvidenceCaptureStats() const noexcept;
+
+    // Internal worker/frame-thread commands keep the Physics diagnostics gate
+    // paired with the evidence bank that consumes its exact rows.
+    bool BeginSolverEvidenceBuild( uint32_t generation );
+    bool RefreshSolverEvidenceSource( Physics::PhysicsEngine& predictionEngine, int modelCount );
+    bool SealSolverEvidenceFrame( ReplayFrameIndex frame );
+    bool PromoteSolverEvidenceBuild() noexcept;
+    void CancelSolverEvidenceBuild() noexcept;
+
   private:
 
     // Lifetime: startup-bound diagnostics borrow; worker slices retain no owner state.
@@ -1021,6 +1048,7 @@ class ReplayPrediction
     ReplayPredictionPresentation m_presentation;
     RunReplayPredictionState m_state;
     ReplayPredictionSolverEvidenceBanks m_solverEvidence;
+    ReplayPredictionSolverEvidenceCaptureStats m_solverEvidenceCaptureStats;
     ReplayPredictionDetailMode m_detailMode = ReplayPredictionDetailMode::High;
     bool m_generationPermitted = true;
 };

@@ -121,6 +121,42 @@ TEST_CASE( "Prediction evidence store: sealed prefix and ranges survive concurre
     CHECK( banks.Build().Pipeline( first->pipeline, 2u ) == nullptr );
 }
 
+TEST_CASE( "Prediction evidence store: initial object and terrain frames retain exact ordered ranges" )
+{
+    ReplayPredictionSolverEvidenceBanks banks;
+    banks.BeginBuild( 12u, ReplayPredictionDetailMode::High );
+
+    // Invariant: an initial frame with no solver rows is still a complete
+    // generation-stamped evidence frame, not an absent or partial publication.
+    REQUIRE( banks.AppendBuildFrame( 0u, 1u, 10u, {}, {}, 0 ) );
+    const ReplayPredictionSolverEvidenceFrame* initial = banks.Build().PublishedFrame( 0u );
+    REQUIRE( initial != nullptr );
+    CHECK( initial->complete );
+    CHECK( initial->contacts.count == 0u );
+    CHECK( initial->pipeline.count == 0u );
+
+    std::array contacts = { ContactRow( 31u ), ContactRow( 32u ) };
+    contacts[1].bodyB = -1;
+    contacts[1].isTerrain = true;
+    std::array pipeline = { PipelineRow( 41u ), PipelineRow( 42u ), PipelineRow( 43u ) };
+    pipeline[0].stage = Physics::PhysicsPipelineStage::BroadphaseCandidate;
+    pipeline[1].stage = Physics::PhysicsPipelineStage::ManifoldRow;
+    pipeline[2].stage = Physics::PhysicsPipelineStage::SolverIteration;
+    REQUIRE( banks.AppendBuildFrame( 1u, 2u, 11u, contacts, pipeline, 1 ) );
+
+    const ReplayPredictionSolverEvidenceFrame* solved = banks.Build().PublishedFrame( 1u );
+    REQUIRE( solved != nullptr );
+    CHECK( solved->contacts.begin == 0u );
+    CHECK( solved->contacts.count == contacts.size() );
+    CHECK( solved->pipeline.begin == 0u );
+    CHECK( solved->pipeline.count == pipeline.size() );
+    CHECK( banks.Build().Contact( solved->contacts, 0u )->featureId == 31u );
+    CHECK( banks.Build().Contact( solved->contacts, 1u )->isTerrain );
+    CHECK( banks.Build().Pipeline( solved->pipeline, 0u )->stage == Physics::PhysicsPipelineStage::BroadphaseCandidate );
+    CHECK( banks.Build().Pipeline( solved->pipeline, 1u )->stage == Physics::PhysicsPipelineStage::ManifoldRow );
+    CHECK( banks.Build().Pipeline( solved->pipeline, 2u )->stage == Physics::PhysicsPipelineStage::SolverIteration );
+}
+
 TEST_CASE( "Prediction evidence store: exact identity separates same-frame replacements" )
 {
     ReplayPredictionSolverEvidenceBanks banks;

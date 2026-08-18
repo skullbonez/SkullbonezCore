@@ -84,6 +84,8 @@ struct ReplayAutomationView
     ReplayVisualPacket visualPacket;
     ReplayTrajectorySubmissionProbeStats trajectorySubmission;
     uint64_t predictionAppearanceInvalidationCount = 0;
+    ReplayPredictionSolverEvidenceCaptureStats predictionEvidenceCapture;
+    ReplayPredictionSolverEvidenceBanksMemoryStats predictionEvidenceMemory;
     SkullbonezCore::Core::MainMemoryReplayStats memoryStats;
     ReplayInputView input;
     float solverTrackPosition = 0.0f;

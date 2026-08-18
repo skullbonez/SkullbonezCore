@@ -596,6 +596,8 @@ ReplayAutomationView ReplayRuntime::BuildAutomationView() const
              m_predictionOwner.PresentationOwner().PublishedVisualPacketView(),
              m_predictionOwner.PresentationOwner().TrajectorySubmissionProbeSnapshot(),
              m_predictionOwner.PresentationOwner().AppearanceInvalidationCount(),
+             m_predictionOwner.SolverEvidenceCaptureStats(),
+             m_predictionOwner.CollectMemoryStats().evidence,
              CollectMemoryStats(),
              BuildInputView(),
              m_scrubberOwner.TrackPosition( RunReplayTrack::Solver ),

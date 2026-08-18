@@ -172,6 +172,55 @@ void HashPredictionVector( uint64_t& hash, const Vector3& value )
     HashPredictionFloat( hash, value.z );
 }
 
+// Concept: this hash isolates private-simulation results from presentation
+// timing and evidence-retention policy. Matching High/Low runs must produce the
+// same body/contact rows even though only High copies full solver evidence.
+uint64_t HashPredictionSimulationFrames( std::span<const RunReplayPredictionFrame> frames )
+{
+    uint64_t hash = INTERACTION_PREDICTION_FINGERPRINT_OFFSET;
+    HashPredictionScalar( hash, frames.size() );
+
+    for ( const RunReplayPredictionFrame& frame : frames )
+    {
+        HashPredictionScalar( hash, frame.frameIndex );
+        HashPredictionScalar( hash, frame.simulationSeconds );
+        HashPredictionScalar( hash, frame.bodies.size() );
+
+        for ( const RunReplayPredictionBodySample& body : frame.bodies )
+        {
+            HashPredictionScalar( hash, body.id.value );
+            HashPredictionScalar( hash, body.modelRow.value );
+            HashPredictionVector( hash, body.position );
+            HashPredictionVector( hash, body.linearVelocity );
+            float orientationX = 0.0f;
+            float orientationY = 0.0f;
+            float orientationZ = 0.0f;
+            float orientationW = 1.0f;
+            body.orientation.GetComponents( orientationX, orientationY, orientationZ, orientationW );
+            HashPredictionFloat( hash, orientationX );
+            HashPredictionFloat( hash, orientationY );
+            HashPredictionFloat( hash, orientationZ );
+            HashPredictionFloat( hash, orientationW );
+            HashPredictionScalar( hash, static_cast<uint8_t>( body.sleeping ) );
+        }
+
+        HashPredictionScalar( hash, frame.debugContacts.size() );
+
+        for ( const Physics::PhysicsDebugContact& contact : frame.debugContacts )
+        {
+            HashPredictionScalar( hash, contact.bodyA );
+            HashPredictionScalar( hash, contact.bodyB );
+            HashPredictionScalar( hash, contact.featureId );
+            HashPredictionVector( hash, contact.point );
+            HashPredictionVector( hash, contact.normal );
+            HashPredictionFloat( hash, contact.penetration );
+            HashPredictionFloat( hash, contact.normalImpulse );
+        }
+    }
+
+    return hash;
+}
+
 ReplayCausalProofTick BuildReplayCausalProofTick( const ReplayVisualPacket& packet )
 {
     ReplayCausalProofTick tick;
@@ -1434,6 +1483,7 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
     const bool replayPastPathVisible = replay.path.hasTarget && replay.path.pastPathVisible;
     const std::size_t predictionVisibleFrameCount = VisiblePredictionFrameCount( replay );
     const RunReplayPredictionState& predictionState = replay.prediction;
+    const uint64_t predictionPrivateSimulationHash = HashPredictionSimulationFrames( replay.activePredictionFrames );
     const std::span<const RunReplayPredictionFrame> committedPredictionFrames = predictionState.CommittedFrames();
     const bool predictionPathVisible = ReplayPredictionPathVisible( replay );
     const bool predictionContactsIncomplete = ReplayPredictionContactsIncomplete( replay );
@@ -1767,6 +1817,25 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
                                 { "predictionDrawListShowAllFuturePaths",
                                   ReplayPredictionPathPresentationShowsAllBodies( ReplayPrediction::PresentationViewFromState( predictionState, true )
                                                                                       .pathPresentation ) },
+                                { "predictionEvidenceBuildBeginCount", replay.predictionEvidenceCapture.buildBeginCount },
+                                { "predictionEvidenceConsumerAcquireCount",
+                                  replay.predictionEvidenceCapture.consumerAcquireCount },
+                                { "predictionEvidenceConsumerReleaseCount",
+                                  replay.predictionEvidenceCapture.consumerReleaseCount },
+                                { "predictionEvidenceConsumerActive", replay.predictionEvidenceCapture.consumerActive },
+                                { "predictionEvidenceSealedFrameCount", replay.predictionEvidenceCapture.sealedFrameCount },
+                                { "predictionEvidenceCopiedContactCount",
+                                  replay.predictionEvidenceCapture.copiedContactCount },
+                                { "predictionEvidenceCopiedPipelineCount",
+                                  replay.predictionEvidenceCapture.copiedPipelineCount },
+                                { "predictionEvidenceBuildPublishedFrameCount",
+                                  replay.predictionEvidenceMemory.build.publishedFrameCount },
+                                { "predictionEvidenceCommittedPublishedFrameCount",
+                                  replay.predictionEvidenceMemory.committed.publishedFrameCount },
+                                { "predictionEvidenceCurrentCapacityBytes",
+                                  replay.predictionEvidenceMemory.currentCapacityBytes },
+                                { "predictionPrivateSimulationHash",
+                                  FormatPredictionHash( predictionPrivateSimulationHash ) },
                                 { "predictionTrajectoryRecords", predictionTrajectoryRows },
                                 { "predictionFutureNodes", predictionFutureNodeRows },
                                 { "replayInterceptValid", replay.intercept.valid },

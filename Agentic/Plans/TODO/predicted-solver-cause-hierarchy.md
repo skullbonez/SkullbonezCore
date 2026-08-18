@@ -1,7 +1,7 @@
 # Predicted Solver Cause Hierarchy
 
 Date: 2026-08-18
-Status: Active; 3/8 phases complete
+Status: Active; 5/8 phases complete
 Impact area: Runtime Prediction and Planning, replay cause-tree UI/input,
 prediction archives, retained-memory reporting, tests, documentation, and visual QA
 Owner: Runtime Prediction detail retention with Planning-owned causal inspection
@@ -390,7 +390,7 @@ retaining detail capacity after switching to low detail.
   partial budget slices never expose a promoted root; archive/load and bank
   promotion keep the same qualification; and ordinary demo plus authored
   non-space scenes have exactly one FutureRoot.
-- [ ] **PSD4 - Capture and publish exact high-detail evidence.** In High mode,
+- [x] **PSD4 - Capture and publish exact high-detail evidence.** In High mode,
   acquire the existing full-pipeline-record consumer on the private Physics
   engine, copy persistent contacts and ordered stage/iteration pipeline ranges
   after each complete step, and publish a frame only after its evidence ranges
@@ -601,6 +601,40 @@ retaining detail capacity after switching to low detail.
   reports `causal.topologyCount` expected 200, actual 201. No golden was
   refreshed; the exact report, logs, and executables are preserved under
   `TestOutput/validation/candidates/PREDICT_SOLVER_DETAIL_PSD3/`.
+
+### PSD4 - Exact high-detail evidence publication
+
+- `ReplayPrediction` now brackets each High build with the existing private
+  Physics full-pipeline consumer, copies persistent contacts and ordered
+  pipeline records after every complete private step, seals evidence before
+  publishing the matching frame prefix, and promotes or cancels the paired
+  evidence bank with the prediction generation. Restart, cancellation,
+  promotion, and destruction all balance the consumer. Low mode never acquires
+  it and appends no evidence.
+- Automation reports the capture lifecycle, committed evidence counts and
+  capacities, and a deterministic private-simulation hash. High and Low
+  generated-demo witnesses both publish 90 frames with identical private hash
+  `0x18C9CE2B02FF5399`; High balances two acquires/releases and retains 14
+  contacts plus 24,364 pipeline rows, while Low reports zero acquire/release,
+  contacts, pipeline rows, and evidence capacity. Terrain retains 2,714
+  contacts and 54,580 pipeline rows; the 200-body dense witness retains 525,340
+  contacts and 4,403,029 pipeline rows within the 320 MiB bank cap.
+- Focused store tests pin initial empty publication, exact object/terrain
+  ranges, ordered pipeline stages, and sealed frame identity. The full Profile
+  suite passes 602 cases / 2,484,212 assertions; Automation exclusion/smoke,
+  strict replay allocation policy, and the replay prediction frame-spike gate
+  pass. `validate_fast` passes all nine stages, including 90 compiled-symbol
+  reachability rows with zero blocking diagnostics. Nineteen obsolete
+  evidence-store reachability rulings were deleted once their operations became
+  production-rooted. The touched-source comment audit is 9/9 checked with none
+  deferred.
+- Two owner-controlled immutable oracles remain intentionally unchanged.
+  `validate_physics` deterministically reproduces the current varied CSV but
+  differs from the checked-in baseline in 20,394 lines beginning at frame 102;
+  that baseline predates the three later Catto Physics commits. The replay
+  visual gate reaches the already-recorded PSD3 corrected-topology mismatch at
+  reveal 0 (`header.topologyVersion`). Neither oracle was refreshed, and
+  neither failure is introduced by PSD4 evidence capture.
 
 ## Acceptance
 

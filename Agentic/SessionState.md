@@ -2,7 +2,7 @@
 
 Date: 2026-08-18
 Branch: `nightrunner-18th-AUG-26`
-Status: Three active plans; 28/47 tasks complete
+Status: Three active plans; 29/47 tasks complete
 
 Predicted Solver Cause Hierarchy (8 tasks), Continuous Orbital Forecast
 (7 tasks), and At-Rest Ball Stability (8 tasks) are registered
@@ -121,6 +121,23 @@ records against its retired 200-node flat topology and 802 records. Exact
 reports, logs, and executables remain under
 `TestOutput/validation/candidates/PREDICT_SOLVER_DETAIL_PSD3/`.
 
+PSD4 is complete. High prediction builds now acquire the full-pipeline consumer
+only on their private Physics engine, publish exact persistent-contact and
+ordered pipeline evidence behind the matching sealed frame prefix, and balance
+the consumer across promotion, cancellation, restart, and destruction. Low
+builds allocate and copy no solver evidence. High and Low generated-demo
+witnesses publish the same 90-frame private simulation hash
+`0x18C9CE2B02FF5399`; High retains 14 contacts / 24,364 pipeline rows with two
+balanced acquire/releases, while Low retains zero evidence and performs no
+acquire/release. Terrain and dense witnesses retain non-empty exact evidence,
+with the 200-body case remaining inside the 320 MiB bank cap. The full
+602-case / 2,484,212-assertion suite, Automation, strict allocation,
+frame-spike, and all nine fast-gate stages pass; compiled reachability has 90
+ruled rows and zero blockers. The touched-source audit is 9/9 with none
+deferred. The stale Physics CSV and PSD3 visual-topology oracles remain
+unchanged and are recorded in the phase evidence; neither mismatch is caused
+by PSD4.
+
 Catto CD3 replaced the global summed squared impulse-delta early-out with the
 maximum per-contact-row squared delta while retaining the historical sum for
 diagnostics only. The focused eight-contact oracle fails the retired gate and
@@ -224,9 +241,8 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `PREDICT_SOLVER_DETAIL` PSD4-PSD7. Capture exact private-pipeline
-evidence next, then build the body ->
-manifold -> solver-row hierarchy, transactional archives, and the combined
+Execute `PREDICT_SOLVER_DETAIL` PSD5-PSD7. Build the body -> manifold ->
+solver-row hierarchy next, then add transactional archives and the combined
 High/Low release workflow.
 
 After predicted solver detail closes, execute `ORBIT_FORECAST` OF0-OF6. The
@@ -253,7 +269,9 @@ not part of the active queue.
 
 ## Blockers
 
-- None. Continue with `PREDICT_SOLVER_DETAIL` PSD4.
+- None. Continue with `PREDICT_SOLVER_DETAIL` PSD5. The stale Physics CSV and
+  corrected-topology visual oracle remain owner-controlled validation findings;
+  do not refresh either without approval.
 
 ## CI Note
 

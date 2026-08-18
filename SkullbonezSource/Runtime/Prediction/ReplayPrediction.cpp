@@ -365,9 +365,9 @@ bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction, Skullbone
 }
 
 
-bool CaptureReplayPredictionFrame( RunReplayPredictionState& prediction, const PhysicsEngine& physicsEngine,
-                                   SkullbonezCore::Threading::WorkerPool& workerPool, int modelCount,
-                                   ReplayFrameIndex frameIndex )
+bool CaptureReplayPredictionFrame( ReplayPrediction& predictionOwner, RunReplayPredictionState& prediction,
+                                   const PhysicsEngine& physicsEngine, SkullbonezCore::Threading::WorkerPool& workerPool,
+                                   int modelCount, ReplayFrameIndex frameIndex )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureSample" );
     const PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physicsEngine );
@@ -461,6 +461,11 @@ bool CaptureReplayPredictionFrame( RunReplayPredictionState& prediction, const P
                 return false;
             }
 
+            if ( !predictionOwner.SealSolverEvidenceFrame( frameIndex ) )
+            {
+                return false;
+            }
+
             prediction.PublishBuildFrameSlot( frameSlot );
             return true;
         }
@@ -474,6 +479,13 @@ bool CaptureReplayPredictionFrame( RunReplayPredictionState& prediction, const P
         return false;
     }
 
+    if ( !predictionOwner.SealSolverEvidenceFrame( frameIndex ) )
+    {
+        return false;
+    }
+
+    // Invariant: the frame prefix is the outer publication edge. High-detail
+    // evidence has already copied and release-published every referenced row.
     prediction.PublishBuildFrameSlot( frameSlot );
     return true;
 }
@@ -491,7 +503,8 @@ void MarkReplayPredictionWorkerFailed( RunReplayPredictionState& prediction )
     prediction.build.publication.MarkWorkerFailed();
 }
 
-int RunReplayPredictionWorkerRange( RunReplayPredictionState& prediction, const SkullbonezCore::Core::EngineConfig& config,
+int RunReplayPredictionWorkerRange( ReplayPrediction& predictionOwner, RunReplayPredictionState& prediction,
+                                    const SkullbonezCore::Core::EngineConfig& config,
                                     SkullbonezCore::Threading::WorkerPool& workerPool, int modelCount, int beginTickIndex,
                                     int endTickIndex )
 {
@@ -536,8 +549,9 @@ int RunReplayPredictionWorkerRange( RunReplayPredictionState& prediction, const 
         if ( stepSucceeded )
         {
             PROFILE_SCOPED( "Frame/Replay/Prediction/WorkerRange/CaptureSample" );
-            captureSucceeded = CaptureReplayPredictionFrame( prediction, predictionEngine, workerPool, modelCount,
-                                                             static_cast<ReplayFrameIndex>( predictionTick ) );
+            captureSucceeded = predictionOwner.RefreshSolverEvidenceSource( predictionEngine, modelCount ) &&
+                               CaptureReplayPredictionFrame( predictionOwner, prediction, predictionEngine, workerPool,
+                                                             modelCount, static_cast<ReplayFrameIndex>( predictionTick ) );
         }
 
         if ( !stepSucceeded || !captureSucceeded )
@@ -601,7 +615,7 @@ int ReplayPrediction::RunWorkerRange( const SkullbonezCore::Core::EngineConfig& 
                                       SkullbonezCore::Threading::WorkerPool& workerPool, int modelCount, int beginTickIndex,
                                       int endTickIndex )
 {
-    return RunReplayPredictionWorkerRange( m_state, config, workerPool, modelCount, beginTickIndex, endTickIndex );
+    return RunReplayPredictionWorkerRange( *this, m_state, config, workerPool, modelCount, beginTickIndex, endTickIndex );
 }
 
 namespace
@@ -626,11 +640,6 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayPrediction& predictionOwner
 
     if ( prediction.simulation.predictionEngine )
     {
-        prediction.simulation.predictionEngine
-            ->CaptureReplaySolverSnapshot( prediction.simulation.predictionWorld.physics,
-                                           MakePhysicsBodyCountFromNonNegativeInt( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( *prediction.simulation.predictionEngine )
-                                                                                       .Count() ) );
-
         const Gameplay::TornadoGameplay& tornadoGameplay = prediction.simulation.predictionTornadoGameplay;
         prediction.simulation.predictionWorld.tornadoConfig = tornadoGameplay.GetFieldConfig();
         prediction.simulation.predictionWorld.tornadoSystemConfig = tornadoGameplay.GetSystemConfig();
@@ -664,6 +673,14 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayPrediction& predictionOwner
     const std::size_t presentedBuildFrameCount = prediction.build.presentationPublication
                                                      .PresentedCount( prediction.PublishedBuildFrameCount(),
                                                                       completedFrameCount );
+
+    if ( !predictionOwner.PromoteSolverEvidenceBuild() )
+    {
+        predictionOwner.CancelJob( !hadCommittedPredictionFrames, hadCommittedPredictionFrames );
+        prediction.build.dirty = true;
+        return false;
+    }
+
     prediction.PromoteBuildFramesToCommitted( completedFrameCount );
 
     // Why: the swapped-out committed bank is the next build's allocation-free
@@ -1000,7 +1017,9 @@ bool ReplayPrediction::BeginFrameSimulation( PhysicsEngine& physicsEngine, const
     }
 
     if ( !prediction.simulation.predictionEngine ||
-         !CaptureReplayPredictionFrame( prediction, *prediction.simulation.predictionEngine, workerPool, modelCount, 0 ) )
+         !predictionOwner.BeginSolverEvidenceBuild( prediction.build.generationBeginCount + 1u ) ||
+         !CaptureReplayPredictionFrame( predictionOwner, prediction, *prediction.simulation.predictionEngine, workerPool,
+                                        modelCount, 0 ) )
     {
         predictionOwner.CancelJob( clearSamplesOnCancel, !clearSamplesOnCancel );
         prediction.build.dirty = true;
@@ -1390,6 +1409,136 @@ void ReplayPrediction::SetEnabled( bool enabled ) noexcept
 {
     m_state.enabled = enabled;
     MarkDirty();
+}
+
+ReplayPrediction::~ReplayPrediction()
+{
+    // Hazard: the worker may be sealing a frame into m_solverEvidence. Join it
+    // before member destruction reverses declaration order and retires the bank.
+    WaitForJobIdle();
+    CancelSolverEvidenceBuild();
+}
+
+ReplayPredictionSolverEvidenceCaptureStats ReplayPrediction::SolverEvidenceCaptureStats() const noexcept
+{
+    return m_solverEvidenceCaptureStats;
+}
+
+bool ReplayPrediction::BeginSolverEvidenceBuild( uint32_t generation )
+{
+    if ( !m_state.simulation.predictionEngine )
+    {
+        return false;
+    }
+
+    PhysicsEngine& predictionEngine = *m_state.simulation.predictionEngine;
+
+    // Invariant: every new bank generation first closes any prior diagnostics
+    // consumer. This keeps acquire/release accounting correct even if a future
+    // restart path reaches Begin without an explicit CancelJob edge.
+    CancelSolverEvidenceBuild();
+
+    if ( m_detailMode == ReplayPredictionDetailMode::Low )
+    {
+        // Why: Physics continues counting pipeline events for solver identity,
+        // but Low prediction neither retains their payload nor enters the
+        // segmented evidence reserve/copy path.
+        predictionEngine.SetPipelineTraceFullRecordConsumerActive( false );
+        m_solverEvidenceCaptureStats.consumerActive = false;
+        return true;
+    }
+
+    predictionEngine.SetPipelineTraceFullRecordConsumerActive( true );
+    m_solverEvidence.BeginBuild( generation, ReplayPredictionDetailMode::High );
+    ++m_solverEvidenceCaptureStats.buildBeginCount;
+    ++m_solverEvidenceCaptureStats.consumerAcquireCount;
+    m_solverEvidenceCaptureStats.consumerActive = true;
+    return true;
+}
+
+bool ReplayPrediction::RefreshSolverEvidenceSource( PhysicsEngine& predictionEngine, int modelCount )
+{
+    if ( m_detailMode == ReplayPredictionDetailMode::Low )
+    {
+        return true;
+    }
+
+    if ( !m_solverEvidenceCaptureStats.consumerActive || m_state.simulation.predictionEngine.get() != &predictionEngine )
+    {
+        return false;
+    }
+
+    // Concept: the Physics snapshot is frame-local staging here. Capture runs
+    // only after Step completes, and SealSolverEvidenceFrame detaches the two
+    // exact spans before the outer prediction frame becomes visible.
+    predictionEngine.CaptureReplaySolverSnapshot( m_state.simulation.predictionWorld.physics,
+                                                  MakePhysicsBodyCountFromNonNegativeInt( modelCount ) );
+    return true;
+}
+
+bool ReplayPrediction::SealSolverEvidenceFrame( ReplayFrameIndex frame )
+{
+    if ( m_detailMode == ReplayPredictionDetailMode::Low )
+    {
+        return true;
+    }
+
+    if ( !m_solverEvidenceCaptureStats.consumerActive )
+    {
+        return false;
+    }
+
+    const Physics::PhysicsSolverSnapshot& snapshot = m_state.simulation.predictionWorld.physics;
+    const bool appended = m_solverEvidence.AppendBuildFrame( frame, m_state.trajectoryBuild.topologyVersion,
+                                                             m_state.trajectoryStore.publicationVersion,
+                                                             snapshot.persistentContacts, snapshot.pipelineTrace,
+                                                             static_cast<int>( frame ) );
+
+    if ( appended )
+    {
+        ++m_solverEvidenceCaptureStats.sealedFrameCount;
+        m_solverEvidenceCaptureStats.copiedContactCount += snapshot.persistentContacts.size();
+        m_solverEvidenceCaptureStats.copiedPipelineCount += snapshot.pipelineTrace.size();
+    }
+
+    return appended;
+}
+
+bool ReplayPrediction::PromoteSolverEvidenceBuild() noexcept
+{
+    if ( m_detailMode == ReplayPredictionDetailMode::Low )
+    {
+        return true;
+    }
+
+    if ( m_solverEvidenceCaptureStats.consumerActive )
+    {
+        if ( m_state.simulation.predictionEngine )
+        {
+            m_state.simulation.predictionEngine->SetPipelineTraceFullRecordConsumerActive( false );
+        }
+
+        ++m_solverEvidenceCaptureStats.consumerReleaseCount;
+        m_solverEvidenceCaptureStats.consumerActive = false;
+    }
+
+    return m_solverEvidence.PromoteBuild();
+}
+
+void ReplayPrediction::CancelSolverEvidenceBuild() noexcept
+{
+    if ( m_solverEvidenceCaptureStats.consumerActive )
+    {
+        if ( m_state.simulation.predictionEngine )
+        {
+            m_state.simulation.predictionEngine->SetPipelineTraceFullRecordConsumerActive( false );
+        }
+
+        ++m_solverEvidenceCaptureStats.consumerReleaseCount;
+        m_solverEvidenceCaptureStats.consumerActive = false;
+    }
+
+    m_solverEvidence.CancelBuild();
 }
 
 ReplayPredictionDetailTransitionAction ReplayPrediction::ApplyDetailModeCommand( ReplayPredictionDetailModeCommand command )
