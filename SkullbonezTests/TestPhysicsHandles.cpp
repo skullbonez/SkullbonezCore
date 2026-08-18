@@ -1,13 +1,16 @@
 //
 // File: SkullbonezTests/TestPhysicsHandles.cpp
 // Purpose:
-//   Lock body/collider handle semantics and aligned buoyancy-row lifecycle.
+//   Lock body/collider handle semantics, replay topology identity, and aligned
+//   buoyancy-row lifecycle.
 //
 // Summary:
 //   Physics handles are allocator identities, not dense row indices. The stores
 //   keep simulation rows compact by moving the final row into a deleted slot,
 //   while handle maps preserve live identity and reject stale generations.
-//   Buoyancy tests prove its feature-owned facts mirror the same row operations.
+//   Replay tests prove durable scene identity survives new handle epochs and
+//   prefix trims preserve point-joint order; buoyancy tests prove its feature-
+//   owned facts mirror the body-row operations.
 //
 // Glossary:
 //   Handle generation: Version counter incremented when a handle slot is
@@ -38,8 +41,11 @@
 //     an upward velocity response.
 //   - The production Replay prediction reserve adapter preserves committed
 //     scene capacity, owns an independent collider graph after source
-//     destruction, retains a per-test terrain owner through both engine
-//     lifetimes, and advances identical seeded state bit-for-bit.
+//     destruction, copies point-joint warm-start state, retains a per-test
+//     terrain owner through both engine lifetimes, and advances identical
+//     seeded state bit-for-bit.
+//   - Replay prefix trim stably compacts point-joint rows before retiring body
+//     handles, so checkpoint topology ordinals remain valid and no doomed row leaks.
 //   - The exact reserve census includes every registered SpatialGrid owner and
 //     rejects any unregistered growth or capacity-reporting row.
 //
@@ -47,6 +53,7 @@
 //   - SkullbonezSource/Physics/PhysicsBodyStore.h
 //   - SkullbonezSource/Physics/ColliderStore.h
 //   - SkullbonezSource/Physics/BuoyancySystem.h
+//   - Agentic/Reference/engine-glossary.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
@@ -1465,6 +1472,8 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
     CHECK( FloatBitsEqual( sourceJoints[0].slack, clonedJoints[0].slack ) );
     CHECK( FloatBitsEqual( sourceJoints[0].stiffness, clonedJoints[0].stiffness ) );
     CHECK( FloatBitsEqual( sourceJoints[0].damping, clonedJoints[0].damping ) );
+    CHECK( FloatBitsEqual( sourceJoints[0].accumulatedImpulse, clonedJoints[0].accumulatedImpulse ) );
+    CHECK( sourceJoints[0].accumulatedImpulse != 0.0f );
     CHECK( sourceJoints[0].groupId == clonedJoints[0].groupId );
     CHECK( sourceJoints[0].flags == clonedJoints[0].flags );
 
@@ -1480,8 +1489,77 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
                                 SkullbonezCore::Physics::LoadPhysicsBodyHotState( PhysicsEngine::ReadBodies(
                                                                                       predictionEngine )
                                                                                       .HotFields(),
+                                index ) );
+    }
+
+    REQUIRE( solverSnapshot.pointJoints.size() == 1u );
+    const float historicalJointImpulse = solverSnapshot.pointJoints[0].accumulatedImpulse;
+    const float advancedJointImpulse = PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].accumulatedImpulse;
+    REQUIRE_FALSE( FloatBitsEqual( historicalJointImpulse, advancedJointImpulse ) );
+
+    SkullbonezCore::Physics::PhysicsSolverSnapshot mismatchedTopology = solverSnapshot;
+    mismatchedTopology.pointJoints[0].localAnchorA.x += 0.125f;
+    const int preflightBodyCount = PhysicsEngine::ReadBodies( predictionEngine ).Count();
+    const int preflightColliderCount = PhysicsEngine::ReadColliders( predictionEngine ).Count();
+    const auto preflightJointHandle = PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].handle;
+    CHECK_FALSE( predictionEngine.CanRestoreReplaySolverSnapshot(
+        mismatchedTopology, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( bodyCount ) ) );
+    CHECK( PhysicsEngine::ReadBodies( predictionEngine ).Count() == preflightBodyCount );
+    CHECK( PhysicsEngine::ReadColliders( predictionEngine ).Count() == preflightColliderCount );
+    REQUIRE( PhysicsEngine::ReadPointJointConstraints( predictionEngine ).size() == 1u );
+    CHECK( PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].handle == preflightJointHandle );
+    CHECK( FloatBitsEqual( PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].accumulatedImpulse,
+                           advancedJointImpulse ) );
+    CHECK_FALSE( predictionEngine.RestoreReplaySolverSnapshot(
+        mismatchedTopology, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( bodyCount ) ) );
+    CHECK( FloatBitsEqual( PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].accumulatedImpulse,
+                           advancedJointImpulse ) );
+
+    SkullbonezCore::Physics::PhysicsSolverSnapshot legacySnapshot = solverSnapshot;
+    legacySnapshot.version = 2u;
+    legacySnapshot.pointJoints.clear();
+    REQUIRE( predictionEngine.RestoreReplaySolverSnapshot(
+        legacySnapshot, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( bodyCount ) ) );
+    CHECK( PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].accumulatedImpulse == 0.0f );
+
+    // Invariant: restoring historical solver state replaces a later cache on
+    // both the live and prediction engines. The following fixed step therefore
+    // consumes the same warm-start input instead of whichever impulse happened
+    // to be live when prediction topology was cloned.
+    REQUIRE( liveEngine->RestoreReplaySolverSnapshot(
+        solverSnapshot, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( bodyCount ) ) );
+    REQUIRE( predictionEngine.RestoreReplaySolverSnapshot(
+        solverSnapshot, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( bodyCount ) ) );
+    CHECK( FloatBitsEqual( PhysicsEngine::ReadPointJointConstraints( *liveEngine )[0].accumulatedImpulse,
+                           historicalJointImpulse ) );
+    CHECK( FloatBitsEqual( PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].accumulatedImpulse,
+                           historicalJointImpulse ) );
+
+    liveEngine->Step( PHYSICS_FIXED_DT, forces, workerPool, SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter {} );
+    predictionEngine.Step( PHYSICS_FIXED_DT, forces, workerPool, SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter {} );
+
+    for ( int row = 0; row < bodyCount; ++row )
+    {
+        const std::size_t index = static_cast<std::size_t>( row );
+        CheckHotStateBitsEqual( SkullbonezCore::Physics::LoadPhysicsBodyHotState( PhysicsEngine::ReadBodies( *liveEngine )
+                                                                                      .HotFields(),
+                                                                                  index ),
+                                SkullbonezCore::Physics::LoadPhysicsBodyHotState( PhysicsEngine::ReadBodies(
+                                                                                      predictionEngine )
+                                                                                      .HotFields(),
                                                                                   index ) );
     }
+
+    SkullbonezCore::Physics::PhysicsPointJointUpdateDesc solverUpdate;
+    solverUpdate.constraint = sourceJoints[0].handle;
+    solverUpdate.updateMask = SkullbonezCore::Physics::PHYSICS_POINT_JOINT_UPDATE_SOLVER;
+    solverUpdate.slack = sourceJoints[0].slack;
+    solverUpdate.stiffness = sourceJoints[0].stiffness + 0.01f;
+    solverUpdate.damping = sourceJoints[0].damping;
+    REQUIRE( liveEngine->UpdatePointJoint( solverUpdate ) );
+    // Invariant: an authored solver-policy change keeps handle identity but
+    // invalidates the scalar impulse produced under the previous policy.
+    CHECK( sourceJoints[0].accumulatedImpulse == 0.0f );
 
     // Lifetime: ColliderStore cloned every shape into destination-owned backing.
     // Destroying the live engine must not invalidate prediction references.
@@ -1509,6 +1587,73 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
     CHECK( survivingColliders.RecordForHandle( registrations[3].collider )->shape.StorageIndex() == 0u );
     REQUIRE( survivingColliders.HullIdentityForHandle( registrations[3].collider ) != nullptr );
     CHECK( *survivingColliders.HullIdentityForHandle( registrations[3].collider ) == sharedHullIdentity );
+}
+
+
+TEST_CASE( "Replay body-prefix trim removes doomed point joints and preserves survivor order" )
+{
+    constexpr int bodyCount = 4;
+    constexpr int restoredBodyCount = 3;
+    PhysicsEngine engine;
+    const CollisionShape shape = MakeColliderShape( 0.5f );
+    SkullbonezCore::Physics::PhysicsAuthoredBodyRegistration registrations[bodyCount] = {};
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        engine.ReserveAuthoredBodyCapacity( bodyCount, bodyCount, 0u, 0u, 3u );
+
+        for ( int row = 0; row < bodyCount; ++row )
+        {
+            const auto sceneObjectId = MakePhysicsSceneObjectId( 810u + static_cast<uint32_t>( row ) );
+            auto body = SkullbonezCore::Physics::MakePhysicsBodyCreateDesc(
+                sceneObjectId, shape, Vector3( static_cast<float>( row ), 10.0f, 0.0f ),
+                SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION, Vector3( 0.0f, 0.0f, 0.0f ),
+                Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 1.0f, 1.0f, 1.0f ), 1.0f, 0.0f,
+                SkullbonezCore::Physics::PhysicsBodyMotionKind::Dynamic, "replay-trim-joint-body" );
+            auto collider = SkullbonezCore::Physics::MakeColliderCreateDesc( shape, 0.0f, 0u, "replay-trim-joint" );
+            collider.sceneObjectId = sceneObjectId;
+            registrations[row] = engine.RegisterAuthoredBody( body, collider );
+            REQUIRE( registrations[row].IsValid() );
+        }
+    }
+
+    const auto createJoint = [&]( int bodyA, int bodyB )
+    {
+        SkullbonezCore::Physics::PhysicsPointJointCreateDesc joint;
+        joint.bodyA = registrations[bodyA].body;
+        joint.bodyB = registrations[bodyB].body;
+        joint.localAnchorA = Vector3( static_cast<float>( bodyA ), 0.0f, 0.0f );
+        joint.localAnchorB = Vector3( static_cast<float>( bodyB ), 0.0f, 0.0f );
+        return engine.CreatePointJoint( joint );
+    };
+
+    // The doomed row is deliberately first. A swap-pop removal would reverse
+    // the two survivor rows and invalidate the preflight's filtered ordinals.
+    const auto doomed = createJoint( 3, 0 );
+    const auto survivorA = createJoint( 0, 1 );
+    const auto survivorB = createJoint( 1, 2 );
+    REQUIRE( doomed.IsValid() );
+    REQUIRE( survivorA.IsValid() );
+    REQUIRE( survivorB.IsValid() );
+
+    SkullbonezCore::Physics::PhysicsSolverSnapshot snapshot;
+    engine.CaptureReplaySolverSnapshot(
+        snapshot, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( restoredBodyCount ) );
+    REQUIRE( snapshot.pointJoints.size() == 2u );
+    CHECK( snapshot.pointJoints[0].topologyOrdinal == 0u );
+    CHECK( snapshot.pointJoints[1].topologyOrdinal == 1u );
+    REQUIRE( engine.CanRestoreReplaySolverSnapshot(
+        snapshot, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( restoredBodyCount ) ) );
+
+    REQUIRE( engine.TrimBodiesToCount(
+        SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( restoredBodyCount ) ) );
+    const auto& survivors = PhysicsEngine::ReadPointJointConstraints( engine );
+    REQUIRE( survivors.size() == snapshot.pointJoints.size() );
+    CHECK( survivors[0].handle == survivorA );
+    CHECK( survivors[1].handle == survivorB );
+    REQUIRE( engine.RestoreReplaySolverSnapshot(
+        snapshot, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( restoredBodyCount ) ) );
 }
 
 

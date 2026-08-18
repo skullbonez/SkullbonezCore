@@ -228,7 +228,7 @@
       "owner": "Replay recorder sample payloads",
       "phase": "replay",
       "reason": "Presentation and solver sample body vectors grow lazily under active scene size instead of startup game_model_capacity.",
-      "cap": "ReplayRetainedMemory policy registers replay_recorder_samples with a 32 MiB aggregate hard cap from the strict two-generation probe's 17,737,640-byte high-water; denial is fatal to prevent partial scrub state.",
+      "cap": "ReplayRetainedMemory policy registers replay_recorder_samples with a 32 MiB aggregate hard cap from the strict two-generation probe's 16,223,044-byte high-water; denial is fatal to prevent partial scrub state.",
       "removal_or_wrapper_plan": "Replace retained body vectors with a flat replay arena/body dictionary when replay memory tuning lands; keep recorder growth behind ReserveReplayRecorderSampleVector until then."
     },
     {
@@ -239,7 +239,7 @@
       "owner": "Replay solver snapshot reserve",
       "phase": "replay",
       "reason": "Solver replay snapshots batch many typed vector payload reserves into one byte-budget approval before copying physics state.",
-      "cap": "ReplayRetainedMemory policy registers replay_solver_snapshot with an 8 MiB hard byte cap from the strict two-generation probe's 2,877,186-byte high-water; denial is fatal.",
+      "cap": "ReplayRetainedMemory policy registers replay_solver_snapshot with an 8 MiB hard byte cap from the strict two-generation probe's 3,401,552-byte high-water; denial is fatal.",
       "removal_or_wrapper_plan": "Replace snapshot vectors with an arena-backed snapshot record if replay solver storage is flattened."
     },
     {
@@ -994,7 +994,7 @@
       "owner": "Replay recorder retained sample payloads",
       "phase": "replay",
       "reason": "ReplayRecorder retains presentation, solver, world-delta, event, and visual sample payloads under the registered replay_recorder_samples reserve owner.",
-      "cap": "All recorder vectors share replay_recorder_samples' aggregate 32 MiB hard cap; the strict two-generation probe measured 17,737,640 bytes high-water.",
+      "cap": "All recorder vectors share replay_recorder_samples' aggregate 32 MiB hard cap; the strict two-generation probe measured 16,223,044 bytes high-water.",
       "removal_or_wrapper_plan": "Move replay buffers behind fixed replay arenas or typed replay owner wrappers, then delete this row for the converted file."
     },
     {
@@ -1005,7 +1005,7 @@
       "owner": "Replay recorder retained sample payloads",
       "phase": "replay",
       "reason": "ReplayRecorder record types own retained presentation, solver, world-delta, event, and visual vectors whose growth is approved through replay_recorder_samples.",
-      "cap": "All recorder vectors share replay_recorder_samples' aggregate 32 MiB hard cap; the strict two-generation probe measured 17,737,640 bytes high-water.",
+      "cap": "All recorder vectors share replay_recorder_samples' aggregate 32 MiB hard cap; the strict two-generation probe measured 16,223,044 bytes high-water.",
       "removal_or_wrapper_plan": "Move replay buffers behind fixed replay arenas or typed replay owner wrappers, then delete this row for the converted file."
     },
     {

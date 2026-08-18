@@ -1,16 +1,89 @@
 # Session State
 
-Date: 2026-08-17
-Branch: `main`
-Status: Three active plans; 20/39 tasks complete
+Date: 2026-08-18
+Branch: `nightrunner-18th-AUG-26`
+Status: Three active plans; 24/47 tasks complete
 
-Catto Divergence Repairs (6 tasks), Deterministic Trigonometry Adoption
-(8 tasks), and Continuous Orbital Forecast (7 tasks) are registered under
-`Agentic/Plans/TODO/`; Causal C0-C8, Determinism T0-T8, and Catto CD0-CD1 are
-complete. `MASTER-PLAN.md` carries the binding order: Catto CD2 next,
-deterministic trig following Catto, then continuous orbital forecast. The
-completed causal and determinism plans were deleted under the repository
+Predicted Solver Cause Hierarchy (8 tasks), Continuous Orbital Forecast
+(7 tasks), and At-Rest Ball Stability (8 tasks) are registered
+under `Agentic/Plans/TODO/`; Causal C0-C8, Determinism T0-T8, and Catto CD0-CD5
+are complete. `MASTER-PLAN.md` carries the binding order: predicted solver detail
+next, then continuous orbital forecast, then at-rest ball stability. The completed
+causal, determinism, and Catto plans were deleted under the repository
 convention; Git history retains their phase evidence.
+
+The owner parked Deterministic Trigonometry under `Agentic/Plans/WNF/` on
+2026-08-18 and replaced its active slot with At-Rest Ball Stability. The new
+plan removes the authored witness's arbitrary 1,800-frame timeout: `at_rest`
+now runs unlimited and must not auto-exit until a generic authored requirement
+proves `ball_a`, `ball_b`, and `ball_c` are all Physics-asleep. SkullScope
+diagnosis and semantic false-pass controls precede tuning, and vertical
+vibration, excessive sliding, rolling reversals, and delayed supported sleep
+remain separate quality metrics. Friction and sleep policy remain valid
+diagnostic hypotheses, but proper contact/solver/support fixes come first and
+any production policy change is blocked on isolated evidence plus explicit
+owner approval.
+
+Catto CD5 retained the authored partial-TOI sequence and derives one local
+contact interval from the remaining time of each awake dynamic participant.
+Terrain uses its dynamic body's interval, two awake dynamics use the shorter
+interval, and authored-fixed or sleeping solver-static bodies contribute no
+clock. Baumgarte, terrain support/friction, and object constant friction use
+that interval; near-zero intervals disable bias and friction while retaining
+impact restitution. Six focused interval cases are included. The full tests
+pass 590 cases / 2,480,638 assertions, performance and the independent review
+are green, and the terminal gate passes preflight, CPU/coverage, Automation,
+and DX12 before the approved immutable physics golden reports 20,394 changed
+rows. Physics and replay candidates plus their generating executables remain
+under `TestOutput/validation/candidates/CATTO_REPAIRS_CD5*`; no golden was
+refreshed.
+
+Catto CD4 added scalar accumulated-impulse warm starting to point joints and
+proved a loaded ten-link chain reduces final sag by about 30.5 percent and peak
+sag by about 11.8 percent. Because the cache is next-step state, solver
+checkpoints now persist it through durable scene identity in version 3, with
+preflight-before-mutation restore, stable topology trimming, legacy cold-cache
+compatibility, sparse deltas, hashing, and cold Clear/recreate coverage. The
+full test gate passes 584 cases / 2,480,611 assertions; replay artifact and
+strict allocation gates pass with snapshot high water 3,401,552 bytes and
+recorder high water 16,223,044 bytes. The varied physics candidate remains
+byte-identical to CD3; replay timing moves for 155 nodes. Fresh executables,
+CSV, report, logs, and replay are preserved under
+`TestOutput/validation/candidates/CATTO_REPAIRS_CD4*`; no golden was refreshed.
+All governance inventories, the 19/19 touched-source comment audit, and the
+independent re-review are green.
+
+Predicted Solver Cause Hierarchy was registered last on 2026-08-18 after an
+adversarial plan review. Its High mode retains exact predicted Body -> Manifold
+-> SolverRow evidence; Low keeps the selected-root trajectory topology while
+hiding causal inspection and releasing all detail capacity through an
+observable F6 checkpoint. The bottom-timeline `HIGH DETAIL` checkbox replaces
+the mouse Pause button, remains on by default, and preserves keyboard `P`.
+
+Catto CD3 replaced the global summed squared impulse-delta early-out with the
+maximum per-contact-row squared delta while retaining the historical sum for
+diagnostics only. The focused eight-contact oracle fails the retired gate and
+the full test gate passes 582 cases / 2,479,968 assertions. The deterministic
+physics mismatch changes 13,369 rows across 23 bodies from frame 102, while the
+replay causal candidate moves `topology[1].firstFrame` from 154 to 174. Exact
+Debug and Automation/Profile executables, CSV, report, log, and replay remain
+under `TestOutput/validation/candidates/CATTO_REPAIRS_CD3*`; no golden was
+refreshed. Performance, dependency proof, all seven inventories, a 3/3 touched-
+source comment audit, and independent review are green.
+
+Catto CD2 landed R5 and R6 as separate commits. R5 removed terrain manifold-
+count scaling from restitution; R6 removed the hardcoded solver-local quiet
+velocity snap so `PhysicsSleepController` remains the configured transition
+owner. Focused tests pin the 4.5 metres-per-second target, one-row/four-row
+agreement, and preservation of `0.04` linear / `0.01` angular residual motion.
+The full test gate passes 581 cases / 2,479,964 assertions. R5 and R6 divergence
+executables, reports, logs, CSVs, and replay artifacts remain under
+`TestOutput/validation/candidates/CATTO_REPAIRS_CD2_*` for later owner
+assessment. By explicit owner direction, the canonical physics, replay visual,
+and replay causal goldens were refreshed; `validate_physics` and the complete
+replay visual-fidelity gate now pass. All seven governance inventories are
+green, the touched-source comment audit is 2/2 checked with none deferred, and
+independent review found no implementation or ownership blocker.
 
 Catto CD1 replaced per-contact-row position projection with one deepest-row
 linear correction per contiguous manifold, inverse-mass shared and accumulated
@@ -90,31 +163,36 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Pause before `CATTO_REPAIRS` CD2 by owner request. When resumed, implement R5
-and then R6 as separate commits, followed by R3, R2(a), and R4. Preserve every
-baseline-failing executable by plan and phase, record its diff, and continue
-without refreshing a golden. `future_physics.md` remains unregistered.
+Execute `PREDICT_SOLVER_DETAIL` PSD0-PSD7. Start by pinning mode persistence and
+the ordinary-demo all-root regression, then add immutable segmented evidence
+banks, exact private-pipeline capture, the body -> manifold -> solver-row
+hierarchy, transactional archives, and the combined High/Low release workflow.
 
-After Catto closes, execute `TRIG_DETERMINISM` DT0-DT7. Its dated inventory is
-120 direct CPU production sine/cosine calls across 15 files plus 20 test-only
-calls across 5 files. Establish the A/B oracles and exact-tick headless solar
-fast-forward before migrating callers; the current fixed-step time-scale path
-caps work at five ticks per presented frame and drops excess ticks, so it is not
-the long-horizon test instrument.
-
-After deterministic trig closes, execute `ORBIT_FORECAST` OF0-OF6. The owner
-reactivated it from `WNF/` on 2026-08-17. OF0 first ratifies the authored solar
-stability cohort and thresholds; later phases add coherent circular
+After predicted solver detail closes, execute `ORBIT_FORECAST` OF0-OF6. The
+owner reactivated it from `WNF/` on 2026-08-17. OF0 first ratifies the authored
+solar stability cohort and thresholds; later phases add coherent circular
 publication, continuous isolated prediction, Planning-owned stability
 diagnostics, operator controls, and rolling orbital presentation without
-changing bounded `PREDICT`.
+changing bounded `PREDICT` or feeding detailed solver evidence into the
+continuous path.
+
+After orbital forecast closes, execute `REST_STABILITY` RS0-RS7. First add the
+authored all-three-ball sleep completion gate; no frame/time cap or aborted run
+may complete the unlimited scene. Preserve baseline executables, then use
+SkullScope summary, why-not-resting, rolling, convergence, energy, body,
+contact, and island queries to identify the owning causes before implementation.
+Semantic oracles must pin all three balls' vertical tail motion, slip, rolling
+reversals, support/sleep latency, and final sleeping state while retaining the
+boxes as controls. Repair normal vibration, tangent/rolling response, and sleep
+transition separately, preserve candidate artifacts, and refresh no baseline
+without owner approval.
+
+Deterministic Trigonometry remains owner-parked in `Agentic/Plans/WNF/` and is
+not part of the active queue.
 
 ## Blockers
 
-- None. Work is intentionally paused by owner direction before CD2. When
-  resumed, execute R5, R6, R3, R2(a), and R4 in order. Preserve baseline-failing
-  candidates for later owner review; do not re-ask the approved scope questions
-  or refresh a golden.
+- None. Continue with `PREDICT_SOLVER_DETAIL` PSD0.
 
 ## CI Note
 

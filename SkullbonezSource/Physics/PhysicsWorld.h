@@ -1,12 +1,12 @@
 /*
 File: SkullbonezSource/Physics/PhysicsWorld.h
 Purpose:
-  Owns per-scene physics working state shared by broadphase, solver, and diagnostics.
+  Owns solver-stage working state shared across one scene's fixed steps.
 
 Summary:
-  PhysicsWorld owns mutable per-scene physics stores, stage instances,
-  fixed-capacity scratch, and diagnostics. PhysicsEngine sequences it while
-  stages borrow explicit views.
+  PhysicsWorld owns solver stages, handle-keyed point-joint rows, fixed-capacity
+  scratch, and diagnostics. PhysicsEngine owns the body, collider, and buoyancy
+  stores and supplies explicit borrows while sequencing the world.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -15,6 +15,8 @@ Invariants:
     may not grow while fixed ticks are running.
   - Authored topology edits invalidate derived awake/grid state before the next
     fixed step, including same-count destroy/create sequences.
+  - Replay preflights joint topology before trim, and trim preserves surviving
+    joint-row order while body handles are still live.
 
 Related:
   - SkullbonezSource/Physics/PhysicsWorld.cpp
@@ -218,12 +220,17 @@ class PhysicsWorld
 
     // Deletion pre-pass: no constraint may retain a body handle after retirement.
     void DestroyPointJointsForBody( PhysicsBodyHandle body );
+    void TrimPointJointsToBodyCount( const PhysicsBodyStore& bodyStore, int bodyCount );
     PhysicsConstraintHandle CreatePointJoint( const PhysicsPointJointCreateDesc& desc );
     bool UpdatePointJoint( const PhysicsPointJointUpdateDesc& desc );
     bool DestroyConstraint( PhysicsConstraintHandle constraint );
     const PhysicsBodyRowList<PointJointConstraint>& GetPointJointConstraints() const;
-    void CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapshot, int modelCount ) const;
-    bool RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, int modelCount );
+    void CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapshot, int modelCount,
+                                      const PhysicsBodyStore& bodyStore ) const;
+    bool CanRestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, int modelCount,
+                                         const PhysicsBodyStore& bodyStore ) const;
+    bool RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, int modelCount,
+                                      const PhysicsBodyStore& bodyStore );
     PhysicsDiagnosticsView GetDiagnosticsView() const;
     uint64_t CollectMemoryBytes() const;
     uint64_t CollectDebugAndBroadphaseMemoryBytes() const;

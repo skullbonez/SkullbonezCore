@@ -6,9 +6,9 @@ Purpose:
 
 Summary:
   PhysicsContactSolverStage owns and executes the complete persistent-row solve
-  during one fixed step. It borrows dense body, collider, sleep, terrain, and
-  diagnostics rows synchronously and publishes a typed consequence batch for
-  the PhysicsWorld sequencer to commit.
+  during one fixed step. It borrows dense body, collider, sleep, terrain,
+  remaining-time, and diagnostics rows synchronously and publishes a typed
+  consequence batch for the PhysicsWorld sequencer to commit.
 
 Glossary:
   Consequence batch: Bounded post-solve records and body indices whose foreign
@@ -30,6 +30,9 @@ Invariants:
   - Pipeline event counts remain exact in both payload modes; count-only
     specializations leave the consequence record list empty.
   - The stage retains no pointer or reference to PhysicsWorld or borrowed rows.
+  - Contact-interval derivation reads the PhysicsWorld-owned sleep and
+    remaining-time spans synchronously; the transaction never retains either
+    borrow.
   - Wake propagation receives only a cache-invalidation capability, never the
     concrete contact-solver owner.
   - At most 64 convergence samples survive one solve; excess iterations are
@@ -210,11 +213,12 @@ class PersistentContactSolveTransaction
     void BuildTerrainRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
                            const PersistentContactSolverStepPolicy& stepPolicy,
                            PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds,
-                           std::span<const uint8_t> sleepState, int modelCount, std::size_t pipelineRecordCapacity, float dt,
-                           Core::Profiler* profiler );
+                           std::span<const uint8_t> sleepState, std::span<const float> timeRemaining, int modelCount,
+                           std::size_t pipelineRecordCapacity, float dt, Core::Profiler* profiler );
     template <bool RetainPipelineRecords>
     void PrecomputeRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
                          const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy,
+                         std::span<const uint8_t> sleepState, std::span<const float> timeRemaining,
                          std::size_t pipelineRecordCapacity, float dt, Core::Profiler* profiler );
     template <bool CollectConvergenceDiagnostics, bool RetainPipelineRecords>
     void SolveRowsIterations( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
@@ -321,7 +325,8 @@ class PhysicsContactSolverStage
                                                                 const PhysicsWorldForces& worldForces ) noexcept;
     void Solve( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                 const PersistentContactSolverStepPolicy& stepPolicy, std::span<const std::pair<int, int>> candidatePairs,
-                std::span<const uint8_t> sleepState, PhysicsCandidatePairList& sleepSupportEdges,
+                std::span<const uint8_t> sleepState, std::span<const float> timeRemaining,
+                PhysicsCandidatePairList& sleepSupportEdges,
                 PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds, std::span<uint8_t> terrainRestApplied,
                 std::span<uint8_t> sleepSupportedThisFrame, PhysicsStepDiagnostics& stepDiagnostics, float dt,
                 Core::Profiler* profiler );

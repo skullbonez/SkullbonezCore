@@ -5,10 +5,12 @@ Purpose:
 
 Summary:
   The body layout is prefab value data. Scene owners turn the descriptors into
-  authored objects; Physics keeps only handle-keyed point-joint descriptors and
-  solver rows. This keeps the ragdoll feature isolated and leaves a clear
-  migration path to a full constraint solver. Neck swing correction uses the
-  repository-owned deterministic vector-angle and axis-angle routines.
+  authored objects; Physics keeps handle-keyed point-joint descriptors, solver
+  rows, and one retained scalar warm-start impulse per row. That scalar affects
+  byte-exact replay continuation. This keeps the ragdoll feature isolated and
+  leaves a clear migration path to a full constraint solver. Neck swing
+  correction uses the repository-owned deterministic vector-angle and axis-
+  angle routines.
 
 Glossary:
   Neck swing limit: Special angular clamp applied to the head/torso joint.
@@ -414,7 +416,7 @@ void Ragdoll::AddPreviewLines( std::vector<float>& lineData, const Vector3& terr
     }
 }
 
-bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore, std::span<const PointJointConstraint> constraints,
+bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore, std::span<PointJointConstraint> constraints,
                                 std::span<const uint8_t> sleepState, float dt )
 {
     if ( constraints.empty() || dt <= TOLERANCE )
@@ -429,7 +431,7 @@ bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore, std::span<const Poi
 
     for ( int iteration = 0; iteration < RAGDOLL_SOLVER_ITERATIONS; ++iteration )
     {
-        for ( const PointJointConstraint& constraint : constraints )
+        for ( PointJointConstraint& constraint : constraints )
         {
             const int bodyAIndex = constraint.BodyAIndex( bodyStore );
             const int bodyBIndex = constraint.BodyBIndex( bodyStore );
@@ -477,6 +479,20 @@ bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore, std::span<const Poi
                 axis = error / distance;
             }
 
+            // CATTO REF:
+            //   Section 8.1 reapplies the previous step's accumulated impulse
+            //   when iterative solving begins.
+            // ENGINE-SPECIFIC:
+            //   This joint retains one signed scalar on its stable handle row
+            //   and reapplies it along the current error axis on this row's
+            //   first visit in iteration zero. It is not a three-degree-of-
+            //   freedom point-to-point block.
+            if ( iteration == 0 && constraint.accumulatedImpulse != 0.0f )
+            {
+                ApplyConstraintImpulse( bodyA, bodyB, hotA, hotB, rA, rB, axis * constraint.accumulatedImpulse, invMassA,
+                                        invMassB );
+            }
+
             const Vector3 velA = hotA.linearVelocity + CrossProduct( hotA.angularVelocity, rA );
             const Vector3 velB = hotB.linearVelocity + CrossProduct( hotB.angularVelocity, rB );
             const float relVel = Dot( ( velB - velA ), axis );
@@ -493,8 +509,9 @@ bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore, std::span<const Poi
 
             if ( effectiveMass > 0.0f )
             {
-                ApplyConstraintImpulse( bodyA, bodyB, hotA, hotB, rA, rB, axis * ( effectiveMass * velocityTarget ),
-                                        invMassA, invMassB );
+                const float impulseDelta = effectiveMass * velocityTarget;
+                constraint.accumulatedImpulse += impulseDelta;
+                ApplyConstraintImpulse( bodyA, bodyB, hotA, hotB, rA, rB, axis * impulseDelta, invMassA, invMassB );
             }
 
             if ( distanceError > TOLERANCE )

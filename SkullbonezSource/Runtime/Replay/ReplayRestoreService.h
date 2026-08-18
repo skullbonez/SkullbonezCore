@@ -4,10 +4,10 @@ Purpose:
   Applies retained replay solver samples back into live runtime owners.
 
 Summary:
-  Replay restore is a controlled rollback boundary. The service validates that
-  saved scene object ids still match live physics rows, trims presentation/model
-  state to the sampled body count, restores body and solver caches, then applies
-  the matching world/camera/tool presentation state.
+  Replay restore is a controlled rollback boundary. The service resolves
+  durable body identities, preflights surviving joint topology before mutation,
+  trims live owners, commits body and solver state, then applies matching world,
+  camera, tool, and presentation state.
 
 Glossary:
   Restore operands: Concrete live owners borrowed only for one synchronous
@@ -19,6 +19,8 @@ Invariants:
     entities, and stores locally; it never borrows the lifecycle controller.
   - Body state, solver caches, world settings, scene flags, and tool visuals are
     restored as one ordered operation.
+  - Every recoverable rejection occurs before TrimForReplayRestore; rejection
+    after trim is fatal because the commit boundary has already been crossed.
   - The service stores no owner borrow after returning.
 
 Related:
@@ -110,7 +112,8 @@ class ReplayRestoreService
                                         RuntimeTools& runtimeTools, const ReplaySolverFrameSample& sample, char* outReason,
                                         std::size_t reasonSize )
     {
-        if ( sample.worldSnapshot.physics.version < 1 || sample.worldSnapshot.physics.version > 2 )
+        if ( sample.worldSnapshot.physics.version < 1 ||
+             sample.worldSnapshot.physics.version > Physics::PHYSICS_SOLVER_SNAPSHOT_VERSION )
         {
             WriteReason( outReason, reasonSize, "unsupported snapshot version" );
             return false;
@@ -132,10 +135,27 @@ class ReplayRestoreService
             return false;
         }
 
+        // Invariant: this is the last recoverable check before trimming any
+        // live topology. Physics validates the exact joint rows that will
+        // survive the requested body-count trim, not the larger live set.
+        if ( !physics.CanRestoreReplaySolverSnapshot( sample.worldSnapshot.physics,
+                                                      Physics::MakePhysicsBodyCountFromNonNegativeInt( restoreModelCount ) ) )
+        {
+            WriteReason( outReason, reasonSize, "snapshot solver topology mismatch" );
+            return false;
+        }
+
         if ( !world.TrimForReplayRestore( restoreModelCount ) )
         {
             WriteReason( outReason, reasonSize, "failed to trim live model list" );
             return false;
+        }
+
+        if ( !physics.RestoreReplaySolverSnapshot( sample.worldSnapshot.physics,
+                                                   Physics::MakePhysicsBodyCountFromNonNegativeInt( restoreModelCount ) ) )
+        {
+            SB_FATAL( "Runtime/ReplayRestore",
+                      "Replay solver commit rejected topology accepted by the pre-mutation preflight" );
         }
 
         scene.ResetSceneObjectIdCursor( Physics::PhysicsEngine::ReadBodies( physics ) );
@@ -165,13 +185,6 @@ class ReplayRestoreService
         }
 
         physics.ClearPendingBodyImpulses();
-
-        if ( !physics.RestoreReplaySolverSnapshot( sample.worldSnapshot.physics,
-                                                   Physics::MakePhysicsBodyCountFromNonNegativeInt( restoreModelCount ) ) )
-        {
-            SB_FATAL( "Runtime/ReplayRestore",
-                      "Replay solver commit rejected the version/count values accepted during preflight" );
-        }
 
         world.Tornado().SetReplayState( sample.worldSnapshot.tornadoCaptureSeconds,
                                         sample.worldSnapshot.tornadoEjectCooldownSeconds, sample.worldSnapshot.tornadoConfig,

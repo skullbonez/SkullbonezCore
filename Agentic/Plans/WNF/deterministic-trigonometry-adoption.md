@@ -1,16 +1,43 @@
 # Deterministic Trigonometry Adoption
 
 Date: 2026-08-17
-Status: Registered; 0/8 tasks complete
+Status: Owner-parked 2026-08-18; 0/8 tasks complete
 Owner: Engine owner
+Priority: Not selectable until the owner reactivates it in `MASTER-PLAN.md`
 Commit name: `TRIG_DETERMINISM`
+
+## Parked DT0 Starting Point - 2026-08-18
+
+The reviewed but incomplete DT0 implementation is preserved beside this plan
+at `Agentic/Plans/WNF/deterministic-trigonometry-dt0-reviewed-wip.patch`.
+Its SHA-256 is
+`D02E53C609038FC88CF03372EC744C8A37FE842C373CA9A097D43EF106DAC6E5`.
+`git apply --check` passes against commit `366a9e02a`; treat the file as a
+starting point, not as accepted implementation.
+
+The patch widens the policy scan to the complete CPU production and separate
+test roots, adds exact scoped rulings, fixes whitespace-separated member and
+custom-namespace classification, recognizes the first parenthesized alias
+form, fingerprints split-line call expressions, and documents token-pasted
+macro synthesis as outside the raw-spelling boundary. Its last reconciled
+inventory was 120 production trig references across 15 files, 20 test trig
+references across 5 files, and 149 total findings matched by 149 current
+rulings (including the retained broad Maths/Physics non-trig findings).
+
+DT0 remains blocked because the scanner still misses valid unqualified
+function-reference contexts including `((cosf))`, unary `+sinf`, and
+`Use(sinf)`. Resume by replacing the assignment-form-specific reference
+detection with token/context classification, add positive fixtures for those
+three forms, rerun the self-test and exact inventory/ruling reconciliation,
+then obtain a fresh independent review before considering DT0 complete.
 
 ## Goal
 
-Remove direct CPU production calls to the C/C++ runtime sine and cosine
-families only after each caller has proved that the repository-owned
-replacement preserves the accuracy, convergence, physics, presentation, and
-performance its owner needs.
+Replace direct CPU production calls to the C/C++ runtime sine and cosine
+families only where the repository-owned approximation proves that it preserves
+the accuracy, convergence, physics, presentation, and performance its caller
+needs. A platform `sin`/`cos` call may remain when measured evidence shows that
+the deterministic approximation cannot satisfy that contract.
 
 This is not a mechanical search-and-replace. The existing deterministic
 `ComputeCosSin(float)` is a bounded binary32 approximation. Some current call
@@ -20,15 +47,20 @@ share one acceptable error envelope.
 
 The closure state is:
 
-- no direct `std::sin`, `std::cos`, `sinf`, or `cosf` call remains under
-  `SkullbonezSource/`;
-- all production callers use a named Maths owner with a certified input domain
-  and measured error contract;
+- every direct `std::sin`, `std::cos`, `sinf`, or `cosf` call under
+  `SkullbonezSource/` is either migrated to a named Maths owner with a certified
+  input domain and measured error contract, or retained under an exact current-
+  source ruling because the approximation failed the caller's measured
+  contract;
+- every retained platform call has a nearby source comment naming the owning
+  algorithm, the failed approximation/error or convergence requirement, and
+  the evidence that justifies platform trig;
 - exact test-only reference/oracle uses remain explicitly classified and
   cannot become production dependencies;
-- a static gate scans every first-party CPU production root and rejects all
-  spelling, alias, pointer, macro, and line-break forms already covered by the
-  determinism-policy scanner's negative fixtures; and
+- a static gate scans every first-party CPU production root, permits only the
+  exact reviewed retained sites, and rejects every new or changed spelling,
+  alias, pointer, macro, and line-break form already covered by the determinism-
+  policy scanner's negative fixtures; and
 - the solar-system fast-forward and orbital-planning evidence demonstrates
   that the migration did not trade reproducibility for unacceptable numerical
   drift.
@@ -76,8 +108,9 @@ Current CPU inventory:
 
 The inventory command intentionally includes `sinf`/`cosf`: global C spellings
 have the same platform-library risk as `std::sin`/`std::cos`, and leaving them
-outside the plan would make “never use std sine/cosine again” a spelling rule
-rather than a numerical policy.
+outside the plan would turn the policy into a spelling loophole. Retained calls
+remain numerical exceptions, not a count allowance: the gate matches exact
+reviewed sites and rejects additions.
 
 ## Current Production Inventory And Risk
 
@@ -162,12 +195,13 @@ one of these honest outcomes:
    documented range reduction and accuracy adequate for Lambert convergence;
 2. algebraically reformulate the Stumpff evaluation around a deterministic
    series/rational owner with measured truncation and cancellation bounds; or
-3. retain the two double runtime calls under an explicit owner decision if the
-   candidate cannot meet the accuracy/convergence contract.
+3. retain the two double runtime calls if the candidate cannot meet the
+   accuracy/convergence contract, with a nearby source explanation and an exact
+   current-source gate ruling that becomes stale if the site changes.
 
-Outcome 3 prevents the plan's zero-call closure and therefore requires the
-owner to revise the goal. A plan runner may not silently narrow to float or
-declare presentation-only code numerically irrelevant.
+Outcome 3 is an allowed numerical result. It is not permission to add another
+platform call: a plan runner may not silently narrow to float, declare
+presentation-only code numerically irrelevant, or weaken the exact-site gate.
 
 ## Solar-System Fast-Forward Evidence
 
@@ -249,6 +283,10 @@ a convergence flip acceptable.
   while excluding member-access false positives.
 - [ ] Classify test roots separately so independent reference calls are visible
   and exact, but never become production allowances.
+- [ ] Add exact current-source rulings for retained production calls. Each
+  ruling must match the file/site and call identity, point to the nearby source
+  explanation, and fail strict validation when the call moves, changes, or a
+  new unruled call appears. Do not use a count budget.
 - [ ] Reproduce the 120-production/20-test inventory or explain every delta from
   this dated evidence.
 
@@ -273,7 +311,8 @@ control output, and no production behavior change.
 
 - [ ] Extend the float domain/error evidence to all caller families.
 - [ ] Implement and certify the chosen binary64/Stumpff strategy without
-  narrowing to float.
+  narrowing to float, or record that it failed the measured contract and retain
+  the affected platform calls under source explanations plus exact rulings.
 - [ ] Add high-precision committed oracle vectors, reduction-boundary neighbors,
   special values, symmetry, quadrant, continuity, and cross-toolchain bit tests.
 - [ ] Measure scalar cost and representative bulk cost against platform trig.
@@ -323,8 +362,9 @@ physics and performance gates, and an attributed before/after artifact diff.
 
 - [ ] Migrate float orbital groups one function group at a time, recording
   accuracy and convergence evidence after each group.
-- [ ] Migrate the double Stumpff path only to the certified binary64/series
-  owner chosen in DT2.
+- [ ] Migrate the double Stumpff path only if the certified binary64/series
+  owner chosen in DT2 meets its convergence contract; otherwise retain the
+  platform calls with the required source explanation and exact gate rulings.
 - [ ] Run the full analytic planning suite after every convergence-sensitive
   group and the live n-body suite after the final source state.
 - [ ] Update trip, porkchop, and orbital tests so their expected inputs remain
@@ -335,10 +375,13 @@ and porkchop hashes, live fast-forward metrics/hashes, and performance.
 
 ### DT7 — Close The Production Surface
 
-- [ ] Strict scan reports zero direct sine/cosine calls under
-  `SkullbonezSource/` and only exact reviewed oracle calls in tests.
-- [ ] All old retain-owner sine/cosine rulings are deleted rather than left
-  stale; non-sine/cosine transcendental rulings remain accurate.
+- [ ] Strict scan reports no unruled direct sine/cosine call under
+  `SkullbonezSource/`; every retained call matches its exact current-source
+  ruling and nearby explanation, and tests contain only exact reviewed oracle
+  calls.
+- [ ] Rulings for migrated calls are deleted rather than left stale; rulings for
+  retained calls and non-sine/cosine transcendental calls remain exact and
+  accurate.
 - [ ] Run all cumulative focused gates, then one independent numerical,
   ownership, and test-strength review.
 - [ ] Run `tools\agent_validate.bat --plan-completion` exactly once, only after
@@ -346,14 +389,18 @@ and porkchop hashes, live fast-forward metrics/hashes, and performance.
 - [ ] Record final performance/memory deltas and update the master/session
   ledgers before deleting this completed plan under repository convention.
 
-Evidence: zero-call inventory, focused gate outputs, independent review verdict,
-single terminal full-plan validation output, and final artifact hashes.
+Evidence: final classified-call inventory, exact retained-site rulings, focused
+gate outputs, independent review verdict, single terminal full-plan validation
+output, and final artifact hashes.
 
 ## Acceptance Criteria
 
-- [ ] Every production call in the dated inventory is either migrated or the
-  owner has explicitly revised the zero-call goal; no spelling is silently
-  omitted.
+- [ ] Every production call in the dated inventory is either migrated or
+  retained because measured approximation evidence failed that caller's
+  contract; no spelling is silently omitted.
+- [ ] Every retained production call has a nearby source explanation and an
+  exact current-source gate ruling; strict validation rejects any unreviewed
+  addition or changed retained site.
 - [ ] Tests do not compute expected values through the production implementation
   they are meant to verify.
 - [ ] Float and double owners each have a certified input domain, exact
@@ -411,7 +458,8 @@ single terminal full-plan validation output, and final artifact hashes.
 These are evidence decisions, not scope questions to answer by preference:
 
 1. Which deterministic binary64/Stumpff strategy meets the measured Lambert
-   contract?
+   contract, or which exact platform calls must remain because no candidate
+   does?
 2. What bounded medium/long solar horizons fit hosted CI after DT1 measures
    ticks per second? Keep the 100x horizon as a diagnostic if it is too slow for
    every PR.

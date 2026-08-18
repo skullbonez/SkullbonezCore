@@ -4,9 +4,11 @@
 //   Locks replay artifact round-trip and adversarial chunk-table behavior.
 //
 // Summary:
-//   Tests create a small presentation artifact through the production writer,
-//   then mutate isolated header/table fields to prove every malformed file is
-//   rejected as a recoverable false result without partially published rows.
+//   Tests create presentation and solver artifacts through the production
+//   writer, then mutate isolated header/table fields to prove every malformed
+//   file is rejected as a recoverable false result without partially published
+//   rows. The full-track fixture also restores a v3 point-joint checkpoint after
+//   a cold topology rebuild so persisted identity is tested across handle epochs.
 //
 // Glossary:
 //   Chunk table: Fixed-width directory mapping four-byte tags to payload ranges.
@@ -19,6 +21,9 @@
 //   - Required chunk duplication cannot make the first matching tag authoritative.
 //   - A writer-made full artifact round-trips presentation, solver checkpoints,
 //     events, hashes, branch identity, and launcher visuals through public loaders.
+//   - Point-joint checkpoints use durable body ids and topology order, carry
+//     sparse impulse deltas, affect solver hashes, and reproduce the next step
+//     after bodies and constraints are recreated with new handles.
 //
 // Related:
 //   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.cpp
@@ -28,11 +33,15 @@
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
+#include "../SkullbonezSource/Core/Config.h"
 #include "../SkullbonezSource/Core/SbDiagnosticStore.h"
+#include "../SkullbonezSource/Core/WorkerPool.h"
 #include "../SkullbonezSource/Physics/PhysicsApi.h"
 #include "../SkullbonezSource/Physics/PhysicsEngine.h"
+#include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneEntityStore.h"
+#include "../SkullbonezSource/World/Terrain.h"
 #include "TestCollisionShapeFixtures.h"
 
 #include <cstring>
@@ -68,6 +77,8 @@ using SkullbonezCore::Runtime::ReplaySolverFrameSample;
 using SkullbonezCore::Runtime::ReplayV2Artifact;
 using SkullbonezCore::Runtime::ReplayV2LoadResult;
 using SkullbonezCore::Runtime::ReplayV2SaveResult;
+using SkullbonezCore::Threading::LockOrderValidator;
+using SkullbonezCore::Threading::WorkerPool;
 using SkullbonezTests::CollisionShapeFixtures::SphereShape;
 using namespace SkullbonezCore::Runtime;
 
@@ -417,7 +428,7 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     engine.Clear();
     {
         SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
-        engine.ReserveAuthoredBodyCapacity( 1 );
+        engine.ReserveAuthoredBodyCapacity( 2, 2, 0, 0, 1 );
     }
 
     const SkullbonezCore::Math::CollisionDetection::CollisionShape shape = SphereShape( 1.0f );
@@ -436,19 +447,58 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     }
     REQUIRE( registration.IsValid() );
 
+    auto secondBodyDesc = bodyDesc;
+    secondBodyDesc.sceneObjectId = PhysicsSceneObjectId { 502u };
+    secondBodyDesc.position = Vector3( 0.0f, 7.0f, 0.0f );
+    auto secondColliderDesc = colliderDesc;
+    secondColliderDesc.sceneObjectId = secondBodyDesc.sceneObjectId;
+    SkullbonezCore::Physics::PhysicsAuthoredBodyRegistration secondRegistration;
+    SkullbonezCore::Physics::PhysicsPointJointCreateDesc joint;
+    SkullbonezCore::Physics::PhysicsConstraintHandle originalJointHandle;
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        secondRegistration = engine.RegisterAuthoredBody( secondBodyDesc, secondColliderDesc );
+        REQUIRE( secondRegistration.IsValid() );
+
+        joint.bodyA = registration.body;
+        joint.bodyB = secondRegistration.body;
+        joint.localAnchorA = Vector3( 0.0f, 1.0f, 0.0f );
+        joint.localAnchorB = Vector3( 0.0f, -1.0f, 0.0f );
+        joint.slack = 0.125f;
+        joint.stiffness = 0.375f;
+        joint.damping = 0.625f;
+        joint.groupId = 7u;
+        joint.flags = 1u;
+        originalJointHandle = engine.CreatePointJoint( joint );
+        REQUIRE( originalJointHandle.IsValid() );
+    }
+
     SceneEntityStore entities( diagnostics );
-    entities.ConfigureCapacity( 1 );
+    entities.ConfigureCapacity( 2 );
     SceneEntityCreateDesc entity;
     entity.sceneObjectId = bodyDesc.sceneObjectId;
     entity.SetName( "coverage_artifact_body" );
     REQUIRE( entities.PreflightAppend( entity ).Ok() );
     entities.CommitAppend( entity, registration.body );
+    entity.sceneObjectId = secondBodyDesc.sceneObjectId;
+    entity.SetName( "coverage_artifact_body_2" );
+    REQUIRE( entities.PreflightAppend( entity ).Ok() );
+    entities.CommitAppend( entity, secondRegistration.body );
+
+    SkullbonezCore::Physics::PhysicsWorldForces forces;
+    SkullbonezCore::Core::EngineConfig terrainConfig;
+    SkullbonezCore::Geometry::Terrain terrain( -100000.0f, 0.0f, 0.0f, terrainConfig );
+    engine.SetTerrainView( terrain.PhysicsView() );
+    LockOrderValidator lockOrderValidator;
+    WorkerPool workerPool( lockOrderValidator );
+    engine.Step( 1.0f / 120.0f, forces, workerPool, SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter {} );
 
     ReplayRecorderConfig config;
     config.enabled = true;
     config.retentionSeconds = 1;
-    config.checkpointIntervalFrames = 1;
-    config.runtimeBodyCapacity = 1;
+    config.checkpointIntervalFrames = 2;
+    config.runtimeBodyCapacity = 2;
     ReplaySolverRecorder solver;
     ReplayRecorder presentation;
     ReplayEventRecorder events;
@@ -495,7 +545,27 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
 
     const ReplaySolverFrameSample* sample = solver.LatestSample();
     REQUIRE( sample != nullptr );
+    REQUIRE( sample->worldSnapshot.physics.pointJoints.size() == 1u );
+    const float capturedJointImpulse = sample->worldSnapshot.physics.pointJoints[0].accumulatedImpulse;
+    REQUIRE( capturedJointImpulse != 0.0f );
+    const uint64_t capturedSolverHash = sample->solverHash;
     presentation.CaptureFrameFromSolverSample( *sample );
+
+    auto changedJointSnapshot = sample->worldSnapshot.physics;
+    changedJointSnapshot.pointJoints[0].accumulatedImpulse += 1.0f;
+    REQUIRE( engine.RestoreReplaySolverSnapshot( changedJointSnapshot,
+                                                 SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( 2 ) ) );
+
+    ReplaySolverRecorder hashVerifier;
+    REQUIRE( hashVerifier.Configure( config ) );
+    hashVerifier.ResetTimeline( "coverage-floor-hash" );
+    hashVerifier.CaptureFrame( captureBranch, 3u, 20, 1.0f / 120.0f, captureWorld, captureCamera, launcher, engine,
+                               tornadoGameplay, entities, PhysicsEngine::ReadBodies( engine ),
+                               PhysicsEngine::ReadColliders( engine ) );
+    REQUIRE( hashVerifier.LatestSample() != nullptr );
+    CHECK( hashVerifier.LatestSample()->solverHash != capturedSolverHash );
+    REQUIRE( engine.RestoreReplaySolverSnapshot(
+        sample->worldSnapshot.physics, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( 2 ) ) );
 
     const ReplaySolverFrameSample* historical = solver.SampleAtNormalized( 0.0f );
     REQUIRE( historical != nullptr );
@@ -505,6 +575,11 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     CHECK( solver.GetStats().denseSampleResolveCount == firstResolveCount );
 
     REQUIRE( engine.SetBodyVelocity( registration.body, Vector3( 2.0f, 1.0f, -1.0f ), Vector3( 0.1f, 0.2f, 0.3f ), true ) );
+    auto changedDeltaSnapshot = sample->worldSnapshot.physics;
+    changedDeltaSnapshot.pointJoints[0].accumulatedImpulse += 0.5f;
+    const float changedDeltaImpulse = changedDeltaSnapshot.pointJoints[0].accumulatedImpulse;
+    REQUIRE( engine.RestoreReplaySolverSnapshot(
+        changedDeltaSnapshot, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( 2 ) ) );
     solver.CaptureFrame( captureBranch, 4u, 21, 1.0f / 120.0f, captureWorld, captureCamera, launcher, engine,
                          tornadoGameplay, entities, PhysicsEngine::ReadBodies( engine ),
                          PhysicsEngine::ReadColliders( engine ) );
@@ -516,6 +591,11 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     historical = solver.SampleAtNormalized( 0.0f );
     REQUIRE( historical != nullptr );
     CHECK( solver.GetStats().denseSampleResolveCount == firstResolveCount + 1u );
+    const ReplaySolverFrameSample* resolvedDelta = solver.SampleAtNormalized( 1.0f );
+    REQUIRE( resolvedDelta != nullptr );
+    REQUIRE( resolvedDelta->worldSnapshot.physics.pointJoints.size() == 1u );
+    CHECK( std::memcmp( &resolvedDelta->worldSnapshot.physics.pointJoints[0].accumulatedImpulse,
+                        &changedDeltaImpulse, sizeof( changedDeltaImpulse ) ) == 0 );
 
     for ( ReplayFrameIndex frame = 0u; frame < 2u; ++frame )
     {
@@ -535,9 +615,9 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     REQUIRE( ReplayV2Artifact::SavePresentationWithSolverHashes( presentation, solver, events, path.c_str(), &save ) );
     CHECK( save.sampleCount == 2u );
     CHECK( save.solverHashCount == 2u );
-    CHECK( save.solverCheckpointCount == 2u );
+    CHECK( save.solverCheckpointCount == 1u );
     CHECK( save.eventCount == 2u );
-    CHECK( save.eventCursorCount == 2u );
+    CHECK( save.eventCursorCount == 1u );
     CHECK( save.fileBytes > 0u );
 
     std::vector<ReplayPresentationSample> loadedPresentation;
@@ -546,23 +626,119 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     REQUIRE( loadedPresentation.size() == 2u );
     CHECK( presentationResult.firstFrame == 0u );
     CHECK( presentationResult.lastFrame == 1u );
-    REQUIRE( loadedPresentation.back().bodies.size() == 1u );
+    REQUIRE( loadedPresentation.back().bodies.size() == 2u );
     CHECK( loadedPresentation.back().bodies[0].id.value == 501u );
     CHECK( loadedPresentation.back().bodies[0].linearVelocity.x == doctest::Approx( 2.0f ) );
 
     std::vector<ReplaySolverFrameSample> checkpoints;
     ReplayV2SolverCheckpointLoadResult checkpointResult;
     REQUIRE( ReplayV2Artifact::LoadSolverCheckpoints( path.c_str(), checkpoints, &checkpointResult ) );
-    REQUIRE( checkpoints.size() == 2u );
+    REQUIRE( checkpoints.size() == 1u );
     CHECK( checkpointResult.firstFrame == 0u );
-    CHECK( checkpointResult.lastFrame == 1u );
+    CHECK( checkpointResult.lastFrame == 0u );
     CHECK( checkpoints[0].branch.branchId == 9u );
     CHECK( checkpoints[0].eventCursor == 3u );
-    CHECK( checkpoints[1].eventCursor == 4u );
-    REQUIRE( checkpoints[1].bodies.size() == 1u );
-    CHECK( checkpoints[1].bodies[0].linearVelocity.y == doctest::Approx( 1.0f ) );
+    REQUIRE( checkpoints[0].bodies.size() == 2u );
     CHECK( checkpoints[0].launcherVisual.rayLines.size() == 1u );
     CHECK( checkpoints[0].launcherVisual.laserShots.size() == 1u );
+    REQUIRE( checkpoints[0].worldSnapshot.physics.pointJoints.size() == 1u );
+    const auto& loadedJoint = checkpoints[0].worldSnapshot.physics.pointJoints[0];
+    CHECK( loadedJoint.topologyOrdinal == 0u );
+    CHECK( loadedJoint.bodyASceneObjectId == bodyDesc.sceneObjectId );
+    CHECK( loadedJoint.bodyBSceneObjectId == secondBodyDesc.sceneObjectId );
+    CHECK( loadedJoint.localAnchorA == Vector3( 0.0f, 1.0f, 0.0f ) );
+    CHECK( loadedJoint.localAnchorB == Vector3( 0.0f, -1.0f, 0.0f ) );
+    CHECK( loadedJoint.slack == doctest::Approx( 0.125f ) );
+    CHECK( loadedJoint.stiffness == doctest::Approx( 0.375f ) );
+    CHECK( loadedJoint.damping == doctest::Approx( 0.625f ) );
+    CHECK( std::memcmp( &loadedJoint.accumulatedImpulse, &capturedJointImpulse, sizeof( capturedJointImpulse ) ) == 0 );
+    CHECK( loadedJoint.groupId == 7u );
+    CHECK( loadedJoint.flags == 1u );
+
+    // Invariant: disk checkpoints use scene ids plus filtered topology order,
+    // not process-local handle generations. Recreate identical topology after
+    // Clear, apply the loaded body/solver state, and require the next step to
+    // match the original handle epoch bit-for-bit.
+    const ReplaySolverFrameSample loadedCheckpoint = checkpoints[0];
+    const auto applyLoadedBodies = [&]( SkullbonezCore::Physics::PhysicsBodyHandle bodyA,
+                                        SkullbonezCore::Physics::PhysicsBodyHandle bodyB )
+    {
+        const SkullbonezCore::Physics::PhysicsBodyHandle handles[2] = { bodyA, bodyB };
+
+        for ( std::size_t index = 0; index < loadedCheckpoint.bodies.size(); ++index )
+        {
+            const ReplaySolverBodySample& body = loadedCheckpoint.bodies[index];
+            const SkullbonezCore::Physics::PhysicsBodyRestoreState restore {
+                handles[index],
+                body.id,
+                body.fixed,
+                body.position,
+                SkullbonezCore::Math::Orientation::Quaternion( body.orientation[0], body.orientation[1],
+                                                               body.orientation[2], body.orientation[3] ),
+                body.linearVelocity,
+                body.angularVelocity,
+                body.mass,
+                body.inverseMass,
+                body.rotationalInertia,
+                body.inverseRotationalInertia,
+            };
+            REQUIRE( engine.RestoreReplayBodyState( restore ) );
+        }
+    };
+
+    REQUIRE( engine.RestoreReplaySolverSnapshot(
+        loadedCheckpoint.worldSnapshot.physics, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( 2 ) ) );
+    applyLoadedBodies( registration.body, secondRegistration.body );
+    engine.Step( 1.0f / 120.0f, forces, workerPool, SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter {} );
+    ReplaySolverRecorder expectedAfterRestoreRecorder;
+    REQUIRE( expectedAfterRestoreRecorder.Configure( config ) );
+    expectedAfterRestoreRecorder.ResetTimeline( "coverage-floor-cold-restore-expected" );
+    expectedAfterRestoreRecorder.CaptureFrame(
+        captureBranch, 3u, 20, 1.0f / 120.0f, captureWorld, captureCamera, launcher, engine, tornadoGameplay, entities,
+        PhysicsEngine::ReadBodies( engine ), PhysicsEngine::ReadColliders( engine ) );
+    REQUIRE( expectedAfterRestoreRecorder.LatestSample() != nullptr );
+    const uint64_t expectedAfterRestoreHash = expectedAfterRestoreRecorder.LatestSample()->solverHash;
+
+    const SkullbonezCore::Physics::PhysicsBodyHandle originalBodyA = registration.body;
+    const SkullbonezCore::Physics::PhysicsBodyHandle originalBodyB = secondRegistration.body;
+    engine.Clear();
+    engine.SetTerrainView( terrain.PhysicsView() );
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        registration = engine.RegisterAuthoredBody( bodyDesc, colliderDesc );
+        secondRegistration = engine.RegisterAuthoredBody( secondBodyDesc, secondColliderDesc );
+        REQUIRE( registration.IsValid() );
+        REQUIRE( secondRegistration.IsValid() );
+        joint.bodyA = registration.body;
+        joint.bodyB = secondRegistration.body;
+        const SkullbonezCore::Physics::PhysicsConstraintHandle recreatedJointHandle = engine.CreatePointJoint( joint );
+        REQUIRE( recreatedJointHandle.IsValid() );
+        CHECK( recreatedJointHandle != originalJointHandle );
+    }
+    CHECK( registration.body != originalBodyA );
+    CHECK( secondRegistration.body != originalBodyB );
+    REQUIRE( engine.RestoreReplaySolverSnapshot(
+        loadedCheckpoint.worldSnapshot.physics, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( 2 ) ) );
+    applyLoadedBodies( registration.body, secondRegistration.body );
+    engine.Step( 1.0f / 120.0f, forces, workerPool, SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter {} );
+    entities.Clear();
+    entity.sceneObjectId = bodyDesc.sceneObjectId;
+    entity.SetName( "coverage_artifact_body" );
+    REQUIRE( entities.PreflightAppend( entity ).Ok() );
+    entities.CommitAppend( entity, registration.body );
+    entity.sceneObjectId = secondBodyDesc.sceneObjectId;
+    entity.SetName( "coverage_artifact_body_2" );
+    REQUIRE( entities.PreflightAppend( entity ).Ok() );
+    entities.CommitAppend( entity, secondRegistration.body );
+    ReplaySolverRecorder recreatedAfterRestoreRecorder;
+    REQUIRE( recreatedAfterRestoreRecorder.Configure( config ) );
+    recreatedAfterRestoreRecorder.ResetTimeline( "coverage-floor-cold-restore-recreated" );
+    recreatedAfterRestoreRecorder.CaptureFrame(
+        captureBranch, 3u, 20, 1.0f / 120.0f, captureWorld, captureCamera, launcher, engine, tornadoGameplay, entities,
+        PhysicsEngine::ReadBodies( engine ), PhysicsEngine::ReadColliders( engine ) );
+    REQUIRE( recreatedAfterRestoreRecorder.LatestSample() != nullptr );
+    CHECK( recreatedAfterRestoreRecorder.LatestSample()->solverHash == expectedAfterRestoreHash );
 
     std::vector<ReplayEventSample> loadedEvents;
     ReplayV2EventLoadResult eventResult;
@@ -576,7 +752,7 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     REQUIRE( ReplayV2Artifact::LoadSolverHashes( path.c_str(), hashes, &hashResult ) );
     REQUIRE( hashes.size() == 2u );
     CHECK( hashes[0].checkpointBoundary );
-    CHECK( hashes[1].checkpointBoundary );
+    CHECK_FALSE( hashes[1].checkpointBoundary );
     CHECK( hashes[1].solverHash != 0u );
     CHECK( hashes[1].presentationHash != 0u );
 }

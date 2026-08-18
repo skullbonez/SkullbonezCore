@@ -24,12 +24,12 @@
     },
     {
       "file": "SkullbonezSource/Physics/PersistentContactSolver.cpp",
-      "signature": "template <bool RetainPipelineRecords> void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy, std::size_t pipelineRecordCapacity, float dt, Core::Profiler* )",
-      "body_sha256": "e4113c21c4760a39c366780af0b77e17c7dcac484141a26747bebaded4aedf1c",
+      "signature": "template <bool RetainPipelineRecords> void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy, std::span<const uint8_t> sleepState, std::span<const float> timeRemaining, std::size_t pipelineRecordCapacity, float dt, Core::Profiler* )",
+      "body_sha256": "cf905376a8d427b9b833970ab3145adcdfbf91e8cb91a82c80733bce21a147b4",
       "owner": "Persistent contact row-precompute phase",
       "disposition": "retain-owner",
-      "reason": "One guarded phase transforms constructed rows and the previous cache into effective masses, exact-feature lifetime bias, friction bounds, warm-start impulses, and optional trace values; the fused exact-feature lifecycle/warm-start lookup and compile-time trace retention preserve that single pre-solve row invariant and no owner borrow survives return.",
-      "evidence": "git history: contact-energy-and-warm-start-integrity-es5 (2026-08-02)",
+      "reason": "One guarded phase transforms constructed rows, solver-static sleep classification, per-body remaining-time values, and the previous cache into effective masses, contact-interval-scaled bias and friction bounds, exact-feature restitution lifetime, warm-start impulses, and optional trace values; these calculations establish one coherent pre-solve row invariant, and no owner borrow survives return.",
+      "evidence": "git history: CATTO_REPAIRS CD5 R4 owner ruling (2026-08-18)",
       "plan": ""
     },
     {

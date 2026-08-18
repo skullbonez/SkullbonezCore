@@ -6,7 +6,8 @@ Purpose:
 Summary:
   Replay capture has two bounded tracks. Presentation samples feed immediate
   visual scrubbing. Solver samples keep same-tick body constants, inertia,
-  sleep/contact summaries, and hashes for the authoritative rollback path.
+  sleep/contact summaries, retained point-joint topology and impulses, and
+  hashes for the authoritative rollback path.
 
 Glossary:
   Visual body metadata: Stable body identity/display fields stored once and
@@ -16,7 +17,9 @@ Glossary:
   Solver delta frame: Per-frame solver body order plus changed body/world state;
     keyframes are self-contained so ring eviction never strands later deltas.
   Checkpoint summary: A replay boundary marker with hashes and counts. It is
-  deliberately not an authoritative restore checkpoint yet.
+    deliberately not an authoritative restore checkpoint yet.
+  Durable point-joint identity: Filtered topology ordinal plus endpoint scene
+    object ids; transient handles and model rows are not persisted identity.
   Event sample: Accepted owner action, restore, or branch record that must be
     replayed alongside solver state for authoritative rollback work.
   Wire code: Explicit serialized value whose meaning is independent of a C++
@@ -271,7 +274,7 @@ struct ReplaySolverBodyDelta
 
 struct ReplaySolverWorldScalarState
 {
-    uint32_t version = 2;
+    uint32_t version = Physics::PHYSICS_SOLVER_SNAPSHOT_VERSION;
     int modelCount = 0;
     int nextSleepIslandVisualId = 1;
     bool sleepEnabled = true;
@@ -352,6 +355,7 @@ struct ReplaySolverWorldDeltaFrame
     ReplaySolverVectorDelta<uint8_t> sleepIslandCanSleep;
     ReplaySolverVectorDelta<Physics::PhysicsSolverPersistentContactSample> persistentContacts;
     ReplaySolverVectorDelta<Physics::PhysicsSolverContactCacheSample> persistentContactCache;
+    ReplaySolverVectorDelta<Physics::PhysicsSolverPointJointSample> pointJoints;
     ReplaySolverVectorDelta<uint16_t> persistentContactCounts;
     ReplaySolverVectorDelta<uint16_t> persistentRestingContactCounts;
     ReplaySolverVectorDelta<Physics::PhysicsDebugContact> debugContacts;

@@ -6,7 +6,7 @@ Impact area: Runtime Planning and Prediction, replay overlay UI/input, bounded
 trajectory publication, mutual-gravity diagnostics, tests, documentation, and
 DX12 visual verification
 Owner: Runtime Planning continuous orbital forecast
-Priority: Active after `TRIG_DETERMINISM`
+Priority: Active after `PREDICT_SOLVER_DETAIL`
 Commit name: `ORBIT_FORECAST`
 
 ## Owner Direction
@@ -255,7 +255,7 @@ The owner reactivated this plan and moved it from `WNF/` to `TODO/` on
 2026-08-17. When the binding order reaches OF0, refresh the source evidence,
 settle OF0, confirm the then-current prediction reserve inventory and Runtime
 package rules, and implement through the repo-local orchestrator skill. Do not
-begin it ahead of Catto or deterministic trig merely because it is active.
+begin it ahead of Predicted Solver Cause Hierarchy merely because it is active.
 
 ## Reference Sites
 

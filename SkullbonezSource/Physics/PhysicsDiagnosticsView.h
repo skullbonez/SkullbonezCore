@@ -127,9 +127,9 @@ struct PersistentContactIterationDiagnostics
 // - The trace retains the first 64 PGS iterations in execution order and
 //   counts every later iteration as dropped. It never allocates, affects the
 //   stopping decision, or enters replay state.
-// - Each sample exposes the exact broad stopping metric plus independent
-//   normal/tangent attribution and the largest contributing row. This lets
-//   diagnostics distinguish honest non-convergence from an over-broad metric.
+// - Each sample exposes the maximum per-row squared delta that owns stopping,
+//   plus the historical summed delta and independent normal/tangent attribution.
+//   The sum is diagnostic scale only and cannot affect convergence.
 class PersistentContactConvergenceTrace
 {
   public:

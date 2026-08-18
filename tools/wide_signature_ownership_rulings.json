@@ -91,11 +91,11 @@
     },
     {
       "file": "SkullbonezSource/Physics/PersistentContactSolver.cpp",
-      "signature": "void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy, std::span<const std::pair<int, int>> candidatePairs, std::span<const uint8_t> sleepState, PhysicsCandidatePairList& sleepSupportEdges, PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds, std::span<uint8_t> terrainRestApplied, std::span<uint8_t> sleepSupportedThisFrame, PhysicsStepDiagnostics& stepDiagnostics, float dt, Core::Profiler* profiler )",
+      "signature": "void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy, std::span<const std::pair<int, int>> candidatePairs, std::span<const uint8_t> sleepState, std::span<const float> timeRemaining, PhysicsCandidatePairList& sleepSupportEdges, PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds, std::span<uint8_t> terrainRestApplied, std::span<uint8_t> sleepSupportedThisFrame, PhysicsStepDiagnostics& stepDiagnostics, float dt, Core::Profiler* profiler )",
       "owner": "PhysicsContactSolverStage",
       "disposition": "retain-owner",
-      "reason": "Contact state, pair/contact scratch, sleep outputs, diagnostics, timestep, and profiler are one stage turn and expire with the call.",
-      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
+      "reason": "Contact state, pair/contact scratch, PhysicsWorld-owned sleep classification and remaining-time clocks, sleep outputs, diagnostics, timestep, and profiler form one synchronous stage turn; every borrow expires with the call, while grouping them would create a courier rather than a new invariant owner.",
+      "evidence": "git history: CATTO_REPAIRS CD5 R4 owner ruling (2026-08-18)"
     },
     {
       "file": "SkullbonezSource/Physics/Stages/PhysicsForceStage.cpp",

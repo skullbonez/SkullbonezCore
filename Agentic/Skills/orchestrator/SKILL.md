@@ -89,6 +89,42 @@ plans. Select the next unfinished, dependency-safe item in binding order. Ignore
 MASTER-PLAN after every pushed slice because the queue and denominator may have
 changed.
 
+## Execution Timing And Token Ledger
+
+Keep a simple in-memory execution ledger for the whole orchestrator goal and
+emit it in the final handoff. Do not create a repository report file unless the
+user explicitly asks for one.
+
+For every plan task or committed source slice:
+
+1. Record `Started at` immediately after selecting the task and before task
+   work begins.
+2. Record `Sent at` immediately before sending the task-completion/blocker
+   update and advancing the queue. This is after its required commit and push.
+3. Compute elapsed wall-clock time from those timestamps.
+4. Record input, output, and cached-input tokens when the model/tooling exposes
+   exact usage. Use task-boundary counter deltas or sum non-overlapping per-turn
+   usage. Never estimate, infer from characters, or double-count cached tokens;
+   write `n/a` when exact usage is unavailable.
+
+Record the goal start at bootstrap and the goal send time immediately before
+the final handoff. Report total goal elapsed time. Sum task token values into a
+goal total only when every included value is exact and non-overlapping;
+otherwise report `n/a` for that goal token field. Preserve ledger rows across
+context compaction.
+
+Use local ISO-8601 timestamps with timezone and these compact tables:
+
+```markdown
+| Task | Started at | Sent at | Total time | Input tokens | Output tokens | Cached input tokens | Outcome |
+|------|------------|---------|------------|--------------|---------------|---------------------|---------|
+| PLAN T1 | 2026-08-18T09:00:00+10:00 | 2026-08-18T09:42:00+10:00 | 42m | n/a | n/a | n/a | pushed |
+
+| Goal | Started at | Sent at | Total time | Input tokens | Output tokens | Cached input tokens |
+|------|------------|---------|------------|--------------|---------------|---------------------|
+| MASTER-PLAN | 2026-08-18T09:00:00+10:00 | 2026-08-18T17:30:00+10:00 | 8h 30m | n/a | n/a | n/a |
+```
+
 ## Blocker Continuation
 
 Do not stop the orchestration run when one item is blocked. First exhaust safe,
@@ -281,6 +317,8 @@ Report:
   how good the work was.
 - Total elapsed wall-clock time and timings for long builds, validations,
   launches, or investigations.
+- The task and goal execution-ledger tables, including exact input/output/
+  cached-input token usage when available and `n/a` otherwise.
 - A final rubber-duck accounting table, one row per review pass. If no review
   was appropriate, say that no rubber-duck pass was run for the slice:
 
