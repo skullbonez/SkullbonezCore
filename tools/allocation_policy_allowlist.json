@@ -188,6 +188,34 @@
       "removal_or_wrapper_plan": "Move prediction buffers behind a fixed replay prediction arena, then delete this mechanically relocated row."
     },
     {
+      "path": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionSampleRing.h",
+      "patterns": [
+        "std::vector<std::uint64_t> m_slotVersions;",
+        "std::vector<std::uint64_t> m_slotTicks;",
+        "std::vector<float> m_positionComponents;",
+        "std::vector<std::uint8_t> m_bodyWritten;"
+      ],
+      "owner": "Continuous prediction fixed-capacity sample ring",
+      "phase": "replay",
+      "reason": "OF1 prepares the ring's coherent all-body row storage only through ReserveReplayPredictionVector beneath the existing replay_prediction_working_set owner. Start freezes its dimensions; producer publication and reader snapshots only overwrite the retained allocation.",
+      "cap": "Every vector reserve is charged to the existing 960 MiB replay_prediction_working_set cap. Checked row/body/component products bound the requested capacities, and the ring exposes no capacity-changing operation after Start.",
+      "removal_or_wrapper_plan": "Replace these retained vectors with slices from a fixed replay prediction arena if that typed arena is introduced; preserve the ring's prepare-before-start and no-growth publication contract."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionSampleRing.cpp",
+      "patterns": [
+        "m_slotVersions.resize(",
+        "m_slotTicks.resize(",
+        "m_positionComponents.resize(",
+        "m_bodyWritten.resize("
+      ],
+      "owner": "Continuous prediction fixed-capacity sample ring",
+      "phase": "replay",
+      "reason": "Each Prepare resize follows a successful ReserveReplayPredictionVector call for the same exact element count, so it changes logical size within already granted replay_prediction_working_set capacity and cannot allocate. Start rejects re-prepare while publication is active.",
+      "cap": "Logical sizes cannot exceed the capacities granted under the existing 960 MiB replay_prediction_working_set cap; checked multiplication rejects unrepresentable all-body row storage before any request.",
+      "removal_or_wrapper_plan": "Replace these retained vectors with slices from a fixed replay prediction arena if that typed arena is introduced, then delete both exact lexical exceptions."
+    },
+    {
       "path": "SkullbonezSource/Runtime/Prediction/ReplayPredictionReserve.cpp",
       "patterns": [
         "std::make_unique<Physics::PhysicsEngine>"

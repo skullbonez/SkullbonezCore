@@ -1,7 +1,7 @@
 # Continuous Orbital Forecast
 
 Date: 2026-08-17
-Status: Active; 1/7 phases complete
+Status: Active; 2/7 phases complete
 Impact area: Runtime Planning and Prediction, replay overlay UI/input, bounded
 trajectory publication, mutual-gravity diagnostics, tests, documentation, and
 DX12 visual verification
@@ -214,6 +214,33 @@ nor a growth privilege.
   `TestOutput/validation/ORBIT_FORECAST_OF0/solar_system_live_120s.csv` and
   `TestOutput/validation/ORBIT_FORECAST_OF0/solar_system_live_120s_repeat.csv`.
 
+## OF1 Circular Publication Evidence - 2026-08-19
+
+- `ContinuousPredictionSampleRing` owns one producer's fixed-capacity all-body
+  position rows. `Prepare` checks every row/body/component product and routes
+  all four backing-vector reserves through the existing Replay-phase
+  `replay_prediction_working_set` owner and 960 MiB cap; `Start` rejects later
+  preparation, and publication performs no capacity-changing operation.
+- Each physical slot uses an odd/even monotonic version. The producer marks the
+  slot odd, atomically overwrites its absolute tick and every body position,
+  release-commits the even version, and only then release-publishes the next
+  absolute-tick cursor. Readers acquire that cursor and accept a copied row
+  only when its expected absolute tick and both version reads agree.
+- A detached snapshot derives one logical oldest-to-newest interval and exposes
+  either one physical segment or two chronological segments across wrap. It
+  never invents a newest-to-oldest seam. Absolute ticks and slot versions fail
+  closed before unsigned rollover; cancellation retires incomplete work until
+  the producer is joined and reset.
+- The focused Profile group passes 6/6 cases and 116/116 assertions for empty,
+  partial, exactly full, one-wrap, multi-wrap, cancellation/reset, incomplete
+  rows, absolute-tick rollover, and concurrent snapshots. The concurrent case
+  also passed ten consecutive stress repetitions. `tools\validate_tests.bat`
+  passes 610/610 cases and 2,483,870/2,483,870 assertions from this source state.
+- Static allocation, dependency, build-configuration, and project-filter checks
+  recognize the new owner with zero blocking diagnostics. The allocation
+  allowlist records the exact vector members and post-reserve logical resizes;
+  it grants no new registration, phase, cap, or growth path.
+
 ## Non-Goals
 
 - Do not remove or raise the ordinary 120-second bounded prediction limit.
@@ -242,7 +269,7 @@ nor a growth privilege.
   whether the existing five-millisecond slice is the intended full-speed CPU
   budget. Capture a bounded-prediction and live-scene hash witness before code
   changes. No later phase is selectable until these answers are in this file.
-- [ ] **OF1 - Prove the circular publication primitive in isolation.** Add a
+- [x] **OF1 - Prove the circular publication primitive in isolation.** Add a
   fixed-capacity all-body sample ring with absolute tick identity, coherent-row
   release publication, logical oldest-to-newest iteration, wrap-safe segment
   boundaries, checked counters, and no post-start growth. Unit tests cover empty,

@@ -408,6 +408,7 @@ CORE_ALLOCATION_PREFIXES = (
 )
 
 RUNTIME_PREDICTION_PREFIXES = (
+    "ContinuousPredictionSampleRing",
     "ReplayAuthoringCauseTree",
     "ReplayCauseFocusSubmission",
     "ReplayPredictionArchive",
