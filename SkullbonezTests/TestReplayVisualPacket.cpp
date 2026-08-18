@@ -341,7 +341,7 @@ TEST_CASE( "Replay committed all-body publication retains its resume cursor" )
     RunReplayPredictionTrajectoryBuildState cursor;
     cursor.rootId = rootId;
     cursor.usingBuildFrames = false;
-    cursor.allBodyPaths = true;
+    cursor.pathPresentation = ReplayPredictionPathPresentation::AllBodiesSpace;
     cursor.allBodyFrameCount = 0u;
     cursor.builtAllBodyCount = 0u;
     cursor.allBodyBodyCount = 4u;
@@ -380,9 +380,9 @@ TEST_CASE( "Replay committed all-body builder publishes coherent frame slices ac
 
     for ( RunReplayPredictionState* state : { resumed.get(), uninterrupted.get() } )
     {
-        state->simulation.predictionWorldForces.mutualGravity.enabled = true;
         state->trajectoryBuild.rootId = rootId;
         state->trajectoryBuild.usingBuildFrames = false;
+        state->trajectoryBuild.pathPresentation = ReplayPredictionPathPresentation::AllBodiesSpace;
     }
 
     ReplayPredictionSchedulingOperations::budgetExpiryCheckCount = 0u;
@@ -390,7 +390,7 @@ TEST_CASE( "Replay committed all-body builder publishes coherent frame slices ac
     UpdateReplayPredictionTrajectoryStore( *resumed, frames, frames.size(), false, rootId, std::chrono::steady_clock::now(),
                                            1.0 );
     ReplayPredictionSchedulingOperations::forcedBudgetExpiryCheck.reset();
-    CHECK( resumed->trajectoryBuild.allBodyPaths );
+    CHECK( resumed->trajectoryBuild.pathPresentation == ReplayPredictionPathPresentation::AllBodiesSpace );
     CHECK( resumed->trajectoryBuild.builtAllBodyCount == resumed->trajectoryBuild.allBodyBodyCount );
     CHECK( resumed->trajectoryBuild.allBodyBodyCount == 4u );
     CHECK( resumed->trajectoryBuild.allBodyFrameCount > 0u );
@@ -494,7 +494,7 @@ TEST_CASE( "Replay committed trajectory publication is identical across budget s
         state.simulation.committedFrameCount = frames.size();
         state.simulation.targetId = rootId;
         state.simulation.targetModelRow.value = 0;
-        state.simulation.predictionWorldForces.mutualGravity.enabled = true;
+        state.trajectoryBuild.pathPresentation = ReplayPredictionPathPresentation::AllBodiesSpace;
         state.build.generationBeginCount = 3u;
         state.revealClock.presentedFrame = frames.back().frameIndex;
 
@@ -625,6 +625,8 @@ TEST_CASE( "Replay committed trajectory publication is identical across budget s
             const auto budgetStart = std::chrono::steady_clock::now();
             UpdateReplayPredictionTrajectoryStore( state, frames, frames.size(), false, rootId, budgetStart,
                                                    budgetMilliseconds );
+            const ReplayPredictionPresentationView beforeFlip = ReplayPrediction::PresentationViewFromState( state, true );
+            CHECK( beforeFlip.pathPresentation == ReplayPredictionPathPresentation::SelectedCausalTree );
             (void)TryFlipReplayPredictionCommittedPublication( state, rootId, frames.size(),
                                                                state.revealClock.presentedFrame, budgetStart,
                                                                budgetMilliseconds );
@@ -642,7 +644,7 @@ TEST_CASE( "Replay committed trajectory publication is identical across budget s
     REQUIRE( prepareState( *uninterrupted ) );
     const ReplayPredictionPresentationView pending = ReplayPrediction::PresentationViewFromState( *narrowSlices, true );
     CHECK( pending.futureTreeReady );
-    CHECK_FALSE( pending.showAllFuturePaths );
+    CHECK( pending.pathPresentation == ReplayPredictionPathPresentation::SelectedCausalTree );
     CHECK( pending.usingBuildFrames );
     CHECK( pending.retainedMarkers.size() == 1u );
     const std::array<std::size_t, 1u> narrowSchedule { 1u };
@@ -661,9 +663,9 @@ TEST_CASE( "Replay committed trajectory publication is identical across budget s
     REQUIRE( narrowSlices->FutureTreeReadyForDraw( rootId, false, frames.size() ) );
     REQUIRE( variedSlices->FutureTreeReadyForDraw( rootId, false, frames.size() ) );
     REQUIRE( uninterrupted->FutureTreeReadyForDraw( rootId, false, frames.size() ) );
-    CHECK( narrowSlices->trajectoryBuild.allBodyPaths );
-    CHECK( variedSlices->trajectoryBuild.allBodyPaths );
-    CHECK( uninterrupted->trajectoryBuild.allBodyPaths );
+    CHECK( narrowSlices->trajectoryBuild.pathPresentation == ReplayPredictionPathPresentation::AllBodiesSpace );
+    CHECK( variedSlices->trajectoryBuild.pathPresentation == ReplayPredictionPathPresentation::AllBodiesSpace );
+    CHECK( uninterrupted->trajectoryBuild.pathPresentation == ReplayPredictionPathPresentation::AllBodiesSpace );
 
     const std::size_t originalFrameCount = frames.size();
     frames.resize( originalFrameCount + 3u );
@@ -790,8 +792,8 @@ TEST_CASE( "Replay committed trajectory publication is identical across budget s
     const ReplayPredictionPresentationView variedView = ReplayPrediction::PresentationViewFromState( *variedSlices, true );
     CHECK( narrowView.futureTreeReady );
     CHECK( variedView.futureTreeReady );
-    CHECK( narrowView.showAllFuturePaths );
-    CHECK( variedView.showAllFuturePaths );
+    CHECK( narrowView.pathPresentation == ReplayPredictionPathPresentation::AllBodiesSpace );
+    CHECK( variedView.pathPresentation == ReplayPredictionPathPresentation::AllBodiesSpace );
     CHECK_FALSE( narrowView.usingBuildFrames );
     CHECK_FALSE( variedView.usingBuildFrames );
     CHECK( narrowView.targetId.value == variedView.targetId.value );
@@ -1125,8 +1127,8 @@ TEST_CASE( "Replay promote and begin defers replacement until the promoted traje
         frame.bodies[0].position.x = static_cast<float>( frameIndex );
     }
 
-    REQUIRE(
-        PrepareReplayPredictionTrajectoryBuild( *state, state->simulation.targetId, state->build.buildFrames.size(), 1u ) );
+    REQUIRE( PrepareReplayPredictionTrajectoryBuild( *state, state->simulation.targetId, state->build.buildFrames.size(), 1u,
+                                                     ReplayPredictionPathPresentation::SelectedCausalTree ) );
 
     for ( std::size_t frameIndex = 0; frameIndex < 150u; ++frameIndex )
     {
@@ -1817,13 +1819,20 @@ TEST_CASE( "Replay space prediction draws every body path instead of causal-only
     causalChild.lane = ReplayTrajectoryLane::FutureChildOutgoing;
     causalChild.branchOrdinal = 3u;
 
-    CHECK( ReplayOverlay::ReplayPredictionDrawsAllBodyRecord( true, planetPath, 0u, selectedRoot.bodyId ) );
-    CHECK_FALSE( ReplayOverlay::ReplayPredictionDrawsAllBodyRecord( true, inactivePlanetPath, 0u, selectedRoot.bodyId ) );
-    CHECK_FALSE( ReplayOverlay::ReplayPredictionDrawsAllBodyRecord( true, selectedRoot, 0u, selectedRoot.bodyId ) );
-    CHECK_FALSE( ReplayOverlay::ReplayPredictionDrawsCausalChildRecord( true, causalChild, 0u, 200u ) );
-    CHECK( ReplayOverlay::ReplayPredictionDrawsCausalChildRecord( false, causalChild, 0u, 200u ) );
-    CHECK( ReplayOverlay::ReplayPredictionUsesAuthoredBodyColor( true, ReplayTrajectoryLane::FutureRoot ) );
-    CHECK_FALSE( ReplayOverlay::ReplayPredictionUsesAuthoredBodyColor( false, ReplayTrajectoryLane::FutureRoot ) );
+    CHECK( ReplayOverlay::ReplayPredictionDrawsAllBodyRecord( ReplayPredictionPathPresentation::AllBodiesSpace, planetPath,
+                                                              0u, selectedRoot.bodyId ) );
+    CHECK_FALSE( ReplayOverlay::ReplayPredictionDrawsAllBodyRecord( ReplayPredictionPathPresentation::AllBodiesSpace,
+                                                                    inactivePlanetPath, 0u, selectedRoot.bodyId ) );
+    CHECK_FALSE( ReplayOverlay::ReplayPredictionDrawsAllBodyRecord( ReplayPredictionPathPresentation::AllBodiesSpace,
+                                                                    selectedRoot, 0u, selectedRoot.bodyId ) );
+    CHECK_FALSE( ReplayOverlay::ReplayPredictionDrawsCausalChildRecord( ReplayPredictionPathPresentation::AllBodiesSpace,
+                                                                        causalChild, 0u, 200u ) );
+    CHECK( ReplayOverlay::ReplayPredictionDrawsCausalChildRecord( ReplayPredictionPathPresentation::SelectedCausalTree,
+                                                                  causalChild, 0u, 200u ) );
+    CHECK( ReplayOverlay::ReplayPredictionUsesAuthoredBodyColor( ReplayPredictionPathPresentation::AllBodiesSpace,
+                                                                 ReplayTrajectoryLane::FutureRoot ) );
+    CHECK_FALSE( ReplayOverlay::ReplayPredictionUsesAuthoredBodyColor( ReplayPredictionPathPresentation::SelectedCausalTree,
+                                                                       ReplayTrajectoryLane::FutureRoot ) );
 }
 
 TEST_CASE( "Replay prediction topology oracle rejects all-body roots without explicit space presentation" )
@@ -1866,6 +1875,14 @@ TEST_CASE( "Replay prediction topology oracle rejects all-body roots without exp
     orphanChildRecords[3] = causalRecords[1];
     orphanChildRecords[3].key.bodyId = disconnectedId;
     CHECK_FALSE( PredictionTopologyMatchesPresentation( orphanChildRecords, causalNodes, selectedId,
+                                                        ReplayPredictionPathPresentation::SelectedCausalTree ) );
+
+    RunReplayPathTraceNode cycleBackToRoot = child;
+    cycleBackToRoot.id = selectedId;
+    cycleBackToRoot.parentId = childId;
+    cycleBackToRoot.depth = 2;
+    const std::array cyclicNodes = { child, cycleBackToRoot };
+    CHECK_FALSE( PredictionTopologyMatchesPresentation( causalRecords, cyclicNodes, selectedId,
                                                         ReplayPredictionPathPresentation::SelectedCausalTree ) );
 
     std::array<ReplayTrajectoryRecord, 3> authoredSpaceRecords;

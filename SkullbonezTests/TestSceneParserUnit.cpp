@@ -143,6 +143,7 @@ TEST_CASE( "AuthoredSceneParser: smallest committed scene parses expected record
     CHECK( scene.GetConvexHullCount() == 0 );
     CHECK_FALSE( scene.IsPhysicsEnabled() );
     CHECK_FALSE( scene.IsTextEnabled() );
+    CHECK_FALSE( scene.PredictionShowsAllBodies() );
     CHECK( scene.IsWaterHidden() );
     CHECK( scene.GetScreenshotFrame() == 5 );
     CHECK( std::string( scene.GetScreenshotPath() ) == "TestOutput/terrain_cap.bmp" );
@@ -192,6 +193,7 @@ TEST_CASE( "AuthoredSceneParser: solar bodies publish their authored colours" )
 {
     AuthoredScene scene;
     REQUIRE( TryLoadAuthoredScene( diagnostics, kSolarSystemScenePath, scene ) );
+    CHECK( scene.PredictionShowsAllBodies() );
     REQUIRE( scene.GetCameraCount() == 1 );
     const SceneCamera& camera = scene.GetCamera( 0 );
     CHECK( camera.m_position.x == doctest::Approx( 0.0f ) );
@@ -250,6 +252,7 @@ TEST_CASE( "AuthoredSceneParser: Mars slingshot scene contains the complete majo
 {
     AuthoredScene scene;
     REQUIRE( TryLoadAuthoredScene( diagnostics, kSolarSlingshotScenePath, scene ) );
+    CHECK( scene.PredictionShowsAllBodies() );
     const char* expectedNames[] = {
         "sun",     "mercury",   "venus",   "earth",  "mars",    "jupiter", "saturn",   "uranus",
         "neptune", "moon",      "phobos",  "deimos", "io",      "europa",  "ganymede", "callisto",
@@ -287,6 +290,36 @@ TEST_CASE( "AuthoredSceneParser: Mars slingshot scene contains the complete majo
     CHECK( rocket.posY == doctest::Approx( -7.997296f ) );
     CHECK( rocket.velX == doctest::Approx( 0.127265f ) );
     CHECK( rocket.velY == doctest::Approx( 27.470485f ) );
+}
+
+TEST_CASE( "AuthoredSceneParser: prediction path presentation is explicit and independent of mutual gravity" )
+{
+    const std::string
+        scenePrefix = R"({"format":"skullbonez.scene.json","version":4,"simulation":{"physics":true,"text":false,)";
+    const std::string sceneSuffix = R"(},"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}]})";
+
+    SUBCASE( "mutual gravity alone retains selected causal tree presentation" )
+    {
+        const TemporaryMalformedSceneFile fixture(
+            "unit_scene_parser_prediction_force_independence.scene.json",
+            scenePrefix +
+                R"("world":{"gravity":0,"fluidHeight":-1000,"fluidDensity":0,"mutualGravity":{"enabled":true,"gravitationalConstant":1,"softeningLength":0.5,"elasticCollisions":false}})" +
+                sceneSuffix );
+        AuthoredScene scene;
+        REQUIRE( TryLoadAuthoredScene( diagnostics, fixture.path, scene ) );
+        CHECK( scene.HasMutualGravityEnabled() );
+        CHECK_FALSE( scene.PredictionShowsAllBodies() );
+    }
+
+    SUBCASE( "invalid presentation token fails through Lane R" )
+    {
+        const TemporaryMalformedSceneFile fixture( "unit_scene_parser_prediction_path_policy.scene.json",
+                                                   scenePrefix + R"("predictionPathPresentation":"everything")" +
+                                                       sceneSuffix );
+        AuthoredScene scene;
+        CheckLoadFailure( AuthoredScene::TryLoadFromFile( diagnostics, fixture.path, scene ), fixture.path,
+                          "simulation.predictionPathPresentation" );
+    }
 }
 
 

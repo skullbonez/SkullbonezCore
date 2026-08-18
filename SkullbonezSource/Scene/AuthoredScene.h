@@ -362,6 +362,7 @@ struct SceneOptions
     bool isPhysicsEnabled = true;
     bool isTextEnabled = true;
     bool isTextOnly = false;
+    bool predictionAllBodiesSpace = false;                       // Explicit all-body path policy; force settings do not select presentation.
     int frameCount = -1;                                         // -1 = unlimited
     unsigned int seed = 0;                                       // RNG seed (0 = use time-based default)
     int solverBallCount = 0;                                     // exact impulse-solver balls to spawn (0 = not set)
@@ -553,6 +554,7 @@ class AuthoredScene
     bool IsPhysicsEnabled() const;
     bool IsTextEnabled() const;
     bool IsTextOnly() const;
+    bool PredictionShowsAllBodies() const;
     int GetFrameCount() const;
     const char* GetScreenshotPath() const;
     int GetScreenshotFrame() const;

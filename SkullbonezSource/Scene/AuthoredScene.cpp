@@ -113,6 +113,12 @@ bool AuthoredScene::IsTextOnly() const
 }
 
 
+bool AuthoredScene::PredictionShowsAllBodies() const
+{
+    return m_sceneOptions.predictionAllBodiesSpace;
+}
+
+
 bool AuthoredScene::IsWaterHidden() const
 {
     return m_sceneOptions.waterHidden;

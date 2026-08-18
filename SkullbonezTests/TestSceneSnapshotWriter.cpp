@@ -110,6 +110,7 @@ TEST_CASE( "Scene save owners publish every session and presentation field" )
     SceneSessionState session;
     session.isScenePhysics = false;
     session.isSceneText = false;
+    session.predictionAllBodiesSpaceSeed = true;
     session.isEditableScene = true;
     session.isFixedStep = true;
     session.hasFlatSlope = true;
@@ -120,6 +121,7 @@ TEST_CASE( "Scene save owners publish every session and presentation field" )
     const SceneSessionSaveState sessionSave = session.GetSaveState();
     CHECK_FALSE( sessionSave.physicsOn );
     CHECK_FALSE( sessionSave.textOn );
+    CHECK( sessionSave.predictionAllBodiesSpace );
     CHECK( sessionSave.editableScene );
     CHECK( sessionSave.fixedStep );
     CHECK( sessionSave.hasFlatSlope );
@@ -143,6 +145,7 @@ void CheckCompleteOwnerPublication( const char* path, const SceneWorldSaveState&
     REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadAuthoredScene( diagnostics, path, saved ) );
     CHECK( saved.IsPhysicsEnabled() == session.physicsOn );
     CHECK( saved.IsTextEnabled() == session.textOn );
+    CHECK( saved.PredictionShowsAllBodies() == session.predictionAllBodiesSpace );
     CHECK( saved.IsEditableScene() == session.editableScene );
     CHECK( saved.IsFixedStep() == session.fixedStep );
     CHECK( saved.IsWaterHidden() == presentation.waterHidden );
@@ -211,6 +214,7 @@ TEST_CASE( "Scene save entry policies serialize complete owner publications" )
     SceneSessionState sessionOwner;
     sessionOwner.isScenePhysics = true;
     sessionOwner.isSceneText = false;
+    sessionOwner.predictionAllBodiesSpaceSeed = true;
     sessionOwner.isEditableScene = true;
     sessionOwner.isFixedStep = true;
     sessionOwner.hasFlatSlope = true;
@@ -700,7 +704,7 @@ TEST_CASE( "SceneSnapshotWriter: schema-v4 asset parts reparse from authoritativ
                                       Vector3( 4.0f, 5.0f, 6.0f ),
                                       Vector3( 0.0f, 1.0f, 0.0f ) };
 
-    const SceneSessionSaveState session { true, false, true, true, true, 7.5f, 0.25f, -0.5f };
+    const SceneSessionSaveState session { true, false, true, true, true, true, 7.5f, 0.25f, -0.5f };
     const PresentationSaveState presentation { true, true };
     const SceneSaveRequest request { kSnapshotPath, world, session, presentation };
     REQUIRE( SceneSnapshotWriter::Save( diagnostics, request ).Ok() );
@@ -710,6 +714,7 @@ TEST_CASE( "SceneSnapshotWriter: schema-v4 asset parts reparse from authoritativ
     CHECK( saved.GetSchemaVersion() == 4u );
     CHECK( saved.IsPhysicsEnabled() );
     CHECK_FALSE( saved.IsTextEnabled() );
+    CHECK( saved.PredictionShowsAllBodies() );
     CHECK( saved.IsEditableScene() );
     CHECK( saved.IsFixedStep() );
     CHECK( saved.IsWaterHidden() );

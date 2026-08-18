@@ -2,7 +2,7 @@
 
 Date: 2026-08-18
 Branch: `nightrunner-18th-AUG-26`
-Status: Three active plans; 27/47 tasks complete
+Status: Three active plans; 28/47 tasks complete
 
 Predicted Solver Cause Hierarchy (8 tasks), Continuous Orbital Forecast
 (7 tasks), and At-Rest Ball Stability (8 tasks) are registered
@@ -104,6 +104,22 @@ diagnostics expose current/peak, bank split, and release checkpoints. Five
 focused cases, the full 600-case / 2,485,514-assertion suite, strict allocation
 policy, project filters, UI fingerprint, and all nine fast-gate stages pass.
 The touched-source audit is 14/14 with none deferred.
+
+PSD3 is complete. `ReplayPrediction` now owns the typed selected-causal versus
+all-bodies-space presentation policy, carried through scene/demo seeding,
+promotion, archives, views, and draw lists without Physics-force inference.
+Ordinary scenes publish the selected root plus only its debug-contact cascade;
+six authored mutual-gravity showcase scenes explicitly preserve all-body space
+paths. Parser/snapshot/archive, promotion, cycle, disconnected-body, partial-
+budget, and draw-helper tests pin the contract. Runtime witnesses record one
+generated-demo root with 240 future nodes and four explicit solar roots. The
+full suite passes 601 cases / 2,484,572 assertions, Automation smoke passes,
+all nine fast-gate stages pass, and the touched-source audit is 24/24 with none
+deferred. The immutable replay visual oracle was not refreshed: it correctly
+rejects PSD3's 201 contact-derived depth-1-to-11 nodes and 806 trajectory
+records against its retired 200-node flat topology and 802 records. Exact
+reports, logs, and executables remain under
+`TestOutput/validation/candidates/PREDICT_SOLVER_DETAIL_PSD3/`.
 
 Catto CD3 replaced the global summed squared impulse-delta early-out with the
 maximum per-contact-row squared delta while retaining the historical sum for
@@ -208,8 +224,8 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `PREDICT_SOLVER_DETAIL` PSD3-PSD7. Restore selected-root causal
-trajectory publication next, then exact private-pipeline capture and the body ->
+Execute `PREDICT_SOLVER_DETAIL` PSD4-PSD7. Capture exact private-pipeline
+evidence next, then build the body ->
 manifold -> solver-row hierarchy, transactional archives, and the combined
 High/Low release workflow.
 
@@ -237,7 +253,7 @@ not part of the active queue.
 
 ## Blockers
 
-- None. Continue with `PREDICT_SOLVER_DETAIL` PSD3.
+- None. Continue with `PREDICT_SOLVER_DETAIL` PSD4.
 
 ## CI Note
 

@@ -110,6 +110,12 @@ bool VerifyReplayPredictionArchiveRoundTrip( std::span<const uint8_t> bytes, cha
         return false;
     }
 
+    if ( migratedPrediction.trajectoryBuild.pathPresentation != restoredPrediction.trajectoryBuild.pathPresentation )
+    {
+        WriteAutomationReason( outReason, reasonSize, "legacy prediction path presentation diverged" );
+        return false;
+    }
+
     std::vector<uint8_t> migratedCanonicalBytes;
 
     if ( !BuildReplayPredictionArchive( migratedPathVisualizer, migratedPrediction, migratedCanonicalBytes ) ||

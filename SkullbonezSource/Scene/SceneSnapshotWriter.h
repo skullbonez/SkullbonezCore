@@ -68,6 +68,7 @@ struct SceneSessionSaveState
 {
     bool physicsOn = false;
     bool textOn = false;
+    bool predictionAllBodiesSpace = false;
     bool editableScene = false;
     bool fixedStep = false;
     bool hasFlatSlope = false;

@@ -332,8 +332,11 @@ Run::FrameSimulationPhaseResult Run::RunSimulationPhase( double secondsPerFrame,
         ApplyStartupPredictionRequest();
         m_replayRuntime.UpdatePrediction( m_sceneController.Scene().Physics(), m_sceneController.Scene().Tornado(),
                                           m_sceneController.Scene().Entities(), m_config,
-                                          m_sceneController.Scene().Environment().GetPhysicsWorldForces(), m_workerPool,
-                                          m_sceneController.State().isScenePhysics,
+                                          m_sceneController.Scene().Environment().GetPhysicsWorldForces(),
+                                          m_sceneController.State().predictionAllBodiesSpaceSeed
+                                              ? ReplayPredictionPathPresentation::AllBodiesSpace
+                                              : ReplayPredictionPathPresentation::SelectedCausalTree,
+                                          m_workerPool, m_sceneController.State().isScenePhysics,
                                           m_timers.simulationTimer.GetTimeSinceLastStart(),
                                           m_timers.simulationTimer.GetTotalTime() );
     }

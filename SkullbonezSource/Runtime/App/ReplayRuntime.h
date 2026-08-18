@@ -413,8 +413,9 @@ class ReplayRuntime
     // Callers must complete this before any replay overlay traversal begins.
     void UpdatePrediction( Physics::PhysicsEngine& physics, const Gameplay::TornadoGameplay& tornadoGameplay,
                            const SceneEntityStore& entities, const SkullbonezCore::Core::EngineConfig& config,
-                           const Physics::PhysicsWorldForces& worldForces, Threading::WorkerPool& workerPool,
-                           bool scenePhysicsEnabled, double simulationTimeSinceLastStart, double simulationTotalTime );
+                           const Physics::PhysicsWorldForces& worldForces, ReplayPredictionPathPresentation pathPresentation,
+                           Threading::WorkerPool& workerPool, bool scenePhysicsEnabled, double simulationTimeSinceLastStart,
+                           double simulationTotalTime );
 
     // Appends replay-owned records after RuntimeTools has rebuilt the shared
     // fixed-capacity tracer. RuntimeRenderer only submits the completed buffer.

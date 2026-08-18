@@ -107,6 +107,7 @@ struct ReplayPredictionPresentationView
     std::size_t trajectoryChildFrameCount = 0;
     ReplayPredictionBuildMode buildMode = ReplayPredictionBuildMode::Undecided;
     ReplayPredictionDetailMode detailMode = ReplayPredictionDetailMode::High;
+    ReplayPredictionPathPresentation pathPresentation = ReplayPredictionPathPresentation::SelectedCausalTree;
     float horizonSeconds = 0.0f;
     double revealSecondsPerSecond = 1.0;
     double measuredTicksPerMs = 0.0;
@@ -119,7 +120,6 @@ struct ReplayPredictionPresentationView
     bool trajectoryBuildValid = false;
     bool trajectoryBuildUsingBuildFrames = false;
     bool futureTreeReady = false;
-    bool showAllFuturePaths = false;                                  // Mutual-gravity space scenes publish one path per simulated body.
     bool ragdollVisualsEnabled = false;
     bool baselineValid = false;
     bool baselineComparisonActive = false;

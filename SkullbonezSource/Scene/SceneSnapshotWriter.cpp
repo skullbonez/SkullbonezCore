@@ -323,6 +323,12 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( SkullbonezCore::Core::
     scene["simulation"] = Json::object();
     scene["simulation"]["physics"] = session.physicsOn;
     scene["simulation"]["text"] = session.textOn;
+
+    if ( session.predictionAllBodiesSpace )
+    {
+        scene["simulation"]["predictionPathPresentation"] = "allBodiesSpace";
+    }
+
     scene["simulation"]["world"] = {
         { "gravity", sceneView.gravity },
         { "fluidHeight", sceneView.fluidSurfaceHeight },

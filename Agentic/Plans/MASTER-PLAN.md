@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-18
-Status: Three active plans; 27/47 tasks complete
+Status: Three active plans; 28/47 tasks complete
 
 ## Owner Direction
 
@@ -78,7 +78,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Predicted Solver Cause Hierarchy | `PREDICT_SOLVER_DETAIL` | 8 | 3 | `TODO/predicted-solver-cause-hierarchy.md` |
+| Predicted Solver Cause Hierarchy | `PREDICT_SOLVER_DETAIL` | 8 | 4 | `TODO/predicted-solver-cause-hierarchy.md` |
 | Continuous Orbital Forecast | `ORBIT_FORECAST` | 7 | 0 | `TODO/continuous-orbital-forecast.md` |
 | At-Rest Ball Stability | `REST_STABILITY` | 8 | 0 | `TODO/at-rest-ball-stability.md` |
 
@@ -114,7 +114,7 @@ states elsewhere, and both are recorded rather than silently corrected:
 
 ## Binding Order
 
-1. `PREDICT_SOLVER_DETAIL` PSD3 through PSD7 — preserve the compact Low mode
+1. `PREDICT_SOLVER_DETAIL` PSD4 through PSD7 — preserve the compact Low mode
    and selected-root causal topology, then capture and publish exact predicted
    solver evidence, mode-aware archives, observable release, and the High
    Detail operator workflow.
@@ -146,8 +146,8 @@ than pinning pre-repair impulses, activation times, or sleep frames.
 
 ## Portfolio Progress
 
-27/47 tasks complete with three active plans. Causal C0-C8, Determinism T0-T8,
-Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD2 are complete.
-Predicted Solver Cause Hierarchy PSD3-PSD7 is next, then Continuous Orbital
+28/47 tasks complete with three active plans. Causal C0-C8, Determinism T0-T8,
+Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD3 are complete.
+Predicted Solver Cause Hierarchy PSD4-PSD7 is next, then Continuous Orbital
 Forecast OF0-OF6, then At-Rest Ball Stability RS0-RS7. Deterministic
 Trigonometry is owner-parked and excluded from progress.

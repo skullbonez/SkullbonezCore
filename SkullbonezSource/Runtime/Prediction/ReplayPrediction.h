@@ -336,9 +336,9 @@ struct RunReplayPredictionTrajectoryBuildState
     std::size_t childAppendTargetFrameCount = 0;
     std::size_t childAppendNodeIndex = 0;
 
-    // Concept: mutual-gravity scenes publish every body's future independently
-    // of contact causality. builtAllBodyCount resumes record allocation;
-    // allBodyFrameCount is the shared time watermark published across them.
+    // Concept: explicit all-body presentation publishes every body's future
+    // independently of contact causality. builtAllBodyCount resumes record
+    // allocation; allBodyFrameCount is the shared time watermark across them.
     std::size_t allBodyFrameCount = 0;
     std::size_t builtAllBodyCount = 0;
     std::size_t allBodyBodyCount = 0;
@@ -346,7 +346,7 @@ struct RunReplayPredictionTrajectoryBuildState
     // Invariant: child trajectory records are drawable only when this version
     // matches the future-node cache version that selected their branch ordinals.
     uint32_t topologyVersion = 0;
-    bool allBodyPaths = false;
+    ReplayPredictionPathPresentation pathPresentation = ReplayPredictionPathPresentation::SelectedCausalTree;
     bool valid = false;
 
     bool AllBodyPublicationSourceChanged( Physics::PhysicsSceneObjectId expectedRootId, bool expectedBuildFrames,
@@ -355,9 +355,10 @@ struct RunReplayPredictionTrajectoryBuildState
     {
         // Invariant: only the already-built prefix can prove a missing record.
         // Later absent bodies are resumable work, not a source-identity change.
-        return !allBodyPaths || builtPrefixMissing || rootId.value != expectedRootId.value ||
-               usingBuildFrames != expectedBuildFrames || allBodyFrameCount > expectedFrameCount ||
-               builtAllBodyCount > expectedBodyCount || allBodyBodyCount != expectedBodyCount;
+        return !ReplayPredictionPathPresentationShowsAllBodies( pathPresentation ) || builtPrefixMissing ||
+               rootId.value != expectedRootId.value || usingBuildFrames != expectedBuildFrames ||
+               allBodyFrameCount > expectedFrameCount || builtAllBodyCount > expectedBodyCount ||
+               allBodyBodyCount != expectedBodyCount;
     }
 };
 
@@ -870,7 +871,7 @@ class ReplayPrediction
                                                                        view.usingBuildFrames, view.frames.size(),
                                                                        view.futureNodes.size(), view.topologyVersion,
                                                                        view.futureNodesCacheValid );
-        view.showAllFuturePaths = presentedTrajectory.allBodyPaths;
+        view.pathPresentation = presentedTrajectory.pathPresentation;
         view.ragdollVisualsEnabled = predictionState.ragdollVisualsEnabled;
         view.baselineValid = predictionState.baseline.valid;
         view.baselineComparisonActive = predictionState.baseline.comparisonActive;
@@ -990,7 +991,8 @@ class ReplayPrediction
                       ReplayPredictionUpdateResult& result );
     bool BeginFrameSimulation( Physics::PhysicsEngine& physicsEngine, const Gameplay::TornadoGameplay& tornadoGameplay,
                                const SceneEntityStore& entities, const SkullbonezCore::Core::EngineConfig& config,
-                               const Physics::PhysicsWorldForces& worldForces, Threading::WorkerPool& workerPool,
+                               const Physics::PhysicsWorldForces& worldForces,
+                               ReplayPredictionPathPresentation pathPresentation, Threading::WorkerPool& workerPool,
                                ReplayPredictionSourcePreparation preparation );
     void CompleteFrameSourceBegin( bool began, bool wasDirty, bool wasPendingLatestRestart ) noexcept;
     bool BeginFrameBudgetExpired( const std::chrono::steady_clock::time_point& budgetStart, double budgetMilliseconds,
@@ -1122,8 +1124,9 @@ inline bool RunReplayPredictionState::FutureTreeReadyForDraw( const RunReplayPre
                                                               std::size_t frameCount, std::size_t nodeCount,
                                                               uint32_t topologyVersion, bool cacheValid ) noexcept
 {
-    const bool allBodyReady = !trajectory.allBodyPaths || ( trajectory.builtAllBodyCount == trajectory.allBodyBodyCount &&
-                                                            trajectory.allBodyFrameCount >= frameCount );
+    const bool allBodyReady = !ReplayPredictionPathPresentationShowsAllBodies( trajectory.pathPresentation ) ||
+                              ( trajectory.builtAllBodyCount == trajectory.allBodyBodyCount &&
+                                trajectory.allBodyFrameCount >= frameCount );
     return nodeCount > 0 && cacheValid && topologyVersion != 0 && trajectory.valid &&
            trajectory.rootId.value == rootId.value && trajectory.usingBuildFrames == usingBuildFrames &&
            trajectory.topologyVersion == topologyVersion && trajectory.builtNodeCount == nodeCount &&
@@ -1141,8 +1144,9 @@ RunReplayPredictionState::FutureTreePublicationComplete( const RunReplayPredicti
                                       ( futureNodeCache.futureNodesBuiltFrameCount >= frameCount &&
                                         futureNodeCache.futureNodesAffectedComplete &&
                                         futureNodeCache.futureNodesAffectedFrameCount >= frameCount );
-    const bool allBodyReady = !trajectory.allBodyPaths || ( trajectory.builtAllBodyCount == trajectory.allBodyBodyCount &&
-                                                            trajectory.allBodyFrameCount >= frameCount );
+    const bool allBodyReady = !ReplayPredictionPathPresentationShowsAllBodies( trajectory.pathPresentation ) ||
+                              ( trajectory.builtAllBodyCount == trajectory.allBodyBodyCount &&
+                                trajectory.allBodyFrameCount >= frameCount );
     return futureNodeCache.futureNodesCacheValid && topologyScanComplete && trajectory.valid &&
            trajectory.rootId.value == rootId.value && trajectory.usingBuildFrames == usingBuildFrames &&
            trajectory.topologyVersion == futureNodeCache.futureNodesTopologyVersion &&

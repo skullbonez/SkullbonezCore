@@ -377,7 +377,7 @@ retaining detail capacity after switching to low detail.
   growth, range stability, same-frame replacement, promotion, cancellation,
   denied cap, repeated release, committed/build banks independently and
   together, and zero-current-capacity F6 accounting with historical peaks.
-- [ ] **PSD3 - Restore one-root causal trajectory publication.** Trace the
+- [x] **PSD3 - Restore one-root causal trajectory publication.** Trace the
   generated-demo all-body qualification and every root/child record producer,
   then restore the original selected-root -> first contact -> downstream contact
   publication contract without removing intentional space-scene all-body paths.
@@ -560,6 +560,47 @@ retaining detail capacity after switching to low detail.
   claims, UI reporting, and test contracts were reconciled against the final
   source. No visual or DX12 behavioral gate is mapped to this storage-only
   phase.
+
+### PSD3 - One-root causal trajectory publication
+
+- `ReplayPrediction` now owns one typed `ReplayPredictionPathPresentation`
+  value. Scene/demo seeding, bank promotion, archives, presentation views, and
+  draw lists carry that value without inferring policy from the private Physics
+  force configuration. Ordinary and legacy single-root sources default to
+  `SelectedCausalTree`; six authored mutual-gravity showcase scenes explicitly
+  select `AllBodiesSpace`.
+- Selected-causal publication starts at the selected body, discovers the first
+  debug-contact edge and its downstream contact graph, assigns one parent per
+  body, and queues every body once. Focused tests prove disconnected bodies are
+  absent, cycles cannot duplicate a root, incomplete budget slices cannot
+  promote a partial tree, promotion preserves the typed policy, and explicit
+  draw helpers distinguish single-root from all-body presentation.
+- Scene parser, snapshot, and archive coverage pins default, explicit, invalid,
+  round-trip, and legacy behavior. RVPD schemas 2 and 3 retain compatibility by
+  inferring the historical all-body policy only when their record set contains
+  additional FutureRoot records; current loads reject policy/record mismatch.
+- The seed-1337 generated-demo witness under
+  `TestOutput/validation/PREDICT_SOLVER_DETAIL_PSD3/` records selected body 162,
+  private mutual gravity disabled, all-body presentation disabled, one unique
+  FutureRoot, and 240 future nodes. The authored solar witness records selected
+  body 2, private mutual gravity and explicit all-body presentation enabled,
+  and four unique FutureRoot ids (1-4). The ordinary authored Automation
+  witness remains single-root with mutual gravity and all-body presentation
+  both disabled.
+- The full suite passes 601 cases / 2,484,572 assertions;
+  `tools\\validate_automation.bat` passes Profile exclusion and Automation
+  smoke, and `tools\\validate_fast.bat` passes all nine stages including all
+  ownership inventories and compiled-symbol reachability. The touched-source
+  comment audit is 24/24 checked with none deferred.
+- The immutable replay visual oracle is intentionally unchanged. Its launcher,
+  Automation build, and 17 false-pass controls pass before the authoritative
+  run rejects the corrected causal topology: the retired oracle expects 200
+  flat non-contact-derived nodes and 802 trajectory records, while PSD3 emits
+  201 contact-derived nodes at depths 1-11 and 806 records. The first report
+  failure is `header.topologyVersion` at reveal 0 and the standard comparison
+  reports `causal.topologyCount` expected 200, actual 201. No golden was
+  refreshed; the exact report, logs, and executables are preserved under
+  `TestOutput/validation/candidates/PREDICT_SOLVER_DETAIL_PSD3/`.
 
 ## Acceptance
 

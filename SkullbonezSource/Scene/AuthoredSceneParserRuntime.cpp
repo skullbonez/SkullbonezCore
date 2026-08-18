@@ -179,6 +179,24 @@ void AuthoredSceneParser::ApplySimulation( const Json& simulation, const std::st
         m_scene.m_sceneOptions.isTextOnly = ReadBool( *textOnly, path, "simulation.textOnly" );
     }
 
+    if ( const Json* pathPresentation = FindMember( simulation, "predictionPathPresentation" ) )
+    {
+        const std::string token = Lowercase( ReadString( *pathPresentation, path, "simulation.predictionPathPresentation" ) );
+
+        if ( token == "selectedcausaltree" )
+        {
+            m_scene.m_sceneOptions.predictionAllBodiesSpace = false;
+        }
+        else if ( token == "allbodiesspace" )
+        {
+            m_scene.m_sceneOptions.predictionAllBodiesSpace = true;
+        }
+        else
+        {
+            Fail( path, "simulation.predictionPathPresentation must be selectedCausalTree or allBodiesSpace" );
+        }
+    }
+
     if ( const Json* seed = FindMember( simulation, "seed" ) )
     {
         m_scene.m_sceneOptions.seed = ReadUInt( *seed, path, "simulation.seed" );

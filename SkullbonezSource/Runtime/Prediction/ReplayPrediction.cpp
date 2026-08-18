@@ -884,6 +884,7 @@ bool ReplayPrediction::BeginFrameSimulation( PhysicsEngine& physicsEngine, const
                                              const SceneEntityStore& entities,
                                              const SkullbonezCore::Core::EngineConfig& config,
                                              const SkullbonezCore::Physics::PhysicsWorldForces& worldForces,
+                                             ReplayPredictionPathPresentation pathPresentation,
                                              SkullbonezCore::Threading::WorkerPool& workerPool,
                                              ReplayPredictionSourcePreparation preparation )
 {
@@ -958,7 +959,7 @@ bool ReplayPrediction::BeginFrameSimulation( PhysicsEngine& physicsEngine, const
     }
 
     if ( !PrepareReplayPredictionTrajectoryBuild( prediction, prediction.simulation.targetId, buildFrameCapacity,
-                                                  static_cast<std::size_t>( modelCount ) ) )
+                                                  static_cast<std::size_t>( modelCount ), pathPresentation ) )
     {
         predictionOwner.CancelJob( clearSamplesOnCancel, !clearSamplesOnCancel );
         prediction.build.dirty = true;

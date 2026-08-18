@@ -349,6 +349,23 @@ bool ReadBoundedCount( ArchiveReader& reader, uint32_t maximum, uint32_t& count 
 {
     return reader.Scalar( count ) && count <= maximum;
 }
+
+bool ReplayPredictionArchivePathPresentationMatchesRecords( const RunReplayPredictionState& prediction )
+{
+    const uint16_t activeRootBranch = prediction.trajectoryBuild.usingBuildFrames ? REPLAY_TRAJECTORY_BUILD_BRANCH
+                                                                                  : REPLAY_TRAJECTORY_COMMITTED_BRANCH;
+    bool hasAdditionalRoot = false;
+
+    for ( const ReplayTrajectoryRecord& record : prediction.trajectoryStore.ActiveRecords() )
+    {
+        hasAdditionalRoot = hasAdditionalRoot || ( record.key.lane == ReplayTrajectoryLane::FutureRoot &&
+                                                   record.key.branchOrdinal == activeRootBranch &&
+                                                   record.key.bodyId.value != prediction.trajectoryBuild.rootId.value );
+    }
+
+    return ReplayPredictionPathPresentationShowsAllBodies( prediction.trajectoryBuild.pathPresentation ) ==
+           hasAdditionalRoot;
+}
 } // namespace
 
 namespace ReplayPredictionArchiveOperations
@@ -364,7 +381,8 @@ bool BuildReplayPredictionArchiveForSchemaValidation( const RunReplayPathVisuali
          prediction.build.building || !prediction.build.complete || committedFrames.size() < 2u ||
          committedFrames.size() > REPLAY_PREDICTION_ARCHIVE_MAX_FRAMES ||
          prediction.futureNodeCache.retainedMarkerCount > prediction.futureNodeCache.retainedMarkers.size() ||
-         prediction.trajectoryStore.RecordCount() > REPLAY_PREDICTION_ARCHIVE_MAX_RECORDS )
+         prediction.trajectoryStore.RecordCount() > REPLAY_PREDICTION_ARCHIVE_MAX_RECORDS ||
+         !ReplayPredictionArchivePathPresentationMatchesRecords( prediction ) )
     {
         return false;
     }
@@ -784,18 +802,25 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
             continue;
         }
 
-        // Backward compatibility: all-body space publication reuses the
-        // existing FutureRoot wire shape, so schema-2 archives advertise the
-        // mode through their additional body-keyed records.
-        prediction.trajectoryBuild.allBodyPaths = true;
+        // Backward compatibility: schemas 2 and 3 predate an explicit policy
+        // field. Their additional body-keyed FutureRoot records are durable
+        // wire evidence that the archived publication used all-body space mode.
+        prediction.trajectoryBuild.pathPresentation = ReplayPredictionPathPresentation::AllBodiesSpace;
         ++prediction.trajectoryBuild.builtAllBodyCount;
         prediction.trajectoryBuild.allBodyFrameCount = (std::max)( prediction.trajectoryBuild.allBodyFrameCount,
                                                                    record.publishedPointCount );
     }
 
-    if ( prediction.trajectoryBuild.allBodyPaths )
+    if ( ReplayPredictionPathPresentationShowsAllBodies( prediction.trajectoryBuild.pathPresentation ) )
     {
         ++prediction.trajectoryBuild.builtAllBodyCount; // The selected root owns the canonical root record.
+        prediction.trajectoryBuild.allBodyBodyCount = prediction.trajectoryBuild.builtAllBodyCount;
+    }
+
+    if ( !ReplayPredictionArchivePathPresentationMatchesRecords( prediction ) )
+    {
+        WriteReason( outReason, reasonSize, "prediction archive path presentation mismatch" );
+        return false;
     }
 
     ReplayPredictionBaselineSnapshot& baseline = prediction.baseline;

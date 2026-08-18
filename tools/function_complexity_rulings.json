@@ -75,7 +75,7 @@
     {
       "file": "SkullbonezSource/Runtime/Scene/SceneController.Load.cpp",
       "signature": "SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& request, SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions, const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender, const RunStartupState& startup, Assets::AssetSystem& assets, Threading::WorkerPool& workerPool, DiagnosticsRuntime& diagnosticsRuntime, Rendering::Dx12FrameOwner* renderFrame, Rendering::Dx12ResourceBuilder* renderResources, RuntimeRenderer& renderer, SceneLoadTransaction& transaction )",
-      "body_sha256": "18a705cf73c0b06babbe09b5f29951426e4f616be0795e4f4aac8d602f62d9ef",
+      "body_sha256": "607c892dabe2afdf05a6b1f2ed1e1f7ca9c18872366762535b4e894d3e18abe4",
       "owner": "SceneController load transaction",
       "disposition": "retain-owner",
       "reason": "One scene-load transaction sequences authored decode, owner construction, render publication, diagnostics, and commit or rollback; the explicit transaction owns the phase invariant and every service borrow expires at return.",
@@ -85,7 +85,7 @@
     {
       "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.cpp",
       "signature": "SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( InteractionAutomationRunStatus& status, const char* scriptPath, const SceneWorld& world, const SceneSessionState& scene, const char* scenePath, const RuntimeTools& runtimeTools, const ReplayAutomationView& replay, const RuntimeInteractionController& interaction, const CameraControlState& camera, const UI::InGameUI& ui, const Rendering::RenderSceneSnapshot& renderSnapshot )",
-      "body_sha256": "cf0e27ac059bcbcf1772a8242633220257ba049f2ed945be90857c0601ff54c7",
+      "body_sha256": "4bb6ec4c5e1a6ce5b6f4ce582276b86e0d3b78b5f33dd7192cb543f71836914e",
       "owner": "InteractionAutomationReportWriter report transaction",
       "disposition": "retain-owner",
       "reason": "One writer projects the bounded automation result schema from synchronized runtime snapshots and emits one durable report; field ordering and failure cleanup are one serialization invariant.",
@@ -165,7 +165,7 @@
     {
       "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp",
       "signature": "ReplayPredictionDrawListUpdate UpdateReplayPredictionDrawList( const ReplayPredictionPresentationView& prediction, const RunReplayPathVisualizerState& pathVisualizer, const SceneEntityStore& entities, const ColliderStore& colliderStore, ReplayPredictionRetainedGeometry& retainedGeometry, EditorTracer& retainedMarkers, ReplayPredictionDrawListState& state )",
-      "body_sha256": "625c2572026e9aaa55579cf8e86f21ac17d9f9e5ece604d100d28f95f5140441",
+      "body_sha256": "a3f82483151d4db4f9f484ca6114f2fc8b379c05e01a5d2d5399df1dc5b6847b",
       "owner": "Replay prediction draw-list update transaction",
       "disposition": "retain-owner",
       "reason": "One update reconciles a detached prediction view with retained geometry, markers, and draw-list state for the current generation; generation identity and replacement ordering are one transaction.",
@@ -245,7 +245,7 @@
     {
       "file": "SkullbonezSource/Scene/SceneSnapshotWriter.cpp",
       "signature": "SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const SceneSaveRequest& request )",
-      "body_sha256": "309bb98d9563c57dd852d7a54309d8f40d0d1f619f63476fdba3797cf98673ad",
+      "body_sha256": "f99e8ac2fc4962df094f67d33760138435e91626b5e2b1881ecd3a907a66c49f",
       "owner": "SceneSnapshotWriter save transaction",
       "disposition": "retain-owner",
       "reason": "One scene writer validates the request and emits the complete snapshot schema through a single diagnostic and cleanup path; no partial file is accepted as a saved scene.",

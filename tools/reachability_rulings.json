@@ -729,6 +729,258 @@
       "reason": "It exposes the configuration retained by the terrain owner to its rendering collaborators.",
       "evidence": "Live terrain shader/render paths call it. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=25; required_arity=0/0; symbols=?Config@Terrain@Geometry@SkullbonezCore@@AEBAAEBVEngineConfig@Core@3@XZ",
       "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "uint32_t ReplayPredictionSolverEvidenceStore::Generation() const noexcept",
+      "owner": "ReplayPredictionSolverEvidenceBanks immutable generation identity",
+      "disposition": "retain-owner",
+      "reason": "The committed/build bank identity must expose its generation to readers and focused promotion tests.",
+      "evidence": "ReplayPredictionSolverEvidenceBanks calls this accessor while TestReplayVisualPacket verifies generation identity. 2026-08-18 synchronized Automation/Debug/Profile census: classification=own-tu-and-test-only; mapping=exact; own_tu_calls=1; test_calls=1; ambiguous_production_calls=0; required_arity=0/0.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "ReplayPredictionDetailMode ReplayPredictionSolverEvidenceStore::Mode() const noexcept",
+      "owner": "ReplayPredictionSolverEvidenceBanks detail-mode identity",
+      "disposition": "retain-owner",
+      "reason": "The bank owner must distinguish High evidence from the Low mode that is forbidden to allocate evidence.",
+      "evidence": "ReplayPredictionSolverEvidenceBanks reads the mode while TestReplayVisualPacket verifies the Low/High allocation invariant. 2026-08-18 census: classification=own-tu-and-test-only; mapping=exact; own_tu_calls=1; test_calls=1; required_arity=0/0.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "uint64_t ReplayPredictionSolverEvidenceStore::BankEpoch() const noexcept",
+      "owner": "ReplayPredictionSolverEvidenceBanks reuse-safe epoch identity",
+      "disposition": "retain-owner",
+      "reason": "A reused physical bank needs a monotonic epoch so retired evidence identities cannot resolve new storage.",
+      "evidence": "The paired bank owner reads the epoch and TestReplayVisualPacket verifies it advances across reuse. 2026-08-18 census: classification=own-tu-and-test-only; mapping=exact; own_tu_calls=1; test_calls=1; required_arity=0/0.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "std::size_t ReplayPredictionSolverEvidenceStore::PublishedFrameCount() const noexcept",
+      "owner": "ReplayPredictionSolverEvidenceStore release/acquire publication prefix",
+      "disposition": "retain-owner",
+      "reason": "Readers require the acquired sealed-frame prefix; the bank owner also uses it to reject incomplete promotion.",
+      "evidence": "Four same-TU bank operations and TestReplayVisualPacket read the prefix. 2026-08-18 census: classification=own-tu-and-test-only; mapping=exact; own_tu_calls=4; test_calls=1; required_arity=0/0.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "const ReplayPredictionSolverEvidenceFrame* ReplayPredictionSolverEvidenceStore::PublishedFrame( std::size_t index ) const noexcept",
+      "owner": "ReplayPredictionSolverEvidenceStore immutable frame publication",
+      "disposition": "retain-owner",
+      "reason": "Committed readers need bounded access to sealed frame range records without mutable storage exposure.",
+      "evidence": "The bank owner and TestReplayVisualPacket use the accessor to verify complete frame publication. 2026-08-18 census: classification=own-tu-and-test-only; mapping=exact; own_tu_calls=1; test_calls=1; required_arity=1/1.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "const ReplayPredictionSolverEvidenceFrame* ReplayPredictionSolverEvidenceStore::FindPublishedFrame( const ReplayPredictionEvidenceIdentity& identity ) const noexcept",
+      "owner": "ReplayPredictionSolverEvidenceStore exact evidence lookup seam",
+      "disposition": "retain-owner",
+      "reason": "Focused tests must prove stale generation, mode, epoch, topology, and publication identities cannot resolve evidence.",
+      "evidence": "TestReplayVisualPacket exercises exact and stale identity lookup. 2026-08-18 census: classification=test-only; mapping=exact; own_tu_calls=0; test_calls=1; required_arity=1/1.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "const Physics::PhysicsSolverPersistentContactSample* ReplayPredictionSolverEvidenceStore::Contact( ReplayPredictionEvidenceRange range, std::size_t offset ) const noexcept",
+      "owner": "ReplayPredictionSolverEvidenceStore immutable contact-range reader",
+      "disposition": "retain-owner",
+      "reason": "Focused tests need bounded value access to prove sealed frame ranges resolve exact detached contact samples.",
+      "evidence": "TestReplayVisualPacket verifies contact values and out-of-range rejection. 2026-08-18 census: classification=test-only; mapping=exact; test_calls=1; required_arity=2/2.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "const Physics::PhysicsPipelineRecord* ReplayPredictionSolverEvidenceStore::Pipeline( ReplayPredictionEvidenceRange range, std::size_t offset ) const noexcept",
+      "owner": "ReplayPredictionSolverEvidenceStore immutable pipeline-range reader",
+      "disposition": "retain-owner",
+      "reason": "Focused tests need bounded value access to prove sealed frame ranges resolve exact detached pipeline records.",
+      "evidence": "TestReplayVisualPacket verifies pipeline values and out-of-range rejection. 2026-08-18 census: classification=test-only; mapping=exact; test_calls=1; required_arity=2/2.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "ReplayPredictionSolverEvidenceStoreMemoryStats ReplayPredictionSolverEvidenceStore::CollectMemoryStats() const noexcept",
+      "owner": "ReplayPredictionSolverEvidenceStore capacity accounting",
+      "disposition": "retain-owner",
+      "reason": "The paired owner and diagnostics need exact current and lifetime capacity facts for the registered prediction working set.",
+      "evidence": "Production calls are overload-ambiguous to the lexical scanner but compiled identity is exact. 2026-08-18 census: classification=no-reference; mapping=exact; ambiguous_production_calls=14; required_arity=0/0.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "void ReplayPredictionSolverEvidenceStore::BeginBank( uint32_t generation, ReplayPredictionDetailMode mode, uint64_t bankEpoch ) noexcept",
+      "owner": "ReplayPredictionSolverEvidenceBanks build-boundary initialization",
+      "disposition": "retain-owner",
+      "reason": "Beginning a logical bank generation must reset publication while preserving admitted segment capacity and assigning one identity tuple.",
+      "evidence": "BeginBuild invokes it and TestReplayVisualPacket verifies identity/reset semantics. 2026-08-18 census: classification=own-tu-and-test-only; own_tu_calls=1; test_calls=1; required_arity=3/3.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "bool ReplayPredictionSolverEvidenceStore::Reserve( std::size_t requiredFrameCount, std::size_t requiredContactCount, std::size_t requiredPipelineCount, int frameNumber )",
+      "owner": "ReplayPredictionSolverEvidenceStore bounded segmented reserve",
+      "disposition": "retain-owner",
+      "reason": "One operation must admit all three evidence capacities under the shared hard byte cap before append begins.",
+      "evidence": "The bank owner and tests use this cohesive reserve transaction. 2026-08-18 census: classification=own-tu-and-test-only; own_tu_calls=2; test_calls=1; required_arity=4/4.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "bool ReplayPredictionSolverEvidenceStore::AppendFrame( const ReplayPredictionEvidenceIdentity& identity, ReplayPredictionContactSpan contacts, ReplayPredictionPipelineSpan pipeline, int frameNumber )",
+      "owner": "ReplayPredictionSolverEvidenceStore sealed-frame publication transaction",
+      "disposition": "retain-owner",
+      "reason": "Contacts and pipeline rows must be copied before their one complete frame range becomes visible through the published prefix.",
+      "evidence": "AppendBuildFrame delegates to it and tests verify all-or-nothing visibility. 2026-08-18 census: classification=own-tu-and-test-only; own_tu_calls=1; test_calls=1; required_arity=4/4.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "void ReplayPredictionSolverEvidenceStore::ResetPreservingCapacity() noexcept",
+      "owner": "ReplayPredictionSolverEvidenceStore reusable build-bank lifecycle",
+      "disposition": "retain-owner",
+      "reason": "Cancellation and bank reuse must retire published identities without reallocating already admitted segments.",
+      "evidence": "Three same-TU lifecycle paths and TestReplayVisualPacket exercise the reset. 2026-08-18 census: classification=own-tu-and-test-only; own_tu_calls=3; test_calls=1; required_arity=0/0.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "void ReplayPredictionSolverEvidenceStore::ReleaseCapacity() noexcept",
+      "owner": "ReplayPredictionSolverEvidenceStore explicit release lifecycle",
+      "disposition": "retain-owner",
+      "reason": "High-to-Low and teardown must release every segment while preserving historical peak accounting.",
+      "evidence": "The lexical scanner sees three ambiguous same-name lifecycle calls; the compiled private identity is exact. 2026-08-18 census: classification=no-reference; mapping=exact; ambiguous_production_calls=3; required_arity=0/0.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "ReplayPredictionSolverEvidenceFrame* ReplayPredictionSolverEvidenceStore::MutableFrame( std::size_t index ) noexcept",
+      "owner": "ReplayPredictionSolverEvidenceStore pre-publication frame writer",
+      "disposition": "retain-owner",
+      "reason": "Append requires private indexed mutation before the release publication; mutable frame storage never escapes the owner.",
+      "evidence": "AppendFrame and focused tests exercise segment-boundary addressing. 2026-08-18 census: classification=own-tu-and-test-only; own_tu_calls=1; test_calls=1; required_arity=1/1.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "Physics::PhysicsSolverPersistentContactSample* ReplayPredictionSolverEvidenceStore::MutableContact( std::size_t index ) noexcept",
+      "owner": "ReplayPredictionSolverEvidenceStore pre-publication contact writer",
+      "disposition": "retain-owner",
+      "reason": "Append requires private segmented contact writes before any frame range can publish them.",
+      "evidence": "AppendFrame and focused tests exercise segment-boundary addressing. 2026-08-18 census: classification=own-tu-and-test-only; own_tu_calls=1; test_calls=1; required_arity=1/1.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "Physics::PhysicsPipelineRecord* ReplayPredictionSolverEvidenceStore::MutablePipeline( std::size_t index ) noexcept",
+      "owner": "ReplayPredictionSolverEvidenceStore pre-publication pipeline writer",
+      "disposition": "retain-owner",
+      "reason": "Append requires private segmented pipeline writes before any frame range can publish them.",
+      "evidence": "AppendFrame and focused tests exercise segment-boundary addressing. 2026-08-18 census: classification=own-tu-and-test-only; own_tu_calls=1; test_calls=1; required_arity=1/1.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "bool ReplayPredictionSolverEvidenceStore::EnsureFrameSegments( std::size_t requiredCount, int frameNumber )",
+      "owner": "ReplayPredictionSolverEvidenceStore frame-segment growth",
+      "disposition": "retain-owner",
+      "reason": "Frame segments have distinct element size, fixed segment capacity, and allocation category under the shared bank cap.",
+      "evidence": "Reserve and focused boundary tests call this private growth step. 2026-08-18 census: classification=own-tu-and-test-only; own_tu_calls=1; test_calls=1; required_arity=2/2.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "bool ReplayPredictionSolverEvidenceStore::EnsureContactSegments( std::size_t requiredCount, int frameNumber )",
+      "owner": "ReplayPredictionSolverEvidenceStore contact-segment growth",
+      "disposition": "retain-owner",
+      "reason": "Contact segments have distinct element size, fixed segment capacity, and allocation category under the shared bank cap.",
+      "evidence": "Reserve and focused boundary tests call this private growth step. 2026-08-18 census: classification=own-tu-and-test-only; own_tu_calls=1; test_calls=1; required_arity=2/2.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "bool ReplayPredictionSolverEvidenceStore::EnsurePipelineSegments( std::size_t requiredCount, int frameNumber )",
+      "owner": "ReplayPredictionSolverEvidenceStore pipeline-segment growth",
+      "disposition": "retain-owner",
+      "reason": "Pipeline segments have distinct element size, fixed segment capacity, and allocation category under the shared bank cap.",
+      "evidence": "Reserve and focused boundary tests call this private growth step. 2026-08-18 census: classification=own-tu-and-test-only; own_tu_calls=1; test_calls=1; required_arity=2/2.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "bool ReplayPredictionSolverEvidenceStore::CanGrowBy( uint64_t bytes ) const noexcept",
+      "owner": "ReplayPredictionSolverEvidenceStore aggregate bank byte cap",
+      "disposition": "retain-owner",
+      "reason": "All segment categories must share one overflow-safe per-bank byte admission decision.",
+      "evidence": "All three segment growth paths and focused cap tests use this helper. 2026-08-18 census: classification=own-tu-and-test-only; own_tu_calls=3; test_calls=1; required_arity=1/1.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "void ReplayPredictionSolverEvidenceStore::RefreshLifetimePeak() noexcept",
+      "owner": "ReplayPredictionSolverEvidenceStore lifetime capacity high-water",
+      "disposition": "retain-owner",
+      "reason": "Each successful category growth must update the store's historical peak without coupling category-specific allocators.",
+      "evidence": "The scanner sees six ambiguous same-name calls; the compiled private identity is exact. 2026-08-18 census: classification=no-reference; mapping=exact; ambiguous_production_calls=6; required_arity=0/0.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "uint64_t ReplayPredictionSolverEvidenceBanks::BeginBuild( uint32_t generation, ReplayPredictionDetailMode mode ) noexcept",
+      "owner": "ReplayPredictionSolverEvidenceBanks build-bank lifecycle",
+      "disposition": "retain-owner",
+      "reason": "Prediction orchestration needs one boundary that selects the non-committed bank and assigns its new epoch without disturbing visible evidence.",
+      "evidence": "TestReplayVisualPacket directly verifies committed-bank preservation and epoch assignment; later prediction orchestration consumes this owner. 2026-08-18 census: classification=test-only; test_calls=1; required_arity=2/2.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "bool ReplayPredictionSolverEvidenceBanks::ReserveBuild( std::size_t requiredFrameCount, std::size_t requiredContactCount, std::size_t requiredPipelineCount, int frameNumber )",
+      "owner": "ReplayPredictionSolverEvidenceBanks build-bank reserve seam",
+      "disposition": "retain-owner",
+      "reason": "Prediction orchestration must reserve only the hidden build bank while preserving the committed bank on denial.",
+      "evidence": "TestReplayVisualPacket verifies denial and committed visibility; later prediction orchestration consumes this owner. 2026-08-18 census: classification=test-only; test_calls=1; required_arity=4/4.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "bool ReplayPredictionSolverEvidenceBanks::AppendBuildFrame( ReplayFrameIndex frame, uint32_t topologyVersion, uint64_t publicationVersion, ReplayPredictionContactSpan contacts, ReplayPredictionPipelineSpan pipeline, int frameNumber )",
+      "owner": "ReplayPredictionSolverEvidenceBanks build-frame identity seam",
+      "disposition": "retain-owner",
+      "reason": "The paired owner must stamp generation, mode, epoch, frame, topology, and publication identity atomically around each sealed frame append.",
+      "evidence": "TestReplayVisualPacket verifies the complete identity tuple; later prediction orchestration consumes this owner. 2026-08-18 census: classification=test-only; test_calls=1; required_arity=6/6.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "bool ReplayPredictionSolverEvidenceBanks::PromoteBuild() noexcept",
+      "owner": "ReplayPredictionSolverEvidenceBanks atomic committed-bank publication",
+      "disposition": "retain-owner",
+      "reason": "Only a non-empty sealed build may replace the visible committed bank, and publication must occur before the old bank becomes reusable.",
+      "evidence": "TestReplayVisualPacket verifies incomplete rejection and old/new visibility across promotion; later prediction orchestration consumes this owner. 2026-08-18 census: classification=test-only; test_calls=1; required_arity=0/0.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "void ReplayPredictionSolverEvidenceBanks::CancelBuild() noexcept",
+      "owner": "ReplayPredictionSolverEvidenceBanks cancellation lifecycle",
+      "disposition": "retain-owner",
+      "reason": "A denied or obsolete build must reset only the hidden bank and leave committed evidence byte-for-byte visible.",
+      "evidence": "TestReplayVisualPacket verifies cancellation preservation; later prediction orchestration consumes this owner. 2026-08-18 census: classification=test-only; test_calls=1; required_arity=0/0.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "void ReplayPredictionSolverEvidenceBanks::RefreshLifetimePeak() noexcept",
+      "owner": "ReplayPredictionSolverEvidenceBanks coexistence high-water",
+      "disposition": "retain-owner",
+      "reason": "The paired owner must measure peak build-plus-committed capacity rather than either physical bank independently.",
+      "evidence": "The scanner sees six ambiguous same-name calls; the compiled private identity is exact. 2026-08-18 census: classification=no-reference; mapping=exact; ambiguous_production_calls=6; required_arity=0/0.",
+      "plan": ""
     }
   ]
 }

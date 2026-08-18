@@ -1679,7 +1679,8 @@ bool ReplayRuntime::SavePresentationWithSolverHashes( const char* path, ReplayV2
 
 void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics, const Gameplay::TornadoGameplay& tornadoGameplay,
                                       const SceneEntityStore& entities, const SkullbonezCore::Core::EngineConfig& config,
-                                      const Physics::PhysicsWorldForces& worldForces, Threading::WorkerPool& workerPool,
+                                      const Physics::PhysicsWorldForces& worldForces,
+                                      ReplayPredictionPathPresentation pathPresentation, Threading::WorkerPool& workerPool,
                                       bool scenePhysicsEnabled, double simulationTimeSinceLastStart,
                                       double simulationTotalTime )
 {
@@ -1725,7 +1726,8 @@ void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics, const Gameplay::To
 
             const bool began = preparation != ReplayPredictionSourcePreparation::Declined &&
                                m_predictionOwner.BeginFrameSimulation( physics, tornadoGameplay, entities, config,
-                                                                       worldForces, workerPool, preparation );
+                                                                       worldForces, pathPresentation, workerPool,
+                                                                       preparation );
 
             m_predictionOwner.CompleteFrameSourceBegin( began, wasDirty, wasPendingLatestRestart );
             stopFrame = m_predictionOwner.BeginFrameBudgetExpired( budgetStart, REPLAY_PREDICTION_MAX_WORK_MILLISECONDS,

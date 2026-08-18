@@ -1765,7 +1765,8 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
                                 { "predictionPrivateMutualGravityEnabled",
                                   predictionState.simulation.predictionWorldForces.mutualGravity.enabled },
                                 { "predictionDrawListShowAllFuturePaths",
-                                  ReplayPrediction::PresentationViewFromState( predictionState, true ).showAllFuturePaths },
+                                  ReplayPredictionPathPresentationShowsAllBodies( ReplayPrediction::PresentationViewFromState( predictionState, true )
+                                                                                      .pathPresentation ) },
                                 { "predictionTrajectoryRecords", predictionTrajectoryRows },
                                 { "predictionFutureNodes", predictionFutureNodeRows },
                                 { "replayInterceptValid", replay.intercept.valid },
