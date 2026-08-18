@@ -1391,6 +1391,25 @@ void ReplayPrediction::SetEnabled( bool enabled ) noexcept
     MarkDirty();
 }
 
+ReplayPredictionDetailTransitionAction ReplayPrediction::ApplyDetailModeCommand( ReplayPredictionDetailModeCommand command )
+{
+    const ReplayPredictionDetailTransitionAction actions = EvaluateReplayPredictionDetailTransition( m_detailMode,
+                                                                                                     command.mode );
+
+    if ( actions == ReplayPredictionDetailTransitionAction::None )
+    {
+        return actions;
+    }
+
+    // Invariant: no publication may span two detail modes. Joining and
+    // retiring both banks precedes the retained preference change; the next
+    // frame then seeds one fresh exact-source generation in the new mode.
+    ClearCache();
+    m_detailMode = command.mode;
+    MarkDirty();
+    return actions;
+}
+
 void ReplayPrediction::ApplyAuthoringRequest( const ReplayAuthoringPredictionRequest& request, float minHorizonSeconds,
                                               float maxHorizonSeconds )
 {

@@ -44,6 +44,11 @@ enum class ReplayPredictionDetailMode : uint8_t
     Low
 };
 
+struct ReplayPredictionDetailModeCommand
+{
+    ReplayPredictionDetailMode mode = ReplayPredictionDetailMode::High;
+};
+
 enum class ReplayPredictionArchiveDetailCapability : uint8_t
 {
     Low,

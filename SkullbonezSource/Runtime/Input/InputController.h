@@ -174,6 +174,7 @@ enum class RuntimeInputAction
     ApplyCinematicParam,
     SaveSkyDefaults,
     ToggleCrossScenePause,
+    ToggleReplayPlayPause,
     ToggleDirectorGrab,
     SetDirectorPhasePose,
     StepDirectorPhase,

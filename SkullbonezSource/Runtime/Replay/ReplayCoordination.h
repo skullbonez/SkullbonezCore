@@ -135,6 +135,7 @@ enum class ReplayTransportAction : uint8_t
     SetRevealSpeed,
     Scrub,
     TogglePrediction,
+    SetPredictionDetailMode,
     SetPredictionHorizon,
     RestoreBranch,
     Save,

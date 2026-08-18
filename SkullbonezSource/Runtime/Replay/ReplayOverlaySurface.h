@@ -30,7 +30,7 @@ inline constexpr float REPLAY_PREDICTION_MAX_SECONDS = REPLAY_FUTURE_MAX_SECONDS
 
 UI::UIRect ReplayScrubberTrackRect( int screenW, int screenH, RunReplayTrack track );
 UI::UIRect ReplayScrubberBranchButtonRect( int screenW, int screenH );
-UI::UIRect ReplayScrubberPauseButtonRect( int screenW, int screenH );
+UI::UIRect ReplayScrubberHighDetailToggleRect( int screenW, int screenH );
 UI::UIRect ReplayScrubberVelocityEditToggleRect( int screenW, int screenH );
 UI::UIRect ReplayScrubberPredictToggleRect( int screenW, int screenH );
 UI::UIRect ReplayScrubberPastPathToggleRect( int screenW, int screenH );

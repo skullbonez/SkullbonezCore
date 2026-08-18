@@ -407,7 +407,7 @@ void UiTextPass::RenderChromeStatus( const UiTextViewport& viewport, const Overl
         }
 
         const char* stateLine = crossScenePauseLocked ? "P Pause Lock   Space advances"
-                                                      : ( scene.isTestComplete ? "Scene complete" : "P pause lock" );
+                                                      : ( scene.isTestComplete ? "Scene complete" : "Pause lock" );
 
         const float titlePx = 11.5f;
         const float valuePx = 10.0f;
@@ -1244,7 +1244,7 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport, OverlayMo
         };
 
         static const KeyEntry kRight[nRows] = {
-            { "Esc", "Min/expand UI" },    { "Esc Esc", "Quit" },         { "P", "Pause lock" },
+            { "Esc", "Min/expand UI" },    { "Esc Esc", "Quit" },         { "P", "Replay play/pause" },
             { "1", "Freeze water" },       { "2", "Reflection mode" },    { "3", "Toggle water flat" },
             { "4", "Toggle terrain" },     { "5", "Toggle water" },       { "6", "Debug body alpha" },
             { "G", "Broadphase overlay" }, { "C", "Physics debug" },      { "O", "Terrain probe" },

@@ -1540,6 +1540,7 @@ ReplayScrubberPointerDecision ReplayScrubber::ResolvePointerAction( const Replay
                                                                                   frame.scenePhysicsEnabled );
 
     surfaceInput.predictionEnabled = frame.predictionEnabled;
+    surfaceInput.predictionHighDetail = frame.predictionHighDetail;
     surfaceInput.hotZoneEnabled = !frame.uiBlocksMouse;
     surfaceInput.screenW = frame.screenWidth;
     surfaceInput.screenH = frame.screenHeight;
@@ -1778,6 +1779,32 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayTransportCommand& command
                                        output.enterInteractive );
 
         break;
+    case ReplayTransportAction::SetPredictionDetailMode:
+    {
+        const ReplayPredictionDetailMode requestedMode = command.enabled ? ReplayPredictionDetailMode::High
+                                                                         : ReplayPredictionDetailMode::Low;
+        const ReplayPredictionDetailTransitionAction actions = m_predictionOwner.ApplyDetailModeCommand( ReplayPredictionDetailModeCommand { requestedMode } );
+
+        if ( ReplayPredictionDetailTransitionHas( actions,
+                                                  ReplayPredictionDetailTransitionAction::ClearPredictionInspection ) )
+        {
+            const RunReplayCauseTreeState& causeTree = m_authoring.CauseTree();
+            const bool predictionInspection = causeTree.selectedRow >= 0 &&
+                                              causeTree.selectedRow < static_cast<int>( causeTree.rows.size() ) &&
+                                              causeTree.rows[static_cast<std::size_t>( causeTree.selectedRow )].prediction;
+
+            if ( predictionInspection )
+            {
+                m_authoring.ResetCauseTreeRows();
+                m_planningOwner.CauseInspection().Reset();
+                ExitInspectionCamera( cameras, terrain, camera, host.normalizedRestoreMode, host.attachedFollow,
+                                      host.directorGrabbed, interaction, inputRouter );
+            }
+        }
+
+        feedback( requestedMode == ReplayPredictionDetailMode::High ? "HIGH DETAIL" : "LOW DETAIL" );
+        break;
+    }
     case ReplayTransportAction::SetPredictionHorizon:
         m_predictionOwner.SetHorizonSeconds( std::clamp( command.value, REPLAY_PREDICTION_MIN_SECONDS, REPLAY_PREDICTION_MAX_SECONDS ) );
         KeepReplayScrubberVisible( m_scrubberOwner, host.now );
@@ -1873,6 +1900,7 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput( bool uiBlocksMous
     pointerFrame.loadedPresentation = loadedPresentation;
     pointerFrame.pathTargetAvailable = m_visualPresentation.PathVisualizer().hasTarget;
     pointerFrame.predictionEnabled = m_predictionOwner.State().enabled;
+    pointerFrame.predictionHighDetail = m_predictionOwner.PresentationView().detailMode == ReplayPredictionDetailMode::High;
     pointerFrame.predictionTimelineAvailable = m_predictionOwner.ActiveFrames().size() >= 2 ||
                                                m_predictionOwner.State().BuildPrefixShouldBePresented();
 
@@ -1927,13 +1955,34 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput( bool uiBlocksMous
         output.consumesMouse = true;
         return hostAction;
     }
-    case ReplayScrubberAction::TogglePause:
-        HandleReplayPausePressed( m_predictionOwner, m_visualPresentation, m_scrubberOwner, solverPresentTrackPosition,
-                                  m_authoring.VelocityEdit().enabled, hasCameraFocus, inputRouter, interaction, camera, now,
-                                  output.enterInteractive );
+    case ReplayScrubberAction::SetPredictionDetailMode:
+    {
+        const ReplayPredictionDetailMode requestedMode = m_predictionOwner.PresentationView().detailMode ==
+                                                                 ReplayPredictionDetailMode::High
+                                                             ? ReplayPredictionDetailMode::Low
+                                                             : ReplayPredictionDetailMode::High;
+        const ReplayPredictionDetailTransitionAction actions = m_predictionOwner.ApplyDetailModeCommand( { requestedMode } );
 
+        if ( ReplayPredictionDetailTransitionHas( actions,
+                                                  ReplayPredictionDetailTransitionAction::ClearPredictionInspection ) )
+        {
+            const RunReplayCauseTreeState& causeTree = m_authoring.CauseTree();
+            const bool predictionInspection = causeTree.selectedRow >= 0 &&
+                                              causeTree.selectedRow < static_cast<int>( causeTree.rows.size() ) &&
+                                              causeTree.rows[static_cast<std::size_t>( causeTree.selectedRow )].prediction;
+
+            if ( predictionInspection )
+            {
+                m_authoring.ResetCauseTreeRows();
+                m_planningOwner.CauseInspection().Reset();
+                hostAction = ReplayInspectionCameraAction::Exit;
+            }
+        }
+
+        KeepReplayScrubberVisible( m_scrubberOwner, now );
         consumesMouse = true;
         break;
+    }
     case ReplayScrubberAction::ToggleVelocityEdit:
         HandleReplayVelocityEditPressed( m_authoring, m_predictionOwner, m_visualPresentation, m_scrubberOwner,
                                          solverPresentTrackPosition, hasCameraFocus, inputRouter, interaction, camera, now,

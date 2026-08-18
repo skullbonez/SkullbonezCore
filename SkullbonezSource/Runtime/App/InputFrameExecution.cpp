@@ -32,6 +32,7 @@ Related:
 */
 #include "InputFrame.h"
 #include "Run.h"
+#include "Window.h"
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 #include "../DevelopmentTools/ImGuiEditorLayoutPolicy.h"
 #endif
@@ -950,11 +951,30 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
             break;
         case RuntimeInputAction::ToggleCrossScenePause:
-
-            // P locks scene automation without turning the run interactive;
-            // SceneController preserves the policy across load transactions.
             sceneController.ToggleCrossScenePause();
             break;
+        case RuntimeInputAction::ToggleReplayPlayPause:
+        {
+            ReplayWorkspaceOutput transportOutput;
+            replayRuntime
+                .ApplyTransportCommand( ReplayTransportCommand { ReplayTransportAction::TogglePlayPause },
+                                        ReplayTransportHostContext { window.NativeWindowHandle(),
+                                                                     NormalizeCameraModeForCurrentScene( camera.mode ),
+                                                                     NormalizeCameraModeForCurrentScene( replayRuntime.BuildInputView().restoreCameraMode ),
+                                                                     attachedCamera.State().activeFollow,
+                                                                     camera.director.grabbed,
+                                                                     timers.simulationTimer.GetTotalTime() },
+                                        inputRouter, interaction, &sceneController.Scene().Cameras(),
+                                        sceneController.Scene().Terrain().Get(), camera, runtimeTools.MousePickup(),
+                                        transportOutput );
+
+            if ( transportOutput.enterInteractive )
+            {
+                EnterInteractiveSceneRun();
+            }
+
+            break;
+        }
         case RuntimeInputAction::ToggleUIVisibility:
         case RuntimeInputAction::TogglePerformanceHistogram:
         case RuntimeInputAction::ToggleMemoryOverlay:

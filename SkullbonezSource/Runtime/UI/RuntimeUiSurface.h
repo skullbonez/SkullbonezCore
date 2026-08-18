@@ -95,6 +95,7 @@ struct RuntimeUiControl
     bool hovered = false;
     bool focused = false;
     bool active = false;
+    bool checked = false;
     bool requestsReveal = false;
 };
 

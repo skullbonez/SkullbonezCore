@@ -85,38 +85,30 @@ TEST_CASE( "Runtime input bindings: core keyboard shortcuts map to actions" )
     CheckExactBinding( 'H', keyboard, RuntimeInputAction::ToggleReplayGuideArcs );
     CheckExactBinding( 'J', keyboard, RuntimeInputAction::ToggleReplayTripPlanner );
     CheckExactBinding( 'I', keyboard, RuntimeInputAction::ToggleReplayPorkchopPanel );
+    CheckExactBinding( 'P', keyboard, RuntimeInputAction::ToggleReplayPlayPause );
     CHECK( FindExactBinding( VK_OEM_PERIOD, keyboard ) == nullptr );
     CheckExactBinding( VK_LEFT, keyboard, RuntimeInputAction::NavigateScenePrevious );
     CheckExactBinding( VK_RIGHT, keyboard, RuntimeInputAction::NavigateSceneNext );
     CheckExactBinding( 'Z', keyboard | RuntimeInputBindingContext::Editor, RuntimeInputAction::UndoEditor );
     CheckExactBinding( 'Y', keyboard | RuntimeInputBindingContext::Editor, RuntimeInputAction::RedoEditor );
-    CheckExactBinding( VK_DELETE,
-                       keyboard | RuntimeInputBindingContext::Editor,
-                       RuntimeInputAction::DeleteEditorSelection );
+    CheckExactBinding( VK_DELETE, keyboard | RuntimeInputBindingContext::Editor, RuntimeInputAction::DeleteEditorSelection );
 }
 
 TEST_CASE( "Runtime input bindings: contextual shortcuts stay on their owning contexts" )
 {
     const RuntimeInputContextMask keyboard = Context( RuntimeInputBindingContext::KeyboardUnblocked );
 
-    CheckExactBinding( 'M',
-                       keyboard | RuntimeInputBindingContext::Launcher,
-                       RuntimeInputAction::CycleLauncherFireMode );
-    CheckExactBinding( VK_F1,
-                       keyboard | RuntimeInputBindingContext::AttachedCamera,
+    CheckExactBinding( 'M', keyboard | RuntimeInputBindingContext::Launcher, RuntimeInputAction::CycleLauncherFireMode );
+    CheckExactBinding( VK_F1, keyboard | RuntimeInputBindingContext::AttachedCamera,
                        RuntimeInputAction::CycleAttachedCameraSubmode );
-    CheckExactBinding( VK_RETURN,
-                       keyboard | RuntimeInputBindingContext::AttachedCamera,
+    CheckExactBinding( VK_RETURN, keyboard | RuntimeInputBindingContext::AttachedCamera,
                        RuntimeInputAction::ToggleAttachedCameraPin );
     CheckExactBinding( 'B', keyboard | RuntimeInputBindingContext::Director, RuntimeInputAction::ToggleDirectorGrab );
-    CheckExactBinding( 'J',
-                       keyboard | RuntimeInputBindingContext::DirectorAuthoring,
+    CheckExactBinding( 'J', keyboard | RuntimeInputBindingContext::DirectorAuthoring,
                        RuntimeInputAction::SetDirectorPhasePose );
-    CheckExactBinding( 'K',
-                       keyboard | RuntimeInputBindingContext::DirectorAuthoring,
+    CheckExactBinding( 'K', keyboard | RuntimeInputBindingContext::DirectorAuthoring,
                        RuntimeInputAction::StepDirectorPhase );
-    CheckExactBinding( 'L',
-                       keyboard | RuntimeInputBindingContext::DirectorAuthoring,
+    CheckExactBinding( 'L', keyboard | RuntimeInputBindingContext::DirectorAuthoring,
                        RuntimeInputAction::SaveDirectorShotList );
     CheckExactBinding( VK_RETURN,
                        keyboard | RuntimeInputBindingContext::Launcher |
@@ -129,13 +121,10 @@ TEST_CASE( "Runtime input bindings: late and capture shortcuts are explicitly gr
     const RuntimeInputContextMask afterUI = Context( RuntimeInputBindingContext::AfterUIUpdate );
     const RuntimeInputContextMask capture = Context( RuntimeInputBindingContext::Capture );
 
-    CheckExactBinding( VK_ESCAPE,
-                       afterUI | RuntimeInputBindingContext::UINotInteracted,
+    CheckExactBinding( VK_ESCAPE, afterUI | RuntimeInputBindingContext::UINotInteracted,
                        RuntimeInputAction::DismissOrExitUI );
     CheckExactBinding( 'R', afterUI, RuntimeInputAction::ResetScene );
-    CheckExactBinding( VK_BACK,
-                       afterUI | RuntimeInputBindingContext::Scene,
-                       RuntimeInputAction::ResetSceneFromBackspace );
+    CheckExactBinding( VK_BACK, afterUI | RuntimeInputBindingContext::Scene, RuntimeInputAction::ResetSceneFromBackspace );
     CheckExactBinding( VK_F2, capture, RuntimeInputAction::SaveSceneSnapshot );
     CheckExactBinding( VK_F3, capture, RuntimeInputAction::SaveScreenshot );
 }

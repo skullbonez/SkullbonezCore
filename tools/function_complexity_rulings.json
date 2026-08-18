@@ -35,11 +35,11 @@
     {
       "file": "SkullbonezSource/Runtime/App/InputFrameExecution.cpp",
       "signature": "Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput )",
-      "body_sha256": "cb9501edcaf39e77d77a7d204fdc2c1664d16e5957db4f2ca561f0b32363073e",
+      "body_sha256": "4201f5e536736be78fd85520eb31abbdad6255c40aa7935a010c777e07776b40",
       "owner": "Runtime input frame phase",
       "disposition": "retain-owner",
       "reason": "One ordered input turn runs from automation sampling through device routing, typed command production, and terminal restore publication; the causal-transition token participates in that same restore transaction so Planning cannot observe completion before Replay has committed the result. Every participant is a synchronous Run-owned borrow, and wrapping them would create a broad frame context rather than a new invariant.",
-      "evidence": "git history: look-lab-random-style-authoring-ll5-breadth-reuse-idle (2026-08-01); C1 causal-row transport owner review (2026-08-17)",
+      "evidence": "git history: look-lab-random-style-authoring-ll5-breadth-reuse-idle (2026-08-01); C1 causal-row transport owner review (2026-08-17); PREDICT_SOLVER_DETAIL PSD1 typed replay play/pause routing (2026-08-18)",
       "plan": ""
     },
     {
@@ -135,11 +135,11 @@
     {
       "file": "SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.cpp",
       "signature": "void RenderReplayScrubberOverlay( UiDrawSubmission& submission, Text::TextBatch& textBatch, UI::UIDrawList& drawList, const ReplayOverlayStateView& replay, Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderCommands, Rendering::Dx12Diagnostics& renderDiagnostics, Core::Profiler* profiler, bool scenePhysicsEnabled, RuntimeInteractionGestureKind gesture, ReplayOverlayViewport viewport, double nowSeconds )",
-      "body_sha256": "6968da79e2e368c33015c526d649c51811e5db9346cb63ed67561f731d6e3986",
+      "body_sha256": "7ebc00ccf7f46c543dd786f14c8fc4af7d95d8b23f6152d40fff11fa1b9d83d2",
       "owner": "Replay scrubber overlay pass",
       "disposition": "retain-owner",
       "reason": "One presentation pass converts a detached replay overlay snapshot into an ordered draw submission for one viewport and time; renderer owners are synchronous sinks and no overlay state is retained.",
-      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); PREDICT_SOLVER_DETAIL PSD1 shared High Detail control rendering (2026-08-18)",
       "plan": ""
     },
     {

@@ -2,7 +2,7 @@
 
 Date: 2026-08-18
 Branch: `nightrunner-18th-AUG-26`
-Status: Three active plans; 25/47 tasks complete
+Status: Three active plans; 26/47 tasks complete
 
 Predicted Solver Cause Hierarchy (8 tasks), Continuous Orbital Forecast
 (7 tasks), and At-Rest Ball Stability (8 tasks) are registered
@@ -75,6 +75,21 @@ golden mismatch (`topology[0].firstFrame` 137 -> 136), so no golden was
 refreshed; the exact executable/report/artifact evidence is preserved under
 `TestOutput/validation/candidates/PREDICT_SOLVER_DETAIL_PSD0/`. Its candidate
 comparison and all nine mutation-control families pass.
+
+PSD1 is complete. `ReplayPrediction` owns the sole retained High/Low mode and
+the typed command reaches it through both established replay input seams. The
+former mouse Pause slot is a shared checked-by-default High Detail checkbox;
+drawing, hit testing, and automation use one rectangle, while keyboard `P`
+retains ReplayRuntime play/pause and cross-scene pause remains a separate typed
+UI command. Prediction-mode transitions clear prediction inspection and exit
+its camera without disturbing recorded inspection. The full 595-case suite,
+all nine fast-gate stages, Automation smoke, one-minute graphics stress, and all
+eight isolated DX12 stages pass. The touched-source audit is 19/19 with none
+deferred. The canonical replay visual oracle retains only the inherited 137 ->
+136 causal first-frame mismatch; no golden changed, and the exact PSD1 evidence
+plus candidate baselines live under
+`TestOutput/validation/candidates/PREDICT_SOLVER_DETAIL_PSD1/`, where the
+candidate comparison and all nine false-pass control families pass.
 
 Catto CD3 replaced the global summed squared impulse-delta early-out with the
 maximum per-contact-row squared delta while retaining the historical sum for
@@ -179,9 +194,8 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `PREDICT_SOLVER_DETAIL` PSD1-PSD7. Add the sole retained mode and shared
-timeline control next, then add immutable segmented evidence
-banks, exact private-pipeline capture, the body -> manifold -> solver-row
+Execute `PREDICT_SOLVER_DETAIL` PSD2-PSD7. Add immutable segmented evidence
+banks next, then exact private-pipeline capture, the body -> manifold -> solver-row
 hierarchy, transactional archives, and the combined High/Low release workflow.
 
 After predicted solver detail closes, execute `ORBIT_FORECAST` OF0-OF6. The
@@ -208,7 +222,7 @@ not part of the active queue.
 
 ## Blockers
 
-- None. Continue with `PREDICT_SOLVER_DETAIL` PSD1.
+- None. Continue with `PREDICT_SOLVER_DETAIL` PSD2.
 
 ## CI Note
 

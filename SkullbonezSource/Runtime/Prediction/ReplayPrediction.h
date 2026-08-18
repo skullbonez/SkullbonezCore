@@ -780,7 +780,9 @@ class ReplayPrediction
 
     ReplayPredictionPresentationView PresentationView() const noexcept
     {
-        return PresentationViewFromState( m_state, m_generationPermitted );
+        ReplayPredictionPresentationView view = PresentationViewFromState( m_state, m_generationPermitted );
+        view.detailMode = m_detailMode;
+        return view;
     }
 
     static ReplayPredictionPresentationView PresentationViewFromState( const RunReplayPredictionState& predictionState,
@@ -948,6 +950,7 @@ class ReplayPrediction
     // Owner commands used by validation and UI paths. These keep rebuild and
     // baseline invalidation coupled to the state transition that requires it.
     void SetEnabled( bool enabled ) noexcept;
+    ReplayPredictionDetailTransitionAction ApplyDetailModeCommand( ReplayPredictionDetailModeCommand command );
     void ApplyAuthoringRequest( const ReplayAuthoringPredictionRequest& request, float minHorizonSeconds,
                                 float maxHorizonSeconds );
     void DisableAndClearCache();
@@ -1011,6 +1014,7 @@ class ReplayPrediction
     Core::Profiler* m_profiler;
     ReplayPredictionPresentation m_presentation;
     RunReplayPredictionState m_state;
+    ReplayPredictionDetailMode m_detailMode = ReplayPredictionDetailMode::High;
     bool m_generationPermitted = true;
 };
 

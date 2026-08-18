@@ -354,7 +354,7 @@ retaining detail capacity after switching to low detail.
   separate positive oracle preserving intentional all-body roots in an authored
   space scene. Name the one presentation-policy owner and prove generic force
   configuration alone cannot select all-body roots.
-- [ ] **PSD1 - Add the typed mode command and timeline control.** Put the sole
+- [x] **PSD1 - Add the typed mode command and timeline control.** Put the sole
   mode value on `ReplayPrediction`; route one typed command through the
   established replay input/command seams. Replace the bottom timeline's Pause
   control/action with the checked-by-default High Detail toggle in the same
@@ -487,6 +487,46 @@ retaining detail capacity after switching to low detail.
   `TestOutput/validation/candidates/PREDICT_SOLVER_DETAIL_PSD0/`. A candidate
   visual/causal comparison passes 2,401 ticks, 200 causal nodes, one presented
   cascade, and saved/load fidelity; all nine mutation-control families pass.
+
+### PSD1 - Typed mode command and shared timeline control
+
+- `ReplayPrediction` now retains the sole High/Low preference and publishes it
+  through its immutable presentation view. Both pointer and transport paths
+  apply one `ReplayPredictionDetailModeCommand`; a real transition joins and
+  clears prediction work before changing the preference, while a same-mode
+  command remains a no-op.
+- The former bottom-timeline Pause slot is now the checked-by-default `HIGH
+  DETAIL` toggle. `ReplayOverlayLayout` publishes one shared 58-by-22 rectangle,
+  checked state, action, and pointer-block row for drawing and hit testing. Low
+  remains enabled for the reverse transition even while prediction is active;
+  loaded playback hides the control and unavailable prediction leaves a
+  disabled front row that blocks click-through.
+- The retired pointer Pause enum, action, rectangle, renderer, help text, and
+  diagnostic automation `pause`/`play` routes are absent. Keyboard `P` now
+  issues `ReplayTransportAction::TogglePlayPause` through the established
+  ReplayRuntime path; cross-scene pause remains a separate UI/programmatic
+  command. Prediction detail transitions clear only prediction-owned cause
+  inspection and exit its camera, leaving recorded inspection independent.
+- Focused input and value-seam tests pin the `P` binding, shared rectangle,
+  default checked state, Low re-enable reachability, mouse blocking, loaded and
+  unavailable states, and the former slot's detail-mode action. The full suite
+  passes 595 cases / 2,480,680 assertions; `validate_fast` passes all nine
+  stages, Automation smoke passes, the one-minute graphics stress run closes
+  cleanly, and isolated `validate_dx12_renderer` passes all eight stages with
+  committed-baseline comparisons green.
+- The touched-source comment audit is 19/19 checked with none deferred. This was
+  a touched-file diff inventory, so no subsystem checklist file was required;
+  learning headers, structured invariants, UI draw/hit ownership, typed-command
+  sequencing, and prediction-inspection claims were verified against the final
+  call paths without requiring comment edits.
+- The canonical replay visual gate retains the inherited immutable mismatch at
+  `causal.topology[0].firstFrame` (expected 137, actual 136); no golden was
+  refreshed. Exact Automation/Profile executables, report, artifact, and log
+  are preserved under
+  `TestOutput/validation/candidates/PREDICT_SOLVER_DETAIL_PSD1/`. Comparison
+  against the phase candidate passes 2,401 ticks, 200 causal nodes, one
+  presented cascade, and saved/load fidelity; all nine false-pass control
+  families pass.
 
 ## Acceptance
 

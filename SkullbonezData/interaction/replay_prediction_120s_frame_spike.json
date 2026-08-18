@@ -19,7 +19,7 @@
 
     { "frame": 2700, "assert": { "predictionFullHorizonComplete": true } },
     { "frame": 2710, "clickReplayControl": "predict" },
-    { "frame": 2720, "clickReplayControl": "pause" },
+    { "frame": 2720, "pressKey": "P" },
     { "frame": 2730, "scrubReplaySolverTrack": 0.5 },
     { "frame": 2740, "assert": { "replayHistoricalSamplePaused": true } },
     { "frame": 2750, "clickReplayControl": "branch" },

@@ -388,7 +388,7 @@
                        },
                        {
                            "key":  "ReplayInteractionExitInput",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:190",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:191",
                            "members":  5,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
@@ -406,7 +406,7 @@
                        },
                        {
                            "key":  "ReplayKeyboardVelocityEditInput",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:301",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:302",
                            "members":  4,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
@@ -415,7 +415,7 @@
                        },
                        {
                            "key":  "ReplayLiveRestoreRequest",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayScrubber.h:160",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayScrubber.h:161",
                            "members":  9,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
@@ -514,7 +514,7 @@
                        },
                        {
                            "key":  "ReplaySceneTimelineResetInput",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:249",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:250",
                            "members":  13,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
@@ -524,7 +524,7 @@
                        {
                            "key":  "ReplayScrubberSurfaceInput",
                            "site":  "SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h:91",
-                           "members":  12,
+                           "members":  13,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
                            "reason":  "Screen extent, track, gesture, loaded state, tool capabilities, target availability, and drag/hot-zone policy are one layout hit-test snapshot; geometry and interaction must share it.",
@@ -541,7 +541,7 @@
                        },
                        {
                            "key":  "ReplayStartupRequest",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:208",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:209",
                            "members":  12,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
@@ -550,7 +550,7 @@
                        },
                        {
                            "key":  "ReplayTransportHostContext",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:154",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:155",
                            "members":  6,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
@@ -604,7 +604,7 @@
                        },
                        {
                            "key":  "RuntimeCameraMovementInput",
-                           "site":  "SkullbonezSource/Runtime/Input/InputController.h:275",
+                           "site":  "SkullbonezSource/Runtime/Input/InputController.h:276",
                            "members":  10,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Input",
@@ -613,7 +613,7 @@
                        },
                        {
                            "key":  "RuntimeInputContext",
-                           "site":  "SkullbonezSource/Runtime/Input/InputController.h:297",
+                           "site":  "SkullbonezSource/Runtime/Input/InputController.h:298",
                            "members":  9,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Input",

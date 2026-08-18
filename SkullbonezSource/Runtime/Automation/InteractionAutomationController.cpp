@@ -1160,7 +1160,29 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
 {
     // Concept: replay-control automation clicks the visible scrubber widgets
     // instead of mutating replay state directly. Normal replay input remains the
-    // owner of prediction, pause/play, velocity-edit, and branch transitions.
+    // owner of prediction, detail-mode, velocity-edit, and branch transitions.
+    if ( strcmp( action.text, "highDetail" ) == 0 )
+    {
+        const int screenW = window ? window->ClientWidth() : config.window.screenX;
+        const int screenH = window ? window->ClientHeight() : config.window.screenY;
+        const ReplayRecorderStats solverReplayStats = replay.solverStats;
+        const bool predictionToolsEnabled = solverReplayStats.enabled && scene.isScenePhysics;
+
+        if ( screenW > 0 && screenH > 0 && predictionToolsEnabled )
+        {
+            InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
+                                                           ReplayScrubberHighDetailToggleRect( screenW, screenH ),
+                                                           "mouse press injected at high-detail toggle" );
+        }
+        else
+        {
+            AppendInteractionAutomationReplayControlFailure( state, frame, action, "replay high-detail control unavailable",
+                                                             "replay high-detail control unavailable" );
+        }
+
+        return;
+    }
+
     if ( strcmp( action.text, "predict" ) == 0 )
     {
         const int screenW = window ? window->ClientWidth() : config.window.screenX;
@@ -1205,32 +1227,6 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
         {
             AppendInteractionAutomationReplayControlFailure( state, frame, action, "replay past-path control unavailable",
                                                              "replay past-path control unavailable" );
-        }
-
-        return;
-    }
-
-    if ( strcmp( action.text, "pause" ) == 0 || strcmp( action.text, "play" ) == 0 )
-    {
-        const int screenW = window ? window->ClientWidth() : config.window.screenX;
-        const int screenH = window ? window->ClientHeight() : config.window.screenY;
-        const ReplayRecorderStats solverReplayStats = replay.solverStats;
-        const bool solverToolsEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
-
-        if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
-        {
-            // Concept: the scrubber exposes one physical button whose label
-            // flips between pause and play. Automation clicks the real rectangle
-            // so replay input ownership does the state transition and
-            // prediction-freeze work.
-            InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
-                                                           ReplayScrubberPauseButtonRect( screenW, screenH ),
-                                                           "mouse press injected at pause/play toggle" );
-        }
-        else
-        {
-            AppendInteractionAutomationReplayControlFailure( state, frame, action, "replay pause/play control unavailable",
-                                                             "replay pause/play control unavailable" );
         }
 
         return;

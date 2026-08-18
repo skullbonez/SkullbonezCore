@@ -335,6 +335,7 @@ void RenderReplayScrubberOverlay( UiDrawSubmission& submission, Text::TextBatch&
     surfaceInput.screenH = screenH;
     surfaceInput.gesture = gesture;
     surfaceInput.predictionEnabled = replay.prediction.enabled;
+    surfaceInput.predictionHighDetail = replay.prediction.detailMode == ReplayPredictionDetailMode::High;
     ReplayScrubberSurface surface;
     BuildReplayScrubberSurface( surfaceInput, surface );
     surface.ResolvePointer( scrubber.mouseX, scrubber.mouseY );
@@ -465,30 +466,38 @@ void RenderReplayScrubberOverlay( UiDrawSubmission& submission, Text::TextBatch&
 
     if ( !loadedPresentation )
     {
-        const UI::UIRect pauseButton = control( ReplayScrubberControl::Pause ).drawRect;
-        const bool liveAdvanceHeld = scrubber.liveAdvanceHeld;
-        const bool playbackEnabled = control( ReplayScrubberControl::Pause ).enabled;
-        const bool pauseHover = playbackEnabled && isHotControl( ReplayScrubberControl::Pause );
-        draw.RoundedRect( pauseButton.x, pauseButton.y, pauseButton.w, pauseButton.h, radii.smallButton,
-                          pauseHover ? palette.controlHover.r : palette.control.r,
-                          pauseHover ? palette.controlHover.g : palette.control.g,
-                          pauseHover ? palette.controlHover.b : palette.control.b,
-                          fadeA( playbackEnabled ? ( pauseHover || liveAdvanceHeld ? 0.94f : 0.78f ) : 0.38f ) );
+        const UI::UIRect highDetail = control( ReplayScrubberControl::HighDetail ).drawRect;
+        const bool highDetailEnabled = control( ReplayScrubberControl::HighDetail ).enabled;
+        const bool highDetailChecked = control( ReplayScrubberControl::HighDetail ).checked;
+        const bool highDetailHover = highDetailEnabled && isHotControl( ReplayScrubberControl::HighDetail );
+        draw.RoundedRect( highDetail.x, highDetail.y, highDetail.w, highDetail.h, radii.smallButton,
+                          highDetailHover ? palette.controlHover.r : palette.control.r,
+                          highDetailHover ? palette.controlHover.g : palette.control.g,
+                          highDetailHover ? palette.controlHover.b : palette.control.b,
+                          fadeA( highDetailEnabled ? ( highDetailHover || highDetailChecked ? 0.94f : 0.78f ) : 0.38f ) );
+        draw.Outline( highDetail.x, highDetail.y, highDetail.w, highDetail.h, palette.accent.r, palette.accent.g,
+                      palette.accent.b,
+                      fadeA( highDetailEnabled ? ( highDetailHover || highDetailChecked ? 0.78f : 0.36f ) : 0.14f ) );
 
-        draw.Outline( pauseButton.x, pauseButton.y, pauseButton.w, pauseButton.h,
-                      liveAdvanceHeld ? palette.accentStrong.r : palette.accent.r,
-                      liveAdvanceHeld ? palette.accentStrong.g : palette.accent.g,
-                      liveAdvanceHeld ? palette.accentStrong.b : palette.accent.b,
-                      fadeA( playbackEnabled ? ( pauseHover || liveAdvanceHeld ? 0.78f : 0.36f ) : 0.14f ) );
+        const float detailCheckX = highDetail.x + 6.0f;
+        const float detailCheckY = highDetail.y + 5.0f;
+        draw.Outline( detailCheckX, detailCheckY, 10.0f, 10.0f, palette.accent.r, palette.accent.g, palette.accent.b,
+                      fadeA( highDetailEnabled ? 0.82f : 0.28f ) );
 
-        drawText( pauseButton.x + 9.0f, pauseButton.y + 5.0f, 9.5f,
-                  !playbackEnabled ? palette.textMuted.r
-                                   : ( liveAdvanceHeld ? palette.accentStrong.r : palette.textSecondary.r ),
-                  !playbackEnabled ? palette.textMuted.g
-                                   : ( liveAdvanceHeld ? palette.accentStrong.g : palette.textSecondary.g ),
-                  !playbackEnabled ? palette.textMuted.b
-                                   : ( liveAdvanceHeld ? palette.accentStrong.b : palette.textSecondary.b ),
-                  liveAdvanceHeld ? "PLAY" : "PAUSE" );
+        if ( highDetailChecked )
+        {
+            draw.Rect( detailCheckX + 2.0f, detailCheckY + 2.0f, 6.0f, 6.0f, palette.accent.r, palette.accent.g,
+                       palette.accent.b, fadeA( 0.95f ) );
+        }
+
+        const float detailTextR = !highDetailEnabled ? palette.textMuted.r
+                                                     : ( highDetailChecked ? palette.accent.r : palette.textSecondary.r );
+        const float detailTextG = !highDetailEnabled ? palette.textMuted.g
+                                                     : ( highDetailChecked ? palette.accent.g : palette.textSecondary.g );
+        const float detailTextB = !highDetailEnabled ? palette.textMuted.b
+                                                     : ( highDetailChecked ? palette.accent.b : palette.textSecondary.b );
+        drawText( highDetail.x + 20.0f, highDetail.y + 2.0f, 6.5f, detailTextR, detailTextG, detailTextB, "HIGH" );
+        drawText( highDetail.x + 20.0f, highDetail.y + 10.0f, 6.5f, detailTextR, detailTextG, detailTextB, "DETAIL" );
 
         {
             PROFILE_SCOPED( "Frame/Replay/ScrubberOverlay/VelocityEditControls" );
