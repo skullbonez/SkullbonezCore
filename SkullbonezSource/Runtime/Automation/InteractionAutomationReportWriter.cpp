@@ -9,6 +9,9 @@ Summary:
   Runtime owners are borrowed synchronously through one report call. The
   writer computes report facts, verifies any durable replay artifact, writes
   JSON, then releases every borrow before returning.
+  Prediction witnesses serialize complete bounded trajectory, future-node, and
+  cause-row topology so root-policy regressions are reviewable without inferring
+  structure from a screenshot.
 
 Glossary:
   Report fact: Derived validation value shared by live assertions and final JSON.
@@ -20,6 +23,8 @@ Glossary:
 Invariants:
   - JSON field names and replay byte/order calculations are validation contracts.
   - Prediction reports and fidelity capture never read beyond the committed prefix.
+  - Topology witness rows preserve lane, identity, ancestry, depth, and first-frame
+    fields in publication order; reports do not synthesize missing relationships.
   - Runtime-owner references are never stored on the writer.
   - A report failure never replaces an earlier probe failure.
 
@@ -80,6 +85,63 @@ constexpr uint64_t INTERACTION_PREDICTION_FINGERPRINT_PRIME = 1099511628211ull;
 Json Vec3Json( const Vector3& value )
 {
     return Json::array( { value.x, value.y, value.z } );
+}
+
+// Concept: enum spellings are part of the JSON witness schema. These helpers
+// keep topology rows readable while preserving a stable closed mapping.
+const char* ReplayTrajectoryLaneName( ReplayTrajectoryLane lane ) noexcept
+{
+    switch ( lane )
+    {
+    case ReplayTrajectoryLane::PastRoot:
+        return "PastRoot";
+    case ReplayTrajectoryLane::FutureRoot:
+        return "FutureRoot";
+    case ReplayTrajectoryLane::FutureChildIncoming:
+        return "FutureChildIncoming";
+    case ReplayTrajectoryLane::FutureChildOutgoing:
+        return "FutureChildOutgoing";
+    case ReplayTrajectoryLane::RetainedTrail:
+        return "RetainedTrail";
+    case ReplayTrajectoryLane::BaselineRoot:
+        return "BaselineRoot";
+    }
+
+    return "Unknown";
+}
+
+const char* ReplayCauseTreeRowKindName( RunReplayCauseTreeRowKind kind ) noexcept
+{
+    switch ( kind )
+    {
+    case RunReplayCauseTreeRowKind::Body:
+        return "Body";
+    case RunReplayCauseTreeRowKind::Manifold:
+        return "Manifold";
+    case RunReplayCauseTreeRowKind::SolverRow:
+        return "SolverRow";
+    case RunReplayCauseTreeRowKind::PredictionContact:
+        return "PredictionContact";
+    case RunReplayCauseTreeRowKind::PredictionMotion:
+        return "PredictionMotion";
+    }
+
+    return "Unknown";
+}
+
+const char* ReplayCauseSolverDetailAvailabilityName( ReplayCauseSolverDetailAvailability availability ) noexcept
+{
+    switch ( availability )
+    {
+    case ReplayCauseSolverDetailAvailability::Available:
+        return "Available";
+    case ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable:
+        return "SolverDetailNotAvailable";
+    case ReplayCauseSolverDetailAvailability::ReplayFrameExpired:
+        return "ReplayFrameExpired";
+    }
+
+    return "Unknown";
 }
 
 void HashPredictionByte( uint64_t& hash, uint8_t value )
@@ -1314,6 +1376,49 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
                                                    { "contactDerived", node.contactDerived } } );
     }
 
+    // Concept: record the complete small, typed publication surface rather than
+    // a screenshot-only impression. These rows prove that selected-causal and
+    // authored-space policies produce different root shapes.
+    Json predictionTrajectoryRows = Json::array();
+
+    for ( const ReplayTrajectoryRecord& record : replay.visualPacket.trajectoryRecords )
+    {
+        predictionTrajectoryRows.push_back( Json { { "lane", ReplayTrajectoryLaneName( record.key.lane ) },
+                                                   { "bodyId", record.key.bodyId.value },
+                                                   { "parentId", record.parentId.value },
+                                                   { "depth", record.depth },
+                                                   { "firstFrame", record.firstFrame },
+                                                   { "branchOrdinal", record.key.branchOrdinal },
+                                                   { "publishedPointCount", record.publishedPointCount },
+                                                   { "contactDerived", record.contactDerived } } );
+    }
+
+    Json predictionFutureNodeRows = Json::array();
+
+    for ( const RunReplayPathTraceNode& node : replay.visualPacket.futureNodes )
+    {
+        predictionFutureNodeRows.push_back( Json { { "bodyId", node.id.value },
+                                                   { "parentId", node.parentId.value },
+                                                   { "depth", node.depth },
+                                                   { "firstFrame", node.firstFrame },
+                                                   { "contactDerived", node.contactDerived } } );
+    }
+
+    Json replayCauseTreeRows = Json::array();
+
+    for ( const RunReplayCauseTreeRow& row : replay.causeTree.rows )
+    {
+        replayCauseTreeRows.push_back( Json { { "kind", ReplayCauseTreeRowKindName( row.kind ) },
+                                              { "bodyId", row.id.value },
+                                              { "parentId", row.parentId.value },
+                                              { "counterpartId", row.counterpartId.value },
+                                              { "depth", row.depth },
+                                              { "firstFrame", row.firstFrame },
+                                              { "prediction", row.prediction },
+                                              { "name", row.name },
+                                              { "detail", row.detail } } );
+    }
+
     const int selectedIndex = PeekSelectedEditorModelIndex( runtimeTools.Editor(), world.BodyStore() );
     const char* selectedName = "";
 
@@ -1655,7 +1760,14 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
                                 { "predictionSupersededRestartCount", predictionState.build.supersededRestartCount },
                                 { "predictionLatestRestartBeginCount", predictionState.build.latestRestartBeginCount },
                                 { "replayPathTarget", replay.path.hasTarget ? replay.path.targetName : "" },
+                                { "replayPathTargetId", replay.path.targetId.value },
                                 { "replayPathTargetCount", static_cast<int>( replay.path.targets.size() ) },
+                                { "predictionPrivateMutualGravityEnabled",
+                                  predictionState.simulation.predictionWorldForces.mutualGravity.enabled },
+                                { "predictionDrawListShowAllFuturePaths",
+                                  ReplayPrediction::PresentationViewFromState( predictionState, true ).showAllFuturePaths },
+                                { "predictionTrajectoryRecords", predictionTrajectoryRows },
+                                { "predictionFutureNodes", predictionFutureNodeRows },
                                 { "replayInterceptValid", replay.intercept.valid },
                                 { "replayIntercept", replay.intercept.intercept },
                                 { "replayInterceptMissDistance", replay.intercept.missDistance },
@@ -1769,6 +1881,9 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
                                 { "replayCauseTreePointerBlocked", replay.causeTree.pointerBlocked },
                                 { "replayCauseInspectionMode", static_cast<int>( replay.causeInspection.mode ) },
                                 { "replayCauseInspectionDetailVisible", replay.causeInspection.detailVisible },
+                                { "replayCauseInspectionDetailAvailability",
+                                  ReplayCauseSolverDetailAvailabilityName( replay.causeInspection.solverDetailAvailability ) },
+                                { "replayCauseTreeRows", replayCauseTreeRows },
                                 { "replayCauseInspectionSelectedRow", replay.causeInspection.selectedRow },
                                 { "replayCauseInspectionTargetFrame", replay.causeInspection.targetFrame },
                                 { "replayCauseInspectionPresentedFrame", replay.causeInspection.presentedFrame },

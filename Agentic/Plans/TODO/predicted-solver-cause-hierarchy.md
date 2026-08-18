@@ -1,7 +1,7 @@
 # Predicted Solver Cause Hierarchy
 
 Date: 2026-08-18
-Status: Registered; 0/8 phases complete
+Status: Active; 1/8 phases complete
 Impact area: Runtime Prediction and Planning, replay cause-tree UI/input,
 prediction archives, retained-memory reporting, tests, documentation, and visual QA
 Owner: Runtime Prediction detail retention with Planning-owned causal inspection
@@ -340,7 +340,7 @@ retaining detail capacity after switching to low detail.
 
 ## Phases
 
-- [ ] **PSD0 - Pin both modes and the current failure.** Preserve the current
+- [x] **PSD0 - Pin both modes and the current failure.** Preserve the current
   Prediction-unavailable result as a negative-control oracle, then add pure
   mode-transition tests: High default, no-op same-mode command, exact generation
   restart, preference persistence across scene/owner/Predict resets, archive
@@ -437,6 +437,56 @@ retaining detail capacity after switching to low detail.
   inventories, mapped fast/Physics/DX12/performance validation, touched-source
   comment audit, project-file/build-configuration consistency checks, and final
   independent ownership review.
+
+## Phase Evidence
+
+### PSD0 - Mode and topology contract
+
+- `ReplayPredictionPackets.h` now carries value-only detail mode, archive
+  capability, reset-reason, transition-effect, and path-presentation policies.
+  `ReplayPrediction` is the one named retained presentation-policy owner;
+  packets and App routing may carry its value but may not infer it from Physics
+  force configuration or retain a competing copy.
+- Focused policy tests pin High as the default, same-mode no-op, exact restart
+  and prediction-inspection clearing, High -> Low capacity release, Low -> High
+  rebuild, preference persistence across Scene/Owner/Predict resets, archive
+  capability independence, and recorded-inspection independence.
+- The prediction-unavailable negative control covers Manifold, SolverRow, and
+  PredictionContact rows and retains `SolverDetailNotAvailable` without
+  borrowing recorded or live evidence.
+- The topology oracle requires the selected id as the only selected-causal root,
+  topologically reachable future nodes, exact child ancestry fields, and no
+  orphan child record. A generic `PhysicsWorldForces` value with mutual gravity
+  enabled does not relax that contract. A separate `AllBodiesSpace` case keeps
+  intentional root-only forests valid.
+- `TestOutput/validation/PREDICT_SOLVER_DETAIL_PSD0/at_rest_prediction_report.json`
+  records target 1, one root, five future nodes, flat PredictionContact/Motion
+  rows, no copied contact/pipeline detail, and `SolverDetailNotAvailable`; its
+  `at_rest_flat_prediction.bmp` screenshot was inspected at original resolution.
+- The ordinary generated-demo witness uses seed 1337 and selected body 162. Its
+  report records `predictionPrivateMutualGravityEnabled=false`,
+  `predictionDrawListShowAllFuturePaths=false`, one unique FutureRoot, 240
+  future nodes, and every published lane/body/parent/depth/first-frame row.
+- The authored `solar_system.scene.json` positive witness records selected body
+  2, private mutual gravity and draw-list all-body presentation both true, and
+  four unique FutureRoot ids (1-4). Its screenshot preserves the intentional
+  colored orbital paths.
+- Focused Automation build and tests pass: detail-mode 3 cases / 16 assertions,
+  path policy 1 / 2, topology oracle 1 / 5, and unavailable detail 1 / 19.
+  The touched-source comment audit is 5/5 checked with none deferred; headers,
+  policy ownership, report-schema invariants, and topology-oracle comments were
+  reconciled against the post-change source.
+- `tools\validate_tests.bat` passes 595 cases / 2,480,669 assertions;
+  `tools\validate_fast.bat` passes all nine stages, and
+  `tools\validate_automation.bat` passes Profile exclusion plus the Automation
+  replay/prediction and development-UI smoke.
+- The canonical replay visual gate reaches its inherited immutable causal
+  mismatch at `topology[0].firstFrame` (expected 137, actual 136). No golden was
+  refreshed. The exact Automation/Profile executables, report, artifact, and
+  logs are preserved under
+  `TestOutput/validation/candidates/PREDICT_SOLVER_DETAIL_PSD0/`. A candidate
+  visual/causal comparison passes 2,401 ticks, 200 causal nodes, one presented
+  cascade, and saved/load fidelity; all nine mutation-control families pass.
 
 ## Acceptance
 

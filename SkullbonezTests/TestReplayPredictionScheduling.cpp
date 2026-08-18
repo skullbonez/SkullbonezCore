@@ -7,6 +7,9 @@ Summary:
   Worker timing is supplied as a value for build-mode and feedback decisions,
   while publication tests exercise the release/acquire cursor owner, build-root
   visibility, and shared sample lookups without starting a physics worker.
+  Pure policy tests separately pin detail-mode transition effects, archive
+  capability independence, and the explicit selected-tree versus space-path
+  presentation decision.
 
 Glossary:
   Instant build: One worker submission for the remaining prediction horizon.
@@ -27,9 +30,14 @@ Invariants:
   - A build-root trajectory exposes exactly the frame-thread presentation prefix.
   - Dormant trajectory reuse selects the smallest sufficient capacity without changing active order.
   - Solver lookup may preserve a negative sentinel; prediction-style lookup rejects it.
+  - High detail is the default preference; changing modes restarts prediction,
+    clears only prediction inspection, and requests capacity release only when
+    entering Low detail.
+  - Generic physics-force values cannot select all-body path presentation.
 
 Related:
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionScheduling.h
+  - SkullbonezSource/Runtime/Prediction/ReplayPredictionPackets.h
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 
@@ -37,8 +45,20 @@ Related:
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.h"
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionPublicationOperations.h"
 
+#include <array>
+
+using SkullbonezCore::Runtime::EvaluateReplayPredictionDetailTransition;
+using SkullbonezCore::Runtime::ReplayPredictionArchiveDetailCapability;
 using SkullbonezCore::Runtime::ReplayPredictionBuildMode;
 using SkullbonezCore::Runtime::ReplayPredictionCoalescerAction;
+using SkullbonezCore::Runtime::ReplayPredictionDetailMode;
+using SkullbonezCore::Runtime::ReplayPredictionDetailModeAfterArchiveLoad;
+using SkullbonezCore::Runtime::ReplayPredictionDetailModeAfterGenerationReset;
+using SkullbonezCore::Runtime::ReplayPredictionDetailTransitionAction;
+using SkullbonezCore::Runtime::ReplayPredictionDetailTransitionHas;
+using SkullbonezCore::Runtime::ReplayPredictionGenerationResetReason;
+using SkullbonezCore::Runtime::ReplayPredictionPathPresentation;
+using SkullbonezCore::Runtime::ReplayPredictionPathPresentationShowsAllBodies;
 using SkullbonezCore::Runtime::ReplayPredictionPublication;
 using SkullbonezCore::Runtime::ReplaySolverBodySample;
 using SkullbonezCore::Runtime::ReplaySolverFrameSample;
@@ -49,6 +69,64 @@ using SkullbonezCore::Runtime::ReplayPredictionPublicationOperations::SceneObjec
 using SkullbonezCore::Runtime::ReplayPredictionSchedulingOperations::ChooseReplayPredictionBuildMode;
 using SkullbonezCore::Runtime::ReplayPredictionSchedulingOperations::ChooseReplayPredictionCoalescerAction;
 using SkullbonezCore::Runtime::ReplayPredictionSchedulingOperations::UpdateReplayPredictionTicksPerMs;
+
+TEST_CASE( "Replay prediction detail mode: transitions preserve one operator preference" )
+{
+    constexpr ReplayPredictionDetailMode defaultMode = ReplayPredictionDetailMode::High;
+    CHECK( defaultMode == ReplayPredictionDetailMode::High );
+
+    const ReplayPredictionDetailTransitionAction
+        noChange = EvaluateReplayPredictionDetailTransition( defaultMode, ReplayPredictionDetailMode::High );
+    CHECK( noChange == ReplayPredictionDetailTransitionAction::None );
+
+    const ReplayPredictionDetailTransitionAction
+        selectLow = EvaluateReplayPredictionDetailTransition( defaultMode, ReplayPredictionDetailMode::Low );
+    CHECK( ReplayPredictionDetailTransitionHas( selectLow, ReplayPredictionDetailTransitionAction::RestartGeneration ) );
+    CHECK( ReplayPredictionDetailTransitionHas( selectLow,
+                                                ReplayPredictionDetailTransitionAction::ClearPredictionInspection ) );
+    CHECK( ReplayPredictionDetailTransitionHas( selectLow,
+                                                ReplayPredictionDetailTransitionAction::ReleaseHighDetailCapacity ) );
+
+    const ReplayPredictionDetailTransitionAction
+        selectHigh = EvaluateReplayPredictionDetailTransition( ReplayPredictionDetailMode::Low,
+                                                               ReplayPredictionDetailMode::High );
+    CHECK( ReplayPredictionDetailTransitionHas( selectHigh, ReplayPredictionDetailTransitionAction::RestartGeneration ) );
+    CHECK( ReplayPredictionDetailTransitionHas( selectHigh,
+                                                ReplayPredictionDetailTransitionAction::ClearPredictionInspection ) );
+    CHECK_FALSE( ReplayPredictionDetailTransitionHas( selectHigh,
+                                                      ReplayPredictionDetailTransitionAction::ReleaseHighDetailCapacity ) );
+}
+
+TEST_CASE( "Replay prediction detail mode: archive capability cannot replace the active preference" )
+{
+    CHECK( ReplayPredictionDetailModeAfterArchiveLoad( ReplayPredictionDetailMode::High,
+                                                       ReplayPredictionArchiveDetailCapability::Low ) ==
+           ReplayPredictionDetailMode::High );
+    CHECK( ReplayPredictionDetailModeAfterArchiveLoad( ReplayPredictionDetailMode::Low,
+                                                       ReplayPredictionArchiveDetailCapability::High ) ==
+           ReplayPredictionDetailMode::Low );
+}
+
+TEST_CASE( "Replay prediction detail mode: generation resets preserve the active preference" )
+{
+    constexpr std::array resetReasons = { ReplayPredictionGenerationResetReason::Scene,
+                                          ReplayPredictionGenerationResetReason::Owner,
+                                          ReplayPredictionGenerationResetReason::PredictToggle };
+
+    for ( ReplayPredictionGenerationResetReason reason : resetReasons )
+    {
+        CHECK( ReplayPredictionDetailModeAfterGenerationReset( ReplayPredictionDetailMode::High, reason ) ==
+               ReplayPredictionDetailMode::High );
+        CHECK( ReplayPredictionDetailModeAfterGenerationReset( ReplayPredictionDetailMode::Low, reason ) ==
+               ReplayPredictionDetailMode::Low );
+    }
+}
+
+TEST_CASE( "Replay prediction path presentation: all-body roots require explicit space policy" )
+{
+    CHECK_FALSE( ReplayPredictionPathPresentationShowsAllBodies( ReplayPredictionPathPresentation::SelectedCausalTree ) );
+    CHECK( ReplayPredictionPathPresentationShowsAllBodies( ReplayPredictionPathPresentation::AllBodiesSpace ) );
+}
 using SkullbonezCore::Runtime::ReplayTrajectoryLane;
 using SkullbonezCore::Runtime::ReplayTrajectoryRecord;
 using SkullbonezCore::Runtime::ReplayTrajectoryRecordKey;
@@ -61,8 +139,7 @@ TEST_CASE( "Replay prediction scheduling: measured cost selects instant or amort
     CHECK( ChooseReplayPredictionBuildMode( 100.0, 2400, 0.0, 1u ) == ReplayPredictionBuildMode::Amortized );
     CHECK( ChooseReplayPredictionBuildMode( 100.0, 2400, 30.0, 1u ) == ReplayPredictionBuildMode::Instant );
     CHECK( ChooseReplayPredictionBuildMode( 50.0, 2400, 30.0, 1u ) == ReplayPredictionBuildMode::Amortized );
-    CHECK( ChooseReplayPredictionBuildMode( 10000.0, 2400, 30.0, 216u ) ==
-           ReplayPredictionBuildMode::Amortized );
+    CHECK( ChooseReplayPredictionBuildMode( 10000.0, 2400, 30.0, 216u ) == ReplayPredictionBuildMode::Amortized );
 }
 
 TEST_CASE( "Replay prediction scheduling: throughput feedback follows changing worker cost" )
@@ -149,7 +226,6 @@ TEST_CASE( "Replay sample lookup: stable id and explicit negative-row policy sur
              nullptr ) );
     CHECK( ( FindReplayBodyByModelIndexInSample<ReplaySolverFrameSample, ReplaySolverBodySample, true>( sample, 7 ) ==
              &sample.bodies[1] ) );
-    CHECK( (
-        SceneObjectIdForModelIndexInSample<ReplaySolverFrameSample, ReplaySolverBodySample, true>( sample, 7 ).value ==
-        41u ) );
+    CHECK( ( SceneObjectIdForModelIndexInSample<ReplaySolverFrameSample, ReplaySolverBodySample, true>( sample, 7 ).value ==
+             41u ) );
 }

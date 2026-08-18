@@ -9,6 +9,8 @@
 //   stable expired-frame refusal without consulting transient solver detail.
 //   Exact-frame detail tests then prove manifold-row grouping, stage joins, and
 //   distinct expired-versus-unavailable outcomes without retaining source data.
+//   Prediction Manifold, SolverRow, and synthetic-contact negative controls all
+//   remain explicitly unavailable until prediction-owned exact evidence exists.
 //   Presentation tests pin event-frame body poses, exact ManifoldRow points,
 //   derived surviving-row points, owned packet publication, solver-row copy
 //   lifetime, the compact unavailable state, and the up-to-four-row scrolling
@@ -21,6 +23,7 @@
 // Invariants:
 //   - Retained-window boundaries are inclusive at the oldest frame and exclusive at the live edge.
 //   - Prediction rows require an exact published frame, including terrain-independent contact rows.
+//   - A prediction row never borrows recorded or current diagnostics as solver detail.
 //   - Missing pipeline detail never disables transport for a retained frame.
 //   - A current or coincident diagnostics row never substitutes for a mismatched frame stamp or row index.
 //   - Detached contact packets use exact retained points when present and derive
@@ -248,12 +251,21 @@ TEST_CASE( "Replay cause solver detail: unavailable states never substitute diag
         CHECK( std::strcmp( detail.Feedback(), "Replay frame expired" ) == 0 );
     }
 
-    SUBCASE( "prediction contact has no retained solver diagnostics" )
+    SUBCASE( "prediction rows preserve the unavailable negative control" )
     {
         row.prediction = true;
         seek.source = ReplayCauseSeekSource::Prediction;
-        const ReplayCauseSolverDetailResult detail = EvaluateReplayCauseSolverDetail( row, seek, { 84u, contacts, {} } );
-        CHECK( detail.availability == ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable );
+
+        for ( RunReplayCauseTreeRowKind kind :
+              { RunReplayCauseTreeRowKind::PredictionContact, RunReplayCauseTreeRowKind::Manifold,
+                RunReplayCauseTreeRowKind::SolverRow } )
+        {
+            row.kind = kind;
+            const ReplayCauseSolverDetailResult detail = EvaluateReplayCauseSolverDetail( row, seek, { 84u, contacts, {} } );
+            CHECK_FALSE( detail.HasDetail() );
+            CHECK( detail.availability == ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable );
+            CHECK( std::strcmp( detail.Feedback(), "Solver detail not available" ) == 0 );
+        }
     }
 }
 
@@ -342,8 +354,8 @@ TEST_CASE( "Replay cause solver panel: copied rows survive restore sources and s
     causeTree.x = 1114;
     causeTree.y = 28;
     causeTree.width = 380;
-    const ReplayCauseSolverPanelLayout compactUnavailable =
-        BuildReplayCauseSolverPanelLayout( unavailable, causeTree, 1125, 541 );
+    const ReplayCauseSolverPanelLayout compactUnavailable = BuildReplayCauseSolverPanelLayout( unavailable, causeTree, 1125,
+                                                                                               541 );
     CHECK( compactUnavailable.panel.w == doctest::Approx( REPLAY_CAUSE_SOLVER_PANEL_WIDTH ) );
     CHECK( compactUnavailable.panel.h < 200.0f );
     CHECK( compactUnavailable.panel.w < 1125.0f * 0.5f );
@@ -529,18 +541,17 @@ TEST_CASE( "Replay solver panel: value mapping includes exact values units and s
                         "UNITS: vectors/penetration/correction = scene units; bias/linear writeback = u/s;" ) == 0 );
     CHECK( std::strcmp( REPLAY_CAUSE_SOLVER_PANEL_UNITS_MORE,
                         "angular = rad/s; impulses = mass*u/s; effective masses = mass." ) == 0 );
-    CHECK( std::strcmp( REPLAY_CAUSE_SOLVER_PANEL_SIGNS,
-                        "SIGNS: +penetration = overlap; normal/t1/t2 = world-space;" ) == 0 );
+    CHECK( std::strcmp( REPLAY_CAUSE_SOLVER_PANEL_SIGNS, "SIGNS: +penetration = overlap; normal/t1/t2 = world-space;" ) ==
+           0 );
     CHECK( std::strcmp( REPLAY_CAUSE_SOLVER_PANEL_SIGNS_MORE,
                         "signed accT1/accT2 follow t1/t2; CLAMP = frictionLimit reached." ) == 0 );
     CHECK( std::strcmp( values.headline, "ROW 0  FEATURE 101  BODIES 3 / 7  POINT (7.0000, 8.0000, 9.0000)" ) == 0 );
-    CHECK( std::strcmp( values.basis,
-                        "n (0.1000 0.2000 0.3000)  t1 (0.4000 0.5000 0.6000)  t2 (0.7000 0.8000 0.9000)" ) == 0 );
-    CHECK( std::strcmp( values.geometry,
-                        "rA (1.2500 2.5000 3.7500)  rB (4.0000 5.0000 6.0000)  penetration 0.12500" ) == 0 );
-    CHECK( std::strcmp( values.masses,
-                        "normalMass 2.00000  tangentMass (2.25000, 2.50000)  bias 2.75000  frictionLimit 3.00000" ) ==
+    CHECK( std::strcmp( values.basis, "n (0.1000 0.2000 0.3000)  t1 (0.4000 0.5000 0.6000)  t2 (0.7000 0.8000 0.9000)" ) ==
            0 );
+    CHECK( std::strcmp( values.geometry, "rA (1.2500 2.5000 3.7500)  rB (4.0000 5.0000 6.0000)  penetration 0.12500" ) ==
+           0 );
+    CHECK( std::strcmp( values.masses,
+                        "normalMass 2.00000  tangentMass (2.25000, 2.50000)  bias 2.75000  frictionLimit 3.00000" ) == 0 );
     CHECK( std::strcmp( values.impulses,
                         "accN 3.50000  accT1 -3.75000  accT2 4.00000  warm-start YES  previous normal impulse 11.25000" ) ==
            0 );

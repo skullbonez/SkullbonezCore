@@ -2,7 +2,7 @@
 
 Date: 2026-08-18
 Branch: `nightrunner-18th-AUG-26`
-Status: Three active plans; 24/47 tasks complete
+Status: Three active plans; 25/47 tasks complete
 
 Predicted Solver Cause Hierarchy (8 tasks), Continuous Orbital Forecast
 (7 tasks), and At-Rest Ball Stability (8 tasks) are registered
@@ -59,6 +59,22 @@ adversarial plan review. Its High mode retains exact predicted Body -> Manifold
 hiding causal inspection and releasing all detail capacity through an
 observable F6 checkpoint. The bottom-timeline `HIGH DETAIL` checkbox replaces
 the mouse Pause button, remains on by default, and preserves keyboard `P`.
+
+PSD0 is complete. Pure policy values and tests pin High-default transition
+effects, preference persistence across generation and archive boundaries, and
+explicit selected-tree versus authored-space presentation. The at-rest witness
+retains flat synthetic rows and `SolverDetailNotAvailable`; the seeded ordinary
+generated demo has one selected root (body 162) with private mutual gravity and
+draw-list all-body presentation both false, while `solar_system.scene.json`
+retains four intentional roots with both facts true. Automation reports now
+serialize complete bounded trajectory, future-node, and cause-row topology.
+Focused tests pass and the touched-source comment audit is 5/5 with none
+deferred. `validate_tests`, `validate_fast`, and `validate_automation` are
+green. The canonical replay visual gate retains the inherited one-frame causal
+golden mismatch (`topology[0].firstFrame` 137 -> 136), so no golden was
+refreshed; the exact executable/report/artifact evidence is preserved under
+`TestOutput/validation/candidates/PREDICT_SOLVER_DETAIL_PSD0/`. Its candidate
+comparison and all nine mutation-control families pass.
 
 Catto CD3 replaced the global summed squared impulse-delta early-out with the
 maximum per-contact-row squared delta while retaining the historical sum for
@@ -163,8 +179,8 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `PREDICT_SOLVER_DETAIL` PSD0-PSD7. Start by pinning mode persistence and
-the ordinary-demo all-root regression, then add immutable segmented evidence
+Execute `PREDICT_SOLVER_DETAIL` PSD1-PSD7. Add the sole retained mode and shared
+timeline control next, then add immutable segmented evidence
 banks, exact private-pipeline capture, the body -> manifold -> solver-row
 hierarchy, transactional archives, and the combined High/Low release workflow.
 
@@ -192,7 +208,7 @@ not part of the active queue.
 
 ## Blockers
 
-- None. Continue with `PREDICT_SOLVER_DETAIL` PSD0.
+- None. Continue with `PREDICT_SOLVER_DETAIL` PSD1.
 
 ## CI Note
 
