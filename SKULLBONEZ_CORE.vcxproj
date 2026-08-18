@@ -361,6 +361,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayPorkchopPanel.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayArtifactHashLog.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionReserve.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionSolverEvidenceStore.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPresentation.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayCauseFocusSubmission.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayTimeline.cpp" />
@@ -645,6 +646,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayArtifactHashLog.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayArtifactSource.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionReserve.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionSolverEvidenceStore.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionRetainedMemory.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionScheduling.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionPublication.h" />

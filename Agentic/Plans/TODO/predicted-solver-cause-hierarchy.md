@@ -1,7 +1,7 @@
 # Predicted Solver Cause Hierarchy
 
 Date: 2026-08-18
-Status: Active; 1/8 phases complete
+Status: Active; 3/8 phases complete
 Impact area: Runtime Prediction and Planning, replay cause-tree UI/input,
 prediction archives, retained-memory reporting, tests, documentation, and visual QA
 Owner: Runtime Prediction detail retention with Planning-owned causal inspection
@@ -87,11 +87,11 @@ retaining detail capacity after switching to low detail.
   either this qualification leaked or another publication path lost
   `parentId`/child-lane identity. PSD0 must capture the failing runtime facts
   before choosing which branch to repair.
-- Prediction growth is already registered as
+- Before PSD2, Prediction growth was registered as
   `replay_prediction_working_set`, Replay-phase only, with a 256 MiB hard cap
-  and measured high water of 18,701,760 bytes. Current F6 category accounting
-  covers prediction frames, bodies, debug contacts, world state, engine state,
-  and future-tree/trajectory storage, but has no high-detail evidence category.
+  and measured high water of 18,701,760 bytes. F6 category accounting covered
+  prediction frames, bodies, debug contacts, world state, engine state, and
+  future-tree/trajectory storage, but had no high-detail evidence category.
 - Current cancellation and Predict-off behavior intentionally retain warmed
   frame-bank capacity. That is correct for ordinary prediction reuse but does
   not satisfy the explicit high-detail -> low-detail memory-release contract.
@@ -366,7 +366,7 @@ retaining detail capacity after switching to low detail.
   clicking the former pause slot never changes pause state. Audit every removed
   Pause enum, switch, layout, help-text, and automation route while proving
   programmatic and inspection-owned pause remain intentionally separate.
-- [ ] **PSD2 - Implement bounded, releasable evidence banks.** Add paired
+- [x] **PSD2 - Implement bounded, releasable evidence banks.** Add paired
   build/committed immutable segmented evidence stores with the full generation,
   mode, bank-epoch, frame, and publication/topology identity tuple,
   overflow-safe reserve operations, bank promotion, reset, and explicit
@@ -527,6 +527,39 @@ retaining detail capacity after switching to low detail.
   against the phase candidate passes 2,401 ticks, 200 causal nodes, one
   presented cascade, and saved/load fidelity; all nine false-pass control
   families pass.
+
+### PSD2 - Bounded releasable evidence banks
+
+- `ReplayPredictionSolverEvidenceBanks` owns paired build/committed immutable
+  stores. Each bank publishes a release/acquire frame prefix over stable
+  128-frame, 256-contact, and 1,024-pipeline-row segments, and every frame is
+  stamped with generation, detail mode, bank epoch, frame, topology version,
+  and publication version before it becomes visible.
+- Whole-shape reserve preflight rejects overflow and per-bank cap denial before
+  allocating a partial category. Promotion swaps complete bank roles,
+  cancellation preserves reusable capacity, and the High -> Low transition
+  joins and clears prediction before explicitly releasing both banks. Current,
+  lifetime-peak, build/committed, and before/after release facts are available
+  in the F6 memory row and diagnostics JSON.
+- The actual 20/120-second sizing matrix measured `at_rest` at 1.836/6.168 MiB,
+  `replay_velocity_four_ball` and `replay_path_pool` at 0.695/4.000 MiB, and the
+  dense 203-body `prediction_ragdoll_wall_200` witness at 301.730/302.465 MiB.
+  Low mode allocates zero evidence bytes. The selected 320 MiB per-bank cap
+  covers the dense witness; two 120-second banks plus the prior 18,701,760-byte
+  working-set high water total 653,016,512 bytes, so the shared owner cap is
+  960 MiB with 1.542x coexistence headroom.
+- Five focused evidence-store cases cover empty/Low behavior, concurrent prefix
+  growth and address stability, same-frame replacement identity, bank
+  promotion/cancellation/coexistence/release, overflow, and cap denial. The
+  full suite passes 600 cases / 2,485,514 assertions; strict replay allocation
+  policy, allocation allowlist, project filters, UI fingerprint, and all nine
+  `validate_fast` stages pass.
+- The touched-source comment audit is 14/14 checked with none deferred. This
+  was a touched-file diff inventory, so no subsystem checklist file was
+  required; learning headers, allocation/release invariants, publication
+  claims, UI reporting, and test contracts were reconciled against the final
+  source. No visual or DX12 behavioral gate is mapped to this storage-only
+  phase.
 
 ## Acceptance
 

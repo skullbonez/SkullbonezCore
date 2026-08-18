@@ -267,7 +267,7 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
         5057719176066529734ull,
         3243788985155815295ull,
         15645422141942934428ull,
-        5868520363750485546ull,
+        14809053394253860312ull, // Memory: prediction evidence bank current/peak rows added.
     };
     static_assert( std::size( tabs ) == std::size( expected ) );
 

@@ -1543,6 +1543,23 @@ SkullbonezCore::Core::MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() 
                                             SkullbonezCore::Core::MainMemoryReplayByteCategory::PathOwner );
 
     stats.predictionFrames = predictionMemory.frameCount;
+    stats.predictionEvidence.buildContactCapacityBytes = predictionMemory.evidence.build.contactCapacityBytes;
+    stats.predictionEvidence.buildPipelineCapacityBytes = predictionMemory.evidence.build.pipelineCapacityBytes;
+    stats.predictionEvidence.buildFrameCapacityBytes = predictionMemory.evidence.build.frameCapacityBytes;
+    stats.predictionEvidence.committedContactCapacityBytes = predictionMemory.evidence.committed.contactCapacityBytes;
+    stats.predictionEvidence.committedPipelineCapacityBytes = predictionMemory.evidence.committed.pipelineCapacityBytes;
+    stats.predictionEvidence.committedFrameCapacityBytes = predictionMemory.evidence.committed.frameCapacityBytes;
+    stats.predictionEvidence.currentCapacityBytes = predictionMemory.evidence.currentCapacityBytes;
+    stats.predictionEvidence.lifetimePeakCapacityBytes = predictionMemory.evidence.lifetimePeakCapacityBytes;
+    stats.predictionEvidence.releaseCheckpointCount = predictionMemory.evidence.releaseCheckpointCount;
+    stats.predictionEvidence.lastReleaseBeforeCapacityBytes = predictionMemory.evidence.lastReleaseBeforeCapacityBytes;
+    stats.predictionEvidence.lastReleaseAfterCapacityBytes = predictionMemory.evidence.lastReleaseAfterCapacityBytes;
+    stats.predictionEvidence.buildContactCount = predictionMemory.evidence.build.contactCount;
+    stats.predictionEvidence.buildPipelineCount = predictionMemory.evidence.build.pipelineCount;
+    stats.predictionEvidence.buildFrameCount = predictionMemory.evidence.build.publishedFrameCount;
+    stats.predictionEvidence.committedContactCount = predictionMemory.evidence.committed.contactCount;
+    stats.predictionEvidence.committedPipelineCount = predictionMemory.evidence.committed.pipelineCount;
+    stats.predictionEvidence.committedFrameCount = predictionMemory.evidence.committed.publishedFrameCount;
 
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
                                                             SkullbonezCore::Core::MainMemoryReplayByteCategory::PathOwner,

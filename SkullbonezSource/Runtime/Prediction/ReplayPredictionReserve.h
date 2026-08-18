@@ -3,13 +3,15 @@ File: SkullbonezSource/Runtime/Prediction/ReplayPredictionReserve.h
 Purpose:
   Names the replay prediction working-set reserve owner shared by prediction
   frames, future-node caches, the private prediction engine, and trajectory
-  store storage, and centralizes its capacity/accounting operations.
+  and solver-evidence storage, and centralizes its capacity/accounting
+  operations.
 
 Summary:
   Replay prediction is allowed to grow during replay exploration, but only
   through one registered RuntimeReserveAllocator owner. Helpers in this file
   keep that owner name, byte accounting, growth rounding, and hard byte cap
-  from splintering across replay files.
+  consistent across vector, private-engine, trajectory, and segmented-evidence
+  allocations.
 
 Glossary:
   Runtime reserve owner: Registered allocation-policy row that can approve
@@ -125,7 +127,7 @@ bool SeedReplayPredictionEngineStorage( std::unique_ptr<Physics::PhysicsEngine>&
 
 // Invariant: the working-set owner is approved before allocation, then the
 // allocation phase, owner, and granted-growth scopes are entered in that order.
-// The request uses byte units (`elementSizeBytes == 1`) because the one 256 MiB
+// The request uses byte units (`elementSizeBytes == 1`) because the one 960 MiB
 // cap is shared across vectors with different element types.
 template <typename T>
 bool ReserveReplayPredictionVector( std::vector<T>& values, std::size_t requestedCapacity, int frameNumber,

@@ -1405,6 +1405,15 @@ ReplayPredictionDetailTransitionAction ReplayPrediction::ApplyDetailModeCommand(
     // retiring both banks precedes the retained preference change; the next
     // frame then seeds one fresh exact-source generation in the new mode.
     ClearCache();
+
+    if ( ReplayPredictionDetailTransitionHas( actions, ReplayPredictionDetailTransitionAction::ReleaseHighDetailCapacity ) )
+    {
+        // Invariant: Low is the explicit release boundary. Both evidence banks
+        // are unreachable after ClearCache joins the worker, so their backing
+        // segments can be destroyed before any lightweight rebuild starts.
+        m_solverEvidence.ReleaseCapacity();
+    }
+
     m_detailMode = command.mode;
     MarkDirty();
     return actions;
@@ -1838,6 +1847,7 @@ ReplayPastTrajectoryUpdate ReplayPrediction::RefreshPastTrajectoryStore( const R
 ReplayPredictionMemoryStats ReplayPrediction::CollectMemoryStats() const
 {
     ReplayPredictionMemoryStats stats;
+    stats.evidence = m_solverEvidence.CollectMemoryStats();
     SkullbonezCore::Core::
         MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
                                           SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionOwner,
@@ -1873,6 +1883,16 @@ ReplayPredictionMemoryStats ReplayPrediction::CollectMemoryStats() const
                                           ReplayPredictionVectorCapacityBytes( m_state.futureNodeCache.futureNodes ) +
                                               ReplayPredictionVectorCapacityBytes( m_state.futureNodeCache.futureNodeBuildScratch ) +
                                               ReplayPredictionVectorCapacityBytes( m_state.committedPublication.visibleFutureNodes ) );
+
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
+                                                            SkullbonezCore::Core::MainMemoryReplayByteCategory::
+                                                                PredictionSolverContactEvidence,
+                                                            stats.evidence.currentContactCapacityBytes );
+    SkullbonezCore::Core::
+        MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
+                                          SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionPipelineEvidence,
+                                          stats.evidence.currentPipelineCapacityBytes +
+                                              stats.evidence.currentFrameCapacityBytes );
 
     for ( const RunReplayPredictionFrame& frame : m_state.simulation.frames )
     {

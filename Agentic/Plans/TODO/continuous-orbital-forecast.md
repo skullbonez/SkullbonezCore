@@ -54,7 +54,8 @@ authority, but it does not grant a reserve-cap increase or baseline refresh.
   no authored stability cohort, primary relationship, or acceptable orbital
   envelope today.
 - The current prediction working set is registered under
-  `replay_prediction_working_set` with a 256 MiB hard cap. Continuous forecast
+  `replay_prediction_working_set` with the 960 MiB hard cap selected by
+  `PREDICT_SOLVER_DETAIL` PSD2. Continuous forecast
   must reuse warmed storage under that existing owner; a new growth privilege
   or cap increase is outside this plan unless separately owner-approved and
   reconciled with the replay reserve inventory.
@@ -153,7 +154,7 @@ whether the ship can end the system-wide stable horizon before implementation.
   every rolling tick.
 - Do not add a second live input owner, mutate live/replay state from the worker,
   or let Planning retain App/Run references or callbacks.
-- Do not add a new post-gameplay allocation privilege, increase the 256 MiB
+- Do not add a new post-gameplay allocation privilege, increase the 960 MiB
   prediction reserve cap, or weaken its replay-phase check under this plan.
 - Do not alter `PhysicsBodyRecord` or any hot Physics store row; forecast metrics
   belong in stage/product-owned bounded storage.

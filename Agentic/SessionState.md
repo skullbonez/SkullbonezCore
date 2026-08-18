@@ -2,7 +2,7 @@
 
 Date: 2026-08-18
 Branch: `nightrunner-18th-AUG-26`
-Status: Three active plans; 26/47 tasks complete
+Status: Three active plans; 27/47 tasks complete
 
 Predicted Solver Cause Hierarchy (8 tasks), Continuous Orbital Forecast
 (7 tasks), and At-Rest Ball Stability (8 tasks) are registered
@@ -90,6 +90,20 @@ deferred. The canonical replay visual oracle retains only the inherited 137 ->
 plus candidate baselines live under
 `TestOutput/validation/candidates/PREDICT_SOLVER_DETAIL_PSD1/`, where the
 candidate comparison and all nine false-pass control families pass.
+
+PSD2 is complete. Paired immutable segmented evidence banks now provide stable
+generation/mode/epoch/frame/topology/publication identity, release/acquire
+prefix publication, independent build/committed promotion, overflow-safe
+reserve, cancellation, and explicit capacity release at the post-join High ->
+Low boundary. The measured 20/120-second matrix selected 128-frame,
+256-contact, and 1,024-pipeline segments with a 320 MiB per-bank cap. The dense
+120-second witness measured 317,157,376 bytes; two banks plus the prior base
+working-set high water total 653,016,512 bytes, so the shared
+`replay_prediction_working_set` cap is now 960 MiB with 1.542x headroom. F6 and
+diagnostics expose current/peak, bank split, and release checkpoints. Five
+focused cases, the full 600-case / 2,485,514-assertion suite, strict allocation
+policy, project filters, UI fingerprint, and all nine fast-gate stages pass.
+The touched-source audit is 14/14 with none deferred.
 
 Catto CD3 replaced the global summed squared impulse-delta early-out with the
 maximum per-contact-row squared delta while retaining the historical sum for
@@ -194,9 +208,10 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `PREDICT_SOLVER_DETAIL` PSD2-PSD7. Add immutable segmented evidence
-banks next, then exact private-pipeline capture, the body -> manifold -> solver-row
-hierarchy, transactional archives, and the combined High/Low release workflow.
+Execute `PREDICT_SOLVER_DETAIL` PSD3-PSD7. Restore selected-root causal
+trajectory publication next, then exact private-pipeline capture and the body ->
+manifold -> solver-row hierarchy, transactional archives, and the combined
+High/Low release workflow.
 
 After predicted solver detail closes, execute `ORBIT_FORECAST` OF0-OF6. The
 owner reactivated it from `WNF/` on 2026-08-17. OF0 first ratifies the authored
@@ -222,7 +237,7 @@ not part of the active queue.
 
 ## Blockers
 
-- None. Continue with `PREDICT_SOLVER_DETAIL` PSD2.
+- None. Continue with `PREDICT_SOLVER_DETAIL` PSD3.
 
 ## CI Note
 

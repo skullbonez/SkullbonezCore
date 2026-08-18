@@ -421,6 +421,7 @@ RUNTIME_PREDICTION_PREFIXES = (
     "ReplayPredictionRetainedGeometry",
     "ReplayPredictionRetainedMemory",
     "ReplayPredictionScheduling",
+    "ReplayPredictionSolverEvidenceStore",
     "ReplayPredictionTopologyPublication",
     "ReplayPredictionView",
     "TrajectoryStore",

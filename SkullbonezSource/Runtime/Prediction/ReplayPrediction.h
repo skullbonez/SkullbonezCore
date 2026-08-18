@@ -6,7 +6,9 @@ Purpose:
 Summary:
   ReplayPrediction owns isolated future simulation and coherent completed-prefix publication.
   Readers consume a never-stored presentation view whose trajectory bank remains visible while
-  its hidden replacement resumes in the opposite trajectory bank.
+  its hidden replacement resumes in the opposite trajectory bank. Paired solver-evidence banks
+  retain exact High-detail contact and pipeline rows until promotion or an explicit Low-detail
+  release boundary.
 Invariants:
   - Worker publication retains the release/acquire prefix protocol.
   - Presentation consumers cannot observe rows beyond the prepared prefix.
@@ -25,6 +27,7 @@ Related:
 #include "ReplayPredictionPresentation.h"
 #include "ReplayPredictionView.h"
 #include "ReplayPredictionScheduling.h"
+#include "ReplayPredictionSolverEvidenceStore.h"
 #include "../Replay/ReplayRecorder.h"
 #include "../Replay/ReplayVisualPacket.h"
 #include "TrajectoryStore.h"
@@ -569,7 +572,7 @@ struct ReplayPredictionIsolatedSimulation
     // Runtime allocation policy: owner replay_prediction_working_set; reason:
     // private prediction needs bounded isolated physics storage for exploration;
     // deletion condition: none, this is the end-state isolation boundary;
-    // checker budget: 256 MB hard cap registered by ReplayPredictionReserveOwner().
+    // checker budget: 960 MiB hard cap registered by ReplayPredictionReserveOwner().
     std::unique_ptr<Physics::PhysicsEngine> predictionEngine;
     int predictionEngineReserveBytes = 0;    // Monotonic approved byte budget retained with predictionEngine.
     Gameplay::TornadoGameplay predictionTornadoGameplay;
@@ -750,6 +753,7 @@ struct ReplayPastTrajectoryUpdate
 struct ReplayPredictionMemoryStats
 {
     SkullbonezCore::Core::MainMemoryReplayCategoryBytes categoryBytes;
+    ReplayPredictionSolverEvidenceBanksMemoryStats evidence;
     SkullbonezCore::Core::MainMemoryReplayTrajectoryStats trajectory;
     std::size_t frameCount = 0;
     std::size_t futureNodeCount = 0;
@@ -1014,6 +1018,7 @@ class ReplayPrediction
     Core::Profiler* m_profiler;
     ReplayPredictionPresentation m_presentation;
     RunReplayPredictionState m_state;
+    ReplayPredictionSolverEvidenceBanks m_solverEvidence;
     ReplayPredictionDetailMode m_detailMode = ReplayPredictionDetailMode::High;
     bool m_generationPermitted = true;
 };

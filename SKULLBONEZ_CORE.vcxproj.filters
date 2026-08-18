@@ -366,6 +366,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionReserve.cpp">
       <Filter>Source Files\Runtime\Prediction</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionSolverEvidenceStore.cpp">
+      <Filter>Source Files\Runtime\Prediction</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPresentation.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
@@ -1169,6 +1172,9 @@
       <Filter>Header Files\Runtime\Planning</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionReserve.h">
+      <Filter>Header Files\Runtime\Prediction</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionSolverEvidenceStore.h">
       <Filter>Header Files\Runtime\Prediction</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionRetainedMemory.h">

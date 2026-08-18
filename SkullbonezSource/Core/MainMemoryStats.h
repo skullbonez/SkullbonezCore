@@ -96,6 +96,8 @@ enum class MainMemoryReplayByteCategory : std::size_t
     PredictionFrameBodies,
     PredictionDebugContacts,
     PredictionFutureTree,
+    PredictionSolverContactEvidence,
+    PredictionPipelineEvidence,
     PathOwner,
     PathTargets,
     PathFutureNodes,
@@ -159,6 +161,27 @@ struct MainMemoryReplayTrajectoryStats
     uint64_t droppedSegments[MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT] = {};
     uint64_t budgetExpiries[MAIN_MEMORY_REPLAY_BUDGET_PASS_COUNT] = {};
     uint64_t rebuildCauses[MAIN_MEMORY_REPLAY_REBUILD_CAUSE_COUNT] = {};
+};
+
+struct MainMemoryReplayPredictionEvidenceStats
+{
+    uint64_t buildContactCapacityBytes = 0;
+    uint64_t buildPipelineCapacityBytes = 0;
+    uint64_t buildFrameCapacityBytes = 0;
+    uint64_t committedContactCapacityBytes = 0;
+    uint64_t committedPipelineCapacityBytes = 0;
+    uint64_t committedFrameCapacityBytes = 0;
+    uint64_t currentCapacityBytes = 0;
+    uint64_t lifetimePeakCapacityBytes = 0;
+    uint64_t releaseCheckpointCount = 0;
+    uint64_t lastReleaseBeforeCapacityBytes = 0;
+    uint64_t lastReleaseAfterCapacityBytes = 0;
+    uint64_t buildContactCount = 0;
+    uint64_t buildPipelineCount = 0;
+    uint64_t buildFrameCount = 0;
+    uint64_t committedContactCount = 0;
+    uint64_t committedPipelineCount = 0;
+    uint64_t committedFrameCount = 0;
 };
 
 struct MainMemoryReplayTrajectorySubmissionStats
@@ -246,6 +269,7 @@ struct MainMemoryReplayStats
     bool solverWindowReduced = false;
     std::array<GrowthOwner, 3> growthOwners;                // Same stable order as App's REPLAY_GROWTH_OWNER_POLICIES.
     MainMemoryReplayCategoryBytes categoryBytes;
+    MainMemoryReplayPredictionEvidenceStats predictionEvidence;
     MainMemoryReplayTrajectoryStats trajectory;
 };
 
