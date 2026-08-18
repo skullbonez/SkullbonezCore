@@ -1,7 +1,7 @@
 # Predicted Solver Cause Hierarchy
 
 Date: 2026-08-18
-Status: Active; 5/8 phases complete
+Status: Active; 6/8 phases complete
 Impact area: Runtime Prediction and Planning, replay cause-tree UI/input,
 prediction archives, retained-memory reporting, tests, documentation, and visual QA
 Owner: Runtime Prediction detail retention with Planning-owned causal inspection
@@ -403,7 +403,7 @@ retaining detail capacity after switching to low detail.
   generation isolation. Profile tests require non-empty exact High pipeline
   rows, zero Low rows, balanced consumer counts, and unchanged low-detail,
   live-solver, and private-solver/body hashes while toggling.
-- [ ] **PSD5 - Build and inspect body/manifold/solver hierarchy.** Refactor the
+- [x] **PSD5 - Build and inspect body/manifold/solver hierarchy.** Refactor the
   recorded-only manifold grouping into source-neutral exact-frame logic. In High
   mode emit causal-parent manifold first, simultaneous manifolds next, and exact
   solver rows below each; retain PredictionMotion only for non-contact motion.
@@ -635,6 +635,45 @@ retaining detail capacity after switching to low detail.
   visual gate reaches the already-recorded PSD3 corrected-topology mismatch at
   reveal 0 (`header.topologyVersion`). Neither oracle was refreshed, and
   neither failure is introduced by PSD4 evidence capture.
+
+### PSD5 - Exact body/manifold/solver hierarchy
+
+- Planning now consumes a source-neutral exact solver-detail view. Recorded
+  spans and immutable Prediction evidence frames use the same strict identity,
+  range, sequence, feature, and completeness checks; predicted geometry comes
+  from the matching predicted poses rather than the live world. Every detached
+  cause row carries its generation, evidence-bank epoch, topology version,
+  publication version, and High-detail stamp, so same-frame replacement and
+  retired-bank rows fail closed.
+- High detail emits Body -> Manifold -> SolverRow with the causal-parent
+  manifold first and simultaneous manifolds stable after it. Low detail keeps
+  the lightweight synthetic PredictionContact/PredictionMotion surface. The
+  scrubber transports exact predicted evidence, publishes the selected
+  manifold presentation, and retains the evidence identity in camera focus so
+  replacement cannot silently reselect a different transaction.
+- The final generated-demo witnesses share live solver hash
+  `0xFC1E96D513B66A0B`. High reports four Body, three Manifold, three SolverRow,
+  and zero synthetic rows from 4,641 sealed frames, 14 contacts, and 23,559
+  pipeline rows; its two evidence-consumer acquires/releases balance. Low
+  reports four Body, zero Manifold/SolverRow, three synthetic rows, and zero
+  evidence capacity or consumer activity. Reports are preserved as
+  `TestOutput/validation/PREDICT_SOLVER_DETAIL_PSD5_high_latest.json` and
+  `TestOutput/validation/PREDICT_SOLVER_DETAIL_PSD5_low_latest.json`.
+- Focused tests reject wrong generation, mode, bank epoch, topology,
+  publication, frame, range, sequence, and feature identities and cover the
+  same-frame replacement race. The full Profile suite passes 603 cases /
+  2,483,802 assertions; Automation exclusion/smoke, strict allocation policy,
+  and the four-generation 120-second frame-spike diagnostic pass. All ownership
+  inventories are current with zero blockers, all nine `validate_fast` stages
+  pass, and the touched-source comment audit is 14/14 checked with none
+  deferred.
+- The owner-controlled Physics and replay-visual oracles remain unchanged.
+  `validate_physics` reproduces the existing 20,394-line CSV mismatch beginning
+  at frame 102. The replay visual run reaches the already-recorded corrected-
+  topology mismatch at reveal 0 (`header.topologyVersion`; retired 200-node
+  flat topology versus 201 contact-derived nodes and 806 records). Neither
+  baseline was refreshed, and neither mismatch is introduced by PSD5 detail
+  projection.
 
 ## Acceptance
 

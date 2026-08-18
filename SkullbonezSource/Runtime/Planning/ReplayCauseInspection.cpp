@@ -115,10 +115,12 @@ bool PipelineRecordMatches( const ReplayCauseSolverDetailResult& result,
         return false;
     }
 
-    for ( const Physics::PhysicsSolverPersistentContactSample& contact : result.sourceContacts )
+    for ( std::size_t contactIndex = 0; contactIndex < result.SourceContactCount(); ++contactIndex )
     {
-        if ( ContactPairMatches( contact, result.bodyA, result.bodyB, result.terrain ) &&
-             contact.featureId == record.featureId )
+        const Physics::PhysicsSolverPersistentContactSample* contact = result.SourceContactAt( contactIndex );
+
+        if ( contact && ContactPairMatches( *contact, result.bodyA, result.bodyB, result.terrain ) &&
+             contact->featureId == record.featureId )
         {
             return true;
         }
@@ -328,6 +330,37 @@ bool ReplayCauseSolverDetailResult::HasDetail() const noexcept
     return availability == ReplayCauseSolverDetailAvailability::Available;
 }
 
+std::size_t ReplayCauseSolverDetailResult::SourceContactCount() const noexcept
+{
+    return predictionSource.Valid() ? predictionSource.ContactCount() : sourceContacts.size();
+}
+
+std::size_t ReplayCauseSolverDetailResult::SourcePipelineCount() const noexcept
+{
+    return predictionSource.Valid() ? predictionSource.PipelineCount() : sourcePipelineRecords.size();
+}
+
+const Physics::PhysicsSolverPersistentContactSample*
+ReplayCauseSolverDetailResult::SourceContactAt( std::size_t index ) const noexcept
+{
+    if ( predictionSource.Valid() )
+    {
+        return predictionSource.Contact( index );
+    }
+
+    return index < sourceContacts.size() ? &sourceContacts[index] : nullptr;
+}
+
+const Physics::PhysicsPipelineRecord* ReplayCauseSolverDetailResult::SourcePipelineAt( std::size_t index ) const noexcept
+{
+    if ( predictionSource.Valid() )
+    {
+        return predictionSource.Pipeline( index );
+    }
+
+    return index < sourcePipelineRecords.size() ? &sourcePipelineRecords[index] : nullptr;
+}
+
 const Physics::PhysicsSolverPersistentContactSample*
 ReplayCauseSolverDetailResult::ContactRowAt( std::size_t detailRow ) const noexcept
 {
@@ -336,16 +369,18 @@ ReplayCauseSolverDetailResult::ContactRowAt( std::size_t detailRow ) const noexc
         return nullptr;
     }
 
-    for ( const Physics::PhysicsSolverPersistentContactSample& contact : sourceContacts )
+    for ( std::size_t sourceIndex = 0; sourceIndex < SourceContactCount(); ++sourceIndex )
     {
-        if ( !ContactPairMatches( contact, bodyA, bodyB, terrain ) )
+        const Physics::PhysicsSolverPersistentContactSample* contact = SourceContactAt( sourceIndex );
+
+        if ( !contact || !ContactPairMatches( *contact, bodyA, bodyB, terrain ) )
         {
             continue;
         }
 
         if ( detailRow == 0u )
         {
-            return &contact;
+            return contact;
         }
 
         --detailRow;
@@ -362,16 +397,18 @@ ReplayCauseSolverDetailResult::PipelineRecordAt( std::size_t detailRecord ) cons
         return nullptr;
     }
 
-    for ( const Physics::PhysicsPipelineRecord& record : sourcePipelineRecords )
+    for ( std::size_t sourceIndex = 0; sourceIndex < SourcePipelineCount(); ++sourceIndex )
     {
-        if ( !PipelineRecordMatches( *this, record ) )
+        const Physics::PhysicsPipelineRecord* record = SourcePipelineAt( sourceIndex );
+
+        if ( !record || !PipelineRecordMatches( *this, *record ) )
         {
             continue;
         }
 
         if ( detailRecord == 0u )
         {
-            return &record;
+            return record;
         }
 
         --detailRecord;
@@ -394,18 +431,54 @@ ReplayCauseSolverDetailResult EvaluateReplayCauseSolverDetail( const RunReplayCa
         return result;
     }
 
+    const bool exactRowKind = row.kind == RunReplayCauseTreeRowKind::Manifold ||
+                              row.kind == RunReplayCauseTreeRowKind::SolverRow;
+    const bool predictionSource = row.prediction && seek.source == ReplayCauseSeekSource::Prediction;
+    const bool recordedSource = !row.prediction && seek.source == ReplayCauseSeekSource::SolverHistory;
+
     // Hazard: the currently visible or nearest retained diagnostics can look
-    // structurally identical. Only the explicit frame stamp licenses a join.
-    if ( seek.frame != row.firstFrame || seek.source != ReplayCauseSeekSource::SolverHistory || row.prediction ||
-         source.frame != row.firstFrame ||
-         ( row.kind != RunReplayCauseTreeRowKind::Manifold && row.kind != RunReplayCauseTreeRowKind::SolverRow ) ||
-         row.contactIndex < 0 || static_cast<std::size_t>( row.contactIndex ) >= source.contacts.size() )
+    // structurally identical. Only the explicit frame and bank stamps license
+    // a join; a reused numeric offset in a replacement bank must fail closed.
+    if ( seek.frame != row.firstFrame || !exactRowKind || ( !predictionSource && !recordedSource ) )
     {
         return result;
     }
 
-    const Physics::PhysicsSolverPersistentContactSample&
-        anchor = source.contacts[static_cast<std::size_t>( row.contactIndex )];
+    if ( predictionSource )
+    {
+        const ReplayPredictionEvidenceIdentity expected {
+            row.sourceGeneration, ReplayPredictionDetailMode::High, row.sourceBankEpoch,
+            row.firstFrame,       row.sourceTopologyVersion,        row.sourcePublicationVersion,
+        };
+
+        if ( !row.sourceHighDetail || !source.prediction.Valid() || source.prediction.frame->identity != expected ||
+             source.prediction.store->FindPublishedFrame( expected ) != source.prediction.frame )
+        {
+            return result;
+        }
+    }
+    else if ( source.frame != row.firstFrame )
+    {
+        return result;
+    }
+
+    result.sourceContacts = source.contacts;
+    result.sourcePipelineRecords = source.pipelineRecords;
+    result.predictionSource = source.prediction;
+
+    if ( row.contactIndex < 0 || static_cast<std::size_t>( row.contactIndex ) >= result.SourceContactCount() )
+    {
+        return ReplayCauseSolverDetailResult { .frame = row.firstFrame };
+    }
+
+    const Physics::PhysicsSolverPersistentContactSample* anchorValue = result.SourceContactAt( static_cast<std::size_t>( row.contactIndex ) );
+
+    if ( !anchorValue )
+    {
+        return ReplayCauseSolverDetailResult { .frame = row.firstFrame };
+    }
+
+    const Physics::PhysicsSolverPersistentContactSample& anchor = *anchorValue;
     const bool anchorTerrain = anchor.isTerrain || anchor.bodyB < 0;
     const bool focusedBodyMatches = row.modelRow.value == anchor.bodyA || row.modelRow.value == anchor.bodyB;
     const int anchorOtherBody = row.modelRow.value == anchor.bodyA ? anchor.bodyB : anchor.bodyA;
@@ -417,15 +490,32 @@ ReplayCauseSolverDetailResult EvaluateReplayCauseSolverDetail( const RunReplayCa
         return result;
     }
 
-    result.sourceContacts = source.contacts;
-    result.sourcePipelineRecords = source.pipelineRecords;
     result.bodyA = anchor.bodyA;
     result.bodyB = anchor.bodyB;
     result.terrain = anchorTerrain;
 
-    for ( const Physics::PhysicsSolverPersistentContactSample& contact : result.sourceContacts )
+    if ( predictionSource )
     {
-        if ( ContactPairMatches( contact, result.bodyA, result.bodyB, result.terrain ) )
+        if ( row.pipelineIndex < 0 || static_cast<std::size_t>( row.pipelineIndex ) >= result.SourcePipelineCount() )
+        {
+            return ReplayCauseSolverDetailResult { .frame = row.firstFrame };
+        }
+
+        const Physics::PhysicsPipelineRecord* sequenceAnchor = result.SourcePipelineAt( static_cast<std::size_t>( row.pipelineIndex ) );
+
+        if ( !sequenceAnchor || !IsSolverDetailPipelineStage( sequenceAnchor->stage ) ||
+             sequenceAnchor->featureId != anchor.featureId ||
+             !BodyPairMatches( sequenceAnchor->bodyA, sequenceAnchor->bodyB, anchor.bodyA, anchor.bodyB, anchorTerrain ) )
+        {
+            return ReplayCauseSolverDetailResult { .frame = row.firstFrame };
+        }
+    }
+
+    for ( std::size_t contactIndex = 0; contactIndex < result.SourceContactCount(); ++contactIndex )
+    {
+        const Physics::PhysicsSolverPersistentContactSample* contact = result.SourceContactAt( contactIndex );
+
+        if ( contact && ContactPairMatches( *contact, result.bodyA, result.bodyB, result.terrain ) )
         {
             ++result.contactRowCount;
         }
@@ -436,9 +526,11 @@ ReplayCauseSolverDetailResult EvaluateReplayCauseSolverDetail( const RunReplayCa
         return ReplayCauseSolverDetailResult { .frame = row.firstFrame };
     }
 
-    for ( const Physics::PhysicsPipelineRecord& record : result.sourcePipelineRecords )
+    for ( std::size_t recordIndex = 0; recordIndex < result.SourcePipelineCount(); ++recordIndex )
     {
-        if ( PipelineRecordMatches( result, record ) )
+        const Physics::PhysicsPipelineRecord* record = result.SourcePipelineAt( recordIndex );
+
+        if ( record && PipelineRecordMatches( result, *record ) )
         {
             ++result.pipelineRecordCount;
         }
@@ -531,6 +623,94 @@ Rendering::ContactManifoldPresentation BuildReplayCauseContactPresentation( cons
             return Rendering::ContactManifoldPresentation {};
         }
 
+        point.point = manifoldRecord ? manifoldRecord->point : contactBodyA->position + contact->rA;
+        point.normal = manifoldRecord ? manifoldRecord->normal
+                                      : ( contact->isTerrain ? contact->terrainNormal : contact->normal );
+        point.tangent1 = contact->tangent1;
+        point.tangent2 = contact->tangent2;
+        point.penetration = manifoldRecord ? manifoldRecord->scalarA : contact->penetration;
+        point.exactSourcePoint = manifoldRecord != nullptr;
+        ++presentation.pointCount;
+    }
+
+    return presentation;
+}
+
+Rendering::ContactManifoldPresentation BuildReplayCauseContactPresentation( const ReplayCauseSolverDetailResult& detail,
+                                                                            const RunReplayPredictionFrame& frame ) noexcept
+{
+    PROFILE_SCOPED( "Frame/Replay/CauseInspection/PredictionManifoldPresentation" );
+    Rendering::ContactManifoldPresentation presentation;
+
+    if ( !detail.HasDetail() || frame.frameIndex != detail.frame || detail.contactRowCount == 0u )
+    {
+        return presentation;
+    }
+
+    const auto findBody = [&]( int modelRow ) -> const RunReplayPredictionBodySample*
+    {
+        const auto found = std::find_if( frame.bodies.begin(), frame.bodies.end(),
+                                         [&]( const RunReplayPredictionBodySample& body )
+                                         { return body.modelRow.value == modelRow; } );
+        return found == frame.bodies.end() ? nullptr : &*found;
+    };
+    const auto publishBody = [&]( int modelRow, std::size_t presentationIndex )
+    {
+        const RunReplayPredictionBodySample* body = findBody( modelRow );
+
+        if ( !body )
+        {
+            return false;
+        }
+
+        Rendering::ContactBodyPosePresentation& pose = presentation.bodies[presentationIndex];
+        pose.position = body->position;
+        pose.orientation = body->orientation;
+        pose.valid = true;
+        ++presentation.bodyCount;
+        return true;
+    };
+
+    if ( !publishBody( detail.bodyA, 0u ) || ( !detail.terrain && !publishBody( detail.bodyB, 1u ) ) )
+    {
+        return {};
+    }
+
+    const std::size_t presentedContactCount = (std::min)( detail.contactRowCount,
+                                                          Rendering::CONTACT_MANIFOLD_PRESENTATION_POINT_CAPACITY );
+    presentation.truncated = detail.contactRowCount > presentedContactCount;
+
+    for ( std::size_t contactIndex = 0; contactIndex < presentedContactCount; ++contactIndex )
+    {
+        const Physics::PhysicsSolverPersistentContactSample* contact = detail.ContactRowAt( contactIndex );
+
+        if ( !contact )
+        {
+            return {};
+        }
+
+        const Physics::PhysicsPipelineRecord* manifoldRecord = nullptr;
+
+        for ( std::size_t pipelineIndex = 0; pipelineIndex < detail.pipelineRecordCount; ++pipelineIndex )
+        {
+            const Physics::PhysicsPipelineRecord* candidate = detail.PipelineRecordAt( pipelineIndex );
+
+            if ( candidate && candidate->stage == Physics::PhysicsPipelineStage::ManifoldRow &&
+                 candidate->featureId == contact->featureId )
+            {
+                manifoldRecord = candidate;
+                break;
+            }
+        }
+
+        const RunReplayPredictionBodySample* contactBodyA = findBody( contact->bodyA );
+
+        if ( !manifoldRecord && !contactBodyA )
+        {
+            return {};
+        }
+
+        Rendering::ContactPointPresentation& point = presentation.points[contactIndex];
         point.point = manifoldRecord ? manifoldRecord->point : contactBodyA->position + contact->rA;
         point.normal = manifoldRecord ? manifoldRecord->normal
                                       : ( contact->isTerrain ? contact->terrainNormal : contact->normal );

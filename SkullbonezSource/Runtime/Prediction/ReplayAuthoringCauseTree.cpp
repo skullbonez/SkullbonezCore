@@ -4,12 +4,15 @@ Purpose:
   Implements Prediction-owned cause-row composition and focus activation.
 
 Summary:
-  The cause tree is an explanatory replay UI over retained solver contacts and
-  predicted movement. ReplayPrediction builds bounded rows into ReplayAuthoring
+  The cause tree is an explanatory replay UI over exact recorded or predicted
+  event frames. ReplayPrediction builds bounded rows into ReplayAuthoring
   storage, then activates a selected row through explicit solver, prediction,
-  and live-store values without retaining a lower Replay owner. Recorded
-  contacts expand counterpart bodies once, producing a cycle-free spanning
-  hierarchy rather than repeating both directions of the contact graph.
+  and live-store values without retaining a lower Replay owner. High detail
+  adapts either source to the same body/manifold/solver-row grouping and stamps
+  prediction rows with their immutable evidence identity. Low detail keeps the
+  synthetic contact/motion projection. Body expansion visits each causal body
+  once, producing a cycle-free spanning hierarchy rather than repeating both
+  directions of the contact graph.
 
 Glossary:
   Focus row: Cause-tree row selected for replay inspection camera targeting.
@@ -18,6 +21,9 @@ Invariants:
   - Focus changes hold live replay advance so selected historical rows remain visible.
   - Row composition never grows storage on the input/render path.
   - Recorded body expansion visits each model row at most once.
+  - High prediction rows fail closed unless their exact sealed evidence frame
+    exists; the causal-parent manifold precedes stable simultaneous manifolds.
+  - Low prediction rows never expose Manifold or SolverRow evidence.
   - Replay path, solver, camera, and store borrows expire before each command returns.
 
 Related:
@@ -235,6 +241,30 @@ Vector3 ReplayContactPoint( const ReplaySolverFrameSample& sample,
     return SkullbonezCore::Math::Vector::ZERO_VECTOR;
 }
 
+const RunReplayPredictionBodySample* FindPredictionBodyByModelIndex( const RunReplayPredictionFrame& frame, int modelIndex )
+{
+    const auto found = std::find_if( frame.bodies.begin(), frame.bodies.end(),
+                                     [&]( const RunReplayPredictionBodySample& body )
+                                     { return body.modelRow.value == modelIndex; } );
+    return found != frame.bodies.end() ? &*found : nullptr;
+}
+
+Vector3 ReplayPredictionContactPoint( const RunReplayPredictionFrame& frame,
+                                      const Physics::PhysicsSolverPersistentContactSample& contact )
+{
+    if ( const RunReplayPredictionBodySample* bodyA = FindPredictionBodyByModelIndex( frame, contact.bodyA ) )
+    {
+        return bodyA->position + contact.rA;
+    }
+
+    if ( const RunReplayPredictionBodySample* bodyB = FindPredictionBodyByModelIndex( frame, contact.bodyB ) )
+    {
+        return bodyB->position + contact.rB;
+    }
+
+    return SkullbonezCore::Math::Vector::ZERO_VECTOR;
+}
+
 Vector3 ReplayContactNormalForModel( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
                                      int modelIndex )
 {
@@ -267,22 +297,23 @@ Vector3 ReplayContactImpulseForModel( const SkullbonezCore::Physics::PhysicsSolv
     return rowImpulse * -1.0f;
 }
 
-int ReplayFindPipelineIndexForContact( const SkullbonezCore::Physics::PhysicsSolverSnapshot& snapshot,
-                                       const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact )
+bool ReplayPipelineRecordAnchorsContact( const PhysicsPipelineRecord& record,
+                                         const Physics::PhysicsSolverPersistentContactSample& contact )
 {
-    for ( int i = 0; i < static_cast<int>( snapshot.pipelineTrace.size() ); ++i )
+    switch ( record.stage )
     {
-        const PhysicsPipelineRecord& record = snapshot.pipelineTrace[static_cast<std::size_t>( i )];
-
-        if ( record.featureId == contact.featureId &&
-             ( ( record.bodyA == contact.bodyA && record.bodyB == contact.bodyB ) ||
-               ( record.bodyA == contact.bodyB && record.bodyB == contact.bodyA ) ) )
-        {
-            return i;
-        }
+    case PhysicsPipelineStage::ManifoldRow:
+    case PhysicsPipelineStage::WarmStart:
+    case PhysicsPipelineStage::SolverIteration:
+    case PhysicsPipelineStage::PositionCorrection:
+    case PhysicsPipelineStage::CacheStore:
+        break;
+    default:
+        return false;
     }
 
-    return -1;
+    return record.featureId == contact.featureId && ( ( record.bodyA == contact.bodyA && record.bodyB == contact.bodyB ) ||
+                                                      ( record.bodyA == contact.bodyB && record.bodyB == contact.bodyA ) );
 }
 } // namespace
 
@@ -319,7 +350,9 @@ bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const Run
     const std::size_t solverContactCount = solverSample ? solverSample->worldSnapshot.physics.persistentContacts.size()
                                                         : static_cast<std::size_t>( 0 );
 
-    const std::size_t estimatedRows = 1 + nodes.size() + solverContactCount * 3;
+    const std::size_t estimatedRows = usePrediction && m_detailMode == ReplayPredictionDetailMode::High
+                                          ? REPLAY_CAUSE_TREE_ROW_CAPACITY
+                                          : 1 + nodes.size() + solverContactCount * 3;
 
     if ( !authoring.CauseTreeRowCapacityCovers( estimatedRows ) )
     {
@@ -448,62 +481,161 @@ bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const Run
 
     auto appendSolverRowsForBody = [&]( RunReplayCauseTreeRow bodyRow ) -> void
     {
+        const RunReplayPathTraceNode* predictionNode = nullptr;
+        int predictionNodeIndex = -1;
+
         if ( usePrediction )
         {
-            for ( int i = 0; i < static_cast<int>( nodes.size() ); ++i )
+            const auto found = std::find_if( nodes.begin(), nodes.end(), [&]( const RunReplayPathTraceNode& node )
+                                             { return node.id.value == bodyRow.id.value; } );
+            predictionNode = found != nodes.end() ? &*found : nullptr;
+            predictionNodeIndex = predictionNode ? static_cast<int>( found - nodes.begin() ) : -1;
+        }
+
+        if ( usePrediction &&
+             ( m_detailMode == ReplayPredictionDetailMode::Low || ( predictionNode && !predictionNode->contactDerived ) ) )
+        {
+            if ( predictionNode )
             {
-                const RunReplayPathTraceNode& node = nodes[static_cast<std::size_t>( i )];
-
-                if ( node.id.value != bodyRow.id.value )
-                {
-                    continue;
-                }
-
                 RunReplayCauseTreeRow contactRow;
-                contactRow.kind = node.contactDerived ? RunReplayCauseTreeRowKind::PredictionContact
-                                                      : RunReplayCauseTreeRowKind::PredictionMotion;
+                contactRow.kind = predictionNode->contactDerived ? RunReplayCauseTreeRowKind::PredictionContact
+                                                                 : RunReplayCauseTreeRowKind::PredictionMotion;
 
                 contactRow.id = bodyRow.id;
-                contactRow.parentId = node.parentId;
-                contactRow.counterpartId = node.parentId;
-                contactRow.firstFrame = node.firstFrame;
+                contactRow.parentId = predictionNode->parentId;
+                contactRow.counterpartId = predictionNode->parentId;
+                contactRow.firstFrame = predictionNode->firstFrame;
                 contactRow.depth = bodyRow.depth + 1;
                 contactRow.modelRow.value = bodyRow.modelRow.value;
-                contactRow.counterpartModelRow.value = node.parentModelRow.value;
-                contactRow.contactIndex = i;
+                contactRow.counterpartModelRow.value = predictionNode->parentModelRow.value;
+                contactRow.contactIndex = predictionNodeIndex;
                 contactRow.prediction = true;
-                contactRow.point = node.contactPoint;
-                contactRow.normal = ReplayNormalizeOr( node.contactNormal, Vector3( 0.0f, 1.0f, 0.0f ) );
+                contactRow.point = predictionNode->contactPoint;
+                contactRow.normal = ReplayNormalizeOr( predictionNode->contactNormal, Vector3( 0.0f, 1.0f, 0.0f ) );
 
-                if ( node.contactDerived )
+                if ( predictionNode->contactDerived )
                 {
                     sprintf_s( contactRow.name, sizeof( contactRow.name ), "Predicted contact" );
                     sprintf_s( contactRow.detail, sizeof( contactRow.detail ), "first frame %llu  normal %.2f %.2f %.2f",
-                               static_cast<unsigned long long>( node.firstFrame ), contactRow.normal.x, contactRow.normal.y,
-                               contactRow.normal.z );
+                               static_cast<unsigned long long>( predictionNode->firstFrame ), contactRow.normal.x,
+                               contactRow.normal.y, contactRow.normal.z );
                 }
                 else
                 {
                     sprintf_s( contactRow.name, sizeof( contactRow.name ), "Predicted movement" );
                     sprintf_s( contactRow.detail, sizeof( contactRow.detail ),
                                "first affected frame %llu  direction %.2f %.2f %.2f",
-                               static_cast<unsigned long long>( node.firstFrame ), contactRow.normal.x, contactRow.normal.y,
-                               contactRow.normal.z );
+                               static_cast<unsigned long long>( predictionNode->firstFrame ), contactRow.normal.x,
+                               contactRow.normal.y, contactRow.normal.z );
                 }
 
-                if ( !appendCauseTreeRow( contactRow ) )
-                {
-                    return;
-                }
+                (void)appendCauseTreeRow( contactRow );
             }
 
             return;
         }
 
-        if ( !solverSample || bodyRow.modelRow.value < 0 )
+        if ( bodyRow.modelRow.value < 0 )
         {
             return;
         }
+
+        const RunReplayPredictionFrame* predictionFrame = nullptr;
+        ReplayPredictionSolverEvidenceFrameView predictionEvidence;
+
+        if ( usePrediction )
+        {
+            const auto foundFrame = std::find_if( activePredictionFrames.begin(), activePredictionFrames.end(),
+                                                  [&]( const RunReplayPredictionFrame& frame )
+                                                  { return frame.frameIndex == bodyRow.firstFrame; } );
+
+            if ( foundFrame == activePredictionFrames.end() )
+            {
+                rowOverflow = true;
+                return;
+            }
+
+            predictionFrame = &*foundFrame;
+            predictionEvidence = SolverEvidenceForPresentedFrame( bodyRow.firstFrame );
+
+            if ( !predictionEvidence.Valid() )
+            {
+                rowOverflow = true;
+                return;
+            }
+        }
+        else if ( !solverSample )
+        {
+            return;
+        }
+
+        const std::size_t sourceContactCount = usePrediction ? predictionEvidence.ContactCount()
+                                                             : solverSample->worldSnapshot.physics.persistentContacts.size();
+        const std::size_t sourcePipelineCount = usePrediction ? predictionEvidence.PipelineCount()
+                                                              : solverSample->worldSnapshot.physics.pipelineTrace.size();
+        const auto sourceContactAt = [&]( std::size_t index ) -> const Physics::PhysicsSolverPersistentContactSample*
+        {
+            if ( usePrediction )
+            {
+                return predictionEvidence.Contact( index );
+            }
+
+            return index < solverSample->worldSnapshot.physics.persistentContacts.size()
+                       ? &solverSample->worldSnapshot.physics.persistentContacts[index]
+                       : nullptr;
+        };
+        const auto sourcePipelineAt = [&]( std::size_t index ) -> const PhysicsPipelineRecord*
+        {
+            if ( usePrediction )
+            {
+                return predictionEvidence.Pipeline( index );
+            }
+
+            return index < solverSample->worldSnapshot.physics.pipelineTrace.size()
+                       ? &solverSample->worldSnapshot.physics.pipelineTrace[index]
+                       : nullptr;
+        };
+        const auto sourceContactPoint = [&]( const Physics::PhysicsSolverPersistentContactSample& contact )
+        {
+            return usePrediction ? ReplayPredictionContactPoint( *predictionFrame, contact )
+                                 : ReplayContactPoint( *solverSample, contact );
+        };
+        const auto sourceIdForModelIndex = [&]( int modelIndex ) -> Physics::PhysicsSceneObjectId
+        {
+            if ( usePrediction )
+            {
+                const RunReplayPredictionBodySample* body = FindPredictionBodyByModelIndex( *predictionFrame, modelIndex );
+                return body ? body->id : Physics::PhysicsSceneObjectId {};
+            }
+
+            return idForModelIndex( modelIndex );
+        };
+        const auto sourceModelIndexForId = [&]( Physics::PhysicsSceneObjectId id )
+        {
+            if ( usePrediction )
+            {
+                const auto body = std::find_if( predictionFrame->bodies.begin(), predictionFrame->bodies.end(),
+                                                [&]( const RunReplayPredictionBodySample& candidate )
+                                                { return candidate.id == id; } );
+                return body != predictionFrame->bodies.end() ? body->modelRow.value : -1;
+            }
+
+            return modelIndexForId( id, -1 );
+        };
+        const auto sourcePipelineIndexForContact = [&]( const Physics::PhysicsSolverPersistentContactSample& contact )
+        {
+            for ( std::size_t index = 0; index < sourcePipelineCount; ++index )
+            {
+                const PhysicsPipelineRecord* record = sourcePipelineAt( index );
+
+                if ( record && ReplayPipelineRecordAnchorsContact( *record, contact ) )
+                {
+                    return static_cast<int>( index );
+                }
+            }
+
+            return -1;
+        };
 
         struct ManifoldGroup
         {
@@ -515,16 +647,17 @@ bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const Run
 
         std::size_t groupCount = 0;
 
-        for ( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact :
-              solverSample->worldSnapshot.physics.persistentContacts )
+        for ( std::size_t contactIndex = 0; contactIndex < sourceContactCount; ++contactIndex )
         {
-            if ( !ReplayContactHasModelIndex( contact, bodyRow.modelRow.value ) )
+            const Physics::PhysicsSolverPersistentContactSample* contact = sourceContactAt( contactIndex );
+
+            if ( !contact || !ReplayContactHasModelIndex( *contact, bodyRow.modelRow.value ) )
             {
                 continue;
             }
 
-            const int otherModelIndex = ReplayContactOtherModelIndex( contact, bodyRow.modelRow.value );
-            const bool terrain = contact.isTerrain || otherModelIndex < 0;
+            const int otherModelIndex = ReplayContactOtherModelIndex( *contact, bodyRow.modelRow.value );
+            const bool terrain = contact->isTerrain || otherModelIndex < 0;
             bool exists = false;
 
             for ( std::size_t groupIndex = 0; groupIndex < groupCount; ++groupIndex )
@@ -552,6 +685,20 @@ bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const Run
             }
         }
 
+        // Invariant: the manifold on the causal incoming edge is the first
+        // explanation below a predicted child. Stable encounter order is
+        // preserved for every simultaneous secondary manifold.
+        const int causalParentModelIndex = sourceModelIndexForId( bodyRow.parentId );
+
+        for ( std::size_t groupIndex = 1; groupIndex < groupCount; ++groupIndex )
+        {
+            if ( groups[groupIndex].otherModelIndex == causalParentModelIndex && !groups[groupIndex].terrain )
+            {
+                std::swap( groups[0], groups[groupIndex] );
+                break;
+            }
+        }
+
         for ( std::size_t groupIndex = 0; groupIndex < groupCount; ++groupIndex )
         {
             const ManifoldGroup& group = groups[groupIndex];
@@ -562,34 +709,33 @@ bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const Run
             int firstContactIndex = -1;
             uint32_t firstFeatureId = 0;
 
-            for ( int i = 0; i < static_cast<int>( solverSample->worldSnapshot.physics.persistentContacts.size() ); ++i )
+            for ( std::size_t contactIndex = 0; contactIndex < sourceContactCount; ++contactIndex )
             {
-                const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample&
-                    contact = solverSample->worldSnapshot.physics.persistentContacts[static_cast<std::size_t>( i )];
+                const Physics::PhysicsSolverPersistentContactSample* contact = sourceContactAt( contactIndex );
 
-                if ( !ReplayContactHasModelIndex( contact, bodyRow.modelRow.value ) )
+                if ( !contact || !ReplayContactHasModelIndex( *contact, bodyRow.modelRow.value ) )
                 {
                     continue;
                 }
 
-                const int otherModelIndex = ReplayContactOtherModelIndex( contact, bodyRow.modelRow.value );
-                const bool terrain = contact.isTerrain || otherModelIndex < 0;
+                const int otherModelIndex = ReplayContactOtherModelIndex( *contact, bodyRow.modelRow.value );
+                const bool terrain = contact->isTerrain || otherModelIndex < 0;
 
                 if ( otherModelIndex != group.otherModelIndex || terrain != group.terrain )
                 {
                     continue;
                 }
 
-                const Vector3 point = ReplayContactPoint( *solverSample, contact );
+                const Vector3 point = sourceContactPoint( *contact );
                 centroid += point;
-                normalSum += ReplayContactNormalForModel( contact, bodyRow.modelRow.value );
-                maxPenetration = (std::max)( maxPenetration, contact.penetration );
+                normalSum += ReplayContactNormalForModel( *contact, bodyRow.modelRow.value );
+                maxPenetration = (std::max)( maxPenetration, contact->penetration );
                 pointCount += 1;
 
                 if ( firstContactIndex < 0 )
                 {
-                    firstContactIndex = i;
-                    firstFeatureId = contact.featureId;
+                    firstContactIndex = static_cast<int>( contactIndex );
+                    firstFeatureId = contact->featureId;
                 }
             }
 
@@ -599,7 +745,7 @@ bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const Run
             }
 
             centroid /= static_cast<float>( pointCount );
-            const Physics::PhysicsSceneObjectId otherId = idForModelIndex( group.otherModelIndex );
+            const Physics::PhysicsSceneObjectId otherId = sourceIdForModelIndex( group.otherModelIndex );
 
             if ( !group.terrain && group.otherModelIndex >= 0 &&
                  group.otherModelIndex < static_cast<int>( recordedBodyQueued.size() ) &&
@@ -629,12 +775,33 @@ bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const Run
             manifoldRow.modelRow.value = bodyRow.modelRow.value;
             manifoldRow.counterpartModelRow.value = group.otherModelIndex;
             manifoldRow.contactIndex = firstContactIndex;
+            const Physics::PhysicsSolverPersistentContactSample* firstContact = sourceContactAt( static_cast<std::size_t>( firstContactIndex ) );
+            manifoldRow.pipelineIndex = firstContact ? sourcePipelineIndexForContact( *firstContact ) : -1;
+
+            if ( usePrediction && manifoldRow.pipelineIndex < 0 )
+            {
+                rowOverflow = true;
+                return;
+            }
+
             manifoldRow.featureId = static_cast<int>( firstFeatureId );
             manifoldRow.manifoldPointCount = pointCount;
             manifoldRow.penetration = maxPenetration;
             manifoldRow.point = centroid;
             manifoldRow.normal = ReplayNormalizeOr( normalSum, Vector3( 0.0f, 1.0f, 0.0f ) );
+            manifoldRow.prediction = usePrediction;
             manifoldRow.terrain = group.terrain;
+
+            if ( usePrediction )
+            {
+                const ReplayPredictionEvidenceIdentity& identity = predictionEvidence.frame->identity;
+                manifoldRow.sourceGeneration = identity.generation;
+                manifoldRow.sourceBankEpoch = identity.bankEpoch;
+                manifoldRow.sourceTopologyVersion = identity.topologyVersion;
+                manifoldRow.sourcePublicationVersion = identity.publicationVersion;
+                manifoldRow.sourceHighDetail = true;
+            }
+
             sprintf_s( manifoldRow.name, sizeof( manifoldRow.name ), "Manifold vs %s", otherName );
             sprintf_s( manifoldRow.detail, sizeof( manifoldRow.detail ), "%d point%s  max pen %.3f", pointCount,
                        pointCount == 1 ? "" : "s", maxPenetration );
@@ -644,18 +811,17 @@ bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const Run
                 return;
             }
 
-            for ( int i = 0; i < static_cast<int>( solverSample->worldSnapshot.physics.persistentContacts.size() ); ++i )
+            for ( std::size_t contactIndex = 0; contactIndex < sourceContactCount; ++contactIndex )
             {
-                const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample&
-                    contact = solverSample->worldSnapshot.physics.persistentContacts[static_cast<std::size_t>( i )];
+                const Physics::PhysicsSolverPersistentContactSample* contact = sourceContactAt( contactIndex );
 
-                if ( !ReplayContactHasModelIndex( contact, bodyRow.modelRow.value ) )
+                if ( !contact || !ReplayContactHasModelIndex( *contact, bodyRow.modelRow.value ) )
                 {
                     continue;
                 }
 
-                const int otherModelIndex = ReplayContactOtherModelIndex( contact, bodyRow.modelRow.value );
-                const bool terrain = contact.isTerrain || otherModelIndex < 0;
+                const int otherModelIndex = ReplayContactOtherModelIndex( *contact, bodyRow.modelRow.value );
+                const bool terrain = contact->isTerrain || otherModelIndex < 0;
 
                 if ( otherModelIndex != group.otherModelIndex || terrain != group.terrain )
                 {
@@ -671,40 +837,50 @@ bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const Run
                 solverRow.depth = bodyRow.depth + 2;
                 solverRow.modelRow.value = bodyRow.modelRow.value;
                 solverRow.counterpartModelRow.value = group.otherModelIndex;
-                solverRow.contactIndex = i;
-                solverRow.solverRowIndex = i;
-                solverRow.pipelineIndex = ReplayFindPipelineIndexForContact( solverSample->worldSnapshot.physics, contact );
+                solverRow.contactIndex = static_cast<int>( contactIndex );
+                solverRow.solverRowIndex = static_cast<int>( contactIndex );
+                solverRow.pipelineIndex = sourcePipelineIndexForContact( *contact );
 
-                solverRow.featureId = static_cast<int>( contact.featureId );
-                solverRow.manifoldPointCount = contact.manifoldPointCount;
-                solverRow.penetration = contact.penetration;
-                solverRow.normalImpulse = contact.accN;
-                solverRow.tangentImpulse = sqrtf( contact.accT1 * contact.accT1 + contact.accT2 * contact.accT2 );
-                solverRow.warmStartImpulse = contact.terrainWarmStart;
-                solverRow.bias = contact.bias;
-                solverRow.effectiveMass = contact.normalMass;
-                solverRow.frictionLimit = contact.frictionLimit;
-                solverRow.point = ReplayContactPoint( *solverSample, contact );
-                solverRow.normal = ReplayContactNormalForModel( contact, bodyRow.modelRow.value );
-                solverRow.impulse = ReplayContactImpulseForModel( contact, bodyRow.modelRow.value );
+                solverRow.featureId = static_cast<int>( contact->featureId );
+                solverRow.manifoldPointCount = contact->manifoldPointCount;
+                solverRow.penetration = contact->penetration;
+                solverRow.normalImpulse = contact->accN;
+                solverRow.tangentImpulse = sqrtf( contact->accT1 * contact->accT1 + contact->accT2 * contact->accT2 );
+                solverRow.warmStartImpulse = contact->terrainWarmStart;
+                solverRow.bias = contact->bias;
+                solverRow.effectiveMass = contact->normalMass;
+                solverRow.frictionLimit = contact->frictionLimit;
+                solverRow.point = sourceContactPoint( *contact );
+                solverRow.normal = ReplayContactNormalForModel( *contact, bodyRow.modelRow.value );
+                solverRow.impulse = ReplayContactImpulseForModel( *contact, bodyRow.modelRow.value );
+                solverRow.prediction = usePrediction;
                 solverRow.terrain = terrain;
-                solverRow.warmStarted = contact.warmStarted;
-                sprintf_s( solverRow.name, sizeof( solverRow.name ), "Solver row %d", i );
+                solverRow.warmStarted = contact->warmStarted;
+
+                if ( usePrediction )
+                {
+                    const ReplayPredictionEvidenceIdentity& identity = predictionEvidence.frame->identity;
+                    solverRow.sourceGeneration = identity.generation;
+                    solverRow.sourceBankEpoch = identity.bankEpoch;
+                    solverRow.sourceTopologyVersion = identity.topologyVersion;
+                    solverRow.sourcePublicationVersion = identity.publicationVersion;
+                    solverRow.sourceHighDetail = true;
+                }
+
+                sprintf_s( solverRow.name, sizeof( solverRow.name ), "Solver row %zu", contactIndex );
                 const char* traceStage = "";
 
                 if ( solverRow.pipelineIndex >= 0 )
                 {
-                    const PhysicsPipelineRecord&
-                        record = solverSample->worldSnapshot.physics
-                                     .pipelineTrace[static_cast<std::size_t>( solverRow.pipelineIndex )];
+                    const PhysicsPipelineRecord* record = sourcePipelineAt( static_cast<std::size_t>( solverRow.pipelineIndex ) );
 
-                    traceStage = PhysicsPipelineStageName( record.stage );
+                    traceStage = record ? PhysicsPipelineStageName( record->stage ) : "";
                 }
 
                 sprintf_s( solverRow.detail, sizeof( solverRow.detail ),
-                           "feature %u  n %.3f  t %.3f  bias %.3f  mass %.3f  limit %.3f  %s%s%s", contact.featureId,
+                           "feature %u  n %.3f  t %.3f  bias %.3f  mass %.3f  limit %.3f  %s%s%s", contact->featureId,
                            solverRow.normalImpulse, solverRow.tangentImpulse, solverRow.bias, solverRow.effectiveMass,
-                           solverRow.frictionLimit, contact.warmStarted ? "warm" : "cold",
+                           solverRow.frictionLimit, contact->warmStarted ? "warm" : "cold",
                            solverRow.pipelineIndex >= 0 ? "  " : "", traceStage );
 
                 if ( !appendCauseTreeRow( solverRow ) )
@@ -713,7 +889,7 @@ bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const Run
                 }
             }
 
-            if ( !group.terrain && otherId.value != 0 && group.otherModelIndex >= 0 &&
+            if ( !usePrediction && !group.terrain && otherId.value != 0 && group.otherModelIndex >= 0 &&
                  group.otherModelIndex < static_cast<int>( recordedBodyQueued.size() ) )
             {
                 if ( recordedBodyWorkCount >= recordedBodyWork.size() )
@@ -855,7 +1031,12 @@ bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const Run
                  ( row.counterpartId.value == camera.counterpartId.value &&
                    row.counterpartModelRow.value == camera.focusCounterpartModelRow.value &&
                    ( row.kind != RunReplayCauseTreeRowKind::SolverRow ||
-                     ( row.featureId == camera.focusFeatureId && row.solverRowIndex == camera.focusSolverRowIndex ) ) ) )
+                     ( row.featureId == camera.focusFeatureId && row.solverRowIndex == camera.focusSolverRowIndex ) ) &&
+                   ( !row.prediction || !row.sourceHighDetail ||
+                     ( camera.focusSourceHighDetail && row.sourceGeneration == camera.focusSourceGeneration &&
+                       row.sourceBankEpoch == camera.focusSourceBankEpoch &&
+                       row.sourceTopologyVersion == camera.focusSourceTopologyVersion &&
+                       row.sourcePublicationVersion == camera.focusSourcePublicationVersion ) ) ) )
             {
                 authoring.SetCauseTreeSelectedRow( i );
                 outCameraFocusedRow = i;

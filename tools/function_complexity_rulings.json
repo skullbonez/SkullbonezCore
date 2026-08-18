@@ -65,11 +65,11 @@
     {
       "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",
       "signature": "template <typename InspectGizmoInteractionActive> InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools, const InteractionAutomationController& automation, const ReplayAutomationView& replay, RuntimeInteractionController& interaction, const InputRouter& inputRouter, CameraControlState& camera, const SceneWorld& world, SkullbonezCore::UI::InGameUI& ui, const InteractionAutomationDevelopmentUiView& developmentUi, const Rendering::RenderSceneSnapshot& renderSnapshot, const RunInteractionAutomationAction& action, InspectGizmoInteractionActive inspectGizmoInteractionActive )",
-      "body_sha256": "abd74fc780c3758e3df535e6def75db21100c516e5e01cae7728b22c84902405",
+      "body_sha256": "c27868d1eaeb155bab5a4dc8c6782a15857d49d24d16e3aa0b90903cb07e21cd",
       "owner": "Interaction automation assertion phase",
       "disposition": "retain-owner",
-      "reason": "One assertion phase reads the selected action against detached snapshots and synchronous runtime owners, then emits one evaluation; its branches are the closed assertion schema rather than independent retained authorities.",
-      "evidence": "predicted solver exact-evidence assertion-schema review (2026-08-18)",
+      "reason": "One assertion phase reads the selected action against detached snapshots and synchronous runtime owners, then emits one evaluation; typed High/Low cause-row counts are observations of that same closed assertion schema and retain no evidence authority.",
+      "evidence": "PREDICT_SOLVER_DETAIL PSD5 High/Low cause-row assertion review (2026-08-18)",
       "plan": ""
     },
     {
@@ -85,11 +85,11 @@
     {
       "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.cpp",
       "signature": "SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( InteractionAutomationRunStatus& status, const char* scriptPath, const SceneWorld& world, const SceneSessionState& scene, const char* scenePath, const RuntimeTools& runtimeTools, const ReplayAutomationView& replay, const RuntimeInteractionController& interaction, const CameraControlState& camera, const UI::InGameUI& ui, const Rendering::RenderSceneSnapshot& renderSnapshot )",
-      "body_sha256": "df750d0898f7583bd483e74861256ad7f4f248f6436c01fbaf125ec60d1fc97d",
+      "body_sha256": "08e89e00bbbeac9ae71653f2274a2d3f1b67005daeb74090e0b52d939c0cd8f9",
       "owner": "InteractionAutomationReportWriter report transaction",
       "disposition": "retain-owner",
-      "reason": "One writer projects the bounded automation result schema from synchronized runtime snapshots and emits one durable report; field ordering and failure cleanup are one serialization invariant.",
-      "evidence": "predicted solver exact-evidence report-schema review (2026-08-18)",
+      "reason": "One writer projects the bounded automation result schema from synchronized runtime snapshots and emits one durable report; exact cause-row evidence stamps and indices participate in the same field-order and failure-cleanup invariant.",
+      "evidence": "PREDICT_SOLVER_DETAIL PSD5 exact cause-row report-schema review (2026-08-18)",
       "plan": ""
     },
     {
@@ -155,11 +155,11 @@
     {
       "file": "SkullbonezSource/Runtime/Prediction/ReplayAuthoringCauseTree.cpp",
       "signature": "bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const RunReplayPathVisualizerState& path, const ReplaySolverFrameSample* solverSample, std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords, const PhysicsBodyStore& bodyStore, const RunReplayCameraState& camera, int& outCameraFocusedRow )",
-      "body_sha256": "45b8177ff0242b871bb830c19328426f7ec13747e444e403aedd0deb67f8c236",
+      "body_sha256": "c0d217f70d023c2ac9ddf2e186eca5fabfbec7fcc8fedc3e59272a26c50e881b",
       "owner": "ReplayPrediction cause-tree projection",
       "disposition": "retain-owner",
-      "reason": "One prediction owner projects a solver sample, retained presentation rows, body identities, exact source-bank frames, and camera focus into a coherent cause-tree row set; row identity, frame addressability, and focus arbitration are one result invariant.",
-      "evidence": "causal hierarchy and repeated-click regression review (2026-08-17)",
+      "reason": "One prediction owner projects an exact recorded or predicted event frame, retained presentation rows, body identities, and camera focus into one coherent cause-tree row set; source-neutral manifold grouping, causal-parent order, immutable-bank stamps, frame addressability, and focus arbitration are one result invariant.",
+      "evidence": "PREDICT_SOLVER_DETAIL PSD5 exact body/manifold/solver hierarchy review (2026-08-18)",
       "plan": ""
     },
     {
@@ -188,7 +188,7 @@
       "body_sha256": "0a03732768e36647a277c285bb827e682c86baa61f1852e725479cc08e22396b",
       "owner": "Pre-input interaction automation tick",
       "disposition": "retain-owner",
-      "reason": "One pre-input automation phase applies the current scripted action across the exact runtime owners before device routing; action order and frame ownership are synchronous and explicit.",
+      "reason": "One pre-input automation phase applies the current scripted action across the exact runtime owners before device routing; recognizing the added typed cause-row assertions does not change its synchronous action-order and frame-ownership invariant.",
       "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     },

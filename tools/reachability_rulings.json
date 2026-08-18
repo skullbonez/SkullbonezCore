@@ -732,42 +732,6 @@
     },
     {
       "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
-      "signature": "const ReplayPredictionSolverEvidenceFrame* ReplayPredictionSolverEvidenceStore::PublishedFrame( std::size_t index ) const noexcept",
-      "owner": "ReplayPredictionSolverEvidenceStore immutable frame publication",
-      "disposition": "retain-owner",
-      "reason": "Committed readers need bounded access to sealed frame range records without mutable storage exposure.",
-      "evidence": "The bank owner and TestReplayVisualPacket use the accessor to verify complete frame publication. 2026-08-18 census: classification=own-tu-and-test-only; mapping=exact; own_tu_calls=1; test_calls=1; required_arity=1/1.",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
-      "signature": "const ReplayPredictionSolverEvidenceFrame* ReplayPredictionSolverEvidenceStore::FindPublishedFrame( const ReplayPredictionEvidenceIdentity& identity ) const noexcept",
-      "owner": "ReplayPredictionSolverEvidenceStore exact evidence lookup seam",
-      "disposition": "retain-owner",
-      "reason": "Focused tests must prove stale generation, mode, epoch, topology, and publication identities cannot resolve evidence.",
-      "evidence": "TestReplayVisualPacket exercises exact and stale identity lookup. 2026-08-18 census: classification=test-only; mapping=exact; own_tu_calls=0; test_calls=1; required_arity=1/1.",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
-      "signature": "const Physics::PhysicsSolverPersistentContactSample* ReplayPredictionSolverEvidenceStore::Contact( ReplayPredictionEvidenceRange range, std::size_t offset ) const noexcept",
-      "owner": "ReplayPredictionSolverEvidenceStore immutable contact-range reader",
-      "disposition": "retain-owner",
-      "reason": "Focused tests need bounded value access to prove sealed frame ranges resolve exact detached contact samples.",
-      "evidence": "TestReplayVisualPacket verifies contact values and out-of-range rejection. 2026-08-18 census: classification=test-only; mapping=exact; test_calls=1; required_arity=2/2.",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
-      "signature": "const Physics::PhysicsPipelineRecord* ReplayPredictionSolverEvidenceStore::Pipeline( ReplayPredictionEvidenceRange range, std::size_t offset ) const noexcept",
-      "owner": "ReplayPredictionSolverEvidenceStore immutable pipeline-range reader",
-      "disposition": "retain-owner",
-      "reason": "Focused tests need bounded value access to prove sealed frame ranges resolve exact detached pipeline records.",
-      "evidence": "TestReplayVisualPacket verifies pipeline values and out-of-range rejection. 2026-08-18 census: classification=test-only; mapping=exact; test_calls=1; required_arity=2/2.",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
       "signature": "ReplayPredictionSolverEvidenceStoreMemoryStats ReplayPredictionSolverEvidenceStore::CollectMemoryStats() const noexcept",
       "owner": "ReplayPredictionSolverEvidenceStore capacity accounting",
       "disposition": "retain-owner",

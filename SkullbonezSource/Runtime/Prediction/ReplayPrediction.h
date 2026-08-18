@@ -17,6 +17,8 @@ Invariants:
   - Only the private prediction engine enables full solver-pipeline capture;
     every acquisition is paired with release on promotion, cancellation, mode
     transition, restart, or destruction.
+  - Exact-detail callers borrow one sealed frame from the bank selected for
+    presentation and must not retain that view across a prediction command.
 
 Related:
   - SkullbonezSource/Runtime/App/ReplayRuntime.h
@@ -1032,6 +1034,10 @@ class ReplayPrediction
     ReplayPredictionMemoryStats CollectMemoryStats() const;
 
     ReplayPredictionSolverEvidenceCaptureStats SolverEvidenceCaptureStats() const noexcept;
+
+    // Returns a synchronous exact-frame borrow from the currently presented
+    // evidence bank. An invalid view means the frame is not sealed High detail.
+    ReplayPredictionSolverEvidenceFrameView SolverEvidenceForPresentedFrame( ReplayFrameIndex frame ) const noexcept;
 
     // Internal worker/frame-thread commands keep the Physics diagnostics gate
     // paired with the evidence bank that consumes its exact rows.

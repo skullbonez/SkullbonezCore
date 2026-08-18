@@ -2,7 +2,7 @@
 
 Date: 2026-08-18
 Branch: `nightrunner-18th-AUG-26`
-Status: Three active plans; 29/47 tasks complete
+Status: Three active plans; 30/47 tasks complete
 
 Predicted Solver Cause Hierarchy (8 tasks), Continuous Orbital Forecast
 (7 tasks), and At-Rest Ball Stability (8 tasks) are registered
@@ -138,6 +138,23 @@ deferred. The stale Physics CSV and PSD3 visual-topology oracles remain
 unchanged and are recorded in the phase evidence; neither mismatch is caused
 by PSD4.
 
+PSD5 is complete. Planning now consumes source-neutral recorded or predicted
+solver-detail views with exact generation, bank-epoch, topology, publication,
+frame, range, sequence, feature, and completeness checks. High detail emits the
+Body -> Manifold -> SolverRow hierarchy from immutable Prediction evidence and
+matching predicted poses; Low retains synthetic PredictionContact/Motion rows.
+Scrubber selection, manifold presentation, and camera focus preserve the exact
+evidence identity, including same-frame replacement rejection. Final High and
+Low witnesses share live solver hash `0xFC1E96D513B66A0B`: High has 4 Body / 3
+Manifold / 3 SolverRow / 0 synthetic rows with balanced 2/2 consumer activity,
+while Low has 4 Body / 0 Manifold / 0 SolverRow / 3 synthetic rows and zero
+evidence capacity. The 603-case / 2,483,802-assertion suite, Automation, strict
+allocation, and four-generation frame-spike gates pass. The touched-source
+comment audit is 14/14 with none deferred. The unchanged Physics oracle still
+differs in 20,394 lines beginning at frame 102, and the replay visual oracle
+still rejects the corrected topology at reveal 0 (`header.topologyVersion`);
+neither baseline was refreshed.
+
 Catto CD3 replaced the global summed squared impulse-delta early-out with the
 maximum per-contact-row squared delta while retaining the historical sum for
 diagnostics only. The focused eight-contact oracle fails the retired gate and
@@ -241,9 +258,8 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `PREDICT_SOLVER_DETAIL` PSD5-PSD7. Build the body -> manifold ->
-solver-row hierarchy next, then add transactional archives and the combined
-High/Low release workflow.
+Execute `PREDICT_SOLVER_DETAIL` PSD6-PSD7. Add transactional mode-aware
+archives next, then close the combined High/Low release workflow.
 
 After predicted solver detail closes, execute `ORBIT_FORECAST` OF0-OF6. The
 owner reactivated it from `WNF/` on 2026-08-17. OF0 first ratifies the authored
@@ -269,7 +285,7 @@ not part of the active queue.
 
 ## Blockers
 
-- None. Continue with `PREDICT_SOLVER_DETAIL` PSD5. The stale Physics CSV and
+- None. Continue with `PREDICT_SOLVER_DETAIL` PSD6. The stale Physics CSV and
   corrected-topology visual oracle remain owner-controlled validation findings;
   do not refresh either without approval.
 

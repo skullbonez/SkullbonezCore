@@ -17,8 +17,9 @@ Summary:
 Glossary:
   Seek source: Timeline bank that must contain the row's exact frame before
     transport is enabled.
-  Solver-detail source: Contact and pipeline spans stamped with the exact
-    replay frame that produced them; publication copies them into Planning.
+  Solver-detail source: Recorded spans or a segmented prediction-frame view,
+    stamped with the exact replay frame that produced them; publication copies
+    selected values into Planning.
   Transition generation: Monotonic token that prevents an obsolete restore
     completion from changing a newer causal selection.
 
@@ -53,6 +54,7 @@ Related:
 
 #include "../Replay/ReplayAuthoringPackets.h"
 #include "../Replay/ReplayCapturePackets.h"
+#include "../Prediction/ReplayPredictionSolverEvidenceStore.h"
 #include "../../Physics/PhysicsSolverSnapshot.h"
 #include "../../Physics/PhysicsStageCapacity.h"
 #include "../../Rendering/ContactManifoldPresentation.h"
@@ -100,11 +102,12 @@ enum class ReplayCauseSolverDetailAvailability
 
 struct ReplayCauseSolverDetailSource
 {
-    // Invariant: frame stamps both spans. Callers may publish live or retained
-    // diagnostics only by naming the exact replay frame that produced them.
+    // Invariant: frame stamps either the recorded spans or the prediction view.
+    // Callers may publish diagnostics only by naming their exact source frame.
     ReplayFrameIndex frame = 0;
     std::span<const Physics::PhysicsSolverPersistentContactSample> contacts;
     std::span<const Physics::PhysicsPipelineRecord> pipelineRecords;
+    ReplayPredictionSolverEvidenceFrameView prediction;
 };
 
 struct ReplayCauseSolverDetailResult
@@ -113,6 +116,7 @@ struct ReplayCauseSolverDetailResult
     ReplayCauseSolverDetailAvailability availability = ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable;
     std::span<const Physics::PhysicsSolverPersistentContactSample> sourceContacts;
     std::span<const Physics::PhysicsPipelineRecord> sourcePipelineRecords;
+    ReplayPredictionSolverEvidenceFrameView predictionSource;
     int bodyA = -1;
     int bodyB = -1;
     bool terrain = false;
@@ -135,6 +139,10 @@ struct ReplayCauseSolverDetailResult
     }
     const Physics::PhysicsSolverPersistentContactSample* ContactRowAt( std::size_t detailRow ) const noexcept;
     const Physics::PhysicsPipelineRecord* PipelineRecordAt( std::size_t detailRecord ) const noexcept;
+    std::size_t SourceContactCount() const noexcept;
+    std::size_t SourcePipelineCount() const noexcept;
+    const Physics::PhysicsSolverPersistentContactSample* SourceContactAt( std::size_t index ) const noexcept;
+    const Physics::PhysicsPipelineRecord* SourcePipelineAt( std::size_t index ) const noexcept;
 };
 
 // Builds an allocation-free borrowed view over one stamped diagnostics frame.
@@ -150,6 +158,8 @@ ReplayCauseSolverDetailResult EvaluateReplayCauseSolverDetail( const RunReplayCa
 // be proven without reconstructing discarded source evidence.
 Rendering::ContactManifoldPresentation BuildReplayCauseContactPresentation( const ReplayCauseSolverDetailResult& detail,
                                                                             const ReplaySolverFrameSample& sample ) noexcept;
+Rendering::ContactManifoldPresentation BuildReplayCauseContactPresentation( const ReplayCauseSolverDetailResult& detail,
+                                                                            const RunReplayPredictionFrame& frame ) noexcept;
 
 ReplayCauseSeekResult EvaluateReplayCauseSeek( const RunReplayCauseTreeRow& row, const ReplayRecorderStats& solverStats,
                                                std::span<const RunReplayPredictionFrame> predictionFrames ) noexcept;

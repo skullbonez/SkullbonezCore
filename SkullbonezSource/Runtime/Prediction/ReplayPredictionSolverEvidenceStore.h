@@ -12,6 +12,8 @@ Summary:
   build boundary. A 20/120-second representative scene matrix selected
   128-frame, 256-contact, and 1,024-pipeline-row segments with a 320 MiB
   per-bank cap; the dense 120-second witness measured 317,157,376 bytes.
+  A frame view hides segment layout while preserving a synchronous borrow of
+  one sealed frame for cause-tree construction and Planning inspection.
 
 Glossary:
   Evidence bank: One generation-stamped segmented store of exact contact and
@@ -29,6 +31,8 @@ Invariants:
   - Every release records one before/after checkpoint after worker join and
     before the caller can start a new build.
   - Every allocation uses the existing replay_prediction_working_set owner.
+  - Frame views are valid only while their bank remains the selected published
+    source; callers copy any retained result before promotion or replacement.
 
 Related:
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionReserve.h
@@ -188,6 +192,36 @@ class ReplayPredictionSolverEvidenceStore
     ReplayPredictionDetailMode m_mode = ReplayPredictionDetailMode::High;
     uint64_t m_bankEpoch = 0;
     uint64_t m_lifetimePeakCapacityBytes = 0;
+};
+
+// Synchronous read-only borrow over one sealed frame in a segmented bank.
+// The bank owner controls lifetime; consumers retain neither pointer beyond
+// their command nor assumptions about physical segment layout.
+struct ReplayPredictionSolverEvidenceFrameView
+{
+    const ReplayPredictionSolverEvidenceStore* store = nullptr;
+    const ReplayPredictionSolverEvidenceFrame* frame = nullptr;
+
+    bool Valid() const noexcept
+    {
+        return store && frame && frame->complete && frame->identity.mode == ReplayPredictionDetailMode::High;
+    }
+    std::size_t ContactCount() const noexcept
+    {
+        return Valid() ? frame->contacts.count : 0u;
+    }
+    std::size_t PipelineCount() const noexcept
+    {
+        return Valid() ? frame->pipeline.count : 0u;
+    }
+    const Physics::PhysicsSolverPersistentContactSample* Contact( std::size_t index ) const noexcept
+    {
+        return Valid() ? store->Contact( frame->contacts, index ) : nullptr;
+    }
+    const Physics::PhysicsPipelineRecord* Pipeline( std::size_t index ) const noexcept
+    {
+        return Valid() ? store->Pipeline( frame->pipeline, index ) : nullptr;
+    }
 };
 
 class ReplayPredictionSolverEvidenceBanks

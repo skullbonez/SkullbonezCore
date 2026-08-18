@@ -28,6 +28,8 @@ Invariants:
   - Development UI commands are fixed-capacity and select at most one surface.
   - Replay intercept assertions consume a copied value snapshot and cannot
     retarget or advance the retained closest-approach scan.
+  - Prediction cause-row assertions count only typed rows already published by
+    the normal cause-tree owner; they do not reconstruct solver evidence.
   - Editor and window owners are borrowed only while one command batch is
     applied; automation stores neither owner after the synchronous call.
   - Process-wide development-surface selection remains a typed request for Run.
@@ -193,6 +195,12 @@ enum class RunInteractionAutomationAssertKind
     PredictionEvidenceConsumerBalanced,
     PredictionEvidencePipelineRowsMin,
     PredictionEvidenceCurrentCapacityMax,
+    PredictionCauseManifoldRowsMin,
+    PredictionCauseManifoldRowsMax,
+    PredictionCauseSolverRowsMin,
+    PredictionCauseSolverRowsMax,
+    PredictionCauseSyntheticRowsMin,
+    PredictionCauseSyntheticRowsMax,
     PredictionTrajectoryFingerprintReady,
     PredictionAppearanceInvalidationCountMin,
     ShadowPassExecuted,

@@ -10,6 +10,9 @@
     { "frame": 78, "assert": { "predictionPathVisible": true } },
     { "frame": 90, "assert": { "liveSolverHashStableAcrossPrediction": true } },
     { "frame": 90, "assert": { "predictionEvidenceConsumerBalanced": true } },
-    { "frame": 90, "assert": { "predictionEvidenceCurrentCapacityMax": 0 } }
+    { "frame": 90, "assert": { "predictionEvidenceCurrentCapacityMax": 0 } },
+    { "frame": 90, "assert": { "predictionCauseSyntheticRowsMin": 3 } },
+    { "frame": 90, "assert": { "predictionCauseManifoldRowsMax": 0 } },
+    { "frame": 90, "assert": { "predictionCauseSolverRowsMax": 0 } }
   ]
 }

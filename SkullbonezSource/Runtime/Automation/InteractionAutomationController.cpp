@@ -26,8 +26,8 @@ Invariants:
     replay state with hidden direct mutations.
   - Assertions and reports consume ReplayAutomationView; replay mutation uses
     named owner commands and never a mutable prediction/recorder reference.
-  - Prediction assertions read only the committed frame prefix; retained rows
-    beyond that prefix are allocation storage, not observable future state.
+  - Prediction assertions read only the presented published prefix and its
+    matching evidence bank; unpublished rows remain private allocation storage.
   - Published samples are frame-local; this file must not retain their spans or
     pointers beyond the synchronous automation turn.
   - Surface selection accepts Legacy or ImGui only; one frame can publish at
@@ -717,6 +717,18 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "predictionEvidencePipelineRowsMin";
     case RunInteractionAutomationAssertKind::PredictionEvidenceCurrentCapacityMax:
         return "predictionEvidenceCurrentCapacityMax";
+    case RunInteractionAutomationAssertKind::PredictionCauseManifoldRowsMin:
+        return "predictionCauseManifoldRowsMin";
+    case RunInteractionAutomationAssertKind::PredictionCauseManifoldRowsMax:
+        return "predictionCauseManifoldRowsMax";
+    case RunInteractionAutomationAssertKind::PredictionCauseSolverRowsMin:
+        return "predictionCauseSolverRowsMin";
+    case RunInteractionAutomationAssertKind::PredictionCauseSolverRowsMax:
+        return "predictionCauseSolverRowsMax";
+    case RunInteractionAutomationAssertKind::PredictionCauseSyntheticRowsMin:
+        return "predictionCauseSyntheticRowsMin";
+    case RunInteractionAutomationAssertKind::PredictionCauseSyntheticRowsMax:
+        return "predictionCauseSyntheticRowsMax";
     case RunInteractionAutomationAssertKind::PredictionTrajectoryFingerprintReady:
         return "predictionTrajectoryFingerprintReady";
     case RunInteractionAutomationAssertKind::PredictionAppearanceInvalidationCountMin:
@@ -1975,6 +1987,36 @@ AssertionParseStatus ParseBasicAssertion( const std::string& name, const Json& e
     return AssertionParseStatus::NoMatch;
 }
 
+AssertionParseStatus ParsePredictionCauseAssertion( const std::string& name, const Json& expected,
+                                                    RunInteractionAutomationAction& outAction )
+{
+    struct Entry
+    {
+        const char* name;
+        RunInteractionAutomationAssertKind kind;
+    };
+    static constexpr std::array ENTRIES = {
+        Entry { "predictionCauseManifoldRowsMin", RunInteractionAutomationAssertKind::PredictionCauseManifoldRowsMin },
+        Entry { "predictionCauseManifoldRowsMax", RunInteractionAutomationAssertKind::PredictionCauseManifoldRowsMax },
+        Entry { "predictionCauseSolverRowsMin", RunInteractionAutomationAssertKind::PredictionCauseSolverRowsMin },
+        Entry { "predictionCauseSolverRowsMax", RunInteractionAutomationAssertKind::PredictionCauseSolverRowsMax },
+        Entry { "predictionCauseSyntheticRowsMin", RunInteractionAutomationAssertKind::PredictionCauseSyntheticRowsMin },
+        Entry { "predictionCauseSyntheticRowsMax", RunInteractionAutomationAssertKind::PredictionCauseSyntheticRowsMax },
+    };
+
+    const auto entry = std::find_if( ENTRIES.begin(), ENTRIES.end(),
+                                     [&]( const Entry& candidate ) { return name == candidate.name; } );
+
+    if ( entry == ENTRIES.end() )
+    {
+        return AssertionParseStatus::NoMatch;
+    }
+
+    outAction.assertKind = entry->kind;
+    outAction.numberValue = expected.get<float>();
+    return AssertionParseStatus::Success;
+}
+
 AssertionParseStatus ParseReplayAssertion( const std::string& name, const Json& expected,
                                            RunInteractionAutomationAction& outAction, std::string& )
 {
@@ -2335,6 +2377,11 @@ AssertionParseStatus ParseReplayAssertion( const std::string& name, const Json& 
         return AssertionParseStatus::Success;
     }
 
+    if ( ParsePredictionCauseAssertion( name, expected, outAction ) == AssertionParseStatus::Success )
+    {
+        return AssertionParseStatus::Success;
+    }
+
     if ( name == "predictionTrajectoryFingerprintReady" )
     {
         outAction.assertKind = RunInteractionAutomationAssertKind::PredictionTrajectoryFingerprintReady;
@@ -2669,7 +2716,10 @@ bool ParseAssertAction( const Json& entry, RunInteractionAutomationAction& outAc
                                name == "predictionVelocityPreviewDeltaMin" || name == "predictionPresentedGenerationMin" ||
                                name == "predictionPresentedRootVelocityDeltaMin" || name == "predictionDivergenceMin" ||
                                name == "predictionTargetDisplacementMin" || name == "predictionEvidencePipelineRowsMin" ||
-                               name == "predictionEvidenceCurrentCapacityMax" ||
+                               name == "predictionEvidenceCurrentCapacityMax" || name == "predictionCauseManifoldRowsMin" ||
+                               name == "predictionCauseManifoldRowsMax" || name == "predictionCauseSolverRowsMin" ||
+                               name == "predictionCauseSolverRowsMax" || name == "predictionCauseSyntheticRowsMin" ||
+                               name == "predictionCauseSyntheticRowsMax" ||
                                name == "predictionAppearanceInvalidationCountMin" || name == "imguiLayoutResetCountMin" ||
                                name == "imguiFocusCountMin" || name == "imguiDpiScale" ||
                                name == "imguiDescriptorHighWaterMax" || name == "imguiViewportRecreationsMin";
@@ -3289,6 +3339,45 @@ InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
         evaluation.expected = "<=" + std::to_string( static_cast<uint64_t>( action.numberValue ) );
         evaluation.actual = std::to_string( bytes );
         evaluation.passed = bytes <= static_cast<uint64_t>( action.numberValue );
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionCauseManifoldRowsMin:
+    case RunInteractionAutomationAssertKind::PredictionCauseManifoldRowsMax:
+    case RunInteractionAutomationAssertKind::PredictionCauseSolverRowsMin:
+    case RunInteractionAutomationAssertKind::PredictionCauseSolverRowsMax:
+    case RunInteractionAutomationAssertKind::PredictionCauseSyntheticRowsMin:
+    case RunInteractionAutomationAssertKind::PredictionCauseSyntheticRowsMax:
+    {
+        std::size_t count = 0u;
+
+        for ( const RunReplayCauseTreeRow& row : replay.causeTree.rows )
+        {
+            const bool manifold = row.prediction && row.kind == RunReplayCauseTreeRowKind::Manifold;
+            const bool solver = row.prediction && row.kind == RunReplayCauseTreeRowKind::SolverRow;
+            const bool synthetic = row.prediction && ( row.kind == RunReplayCauseTreeRowKind::PredictionContact ||
+                                                       row.kind == RunReplayCauseTreeRowKind::PredictionMotion );
+
+            if ( ( ( action.assertKind == RunInteractionAutomationAssertKind::PredictionCauseManifoldRowsMin ||
+                     action.assertKind == RunInteractionAutomationAssertKind::PredictionCauseManifoldRowsMax ) &&
+                   manifold ) ||
+                 ( ( action.assertKind == RunInteractionAutomationAssertKind::PredictionCauseSolverRowsMin ||
+                     action.assertKind == RunInteractionAutomationAssertKind::PredictionCauseSolverRowsMax ) &&
+                   solver ) ||
+                 ( ( action.assertKind == RunInteractionAutomationAssertKind::PredictionCauseSyntheticRowsMin ||
+                     action.assertKind == RunInteractionAutomationAssertKind::PredictionCauseSyntheticRowsMax ) &&
+                   synthetic ) )
+            {
+                ++count;
+            }
+        }
+
+        const std::size_t expected = static_cast<std::size_t>( action.numberValue );
+        const bool maximum = action.assertKind == RunInteractionAutomationAssertKind::PredictionCauseManifoldRowsMax ||
+                             action.assertKind == RunInteractionAutomationAssertKind::PredictionCauseSolverRowsMax ||
+                             action.assertKind == RunInteractionAutomationAssertKind::PredictionCauseSyntheticRowsMax;
+        evaluation.expected = std::string( maximum ? "<=" : ">=" ) + std::to_string( expected );
+        evaluation.actual = std::to_string( count );
+        evaluation.passed = maximum ? count <= expected : count >= expected;
         break;
     }
     case RunInteractionAutomationAssertKind::PredictionTrajectoryFingerprintReady:

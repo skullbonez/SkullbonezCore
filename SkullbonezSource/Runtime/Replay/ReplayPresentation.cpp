@@ -6,7 +6,9 @@ Purpose:
 Summary:
   Recorded timelines publish values; this lower owner keeps mutable camera,
   path-selection, launcher-backup, and recorded-pose state. Prediction visual
-  storage remains in ReplayPredictionPresentation.
+  storage remains in ReplayPredictionPresentation. Temporary cause focus also
+  keeps the selected evidence identity so a same-frame prediction replacement
+  cannot silently retarget the camera to a different solver row.
 
 Glossary:
   Presentation storage: Replay-only path and launcher buffers used while
@@ -15,6 +17,8 @@ Glossary:
 Invariants:
   - Path selection reserves before steady replay interaction.
   - The render-pose match table is fixed at the scene model capacity.
+  - Exact predicted cause focus rematches every evidence stamp before reusing a
+    row after cause-tree rebuild.
 
 Related:
   - ReplayPresentation.h
@@ -429,6 +433,11 @@ void ReplayPresentation::ApplyCameraFocus( const RunReplayCauseTreeRow& row, int
     m_camera.focusContactIndex = row.contactIndex;
     m_camera.focusSolverRowIndex = row.solverRowIndex;
     m_camera.focusFeatureId = row.featureId;
+    m_camera.focusSourceGeneration = row.sourceGeneration;
+    m_camera.focusSourceBankEpoch = row.sourceBankEpoch;
+    m_camera.focusSourceTopologyVersion = row.sourceTopologyVersion;
+    m_camera.focusSourcePublicationVersion = row.sourcePublicationVersion;
+    m_camera.focusSourceHighDetail = row.sourceHighDetail;
     m_camera.focusTerrain = row.terrain;
     m_camera.targetPoint = resolvedPoint;
     m_camera.targetNormal = resolvedNormal;
@@ -458,6 +467,11 @@ bool ReplayPresentation::ClearCameraFocus() noexcept
     m_camera.focusContactIndex = -1;
     m_camera.focusSolverRowIndex = -1;
     m_camera.focusFeatureId = 0;
+    m_camera.focusSourceGeneration = 0;
+    m_camera.focusSourceBankEpoch = 0;
+    m_camera.focusSourceTopologyVersion = 0;
+    m_camera.focusSourcePublicationVersion = 0;
+    m_camera.focusSourceHighDetail = false;
     m_camera.focusTerrain = false;
     m_camera.targetPoint = Math::Vector::ZERO_VECTOR;
     m_camera.targetNormal = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );

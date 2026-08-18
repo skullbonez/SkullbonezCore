@@ -11,7 +11,8 @@ Summary:
   camera slot, Planning's one eased clock, and the existing attached-camera
   follow owner while Replay remains the sole owner of the saved main-camera
   identity and live restore transaction. Exact-frame contact presentation is
-  copied before the final restore can retire its source solver ring. The
+  copied before the final restore can retire its recorded solver ring or
+  replace its exact prediction evidence bank. The
   adjacent solver panel shares one Planning layout projection between drawing
   and hit-testing, and App composes its mouse ownership ahead of the cause tree.
 
@@ -35,8 +36,8 @@ Invariants:
     a typed command has arrived from the selected ImGui surface.
   - Causal restore completion must acknowledge the generation that issued it;
     an interrupted or superseded row cannot reveal stale detail.
-  - Causal contact geometry and body poses are copied from the selected solver
-    sample before BuildRestoreRequest can authorize a destructive branch reset.
+  - Causal contact geometry and body poses are copied from the exact recorded
+    sample or predicted frame before restore or replacement can retire its source.
   - Solver-panel wheel input is consumed only inside the visible shared panel
     bounds and cannot fall through to the cause-tree surface.
 
@@ -579,6 +580,22 @@ void ReplayRuntime::ApplyCauseTreeSelection( int requestedRow, const ReplayWorks
                                                                BuildReplayCauseContactPresentation( detail,
                                                                                                     *presentedSolver ) );
     }
+    else if ( seek.source == ReplayCauseSeekSource::Prediction )
+    {
+        const auto predictionFrames = m_predictionOwner.ActiveFrames();
+        const auto exactFrame = std::find_if( predictionFrames.begin(), predictionFrames.end(),
+                                              [&]( const RunReplayPredictionFrame& frame )
+                                              { return frame.frameIndex == seek.frame; } );
+        const ReplayPredictionSolverEvidenceFrameView evidence = m_predictionOwner.SolverEvidenceForPresentedFrame( seek.frame );
+        const ReplayCauseSolverDetailResult detail = EvaluateReplayCauseSolverDetail( selectedRow, seek,
+                                                                                      { seek.frame, {}, {}, evidence } );
+        const Rendering::ContactManifoldPresentation manifold = exactFrame != predictionFrames.end()
+                                                                    ? BuildReplayCauseContactPresentation( detail,
+                                                                                                           *exactFrame )
+                                                                    : Rendering::ContactManifoldPresentation {};
+        const ReplayCauseInspectionView inspection = m_planningOwner.CauseInspectionView();
+        m_planningOwner.CauseInspection().PublishSolverDetail( inspection.generation, detail, manifold );
+    }
 
     // Invariant: camera focus and transport generation begin in the same turn.
     // A restore completion can therefore acknowledge only the detail view that
@@ -710,9 +727,14 @@ void ReplayRuntime::ApplyCauseInspectionTransition( const ReplayWorkspaceFrameIn
 
     if ( m_authoring.TryGetCauseTreeRow( view.selectedRow, selectedRow ) )
     {
-        transition.PublishSolverDetail( transport.generation,
-                                        EvaluateReplayCauseSolverDetail( selectedRow, predictionSeek,
-                                                                         { transport.targetFrame, {}, {} } ) );
+        const ReplayPredictionSolverEvidenceFrameView evidence = m_predictionOwner.SolverEvidenceForPresentedFrame( transport.targetFrame );
+        const ReplayCauseSolverDetailResult detail = EvaluateReplayCauseSolverDetail( selectedRow, predictionSeek,
+                                                                                      { transport.targetFrame,
+                                                                                        {},
+                                                                                        {},
+                                                                                        evidence } );
+        transition.PublishSolverDetail( transport.generation, detail,
+                                        BuildReplayCauseContactPresentation( detail, *found ) );
     }
 
     transition.CompleteTransport( transport.generation, true );

@@ -10,8 +10,9 @@ Summary:
   writer computes report facts, verifies any durable replay artifact, writes
   JSON, then releases every borrow before returning.
   Prediction witnesses serialize complete bounded trajectory, future-node, and
-  cause-row topology so root-policy regressions are reviewable without inferring
-  structure from a screenshot.
+  cause-row topology, exact evidence stamps, and solver anchors so root-policy
+  or stale-bank regressions are reviewable without inferring structure from a
+  screenshot.
 
 Glossary:
   Report fact: Derived validation value shared by live assertions and final JSON.
@@ -25,6 +26,8 @@ Invariants:
   - Prediction reports and fidelity capture never read beyond the committed prefix.
   - Topology witness rows preserve lane, identity, ancestry, depth, and first-frame
     fields in publication order; reports do not synthesize missing relationships.
+  - Exact predicted Manifold and SolverRow reports preserve the immutable-bank
+    identity and contact/pipeline indices used by Planning inspection.
   - Runtime-owner references are never stored on the writer.
   - A report failure never replaces an earlier probe failure.
 
@@ -1464,6 +1467,17 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
                                               { "depth", row.depth },
                                               { "firstFrame", row.firstFrame },
                                               { "prediction", row.prediction },
+                                              { "modelRow", row.modelRow.value },
+                                              { "counterpartModelRow", row.counterpartModelRow.value },
+                                              { "contactIndex", row.contactIndex },
+                                              { "solverRowIndex", row.solverRowIndex },
+                                              { "pipelineIndex", row.pipelineIndex },
+                                              { "featureId", row.featureId },
+                                              { "sourceGeneration", row.sourceGeneration },
+                                              { "sourceBankEpoch", row.sourceBankEpoch },
+                                              { "sourceTopologyVersion", row.sourceTopologyVersion },
+                                              { "sourcePublicationVersion", row.sourcePublicationVersion },
+                                              { "sourceHighDetail", row.sourceHighDetail },
                                               { "name", row.name },
                                               { "detail", row.detail } } );
     }

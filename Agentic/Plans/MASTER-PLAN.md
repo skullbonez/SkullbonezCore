@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-18
-Status: Three active plans; 29/47 tasks complete
+Status: Three active plans; 30/47 tasks complete
 
 ## Owner Direction
 
@@ -78,7 +78,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Predicted Solver Cause Hierarchy | `PREDICT_SOLVER_DETAIL` | 8 | 5 | `TODO/predicted-solver-cause-hierarchy.md` |
+| Predicted Solver Cause Hierarchy | `PREDICT_SOLVER_DETAIL` | 8 | 6 | `TODO/predicted-solver-cause-hierarchy.md` |
 | Continuous Orbital Forecast | `ORBIT_FORECAST` | 7 | 0 | `TODO/continuous-orbital-forecast.md` |
 | At-Rest Ball Stability | `REST_STABILITY` | 8 | 0 | `TODO/at-rest-ball-stability.md` |
 
@@ -114,10 +114,9 @@ states elsewhere, and both are recorded rather than silently corrected:
 
 ## Binding Order
 
-1. `PREDICT_SOLVER_DETAIL` PSD5 through PSD7 — build and inspect the exact
-   body/manifold/solver-row hierarchy, then add mode-aware transactional
-   archives, observable release, and the combined High Detail operator
-   workflow.
+1. `PREDICT_SOLVER_DETAIL` PSD6 through PSD7 — add mode-aware transactional
+   archives, then close observable release and the combined High Detail
+   operator workflow.
 2. `ORBIT_FORECAST` OF0 through OF6 — ratify the authored stability contract,
    add coherent circular publication and continuous isolated prediction, then
    wire Planning-owned diagnostics and rolling orbital presentation.
@@ -146,8 +145,8 @@ than pinning pre-repair impulses, activation times, or sleep frames.
 
 ## Portfolio Progress
 
-29/47 tasks complete with three active plans. Causal C0-C8, Determinism T0-T8,
-Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD4 are complete.
-Predicted Solver Cause Hierarchy PSD5-PSD7 is next, then Continuous Orbital
+30/47 tasks complete with three active plans. Causal C0-C8, Determinism T0-T8,
+Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD5 are complete.
+Predicted Solver Cause Hierarchy PSD6-PSD7 is next, then Continuous Orbital
 Forecast OF0-OF6, then At-Rest Ball Stability RS0-RS7. Deterministic
 Trigonometry is owner-parked and excluded from progress.

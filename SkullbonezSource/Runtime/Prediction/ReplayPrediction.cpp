@@ -9,6 +9,8 @@ Summary:
   engine.
   Frame update prepares private-engine work, delegates worker lifetime to the
   schedule owner, and delegates trajectory/topology publication before drawing.
+  Exact-detail readers receive only a synchronous sealed-frame view from the
+  evidence bank currently selected by the same presentation policy.
 
 Glossary:
   Path visualizer: Overlay that draws past/future body trajectories and contact
@@ -31,6 +33,8 @@ Invariants:
     only after the step, and each worker writes a distinct pre-sized frame row.
   - Scheduling/cancellation and release/acquire publication each have one named
     owner; this coordinator does not manipulate their atomics or task storage.
+  - A presented evidence view comes from the same Build-or-Committed bank choice
+    as the visible prediction frames and is never retained by this coordinator.
 
 Related:
   - SkullbonezSource/Runtime/App/ReplayScrubberTools.cpp
@@ -1422,6 +1426,34 @@ ReplayPrediction::~ReplayPrediction()
 ReplayPredictionSolverEvidenceCaptureStats ReplayPrediction::SolverEvidenceCaptureStats() const noexcept
 {
     return m_solverEvidenceCaptureStats;
+}
+
+ReplayPredictionSolverEvidenceFrameView
+ReplayPrediction::SolverEvidenceForPresentedFrame( ReplayFrameIndex frame ) const noexcept
+{
+    if ( m_detailMode != ReplayPredictionDetailMode::High )
+    {
+        return {};
+    }
+
+    const ReplayPredictionSolverEvidenceStore& store = m_state.BuildPrefixShouldBePresented() ? m_solverEvidence.Build()
+                                                                                              : m_solverEvidence.Committed();
+
+    // Why: frame replacement can reuse the numeric frame index in a new bank
+    // epoch. The cause row copies the returned full identity and later detail
+    // lookup requires that exact frame record to remain published.
+    for ( std::size_t index = store.PublishedFrameCount(); index > 0u; --index )
+    {
+        const ReplayPredictionSolverEvidenceFrame* evidence = store.PublishedFrame( index - 1u );
+
+        if ( evidence && evidence->complete && evidence->identity.frame == frame &&
+             evidence->identity.mode == ReplayPredictionDetailMode::High )
+        {
+            return { &store, evidence };
+        }
+    }
+
+    return {};
 }
 
 bool ReplayPrediction::BeginSolverEvidenceBuild( uint32_t generation )
