@@ -216,6 +216,28 @@
       "removal_or_wrapper_plan": "Replace these retained vectors with slices from a fixed replay prediction arena if that typed arena is introduced, then delete both exact lexical exceptions."
     },
     {
+      "path": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionProducer.h",
+      "patterns": [
+        "std::vector<ContinuousPredictionBodySeed> m_bodySeeds;"
+      ],
+      "owner": "Continuous prediction private simulation seed",
+      "phase": "replay",
+      "reason": "OF2 retains one all-body seed row so the private Physics engine can be restored without borrowing live stores. Begin reserves the exact body count through ReserveReplayPredictionVector under replay_prediction_working_set before any worker becomes active; later slices only read the retained values.",
+      "cap": "The vector is limited to the live Physics body count and its byte request shares the existing 960 MiB replay_prediction_working_set hard cap; no new reserve registration or growth privilege is introduced.",
+      "removal_or_wrapper_plan": "Replace this retained vector with a typed replay prediction arena slice if that arena is introduced; preserve the synchronous live-snapshot and join-before-reseed contract."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionProducer.cpp",
+      "patterns": [
+        "m_bodySeeds.resize("
+      ],
+      "owner": "Continuous prediction private simulation seed",
+      "phase": "replay",
+      "reason": "CaptureSeed resizes only after ReserveReplayPredictionVector has granted the same exact body count under replay_prediction_working_set, so the operation changes logical size inside retained capacity and cannot allocate during worker stepping.",
+      "cap": "Logical size cannot exceed the live Physics body count already charged against the existing 960 MiB replay_prediction_working_set cap.",
+      "removal_or_wrapper_plan": "Delete this exact lexical exception if the seed row moves to a typed arena or the checker learns the reserve-before-resize dataflow."
+    },
+    {
       "path": "SkullbonezSource/Runtime/Prediction/ReplayPredictionReserve.cpp",
       "patterns": [
         "std::make_unique<Physics::PhysicsEngine>"

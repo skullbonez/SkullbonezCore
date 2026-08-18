@@ -243,6 +243,7 @@
     <ClCompile Include="SkullbonezTests\TestOperatorCommandTransaction.cpp" />
     <ClCompile Include="SkullbonezTests\TestUIDrawValues.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayPredictionScheduling.cpp" />
+    <ClCompile Include="SkullbonezTests\TestContinuousPredictionProducer.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayPredictionSolverEvidenceStore.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayGuideArcs.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayTripPlanner.cpp" />
@@ -323,6 +324,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayArtifactHashLog.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayTimeline.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Prediction\ContinuousPredictionProducer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ContinuousPredictionSampleRing.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionReserve.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionSolverEvidenceStore.cpp" />

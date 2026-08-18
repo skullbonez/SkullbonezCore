@@ -470,6 +470,96 @@
       "plan": ""
     },
     {
+      "file": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionSampleRing.cpp",
+      "signature": "std::size_t ContinuousPredictionSampleRingSnapshot::SegmentCount() const noexcept",
+      "owner": "Runtime/Prediction :: ContinuousPredictionSampleRing circular publication",
+      "disposition": "repair-plan",
+      "reason": "The detached snapshot must enumerate its at-most-two wrapped segments without exposing mutable ring storage.",
+      "evidence": "ContinuousPredictionProducer publishes the snapshot through its detached view and TestContinuousPredictionProducer validates three wraps. The producer is intentionally lower and uncomposed until OF4, so the current compiled classification is test-only.",
+      "plan": "Agentic/Plans/TODO/continuous-orbital-forecast.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionSampleRing.cpp",
+      "signature": "ContinuousPredictionSampleRingSegment ContinuousPredictionSampleRingSnapshot::SegmentAt( std::size_t segmentIndex ) const noexcept",
+      "owner": "Runtime/Prediction :: ContinuousPredictionSampleRing circular publication",
+      "disposition": "repair-plan",
+      "reason": "The detached snapshot resolves each chronological wrapped segment while keeping backing storage read-only.",
+      "evidence": "ContinuousPredictionProducer publishes the snapshot through its detached view and TestContinuousPredictionProducer validates three wraps. The producer is intentionally lower and uncomposed until OF4, so the current compiled classification is test-only.",
+      "plan": "Agentic/Plans/TODO/continuous-orbital-forecast.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionSampleRing.cpp",
+      "signature": "bool ContinuousPredictionSampleRingSnapshot::TryReadRow( std::size_t logicalRowIndex, std::span<Math::Vector::Vector3> outPositions, std::uint64_t& outAbsoluteTick ) const noexcept",
+      "owner": "Runtime/Prediction :: ContinuousPredictionSampleRing circular publication",
+      "disposition": "repair-plan",
+      "reason": "Readers need one bounds-checked chronological row seam across physical ring wrap.",
+      "evidence": "ContinuousPredictionProducer publishes the snapshot through its detached view and TestContinuousPredictionProducer validates oldest/newest rows after three wraps. The producer is intentionally lower and uncomposed until OF4, so the current compiled classification is test-only.",
+      "plan": "Agentic/Plans/TODO/continuous-orbital-forecast.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionSampleRing.cpp",
+      "signature": "bool ContinuousPredictionSampleRing::Start( std::uint64_t firstAbsoluteTick ) noexcept",
+      "owner": "Runtime/Prediction :: ContinuousPredictionSampleRing producer lifecycle",
+      "disposition": "repair-plan",
+      "reason": "Start resets one prepared ring generation and establishes its first absolute tick before any row mutation.",
+      "evidence": "ContinuousPredictionProducer::Begin starts the prepared ring before seeding tick zero, and TestContinuousPredictionProducer exercises start/reseed. The producer is intentionally lower and uncomposed until OF4, so the current compiled classification is test-only.",
+      "plan": "Agentic/Plans/TODO/continuous-orbital-forecast.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionSampleRing.cpp",
+      "signature": "bool ContinuousPredictionSampleRing::BeginRow( std::uint64_t absoluteTick ) noexcept",
+      "owner": "Runtime/Prediction :: ContinuousPredictionSampleRing producer transaction",
+      "disposition": "repair-plan",
+      "reason": "The single producer opens exactly one monotonically addressed row before writing body positions.",
+      "evidence": "ContinuousPredictionProducer opens one row per private fixed tick and TestContinuousPredictionProducer validates three complete wraps. The producer is intentionally lower and uncomposed until OF4, so the current compiled classification is test-only.",
+      "plan": "Agentic/Plans/TODO/continuous-orbital-forecast.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionSampleRing.cpp",
+      "signature": "bool ContinuousPredictionSampleRing::WriteBodyPosition( std::size_t bodyIndex, const Math::Vector::Vector3& position ) noexcept",
+      "owner": "Runtime/Prediction :: ContinuousPredictionSampleRing producer transaction",
+      "disposition": "repair-plan",
+      "reason": "The open row accepts each configured body's position exactly within the prepared row width.",
+      "evidence": "ContinuousPredictionProducer writes every private-engine body after each whole tick and TestContinuousPredictionProducer validates exact rows. The producer is intentionally lower and uncomposed until OF4, so the current compiled classification is test-only.",
+      "plan": "Agentic/Plans/TODO/continuous-orbital-forecast.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionSampleRing.cpp",
+      "signature": "bool ContinuousPredictionSampleRing::PublishRow() noexcept",
+      "owner": "Runtime/Prediction :: ContinuousPredictionSampleRing publication commit",
+      "disposition": "repair-plan",
+      "reason": "Publication commits only a complete row and advances the bounded chronological window atomically for readers.",
+      "evidence": "ContinuousPredictionProducer publishes after all body positions are written and TestContinuousPredictionProducer validates coherent oldest/newest ticks. The producer is intentionally lower and uncomposed until OF4, so the current compiled classification is test-only.",
+      "plan": "Agentic/Plans/TODO/continuous-orbital-forecast.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionSampleRing.cpp",
+      "signature": "void ContinuousPredictionSampleRing::RequestCancellation() noexcept",
+      "owner": "Runtime/Prediction :: ContinuousPredictionSampleRing producer retirement",
+      "disposition": "repair-plan",
+      "reason": "Cancellation closes publication before the owning producer joins its in-flight worker task.",
+      "evidence": "ContinuousPredictionProducer::Stop requests cancellation before joining, and TestContinuousPredictionProducer exercises immediate asynchronous retirement. The producer is intentionally lower and uncomposed until OF4, so the current compiled classification is test-only.",
+      "plan": "Agentic/Plans/TODO/continuous-orbital-forecast.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionSampleRing.cpp",
+      "signature": "ContinuousPredictionSampleRingSnapshot ContinuousPredictionSampleRing::AcquireSnapshot() const noexcept",
+      "owner": "Runtime/Prediction :: ContinuousPredictionSampleRing detached read view",
+      "disposition": "repair-plan",
+      "reason": "One acquisition captures a coherent generation and chronological window without granting producer mutation authority.",
+      "evidence": "ContinuousPredictionProducer::View publishes this snapshot and TestContinuousPredictionProducer validates its retained rows. The producer is intentionally lower and uncomposed until OF4, so the current compiled classification is test-only.",
+      "plan": "Agentic/Plans/TODO/continuous-orbital-forecast.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionSampleRing.cpp",
+      "signature": "bool ContinuousPredictionSampleRing::TryReadRow( const ContinuousPredictionSampleRingSnapshot& snapshot, std::size_t logicalRowIndex, std::span<Math::Vector::Vector3> outPositions, std::uint64_t& outAbsoluteTick ) const noexcept",
+      "owner": "Runtime/Prediction :: ContinuousPredictionSampleRing generation validation",
+      "disposition": "repair-plan",
+      "reason": "The owning ring rejects stale or foreign snapshots before resolving a chronological row.",
+      "evidence": "The snapshot reader delegates to this owner check, and TestContinuousPredictionProducer validates coherent reads after three wraps and reseed. The producer is intentionally lower and uncomposed until OF4, so the current compiled classification is own-TU-and-test-only.",
+      "plan": "Agentic/Plans/TODO/continuous-orbital-forecast.md"
+    },
+    {
       "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp",
       "signature": "ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& context )",
       "owner": "Replay prediction path presentation",

@@ -241,6 +241,43 @@ nor a growth privilege.
   allowlist records the exact vector members and post-reserve logical resizes;
   it grants no new registration, phase, cap, or growth path.
 
+## OF2 Continuous Producer Evidence - 2026-08-19
+
+- `ContinuousPredictionProducer` synchronously captures authoritative body and
+  solver values, seeds a private `PhysicsEngine`, prepares the OF1 ring and
+  Tornado storage through the existing `replay_prediction_working_set` owner,
+  and only then admits worker submissions. It owns no target horizon, reveal
+  state, deterministic-capture tick cap, App pointer, or bounded `PREDICT`
+  publication.
+- Frame admission and worker execution retain the OF0-ratified dual-clock
+  semantics: an expired frame-side five-millisecond budget declines submission,
+  while each accepted worker task starts its own five-millisecond slice and
+  completes indivisible fixed ticks. The focused witness observes one submit
+  advancing more than eight ticks and reaches at least 43,220 ticks (three full
+  14,401-row windows plus 17 ticks) without completion or restart.
+- The producer publishes only complete all-body position rows plus detached
+  tick, simulated-time, measured-throughput, retained-byte, activity, in-flight,
+  and failure values. Stop requests ring cancellation and joins the embedded
+  worker task before publication is reset; warmed private-engine and ring
+  capacity remain retained for reseed.
+- The focused Profile case passes 53/53 assertions. It proves the authoritative
+  Replay solver hash and an independent seven-slot bounded publication remain
+  unchanged, oldest/newest rows stay coherent after three wraps, retained bytes
+  and Replay-owner growths stay flat after warm-up and reseed, and immediate
+  one-worker retirement joins safely. The exact body position at absolute tick
+  1,024 matches between inline zero-thread and one-worker execution.
+- `tools\validate_tests.bat` passes 611/611 cases and
+  2,483,563/2,483,563 assertions. Allocation policy, strict two-generation
+  Replay allocation, dependency, project-filter, build-configuration, glossary,
+  signature, aggregate, extraction-scar, complexity (41/41), and reachability
+  (96/96) checks have zero blocking diagnostics. Ten temporarily unrooted OF1
+  ring operations carry exact `repair-plan` rulings naming OF4 in this live plan;
+  OF4 must remove those rulings by composing the producer or deleting the
+  surface.
+- Performance validation passes. The mapped Physics and Replay visual gates
+  reproduce only the inherited owner-controlled varied-CSV and
+  `header.topologyVersion` oracle mismatches; no baseline was refreshed.
+
 ## Non-Goals
 
 - Do not remove or raise the ordinary 120-second bounded prediction limit.
@@ -275,7 +312,7 @@ nor a growth privilege.
   boundaries, checked counters, and no post-start growth. Unit tests cover empty,
   partial, exactly full, one-wrap, multi-wrap, cancellation, and concurrent
   publication snapshots without involving UI or DX12.
-- [ ] **OF2 - Add the lower continuous prediction producer.** Seed and retain a
+- [x] **OF2 - Add the lower continuous prediction producer.** Seed and retain a
   private Physics engine through the existing prediction reserve owner, submit
   unlimited-target fixed-tick slices under the ratified frame budget, capture
   only bounded path/head values, and expose a detached view. Prove that live
