@@ -326,6 +326,222 @@ inventories including 41/41 complexity rulings, Profile tests (627/627 tests;
 reachability. The touched-source comment audit inspected all three substantive
 Python tools, with 3 checked and 0 deferred; the tiny batch wrapper is exempt.
 
+## RS2 Root-Cause Adjudication — 2026-08-20
+
+RS2 used the final RS1 analyzer against detached diagnostic copies of the
+authored scene and the unchanged Debug executable. Each config A/B changed
+exactly one `engine.cfg` value, generated a separate trace, and then restored
+the tracked config before the next probe. The primary diagnostic scene changes
+only the playback cap; object geometry, world gravity, requirements, terrain,
+and material values match `at_rest.scene.json`. One additional scene A/B
+changes only the height-map terrain to analytic flat terrain so sphere
+manifold/sweep geometry is exercised directly. No probe value below is a
+proposed production tuning change.
+
+Shared launch command (replace `<scene>` and `<trace>` with the table row):
+
+```bat
+Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --time-scale 100 --automation-hidden-window --scene TestOutput\validation\candidates\REST_STABILITY_RS2_CAUSES\<scene>.scene.json --physics-diag TestOutput\validation\candidates\REST_STABILITY_RS2_CAUSES\<trace>.physicsdiag.ndjson
+```
+
+Every row except `terrain_flat` used `<scene>=at_rest_rs2`; `terrain_flat`
+used `<scene>=at_rest_rs2_flat`. In every case `<trace>` is the table name.
+
+The executable SHA-256 was
+`9417A33E0411A3FBFA37E89A65A5B7CC64B97428FC701B978E2D26BABECBF0B7`;
+the restored production config SHA-256 was
+`86D53F142EDCE01BAE4F425B4D828856A5F438DF2D73FE6E0E9A01A68ADBC33F`;
+the detached diagnostic scene SHA-256 was
+`B1AC947BE883834AB2CD78BC3AAAEA9CEC1E893500CA25635B138EA6DF4BE9C4`.
+The flat-geometry scene SHA-256 was
+`D68CA074E5DA0CA36059AC582E652CE14F954E68F758D9F28A4647B9588A2F03`.
+The ignored preservation root is
+`TestOutput/validation/candidates/REST_STABILITY_RS2_CAUSES/`.
+
+| Trace | Sole A/B change from control | End / sleep | Reimpacts / late reversals | Max post-impact `abs(vy)` / slip | Box controls | Diagnostic ruling |
+|---|---|---:|---:|---:|---:|---|
+| `control` | None | 35,159 / 35,155 | 3 / 66 | 0.969157 / 2.206871 | 3/3 | Reproduced RS0 exactly. |
+| `restitution_suppressed` | `contact_restitution_threshold: 2 -> 1000000` | 18,964 / 18,962 | 3 / 25 | 0.058190 / 5.059793 | 1/3 | Retained all three bias-to-reimpact chains, so restitution is not necessary to initiate the loop. The global threshold also regressed `box_a` and `box_c`; it is diagnostic only. |
+| `normal_bias_zero` | `terrain_contact_baumgarte_beta: 0.3 -> 0` | 17,614 / 17,610 | 0 / 33 | 2.415141 / 1.414740 | 3/3 | Removed every uninterrupted resting reimpact but left slow penetration recovery and poor vertical/slip envelopes; nonzero recovery remains necessary. |
+| `normal_bias_cap_half` | `terrain_max_baumgarte_bias: 2 -> 0.5` | 22,424 / 22,423 | 0 / 39 | 1.628077 / 1.473060 | 3/3 | Also removed every uninterrupted resting reimpact without deleting Baumgarte recovery; the current cap/velocity target is causal. |
+| `terrain_friction_zero` | `friction_coeff: 0.8 -> 0` | 48,004 / 48,001 | 3 / 162 | 1.314425 / 1.989249 | 0/3 | Worsened every ball and all three box speed/omega controls; the coefficient is necessary and is not the cause. |
+| `rolling_resistance_zero` | `rolling_friction_coeff: 0.02 -> 0` | 29,109 / 29,105 | 3 / 98 | 0.927100 / 1.669922 | 3/3 | Did not remove normal reimpacts or repeated reversals; simply deleting rolling resistance is not a repair. |
+| `rolling_resistance_tenfold` | `rolling_friction_coeff: 0.02 -> 0.2` | 5,354 / 5,350 | 3 / 0 | 1.037479 / 8.104177 | 3/3 | Removed all late reversals and met the completion deadline, but torque-only damping manufactured a much larger slip peak; implementation, not coefficient magnitude, is deficient. |
+| `sleep_frames_one` | `physics_sleep_frames: 30 -> 1` | 36,139 / 36,137 | 3 / 63 | 1.227731 / 3.557763 | 3/3 | Did not remove reimpact, vertical, slip, or reversal failures; sleep dwell is downstream, not causal. |
+| `terrain_contact_band_zero` | `terrain_contact_threshold: 0.15 -> 0` | 16,564 / 16,560 | 3 / 28 | 1.235073 / 6.492037 | 2/3 | Inadmissible as a sphere discriminator: this setting is read only by box/hull point selection. Retained solely as disclosed negative evidence. |
+| `candidate_bias_half_rolling_tenfold` | Combined diagnostic only: bias cap `0.5`, rolling coefficient `0.2` | 7,434 / 7,434 | 0 / 0 | 1.156262 / 13.900793 | 3/3 | Confirms the two diagnoses are distinct, but still fails slip/vertical targets; broad tuning is rejected. |
+| `terrain_flat` | Scene-only: height map -> analytic flat terrain | 1,299 / 1,296 | 0 / 0 | 1.150646 / 0.000000 | 0/3 | Proves heightfield plane geometry is causal context for reimpact/wandering. It changes impact trajectories and invalidates box transient ceilings, so it cannot replace the authored terrain or prove the solver correct. |
+
+The first exact control witness is `ball_a` contact `0:-1:0`. At frame 838
+the stable-support row has closing speed 1.945360 m/s, penetration 0.337921,
+and receives the full 2.0 m/s separation bias. The contact is absent at frame
+839 and returns at frame 897 at 2.596175 m/s. Solver packets report zero cache
+hits and one miss across frames 838-839; at frame 897 the aggregate one hit is
+the continuing box row while the returning ball is the miss. This matches the
+source lifetime: terrain gets the gravity support seed, but a no-contact frame
+clears the exact-feature cache. `warmStarted=1` alone is not cache-continuity
+evidence because the terrain seed deliberately sets that bit on cache misses.
+
+### Selected Repair Behavior And Owners
+
+1. **Normal-axis energy injection — selected for RS3.**
+   `PersistentContactSolveTransaction::PrecomputeRows` owns terrain row bias
+   and restitution; the existing terrain position-correction path owns
+   non-energetic penetration cleanup. For a stable-support terrain row below
+   the material-impact threshold, penetration recovery must not command a
+   separating velocity that breaks contact and returns as a fresh material
+   impact. RS3 will preserve restitution for genuine new impacts, keep bounded
+   penetration recovery, and add a terrain-sphere regression for the exact
+   max-bias-to-reimpact sequence. It will not globally zero Baumgarte or
+   restitution and will keep the box controls within their RS0 envelopes.
+
+2. **Rolling/slip coupling — selected for RS4.**
+   `PersistentContactSolveTransaction::ApplyTerrainRestPolicy` diagnoses the
+   current defect but is not the repair phase: it subtracts angular velocity
+   after `SolveRows`, so friction cannot correct the contact-point slip until a
+   later frame. On the control's late terrain rows, the largest ball-A residual
+   is 1.065246 m/s while tangent/normal impulse is only
+   `0.263113 / 2.465021 = 0.107`, far below the 0.8 coefficient. With rolling
+   resistance disabled the top residual is about 0.000003 m/s; at tenfold it is
+   10.651699 m/s. The coefficient is not saturated; the phase ordering is
+   causal. RS4 will make `PrecomputeRows` construct the bounded rotational
+   rolling-resistance row and `SolveRowsIterations` apply it before recomputing
+   and solving the existing tangent lambdas in the same PGS iteration. The
+   row operates only on angular velocity projected into the contact tangent
+   plane; spin about the contact normal is not rolling. Its accumulated angular
+   impulse vector is clamped to
+   `rolling_friction_coeff * supporting_normal_impulse * effective_radius`,
+   cannot overshoot zero rolling speed, and participates in the same
+   convergence decision. It has its own normal-load-derived rolling budget and
+   is not a second tangent impulse. `ApplyTerrainRestPolicy` will cease post-solve
+   angular mutation. The repair must monotonically remove energy without
+   increasing contact slip, generic damping, or unconditional angular zero;
+   the production friction coefficient remains 0.8.
+
+3. **Geometry, cache, and sleep rulings.** The flat scene proves heightfield
+   normals are causal context, not a defect to hide: the product requires the
+   authored height map to settle credibly. The sphere manifold always publishes
+   one bottom-pole point, inherits the swept terrain plane normal, and grants
+   stable support; the box/hull-only threshold probe says nothing about that
+   path. The exact-feature cache carries no stale ball contact through the
+   no-contact gap. `PhysicsSleepController` remains the sole sleep-policy owner;
+   RS2 rejects only changing its 30-frame dwell, because the one-frame probe did
+   not repair upstream motion. Broader support/inhibition/wake policy remains
+   deferred to post-RS4 RS5 evidence. No per-ball material, friction, or sleep
+   thresholds are selected.
+
+All three balls share the same early normal bias/contact-loss/reimpact loop and
+the same torque-only rolling-resistance model. Their different late traces are
+trajectory and object-impact consequences, not evidence for per-ball tuning.
+RS3 and RS4 therefore own two shared repairs; RS5 may change sleep policy only
+if post-RS4 evidence still isolates a policy defect and an owner approves it.
+
+### RS2 Preserved Artifacts And SkullScope Ledger
+
+| Trace | NDJSON bytes / SHA-256 | SQLite bytes / SHA-256 | Semantic JSON bytes / SHA-256 |
+|---|---|---|---|
+| `control` | 269,418,960 / `F20374D8FDF736A95B0C5EE19311BB6C888F39AE4A27BD79056FB397FBCCF4D7` | 124,059,648 / `02E07A9163944FEB4512DCE5CD222E79715D659477AB635940E3BB28F4CC6DB9` | 6,133 / `D73D65A6ED1CCF83638ADAE98A79638E3DF305C336823809D0392952DCDD9BC9` |
+| `restitution_suppressed` | 156,071,069 / `30426186A1DEEF6B2BDB3106DE44C0099EDF1901B10AC1F1939DDA5D8FBFBDF6` | 70,492,160 / `E16289D5E7022636694F7DF85ADE97E551038044720F5D82B7C861BDDE89E13C` | 6,114 / `B792B9DD8D33E26D9D266E6F3DB028A17A04AF4B6093A23438B7906A8E9004F7` |
+| `normal_bias_zero` | 143,113,113 / `4E50CB6E9D314F31644CBFE2C3C9ACB8B805A98F4C4C8C302ED4069AC92AF74A` | 66,510,848 / `DB2ED8D0CDE391E08898C25FFC26541EC926E023DEFC6601C8B6EEC9F3931DA2` | 5,464 / `AC0B277710EA91F4146BE95F43F63FC1A136A09CF59D848714235B20B4797C81` |
+| `normal_bias_cap_half` | 176,726,945 / `14B73D1474D655C9CA427BA96068786CAC2974411E1D3D24BD9A6036AA315CC4` | 81,154,048 / `0693B83389B5FAC5767766444BA8A2A39ABF9E683A1B66B17F2AF06212ADA39E` | 5,479 / `753808FFAB3B75912989B71C74FE03A2011F0BB2D62FB4C07F69E585E99AF414` |
+| `terrain_friction_zero` | 582,758,853 / `C2FD15DAE22DAF767F56BAF9488C3084DBADC39D2780FA44F2B35D0A977CE067` | 249,102,336 / `8AFDBAB35A2D02EBB0A2D7D61A8A3E894FBDE4033F990CA7A76F1C963BFF651A` | 6,430 / `25BA075B4F137F88BCE28DACD792361B13CC60F86A1827C20D2FBFCB7EEC8F4F` |
+| `rolling_resistance_zero` | 236,803,543 / `BF3A0DCF52564C927591F4AEAE5AF9A43C7B6A7F0ED0E6C186D1C32A2ABDCF3E` | 110,018,560 / `9C53CCC525EDAED1639F00A33C54B347CDC2D3FDB7E56029C32411120757EBDA` | 6,041 / `1F2028C6F3AD10E6EF0F83F24DB8EF50C5A0B4173C9D382EEBDEE2DA3B7DE5B4` |
+| `rolling_resistance_tenfold` | 43,353,585 / `933331447A032103212F49E5A48FCCE557041164FD9887F106F69E7D3024D0B4` | 19,755,008 / `4D4B2C6753EF68B38D0CFFEBF43584BECBC4AF14C953F94044C7C0CB4773536C` | 5,737 / `CDD0A0157AED0AD909962106747BCE752C370B433429B0E5932B5E12906BB30C` |
+| `sleep_frames_one` | 269,456,584 / `DF46AA0B6A5A7C4EB6533E2822C5CA702B42DF2BB7A0F4CA4FB7B36AC282E416` | 124,293,120 / `2478A22AA2AECB50C0C2D1D7643D5B69013086DEE2D7073D33701A53C5FCF67D` | 6,028 / `E463FF02CAC8323810A7C79A65B6BA29FCADD64B79C01F8341D7A3E1EEAB5BB8` |
+| `terrain_contact_band_zero` | 132,591,050 / `8C0C296670FB7BA437B96734558B91ABDEE54ACFFD4D39A76F5430F6A4E8156A` | 60,993,536 / `E406C7D0836E193CFC399EC66328950AAE0A3981CCE50F3F0E6FB9F6DB5096E9` | 6,370 / `070D7CCFB429201A2ABF75F64F0C08FFF766C98EEC2F592CBD69B549EF1ECB5D` |
+| `candidate_bias_half_rolling_tenfold` | 62,120,805 / `1AFCA5AC7D5B0A7354991E23AA26C2C1669CEB3C19642FEBF125E55DCB888FA9` | 27,250,688 / `8A7A95401240B5114404E1A94B03751FF2A10F2ACD843E41752A54388BB03E35` | 5,029 / `44F73FD90F6008CD090A6C7617680C94EE16C3B8E860BC323267E1328F3FBC4F` |
+| `terrain_flat` | 9,939,782 / `02CBE62A1EA41B8F380E7B7CFBE6A75681209A3DE2A3A445392722877E705BA1` | 4,403,200 / `447C51B0D1209822B070505FD7D5291FE75E087663E3230446422E5751230CEE` | 5,012 / `54CEE13680CE607430B835061AC1E4144039765189F02CE8C37A61C908D6BAC2` |
+
+Exact bounded `physics_query.bat` calls read by the main model:
+
+| Trace | Exact arguments after the trace path | GPT-read characters |
+|---|---|---:|
+| `control` | `contacts --frame 838 --body 0 --limit 8` | 870, run twice |
+| `control` | `contacts --frame 839 --body 0 --limit 8` | 430 |
+| `control` | `contacts --frame 897 --body 0 --limit 8` | 874 |
+| `control` | `frame 838` | 5,415 |
+| `control` | `frame 839` | 5,403 |
+| `control` | `frame 897` | 4,955 |
+| `control` | `contacts --frame 896 --body 4 --limit 8` | 866 |
+| `control` | `solver --frames 838:839 --limit 8` | 1,307 |
+| `control` | `solver --frames 897:897 --limit 8` | 1,070 |
+| `control` | `contacts --frame 7533 --body 0 --limit 8` | 871 |
+| `control` | `contacts --body 0 --top slip --limit 3` | 1,830 |
+| `control` | `contacts --body 0 --type sphere/terrain --top slip --limit 3` | 1,861 |
+| `rolling_resistance_zero` | `contacts --body 0 --type sphere/terrain --top slip --limit 3` | 1,872 |
+| `rolling_resistance_tenfold` | `contacts --body 0 --type sphere/terrain --top slip --limit 3` | 1,901 |
+| `control` | `sql "pragma table_info(runs)" --limit 50` | 1,774 |
+| `control` | `sql "select config_json from runs limit 1" --limit 1` | 977 |
+
+The following exact projection command ran once for each listed trace and
+proved the stored `config_json` values rather than trusting the temporary
+`engine.cfg` edits:
+
+```powershell
+$root='TestOutput\validation\candidates\REST_STABILITY_RS2_CAUSES'
+$names=@('control','restitution_suppressed','normal_bias_zero','normal_bias_cap_half','terrain_friction_zero','rolling_resistance_zero','rolling_resistance_tenfold','sleep_frames_one','terrain_contact_band_zero','candidate_bias_half_rolling_tenfold','terrain_flat')
+$sql="select json_extract(config_json,'$.contact_restitution_threshold') as restitution_threshold,json_extract(config_json,'$.terrain_contact_baumgarte_beta') as terrain_beta,json_extract(config_json,'$.terrain_max_baumgarte_bias') as max_bias,json_extract(config_json,'$.friction_coeff') as terrain_friction,json_extract(config_json,'$.rolling_friction_coeff') as rolling_friction,json_extract(config_json,'$.physics_sleep_frames') as sleep_frames,json_extract(config_json,'$.terrain_contact_threshold') as contact_threshold from runs"
+foreach($n in $names){ tools\physics_query.bat "$root\$n.physicsdiag.ndjson" sql $sql --limit 2 }
+```
+
+Per-trace projection output was: control 586,
+`restitution_suppressed` 622, `normal_bias_zero` 604,
+`normal_bias_cap_half` 612, `terrain_friction_zero` 614,
+`rolling_resistance_zero` 617, `rolling_resistance_tenfold` 623,
+`sleep_frames_one` 603, `terrain_contact_band_zero` 621,
+`candidate_bias_half_rolling_tenfold` 641, and `terrain_flat` 596
+characters, or 6,739 total.
+
+Exact PowerShell semantic-reduction commands read by the model (line wrapping
+below is only for Markdown readability):
+
+```powershell
+$r=Get-Content -Raw TestOutput\validation\candidates\REST_STABILITY_RS2_CAUSES\control.semantic.json | ConvertFrom-Json
+$r | ConvertTo-Json -Depth 2
+```
+
+The command above produced 8,388 characters. The 9,849-character comparison
+used this exact projection over the first seven one-variable reports:
+
+```powershell
+$root='TestOutput\validation\candidates\REST_STABILITY_RS2_CAUSES'; $names=@('control','restitution_suppressed','normal_bias_zero','terrain_friction_zero','rolling_resistance_zero','sleep_frames_one','terrain_contact_band_zero'); $lines=New-Object System.Collections.Generic.List[string]; foreach($name in $names){ $r=Get-Content -Raw "$root\$name.semantic.json"|ConvertFrom-Json; $lines.Add("VARIANT $name end=$($r.physics_end_frame) gate=$($r.aggregate.authored_sleep_gate_frame) failures=$($r.aggregate.failures -join ',')"); foreach($b in $r.balls){ $ri=if($null -eq $b.resting_reimpact){'-'}else{"$($b.resting_reimpact.resting_frame)>$($b.resting_reimpact.reimpact_frame)"}; $lines.Add(("{0} sleep={1} lastImpact={2} vy={3:F6} slip={4:F6} distR={5:F6} rev={6}/{7} reset={8} wake={9} reimpact={10} fail={11}" -f $b.name,$b.final_sleep_frame,$b.last_material_impact_frame,$b.maximum_post_impact_abs_vy,$b.maximum_post_impact_slip_speed,$b.post_impact_slip_radius_fraction,$b.late_x_reversals,$b.late_z_reversals,$b.sleep_counter_resets_after_tail,$b.wakes_after_tail,$ri,($b.failures -join ','))); } foreach($b in $r.box_controls){ $lines.Add(("{0} sleep={1} speed={2:F6}/{3:F6} omega={4:F6}/{5:F6} pass={6}" -f $b.name,$b.final_sleep_frame,$b.maximum_speed,$b.maximum_allowed_speed,$b.maximum_omega,$b.maximum_allowed_omega,$b.passed)); }} $text=($lines -join "`n")+"`n"; $text
+```
+
+The 806-character cross-variant table reduction used this exact command:
+
+```powershell
+$root='TestOutput\validation\candidates\REST_STABILITY_RS2_CAUSES';$names=@('control','restitution_suppressed','normal_bias_zero','normal_bias_cap_half','terrain_friction_zero','rolling_resistance_zero','rolling_resistance_tenfold','sleep_frames_one','terrain_contact_band_zero','candidate_bias_half_rolling_tenfold');foreach($n in $names){$r=Get-Content -Raw "$root\$n.semantic.json"|ConvertFrom-Json;$ri=@($r.balls|Where-Object{$null-ne$_.resting_reimpact}).Count;$rev=($r.balls|Measure-Object late_x_reversals -Sum).Sum+($r.balls|Measure-Object late_z_reversals -Sum).Sum;$vy=($r.balls|Measure-Object maximum_post_impact_abs_vy -Maximum).Maximum;$slip=($r.balls|Measure-Object maximum_post_impact_slip_speed -Maximum).Maximum;$box=@($r.box_controls|Where-Object{$_.passed}).Count;"$n reimpact=$ri rev=$rev maxvy=$vy maxslip=$slip box=$box/3"}
+```
+
+The `terrain_flat` projection, including all three ball failure, sleep, and
+last-impact lines, produced 258 trace-derived characters:
+
+```powershell
+$r=Get-Content -Raw TestOutput\validation\candidates\REST_STABILITY_RS2_CAUSES\terrain_flat.semantic.json|ConvertFrom-Json;$ri=@($r.balls|Where-Object{$null-ne$_.resting_reimpact}).Count;$rev=($r.balls|Measure-Object late_x_reversals -Sum).Sum+($r.balls|Measure-Object late_z_reversals -Sum).Sum;$vy=($r.balls|Measure-Object maximum_post_impact_abs_vy -Maximum).Maximum;$slip=($r.balls|Measure-Object maximum_post_impact_slip_speed -Maximum).Maximum;$box=@($r.box_controls|Where-Object{$_.passed}).Count;"terrain_flat end=$($r.physics_end_frame) gate=$($r.aggregate.authored_sleep_gate_frame) reimpact=$ri rev=$rev maxvy=$vy maxslip=$slip box=$box/3";foreach($b in $r.balls){"$($b.name) failures=$($b.failures -join ',') sleep=$($b.final_sleep_frame) lastImpact=$($b.last_material_impact_frame)"}
+```
+
+These commands read only the compact semantic JSON reports produced by
+`python tools\analyze_at_rest_stability.py <trace> --output <report>`; analyzer
+stdout was redirected to `Out-Null` during report generation.
+
+Main-model GPT-read SkullScope-derived output was **59,186 characters** with
+**no truncation**. The reviewer separately read 19,148 untruncated characters:
+pass 1 ran `control ... summary` (2,941) and `normal_bias_cap_half ... summary`
+(2,963); pass 2 repeated the exact frame-7,533 contact query, the three exact
+terrain-slip queries, and the eleven-query `$sql` configuration loop already
+listed above (13,244). The raw NDJSON and SQLite artifacts were never read by
+any model.
+
+Independent review used thread
+`01a0197e-c7e7-7c22-a220-d59357484f0b`, session
+`C:\Users\sesch\.codex\sessions\2026\08\19\rollout-2026-08-19T20-08-54-01a0197e-c7e7-7c22-a220-d59357484f0b.jsonl`.
+Pass 1 reported three blocking findings, two non-blocking findings, and three
+missing-evidence items. The fix cycle replaced the sphere-irrelevant contact
+band claim with the flat-terrain A/B, moved RS4 into the single PGS owner,
+added friction-headroom/stage-order evidence, narrowed the restitution and
+sleep conclusions, and completed exact command/config accounting. Fresh pass
+2 reported zero findings, zero missing evidence, and a CLEAN verdict.
+
 ## SkullScope Diagnostic Contract
 
 First add the generic authored sleep-completion gate described by RS0, then
@@ -418,18 +634,18 @@ the unchanged baseline failing the new semantic target for the expected reason.
 
 ### RS2 — Adjudicate The Root Causes
 
-- [ ] Use trace evidence and one-variable diagnostic A/Bs to classify terrain
+- [x] Use trace evidence and one-variable diagnostic A/Bs to classify terrain
   contact geometry/support, normal bias/restitution, tangent friction, rolling
   resistance, warm-start/cache continuity, and sleep policy separately.
-- [ ] For every proposed edit, name the invariant-owning function/stage and the
+- [x] For every proposed edit, name the invariant-owning function/stage and the
   exact symptom/metric it owns. Reject broad global tuning without causal proof.
-- [ ] Treat friction-coefficient and sleep-threshold changes as diagnostic
+- [x] Treat friction-coefficient and sleep-threshold changes as diagnostic
   probes only while proper solver/contact/support fixes remain viable. If the
   evidence isolates a policy deficiency, prepare the owner-decision packet and
   stop before changing production values.
-- [ ] Record why each non-owning candidate was ruled out and whether the three
+- [x] Record why each non-owning candidate was ruled out and whether the three
   balls share one cause or need distinct repairs.
-- [ ] Update the plan with the selected repair behavior before implementation.
+- [x] Update the plan with the selected repair behavior before implementation.
 
 Evidence: bounded before/A/B query comparisons, selected owner rulings, rejected
 alternatives, and independent read-only diagnosis review.
