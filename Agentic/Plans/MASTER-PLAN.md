@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-19
-Status: Two active plans; 38/47 tasks complete
+Status: One active plan; 39/47 tasks complete
 
 ## Owner Direction
 
@@ -129,13 +129,35 @@ Status: Two active plans; 38/47 tasks complete
   latching are covered by focused tests without adding a Replay include,
   reserve privilege, Physics row field, or post-start growth path.
 
+- ORBIT_FORECAST OF4 is complete. Planning composes the continuous producer and
+  stability analyzer while App owns lifetime, mutual exclusion with bounded
+  `PREDICT`, frame admission, joined scene transitions, and shutdown. Typed
+  controls and detached status values reach both operator surfaces without a
+  second retained owner.
+
+- ORBIT_FORECAST OF5 is complete. Planning converts coherent ring snapshots
+  into fixed-capacity, double-buffered generic ribbon and head-marker packets.
+  Every configured member uses authored presentation, the newest absolute tick
+  is coherent, and chronological downsampling never draws across the physical
+  wrap seam.
+
+- ORBIT_FORECAST OF6 is complete. Automation now reports source clock metadata
+  separately from deterministic private-simulation hashes and hashes every
+  private frame, body, sleep, tornado, contact-completeness, and contact value.
+  The exact 14,401-frame workers-0/workers-1 witness matches all component
+  hashes and submitted geometry while Replay reserve growth stays flat. The
+  independent post-fix review is clean; all ownership inventories, tests,
+  dependency/allocation gates, DX12, graphics stress, and performance pass.
+  Physics and replay visual fidelity reproduce only the inherited owner-
+  controlled CSV and `header.topologyVersion` stops, and no oracle was
+  refreshed.
+
 Completed plan files were deleted; git history is the archive.
 
 ## Active Plans
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Continuous Orbital Forecast | `ORBIT_FORECAST` | 7 | 6 | `TODO/continuous-orbital-forecast.md` |
 | At-Rest Ball Stability | `REST_STABILITY` | 8 | 0 | `TODO/at-rest-ball-stability.md` |
 
 ## Parked, Backlog, And Completed Plans
@@ -170,9 +192,7 @@ states elsewhere, and both are recorded rather than silently corrected:
 
 ## Binding Order
 
-1. `ORBIT_FORECAST` OF6 — close the bounded rolling orbital window,
-   then close behavior, memory, determinism, and ownership.
-2. `REST_STABILITY` RS0 through RS7 — add the authored all-three-ball sleep
+1. `REST_STABILITY` RS0 through RS7 — add the authored all-three-ball sleep
    completion gate, preserve and diagnose the unlimited `at_rest` witness with
    SkullScope, build semantic false-pass-resistant oracles, adjudicate the
    owning causes, then repair vertical vibration, sliding/rolling response, and
@@ -197,8 +217,8 @@ than pinning pre-repair impulses, activation times, or sleep frames.
 
 ## Portfolio Progress
 
-38/47 tasks complete with two active plans. Causal C0-C8, Determinism T0-T8,
+39/47 tasks complete with one active plan. Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
-Continuous Orbital Forecast OF0-OF5 are complete and OF6 is next, then At-Rest
-Ball Stability RS0-RS7. Deterministic
+Continuous Orbital Forecast OF0-OF6 is complete. At-Rest Ball Stability
+RS0-RS7 is next. Deterministic
 Trigonometry is owner-parked and excluded from progress.

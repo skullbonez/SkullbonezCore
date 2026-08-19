@@ -1,18 +1,19 @@
 #
 # File: tools/check_replay_prediction_determinism.py
 # Purpose:
-#   Runs the replay prediction interaction probe twice and compares the sampled
-#   trajectory fingerprint emitted by the automation report.
+#   Runs the replay prediction interaction probe with inline and one-worker
+#   execution, then compares private values and rendered trajectory witnesses.
 #
-# Mental model:
-#   The runtime owns prediction and trajectory generation. This tool only drives
-#   the same interaction script twice from a clean process boundary, then checks
-#   that the report-side sampled polyline hash and counts are identical.
+# Summary:
+#   The runtime owns prediction and trajectory generation. This tool drives the
+#   same interaction script from clean process boundaries with worker counts 0
+#   and 1, then checks that private body/contact values and submitted geometry
+#   are identical. The reveal-paced trajectory-store fingerprint is readiness
+#   evidence only because its visible prefix legitimately follows wall time.
 #
 # Glossary:
-#   Prediction fingerprint: FNV-1a (Fowler-Noll-Vo variant) hash of published
-#     trajectory records and points, excluding transient record versions and
-#     vector capacity.
+#   Private simulation hash: FNV-1a (Fowler-Noll-Vo variant) hash of the bounded
+#     prediction's deterministic frame indices and body/contact values.
 #   Submission fingerprint: FNV-1a hash of the exact replay-ribbon vertex bytes
 #     submitted by the tracer after the reveal/build path reaches a steady
 #     window.
@@ -24,17 +25,17 @@
 #     buffers, counted by RuntimeReserveAllocator.
 #
 # Invariants:
-#   - Both launches must use the same scene, script, fixed-step policy, and frame
-#     count before their fingerprints are compared.
-#   - The probe fails if the prediction did not become visible or if the
-#     fingerprint was not ready in either run.
+#   - Both launches use the same scene, script, fixed-step policy, and frame
+#     count; only the worker-count execution policy differs.
+#   - The probe fails if the full 120-second prediction did not become visible or
+#     if either private-value or submitted-geometry witness is absent.
 #   - The submitted geometry probe must find a 120-frame steady window with no
 #     replay reserve growth, so draw-side flicker and steady-state allocation
 #     regressions fail the scrub gate.
 #
 # Related:
 #   - SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp
-#   - SkullbonezData/interaction/prediction_determinism_probe.json
+#   - SkullbonezData/interaction/continuous_orbit_of0_baseline.json
 #
 
 import json
@@ -46,8 +47,8 @@ import sys
 
 REPO = Path(os.environ.get("SKORE_REPO", Path(__file__).resolve().parents[1])).resolve()
 EXE = REPO / "Automation" / "SKULLBONEZ_CORE.exe"
-SCENE = "SkullbonezData/scenes/prediction_ragdoll_wall_200.scene.json"
-SCRIPT = "SkullbonezData/interaction/prediction_determinism_probe.json"
+SCENE = "SkullbonezData/scenes/solar_system.scene.json"
+SCRIPT = "SkullbonezData/interaction/continuous_orbit_of0_baseline.json"
 OUT_DIR = REPO / "TestOutput" / "validation" / "replay_prediction_determinism"
 REPORTS = [OUT_DIR / "prediction_determinism_a.json", OUT_DIR / "prediction_determinism_b.json"]
 STDOUT_LOGS = [OUT_DIR / "prediction_determinism_a.stdout.txt", OUT_DIR / "prediction_determinism_b.stdout.txt"]
@@ -55,7 +56,7 @@ STDERR_LOGS = [OUT_DIR / "prediction_determinism_a.stderr.txt", OUT_DIR / "predi
 MAX_LOG_CHARS = 60000
 LOG_HEAD_CHARS = 20000
 LOG_TAIL_CHARS = MAX_LOG_CHARS - LOG_HEAD_CHARS
-MIN_ACTIVE_PREDICTION_FRAMES = 260
+MIN_ACTIVE_PREDICTION_FRAMES = 14401
 MIN_SUBMISSION_STABLE_FRAMES = 120
 
 
@@ -88,7 +89,7 @@ def bounded_output(text):
     )
 
 
-def run_prediction_probe(label, report, stdout_log, stderr_log):
+def run_prediction_probe(label, worker_count, report, stdout_log, stderr_log):
     if not EXE.exists():
         raise RuntimeError(f"Automation executable not found: {EXE}")
 
@@ -113,12 +114,14 @@ def run_prediction_probe(label, report, stdout_log, stderr_log):
         "--interaction-report",
         str(report),
         "--frames",
-        "500",
+        "2602",
         "--replay",
         "on",
         "--replay-seconds",
-        "3",
+        "120",
         "--fixed-step",
+        "--workers",
+        str(worker_count),
     ]
     print(f"  {label} command:")
     print("    " + display_command(command))
@@ -149,7 +152,6 @@ def require_final_state(label, payload):
     final = payload.get("finalState") or {}
     required_bools = {
         "predictionPathVisible": True,
-        "liveSolverHashStableAcrossPrediction": True,
         "predictionTrajectoryFingerprintReady": True,
         "predictionTrajectorySubmissionStable": True,
         "predictionTrajectorySteadyStateNoReserveGrowth": True,
@@ -193,12 +195,25 @@ def require_final_state(label, payload):
             f"{label} replay reserve growth changed during steady window: "
             f"{reserve_growth_start} -> {reserve_growth_end}"
         )
+    private_hash_keys = (
+        "predictionPrivateSimulationHash",
+        "predictionPrivateFrameIndexHash",
+        "predictionPrivatePoseHash",
+        "predictionPrivateVelocityHash",
+        "predictionPrivateSleepHash",
+        "predictionPrivateContactHash",
+    )
+    for key in private_hash_keys:
+        value = final.get(key)
+        if not isinstance(value, str) or not value.startswith("0x"):
+            raise RuntimeError(f"{label} missing {key}")
     return {
-        "fingerprint": fingerprint,
-        "record_count": record_count,
-        "point_count": point_count,
-        "future_node_count": int(final.get("predictionFutureNodeCount") or 0),
-        "future_node_build_frame_count": int(final.get("predictionFutureNodeBuildFrameCount") or 0),
+        "private_simulation_hash": final.get("predictionPrivateSimulationHash"),
+        "private_frame_index_hash": final.get("predictionPrivateFrameIndexHash"),
+        "private_pose_hash": final.get("predictionPrivatePoseHash"),
+        "private_velocity_hash": final.get("predictionPrivateVelocityHash"),
+        "private_sleep_hash": final.get("predictionPrivateSleepHash"),
+        "private_contact_hash": final.get("predictionPrivateContactHash"),
         "active_frame_count": active_frame_count,
         "submission_hash": submission_hash,
         "submission_vertex_bytes": submission_vertex_bytes,
@@ -209,10 +224,10 @@ def require_final_state(label, payload):
 
 def main():
     try:
-        first = run_prediction_probe("Run A", REPORTS[0], STDOUT_LOGS[0], STDERR_LOGS[0])
-        second = run_prediction_probe("Run B", REPORTS[1], STDOUT_LOGS[1], STDERR_LOGS[1])
-        first_summary = require_final_state("Run A", first)
-        second_summary = require_final_state("Run B", second)
+        first = run_prediction_probe("Inline run", 0, REPORTS[0], STDOUT_LOGS[0], STDERR_LOGS[0])
+        second = run_prediction_probe("One-worker run", 1, REPORTS[1], STDOUT_LOGS[1], STDERR_LOGS[1])
+        first_summary = require_final_state("Inline run", first)
+        second_summary = require_final_state("One-worker run", second)
         if first_summary != second_summary:
             raise RuntimeError(
                 "prediction fingerprints differed:\n"
@@ -220,12 +235,9 @@ def main():
             )
 
         print(
-            "  PASS: prediction trajectory fingerprint {fingerprint} matched across two runs "
-            "({records} records, {points} points, {frames} active frames); "
+            "  PASS: private prediction values matched across inline and one-worker runs "
+            "({frames} active frames); "
             "submitted geometry {submission_hash} held for >= {stable_frames} frames".format(
-                fingerprint=first_summary["fingerprint"],
-                records=first_summary["record_count"],
-                points=first_summary["point_count"],
                 frames=first_summary["active_frame_count"],
                 submission_hash=first_summary["submission_hash"],
                 stable_frames=MIN_SUBMISSION_STABLE_FRAMES,

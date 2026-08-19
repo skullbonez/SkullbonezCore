@@ -2,15 +2,13 @@
 
 Date: 2026-08-19
 Branch: `nightrunner-18th-AUG-26`
-Status: Two active plans; 38/47 tasks complete
+Status: One active plan; 39/47 tasks complete
 
-Continuous Orbital Forecast (7 tasks) and At-Rest Ball Stability (8 tasks) are
-registered under `Agentic/Plans/TODO/`; Causal C0-C8, Determinism T0-T8, Catto
-CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
-`MASTER-PLAN.md` carries the binding order: continuous orbital forecast OF6
-next, then at-rest ball stability. The completed causal, determinism, Catto, and
-predicted-solver-detail plans were deleted under the repository convention;
-Git history retains their phase evidence.
+At-Rest Ball Stability (8 tasks) is active. Causal C0-C8, Determinism T0-T8,
+Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7, and Continuous
+Orbital Forecast OF0-OF6 are complete. `MASTER-PLAN.md` carries the binding
+order: at-rest ball stability. Completed plan files were deleted under the
+repository convention; Git history retains their phase evidence.
 
 ORBIT_FORECAST OF0 is complete. It ratifies the fixed sun as the primary,
 Earth and Mars as core bodies, and the ship as an auxiliary whose orbital-
@@ -79,6 +77,21 @@ reserved lane and supplied span. Focused wrap/downsampling tests pass, and the
 solar automation probe captures pre-wrap and post-wrap views with an advancing
 absolute forecast tick and overwritten old geometry. The 15/15 touched-source
 comment audit has no deferrals, and all seven ownership inventories are current.
+
+ORBIT_FORECAST OF6 is complete. Automation separates process-local source
+clock metadata from deterministic private-simulation hashes and covers every
+private frame, body pose/velocity/sleep value, tornado elapsed value,
+contact-completeness flag, and `PhysicsDebugContact` field. A paused solar
+120-second witness produces 14,401 identical private frames with workers 0 and
+1, identical submitted geometry hash `0x0E0FF9DB0F2EF6E0`, and flat Replay
+reserve growth from 475 to 475 after warm-up. Focused continuous-prediction
+tests pass 7/7 cases and 173/173 assertions; the complete Profile suite passes
+622/622 cases and 2,520,795/2,520,795 assertions. Dependency, strict Replay
+allocation, DX12, one-minute graphics stress, and performance pass. All seven
+ownership inventories are current, the 4/4 touched-source comment audit has no
+deferrals, and the independent post-fix review reports zero findings. Physics
+and replay visual fidelity reproduce only the inherited owner-controlled varied
+CSV and reveal-0 `header.topologyVersion` stops; no oracle was refreshed.
 
 The owner parked Deterministic Trigonometry under `Agentic/Plans/WNF/` on
 2026-08-18 and replaced its active slot with At-Rest Ball Stability. The new
@@ -369,16 +382,7 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `ORBIT_FORECAST` OF6. The
-owner reactivated it from `WNF/` on 2026-08-17. OF0 ratified the authored
-solar stability cohort and thresholds, and OF1 proved coherent circular
-publication; OF2 added the isolated continuous producer, OF3 added
-Planning-owned stability diagnostics, and OF4 composed typed controls and the
-operator readout, and OF5 added the rolling orbital presentation. The remaining
-phase closes behavior, memory, determinism, and ownership without changing
-bounded `PREDICT` or feeding detailed solver evidence into the continuous path.
-
-After orbital forecast closes, execute `REST_STABILITY` RS0-RS7. First add the
+Execute `REST_STABILITY` RS0-RS7. First add the
 authored all-three-ball sleep completion gate; no frame/time cap or aborted run
 may complete the unlimited scene. Preserve baseline executables, then use
 SkullScope summary, why-not-resting, rolling, convergence, energy, body,
@@ -394,7 +398,7 @@ not part of the active queue.
 
 ## Blockers
 
-- None. Continue with `ORBIT_FORECAST` OF6. The stale Physics CSV,
+- None. Continue with `REST_STABILITY` RS0. The stale Physics CSV,
   noisy relative Physics performance sample, and
   corrected-topology visual oracle remain owner-controlled validation findings;
   do not refresh any of them without approval.

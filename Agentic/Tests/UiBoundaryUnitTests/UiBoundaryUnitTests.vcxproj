@@ -54,6 +54,9 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="UiBoundaryUnitTests.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Core\FatalError.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Core\Log.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Core\SbResult.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\SKULLBONEZ_UI.vcxproj">

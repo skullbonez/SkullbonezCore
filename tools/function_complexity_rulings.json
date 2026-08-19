@@ -95,11 +95,11 @@
     {
       "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.cpp",
       "signature": "SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( InteractionAutomationRunStatus& status, const char* scriptPath, const SceneWorld& world, const SceneSessionState& scene, const char* scenePath, const RuntimeTools& runtimeTools, const ReplayAutomationView& replay, const RuntimeInteractionController& interaction, const CameraControlState& camera, const UI::InGameUI& ui, const Rendering::RenderSceneSnapshot& renderSnapshot )",
-      "body_sha256": "9119ffa499ded2a90488f2817f56468011e5c7d46895a652697af248bd230216",
+      "body_sha256": "1da9ffd86123ea7b3c23d16d641b70dfc3748b9b01bd4ccce528cde326c09419",
       "owner": "InteractionAutomationReportWriter report transaction",
       "disposition": "retain-owner",
-      "reason": "One writer projects the bounded automation result schema from synchronized runtime snapshots and emits one durable report; PSD7 detail mode, cause-window availability, evidence-bank capacities, both sides of the release checkpoint, and replay-total reconciliation fields join the same field-order, single-write, and failure-cleanup invariant.",
-      "evidence": "PREDICT_SOLVER_DETAIL PSD7 combined-workflow report-schema review (2026-08-19)",
+      "reason": "One writer projects the bounded automation result schema from synchronized runtime snapshots and emits one durable report; PSD7 evidence/reconciliation fields and OF6 private-simulation component hashes plus separate source-clock metadata join the same field-order, single-write, and failure-cleanup invariant.",
+      "evidence": "PREDICT_SOLVER_DETAIL PSD7 and ORBIT_FORECAST OF6 report-schema reviews (2026-08-19)",
       "plan": ""
     },
     {

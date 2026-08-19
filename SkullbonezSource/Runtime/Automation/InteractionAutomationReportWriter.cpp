@@ -175,54 +175,142 @@ void HashPredictionVector( uint64_t& hash, const Vector3& value )
     HashPredictionFloat( hash, value.z );
 }
 
-// Concept: this hash isolates private-simulation results from presentation
-// timing and evidence-retention policy. Matching High/Low runs must produce the
-// same body/contact rows even though only High copies full solver evidence.
-uint64_t HashPredictionSimulationFrames( std::span<const RunReplayPredictionFrame> frames )
+void HashPredictionContact( uint64_t& hash, const Physics::PhysicsDebugContact& contact )
 {
-    uint64_t hash = INTERACTION_PREDICTION_FINGERPRINT_OFFSET;
-    HashPredictionScalar( hash, frames.size() );
+    // Invariant: this is the single ordered schema for a captured contact row.
+    // Aggregate and contact-only witnesses both call it so adding a diagnostic
+    // field cannot silently make the two channels disagree about completeness.
+    HashPredictionScalar( hash, contact.bodyA );
+    HashPredictionScalar( hash, contact.bodyB );
+    HashPredictionScalar( hash, contact.featureId );
+    HashPredictionVector( hash, contact.point );
+    HashPredictionVector( hash, contact.normal );
+    HashPredictionVector( hash, contact.tangent1 );
+    HashPredictionVector( hash, contact.tangent2 );
+    HashPredictionFloat( hash, contact.penetration );
+    HashPredictionFloat( hash, contact.normalImpulse );
+    HashPredictionFloat( hash, contact.separationBias );
+    HashPredictionFloat( hash, contact.preSolveNormalSpeed );
+    HashPredictionFloat( hash, contact.preSolveClosingSpeed );
+    HashPredictionFloat( hash, contact.preSolveSlipSpeed );
+}
 
-    for ( const RunReplayPredictionFrame& frame : frames )
+// Concept: these hashes isolate private-simulation results from presentation
+// timing and evidence-retention policy. The frame index is the deterministic
+// horizon clock; absolute simulationSeconds includes the process-local source
+// timer and is reported separately instead of contaminating the value witness.
+// Matching runs must produce the same body/contact rows even when their worker
+// slices finish on different wall-clock frames.
+// Invariant: one Build traversal updates the aggregate witness and every
+// component witness from the same ordered frame/body/contact rows. The
+// worker-count determinism tool compares every channel so a partial update
+// cannot make the aggregate hash look trustworthy by itself.
+class PredictionSimulationHashes
+{
+  public:
+    static PredictionSimulationHashes Build( std::span<const RunReplayPredictionFrame> frames )
     {
-        HashPredictionScalar( hash, frame.frameIndex );
-        HashPredictionScalar( hash, frame.simulationSeconds );
-        HashPredictionScalar( hash, frame.bodies.size() );
+        PredictionSimulationHashes hashes;
+        HashPredictionScalar( hashes.m_all, frames.size() );
+        HashPredictionScalar( hashes.m_frameIndex, frames.size() );
+        HashPredictionScalar( hashes.m_pose, frames.size() );
+        HashPredictionScalar( hashes.m_velocity, frames.size() );
+        HashPredictionScalar( hashes.m_sleep, frames.size() );
+        HashPredictionScalar( hashes.m_contacts, frames.size() );
 
-        for ( const RunReplayPredictionBodySample& body : frame.bodies )
+        for ( const RunReplayPredictionFrame& frame : frames )
         {
-            HashPredictionScalar( hash, body.id.value );
-            HashPredictionScalar( hash, body.modelRow.value );
-            HashPredictionVector( hash, body.position );
-            HashPredictionVector( hash, body.linearVelocity );
-            float orientationX = 0.0f;
-            float orientationY = 0.0f;
-            float orientationZ = 0.0f;
-            float orientationW = 1.0f;
-            body.orientation.GetComponents( orientationX, orientationY, orientationZ, orientationW );
-            HashPredictionFloat( hash, orientationX );
-            HashPredictionFloat( hash, orientationY );
-            HashPredictionFloat( hash, orientationZ );
-            HashPredictionFloat( hash, orientationW );
-            HashPredictionScalar( hash, static_cast<uint8_t>( body.sleeping ) );
+            HashPredictionScalar( hashes.m_all, frame.frameIndex );
+            HashPredictionFloat( hashes.m_all, frame.tornadoSystemElapsedSeconds );
+            HashPredictionScalar( hashes.m_all, frame.bodies.size() );
+            HashPredictionScalar( hashes.m_frameIndex, frame.frameIndex );
+            HashPredictionScalar( hashes.m_pose, frame.frameIndex );
+            HashPredictionScalar( hashes.m_pose, frame.bodies.size() );
+            HashPredictionScalar( hashes.m_velocity, frame.frameIndex );
+            HashPredictionScalar( hashes.m_velocity, frame.bodies.size() );
+            HashPredictionScalar( hashes.m_sleep, frame.frameIndex );
+            HashPredictionScalar( hashes.m_sleep, frame.bodies.size() );
+
+            for ( const RunReplayPredictionBodySample& body : frame.bodies )
+            {
+                HashPredictionScalar( hashes.m_all, body.id.value );
+                HashPredictionScalar( hashes.m_all, body.modelRow.value );
+                HashPredictionVector( hashes.m_all, body.position );
+                HashPredictionVector( hashes.m_all, body.linearVelocity );
+                HashPredictionScalar( hashes.m_pose, body.id.value );
+                HashPredictionScalar( hashes.m_pose, body.modelRow.value );
+                HashPredictionVector( hashes.m_pose, body.position );
+                HashPredictionScalar( hashes.m_velocity, body.id.value );
+                HashPredictionScalar( hashes.m_velocity, body.modelRow.value );
+                HashPredictionVector( hashes.m_velocity, body.linearVelocity );
+                HashPredictionScalar( hashes.m_sleep, body.id.value );
+                HashPredictionScalar( hashes.m_sleep, body.modelRow.value );
+                float orientationX = 0.0f;
+                float orientationY = 0.0f;
+                float orientationZ = 0.0f;
+                float orientationW = 1.0f;
+                body.orientation.GetComponents( orientationX, orientationY, orientationZ, orientationW );
+                HashPredictionFloat( hashes.m_all, orientationX );
+                HashPredictionFloat( hashes.m_all, orientationY );
+                HashPredictionFloat( hashes.m_all, orientationZ );
+                HashPredictionFloat( hashes.m_all, orientationW );
+                HashPredictionScalar( hashes.m_all, static_cast<uint8_t>( body.sleeping ) );
+                HashPredictionFloat( hashes.m_pose, orientationX );
+                HashPredictionFloat( hashes.m_pose, orientationY );
+                HashPredictionFloat( hashes.m_pose, orientationZ );
+                HashPredictionFloat( hashes.m_pose, orientationW );
+                HashPredictionScalar( hashes.m_sleep, static_cast<uint8_t>( body.sleeping ) );
+            }
+
+            HashPredictionScalar( hashes.m_all, frame.debugContacts.size() );
+            HashPredictionScalar( hashes.m_all, static_cast<uint8_t>( frame.contactsIncomplete ) );
+            HashPredictionScalar( hashes.m_contacts, frame.frameIndex );
+            HashPredictionScalar( hashes.m_contacts, frame.debugContacts.size() );
+            HashPredictionScalar( hashes.m_contacts, static_cast<uint8_t>( frame.contactsIncomplete ) );
+
+            for ( const Physics::PhysicsDebugContact& contact : frame.debugContacts )
+            {
+                HashPredictionContact( hashes.m_all, contact );
+                HashPredictionContact( hashes.m_contacts, contact );
+            }
         }
 
-        HashPredictionScalar( hash, frame.debugContacts.size() );
-
-        for ( const Physics::PhysicsDebugContact& contact : frame.debugContacts )
-        {
-            HashPredictionScalar( hash, contact.bodyA );
-            HashPredictionScalar( hash, contact.bodyB );
-            HashPredictionScalar( hash, contact.featureId );
-            HashPredictionVector( hash, contact.point );
-            HashPredictionVector( hash, contact.normal );
-            HashPredictionFloat( hash, contact.penetration );
-            HashPredictionFloat( hash, contact.normalImpulse );
-        }
+        return hashes;
     }
 
-    return hash;
-}
+    uint64_t All() const noexcept
+    {
+        return m_all;
+    }
+    uint64_t FrameIndex() const noexcept
+    {
+        return m_frameIndex;
+    }
+    uint64_t Pose() const noexcept
+    {
+        return m_pose;
+    }
+    uint64_t Velocity() const noexcept
+    {
+        return m_velocity;
+    }
+    uint64_t Sleep() const noexcept
+    {
+        return m_sleep;
+    }
+    uint64_t Contacts() const noexcept
+    {
+        return m_contacts;
+    }
+
+  private:
+    uint64_t m_all = INTERACTION_PREDICTION_FINGERPRINT_OFFSET;
+    uint64_t m_frameIndex = INTERACTION_PREDICTION_FINGERPRINT_OFFSET;
+    uint64_t m_pose = INTERACTION_PREDICTION_FINGERPRINT_OFFSET;
+    uint64_t m_velocity = INTERACTION_PREDICTION_FINGERPRINT_OFFSET;
+    uint64_t m_sleep = INTERACTION_PREDICTION_FINGERPRINT_OFFSET;
+    uint64_t m_contacts = INTERACTION_PREDICTION_FINGERPRINT_OFFSET;
+};
 
 ReplayCausalProofTick BuildReplayCausalProofTick( const ReplayVisualPacket& packet )
 {
@@ -1498,7 +1586,7 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
     const bool replayPastPathVisible = replay.path.hasTarget && replay.path.pastPathVisible;
     const std::size_t predictionVisibleFrameCount = VisiblePredictionFrameCount( replay );
     const RunReplayPredictionState& predictionState = replay.prediction;
-    const uint64_t predictionPrivateSimulationHash = HashPredictionSimulationFrames( replay.activePredictionFrames );
+    const PredictionSimulationHashes predictionPrivateSimulationHashes = PredictionSimulationHashes::Build( replay.activePredictionFrames );
     const std::span<const RunReplayPredictionFrame> committedPredictionFrames = predictionState.CommittedFrames();
     const bool predictionPathVisible = ReplayPredictionPathVisible( replay );
     const bool predictionContactsIncomplete = ReplayPredictionContactsIncomplete( replay );
@@ -1879,7 +1967,19 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
                                   SkullbonezCore::Core::MainMemoryReplayPredictionEvidenceReleaseReconciles( replay.memoryStats ) },
                                 { "replayTrackedCapacityBytes", replay.memoryStats.totalBytes },
                                 { "predictionPrivateSimulationHash",
-                                  FormatPredictionHash( predictionPrivateSimulationHash ) },
+                                  FormatPredictionHash( predictionPrivateSimulationHashes.All() ) },
+                                { "predictionPrivateFrameIndexHash",
+                                  FormatPredictionHash( predictionPrivateSimulationHashes.FrameIndex() ) },
+                                { "predictionPrivatePoseHash",
+                                  FormatPredictionHash( predictionPrivateSimulationHashes.Pose() ) },
+                                { "predictionPrivateVelocityHash",
+                                  FormatPredictionHash( predictionPrivateSimulationHashes.Velocity() ) },
+                                { "predictionPrivateSleepHash",
+                                  FormatPredictionHash( predictionPrivateSimulationHashes.Sleep() ) },
+                                { "predictionPrivateContactHash",
+                                  FormatPredictionHash( predictionPrivateSimulationHashes.Contacts() ) },
+                                { "predictionSourceFrameIndex", predictionState.simulation.sourceFrameIndex },
+                                { "predictionSourceSimulationSeconds", predictionState.simulation.sourceSimulationSeconds },
                                 { "predictionTrajectoryRecords", predictionTrajectoryRows },
                                 { "predictionFutureNodes", predictionFutureNodeRows },
                                 { "replayInterceptValid", replay.intercept.valid },

@@ -501,8 +501,8 @@
       "signature": "std::size_t ContinuousPredictionSampleRingSnapshot::SegmentCount() const noexcept",
       "owner": "Runtime/Prediction :: ContinuousPredictionSampleRing circular publication",
       "disposition": "retain-owner",
-      "reason": "The detached snapshot must enumerate its at-most-two wrapped segments without exposing mutable ring storage.",
-      "evidence": "The App-rooted producer publishes this detached snapshot and OF5 consumes its at-most-two-segment path seam; TestContinuousPredictionProducer validates three wraps. The current test-only classification reflects the phase boundary, not retired surface.",
+      "reason": "The detached snapshot deliberately exposes its at-most-two physical segments as a tested invariant seam without exposing mutable ring storage.",
+      "evidence": "Production OF5 presentation consumes chronological rows through TryReadRow rather than this seam. TestReplayPredictionScheduling directly proves empty, partial, full, and wrapped SegmentCount results; the test-only classification is intentional invariant coverage, not manufactured reachability for retired surface.",
       "plan": ""
     },
     {
@@ -510,8 +510,8 @@
       "signature": "ContinuousPredictionSampleRingSegment ContinuousPredictionSampleRingSnapshot::SegmentAt( std::size_t segmentIndex ) const noexcept",
       "owner": "Runtime/Prediction :: ContinuousPredictionSampleRing circular publication",
       "disposition": "retain-owner",
-      "reason": "The detached snapshot resolves each chronological wrapped segment while keeping backing storage read-only.",
-      "evidence": "The App-rooted producer publishes this detached snapshot and OF5 consumes its chronological segment seam; TestContinuousPredictionProducer validates three wraps. The current test-only classification reflects the phase boundary, not retired surface.",
+      "reason": "The detached snapshot deliberately resolves each chronological physical segment as a tested invariant seam while keeping backing storage read-only.",
+      "evidence": "Production OF5 presentation consumes chronological rows through TryReadRow rather than this seam. TestReplayPredictionScheduling directly proves physical/logical offsets, row counts, and the out-of-range empty segment across full and wrapped windows; the test-only classification is intentional invariant coverage, not manufactured reachability for retired surface.",
       "plan": ""
     },
     {
