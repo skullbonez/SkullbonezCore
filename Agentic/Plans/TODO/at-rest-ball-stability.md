@@ -542,6 +542,168 @@ added friction-headroom/stage-order evidence, narrowed the restitution and
 sleep conclusions, and completed exact command/config accounting. Fresh pass
 2 reported zero findings, zero missing evidence, and a CLEAN verdict.
 
+## RS3 Stable-Support Normal Repair — 2026-08-20
+
+`PersistentContactSolveTransaction::PrecomputeRows` now gives a stable terrain
+row below the configured material-impact threshold a zero velocity bias. The
+normal constraint may cancel closing velocity, but it cannot command rebound;
+`CorrectPositions` remains the sole non-energetic overlap-decay owner. Unstable
+terrain overlap retains the existing bounded Baumgarte path, and contacts at or
+above the material-impact threshold retain restitution. No material, friction,
+rolling, sleep, terrain, or scene value changed.
+
+Three direct solver cases pin those boundaries. The historical frame-838
+witness uses closing speed 1.945360 m/s, penetration 0.337921, and the authored
+2.0 m/s impact threshold; it now retains a positive normal impulse and upward
+position correction while both `bias` and `separationBias` are zero and final
+vertical velocity is approximately zero. A non-resting terrain row retains a
+positive bias bounded by `terrain.maxBaumgarteBias`. The existing 6.0 m/s
+terrain-impact case still produces restitution with zero separation bias.
+`tools\validate_tests.bat` passes 629/629 cases and 2,521,088/2,521,088
+assertions after rebuilding Profile.
+
+The authored diagnostic run used the unchanged production config and this exact
+command:
+
+```bat
+Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --time-scale 100 --automation-hidden-window --scene TestOutput\validation\candidates\REST_STABILITY_RS2_CAUSES\at_rest_rs2.scene.json --physics-diag TestOutput\validation\candidates\REST_STABILITY_RS3_NORMAL\rs3_normal.physicsdiag.ndjson
+```
+
+The Debug executable SHA-256 was
+`1C515BAD115A0F3C7643D45FB6886213FEC435B2E3D57F4E99BCEA33564AA40C`.
+The trace is 143,113,113 bytes with SHA-256
+`56273E21F13D0FFCD2EB21D02CA827FD2E5DEEC53FFD36A01E196C7AB50FC064`;
+its 66,510,848-byte SQLite cache hashes to
+`17C8FFCAFFB20D04E36803D7380430472E56A9442BF9B4937561A9FD902139BB`;
+the 5,458-byte semantic report hashes to
+`A15A79876D31DE195E1D5E8EAD516734C3D77D0E90CF6BB5FBA648E53D91A0C0`.
+The ignored preservation root is
+`TestOutput/validation/candidates/REST_STABILITY_RS3_NORMAL/`.
+
+The old subthreshold max-bias loop is gone for every ball: the analyzer reports
+zero resting reimpacts, and the SQL population of supported rows below 2.0 m/s
+with positive separation bias falls from 702 to 0. Initial material-impact rows
+are byte-identical before/after: ball A frame 304 has closing 24.018234,
+penetration 0.293762, normal impulse 1008.765503; ball B frame 423 has
+32.455158/0.445709/1051.546265; ball C frame 330 has
+25.336464/0.573029/1185.746948. All six before/after separation biases are zero.
+
+| Family/run | Contact rows | Material rows | Max penetration | Max normal impulse | Max separation bias | Supported rows | Quiet supported bias rows |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Boxes/control | 1,132 | 54 | 0.000031 | 636.369324 | 0 | 632 | 0 |
+| Boxes/RS3 | 1,083 | 51 | 0.019897 | 636.369324 | 0 | 696 | 0 |
+| Spheres/control | 13,589 | 934 | 0.587952 | 1185.746948 | 2.0 | 11,533 | 702 |
+| Spheres/RS3 | 13,525 | 223 | 0.585693 | 1185.746948 | 0.255183 | 12,417 | 0 |
+
+Position correction remains bounded and comparable: maximum single correction
+is 8.361984 versus 8.394505 before RS3; maximum per-frame total is 12.256905
+versus 10.888824, with at most 3 versus 2 corrected rows. The solver remains at
+its configured 12-iteration ceiling. All box controls pass their RS0 envelopes:
+box A 21.091541/3.419009 and sleep frame 1,289; box B
+26.650600/5.031497 and frame 970; box C 31.146898/1.940049 and frame 5,087.
+
+| Ball | Last material impact | Post-impact max `abs(vy)` | Post-impact max total energy | Final sleep | Remaining failures owned later |
+|---|---:|---:|---:|---:|---|
+| A | 13,222 | 1.070464 | 628.729560 | 17,610 | slip/reversals, latency, counter reset/wake |
+| B | 14,817 | 2.415141 | 1377.563942 | 17,610 | slip/reversals, latency, counter reset |
+| C | 13,908 | 2.115711 | 2263.262958 | 17,610 | slip/reversals, latency |
+
+These finite envelopes are not a final-product pass and are not described as
+monotonic decay. They contain no renewed resting impact, but late tangential
+rolling still moves bodies across the heightfield and creates later free-flight
+vertical motion. RS4 owns that coupled rolling/slip defect; RS5 owns the quiet
+counter and sleep transition. The capped diagnostic scene therefore still
+reports `scene_not_unlimited` and `ball_semantic_failure`; neither is used to
+claim RS3 closure or to alter the canonical unlimited authored gate.
+
+The lifecycle smoke's visible state and two-run hash remain deterministic, but
+the intended normal impulse changed its exact state witness from
+`953D97A226665242` to `6B91536A6023A15F`. The source constant was updated to
+that twice-observed current value; the owner-controlled Physics CSV baseline
+was not refreshed.
+
+### RS3 SkullScope Query Ledger
+
+Raw NDJSON and SQLite bytes were never model-read. The model saw 21,706
+untruncated trace-derived characters: semantic report projection 1,019;
+`summary` 2,952; `pragma table_info(contacts)` 2,219; before/after first-impact
+queries 929/935; SQLite table list 935; `pragma table_info(bodies)` 3,219;
+before/after post-impact envelope queries 830/836; ranked RS3 vertical peaks
+1,335; before/after frame-7,200 energy envelopes 830/850;
+`pragma table_info(solver_stats)` 1,335;
+`pragma table_info(pipeline_stages)` 692; and before/after family plus
+position-correction reductions 847/540/857/546.
+
+Every SQL call used `tools\physics_query.bat <trace> sql <query> --limit 20`
+except the three schema/list calls, which used `--limit 100`. The exact semantic
+report projection and four substantive SQL queries were:
+
+```powershell
+$report=Get-Content -Raw TestOutput\validation\candidates\REST_STABILITY_RS3_NORMAL\rs3_normal.semantic.json|ConvertFrom-Json
+$lines=New-Object System.Collections.Generic.List[string]
+$lines.Add("end=$($report.physics_end_frame) gate=$($report.aggregate.authored_sleep_gate_frame) failures=$($report.aggregate.failures -join ',')")
+foreach($b in $report.balls){$lines.Add("ball=$($b.name) sleep=$($b.final_sleep_frame) lastImpact=$($b.last_material_impact_frame) reimpact=$($null -ne $b.resting_reimpact) maxVy=$($b.maximum_post_impact_abs_vy) maxSlip=$($b.maximum_post_impact_slip_speed) distR=$($b.post_impact_slip_radius_fraction) rev=$($b.late_x_reversals)/$($b.late_z_reversals) failures=$($b.failures -join ',')")}
+foreach($b in $report.box_controls){$lines.Add("box=$($b.name) pass=$($b.passed) sleep=$($b.final_sleep_frame) speed=$($b.maximum_speed)/$($b.maximum_allowed_speed) omega=$($b.maximum_omega)/$($b.maximum_allowed_omega)")}
+$text=($lines -join "`n")+"`n";$text
+
+select c.body_a,c.body_b,c.frame,c.contact_id,c.pre_solve_closing_speed,c.penetration,c.separation_bias,c.normal_impulse from contacts c join (select body_a,min(frame) as first_frame from contacts where body_a in (0,1,2) and pre_solve_closing_speed >= 2.0 group by body_a) f on c.body_a=f.body_a and c.frame=f.first_frame where c.pre_solve_closing_speed >= 2.0 order by c.body_a,c.contact_id
+
+with ids(body_id) as (values(0),(1),(2)), last_impacts as (select ids.body_id,max(c.frame) as last_frame from ids join contacts c on c.body_a=ids.body_id or c.body_b=ids.body_id where c.pre_solve_closing_speed>=2.0 group by ids.body_id) select b.body_id,b.name,l.last_frame,max(abs(b.vel_y)) as max_abs_vy,max(b.linear_energy+b.angular_energy) as max_total_energy,max(b.speed) as max_speed,max(b.omega_mag) as max_omega from bodies b join last_impacts l on b.body_id=l.body_id and b.frame>=l.last_frame group by b.body_id,b.name,l.last_frame order by b.body_id
+
+select case when body_a between 0 and 2 then 'sphere' else 'box' end as family,count(*) as contact_rows,max(penetration) as max_penetration,max(normal_impulse) as max_normal_impulse,max(separation_bias) as max_separation_bias,sum(case when supports_sleep=1 then 1 else 0 end) as supported_rows,sum(case when supports_sleep=1 and pre_solve_closing_speed<2.0 and separation_bias>0.0 then 1 else 0 end) as quiet_supported_bias_rows,sum(case when pre_solve_closing_speed>=2.0 then 1 else 0 end) as material_rows from contacts group by family order by family
+
+select max(position_correction_rows) as max_rows_per_frame,max(position_correction_total) as max_total_per_frame,max(position_correction_max) as max_single_correction,max(row_count) as max_solver_rows,max(solver_iterations) as max_iterations from solver_stats
+```
+
+### RS3 Independent Review And Validation
+
+Fresh read-only reviewer thread
+`01a01af3-dc44-7da1-a027-9e6c63ad272f` used session
+`C:\Users\sesch\.codex\sessions\2026\08\20\rollout-2026-08-20T02-56-24-01a01af3-dc44-7da1-a027-9e6c63ad272f.jsonl`.
+Its final verdict was CLEAN with zero blocking findings, zero non-blocking
+findings, and zero review-phase missing-evidence items. The reviewer confirmed
+all seven current inventories, the cohesive `PrecomputeRows` complexity ruling,
+no downward Replay include, no new or expanded growth privilege, and a touched
+source comment audit of 3 checked / 0 deferred. Its own SkullScope read was
+2,952 characters and zero raw NDJSON/SQLite bytes. At final telemetry capture
+the reviewer reported 633,272,744 input, 618,676,352 cached input, 1,289,391
+output, 340,889 reasoning output, and 1,829 seconds elapsed.
+
+The cumulative pre-commit gates were run without refreshing protected oracles:
+
+- `tools\validate_tests.bat` passed 629/629 cases and 2,521,088 assertions.
+- `tools\validate_physics.bat` passed the lifecycle smoke, then reached the
+  owner-controlled varied-scene comparison and reported 20,394 changed lines.
+- `tools\validate_physics_deep.bat` retained byte-exact bullet wall/object/
+  terrain and three-body controls, then reported the same 20,394 varied-scene
+  lines plus 256 shooting-volley lines against unrefreshed CSVs.
+- `tools\validate_replay_visual_fidelity.bat` passed its 17 typed/false-pass
+  controls, then stopped at the inherited `header.topologyVersion` mismatch.
+- `tools\validate_perf.bat` rebuilt Profile, then stopped before runtime timing
+  at the pre-existing RS0 `SceneSleepingDynamicBodyGatePolicy.h` allocation
+  policy row. RS3 adds no storage, allocation, capacity, or growth privilege.
+
+The five ignored logs and their size/SHA-256 identities are:
+
+| Gate log | Bytes | SHA-256 |
+|---|---:|---|
+| `rest_stability_rs3_validate_tests.log` | 5,180,088 | `D060AE306CE5904604B4AEC41AB87DD9D9570BCC41F027410E94B77A81FE6B4C` |
+| `rest_stability_rs3_validate_physics.log` | 516,176 | `84A8E76B8C537D94E3406E31E036F71E263035BCC8202FFE971A79669FD4ABC1` |
+| `rest_stability_rs3_validate_physics_deep.log` | 1,153,490 | `82773963CA200670C8A2C65933BC4C6762B5BF5E3DA1BF4E8E32AA53C4AE4973` |
+| `rest_stability_rs3_validate_replay_visual_fidelity.log` | 46,826 | `673457665636EE70573E96AA75DF2CC18FF5749AF437A07F672896220649C805` |
+| `rest_stability_rs3_validate_perf.log` | 46,446 | `C554CC51121BE0D5BF409F377A1E2A95EC0684BC367D0B66C57A825171E7213A` |
+
+The final validation executables are Debug CORE
+`CD57F46A8E41155B3B61130C0C6A5E31F2B1538BCA98DA174206320EA53C49C4`,
+Profile CORE
+`629D81EE9D27F1AC9C88A798A0F29CDDACD5DF8CF2D7D230288B52F584104F16`,
+Automation CORE
+`7655A51EB1BCB27266CC93EF0F72B48DD799CAD0DAAB4C7776E06B159D071282`,
+and Profile TESTS
+`3947D0F35B7A0F825DF299E545DED5C32CA79D158755522B9F1DFB6E242708C6`.
+The expected owner-controlled stops remain open for the final combined plan
+decision; none was refreshed or described as a pass in RS3.
+
 ## SkullScope Diagnostic Contract
 
 First add the generic authored sleep-completion gate described by RS0, then
@@ -652,13 +814,13 @@ alternatives, and independent read-only diagnosis review.
 
 ### RS3 — Remove Normal-Axis Vibration
 
-- [ ] Repair only the diagnosed normal/support/manifold/cache cause of vertical
+- [x] Repair only the diagnosed normal/support/manifold/cache cause of vertical
   tail oscillation.
-- [ ] Preserve legitimate restitution for material impacts; resting contacts
+- [x] Preserve legitimate restitution for material impacts; resting contacts
   must not repeatedly manufacture bounce energy below the impact threshold.
-- [ ] Prove penetration, position correction, bias, normal impulse, energy, and
+- [x] Prove penetration, position correction, bias, normal impulse, energy, and
   support classification remain bounded for spheres and box controls.
-- [ ] Add focused terrain-sphere regressions that fail the pre-RS3 behavior.
+- [x] Add focused terrain-sphere regressions that fail the pre-RS3 behavior.
 
 Evidence: per-ball vertical envelopes and energy traces, focused solver tests,
 and unchanged initial-impact behavior where the repair should be inactive.

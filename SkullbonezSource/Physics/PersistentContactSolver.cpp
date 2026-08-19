@@ -9,7 +9,8 @@ Summary:
   ordered entry/exit sequencer, while exact contact-feature identity owns both
   loaded-contact restitution lifetime and compatible warm-start reuse. Swept
   contacts derive time-scaled row terms from their dynamic bodies' remaining
-  post-impact interval.
+  post-impact interval. Stable terrain support cancels closing velocity while
+  leaving non-energetic overlap decay to the position-correction phase.
 
 Glossary:
   Warm starting: Reusing the previous tick's cached accumulated impulse so a
@@ -28,6 +29,8 @@ Invariants:
   - Contact setting clamps resolve once before row construction and iteration.
   - Baumgarte scaling and constant friction bounds use one local contact
     interval; full-step rows remain byte-identical when no CCD time was consumed.
+  - A stable terrain row below the material-impact threshold never receives a
+    separating-velocity target; CorrectPositions owns its overlap decay.
   - Every solve phase crosses the transaction cursor before its pass body runs.
   - Maximum per-row squared impulse delta owns convergence stopping; the
     historical summed delta remains diagnostic-only and cannot affect early-out.
@@ -1062,6 +1065,15 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
                 c.normalMass = 0.0f;
                 c.tangentMass1 = 0.0f;
                 c.tangentMass2 = 0.0f;
+            }
+            else if ( c.supportsRestingPolicy && fabsf( vn ) < restitutionThreshold )
+            {
+                // Invariant: stable support may cancel closing velocity, but it
+                // must not manufacture a separating velocity. PositionCorrection
+                // owns overlap decay for this quiet terrain row; giving the same
+                // penetration a velocity target can eject the body, clear the
+                // feature cache, and turn the return into a fresh impact.
+                c.bias = 0.0f;
             }
             else if ( fabsf( vn ) < restitutionThreshold )
             {

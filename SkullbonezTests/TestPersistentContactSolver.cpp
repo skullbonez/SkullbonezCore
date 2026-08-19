@@ -11,7 +11,8 @@
 //   the diagnostic cap, replay exclusion, and a normal-row saturation cause.
 //   Complete-solve cases measure energy and momentum across sphere, box,
 //   friction, bias, local CCD contact intervals, and matching-cache matrices,
-//   including planted failures.
+//   including planted failures. Stable-support cases pin the boundary between
+//   non-energetic terrain overlap correction and restitution-bearing impacts.
 //
 // Glossary:
 //   Contact row: Solver constraint row that applies one normal impulse and two
@@ -53,6 +54,8 @@
 //     authored-fixed and sleeping solver-static participants contribute no clock.
 //   - Closed energy cases disable external work and compare the whole solve;
 //     Baumgarte cases name their explicit separation-work allowance instead.
+//   - Quiet stable terrain support cancels closing speed without commanding a
+//     rebound; unstable overlap and material impacts retain distinct paths.
 //
 // Related:
 //   - SkullbonezSource/Physics/PersistentContactSolver.cpp
@@ -1009,7 +1012,7 @@ TEST_CASE( "Persistent contact solver: count-only specialization matches the ful
     CHECK( PhysicsBodyAngularVelocity( countOnlyHotFields, 0u ) == fullAngularVelocity );
 }
 
-TEST_CASE( "Persistent contact solver: terrain rows use the post-impact contact interval" )
+TEST_CASE( "Persistent contact solver: stable terrain rows do not turn overlap into separating velocity" )
 {
     SolverFixture fixture;
     fixture.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), ZERO_VECTOR );
@@ -1020,15 +1023,53 @@ TEST_CASE( "Persistent contact solver: terrain rows use the post-impact contact 
 
     REQUIRE( fixture.solver.GetPersistentContacts().size() == 1u );
     const PersistentContact& contact = fixture.solver.GetPersistentContacts()[0];
-    const float expectedBias = fixture.config.terrain.baumgarteBeta * contact.penetration / contactInterval;
     const float expectedSupportImpulse = fixture.bodyStore.Records()[0].mass * fabsf( fixture.config.worldForces.gravity ) *
                                          contactInterval;
-    CHECK( contact.bias == doctest::Approx( expectedBias ).epsilon( 0.0001 ) );
-    CHECK( contact.separationBias == doctest::Approx( expectedBias ).epsilon( 0.0001 ) );
+    CHECK( contact.bias == 0.0f );
+    CHECK( contact.separationBias == 0.0f );
     CHECK( contact.terrainWarmStart == doctest::Approx( expectedSupportImpulse ).epsilon( 0.0001 ) );
     CHECK(
         contact.frictionLimit ==
         doctest::Approx( fixture.config.material.terrainFrictionCoefficient * expectedSupportImpulse ).epsilon( 0.0001 ) );
+    CHECK( fixture.bodyStore.HotFields().positionY[0] > 1.0f );
+    CHECK( fabsf( fixture.bodyStore.HotFields().linearVelocityY[0] ) < 0.0001f );
+}
+
+TEST_CASE( "Persistent contact solver: stable terrain max-bias witness remains supported without rebound" )
+{
+    SolverFixture fixture;
+    constexpr float closingSpeed = 1.945360f;
+    fixture.config.body.contactRestitutionThreshold = 2.0f;
+    fixture.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, -closingSpeed, 0.0f ) );
+    fixture.AddTerrainContact( 0, 838u, 0.337921f );
+    fixture.Solve();
+
+    REQUIRE( fixture.solver.GetPersistentContacts().size() == 1u );
+    const PersistentContact& contact = fixture.solver.GetPersistentContacts()[0];
+    REQUIRE( contact.supportsRestingPolicy );
+    CHECK( contact.preSolveClosingSpeed == doctest::Approx( closingSpeed ).epsilon( 0.0001 ) );
+    CHECK( contact.preSolveClosingSpeed < fixture.config.body.contactRestitutionThreshold );
+    CHECK( contact.bias == 0.0f );
+    CHECK( contact.separationBias == 0.0f );
+    CHECK( contact.accN > 0.0f );
+    CHECK( fixture.bodyStore.HotFields().positionY[0] > 1.0f );
+    CHECK( fabsf( fixture.bodyStore.HotFields().linearVelocityY[0] ) < 0.0001f );
+}
+
+TEST_CASE( "Persistent contact solver: unstable terrain overlap retains bounded velocity recovery" )
+{
+    SolverFixture fixture;
+    fixture.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), ZERO_VECTOR );
+    fixture.AddTerrainContact( 0, 839u, 0.337921f, false );
+    fixture.Solve();
+
+    REQUIRE( fixture.solver.GetPersistentContacts().size() == 1u );
+    const PersistentContact& contact = fixture.solver.GetPersistentContacts()[0];
+    REQUIRE_FALSE( contact.supportsRestingPolicy );
+    CHECK( contact.bias > 0.0f );
+    CHECK( contact.bias <= fixture.config.terrain.maxBaumgarteBias );
+    CHECK( contact.separationBias == contact.bias );
+    CHECK( fixture.bodyStore.HotFields().linearVelocityY[0] > 0.0f );
 }
 
 TEST_CASE( "Persistent contact solver: equal dynamic remainders own the object contact interval" )
