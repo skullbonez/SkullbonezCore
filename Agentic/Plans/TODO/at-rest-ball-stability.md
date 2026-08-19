@@ -704,6 +704,140 @@ and Profile TESTS
 The expected owner-controlled stops remain open for the final combined plan
 decision; none was refreshed or described as a pass in RS3.
 
+### RS4 Spin-Policy Activation Owner Ruling
+
+RS4 deliberately activates, but does not retune, the Core-owned
+`PhysicsMaterialConfig::spinFrictionCoeff` policy. Core has long authored the
+value as `0.3`, but `PhysicsEngine::RuntimeSettingsFromConfig` previously
+omitted it from the Physics-owned cold settings snapshot, so the configured
+normal-axis contact-patch policy was dead at the subsystem boundary. The RS4
+projection repairs that missing field-faithfulness seam; the authored value,
+config range, scene inputs, and every other friction coefficient remain
+unchanged.
+
+This activation is required by isolated evidence, not by the final sleep gate.
+The rolling-only V1 candidate naturally failed to finish because `ball_a`
+reached zero linear speed while retaining terrain-normal angular speed
+`0.924937`. The final RS4 solver keeps spin separate from tangent-plane rolling,
+clamps its angular impulse to contact-patch length times supporting normal
+impulse, excludes material impacts, and recomputes contact velocity before the
+existing sliding-friction row. Focused tests prove the exact spin bound,
+separate-axis ownership, zero-spin-coefficient behavior, rolling's inability to
+damp normal spin, material-impact exclusion, no-slip coupling, and slope motion.
+
+Accordingly the current candidate is evidence for the coupled rolling-plus-spin
+repair, never a rolling-only result. Post-last-impact terrain slip and rolling
+residual are `0.000001` for balls A/B/C over 534/397/773 terrain rows. The
+remaining `2.862317` B/C slip belongs solely to 37/33 sphere-sphere rows and is
+left open for RS6 integrated acceptance; B's quiet-counter reset remains RS5
+work. The trace does not serialize angular-row limits, so exact saturation
+headroom is proved by the source clamps and focused bound tests, not falsely
+claimed as a SkullScope measurement. After the global last material impact,
+aggregate mechanical energy including gravitational potential decreases every
+frame from `48709.165579` to `48066.857912`, with zero positive deltas.
+
+### RS4 Exact-Provenance Evidence And Validation
+
+The final post-format Debug executable was rebuilt from the reviewed source and
+then ran the unchanged canonical unlimited scene with this exact command:
+
+```bat
+Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --time-scale 100 --automation-hidden-window --scene SkullbonezData\scenes\at_rest.scene.json --physics-diag TestOutput\validation\candidates\REST_STABILITY_RS4_COUPLED_V4\at_rest_rs4.physicsdiag.ndjson
+```
+
+The executable hashes to
+`F94743E7A6001D96581D470BE2CBC1F29A289A3619AAC60B9768CB1A521EA11E`.
+The ignored V4 preservation root is
+`TestOutput/validation/candidates/REST_STABILITY_RS4_COUPLED_V4/`:
+
+| Artifact | Bytes | SHA-256 |
+|---|---:|---|
+| `at_rest_rs4.physicsdiag.ndjson` | 108,763,821 | `D97CA8D8AE042BDA64A662B729870056BF53C31626C1A6132D4C658CD88F596C` |
+| `at_rest_rs4.physicsdiag.sqlite` | 50,102,272 | `495AFE4326BE982D6E70148B609A7812FE761B4DABBD47939009434DAB387D1C` |
+| `at_rest_rs4.semantic.json` | 5,028 | `A4BE5EC0BB8AD537EA82B75D3F975ED02D96ADE762DA49287A0F69017BC926BA` |
+
+The process ended naturally with `target_frames=-1`, `end_status=process_end`,
+physics frame 13,544, authored all-asleep gate frame 13,541, aligned contiguous
+body timelines, and all three balls finally Physics-asleep. Box A/B/C remain
+passing controls at sleep frames 1,330/970/1,225 and retain their RS0 speed and
+angular-speed ceilings. Post-last-impact terrain slip/rolling residual remains
+`0.000001` for all balls; post-last-impact X/Z reversals are A 0/1, B 1/0,
+C 0/1. The aggregate semantic oracle honestly remains red because fixed-frame
+vertical/reversal checks and B/C object-contact slip are integrated RS6 work,
+while B's one counter reset is RS5 work. RS4 does not use natural sleep or that
+known remaining failure as a false phase pass.
+
+The final focused and cumulative validation results are:
+
+- `tools\validate_tests.bat` passed 634/634 cases and
+  2,521,711/2,521,711 assertions in 40.025 seconds.
+- `tools\validate_physics.bat` ran for 20.375 seconds, then reached the
+  protected varied-scene CSV with 35,303 changed lines. No baseline changed.
+- `tools\validate_physics_deep.bat` ran for 68.872 seconds, retained byte-exact
+  bullet wall/object/terrain and three-body controls, then reported the same
+  35,303 varied-scene lines plus 256 shooting-volley lines.
+- `tools\validate_replay_visual_fidelity.bat` ran for 317.317 seconds, passed
+  all 17 typed/false-pass controls and 75 assertions, then the authoritative
+  process stopped at the inherited `header.topologyVersion` mismatch.
+- `tools\validate_perf.bat` rebuilt Profile successfully in 32.789 seconds,
+  then stopped before timing at the pre-existing RS0
+  `SceneSleepingDynamicBodyGatePolicy.h:84` allocation-policy row.
+
+`PersistentContact` grows by 32 bytes in already reserved solver-row storage:
+3,072,000 bytes at the default 96,000 rows and 6,291,456 bytes at the 196,608
+hard maximum. RS4 adds no allocation call, reserve call, per-body hot-store
+field, post-start growth path, or Runtime reserve privilege. All seven final
+inventories are current: wide signatures strict-pass; 89/89 gated aggregates;
+1/1 ruled extraction scar; 41/41 complexity rulings; zero build-config
+diagnostics across 154 ruled divergences; 91/91 reachability rulings; and zero
+glossary duplicates, drift, or ruling issues. The generated dependency proof
+and repository scan pass with zero findings. Touched-source comment audit:
+8 checked, 0 deferred.
+
+The five ignored validation logs are:
+
+| Gate log | Bytes | SHA-256 |
+|---|---:|---|
+| `rest_stability_rs4_validate_tests.log` | 2,610,177 | `3C27B7D394A9110DF28083AD365711C79081D300F049EB17EBA6EDB37DC70572` |
+| `rest_stability_rs4_validate_physics.log` | 258,088 | `DF6DE68E1E110046098509347741239A4A938F8C76B899237EFA6FA9A3D19ED0` |
+| `rest_stability_rs4_validate_physics_deep.log` | 576,747 | `933263406134D1CE05B7C52B0F5CC0D431D8305322102E226AD01FA7C762D63E` |
+| `rest_stability_rs4_validate_replay_visual_fidelity.log` | 40,436 | `402EEF47EEF2BDABE983E2FFCC243A2113438D2406C4C2DF7EFF6E1F997DB9AA` |
+| `rest_stability_rs4_validate_perf.log` | 38,535 | `48A09B2DEE5BE65DB997238A43107AA32A3A71733641F37B13735C983D1BEDAD` |
+
+Final Profile Core, Automation Core, and Profile Tests executable hashes are
+`46411FEAA0F3CA23E46913BCA89536EB7B0BAA27E87C63F4E4A5005A2E316B6C`,
+`009D82FBA6A329A94518FA471BF72FE5D8B1A14652DED00E938D094237CB7C60`,
+and `B03132FBF263F2E3E78AA443BFE3F701756DC169D5DE42904A2C0AD48530CF64`.
+No protected oracle was refreshed or described as a pass.
+
+### RS4 Review And SkullScope Accounting
+
+Independent reviewer thread `01a01624-d863-7891-af81-e1e203dd9f27`, session
+`C:\Users\sesch\.codex\sessions\2026\08\19\rollout-2026-08-19T04-31-48-01a01624-d863-7891-af81-e1e203dd9f27.jsonl`, found one blocking
+documentation omission and two nonblocking attribution/evidence notes in pass
+1. The four-thread limit prevented a new session, so the orchestrator reused
+this completed, unrelated OF0 worker with explicit zero-baseline RS4
+instructions; it had not participated in RS4 implementation. After the
+spin-policy owner ruling, pass 2 was CLEAN with zero blocking and zero
+nonblocking findings: two passes, one fix cycle. RS4 reviewer delta across
+both passes was 11,194,826 input, 10,763,008 cached input, 431,818 uncached
+input, 17,243 output, and 7,474 reasoning-output tokens over 2,249.771 seconds.
+The reviewer read exactly zero SkullScope characters and zero raw NDJSON/SQLite
+bytes.
+
+The main model never read raw NDJSON or SQLite bytes. Final V4 trace-derived
+model input was exactly 7,902 characters: semantic report 5,028; terrain rows
+657; family attribution 667; mechanical energy 641; empty energy/friction event
+set 410; and post-impact reversal counts 499. Across RS4 investigation, the
+exactly reconstructed untruncated SkullScope/query output total is 83,036
+characters over 38 calls. One early unbounded summary was truncated by the tool
+before an exact character count was captured, and one malformed query produced
+truncated error text; both are explicitly excluded from 83,036 rather than
+inventing precision. Every later call was bounded and counted. The final V4
+commands were `tools\physics_query.bat <trace> sql <bounded-query> --limit 10`
+for the four SQL witnesses, `events --type energy_spike,friction_saturation
+--frames 7200:13544 --limit 20`, plus the semantic analyzer above.
+
 ## SkullScope Diagnostic Contract
 
 First add the generic authored sleep-completion gate described by RS0, then
@@ -827,17 +961,17 @@ and unchanged initial-impact behavior where the repair should be inactive.
 
 ### RS4 — Stop Excess Sliding And Rolling Reversals
 
-- [ ] Repair the diagnosed tangent/rolling response without injecting generic
+- [x] Repair the diagnosed tangent/rolling response without injecting generic
   damping or forcing angular velocity to zero in the contact solver.
-- [ ] Keep static/dynamic friction and rolling resistance dimensionally and
+- [x] Keep static/dynamic friction and rolling resistance dimensionally and
   timestep consistent; preserve credible no-slip rolling before rest.
-- [ ] Preserve existing friction coefficients unless isolated A/B evidence
+- [x] Preserve existing friction coefficients unless isolated A/B evidence
   proves they are insufficient and the owner explicitly approves the recorded
   production change.
-- [ ] Prove reduced tail slip, bounded friction saturation, monotonic late
+- [x] Prove reduced tail slip, bounded friction saturation, monotonic late
   energy decay, and no repeated back-and-forth direction changes after the last
   material impact.
-- [ ] Cover slopes/moving contacts or other existing friction cases so the
+- [x] Cover slopes/moving contacts or other existing friction cases so the
   at-rest repair does not pin legitimately moving balls.
 
 Evidence: slip/rolling residual tables, reversal counts, focused friction and

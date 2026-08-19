@@ -7,13 +7,16 @@ Summary:
   PhysicsDiagnosticsView is the public, borrowed read model for one physics
   owner. Keeping these value records outside PhysicsWorld lets engine consumers
   inspect diagnostics without importing the solver sequencer and every stage it
-  owns.
+  owns. Persistent rows also retain the bounded scalar state needed by normal,
+  sliding, angular rolling, and normal-axis spin constraints during one solve.
 
 Invariants:
   - Every span and reference remains owned by the publishing PhysicsEngine and
     expires when that owner mutates or is destroyed.
   - Field order and units are validation-sensitive because tests and SkullScope
     consume these records directly.
+  - Rolling and spin accumulators are angular impulses; their effective radius
+    converts convergence evidence back to linear-impulse units.
   - This value boundary contains no PhysicsWorld or stage ownership.
   - Convergence samples are live diagnostics only and never enter replay state.
 
@@ -63,6 +66,15 @@ struct PersistentContact
     float normalMass = 0.0f;
     float tangentMass1 = 0.0f;
     float tangentMass2 = 0.0f;
+
+    // Terrain rolling resistance is an angular contact-plane constraint. The
+    // symmetric inverse effective-mass matrix maps tangent-plane angular speed
+    // to angular impulse; spinMass owns the separate normal-axis row.
+    float rollingMass11 = 0.0f;
+    float rollingMass12 = 0.0f;
+    float rollingMass22 = 0.0f;
+    float rollingRadius = 0.0f;
+    float spinMass = 0.0f;
     float bias = 0.0f;
 
     // Portion of bias owned by overlap separation. Restitution velocity targets
@@ -72,6 +84,9 @@ struct PersistentContact
     float accN = 0.0f;
     float accT1 = 0.0f;
     float accT2 = 0.0f;
+    float accRollingT1 = 0.0f;
+    float accRollingT2 = 0.0f;
+    float accSpin = 0.0f;
     bool warmStarted = false;
     bool isTerrain = false;
     bool supportsRestingPolicy = true;

@@ -2,7 +2,7 @@
 
 Date: 2026-08-20
 Branch: `nightrunner-18th-AUG-26`
-Status: One active plan; 42/47 tasks complete
+Status: One active plan; 44/47 tasks complete
 
 At-Rest Ball Stability (8 tasks) is active. Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7, and Continuous
@@ -382,7 +382,7 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `REST_STABILITY` RS4-RS7. RS0 added the authored all-three-ball sleep
+Execute `REST_STABILITY` RS5-RS7. RS0 added the authored all-three-ball sleep
 completion gate; no frame/time cap or aborted run can complete the unlimited
 scene. Its preserved baseline and 42-query SkullScope packet ratify the owning
 causes and exact semantic thresholds. RS1 turned those thresholds into a
@@ -395,8 +395,14 @@ the source of residual slip. RS3 owns stable-support normal-axis energy
 injection and now prevents stable subthreshold terrain rows from commanding a
 separating velocity while preserving impact restitution and position correction.
 Its authored trace has zero renewed resting reimpacts and zero quiet supported
-bias rows, with all box controls retained. RS4 owns a tangent-plane rotational
-row inside the existing PGS owner. Production friction, rolling, and sleep values remain unchanged.
+bias rows, with all box controls retained. RS4 is complete. It moves bounded
+terrain rolling and normal-axis spin resistance into the existing PGS owner,
+retains no-slip coupling and slope motion, drives post-impact terrain residuals
+to 0.000001, and preserves all box controls. It activates the pre-existing Core
+spin coefficient at the previously missing Physics snapshot boundary without
+retuning any authored value. RS5 now owns the remaining quiet-counter reset and
+supported sleep transition; RS6 owns integrated object/object slip and final
+motion-quality acceptance.
 Semantic oracles must pin all three balls' vertical tail motion, slip, rolling
 reversals, support/sleep latency, and final sleeping state while retaining the
 boxes as controls. Repair normal vibration, tangent/rolling response, and sleep
@@ -408,7 +414,7 @@ not part of the active queue.
 
 ## Blockers
 
-- None. Continue with `REST_STABILITY` RS4. The stale Physics CSV,
+- None. Continue with `REST_STABILITY` RS5. The stale Physics CSV,
   noisy relative Physics performance sample, and
   corrected-topology visual oracle remain owner-controlled validation findings;
   do not refresh any of them without approval.

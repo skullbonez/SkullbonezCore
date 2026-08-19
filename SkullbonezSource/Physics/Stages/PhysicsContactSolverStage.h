@@ -27,6 +27,8 @@ Invariants:
     exits may terminate only from entry/setup or terrain-row completion.
   - The solve transaction owns solver-body scratch and impulse application; it
     retains no borrowed store, span, stage, or world pointer.
+  - Normal, sliding, rolling, and spin impulses share the PGS transaction. The
+    later terrain-rest phase publishes support policy and mutates no velocity.
   - Pipeline event counts remain exact in both payload modes; count-only
     specializations leave the consequence record list empty.
   - The stage retains no pointer or reference to PhysicsWorld or borrowed rows.
@@ -231,11 +233,10 @@ class PersistentContactSolveTransaction
                                        const PersistentContactSolverStepPolicy& stepPolicy,
                                        std::span<const uint8_t> sleepState, std::span<const uint8_t> sleepSupportedThisFrame,
                                        int modelCount, float dt, Core::Profiler* profiler );
-    void ApplyTerrainRestPolicy( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                                 const PersistentContactSolverStepPolicy& stepPolicy,
+    void ApplyTerrainRestPolicy( const PhysicsBodyStore& bodyStore,
                                  PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds,
                                  std::span<uint8_t> terrainRestApplied, std::span<const uint8_t> sleepState, int modelCount,
-                                 float dt, Core::Profiler* profiler );
+                                 Core::Profiler* profiler );
     template <bool RetainPipelineRecords>
     void WriteBack( PhysicsContactSolverStage& stage, PhysicsBodyStore& bodyStore, std::span<const uint8_t> sleepState,
                     int modelCount, std::size_t pipelineRecordCapacity, Core::Profiler* profiler );
@@ -282,7 +283,6 @@ class PhysicsContactCacheWakeAccess
     PersistentContactCacheList& m_cache;
 
   public:
-
     // Lifetime: this narrow capability borrows the contact owner's cache only
     // for the synchronous wake operation that requested it.
     explicit PhysicsContactCacheWakeAccess( PersistentContactCacheList& cache ) : m_cache( cache )

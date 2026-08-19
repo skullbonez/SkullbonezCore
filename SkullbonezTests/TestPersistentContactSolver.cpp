@@ -12,7 +12,8 @@
 //   Complete-solve cases measure energy and momentum across sphere, box,
 //   friction, bias, local CCD contact intervals, and matching-cache matrices,
 //   including planted failures. Stable-support cases pin the boundary between
-//   non-energetic terrain overlap correction and restitution-bearing impacts.
+//   non-energetic terrain overlap correction and restitution-bearing impacts;
+//   rolling/spin cases pin the coupled angular-row/tangent-friction ordering.
 //
 // Glossary:
 //   Contact row: Solver constraint row that applies one normal impulse and two
@@ -56,6 +57,8 @@
 //     Baumgarte cases name their explicit separation-work allowance instead.
 //   - Quiet stable terrain support cancels closing speed without commanding a
 //     rebound; unstable overlap and material impacts retain distinct paths.
+//   - Rolling resistance projects angular speed into the contact tangent plane;
+//     spin resistance owns the normal axis, and both precede sliding friction.
 //
 // Related:
 //   - SkullbonezSource/Physics/PersistentContactSolver.cpp
@@ -184,7 +187,8 @@ PhysicsBodyStore& TestBodyStore()
     static PhysicsBodyStore store;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         store.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     }
 
@@ -200,7 +204,8 @@ ColliderStore& TestColliderStore()
     static ColliderStore store;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         store.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
         store.ReserveShapeCapacity( 16u, 16u, 4u );
     }
@@ -216,7 +221,8 @@ PhysicsStepDiagnostics& TestStepDiagnostics()
     // simultaneous warm-start fixtures within the doctest stack budget.
     static PhysicsStepDiagnostics diagnostics;
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         diagnostics.ReserveSceneCapacity( 16u );
     }
     diagnostics.Clear();
@@ -247,7 +253,8 @@ struct SolverFixture
         : bodyStore( TestBodyStore() ), colliderStore( TestColliderStore() ), diagnostics( TestStepDiagnostics() )
     {
         {
-            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+                SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
 
             sleepSupportEdges.Reserve( MAX_SLEEP_SUPPORT_EDGES );
             terrainContactManifolds.Reserve( 16u );
@@ -275,8 +282,8 @@ struct SolverFixture
         body.hot.position = position;
         body.hot.linearVelocity = linearVelocity;
         body.cold.rotationalInertia = Vector3( inertia, inertia, inertia );
-        body.hot.inverseRotationalInertia =
-            isFixed ? ZERO_VECTOR : Vector3( 1.0f / inertia, 1.0f / inertia, 1.0f / inertia );
+        body.hot.inverseRotationalInertia = isFixed ? ZERO_VECTOR
+                                                    : Vector3( 1.0f / inertia, 1.0f / inertia, 1.0f / inertia );
         body.cold.mass = mass;
         body.hot.inverseMass = isFixed ? 0.0f : 1.0f / mass;
         body.hot.boundingRadius = radius;
@@ -573,7 +580,8 @@ TEST_CASE( "Contact energy oracle: sphere restitution matrix bounds complete sol
         dynamicPair.AddDynamicSphere( Vector3( 0.95f, 0.0f, 0.0f ), Vector3( -1.0f, 0.0f, 0.0f ), restitution );
         dynamicPair.candidatePairs.emplace_back( 0, 1 );
 
-        const ContactEnergyMeasurement dynamicBefore = SkullbonezCore::Physics::MeasureContactEnergy( dynamicPair.bodyStore );
+        const ContactEnergyMeasurement dynamicBefore = SkullbonezCore::Physics::MeasureContactEnergy(
+            dynamicPair.bodyStore );
         dynamicPair.Solve();
         const ContactEnergyMeasurement dynamicAfter = SkullbonezCore::Physics::MeasureContactEnergy( dynamicPair.bodyStore );
 
@@ -662,7 +670,8 @@ TEST_CASE( "Contact energy oracle: box face off-center friction and anisotropic 
                               Vector3( 0.0f, -3.0f, 0.0f ), Vector3( 0.3f, -0.2f, 0.4f ), 4.0f, 0.5f, false );
 
     anisotropic.AddTerrainContactAtOffset( 0, 701u, 0.0f, Vector3( 0.6f, -2.0f, 0.5f ), false, false );
-    const ContactEnergyMeasurement anisotropicBefore = SkullbonezCore::Physics::MeasureContactEnergy( anisotropic.bodyStore );
+    const ContactEnergyMeasurement anisotropicBefore = SkullbonezCore::Physics::MeasureContactEnergy(
+        anisotropic.bodyStore );
     anisotropic.Solve();
     const ContactEnergyMeasurement anisotropicAfter = SkullbonezCore::Physics::MeasureContactEnergy( anisotropic.bodyStore );
     CHECK( anisotropicBefore.rotationalKineticEnergy > 0.0 );
@@ -765,9 +774,11 @@ TEST_CASE( "Contact energy oracle: planted restitution impulse and stale-geometr
     overRestitution.AddDynamicSphere( Vector3( -0.95f, 0.0f, 0.0f ), Vector3( 1.0f, 0.0f, 0.0f ), 1.1f );
     overRestitution.AddDynamicSphere( Vector3( 0.95f, 0.0f, 0.0f ), Vector3( -1.0f, 0.0f, 0.0f ), 1.1f );
     overRestitution.candidatePairs.emplace_back( 0, 1 );
-    const ContactEnergyMeasurement restitutionBefore = SkullbonezCore::Physics::MeasureContactEnergy( overRestitution.bodyStore );
+    const ContactEnergyMeasurement restitutionBefore = SkullbonezCore::Physics::MeasureContactEnergy(
+        overRestitution.bodyStore );
     overRestitution.Solve();
-    const ContactEnergyMeasurement restitutionAfter = SkullbonezCore::Physics::MeasureContactEnergy( overRestitution.bodyStore );
+    const ContactEnergyMeasurement restitutionAfter = SkullbonezCore::Physics::MeasureContactEnergy(
+        overRestitution.bodyStore );
     CHECK_FALSE( EnergyWithinClosedBound( restitutionBefore, restitutionAfter ) );
     CheckDynamicMomentumConserved( restitutionBefore, restitutionAfter );
 }
@@ -852,7 +863,8 @@ TEST_CASE( "Pending gameplay impulse matches the contact path for a rotated anis
     collider.body = bodyHandle;
     collider.shapeKind = ColliderShapeKind::Box;
     collider.boundingRadius = body.hot.boundingRadius;
-    REQUIRE( SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( fixture.colliderStore, collider, shape ).IsValid() );
+    REQUIRE(
+        SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( fixture.colliderStore, collider, shape ).IsValid() );
 
     const Vector3 worldImpulse( 3.0f, 5.0f, -2.0f );
     const Vector3 worldApplicationOffset( 0.75f, -0.4f, 1.1f );
@@ -867,7 +879,8 @@ TEST_CASE( "Pending gameplay impulse matches the contact path for a rotated anis
 
     PersistentContactSolveTransaction contactPath;
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         contactPath.ReserveSceneCapacity( 1u );
     }
     contactPath.ResetBodies( 1u );
@@ -917,7 +930,8 @@ TEST_CASE( "Pending gameplay impulse preserves the exact isotropic sphere respon
     collider.shapeKind = ColliderShapeKind::Sphere;
     collider.boundingRadius = body.hot.boundingRadius;
     const CollisionShape shape( BoundingSphere( body.hot.boundingRadius, Vector3( 0.0f, 0.0f, 0.0f ) ) );
-    REQUIRE( SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( fixture.colliderStore, collider, shape ).IsValid() );
+    REQUIRE(
+        SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( fixture.colliderStore, collider, shape ).IsValid() );
 
     const Vector3 worldImpulse( 3.0f, 5.0f, -2.0f );
     const Vector3 worldApplicationOffset( 0.75f, -0.4f, 1.1f );
@@ -1342,8 +1356,8 @@ TEST_CASE( "Persistent contact solver: shoreline seed prevents one-frame edge bo
     // the plane even when the axis-angle implementation changes numerically.
     Quaternion tiltedEdgeOrientation;
     tiltedEdgeOrientation.RotateAboutAxis( Vector3( 1.0f, 0.0f, 0.0f ), tiltedEdgeRadians );
-    const float tiltedBoxCenterY =
-        tiltedEdgeOrientation.GetOrientationMatrix().SupportExtentY( Vector3( 1.0f, 1.0f, 1.0f ) );
+    const float tiltedBoxCenterY = tiltedEdgeOrientation.GetOrientationMatrix().SupportExtentY(
+        Vector3( 1.0f, 1.0f, 1.0f ) );
 
     auto buildUnsupportedTerrainEdge = [&]( SolverFixture& fixture, float downwardSpeed )
     {
@@ -1378,7 +1392,8 @@ TEST_CASE( "Persistent contact solver: shoreline seed prevents one-frame edge bo
         sweep.collidedPlane.m_distance = 0.0f;
 
         TerrainContactManifold manifold;
-        REQUIRE( BuildTerrainContactManifold( body, fixture.colliderStore.Records()[0].shape, 0, sweep, kSolverDt, manifold ) );
+        REQUIRE(
+            BuildTerrainContactManifold( body, fixture.colliderStore.Records()[0].shape, 0, sweep, kSolverDt, manifold ) );
         REQUIRE( manifold.pointCount == 2u );
         CHECK_FALSE( manifold.supportsRestingPolicy );
         CHECK( manifold.allowsTangentFriction );
@@ -1394,7 +1409,8 @@ TEST_CASE( "Persistent contact solver: shoreline seed prevents one-frame edge bo
 
     PhysicsTerrainStage terrainStage;
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         terrainStage.ReserveSceneCapacity( 1u );
     }
 
@@ -1615,9 +1631,8 @@ TEST_CASE( "Persistent contact solver: terrain restitution ignores manifold row 
     {
         SolverFixture fixture;
         fixture.config.material.terrainFrictionCoefficient = 0.0f;
-        fixture.AddMovingBox( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 1.0f, 1.0f, 1.0f ),
-                              Vector3( 0.0f, 1.0f, 0.0f ), 0.0f, Vector3( 0.0f, -6.0f, 0.0f ), ZERO_VECTOR,
-                              1.0f, 0.75f, false );
+        fixture.AddMovingBox( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 1.0f, 1.0f, 1.0f ), Vector3( 0.0f, 1.0f, 0.0f ), 0.0f,
+                              Vector3( 0.0f, -6.0f, 0.0f ), ZERO_VECTOR, 1.0f, 0.75f, false );
         fixture.AddTerrainContactAtOffset( 0, 100u, 0.0f, contactOffsets[0], true, false );
 
         TerrainContactManifold& manifold = fixture.terrainContactManifolds[0];
@@ -1653,9 +1668,8 @@ TEST_CASE( "Persistent contact solver: terrain rest policy preserves quiet resid
     SolverFixture fixture;
     fixture.config.material.terrainFrictionCoefficient = 0.0f;
     fixture.config.material.rollingFrictionCoefficient = 0.0f;
-    fixture.AddMovingBox( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 1.0f, 1.0f, 1.0f ),
-                          Vector3( 0.0f, 1.0f, 0.0f ), 0.0f, Vector3( 0.04f, 0.0f, 0.0f ),
-                          Vector3( 0.01f, 0.0f, 0.0f ), 1.0f, 0.0f, false );
+    fixture.AddMovingBox( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 1.0f, 1.0f, 1.0f ), Vector3( 0.0f, 1.0f, 0.0f ), 0.0f,
+                          Vector3( 0.04f, 0.0f, 0.0f ), Vector3( 0.01f, 0.0f, 0.0f ), 1.0f, 0.0f, false );
     fixture.AddTerrainContact( 0, 101u, 0.0f );
 
     fixture.Solve();
@@ -1667,6 +1681,170 @@ TEST_CASE( "Persistent contact solver: terrain rest policy preserves quiet resid
     // satisfied configurable support and quiet-frame policy.
     CHECK( hotFields.linearVelocityX[0] == doctest::Approx( 0.04f ) );
     CHECK( hotFields.angularVelocityX[0] == doctest::Approx( 0.01f ) );
+}
+
+
+TEST_CASE( "Persistent contact solver: rolling resistance and tangent friction preserve no-slip coupling" )
+{
+    SolverFixture fixture;
+    constexpr float initialSpeed = 4.0f;
+    fixture.config.material.terrainFrictionCoefficient = 0.8f;
+    fixture.config.material.rollingFrictionCoefficient = 0.02f;
+    fixture.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( initialSpeed, 0.0f, 0.0f ) );
+    fixture.bodyStore.MutableHotFields().angularVelocityZ[0] = -initialSpeed;
+    fixture.AddTerrainContact( 0, 201u, 0.0f );
+
+    const float mass = fixture.bodyStore.Records()[0].mass;
+    const float inertia = fixture.bodyStore.Records()[0].rotationalInertia.z;
+    const float initialEnergy = 0.5f * mass * initialSpeed * initialSpeed + 0.5f * inertia * initialSpeed * initialSpeed;
+    fixture.Solve();
+
+    REQUIRE( fixture.solver.GetPersistentContacts().size() == 1u );
+    const PersistentContact& contact = fixture.solver.GetPersistentContacts()[0];
+    const auto hotFields = fixture.bodyStore.HotFields();
+    const Vector3 linearVelocity = PhysicsBodyLinearVelocity( hotFields, 0u );
+    const Vector3 angularVelocity = PhysicsBodyAngularVelocity( hotFields, 0u );
+    const Vector3 contactVelocity = linearVelocity + CrossProduct( angularVelocity, contact.rA );
+    const Vector3 tangentVelocity = contactVelocity - contact.normal * Dot( contactVelocity, contact.normal );
+    const float rollingImpulse = sqrtf( contact.accRollingT1 * contact.accRollingT1 +
+                                        contact.accRollingT2 * contact.accRollingT2 );
+    const float rollingLimit = fixture.config.material.rollingFrictionCoefficient *
+                               (std::max)( contact.accN, contact.terrainWarmStart ) * contact.rollingRadius;
+    const float finalEnergy = 0.5f * mass * VectorMagSquared( linearVelocity ) +
+                              0.5f * inertia * VectorMagSquared( angularVelocity );
+    const auto convergence = fixture.solver.GetConvergenceTrace().Samples();
+
+    // The retired post-PGS torque reduced omega after friction had finished and
+    // left measurable contact-point slip. The angular row now consumes its own
+    // normal-load budget first, then the ordinary tangent row restores rolling.
+    CHECK( VectorMag( tangentVelocity ) < 0.0001f );
+    CHECK( linearVelocity.x > 0.0f );
+    CHECK( linearVelocity.x < initialSpeed );
+    CHECK( angularVelocity.z < 0.0f );
+    CHECK( fabsf( angularVelocity.z ) < initialSpeed );
+    CHECK( finalEnergy < initialEnergy );
+    CHECK( rollingImpulse > 0.0f );
+    CHECK( rollingImpulse <= rollingLimit + 0.000001f );
+    REQUIRE_FALSE( convergence.empty() );
+    CHECK( convergence.front().tangentImpulseDeltaSq > 0.0f );
+    CHECK( convergence.front().tangentChangedRowCount > 0 );
+    CHECK( fixture.terrainRestApplied[0] == 1u );
+}
+
+
+TEST_CASE( "Persistent contact solver: terrain rolling resistance does not damp normal-axis spin" )
+{
+    SolverFixture fixture;
+    constexpr float normalSpin = 3.0f;
+    fixture.config.material.terrainFrictionCoefficient = 0.8f;
+    fixture.config.material.rollingFrictionCoefficient = 0.5f;
+    fixture.config.material.spinFrictionCoefficient = 0.0f;
+    fixture.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), ZERO_VECTOR );
+    fixture.bodyStore.MutableHotFields().angularVelocityY[0] = normalSpin;
+    fixture.AddTerrainContact( 0, 202u, 0.0f );
+    fixture.Solve();
+
+    REQUIRE( fixture.solver.GetPersistentContacts().size() == 1u );
+    const PersistentContact& contact = fixture.solver.GetPersistentContacts()[0];
+    const auto hotFields = fixture.bodyStore.HotFields();
+
+    // Spin around the terrain normal produces neither roll nor point slip. The
+    // old magnitude-based post-pass damped it anyway; the tangent-plane row must
+    // leave it exactly outside rolling-resistance authority.
+    CHECK( hotFields.angularVelocityY[0] == doctest::Approx( normalSpin ) );
+    CHECK( hotFields.angularVelocityX[0] == 0.0f );
+    CHECK( hotFields.angularVelocityZ[0] == 0.0f );
+    CHECK( contact.accRollingT1 == 0.0f );
+    CHECK( contact.accRollingT2 == 0.0f );
+}
+
+
+TEST_CASE( "Persistent contact solver: terrain spin resistance uses its own normal-axis row" )
+{
+    SolverFixture fixture;
+    constexpr float normalSpin = 3.0f;
+    fixture.config.material.terrainFrictionCoefficient = 0.8f;
+    fixture.config.material.rollingFrictionCoefficient = 0.0f;
+    fixture.config.material.spinFrictionCoefficient = 0.3f;
+    fixture.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), ZERO_VECTOR );
+    fixture.bodyStore.MutableHotFields().angularVelocityY[0] = normalSpin;
+    fixture.AddTerrainContact( 0, 204u, 0.0f );
+    fixture.Solve();
+
+    REQUIRE( fixture.solver.GetPersistentContacts().size() == 1u );
+    const PersistentContact& contact = fixture.solver.GetPersistentContacts()[0];
+    const auto hotFields = fixture.bodyStore.HotFields();
+    const float spinImpulseLimit = fixture.config.material.spinFrictionCoefficient *
+                                   (std::max)( contact.accN, contact.terrainWarmStart );
+
+    // Spin friction is distinct from rolling resistance: its scalar row acts
+    // only about the contact normal and cannot manufacture point slip.
+    CHECK( hotFields.angularVelocityY[0] >= 0.0f );
+    CHECK( hotFields.angularVelocityY[0] < normalSpin );
+    CHECK( hotFields.angularVelocityX[0] == 0.0f );
+    CHECK( hotFields.angularVelocityZ[0] == 0.0f );
+    CHECK( fabsf( contact.accSpin ) > 0.0f );
+    CHECK( fabsf( contact.accSpin ) <= spinImpulseLimit + 0.000001f );
+}
+
+
+TEST_CASE( "Persistent contact solver: rolling and spin resistance yield to material impact" )
+{
+    SolverFixture fixture;
+    constexpr float normalSpin = 3.0f;
+    fixture.config.material.terrainFrictionCoefficient = 0.8f;
+    fixture.config.material.rollingFrictionCoefficient = 0.5f;
+    fixture.config.material.spinFrictionCoefficient = 0.5f;
+    fixture.config.body.contactRestitutionThreshold = 2.0f;
+    fixture.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, -6.0f, 0.0f ) );
+    fixture.bodyStore.MutableHotFields().angularVelocityY[0] = normalSpin;
+    fixture.AddTerrainContact( 0, 205u, 0.0f );
+    fixture.Solve();
+
+    REQUIRE( fixture.solver.GetPersistentContacts().size() == 1u );
+    const PersistentContact& contact = fixture.solver.GetPersistentContacts()[0];
+    const auto hotFields = fixture.bodyStore.HotFields();
+
+    // Rest resistance cannot spend angular budget during a genuine impact;
+    // restitution and the ordinary tangent row own that distinct event.
+    CHECK( contact.preSolveClosingSpeed >= fixture.config.body.contactRestitutionThreshold );
+    CHECK( contact.rollingRadius == 0.0f );
+    CHECK( contact.accRollingT1 == 0.0f );
+    CHECK( contact.accRollingT2 == 0.0f );
+    CHECK( contact.accSpin == 0.0f );
+    CHECK( hotFields.angularVelocityY[0] == doctest::Approx( normalSpin ) );
+}
+
+
+TEST_CASE( "Persistent contact solver: rolling resistance keeps a no-slip sphere moving down a slope" )
+{
+    SolverFixture fixture;
+    constexpr float inverseSqrtTwo = 0.70710678118f;
+    constexpr float initialSpeed = 4.0f;
+    const Vector3 terrainNormal( 0.0f, inverseSqrtTwo, inverseSqrtTwo );
+    const Vector3 downSlope( 0.0f, -inverseSqrtTwo, inverseSqrtTwo );
+    const Vector3 rollingAxis = CrossProduct( terrainNormal, downSlope );
+    fixture.config.material.terrainFrictionCoefficient = 0.8f;
+    fixture.config.material.rollingFrictionCoefficient = 0.02f;
+    fixture.AddDynamicSphere( terrainNormal, downSlope * initialSpeed );
+    fixture.bodyStore.MutableHotFields().angularVelocityX[0] = rollingAxis.x * initialSpeed;
+    fixture.AddTerrainContactAtOffset( 0, 203u, 0.0f, -terrainNormal, true, false );
+    fixture.terrainContactManifolds[0].normal = terrainNormal;
+    fixture.Solve();
+
+    REQUIRE( fixture.solver.GetPersistentContacts().size() == 1u );
+    const PersistentContact& contact = fixture.solver.GetPersistentContacts()[0];
+    const auto hotFields = fixture.bodyStore.HotFields();
+    const Vector3 linearVelocity = PhysicsBodyLinearVelocity( hotFields, 0u );
+    const Vector3 angularVelocity = PhysicsBodyAngularVelocity( hotFields, 0u );
+    const Vector3 contactVelocity = linearVelocity + CrossProduct( angularVelocity, contact.rA );
+    const Vector3 tangentVelocity = contactVelocity - contact.normal * Dot( contactVelocity, contact.normal );
+
+    CHECK( VectorMag( tangentVelocity ) < 0.0001f );
+    CHECK( Dot( linearVelocity, downSlope ) > 3.9f );
+    CHECK( Dot( linearVelocity, downSlope ) < initialSpeed );
+    CHECK( fabsf( Dot( angularVelocity, rollingAxis ) ) > 3.9f );
+    CHECK( fabsf( Dot( angularVelocity, rollingAxis ) ) < initialSpeed );
 }
 
 

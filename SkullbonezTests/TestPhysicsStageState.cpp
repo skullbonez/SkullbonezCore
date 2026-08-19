@@ -143,6 +143,7 @@ void CheckRuntimeSettingsMatchConfig( const PhysicsRuntimeSettings& settings,
     CHECK( settings.material.terrainFrictionCoefficient == config.physicsMaterial.frictionCoeff );
     CHECK( settings.material.objectFrictionCoefficient == config.physicsMaterial.objectFrictionCoeff );
     CHECK( settings.material.rollingFrictionCoefficient == config.physicsMaterial.rollingFrictionCoeff );
+    CHECK( settings.material.spinFrictionCoefficient == config.physicsMaterial.spinFrictionCoeff );
     CHECK( settings.body.angularVelocityLimit == config.bodySimulation.velocityLimit );
     CHECK( settings.body.contactRestitutionThreshold == config.bodySimulation.contactRestitutionThreshold );
     CHECK( settings.body.contactEpsilon == config.bodySimulation.contactEpsilon );
@@ -238,6 +239,7 @@ TEST_CASE( "Physics runtime settings: custom config remains unclamped at the sta
     config.physicsMaterial.frictionCoeff = 1.2f;
     config.physicsMaterial.objectFrictionCoeff = 1.3f;
     config.physicsMaterial.rollingFrictionCoeff = 1.4f;
+    config.physicsMaterial.spinFrictionCoeff = 1.5f;
     config.bodySimulation.velocityLimit = 2.1f;
     config.bodySimulation.contactRestitutionThreshold = 2.2f;
     config.bodySimulation.contactEpsilon = 2.3f;
@@ -672,8 +674,8 @@ TEST_CASE( "Physics sleep point-joint island: stretched anchors block relaxation
             ReserveTestSleepCapacity( controller );
             controller.MirrorFlagsFrom( bodies, 2 );
             const SkullbonezCore::Physics::PhysicsSleepStepPolicy sleepPolicy { 0.01f, 0.01f, 3u };
-            controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts,
-                                       restingCounts, joints, pipeline, sleepPolicy );
+            controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts,
+                                       joints, pipeline, sleepPolicy );
 
             CHECK( pipeline.Count() == 1u );
             const std::span<const SkullbonezCore::Physics::PhysicsPipelineRecord> records = pipeline.Records();

@@ -10,7 +10,10 @@ Summary:
   loaded-contact restitution lifetime and compatible warm-start reuse. Swept
   contacts derive time-scaled row terms from their dynamic bodies' remaining
   post-impact interval. Stable terrain support cancels closing velocity while
-  leaving non-energetic overlap decay to the position-correction phase.
+  leaving non-energetic overlap decay to the position-correction phase. Terrain
+  rolling resistance is an angular tangent-plane row solved before sliding
+  friction, so one PGS iteration preserves their contact-point coupling. Spin
+  friction is a distinct normal-axis row and cannot be mistaken for rolling.
 
 Glossary:
   Warm starting: Reusing the previous tick's cached accumulated impulse so a
@@ -31,6 +34,8 @@ Invariants:
     interval; full-step rows remain byte-identical when no CCD time was consumed.
   - A stable terrain row below the material-impact threshold never receives a
     separating-velocity target; CorrectPositions owns its overlap decay.
+  - Stable terrain rolling and spin resistance use distinct normal-load angular-
+    impulse budgets inside PGS; the later rest-policy pass mutates no motion.
   - Every solve phase crosses the transaction cursor before its pass body runs.
   - Maximum per-row squared impulse delta owns convergence stopping; the
     historical summed delta remains diagnostic-only and cannot affect early-out.
@@ -181,6 +186,7 @@ PhysicsContactSolverStage::ResolveStepPolicy( const PhysicsRuntimeSettings& sett
     policy.objectFrictionCoefficient = policy.elasticCollisions ? 0.0f : settings.material.objectFrictionCoefficient;
     policy.terrainFrictionCoefficient = settings.material.terrainFrictionCoefficient;
     policy.rollingFrictionCoefficient = (std::max)( 0.0f, settings.material.rollingFrictionCoefficient );
+    policy.spinFrictionCoefficient = (std::max)( 0.0f, settings.material.spinFrictionCoefficient );
     policy.sleepLinearSpeed = settings.sleep.linearSpeed;
     policy.sleepAngularSpeed = settings.sleep.angularSpeed;
     policy.nonNegativeSleepLinearSpeed = (std::max)( 0.0f, settings.sleep.linearSpeed );
@@ -798,9 +804,10 @@ void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStag
 }
 
 template <bool RetainPipelineRecords>
-void PersistentContactSolveTransaction::BuildTerrainRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const PersistentContactSolverStepPolicy& stepPolicy,
-                                                          PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds, std::span<const uint8_t> sleepState,
-                                                          std::span<const float> timeRemaining, int modelCount, std::size_t pipelineRecordCapacity, float dt, Core::Profiler* )
+void PersistentContactSolveTransaction::BuildTerrainRows(
+    PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const PersistentContactSolverStepPolicy& stepPolicy,
+    PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds, std::span<const uint8_t> sleepState,
+    std::span<const float> timeRemaining, int modelCount, std::size_t pipelineRecordCapacity, float dt, Core::Profiler* )
 {
     PROFILE_SCOPED( "Frame/Physics/Terrain" );
     PROFILE_SCOPED( "Frame/Physics/Terrain/Rows" );
@@ -1046,6 +1053,57 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
                                    : bodyB.linearVelocity + Vector::CrossProduct( bodyB.angularVelocity, c.rB );
 
         float vn = Dot( ( velB - velA ), c.normal );
+
+        if ( c.isTerrain && c.supportsRestingPolicy && c.allowsTangentFriction && !elasticCollisions &&
+             vn > -stepPolicy.contactRestitutionThreshold &&
+             ( stepPolicy.rollingFrictionCoefficient > 0.0f || stepPolicy.spinFrictionCoefficient > 0.0f ) )
+        {
+            // Concept: rolling resistance is a bounded angular row in the same
+            // PGS owner as normal and tangent friction. The 2x2 inverse keeps
+            // anisotropic world inertia coupled in the contact tangent plane;
+            // spin about the normal remains a separate scalar constraint. A
+            // material impact stays owned by restitution and impact friction.
+            const Vector3 inverseInertiaT1 = applyInvInertiaA( c.tangent1 );
+            const Vector3 inverseInertiaT2 = applyInvInertiaA( c.tangent2 );
+            const float k11 = Dot( c.tangent1, inverseInertiaT1 );
+            const float k12 = Dot( c.tangent1, inverseInertiaT2 );
+            const float k22 = Dot( c.tangent2, inverseInertiaT2 );
+            const float determinant = k11 * k22 - k12 * k12;
+            const float spinInverseMass = Dot( c.normal, applyInvInertiaA( c.normal ) );
+
+            if ( determinant > TOLERANCE * TOLERANCE )
+            {
+                const float inverseDeterminant = 1.0f / determinant;
+                c.rollingMass11 = k22 * inverseDeterminant;
+                c.rollingMass12 = -k12 * inverseDeterminant;
+                c.rollingMass22 = k11 * inverseDeterminant;
+            }
+
+            if ( spinInverseMass > TOLERANCE )
+            {
+                c.spinMass = 1.0f / spinInverseMass;
+            }
+
+            c.rollingRadius = VisitCollisionShape( colliderRecords[static_cast<size_t>( c.bodyA )].shape,
+                                                   []( const auto& shape ) -> float
+                                                   {
+                                                       using ShapeT = std::decay_t<decltype( shape )>;
+
+                                                       if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
+                                                       {
+                                                           return shape.GetRadius();
+                                                       }
+                                                       else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
+                                                       {
+                                                           const Vector3& halfExtents = shape.GetHalfExtents();
+                                                           return ( halfExtents.x + halfExtents.y + halfExtents.z ) / 3.0f;
+                                                       }
+                                                       else
+                                                       {
+                                                           return shape.GetBoundingRadius() * 0.5f;
+                                                       }
+                                                   } );
+        }
 
         // CATTO REF:
         //   Catto 2005, PDF p. 8, Section 3.6, Equation 15 and PDF p. 10,
@@ -1344,6 +1402,51 @@ void PersistentContactSolveTransaction::SolveRowsIterations( PhysicsContactSolve
             float deltaN = c.accN - oldAccN;
             ApplyImpulse( c, c.normal * deltaN );
 
+            float deltaRollingT1 = 0.0f;
+            float deltaRollingT2 = 0.0f;
+            float deltaSpin = 0.0f;
+
+            if ( c.rollingRadius > TOLERANCE )
+            {
+                if ( c.spinMass > 0.0f && stepPolicy.spinFrictionCoefficient > 0.0f )
+                {
+                    const float spinSpeed = Dot( a.angularVelocity, c.normal );
+                    const float oldAccSpin = c.accSpin;
+                    const float supportingNormalImpulse = ( c.accN > c.terrainWarmStart ) ? c.accN : c.terrainWarmStart;
+                    // Spin friction's authored scalar is an effective contact-
+                    // patch length, so multiplying by normal linear impulse is
+                    // already an angular impulse. Rolling instead needs the
+                    // body's effective radius because its coefficient is dimensionless.
+                    const float spinLimit = stepPolicy.spinFrictionCoefficient * supportingNormalImpulse;
+
+                    c.accSpin += -c.spinMass * spinSpeed;
+                    c.accSpin = std::clamp( c.accSpin, -spinLimit, spinLimit );
+                    deltaSpin = c.accSpin - oldAccSpin;
+                    a.angularVelocity += ApplyInverseInertia( c.bodyA, c.normal * deltaSpin );
+                }
+
+                const float rollingSpeedT1 = Dot( a.angularVelocity, c.tangent1 );
+                const float rollingSpeedT2 = Dot( a.angularVelocity, c.tangent2 );
+                const float lambdaRollingT1 = -( c.rollingMass11 * rollingSpeedT1 + c.rollingMass12 * rollingSpeedT2 );
+                const float lambdaRollingT2 = -( c.rollingMass12 * rollingSpeedT1 + c.rollingMass22 * rollingSpeedT2 );
+                const float oldAccRollingT1 = c.accRollingT1;
+                const float oldAccRollingT2 = c.accRollingT2;
+                const float supportingNormalImpulse = ( c.accN > c.terrainWarmStart ) ? c.accN : c.terrainWarmStart;
+                const float rollingLimit = stepPolicy.rollingFrictionCoefficient * supportingNormalImpulse * c.rollingRadius;
+
+                c.accRollingT1 += lambdaRollingT1;
+                c.accRollingT2 += lambdaRollingT2;
+                Physics::ContactSolver::ClampFrictionVector( c.accRollingT1, c.accRollingT2, rollingLimit );
+                deltaRollingT1 = c.accRollingT1 - oldAccRollingT1;
+                deltaRollingT2 = c.accRollingT2 - oldAccRollingT2;
+
+                // Invariant: these angular impulses are the sole rolling/spin
+                // resistance owners. Applying them before recomputing contact
+                // velocity lets the tangent row remove coupled slip this iteration.
+                const Vector3 angularImpulse = c.tangent1 * deltaRollingT1 + c.tangent2 * deltaRollingT2;
+                a.angularVelocity += ApplyInverseInertia( c.bodyA, angularImpulse );
+            }
+
             velA = a.linearVelocity + Vector::CrossProduct( a.angularVelocity, c.rA );
             velB = c.isTerrain ? ZERO_VECTOR : b.linearVelocity + Vector::CrossProduct( b.angularVelocity, c.rB );
             float vt1 = Dot( ( velB - velA ), c.tangent1 );
@@ -1377,7 +1480,14 @@ void PersistentContactSolveTransaction::SolveRowsIterations( PhysicsContactSolve
 
             const float normalDeltaSq = deltaN * deltaN;
             const float tangentDeltaSq = deltaT1 * deltaT1 + deltaT2 * deltaT2;
-            const float rowDeltaSq = normalDeltaSq + tangentDeltaSq;
+            const float inverseRollingRadius = c.rollingRadius > TOLERANCE ? ( 1.0f / c.rollingRadius ) : 0.0f;
+            const float rollingLinearDeltaT1 = deltaRollingT1 * inverseRollingRadius;
+            const float rollingLinearDeltaT2 = deltaRollingT2 * inverseRollingRadius;
+            const float spinLinearDelta = deltaSpin * inverseRollingRadius;
+            const float rollingDeltaSq = rollingLinearDeltaT1 * rollingLinearDeltaT1 +
+                                         rollingLinearDeltaT2 * rollingLinearDeltaT2 + spinLinearDelta * spinLinearDelta;
+            const float tangentFamilyDeltaSq = tangentDeltaSq + rollingDeltaSq;
+            const float rowDeltaSq = normalDeltaSq + tangentFamilyDeltaSq;
 
             // Invariant: convergence is a per-row property. Adding individually
             // quiet rows must not change whether this global sweep is complete.
@@ -1390,7 +1500,7 @@ void PersistentContactSolveTransaction::SolveRowsIterations( PhysicsContactSolve
                     PersistentContactIterationDiagnostics& iterationDiagnostics = diagnosticsStorage.value;
                     iterationDiagnostics.maxRowImpulseDeltaSq = rowDeltaSq;
                     iterationDiagnostics.maxRowNormalImpulseDeltaSq = normalDeltaSq;
-                    iterationDiagnostics.maxRowTangentImpulseDeltaSq = tangentDeltaSq;
+                    iterationDiagnostics.maxRowTangentImpulseDeltaSq = tangentFamilyDeltaSq;
                     iterationDiagnostics.maxRowBodyA = c.bodyA;
                     iterationDiagnostics.maxRowBodyB = c.bodyB;
                     iterationDiagnostics.maxRowFeatureId = c.featureId;
@@ -1407,14 +1517,15 @@ void PersistentContactSolveTransaction::SolveRowsIterations( PhysicsContactSolve
                 // and inactive/private worlds skip this accumulation.
                 iterImpulseSq += rowDeltaSq;
                 iterationDiagnostics.normalImpulseDeltaSq += normalDeltaSq;
-                iterationDiagnostics.tangentImpulseDeltaSq += tangentDeltaSq;
+                iterationDiagnostics.tangentImpulseDeltaSq += tangentFamilyDeltaSq;
 
                 if ( deltaN != 0.0f )
                 {
                     ++iterationDiagnostics.normalChangedRowCount;
                 }
 
-                if ( deltaT1 != 0.0f || deltaT2 != 0.0f )
+                if ( deltaT1 != 0.0f || deltaT2 != 0.0f || deltaRollingT1 != 0.0f || deltaRollingT2 != 0.0f ||
+                     deltaSpin != 0.0f )
                 {
                     ++iterationDiagnostics.tangentChangedRowCount;
                 }
@@ -1488,9 +1599,10 @@ void PersistentContactSolveTransaction::SolveRows( PhysicsContactSolverStage& st
     }
 }
 
-void PersistentContactSolveTransaction::ApplyPointSupportInstability( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                                                                      const PersistentContactSolverStepPolicy& stepPolicy, std::span<const uint8_t> sleepState,
-                                                                      std::span<const uint8_t> sleepSupportedThisFrame, int modelCount, float dt, Core::Profiler* )
+void PersistentContactSolveTransaction::ApplyPointSupportInstability(
+    PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
+    const PersistentContactSolverStepPolicy& stepPolicy, std::span<const uint8_t> sleepState,
+    std::span<const uint8_t> sleepSupportedThisFrame, int modelCount, float dt, Core::Profiler* )
 {
     PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/PointSupportInstability" );
     AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::PointSupportInstability, "ApplyPointSupportInstability" );
@@ -1640,25 +1752,21 @@ void PersistentContactSolveTransaction::ApplyPointSupportInstability( PhysicsCon
     }
 }
 
-void PersistentContactSolveTransaction::ApplyTerrainRestPolicy( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                                                                const PersistentContactSolverStepPolicy& stepPolicy, PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds,
-                                                                std::span<uint8_t> terrainRestApplied, std::span<const uint8_t> sleepState, int modelCount, float dt, Core::Profiler* )
+void PersistentContactSolveTransaction::ApplyTerrainRestPolicy(
+    const PhysicsBodyStore& bodyStore, PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds,
+    std::span<uint8_t> terrainRestApplied, std::span<const uint8_t> sleepState, int modelCount, Core::Profiler* )
 {
     PROFILE_SCOPED( "Frame/Physics/Terrain" );
     PROFILE_SCOPED( "Frame/Physics/Terrain/RestPolicy" );
     AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::TerrainRestPolicy, "ApplyTerrainRestPolicy" );
 
-    const std::span<const PhysicsBodyRecord> bodyRecords = bodyStore.Records();
     const PhysicsBodyHotFieldsConstView hotRead = bodyStore.HotFields();
-    const std::span<const ColliderRecord> colliderRecords = colliderStore.Records();
     auto isFixedBody = [&]( int index ) -> bool { return hotRead.fixed[static_cast<size_t>( index )] != 0u; };
 
-    // This is intentionally separate from the row solver. The rows above
-    // handle physical contact response; this pass applies engine rest policy
-    // only for manifolds that the terrain classifier marked as stable
-    // support. That separation keeps unstable edge/corner terrain contacts
-    // from gaining rolling damping or sleep privileges just because their
-    // impact rows solved successfully.
+    // Invariant: physical rolling resistance now belongs to the PGS row. This
+    // post-solve pass publishes only the stable-support classification consumed
+    // by later policy; it must never mutate velocity or become a second tangent
+    // or angular impulse owner.
     std::fill_n( terrainRestApplied.begin(), static_cast<size_t>( modelCount ), static_cast<uint8_t>( 0 ) );
 
     for ( const Physics::TerrainContactManifold& manifold : terrainContactManifolds )
@@ -1670,61 +1778,7 @@ void PersistentContactSolveTransaction::ApplyTerrainRestPolicy( const PhysicsBod
         {
             continue;
         }
-
         terrainRestApplied[bodyIndex] = 1;
-        const PhysicsBodyRecord& record = bodyRecords[static_cast<size_t>( bodyIndex )];
-        SolverBodyState& body = Body( static_cast<std::size_t>( bodyIndex ) );
-        float normalForce = record.mass * stepPolicy.gravityMagnitude * fabsf( manifold.normal.y );
-        float omegaMagSq = Dot( body.angularVelocity, body.angularVelocity );
-
-        if ( omegaMagSq > TOLERANCE * TOLERANCE )
-        {
-            // Approximate rolling friction as a torque opposite angular
-            // velocity. The effective radius is exact for spheres and a
-            // conservative average extent for boxes, enough to bleed tiny
-            // residual spin without adding a shape-specific response path.
-            float omegaMag = sqrtf( omegaMagSq );
-            float rEff = VisitCollisionShape( colliderRecords[static_cast<size_t>( bodyIndex )].shape,
-                                              []( const auto& shape ) -> float
-                                              {
-                                                  using ShapeT = std::decay_t<decltype( shape )>;
-
-                                                  if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
-                                                  {
-                                                      return shape.GetRadius();
-                                                  }
-                                                  else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
-                                                  {
-                                                      const Vector3& he = shape.GetHalfExtents();
-                                                      return ( he.x + he.y + he.z ) / 3.0f;
-                                                  }
-                                                  else
-                                                  {
-                                                      return shape.GetBoundingRadius() * 0.5f;
-                                                  }
-                                              } );
-
-            const float muRolling = stepPolicy.rollingFrictionCoefficient;
-            float rollingTorqueMag = muRolling * normalForce * rEff;
-            const Vector3& inertia = record.rotationalInertia;
-            float avgInertia = ( inertia.x + inertia.y + inertia.z ) / 3.0f;
-
-            if ( avgInertia < TOLERANCE )
-            {
-                avgInertia = 1.0f;
-            }
-
-            float deltaOmega = ( rollingTorqueMag / avgInertia ) * dt;
-
-            if ( deltaOmega >= omegaMag )
-            {
-                body.angularVelocity = ZERO_VECTOR;
-            }
-            else
-            {
-                body.angularVelocity -= ( body.angularVelocity / omegaMag ) * deltaOmega;
-            }
-        }
     }
 }
 
@@ -2261,8 +2315,8 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
     m_solveTransaction.ApplyPointSupportInstability( *this, bodyStore, colliderStore, stepPolicy, sleepState,
                                                      sleepSupportedThisFrame, modelCount, dt, profiler );
 
-    m_solveTransaction.ApplyTerrainRestPolicy( bodyStore, colliderStore, stepPolicy, terrainContactManifolds,
-                                               terrainRestApplied, sleepState, modelCount, dt, profiler );
+    m_solveTransaction.ApplyTerrainRestPolicy( bodyStore, terrainContactManifolds, terrainRestApplied, sleepState,
+                                               modelCount, profiler );
 
     if ( retainPipelineRecords )
     {
