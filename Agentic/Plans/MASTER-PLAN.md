@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-19
-Status: Two active plans; 35/47 tasks complete
+Status: Two active plans; 36/47 tasks complete
 
 ## Owner Direction
 
@@ -119,13 +119,23 @@ Status: Two active plans; 35/47 tasks complete
   flat warmed bytes/growth, unchanged live and bounded-PREDICT state, exact
   zero-thread/one-worker tick-1,024 position equality, and joined retirement.
 
+- ORBIT_FORECAST OF3 is complete. Scene authoring now names one explicit fixed-
+  capacity stability cohort, setup resolves it to stable IDs, snapshot saving
+  round trips the contract, and a Planning-owned analyzer consumes detached
+  complete ticks. Numerical publication failures are globally blocking;
+  primary/core collisions, inclusive envelopes, and 600-tick softened-energy
+  escape block the system horizon; auxiliary orbital failures stay separately
+  visible. Informational all-member conservation drift and first-failure
+  latching are covered by focused tests without adding a Replay include,
+  reserve privilege, Physics row field, or post-start growth path.
+
 Completed plan files were deleted; git history is the archive.
 
 ## Active Plans
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Continuous Orbital Forecast | `ORBIT_FORECAST` | 7 | 3 | `TODO/continuous-orbital-forecast.md` |
+| Continuous Orbital Forecast | `ORBIT_FORECAST` | 7 | 4 | `TODO/continuous-orbital-forecast.md` |
 | At-Rest Ball Stability | `REST_STABILITY` | 8 | 0 | `TODO/at-rest-ball-stability.md` |
 
 ## Parked, Backlog, And Completed Plans
@@ -160,9 +170,9 @@ states elsewhere, and both are recorded rather than silently corrected:
 
 ## Binding Order
 
-1. `ORBIT_FORECAST` OF3 through OF6 — add Planning-owned stability diagnostics
-   to the proven isolated continuous producer, then wire operator controls and
-   rolling orbital presentation.
+1. `ORBIT_FORECAST` OF4 through OF6 — compose the proven continuous producer
+   and Planning-owned stability analyzer, then add operator controls and rolling
+   orbital presentation.
 2. `REST_STABILITY` RS0 through RS7 — add the authored all-three-ball sleep
    completion gate, preserve and diagnose the unlimited `at_rest` witness with
    SkullScope, build semantic false-pass-resistant oracles, adjudicate the
@@ -188,8 +198,8 @@ than pinning pre-repair impulses, activation times, or sleep frames.
 
 ## Portfolio Progress
 
-35/47 tasks complete with two active plans. Causal C0-C8, Determinism T0-T8,
+36/47 tasks complete with two active plans. Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
-Continuous Orbital Forecast OF0-OF2 are complete and OF3-OF6 are next, then At-Rest
+Continuous Orbital Forecast OF0-OF3 are complete and OF4-OF6 are next, then At-Rest
 Ball Stability RS0-RS7. Deterministic
 Trigonometry is owner-parked and excluded from progress.

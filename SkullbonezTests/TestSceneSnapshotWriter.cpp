@@ -25,6 +25,7 @@ Invariants:
   - Direct entities remain in objects[] and retain explicit schema-v4 ids.
   - Reparse uses live state rather than recomposing the asset recipe transform.
   - Contact-material text survives save/reparse through the cold authoring row.
+  - Resolved orbital membership round-trips through current entity names.
   - Every runtime save entry serializes all three owner publications.
 
 Related:
@@ -691,6 +692,17 @@ TEST_CASE( "SceneSnapshotWriter: schema-v4 asset parts reparse from authoritativ
     mutualGravity.gravitationalConstant = 6.25f;
     mutualGravity.softeningLength = 0.75f;
     mutualGravity.elasticCollisions = false;
+    Scene::OrbitalStabilityContract orbitalStability;
+    orbitalStability.enabled = true;
+    orbitalStability.escapeGraceSeconds = 5.0;
+    orbitalStability.memberCount = 2u;
+    orbitalStability.members[0].sceneObjectId = PhysicsSceneObjectId { 300u };
+    orbitalStability.members[0].role = Scene::OrbitalStabilityMemberRole::Primary;
+    orbitalStability.members[1].sceneObjectId = PhysicsSceneObjectId { 99u };
+    orbitalStability.members[1].role = Scene::OrbitalStabilityMemberRole::CoreOrbiter;
+    orbitalStability.members[1].innerRadius = 60.0;
+    orbitalStability.members[1].outerRadius = 100.0;
+    orbitalStability.members[1].escapeStartRadius = 90.0;
     const SceneWorldSaveState world { entities,
                                       bodies,
                                       colliders,
@@ -702,7 +714,8 @@ TEST_CASE( "SceneSnapshotWriter: schema-v4 asset parts reparse from authoritativ
                                       mutualGravity,
                                       Vector3( 1.0f, 2.0f, 3.0f ),
                                       Vector3( 4.0f, 5.0f, 6.0f ),
-                                      Vector3( 0.0f, 1.0f, 0.0f ) };
+                                      Vector3( 0.0f, 1.0f, 0.0f ),
+                                      orbitalStability };
 
     const SceneSessionSaveState session { true, false, true, true, true, true, 7.5f, 0.25f, -0.5f };
     const PresentationSaveState presentation { true, true };
@@ -735,6 +748,17 @@ TEST_CASE( "SceneSnapshotWriter: schema-v4 asset parts reparse from authoritativ
     CHECK( savedMutualGravity.gravitationalConstant == doctest::Approx( 6.25f ) );
     CHECK( savedMutualGravity.softeningLength == doctest::Approx( 0.75f ) );
     CHECK_FALSE( savedMutualGravity.elasticCollisions );
+    const Scene::OrbitalStabilityContract& savedOrbitalStability = saved.GetOrbitalStabilityContract();
+    REQUIRE( savedOrbitalStability.enabled );
+    REQUIRE( savedOrbitalStability.memberCount == 2u );
+    CHECK( savedOrbitalStability.escapeGraceSeconds == doctest::Approx( 5.0 ) );
+    CHECK( savedOrbitalStability.members[0].sceneObjectId.value == 300u );
+    CHECK( savedOrbitalStability.members[0].role == Scene::OrbitalStabilityMemberRole::Primary );
+    CHECK( savedOrbitalStability.members[1].sceneObjectId.value == 99u );
+    CHECK( savedOrbitalStability.members[1].role == Scene::OrbitalStabilityMemberRole::CoreOrbiter );
+    CHECK( savedOrbitalStability.members[1].innerRadius == doctest::Approx( 60.0 ) );
+    CHECK( savedOrbitalStability.members[1].outerRadius == doctest::Approx( 100.0 ) );
+    CHECK( savedOrbitalStability.members[1].escapeStartRadius == doctest::Approx( 90.0 ) );
     CHECK( saved.GetAssetLibraryCount() == 1 );
     CHECK( saved.GetAssetInstanceCount() == 1 );
     CHECK( saved.GetAssetPartCount() == 3 );

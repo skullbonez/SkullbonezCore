@@ -5,8 +5,9 @@ Purpose:
 
 Summary:
   AuthoredScene owns the cold parsed values that cross from scene JSON into
-  deterministic runtime setup, while retaining neither parser state nor live
-  scene stores.
+  deterministic runtime setup, including resolved orbital-policy membership,
+
+  while retaining neither parser state nor live scene stores.
 
 Glossary:
   Scene collection: Vector-backed parsed scene array for cameras, bodies,
@@ -728,6 +729,12 @@ const SkullbonezCore::Physics::MutualGravitySettings& AuthoredScene::GetWorldMut
 bool AuthoredScene::HasMutualGravityEnabled() const
 {
     return m_worldOverride.mutualGravity.enabled;
+}
+
+
+const SkullbonezCore::Scene::OrbitalStabilityContract& AuthoredScene::GetOrbitalStabilityContract() const
+{
+    return m_orbitalStability;
 }
 
 

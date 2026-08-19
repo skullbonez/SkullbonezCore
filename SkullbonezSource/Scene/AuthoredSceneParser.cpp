@@ -638,6 +638,47 @@ void AuthoredSceneParser::LoadDocumentIntoScene( const std::string& path, bool s
     m_currentDocumentVersion = previousDocumentVersion;
 }
 
+void AuthoredSceneParser::ResolveOrbitalStabilityMemberIds( const std::string& path )
+{
+    SkullbonezCore::Scene::OrbitalStabilityContract& contract = m_scene.m_orbitalStability;
+
+    if ( !contract.enabled )
+    {
+        return;
+    }
+
+    for ( std::size_t memberIndex = 0; memberIndex < contract.memberCount; ++memberIndex )
+    {
+        SkullbonezCore::Scene::OrbitalStabilityMemberContract& member = contract.members[memberIndex];
+        std::size_t matchCount = 0u;
+
+        for ( std::size_t objectIndex = 0; objectIndex < m_sceneObjectNames.size(); ++objectIndex )
+        {
+            if ( m_sceneObjectNames[objectIndex] == member.authoredObjectName )
+            {
+                member.sceneObjectId.value = m_sceneObjectIds[objectIndex];
+                ++matchCount;
+            }
+        }
+
+        if ( matchCount != 1u )
+        {
+            Fail( path, std::string( "simulation.orbitalStability object '" ) + member.authoredObjectName +
+                            "' does not resolve exactly once" );
+            return;
+        }
+
+        for ( std::size_t previous = 0; previous < memberIndex; ++previous )
+        {
+            if ( contract.members[previous].sceneObjectId.value == member.sceneObjectId.value )
+            {
+                Fail( path, "simulation.orbitalStability repeats one resolved object" );
+                return;
+            }
+        }
+    }
+}
+
 // Lifetime: the parser only borrows the asset registry during this parse.
 // A null registry keeps standalone tools on the historical path fallback.
 AuthoredSceneParser::AuthoredSceneParser( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
@@ -674,6 +715,11 @@ SkullbonezCore::Core::SbResult AuthoredSceneParser::TryLoadDocument( const char*
         if ( !ParserFailed() )
         {
             UpgradeVersion1SceneObjectIds( path ? path : "" );
+        }
+
+        if ( !ParserFailed() )
+        {
+            ResolveOrbitalStabilityMemberIds( path ? path : "" );
         }
 
         if ( !ParserFailed() )

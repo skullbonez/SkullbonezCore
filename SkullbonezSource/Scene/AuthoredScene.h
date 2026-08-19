@@ -5,7 +5,8 @@ Purpose:
 
 Summary:
   AuthoredScene owns the cold, parsed values that cross from scene JSON into
-  deterministic runtime setup without retaining parser state or live stores.
+  deterministic runtime setup, including resolved orbital-policy membership,
+  without retaining parser state or live stores.
 
 Glossary:
   Asset provenance: Cold scene-file records that retain which library, asset,
@@ -37,6 +38,7 @@ Related:
 #include "../Rendering/RenderMaterial.h"
 #include "../Maths/Vector3.h"
 #include "AuthoredTornadoConfig.h"
+#include "OrbitalStabilityContract.h"
 #include <cstdint>
 #include <vector>
 
@@ -526,6 +528,7 @@ class AuthoredScene
     SceneRuntimeOverrides m_runtimeOverrides;
     SceneTerrainOverride m_terrainOverride;
     SceneWorldOverride m_worldOverride;
+    SkullbonezCore::Scene::OrbitalStabilityContract m_orbitalStability;
     SceneTornadoSystem m_tornadoSystem;
     SceneUIOptions m_UIOptions;
 
@@ -643,6 +646,7 @@ class AuthoredScene
     float GetWorldFluidDensity() const;
     const Physics::MutualGravitySettings& GetWorldMutualGravitySettings() const;
     bool HasMutualGravityEnabled() const;
+    const SkullbonezCore::Scene::OrbitalStabilityContract& GetOrbitalStabilityContract() const;
     bool HasTornadoSystem() const;
     const AuthoredTornadoSystemConfig& GetTornadoSystemConfig() const;
     const SceneUIOptions& GetUIOptions() const;

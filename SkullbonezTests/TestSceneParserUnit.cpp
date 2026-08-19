@@ -21,6 +21,7 @@
 //   - Solar scenes use XY orbital coordinates and oblique cameras with Z up,
 //     matching the terrain-camera interaction convention after axis remapping.
 //   - Deep-space presentation is authored as literal black with no second sun.
+//   - Orbital stability names resolve exactly once to stable scene-object ids.
 //   - Initial impulse application points are world-axis offsets from each body
 //     center, never absolute world positions.
 //
@@ -123,6 +124,14 @@ std::string BuildVersionedImpulseOffsetScene( uint32_t version, const char* offs
            R"(,"name":"impulse_probe","position":[10,20,30],"radius":1,"mass":2,"moment":3,"restitution":0.1,"force":[4,5,6],")" +
            offsetKey + R"(":[1,2,3],"fixed":false}]})";
 }
+
+std::string BuildOrbitalStabilityResolutionScene( const char* coreObjectName )
+{
+    return std::string(
+               R"({"format":"skullbonez.scene.json","version":2,"simulation":{"physics":true,"text":false,"orbitalStability":{"escapeGraceSeconds":5,"members":[{"object":"sun","role":"primary"},{"object":")" ) +
+           coreObjectName +
+           R"(","role":"core","innerRadius":60,"outerRadius":100,"escapeStartRadius":90}]}},"cameras":[{"name":"main","position":[0,0,10],"view":[0,0,0],"up":[0,1,0]}],"objects":[{"type":"ballState","sceneObjectId":71,"name":"sun","position":[0,0,0],"velocity":[0,0,0],"angularVelocity":[0,0,0],"orientation":[0,0,0,1],"radius":2,"mass":100,"restitution":0,"inertia":[1,1,1],"fixed":true,"sleeping":false},{"type":"ballState","sceneObjectId":72,"name":"earth","position":[80,0,0],"velocity":[0,1,0],"angularVelocity":[0,0,0],"orientation":[0,0,0,1],"radius":1,"mass":1,"restitution":0,"inertia":[1,1,1],"fixed":false,"sleeping":false}]})";
+}
 } // namespace
 
 
@@ -215,6 +224,22 @@ TEST_CASE( "AuthoredSceneParser: solar bodies publish their authored colours" )
 
     REQUIRE( scene.GetBallStateCount() == 4 );
 
+    const auto& stability = scene.GetOrbitalStabilityContract();
+    REQUIRE( stability.enabled );
+    REQUIRE( stability.memberCount == 4u );
+    CHECK( stability.escapeGraceSeconds == doctest::Approx( 5.0 ) );
+    CHECK( stability.members[0].role == SkullbonezCore::Scene::OrbitalStabilityMemberRole::Primary );
+    CHECK( stability.members[1].role == SkullbonezCore::Scene::OrbitalStabilityMemberRole::CoreOrbiter );
+    CHECK( stability.members[2].role == SkullbonezCore::Scene::OrbitalStabilityMemberRole::CoreOrbiter );
+    CHECK( stability.members[3].role == SkullbonezCore::Scene::OrbitalStabilityMemberRole::Auxiliary );
+
+    for ( std::size_t memberIndex = 0u; memberIndex < stability.memberCount; ++memberIndex )
+    {
+        CHECK( stability.members[memberIndex].sceneObjectId.IsValid() );
+        CHECK( std::string( stability.members[memberIndex].authoredObjectName ) ==
+               scene.GetBallState( static_cast<int>( memberIndex ) ).name );
+    }
+
     for ( int index = 0; index < scene.GetBallStateCount(); ++index )
     {
         const auto& body = scene.GetBallState( index );
@@ -245,6 +270,25 @@ TEST_CASE( "AuthoredSceneParser: solar bodies publish their authored colours" )
         CHECK( material.material.baseColor[0] == doctest::Approx( expected[index].r ) );
         CHECK( material.material.baseColor[1] == doctest::Approx( expected[index].g ) );
         CHECK( material.material.baseColor[2] == doctest::Approx( expected[index].b ) );
+    }
+}
+
+TEST_CASE( "AuthoredSceneParser: orbital stability membership rejects missing and repeated objects" )
+{
+    {
+        const TemporaryMalformedSceneFile missing( "unit_scene_parser_orbital_missing.scene.json",
+                                                   BuildOrbitalStabilityResolutionScene( "ghost" ) );
+        AuthoredScene scene;
+        CheckLoadFailure( AuthoredScene::TryLoadFromFile( diagnostics, missing.path, scene ), missing.path,
+                          "does not resolve exactly once" );
+    }
+
+    {
+        const TemporaryMalformedSceneFile repeated( "unit_scene_parser_orbital_repeated.scene.json",
+                                                    BuildOrbitalStabilityResolutionScene( "sun" ) );
+        AuthoredScene scene;
+        CheckLoadFailure( AuthoredScene::TryLoadFromFile( diagnostics, repeated.path, scene ), repeated.path,
+                          "repeats one resolved object" );
     }
 }
 

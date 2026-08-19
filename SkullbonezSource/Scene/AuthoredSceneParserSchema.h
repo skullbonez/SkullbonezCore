@@ -1180,6 +1180,8 @@ class AuthoredSceneParser
     void LoadStyleIncludes( const Json& root, const std::string& path, const char* memberName, int depth );
     void ApplyPlayback( const Json& playback, const std::string& path );
     Physics::MutualGravitySettings ReadMutualGravitySettings( const Json& mutualGravity, const std::string& path );
+    void ApplyOrbitalStability( const Json& stability, const std::string& path );
+    void ResolveOrbitalStabilityMemberIds( const std::string& path );
     void ApplySimulation( const Json& simulation, const std::string& path );
     void ApplyTornadoFloat( const Json& source, const std::string& path, const char* memberName, float& target,
                             float minimum );

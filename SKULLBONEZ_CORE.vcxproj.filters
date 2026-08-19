@@ -345,6 +345,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayPlanningRuntime.cpp">
       <Filter>Source Files\Runtime\Planning</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\ContinuousOrbitalStability.cpp">
+      <Filter>Source Files\Runtime\Planning</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayCauseInspection.cpp">
       <Filter>Source Files\Runtime\Planning</Filter>
     </ClCompile>
@@ -1258,6 +1261,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\Planning\ReplayPlanningRuntime.h">
       <Filter>Header Files\Runtime\Planning</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Planning\ContinuousOrbitalStability.h">
+      <Filter>Header Files\Runtime\Planning</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Planning\ReplayCauseInspection.h">
       <Filter>Header Files\Runtime\Planning</Filter>
     </ClInclude>
@@ -1376,6 +1382,9 @@
       <Filter>Header Files\World</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Scene\AuthoredScene.h">
+      <Filter>Header Files\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Scene\OrbitalStabilityContract.h">
       <Filter>Header Files\Scene</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Scene\AuthoredTornadoConfig.h">

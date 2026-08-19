@@ -278,6 +278,50 @@ nor a growth privilege.
   reproduce only the inherited owner-controlled varied-CSV and
   `header.topologyVersion` oracle mismatches; no baseline was refreshed.
 
+## OF3 Planning Stability Evidence - 2026-08-19
+
+- `solar_system.scene.json` now authors one bounded orbital-stability contract:
+  the fixed sun is Primary, Earth and Mars are CoreOrbiters, and the ship is
+  Auxiliary. `AuthoredScene` parses names and policy without an upward Runtime
+  dependency, `SceneAuthoredSetup` resolves each name exactly once to a stable
+  scene-object ID, and `SceneWorld` retains the resolved value for Planning.
+  Snapshot saving resolves those IDs back to current entity names and the
+  save/reparse test proves the contract round trips.
+- `ContinuousOrbitalStabilityAnalyzer` is Planning-owned and consumes detached
+  complete body/contact tick values. Global numerical health rejects an
+  incomplete, out-of-order, failed, nonfinite, or unrepresentable configured
+  publication. Primary/core contact and core envelope or sustained-escape
+  failures block system orbital health; auxiliary involvement latches a
+  separately visible auxiliary failure without poisoning the core horizon.
+- Escape uses the ratified fixed-primary softened law and requires outward
+  motion, positive specific energy, the authored start radius, and 600
+  consecutive fixed ticks. Informational conservation covers every configured
+  member with softened all-pair potential, signed normalized energy drift, and
+  nonnegative angular-momentum-vector drift; zero seed denominators make the
+  corresponding measure unavailable. First failures remain latched while later
+  valid observations continue advancing progress and diagnostics.
+- The focused analyzer coverage comprises 8 cases, including stable finite
+  motion, inclusive inner/outer envelopes, blocking and auxiliary contacts,
+  sustained versus transient escape, malformed contracts, incomplete/private-
+  step/publication failures, nonfinite state, zero conservation denominators,
+  reset, and first-failure retention. `tools\validate_tests.bat` passes 620/620
+  cases and 2,487,883/2,487,883 assertions.
+- Automation, Debug, and Profile builds pass. Dependency, project-filter,
+  build-configuration, formatting, glossary, signature, aggregate (89/89),
+  extraction-scar, complexity (41/41), and reachability (118/118) inventories
+  are current with zero blocking diagnostics. Until OF4 supplies the App
+  production root, the analyzer and OF2 producer operations carry exact
+  `repair-plan` rulings naming this live plan; OF4 must remove those rulings by
+  composing the owners or deleting the unrooted surface.
+- OF3 adds no downward Replay include, `PhysicsBodyRecord` field, reserve
+  registration, cap increase, phase relaxation, or post-start growth path. The
+  fixed 16-member Scene contract and analyzer counters are ordinary retained
+  value storage, not a new allocation privilege.
+- `tools\validate_fast.bat` passes all nine stages. The mapped Physics gate
+  reproduces only the inherited owner-controlled 20,394-row
+  `physics_regression_varied.csv` mismatch beginning at frame 102; OF3 changes
+  no Physics source or expected output, and no baseline was refreshed.
+
 ## Non-Goals
 
 - Do not remove or raise the ordinary 120-second bounded prediction limit.
@@ -318,7 +362,7 @@ nor a growth privilege.
   only bounded path/head values, and expose a detached view. Prove that live
   solver hashes and bounded `PREDICT` state remain unchanged while continuous
   forecast advances beyond 120 seconds and through at least three ring wraps.
-- [ ] **OF3 - Add Planning-owned stability analysis.** Parse or derive the
+- [x] **OF3 - Add Planning-owned stability analysis.** Parse or derive the
   ratified scene-authored cohort through a downward-safe value seam, calculate
   numerical health, orbital-envelope/escape/collision events, and conservation
   diagnostics, then latch the first blocking failure without stopping the

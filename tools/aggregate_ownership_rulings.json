@@ -54,6 +54,15 @@
                            "destructures_at_entry":  "yes"
                        },
                        {
+                           "key":  "ContinuousOrbitalTickInput",
+                           "site":  "SkullbonezSource/Runtime/Planning/ContinuousOrbitalStability.h:74",
+                           "members":  5,
+                           "verdict":  "retain",
+                           "owner":  "ORBIT_FORECAST / Runtime/Planning stability analyzer",
+                           "reason":  "The complete body publication, contact publication, absolute tick, private-step result, and publication-validity bit are one fixed-tick observation. The analyzer must judge all five from the same speculative tick and retains none of the borrowed spans.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
                            "key":  "DebugOverlayGraphInputs",
                            "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:397",
                            "members":  2,
@@ -685,7 +694,7 @@
                        },
                        {
                            "key":  "SceneSaveRequest",
-                           "site":  "SkullbonezSource/Scene/SceneSnapshotWriter.h:86",
+                           "site":  "SkullbonezSource/Scene/SceneSnapshotWriter.h:91",
                            "members":  4,
                            "verdict":  "retain",
                            "owner":  "CA0 / Scene/SceneSnapshotWriter.h",

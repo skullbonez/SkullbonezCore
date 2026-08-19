@@ -185,11 +185,11 @@
     {
       "file": "SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp",
       "signature": "SkullbonezCore::Core::SbResult SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, SceneSessionState& sceneState, SceneWorld& sceneWorld, SceneAutomationGateConfiguration& automationGates, const AuthoredScene& scene )",
-      "body_sha256": "5c01dbea4cf33c9619fa703beb809c2f71ed3669184670a28250463821c94fc1",
+      "body_sha256": "185737af3880f83ebc514486a0aa3365d760599df5bd83e26427579bbe6141fe",
       "owner": "SceneAuthoredSetup entity transaction",
       "disposition": "retain-owner",
-      "reason": "One authored-scene setup transaction creates the complete entity topology and automation gates before publication; partial setup is diagnosed and cannot become the active scene.",
-      "evidence": "git history: vector-frame-contract-closure-vf2-authored-impulse-offset (2026-07-31)",
+      "reason": "One authored-scene setup transaction creates the complete entity topology, resolves the authored orbital-stability names to those newly assigned stable IDs, and establishes automation gates before publication; partial setup is diagnosed and cannot become the active scene.",
+      "evidence": "git history: vector-frame-contract-closure-vf2-authored-impulse-offset (2026-07-31); ORBIT_FORECAST OF3 resolved stability-contract transfer (2026-08-19)",
       "plan": ""
     },
     {
@@ -255,11 +255,11 @@
     {
       "file": "SkullbonezSource/Scene/SceneSnapshotWriter.cpp",
       "signature": "SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const SceneSaveRequest& request )",
-      "body_sha256": "f99e8ac2fc4962df094f67d33760138435e91626b5e2b1881ecd3a907a66c49f",
+      "body_sha256": "a09eb279d925d7f52ac8ef5d80577dddf4d9cf6bb7278a6257421fe2a4be9f29",
       "owner": "SceneSnapshotWriter save transaction",
       "disposition": "retain-owner",
-      "reason": "One scene writer validates the request and emits the complete snapshot schema through a single diagnostic and cleanup path; no partial file is accepted as a saved scene.",
-      "evidence": "git history: vector-frame-contract-closure-vf2-authored-impulse-offset (2026-07-31)",
+      "reason": "One scene writer validates the request, resolves retained orbital-stability stable IDs back to the same entity names, and emits the complete snapshot schema through a single diagnostic and cleanup path; no partial file is accepted as a saved scene.",
+      "evidence": "git history: vector-frame-contract-closure-vf2-authored-impulse-offset (2026-07-31); ORBIT_FORECAST OF3 orbital-stability round-trip schema (2026-08-19)",
       "plan": ""
     },
     {

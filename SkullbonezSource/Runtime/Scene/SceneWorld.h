@@ -2,12 +2,12 @@
 File: SkullbonezSource/Runtime/Scene/SceneWorld.h
 Purpose:
   Owns the concrete scene-lifetime world: entities, physics, cameras, terrain,
-  environment settings, and render-instance presentation.
+  environment settings, authored policy contracts, and render presentation.
 
 Summary:
-  SceneWorld commits aligned entity/body/collider/buoyancy/render topology and
-  exposes stable-identity operations, including transient editor visibility
-  and locks.
+  SceneWorld commits aligned entity/body/collider/buoyancy/render topology,
+  retains resolved authored policies for that same scene lifetime, and exposes
+  stable-identity operations including transient editor visibility and locks.
   SceneController decides when a scene lifecycle advances. SceneWorld owns what
   that scene is. Callers borrow one explicit SceneWorld, then address the
   concrete store or domain operation they need; the lifecycle controller does
@@ -23,7 +23,8 @@ Glossary:
     store across one fixed step for interpolation.
 
 Invariants:
-  - All six owned domains are born, cleared, and replaced as one scene lifetime.
+  - All owned domains and resolved authored policies are born, cleared, and
+    replaced as one scene lifetime.
   - Entity, body, collider, buoyancy, and render row counts remain aligned
     after every successful topology mutation.
   - Physics stepping and topology repair occur inside this owner; there is no
@@ -40,6 +41,7 @@ Related:
 #include "SceneEntityStore.h"
 #include "SceneTerrain.h"
 #include "../../Scene/SceneSnapshotWriter.h"
+#include "../../Scene/OrbitalStabilityContract.h"
 #include "../../Maths/Vector3.h"
 #include "../../Gameplay/TornadoGameplay.h"
 #include "../../Physics/PhysicsApi.h"
@@ -174,6 +176,11 @@ class SceneWorld
     Gameplay::TornadoGameplay& Tornado();
     const Gameplay::TornadoGameplay& Tornado() const;
 
+    // Scene loading publishes already-resolved stable ids; Planning never
+    // reinterprets display names or dense rows as cohort membership.
+    void SetOrbitalStabilityContract( const SkullbonezCore::Scene::OrbitalStabilityContract& contract ) noexcept;
+    const SkullbonezCore::Scene::OrbitalStabilityContract& OrbitalStabilityContract() const noexcept;
+
     // Projects content-neutral byte totals so diagnostics and renderer-facing
     // composition never need to name or borrow the concrete Gameplay owner.
     uint64_t CollectGameplayMemoryBytes() const;
@@ -207,6 +214,7 @@ class SceneWorld
     // Scene-lifetime gameplay state is a sibling of Physics; only its bounded
     // value frame crosses the fixed-step boundary.
     Gameplay::TornadoGameplay m_tornadoGameplay;
+    SkullbonezCore::Scene::OrbitalStabilityContract m_orbitalStability;
     Rendering::RenderInstanceStore m_renderInstanceStore;
 };
 } // namespace Runtime

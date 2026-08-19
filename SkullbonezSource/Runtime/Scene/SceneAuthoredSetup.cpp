@@ -967,6 +967,7 @@ SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore&
     // Invariant: runtime-created objects continue after the highest authored id,
     // even when schema v2 deliberately uses sparse/non-contiguous values.
     sceneState.ResetSceneObjectIdCursor( sceneWorld.BodyStore() );
+    sceneWorld.SetOrbitalStabilityContract( scene.GetOrbitalStabilityContract() );
     SetUpRequiredContacts( sceneWorld, automationGates, scene );
     SetUpRequiredBroadphaseXCells( automationGates, scene );
     return SkullbonezCore::Core::SbResult::Success();

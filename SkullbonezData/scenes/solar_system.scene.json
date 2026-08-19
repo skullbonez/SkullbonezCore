@@ -33,6 +33,36 @@
     "text": false,
     "predictionPathPresentation": "allBodiesSpace",
     "modelCapacity": 8,
+    "orbitalStability": {
+      "escapeGraceSeconds": 5.0,
+      "members": [
+        {
+          "object": "sun",
+          "role": "primary"
+        },
+        {
+          "object": "earth",
+          "role": "core",
+          "innerRadius": 60.0,
+          "outerRadius": 100.0,
+          "escapeStartRadius": 90.0
+        },
+        {
+          "object": "mars",
+          "role": "core",
+          "innerRadius": 90.0,
+          "outerRadius": 155.0,
+          "escapeStartRadius": 140.0
+        },
+        {
+          "object": "ship",
+          "role": "auxiliary",
+          "innerRadius": 60.0,
+          "outerRadius": 100.0,
+          "escapeStartRadius": 90.0
+        }
+      ]
+    },
     "world": {
       "gravity": 0.0,
       "fluidHeight": -100000.0,

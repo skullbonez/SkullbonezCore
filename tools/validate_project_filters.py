@@ -282,6 +282,7 @@ RENDERING_PREFIXES = (
 )
 
 SCENE_PREFIXES = (
+    "OrbitalStabilityContract",
     "SceneRequestExecution",
     "SceneSnapshotWriter",
     "StandaloneStyleWriter",
@@ -430,6 +431,7 @@ RUNTIME_PREDICTION_PREFIXES = (
 )
 
 RUNTIME_PLANNING_PREFIXES = (
+    "ContinuousOrbitalStability",
     "ReplayCauseInspection",
     "ReplayGuideArcs",
     "ReplayInterceptReadout",
