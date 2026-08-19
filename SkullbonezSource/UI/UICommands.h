@@ -366,6 +366,19 @@ struct UIReplayMemoryCommands
     int requestedBudgetMiB = -1;
 };
 
+enum class UIForecastCommandType : uint8_t
+{
+    None,
+    ToggleContinuous,
+    Reset,
+    Exit
+};
+
+struct UIForecastCommands
+{
+    UIForecastCommandType type = UIForecastCommandType::None;
+};
+
 struct InGameUICommands
 {
     OperatorEditorCommandQueues operatorEditor;
@@ -381,6 +394,7 @@ struct InGameUICommands
     UIRenderCommands renderTuning;
     UICinematicCommands cinematic;
     UIReplayMemoryCommands replayMemory;
+    UIForecastCommands forecast;
 };
 
 struct InGameUIInputResult

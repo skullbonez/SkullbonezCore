@@ -69,6 +69,7 @@ Related:
 #include "RunStartupState.h"
 #include "RunTimerState.h"
 #include "ReplayRuntime.h"
+#include "../Planning/ContinuousOrbitalForecast.h"
 #include "../Scene/SceneController.h"
 #include "../Simulation/SimulationSystem.h"
 #include "../Tools/RuntimeTools.h"
@@ -167,6 +168,7 @@ class Run
     LookLabController m_lookLab;                                                                 // Owns the current presentation-only authoring candidate.
     SimulationSystem m_simulation;                                                               // Simulation timestep policy and physics accumulators
     ReplayRuntime m_replayRuntime;                                                               // Constructs and sequences the concrete replay domain owners.
+    ContinuousOrbitalForecast m_continuousForecast;                                              // Planning-owned private forecast lifecycle and detached diagnostics.
     RuntimeTools m_runtimeTools;                                                                 // Launcher, editor, manipulator state, and transient render feedback.
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     // Lifetime: the development editor owns only its ImGui CPU context and
@@ -247,7 +249,7 @@ class Run
     void BeginLookLabSave();                                                                     // Starts one style/receipt/capture transaction for the current candidate.
     void CompleteLookLabPostRenderCaptures();                                                    // Returns Capture results to the matching Look Lab transaction.
     void CancelPendingLookLabSave( const char* reason );                                         // Finalizes a pending receipt before scene or process teardown.
-    void PrepareLookLabForSceneTransition();                                                     // Clears the candidate and restores process presentation defaults.
+    void PrepareSceneScopedOwnersForTransition();                                                // Joins forecast work and clears presentation candidates before load.
     SkullbonezCore::Core::SbResult RunUIStressActions( RunCameraMode replayRestoreCameraMode );
 
     void Render( const RuntimeRenderModelFrameView& renderModels,

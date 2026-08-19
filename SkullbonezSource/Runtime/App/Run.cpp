@@ -297,7 +297,7 @@ Run::Run( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Window& wi
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
       m_interactionAutomation( resultDiagnostics ),
 #endif
-      m_replayRuntime( resultDiagnostics, profiler ), m_runtimeTools( resultDiagnostics ),
+      m_replayRuntime( resultDiagnostics, profiler ), m_continuousForecast( profiler ), m_runtimeTools( resultDiagnostics ),
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
       m_imguiEditor( resultDiagnostics ),
 #endif
@@ -361,6 +361,7 @@ Run::~Run()
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Shutdown );
     CancelPendingLookLabSave( "shutdown cancelled screenshot" );
+    m_continuousForecast.Stop();
     const std::string* currentScenePath = m_sceneController.CurrentPath();
     m_diagnosticsRuntime.ReportStoreCapacityRows( m_sceneController.State(),
                                                   currentScenePath ? currentScenePath->c_str() : nullptr, "process_end" );

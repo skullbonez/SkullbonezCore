@@ -480,6 +480,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ContinuousOrbitalStability.cpp">
       <Filter>Source Files\Runtime\Planning</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\ContinuousOrbitalForecast.cpp">
+      <Filter>Source Files\Runtime\Planning</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ContinuousPredictionSampleRing.cpp">
       <Filter>Source Files\Runtime\Prediction</Filter>
     </ClCompile>

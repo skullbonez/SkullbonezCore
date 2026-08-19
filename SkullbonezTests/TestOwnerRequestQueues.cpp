@@ -430,14 +430,16 @@ TEST_CASE( "Scene lifecycle generations publish failures and repeated scene load
 
     CHECK( clearObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
     CHECK_FALSE( clearObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
-    CHECK_FALSE( activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
+    CHECK_FALSE(
+        activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
 
     scene.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeScenePopulate, 0 );
     scene.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterScenePopulate, 0 );
     scene.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneActivated, 0 );
     CHECK_FALSE( clearObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
     CHECK( activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
-    CHECK_FALSE( activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
+    CHECK_FALSE(
+        activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
 
     // Same index and unchanged entity count are still a distinct load attempt.
     scene.BeginLoadAttempt( 0, {} );
@@ -450,7 +452,8 @@ TEST_CASE( "Scene lifecycle generations publish failures and repeated scene load
                                 SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
 
     CHECK( clearObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
-    CHECK_FALSE( activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
+    CHECK_FALSE(
+        activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
     CHECK( clearObserver.LastAppliedGeneration() == 2 );
 }
 
@@ -914,8 +917,9 @@ TEST_CASE( "CaptureController owns bounded typed post-render PNG requests" )
 
     for ( int index = 0; index < POST_RENDER_CAPTURE_REQUEST_CAPACITY; ++index )
     {
-        REQUIRE( capture.QueuePostRenderPng( "LookLab\\bounded.png", PostRenderCaptureOwner::LookLab,
-                                             static_cast<uint64_t>( index + 1 ) )
+        REQUIRE( capture
+                     .QueuePostRenderPng( "LookLab\\bounded.png", PostRenderCaptureOwner::LookLab,
+                                          static_cast<uint64_t>( index + 1 ) )
                      .Ok() );
     }
 
@@ -925,8 +929,8 @@ TEST_CASE( "CaptureController owns bounded typed post-render PNG requests" )
 TEST_CASE( "PNG encoder preserves top-down RGB pixels from padded bottom-up BGR" )
 {
     const std::array<uint8_t, 16> bottomUpBgr = {
-        0, 0, 255, 0, 255, 0, 0, 0,       // red, green, row padding
-        255, 0, 0, 255, 255, 255, 0, 0    // blue, white, row padding
+        0,   0, 255, 0,   255, 0,   0, 0, // red, green, row padding
+        255, 0, 0,   255, 255, 255, 0, 0  // blue, white, row padding
     };
     std::vector<uint8_t> png;
     REQUIRE( CaptureSystem::BuildPngBytes( diagnostics, bottomUpBgr, 2, 2, png ).Ok() );
@@ -935,8 +939,8 @@ TEST_CASE( "PNG encoder preserves top-down RGB pixels from padded bottom-up BGR"
     CHECK( std::equal( signature.begin(), signature.end(), png.begin() ) );
 
     const std::array<uint8_t, 14> expectedScanlines = {
-        0, 0, 0, 255, 255, 255, 255,       // top: blue, white
-        0, 255, 0, 0, 0, 255, 0            // bottom: red, green
+        0, 0,   0, 255, 255, 255, 255, // top: blue, white
+        0, 255, 0, 0,   0,   255, 0    // bottom: red, green
     };
     CHECK( std::search( png.begin(), png.end(), expectedScanlines.begin(), expectedScanlines.end() ) != png.end() );
 
@@ -1288,6 +1292,7 @@ TEST_CASE( "Operator editor queues coalesce identical frontend intent before pro
     static_assert( OperatorEditorRenderingCommandQueue::capacity == 8u );
     static_assert( OperatorEditorDiagnosticsCommandQueue::capacity == 8u );
     static_assert( OperatorEditorReplayCommandQueue::capacity == 8u );
+    static_assert( OperatorEditorForecastCommandQueue::capacity == 4u );
     static_assert( OperatorEditorToolCommandQueue::capacity == 16u );
 
     InGameUICommands legacy;
@@ -1298,11 +1303,13 @@ TEST_CASE( "Operator editor queues coalesce identical frontend intent before pro
     legacy.replayMemory.requestedPresetIndex = 2;
     legacy.replayMemory.requestedRetentionSeconds = 45;
     legacy.replayMemory.requestedBudgetMiB = 96;
+    legacy.forecast.type = UIForecastCommandType::ToggleContinuous;
     REQUIRE( NormalizeLegacyOperatorEditorCommands( diagnostics, legacy ).Ok() );
     CHECK_FALSE( legacy.scene.resetScene );
     CHECK( legacy.sceneOptions.requestedTimeScale < 0.0f );
     CHECK_FALSE( legacy.renderer.toggleVsync );
     CHECK_FALSE( legacy.replayMemory.requestPolicy );
+    CHECK( legacy.forecast.type == UIForecastCommandType::None );
 
     OperatorEditorCommandQueues secondary;
     REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.scene,
@@ -1313,20 +1320,27 @@ TEST_CASE( "Operator editor queues coalesce identical frontend intent before pro
                                           { OperatorEditorPropertyCommandType::SetTimeScale, 0.5f } )
                  .Ok() );
 
-    REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.rendering, { OperatorEditorRenderingCommandType::ToggleVsync } )
-                 .Ok() );
+    REQUIRE(
+        SubmitOperatorEditorCommand( diagnostics, secondary.rendering, { OperatorEditorRenderingCommandType::ToggleVsync } )
+            .Ok() );
 
     REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.replay,
                                           { OperatorEditorReplayCommandType::SetMemoryPolicy, 2, 45, 96 } )
+                 .Ok() );
+
+    REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.forecast,
+                                          { OperatorEditorForecastCommandType::ToggleContinuous } )
                  .Ok() );
 
     const OperatorEditorArbitrationResult merged = ArbitrateOperatorEditorCommands( diagnostics, legacy.operatorEditor,
                                                                                     secondary );
 
     REQUIRE( merged.status.Ok() );
-    CHECK( merged.acceptedLegacyCommands == 4u );
+    CHECK( merged.acceptedLegacyCommands == 5u );
     CHECK( merged.acceptedSecondaryCommands == 0u );
-    CHECK( merged.coalescedDuplicateCommands == 4u );
+    CHECK( merged.coalescedDuplicateCommands == 5u );
+    REQUIRE( merged.commands.forecast.count == 1u );
+    CHECK( merged.commands.forecast.commands[0].type == OperatorEditorForecastCommandType::ToggleContinuous );
 
     REQUIRE( ProjectOperatorEditorCommands( diagnostics, merged.commands, legacy ).Ok() );
     CHECK( legacy.scene.resetScene );
@@ -1378,8 +1392,8 @@ TEST_CASE( "Operator editor queue rejects conflict and malformed surface values"
 TEST_CASE( "Operator editor replay transport validates values and arbitrates one owner action" )
 {
     using namespace SkullbonezCore::UI;
-    const auto replayCommand = []( OperatorEditorReplayCommandType type,
-                                  float value = 0.0f, int rowIndex = -1, bool enabled = false )
+    const auto replayCommand =
+        []( OperatorEditorReplayCommandType type, float value = 0.0f, int rowIndex = -1, bool enabled = false )
     {
         OperatorEditorReplayCommand command;
 
@@ -1391,9 +1405,10 @@ TEST_CASE( "Operator editor replay transport validates values and arbitrates one
     };
 
     OperatorEditorReplayCommandQueue valid;
-    CHECK( SubmitOperatorEditorCommand( diagnostics, valid,
-                                        replayCommand( OperatorEditorReplayCommandType::SetRecordingEnabled, 0.0f, -1, true ) )
-               .Ok() );
+    CHECK(
+        SubmitOperatorEditorCommand( diagnostics, valid,
+                                     replayCommand( OperatorEditorReplayCommandType::SetRecordingEnabled, 0.0f, -1, true ) )
+            .Ok() );
 
     CHECK( SubmitOperatorEditorCommand( diagnostics, valid, replayCommand( OperatorEditorReplayCommandType::Scrub, 0.5f ) )
                .Ok() );
@@ -1576,9 +1591,10 @@ TEST_CASE( "Operator editor world previews stay local and commits project to est
     CHECK( arbitration.coalescedDuplicateCommands == 20u );
 
     OperatorEditorPropertyCommandQueue invalid;
-    CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, invalid,
-                                              OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::SetSeed, 0.0f, 0 } )
-                     .Ok() );
+    CHECK_FALSE(
+        SubmitOperatorEditorCommand( diagnostics, invalid,
+                                     OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::SetSeed, 0.0f, 0 } )
+            .Ok() );
 }
 
 TEST_CASE( "Operator editor frame fingerprint follows semantic values only" )
@@ -1614,6 +1630,11 @@ TEST_CASE( "Operator editor frame fingerprint follows semantic values only" )
 
     OperatorEditorFrameView changed = first;
     changed.replay.solverRetentionSeconds = 21;
+    CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
+
+    changed = first;
+    changed.forecast.simulatedSeconds = 121.0;
+    changed.forecast.active = true;
     CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
 
     changed = first;
@@ -1693,9 +1714,10 @@ TEST_CASE( "Operator editor rendering and diagnostics retain canonical owner pro
                                           { OperatorEditorDiagnosticsCommandType::SetWorkerThreads, 0u, 4 } )
                  .Ok() );
 
-    REQUIRE( SubmitOperatorEditorCommand( diagnostics, commits.diagnostics,
-                                          { OperatorEditorDiagnosticsCommandType::SetRayCastImpulseStrength, 0u, 0, 125.0f } )
-                 .Ok() );
+    REQUIRE(
+        SubmitOperatorEditorCommand( diagnostics, commits.diagnostics,
+                                     { OperatorEditorDiagnosticsCommandType::SetRayCastImpulseStrength, 0u, 0, 125.0f } )
+            .Ok() );
 
     InGameUICommands projected;
     REQUIRE( ProjectOperatorEditorCommands( diagnostics, commits, projected ).Ok() );
@@ -1751,9 +1773,10 @@ TEST_CASE( "Operator editor scene hierarchy and asset intents project through ty
     create.type = OperatorEditorSceneCommandType::CreateScene;
     strcpy_s( create.sceneName, "typed-editor-scene" );
     REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.scene, create ).Ok() );
-    REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.scene,
-                                          OperatorEditorSceneCommand { OperatorEditorSceneCommandType::SetCurrentSceneIndex, 4 } )
-                 .Ok() );
+    REQUIRE(
+        SubmitOperatorEditorCommand( diagnostics, secondary.scene,
+                                     OperatorEditorSceneCommand { OperatorEditorSceneCommandType::SetCurrentSceneIndex, 4 } )
+            .Ok() );
 
     REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.scene,
                                           OperatorEditorSceneCommand { OperatorEditorSceneCommandType::SaveCurrentScene } )
@@ -1800,14 +1823,16 @@ TEST_CASE( "Operator editor scene hierarchy and asset intents project through ty
     CHECK( projected.editor.requestDeleteSelection );
 
     OperatorEditorToolCommandQueue malformed;
-    CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, malformed,
-                                              OperatorEditorToolCommand { OperatorEditorToolCommandType::SelectSceneObject, 0u } )
-                     .Ok() );
+    CHECK_FALSE(
+        SubmitOperatorEditorCommand( diagnostics, malformed,
+                                     OperatorEditorToolCommand { OperatorEditorToolCommandType::SelectSceneObject, 0u } )
+            .Ok() );
 
-    CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, malformed,
-                                              OperatorEditorToolCommand { OperatorEditorToolCommandType::SetPlacementObjectType, 0u,
-                                                                          37 } )
-                     .Ok() );
+    CHECK_FALSE(
+        SubmitOperatorEditorCommand( diagnostics, malformed,
+                                     OperatorEditorToolCommand { OperatorEditorToolCommandType::SetPlacementObjectType, 0u,
+                                                                 37 } )
+            .Ok() );
 }
 
 TEST_CASE( "Operator editor tool commands coalesce and project into established owner packets" )
@@ -1849,9 +1874,10 @@ TEST_CASE( "Operator editor tool commands coalesce and project into established 
     CHECK( legacy.scene.requestSingleStep );
 
     OperatorEditorToolCommandQueue malformed;
-    CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, malformed,
-                                              OperatorEditorToolCommand { static_cast<OperatorEditorToolCommandType>( 255 ) } )
-                     .Ok() );
+    CHECK_FALSE(
+        SubmitOperatorEditorCommand( diagnostics, malformed,
+                                     OperatorEditorToolCommand { static_cast<OperatorEditorToolCommandType>( 255 ) } )
+            .Ok() );
 
     CHECK( malformed.count == 0u );
 }
@@ -1926,7 +1952,6 @@ TEST_CASE( "Editor preferences round trip and recover stale layout identity" )
     CHECK( recovered.layoutResetRequired );
     CHECK( recovered.recoveredDefaults );
     CHECK( recovered.preferences.panelVisibilityMask == IMGUI_EDITOR_DEFAULT_PANEL_MASK );
-
 }
 
 TEST_CASE( "Compact causality projection is bounded and exposes explicit edge states" )
@@ -1943,8 +1968,8 @@ TEST_CASE( "Compact causality projection is bounded and exposes explicit edge st
     RunReplayVelocityEditState velocity;
     RunReplayCauseTreeState tree;
     ReplayRecorderStats solverStats;
-    ReplayOverlayStateView replay { scrubber, prediction, intercept, porkchop, planner, path, velocity, tree, {},
-                                    solverStats };
+    ReplayOverlayStateView replay { scrubber, prediction, intercept, porkchop, planner,
+                                    path,     velocity,   tree,      {},       solverStats };
 
     ImGuiEditorCausalityContext context = BuildImGuiEditorCausalityContext( replay );
     CHECK( context.state == ImGuiEditorCausalityState::Empty );

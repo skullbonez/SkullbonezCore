@@ -65,12 +65,36 @@ using SkullbonezCore::Physics::PhysicsEngine;
 using SkullbonezCore::Physics::PhysicsWorldForces;
 using SkullbonezCore::Runtime::ContinuousPredictionProducer;
 using SkullbonezCore::Runtime::ContinuousPredictionProducerView;
+using SkullbonezCore::Runtime::ContinuousPredictionTickObserver;
 using SkullbonezCore::Runtime::ContinuousPredictionWindowRowCapacity;
 using SkullbonezCore::Runtime::ReplayBodyShapeKind;
 using SkullbonezCore::Runtime::ReplayPredictionPublication;
 using SkullbonezCore::Runtime::ReplaySolverBodySample;
 using SkullbonezCore::Runtime::ReplaySolverFrameSample;
 using SkullbonezCore::Runtime::ReplaySolverHashForSample;
+
+class CompleteTickObserver final : public ContinuousPredictionTickObserver
+{
+  public:
+    void ObserveCompleteContinuousPredictionTick( const PhysicsBodyStore& bodies,
+                                                  std::span<const SkullbonezCore::Physics::PersistentContact>,
+                                                  std::uint64_t absoluteTick ) noexcept override
+    {
+        ++completeTickCount;
+        lastAbsoluteTick = absoluteTick;
+        lastBodyCount = bodies.Count();
+    }
+
+    void ObserveInvalidContinuousPredictionPublication( std::uint64_t absoluteTick ) noexcept override
+    {
+        invalidPublicationTick = absoluteTick;
+    }
+
+    std::uint64_t completeTickCount = 0u;
+    std::uint64_t lastAbsoluteTick = 0u;
+    std::uint64_t invalidPublicationTick = 0u;
+    int lastBodyCount = 0;
+};
 
 void PopulateContinuousLiveEngine( PhysicsEngine& engine )
 {
@@ -140,8 +164,12 @@ bool AdvanceUntilTick( ContinuousPredictionProducer& producer, std::uint64_t tar
                        std::uint64_t& outLargestSubmitAdvance )
 {
     outLargestSubmitAdvance = 0u;
+    // Hazard: an iteration-count spin can exhaust itself before Windows gives
+    // the one-thread worker a timeslice. A wall-clock deadline still bounds a
+    // real stall while remaining independent of scheduler quantum length.
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds( 30 );
 
-    for ( int attempt = 0; attempt < 20000; ++attempt )
+    while ( std::chrono::steady_clock::now() < deadline )
     {
         const std::uint64_t before = producer.View().newestAbsoluteTick;
 
@@ -163,7 +191,7 @@ bool AdvanceUntilTick( ContinuousPredictionProducer& producer, std::uint64_t tar
             return false;
         }
 
-        std::this_thread::yield();
+        std::this_thread::sleep_for( std::chrono::microseconds( 50 ) );
     }
 
     return false;
@@ -209,9 +237,11 @@ TEST_CASE( "Continuous prediction producer: three wraps preserve live and bounde
     REQUIRE_FALSE( boundedPublication.WorkerFailed() );
 
     ContinuousPredictionProducer producer;
+    CompleteTickObserver observer;
     const std::size_t rowCapacity = ContinuousPredictionWindowRowCapacity();
     REQUIRE( rowCapacity == 14401u );
-    REQUIRE( producer.Begin( liveEngine, liveTornado, config, forces, workerPool ) );
+    REQUIRE( producer.Begin( liveEngine, liveTornado, config, forces, workerPool, ContinuousPredictionWindowRowCapacity(),
+                             &observer ) );
 
     RuntimeReserveOwnerStatsView warmedStats = {};
     REQUIRE( RuntimeReserveAllocator::CopyOwnerStatsByName( SkullbonezCore::Runtime::REPLAY_PREDICTION_RESERVE_OWNER,
@@ -232,6 +262,10 @@ TEST_CASE( "Continuous prediction producer: three wraps preserve live and bounde
     CHECK( view.samples.OldestAbsoluteTick() == view.newestAbsoluteTick - rowCapacity + 1u );
     CHECK( view.retainedBytes == warmedBytes );
     CHECK( view.measuredTicksPerMillisecond > 0.0 );
+    CHECK( observer.completeTickCount == view.newestAbsoluteTick );
+    CHECK( observer.lastAbsoluteTick == view.newestAbsoluteTick );
+    CHECK( observer.lastBodyCount == 1 );
+    CHECK( observer.invalidPublicationTick == 0u );
 
     std::array<Vector3, 1> oldestPosition;
     std::array<Vector3, 1> newestPosition;

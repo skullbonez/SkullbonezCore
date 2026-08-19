@@ -216,9 +216,11 @@ void Run::CancelPendingLookLabSave( const char* reason )
     }
 }
 
-void Run::PrepareLookLabForSceneTransition()
+void Run::PrepareSceneScopedOwnersForTransition()
 {
-
+    // Lifetime: a scene load cannot invalidate the forecast's live seed until
+    // Stop has requested cancellation and joined its private worker.
+    m_continuousForecast.Stop();
     CancelPendingLookLabSave( "scene transition cancelled screenshot" );
 
     if ( !m_lookLab.HasCandidate() )
@@ -613,7 +615,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
             return false;
         }
 
-        PrepareLookLabForSceneTransition();
+        PrepareSceneScopedOwnersForTransition();
         presentationEdit.Commit();
         SceneLoadTransaction sceneLoad;
         sceneLoad.CaptureSubmittedState( camera, CaptureSceneLoadNavigationState( ui.SceneNavigation() ), debug,
@@ -1330,7 +1332,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
     if ( sceneController.HasPendingTransition() )
     {
-        PrepareLookLabForSceneTransition();
+        PrepareSceneScopedOwnersForTransition();
     }
 
     SceneLoadTransaction sceneLoad;

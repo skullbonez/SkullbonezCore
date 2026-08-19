@@ -1079,6 +1079,9 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
         submit( m_frameCommands.operatorEditor.replay, command );
     };
 
+    const auto submitForecast = [&]( UI::OperatorEditorForecastCommandType type )
+    { submit( m_frameCommands.operatorEditor.forecast, UI::OperatorEditorForecastCommand { type } ); };
+
     const auto editFloat = [&]( const char* label, UI::OperatorEditorPropertyCommandType type, float sourceValue,
                                 float speed, float minimum, float maximum, const char* format )
     {
@@ -3046,6 +3049,77 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             {
                 ImGui::SameLine();
                 ImGui::TextDisabled( "NO REPLAY TIMELINE" );
+            }
+
+            ImGui::SeparatorText( "Continuous orbital forecast" );
+            const UI::OperatorEditorForecastView& forecast = view.forecast;
+
+            if ( ImGui::Button( forecast.active ? "CONTINUOUS*" : "CONTINUOUS" ) )
+            {
+                submitForecast( UI::OperatorEditorForecastCommandType::ToggleContinuous );
+            }
+
+            ImGui::SameLine();
+
+            if ( ImGui::Button( "RESET FORECAST" ) )
+            {
+                submitForecast( UI::OperatorEditorForecastCommandType::Reset );
+            }
+
+            ImGui::SameLine();
+
+            if ( ImGui::Button( "EXIT FORECAST" ) )
+            {
+                submitForecast( UI::OperatorEditorForecastCommandType::Exit );
+            }
+
+            ImGui::Text( "Simulated %.2fs | sim / real %.1fx | window %.2fs", forecast.simulatedSeconds,
+                         forecast.simulatedSecondsPerRealSecond, forecast.rollingWindowAgeSeconds );
+            ImGui::Text( "Producer %s / %s | tick %llu | retained %llu bytes",
+                         forecast.available ? "available" : "unavailable",
+                         forecast.failed ? "failed" : ( forecast.workerInFlight ? "running" : "idle" ),
+                         static_cast<unsigned long long>( forecast.newestAbsoluteTick ),
+                         static_cast<unsigned long long>( forecast.retainedBytes ) );
+
+            if ( forecast.configured )
+            {
+                ImGui::Text( "Stability numeric %s | system %s | auxiliary %s", forecast.numericalHealthy ? "ok" : "fail",
+                             forecast.systemOrbitalHealthy ? "ok" : "fail",
+                             forecast.auxiliaryOrbitalHealthy ? "ok" : "fail" );
+            }
+            else
+            {
+                ImGui::TextDisabled( "Stability not started" );
+            }
+
+            if ( forecast.firstFailureCause == UI::OperatorEditorForecastCause::None )
+            {
+                ImGui::TextDisabled( "First cause: none" );
+            }
+            else
+            {
+                ImGui::Text( "First cause: %s @ %.2fs (%u/%u)",
+                             UI::OperatorEditorForecastCauseName( forecast.firstFailureCause ), forecast.firstFailureSeconds,
+                             forecast.firstFailureSubject, forecast.firstFailureOther );
+            }
+
+            if ( forecast.energyDriftAvailable )
+            {
+                ImGui::Text( "Energy drift %.3e (max %.3e)", forecast.energyDrift, forecast.maximumAbsoluteEnergyDrift );
+            }
+            else
+            {
+                ImGui::TextDisabled( "Energy drift unavailable" );
+            }
+
+            if ( forecast.angularMomentumDriftAvailable )
+            {
+                ImGui::Text( "Angular-momentum drift %.3e (max %.3e)", forecast.angularMomentumDrift,
+                             forecast.maximumAngularMomentumDrift );
+            }
+            else
+            {
+                ImGui::TextDisabled( "Angular-momentum drift unavailable" );
             }
         }
 

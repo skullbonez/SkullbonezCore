@@ -6,7 +6,9 @@ Purpose:
 Summary:
   The producer snapshots one authoritative Physics engine into a private engine,
   advances that private engine in worker-local five-millisecond slices, and
-  publishes only complete all-body position rows through a fixed sample ring.
+  publishes complete all-body position rows through a fixed sample ring. One
+  optional typed observer may inspect each complete private tick synchronously;
+  no full-state history crosses the lower publication boundary.
 
 Glossary:
   Continuous slice: One worker submission that advances whole fixed ticks until
@@ -20,6 +22,7 @@ Invariants:
   - The worker has no finite target tick and no deterministic-capture tick cap.
   - Stop requests cancellation and joins the worker before retiring publication.
   - Bounded ReplayPrediction state is neither accepted nor reachable here.
+  - The optional tick observer is borrowed only until Stop joins the worker.
 
 Related:
   - SkullbonezSource/Runtime/Prediction/ContinuousPredictionSampleRing.h
@@ -42,6 +45,7 @@ Related:
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <span>
 #include <vector>
 
 namespace SkullbonezCore
@@ -54,7 +58,8 @@ class Profiler;
 namespace Physics
 {
 class PhysicsEngine;
-}
+struct PersistentContact;
+} // namespace Physics
 namespace Threading
 {
 class WorkerPool;
@@ -93,6 +98,19 @@ struct ContinuousPredictionBodySeed
     bool fixed = false;
 };
 
+// Lifetime: Planning may implement this narrow synchronous observation seam.
+// The producer retains the borrow only while active and clears it after join;
+// observer calls never expose the private engine or survive the worker tick.
+class ContinuousPredictionTickObserver
+{
+  public:
+    virtual ~ContinuousPredictionTickObserver() = default;
+    virtual void ObserveCompleteContinuousPredictionTick( const Physics::PhysicsBodyStore& bodies,
+                                                          std::span<const Physics::PersistentContact> contacts,
+                                                          std::uint64_t absoluteTick ) noexcept = 0;
+    virtual void ObserveInvalidContinuousPredictionPublication( std::uint64_t absoluteTick ) noexcept = 0;
+};
+
 class ContinuousPredictionProducer;
 
 // Lifetime: this fixed task is embedded in its producer. Stop and destruction
@@ -127,7 +145,8 @@ class ContinuousPredictionProducer
 
     bool Begin( const Physics::PhysicsEngine& liveEngine, const Gameplay::TornadoGameplay& liveTornado,
                 const Core::EngineConfig& config, const Physics::PhysicsWorldForces& worldForces,
-                Threading::WorkerPool& workerPool, std::size_t rowCapacity = ContinuousPredictionWindowRowCapacity() );
+                Threading::WorkerPool& workerPool, std::size_t rowCapacity = ContinuousPredictionWindowRowCapacity(),
+                ContinuousPredictionTickObserver* tickObserver = nullptr );
 
     // The frame-side budget is independent from the worker-local slice clock,
     // matching bounded PREDICT's ratified dual-check semantics.
@@ -157,6 +176,7 @@ class ContinuousPredictionProducer
     std::vector<ContinuousPredictionBodySeed> m_bodySeeds;
     ContinuousPredictionSampleRing m_samples;
     ContinuousPredictionWorkerTask m_workerTask;
+    ContinuousPredictionTickObserver* m_tickObserver = nullptr;
     std::atomic<std::uint64_t> m_newestAbsoluteTick { 0u };
     std::atomic<double> m_measuredTicksPerMillisecond { 0.0 };
     std::atomic<bool> m_active { false };

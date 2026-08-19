@@ -201,7 +201,7 @@ bool ContinuousPredictionProducer::SeedPrivateEngine( const Physics::PhysicsEngi
 bool ContinuousPredictionProducer::Begin( const Physics::PhysicsEngine& liveEngine,
                                           const Gameplay::TornadoGameplay& liveTornado, const Core::EngineConfig& config,
                                           const Physics::PhysicsWorldForces& worldForces, Threading::WorkerPool& workerPool,
-                                          std::size_t rowCapacity )
+                                          std::size_t rowCapacity, ContinuousPredictionTickObserver* tickObserver )
 {
     if ( m_active.load( std::memory_order_acquire ) || m_workerTask.InFlight() )
     {
@@ -213,6 +213,7 @@ bool ContinuousPredictionProducer::Begin( const Physics::PhysicsEngine& liveEngi
     m_cancelRequested.store( false, std::memory_order_relaxed );
     m_newestAbsoluteTick.store( 0u, std::memory_order_relaxed );
     m_measuredTicksPerMillisecond.store( 0.0, std::memory_order_relaxed );
+    m_tickObserver = tickObserver;
 
     Core::Allocation::RuntimeAllocationScope replayAllocationScope( Core::Allocation::RuntimeAllocationPhase::Replay );
     Core::Allocation::RuntimeReserveOwnerScope ownerScope( ReplayPredictionReserveOwner() );
@@ -261,6 +262,7 @@ void ContinuousPredictionProducer::Stop() noexcept
     m_workerTask.WaitForIdle();
     m_active.store( false, std::memory_order_release );
     m_samples.ResetAfterJoin();
+    m_tickObserver = nullptr;
 }
 
 ContinuousPredictionProducerView ContinuousPredictionProducer::View() const noexcept
@@ -322,6 +324,11 @@ void ContinuousPredictionProducer::RunWorkerSlice( Threading::WorkerPool& worker
 
         if ( currentTick == ( std::numeric_limits<std::uint64_t>::max )() - 1u )
         {
+            if ( m_tickObserver )
+            {
+                m_tickObserver->ObserveInvalidContinuousPredictionPublication( currentTick + 1u );
+            }
+
             MarkFailed();
             break;
         }
@@ -339,10 +346,22 @@ void ContinuousPredictionProducer::RunWorkerSlice( Threading::WorkerPool& worker
         {
             if ( !m_cancelRequested.load( std::memory_order_relaxed ) )
             {
+                if ( m_tickObserver )
+                {
+                    m_tickObserver->ObserveInvalidContinuousPredictionPublication( nextTick );
+                }
+
                 MarkFailed();
             }
 
             break;
+        }
+
+        if ( m_tickObserver )
+        {
+            m_tickObserver->ObserveCompleteContinuousPredictionTick( Physics::PhysicsEngine::ReadBodies( *m_engine ),
+                                                                     m_engine->GetDiagnosticsView().persistentContacts,
+                                                                     nextTick );
         }
 
         m_newestAbsoluteTick.store( nextTick, std::memory_order_release );

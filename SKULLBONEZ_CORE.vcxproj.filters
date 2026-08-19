@@ -348,6 +348,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ContinuousOrbitalStability.cpp">
       <Filter>Source Files\Runtime\Planning</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\ContinuousOrbitalForecast.cpp">
+      <Filter>Source Files\Runtime\Planning</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayCauseInspection.cpp">
       <Filter>Source Files\Runtime\Planning</Filter>
     </ClCompile>
@@ -1262,6 +1265,9 @@
       <Filter>Header Files\Runtime\Planning</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Planning\ContinuousOrbitalStability.h">
+      <Filter>Header Files\Runtime\Planning</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Planning\ContinuousOrbitalForecast.h">
       <Filter>Header Files\Runtime\Planning</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Planning\ReplayCauseInspection.h">

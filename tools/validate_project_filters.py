@@ -431,6 +431,7 @@ RUNTIME_PREDICTION_PREFIXES = (
 )
 
 RUNTIME_PLANNING_PREFIXES = (
+    "ContinuousOrbitalForecast",
     "ContinuousOrbitalStability",
     "ReplayCauseInspection",
     "ReplayGuideArcs",

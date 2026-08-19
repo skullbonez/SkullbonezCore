@@ -150,6 +150,16 @@ bool SameReplayPayload( const OperatorEditorReplayCommand& left, const OperatorE
            left.enabled == right.enabled;
 }
 
+bool SameForecastIdentity( const OperatorEditorForecastCommand& left, const OperatorEditorForecastCommand& right )
+{
+    return left.type == right.type;
+}
+
+bool SameForecastPayload( const OperatorEditorForecastCommand& left, const OperatorEditorForecastCommand& right )
+{
+    return left.type == right.type;
+}
+
 bool SameToolIdentity( const OperatorEditorToolCommand& left, const OperatorEditorToolCommand& right )
 {
     if ( left.type != right.type )
@@ -218,6 +228,32 @@ template <typename Value> void HashValue( uint64_t& hash, const Value& value ) n
     HashBytes( hash, &value, sizeof( value ) );
 }
 } // namespace
+
+const char* OperatorEditorForecastCauseName( OperatorEditorForecastCause cause ) noexcept
+{
+    switch ( cause )
+    {
+    case OperatorEditorForecastCause::InvalidContract:
+        return "invalid contract";
+    case OperatorEditorForecastCause::NonFiniteState:
+        return "non-finite state";
+    case OperatorEditorForecastCause::PrivateStepFailure:
+        return "private step failure";
+    case OperatorEditorForecastCause::InvalidPublication:
+        return "invalid publication";
+    case OperatorEditorForecastCause::InnerEnvelope:
+        return "inner envelope";
+    case OperatorEditorForecastCause::OuterEnvelope:
+        return "outer envelope";
+    case OperatorEditorForecastCause::SustainedEscape:
+        return "sustained escape";
+    case OperatorEditorForecastCause::Collision:
+        return "collision";
+    case OperatorEditorForecastCause::None:
+    default:
+        return "none";
+    }
+}
 
 SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                             OperatorEditorSceneCommandQueue& queue,
@@ -495,6 +531,21 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( SkullbonezCore::Core
 }
 
 SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                            OperatorEditorForecastCommandQueue& queue,
+                                                            const OperatorEditorForecastCommand& command, bool* duplicate )
+{
+    switch ( command.type )
+    {
+    case OperatorEditorForecastCommandType::ToggleContinuous:
+    case OperatorEditorForecastCommandType::Reset:
+    case OperatorEditorForecastCommandType::Exit:
+        return SubmitBounded( diagnostics, queue, command, SameForecastIdentity, SameForecastPayload, duplicate );
+    default:
+        return diagnostics.Failure( OWNER, "Forecast command has an unknown action type" );
+    }
+}
+
+SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                             OperatorEditorToolCommandQueue& queue,
                                                             const OperatorEditorToolCommand& command, bool* duplicate )
 {
@@ -768,6 +819,29 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( Skullbonez
                                                                             commands.replayMemory.requestedBudgetMiB } );
     }
 
+    if ( result.Ok() && commands.forecast.type != UIForecastCommandType::None )
+    {
+        OperatorEditorForecastCommand command;
+
+        switch ( commands.forecast.type )
+        {
+        case UIForecastCommandType::ToggleContinuous:
+            command.type = OperatorEditorForecastCommandType::ToggleContinuous;
+            break;
+        case UIForecastCommandType::Reset:
+            command.type = OperatorEditorForecastCommandType::Reset;
+            break;
+        case UIForecastCommandType::Exit:
+            command.type = OperatorEditorForecastCommandType::Exit;
+            break;
+        case UIForecastCommandType::None:
+        default:
+            break;
+        }
+
+        result = SubmitOperatorEditorCommand( diagnostics, normalized.forecast, command );
+    }
+
     const auto normalizeTool = [&]( bool requested, OperatorEditorToolCommandType type )
     {
         if ( result.Ok() && requested )
@@ -860,6 +934,7 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( Skullbonez
     commands.physics.requestLauncherProjectileSpeed = false;
     commands.profiler.requestedWorkerThreads = -2;
     commands.replayMemory.requestPolicy = false;
+    commands.forecast.type = UIForecastCommandType::None;
     commands.editor.toggleEditorMode = false;
     commands.editor.togglePlacementMode = false;
     commands.editor.requestUndo = false;
@@ -915,6 +990,15 @@ OperatorEditorArbitrationResult ArbitrateOperatorEditorCommands( SkullbonezCore:
         {
             status = MergeQueue( diagnostics, result.commands.replay, source.replay,
                                  [&diagnostics]( OperatorEditorReplayCommandQueue& queue, const OperatorEditorReplayCommand& command,
+                                                 bool* duplicate )
+                                 { return SubmitOperatorEditorCommand( diagnostics, queue, command, duplicate ); },
+                                 accepted, result.coalescedDuplicateCommands );
+        }
+
+        if ( status.Ok() )
+        {
+            status = MergeQueue( diagnostics, result.commands.forecast, source.forecast,
+                                 [&diagnostics]( OperatorEditorForecastCommandQueue& queue, const OperatorEditorForecastCommand& command,
                                                  bool* duplicate )
                                  { return SubmitOperatorEditorCommand( diagnostics, queue, command, duplicate ); },
                                  accepted, result.coalescedDuplicateCommands );
@@ -1015,6 +1099,7 @@ SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( SkullbonezCore::Co
     commands.physics.requestLauncherProjectileSpeed = false;
     commands.profiler.requestedWorkerThreads = -2;
     commands.replayMemory.requestPolicy = false;
+    commands.forecast.type = UIForecastCommandType::None;
     commands.editor.toggleEditorMode = false;
     commands.editor.togglePlacementMode = false;
     commands.editor.requestUndo = false;
@@ -1405,6 +1490,29 @@ uint64_t FingerprintOperatorEditorFrameView( const OperatorEditorFrameView& view
     HashValue( hash, view.replay.solverRetentionSeconds );
     HashValue( hash, view.replay.memoryBudgetClamped );
     HashValue( hash, view.replay.solverWindowReduced );
+    HashValue( hash, view.forecast.simulatedSeconds );
+    HashValue( hash, view.forecast.simulatedSecondsPerRealSecond );
+    HashValue( hash, view.forecast.rollingWindowAgeSeconds );
+    HashValue( hash, view.forecast.energyDrift );
+    HashValue( hash, view.forecast.angularMomentumDrift );
+    HashValue( hash, view.forecast.maximumAbsoluteEnergyDrift );
+    HashValue( hash, view.forecast.maximumAngularMomentumDrift );
+    HashValue( hash, view.forecast.firstFailureSeconds );
+    HashValue( hash, view.forecast.newestAbsoluteTick );
+    HashValue( hash, view.forecast.retainedBytes );
+    HashValue( hash, view.forecast.firstFailureSubject );
+    HashValue( hash, view.forecast.firstFailureOther );
+    HashValue( hash, view.forecast.firstFailureCause );
+    HashValue( hash, view.forecast.available );
+    HashValue( hash, view.forecast.active );
+    HashValue( hash, view.forecast.workerInFlight );
+    HashValue( hash, view.forecast.failed );
+    HashValue( hash, view.forecast.configured );
+    HashValue( hash, view.forecast.numericalHealthy );
+    HashValue( hash, view.forecast.systemOrbitalHealthy );
+    HashValue( hash, view.forecast.auxiliaryOrbitalHealthy );
+    HashValue( hash, view.forecast.energyDriftAvailable );
+    HashValue( hash, view.forecast.angularMomentumDriftAvailable );
     HashValue( hash, view.surfaces.legacyVisible );
     HashValue( hash, view.surfaces.secondaryVisible );
     HashValue( hash, view.tools.editorModeEnabled );

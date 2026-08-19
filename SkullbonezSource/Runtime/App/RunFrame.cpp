@@ -339,6 +339,11 @@ Run::FrameSimulationPhaseResult Run::RunSimulationPhase( double secondsPerFrame,
                                           m_workerPool, m_sceneController.State().isScenePhysics,
                                           m_timers.simulationTimer.GetTimeSinceLastStart(),
                                           m_timers.simulationTimer.GetTotalTime() );
+
+        // Why: this frame-side admission has its own five-millisecond check;
+        // the worker slice deliberately retains the separately ratified clock.
+        const auto continuousForecastBudgetStart = std::chrono::steady_clock::now();
+        (void)m_continuousForecast.AdvanceFrame( continuousForecastBudgetStart );
     }
     m_overlayDiagnostics->UpdatePostPhysics( m_sceneController.Scene(), *m_validationHarness,
                                              m_config.bodySimulation.contactEpsilon, secondsPerFrame );
@@ -361,7 +366,7 @@ Run::FrameRenderPhaseResult Run::PrepareRenderPhase( bool legacyDevelopmentUiAct
 
         if ( stressLoad.request.accepted )
         {
-            PrepareLookLabForSceneTransition();
+            PrepareSceneScopedOwnersForTransition();
             SceneLoadTransaction sceneLoad;
             sceneLoad.CaptureSubmittedState( m_camera, CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
                                              m_overlayDiagnostics->PresentationSnapshot(), Renderer().RendererName(),
@@ -1006,7 +1011,7 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
 
         if ( request.HasLoad() )
         {
-            PrepareLookLabForSceneTransition();
+            PrepareSceneScopedOwnersForTransition();
             SceneLoadTransaction sceneLoad;
             sceneLoad.CaptureSubmittedState( m_camera, CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
                                              m_overlayDiagnostics->PresentationSnapshot(), Renderer().RendererName(),
@@ -1136,7 +1141,7 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
 
     if ( result.loadRequest.HasLoad() )
     {
-        PrepareLookLabForSceneTransition();
+        PrepareSceneScopedOwnersForTransition();
         SceneLoadTransaction sceneLoad;
         sceneLoad.CaptureSubmittedState( m_camera, CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
                                          m_overlayDiagnostics->PresentationSnapshot(), Renderer().RendererName(),

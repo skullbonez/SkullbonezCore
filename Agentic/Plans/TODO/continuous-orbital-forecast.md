@@ -322,6 +322,72 @@ nor a growth privilege.
   `physics_regression_varied.csv` mismatch beginning at frame 102; OF3 changes
   no Physics source or expected output, and no baseline was refreshed.
 
+## OF4 Touched-Source Comment Audit - 2026-08-19
+
+- [x] `SkullbonezSource/Runtime/App/InputFrame.cpp`
+- [x] `SkullbonezSource/Runtime/App/InputFrameExecution.cpp`
+- [x] `SkullbonezSource/Runtime/App/Run.cpp`
+- [x] `SkullbonezSource/Runtime/App/Run.h`
+- [x] `SkullbonezSource/Runtime/App/RunFrame.cpp`
+- [x] `SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp`
+- [x] `SkullbonezSource/Runtime/Planning/ContinuousOrbitalForecast.cpp`
+- [x] `SkullbonezSource/Runtime/Planning/ContinuousOrbitalForecast.h`
+- [x] `SkullbonezSource/Runtime/Prediction/ContinuousPredictionProducer.cpp`
+- [x] `SkullbonezSource/Runtime/Prediction/ContinuousPredictionProducer.h`
+- [x] `SkullbonezSource/Runtime/UI/OperatorEditorFrameComposer.cpp`
+- [x] `SkullbonezSource/UI/OperatorEditorExchange.cpp`
+- [x] `SkullbonezSource/UI/OperatorEditorExchange.h`
+- [x] `SkullbonezSource/UI/UICommands.h`
+- [x] `SkullbonezSource/UI/UITabScene.cpp`
+- [x] `SkullbonezSource/UI/UITabScene.h`
+- [x] `SkullbonezSource/UI/UIWindowInteractionOwner.cpp`
+- [x] `SkullbonezTests/TestContinuousPredictionProducer.cpp`
+- [x] `SkullbonezTests/TestOwnerRequestQueues.cpp`
+- [x] `SkullbonezTests/TestUIDrawValues.cpp`
+- [x] `tools/validate_project_filters.py`
+
+Checked: 21. Deferred: 0. The new Planning aggregate names its synchronous
+observer and scene-lifetime invariants and cites both focused tests. App comments
+record mutual exclusion, scene-transition join order, and the ratified separate
+frame/worker budget clocks. UI comments retain the detached request/value
+contract and shared draw/hit-test geometry; no glossary ownership moved.
+
+## OF4 Composition And Operator Evidence - 2026-08-19
+
+- `ContinuousOrbitalForecast` composes the OF2 producer and OF3 analyzer under
+  Planning. App owns its lifetime, supplies the scene-resolved contract, advances
+  frame admission under the existing Replay allocation scope, and joins the
+  worker before every scene transition or shutdown. The producer's worker slice
+  retains its own ratified five-millisecond clock; frame-side setup is not
+  falsely described as sharing that budget.
+- Legacy and ImGui publish typed `CONTINUOUS`, reset, and exit requests through
+  the shared bounded operator exchange. App arbitration makes continuous and
+  bounded `PREDICT` mutually exclusive, including same-frame requests, without
+  storing feature state in UI or Input. Both surfaces show duration, simulated /
+  real-time rate, rolling-window age, producer and stability status, first typed
+  cause/time, and availability-aware conservation diagnostics; ImGui's accepted
+  1-20 second bounded-horizon control remains unchanged.
+- Complete private-engine ticks feed the analyzer synchronously through a typed
+  observer. Focused Profile witnesses pass 57/57 producer assertions, 25/25
+  queue/arbitration assertions, and 9/9 fingerprint assertions; the producer
+  witness still crosses three full ring wraps with flat warmed retained bytes
+  and no additional Replay-owner growth.
+- `tools\validate_tests.bat` passes all 620 cases and 2,484,057 assertions.
+  `tools\validate_fast.bat`, dependency, strict replay-allocation policy, and
+  performance validation pass. Project filters report 827/827 entries,
+  aggregate rulings are 89/89, function-complexity rulings are 41/41, and the
+  remaining ownership inventories are exact-current with zero blocking
+  diagnostics.
+- The mapped Physics gate reproduces only the inherited owner-controlled
+  20,394-row `physics_regression_varied.csv` mismatch beginning at frame 102.
+  Replay visual fidelity passes its 17 packet/false-pass cases and reproduces
+  only the inherited `header.topologyVersion` mismatch at reveal 0. No baseline,
+  executable, or visual oracle was refreshed.
+- OF4 adds no downward Replay include, `PhysicsBodyRecord` field, reserve
+  registration, cap increase, phase relaxation, or post-start growth path. The
+  fixed observer arrays and Planning aggregate use the already-ratified producer
+  storage and existing `replay_prediction_working_set` privilege.
+
 ## Non-Goals
 
 - Do not remove or raise the ordinary 120-second bounded prediction limit.
@@ -369,7 +435,7 @@ nor a growth privilege.
   producer. Focused tests plant one finite stable orbit, radial escape,
   collision, sustained-versus-transient escape, invalid numeric state, and
   auxiliary-only failure.
-- [ ] **OF4 - Wire typed commands and operator readout.** Add mutually exclusive
+- [x] **OF4 - Wire typed commands and operator readout.** Add mutually exclusive
   `PREDICT`/`CONTINUOUS` commands through existing UI value queues and App
   composition. Show simulated duration, achieved simulation/real-time rate,
   rolling-window age, stability status, first cause/time, and conservation

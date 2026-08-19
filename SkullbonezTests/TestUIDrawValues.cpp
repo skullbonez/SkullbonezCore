@@ -258,7 +258,9 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
 #else
         16424379413615724563ull,
 #endif
-        5048000936848528224ull, // Scene: reveal-speed row added under simulation speed.
+        // Scene: continuous-forecast controls and stability rows are part of
+        // the committed operator stream.
+        5520075838685288969ull,
         643319089294822447ull,
         9774020997193876338ull,
         3787874871094680490ull,

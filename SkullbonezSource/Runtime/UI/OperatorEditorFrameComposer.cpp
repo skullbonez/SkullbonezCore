@@ -69,6 +69,35 @@ namespace Runtime
 namespace OperatorEditorFrameComposer
 {
 
+static SkullbonezCore::UI::OperatorEditorForecastCause MapForecastCause( ContinuousOrbitalInstabilityCause cause ) noexcept
+{
+    using Cause = ContinuousOrbitalInstabilityCause;
+    using ViewCause = SkullbonezCore::UI::OperatorEditorForecastCause;
+
+    switch ( cause )
+    {
+    case Cause::InvalidContract:
+        return ViewCause::InvalidContract;
+    case Cause::NonFiniteState:
+        return ViewCause::NonFiniteState;
+    case Cause::PrivateStepFailure:
+        return ViewCause::PrivateStepFailure;
+    case Cause::InvalidPublication:
+        return ViewCause::InvalidPublication;
+    case Cause::InnerEnvelope:
+        return ViewCause::InnerEnvelope;
+    case Cause::OuterEnvelope:
+        return ViewCause::OuterEnvelope;
+    case Cause::SustainedEscape:
+        return ViewCause::SustainedEscape;
+    case Cause::Collision:
+        return ViewCause::Collision;
+    case Cause::None:
+    default:
+        return ViewCause::None;
+    }
+}
+
 static void FillOperatorRenderingParameters( SkullbonezCore::UI::OperatorEditorRenderingView& view,
                                              const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary,
                                              const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
@@ -337,6 +366,38 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
                                   sharedReplayHud.requestedBudgetMiB,     sharedReplayHud.presentationRetentionSeconds,
                                   sharedReplayHud.solverRetentionSeconds, sharedReplayHud.memoryBudgetClamped,
                                   sharedReplayHud.solverWindowReduced };
+
+    const ContinuousOrbitalForecastView forecast = m_continuousForecast.View();
+    const bool blockingFailureFirst = forecast.stability.firstBlockingFailure.latched &&
+                                      ( !forecast.stability.firstAuxiliaryFailure.latched ||
+                                        forecast.stability.firstBlockingFailure.absoluteTick <=
+                                            forecast.stability.firstAuxiliaryFailure.absoluteTick );
+    const ContinuousOrbitalFailure& firstFailure = blockingFailureFirst ? forecast.stability.firstBlockingFailure
+                                                                        : forecast.stability.firstAuxiliaryFailure;
+    SkullbonezCore::UI::OperatorEditorForecastView& sharedForecast = operatorEditorView.forecast;
+    sharedForecast.simulatedSeconds = forecast.simulatedSeconds;
+    sharedForecast.simulatedSecondsPerRealSecond = forecast.simulatedSecondsPerRealSecond;
+    sharedForecast.rollingWindowAgeSeconds = forecast.rollingWindowAgeSeconds;
+    sharedForecast.energyDrift = forecast.stability.conservation.energyDrift;
+    sharedForecast.angularMomentumDrift = forecast.stability.conservation.angularMomentumDrift;
+    sharedForecast.maximumAbsoluteEnergyDrift = forecast.stability.conservation.maximumAbsoluteEnergyDrift;
+    sharedForecast.maximumAngularMomentumDrift = forecast.stability.conservation.maximumAngularMomentumDrift;
+    sharedForecast.firstFailureSeconds = firstFailure.simulatedSeconds;
+    sharedForecast.newestAbsoluteTick = forecast.newestAbsoluteTick;
+    sharedForecast.retainedBytes = static_cast<uint64_t>( forecast.retainedBytes );
+    sharedForecast.firstFailureSubject = firstFailure.subject.value;
+    sharedForecast.firstFailureOther = firstFailure.other.value;
+    sharedForecast.firstFailureCause = MapForecastCause( firstFailure.cause );
+    sharedForecast.available = forecast.available;
+    sharedForecast.active = forecast.active;
+    sharedForecast.workerInFlight = forecast.workerInFlight;
+    sharedForecast.failed = forecast.failed;
+    sharedForecast.configured = forecast.stability.configured;
+    sharedForecast.numericalHealthy = forecast.stability.numericalHealthy;
+    sharedForecast.systemOrbitalHealthy = forecast.stability.systemOrbitalHealthy;
+    sharedForecast.auxiliaryOrbitalHealthy = forecast.stability.auxiliaryOrbitalHealthy;
+    sharedForecast.energyDriftAvailable = forecast.stability.conservation.energyDriftAvailable;
+    sharedForecast.angularMomentumDriftAvailable = forecast.stability.conservation.angularMomentumDriftAvailable;
 
     operatorEditorView.surfaces = { ui.IsVisible(), operatorEditorView.surfaces.secondaryVisible };
 
