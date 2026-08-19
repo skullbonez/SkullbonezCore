@@ -5,8 +5,8 @@ Purpose:
 
 Summary:
   AuthoredScene owns the cold, parsed values that cross from scene JSON into
-  deterministic runtime setup, including resolved orbital-policy membership,
-  without retaining parser state or live stores.
+  deterministic runtime setup, including validation requirements and resolved
+  orbital-policy membership, without retaining parser state or live stores.
 
 Glossary:
   Asset provenance: Cold scene-file records that retain which library, asset,
@@ -351,6 +351,11 @@ struct SceneRequiredContact
     char nameB[64] = {};
 };
 
+struct SceneRequiredSleepingDynamicBody
+{
+    char name[64] = {};
+};
+
 struct SceneRequiredBroadphaseXCells
 {
     int minCellX = 0;
@@ -516,6 +521,7 @@ class AuthoredScene
     std::vector<ScenePointJointConstraint> m_pointJointConstraints;
     std::vector<SceneObjectMaterialOverride> m_objectMaterials;
     std::vector<SceneRequiredContact> m_requiredContacts;
+    std::vector<SceneRequiredSleepingDynamicBody> m_requiredSleepingDynamicBodies;
     std::vector<SceneRequiredBroadphaseXCells> m_requiredBroadphaseXCells;
     std::vector<SceneAssetLibraryRef> m_assetLibraries;
     std::vector<SceneAssetInstanceRecord> m_assetInstances;
@@ -588,7 +594,7 @@ class AuthoredScene
     float GetTrackHeight() const;                                // Tracking camera height above ball; -1 disables.
     float GetAutoCycleInterval() const;                          // Per-ball screenshot interval in seconds; -1 disables.
     bool IsScreenshotAndExit() const;                            // True if scene should capture first frame then exit
-    bool IsExitOnComplete() const;                               // True if scene should exit automatically when frame count is reached
+    bool IsExitOnComplete() const;                               // True when authored completion may advance or exit the scene.
     bool IsCollisionVisualizerEnabled() const;
     bool IsBroadphaseOverlayEnabled() const;
     bool IsWaterFreezeDebugEnabled() const;
@@ -632,6 +638,8 @@ class AuthoredScene
     const SceneObjectMaterialOverride& GetObjectMaterialOverride( int index ) const;
     int GetRequiredContactCount() const;
     const SceneRequiredContact& GetRequiredContact( int index ) const;
+    int GetRequiredSleepingDynamicBodyCount() const;
+    const SceneRequiredSleepingDynamicBody& GetRequiredSleepingDynamicBody( int index ) const;
     int GetRequiredBroadphaseXCellCount() const;
     const SceneRequiredBroadphaseXCells& GetRequiredBroadphaseXCell( int index ) const;
     int GetAssetLibraryCount() const;

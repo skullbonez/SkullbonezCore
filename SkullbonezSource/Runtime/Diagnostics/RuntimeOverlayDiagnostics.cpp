@@ -15,6 +15,8 @@ Glossary:
 Invariants:
   - Construction is a single bounded startup allocation outside steady play.
   - Visualizer refresh occurs after physics commits and before render samples.
+  - Sleeping-body validation samples Physics-owned awake bytes in that same
+    post-physics phase; it does not infer rest from presentation values.
   - A pending broadphase gate and a visible overlay consume the same active-cell
     snapshot; no snapshot is copied when neither consumer needs one.
 
@@ -186,6 +188,7 @@ void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneWorld& scene, RuntimeVal
 
     m_renderResources.m_physicsDebugOverlay.Update( static_cast<float>( secondsPerFrame ), physicsDebugView );
     const auto debugContacts = PhysicsEngine::ReadDebugContacts( physics );
+    validationHarness.SceneGates().UpdateRequiredSleepingDynamicBodies( scene.BodyStore().HotFields().awake );
     validationHarness.SceneGates().UpdateRequiredContacts( SceneAutomationGatePhysicsView { scene.BodyStore(),
                                                                                             scene.Colliders(),
                                                                                             debugContacts },

@@ -93,6 +93,7 @@ class SceneAutomationGateTracker
     void ObserveSceneLifecycle( const SceneLifecyclePacket& packet, SceneAutomationGateConfiguration&& configuration );
 
     void UpdateRequiredContacts( SceneAutomationGatePhysicsView physics, float contactEpsilon );
+    void UpdateRequiredSleepingDynamicBodies( std::span<const uint8_t> awakeBodies );
 
     // Returns true only while an authored broadphase requirement still needs a
     // live active-cell observation; callers may skip snapshot copies otherwise.
@@ -104,6 +105,7 @@ class SceneAutomationGateTracker
   private:
     void ApplyConfiguration( SceneAutomationGateConfiguration configuration );
     bool RequiredContactsComplete() const;
+    bool RequiredSleepingDynamicBodiesComplete() const;
     bool RequiredBroadphaseXCellsComplete() const;
 
     SceneAutomationGateConfiguration m_configuration;

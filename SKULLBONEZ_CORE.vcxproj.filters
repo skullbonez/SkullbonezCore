@@ -1126,6 +1126,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneAutomationGateConfiguration.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneSleepingDynamicBodyGatePolicy.h">
+      <Filter>Header Files\Runtime\Scene</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneController.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>

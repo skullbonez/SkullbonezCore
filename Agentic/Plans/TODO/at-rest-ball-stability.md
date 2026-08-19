@@ -1,7 +1,7 @@
 # At-Rest Ball Stability
 
 Date: 2026-08-18
-Status: Registered; 0/8 phases complete
+Status: Active; 1/8 phases complete
 Impact area: Physics terrain contacts, persistent contact solving, rolling and
 sliding response, sleep eligibility/transition, SkullScope diagnostics, tests,
 known-issue baselines, and performance
@@ -82,6 +82,165 @@ solver-local velocity snap.
   frame policy in `PhysicsSleepController`. These responsibilities must not be
   collapsed into a second retained rest-state owner.
 
+## RS0 Ratified Baseline — 2026-08-19
+
+The generic gate resolves the three authored names after final scene population,
+rejects missing or fixed targets, and samples the Physics-owned `awake` bytes in
+the existing post-physics automation-gate pass. Its observation is deliberately
+not latched: a later wake clears completion. The authoritative run below exited
+naturally at physics frame 35,159 only when all three balls were simultaneously
+asleep. `target_frames` remained `-1`; render frame 7,032 is diagnostic process
+bookkeeping, not a completion timeout.
+
+Exact generation command:
+
+```bat
+Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData\scenes\at_rest.scene.json --physics-diag Debug\at_rest_before.physicsdiag.ndjson
+```
+
+The run contains 35,160 fixed physics steps at 1/120 s, reaches 292.991682 s,
+and ends with six sleeping bodies. The query cache was built only after the
+process closed. No watchdog, operator abort, baseline refresh, raw-NDJSON read,
+or raw-SQLite read was used.
+
+### Preserved Baseline Artifacts
+
+Ignored preservation root:
+`TestOutput/validation/candidates/REST_STABILITY_RS0_BEFORE/`.
+
+| Artifact | Bytes | SHA-256 |
+|---|---:|---|
+| `SKULLBONEZ_CORE_Debug_before.exe` | 13,446,144 | `442B1D2D4E0A7955739134F417000381137421CBC99F4A82F79F990499F0F5E1` |
+| `SKULLBONEZ_TESTS_Debug_before.exe` | 16,533,504 | `30787DAC38EC6959FE6198892502C65400D9540D38212B46D5DC6EEC00B15EB5` |
+| `physics_known_at_rest_before.csv` | 7,631,545 | `C91B03DA690F2BB9D93299639A52ACFFB98820407B0C4DF8EBD846AF8DE4A2FE` |
+| `at_rest_before.physicsdiag.ndjson` | 269,418,914 | `869B947FB3C9DE1D941E331477FF6FF5E25C12E528A41DBB74316C537FEC469F` |
+| `at_rest_before.physicsdiag.sqlite` | 124,059,648 | `F87E1362EE22007D2F2069A4FE6857743990A363463FB887F2BBF8B08E57E68F` |
+
+The 0/1/4-worker witnesses each contain 210,961 CSV lines and 29,837,159
+bytes. All three hash to
+`8C3E4187B87F6FA24C2FCF972C43EE36711B42731414061CDE9748DB408222EF`.
+Their equality proves the pre-fix scene trajectory and all-three-sleep exit are
+worker-count deterministic; it does not claim that the trajectory is good.
+
+### Ratified Semantic Targets
+
+These are analyzer failures, never playback stop conditions. The scene remains
+unlimited and continues until the exact all-three-Physics-asleep gate succeeds.
+
+| Measure | RS0 target | Unit/owner basis |
+|---|---:|---|
+| Material impact | `preSolveClosingSpeed >= 2.0 m/s` | Existing contact restitution threshold |
+| Tail audit onset | frame 7,200 / 60.0 s | 56% later than slowest box-control final sleep at 38.423 s |
+| Aggregate quality deadline | all three balls asleep by frame 14,400 / 120.0 s | Measurement only; not a cap or exit path |
+| Final sleep latency | <= 1,200 frames / 10.0 s after last material impact | Includes the existing 30 consecutive quiet-frame requirement |
+| Post-impact vertical speed | max `abs(vy) <= 0.5 m/s` | Existing Physics sleep linear-speed boundary |
+| Post-impact contact slip | max `slipSpeed <= 0.5 m/s` | Same engine-unit deadband as quiet linear motion |
+| Pre-sleep accumulated slip | <= 0.25 of that ball's radius | Dimensionless per-body visual displacement bound |
+| Late horizontal reversals | <= 1 per X axis and <= 1 per Z axis after frame 7,200 | Count sign changes only outside the `+/-0.5 m/s` deadband |
+| Resting normal loop | no sub-2.0 m/s terrain contact at max 2.0 m/s separation bias followed by a >=2.0 m/s terrain re-impact without an external impact | Separates solver-created bounce from legitimate restitution |
+
+### Baseline Semantic Table
+
+| Ball | Final sleep frame | Last material impact | Latency | Post-impact max `abs(vy)` | Max slip | Approx. slip distance | Late X/Z reversals | Baseline ruling |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| `ball_a` / body 0 / radius 8 | 34,983 | 34,383 | 600 frames / 5.000 s | 0.140679 m/s | 2.206871 m/s | 7.6872 / 0.961 radius | 7 / 9 | Fails slip, displacement, reversals, aggregate deadline |
+| `ball_b` / body 1 / radius 7 | 35,155 | 34,864 | 291 / 2.425 s | 0.969157 m/s | 0.815522 m/s | 1.6905 / 0.242 radius | 15 / 17 | Fails vertical, slip, reversals, aggregate deadline |
+| `ball_c` / body 2 / radius 9 | 34,308 | 33,460 | 848 / 7.066 s | 0.703039 m/s | 2.199239 m/s | 4.4269 / 0.492 radius | 10 / 8 | Fails vertical, slip, displacement, reversals, aggregate deadline |
+
+All three baseline latency values happen to pass the 10-second guard, which is
+why latency alone is not the repair oracle. The scene still needs 292.99 s to
+obtain one simultaneous all-asleep view.
+
+### Named Causal Witnesses
+
+- Vertical loop: `ball_c`, terrain contact `2:-1:0`, frame 635. Closing speed
+  1.987702 m/s is below the material-impact boundary, yet penetration is
+  0.398529, separation bias is clamped at 2.0 m/s, and slip/rolling residual is
+  1.284800 m/s. The same contact re-impacts at frame 698 with closing speed
+  2.759281 m/s. This is the first suspicious sub-threshold/max-bias-to-material-
+  re-impact sequence.
+- Rolling reversal: after the 60-second tail onset, `ball_a` reverses Z outside
+  the 0.5 m/s deadband between frames 7,479 and 7,533. At frame 7,533 contact
+  `0:-1:0` closes at 3.345478 m/s with penetration 0.312057 and rolling
+  residual/slip 1.021412 m/s. The baseline totals 7/9, 15/17, and 10/8 X/Z
+  reversals for balls A/B/C.
+- Sleep reset: `ball_c` sleeps during frames 21,088..21,429, then wakes at
+  frame 21,430 when sphere contact `0:2:0` closes at 0.494698 m/s with normal
+  impulse 8.034171; its counter drops from 30 to 1 and island membership changes
+  from 3 to 1. `ball_a` later sleeps through frame 30,373 and wakes at 30,374
+  from `ball_c` contact closing at 3.130873 m/s. `ball_b` does not sleep until
+  frame 35,155, when island 2 contains only sleeping `ball_b` at zero speed;
+  `ball_c` has eight sleep segments before its final transition.
+
+The controls settle much earlier without a ball-only completion requirement:
+`box_a` final-sleeps at frame 1,289 / 10.741 s (last material impact 1,245,
+max speed/omega 21.091541/3.419009); `box_b` at 970 / 8.083 s (last impact 889,
+26.650600/5.031497); and `box_c` at 4,611 / 38.423 s after one wake (last
+impact 4,426, 31.146898/1.975156). RS3-RS6 must retain or improve these controls.
+
+### SkullScope Query And Size Ledger
+
+The query artifacts below are copied beside the preserved baseline. `Output
+read` is ASCII/UTF-8 query text actually exposed to a model, not the UTF-16
+`Tee-Object` file size. Two initial parallel calls were truncated; their shared
+40,106-character model payloads are counted once each and are not falsely
+apportioned among commands. Later full-history query output was redirected to
+`Out-Null` and read only by local metric code, so its GPT-read size is exactly
+zero. The six truncated body/contact queries were rerun individually and shown
+without truncation; three compact contact witnesses and two island witnesses
+were also shown without truncation. The island rows cover `ball_c` alone asleep,
+the `ball_a`/`ball_c` wake merge, and `ball_b` alone at its delayed final sleep.
+
+| # | Exact `tools\physics_query.bat` query | Output read | Truncated / retained artifact |
+|---:|---|---:|---|
+| 1 | `Debug\at_rest_before.physicsdiag.ndjson summary` | 1,085 B | No; expected `PermissionError` while the trace owner still held the file; no artifact |
+| 2 | `Debug\at_rest_before.physicsdiag.ndjson summary` | 2,796 B | No; `at_rest_before_summary.json` |
+| 3 | `Debug\at_rest_before.physicsdiag.ndjson questions why_not_resting` | 1,462 B | No; `at_rest_before_why_not_resting.json` |
+| 4 | `Debug\at_rest_before.physicsdiag.ndjson events --type failed_to_sleep,sleep_inhibited_quiet,unsupported_sleep,rolling_slip,friction_saturation,energy_spike,penetration_sustained,penetration_growing --limit 40` | 298 B | No; empty event set in `at_rest_before_events.json` |
+| 5 | `Debug\at_rest_before.physicsdiag.ndjson rolling --limit 30` | 15,245 B | No; `at_rest_before_rolling.json` |
+| 6 | `Debug\at_rest_before.physicsdiag.ndjson solver --include-convergence --limit 30` | 20,812 B | No; `at_rest_before_solver.json` |
+| 7 | `Debug\at_rest_before.physicsdiag.ndjson energy` | 28,245 B | No; `at_rest_before_energy.json` |
+| 8 | `Debug\at_rest_before.physicsdiag.ndjson body 0 --frames 0:35159 --limit 30` | 40,106 characters shared across rows 8-10 | Yes; full artifact contains 18,420 characters |
+| 9 | `Debug\at_rest_before.physicsdiag.ndjson body 1 --frames 0:35159 --limit 30` | Included in row 8 shared payload | Yes; full artifact contains 19,080 characters |
+| 10 | `Debug\at_rest_before.physicsdiag.ndjson body 2 --frames 0:35159 --limit 30` | Included in row 8 shared payload | Yes; full artifact contains 18,466 characters |
+| 11 | `Debug\at_rest_before.physicsdiag.ndjson body --help` | 559 B | No |
+| 12 | `Debug\at_rest_before.physicsdiag.ndjson stacks --frames 0:35159 --limit 50` | 9,573 B | No; `at_rest_before_stacks.json` |
+| 13 | `Debug\at_rest_before.physicsdiag.ndjson contacts --help` | 710 B | No |
+| 14 | `Debug\at_rest_before.physicsdiag.ndjson contacts --body 0 --top frame --limit 30` | 40,106 characters shared across rows 14-16 | Yes; full artifact contains 14,981 characters |
+| 15 | `Debug\at_rest_before.physicsdiag.ndjson contacts --body 1 --top frame --limit 30` | Included in row 14 shared payload | Yes; full artifact contains 14,954 characters |
+| 16 | `Debug\at_rest_before.physicsdiag.ndjson contacts --body 2 --top frame --limit 30` | Included in row 14 shared payload | Yes; full artifact contains 14,927 characters |
+| 17 | `Debug\at_rest_before.physicsdiag.ndjson body --help` | 559 B | No; `rs0_body_help.txt` |
+| 18 | `Debug\at_rest_before.physicsdiag.ndjson contacts --help` | 710 B | No; `rs0_contacts_help.txt` |
+| 19 | `Debug\at_rest_before.physicsdiag.ndjson body 0 --frames 0:35159 --limit 40000` | 0 B | No model read; `rs0_body_0_all.json` |
+| 20 | `Debug\at_rest_before.physicsdiag.ndjson body 1 --frames 0:35159 --limit 40000` | 0 B | No model read; `rs0_body_1_all.json` |
+| 21 | `Debug\at_rest_before.physicsdiag.ndjson body 2 --frames 0:35159 --limit 40000` | 0 B | No model read; `rs0_body_2_all.json` |
+| 22 | `Debug\at_rest_before.physicsdiag.ndjson contacts --frames 0:35159 --body 0 --top frame --limit 40000` | 0 B | No model read; `rs0_contacts_body_0_all.json` |
+| 23 | `Debug\at_rest_before.physicsdiag.ndjson contacts --frames 0:35159 --body 1 --top frame --limit 40000` | 0 B | No model read; `rs0_contacts_body_1_all.json` |
+| 24 | `Debug\at_rest_before.physicsdiag.ndjson contacts --frames 0:35159 --body 2 --top frame --limit 40000` | 0 B | No model read; `rs0_contacts_body_2_all.json` |
+| 25 | `Debug\at_rest_before.physicsdiag.ndjson contacts --frames 0:35159 --body 3 --top frame --limit 40000` | 0 B | No model read; `rs0_contacts_body_3_all.json` |
+| 26 | `Debug\at_rest_before.physicsdiag.ndjson contacts --frames 0:35159 --body 4 --top frame --limit 40000` | 0 B | No model read; `rs0_contacts_body_4_all.json` |
+| 27 | `Debug\at_rest_before.physicsdiag.ndjson contacts --frames 0:35159 --body 5 --top frame --limit 40000` | 0 B | No model read; `rs0_contacts_body_5_all.json` |
+| 28 | `Debug\at_rest_before.physicsdiag.ndjson body 3 --frames 1200:1350 --limit 500` | 0 B | No model read; `rs0_box_3_sleep_window.json` |
+| 29 | `Debug\at_rest_before.physicsdiag.ndjson body 4 --frames 900:1020 --limit 500` | 0 B | No model read; `rs0_box_4_sleep_window.json` |
+| 30 | `Debug\at_rest_before.physicsdiag.ndjson body 5 --frames 4500:4670 --limit 500` | 0 B | No model read; `rs0_box_5_sleep_window.json` |
+| 31 | `Debug\at_rest_before.physicsdiag.ndjson contacts --frame 635 --body 2 --limit 10` | 772 B | No; `rs0_witness_vertical_f635_b2.json` |
+| 32 | `Debug\at_rest_before.physicsdiag.ndjson contacts --frame 7533 --body 0 --limit 10` | 773 B | No; `rs0_witness_reversal_f7533_b0.json` |
+| 33 | `Debug\at_rest_before.physicsdiag.ndjson contacts --frame 21430 --body 2 --limit 10` | 1,261 B | No; `rs0_witness_wake_f21430_b2.json` |
+| 34 | `Debug\at_rest_before.physicsdiag.ndjson body 0 --frames 0:35159 --limit 30` | 18,420 characters | No; `rs0_rerun_body_0_limit30.json` |
+| 35 | `Debug\at_rest_before.physicsdiag.ndjson body 1 --frames 0:35159 --limit 30` | 19,080 characters | No; `rs0_rerun_body_1_limit30.json` |
+| 36 | `Debug\at_rest_before.physicsdiag.ndjson body 2 --frames 0:35159 --limit 30` | 18,466 characters | No; `rs0_rerun_body_2_limit30.json` |
+| 37 | `Debug\at_rest_before.physicsdiag.ndjson contacts --body 0 --top frame --limit 30` | 14,981 characters | No; `rs0_rerun_contacts_body_0_limit30.json` |
+| 38 | `Debug\at_rest_before.physicsdiag.ndjson contacts --body 1 --top frame --limit 30` | 14,954 characters | No; `rs0_rerun_contacts_body_1_limit30.json` |
+| 39 | `Debug\at_rest_before.physicsdiag.ndjson contacts --body 2 --top frame --limit 30` | 14,927 characters | No; `rs0_rerun_contacts_body_2_limit30.json` |
+| 40 | `Debug\at_rest_before.physicsdiag.ndjson island 3 --frame 21429` | 683 characters | No; `rs0_island_3_f21429.json` |
+| 41 | `Debug\at_rest_before.physicsdiag.ndjson island 1 --frame 21430` | 841 characters | No; `rs0_island_1_f21430.json` |
+| 42 | `Debug\at_rest_before.physicsdiag.ndjson island 2 --frame 35155` | 683 characters | No; `rs0_island_2_f35155.json` |
+
+Total GPT-read SkullScope query output: **268,107 characters**. Truncation:
+**yes**, limited to the original shared calls represented by rows 8-10 and
+14-16; those six exact queries were individually rerun without truncation in
+rows 34-39. Raw trace/cache bytes were never read by a model.
+
 ## SkullScope Diagnostic Contract
 
 First add the generic authored sleep-completion gate described by RS0, then
@@ -135,24 +294,24 @@ a reason to stop playback: the scene continues until all three balls sleep.
 
 ### RS0 — Establish Sleep Completion, Preserve, And Diagnose
 
-- [ ] Extend authored scene requirements with a generic named-dynamic-body sleep
+- [x] Extend authored scene requirements with a generic named-dynamic-body sleep
   gate, resolve `ball_a`, `ball_b`, and `ball_c` at load, and feed its status
   through the existing Scene automation-gate owner. Do not add a second Physics
   sleep owner or let Runtime infer sleep from velocity thresholds.
-- [ ] Author `at_rest.scene.json` to auto-exit on that requirement while keeping
+- [x] Author `at_rest.scene.json` to auto-exit on that requirement while keeping
   `playback.frames: "unlimited"`. Prove it keeps stepping with any named ball
   awake and completes only when all three are simultaneously Physics-asleep.
-- [ ] Add parser/runtime tests for missing names, fixed bodies, one remaining
+- [x] Add parser/runtime tests for missing names, fixed bodies, one remaining
   awake ball, all three asleep, and wake-before-completion. No frame timeout or
   manually aborted trace may satisfy this gate.
-- [ ] Preserve the baseline Debug CORE/TESTS executables, known-issue CSV,
+- [x] Preserve the baseline Debug CORE/TESTS executables, known-issue CSV,
   SkullScope trace/cache, and exact hashes before any behavior-bearing edit.
-- [ ] Run the broad SkullScope packet, then bounded per-ball body/contact/island
+- [x] Run the broad SkullScope packet, then bounded per-ball body/contact/island
   queries around first support, reversals, vertical peaks, sleep-counter resets,
   and final motion.
-- [ ] Record the causal sequence for each symptom and ratify semantic numeric
+- [x] Record the causal sequence for each symptom and ratify semantic numeric
   acceptance thresholds. Distinguish initial impact motion from the late tail.
-- [ ] Record box control-body metrics and 0/1/4-worker hashes.
+- [x] Record box control-body metrics and 0/1/4-worker hashes.
 
 Evidence: complete SkullScope size/query accounting, baseline semantic table,
 artifact hashes, and named first suspicious frame/body/contact for each symptom.

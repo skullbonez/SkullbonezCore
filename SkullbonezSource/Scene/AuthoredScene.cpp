@@ -5,9 +5,9 @@ Purpose:
 
 Summary:
   AuthoredScene owns the cold parsed values that cross from scene JSON into
-  deterministic runtime setup, including resolved orbital-policy membership,
-
-  while retaining neither parser state nor live scene stores.
+  deterministic runtime setup, including validation requirements and resolved
+  orbital-policy membership, while retaining neither parser state nor live
+  scene stores.
 
 Glossary:
   Scene collection: Vector-backed parsed scene array for cameras, bodies,
@@ -603,6 +603,24 @@ const SceneRequiredContact& AuthoredScene::GetRequiredContact( int index ) const
     }
 
     return m_requiredContacts[index];
+}
+
+
+int AuthoredScene::GetRequiredSleepingDynamicBodyCount() const
+{
+    return static_cast<int>( m_requiredSleepingDynamicBodies.size() );
+}
+
+
+const SceneRequiredSleepingDynamicBody& AuthoredScene::GetRequiredSleepingDynamicBody( int index ) const
+{
+    if ( index < 0 || index >= static_cast<int>( m_requiredSleepingDynamicBodies.size() ) )
+    {
+        FatalSceneIndexOutOfRange( "RequiredSleepingDynamicBody", "AuthoredScene::GetRequiredSleepingDynamicBody", index,
+                                   static_cast<int>( m_requiredSleepingDynamicBodies.size() ) );
+    }
+
+    return m_requiredSleepingDynamicBodies[index];
 }
 
 

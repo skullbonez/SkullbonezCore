@@ -31,6 +31,7 @@ Related:
 #include "SceneAuthoredSetup.h"
 #include "SceneAuthoredSetup.CameraSlots.h"
 #include "SceneAuthoredSetup.InitialImpulse.h"
+#include "SceneSleepingDynamicBodyGatePolicy.h"
 #include "../Automation/RuntimeValidationHarness.h"
 #include "../../Assets/AssetKeys.h"
 #include "../../Core/SbDiagnosticStore.h"
@@ -968,8 +969,40 @@ SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore&
     // even when schema v2 deliberately uses sparse/non-contiguous values.
     sceneState.ResetSceneObjectIdCursor( sceneWorld.BodyStore() );
     sceneWorld.SetOrbitalStabilityContract( scene.GetOrbitalStabilityContract() );
+    const SkullbonezCore::Core::SbResult sleepingGateResult = SetUpRequiredSleepingDynamicBodies( resultDiagnostics,
+                                                                                                  sceneWorld,
+                                                                                                  automationGates, scene );
+
+    if ( !sleepingGateResult.Ok() )
+    {
+        return sleepingGateResult;
+    }
+
     SetUpRequiredContacts( sceneWorld, automationGates, scene );
     SetUpRequiredBroadphaseXCells( automationGates, scene );
+    return SkullbonezCore::Core::SbResult::Success();
+}
+
+
+SkullbonezCore::Core::SbResult SceneAuthoredSetup::SetUpRequiredSleepingDynamicBodies( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, SceneWorld& sceneWorld,
+                                                                                       SceneAutomationGateConfiguration& automationGates, const AuthoredScene& scene )
+{
+    automationGates.ReserveRequiredSleepingDynamicBodies( static_cast<std::size_t>( scene.GetRequiredSleepingDynamicBodyCount() ) );
+    const std::span<const uint8_t> fixedBodies = sceneWorld.BodyStore().HotFields().fixed;
+
+    for ( int i = 0; i < scene.GetRequiredSleepingDynamicBodyCount(); ++i )
+    {
+        const SceneRequiredSleepingDynamicBody& body = scene.GetRequiredSleepingDynamicBody( i );
+        const SkullbonezCore::Core::SbResult
+            appendResult = automationGates.TryAppendRequiredSleepingDynamicBody( resultDiagnostics, sceneWorld.Entities(),
+                                                                                 fixedBodies, body.name );
+
+        if ( !appendResult.Ok() )
+        {
+            return appendResult;
+        }
+    }
+
     return SkullbonezCore::Core::SbResult::Success();
 }
 

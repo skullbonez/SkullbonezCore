@@ -14,8 +14,15 @@
   },
   "playback": {
     "frames": "unlimited",
-    "exitOnComplete": false,
+    "exitOnComplete": true,
     "fixedStep": true
+  },
+  "requirements": {
+    "sleepingDynamicBodies": [
+      "ball_a",
+      "ball_b",
+      "ball_c"
+    ]
   },
   "debug": {
     "waterHidden": true

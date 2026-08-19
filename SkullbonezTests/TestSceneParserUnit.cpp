@@ -58,6 +58,7 @@ constexpr const char* kCardinalRollScenePath = "SkullbonezData/scenes/cardinal_r
 constexpr const char* kRagdollPlaygroundScenePath = "SkullbonezData/scenes/ragdoll_playground.scene.json";
 constexpr const char* kSolarSystemScenePath = "SkullbonezData/scenes/solar_system.scene.json";
 constexpr const char* kSolarSlingshotScenePath = "SkullbonezData/scenes/solar_system_mars_slingshot.scene.json";
+constexpr const char* kAtRestScenePath = "SkullbonezData/scenes/at_rest.scene.json";
 constexpr const char* kVersionedAssetScene =
     R"({"format":"skullbonez.scene.json","version":2,"physics":false,"text":false,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}],"assetLibraries":["unit_versioned.assets.json"]})";
 
@@ -165,6 +166,40 @@ TEST_CASE( "AuthoredSceneParser: smallest committed scene parses expected record
     CHECK( camera.view.x == doctest::Approx( 1400.0f ) );
     CHECK( camera.view.y == doctest::Approx( 0.0f ) );
     CHECK( camera.view.z == doctest::Approx( 200.0f ) );
+}
+
+TEST_CASE( "AuthoredSceneParser: at-rest completion stays unlimited and names all three balls" )
+{
+    AuthoredScene scene;
+    REQUIRE( TryLoadAuthoredScene( diagnostics, kAtRestScenePath, scene ) );
+    CHECK( scene.GetFrameCount() == -1 );
+    CHECK( scene.IsExitOnComplete() );
+    REQUIRE( scene.GetRequiredSleepingDynamicBodyCount() == 3 );
+    CHECK( std::string( scene.GetRequiredSleepingDynamicBody( 0 ).name ) == "ball_a" );
+    CHECK( std::string( scene.GetRequiredSleepingDynamicBody( 1 ).name ) == "ball_b" );
+    CHECK( std::string( scene.GetRequiredSleepingDynamicBody( 2 ).name ) == "ball_c" );
+}
+
+TEST_CASE( "AuthoredSceneParser: sleeping-body requirements reject non-string entries" )
+{
+    constexpr const char* path = "TestOutput/scene_parser_sleep_requirement_invalid.scene.json";
+    constexpr const char* json =
+        R"({"format":"skullbonez.scene.json","version":1,"physics":true,"text":false,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}],"requirements":{"sleepingDynamicBodies":[7]}})";
+    const TemporaryMalformedSceneFile fixture( path, json );
+    AuthoredScene scene;
+    const SbResult result = AuthoredScene::TryLoadFromFile( diagnostics, path, scene );
+    CheckLoadFailure( result, path, "requirements.sleepingDynamicBodies[] must be a string" );
+}
+
+TEST_CASE( "AuthoredSceneParser: sleeping-body requirement names reject truncation" )
+{
+    constexpr const char* path = "TestOutput/scene_parser_sleep_requirement_name_too_long.scene.json";
+    constexpr const char* json =
+        R"({"format":"skullbonez.scene.json","version":1,"physics":true,"text":false,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}],"requirements":{"sleepingDynamicBodies":["dynamic_body_name_that_is_deliberately_longer_than_the_fixed_authored_name_buffer"]}})";
+    const TemporaryMalformedSceneFile fixture( path, json );
+    AuthoredScene scene;
+    const SbResult result = AuthoredScene::TryLoadFromFile( diagnostics, path, scene );
+    CheckLoadFailure( result, path, "requirements.sleepingDynamicBodies[] must be shorter than 64 characters" );
 }
 
 TEST_CASE( "AuthoredSceneParser: initial impulse offsets are center-relative world vectors" )
