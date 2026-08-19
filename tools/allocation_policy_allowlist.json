@@ -202,6 +202,18 @@
       "removal_or_wrapper_plan": "Replace these retained vectors with slices from a fixed replay prediction arena if that typed arena is introduced; preserve the ring's prepare-before-start and no-growth publication contract."
     },
     {
+      "path": "SkullbonezSource/Runtime/Planning/ContinuousOrbitalForecast.cpp",
+      "patterns": [
+        "new ( std::nothrow ) float[recordFloatCapacity]",
+        "new ( std::nothrow ) Math::Vector::Vector3[Scene::Capacity::MAX_SCENE_OBJECTS]"
+      ],
+      "owner": "ContinuousOrbitalPresentation fixed publication banks",
+      "phase": "startup_owner_construction",
+      "reason": "Run constructs the Planning presentation owner during process startup. It acquires two fixed 24,000-record ribbon banks and one MAX_SCENE_OBJECTS row scratch bank before any scene can start; Publish only overwrites those retained ranges and cannot allocate or grow them during steady gameplay.",
+      "cap": "Exactly two 456,000-float ribbon arrays plus one MAX_SCENE_OBJECTS Vector3 scratch array per process-lifetime ContinuousOrbitalPresentation owner.",
+      "removal_or_wrapper_plan": "Replace the three arrays with typed slices from a process-lifetime Planning presentation arena if such an arena is introduced; preserve double-bank publication and construction-before-start semantics."
+    },
+    {
       "path": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionSampleRing.cpp",
       "patterns": [
         "m_slotVersions.resize(",

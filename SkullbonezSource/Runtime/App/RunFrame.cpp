@@ -520,6 +520,7 @@ void Run::RunPostDrawDiagnosticsPhase( bool legacyDevelopmentUiActive )
                                                                       m_sceneController,
                                                                       m_replayRuntime.BuildAutomationView(),
                                                                       automationDevelopmentUiView,
+                                                                      m_continuousForecast.View(),
                                                                       Renderer().FrameGraphSnapshot(),
                                                                       m_diagnosticsRuntime.Capture(), BackbufferCapture() );
 

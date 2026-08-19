@@ -2268,6 +2268,7 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
                                                debugSnapshot,
                                                runtimeTools,
                                                *replayFrame.visualPacket,
+                                               context.retainedOverlay,
                                                replayFrame.contactPresentation };
 
     const bool debugOverlayRendered = ExecuteDebugOverlayThroughRenderGraph( { debugInputs, useCinematicTarget } );

@@ -470,147 +470,12 @@
       "plan": ""
     },
     {
-      "file": "SkullbonezSource/Runtime/Planning/ContinuousOrbitalStability.cpp",
-      "signature": "bool ContinuousOrbitalStabilityAnalyzer::Begin( const Scene::OrbitalStabilityContract& contract, double gravitationalConstant, double softeningLength, std::span<const ContinuousOrbitalBodySample> seedBodies ) noexcept",
-      "owner": "Runtime/Planning :: ContinuousOrbitalStabilityAnalyzer lifecycle seed",
+      "file": "SkullbonezSource/Runtime/Planning/ContinuousOrbitalForecast.cpp",
+      "signature": "ContinuousOrbitalPresentationView ContinuousOrbitalPresentation::View() const noexcept",
+      "owner": "Runtime/Planning :: ContinuousOrbitalPresentation detached status",
       "disposition": "retain-owner",
-      "reason": "Begin validates one resolved scene contract and complete tick-zero publication, then seeds conservation and fixed-tick escape state atomically.",
-      "evidence": "ContinuousOrbitalForecast::Start is the production lifecycle root; TestContinuousOrbitalStability exercises positive and rejected seeds.",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Planning/ContinuousOrbitalStability.cpp",
-      "signature": "bool ContinuousOrbitalStabilityAnalyzer::ObserveTick( const ContinuousOrbitalTickInput& input ) noexcept",
-      "owner": "Runtime/Planning :: ContinuousOrbitalStabilityAnalyzer fixed-tick observation",
-      "disposition": "retain-owner",
-      "reason": "One ordered observation validates the complete private publication before latching numerical, contact, envelope, escape, and conservation results from that tick.",
-      "evidence": "ContinuousOrbitalForecast::ObserveCompleteContinuousPredictionTick is the production caller; focused tests exercise every failure family and continued valid diagnostics.",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Planning/ContinuousOrbitalStability.cpp",
-      "signature": "void ContinuousOrbitalStabilityAnalyzer::Reset() noexcept",
-      "owner": "Runtime/Planning :: ContinuousOrbitalStabilityAnalyzer retirement",
-      "disposition": "retain-owner",
-      "reason": "Reset clears the scene-lifetime contract, seed, counters, and published view under the analyzer mutex.",
-      "evidence": "ContinuousOrbitalForecast::Stop is the production retirement root on disable, scene change, and teardown; focused lifecycle tests cover reset/reseed behavior.",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Planning/ContinuousOrbitalStability.cpp",
-      "signature": "ContinuousOrbitalStabilityView ContinuousOrbitalStabilityAnalyzer::View() const noexcept",
-      "owner": "Runtime/Planning :: ContinuousOrbitalStabilityAnalyzer detached status",
-      "disposition": "retain-owner",
-      "reason": "View copies one mutex-protected status containing latched first failures, health dimensions, progress, and conservation diagnostics.",
-      "evidence": "ContinuousOrbitalForecast::View publishes this status through the App-owned shared operator frame view; focused tests assert the detached value.",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Planning/ContinuousOrbitalStability.cpp",
-      "signature": "const ContinuousOrbitalBodySample* ContinuousOrbitalStabilityAnalyzer::FindBody( std::span<const ContinuousOrbitalBodySample> bodies, Physics::PhysicsSceneObjectId id ) const noexcept",
-      "owner": "Runtime/Planning :: configured-body lookup",
-      "disposition": "retain-owner",
-      "reason": "The analyzer resolves a stable scene object ID only within one immutable complete-tick publication.",
-      "evidence": "Production observation and diagnostic phases use this private same-TU lookup beneath ContinuousOrbitalForecast's worker callback.",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Planning/ContinuousOrbitalStability.cpp",
-      "signature": "const Scene::OrbitalStabilityMemberContract* ContinuousOrbitalStabilityAnalyzer::FindMember( Physics::PhysicsSceneObjectId id ) const noexcept",
-      "owner": "Runtime/Planning :: stability-contract membership lookup",
-      "disposition": "retain-owner",
-      "reason": "Contact classification resolves stable IDs only inside the analyzer's validated scene-lifetime contract.",
-      "evidence": "EvaluateContacts is the private same-TU consumer reached from ContinuousOrbitalForecast's production worker callback.",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Planning/ContinuousOrbitalStability.cpp",
-      "signature": "bool ContinuousOrbitalStabilityAnalyzer::ValidateContract() const noexcept",
-      "owner": "Runtime/Planning :: stability-contract admission",
-      "disposition": "retain-owner",
-      "reason": "Admission enforces exactly one primary, at least one core orbiter, unique valid IDs, valid roles, and representable envelope/grace policy before observation.",
-      "evidence": "ContinuousOrbitalForecast::Start roots Begin and this private phase in production; focused negative tests cover malformed contracts.",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Planning/ContinuousOrbitalStability.cpp",
-      "signature": "bool ContinuousOrbitalStabilityAnalyzer::ValidateBodies( std::span<const ContinuousOrbitalBodySample> bodies ) const noexcept",
-      "owner": "Runtime/Planning :: complete configured-body publication",
-      "disposition": "retain-owner",
-      "reason": "Every configured stable ID must appear exactly once in a candidate tick before any diagnostic reads it.",
-      "evidence": "ContinuousOrbitalForecast supplies complete stable-ID production rows; focused tests reject incomplete and duplicate publications.",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Planning/ContinuousOrbitalStability.cpp",
-      "signature": "bool ContinuousOrbitalStabilityAnalyzer::BodiesFinite( std::span<const ContinuousOrbitalBodySample> bodies ) const noexcept",
-      "owner": "Runtime/Planning :: configured-body numerical health",
-      "disposition": "retain-owner",
-      "reason": "Global numerical health requires finite representable pose, velocity, and positive mass for every configured member.",
-      "evidence": "ContinuousOrbitalForecast supplies production publications for every configured member; focused tests reject nonfinite member state.",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Planning/ContinuousOrbitalStability.cpp",
-      "signature": "ContinuousOrbitalStabilityAnalyzer::ConservationMeasurement ContinuousOrbitalStabilityAnalyzer::MeasureConservation( std::span<const ContinuousOrbitalBodySample> bodies ) const noexcept",
-      "owner": "Runtime/Planning :: configured-system conservation measurement",
-      "disposition": "retain-owner",
-      "reason": "One measurement combines all configured kinetic energy, softened all-pair potential, and fixed-primary-relative angular momentum from the same complete tick.",
-      "evidence": "ContinuousOrbitalForecast supplies complete production ticks; focused tests verify zero-baseline availability and drift behavior.",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Planning/ContinuousOrbitalStability.cpp",
-      "signature": "bool ContinuousOrbitalStabilityAnalyzer::UpdateConservation( const ConservationMeasurement& measurement ) noexcept",
-      "owner": "Runtime/Planning :: conservation drift publication",
-      "disposition": "retain-owner",
-      "reason": "The analyzer normalizes current energy and angular momentum against one admitted seed and advances monotonic maxima only for available denominators.",
-      "evidence": "ContinuousOrbitalForecast's production observation callback reaches this phase; focused tests exercise available and zero-denominator seeds.",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Planning/ContinuousOrbitalStability.cpp",
-      "signature": "void ContinuousOrbitalStabilityAnalyzer::LatchBlocking( ContinuousOrbitalInstabilityCause cause, std::uint64_t tick, Physics::PhysicsSceneObjectId subject, Physics::PhysicsSceneObjectId other ) noexcept",
-      "owner": "Runtime/Planning :: first blocking instability evidence",
-      "disposition": "retain-owner",
-      "reason": "All blocking failure families converge on one first-failure latch and the matching numerical/system health transitions.",
-      "evidence": "ContinuousOrbitalForecast roots the analyzer in production; focused tests prove first-failure retention.",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Planning/ContinuousOrbitalStability.cpp",
-      "signature": "void ContinuousOrbitalStabilityAnalyzer::LatchAuxiliary( ContinuousOrbitalInstabilityCause cause, std::uint64_t tick, Physics::PhysicsSceneObjectId subject, Physics::PhysicsSceneObjectId other ) noexcept",
-      "owner": "Runtime/Planning :: first auxiliary instability evidence",
-      "disposition": "retain-owner",
-      "reason": "Auxiliary-only orbital failures share one first-failure latch without poisoning global numerical or system-orbital health.",
-      "evidence": "ContinuousOrbitalForecast roots the analyzer in production; focused tests distinguish auxiliary from blocking failures.",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Planning/ContinuousOrbitalStability.cpp",
-      "signature": "void ContinuousOrbitalStabilityAnalyzer::EvaluateContacts( std::span<const ContinuousOrbitalContactSample> contacts, std::uint64_t tick ) noexcept",
-      "owner": "Runtime/Planning :: orbital contact classification",
-      "disposition": "retain-owner",
-      "reason": "Contact evaluation classifies primary/core pairs as blocking and any configured auxiliary involvement as auxiliary-only from one tick publication.",
-      "evidence": "ContinuousOrbitalForecast supplies bounded deduplicated production contact pairs; focused tests cover primary-core and auxiliary contacts.",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Planning/ContinuousOrbitalStability.cpp",
-      "signature": "void ContinuousOrbitalStabilityAnalyzer::EvaluateOrbiters( std::span<const ContinuousOrbitalBodySample> bodies, std::uint64_t tick ) noexcept",
-      "owner": "Runtime/Planning :: orbital envelope and escape classification",
-      "disposition": "retain-owner",
-      "reason": "One pass applies inclusive authored envelopes and the exact softened fixed-primary specific-energy law, including overflow-safe consecutive escape grace, to every nonprimary member.",
-      "evidence": "ContinuousOrbitalForecast supplies complete production rows; focused tests cover inner, outer, auxiliary, and sustained-escape cases.",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionProducer.cpp",
-      "signature": "void ContinuousPredictionWorkerTask::Configure( ContinuousPredictionProducer& producer, Threading::WorkerPool& workerPool ) noexcept",
-      "owner": "Runtime/Prediction :: ContinuousPredictionWorkerTask submission binding",
-      "disposition": "retain-owner",
-      "reason": "The worker adapter binds exactly one producer and the existing worker pool after the private engine and ring are seeded.",
-      "evidence": "ContinuousPredictionProducer::Begin calls Configure from the App-rooted forecast lifecycle; focused tests exercise asynchronous submission.",
+      "reason": "The presentation owner copies one published bank's chronological tick bounds, capacity usage, coherence, and wrap state without exposing its retained spans or mutable bank.",
+      "evidence": "ContinuousOrbitalForecast::View calls this same-translation-unit seam from the App-rooted post-render automation and operator-status paths; TestContinuousOrbitalStability directly proves wrapped and downsampled publications. The current test-only decorated-symbol classification reflects optimized production relay, not retired surface.",
       "plan": ""
     },
     {
@@ -624,65 +489,11 @@
     },
     {
       "file": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionProducer.cpp",
-      "signature": "bool ContinuousPredictionProducer::CaptureSeed( const Physics::PhysicsEngine& liveEngine )",
-      "owner": "Runtime/Prediction :: ContinuousPredictionProducer seed capture",
-      "disposition": "retain-owner",
-      "reason": "A synchronous pre-worker transaction snapshots stable identity, complete body state, and solver warm-start state from the authoritative engine.",
-      "evidence": "The App-rooted Begin call reaches CaptureSeed before private storage is restored; focused tests prove the live engine remains unchanged.",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionProducer.cpp",
-      "signature": "bool ContinuousPredictionProducer::SeedPrivateEngine( const Physics::PhysicsEngine& liveEngine, const Core::EngineConfig& config, const Physics::PhysicsWorldForces& worldForces )",
-      "owner": "Runtime/Prediction :: ContinuousPredictionProducer private-engine seed",
-      "disposition": "retain-owner",
-      "reason": "The producer restores the captured body and solver values into its reserve-owned private engine before any speculative step.",
-      "evidence": "The App-rooted Begin call reaches SeedPrivateEngine; focused tests compare live/private state boundaries.",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionProducer.cpp",
-      "signature": "bool ContinuousPredictionProducer::Begin( const Physics::PhysicsEngine& liveEngine, const Gameplay::TornadoGameplay& liveTornado, const Core::EngineConfig& config, const Physics::PhysicsWorldForces& worldForces, Threading::WorkerPool& workerPool, std::size_t rowCapacity, ContinuousPredictionTickObserver* tickObserver )",
-      "owner": "Runtime/Prediction :: ContinuousPredictionProducer fresh lifecycle",
-      "disposition": "retain-owner",
-      "reason": "Begin owns the complete synchronous seed, capacity preparation, tick-zero publication, and worker binding transaction.",
-      "evidence": "ContinuousOrbitalForecast::Start is the App-rooted production call and supplies the narrow complete-tick observer; TestContinuousPredictionProducer verifies exact seed publication and observer delivery.",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionProducer.cpp",
-      "signature": "ContinuousPredictionProducerView ContinuousPredictionProducer::View() const noexcept",
-      "owner": "Runtime/Prediction :: ContinuousPredictionProducer detached publication",
-      "disposition": "retain-owner",
-      "reason": "The producer exposes one detached ring snapshot plus monotonic progress, throughput, retained-byte, and lifecycle values.",
-      "evidence": "ContinuousOrbitalForecast::View publishes this lower value through the App-owned shared operator frame; focused tests consume it without borrowing mutable private-engine state.",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionProducer.cpp",
-      "signature": "bool ContinuousPredictionProducer::CapturePositionRow( std::uint64_t absoluteTick ) noexcept",
-      "owner": "Runtime/Prediction :: ContinuousPredictionProducer row publication",
-      "disposition": "retain-owner",
-      "reason": "Each completed private tick opens one absolute row, writes every seeded body, and commits only the complete row.",
-      "evidence": "The App-rooted Begin and worker slice call this transaction; focused tests validate tick zero and wrapped complete rows.",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionProducer.cpp",
       "signature": "void ContinuousPredictionProducer::RunWorkerSlice( Threading::WorkerPool& workerPool ) noexcept",
       "owner": "Runtime/Prediction :: ContinuousPredictionProducer speculative slice",
       "disposition": "retain-owner",
       "reason": "One worker-local slice advances indivisible whole Physics ticks without a finite horizon and yields after its own five-millisecond clock.",
       "evidence": "ContinuousPredictionWorkerTask calls the slice from App-rooted frame admission; focused asynchronous tests prove continued advancement, observation, and cancellation.",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionProducer.cpp",
-      "signature": "void ContinuousPredictionProducer::MarkFailed() noexcept",
-      "owner": "Runtime/Prediction :: ContinuousPredictionProducer failure retirement",
-      "disposition": "retain-owner",
-      "reason": "Any private seed, step, or publication failure atomically marks the producer failed and cancels further ring publication.",
-      "evidence": "The App-rooted Begin and worker slice call MarkFailed on their owned failure paths; ContinuousOrbitalForecast publishes failure status and focused tests validate visibility.",
       "plan": ""
     },
     {
@@ -701,24 +512,6 @@
       "disposition": "retain-owner",
       "reason": "The detached snapshot resolves each chronological wrapped segment while keeping backing storage read-only.",
       "evidence": "The App-rooted producer publishes this detached snapshot and OF5 consumes its chronological segment seam; TestContinuousPredictionProducer validates three wraps. The current test-only classification reflects the phase boundary, not retired surface.",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionSampleRing.cpp",
-      "signature": "bool ContinuousPredictionSampleRingSnapshot::TryReadRow( std::size_t logicalRowIndex, std::span<Math::Vector::Vector3> outPositions, std::uint64_t& outAbsoluteTick ) const noexcept",
-      "owner": "Runtime/Prediction :: ContinuousPredictionSampleRing circular publication",
-      "disposition": "retain-owner",
-      "reason": "Readers need one bounds-checked chronological row seam across physical ring wrap.",
-      "evidence": "The App-rooted producer publishes this detached snapshot and OF5 consumes its bounds-checked row seam; TestContinuousPredictionProducer validates oldest/newest rows after three wraps. The current test-only classification reflects the phase boundary, not retired surface.",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionSampleRing.cpp",
-      "signature": "bool ContinuousPredictionSampleRing::TryReadRow( const ContinuousPredictionSampleRingSnapshot& snapshot, std::size_t logicalRowIndex, std::span<Math::Vector::Vector3> outPositions, std::uint64_t& outAbsoluteTick ) const noexcept",
-      "owner": "Runtime/Prediction :: ContinuousPredictionSampleRing generation validation",
-      "disposition": "retain-owner",
-      "reason": "The owning ring rejects stale or foreign snapshots before resolving a chronological row.",
-      "evidence": "The App-rooted producer publishes the snapshot and its reader delegates to this owner check; TestContinuousPredictionProducer validates coherent reads after three wraps and reseed. The current own-TU-and-test-only classification reflects the OF5 phase boundary, not retired surface.",
       "plan": ""
     },
     {

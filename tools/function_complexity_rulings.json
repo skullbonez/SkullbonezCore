@@ -35,11 +35,11 @@
     {
       "file": "SkullbonezSource/Runtime/App/InputFrameExecution.cpp",
       "signature": "Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput )",
-      "body_sha256": "f65da1b5f32bba14053f69c8ea07c384d2d70ee766816fc142f265ce9de6b101",
+      "body_sha256": "99fcb43199941e887b40a509e023296b1e8bd930ddf3921d3fd036209bd2c8aa",
       "owner": "Runtime input frame phase",
       "disposition": "retain-owner",
-      "reason": "One ordered input turn runs from automation sampling through device routing, typed command production, scene-scoped owner retirement, and terminal restore publication; the causal-transition token participates in that same restore transaction so Planning cannot observe completion before Replay has committed the result. Every participant is a synchronous Run-owned borrow, and wrapping them would create a broad frame context rather than a new invariant.",
-      "evidence": "git history: look-lab-random-style-authoring-ll5-breadth-reuse-idle (2026-08-01); C1 causal-row transport owner review (2026-08-17); PREDICT_SOLVER_DETAIL PSD1 typed replay play/pause routing (2026-08-18); ORBIT_FORECAST OF4 scene-transition join review (2026-08-19)",
+      "reason": "One ordered input turn runs from automation sampling through device routing, typed command production, scene-scoped owner retirement, and terminal restore publication; the continuous-forecast automation command is submitted at the same typed-command checkpoint as the visible operator request. Every participant is a synchronous Run-owned borrow, and splitting the phase would move frame ordering into one-call helpers without creating an independently testable owner.",
+      "evidence": "git history: look-lab-random-style-authoring-ll5-breadth-reuse-idle (2026-08-01); C1 causal-row transport owner review (2026-08-17); PREDICT_SOLVER_DETAIL PSD1 typed replay play/pause routing (2026-08-18); ORBIT_FORECAST OF4 scene-transition join review and OF5 typed automation-command review (2026-08-19)",
       "plan": ""
     },
     {
@@ -64,12 +64,12 @@
     },
     {
       "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",
-      "signature": "template <typename InspectGizmoInteractionActive> InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools, const InteractionAutomationController& automation, const ReplayAutomationView& replay, RuntimeInteractionController& interaction, const InputRouter& inputRouter, CameraControlState& camera, const SceneWorld& world, SkullbonezCore::UI::InGameUI& ui, const InteractionAutomationDevelopmentUiView& developmentUi, const Rendering::RenderSceneSnapshot& renderSnapshot, const RunInteractionAutomationAction& action, InspectGizmoInteractionActive inspectGizmoInteractionActive )",
-      "body_sha256": "72f16e6d31dd22f93f3ad561254840e039983e1a83e779fbf8def3c441c830ee",
+      "signature": "template <typename InspectGizmoInteractionActive> InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools, const InteractionAutomationController& automation, const ReplayAutomationView& replay, RuntimeInteractionController& interaction, const InputRouter& inputRouter, CameraControlState& camera, const SceneWorld& world, SkullbonezCore::UI::InGameUI& ui, const InteractionAutomationDevelopmentUiView& developmentUi, const ContinuousOrbitalForecastView& forecast, const Rendering::RenderSceneSnapshot& renderSnapshot, const RunInteractionAutomationAction& action, InspectGizmoInteractionActive inspectGizmoInteractionActive )",
+      "body_sha256": "3bbf2ff763a2a1542a063616bba31599c4919395490be645c24f7c9257eb2114",
       "owner": "Interaction automation assertion phase",
       "disposition": "retain-owner",
-      "reason": "One exhaustive assertion phase reads one selected action against detached snapshots and synchronous runtime owners, then emits one evaluation; PSD7 detail-mode, solver-panel visibility, shared cause-window availability, release, and memory-reconciliation cases are read-only observations of that same closed assertion schema and retain no evidence authority.",
-      "evidence": "PREDICT_SOLVER_DETAIL PSD7 combined-workflow assertion review (2026-08-19)",
+      "reason": "One exhaustive assertion phase reads one selected action against detached snapshots and synchronous runtime owners, then emits one evaluation; the continuous-forecast cases inspect only the copied post-render view alongside the existing closed assertion schema. Category extraction would preserve one flat dispatcher and relay the same evaluation authority without creating an independent algorithm or lifetime.",
+      "evidence": "PREDICT_SOLVER_DETAIL PSD7 combined-workflow assertion review; ORBIT_FORECAST OF5 rolling-window evidence review (2026-08-19)",
       "plan": ""
     },
     {
@@ -115,11 +115,11 @@
     {
       "file": "SkullbonezSource/Runtime/App/InputFrame.cpp",
       "signature": "RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, bool keyboardToggleEditorMode, const RuntimeInputFrameFacts& facts )",
-      "body_sha256": "669419ebdc61c6e1f6247825fdf33be52ef66aca2e081b974924626b8f9f41aa",
+      "body_sha256": "04dd8abddddd34394655d389f560d8f727719f6c2fd0135fd0eea882318ef275",
       "owner": "Runtime input-command application phase",
       "disposition": "retain-owner",
-      "reason": "One post-routing phase applies the complete typed command set in frame order and returns the resulting UI frame value; all owner access is synchronous and ordering is the operation invariant. App resolves bounded-PREDICT/continuous-forecast mutual exclusion here because it composes the Replay and Planning owners, while Input and UI retain neither mode. Space state and the causal-transition token remain values of the existing replay workspace/restore command.",
-      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); re-ruled for C1 causal-row transport (2026-08-17); ORBIT_FORECAST OF4 mutual-exclusion review (2026-08-19)",
+      "reason": "One post-routing phase applies the complete typed command set in frame order and returns the resulting UI frame value; all owner access is synchronous and ordering is the operation invariant. App resolves bounded-PREDICT/continuous-forecast mutual exclusion here because it composes the Replay and Planning owners, and both visible and automation-originated forecast commands enter that same queue. Extracting the added branch would split one atomic mode transition without moving authority.",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); re-ruled for C1 causal-row transport (2026-08-17); ORBIT_FORECAST OF4 mutual-exclusion review and OF5 typed command review (2026-08-19)",
       "plan": ""
     },
     {
@@ -195,11 +195,11 @@
     {
       "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",
       "signature": "InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutomationController& state, Window& windowOwner, const SkullbonezCore::Core::EngineConfig& config, SceneController& scene, RunTimerState& timers, CameraControlState& camera, InputRouter& inputRouter, RuntimeInteractionController& interaction, RuntimeTools& runtimeTools, SkullbonezCore::UI::InGameUI& ui, const ReplayAutomationView& replayView, const Rendering::RenderSceneSnapshot& renderSnapshot )",
-      "body_sha256": "0a03732768e36647a277c285bb827e682c86baa61f1852e725479cc08e22396b",
+      "body_sha256": "4d535274bd118c029cc27234efdac8bc0e7514221eb739a2ae6d4bc649ca1f03",
       "owner": "Pre-input interaction automation tick",
       "disposition": "retain-owner",
-      "reason": "One pre-input automation phase applies the current scripted action across the exact runtime owners before device routing; recognizing the added typed cause-row assertions does not change its synchronous action-order and frame-ownership invariant.",
-      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
+      "reason": "One pre-input automation phase interprets the current scripted action across the exact runtime owners before device routing; the continuous-forecast action produces one typed command value for the normal input transaction and retains no Planning authority. Its branches are one frame-indexed state machine, so extraction would preserve caller-ordered action dispatch rather than create a separate owner.",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); ORBIT_FORECAST OF5 typed automation-command review (2026-08-19)",
       "plan": ""
     },
     {

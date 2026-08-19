@@ -2,12 +2,12 @@
 
 Date: 2026-08-19
 Branch: `nightrunner-18th-AUG-26`
-Status: Two active plans; 37/47 tasks complete
+Status: Two active plans; 38/47 tasks complete
 
 Continuous Orbital Forecast (7 tasks) and At-Rest Ball Stability (8 tasks) are
 registered under `Agentic/Plans/TODO/`; Causal C0-C8, Determinism T0-T8, Catto
 CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
-`MASTER-PLAN.md` carries the binding order: continuous orbital forecast OF5
+`MASTER-PLAN.md` carries the binding order: continuous orbital forecast OF6
 next, then at-rest ball stability. The completed causal, determinism, Catto, and
 predicted-solver-detail plans were deleted under the repository convention;
 Git history retains their phase evidence.
@@ -68,6 +68,17 @@ dependency, allocation-policy, and performance gates pass; the 21/21 touched-
 source comment audit has no deferrals. Physics and replay visual gates reproduce
 only their inherited owner-controlled CSV and topology-version mismatches, and
 no oracle was refreshed.
+
+ORBIT_FORECAST OF5 is complete. Planning converts the detached logical sample
+ring into fixed-capacity, double-buffered generic ribbon and head-marker
+packets. Authored colors and one coherent newest absolute tick reach every
+configured body; logical oldest-to-newest sampling never draws across the
+physical ring seam. The generic DX12 retained-range path now accepts compact
+record prefixes while proving every populated range remains inside both its
+reserved lane and supplied span. Focused wrap/downsampling tests pass, and the
+solar automation probe captures pre-wrap and post-wrap views with an advancing
+absolute forecast tick and overwritten old geometry. The 15/15 touched-source
+comment audit has no deferrals, and all seven ownership inventories are current.
 
 The owner parked Deterministic Trigonometry under `Agentic/Plans/WNF/` on
 2026-08-18 and replaced its active slot with At-Rest Ball Stability. The new
@@ -358,14 +369,14 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `ORBIT_FORECAST` OF5-OF6. The
+Execute `ORBIT_FORECAST` OF6. The
 owner reactivated it from `WNF/` on 2026-08-17. OF0 ratified the authored
 solar stability cohort and thresholds, and OF1 proved coherent circular
 publication; OF2 added the isolated continuous producer, OF3 added
 Planning-owned stability diagnostics, and OF4 composed typed controls and the
-operator readout. Remaining phases draw and close the rolling orbital
-presentation without changing bounded `PREDICT` or feeding detailed solver
-evidence into the continuous path.
+operator readout, and OF5 added the rolling orbital presentation. The remaining
+phase closes behavior, memory, determinism, and ownership without changing
+bounded `PREDICT` or feeding detailed solver evidence into the continuous path.
 
 After orbital forecast closes, execute `REST_STABILITY` RS0-RS7. First add the
 authored all-three-ball sleep completion gate; no frame/time cap or aborted run
@@ -383,7 +394,7 @@ not part of the active queue.
 
 ## Blockers
 
-- None. Continue with `ORBIT_FORECAST` OF5. The stale Physics CSV,
+- None. Continue with `ORBIT_FORECAST` OF6. The stale Physics CSV,
   noisy relative Physics performance sample, and
   corrected-topology visual oracle remain owner-controlled validation findings;
   do not refresh any of them without approval.

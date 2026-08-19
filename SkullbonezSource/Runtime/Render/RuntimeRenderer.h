@@ -220,6 +220,7 @@ class RuntimeRenderer
         const RuntimeRenderModelFrameView& renderModels;
         RuntimeRenderFramePolicy framePolicy;
         const ReplayRenderFrameView& replayFrame;
+        const Rendering::RetainedGeometryPacket& retainedOverlay;
         const RenderToolOverlayView& toolOverlay;
         const Rendering::WorldRenderExtensionRegistration& worldExtension;
         const SkullbonezCore::Core::CinematicRenderConfig& cinematic;

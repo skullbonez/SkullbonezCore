@@ -442,7 +442,7 @@ contract and shared draw/hit-test geometry; no glossary ownership moved.
   diagnostics. Keep Legacy and ImGui surfaces behaviorally aligned, including
   the existing prediction horizon-range discrepancy. Add reset and exit actions
   without creating retained state in UI or Input.
-- [ ] **OF5 - Draw the racing orbital window.** Planning converts the detached
+- [x] **OF5 - Draw the racing orbital window.** Planning converts the detached
   logical ring into bounded generic ribbon/head-marker packets; Rendering stays
   feature-neutral. Draw all configured bodies in authored colors, never bridge
   the ring seam, and publish every body's newest head at one coherent absolute

@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 1, "setContinuousForecastCommand": "toggle" },
+    { "frame": 3, "assert": { "continuousForecastActive": true } },
+    { "frame": 3, "assert": { "continuousForecastPresentationCoherent": true } },
+    { "frame": 3, "assert": { "continuousForecastPreWrap": true } },
+    { "frame": 3, "assert": { "continuousForecastRibbonSegmentsMin": 4 } },
+    { "frame": 3, "assert": { "continuousForecastHeadMarkerCount": 4 } },
+    { "frame": 4, "screenshot": "TestOutput/validation/ORBIT_FORECAST_OF5/solar_system_continuous_pre_wrap.bmp" },
+    { "frame": 2600, "assert": { "continuousForecastActive": true } },
+    { "frame": 2600, "assert": { "continuousForecastPresentationCoherent": true } },
+    { "frame": 2600, "assert": { "continuousForecastWindowWrapped": true } },
+    { "frame": 2600, "assert": { "continuousForecastAbsoluteTickMin": 14401 } },
+    { "frame": 2600, "assert": { "continuousForecastOldestTickMin": 1 } },
+    { "frame": 2600, "assert": { "continuousForecastRibbonSegmentsMin": 4 } },
+    { "frame": 2600, "assert": { "continuousForecastHeadMarkerCount": 4 } },
+    { "frame": 2602, "screenshot": "TestOutput/validation/ORBIT_FORECAST_OF5/solar_system_continuous_post_wrap.bmp" }
+  ]
+}

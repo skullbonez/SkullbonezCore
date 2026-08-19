@@ -791,10 +791,10 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
             (void)( command.type == SkullbonezCore::UI::OperatorEditorForecastCommandType::Reset
                         ? continuousForecast.Reset( scene.Physics(), scene.Tornado(), config,
                                                     scene.Environment().GetPhysicsWorldForces(), workerPool,
-                                                    scene.OrbitalStabilityContract() )
+                                                    scene.OrbitalStabilityContract(), scene.Entities() )
                         : continuousForecast.Start( scene.Physics(), scene.Tornado(), config,
                                                     scene.Environment().GetPhysicsWorldForces(), workerPool,
-                                                    scene.OrbitalStabilityContract() ) );
+                                                    scene.OrbitalStabilityContract(), scene.Entities() ) );
         }
     }
 

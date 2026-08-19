@@ -408,6 +408,7 @@ struct DebugOverlayPassInputs
     const DebugOverlaySnapshot& snapshot;
     RuntimeTools& runtimeTools;
     const ReplayVisualPacket& replayVisualPacket;
+    const Rendering::RetainedGeometryPacket& retainedOverlay;
     const Rendering::ContactManifoldPresentation& contactPresentation;
 };
 

@@ -6,12 +6,15 @@ Purpose:
 Summary:
   Planted complete tick values exercise stable motion, both envelope directions,
   sustained escape reset/latch timing, blocking and auxiliary collisions,
-  numerical false passes, and conservation drift without running the producer.
+  numerical false passes, conservation drift, and bounded chronological ribbon
+  publication without running the private forecast worker.
 
 Invariants:
   - The 5-second escape grace is exactly 600 complete 120 Hz ticks.
   - Auxiliary orbital failures never end the primary/core horizon.
   - A latched failure remains first while later ticks continue to be observed.
+  - Wrapped presentation ranges stay chronological, omit a seam chord, and end
+    every configured body at one coherent newest absolute tick.
 
 Related:
   - SkullbonezSource/Runtime/Planning/ContinuousOrbitalStability.h
@@ -20,6 +23,8 @@ Related:
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Physics/PhysicsApi.h"
+#include "../SkullbonezSource/Physics/PhysicsEngine.h"
+#include "../SkullbonezSource/Runtime/Planning/ContinuousOrbitalForecast.h"
 #include "../SkullbonezSource/Runtime/Planning/ContinuousOrbitalStability.h"
 
 #include <array>
@@ -34,8 +39,11 @@ using SkullbonezCore::Physics::MakePhysicsSceneObjectId;
 using SkullbonezCore::Runtime::ContinuousOrbitalBodySample;
 using SkullbonezCore::Runtime::ContinuousOrbitalContactSample;
 using SkullbonezCore::Runtime::ContinuousOrbitalInstabilityCause;
+using SkullbonezCore::Runtime::ContinuousOrbitalPresentation;
+using SkullbonezCore::Runtime::ContinuousOrbitalPresentationMember;
 using SkullbonezCore::Runtime::ContinuousOrbitalStabilityAnalyzer;
 using SkullbonezCore::Runtime::ContinuousOrbitalTickInput;
+using SkullbonezCore::Runtime::ContinuousPredictionSampleRing;
 using SkullbonezCore::Scene::OrbitalStabilityContract;
 using SkullbonezCore::Scene::OrbitalStabilityMemberContract;
 using SkullbonezCore::Scene::OrbitalStabilityMemberRole;
@@ -261,4 +269,100 @@ TEST_CASE( "Continuous orbital stability: failed seed cannot admit later observa
     CHECK( view.firstBlockingFailure.cause == ContinuousOrbitalInstabilityCause::InvalidContract );
     CHECK( view.firstBlockingFailure.absoluteTick == 0u );
     CHECK( view.observedThroughTick == 0u );
+}
+
+TEST_CASE( "Continuous orbital presentation: wrapped logical rows never close the ring seam" )
+{
+    ContinuousPredictionSampleRing ring;
+    REQUIRE( ring.Prepare( 3u, 2u ) );
+    REQUIRE( ring.Start() );
+
+    for ( std::uint64_t tick = 0u; tick < 4u; ++tick )
+    {
+        REQUIRE( ring.BeginRow( tick ) );
+        REQUIRE( ring.WriteBodyPosition( 0u, Vector3( static_cast<float>( tick ), 0.0f, 0.0f ) ) );
+        REQUIRE( ring.WriteBodyPosition( 1u, Vector3( 100.0f + static_cast<float>( tick ), 0.0f, 0.0f ) ) );
+        REQUIRE( ring.PublishRow() );
+    }
+
+    const std::array members = {
+        ContinuousOrbitalPresentationMember { 0u, EARTH_ID, 0.2f, 0.4f, 0.8f },
+        ContinuousOrbitalPresentationMember { 1u, MARS_ID, 0.8f, 0.3f, 0.1f },
+    };
+    ContinuousOrbitalPresentation presentation;
+    REQUIRE( presentation.Begin( members, 2u ) );
+    REQUIRE( presentation.Publish( ring.AcquireSnapshot() ) );
+
+    const auto view = presentation.View();
+    const auto packet = presentation.Packet();
+    REQUIRE( view.coherent );
+    CHECK( view.wrapped );
+    CHECK( view.oldestAbsoluteTick == 1u );
+    CHECK( view.newestAbsoluteTick == 3u );
+    CHECK( view.ribbonSegmentCount == 4u );
+    CHECK( view.headMarkerCount == 2u );
+    REQUIRE( packet.ribbonRanges.size() == 2u );
+    REQUIRE( packet.compactRibbonRecords.size() == 4u * ContinuousOrbitalPresentation::FLOATS_PER_RIBBON_RECORD );
+
+    const float* earth = packet.compactRibbonRecords.data();
+    CHECK( earth[0] == doctest::Approx( 1.0f ) );
+    CHECK( earth[3] == doctest::Approx( 2.0f ) );
+    CHECK( earth[ContinuousOrbitalPresentation::FLOATS_PER_RIBBON_RECORD + 0u] == doctest::Approx( 2.0f ) );
+    CHECK( earth[ContinuousOrbitalPresentation::FLOATS_PER_RIBBON_RECORD + 3u] == doctest::Approx( 3.0f ) );
+    CHECK( earth[7] == doctest::Approx( 0.2f ) );
+
+    const std::size_t marsFirst = static_cast<std::size_t>( packet.ribbonRanges[1].firstRecord ) *
+                                  ContinuousOrbitalPresentation::FLOATS_PER_RIBBON_RECORD;
+    CHECK( packet.compactRibbonRecords[marsFirst + 0u] == doctest::Approx( 101.0f ) );
+    CHECK( packet.compactRibbonRecords[marsFirst + 3u] == doctest::Approx( 102.0f ) );
+    REQUIRE( packet.coloredLineVertices.size() == 72u );
+    CHECK( packet.coloredLineVertices[0] == doctest::Approx( 1.0f ) );
+    CHECK( packet.coloredLineVertices[6] == doctest::Approx( 5.0f ) );
+    CHECK( packet.sourceSequence == 3u );
+}
+
+TEST_CASE( "Continuous orbital presentation: visual downsampling preserves every newest head within fixed capacity" )
+{
+    constexpr std::size_t bodyCount = SkullbonezCore::Scene::ORBITAL_STABILITY_MEMBER_CAPACITY;
+    constexpr std::size_t rowCount = 2000u;
+    ContinuousPredictionSampleRing ring;
+    REQUIRE( ring.Prepare( rowCount, bodyCount ) );
+    REQUIRE( ring.Start() );
+
+    for ( std::uint64_t tick = 0u; tick < rowCount; ++tick )
+    {
+        REQUIRE( ring.BeginRow( tick ) );
+
+        for ( std::size_t body = 0u; body < bodyCount; ++body )
+        {
+            REQUIRE(
+                ring.WriteBodyPosition( body, Vector3( static_cast<float>( tick ), static_cast<float>( body ), 0.0f ) ) );
+        }
+
+        REQUIRE( ring.PublishRow() );
+    }
+
+    std::array<ContinuousOrbitalPresentationMember, bodyCount> members = {};
+
+    for ( std::size_t body = 0u; body < bodyCount; ++body )
+    {
+        members[body] = { body, 9000u + body, 0.1f * static_cast<float>( body % 5u ), 0.5f, 1.0f };
+    }
+
+    ContinuousOrbitalPresentation presentation;
+    REQUIRE( presentation.Begin( members, bodyCount ) );
+    REQUIRE( presentation.Publish( ring.AcquireSnapshot() ) );
+    const auto view = presentation.View();
+    const auto packet = presentation.Packet();
+    CHECK( view.ribbonSegmentCount <= ContinuousOrbitalPresentation::RIBBON_RECORD_CAPACITY );
+    CHECK( view.headMarkerCount == bodyCount );
+    CHECK( packet.ribbonRanges.size() == bodyCount );
+
+    for ( const auto& range : packet.ribbonRanges )
+    {
+        REQUIRE( range.recordCount > 0u );
+        const std::size_t finalRecord = static_cast<std::size_t>( range.firstRecord + range.recordCount - 1u ) *
+                                        ContinuousOrbitalPresentation::FLOATS_PER_RIBBON_RECORD;
+        CHECK( packet.compactRibbonRecords[finalRecord + 3u] == doctest::Approx( static_cast<float>( rowCount - 1u ) ) );
+    }
 }

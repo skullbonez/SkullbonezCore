@@ -101,6 +101,14 @@ constexpr SkullbonezCore::Rendering::PassRasterStateBucket DEBUG_LINE_RASTER = S
     MakePassRasterStateBucket( 0,
                                { false, false, false, SkullbonezCore::Rendering::BlendFactor::One,
                                  SkullbonezCore::Rendering::BlendFactor::Zero, SkullbonezCore::Rendering::CullMode::None } );
+constexpr SkullbonezCore::Rendering::PassRasterStateBucket RETAINED_OVERLAY_DEPTH_HINT_RASTER = SkullbonezCore::Rendering::
+    MakePassRasterStateBucket( 1,
+                               { false, false, true, SkullbonezCore::Rendering::BlendFactor::SrcAlpha,
+                                 SkullbonezCore::Rendering::BlendFactor::One, SkullbonezCore::Rendering::CullMode::None } );
+constexpr SkullbonezCore::Rendering::PassRasterStateBucket RETAINED_OVERLAY_VISIBLE_RASTER = SkullbonezCore::Rendering::
+    MakePassRasterStateBucket( 2,
+                               { true, false, true, SkullbonezCore::Rendering::BlendFactor::SrcAlpha,
+                                 SkullbonezCore::Rendering::BlendFactor::One, SkullbonezCore::Rendering::CullMode::None } );
 
 void ClearRenderTextureSlotsExcept( SkullbonezCore::Rendering::Dx12TextureOwner& renderTextures, unsigned int keptSlots )
 {
@@ -1364,6 +1372,35 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
     PROFILE_GPU_BEGIN( inputs.gpuTiming, "Frame/Render/DebugOverlay/ReplayVisuals" );
     tracer.Render( inputs.replayVisualPacket, inputs.camera.viewProjection, inputs.renderGeometry );
     PROFILE_GPU_END( inputs.gpuTiming, "Frame/Render/DebugOverlay/ReplayVisuals" );
+
+    if ( inputs.retainedOverlay.HasGeometry() )
+    {
+        PROFILE_GPU_BEGIN( inputs.gpuTiming, "Frame/Render/DebugOverlay/RetainedOverlay" );
+
+        if ( !inputs.retainedOverlay.ribbonRanges.empty() )
+        {
+            inputs.renderGeometry.DrawRetainedGeometryRanges( inputs.retainedOverlay.compactRibbonRecords,
+                                                              inputs.retainedOverlay.ribbonRanges,
+                                                              inputs.retainedOverlay.stream, inputs.camera.viewProjection,
+                                                              Rendering::TransientTriangleStyle::InstancedRibbonDepthHint,
+                                                              RETAINED_OVERLAY_DEPTH_HINT_RASTER );
+            inputs.renderGeometry.DrawRetainedGeometryRanges( inputs.retainedOverlay.compactRibbonRecords,
+                                                              inputs.retainedOverlay.ribbonRanges,
+                                                              inputs.retainedOverlay.stream, inputs.camera.viewProjection,
+                                                              Rendering::TransientTriangleStyle::InstancedRibbon,
+                                                              RETAINED_OVERLAY_VISIBLE_RASTER );
+        }
+
+        if ( !inputs.retainedOverlay.coloredLineVertices.empty() )
+        {
+            inputs.renderGeometry.DrawRetainedLinesColored( inputs.retainedOverlay.coloredLineVertices,
+                                                            inputs.retainedOverlay.stream, false,
+                                                            inputs.camera.viewProjection, DEBUG_LINE_RASTER );
+        }
+
+        PROFILE_GPU_END( inputs.gpuTiming, "Frame/Render/DebugOverlay/RetainedOverlay" );
+    }
+
     inputs.runtimeTools.Laser().Render( inputs.camera.viewProjection, inputs.camera.eye, inputs.camera.up, inputs.assets,
                                         inputs.renderResources, inputs.renderGeometry, inputs.renderGeometry );
 
@@ -1439,6 +1476,11 @@ bool DebugOverlayPass::HasOverlayWork( const DebugOverlayPassInputs& inputs ) co
     // Invariant: replay owns a complete frame packet. Its fixed-capacity lines
     // and ribbons are sufficient pass work even when editor tools are hidden.
     if ( inputs.replayVisualPacket.HasGeometry() )
+    {
+        return true;
+    }
+
+    if ( inputs.retainedOverlay.HasGeometry() )
     {
         return true;
     }

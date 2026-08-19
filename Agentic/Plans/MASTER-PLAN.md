@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-19
-Status: Two active plans; 37/47 tasks complete
+Status: Two active plans; 38/47 tasks complete
 
 ## Owner Direction
 
@@ -135,7 +135,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Continuous Orbital Forecast | `ORBIT_FORECAST` | 7 | 5 | `TODO/continuous-orbital-forecast.md` |
+| Continuous Orbital Forecast | `ORBIT_FORECAST` | 7 | 6 | `TODO/continuous-orbital-forecast.md` |
 | At-Rest Ball Stability | `REST_STABILITY` | 8 | 0 | `TODO/at-rest-ball-stability.md` |
 
 ## Parked, Backlog, And Completed Plans
@@ -170,7 +170,7 @@ states elsewhere, and both are recorded rather than silently corrected:
 
 ## Binding Order
 
-1. `ORBIT_FORECAST` OF5 through OF6 — draw the bounded rolling orbital window,
+1. `ORBIT_FORECAST` OF6 — close the bounded rolling orbital window,
    then close behavior, memory, determinism, and ownership.
 2. `REST_STABILITY` RS0 through RS7 — add the authored all-three-ball sleep
    completion gate, preserve and diagnose the unlimited `at_rest` witness with
@@ -197,8 +197,8 @@ than pinning pre-repair impulses, activation times, or sleep frames.
 
 ## Portfolio Progress
 
-37/47 tasks complete with two active plans. Causal C0-C8, Determinism T0-T8,
+38/47 tasks complete with two active plans. Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
-Continuous Orbital Forecast OF0-OF4 are complete and OF5-OF6 are next, then At-Rest
+Continuous Orbital Forecast OF0-OF5 are complete and OF6 is next, then At-Rest
 Ball Stability RS0-RS7. Deterministic
 Trigonometry is owner-parked and excluded from progress.

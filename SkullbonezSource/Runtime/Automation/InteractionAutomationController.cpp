@@ -5,8 +5,9 @@ Purpose:
 
 Summary:
   Interaction automation is a validation driver. It asks the same picking,
-  replay, camera, director-shot, and world-input code that an operator would
-  use, while concrete input/report owners publish device snapshots and evidence.
+  replay, continuous-forecast, camera, director-shot, and world-input code that
+  an operator would use, while concrete input/report owners publish device
+  snapshots and evidence.
   A frame-indexed script produces synthetic device state and typed owner
   commands, then observes copied runtime facts after rendering. The controller
   never becomes an alternate gameplay, replay, editor, or window owner.
@@ -18,6 +19,8 @@ Glossary:
     or retargets a fixed camera shot list without taking ownership away from
     the runtime camera state.
   Prediction target: Replay body selected for future-path diagnostics.
+  Continuous forecast command: Typed toggle/reset/exit request submitted through
+    the same operator-command queue as the visible Planning controls.
   Automation report: JSON side-channel describing what the scripted interaction
   observed without mutating validation baselines directly.
 
@@ -30,6 +33,8 @@ Invariants:
     matching evidence bank; unpublished rows remain private allocation storage.
   - Published samples are frame-local; this file must not retain their spans or
     pointers beyond the synchronous automation turn.
+  - Forecast presentation assertions observe the detached post-render view;
+    they never read the worker-owned rolling ring directly.
   - Surface selection accepts Legacy or ImGui only; one frame can publish at
     most one process-surface request.
   - Development UI application stops on the first recoverable command failure;
@@ -44,6 +49,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "InteractionAutomationController.h"
+#include "../Planning/ContinuousOrbitalForecast.h"
 #include "../App/Run.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "../Camera/AttachedCameraController.h"
@@ -568,6 +574,8 @@ const char* ActionTypeName( RunInteractionAutomationActionType type )
         return "selectReplayCauseRow";
     case RunInteractionAutomationActionType::ScrubEditorReplayTrack:
         return "scrubEditorReplayTrack";
+    case RunInteractionAutomationActionType::SetContinuousForecastCommand:
+        return "setContinuousForecastCommand";
     case RunInteractionAutomationActionType::SetReplayPredictionEnabled:
         return "setReplayPredictionEnabled";
     case RunInteractionAutomationActionType::SetReplayPredictionHorizonSeconds:
@@ -743,6 +751,22 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "predictionTrajectoryFingerprintReady";
     case RunInteractionAutomationAssertKind::PredictionAppearanceInvalidationCountMin:
         return "predictionAppearanceInvalidationCountMin";
+    case RunInteractionAutomationAssertKind::ContinuousForecastActive:
+        return "continuousForecastActive";
+    case RunInteractionAutomationAssertKind::ContinuousForecastPreWrap:
+        return "continuousForecastPreWrap";
+    case RunInteractionAutomationAssertKind::ContinuousForecastWindowWrapped:
+        return "continuousForecastWindowWrapped";
+    case RunInteractionAutomationAssertKind::ContinuousForecastPresentationCoherent:
+        return "continuousForecastPresentationCoherent";
+    case RunInteractionAutomationAssertKind::ContinuousForecastAbsoluteTickMin:
+        return "continuousForecastAbsoluteTickMin";
+    case RunInteractionAutomationAssertKind::ContinuousForecastOldestTickMin:
+        return "continuousForecastOldestTickMin";
+    case RunInteractionAutomationAssertKind::ContinuousForecastRibbonSegmentsMin:
+        return "continuousForecastRibbonSegmentsMin";
+    case RunInteractionAutomationAssertKind::ContinuousForecastHeadMarkerCount:
+        return "continuousForecastHeadMarkerCount";
     case RunInteractionAutomationAssertKind::ShadowPassExecuted:
         return "shadowPassExecuted";
     case RunInteractionAutomationAssertKind::TerrainShadowValid:
@@ -1587,6 +1611,28 @@ bool ParseScrubEditorReplayTrackAction( const Json& entry, RunInteractionAutomat
 
     outAction.type = RunInteractionAutomationActionType::ScrubEditorReplayTrack;
     outAction.numberValue = std::clamp( entry["scrubEditorReplayTrack"].get<float>(), 0.0f, 1.0f );
+    return true;
+}
+
+bool ParseSetContinuousForecastCommandAction( const Json& entry, RunInteractionAutomationAction& outAction,
+                                              std::string& outError )
+{
+    if ( !entry["setContinuousForecastCommand"].is_string() )
+    {
+        outError = "setContinuousForecastCommand must be toggle, reset, or exit";
+        return false;
+    }
+
+    const std::string command = entry["setContinuousForecastCommand"].get<std::string>();
+
+    if ( command != "toggle" && command != "reset" && command != "exit" )
+    {
+        outError = "setContinuousForecastCommand must be toggle, reset, or exit";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::SetContinuousForecastCommand;
+    CopyText( outAction.text, sizeof( outAction.text ), command );
     return true;
 }
 
@@ -2451,6 +2497,68 @@ AssertionParseStatus ParseReplayAssertion( const std::string& name, const Json& 
     return AssertionParseStatus::NoMatch;
 }
 
+AssertionParseStatus ParseContinuousForecastAssertion( const std::string& name, const Json& expected,
+                                                       RunInteractionAutomationAction& outAction, std::string& /*outError*/ )
+{
+    if ( name == "continuousForecastActive" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ContinuousForecastActive;
+        outAction.boolValue = ReadBool( expected );
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "continuousForecastPreWrap" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ContinuousForecastPreWrap;
+        outAction.boolValue = ReadBool( expected );
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "continuousForecastWindowWrapped" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ContinuousForecastWindowWrapped;
+        outAction.boolValue = ReadBool( expected );
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "continuousForecastPresentationCoherent" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ContinuousForecastPresentationCoherent;
+        outAction.boolValue = ReadBool( expected );
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "continuousForecastAbsoluteTickMin" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ContinuousForecastAbsoluteTickMin;
+        outAction.numberValue = expected.get<float>();
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "continuousForecastOldestTickMin" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ContinuousForecastOldestTickMin;
+        outAction.numberValue = expected.get<float>();
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "continuousForecastRibbonSegmentsMin" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ContinuousForecastRibbonSegmentsMin;
+        outAction.numberValue = expected.get<float>();
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "continuousForecastHeadMarkerCount" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ContinuousForecastHeadMarkerCount;
+        outAction.numberValue = expected.get<float>();
+        return AssertionParseStatus::Success;
+    }
+
+    return AssertionParseStatus::NoMatch;
+}
+
 AssertionParseStatus ParseRuntimeAssertion( const std::string& name, const Json& expected,
                                             RunInteractionAutomationAction& outAction, std::string& outError )
 {
@@ -2721,6 +2829,7 @@ using AssertionParser = AssertionParseStatus ( * )( const std::string&, const Js
 constexpr AssertionParser ASSERTION_PARSERS[] = {
     ParseBasicAssertion,
     ParseReplayAssertion,
+    ParseContinuousForecastAssertion,
     ParseRuntimeAssertion,
 };
 
@@ -2770,7 +2879,10 @@ bool ParseAssertAction( const Json& entry, RunInteractionAutomationAction& outAc
                                name == "predictionCauseManifoldRowsMax" || name == "predictionCauseSolverRowsMin" ||
                                name == "predictionCauseSolverRowsMax" || name == "predictionCauseSyntheticRowsMin" ||
                                name == "predictionCauseSyntheticRowsMax" ||
-                               name == "predictionAppearanceInvalidationCountMin" || name == "imguiLayoutResetCountMin" ||
+                               name == "predictionAppearanceInvalidationCountMin" ||
+                               name == "continuousForecastAbsoluteTickMin" || name == "continuousForecastOldestTickMin" ||
+                               name == "continuousForecastRibbonSegmentsMin" ||
+                               name == "continuousForecastHeadMarkerCount" || name == "imguiLayoutResetCountMin" ||
                                name == "imguiFocusCountMin" || name == "imguiDpiScale" ||
                                name == "imguiDescriptorHighWaterMax" || name == "imguiViewportRecreationsMin";
 
@@ -2783,7 +2895,9 @@ bool ParseAssertAction( const Json& entry, RunInteractionAutomationAction& outAc
                              name == "replaySolverTrackAtPresent" || name == "predictionScrubFrameActive" ||
                              name == "liveSolverHashStableAcrossPrediction" ||
                              name == "predictionEvidenceConsumerBalanced" ||
-                             name == "predictionTrajectoryFingerprintReady" || name == "shadowPassExecuted" ||
+                             name == "predictionTrajectoryFingerprintReady" || name == "continuousForecastActive" ||
+                             name == "continuousForecastPreWrap" || name == "continuousForecastWindowWrapped" ||
+                             name == "continuousForecastPresentationCoherent" || name == "shadowPassExecuted" ||
                              name == "terrainShadowValid" || name == "objectShadowValid" ||
                              name == "reflectionPassExecuted" || name == "gizmoVisible" || name == "mousePickupActive" ||
                              name == "nativeCaptureRequested" || name == "cursorVisibleRequested" ||
@@ -2845,6 +2959,7 @@ constexpr std::pair<const char*, InteractionActionParser> INTERACTION_ACTION_PAR
     { "clickReplayControl", ParseClickReplayControlAction },
     { "scrubReplaySolverTrack", ParseScrubReplaySolverTrackAction },
     { "scrubEditorReplayTrack", ParseScrubEditorReplayTrackAction },
+    { "setContinuousForecastCommand", ParseSetContinuousForecastCommandAction },
     { "setReplayPredictionEnabled", ParseSetReplayPredictionEnabledAction },
     { "setReplayPredictionHorizonSeconds", ParseSetReplayPredictionHorizonSecondsAction },
     { "beginReplayVisualFidelityCapture", ParseBeginReplayVisualFidelityCaptureAction },
@@ -2924,8 +3039,8 @@ template <typename InspectGizmoInteractionActive>
 InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools, const InteractionAutomationController& automation, const ReplayAutomationView& replay,
                                                                                  RuntimeInteractionController& interaction, const InputRouter& inputRouter, CameraControlState& camera,
                                                                                  const SceneWorld& world, SkullbonezCore::UI::InGameUI& ui, const InteractionAutomationDevelopmentUiView& developmentUi,
-                                                                                 const Rendering::RenderSceneSnapshot& renderSnapshot, const RunInteractionAutomationAction& action,
-                                                                                 InspectGizmoInteractionActive inspectGizmoInteractionActive )
+                                                                                 const ContinuousOrbitalForecastView& forecast, const Rendering::RenderSceneSnapshot& renderSnapshot,
+                                                                                 const RunInteractionAutomationAction& action, InspectGizmoInteractionActive inspectGizmoInteractionActive )
 {
     // Concept: after-render assertions are read-only probes over owner state.
     // The context keeps that state explicit so the Run tick only schedules,
@@ -3498,6 +3613,50 @@ InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
         evaluation.passed = count >= static_cast<uint64_t>( action.numberValue );
         break;
     }
+    case RunInteractionAutomationAssertKind::ContinuousForecastActive:
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( forecast.active );
+        evaluation.passed = forecast.active == action.boolValue;
+        break;
+    case RunInteractionAutomationAssertKind::ContinuousForecastPreWrap:
+    {
+        const bool preWrap = forecast.active && forecast.presentation.coherent && !forecast.presentation.wrapped &&
+                             forecast.presentation.newestAbsoluteTick > 0u;
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( preWrap );
+        evaluation.passed = preWrap == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::ContinuousForecastWindowWrapped:
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( forecast.presentation.wrapped );
+        evaluation.passed = forecast.presentation.wrapped == action.boolValue;
+        break;
+    case RunInteractionAutomationAssertKind::ContinuousForecastPresentationCoherent:
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( forecast.presentation.coherent );
+        evaluation.passed = forecast.presentation.coherent == action.boolValue;
+        break;
+    case RunInteractionAutomationAssertKind::ContinuousForecastAbsoluteTickMin:
+        evaluation.expected = ">=" + std::to_string( static_cast<std::uint64_t>( action.numberValue ) );
+        evaluation.actual = std::to_string( forecast.presentation.newestAbsoluteTick );
+        evaluation.passed = forecast.presentation.newestAbsoluteTick >= static_cast<std::uint64_t>( action.numberValue );
+        break;
+    case RunInteractionAutomationAssertKind::ContinuousForecastOldestTickMin:
+        evaluation.expected = ">=" + std::to_string( static_cast<std::uint64_t>( action.numberValue ) );
+        evaluation.actual = std::to_string( forecast.presentation.oldestAbsoluteTick );
+        evaluation.passed = forecast.presentation.oldestAbsoluteTick >= static_cast<std::uint64_t>( action.numberValue );
+        break;
+    case RunInteractionAutomationAssertKind::ContinuousForecastRibbonSegmentsMin:
+        evaluation.expected = ">=" + std::to_string( static_cast<std::size_t>( action.numberValue ) );
+        evaluation.actual = std::to_string( forecast.presentation.ribbonSegmentCount );
+        evaluation.passed = forecast.presentation.ribbonSegmentCount >= static_cast<std::size_t>( action.numberValue );
+        break;
+    case RunInteractionAutomationAssertKind::ContinuousForecastHeadMarkerCount:
+        evaluation.expected = std::to_string( static_cast<std::size_t>( action.numberValue ) );
+        evaluation.actual = std::to_string( forecast.presentation.headMarkerCount );
+        evaluation.passed = forecast.presentation.headMarkerCount == static_cast<std::size_t>( action.numberValue );
+        break;
     case RunInteractionAutomationAssertKind::ShadowPassExecuted:
     case RunInteractionAutomationAssertKind::TerrainShadowValid:
     case RunInteractionAutomationAssertKind::ObjectShadowValid:
@@ -3895,6 +4054,18 @@ InteractionAutomationController::SubmitOperatorEditorReplayCommand( const Intera
     }
 
     return UI::SubmitOperatorEditorCommand( resultDiagnostics, commands.replay, frame.operatorEditorReplayCommand );
+}
+
+SkullbonezCore::Core::SbResult
+InteractionAutomationController::SubmitOperatorEditorForecastCommand( const InteractionAutomationFrameResult& frame,
+                                                                      UI::OperatorEditorCommandQueues& commands ) const
+{
+    if ( !frame.hasOperatorEditorForecastCommand )
+    {
+        return SkullbonezCore::Core::SbResult::Success();
+    }
+
+    return UI::SubmitOperatorEditorCommand( resultDiagnostics, commands.forecast, frame.operatorEditorForecastCommand );
 }
 
 InteractionAutomationDevelopmentUiView
@@ -4396,6 +4567,29 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
             action.processed = true;
             break;
         }
+        case RunInteractionAutomationActionType::SetContinuousForecastCommand:
+        {
+            const bool available = !result.hasOperatorEditorForecastCommand;
+
+            if ( available )
+            {
+                result.hasOperatorEditorForecastCommand = true;
+                const std::string_view command( action.text );
+                result.operatorEditorForecastCommand.type = command == "reset" ? UI::OperatorEditorForecastCommandType::Reset
+                                                            : command == "exit"
+                                                                ? UI::OperatorEditorForecastCommandType::Exit
+                                                                : UI::OperatorEditorForecastCommandType::ToggleContinuous;
+            }
+            else
+            {
+                FailAutomation( state, "continuous forecast automation command capacity exceeded" );
+            }
+
+            AppendReportAction( state, frame, action.type, action.text, nullptr, available,
+                                available ? "typed continuous forecast command published" : "command capacity exceeded" );
+            action.processed = true;
+            break;
+        }
         case RunInteractionAutomationActionType::ClickObject:
         {
             POINT mouse = {};
@@ -4474,8 +4668,8 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
 InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutomationController& state, RuntimeTools& runtimeTools, RuntimeInteractionController& interaction,
                                                                                                 InputRouter& inputRouter, CameraControlState& camera, SkullbonezCore::UI::InGameUI& ui, SceneController& scene,
                                                                                                 const ReplayAutomationView& replayView, const InteractionAutomationDevelopmentUiView& developmentUiView,
-                                                                                                const Rendering::RenderSceneSnapshot& renderSnapshot, CaptureController& capture,
-                                                                                                Rendering::Dx12BackbufferCapture& backbufferCapture )
+                                                                                                const ContinuousOrbitalForecastView& forecastView, const Rendering::RenderSceneSnapshot& renderSnapshot,
+                                                                                                CaptureController& capture, Rendering::Dx12BackbufferCapture& backbufferCapture )
 {
     InteractionAutomationFrameResult result;
 
@@ -4535,7 +4729,7 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
         strcpy_s( assertion.name, sizeof( assertion.name ), AssertName( action.assertKind ) );
 
         const InteractionAutomationAssertionEvaluation evaluation = EvaluateInteractionAutomationAssertion( runtimeTools, state, replayView, interaction, inputRouter, camera, scene.Scene(), ui, developmentUiView,
-                                                                                                            renderSnapshot, action,
+                                                                                                            forecastView, renderSnapshot, action,
                                                                                                             [&]() { return runtimeTools.InspectGizmoInteractionActive( camera.mode, replayView.input.inspectionActive ); } );
 
         strcpy_s( assertion.expected, sizeof( assertion.expected ), evaluation.expected.c_str() );

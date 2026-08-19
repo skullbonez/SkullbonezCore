@@ -257,6 +257,15 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
         {
             m_applicationExit.RequestPhaseFailure( submitStatus );
         }
+
+        const SkullbonezCore::Core::SbResult
+            forecastSubmitStatus = m_interactionAutomation.SubmitOperatorEditorForecastCommand( *automationBeforeInput,
+                                                                                                externalEditorCommands );
+
+        if ( !forecastSubmitStatus.Ok() )
+        {
+            m_applicationExit.RequestPhaseFailure( forecastSubmitStatus );
+        }
     }
 #else
     (void)automationBeforeInput;

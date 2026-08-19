@@ -10,7 +10,7 @@
     "aggregates":  [
                        {
                            "key":  "BackbufferAcquireGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:350",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:351",
                            "members":  3,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -46,7 +46,7 @@
                        },
                        {
                            "key":  "CinematicPostGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:337",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:338",
                            "members":  10,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -64,7 +64,7 @@
                        },
                        {
                            "key":  "DebugOverlayGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:397",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:398",
                            "members":  2,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -74,7 +74,7 @@
                        {
                            "key":  "DebugOverlayPassInputs",
                            "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:396",
-                           "members":  11,
+                           "members":  12,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render pass ruling",
                            "reason":  "Distinct concrete render-pass input; it is a pass boundary rather than a cross-domain authority bag.",
@@ -164,10 +164,10 @@
                        {
                            "key":  "FrameEntryContext",
                            "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:218",
-                           "members":  7,
-                           "verdict":  "retain-prior",
-                           "owner":  "prior owner ruling carried by CA0",
-                           "reason":  "PB0 explicit retain: narrowed synchronous renderer entry contract, distinct from the deleted frame service bag.",
+                           "members":  8,
+                           "verdict":  "retain",
+                           "owner":  "PB0 / ORBIT_FORECAST OF5 renderer entry",
+                           "reason":  "One synchronous renderer entry samples the scene, camera, UI, Replay, and generic retained presentation values for the same frame. The added packet is a detached value whose spans expire with this call; splitting or grouping the inputs elsewhere would recreate a frame service bag rather than enforce a new invariant.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -244,7 +244,7 @@
                        },
                        {
                            "key":  "ObjectGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:361",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:362",
                            "members":  2,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -370,7 +370,7 @@
                        },
                        {
                            "key":  "ReplayGhostGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:386",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:387",
                            "members":  8,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -703,7 +703,7 @@
                        },
                        {
                            "key":  "ShadowPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:414",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:415",
                            "members":  12,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render pass ruling",
@@ -730,7 +730,7 @@
                        },
                        {
                            "key":  "TerrainGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:366",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:367",
                            "members":  2,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -766,7 +766,7 @@
                        },
                        {
                            "key":  "WaterGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:371",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:372",
                            "members":  2,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -802,7 +802,7 @@
                        },
                        {
                            "key":  "WorldExtensionGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:376",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:377",
                            "members":  7,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
