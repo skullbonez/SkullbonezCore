@@ -283,6 +283,7 @@ class PhysicsContactCacheWakeAccess
     PersistentContactCacheList& m_cache;
 
   public:
+
     // Lifetime: this narrow capability borrows the contact owner's cache only
     // for the synchronous wake operation that requested it.
     explicit PhysicsContactCacheWakeAccess( PersistentContactCacheList& cache ) : m_cache( cache )

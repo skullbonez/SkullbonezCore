@@ -804,10 +804,9 @@ void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStag
 }
 
 template <bool RetainPipelineRecords>
-void PersistentContactSolveTransaction::BuildTerrainRows(
-    PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const PersistentContactSolverStepPolicy& stepPolicy,
-    PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds, std::span<const uint8_t> sleepState,
-    std::span<const float> timeRemaining, int modelCount, std::size_t pipelineRecordCapacity, float dt, Core::Profiler* )
+void PersistentContactSolveTransaction::BuildTerrainRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const PersistentContactSolverStepPolicy& stepPolicy,
+                                                          PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds, std::span<const uint8_t> sleepState,
+                                                          std::span<const float> timeRemaining, int modelCount, std::size_t pipelineRecordCapacity, float dt, Core::Profiler* )
 {
     PROFILE_SCOPED( "Frame/Physics/Terrain" );
     PROFILE_SCOPED( "Frame/Physics/Terrain/Rows" );
@@ -1413,6 +1412,7 @@ void PersistentContactSolveTransaction::SolveRowsIterations( PhysicsContactSolve
                     const float spinSpeed = Dot( a.angularVelocity, c.normal );
                     const float oldAccSpin = c.accSpin;
                     const float supportingNormalImpulse = ( c.accN > c.terrainWarmStart ) ? c.accN : c.terrainWarmStart;
+
                     // Spin friction's authored scalar is an effective contact-
                     // patch length, so multiplying by normal linear impulse is
                     // already an angular impulse. Rolling instead needs the
@@ -1599,10 +1599,9 @@ void PersistentContactSolveTransaction::SolveRows( PhysicsContactSolverStage& st
     }
 }
 
-void PersistentContactSolveTransaction::ApplyPointSupportInstability(
-    PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-    const PersistentContactSolverStepPolicy& stepPolicy, std::span<const uint8_t> sleepState,
-    std::span<const uint8_t> sleepSupportedThisFrame, int modelCount, float dt, Core::Profiler* )
+void PersistentContactSolveTransaction::ApplyPointSupportInstability( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
+                                                                      const PersistentContactSolverStepPolicy& stepPolicy, std::span<const uint8_t> sleepState,
+                                                                      std::span<const uint8_t> sleepSupportedThisFrame, int modelCount, float dt, Core::Profiler* )
 {
     PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/PointSupportInstability" );
     AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::PointSupportInstability, "ApplyPointSupportInstability" );
@@ -1752,9 +1751,8 @@ void PersistentContactSolveTransaction::ApplyPointSupportInstability(
     }
 }
 
-void PersistentContactSolveTransaction::ApplyTerrainRestPolicy(
-    const PhysicsBodyStore& bodyStore, PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds,
-    std::span<uint8_t> terrainRestApplied, std::span<const uint8_t> sleepState, int modelCount, Core::Profiler* )
+void PersistentContactSolveTransaction::ApplyTerrainRestPolicy( const PhysicsBodyStore& bodyStore, PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds,
+                                                                std::span<uint8_t> terrainRestApplied, std::span<const uint8_t> sleepState, int modelCount, Core::Profiler* )
 {
     PROFILE_SCOPED( "Frame/Physics/Terrain" );
     PROFILE_SCOPED( "Frame/Physics/Terrain/RestPolicy" );
@@ -1778,6 +1776,7 @@ void PersistentContactSolveTransaction::ApplyTerrainRestPolicy(
         {
             continue;
         }
+
         terrainRestApplied[bodyIndex] = 1;
     }
 }

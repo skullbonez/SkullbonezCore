@@ -8,7 +8,7 @@ Summary:
   Synthetic detached body/contact fixtures exercise the same pure evaluator as
   real SkullScope traces. Clean body, control, and completion fixtures pass;
   independent mutations pin every review-reopened false-pass boundary and the
-  four RS1 product controls by exact diagnostic code.
+  RS1/RS5 product controls by exact diagnostic code.
 
 Invariants:
   - Each planted control changes one intended semantic and names its expected
@@ -16,6 +16,8 @@ Invariants:
   - The tests never launch the runtime or update a baseline.
   - External material impact interrupts the resting re-impact sequence, so
     legitimate post-collision restitution is not mislabeled solver vibration.
+  - A quiet-counter reset before a later material impact is a valid abandoned
+    attempt; the same reset after the final impact remains a planted failure.
 
 Related:
   - tools/analyze_at_rest_stability.py
@@ -29,6 +31,7 @@ import sys
 
 from analyze_at_rest_stability import (
     DEFAULT_THRESHOLDS,
+    SEMANTIC_SCHEMA_VERSION,
     analyze_body_records,
     analyze_box_control_records,
     analyze_completion_records,
@@ -257,6 +260,50 @@ def check_sleep_counter_reset() -> dict[str, object]:
     return require_exact_failure("sleep_counter_reset", frames, contacts, "sleep_counter_reset")
 
 
+def check_first_post_impact_counter_reset() -> dict[str, object]:
+    frames, contacts = clean_fixture()
+    by_frame = {int(frame["frame"]): frame for frame in frames}
+    by_frame[7204]["sleep_counter"] = 5
+    by_frame[7205]["sleep_counter"] = 0
+    contacts.append(
+        {
+            "frame": 7204,
+            "contact_id": "0:-1:1",
+            "body_a": 0,
+            "body_b": -1,
+            "pre_solve_closing_speed": 2.0,
+            "separation_bias": 0.0,
+            "slip_speed": 0.1,
+        }
+    )
+    return require_exact_failure(
+        "first_post_impact_counter_reset", frames, contacts, "sleep_counter_reset"
+    )
+
+
+def check_pre_impact_counter_reset_is_valid() -> dict[str, object]:
+    frames, contacts = clean_fixture()
+    by_frame = {int(frame["frame"]): frame for frame in frames}
+    by_frame[7204]["sleep_counter"] = 5
+    by_frame[7205]["sleep_counter"] = 0
+    contacts.append(
+        {
+            "frame": 7210,
+            "contact_id": "0:-1:0",
+            "body_a": 0,
+            "body_b": -1,
+            "pre_solve_closing_speed": 2.0,
+            "separation_bias": 0.0,
+            "slip_speed": 0.1,
+        }
+    )
+
+    result = analyze_body_records("pre_impact_counter_reset_is_valid", frames, contacts)
+    if not result["passed"] or result["sleep_counter_resets_after_last_impact"] != 0:
+        raise AssertionError(f"pre-impact counter reset was treated as post-impact sleep failure: {result}")
+    return {"name": "pre_impact_counter_reset_is_valid", "passed": True}
+
+
 def check_incomplete_body_timeline() -> dict[str, object]:
     frames, contacts = clean_fixture()
     frames = [frame for frame in frames if frame["frame"] != 7210]
@@ -382,6 +429,8 @@ def check_completion_guards() -> list[dict[str, object]]:
 
 def main() -> int:
     try:
+        if SEMANTIC_SCHEMA_VERSION != 2:
+            raise AssertionError(f"expected semantic schema version 2, observed {SEMANTIC_SCHEMA_VERSION}")
         results = [
             check_clean_fixture(),
             check_vertical_reimpact(),
@@ -391,6 +440,8 @@ def main() -> int:
             check_accumulated_slip(),
             check_rolling_reversal(),
             check_sleep_counter_reset(),
+            check_first_post_impact_counter_reset(),
+            check_pre_impact_counter_reset_is_valid(),
             check_incomplete_body_timeline(),
             check_terminal_sleep_suffix(),
             check_wake_after_tail(),

@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-20
-Status: One active plan; 42/47 tasks complete
+Status: One active plan; 45/47 tasks complete
 
 ## Owner Direction
 
@@ -158,7 +158,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| At-Rest Ball Stability | `REST_STABILITY` | 8 | 5 | `TODO/at-rest-ball-stability.md` |
+| At-Rest Ball Stability | `REST_STABILITY` | 8 | 6 | `TODO/at-rest-ball-stability.md` |
 
 ## Parked, Backlog, And Completed Plans
 
@@ -217,8 +217,8 @@ than pinning pre-repair impulses, activation times, or sleep frames.
 
 ## Portfolio Progress
 
-44/47 tasks complete with one active plan. Causal C0-C8, Determinism T0-T8,
+45/47 tasks complete with one active plan. Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
-Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS4 are complete.
-At-Rest Ball Stability RS5-RS7 is next. Deterministic
+Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS5 are complete.
+At-Rest Ball Stability RS6-RS7 is next. Deterministic
 Trigonometry is owner-parked and excluded from progress.

@@ -128,28 +128,27 @@ int CountAsInt( PhysicsAuthoredBodyCount count )
 
 ColliderShapeKind ShapeKindForColliderDesc( const SkullbonezCore::Math::CollisionDetection::CollisionShape& shape )
 {
-    return std::visit(
-        []( const auto& shapeValue )
-        {
-            using ShapeT = std::decay_t<decltype( shapeValue )>;
+    return std::visit( []( const auto& shapeValue )
+                       {
+                           using ShapeT = std::decay_t<decltype( shapeValue )>;
 
-            if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
-            {
-                return ColliderShapeKind::Sphere;
-            }
-            else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
-            {
-                return ColliderShapeKind::Box;
-            }
-            else
-            {
-                static_assert( std::is_same_v<ShapeT, ConvexHullShape>,
-                               "Every CollisionShape alternative requires an explicit ColliderShapeKind." );
+                           if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
+                           {
+                               return ColliderShapeKind::Sphere;
+                           }
+                           else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
+                           {
+                               return ColliderShapeKind::Box;
+                           }
+                           else
+                           {
+                               static_assert( std::is_same_v<ShapeT, ConvexHullShape>,
+                                              "Every CollisionShape alternative requires an explicit ColliderShapeKind." );
 
-                return ColliderShapeKind::ConvexHull;
-            }
-        },
-        shape );
+                               return ColliderShapeKind::ConvexHull;
+                           }
+                       },
+                       shape );
 }
 
 
@@ -409,30 +408,29 @@ void PhysicsEngine::ReserveAdditionalAuthoredBodyCapacity( const PhysicsCollider
     std::size_t boxCount = 0u;
     std::size_t hullVariantCount = 0u;
 
-    std::visit(
-        [&]( const auto& shapeValue )
-        {
-            using ShapeT = std::decay_t<decltype( shapeValue )>;
+    std::visit( [&]( const auto& shapeValue )
+                {
+                    using ShapeT = std::decay_t<decltype( shapeValue )>;
 
-            if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
-            {
-                sphereCount = 1u;
-            }
-            else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
-            {
-                boxCount = 1u;
-            }
-            else
-            {
-                static_assert( std::is_same_v<ShapeT, ConvexHullShape>,
-                               "Every CollisionShape alternative requires an explicit capacity commit." );
+                    if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
+                    {
+                        sphereCount = 1u;
+                    }
+                    else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
+                    {
+                        boxCount = 1u;
+                    }
+                    else
+                    {
+                        static_assert( std::is_same_v<ShapeT, ConvexHullShape>,
+                                       "Every CollisionShape alternative requires an explicit capacity commit." );
 
-                // Why: every authored hull still consumes a body/collider row, but an exact shareable identity can
-                // reuse its retained immutable hull variant. Unique editor/procedural geometry must reserve one.
-                hullVariantCount = m_colliderStore.HasShareableHullIdentity( colliderDesc.hullIdentity ) ? 0u : 1u;
-            }
-        },
-        colliderDesc.shape );
+                        // Why: every authored hull still consumes a body/collider row, but an exact shareable identity can
+                        // reuse its retained immutable hull variant. Unique editor/procedural geometry must reserve one.
+                        hullVariantCount = m_colliderStore.HasShareableHullIdentity( colliderDesc.hullIdentity ) ? 0u : 1u;
+                    }
+                },
+                colliderDesc.shape );
 
     const std::size_t bodyCapacity = m_authoredBodyDescs.size() + 1u;
     const std::size_t sphereCapacity = m_colliderStore.SphereShapeCount() + sphereCount;
@@ -604,8 +602,7 @@ PhysicsAuthoredBodyRegistration PhysicsEngine::RegisterAuthoredBody( const Physi
     const PhysicsColliderHandle collider = m_colliderStore.CreateColliderRecord( MakeColliderRecordFromDesc( colliderDesc,
                                                                                                              *record ),
                                                                                  colliderDesc.shape,
-                                                                                 MakeColliderAuthoringRecordFromDesc(
-                                                                                     colliderDesc ),
+                                                                                 MakeColliderAuthoringRecordFromDesc( colliderDesc ),
                                                                                  colliderDesc.hullIdentity );
 
     if ( !collider.IsValid() )
@@ -948,11 +945,9 @@ bool PhysicsEngine::ReleaseFixedBodyAndAttachedTreeParts( PhysicsBodyHandle sour
             return false;
         }
 
-        const Math::Vector::Vector3 sourceLinearVelocity = PhysicsBodyLinearVelocity( hotFields, static_cast<std::size_t>(
-                                                                                                     sourceIndex ) );
+        const Math::Vector::Vector3 sourceLinearVelocity = PhysicsBodyLinearVelocity( hotFields, static_cast<std::size_t>( sourceIndex ) );
 
-        const Math::Vector::Vector3 sourceAngularVelocity = PhysicsBodyAngularVelocity( hotFields, static_cast<std::size_t>(
-                                                                                                       sourceIndex ) );
+        const Math::Vector::Vector3 sourceAngularVelocity = PhysicsBodyAngularVelocity( hotFields, static_cast<std::size_t>( sourceIndex ) );
 
         m_bodyStore.ReleaseFixedBody( sourceIndex, sourceLinearVelocity, sourceAngularVelocity );
         sourceReleased = true;

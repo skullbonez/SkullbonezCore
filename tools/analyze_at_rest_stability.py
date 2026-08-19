@@ -14,13 +14,18 @@ Glossary:
     2 m/s restitution boundary.
   Significant reversal: Horizontal velocity sign change outside the Physics
     0.5 m/s sleep-speed deadband.
+  Post-impact quiet run: Frames after the body's final material impact, during
+    which a supported quiet counter must progress without resetting before the
+    terminal sleep suffix.
   Final sleep: The first frame of the terminal uninterrupted sleeping suffix.
 
 Invariants:
-  - Analysis never changes the trace, scene, schema, or Physics policy; the
-    shared physics_query helper may rebuild its generic SQLite cache when stale.
+  - Analysis never changes the trace, scene, SkullScope cache schema, or Physics
+    policy; the shared physics_query helper may rebuild its generic SQLite cache
+    when stale.
   - Completion and motion quality are separate: sleeping cannot hide excessive
-    slip, vertical motion, reversals, or counter resets.
+    slip, vertical motion, reversals, or a reset during the post-impact quiet
+    run. Earlier resets remain valid responses to later motion or support loss.
   - Output contains summaries and first witnesses only; no raw timeline or
     unbounded contact packet is printed.
 
@@ -44,6 +49,7 @@ import physics_query
 
 BALL_NAMES = ("ball_a", "ball_b", "ball_c")
 BOX_NAMES = ("box_a", "box_b", "box_c")
+SEMANTIC_SCHEMA_VERSION = 2
 
 # Invariant: RS0 recorded these control maxima before any ball-specific repair.
 # A later task may ratify new control envelopes, but RS1 must not silently let
@@ -67,7 +73,7 @@ class StabilityThresholds:
     maximum_slip_radius_fraction: float = 0.25
     reversal_deadband: float = 0.5
     maximum_reversals_per_axis: int = 1
-    maximum_counter_resets_after_tail: int = 0
+    maximum_counter_resets_after_last_impact: int = 0
     maximum_wakes_after_tail: int = 0
     box_control_deadline_frame: int = 7200
 
@@ -184,17 +190,20 @@ def _first_resting_reimpact(contacts: list[Any], thresholds: StabilityThresholds
     return None
 
 
-def _counter_resets(frames: Iterable[Any], thresholds: StabilityThresholds) -> tuple[int, int | None]:
+def _counter_resets(frames: Iterable[Any], audit_start_frame: int) -> tuple[int, int | None]:
     previous_counter: int | None = None
     resets = 0
     first_frame: int | None = None
 
     for frame in frames:
         frame_number = int(_row_value(frame, "frame", 0))
-        if frame_number < thresholds.tail_audit_frame:
+        counter = int(_row_value(frame, "sleep_counter", 0))
+        if frame_number <= audit_start_frame:
+            # The boundary row seeds the first post-impact comparison, but a
+            # reset caused by the impact itself remains outside the quiet run.
+            previous_counter = counter
             continue
 
-        counter = int(_row_value(frame, "sleep_counter", 0))
         sleeping = bool(_row_value(frame, "sleeping", 0))
         if previous_counter is not None and counter < previous_counter and not sleeping:
             resets += 1
@@ -284,7 +293,11 @@ def analyze_body_records(
     ]
     reversals_x = _significant_reversals(late_frames, "vel_x", thresholds)
     reversals_z = _significant_reversals(late_frames, "vel_z", thresholds)
-    counter_resets, first_counter_reset = _counter_resets(frame_rows, thresholds)
+    # Why: a counter drop before the final material impact is evidence that the
+    # body correctly abandoned an earlier quiet attempt. RS5 judges only the
+    # uninterrupted supported quiet run that follows the last genuine impact.
+    counter_audit_start = max(thresholds.tail_audit_frame, post_impact_start)
+    counter_resets, first_counter_reset = _counter_resets(frame_rows, counter_audit_start)
     wake_count, first_wake = _wake_transitions(frame_rows, thresholds)
     resting_reimpact = _first_resting_reimpact(contact_rows, thresholds)
     sleep_latency = (
@@ -314,7 +327,7 @@ def analyze_body_records(
         failures.append("z_reversals")
     if resting_reimpact is not None:
         failures.append("resting_reimpact")
-    if counter_resets > thresholds.maximum_counter_resets_after_tail:
+    if counter_resets > thresholds.maximum_counter_resets_after_last_impact:
         failures.append("sleep_counter_reset")
     if wake_count > thresholds.maximum_wakes_after_tail:
         failures.append("wake_after_tail")
@@ -336,8 +349,8 @@ def analyze_body_records(
         "post_impact_slip_radius_fraction": round(slip_radius_fraction, 6),
         "late_x_reversals": reversals_x,
         "late_z_reversals": reversals_z,
-        "sleep_counter_resets_after_tail": counter_resets,
-        "first_sleep_counter_reset_frame": first_counter_reset,
+        "sleep_counter_resets_after_last_impact": counter_resets,
+        "first_sleep_counter_reset_after_last_impact_frame": first_counter_reset,
         "wakes_after_tail": wake_count,
         "first_wake_after_tail_frame": first_wake,
         "resting_reimpact": resting_reimpact,
@@ -531,7 +544,7 @@ def analyze_trace(
         aggregate = analyze_completion_records(frame_summaries, balls, boxes, target_frames, end_status)
 
         return {
-            "schema_version": 1,
+            "schema_version": SEMANTIC_SCHEMA_VERSION,
             "diagnostic_only": True,
             "uses_golden_hash": False,
             "trace": Path(cache["trace"]).name,

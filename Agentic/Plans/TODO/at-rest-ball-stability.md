@@ -838,6 +838,88 @@ commands were `tools\physics_query.bat <trace> sql <bounded-query> --limit 10`
 for the four SQL witnesses, `events --type energy_spike,friction_saturation
 --frames 7200:13544 --limit 20`, plus the semantic analyzer above.
 
+### RS5 Counter-Reset Adjudication And Selected Repair
+
+RS5 found no remaining Physics sleep-transition defect after RS4. The sole V4
+`sleep_counter_reset` witness is ball B at frame 10,630: its counter moves from
+1 to 0 while support moves from 1 to 0 during a live B/C sphere/sphere contact.
+At that frame linear speed is `0.476590`, angular speed is `0.117631`, and the
+contact carries closing speed `0.007066` plus pre-solve slip `1.425168`; the
+body is therefore neither supported nor angularly quiet. Resetting the counter
+is the required `PhysicsSleepController` response, not delayed-sleep policy.
+Ball B later has its final material impact at frame 11,931.
+
+The actual RS5 product invariant is the checklist wording below: after each
+body's final material impact, a supported quiet body must accumulate consecutive
+frames without resetting before its terminal sleep suffix. The RS1 analyzer had
+instead counted every reset after the fixed frame-7,200 audit boundary, so it
+falsely treated a valid abandoned attempt before a later impact as a final quiet-
+run failure. RS5 narrows only that semantic window. It does not change Physics
+linear/angular thresholds, quiet-frame count, support propagation, inhibition,
+counter mutation, sleep transition, or wake behavior.
+
+The repaired analyzer reports zero post-final-impact resets and zero tail wakes
+for A/B/C. Their final-impact-to-terminal-sleep latencies are 984/566/907 frames,
+all inside the ratified 1,200-frame quality target; all three terminal sleep
+suffixes remain aligned to the natural unlimited process end. The checker now
+includes controls that a pre-impact reset is valid, an ordinary post-impact
+reset fails, and a reset on the first frame after the final impact also fails
+exactly as `sleep_counter_reset`. Semantic report schema version 2 owns the
+renamed post-final-impact fields. Focused Physics tests pin whole-island
+supported transitions, positive-counter reset for both unsupported and nonquiet
+states, and idempotent narrowphase material-impact wake publication; no
+production Physics change is justified merely to make an over-broad diagnostic
+green.
+
+RS5 independent review used fresh thread
+`01a01bc3-a1dc-7662-b146-0d33ee072abb` and session
+`C:\Users\sesch\.codex\sessions\2026\08\20\rollout-2026-08-20T06-43-21-01a01bc3-a1dc-7662-b146-0d33ee072abb.jsonl`.
+Pass 1 reported two blocking findings and one non-blocking finding: the boundary
+row was not seeded, focused C++ owner tests were missing, and renamed semantic
+fields still claimed schema version 1. One fix cycle added the exact
+`finalImpact + 1` negative, schema version 2, positive-counter unsupported and
+nonquiet resets, and idempotent narrowphase wake publication. Pass 2 was CLEAN
+with zero findings. The pass-1 snapshot recorded 6,428,516 input tokens
+(6,237,184 cached, 191,332 uncached), 12,708 output tokens, and 1,273 seconds;
+pass 2 added 420,728 input (417,280 cached, 3,448 uncached), 1,655 output, and
+284 seconds. The live work ledger owns the final attached-session deltas.
+
+Mapped RS5 validation is current on the final formatted tree:
+
+- `python tools\check_at_rest_stability_analyzer.py` passed 21/21 planted
+  controls in 0.137 seconds.
+- `tools\validate_tests.bat` rebuilt the changed test and passed 636/636 cases
+  with 2,521,396/2,521,396 assertions in about 30.2 seconds.
+- The first `tools\validate_fast.bat` attempt exposed formatter-owned layout in
+  three earlier RS4 Physics files. `tools\format_fix.bat` changed layout only;
+  the final `validate_fast` passed formatting, dependency proof, all seven
+  inventories, Profile/Automation/Debug builds, tests, and compiled reachability
+  in 552.007 seconds. No function-complexity ruling became stale: 41/41 current
+  triggered bodies remained ruled.
+- The schema-v2 semantic rerun against the preserved V4 trace completed in
+  1.836 seconds. Its 5,078-byte JSON has SHA-256
+  `93D637E4D52292C25D597B8D15F9294DE9A1463501957B101887D96F7F0589D1`,
+  reports resets `0/0/0`, wakes `0/0/0`, and latencies `984/566/907`, and
+  intentionally remains aggregate-red only for RS6 motion-quality work.
+- `tools\validate_physics_deep.bat` ran for 76.566 seconds and reached the
+  owner-controlled baseline comparison. Bullet wall/object/terrain sweeps and
+  space three-body remained byte-exact; the known pre-RS5 RS3/RS4 behavior
+  differences remain 35,303 varied-scene lines and 256 shooting lines. No
+  Physics or SkullScope oracle was refreshed.
+
+The touched-source comment audit is 7/7 checked with 0 deferred: the two Python
+tools, the focused C++ test, and four formatter-only RS4 Physics files. Learning
+headers, local ownership/validation claims, structured comments, and durable
+`Related:` paths remain truthful; the mechanical formatting changed no policy.
+
+RS5 SkullScope accounting keeps the 108,763,821-byte V4 NDJSON and
+50,102,272-byte SQLite cache on disk with zero raw bytes read by either model.
+The main agent exposed two bounded query results of 13,630 and 4,312 characters
+plus the 5,078-character semantic JSON; the reviewer exposed six bounded query
+results totaling 9,908 characters. Total RS5 model-read diagnostic text is
+therefore exactly 32,928 characters/bytes, with no truncated result used for a
+conclusion.
+
 ## SkullScope Diagnostic Contract
 
 First add the generic authored sleep-completion gate described by RS0, then
@@ -979,17 +1061,17 @@ rolling tests, and cross-scene motion controls.
 
 ### RS5 — Make Supported Quiet Balls Sleep Reliably
 
-- [ ] Keep quiet thresholds, support propagation, inhibition, and final
+- [x] Keep quiet thresholds, support propagation, inhibition, and final
   transition under `PhysicsSleepController` ownership.
-- [ ] Fix spurious motion and counter-reset causes before proposing any change
+- [x] Fix spurious motion and counter-reset causes before proposing any change
   to the existing linear/angular thresholds or quiet-frame count. If policy is
   still the isolated cause, block the edit on explicit owner approval.
-- [ ] Ensure all three supported balls accumulate consecutive quiet frames and
+- [x] Ensure all three supported balls accumulate consecutive quiet frames and
   sleep after their last material impact; report the measured latency against
   the RS0 quality target without using that target to stop the scene.
-- [ ] Prove unsupported, externally forced, materially impacted, or island-
+- [x] Prove unsupported, externally forced, materially impacted, or island-
   connected bodies do not sleep early and wake exactly once when required.
-- [ ] Add focused counter-reset and supported-transition tests that fail the old
+- [x] Add focused counter-reset and supported-transition tests that fail the old
   delayed-sleep sequence.
 
 Evidence: per-ball support/counter/sleep timeline, wake regressions, island
