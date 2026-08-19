@@ -1,7 +1,7 @@
 # At-Rest Ball Stability
 
 Date: 2026-08-18
-Status: Active; 1/8 phases complete
+Status: Active; 2/8 phases complete
 Impact area: Physics terrain contacts, persistent contact solving, rolling and
 sliding response, sleep eligibility/transition, SkullScope diagnostics, tests,
 known-issue baselines, and performance
@@ -241,6 +241,91 @@ Total GPT-read SkullScope query output: **268,107 characters**. Truncation:
 14-16; those six exact queries were individually rerun without truncation in
 rows 34-39. Raw trace/cache bytes were never read by a model.
 
+## RS1 Semantic Oracle Evidence — 2026-08-19
+
+`tools\analyze_at_rest_stability.py` reads through the generic SkullScope SQLite
+cache, allowing the shared helper to rebuild that cache when stale; it neither
+changes the trace/schema nor compares a golden hash. It emits bounded
+summaries/first witnesses. `tools\check_at_rest_stability_analyzer.py` uses detached synthetic
+records to prove clean body/control/completion fixtures, the four required
+product negatives, and every false-pass boundary reopened by independent
+review:
+
+| Planted control | Exact required failure | Result |
+|---|---|---|
+| Sub-threshold max-bias terrain row followed by material terrain re-impact | `resting_reimpact` | Failed exactly this oracle |
+| Post-impact contact slip at 0.6 m/s | `slip_speed` | Failed exactly this oracle |
+| `+0.6, -0.6, +0.6 m/s` late X motion | `x_reversals` | Failed exactly this oracle |
+| Quiet counter `5 -> 0` before sleep | `sleep_counter_reset` | Failed exactly this oracle |
+
+An additional negative guard inserts a 3.0 m/s external body impact between the
+max-bias row and later terrain impact; it passes the resting-loop rule. This
+corrects the interpretation of the RS0 frame-635 `ball_c` witness: contact with
+`box_c` at frame 642 interrupts the 635-to-698 chain, so that sequence remains
+diagnostically suspicious but is not an uninterrupted resting re-impact. The
+first bounded uninterrupted witnesses are `ball_a` 838-to-897, `ball_b`
+947-to-989, and `ball_c` 918-to-976.
+
+The unchanged baseline fails the semantic analyzer for
+`ball_semantic_failure`, while all three box controls pass. A distinct authored
+completion witness begins at physics frame 35,155, all six required body
+timelines are contiguous and aligned through frame 35,159, and the generic
+`process_end` record is not accepted without that witness. The analyzer exactly
+reproduces final sleep frames 34,983 / 35,155 / 34,308, last material impacts
+34,383 / 34,864 / 33,460, post-impact maximum `abs(vy)`
+0.140679 / 0.969157 / 0.703039 m/s, maximum slip
+2.206871 / 0.815522 / 2.199239 m/s, accumulated slip distance
+7.687219 / 1.690542 / 4.426941 units, and late X/Z reversals
+7/9, 15/17, and 10/8 for balls A/B/C. The scene remains unlimited and all
+three balls are finally asleep; those completion facts do not hide the motion
+quality failures.
+
+Ignored preservation root:
+`TestOutput/validation/candidates/REST_STABILITY_RS1_ORACLES/`.
+
+| Artifact | Raw file bytes | SHA-256 |
+|---|---:|---|
+| `rs1_at_rest_baseline_semantic.json` | 6,065 | `E628C306D8AC968EF9A5B642E4E325076B029A5654CD66C4D151E7ED362EE94B` |
+| `rs1_at_rest_analyzer_controls.json` | 6,346 | `FB3DBB75EA03C5F16920924D1B282C35F2EB26C479F55C12F186E5BC732A43C3` |
+
+SkullScope analyzer-use accounting:
+
+| # | Exact command | GPT-read output | Truncated / retained artifact |
+|---:|---|---:|---|
+| 1 | `python tools\analyze_at_rest_stability.py Debug\at_rest_before.physicsdiag.ndjson --expect-fail --output Debug\rs1_at_rest_baseline_semantic.json` | 5,007 normalized JSON characters | No; diagnostic first version was intentionally overwritten after it exposed incorrect `process_end` classification and max-per-frame rather than all-contact slip accumulation |
+| 2 | `python tools\analyze_at_rest_stability.py Debug\at_rest_before.physicsdiag.ndjson --expect-fail --output Debug\rs1_at_rest_baseline_semantic.json` | 5,037 normalized JSON characters | No; final artifact is 5,216 CRLF bytes |
+| 3 | `python tools\analyze_at_rest_stability.py Debug\at_rest_before.physicsdiag.ndjson --expect-fail --output Debug\rs1_at_rest_baseline_semantic.json` | 0 characters | No model read; final post-compile validation redirected stdout to `Out-Null` and reproduced the recorded SHA-256 |
+| 4 | `python tools\physics_query.py Debug\at_rest_before.physicsdiag.ndjson events --limit 50` | 296 JSON characters | No; confirmed that the baseline carries no separate diagnostics event row |
+| 5 | `python tools\physics_query.py Debug\at_rest_before.physicsdiag.ndjson frame 35159` | 3,566 JSON characters | No; terminal all-six-asleep frame summary and body snapshot |
+| 6 | `python tools\physics_query.py Debug\at_rest_before.physicsdiag.ndjson frame 35158` | 3,566 JSON characters | No; preceding all-six-asleep frame summary and body snapshot |
+| 7 | `python tools\physics_query.py Debug\at_rest_before.physicsdiag.ndjson frame 34983` | 4,608 JSON characters | No; proved the earlier five-asleep/one-awake state cannot satisfy the aggregate gate |
+| 8 | `python tools\analyze_at_rest_stability.py Debug\at_rest_before.physicsdiag.ndjson --expect-fail --output Debug\rs1_at_rest_baseline_semantic.json` | 5,913 normalized JSON characters | No; reviewed output was superseded only to add explicit required-body start-frame evidence |
+| 9 | `python tools\analyze_at_rest_stability.py Debug\at_rest_before.physicsdiag.ndjson --expect-fail --output Debug\rs1_at_rest_baseline_semantic.json` | 0 characters | No model read; final prefix-coverage hardening run was redirected and produced the recorded 6,065-byte SHA-256 artifact |
+
+Total GPT-read SkullScope-derived output: **27,993 characters**. Truncation:
+**no**. The separate 3,170-character planted-control report contains only
+synthetic records and is not trace-derived. Raw NDJSON/SQLite bytes were never
+read by a model.
+
+The independent review's first pass found four false-pass paths and two
+missing-evidence items. The repaired analyzer now rejects generic shutdown
+without the terminal all-dynamic sleep witness, gapped or end-misaligned body
+histories, and same-frame external-impact ambiguity; box controls additionally
+pin their exact RS0 maximum speed and angular-speed envelopes. Isolated
+fixtures cover accumulated sub-threshold slip, terminal-suffix failure,
+wake-after-tail, same-frame interruption, transient box speed/omega regression,
+generic-abort completion, gapped summaries, and end-misaligned bodies in
+addition to the original four product negatives.
+
+Formal validation on the final source bytes passed
+`tools\validate_at_rest_stability.bat` with all 19 clean/negative cases and
+`tools\validate_fast.bat` end to end: formatting and Related paths, project
+filters (828/828 items), dependency and ownership gates, all seven current
+inventories including 41/41 complexity rulings, Profile tests (627/627 tests;
+2,520,346/2,520,346 assertions), Automation/Debug/Profile builds, and compiled
+reachability. The touched-source comment audit inspected all three substantive
+Python tools, with 3 checked and 0 deferred; the tiny batch wrapper is exempt.
+
 ## SkullScope Diagnostic Contract
 
 First add the generic authored sleep-completion gate described by RS0, then
@@ -318,14 +403,14 @@ artifact hashes, and named first suspicious frame/body/contact for each symptom.
 
 ### RS1 — Add Semantic Oracles Before The Fix
 
-- [ ] Add a bounded at-rest stability analyzer or focused test harness that
+- [x] Add a bounded at-rest stability analyzer or focused test harness that
   reports the RS0 measures without treating the full CSV hash as success.
-- [ ] Pin all three balls individually plus aggregate scene completion. Keep
+- [x] Pin all three balls individually plus aggregate scene completion. Keep
   box behavior as a non-regression control.
-- [ ] Add planted negative controls for vertical impulse oscillation, excessive
+- [x] Add planted negative controls for vertical impulse oscillation, excessive
   slip, rolling reversal, and sleep-counter reset so each oracle demonstrably
   fails.
-- [ ] Keep query output bounded and preserve the existing generic SkullScope
+- [x] Keep query output bounded and preserve the existing generic SkullScope
   schema unless diagnosis proves a missing fact.
 
 Evidence: focused tests/analyzer fixtures, four failing negative controls, and

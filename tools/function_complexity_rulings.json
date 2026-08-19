@@ -185,11 +185,11 @@
     {
       "file": "SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp",
       "signature": "SkullbonezCore::Core::SbResult SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, SceneSessionState& sceneState, SceneWorld& sceneWorld, SceneAutomationGateConfiguration& automationGates, const AuthoredScene& scene )",
-      "body_sha256": "185737af3880f83ebc514486a0aa3365d760599df5bd83e26427579bbe6141fe",
+      "body_sha256": "129aa6b023e4ca49abbfaf4c0243757d53096962fa4e5a866efd136c14705eee",
       "owner": "SceneAuthoredSetup entity transaction",
       "disposition": "retain-owner",
-      "reason": "One authored-scene setup transaction creates the complete entity topology, resolves the authored orbital-stability names to those newly assigned stable IDs, and establishes automation gates before publication; partial setup is diagnosed and cannot become the active scene.",
-      "evidence": "git history: vector-frame-contract-closure-vf2-authored-impulse-offset (2026-07-31); ORBIT_FORECAST OF3 resolved stability-contract transfer (2026-08-19)",
+      "reason": "One authored-scene setup transaction creates the complete entity topology, resolves orbital-stability and named dynamic-sleep requirements to newly assigned stable IDs, and establishes automation gates before publication; partial setup is diagnosed and cannot become the active scene.",
+      "evidence": "git history: vector-frame-contract-closure-vf2-authored-impulse-offset (2026-07-31); ORBIT_FORECAST OF3 resolved stability-contract transfer (2026-08-19); REST_STABILITY RS0 named dynamic-body sleep gate (2026-08-19)",
       "plan": ""
     },
     {

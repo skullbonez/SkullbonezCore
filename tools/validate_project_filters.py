@@ -380,6 +380,7 @@ RUNTIME_SETTINGS_PREFIXES = (
 
 RUNTIME_SCENE_PREFIXES = (
     "SceneAutomationGateConfiguration",
+    "SceneSleepingDynamicBodyGatePolicy",
     "SceneController",
     "SceneControllerState",
     "SceneLifecycle",
