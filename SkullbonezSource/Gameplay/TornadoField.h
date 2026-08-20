@@ -35,7 +35,9 @@ namespace SkullbonezCore
 namespace Gameplay
 {
 // Invariant: authored content is rejected before mutation when it exceeds this
-// fixed gameplay budget; steady gameplay never truncates or grows the field set.
+// fixed gameplay budget; an admitted scene retains every authored field.
+// Runtime allocation policy: steady gameplay never grows or truncates the
+// fixed field set.
 inline constexpr std::size_t MAX_TORNADO_ACTIVE_FORCE_FIELDS = 64u;
 
 struct TornadoFieldConfig

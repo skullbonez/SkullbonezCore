@@ -93,16 +93,16 @@ UI::UIRect ReplayScrubberBranchButtonRect( int screenW, int screenH )
              22.0f };
 }
 
-UI::UIRect ReplayScrubberPauseButtonRect( int screenW, int screenH )
+UI::UIRect ReplayScrubberHighDetailToggleRect( int screenW, int screenH )
 {
     const UI::UIRect branch = ReplayScrubberBranchButtonRect( screenW, screenH );
-    return { branch.x + branch.w + 10.0f, branch.y, REPLAY_SCRUBBER_PAUSE_BUTTON_WIDTH, 22.0f };
+    return { branch.x + branch.w + 10.0f, branch.y, REPLAY_SCRUBBER_HIGH_DETAIL_TOGGLE_WIDTH, 22.0f };
 }
 
 UI::UIRect ReplayScrubberVelocityEditToggleRect( int screenW, int screenH )
 {
-    const UI::UIRect pause = ReplayScrubberPauseButtonRect( screenW, screenH );
-    return { pause.x + pause.w + 10.0f, pause.y, REPLAY_SCRUBBER_VELOCITY_BUTTON_WIDTH, pause.h };
+    const UI::UIRect highDetail = ReplayScrubberHighDetailToggleRect( screenW, screenH );
+    return { highDetail.x + highDetail.w + 10.0f, highDetail.y, REPLAY_SCRUBBER_VELOCITY_BUTTON_WIDTH, highDetail.h };
 }
 
 UI::UIRect ReplayScrubberPredictControlRect( int screenW, int screenH )
@@ -172,7 +172,8 @@ void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, Replay
     outSurface.Reset();
 
     const auto addControl = [&]( ReplayScrubberControl id, ReplayScrubberAction action, RuntimeUiControlKind kind,
-                                 const UI::UIRect& drawRect, const UI::UIRect& hitRect, bool visible, bool enabled )
+                                 const UI::UIRect& drawRect, const UI::UIRect& hitRect, bool visible, bool enabled,
+                                 bool checked = false )
     {
         RuntimeUiControl control;
 
@@ -184,6 +185,7 @@ void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, Replay
         control.hitRect = hitRect;
         control.visible = visible;
         control.enabled = enabled;
+        control.checked = checked;
         control.requestsReveal = true;
 
         if ( !outSurface.TryAdd( control ) )
@@ -195,7 +197,7 @@ void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, Replay
     };
 
     const UI::UIRect branch = ReplayScrubberBranchButtonRect( input.screenW, input.screenH );
-    const UI::UIRect pause = ReplayScrubberPauseButtonRect( input.screenW, input.screenH );
+    const UI::UIRect highDetail = ReplayScrubberHighDetailToggleRect( input.screenW, input.screenH );
     const UI::UIRect velocity = ReplayScrubberVelocityEditToggleRect( input.screenW, input.screenH );
     const UI::UIRect predictionToggle = ReplayScrubberPredictToggleRect( input.screenW, input.screenH );
     const UI::UIRect predictionPanel = ReplayScrubberPredictControlRect( input.screenW, input.screenH );
@@ -219,8 +221,9 @@ void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, Replay
     addControl( ReplayScrubberControl::Branch, ReplayScrubberAction::RestoreBranch, RuntimeUiControlKind::Button, branch,
                 branch, true, input.branchTargetAvailable );
 
-    addControl( ReplayScrubberControl::Pause, ReplayScrubberAction::TogglePause, RuntimeUiControlKind::Button, pause, pause,
-                !input.loadedPresentation, input.solverToolsEnabled && !input.predictionEnabled );
+    addControl( ReplayScrubberControl::HighDetail, ReplayScrubberAction::SetPredictionDetailMode,
+                RuntimeUiControlKind::Toggle, highDetail, highDetail, !input.loadedPresentation,
+                input.predictionToolsEnabled, input.predictionHighDetail );
 
     addControl( ReplayScrubberControl::VelocityEdit, ReplayScrubberAction::ToggleVelocityEdit, RuntimeUiControlKind::Toggle,
                 velocity, velocity, !input.loadedPresentation, input.solverToolsEnabled );

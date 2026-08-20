@@ -578,6 +578,8 @@ ReplayInputView ReplayRuntime::BuildInputView() const noexcept
 ReplayAutomationView ReplayRuntime::BuildAutomationView() const
 {
     return { m_predictionOwner.State(),
+             m_predictionOwner.AutomationCommittedSolverEvidence(),
+             m_predictionOwner.AutomationDetailMode(),
              m_planningOwner.PorkchopView(),
              m_planningOwner.TripPlannerView(),
              m_authoring.CauseTree(),
@@ -596,6 +598,8 @@ ReplayAutomationView ReplayRuntime::BuildAutomationView() const
              m_predictionOwner.PresentationOwner().PublishedVisualPacketView(),
              m_predictionOwner.PresentationOwner().TrajectorySubmissionProbeSnapshot(),
              m_predictionOwner.PresentationOwner().AppearanceInvalidationCount(),
+             m_predictionOwner.SolverEvidenceCaptureStats(),
+             m_predictionOwner.CollectMemoryStats().evidence,
              CollectMemoryStats(),
              BuildInputView(),
              m_scrubberOwner.TrackPosition( RunReplayTrack::Solver ),
@@ -1543,6 +1547,27 @@ SkullbonezCore::Core::MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() 
                                             SkullbonezCore::Core::MainMemoryReplayByteCategory::PathOwner );
 
     stats.predictionFrames = predictionMemory.frameCount;
+    stats.predictionEvidence.buildContactCapacityBytes = predictionMemory.evidence.build.contactCapacityBytes;
+    stats.predictionEvidence.buildPipelineCapacityBytes = predictionMemory.evidence.build.pipelineCapacityBytes;
+    stats.predictionEvidence.buildFrameCapacityBytes = predictionMemory.evidence.build.frameCapacityBytes;
+    stats.predictionEvidence.committedContactCapacityBytes = predictionMemory.evidence.committed.contactCapacityBytes;
+    stats.predictionEvidence.committedPipelineCapacityBytes = predictionMemory.evidence.committed.pipelineCapacityBytes;
+    stats.predictionEvidence.committedFrameCapacityBytes = predictionMemory.evidence.committed.frameCapacityBytes;
+    stats.predictionEvidence.currentCapacityBytes = predictionMemory.evidence.currentCapacityBytes;
+    stats.predictionEvidence.lifetimePeakCapacityBytes = predictionMemory.evidence.lifetimePeakCapacityBytes;
+    stats.predictionEvidence.releaseCheckpointCount = predictionMemory.evidence.releaseCheckpointCount;
+    stats.predictionEvidence.lastReleaseBeforeCapacityBytes = predictionMemory.evidence.lastReleaseBeforeCapacityBytes;
+    stats.predictionEvidence.lastReleaseAfterCapacityBytes = predictionMemory.evidence.lastReleaseAfterCapacityBytes;
+    stats.predictionEvidence.lastReleaseBeforeReplayTotalBytes = m_predictionEvidenceReleaseBeforeReplayTotalBytes;
+    stats.predictionEvidence.lastReleaseAfterReplayTotalBytes = m_predictionEvidenceReleaseAfterReplayTotalBytes;
+    stats.predictionEvidence.lastReleaseBeforeCategoryTotalBytes = m_predictionEvidenceReleaseBeforeCategoryTotalBytes;
+    stats.predictionEvidence.lastReleaseAfterCategoryTotalBytes = m_predictionEvidenceReleaseAfterCategoryTotalBytes;
+    stats.predictionEvidence.buildContactCount = predictionMemory.evidence.build.contactCount;
+    stats.predictionEvidence.buildPipelineCount = predictionMemory.evidence.build.pipelineCount;
+    stats.predictionEvidence.buildFrameCount = predictionMemory.evidence.build.publishedFrameCount;
+    stats.predictionEvidence.committedContactCount = predictionMemory.evidence.committed.contactCount;
+    stats.predictionEvidence.committedPipelineCount = predictionMemory.evidence.committed.pipelineCount;
+    stats.predictionEvidence.committedFrameCount = predictionMemory.evidence.committed.publishedFrameCount;
 
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
                                                             SkullbonezCore::Core::MainMemoryReplayByteCategory::PathOwner,
@@ -1662,7 +1687,8 @@ bool ReplayRuntime::SavePresentationWithSolverHashes( const char* path, ReplayV2
 
 void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics, const Gameplay::TornadoGameplay& tornadoGameplay,
                                       const SceneEntityStore& entities, const SkullbonezCore::Core::EngineConfig& config,
-                                      const Physics::PhysicsWorldForces& worldForces, Threading::WorkerPool& workerPool,
+                                      const Physics::PhysicsWorldForces& worldForces,
+                                      ReplayPredictionPathPresentation pathPresentation, Threading::WorkerPool& workerPool,
                                       bool scenePhysicsEnabled, double simulationTimeSinceLastStart,
                                       double simulationTotalTime )
 {
@@ -1708,7 +1734,8 @@ void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics, const Gameplay::To
 
             const bool began = preparation != ReplayPredictionSourcePreparation::Declined &&
                                m_predictionOwner.BeginFrameSimulation( physics, tornadoGameplay, entities, config,
-                                                                       worldForces, workerPool, preparation );
+                                                                       worldForces, pathPresentation, workerPool,
+                                                                       preparation );
 
             m_predictionOwner.CompleteFrameSourceBegin( began, wasDirty, wasPendingLatestRestart );
             stopFrame = m_predictionOwner.BeginFrameBudgetExpired( budgetStart, REPLAY_PREDICTION_MAX_WORK_MILLISECONDS,

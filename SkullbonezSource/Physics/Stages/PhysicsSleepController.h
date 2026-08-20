@@ -128,8 +128,17 @@ static_assert( sizeof( PhysicsSleepScratchFlags ) == 1u, "Sleep scratch flags mu
 class PhysicsSleepController
 {
     friend class PhysicsNarrowphaseWakeAccess;
+    friend struct PhysicsSleepControllerTestAccess;
 
   private:
+
+    // Why: Debug validates the derived awake-list membership with this pure
+    // classifier; Release retains the zero-cost trusted traversal.
+    static constexpr bool IsAwakeListEntryConsistent( bool fixed, bool sleeping ) noexcept
+    {
+        return !fixed && !sleeping;
+    }
+
     PhysicsBodyRowList<uint8_t> m_sleepSupportedThisFrame { "PhysicsSleepController.m_sleepSupportedThisFrame",
                                                             PhysicsCapacityReason::SceneBodies };
     PhysicsBodyRowList<uint8_t> m_sleepInhibitedThisFrame { "PhysicsSleepController.m_sleepInhibitedThisFrame",

@@ -4,9 +4,9 @@ Purpose:
   Implements UI TabScene widgets, layout, drawing, or UI state for the in-engine controls.
 
 Summary:
-  Owns filtered scene selection,
-  scene commands, and
-  time-scale preview/commit interaction.
+  Owns filtered scene selection, scene commands, time-control interaction, and
+  detached continuous-forecast controls/readout without retaining simulation
+  state.
 
 Invariants:
   - Command-line and scene-file spellings are user-facing compatibility
@@ -59,6 +59,9 @@ struct UISceneTabState
     UIButton resetSceneButton;
     UIButton resetDefaultsButton;
     UIButton saveDefaultsButton;
+    UIButton continuousForecastButton;
+    UIButton resetForecastButton;
+    UIButton exitForecastButton;
     UISlider timeScaleSlider;
 
     // Concept: reveal pacing sits beside simulation speed because both answer
@@ -101,6 +104,8 @@ bool HandleClosedComboClick( UISceneTabState& state, const InputControl::UIInput
 
 bool HandleTimeScaleClick( UISceneTabState& state, InGameUIInputResult& result, int& activeSlider, int mouseX, int mouseY,
                            float contentX, float rowBase, float contentW );
+bool HandleForecastClick( UISceneTabState& state, InGameUIInputResult& result, int mouseX, int mouseY, float contentX,
+                          float rowBase, float contentW );
 
 bool UpdateActiveSlider( UISceneTabState& state, int activeSlider, int mouseX, InGameUIInputResult& result );
 bool CommitActiveSlider( UISceneTabState& state, int activeSlider, InGameUIInputResult& result );

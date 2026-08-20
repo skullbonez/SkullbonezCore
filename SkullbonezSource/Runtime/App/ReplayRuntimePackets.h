@@ -15,6 +15,8 @@ Glossary:
 
 Invariants:
   - References and spans are synchronous evidence and expire at the next owner mutation.
+  - Automation's solver-evidence reference is read-only and expires with the
+    same composed view; the report writer never retains it.
   - Intent values contain no callback, owner pointer, or retained authority.
   - Lower Replay headers never include this application aggregation.
   - Detached Rendering packets own their values and carry no replay authority.
@@ -66,6 +68,8 @@ struct ReplayRenderFrameView
 struct ReplayAutomationView
 {
     const RunReplayPredictionState& prediction;
+    const ReplayPredictionSolverEvidenceStore& predictionEvidence;
+    ReplayPredictionDetailMode predictionDetailMode = ReplayPredictionDetailMode::Low;
     const ReplayPorkchopPanelView& porkchop;
     const ReplayTripPlannerView& tripPlanner;
     const RunReplayCauseTreeState& causeTree;
@@ -84,6 +88,8 @@ struct ReplayAutomationView
     ReplayVisualPacket visualPacket;
     ReplayTrajectorySubmissionProbeStats trajectorySubmission;
     uint64_t predictionAppearanceInvalidationCount = 0;
+    ReplayPredictionSolverEvidenceCaptureStats predictionEvidenceCapture;
+    ReplayPredictionSolverEvidenceBanksMemoryStats predictionEvidenceMemory;
     SkullbonezCore::Core::MainMemoryReplayStats memoryStats;
     ReplayInputView input;
     float solverTrackPosition = 0.0f;

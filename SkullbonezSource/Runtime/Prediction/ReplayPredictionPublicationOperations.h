@@ -154,7 +154,8 @@ const ReplaySolverBodySample* FindReplayBodyByIdWithHint( const ReplaySolverFram
                                                           Physics::PhysicsSceneObjectId id, int modelIndex );
 
 bool PrepareReplayPredictionTrajectoryBuild( RunReplayPredictionState& prediction, Physics::PhysicsSceneObjectId rootId,
-                                             std::size_t frameCapacity, std::size_t bodyCount );
+                                             std::size_t frameCapacity, std::size_t bodyCount,
+                                             ReplayPredictionPathPresentation pathPresentation );
 bool PublishReplayPredictionRootTrajectoryFrame( RunReplayPredictionState& prediction, const RunReplayPredictionFrame& frame,
                                                  std::size_t frameSlot );
 bool PublishReplayPredictionBuildRootTrajectoryPrefix( RunReplayPredictionState& prediction,

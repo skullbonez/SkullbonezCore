@@ -22,11 +22,14 @@ Glossary:
 Invariants:
   - Owned lists commit scene-derived runtime capacities before play and fail
     loudly rather than grow during steady gameplay.
-  - Solve prepares a fresh consequence batch before invoking the row solver.
+  - Solve proves every consequence lane's required capacity independently,
+    then prepares a fresh batch before invoking the row solver.
   - Contact phases advance in one adjacent order. The two existing no-work
     exits may terminate only from entry/setup or terrain-row completion.
   - The solve transaction owns solver-body scratch and impulse application; it
     retains no borrowed store, span, stage, or world pointer.
+  - Normal, sliding, rolling, and spin impulses share the PGS transaction. The
+    later terrain-rest phase publishes support policy and mutates no velocity.
   - Pipeline event counts remain exact in both payload modes; count-only
     specializations leave the consequence record list empty.
   - The stage retains no pointer or reference to PhysicsWorld or borrowed rows.
@@ -231,11 +234,10 @@ class PersistentContactSolveTransaction
                                        const PersistentContactSolverStepPolicy& stepPolicy,
                                        std::span<const uint8_t> sleepState, std::span<const uint8_t> sleepSupportedThisFrame,
                                        int modelCount, float dt, Core::Profiler* profiler );
-    void ApplyTerrainRestPolicy( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                                 const PersistentContactSolverStepPolicy& stepPolicy,
+    void ApplyTerrainRestPolicy( const PhysicsBodyStore& bodyStore,
                                  PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds,
                                  std::span<uint8_t> terrainRestApplied, std::span<const uint8_t> sleepState, int modelCount,
-                                 float dt, Core::Profiler* profiler );
+                                 Core::Profiler* profiler );
     template <bool RetainPipelineRecords>
     void WriteBack( PhysicsContactSolverStage& stage, PhysicsBodyStore& bodyStore, std::span<const uint8_t> sleepState,
                     int modelCount, std::size_t pipelineRecordCapacity, Core::Profiler* profiler );
@@ -296,6 +298,7 @@ class PhysicsContactSolverStage
   private:
     friend class PersistentContactSolveTransaction;
     friend struct PersistentContactPositionCorrectionTestAccess;
+    friend struct PhysicsContactSolverStageTestAccess;
 
     PersistentContactList m_persistentContacts { "PhysicsContactSolverStage.persistentContacts",
                                                  PhysicsCapacityReason::PersistentContacts };
@@ -310,6 +313,8 @@ class PhysicsContactSolverStage
     PersistentContactSolveTransaction m_solveTransaction;
     PersistentContactSolverSideEffects m_sideEffects;
 
+    // Invariant: all five consequence lanes are proved independently before
+    // Solve can publish into fixed-capacity storage.
     void PrepareSideEffects( int modelCount, std::size_t candidatePairCount, int pipelineRecordCapacity );
 
   public:

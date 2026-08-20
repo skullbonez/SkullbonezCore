@@ -158,9 +158,8 @@ TEST_CASE( "Runtime interaction: physics input matrix publishes one frame policy
         RuntimeInteractionGesture pickup;
         pickup.kind = RuntimeInteractionGestureKind::MousePickupDrag;
         pickup.button = RuntimePointerButton::Left;
-        pickup.body = SkullbonezCore::Physics::PhysicsBodyHandle{ 3u, 2u };
-        REQUIRE(
-            controller.BeginOwnedToolGesture( RuntimeWorkspace::Live, WorldInteractionOwner::Manipulator, pickup ) );
+        pickup.body = SkullbonezCore::Physics::PhysicsBodyHandle { 3u, 2u };
+        REQUIRE( controller.BeginOwnedToolGesture( RuntimeWorkspace::Live, WorldInteractionOwner::Manipulator, pickup ) );
         policy = controller.BuildFramePolicy( input );
         CHECK( policy.manipulatorActive );
         CHECK( policy.physicsAdvance == PhysicsAdvanceState::Running );
@@ -214,7 +213,7 @@ TEST_CASE( "Runtime interaction: camera policy follows owner precedence" )
     RuntimeInteractionGesture pickup;
     pickup.kind = RuntimeInteractionGestureKind::MousePickupDrag;
     pickup.button = RuntimePointerButton::Left;
-    pickup.body = SkullbonezCore::Physics::PhysicsBodyHandle{ 4u, 1u };
+    pickup.body = SkullbonezCore::Physics::PhysicsBodyHandle { 4u, 1u };
     REQUIRE( controller.BeginOwnedToolGesture( RuntimeWorkspace::Live, WorldInteractionOwner::Manipulator, pickup ) );
     policy = controller.BuildFramePolicy( input );
     CHECK( policy.cameraLook == CameraLookState::Passive );
@@ -243,10 +242,10 @@ TEST_CASE( "Replay overlay: scrubber geometry clamps compact and wide screens" )
     CHECK( REPLAY_FUTURE_DEFAULT_SECONDS == doctest::Approx( 20.0f ) );
     CHECK( REPLAY_PREDICTION_MAX_SECONDS == doctest::Approx( 120.0f ) );
     CHECK( ReplayPredictionHorizonT( REPLAY_PREDICTION_MAX_SECONDS + 10.0f ) == 1.0f );
-    const SkullbonezCore::UI::UIRect horizon{ 100.0f, 50.0f, 200.0f, 8.0f };
+    const SkullbonezCore::UI::UIRect horizon { 100.0f, 50.0f, 200.0f, 8.0f };
     CHECK( ReplayPredictionHorizonFromMouse( 0, horizon ) == REPLAY_PREDICTION_MIN_SECONDS );
     CHECK( ReplayPredictionHorizonFromMouse( 400, horizon ) == REPLAY_PREDICTION_MAX_SECONDS );
-    const SkullbonezCore::UI::UIRect collapsedHorizon{ 100.0f, 50.0f, 1.0f, 8.0f };
+    const SkullbonezCore::UI::UIRect collapsedHorizon { 100.0f, 50.0f, 1.0f, 8.0f };
     CHECK( ReplayPredictionHorizonFromMouse( 100, collapsedHorizon ) == REPLAY_PREDICTION_MAX_SECONDS );
 
     CHECK( ReplayScrubberPositionFromMouse( -100, 1920, 1080, RunReplayTrack::Solver ) == 0.0f );
@@ -262,8 +261,8 @@ TEST_CASE( "Replay overlay: surface description publishes owner availability as 
     stats.enabled = true;
     stats.sampleCount = 2u;
 
-    ReplayScrubberSurfaceInput input =
-        DescribeReplayScrubberAvailability( scrubber, stats, false, true, true, false, true, true );
+    ReplayScrubberSurfaceInput input = DescribeReplayScrubberAvailability( scrubber, stats, false, true, true, false, true,
+                                                                           true );
     input.screenW = 1920;
     input.screenH = 1080;
     input.gesture = RuntimeInteractionGestureKind::ReplayScrubDrag;
@@ -284,28 +283,39 @@ TEST_CASE( "Replay overlay: surface description publishes owner availability as 
     REQUIRE( active != nullptr );
     CHECK( active->active );
 
-    const RuntimeUiControl* pause = surface.Find( ReplayScrubberControlId( ReplayScrubberControl::Pause ) );
-    REQUIRE( pause != nullptr );
-    surface.ResolvePointer( RectCenterX( pause->hitRect ), RectCenterY( pause->hitRect ) );
+    const RuntimeUiControl* highDetail = surface.Find( ReplayScrubberControlId( ReplayScrubberControl::HighDetail ) );
+    REQUIRE( highDetail != nullptr );
+    CHECK( highDetail->kind == RuntimeUiControlKind::Toggle );
+    CHECK( highDetail->checked );
+    CHECK( highDetail->drawRect.x == doctest::Approx( ReplayScrubberHighDetailToggleRect( 1920, 1080 ).x ) );
+    CHECK( highDetail->drawRect.y == doctest::Approx( ReplayScrubberHighDetailToggleRect( 1920, 1080 ).y ) );
+    CHECK( highDetail->drawRect.w == doctest::Approx( ReplayScrubberHighDetailToggleRect( 1920, 1080 ).w ) );
+    CHECK( highDetail->drawRect.h == doctest::Approx( ReplayScrubberHighDetailToggleRect( 1920, 1080 ).h ) );
+    surface.ResolvePointer( RectCenterX( highDetail->hitRect ), RectCenterY( highDetail->hitRect ) );
     CHECK( surface.hasPointerControl );
     CHECK( surface.hasHotControl );
-    CHECK( surface.hotControl == pause->id );
+    CHECK( surface.hotControl == highDetail->id );
+    CHECK( surface.Find( surface.hotControl )->action.value ==
+           static_cast<uint32_t>( ReplayScrubberAction::SetPredictionDetailMode ) );
 
+    input.predictionHighDetail = false;
     input.predictionEnabled = true;
     BuildReplayScrubberSurface( input, surface );
-    pause = surface.Find( ReplayScrubberControlId( ReplayScrubberControl::Pause ) );
-    REQUIRE( pause != nullptr );
-    CHECK_FALSE( pause->enabled );
-    surface.ResolvePointer( RectCenterX( pause->hitRect ), RectCenterY( pause->hitRect ) );
+    highDetail = surface.Find( ReplayScrubberControlId( ReplayScrubberControl::HighDetail ) );
+    REQUIRE( highDetail != nullptr );
+    CHECK( highDetail->enabled );
+    CHECK_FALSE( highDetail->checked );
+    surface.ResolvePointer( RectCenterX( highDetail->hitRect ), RectCenterY( highDetail->hitRect ) );
     CHECK( surface.hasPointerControl );
-    CHECK_FALSE( surface.hasHotControl );
+    CHECK( surface.hasHotControl );
     CHECK( surface.consumesPointer );
 
     input.predictionEnabled = false;
     BuildReplayScrubberSurface( input, surface );
-    pause = surface.Find( ReplayScrubberControlId( ReplayScrubberControl::Pause ) );
-    REQUIRE( pause != nullptr );
-    surface.ResolvePointer( RectCenterX( pause->hitRect ), RectCenterY( pause->hitRect ), true );
+    highDetail = surface.Find( ReplayScrubberControlId( ReplayScrubberControl::HighDetail ) );
+    REQUIRE( highDetail != nullptr );
+    CHECK( highDetail->enabled );
+    surface.ResolvePointer( RectCenterX( highDetail->hitRect ), RectCenterY( highDetail->hitRect ), true );
     CHECK_FALSE( surface.hasPointerControl );
     CHECK_FALSE( surface.hasHotControl );
     CHECK_FALSE( surface.consumesPointer );
@@ -320,8 +330,8 @@ TEST_CASE( "Replay overlay: loaded and unavailable surfaces block invalid action
     stats.enabled = true;
     stats.sampleCount = 1u;
 
-    ReplayScrubberSurfaceInput loaded =
-        DescribeReplayScrubberAvailability( scrubber, stats, true, false, false, true, false, false );
+    ReplayScrubberSurfaceInput loaded = DescribeReplayScrubberAvailability( scrubber, stats, true, false, false, true, false,
+                                                                            false );
     loaded.hotZoneEnabled = false;
     CHECK( loaded.track == RunReplayTrack::Presentation );
     CHECK_FALSE( loaded.solverToolsEnabled );
@@ -332,23 +342,23 @@ TEST_CASE( "Replay overlay: loaded and unavailable surfaces block invalid action
 
     ReplayScrubberSurface loadedSurface;
     BuildReplayScrubberSurface( loaded, loadedSurface );
-    const RuntimeUiControl* pause = loadedSurface.Find( ReplayScrubberControlId( ReplayScrubberControl::Pause ) );
-    REQUIRE( pause != nullptr );
-    CHECK_FALSE( pause->visible );
+    const RuntimeUiControl* highDetail = loadedSurface.Find( ReplayScrubberControlId( ReplayScrubberControl::HighDetail ) );
+    REQUIRE( highDetail != nullptr );
+    CHECK_FALSE( highDetail->visible );
 
-    ReplayScrubberSurfaceInput unavailable =
-        DescribeReplayScrubberAvailability( scrubber, stats, false, false, false, false, false, false );
+    ReplayScrubberSurfaceInput unavailable = DescribeReplayScrubberAvailability( scrubber, stats, false, false, false, false,
+                                                                                 false, false );
     unavailable.screenW = 1280;
     unavailable.screenH = 720;
     CHECK_FALSE( unavailable.solverToolsEnabled );
     CHECK_FALSE( unavailable.scrubTrackDragEnabled );
     ReplayScrubberSurface unavailableSurface;
     BuildReplayScrubberSurface( unavailable, unavailableSurface );
-    pause = unavailableSurface.Find( ReplayScrubberControlId( ReplayScrubberControl::Pause ) );
-    REQUIRE( pause != nullptr );
-    REQUIRE( pause->visible );
-    CHECK_FALSE( pause->enabled );
-    unavailableSurface.ResolvePointer( RectCenterX( pause->hitRect ), RectCenterY( pause->hitRect ) );
+    highDetail = unavailableSurface.Find( ReplayScrubberControlId( ReplayScrubberControl::HighDetail ) );
+    REQUIRE( highDetail != nullptr );
+    REQUIRE( highDetail->visible );
+    CHECK_FALSE( highDetail->enabled );
+    unavailableSurface.ResolvePointer( RectCenterX( highDetail->hitRect ), RectCenterY( highDetail->hitRect ) );
     CHECK( unavailableSurface.hasPointerControl );
     CHECK_FALSE( unavailableSurface.hasHotControl );
     CHECK( unavailableSurface.consumesPointer );
@@ -360,8 +370,8 @@ TEST_CASE( "Replay event commands: domain values encode bounded deterministic pa
     using SkullbonezCore::Math::Orientation::Quaternion;
     using SkullbonezCore::Math::Vector::Vector3;
 
-    const ReplayEventCommand direct =
-        BuildCommand( ReplayEventKind::OwnerAction, 17u, false, 3u, 1, 2, 3, 4, 99u, "owner-action" );
+    const ReplayEventCommand direct = BuildCommand( ReplayEventKind::OwnerAction, 17u, false, 3u, 1, 2, 3, 4, 99u,
+                                                    "owner-action" );
     CHECK( direct.kind == ReplayEventKind::OwnerAction );
     CHECK( direct.frameIndex == 17u );
     CHECK_FALSE( direct.useNextFrame );
@@ -391,40 +401,35 @@ TEST_CASE( "Replay event commands: domain values encode bounded deterministic pa
     CHECK( launcher.flags == 3u );
     CHECK( std::strcmp( launcher.text, "launcher_config" ) == 0 );
 
-    const ReplayEventCommand fire = BuildLauncherFire( Vector3( 1.0f, 2.0f, 3.0f ),
-                                                       Vector3( 0.0f, 0.0f, 1.0f ),
-                                                       Vector3( 0.0f, 1.0f, 0.0f ),
-                                                       true,
-                                                       50.0f,
-                                                       80.0f,
-                                                       12 );
+    const ReplayEventCommand fire = BuildLauncherFire( Vector3( 1.0f, 2.0f, 3.0f ), Vector3( 0.0f, 0.0f, 1.0f ),
+                                                       Vector3( 0.0f, 1.0f, 0.0f ), true, 50.0f, 80.0f, 12 );
     CHECK( fire.kind == ReplayEventKind::LauncherFire );
     CHECK( fire.flags == 1u );
     CHECK( fire.value0 == 1 );
     CHECK( fire.value3 == 12 );
     CHECK( std::strncmp( fire.text, "ray9:", 5u ) == 0 );
 
-    const ReplayEventCommand place =
-        BuildEditorPlace( 4, true, true, 12, Vector3( 10.0f, 20.0f, 30.0f ), Vector3( 1.0f, 2.0f, 3.0f ), 0.25f );
+    const ReplayEventCommand place = BuildEditorPlace( 4, true, true, 12, Vector3( 10.0f, 20.0f, 30.0f ),
+                                                       Vector3( 1.0f, 2.0f, 3.0f ), 0.25f );
     CHECK( place.kind == ReplayEventKind::EditorPlace );
     CHECK( place.flags == 3u );
     CHECK( place.value0 == 4 );
     CHECK( std::strncmp( place.text, "place7:", 7u ) == 0 );
 
     const Quaternion orientation;
-    const SkullbonezCore::Physics::PhysicsSceneObjectId sceneObjectId{ 77u };
+    const SkullbonezCore::Physics::PhysicsSceneObjectId sceneObjectId { 77u };
     CHECK( BuildEditorTransform( 2, 0u, sceneObjectId, Vector3( 1.0f, 2.0f, 3.0f ), orientation, 8, -1, 1.0f ).kind ==
            ReplayEventKind::Unknown );
     CHECK( BuildEditorTransform( 2, 4u, sceneObjectId, Vector3( 1.0f, 2.0f, 3.0f ), orientation, 8, 4, 2.0f ).kind ==
            ReplayEventKind::Unknown );
-    const ReplayEventCommand translate =
-        BuildEditorTransform( 2, 1u, sceneObjectId, Vector3( 1.0f, 2.0f, 3.0f ), orientation, 8, 2, 5.0f );
+    const ReplayEventCommand translate = BuildEditorTransform( 2, 1u, sceneObjectId, Vector3( 1.0f, 2.0f, 3.0f ),
+                                                               orientation, 8, 2, 5.0f );
     CHECK( translate.kind == ReplayEventKind::EditorTransform );
     CHECK( translate.flags == 1u );
     CHECK( translate.value3 == -1 );
     CHECK( std::strncmp( translate.text, "xform7:", 7u ) == 0 );
-    const ReplayEventCommand scale =
-        BuildEditorTransform( 2, 7u, sceneObjectId, Vector3( 1.0f, 2.0f, 3.0f ), orientation, 8, 1, 1.25f );
+    const ReplayEventCommand scale = BuildEditorTransform( 2, 7u, sceneObjectId, Vector3( 1.0f, 2.0f, 3.0f ), orientation, 8,
+                                                           1, 1.25f );
     CHECK( scale.kind == ReplayEventKind::EditorTransform );
     CHECK( scale.flags == 7u );
     CHECK( scale.value3 == 1 );
@@ -492,6 +497,52 @@ TEST_CASE( "Replay event recorder: chronological cursor survives bounded ring wr
     CHECK( events.empty() );
 }
 
+TEST_CASE( "Replay memory: one Low-detail snapshot reconciles released evidence" )
+{
+    SkullbonezCore::Core::MainMemoryReplayStats stats;
+    SkullbonezCore::Core::
+        MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
+                                          SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionOwner, 4096u );
+    stats.totalBytes = SkullbonezCore::Core::MainMemoryReplayCategoryTotalBytes( stats.categoryBytes );
+    stats.predictionEvidence.releaseCheckpointCount = 1u;
+    stats.predictionEvidence.lastReleaseBeforeCapacityBytes = 1536u;
+    stats.predictionEvidence.lastReleaseBeforeReplayTotalBytes = stats.totalBytes + 1536u;
+    stats.predictionEvidence.lastReleaseAfterReplayTotalBytes = stats.totalBytes;
+    stats.predictionEvidence.lastReleaseBeforeCategoryTotalBytes = stats.totalBytes + 1536u;
+    stats.predictionEvidence.lastReleaseAfterCategoryTotalBytes = stats.totalBytes;
+
+    CHECK( SkullbonezCore::Core::MainMemoryReplayPredictionEvidenceReleaseReconciles( stats ) );
+
+    // A stale total or category row must fail even when the release checkpoint
+    // itself says that both banks reached zero.
+    ++stats.totalBytes;
+    CHECK_FALSE( SkullbonezCore::Core::MainMemoryReplayPredictionEvidenceReleaseReconciles( stats ) );
+    --stats.totalBytes;
+
+    stats.predictionEvidence.currentCapacityBytes = 64u;
+    CHECK_FALSE( SkullbonezCore::Core::MainMemoryReplayPredictionEvidenceReleaseReconciles( stats ) );
+    stats.predictionEvidence.currentCapacityBytes = 0u;
+
+    ++stats.predictionEvidence.lastReleaseBeforeReplayTotalBytes;
+    CHECK_FALSE( SkullbonezCore::Core::MainMemoryReplayPredictionEvidenceReleaseReconciles( stats ) );
+    --stats.predictionEvidence.lastReleaseBeforeReplayTotalBytes;
+
+    ++stats.predictionEvidence.lastReleaseBeforeCategoryTotalBytes;
+    CHECK_FALSE( SkullbonezCore::Core::MainMemoryReplayPredictionEvidenceReleaseReconciles( stats ) );
+    --stats.predictionEvidence.lastReleaseBeforeCategoryTotalBytes;
+
+    // Subtraction is guarded before it can underflow, including an extreme
+    // fabricated checkpoint that would have overflowed the retired add-back proof.
+    stats.predictionEvidence.lastReleaseBeforeReplayTotalBytes = 0u;
+    stats.predictionEvidence.lastReleaseAfterReplayTotalBytes = UINT64_MAX;
+    CHECK_FALSE( SkullbonezCore::Core::MainMemoryReplayPredictionEvidenceReleaseReconciles( stats ) );
+    stats.predictionEvidence.lastReleaseBeforeReplayTotalBytes = UINT64_MAX;
+    stats.predictionEvidence.lastReleaseAfterReplayTotalBytes = 0u;
+    stats.predictionEvidence.lastReleaseBeforeCategoryTotalBytes = UINT64_MAX;
+    stats.predictionEvidence.lastReleaseAfterCategoryTotalBytes = 0u;
+    CHECK_FALSE( SkullbonezCore::Core::MainMemoryReplayPredictionEvidenceReleaseReconciles( stats ) );
+}
+
 TEST_CASE( "Replay overlay: cause-window packets clamp placement and scrolling" )
 {
     RunReplayCauseTreeState state;
@@ -531,5 +582,4 @@ TEST_CASE( "Replay overlay: cause-window packets clamp placement and scrolling" 
     CHECK( fresh.y == 124 );
     CHECK( fresh.width == 380 );
     CHECK( fresh.height == 520 );
-
 }

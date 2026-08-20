@@ -18,6 +18,8 @@ Invariants:
     failure.
   - Dynamic, transient, and instanced draws pass their raster recipe directly
     into PSO preparation; geometry owners retain no ambient raster state.
+  - Retained range submissions may borrow a compact record prefix, but every
+    range's populated extent must remain inside that supplied span.
   - GeometryOwner stores no backend pointer, callback, or polymorphic service;
     its startup-bound owner borrows remain valid for the device lifetime.
   - One accepted native geometry draw records one row through Dx12Diagnostics.
@@ -1055,9 +1057,12 @@ void Dx12GeometryOwner::DrawRetainedGeometryRanges( std::span<const float> compa
     const std::size_t recordCapacity = static_cast<std::size_t>( capacity.ordinaryRecordCapacity ) +
                                        capacity.priorityRecordCapacity;
 
+    // Invariant: feature owners may submit only their compact populated prefix.
+    // The per-range check below proves both the reserved lane and the borrowed
+    // source span before any compact record is copied into persistent storage.
     if ( !IsRetainedGeometryCapacitySupported( capacity ) || ranges.empty() || ranges.size() > capacity.rangeCapacity ||
-         compactRecords.size() < recordCapacity * capacity.floatsPerRecord || !IsInstancedRibbonStyle( style ) ||
-         !m_resourceFrame->DrawGate().PrepareDraw() )
+         compactRecords.empty() || compactRecords.size() % capacity.floatsPerRecord != 0u ||
+         !IsInstancedRibbonStyle( style ) || !m_resourceFrame->DrawGate().PrepareDraw() )
     {
         return;
     }
@@ -1094,9 +1099,10 @@ void Dx12GeometryOwner::DrawRetainedGeometryRanges( std::span<const float> compa
             const bool priorityLane = range.lane == RetainedGeometryLane::Priority;
             const std::size_t laneBegin = priorityLane ? capacity.ordinaryRecordCapacity : 0u;
             const std::size_t laneEnd = priorityLane ? recordCapacity : capacity.ordinaryRecordCapacity;
+            const std::size_t sourceRecordCount = compactRecords.size() / capacity.floatsPerRecord;
 
             if ( cacheIndex >= capacity.rangeCapacity || rangeRecordCount > rangeRecordCapacity || firstRecord < laneBegin ||
-                 firstRecord + rangeRecordCapacity > laneEnd )
+                 firstRecord + rangeRecordCapacity > laneEnd || firstRecord + rangeRecordCount > sourceRecordCount )
             {
                 indirectArguments[rangeIndex] = {};
 

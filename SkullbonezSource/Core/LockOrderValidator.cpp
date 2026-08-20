@@ -6,7 +6,8 @@ Purpose:
 Summary:
   Every successful lock acquisition records edges from locks currently held by
   the thread to the new lock. A DFS detects ABBA-style cycles immediately in
-  Debug builds.
+  Debug builds; a pure condition classifier exposes the same invalid-id, cycle,
+  and held-stack decisions to focused tests without invoking CRT dialogs.
 
 Glossary:
   ABBA cycle: Deadlock pattern where one path locks A then B while another
@@ -21,6 +22,8 @@ Invariants:
     acquisitions report the order that introduced the problem.
   - Init owns the validator longer than WorkerPool, and TrackedMutex keeps only
     a Debug borrow into that explicit startup lifetime.
+  - Profile and Release retain no lock graph or held-stack mutation; the probe
+    classifier proves Debug policy without changing that production boundary.
 
 Related:
   - SkullbonezSource/Core/LockOrderValidator.h
@@ -77,7 +80,7 @@ void LockOrderValidator::RecordAcquisition( uint32_t lockId )
 {
 #ifdef _DEBUG
 
-    if ( lockId == 0 || lockId > MAX_LOCK_COUNT )
+    if ( ClassifyAcquisitionProbe( lockId, false, false ) == AcquisitionProbeFinding::InvalidId )
     {
         assert( false && "Invalid lock-order validator id." );
         return;
@@ -96,7 +99,7 @@ void LockOrderValidator::RecordAcquisition( uint32_t lockId )
             }
         }
 
-        if ( DetectCycleUnlocked() )
+        if ( ClassifyAcquisitionProbe( lockId, DetectCycleUnlocked(), false ) == AcquisitionProbeFinding::Cycle )
         {
             fprintf( stderr, "[workers] Lock-order cycle detected while acquiring lock %u (%s).\n", lockId,
                      m_names[lockId - 1] ? m_names[lockId - 1] : "<unnamed>" );
@@ -105,9 +108,11 @@ void LockOrderValidator::RecordAcquisition( uint32_t lockId )
         }
     }
 
-    assert( g_heldLockCount < g_heldLocks.size() && "Per-thread held-lock stack exhausted." );
+    const AcquisitionProbeFinding stackFinding = ClassifyAcquisitionProbe( lockId, false,
+                                                                           g_heldLockCount >= g_heldLocks.size() );
+    assert( stackFinding != AcquisitionProbeFinding::HeldStackExhausted && "Per-thread held-lock stack exhausted." );
 
-    if ( g_heldLockCount < g_heldLocks.size() )
+    if ( stackFinding != AcquisitionProbeFinding::HeldStackExhausted )
     {
         g_heldLocks[g_heldLockCount++] = lockId;
     }

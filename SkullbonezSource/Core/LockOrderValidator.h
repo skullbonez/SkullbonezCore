@@ -6,7 +6,8 @@ Purpose:
 Summary:
   TrackedMutex behaves like std::mutex, while Debug builds record observed lock
   acquisition order in a directed graph and assert if a new edge creates a
-  cycle. Profile/Release keep only the mutex wrapper.
+  cycle. A pure probe classifier mirrors those Debug tripwires for tests, while
+  Profile/Release keep only the mutex wrapper.
 
 Glossary:
   TrackedMutex: std::mutex wrapper that reports lock acquisition and release to
@@ -19,6 +20,8 @@ Invariants:
   - Lock ids are stable for the lifetime of each TrackedMutex instance.
   - Debug TrackedMutex instances borrow the startup-owned validator once;
     Profile and Release compile the validation members and calls out entirely.
+  - The test seam classifies Debug failure conditions but owns no graph, stack,
+    or synchronization state.
 
 Related:
   - SkullbonezSource/Core/WorkerPool.h
@@ -47,8 +50,37 @@ class LockOrderValidator
     void RecordRelease( uint32_t lockId );
 
   private:
-#ifdef _DEBUG
+    enum class AcquisitionProbeFinding : uint8_t
+    {
+        None,
+        InvalidId,
+        Cycle,
+        HeldStackExhausted,
+    };
+
+    // Lane P: RecordAcquisition owns the Debug-only graph and stack mutation,
+    // while this pure classifier lets focused tests prove every tripwire
+    // condition without deliberately invoking the CRT assertion dialog.
+    static constexpr AcquisitionProbeFinding ClassifyAcquisitionProbe( uint32_t lockId, bool cycleDetected,
+                                                                       bool heldStackFull ) noexcept
+    {
+        if ( lockId == 0u || lockId > MAX_LOCK_COUNT )
+        {
+            return AcquisitionProbeFinding::InvalidId;
+        }
+
+        if ( cycleDetected )
+        {
+            return AcquisitionProbeFinding::Cycle;
+        }
+
+        return heldStackFull ? AcquisitionProbeFinding::HeldStackExhausted : AcquisitionProbeFinding::None;
+    }
+
+    friend struct LockOrderValidatorTestAccess;
     static constexpr uint32_t MAX_LOCK_COUNT = 256;
+
+#ifdef _DEBUG
     bool HasCycleFrom( uint32_t node, std::bitset<MAX_LOCK_COUNT>& visiting, std::bitset<MAX_LOCK_COUNT>& visited ) const;
     bool DetectCycleUnlocked() const;
 

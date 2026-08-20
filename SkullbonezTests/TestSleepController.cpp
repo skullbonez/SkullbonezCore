@@ -23,6 +23,8 @@
 //     forces exactly once before publishing sorted awake membership.
 //   - Awake membership excludes fixed and sleeping rows after remove, add, and
 //     same-count cold rebuild boundaries.
+//   - The Debug-only awake-list classifier accepts only dynamic, awake rows;
+//     focused tests exercise every fixed/sleeping truth-table combination.
 //   - Point-joint support publishes both directed edges before fixed-point propagation.
 //
 // Related:
@@ -69,6 +71,17 @@ using SkullbonezCore::Physics::PhysicsSleepController;
 using SkullbonezCore::Physics::PhysicsSolverSnapshot;
 using SkullbonezCore::Physics::PhysicsWorldForces;
 using SkullbonezCore::Physics::PointJointConstraint;
+
+namespace SkullbonezCore::Physics
+{
+struct PhysicsSleepControllerTestAccess
+{
+    static bool IsAwakeListEntryConsistent( bool fixed, bool sleeping )
+    {
+        return PhysicsSleepController::IsAwakeListEntryConsistent( fixed, sleeping );
+    }
+};
+} // namespace SkullbonezCore::Physics
 
 namespace
 {
@@ -421,6 +434,16 @@ TEST_CASE( "Physics sleep controller: awake-list remove add and cold rebuild pre
     fixture.owners.controller.InvalidateBodyTopology();
     REQUIRE( fixture.owners.controller.MirrorFlagsFrom( fixture.owners.bodies, 5 ) );
     CheckAwakeIndices( fixture.owners.controller, { 0, 1, 3 } );
+}
+
+
+TEST_CASE( "Physics sleep controller: awake-list Debug classifier rejects fixed and sleeping rows" )
+{
+    using SkullbonezCore::Physics::PhysicsSleepControllerTestAccess;
+    CHECK( PhysicsSleepControllerTestAccess::IsAwakeListEntryConsistent( false, false ) );
+    CHECK_FALSE( PhysicsSleepControllerTestAccess::IsAwakeListEntryConsistent( true, false ) );
+    CHECK_FALSE( PhysicsSleepControllerTestAccess::IsAwakeListEntryConsistent( false, true ) );
+    CHECK_FALSE( PhysicsSleepControllerTestAccess::IsAwakeListEntryConsistent( true, true ) );
 }
 
 TEST_CASE( "Physics sleep controller: point-joint support is bidirectional and reaches a fixed point" )

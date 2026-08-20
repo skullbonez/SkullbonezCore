@@ -59,11 +59,11 @@
     },
     {
       "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",
-      "signature": "template <typename InspectGizmoInteractionActive> InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools, const InteractionAutomationController& automation, const ReplayAutomationView& replay, RuntimeInteractionController& interaction, const InputRouter& inputRouter, CameraControlState& camera, const SceneWorld& world, SkullbonezCore::UI::InGameUI& ui, const InteractionAutomationDevelopmentUiView& developmentUi, const Rendering::RenderSceneSnapshot& renderSnapshot, const RunInteractionAutomationAction& action, InspectGizmoInteractionActive inspectGizmoInteractionActive )",
+      "signature": "template <typename InspectGizmoInteractionActive> InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools, const InteractionAutomationController& automation, const ReplayAutomationView& replay, RuntimeInteractionController& interaction, const InputRouter& inputRouter, CameraControlState& camera, const SceneWorld& world, SkullbonezCore::UI::InGameUI& ui, const InteractionAutomationDevelopmentUiView& developmentUi, const ContinuousOrbitalForecastView& forecast, const Rendering::RenderSceneSnapshot& renderSnapshot, const RunInteractionAutomationAction& action, InspectGizmoInteractionActive inspectGizmoInteractionActive )",
       "owner": "Interaction automation assertion phase",
       "disposition": "retain-owner",
-      "reason": "The action and detached views identify one assertion while live owners are inspected or applied synchronously and are not retained.",
-      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
+      "reason": "The action and detached views identify one assertion while live owners are inspected or applied synchronously and are not retained; the added forecast view is the same post-render observation lifetime, not a new authority. Grouping these operands would create an assertion context bag that the callee immediately destructures.",
+      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28); ORBIT_FORECAST OF5 rolling-window assertion review (2026-08-19)"
     },
     {
       "file": "SkullbonezSource/UI/UI.cpp",
@@ -227,11 +227,11 @@
     },
     {
       "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",
-      "signature": "InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutomationController& state, RuntimeTools& runtimeTools, RuntimeInteractionController& interaction, InputRouter& inputRouter, CameraControlState& camera, SkullbonezCore::UI::InGameUI& ui, SceneController& scene, const ReplayAutomationView& replayView, const InteractionAutomationDevelopmentUiView& developmentUiView, const Rendering::RenderSceneSnapshot& renderSnapshot, CaptureController& capture, Rendering::Dx12BackbufferCapture& backbufferCapture )",
+      "signature": "InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutomationController& state, RuntimeTools& runtimeTools, RuntimeInteractionController& interaction, InputRouter& inputRouter, CameraControlState& camera, SkullbonezCore::UI::InGameUI& ui, SceneController& scene, const ReplayAutomationView& replayView, const InteractionAutomationDevelopmentUiView& developmentUiView, const ContinuousOrbitalForecastView& forecastView, const Rendering::RenderSceneSnapshot& renderSnapshot, CaptureController& capture, Rendering::Dx12BackbufferCapture& backbufferCapture )",
       "owner": "Interaction automation after-render phase",
       "disposition": "retain-owner",
-      "reason": "Automation owns this ordered after-render phase, including capture evidence; no cross-phase owner pointer or services aggregate is retained.",
-      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
+      "reason": "Automation owns this ordered after-render phase, including capture evidence and detached forecast metrics; every participant shares one synchronous evidence turn and no cross-phase owner pointer or services aggregate is retained. A shorter signature would hide the same borrows in a frame context rather than move ownership.",
+      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28); ORBIT_FORECAST OF5 post-render evidence review (2026-08-19)"
     },
     {
       "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",

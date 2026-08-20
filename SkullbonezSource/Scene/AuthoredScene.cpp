@@ -5,7 +5,8 @@ Purpose:
 
 Summary:
   AuthoredScene owns the cold parsed values that cross from scene JSON into
-  deterministic runtime setup, while retaining neither parser state nor live
+  deterministic runtime setup, including validation requirements and resolved
+  orbital-policy membership, while retaining neither parser state nor live
   scene stores.
 
 Glossary:
@@ -110,6 +111,12 @@ bool AuthoredScene::IsTextEnabled() const
 bool AuthoredScene::IsTextOnly() const
 {
     return m_sceneOptions.isTextOnly;
+}
+
+
+bool AuthoredScene::PredictionShowsAllBodies() const
+{
+    return m_sceneOptions.predictionAllBodiesSpace;
 }
 
 
@@ -599,6 +606,24 @@ const SceneRequiredContact& AuthoredScene::GetRequiredContact( int index ) const
 }
 
 
+int AuthoredScene::GetRequiredSleepingDynamicBodyCount() const
+{
+    return static_cast<int>( m_requiredSleepingDynamicBodies.size() );
+}
+
+
+const SceneRequiredSleepingDynamicBody& AuthoredScene::GetRequiredSleepingDynamicBody( int index ) const
+{
+    if ( index < 0 || index >= static_cast<int>( m_requiredSleepingDynamicBodies.size() ) )
+    {
+        FatalSceneIndexOutOfRange( "RequiredSleepingDynamicBody", "AuthoredScene::GetRequiredSleepingDynamicBody", index,
+                                   static_cast<int>( m_requiredSleepingDynamicBodies.size() ) );
+    }
+
+    return m_requiredSleepingDynamicBodies[index];
+}
+
+
 int AuthoredScene::GetRequiredBroadphaseXCellCount() const
 {
     return static_cast<int>( m_requiredBroadphaseXCells.size() );
@@ -722,6 +747,12 @@ const SkullbonezCore::Physics::MutualGravitySettings& AuthoredScene::GetWorldMut
 bool AuthoredScene::HasMutualGravityEnabled() const
 {
     return m_worldOverride.mutualGravity.enabled;
+}
+
+
+const SkullbonezCore::Scene::OrbitalStabilityContract& AuthoredScene::GetOrbitalStabilityContract() const
+{
+    return m_orbitalStability;
 }
 
 

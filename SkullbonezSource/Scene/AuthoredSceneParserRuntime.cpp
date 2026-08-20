@@ -28,6 +28,7 @@ using AuthoredSceneParserDetail::Fail;
 using AuthoredSceneParserDetail::FindMember;
 using AuthoredSceneParserDetail::Lowercase;
 using AuthoredSceneParserDetail::MaxConfigurableWorkerThreadCount;
+using AuthoredSceneParserDetail::ParserFailed;
 using AuthoredSceneParserDetail::ReadBool;
 using AuthoredSceneParserDetail::ReadFloat;
 using AuthoredSceneParserDetail::ReadInt;
@@ -160,6 +161,97 @@ Physics::MutualGravitySettings AuthoredSceneParser::ReadMutualGravitySettings( c
     return settings;
 }
 
+void AuthoredSceneParser::ApplyOrbitalStability( const Json& stability, const std::string& path )
+{
+    // Concept: authoring names identify membership, but they are resolved to
+    // stable Physics ids before AuthoredScene is published.
+    RequireObject( stability, path, "simulation.orbitalStability" );
+    SkullbonezCore::Scene::OrbitalStabilityContract contract;
+    contract.enabled = true;
+    contract.escapeGraceSeconds = ReadFloat( RequireMember( stability, path, "simulation.orbitalStability",
+                                                            "escapeGraceSeconds" ),
+                                             path, "simulation.orbitalStability.escapeGraceSeconds" );
+
+    const Json& members = RequireMember( stability, path, "simulation.orbitalStability", "members" );
+    RequireArray( members, path, "simulation.orbitalStability.members" );
+
+    if ( ParserFailed() )
+    {
+        return;
+    }
+
+    if ( contract.escapeGraceSeconds <= 0.0 || members.empty() ||
+         members.size() > SkullbonezCore::Scene::ORBITAL_STABILITY_MEMBER_CAPACITY )
+    {
+        Fail( path, "simulation.orbitalStability requires a positive grace and 1-16 members" );
+        return;
+    }
+
+    std::size_t primaryCount = 0u;
+    std::size_t coreCount = 0u;
+
+    for ( const Json& value : members )
+    {
+        RequireObject( value, path, "simulation.orbitalStability.members[]" );
+        SkullbonezCore::Scene::OrbitalStabilityMemberContract& member = contract.members[contract.memberCount];
+        const std::string objectName = ReadString( RequireMember( value, path, "simulation.orbitalStability.members[]",
+                                                                  "object" ),
+                                                   path, "simulation.orbitalStability.members[].object" );
+        const std::string role = Lowercase( ReadString( RequireMember( value, path, "simulation.orbitalStability.members[]", "role" ), path,
+                                                        "simulation.orbitalStability.members[].role" ) );
+        strncpy_s( member.authoredObjectName, objectName.c_str(), _TRUNCATE );
+
+        if ( role == "primary" )
+        {
+            member.role = SkullbonezCore::Scene::OrbitalStabilityMemberRole::Primary;
+            ++primaryCount;
+        }
+        else if ( role == "core" )
+        {
+            member.role = SkullbonezCore::Scene::OrbitalStabilityMemberRole::CoreOrbiter;
+            ++coreCount;
+        }
+        else if ( role == "auxiliary" )
+        {
+            member.role = SkullbonezCore::Scene::OrbitalStabilityMemberRole::Auxiliary;
+        }
+        else
+        {
+            Fail( path, "simulation.orbitalStability member role must be primary, core, or auxiliary" );
+            return;
+        }
+
+        if ( member.role != SkullbonezCore::Scene::OrbitalStabilityMemberRole::Primary )
+        {
+            member.innerRadius = ReadFloat( RequireMember( value, path, "simulation.orbitalStability.members[]",
+                                                           "innerRadius" ),
+                                            path, "simulation.orbitalStability.members[].innerRadius" );
+            member.outerRadius = ReadFloat( RequireMember( value, path, "simulation.orbitalStability.members[]",
+                                                           "outerRadius" ),
+                                            path, "simulation.orbitalStability.members[].outerRadius" );
+            member.escapeStartRadius = ReadFloat( RequireMember( value, path, "simulation.orbitalStability.members[]",
+                                                                 "escapeStartRadius" ),
+                                                  path, "simulation.orbitalStability.members[].escapeStartRadius" );
+
+            if ( member.innerRadius <= 0.0 || member.outerRadius <= member.innerRadius || member.escapeStartRadius <= 0.0 )
+            {
+                Fail( path, "simulation.orbitalStability orbiter radii are invalid" );
+                return;
+            }
+        }
+
+        ++contract.memberCount;
+    }
+
+    if ( primaryCount != 1u || coreCount == 0u )
+    {
+        Fail( path, "simulation.orbitalStability requires exactly one primary and at least one core member" );
+        return;
+    }
+
+    m_scene.m_orbitalStability = contract;
+}
+
 void AuthoredSceneParser::ApplySimulation( const Json& simulation, const std::string& path )
 {
     RequireObject( simulation, path, "simulation" );
@@ -177,6 +269,24 @@ void AuthoredSceneParser::ApplySimulation( const Json& simulation, const std::st
     if ( const Json* textOnly = FindMember( simulation, "textOnly" ) )
     {
         m_scene.m_sceneOptions.isTextOnly = ReadBool( *textOnly, path, "simulation.textOnly" );
+    }
+
+    if ( const Json* pathPresentation = FindMember( simulation, "predictionPathPresentation" ) )
+    {
+        const std::string token = Lowercase( ReadString( *pathPresentation, path, "simulation.predictionPathPresentation" ) );
+
+        if ( token == "selectedcausaltree" )
+        {
+            m_scene.m_sceneOptions.predictionAllBodiesSpace = false;
+        }
+        else if ( token == "allbodiesspace" )
+        {
+            m_scene.m_sceneOptions.predictionAllBodiesSpace = true;
+        }
+        else
+        {
+            Fail( path, "simulation.predictionPathPresentation must be selectedCausalTree or allBodiesSpace" );
+        }
     }
 
     if ( const Json* seed = FindMember( simulation, "seed" ) )
@@ -242,6 +352,16 @@ void AuthoredSceneParser::ApplySimulation( const Json& simulation, const std::st
         }
 
         m_scene.m_sceneOptions.workerThreads = value;
+    }
+
+    if ( const Json* orbitalStability = FindMember( simulation, "orbitalStability" ) )
+    {
+        ApplyOrbitalStability( *orbitalStability, path );
+
+        if ( ParserFailed() )
+        {
+            return;
+        }
     }
 
     if ( const Json* world = FindMember( simulation, "world" ) )

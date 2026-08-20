@@ -345,6 +345,12 @@
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayPlanningRuntime.cpp">
       <Filter>Source Files\Runtime\Planning</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\ContinuousOrbitalStability.cpp">
+      <Filter>Source Files\Runtime\Planning</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\ContinuousOrbitalForecast.cpp">
+      <Filter>Source Files\Runtime\Planning</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayCauseInspection.cpp">
       <Filter>Source Files\Runtime\Planning</Filter>
     </ClCompile>
@@ -364,6 +370,15 @@
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionReserve.cpp">
+      <Filter>Source Files\Runtime\Prediction</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Prediction\ContinuousPredictionProducer.cpp">
+      <Filter>Source Files\Runtime\Prediction</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Prediction\ContinuousPredictionSampleRing.cpp">
+      <Filter>Source Files\Runtime\Prediction</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionSolverEvidenceStore.cpp">
       <Filter>Source Files\Runtime\Prediction</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPresentation.cpp">
@@ -1111,6 +1126,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneAutomationGateConfiguration.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneSleepingDynamicBodyGatePolicy.h">
+      <Filter>Header Files\Runtime\Scene</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneController.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
@@ -1169,6 +1187,15 @@
       <Filter>Header Files\Runtime\Planning</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionReserve.h">
+      <Filter>Header Files\Runtime\Prediction</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Prediction\ContinuousPredictionProducer.h">
+      <Filter>Header Files\Runtime\Prediction</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Prediction\ContinuousPredictionSampleRing.h">
+      <Filter>Header Files\Runtime\Prediction</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionSolverEvidenceStore.h">
       <Filter>Header Files\Runtime\Prediction</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionRetainedMemory.h">
@@ -1238,6 +1265,12 @@
       <Filter>Header Files\Runtime\Planning</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Planning\ReplayPlanningRuntime.h">
+      <Filter>Header Files\Runtime\Planning</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Planning\ContinuousOrbitalStability.h">
+      <Filter>Header Files\Runtime\Planning</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Planning\ContinuousOrbitalForecast.h">
       <Filter>Header Files\Runtime\Planning</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Planning\ReplayCauseInspection.h">
@@ -1358,6 +1391,9 @@
       <Filter>Header Files\World</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Scene\AuthoredScene.h">
+      <Filter>Header Files\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Scene\OrbitalStabilityContract.h">
       <Filter>Header Files\Scene</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Scene\AuthoredTornadoConfig.h">

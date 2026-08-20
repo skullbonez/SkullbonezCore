@@ -499,6 +499,10 @@ bool TryCopyAllocationHeader( const AllocationHeader* header, AllocationHeader& 
 #endif
 }
 
+// Why: only debug/profile and the allocation-fatal probe call this helper.
+// Compile its definition under the same condition so warning-clean Release and
+// portable builds do not retain a dead internal symbol.
+#if defined( _DEBUG ) || defined( SKULLBONEZ_PROFILE_ENABLED ) || defined( SKULLBONEZ_TEST_PROFILE_ALLOCATION_FATAL )
 [[noreturn]] void FatalForeignFree( void* pointer, RuntimeAllocationPhase phase, RuntimeReserveOwnerHandle owner,
                                     const char* headerState, uint64_t foreignFreeCount ) noexcept
 {
@@ -517,6 +521,7 @@ bool TryCopyAllocationHeader( const AllocationHeader* header, AllocationHeader& 
 
     std::abort();
 }
+#endif
 
 void HandleForeignFree( void* pointer, const char* headerState ) noexcept
 {

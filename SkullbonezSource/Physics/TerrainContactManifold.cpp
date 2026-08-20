@@ -161,6 +161,7 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const 
     }
 
     const BoundingBox* box = GetShapeIf<BoundingBox>( &shape );
+    const BoundingSphere* sphere = GetShapeIf<BoundingSphere>( &shape );
     const ConvexHullShape* hull = GetShapeIf<ConvexHullShape>( &shape );
     float bottomOffset = body.boundingRadius;
 
@@ -173,7 +174,7 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const 
         const RotationMatrix rotMat = GetOrientationMatrix( body );
         bottomOffset = rotMat.SupportExtentY( he );
     }
-    else if ( const BoundingSphere* sphere = GetShapeIf<BoundingSphere>( &shape ) )
+    else if ( sphere != nullptr )
     {
         bottomOffset = sphere->GetRadius();
     }
@@ -328,6 +329,31 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const 
         }
 
         return NO_COLLISION;
+    }
+
+    if ( sphere != nullptr )
+    {
+        // Invariant: sphere detection and manifold construction use the same
+        // terrain-normal pole. The retired vertical-bottom probe lost contact on
+        // slopes even while the manifold pole still touched the plane, allowing
+        // gravity to accumulate a new sub-threshold impact between rows.
+        float terrainHeight = 0.0f;
+        body.terrain.HeightAndPlaneAt( body.position.x, body.position.z, terrainHeight, outTestingPlane );
+        const float signedGap = Dot( body.position, outTestingPlane.m_normal ) - outTestingPlane.m_distance -
+                                sphere->GetRadius();
+
+        if ( signedGap <= body.contactEpsilon )
+        {
+            return 0.0f;
+        }
+
+        if ( outTestingRay.vector3.IsCloseToZero() )
+        {
+            return NO_COLLISION;
+        }
+
+        outTestingRay.origin = body.position - outTestingPlane.m_normal * sphere->GetRadius();
+        return GeometricMath::CalculateIntersectionTime( outTestingPlane, outTestingRay );
     }
 
     // Cache-backed terrain lookup: one query returns the exact collision plane

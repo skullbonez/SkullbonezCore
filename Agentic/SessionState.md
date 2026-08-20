@@ -1,16 +1,100 @@
 # Session State
 
-Date: 2026-08-18
+Date: 2026-08-20
 Branch: `nightrunner-18th-AUG-26`
-Status: Three active plans; 24/47 tasks complete
+Status: Three active plans; 51/67 tasks complete
 
-Predicted Solver Cause Hierarchy (8 tasks), Continuous Orbital Forecast
-(7 tasks), and At-Rest Ball Stability (8 tasks) are registered
-under `Agentic/Plans/TODO/`; Causal C0-C8, Determinism T0-T8, and Catto CD0-CD5
-are complete. `MASTER-PLAN.md` carries the binding order: predicted solver detail
-next, then continuous orbital forecast, then at-rest ball stability. The completed
-causal, determinism, and Catto plans were deleted under the repository
-convention; Git history retains their phase evidence.
+At-Rest Ball Stability RS0-RS7 is complete. Invariant Enforcement And Assertion
+Hardening IH0-IH3 are complete and IH4-IH7 remain. Causal C0-C8, Determinism T0-T8,
+Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7, and Continuous
+Orbital Forecast OF0-OF6 are complete. `MASTER-PLAN.md` binds IH4 next, then
+Full Validation Time And Value Audit VTA0-VTA5 after IH7, followed by
+Repository Hygiene Cleanup RC0-RC5.
+Completed plan files were deleted under the repository convention; Git history
+retains their phase evidence.
+
+ORBIT_FORECAST OF0 is complete. It ratifies the fixed sun as the primary,
+Earth and Mars as core bodies, and the ship as an auxiliary whose orbital-
+configuration failure does not by itself end the system-wide horizon;
+numerical health remains globally blocking. The owning plan records exact radial
+envelopes, a 600-tick sustained escape rule, core collision policy,
+reset/retirement semantics, informational conservation drift, and the existing
+5.0 ms worker slice plus separate frame-admission deadline. Two 120-second
+fixed-step live captures
+are byte-identical at SHA-256
+`F3D71F660228561D155E11511FDF58DBAD8F5EF966765A21B92B711420C2AE62`.
+Two isolated bounded forecasts both pass and share their rendered submission
+hash, but their private simulation hashes and trajectory fingerprints differ;
+OF2 and OF6 own that pre-existing determinism closure.
+
+ORBIT_FORECAST OF1 is complete. `ContinuousPredictionSampleRing` preallocates
+all-body rows through the existing Replay prediction reserve owner, publishes
+each absolute-tick row only after every body is complete, and exposes a logical
+oldest-to-newest snapshot with one or two wrap-safe physical segments. Slot
+versions make concurrent copying retry instead of accepting torn data;
+cancellation and checked counters fail closed. The focused group passes 6/6
+cases and 116/116 assertions, its concurrency case passed ten stress runs, and
+`validate_tests` passes 610/610 cases with 2,483,870 assertions.
+
+ORBIT_FORECAST OF2 is complete. `ContinuousPredictionProducer` snapshots the
+live body and solver values into a private Physics engine, advances unlimited-
+target whole ticks under separate five-millisecond frame-admission and worker
+slice clocks, and publishes only complete all-body positions through the OF1
+ring. The focused case passes 53/53 assertions through three 14,401-row wraps;
+retained bytes and Replay growths stay flat after warm-up, live and bounded
+prediction state remain unchanged, tick 1,024 is exact across zero-thread and
+one-worker execution, and stop joins in-flight work. `validate_tests` passes
+611/611 cases with 2,483,563 assertions.
+
+ORBIT_FORECAST OF3 is complete. The solar scene authors a fixed-capacity
+Primary/CoreOrbiter/Auxiliary stability contract that setup resolves to stable
+scene-object IDs and snapshot saving round trips through current entity names.
+The Planning-owned analyzer consumes detached complete tick publications,
+globally blocks numerical failure, distinguishes system-wide primary/core
+orbital failure from auxiliary-only failure, applies the exact softened
+fixed-primary 600-tick escape law, and publishes normalized all-member
+conservation drift plus first-failure evidence. Eight focused cases cover the
+positive and negative semantics; `validate_tests` passes 620/620 cases with
+2,487,883 assertions. All seven ownership inventories are current, the 17/17
+touched-source comment audit has no deferrals, and the change adds no Replay
+include, reserve privilege, Physics row field, or post-start growth path.
+
+ORBIT_FORECAST OF4 is complete. Planning now composes the continuous producer
+and stability analyzer; App owns lifetime, frame admission, mutual exclusion
+with bounded `PREDICT`, scene-transition joins, and shutdown. Legacy and ImGui
+route typed continuous/reset/exit commands and publish aligned detached status,
+timing, first-cause, and conservation readouts while retaining the accepted
+bounded-horizon control discrepancy. `validate_fast`, all 620 unit cases,
+dependency, allocation-policy, and performance gates pass; the 21/21 touched-
+source comment audit has no deferrals. Physics and replay visual gates reproduce
+only their inherited owner-controlled CSV and topology-version mismatches, and
+no oracle was refreshed.
+
+ORBIT_FORECAST OF5 is complete. Planning converts the detached logical sample
+ring into fixed-capacity, double-buffered generic ribbon and head-marker
+packets. Authored colors and one coherent newest absolute tick reach every
+configured body; logical oldest-to-newest sampling never draws across the
+physical ring seam. The generic DX12 retained-range path now accepts compact
+record prefixes while proving every populated range remains inside both its
+reserved lane and supplied span. Focused wrap/downsampling tests pass, and the
+solar automation probe captures pre-wrap and post-wrap views with an advancing
+absolute forecast tick and overwritten old geometry. The 15/15 touched-source
+comment audit has no deferrals, and all seven ownership inventories are current.
+
+ORBIT_FORECAST OF6 is complete. Automation separates process-local source
+clock metadata from deterministic private-simulation hashes and covers every
+private frame, body pose/velocity/sleep value, tornado elapsed value,
+contact-completeness flag, and `PhysicsDebugContact` field. A paused solar
+120-second witness produces 14,401 identical private frames with workers 0 and
+1, identical submitted geometry hash `0x0E0FF9DB0F2EF6E0`, and flat Replay
+reserve growth from 475 to 475 after warm-up. Focused continuous-prediction
+tests pass 7/7 cases and 173/173 assertions; the complete Profile suite passes
+622/622 cases and 2,520,795/2,520,795 assertions. Dependency, strict Replay
+allocation, DX12, one-minute graphics stress, and performance pass. All seven
+ownership inventories are current, the 4/4 touched-source comment audit has no
+deferrals, and the independent post-fix review reports zero findings. Physics
+and replay visual fidelity reproduce only the inherited owner-controlled varied
+CSV and reveal-0 `header.topologyVersion` stops; no oracle was refreshed.
 
 The owner parked Deterministic Trigonometry under `Agentic/Plans/WNF/` on
 2026-08-18 and replaced its active slot with At-Rest Ball Stability. The new
@@ -59,6 +143,144 @@ adversarial plan review. Its High mode retains exact predicted Body -> Manifold
 hiding causal inspection and releasing all detail capacity through an
 observable F6 checkpoint. The bottom-timeline `HIGH DETAIL` checkbox replaces
 the mouse Pause button, remains on by default, and preserves keyboard `P`.
+
+PSD0 is complete. Pure policy values and tests pin High-default transition
+effects, preference persistence across generation and archive boundaries, and
+explicit selected-tree versus authored-space presentation. The at-rest witness
+retains flat synthetic rows and `SolverDetailNotAvailable`; the seeded ordinary
+generated demo has one selected root (body 162) with private mutual gravity and
+draw-list all-body presentation both false, while `solar_system.scene.json`
+retains four intentional roots with both facts true. Automation reports now
+serialize complete bounded trajectory, future-node, and cause-row topology.
+Focused tests pass and the touched-source comment audit is 5/5 with none
+deferred. `validate_tests`, `validate_fast`, and `validate_automation` are
+green. The canonical replay visual gate retains the inherited one-frame causal
+golden mismatch (`topology[0].firstFrame` 137 -> 136), so no golden was
+refreshed; the exact executable/report/artifact evidence is preserved under
+`TestOutput/validation/candidates/PREDICT_SOLVER_DETAIL_PSD0/`. Its candidate
+comparison and all nine mutation-control families pass.
+
+PSD1 is complete. `ReplayPrediction` owns the sole retained High/Low mode and
+the typed command reaches it through both established replay input seams. The
+former mouse Pause slot is a shared checked-by-default High Detail checkbox;
+drawing, hit testing, and automation use one rectangle, while keyboard `P`
+retains ReplayRuntime play/pause and cross-scene pause remains a separate typed
+UI command. Prediction-mode transitions clear prediction inspection and exit
+its camera without disturbing recorded inspection. The full 595-case suite,
+all nine fast-gate stages, Automation smoke, one-minute graphics stress, and all
+eight isolated DX12 stages pass. The touched-source audit is 19/19 with none
+deferred. The canonical replay visual oracle retains only the inherited 137 ->
+136 causal first-frame mismatch; no golden changed, and the exact PSD1 evidence
+plus candidate baselines live under
+`TestOutput/validation/candidates/PREDICT_SOLVER_DETAIL_PSD1/`, where the
+candidate comparison and all nine false-pass control families pass.
+
+PSD2 is complete. Paired immutable segmented evidence banks now provide stable
+generation/mode/epoch/frame/topology/publication identity, release/acquire
+prefix publication, independent build/committed promotion, overflow-safe
+reserve, cancellation, and explicit capacity release at the post-join High ->
+Low boundary. The measured 20/120-second matrix selected 128-frame,
+256-contact, and 1,024-pipeline segments with a 320 MiB per-bank cap. The dense
+120-second witness measured 317,157,376 bytes; two banks plus the prior base
+working-set high water total 653,016,512 bytes, so the shared
+`replay_prediction_working_set` cap is now 960 MiB with 1.542x headroom. F6 and
+diagnostics expose current/peak, bank split, and release checkpoints. Five
+focused cases, the full 600-case / 2,485,514-assertion suite, strict allocation
+policy, project filters, UI fingerprint, and all nine fast-gate stages pass.
+The touched-source audit is 14/14 with none deferred.
+
+PSD3 is complete. `ReplayPrediction` now owns the typed selected-causal versus
+all-bodies-space presentation policy, carried through scene/demo seeding,
+promotion, archives, views, and draw lists without Physics-force inference.
+Ordinary scenes publish the selected root plus only its debug-contact cascade;
+six authored mutual-gravity showcase scenes explicitly preserve all-body space
+paths. Parser/snapshot/archive, promotion, cycle, disconnected-body, partial-
+budget, and draw-helper tests pin the contract. Runtime witnesses record one
+generated-demo root with 240 future nodes and four explicit solar roots. The
+full suite passes 601 cases / 2,484,572 assertions, Automation smoke passes,
+all nine fast-gate stages pass, and the touched-source audit is 24/24 with none
+deferred. The immutable replay visual oracle was not refreshed: it correctly
+rejects PSD3's 201 contact-derived depth-1-to-11 nodes and 806 trajectory
+records against its retired 200-node flat topology and 802 records. Exact
+reports, logs, and executables remain under
+`TestOutput/validation/candidates/PREDICT_SOLVER_DETAIL_PSD3/`.
+
+PSD4 is complete. High prediction builds now acquire the full-pipeline consumer
+only on their private Physics engine, publish exact persistent-contact and
+ordered pipeline evidence behind the matching sealed frame prefix, and balance
+the consumer across promotion, cancellation, restart, and destruction. Low
+builds allocate and copy no solver evidence. High and Low generated-demo
+witnesses publish the same 90-frame private simulation hash
+`0x18C9CE2B02FF5399`; High retains 14 contacts / 24,364 pipeline rows with two
+balanced acquire/releases, while Low retains zero evidence and performs no
+acquire/release. Terrain and dense witnesses retain non-empty exact evidence,
+with the 200-body case remaining inside the 320 MiB bank cap. The full
+602-case / 2,484,212-assertion suite, Automation, strict allocation,
+frame-spike, and all nine fast-gate stages pass; compiled reachability has 90
+ruled rows and zero blockers. The touched-source audit is 9/9 with none
+deferred. The stale Physics CSV and PSD3 visual-topology oracles remain
+unchanged and are recorded in the phase evidence; neither mismatch is caused
+by PSD4.
+
+PSD5 is complete. Planning now consumes source-neutral recorded or predicted
+solver-detail views with exact generation, bank-epoch, topology, publication,
+frame, range, sequence, feature, and completeness checks. High detail emits the
+Body -> Manifold -> SolverRow hierarchy from immutable Prediction evidence and
+matching predicted poses; Low retains synthetic PredictionContact/Motion rows.
+Scrubber selection, manifold presentation, and camera focus preserve the exact
+evidence identity, including same-frame replacement rejection. Final High and
+Low witnesses share live solver hash `0xFC1E96D513B66A0B`: High has 4 Body / 3
+Manifold / 3 SolverRow / 0 synthetic rows with balanced 2/2 consumer activity,
+while Low has 4 Body / 0 Manifold / 0 SolverRow / 3 synthetic rows and zero
+evidence capacity. The 603-case / 2,483,802-assertion suite, Automation, strict
+allocation, and four-generation frame-spike gates pass. The touched-source
+comment audit is 14/14 with none deferred. The unchanged Physics oracle still
+differs in 20,394 lines beginning at frame 102, and the replay visual oracle
+still rejects the corrected topology at reveal 0 (`header.topologyVersion`);
+neither baseline was refreshed.
+
+PSD6 is complete. RVPD schema 4 carries captured capability, explicit path
+policy, ordered section descriptors, cumulative byte closure, lightweight
+state, and optional bounded High event-frame/contact/pipeline evidence. Load
+preflights the complete layout and builds reserve-accounted candidates before
+atomically replacing prediction and evidence-bank state. High restores exact
+inspection without Physics; active Low validates but does not retain High
+evidence; Low and v2/v3 never upgrade. Repeated load rebases bank epochs, and
+all corruption/future-schema failures preserve the prior state. Allocation,
+Automation, replay-v2 artifact, and all nine fast stages pass, including 603
+tests / 2,485,922 assertions and zero-warning Automation/Debug/Profile builds.
+The touched-source comment audit is 11/11 with none deferred. The visual gate
+reaches only the inherited reveal-0 `header.topologyVersion` mismatch after the
+archive controls complete. Performance passes DX12 and absolute Physics
+budgets; the unchanged relative Physics sample oscillates around its threshold
+across three runs while memory improves, so no baseline was refreshed.
+
+PSD7 is complete. App now samples complete replay totals and independently
+summed categories immediately before and after the synchronous High -> Low
+evidence release. The release oracle rejects stale totals, mismatched category
+snapshots, capacity disagreement, underflow, and fabricated extreme values; the
+final witness proves matching positive evidence/replay/category deltas of
+1,925,120 bytes. One shared availability predicate governs predicted cause-row
+publication, rendering, hit testing, automation, and transition clearing, so
+Low visibly removes the cause window while leaving the compact High Detail
+control available. The at-rest workflow passes 19 assertions through frame
+2,094 and rebuilds fresh High detail; the multi-body witness passes six
+assertions through frame 1,002 with three manifolds and three solver rows.
+
+The full 604-case / 2,484,279-assertion terminal suite, all seven ownership
+inventories, strict replay allocation, four-generation frame-spike, replay
+artifact, dependency, fast, Automation, and DX12 gates pass. Touched-source
+comment audit: 13/13 checked, zero deferred. The independent review first found
+the retired tautological memory proof and solver-panel-only Low assertion; both
+were corrected, and the fresh post-fix review found no remaining blocker. The
+immutable visual oracle still stops at inherited reveal-0
+`header.topologyVersion`, Physics retains its inherited 20,394-line mismatch
+from frame 102, and relative Physics performance remains noisy while absolute
+budgets pass. The terminal `tools\agent_validate.bat --plan-completion` rerun
+passes preflight, every mandatory CPU lane, Automation, and DX12 before
+stopping at that exact inherited Physics mismatch; its verbatim log is
+`TestOutput/validation/PREDICT_SOLVER_DETAIL_PSD7_agent_validate.log`. No
+baseline was refreshed.
 
 Catto CD3 replaced the global summed squared impulse-delta early-out with the
 maximum per-contact-row squared delta while retaining the historical sum for
@@ -163,36 +385,44 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `PREDICT_SOLVER_DETAIL` PSD0-PSD7. Start by pinning mode persistence and
-the ordinary-demo all-root regression, then add immutable segmented evidence
-banks, exact private-pipeline capture, the body -> manifold -> solver-row
-hierarchy, transactional archives, and the combined High/Low release workflow.
+Execute `INVARIANT_HARDENING` IH4. IH0 rebased 847 tracked source-bearing files,
+132 production plain assertions, 62 assert-only successor candidates, and 45
+allocation-comment taxonomy candidates. The owning plan now carries exact
+assertion/policy dispositions and a 77-file live checklist; ignored source evidence
+is under `TestOutput/validation/INVARIANT_HARDENING_IH0/`. IH1 repaired Terrain
+dimension validation and centralized checked pixel/post/quad arithmetic before
+construction. Its Profile proof passes 5 cases / 231 assertions, including the
+retired 5/2 floor/ceiling mismatch as a non-mutating negative control. IH2
+hardened the selected Core, Maths, Assets, and Gameplay findings. Texture and
+tornado exact-capacity/lifecycle failures are now Release-safe, while the lock-
+order and math tripwires retain their intentional Debug-only policy with
+focused controls. The full unit gate passes 645 cases / 2,522,019 assertions,
+the 17/17 touched/selected-source audit has zero deferrals, and `validate_fast`
+is green. IH3 completed the selected Physics findings with transactional
+collider refresh, guarded shape compaction, Release-safe scratch/body/solver
+bounds, and a Debug-only awake-membership classifier. Focused Profile tests are
+green, the IH3 source audit is 14/14 with zero deferrals, and the full unit gate
+passes 650 cases / 2,522,407 assertions. The fast gate clears static checks and
+the Profile/Automation/Debug matrix; compiled-symbol reachability is deferred
+only while Visual Studio owns a live lock on `Profile\\SKULLBONEZ_CORE.exe` and
+concurrent user-owned edits remain outside the IH3 commit. IH4 owns the selected
+Rendering, DX12, World, and Scene findings.
 
-After predicted solver detail closes, execute `ORBIT_FORECAST` OF0-OF6. The
-owner reactivated it from `WNF/` on 2026-08-17. OF0 first ratifies the authored
-solar stability cohort and thresholds; later phases add coherent circular
-publication, continuous isolated prediction, Planning-owned stability
-diagnostics, operator controls, and rolling orbital presentation without
-changing bounded `PREDICT` or feeding detailed solver evidence into the
-continuous path.
-
-After orbital forecast closes, execute `REST_STABILITY` RS0-RS7. First add the
-authored all-three-ball sleep completion gate; no frame/time cap or aborted run
-may complete the unlimited scene. Preserve baseline executables, then use
-SkullScope summary, why-not-resting, rolling, convergence, energy, body,
-contact, and island queries to identify the owning causes before implementation.
-Semantic oracles must pin all three balls' vertical tail motion, slip, rolling
-reversals, support/sleep latency, and final sleeping state while retaining the
-boxes as controls. Repair normal vibration, tangent/rolling response, and sleep
-transition separately, preserve candidate artifacts, and refresh no baseline
-without owner approval.
+At-Rest Ball Stability closed in `f2e192f53`. Its uncapped all-three-asleep
+semantic witness, deterministic 0/1/4-worker proof, box and moving-slope
+controls, allocation/performance checks, four review passes, and terminal gate
+evidence are retained in that commit. The terminal run stopped only at the
+mapped protected 35,303-line varied-Physics oracle; no baseline was refreshed.
 
 Deterministic Trigonometry remains owner-parked in `Agentic/Plans/WNF/` and is
 not part of the active queue.
 
 ## Blockers
 
-- None. Continue with `PREDICT_SOLVER_DETAIL` PSD0.
+- None. Continue with `INVARIANT_HARDENING` IH4. The stale Physics CSV,
+  noisy relative Physics performance sample, and
+  corrected-topology visual oracle remain owner-controlled validation findings;
+  do not refresh any of them without approval.
 
 ## CI Note
 

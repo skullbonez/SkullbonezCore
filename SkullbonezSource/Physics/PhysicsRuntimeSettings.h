@@ -37,6 +37,7 @@ struct PhysicsMaterialSettings
     float terrainFrictionCoefficient = 0.1f;
     float objectFrictionCoefficient = 0.1f;
     float rollingFrictionCoefficient = 0.02f;
+    float spinFrictionCoefficient = 0.3f; // Effective contact-patch length; angular impulse = length * normal impulse.
 };
 
 struct BodySimulationSettings

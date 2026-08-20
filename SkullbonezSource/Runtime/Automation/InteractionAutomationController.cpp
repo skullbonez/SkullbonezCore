@@ -5,8 +5,9 @@ Purpose:
 
 Summary:
   Interaction automation is a validation driver. It asks the same picking,
-  replay, camera, director-shot, and world-input code that an operator would
-  use, while concrete input/report owners publish device snapshots and evidence.
+  replay, continuous-forecast, camera, director-shot, and world-input code that
+  an operator would use, while concrete input/report owners publish device
+  snapshots and evidence.
   A frame-indexed script produces synthetic device state and typed owner
   commands, then observes copied runtime facts after rendering. The controller
   never becomes an alternate gameplay, replay, editor, or window owner.
@@ -18,6 +19,8 @@ Glossary:
     or retargets a fixed camera shot list without taking ownership away from
     the runtime camera state.
   Prediction target: Replay body selected for future-path diagnostics.
+  Continuous forecast command: Typed toggle/reset/exit request submitted through
+    the same operator-command queue as the visible Planning controls.
   Automation report: JSON side-channel describing what the scripted interaction
   observed without mutating validation baselines directly.
 
@@ -26,10 +29,12 @@ Invariants:
     replay state with hidden direct mutations.
   - Assertions and reports consume ReplayAutomationView; replay mutation uses
     named owner commands and never a mutable prediction/recorder reference.
-  - Prediction assertions read only the committed frame prefix; retained rows
-    beyond that prefix are allocation storage, not observable future state.
+  - Prediction assertions read only the presented published prefix and its
+    matching evidence bank; unpublished rows remain private allocation storage.
   - Published samples are frame-local; this file must not retain their spans or
     pointers beyond the synchronous automation turn.
+  - Forecast presentation assertions observe the detached post-render view;
+    they never read the worker-owned rolling ring directly.
   - Surface selection accepts Legacy or ImGui only; one frame can publish at
     most one process-surface request.
   - Development UI application stops on the first recoverable command failure;
@@ -44,6 +49,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "InteractionAutomationController.h"
+#include "../Planning/ContinuousOrbitalForecast.h"
 #include "../App/Run.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "../Camera/AttachedCameraController.h"
@@ -568,6 +574,8 @@ const char* ActionTypeName( RunInteractionAutomationActionType type )
         return "selectReplayCauseRow";
     case RunInteractionAutomationActionType::ScrubEditorReplayTrack:
         return "scrubEditorReplayTrack";
+    case RunInteractionAutomationActionType::SetContinuousForecastCommand:
+        return "setContinuousForecastCommand";
     case RunInteractionAutomationActionType::SetReplayPredictionEnabled:
         return "setReplayPredictionEnabled";
     case RunInteractionAutomationActionType::SetReplayPredictionHorizonSeconds:
@@ -711,10 +719,54 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "predictionTargetLastNear";
     case RunInteractionAutomationAssertKind::LiveSolverHashStableAcrossPrediction:
         return "liveSolverHashStableAcrossPrediction";
+    case RunInteractionAutomationAssertKind::PredictionEvidenceConsumerBalanced:
+        return "predictionEvidenceConsumerBalanced";
+    case RunInteractionAutomationAssertKind::PredictionEvidencePipelineRowsMin:
+        return "predictionEvidencePipelineRowsMin";
+    case RunInteractionAutomationAssertKind::PredictionEvidenceCurrentCapacityMax:
+        return "predictionEvidenceCurrentCapacityMax";
+    case RunInteractionAutomationAssertKind::PredictionDetailMode:
+        return "predictionDetailMode";
+    case RunInteractionAutomationAssertKind::PredictionCauseDetailVisible:
+        return "predictionCauseDetailVisible";
+    case RunInteractionAutomationAssertKind::PredictionCauseWindowAvailable:
+        return "predictionCauseWindowAvailable";
+    case RunInteractionAutomationAssertKind::PredictionEvidenceCapacityReleased:
+        return "predictionEvidenceCapacityReleased";
+    case RunInteractionAutomationAssertKind::PredictionEvidenceMemoryReconciled:
+        return "predictionEvidenceMemoryReconciled";
+    case RunInteractionAutomationAssertKind::PredictionCauseManifoldRowsMin:
+        return "predictionCauseManifoldRowsMin";
+    case RunInteractionAutomationAssertKind::PredictionCauseManifoldRowsMax:
+        return "predictionCauseManifoldRowsMax";
+    case RunInteractionAutomationAssertKind::PredictionCauseSolverRowsMin:
+        return "predictionCauseSolverRowsMin";
+    case RunInteractionAutomationAssertKind::PredictionCauseSolverRowsMax:
+        return "predictionCauseSolverRowsMax";
+    case RunInteractionAutomationAssertKind::PredictionCauseSyntheticRowsMin:
+        return "predictionCauseSyntheticRowsMin";
+    case RunInteractionAutomationAssertKind::PredictionCauseSyntheticRowsMax:
+        return "predictionCauseSyntheticRowsMax";
     case RunInteractionAutomationAssertKind::PredictionTrajectoryFingerprintReady:
         return "predictionTrajectoryFingerprintReady";
     case RunInteractionAutomationAssertKind::PredictionAppearanceInvalidationCountMin:
         return "predictionAppearanceInvalidationCountMin";
+    case RunInteractionAutomationAssertKind::ContinuousForecastActive:
+        return "continuousForecastActive";
+    case RunInteractionAutomationAssertKind::ContinuousForecastPreWrap:
+        return "continuousForecastPreWrap";
+    case RunInteractionAutomationAssertKind::ContinuousForecastWindowWrapped:
+        return "continuousForecastWindowWrapped";
+    case RunInteractionAutomationAssertKind::ContinuousForecastPresentationCoherent:
+        return "continuousForecastPresentationCoherent";
+    case RunInteractionAutomationAssertKind::ContinuousForecastAbsoluteTickMin:
+        return "continuousForecastAbsoluteTickMin";
+    case RunInteractionAutomationAssertKind::ContinuousForecastOldestTickMin:
+        return "continuousForecastOldestTickMin";
+    case RunInteractionAutomationAssertKind::ContinuousForecastRibbonSegmentsMin:
+        return "continuousForecastRibbonSegmentsMin";
+    case RunInteractionAutomationAssertKind::ContinuousForecastHeadMarkerCount:
+        return "continuousForecastHeadMarkerCount";
     case RunInteractionAutomationAssertKind::ShadowPassExecuted:
         return "shadowPassExecuted";
     case RunInteractionAutomationAssertKind::TerrainShadowValid:
@@ -1160,7 +1212,29 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
 {
     // Concept: replay-control automation clicks the visible scrubber widgets
     // instead of mutating replay state directly. Normal replay input remains the
-    // owner of prediction, pause/play, velocity-edit, and branch transitions.
+    // owner of prediction, detail-mode, velocity-edit, and branch transitions.
+    if ( strcmp( action.text, "highDetail" ) == 0 )
+    {
+        const int screenW = window ? window->ClientWidth() : config.window.screenX;
+        const int screenH = window ? window->ClientHeight() : config.window.screenY;
+        const ReplayRecorderStats solverReplayStats = replay.solverStats;
+        const bool predictionToolsEnabled = solverReplayStats.enabled && scene.isScenePhysics;
+
+        if ( screenW > 0 && screenH > 0 && predictionToolsEnabled )
+        {
+            InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
+                                                           ReplayScrubberHighDetailToggleRect( screenW, screenH ),
+                                                           "mouse press injected at high-detail toggle" );
+        }
+        else
+        {
+            AppendInteractionAutomationReplayControlFailure( state, frame, action, "replay high-detail control unavailable",
+                                                             "replay high-detail control unavailable" );
+        }
+
+        return;
+    }
+
     if ( strcmp( action.text, "predict" ) == 0 )
     {
         const int screenW = window ? window->ClientWidth() : config.window.screenX;
@@ -1205,32 +1279,6 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
         {
             AppendInteractionAutomationReplayControlFailure( state, frame, action, "replay past-path control unavailable",
                                                              "replay past-path control unavailable" );
-        }
-
-        return;
-    }
-
-    if ( strcmp( action.text, "pause" ) == 0 || strcmp( action.text, "play" ) == 0 )
-    {
-        const int screenW = window ? window->ClientWidth() : config.window.screenX;
-        const int screenH = window ? window->ClientHeight() : config.window.screenY;
-        const ReplayRecorderStats solverReplayStats = replay.solverStats;
-        const bool solverToolsEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
-
-        if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
-        {
-            // Concept: the scrubber exposes one physical button whose label
-            // flips between pause and play. Automation clicks the real rectangle
-            // so replay input ownership does the state transition and
-            // prediction-freeze work.
-            InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
-                                                           ReplayScrubberPauseButtonRect( screenW, screenH ),
-                                                           "mouse press injected at pause/play toggle" );
-        }
-        else
-        {
-            AppendInteractionAutomationReplayControlFailure( state, frame, action, "replay pause/play control unavailable",
-                                                             "replay pause/play control unavailable" );
         }
 
         return;
@@ -1563,6 +1611,28 @@ bool ParseScrubEditorReplayTrackAction( const Json& entry, RunInteractionAutomat
 
     outAction.type = RunInteractionAutomationActionType::ScrubEditorReplayTrack;
     outAction.numberValue = std::clamp( entry["scrubEditorReplayTrack"].get<float>(), 0.0f, 1.0f );
+    return true;
+}
+
+bool ParseSetContinuousForecastCommandAction( const Json& entry, RunInteractionAutomationAction& outAction,
+                                              std::string& outError )
+{
+    if ( !entry["setContinuousForecastCommand"].is_string() )
+    {
+        outError = "setContinuousForecastCommand must be toggle, reset, or exit";
+        return false;
+    }
+
+    const std::string command = entry["setContinuousForecastCommand"].get<std::string>();
+
+    if ( command != "toggle" && command != "reset" && command != "exit" )
+    {
+        outError = "setContinuousForecastCommand must be toggle, reset, or exit";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::SetContinuousForecastCommand;
+    CopyText( outAction.text, sizeof( outAction.text ), command );
     return true;
 }
 
@@ -1973,6 +2043,36 @@ AssertionParseStatus ParseBasicAssertion( const std::string& name, const Json& e
     return AssertionParseStatus::NoMatch;
 }
 
+AssertionParseStatus ParsePredictionCauseAssertion( const std::string& name, const Json& expected,
+                                                    RunInteractionAutomationAction& outAction )
+{
+    struct Entry
+    {
+        const char* name;
+        RunInteractionAutomationAssertKind kind;
+    };
+    static constexpr std::array ENTRIES = {
+        Entry { "predictionCauseManifoldRowsMin", RunInteractionAutomationAssertKind::PredictionCauseManifoldRowsMin },
+        Entry { "predictionCauseManifoldRowsMax", RunInteractionAutomationAssertKind::PredictionCauseManifoldRowsMax },
+        Entry { "predictionCauseSolverRowsMin", RunInteractionAutomationAssertKind::PredictionCauseSolverRowsMin },
+        Entry { "predictionCauseSolverRowsMax", RunInteractionAutomationAssertKind::PredictionCauseSolverRowsMax },
+        Entry { "predictionCauseSyntheticRowsMin", RunInteractionAutomationAssertKind::PredictionCauseSyntheticRowsMin },
+        Entry { "predictionCauseSyntheticRowsMax", RunInteractionAutomationAssertKind::PredictionCauseSyntheticRowsMax },
+    };
+
+    const auto entry = std::find_if( ENTRIES.begin(), ENTRIES.end(),
+                                     [&]( const Entry& candidate ) { return name == candidate.name; } );
+
+    if ( entry == ENTRIES.end() )
+    {
+        return AssertionParseStatus::NoMatch;
+    }
+
+    outAction.assertKind = entry->kind;
+    outAction.numberValue = expected.get<float>();
+    return AssertionParseStatus::Success;
+}
+
 AssertionParseStatus ParseReplayAssertion( const std::string& name, const Json& expected,
                                            RunInteractionAutomationAction& outAction, std::string& )
 {
@@ -2309,6 +2409,75 @@ AssertionParseStatus ParseReplayAssertion( const std::string& name, const Json& 
         return AssertionParseStatus::Success;
     }
 
+    if ( name == "predictionEvidenceConsumerBalanced" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionEvidenceConsumerBalanced;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "predictionEvidencePipelineRowsMin" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionEvidencePipelineRowsMin;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "predictionEvidenceCurrentCapacityMax" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionEvidenceCurrentCapacityMax;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "predictionDetailMode" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionDetailMode;
+        CopyText( outAction.text, sizeof( outAction.text ), expected.get<std::string>() );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "predictionCauseDetailVisible" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionCauseDetailVisible;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "predictionCauseWindowAvailable" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionCauseWindowAvailable;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "predictionEvidenceCapacityReleased" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionEvidenceCapacityReleased;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "predictionEvidenceMemoryReconciled" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionEvidenceMemoryReconciled;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( ParsePredictionCauseAssertion( name, expected, outAction ) == AssertionParseStatus::Success )
+    {
+        return AssertionParseStatus::Success;
+    }
+
     if ( name == "predictionTrajectoryFingerprintReady" )
     {
         outAction.assertKind = RunInteractionAutomationAssertKind::PredictionTrajectoryFingerprintReady;
@@ -2322,6 +2491,68 @@ AssertionParseStatus ParseReplayAssertion( const std::string& name, const Json& 
         outAction.assertKind = RunInteractionAutomationAssertKind::PredictionAppearanceInvalidationCountMin;
         outAction.numberValue = expected.get<float>();
 
+        return AssertionParseStatus::Success;
+    }
+
+    return AssertionParseStatus::NoMatch;
+}
+
+AssertionParseStatus ParseContinuousForecastAssertion( const std::string& name, const Json& expected,
+                                                       RunInteractionAutomationAction& outAction, std::string& /*outError*/ )
+{
+    if ( name == "continuousForecastActive" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ContinuousForecastActive;
+        outAction.boolValue = ReadBool( expected );
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "continuousForecastPreWrap" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ContinuousForecastPreWrap;
+        outAction.boolValue = ReadBool( expected );
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "continuousForecastWindowWrapped" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ContinuousForecastWindowWrapped;
+        outAction.boolValue = ReadBool( expected );
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "continuousForecastPresentationCoherent" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ContinuousForecastPresentationCoherent;
+        outAction.boolValue = ReadBool( expected );
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "continuousForecastAbsoluteTickMin" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ContinuousForecastAbsoluteTickMin;
+        outAction.numberValue = expected.get<float>();
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "continuousForecastOldestTickMin" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ContinuousForecastOldestTickMin;
+        outAction.numberValue = expected.get<float>();
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "continuousForecastRibbonSegmentsMin" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ContinuousForecastRibbonSegmentsMin;
+        outAction.numberValue = expected.get<float>();
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "continuousForecastHeadMarkerCount" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ContinuousForecastHeadMarkerCount;
+        outAction.numberValue = expected.get<float>();
         return AssertionParseStatus::Success;
     }
 
@@ -2598,6 +2829,7 @@ using AssertionParser = AssertionParseStatus ( * )( const std::string&, const Js
 constexpr AssertionParser ASSERTION_PARSERS[] = {
     ParseBasicAssertion,
     ParseReplayAssertion,
+    ParseContinuousForecastAssertion,
     ParseRuntimeAssertion,
 };
 
@@ -2642,8 +2874,15 @@ bool ParseAssertAction( const Json& entry, RunInteractionAutomationAction& outAc
                                name == "predictionSupersededRestartCountMax" ||
                                name == "predictionVelocityPreviewDeltaMin" || name == "predictionPresentedGenerationMin" ||
                                name == "predictionPresentedRootVelocityDeltaMin" || name == "predictionDivergenceMin" ||
-                               name == "predictionTargetDisplacementMin" ||
-                               name == "predictionAppearanceInvalidationCountMin" || name == "imguiLayoutResetCountMin" ||
+                               name == "predictionTargetDisplacementMin" || name == "predictionEvidencePipelineRowsMin" ||
+                               name == "predictionEvidenceCurrentCapacityMax" || name == "predictionCauseManifoldRowsMin" ||
+                               name == "predictionCauseManifoldRowsMax" || name == "predictionCauseSolverRowsMin" ||
+                               name == "predictionCauseSolverRowsMax" || name == "predictionCauseSyntheticRowsMin" ||
+                               name == "predictionCauseSyntheticRowsMax" ||
+                               name == "predictionAppearanceInvalidationCountMin" ||
+                               name == "continuousForecastAbsoluteTickMin" || name == "continuousForecastOldestTickMin" ||
+                               name == "continuousForecastRibbonSegmentsMin" ||
+                               name == "continuousForecastHeadMarkerCount" || name == "imguiLayoutResetCountMin" ||
                                name == "imguiFocusCountMin" || name == "imguiDpiScale" ||
                                name == "imguiDescriptorHighWaterMax" || name == "imguiViewportRecreationsMin";
 
@@ -2655,7 +2894,10 @@ bool ParseAssertAction( const Json& entry, RunInteractionAutomationAction& outAc
                              name == "replayPorkchopComplete" || name == "replayPorkchopSelected" ||
                              name == "replaySolverTrackAtPresent" || name == "predictionScrubFrameActive" ||
                              name == "liveSolverHashStableAcrossPrediction" ||
-                             name == "predictionTrajectoryFingerprintReady" || name == "shadowPassExecuted" ||
+                             name == "predictionEvidenceConsumerBalanced" ||
+                             name == "predictionTrajectoryFingerprintReady" || name == "continuousForecastActive" ||
+                             name == "continuousForecastPreWrap" || name == "continuousForecastWindowWrapped" ||
+                             name == "continuousForecastPresentationCoherent" || name == "shadowPassExecuted" ||
                              name == "terrainShadowValid" || name == "objectShadowValid" ||
                              name == "reflectionPassExecuted" || name == "gizmoVisible" || name == "mousePickupActive" ||
                              name == "nativeCaptureRequested" || name == "cursorVisibleRequested" ||
@@ -2717,6 +2959,7 @@ constexpr std::pair<const char*, InteractionActionParser> INTERACTION_ACTION_PAR
     { "clickReplayControl", ParseClickReplayControlAction },
     { "scrubReplaySolverTrack", ParseScrubReplaySolverTrackAction },
     { "scrubEditorReplayTrack", ParseScrubEditorReplayTrackAction },
+    { "setContinuousForecastCommand", ParseSetContinuousForecastCommandAction },
     { "setReplayPredictionEnabled", ParseSetReplayPredictionEnabledAction },
     { "setReplayPredictionHorizonSeconds", ParseSetReplayPredictionHorizonSecondsAction },
     { "beginReplayVisualFidelityCapture", ParseBeginReplayVisualFidelityCaptureAction },
@@ -2796,8 +3039,8 @@ template <typename InspectGizmoInteractionActive>
 InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools, const InteractionAutomationController& automation, const ReplayAutomationView& replay,
                                                                                  RuntimeInteractionController& interaction, const InputRouter& inputRouter, CameraControlState& camera,
                                                                                  const SceneWorld& world, SkullbonezCore::UI::InGameUI& ui, const InteractionAutomationDevelopmentUiView& developmentUi,
-                                                                                 const Rendering::RenderSceneSnapshot& renderSnapshot, const RunInteractionAutomationAction& action,
-                                                                                 InspectGizmoInteractionActive inspectGizmoInteractionActive )
+                                                                                 const ContinuousOrbitalForecastView& forecast, const Rendering::RenderSceneSnapshot& renderSnapshot,
+                                                                                 const RunInteractionAutomationAction& action, InspectGizmoInteractionActive inspectGizmoInteractionActive )
 {
     // Concept: after-render assertions are read-only probes over owner state.
     // The context keeps that state explicit so the Run tick only schedules,
@@ -3238,6 +3481,115 @@ InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
         evaluation.passed = stable == action.boolValue;
         break;
     }
+    case RunInteractionAutomationAssertKind::PredictionEvidenceConsumerBalanced:
+    {
+        const ReplayPredictionSolverEvidenceCaptureStats capture = replay.predictionEvidenceCapture;
+        const bool balanced = !capture.consumerActive && capture.consumerAcquireCount == capture.consumerReleaseCount;
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( balanced );
+        evaluation.passed = balanced == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionEvidencePipelineRowsMin:
+    {
+        const uint64_t count = replay.predictionEvidenceCapture.copiedPipelineCount;
+        evaluation.expected = ">=" + std::to_string( static_cast<uint64_t>( action.numberValue ) );
+        evaluation.actual = std::to_string( count );
+        evaluation.passed = count >= static_cast<uint64_t>( action.numberValue );
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionEvidenceCurrentCapacityMax:
+    {
+        const uint64_t bytes = replay.predictionEvidenceMemory.currentCapacityBytes;
+        evaluation.expected = "<=" + std::to_string( static_cast<uint64_t>( action.numberValue ) );
+        evaluation.actual = std::to_string( bytes );
+        evaluation.passed = bytes <= static_cast<uint64_t>( action.numberValue );
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionDetailMode:
+    {
+        const char* mode = replay.predictionDetailMode == ReplayPredictionDetailMode::High ? "High" : "Low";
+        evaluation.expected = action.text;
+        evaluation.actual = mode;
+        evaluation.passed = evaluation.actual == evaluation.expected;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionCauseDetailVisible:
+    {
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( replay.causeInspection.detailVisible );
+        evaluation.passed = replay.causeInspection.detailVisible == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionCauseWindowAvailable:
+    {
+        const bool predictionRows = !replay.causeTree.rows.empty() && replay.causeTree.rows.front().prediction;
+        const bool available = !replay.causeTree.rows.empty() &&
+                               ReplayPredictionCauseWindowAvailable( replay.predictionDetailMode, predictionRows );
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( available );
+        evaluation.passed = available == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionEvidenceCapacityReleased:
+    {
+        const ReplayPredictionSolverEvidenceBanksMemoryStats& memory = replay.predictionEvidenceMemory;
+        const bool released = memory.releaseCheckpointCount > 0u && memory.currentContactCapacityBytes == 0u &&
+                              memory.currentPipelineCapacityBytes == 0u && memory.currentFrameCapacityBytes == 0u &&
+                              memory.currentCapacityBytes == 0u && memory.lastReleaseBeforeCapacityBytes > 0u &&
+                              memory.lastReleaseAfterCapacityBytes == 0u;
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( released );
+        evaluation.passed = released == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionEvidenceMemoryReconciled:
+    {
+        const bool reconciled = SkullbonezCore::Core::MainMemoryReplayPredictionEvidenceReleaseReconciles( replay.memoryStats );
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( reconciled );
+        evaluation.passed = reconciled == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionCauseManifoldRowsMin:
+    case RunInteractionAutomationAssertKind::PredictionCauseManifoldRowsMax:
+    case RunInteractionAutomationAssertKind::PredictionCauseSolverRowsMin:
+    case RunInteractionAutomationAssertKind::PredictionCauseSolverRowsMax:
+    case RunInteractionAutomationAssertKind::PredictionCauseSyntheticRowsMin:
+    case RunInteractionAutomationAssertKind::PredictionCauseSyntheticRowsMax:
+    {
+        std::size_t count = 0u;
+
+        for ( const RunReplayCauseTreeRow& row : replay.causeTree.rows )
+        {
+            const bool manifold = row.prediction && row.kind == RunReplayCauseTreeRowKind::Manifold;
+            const bool solver = row.prediction && row.kind == RunReplayCauseTreeRowKind::SolverRow;
+            const bool synthetic = row.prediction && ( row.kind == RunReplayCauseTreeRowKind::PredictionContact ||
+                                                       row.kind == RunReplayCauseTreeRowKind::PredictionMotion );
+
+            if ( ( ( action.assertKind == RunInteractionAutomationAssertKind::PredictionCauseManifoldRowsMin ||
+                     action.assertKind == RunInteractionAutomationAssertKind::PredictionCauseManifoldRowsMax ) &&
+                   manifold ) ||
+                 ( ( action.assertKind == RunInteractionAutomationAssertKind::PredictionCauseSolverRowsMin ||
+                     action.assertKind == RunInteractionAutomationAssertKind::PredictionCauseSolverRowsMax ) &&
+                   solver ) ||
+                 ( ( action.assertKind == RunInteractionAutomationAssertKind::PredictionCauseSyntheticRowsMin ||
+                     action.assertKind == RunInteractionAutomationAssertKind::PredictionCauseSyntheticRowsMax ) &&
+                   synthetic ) )
+            {
+                ++count;
+            }
+        }
+
+        const std::size_t expected = static_cast<std::size_t>( action.numberValue );
+        const bool maximum = action.assertKind == RunInteractionAutomationAssertKind::PredictionCauseManifoldRowsMax ||
+                             action.assertKind == RunInteractionAutomationAssertKind::PredictionCauseSolverRowsMax ||
+                             action.assertKind == RunInteractionAutomationAssertKind::PredictionCauseSyntheticRowsMax;
+        evaluation.expected = std::string( maximum ? "<=" : ">=" ) + std::to_string( expected );
+        evaluation.actual = std::to_string( count );
+        evaluation.passed = maximum ? count <= expected : count >= expected;
+        break;
+    }
     case RunInteractionAutomationAssertKind::PredictionTrajectoryFingerprintReady:
     {
         const PredictionTrajectoryFingerprint
@@ -3261,6 +3613,50 @@ InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
         evaluation.passed = count >= static_cast<uint64_t>( action.numberValue );
         break;
     }
+    case RunInteractionAutomationAssertKind::ContinuousForecastActive:
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( forecast.active );
+        evaluation.passed = forecast.active == action.boolValue;
+        break;
+    case RunInteractionAutomationAssertKind::ContinuousForecastPreWrap:
+    {
+        const bool preWrap = forecast.active && forecast.presentation.coherent && !forecast.presentation.wrapped &&
+                             forecast.presentation.newestAbsoluteTick > 0u;
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( preWrap );
+        evaluation.passed = preWrap == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::ContinuousForecastWindowWrapped:
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( forecast.presentation.wrapped );
+        evaluation.passed = forecast.presentation.wrapped == action.boolValue;
+        break;
+    case RunInteractionAutomationAssertKind::ContinuousForecastPresentationCoherent:
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( forecast.presentation.coherent );
+        evaluation.passed = forecast.presentation.coherent == action.boolValue;
+        break;
+    case RunInteractionAutomationAssertKind::ContinuousForecastAbsoluteTickMin:
+        evaluation.expected = ">=" + std::to_string( static_cast<std::uint64_t>( action.numberValue ) );
+        evaluation.actual = std::to_string( forecast.presentation.newestAbsoluteTick );
+        evaluation.passed = forecast.presentation.newestAbsoluteTick >= static_cast<std::uint64_t>( action.numberValue );
+        break;
+    case RunInteractionAutomationAssertKind::ContinuousForecastOldestTickMin:
+        evaluation.expected = ">=" + std::to_string( static_cast<std::uint64_t>( action.numberValue ) );
+        evaluation.actual = std::to_string( forecast.presentation.oldestAbsoluteTick );
+        evaluation.passed = forecast.presentation.oldestAbsoluteTick >= static_cast<std::uint64_t>( action.numberValue );
+        break;
+    case RunInteractionAutomationAssertKind::ContinuousForecastRibbonSegmentsMin:
+        evaluation.expected = ">=" + std::to_string( static_cast<std::size_t>( action.numberValue ) );
+        evaluation.actual = std::to_string( forecast.presentation.ribbonSegmentCount );
+        evaluation.passed = forecast.presentation.ribbonSegmentCount >= static_cast<std::size_t>( action.numberValue );
+        break;
+    case RunInteractionAutomationAssertKind::ContinuousForecastHeadMarkerCount:
+        evaluation.expected = std::to_string( static_cast<std::size_t>( action.numberValue ) );
+        evaluation.actual = std::to_string( forecast.presentation.headMarkerCount );
+        evaluation.passed = forecast.presentation.headMarkerCount == static_cast<std::size_t>( action.numberValue );
+        break;
     case RunInteractionAutomationAssertKind::ShadowPassExecuted:
     case RunInteractionAutomationAssertKind::TerrainShadowValid:
     case RunInteractionAutomationAssertKind::ObjectShadowValid:
@@ -3658,6 +4054,18 @@ InteractionAutomationController::SubmitOperatorEditorReplayCommand( const Intera
     }
 
     return UI::SubmitOperatorEditorCommand( resultDiagnostics, commands.replay, frame.operatorEditorReplayCommand );
+}
+
+SkullbonezCore::Core::SbResult
+InteractionAutomationController::SubmitOperatorEditorForecastCommand( const InteractionAutomationFrameResult& frame,
+                                                                      UI::OperatorEditorCommandQueues& commands ) const
+{
+    if ( !frame.hasOperatorEditorForecastCommand )
+    {
+        return SkullbonezCore::Core::SbResult::Success();
+    }
+
+    return UI::SubmitOperatorEditorCommand( resultDiagnostics, commands.forecast, frame.operatorEditorForecastCommand );
 }
 
 InteractionAutomationDevelopmentUiView
@@ -4159,6 +4567,29 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
             action.processed = true;
             break;
         }
+        case RunInteractionAutomationActionType::SetContinuousForecastCommand:
+        {
+            const bool available = !result.hasOperatorEditorForecastCommand;
+
+            if ( available )
+            {
+                result.hasOperatorEditorForecastCommand = true;
+                const std::string_view command( action.text );
+                result.operatorEditorForecastCommand.type = command == "reset" ? UI::OperatorEditorForecastCommandType::Reset
+                                                            : command == "exit"
+                                                                ? UI::OperatorEditorForecastCommandType::Exit
+                                                                : UI::OperatorEditorForecastCommandType::ToggleContinuous;
+            }
+            else
+            {
+                FailAutomation( state, "continuous forecast automation command capacity exceeded" );
+            }
+
+            AppendReportAction( state, frame, action.type, action.text, nullptr, available,
+                                available ? "typed continuous forecast command published" : "command capacity exceeded" );
+            action.processed = true;
+            break;
+        }
         case RunInteractionAutomationActionType::ClickObject:
         {
             POINT mouse = {};
@@ -4237,8 +4668,8 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
 InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutomationController& state, RuntimeTools& runtimeTools, RuntimeInteractionController& interaction,
                                                                                                 InputRouter& inputRouter, CameraControlState& camera, SkullbonezCore::UI::InGameUI& ui, SceneController& scene,
                                                                                                 const ReplayAutomationView& replayView, const InteractionAutomationDevelopmentUiView& developmentUiView,
-                                                                                                const Rendering::RenderSceneSnapshot& renderSnapshot, CaptureController& capture,
-                                                                                                Rendering::Dx12BackbufferCapture& backbufferCapture )
+                                                                                                const ContinuousOrbitalForecastView& forecastView, const Rendering::RenderSceneSnapshot& renderSnapshot,
+                                                                                                CaptureController& capture, Rendering::Dx12BackbufferCapture& backbufferCapture )
 {
     InteractionAutomationFrameResult result;
 
@@ -4298,7 +4729,7 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
         strcpy_s( assertion.name, sizeof( assertion.name ), AssertName( action.assertKind ) );
 
         const InteractionAutomationAssertionEvaluation evaluation = EvaluateInteractionAutomationAssertion( runtimeTools, state, replayView, interaction, inputRouter, camera, scene.Scene(), ui, developmentUiView,
-                                                                                                            renderSnapshot, action,
+                                                                                                            forecastView, renderSnapshot, action,
                                                                                                             [&]() { return runtimeTools.InspectGizmoInteractionActive( camera.mode, replayView.input.inspectionActive ); } );
 
         strcpy_s( assertion.expected, sizeof( assertion.expected ), evaluation.expected.c_str() );

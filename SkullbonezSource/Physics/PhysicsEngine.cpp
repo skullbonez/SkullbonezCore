@@ -289,6 +289,7 @@ PhysicsRuntimeSettings PhysicsEngine::RuntimeSettingsFromConfig( const Skullbone
     settings.material.terrainFrictionCoefficient = config.physicsMaterial.frictionCoeff;
     settings.material.objectFrictionCoefficient = config.physicsMaterial.objectFrictionCoeff;
     settings.material.rollingFrictionCoefficient = config.physicsMaterial.rollingFrictionCoeff;
+    settings.material.spinFrictionCoefficient = config.physicsMaterial.spinFrictionCoeff;
     settings.body.angularVelocityLimit = config.bodySimulation.velocityLimit;
     settings.body.contactRestitutionThreshold = config.bodySimulation.contactRestitutionThreshold;
     settings.body.contactEpsilon = config.bodySimulation.contactEpsilon;

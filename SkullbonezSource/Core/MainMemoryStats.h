@@ -96,6 +96,8 @@ enum class MainMemoryReplayByteCategory : std::size_t
     PredictionFrameBodies,
     PredictionDebugContacts,
     PredictionFutureTree,
+    PredictionSolverContactEvidence,
+    PredictionPipelineEvidence,
     PathOwner,
     PathTargets,
     PathFutureNodes,
@@ -159,6 +161,31 @@ struct MainMemoryReplayTrajectoryStats
     uint64_t droppedSegments[MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT] = {};
     uint64_t budgetExpiries[MAIN_MEMORY_REPLAY_BUDGET_PASS_COUNT] = {};
     uint64_t rebuildCauses[MAIN_MEMORY_REPLAY_REBUILD_CAUSE_COUNT] = {};
+};
+
+struct MainMemoryReplayPredictionEvidenceStats
+{
+    uint64_t buildContactCapacityBytes = 0;
+    uint64_t buildPipelineCapacityBytes = 0;
+    uint64_t buildFrameCapacityBytes = 0;
+    uint64_t committedContactCapacityBytes = 0;
+    uint64_t committedPipelineCapacityBytes = 0;
+    uint64_t committedFrameCapacityBytes = 0;
+    uint64_t currentCapacityBytes = 0;
+    uint64_t lifetimePeakCapacityBytes = 0;
+    uint64_t releaseCheckpointCount = 0;
+    uint64_t lastReleaseBeforeCapacityBytes = 0;
+    uint64_t lastReleaseAfterCapacityBytes = 0;
+    uint64_t lastReleaseBeforeReplayTotalBytes = 0;
+    uint64_t lastReleaseAfterReplayTotalBytes = 0;
+    uint64_t lastReleaseBeforeCategoryTotalBytes = 0;
+    uint64_t lastReleaseAfterCategoryTotalBytes = 0;
+    uint64_t buildContactCount = 0;
+    uint64_t buildPipelineCount = 0;
+    uint64_t buildFrameCount = 0;
+    uint64_t committedContactCount = 0;
+    uint64_t committedPipelineCount = 0;
+    uint64_t committedFrameCount = 0;
 };
 
 struct MainMemoryReplayTrajectorySubmissionStats
@@ -246,8 +273,64 @@ struct MainMemoryReplayStats
     bool solverWindowReduced = false;
     std::array<GrowthOwner, 3> growthOwners;                // Same stable order as App's REPLAY_GROWTH_OWNER_POLICIES.
     MainMemoryReplayCategoryBytes categoryBytes;
+    MainMemoryReplayPredictionEvidenceStats predictionEvidence;
     MainMemoryReplayTrajectoryStats trajectory;
 };
+
+// Invariant: every replay owner contributes to exactly one category, so the
+// category sum is the independently checkable source for totalBytes.
+inline uint64_t MainMemoryReplayCategoryTotalBytes( const MainMemoryReplayCategoryBytes& categories )
+{
+    uint64_t total = 0;
+
+    for ( const uint64_t bytes : categories.bytes )
+    {
+        total += bytes;
+    }
+
+    return total;
+}
+
+inline uint64_t MainMemoryReplayPredictionEvidenceCapacityBytes( const MainMemoryReplayPredictionEvidenceStats& evidence )
+{
+    return evidence.buildContactCapacityBytes + evidence.buildPipelineCapacityBytes + evidence.buildFrameCapacityBytes +
+           evidence.committedContactCapacityBytes + evidence.committedPipelineCapacityBytes +
+           evidence.committedFrameCapacityBytes;
+}
+
+// Concept: the Low-detail release witness carries the complete categorized
+// replay aggregate from both sides of the synchronous release transaction.
+// Current state remains independently self-consistent; it need not equal the
+// post-release checkpoint after later frames allocate unrelated replay data.
+inline bool MainMemoryReplayPredictionEvidenceReleaseReconciles( const MainMemoryReplayStats& stats )
+{
+    const MainMemoryReplayPredictionEvidenceStats& evidence = stats.predictionEvidence;
+    const uint64_t
+        evidenceCategories = MainMemoryReplayCategoryByte( stats.categoryBytes,
+                                                           MainMemoryReplayByteCategory::PredictionSolverContactEvidence ) +
+                             MainMemoryReplayCategoryByte( stats.categoryBytes,
+                                                           MainMemoryReplayByteCategory::PredictionPipelineEvidence );
+    const uint64_t currentCapacity = MainMemoryReplayPredictionEvidenceCapacityBytes( evidence );
+
+    if ( evidence.releaseCheckpointCount == 0u ||
+         evidence.lastReleaseBeforeCapacityBytes < evidence.lastReleaseAfterCapacityBytes ||
+         evidence.lastReleaseBeforeReplayTotalBytes < evidence.lastReleaseAfterReplayTotalBytes ||
+         evidence.lastReleaseBeforeCategoryTotalBytes < evidence.lastReleaseAfterCategoryTotalBytes ||
+         evidence.currentCapacityBytes != currentCapacity || evidenceCategories != currentCapacity ||
+         stats.totalBytes != MainMemoryReplayCategoryTotalBytes( stats.categoryBytes ) ||
+         evidence.currentCapacityBytes != evidence.lastReleaseAfterCapacityBytes ||
+         evidence.lastReleaseBeforeReplayTotalBytes != evidence.lastReleaseBeforeCategoryTotalBytes ||
+         evidence.lastReleaseAfterReplayTotalBytes != evidence.lastReleaseAfterCategoryTotalBytes )
+    {
+        return false;
+    }
+
+    const uint64_t evidenceReleased = evidence.lastReleaseBeforeCapacityBytes - evidence.lastReleaseAfterCapacityBytes;
+    const uint64_t replayReleased = evidence.lastReleaseBeforeReplayTotalBytes - evidence.lastReleaseAfterReplayTotalBytes;
+    const uint64_t categoryReleased = evidence.lastReleaseBeforeCategoryTotalBytes -
+                                      evidence.lastReleaseAfterCategoryTotalBytes;
+    return evidenceReleased > 0u && evidenceReleased == replayReleased && evidenceReleased == categoryReleased;
+}
 
 struct MainMemoryGameObjectStats
 {

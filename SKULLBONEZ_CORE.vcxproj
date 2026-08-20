@@ -354,13 +354,18 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayOverlayRenderer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayPlanningOverlayLayout.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayPlanningRuntime.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\ContinuousOrbitalStability.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\ContinuousOrbitalForecast.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayCauseInspection.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayGuideArcs.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayInterceptReadout.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayTripPlanner.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayPorkchopPanel.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayArtifactHashLog.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Prediction\ContinuousPredictionProducer.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Prediction\ContinuousPredictionSampleRing.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionReserve.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionSolverEvidenceStore.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPresentation.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayCauseFocusSubmission.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayTimeline.cpp" />
@@ -623,6 +628,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneAuthoredSetup.CameraSlots.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneAuthoredSetup.InitialImpulse.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneAutomationGateConfiguration.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneSleepingDynamicBodyGatePolicy.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneLoadTransaction.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneWorld.h" />
@@ -644,7 +650,10 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Planning\ReplayOverlayRenderer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayArtifactHashLog.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayArtifactSource.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Prediction\ContinuousPredictionProducer.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Prediction\ContinuousPredictionSampleRing.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionReserve.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionSolverEvidenceStore.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionRetainedMemory.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionScheduling.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionPublication.h" />
@@ -667,6 +676,8 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Planning\ReplayPorkchopPanel.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Planning\ReplayPlanningOverlayLayout.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Planning\ReplayPlanningRuntime.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Planning\ContinuousOrbitalStability.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Planning\ContinuousOrbitalForecast.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Planning\ReplayCauseInspection.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPathPackets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionPackets.h" />
@@ -706,6 +717,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\World\WorldEnvironment.h" />
     <ClInclude Include="SkullbonezSource\World\FluidSurfaceAdjustment.h" />
     <ClInclude Include="SkullbonezSource\Scene\AuthoredScene.h" />
+    <ClInclude Include="SkullbonezSource\Scene\OrbitalStabilityContract.h" />
     <ClInclude Include="SkullbonezSource\Scene\AuthoredTornadoConfig.h" />
     <ClInclude Include="SkullbonezSource\Scene\AuthoredSceneParserSchema.h" />
     <ClInclude Include="SkullbonezSource\Core\PlatformProfiler.h" />

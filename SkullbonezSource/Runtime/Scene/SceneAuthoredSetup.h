@@ -75,6 +75,9 @@ class SceneAuthoredSetup
                                                               const AuthoredScene& scene );
     static void SetUpRequiredContacts( SceneWorld& sceneWorld, SceneAutomationGateConfiguration& automationGates,
                                        const AuthoredScene& scene );
+    static SkullbonezCore::Core::SbResult
+    SetUpRequiredSleepingDynamicBodies( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, SceneWorld& sceneWorld,
+                                        SceneAutomationGateConfiguration& automationGates, const AuthoredScene& scene );
     static void SetUpRequiredBroadphaseXCells( SceneAutomationGateConfiguration& automationGates,
                                                const AuthoredScene& scene );
 };

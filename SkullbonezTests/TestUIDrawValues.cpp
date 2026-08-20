@@ -258,7 +258,9 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
 #else
         16424379413615724563ull,
 #endif
-        5048000936848528224ull, // Scene: reveal-speed row added under simulation speed.
+        // Scene: continuous-forecast controls and stability rows are part of
+        // the committed operator stream.
+        10565422710955032641ull,
         643319089294822447ull,
         9774020997193876338ull,
         3787874871094680490ull,
@@ -267,7 +269,7 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
         5057719176066529734ull,
         3243788985155815295ull,
         15645422141942934428ull,
-        5868520363750485546ull,
+        14809053394253860312ull, // Memory: prediction evidence bank current/peak rows added.
     };
     static_assert( std::size( tabs ) == std::size( expected ) );
 
@@ -281,6 +283,20 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
         ui->SetActiveTab( tabs[surface] );
         ui->ResetPresentationState();
         const UIDrawList& frame = ui->Draw( *data );
+
+        if ( tabs[surface] == InGameUITab::Scene )
+        {
+            const int forecastTitleIndex = FindDrawTextIndex( frame, "Continuous orbital forecast" );
+            const int forecastButtonIndex = FindDrawTextIndex( frame, "CONTINUOUS" );
+            REQUIRE( forecastTitleIndex >= 0 );
+            REQUIRE( forecastButtonIndex >= 0 );
+            const UIDrawList::Command& forecastTitle = frame.Commands()[static_cast<std::size_t>( forecastTitleIndex )];
+            const UIDrawList::Command& forecastButton = frame.Commands()[static_cast<std::size_t>( forecastButtonIndex )];
+            CHECK( forecastTitle.pxSize == doctest::Approx( 12.0f ) );
+            CHECK( forecastButton.y0 - forecastTitle.y0 > 20.0f );
+            CHECK( forecastButton.y0 - forecastTitle.y0 < 40.0f );
+        }
+
         CHECK( frame.Fingerprint() == expected[surface] );
         CHECK_FALSE( frame.GetStats().commandOverflow );
         CHECK_FALSE( frame.GetStats().textOverflow );

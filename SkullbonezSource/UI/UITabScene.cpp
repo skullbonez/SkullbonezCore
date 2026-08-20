@@ -4,9 +4,9 @@ Purpose:
   Implements UI TabScene widgets, layout, drawing, or UI state for the in-engine controls.
 
 Summary:
-  Owns filtered scene selection,
-  scene commands, and
-  time-scale preview/commit interaction.
+  Owns filtered scene selection, scene commands, time-control interaction, and
+  detached continuous-forecast controls/readout without retaining simulation
+  state.
 
 Invariants:
   - Command-line and scene-file spellings are user-facing compatibility
@@ -39,9 +39,11 @@ using namespace SkullbonezCore::UI::Widgets;
 
 namespace
 {
-constexpr int UI_SCENE_CONTENT_HEIGHT = 252;
+constexpr int UI_SCENE_CONTENT_HEIGHT = 470;
 constexpr float UI_SCENE_TIME_SCALE_SLIDER_Y = 196.0f;
 constexpr float UI_SCENE_PREDICTION_REVEAL_SLIDER_Y = 236.0f;
+constexpr float UI_SCENE_FORECAST_TITLE_Y = 286.0f;
+constexpr float UI_SCENE_FORECAST_BUTTON_Y = 312.0f;
 
 // Concept: the reveal slider is authored normalized 0..1 and mapped
 // exponentially, because the useful range spans three decades. A linear 1..1000
@@ -136,6 +138,18 @@ void SetSceneHeaderBounds( SkullbonezCore::UI::UIComboBox& combo, SkullbonezCore
     combo.SetDropUp( false );
 }
 
+void SetForecastBounds( SkullbonezCore::UI::SceneTab::UISceneTabState& state, float contentX, float rowBase, float contentW )
+{
+    constexpr float gap = 6.0f;
+    const float toggleWidth = contentW * 0.50f;
+    const float resetWidth = contentW * 0.24f;
+    const float exitWidth = contentW - toggleWidth - resetWidth - gap * 2.0f;
+    const float y = rowBase + ( UI_SCENE_FORECAST_BUTTON_Y - 42.0f );
+    state.continuousForecastButton.SetBounds( contentX, y, toggleWidth, 24.0f );
+    state.resetForecastButton.SetBounds( contentX + toggleWidth + gap, y, resetWidth, 24.0f );
+    state.exitForecastButton.SetBounds( contentX + toggleWidth + resetWidth + gap * 2.0f, y, exitWidth, 24.0f );
+}
+
 } // namespace
 
 namespace SkullbonezCore
@@ -147,9 +161,9 @@ namespace SceneTab
 
 int ContentHeight()
 {
-    // Why: the scroll extent must reach the reveal row placed under simulation
-    // speed, or the slider is unreachable at the bottom of the tab.
-    return UI_SCENE_CONTENT_HEIGHT + 40;
+    // Why: the scroll extent must reach both time controls and the detached
+    // continuous-forecast diagnostics beneath them.
+    return UI_SCENE_CONTENT_HEIGHT;
 }
 
 
@@ -695,6 +709,32 @@ bool HandleTimeScaleClick( UISceneTabState& state, InGameUIInputResult& result, 
     return false;
 }
 
+bool HandleForecastClick( UISceneTabState& state, InGameUIInputResult& result, int mouseX, int mouseY, float contentX,
+                          float rowBase, float contentW )
+{
+    SetForecastBounds( state, contentX, rowBase, contentW );
+
+    if ( state.continuousForecastButton.HitTest( mouseX, mouseY ) )
+    {
+        result.commands.forecast.type = UIForecastCommandType::ToggleContinuous;
+    }
+    else if ( state.resetForecastButton.HitTest( mouseX, mouseY ) )
+    {
+        result.commands.forecast.type = UIForecastCommandType::Reset;
+    }
+    else if ( state.exitForecastButton.HitTest( mouseX, mouseY ) )
+    {
+        result.commands.forecast.type = UIForecastCommandType::Exit;
+    }
+    else
+    {
+        return false;
+    }
+
+    result.commands.ui.userInteracted = true;
+    return true;
+}
+
 
 bool UpdateActiveSlider( UISceneTabState& state, int activeSlider, int mouseX, InGameUIInputResult& result )
 {
@@ -881,6 +921,81 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const InGameUIFram
             state.predictionRevealSlider.Draw( draw, "Reveal speed", buf,
                                                NormalizedFromPredictionRevealRate( displayRevealRate ), 0.0f, 1.0f );
         }
+
+        const OperatorEditorForecastView& forecast = data.operatorEditor.forecast;
+        DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + UI_SCENE_FORECAST_TITLE_Y, 12.0f,
+                          "Continuous orbital forecast" );
+        SetForecastBounds( state, contentX, scrolledY + 42.0f, contentW );
+
+        if ( IsRowVisible( contentY, contentH, scrolledY + UI_SCENE_FORECAST_BUTTON_Y, 24.0f ) )
+        {
+            state.continuousForecastButton.Draw( draw, forecast.active ? "CONTINUOUS*" : "CONTINUOUS", mouseX, mouseY );
+            state.resetForecastButton.Draw( draw, "Reset", mouseX, mouseY );
+            state.exitForecastButton.Draw( draw, "Exit", mouseX, mouseY );
+        }
+
+        const float forecastCol2 = contentX + (std::max)( 208.0f, contentW * 0.48f );
+        snprintf( buf, sizeof( buf ), "%.2fs", forecast.simulatedSeconds );
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 346.0f, "Simulated", buf, palette.accentStrong.r,
+                          palette.accentStrong.g, palette.accentStrong.b );
+        snprintf( buf, sizeof( buf ), "%.1fx", forecast.simulatedSecondsPerRealSecond );
+        DrawLabelValueAt( draw, contentY, contentH, forecastCol2, scrolledY + 346.0f, "Sim / real", buf, palette.accent.r,
+                          palette.accent.g, palette.accent.b );
+
+        snprintf( buf, sizeof( buf ), "%.2fs", forecast.rollingWindowAgeSeconds );
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 372.0f, "Window age", buf, palette.textPrimary.r,
+                          palette.textPrimary.g, palette.textPrimary.b );
+        snprintf( buf, sizeof( buf ), "%s / %s", forecast.available ? "available" : "unavailable",
+                  forecast.failed ? "failed" : ( forecast.workerInFlight ? "running" : "idle" ) );
+        DrawLabelValueAt( draw, contentY, contentH, forecastCol2, scrolledY + 372.0f, "Producer", buf,
+                          forecast.failed ? palette.warningAccent.r : palette.textPrimary.r,
+                          forecast.failed ? palette.warningAccent.g : palette.textPrimary.g,
+                          forecast.failed ? palette.warningAccent.b : palette.textPrimary.b );
+
+        if ( forecast.configured )
+        {
+            snprintf( buf, sizeof( buf ), "numeric %s / system %s / auxiliary %s", forecast.numericalHealthy ? "ok" : "fail",
+                      forecast.systemOrbitalHealthy ? "ok" : "fail", forecast.auxiliaryOrbitalHealthy ? "ok" : "fail" );
+        }
+        else
+        {
+            snprintf( buf, sizeof( buf ), "not started" );
+        }
+
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 398.0f, "Stability", buf, palette.textPrimary.r,
+                          palette.textPrimary.g, palette.textPrimary.b );
+
+        if ( forecast.firstFailureCause == OperatorEditorForecastCause::None )
+        {
+            snprintf( buf, sizeof( buf ), "none" );
+        }
+        else
+        {
+            snprintf( buf, sizeof( buf ), "%s @ %.2fs (%u/%u)",
+                      OperatorEditorForecastCauseName( forecast.firstFailureCause ), forecast.firstFailureSeconds,
+                      forecast.firstFailureSubject, forecast.firstFailureOther );
+        }
+
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 424.0f, "First cause", buf,
+                          palette.warningAccent.r, palette.warningAccent.g, palette.warningAccent.b );
+        char energyBuf[48] = "unavailable";
+        char angularBuf[48] = "unavailable";
+
+        if ( forecast.energyDriftAvailable )
+        {
+            snprintf( energyBuf, sizeof( energyBuf ), "%.3e (max %.3e)", forecast.energyDrift,
+                      forecast.maximumAbsoluteEnergyDrift );
+        }
+
+        if ( forecast.angularMomentumDriftAvailable )
+        {
+            snprintf( angularBuf, sizeof( angularBuf ), "%.3e (max %.3e)", forecast.angularMomentumDrift,
+                      forecast.maximumAngularMomentumDrift );
+        }
+
+        snprintf( buf, sizeof( buf ), "E %s / L %s", energyBuf, angularBuf );
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 450.0f, "Conservation", buf, palette.textPrimary.r,
+                          palette.textPrimary.g, palette.textPrimary.b );
     }
 
     if ( IsRowVisible( contentY, contentH, scrolledY + 42.0f, 24.0f ) )

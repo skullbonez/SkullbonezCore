@@ -618,6 +618,7 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
     RenderDefaultsStore& renderDefaults = m_renderDefaults;
     RuntimeRenderer& renderer = Renderer();
     ReplayRuntime& replayRuntime = m_replayRuntime;
+    ContinuousOrbitalForecast& continuousForecast = m_continuousForecast;
 
     if ( !result.frameActive || !result.status.Ok() )
     {
@@ -651,6 +652,30 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
     const InGameUICommands& uiCommands = result.commands;
     OperatorCommandTransaction operatorCommands( uiCommands );
     const OperatorCommandAcceptanceLedger& operatorAcceptance = operatorCommands.Acceptance();
+
+    const auto applyReplayTransport = [&]( const ReplayTransportCommand& command )
+    {
+        ReplayWorkspaceOutput transportOutput;
+        replayRuntime.ApplyTransportCommand( command,
+                                             ReplayTransportHostContext { m_window.NativeWindowHandle(),
+                                                                          facts.replayCurrentCameraMode,
+                                                                          facts.replayRestoreCameraMode,
+                                                                          attachedCamera.State().activeFollow,
+                                                                          camera.director.grabbed,
+                                                                          timers.simulationTimer.GetTotalTime() },
+                                             inputRouter, interaction, &sceneController.Scene().Cameras(),
+                                             sceneController.Scene().Terrain().Get(), camera, runtimeTools.MousePickup(),
+                                             transportOutput );
+
+        result.enterInteractiveScene = result.enterInteractiveScene || transportOutput.enterInteractive;
+
+        if ( result.replayWorkspace.restoreRequest.kind == ReplayLiveRestoreKind::None &&
+             transportOutput.restoreRequest.kind != ReplayLiveRestoreKind::None )
+        {
+            result.replayWorkspace.restoreRequest = transportOutput.restoreRequest;
+            result.replayWorkspace.planningTransitionToken = transportOutput.planningTransitionToken;
+        }
+    };
 
     // Concept: operator transport values are normalized with every other
     // editor command, then translated once into replay-domain vocabulary.
@@ -698,6 +723,12 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
             break;
         case SkullbonezCore::UI::OperatorEditorReplayCommandType::TogglePrediction:
             command.action = ReplayTransportAction::TogglePrediction;
+
+            if ( !replayRuntime.BuildInputView().predictionEnabled )
+            {
+                continuousForecast.Stop();
+            }
+
             break;
         case SkullbonezCore::UI::OperatorEditorReplayCommandType::SetPredictionHorizon:
             command.action = ReplayTransportAction::SetPredictionHorizon;
@@ -722,25 +753,48 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
             continue;
         }
 
-        ReplayWorkspaceOutput transportOutput;
-        replayRuntime.ApplyTransportCommand( command,
-                                             ReplayTransportHostContext { m_window.NativeWindowHandle(),
-                                                                          facts.replayCurrentCameraMode,
-                                                                          facts.replayRestoreCameraMode,
-                                                                          attachedCamera.State().activeFollow,
-                                                                          camera.director.grabbed,
-                                                                          timers.simulationTimer.GetTotalTime() },
-                                             inputRouter, interaction, &sceneController.Scene().Cameras(),
-                                             sceneController.Scene().Terrain().Get(), camera, runtimeTools.MousePickup(),
-                                             transportOutput );
+        applyReplayTransport( command );
+    }
 
-        result.enterInteractiveScene = result.enterInteractiveScene || transportOutput.enterInteractive;
+    // Invariant: bounded PREDICT and the continuous private forecast never own
+    // speculative workers at the same time. App resolves this cross-owner mode
+    // transition before either producer is advanced later in the frame.
+    for ( uint32_t index = 0u; index < editorCommands.commands.forecast.count; ++index )
+    {
+        const SkullbonezCore::UI::OperatorEditorForecastCommand& command = editorCommands.commands.forecast.commands[index];
 
-        if ( result.replayWorkspace.restoreRequest.kind == ReplayLiveRestoreKind::None &&
-             transportOutput.restoreRequest.kind != ReplayLiveRestoreKind::None )
+        if ( command.type == SkullbonezCore::UI::OperatorEditorForecastCommandType::Exit )
         {
-            result.replayWorkspace.restoreRequest = transportOutput.restoreRequest;
-            result.replayWorkspace.planningTransitionToken = transportOutput.planningTransitionToken;
+            continuousForecast.Stop();
+            continue;
+        }
+
+        const ContinuousOrbitalForecastView current = continuousForecast.View();
+
+        if ( command.type == SkullbonezCore::UI::OperatorEditorForecastCommandType::ToggleContinuous &&
+             ( current.active || current.workerInFlight ) )
+        {
+            continuousForecast.Stop();
+            continue;
+        }
+
+        if ( replayRuntime.BuildInputView().predictionEnabled )
+        {
+            ReplayTransportCommand disablePrediction;
+            disablePrediction.action = ReplayTransportAction::TogglePrediction;
+            applyReplayTransport( disablePrediction );
+        }
+
+        if ( !replayRuntime.BuildInputView().predictionEnabled )
+        {
+            const SceneWorld& scene = sceneController.Scene();
+            (void)( command.type == SkullbonezCore::UI::OperatorEditorForecastCommandType::Reset
+                        ? continuousForecast.Reset( scene.Physics(), scene.Tornado(), config,
+                                                    scene.Environment().GetPhysicsWorldForces(), workerPool,
+                                                    scene.OrbitalStabilityContract(), scene.Entities() )
+                        : continuousForecast.Start( scene.Physics(), scene.Tornado(), config,
+                                                    scene.Environment().GetPhysicsWorldForces(), workerPool,
+                                                    scene.OrbitalStabilityContract(), scene.Entities() ) );
         }
     }
 

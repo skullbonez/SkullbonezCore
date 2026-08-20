@@ -293,6 +293,18 @@ const SkullbonezCore::Gameplay::TornadoGameplay& SceneWorld::Tornado() const
     return m_tornadoGameplay;
 }
 
+
+void SceneWorld::SetOrbitalStabilityContract( const SkullbonezCore::Scene::OrbitalStabilityContract& contract ) noexcept
+{
+    m_orbitalStability = contract;
+}
+
+
+const SkullbonezCore::Scene::OrbitalStabilityContract& SceneWorld::OrbitalStabilityContract() const noexcept
+{
+    return m_orbitalStability;
+}
+
 uint64_t SceneWorld::CollectGameplayMemoryBytes() const
 {
     return m_tornadoGameplay.CollectMemoryBytes();
@@ -686,6 +698,7 @@ void SceneWorld::Clear()
     Entities().Clear();
     m_physics.Clear();
     m_tornadoGameplay.Clear();
+    m_orbitalStability = {};
     m_renderInstanceStore.Clear();
     RegisterPhysicsDiagnosticNames();
     AssertSceneCreationTopology( 0 );
@@ -792,7 +805,8 @@ SkullbonezCore::GameObjects::SceneWorldSaveState SceneWorld::GetSaveState() cons
              Environment().GetMutualGravitySettings(),
              Cameras().GetCameraTranslation(),
              Cameras().GetCameraView(),
-             Cameras().GetCameraUp() };
+             Cameras().GetCameraUp(),
+             m_orbitalStability };
 }
 
 

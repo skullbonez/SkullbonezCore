@@ -86,18 +86,11 @@ int TextureCollection::FindIndexNoThrow( uint32_t hash ) const
 
 int TextureCollection::FindFreeSlot() const
 {
-    for ( size_t index = 0; index < m_textures.size(); ++index )
-    {
-        if ( !m_textures[index].IsResident() )
-        {
-            return static_cast<int>( index );
-        }
-    }
-
-    // Invariant: texture slots are fixed legacy storage. Runtime asset loading
-    // must fit the configured capacity instead of growing during draw/resource
-    // rebuild paths.
-    SB_FATAL( "TextureCollection", "Texture slot capacity exhausted. capacity=%zu", m_textures.size() );
+    // Invariant: the first non-resident row is the only writable slot, and a
+    // full table reaches the TextureCollection-owned fatal before any indexing.
+    // Runtime allocation policy: the legacy table never grows during asset
+    // loading, draw preparation, or resource rebuilds.
+    return FindFreeSlotOrFatal( m_textures );
 }
 
 

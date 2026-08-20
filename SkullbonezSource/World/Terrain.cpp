@@ -5,9 +5,11 @@ Purpose:
   rendering resources.
 
 Summary:
-  RAW height samples become one world-X-major post grid. Collision queries,
-  cached physics planes, render meshes, shadows, and debug geometry all derive
-  from that same grid so they cannot describe different surfaces.
+  A Lane R factory boundary validates RAW dimensions and computes one checked
+  pixel/post/quad shape before height samples become a world-X-major post grid.
+  Collision queries, cached physics planes, render meshes, shadows, and debug
+  geometry all derive from that same grid so they cannot describe different
+  surfaces.
 
 Glossary:
   Post: One sampled terrain vertex with a world-space position and smoothed
@@ -25,6 +27,8 @@ Invariants:
     X/Z domain; normal and plane queries remain strict in-bounds operations.
   - A degenerate accumulated render normal falls back to world +Y; terrain
     mesh construction never publishes NaN normals.
+  - Height-map traversal and storage counts come from one validated divisible
+    shape; malformed dimensions fail before construction or output publication.
 
 Related:
   - SkullbonezSource/World/Terrain.h
@@ -79,28 +83,17 @@ using FileHandle = std::unique_ptr<FILE, FileCloser>;
 } // namespace
 
 
-#if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
-Terrain::Terrain( int mapSize, int stepSize, int textureWrap, const SkullbonezCore::Core::EngineConfig& config,
-                  SkullbonezCore::Assets::AssetSystem& assets, Dx12ResourceBuilder& resources )
-    : Terrain( mapSize, stepSize, textureWrap, config, &assets, &resources )
-{
-}
-#endif
-
-
-Terrain::Terrain( PhysicsOnlyHeightMapTag, int mapSize, int stepSize, int textureWrap,
-                  const SkullbonezCore::Core::EngineConfig& config )
-    : Terrain( mapSize, stepSize, textureWrap, config, nullptr, nullptr )
-{
-}
-
-
-Terrain::Terrain( int mapSize, int stepSize, int textureWrap, const SkullbonezCore::Core::EngineConfig& config,
-                  SkullbonezCore::Assets::AssetSystem* assets, Dx12ResourceBuilder* resources )
+Terrain::Terrain( ValidatedHeightMapTag, const SkullbonezCore::Core::EngineConfig& config,
+                  SkullbonezCore::Assets::AssetSystem* assets, Dx12ResourceBuilder* resources, int mapSize, int stepSize,
+                  int textureWrap, std::size_t pixelCount, int postsPerSide, std::size_t postCount, std::size_t quadCount )
 {
     m_mapSize = mapSize;
     m_stepSize = stepSize;
     m_textureWrap = textureWrap;
+    m_postsPerSide = postsPerSide;
+    m_pixelCount = pixelCount;
+    m_postCount = postCount;
+    m_quadCount = quadCount;
     m_isFlatSlope = false;
     m_slopeBaseY = 0.0f;
     m_slopeX = 0.0f;
@@ -113,10 +106,86 @@ Terrain::Terrain( int mapSize, int stepSize, int textureWrap, const SkullbonezCo
 
     m_terrainSizeWorldCoords = ( ( m_mapSize - m_stepSize ) / m_stepSize ) * m_stepSize;
 
-    m_postsPerSide = m_mapSize / m_stepSize;
     m_config = &config;
     m_assets = assets;
     m_resources = resources;
+}
+
+
+SkullbonezCore::Core::SbResult Terrain::TryValidateHeightMapDimensions( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                                        int mapSize, int stepSize,
+                                                                        std::size_t& outPixelCount, int& outPostsPerSide,
+                                                                        std::size_t& outPostCount,
+                                                                        std::size_t& outQuadCount )
+{
+    outPixelCount = 0u;
+    outPostsPerSide = 0;
+    outPostCount = 0u;
+    outQuadCount = 0u;
+
+    if ( mapSize <= 0 )
+    {
+        return diagnostics.Failure( "World/Terrain", "Height map size must be positive. mapSize=%d.", mapSize );
+    }
+
+    if ( stepSize <= 0 )
+    {
+        return diagnostics.Failure( "World/Terrain", "Height map step size must be positive. stepSize=%d.", stepSize );
+    }
+
+    if ( mapSize % stepSize != 0 )
+    {
+        return diagnostics.Failure( "World/Terrain",
+                                    "Height map size must be divisible by step size. mapSize=%d stepSize=%d.", mapSize,
+                                    stepSize );
+    }
+
+    const int postsPerSide = mapSize / stepSize;
+
+    if ( postsPerSide < 2 )
+    {
+        return diagnostics.Failure( "World/Terrain",
+                                    "Height map must produce at least two posts per side. mapSize=%d stepSize=%d.", mapSize,
+                                    stepSize );
+    }
+
+    // Lane R: existing terrain indexing and render counts use signed int rows.
+    // Reject shapes whose derived products would overflow those owners before
+    // allocating bytes or constructing a partially initialized Terrain.
+    constexpr std::size_t maxSupportedCount = static_cast<std::size_t>( ( std::numeric_limits<int>::max )() );
+    const std::size_t mapSide = static_cast<std::size_t>( mapSize );
+
+    if ( mapSide > maxSupportedCount / mapSide )
+    {
+        return diagnostics.Failure( "World/Terrain", "Height map pixel count exceeds the supported range. mapSize=%d.",
+                                    mapSize );
+    }
+
+    const std::size_t pixelCount = mapSide * mapSide;
+    const std::size_t postSide = static_cast<std::size_t>( postsPerSide );
+
+    if ( postSide > maxSupportedCount / postSide )
+    {
+        return diagnostics.Failure( "World/Terrain", "Height map post count exceeds the supported range. postsPerSide=%d.",
+                                    postsPerSide );
+    }
+
+    const std::size_t postCount = postSide * postSide;
+    const std::size_t quadSide = postSide - 1u;
+    const std::size_t quadCount = quadSide * quadSide;
+
+    if ( quadCount > maxSupportedCount / 6u )
+    {
+        return diagnostics.Failure( "World/Terrain",
+                                    "Height map render vertex count exceeds the supported range. postsPerSide=%d.",
+                                    postsPerSide );
+    }
+
+    outPixelCount = pixelCount;
+    outPostsPerSide = postsPerSide;
+    outPostCount = postCount;
+    outQuadCount = quadCount;
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
@@ -126,9 +195,22 @@ SkullbonezCore::Core::SbResult Terrain::TryCreatePhysicsFromHeightMap( Skullbone
                                                                        const SkullbonezCore::Core::EngineConfig& config,
                                                                        std::unique_ptr<Terrain>& outTerrain )
 {
-    outTerrain.reset();
-    std::unique_ptr<Terrain> terrain = std::make_unique<Terrain>( PhysicsOnlyHeightMapTag {}, mapSize, stepSize, textureWrap,
-                                                                  config );
+    std::size_t pixelCount = 0u;
+    int postsPerSide = 0;
+    std::size_t postCount = 0u;
+    std::size_t quadCount = 0u;
+    const SkullbonezCore::Core::SbResult shapeResult = TryValidateHeightMapDimensions( diagnostics, mapSize, stepSize,
+                                                                                       pixelCount, postsPerSide, postCount,
+                                                                                       quadCount );
+
+    if ( !shapeResult.Ok() )
+    {
+        return shapeResult;
+    }
+
+    std::unique_ptr<Terrain> terrain = std::make_unique<Terrain>( ValidatedHeightMapTag {}, config, nullptr, nullptr,
+                                                                  mapSize, stepSize, textureWrap, pixelCount, postsPerSide,
+                                                                  postCount, quadCount );
 
     const SkullbonezCore::Core::SbResult loadResult = terrain->LoadTerrainData( diagnostics, fileName );
 
@@ -155,9 +237,22 @@ Terrain::TryCreateFromHeightMap( SkullbonezCore::Core::SbDiagnosticStore& diagno
     // Concept: RAW terrain files are external asset input. The factory keeps
     // a failed load out of the scene owner and reports Lane R instead of
     // letting constructor exceptions escape through scene startup.
-    outTerrain.reset();
-    std::unique_ptr<Terrain> terrain = std::make_unique<Terrain>( mapSize, stepSize, textureWrap, config, assets,
-                                                                  resources );
+    std::size_t pixelCount = 0u;
+    int postsPerSide = 0;
+    std::size_t postCount = 0u;
+    std::size_t quadCount = 0u;
+    const SkullbonezCore::Core::SbResult shapeResult = TryValidateHeightMapDimensions( diagnostics, mapSize, stepSize,
+                                                                                       pixelCount, postsPerSide, postCount,
+                                                                                       quadCount );
+
+    if ( !shapeResult.Ok() )
+    {
+        return shapeResult;
+    }
+
+    std::unique_ptr<Terrain> terrain = std::make_unique<Terrain>( ValidatedHeightMapTag {}, config, &assets, &resources,
+                                                                  mapSize, stepSize, textureWrap, pixelCount, postsPerSide,
+                                                                  postCount, quadCount );
 
     const SkullbonezCore::Core::SbResult loadResult = terrain->LoadTerrainData( diagnostics, fileName );
 
@@ -203,6 +298,9 @@ Terrain::Terrain( float slopeBaseY, float slopeX, float slopeZ, const Skullbonez
     m_stepSize = 0;
     m_textureWrap = 0;
     m_postsPerSide = 0;
+    m_pixelCount = 0u;
+    m_postCount = 0u;
+    m_quadCount = 0u;
     m_terrainSizeWorldCoords = 0;
     m_isFlatSlope = true;
     m_slopeBaseY = slopeBaseY;
@@ -364,9 +462,7 @@ const SkullbonezCore::Core::EngineConfig& Terrain::Config() const
 
 void Terrain::BuildTerrain()
 {
-    int terrainPostCount = ( m_mapSize / m_stepSize ) * ( m_mapSize / m_stepSize );
-
-    m_postData.resize( terrainPostCount );
+    m_postData.resize( m_postCount );
 
     TranslatePostings();
 
@@ -412,7 +508,7 @@ void Terrain::BuildCollisionCache()
         return;
     }
 
-    m_cachedCollisionData.resize( quadsPerSide * quadsPerSide );
+    m_cachedCollisionData.resize( m_quadCount );
 
     // Invariant: both cell loops stop at postsPerSide - 2. The target post is
     // the next-X/current-Z corner, so target, previous-X, previous-X/next-Z,
@@ -530,7 +626,7 @@ SkullbonezCore::Core::SbResult Terrain::LoadTerrainData( SkullbonezCore::Core::S
 
     FileHandle file( rawFile );
 
-    m_terrainData.resize( m_mapSize * m_mapSize );
+    m_terrainData.resize( m_pixelCount );
 
     const std::size_t expectedBytes = m_terrainData.size();
     const std::size_t bytesRead = fread( m_terrainData.data(), 1, m_terrainData.size(), file.get() );
@@ -1226,8 +1322,7 @@ void Terrain::BuildMesh()
 {
     // Two triangles per quad, three vertices per triangle, and eight floats per
     // vertex (position 3 + normal 3 + texture coordinate 2).
-    int quadsPerSide = m_postsPerSide - 1;
-    int totalQuads = quadsPerSide * quadsPerSide;
+    const int totalQuads = static_cast<int>( m_quadCount );
     int totalVerts = totalQuads * 6;
 
     std::vector<float> vertexData = BuildRenderVertexData();
@@ -1241,7 +1336,7 @@ void Terrain::BuildMesh()
 std::vector<float> Terrain::BuildRenderVertexData() const
 {
     const int quadsPerSide = m_postsPerSide - 1;
-    const int totalQuads = quadsPerSide * quadsPerSide;
+    const int totalQuads = static_cast<int>( m_quadCount );
     const int totalVerts = totalQuads * 6;
     std::vector<float> vertexData;
     vertexData.reserve( static_cast<size_t>( totalVerts ) * 8 );

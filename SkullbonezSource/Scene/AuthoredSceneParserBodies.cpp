@@ -23,6 +23,7 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
+using AuthoredSceneParserDetail::CopyCheckedStringField;
 using AuthoredSceneParserDetail::CopyOptionalContactMaterial;
 using AuthoredSceneParserDetail::Fail;
 using AuthoredSceneParserDetail::FindMember;
@@ -721,6 +722,24 @@ void AuthoredSceneParser::ApplyRequirements( const Json& requirements, const std
             ReadRequiredStringField( contact.nameA, contactJson, path, "requirements.contacts[]", "a" );
             ReadRequiredStringField( contact.nameB, contactJson, path, "requirements.contacts[]", "b" );
             m_scene.m_requiredContacts.push_back( contact );
+        }
+    }
+
+    if ( const Json* sleepingBodies = FindMember( requirements, "sleepingDynamicBodies" ) )
+    {
+        RequireArray( *sleepingBodies, path, "requirements.sleepingDynamicBodies" );
+
+        for ( const Json& bodyJson : *sleepingBodies )
+        {
+            SceneRequiredSleepingDynamicBody body = {};
+            const std::string name = ReadString( bodyJson, path, "requirements.sleepingDynamicBodies[]" );
+
+            if ( !ParserFailed() )
+            {
+                (void)CopyCheckedStringField( body.name, name, path, "requirements.sleepingDynamicBodies[]" );
+            }
+
+            m_scene.m_requiredSleepingDynamicBodies.push_back( body );
         }
     }
 

@@ -5,8 +5,10 @@ Purpose:
 
 Summary:
   Presentation and development UI consume bounded cause rows and editor-state
-  values. Velocity drag state retains only its target, starting values, and
-  whether release owes one authoritative refresh.
+  values. Exact prediction rows carry the full immutable evidence stamp needed
+  to reject a replacement bank before numeric offsets can resolve. Velocity
+  drag state retains only its target, starting values, and whether release owes
+  one authoritative refresh.
 
 Glossary:
   Dense-row hint: Frame-local model row validated against a stable scene object id before use.
@@ -16,6 +18,8 @@ Glossary:
 Invariants:
   - PhysicsSceneObjectId remains durable identity; ModelRowHint is only a cache.
   - Cause rows reserve their bounded capacity before steady runtime.
+  - Prediction Manifold and SolverRow offsets are usable only with an exact
+    generation/mode/epoch/frame/topology/publication identity match.
   - Velocity drag state is fixed-size and carries no Prediction owner borrow.
 
 Related:
@@ -54,6 +58,15 @@ struct RunReplayCauseTreeRow
     int contactIndex = -1;
     int solverRowIndex = -1;
     int pipelineIndex = -1;
+
+    // Invariant: predicted exact-detail rows carry the complete immutable-bank
+    // stamp. Numeric contact/pipeline offsets are meaningful only when every
+    // field still resolves the same sealed evidence frame.
+    uint32_t sourceGeneration = 0;
+    uint64_t sourceBankEpoch = 0;
+    uint32_t sourceTopologyVersion = 0;
+    uint64_t sourcePublicationVersion = 0;
+    bool sourceHighDetail = false;
     int featureId = 0;
     int manifoldPointCount = 0;
     float penetration = 0.0f;

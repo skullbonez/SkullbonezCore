@@ -32,6 +32,7 @@ Related:
 */
 #include "InputFrame.h"
 #include "Run.h"
+#include "Window.h"
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 #include "../DevelopmentTools/ImGuiEditorLayoutPolicy.h"
 #endif
@@ -215,9 +216,11 @@ void Run::CancelPendingLookLabSave( const char* reason )
     }
 }
 
-void Run::PrepareLookLabForSceneTransition()
+void Run::PrepareSceneScopedOwnersForTransition()
 {
-
+    // Lifetime: a scene load cannot invalidate the forecast's live seed until
+    // Stop has requested cancellation and joined its private worker.
+    m_continuousForecast.Stop();
     CancelPendingLookLabSave( "scene transition cancelled screenshot" );
 
     if ( !m_lookLab.HasCandidate() )
@@ -253,6 +256,15 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
         if ( !submitStatus.Ok() )
         {
             m_applicationExit.RequestPhaseFailure( submitStatus );
+        }
+
+        const SkullbonezCore::Core::SbResult
+            forecastSubmitStatus = m_interactionAutomation.SubmitOperatorEditorForecastCommand( *automationBeforeInput,
+                                                                                                externalEditorCommands );
+
+        if ( !forecastSubmitStatus.Ok() )
+        {
+            m_applicationExit.RequestPhaseFailure( forecastSubmitStatus );
         }
     }
 #else
@@ -612,7 +624,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
             return false;
         }
 
-        PrepareLookLabForSceneTransition();
+        PrepareSceneScopedOwnersForTransition();
         presentationEdit.Commit();
         SceneLoadTransaction sceneLoad;
         sceneLoad.CaptureSubmittedState( camera, CaptureSceneLoadNavigationState( ui.SceneNavigation() ), debug,
@@ -950,11 +962,30 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
             break;
         case RuntimeInputAction::ToggleCrossScenePause:
-
-            // P locks scene automation without turning the run interactive;
-            // SceneController preserves the policy across load transactions.
             sceneController.ToggleCrossScenePause();
             break;
+        case RuntimeInputAction::ToggleReplayPlayPause:
+        {
+            ReplayWorkspaceOutput transportOutput;
+            replayRuntime
+                .ApplyTransportCommand( ReplayTransportCommand { ReplayTransportAction::TogglePlayPause },
+                                        ReplayTransportHostContext { window.NativeWindowHandle(),
+                                                                     NormalizeCameraModeForCurrentScene( camera.mode ),
+                                                                     NormalizeCameraModeForCurrentScene( replayRuntime.BuildInputView().restoreCameraMode ),
+                                                                     attachedCamera.State().activeFollow,
+                                                                     camera.director.grabbed,
+                                                                     timers.simulationTimer.GetTotalTime() },
+                                        inputRouter, interaction, &sceneController.Scene().Cameras(),
+                                        sceneController.Scene().Terrain().Get(), camera, runtimeTools.MousePickup(),
+                                        transportOutput );
+
+            if ( transportOutput.enterInteractive )
+            {
+                EnterInteractiveSceneRun();
+            }
+
+            break;
+        }
         case RuntimeInputAction::ToggleUIVisibility:
         case RuntimeInputAction::TogglePerformanceHistogram:
         case RuntimeInputAction::ToggleMemoryOverlay:
@@ -1310,7 +1341,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
     if ( sceneController.HasPendingTransition() )
     {
-        PrepareLookLabForSceneTransition();
+        PrepareSceneScopedOwnersForTransition();
     }
 
     SceneLoadTransaction sceneLoad;

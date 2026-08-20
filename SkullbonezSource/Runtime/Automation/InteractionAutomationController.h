@@ -5,8 +5,9 @@ Purpose:
 
 Summary:
   Interaction automation is a validation harness, not gameplay state. Scripts
-  describe frame-indexed input/runtime commands. Concrete input and report
-  owners hold synthetic device state and bounded evidence outside the sequencer.
+  describe frame-indexed input/runtime commands, including typed Planning
+  forecast requests. Concrete input and report owners hold synthetic device
+  state and bounded evidence outside the sequencer.
   The controller interprets one scheduled script turn into typed value requests
   and assertion inputs. Concrete runtime owners apply those requests; the
   controller retains only script progress and bounded report evidence.
@@ -18,6 +19,8 @@ Glossary:
     target and delta-v value, without advancing simulation.
   Input override: Scripted mouse/key snapshot forwarded through the normal
     runtime input bridge for a bounded frame window.
+  Forecast presentation assertion: Post-render proof over detached rolling-ring
+    metrics such as coherent heads, chronological ribbons, and wrap progress.
 
 Invariants:
   - Automation state is active only for CLI validation launches.
@@ -28,6 +31,10 @@ Invariants:
   - Development UI commands are fixed-capacity and select at most one surface.
   - Replay intercept assertions consume a copied value snapshot and cannot
     retarget or advance the retained closest-approach scan.
+  - Prediction cause-row assertions count only typed rows already published by
+    the normal cause-tree owner; they do not reconstruct solver evidence.
+  - Continuous forecast actions cross the normal typed command queue; the
+    sequencer stores no Planning owner reference or worker-ring span.
   - Editor and window owners are borrowed only while one command batch is
     applied; automation stores neither owner after the synchronous call.
   - Process-wide development-surface selection remains a typed request for Run.
@@ -87,6 +94,7 @@ struct ImGuiEditorStatus;
 } // namespace DevelopmentTools
 class AttachedCameraController;
 class CaptureController;
+struct ContinuousOrbitalForecastView;
 class InputRouter;
 class RuntimeInteractionController;
 class RuntimeTools;
@@ -113,6 +121,7 @@ enum class RunInteractionAutomationActionType
     ScrubReplaySolverTrack,
     SelectReplayCauseRow,
     ScrubEditorReplayTrack,
+    SetContinuousForecastCommand,
     SetReplayPredictionEnabled,
     SetReplayPredictionHorizonSeconds,
     BeginReplayVisualFidelityCapture,
@@ -190,8 +199,30 @@ enum class RunInteractionAutomationAssertKind
     PredictionTargetDisplacementMin,
     PredictionTargetLastNear,
     LiveSolverHashStableAcrossPrediction,
+    PredictionEvidenceConsumerBalanced,
+    PredictionEvidencePipelineRowsMin,
+    PredictionEvidenceCurrentCapacityMax,
+    PredictionDetailMode,
+    PredictionCauseDetailVisible,
+    PredictionCauseWindowAvailable,
+    PredictionEvidenceCapacityReleased,
+    PredictionEvidenceMemoryReconciled,
+    PredictionCauseManifoldRowsMin,
+    PredictionCauseManifoldRowsMax,
+    PredictionCauseSolverRowsMin,
+    PredictionCauseSolverRowsMax,
+    PredictionCauseSyntheticRowsMin,
+    PredictionCauseSyntheticRowsMax,
     PredictionTrajectoryFingerprintReady,
     PredictionAppearanceInvalidationCountMin,
+    ContinuousForecastActive,
+    ContinuousForecastPreWrap,
+    ContinuousForecastWindowWrapped,
+    ContinuousForecastPresentationCoherent,
+    ContinuousForecastAbsoluteTickMin,
+    ContinuousForecastOldestTickMin,
+    ContinuousForecastRibbonSegmentsMin,
+    ContinuousForecastHeadMarkerCount,
     ShadowPassExecuted,
     TerrainShadowValid,
     ObjectShadowValid,
@@ -327,6 +358,8 @@ struct InteractionAutomationController
     // the same bounded queue used by real editor widgets.
     SkullbonezCore::Core::SbResult SubmitOperatorEditorReplayCommand( const InteractionAutomationFrameResult& frame,
                                                                       UI::OperatorEditorCommandQueues& commands ) const;
+    SkullbonezCore::Core::SbResult SubmitOperatorEditorForecastCommand( const InteractionAutomationFrameResult& frame,
+                                                                        UI::OperatorEditorCommandQueues& commands ) const;
 
     // Projects copied editor facts into the exact after-render assertion view;
     // no editor owner or mutable renderer state crosses this value boundary.
@@ -352,6 +385,8 @@ struct InteractionAutomationFrameResult
     // used by a real ImGui widget; the sequencer never reaches into replay state.
     bool hasOperatorEditorReplayCommand = false;
     UI::OperatorEditorReplayCommand operatorEditorReplayCommand;
+    bool hasOperatorEditorForecastCommand = false;
+    UI::OperatorEditorForecastCommand operatorEditorForecastCommand;
     bool applyCameraMode = false;
     RunCameraMode cameraMode = RunCameraMode::Demo;
     bool setWorldInteractionOwner = false;
@@ -407,8 +442,8 @@ InteractionAutomationFrameResult TickInteractionAutomationBeforeInput( Interacti
 InteractionAutomationFrameResult TickInteractionAutomationAfterRender( InteractionAutomationController& state, RuntimeTools& runtimeTools, RuntimeInteractionController& interaction,
                                                                        InputRouter& inputRouter, CameraControlState& camera, SkullbonezCore::UI::InGameUI& ui, SceneController& scene,
                                                                        const ReplayAutomationView& replayView, const InteractionAutomationDevelopmentUiView& developmentUiView,
-                                                                       const Rendering::RenderSceneSnapshot& renderSnapshot, CaptureController& capture,
-                                                                       Rendering::Dx12BackbufferCapture& backbufferCapture );
+                                                                       const ContinuousOrbitalForecastView& forecastView, const Rendering::RenderSceneSnapshot& renderSnapshot,
+                                                                       CaptureController& capture, Rendering::Dx12BackbufferCapture& backbufferCapture );
 bool InteractionAutomationWillCaptureAfterRender( const InteractionAutomationController& state, int frame );
 } // namespace Runtime
 } // namespace SkullbonezCore

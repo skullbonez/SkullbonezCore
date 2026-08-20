@@ -75,7 +75,7 @@ const RuntimeInputKeyBinding kTakeInputKeyboardBindings[] = { { VK_OEM_3, Runtim
       { 'H', RuntimeInputAction::ToggleReplayGuideArcs, kKeyboardUnblockedContext },
       { 'J', RuntimeInputAction::ToggleReplayTripPlanner, kKeyboardUnblockedContext },
       { 'I', RuntimeInputAction::ToggleReplayPorkchopPanel, kKeyboardUnblockedContext },
-      { 'P', RuntimeInputAction::ToggleCrossScenePause, kKeyboardUnblockedContext },
+      { 'P', RuntimeInputAction::ToggleReplayPlayPause, kKeyboardUnblockedContext },
       { 'G', RuntimeInputAction::ToggleBroadphaseOverlay, kKeyboardUnblockedContext },
       { '0', RuntimeInputAction::ToggleUIVisibility, kKeyboardUnblockedContext },
       { VK_F5, RuntimeInputAction::TogglePerformanceHistogram, kKeyboardUnblockedContext },

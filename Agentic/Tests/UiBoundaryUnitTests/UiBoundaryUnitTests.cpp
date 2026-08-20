@@ -3,7 +3,7 @@
 //   Proves the production UI library can build a complete frame without linking
 //   Runtime, Rendering, or a graphics backend.
 //
-// Mental model:
+// Summary:
 //   This executable is a link-boundary probe first and a fingerprint test
 //   second. It consumes the same detached frame values as Runtime and calls the
 //   real InGameUI::Draw implementation, but its project references only the UI
@@ -57,7 +57,9 @@ constexpr std::array<uint64_t, kTabs.size()> kExpectedFingerprints = {
     // worker-thread time stopped being summed into the frame-thread rows. Only
     // this surface moved; the other ten prove the column disturbed no other tab.
     17282268762934632125ull,
-    5048000936848528224ull, // Scene: reveal-speed row added under simulation speed.
+    // Scene: continuous-forecast controls and stability rows are part of the
+    // committed operator stream.
+    5520075838685288969ull,
     643319089294822447ull,
     9774020997193876338ull,
     3787874871094680490ull,
@@ -66,7 +68,9 @@ constexpr std::array<uint64_t, kTabs.size()> kExpectedFingerprints = {
     5057719176066529734ull,
     3243788985155815295ull,
     15645422141942934428ull,
-    5868520363750485546ull,
+    // Memory: prediction evidence bank and release-checkpoint rows are part of
+    // the detached UI contract; this must match the production unit fixture.
+    14809053394253860312ull,
 };
 
 std::unique_ptr<InGameUIFrameData> MakeFrameData()

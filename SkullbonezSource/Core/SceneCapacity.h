@@ -31,8 +31,10 @@ Related:
 
 namespace SkullbonezCore::Scene::Capacity
 {
-// Invariant: authored scenes may supply eight cameras. Runtime reserves one
-// fallback Free slot and one causal-detail slot without heap growth at entry.
+// Invariant: the complete camera table is eight authored identities plus one
+// fallback Free identity and one causal-detail identity.
+// Runtime allocation policy: Runtime reserves both extra rows before frame
+// entry so selecting either camera cannot grow the table during gameplay.
 constexpr int AUTHORED_CAMERA_COUNT = 8;
 constexpr int TOTAL_CAMERA_COUNT = 10;
 constexpr int TOTAL_TEXTURE_COUNT = 8;

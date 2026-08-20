@@ -5,9 +5,10 @@ Purpose:
 
 Summary:
   Legacy and ImGui use the same domain-grouped frame snapshot and fixed-capacity
-  typed command queues, but runtime selection activates only one human surface.
-  A deterministic arbitration pass also admits optional automation/probe intent
-  before projecting one canonical packet into established owner command paths.
+  typed command queues, including detached forecast status and lifecycle intent,
+  but runtime selection activates only one human surface. A deterministic
+  arbitration pass also admits optional automation/probe intent before projecting
+  one canonical packet into established owner command paths.
 
 Glossary:
   Domain view: Read-only scene, property, rendering, diagnostics, authoring,
@@ -264,6 +265,48 @@ struct OperatorEditorReplayView
     bool solverWindowReduced = false;
 };
 
+enum class OperatorEditorForecastCause : uint8_t
+{
+    None = 0,
+    InvalidContract,
+    NonFiniteState,
+    PrivateStepFailure,
+    InvalidPublication,
+    InnerEnvelope,
+    OuterEnvelope,
+    SustainedEscape,
+    Collision
+};
+
+// Concept: this detached value is the only forecast state either operator
+// surface may inspect; UI never borrows the Planning owner or its sample ring.
+struct OperatorEditorForecastView
+{
+    double simulatedSeconds = 0.0;
+    double simulatedSecondsPerRealSecond = 0.0;
+    double rollingWindowAgeSeconds = 0.0;
+    double energyDrift = 0.0;
+    double angularMomentumDrift = 0.0;
+    double maximumAbsoluteEnergyDrift = 0.0;
+    double maximumAngularMomentumDrift = 0.0;
+    double firstFailureSeconds = 0.0;
+    uint64_t newestAbsoluteTick = 0u;
+    uint64_t retainedBytes = 0u;
+    uint32_t firstFailureSubject = 0u;
+    uint32_t firstFailureOther = 0u;
+    OperatorEditorForecastCause firstFailureCause = OperatorEditorForecastCause::None;
+    bool available = false;
+    bool active = false;
+    bool workerInFlight = false;
+    bool failed = false;
+    bool configured = false;
+    bool numericalHealthy = false;
+    bool systemOrbitalHealthy = false;
+    bool auxiliaryOrbitalHealthy = false;
+    bool energyDriftAvailable = false;
+    bool angularMomentumDriftAvailable = false;
+};
+
 struct OperatorEditorSurfaceView
 {
     bool legacyVisible = true;
@@ -300,6 +343,7 @@ struct OperatorEditorFrameView
     OperatorEditorRenderingView rendering;
     OperatorEditorViewportView viewport;
     OperatorEditorReplayView replay;
+    OperatorEditorForecastView forecast;
     OperatorEditorSurfaceView surfaces;
     OperatorEditorToolView tools;
     OperatorEditorLookLabView lookLab;
@@ -448,6 +492,20 @@ struct OperatorEditorReplayCommand
     bool enabled = false;
 };
 
+enum class OperatorEditorForecastCommandType : uint8_t
+{
+    ToggleContinuous,
+    Reset,
+    Exit
+};
+
+struct OperatorEditorForecastCommand
+{
+    OperatorEditorForecastCommandType type = OperatorEditorForecastCommandType::ToggleContinuous;
+};
+
+const char* OperatorEditorForecastCauseName( OperatorEditorForecastCause cause ) noexcept;
+
 enum class OperatorEditorToolCommandType : uint8_t
 {
     ToggleEditorMode,
@@ -491,6 +549,7 @@ using OperatorEditorPropertyCommandQueue = OperatorEditorCommandQueue<OperatorEd
 using OperatorEditorRenderingCommandQueue = OperatorEditorCommandQueue<OperatorEditorRenderingCommand, 8u>;
 using OperatorEditorDiagnosticsCommandQueue = OperatorEditorCommandQueue<OperatorEditorDiagnosticsCommand, 8u>;
 using OperatorEditorReplayCommandQueue = OperatorEditorCommandQueue<OperatorEditorReplayCommand, 8u>;
+using OperatorEditorForecastCommandQueue = OperatorEditorCommandQueue<OperatorEditorForecastCommand, 4u>;
 using OperatorEditorToolCommandQueue = OperatorEditorCommandQueue<OperatorEditorToolCommand, 16u>;
 
 struct OperatorEditorCommandQueues
@@ -500,12 +559,13 @@ struct OperatorEditorCommandQueues
     OperatorEditorRenderingCommandQueue rendering;
     OperatorEditorDiagnosticsCommandQueue diagnostics;
     OperatorEditorReplayCommandQueue replay;
+    OperatorEditorForecastCommandQueue forecast;
     OperatorEditorToolCommandQueue tools;
 
     [[nodiscard]] bool Empty() const noexcept
     {
         return scene.Empty() && property.Empty() && rendering.Empty() && diagnostics.Empty() && replay.Empty() &&
-               tools.Empty();
+               forecast.Empty() && tools.Empty();
     }
 };
 
@@ -537,6 +597,10 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( SkullbonezCore::Core
 SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                             OperatorEditorReplayCommandQueue& queue,
                                                             const OperatorEditorReplayCommand& command,
+                                                            bool* duplicate = nullptr );
+SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                            OperatorEditorForecastCommandQueue& queue,
+                                                            const OperatorEditorForecastCommand& command,
                                                             bool* duplicate = nullptr );
 SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                             OperatorEditorToolCommandQueue& queue,

@@ -964,6 +964,19 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw, const S
     snprintf( text, sizeof( text ), "cat visual path %s  cause %s  ghost %s  launch %s", a, b, c, d );
     draw.Text( x, row0 + 210.0f, 8.0f, 0.50f, 0.64f, 0.66f, text );
 
+    FormatMemoryMiB( memory.replay.predictionEvidence.currentCapacityBytes, a, sizeof( a ) );
+    FormatMemoryMiB( memory.replay.predictionEvidence.lifetimePeakCapacityBytes, b, sizeof( b ) );
+    const uint64_t buildEvidenceBytes = memory.replay.predictionEvidence.buildContactCapacityBytes +
+                                        memory.replay.predictionEvidence.buildPipelineCapacityBytes +
+                                        memory.replay.predictionEvidence.buildFrameCapacityBytes;
+    const uint64_t committedEvidenceBytes = memory.replay.predictionEvidence.committedContactCapacityBytes +
+                                            memory.replay.predictionEvidence.committedPipelineCapacityBytes +
+                                            memory.replay.predictionEvidence.committedFrameCapacityBytes;
+    FormatMemoryMiB( buildEvidenceBytes, c, sizeof( c ) );
+    FormatMemoryMiB( committedEvidenceBytes, d, sizeof( d ) );
+    snprintf( text, sizeof( text ), "pred evidence current %s  peak %s  build %s  committed %s", a, b, c, d );
+    draw.Text( x, row0 + 224.0f, 8.0f, 0.58f, 0.72f, 0.68f, text );
+
     // Concept: upload rows separate the fixed arena waterline from the caller
     // category that consumed it, so a texture-load spike is not mistaken for a
     // steady prediction-overlay regression.
@@ -975,7 +988,7 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw, const S
               static_cast<unsigned long long>( render.uploadFlushCount ),
               static_cast<unsigned long long>( render.uploadDropCount ) );
 
-    draw.Text( x, row0 + 228.0f, 8.0f, 0.54f, 0.72f, 0.74f, text );
+    draw.Text( x, row0 + 242.0f, 8.0f, 0.54f, 0.72f, 0.74f, text );
 
     FormatMemoryMiB( render.uploadCategoryPeakBytes[static_cast<std::size_t>( SkullbonezCore::UI::UIRenderUploadCategory::Constants )],
                      a, sizeof( a ) );
@@ -987,7 +1000,7 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw, const S
                      c, sizeof( c ) );
 
     snprintf( text, sizeof( text ), "upload peak const %s  dynamic %s  instance %s", a, b, c );
-    draw.Text( x, row0 + 242.0f, 8.0f, 0.50f, 0.66f, 0.68f, text );
+    draw.Text( x, row0 + 256.0f, 8.0f, 0.50f, 0.66f, 0.68f, text );
 
     FormatMemoryMiB( render.uploadCategoryPeakBytes[static_cast<std::size_t>( SkullbonezCore::UI::UIRenderUploadCategory::TextureRows )],
                      a, sizeof( a ) );
@@ -996,7 +1009,7 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw, const S
                      b, sizeof( b ) );
 
     snprintf( text, sizeof( text ), "upload peak texture %s  debug/prediction %s", a, b );
-    draw.Text( x, row0 + 256.0f, 8.0f, 0.50f, 0.66f, 0.68f, text );
+    draw.Text( x, row0 + 270.0f, 8.0f, 0.50f, 0.66f, 0.68f, text );
 }
 
 float CapacityTableHeight( const SkullbonezCore::UI::InGameUIFrameData& data )

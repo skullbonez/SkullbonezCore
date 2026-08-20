@@ -217,6 +217,11 @@ bool ReplayPrediction::PromoteBuildPrefixToCommitted()
 
     // Hazard: this is the Play-button ownership transfer. The worker has
     // released buildFrames before the visible prefix becomes committed state.
+    if ( !PromoteSolverEvidenceBuild() )
+    {
+        return false;
+    }
+
     m_state.build.schedule.Reset();
     m_state.build.building = false;
     m_state.build.complete = true;
@@ -244,6 +249,7 @@ bool ReplayPrediction::PromoteBuildPrefixToCommitted()
 void ReplayPrediction::CancelJob( bool clearSamples, bool preserveVisibleSnapshot )
 {
     WaitForJobIdle();
+    CancelSolverEvidenceBuild();
     m_state.build.schedule.Reset();
     m_state.build.building = false;
     m_state.build.complete = false;

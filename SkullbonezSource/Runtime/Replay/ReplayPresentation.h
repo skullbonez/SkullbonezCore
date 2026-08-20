@@ -7,7 +7,9 @@ Summary:
   ReplayPresentation is the lower Replay visual owner. Prediction pose, ghost,
   trajectory, and packet state belong to ReplayPredictionPresentation above it;
   Runtime/App passes only synchronous path and camera values between siblings.
-  One saved main-camera identity serves every temporary inspection slot.
+  One saved main-camera identity serves every temporary inspection slot. Exact
+  predicted cause focus retains its evidence stamp so row rematching fails
+  closed after same-frame bank replacement.
 
 Glossary:
   Path target: Stable replay body selected for visualization.
@@ -19,6 +21,8 @@ Invariants:
   - Render-pose matching uses a fixed model-capacity mask and never allocates.
   - ReplayHudStatus borrows no owner and is coherent for one UI frame.
   - Switching between inspection slots never replaces the saved return camera.
+  - High-detail predicted focus is reusable only when generation, mode, epoch,
+    topology, and publication stamps still match the rebuilt cause row.
 
 Related:
   - SkullbonezSource/Runtime/App/ReplayRuntime.h
@@ -187,6 +191,14 @@ struct RunReplayCameraState
     int focusContactIndex = -1;
     int focusSolverRowIndex = -1;
     int focusFeatureId = 0;
+
+    // Invariant: these fields identify the exact prediction evidence bank that
+    // produced the focused row; partial identity matches may not reuse focus.
+    uint32_t focusSourceGeneration = 0;
+    uint64_t focusSourceBankEpoch = 0;
+    uint32_t focusSourceTopologyVersion = 0;
+    uint64_t focusSourcePublicationVersion = 0;
+    bool focusSourceHighDetail = false;
     bool focusTerrain = false;
 };
 

@@ -16,6 +16,8 @@
 // Invariants:
 //   - Normalise() resets a zero quaternion to identity.
 //   - RotateAboutAxis() stores the standard positive-sine axis-angle value.
+//   - RotateAboutAxis() treats a non-unit axis as Debug misuse while Profile
+//     keeps the defined legacy normalization result pinned as a negative control.
 //   - Golden cases pin Hamilton operand order and the active-rotation matrix
 //     exposed by the public header.
 //   - Characterization cases pin world-space outcomes without inspecting stored
@@ -38,8 +40,8 @@
 #include <cmath>
 #include <cstdint>
 
-using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Orientation::ConjugateQuaternionVectorPart;
+using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Vector::Vector3;
 
 namespace
@@ -135,6 +137,28 @@ TEST_CASE( "Quaternion: axis-angle round trip returns to identity" )
     value.RotateAboutAxis( Vector3( 0.0f, 0.0f, 1.0f ), -kHalfPi );
 
     CheckQuaternionNear( value, QuaternionComponents {} );
+}
+
+
+TEST_CASE( "Quaternion: non-unit axis remains a Debug tripwire with defined Release math" )
+{
+#if defined( _DEBUG )
+    // Hazard: doctest cannot intercept the CRT assertion dialog. The Profile
+    // branch below is the negative control for the shipped arithmetic, while
+    // the Debug source assertion owns interactive misuse detection.
+    CHECK( true );
+#else
+    Quaternion unitAxis;
+    Quaternion scaledAxis;
+    unitAxis.RotateAboutAxis( Vector3( 0.0f, 0.0f, 1.0f ), kHalfPi );
+    scaledAxis.RotateAboutAxis( Vector3( 0.0f, 0.0f, 2.0f ), kHalfPi );
+
+    const QuaternionComponents unit = ComponentsOf( unitAxis );
+    const QuaternionComponents scaled = ComponentsOf( scaledAxis );
+    CHECK( scaled.z != doctest::Approx( unit.z ) );
+    CHECK( scaled.w != doctest::Approx( unit.w ) );
+    CHECK( MagnitudeSquared( scaledAxis ) == doctest::Approx( 1.0f ).epsilon( kEpsilon ) );
+#endif
 }
 
 

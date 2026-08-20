@@ -277,9 +277,10 @@ bool GrowthRequestMatchesOwner( const OwnerRecord& owner, const RuntimeReserveGr
 
 bool ReplayGrowthCountLimitExhausted( const OwnerRecord& owner, uint64_t oldGrowthCount ) noexcept
 {
-    // Invariant: the hard capacity is the replay memory bound. A negative
-    // growth-count limit leaves exploratory replay tools free to discover
-    // larger prediction buffers while still counting and reporting each bump.
+    // Invariant: the hard capacity remains the memory bound regardless of the
+    // separate growth-count policy checked here.
+    // Runtime allocation policy: a negative growth-count limit lets exploratory
+    // Replay tools discover larger buffers while still counting every bump.
     return owner.replayGrowthLimit >= 0 && oldGrowthCount >= static_cast<uint64_t>( owner.replayGrowthLimit );
 }
 

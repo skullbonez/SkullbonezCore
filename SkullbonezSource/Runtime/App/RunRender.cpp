@@ -4,21 +4,25 @@ Purpose:
   Sequences the application shell's camera update and one RuntimeRenderer frame.
 
 Summary:
-  Run finalizes camera state and sequences replay-owned presentation commands
-  into an immutable visual packet. RuntimeRenderer owns pass order, backend
-  resources, and submission of those already-published values.
+  Run finalizes camera state and sequences already-published Replay and
+  Planning presentation values into one immutable frame view. RuntimeRenderer
+  owns pass order, backend resources, and submission of those detached values.
 
 Glossary:
   Render frame view: One-frame borrowed values consumed synchronously by
     RuntimeRenderer.
   Replay visual packet: Read-only tracer spans and metadata published after all
     replay overlay producers finish for the frame.
+  Retained geometry packet: Feature-neutral ribbons and line markers whose
+    producing Planning owner has already fixed sampling, colors, and coherence.
   Attached target: Stable scene selection followed by the attached camera.
 
 Invariants:
   - Camera selection is finalized before render views are sampled.
   - Replay pose substitution and overlay publication finish before renderer
     submission; RuntimeRenderer cannot reach replay business authority.
+  - Continuous-orbit packing completes before submission; the renderer borrows
+    one coherent published bank and never reads the producer ring directly.
   - Run performs top-level sequencing only; render passes never call back into
     Run or receive a Run pointer.
 
@@ -140,6 +144,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
                                                                                     renderModels.modelCount,
                                                                                     debug.isCollisionVisualizer,
                                                                                     debugTransparentBodyPass );
+    const Rendering::RetainedGeometryPacket continuousOverlay = m_continuousForecast.PreparePresentation();
 
 
     Gameplay::TornadoVisualTimeCandidates visualTime;
@@ -171,8 +176,8 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     // Invariant: Gameplay preallocates its bounded visual maximum during owner
     // construction. Steady rendering receives no allocation-phase exemption.
     worldExtension = m_sceneController.Scene().Tornado().PrepareVisualFrame( visualTime );
-    const bool replaySubmissionRendered = Renderer().RenderFrameEntry( RuntimeRenderer::FrameEntryContext { renderModels, framePolicy, replayFrame, toolOverlay, worldExtension,
-                                                                                                            activeCinematic, cinematicRequested } );
+    const bool replaySubmissionRendered = Renderer().RenderFrameEntry( RuntimeRenderer::FrameEntryContext { renderModels, framePolicy, replayFrame, continuousOverlay, toolOverlay,
+                                                                                                            worldExtension, activeCinematic, cinematicRequested } );
 
     m_replayRuntime.CompleteRenderFrame( replaySubmissionRendered, m_sceneController.State().currentFrame,
                                          replayGrowthEventCount, m_runtimeTools );

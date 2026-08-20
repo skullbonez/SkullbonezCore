@@ -21,8 +21,9 @@ Invariants:
     its interactive/capture side effects.
   - Graphics-stress defaults and clamps remain byte-for-byte equivalent to the
     former Run-local launch policy.
-  - Gate contact checks read compact body/collider stores and debug contacts;
-    no mutable scene topology escapes into validation ownership.
+  - Gate checks read compact body/collider stores, Physics-owned awake bytes,
+    and debug contacts; no mutable scene topology escapes into validation
+    ownership.
 
 Related:
   - SkullbonezSource/Runtime/Automation/RuntimeValidationHarness.h
@@ -37,8 +38,10 @@ Related:
 #include <utility>
 
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
+#include "../../Core/SbDiagnosticStore.h"
 #include "../Capture/CaptureController.h"
 #include "../App/RunLaunchOptions.h"
+#include "../Scene/SceneSleepingDynamicBodyGatePolicy.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/ObjectContactManifold.h"
 #include "../../Physics/PhysicsBodyStore.h"
@@ -63,6 +66,7 @@ ObjectContactBodyView AutomationContactBodyView( PhysicsBodyHotFieldsConstView h
 void SceneAutomationGateConfiguration::Reset()
 {
     m_requiredContacts.clear();
+    m_requiredSleepingDynamicBodies.clear();
     m_requiredBroadphaseXCells.clear();
 }
 
@@ -81,6 +85,12 @@ void SceneAutomationGateConfiguration::AppendRequiredContact( const char* nameA,
     state.bodyA = bodyA;
     state.bodyB = bodyB;
     m_requiredContacts.push_back( state );
+}
+
+
+void SceneAutomationGateConfiguration::ReserveRequiredSleepingDynamicBodies( std::size_t count )
+{
+    m_requiredSleepingDynamicBodies.reserve( count );
 }
 
 
@@ -118,6 +128,12 @@ void SceneAutomationGateTracker::ObserveSceneLifecycle( const SceneLifecyclePack
     {
         ApplyConfiguration( std::move( configuration ) );
     }
+}
+
+
+void SceneAutomationGateTracker::UpdateRequiredSleepingDynamicBodies( std::span<const uint8_t> awakeBodies )
+{
+    ObserveSleepingDynamicBodyRequirements( m_configuration.m_requiredSleepingDynamicBodies, awakeBodies );
 }
 
 
@@ -277,6 +293,12 @@ bool SceneAutomationGateTracker::RequiredContactsComplete() const
 }
 
 
+bool SceneAutomationGateTracker::RequiredSleepingDynamicBodiesComplete() const
+{
+    return SleepingDynamicBodyRequirementsComplete( m_configuration.m_requiredSleepingDynamicBodies );
+}
+
+
 bool SceneAutomationGateTracker::RequiredBroadphaseXCellsComplete() const
 {
     for ( const SceneRequiredBroadphaseXCellsGate& required : m_configuration.m_requiredBroadphaseXCells )
@@ -294,8 +316,10 @@ bool SceneAutomationGateTracker::RequiredBroadphaseXCellsComplete() const
 SceneAutomationGateStatus SceneAutomationGateTracker::Status() const
 {
     return SceneAutomationGateStatus { !m_configuration.m_requiredContacts.empty() ||
+                                           m_configuration.RequiredSleepingDynamicBodyCount() != 0u ||
                                            !m_configuration.m_requiredBroadphaseXCells.empty(),
-                                       RequiredContactsComplete() && RequiredBroadphaseXCellsComplete() };
+                                       RequiredContactsComplete() && RequiredSleepingDynamicBodiesComplete() &&
+                                           RequiredBroadphaseXCellsComplete() };
 }
 
 
@@ -306,6 +330,14 @@ void SceneAutomationGateTracker::PrintMissingRequirements() const
         if ( contact.bodyA < 0 || contact.bodyB < 0 || !contact.touched )
         {
             std::fprintf( stderr, "[scene] required_contact missing: %s <-> %s\n", contact.nameA, contact.nameB );
+        }
+    }
+
+    for ( const SceneRequiredSleepingDynamicBodyGate& body : m_configuration.m_requiredSleepingDynamicBodies )
+    {
+        if ( body.body < 0 || !body.sleeping )
+        {
+            std::fprintf( stderr, "[scene] required_sleeping_dynamic_body awake: %s\n", body.name );
         }
     }
 

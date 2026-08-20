@@ -470,6 +470,51 @@
       "plan": ""
     },
     {
+      "file": "SkullbonezSource/Runtime/Planning/ContinuousOrbitalForecast.cpp",
+      "signature": "ContinuousOrbitalPresentationView ContinuousOrbitalPresentation::View() const noexcept",
+      "owner": "Runtime/Planning :: ContinuousOrbitalPresentation detached status",
+      "disposition": "retain-owner",
+      "reason": "The presentation owner copies one published bank's chronological tick bounds, capacity usage, coherence, and wrap state without exposing its retained spans or mutable bank.",
+      "evidence": "ContinuousOrbitalForecast::View calls this same-translation-unit seam from the App-rooted post-render automation and operator-status paths; TestContinuousOrbitalStability directly proves wrapped and downsampled publications. The current test-only decorated-symbol classification reflects optimized production relay, not retired surface.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionProducer.cpp",
+      "signature": "void ContinuousPredictionWorkerTask::ExecuteWorkerTask() noexcept",
+      "owner": "Runtime/Prediction :: ContinuousPredictionWorkerTask execution relay",
+      "disposition": "retain-owner",
+      "reason": "The typed worker entry invokes one producer slice and releases the single-flight flag only after the slice returns.",
+      "evidence": "WorkerPool reaches this method through the typed no-allocation task callback submitted by the App-rooted forecast; focused tests exercise the callback.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionProducer.cpp",
+      "signature": "void ContinuousPredictionProducer::RunWorkerSlice( Threading::WorkerPool& workerPool ) noexcept",
+      "owner": "Runtime/Prediction :: ContinuousPredictionProducer speculative slice",
+      "disposition": "retain-owner",
+      "reason": "One worker-local slice advances indivisible whole Physics ticks without a finite horizon and yields after its own five-millisecond clock.",
+      "evidence": "ContinuousPredictionWorkerTask calls the slice from App-rooted frame admission; focused asynchronous tests prove continued advancement, observation, and cancellation.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionSampleRing.cpp",
+      "signature": "std::size_t ContinuousPredictionSampleRingSnapshot::SegmentCount() const noexcept",
+      "owner": "Runtime/Prediction :: ContinuousPredictionSampleRing circular publication",
+      "disposition": "retain-owner",
+      "reason": "The detached snapshot deliberately exposes its at-most-two physical segments as a tested invariant seam without exposing mutable ring storage.",
+      "evidence": "Production OF5 presentation consumes chronological rows through TryReadRow rather than this seam. TestReplayPredictionScheduling directly proves empty, partial, full, and wrapped SegmentCount results; the test-only classification is intentional invariant coverage, not manufactured reachability for retired surface.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionSampleRing.cpp",
+      "signature": "ContinuousPredictionSampleRingSegment ContinuousPredictionSampleRingSnapshot::SegmentAt( std::size_t segmentIndex ) const noexcept",
+      "owner": "Runtime/Prediction :: ContinuousPredictionSampleRing circular publication",
+      "disposition": "retain-owner",
+      "reason": "The detached snapshot deliberately resolves each chronological physical segment as a tested invariant seam while keeping backing storage read-only.",
+      "evidence": "Production OF5 presentation consumes chronological rows through TryReadRow rather than this seam. TestReplayPredictionScheduling directly proves physical/logical offsets, row counts, and the out-of-range empty segment across full and wrapped windows; the test-only classification is intentional invariant coverage, not manufactured reachability for retired surface.",
+      "plan": ""
+    },
+    {
       "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp",
       "signature": "ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& context )",
       "owner": "Replay prediction path presentation",
@@ -650,6 +695,15 @@
       "plan": ""
     },
     {
+      "file": "SkullbonezSource/Runtime/Scene/SceneRequestQueue.cpp",
+      "signature": "std::size_t SceneRequestQueue::Size() const",
+      "owner": "SceneRequestQueue fixed-ring observation seam",
+      "disposition": "retain-owner",
+      "reason": "Tests must observe the private occupied-slot count to prove rejected create text consumes no slot and TakePending fully drains the fixed owner ring.",
+      "evidence": "TestOwnerRequestQueues checks Size before and after TakePending; production mutates and drains through Submit and TakePending instead. 2026-08-18 census: classification=test-only; required_arity=0/0.",
+      "plan": ""
+    },
+    {
       "file": "SkullbonezSource/Runtime/Simulation/SimulationSystem.cpp",
       "signature": "uint64_t SimulationSystem::DroppedPhysicsTickCount() const noexcept",
       "owner": "Simulation fixed-step diagnostics",
@@ -728,6 +782,42 @@
       "disposition": "retain-owner",
       "reason": "It exposes the configuration retained by the terrain owner to its rendering collaborators.",
       "evidence": "Live terrain shader/render paths call it. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=25; required_arity=0/0; symbols=?Config@Terrain@Geometry@SkullbonezCore@@AEBAAEBVEngineConfig@Core@3@XZ",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "ReplayPredictionSolverEvidenceStoreMemoryStats ReplayPredictionSolverEvidenceStore::CollectMemoryStats() const noexcept",
+      "owner": "ReplayPredictionSolverEvidenceStore capacity accounting",
+      "disposition": "retain-owner",
+      "reason": "The paired owner and diagnostics need exact current and lifetime capacity facts for the registered prediction working set.",
+      "evidence": "Production calls are overload-ambiguous to the lexical scanner but compiled identity is exact. 2026-08-18 census: classification=no-reference; mapping=exact; ambiguous_production_calls=14; required_arity=0/0.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "void ReplayPredictionSolverEvidenceStore::ReleaseCapacity() noexcept",
+      "owner": "ReplayPredictionSolverEvidenceStore explicit release lifecycle",
+      "disposition": "retain-owner",
+      "reason": "High-to-Low and teardown must release every segment while preserving historical peak accounting.",
+      "evidence": "The lexical scanner sees three ambiguous same-name lifecycle calls; the compiled private identity is exact. 2026-08-18 census: classification=no-reference; mapping=exact; ambiguous_production_calls=3; required_arity=0/0.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "void ReplayPredictionSolverEvidenceStore::RefreshLifetimePeak() noexcept",
+      "owner": "ReplayPredictionSolverEvidenceStore lifetime capacity high-water",
+      "disposition": "retain-owner",
+      "reason": "Each successful category growth must update the store's historical peak without coupling category-specific allocators.",
+      "evidence": "The scanner sees six ambiguous same-name calls; the compiled private identity is exact. 2026-08-18 census: classification=no-reference; mapping=exact; ambiguous_production_calls=6; required_arity=0/0.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "signature": "void ReplayPredictionSolverEvidenceBanks::RefreshLifetimePeak() noexcept",
+      "owner": "ReplayPredictionSolverEvidenceBanks coexistence high-water",
+      "disposition": "retain-owner",
+      "reason": "The paired owner must measure peak build-plus-committed capacity rather than either physical bank independently.",
+      "evidence": "The scanner sees six ambiguous same-name calls; the compiled private identity is exact. 2026-08-18 census: classification=no-reference; mapping=exact; ambiguous_production_calls=6; required_arity=0/0.",
       "plan": ""
     }
   ]

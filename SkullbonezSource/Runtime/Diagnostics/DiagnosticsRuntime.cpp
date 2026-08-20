@@ -171,7 +171,8 @@ void WriteReplayMemoryCategories( FILE* file, const SkullbonezCore::Core::MainMe
     fprintf( file,
              "      \"prediction\": { \"owner\": %llu, \"engine\": %llu, \"world_state\": %llu, "
              "\"body_state\": %llu, \"frame_records\": %llu, \"frame_bodies\": %llu, "
-             "\"debug_contacts\": %llu, \"future_tree\": %llu },\n",
+             "\"debug_contacts\": %llu, \"future_tree\": %llu, \"solver_contact_evidence\": %llu, "
+             "\"pipeline_evidence\": %llu },\n",
              static_cast<unsigned long long>( ReplayMemoryCategoryCounter( replay,
                                                                            SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionOwner ) ),
              static_cast<unsigned long long>( ReplayMemoryCategoryCounter( replay,
@@ -187,7 +188,11 @@ void WriteReplayMemoryCategories( FILE* file, const SkullbonezCore::Core::MainMe
              static_cast<unsigned long long>( ReplayMemoryCategoryCounter( replay, SkullbonezCore::Core::MainMemoryReplayByteCategory::
                                                                                        PredictionDebugContacts ) ),
              static_cast<unsigned long long>( ReplayMemoryCategoryCounter( replay,
-                                                                           SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionFutureTree ) ) );
+                                                                           SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionFutureTree ) ),
+             static_cast<unsigned long long>( ReplayMemoryCategoryCounter( replay, SkullbonezCore::Core::MainMemoryReplayByteCategory::
+                                                                                       PredictionSolverContactEvidence ) ),
+             static_cast<unsigned long long>( ReplayMemoryCategoryCounter( replay, SkullbonezCore::Core::MainMemoryReplayByteCategory::
+                                                                                       PredictionPipelineEvidence ) ) );
 
     fprintf( file,
              "      \"path_and_cause\": { \"owner\": %llu, \"targets\": %llu, \"future_nodes\": %llu, "
@@ -220,6 +225,42 @@ void WriteReplayMemoryCategories( FILE* file, const SkullbonezCore::Core::MainMe
              static_cast<unsigned long long>( replay.trajectory.versionChurn ) );
 
     fputs( "    },\n", file );
+}
+
+void WriteReplayPredictionEvidence( FILE* file, const SkullbonezCore::Core::MainMemoryReplayStats& replay )
+{
+    const SkullbonezCore::Core::MainMemoryReplayPredictionEvidenceStats& evidence = replay.predictionEvidence;
+    fprintf( file,
+             "    \"prediction_evidence\": { \"current_capacity_bytes\": %llu, "
+             "\"lifetime_peak_capacity_bytes\": %llu, \"release_checkpoint_count\": %llu, "
+             "\"last_release_before_capacity_bytes\": %llu, \"last_release_after_capacity_bytes\": %llu, "
+             "\"last_release_before_replay_total_bytes\": %llu, \"last_release_after_replay_total_bytes\": %llu, "
+             "\"last_release_before_category_total_bytes\": %llu, \"last_release_after_category_total_bytes\": %llu, "
+             "\"build\": { \"contact_capacity_bytes\": %llu, \"pipeline_capacity_bytes\": %llu, "
+             "\"frame_capacity_bytes\": %llu, \"contacts\": %llu, \"pipeline_rows\": %llu, \"frames\": %llu }, "
+             "\"committed\": { \"contact_capacity_bytes\": %llu, \"pipeline_capacity_bytes\": %llu, "
+             "\"frame_capacity_bytes\": %llu, \"contacts\": %llu, \"pipeline_rows\": %llu, \"frames\": %llu } },\n",
+             static_cast<unsigned long long>( evidence.currentCapacityBytes ),
+             static_cast<unsigned long long>( evidence.lifetimePeakCapacityBytes ),
+             static_cast<unsigned long long>( evidence.releaseCheckpointCount ),
+             static_cast<unsigned long long>( evidence.lastReleaseBeforeCapacityBytes ),
+             static_cast<unsigned long long>( evidence.lastReleaseAfterCapacityBytes ),
+             static_cast<unsigned long long>( evidence.lastReleaseBeforeReplayTotalBytes ),
+             static_cast<unsigned long long>( evidence.lastReleaseAfterReplayTotalBytes ),
+             static_cast<unsigned long long>( evidence.lastReleaseBeforeCategoryTotalBytes ),
+             static_cast<unsigned long long>( evidence.lastReleaseAfterCategoryTotalBytes ),
+             static_cast<unsigned long long>( evidence.buildContactCapacityBytes ),
+             static_cast<unsigned long long>( evidence.buildPipelineCapacityBytes ),
+             static_cast<unsigned long long>( evidence.buildFrameCapacityBytes ),
+             static_cast<unsigned long long>( evidence.buildContactCount ),
+             static_cast<unsigned long long>( evidence.buildPipelineCount ),
+             static_cast<unsigned long long>( evidence.buildFrameCount ),
+             static_cast<unsigned long long>( evidence.committedContactCapacityBytes ),
+             static_cast<unsigned long long>( evidence.committedPipelineCapacityBytes ),
+             static_cast<unsigned long long>( evidence.committedFrameCapacityBytes ),
+             static_cast<unsigned long long>( evidence.committedContactCount ),
+             static_cast<unsigned long long>( evidence.committedPipelineCount ),
+             static_cast<unsigned long long>( evidence.committedFrameCount ) );
 }
 
 void WriteReplayGrowthOwners( FILE* file, const SkullbonezCore::Core::MainMemoryReplayStats& replay )
@@ -828,6 +869,7 @@ bool DiagnosticsRuntime::WriteMainMemoryDump( const SkullbonezCore::Core::MainMe
              stats.replay.memoryBudgetClamped ? "true" : "false", stats.replay.solverWindowReduced ? "true" : "false" );
 
     WriteReplayMemoryCategories( file, stats.replay );
+    WriteReplayPredictionEvidence( file, stats.replay );
     WriteReplayGrowthOwners( file, stats.replay );
     WriteReplayTrajectoryCounters( file, stats.replay.trajectory );
     fprintf( file,

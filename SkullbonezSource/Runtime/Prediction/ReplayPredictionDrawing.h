@@ -103,8 +103,8 @@ struct ReplayPredictionDrawListState
     uint64_t trajectoryPublicationVersion = 0;
     std::size_t sampleStride = 1;
     ReplayPathColorMode colorMode = ReplayPathColorMode::LaneFlat;
+    ReplayPredictionPathPresentation pathPresentation = ReplayPredictionPathPresentation::SelectedCausalTree;
     bool usingBuildFrames = false;
-    bool showAllFuturePaths = false;
     bool velocityPreviewActive = false;
     bool saturated = false;
     bool valid = false;
@@ -138,8 +138,8 @@ struct ReplayPredictionDrawListState
         trajectoryPublicationVersion = 0;
         sampleStride = 1;
         colorMode = ReplayPathColorMode::LaneFlat;
+        pathPresentation = ReplayPredictionPathPresentation::SelectedCausalTree;
         usingBuildFrames = false;
-        showAllFuturePaths = false;
         velocityPreviewActive = false;
         saturated = false;
         valid = false;
@@ -166,27 +166,29 @@ constexpr std::size_t ReplayPredictionFirstUnconsumedPoint( std::size_t consumed
     return consumedPointCount > 1u ? consumedPointCount : 1u;
 }
 
-constexpr bool ReplayPredictionDrawsAllBodyRecord( bool showAllFuturePaths, const ReplayTrajectoryRecordKey& key,
-                                                   uint16_t activeRootBranch,
+constexpr bool ReplayPredictionDrawsAllBodyRecord( ReplayPredictionPathPresentation pathPresentation,
+                                                   const ReplayTrajectoryRecordKey& key, uint16_t activeRootBranch,
                                                    Physics::PhysicsSceneObjectId selectedId ) noexcept
 {
-    return showAllFuturePaths && key.lane == ReplayTrajectoryLane::FutureRoot && key.branchOrdinal == activeRootBranch &&
+    return ReplayPredictionPathPresentationShowsAllBodies( pathPresentation ) &&
+           key.lane == ReplayTrajectoryLane::FutureRoot && key.branchOrdinal == activeRootBranch &&
            key.bodyId.value != selectedId.value;
 }
 
-constexpr bool ReplayPredictionDrawsCausalChildRecord( bool showAllFuturePaths, const ReplayTrajectoryRecordKey& key,
-                                                       uint16_t activeChildBranchBase,
+constexpr bool ReplayPredictionDrawsCausalChildRecord( ReplayPredictionPathPresentation pathPresentation,
+                                                       const ReplayTrajectoryRecordKey& key, uint16_t activeChildBranchBase,
                                                        uint16_t activeChildBranchEnd ) noexcept
 {
-    return !showAllFuturePaths &&
+    return !ReplayPredictionPathPresentationShowsAllBodies( pathPresentation ) &&
            ( key.lane == ReplayTrajectoryLane::FutureChildIncoming ||
              key.lane == ReplayTrajectoryLane::FutureChildOutgoing ) &&
            key.branchOrdinal >= activeChildBranchBase && key.branchOrdinal < activeChildBranchEnd;
 }
 
-constexpr bool ReplayPredictionUsesAuthoredBodyColor( bool showAllFuturePaths, ReplayTrajectoryLane lane ) noexcept
+constexpr bool ReplayPredictionUsesAuthoredBodyColor( ReplayPredictionPathPresentation pathPresentation,
+                                                      ReplayTrajectoryLane lane ) noexcept
 {
-    return showAllFuturePaths && lane == ReplayTrajectoryLane::FutureRoot;
+    return ReplayPredictionPathPresentationShowsAllBodies( pathPresentation ) && lane == ReplayTrajectoryLane::FutureRoot;
 }
 
 struct ReplayPathVisualizerRenderContext

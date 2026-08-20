@@ -19,6 +19,8 @@
 //
 // Invariants:
 //   - Sleep frame counts clamp to uint8 storage without wrapping.
+//   - Unsupported or nonquiet bodies reset a positive sleep counter, and
+//     repeated material-impact wake requests publish one awake transition.
 //   - Support propagates to a fixed point through model-order edges.
 //   - A stretched point joint publishes the sleep-block reason without
 //     advancing its island counter; a relaxed joint remains eligible.
@@ -143,6 +145,7 @@ void CheckRuntimeSettingsMatchConfig( const PhysicsRuntimeSettings& settings,
     CHECK( settings.material.terrainFrictionCoefficient == config.physicsMaterial.frictionCoeff );
     CHECK( settings.material.objectFrictionCoefficient == config.physicsMaterial.objectFrictionCoeff );
     CHECK( settings.material.rollingFrictionCoefficient == config.physicsMaterial.rollingFrictionCoeff );
+    CHECK( settings.material.spinFrictionCoefficient == config.physicsMaterial.spinFrictionCoeff );
     CHECK( settings.body.angularVelocityLimit == config.bodySimulation.velocityLimit );
     CHECK( settings.body.contactRestitutionThreshold == config.bodySimulation.contactRestitutionThreshold );
     CHECK( settings.body.contactEpsilon == config.bodySimulation.contactEpsilon );
@@ -238,6 +241,7 @@ TEST_CASE( "Physics runtime settings: custom config remains unclamped at the sta
     config.physicsMaterial.frictionCoeff = 1.2f;
     config.physicsMaterial.objectFrictionCoeff = 1.3f;
     config.physicsMaterial.rollingFrictionCoeff = 1.4f;
+    config.physicsMaterial.spinFrictionCoeff = 1.5f;
     config.bodySimulation.velocityLimit = 2.1f;
     config.bodySimulation.contactRestitutionThreshold = 2.2f;
     config.bodySimulation.contactEpsilon = 2.3f;
@@ -545,6 +549,96 @@ TEST_CASE( "Physics sleep awake list: transitions and queued wakes preserve asce
     CHECK( controller.GetAwakeBodyIndices()[0] == 2 );
 }
 
+TEST_CASE( "Physics sleep counters: unsupported or nonquiet state abandons a positive quiet run" )
+{
+    for ( const bool loseSupport : { true, false } )
+    {
+        PhysicsBodyStore& bodies = StageBodyStore();
+        ColliderStore& colliders = StageColliderStore();
+        PhysicsBodyCreateRecord body;
+        body.cold.mass = 1.0f;
+        body.hot.inverseMass = 1.0f;
+        (void)bodies.CreateBodyRecord( body );
+
+        PhysicsSleepController controller;
+        ReserveTestSleepCapacity( controller );
+        REQUIRE( controller.MirrorFlagsFrom( bodies, 1 ) );
+        controller.MutableSupportedStatesForTerrain()[0] = 1u;
+
+        std::array<float, 1> timeRemaining = { 1.0f / 120.0f };
+        std::array<BuoyancyBodyFacts, 1> buoyancyFacts;
+        const std::vector<SkullbonezCore::Physics::PersistentContact> contacts;
+        const std::array<uint16_t, 1> restingCounts = { 0u };
+        const std::vector<SkullbonezCore::Physics::PointJointConstraint> joints;
+        SkullbonezCore::Physics::PhysicsPipelineTraceRecorder pipeline;
+        {
+            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+                SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+            pipeline.Reserve();
+        }
+        PhysicsWorldForces worldForces;
+        const SkullbonezCore::Physics::PhysicsSleepStepPolicy sleepPolicy { 0.25f * 0.25f, 0.25f * 0.25f, 3u };
+
+        controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts,
+                                   joints, pipeline, sleepPolicy );
+        REQUIRE( controller.GetSleepCounters()[0] == 1u );
+
+        if ( loseSupport )
+        {
+            controller.MutableSupportedStatesForTerrain()[0] = 0u;
+        }
+        else
+        {
+            bodies.MutableHotFields().linearVelocityX[0] = 1.0f;
+        }
+
+        controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts,
+                                   joints, pipeline, sleepPolicy );
+        CHECK( controller.GetSleepCounters()[0] == 0u );
+        CHECK( controller.GetSleepStates()[0] == 0u );
+    }
+}
+
+TEST_CASE( "Physics sleep wake: repeated material-impact requests publish one awake transition" )
+{
+    PhysicsBodyStore& bodies = StageBodyStore();
+    ColliderStore& colliders = StageColliderStore();
+    const CollisionShape sphere = UnitSphere();
+    PhysicsBodyCreateRecord body;
+    body.cold.mass = 1.0f;
+    body.hot.inverseMass = 1.0f;
+    const auto handle = bodies.CreateBodyRecord( body );
+    ColliderRecord collider;
+    collider.body = handle;
+    collider.boundingRadius = 1.0f;
+    SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders, collider, sphere );
+
+    PhysicsSleepController controller;
+    ReserveTestSleepCapacity( controller );
+    REQUIRE( controller.MirrorFlagsFrom( bodies, 1 ) );
+    REQUIRE( bodies.SeedBodyAsleep( handle ) );
+    controller.SeedModelAsleep( bodies, 0 );
+    REQUIRE( controller.GetAwakeBodyIndices().empty() );
+
+    PhysicsWorldForces worldForces;
+    std::array<BuoyancyBodyFacts, 1> buoyancyFacts;
+    std::array<float, 1> timeRemaining = { 1.0f / 120.0f };
+    const auto wakeAccess = controller.CreateNarrowphaseWakeAccess( bodies, colliders, {}, worldForces, buoyancyFacts,
+                                                                    bodies.MutableRecords(), timeRemaining, 1,
+                                                                    1.0f / 120.0f );
+
+    // Narrowphase can rediscover the same material collision through multiple
+    // rows; the first request owns the state transition and later requests are
+    // idempotent before the pending awake index is flushed.
+    wakeAccess.WakeBody( 0 );
+    wakeAccess.WakeBody( 0 );
+    CHECK( controller.GetAwakeBodyIndices().empty() );
+    controller.FlushPendingAwakeBodyIndices();
+    REQUIRE( controller.GetAwakeBodyIndices().size() == 1u );
+    CHECK( controller.GetAwakeBodyIndices()[0] == 0 );
+    CHECK( bodies.HotFields().awake[0] == 1u );
+}
+
 TEST_CASE( "Physics sleep underwater lock: fully submerged sleeper locks and disabling sleep clears it" )
 {
     PhysicsBodyStore& bodies = StageBodyStore();
@@ -672,8 +766,8 @@ TEST_CASE( "Physics sleep point-joint island: stretched anchors block relaxation
             ReserveTestSleepCapacity( controller );
             controller.MirrorFlagsFrom( bodies, 2 );
             const SkullbonezCore::Physics::PhysicsSleepStepPolicy sleepPolicy { 0.01f, 0.01f, 3u };
-            controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts,
-                                       restingCounts, joints, pipeline, sleepPolicy );
+            controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts,
+                                       joints, pipeline, sleepPolicy );
 
             CHECK( pipeline.Count() == 1u );
             const std::span<const SkullbonezCore::Physics::PhysicsPipelineRecord> records = pipeline.Records();

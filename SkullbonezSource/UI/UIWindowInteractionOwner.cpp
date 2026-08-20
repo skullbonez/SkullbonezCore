@@ -1152,6 +1152,12 @@ UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& inpu
                                                                     contentX, rowBase, contentW );
             }
 
+            if ( !sceneClickHandled )
+            {
+                sceneClickHandled = SceneTab::HandleForecastClick( m_sceneTab, result, m_mouseX, m_mouseY, contentX, rowBase,
+                                                                   contentW );
+            }
+
             m_rendererCombo.Close();
 
             if ( sceneClickHandled )

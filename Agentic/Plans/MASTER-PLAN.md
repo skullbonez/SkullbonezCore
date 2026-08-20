@@ -1,7 +1,7 @@
 # MASTER PLAN
 
-Date: 2026-08-18
-Status: Three active plans; 24/47 tasks complete
+Date: 2026-08-20
+Status: Three active plans; 51/67 tasks complete
 
 ## Owner Direction
 
@@ -51,26 +51,132 @@ Status: Three active plans; 24/47 tasks complete
 - Deterministic Trigonometry Adoption was moved to `WNF/` by owner direction on
   2026-08-18. Its exact-site platform-trig exception policy remains authored,
   but none of DT0-DT7 is selectable until the owner reactivates the plan.
-- At-Rest Ball Stability replaces deterministic trig in the third active slot
-  by owner direction. It uses bounded SkullScope evidence to diagnose and fix
-  the `at_rest.scene.json` balls' vertical vibration, excessive sliding,
-  repeated rolling reversals, and delayed sleep without changing the scene to
-  manufacture a pass or reintroducing a solver-local velocity snap. Proper
-  contact/solver/support fixes must be exhausted first; any production friction
-  or sleep-policy change requires isolated evidence and explicit owner approval.
-  The retired 1,800-frame playback timeout is not a completion criterion: the
-  unlimited witness must keep stepping until all three named balls are asleep.
+- At-Rest Ball Stability is complete. Its uncapped authoritative witness ends
+  only when all three named balls are Physics-asleep; the final semantic oracle
+  passes vertical stability, slip, reversal, support/sleep latency, and control
+  preservation with deterministic 0/1/4-worker evidence. The terminal plan-
+  completion gate passed every phase through DX12 and Automation before the
+  mapped 35,303-line protected Physics-oracle stop. No baseline was refreshed.
+- Invariant Enforcement And Assertion Hardening is active after rest-stability
+  closure. It rebaselines the exact repository assertion/invariant worklist,
+  assigns every finding an owner and Release-safe enforcement lane, repairs the
+  selected sites, and closes with negative proof plus independent review.
+  IH1 now validates Terrain height-map dimensions and all derived counts before
+  construction, and its Profile witness proves malformed, overflow, exact-
+  minimum, normal, and retired 5/2 mismatch behavior without unsafe mutation.
+  IH2 adds Release-safe texture and tornado capacity/lifecycle enforcement,
+  retains Debug-only lock/math tripwires with focused negative controls, and
+  separates mechanical capacity invariants from runtime allocation policy.
+  IH3 adds transactional collider rebinding, guarded shape compaction,
+  Release-safe disjoint-set/body-store/solver consequence bounds, and a tested
+  Debug-only awake-list classifier without changing hot Physics storage.
+  Its cumulative 650-test unit gate is green; the fast gate clears its static
+  checks and build matrix, with terminal reachability deferred solely by the
+  Visual Studio-owned live Profile executable lock.
+- Full Validation Time And Value Audit is registered after invariant hardening.
+  Its six phases will measure every nested full-validation stage under warm,
+  leaf-source, broad-header, and fresh-build conditions; judge each stage by
+  unique defect evidence as well as cost; and test build, scan, test, coverage,
+  runtime, and informational-lane reductions without weakening failure
+  propagation or owner-controlled oracles. VTA0 follows IH7 so it audits a
+  stable gate topology rather than changing validation beneath active work.
+- Repository Hygiene Cleanup is registered after the validation-time audit.
+  Its six phases separate ignored generated output, retained investigation
+  evidence, detached worktrees, and tracked repository artifacts; require an
+  explicit absolute-path manifest before deletion; and reconcile every tracked
+  candidate through owner review. RC0 follows VTA5 so the audit can measure a
+  stable evidence corpus before cleanup removes historical local output.
 - Continuous Orbital Forecast was reactivated by owner direction on
   2026-08-17. It follows predicted solver detail and owns the separate
   interactive continuous prediction mode, coherent rolling 120-second path
   window, and observed-stability diagnostics without changing bounded
   `PREDICT`.
-- Predicted Solver Cause Hierarchy is first in the active order by owner
-  direction. It restores the selected-object contact cascade in both replay
-  detail modes and adds an on-by-default High Detail timeline toggle for exact
-  predicted Body -> Manifold -> SolverRow inspection. Low remains the compact
-  capture/playback mode, hides causal inspection, and releases all exact-detail
-  backing capacity observably through F6.
+- Predicted Solver Cause Hierarchy is complete. High retains exact predicted
+  Body -> Manifold -> SolverRow evidence behind the on-by-default timeline
+  toggle; Low keeps the lightweight selected-root path, clears and suppresses
+  the predicted cause window, and releases every exact-detail bank. The final
+  workflow records complete replay/category snapshots on both sides of the
+  synchronous High -> Low release and proves the identical positive delta of
+  1,925,120 bytes instead of relying on a reconstructed total.
+- PSD7's at-rest High -> inspect -> Low -> rebuild -> High workflow passes 19
+  assertions through frame 2,094, and its multi-body witness passes six
+  assertions through frame 1,002 with three manifolds and three solver rows.
+  All seven ownership inventories, 604 tests / 2,484,279 assertions, strict
+  replay allocation, four-generation frame-spike, replay artifact, dependency,
+  fast, Automation, and DX12 gates pass. The 13/13 touched-source comment audit
+  has zero deferred files, and the post-fix independent review is clean.
+- The immutable replay visual gate still stops at the inherited reveal-0
+  `header.topologyVersion` mismatch after its launcher and 17/17 false-pass
+  controls pass. Physics still reproduces the inherited 20,394-line varied CSV
+  mismatch beginning at frame 102, and the relative Physics performance sample
+  remains noisy while absolute DX12/Physics budgets pass. No baseline was
+  refreshed. The terminal `tools\agent_validate.bat --plan-completion` rerun
+  passes preflight, every mandatory CPU lane, Automation, and DX12 before
+  stopping at that exact inherited Physics mismatch; its verbatim log is
+  `TestOutput/validation/PREDICT_SOLVER_DETAIL_PSD7_agent_validate.log`.
+
+- ORBIT_FORECAST OF0 is complete. The scene-authored fixed sun is the primary,
+  Earth and Mars are the system-wide core cohort, and the ship is an auxiliary
+  whose own orbital-configuration failure stays visible without ending the
+  core horizon; numerical health remains globally blocking. Exact radial
+  envelopes, sustained positive-energy/outward/radius escape with a 600-tick
+  grace, core-only collision blocking, reset/retirement behavior, informational
+  conservation drift, and the existing 5.0 ms worker slice plus separate
+  frame-admission deadline are ratified in the owning plan. Two fixed-step
+  120-second live captures are byte-identical
+  at SHA-256
+  `F3D71F660228561D155E11511FDF58DBAD8F5EF966765A21B92B711420C2AE62`.
+  The two isolated bounded witnesses pass and share their submitted-geometry
+  hash, but their private simulation hashes and value fingerprints differ; OF2
+  and OF6 explicitly own closure of that pre-existing determinism defect.
+
+- ORBIT_FORECAST OF1 is complete. A Prediction-owned, fixed-capacity all-body
+  sample ring now publishes coherent absolute-tick rows through odd/even slot
+  versions and one release cursor, exposes chronological one/two-segment wrap
+  views, rejects counter rollover, and performs no post-start growth. Its four
+  backing reserves reuse the existing `replay_prediction_working_set` owner and
+  cap; focused concurrency stress and the complete unit-test gate pass.
+
+- ORBIT_FORECAST OF2 is complete. A lower Prediction-owned producer snapshots
+  live body/solver values into a private Physics engine, advances unlimited-
+  target whole ticks under the ratified separate frame-admission and worker
+  slice clocks, and publishes only complete all-body positions through the OF1
+  ring. The focused witness advances through three production-size wraps with
+  flat warmed bytes/growth, unchanged live and bounded-PREDICT state, exact
+  zero-thread/one-worker tick-1,024 position equality, and joined retirement.
+
+- ORBIT_FORECAST OF3 is complete. Scene authoring now names one explicit fixed-
+  capacity stability cohort, setup resolves it to stable IDs, snapshot saving
+  round trips the contract, and a Planning-owned analyzer consumes detached
+  complete ticks. Numerical publication failures are globally blocking;
+  primary/core collisions, inclusive envelopes, and 600-tick softened-energy
+  escape block the system horizon; auxiliary orbital failures stay separately
+  visible. Informational all-member conservation drift and first-failure
+  latching are covered by focused tests without adding a Replay include,
+  reserve privilege, Physics row field, or post-start growth path.
+
+- ORBIT_FORECAST OF4 is complete. Planning composes the continuous producer and
+  stability analyzer while App owns lifetime, mutual exclusion with bounded
+  `PREDICT`, frame admission, joined scene transitions, and shutdown. Typed
+  controls and detached status values reach both operator surfaces without a
+  second retained owner.
+
+- ORBIT_FORECAST OF5 is complete. Planning converts coherent ring snapshots
+  into fixed-capacity, double-buffered generic ribbon and head-marker packets.
+  Every configured member uses authored presentation, the newest absolute tick
+  is coherent, and chronological downsampling never draws across the physical
+  wrap seam.
+
+- ORBIT_FORECAST OF6 is complete. Automation now reports source clock metadata
+  separately from deterministic private-simulation hashes and hashes every
+  private frame, body, sleep, tornado, contact-completeness, and contact value.
+  The exact 14,401-frame workers-0/workers-1 witness matches all component
+  hashes and submitted geometry while Replay reserve growth stays flat. The
+  independent post-fix review is clean; all ownership inventories, tests,
+  dependency/allocation gates, DX12, graphics stress, and performance pass.
+  Physics and replay visual fidelity reproduce only the inherited owner-
+  controlled CSV and `header.topologyVersion` stops, and no oracle was
+  refreshed.
 
 Completed plan files were deleted; git history is the archive.
 
@@ -78,9 +184,9 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Predicted Solver Cause Hierarchy | `PREDICT_SOLVER_DETAIL` | 8 | 0 | `TODO/predicted-solver-cause-hierarchy.md` |
-| Continuous Orbital Forecast | `ORBIT_FORECAST` | 7 | 0 | `TODO/continuous-orbital-forecast.md` |
-| At-Rest Ball Stability | `REST_STABILITY` | 8 | 0 | `TODO/at-rest-ball-stability.md` |
+| Invariant Enforcement And Assertion Hardening | `INVARIANT_HARDENING` | 8 | 4 | `TODO/invariant-enforcement-hardening.md` |
+| Full Validation Time And Value Audit | `VALIDATION_TIME_AUDIT` | 6 | 0 | `TODO/full-validation-time-value-audit.md` |
+| Repository Hygiene Cleanup | `REPOSITORY_CLEANUP` | 6 | 0 | `TODO/repository-hygiene-cleanup.md` |
 
 ## Parked, Backlog, And Completed Plans
 
@@ -95,7 +201,7 @@ an owner decision, not a run decision.
 |---|---|---|---|
 | Contact Stack Stability Techniques | Owner-parked 2026-08-02 | 0/7 | `WNF/contact-stack-stability-techniques.md` |
 | Deterministic Trigonometry Adoption | Owner-parked 2026-08-18 | 0/8 | `WNF/deterministic-trigonometry-adoption.md` |
-| DX12 Frame Path Comment-Rot Sweep | Owner-parked 2026-07-12 | 0/3 | `WNF/dx12-frame-path-comment-rot-sweep.md` |
+| Full Source Comment Truth Replacement | Prepared; waits for in-flight source work | 582 clean, 261 queued | `TODO/full-source-comment-truth-replacement.md` |
 | Reversible GPU Fracture Replay | Backlog; blocked | 0/7 | `WNF/fracture-replay-feature.md` |
 | ImGui + Tracy E17 Comment Audit | Complete | 96/96, 0 deferred | `DONE/imgui-tracy-e17-comment-audit.md` |
 
@@ -114,18 +220,19 @@ states elsewhere, and both are recorded rather than silently corrected:
 
 ## Binding Order
 
-1. `PREDICT_SOLVER_DETAIL` PSD0 through PSD7 — preserve the compact Low mode
-   and selected-root causal topology, then add bounded exact predicted solver
-   evidence, mode-aware archives, observable release, and the High Detail
-   operator workflow.
-2. `ORBIT_FORECAST` OF0 through OF6 — ratify the authored stability contract,
-   add coherent circular publication and continuous isolated prediction, then
-   wire Planning-owned diagnostics and rolling orbital presentation.
-3. `REST_STABILITY` RS0 through RS7 — add the authored all-three-ball sleep
-   completion gate, preserve and diagnose the unlimited `at_rest` witness with
-   SkullScope, build semantic false-pass-resistant oracles, adjudicate the
-   owning causes, then repair vertical vibration, sliding/rolling response, and
-   supported sleep before integrated deterministic closure.
+1. `INVARIANT_HARDENING` IH0 through IH7 — rebase the repository invariant and
+   assertion inventory after the preceding source work, repair every audited
+   high-, medium-, and low-severity finding with an explicit Release-safe
+   enforcement lane, correct comment taxonomy, and close with independent
+   false-pass and ownership review.
+2. `VALIDATION_TIME_AUDIT` VTA0 through VTA5 - instrument and measure the full
+   plan-completion call graph, evaluate every stage's unique evidence and cost,
+   implement only owner-approved reductions with false-pass controls, and close
+   with one timed terminal full gate.
+3. `REPOSITORY_CLEANUP` RC0 through RC5 - rebase the deletion inventory, obtain
+   owner dispositions, remove only explicit ignored/build/worktree targets,
+   reconcile tracked artifacts and stale references, and close with independent
+   data-loss and reachability review.
 
 `CAUSAL_INSPECT` no longer re-steps an old frame to regenerate solver detail, so
 it does not consume the tier-2 determinism guarantee and has no ordering
@@ -136,8 +243,8 @@ physics-reachable Maths owner.
 `CATTO_REPAIRS` changes the solver values the causal panel may display, but the
 panel reads exact retained values rather than freezing expected numbers. Its
 tests must pin field mapping and availability, not pre-Catto impulse values.
-`PREDICT_SOLVER_DETAIL` runs against the current bounded prediction owner before
-`ORBIT_FORECAST` adds continuous publication. The later forecast work must not
+`PREDICT_SOLVER_DETAIL` is complete against the bounded prediction owner before
+`ORBIT_FORECAST` adds continuous publication. Forecast work must not
 feed per-tick solver evidence into its continuous path or infer all-body
 presentation from generic Physics force state. `REST_STABILITY` follows both;
 their exact-value displays must continue mapping Physics-owned values rather
@@ -146,7 +253,14 @@ than pinning pre-repair impulses, activation times, or sleep frames.
 
 ## Portfolio Progress
 
-24/47 tasks complete with three active plans. Causal C0-C8, Determinism T0-T8,
-and Catto CD0-CD5 are complete. Predicted Solver Cause Hierarchy PSD0-PSD7 is
-next, then Continuous Orbital Forecast OF0-OF6, then At-Rest Ball Stability
-RS0-RS7. Deterministic Trigonometry is owner-parked and excluded from progress.
+51/67 tasks complete with three active plans.
+Causal C0-C8, Determinism T0-T8,
+Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
+Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
+Invariant Enforcement And Assertion Hardening IH0-IH3 are complete; IH4-IH7
+remain, with IH4 next.
+Full Validation Time And Value Audit VTA0-VTA5 follows IH7; all six phases
+remain.
+Repository Hygiene Cleanup RC0-RC5 follows VTA5; all six phases remain.
+Deterministic
+Trigonometry is owner-parked and excluded from progress.

@@ -11,7 +11,8 @@ Summary:
   camera slot, Planning's one eased clock, and the existing attached-camera
   follow owner while Replay remains the sole owner of the saved main-camera
   identity and live restore transaction. Exact-frame contact presentation is
-  copied before the final restore can retire its source solver ring. The
+  copied before the final restore can retire its recorded solver ring or
+  replace its exact prediction evidence bank. The
   adjacent solver panel shares one Planning layout projection between drawing
   and hit-testing, and App composes its mouse ownership ahead of the cause tree.
 
@@ -35,8 +36,8 @@ Invariants:
     a typed command has arrived from the selected ImGui surface.
   - Causal restore completion must acknowledge the generation that issued it;
     an interrupted or superseded row cannot reveal stale detail.
-  - Causal contact geometry and body poses are copied from the selected solver
-    sample before BuildRestoreRequest can authorize a destructive branch reset.
+  - Causal contact geometry and body poses are copied from the exact recorded
+    sample or predicted frame before restore or replacement can retire its source.
   - Solver-panel wheel input is consumed only inside the visible shared panel
     bounds and cannot fall through to the cause-tree surface.
 
@@ -579,6 +580,22 @@ void ReplayRuntime::ApplyCauseTreeSelection( int requestedRow, const ReplayWorks
                                                                BuildReplayCauseContactPresentation( detail,
                                                                                                     *presentedSolver ) );
     }
+    else if ( seek.source == ReplayCauseSeekSource::Prediction )
+    {
+        const auto predictionFrames = m_predictionOwner.ActiveFrames();
+        const auto exactFrame = std::find_if( predictionFrames.begin(), predictionFrames.end(),
+                                              [&]( const RunReplayPredictionFrame& frame )
+                                              { return frame.frameIndex == seek.frame; } );
+        const ReplayPredictionSolverEvidenceFrameView evidence = m_predictionOwner.SolverEvidenceForPresentedFrame( seek.frame );
+        const ReplayCauseSolverDetailResult detail = EvaluateReplayCauseSolverDetail( selectedRow, seek,
+                                                                                      { seek.frame, {}, {}, evidence } );
+        const Rendering::ContactManifoldPresentation manifold = exactFrame != predictionFrames.end()
+                                                                    ? BuildReplayCauseContactPresentation( detail,
+                                                                                                           *exactFrame )
+                                                                    : Rendering::ContactManifoldPresentation {};
+        const ReplayCauseInspectionView inspection = m_planningOwner.CauseInspectionView();
+        m_planningOwner.CauseInspection().PublishSolverDetail( inspection.generation, detail, manifold );
+    }
 
     // Invariant: camera focus and transport generation begin in the same turn.
     // A restore completion can therefore acknowledge only the detail view that
@@ -710,9 +727,14 @@ void ReplayRuntime::ApplyCauseInspectionTransition( const ReplayWorkspaceFrameIn
 
     if ( m_authoring.TryGetCauseTreeRow( view.selectedRow, selectedRow ) )
     {
-        transition.PublishSolverDetail( transport.generation,
-                                        EvaluateReplayCauseSolverDetail( selectedRow, predictionSeek,
-                                                                         { transport.targetFrame, {}, {} } ) );
+        const ReplayPredictionSolverEvidenceFrameView evidence = m_predictionOwner.SolverEvidenceForPresentedFrame( transport.targetFrame );
+        const ReplayCauseSolverDetailResult detail = EvaluateReplayCauseSolverDetail( selectedRow, predictionSeek,
+                                                                                      { transport.targetFrame,
+                                                                                        {},
+                                                                                        {},
+                                                                                        evidence } );
+        transition.PublishSolverDetail( transport.generation, detail,
+                                        BuildReplayCauseContactPresentation( detail, *found ) );
     }
 
     transition.CompleteTransport( transport.generation, true );
@@ -805,7 +827,12 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
     const bool planningOwnsMouse = m_planningOwner.TickPointerSurface( input.uiBlocksMouse, input.screenWidth, inputRouter );
 
     const RuntimePointerEvent& preScrubberPointer = inputRouter.RuntimeSnapshot().pointer;
-    const bool pointerOverCauseWindow = !m_authoring.CauseTree().rows.empty() && preScrubberPointer.hasClientPosition &&
+    const bool predictionCauseRows = !m_authoring.CauseTree().rows.empty() &&
+                                     m_authoring.CauseTree().rows.front().prediction;
+    const bool causeWindowAvailable = !m_authoring.CauseTree().rows.empty() &&
+                                      ReplayPredictionCauseWindowAvailable( m_predictionOwner.PresentationView().detailMode,
+                                                                            predictionCauseRows );
+    const bool pointerOverCauseWindow = causeWindowAvailable && preScrubberPointer.hasClientPosition &&
                                         ReplayOverlay::ReplayCauseWindowContainsPoint( m_authoring.CauseTree(),
                                                                                        preScrubberPointer.clientX,
                                                                                        preScrubberPointer.clientY );
@@ -1540,6 +1567,7 @@ ReplayScrubberPointerDecision ReplayScrubber::ResolvePointerAction( const Replay
                                                                                   frame.scenePhysicsEnabled );
 
     surfaceInput.predictionEnabled = frame.predictionEnabled;
+    surfaceInput.predictionHighDetail = frame.predictionHighDetail;
     surfaceInput.hotZoneEnabled = !frame.uiBlocksMouse;
     surfaceInput.screenW = frame.screenWidth;
     surfaceInput.screenH = frame.screenHeight;
@@ -1630,6 +1658,63 @@ ReplayScrubberPointerDecision ReplayScrubber::ResolvePointerAction( const Replay
     }
 
     return decision;
+}
+
+ReplayPredictionDetailTransitionAction
+ReplayRuntime::ApplyPredictionDetailModeCommand( ReplayPredictionDetailMode requestedMode )
+{
+    const ReplayPredictionDetailTransitionAction
+        expectedActions = EvaluateReplayPredictionDetailTransition( m_predictionOwner.PresentationView().detailMode,
+                                                                    requestedMode );
+    const bool releasesEvidence = ReplayPredictionDetailTransitionHas( expectedActions,
+                                                                       ReplayPredictionDetailTransitionAction::
+                                                                           ReleaseHighDetailCapacity );
+    SkullbonezCore::Core::MainMemoryReplayStats before;
+
+    if ( releasesEvidence )
+    {
+        before = CollectMemoryStats();
+    }
+
+    const ReplayPredictionDetailTransitionAction actions = m_predictionOwner.ApplyDetailModeCommand( ReplayPredictionDetailModeCommand { requestedMode } );
+
+    if ( releasesEvidence )
+    {
+        const SkullbonezCore::Core::MainMemoryReplayStats after = CollectMemoryStats();
+
+        // Invariant: these four scalars come from the same synchronous command
+        // as the evidence-bank before/after capacities. No frame work can run
+        // between the two complete replay snapshots.
+        m_predictionEvidenceReleaseBeforeReplayTotalBytes = before.totalBytes;
+        m_predictionEvidenceReleaseAfterReplayTotalBytes = after.totalBytes;
+        m_predictionEvidenceReleaseBeforeCategoryTotalBytes = SkullbonezCore::Core::MainMemoryReplayCategoryTotalBytes( before.categoryBytes );
+        m_predictionEvidenceReleaseAfterCategoryTotalBytes = SkullbonezCore::Core::MainMemoryReplayCategoryTotalBytes( after.categoryBytes );
+    }
+
+    return actions;
+}
+
+bool ReplayRuntime::ClearPredictionCauseWindowForDetailTransition( ReplayPredictionDetailTransitionAction actions )
+{
+    if ( !ReplayPredictionDetailTransitionHas( actions, ReplayPredictionDetailTransitionAction::ClearPredictionInspection ) )
+    {
+        return false;
+    }
+
+    const RunReplayCauseTreeState& causeTree = m_authoring.CauseTree();
+    const bool predictionCauseWindow = !causeTree.rows.empty() && causeTree.rows.front().prediction;
+
+    if ( !predictionCauseWindow )
+    {
+        return false;
+    }
+
+    const bool predictionInspection = causeTree.selectedRow >= 0 &&
+                                      causeTree.selectedRow < static_cast<int>( causeTree.rows.size() ) &&
+                                      causeTree.rows[static_cast<std::size_t>( causeTree.selectedRow )].prediction;
+    m_authoring.ResetCauseTreeRows();
+    m_planningOwner.CauseInspection().Reset();
+    return predictionInspection;
 }
 
 void ReplayRuntime::ApplyTransportCommand( const ReplayTransportCommand& command, const ReplayTransportHostContext& host,
@@ -1778,6 +1863,21 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayTransportCommand& command
                                        output.enterInteractive );
 
         break;
+    case ReplayTransportAction::SetPredictionDetailMode:
+    {
+        const ReplayPredictionDetailMode requestedMode = command.enabled ? ReplayPredictionDetailMode::High
+                                                                         : ReplayPredictionDetailMode::Low;
+        const ReplayPredictionDetailTransitionAction actions = ApplyPredictionDetailModeCommand( requestedMode );
+
+        if ( ClearPredictionCauseWindowForDetailTransition( actions ) )
+        {
+            ExitInspectionCamera( cameras, terrain, camera, host.normalizedRestoreMode, host.attachedFollow,
+                                  host.directorGrabbed, interaction, inputRouter );
+        }
+
+        feedback( requestedMode == ReplayPredictionDetailMode::High ? "HIGH DETAIL" : "LOW DETAIL" );
+        break;
+    }
     case ReplayTransportAction::SetPredictionHorizon:
         m_predictionOwner.SetHorizonSeconds( std::clamp( command.value, REPLAY_PREDICTION_MIN_SECONDS, REPLAY_PREDICTION_MAX_SECONDS ) );
         KeepReplayScrubberVisible( m_scrubberOwner, host.now );
@@ -1873,6 +1973,7 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput( bool uiBlocksMous
     pointerFrame.loadedPresentation = loadedPresentation;
     pointerFrame.pathTargetAvailable = m_visualPresentation.PathVisualizer().hasTarget;
     pointerFrame.predictionEnabled = m_predictionOwner.State().enabled;
+    pointerFrame.predictionHighDetail = m_predictionOwner.PresentationView().detailMode == ReplayPredictionDetailMode::High;
     pointerFrame.predictionTimelineAvailable = m_predictionOwner.ActiveFrames().size() >= 2 ||
                                                m_predictionOwner.State().BuildPrefixShouldBePresented();
 
@@ -1927,13 +2028,23 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput( bool uiBlocksMous
         output.consumesMouse = true;
         return hostAction;
     }
-    case ReplayScrubberAction::TogglePause:
-        HandleReplayPausePressed( m_predictionOwner, m_visualPresentation, m_scrubberOwner, solverPresentTrackPosition,
-                                  m_authoring.VelocityEdit().enabled, hasCameraFocus, inputRouter, interaction, camera, now,
-                                  output.enterInteractive );
+    case ReplayScrubberAction::SetPredictionDetailMode:
+    {
+        const ReplayPredictionDetailMode requestedMode = m_predictionOwner.PresentationView().detailMode ==
+                                                                 ReplayPredictionDetailMode::High
+                                                             ? ReplayPredictionDetailMode::Low
+                                                             : ReplayPredictionDetailMode::High;
+        const ReplayPredictionDetailTransitionAction actions = ApplyPredictionDetailModeCommand( requestedMode );
 
+        if ( ClearPredictionCauseWindowForDetailTransition( actions ) )
+        {
+            hostAction = ReplayInspectionCameraAction::Exit;
+        }
+
+        KeepReplayScrubberVisible( m_scrubberOwner, now );
         consumesMouse = true;
         break;
+    }
     case ReplayScrubberAction::ToggleVelocityEdit:
         HandleReplayVelocityEditPressed( m_authoring, m_predictionOwner, m_visualPresentation, m_scrubberOwner,
                                          solverPresentTrackPosition, hasCameraFocus, inputRouter, interaction, camera, now,

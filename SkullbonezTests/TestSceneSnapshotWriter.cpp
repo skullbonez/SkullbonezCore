@@ -25,6 +25,7 @@ Invariants:
   - Direct entities remain in objects[] and retain explicit schema-v4 ids.
   - Reparse uses live state rather than recomposing the asset recipe transform.
   - Contact-material text survives save/reparse through the cold authoring row.
+  - Resolved orbital membership round-trips through current entity names.
   - Every runtime save entry serializes all three owner publications.
 
 Related:
@@ -110,6 +111,7 @@ TEST_CASE( "Scene save owners publish every session and presentation field" )
     SceneSessionState session;
     session.isScenePhysics = false;
     session.isSceneText = false;
+    session.predictionAllBodiesSpaceSeed = true;
     session.isEditableScene = true;
     session.isFixedStep = true;
     session.hasFlatSlope = true;
@@ -120,6 +122,7 @@ TEST_CASE( "Scene save owners publish every session and presentation field" )
     const SceneSessionSaveState sessionSave = session.GetSaveState();
     CHECK_FALSE( sessionSave.physicsOn );
     CHECK_FALSE( sessionSave.textOn );
+    CHECK( sessionSave.predictionAllBodiesSpace );
     CHECK( sessionSave.editableScene );
     CHECK( sessionSave.fixedStep );
     CHECK( sessionSave.hasFlatSlope );
@@ -143,6 +146,7 @@ void CheckCompleteOwnerPublication( const char* path, const SceneWorldSaveState&
     REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadAuthoredScene( diagnostics, path, saved ) );
     CHECK( saved.IsPhysicsEnabled() == session.physicsOn );
     CHECK( saved.IsTextEnabled() == session.textOn );
+    CHECK( saved.PredictionShowsAllBodies() == session.predictionAllBodiesSpace );
     CHECK( saved.IsEditableScene() == session.editableScene );
     CHECK( saved.IsFixedStep() == session.fixedStep );
     CHECK( saved.IsWaterHidden() == presentation.waterHidden );
@@ -211,6 +215,7 @@ TEST_CASE( "Scene save entry policies serialize complete owner publications" )
     SceneSessionState sessionOwner;
     sessionOwner.isScenePhysics = true;
     sessionOwner.isSceneText = false;
+    sessionOwner.predictionAllBodiesSpaceSeed = true;
     sessionOwner.isEditableScene = true;
     sessionOwner.isFixedStep = true;
     sessionOwner.hasFlatSlope = true;
@@ -687,6 +692,17 @@ TEST_CASE( "SceneSnapshotWriter: schema-v4 asset parts reparse from authoritativ
     mutualGravity.gravitationalConstant = 6.25f;
     mutualGravity.softeningLength = 0.75f;
     mutualGravity.elasticCollisions = false;
+    Scene::OrbitalStabilityContract orbitalStability;
+    orbitalStability.enabled = true;
+    orbitalStability.escapeGraceSeconds = 5.0;
+    orbitalStability.memberCount = 2u;
+    orbitalStability.members[0].sceneObjectId = PhysicsSceneObjectId { 300u };
+    orbitalStability.members[0].role = Scene::OrbitalStabilityMemberRole::Primary;
+    orbitalStability.members[1].sceneObjectId = PhysicsSceneObjectId { 99u };
+    orbitalStability.members[1].role = Scene::OrbitalStabilityMemberRole::CoreOrbiter;
+    orbitalStability.members[1].innerRadius = 60.0;
+    orbitalStability.members[1].outerRadius = 100.0;
+    orbitalStability.members[1].escapeStartRadius = 90.0;
     const SceneWorldSaveState world { entities,
                                       bodies,
                                       colliders,
@@ -698,9 +714,10 @@ TEST_CASE( "SceneSnapshotWriter: schema-v4 asset parts reparse from authoritativ
                                       mutualGravity,
                                       Vector3( 1.0f, 2.0f, 3.0f ),
                                       Vector3( 4.0f, 5.0f, 6.0f ),
-                                      Vector3( 0.0f, 1.0f, 0.0f ) };
+                                      Vector3( 0.0f, 1.0f, 0.0f ),
+                                      orbitalStability };
 
-    const SceneSessionSaveState session { true, false, true, true, true, 7.5f, 0.25f, -0.5f };
+    const SceneSessionSaveState session { true, false, true, true, true, true, 7.5f, 0.25f, -0.5f };
     const PresentationSaveState presentation { true, true };
     const SceneSaveRequest request { kSnapshotPath, world, session, presentation };
     REQUIRE( SceneSnapshotWriter::Save( diagnostics, request ).Ok() );
@@ -710,6 +727,7 @@ TEST_CASE( "SceneSnapshotWriter: schema-v4 asset parts reparse from authoritativ
     CHECK( saved.GetSchemaVersion() == 4u );
     CHECK( saved.IsPhysicsEnabled() );
     CHECK_FALSE( saved.IsTextEnabled() );
+    CHECK( saved.PredictionShowsAllBodies() );
     CHECK( saved.IsEditableScene() );
     CHECK( saved.IsFixedStep() );
     CHECK( saved.IsWaterHidden() );
@@ -730,6 +748,17 @@ TEST_CASE( "SceneSnapshotWriter: schema-v4 asset parts reparse from authoritativ
     CHECK( savedMutualGravity.gravitationalConstant == doctest::Approx( 6.25f ) );
     CHECK( savedMutualGravity.softeningLength == doctest::Approx( 0.75f ) );
     CHECK_FALSE( savedMutualGravity.elasticCollisions );
+    const Scene::OrbitalStabilityContract& savedOrbitalStability = saved.GetOrbitalStabilityContract();
+    REQUIRE( savedOrbitalStability.enabled );
+    REQUIRE( savedOrbitalStability.memberCount == 2u );
+    CHECK( savedOrbitalStability.escapeGraceSeconds == doctest::Approx( 5.0 ) );
+    CHECK( savedOrbitalStability.members[0].sceneObjectId.value == 300u );
+    CHECK( savedOrbitalStability.members[0].role == Scene::OrbitalStabilityMemberRole::Primary );
+    CHECK( savedOrbitalStability.members[1].sceneObjectId.value == 99u );
+    CHECK( savedOrbitalStability.members[1].role == Scene::OrbitalStabilityMemberRole::CoreOrbiter );
+    CHECK( savedOrbitalStability.members[1].innerRadius == doctest::Approx( 60.0 ) );
+    CHECK( savedOrbitalStability.members[1].outerRadius == doctest::Approx( 100.0 ) );
+    CHECK( savedOrbitalStability.members[1].escapeStartRadius == doctest::Approx( 90.0 ) );
     CHECK( saved.GetAssetLibraryCount() == 1 );
     CHECK( saved.GetAssetInstanceCount() == 1 );
     CHECK( saved.GetAssetPartCount() == 3 );

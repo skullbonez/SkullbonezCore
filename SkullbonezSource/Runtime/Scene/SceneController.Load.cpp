@@ -1038,6 +1038,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 
         SceneState().isScenePhysics = scene.IsPhysicsEnabled();
         SceneState().isSceneText = scene.IsTextEnabled();
+        SceneState().predictionAllBodiesSpaceSeed = scene.PredictionShowsAllBodies();
         diagnosticsRuntime.ConfigurePerfLogFlush( scene.IsPerfLogFlushEnabled(), scene.GetPerfLogFlushInterval() );
         debug.physicsDebugFlags = scene.GetPhysicsDebugFlags();
         debug.isPhysicsDebugTransparent = scene.IsPhysicsDebugTransparent();

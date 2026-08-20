@@ -28,6 +28,7 @@ Related:
 #include "AssetKeys.h"
 #include "../Core/SceneCapacity.h"
 #include "../Core/Common.h"
+#include "../Core/FatalError.h"
 #include "../Core/SbResult.h"
 
 #include <array>
@@ -75,6 +76,20 @@ class TextureCollection
     };
 
   private:
+    template <typename SlotRange> static int FindFreeSlotOrFatal( const SlotRange& textures )
+    {
+        for ( std::size_t index = 0; index < textures.size(); ++index )
+        {
+            if ( !textures[index].IsResident() )
+            {
+                return static_cast<int>( index );
+            }
+        }
+
+        SB_FATAL( "TextureCollection", "Texture slot capacity exhausted. capacity=%zu", textures.size() );
+    }
+
+    friend struct TextureCollectionTestAccess;
     int FindIndex( uint32_t hash ) const;
     int FindIndexNoThrow( uint32_t hash ) const;
     int FindFreeSlot() const;

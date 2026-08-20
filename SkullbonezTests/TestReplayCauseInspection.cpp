@@ -9,6 +9,9 @@
 //   stable expired-frame refusal without consulting transient solver detail.
 //   Exact-frame detail tests then prove manifold-row grouping, stage joins, and
 //   distinct expired-versus-unavailable outcomes without retaining source data.
+//   Prediction Manifold and SolverRow cases resolve only a complete immutable
+//   evidence-bank stamp; synthetic rows and every stale or same-frame-replaced
+//   identity stay unavailable.
 //   Presentation tests pin event-frame body poses, exact ManifoldRow points,
 //   derived surviving-row points, owned packet publication, solver-row copy
 //   lifetime, the compact unavailable state, and the up-to-four-row scrolling
@@ -21,6 +24,9 @@
 // Invariants:
 //   - Retained-window boundaries are inclusive at the oldest frame and exclusive at the live edge.
 //   - Prediction rows require an exact published frame, including terrain-independent contact rows.
+//   - A prediction row never borrows recorded/current diagnostics or a replacement evidence bank as solver detail.
+//   - Prediction contact geometry is projected from exact event-frame poses,
+//     not live or recorded body positions.
 //   - Missing pipeline detail never disables transport for a retained frame.
 //   - A current or coincident diagnostics row never substitutes for a mismatched frame stamp or row index.
 //   - Detached contact packets use exact retained points when present and derive
@@ -248,13 +254,160 @@ TEST_CASE( "Replay cause solver detail: unavailable states never substitute diag
         CHECK( std::strcmp( detail.Feedback(), "Replay frame expired" ) == 0 );
     }
 
-    SUBCASE( "prediction contact has no retained solver diagnostics" )
+    SUBCASE( "prediction rows preserve the unavailable negative control" )
     {
         row.prediction = true;
         seek.source = ReplayCauseSeekSource::Prediction;
-        const ReplayCauseSolverDetailResult detail = EvaluateReplayCauseSolverDetail( row, seek, { 84u, contacts, {} } );
-        CHECK( detail.availability == ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable );
+
+        for ( RunReplayCauseTreeRowKind kind :
+              { RunReplayCauseTreeRowKind::PredictionContact, RunReplayCauseTreeRowKind::Manifold,
+                RunReplayCauseTreeRowKind::SolverRow } )
+        {
+            row.kind = kind;
+            const ReplayCauseSolverDetailResult detail = EvaluateReplayCauseSolverDetail( row, seek, { 84u, contacts, {} } );
+            CHECK_FALSE( detail.HasDetail() );
+            CHECK( detail.availability == ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable );
+            CHECK( std::strcmp( detail.Feedback(), "Solver detail not available" ) == 0 );
+        }
     }
+}
+
+TEST_CASE( "Replay cause solver detail: predicted rows require the exact immutable evidence identity" )
+{
+    using SkullbonezCore::Physics::PhysicsPipelineRecord;
+    using SkullbonezCore::Physics::PhysicsPipelineStage;
+    using SkullbonezCore::Physics::PhysicsSolverPersistentContactSample;
+
+    ReplayPredictionSolverEvidenceBanks banks;
+    const uint64_t epoch = banks.BeginBuild( 7u, ReplayPredictionDetailMode::High );
+    std::array<PhysicsSolverPersistentContactSample, 2> contacts;
+    contacts[0].bodyA = 3;
+    contacts[0].bodyB = 7;
+    contacts[0].featureId = 101u;
+    contacts[1].bodyA = 7;
+    contacts[1].bodyB = 3;
+    contacts[1].featureId = 102u;
+    std::array<PhysicsPipelineRecord, 3> pipeline;
+    pipeline[0] = { .stage = PhysicsPipelineStage::ManifoldRow, .bodyA = 3, .bodyB = 7, .featureId = 101u };
+    pipeline[1] = { .stage = PhysicsPipelineStage::WarmStart, .bodyA = 3, .bodyB = 7, .featureId = 102u };
+    pipeline[2] = { .stage = PhysicsPipelineStage::SolverIteration,
+                    .bodyA = 3,
+                    .bodyB = 7,
+                    .iteration = 0,
+                    .featureId = 101u };
+    REQUIRE( banks.AppendBuildFrame( 84u, 3u, 900u, contacts, pipeline, 84 ) );
+    REQUIRE( banks.PromoteBuild() );
+    const ReplayPredictionSolverEvidenceFrame* frame = banks.Committed().PublishedFrame( 0u );
+    REQUIRE( frame != nullptr );
+
+    RunReplayCauseTreeRow row;
+    row.kind = RunReplayCauseTreeRowKind::Manifold;
+    row.firstFrame = 84u;
+    row.modelRow.value = 3;
+    row.counterpartModelRow.value = 7;
+    row.contactIndex = 0;
+    row.pipelineIndex = 0;
+    row.featureId = 101;
+    row.prediction = true;
+    row.sourceGeneration = 7u;
+    row.sourceBankEpoch = epoch;
+    row.sourceTopologyVersion = 3u;
+    row.sourcePublicationVersion = 900u;
+    row.sourceHighDetail = true;
+
+    ReplayCauseSeekResult seek;
+    seek.availability = ReplayCauseSeekAvailability::Available;
+    seek.source = ReplayCauseSeekSource::Prediction;
+    seek.frame = 84u;
+    ReplayCauseSolverDetailSource source;
+    source.frame = 84u;
+    source.prediction = { &banks.Committed(), frame };
+
+    const ReplayCauseSolverDetailResult exact = EvaluateReplayCauseSolverDetail( row, seek, source );
+    REQUIRE( exact.HasDetail() );
+    CHECK( exact.contactRowCount == 2u );
+    CHECK( exact.pipelineRecordCount == 3u );
+    CHECK( exact.ContactRowAt( 1u )->featureId == 102u );
+    CHECK( exact.PipelineRecordAt( 2u )->iteration == 0 );
+
+    RunReplayPredictionFrame predictionFrame;
+    predictionFrame.frameIndex = 84u;
+    RunReplayPredictionBodySample bodyA;
+    bodyA.id.value = 30u;
+    bodyA.modelRow.value = 3;
+    bodyA.position = SkullbonezCore::Math::Vector::Vector3( 1.0f, 2.0f, 3.0f );
+    RunReplayPredictionBodySample bodyB;
+    bodyB.id.value = 70u;
+    bodyB.modelRow.value = 7;
+    bodyB.position = SkullbonezCore::Math::Vector::Vector3( 4.0f, 5.0f, 6.0f );
+    predictionFrame.bodies = { bodyA, bodyB };
+    const SkullbonezCore::Rendering::ContactManifoldPresentation
+        manifold = BuildReplayCauseContactPresentation( exact, predictionFrame );
+    CHECK( manifold.bodyCount == 2u );
+    CHECK( manifold.pointCount == 2u );
+
+    ReplayCauseInspection inspection;
+    REQUIRE( inspection.Select( 2, seek, 0u, false, 1.0 ) );
+    inspection.Advance( 2.5 );
+    ReplayCauseTransportRequest transport;
+    REQUIRE( inspection.TakeTransportRequest( transport ) );
+    inspection.PublishSolverDetail( transport.generation, exact, manifold );
+    inspection.CompleteTransport( transport.generation, true );
+    CHECK( inspection.View().detailVisible );
+    CHECK( inspection.View().solverDetailAvailability == ReplayCauseSolverDetailAvailability::Available );
+    CHECK( inspection.View().solverDetailContactRowCount == 2u );
+    CHECK( inspection.View().solverDetailPipelineRecordCount == 3u );
+
+    const auto rejected = [&]( RunReplayCauseTreeRow candidate,
+                               ReplayCauseSolverDetailSource candidateSource = ReplayCauseSolverDetailSource {} )
+    {
+        if ( !candidateSource.prediction.Valid() )
+        {
+            candidateSource = source;
+        }
+
+        return !EvaluateReplayCauseSolverDetail( candidate, seek, candidateSource ).HasDetail();
+    };
+
+    RunReplayCauseTreeRow candidate = row;
+    ++candidate.sourceGeneration;
+    CHECK( rejected( candidate ) );
+    candidate = row;
+    candidate.sourceHighDetail = false;
+    CHECK( rejected( candidate ) );
+    candidate = row;
+    ++candidate.sourceBankEpoch;
+    CHECK( rejected( candidate ) );
+    candidate = row;
+    ++candidate.sourceTopologyVersion;
+    CHECK( rejected( candidate ) );
+    candidate = row;
+    ++candidate.sourcePublicationVersion;
+    CHECK( rejected( candidate ) );
+    candidate = row;
+    candidate.contactIndex = 2;
+    CHECK( rejected( candidate ) );
+    candidate = row;
+    candidate.pipelineIndex = 1;
+    CHECK( rejected( candidate ) );
+    candidate = row;
+    ++candidate.featureId;
+    CHECK( rejected( candidate ) );
+
+    ReplayCauseSeekResult wrongFrameSeek = seek;
+    wrongFrameSeek.frame = 85u;
+    CHECK_FALSE( EvaluateReplayCauseSolverDetail( row, wrongFrameSeek, source ).HasDetail() );
+
+    const uint64_t replacementEpoch = banks.BeginBuild( 8u, ReplayPredictionDetailMode::High );
+    REQUIRE( replacementEpoch != epoch );
+    REQUIRE( banks.AppendBuildFrame( 84u, 4u, 901u, contacts, pipeline, 84 ) );
+    REQUIRE( banks.PromoteBuild() );
+    const ReplayPredictionSolverEvidenceFrame* replacement = banks.Committed().PublishedFrame( 0u );
+    REQUIRE( replacement != nullptr );
+    ReplayCauseSolverDetailSource replacementSource;
+    replacementSource.frame = 84u;
+    replacementSource.prediction = { &banks.Committed(), replacement };
+    CHECK( rejected( row, replacementSource ) );
 }
 
 TEST_CASE( "Replay cause solver panel: copied rows survive restore sources and scroll four at a time" )
@@ -342,8 +495,8 @@ TEST_CASE( "Replay cause solver panel: copied rows survive restore sources and s
     causeTree.x = 1114;
     causeTree.y = 28;
     causeTree.width = 380;
-    const ReplayCauseSolverPanelLayout compactUnavailable =
-        BuildReplayCauseSolverPanelLayout( unavailable, causeTree, 1125, 541 );
+    const ReplayCauseSolverPanelLayout compactUnavailable = BuildReplayCauseSolverPanelLayout( unavailable, causeTree, 1125,
+                                                                                               541 );
     CHECK( compactUnavailable.panel.w == doctest::Approx( REPLAY_CAUSE_SOLVER_PANEL_WIDTH ) );
     CHECK( compactUnavailable.panel.h < 200.0f );
     CHECK( compactUnavailable.panel.w < 1125.0f * 0.5f );
@@ -529,18 +682,17 @@ TEST_CASE( "Replay solver panel: value mapping includes exact values units and s
                         "UNITS: vectors/penetration/correction = scene units; bias/linear writeback = u/s;" ) == 0 );
     CHECK( std::strcmp( REPLAY_CAUSE_SOLVER_PANEL_UNITS_MORE,
                         "angular = rad/s; impulses = mass*u/s; effective masses = mass." ) == 0 );
-    CHECK( std::strcmp( REPLAY_CAUSE_SOLVER_PANEL_SIGNS,
-                        "SIGNS: +penetration = overlap; normal/t1/t2 = world-space;" ) == 0 );
+    CHECK( std::strcmp( REPLAY_CAUSE_SOLVER_PANEL_SIGNS, "SIGNS: +penetration = overlap; normal/t1/t2 = world-space;" ) ==
+           0 );
     CHECK( std::strcmp( REPLAY_CAUSE_SOLVER_PANEL_SIGNS_MORE,
                         "signed accT1/accT2 follow t1/t2; CLAMP = frictionLimit reached." ) == 0 );
     CHECK( std::strcmp( values.headline, "ROW 0  FEATURE 101  BODIES 3 / 7  POINT (7.0000, 8.0000, 9.0000)" ) == 0 );
-    CHECK( std::strcmp( values.basis,
-                        "n (0.1000 0.2000 0.3000)  t1 (0.4000 0.5000 0.6000)  t2 (0.7000 0.8000 0.9000)" ) == 0 );
-    CHECK( std::strcmp( values.geometry,
-                        "rA (1.2500 2.5000 3.7500)  rB (4.0000 5.0000 6.0000)  penetration 0.12500" ) == 0 );
-    CHECK( std::strcmp( values.masses,
-                        "normalMass 2.00000  tangentMass (2.25000, 2.50000)  bias 2.75000  frictionLimit 3.00000" ) ==
+    CHECK( std::strcmp( values.basis, "n (0.1000 0.2000 0.3000)  t1 (0.4000 0.5000 0.6000)  t2 (0.7000 0.8000 0.9000)" ) ==
            0 );
+    CHECK( std::strcmp( values.geometry, "rA (1.2500 2.5000 3.7500)  rB (4.0000 5.0000 6.0000)  penetration 0.12500" ) ==
+           0 );
+    CHECK( std::strcmp( values.masses,
+                        "normalMass 2.00000  tangentMass (2.25000, 2.50000)  bias 2.75000  frictionLimit 3.00000" ) == 0 );
     CHECK( std::strcmp( values.impulses,
                         "accN 3.50000  accT1 -3.75000  accT2 4.00000  warm-start YES  previous normal impulse 11.25000" ) ==
            0 );

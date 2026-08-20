@@ -223,6 +223,7 @@
     <ClCompile Include="SkullbonezTests\TestEditorCommandHistory.cpp" />
     <ClCompile Include="SkullbonezTests\TestEditorTerrainOrientation.cpp" />
     <ClCompile Include="SkullbonezTests\TestSceneEntityStore.cpp" />
+    <ClCompile Include="SkullbonezTests\TestSceneAutomationGates.cpp" />
     <ClCompile Include="SkullbonezTests\TestSceneSnapshotWriter.cpp" />
     <ClCompile Include="SkullbonezTests\TestPersistentContactSolver.cpp" />
     <ClCompile Include="SkullbonezTests\TestPhysicsApi.cpp" />
@@ -243,6 +244,9 @@
     <ClCompile Include="SkullbonezTests\TestOperatorCommandTransaction.cpp" />
     <ClCompile Include="SkullbonezTests\TestUIDrawValues.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayPredictionScheduling.cpp" />
+    <ClCompile Include="SkullbonezTests\TestContinuousPredictionProducer.cpp" />
+    <ClCompile Include="SkullbonezTests\TestContinuousOrbitalStability.cpp" />
+    <ClCompile Include="SkullbonezTests\TestReplayPredictionSolverEvidenceStore.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayGuideArcs.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayTripPlanner.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayCauseInspection.cpp" />
@@ -322,7 +326,12 @@
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayArtifactHashLog.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayTimeline.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Prediction\ContinuousPredictionProducer.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\ContinuousOrbitalStability.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\ContinuousOrbitalForecast.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Prediction\ContinuousPredictionSampleRing.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionReserve.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionSolverEvidenceStore.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\TrajectoryStore.cpp" />
     <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionPublication.MarkerScan.inl" />
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionPublication.cpp" />

@@ -6,12 +6,20 @@ Purpose:
 Summary:
   ReplayPrediction owns isolated future simulation and coherent completed-prefix publication.
   Readers consume a never-stored presentation view whose trajectory bank remains visible while
-  its hidden replacement resumes in the opposite trajectory bank.
+  its hidden replacement resumes in the opposite trajectory bank. Paired solver-evidence banks
+  retain exact High-detail contact and pipeline rows until promotion or an explicit Low-detail
+  release boundary. A loaded artifact's captured capability remains separate
+  from the active High/Low preference even when Low discards its evidence rows.
 Invariants:
   - Worker publication retains the release/acquire prefix protocol.
   - Presentation consumers cannot observe rows beyond the prepared prefix.
   - Prediction owns its private engine and never mutates live physics stores.
   - Cancellation waits for an in-flight worker slice before clearing state.
+  - Only the private prediction engine enables full solver-pipeline capture;
+    every acquisition is paired with release on promotion, cancellation, mode
+    transition, restart, or destruction.
+  - Exact-detail callers borrow one sealed frame from the bank selected for
+    presentation and must not retain that view across a prediction command.
 
 Related:
   - SkullbonezSource/Runtime/App/ReplayRuntime.h
@@ -25,6 +33,7 @@ Related:
 #include "ReplayPredictionPresentation.h"
 #include "ReplayPredictionView.h"
 #include "ReplayPredictionScheduling.h"
+#include "ReplayPredictionSolverEvidenceStore.h"
 #include "../Replay/ReplayRecorder.h"
 #include "../Replay/ReplayVisualPacket.h"
 #include "TrajectoryStore.h"
@@ -333,9 +342,9 @@ struct RunReplayPredictionTrajectoryBuildState
     std::size_t childAppendTargetFrameCount = 0;
     std::size_t childAppendNodeIndex = 0;
 
-    // Concept: mutual-gravity scenes publish every body's future independently
-    // of contact causality. builtAllBodyCount resumes record allocation;
-    // allBodyFrameCount is the shared time watermark published across them.
+    // Concept: explicit all-body presentation publishes every body's future
+    // independently of contact causality. builtAllBodyCount resumes record
+    // allocation; allBodyFrameCount is the shared time watermark across them.
     std::size_t allBodyFrameCount = 0;
     std::size_t builtAllBodyCount = 0;
     std::size_t allBodyBodyCount = 0;
@@ -343,7 +352,7 @@ struct RunReplayPredictionTrajectoryBuildState
     // Invariant: child trajectory records are drawable only when this version
     // matches the future-node cache version that selected their branch ordinals.
     uint32_t topologyVersion = 0;
-    bool allBodyPaths = false;
+    ReplayPredictionPathPresentation pathPresentation = ReplayPredictionPathPresentation::SelectedCausalTree;
     bool valid = false;
 
     bool AllBodyPublicationSourceChanged( Physics::PhysicsSceneObjectId expectedRootId, bool expectedBuildFrames,
@@ -352,9 +361,10 @@ struct RunReplayPredictionTrajectoryBuildState
     {
         // Invariant: only the already-built prefix can prove a missing record.
         // Later absent bodies are resumable work, not a source-identity change.
-        return !allBodyPaths || builtPrefixMissing || rootId.value != expectedRootId.value ||
-               usingBuildFrames != expectedBuildFrames || allBodyFrameCount > expectedFrameCount ||
-               builtAllBodyCount > expectedBodyCount || allBodyBodyCount != expectedBodyCount;
+        return !ReplayPredictionPathPresentationShowsAllBodies( pathPresentation ) || builtPrefixMissing ||
+               rootId.value != expectedRootId.value || usingBuildFrames != expectedBuildFrames ||
+               allBodyFrameCount > expectedFrameCount || builtAllBodyCount > expectedBodyCount ||
+               allBodyBodyCount != expectedBodyCount;
     }
 };
 
@@ -569,7 +579,7 @@ struct ReplayPredictionIsolatedSimulation
     // Runtime allocation policy: owner replay_prediction_working_set; reason:
     // private prediction needs bounded isolated physics storage for exploration;
     // deletion condition: none, this is the end-state isolation boundary;
-    // checker budget: 256 MB hard cap registered by ReplayPredictionReserveOwner().
+    // checker budget: 960 MiB hard cap registered by ReplayPredictionReserveOwner().
     std::unique_ptr<Physics::PhysicsEngine> predictionEngine;
     int predictionEngineReserveBytes = 0;    // Monotonic approved byte budget retained with predictionEngine.
     Gameplay::TornadoGameplay predictionTornadoGameplay;
@@ -750,9 +760,23 @@ struct ReplayPastTrajectoryUpdate
 struct ReplayPredictionMemoryStats
 {
     SkullbonezCore::Core::MainMemoryReplayCategoryBytes categoryBytes;
+    ReplayPredictionSolverEvidenceBanksMemoryStats evidence;
     SkullbonezCore::Core::MainMemoryReplayTrajectoryStats trajectory;
     std::size_t frameCount = 0;
     std::size_t futureNodeCount = 0;
+};
+
+// Validation snapshot for the paired private-engine diagnostics consumer and
+// the exact rows copied into prediction-owned evidence banks.
+struct ReplayPredictionSolverEvidenceCaptureStats
+{
+    uint64_t buildBeginCount = 0;
+    uint64_t consumerAcquireCount = 0;
+    uint64_t consumerReleaseCount = 0;
+    uint64_t sealedFrameCount = 0;
+    uint64_t copiedContactCount = 0;
+    uint64_t copiedPipelineCount = 0;
+    bool consumerActive = false;
 };
 
 class ReplayPrediction
@@ -762,6 +786,7 @@ class ReplayPrediction
         : m_profiler( profiler ), m_presentation( resultDiagnostics, profiler )
     {
     }
+    ~ReplayPrediction();
 
     const RunReplayPredictionState& State() const noexcept
     {
@@ -780,7 +805,10 @@ class ReplayPrediction
 
     ReplayPredictionPresentationView PresentationView() const noexcept
     {
-        return PresentationViewFromState( m_state, m_generationPermitted );
+        ReplayPredictionPresentationView view = PresentationViewFromState( m_state, m_generationPermitted );
+        view.detailMode = m_detailMode;
+        view.archiveDetailCapability = ArchiveDetailCapability();
+        return view;
     }
 
     static ReplayPredictionPresentationView PresentationViewFromState( const RunReplayPredictionState& predictionState,
@@ -864,7 +892,7 @@ class ReplayPrediction
                                                                        view.usingBuildFrames, view.frames.size(),
                                                                        view.futureNodes.size(), view.topologyVersion,
                                                                        view.futureNodesCacheValid );
-        view.showAllFuturePaths = presentedTrajectory.allBodyPaths;
+        view.pathPresentation = presentedTrajectory.pathPresentation;
         view.ragdollVisualsEnabled = predictionState.ragdollVisualsEnabled;
         view.baselineValid = predictionState.baseline.valid;
         view.baselineComparisonActive = predictionState.baseline.comparisonActive;
@@ -948,6 +976,7 @@ class ReplayPrediction
     // Owner commands used by validation and UI paths. These keep rebuild and
     // baseline invalidation coupled to the state transition that requires it.
     void SetEnabled( bool enabled ) noexcept;
+    ReplayPredictionDetailTransitionAction ApplyDetailModeCommand( ReplayPredictionDetailModeCommand command );
     void ApplyAuthoringRequest( const ReplayAuthoringPredictionRequest& request, float minHorizonSeconds,
                                 float maxHorizonSeconds );
     void DisableAndClearCache();
@@ -983,7 +1012,8 @@ class ReplayPrediction
                       ReplayPredictionUpdateResult& result );
     bool BeginFrameSimulation( Physics::PhysicsEngine& physicsEngine, const Gameplay::TornadoGameplay& tornadoGameplay,
                                const SceneEntityStore& entities, const SkullbonezCore::Core::EngineConfig& config,
-                               const Physics::PhysicsWorldForces& worldForces, Threading::WorkerPool& workerPool,
+                               const Physics::PhysicsWorldForces& worldForces,
+                               ReplayPredictionPathPresentation pathPresentation, Threading::WorkerPool& workerPool,
                                ReplayPredictionSourcePreparation preparation );
     void CompleteFrameSourceBegin( bool began, bool wasDirty, bool wasPendingLatestRestart ) noexcept;
     bool BeginFrameBudgetExpired( const std::chrono::steady_clock::time_point& budgetStart, double budgetMilliseconds,
@@ -1005,12 +1035,54 @@ class ReplayPrediction
                                      const ReplaySolverFrameSample& sample, ReplayPastTrajectoryUpdate& update );
     ReplayPredictionMemoryStats CollectMemoryStats() const;
 
+    ReplayPredictionSolverEvidenceCaptureStats SolverEvidenceCaptureStats() const noexcept;
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
+    ReplayPredictionDetailMode AutomationDetailMode() const noexcept
+    {
+        return m_detailMode;
+    }
+    const ReplayPredictionSolverEvidenceStore& AutomationCommittedSolverEvidence() const noexcept
+    {
+        return m_solverEvidence.Committed();
+    }
+#endif
+    ReplayPredictionArchiveDetailCapability ArchiveDetailCapability() const noexcept
+    {
+        if ( m_hasLoadedArchiveCapability )
+        {
+            return m_loadedArchiveCapability;
+        }
+
+        return m_solverEvidence.Committed().PublishedFrameCount() > 0u ? ReplayPredictionArchiveDetailCapability::High
+                                                                       : ReplayPredictionArchiveDetailCapability::Low;
+    }
+
+    // Returns a synchronous exact-frame borrow from the currently presented
+    // evidence bank. An invalid view means the frame is not sealed High detail.
+    ReplayPredictionSolverEvidenceFrameView SolverEvidenceForPresentedFrame( ReplayFrameIndex frame ) const noexcept;
+
+    // Internal worker/frame-thread commands keep the Physics diagnostics gate
+    // paired with the evidence bank that consumes its exact rows.
+    bool BeginSolverEvidenceBuild( uint32_t generation );
+    bool RefreshSolverEvidenceSource( Physics::PhysicsEngine& predictionEngine, int modelCount );
+    bool SealSolverEvidenceFrame( ReplayFrameIndex frame );
+    bool PromoteSolverEvidenceBuild() noexcept;
+    void CancelSolverEvidenceBuild() noexcept;
+
   private:
 
     // Lifetime: startup-bound diagnostics borrow; worker slices retain no owner state.
     Core::Profiler* m_profiler;
     ReplayPredictionPresentation m_presentation;
     RunReplayPredictionState m_state;
+    ReplayPredictionSolverEvidenceBanks m_solverEvidence;
+    ReplayPredictionSolverEvidenceCaptureStats m_solverEvidenceCaptureStats;
+    ReplayPredictionDetailMode m_detailMode = ReplayPredictionDetailMode::High;
+
+    // Captured archive capability describes the loaded source, not retained
+    // capacity under the active preference. ClearCache returns to live derivation.
+    ReplayPredictionArchiveDetailCapability m_loadedArchiveCapability = ReplayPredictionArchiveDetailCapability::Low;
+    bool m_hasLoadedArchiveCapability = false;
     bool m_generationPermitted = true;
 };
 
@@ -1113,8 +1185,9 @@ inline bool RunReplayPredictionState::FutureTreeReadyForDraw( const RunReplayPre
                                                               std::size_t frameCount, std::size_t nodeCount,
                                                               uint32_t topologyVersion, bool cacheValid ) noexcept
 {
-    const bool allBodyReady = !trajectory.allBodyPaths || ( trajectory.builtAllBodyCount == trajectory.allBodyBodyCount &&
-                                                            trajectory.allBodyFrameCount >= frameCount );
+    const bool allBodyReady = !ReplayPredictionPathPresentationShowsAllBodies( trajectory.pathPresentation ) ||
+                              ( trajectory.builtAllBodyCount == trajectory.allBodyBodyCount &&
+                                trajectory.allBodyFrameCount >= frameCount );
     return nodeCount > 0 && cacheValid && topologyVersion != 0 && trajectory.valid &&
            trajectory.rootId.value == rootId.value && trajectory.usingBuildFrames == usingBuildFrames &&
            trajectory.topologyVersion == topologyVersion && trajectory.builtNodeCount == nodeCount &&
@@ -1132,8 +1205,9 @@ RunReplayPredictionState::FutureTreePublicationComplete( const RunReplayPredicti
                                       ( futureNodeCache.futureNodesBuiltFrameCount >= frameCount &&
                                         futureNodeCache.futureNodesAffectedComplete &&
                                         futureNodeCache.futureNodesAffectedFrameCount >= frameCount );
-    const bool allBodyReady = !trajectory.allBodyPaths || ( trajectory.builtAllBodyCount == trajectory.allBodyBodyCount &&
-                                                            trajectory.allBodyFrameCount >= frameCount );
+    const bool allBodyReady = !ReplayPredictionPathPresentationShowsAllBodies( trajectory.pathPresentation ) ||
+                              ( trajectory.builtAllBodyCount == trajectory.allBodyBodyCount &&
+                                trajectory.allBodyFrameCount >= frameCount );
     return futureNodeCache.futureNodesCacheValid && topologyScanComplete && trajectory.valid &&
            trajectory.rootId.value == rootId.value && trajectory.usingBuildFrames == usingBuildFrames &&
            trajectory.topologyVersion == futureNodeCache.futureNodesTopologyVersion &&

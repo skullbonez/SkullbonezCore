@@ -9,6 +9,10 @@ Summary:
   Runtime owners are borrowed synchronously through one report call. The
   writer computes report facts, verifies any durable replay artifact, writes
   JSON, then releases every borrow before returning.
+  Prediction witnesses serialize complete bounded trajectory, future-node, and
+  cause-row topology, exact evidence stamps, and solver anchors so root-policy
+  or stale-bank regressions are reviewable without inferring structure from a
+  screenshot.
 
 Glossary:
   Report fact: Derived validation value shared by live assertions and final JSON.
@@ -20,6 +24,10 @@ Glossary:
 Invariants:
   - JSON field names and replay byte/order calculations are validation contracts.
   - Prediction reports and fidelity capture never read beyond the committed prefix.
+  - Topology witness rows preserve lane, identity, ancestry, depth, and first-frame
+    fields in publication order; reports do not synthesize missing relationships.
+  - Exact predicted Manifold and SolverRow reports preserve the immutable-bank
+    identity and contact/pipeline indices used by Planning inspection.
   - Runtime-owner references are never stored on the writer.
   - A report failure never replaces an earlier probe failure.
 
@@ -82,6 +90,63 @@ Json Vec3Json( const Vector3& value )
     return Json::array( { value.x, value.y, value.z } );
 }
 
+// Concept: enum spellings are part of the JSON witness schema. These helpers
+// keep topology rows readable while preserving a stable closed mapping.
+const char* ReplayTrajectoryLaneName( ReplayTrajectoryLane lane ) noexcept
+{
+    switch ( lane )
+    {
+    case ReplayTrajectoryLane::PastRoot:
+        return "PastRoot";
+    case ReplayTrajectoryLane::FutureRoot:
+        return "FutureRoot";
+    case ReplayTrajectoryLane::FutureChildIncoming:
+        return "FutureChildIncoming";
+    case ReplayTrajectoryLane::FutureChildOutgoing:
+        return "FutureChildOutgoing";
+    case ReplayTrajectoryLane::RetainedTrail:
+        return "RetainedTrail";
+    case ReplayTrajectoryLane::BaselineRoot:
+        return "BaselineRoot";
+    }
+
+    return "Unknown";
+}
+
+const char* ReplayCauseTreeRowKindName( RunReplayCauseTreeRowKind kind ) noexcept
+{
+    switch ( kind )
+    {
+    case RunReplayCauseTreeRowKind::Body:
+        return "Body";
+    case RunReplayCauseTreeRowKind::Manifold:
+        return "Manifold";
+    case RunReplayCauseTreeRowKind::SolverRow:
+        return "SolverRow";
+    case RunReplayCauseTreeRowKind::PredictionContact:
+        return "PredictionContact";
+    case RunReplayCauseTreeRowKind::PredictionMotion:
+        return "PredictionMotion";
+    }
+
+    return "Unknown";
+}
+
+const char* ReplayCauseSolverDetailAvailabilityName( ReplayCauseSolverDetailAvailability availability ) noexcept
+{
+    switch ( availability )
+    {
+    case ReplayCauseSolverDetailAvailability::Available:
+        return "Available";
+    case ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable:
+        return "SolverDetailNotAvailable";
+    case ReplayCauseSolverDetailAvailability::ReplayFrameExpired:
+        return "ReplayFrameExpired";
+    }
+
+    return "Unknown";
+}
+
 void HashPredictionByte( uint64_t& hash, uint8_t value )
 {
     hash ^= static_cast<uint64_t>( value );
@@ -109,6 +174,143 @@ void HashPredictionVector( uint64_t& hash, const Vector3& value )
     HashPredictionFloat( hash, value.y );
     HashPredictionFloat( hash, value.z );
 }
+
+void HashPredictionContact( uint64_t& hash, const Physics::PhysicsDebugContact& contact )
+{
+    // Invariant: this is the single ordered schema for a captured contact row.
+    // Aggregate and contact-only witnesses both call it so adding a diagnostic
+    // field cannot silently make the two channels disagree about completeness.
+    HashPredictionScalar( hash, contact.bodyA );
+    HashPredictionScalar( hash, contact.bodyB );
+    HashPredictionScalar( hash, contact.featureId );
+    HashPredictionVector( hash, contact.point );
+    HashPredictionVector( hash, contact.normal );
+    HashPredictionVector( hash, contact.tangent1 );
+    HashPredictionVector( hash, contact.tangent2 );
+    HashPredictionFloat( hash, contact.penetration );
+    HashPredictionFloat( hash, contact.normalImpulse );
+    HashPredictionFloat( hash, contact.separationBias );
+    HashPredictionFloat( hash, contact.preSolveNormalSpeed );
+    HashPredictionFloat( hash, contact.preSolveClosingSpeed );
+    HashPredictionFloat( hash, contact.preSolveSlipSpeed );
+}
+
+// Concept: these hashes isolate private-simulation results from presentation
+// timing and evidence-retention policy. The frame index is the deterministic
+// horizon clock; absolute simulationSeconds includes the process-local source
+// timer and is reported separately instead of contaminating the value witness.
+// Matching runs must produce the same body/contact rows even when their worker
+// slices finish on different wall-clock frames.
+// Invariant: one Build traversal updates the aggregate witness and every
+// component witness from the same ordered frame/body/contact rows. The
+// worker-count determinism tool compares every channel so a partial update
+// cannot make the aggregate hash look trustworthy by itself.
+class PredictionSimulationHashes
+{
+  public:
+    static PredictionSimulationHashes Build( std::span<const RunReplayPredictionFrame> frames )
+    {
+        PredictionSimulationHashes hashes;
+        HashPredictionScalar( hashes.m_all, frames.size() );
+        HashPredictionScalar( hashes.m_frameIndex, frames.size() );
+        HashPredictionScalar( hashes.m_pose, frames.size() );
+        HashPredictionScalar( hashes.m_velocity, frames.size() );
+        HashPredictionScalar( hashes.m_sleep, frames.size() );
+        HashPredictionScalar( hashes.m_contacts, frames.size() );
+
+        for ( const RunReplayPredictionFrame& frame : frames )
+        {
+            HashPredictionScalar( hashes.m_all, frame.frameIndex );
+            HashPredictionFloat( hashes.m_all, frame.tornadoSystemElapsedSeconds );
+            HashPredictionScalar( hashes.m_all, frame.bodies.size() );
+            HashPredictionScalar( hashes.m_frameIndex, frame.frameIndex );
+            HashPredictionScalar( hashes.m_pose, frame.frameIndex );
+            HashPredictionScalar( hashes.m_pose, frame.bodies.size() );
+            HashPredictionScalar( hashes.m_velocity, frame.frameIndex );
+            HashPredictionScalar( hashes.m_velocity, frame.bodies.size() );
+            HashPredictionScalar( hashes.m_sleep, frame.frameIndex );
+            HashPredictionScalar( hashes.m_sleep, frame.bodies.size() );
+
+            for ( const RunReplayPredictionBodySample& body : frame.bodies )
+            {
+                HashPredictionScalar( hashes.m_all, body.id.value );
+                HashPredictionScalar( hashes.m_all, body.modelRow.value );
+                HashPredictionVector( hashes.m_all, body.position );
+                HashPredictionVector( hashes.m_all, body.linearVelocity );
+                HashPredictionScalar( hashes.m_pose, body.id.value );
+                HashPredictionScalar( hashes.m_pose, body.modelRow.value );
+                HashPredictionVector( hashes.m_pose, body.position );
+                HashPredictionScalar( hashes.m_velocity, body.id.value );
+                HashPredictionScalar( hashes.m_velocity, body.modelRow.value );
+                HashPredictionVector( hashes.m_velocity, body.linearVelocity );
+                HashPredictionScalar( hashes.m_sleep, body.id.value );
+                HashPredictionScalar( hashes.m_sleep, body.modelRow.value );
+                float orientationX = 0.0f;
+                float orientationY = 0.0f;
+                float orientationZ = 0.0f;
+                float orientationW = 1.0f;
+                body.orientation.GetComponents( orientationX, orientationY, orientationZ, orientationW );
+                HashPredictionFloat( hashes.m_all, orientationX );
+                HashPredictionFloat( hashes.m_all, orientationY );
+                HashPredictionFloat( hashes.m_all, orientationZ );
+                HashPredictionFloat( hashes.m_all, orientationW );
+                HashPredictionScalar( hashes.m_all, static_cast<uint8_t>( body.sleeping ) );
+                HashPredictionFloat( hashes.m_pose, orientationX );
+                HashPredictionFloat( hashes.m_pose, orientationY );
+                HashPredictionFloat( hashes.m_pose, orientationZ );
+                HashPredictionFloat( hashes.m_pose, orientationW );
+                HashPredictionScalar( hashes.m_sleep, static_cast<uint8_t>( body.sleeping ) );
+            }
+
+            HashPredictionScalar( hashes.m_all, frame.debugContacts.size() );
+            HashPredictionScalar( hashes.m_all, static_cast<uint8_t>( frame.contactsIncomplete ) );
+            HashPredictionScalar( hashes.m_contacts, frame.frameIndex );
+            HashPredictionScalar( hashes.m_contacts, frame.debugContacts.size() );
+            HashPredictionScalar( hashes.m_contacts, static_cast<uint8_t>( frame.contactsIncomplete ) );
+
+            for ( const Physics::PhysicsDebugContact& contact : frame.debugContacts )
+            {
+                HashPredictionContact( hashes.m_all, contact );
+                HashPredictionContact( hashes.m_contacts, contact );
+            }
+        }
+
+        return hashes;
+    }
+
+    uint64_t All() const noexcept
+    {
+        return m_all;
+    }
+    uint64_t FrameIndex() const noexcept
+    {
+        return m_frameIndex;
+    }
+    uint64_t Pose() const noexcept
+    {
+        return m_pose;
+    }
+    uint64_t Velocity() const noexcept
+    {
+        return m_velocity;
+    }
+    uint64_t Sleep() const noexcept
+    {
+        return m_sleep;
+    }
+    uint64_t Contacts() const noexcept
+    {
+        return m_contacts;
+    }
+
+  private:
+    uint64_t m_all = INTERACTION_PREDICTION_FINGERPRINT_OFFSET;
+    uint64_t m_frameIndex = INTERACTION_PREDICTION_FINGERPRINT_OFFSET;
+    uint64_t m_pose = INTERACTION_PREDICTION_FINGERPRINT_OFFSET;
+    uint64_t m_velocity = INTERACTION_PREDICTION_FINGERPRINT_OFFSET;
+    uint64_t m_sleep = INTERACTION_PREDICTION_FINGERPRINT_OFFSET;
+    uint64_t m_contacts = INTERACTION_PREDICTION_FINGERPRINT_OFFSET;
+};
 
 ReplayCausalProofTick BuildReplayCausalProofTick( const ReplayVisualPacket& packet )
 {
@@ -498,7 +700,8 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::CaptureReplayVi
         m_replayVisualFidelityTrajectoryPointCount = revealFingerprint.pointCount;
         m_replayVisualFidelityTrajectoryCaptured = revealFingerprint.Ready();
 
-        if ( !BuildReplayPredictionArchive( replay.path, replay.prediction, m_replayVisualPredictionArchive ) )
+        if ( !BuildReplayPredictionArchive( replay.path, replay.prediction, replay.predictionDetailMode,
+                                            replay.predictionEvidence, m_replayVisualPredictionArchive ) )
         {
             status.Fail( "replay visual fidelity probe could not freeze prediction presentation state" );
         }
@@ -1314,6 +1517,60 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
                                                    { "contactDerived", node.contactDerived } } );
     }
 
+    // Concept: record the complete small, typed publication surface rather than
+    // a screenshot-only impression. These rows prove that selected-causal and
+    // authored-space policies produce different root shapes.
+    Json predictionTrajectoryRows = Json::array();
+
+    for ( const ReplayTrajectoryRecord& record : replay.visualPacket.trajectoryRecords )
+    {
+        predictionTrajectoryRows.push_back( Json { { "lane", ReplayTrajectoryLaneName( record.key.lane ) },
+                                                   { "bodyId", record.key.bodyId.value },
+                                                   { "parentId", record.parentId.value },
+                                                   { "depth", record.depth },
+                                                   { "firstFrame", record.firstFrame },
+                                                   { "branchOrdinal", record.key.branchOrdinal },
+                                                   { "publishedPointCount", record.publishedPointCount },
+                                                   { "contactDerived", record.contactDerived } } );
+    }
+
+    Json predictionFutureNodeRows = Json::array();
+
+    for ( const RunReplayPathTraceNode& node : replay.visualPacket.futureNodes )
+    {
+        predictionFutureNodeRows.push_back( Json { { "bodyId", node.id.value },
+                                                   { "parentId", node.parentId.value },
+                                                   { "depth", node.depth },
+                                                   { "firstFrame", node.firstFrame },
+                                                   { "contactDerived", node.contactDerived } } );
+    }
+
+    Json replayCauseTreeRows = Json::array();
+
+    for ( const RunReplayCauseTreeRow& row : replay.causeTree.rows )
+    {
+        replayCauseTreeRows.push_back( Json { { "kind", ReplayCauseTreeRowKindName( row.kind ) },
+                                              { "bodyId", row.id.value },
+                                              { "parentId", row.parentId.value },
+                                              { "counterpartId", row.counterpartId.value },
+                                              { "depth", row.depth },
+                                              { "firstFrame", row.firstFrame },
+                                              { "prediction", row.prediction },
+                                              { "modelRow", row.modelRow.value },
+                                              { "counterpartModelRow", row.counterpartModelRow.value },
+                                              { "contactIndex", row.contactIndex },
+                                              { "solverRowIndex", row.solverRowIndex },
+                                              { "pipelineIndex", row.pipelineIndex },
+                                              { "featureId", row.featureId },
+                                              { "sourceGeneration", row.sourceGeneration },
+                                              { "sourceBankEpoch", row.sourceBankEpoch },
+                                              { "sourceTopologyVersion", row.sourceTopologyVersion },
+                                              { "sourcePublicationVersion", row.sourcePublicationVersion },
+                                              { "sourceHighDetail", row.sourceHighDetail },
+                                              { "name", row.name },
+                                              { "detail", row.detail } } );
+    }
+
     const int selectedIndex = PeekSelectedEditorModelIndex( runtimeTools.Editor(), world.BodyStore() );
     const char* selectedName = "";
 
@@ -1329,6 +1586,7 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
     const bool replayPastPathVisible = replay.path.hasTarget && replay.path.pastPathVisible;
     const std::size_t predictionVisibleFrameCount = VisiblePredictionFrameCount( replay );
     const RunReplayPredictionState& predictionState = replay.prediction;
+    const PredictionSimulationHashes predictionPrivateSimulationHashes = PredictionSimulationHashes::Build( replay.activePredictionFrames );
     const std::span<const RunReplayPredictionFrame> committedPredictionFrames = predictionState.CommittedFrames();
     const bool predictionPathVisible = ReplayPredictionPathVisible( replay );
     const bool predictionContactsIncomplete = ReplayPredictionContactsIncomplete( replay );
@@ -1645,6 +1903,12 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
                                 { "launcherRayActive", runtimeTools.Laser().HasActiveShots() },
                                 { "memoryOverlayEnabled", ui.IsMemoryOverlayEnabled() },
                                 { "replayPredictionEnabled", predictionState.enabled },
+                                { "predictionDetailMode",
+                                  replay.predictionDetailMode == ReplayPredictionDetailMode::High ? "High" : "Low" },
+                                { "predictionCauseWindowAvailable",
+                                  !replay.causeTree.rows.empty() &&
+                                      ReplayPredictionCauseWindowAvailable( replay.predictionDetailMode,
+                                                                            replay.causeTree.rows.front().prediction ) },
                                 { "predictionHorizonSeconds", predictionState.simulation.horizonSeconds },
                                 { "predictionRevealSecondsPerSecond", predictionState.revealClock.secondsPerSecond },
                                 { "predictionBuildMode", ReplayPredictionBuildModeName( predictionState.build.buildMode ) },
@@ -1655,7 +1919,69 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
                                 { "predictionSupersededRestartCount", predictionState.build.supersededRestartCount },
                                 { "predictionLatestRestartBeginCount", predictionState.build.latestRestartBeginCount },
                                 { "replayPathTarget", replay.path.hasTarget ? replay.path.targetName : "" },
+                                { "replayPathTargetId", replay.path.targetId.value },
                                 { "replayPathTargetCount", static_cast<int>( replay.path.targets.size() ) },
+                                { "predictionPrivateMutualGravityEnabled",
+                                  predictionState.simulation.predictionWorldForces.mutualGravity.enabled },
+                                { "predictionDrawListShowAllFuturePaths",
+                                  ReplayPredictionPathPresentationShowsAllBodies( ReplayPrediction::PresentationViewFromState( predictionState, true )
+                                                                                      .pathPresentation ) },
+                                { "predictionEvidenceBuildBeginCount", replay.predictionEvidenceCapture.buildBeginCount },
+                                { "predictionEvidenceConsumerAcquireCount",
+                                  replay.predictionEvidenceCapture.consumerAcquireCount },
+                                { "predictionEvidenceConsumerReleaseCount",
+                                  replay.predictionEvidenceCapture.consumerReleaseCount },
+                                { "predictionEvidenceConsumerActive", replay.predictionEvidenceCapture.consumerActive },
+                                { "predictionEvidenceSealedFrameCount", replay.predictionEvidenceCapture.sealedFrameCount },
+                                { "predictionEvidenceCopiedContactCount",
+                                  replay.predictionEvidenceCapture.copiedContactCount },
+                                { "predictionEvidenceCopiedPipelineCount",
+                                  replay.predictionEvidenceCapture.copiedPipelineCount },
+                                { "predictionEvidenceBuildPublishedFrameCount",
+                                  replay.predictionEvidenceMemory.build.publishedFrameCount },
+                                { "predictionEvidenceCommittedPublishedFrameCount",
+                                  replay.predictionEvidenceMemory.committed.publishedFrameCount },
+                                { "predictionEvidenceCurrentCapacityBytes",
+                                  replay.predictionEvidenceMemory.currentCapacityBytes },
+                                { "predictionEvidenceCurrentContactCapacityBytes",
+                                  replay.predictionEvidenceMemory.currentContactCapacityBytes },
+                                { "predictionEvidenceCurrentPipelineCapacityBytes",
+                                  replay.predictionEvidenceMemory.currentPipelineCapacityBytes },
+                                { "predictionEvidenceCurrentFrameCapacityBytes",
+                                  replay.predictionEvidenceMemory.currentFrameCapacityBytes },
+                                { "predictionEvidenceReleaseCheckpointCount",
+                                  replay.predictionEvidenceMemory.releaseCheckpointCount },
+                                { "predictionEvidenceLastReleaseBeforeCapacityBytes",
+                                  replay.predictionEvidenceMemory.lastReleaseBeforeCapacityBytes },
+                                { "predictionEvidenceLastReleaseAfterCapacityBytes",
+                                  replay.predictionEvidenceMemory.lastReleaseAfterCapacityBytes },
+                                { "predictionEvidenceLastReleaseBeforeReplayTotalBytes",
+                                  replay.memoryStats.predictionEvidence.lastReleaseBeforeReplayTotalBytes },
+                                { "predictionEvidenceLastReleaseAfterReplayTotalBytes",
+                                  replay.memoryStats.predictionEvidence.lastReleaseAfterReplayTotalBytes },
+                                { "predictionEvidenceLastReleaseBeforeCategoryTotalBytes",
+                                  replay.memoryStats.predictionEvidence.lastReleaseBeforeCategoryTotalBytes },
+                                { "predictionEvidenceLastReleaseAfterCategoryTotalBytes",
+                                  replay.memoryStats.predictionEvidence.lastReleaseAfterCategoryTotalBytes },
+                                { "predictionEvidenceMemoryReconciled",
+                                  SkullbonezCore::Core::MainMemoryReplayPredictionEvidenceReleaseReconciles( replay.memoryStats ) },
+                                { "replayTrackedCapacityBytes", replay.memoryStats.totalBytes },
+                                { "predictionPrivateSimulationHash",
+                                  FormatPredictionHash( predictionPrivateSimulationHashes.All() ) },
+                                { "predictionPrivateFrameIndexHash",
+                                  FormatPredictionHash( predictionPrivateSimulationHashes.FrameIndex() ) },
+                                { "predictionPrivatePoseHash",
+                                  FormatPredictionHash( predictionPrivateSimulationHashes.Pose() ) },
+                                { "predictionPrivateVelocityHash",
+                                  FormatPredictionHash( predictionPrivateSimulationHashes.Velocity() ) },
+                                { "predictionPrivateSleepHash",
+                                  FormatPredictionHash( predictionPrivateSimulationHashes.Sleep() ) },
+                                { "predictionPrivateContactHash",
+                                  FormatPredictionHash( predictionPrivateSimulationHashes.Contacts() ) },
+                                { "predictionSourceFrameIndex", predictionState.simulation.sourceFrameIndex },
+                                { "predictionSourceSimulationSeconds", predictionState.simulation.sourceSimulationSeconds },
+                                { "predictionTrajectoryRecords", predictionTrajectoryRows },
+                                { "predictionFutureNodes", predictionFutureNodeRows },
                                 { "replayInterceptValid", replay.intercept.valid },
                                 { "replayIntercept", replay.intercept.intercept },
                                 { "replayInterceptMissDistance", replay.intercept.missDistance },
@@ -1769,6 +2095,9 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
                                 { "replayCauseTreePointerBlocked", replay.causeTree.pointerBlocked },
                                 { "replayCauseInspectionMode", static_cast<int>( replay.causeInspection.mode ) },
                                 { "replayCauseInspectionDetailVisible", replay.causeInspection.detailVisible },
+                                { "replayCauseInspectionDetailAvailability",
+                                  ReplayCauseSolverDetailAvailabilityName( replay.causeInspection.solverDetailAvailability ) },
+                                { "replayCauseTreeRows", replayCauseTreeRows },
                                 { "replayCauseInspectionSelectedRow", replay.causeInspection.selectedRow },
                                 { "replayCauseInspectionTargetFrame", replay.causeInspection.targetFrame },
                                 { "replayCauseInspectionPresentedFrame", replay.causeInspection.presentedFrame },

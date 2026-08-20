@@ -3,7 +3,7 @@
 @rem Purpose:
 @rem   Builds and runs the renderer-free production UI link probe.
 @rem
-@rem Mental model:
+@rem Summary:
 @rem   A successful Release link proves SKULLBONEZ_UI owns a backend-neutral
 @rem   presentation implementation. The executable then fingerprints every tab
 @rem   through InGameUI::Draw without launching or linking the engine.
@@ -14,6 +14,9 @@
 @rem
 @rem Invariants:
 @rem   - The test project references only SKULLBONEZ_UI.
+@rem   - The harness compiles the Core diagnostic infrastructure floor directly
+@rem     because the UI library may return recoverable results while no production
+@rem     Core library exists for this standalone link probe.
 @rem   - No graphics device or native window is created.
 @rem
 @rem Related:

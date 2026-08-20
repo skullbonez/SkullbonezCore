@@ -22,6 +22,8 @@ Invariants:
     legacy object record body writeback.
   - No entity or point joint is silently skipped; owner topology disagreement
     is an engine invariant failure.
+  - Resolved orbital membership must map back to one live display name before
+    the scene can be saved.
 
 Related:
   - SkullbonezSource/Scene/SceneSnapshotWriter.h
@@ -323,6 +325,12 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( SkullbonezCore::Core::
     scene["simulation"] = Json::object();
     scene["simulation"]["physics"] = session.physicsOn;
     scene["simulation"]["text"] = session.textOn;
+
+    if ( session.predictionAllBodiesSpace )
+    {
+        scene["simulation"]["predictionPathPresentation"] = "allBodiesSpace";
+    }
+
     scene["simulation"]["world"] = {
         { "gravity", sceneView.gravity },
         { "fluidHeight", sceneView.fluidSurfaceHeight },
@@ -338,6 +346,50 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( SkullbonezCore::Core::
             { "gravitationalConstant", mutualGravity.gravitationalConstant },
             { "softeningLength", mutualGravity.softeningLength },
             { "elasticCollisions", mutualGravity.elasticCollisions },
+        };
+    }
+
+    const auto& stability = sceneView.orbitalStability;
+
+    if ( stability.enabled )
+    {
+        Json members = Json::array();
+
+        for ( std::size_t memberIndex = 0u; memberIndex < stability.memberCount; ++memberIndex )
+        {
+            const auto& member = stability.members[memberIndex];
+            const int entityIndex = sceneView.entities.FindBySceneObjectId( member.sceneObjectId );
+
+            if ( entityIndex < 0 )
+            {
+                return diagnostics.Failure( "Scene/SceneSnapshotWriter",
+                                            "Orbital stability member id %u is absent during save.",
+                                            member.sceneObjectId.value );
+            }
+
+            const char* role = member.role == SkullbonezCore::Scene::OrbitalStabilityMemberRole::Primary
+                                   ? "primary"
+                                   : ( member.role == SkullbonezCore::Scene::OrbitalStabilityMemberRole::CoreOrbiter
+                                           ? "core"
+                                           : "auxiliary" );
+            Json memberJson = {
+                { "object", sceneView.entities.At( entityIndex ).displayName },
+                { "role", role },
+            };
+
+            if ( member.role != SkullbonezCore::Scene::OrbitalStabilityMemberRole::Primary )
+            {
+                memberJson["innerRadius"] = member.innerRadius;
+                memberJson["outerRadius"] = member.outerRadius;
+                memberJson["escapeStartRadius"] = member.escapeStartRadius;
+            }
+
+            members.push_back( std::move( memberJson ) );
+        }
+
+        scene["simulation"]["orbitalStability"] = {
+            { "escapeGraceSeconds", stability.escapeGraceSeconds },
+            { "members", std::move( members ) },
         };
     }
 

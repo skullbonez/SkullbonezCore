@@ -31,6 +31,7 @@
     "seed": 24072026,
     "physics": true,
     "text": false,
+    "predictionPathPresentation": "allBodiesSpace",
     "modelCapacity": 40,
     "world": {
       "gravity": 0.0,

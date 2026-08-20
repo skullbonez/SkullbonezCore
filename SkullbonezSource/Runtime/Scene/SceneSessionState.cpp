@@ -48,7 +48,9 @@ bool IsCineScenePath( const std::string& path )
 
 SkullbonezCore::GameObjects::SceneSessionSaveState SceneSessionState::GetSaveState() const
 {
-    return { isScenePhysics, isSceneText, isEditableScene, isFixedStep, hasFlatSlope, flatBaseY, flatSlopeX, flatSlopeZ };
+    return { isScenePhysics,  isSceneText, predictionAllBodiesSpaceSeed,
+             isEditableScene, isFixedStep, hasFlatSlope,
+             flatBaseY,       flatSlopeX,  flatSlopeZ };
 }
 
 const char* SkullbonezCore::Runtime::SceneFileNameFromPath( const char* path )
@@ -106,6 +108,7 @@ void SceneSessionState::ResetForLoad( const SkullbonezCore::Core::CinematicRende
     // paths, and manual reset counts stay with the enclosing SceneSession.
     isScenePhysics = true;
     isSceneText = true;
+    predictionAllBodiesSpaceSeed = false;
     targetFrameCount = -1;
     currentFrame = 0;
     solverBallCount = 0;

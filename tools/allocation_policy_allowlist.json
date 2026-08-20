@@ -150,7 +150,7 @@
       "owner": "PhysicsFixedList scene-sized backing storage",
       "phase": "scene_load_or_approved_replay_prediction",
       "reason": "Scene-load growth registers the list's named Physics owner. Prediction copies may instead allocate only beneath an already-active registered Replay owner and granted growth scope; the list cannot manufacture that authority.",
-      "cap": "Each list remains bounded by its template Capacity compile-time ceiling, while prediction allocations also share the existing 256 MiB replay_prediction_working_set cap; denial or overflow is fatal and appends cannot allocate.",
+      "cap": "Each list remains bounded by its template Capacity compile-time ceiling, while prediction allocations also share the 960 MiB replay_prediction_working_set cap; denial or overflow is fatal and appends cannot allocate.",
       "removal_or_wrapper_plan": "Keep scene-load requests inside PhysicsFixedList::Reserve and keep the replay branch dependent on the outer approved prediction scope so no Physics store gains a second capacity authority or an unbudgeted steady-gameplay growth path."
     },
     {
@@ -162,7 +162,7 @@
       "owner": "Named Physics scene-vector reserve boundary",
       "phase": "scene_load_or_approved_replay_prediction",
       "reason": "SC3 routes every remaining raw Physics vector reserve through one phase-checked helper. SceneLoad growth registers a distinct concrete Physics owner and event per vector; isolated prediction growth may only reuse the already-active approved replay_prediction_working_set owner and is attributed to that outer Replay budget.",
-      "cap": "Each call supplies its concrete hard row ceiling: 8,192 body/joint rows, 32,768 sleep-support edges, or 130,816 bounded mutual-gravity pairs. Prediction allocation also shares the existing 256 MiB replay_prediction_working_set byte cap. Denial, phase mismatch, and overflow are fatal.",
+      "cap": "Each call supplies its concrete hard row ceiling: 8,192 body/joint rows, 32,768 sleep-support edges, or 130,816 bounded mutual-gravity pairs. Prediction allocation also shares the 960 MiB replay_prediction_working_set byte cap. Denial, phase mismatch, and overflow are fatal.",
       "removal_or_wrapper_plan": "SC5 replaces the remaining raw vectors with runtime-capacity stores, then removes this helper and its lexical allowlist row."
     },
     {
@@ -172,8 +172,8 @@
       ],
       "owner": "ReplayPrediction private working set",
       "phase": "replay",
-      "reason": "Prediction frames, frame payload pools, private prediction engine storage, and trajectory records share one registered replay growth gate.",
-      "cap": "ReplayPredictionRetainedMemory policy registers replay_prediction_working_set with a 256 MiB hard byte cap; the strict two-generation Predict-off/rebuild probe measured 18,701,760 bytes high-water, preserving 14.353486x measured headroom.",
+      "reason": "Prediction frames, frame payload pools, private prediction engine storage, trajectory records, and paired exact-evidence banks share one registered replay growth gate.",
+      "cap": "ReplayPredictionRetainedMemory policy registers replay_prediction_working_set with a 960 MiB hard byte cap. PSD2 measured a 317,157,376-byte dense 120-second bank; paired-bank coexistence plus the prior working set measured 653,016,512 bytes, preserving 1.542x headroom.",
       "removal_or_wrapper_plan": "Keep prediction growth behind RequestReplayPredictionReserveGrowth/ReserveReplayPredictionVector or replace the working set with a fixed prediction arena."
     },
     {
@@ -183,9 +183,71 @@
       ],
       "owner": "ReplayPrediction private working set",
       "phase": "replay",
-      "reason": "C2 centralizes the existing vector and batched frame-payload reserve calls behind replay_prediction_working_set; their request bytes, phase gate, owner scopes, and growth counters are unchanged.",
-      "cap": "The existing replay_prediction_working_set registration remains capped at 256 MiB with its existing high-water and growth counters.",
+      "reason": "C2 centralizes vector and batched frame-payload reserve calls behind replay_prediction_working_set; PSD2 keeps their request bytes, phase gate, owner scopes, and growth counters shared with exact-evidence segments.",
+      "cap": "The replay_prediction_working_set registration is capped at 960 MiB with a 653,016,512-byte paired-bank representative high-water.",
       "removal_or_wrapper_plan": "Move prediction buffers behind a fixed replay prediction arena, then delete this mechanically relocated row."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionSampleRing.h",
+      "patterns": [
+        "std::vector<std::uint64_t> m_slotVersions;",
+        "std::vector<std::uint64_t> m_slotTicks;",
+        "std::vector<float> m_positionComponents;",
+        "std::vector<std::uint8_t> m_bodyWritten;"
+      ],
+      "owner": "Continuous prediction fixed-capacity sample ring",
+      "phase": "replay",
+      "reason": "OF1 prepares the ring's coherent all-body row storage only through ReserveReplayPredictionVector beneath the existing replay_prediction_working_set owner. Start freezes its dimensions; producer publication and reader snapshots only overwrite the retained allocation.",
+      "cap": "Every vector reserve is charged to the existing 960 MiB replay_prediction_working_set cap. Checked row/body/component products bound the requested capacities, and the ring exposes no capacity-changing operation after Start.",
+      "removal_or_wrapper_plan": "Replace these retained vectors with slices from a fixed replay prediction arena if that typed arena is introduced; preserve the ring's prepare-before-start and no-growth publication contract."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Planning/ContinuousOrbitalForecast.cpp",
+      "patterns": [
+        "new ( std::nothrow ) float[recordFloatCapacity]",
+        "new ( std::nothrow ) Math::Vector::Vector3[Scene::Capacity::MAX_SCENE_OBJECTS]"
+      ],
+      "owner": "ContinuousOrbitalPresentation fixed publication banks",
+      "phase": "startup_owner_construction",
+      "reason": "Run constructs the Planning presentation owner during process startup. It acquires two fixed 24,000-record ribbon banks and one MAX_SCENE_OBJECTS row scratch bank before any scene can start; Publish only overwrites those retained ranges and cannot allocate or grow them during steady gameplay.",
+      "cap": "Exactly two 456,000-float ribbon arrays plus one MAX_SCENE_OBJECTS Vector3 scratch array per process-lifetime ContinuousOrbitalPresentation owner.",
+      "removal_or_wrapper_plan": "Replace the three arrays with typed slices from a process-lifetime Planning presentation arena if such an arena is introduced; preserve double-bank publication and construction-before-start semantics."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionSampleRing.cpp",
+      "patterns": [
+        "m_slotVersions.resize(",
+        "m_slotTicks.resize(",
+        "m_positionComponents.resize(",
+        "m_bodyWritten.resize("
+      ],
+      "owner": "Continuous prediction fixed-capacity sample ring",
+      "phase": "replay",
+      "reason": "Each Prepare resize follows a successful ReserveReplayPredictionVector call for the same exact element count, so it changes logical size within already granted replay_prediction_working_set capacity and cannot allocate. Start rejects re-prepare while publication is active.",
+      "cap": "Logical sizes cannot exceed the capacities granted under the existing 960 MiB replay_prediction_working_set cap; checked multiplication rejects unrepresentable all-body row storage before any request.",
+      "removal_or_wrapper_plan": "Replace these retained vectors with slices from a fixed replay prediction arena if that typed arena is introduced, then delete both exact lexical exceptions."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionProducer.h",
+      "patterns": [
+        "std::vector<ContinuousPredictionBodySeed> m_bodySeeds;"
+      ],
+      "owner": "Continuous prediction private simulation seed",
+      "phase": "replay",
+      "reason": "OF2 retains one all-body seed row so the private Physics engine can be restored without borrowing live stores. Begin reserves the exact body count through ReserveReplayPredictionVector under replay_prediction_working_set before any worker becomes active; later slices only read the retained values.",
+      "cap": "The vector is limited to the live Physics body count and its byte request shares the existing 960 MiB replay_prediction_working_set hard cap; no new reserve registration or growth privilege is introduced.",
+      "removal_or_wrapper_plan": "Replace this retained vector with a typed replay prediction arena slice if that arena is introduced; preserve the synchronous live-snapshot and join-before-reseed contract."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Prediction/ContinuousPredictionProducer.cpp",
+      "patterns": [
+        "m_bodySeeds.resize("
+      ],
+      "owner": "Continuous prediction private simulation seed",
+      "phase": "replay",
+      "reason": "CaptureSeed resizes only after ReserveReplayPredictionVector has granted the same exact body count under replay_prediction_working_set, so the operation changes logical size inside retained capacity and cannot allocate during worker stepping.",
+      "cap": "Logical size cannot exceed the live Physics body count already charged against the existing 960 MiB replay_prediction_working_set cap.",
+      "removal_or_wrapper_plan": "Delete this exact lexical exception if the seed row moves to a typed arena or the checker learns the reserve-before-resize dataflow."
     },
     {
       "path": "SkullbonezSource/Runtime/Prediction/ReplayPredictionReserve.cpp",
@@ -195,8 +257,21 @@
       "owner": "ReplayPrediction private working set",
       "phase": "replay",
       "reason": "The private prediction engine object is constructed lazily by the production reserve adapter inside the replay reserve owner scope so normal runtime startup and perf-smoke paths do not pay PhysicsWorld reserve memory.",
-      "cap": "One PhysicsEngine instance retained by ReplayPrediction; its construction and copied store growth are counted under replay_prediction_working_set with the 256 MB hard cap.",
+      "cap": "One PhysicsEngine instance retained by ReplayPrediction; its construction and copied store growth are counted under replay_prediction_working_set with the 960 MiB hard cap.",
       "removal_or_wrapper_plan": "Replace with a dedicated replay prediction arena/object factory if runtime allocation policy gains typed owner allocators; do not construct the private engine at startup."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
+      "patterns": [
+        "std::make_unique<FrameSegment>()",
+        "std::make_unique<ContactSegment>()",
+        "std::make_unique<PipelineSegment>()"
+      ],
+      "owner": "ReplayPrediction exact solver-evidence banks",
+      "phase": "replay",
+      "reason": "PSD2 appends coarse immutable segments only after the existing replay_prediction_working_set adapter grants the exact byte delta; allocations execute under matching Replay phase, owner, and growth scopes.",
+      "cap": "Each physical bank is preflight-bounded to 320 MiB. Paired build/committed banks and all existing Prediction storage share the 960 MiB owner cap; Low mode allocates none and its transition explicitly releases both banks.",
+      "removal_or_wrapper_plan": "Retain the segmented non-relocating owner while predicted solver rows need stable published addresses; replace it only with a typed replay arena preserving the same bank and release contract."
     },
     {
       "path": "SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp",
@@ -1011,15 +1086,18 @@
     {
       "path": "SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.cpp",
       "patterns": [
+        ".insert(",
         ".push_back(",
         ".reserve(",
         ".resize(",
-        "std::vector<"
+        "std::vector<",
+        "std::make_unique<RunReplayPredictionState>",
+        "std::make_unique<ReplayPredictionSolverEvidenceBanks>"
       ],
       "owner": "Replay prediction artifact IO",
-      "phase": "cold_replay_artifact_io",
-      "reason": "Durable prediction archive encoding and offline reconstruction allocate only while writing or reading an explicit replay artifact, never while stepping or presenting live prediction.",
-      "cap": "Every decoded vector is bounded by validated artifact counts and the replay prediction hard capacities before storage is populated.",
+      "phase": "cold_replay_artifact_io_and_transaction_staging",
+      "reason": "Durable prediction archive encoding and offline reconstruction allocate only while writing or reading an explicit replay artifact, never while stepping or presenting live prediction. Each load obtains replay-reserve permission before constructing one cold candidate prediction state and evidence-bank pair, validates all sections into that candidate, and swaps only after success.",
+      "cap": "Artifacts are capped at 128 MiB; decoded vectors are bounded by validated artifact counts and prediction hard capacities. A load holds exactly one candidate RunReplayPredictionState plus one ReplayPredictionSolverEvidenceBanks beside the caller-owned old state until atomic commit or rejection.",
       "removal_or_wrapper_plan": "Move archive byte and decode scratch storage behind the cold replay artifact reader/writer wrappers when artifact IO ownership is consolidated."
     },
     {
@@ -1128,8 +1206,8 @@
       ],
       "owner": "ReplayPrediction private working set",
       "phase": "replay",
-      "reason": "RC2 moved the existing trajectory and baseline publication growth calls behind the same replay_prediction_working_set owner; C2 relocated its reserve primitive to ReplayPredictionReserve.h without changing registration, phase gate, cap, or counters.",
-      "cap": "The existing replay_prediction_working_set registration remains capped at 256 MiB with its existing high-water and growth counters.",
+      "reason": "RC2 moved trajectory and baseline publication growth calls behind the same replay_prediction_working_set owner; PSD2 retains that adapter while sharing its enlarged evidence-bank cap and counters.",
+      "cap": "The replay_prediction_working_set registration is capped at 960 MiB with its paired-bank representative high-water and growth counters.",
       "removal_or_wrapper_plan": "Move publication buffers behind a fixed replay prediction arena, then delete this mechanically relocated row."
     },
     {
@@ -1140,7 +1218,7 @@
       "owner": "ReplayPrediction private working set",
       "phase": "replay",
       "reason": "Same-target replacement first rejects a future-node snapshot larger than the already reserved visible bank, then resizes only its logical prefix before copying. The call cannot grow capacity.",
-      "cap": "The visible future-node bank is reserved through replay_prediction_working_set and remains inside that owner's 256 MiB cap.",
+      "cap": "The visible future-node bank is reserved through replay_prediction_working_set and remains inside that owner's 960 MiB cap.",
       "removal_or_wrapper_plan": "Replace the visible future-node vector with fixed-capacity storage, then delete this row."
     },
     {
@@ -1150,8 +1228,8 @@
       ],
       "owner": "ReplayPrediction private working set",
       "phase": "replay",
-      "reason": "RC2 moved the existing bounded future-node append into the topology publication slice under the unchanged replay_prediction_working_set owner.",
-      "cap": "Future nodes remain bounded by REPLAY_VISUAL_FUTURE_NODE_CAPACITY inside the existing 256 MiB prediction cap.",
+      "reason": "RC2 moved the bounded future-node append into the topology publication slice under the shared replay_prediction_working_set owner.",
+      "cap": "Future nodes remain bounded by REPLAY_VISUAL_FUTURE_NODE_CAPACITY inside the 960 MiB prediction cap.",
       "removal_or_wrapper_plan": "Replace topology vectors with fixed-capacity rows, then delete this mechanically relocated row."
     },
     {
@@ -1361,12 +1439,14 @@
     {
       "path": "SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.Automation.cpp",
       "patterns": [
-        "std::make_unique<RunReplayPredictionState>"
+        ".assign(",
+        "std::make_unique<RunReplayPredictionState>",
+        "std::make_unique<ReplayPredictionSolverEvidenceBanks>"
       ],
       "owner": "replay_prediction_archive_verification",
       "phase": "Diagnostics",
-      "reason": "RunReplayPredictionState is 792,936 bytes and the round-trip verifier needs three live at once to compare restored, migrated and rejected decodes. As locals they asked for about 2.3 MB of frame and faulted in __chkstk against the roughly 840 KB of stack left at this call depth, so the probe crashed before writing its report. This translation unit links only in Automation, runs once after the sole live capture, and never touches steady gameplay, presentation, or a second prediction path.",
-      "cap": "Exactly three RunReplayPredictionState allocations per VerifyReplayPredictionArchiveRoundTrip call, which runs once per fidelity probe process.",
+      "reason": "RunReplayPredictionState is 792,936 bytes and the round-trip verifier needs three live at once for restored High, legacy migration, and active-Low projection. Matching evidence banks prove retained-capacity behavior for those three states. Keeping these owners on the stack faulted in __chkstk before report output. One mutation vector is reused sequentially for bounded corrupt-artifact cases. This translation unit links only in Automation, runs once after the sole live capture, and never touches steady gameplay or presentation.",
+      "cap": "Exactly three RunReplayPredictionState allocations and three ReplayPredictionSolverEvidenceBanks allocations per VerifyReplayPredictionArchiveRoundTrip call. One mutation vector is repeatedly reassigned from the already capped input artifact; failure cases run serially.",
       "removal_or_wrapper_plan": "Delete when the verifier can compare decodes one at a time against a streamed encoder, or when prediction state moves behind a handle whose value type is small enough to keep on the frame."
     }
   ]

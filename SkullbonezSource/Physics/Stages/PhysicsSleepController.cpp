@@ -669,7 +669,8 @@ void PhysicsSleepController::RunIslandStageMode( PhysicsBodyStore& bodyStore, co
     for ( int x : awakeBodyIndices )
     {
 #if defined( _DEBUG )
-        assert( !IsSolverBodyFixed( ConstPhysicsBodyHotFields( hotFields ), x ) && !m_sleepState[x] );
+        assert( IsAwakeListEntryConsistent( IsSolverBodyFixed( ConstPhysicsBodyHotFields( hotFields ), x ),
+                                            m_sleepState[x] != 0u ) );
 #endif
         const int root = sleepIslands.Find( x );
         m_sleepIslandHasAwake[root] = 1;

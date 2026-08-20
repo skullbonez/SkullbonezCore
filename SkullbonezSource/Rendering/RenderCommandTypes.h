@@ -29,6 +29,8 @@ Invariants:
     no command owner exposes ambient raster setter/query authority.
   - Packed spans carry storage bounds. Dynamic handles/styles own their vertex
     layout, and malformed dynamic divisibility rejects the draw before upload.
+  - A retained packet's range records address only its borrowed compact span;
+    the backend validates each populated range before reading that span.
   - Retained chunk handles name physical storage; draw order is a separate
     value so canonical presentation never requires moving compact records.
 
@@ -188,6 +190,25 @@ struct RetainedGeometryRangeToken
     uint32_t cacheSlot = 0;
     uint32_t continuationRange = UINT32_MAX;
     RetainedGeometryLane lane = RetainedGeometryLane::Ordinary;
+};
+
+// Concept: feature-neutral retained overlay values cross into Rendering as
+// already-packed ribbons and colored line vertices. Rendering owns submission
+// only; the upstream feature owns record meaning, sampling, colors, and the
+// monotonically increasing source sequence used by validation.
+struct RetainedGeometryPacket
+{
+    std::span<const float> compactRibbonRecords;
+    std::span<const RetainedGeometryRangeToken> ribbonRanges;
+    std::span<const float> coloredLineVertices;
+    RetainedGeometryStreamToken stream;
+    std::uint64_t sourceSequence = 0u;
+    std::uint32_t pointMarkerCount = 0u;
+
+    bool HasGeometry() const noexcept
+    {
+        return ( !compactRibbonRecords.empty() && !ribbonRanges.empty() ) || !coloredLineVertices.empty();
+    }
 };
 
 struct RetainedGeometryUploadPlan

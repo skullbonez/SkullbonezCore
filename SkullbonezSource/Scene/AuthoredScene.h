@@ -5,7 +5,8 @@ Purpose:
 
 Summary:
   AuthoredScene owns the cold, parsed values that cross from scene JSON into
-  deterministic runtime setup without retaining parser state or live stores.
+  deterministic runtime setup, including validation requirements and resolved
+  orbital-policy membership, without retaining parser state or live stores.
 
 Glossary:
   Asset provenance: Cold scene-file records that retain which library, asset,
@@ -37,6 +38,7 @@ Related:
 #include "../Rendering/RenderMaterial.h"
 #include "../Maths/Vector3.h"
 #include "AuthoredTornadoConfig.h"
+#include "OrbitalStabilityContract.h"
 #include <cstdint>
 #include <vector>
 
@@ -349,6 +351,11 @@ struct SceneRequiredContact
     char nameB[64] = {};
 };
 
+struct SceneRequiredSleepingDynamicBody
+{
+    char name[64] = {};
+};
+
 struct SceneRequiredBroadphaseXCells
 {
     int minCellX = 0;
@@ -362,6 +369,7 @@ struct SceneOptions
     bool isPhysicsEnabled = true;
     bool isTextEnabled = true;
     bool isTextOnly = false;
+    bool predictionAllBodiesSpace = false;                       // Explicit all-body path policy; force settings do not select presentation.
     int frameCount = -1;                                         // -1 = unlimited
     unsigned int seed = 0;                                       // RNG seed (0 = use time-based default)
     int solverBallCount = 0;                                     // exact impulse-solver balls to spawn (0 = not set)
@@ -513,6 +521,7 @@ class AuthoredScene
     std::vector<ScenePointJointConstraint> m_pointJointConstraints;
     std::vector<SceneObjectMaterialOverride> m_objectMaterials;
     std::vector<SceneRequiredContact> m_requiredContacts;
+    std::vector<SceneRequiredSleepingDynamicBody> m_requiredSleepingDynamicBodies;
     std::vector<SceneRequiredBroadphaseXCells> m_requiredBroadphaseXCells;
     std::vector<SceneAssetLibraryRef> m_assetLibraries;
     std::vector<SceneAssetInstanceRecord> m_assetInstances;
@@ -525,6 +534,7 @@ class AuthoredScene
     SceneRuntimeOverrides m_runtimeOverrides;
     SceneTerrainOverride m_terrainOverride;
     SceneWorldOverride m_worldOverride;
+    SkullbonezCore::Scene::OrbitalStabilityContract m_orbitalStability;
     SceneTornadoSystem m_tornadoSystem;
     SceneUIOptions m_UIOptions;
 
@@ -553,6 +563,7 @@ class AuthoredScene
     bool IsPhysicsEnabled() const;
     bool IsTextEnabled() const;
     bool IsTextOnly() const;
+    bool PredictionShowsAllBodies() const;
     int GetFrameCount() const;
     const char* GetScreenshotPath() const;
     int GetScreenshotFrame() const;
@@ -583,7 +594,7 @@ class AuthoredScene
     float GetTrackHeight() const;                                // Tracking camera height above ball; -1 disables.
     float GetAutoCycleInterval() const;                          // Per-ball screenshot interval in seconds; -1 disables.
     bool IsScreenshotAndExit() const;                            // True if scene should capture first frame then exit
-    bool IsExitOnComplete() const;                               // True if scene should exit automatically when frame count is reached
+    bool IsExitOnComplete() const;                               // True when authored completion may advance or exit the scene.
     bool IsCollisionVisualizerEnabled() const;
     bool IsBroadphaseOverlayEnabled() const;
     bool IsWaterFreezeDebugEnabled() const;
@@ -627,6 +638,8 @@ class AuthoredScene
     const SceneObjectMaterialOverride& GetObjectMaterialOverride( int index ) const;
     int GetRequiredContactCount() const;
     const SceneRequiredContact& GetRequiredContact( int index ) const;
+    int GetRequiredSleepingDynamicBodyCount() const;
+    const SceneRequiredSleepingDynamicBody& GetRequiredSleepingDynamicBody( int index ) const;
     int GetRequiredBroadphaseXCellCount() const;
     const SceneRequiredBroadphaseXCells& GetRequiredBroadphaseXCell( int index ) const;
     int GetAssetLibraryCount() const;
@@ -641,6 +654,7 @@ class AuthoredScene
     float GetWorldFluidDensity() const;
     const Physics::MutualGravitySettings& GetWorldMutualGravitySettings() const;
     bool HasMutualGravityEnabled() const;
+    const SkullbonezCore::Scene::OrbitalStabilityContract& GetOrbitalStabilityContract() const;
     bool HasTornadoSystem() const;
     const AuthoredTornadoSystemConfig& GetTornadoSystemConfig() const;
     const SceneUIOptions& GetUIOptions() const;

@@ -44,7 +44,7 @@ inline constexpr float REPLAY_SCRUBBER_LOAD_BUTTON_WIDTH = 48.0f;
 inline constexpr float REPLAY_SCRUBBER_SAVE_BUTTON_GAP = 10.0f;
 inline constexpr float REPLAY_SCRUBBER_RIGHT_CONTROL_WIDTH = 708.0f;
 inline constexpr float REPLAY_SCRUBBER_BRANCH_BUTTON_WIDTH = 74.0f;
-inline constexpr float REPLAY_SCRUBBER_PAUSE_BUTTON_WIDTH = 58.0f;
+inline constexpr float REPLAY_SCRUBBER_HIGH_DETAIL_TOGGLE_WIDTH = 58.0f;
 inline constexpr float REPLAY_SCRUBBER_VELOCITY_BUTTON_WIDTH = 86.0f;
 inline constexpr float REPLAY_SCRUBBER_PREDICT_TOGGLE_WIDTH = 104.0f;
 inline constexpr float REPLAY_SCRUBBER_PREDICT_SLOT_WIDTH = 140.0f;
@@ -69,7 +69,7 @@ enum class ReplayScrubberControl : uint32_t
 {
     None,
     Branch,
-    Pause,
+    HighDetail,
     VelocityEdit,
     PredictionToggle,
     PredictionHorizon,
@@ -97,6 +97,7 @@ struct ReplayScrubberSurfaceInput
     bool loadedPresentation = false;
     bool solverToolsEnabled = false;
     bool predictionEnabled = false;
+    bool predictionHighDetail = true;
     bool predictionToolsEnabled = false;
     bool pastPathToolsEnabled = false;
     bool branchTargetAvailable = false;

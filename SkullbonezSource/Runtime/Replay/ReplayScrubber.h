@@ -42,7 +42,7 @@ enum class ReplayScrubberAction : uint32_t
 {
     None,
     RestoreBranch,
-    TogglePause,
+    SetPredictionDetailMode,
     ToggleVelocityEdit,
     TogglePrediction,
     SetPredictionHorizon,
@@ -108,6 +108,7 @@ struct ReplayScrubberPointerFrame
     bool loadedPresentation = false;
     bool pathTargetAvailable = false;
     bool predictionEnabled = false;
+    bool predictionHighDetail = true;
     bool predictionTimelineAvailable = false;
     bool currentPresentationAvailable = false;
     bool currentSolverAvailable = false;

@@ -10,7 +10,9 @@
 //   while handle maps preserve live identity and reject stale generations.
 //   Replay tests prove durable scene identity survives new handle epochs and
 //   prefix trims preserve point-joint order; buoyancy tests prove its feature-
-//   owned facts mirror the body-row operations.
+//   owned facts mirror the body-row operations. Focused topology tests also
+//   prove failed collider refresh is non-mutating and shape compaction preserves
+//   first, middle, and final removal boundaries.
 //
 // Glossary:
 //   Handle generation: Version counter incremented when a handle slot is
@@ -37,6 +39,8 @@
 //   - Reused handle slots must increment generation before accepting new records.
 //   - Hot state has one authority: aligned SoA arrays; cold records do not
 //     duplicate pose, velocity, inertia, motion-kind, or sleep fields.
+//   - Sleep-state export admits exactly the live body count, and collider
+//     refresh mismatch leaves the pre-existing identity/shape row untouched.
 //   - Partially submerged box and convex-hull forces remain finite and produce
 //     an upward velocity response.
 //   - The production Replay prediction reserve adapter preserves committed
@@ -688,6 +692,70 @@ TEST_CASE( "Physics handles: collider rows realign to compacted body handles" )
     REQUIRE( colliders.Count() == 2 );
     CHECK( colliders.Records()[1].body == last );
     CHECK( colliders.Records()[1].sceneObjectId == MakePhysicsSceneObjectId( 333u ) );
+}
+
+
+TEST_CASE( "Physics handles: collider binding mismatch preserves every existing row" )
+{
+    PhysicsBodyStore& bodies = TestBodyStore();
+    ColliderStore& colliders = TestColliderStore();
+    const PhysicsBodyHandle firstBody =
+        bodies.CreateBodyRecord( MakeBodyRecord( 111u, Vector3( 1.0f, 0.0f, 0.0f ) ) );
+    bodies.CreateBodyRecord( MakeBodyRecord( 222u, Vector3( 2.0f, 0.0f, 0.0f ) ) );
+    const PhysicsColliderHandle collider = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord(
+        colliders, MakeColliderRecord( firstBody, 111u, 1.0f ), MakeColliderShape( 1.0f ) );
+    REQUIRE( colliders.RecordForHandle( collider ) != nullptr );
+    const ColliderRecord before = *colliders.RecordForHandle( collider );
+
+    CHECK_FALSE( colliders.RefreshBodyBindings( bodies ) );
+    REQUIRE( colliders.Count() == 1 );
+    REQUIRE( colliders.RecordForHandle( collider ) != nullptr );
+    const ColliderRecord& after = *colliders.RecordForHandle( collider );
+    CHECK( after.handle == before.handle );
+    CHECK( after.body == before.body );
+    CHECK( after.sceneObjectId == before.sceneObjectId );
+    CHECK( after.shape.StorageIndex() == before.shape.StorageIndex() );
+}
+
+
+TEST_CASE( "Physics handles: sphere compaction preserves first and final removal boundaries" )
+{
+    ColliderStore& store = TestColliderStore();
+    const PhysicsColliderHandle first = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord(
+        store, MakeColliderRecord( PhysicsBodyHandle { 1u, 1u }, 101u, 1.0f ), MakeColliderShape( 1.0f ) );
+    const PhysicsColliderHandle middle = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord(
+        store, MakeColliderRecord( PhysicsBodyHandle { 2u, 1u }, 202u, 2.0f ), MakeColliderShape( 2.0f ) );
+    const PhysicsColliderHandle last = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord(
+        store, MakeColliderRecord( PhysicsBodyHandle { 3u, 1u }, 303u, 3.0f ), MakeColliderShape( 3.0f ) );
+
+    REQUIRE( store.DestroyColliderRecord( first ) );
+    REQUIRE( store.SphereShapeCount() == 2u );
+    REQUIRE( store.RecordForHandle( last ) != nullptr );
+    REQUIRE( GetShapeIf<BoundingSphere>( &store.RecordForHandle( last )->shape ) != nullptr );
+    CHECK( store.RecordForHandle( last )->shape.StorageIndex() == 0u );
+    CHECK( GetShapeIf<BoundingSphere>( &store.RecordForHandle( last )->shape )->GetRadius() == doctest::Approx( 3.0f ) );
+
+    REQUIRE( store.DestroyColliderRecord( last ) );
+    REQUIRE( store.SphereShapeCount() == 1u );
+    REQUIRE( store.RecordForHandle( middle ) != nullptr );
+    CHECK( store.RecordForHandle( middle )->shape.StorageIndex() == 0u );
+    REQUIRE( store.DestroyColliderRecord( middle ) );
+    CHECK( store.SphereShapeCount() == 0u );
+}
+
+
+TEST_CASE( "Physics handles: sleep-state copy admits the exact live body count" )
+{
+    PhysicsBodyStore& bodies = TestBodyStore();
+    const PhysicsBodyHandle awake = bodies.CreateBodyRecord( MakeBodyRecord( 111u, Vector3( 0.0f, 0.0f, 0.0f ) ) );
+    const PhysicsBodyHandle sleeping = bodies.CreateBodyRecord( MakeBodyRecord( 222u, Vector3( 0.0f, 0.0f, 0.0f ) ) );
+    REQUIRE( awake.IsValid() );
+    REQUIRE( bodies.SeedBodyAsleep( sleeping ) );
+    std::array<uint8_t, 2> sleepStates {};
+
+    bodies.CopySleepStatesTo( sleepStates );
+
+    CHECK( ( sleepStates == std::array<uint8_t, 2> { 0u, 1u } ) );
 }
 
 TEST_CASE( "Collider shape stores: hot rows stay compact and zero-hull scenes commit no hull payload" )

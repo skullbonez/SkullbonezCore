@@ -16,12 +16,15 @@ Invariants:
   surface.
   - Snapshot serialization reads durable metadata from SceneEntityStore, never
     transient legacy object record feedback rows.
+  - Resolved orbital membership is serialized through the current display name
+    so a saved scene reparses to the same stable identities.
   - The writer retains no borrowed store or request value after Save returns.
   - Owner count or identity disagreement is fatal topology drift; file failure
     is a recoverable Lane R result.
 
 Related:
   - SkullbonezSource/Scene/SceneSnapshotWriter.cpp
+  - SkullbonezTests/TestSceneSnapshotWriter.cpp
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/engine-glossary.md
 */
@@ -30,6 +33,7 @@ Related:
 #include "../Core/SbResult.h"
 #include "../Maths/Vector3.h"
 #include "../Physics/PhysicsWorldForces.h"
+#include "OrbitalStabilityContract.h"
 
 namespace SkullbonezCore
 {
@@ -62,12 +66,14 @@ struct SceneWorldSaveState
     Math::Vector::Vector3 cameraEye;
     Math::Vector::Vector3 cameraView;
     Math::Vector::Vector3 cameraUp;
+    SkullbonezCore::Scene::OrbitalStabilityContract orbitalStability;
 };
 
 struct SceneSessionSaveState
 {
     bool physicsOn = false;
     bool textOn = false;
+    bool predictionAllBodiesSpace = false;
     bool editableScene = false;
     bool fixedStep = false;
     bool hasFlatSlope = false;

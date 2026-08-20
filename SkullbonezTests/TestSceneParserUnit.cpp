@@ -21,12 +21,16 @@
 //   - Solar scenes use XY orbital coordinates and oblique cameras with Z up,
 //     matching the terrain-camera interaction convention after axis remapping.
 //   - Deep-space presentation is authored as literal black with no second sun.
+//   - Orbital stability names resolve exactly once to stable scene-object ids.
 //   - Initial impulse application points are world-axis offsets from each body
 //     center, never absolute world positions.
+//   - Tornado scenes retain all 64 admitted fields and reject the 65th before
+//     committing authored state.
 //
 // Related:
 //   - SkullbonezSource/Scene/AuthoredScene.h
 //   - SkullbonezSource/Scene/AuthoredSceneParser.cpp
+//   - SkullbonezSource/Gameplay/TornadoField.h
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
@@ -57,6 +61,7 @@ constexpr const char* kCardinalRollScenePath = "SkullbonezData/scenes/cardinal_r
 constexpr const char* kRagdollPlaygroundScenePath = "SkullbonezData/scenes/ragdoll_playground.scene.json";
 constexpr const char* kSolarSystemScenePath = "SkullbonezData/scenes/solar_system.scene.json";
 constexpr const char* kSolarSlingshotScenePath = "SkullbonezData/scenes/solar_system_mars_slingshot.scene.json";
+constexpr const char* kAtRestScenePath = "SkullbonezData/scenes/at_rest.scene.json";
 constexpr const char* kVersionedAssetScene =
     R"({"format":"skullbonez.scene.json","version":2,"physics":false,"text":false,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}],"assetLibraries":["unit_versioned.assets.json"]})";
 
@@ -88,12 +93,12 @@ void CheckLoadFailure( const SkullbonezCore::Core::SbResult& result, const char*
     CHECK( message.find( "AuthoredScene::LoadFromFile" ) != std::string::npos );
 }
 
-std::string BuildOverCapacityTornadoScene()
+std::string BuildTornadoScene( std::size_t vortexCount )
 {
     std::string scene =
         R"({"format":"skullbonez.scene.json","version":2,"physics":true,"text":false,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}],"tornadoSystem":{"vortices":[)";
 
-    for ( std::size_t index = 0; index <= SkullbonezCore::Gameplay::MAX_TORNADO_ACTIVE_FORCE_FIELDS; ++index )
+    for ( std::size_t index = 0; index < vortexCount; ++index )
     {
 
         if ( index != 0u )
@@ -123,6 +128,14 @@ std::string BuildVersionedImpulseOffsetScene( uint32_t version, const char* offs
            R"(,"name":"impulse_probe","position":[10,20,30],"radius":1,"mass":2,"moment":3,"restitution":0.1,"force":[4,5,6],")" +
            offsetKey + R"(":[1,2,3],"fixed":false}]})";
 }
+
+std::string BuildOrbitalStabilityResolutionScene( const char* coreObjectName )
+{
+    return std::string(
+               R"({"format":"skullbonez.scene.json","version":2,"simulation":{"physics":true,"text":false,"orbitalStability":{"escapeGraceSeconds":5,"members":[{"object":"sun","role":"primary"},{"object":")" ) +
+           coreObjectName +
+           R"(","role":"core","innerRadius":60,"outerRadius":100,"escapeStartRadius":90}]}},"cameras":[{"name":"main","position":[0,0,10],"view":[0,0,0],"up":[0,1,0]}],"objects":[{"type":"ballState","sceneObjectId":71,"name":"sun","position":[0,0,0],"velocity":[0,0,0],"angularVelocity":[0,0,0],"orientation":[0,0,0,1],"radius":2,"mass":100,"restitution":0,"inertia":[1,1,1],"fixed":true,"sleeping":false},{"type":"ballState","sceneObjectId":72,"name":"earth","position":[80,0,0],"velocity":[0,1,0],"angularVelocity":[0,0,0],"orientation":[0,0,0,1],"radius":1,"mass":1,"restitution":0,"inertia":[1,1,1],"fixed":false,"sleeping":false}]})";
+}
 } // namespace
 
 
@@ -143,6 +156,7 @@ TEST_CASE( "AuthoredSceneParser: smallest committed scene parses expected record
     CHECK( scene.GetConvexHullCount() == 0 );
     CHECK_FALSE( scene.IsPhysicsEnabled() );
     CHECK_FALSE( scene.IsTextEnabled() );
+    CHECK_FALSE( scene.PredictionShowsAllBodies() );
     CHECK( scene.IsWaterHidden() );
     CHECK( scene.GetScreenshotFrame() == 5 );
     CHECK( std::string( scene.GetScreenshotPath() ) == "TestOutput/terrain_cap.bmp" );
@@ -155,6 +169,40 @@ TEST_CASE( "AuthoredSceneParser: smallest committed scene parses expected record
     CHECK( camera.view.x == doctest::Approx( 1400.0f ) );
     CHECK( camera.view.y == doctest::Approx( 0.0f ) );
     CHECK( camera.view.z == doctest::Approx( 200.0f ) );
+}
+
+TEST_CASE( "AuthoredSceneParser: at-rest completion stays unlimited and names all three balls" )
+{
+    AuthoredScene scene;
+    REQUIRE( TryLoadAuthoredScene( diagnostics, kAtRestScenePath, scene ) );
+    CHECK( scene.GetFrameCount() == -1 );
+    CHECK( scene.IsExitOnComplete() );
+    REQUIRE( scene.GetRequiredSleepingDynamicBodyCount() == 3 );
+    CHECK( std::string( scene.GetRequiredSleepingDynamicBody( 0 ).name ) == "ball_a" );
+    CHECK( std::string( scene.GetRequiredSleepingDynamicBody( 1 ).name ) == "ball_b" );
+    CHECK( std::string( scene.GetRequiredSleepingDynamicBody( 2 ).name ) == "ball_c" );
+}
+
+TEST_CASE( "AuthoredSceneParser: sleeping-body requirements reject non-string entries" )
+{
+    constexpr const char* path = "TestOutput/scene_parser_sleep_requirement_invalid.scene.json";
+    constexpr const char* json =
+        R"({"format":"skullbonez.scene.json","version":1,"physics":true,"text":false,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}],"requirements":{"sleepingDynamicBodies":[7]}})";
+    const TemporaryMalformedSceneFile fixture( path, json );
+    AuthoredScene scene;
+    const SbResult result = AuthoredScene::TryLoadFromFile( diagnostics, path, scene );
+    CheckLoadFailure( result, path, "requirements.sleepingDynamicBodies[] must be a string" );
+}
+
+TEST_CASE( "AuthoredSceneParser: sleeping-body requirement names reject truncation" )
+{
+    constexpr const char* path = "TestOutput/scene_parser_sleep_requirement_name_too_long.scene.json";
+    constexpr const char* json =
+        R"({"format":"skullbonez.scene.json","version":1,"physics":true,"text":false,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}],"requirements":{"sleepingDynamicBodies":["dynamic_body_name_that_is_deliberately_longer_than_the_fixed_authored_name_buffer"]}})";
+    const TemporaryMalformedSceneFile fixture( path, json );
+    AuthoredScene scene;
+    const SbResult result = AuthoredScene::TryLoadFromFile( diagnostics, path, scene );
+    CheckLoadFailure( result, path, "requirements.sleepingDynamicBodies[] must be shorter than 64 characters" );
 }
 
 TEST_CASE( "AuthoredSceneParser: initial impulse offsets are center-relative world vectors" )
@@ -192,6 +240,7 @@ TEST_CASE( "AuthoredSceneParser: solar bodies publish their authored colours" )
 {
     AuthoredScene scene;
     REQUIRE( TryLoadAuthoredScene( diagnostics, kSolarSystemScenePath, scene ) );
+    CHECK( scene.PredictionShowsAllBodies() );
     REQUIRE( scene.GetCameraCount() == 1 );
     const SceneCamera& camera = scene.GetCamera( 0 );
     CHECK( camera.m_position.x == doctest::Approx( 0.0f ) );
@@ -212,6 +261,22 @@ TEST_CASE( "AuthoredSceneParser: solar bodies publish their authored colours" )
     CHECK( scene.GetWaterReflectionMode() == 2 );
 
     REQUIRE( scene.GetBallStateCount() == 4 );
+
+    const auto& stability = scene.GetOrbitalStabilityContract();
+    REQUIRE( stability.enabled );
+    REQUIRE( stability.memberCount == 4u );
+    CHECK( stability.escapeGraceSeconds == doctest::Approx( 5.0 ) );
+    CHECK( stability.members[0].role == SkullbonezCore::Scene::OrbitalStabilityMemberRole::Primary );
+    CHECK( stability.members[1].role == SkullbonezCore::Scene::OrbitalStabilityMemberRole::CoreOrbiter );
+    CHECK( stability.members[2].role == SkullbonezCore::Scene::OrbitalStabilityMemberRole::CoreOrbiter );
+    CHECK( stability.members[3].role == SkullbonezCore::Scene::OrbitalStabilityMemberRole::Auxiliary );
+
+    for ( std::size_t memberIndex = 0u; memberIndex < stability.memberCount; ++memberIndex )
+    {
+        CHECK( stability.members[memberIndex].sceneObjectId.IsValid() );
+        CHECK( std::string( stability.members[memberIndex].authoredObjectName ) ==
+               scene.GetBallState( static_cast<int>( memberIndex ) ).name );
+    }
 
     for ( int index = 0; index < scene.GetBallStateCount(); ++index )
     {
@@ -246,10 +311,30 @@ TEST_CASE( "AuthoredSceneParser: solar bodies publish their authored colours" )
     }
 }
 
+TEST_CASE( "AuthoredSceneParser: orbital stability membership rejects missing and repeated objects" )
+{
+    {
+        const TemporaryMalformedSceneFile missing( "unit_scene_parser_orbital_missing.scene.json",
+                                                   BuildOrbitalStabilityResolutionScene( "ghost" ) );
+        AuthoredScene scene;
+        CheckLoadFailure( AuthoredScene::TryLoadFromFile( diagnostics, missing.path, scene ), missing.path,
+                          "does not resolve exactly once" );
+    }
+
+    {
+        const TemporaryMalformedSceneFile repeated( "unit_scene_parser_orbital_repeated.scene.json",
+                                                    BuildOrbitalStabilityResolutionScene( "sun" ) );
+        AuthoredScene scene;
+        CheckLoadFailure( AuthoredScene::TryLoadFromFile( diagnostics, repeated.path, scene ), repeated.path,
+                          "repeats one resolved object" );
+    }
+}
+
 TEST_CASE( "AuthoredSceneParser: Mars slingshot scene contains the complete major-moon system on XY" )
 {
     AuthoredScene scene;
     REQUIRE( TryLoadAuthoredScene( diagnostics, kSolarSlingshotScenePath, scene ) );
+    CHECK( scene.PredictionShowsAllBodies() );
     const char* expectedNames[] = {
         "sun",     "mercury",   "venus",   "earth",  "mars",    "jupiter", "saturn",   "uranus",
         "neptune", "moon",      "phobos",  "deimos", "io",      "europa",  "ganymede", "callisto",
@@ -287,6 +372,36 @@ TEST_CASE( "AuthoredSceneParser: Mars slingshot scene contains the complete majo
     CHECK( rocket.posY == doctest::Approx( -7.997296f ) );
     CHECK( rocket.velX == doctest::Approx( 0.127265f ) );
     CHECK( rocket.velY == doctest::Approx( 27.470485f ) );
+}
+
+TEST_CASE( "AuthoredSceneParser: prediction path presentation is explicit and independent of mutual gravity" )
+{
+    const std::string
+        scenePrefix = R"({"format":"skullbonez.scene.json","version":4,"simulation":{"physics":true,"text":false,)";
+    const std::string sceneSuffix = R"(},"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}]})";
+
+    SUBCASE( "mutual gravity alone retains selected causal tree presentation" )
+    {
+        const TemporaryMalformedSceneFile fixture(
+            "unit_scene_parser_prediction_force_independence.scene.json",
+            scenePrefix +
+                R"("world":{"gravity":0,"fluidHeight":-1000,"fluidDensity":0,"mutualGravity":{"enabled":true,"gravitationalConstant":1,"softeningLength":0.5,"elasticCollisions":false}})" +
+                sceneSuffix );
+        AuthoredScene scene;
+        REQUIRE( TryLoadAuthoredScene( diagnostics, fixture.path, scene ) );
+        CHECK( scene.HasMutualGravityEnabled() );
+        CHECK_FALSE( scene.PredictionShowsAllBodies() );
+    }
+
+    SUBCASE( "invalid presentation token fails through Lane R" )
+    {
+        const TemporaryMalformedSceneFile fixture( "unit_scene_parser_prediction_path_policy.scene.json",
+                                                   scenePrefix + R"("predictionPathPresentation":"everything")" +
+                                                       sceneSuffix );
+        AuthoredScene scene;
+        CheckLoadFailure( AuthoredScene::TryLoadFromFile( diagnostics, fixture.path, scene ), fixture.path,
+                          "simulation.predictionPathPresentation" );
+    }
 }
 
 
@@ -451,10 +566,25 @@ TEST_CASE( "AuthoredSceneParser: missing camera reports recoverable load failure
 TEST_CASE( "AuthoredSceneParser: tornado fields over the fixed gameplay capacity fail recoverably" )
 {
     const TemporaryMalformedSceneFile overCapacity( "unit_scene_parser_tornado_capacity.scene.json",
-                                                    BuildOverCapacityTornadoScene() );
+                                                    BuildTornadoScene(
+                                                        SkullbonezCore::Gameplay::MAX_TORNADO_ACTIVE_FORCE_FIELDS + 1u ) );
     AuthoredScene scene;
     CheckLoadFailure( AuthoredScene::TryLoadFromFile( diagnostics, overCapacity.path, scene ), overCapacity.path,
                       "Gameplay.TornadoGameplay tornadoSystem.vortices requested 65, capacity is 64" );
+}
+
+
+TEST_CASE( "AuthoredSceneParser: exact tornado gameplay capacity retains every field" )
+{
+    const TemporaryMalformedSceneFile exactCapacity( "unit_scene_parser_tornado_exact_capacity.scene.json",
+                                                     BuildTornadoScene(
+                                                         SkullbonezCore::Gameplay::MAX_TORNADO_ACTIVE_FORCE_FIELDS ) );
+    AuthoredScene scene;
+    const auto result = AuthoredScene::TryLoadFromFile( diagnostics, exactCapacity.path, scene );
+
+    REQUIRE( result.Ok() );
+    REQUIRE( scene.HasTornadoSystem() );
+    CHECK( scene.GetTornadoSystemConfig().vortices.size() == SkullbonezCore::Gameplay::MAX_TORNADO_ACTIVE_FORCE_FIELDS );
 }
 
 

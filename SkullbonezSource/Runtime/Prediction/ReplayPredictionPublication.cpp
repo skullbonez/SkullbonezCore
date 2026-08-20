@@ -310,9 +310,11 @@ uint16_t ReplayPredictionChildTrajectoryBranch( std::size_t nodeIndex, bool usin
 }
 
 bool PrepareReplayPredictionTrajectoryBuild( RunReplayPredictionState& prediction, Physics::PhysicsSceneObjectId rootId,
-                                             std::size_t frameCapacity, std::size_t bodyCount )
+                                             std::size_t frameCapacity, std::size_t bodyCount,
+                                             ReplayPredictionPathPresentation pathPresentation )
 {
     prediction.trajectoryBuild = RunReplayPredictionTrajectoryBuildState {};
+    prediction.trajectoryBuild.pathPresentation = pathPresentation;
 
     if ( rootId.value == 0 )
     {
@@ -468,7 +470,6 @@ bool RebuildReplayPredictionReplacementRootTrajectory( RunReplayPredictionState&
     prediction.trajectoryBuild.builtAllBodyCount = 0;
     prediction.trajectoryBuild.allBodyBodyCount = 0;
     prediction.trajectoryBuild.topologyVersion = 0;
-    prediction.trajectoryBuild.allBodyPaths = false;
     prediction.trajectoryBuild.valid = true;
     return true;
 }
@@ -642,14 +643,13 @@ void UpdateReplayPredictionAllBodyTrajectories( RunReplayPredictionState& predic
                                                 const std::chrono::steady_clock::time_point& budgetStart,
                                                 double budgetMilliseconds )
 {
-    const bool showAllFuturePaths = prediction.simulation.predictionWorldForces.mutualGravity.enabled;
+    const bool showAllBodies = ReplayPredictionPathPresentationShowsAllBodies( prediction.trajectoryBuild.pathPresentation );
 
-    if ( !showAllFuturePaths || frameCount < 2u || frames.empty() )
+    if ( !showAllBodies || frameCount < 2u || frames.empty() )
     {
         prediction.trajectoryBuild.allBodyFrameCount = 0;
         prediction.trajectoryBuild.builtAllBodyCount = 0;
         prediction.trajectoryBuild.allBodyBodyCount = 0;
-        prediction.trajectoryBuild.allBodyPaths = false;
         return;
     }
 
@@ -685,7 +685,6 @@ void UpdateReplayPredictionAllBodyTrajectories( RunReplayPredictionState& predic
         prediction.trajectoryBuild.allBodyFrameCount = 0;
         prediction.trajectoryBuild.builtAllBodyCount = 0;
         prediction.trajectoryBuild.allBodyBodyCount = bodyCount;
-        prediction.trajectoryBuild.allBodyPaths = true;
     }
 
     const std::size_t firstBody = prediction.trajectoryBuild.builtAllBodyCount;
@@ -717,7 +716,6 @@ void UpdateReplayPredictionAllBodyTrajectories( RunReplayPredictionState& predic
 
     prediction.trajectoryBuild.builtAllBodyCount = completedBodies;
     prediction.trajectoryBuild.allBodyBodyCount = bodyCount;
-    prediction.trajectoryBuild.allBodyPaths = true;
 
     if ( completedBodies < bodyCount )
     {
@@ -822,7 +820,6 @@ void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction
         prediction.trajectoryBuild.allBodyFrameCount = 0;
         prediction.trajectoryBuild.builtAllBodyCount = 0;
         prediction.trajectoryBuild.allBodyBodyCount = 0;
-        prediction.trajectoryBuild.allBodyPaths = false;
         return;
     }
 

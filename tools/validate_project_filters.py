@@ -282,6 +282,7 @@ RENDERING_PREFIXES = (
 )
 
 SCENE_PREFIXES = (
+    "OrbitalStabilityContract",
     "SceneRequestExecution",
     "SceneSnapshotWriter",
     "StandaloneStyleWriter",
@@ -379,6 +380,7 @@ RUNTIME_SETTINGS_PREFIXES = (
 
 RUNTIME_SCENE_PREFIXES = (
     "SceneAutomationGateConfiguration",
+    "SceneSleepingDynamicBodyGatePolicy",
     "SceneController",
     "SceneControllerState",
     "SceneLifecycle",
@@ -408,6 +410,8 @@ CORE_ALLOCATION_PREFIXES = (
 )
 
 RUNTIME_PREDICTION_PREFIXES = (
+    "ContinuousPredictionProducer",
+    "ContinuousPredictionSampleRing",
     "ReplayAuthoringCauseTree",
     "ReplayCauseFocusSubmission",
     "ReplayPredictionArchive",
@@ -421,12 +425,15 @@ RUNTIME_PREDICTION_PREFIXES = (
     "ReplayPredictionRetainedGeometry",
     "ReplayPredictionRetainedMemory",
     "ReplayPredictionScheduling",
+    "ReplayPredictionSolverEvidenceStore",
     "ReplayPredictionTopologyPublication",
     "ReplayPredictionView",
     "TrajectoryStore",
 )
 
 RUNTIME_PLANNING_PREFIXES = (
+    "ContinuousOrbitalForecast",
+    "ContinuousOrbitalStability",
     "ReplayCauseInspection",
     "ReplayGuideArcs",
     "ReplayInterceptReadout",
