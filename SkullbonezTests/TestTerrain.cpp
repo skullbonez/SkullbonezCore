@@ -174,6 +174,22 @@ TEST_CASE( "Terrain: resting sphere sweep uses the same slope-normal pole as its
     REQUIRE( manifold.pointCount == 1u );
     CHECK( manifold.points[0].penetration == doctest::Approx( 0.0f ).epsilon( 0.0001 ) );
     CHECK( manifold.supportsRestingPolicy );
+
+    // A moving sphere must solve the same pole/plane equation at a nonzero
+    // time, not merely inherit the resting fast path above.
+    TerrainContactBodyView movingBody = body;
+    movingBody.position = movingBody.position + plane.m_normal * 0.5f;
+    movingBody.linearVelocity = plane.m_normal * -1.0f;
+    const TerrainContactSweepResult movingSweep = SweepTerrainContact( movingBody, sphere, 1.0f );
+    REQUIRE( movingSweep.hit );
+    CHECK( movingSweep.collisionTime == doctest::Approx( 0.5f ).epsilon( 0.0001 ) );
+
+    TerrainContactManifold movingManifold;
+    REQUIRE( BuildTerrainContactManifold( movingBody, sphere, 0, movingSweep, 1.0f, movingManifold ) );
+    CHECK( movingManifold.sweptHit );
+    CHECK( movingManifold.normal.x == doctest::Approx( plane.m_normal.x ) );
+    CHECK( movingManifold.normal.y == doctest::Approx( plane.m_normal.y ) );
+    CHECK( movingManifold.normal.z == doctest::Approx( plane.m_normal.z ) );
 }
 
 

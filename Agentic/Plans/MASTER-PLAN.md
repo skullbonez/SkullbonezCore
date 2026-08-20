@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-20
-Status: One active plan; 46/47 tasks complete
+Status: No active plans; 47/47 tasks complete
 
 ## Owner Direction
 
@@ -51,15 +51,12 @@ Status: One active plan; 46/47 tasks complete
 - Deterministic Trigonometry Adoption was moved to `WNF/` by owner direction on
   2026-08-18. Its exact-site platform-trig exception policy remains authored,
   but none of DT0-DT7 is selectable until the owner reactivates the plan.
-- At-Rest Ball Stability replaces deterministic trig in the third active slot
-  by owner direction. It uses bounded SkullScope evidence to diagnose and fix
-  the `at_rest.scene.json` balls' vertical vibration, excessive sliding,
-  repeated rolling reversals, and delayed sleep without changing the scene to
-  manufacture a pass or reintroducing a solver-local velocity snap. Proper
-  contact/solver/support fixes must be exhausted first; any production friction
-  or sleep-policy change requires isolated evidence and explicit owner approval.
-  The retired 1,800-frame playback timeout is not a completion criterion: the
-  unlimited witness must keep stepping until all three named balls are asleep.
+- At-Rest Ball Stability is complete. Its uncapped authoritative witness ends
+  only when all three named balls are Physics-asleep; the final semantic oracle
+  passes vertical stability, slip, reversal, support/sleep latency, and control
+  preservation with deterministic 0/1/4-worker evidence. The terminal plan-
+  completion gate passed every phase through DX12 and Automation before the
+  mapped 35,303-line protected Physics-oracle stop. No baseline was refreshed.
 - Continuous Orbital Forecast was reactivated by owner direction on
   2026-08-17. It follows predicted solver detail and owns the separate
   interactive continuous prediction mode, coherent rolling 120-second path
@@ -156,9 +153,7 @@ Completed plan files were deleted; git history is the archive.
 
 ## Active Plans
 
-| Plan | Commit name | Tasks | Done | File |
-|---|---|---|---|---|
-| At-Rest Ball Stability | `REST_STABILITY` | 8 | 7 | `TODO/at-rest-ball-stability.md` |
+No plan is currently active.
 
 ## Parked, Backlog, And Completed Plans
 
@@ -192,11 +187,7 @@ states elsewhere, and both are recorded rather than silently corrected:
 
 ## Binding Order
 
-1. `REST_STABILITY` RS0 through RS7 — add the authored all-three-ball sleep
-   completion gate, preserve and diagnose the unlimited `at_rest` witness with
-   SkullScope, build semantic false-pass-resistant oracles, adjudicate the
-   owning causes, then repair vertical vibration, sliding/rolling response, and
-   supported sleep before integrated deterministic closure.
+No active plan is currently bound.
 
 `CAUSAL_INSPECT` no longer re-steps an old frame to regenerate solver detail, so
 it does not consume the tier-2 determinism guarantee and has no ordering
@@ -217,8 +208,8 @@ than pinning pre-repair impulses, activation times, or sleep frames.
 
 ## Portfolio Progress
 
-46/47 tasks complete with one active plan. Causal C0-C8, Determinism T0-T8,
+47/47 tasks complete with no active plan. Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
-Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS6 are complete.
-At-Rest Ball Stability RS7 is next. Deterministic
+Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
+Deterministic
 Trigonometry is owner-parked and excluded from progress.

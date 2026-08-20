@@ -259,7 +259,7 @@ def check_excessive_quiet_vertical_speed() -> dict[str, object]:
     return require_exact_failure("excessive_quiet_vertical", frames, contacts, "vertical_speed")
 
 
-def check_pre_quiet_motion_is_not_a_quiet_run_failure() -> dict[str, object]:
+def check_pre_quiet_motion_is_excluded_from_the_quiet_run() -> dict[str, object]:
     frames, contacts = clean_fixture()
     by_frame = {int(frame["frame"]): frame for frame in frames}
     by_frame[7200]["sleep_counter"] = 0
@@ -268,9 +268,16 @@ def check_pre_quiet_motion_is_not_a_quiet_run_failure() -> dict[str, object]:
     contacts[1]["slip_speed"] = 9.0
 
     result = analyze_body_records("pre_quiet_motion", frames, contacts)
-    if not result["passed"] or result["first_post_impact_quiet_support_frame"] != 7201:
-        raise AssertionError(f"pre-quiet impact response polluted the supported quiet run: {result}")
-    return {"name": "pre_quiet_motion_is_not_a_quiet_run_failure", "passed": True}
+    if (
+        not result["passed"]
+        or result["first_post_impact_quiet_support_frame"] != 7201
+        or result["maximum_quiet_support_abs_vy"] > 0.5
+    ):
+        raise AssertionError(f"impact response polluted the supported quiet-run audit: {result}")
+    return {
+        "name": "pre_quiet_motion_is_excluded_from_the_quiet_run",
+        "passed": True,
+    }
 
 
 def check_unloaded_speculative_slip_is_ignored() -> dict[str, object]:
@@ -519,7 +526,7 @@ def main() -> int:
             check_excessive_slip(),
             check_accumulated_slip(),
             check_excessive_quiet_vertical_speed(),
-            check_pre_quiet_motion_is_not_a_quiet_run_failure(),
+            check_pre_quiet_motion_is_excluded_from_the_quiet_run(),
             check_unloaded_speculative_slip_is_ignored(),
             check_tangent_only_slip_is_not_ignored(),
             check_missing_quiet_support_run(),
