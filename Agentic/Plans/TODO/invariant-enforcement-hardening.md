@@ -1,7 +1,7 @@
 # Invariant Enforcement And Assertion Hardening
 
 Date: 2026-08-20
-Status: Active; 5/8 phases complete
+Status: Active; 6/8 phases complete
 Impact area: repository-wide invariant enforcement, assertion policy, failure
 lanes, tests, comment taxonomy, and substantial diagnostic tools
 Owner: subsystem owners named by each affected path
@@ -287,8 +287,8 @@ The first 67 rows below are the complete IH0 selected-file union: 62 assert-only
 candidates across 22 files, 45 policy-comment candidates across 35 files, the
 complete eight-file `Run*` logical surface, Terrain construction, the worker
 taxonomy site, and the six named tools. IH1 appended two supporting files and
-IH2 appended eight more, IH3 appended six more, and IH4 appended seven more, so
-the live checklist now contains 90 rows. A row
+IH2 appended eight more, IH3 appended six more, IH4 appended seven more, and
+IH5 appended four supporting files, so the live checklist now contains 94 rows. A row
 remains unchecked until its owning phase inspects the entire file, applies the
 comment audit, and records the focused proof. IH7 reruns `git ls-files` and
 reconciles this list.
@@ -321,19 +321,19 @@ reconciles this list.
 - [x] `SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp` — A072-A078; IH4 real scope move/mode and backend-identity proof
 - [x] `SkullbonezSource/Rendering/RenderInstanceStore.cpp` — A080; IH4 mismatch clears every draw row through the real Refresh path
 - [ ] `SkullbonezSource/Runtime/App/Init.cpp` — P015
-- [ ] `SkullbonezSource/Runtime/App/Run.cpp` — H2
-- [ ] `SkullbonezSource/Runtime/App/Run.h` — H2
-- [ ] `SkullbonezSource/Runtime/App/RunFrame.cpp` — H2
-- [ ] `SkullbonezSource/Runtime/App/RunLaunchOptions.h` — H2
-- [ ] `SkullbonezSource/Runtime/App/RunLaunchOptions.Renderer.h` — H2
-- [ ] `SkullbonezSource/Runtime/App/RunRender.cpp` — H2, P016
-- [ ] `SkullbonezSource/Runtime/App/RunStartupState.h` — H2
-- [ ] `SkullbonezSource/Runtime/App/RunTimerState.h` — H2
+- [x] `SkullbonezSource/Runtime/App/Run.cpp` — H2; IH5 full-surface audit and unique-owner renderer lifecycle proof
+- [x] `SkullbonezSource/Runtime/App/Run.h` — H2; IH5 sole renderer-lifecycle truth and always-on access guard
+- [x] `SkullbonezSource/Runtime/App/RunFrame.cpp` — H2; IH5 full-surface frame-order audit
+- [x] `SkullbonezSource/Runtime/App/RunLaunchOptions.h` — H2; IH5 full-surface launch-value audit
+- [x] `SkullbonezSource/Runtime/App/RunLaunchOptions.Renderer.h` — H2; IH5 full-surface renderer-option audit
+- [x] `SkullbonezSource/Runtime/App/RunRender.cpp` — H2, P016; IH5 mandatory-renderer sequencing audit and early allocation-policy reclassification
+- [x] `SkullbonezSource/Runtime/App/RunStartupState.h` — H2; IH5 full-surface startup-value audit
+- [x] `SkullbonezSource/Runtime/App/RunTimerState.h` — H2; IH5 full-surface timing-owner audit
 - [ ] `SkullbonezSource/Runtime/Editor/EditorCommandHistory.cpp` — P017
 - [ ] `SkullbonezSource/Runtime/Editor/EditorObjectPlacement.cpp` — P018
 - [ ] `SkullbonezSource/Runtime/Editor/EditorTracer.cpp` — P019-P021
-- [ ] `SkullbonezSource/Runtime/Input/Input.cpp` — A087
-- [ ] `SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.cpp` — A095-A104
+- [x] `SkullbonezSource/Runtime/Input/Input.cpp` — A087; IH5 exact bind/unbind/wrong-window policy proof
+- [x] `SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.cpp` — A095-A104; IH5 atomic begin and complete gesture rejection matrix
 - [ ] `SkullbonezSource/Runtime/Planning/ReplayCauseInspection.cpp` — P022
 - [ ] `SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp` — L1, P023
 - [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.Automation.cpp` — P024
@@ -344,8 +344,8 @@ reconciles this list.
 - [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionRetainedGeometry.h` — P032
 - [ ] `SkullbonezSource/Runtime/Prediction/TrajectoryStore.cpp` — P033
 - [x] `SkullbonezSource/Runtime/Render/RenderResourceLifecycle.cpp` — A105; IH4 ten-row base producer uses the bounded snapshot owner
-- [ ] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp` — A107, P034-P035
-- [ ] `SkullbonezSource/Runtime/Render/UiTextPass.cpp` — A109-A111 remain assigned to IH5; IH4 audited the file and routed only its optional DXR preview append through A105
+- [x] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp` — A107, P034-P035; IH5 SkyPass open/close lease and cinematic-without-world policy proof
+- [x] `SkullbonezSource/Runtime/Render/UiTextPass.cpp` — A109-A111; IH5 profiler epoch and no-stale-memory-sampling proof
 - [ ] `SkullbonezSource/Runtime/Replay/ReplayAuthoringPackets.h` — P036
 - [ ] `SkullbonezSource/Runtime/Replay/ReplayPathPackets.h` — P037
 - [ ] `SkullbonezSource/Runtime/Replay/ReplayPresentation.cpp` — P038
@@ -353,7 +353,7 @@ reconciles this list.
 - [ ] `SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp` — P040
 - [ ] `SkullbonezSource/Runtime/Scene/SceneController.Load.cpp` — P041
 - [ ] `SkullbonezSource/Runtime/Scene/SceneEntityStore.cpp` — P042
-- [ ] `SkullbonezSource/Runtime/Scene/SceneWorld.cpp` — A114-A116
+- [x] `SkullbonezSource/Runtime/Scene/SceneWorld.cpp` — A114-A116; IH5 Release-safe map clear plus reorder/refresh identity proof
 - [ ] `SkullbonezSource/Runtime/Startup/StartupProbeHarnesses.cpp` — P043
 - [x] `SkullbonezSource/World/SkyBox.cpp` — A117-A119; IH4 rebuild lease clears on release and guards reset before mutation
 - [x] `SkullbonezSource/World/Terrain.cpp` — H1 complete in IH1; IH4 closes A126 and A128-A130 with preserved rebuild lease plus resource/clip-plane Lane F
@@ -379,10 +379,14 @@ reconciles this list.
 - [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp` — IH4 supporting successful-init epoch publication; full-file comment audit
 - [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.h` — IH4 supporting concrete texture/geometry epoch owners; full-file comment audit
 - [x] `SkullbonezSource/Rendering/PrimitiveBatchRenderer.h` — IH4 supporting scope-lifecycle and resource-identity owners; full-file comment audit
-- [x] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h` — IH4 supporting bounded base/DXR preview producer boundary; full-file comment audit
+- [x] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h` — IH4 bounded preview boundary; IH5 Sky/Profile lifecycle and memory-sampling policy owners; full-file comment audit
 - [x] `SkullbonezSource/World/SkyBox.h` — IH4 supporting clear-on-release rebuild lease; full-file comment audit
 - [x] `SkullbonezSource/World/WorldEnvironment.h` — IH4 supporting preserve-on-release rebuild lease; full-file comment audit
-- [x] `SkullbonezTests/TestSceneEntityStore.cpp` — IH4 supporting real RenderInstanceStore mismatch fallback proof; full-file comment audit
+- [x] `SkullbonezTests/TestSceneEntityStore.cpp` — IH4 real mismatch fallback; IH5 swap-last/reorder handle-map proof; full-file comment audit
+- [x] `SkullbonezSource/Rendering/RenderInstanceStore.h` — IH5 supporting complete handle-map consistency owner; full-file comment audit
+- [x] `SkullbonezSource/Runtime/Input/Input.h` — IH5 supporting sole retained Window bridge and Release-safe unbind policy; full-file comment audit
+- [x] `SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h` — IH5 supporting atomic rejection contract; full-file comment audit
+- [x] `SkullbonezTests/TestRuntimeValueSeams.cpp` — IH5 supporting exhaustive valid/rejected gesture transition proof; full-file comment audit
 
 ## Phases
 
@@ -501,12 +505,31 @@ reconciles this list.
   including its terminal Debug/Profile compiled-symbol reachability inventory.
   Independent post-fix review reports no blockers.
 
-- [ ] **IH5 — Harden Runtime, Input, Interaction, Replay, Planning, and UI
-  findings.** Review `Run` as a logical surface with its sibling owners, move
-  lifecycle enforcement to the concrete owner, and close every selected
-  runtime assertion without creating a second retained state owner or a broad
-  context/capability bag. Recheck Replay growth privileges and Runtime package
-  direction. Coordinate with the post-forecast source layout captured by IH0.
+- [x] **IH5 — Harden Runtime, Input, Interaction, Replay, Planning, and UI
+  findings.** `Run` now uses its `RuntimeRenderer` unique_ptr as the sole
+  lifecycle truth and requires the mandatory owner once before render work;
+  the rejected soft-cancellation branch and duplicate epoch bit are gone. Input
+  retains one Window bridge with Debug wrong-owner tripwires and safe non-Debug
+  fallback. Owned tool gestures preflight all owner, capture, and payload rules
+  before publishing workspace/owner state, with every gesture family and the
+  command capture mismatch covered. SkyPass opens its world lease at resource
+  publication, closes it before teardown, and requires it only on the cubemap
+  path, leaving valid cinematic sky independent of a world SkyBox. UiText owns
+  its profiler epoch and an exact memory-tab policy that proves invalid Replay
+  accounting invokes no sampler. SceneWorld delegates dense handle-map truth to
+  RenderInstanceStore and proves mismatch clear plus swap-last/reorder refresh.
+  Profile proof passes 3/3 IH5 cases and 66 assertions; Debug passes 2/2 and 52.
+  The expanded interaction matrix passes 1/1 and 157 assertions in both
+  configurations, and the standalone Debug/Release interaction-policy suite
+  passes all 26 cases. Profile core and Debug/Profile test builds pass with
+  warnings as errors. The 21-file selected/touched source audit is 21/21 with
+  zero deferred files; the live checklist is 65/94. Dependency direction,
+  Replay growth privilege, Run god-object closure, aggregate ownership,
+  extraction scars, wide signatures, complexity, glossary, and related paths
+  remain clear. `tools\validate_tests.bat` passes 661/661 cases and 2,521,198
+  assertions. `tools\validate_fast.bat` passes every static check, required
+  build, and the terminal Debug/Profile compiled-symbol reachability inventory.
+  The third independent post-fix review is blocker-free.
 
 - [ ] **IH6 — Correct invariant taxonomy and tool documentation.** Complete
   the 45-candidate allocation-policy review, reclassify the dispatch-threshold

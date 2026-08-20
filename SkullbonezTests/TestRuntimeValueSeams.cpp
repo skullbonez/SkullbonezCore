@@ -22,6 +22,8 @@
 //   - Replay hit regions and drawn rectangles come from the same layout helpers.
 //   - Disabled front-most controls consume the pointer without publishing an
 //     actionable hot control behind them.
+//   - Every gesture kind reaches a compatible owner/capture transition, while
+//     every owner/payload/capture rejection leaves all controller state unchanged.
 //   - Replay prediction retains a 20-second default while the control surface
 //     exposes the independently bounded 120-second operator maximum.
 //
@@ -36,6 +38,7 @@
 #include "../SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayArtifactSource.h"
 #include "../SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h"
+#include "../SkullbonezSource/Runtime/Interaction/RuntimeInteractionCommands.h"
 #include "../SkullbonezSource/Runtime/Render/RuntimeRenderFrameValues.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneController.h"
 
@@ -218,6 +221,169 @@ TEST_CASE( "Runtime interaction: camera policy follows owner precedence" )
     policy = controller.BuildFramePolicy( input );
     CHECK( policy.cameraLook == CameraLookState::Passive );
     CHECK_FALSE( policy.cameraMouseLookActive );
+}
+
+TEST_CASE( "Runtime interaction: every gesture preserves owner and capture consistency" )
+{
+    struct GestureCase
+    {
+        RuntimeInteractionGestureKind kind;
+        RuntimeWorkspace workspace;
+        WorldInteractionOwner owner;
+        RuntimeGizmoDragKind gizmoKind = RuntimeGizmoDragKind::None;
+        int axis = -1;
+        bool requiresBody = false;
+    };
+
+    constexpr GestureCase cases[] = {
+        { RuntimeInteractionGestureKind::ObjectPick, RuntimeWorkspace::Live, WorldInteractionOwner::Launcher },
+        { RuntimeInteractionGestureKind::EditorPlacementScaleDrag, RuntimeWorkspace::Edit,
+          WorldInteractionOwner::EditorPlacement },
+        { RuntimeInteractionGestureKind::GizmoDrag, RuntimeWorkspace::Edit, WorldInteractionOwner::EditorGizmo,
+          RuntimeGizmoDragKind::Translate, 0, true },
+        { RuntimeInteractionGestureKind::GizmoDrag, RuntimeWorkspace::Inspect, WorldInteractionOwner::InspectGizmo,
+          RuntimeGizmoDragKind::Rotate, 1, true },
+        { RuntimeInteractionGestureKind::MousePickupDrag, RuntimeWorkspace::Live, WorldInteractionOwner::Manipulator,
+          RuntimeGizmoDragKind::None, -1, true },
+        { RuntimeInteractionGestureKind::ReplayScrubDrag, RuntimeWorkspace::Replay,
+          WorldInteractionOwner::ReplayScrub },
+        { RuntimeInteractionGestureKind::ReplayVelocityDrag, RuntimeWorkspace::Replay,
+          WorldInteractionOwner::ReplayVelocityEdit, RuntimeGizmoDragKind::None, 2, true },
+        { RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag, RuntimeWorkspace::Replay,
+          WorldInteractionOwner::ReplayPrediction },
+        { RuntimeInteractionGestureKind::ReplayCauseTreeDrag, RuntimeWorkspace::Replay,
+          WorldInteractionOwner::ReplayCauseTree, RuntimeGizmoDragKind::None, 0 },
+    };
+
+    for ( const GestureCase& gestureCase : cases )
+    {
+        RuntimeInteractionController controller;
+        RuntimeInteractionGesture gesture;
+        gesture.kind = gestureCase.kind;
+        gesture.button = RuntimePointerButton::Left;
+        gesture.gizmoKind = gestureCase.gizmoKind;
+        gesture.axis = gestureCase.axis;
+
+        if ( gestureCase.requiresBody )
+        {
+            gesture.body = SkullbonezCore::Physics::PhysicsBodyHandle { 7u, 3u };
+        }
+
+        REQUIRE( controller.BeginOwnedToolGesture( gestureCase.workspace, gestureCase.owner, gesture ) );
+        CHECK( controller.Workspace() == gestureCase.workspace );
+        CHECK( controller.Owner() == gestureCase.owner );
+        CHECK( controller.Gesture().kind == gestureCase.kind );
+        CHECK( controller.PointerCapture() == RuntimePointerCaptureOwner::ToolGesture );
+        controller.EndGestureIfKind( gestureCase.kind );
+        CHECK( controller.Gesture().kind == RuntimeInteractionGestureKind::None );
+        CHECK( controller.PointerCapture() == RuntimePointerCaptureOwner::None );
+    }
+
+    RuntimeInteractionController cameraController;
+    RuntimeInteractionFrameInput frameInput = DefaultFrameInput();
+    frameInput.rightMouseLookHeld = true;
+    const RuntimeInteractionFramePolicy cameraPolicy = cameraController.BuildFramePolicy( frameInput );
+    RuntimeInputSnapshot snapshot;
+    snapshot.appFocused = true;
+    snapshot.pointer.rightDown = true;
+    cameraController.SyncCameraLookGesture( snapshot, cameraPolicy, true );
+    CHECK( cameraController.Gesture().kind == RuntimeInteractionGestureKind::CameraLook );
+    CHECK( cameraController.PointerCapture() == RuntimePointerCaptureOwner::CameraLook );
+    cameraController.CancelCameraLookGesture();
+    CHECK( cameraController.Gesture().kind == RuntimeInteractionGestureKind::None );
+    CHECK( cameraController.PointerCapture() == RuntimePointerCaptureOwner::None );
+
+    const auto expectRejected = []( RuntimeWorkspace workspace, WorldInteractionOwner owner,
+                                    const RuntimeInteractionGesture& gesture ) {
+        RuntimeInteractionController controller;
+        controller.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Live, WorldInteractionOwner::Launcher,
+                                                        InteractionExitReason::EnterLauncher );
+        const RuntimeWorkspace previousWorkspace = controller.Workspace();
+        const WorldInteractionOwner previousOwner = controller.Owner();
+        CHECK_FALSE( controller.BeginOwnedToolGesture( workspace, owner, gesture ) );
+        CHECK( controller.Workspace() == previousWorkspace );
+        CHECK( controller.Owner() == previousOwner );
+        CHECK( controller.Gesture().kind == RuntimeInteractionGestureKind::None );
+        CHECK( controller.PointerCapture() == RuntimePointerCaptureOwner::None );
+    };
+
+    RuntimeInteractionGesture invalid;
+    expectRejected( RuntimeWorkspace::Replay, WorldInteractionOwner::ReplayScrub, invalid );
+
+    invalid.kind = RuntimeInteractionGestureKind::CameraLook;
+    expectRejected( RuntimeWorkspace::Live, WorldInteractionOwner::Manipulator, invalid );
+
+    invalid = {};
+    invalid.kind = RuntimeInteractionGestureKind::ObjectPick;
+    expectRejected( RuntimeWorkspace::Live, WorldInteractionOwner::None, invalid );
+
+    invalid = {};
+    invalid.kind = RuntimeInteractionGestureKind::EditorPlacementScaleDrag;
+    expectRejected( RuntimeWorkspace::Edit, WorldInteractionOwner::Launcher, invalid );
+
+    RuntimeInteractionGesture gizmo;
+    gizmo.kind = RuntimeInteractionGestureKind::GizmoDrag;
+    gizmo.gizmoKind = RuntimeGizmoDragKind::Translate;
+    gizmo.axis = 0;
+    gizmo.body = SkullbonezCore::Physics::PhysicsBodyHandle { 2u, 1u };
+    expectRejected( RuntimeWorkspace::Edit, WorldInteractionOwner::Launcher, gizmo );
+    invalid = gizmo;
+    invalid.gizmoKind = RuntimeGizmoDragKind::None;
+    expectRejected( RuntimeWorkspace::Edit, WorldInteractionOwner::EditorGizmo, invalid );
+    invalid = gizmo;
+    invalid.axis = -1;
+    expectRejected( RuntimeWorkspace::Edit, WorldInteractionOwner::EditorGizmo, invalid );
+    invalid = gizmo;
+    invalid.body = {};
+    expectRejected( RuntimeWorkspace::Edit, WorldInteractionOwner::EditorGizmo, invalid );
+
+    RuntimeInteractionGesture pickup;
+    pickup.kind = RuntimeInteractionGestureKind::MousePickupDrag;
+    pickup.body = SkullbonezCore::Physics::PhysicsBodyHandle { 2u, 1u };
+    expectRejected( RuntimeWorkspace::Live, WorldInteractionOwner::Launcher, pickup );
+    invalid = pickup;
+    invalid.body = {};
+    expectRejected( RuntimeWorkspace::Live, WorldInteractionOwner::Manipulator, invalid );
+
+    invalid = {};
+    invalid.kind = RuntimeInteractionGestureKind::ReplayScrubDrag;
+    expectRejected( RuntimeWorkspace::Replay, WorldInteractionOwner::Launcher, invalid );
+
+    invalid.kind = RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag;
+    expectRejected( RuntimeWorkspace::Replay, WorldInteractionOwner::ReplayScrub, invalid );
+
+    RuntimeInteractionGesture velocity;
+    velocity.kind = RuntimeInteractionGestureKind::ReplayVelocityDrag;
+    velocity.body = SkullbonezCore::Physics::PhysicsBodyHandle { 2u, 1u };
+    velocity.axis = 0;
+    expectRejected( RuntimeWorkspace::Replay, WorldInteractionOwner::ReplayScrub, velocity );
+    invalid = velocity;
+    invalid.body = {};
+    expectRejected( RuntimeWorkspace::Replay, WorldInteractionOwner::ReplayVelocityEdit, invalid );
+    invalid = velocity;
+    invalid.axis = -1;
+    expectRejected( RuntimeWorkspace::Replay, WorldInteractionOwner::ReplayVelocityEdit, invalid );
+
+    RuntimeInteractionGesture causeTree;
+    causeTree.kind = RuntimeInteractionGestureKind::ReplayCauseTreeDrag;
+    causeTree.axis = 0;
+    expectRejected( RuntimeWorkspace::Replay, WorldInteractionOwner::ReplayScrub, causeTree );
+    invalid = causeTree;
+    invalid.axis = 2;
+    expectRejected( RuntimeWorkspace::Replay, WorldInteractionOwner::ReplayCauseTree, invalid );
+
+    RuntimeInteractionController commandController;
+    commandController.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Live, WorldInteractionOwner::Launcher,
+                                                           InteractionExitReason::EnterLauncher );
+    RuntimeGestureCommand captureMismatch;
+    captureMismatch.gesture.kind = RuntimeInteractionGestureKind::ObjectPick;
+    captureMismatch.captureOwner = RuntimePointerCaptureOwner::CameraLook;
+    RuntimeGestureEvent ignoredEvent;
+    CHECK_FALSE( commandController.ApplyGestureCommand( captureMismatch, ignoredEvent ) );
+    CHECK( commandController.Workspace() == RuntimeWorkspace::Live );
+    CHECK( commandController.Owner() == WorldInteractionOwner::Launcher );
+    CHECK( commandController.Gesture().kind == RuntimeInteractionGestureKind::None );
+    CHECK( commandController.PointerCapture() == RuntimePointerCaptureOwner::None );
 }
 
 TEST_CASE( "Replay overlay: scrubber geometry clamps compact and wide screens" )

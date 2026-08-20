@@ -31,6 +31,10 @@ Invariants:
     synchronous callback returns; no owner reference is retained between calls.
   - Backend preview handles stay in the Runtime snapshot, whose bounded append
     owns the optional DXR row before UI projection drops handle identity.
+  - Profile-only reads require the startup-bound profiler epoch; resource
+    release closes that epoch and a successful rebuild reopens it.
+  - An invalid Replay memory sample publishes a cleared unavailable value and
+    never reuses or refreshes stale accounting.
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.h
@@ -242,6 +246,7 @@ SkullbonezCore::Core::SbResult UiTextPass::EnsureGpuResources( Rendering::Dx12Re
                                             "Baked font metrics changed after UI layout publication." );
     }
 
+    m_profilerLifecycle.Activate();
     return SkullbonezCore::Core::SbResult::Success();
 }
 
@@ -249,6 +254,7 @@ SkullbonezCore::Core::SbResult UiTextPass::EnsureGpuResources( Rendering::Dx12Re
 void UiTextPass::ReleaseGpuResources( Rendering::Dx12TextureOwner* renderTextures,
                                       Rendering::Dx12GeometryOwner* renderGeometry )
 {
+    m_profilerLifecycle.Close();
     m_uiDrawSubmission.ReleaseGpuResources( renderGeometry );
     Text2d::DeleteFont( m_textBatch, renderTextures, renderGeometry );
     m_dxrReflectionPreviewTexture = 0;
@@ -281,7 +287,7 @@ float UiTextPass::BeginFrame( RunTimerState& timers, const RuntimeRenderModelFra
     m_replayDrawList.Clear();
     m_profilerDrawList.Clear();
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-    assert( m_profiler && "UiTextPass requires a startup-bound profiler in profile builds." );
+    static_cast<void>( m_profilerLifecycle.Require( "BeginFrame" ) );
 #endif
     Text2d::RebuildProjection( m_textBatch, (std::max)( 1, screenW ), (std::max)( 1, screenH ) );
     return UpdateFrameMetrics( timers, models, secondsPerFrame );
@@ -586,6 +592,23 @@ void UiTextPass::PrepareOperatorFrame( UI::InGameUIFrameData& UIData, const UiTe
 }
 
 
+SkullbonezCore::Core::MainMemoryStats
+UiTextPass::ProjectMemoryTabStats( DiagnosticsRuntime& diagnosticsRuntime, const ReplayHudStatus& replayHud,
+                                   const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects, double nowSeconds )
+{
+    // Lane R: the Memory tab may be opened before Replay has published its
+    // first accounting snapshot. The inline policy does not invoke this sampler
+    // until the source is valid, so stale diagnostics cannot masquerade as the
+    // current scene.
+    return ProjectMemoryTabStats( replayHud.memoryStatsValid,
+                                  [&]()
+                                  {
+                                      return diagnosticsRuntime.RefreshMainMemoryStats( replayHud.memoryStats, gameObjects,
+                                                                                        nowSeconds, false, false );
+                                  } );
+}
+
+
 void UiTextPass::ProjectOperatorDiagnostics( UI::InGameUIFrameData& UIData, const ReplayHudStatus& replayHud,
                                              RunTimerState& timers, const RuntimeRenderModelFrameView& models,
                                              DiagnosticsRuntime& diagnosticsRuntime, UI::InGameUI& ui,
@@ -593,8 +616,7 @@ void UiTextPass::ProjectOperatorDiagnostics( UI::InGameUIFrameData& UIData, cons
                                              Rendering::Dx12Diagnostics& renderDiagnostics )
 {
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-    assert( m_profiler && "UiTextPass requires a startup-bound profiler in profile builds." );
-    const SkullbonezCore::Core::Profiler& profiler = *m_profiler;
+    const SkullbonezCore::Core::Profiler& profiler = m_profilerLifecycle.Require( "ProjectOperatorDiagnostics" );
 #endif
     UIData.UIDrawCalls = timers.lastUIDrawCalls;
     UIData.visibility = ProjectRenderVisibilityDiagnostics( renderDiagnostics.GetFrameVisibilityStats() );
@@ -853,10 +875,10 @@ void UiTextPass::ProjectOperatorDiagnostics( UI::InGameUIFrameData& UIData, cons
     if ( memoryTabActive )
     {
         // Why: memory sampling belongs to DiagnosticsRuntime; the render host
-        // only decides whether the UI pass needs to draw.
-        assert( replayHud.memoryStatsValid );
-        UIData.mainMemory = diagnosticsRuntime.RefreshMainMemoryStats( replayHud.memoryStats, models.gameObjectMemory,
-                                                                       UIData.now, false, false );
+        // only decides whether the UI pass needs to draw. An unavailable replay
+        // snapshot publishes an unavailable memory value without sampling or
+        // reusing a stale prior frame.
+        UIData.mainMemory = ProjectMemoryTabStats( diagnosticsRuntime, replayHud, models.gameObjectMemory, UIData.now );
     }
     else if ( memoryOverlayEnabled )
     {
@@ -1124,8 +1146,7 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport, OverlayMo
     const float mX = 0.022f;
     const float mY = 0.015f;
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-    assert( m_profiler && "UiTextPass requires a startup-bound profiler in profile builds." );
-    const SkullbonezCore::Core::Profiler& profiler = *m_profiler;
+    const SkullbonezCore::Core::Profiler& profiler = m_profilerLifecycle.Require( "RenderOverlayContent" );
     const UI::UIProfilerOverlayPresenter profilerOverlay;
 #endif
 

@@ -577,6 +577,28 @@ bool RenderInstanceStore::Contains( RenderInstanceHandle handle ) const
 }
 
 
+bool RenderInstanceStore::HasConsistentHandleMap() const
+{
+    if ( m_instances.size() != m_modelInstanceHandles.size() )
+    {
+        return false;
+    }
+
+    for ( std::size_t index = 0; index < m_instances.size(); ++index )
+    {
+        const RenderInstanceHandle handle = m_modelInstanceHandles[index];
+
+        if ( !handle.IsValid() || handle.index != index || m_instances[index].handle != handle ||
+             ModelIndexForHandle( handle ) != static_cast<int>( index ) )
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+
 std::span<const RenderInstanceRecord> RenderInstanceStore::Records() const
 {
     return m_instances;

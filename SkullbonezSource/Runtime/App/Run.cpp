@@ -13,6 +13,8 @@ Glossary:
     subsystem teardown.
 
 Invariants:
+  - Renderer access is legal only while Run's unique owner is non-null; the
+    same always-on guard dominates every mandatory dereference.
   - Backend-owned render resources must be released while the renderer backend
     is still alive, after a GPU flush, and in the explicit release order below.
   - Final capacity rows are reported while the active scene stores still exist.
@@ -329,14 +331,16 @@ Run::BindRenderBackend( Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx
 #endif
 )
 {
-    m_renderer = std::make_unique<RuntimeRenderer>( m_resultDiagnostics, renderDevice, renderFrame, renderGraph,
-                                                    renderResources, renderTextures, renderGeometry, renderDiagnostics,
-                                                    raytracing, raytracingAvailable,
-                                                    RenderWorldView { m_assets, m_sceneController.Scene().Cameras(),
-                                                                      m_sceneController.Scene().Terrain(), m_window,
-                                                                      m_config, m_sceneController.Scene().Environment(),
-                                                                      m_overlayDiagnostics->RenderResources(), m_profiler },
-                                                    m_sceneController.State() );
+    auto renderer = std::make_unique<RuntimeRenderer>( m_resultDiagnostics, renderDevice, renderFrame, renderGraph,
+                                                       renderResources, renderTextures, renderGeometry, renderDiagnostics,
+                                                       raytracing, raytracingAvailable,
+                                                       RenderWorldView { m_assets, m_sceneController.Scene().Cameras(),
+                                                                         m_sceneController.Scene().Terrain(), m_window,
+                                                                         m_config, m_sceneController.Scene().Environment(),
+                                                                         m_overlayDiagnostics->RenderResources(),
+                                                                         m_profiler },
+                                                       m_sceneController.State() );
+    m_renderer = std::move( renderer );
 
     m_shaderDevelopment = shaderDevelopment;
     Renderer().SetVsyncEnabled( m_config.runtimeRender.vsyncEnabled );
@@ -415,7 +419,10 @@ Run::~Run()
     // Lifetime: clean up backend-owned render resources while the current
     // backend is still alive. RuntimeRenderer performs the checked drain before
     // its first release so no owner can destroy resources after a failed wait.
-    const SkullbonezCore::Core::SbResult releaseResult = Renderer().ReleaseBackendOwnedRuntimeResources( RuntimeRenderer::BackendResourceReleaseContext { "shutdown_release", *m_operatorUi, m_runtimeTools } );
+    const SkullbonezCore::Core::SbResult
+        releaseResult = Renderer( "Shutdown" )
+                            .ReleaseBackendOwnedRuntimeResources( RuntimeRenderer::BackendResourceReleaseContext { "shutdown_release", *m_operatorUi,
+                                                                                                                   m_runtimeTools } );
 
     if ( !releaseResult.Ok() )
     {
@@ -437,6 +444,7 @@ Run::~Run()
     m_window.UnbindDevelopmentUiInput( m_imguiEditor );
     m_imguiEditor.Shutdown();
 #endif
+    m_renderer.reset();
 }
 
 
@@ -637,9 +645,8 @@ void Run::Initialise()
         return;
     }
 
-    assert( m_renderer && "Run requires a renderer before Initialise()" );
-    auto& renderResources = Renderer().RenderResources();
-    const SkullbonezCore::Rendering::Dx12Diagnostics& renderDiagnostics = Renderer().RenderDiagnostics();
+    auto& renderResources = Renderer( "Initialise" ).RenderResources();
+    const SkullbonezCore::Rendering::Dx12Diagnostics& renderDiagnostics = Renderer( "Initialise" ).RenderDiagnostics();
 
     const char* rendererName = renderDiagnostics.GetRendererName();
     char titleText[256];

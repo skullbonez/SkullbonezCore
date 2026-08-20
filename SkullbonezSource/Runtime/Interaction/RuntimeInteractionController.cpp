@@ -12,6 +12,8 @@ Invariants:
   - The controller does not clear hover, replay, editor, or physics state
     directly; it returns transition records for Run to apply.
   - Pointer capture, owner, and gesture must describe the same active operation.
+  - A rejected owned gesture leaves workspace, owner, gesture, and pointer
+    capture exactly as they were before the request.
   - Returned frame policy is complete; Run consumes it without policy repair.
 
 Related:
@@ -71,8 +73,9 @@ bool IsActiveGestureValid( const RuntimeInteractionGesture& gesture, RuntimePoin
                gesture.body.IsValid();
 
     case RuntimeInteractionGestureKind::ReplayScrubDrag:
+        return captureOwner == RuntimePointerCaptureOwner::ToolGesture && owner == WorldInteractionOwner::ReplayScrub;
     case RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag:
-        return captureOwner == RuntimePointerCaptureOwner::ToolGesture && IsReplayOwner( owner );
+        return captureOwner == RuntimePointerCaptureOwner::ToolGesture && owner == WorldInteractionOwner::ReplayPrediction;
     case RuntimeInteractionGestureKind::ReplayVelocityDrag:
         return captureOwner == RuntimePointerCaptureOwner::ToolGesture &&
                owner == WorldInteractionOwner::ReplayVelocityEdit && gesture.body.IsValid() && gesture.axis >= 0;
@@ -311,6 +314,14 @@ bool RuntimeInteractionController::BeginOwnedToolGesture( RuntimeWorkspace works
 {
     // Invariant: owner selection and gesture capture share one controller
     // boundary. Domain tools must not mirror either half in replay/root state.
+    // Preflight every fallible rule before publishing either half so rejection
+    // leaves the previous workspace, owner, gesture, and capture untouched.
+    if ( m_gesture.kind != RuntimeInteractionGestureKind::None || m_pointerCapture != RuntimePointerCaptureOwner::None ||
+         !CanBeginGesture( gesture, RuntimePointerCaptureOwner::ToolGesture, owner ) )
+    {
+        return false;
+    }
+
     SetWorldInteractionOwnerInWorkspace( workspace, owner, InteractionExitReason::BeginGesture );
     return BeginGesture( gesture, RuntimePointerCaptureOwner::ToolGesture, InteractionExitReason::BeginGesture )
         .gestureChanged;

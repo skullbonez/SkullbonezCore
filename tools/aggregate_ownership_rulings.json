@@ -73,7 +73,7 @@
                        },
                        {
                            "key":  "DebugOverlayPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:423",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:427",
                            "members":  12,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render pass ruling",
@@ -154,7 +154,7 @@
                        },
                        {
                            "key":  "FramePresentationFacts",
-                           "site":  "SkullbonezSource/Runtime/App/Run.h:201",
+                           "site":  "SkullbonezSource/Runtime/App/Run.h:219",
                            "members":  4,
                            "verdict":  "retain",
                            "owner":  "NA2 / Runtime/App",
@@ -190,8 +190,8 @@
                        },
                        {
                            "key":  "Input",
-                           "site":  "SkullbonezSource/Runtime/Input/Input.h:112",
-                           "members":  0,
+                           "site":  "SkullbonezSource/Runtime/Input/Input.h:118",
+                           "members":  1,
                            "verdict":  "retain",
                            "owner":  "NA2 / Runtime/Input",
                            "reason":  "Static operations normalize Win32 device sampling and deterministic automation overrides behind one platform boundary; callers cannot mutate the nested injection buffers or bypass the sampling policy.",
@@ -253,7 +253,7 @@
                        },
                        {
                            "key":  "ObjectPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:246",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:250",
                            "members":  16,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render pass ruling",
@@ -316,7 +316,7 @@
                        },
                        {
                            "key":  "ReflectionPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:287",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:291",
                            "members":  22,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render pass ruling",
@@ -334,7 +334,7 @@
                        },
                        {
                            "key":  "RenderResourceContext",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:232",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:236",
                            "members":  7,
                            "verdict":  "retain",
                            "owner":  "prior owner ruling carried by CA0",
@@ -703,7 +703,7 @@
                        },
                        {
                            "key":  "ShadowPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:442",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:446",
                            "members":  12,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render pass ruling",
@@ -739,7 +739,7 @@
                        },
                        {
                            "key":  "TerrainPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:271",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:275",
                            "members":  10,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render pass ruling",
@@ -775,7 +775,7 @@
                        },
                        {
                            "key":  "WaterPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:326",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:330",
                            "members":  13,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render pass ruling",

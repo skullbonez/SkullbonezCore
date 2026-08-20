@@ -23,6 +23,8 @@ Invariants:
     submission; RuntimeRenderer cannot reach replay business authority.
   - Continuous-orbit packing completes before submission; the renderer borrows
     one coherent published bank and never reads the producer ring directly.
+  - RuntimeRenderer is a mandatory process owner; Render requires it once at
+    entry and never advertises a recoverable missing-renderer frame.
   - Run performs top-level sequencing only; render passes never call back into
     Run or receive a Run pointer.
 
@@ -45,8 +47,12 @@ namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 void Run::Render( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha )
 {
+    // Lane F: RuntimeRenderer is a mandatory composition owner. Require it once
+    // before any render-phase state is prepared; there is no recoverable frame
+    // cancellation path for a missing process renderer.
+    RuntimeRenderer& renderer = Renderer( "Render" );
     const OverlayDebugState debug = m_overlayDiagnostics->PresentationSnapshot();
-    Renderer().ResourceLifecycle().SetUiTextDxrReflectionPreviewTexture( 0 );
+    renderer.ResourceLifecycle().SetUiTextDxrReflectionPreviewTexture( 0 );
 
     // In text_only mode all 3D rendering is skipped. UiTextPass handles the display.
     if ( debug.isTextOnly )
@@ -100,14 +106,6 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     const RuntimeRenderFramePolicy framePolicy = m_overlayDiagnostics
                                                      ->BuildFramePolicy( m_timers.simulationTimer.GetTimeSinceLastStart(),
                                                                          m_timers.simulationTimer.GetTotalTime() );
-
-    const bool renderReady = static_cast<bool>( m_renderer );
-
-    if ( !renderReady )
-    {
-        m_replayRuntime.CancelRenderFrame( m_runtimeTools );
-        return;
-    }
 
     // Invariant: Run owns the cross-domain ordering. Model interpolation must
     // finish before replay substitutes read-only historical/future poses, and
@@ -173,11 +171,12 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
 
     Rendering::WorldRenderExtensionRegistration worldExtension;
 
-    // Invariant: Gameplay preallocates its bounded visual maximum during owner
-    // construction. Steady rendering receives no allocation-phase exemption.
+    // Runtime allocation policy: Gameplay preallocates its bounded visual
+    // maximum during owner construction. Steady rendering receives no
+    // allocation-phase exemption.
     worldExtension = m_sceneController.Scene().Tornado().PrepareVisualFrame( visualTime );
-    const bool replaySubmissionRendered = Renderer().RenderFrameEntry( RuntimeRenderer::FrameEntryContext { renderModels, framePolicy, replayFrame, continuousOverlay, toolOverlay,
-                                                                                                            worldExtension, activeCinematic, cinematicRequested } );
+    const bool replaySubmissionRendered = renderer.RenderFrameEntry( RuntimeRenderer::FrameEntryContext { renderModels, framePolicy, replayFrame, continuousOverlay, toolOverlay,
+                                                                                                          worldExtension, activeCinematic, cinematicRequested } );
 
     m_replayRuntime.CompleteRenderFrame( replaySubmissionRendered, m_sceneController.State().currentFrame,
                                          replayGrowthEventCount, m_runtimeTools );

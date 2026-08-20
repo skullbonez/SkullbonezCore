@@ -266,9 +266,9 @@ class RuntimeInteractionController
     // resulting state after a successful mutation.
     bool ApplyGestureCommand( const RuntimeGestureCommand& command, RuntimeGestureEvent& outEvent );
 
-    // Claims the workspace/owner, clears any previous interaction, and begins
-    // one typed tool drag. A false result means the gesture/owner pairing is
-    // invalid; the requested workspace and owner remain active.
+    // Atomically claims the workspace/owner and begins one typed tool drag. A
+    // false result leaves the previous workspace, owner, gesture, and pointer
+    // capture unchanged.
     bool BeginOwnedToolGesture( RuntimeWorkspace workspace, WorldInteractionOwner owner,
                                 const RuntimeInteractionGesture& gesture );
 

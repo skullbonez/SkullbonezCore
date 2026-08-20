@@ -41,6 +41,8 @@ Invariants:
     surface selection and application-failure policy.
   - Physics and input owners publish complete policy/results; Run applies them
     without reconstructing or overriding their domain decisions.
+  - Frame work enters only through an active Run renderer epoch; missing or
+    teardown-closed renderer access terminates before phase dispatch.
 
 Related:
   - SkullbonezSource/Runtime/App/Run.h defines the frame-coordinator calling convention.
@@ -216,11 +218,9 @@ double Run::BeginFrameTurn()
     m_timers.workTimer.StartTimer();
 
     // Lifetime: every facet is a startup-owned borrow for this synchronous
-    // frame turn. A missing facet is a composition invariant failure.
-    if ( !m_renderer )
-    {
-        SB_FATAL( "RunFrame", "Run::Execute requires a render backend." );
-    }
+    // frame turn. The Run-owned renderer epoch fails before any phase can
+    // dereference a missing or teardown-closed renderer.
+    static_cast<void>( Renderer( "Execute" ) );
 
     return secondsPerFrame;
 }

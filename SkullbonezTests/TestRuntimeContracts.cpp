@@ -55,7 +55,11 @@
 //   - Rendering lifecycle, primitive-scope, world-resource, and preview-capacity
 //     failures terminate in Profile children before stale access or indexing.
 //   - Targeted assert-only controls exit cleanly outside Debug, proving each
-//     IH4 Lane F group would detect its former false-pass implementation.
+//     rendering Lane F group would detect its former false-pass implementation.
+//   - Runtime lifecycle probes exercise the exact Run, Input, SkyPass, and UiTextPass
+//     behavior owners through valid, absent, and teardown-closed transitions.
+//   - Targeted assert-only controls prove the retired Run/sky/profiler
+//     checks would return cleanly outside Debug.
 //
 // Related:
 //   - SkullbonezSource/Core/Log.h
@@ -64,6 +68,7 @@
 //   - SkullbonezSource/Physics/SleepIslandSystem.h
 //   - SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h
 //   - SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h
+//   - SkullbonezSource/Runtime/App/Run.h
 //   - SkullbonezSource/Assets/TextureCollection.h
 //   - SkullbonezSource/Core/LockOrderValidator.h
 //   - SkullbonezSource/Gameplay/TornadoVisualPass.h
@@ -104,6 +109,8 @@
 #include "../SkullbonezSource/Rendering/DX12/RenderBackendDX12.h"
 #include "../SkullbonezSource/Rendering/PrimitiveBatchRenderer.h"
 #include "../SkullbonezSource/Core/TracyClientOwner.h"
+#include "../SkullbonezSource/Runtime/App/Run.h"
+#include "../SkullbonezSource/Runtime/Input/Input.h"
 #include "../SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h"
 #include "../SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h"
@@ -210,6 +217,36 @@ struct Dx12GeometryOwnerTestAccess
     };
 };
 } // namespace SkullbonezCore::Rendering
+
+namespace SkullbonezCore::Hardware
+{
+struct InputWindowBridgeTestAccess
+{
+    class Probe
+    {
+      public:
+        void Bind( const void* identity )
+        {
+            m_bridge.Bind( reinterpret_cast<Runtime::Window*>( const_cast<void*>( identity ) ) );
+        }
+        void Unbind( const void* identity )
+        {
+            m_bridge.Unbind( reinterpret_cast<Runtime::Window*>( const_cast<void*>( identity ) ) );
+        }
+        bool IsBoundTo( const void* identity ) const
+        {
+            return m_bridge.BoundWindow() == reinterpret_cast<const Runtime::Window*>( identity );
+        }
+        bool IsUnbound() const
+        {
+            return m_bridge.BoundWindow() == nullptr;
+        }
+
+      private:
+        Input::WindowBridge m_bridge;
+    };
+};
+} // namespace SkullbonezCore::Hardware
 
 namespace SkullbonezCore::Geometry
 {
@@ -363,6 +400,103 @@ struct PhysicsContactSolverStageTestAccess
 
 namespace Runtime
 {
+struct RunRendererLifecycleTestAccess
+{
+    class Probe
+    {
+      public:
+        void Bind()
+        {
+            m_renderer = Identity();
+        }
+        void Close()
+        {
+            m_renderer = nullptr;
+        }
+        bool Available() const
+        {
+            return m_renderer != nullptr;
+        }
+        const void* Require( const char* operation )
+        {
+            return Run::RequireRenderer( m_renderer, operation );
+        }
+
+      private:
+        RuntimeRenderer* Identity() const
+        {
+            return reinterpret_cast<RuntimeRenderer*>( const_cast<int*>( &m_rendererIdentity ) );
+        }
+
+        int m_rendererIdentity = 0;
+        RuntimeRenderer* m_renderer = nullptr;
+    };
+};
+
+struct SkyPassTestAccess
+{
+    class Probe
+    {
+      public:
+        void Open( const void* identity )
+        {
+            m_lease.Open( reinterpret_cast<Geometry::SkyBox*>( const_cast<void*>( identity ) ) );
+        }
+        void Close()
+        {
+            m_lease.Close();
+        }
+        const void* Require( const char* operation ) const
+        {
+            return m_lease.Require( operation );
+        }
+
+      private:
+        SkyPass::WorldViewLease m_lease;
+    };
+
+    static bool UsesCinematicAtmosphere( const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
+                                         SkyPassMode mode )
+    {
+        return SkyPass::UsesCinematicAtmosphere( cinematic, mode );
+    }
+};
+
+struct UiTextPassTestAccess
+{
+    class ProfilerProbe
+    {
+      public:
+        explicit ProfilerProbe( SkullbonezCore::Core::Profiler* profiler ) : m_lifecycle( profiler )
+        {
+        }
+        void Activate()
+        {
+            m_lifecycle.Activate();
+        }
+        void Close()
+        {
+            m_lifecycle.Close();
+        }
+        SkullbonezCore::Core::Profiler& Require( const char* operation ) const
+        {
+            return m_lifecycle.Require( operation );
+        }
+
+      private:
+        UiTextPass::ProfilerLifecycle m_lifecycle;
+    };
+
+    static SkullbonezCore::Core::MainMemoryStats ProjectMemoryTab( bool sourceValid, int& sampleCount,
+                                                                   const SkullbonezCore::Core::MainMemoryStats& sample )
+    {
+        return UiTextPass::ProjectMemoryTabStats( sourceValid, [&]() {
+            ++sampleCount;
+            return sample;
+        } );
+    }
+};
+
 struct OperatorCommandTransactionTestAccess
 {
     static void Advance( OperatorCommandTransaction& transaction, OperatorCommandPhaseCursor::Phase next )
@@ -471,6 +605,80 @@ TEST_CASE( "IH4 render lifecycle owners execute valid bind move and close transi
     CHECK( waterBindings.Complete() );
     waterBindings.PreserveAcrossResourceRelease();
     waterBindings.Require( "ValidRebuildAfterReleaseProbe" );
+}
+
+
+TEST_CASE( "IH5 runtime lifecycle owners preserve valid and unavailable policy" )
+{
+    using SkullbonezCore::Hardware::InputWindowBridgeTestAccess;
+    using SkullbonezCore::Runtime::RunRendererLifecycleTestAccess;
+    using SkullbonezCore::Runtime::SkyPassTestAccess;
+    using SkullbonezCore::Runtime::UiTextPassTestAccess;
+
+    int firstWindowIdentity = 0;
+    InputWindowBridgeTestAccess::Probe inputBridge;
+    CHECK( inputBridge.IsUnbound() );
+    inputBridge.Bind( &firstWindowIdentity );
+    CHECK( inputBridge.IsBoundTo( &firstWindowIdentity ) );
+
+#if !defined( _DEBUG )
+    int otherWindowIdentity = 0;
+    inputBridge.Unbind( &otherWindowIdentity );
+    CHECK( inputBridge.IsBoundTo( &firstWindowIdentity ) );
+#endif
+
+    RunRendererLifecycleTestAccess::Probe rendererLifecycle;
+    CHECK_FALSE( rendererLifecycle.Available() );
+    rendererLifecycle.Bind();
+    CHECK( rendererLifecycle.Available() );
+    CHECK( rendererLifecycle.Require( "ValidRendererProbe" ) != nullptr );
+    rendererLifecycle.Close();
+    CHECK_FALSE( rendererLifecycle.Available() );
+
+    inputBridge.Unbind( &firstWindowIdentity );
+    CHECK( inputBridge.IsUnbound() );
+
+#if !defined( _DEBUG )
+    inputBridge.Unbind( &firstWindowIdentity );
+    CHECK( inputBridge.IsUnbound() );
+#endif
+
+    static SkullbonezCore::Core::Profiler profiler;
+    UiTextPassTestAccess::ProfilerProbe profilerLifecycle( &profiler );
+    profilerLifecycle.Activate();
+    CHECK( &profilerLifecycle.Require( "ValidProfilerProbe" ) == &profiler );
+    profilerLifecycle.Close();
+    profilerLifecycle.Activate();
+    CHECK( &profilerLifecycle.Require( "RebuiltProfilerProbe" ) == &profiler );
+
+    SkullbonezCore::Core::MainMemoryStats sampledMemory;
+    sampledMemory.sampleTimeSeconds = 3.0;
+    sampledMemory.replay.totalBytes = 31u;
+    int memorySampleCount = 0;
+    const SkullbonezCore::Core::MainMemoryStats unavailableMemory =
+        UiTextPassTestAccess::ProjectMemoryTab( false, memorySampleCount, sampledMemory );
+    CHECK_FALSE( unavailableMemory.process.available );
+    CHECK( unavailableMemory.replay.totalBytes == 0u );
+    CHECK( memorySampleCount == 0 );
+
+    const SkullbonezCore::Core::MainMemoryStats availableMemory =
+        UiTextPassTestAccess::ProjectMemoryTab( true, memorySampleCount, sampledMemory );
+    CHECK( availableMemory.sampleTimeSeconds == doctest::Approx( 3.0 ) );
+    CHECK( availableMemory.replay.totalBytes == 31u );
+    CHECK( memorySampleCount == 1 );
+
+    int skyIdentity = 0;
+    SkyPassTestAccess::Probe skyLease;
+    skyLease.Open( &skyIdentity );
+    CHECK( skyLease.Require( "ValidWorldViewProbe" ) == &skyIdentity );
+    skyLease.Close();
+
+    SkullbonezCore::Core::CinematicRenderConfig cinematic;
+    cinematic.skyAtmosphereEnabled = true;
+    CHECK( SkyPassTestAccess::UsesCinematicAtmosphere( &cinematic,
+                                                       SkullbonezCore::Runtime::SkyPassMode::CinematicIfEnabled ) );
+    CHECK_FALSE(
+        SkyPassTestAccess::UsesCinematicAtmosphere( &cinematic, SkullbonezCore::Runtime::SkyPassMode::CubemapOnly ) );
 }
 
 
@@ -735,6 +943,19 @@ void RunLegacyAssertOnlyControl( bool condition, const char* group )
         std::printf( "IH4 legacy assert-only %s path returned in a non-Debug child\n", group );
     }
 }
+
+
+void RunIh5LegacyAssertOnlyControl( bool condition, const char* group )
+{
+    // Negative control: the selected SkyPass/UiTextPass paths previously used
+    // this exact assert-only shape before continuing toward a dereference.
+    assert( condition );
+
+    if ( !condition )
+    {
+        std::printf( "IH5 legacy assert-only %s path returned in a non-Debug child\n", group );
+    }
+}
 } // namespace
 
 void ExpectRuntimeFatalCase( const char* caseName, std::initializer_list<const char*> expectedDiagnostics )
@@ -777,6 +998,24 @@ bool RunRuntimeFatalCase( const char* caseName )
     if ( std::strcmp( caseName, "ih4-legacy-preview-false-pass" ) == 0 )
     {
         RunLegacyAssertOnlyControl( false, "preview capacity" );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "ih5-legacy-sky-pass-false-pass" ) == 0 )
+    {
+        RunIh5LegacyAssertOnlyControl( false, "sky pass" );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "ih5-legacy-run-renderer-false-pass" ) == 0 )
+    {
+        RunIh5LegacyAssertOnlyControl( false, "Run renderer" );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "ih5-legacy-ui-profiler-false-pass" ) == 0 )
+    {
+        RunIh5LegacyAssertOnlyControl( false, "UI profiler" );
         return true;
     }
 
@@ -922,6 +1161,60 @@ bool RunRuntimeFatalCase( const char* caseName )
     if ( std::strcmp( caseName, "terrain-missing-clip-plane" ) == 0 )
     {
         SkullbonezCore::Geometry::TerrainRenderLifecycleTestAccess::RequireClipPlane( nullptr );
+        return true;
+    }
+
+    const bool skyPassBeforeInit = std::strcmp( caseName, "sky-pass-before-init" ) == 0;
+    const bool skyPassAfterRelease = std::strcmp( caseName, "sky-pass-after-release" ) == 0;
+
+    if ( skyPassBeforeInit || skyPassAfterRelease )
+    {
+        SkullbonezCore::Runtime::SkyPassTestAccess::Probe skyLease;
+        int skyIdentity = 0;
+
+        if ( skyPassAfterRelease )
+        {
+            skyLease.Open( &skyIdentity );
+            skyLease.Close();
+        }
+
+        skyLease.Require( skyPassAfterRelease ? "AfterReleaseProbe" : "BeforeInitProbe" );
+        return true;
+    }
+
+    const bool runRendererBeforeInit = std::strcmp( caseName, "run-renderer-before-init" ) == 0;
+    const bool runRendererAfterShutdown = std::strcmp( caseName, "run-renderer-after-shutdown" ) == 0;
+
+    if ( runRendererBeforeInit || runRendererAfterShutdown )
+    {
+        SkullbonezCore::Runtime::RunRendererLifecycleTestAccess::Probe rendererLifecycle;
+
+        if ( runRendererAfterShutdown )
+        {
+            rendererLifecycle.Bind();
+            rendererLifecycle.Close();
+        }
+
+        rendererLifecycle.Require( runRendererAfterShutdown ? "AfterShutdownProbe" : "BeforeInitProbe" );
+        return true;
+    }
+
+    const bool uiProfilerBeforeInit = std::strcmp( caseName, "ui-profiler-before-init" ) == 0;
+    const bool uiProfilerAfterRelease = std::strcmp( caseName, "ui-profiler-after-release" ) == 0;
+
+    if ( uiProfilerBeforeInit || uiProfilerAfterRelease )
+    {
+        auto profiler = std::make_unique<SkullbonezCore::Core::Profiler>();
+
+        SkullbonezCore::Runtime::UiTextPassTestAccess::ProfilerProbe profilerLifecycle( profiler.get() );
+
+        if ( uiProfilerAfterRelease )
+        {
+            profilerLifecycle.Activate();
+            profilerLifecycle.Close();
+        }
+
+        profilerLifecycle.Require( uiProfilerAfterRelease ? "AfterReleaseProbe" : "BeforeInitProbe" );
         return true;
     }
 
@@ -2009,6 +2302,38 @@ TEST_CASE( "IH4 old assert-only implementation is a proven non-Debug false pass"
                             { "IH4 legacy assert-only world rebuild path returned in a non-Debug child" } );
     ExpectCleanControlCase( "ih4-legacy-preview-false-pass",
                             { "IH4 legacy assert-only preview capacity path returned in a non-Debug child" } );
+}
+#endif
+
+
+TEST_CASE( "IH5 render-pass lifecycle misuse terminates before stale access" )
+{
+    ExpectFatalCase( "run-renderer-before-init",
+                     { "FATAL[Runtime/Run]", "BeforeInitProbe requires the live renderer owner", "renderer=0000000000000000" } );
+    ExpectFatalCase( "run-renderer-after-shutdown",
+                     { "FATAL[Runtime/Run]", "AfterShutdownProbe requires the live renderer owner", "renderer=0000000000000000" } );
+    ExpectFatalCase( "sky-pass-before-init",
+                     { "FATAL[Runtime/Render/SkyPass]", "BeforeInitProbe requires the live world-view sky owner" } );
+    ExpectFatalCase( "sky-pass-after-release",
+                     { "FATAL[Runtime/Render/SkyPass]", "AfterReleaseProbe requires the live world-view sky owner" } );
+    ExpectFatalCase( "ui-profiler-before-init",
+                     { "FATAL[Runtime/Render/UiTextPass]", "BeforeInitProbe requires an active startup-bound profiler",
+                       "active=0" } );
+    ExpectFatalCase( "ui-profiler-after-release",
+                     { "FATAL[Runtime/Render/UiTextPass]", "AfterReleaseProbe requires an active startup-bound profiler",
+                       "active=0" } );
+}
+
+
+#if !defined( _DEBUG )
+TEST_CASE( "IH5 old render-pass assert-only implementation is a proven non-Debug false pass" )
+{
+    ExpectCleanControlCase( "ih5-legacy-run-renderer-false-pass",
+                            { "IH5 legacy assert-only Run renderer path returned in a non-Debug child" } );
+    ExpectCleanControlCase( "ih5-legacy-sky-pass-false-pass",
+                            { "IH5 legacy assert-only sky pass path returned in a non-Debug child" } );
+    ExpectCleanControlCase( "ih5-legacy-ui-profiler-false-pass",
+                            { "IH5 legacy assert-only UI profiler path returned in a non-Debug child" } );
 }
 #endif
 

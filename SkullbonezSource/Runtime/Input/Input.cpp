@@ -19,6 +19,8 @@ Invariants:
     stale mouse deltas must not leak across focus/UI transitions.
   - The input window bridge is bound before frame capture translates pointer
     coordinates.
+  - Wrong-window and repeated unbind requests retain the current binding in
+    Release while Debug keeps the caller-contract tripwire.
   - ShowCursor is normalized through helper loops because Win32 exposes a
     reference counter, not a simple visible/hidden boolean.
 
@@ -47,11 +49,6 @@ namespace
 // mutate stale frame input.
 HWND s_callbackBridgeWindow = nullptr;
 
-// Lifetime: ordinary polling helpers borrow the active runtime window while
-// WinMain owns it. WndProc still passes HWNDs directly to callback-specific
-// APIs, so this pointer is only for normal frame/input paths.
-Window* s_inputWindow = nullptr;
-
 // WndProc WM_MOUSEWHEEL writes; CaptureDeviceInputFrame consumes once per
 // frame so UI, editor, and replay cannot each drain the same wheel input.
 int g_mouseWheelDelta = 0;
@@ -78,12 +75,12 @@ Input::AutomationState s_automationState;
 
 constexpr int RAW_MOUSE_ABSOLUTE_RANGE = 65535;
 
-[[noreturn]] void FatalInputWindowBridgeMissing( const char* functionName )
+[[noreturn]] void FatalInputWindowBridgeMissing( const char* functionName, Window* inputWindow )
 {
     // Why: printf-style %p requires a void pointer in this fatal diagnostic;
     // the casts do not establish ownership or serve as runtime identity.
     SB_FATAL( "Input", "%s requires a bound input window bridge. inputWindow=%p callbackWindow=%p automation=%d",
-              functionName, static_cast<void*>( s_inputWindow ), static_cast<void*>( s_callbackBridgeWindow ),
+              functionName, static_cast<void*>( inputWindow ), static_cast<void*>( s_callbackBridgeWindow ),
               s_automationState.enabled ? 1 : 0 );
 }
 
@@ -93,11 +90,6 @@ bool IsCallbackBridgeBoundForWindow( HWND window )
     return window && s_callbackBridgeWindow == window;
 }
 
-
-Window* BoundInputWindow()
-{
-    return s_inputWindow;
-}
 
 void EnsureShowCursorVisible()
 {
@@ -142,10 +134,12 @@ long RawAbsoluteToPixels( long value, int extent )
 }
 } // namespace
 
+Input::WindowBridge Input::s_windowBridge;
+
 
 bool Input::IsAppFocused()
 {
-    Window* window = BoundInputWindow();
+    Window* window = s_windowBridge.BoundWindow();
     const HWND windowHandle = window ? window->NativeWindowHandle() : nullptr;
 
     if ( !windowHandle )
@@ -242,7 +236,7 @@ SkullbonezCore::Core::SbResult Input::SetNativeMouseCapture( SkullbonezCore::Cor
 {
     // Lane R: InputRouter owns the decision, while this narrow hardware seam
     // verifies that Win32 accepted the requested capture transition.
-    Window* window = BoundInputWindow();
+    Window* window = s_windowBridge.BoundWindow();
     const HWND windowHandle = window ? window->NativeWindowHandle() : nullptr;
 
     if ( !windowHandle )
@@ -282,19 +276,13 @@ SkullbonezCore::Core::SbResult Input::SetNativeMouseCapture( SkullbonezCore::Cor
 
 void Input::BindWindow( Window& window )
 {
-    assert( !s_inputWindow && "Input window bridge is already bound" );
-    s_inputWindow = &window;
+    s_windowBridge.Bind( &window );
 }
 
 
 void Input::UnbindWindow( Window& window )
 {
-    assert( s_inputWindow == &window && "Input window bridge unbound with a different window" );
-
-    if ( s_inputWindow == &window )
-    {
-        s_inputWindow = nullptr;
-    }
+    s_windowBridge.Unbind( &window );
 }
 
 
@@ -514,12 +502,12 @@ Input::MouseCoordinatesResult Input::GetClientMouseCoordinates( SkullbonezCore::
         return mousePos;
     }
 
-    Window* window = BoundInputWindow();
+    Window* window = s_windowBridge.BoundWindow();
     assert( window && "Input client mouse coordinates require a bound window" );
 
     if ( !window )
     {
-        FatalInputWindowBridgeMissing( "Input::GetClientMouseCoordinates" );
+        FatalInputWindowBridgeMissing( "Input::GetClientMouseCoordinates", window );
     }
 
     POINT clientCoordinates = mousePos.coordinates;

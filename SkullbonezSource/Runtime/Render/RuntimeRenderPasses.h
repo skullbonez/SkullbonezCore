@@ -24,6 +24,8 @@ Invariants:
   - Debug contact packets are synchronous Rendering values, not Replay or Planning state.
   - RuntimeRenderTargetPreviewSnapshot owns its fixed-catalog append boundary;
     every producer reaches Lane F before an overflow can index storage.
+  - Sky and Profile UI passes close their lifecycle leases before backend
+    resource teardown and reject access outside the active epoch.
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderHost.h
@@ -75,7 +77,9 @@ struct PhysicsPipelineRecord;
 namespace Runtime
 {
 class SceneWorld;
-}
+struct SkyPassTestAccess;
+struct UiTextPassTestAccess;
+} // namespace Runtime
 
 namespace Environment
 {
@@ -512,6 +516,38 @@ class SkyPass
                  Rendering::Dx12TextureOwner& renderTextures, SkyPassMode mode );
 
   private:
+    friend struct SkyPassTestAccess;
+
+    class WorldViewLease
+    {
+      public:
+        void Open( Geometry::SkyBox* skyBox )
+        {
+            m_skyBox = skyBox;
+        }
+        void Close()
+        {
+            m_skyBox = nullptr;
+        }
+        Geometry::SkyBox* Require( const char* operation ) const
+        {
+            if ( !m_skyBox )
+            {
+                SB_FATAL( "Runtime/Render/SkyPass", "%s requires the live world-view sky owner.", operation );
+            }
+
+            return m_skyBox;
+        }
+
+      private:
+        Geometry::SkyBox* m_skyBox = nullptr;
+    };
+
+    static bool UsesCinematicAtmosphere( const SkullbonezCore::Core::CinematicRenderConfig* cinematic, SkyPassMode mode )
+    {
+        return mode == SkyPassMode::CinematicIfEnabled && cinematic && cinematic->skyAtmosphereEnabled;
+    }
+    Geometry::SkyBox& RequireWorldView( const char* operation );
     void RenderCinematicSky( const RenderCameraLighting& camera, const Math::Transformation::Matrix4& view,
                              const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                              Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12TextureOwner& renderTextures );
@@ -524,6 +560,7 @@ class SkyPass
     std::unique_ptr<Geometry::SkyBox>& m_skyBox;
     const SkullbonezCore::Core::EngineConfig& m_config;
     SkullbonezCore::Core::Profiler* m_profiler;      // Startup-bound diagnostics borrow; null when profiling is disabled.
+    WorldViewLease m_worldViewLease;
 };
 
 /*
@@ -847,7 +884,7 @@ class UiTextPass
   public:
     UiTextPass( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, SkullbonezCore::Core::Profiler* profiler,
                 Rendering::RenderGpuTimingOwner& gpuTiming )
-        : m_resultDiagnostics( resultDiagnostics ), m_profiler( profiler ), m_gpuTiming( &gpuTiming )
+        : m_resultDiagnostics( resultDiagnostics ), m_profilerLifecycle( profiler ), m_gpuTiming( &gpuTiming )
     {
     }
 
@@ -907,7 +944,66 @@ class UiTextPass
     void ReportRetainedDrawStats();
 
   private:
+    friend struct UiTextPassTestAccess;
+
+    class ProfilerLifecycle
+    {
+      public:
+        explicit ProfilerLifecycle( SkullbonezCore::Core::Profiler* profiler ) : m_profiler( profiler )
+        {
+        }
+
+        void Activate()
+        {
+            m_active = m_profiler != nullptr;
+        }
+        void Close()
+        {
+            m_active = false;
+        }
+        SkullbonezCore::Core::Profiler& Require( const char* operation ) const
+        {
+            if ( !m_active || !m_profiler )
+            {
+                SB_FATAL( "Runtime/Render/UiTextPass", "%s requires an active startup-bound profiler. active=%d profiler=%p",
+                          operation, m_active ? 1 : 0, static_cast<void*>( m_profiler ) );
+            }
+
+            return *m_profiler;
+        }
+
+      private:
+        SkullbonezCore::Core::Profiler* m_profiler = nullptr;
+        bool m_active = false;
+    };
+
+    static bool PrepareMemoryTabProjection( bool sourceValid, SkullbonezCore::Core::MainMemoryStats& projected )
+    {
+        if ( !sourceValid )
+        {
+            projected = {};
+            return false;
+        }
+
+        return true;
+    }
+    template <typename SampleMemory>
+    static SkullbonezCore::Core::MainMemoryStats ProjectMemoryTabStats( bool sourceValid, SampleMemory&& sampleMemory )
+    {
+        SkullbonezCore::Core::MainMemoryStats projected;
+
+        if ( !PrepareMemoryTabProjection( sourceValid, projected ) )
+        {
+            return projected;
+        }
+
+        return sampleMemory();
+    }
+
     float UpdateFrameMetrics( RunTimerState& timers, const RuntimeRenderModelFrameView& models, double secondsPerFrame );
+    static SkullbonezCore::Core::MainMemoryStats
+    ProjectMemoryTabStats( DiagnosticsRuntime& diagnosticsRuntime, const ReplayHudStatus& replayHud,
+                           const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects, double nowSeconds );
 
     // Lifetime: font vertices/projection and optional render capabilities share
     // this pass's process lifetime and are cleared before backend teardown.
@@ -928,7 +1024,10 @@ class UiTextPass
     // Runtime owns the detached label/value snapshot. The frame packet lends
     // this fixed storage to UI only for the synchronous Memory-tab draw.
     UI::UIRuntimeReserveCapacityRow m_reserveCapacityRows[UI::UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX];
-    SkullbonezCore::Core::Profiler* m_profiler = nullptr;
+
+    // Lifetime: backend resource release closes profile reads before the pass's
+    // retained draw/GPU state is torn down; a successful rebuild reopens them.
+    ProfilerLifecycle m_profilerLifecycle;
     Rendering::RenderGpuTimingOwner* m_gpuTiming = nullptr;
     uint32_t m_dxrReflectionPreviewTexture = 0;
 };
