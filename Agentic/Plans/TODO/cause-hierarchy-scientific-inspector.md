@@ -1,7 +1,7 @@
 # Cause Hierarchy Scientific Inspector
 
 Date: 2026-08-20
-Status: Active; 0/7 phases complete. Bound after `REPOSITORY_CLEANUP`.
+Status: Active; 0/7 phases complete. First active queue item by owner direction.
 Impact areas: Runtime Replay cause-window state and input, Runtime Planning
 inspection state and rendering, App input composition, UI presentation, replay
 Automation, deterministic screenshots, and tests
@@ -9,7 +9,7 @@ Owner: ReplayAuthoring owns the cause hierarchy anchor, size, filtering, and
 row selection; ReplayCauseInspection owns the attached detail drawer lifecycle,
 tab, animation, and exact detached evidence; App composes typed commands and
 camera/transport effects without retaining a second UI owner
-Priority: Fourth active queue item; CHUI0 follows RC5
+Priority: First active queue item; CHUI0 starts immediately
 Commit name: `CAUSE_HIERARCHY_UI`
 
 ## Goal

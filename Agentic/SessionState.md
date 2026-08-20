@@ -1,16 +1,17 @@
 # Session State
 
 Date: 2026-08-21
-Branch: `nightrunner-20th-AUG-26`
+Branch: `codex/cause-hierarchy-ui-first`
 Status: Four active plans; 55/80 tasks complete
 
 At-Rest Ball Stability RS0-RS7 and Invariant Enforcement And Assertion
 Hardening IH0-IH7 are complete. Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7, and Continuous
-Orbital Forecast OF0-OF6 are complete. `MASTER-PLAN.md` binds Full Source
-Comment Truth Replacement CT0-CT5 next, followed by Full
-Validation Time And Value Audit VTA0-VTA5, Repository Hygiene Cleanup RC0-RC5,
-and Cause Hierarchy Scientific Inspector CHUI0-CHUI6.
+Orbital Forecast OF0-OF6 are complete. By owner direction, `MASTER-PLAN.md`
+binds Cause Hierarchy Scientific Inspector CHUI0-CHUI6 first, followed by Full
+Source Comment Truth Replacement CT0-CT5, Full Validation Time And Value Audit
+VTA0-VTA5, and Repository Hygiene Cleanup RC0-RC5. CT0 remains incomplete at
+semantic patch regeneration and resumes after CHUI6.
 Completed plan files were deleted under the repository convention; Git history
 retains their phase evidence.
 
@@ -386,7 +387,7 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `COMMENT_TRUTH` CT0. `INVARIANT_HARDENING` IH0-IH7 is complete: the
+Execute `CAUSE_HIERARCHY_UI` CHUI0. `INVARIANT_HARDENING` IH0-IH7 is complete: the
 final source checklist is 96/96 with zero deferrals, the terminal inventory has
 67 production asserts and 18 reviewed assert-only candidates, and the current
 fast gate passes 663 tests plus Debug/Profile reachability. Automation, DX12,
@@ -420,7 +421,7 @@ not part of the active queue.
 
 ## Blockers
 
-- None. Continue with `COMMENT_TRUTH` CT0. The stale Physics CSV,
+- None. Continue with `CAUSE_HIERARCHY_UI` CHUI0. The stale Physics CSV,
   noisy relative Physics performance sample, and
   corrected-topology visual oracle remain owner-controlled validation findings;
   do not refresh any of them without approval.

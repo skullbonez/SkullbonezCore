@@ -97,8 +97,16 @@ Status: Four active plans; 55/80 tasks complete
   stopped only at the protected 35,303-line Physics CSV mismatch beginning at
   line 1,239; no golden was refreshed. Two independent post-fix reviews are
   blocker-free.
-- Full Source Comment Truth Replacement is active immediately after completed
-  invariant hardening. Its six phases rebase the frozen 843-file audit, discard
+- Cause Hierarchy Scientific Inspector is the first active queue item by owner
+  direction on 2026-08-21. Its seven phases replace the existing causal window
+  with the owner-approved dark-blue filtered hierarchy and turn exact solver
+  detail into a flush-attached Summary / Raw Record / Iterations drawer. The
+  drawer animates left from behind the hierarchy, shares one anchor and
+  drag/resize owner with it, and never owns an independent placement or
+  vertically expanding raw surface. CHUI0 starts immediately; the previously
+  active COMMENT_TRUTH CT0 remains incomplete and resumes after CHUI6.
+- Full Source Comment Truth Replacement follows Cause Hierarchy Scientific
+  Inspector. Its six phases rebase the frozen 843-file audit, discard
   replacements made redundant by IH, regenerate every stale or conflicting
   hunk against the post-IH tree, and land the remaining comment truth by owner
   area. Current implementation and IH enforcement prose are authoritative; the
@@ -125,15 +133,6 @@ Status: Four active plans; 55/80 tasks complete
   explicit absolute-path manifest before deletion; and reconcile every tracked
   candidate through owner review. RC0 follows VTA5 so the audit can measure a
   stable evidence corpus before cleanup removes historical local output.
-- Cause Hierarchy Scientific Inspector is registered after repository cleanup.
-  Its seven phases replace the existing causal window with the owner-approved
-  dark-blue filtered hierarchy and turn exact solver detail into a flush-attached
-  Summary / Raw Record / Iterations drawer. The drawer animates left from behind
-  the hierarchy, shares one anchor and drag/resize owner with it, and never owns
-  an independent placement or vertically expanding raw surface. CHUI0 follows
-  RC5 so current invariant, validation, and repository-hygiene work remains
-  binding while the concept PNG and complete visual/interaction contract stay
-  registered beside the live plan.
 - Continuous Orbital Forecast was reactivated by owner direction on
   2026-08-17. It follows predicted solver detail and owns the separate
   interactive continuous prediction mode, coherent rolling 120-second path
@@ -232,10 +231,10 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
+| Cause Hierarchy Scientific Inspector | `CAUSE_HIERARCHY_UI` | 7 | 0 | `TODO/cause-hierarchy-scientific-inspector.md` |
 | Full Source Comment Truth Replacement | `COMMENT_TRUTH` | 6 | 0 | `TODO/full-source-comment-truth-replacement.md` |
 | Full Validation Time And Value Audit | `VALIDATION_TIME_AUDIT` | 6 | 0 | `TODO/full-validation-time-value-audit.md` |
 | Repository Hygiene Cleanup | `REPOSITORY_CLEANUP` | 6 | 0 | `TODO/repository-hygiene-cleanup.md` |
-| Cause Hierarchy Scientific Inspector | `CAUSE_HIERARCHY_UI` | 7 | 0 | `TODO/cause-hierarchy-scientific-inspector.md` |
 
 ## Parked, Backlog, And Completed Plans
 
@@ -268,23 +267,23 @@ states elsewhere, and both are recorded rather than silently corrected:
 
 ## Binding Order
 
-1. `COMMENT_TRUTH` CT0 through CT5 - rebase the frozen replacement after IH7,
-   discard redundant hunks, regenerate conflicts against current source, apply
-   the remaining truthful comments by owner area, and close with a complete
-   checklist, semantic comparison, fast gate, and independent truth review.
-2. `VALIDATION_TIME_AUDIT` VTA0 through VTA5 - instrument and measure the full
-   plan-completion call graph, evaluate every stage's unique evidence and cost,
-   implement only owner-approved reductions with false-pass controls, and close
-   with one timed terminal full gate.
-3. `REPOSITORY_CLEANUP` RC0 through RC5 - rebase the deletion inventory, obtain
-   owner dispositions, remove only explicit ignored/build/worktree targets,
-   reconcile tracked artifacts and stale references, and close with independent
-   data-loss and reachability review.
-4. `CAUSE_HIERARCHY_UI` CHUI0 through CHUI6 - preserve the approved concept as
+1. `CAUSE_HIERARCHY_UI` CHUI0 through CHUI6 - preserve the approved concept as
    an exact visual contract, restyle and filter the existing hierarchy, attach
    one animated tabbed evidence drawer to the hierarchy's sole placement owner,
    and close with deterministic compact-viewport screenshots, UI/Automation/
    replay visual gates, stress, and independent ownership plus visual review.
+2. `COMMENT_TRUTH` CT0 through CT5 - resume the frozen replacement after CHUI6,
+   discard redundant hunks, regenerate conflicts against current source, apply
+   the remaining truthful comments by owner area, and close with a complete
+   checklist, semantic comparison, fast gate, and independent truth review.
+3. `VALIDATION_TIME_AUDIT` VTA0 through VTA5 - instrument and measure the full
+   plan-completion call graph, evaluate every stage's unique evidence and cost,
+   implement only owner-approved reductions with false-pass controls, and close
+   with one timed terminal full gate.
+4. `REPOSITORY_CLEANUP` RC0 through RC5 - rebase the deletion inventory, obtain
+   owner dispositions, remove only explicit ignored/build/worktree targets,
+   reconcile tracked artifacts and stale references, and close with independent
+   data-loss and reachability review.
 
 `CAUSAL_INSPECT` no longer re-steps an old frame to regenerate solver detail, so
 it does not consume the tier-2 determinism guarantee and has no ordering
@@ -315,12 +314,11 @@ Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
 Invariant Enforcement And Assertion Hardening IH0-IH7 is complete.
-Full Source Comment Truth Replacement CT0 is active at semantic patch
-regeneration; all six phases remain incomplete.
+Cause Hierarchy Scientific Inspector CHUI0-CHUI6 is first by owner direction;
+all seven phases remain. Full Source Comment Truth Replacement CT0 is deferred
+at semantic patch regeneration until CHUI6; all six phases remain incomplete.
 Full Validation Time And Value Audit VTA0-VTA5 follows CT5; all six phases
 remain.
 Repository Hygiene Cleanup RC0-RC5 follows VTA5; all six phases remain.
-Cause Hierarchy Scientific Inspector CHUI0-CHUI6 follows RC5; all seven phases
-remain.
 Deterministic
 Trigonometry is owner-parked and excluded from progress.
