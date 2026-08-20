@@ -1,7 +1,7 @@
 # Cause Hierarchy Scientific Inspector
 
 Date: 2026-08-20
-Status: Active; 0/7 phases complete. First active queue item by owner direction.
+Status: Active; 1/7 phases complete. First active queue item by owner direction.
 Impact areas: Runtime Replay cause-window state and input, Runtime Planning
 inspection state and rendering, App input composition, UI presentation, replay
 Automation, deterministic screenshots, and tests
@@ -9,7 +9,7 @@ Owner: ReplayAuthoring owns the cause hierarchy anchor, size, filtering, and
 row selection; ReplayCauseInspection owns the attached detail drawer lifecycle,
 tab, animation, and exact detached evidence; App composes typed commands and
 camera/transport effects without retaining a second UI owner
-Priority: First active queue item; CHUI0 starts immediately
+Priority: First active queue item; CHUI1 follows completed CHUI0
 Commit name: `CAUSE_HIERARCHY_UI`
 
 ## Goal
@@ -202,25 +202,123 @@ iterations, cache store, position correction, and velocity writeback remain
 distinguishable. The table is preferred over tiny wrapped prose or a chart that
 would require a new plotting owner.
 
+## CHUI0 Ratified Visual Contract
+
+The committed concept was re-read from disk on 2026-08-21. Its SHA-256 is
+`7BE01EB203D15B4E3F41D4E5E1D0B0B78EC8EB296C6A602405ABC7AE019C71E0`,
+its byte length is 1,891,274, and its decoded pixel extent is 1509 x 1042.
+The six owner amendments above override the concept's illustrated 12-pixel
+gutter and illustrated Manifold selection.
+
+### Geometry, Type, Color, And Spacing Sheet
+
+| Role | Ratified runtime value |
+|---|---|
+| hierarchy target width | 380 px |
+| drawer target width | 520 px |
+| compact viewport | 931 x 643 px |
+| normal viewport | 1920 x 1080 px |
+| joined seam | 0 px gutter; one 1 px shared rule |
+| drawer motion | 180 ms cubic ease-out, sampled from total elapsed time |
+| title / body / evidence type | 14 px / 12 px / 10 px normal face |
+| aligned numeric type | 12 px monospace face |
+| outer padding / dense row gap | 12 px / 6 px |
+| major / minor vertical rhythm | 12 px / 6 px |
+| corner treatment | restrained 6 px outer radius; 3 px controls; square shared seam |
+| hierarchy/drawer surface | sampled navy `#001322`, near opaque |
+| alternate property row | sampled navy `#081929` |
+| selected row fill / left rule | sampled `#003156` / `#00A4EC` |
+| Prediction / Manifold / Solver Row | sampled `#A6CE7B` / `#21B1D3` / `#EE6A35` |
+| text | soft white primary, cool-grey secondary; red reserved for failure |
+
+The drawer starts fully behind the hierarchy at progress 0.0. Its full 520 px
+rectangle translates left as `1 - (1 - t)^3`, while its visible clip and the
+compound bounds grow by the same eased width. At progress 0.5 the eased value
+is exactly 0.875 and 455 px of the target drawer is exposed. Summary, Raw
+Record, and Iterations reuse the same title, tab strip, content, scrollbar, and
+compound rectangles; only the content projection and bounded scroll value
+change.
+
+### Current-Source Inventory And Negative Controls
+
+| Concern | Current owner/path | CHUI0 finding |
+|---|---|---|
+| anchor, size, rows, selection | `Runtime/Replay/ReplayAuthoringPackets.h` and `ReplayAuthoring` | one retained hierarchy anchor already exists; no filter or tab state exists |
+| hierarchy layout and controls | `Runtime/Replay/ReplayOverlayLayout.*` | four shared draw/hit rectangles exist for panel, title, content, and resize |
+| pointer routing | `Runtime/Replay/ReplayAuthoringCauseTreeInput.cpp` | ReplayAuthoring owns move, resize, scroll, and row selection through InputRouter |
+| exact detail and transport | `Runtime/Planning/ReplayCauseInspection.*` | Planning owns detached evidence and transition state; the legacy detail panel is separately projected |
+| App sequencing | `Runtime/App/ReplayScrubberTools.cpp` | App composes selection, restore, pause, camera, and exit effects without owning geometry |
+| draw order | `Runtime/Planning/ReplayOverlayRenderer.cpp` | hierarchy draws first and the detached solver panel draws afterward, so it cannot emerge from behind the hierarchy |
+| exact values | `Runtime/Planning/ReplayCauseInspection.*` plus Physics-owned contact/pipeline records | current detached samples already carry honest values; no Physics inference is needed |
+| Automation | `Runtime/Automation/InteractionAutomationController.cpp` and `InteractionAutomationReportWriter.cpp` | row selection and current window/detail facts exist; tab/filter/compound facts do not |
+| screenshot probes | `causal_inspection_visual_qa.json`, `causal_tree_retarget_visual_qa.json`, and `multi_body_prediction_cause_visual.json` | deterministic legacy captures exist but do not cover the complete CHUI state matrix |
+
+The current 1920 x 1080 capture
+`TestOutput/interaction/multi_body_prediction_cause_high.bmp` proves the
+negative control: the solver surface has a 10 px gutter, a height unrelated to
+the 520 px hierarchy, generic grey at 0.78 opacity, no tabs, and a selected
+Manifold rather than Solver Row. The current 1125 x 640 capture
+`TestOutput/interaction/causal_inspection_compact.bmp` proves that unavailable
+detail still consumes a detached rectangle and overlaps another UI surface.
+Neither image is a golden and neither was refreshed.
+
+### Deterministic State Fixtures
+
+All states use Automation DX12, `--fixed-step --vsync off --shadows off
+--hide-top-text --replay on --replay-seconds 2 --seed 424242`, the authored
+`interaction_replay_prediction_harness.scene.json`, and a pinned mouse at
+`[8, 631]` unless a row/control coordinate is named. CHUI5 owns the missing
+typed Automation actions; CHUI6 owns the final captures. The exact state table
+is the source for those actions rather than screenshot-time manual input.
+
+| Fixture | Window | Stable frame/state | Pinned facts |
+|---|---|---|---|
+| hierarchy-only | 1920 x 1080 | frame 91, before selection | drawer progress 0; no tab; selected row -1 |
+| opening-midpoint | 1920 x 1080 | selected source row 3; elapsed 90 ms | drawer progress 0.5, eased 0.875; Summary |
+| summary-open | 1920 x 1080 | selected Solver Row source row 3; detail available | progress 1; Summary; scroll 0 |
+| raw-top | 1920 x 1080 | same exact evidence identity | progress 1; Raw Record; scroll 0 |
+| raw-scrolled | 1920 x 1080 | same exact evidence identity | progress 1; Raw Record; scroll 6 rows |
+| iterations | 1920 x 1080 | same exact evidence identity | progress 1; Iterations; scroll 0 |
+| filtered | 1920 x 1080 | text `solver row 16`, Contacts chip | source rows `[0, 1, 2, 3]`; selected source row 3 |
+| unavailable | 1920 x 1080 | selected Solver Row, exact detail unavailable | stable fixed drawer; honest unavailable feedback |
+| moved | 1920 x 1080 | hierarchy anchor `[1180, 140]` | drawer target `[660, 140, 520, H]`; one compound drag owner |
+| resized | 1920 x 1080 | hierarchy `[1180, 140, 430, 500]` | drawer `[660, 140, 520, 500]`; shared height |
+| compact | 931 x 643 | hierarchy `[528, 84, 380, 520]` | drawer `[8, 84, 520, 520]`; compound `[8, 84, 900, 520]` |
+
+The focused CHUI0 tests use these numbers as an executable target model and
+also assert that the legacy detached/static panel fails the joined seam,
+shared-height, 180 ms endpoint, tab-footprint, and filtered source-mapping
+contracts. Later phases replace each negative control with the production
+projection while keeping the same target values.
+
 ## Phases
 
 ### CHUI0 - Ratify Pixels, States, And Deterministic Fixtures
 
-- [ ] Verify the committed concept hash and record an implementation-facing
+- [x] Verify the committed concept hash and record an implementation-facing
       geometry/type/color/spacing sheet derived from it plus the owner's six
       amendments above.
-- [ ] Inventory the current cause-window/drawer layout, input controls, state
+- [x] Inventory the current cause-window/drawer layout, input controls, state
       owners, draw order, exact-value sources, screenshot directives, and
       Automation probes. Confirm findings against current source.
-- [ ] Define deterministic fixtures for hierarchy-only, opening midpoint,
+- [x] Define deterministic fixtures for hierarchy-only, opening midpoint,
       Summary, Raw top/scrolled, Iterations, filtered, unavailable, moved,
       resized, and 931 x 643 compact states with fixed seed/window/mouse/frame.
-- [ ] Add focused failing tests for the compound layout, one-anchor rule, tab
+- [x] Add focused failing tests for the compound layout, one-anchor rule, tab
       footprint, animation endpoints/midpoint, and filtered source-row mapping.
 
 **CHUI0 acceptance:** the visual contract is reproducible from a durable image
 and exact state table; tests fail against the old separate/static panel behavior;
 no production presentation is changed yet.
+
+**CHUI0 evidence (2026-08-21):** the concept hash, pixel extent, sampled palette,
+geometry, ownership inventory, negative screenshots, and eleven deterministic
+states are recorded above. A focused Profile build passed with warnings as
+errors, and `SKULLBONEZ_TESTS.exe --test-case="Cause hierarchy inspector*"`
+passed 5 cases / 48 assertions. The legacy-panel negative control rejects its
+10 px gutter, unrelated height, 1.5-second transition, and 0.78 opacity. The
+touched-source comment audit is 1/1 with zero deferred files. Production
+presentation is unchanged.
 
 ### CHUI1 - One Compound Layout And Placement Owner
 

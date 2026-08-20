@@ -17,6 +17,11 @@
 //   lifetime, the compact unavailable state, and the up-to-four-row scrolling
 //   viewport.
 //   The UI projection test pins exact solver-value text, units, and signs.
+//   The scientific-inspector target model pins the approved compound surface:
+//   exact visual states, flush drawer geometry, one-anchor motion, fixed tabs,
+//   180 ms easing, and ancestor-preserving filtered source-row identity. Its
+//   negative control must continue detecting the legacy detached panel until
+//   the later inspector phases replace that presentation.
 //   The Planning transition tests also pin request coalescing, pause ownership,
 //   Space aftermath, total-elapsed cubic easing, symmetric discrete frame
 //   rounding, and saved-camera return policy without host owners.
@@ -63,7 +68,277 @@ ReplayRecorderStats RetainedSolverWindow()
     return stats;
 }
 
+// Concept: the target model is deliberately test-local while the legacy panel
+// remains live. It turns the approved visual contract into exact failing-shape
+// evidence without changing production presentation during fixture ratification.
+enum class CauseInspectorTargetTab : uint8_t
+{
+    Summary,
+    RawRecord,
+    Iterations
+};
+
+constexpr float CAUSE_INSPECTOR_TARGET_DRAWER_WIDTH = 520.0f;
+constexpr double CAUSE_INSPECTOR_TARGET_DRAWER_SECONDS = 0.18;
+
+// Invariant: every rectangle is derived from the hierarchy anchor and shared
+// height. Changing tabs may replace content, but never changes the footprint.
+struct CauseInspectorTargetLayout
+{
+    SkullbonezCore::UI::UIRect hierarchy;
+    SkullbonezCore::UI::UIRect drawer;
+    SkullbonezCore::UI::UIRect drawerClip;
+    SkullbonezCore::UI::UIRect compound;
+    SkullbonezCore::UI::UIRect content;
+    std::array<SkullbonezCore::UI::UIRect, 3> tabs;
+};
+
+float CauseInspectorTargetDrawerEase( double elapsedSeconds )
+{
+    const double t = std::clamp( elapsedSeconds / CAUSE_INSPECTOR_TARGET_DRAWER_SECONDS, 0.0, 1.0 );
+    const double remaining = 1.0 - t;
+    return static_cast<float>( 1.0 - remaining * remaining * remaining );
+}
+
+CauseInspectorTargetLayout BuildCauseInspectorTargetLayout( const RunReplayCauseTreeState& state, float easedProgress,
+                                                            CauseInspectorTargetTab tab )
+{
+    (void)tab;
+    const float visibleWidth = CAUSE_INSPECTOR_TARGET_DRAWER_WIDTH * std::clamp( easedProgress, 0.0f, 1.0f );
+    const float drawerX = static_cast<float>( state.x ) - visibleWidth;
+    CauseInspectorTargetLayout layout;
+    layout.hierarchy = { static_cast<float>( state.x ), static_cast<float>( state.y ), static_cast<float>( state.width ),
+                         static_cast<float>( state.height ) };
+    layout.drawer = { drawerX, layout.hierarchy.y, CAUSE_INSPECTOR_TARGET_DRAWER_WIDTH, layout.hierarchy.h };
+    layout.drawerClip = { drawerX, layout.hierarchy.y, visibleWidth, layout.hierarchy.h };
+    layout.compound = { drawerX, layout.hierarchy.y, layout.hierarchy.w + visibleWidth, layout.hierarchy.h };
+
+    constexpr float padding = 12.0f;
+    constexpr float drawerHeaderHeight = 76.0f;
+    constexpr float tabHeight = 38.0f;
+    const float tabWidth = ( CAUSE_INSPECTOR_TARGET_DRAWER_WIDTH - padding * 2.0f ) / 3.0f;
+
+    for ( std::size_t index = 0; index < layout.tabs.size(); ++index )
+    {
+        layout.tabs[index] = { drawerX + padding + tabWidth * static_cast<float>( index ),
+                               layout.hierarchy.y + drawerHeaderHeight, tabWidth, tabHeight };
+    }
+
+    layout.content = { drawerX + padding, layout.hierarchy.y + drawerHeaderHeight + tabHeight + padding,
+                       CAUSE_INSPECTOR_TARGET_DRAWER_WIDTH - padding * 2.0f,
+                       layout.hierarchy.h - drawerHeaderHeight - tabHeight - padding * 2.0f };
+    return layout;
+}
+
+bool SameRect( const SkullbonezCore::UI::UIRect& left, const SkullbonezCore::UI::UIRect& right )
+{
+    return left.x == doctest::Approx( right.x ) && left.y == doctest::Approx( right.y ) &&
+           left.w == doctest::Approx( right.w ) && left.h == doctest::Approx( right.h );
+}
+
+struct CauseInspectorTargetFilterRow
+{
+    int sourceRow = -1;
+    int parentSourceRow = -1;
+    bool textMatch = false;
+    bool contactKind = false;
+};
+
+// Invariant: projected indices are original source-row identities in source
+// order; matching descendants retain their complete ancestor path.
+struct CauseInspectorTargetFilterProjection
+{
+    std::array<int, 8> sourceRows {};
+    std::size_t count = 0;
+};
+
+CauseInspectorTargetFilterProjection BuildCauseInspectorTargetFilter( std::span<const CauseInspectorTargetFilterRow> rows,
+                                                                      bool contactsOnly )
+{
+    std::array<bool, 8> keep {};
+
+    if ( !rows.empty() )
+    {
+        keep[0] = true; // The hierarchy root remains visible even when no descendant matches.
+    }
+
+    for ( std::size_t index = 0; index < rows.size(); ++index )
+    {
+        if ( !rows[index].textMatch || ( contactsOnly && !rows[index].contactKind ) )
+        {
+            continue;
+        }
+
+        int sourceRow = rows[index].sourceRow;
+
+        while ( sourceRow >= 0 )
+        {
+            REQUIRE( sourceRow < static_cast<int>( rows.size() ) );
+            keep[static_cast<std::size_t>( sourceRow )] = true;
+            sourceRow = rows[static_cast<std::size_t>( sourceRow )].parentSourceRow;
+        }
+    }
+
+    CauseInspectorTargetFilterProjection projection;
+
+    for ( std::size_t index = 0; index < rows.size(); ++index )
+    {
+        if ( keep[index] )
+        {
+            projection.sourceRows[projection.count++] = rows[index].sourceRow;
+        }
+    }
+
+    return projection;
+}
+
 } // namespace
+
+TEST_CASE( "Cause hierarchy inspector target: deterministic visual fixtures pin every approved state" )
+{
+    struct Fixture
+    {
+        const char* name;
+        int width;
+        int height;
+        int selectedSourceRow;
+        CauseInspectorTargetTab tab;
+        float progress;
+        int scrollRows;
+    };
+
+    constexpr std::array fixtures = {
+        Fixture { "hierarchy-only", 1920, 1080, -1, CauseInspectorTargetTab::Summary, 0.0f, 0 },
+        Fixture { "opening-midpoint", 1920, 1080, 3, CauseInspectorTargetTab::Summary, 0.5f, 0 },
+        Fixture { "summary-open", 1920, 1080, 3, CauseInspectorTargetTab::Summary, 1.0f, 0 },
+        Fixture { "raw-top", 1920, 1080, 3, CauseInspectorTargetTab::RawRecord, 1.0f, 0 },
+        Fixture { "raw-scrolled", 1920, 1080, 3, CauseInspectorTargetTab::RawRecord, 1.0f, 6 },
+        Fixture { "iterations", 1920, 1080, 3, CauseInspectorTargetTab::Iterations, 1.0f, 0 },
+        Fixture { "filtered", 1920, 1080, 3, CauseInspectorTargetTab::Summary, 0.0f, 0 },
+        Fixture { "unavailable", 1920, 1080, 3, CauseInspectorTargetTab::Summary, 1.0f, 0 },
+        Fixture { "moved", 1920, 1080, 3, CauseInspectorTargetTab::Summary, 1.0f, 0 },
+        Fixture { "resized", 1920, 1080, 3, CauseInspectorTargetTab::Summary, 1.0f, 0 },
+        Fixture { "compact", 931, 643, 3, CauseInspectorTargetTab::RawRecord, 1.0f, 0 },
+    };
+
+    CHECK( fixtures.size() == 11u );
+    CHECK( std::strcmp( fixtures.front().name, "hierarchy-only" ) == 0 );
+    CHECK( std::strcmp( fixtures.back().name, "compact" ) == 0 );
+    CHECK( fixtures[1].progress == doctest::Approx( 0.5f ) );
+    CHECK( fixtures[4].scrollRows == 6 );
+    CHECK( fixtures.back().width == 931 );
+    CHECK( fixtures.back().height == 643 );
+}
+
+TEST_CASE( "Cause hierarchy inspector target: one anchor controls flush drawer motion and fixed tab footprint" )
+{
+    RunReplayCauseTreeState state;
+    state.hasWindowPlacement = true;
+    state.x = 1180;
+    state.y = 140;
+    state.width = 430;
+    state.height = 500;
+
+    const CauseInspectorTargetLayout summary = BuildCauseInspectorTargetLayout( state, 1.0f,
+                                                                                CauseInspectorTargetTab::Summary );
+    const CauseInspectorTargetLayout raw = BuildCauseInspectorTargetLayout( state, 1.0f,
+                                                                            CauseInspectorTargetTab::RawRecord );
+    const CauseInspectorTargetLayout iterations = BuildCauseInspectorTargetLayout( state, 1.0f,
+                                                                                   CauseInspectorTargetTab::Iterations );
+    CHECK( summary.drawer.x + summary.drawer.w == doctest::Approx( summary.hierarchy.x ) );
+    CHECK( summary.drawer.y == doctest::Approx( summary.hierarchy.y ) );
+    CHECK( summary.drawer.h == doctest::Approx( summary.hierarchy.h ) );
+    CHECK( summary.compound.x == doctest::Approx( 660.0f ) );
+    CHECK( summary.compound.w == doctest::Approx( 950.0f ) );
+    CHECK( SameRect( summary.drawer, raw.drawer ) );
+    CHECK( SameRect( summary.drawer, iterations.drawer ) );
+    CHECK( SameRect( summary.content, raw.content ) );
+    CHECK( SameRect( summary.content, iterations.content ) );
+
+    for ( std::size_t index = 0; index < summary.tabs.size(); ++index )
+    {
+        CHECK( SameRect( summary.tabs[index], raw.tabs[index] ) );
+        CHECK( SameRect( summary.tabs[index], iterations.tabs[index] ) );
+    }
+
+    state.x += 73;
+    state.y += 41;
+    const CauseInspectorTargetLayout moved = BuildCauseInspectorTargetLayout( state, 1.0f,
+                                                                              CauseInspectorTargetTab::Summary );
+    CHECK( moved.hierarchy.x - summary.hierarchy.x == doctest::Approx( 73.0f ) );
+    CHECK( moved.drawer.x - summary.drawer.x == doctest::Approx( 73.0f ) );
+    CHECK( moved.hierarchy.y - summary.hierarchy.y == doctest::Approx( 41.0f ) );
+    CHECK( moved.drawer.y - summary.drawer.y == doctest::Approx( 41.0f ) );
+}
+
+TEST_CASE( "Cause hierarchy inspector target: compact geometry and 180 ms ease have exact endpoints" )
+{
+    RunReplayCauseTreeState compact;
+    compact.hasWindowPlacement = true;
+    compact.x = 528;
+    compact.y = 84;
+    compact.width = 380;
+    compact.height = 520;
+
+    const CauseInspectorTargetLayout closed = BuildCauseInspectorTargetLayout( compact,
+                                                                               CauseInspectorTargetDrawerEase( 0.0 ),
+                                                                               CauseInspectorTargetTab::Summary );
+    const CauseInspectorTargetLayout midpoint = BuildCauseInspectorTargetLayout( compact,
+                                                                                 CauseInspectorTargetDrawerEase( 0.09 ),
+                                                                                 CauseInspectorTargetTab::Summary );
+    const CauseInspectorTargetLayout open = BuildCauseInspectorTargetLayout( compact, CauseInspectorTargetDrawerEase( 0.18 ),
+                                                                             CauseInspectorTargetTab::Summary );
+    CHECK( closed.drawerClip.w == doctest::Approx( 0.0f ) );
+    CHECK( midpoint.drawerClip.w == doctest::Approx( 455.0f ) );
+    CHECK( open.drawer.x == doctest::Approx( 8.0f ) );
+    CHECK( open.drawer.w == doctest::Approx( 520.0f ) );
+    CHECK( open.compound.x == doctest::Approx( 8.0f ) );
+    CHECK( open.compound.w == doctest::Approx( 900.0f ) );
+    CHECK( open.compound.h == doctest::Approx( 520.0f ) );
+    CHECK( CauseInspectorTargetDrawerEase( 1.0 ) == doctest::Approx( 1.0f ) );
+}
+
+TEST_CASE( "Cause hierarchy inspector target: filtering preserves ancestor paths and source-row identity" )
+{
+    constexpr std::array rows = {
+        CauseInspectorTargetFilterRow { 0, -1, false, false }, CauseInspectorTargetFilterRow { 1, 0, false, false },
+        CauseInspectorTargetFilterRow { 2, 1, false, true },   CauseInspectorTargetFilterRow { 3, 2, true, true },
+        CauseInspectorTargetFilterRow { 4, 0, false, false },  CauseInspectorTargetFilterRow { 5, 4, false, true },
+    };
+    const CauseInspectorTargetFilterProjection projection = BuildCauseInspectorTargetFilter( rows, true );
+    constexpr std::array expected = { 0, 1, 2, 3 };
+    REQUIRE( projection.count == expected.size() );
+
+    for ( std::size_t index = 0; index < expected.size(); ++index )
+    {
+        CHECK( projection.sourceRows[index] == expected[index] );
+    }
+
+    CHECK( projection.sourceRows[3] == 3 ); // Selection maps back to Solver Row 16's source row.
+}
+
+TEST_CASE( "Cause hierarchy inspector negative control: legacy detached panel fails the approved contract" )
+{
+    std::array<SkullbonezCore::Physics::PhysicsSolverPersistentContactSample, 1> contacts;
+    ReplayCauseInspectionView inspection;
+    inspection.solverDetailAvailability = ReplayCauseSolverDetailAvailability::Available;
+    inspection.solverDetailContacts = contacts;
+
+    RunReplayCauseTreeState state;
+    state.hasWindowPlacement = true;
+    state.x = 1180;
+    state.y = 140;
+    state.width = 380;
+    state.height = 500;
+
+    const ReplayCauseSolverPanelLayout legacy = BuildReplayCauseSolverPanelLayout( inspection, state, 1920, 1080 );
+    const CauseInspectorTargetLayout target = BuildCauseInspectorTargetLayout( state, 1.0f,
+                                                                               CauseInspectorTargetTab::Summary );
+    CHECK_FALSE( legacy.panel.x == doctest::Approx( target.drawer.x ) ); // Legacy keeps a 10 px gutter.
+    CHECK_FALSE( legacy.panel.h == doctest::Approx( target.drawer.h ) ); // Legacy grows from row count.
+    CHECK( EvaluateReplayCauseTransitionProgress( CAUSE_INSPECTOR_TARGET_DRAWER_SECONDS ) < 1.0f );
+    CHECK( REPLAY_CAUSE_SOLVER_PANEL_OPACITY < 0.9f );
+}
 
 TEST_CASE( "Replay cause inspection: recorded row kinds keep exact retained frame eligibility" )
 {
