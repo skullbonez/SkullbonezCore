@@ -49,6 +49,10 @@ namespace Assets
 {
 namespace
 {
+// Why: renderer-free tests omit CreateShader, the only consumer of this map.
+// Compile both in lockstep so portable warning-clean builds do not retain an
+// unused internal helper.
+#if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
 const char* BuiltInShaderBaseNameForLogicalName( const char* logicalName )
 {
     struct BuiltInShaderName
@@ -98,6 +102,7 @@ const char* BuiltInShaderBaseNameForLogicalName( const char* logicalName )
 
     return nullptr;
 }
+#endif
 
 bool IsAbsolutePath( const std::string& path )
 {
