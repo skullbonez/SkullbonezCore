@@ -2,12 +2,12 @@
 
 Date: 2026-08-20
 Branch: `nightrunner-18th-AUG-26`
-Status: One active plan; 47/55 tasks complete
+Status: One active plan; 48/55 tasks complete
 
 At-Rest Ball Stability RS0-RS7 is complete. Invariant Enforcement And Assertion
-Hardening IH0-IH7 is now the sole active plan. Causal C0-C8, Determinism T0-T8,
+Hardening IH0 is complete and IH1-IH7 remain. Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7, and Continuous
-Orbital Forecast OF0-OF6 are complete. `MASTER-PLAN.md` binds IH0 next.
+Orbital Forecast OF0-OF6 are complete. `MASTER-PLAN.md` binds IH1 next.
 Completed plan files were deleted under the repository convention; Git history
 retains their phase evidence.
 
@@ -383,11 +383,12 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `INVARIANT_HARDENING` IH0. Regenerate the tracked assertion and
-invariant inventories against the completed forecast/rest-stability source,
-then append the exact file/site checklists and enforcement-lane dispositions to
-`Agentic/Plans/TODO/invariant-enforcement-hardening.md` before any production
-repair begins. The post-IH0 order is IH1 through IH7.
+Execute `INVARIANT_HARDENING` IH1. IH0 rebased 847 tracked source-bearing files,
+132 production plain assertions, 62 assert-only successor candidates, and 45
+allocation-comment taxonomy candidates. The owning plan now carries exact
+assertion/policy dispositions and a 67-file checklist; ignored source evidence
+is under `TestOutput/validation/INVARIANT_HARDENING_IH0/`. IH1 repairs Terrain
+dimension validation and post-count arithmetic before construction.
 
 At-Rest Ball Stability closed in `f2e192f53`. Its uncapped all-three-asleep
 semantic witness, deterministic 0/1/4-worker proof, box and moving-slope
@@ -400,7 +401,7 @@ not part of the active queue.
 
 ## Blockers
 
-- None. Continue with `INVARIANT_HARDENING` IH0. The stale Physics CSV,
+- None. Continue with `INVARIANT_HARDENING` IH1. The stale Physics CSV,
   noisy relative Physics performance sample, and
   corrected-topology visual oracle remain owner-controlled validation findings;
   do not refresh any of them without approval.

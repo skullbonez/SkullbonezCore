@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-20
-Status: One active plan; 47/55 tasks complete
+Status: One active plan; 48/55 tasks complete
 
 ## Owner Direction
 
@@ -159,7 +159,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Invariant Enforcement And Assertion Hardening | `INVARIANT_HARDENING` | 8 | 0 | `TODO/invariant-enforcement-hardening.md` |
+| Invariant Enforcement And Assertion Hardening | `INVARIANT_HARDENING` | 8 | 1 | `TODO/invariant-enforcement-hardening.md` |
 
 ## Parked, Backlog, And Completed Plans
 
@@ -218,10 +218,11 @@ than pinning pre-repair impulses, activation times, or sleep frames.
 
 ## Portfolio Progress
 
-47/55 tasks complete with one active plan.
+48/55 tasks complete with one active plan.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
-Invariant Enforcement And Assertion Hardening IH0-IH7 is active, with IH0 next.
+Invariant Enforcement And Assertion Hardening IH0 is complete; IH1-IH7 remain,
+with IH1 next.
 Deterministic
 Trigonometry is owner-parked and excluded from progress.

@@ -1,7 +1,7 @@
 # Invariant Enforcement And Assertion Hardening
 
 Date: 2026-08-20
-Status: Active; 0/8 phases complete
+Status: Active; 1/8 phases complete
 Impact area: repository-wide invariant enforcement, assertion policy, failure
 lanes, tests, comment taxonomy, and substantial diagnostic tools
 Owner: subsystem owners named by each affected path
@@ -79,9 +79,39 @@ The completed read-only audit recorded the following current measurements:
   related-path failures belonged to the active, untracked orbital-forecast
   work and are not defects assigned to this plan.
 
-IH0 must regenerate these inventories after the two earlier plans close. The
-regenerated, exact path-and-line disposition table becomes the closure source
-of truth; the measurements above must not be copied into a policy threshold.
+IH0 regenerated these inventories after both earlier plans closed. The exact
+path-and-line disposition tables below are the closure source of truth; the
+measurements are current evidence, never a policy threshold.
+
+### IH0 Rebased Inventory — 2026-08-20
+
+- `git ls-files` reports 847 tracked source-bearing files: 341 `.cpp`, 350
+  `.h`, one `.hpp`, one `.inl`, 23 `.hlsl`, 64 `.py`, 63 `.bat`, and four
+  `.ps1`. The exact ordered inventory is preserved in the IH0 artifact folder.
+- 777 files contain a learning-header `Invariants:` section with 2,650 bullets.
+  The 70 without that section comprise 54 trivial batch wrappers (header-exempt
+  under the Comment Quality Gate), the six named IH6 tools, two githooks, one
+  orchestrator helper, four generated/third-party files, and three other
+  already-recorded trivial/generated helpers.
+- There are 806 local `Invariant:` blocks, 702 in production source.
+- Production source contains 132 actual plain `assert` calls, 66
+  `static_assert` calls, and 469 `SB_FATAL` calls. Comment-aware parsing excludes
+  `Common.h`'s textual `// assert()` include note.
+- The prior 63-row heuristic rebases to 62 assert-only candidates. The heuristic
+  selects a plain assertion with no `SB_FATAL`, abort, or checked return in its
+  six-line neighborhood; the table below records false positives explicitly.
+- The allocation/capacity taxonomy worklist contains 45 current `Invariant:`
+  blocks: 40 line-local keyword matches plus five semantically confirmed
+  continuation sites. This preserves the prior audit's bounded worklist without
+  treating substring matches such as “preserve” as allocation policy.
+- Ignored artifacts live under
+  `TestOutput/validation/INVARIANT_HARDENING_IH0/`: `inventory.json` SHA-256
+  `ED86CF17EE8B9659DD6CEC69FC11F28DC178995C32BBD53357610FE7C36F57EF`,
+  `assertion-sites.tsv` `BF43F144B397798FE4FF0D68B4367DACC4E703023F693B3BCA7DB47C42FEC5C5`,
+  `policy-invariant-sites.tsv`
+  `54DA72ACE6AEF3CB682070AA35604C02140CDC232658E7BCE84E92347210EF5F`, and
+  `tracked-source-files.txt`
+  `BFD1474E850E7607DF1513DEFA607422C5E6034BA048EB5B0EFF84FDC0517C8C`.
 
 ## Findings To Close
 
@@ -168,9 +198,169 @@ output location rather than committing generated reports:
 - before/after assertion classification summary with no count target;
 - independent ownership and false-pass review notes.
 
+## IH0 Assertion Disposition Worklist
+
+`A###` identities resolve to `assertion-sites.tsv`; that artifact retains all
+132 plain assertions and their exact source text. The table below covers every
+one of the 62 successor candidates. “Existing” means IH0 confirmed the
+non-Debug lane in current source; the owning phase still reviews the whole file
+and removes a duplicate assertion where the table says so.
+
+Exact successor identities: A003, A004, A005, A010, A011, A017, A018, A019,
+A020, A023, A024, A025, A026, A028, A030, A033, A048, A049, A050, A051,
+A052, A058, A063, A065, A066, A070, A072, A073, A074, A075, A076, A077,
+A078, A080, A087, A095, A096, A097, A098, A099, A100, A101, A102, A103,
+A104, A105, A107, A109, A110, A111, A114, A115, A116, A117, A118, A119,
+A126, A128, A129, A130, A131, and A132.
+
+| Sites | Concrete owner / current non-Debug behavior | Primary lane | Owning phase and intended proof |
+|---|---|---|---|
+| A003-A004 | `LockOrderValidator::RecordAcquisition`; code is `_DEBUG`-only and Release performs no probe mutation | Lane P / Debug tripwire | IH2 retain; add focused invalid-id, cycle, and held-stack probe coverage without presenting it as Release enforcement |
+| A005 | `TornadoVisualPass::EnsureTransientCapacity`; Release dereferences a required frame snapshot | Lane F | IH2 check before dereference; lifecycle tests cover unprepared, prepared, and released frames |
+| A010 | `Quaternion::RotateAboutAxis`; Release math is defined but a non-unit axis changes the requested rotation | Debug tripwire | IH2 retain only with complete production-caller normalization proof and focused non-unit negative coverage |
+| A011 | `Vector3::Normalise`; Release intentionally propagates IEEE invalid values while `TryNormalise` owns caller-recoverable failure | Debug tripwire | IH2 retain; focused tests distinguish plain misuse from the safe `TryNormalise` path |
+| A017 | `ColliderStore::RefreshBodyBindings`; current `bool` path returns false before dereference | Lane R | IH3 remove the duplicate assertion and pin mismatched/missing body rows returning false without mutation |
+| A018-A020 | `ColliderStore::RebindShapeReferences`; Release indexes per-kind backing unchecked | Lane F | IH3 fatal before sphere/box/hull indexing; subprocess corrupt-index negatives plus legal clone/rebind positives |
+| A023-A026 | `ColliderStore` shape compaction; Release indexes or pops per-kind backing and assumes hull-row parity | Lane F | IH3 owner/capacity diagnostics before mutation; death tests for stale indices/parity and positive first/middle/last compaction |
+| A028 | `DisjointSet::Reset`; Release writes `rowCount` borrowed rows | Lane F | IH3 fatal before `fill_n`; exact-capacity and one-over subprocess cases |
+| A030, A033 | `PhysicsBodyStore` hot-state read/copy; Release indexes body arrays or writes the caller span | Lane F | IH3 validate before access; valid boundary and corrupt index/short-span subprocess proofs |
+| A048-A052 | `PhysicsContactSolverStage::PrepareSideEffects`; one combined `SB_FATAL` already guards all five capacities | Lane F (existing) | IH3 remove the ceremonial assertions; exact-capacity and each-short-lane negative controls exercise the existing fatal |
+| A058 | `PhysicsSleepController` awake-list audit; explicitly `_DEBUG`-only and not used for indexing authority | Lane P / Debug tripwire | IH3 retain with awake-list consistency tests |
+| A063, A065-A066 | `Dx12GeometryOwner` draw entry points; Release dereferences mandatory device/frame/submission facets | Lane F | IH4 enforce lifecycle before use; before-init, valid-frame, and after-teardown subprocess/isolated backend cases |
+| A070 | `Dx12TextureOwner::CreateTexture2D`; Release dereferences mandatory resource facets | Lane F | IH4 same lifecycle matrix plus device-result positives |
+| A072-A075 | `PrimitiveBatchScope` draw methods; moved/inactive or wrong-kind use can dereference or silently skip | Lane F | IH4 owned fatal for scope misuse; visible, shadow, moved, inactive, and wrong-kind negative proofs |
+| A076-A078 | `PrimitiveBatchRenderer::BindRenderResourceOwners`; Release can replace a live backend borrow with a mismatched owner | Lane F | IH4 fatal on mismatched resource/texture/geometry owners; same-owner rebinding remains legal |
+| A080 | `RenderInstanceStore::Refresh`; current mismatch branch clears and returns before indexing | Debug tripwire with safe fallback | IH4 retain or remove duplicate after a mismatched-count test proves the Release clear/no-draw result |
+| A087 | `Input::UnbindWindow`; wrong-window Release path leaves the binding unchanged | Debug tripwire with safe fallback | IH5 retain only with bind/valid-unbind/wrong-window/after-unbind policy tests |
+| A095-A104 | `RuntimeInteractionController::ValidateState`; complete method is `_DEBUG`-only post-transition validation | Lane P / Debug tripwire | IH5 retain; transition-policy tests cover every gesture/capture/owner combination |
+| A105 | `RenderResourceLifecycle::BuildRenderTargetPreviewSnapshot`; Release indexes a fixed target array | Lane F | IH4 bounded append or fatal before indexing; empty, exact ten-target, and synthetic eleventh-target proof |
+| A107 | `SkyPass::Render`; Release dereferences the world-view sky owner | Lane F | IH5 fatal before draw; before-init/valid/after-release render-pass cases |
+| A109, A111 | `UiTextPass` Profile lanes; `SKULLBONEZ_PROFILE_ENABLED` Release/Profile code dereferences `m_profiler` | Lane F | IH5 enforce startup binding outside `assert`; profile-enabled before/valid/after lifecycle proof |
+| A110 | `UiTextPass` memory tab; invalid stats are presentation-unavailable, not process-fatal | Debug tripwire with safe fallback | IH5 skip sampling and publish unavailable state when invalid; valid/invalid memory-tab tests |
+| A114-A116 | `SceneWorld` handle-map consistency loop; complete block is `_DEBUG`-only after Release already clears mismatched refreshes | Lane P / Debug tripwire | IH5 retain with reorder/refresh identity tests |
+| A117-A119 | `SkyBox` load/reset; Release dereferences mandatory texture/config/asset/resource borrows | Lane F | IH4 fatal before internal lifecycle misuse while texture/device failures continue through existing Lane R results |
+| A126, A128-A130 | `Terrain` render-resource methods; Release dereferences resource borrows or the required clip plane | Lane F | IH4 enforce before draw/build; missing-resource/clip-plane negatives and valid rebuild positives |
+| A131-A132 | `WorldEnvironment::BuildFluidMesh`; Release dereferences mandatory asset/resource owners | Lane F | IH4 before-init/valid/after-release lifecycle proof |
+
+## IH0 Allocation-Comment Disposition Worklist
+
+`P###` identities resolve to `policy-invariant-sites.tsv`, which retains exact
+path, line, owner hint, and complete comment text for all 45 rows. “Split” keeps
+the mechanical correctness statement under `Invariant:` and moves only the
+no-growth/phase/cap rule under `Runtime allocation policy:`.
+
+| Sites | Current responsibility | IH6 disposition |
+|---|---|---|
+| P001 | `TextureCollection` fixed legacy table plus runtime no-growth rule | Split index/cap correctness from `Runtime allocation policy:` |
+| P002-P004 | Slot-index safety and allocation-attribution thread/lifecycle correctness | Retain `Invariant:`; these are mechanical ownership/safety claims |
+| P005-P008 | Reserve hard caps, camera reserve, and tornado fixed gameplay budget | Split any identity/count rule; classify cap/no-growth text as `Runtime allocation policy:` |
+| P009-P011 | Collider atomic rows/dense handles and `PhysicsFixedList` relocation safety | Retain `Invariant:`; allocation wording explains atomicity/exception safety |
+| P012 | Solver side-effect capacity is both deterministic completeness and no-growth policy | Split deterministic fit from `Runtime allocation policy:` |
+| P013-P015 | Narrowphase disjoint offsets, DX12 frame-upload lifetime, and backend ownership publication | Retain `Invariant:` |
+| P016 | Gameplay visual preallocation and steady-render exemption ban | Reclassify as `Runtime allocation policy:` |
+| P017-P018 | Editor history overflow order and placement preflight authority | Retain `Invariant:`; “without allocating” is supporting behavior |
+| P019-P020 | EditorTracer reserve/copy no-growth rules | Reclassify P019; split P020 cache-coherence invariant from allocation policy |
+| P021-P022 | Priority overflow semantics and zero-sentinel request identity | Retain `Invariant:` |
+| P023 | Prediction snapshot failure preserves publication atomicity and forbids opportunistic growth | Split publication invariant from `Runtime allocation policy:` |
+| P024-P026 | Archive transaction state, marker completeness, and publication-density determinism | Retain `Invariant:` |
+| P027 | Ghost draw bounded append/no steady growth | Split capacity proof from `Runtime allocation policy:` |
+| P028-P030 | Steady-window measurement, resumable publication atomicity, and completed-frame authority | Retain `Invariant:` |
+| P031-P032 | Prediction reserve-scope order and compact-arena construction | Split mechanical scope/arena safety from `Runtime allocation policy:` |
+| P033-P035 | Trajectory erase identity, texture-slot binding, and complete overlay-packet work | Retain `Invariant:` |
+| P036-P039 | Replay authoring/path/picking reserves and recorder growth approval | Reclassify no-growth/cap portions as `Runtime allocation policy:`; keep fail-closed/publication facts as invariants |
+| P040-P041 | Contiguous ragdoll identity and authored-capacity activation order | Retain `Invariant:` |
+| P042 | `SceneEntityStore` pre-reserved append | Reclassify the allocation-free claim as `Runtime allocation policy:`; keep transaction precondition local |
+| P043-P045 | Handle identity and test-oracle anti-elision/cancellation semantics | Retain `Invariant:`; these are correctness/test-proof claims |
+
+## Named Finding Dispositions
+
+| Finding | Exact scope | Primary lane / owner | Phase and proof |
+|---|---|---|---|
+| H1 | `Terrain.cpp:98-170` constructs before validating `mapSize`/`stepSize` and floor-counts posts | Lane R, Terrain factory | IH1 validates positive/divisible/overflow-safe dimensions before construction and proves the former 5/2 shape cannot mutate |
+| H2 | Complete tracked `Runtime/App/Run*.cpp`/`Run*.h` logical surface, including raw assertion sites A083-A085 | Lane F for mandatory internal owners; existing Lane R remains for device/file startup | IH5 records each dereference owner, moves lifecycle checks to that owner, and runs before/valid/after lifecycle negatives without creating a context bag |
+| L1 | `ReplayPrediction.cpp:187` worker threshold comment | Taxonomy: `Why:` | IH6 reclassifies the performance rationale and proves no behavior diff |
+| L2 | Six named substantial `Agentic/Skills/*.py` tools | Lane P documentation | IH6 adds truthful learning headers/local hazards and runs their bounded help/smoke paths |
+
+## Exact Selected-File Checklist
+
+The 67 rows below are the complete IH0 selected-file union: 62 assert-only
+candidates across 22 files, 45 policy-comment candidates across 35 files, the
+complete eight-file `Run*` logical surface, Terrain construction, the worker
+taxonomy site, and the six named tools. A row remains unchecked until its
+owning phase inspects the entire file, applies the comment audit, and records
+the focused proof. IH7 reruns `git ls-files` and reconciles this list.
+
+- [ ] `Agentic/Skills/collapse_params.py` — L2
+- [ ] `Agentic/Skills/loc_count.py` — L2
+- [ ] `Agentic/Skills/skore-cpu-profiler/analyze_markers.py` — L2
+- [ ] `Agentic/Skills/skore-cpu-profiler/cleanup_markers.py` — L2
+- [ ] `Agentic/Skills/skore-render-test/analyze_perf.py` — L2
+- [ ] `Agentic/Skills/skore-render-test/perf_compare.py` — L2
+- [ ] `SkullbonezSource/Assets/TextureCollection.cpp` — P001, P002
+- [ ] `SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.cpp` — P003, P004
+- [ ] `SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.cpp` — P005, P006
+- [ ] `SkullbonezSource/Core/LockOrderValidator.cpp` — A003, A004
+- [ ] `SkullbonezSource/Core/SceneCapacity.h` — P007
+- [ ] `SkullbonezSource/Gameplay/TornadoField.h` — P008
+- [ ] `SkullbonezSource/Gameplay/TornadoVisualPass.cpp` — A005
+- [ ] `SkullbonezSource/Maths/Quaternion.cpp` — A010
+- [ ] `SkullbonezSource/Maths/Vector3.h` — A011
+- [ ] `SkullbonezSource/Physics/ColliderStore.cpp` — A017-A020, A023-A026, P009-P010
+- [ ] `SkullbonezSource/Physics/DisjointSet.h` — A028
+- [ ] `SkullbonezSource/Physics/PhysicsBodyStore.cpp` — A030, A033
+- [ ] `SkullbonezSource/Physics/PhysicsFixedList.h` — P011
+- [ ] `SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.cpp` — A048-A052, P012
+- [ ] `SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.Execution.cpp` — P013
+- [ ] `SkullbonezSource/Physics/Stages/PhysicsSleepController.cpp` — A058
+- [ ] `SkullbonezSource/Rendering/DX12/MeshDX12.cpp` — P014
+- [ ] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp` — A063, A065-A066
+- [ ] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp` — A070
+- [ ] `SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp` — A072-A078
+- [ ] `SkullbonezSource/Rendering/RenderInstanceStore.cpp` — A080
+- [ ] `SkullbonezSource/Runtime/App/Init.cpp` — P015
+- [ ] `SkullbonezSource/Runtime/App/Run.cpp` — H2
+- [ ] `SkullbonezSource/Runtime/App/Run.h` — H2
+- [ ] `SkullbonezSource/Runtime/App/RunFrame.cpp` — H2
+- [ ] `SkullbonezSource/Runtime/App/RunLaunchOptions.h` — H2
+- [ ] `SkullbonezSource/Runtime/App/RunLaunchOptions.Renderer.h` — H2
+- [ ] `SkullbonezSource/Runtime/App/RunRender.cpp` — H2, P016
+- [ ] `SkullbonezSource/Runtime/App/RunStartupState.h` — H2
+- [ ] `SkullbonezSource/Runtime/App/RunTimerState.h` — H2
+- [ ] `SkullbonezSource/Runtime/Editor/EditorCommandHistory.cpp` — P017
+- [ ] `SkullbonezSource/Runtime/Editor/EditorObjectPlacement.cpp` — P018
+- [ ] `SkullbonezSource/Runtime/Editor/EditorTracer.cpp` — P019-P021
+- [ ] `SkullbonezSource/Runtime/Input/Input.cpp` — A087
+- [ ] `SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.cpp` — A095-A104
+- [ ] `SkullbonezSource/Runtime/Planning/ReplayCauseInspection.cpp` — P022
+- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp` — L1, P023
+- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.Automation.cpp` — P024
+- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp` — P025-P026
+- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionPresentation.cpp` — P027-P028
+- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.cpp` — P029-P030
+- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionReserve.h` — P031
+- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionRetainedGeometry.h` — P032
+- [ ] `SkullbonezSource/Runtime/Prediction/TrajectoryStore.cpp` — P033
+- [ ] `SkullbonezSource/Runtime/Render/RenderResourceLifecycle.cpp` — A105
+- [ ] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp` — A107, P034-P035
+- [ ] `SkullbonezSource/Runtime/Render/UiTextPass.cpp` — A109-A111
+- [ ] `SkullbonezSource/Runtime/Replay/ReplayAuthoringPackets.h` — P036
+- [ ] `SkullbonezSource/Runtime/Replay/ReplayPathPackets.h` — P037
+- [ ] `SkullbonezSource/Runtime/Replay/ReplayPresentation.cpp` — P038
+- [ ] `SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp` — P039
+- [ ] `SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp` — P040
+- [ ] `SkullbonezSource/Runtime/Scene/SceneController.Load.cpp` — P041
+- [ ] `SkullbonezSource/Runtime/Scene/SceneEntityStore.cpp` — P042
+- [ ] `SkullbonezSource/Runtime/Scene/SceneWorld.cpp` — A114-A116
+- [ ] `SkullbonezSource/Runtime/Startup/StartupProbeHarnesses.cpp` — P043
+- [ ] `SkullbonezSource/World/SkyBox.cpp` — A117-A119
+- [ ] `SkullbonezSource/World/Terrain.cpp` — H1, A126, A128-A130
+- [ ] `SkullbonezSource/World/WorldEnvironment.cpp` — A131-A132
+- [ ] `SkullbonezTests/TestReplayRecorder.cpp` — P044
+- [ ] `SkullbonezTests/TestReserveAllocator.cpp` — P045
+
 ## Phases
 
-- [ ] **IH0 — Rebase the exact inventory and freeze the worklist.** After
+- [x] **IH0 — Rebase the exact inventory and freeze the worklist.** After
   `REST_STABILITY` closes, use `git ls-files` to regenerate tracked source
   scope, enumerate plain assertions and invariant claims, remove false
   positives only with written reasons, and append the exact per-file checkbox
