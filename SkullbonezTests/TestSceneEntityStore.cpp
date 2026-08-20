@@ -19,9 +19,12 @@ Invariants:
   - Clear and commit reuse the pre-scene reservation without growing storage.
   - Render creation publishes presentation, instance, and handle rows together.
   - Owner-prepared shadow stream identity survives render-row publication.
+  - A refresh topology mismatch clears presentation, instance, and handle rows
+    before any body/collider source is indexed.
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneEntityStore.h
+  - SkullbonezSource/Rendering/RenderInstanceStore.h
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 #include "TestColliderStoreFixtures.h"
@@ -178,6 +181,36 @@ TEST_CASE( "RenderInstanceStore: preflighted creation publishes every render row
     CHECK( renderStore.Records()[0].editorVisible );
     CHECK_FALSE( renderStore.SetEditorVisible( 1, false ) );
     CHECK_FALSE( renderStore.CanAppendCreationRow( 0 ) );
+}
+
+
+TEST_CASE( "RenderInstanceStore: topology mismatch clears every draw row in all builds" )
+{
+    using namespace SkullbonezCore::Physics;
+    using namespace SkullbonezCore::Rendering;
+
+    RenderInstanceStore renderStore;
+    RenderInstancePresentationRecord presentation;
+    PhysicsBodyRecord body;
+    body.handle = PhysicsBodyHandle { 0u, 1u };
+    body.sceneObjectId = PhysicsSceneObjectId { 501u };
+    PhysicsBodyHotState hotState;
+    ColliderRecord collider;
+    const SkullbonezCore::Math::CollisionDetection::BoundingSphere shape( 1.0f, SkullbonezCore::Math::Vector::ZERO_VECTOR );
+    collider.handle = PhysicsColliderHandle { 0u, 1u };
+    collider.body = body.handle;
+    collider.sceneObjectId = body.sceneObjectId;
+    collider.shape = SkullbonezCore::Math::CollisionDetection::CollisionShapeReference( shape, 0u );
+    collider.shapeKind = ColliderShapeKind::Sphere;
+    renderStore.CommitCreationRow( presentation, body, hotState, collider, 0 );
+
+    PhysicsBodyStore emptyBodies;
+    ColliderStore emptyColliders;
+    renderStore.Refresh( emptyBodies, emptyColliders );
+
+    CHECK( renderStore.PresentationCount() == 0 );
+    CHECK( renderStore.Count() == 0 );
+    CHECK( renderStore.Records().empty() );
 }
 
 TEST_CASE( "RenderInstanceStore: fixed-tick poses interpolate and discontinuities collapse" )

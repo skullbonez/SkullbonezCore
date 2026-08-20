@@ -5,14 +5,17 @@ Purpose:
 
 Summary:
   Dx12TextureOwner maps stable engine handles to owned resources and persistent
-  SRV rows. It borrows the active backend command stream during upload or mip
-  dispatch but stores no backend pointer across calls.
+  SRV rows. Stable device, frame, and pipeline borrows survive reset so the
+  same owner can rebuild, while a separate active-epoch bit gates convenience
+  operations before they dereference those borrows.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
   must stay explicit.
   - Texture graph state advances only after its transition barrier was recorded;
     upload failure returns before row copies dereference the staging pointer.
+  - Shutdown closes the active resource epoch before releasing texture state;
+    successful backend initialization is the only publication boundary.
 
 Related:
   - Agentic/Reference/skullbonez-core-class-structure.md
@@ -26,6 +29,7 @@ Related:
 #include "MeshDX12.h"
 #include "FramebufferDX12.h"
 #include "../RenderGraph.h"
+#include "../../Core/FatalError.h"
 #include "../../Core/Log.h"
 #include "../../Core/PlatformProfiler.h"
 #include <cstdio>
@@ -834,6 +838,8 @@ UINT Dx12TextureOwner::UnregisterSRV( uint32_t handle )
 
 void Dx12TextureOwner::Shutdown()
 {
+    m_resourceEpoch.Close();
+
     for ( TextureEntryDX12& texture : m_registry.Entries() )
     {
         if ( texture.owned && texture.resource )
@@ -986,13 +992,26 @@ void Dx12TextureOwner::BindResourceOwners( Dx12RenderDevice& device, Dx12FrameOw
     m_resourceDevice = &device;
     m_resourceFrame = &frame;
     m_resourcePipeline = &pipeline;
+    m_resourceEpoch.Bind( &device, &frame, &pipeline );
+}
+
+
+void Dx12TextureOwner::BeginResourceEpoch()
+{
+    m_resourceEpoch.Begin();
+}
+
+
+void Dx12TextureOwner::RequireResourceEpoch( const char* operation ) const
+{
+    m_resourceEpoch.Require( operation );
 }
 
 
 uint32_t Dx12TextureOwner::CreateTexture2D( const uint8_t* pixels, int width, int height, int channels,
                                             TextureMipPolicy mipPolicy, TextureFilterPolicy filterPolicy )
 {
-    assert( m_resourceDevice && m_resourceFrame && m_resourcePipeline );
+    RequireResourceEpoch( "CreateTexture2D" );
     bool graphicsStateInvalidated = false;
     Dx12TextureCommands textureCommands( *m_resourceDevice, *m_resourceFrame );
     const uint32_t handle = CreateTexture2D( textureCommands, pixels, width, height, channels, mipPolicy, filterPolicy,
@@ -1009,7 +1028,7 @@ uint32_t Dx12TextureOwner::CreateTexture2D( const uint8_t* pixels, int width, in
 
 void Dx12TextureOwner::DeleteTexture( uint32_t handle )
 {
-    assert( m_resourceDevice && m_resourceFrame );
+    RequireResourceEpoch( "DeleteTexture" );
     Dx12TextureCommands textureCommands( *m_resourceDevice, *m_resourceFrame );
     DeleteTexture( textureCommands, handle );
 }

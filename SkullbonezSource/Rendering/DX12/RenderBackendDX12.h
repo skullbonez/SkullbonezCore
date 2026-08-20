@@ -23,6 +23,8 @@ Invariants:
   must stay explicit.
   - Recording failure prevents further command emission and allocator/upload
     reuse; only successful device initialization clears it.
+  - Stable texture/geometry owner borrows may survive reset, but convenience
+    operations require the separately published active device epoch.
 
 Related:
   - SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp
@@ -39,6 +41,7 @@ Related:
 
 
 #include "../../Core/SceneCapacity.h"
+#include "../../Core/FatalError.h"
 #include "../RenderCommandTypes.h"
 #include "../RenderDiagnosticsTypes.h"
 #include "../RenderResourceTypes.h"
@@ -330,6 +333,55 @@ class Dx12TextureOwner
     ID3D12Resource* ResolveResource( uint32_t handle ) const;
 
   private:
+    friend class RenderBackendDX12;
+    friend struct Dx12TextureOwnerTestAccess;
+
+    class ResourceEpoch
+    {
+      public:
+        void Bind( const void* device, const void* frame, const void* pipeline ) noexcept
+        {
+            m_device = device;
+            m_frame = frame;
+            m_pipeline = pipeline;
+        }
+        void Begin()
+        {
+            if ( !m_device || !m_frame || !m_pipeline )
+            {
+                SB_FATAL( "Dx12TextureOwner", "Cannot publish a texture resource epoch with incomplete owners." );
+            }
+
+            m_active = true;
+        }
+        void Close() noexcept
+        {
+            m_active = false;
+        }
+        void Require( const char* operation ) const
+        {
+            if ( !m_active || !m_device || !m_frame || !m_pipeline )
+            {
+                SB_FATAL( "Dx12TextureOwner",
+                          "Texture operation requires an active resource epoch. operation=%s active=%d device=%d frame=%d "
+                          "pipeline=%d",
+                          operation ? operation : "unknown", m_active ? 1 : 0, m_device ? 1 : 0, m_frame ? 1 : 0,
+                          m_pipeline ? 1 : 0 );
+            }
+        }
+        bool Active() const noexcept
+        {
+            return m_active;
+        }
+
+      private:
+        const void* m_device = nullptr;
+        const void* m_frame = nullptr;
+        const void* m_pipeline = nullptr;
+        bool m_active = false;
+    };
+    void BeginResourceEpoch();
+    void RequireResourceEpoch( const char* operation ) const;
     TextureEntryDX12* ResolveEntry( uint32_t handle );
     const TextureEntryDX12* ResolveEntry( uint32_t handle ) const;
     uint32_t ReuseOrAppend( const TextureEntryDX12& entry );
@@ -349,6 +401,10 @@ class Dx12TextureOwner
     Dx12RenderDevice* m_resourceDevice = nullptr;
     Dx12FrameOwner* m_resourceFrame = nullptr;
     Dx12PipelineOwner* m_resourcePipeline = nullptr;
+
+    // Lifetime: this behavior owner closes first during Shutdown and reopens
+    // only after the complete backend has initialized successfully.
+    ResourceEpoch m_resourceEpoch;
 };
 
 // Concept: a pipeline is the complete draw recipe, not a collection of backend
@@ -538,6 +594,57 @@ class Dx12GeometryOwner
     void Shutdown();
 
   private:
+    friend class RenderBackendDX12;
+    friend struct Dx12GeometryOwnerTestAccess;
+
+    class SubmissionEpoch
+    {
+      public:
+        void Bind( const void* device, const void* frame, const void* pipeline, const void* diagnostics ) noexcept
+        {
+            m_device = device;
+            m_frame = frame;
+            m_pipeline = pipeline;
+            m_diagnostics = diagnostics;
+        }
+        void Begin()
+        {
+            if ( !m_device || !m_frame || !m_pipeline || !m_diagnostics )
+            {
+                SB_FATAL( "Dx12GeometryOwner", "Cannot publish a geometry submission epoch with incomplete owners." );
+            }
+
+            m_active = true;
+        }
+        void Close() noexcept
+        {
+            m_active = false;
+        }
+        void Require( const char* operation ) const
+        {
+            if ( !m_active || !m_device || !m_frame || !m_pipeline || !m_diagnostics )
+            {
+                SB_FATAL( "Dx12GeometryOwner",
+                          "Geometry operation requires an active submission epoch. operation=%s active=%d device=%d "
+                          "frame=%d pipeline=%d diagnostics=%d",
+                          operation ? operation : "unknown", m_active ? 1 : 0, m_device ? 1 : 0, m_frame ? 1 : 0,
+                          m_pipeline ? 1 : 0, m_diagnostics ? 1 : 0 );
+            }
+        }
+        bool Active() const noexcept
+        {
+            return m_active;
+        }
+
+      private:
+        const void* m_device = nullptr;
+        const void* m_frame = nullptr;
+        const void* m_pipeline = nullptr;
+        const void* m_diagnostics = nullptr;
+        bool m_active = false;
+    };
+    void BeginSubmissionEpoch();
+    void RequireSubmissionEpoch( const char* operation ) const;
     uint32_t CreateInstancedMesh( const float* staticVertices, int staticVertexCount, int staticFloatsPerVertex,
                                   int instanceFloats, int instanceStartAttribute,
                                   std::span<const int> instanceAttributeSizes, std::span<const int> staticAttributeSizes,
@@ -573,6 +680,9 @@ class Dx12GeometryOwner
     Dx12FrameOwner* m_resourceFrame = nullptr;
     Dx12PipelineOwner* m_submissionPipeline = nullptr;
     Dx12Diagnostics* m_submissionDiagnostics = nullptr;
+
+    // Lifetime: distinguishes live submission from stable-but-stale owner pointers.
+    SubmissionEpoch m_submissionEpoch;
 };
 
 struct Dx12RaytracingSetupOutcome

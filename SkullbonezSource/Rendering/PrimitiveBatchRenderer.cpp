@@ -8,7 +8,6 @@ Summary:
   built-in primitive meshes emitted by PrimitiveMeshBuilder.h.
 
 Glossary:
-  Cbuffer (Constant Buffer): Shader constant block uploaded once before a draw.
   Instance payload: Per-object data appended after the model matrix in an
   instanced draw stream.
 
@@ -19,6 +18,8 @@ Invariants:
     by the renderer destructor before backend teardown or recreation.
   - Visible opaque, visible transparent, and shadow submissions select complete
     raster buckets at the draw; batch begin/end never mutate ambient state.
+  - Moved, inactive, or wrong-mode scopes and owner-identity changes terminate
+    before a renderer pointer is dereferenced or a batch is silently skipped.
 
 Related:
   - SkullbonezSource/Rendering/PrimitiveBatchRenderer.h
@@ -26,6 +27,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "PrimitiveBatchRenderer.h"
+#include "../Core/FatalError.h"
 #include "../Core/Config.h"
 #include "../Core/SceneCapacity.h"
 #include "../Assets/AssetSystem.h"
@@ -43,7 +45,6 @@ Related:
 #include <vector>
 
 
-using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Transformation;
@@ -459,15 +460,14 @@ PrimitiveBatchRenderer::~PrimitiveBatchRenderer()
 PrimitiveBatchRenderer::PrimitiveBatchScope::PrimitiveBatchScope( PrimitiveBatchRenderer& renderer,
                                                                   const PrimitiveRenderContext& context,
                                                                   PrimitiveBatchKind kind )
-    : m_renderer( &renderer ), m_context( &context ), m_kind( kind ), m_active( true )
+    : m_renderer( &renderer ), m_context( &context ), m_lifecycle( &renderer, &context, kind )
 {
 }
 
 
 PrimitiveBatchRenderer::PrimitiveBatchScope::PrimitiveBatchScope( PrimitiveBatchScope&& other ) noexcept
-    : m_renderer( other.m_renderer ), m_context( other.m_context ), m_kind( other.m_kind ), m_active( other.m_active )
+    : m_renderer( other.m_renderer ), m_context( other.m_context ), m_lifecycle( std::move( other.m_lifecycle ) )
 {
-    other.m_active = false;
 }
 
 
@@ -479,9 +479,7 @@ PrimitiveBatchRenderer::PrimitiveBatchScope::operator=( PrimitiveBatchScope&& ot
         EndIfActive();
         m_renderer = other.m_renderer;
         m_context = other.m_context;
-        m_kind = other.m_kind;
-        m_active = other.m_active;
-        other.m_active = false;
+        m_lifecycle = std::move( other.m_lifecycle );
     }
 
     return *this;
@@ -496,9 +494,9 @@ PrimitiveBatchRenderer::PrimitiveBatchScope::~PrimitiveBatchScope()
 
 void PrimitiveBatchRenderer::PrimitiveBatchScope::DrawModel( const Matrix4& model, const RenderMaterial& material )
 {
-    assert( m_renderer && m_active );
+    m_lifecycle.RequireVisible();
 
-    switch ( m_kind )
+    switch ( m_lifecycle.Kind() )
     {
     case PrimitiveBatchKind::Sphere:
         m_renderer->DrawSphereBatchModel( model, material );
@@ -510,7 +508,6 @@ void PrimitiveBatchRenderer::PrimitiveBatchScope::DrawModel( const Matrix4& mode
         m_renderer->DrawPineBatchModel( model, material );
         break;
     default:
-        assert( false && "DrawModel requires a visible primitive batch scope" );
         break;
     }
 }
@@ -518,9 +515,9 @@ void PrimitiveBatchRenderer::PrimitiveBatchScope::DrawModel( const Matrix4& mode
 
 void PrimitiveBatchRenderer::PrimitiveBatchScope::DrawShadowModel( const Matrix4& model )
 {
-    assert( m_renderer && m_active );
+    m_lifecycle.RequireShadow();
 
-    switch ( m_kind )
+    switch ( m_lifecycle.Kind() )
     {
     case PrimitiveBatchKind::ShadowSphere:
         m_renderer->DrawShadowDepthSphereBatchModel( model );
@@ -532,7 +529,6 @@ void PrimitiveBatchRenderer::PrimitiveBatchScope::DrawShadowModel( const Matrix4
         m_renderer->DrawShadowDepthPineBatchModel( model );
         break;
     default:
-        assert( false && "DrawShadowModel requires a shadow primitive batch scope" );
         break;
     }
 }
@@ -540,12 +536,12 @@ void PrimitiveBatchRenderer::PrimitiveBatchScope::DrawShadowModel( const Matrix4
 
 void PrimitiveBatchRenderer::PrimitiveBatchScope::EndIfActive()
 {
-    if ( !m_active || !m_renderer || !m_context )
+    if ( !m_lifecycle.Active() || !m_renderer || !m_context )
     {
         return;
     }
 
-    switch ( m_kind )
+    switch ( m_lifecycle.Kind() )
     {
     case PrimitiveBatchKind::Sphere:
         m_renderer->DrawSphereBatchEnd( *m_context );
@@ -567,7 +563,7 @@ void PrimitiveBatchRenderer::PrimitiveBatchScope::EndIfActive()
         break;
     }
 
-    m_active = false;
+    m_lifecycle.Close();
 }
 
 
@@ -644,9 +640,8 @@ PrimitiveBatchRenderer::BeginShadowDepthPineBatch( const PrimitiveRenderContext&
 void PrimitiveBatchRenderer::BindRenderResourceOwners( Dx12ResourceBuilder& renderResources,
                                                        Dx12TextureOwner& renderTextures, Dx12GeometryOwner& renderGeometry )
 {
-    assert( !m_state.renderResources || m_state.renderResources == &renderResources );
-    assert( !m_state.renderTextures || m_state.renderTextures == &renderTextures );
-    assert( !m_state.renderGeometry || m_state.renderGeometry == &renderGeometry );
+    m_resourceOwnerIdentity.Bind( &renderResources, &renderTextures, &renderGeometry );
+
     m_state.renderResources = &renderResources;
     m_state.renderTextures = &renderTextures;
     m_state.renderGeometry = &renderGeometry;

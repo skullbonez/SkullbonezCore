@@ -22,6 +22,8 @@ Invariants:
     travels through explicit pass input structs.
   - Pass order is owned by RuntimeRenderer::RenderPreparedFrame.
   - Debug contact packets are synchronous Rendering values, not Replay or Planning state.
+  - RuntimeRenderTargetPreviewSnapshot owns its fixed-catalog append boundary;
+    every producer reaches Lane F before an overflow can index storage.
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderHost.h
@@ -30,6 +32,8 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
+
+#include "../../Core/FatalError.h"
 
 #include "../../Core/SbResult.h"
 #include "../../Core/Config.h"
@@ -357,6 +361,29 @@ struct RuntimeRenderTargetPreviewSnapshot
     // here and are resolved from the recorded catalog identity at submission.
     std::array<RuntimeRenderTargetPreview, 12> targets {};
     int count = 0;
+
+    // Invariant: both production producers share this fixed-catalog boundary;
+    // the base lifecycle contributes ten rows and UI may append one DXR row.
+    void AppendCatalogTarget( const RuntimeRenderTargetPreview& preview )
+    {
+        AppendBounded( preview );
+    }
+    void AppendOptionalDxrTarget( const RuntimeRenderTargetPreview& preview )
+    {
+        AppendBounded( preview );
+    }
+
+  private:
+    void AppendBounded( const RuntimeRenderTargetPreview& preview )
+    {
+        if ( count < 0 || count >= static_cast<int>( targets.size() ) )
+        {
+            SB_FATAL( "Runtime/Render/RenderTargetPreviewSnapshot",
+                      "Render-target preview capacity exceeded. count=%d capacity=%zu", count, targets.size() );
+        }
+
+        targets[static_cast<std::size_t>( count++ )] = preview;
+    }
 };
 
 // Value: the viewport is shared by focused draw operations that place UI.

@@ -29,6 +29,8 @@ Invariants:
     mesh construction never publishes NaN normals.
   - Height-map traversal and storage counts come from one validated divisible
     shape; malformed dimensions fail before construction or output publication.
+  - Render rebuilds require config, asset, and resource-builder borrows, and the
+    color pass validates its required clip plane before any early draw return.
 
 Related:
   - SkullbonezSource/World/Terrain.h
@@ -109,6 +111,7 @@ Terrain::Terrain( ValidatedHeightMapTag, const SkullbonezCore::Core::EngineConfi
     m_config = &config;
     m_assets = assets;
     m_resources = resources;
+    m_renderLease.Bind( &config, assets, resources );
 }
 
 
@@ -319,6 +322,7 @@ Terrain::Terrain( float slopeBaseY, float slopeX, float slopeZ, const Skullbonez
     m_config = &config;
     m_assets = assets;
     m_resources = resources;
+    m_renderLease.Bind( &config, assets, resources );
 
     // Max height at the 4 corners of the flat slope play area
     float h00 = slopeBaseY;
@@ -353,6 +357,7 @@ void Terrain::BindRenderContexts( const SkullbonezCore::Core::EngineConfig& conf
     m_config = &config;
     m_assets = &assets;
     m_resources = &resources;
+    m_renderLease.Bind( &config, &assets, &resources );
 }
 
 
@@ -398,6 +403,7 @@ void Terrain::InitialiseTerrainShader()
 
 void Terrain::ResetRenderResources()
 {
+    RequireRenderBindings( "ResetRenderResources" );
     m_terrainMesh.reset();
     m_terrainShader.reset();
     m_shadowDepthShader.reset();
@@ -437,17 +443,23 @@ void Terrain::EnsureShadowDepthResources()
     // Runtime allocation policy: terrain's non-instanced shadow caster shader is
     // a backend resource. Create it during the explicit shadow backend-init step
     // so the first live shadow draw does not compile HLSL in the render phase.
-    assert( m_assets );
-    assert( m_resources );
+    RequireRenderBindings( "EnsureShadowDepthResources" );
     m_shadowDepthShader = m_assets->CreateShader( *m_resources, "shader.shadow_depth" );
 }
 
 
 void Terrain::ReleaseRenderResources()
 {
+    m_renderLease.PreserveAcrossResourceRelease();
     m_terrainMesh.reset();
     m_terrainShader.reset();
     m_shadowDepthShader.reset();
+}
+
+
+void Terrain::RequireRenderBindings( const char* operation ) const
+{
+    m_renderLease.Require( operation );
 }
 #endif
 
@@ -648,6 +660,8 @@ void Terrain::Render( const Matrix4& view, const Matrix4& projection, Dx12Textur
                       const SkullbonezCore::Core::CinematicRenderConfig* cinematicOverride, const ShadowFrameData* shadow,
                       const ShadowFrameData* detailShadow )
 {
+    RequireClipPlane( clipPlane );
+
     if ( !m_terrainShader || !m_terrainMesh )
     {
         return;
@@ -660,7 +674,6 @@ void Terrain::Render( const Matrix4& view, const Matrix4& projection, Dx12Textur
     m_terrainShader->SetMat4( "uModel", model );
     m_terrainShader->SetMat4( "uView", view );
     m_terrainShader->SetMat4( "uProjection", projection );
-    assert( clipPlane );
     m_terrainShader->SetVec4( "uClipPlane", clipPlane[0], clipPlane[1], clipPlane[2], clipPlane[3] );
 
     // Transform light position to view space
@@ -1320,6 +1333,8 @@ void Terrain::GenerateNormals()
 #if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
 void Terrain::BuildMesh()
 {
+    RequireRenderBindings( "BuildMesh" );
+
     // Two triangles per quad, three vertices per triangle, and eight floats per
     // vertex (position 3 + normal 3 + texture coordinate 2).
     const int totalQuads = static_cast<int>( m_quadCount );
@@ -1327,7 +1342,6 @@ void Terrain::BuildMesh()
 
     std::vector<float> vertexData = BuildRenderVertexData();
 
-    assert( m_resources );
     m_terrainMesh = m_resources->CreateMesh( vertexData.data(), totalVerts, true, true );
 }
 #endif
@@ -1397,6 +1411,8 @@ std::vector<float> Terrain::BuildRenderVertexData() const
 #if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
 void Terrain::BuildFlatSlopeMesh()
 {
+    RequireRenderBindings( "BuildFlatSlopeMesh" );
+
     // Generate a 40x40 quad grid over [0,1000] x [0,1000]
     // Height at each point: y = m_slopeBaseY + m_slopeX*x + m_slopeZ*z
     // Constant normal:       normalize(-m_slopeX, 1.0f, -m_slopeZ)
@@ -1450,7 +1466,6 @@ void Terrain::BuildFlatSlopeMesh()
         }
     }
 
-    assert( m_resources );
     m_terrainMesh = m_resources->CreateMesh( vertexData.data(), totalVerts, true, true );
 }
 #endif

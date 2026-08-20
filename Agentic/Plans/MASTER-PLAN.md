@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-20
-Status: Five active plans; 51/80 tasks complete
+Status: Five active plans; 52/80 tasks complete
 
 ## Owner Direction
 
@@ -73,6 +73,12 @@ Status: Five active plans; 51/80 tasks complete
   Its cumulative 650-test unit gate is green; the fast gate clears its static
   checks and build matrix, with terminal reachability deferred solely by the
   Visual Studio-owned live Profile executable lock.
+  IH4 replaces Rendering/DX12/World assert-only safety with embedded production
+  epoch, scope, backend-identity, rebuild-lease, and bounded-preview owners.
+  Focused Profile lifecycle/capacity proof and warnings-as-errors builds pass;
+  its 19/19 touched-source audit has no deferrals and independent post-fix
+  review is blocker-free. SceneWorld's Debug policy remains explicitly owned by
+  IH5 rather than being claimed by the Rendering phase.
 - Full Source Comment Truth Replacement is registered immediately after
   invariant hardening. Its six phases rebase the frozen 843-file audit, discard
   replacements made redundant by IH, regenerate every stale or conflicting
@@ -201,7 +207,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Invariant Enforcement And Assertion Hardening | `INVARIANT_HARDENING` | 8 | 4 | `TODO/invariant-enforcement-hardening.md` |
+| Invariant Enforcement And Assertion Hardening | `INVARIANT_HARDENING` | 8 | 5 | `TODO/invariant-enforcement-hardening.md` |
 | Full Source Comment Truth Replacement | `COMMENT_TRUTH` | 6 | 0 | `TODO/full-source-comment-truth-replacement.md` |
 | Full Validation Time And Value Audit | `VALIDATION_TIME_AUDIT` | 6 | 0 | `TODO/full-validation-time-value-audit.md` |
 | Repository Hygiene Cleanup | `REPOSITORY_CLEANUP` | 6 | 0 | `TODO/repository-hygiene-cleanup.md` |
@@ -285,12 +291,12 @@ contracts into Rendering.
 
 ## Portfolio Progress
 
-51/80 tasks complete with five active plans.
+52/80 tasks complete with five active plans.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
-Invariant Enforcement And Assertion Hardening IH0-IH3 are complete; IH4-IH7
-remain, with IH4 next.
+Invariant Enforcement And Assertion Hardening IH0-IH4 are complete; IH5-IH7
+remain, with IH5 next.
 Full Source Comment Truth Replacement CT0-CT5 follows IH7; all six phases
 remain.
 Full Validation Time And Value Audit VTA0-VTA5 follows CT5; all six phases

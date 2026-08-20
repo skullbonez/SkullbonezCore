@@ -73,7 +73,7 @@
                        },
                        {
                            "key":  "DebugOverlayPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:396",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:423",
                            "members":  12,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render pass ruling",
@@ -253,7 +253,7 @@
                        },
                        {
                            "key":  "ObjectPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:242",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:246",
                            "members":  16,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render pass ruling",
@@ -298,7 +298,7 @@
                        },
                        {
                            "key":  "PrimitiveBatchShaderParams",
-                           "site":  "SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp:371",
+                           "site":  "SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp:372",
                            "members":  11,
                            "verdict":  "retain",
                            "owner":  "CA0 / Rendering/PrimitiveBatchRenderer.cpp",
@@ -307,7 +307,7 @@
                        },
                        {
                            "key":  "PrimitiveRenderContext",
-                           "site":  "SkullbonezSource/Rendering/PrimitiveBatchRenderer.h:71",
+                           "site":  "SkullbonezSource/Rendering/PrimitiveBatchRenderer.h:76",
                            "members":  7,
                            "verdict":  "retain-prior",
                            "owner":  "prior owner ruling carried by CA0",
@@ -316,7 +316,7 @@
                        },
                        {
                            "key":  "ReflectionPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:283",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:287",
                            "members":  22,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render pass ruling",
@@ -334,7 +334,7 @@
                        },
                        {
                            "key":  "RenderResourceContext",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:228",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:232",
                            "members":  7,
                            "verdict":  "retain",
                            "owner":  "prior owner ruling carried by CA0",
@@ -703,7 +703,7 @@
                        },
                        {
                            "key":  "ShadowPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:415",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:442",
                            "members":  12,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render pass ruling",
@@ -739,7 +739,7 @@
                        },
                        {
                            "key":  "TerrainPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:267",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:271",
                            "members":  10,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render pass ruling",
@@ -775,7 +775,7 @@
                        },
                        {
                            "key":  "WaterPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:322",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:326",
                            "members":  13,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render pass ruling",
@@ -784,7 +784,7 @@
                        },
                        {
                            "key":  "WaterReflectionInput",
-                           "site":  "SkullbonezSource/World/WorldEnvironment.h:69",
+                           "site":  "SkullbonezSource/World/WorldEnvironment.h:106",
                            "members":  4,
                            "verdict":  "retain",
                            "owner":  "CA0 / World/WorldEnvironment.h",
@@ -793,7 +793,7 @@
                        },
                        {
                            "key":  "WaterStyleParams",
-                           "site":  "SkullbonezSource/World/WorldEnvironment.h:88",
+                           "site":  "SkullbonezSource/World/WorldEnvironment.h:125",
                            "members":  19,
                            "verdict":  "retain",
                            "owner":  "CA0 / World/WorldEnvironment.h",

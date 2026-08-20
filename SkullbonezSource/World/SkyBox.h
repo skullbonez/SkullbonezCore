@@ -16,6 +16,8 @@ Invariants:
     resources before the concrete backend owners die.
   - Texture, asset, resource-builder, and config owners are borrowed for the
     backend epoch and must be rebound before a render-resource rebuild.
+  - Release clears every rebuild borrow; reset validates the complete set before
+    loading textures or creating a mesh/shader.
   - Authored face textures are square and include three pixels of edge padding
     so cube seams do not sample unrelated texels.
 
@@ -29,6 +31,7 @@ Related:
 
 #include "../Core/Common.h"
 #include "../Core/SbResult.h"
+#include "../Core/FatalError.h"
 #include "../Assets/TextureCollection.h"
 #include "../Maths/Vector3.h"
 #include "../Maths/GeometricStructures.h"
@@ -53,6 +56,50 @@ class Dx12ResourceBuilder;
 
 namespace Geometry
 {
+// Lifetime: sky rebuild borrows form one backend-epoch lease. Release closes
+// the complete lease so a later reset must bind all owners again.
+class SkyBoxRenderRebuildLease
+{
+  public:
+    void BindTextures( const void* textures ) noexcept
+    {
+        m_textures = textures;
+    }
+    void BindContexts( const void* config, const void* assets, const void* resources ) noexcept
+    {
+        m_config = config;
+        m_assets = assets;
+        m_resources = resources;
+    }
+    void Release() noexcept
+    {
+        m_textures = nullptr;
+        m_config = nullptr;
+        m_assets = nullptr;
+        m_resources = nullptr;
+    }
+    bool Complete() const noexcept
+    {
+        return m_textures && m_config && m_assets && m_resources;
+    }
+    void Require( const char* operation ) const
+    {
+        if ( !Complete() )
+        {
+            SB_FATAL( "World/SkyBox",
+                      "Skybox render-resource operation requires complete backend-epoch bindings. operation=%s "
+                      "textures=%d config=%d assets=%d resources=%d",
+                      operation ? operation : "unknown", m_textures ? 1 : 0, m_config ? 1 : 0, m_assets ? 1 : 0,
+                      m_resources ? 1 : 0 );
+        }
+    }
+
+  private:
+    const void* m_textures = nullptr;
+    const void* m_config = nullptr;
+    const void* m_assets = nullptr;
+    const void* m_resources = nullptr;
+};
 
 class SkyBox
 {
@@ -64,10 +111,12 @@ class SkyBox
     const SkullbonezCore::Core::EngineConfig* m_config;                   // Borrowed sky texture/scale settings from the runtime config.
     Assets::AssetSystem* m_assets;                                        // Borrowed asset registry used to resolve shader logical names.
     Rendering::Dx12ResourceBuilder* m_resources;                          // Borrowed cold builder for sky GPU objects.
+    SkyBoxRenderRebuildLease m_renderLease;                               // Authoritative rebuild-borrow lifecycle.
     std::unique_ptr<Rendering::ShaderDX12> m_shader;                      // Unlit textured shader rebuilt on backend reset.
     std::array<std::unique_ptr<Rendering::MeshDX12>, 6> m_faceMeshes;     // One renderer-owned quad mesh per cube face.
     std::array<uint32_t, 6> m_faceTextures;                               // Texture hash selected for each cube face.
 
+    void RequireRenderBindings( const char* operation ) const;
     SkullbonezCore::Core::SbResult LoadTextures( const SkullbonezCore::Core::EngineConfig& config );
     void BuildMeshes( const SkullbonezCore::Core::EngineConfig& config, Assets::AssetSystem& assets,
                       Rendering::Dx12ResourceBuilder& resources );

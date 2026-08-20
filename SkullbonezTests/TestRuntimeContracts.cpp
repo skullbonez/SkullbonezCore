@@ -52,6 +52,10 @@
 //     release-cleared borrows terminate before capacity or draw dereference.
 //   - Lock-order invalid-id, cycle, and held-stack tripwires are classified by
 //     the same Debug policy used by acquisition without opening CRT dialogs.
+//   - Rendering lifecycle, primitive-scope, world-resource, and preview-capacity
+//     failures terminate in Profile children before stale access or indexing.
+//   - Targeted assert-only controls exit cleanly outside Debug, proving each
+//     IH4 Lane F group would detect its former false-pass implementation.
 //
 // Related:
 //   - SkullbonezSource/Core/Log.h
@@ -63,6 +67,12 @@
 //   - SkullbonezSource/Assets/TextureCollection.h
 //   - SkullbonezSource/Core/LockOrderValidator.h
 //   - SkullbonezSource/Gameplay/TornadoVisualPass.h
+//   - SkullbonezSource/Rendering/DX12/RenderBackendDX12.h
+//   - SkullbonezSource/Rendering/PrimitiveBatchRenderer.h
+//   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h
+//   - SkullbonezSource/World/SkyBox.h
+//   - SkullbonezSource/World/Terrain.h
+//   - SkullbonezSource/World/WorldEnvironment.h
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
@@ -91,10 +101,15 @@
 #include "../SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsStepDiagnostics.h"
 #include "../SkullbonezSource/Rendering/DX12/Dx12FrameOwner.h"
+#include "../SkullbonezSource/Rendering/DX12/RenderBackendDX12.h"
+#include "../SkullbonezSource/Rendering/PrimitiveBatchRenderer.h"
 #include "../SkullbonezSource/Core/TracyClientOwner.h"
+#include "../SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h"
 #include "../SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h"
 #include "../SkullbonezSource/World/Terrain.h"
+#include "../SkullbonezSource/World/SkyBox.h"
+#include "../SkullbonezSource/World/WorldEnvironment.h"
 #include "TestFatalCases.h"
 #include "TestSbResultAccess.h"
 
@@ -104,6 +119,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <cassert>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -124,7 +140,87 @@ struct Dx12DeferredReleaseOwnerTestAccess
         owner.m_diagnostics.ObservePendingCount( pendingCount );
     }
 };
+
+struct Dx12TextureOwnerTestAccess
+{
+    class EpochProbe
+    {
+      public:
+        void Bind()
+        {
+            m_epoch.Bind( &m_deviceIdentity, &m_frameIdentity, &m_pipelineIdentity );
+        }
+        void Begin()
+        {
+            m_epoch.Begin();
+        }
+        void Close()
+        {
+            m_epoch.Close();
+        }
+        void Require( const char* operation ) const
+        {
+            m_epoch.Require( operation );
+        }
+        bool Active() const
+        {
+            return m_epoch.Active();
+        }
+
+      private:
+        int m_deviceIdentity = 0;
+        int m_frameIdentity = 0;
+        int m_pipelineIdentity = 0;
+        Dx12TextureOwner::ResourceEpoch m_epoch;
+    };
+};
+
+struct Dx12GeometryOwnerTestAccess
+{
+    class EpochProbe
+    {
+      public:
+        void Bind()
+        {
+            m_epoch.Bind( &m_deviceIdentity, &m_frameIdentity, &m_pipelineIdentity, &m_diagnosticsIdentity );
+        }
+        void Begin()
+        {
+            m_epoch.Begin();
+        }
+        void Close()
+        {
+            m_epoch.Close();
+        }
+        void Require( const char* operation ) const
+        {
+            m_epoch.Require( operation );
+        }
+        bool Active() const
+        {
+            return m_epoch.Active();
+        }
+
+      private:
+        int m_deviceIdentity = 0;
+        int m_frameIdentity = 0;
+        int m_pipelineIdentity = 0;
+        int m_diagnosticsIdentity = 0;
+        Dx12GeometryOwner::SubmissionEpoch m_epoch;
+    };
+};
 } // namespace SkullbonezCore::Rendering
+
+namespace SkullbonezCore::Geometry
+{
+struct TerrainRenderLifecycleTestAccess
+{
+    static void RequireClipPlane( const float* clipPlane )
+    {
+        Terrain::RequireClipPlane( clipPlane );
+    }
+};
+} // namespace SkullbonezCore::Geometry
 
 namespace SkullbonezCore::Textures
 {
@@ -312,6 +408,103 @@ TEST_CASE( "TextureCollection fixed capacity admits its exact final slot" )
 }
 
 
+TEST_CASE( "IH4 render lifecycle owners execute valid bind move and close transitions" )
+{
+    using SkullbonezCore::Rendering::Dx12GeometryOwnerTestAccess;
+    using SkullbonezCore::Rendering::Dx12TextureOwnerTestAccess;
+
+    Dx12GeometryOwnerTestAccess::EpochProbe geometryEpoch;
+    geometryEpoch.Bind();
+    geometryEpoch.Begin();
+    CHECK( geometryEpoch.Active() );
+    geometryEpoch.Require( "ValidFrameProbe" );
+    geometryEpoch.Close();
+    CHECK_FALSE( geometryEpoch.Active() );
+
+    Dx12TextureOwnerTestAccess::EpochProbe textureEpoch;
+    textureEpoch.Bind();
+    textureEpoch.Begin();
+    CHECK( textureEpoch.Active() );
+    textureEpoch.Require( "ValidResourceProbe" );
+    textureEpoch.Close();
+    CHECK_FALSE( textureEpoch.Active() );
+
+    int rendererIdentity = 0;
+    int contextIdentity = 0;
+    SkullbonezCore::Rendering::PrimitiveBatchScopeLifecycle
+        visibleScope( &rendererIdentity, &contextIdentity, SkullbonezCore::Rendering::PrimitiveBatchKind::Sphere );
+    visibleScope.RequireVisible();
+    SkullbonezCore::Rendering::PrimitiveBatchScopeLifecycle movedScope( std::move( visibleScope ) );
+    CHECK_FALSE( visibleScope.Active() );
+    CHECK( movedScope.Active() );
+    movedScope.RequireVisible();
+
+    SkullbonezCore::Rendering::PrimitiveBatchScopeLifecycle
+        shadowScope( &rendererIdentity, &contextIdentity, SkullbonezCore::Rendering::PrimitiveBatchKind::ShadowSphere );
+    shadowScope.RequireShadow();
+
+    int resourcesIdentity = 0;
+    int texturesIdentity = 0;
+    int geometryIdentity = 0;
+    SkullbonezCore::Rendering::PrimitiveResourceOwnerIdentity primitiveOwners;
+    primitiveOwners.Bind( &resourcesIdentity, &texturesIdentity, &geometryIdentity );
+    primitiveOwners.Bind( &resourcesIdentity, &texturesIdentity, &geometryIdentity );
+
+    int configIdentity = 0;
+    int assetsIdentity = 0;
+    SkullbonezCore::Geometry::SkyBoxRenderRebuildLease skyBindings;
+    skyBindings.BindTextures( &texturesIdentity );
+    skyBindings.BindContexts( &configIdentity, &assetsIdentity, &resourcesIdentity );
+    CHECK( skyBindings.Complete() );
+    skyBindings.Require( "ValidRebuildProbe" );
+    skyBindings.Release();
+    CHECK_FALSE( skyBindings.Complete() );
+
+    SkullbonezCore::Geometry::TerrainRenderRebuildLease terrainBindings;
+    terrainBindings.Bind( &configIdentity, &assetsIdentity, &resourcesIdentity );
+    CHECK( terrainBindings.Complete() );
+    terrainBindings.PreserveAcrossResourceRelease();
+    terrainBindings.Require( "ValidRebuildAfterReleaseProbe" );
+
+    SkullbonezCore::Environment::WaterRenderRebuildLease waterBindings;
+    waterBindings.Bind( &assetsIdentity, &resourcesIdentity );
+    CHECK( waterBindings.Complete() );
+    waterBindings.PreserveAcrossResourceRelease();
+    waterBindings.Require( "ValidRebuildAfterReleaseProbe" );
+}
+
+
+TEST_CASE( "Render target preview snapshot owns partial and exact-capacity append" )
+{
+    SkullbonezCore::Runtime::RuntimeRenderTargetPreviewSnapshot snapshot;
+    CHECK( snapshot.count == 0 );
+
+    for ( int index = 0; index < 10; ++index )
+    {
+        SkullbonezCore::Runtime::RuntimeRenderTargetPreview preview;
+        preview.textureHandle = static_cast<uint32_t>( index + 1 );
+        snapshot.AppendCatalogTarget( preview );
+    }
+
+    CHECK( snapshot.count == 10 );
+    CHECK( snapshot.targets[9].textureHandle == 10u );
+
+    SkullbonezCore::Runtime::RuntimeRenderTargetPreview dxrPreview;
+    dxrPreview.label = "DXR Reflection";
+    dxrPreview.textureHandle = 11u;
+    snapshot.AppendOptionalDxrTarget( dxrPreview );
+    CHECK( snapshot.count == 11 );
+    CHECK( snapshot.targets[10].textureHandle == 11u );
+
+    while ( snapshot.count < static_cast<int>( snapshot.targets.size() ) )
+    {
+        snapshot.AppendCatalogTarget( {} );
+    }
+
+    CHECK( snapshot.count == static_cast<int>( snapshot.targets.size() ) );
+}
+
+
 TEST_CASE( "Tornado visual frame remains prepared until explicit release" )
 {
     SkullbonezCore::Gameplay::TornadoVisualPass pass;
@@ -487,6 +680,25 @@ void ExpectFatalCase( const char* caseName, std::initializer_list<const char*> e
 #endif
 }
 
+void ExpectCleanControlCase( const char* caseName, std::initializer_list<const char*> expectedDiagnostics )
+{
+#if defined( __SANITIZE_ADDRESS__ )
+    static_cast<void>( caseName );
+    static_cast<void>( expectedDiagnostics );
+#else
+    const FatalChildResult child = RunFatalChild( caseName );
+    INFO( "clean control child output: " << child.output );
+    REQUIRE( child.launched );
+    REQUIRE_FALSE( child.timedOut );
+    CHECK( child.exitCode == 0 );
+
+    for ( const char* expected : expectedDiagnostics )
+    {
+        CHECK( child.output.find( expected ) != std::string::npos );
+    }
+#endif
+}
+
 #if !defined( _DEBUG ) && !defined( SKULLBONEZ_PROFILE_ENABLED ) && !defined( SKULLBONEZ_TEST_PROFILE_ALLOCATION_FATAL )
 void ExpectCleanChildCase( const char* caseName, std::initializer_list<const char*> expectedDiagnostics )
 {
@@ -510,6 +722,19 @@ struct WorkerFatalProbe
         SB_FATAL( "Tests/WorkerFatalProbe", "worker-thread fatal logging probe" );
     }
 };
+
+void RunLegacyAssertOnlyControl( bool condition, const char* group )
+{
+    // Negative control: this is the retired Profile shape. The assertion is
+    // compiled out under NDEBUG and the safe return proves the paired Lane F
+    // child would have false-passed without its always-on owner guard.
+    assert( condition );
+
+    if ( !condition )
+    {
+        std::printf( "IH4 legacy assert-only %s path returned in a non-Debug child\n", group );
+    }
+}
 } // namespace
 
 void ExpectRuntimeFatalCase( const char* caseName, std::initializer_list<const char*> expectedDiagnostics )
@@ -528,6 +753,175 @@ bool RunRuntimeFatalCase( const char* caseName )
     {
         SkullbonezCore::Textures::TextureCollectionTestAccess::FirstFreeSlot(
             SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "ih4-legacy-dx12-false-pass" ) == 0 )
+    {
+        RunLegacyAssertOnlyControl( false, "dx12 lifecycle" );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "ih4-legacy-primitive-false-pass" ) == 0 )
+    {
+        RunLegacyAssertOnlyControl( false, "primitive scope" );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "ih4-legacy-world-false-pass" ) == 0 )
+    {
+        RunLegacyAssertOnlyControl( false, "world rebuild" );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "ih4-legacy-preview-false-pass" ) == 0 )
+    {
+        RunLegacyAssertOnlyControl( false, "preview capacity" );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "render-preview-capacity" ) == 0 )
+    {
+        SkullbonezCore::Runtime::RuntimeRenderTargetPreviewSnapshot snapshot;
+
+        for ( int index = 0; index < 10; ++index )
+        {
+            snapshot.AppendCatalogTarget( {} );
+        }
+
+        snapshot.AppendOptionalDxrTarget( {} );
+        snapshot.AppendCatalogTarget( {} );
+        snapshot.AppendOptionalDxrTarget( {} );
+
+        return true;
+    }
+
+    const bool geometryBeforeInit = std::strcmp( caseName, "dx12-geometry-before-init" ) == 0;
+    const bool geometryAfterShutdown = std::strcmp( caseName, "dx12-geometry-after-shutdown" ) == 0;
+
+    if ( geometryBeforeInit || geometryAfterShutdown )
+    {
+        SkullbonezCore::Rendering::Dx12GeometryOwnerTestAccess::EpochProbe epoch;
+
+        if ( geometryAfterShutdown )
+        {
+            epoch.Bind();
+            epoch.Begin();
+            epoch.Close();
+        }
+
+        epoch.Require( geometryAfterShutdown ? "AfterShutdownProbe" : "BeforeInitProbe" );
+        return true;
+    }
+
+    const bool textureBeforeInit = std::strcmp( caseName, "dx12-texture-before-init" ) == 0;
+    const bool textureAfterShutdown = std::strcmp( caseName, "dx12-texture-after-shutdown" ) == 0;
+
+    if ( textureBeforeInit || textureAfterShutdown )
+    {
+        SkullbonezCore::Rendering::Dx12TextureOwnerTestAccess::EpochProbe epoch;
+
+        if ( textureAfterShutdown )
+        {
+            epoch.Bind();
+            epoch.Begin();
+            epoch.Close();
+        }
+
+        epoch.Require( textureAfterShutdown ? "AfterShutdownProbe" : "BeforeInitProbe" );
+        return true;
+    }
+
+    const bool primitiveMoved = std::strcmp( caseName, "primitive-scope-moved" ) == 0;
+    const bool primitiveInactive = std::strcmp( caseName, "primitive-scope-inactive" ) == 0;
+    const bool primitiveVisibleAsShadow = std::strcmp( caseName, "primitive-visible-as-shadow" ) == 0;
+    const bool primitiveShadowAsVisible = std::strcmp( caseName, "primitive-shadow-as-visible" ) == 0;
+
+    if ( primitiveMoved || primitiveInactive || primitiveVisibleAsShadow || primitiveShadowAsVisible )
+    {
+        int rendererIdentity = 0;
+        int contextIdentity = 0;
+        const SkullbonezCore::Rendering::PrimitiveBatchKind
+            kind = primitiveShadowAsVisible ? SkullbonezCore::Rendering::PrimitiveBatchKind::ShadowSphere
+                                            : SkullbonezCore::Rendering::PrimitiveBatchKind::Sphere;
+        SkullbonezCore::Rendering::PrimitiveBatchScopeLifecycle scope( &rendererIdentity, &contextIdentity, kind );
+
+        if ( primitiveMoved )
+        {
+            SkullbonezCore::Rendering::PrimitiveBatchScopeLifecycle destination( std::move( scope ) );
+            scope.RequireVisible();
+        }
+        else
+        {
+            if ( primitiveInactive )
+            {
+                scope.Close();
+            }
+
+            if ( primitiveVisibleAsShadow )
+            {
+                scope.RequireShadow();
+            }
+            else
+            {
+                scope.RequireVisible();
+            }
+        }
+
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "primitive-resource-owner-mismatch" ) == 0 )
+    {
+        int resourcesIdentity = 0;
+        int texturesIdentity = 0;
+        int replacementTexturesIdentity = 0;
+        int geometryIdentity = 0;
+        SkullbonezCore::Rendering::PrimitiveResourceOwnerIdentity owners;
+        owners.Bind( &resourcesIdentity, &texturesIdentity, &geometryIdentity );
+        owners.Bind( &resourcesIdentity, &replacementTexturesIdentity, &geometryIdentity );
+        return true;
+    }
+
+    const bool skyBeforeInit = std::strcmp( caseName, "skybox-before-init" ) == 0;
+    const bool skyAfterRelease = std::strcmp( caseName, "skybox-after-release" ) == 0;
+
+    if ( skyBeforeInit || skyAfterRelease )
+    {
+        int texturesIdentity = 0;
+        int configIdentity = 0;
+        int assetsIdentity = 0;
+        int resourcesIdentity = 0;
+        SkullbonezCore::Geometry::SkyBoxRenderRebuildLease bindings;
+
+        if ( skyAfterRelease )
+        {
+            bindings.BindTextures( &texturesIdentity );
+            bindings.BindContexts( &configIdentity, &assetsIdentity, &resourcesIdentity );
+            bindings.Release();
+        }
+
+        bindings.Require( skyAfterRelease ? "AfterReleaseProbe" : "BeforeInitProbe" );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "world-water-before-init" ) == 0 )
+    {
+        SkullbonezCore::Environment::WaterRenderRebuildLease bindings;
+        bindings.Require( "BeforeInitProbe" );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "terrain-render-resources-before-init" ) == 0 )
+    {
+        SkullbonezCore::Geometry::TerrainRenderRebuildLease bindings;
+        bindings.Require( "BeforeInitProbe" );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "terrain-missing-clip-plane" ) == 0 )
+    {
+        SkullbonezCore::Geometry::TerrainRenderLifecycleTestAccess::RequireClipPlane( nullptr );
         return true;
     }
 
@@ -1571,6 +1965,52 @@ TEST_CASE( "DX12 retirement diagnostics retain real peaks and reset at device bo
     retirements.ResetAfterShutdown();
     CHECK( retirements.HighWater() == 0u );
 }
+
+
+TEST_CASE( "IH4 rendering and world lifecycle misuse terminates before stale access" )
+{
+    ExpectFatalCase( "render-preview-capacity",
+                     { "FATAL[Runtime/Render/RenderTargetPreviewSnapshot]", "count=12 capacity=12" } );
+    ExpectFatalCase( "dx12-geometry-before-init", { "FATAL[Dx12GeometryOwner]", "operation=BeforeInitProbe", "active=0" } );
+    ExpectFatalCase( "dx12-geometry-after-shutdown",
+                     { "FATAL[Dx12GeometryOwner]", "operation=AfterShutdownProbe", "active=0" } );
+    ExpectFatalCase( "dx12-texture-before-init", { "FATAL[Dx12TextureOwner]", "operation=BeforeInitProbe", "active=0" } );
+    ExpectFatalCase( "dx12-texture-after-shutdown",
+                     { "FATAL[Dx12TextureOwner]", "operation=AfterShutdownProbe", "active=0" } );
+    ExpectFatalCase( "primitive-scope-moved", { "FATAL[Rendering/PrimitiveBatchScope]", "active=0", "requested=visible" } );
+    ExpectFatalCase( "primitive-scope-inactive",
+                     { "FATAL[Rendering/PrimitiveBatchScope]", "active=0", "requested=visible" } );
+    ExpectFatalCase( "primitive-visible-as-shadow",
+                     { "FATAL[Rendering/PrimitiveBatchScope]", "kind=0", "requested=shadow" } );
+    ExpectFatalCase( "primitive-shadow-as-visible",
+                     { "FATAL[Rendering/PrimitiveBatchScope]", "kind=3", "requested=visible" } );
+    ExpectFatalCase( "primitive-resource-owner-mismatch",
+                     { "FATAL[Rendering/PrimitiveBatchRenderer]", "resources=1 textures=0 geometry=1" } );
+    ExpectFatalCase( "skybox-before-init",
+                     { "FATAL[World/SkyBox]", "operation=BeforeInitProbe", "textures=0", "resources=0" } );
+    ExpectFatalCase( "skybox-after-release",
+                     { "FATAL[World/SkyBox]", "operation=AfterReleaseProbe", "textures=0", "resources=0" } );
+    ExpectFatalCase( "world-water-before-init",
+                     { "FATAL[World/WorldEnvironment]", "operation=BeforeInitProbe", "assets=0 resources=0" } );
+    ExpectFatalCase( "terrain-render-resources-before-init",
+                     { "FATAL[World/Terrain]", "operation=BeforeInitProbe", "assets=0 resources=0" } );
+    ExpectFatalCase( "terrain-missing-clip-plane", { "FATAL[World/Terrain]", "Terrain color pass requires a clip plane" } );
+}
+
+
+#if !defined( _DEBUG )
+TEST_CASE( "IH4 old assert-only implementation is a proven non-Debug false pass" )
+{
+    ExpectCleanControlCase( "ih4-legacy-dx12-false-pass",
+                            { "IH4 legacy assert-only dx12 lifecycle path returned in a non-Debug child" } );
+    ExpectCleanControlCase( "ih4-legacy-primitive-false-pass",
+                            { "IH4 legacy assert-only primitive scope path returned in a non-Debug child" } );
+    ExpectCleanControlCase( "ih4-legacy-world-false-pass",
+                            { "IH4 legacy assert-only world rebuild path returned in a non-Debug child" } );
+    ExpectCleanControlCase( "ih4-legacy-preview-false-pass",
+                            { "IH4 legacy assert-only preview capacity path returned in a non-Debug child" } );
+}
+#endif
 
 
 TEST_CASE( "DX12 retirement exhaustion reports truthful queue and fence diagnostics" )

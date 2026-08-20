@@ -1,7 +1,7 @@
 # Invariant Enforcement And Assertion Hardening
 
 Date: 2026-08-20
-Status: Active; 4/8 phases complete
+Status: Active; 5/8 phases complete
 Impact area: repository-wide invariant enforcement, assertion policy, failure
 lanes, tests, comment taxonomy, and substantial diagnostic tools
 Owner: subsystem owners named by each affected path
@@ -233,14 +233,14 @@ A126, A128, A129, A130, A131, and A132.
 | A080 | `RenderInstanceStore::Refresh`; current mismatch branch clears and returns before indexing | Debug tripwire with safe fallback | IH4 retain or remove duplicate after a mismatched-count test proves the Release clear/no-draw result |
 | A087 | `Input::UnbindWindow`; wrong-window Release path leaves the binding unchanged | Debug tripwire with safe fallback | IH5 retain only with bind/valid-unbind/wrong-window/after-unbind policy tests |
 | A095-A104 | `RuntimeInteractionController::ValidateState`; complete method is `_DEBUG`-only post-transition validation | Lane P / Debug tripwire | IH5 retain; transition-policy tests cover every gesture/capture/owner combination |
-| A105 | `RenderResourceLifecycle::BuildRenderTargetPreviewSnapshot`; Release indexes a fixed target array | Lane F | IH4 bounded append or fatal before indexing; empty, exact ten-target, and synthetic eleventh-target proof |
+| A105 | `RenderResourceLifecycle::BuildRenderTargetPreviewSnapshot`; Release indexes a fixed target array | Lane F | IH4 routes the ten-target base catalog and optional DXR eleventh row through one bounded snapshot owner; exact 12-row storage and a producer-driven thirteenth-row fatal prove current capacity rather than the stale synthetic-eleventh assumption |
 | A107 | `SkyPass::Render`; Release dereferences the world-view sky owner | Lane F | IH5 fatal before draw; before-init/valid/after-release render-pass cases |
 | A109, A111 | `UiTextPass` Profile lanes; `SKULLBONEZ_PROFILE_ENABLED` Release/Profile code dereferences `m_profiler` | Lane F | IH5 enforce startup binding outside `assert`; profile-enabled before/valid/after lifecycle proof |
 | A110 | `UiTextPass` memory tab; invalid stats are presentation-unavailable, not process-fatal | Debug tripwire with safe fallback | IH5 skip sampling and publish unavailable state when invalid; valid/invalid memory-tab tests |
 | A114-A116 | `SceneWorld` handle-map consistency loop; complete block is `_DEBUG`-only after Release already clears mismatched refreshes | Lane P / Debug tripwire | IH5 retain with reorder/refresh identity tests |
 | A117-A119 | `SkyBox` load/reset; Release dereferences mandatory texture/config/asset/resource borrows | Lane F | IH4 fatal before internal lifecycle misuse while texture/device failures continue through existing Lane R results |
 | A126, A128-A130 | `Terrain` render-resource methods; Release dereferences resource borrows or the required clip plane | Lane F | IH4 enforce before draw/build; missing-resource/clip-plane negatives and valid rebuild positives |
-| A131-A132 | `WorldEnvironment::BuildFluidMesh`; Release dereferences mandatory asset/resource owners | Lane F | IH4 before-init/valid/after-release lifecycle proof |
+| A131-A132 | `WorldEnvironment::BuildFluidMesh`; Release dereferences mandatory asset/resource owners | Lane F | IH4 before-init plus valid bind/release-preserve/rebuild lifecycle proof |
 
 ## IH0 Allocation-Comment Disposition Worklist
 
@@ -287,8 +287,8 @@ The first 67 rows below are the complete IH0 selected-file union: 62 assert-only
 candidates across 22 files, 45 policy-comment candidates across 35 files, the
 complete eight-file `Run*` logical surface, Terrain construction, the worker
 taxonomy site, and the six named tools. IH1 appended two supporting files and
-IH2 appended eight more and IH3 appended six more, so the live checklist now
-contains 83 rows. A row
+IH2 appended eight more, IH3 appended six more, and IH4 appended seven more, so
+the live checklist now contains 90 rows. A row
 remains unchecked until its owning phase inspects the entire file, applies the
 comment audit, and records the focused proof. IH7 reruns `git ls-files` and
 reconciles this list.
@@ -315,11 +315,11 @@ reconciles this list.
 - [x] `SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.cpp` — A048-A052, P012; IH3 full-file audit, five-lane diagnostics, and allocation-policy split
 - [x] `SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.Execution.cpp` — P013; IH3 full-file audit retained mechanical island write-offset correctness
 - [x] `SkullbonezSource/Physics/Stages/PhysicsSleepController.cpp` — A058; IH3 full-file audit retained Debug-only awake-membership tripwire with pure-classifier proof
-- [ ] `SkullbonezSource/Rendering/DX12/MeshDX12.cpp` — P014
-- [ ] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp` — A063, A065-A066
-- [ ] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp` — A070
-- [ ] `SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp` — A072-A078
-- [ ] `SkullbonezSource/Rendering/RenderInstanceStore.cpp` — A080
+- [x] `SkullbonezSource/Rendering/DX12/MeshDX12.cpp` — P014; IH4 full-file audit corrected the upload-backing invariant wording
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp` — A063, A065-A066; IH4 submission-epoch owner and before/valid/closed Profile proof
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp` — A070; IH4 resource-epoch owner and before/valid/closed Profile proof
+- [x] `SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp` — A072-A078; IH4 real scope move/mode and backend-identity proof
+- [x] `SkullbonezSource/Rendering/RenderInstanceStore.cpp` — A080; IH4 mismatch clears every draw row through the real Refresh path
 - [ ] `SkullbonezSource/Runtime/App/Init.cpp` — P015
 - [ ] `SkullbonezSource/Runtime/App/Run.cpp` — H2
 - [ ] `SkullbonezSource/Runtime/App/Run.h` — H2
@@ -343,9 +343,9 @@ reconciles this list.
 - [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionReserve.h` — P031
 - [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionRetainedGeometry.h` — P032
 - [ ] `SkullbonezSource/Runtime/Prediction/TrajectoryStore.cpp` — P033
-- [ ] `SkullbonezSource/Runtime/Render/RenderResourceLifecycle.cpp` — A105
+- [x] `SkullbonezSource/Runtime/Render/RenderResourceLifecycle.cpp` — A105; IH4 ten-row base producer uses the bounded snapshot owner
 - [ ] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp` — A107, P034-P035
-- [ ] `SkullbonezSource/Runtime/Render/UiTextPass.cpp` — A109-A111
+- [ ] `SkullbonezSource/Runtime/Render/UiTextPass.cpp` — A109-A111 remain assigned to IH5; IH4 audited the file and routed only its optional DXR preview append through A105
 - [ ] `SkullbonezSource/Runtime/Replay/ReplayAuthoringPackets.h` — P036
 - [ ] `SkullbonezSource/Runtime/Replay/ReplayPathPackets.h` — P037
 - [ ] `SkullbonezSource/Runtime/Replay/ReplayPresentation.cpp` — P038
@@ -355,10 +355,10 @@ reconciles this list.
 - [ ] `SkullbonezSource/Runtime/Scene/SceneEntityStore.cpp` — P042
 - [ ] `SkullbonezSource/Runtime/Scene/SceneWorld.cpp` — A114-A116
 - [ ] `SkullbonezSource/Runtime/Startup/StartupProbeHarnesses.cpp` — P043
-- [ ] `SkullbonezSource/World/SkyBox.cpp` — A117-A119
-- [ ] `SkullbonezSource/World/Terrain.cpp` — H1 complete with IH1 full-file comment audit and focused topology proof; A126, A128-A130 remain assigned to IH4
-- [x] `SkullbonezSource/World/Terrain.h` — IH1 supporting type boundary; full-file comment audit and Profile compile proof
-- [ ] `SkullbonezSource/World/WorldEnvironment.cpp` — A131-A132
+- [x] `SkullbonezSource/World/SkyBox.cpp` — A117-A119; IH4 rebuild lease clears on release and guards reset before mutation
+- [x] `SkullbonezSource/World/Terrain.cpp` — H1 complete in IH1; IH4 closes A126 and A128-A130 with preserved rebuild lease plus resource/clip-plane Lane F
+- [x] `SkullbonezSource/World/Terrain.h` — IH1 supporting type boundary; IH4 refreshed the full-file audit for the rebuild-lease owner
+- [x] `SkullbonezSource/World/WorldEnvironment.cpp` — A131-A132; IH4 valid bind/release-preserve/rebuild proof
 - [ ] `SkullbonezTests/TestReplayRecorder.cpp` — P044
 - [ ] `SkullbonezTests/TestReserveAllocator.cpp` — P045
 - [x] `SkullbonezTests/TestTerrain.cpp` — IH1 supporting positive/negative proof; full-file comment audit
@@ -367,7 +367,7 @@ reconciles this list.
 - [x] `SkullbonezSource/Gameplay/TornadoGameplay.cpp` — IH2 supporting visual lifecycle owner; full-file comment audit
 - [x] `SkullbonezSource/Gameplay/TornadoVisualPass.h` — IH2 supporting lifecycle contract; full-file comment audit
 - [x] `SkullbonezTests/TestQuaternion.cpp` — IH2 supporting unit/non-unit proof; full-file comment audit
-- [x] `SkullbonezTests/TestRuntimeContracts.cpp` — IH2/IH3 supporting fatal, exact-capacity, and Debug-policy proof; full-file comment audit refreshed in IH3
+- [x] `SkullbonezTests/TestRuntimeContracts.cpp` — IH2/IH3/IH4 fatal, exact-capacity, lifecycle-transition, and targeted assert-only false-pass proof; full-file audit refreshed in IH4
 - [x] `SkullbonezTests/TestSceneParserUnit.cpp` — IH2 supporting exact/one-over tornado proof; full-file comment audit
 - [x] `SkullbonezTests/TestVector3.cpp` — IH2 supporting plain/Try normalization proof; full-file comment audit
 - [x] `SkullbonezSource/Physics/ColliderStore.h` — IH3 supporting shape-topology test seam and owner contract; full-file comment audit
@@ -376,6 +376,13 @@ reconciles this list.
 - [x] `SkullbonezSource/Physics/Stages/PhysicsSleepController.h` — IH3 supporting Debug-classifier test seam and owner contract; full-file comment audit
 - [x] `SkullbonezTests/TestPhysicsHandles.cpp` — IH3 supporting refresh, compaction, and sleep-export proof; full-file comment audit
 - [x] `SkullbonezTests/TestSleepController.cpp` — IH3 supporting awake-membership classifier and consistency proof; full-file comment audit
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp` — IH4 supporting successful-init epoch publication; full-file comment audit
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.h` — IH4 supporting concrete texture/geometry epoch owners; full-file comment audit
+- [x] `SkullbonezSource/Rendering/PrimitiveBatchRenderer.h` — IH4 supporting scope-lifecycle and resource-identity owners; full-file comment audit
+- [x] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h` — IH4 supporting bounded base/DXR preview producer boundary; full-file comment audit
+- [x] `SkullbonezSource/World/SkyBox.h` — IH4 supporting clear-on-release rebuild lease; full-file comment audit
+- [x] `SkullbonezSource/World/WorldEnvironment.h` — IH4 supporting preserve-on-release rebuild lease; full-file comment audit
+- [x] `SkullbonezTests/TestSceneEntityStore.cpp` — IH4 supporting real RenderInstanceStore mismatch fallback proof; full-file comment audit
 
 ## Phases
 
@@ -463,12 +470,36 @@ reconciles this list.
   `Profile\\SKULLBONEZ_CORE.exe` while concurrent user-owned source edits are
   present. No IH3 source, test, or governance failure remains.
 
-- [ ] **IH4 — Harden Rendering, DX12, World, and Scene findings.** Repair
+- [x] **IH4 — Harden Rendering, DX12, World, and Scene findings.** Repair
   primitive-batch scope/lifetime checks, render-resource preview capacity, and
   all other selected sites in these layers. Exercise construction, valid use,
   move/teardown, exact-capacity, and misuse paths. Preserve feature-neutral
   Rendering vocabulary and dependency boundaries; do not hide an error behind
-  a silent renderer state mutation.
+  a silent renderer state mutation. Texture and geometry owners now query
+  embedded epoch behavior owners whose Bind/Begin/Close/Require transitions
+  are the exact production state used before convenience-path dereferences.
+  Primitive scopes transfer one real lifecycle lease on move and reject
+  inactive or wrong-mode use; the renderer accepts same-owner rebinding and
+  fatals before any backend identity can be replaced. RenderInstanceStore count
+  mismatch clears through the real Refresh path. The base preview producer
+  publishes ten rows, UiText adds the optional DXR eleventh, storage admits its
+  exact twelfth row, and a thirteenth producer append fatals before indexing;
+  this reconciles the stale IH0 synthetic-eleventh wording to the current
+  12-row catalog. SkyBox clears its complete rebuild lease on release, while
+  Terrain and WorldEnvironment explicitly preserve theirs for reset; missing
+  bindings and the Terrain clip-plane contract fail in Profile. SceneWorld
+  A114-A116 remain assigned to IH5 by their exact disposition and were not
+  silently claimed here. Focused Profile proof passes IH4 3/3 cases and 115
+  assertions, preview 1/1 and 6 assertions, and the real render-store mismatch
+  1/1 and 3 assertions; both Profile test and full renderer builds pass with
+  warnings as errors. Targeted assert-only controls prove the former non-Debug
+  false-pass shape for DX12, primitive, world, and preview groups. The touched-
+  source comment audit is 19/19 with zero deferred files; related paths,
+  glossary terms, formatting, extraction scars, and exact aggregate rulings are
+  current. The cumulative `tools\validate_tests.bat` gate passes 656 cases and
+  2,523,264 assertions. The complete `tools\validate_fast.bat` gate also passes,
+  including its terminal Debug/Profile compiled-symbol reachability inventory.
+  Independent post-fix review reports no blockers.
 
 - [ ] **IH5 — Harden Runtime, Input, Interaction, Replay, Planning, and UI
   findings.** Review `Run` as a logical surface with its sibling owners, move

@@ -105,8 +105,8 @@ bool MeshDX12::Create( ID3D12Device* device, ID3D12GraphicsCommandList* cmdList,
 
     memcpy( uploadPtr, data, static_cast<size_t>( dataSize ) );
 
-    // Invariant: ReserveUpload and GetUploadPtr above are only valid when the
-    // frame upload system owns a backing resource for the current frame.
+    // Invariant: the supplied upload address and CPU pointer are valid only
+    // while the frame upload system owns the matching backing resource.
     if ( !uploadBuffer )
     {
         SB_FATAL( "MeshDX12", "Create requires a DX12 upload buffer." );

@@ -29,6 +29,8 @@ Invariants:
     reaches back into the live Tracy owner.
   - Operation-specific graph ABI records borrow direct values only until their
     synchronous callback returns; no owner reference is retained between calls.
+  - Backend preview handles stay in the Runtime snapshot, whose bounded append
+    owns the optional DXR row before UI projection drops handle identity.
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.h
@@ -1063,18 +1065,15 @@ void UiTextPass::SubmitOperatorFrame( UI::InGameUIFrameData& UIData, UI::InGameU
     {
         const uint32_t dxrReflection = m_dxrReflectionPreviewTexture;
 
-        if ( resolvedPreviews.count < static_cast<int>( resolvedPreviews.targets.size() ) )
-        {
-            RuntimeRenderTargetPreview& preview = resolvedPreviews.targets[static_cast<size_t>( resolvedPreviews.count++ )];
-
-            preview.label = "DXR Reflection";
-            preview.textureHandle = dxrReflection;
-            preview.width = UIData.screenW * 2;
-            preview.height = UIData.screenH * 2;
-            preview.available = UIData.waterRTReflect && !UIData.waterNoReflect && dxrReflection != 0;
-            preview.depth = false;
-            preview.hdr = false;
-        }
+        RuntimeRenderTargetPreview dxrPreview;
+        dxrPreview.label = "DXR Reflection";
+        dxrPreview.textureHandle = dxrReflection;
+        dxrPreview.width = UIData.screenW * 2;
+        dxrPreview.height = UIData.screenH * 2;
+        dxrPreview.available = UIData.waterRTReflect && !UIData.waterNoReflect && dxrReflection != 0;
+        dxrPreview.depth = false;
+        dxrPreview.hdr = false;
+        resolvedPreviews.AppendOptionalDxrTarget( dxrPreview );
 
         for ( int index = 0; index < resolvedPreviews.count; ++index )
         {

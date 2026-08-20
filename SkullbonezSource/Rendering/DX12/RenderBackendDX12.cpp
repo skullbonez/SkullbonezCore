@@ -567,8 +567,11 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, 
     m_pipelineOwner.SetCurrentTargets( m_descriptorHeaps.BackBufferRtv( m_frameOwner.FrameIndex() ),
                                        m_descriptorHeaps.MainDsv() );
 
-    // Publication boundary: callers observe dimensions only after every
-    // required device, upload, pipeline, and framebuffer resource is ready.
+    // Publication boundary: hot texture/geometry operations and dimensions
+    // become visible only after every required device, upload, pipeline, and
+    // framebuffer resource is ready.
+    m_textureOwner.BeginResourceEpoch();
+    m_geometryOwner.BeginSubmissionEpoch();
     m_renderDevice.PublishInitialExtent( width, height );
 
     return SkullbonezCore::Core::SbResult::Success();
