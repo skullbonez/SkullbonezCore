@@ -7,7 +7,8 @@
 //   Terrain owns both render resources and collision lookup data. Unit tests use
 //   render-resource doubles so construction follows the production path while
 //   assertions stay on CPU-side height, plane, bounds, and shape-consistent
-//   sphere support behavior.
+//   sphere support behavior. Height-map factory cases also prove malformed
+//   dimensions fail before construction or output publication.
 //
 // Glossary:
 //   Flat slope terrain: Analytic terrain plane defined by base Y plus X/Z slope
@@ -29,6 +30,8 @@
 //     box and convex-hull sweeps use their exact vertices.
 //   - Every terrain shape publishes finite manifolds with terrain-owned body
 //     identity and resting-contact policy.
+//   - Height-map dimensions are positive, exactly divisible, and large enough
+//     for one quad before pixel/post/quad storage is constructed.
 //
 // Related:
 //   - SkullbonezSource/World/Terrain.cpp
@@ -54,6 +57,7 @@
 #include <array>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <fstream>
 #include <limits>
 #include <memory>
@@ -93,7 +97,8 @@ PhysicsBodyStore& TerrainBodyStore()
     static PhysicsBodyStore store;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         store.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     }
     store.Clear();
@@ -105,7 +110,8 @@ ColliderStore& TerrainColliderStore()
     static ColliderStore store;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         store.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
         store.ReserveShapeCapacity( 16u, 0u, 0u );
     }
@@ -113,7 +119,69 @@ ColliderStore& TerrainColliderStore()
     return store;
 }
 
+void ExpectHeightMapShapeFailure( int mapSize, int stepSize, const char* expectedMessage )
+{
+    EngineConfig config;
+    std::unique_ptr<Terrain> terrain = std::make_unique<Terrain>( 0.0f, 0.0f, 0.0f, config );
+    Terrain* const originalTerrain = terrain.get();
+    const auto result = Terrain::TryCreatePhysicsFromHeightMap( diagnostics, "unused-height-map.raw", mapSize, stepSize, 1,
+                                                                config, terrain );
+
+    CHECK_FALSE( result.Ok() );
+    CHECK( std::strcmp( result.ErrorOwner(), "World/Terrain" ) == 0 );
+    CHECK( std::strstr( result.ErrorMessage(), expectedMessage ) != nullptr );
+    CHECK( terrain.get() == originalTerrain );
+}
+
 } // namespace
+
+TEST_CASE( "Terrain: invalid height-map dimensions fail before construction" )
+{
+    // Lane P: the retired floor-sized allocation reserved four posts for the
+    // 5/2 shape while its ceiling-shaped translation loops wrote nine. This
+    // local fixture keeps the old false-pass mechanism observable without
+    // executing an out-of-bounds write.
+    constexpr int retiredAllocatedPosts = ( 5 / 2 ) * ( 5 / 2 );
+    constexpr int retiredTranslatedPosts = ( ( 5 + 2 - 1 ) / 2 ) * ( ( 5 + 2 - 1 ) / 2 );
+    CHECK( retiredAllocatedPosts == 4 );
+    CHECK( retiredTranslatedPosts == 9 );
+    CHECK( retiredTranslatedPosts > retiredAllocatedPosts );
+
+    ExpectHeightMapShapeFailure( 0, 1, "size must be positive" );
+    ExpectHeightMapShapeFailure( -4, 1, "size must be positive" );
+    ExpectHeightMapShapeFailure( 4, 0, "step size must be positive" );
+    ExpectHeightMapShapeFailure( 4, -1, "step size must be positive" );
+    ExpectHeightMapShapeFailure( 1, 1, "at least two posts" );
+    ExpectHeightMapShapeFailure( 4, 4, "at least two posts" );
+    ExpectHeightMapShapeFailure( 5, 2, "must be divisible" );
+    ExpectHeightMapShapeFailure( ( std::numeric_limits<int>::max )(), 1, "pixel count exceeds" );
+}
+
+
+TEST_CASE( "Terrain: exact-minimum height map publishes one checked quad" )
+{
+    constexpr const char* kHeightMapPath = "TestOutput/terrain_exact_minimum.raw";
+    constexpr int kMapSize = 2;
+    {
+        std::ofstream heightMap( kHeightMapPath, std::ios::binary | std::ios::trunc );
+        const char pixels[kMapSize * kMapSize] = {};
+        heightMap.write( pixels, sizeof( pixels ) );
+    }
+
+    EngineConfig config;
+    std::unique_ptr<Terrain> terrain;
+    const auto result = Terrain::TryCreatePhysicsFromHeightMap( diagnostics, kHeightMapPath, kMapSize, 1, 1, config,
+                                                                terrain );
+
+    std::remove( kHeightMapPath );
+
+    REQUIRE( result.Ok() );
+    REQUIRE( terrain != nullptr );
+    const auto view = terrain->PhysicsView();
+    CHECK( view.quadsPerSide == 1 );
+    CHECK( view.cells.size() == 1u );
+    CHECK( terrain->BuildRenderVertexData().size() == 48u );
+}
 
 TEST_CASE( "Terrain: flat slope reports analytic height, plane, and bounds" )
 {
@@ -244,7 +312,7 @@ TEST_CASE( "Physics terrain stage: candidate rows preserve model order and eligi
         collider.body = handle;
         const CollisionShape shape( BoundingSphere( 1.0f, SkullbonezCore::Math::Vector::ZERO_VECTOR, 0.0f ) );
         collider.boundingRadius = 1.0f;
-        SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders,  collider, shape  );
+        SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders, collider, shape );
     }
 
     const std::array<uint8_t, 3> sleepState = { 0u, 0u, 1u };
@@ -256,7 +324,8 @@ TEST_CASE( "Physics terrain stage: candidate rows preserve model order and eligi
     WorkerPool inlinePool( lockOrderValidator );
     PhysicsTerrainStage stage;
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         stage.ReserveSceneCapacity( 3u );
     }
     const std::array<int, 1> awakeBodyIndices = { 0 };
@@ -278,8 +347,8 @@ TEST_CASE( "Coverage floor contract: terrain sweep and manifold support every co
     EngineConfig config;
     Terrain terrain( 0.0f, 0.0f, 0.0f, config );
     SkullbonezCore::Math::CollisionDetection::ConvexHullShape hull;
-    REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull(
-        diagnostics, "SkullbonezData/hulls/pyramid.hull", hull ) );
+    REQUIRE(
+        SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull( diagnostics, "SkullbonezData/hulls/pyramid.hull", hull ) );
     const CollisionShape shapes[] = {
         SphereShape( 1.0f ),
         BoxShape( Vector3( 1.0f, 1.0f, 1.0f ) ),

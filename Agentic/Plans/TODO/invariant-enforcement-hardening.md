@@ -1,7 +1,7 @@
 # Invariant Enforcement And Assertion Hardening
 
 Date: 2026-08-20
-Status: Active; 1/8 phases complete
+Status: Active; 2/8 phases complete
 Impact area: repository-wide invariant enforcement, assertion policy, failure
 lanes, tests, comment taxonomy, and substantial diagnostic tools
 Owner: subsystem owners named by each affected path
@@ -276,19 +276,21 @@ no-growth/phase/cap rule under `Runtime allocation policy:`.
 
 | Finding | Exact scope | Primary lane / owner | Phase and proof |
 |---|---|---|---|
-| H1 | `Terrain.cpp:98-170` constructs before validating `mapSize`/`stepSize` and floor-counts posts | Lane R, Terrain factory | IH1 validates positive/divisible/overflow-safe dimensions before construction and proves the former 5/2 shape cannot mutate |
+| H1 | `Terrain.cpp:98-170` constructed before validating `mapSize`/`stepSize` and floor-counted posts | Lane R, Terrain factory | IH1 validates positive/divisible/overflow-safe dimensions before construction; the former 5/2 mismatch is retained as a non-mutating negative-control fixture and every rejected shape preserves the caller's published Terrain |
 | H2 | Complete tracked `Runtime/App/Run*.cpp`/`Run*.h` logical surface, including raw assertion sites A083-A085 | Lane F for mandatory internal owners; existing Lane R remains for device/file startup | IH5 records each dereference owner, moves lifecycle checks to that owner, and runs before/valid/after lifecycle negatives without creating a context bag |
 | L1 | `ReplayPrediction.cpp:187` worker threshold comment | Taxonomy: `Why:` | IH6 reclassifies the performance rationale and proves no behavior diff |
 | L2 | Six named substantial `Agentic/Skills/*.py` tools | Lane P documentation | IH6 adds truthful learning headers/local hazards and runs their bounded help/smoke paths |
 
 ## Exact Selected-File Checklist
 
-The 67 rows below are the complete IH0 selected-file union: 62 assert-only
+The first 67 rows below are the complete IH0 selected-file union: 62 assert-only
 candidates across 22 files, 45 policy-comment candidates across 35 files, the
 complete eight-file `Run*` logical surface, Terrain construction, the worker
-taxonomy site, and the six named tools. A row remains unchecked until its
-owning phase inspects the entire file, applies the comment audit, and records
-the focused proof. IH7 reruns `git ls-files` and reconciles this list.
+taxonomy site, and the six named tools. IH1 appended the two supporting files
+it necessarily touched, so the live checklist now contains 69 rows. A row
+remains unchecked until its owning phase inspects the entire file, applies the
+comment audit, and records the focused proof. IH7 reruns `git ls-files` and
+reconciles this list.
 
 - [ ] `Agentic/Skills/collapse_params.py` — L2
 - [ ] `Agentic/Skills/loc_count.py` — L2
@@ -353,10 +355,12 @@ the focused proof. IH7 reruns `git ls-files` and reconciles this list.
 - [ ] `SkullbonezSource/Runtime/Scene/SceneWorld.cpp` — A114-A116
 - [ ] `SkullbonezSource/Runtime/Startup/StartupProbeHarnesses.cpp` — P043
 - [ ] `SkullbonezSource/World/SkyBox.cpp` — A117-A119
-- [ ] `SkullbonezSource/World/Terrain.cpp` — H1, A126, A128-A130
+- [ ] `SkullbonezSource/World/Terrain.cpp` — H1 complete with IH1 full-file comment audit and focused topology proof; A126, A128-A130 remain assigned to IH4
+- [x] `SkullbonezSource/World/Terrain.h` — IH1 supporting type boundary; full-file comment audit and Profile compile proof
 - [ ] `SkullbonezSource/World/WorldEnvironment.cpp` — A131-A132
 - [ ] `SkullbonezTests/TestReplayRecorder.cpp` — P044
 - [ ] `SkullbonezTests/TestReserveAllocator.cpp` — P045
+- [x] `SkullbonezTests/TestTerrain.cpp` — IH1 supporting positive/negative proof; full-file comment audit
 
 ## Phases
 
@@ -369,12 +373,27 @@ the focused proof. IH7 reruns `git ls-files` and reconciles this list.
   every high/medium/low finding above has a site ID, owner, enforcement lane,
   and intended proof.
 
-- [ ] **IH1 — Repair terrain construction and sizing first.** Move validation
+- [x] **IH1 — Repair terrain construction and sizing first.** Move validation
   ahead of every terrain factory construction; centralize checked post/cell
   count arithmetic; reject invalid/non-divisible dimensions through Lane R
   without partial mutation; add boundary, malformed-input, overflow, and
   normal-map tests. Run sanitizers or the repository's equivalent memory-safety
   proof against the formerly mismatched `mapSize = 5`, `stepSize = 2` shape.
+  `TryValidateHeightMapDimensions` now owns one checked pixel/post/quad shape,
+  and the private construction tag prevents height-map construction without
+  that proof. The focused Profile witness passes 5 cases / 231 assertions,
+  including zero, negative, undersized, non-divisible, exact-minimum, normal,
+  and arithmetic-overflow shapes. Its Lane P 5/2 fixture proves the retired
+  floor allocation would reserve four posts while traversal would write nine;
+  the production path now rejects that shape before file access, allocation,
+  construction, or output publication. This bounded false-pass control plus
+  the Profile build is the repository-equivalent memory-safety proof for IH1.
+  The touched-source comment audit is 3/3 with zero deferred files; related
+  paths and the authority-free aggregate report are clean. The cumulative
+  `tools\validate_tests.bat` gate passes 640 cases / 2,521,642 assertions, and
+  `tools\validate_fast.bat` passes formatting, metadata, dependencies,
+  ownership inventories, Profile/Automation/Debug builds, tests, and compiled-
+  symbol reachability.
 
 - [ ] **IH2 — Harden Core, Maths, Assets, and Gameplay findings.** Adjudicate
   every IH0 site in these layers, preserve dependency direction, distinguish

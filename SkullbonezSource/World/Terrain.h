@@ -4,9 +4,10 @@ Purpose:
   Stores terrain mesh, height queries, and terrain rendering resources.
 
 Summary:
-  Terrain builds one authored post grid from RAW height data and shares it with
-  render and collision consumers. Cached height, normal, and plane queries let
-  Physics build contact rows without reconstructing triangle planes each tick.
+  Terrain factories validate RAW height-map dimensions and derive pixel, post,
+  and quad counts before constructing the shared authored grid. Cached height,
+  normal, and plane queries then let Physics build contact rows without
+  reconstructing triangle planes each tick.
 
 Glossary:
   RAW (Raw Heightmap): Uncompressed terrain height byte data used to author the
@@ -21,6 +22,9 @@ Invariants:
     are the validation contract.
   - Render, shadow, DXR, and collision consumers use the same post positions;
     there is no render-only height interpolation surface.
+  - Height-map construction accepts only positive, exactly divisible dimensions
+    that produce at least one quad, and every consumer uses the same checked
+    pixel/post/quad counts.
   - Terrain color and shadow draws consume caller-owned raster buckets; terrain
     does not infer fixed-function state from renderer history.
 
@@ -40,6 +44,7 @@ Related:
 #include "../Maths/GeometricStructures.h"
 #include "../Maths/GeometricMath.h"
 #include "../Physics/PhysicsTerrainView.h"
+#include <cstddef>
 #include <memory>
 #include <cstdint>
 #include <vector>
@@ -72,12 +77,12 @@ namespace Geometry
 
 class Terrain
 {
+    struct ValidatedHeightMapTag
+    {
+    };
 
   public:
     static constexpr float FLAT_SLOPE_EXTENT = 1000.0f;                                               // XZ extent of the analytic flat slope play area
-    struct PhysicsOnlyHeightMapTag
-    {
-    };
 
     static SkullbonezCore::Core::SbResult
     TryCreateFromHeightMap( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* fileName, int mapSize,
@@ -88,13 +93,13 @@ class Terrain
     TryCreatePhysicsFromHeightMap( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* fileName, int mapSize,
                                    int stepSize, int textureWrap, const SkullbonezCore::Core::EngineConfig& config,
                                    std::unique_ptr<Terrain>& outTerrain );                            // CPU-domain load path with no renderer double.
-    Terrain( int mapSize, int stepSize, int textureWrap, const SkullbonezCore::Core::EngineConfig& config,
-             Assets::AssetSystem& assets,
-             Rendering::Dx12ResourceBuilder& resources );                                             // Construction shell used by TryCreateFromHeightMap; step
 
-    // size feeds both pixels and physics posts.
-    Terrain( PhysicsOnlyHeightMapTag, int mapSize, int stepSize, int textureWrap,
-             const SkullbonezCore::Core::EngineConfig& config );                                      // CPU-only shell used by the value-producing load path.
+    // Invariant: only the factories can name ValidatedHeightMapTag. Height-map
+    // construction therefore receives positive, divisible dimensions and one
+    // checked set of pixel/post/quad counts before any field is initialized.
+    Terrain( ValidatedHeightMapTag, const SkullbonezCore::Core::EngineConfig& config, Assets::AssetSystem* assets,
+             Rendering::Dx12ResourceBuilder* resources, int mapSize, int stepSize, int textureWrap, std::size_t pixelCount,
+             int postsPerSide, std::size_t postCount, std::size_t quadCount );
     Terrain( float slopeBaseY, float slopeX, float slopeZ, const SkullbonezCore::Core::EngineConfig& config,
              Assets::AssetSystem& assets,
              Rendering::Dx12ResourceBuilder& resources );                                             // Flat analytic slope constructor: y = slopeBaseY + slopeX*x + slopeZ*z
@@ -179,6 +184,9 @@ class Terrain
     int m_stepSize;                                                                                   // Steps size between posts
     int m_textureWrap;                                                                                // Number of times to wrap texture over m_terrain
     int m_postsPerSide;                                                                               // Terrain postings per side of m_terrain
+    std::size_t m_pixelCount;                                                                         // Checked RAW byte count: mapSize squared.
+    std::size_t m_postCount;                                                                          // Checked authoritative post count: postsPerSide squared.
+    std::size_t m_quadCount;                                                                          // Checked collision/render cell count: (postsPerSide - 1) squared.
     int m_terrainSizeWorldCoords;                                                                     // size per side of m_terrain in world coordinates
     float m_maxTerrainHeight;                                                                         // Maximum Y height across all posts (computed once at build time)
     float m_minTerrainHeight;                                                                         // Minimum Y height across all posts (computed once at build time)
@@ -194,12 +202,14 @@ class Terrain
     Plane m_flatSlopePlane;
     Math::Vector::Vector3 m_flatSlopeNormal;
 
-    Terrain( int mapSize, int stepSize, int textureWrap, const SkullbonezCore::Core::EngineConfig& config,
-             Assets::AssetSystem* assets,
-             Rendering::Dx12ResourceBuilder* resources );                                             // Shared CPU/GPU height-map construction shell.
     Terrain( float slopeBaseY, float slopeX, float slopeZ, const SkullbonezCore::Core::EngineConfig& config,
              Assets::AssetSystem* assets,
              Rendering::Dx12ResourceBuilder* resources );                                             // Shared analytic-slope construction shell.
+
+    static SkullbonezCore::Core::SbResult
+    TryValidateHeightMapDimensions( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, int mapSize, int stepSize,
+                                    std::size_t& outPixelCount, int& outPostsPerSide, std::size_t& outPostCount,
+                                    std::size_t& outQuadCount );                                      // Lane R boundary before tagged construction.
 
     SkullbonezCore::Core::SbResult
     LoadTerrainData( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,

@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-20
-Status: One active plan; 48/55 tasks complete
+Status: One active plan; 49/55 tasks complete
 
 ## Owner Direction
 
@@ -61,6 +61,10 @@ Status: One active plan; 48/55 tasks complete
   closure. It rebaselines the exact repository assertion/invariant worklist,
   assigns every finding an owner and Release-safe enforcement lane, repairs the
   selected sites, and closes with negative proof plus independent review.
+  IH1 now validates Terrain height-map dimensions and all derived counts before
+  construction, and its Profile witness proves malformed, overflow, exact-
+  minimum, normal, and retired 5/2 mismatch behavior without unsafe mutation.
+  Its cumulative tests and fast repository gate are green.
 - Continuous Orbital Forecast was reactivated by owner direction on
   2026-08-17. It follows predicted solver detail and owns the separate
   interactive continuous prediction mode, coherent rolling 120-second path
@@ -159,7 +163,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Invariant Enforcement And Assertion Hardening | `INVARIANT_HARDENING` | 8 | 1 | `TODO/invariant-enforcement-hardening.md` |
+| Invariant Enforcement And Assertion Hardening | `INVARIANT_HARDENING` | 8 | 2 | `TODO/invariant-enforcement-hardening.md` |
 
 ## Parked, Backlog, And Completed Plans
 
@@ -218,11 +222,11 @@ than pinning pre-repair impulses, activation times, or sleep frames.
 
 ## Portfolio Progress
 
-48/55 tasks complete with one active plan.
+49/55 tasks complete with one active plan.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
-Invariant Enforcement And Assertion Hardening IH0 is complete; IH1-IH7 remain,
-with IH1 next.
+Invariant Enforcement And Assertion Hardening IH0-IH1 are complete; IH2-IH7
+remain, with IH2 next.
 Deterministic
 Trigonometry is owner-parked and excluded from progress.
