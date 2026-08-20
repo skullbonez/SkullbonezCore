@@ -2,12 +2,12 @@
 
 Date: 2026-08-20
 Branch: `nightrunner-18th-AUG-26`
-Status: One active plan; 49/55 tasks complete
+Status: One active plan; 50/55 tasks complete
 
 At-Rest Ball Stability RS0-RS7 is complete. Invariant Enforcement And Assertion
-Hardening IH0-IH1 are complete and IH2-IH7 remain. Causal C0-C8, Determinism T0-T8,
+Hardening IH0-IH2 are complete and IH3-IH7 remain. Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7, and Continuous
-Orbital Forecast OF0-OF6 are complete. `MASTER-PLAN.md` binds IH2 next.
+Orbital Forecast OF0-OF6 are complete. `MASTER-PLAN.md` binds IH3 next.
 Completed plan files were deleted under the repository convention; Git history
 retains their phase evidence.
 
@@ -383,16 +383,20 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `INVARIANT_HARDENING` IH2. IH0 rebased 847 tracked source-bearing files,
+Execute `INVARIANT_HARDENING` IH3. IH0 rebased 847 tracked source-bearing files,
 132 production plain assertions, 62 assert-only successor candidates, and 45
 allocation-comment taxonomy candidates. The owning plan now carries exact
-assertion/policy dispositions and a 67-file checklist; ignored source evidence
+assertion/policy dispositions and a 77-file live checklist; ignored source evidence
 is under `TestOutput/validation/INVARIANT_HARDENING_IH0/`. IH1 repaired Terrain
 dimension validation and centralized checked pixel/post/quad arithmetic before
 construction. Its Profile proof passes 5 cases / 231 assertions, including the
-retired 5/2 floor/ceiling mismatch as a non-mutating negative control. The full
-unit gate passes 640 cases / 2,521,642 assertions and `validate_fast` is green.
-IH2 owns the selected Core, Maths, Assets, and Gameplay findings.
+retired 5/2 floor/ceiling mismatch as a non-mutating negative control. IH2
+hardened the selected Core, Maths, Assets, and Gameplay findings. Texture and
+tornado exact-capacity/lifecycle failures are now Release-safe, while the lock-
+order and math tripwires retain their intentional Debug-only policy with
+focused controls. The full unit gate passes 645 cases / 2,522,019 assertions,
+the 17/17 touched/selected-source audit has zero deferrals, and `validate_fast`
+is green. IH3 owns the selected Physics findings.
 
 At-Rest Ball Stability closed in `f2e192f53`. Its uncapped all-three-asleep
 semantic witness, deterministic 0/1/4-worker proof, box and moving-slope
@@ -405,7 +409,7 @@ not part of the active queue.
 
 ## Blockers
 
-- None. Continue with `INVARIANT_HARDENING` IH2. The stale Physics CSV,
+- None. Continue with `INVARIANT_HARDENING` IH3. The stale Physics CSV,
   noisy relative Physics performance sample, and
   corrected-topology visual oracle remain owner-controlled validation findings;
   do not refresh any of them without approval.

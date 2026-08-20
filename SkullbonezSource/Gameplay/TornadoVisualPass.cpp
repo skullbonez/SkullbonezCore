@@ -18,6 +18,8 @@ Invariants:
   - Live time advances only outside replay selection and while live advance is
     not held.
   - The callback retains no graph, frame, surface, or backend borrow.
+  - Capacity calculation and drawing fail through Lane F before dereferencing
+    missing or release-cleared Gameplay frame borrows.
 
 Related:
   - SkullbonezSource/Gameplay/TornadoVisualPass.h
@@ -34,7 +36,6 @@ Related:
 #include "../Rendering/RenderRasterBindingContract.h"
 
 #include <algorithm>
-#include <cassert>
 #include <cmath>
 #include <cstdint>
 
@@ -178,18 +179,6 @@ Rendering::WorldRenderExtensionRegistration TornadoVisualPass::PrepareFrame( con
     return Rendering::WorldRenderExtensionRegistration::Bind<TornadoVisualPass, &TornadoVisualPass::RegisterGraphPass>( *this );
 }
 
-void TornadoVisualPass::ReleaseResources()
-{
-    m_vertices.clear();
-    m_vertices.shrink_to_fit();
-    m_activeVisualVortices.clear();
-    m_activeVisualVortices.shrink_to_fit();
-    m_liveVisualTimeSeconds = 0.0f;
-    m_lastLiveVisualSourceSeconds = 0.0;
-    m_hasLiveVisualTime = false;
-    m_frame = {};
-}
-
 bool TornadoVisualPass::RegisterGraphPass( TornadoVisualPass& pass, Rendering::WorldRenderExtensionScope& scope )
 {
     GraphCallbackData callbackData;
@@ -218,7 +207,7 @@ void TornadoVisualPass::ExecuteGraphPass( const Rendering::RenderGraphPassContex
 
 void TornadoVisualPass::EnsureTransientCapacity()
 {
-    assert( m_frame.system && "TornadoVisualPass requires a system snapshot" );
+    RequirePreparedFrame( "EnsureTransientCapacity" );
     const int ribbonCount = std::clamp( m_settings.ribbonCount, 0, 16 );
     const int ribbonSegments = std::clamp( m_settings.ribbonSegments, 2, 96 );
     const int particleCount = std::clamp( m_settings.particleCount, 0, 256 );
@@ -242,7 +231,7 @@ void TornadoVisualPass::EnsureTransientCapacity()
 
 bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& frame )
 {
-    assert( m_frame.field && m_frame.system && "TornadoVisualPass requires prepared gameplay state" );
+    RequirePreparedFrame( "Render" );
     const TornadoVisualSettings& visual = m_settings;
 
     if ( !visual.enabled )

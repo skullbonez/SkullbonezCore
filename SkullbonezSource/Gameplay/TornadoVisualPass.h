@@ -21,6 +21,8 @@ Invariants:
     production visual contract.
   - Frame pointers borrow TornadoGameplay-owned configuration only until the
     synchronous registration completes.
+  - Capacity calculation and drawing require both frame pointers; missing or
+    release-cleared borrows reach Gameplay-owned Lane F before dereference.
 
 Related:
   - SkullbonezSource/Gameplay/TornadoGameplay.h
@@ -80,6 +82,7 @@ class TornadoVisualPass
     void ReleaseResources();
 
   private:
+    friend struct TornadoVisualPassTestAccess;
     static constexpr int MAX_VISUAL_RIBBONS = 16;
     static constexpr int MAX_VISUAL_RIBBON_SEGMENTS = 96;
     static constexpr int MAX_VISUAL_PARTICLES = 256;
@@ -109,6 +112,7 @@ class TornadoVisualPass
 
     static bool RegisterGraphPass( TornadoVisualPass& pass, Rendering::WorldRenderExtensionScope& scope );
     static void ExecuteGraphPass( const Rendering::RenderGraphPassContext& context, GraphCallbackData& data );
+    void RequirePreparedFrame( const char* operation ) const;
     void EnsureTransientCapacity();
     bool Render( const Rendering::WorldRenderExtensionFrameView& frame );
 

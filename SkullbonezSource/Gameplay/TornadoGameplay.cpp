@@ -7,7 +7,8 @@ Summary:
   The owner retains authored field/system configuration, procedural time,
   per-body exposure state, and preallocated debug-line scratch. Fixed ticks
   publish Physics-owned cylindrical values; render preparation publishes packed
-  line vertices without transferring gameplay state ownership.
+  line vertices without transferring gameplay state ownership. This cold owner
+  also reserves/releases visual storage and guards its prepared-frame borrows.
 
 Glossary:
   Debug line row: Two position/color vertices packed as xyz/rgb floats for one
@@ -18,6 +19,8 @@ Invariants:
   - Field conversion retains active/source order and exact float values.
   - The fixed 64-field array never allocates during steady gameplay.
   - Debug buffers are preallocated for the fixed 64-vortex sampling ceiling.
+  - TornadoVisualPass capacity and draw work requires both prepared field and
+    system borrows; release clears both before returning the visual owner cold.
 
 Related:
   - SkullbonezSource/Gameplay/TornadoGameplay.h
@@ -53,6 +56,32 @@ void TornadoVisualPass::ReserveCapacity()
     // maximum before steady gameplay. Replay-only TornadoGameplay owners do
     // not carry this 32 MiB presentation buffer.
     m_vertices.reserve( MAX_VISUAL_FLOAT_CAPACITY );
+}
+
+
+void TornadoVisualPass::RequirePreparedFrame( const char* operation ) const
+{
+    if ( !m_frame.field || !m_frame.system )
+    {
+        // Lane F: both borrows are one synchronous PrepareFrame/RegisterGraphPass
+        // transaction. Missing either pointer means an internal lifecycle edge
+        // reached capacity calculation or drawing outside that transaction.
+        SB_FATAL( "Gameplay/TornadoVisualPass", "Tornado visual frame is not prepared. operation=%s field=%d system=%d",
+                  operation ? operation : "<unnamed>", m_frame.field ? 1 : 0, m_frame.system ? 1 : 0 );
+    }
+}
+
+
+void TornadoVisualPass::ReleaseResources()
+{
+    m_vertices.clear();
+    m_vertices.shrink_to_fit();
+    m_activeVisualVortices.clear();
+    m_activeVisualVortices.shrink_to_fit();
+    m_liveVisualTimeSeconds = 0.0f;
+    m_lastLiveVisualSourceSeconds = 0.0;
+    m_hasLiveVisualTime = false;
+    m_frame = {};
 }
 
 TornadoGameplay::TornadoGameplay()

@@ -44,6 +44,12 @@
 //     cannot diverge from the recorder's canonical event count.
 //   - DX12 retirement accounting records a real below-capacity peak, resets at
 //     device boundaries, and reports release/fence facts at exhaustion.
+//   - The texture table admits its exact final slot and terminates before an
+//     exhausted fixed table can produce an index.
+//   - Tornado visual frame borrows remain valid until release; missing and
+//     release-cleared borrows terminate before capacity or draw dereference.
+//   - Lock-order invalid-id, cycle, and held-stack tripwires are classified by
+//     the same Debug policy used by acquisition without opening CRT dialogs.
 //
 // Related:
 //   - SkullbonezSource/Core/Log.h
@@ -52,6 +58,9 @@
 //   - SkullbonezSource/Physics/SleepIslandSystem.h
 //   - SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h
 //   - SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h
+//   - SkullbonezSource/Assets/TextureCollection.h
+//   - SkullbonezSource/Core/LockOrderValidator.h
+//   - SkullbonezSource/Gameplay/TornadoVisualPass.h
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
@@ -67,6 +76,8 @@
 #include "../SkullbonezSource/Core/Log.h"
 #include "../SkullbonezSource/Core/SbResult.h"
 #include "../SkullbonezSource/Core/WorkerPool.h"
+#include "../SkullbonezSource/Assets/TextureCollection.h"
+#include "../SkullbonezSource/Gameplay/TornadoVisualPass.h"
 #include "../SkullbonezSource/Physics/SpatialGrid.h"
 #include "../SkullbonezSource/Physics/SleepIslandSystem.h"
 #include "../SkullbonezSource/Physics/PhysicsApi.h"
@@ -109,6 +120,76 @@ struct Dx12DeferredReleaseOwnerTestAccess
     }
 };
 } // namespace SkullbonezCore::Rendering
+
+namespace SkullbonezCore::Textures
+{
+struct TextureCollectionTestAccess
+{
+    static int FirstFreeSlot( std::size_t residentCount )
+    {
+        std::array<TextureCollection::GpuTextureRecord, SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT> textures;
+
+        for ( std::size_t index = 0; index < residentCount && index < textures.size(); ++index )
+        {
+            textures[index].backendHandle = static_cast<uint32_t>( index + 1u );
+        }
+
+        return TextureCollection::FindFreeSlotOrFatal( textures );
+    }
+};
+} // namespace SkullbonezCore::Textures
+
+namespace SkullbonezCore::Gameplay
+{
+struct TornadoVisualPassTestAccess
+{
+    static void Prepare( TornadoVisualPass& pass, const TornadoFieldConfig& field, const TornadoSystemConfig& system )
+    {
+        pass.m_frame.field = &field;
+        pass.m_frame.system = &system;
+    }
+
+    static void RequirePrepared( const TornadoVisualPass& pass, const char* operation )
+    {
+        pass.RequirePreparedFrame( operation );
+    }
+
+    static bool IsPrepared( const TornadoVisualPass& pass )
+    {
+        return pass.m_frame.field != nullptr && pass.m_frame.system != nullptr;
+    }
+};
+} // namespace SkullbonezCore::Gameplay
+
+namespace SkullbonezCore::Threading
+{
+struct LockOrderValidatorTestAccess
+{
+    static bool IsInvalidId( uint32_t lockId )
+    {
+        return LockOrderValidator::ClassifyAcquisitionProbe( lockId, false, false ) ==
+               LockOrderValidator::AcquisitionProbeFinding::InvalidId;
+    }
+
+    static bool IsCycle()
+    {
+        return LockOrderValidator::ClassifyAcquisitionProbe( 1u, true, false ) ==
+               LockOrderValidator::AcquisitionProbeFinding::Cycle;
+    }
+
+    static bool IsHeldStackExhausted()
+    {
+        return LockOrderValidator::ClassifyAcquisitionProbe( 1u, false, true ) ==
+               LockOrderValidator::AcquisitionProbeFinding::HeldStackExhausted;
+    }
+
+    static bool IsValid()
+    {
+        return LockOrderValidator::ClassifyAcquisitionProbe( 1u, false, false ) ==
+               LockOrderValidator::AcquisitionProbeFinding::None;
+    }
+};
+} // namespace SkullbonezCore::Threading
 
 namespace
 {
@@ -168,6 +249,38 @@ TEST_CASE( "Tracy disabled marker seams discard caller expressions" )
     CHECK( evaluatedArguments == 0 );
     CHECK( sourceHandle == 0u );
     CHECK( zoneToken == 0u );
+}
+
+
+TEST_CASE( "Lock-order Debug probes classify invalid ids, cycles, and held-stack exhaustion" )
+{
+    using SkullbonezCore::Threading::LockOrderValidatorTestAccess;
+    CHECK( LockOrderValidatorTestAccess::IsInvalidId( 0u ) );
+    CHECK( LockOrderValidatorTestAccess::IsInvalidId( 257u ) );
+    CHECK( LockOrderValidatorTestAccess::IsCycle() );
+    CHECK( LockOrderValidatorTestAccess::IsHeldStackExhausted() );
+    CHECK( LockOrderValidatorTestAccess::IsValid() );
+}
+
+
+TEST_CASE( "TextureCollection fixed capacity admits its exact final slot" )
+{
+    CHECK( SkullbonezCore::Textures::TextureCollectionTestAccess::FirstFreeSlot(
+               SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT - 1u ) ==
+           SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT - 1 );
+}
+
+
+TEST_CASE( "Tornado visual frame remains prepared until explicit release" )
+{
+    SkullbonezCore::Gameplay::TornadoVisualPass pass;
+    SkullbonezCore::Gameplay::TornadoFieldConfig field;
+    SkullbonezCore::Gameplay::TornadoSystemConfig system;
+    SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::Prepare( pass, field, system );
+    CHECK( SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::IsPrepared( pass ) );
+    SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RequirePrepared( pass, "ExactCapacityPositive" );
+    pass.ReleaseResources();
+    CHECK_FALSE( SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::IsPrepared( pass ) );
 }
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
@@ -367,6 +480,34 @@ bool RunRuntimeFatalCase( const char* caseName )
 {
     if ( RunRenderGraphFatalCase( caseName ) )
     {
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "texture-slot-capacity" ) == 0 )
+    {
+        SkullbonezCore::Textures::TextureCollectionTestAccess::FirstFreeSlot(
+            SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT );
+        return true;
+    }
+
+    const bool tornadoVisualUnprepared = std::strcmp( caseName, "tornado-visual-unprepared-frame" ) == 0;
+    const bool tornadoVisualReleased = std::strcmp( caseName, "tornado-visual-released-frame" ) == 0;
+
+    if ( tornadoVisualUnprepared || tornadoVisualReleased )
+    {
+        SkullbonezCore::Gameplay::TornadoVisualPass pass;
+        SkullbonezCore::Gameplay::TornadoFieldConfig field;
+        SkullbonezCore::Gameplay::TornadoSystemConfig system;
+
+        if ( tornadoVisualReleased )
+        {
+            SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::Prepare( pass, field, system );
+            pass.ReleaseResources();
+        }
+
+        SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RequirePrepared( pass, tornadoVisualReleased
+                                                                                          ? "ReleasedProbe"
+                                                                                          : "UnpreparedProbe" );
         return true;
     }
 
@@ -1451,6 +1592,14 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
                      { "FATAL[Core/AmortizedTask]", "Destroying AmortizedTask while worker chunk is in flight" } );
 
     ExpectFatalCase( "worker-fatal-log", { "FATAL[Tests/WorkerFatalProbe]", "worker-thread fatal logging probe" } );
+    ExpectFatalCase( "texture-slot-capacity",
+                     { "FATAL[TextureCollection]", "Texture slot capacity exhausted", "capacity=8" } );
+    ExpectFatalCase( "tornado-visual-unprepared-frame",
+                     { "FATAL[Gameplay/TornadoVisualPass]", "Tornado visual frame is not prepared",
+                       "operation=UnpreparedProbe", "field=0", "system=0" } );
+    ExpectFatalCase( "tornado-visual-released-frame",
+                     { "FATAL[Gameplay/TornadoVisualPass]", "Tornado visual frame is not prepared",
+                       "operation=ReleasedProbe", "field=0", "system=0" } );
     ExpectFatalCase( "replay-restore-pending-timeline-complete",
                      { "FATAL[Runtime/ReplayRestoreTransaction]",
                        "Restore completion reached without satisfying branch timeline state", "required=1", "applied=0" } );

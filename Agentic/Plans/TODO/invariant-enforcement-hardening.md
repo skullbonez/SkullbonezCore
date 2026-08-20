@@ -1,7 +1,7 @@
 # Invariant Enforcement And Assertion Hardening
 
 Date: 2026-08-20
-Status: Active; 2/8 phases complete
+Status: Active; 3/8 phases complete
 Impact area: repository-wide invariant enforcement, assertion policy, failure
 lanes, tests, comment taxonomy, and substantial diagnostic tools
 Owner: subsystem owners named by each affected path
@@ -215,10 +215,10 @@ A126, A128, A129, A130, A131, and A132.
 
 | Sites | Concrete owner / current non-Debug behavior | Primary lane | Owning phase and intended proof |
 |---|---|---|---|
-| A003-A004 | `LockOrderValidator::RecordAcquisition`; code is `_DEBUG`-only and Release performs no probe mutation | Lane P / Debug tripwire | IH2 retain; add focused invalid-id, cycle, and held-stack probe coverage without presenting it as Release enforcement |
-| A005 | `TornadoVisualPass::EnsureTransientCapacity`; Release dereferences a required frame snapshot | Lane F | IH2 check before dereference; lifecycle tests cover unprepared, prepared, and released frames |
-| A010 | `Quaternion::RotateAboutAxis`; Release math is defined but a non-unit axis changes the requested rotation | Debug tripwire | IH2 retain only with complete production-caller normalization proof and focused non-unit negative coverage |
-| A011 | `Vector3::Normalise`; Release intentionally propagates IEEE invalid values while `TryNormalise` owns caller-recoverable failure | Debug tripwire | IH2 retain; focused tests distinguish plain misuse from the safe `TryNormalise` path |
+| A003-A004 | `LockOrderValidator::RecordAcquisition`; code is `_DEBUG`-only and Release performs no probe mutation | Lane P / Debug tripwire | IH2 retained the Debug-only graph/stack owner and added one pure classifier used by the production branches; focused proof covers invalid ids, cycles, held-stack exhaustion, and the valid control without claiming Release enforcement |
+| A005 | `TornadoVisualPass::EnsureTransientCapacity`; Release dereferences a required frame snapshot | Lane F | IH2 now checks both Gameplay-owned frame borrows before capacity calculation and drawing; prepared, unprepared, and release-cleared lifecycle proofs cover the boundary |
+| A010 | `Quaternion::RotateAboutAxis`; Release math is defined but a non-unit axis changes the requested rotation | Debug tripwire | IH2 retained the tripwire after proving every production caller supplies a unit basis or explicitly normalized axis; focused Profile proof pins the distinct non-unit legacy result and normalized output |
+| A011 | `Vector3::Normalise`; Release intentionally propagates IEEE invalid values while `TryNormalise` owns caller-recoverable failure | Debug tripwire | IH2 retained the tripwire; focused proof distinguishes plain Profile IEEE propagation from `TryNormalise` failure that leaves the vector unchanged |
 | A017 | `ColliderStore::RefreshBodyBindings`; current `bool` path returns false before dereference | Lane R | IH3 remove the duplicate assertion and pin mismatched/missing body rows returning false without mutation |
 | A018-A020 | `ColliderStore::RebindShapeReferences`; Release indexes per-kind backing unchecked | Lane F | IH3 fatal before sphere/box/hull indexing; subprocess corrupt-index negatives plus legal clone/rebind positives |
 | A023-A026 | `ColliderStore` shape compaction; Release indexes or pops per-kind backing and assumes hull-row parity | Lane F | IH3 owner/capacity diagnostics before mutation; death tests for stale indices/parity and positive first/middle/last compaction |
@@ -251,9 +251,9 @@ no-growth/phase/cap rule under `Runtime allocation policy:`.
 
 | Sites | Current responsibility | IH6 disposition |
 |---|---|---|
-| P001 | `TextureCollection` fixed legacy table plus runtime no-growth rule | Split index/cap correctness from `Runtime allocation policy:` |
-| P002-P004 | Slot-index safety and allocation-attribution thread/lifecycle correctness | Retain `Invariant:`; these are mechanical ownership/safety claims |
-| P005-P008 | Reserve hard caps, camera reserve, and tornado fixed gameplay budget | Split any identity/count rule; classify cap/no-growth text as `Runtime allocation policy:` |
+| P001 | `TextureCollection` fixed legacy table plus runtime no-growth rule | IH2 split first-free-slot/full-table correctness from `Runtime allocation policy:` and added exact-last-slot plus exhausted-table proof |
+| P002-P004 | Slot-index safety and allocation-attribution thread/lifecycle correctness | IH2 retained `Invariant:` after full-file review; these remain mechanical ownership/safety claims |
+| P005-P008 | Reserve hard caps, camera reserve, and tornado fixed gameplay budget | IH2 split identity/count correctness from `Runtime allocation policy:`; the 64-field exact/one-over parser proof pins the tornado boundary |
 | P009-P011 | Collider atomic rows/dense handles and `PhysicsFixedList` relocation safety | Retain `Invariant:`; allocation wording explains atomicity/exception safety |
 | P012 | Solver side-effect capacity is both deterministic completeness and no-growth policy | Split deterministic fit from `Runtime allocation policy:` |
 | P013-P015 | Narrowphase disjoint offsets, DX12 frame-upload lifetime, and backend ownership publication | Retain `Invariant:` |
@@ -286,8 +286,8 @@ no-growth/phase/cap rule under `Runtime allocation policy:`.
 The first 67 rows below are the complete IH0 selected-file union: 62 assert-only
 candidates across 22 files, 45 policy-comment candidates across 35 files, the
 complete eight-file `Run*` logical surface, Terrain construction, the worker
-taxonomy site, and the six named tools. IH1 appended the two supporting files
-it necessarily touched, so the live checklist now contains 69 rows. A row
+taxonomy site, and the six named tools. IH1 appended two supporting files and
+IH2 appended eight more, so the live checklist now contains 77 rows. A row
 remains unchecked until its owning phase inspects the entire file, applies the
 comment audit, and records the focused proof. IH7 reruns `git ls-files` and
 reconciles this list.
@@ -298,15 +298,15 @@ reconciles this list.
 - [ ] `Agentic/Skills/skore-cpu-profiler/cleanup_markers.py` — L2
 - [ ] `Agentic/Skills/skore-render-test/analyze_perf.py` — L2
 - [ ] `Agentic/Skills/skore-render-test/perf_compare.py` — L2
-- [ ] `SkullbonezSource/Assets/TextureCollection.cpp` — P001, P002
-- [ ] `SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.cpp` — P003, P004
-- [ ] `SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.cpp` — P005, P006
-- [ ] `SkullbonezSource/Core/LockOrderValidator.cpp` — A003, A004
-- [ ] `SkullbonezSource/Core/SceneCapacity.h` — P007
-- [ ] `SkullbonezSource/Gameplay/TornadoField.h` — P008
-- [ ] `SkullbonezSource/Gameplay/TornadoVisualPass.cpp` — A005
-- [ ] `SkullbonezSource/Maths/Quaternion.cpp` — A010
-- [ ] `SkullbonezSource/Maths/Vector3.h` — A011
+- [x] `SkullbonezSource/Assets/TextureCollection.cpp` — P001, P002; IH2 full-file audit and fixed-table boundary proof
+- [x] `SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.cpp` — P003, P004; IH2 full-file audit retained mechanical invariants
+- [x] `SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.cpp` — P005, P006; IH2 full-file audit split hard-cap correctness from exploratory Replay policy
+- [x] `SkullbonezSource/Core/LockOrderValidator.cpp` — A003, A004; IH2 full-file audit and Debug-policy classifier proof
+- [x] `SkullbonezSource/Core/SceneCapacity.h` — P007; IH2 full-file audit and camera identity/policy split
+- [x] `SkullbonezSource/Gameplay/TornadoField.h` — P008; IH2 full-file audit and exact/one-over authored-capacity proof
+- [x] `SkullbonezSource/Gameplay/TornadoVisualPass.cpp` — A005; IH2 full-file audit and lifecycle Lane F proof
+- [x] `SkullbonezSource/Maths/Quaternion.cpp` — A010; IH2 full-file audit, all-caller normalization proof, and Profile negative control
+- [x] `SkullbonezSource/Maths/Vector3.h` — A011; IH2 full-file audit and plain/Try normalization proof
 - [ ] `SkullbonezSource/Physics/ColliderStore.cpp` — A017-A020, A023-A026, P009-P010
 - [ ] `SkullbonezSource/Physics/DisjointSet.h` — A028
 - [ ] `SkullbonezSource/Physics/PhysicsBodyStore.cpp` — A030, A033
@@ -361,6 +361,14 @@ reconciles this list.
 - [ ] `SkullbonezTests/TestReplayRecorder.cpp` — P044
 - [ ] `SkullbonezTests/TestReserveAllocator.cpp` — P045
 - [x] `SkullbonezTests/TestTerrain.cpp` — IH1 supporting positive/negative proof; full-file comment audit
+- [x] `SkullbonezSource/Assets/TextureCollection.h` — IH2 supporting fixed-table test seam; full-file comment audit
+- [x] `SkullbonezSource/Core/LockOrderValidator.h` — IH2 supporting Debug-policy test seam; full-file comment audit
+- [x] `SkullbonezSource/Gameplay/TornadoGameplay.cpp` — IH2 supporting visual lifecycle owner; full-file comment audit
+- [x] `SkullbonezSource/Gameplay/TornadoVisualPass.h` — IH2 supporting lifecycle contract; full-file comment audit
+- [x] `SkullbonezTests/TestQuaternion.cpp` — IH2 supporting unit/non-unit proof; full-file comment audit
+- [x] `SkullbonezTests/TestRuntimeContracts.cpp` — IH2 supporting fatal and Debug-policy proof; full-file comment audit
+- [x] `SkullbonezTests/TestSceneParserUnit.cpp` — IH2 supporting exact/one-over tornado proof; full-file comment audit
+- [x] `SkullbonezTests/TestVector3.cpp` — IH2 supporting plain/Try normalization proof; full-file comment audit
 
 ## Phases
 
@@ -395,11 +403,30 @@ reconciles this list.
   ownership inventories, Profile/Automation/Debug builds, tests, and compiled-
   symbol reachability.
 
-- [ ] **IH2 — Harden Core, Maths, Assets, and Gameplay findings.** Adjudicate
+- [x] **IH2 — Harden Core, Maths, Assets, and Gameplay findings.** Adjudicate
   every IH0 site in these layers, preserve dependency direction, distinguish
   authored-input Lane R failures from internal owned fatals, and prove fixed-
   capacity texture/tornado boundaries. Do not introduce an upward include,
-  service bag, callback pack, or new retained state owner.
+  service bag, callback pack, or new retained state owner. The texture table
+  now admits its exact final slot and reaches a TextureCollection-owned Lane F
+  before any full-table index can escape. Tornado authoring admits exactly 64
+  fields and rejects the 65th through the existing Lane R parser transaction;
+  visual capacity/draw work reaches Gameplay-owned Lane F before a missing or
+  release-cleared frame borrow is dereferenced. Lock-order graph and stack
+  instrumentation remains Debug-only, with its exact conditions exposed by a
+  stateless classifier. All production `RotateAboutAxis` callers use unit basis
+  axes or explicitly normalize, and its non-unit Profile behavior remains a
+  pinned negative control; Vector3 plain/Try normalization lanes remain
+  distinct. Focused Profile proof passes lock-order 1/5, texture 1/1, tornado
+  visual 1/2, quaternion 8/33, tornado parser 2/10, runtime fatal 1/268, and
+  Vector3 12/56. The touched/selected-source audit is 17/17 with zero deferred;
+  related paths, glossary terms, dependency direction, and the authority-free
+  aggregate report are clean. The cumulative `tools\validate_tests.bat` gate
+  passes 645 cases / 2,522,019 assertions. After refreshing the exact
+  `TornadoVisualPass::Render` body digest with the unchanged cohesive-frame
+  owner judgment, `tools\validate_fast.bat` passes formatting, metadata,
+  dependencies, all ownership inventories, Profile/Automation/Debug builds,
+  tests, and compiled-symbol reachability.
 
 - [ ] **IH3 — Harden Physics findings.** Repair all `ColliderStore` index,
   identity, compaction, and body-binding assert-only paths identified by IH0;

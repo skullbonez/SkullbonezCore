@@ -24,10 +24,13 @@
 //   - Orbital stability names resolve exactly once to stable scene-object ids.
 //   - Initial impulse application points are world-axis offsets from each body
 //     center, never absolute world positions.
+//   - Tornado scenes retain all 64 admitted fields and reject the 65th before
+//     committing authored state.
 //
 // Related:
 //   - SkullbonezSource/Scene/AuthoredScene.h
 //   - SkullbonezSource/Scene/AuthoredSceneParser.cpp
+//   - SkullbonezSource/Gameplay/TornadoField.h
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
@@ -90,12 +93,12 @@ void CheckLoadFailure( const SkullbonezCore::Core::SbResult& result, const char*
     CHECK( message.find( "AuthoredScene::LoadFromFile" ) != std::string::npos );
 }
 
-std::string BuildOverCapacityTornadoScene()
+std::string BuildTornadoScene( std::size_t vortexCount )
 {
     std::string scene =
         R"({"format":"skullbonez.scene.json","version":2,"physics":true,"text":false,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}],"tornadoSystem":{"vortices":[)";
 
-    for ( std::size_t index = 0; index <= SkullbonezCore::Gameplay::MAX_TORNADO_ACTIVE_FORCE_FIELDS; ++index )
+    for ( std::size_t index = 0; index < vortexCount; ++index )
     {
 
         if ( index != 0u )
@@ -563,10 +566,25 @@ TEST_CASE( "AuthoredSceneParser: missing camera reports recoverable load failure
 TEST_CASE( "AuthoredSceneParser: tornado fields over the fixed gameplay capacity fail recoverably" )
 {
     const TemporaryMalformedSceneFile overCapacity( "unit_scene_parser_tornado_capacity.scene.json",
-                                                    BuildOverCapacityTornadoScene() );
+                                                    BuildTornadoScene(
+                                                        SkullbonezCore::Gameplay::MAX_TORNADO_ACTIVE_FORCE_FIELDS + 1u ) );
     AuthoredScene scene;
     CheckLoadFailure( AuthoredScene::TryLoadFromFile( diagnostics, overCapacity.path, scene ), overCapacity.path,
                       "Gameplay.TornadoGameplay tornadoSystem.vortices requested 65, capacity is 64" );
+}
+
+
+TEST_CASE( "AuthoredSceneParser: exact tornado gameplay capacity retains every field" )
+{
+    const TemporaryMalformedSceneFile exactCapacity( "unit_scene_parser_tornado_exact_capacity.scene.json",
+                                                     BuildTornadoScene(
+                                                         SkullbonezCore::Gameplay::MAX_TORNADO_ACTIVE_FORCE_FIELDS ) );
+    AuthoredScene scene;
+    const auto result = AuthoredScene::TryLoadFromFile( diagnostics, exactCapacity.path, scene );
+
+    REQUIRE( result.Ok() );
+    REQUIRE( scene.HasTornadoSystem() );
+    CHECK( scene.GetTornadoSystemConfig().vortices.size() == SkullbonezCore::Gameplay::MAX_TORNADO_ACTIVE_FORCE_FIELDS );
 }
 
 

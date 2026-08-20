@@ -265,11 +265,11 @@
     {
       "file": "SkullbonezSource/Gameplay/TornadoVisualPass.cpp",
       "signature": "bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& frame )",
-      "body_sha256": "7c5dddb96d664173bcc0638852870dc938a705e3921b1f2baf382ceeec8416d5",
+      "body_sha256": "262c7e5437221778371c5f3ce3b1c5e178c73b5040934a8993064aa30362ccd4",
       "owner": "TornadoVisualPass frame render",
       "disposition": "retain-owner",
       "reason": "One gameplay visual pass projects the tornado frame view into its complete ordered render extension; all generated geometry and style decisions share the current frame lifetime.",
-      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); INVARIANT_HARDENING IH2 prepared-frame Lane F guard (2026-08-20)",
       "plan": ""
     },
     {
