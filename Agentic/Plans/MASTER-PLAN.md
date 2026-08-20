@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-21
-Status: Four active plans; 55/80 tasks complete
+Status: Four active plans; 56/80 tasks complete
 
 ## Owner Direction
 
@@ -104,13 +104,13 @@ Status: Four active plans; 55/80 tasks complete
   area. Current implementation and IH enforcement prose are authoritative; the
   old 261-hunk count is not a completion target. CT5 closes with full inventory,
   glossary, semantic, ownership-ruling, fast-gate, and independent truth review.
-  CT0 has reconciled the live checklist at 843/843 files. The frozen artifact
-  addresses 262 targets including the engine glossary, 37 of which changed
-  after its snapshot. Strict and three-way checks now fail broadly, and a
-  detached check at the declared snapshot also does not apply cleanly under the
-  current checkout. No live source was changed. The artifact remains provenance
-  only; CT0 must regenerate the surviving replacements semantically from the
-  current tree before any owner-area batch lands.
+  CT0 is complete. It reconciled the live checklist at 843/843 files, reviewed
+  all 37 post-snapshot overlaps, discarded seven replacements already
+  superseded by stronger IH truth, and resolved ten real three-way conflicts
+  against current ownership and behavior. The rebased zero-context artifact has
+  255 targets: all 254 unchecked source rows plus the engine glossary. Strict
+  and three-way checks pass with `--unidiff-zero`; no live source changed. CT1
+  may now land the infrastructure, generated-data, shader, test, and tool batch.
 - Full Validation Time And Value Audit is registered after comment truth
   replacement.
   Its six phases will measure every nested full-validation stage under warm,
@@ -232,7 +232,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Full Source Comment Truth Replacement | `COMMENT_TRUTH` | 6 | 0 | `TODO/full-source-comment-truth-replacement.md` |
+| Full Source Comment Truth Replacement | `COMMENT_TRUTH` | 6 | 1 | `TODO/full-source-comment-truth-replacement.md` |
 | Full Validation Time And Value Audit | `VALIDATION_TIME_AUDIT` | 6 | 0 | `TODO/full-validation-time-value-audit.md` |
 | Repository Hygiene Cleanup | `REPOSITORY_CLEANUP` | 6 | 0 | `TODO/repository-hygiene-cleanup.md` |
 | Cause Hierarchy Scientific Inspector | `CAUSE_HIERARCHY_UI` | 7 | 0 | `TODO/cause-hierarchy-scientific-inspector.md` |
@@ -310,13 +310,13 @@ contracts into Rendering.
 
 ## Portfolio Progress
 
-55/80 tasks complete with four active plans.
+56/80 tasks complete with four active plans.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
 Invariant Enforcement And Assertion Hardening IH0-IH7 is complete.
-Full Source Comment Truth Replacement CT0 is active at semantic patch
-regeneration; all six phases remain incomplete.
+Full Source Comment Truth Replacement CT0 is complete; CT1 is next and five
+phases remain.
 Full Validation Time And Value Audit VTA0-VTA5 follows CT5; all six phases
 remain.
 Repository Hygiene Cleanup RC0-RC5 follows VTA5; all six phases remain.

@@ -1,8 +1,8 @@
 # Session State
 
 Date: 2026-08-21
-Branch: `nightrunner-20th-AUG-26`
-Status: Four active plans; 55/80 tasks complete
+Branch: `nightrunner-21st-AUG-26`
+Status: Four active plans; 56/80 tasks complete
 
 At-Rest Ball Stability RS0-RS7 and Invariant Enforcement And Assertion
 Hardening IH0-IH7 are complete. Causal C0-C8, Determinism T0-T8,
@@ -386,7 +386,7 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `COMMENT_TRUTH` CT0. `INVARIANT_HARDENING` IH0-IH7 is complete: the
+Execute `COMMENT_TRUTH` CT1. `INVARIANT_HARDENING` IH0-IH7 is complete: the
 final source checklist is 96/96 with zero deferrals, the terminal inventory has
 67 production asserts and 18 reviewed assert-only candidates, and the current
 fast gate passes 663 tests plus Debug/Profile reachability. Automation, DX12,
@@ -397,17 +397,15 @@ line 1,239; no baseline was refreshed. Two independent post-fix reviews are
 blocker-free, and the completed IH plan was deleted under the repository
 convention.
 
-Treat the frozen 261-file comment replacement set as audit evidence: discard
-hunks made redundant by IH, regenerate stale or conflicting replacements
-against current implementation, and preserve every post-IH enforcement-lane
-and ownership comment. CT0 must resolve the known strict conflicts in
-`TestUIDrawValues.cpp` and `TestVector3.cpp` before any batched application.
-The live checklist reconciles at 843/843 files. The frozen artifact has 262
-targets including the glossary, 37 changed after its snapshot, and now fails
-both strict and three-way checks broadly; a detached check at the declared
-snapshot also fails under the current checkout. No live source changed. Resume
-by regenerating surviving replacements semantically from current source rather
-than applying or merging the frozen artifact.
+CT0 is complete. The live checklist reconciles at 843/843 files. The rebase
+reviewed all 37 post-snapshot overlaps, discarded seven replacements already
+superseded by stronger IH truth, and resolved ten real three-way conflicts
+against current ownership and behavior. The regenerated zero-context artifact
+has 255 targets: all 254 unchecked source rows plus the engine glossary. Its
+strict and three-way checks pass with `--unidiff-zero`; no live source changed.
+CT1 should apply the infrastructure, generated-data, shader, test, and tool
+batch, synchronize the generated shader-reflection producer, and prove that
+script and command semantics remain unchanged.
 
 At-Rest Ball Stability closed in `f2e192f53`. Its uncapped all-three-asleep
 semantic witness, deterministic 0/1/4-worker proof, box and moving-slope
@@ -420,7 +418,7 @@ not part of the active queue.
 
 ## Blockers
 
-- None. Continue with `COMMENT_TRUTH` CT0. The stale Physics CSV,
+- None. Continue with `COMMENT_TRUTH` CT1. The stale Physics CSV,
   noisy relative Physics performance sample, and
   corrected-topology visual oracle remain owner-controlled validation findings;
   do not refresh any of them without approval.

@@ -1,7 +1,7 @@
 # Full Source Comment Truth Audit And Deferred Replacement
 
 Date: 2026-08-21
-Status: Active; 0/6 phases complete; `INVARIANT_HARDENING` IH0-IH7 is complete.
+Status: Active; 1/6 phases complete; CT0 rebased the frozen audit after IH7.
 Snapshot base: `154506e0312e42d1bfa0065fba900b24d8225889`
 Impact areas: repository-wide source comments, tests, shaders, and substantial tools
 Owner: Repository comment truth with each touched subsystem retaining semantic authority
@@ -17,13 +17,13 @@ truth: CT0 must discard a hunk when IH made it redundant, regenerate it when the
 implementation or invariant changed, and preserve the current IH wording when
 the queued replacement would weaken or contradict it.
 
-Do not apply the frozen patch wholesale. CT0 rechecked it after IH7 and found
-that strict and three-way application fail broadly, not only in the two tests
-known at registration. A detached application at the declared snapshot also
-does not apply cleanly under the current checkout. The artifact therefore
-remains provenance for the intended prose, never an executable patch claim.
-Each queued file requires a fresh full-file audit against the post-IH
-implementation before its checklist disposition changes.
+Do not apply the original frozen patch wholesale. Its zero-context hunks require
+`git apply --unidiff-zero`; without that explicit mode Git reports a misleading
+repository-wide failure. With the correct mode, a three-way rebase found ten
+real overlaps. CT0 resolved them against the post-IH implementation, discarded
+seven redundant file replacements, and regenerated the artifact in its intended
+zero-context form. Both strict and three-way checks pass with the required
+`--unidiff-zero` mode.
 
 ## CT0 Rebase Evidence
 
@@ -34,12 +34,63 @@ implementation before its checklist disposition changes.
 - 37 patch targets changed between snapshot
   `154506e0312e42d1bfa0065fba900b24d8225889` and IH7 closure
   `4472cc9e5105625bef059ab153dbcf614d5a2823`.
-- Strict and three-way checks fail broadly on the IH7 tree. A detached worktree
-  at the declared snapshot also rejects the artifact with current Git checkout
-  settings, so CT0 cannot use textual application as its rebase mechanism.
-- No live source or queued checklist row changed during this measurement. The
-  next CT0 step is to reconstruct the surviving comment-only replacements from
-  current source, preserving IH4-IH7 wording and recording superseded hunks.
+- The original artifact used zero-context hunks. With the required
+  `--unidiff-zero` mode, three-way application identified ten real conflicts;
+  the earlier broad-failure handoff was a command-mode error and is superseded.
+- Six IH6 tool headers and the IH2 `TestVector3.cpp` hazard are already more
+  accurate than the frozen prose, so those seven replacements were discarded.
+- Three conflict files retain current behavior-sensitive truth while accepting
+  only the surviving comment correction: the DX12 geometry epoch methods remain
+  intact, the current UI fingerprint remains unchanged, and the lifecycle
+  preview-capacity invariant remains intact.
+- The regenerated patch has 255 targets: 254 checklist files plus the engine
+  glossary. Its SHA-256 is
+  `eda42082b860422152bd6ba3782da32d14192f8d633df396cf5ed8e2090215c8`.
+- Both `git apply --check --unidiff-zero` and
+  `git apply --3way --check --unidiff-zero` pass against IH7 closure. No live
+  source was changed during CT0.
+
+### Post-IH Overlap Dispositions
+
+| File | CT0 disposition |
+|---|---|
+| `Agentic/Skills/collapse_params.py` | Superseded by the truthful IH6 multiline-lambda header. |
+| `Agentic/Skills/loc_count.py` | Superseded by the IH6 bounded-output header. |
+| `Agentic/Skills/skore-cpu-profiler/analyze_markers.py` | Superseded by the IH6 diagnostic-tool header. |
+| `Agentic/Skills/skore-cpu-profiler/cleanup_markers.py` | Superseded by the IH6 cleanup hazard/header. |
+| `Agentic/Skills/skore-render-test/analyze_perf.py` | Superseded by the truthful IH6 post-header schema claim. |
+| `Agentic/Skills/skore-render-test/perf_compare.py` | Superseded by the IH6 bounded comparison header. |
+| `SkullbonezSource/Assets/AssetSystem.cpp` | Keep glossary consolidation and durable glossary link. |
+| `SkullbonezSource/Physics/PersistentContactSolver.cpp` | Keep glossary consolidation; preserve IH3 solver truth. |
+| `SkullbonezSource/Physics/PhysicsEngine.cpp` | Keep duplicate Determinism removal. |
+| `SkullbonezSource/Physics/PhysicsRuntimeSettings.h` | Keep glossary consolidation and link. |
+| `SkullbonezSource/Physics/Stages/PhysicsSleepController.h` | Keep duplicate Support edge removal. |
+| `SkullbonezSource/Physics/TerrainContactManifold.cpp` | Keep structured local teaching headings. |
+| `SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp` | Preserve IH4 epoch methods; keep only separator cleanup. |
+| `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp` | Keep decorative-banner cleanup; preserve IH4 guards. |
+| `SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp` | Keep truthful non-blocking timer contract and separator cleanup. |
+| `SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp` | Keep decorative-banner cleanup; preserve IH4 lifecycle guards. |
+| `SkullbonezSource/Runtime/App/Run.h` | Keep separator cleanup; preserve IH5 renderer ownership. |
+| `SkullbonezSource/Runtime/App/RunFrame.cpp` | Keep duplicate FIFO glossary removal. |
+| `SkullbonezSource/Runtime/Render/RenderResourceLifecycle.cpp` | Remove duplicate glossary term; preserve IH4 preview-capacity invariant. |
+| `SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp` | Keep same-frame resource-readiness truth; preserve IH7 Sky scheduling. |
+| `SkullbonezSource/Runtime/Render/UiTextPass.cpp` | Keep overlay-heading cleanup; preserve IH5 profiler lifecycle. |
+| `SkullbonezSource/Runtime/Scene/SceneEntityStore.cpp` | Keep duplicate Stable identity removal. |
+| `SkullbonezSource/UI/UITabScene.cpp` | Keep concrete scene/forecast purpose. |
+| `SkullbonezSource/UI/UITabScene.h` | Keep concrete scene/forecast purpose. |
+| `SkullbonezSource/World/WorldEnvironment.cpp` | Keep water-pass heading cleanup; preserve IH4 rebuild lease. |
+| `SkullbonezTests/TestPersistentContactSolver.cpp` | Keep glossary consolidation and link. |
+| `SkullbonezTests/TestPhysicsHandles.cpp` | Keep duplicate shared-term removals. |
+| `SkullbonezTests/TestPhysicsStageState.cpp` | Keep glossary consolidation and link. |
+| `SkullbonezTests/TestQuaternion.cpp` | Keep glossary consolidation and link. |
+| `SkullbonezTests/TestReserveAllocator.cpp` | Keep shared allocation-term consolidation and link. |
+| `SkullbonezTests/TestRuntimeContracts.cpp` | Keep fatal/lane glossary consolidation and link; preserve IH tests. |
+| `SkullbonezTests/TestRuntimeValueSeams.cpp` | Keep glossary consolidation and structured hazards. |
+| `SkullbonezTests/TestSceneEntityStore.cpp` | Keep glossary consolidation and structured pose-transition comments. |
+| `SkullbonezTests/TestSleepController.cpp` | Keep glossary consolidation and link. |
+| `SkullbonezTests/TestTerrain.cpp` | Keep structured resting-contact teaching comment. |
+| `SkullbonezTests/TestUIDrawValues.cpp` | Preserve current fingerprint; keep glossary link and structured headings. |
+| `SkullbonezTests/TestVector3.cpp` | Superseded by the stronger IH2 Debug-tripwire hazard comment. |
 
 ## Outcome
 
@@ -50,12 +101,12 @@ The frozen audit contained 840 files. The three at-rest-stability files added
 by the in-flight agent during the audit were read from their live staged versions and
 are already compliant.
 
-- 582 files require no replacement and are checked below.
-- 261 files contain a ready-to-apply replacement and remain unchecked until
+- 589 files require no replacement and are checked below.
+- 254 files contain a rebased replacement and remain unchecked until
   `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch` is applied.
 - 0 files were silently skipped or left without a disposition.
 - The patch also updates `Agentic/Reference/engine-glossary.md`.
-- Patch SHA-256: `8148588d282fa339d216f266135c2751f6dd1826ac14b51085286d994f5e5e61`.
+- Patch SHA-256: `eda42082b860422152bd6ba3782da32d14192f8d633df396cf5ed8e2090215c8`.
 
 The patch changes comments and documentation only. It deliberately does not edit the
 live source tree while the at-rest-stability agent owns overlapping files.
@@ -170,10 +221,10 @@ comment-only patch because changing a Python string literal changes the tool's A
   C/C++/HLSL streams, batch commands, and PowerShell commands.
 - `python tools/check_related_paths.py --repo .`: 0 existing findings; all 52 new
   glossary citations resolve to the durable engine glossary.
-- At audit time, both strict and three-way `git apply --check` passed against
-  the snapshot worktree. They are frozen evidence, not a current applicability
-  claim. Registration-time strict checking now reports the two conflicts named
-  above; CT0 owns their semantic reconciliation and patch regeneration.
+- The rebased 255-target artifact passes strict and three-way application checks
+  against the post-IH tree when Git is given its required `--unidiff-zero`
+  mode. Patch targets reconcile exactly to all 254 unchecked source rows plus
+  the engine glossary; no patch source target sits outside the unchecked set.
 
 Repository build or runtime validation is not required now because no live source is
 changed and the queued diff is strictly comments and docs. If the generated-header
@@ -203,9 +254,9 @@ After IH7 has committed its final source and comment work:
 
 ## Phases
 
-- [ ] **CT0 — Rebase and adjudicate the frozen replacement.** Reconcile the
+- [x] **CT0 — Rebase and adjudicate the frozen replacement.** Reconcile the
   current tracked inventory, every file changed since the snapshot, all IH
-  overlaps, and both known direct conflicts. Mark redundant replacements as
+  overlaps, and all ten real three-way conflicts. Mark redundant replacements as
   satisfied by current truth, regenerate stale replacements, and produce a
   conflict-free patch plus exact per-file dispositions before live source edits.
 - [ ] **CT1 — Apply infrastructure, generated-data, shader, test, and tool
@@ -245,16 +296,16 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 ### `Agentic`
 
 - [ ] `Agentic/Manuals/SkullbonezCoreManual/build_manual.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `Agentic/Skills/collapse_params.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `Agentic/Skills/loc_count.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `Agentic/Skills/collapse_params.py` -- inspected; frozen replacement superseded by IH6
+- [x] `Agentic/Skills/loc_count.py` -- inspected; frozen replacement superseded by IH6
 - [ ] `Agentic/Skills/orchestrator/scripts/resolve_nightrunner_branch.ps1` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `Agentic/Skills/orchestrator/scripts/work_ledger.bat` -- inspected; no replacement required
 - [x] `Agentic/Skills/orchestrator/scripts/work_ledger.ps1` -- inspected; no replacement required
 - [x] `Agentic/Skills/render-work-ledger/scripts/render_work_ledger.py` -- inspected; no replacement required
-- [ ] `Agentic/Skills/skore-cpu-profiler/analyze_markers.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `Agentic/Skills/skore-cpu-profiler/cleanup_markers.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `Agentic/Skills/skore-render-test/analyze_perf.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `Agentic/Skills/skore-render-test/perf_compare.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `Agentic/Skills/skore-cpu-profiler/analyze_markers.py` -- inspected; frozen replacement superseded by IH6
+- [x] `Agentic/Skills/skore-cpu-profiler/cleanup_markers.py` -- inspected; frozen replacement superseded by IH6
+- [x] `Agentic/Skills/skore-render-test/analyze_perf.py` -- inspected; frozen replacement superseded by IH6
+- [x] `Agentic/Skills/skore-render-test/perf_compare.py` -- inspected; frozen replacement superseded by IH6
 - [ ] `Agentic/Tests/Dx12ArchUnitTests/Dx12ArchUnitTests.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [ ] `Agentic/Tests/RuntimeInteractionPolicyTests/RuntimeInteractionPolicyTests.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [ ] `Agentic/Tests/SceneParserUnitTests/SceneParserUnitTests.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
@@ -975,7 +1026,7 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 - [ ] `SkullbonezTests/TestStartup.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [ ] `SkullbonezTests/TestTerrain.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [ ] `SkullbonezTests/TestUIDrawValues.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezTests/TestVector3.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestVector3.cpp` -- inspected; frozen replacement superseded by IH2
 
 ### `tools`
 
@@ -1099,6 +1150,6 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 
 - Current tracked inventory: 843
 - Inspected: 843
-- Checked / no replacement required: 582
-- Unchecked / exact replacement queued: 261
+- Checked / no replacement required: 589
+- Unchecked / exact replacement queued: 254
 - Deferred without an exact disposition: 0

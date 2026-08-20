@@ -137,53 +137,6 @@ index 46f0fd66aa02f6beb31765a06d57bef376390b7b..75beb4ecb7c527a1a457d2ae977c1bd0
 +| Warm starting | Reuse of a matching previous-tick accumulated impulse to stabilize the current solver step. |
 @@ -339,0 +368 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 +| Wire code | Explicit serialized value whose meaning is independent of C++ enum ordinals. |
-diff --git a/Agentic/Skills/collapse_params.py b/Agentic/Skills/collapse_params.py
-index 709589fa53ea4999193f88fe7bf431953fd29038..3dc715ad79f1ac3edcd880a78aebede6a0082504 100644
---- a/Agentic/Skills/collapse_params.py
-+++ b/Agentic/Skills/collapse_params.py
-@@ -0,0 +1,15 @@
-+"""
-+File: Agentic/Skills/collapse_params.py
-+Purpose:
-+  Collapse balanced multiline C++ parameter lists before clang-format runs.
-+
-+Summary:
-+  The formatter joins continuation lines while parentheses remain open, strips
-+  comments that would swallow joined code, and leaves lambda signatures alone
-+  so this pass and clang-format cannot oscillate over the same construct.
-+
-+Invariants:
-+  - Only tracked .cpp and .h text under SkullbonezSource is considered.
-+  - Lambda captures are not collapsed.
-+"""
-+
-diff --git a/Agentic/Skills/loc_count.py b/Agentic/Skills/loc_count.py
-index 34ba043a7dbe0f4feb71604bf6117e22db30a6f0..559b69906dae8ae32f90f7de5ad74a8c2db9116b 100644
---- a/Agentic/Skills/loc_count.py
-+++ b/Agentic/Skills/loc_count.py
-@@ -2,10 +2,12 @@
--loc_count.py - Count logical lines of code in SkullbonezSource/.
--
--Excludes:
--  - Blank lines (whitespace only)
--  - Single-line comments (// ...)
--  - Block comment lines (/* ... */ - any line that is purely inside or
--    opening/closing a block comment)
--  - Preprocessor lines are counted because they carry executable intent.
--
--Prints per-file counts and a grand total.
-+File: Agentic/Skills/loc_count.py
-+Purpose:
-+  Count logical source lines under SkullbonezSource for repository reporting.
-+
-+Summary:
-+  The scanner excludes blanks and comment-only lines, retains preprocessor
-+  directives as executable intent, prints per-file totals, and finishes with a
-+  repository total. It never mutates source.
-+
-+Invariants:
-+  - Block-comment state is carried across lines.
-+  - Input decoding tolerates a UTF-8 byte-order mark and replacement characters.
 diff --git a/Agentic/Skills/orchestrator/scripts/resolve_nightrunner_branch.ps1 b/Agentic/Skills/orchestrator/scripts/resolve_nightrunner_branch.ps1
 index ab48d8b6e36677f59b943c133b66c8e7a34a639f..8ade69244dfdca3ca18e204bf3d87d5211e6b74f 100644
 --- a/Agentic/Skills/orchestrator/scripts/resolve_nightrunner_branch.ps1
@@ -191,110 +144,6 @@ index ab48d8b6e36677f59b943c133b66c8e7a34a639f..8ade69244dfdca3ca18e204bf3d87d52
 @@ -6 +6 @@ Purpose:
 -Mental model:
 +Summary:
-diff --git a/Agentic/Skills/skore-cpu-profiler/analyze_markers.py b/Agentic/Skills/skore-cpu-profiler/analyze_markers.py
-index cf48b9619230c372857abdf32538e24a53d951e2..523078c01e6c73bf1073d1e4b4c99050760c9bf8 100644
---- a/Agentic/Skills/skore-cpu-profiler/analyze_markers.py
-+++ b/Agentic/Skills/skore-cpu-profiler/analyze_markers.py
-@@ -2 +2,14 @@
--"""Summarize profiler CSV markers under a parent marker path."""
-+"""
-+File: Agentic/Skills/skore-cpu-profiler/analyze_markers.py
-+Purpose:
-+  Summarize profiler CSV marker timings beneath one requested marker path.
-+
-+Summary:
-+  The analyzer prefers second-pass samples when present, computes bounded
-+  percentile statistics for the selected marker subtree, and emits JSON for the
-+  profiling skill without retaining raw frame rows.
-+
-+Invariants:
-+  - Comment and blank rows do not participate in CSV parsing.
-+  - Missing markers produce empty statistics rather than invented samples.
-+"""
-diff --git a/Agentic/Skills/skore-cpu-profiler/cleanup_markers.py b/Agentic/Skills/skore-cpu-profiler/cleanup_markers.py
-index 3d46c595165f8be7525054d5446cd00a1a7400c1..341a9aacc1be5a69c0bc266932f7d1a0f826d44a 100644
---- a/Agentic/Skills/skore-cpu-profiler/cleanup_markers.py
-+++ b/Agentic/Skills/skore-cpu-profiler/cleanup_markers.py
-@@ -2 +2,14 @@
--"""Remove SKORE profiler sentinel blocks recorded in session_markers.json."""
-+"""
-+File: Agentic/Skills/skore-cpu-profiler/cleanup_markers.py
-+Purpose:
-+  Remove temporary profiler sentinel blocks recorded by a profiling session.
-+
-+Summary:
-+  Session metadata groups marker ids by repository-relative file. Each exact
-+  begin/end sentinel interval is removed once, with an optional final deletion
-+  of the session record after every requested cleanup succeeds.
-+
-+Invariants:
-+  - Only sentinel ids named by the session file are eligible for removal.
-+  - A missing source file or marker makes the command fail closed.
-+"""
-diff --git a/Agentic/Skills/skore-render-test/analyze_perf.py b/Agentic/Skills/skore-render-test/analyze_perf.py
-index 45932e86a3391483600d8e88ad9fefb0b5839029..4ddade293528de89ec31780c5cc888f1cc301d4b 100644
---- a/Agentic/Skills/skore-render-test/analyze_perf.py
-+++ b/Agentic/Skills/skore-render-test/analyze_perf.py
-@@ -2 +2,3 @@
--Perf test analysis script for SkullbonezCore.
-+File: Agentic/Skills/skore-render-test/analyze_perf.py
-+Purpose:
-+  Convert one renderer performance CSV into a machine-readable statistics artifact.
-@@ -4,2 +6,4 @@ Perf test analysis script for SkullbonezCore.
--Usage:
--    py analyze_perf.py --renderer <artifact-label> --csv <path> --out-dir <dir>
-+Summary:
-+  The analyzer derives repository paths from its own location, computes timing
-+  statistics for every marker column, records non-identifying machine facts, and
-+  writes one renderer-labelled JSON result for later comparison.
-@@ -7,6 +11,3 @@ Usage:
--Reads a perf_log.csv, computes statistics for every profiler marker column,
--and writes {renderer}_perf.json into the specified output directory.
--
--Paths are derived from this script's location — no hardcoded drive letters.
--  analyze_perf.py  lives in  Agentic/Skills/skore-render-test/
--  three levels up  gives the repo root.
-+Invariants:
-+  - Hostname and user identity are never included in machine metadata.
-+  - Output paths come from explicit arguments rather than fixed drive letters.
-diff --git a/Agentic/Skills/skore-render-test/perf_compare.py b/Agentic/Skills/skore-render-test/perf_compare.py
-index c117fc0f1ec4060d48188bac4238d17d8781b685..6e0e62d412ae1e81a0733fb5d74882fff4b9c7a1 100644
---- a/Agentic/Skills/skore-render-test/perf_compare.py
-+++ b/Agentic/Skills/skore-render-test/perf_compare.py
-@@ -2,21 +2,12 @@
--perf_compare.py — Compare two perf JSON artifacts produced by analyze_perf.py.
--
--Usage:
--    py perf_compare.py --current <path/to/{renderer}_perf.json> \
--                       --previous <path/to/{renderer}_perf.json>
--
--Exits 1 if any regression threshold is exceeded, 0 otherwise.
--
--Delta = (current - baseline) / baseline * 100
--  Negative = current is FASTER  → 🟢 green  (>5% improvement)
--  Near zero = noise             → 🔵 blue   (<5% either way)
--  Small positive = minor        → 🟡 yellow (5–threshold%)
--  Large positive = regression   → 🔴 red    (>threshold%)
--
--Thresholds are ramped by baseline duration — short timers are dominated by OS
--scheduling jitter so they receive proportionally more headroom:
--
--  0.05 ms → ~45%     0.20 ms → ~22%     1.00 ms → 10%
--  0.10 ms → ~32%     0.50 ms → ~14%     5.00 ms → 10%  (floor)
--
--Formula: max(10, 10 / sqrt(baseline_ms))
-+File: Agentic/Skills/skore-render-test/perf_compare.py
-+Purpose:
-+  Compare current and baseline renderer performance artifacts against named limits.
-+
-+Summary:
-+  The comparator joins marker statistics by name, computes percentage deltas,
-+  reports missing or regressed evidence, and exits nonzero when a configured
-+  regression threshold is exceeded.
-+
-+Invariants:
-+  - A zero or absent baseline never becomes an invented percentage improvement.
-+  - Exit status reflects every blocking comparison reported to the caller.
 diff --git a/Agentic/Tests/Dx12ArchUnitTests/Dx12ArchUnitTests.cpp b/Agentic/Tests/Dx12ArchUnitTests/Dx12ArchUnitTests.cpp
 index 5db041bb1375f6dcc658000e33d0c0c8c0cb972f..b96a4ef4c77d04079a73428f34332c1d73a3e12d 100644
 --- a/Agentic/Tests/Dx12ArchUnitTests/Dx12ArchUnitTests.cpp
@@ -1062,7 +911,7 @@ index 0928629ede11f3cd4281f4e1122ef10da9dfecff..0fffc7c38282b65369f19d2b6373bfbf
 +        // well as the calm basin. Apply the authored warm response and moving sun
 +        // glint here so both water zones follow the same scene style.
 diff --git a/SkullbonezSource/Assets/AssetSystem.cpp b/SkullbonezSource/Assets/AssetSystem.cpp
-index fab0e090bb5571544af844371ac3b284d8c5ded6..fe66422139f6ba756ee802c44436d58388b2df00 100644
+index 8b629e0f5c6504a26e8e6acfd57b71519aebd592..2486bf1320de0637e3e4351d6a88f08014369601 100644
 --- a/SkullbonezSource/Assets/AssetSystem.cpp
 +++ b/SkullbonezSource/Assets/AssetSystem.cpp
 @@ -12,3 +11,0 @@ Glossary:
@@ -1168,21 +1017,21 @@ index 1b7937e07b355e595f94ca38f360aea721b2022a..6ef5e6a7d4b0bc2e342c3f29cd06a393
 -// --- Forward declarations ---
 +// Forward declarations:
 diff --git a/SkullbonezSource/Physics/PersistentContactSolver.cpp b/SkullbonezSource/Physics/PersistentContactSolver.cpp
-index 9c8891a43ecc40322318576b9135c69bad46dabe..f9fc4b420daf4956e5d624141bd5c31b99b89563 100644
+index 289735fce13a2fde046e38818cacbd5928c228ad..b454e7ef272c8278bf018625030cbef54bdbb03b 100644
 --- a/SkullbonezSource/Physics/PersistentContactSolver.cpp
 +++ b/SkullbonezSource/Physics/PersistentContactSolver.cpp
-@@ -15,2 +14,0 @@ Glossary:
+@@ -19,2 +18,0 @@ Glossary:
 -  Warm starting: Reusing the previous tick's cached accumulated impulse so a
 -    matching contact begins near its converged solution.
 diff --git a/SkullbonezSource/Physics/PhysicsEngine.cpp b/SkullbonezSource/Physics/PhysicsEngine.cpp
-index cfc9f9d63868bee4d0e9b28c269fad297e715b6f..faa5bedb24c54402f2b720e4a689953ac69e535f 100644
+index c379706961112b36b2365e2603e420c6f07f62ef..7e96ebe8949378b37279ae11f9c18c6726f0fca9 100644
 --- a/SkullbonezSource/Physics/PhysicsEngine.cpp
 +++ b/SkullbonezSource/Physics/PhysicsEngine.cpp
 @@ -19,2 +18,0 @@ Glossary:
 -  Determinism: Same inputs produce byte-exact validation artifacts.
 -
 diff --git a/SkullbonezSource/Physics/PhysicsRuntimeSettings.h b/SkullbonezSource/Physics/PhysicsRuntimeSettings.h
-index 91a855d0d5ad9475397c0c052a1c7b1f5e61f688..33ea47743103c488cbb64d5f05f734d2fa969aa4 100644
+index 084d9b6899acd2b5bf150c9b3f66f936237f2d3e..3e51f2ba388b5f35a2a9a809991739f234f16ef9 100644
 --- a/SkullbonezSource/Physics/PhysicsRuntimeSettings.h
 +++ b/SkullbonezSource/Physics/PhysicsRuntimeSettings.h
 @@ -12,2 +11,0 @@ Glossary:
@@ -1211,7 +1060,7 @@ index 63e57097ad5e6e10475b0576239a3e5841fcf060..0fc0c8a72c0e0e5b1054bb9ffbb99534
 -    // --- Capacity derivation ---
 +    // Capacity derivation:
 diff --git a/SkullbonezSource/Physics/Stages/PhysicsSleepController.h b/SkullbonezSource/Physics/Stages/PhysicsSleepController.h
-index 6765879b6157963fe3444f3e85a01ba3f61fd694..29e62514044041c86d573a84b94c50499c4e461d 100644
+index 5d522f716f2395defdd9a6e75f098701aaa9320b..7d8de5a775ac5bf4f444ed37023abd4852cb4dba 100644
 --- a/SkullbonezSource/Physics/Stages/PhysicsSleepController.h
 +++ b/SkullbonezSource/Physics/Stages/PhysicsSleepController.h
 @@ -13 +12,0 @@ Glossary:
@@ -1232,7 +1081,7 @@ index 7428fc18575ab96102e4e96afe8c41e71f20e29b..bbb119638092fb9465504614b58deb11
 +    // Invariant: a hit without a stable manifold inhibits sleep. Only a
 +    // classifier-approved manifold may publish support for this frame.
 diff --git a/SkullbonezSource/Physics/TerrainContactManifold.cpp b/SkullbonezSource/Physics/TerrainContactManifold.cpp
-index b874e8f593457fc804490f8d5fe82bd15589602a..d809027b5330918dff71dc47cb98440e3fd84e72 100644
+index 0306921b446cffd92e57b815aa1c07c2e4d1f92c..76e881277c9b97f47992d579bc0dbfc1e5fc8521 100644
 --- a/SkullbonezSource/Physics/TerrainContactManifold.cpp
 +++ b/SkullbonezSource/Physics/TerrainContactManifold.cpp
 @@ -72 +72 @@ bool GetClosestBoxTerrainVertex( SkullbonezCore::Core::Profiler*, const TerrainC
@@ -1241,16 +1090,16 @@ index b874e8f593457fc804490f8d5fe82bd15589602a..d809027b5330918dff71dc47cb98440e
 @@ -152 +152 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const
 -    // Swept terrain tests use the body's unobstructed path for the candidate
 +    // Why: swept terrain tests use the body's unobstructed path for the candidate
-@@ -169 +169 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const
+@@ -170 +170 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const
 -        // Closed-form lowest-vertex Y offset. For an OBB, the maximum downward
 +        // Concept: the closed-form lowest-vertex Y offset for an OBB is the maximum downward
-@@ -181 +181 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const
+@@ -182 +182 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const
 -    // Airborne early-out: if the object's lowest point cannot reach the terrain's
 +    // Why: if the object's lowest point cannot reach the terrain's
-@@ -198 +198 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const
+@@ -199 +199 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const
 -        // Boxes need a real vertex/terrain gap test before any center-based path
 +        // Hazard: boxes need a real vertex/terrain gap test before any center-based path
-@@ -228 +228 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const
+@@ -229 +229 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const
 -            // When no vertex is currently touching, sweep every box vertex along
 +            // Why: when no vertex is touching, sweep every box vertex along
 diff --git a/SkullbonezSource/Physics/TerrainSupportClassifier.h b/SkullbonezSource/Physics/TerrainSupportClassifier.h
@@ -1304,14 +1153,14 @@ index 1a920b1122c8cf77fe09845bb873e4beaaae232e..3dcd8a742134fac93bb273fd7fe2c2ea
 -// --- Concrete raytracing owner ---
 +// Concrete raytracing owner:
 diff --git a/SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp b/SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp
-index e1f1ddca517ac2b37acda84ae3d19542abaf3e7a..8cd94ee9630e4b28eea1ec068b9a52d5a62c6cce 100644
+index 162378fc2ab7419c11c19a4570fd34602600eae0..7ad408b0f5a0f49542f3863884f1a9be512a2f13 100644
 --- a/SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp
 +++ b/SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp
 @@ -56 +55,0 @@ using Microsoft::WRL::ComPtr;
 -// --- Helpers ---
 @@ -141 +139,0 @@ bool IsGridLineRasterState( const RasterStateDesc& raster )
 -// --- Dx12GeometryOwner methods ---
-@@ -895 +893 @@ void Dx12GeometryOwner::Shutdown()
+@@ -908 +906 @@ void Dx12GeometryOwner::RequireSubmissionEpoch( const char* operation ) const
 -// --- RenderBackendDX12 draw coordination ---
 +// RenderBackendDX12 draw coordination:
 diff --git a/SkullbonezSource/Rendering/DX12/RenderBackendDX12.Pipeline.cpp b/SkullbonezSource/Rendering/DX12/RenderBackendDX12.Pipeline.cpp
@@ -1330,39 +1179,39 @@ index d819ff8c75dfc7a6da1c75ddef692dd44e23fcac..450ed4824f00e9aa3ca84bb5d9d076a1
 @@ -60 +58,0 @@ static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIn
 -// --- Dx12ResourceBuilder methods ---
 diff --git a/SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp b/SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp
-index 17bb356fb2fb3564fc44ae116a018ad6f42cbde3..da4d9c2e66b1e5397cda08aaafe0b2f76299fca3 100644
+index 4cf120a04fdb2d1e0f79058e41aa507d139977d9..866c0d339a6d35585868606e6e5c12562f4bbbf9 100644
 --- a/SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp
 +++ b/SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp
-@@ -45 +44,0 @@ using Microsoft::WRL::ComPtr;
+@@ -49 +48,0 @@ using Microsoft::WRL::ComPtr;
 -// --- Helpers ---
-@@ -74 +72,0 @@ static inline SkullbonezCore::Core::SbResult Dx12TextureStartupResult( Skullbone
+@@ -78 +76,0 @@ static inline SkullbonezCore::Core::SbResult Dx12TextureStartupResult( Skullbone
 -// --- RenderBackendDX12 Textures methods ---
-@@ -400 +397,0 @@ bool Dx12TextureOwner::GenerateMips( Dx12TextureCommands& commands, ID3D12Resour
+@@ -404 +401,0 @@ bool Dx12TextureOwner::GenerateMips( Dx12TextureCommands& commands, ID3D12Resour
 -        // ------------------------------------------------------------------
-@@ -409 +405,0 @@ bool Dx12TextureOwner::GenerateMips( Dx12TextureCommands& commands, ID3D12Resour
+@@ -413 +409,0 @@ bool Dx12TextureOwner::GenerateMips( Dx12TextureCommands& commands, ID3D12Resour
 -        // ------------------------------------------------------------------
-@@ -424 +419,0 @@ bool Dx12TextureOwner::GenerateMips( Dx12TextureCommands& commands, ID3D12Resour
+@@ -428 +423,0 @@ bool Dx12TextureOwner::GenerateMips( Dx12TextureCommands& commands, ID3D12Resour
 -        // ------------------------------------------------------------------
-@@ -433 +427,0 @@ bool Dx12TextureOwner::GenerateMips( Dx12TextureCommands& commands, ID3D12Resour
+@@ -437 +431,0 @@ bool Dx12TextureOwner::GenerateMips( Dx12TextureCommands& commands, ID3D12Resour
 -        // ------------------------------------------------------------------
-@@ -457 +450,0 @@ bool Dx12TextureOwner::GenerateMips( Dx12TextureCommands& commands, ID3D12Resour
+@@ -461 +454,0 @@ bool Dx12TextureOwner::GenerateMips( Dx12TextureCommands& commands, ID3D12Resour
 -        // ------------------------------------------------------------------
-@@ -459 +451,0 @@ bool Dx12TextureOwner::GenerateMips( Dx12TextureCommands& commands, ID3D12Resour
+@@ -463 +455,0 @@ bool Dx12TextureOwner::GenerateMips( Dx12TextureCommands& commands, ID3D12Resour
 -        // ------------------------------------------------------------------
-@@ -504 +495,0 @@ bool Dx12TextureOwner::GenerateMips( Dx12TextureCommands& commands, ID3D12Resour
+@@ -508 +499,0 @@ bool Dx12TextureOwner::GenerateMips( Dx12TextureCommands& commands, ID3D12Resour
 -        // ------------------------------------------------------------------
-@@ -507 +497,0 @@ bool Dx12TextureOwner::GenerateMips( Dx12TextureCommands& commands, ID3D12Resour
+@@ -511 +501,0 @@ bool Dx12TextureOwner::GenerateMips( Dx12TextureCommands& commands, ID3D12Resour
 -        // ------------------------------------------------------------------
-@@ -636 +625,0 @@ uint32_t Dx12TextureOwner::CreateTexture2D( Dx12TextureCommands& commands, const
+@@ -640 +629,0 @@ uint32_t Dx12TextureOwner::CreateTexture2D( Dx12TextureCommands& commands, const
 -    // -------------------------------------------------------------------------
-@@ -640 +628,0 @@ uint32_t Dx12TextureOwner::CreateTexture2D( Dx12TextureCommands& commands, const
+@@ -644 +632,0 @@ uint32_t Dx12TextureOwner::CreateTexture2D( Dx12TextureCommands& commands, const
 -    // -------------------------------------------------------------------------
-@@ -677 +664,0 @@ uint32_t Dx12TextureOwner::CreateTexture2D( Dx12TextureCommands& commands, const
+@@ -681 +668,0 @@ uint32_t Dx12TextureOwner::CreateTexture2D( Dx12TextureCommands& commands, const
 -    // -------------------------------------------------------------------------
-@@ -680 +666,0 @@ uint32_t Dx12TextureOwner::CreateTexture2D( Dx12TextureCommands& commands, const
+@@ -684 +670,0 @@ uint32_t Dx12TextureOwner::CreateTexture2D( Dx12TextureCommands& commands, const
 -    // -------------------------------------------------------------------------
 diff --git a/SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp b/SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp
-index 266aeb0b5b2bef37ce1ea8b5bbafff703387732a..52eaa9fde1732b5ffeea2c6f9812c5369c4399b3 100644
+index 1b818d918b5f8ebc08a6d31e1339f623d97b867f..d43fd1b8a44f9e7c7fa1b764337bbb8338033f5a 100644
 --- a/SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp
 +++ b/SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp
 @@ -27 +27 @@ Related:
@@ -1376,10 +1225,10 @@ index 266aeb0b5b2bef37ce1ea8b5bbafff703387732a..52eaa9fde1732b5ffeea2c6f9812c536
 @@ -321 +320 @@ void Dx12GraphTransientPool::EndGraphTextureRenderTarget( const RenderGraphTextu
 -// --- Init / Shutdown ---
 +// Init / Shutdown:
-@@ -991 +990 @@ void RenderBackendDX12::Shutdown()
+@@ -994 +993 @@ void RenderBackendDX12::Shutdown()
 -// --- Frame Management ---
 +// Frame Management:
-@@ -1090,4 +1089,3 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::Present( Dx12Diagnostics& diagnos
+@@ -1093,4 +1092,3 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::Present( Dx12Diagnostics& diagnos
 -    // Timer readback can be mapped once this frame's signal fence is reached.
 -    // If there's an unconsumed readback still pending (e.g. fence wasn't ready during the
 -    // non-blocking TryConsume at the top of Present), do a blocking consume now to avoid
@@ -1387,42 +1236,42 @@ index 266aeb0b5b2bef37ce1ea8b5bbafff703387732a..52eaa9fde1732b5ffeea2c6f9812c536
 +    // Invariant: publish this frame's resolved timer fence without waiting for an older
 +    // diagnostic sample. Dx12Diagnostics deliberately replaces a stale pending sample so
 +    // free-running Present never blocks the renderer merely to preserve timing telemetry.
-@@ -1441 +1439 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::Resize( int width, int height )
+@@ -1444 +1442 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::Resize( int width, int height )
 -// --- Viewport & Clear ---
 +// Viewport & Clear:
-@@ -1498 +1496 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
+@@ -1501 +1499 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
 -// --- PSO Management ---
 +// PSO Management:
-@@ -1501 +1499 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
+@@ -1504 +1502 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
 -// --- Resource Creation ---
 +// Resource Creation:
-@@ -1504 +1502 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
+@@ -1507 +1505 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
 -// --- Textures ---
 +// Textures:
-@@ -1507 +1504,0 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
+@@ -1510 +1507,0 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
 -// =============================================================================
-@@ -1516 +1512,0 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
+@@ -1519 +1515,0 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
 -// =============================================================================
-@@ -1519 +1514,0 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
+@@ -1522 +1517,0 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
 -// =============================================================================
-@@ -1532 +1526,0 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
+@@ -1535 +1529,0 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
 -// =============================================================================
-@@ -1535 +1529 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
+@@ -1538 +1532 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
 -// --- Screenshot ---
 +// Screenshot:
-@@ -1538 +1532 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
+@@ -1541 +1535 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
 -// --- Dynamic VB ---
 +// Dynamic VB:
-@@ -1546 +1540 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
+@@ -1549 +1543 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
 -// --- Instanced mesh ---
 +// Instanced mesh:
-@@ -1549 +1543 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
+@@ -1552 +1546 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
 -// --- Queries ---
 +// Queries:
-@@ -1552 +1546 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
+@@ -1555 +1549 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
 -// --- DXR Raytracing ---
 +// DXR Raytracing:
-@@ -1555 +1549 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
+@@ -1558 +1552 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
 -// --- GPU Timers ---
 +// GPU Timers:
 diff --git a/SkullbonezSource/Rendering/DX12/SBTDX12.cpp b/SkullbonezSource/Rendering/DX12/SBTDX12.cpp
@@ -1456,14 +1305,14 @@ index 80b479545bbe9292668b79a8c80e30bbf76d9616..dcd1203505b29257440f5ed231ca94be
 +// Lifetime: copied nodes must point at copied name storage; retaining current
 +// frame pointers would make the snapshot aliases stale during ResetCurrentFrame.
 diff --git a/SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp b/SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp
-index 5093ccf3cd0caba2fd016b502ab41786c21ee1a0..181eff7a4d878440ca8b1be143772dc329f70c13 100644
+index 14e91f1128ea42d8060f63c45a0bed8bb32cefeb..e36c24adb2f111c5c15d980fe26394067d2dc592 100644
 --- a/SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp
 +++ b/SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp
-@@ -1020 +1019,0 @@ void PrimitiveBatchRenderer::DrawShadowDepthSphereBatchEnd( const PrimitiveRende
+@@ -1015 +1014,0 @@ void PrimitiveBatchRenderer::DrawShadowDepthSphereBatchEnd( const PrimitiveRende
 -// =============================================================================
-@@ -1022 +1020,0 @@ void PrimitiveBatchRenderer::DrawShadowDepthSphereBatchEnd( const PrimitiveRende
+@@ -1017 +1015,0 @@ void PrimitiveBatchRenderer::DrawShadowDepthSphereBatchEnd( const PrimitiveRende
 -// =============================================================================
-@@ -1028 +1025,0 @@ void PrimitiveBatchRenderer::DrawShadowDepthSphereBatchEnd( const PrimitiveRende
+@@ -1023 +1020,0 @@ void PrimitiveBatchRenderer::DrawShadowDepthSphereBatchEnd( const PrimitiveRende
 -// =============================================================================
 diff --git a/SkullbonezSource/Rendering/RenderCommandTypes.h b/SkullbonezSource/Rendering/RenderCommandTypes.h
 index 99f8cbda27950cb209e539d9999d540a5fd290f8..34e4eddd72489e5f799db05aed16ed8c90e7c6ad 100644
@@ -1594,14 +1443,14 @@ index 71c9c496c004f3fb56fcf363d45ab1b55215ebf5..e05cf6356fe3e58bd41f14214aedff13
 @@ -351 +343,0 @@ int ReportDiagnosticStoreSession( SkullbonezCore::Core::SbDiagnosticStore& diagn
 -// ---------------------------------------------------------------------------
 diff --git a/SkullbonezSource/Runtime/App/Run.h b/SkullbonezSource/Runtime/App/Run.h
-index 82886cbbef1b87a8ffe78dc4b9b0fc185f2ec461..df59868f0c7f13e80c955776f8d1420bb42daaca 100644
+index a92f4f53e92a901358d4e60806e2911e20078092..9b142770cafafd879a3d8ffecebb1b378588e315 100644
 --- a/SkullbonezSource/Runtime/App/Run.h
 +++ b/SkullbonezSource/Runtime/App/Run.h
-@@ -261 +261 @@ class Run
+@@ -277 +277 @@ class Run
 -    // --- Per-frame tick helpers (called from Execute()) ---
 +    // Per-frame tick helpers (called from Execute()):
 diff --git a/SkullbonezSource/Runtime/App/RunFrame.cpp b/SkullbonezSource/Runtime/App/RunFrame.cpp
-index 299649232752356d5f019d128687183df81a2d97..57ab30b5101cd49fafc46a4c5a0a525cfa194727 100644
+index 91f03f19513547b12b34fc052bdf5edf1aed9d37..873f20cf1144b344d086fcdfa82f57d716f00d15 100644
 --- a/SkullbonezSource/Runtime/App/RunFrame.cpp
 +++ b/SkullbonezSource/Runtime/App/RunFrame.cpp
 @@ -29,3 +28,0 @@ Glossary:
@@ -1780,16 +1629,14 @@ index f6c161d3869d0994194be803fc3230329c8171e0..06bbeb0361ebcd6b964e9b3b317ca29c
 -// Synchronous read-only borrow over one sealed frame in a segmented bank.
 +// Lifetime: synchronous read-only borrow over one sealed frame in a segmented bank.
 diff --git a/SkullbonezSource/Runtime/Render/RenderResourceLifecycle.cpp b/SkullbonezSource/Runtime/Render/RenderResourceLifecycle.cpp
-index f75f872bc609313cb561873b5897de09a130dabe..4d33deb961dbf196301520e3937a45eafce3599c 100644
+index 7905e63daf628fc7197917ac7197a6b6a9b9f0da..b03690cc9a6d7b4bc1a4fa1a096055e59e4cdcb5 100644
 --- a/SkullbonezSource/Runtime/Render/RenderResourceLifecycle.cpp
 +++ b/SkullbonezSource/Runtime/Render/RenderResourceLifecycle.cpp
-@@ -11,5 +10,0 @@ Summary:
+@@ -11,3 +10,0 @@ Summary:
 -Glossary:
--  DXR: DirectX Raytracing, used for optional hardware reflections.
--  BLAS: Bottom-Level Acceleration Structure built from one mesh's vertices.
 -  Source asset: Stable authored record used to rebuild a backend texture handle.
 -
-@@ -21,0 +17 @@ Related:
+@@ -21,0 +19 @@ Related:
 +  - Agentic/Reference/engine-glossary.md
 diff --git a/SkullbonezSource/Runtime/Render/RuntimeRenderFrameValues.h b/SkullbonezSource/Runtime/Render/RuntimeRenderFrameValues.h
 index e6c12b47f2b1cd4d80fe93c1dd92485db6c90883..b2a1e456cf3856abd13ffd6f5ababc8e51ae082a 100644
@@ -1800,10 +1647,10 @@ index e6c12b47f2b1cd4d80fe93c1dd92485db6c90883..b2a1e456cf3856abd13ffd6f5ababc8e
 -  Frame policy: Value-only presentation choices sampled after input.
 -
 diff --git a/SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp b/SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp
-index ceeb9bfdac01662998bb8e6113b0b7b84b833de9..98ac82e25059c13714392550197b69c5990ecb5b 100644
+index fbaff33e741f7afe248278da46639a65fde0e939..3e82b5e52e35f7ca5fe77611a76da54fb5bf3af7 100644
 --- a/SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp
 +++ b/SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp
-@@ -2005,3 +2005,3 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
+@@ -2023,3 +2023,3 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
 -    // These passes currently borrow subsystem-owned mesh/material resources,
 -    // but keeping the ensure calls in the frame story gives future extraction
 -    // work an obvious place to move those GPU resources.
@@ -1821,22 +1668,22 @@ index de8788f7e91ca8db35a2164eca019722d48f2dc0..c0b405ac755b7b8423516d5ca43834b5
 @@ -27,0 +25 @@ Related:
 +  - Agentic/Reference/engine-glossary.md
 diff --git a/SkullbonezSource/Runtime/Render/UiTextPass.cpp b/SkullbonezSource/Runtime/Render/UiTextPass.cpp
-index 80dd40e7e6dac218aa80080a58b3719206b16e49..56a96fd09faea742c243c3642f607ae7d6b689ca 100644
+index 98a319d31703fbe8c719e39ab45346ef39cef7db..bc1cc44692fabcdab71be7aabf66e2e354c9d09b 100644
 --- a/SkullbonezSource/Runtime/Render/UiTextPass.cpp
 +++ b/SkullbonezSource/Runtime/Render/UiTextPass.cpp
-@@ -1133 +1133 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport, OverlayMo
+@@ -1153 +1153 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport, OverlayMo
 -    // --- Overlay: None ---
 +    // Overlay: None:
-@@ -1139 +1139 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport, OverlayMo
+@@ -1159 +1159 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport, OverlayMo
 -    // --- Overlay: Scene telemetry ---
 +    // Overlay: Scene telemetry:
-@@ -1166 +1166 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport, OverlayMo
+@@ -1186 +1186 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport, OverlayMo
 -    // --- Overlay: Visual profiler bars (normalized or absolute) ---
 +    // Overlay: Visual profiler bars (normalized or absolute):
-@@ -1194 +1194 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport, OverlayMo
+@@ -1214 +1214 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport, OverlayMo
 -    // --- Overlay: Keys reference screen (compact, bottom-left) ---
 +    // Overlay: Keys reference screen (compact, bottom-left):
-@@ -1266 +1266 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport, OverlayMo
+@@ -1286 +1286 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport, OverlayMo
 -    // --- Overlay: Timers / HUD (OverlayMode::Timers) ---
 +    // Overlay: Timers / HUD (OverlayMode::Timers):
 diff --git a/SkullbonezSource/Runtime/Replay/ReplayRecorder.h b/SkullbonezSource/Runtime/Replay/ReplayRecorder.h
@@ -1878,7 +1725,7 @@ index e8ed79b2c8634d5d4e46b564d4f00e7e19c8dc38..a09ed52f4f96d269e1a1cb1d4829137c
 -    // Canonical marker hashes and structural counts are supplementary. The
 +    // Invariant: canonical marker hashes and structural counts are supplementary. The
 diff --git a/SkullbonezSource/Runtime/Scene/SceneEntityStore.cpp b/SkullbonezSource/Runtime/Scene/SceneEntityStore.cpp
-index 1b48bf6ff5799935121b1f9c06ea1c2e2d381ef1..0b7e55ec350009f3ee9c3aa2aa8c26e5a42e9c77 100644
+index 7ca3c3610b69d639eb95af36e0bea84c2410d06c..2e7d113da156550f34343d5289f9ab71a4075caa 100644
 --- a/SkullbonezSource/Runtime/Scene/SceneEntityStore.cpp
 +++ b/SkullbonezSource/Runtime/Scene/SceneEntityStore.cpp
 @@ -11,3 +10,0 @@ Summary:
@@ -2168,7 +2015,7 @@ index 66c656989dc9e9ae4fe5aed6cf3c2b52893eeb73..725ae7587771302072ed9da540a467a8
 +  Declares bounded profiler snapshots, expansion state, timeline, histogram,
 +  and worker controls.
 diff --git a/SkullbonezSource/UI/UITabScene.cpp b/SkullbonezSource/UI/UITabScene.cpp
-index a71ec1ac9728f52501b5168dba61f9f4a8f843c5..0545a26751111f4945c2cabfbab45278e3d9e24f 100644
+index a5b71bb8934b8b9ab5aa9309bf7435d9f67d2b67..8becf1c59ed9fbc5a52a3f6e52c31aaa7e33e26d 100644
 --- a/SkullbonezSource/UI/UITabScene.cpp
 +++ b/SkullbonezSource/UI/UITabScene.cpp
 @@ -4 +4,2 @@ Purpose:
@@ -2176,7 +2023,7 @@ index a71ec1ac9728f52501b5168dba61f9f4a8f843c5..0545a26751111f4945c2cabfbab45278
 +  Implements filtered scene navigation, time controls, and detached forecast
 +  presentation.
 diff --git a/SkullbonezSource/UI/UITabScene.h b/SkullbonezSource/UI/UITabScene.h
-index 2bb2cf5acf5424adf98ab114d5f29d540ce51c6d..bffd8ec0980c5852489c3649e55bdb93e9e3e8e1 100644
+index 1cef3c95c8675c756b101750de1e36404c869357..b7c2121a88956112a3be04aa669aaa363b5e36d8 100644
 --- a/SkullbonezSource/UI/UITabScene.h
 +++ b/SkullbonezSource/UI/UITabScene.h
 @@ -4 +4,2 @@ Purpose:
@@ -2218,13 +2065,13 @@ index e095939bf83a76e90642e9bb9185c043d6a8ee8e..6ada09db77697ae3848cc5024af3d46a
 +    // Invariant: hit testing and drawing borrow the same widget instances and
 +    // geometry, preventing presentation from diverging from pointer behavior.
 diff --git a/SkullbonezSource/World/WorldEnvironment.cpp b/SkullbonezSource/World/WorldEnvironment.cpp
-index b3c623eed00413c8ea758909088742ea9724171b..97fc05dae8b2fb03a690017d705f43d41cc09188 100644
+index cf26f6db6a5dd972db33f265c652519f91c73276..de3cf41b6cdf204e3065825310bef6f7c37646a9 100644
 --- a/SkullbonezSource/World/WorldEnvironment.cpp
 +++ b/SkullbonezSource/World/WorldEnvironment.cpp
-@@ -277 +277 @@ void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, co
+@@ -281 +281 @@ void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, co
 -    // --- calm (inner) pass: flat, reflective unless disabled ---
 +    // Calm (inner) pass: flat, reflective unless disabled:
-@@ -293 +293 @@ void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, co
+@@ -297 +297 @@ void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, co
 -    // --- ocean (outer) pass: vertex displacement + UV perturbation ---
 +    // Ocean (outer) pass: vertex displacement + UV perturbation:
 diff --git a/SkullbonezTests/TestApplicationExitState.cpp b/SkullbonezTests/TestApplicationExitState.cpp
@@ -2361,16 +2208,16 @@ index 1dd2668b21a04b30a214a42a67535c83edeebe7f..845aa12839346d2d7e115b793f69b45d
 -    // Same index and unchanged entity count are still a distinct load attempt.
 +    // Concept: the same index and unchanged entity count are still a distinct load attempt.
 diff --git a/SkullbonezTests/TestPersistentContactSolver.cpp b/SkullbonezTests/TestPersistentContactSolver.cpp
-index e5b7c6ea7f09ae821067a48962ca005943486142..b14c2c04e25f97ee200d654ec1f24583bf83d237 100644
+index 325b8c0f480a502d3d676e50c444f740ee622b70..709e11bb0462dddcfaafbb2803556148be5814e5 100644
 --- a/SkullbonezTests/TestPersistentContactSolver.cpp
 +++ b/SkullbonezTests/TestPersistentContactSolver.cpp
-@@ -19,2 +18,0 @@
+@@ -21,2 +20,0 @@
 -//   Warm starting: Reusing the previous frame's accumulated impulse so a stable
 -//     contact begins near its converged solution.
-@@ -24,2 +21,0 @@
+@@ -26,2 +23,0 @@
 -//   Determinism: Same fixture inputs produce the same row cache and body
 -//     writeback, matching the physics baseline contract.
-@@ -57,0 +54 @@
+@@ -63,0 +60 @@
 +//   - Agentic/Reference/engine-glossary.md
 diff --git a/SkullbonezTests/TestPhysicsApi.cpp b/SkullbonezTests/TestPhysicsApi.cpp
 index 519aa9fb6743b9ac9d48ef02bbad9ce142b6abae..50a41aee0ebc10e41cd0d2de02139e00895595d6 100644
@@ -2380,10 +2227,10 @@ index 519aa9fb6743b9ac9d48ef02bbad9ce142b6abae..50a41aee0ebc10e41cd0d2de02139e00
 -    // A world point is numerically plausible input but means a very different
 +    // Hazard: a world point is numerically plausible input but means a very different
 diff --git a/SkullbonezTests/TestPhysicsHandles.cpp b/SkullbonezTests/TestPhysicsHandles.cpp
-index 4f6ab4fb3e974016580e5f74673529c6b4cd7746..1e13b28f6323857dc624b5ad6a4e73f483b07afa 100644
+index ad6488035d583f8cfd546c1c9652a23d50e6979b..e0c93c3779719bbbade0a156835f1f9cb026ce30 100644
 --- a/SkullbonezTests/TestPhysicsHandles.cpp
 +++ b/SkullbonezTests/TestPhysicsHandles.cpp
-@@ -19,8 +18,0 @@
+@@ -21,8 +20,0 @@
 -//   Model row hint: Cached dense-row guess that a resolver can repair after
 -//     deletion compacts the store.
 -//   Collider authoring row: Cold scene round-trip text paired with one dense
@@ -2393,7 +2240,7 @@ index 4f6ab4fb3e974016580e5f74673529c6b4cd7746..1e13b28f6323857dc624b5ad6a4e73f4
 -//   Scene object id: Stable id used by replay/diagnostics to find a body even
 -//     when a model-index hint is stale.
 diff --git a/SkullbonezTests/TestPhysicsStageState.cpp b/SkullbonezTests/TestPhysicsStageState.cpp
-index 0b2d538c255bcbf87db0e6dbd35bfb4660d61df4..ab849e7cf82f6759ad3627293da80336a2b66365 100644
+index a79fc4ccc9e1b67ea4325d7350c3ebf86ed2abdc..cb9d68f173300dcf87faa4796d45ef6b352b98ba 100644
 --- a/SkullbonezTests/TestPhysicsStageState.cpp
 +++ b/SkullbonezTests/TestPhysicsStageState.cpp
 @@ -12,2 +11,0 @@
@@ -2402,15 +2249,15 @@ index 0b2d538c255bcbf87db0e6dbd35bfb4660d61df4..ab849e7cf82f6759ad3627293da80336
 @@ -15,2 +12,0 @@
 -//   Runtime settings snapshot: Physics-owned copy stamped once from process
 -//     configuration before fixed-step consumers borrow it.
-@@ -37,0 +34 @@
+@@ -39,0 +36 @@
 +//   - Agentic/Reference/engine-glossary.md
 diff --git a/SkullbonezTests/TestQuaternion.cpp b/SkullbonezTests/TestQuaternion.cpp
-index 289e0e3f75aab5f68fe8d076112eb7b613e9b31f..2c5c71f988e4ac9ac4c7a6cdc5745bd44c3651ab 100644
+index 6d284ede2b9485d0a0b72c133b0e2fcf8fcfa557..c07a79e431a3e33a9e2304eb9c54edbd2698160d 100644
 --- a/SkullbonezTests/TestQuaternion.cpp
 +++ b/SkullbonezTests/TestQuaternion.cpp
 @@ -12 +11,0 @@
 -//   Identity quaternion: No-rotation value (0,0,0,1).
-@@ -27,0 +27 @@
+@@ -29,0 +29 @@
 +//   - Agentic/Reference/engine-glossary.md
 diff --git a/SkullbonezTests/TestReplayCauseInspection.cpp b/SkullbonezTests/TestReplayCauseInspection.cpp
 index f6a9b101924806beda02f55e5abb426348372d4b..cffb8b255e89564adbd9f1de2d69a4ea38154a69 100644
@@ -2451,7 +2298,7 @@ index 2abf85de237c3c4547818acee00950fc6fc37888..c932823e38e647f5251eb92f96b26c50
 @@ -48,0 +41 @@ Related:
 +  - Agentic/Reference/engine-glossary.md
 diff --git a/SkullbonezTests/TestReserveAllocator.cpp b/SkullbonezTests/TestReserveAllocator.cpp
-index 97a34a2e64ce2b32e66c35ddd23a9e553d9b10d7..6771f973a27c44b07412578aa9718d65a24323c2 100644
+index 9de451fd90fcabb6a81f94ac8e15e4b7651bee16..4ef3bf213f29c13749ca03b7daeb667572c446c7 100644
 --- a/SkullbonezTests/TestReserveAllocator.cpp
 +++ b/SkullbonezTests/TestReserveAllocator.cpp
 @@ -14,4 +13,0 @@
@@ -2479,7 +2326,7 @@ index 83b5a71784d058d5e8d795ed063f379494c68126..c2df4d6f5fa5347dbef1a763345e4000
 @@ -19,0 +16 @@ Related:
 +  - Agentic/Reference/engine-glossary.md
 diff --git a/SkullbonezTests/TestRuntimeContracts.cpp b/SkullbonezTests/TestRuntimeContracts.cpp
-index e1da03edb66071818a60563c4096dcc31dbe12a3..3471135bba7fca6ca219d9a425d6d4e6fe0ffccf 100644
+index 462439710bf02aa95dc648ff2311ee3ee8445cff..932598cb1c3b2cd17cf0e2e6d5bcd20579bbc7de 100644
 --- a/SkullbonezTests/TestRuntimeContracts.cpp
 +++ b/SkullbonezTests/TestRuntimeContracts.cpp
 @@ -12 +11,0 @@
@@ -2487,7 +2334,7 @@ index e1da03edb66071818a60563c4096dcc31dbe12a3..3471135bba7fca6ca219d9a425d6d4e6
 @@ -15,2 +13,0 @@
 -//   Lane R: Recoverable result path that returns an owned error instead of
 -//     terminating the engine.
-@@ -48,0 +46 @@
+@@ -68,0 +66 @@
 +//   - Agentic/Reference/engine-glossary.md
 diff --git a/SkullbonezTests/TestRuntimeInputBindings.cpp b/SkullbonezTests/TestRuntimeInputBindings.cpp
 index d8776f30c67c63ce6af232a50d17f1a026f104c2..d8c3d06900dbb4232e6b49675b09cc3ca506410b 100644
@@ -2499,34 +2346,34 @@ index d8776f30c67c63ce6af232a50d17f1a026f104c2..d8c3d06900dbb4232e6b49675b09cc3c
 @@ -22,0 +21 @@ Related:
 +  - Agentic/Reference/engine-glossary.md
 diff --git a/SkullbonezTests/TestRuntimeValueSeams.cpp b/SkullbonezTests/TestRuntimeValueSeams.cpp
-index fac467d98bf28f4bd2c7f6472bf4277093b661ec..8e071854080153cebbd7b986df25161b71e9c159 100644
+index 7993f748baa0e276332fb0f1f4c8b8b59b80ae39..ffebc511b0f92f4d5387f491d21dde468fe799d4 100644
 --- a/SkullbonezTests/TestRuntimeValueSeams.cpp
 +++ b/SkullbonezTests/TestRuntimeValueSeams.cpp
 @@ -12,2 +11,0 @@
 -//   Frame policy: Value packet deciding physics advance, camera-look state, or
 -//     whether a cross-scene-locked frame may proceed.
-@@ -28,0 +27 @@
+@@ -30,0 +29 @@
 +//   - Agentic/Reference/engine-glossary.md
-@@ -516 +515 @@ TEST_CASE( "Replay memory: one Low-detail snapshot reconciles released evidence"
+@@ -682 +681 @@ TEST_CASE( "Replay memory: one Low-detail snapshot reconciles released evidence"
 -    // A stale total or category row must fail even when the release checkpoint
 +    // Hazard: a stale total or category row must fail even when the release checkpoint
-@@ -534 +533 @@ TEST_CASE( "Replay memory: one Low-detail snapshot reconciles released evidence"
+@@ -700 +699 @@ TEST_CASE( "Replay memory: one Low-detail snapshot reconciles released evidence"
 -    // Subtraction is guarded before it can underflow, including an extreme
 +    // Hazard: subtraction is guarded before it can underflow, including an extreme
 diff --git a/SkullbonezTests/TestSceneEntityStore.cpp b/SkullbonezTests/TestSceneEntityStore.cpp
-index 347690e478d2e72c7e752fa09c40b2fc4adb10fa..555d4bd5f316f0640f95fcdaa9701c308a35aa9b 100644
+index 0e75579157c6a5d6463f711e4a3402428eda5f64..ffea38edd09dd70cb7b97318d1c0d31538e0476a 100644
 --- a/SkullbonezTests/TestSceneEntityStore.cpp
 +++ b/SkullbonezTests/TestSceneEntityStore.cpp
 @@ -11 +10,0 @@ Glossary:
 -  Stable identity: Nonzero PhysicsSceneObjectId independent of dense row order.
 @@ -13 +11,0 @@ Glossary:
 -  Behavior group: Ragdoll/tree membership keyed by stable root id and part order.
-@@ -23,0 +22 @@ Related:
+@@ -27,0 +26 @@ Related:
 +  - Agentic/Reference/engine-glossary.md
-@@ -236 +235 @@ TEST_CASE( "RenderInstanceStore: fixed-tick poses interpolate and discontinuitie
+@@ -311 +310 @@ TEST_CASE( "RenderInstanceStore: fixed-tick poses interpolate and discontinuitie
 -    // A teleport between ticks is a discontinuity. Refresh must publish it
 +    // Concept: a teleport between ticks is a discontinuity. Refresh must publish it
-@@ -243 +242 @@ TEST_CASE( "RenderInstanceStore: fixed-tick poses interpolate and discontinuitie
+@@ -319 +318 @@ TEST_CASE( "RenderInstanceStore: fixed-tick poses interpolate and discontinuitie
 -    // Input can teleport a body immediately before a solver tick. The begin
 +    // Invariant: input can teleport a body immediately before a solver tick. The begin
 diff --git a/SkullbonezTests/TestSceneSnapshotWriter.cpp b/SkullbonezTests/TestSceneSnapshotWriter.cpp
@@ -2539,14 +2386,14 @@ index 043fbff71d3ac863392145bdb1feba0e56457e4c..0f393ccfe7fbed26fa15fbfa48269982
 @@ -31,0 +30 @@ Related:
 +  - Agentic/Reference/engine-glossary.md
 diff --git a/SkullbonezTests/TestSleepController.cpp b/SkullbonezTests/TestSleepController.cpp
-index ee63eb9de53bf843c618a0b71c383f472fec7b2b..4c151bdd45f4e4c7e0b3cb35cf84b1becc3b3f7d 100644
+index c03752acf35f5deba76466e5f9cbf0e79e86c9ae..45c7176ccdb3911973704acbbf48927bdf5e441a 100644
 --- a/SkullbonezTests/TestSleepController.cpp
 +++ b/SkullbonezTests/TestSleepController.cpp
 @@ -15,3 +14,0 @@
 -//   Underwater lock: Dormancy state that rejects ordinary wake while a ball is submerged.
 -//   Support edge: Directed relation from a grounded supporter to a supported body.
 -//
-@@ -28,0 +26 @@
+@@ -30,0 +28 @@
 +//   - Agentic/Reference/engine-glossary.md
 diff --git a/SkullbonezTests/TestStartup.cpp b/SkullbonezTests/TestStartup.cpp
 index 5b673c671f597553f1532ab2849709a1e288268f..97c5c9a15030bd522b2e10bc30abbc61caefdced 100644
@@ -2565,40 +2412,29 @@ index 5b673c671f597553f1532ab2849709a1e288268f..97c5c9a15030bd522b2e10bc30abbc61
 +    // for a leading minus. This assertion records the observable parser result;
 +    // changing it is a product-behavior change, not a comment cleanup.
 diff --git a/SkullbonezTests/TestTerrain.cpp b/SkullbonezTests/TestTerrain.cpp
-index d01618856bff7b2d4d51b2642d457235b09c6672..509f27e08f2ba8aedead258c1df26c967943ea84 100644
+index f40b75aff93038e53a85e52059ce9e58f194fe4b..7f3de0fb00dccefa08b81242039cb4ce55efb622 100644
 --- a/SkullbonezTests/TestTerrain.cpp
 +++ b/SkullbonezTests/TestTerrain.cpp
-@@ -266 +266 @@ TEST_CASE( "Coverage floor contract: terrain sweep and manifold support every co
+@@ -384 +384 @@ TEST_CASE( "Coverage floor contract: terrain sweep and manifold support every co
 -    // A zero-time hit exercises the resting patch rather than the fast-impact
 +    // Concept: a zero-time hit exercises the resting patch rather than the fast-impact
 diff --git a/SkullbonezTests/TestUIDrawValues.cpp b/SkullbonezTests/TestUIDrawValues.cpp
-index add9756bd88b20b0518afe4ec3a6d92a4dddde89..5f4ecc7df33485c1942a6679f857835ed8234353 100644
+index 74174d126ffb1f5ce4e64c4e3e69b6e924158040..776228f440dc26e3546929de9e3efd7cf25279fc 100644
 --- a/SkullbonezTests/TestUIDrawValues.cpp
 +++ b/SkullbonezTests/TestUIDrawValues.cpp
 @@ -13 +12,0 @@ Glossary:
 -  Preview identity: UI catalog row resolved to a texture only during submission.
 @@ -24,0 +24 @@ Related:
 +  - Agentic/Reference/engine-glossary.md
-@@ -250 +250 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
+@@ -290 +290 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
 -        // Profiler: refreshed when the per-marker Work column was added so
 +        // Why: the profiler fingerprint was refreshed when the per-marker Work column was added so
-@@ -255 +255 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
+@@ -295 +295 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
 -        // The portable target links the non-instrumented UI library, matching
 +        // Why: the portable target links the non-instrumented UI library, matching
-@@ -261 +261 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
--        // Scene: continuous-forecast controls and stability rows are part of
-+        // Invariant: scene continuous-forecast controls and stability rows are part of
-diff --git a/SkullbonezTests/TestVector3.cpp b/SkullbonezTests/TestVector3.cpp
-index 2caed58f46647ba9409095007fbd920c01bb9c95..3b8e1421c10592d635634124165c73bde677e0c2 100644
---- a/SkullbonezTests/TestVector3.cpp
-+++ b/SkullbonezTests/TestVector3.cpp
-@@ -64,3 +64,3 @@ TEST_CASE( "Vector3: plain zero normalise asserts in Debug and propagates IEEE v
--    // Hazard: doctest cannot intercept the CRT assert in Normalise(). The U2
--    // survey records the one-time source/manual contract check; do not invoke
--    // this branch in-process because an assertion dialog would stall the gate.
-+    // Hazard: doctest cannot intercept the CRT assert in Normalise(). The Debug
-+    // branch deliberately avoids that call because an assertion dialog would
-+    // stall the test gate; the non-Debug branch records the IEEE result.
+@@ -301 +301 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
+-        // Scene: the rolling-prediction checkbox and forecast stability rows
++        // Invariant: the rolling-prediction checkbox and forecast stability rows
 diff --git a/tools/agent_validate.bat b/tools/agent_validate.bat
 index 92f4c0dd7968978917cb9be04f7f79caf5f04006..4c5fbe83c41b424a757a49f49524b409e55329cc 100644
 --- a/tools/agent_validate.bat
