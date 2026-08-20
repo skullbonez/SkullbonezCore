@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-20
-Status: Three active plans; 51/67 tasks complete
+Status: Four active plans; 51/74 tasks complete
 
 ## Owner Direction
 
@@ -86,6 +86,15 @@ Status: Three active plans; 51/67 tasks complete
   explicit absolute-path manifest before deletion; and reconcile every tracked
   candidate through owner review. RC0 follows VTA5 so the audit can measure a
   stable evidence corpus before cleanup removes historical local output.
+- Cause Hierarchy Scientific Inspector is registered after repository cleanup.
+  Its seven phases replace the existing causal window with the owner-approved
+  dark-blue filtered hierarchy and turn exact solver detail into a flush-attached
+  Summary / Raw Record / Iterations drawer. The drawer animates left from behind
+  the hierarchy, shares one anchor and drag/resize owner with it, and never owns
+  an independent placement or vertically expanding raw surface. CHUI0 follows
+  RC5 so current invariant, validation, and repository-hygiene work remains
+  binding while the concept PNG and complete visual/interaction contract stay
+  registered beside the live plan.
 - Continuous Orbital Forecast was reactivated by owner direction on
   2026-08-17. It follows predicted solver detail and owns the separate
   interactive continuous prediction mode, coherent rolling 120-second path
@@ -187,6 +196,7 @@ Completed plan files were deleted; git history is the archive.
 | Invariant Enforcement And Assertion Hardening | `INVARIANT_HARDENING` | 8 | 4 | `TODO/invariant-enforcement-hardening.md` |
 | Full Validation Time And Value Audit | `VALIDATION_TIME_AUDIT` | 6 | 0 | `TODO/full-validation-time-value-audit.md` |
 | Repository Hygiene Cleanup | `REPOSITORY_CLEANUP` | 6 | 0 | `TODO/repository-hygiene-cleanup.md` |
+| Cause Hierarchy Scientific Inspector | `CAUSE_HIERARCHY_UI` | 7 | 0 | `TODO/cause-hierarchy-scientific-inspector.md` |
 
 ## Parked, Backlog, And Completed Plans
 
@@ -233,6 +243,11 @@ states elsewhere, and both are recorded rather than silently corrected:
    owner dispositions, remove only explicit ignored/build/worktree targets,
    reconcile tracked artifacts and stale references, and close with independent
    data-loss and reachability review.
+4. `CAUSE_HIERARCHY_UI` CHUI0 through CHUI6 - preserve the approved concept as
+   an exact visual contract, restyle and filter the existing hierarchy, attach
+   one animated tabbed evidence drawer to the hierarchy's sole placement owner,
+   and close with deterministic compact-viewport screenshots, UI/Automation/
+   replay visual gates, stress, and independent ownership plus visual review.
 
 `CAUSAL_INSPECT` no longer re-steps an old frame to regenerate solver detail, so
 it does not consume the tier-2 determinism guarantee and has no ordering
@@ -249,11 +264,16 @@ feed per-tick solver evidence into its continuous path or infer all-body
 presentation from generic Physics force state. `REST_STABILITY` follows both;
 their exact-value displays must continue mapping Physics-owned values rather
 than pinning pre-repair impulses, activation times, or sleep frames.
+`CAUSE_HIERARCHY_UI` is presentation and interaction work above those completed
+exact-evidence owners. It may project retained values and compose existing
+selection/transport commands, but it must not rebuild evidence, add a second
+selection/placement owner, widen Replay reserve privilege, or move feature
+contracts into Rendering.
 `future_physics.md` remains intentionally absent from this ledger.
 
 ## Portfolio Progress
 
-51/67 tasks complete with three active plans.
+51/74 tasks complete with four active plans.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
@@ -262,5 +282,7 @@ remain, with IH4 next.
 Full Validation Time And Value Audit VTA0-VTA5 follows IH7; all six phases
 remain.
 Repository Hygiene Cleanup RC0-RC5 follows VTA5; all six phases remain.
+Cause Hierarchy Scientific Inspector CHUI0-CHUI6 follows RC5; all seven phases
+remain.
 Deterministic
 Trigonometry is owner-parked and excluded from progress.
