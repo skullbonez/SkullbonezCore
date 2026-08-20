@@ -104,6 +104,13 @@ Status: Four active plans; 55/80 tasks complete
   area. Current implementation and IH enforcement prose are authoritative; the
   old 261-hunk count is not a completion target. CT5 closes with full inventory,
   glossary, semantic, ownership-ruling, fast-gate, and independent truth review.
+  CT0 has reconciled the live checklist at 843/843 files. The frozen artifact
+  addresses 262 targets including the engine glossary, 37 of which changed
+  after its snapshot. Strict and three-way checks now fail broadly, and a
+  detached check at the declared snapshot also does not apply cleanly under the
+  current checkout. No live source was changed. The artifact remains provenance
+  only; CT0 must regenerate the surviving replacements semantically from the
+  current tree before any owner-area batch lands.
 - Full Validation Time And Value Audit is registered after comment truth
   replacement.
   Its six phases will measure every nested full-validation stage under warm,
@@ -308,7 +315,8 @@ Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
 Invariant Enforcement And Assertion Hardening IH0-IH7 is complete.
-Full Source Comment Truth Replacement CT0-CT5 is next; all six phases remain.
+Full Source Comment Truth Replacement CT0 is active at semantic patch
+regeneration; all six phases remain incomplete.
 Full Validation Time And Value Audit VTA0-VTA5 follows CT5; all six phases
 remain.
 Repository Hygiene Cleanup RC0-RC5 follows VTA5; all six phases remain.

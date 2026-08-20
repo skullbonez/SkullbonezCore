@@ -402,6 +402,12 @@ hunks made redundant by IH, regenerate stale or conflicting replacements
 against current implementation, and preserve every post-IH enforcement-lane
 and ownership comment. CT0 must resolve the known strict conflicts in
 `TestUIDrawValues.cpp` and `TestVector3.cpp` before any batched application.
+The live checklist reconciles at 843/843 files. The frozen artifact has 262
+targets including the glossary, 37 changed after its snapshot, and now fails
+both strict and three-way checks broadly; a detached check at the declared
+snapshot also fails under the current checkout. No live source changed. Resume
+by regenerating surviving replacements semantically from current source rather
+than applying or merging the frozen artifact.
 
 At-Rest Ball Stability closed in `f2e192f53`. Its uncapped all-three-asleep
 semantic witness, deterministic 0/1/4-worker proof, box and moving-slope

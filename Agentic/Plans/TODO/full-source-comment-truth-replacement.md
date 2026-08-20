@@ -17,12 +17,29 @@ truth: CT0 must discard a hunk when IH made it redundant, regenerate it when the
 implementation or invariant changed, and preserve the current IH wording when
 the queued replacement would weaken or contradict it.
 
-Do not apply the frozen patch wholesale. Its strict check now conflicts in
-`SkullbonezTests/TestUIDrawValues.cpp` and `SkullbonezTests/TestVector3.cpp`;
-seven completed IH selected files and seventeen pending IH selected files also
-overlap the queued replacements. A textual three-way application is not
-semantic proof. Each overlapping file requires a fresh full-file comment audit
-against the post-IH implementation before its checklist disposition changes.
+Do not apply the frozen patch wholesale. CT0 rechecked it after IH7 and found
+that strict and three-way application fail broadly, not only in the two tests
+known at registration. A detached application at the declared snapshot also
+does not apply cleanly under the current checkout. The artifact therefore
+remains provenance for the intended prose, never an executable patch claim.
+Each queued file requires a fresh full-file audit against the post-IH
+implementation before its checklist disposition changes.
+
+## CT0 Rebase Evidence
+
+- The current tracked checklist still reconciles exactly at 843/843 files; no
+  tracked source-bearing file is missing from the plan and no row is stale.
+- The frozen artifact has 262 targets: 261 checklist files plus
+  `Agentic/Reference/engine-glossary.md`.
+- 37 patch targets changed between snapshot
+  `154506e0312e42d1bfa0065fba900b24d8225889` and IH7 closure
+  `4472cc9e5105625bef059ab153dbcf614d5a2823`.
+- Strict and three-way checks fail broadly on the IH7 tree. A detached worktree
+  at the declared snapshot also rejects the artifact with current Git checkout
+  settings, so CT0 cannot use textual application as its rebase mechanism.
+- No live source or queued checklist row changed during this measurement. The
+  next CT0 step is to reconstruct the surviving comment-only replacements from
+  current source, preserving IH4-IH7 wording and recording superseded hunks.
 
 ## Outcome
 
