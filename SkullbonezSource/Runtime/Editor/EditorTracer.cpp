@@ -567,8 +567,9 @@ void EditorTracer::EmitReplayRibbonSegmentTo( std::vector<float>& ribbonData, co
         ++m_replayTrajectoryStats.emittedSegments[laneIndex];
     }
 
-    // Invariant: replay ribbon storage is reserved during tracer construction.
-    // Explicit appends keep the steady-gameplay path inside that fixed budget.
+    // Runtime allocation policy: replay ribbon storage is reserved during
+    // tracer construction. Explicit appends keep the steady-gameplay path
+    // inside that fixed budget.
     ribbonData.push_back( a.x );
     ribbonData.push_back( a.y );
     ribbonData.push_back( a.z );
@@ -816,10 +817,11 @@ void EditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const Ve
 
         cachedRibbonData.clear();
 
-        // Invariant: both cache lanes reserve the same fixed cap as their
-        // source lanes during EditorTracer construction. This copy therefore
-        // replaces bytes inside retained storage instead of growing gameplay
-        // memory when a prediction publication changes.
+        // Invariant: each cache lane mirrors the complete ordered bytes of its
+        // source lane when a prediction publication changes.
+        // Runtime allocation policy: both caches reserve the same fixed cap as
+        // their sources during EditorTracer construction, so this copy replaces
+        // retained bytes without growing gameplay memory.
         for ( const float value : ribbonData )
         {
             cachedRibbonData.push_back( value );

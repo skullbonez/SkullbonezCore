@@ -2,12 +2,12 @@
 
 Date: 2026-08-21
 Branch: `nightrunner-20th-AUG-26`
-Status: Five active plans; 53/80 tasks complete
+Status: Five active plans; 54/80 tasks complete
 
 At-Rest Ball Stability RS0-RS7 is complete. Invariant Enforcement And Assertion
-Hardening IH0-IH5 are complete and IH6-IH7 remain. Causal C0-C8, Determinism T0-T8,
+Hardening IH0-IH6 are complete and IH7 remains. Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7, and Continuous
-Orbital Forecast OF0-OF6 are complete. `MASTER-PLAN.md` binds IH6 next, then
+Orbital Forecast OF0-OF6 are complete. `MASTER-PLAN.md` binds IH7 next, then
 Full Source Comment Truth Replacement CT0-CT5 after IH7, followed by Full
 Validation Time And Value Audit VTA0-VTA5, Repository Hygiene Cleanup RC0-RC5,
 and Cause Hierarchy Scientific Inspector CHUI0-CHUI6.
@@ -386,7 +386,7 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `INVARIANT_HARDENING` IH6. IH0 rebased 847 tracked source-bearing files,
+Execute `INVARIANT_HARDENING` IH7. IH0 rebased 847 tracked source-bearing files,
 132 production plain assertions, 62 assert-only successor candidates, and 45
 allocation-comment taxonomy candidates. The owning plan now carries exact
 assertion/policy dispositions and a 90-file live checklist; ignored source evidence
@@ -430,6 +430,17 @@ post-fix review is blocker-free. The complete `validate_fast` gate passes,
   edge, or Replay growth privilege appeared. The full unit gate passes 661 cases
   / 2,521,198 assertions, `validate_fast` passes through terminal Debug/Profile
   reachability, and the third independent post-fix review is blocker-free.
+  IH6 completed the 45-candidate allocation-comment adjudication and the
+  remaining 29-file source/tool comment audit. Mechanical correctness remains
+  under `Invariant:`, no-growth/phase/cap rules use `Runtime allocation
+  policy:`, and the worker dispatch threshold is correctly a performance
+  `Why:`. All six substantial tools now have truthful ownership, bounded-output,
+  and hazard documentation; their syntax/help/parser/count smokes pass. The
+  full Related-path and strict glossary checks plus their self-tests pass. The
+  exact checklist is 94/94 checked, 94 unique, all tracked, with zero deferrals,
+  and independent post-fix review is blocker-free. IH7 now owns integrated
+  validation, regenerated inventories, terminal independent closure review,
+  and plan deletion after every acceptance criterion passes.
 
 After IH7, execute `COMMENT_TRUTH` CT0. Treat the frozen 261-file replacement
 set as audit evidence: discard hunks made redundant by IH, regenerate stale or
@@ -449,7 +460,7 @@ not part of the active queue.
 
 ## Blockers
 
-- None. Continue with `INVARIANT_HARDENING` IH6. The stale Physics CSV,
+- None. Continue with `INVARIANT_HARDENING` IH7. The stale Physics CSV,
   noisy relative Physics performance sample, and
   corrected-topology visual oracle remain owner-controlled validation findings;
   do not refresh any of them without approval.

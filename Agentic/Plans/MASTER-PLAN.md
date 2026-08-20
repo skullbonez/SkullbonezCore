@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-21
-Status: Five active plans; 53/80 tasks complete
+Status: Five active plans; 54/80 tasks complete
 
 ## Owner Direction
 
@@ -82,6 +82,11 @@ Status: Five active plans; 53/80 tasks complete
   capture rule, closes Sky/Profile UI leases at real teardown boundaries, skips
   unavailable memory sampling, and proves SceneWorld handle-map repair. No new
   Run bag, Runtime dependency edge, or Replay growth privilege was introduced.
+  IH6 completes the 45-site allocation-comment taxonomy, reclassifies the
+  worker threshold as a performance reason, and brings all six substantial
+  diagnostic tools under truthful bounded-output/hazard learning headers. The
+  exact source/tool checklist is 94/94 with zero deferrals; Related paths and
+  glossary ownership are clean, and independent post-fix review is blocker-free.
 - Full Source Comment Truth Replacement is registered immediately after
   invariant hardening. Its six phases rebase the frozen 843-file audit, discard
   replacements made redundant by IH, regenerate every stale or conflicting
@@ -210,7 +215,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Invariant Enforcement And Assertion Hardening | `INVARIANT_HARDENING` | 8 | 6 | `TODO/invariant-enforcement-hardening.md` |
+| Invariant Enforcement And Assertion Hardening | `INVARIANT_HARDENING` | 8 | 7 | `TODO/invariant-enforcement-hardening.md` |
 | Full Source Comment Truth Replacement | `COMMENT_TRUTH` | 6 | 0 | `TODO/full-source-comment-truth-replacement.md` |
 | Full Validation Time And Value Audit | `VALIDATION_TIME_AUDIT` | 6 | 0 | `TODO/full-validation-time-value-audit.md` |
 | Repository Hygiene Cleanup | `REPOSITORY_CLEANUP` | 6 | 0 | `TODO/repository-hygiene-cleanup.md` |
@@ -294,12 +299,12 @@ contracts into Rendering.
 
 ## Portfolio Progress
 
-53/80 tasks complete with five active plans.
+54/80 tasks complete with five active plans.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
-Invariant Enforcement And Assertion Hardening IH0-IH5 are complete; IH6-IH7
-remain, with IH6 next.
+Invariant Enforcement And Assertion Hardening IH0-IH6 are complete; IH7
+remains and is next.
 Full Source Comment Truth Replacement CT0-CT5 follows IH7; all six phases
 remain.
 Full Validation Time And Value Audit VTA0-VTA5 follows CT5; all six phases

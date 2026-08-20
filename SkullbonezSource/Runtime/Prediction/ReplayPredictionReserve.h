@@ -125,10 +125,10 @@ bool SeedReplayPredictionEngineStorage( std::unique_ptr<Physics::PhysicsEngine>&
                                         const Physics::PhysicsEngine& source, int currentReservedBytes,
                                         int& outReservedBytes );
 
-// Invariant: the working-set owner is approved before allocation, then the
-// allocation phase, owner, and granted-growth scopes are entered in that order.
-// The request uses byte units (`elementSizeBytes == 1`) because the one 960 MiB
-// cap is shared across vectors with different element types.
+// Invariant: the allocation phase, owner, and granted-growth scopes are entered
+// in that order only after the working-set owner approves the request.
+// Runtime allocation policy: requests use byte units (`elementSizeBytes == 1`)
+// because one 960 MiB cap is shared across vectors with different element types.
 template <typename T>
 bool ReserveReplayPredictionVector( std::vector<T>& values, std::size_t requestedCapacity, int frameNumber,
                                     const char* targetName )

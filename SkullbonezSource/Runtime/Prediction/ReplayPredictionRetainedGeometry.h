@@ -223,10 +223,10 @@ class ReplayPredictionRetainedGeometry
     float m_selectedEmphasis = 0.45f;
     bool m_appearanceInitialized = false;
 
-    // Invariant: the compact arena has one construction-time allocation and
-    // no capacity-changing API. Keeping the fixed 513,000-float payload behind
-    // a pointer also prevents the process-lifetime ReplayRuntime owner from
-    // consuming the bounded launcher stack.
+    // Runtime allocation policy: the compact arena has one construction-time
+    // allocation and no capacity-changing API.
+    // Invariant: keeping the fixed 513,000-float payload behind a pointer keeps
+    // the process-lifetime ReplayRuntime owner off the bounded launcher stack.
     std::unique_ptr<float[]> m_records;
     std::array<Rendering::RetainedGeometryRangeToken, PREDICTION_TRAJECTORY_RANGE_CAPACITY> m_ranges = {};
     std::array<Rendering::RetainedGeometryRangeToken, PREDICTION_TRAJECTORY_RANGE_CAPACITY> m_drawRanges = {};

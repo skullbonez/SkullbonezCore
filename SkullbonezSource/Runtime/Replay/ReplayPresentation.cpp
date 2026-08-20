@@ -726,8 +726,8 @@ ReplayPresentation::TryPickPathTarget( const ReplayPathPickInput& input, const S
 
         if ( !target )
         {
-            // Invariant: constructor-reserved target storage rotates entries;
-            // live picking never grows the vector.
+            // Runtime allocation policy: constructor-reserved target storage
+            // rotates entries; live picking never grows the vector.
             if ( m_pathVisualizer.targets.capacity() < REPLAY_PATH_MAX_ROOT_TARGETS )
             {
                 return result;

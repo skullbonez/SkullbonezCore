@@ -1,7 +1,7 @@
 # Invariant Enforcement And Assertion Hardening
 
-Date: 2026-08-20
-Status: Active; 6/8 phases complete
+Date: 2026-08-21
+Status: Active; 7/8 phases complete
 Impact area: repository-wide invariant enforcement, assertion policy, failure
 lanes, tests, comment taxonomy, and substantial diagnostic tools
 Owner: subsystem owners named by each affected path
@@ -293,12 +293,12 @@ remains unchecked until its owning phase inspects the entire file, applies the
 comment audit, and records the focused proof. IH7 reruns `git ls-files` and
 reconciles this list.
 
-- [ ] `Agentic/Skills/collapse_params.py` — L2
-- [ ] `Agentic/Skills/loc_count.py` — L2
-- [ ] `Agentic/Skills/skore-cpu-profiler/analyze_markers.py` — L2
-- [ ] `Agentic/Skills/skore-cpu-profiler/cleanup_markers.py` — L2
-- [ ] `Agentic/Skills/skore-render-test/analyze_perf.py` — L2
-- [ ] `Agentic/Skills/skore-render-test/perf_compare.py` — L2
+- [x] `Agentic/Skills/collapse_params.py` — L2; IH6 bounded lexical-rewrite header and continuation hazard audit
+- [x] `Agentic/Skills/loc_count.py` — L2; IH6 read-only inventory header and lexical-count hazard audit
+- [x] `Agentic/Skills/skore-cpu-profiler/analyze_markers.py` — L2; IH6 marker/session header, repeated-schema hazard, and help smoke
+- [x] `Agentic/Skills/skore-cpu-profiler/cleanup_markers.py` — L2; IH6 manifest-bounded mutation header, sentinel hazard, and help smoke
+- [x] `Agentic/Skills/skore-render-test/analyze_perf.py` — L2; IH6 artifact/schema header, active-header contract, and parser self-test
+- [x] `Agentic/Skills/skore-render-test/perf_compare.py` — L2; IH6 comparison/gating header, cross-machine hazard, and help smoke
 - [x] `SkullbonezSource/Assets/TextureCollection.cpp` — P001, P002; IH2 full-file audit and fixed-table boundary proof
 - [x] `SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.cpp` — P003, P004; IH2 full-file audit retained mechanical invariants
 - [x] `SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.cpp` — P005, P006; IH2 full-file audit split hard-cap correctness from exploratory Replay policy
@@ -320,7 +320,7 @@ reconciles this list.
 - [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp` — A070; IH4 resource-epoch owner and before/valid/closed Profile proof
 - [x] `SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp` — A072-A078; IH4 real scope move/mode and backend-identity proof
 - [x] `SkullbonezSource/Rendering/RenderInstanceStore.cpp` — A080; IH4 mismatch clears every draw row through the real Refresh path
-- [ ] `SkullbonezSource/Runtime/App/Init.cpp` — P015
+- [x] `SkullbonezSource/Runtime/App/Init.cpp` — P015; IH6 retained cold-publication ownership invariant
 - [x] `SkullbonezSource/Runtime/App/Run.cpp` — H2; IH5 full-surface audit and unique-owner renderer lifecycle proof
 - [x] `SkullbonezSource/Runtime/App/Run.h` — H2; IH5 sole renderer-lifecycle truth and always-on access guard
 - [x] `SkullbonezSource/Runtime/App/RunFrame.cpp` — H2; IH5 full-surface frame-order audit
@@ -329,38 +329,38 @@ reconciles this list.
 - [x] `SkullbonezSource/Runtime/App/RunRender.cpp` — H2, P016; IH5 mandatory-renderer sequencing audit and early allocation-policy reclassification
 - [x] `SkullbonezSource/Runtime/App/RunStartupState.h` — H2; IH5 full-surface startup-value audit
 - [x] `SkullbonezSource/Runtime/App/RunTimerState.h` — H2; IH5 full-surface timing-owner audit
-- [ ] `SkullbonezSource/Runtime/Editor/EditorCommandHistory.cpp` — P017
-- [ ] `SkullbonezSource/Runtime/Editor/EditorObjectPlacement.cpp` — P018
-- [ ] `SkullbonezSource/Runtime/Editor/EditorTracer.cpp` — P019-P021
+- [x] `SkullbonezSource/Runtime/Editor/EditorCommandHistory.cpp` — P017; IH6 retained bounded overflow-order invariant
+- [x] `SkullbonezSource/Runtime/Editor/EditorObjectPlacement.cpp` — P018; IH6 retained single preflight authority invariant
+- [x] `SkullbonezSource/Runtime/Editor/EditorTracer.cpp` — P019-P021; IH6 split cache correctness from fixed-budget policy
 - [x] `SkullbonezSource/Runtime/Input/Input.cpp` — A087; IH5 exact bind/unbind/wrong-window policy proof
 - [x] `SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.cpp` — A095-A104; IH5 atomic begin and complete gesture rejection matrix
-- [ ] `SkullbonezSource/Runtime/Planning/ReplayCauseInspection.cpp` — P022
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp` — L1, P023
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.Automation.cpp` — P024
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp` — P025-P026
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionPresentation.cpp` — P027-P028
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.cpp` — P029-P030
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionReserve.h` — P031
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionRetainedGeometry.h` — P032
-- [ ] `SkullbonezSource/Runtime/Prediction/TrajectoryStore.cpp` — P033
+- [x] `SkullbonezSource/Runtime/Planning/ReplayCauseInspection.cpp` — P022; IH6 retained zero-sentinel identity invariant
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp` — L1, P023; IH6 dispatch rationale reclassified to `Why:` and publication atomicity split from reserve policy
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.Automation.cpp` — P024; IH6 retained failure-atomic archive invariant
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp` — P025-P026; IH6 retained marker completeness and density invariants
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionPresentation.cpp` — P027-P028; IH6 split ghost-list completeness from no-growth policy and retained steady-window invariant
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.cpp` — P029-P030; IH6 retained resumable publication and completed-frame invariants
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionReserve.h` — P031; IH6 split scope ordering from shared byte-cap policy
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionRetainedGeometry.h` — P032; IH6 split launcher-stack safety from construction-time allocation policy
+- [x] `SkullbonezSource/Runtime/Prediction/TrajectoryStore.cpp` — P033; IH6 retained erase identity/publication invariant
 - [x] `SkullbonezSource/Runtime/Render/RenderResourceLifecycle.cpp` — A105; IH4 ten-row base producer uses the bounded snapshot owner
 - [x] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp` — A107, P034-P035; IH5 SkyPass open/close lease and cinematic-without-world policy proof
 - [x] `SkullbonezSource/Runtime/Render/UiTextPass.cpp` — A109-A111; IH5 profiler epoch and no-stale-memory-sampling proof
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayAuthoringPackets.h` — P036
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayPathPackets.h` — P037
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayPresentation.cpp` — P038
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp` — P039
-- [ ] `SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp` — P040
-- [ ] `SkullbonezSource/Runtime/Scene/SceneController.Load.cpp` — P041
-- [ ] `SkullbonezSource/Runtime/Scene/SceneEntityStore.cpp` — P042
+- [x] `SkullbonezSource/Runtime/Replay/ReplayAuthoringPackets.h` — P036; IH6 split fail-closed row publication from fixed reserve policy and repaired Related path
+- [x] `SkullbonezSource/Runtime/Replay/ReplayPathPackets.h` — P037; IH6 split Prediction publication ownership from no-growth policy
+- [x] `SkullbonezSource/Runtime/Replay/ReplayPresentation.cpp` — P038; IH6 reclassified target rotation/no-growth as runtime allocation policy
+- [x] `SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp` — P039; IH6 reclassified hard-cap approval as runtime allocation policy
+- [x] `SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp` — P040; IH6 retained contiguous ragdoll identity invariant and normalized precondition heading
+- [x] `SkullbonezSource/Runtime/Scene/SceneController.Load.cpp` — P041; IH6 retained authored-capacity activation ordering and normalized owner heading
+- [x] `SkullbonezSource/Runtime/Scene/SceneEntityStore.cpp` — P042; IH6 split commit precondition from allocation-free reservation policy
 - [x] `SkullbonezSource/Runtime/Scene/SceneWorld.cpp` — A114-A116; IH5 Release-safe map clear plus reorder/refresh identity proof
-- [ ] `SkullbonezSource/Runtime/Startup/StartupProbeHarnesses.cpp` — P043
+- [x] `SkullbonezSource/Runtime/Startup/StartupProbeHarnesses.cpp` — P043; IH6 retained handle-state reorder invariant
 - [x] `SkullbonezSource/World/SkyBox.cpp` — A117-A119; IH4 rebuild lease clears on release and guards reset before mutation
 - [x] `SkullbonezSource/World/Terrain.cpp` — H1 complete in IH1; IH4 closes A126 and A128-A130 with preserved rebuild lease plus resource/clip-plane Lane F
 - [x] `SkullbonezSource/World/Terrain.h` — IH1 supporting type boundary; IH4 refreshed the full-file audit for the rebuild-lease owner
 - [x] `SkullbonezSource/World/WorldEnvironment.cpp` — A131-A132; IH4 valid bind/release-preserve/rebuild proof
-- [ ] `SkullbonezTests/TestReplayRecorder.cpp` — P044
-- [ ] `SkullbonezTests/TestReserveAllocator.cpp` — P045
+- [x] `SkullbonezTests/TestReplayRecorder.cpp` — P044; IH6 retained cancellation/capacity oracle and normalized Lane P budget evidence
+- [x] `SkullbonezTests/TestReserveAllocator.cpp` — P045; IH6 retained anti-elision invariant and normalized Lane P acceptance evidence
 - [x] `SkullbonezTests/TestTerrain.cpp` — IH1 supporting positive/negative proof; full-file comment audit
 - [x] `SkullbonezSource/Assets/TextureCollection.h` — IH2 supporting fixed-table test seam; full-file comment audit
 - [x] `SkullbonezSource/Core/LockOrderValidator.h` — IH2 supporting Debug-policy test seam; full-file comment audit
@@ -531,12 +531,25 @@ reconciles this list.
   build, and the terminal Debug/Profile compiled-symbol reachability inventory.
   The third independent post-fix review is blocker-free.
 
-- [ ] **IH6 — Correct invariant taxonomy and tool documentation.** Complete
+- [x] **IH6 — Correct invariant taxonomy and tool documentation.** Complete
   the 45-candidate allocation-policy review, reclassify the dispatch-threshold
   `Why:`, add the six tool learning headers, resolve every checked-file comment
   audit finding, run glossary and related-path checks, and reconcile the exact
   checklist. Comment-only edits remain separate from behavioral fixes where
-  practical so review can distinguish prose from enforcement.
+  practical so review can distinguish prose from enforcement. All 45 P-sites
+  now match their written retain/split/reclassify dispositions, and L1 is a
+  performance `Why:` rather than a correctness claim. The six L2 tools now
+  document bounded output, ownership, and lexical/mutation hazards; py_compile,
+  `loc_count`, three help paths, and the `analyze_perf` parser self-test pass.
+  The full Related-path checker and self-test pass across 611 files and 1,788
+  repository paths; strict glossary inventory and self-test pass with 1,024
+  unique definitions and no duplicates, drift, or rulings. The checklist is
+  94/94 checked, 94 unique, all tracked (58 `.cpp`, 30 `.h`, six `.py`) with
+  zero deferred files. The diff changes comments/documentation plus explicit
+  CLI help descriptions/import ordering only; no runtime behavior changed, so
+  repository behavior validation is deferred to IH7. Independent review found
+  two tool-header overclaims, both were narrowed to the actual implementation,
+  and the post-fix review is blocker-free.
 
 - [ ] **IH7 — Integrated proof, independent review, and closure.** Run the
   validation map, repeat the assertion/invariant inventories, reconcile every

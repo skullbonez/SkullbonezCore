@@ -69,11 +69,11 @@ constexpr std::size_t REPLAY_RECORDER_SAMPLE_INITIAL_CAPACITY = 128u;
 constexpr std::size_t REPLAY_RECORDER_SAMPLE_GROWTH_CHUNK = 256u;
 constexpr uint32_t REPLAY_INVALID_METADATA_INDEX = ( std::numeric_limits<uint32_t>::max )();
 
-// Runtime allocation policy: retained replay body payloads now grow per active
+// Runtime allocation policy: retained replay body payloads grow per active
 // scene size instead of preallocating every future slot at game_model_capacity.
-// Invariant: every retained recorder vector shares one aggregate 32 MiB owner
-// cap. The strict two-generation probe measured 16,223,044 bytes high-water;
-// growth count is telemetry, not a separate allowance per vector.
+// Every retained recorder vector shares one aggregate 32 MiB owner cap. The
+// strict two-generation probe measured 16,223,044 bytes high-water; growth
+// count is telemetry, not a separate allowance per vector.
 constexpr int REPLAY_RECORDER_SAMPLE_RESERVE_GROWTH_LIMIT = CoreAllocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
 constexpr uint64_t FNV64_OFFSET = 14695981039346656037ull;
 constexpr uint64_t FNV64_PRIME = 1099511628211ull;
@@ -198,7 +198,7 @@ void ReserveReplayRecorderSampleVector( std::vector<T>& values, std::size_t requ
         ReportReplayRecorderReserveFailure( targetName, reserveCapacity, requestedBytes );
     }
 
-    // Invariant: policy approval is required even when allocation-hook
+    // Runtime allocation policy: approval is required even when allocation-hook
     // measurement is off; guard mode changes attribution, not the hard cap.
     const CoreAllocation::RuntimeReserveOwnerHandle owner = ReplayRecorderSampleReserveOwner();
     const CoreAllocation::RuntimeReserveGrowthRequest request = { REPLAY_RECORDER_SAMPLE_RESERVE_OWNER,
@@ -248,8 +248,9 @@ void ReserveReplayRecorderDeltaVector( std::vector<T>& values, std::size_t reque
         ReportReplayRecorderReserveFailure( targetName, reserveCapacity, requestedBytes );
     }
 
-    // Invariant: delta payloads share the recorder owner's aggregate byte cap
-    // with body vectors instead of receiving a per-vector 64 MiB allowance.
+    // Runtime allocation policy: delta payloads share the recorder owner's
+    // aggregate byte cap with body vectors instead of receiving a per-vector
+    // 64 MiB allowance.
     const CoreAllocation::RuntimeReserveOwnerHandle owner = ReplayRecorderSampleReserveOwner();
     const CoreAllocation::RuntimeReserveGrowthRequest request = { REPLAY_RECORDER_SAMPLE_RESERVE_OWNER,
                                                                   targetName,

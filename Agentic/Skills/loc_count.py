@@ -1,14 +1,26 @@
 """
-loc_count.py - Count logical lines of code in SkullbonezSource/.
+File: Agentic/Skills/loc_count.py
+Purpose:
+  Counts logical C++ source lines beneath SkullbonezSource.
 
-Excludes:
-  - Blank lines (whitespace only)
-  - Single-line comments (// ...)
-  - Block comment lines (/* ... */ - any line that is purely inside or
-    opening/closing a block comment)
-  - Preprocessor lines are counted because they carry executable intent.
+Summary:
+  The report is a deterministic, read-only size inventory: it walks `.cpp` and
+  `.h` files, excludes blank and comment-only text, retains preprocessor lines,
+  and prints one bounded row per discovered source file plus a total.
 
-Prints per-file counts and a grand total.
+Glossary:
+  Logical source line: A nonblank line with code or a preprocessor directive
+    after whole-line C++ comments are excluded.
+
+Invariants:
+  - Files are sorted by repository-relative path before counting and by
+    descending logical-line count before reporting.
+  - Decode errors replace invalid bytes rather than skipping a source file.
+  - The tool never writes repository content.
+
+Related:
+  - Agentic/Reference/code-style-guide.md
+  - tools/inventory_function_complexity.py
 """
 
 import sys
@@ -16,6 +28,9 @@ from pathlib import Path
 
 
 def count_loc(path: Path) -> int:
+    # Hazard: this is intentionally a line-oriented inventory, not a C++ lexer.
+    # It tracks multiline comments but does not reinterpret comment tokens inside
+    # string literals; use compiler-backed inventories for semantic conclusions.
     loc = 0
     in_block = False
 
