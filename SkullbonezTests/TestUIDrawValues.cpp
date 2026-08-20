@@ -87,6 +87,46 @@ TEST_CASE( "UI window close hides the panel instead of minimizing it" )
     CHECK( owner.IsMinimized() );
 }
 
+TEST_CASE( "UI rolling prediction checkbox publishes forecast toggle intent" )
+{
+    using SkullbonezCore::UI::InGameUI;
+    using SkullbonezCore::UI::InGameUIFrameData;
+    using SkullbonezCore::UI::InGameUIInputResult;
+    using SkullbonezCore::UI::InGameUITab;
+    using SkullbonezCore::UI::UIForecastCommandType;
+    using SkullbonezCore::UI::InputControl::UIInputSnapshot;
+
+    const char* sceneOptions[] = { "solar_system.scene.json" };
+    auto data = std::make_unique<InGameUIFrameData>();
+    data->screenW = 1920;
+    data->screenH = 1080;
+    data->sceneName = sceneOptions[0];
+    data->sceneOptions = sceneOptions;
+    data->sceneOptionCount = 1;
+    data->selectedSceneOption = 0;
+
+    auto ui = std::make_unique<InGameUI>();
+    ui->SetVisible( true );
+    ui->SetWindowBounds( 34, 56, 760, 520 );
+    ui->SetActiveTab( InGameUITab::Scene );
+
+    const UIDrawList& frame = ui->Draw( *data );
+    const int labelIndex = FindDrawTextIndex( frame, "Rolling prediction" );
+    REQUIRE( labelIndex >= 0 );
+    const UIDrawList::Command& label = frame.Commands()[static_cast<std::size_t>( labelIndex )];
+
+    UIInputSnapshot input;
+    input.mouseX = static_cast<int>( label.x0 + 6.0f );
+    input.mouseY = static_cast<int>( label.y0 + 6.0f );
+    input.leftDown = true;
+    input.leftPressed = true;
+    const InGameUIInputResult result = ui->UpdateInput( input, data->screenW, data->screenH, 1.0, false, false, true, false,
+                                                        0, 0xffffffffu, sceneOptions, 0 );
+
+    CHECK( result.commands.forecast.type == UIForecastCommandType::ToggleContinuous );
+    CHECK( result.commands.ui.userInteracted );
+}
+
 TEST_CASE( "UI draw values preserve primitive and text order" )
 {
     UIDrawList list;
@@ -258,9 +298,9 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
 #else
         16424379413615724563ull,
 #endif
-        // Scene: continuous-forecast controls and stability rows are part of
-        // the committed operator stream.
-        10565422710955032641ull,
+        // Scene: the rolling-prediction checkbox and forecast stability rows
+        // are part of the committed operator stream.
+        12227598808358033913ull,
         643319089294822447ull,
         9774020997193876338ull,
         3787874871094680490ull,
@@ -287,7 +327,7 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
         if ( tabs[surface] == InGameUITab::Scene )
         {
             const int forecastTitleIndex = FindDrawTextIndex( frame, "Continuous orbital forecast" );
-            const int forecastButtonIndex = FindDrawTextIndex( frame, "CONTINUOUS" );
+            const int forecastButtonIndex = FindDrawTextIndex( frame, "Rolling prediction" );
             REQUIRE( forecastTitleIndex >= 0 );
             REQUIRE( forecastButtonIndex >= 0 );
             const UIDrawList::Command& forecastTitle = frame.Commands()[static_cast<std::size_t>( forecastTitleIndex )];

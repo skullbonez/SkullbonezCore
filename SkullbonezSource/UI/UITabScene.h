@@ -21,6 +21,7 @@ Related:
 #pragma once
 
 #include "UIButton.h"
+#include "UICheckBox.h"
 #include "UIComboBox.h"
 #include "UICommands.h"
 #include "UIInput.h"
@@ -59,9 +60,8 @@ struct UISceneTabState
     UIButton resetSceneButton;
     UIButton resetDefaultsButton;
     UIButton saveDefaultsButton;
-    UIButton continuousForecastButton;
+    UICheckBox continuousForecastToggle;
     UIButton resetForecastButton;
-    UIButton exitForecastButton;
     UISlider timeScaleSlider;
 
     // Concept: reveal pacing sits beside simulation speed because both answer

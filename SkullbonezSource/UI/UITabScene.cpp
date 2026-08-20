@@ -141,13 +141,11 @@ void SetSceneHeaderBounds( SkullbonezCore::UI::UIComboBox& combo, SkullbonezCore
 void SetForecastBounds( SkullbonezCore::UI::SceneTab::UISceneTabState& state, float contentX, float rowBase, float contentW )
 {
     constexpr float gap = 6.0f;
-    const float toggleWidth = contentW * 0.50f;
-    const float resetWidth = contentW * 0.24f;
-    const float exitWidth = contentW - toggleWidth - resetWidth - gap * 2.0f;
+    const float toggleWidth = contentW * 0.66f;
+    const float resetWidth = contentW - toggleWidth - gap;
     const float y = rowBase + ( UI_SCENE_FORECAST_BUTTON_Y - 42.0f );
-    state.continuousForecastButton.SetBounds( contentX, y, toggleWidth, 24.0f );
+    state.continuousForecastToggle.SetBounds( contentX, y, toggleWidth, 24.0f );
     state.resetForecastButton.SetBounds( contentX + toggleWidth + gap, y, resetWidth, 24.0f );
-    state.exitForecastButton.SetBounds( contentX + toggleWidth + resetWidth + gap * 2.0f, y, exitWidth, 24.0f );
 }
 
 } // namespace
@@ -714,17 +712,13 @@ bool HandleForecastClick( UISceneTabState& state, InGameUIInputResult& result, i
 {
     SetForecastBounds( state, contentX, rowBase, contentW );
 
-    if ( state.continuousForecastButton.HitTest( mouseX, mouseY ) )
+    if ( state.continuousForecastToggle.HitTest( mouseX, mouseY ) )
     {
         result.commands.forecast.type = UIForecastCommandType::ToggleContinuous;
     }
     else if ( state.resetForecastButton.HitTest( mouseX, mouseY ) )
     {
         result.commands.forecast.type = UIForecastCommandType::Reset;
-    }
-    else if ( state.exitForecastButton.HitTest( mouseX, mouseY ) )
-    {
-        result.commands.forecast.type = UIForecastCommandType::Exit;
     }
     else
     {
@@ -929,9 +923,10 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const InGameUIFram
 
         if ( IsRowVisible( contentY, contentH, scrolledY + UI_SCENE_FORECAST_BUTTON_Y, 24.0f ) )
         {
-            state.continuousForecastButton.Draw( draw, forecast.active ? "CONTINUOUS*" : "CONTINUOUS", mouseX, mouseY );
-            state.resetForecastButton.Draw( draw, "Reset", mouseX, mouseY );
-            state.exitForecastButton.Draw( draw, "Exit", mouseX, mouseY );
+            const Style::UIColor& accent = Style::Accent();
+            state.continuousForecastToggle.DrawToggle( draw, "Rolling prediction", forecast.active, accent.r, accent.g,
+                                                       accent.b );
+            state.resetForecastButton.Draw( draw, "Reset forecast", mouseX, mouseY );
         }
 
         const float forecastCol2 = contentX + (std::max)( 208.0f, contentW * 0.48f );

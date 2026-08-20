@@ -3053,24 +3053,18 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
             ImGui::SeparatorText( "Continuous orbital forecast" );
             const UI::OperatorEditorForecastView& forecast = view.forecast;
+            bool rollingPredictionEnabled = forecast.active;
 
-            if ( ImGui::Button( forecast.active ? "CONTINUOUS*" : "CONTINUOUS" ) )
+            if ( ImGui::Checkbox( "Rolling prediction", &rollingPredictionEnabled ) )
             {
                 submitForecast( UI::OperatorEditorForecastCommandType::ToggleContinuous );
             }
 
             ImGui::SameLine();
 
-            if ( ImGui::Button( "RESET FORECAST" ) )
+            if ( ImGui::Button( "Reset forecast" ) )
             {
                 submitForecast( UI::OperatorEditorForecastCommandType::Reset );
-            }
-
-            ImGui::SameLine();
-
-            if ( ImGui::Button( "EXIT FORECAST" ) )
-            {
-                submitForecast( UI::OperatorEditorForecastCommandType::Exit );
             }
 
             ImGui::Text( "Simulated %.2fs | sim / real %.1fx | window %.2fs", forecast.simulatedSeconds,
