@@ -1079,17 +1079,87 @@ tests, and no solver-local velocity snap.
 
 ### RS6 — Integrated Scene Attribution And Determinism
 
-- [ ] Generate a fresh `at_rest_after` SkullScope trace and run the exact RS0
+- [x] Generate a fresh `at_rest_after` SkullScope trace and run the exact RS0
   query set plus `compare` against the preserved baseline.
-- [ ] Run the semantic at-rest oracle twice and prove byte-identical candidate
+- [x] Run the semantic at-rest oracle twice and prove byte-identical candidate
   outputs plus 0/1/4-worker equality.
-- [ ] Preserve before/after CORE/TESTS executables, CSVs, traces/caches, bounded
+- [x] Preserve before/after CORE/TESTS executables, CSVs, traces/caches, bounded
   query outputs, hashes, and the first attributed behavior difference.
-- [ ] Check stacking, terrain-contact, slope/friction, and existing sleep scenes
+- [x] Check stacking, terrain-contact, slope/friction, and existing sleep scenes
   for regressions; measure physics hot-path cost and allocations.
 
 Evidence: all-ball and box-control tables, deterministic repeat/worker hashes,
 cross-scene attribution, performance, and complete SkullScope accounting.
+
+RS6 closes the remaining integrated behavior with two narrow source-owned
+decisions. Sphere terrain sweeps now use the manifold's terrain-normal pole,
+and `PersistentContactSolveTransaction::BuildManifolds` rejects only an exact
+non-penetrating sphere/sphere row whose contact-point normal velocity is already
+separating. The broader zero-normal-impulse friction experiment was rejected:
+it produced seven replay-prediction generations and no complete horizon. The
+retained source instead produces one generation and the full 2,401-frame
+horizon before the protected `header.topologyVersion` oracle stop.
+
+The authoritative uncapped run is
+`TestOutput/validation/candidates/REST_STABILITY_RS6_NARROW_V1`. It exited 0 in
+19.565 seconds at authored gate frame 6,541 / physics end frame 6,544 with all
+three balls asleep. The 57,921,758-byte trace hashes
+`056D56EF1E906EB636BCC1F178B50BC27314EA01EE5B818DBC6F5EE1E4848CF1`;
+its 25,567,232-byte SQLite cache hashes
+`34A156EF3C49E471889986F24854AE040B06736EF47F93FDB8F1CC6921353466`.
+The repeat has the same sizes (trace hash
+`5B4A10BB0907CE1646B20831298E0B665BD777DDEB40E0851B7E9FDE58BFCF58`,
+cache hash
+`230A5225F38AF7C110EB7843C40C01F418ED25B2B2733EADCC22B4E3AE9F8088`),
+while both 4,887-byte schema-v3 semantic JSON files are byte-identical at
+`94F872DA03CBFD653383079D8BF46FDE2AE88BED6047D40CF0B50C48D619E5A3`.
+The 0/1/4-worker CSVs are each 5,504,907 bytes and share hash
+`211800EDBE7EEF31AC1E16323C6C02037C69FAEBF7FBC1B4FA8BDAF1185CC997`.
+
+Per-ball last-material-impact to final-sleep latency is A 400 frames, B 918,
+and C 146. Their maximum post-impact absolute vertical speeds are 0.114602,
+0.017538, and 0.146235 m/s; maximum solver-active slip is zero and both
+horizontal reversal counts are zero. Box controls remain inside the preserved
+ceilings: A sleeps at frame 1,330 (21.091541 m/s, 3.419009 rad/s maximum), B at
+970 (26.650600, 5.031497), and C at 1,058 (31.146898, 1.940049).
+
+The exact RS0 packet ran 32 bounded commands with output redirected. Its 66
+files comprise 34 non-empty outputs and 32 empty stderr files, totaling
+16,415,455 bytes / 16,415,353 decoded characters; bulk query text exposed to
+the model was zero. Selected derived reads were the 1,183-character compact
+`compare`, the 850-character frame-303 witness, and the 485-character compare
+help. The first difference is frame 303: the candidate has a sphere/terrain
+row with normal impulse 1005.458130, terrain normal
+`(0.198676,0.963279,0.180615)`, penetration -0.006592, closing speed 23.939486,
+and slip 0.000009, while the baseline has no contact row.
+
+For completeness, session JSONL reconstruction over the entire RS6 task
+(lines 23,687 through 25,359, before the accounting audit itself) records
+exactly 123,287 model-visible SkullScope-related content characters: 67,086
+from 17 direct bounded queries, 27,278 from five retained query-artifact reads,
+15,102 from four bounded raw-trace excerpts, 10,729 from two semantic reads,
+and 3,092 from three redirected/derived query commands. This includes the two
+system-truncated reads at their delivered lengths of 40,106 and 24,109
+characters; no unbounded source length or token estimate is substituted.
+
+Focused regression evidence is 51/51 selected stack/slope/moving/sleep/terrain
+cases (31,583 assertions), then 638/638 complete tests (2,521,720 assertions).
+The physics benchmark passes absolute budgets; compared directly with the
+preserved RS5 build it reports no regression under the repository ramped
+threshold (Frame/Physics average 0.0748 -> 0.0970 ms, +29.7%; BuildManifolds
+0.0054 -> 0.0100 ms). The gameplay allocation guard passes with zero steady
+gameplay violations. The top-level perf gate still stops before measurement on
+the inherited allocation-policy finding in
+`SceneSleepingDynamicBodyGatePolicy.h:84`; its historical perf baseline also
+remains owner-controlled and was not refreshed.
+
+Mapped owner-controlled stops are unchanged and no oracle was refreshed:
+`validate_physics` returns the inherited 35,303-line varied-physics mismatch;
+`validate_physics_deep` additionally preserves the byte-exact bullet,
+wall/object/terrain, and space-three-body-chaos artifacts before the inherited
+shooting-reaction-volley mismatch; replay visual fidelity reaches only the
+protected topology-version mismatch. All seven governance inventories are
+current and green. The touched-source comment audit is 6 checked / 0 deferred.
 
 ### RS7 — Close The Plan
 

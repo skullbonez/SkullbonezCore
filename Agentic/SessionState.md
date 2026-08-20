@@ -2,7 +2,7 @@
 
 Date: 2026-08-20
 Branch: `nightrunner-18th-AUG-26`
-Status: One active plan; 45/47 tasks complete
+Status: One active plan; 46/47 tasks complete
 
 At-Rest Ball Stability (8 tasks) is active. Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7, and Continuous
@@ -382,7 +382,7 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `REST_STABILITY` RS6-RS7. RS0 added the authored all-three-ball sleep
+Execute `REST_STABILITY` RS7. RS0 added the authored all-three-ball sleep
 completion gate; no frame/time cap or aborted run can complete the unlimited
 scene. Its preserved baseline and 42-query SkullScope packet ratify the owning
 causes and exact semantic thresholds. RS1 turned those thresholds into a
@@ -411,14 +411,18 @@ Semantic oracles must pin all three balls' vertical tail motion, slip, rolling
 reversals, support/sleep latency, and final sleeping state while retaining the
 boxes as controls. Repair normal vibration, tangent/rolling response, and sleep
 transition separately, preserve candidate artifacts, and refresh no baseline
-without owner approval.
+without owner approval. RS6 is complete. Its terrain-normal sphere sweep and
+exact non-penetrating separating sphere-row rejection produce the uncapped
+all-three-asleep semantic pass, byte-identical repeat and 0/1/4-worker results,
+zero steady-gameplay allocation violations, and no RS5-relative physics-bench
+regression under the repository threshold.
 
 Deterministic Trigonometry remains owner-parked in `Agentic/Plans/WNF/` and is
 not part of the active queue.
 
 ## Blockers
 
-- None. Continue with `REST_STABILITY` RS6. The stale Physics CSV,
+- None. Continue with `REST_STABILITY` RS7. The stale Physics CSV,
   noisy relative Physics performance sample, and
   corrected-topology visual oracle remain owner-controlled validation findings;
   do not refresh any of them without approval.

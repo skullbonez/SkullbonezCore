@@ -15,11 +15,11 @@
     {
       "file": "SkullbonezSource/Physics/PersistentContactSolver.cpp",
       "signature": "template <bool RetainPipelineRecords> void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy, std::span<const std::pair<int, int>> candidatePairs, std::span<const uint8_t> sleepState, PhysicsCandidatePairList& sleepSupportEdges, int modelCount, std::size_t pipelineRecordCapacity, Core::Profiler* profiler )",
-      "body_sha256": "5e8c3c6377f24aafc30277e94484e77bcd0ebd5d08008368620b983b3c31e66c",
+      "body_sha256": "fe0c01c9e00417c2d4b9beb6ea6139352b194edd709726a43927d9f60c163d16",
       "owner": "Persistent contact manifold-construction phase",
       "disposition": "retain-owner",
-      "reason": "One guarded phase converts deterministic candidate pairs into object contact rows, support edges, contact counts, and optional trace values; compile-time trace retention does not split its manifold-construction invariant, and all borrowed participants expire at return.",
-      "evidence": "git history: solver-diagnostic-hot-path-cost-hp2-payload (2026-07-31)",
+      "reason": "One guarded phase converts deterministic candidate pairs into shape-owned object contact rows, rejects exact non-penetrating sphere pairs that are already separating, then publishes support edges, contact counts, and optional trace values; compile-time trace retention does not split its manifold-construction invariant, and all borrowed participants expire at return.",
+      "evidence": "git history: solver-diagnostic-hot-path-cost-hp2-payload (2026-07-31); REST_STABILITY RS6 separating-sphere row ownership (2026-08-20)",
       "plan": ""
     },
     {

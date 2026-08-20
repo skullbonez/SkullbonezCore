@@ -1732,6 +1732,25 @@ TEST_CASE( "Persistent contact solver: rolling resistance and tangent friction p
 }
 
 
+TEST_CASE( "Persistent contact solver: separating touching spheres publish no speculative friction row" )
+{
+    SolverFixture fixture;
+    fixture.config.material.terrainFrictionCoefficient = 0.8f;
+    fixture.config.material.rollingFrictionCoefficient = 0.02f;
+    fixture.AddDynamicSphere( Vector3( -1.0f, 0.0f, 0.0f ), Vector3( -1.0f, 0.0f, 10.0f ) );
+    fixture.AddDynamicSphere( Vector3( 1.0f, 0.0f, 0.0f ), Vector3( 1.0f, 0.0f, -10.0f ) );
+    fixture.candidatePairs.emplace_back( 0, 1 );
+
+    fixture.Solve();
+
+    const auto solved = fixture.bodyStore.HotFields();
+
+    CHECK( fixture.solver.GetPersistentContacts().empty() );
+    CHECK( solved.linearVelocityZ[0] == doctest::Approx( 10.0f ) );
+    CHECK( solved.linearVelocityZ[1] == doctest::Approx( -10.0f ) );
+}
+
+
 TEST_CASE( "Persistent contact solver: terrain rolling resistance does not damp normal-axis spin" )
 {
     SolverFixture fixture;

@@ -693,10 +693,31 @@ void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStag
             const bool shapeBIsBox = GetShapeIf<BoundingBox>( &shapeB ) != nullptr;
             const bool shapeAIsConvexHull = GetShapeIf<ConvexHullShape>( &shapeA ) != nullptr;
             const bool shapeBIsConvexHull = GetShapeIf<ConvexHullShape>( &shapeB ) != nullptr;
+            const bool shapeAIsSphere = GetShapeIf<BoundingSphere>( &shapeA ) != nullptr;
+            const bool shapeBIsSphere = GetShapeIf<BoundingSphere>( &shapeB ) != nullptr;
             const bool hasConvexHull = shapeAIsConvexHull || shapeBIsConvexHull;
-            const bool hasSphere = GetShapeIf<BoundingSphere>( &shapeA ) || GetShapeIf<BoundingSphere>( &shapeB );
+            const bool hasSphere = shapeAIsSphere || shapeBIsSphere;
             const bool sameShapeFaceFootprint = ( shapeAIsBox && shapeBIsBox ) ||
                                                 ( shapeAIsConvexHull && shapeBIsConvexHull );
+
+            if ( shapeAIsSphere && shapeBIsSphere && manifold.pointCount == 1u && manifold.points[0].penetration <= 0.0f )
+            {
+                const ObjectContactPoint& point = manifold.points[0];
+                const SolverBodyState& solverA = Body( static_cast<std::size_t>( aIndex ) );
+                const SolverBodyState& solverB = Body( static_cast<std::size_t>( bIndex ) );
+                const Vector3 velocityA = solverA.linearVelocity + Vector::CrossProduct( solverA.angularVelocity, point.rA );
+                const Vector3 velocityB = solverB.linearVelocity + Vector::CrossProduct( solverB.angularVelocity, point.rB );
+
+                // Invariant: exact spheres need no speculative friction row once
+                // their surfaces are non-penetrating and moving apart. Rejecting
+                // the row here also prevents a cached tangent impulse from acting
+                // without a normal constraint, while overlapping or closing
+                // sphere pairs retain ordinary collision response.
+                if ( Dot( velocityB - velocityA, manifold.normal ) > 0.0f )
+                {
+                    continue;
+                }
+            }
 
             bool boxHasOnlyEdgeSupport = false;
 

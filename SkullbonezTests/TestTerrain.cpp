@@ -6,7 +6,8 @@
 // Summary:
 //   Terrain owns both render resources and collision lookup data. Unit tests use
 //   render-resource doubles so construction follows the production path while
-//   assertions stay on CPU-side height, plane, and bounds behavior.
+//   assertions stay on CPU-side height, plane, bounds, and shape-consistent
+//   sphere support behavior.
 //
 // Glossary:
 //   Flat slope terrain: Analytic terrain plane defined by base Y plus X/Z slope
@@ -24,8 +25,10 @@
 //     even when fluid-min support is requested.
 //   - Terrain-stage detection touches only body indices supplied by the awake
 //     list, leaving fixed and sleeping candidate slots untested.
-//   - Sphere, box, and convex-hull terrain sweeps publish finite manifolds with
-//     terrain-owned body identity and resting-contact policy.
+//   - Sphere sweep and manifold construction use the same terrain-normal pole;
+//     box and convex-hull sweeps use their exact vertices.
+//   - Every terrain shape publishes finite manifolds with terrain-owned body
+//     identity and resting-contact policy.
 //
 // Related:
 //   - SkullbonezSource/World/Terrain.cpp
@@ -141,6 +144,36 @@ TEST_CASE( "Terrain: flat slope reports analytic height, plane, and bounds" )
     CHECK( planeHeight == doctest::Approx( expectedHeight ) );
     CHECK( plane.m_normal.y > 0.0f );
     CHECK( plane.m_distance == doctest::Approx( plane.m_normal.y * 10.0f ) );
+}
+
+
+TEST_CASE( "Terrain: resting sphere sweep uses the same slope-normal pole as its manifold" )
+{
+    EngineConfig config;
+    Terrain terrain( 0.0f, 0.25f, -0.1f, config );
+    constexpr float radius = 1.0f;
+    constexpr float surfaceX = 20.0f;
+    constexpr float surfaceZ = 30.0f;
+    float surfaceHeight = 0.0f;
+    Plane plane;
+    terrain.GetTerrainHeightAndPlaneAt( surfaceX, surfaceZ, surfaceHeight, plane );
+
+    TerrainContactBodyView body;
+    body.position = Vector3( surfaceX, surfaceHeight, surfaceZ ) + plane.m_normal * radius;
+    body.terrain = terrain.PhysicsView();
+    body.boundingRadius = radius;
+    body.contactEpsilon = 0.001f;
+    const CollisionShape sphere = SphereShape( radius );
+
+    const TerrainContactSweepResult sweep = SweepTerrainContact( body, sphere, 1.0f / 120.0f );
+    REQUIRE( sweep.hit );
+    CHECK( sweep.collisionTime == 0.0f );
+
+    TerrainContactManifold manifold;
+    REQUIRE( BuildTerrainContactManifold( body, sphere, 0, sweep, 1.0f / 120.0f, manifold ) );
+    REQUIRE( manifold.pointCount == 1u );
+    CHECK( manifold.points[0].penetration == doctest::Approx( 0.0f ).epsilon( 0.0001 ) );
+    CHECK( manifold.supportsRestingPolicy );
 }
 
 

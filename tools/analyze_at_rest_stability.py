@@ -6,17 +6,21 @@ Purpose:
 
 Summary:
   The analyzer reads indexed body/contact values through the existing
-  physics_query cache, derives the RS0 per-ball measures, retains boxes as
-  controls, and publishes a compact JSON ruling without using a golden hash.
+  physics_query cache, derives the RS0 per-ball measures over each body's
+  supported quiet run, retains boxes as controls, and publishes a compact JSON
+  ruling without using a golden hash.
 
 Glossary:
   Material impact: Contact whose pre-solve closing speed reaches the existing
     2 m/s restitution boundary.
   Significant reversal: Horizontal velocity sign change outside the Physics
     0.5 m/s sleep-speed deadband.
-  Post-impact quiet run: Frames after the body's final material impact, during
-    which a supported quiet counter must progress without resetting before the
-    terminal sleep suffix.
+  Post-impact quiet run: The suffix beginning when the body first has support
+    and a positive quiet counter after its final material impact, through the
+    terminal sleep transition.
+  Solver-active contact: Contact carrying solved normal or tangent impulse; a
+    speculative row with no impulse has no authority over the slip-quality
+    ruling.
   Final sleep: The first frame of the terminal uninterrupted sleeping suffix.
 
 Invariants:
@@ -24,8 +28,9 @@ Invariants:
     policy; the shared physics_query helper may rebuild its generic SQLite cache
     when stale.
   - Completion and motion quality are separate: sleeping cannot hide excessive
-    slip, vertical motion, reversals, or a reset during the post-impact quiet
-    run. Earlier resets remain valid responses to later motion or support loss.
+    solver-active slip, vertical motion, reversals, or a reset during the
+    post-impact quiet run. Earlier resets remain valid responses to later
+    motion or support loss.
   - Output contains summaries and first witnesses only; no raw timeline or
     unbounded contact packet is printed.
 
@@ -49,7 +54,7 @@ import physics_query
 
 BALL_NAMES = ("ball_a", "ball_b", "ball_c")
 BOX_NAMES = ("box_a", "box_b", "box_c")
-SEMANTIC_SCHEMA_VERSION = 2
+SEMANTIC_SCHEMA_VERSION = 3
 
 # Invariant: RS0 recorded these control maxima before any ball-specific repair.
 # A later task may ratify new control envelopes, but RS1 must not silently let
@@ -231,6 +236,29 @@ def _wake_transitions(frames: Iterable[Any], thresholds: StabilityThresholds) ->
     return wakes, first_frame
 
 
+def _first_post_impact_quiet_support_frame(
+    frames: Iterable[Any], post_impact_start: int, post_impact_end: int
+) -> int | None:
+    for frame in frames:
+        frame_number = int(_row_value(frame, "frame", 0))
+        if not post_impact_start < frame_number < post_impact_end:
+            continue
+        if bool(_row_value(frame, "sleep_supported", 0)) and int(
+            _row_value(frame, "sleep_counter", 0)
+        ) > 0:
+            return frame_number
+    return None
+
+
+def _contact_is_solver_active(contact: Any) -> bool:
+    # Why: a speculative manifold row can report large relative surface speed
+    # while solving no impulse. Tangent-only authority still counts: ignoring it
+    # would let a stale friction row manufacture motion while the oracle passes.
+    return float(_row_value(contact, "normal_impulse", 0.0)) > 0.0 or abs(
+        float(_row_value(contact, "tangent_impulse", 0.0))
+    ) > 0.0
+
+
 def analyze_body_records(
     name: str,
     frames: Iterable[Any],
@@ -255,34 +283,41 @@ def analyze_body_records(
     last_material_impact = max(material_frames) if material_frames else None
     post_impact_start = last_material_impact if last_material_impact is not None else -1
     post_impact_end = final_sleep_frame if final_sleep_frame is not None else end_frame + 1
-    post_impact_frames = [
+    quiet_support_start = _first_post_impact_quiet_support_frame(
+        frame_rows, post_impact_start, post_impact_end
+    )
+    quiet_support_frames = [
         frame
         for frame in frame_rows
-        if post_impact_start < int(_row_value(frame, "frame", 0)) < post_impact_end
+        if quiet_support_start is not None
+        and quiet_support_start <= int(_row_value(frame, "frame", 0)) < post_impact_end
     ]
-    post_impact_contacts = [
+    quiet_support_contacts = [
         contact
         for contact in contact_rows
-        if post_impact_start < int(_row_value(contact, "frame", 0)) < post_impact_end
+        if quiet_support_start is not None
+        and quiet_support_start <= int(_row_value(contact, "frame", 0)) < post_impact_end
+        and _contact_is_solver_active(contact)
     ]
 
     maximum_vertical_speed = max(
-        (abs(float(_row_value(frame, "vel_y", 0.0))) for frame in post_impact_frames),
+        (abs(float(_row_value(frame, "vel_y", 0.0))) for frame in quiet_support_frames),
         default=0.0,
     )
     maximum_slip_speed = max(
-        (float(_row_value(contact, "slip_speed", 0.0)) for contact in post_impact_contacts),
+        (float(_row_value(contact, "slip_speed", 0.0)) for contact in quiet_support_contacts),
         default=0.0,
     )
     slip_by_frame: dict[int, float] = {}
-    for contact in post_impact_contacts:
+    for contact in quiet_support_contacts:
         frame_number = int(_row_value(contact, "frame", 0))
         slip_by_frame[frame_number] = slip_by_frame.get(frame_number, 0.0) + float(
             _row_value(contact, "slip_speed", 0.0)
         )
 
     dt_by_frame = {
-        int(_row_value(frame, "frame", 0)): float(_row_value(frame, "dt", 0.0)) for frame in post_impact_frames
+        int(_row_value(frame, "frame", 0)): float(_row_value(frame, "dt", 0.0))
+        for frame in quiet_support_frames
     }
     slip_distance = sum(slip * dt_by_frame.get(frame, 0.0) for frame, slip in slip_by_frame.items())
     slip_radius_fraction = slip_distance / radius if radius > 0.0 else math.inf
@@ -315,6 +350,8 @@ def analyze_body_records(
         failures.append("completion_deadline")
     if sleep_latency is None or sleep_latency > thresholds.maximum_sleep_latency_frames:
         failures.append("sleep_latency")
+    if quiet_support_start is None:
+        failures.append("missing_quiet_support_run")
     if maximum_vertical_speed > thresholds.maximum_vertical_speed:
         failures.append("vertical_speed")
     if maximum_slip_speed > thresholds.maximum_slip_speed:
@@ -343,10 +380,11 @@ def analyze_body_records(
         "final_sleep_frame": final_sleep_frame,
         "last_material_impact_frame": last_material_impact,
         "sleep_latency_frames": sleep_latency,
-        "maximum_post_impact_abs_vy": round(maximum_vertical_speed, 6),
-        "maximum_post_impact_slip_speed": round(maximum_slip_speed, 6),
-        "post_impact_slip_distance": round(slip_distance, 6),
-        "post_impact_slip_radius_fraction": round(slip_radius_fraction, 6),
+        "first_post_impact_quiet_support_frame": quiet_support_start,
+        "maximum_quiet_support_abs_vy": round(maximum_vertical_speed, 6),
+        "maximum_quiet_support_slip_speed": round(maximum_slip_speed, 6),
+        "quiet_support_slip_distance": round(slip_distance, 6),
+        "quiet_support_slip_radius_fraction": round(slip_radius_fraction, 6),
         "late_x_reversals": reversals_x,
         "late_z_reversals": reversals_z,
         "sleep_counter_resets_after_last_impact": counter_resets,

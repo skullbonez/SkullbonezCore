@@ -8,7 +8,9 @@ Summary:
   Synthetic detached body/contact fixtures exercise the same pure evaluator as
   real SkullScope traces. Clean body, control, and completion fixtures pass;
   independent mutations pin every review-reopened false-pass boundary and the
-  RS1/RS5 product controls by exact diagnostic code.
+  RS1/RS5 product controls by exact diagnostic code. RS6 additionally proves
+  that motion quality begins at supported quiet progress and uses only contacts
+  carrying solved normal or tangent impulse.
 
 Invariants:
   - Each planted control changes one intended semantic and names its expected
@@ -18,6 +20,8 @@ Invariants:
     legitimate post-collision restitution is not mislabeled solver vibration.
   - A quiet-counter reset before a later material impact is a valid abandoned
     attempt; the same reset after the final impact remains a planted failure.
+  - Pre-support impact response and zero-impulse speculative contacts cannot
+    manufacture a quiet-run failure; tangent-only authority remains visible.
 
 Related:
   - tools/analyze_at_rest_stability.py
@@ -53,6 +57,7 @@ def clean_fixture() -> tuple[list[dict[str, object]], list[dict[str, object]]]:
                 "speed": 0.1,
                 "omega_mag": 0.0,
                 "sleep_counter": 30 if sleeping else max(0, frame - 7199),
+                "sleep_supported": 1,
                 "sleeping": 1 if sleeping else 0,
                 "dt": 1.0 / 120.0,
             }
@@ -67,6 +72,7 @@ def clean_fixture() -> tuple[list[dict[str, object]], list[dict[str, object]]]:
             "pre_solve_closing_speed": 2.0,
             "separation_bias": 0.0,
             "slip_speed": 0.1,
+            "normal_impulse": 1.0,
         },
         {
             "frame": 7200,
@@ -76,6 +82,7 @@ def clean_fixture() -> tuple[list[dict[str, object]], list[dict[str, object]]]:
             "pre_solve_closing_speed": 0.1,
             "separation_bias": 0.0,
             "slip_speed": 0.1,
+            "normal_impulse": 1.0,
         },
     ]
     return frames, contacts
@@ -220,6 +227,7 @@ def check_excessive_slip() -> dict[str, object]:
             "pre_solve_closing_speed": 0.1,
             "separation_bias": 0.0,
             "slip_speed": 0.6,
+            "normal_impulse": 1.0,
         }
     )
     return require_exact_failure("excessive_slip", frames, contacts, "slip_speed")
@@ -238,9 +246,81 @@ def check_accumulated_slip() -> dict[str, object]:
                     "pre_solve_closing_speed": 0.1,
                     "separation_bias": 0.0,
                     "slip_speed": 0.49,
+                    "normal_impulse": 1.0,
                 }
             )
     return require_exact_failure("accumulated_slip", frames, contacts, "slip_distance")
+
+
+def check_excessive_quiet_vertical_speed() -> dict[str, object]:
+    frames, contacts = clean_fixture()
+    by_frame = {int(frame["frame"]): frame for frame in frames}
+    by_frame[7201]["vel_y"] = 0.6
+    return require_exact_failure("excessive_quiet_vertical", frames, contacts, "vertical_speed")
+
+
+def check_pre_quiet_motion_is_not_a_quiet_run_failure() -> dict[str, object]:
+    frames, contacts = clean_fixture()
+    by_frame = {int(frame["frame"]): frame for frame in frames}
+    by_frame[7200]["sleep_counter"] = 0
+    by_frame[7200]["sleep_supported"] = 0
+    by_frame[7200]["vel_y"] = 9.0
+    contacts[1]["slip_speed"] = 9.0
+
+    result = analyze_body_records("pre_quiet_motion", frames, contacts)
+    if not result["passed"] or result["first_post_impact_quiet_support_frame"] != 7201:
+        raise AssertionError(f"pre-quiet impact response polluted the supported quiet run: {result}")
+    return {"name": "pre_quiet_motion_is_not_a_quiet_run_failure", "passed": True}
+
+
+def check_unloaded_speculative_slip_is_ignored() -> dict[str, object]:
+    frames, contacts = clean_fixture()
+    contacts.append(
+        {
+            "frame": 7201,
+            "contact_id": "0:2:0",
+            "body_a": 0,
+            "body_b": 2,
+            "pre_solve_closing_speed": 0.0,
+            "separation_bias": 0.0,
+            "slip_speed": 99.0,
+            "normal_impulse": 0.0,
+            "tangent_impulse": 0.0,
+        }
+    )
+
+    result = analyze_body_records("unloaded_speculative_slip", frames, contacts)
+    if not result["passed"] or result["maximum_quiet_support_slip_speed"] != 0.1:
+        raise AssertionError(f"zero-load speculative row polluted the slip ruling: {result}")
+    return {"name": "unloaded_speculative_slip_is_ignored", "passed": True}
+
+
+def check_tangent_only_slip_is_not_ignored() -> dict[str, object]:
+    frames, contacts = clean_fixture()
+    contacts.append(
+        {
+            "frame": 7201,
+            "contact_id": "0:2:0",
+            "body_a": 0,
+            "body_b": 2,
+            "pre_solve_closing_speed": 0.0,
+            "separation_bias": 0.0,
+            "slip_speed": 99.0,
+            "normal_impulse": 0.0,
+            "tangent_impulse": 1.0,
+        }
+    )
+    return require_exact_failure("tangent_only_slip", frames, contacts, "slip_speed")
+
+
+def check_missing_quiet_support_run() -> dict[str, object]:
+    frames, contacts = clean_fixture()
+    for frame in frames[:-1]:
+        frame["sleep_counter"] = 0
+        frame["sleep_supported"] = 0
+    return require_exact_failure(
+        "missing_quiet_support_run", frames, contacts, "missing_quiet_support_run"
+    )
 
 
 def check_rolling_reversal() -> dict[str, object]:
@@ -429,8 +509,8 @@ def check_completion_guards() -> list[dict[str, object]]:
 
 def main() -> int:
     try:
-        if SEMANTIC_SCHEMA_VERSION != 2:
-            raise AssertionError(f"expected semantic schema version 2, observed {SEMANTIC_SCHEMA_VERSION}")
+        if SEMANTIC_SCHEMA_VERSION != 3:
+            raise AssertionError(f"expected semantic schema version 3, observed {SEMANTIC_SCHEMA_VERSION}")
         results = [
             check_clean_fixture(),
             check_vertical_reimpact(),
@@ -438,6 +518,11 @@ def main() -> int:
             check_same_frame_external_impact_breaks_reimpact_chain(),
             check_excessive_slip(),
             check_accumulated_slip(),
+            check_excessive_quiet_vertical_speed(),
+            check_pre_quiet_motion_is_not_a_quiet_run_failure(),
+            check_unloaded_speculative_slip_is_ignored(),
+            check_tangent_only_slip_is_not_ignored(),
+            check_missing_quiet_support_run(),
             check_rolling_reversal(),
             check_sleep_counter_reset(),
             check_first_post_impact_counter_reset(),
