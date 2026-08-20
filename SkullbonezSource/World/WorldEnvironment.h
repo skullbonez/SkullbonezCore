@@ -23,6 +23,8 @@ Invariants:
   - Device/key vocabulary cannot cross into world-setting mutation methods.
   - Water rendering consumes its pass's declared raster bucket for both calm
     and ocean meshes; world state never owns backend raster authority.
+  - Asset/resource-builder identities survive render-resource release for a
+    later rebuild, but mesh construction validates both before dereference.
 
 Related:
   - SkullbonezSource/World/WorldEnvironment.cpp
@@ -33,6 +35,7 @@ Related:
 
 
 #include "../Core/Common.h"
+#include "../Core/FatalError.h"
 #include "../Core/Config.h"
 #include "../Maths/Vector3.h"
 #include "../Maths/Matrix4.h"
@@ -57,6 +60,40 @@ class Dx12ResourceBuilder;
 
 namespace Environment
 {
+// Lifetime: water rebuild services survive ReleaseRenderResources so the same
+// WorldEnvironment can rebuild after a backend reset without losing identity.
+class WaterRenderRebuildLease
+{
+  public:
+    void Bind( const void* assets, const void* resources ) noexcept
+    {
+        m_assets = assets;
+        m_resources = resources;
+    }
+    bool Complete() const noexcept
+    {
+        return m_assets && m_resources;
+    }
+    void PreserveAcrossResourceRelease() const noexcept
+    {
+        // Intentional no-op: ReleaseRenderResources closes GPU ownership while
+        // this rebuild-service lease remains valid for ResetRenderResources.
+    }
+    void Require( const char* operation ) const
+    {
+        if ( !Complete() )
+        {
+            SB_FATAL( "World/WorldEnvironment",
+                      "Water resource operation requires complete backend-epoch bindings. operation=%s assets=%d "
+                      "resources=%d",
+                      operation ? operation : "unknown", m_assets ? 1 : 0, m_resources ? 1 : 0 );
+        }
+    }
+
+  private:
+    const void* m_assets = nullptr;
+    const void* m_resources = nullptr;
+};
 enum class WaterMode
 {
     Off = 0,
@@ -215,7 +252,8 @@ class WorldEnvironment
     FluidForceSettings m_fluidForces;                                                                 // Owned fluid-force subset used by deterministic physics.
     Assets::AssetSystem* m_assets = nullptr;                                                          // Borrowed asset registry for water shaders.
     Rendering::Dx12ResourceBuilder* m_resources = nullptr;                                            // Borrowed cold builder for water meshes.
-
+    WaterRenderRebuildLease m_renderLease;                                                            // Authoritative preserved rebuild-borrow tuple.
+    void RequireRenderBindings( const char* operation ) const;
     void BuildFluidMesh();                                                                            // Builds calm and ocean meshes from current terrain bounds.
     void ApplyWaterAndFluidSettings( const SkullbonezCore::Core::EngineConfig& config );              // Copies only the water and fluid fields this type consumes.
     WaterStyleParams BuildCalmWaterStyle( bool cinematic,

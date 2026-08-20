@@ -194,7 +194,10 @@ void SceneEntityStore::CommitAppend( const SceneEntityCreateDesc& entity, Physic
                   entity.sceneObjectId.value, body.IsValid() ? 1 : 0, m_records.capacity(), reason );
     }
 
-    // Invariant: reservationReady makes this append allocation-free.
+    // Precondition: reaching this point proves the exact entity, body, and
+    // capacity checks succeeded for this commit.
+    // Runtime allocation policy: the retained reservation makes this append
+    // allocation-free.
     m_records.emplace_back();
     SceneEntityRecord& record = m_records.back();
     record.sceneObjectId = entity.sceneObjectId;

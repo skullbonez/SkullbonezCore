@@ -24,7 +24,7 @@ Invariants:
 
 Related:
   - ReplayAuthoring.h
-  - ReplayOverlayPackets.h
+  - SkullbonezSource/Runtime/Planning/ReplayOverlayPackets.h
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
@@ -88,8 +88,10 @@ struct RunReplayCauseTreeRow
 
 struct RunReplayCauseTreeState
 {
-    // Invariant: Authoring reserves the full bounded row capacity before steady runtime; builders fail
-    // closed instead of growing this vector while the replay UI is active.
+    // Runtime allocation policy: Authoring reserves the full bounded row
+    // capacity before steady runtime; builders never grow this vector while the
+    // replay UI is active.
+    // Invariant: builders fail closed before exposing a partial cause-tree row set.
     std::vector<RunReplayCauseTreeRow> rows;
     int selectedRow = -1;
     Physics::PhysicsSceneObjectId focusedId;

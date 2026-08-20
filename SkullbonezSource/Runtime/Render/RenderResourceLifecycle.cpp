@@ -9,14 +9,14 @@ Summary:
   to RuntimeRenderer.
 
 Glossary:
-  DXR: DirectX Raytracing, used for optional hardware reflections.
-  BLAS: Bottom-Level Acceleration Structure built from one mesh's vertices.
   Source asset: Stable authored record used to rebuild a backend texture handle.
 
 Invariants:
   - Allocation-prone setup executes only in backend-init or scene-load phases.
   - Capability publication and required concrete backend owners agree.
   - Resource release leaves handles null or zero for a later rebuild.
+  - Preview publication appends through the snapshot owner's fixed-capacity
+    boundary; lifecycle code never indexes the catalog directly.
 
 Related:
   - SkullbonezSource/Runtime/Render/RenderResourceLifecycle.h
@@ -188,17 +188,15 @@ RenderResourceLifecycle::BuildRenderTargetPreviewSnapshot( bool shadowsAvailable
     RuntimeRenderTargetPreviewSnapshot snapshot;
     const auto append = [&]( const char* label, const Rendering::FramebufferDX12* target, bool depth, bool available )
     {
-        assert( snapshot.count < static_cast<int>( snapshot.targets.size() ) );
-
-        RuntimeRenderTargetPreview& preview = snapshot.targets[static_cast<size_t>( snapshot.count++ )];
+        RuntimeRenderTargetPreview preview;
         preview.label = label;
         preview.textureHandle = target ? ( depth ? target->GetDepthTextureHandle() : target->GetColorTextureHandle() ) : 0;
-
         preview.width = target ? target->GetWidth() : 0;
         preview.height = target ? target->GetHeight() : 0;
         preview.available = available && preview.textureHandle != 0 && preview.width > 0 && preview.height > 0;
         preview.depth = depth;
         preview.hdr = target && !depth && target->GetColorFormat() == Rendering::FramebufferColorFormat::RGBA16F;
+        snapshot.AppendCatalogTarget( preview );
     };
 
     append( "Reflection Color", m_passResources.reflection.target.get(), false, true );

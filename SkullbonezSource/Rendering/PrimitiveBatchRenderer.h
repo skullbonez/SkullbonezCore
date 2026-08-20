@@ -17,6 +17,8 @@ Invariants:
     destroys this owner before the backend device is destroyed.
   - Primitive batch scopes borrow PrimitiveRenderContext until destruction and
     flush their queued instances exactly once.
+  - A scope can submit only while active and only through the visible/shadow
+    method matching its kind; resource-owner identity is fixed for its epoch.
 
 Related:
   - SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp
@@ -29,6 +31,7 @@ Related:
 
 
 #include "../Core/Common.h"
+#include "../Core/FatalError.h"
 #include "DX12/ShaderDX12.h"
 #include "DX12/MeshDX12.h"
 #include "../Maths/Matrix4.h"
@@ -37,6 +40,7 @@ Related:
 #include "../Maths/Vector3.h"
 #include <array>
 #include <memory>
+#include <utility>
 #include <vector>
 
 namespace SkullbonezCore
@@ -67,6 +71,7 @@ class ConvexHullShape;
 namespace Rendering
 {
 class PrimitiveBatchRenderer;
+struct PrimitiveBatchRendererTestAccess;
 
 struct PrimitiveRenderContext
 {
@@ -130,21 +135,129 @@ struct PrimitiveBatchRendererState
     std::array<float, HULL_MAX_TRIANGLE_VERTICES * HULL_DYNAMIC_FLOATS_PER_VERTEX> convexHullVertexData = {};
 };
 
+enum class PrimitiveBatchKind
+{
+    Sphere,
+    Box,
+    Pine,
+    ShadowSphere,
+    ShadowBox,
+    ShadowPine
+};
+
+// Concept: a batch scope owns one draw-mode lease. Moving transfers the lease;
+// closing or moving from it makes every later draw a fatal lifecycle error.
+class PrimitiveBatchScopeLifecycle
+{
+  public:
+    PrimitiveBatchScopeLifecycle() = default;
+    PrimitiveBatchScopeLifecycle( const void* renderer, const void* context, PrimitiveBatchKind kind ) noexcept
+        : m_renderer( renderer ), m_context( context ), m_kind( kind ), m_active( true )
+    {
+    }
+    PrimitiveBatchScopeLifecycle( PrimitiveBatchScopeLifecycle&& other ) noexcept
+        : m_renderer( other.m_renderer ), m_context( other.m_context ), m_kind( other.m_kind ), m_active( other.m_active )
+    {
+        other.m_active = false;
+    }
+    PrimitiveBatchScopeLifecycle& operator=( PrimitiveBatchScopeLifecycle&& other ) noexcept
+    {
+        if ( this != &other )
+        {
+            m_renderer = other.m_renderer;
+            m_context = other.m_context;
+            m_kind = other.m_kind;
+            m_active = other.m_active;
+            other.m_active = false;
+        }
+
+        return *this;
+    }
+    PrimitiveBatchScopeLifecycle( const PrimitiveBatchScopeLifecycle& ) = delete;
+    PrimitiveBatchScopeLifecycle& operator=( const PrimitiveBatchScopeLifecycle& ) = delete;
+
+    void RequireVisible() const
+    {
+        Require( false );
+    }
+    void RequireShadow() const
+    {
+        Require( true );
+    }
+    void Close() noexcept
+    {
+        m_active = false;
+    }
+    bool Active() const noexcept
+    {
+        return m_active;
+    }
+    PrimitiveBatchKind Kind() const noexcept
+    {
+        return m_kind;
+    }
+
+  private:
+    void Require( bool shadowDraw ) const
+    {
+        const bool visibleKind = m_kind == PrimitiveBatchKind::Sphere || m_kind == PrimitiveBatchKind::Box ||
+                                 m_kind == PrimitiveBatchKind::Pine;
+        const bool shadowKind = m_kind == PrimitiveBatchKind::ShadowSphere || m_kind == PrimitiveBatchKind::ShadowBox ||
+                                m_kind == PrimitiveBatchKind::ShadowPine;
+
+        if ( !m_active || !m_renderer || !m_context || ( shadowDraw ? !shadowKind : !visibleKind ) )
+        {
+            SB_FATAL( "Rendering/PrimitiveBatchScope",
+                      "Primitive batch scope misuse. active=%d renderer=%d context=%d kind=%u requested=%s",
+                      m_active ? 1 : 0, m_renderer ? 1 : 0, m_context ? 1 : 0, static_cast<unsigned int>( m_kind ),
+                      shadowDraw ? "shadow" : "visible" );
+        }
+    }
+
+    const void* m_renderer = nullptr;
+    const void* m_context = nullptr;
+    PrimitiveBatchKind m_kind = PrimitiveBatchKind::Sphere;
+    bool m_active = false;
+};
+
+// Invariant: the first complete backend tuple becomes the identity for this
+// renderer epoch; subsequent binds may repeat it but cannot replace one slot.
+class PrimitiveResourceOwnerIdentity
+{
+  public:
+    void Bind( const void* resources, const void* textures, const void* geometry )
+    {
+        const bool resourcesMatch = !m_resources || m_resources == resources;
+        const bool texturesMatch = !m_textures || m_textures == textures;
+        const bool geometryMatch = !m_geometry || m_geometry == geometry;
+
+        if ( !resourcesMatch || !texturesMatch || !geometryMatch )
+        {
+            SB_FATAL( "Rendering/PrimitiveBatchRenderer",
+                      "Primitive resource owner identity changed during a live renderer epoch. resources=%d textures=%d "
+                      "geometry=%d",
+                      resourcesMatch ? 1 : 0, texturesMatch ? 1 : 0, geometryMatch ? 1 : 0 );
+        }
+
+        m_resources = resources;
+        m_textures = textures;
+        m_geometry = geometry;
+    }
+
+  private:
+    const void* m_resources = nullptr;
+    const void* m_textures = nullptr;
+    const void* m_geometry = nullptr;
+};
+
 class PrimitiveBatchRenderer
 {
 
   private:
-    enum class PrimitiveBatchKind
-    {
-        Sphere,
-        Box,
-        Pine,
-        ShadowSphere,
-        ShadowBox,
-        ShadowPine
-    };
+    friend struct PrimitiveBatchRendererTestAccess;
 
     PrimitiveBatchRendererState m_state;                                                             // Owned primitive render cache and batch scratch.
+    PrimitiveResourceOwnerIdentity m_resourceOwnerIdentity;                                          // Stable backend tuple for this renderer epoch.
 
     void EnsureSphereShader( const PrimitiveRenderContext& context );
     void EnsureShadowDepthShader( const PrimitiveRenderContext& context );
@@ -176,6 +289,7 @@ class PrimitiveBatchRenderer
 
       private:
         friend class PrimitiveBatchRenderer;
+        friend struct PrimitiveBatchRendererTestAccess;
 
         PrimitiveBatchScope( PrimitiveBatchRenderer& renderer, const PrimitiveRenderContext& context,
                              PrimitiveBatchKind kind );                                              // Batch scopes borrow their context until destruction.
@@ -183,8 +297,7 @@ class PrimitiveBatchRenderer
 
         PrimitiveBatchRenderer* m_renderer = nullptr;
         const PrimitiveRenderContext* m_context = nullptr;
-        PrimitiveBatchKind m_kind = PrimitiveBatchKind::Sphere;
-        bool m_active = false;
+        PrimitiveBatchScopeLifecycle m_lifecycle;
     };
 
     void SetClipPlane( float x, float y, float z, float w );

@@ -467,5 +467,34 @@ class RuntimeRenderer
     Rendering::Dx12GraphTransientPool* m_frameGraphRenderGraph = nullptr;
     bool m_frameGraphFinalized = false;
 };
+
+enum class RuntimeFrameResourcePass : uint8_t
+{
+    Sky,
+    FullscreenQuad,
+    SceneTarget,
+    Volumetric,
+    Tonemap,
+};
+
+// Invariant: SkyPass is required by the ordinary cube-map path, while the
+// other resource owners exist only for the cinematic post chain. Keeping this
+// decision beside RuntimeRenderer lets a focused test pin pass selection;
+// Automation and graphics stress exercise the production wiring.
+constexpr bool RuntimeFrameResourcePassRequired( RuntimeFrameResourcePass pass, bool cinematicEnabled )
+{
+    switch ( pass )
+    {
+    case RuntimeFrameResourcePass::Sky:
+        return true;
+    case RuntimeFrameResourcePass::FullscreenQuad:
+    case RuntimeFrameResourcePass::SceneTarget:
+    case RuntimeFrameResourcePass::Volumetric:
+    case RuntimeFrameResourcePass::Tonemap:
+        return cinematicEnabled;
+    }
+
+    return false;
+}
 } // namespace Runtime
 } // namespace SkullbonezCore

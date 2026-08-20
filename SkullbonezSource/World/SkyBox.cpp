@@ -14,12 +14,15 @@ Invariants:
     during renderer rebuilds.
   - All six face draws share one pass-local opaque raster bucket, precompiled
     against the active target before the first face submission.
+  - Reset requires texture, config, asset, and resource-builder borrows; release
+    clears all four so stale backend-epoch use reaches Lane F before dereference.
 
 Related:
   - SkullbonezSource/World/SkyBox.h
   - Agentic/Reference/engine-glossary.md
 */
 #include "SkyBox.h"
+#include "../Core/FatalError.h"
 #include "../Core/SbDiagnosticStore.h"
 #include "../Assets/AssetKeys.h"
 #include "../Core/Config.h"
@@ -69,7 +72,6 @@ SkyBox::SkyBox( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, int 
 
 SkullbonezCore::Core::SbResult SkyBox::LoadTextures( const SkullbonezCore::Core::EngineConfig& cfg )
 {
-    assert( m_textures );
     const SkullbonezCore::Core::SbResult
         leftResult = m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.assetPaths.skyLeft ).c_str(),
                                                     TEXTURE_SKY_LEFT );
@@ -125,6 +127,12 @@ SkullbonezCore::Core::SbResult SkyBox::LoadTextures( const SkullbonezCore::Core:
     }
 
     return SkullbonezCore::Core::SbResult::Success();
+}
+
+
+void SkyBox::RequireRenderBindings( const char* operation ) const
+{
+    m_renderLease.Require( operation );
 }
 
 
@@ -212,6 +220,7 @@ void SkyBox::BindTextures( TextureCollection& textures )
     // Lifetime: Run owns the texture collection; skybox only borrows it between
     // Initialise and backend teardown/rebuild.
     m_textures = &textures;
+    m_renderLease.BindTextures( &textures );
 }
 
 
@@ -223,21 +232,20 @@ void SkyBox::BindRenderContexts( const SkullbonezCore::Core::EngineConfig& confi
     m_config = &config;
     m_assets = &assets;
     m_resources = &resources;
+    m_renderLease.BindContexts( &config, &assets, &resources );
 }
 
 
 SkullbonezCore::Core::SbResult SkyBox::ResetRenderResources()
 {
+    RequireRenderBindings( "ResetRenderResources" );
+
     for ( int i = 0; i < 6; ++i )
     {
         m_faceMeshes[i].reset();
     }
 
     m_shader.reset();
-    assert( m_textures );
-    assert( m_config );
-    assert( m_assets );
-    assert( m_resources );
     const SkullbonezCore::Core::SbResult textureResult = LoadTextures( *m_config );
 
     if ( !textureResult.Ok() )
@@ -262,6 +270,7 @@ void SkyBox::ReleaseRenderResources()
     m_config = nullptr;
     m_assets = nullptr;
     m_resources = nullptr;
+    m_renderLease.Release();
 }
 
 

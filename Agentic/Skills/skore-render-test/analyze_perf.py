@@ -1,15 +1,29 @@
 """
-Perf test analysis script for SkullbonezCore.
+File: Agentic/Skills/skore-render-test/analyze_perf.py
+Purpose:
+  Converts a SkullbonezCore performance CSV into a comparable JSON artifact.
 
-Usage:
-    py analyze_perf.py --renderer <artifact-label> --csv <path> --out-dir <dir>
+Summary:
+  Repeated CSV headers define the active marker schema. The analyzer separates
+  timing markers from scalar counters, calculates one bounded statistics row per
+  observed column, records memory checkpoints and host-name-free machine facts,
+  then writes a renderer-labelled artifact for the comparison gate.
 
-Reads a perf_log.csv, computes statistics for every profiler marker column,
-and writes {renderer}_perf.json into the specified output directory.
+Glossary:
+  Scalar counter: A `Counter/` column whose numeric samples are values rather
+    than milliseconds.
+  Performance artifact: Versioned JSON containing capture statistics and the
+    machine identity needed to reject invalid cross-machine comparisons.
 
-Paths are derived from this script's location — no hardcoded drive letters.
-  analyze_perf.py  lives in  Agentic/Skills/skore-render-test/
-  three levels up  gives the repo root.
+Invariants:
+  - Every data row after a header must match that active header exactly;
+    malformed captured rows fail.
+  - Counter columns never enter timing-regression classification.
+  - Machine facts omit the hostname, and output is bounded by the captured schema.
+
+Related:
+  - Agentic/Skills/skore-render-test/perf_compare.py
+  - Agentic/Skills/skore-render-test/skill.md
 """
 import argparse
 import json
@@ -82,7 +96,8 @@ def parse_csv(path):
             if line.startswith("# MEM"):
                 mem.append(parse_memory_checkpoint(line))
             elif line.startswith("pass,frame,"):
-                # Dynamic header — discover marker columns
+                # Invariant: each repeated header replaces the active schema for
+                # subsequent rows; the self-test pins alignment across passes.
                 cols = line.split(",")
                 column_names = cols[2:]  # everything after pass, frame
             elif line and not line.startswith("#"):
@@ -257,7 +272,8 @@ def main():
     counter_names = [name for name in column_names if name.startswith("Counter/")]
     print(f"Frames   : {len(frames)}  |  Markers: {len(marker_names)}  |  Counters: {len(counter_names)}")
 
-    # Compute stats for every marker column
+    # One output row per observed column keeps artifact size bounded by the
+    # capture schema rather than its frame count.
     marker_stats = {}
     for name in marker_names:
         vals = [f[name] for f in frames if name in f]
@@ -280,7 +296,7 @@ def main():
         s = counter_stats[name]
         print(f"{name:45s}: avg={s['avg']:.4f}  p50={s['p50']:.4f}  min={s['min']:.4f}  max={s['max']:.4f}")
 
-    # Extract memory checkpoints
+    # Memory checkpoints are named samples, not timing markers.
     mem_start   = next((m["working_set_mb"] for m in mem if m["checkpoint"] == "start"   and m["pass"] == 1), 0)
     mem_restart = next((m["working_set_mb"] for m in mem if m["checkpoint"] == "start"   and m["pass"] == 2), 0)
     mem_end     = next((m["working_set_mb"] for m in mem if m["checkpoint"] == "end"     and m["pass"] == 2), 0)
@@ -299,7 +315,6 @@ def main():
         "mem_end_mb":     round(mem_end, 2),
     }
 
-    # Write artifact
     args.out_dir.mkdir(parents=True, exist_ok=True)
     artifact_path = args.out_dir / f"{args.renderer}_perf.json"
     artifact_path.write_text(json.dumps(result, indent=2))

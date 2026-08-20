@@ -26,6 +26,8 @@ Invariants:
   - Store refreshes do not touch GPU resources or renderer lifetime.
   - Scene creation appends presentation, instance, and handle rows together
     only after the caller has preflighted the cross-owner transaction.
+  - Each dense handle records its current row and reverse lookup returns that
+    same handle; swap-last deletion republishes the complete map.
   - A discontinuity collapses both pose endpoints before it can be rendered.
 
 Related:
@@ -194,6 +196,7 @@ class RenderInstanceStore
     RenderInstanceHandle HandleForModelIndex( int modelIndex ) const;
     int ModelIndexForHandle( RenderInstanceHandle handle ) const;
     bool Contains( RenderInstanceHandle handle ) const;
+    bool HasConsistentHandleMap() const;
 
     // Lifetime: read spans borrow scene-order rows and expire on scene mutation
     // or store destruction; callers must not retain them across frames.

@@ -24,6 +24,8 @@ Invariants:
     not reordered.
   - Window-dependent polling borrows the active runtime window through the input
     bridge instead of reacquiring the process singleton.
+  - Input owns the sole retained Window borrow; unbind clears it only when the
+    caller presents the currently bound Window identity.
 
 Related:
   - SkullbonezSource/Runtime/Input/Input.cpp
@@ -37,6 +39,8 @@ Related:
 
 #include "../../Core/Common.h"
 #include "../../Core/SbResult.h"
+
+#include <cassert>
 
 namespace SkullbonezCore
 {
@@ -52,6 +56,8 @@ class Window;
 
 namespace Hardware
 {
+
+struct InputWindowBridgeTestAccess;
 
 struct InputState
 {
@@ -164,6 +170,40 @@ class Input
                                                                    static void ClearAutomationState();
 
                                                                    private:
+                                                                   friend struct InputWindowBridgeTestAccess;
+
+                                                                   class WindowBridge
+                                                                   {
+                                                                   public:
+                                                                   void Bind( Runtime::Window* window )
+                                                                   {
+                                                                   assert( !m_window && "Input window bridge is already bound" );
+                                                                   m_window = window;
+                                                                   }
+
+                                                                   void Unbind( Runtime::Window* window )
+                                                                   {
+                                                                   assert( m_window == window && "Input window bridge unbound with a different window" );
+
+                                                                   if ( m_window == window )
+                                                                   {
+                                                                   m_window = nullptr;
+                                                                   }
+                                                                   }
+
+                                                                   Runtime::Window* BoundWindow() const
+                                                                   {
+                                                                   return m_window;
+                                                                   }
+
+                                                                   private:
+
+                                                                   // Lifetime: one process-local borrow follows the WinMain-owned Window
+                                                                   // from startup binding through explicit pre-destruction unbinding.
+                                                                   Runtime::Window* m_window = nullptr;
+                                                                   };
+
+                                                                   static WindowBridge s_windowBridge;
 
                                                                    // Hardware reads are private so steady runtime consumers cannot bypass the
                                                                    // one DeviceInputFrame capture performed at the frame boundary.

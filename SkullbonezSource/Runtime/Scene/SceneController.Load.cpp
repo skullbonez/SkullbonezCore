@@ -121,7 +121,7 @@ TornadoFieldConfig ProjectAuthoredTornadoField( const AuthoredTornadoFieldConfig
 
 TornadoSystemConfig ProjectAuthoredTornadoSystem( const AuthoredTornadoSystemConfig& authored )
 {
-    // Boundary: Scene owns cold authored DTOs. Runtime performs the exhaustive
+    // Owner: Scene owns cold authored DTOs. Runtime performs the exhaustive
     // copy so Gameplay never depends upward on Scene or parser vocabulary.
     TornadoSystemConfig projected;
     projected.enabled = authored.enabled;

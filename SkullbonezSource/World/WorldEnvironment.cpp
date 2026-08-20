@@ -18,6 +18,8 @@ Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
     are the validation contract.
   - World-setting commands arrive in domain units and retain no input owner.
+  - Water mesh construction requires both stable rebuild borrows; releasing GPU
+    objects preserves those identities for a later reset in the same owner.
 
 Related:
   - SkullbonezSource/World/WorldEnvironment.h
@@ -25,6 +27,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "WorldEnvironment.h"
+#include "../Core/FatalError.h"
 #include "../Assets/AssetSystem.h"
 #include "../Rendering/RenderCommandTypes.h"
 #include "../Rendering/DX12/RenderBackendDX12.h"
@@ -102,6 +105,7 @@ void WorldEnvironment::BindRenderContexts( const SkullbonezCore::Core::EngineCon
     ApplyWaterAndFluidSettings( config );
     m_assets = &assets;
     m_resources = &resources;
+    m_renderLease.Bind( &assets, &resources );
 }
 
 
@@ -302,8 +306,7 @@ void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, co
 
 void WorldEnvironment::BuildFluidMesh()
 {
-    assert( m_assets );
-    assert( m_resources );
+    RequireRenderBindings( "BuildFluidMesh" );
     float f = m_waterMeshBuild.frustumFar;
 
     const int N = 64;
@@ -453,6 +456,12 @@ void WorldEnvironment::BuildFluidMesh()
 }
 
 
+void WorldEnvironment::RequireRenderBindings( const char* operation ) const
+{
+    m_renderLease.Require( operation );
+}
+
+
 void WorldEnvironment::ResetRenderResources()
 {
     ReleaseRenderResources();
@@ -474,6 +483,7 @@ void WorldEnvironment::EnsureRenderResources( const SkullbonezCore::Core::Engine
 
 void WorldEnvironment::ReleaseRenderResources()
 {
+    m_renderLease.PreserveAcrossResourceRelease();
     m_calmMesh.reset();
     m_calmShader.reset();
     m_oceanMesh.reset();

@@ -20,8 +20,8 @@ Invariants:
     into PSO preparation; geometry owners retain no ambient raster state.
   - Retained range submissions may borrow a compact record prefix, but every
     range's populated extent must remain inside that supplied span.
-  - GeometryOwner stores no backend pointer, callback, or polymorphic service;
-    its startup-bound owner borrows remain valid for the device lifetime.
+  - Stable owner identities survive backend reset, but hot submission is legal
+    only while the composition root has published an active device epoch.
   - One accepted native geometry draw records one row through Dx12Diagnostics.
 
 Related:
@@ -868,6 +868,7 @@ void Dx12GeometryOwner::InvalidateGridLinePipelinesForShaderReload()
 
 void Dx12GeometryOwner::Shutdown()
 {
+    m_submissionEpoch.Close();
     InvalidateGridLinePipelinesForShaderReload();
     m_gridLineShader.reset();
 
@@ -892,12 +893,24 @@ void Dx12GeometryOwner::Shutdown()
 }
 
 
+void Dx12GeometryOwner::BeginSubmissionEpoch()
+{
+    m_submissionEpoch.Begin();
+}
+
+
+void Dx12GeometryOwner::RequireSubmissionEpoch( const char* operation ) const
+{
+    m_submissionEpoch.Require( operation );
+}
+
+
 // --- RenderBackendDX12 draw coordination ---
 
 
 bool Dx12GeometryOwner::PrecompileDynamicVBRasterState( uint32_t handle, const PassRasterStateBucket& bucket )
 {
-    assert( m_resourceFrame );
+    RequireSubmissionEpoch( "PrecompileDynamicVBRasterState" );
     return PrecompileDynamicVBRasterState( handle, m_resourceFrame->DrawGate(), bucket.raster );
 }
 
@@ -905,7 +918,7 @@ bool Dx12GeometryOwner::PrecompileDynamicVBRasterState( uint32_t handle, const P
 void Dx12GeometryOwner::UploadAndDrawDynamicVB( uint32_t handle, std::span<const float> packedVertices,
                                                 const PassRasterStateBucket& bucket )
 {
-    assert( m_resourceDevice && m_resourceFrame && m_submissionPipeline && m_submissionDiagnostics );
+    RequireSubmissionEpoch( "UploadAndDrawDynamicVB" );
     m_resourceFrame->UploadReservations().CancelPendingConstantUpload();
 
     if ( packedVertices.empty() || !m_resourceFrame->DrawGate().PrepareDraw() )
@@ -934,7 +947,7 @@ void Dx12GeometryOwner::DrawLinesColored( std::span<const float> packedVertices,
                                           const Math::Transformation::Matrix4& viewProjection,
                                           const PassRasterStateBucket& bucket )
 {
-    assert( m_resourceDevice && m_resourceFrame && m_submissionPipeline && m_submissionDiagnostics );
+    RequireSubmissionEpoch( "DrawLinesColored" );
     m_resourceFrame->UploadReservations().CancelPendingConstantUpload();
 
     if ( packedVertices.empty() || packedVertices.size() % 6 != 0 || !m_resourceFrame->DrawGate().PrepareDraw() )
@@ -960,7 +973,7 @@ void Dx12GeometryOwner::DrawTransientColoredTriangles( std::span<const float> pa
                                                        const Math::Transformation::Matrix4& viewProjection,
                                                        TransientTriangleStyle style, const PassRasterStateBucket& bucket )
 {
-    assert( m_resourceDevice && m_resourceFrame && m_submissionDiagnostics );
+    RequireSubmissionEpoch( "DrawTransientColoredTriangles" );
     m_resourceFrame->UploadReservations().CancelPendingConstantUpload();
     const UINT64 floatsPerVertex = IsInstancedRibbonStyle( style ) ? 19u : 11u;
 
@@ -992,7 +1005,7 @@ void Dx12GeometryOwner::DrawRetainedGeometryRibbon( std::span<const float> packe
                                                     const Math::Transformation::Matrix4& viewProjection,
                                                     TransientTriangleStyle style, const PassRasterStateBucket& bucket )
 {
-    assert( m_resourceDevice && m_resourceFrame && m_submissionDiagnostics );
+    RequireSubmissionEpoch( "DrawRetainedGeometryRibbon" );
     const RetainedGeometryCapacity capacity = m_retainedGeometryCapacity;
 
     if ( !IsRetainedGeometryCapacitySupported( capacity ) )
@@ -1052,7 +1065,7 @@ void Dx12GeometryOwner::DrawRetainedGeometryRanges( std::span<const float> compa
                                                     const Math::Transformation::Matrix4& viewProjection,
                                                     TransientTriangleStyle style, const PassRasterStateBucket& bucket )
 {
-    assert( m_resourceDevice && m_resourceFrame && m_submissionDiagnostics );
+    RequireSubmissionEpoch( "DrawRetainedGeometryRanges" );
     const RetainedGeometryCapacity capacity = m_retainedGeometryCapacity;
     const std::size_t recordCapacity = static_cast<std::size_t>( capacity.ordinaryRecordCapacity ) +
                                        capacity.priorityRecordCapacity;
@@ -1191,7 +1204,7 @@ void Dx12GeometryOwner::DrawRetainedLinesColored( std::span<const float> packedV
                                                   bool priorityLane, const Math::Transformation::Matrix4& viewProjection,
                                                   const PassRasterStateBucket& bucket )
 {
-    assert( m_resourceDevice && m_resourceFrame && m_submissionPipeline && m_submissionDiagnostics );
+    RequireSubmissionEpoch( "DrawRetainedLinesColored" );
     const RetainedGeometryCapacity capacity = m_retainedGeometryCapacity;
     const std::size_t channelIndex = priorityLane ? 3u : 2u;
     const std::size_t ribbonFloatCapacity = RETAINED_GEOMETRY_ORDINARY_FLOATS + RETAINED_GEOMETRY_PRIORITY_FLOATS;
@@ -1236,6 +1249,7 @@ void Dx12GeometryOwner::BindResourceOwners( Dx12RenderDevice& device, Dx12FrameO
     m_resourceFrame = &frame;
     m_submissionPipeline = &pipeline;
     m_submissionDiagnostics = &diagnostics;
+    m_submissionEpoch.Bind( &device, &frame, &pipeline, &diagnostics );
 }
 
 bool Dx12GeometryOwner::ConfigureRetainedGeometryCapacity( RetainedGeometryCapacity capacity ) noexcept
@@ -1288,7 +1302,7 @@ uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticVertices, in
                                                  std::span<const int> instanceAttributeSizes,
                                                  std::span<const int> staticAttributeSizes )
 {
-    assert( m_resourceDevice && m_resourceFrame );
+    RequireSubmissionEpoch( "CreateInstancedMesh" );
 
     if ( !m_resourceFrame->EnsureOpen().Ok() )
     {
@@ -1309,7 +1323,7 @@ uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticVertices, in
 
 void Dx12GeometryOwner::UploadInstanceData( uint32_t handle, std::span<const float> packedInstances )
 {
-    assert( m_resourceFrame && m_submissionPipeline );
+    RequireSubmissionEpoch( "UploadInstanceData" );
     m_resourceFrame->UploadReservations().CancelPendingConstantUpload();
 
     if ( packedInstances.empty() || StaticVertexStride( handle ) <= 0 || !m_resourceFrame->DrawGate().PrepareDraw() )
@@ -1336,7 +1350,7 @@ void Dx12GeometryOwner::UploadInstanceData( uint32_t handle, std::span<const flo
 
 void Dx12GeometryOwner::DrawInstancedMesh( const InstancedMeshDrawDesc& draw )
 {
-    assert( m_resourceDevice && m_resourceFrame && m_submissionDiagnostics );
+    RequireSubmissionEpoch( "DrawInstancedMesh" );
 
     if ( !m_resourceFrame->DrawGate().PrepareDraw() )
     {

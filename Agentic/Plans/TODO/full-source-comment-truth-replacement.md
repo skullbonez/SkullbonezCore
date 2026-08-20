@@ -1,9 +1,45 @@
 # Full Source Comment Truth Audit And Deferred Replacement
 
-Date: 2026-08-20
-Status: Audit complete; exact replacements queued, live source intentionally unchanged.
+Date: 2026-08-21
+Status: Active; 0/6 phases complete; `INVARIANT_HARDENING` IH0-IH7 is complete.
 Snapshot base: `154506e0312e42d1bfa0065fba900b24d8225889`
 Impact areas: repository-wide source comments, tests, shaders, and substantial tools
+Owner: Repository comment truth with each touched subsystem retaining semantic authority
+Priority: First active queue item
+Commit name: `COMMENT_TRUTH`
+
+## Registration And Ordering
+
+The master ledger activates CT0 immediately after completed invariant hardening
+and before `VALIDATION_TIME_AUDIT`. IH4-IH7 remain authoritative for every source and
+comment they change. The frozen patch is audit evidence, not a post-IH source of
+truth: CT0 must discard a hunk when IH made it redundant, regenerate it when the
+implementation or invariant changed, and preserve the current IH wording when
+the queued replacement would weaken or contradict it.
+
+Do not apply the frozen patch wholesale. CT0 rechecked it after IH7 and found
+that strict and three-way application fail broadly, not only in the two tests
+known at registration. A detached application at the declared snapshot also
+does not apply cleanly under the current checkout. The artifact therefore
+remains provenance for the intended prose, never an executable patch claim.
+Each queued file requires a fresh full-file audit against the post-IH
+implementation before its checklist disposition changes.
+
+## CT0 Rebase Evidence
+
+- The current tracked checklist still reconciles exactly at 843/843 files; no
+  tracked source-bearing file is missing from the plan and no row is stale.
+- The frozen artifact has 262 targets: 261 checklist files plus
+  `Agentic/Reference/engine-glossary.md`.
+- 37 patch targets changed between snapshot
+  `154506e0312e42d1bfa0065fba900b24d8225889` and IH7 closure
+  `4472cc9e5105625bef059ab153dbcf614d5a2823`.
+- Strict and three-way checks fail broadly on the IH7 tree. A detached worktree
+  at the declared snapshot also rejects the artifact with current Git checkout
+  settings, so CT0 cannot use textual application as its rebase mechanism.
+- No live source or queued checklist row changed during this measurement. The
+  next CT0 step is to reconstruct the surviving comment-only replacements from
+  current source, preserving IH4-IH7 wording and recording superseded hunks.
 
 ## Outcome
 
@@ -134,8 +170,10 @@ comment-only patch because changing a Python string literal changes the tool's A
   C/C++/HLSL streams, batch commands, and PowerShell commands.
 - `python tools/check_related_paths.py --repo .`: 0 existing findings; all 52 new
   glossary citations resolve to the durable engine glossary.
-- `git apply --check --unidiff-zero --recount Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`: pass against the current worktree.
-- `git apply --check --3way --unidiff-zero --recount Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`: pass against the current worktree.
+- At audit time, both strict and three-way `git apply --check` passed against
+  the snapshot worktree. They are frozen evidence, not a current applicability
+  claim. Registration-time strict checking now reports the two conflicts named
+  above; CT0 owns their semantic reconciliation and patch regeneration.
 
 Repository build or runtime validation is not required now because no live source is
 changed and the queued diff is strictly comments and docs. If the generated-header
@@ -143,17 +181,50 @@ producer synchronization is added later, validate shader regeneration separately
 
 ## Application Protocol
 
-After the in-flight agent has committed its source work:
+After IH7 has committed its final source and comment work:
 
 1. Re-run the same `git ls-files` inventory and append a checklist disposition for
    any source file added after this document's 843-file reconciliation.
-2. Run `git apply --check --3way --unidiff-zero --recount Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`.
-3. Apply with `git apply --3way --unidiff-zero --recount Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`. Resolve only files changed
-   after snapshot `154506e03`; do not weaken a queued invariant to avoid a conflict.
+2. Enumerate every patched file changed after snapshot `154506e03` and classify
+   each queued hunk as still required, redundant because later work already
+   supplied the truth, or stale because ownership or behavior changed. Record
+   the disposition; do not retain a hunk merely to preserve the old 261 count.
+3. Regenerate the patch from the current tree. Require both strict and three-way
+   checks to apply without conflicts before any batched application. Current
+   source and the owning plan win over frozen replacement prose.
 4. Synchronize the generated reflection producer using the exact rows above, then
    regenerate and check the reflection header if that non-comment tool edit is authorized.
 5. Re-run the comment audit, full-scope glossary inventory, Related-path check, and
-   comment-only semantic comparison before checking the 261 queued rows.
+   comment-only semantic comparison before checking the remaining queued rows.
+6. Run `tools\validate_fast.bat` at CT5 so comment-driven line movement, body
+   digests, exact ownership rulings, generated metadata, and durable paths are
+   proven against the final tree. Refresh a ruling only after its owner judgment
+   is re-read; never change a ruling merely to clear the gate.
+
+## Phases
+
+- [ ] **CT0 — Rebase and adjudicate the frozen replacement.** Reconcile the
+  current tracked inventory, every file changed since the snapshot, all IH
+  overlaps, and both known direct conflicts. Mark redundant replacements as
+  satisfied by current truth, regenerate stale replacements, and produce a
+  conflict-free patch plus exact per-file dispositions before live source edits.
+- [ ] **CT1 — Apply infrastructure, generated-data, shader, test, and tool
+  replacements.** Land the non-engine batches, synchronize the generated shader
+  reflection producer, and prove script/command semantics plus generated output.
+- [ ] **CT2 — Apply lower-layer engine replacements.** Re-audit and update
+  Assets, Core, Maths, Physics, Scene, and World without replacing any later IH
+  invariant, ownership, enforcement-lane, or hazard truth.
+- [ ] **CT3 — Apply Rendering and DX12 replacements.** Preserve feature-neutral
+  Rendering vocabulary and the final IH4 lifecycle/capacity contracts while
+  correcting stale summaries, fence semantics, and local teaching comments.
+- [ ] **CT4 — Apply Runtime and UI replacements.** Preserve the final IH5 owner,
+  lifecycle, package-direction, replay-growth, and input-router contracts while
+  replacing only comments still false or incomplete on the post-IH tree.
+- [ ] **CT5 — Reconcile and close the full-source truth pass.** Re-run the exact
+  inventory, require every row checked or explicitly superseded with no silent
+  deferral, run glossary/Related/semantic checks and `validate_fast`, obtain an
+  independent whole-pass truth review, then delete the completed live plan and
+  frozen patch under the repository archive convention.
 
 ## Checklist Contract
 

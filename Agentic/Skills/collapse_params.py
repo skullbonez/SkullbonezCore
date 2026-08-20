@@ -1,4 +1,28 @@
-import re, glob, os
+"""
+File: Agentic/Skills/collapse_params.py
+Purpose:
+  Collapses multiline parameter lists in top-level SkullbonezSource headers.
+
+Summary:
+  This maintenance helper performs one deliberately narrow lexical rewrite over
+  root headers. It joins a parenthesized declaration only until parentheses
+  balance and leaves opening lines that contain lambda captures to clang-format.
+
+Invariants:
+  - The scan is bounded to `SkullbonezSource/*.h`; it never descends into
+    subsystem directories.
+  - A changed file is replaced only after its complete updated text is built.
+  - An opening line containing a lambda capture remains untouched to avoid
+    formatter oscillation.
+
+Related:
+  - Agentic/Reference/code-style-guide.md
+  - tools/format_fix.bat
+"""
+
+import glob
+import os
+import re
 
 SOURCE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "SkullbonezSource")
 
@@ -13,7 +37,9 @@ def collapse_multiline_params(content):
     i = 0
     while i < len(lines):
         line = lines[i]
-        # Count parens in code (strip // comments first)
+        # Hazard: this is a lexical parenthesis counter, not a C++ parser. Strip
+        # line comments before balancing so comment punctuation cannot consume a
+        # later declaration; the deliberately narrow file scope limits exposure.
         code_part = re.sub(r'//.*$', '', line)
         depth = code_part.count('(') - code_part.count(')')
         # Skip collapsing lines that contain a lambda capture [...]() — clang-format

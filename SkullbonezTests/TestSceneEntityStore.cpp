@@ -19,9 +19,14 @@ Invariants:
   - Clear and commit reuse the pre-scene reservation without growing storage.
   - Render creation publishes presentation, instance, and handle rows together.
   - Owner-prepared shadow stream identity survives render-row publication.
+  - A refresh topology mismatch clears presentation, instance, and handle rows
+    before any body/collider source is indexed.
+  - Swap-last deletion republishes handle-to-row identity before the next
+    SceneWorld render snapshot is exposed.
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneEntityStore.h
+  - SkullbonezSource/Rendering/RenderInstanceStore.h
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 #include "TestColliderStoreFixtures.h"
@@ -180,6 +185,76 @@ TEST_CASE( "RenderInstanceStore: preflighted creation publishes every render row
     CHECK_FALSE( renderStore.CanAppendCreationRow( 0 ) );
 }
 
+
+TEST_CASE( "RenderInstanceStore: topology mismatch clears every draw row in all builds" )
+{
+    using namespace SkullbonezCore::Physics;
+    using namespace SkullbonezCore::Rendering;
+
+    RenderInstanceStore renderStore;
+    RenderInstancePresentationRecord presentation;
+    PhysicsBodyRecord body;
+    body.handle = PhysicsBodyHandle { 0u, 1u };
+    body.sceneObjectId = PhysicsSceneObjectId { 501u };
+    PhysicsBodyHotState hotState;
+    ColliderRecord collider;
+    const SkullbonezCore::Math::CollisionDetection::BoundingSphere shape( 1.0f, SkullbonezCore::Math::Vector::ZERO_VECTOR );
+    collider.handle = PhysicsColliderHandle { 0u, 1u };
+    collider.body = body.handle;
+    collider.sceneObjectId = body.sceneObjectId;
+    collider.shape = SkullbonezCore::Math::CollisionDetection::CollisionShapeReference( shape, 0u );
+    collider.shapeKind = ColliderShapeKind::Sphere;
+    renderStore.CommitCreationRow( presentation, body, hotState, collider, 0 );
+
+    PhysicsBodyStore emptyBodies;
+    ColliderStore emptyColliders;
+    renderStore.Refresh( emptyBodies, emptyColliders );
+
+    CHECK( renderStore.PresentationCount() == 0 );
+    CHECK( renderStore.Count() == 0 );
+    CHECK( renderStore.Records().empty() );
+    CHECK( renderStore.HasConsistentHandleMap() );
+}
+
+
+TEST_CASE( "SceneWorld render contract: swap-last reorder republishes the complete handle map" )
+{
+    using namespace SkullbonezCore::Physics;
+    using namespace SkullbonezCore::Rendering;
+
+    RenderInstanceStore renderStore;
+    const SkullbonezCore::Math::CollisionDetection::BoundingSphere shape(
+        1.0f, SkullbonezCore::Math::Vector::ZERO_VECTOR );
+
+    for ( int modelIndex = 0; modelIndex < 3; ++modelIndex )
+    {
+        RenderInstancePresentationRecord presentation;
+        PhysicsBodyRecord body;
+        body.handle = PhysicsBodyHandle { static_cast<uint32_t>( modelIndex ), 1u };
+        body.sceneObjectId = PhysicsSceneObjectId { static_cast<uint32_t>( 700 + modelIndex ) };
+        ColliderRecord collider;
+        collider.handle = PhysicsColliderHandle { static_cast<uint32_t>( modelIndex ), 1u };
+        collider.body = body.handle;
+        collider.sceneObjectId = body.sceneObjectId;
+        collider.shape = SkullbonezCore::Math::CollisionDetection::CollisionShapeReference(
+            shape, static_cast<uint32_t>( modelIndex ) );
+        collider.shapeKind = ColliderShapeKind::Sphere;
+        renderStore.CommitCreationRow( presentation, body, PhysicsBodyHotState {}, collider, modelIndex );
+    }
+
+    REQUIRE( renderStore.HasConsistentHandleMap() );
+    const RenderInstanceHandle retiredMiddle = renderStore.HandleForModelIndex( 1 );
+    const RenderInstanceHandle retiredLast = renderStore.HandleForModelIndex( 2 );
+    REQUIRE( renderStore.DestroyCreationRowAtSwapLast( 1 ) );
+    REQUIRE( renderStore.Count() == 2 );
+    CHECK( renderStore.HasConsistentHandleMap() );
+    CHECK( renderStore.Contains( retiredMiddle ) );
+    CHECK_FALSE( renderStore.Contains( retiredLast ) );
+    CHECK( renderStore.Records()[1].sceneObjectId == PhysicsSceneObjectId { 702u } );
+    CHECK( renderStore.ModelIndexForHandle( renderStore.HandleForModelIndex( 1 ) ) == 1 );
+}
+
+
 TEST_CASE( "RenderInstanceStore: fixed-tick poses interpolate and discontinuities collapse" )
 {
     using namespace SkullbonezCore::Math::Orientation;
@@ -237,6 +312,7 @@ TEST_CASE( "RenderInstanceStore: fixed-tick poses interpolate and discontinuitie
     // exactly instead of blending from the previous physics endpoint.
     hotFields.positionX[0] = 100.0f;
     renderStore.Refresh( bodyStore, colliderStore, 0.25f );
+    CHECK( renderStore.HasConsistentHandleMap() );
     REQUIRE( renderStore.TryGetPresentationPose( 0, 0.25f, presentedPosition, presentedOrientation ) );
     CHECK( presentedPosition.x == doctest::Approx( 100.0f ) );
 
@@ -358,6 +434,7 @@ TEST_CASE( "RenderInstanceStore: contact feedback survives swap-last deletion an
     REQUIRE( renderStore.PresentationCount() == 1 );
     renderStore.TickContactFeedback( 1, 0.05f );
     renderStore.Refresh( bodyStore, colliderStore );
+    CHECK( renderStore.HasConsistentHandleMap() );
     REQUIRE( renderStore.Count() == 1 );
     CHECK( renderStore.Records()[0].sceneObjectId == PhysicsSceneObjectId { 202u } );
     CHECK( renderStore.Records()[0].fixedContactAlpha == doctest::Approx( 0.1f ) );

@@ -6,8 +6,8 @@ Purpose:
 Summary:
   Run's main loop samples several clocks each frame, then publishes the derived
   values to rendering, HUD text, and automation reports. This shelf keeps those
-  timing values together while callers are
-  split across input, frame, render, and UI files.
+  timing values together while callers are split across input, frame, render,
+  and UI files.
 
 Glossary:
   Rolling timing value: Smoothed frame metric used by HUD and diagnostics so a

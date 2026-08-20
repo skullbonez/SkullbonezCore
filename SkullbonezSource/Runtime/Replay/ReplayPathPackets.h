@@ -86,9 +86,10 @@ struct RunReplayPathVisualizerState
     Physics::ModelRowHint targetModelRow;
     char targetName[64] = {};
 
-    // Invariant: Presentation reserves selected-target rows before gameplay;
-    // per-frame path rebuilding reuses storage and never grows this vector.
-    // Predicted future nodes publish separately from Runtime/Prediction.
+    // Runtime allocation policy: Presentation reserves selected-target rows
+    // before gameplay; per-frame path rebuilding reuses storage and never grows
+    // this vector.
+    // Invariant: predicted future nodes publish separately from Runtime/Prediction.
     std::vector<RunReplayPathTarget> targets;
     RunReplayPastTrajectoryBuildState pastTrajectory;
 };

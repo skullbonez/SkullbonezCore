@@ -28,6 +28,8 @@ Invariants:
     from PhysicsBodyStore.
   - RenderInstanceStore owns transient contact feedback and imports durable
     material/name values from SceneEntityStore before each render snapshot.
+  - Render refresh clears mismatched topology before indexing; Debug then asks
+    RenderInstanceStore to validate every dense handle and reverse lookup.
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneWorld.h
@@ -1020,18 +1022,10 @@ void SceneWorld::RefreshRenderInstances( float presentationAlpha )
     }
 
 #ifdef _DEBUG
-    const auto instances = m_renderInstanceStore.Records();
-
-    for ( int i = 0; i < modelCount; ++i )
-    {
-        const std::size_t index = static_cast<std::size_t>( i );
-        const Rendering::RenderInstanceRecord& instance = instances[index];
-        const Rendering::RenderInstanceHandle renderHandle = m_renderInstanceStore.HandleForModelIndex( i );
-
-        assert( renderHandle.IsValid() );
-        assert( instance.handle == renderHandle );
-        assert( m_renderInstanceStore.ModelIndexForHandle( renderHandle ) == i );
-    }
+    // Debug tripwire: Release already clears on every topology mismatch above.
+    // This pure store query keeps identity inspection on the concrete owner and
+    // lets reorder/refresh tests exercise the same complete relation.
+    assert( m_renderInstanceStore.HasConsistentHandleMap() );
 #endif
 }
 

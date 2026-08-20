@@ -16,6 +16,8 @@ Invariants:
     caller-owned cross-store preflight.
   - Refresh snapshots CPU draw intent only; it does not create or destroy GPU
     resources.
+  - A body/collider/presentation count mismatch clears every render row before
+    any source span is indexed, including outside Debug builds.
 
 Related:
   - SkullbonezSource/Rendering/RenderInstanceStore.h
@@ -402,12 +404,9 @@ void RenderInstanceStore::Refresh( const RenderInstancePresentationRecord* prese
 {
     if ( bodyStore.Count() != presentationCount || colliderStore.Count() != presentationCount )
     {
-        assert( bodyStore.Count() == presentationCount );
-        assert( colliderStore.Count() == presentationCount );
-
         // Hazard: rebuilding presentation state here would hide a broken owner
-        // refresh. Fail closed so Debug catches the topology bug and release
-        // builds do not draw stale model-owned poses.
+        // refresh. Fail closed in every build so no stale model-owned pose is
+        // drawn; the caller can republish only after all three owners agree.
         Clear();
         return;
     }
@@ -575,6 +574,28 @@ bool RenderInstanceStore::Contains( RenderInstanceHandle handle ) const
     }
 
     return m_instances[static_cast<std::size_t>( handle.index )].handle == handle;
+}
+
+
+bool RenderInstanceStore::HasConsistentHandleMap() const
+{
+    if ( m_instances.size() != m_modelInstanceHandles.size() )
+    {
+        return false;
+    }
+
+    for ( std::size_t index = 0; index < m_instances.size(); ++index )
+    {
+        const RenderInstanceHandle handle = m_modelInstanceHandles[index];
+
+        if ( !handle.IsValid() || handle.index != index || m_instances[index].handle != handle ||
+             ModelIndexForHandle( handle ) != static_cast<int>( index ) )
+        {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 

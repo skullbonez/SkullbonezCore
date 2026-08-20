@@ -24,6 +24,8 @@ Invariants:
     owners.
   - Public startup code should configure Run through the small launch surface
     below instead of reaching into runtime-owned state.
+  - The renderer unique_ptr is the sole startup-to-shutdown lifecycle truth;
+    every mandatory access uses the same always-on non-null guard.
   - Camera follow helpers should take store-sampled body state instead of
     reopening legacy object record as a live physics mirror.
   - Physics, capture, auto-cycle, and scene completion share one scene-owned
@@ -40,12 +42,12 @@ Related:
 #pragma once
 
 
-#include <cassert>
 #include <functional>
 #include <memory>
 #include <optional>
 #include <string>
 #include <vector>
+#include "../../Core/FatalError.h"
 #include "../../Core/SbResult.h"
 #include "../../Assets/AssetSystem.h"
 #include "ApplicationExitState.h"
@@ -113,6 +115,7 @@ struct OperatorEditorFrameView;
 namespace Runtime
 {
 class Window;
+struct RunRendererLifecycleTestAccess;
 class RuntimeOverlayDiagnostics;
 class RuntimeValidationHarness;
 struct InteractionAutomationFrameResult;
@@ -128,6 +131,21 @@ class Run
 {
 
   private:
+    friend struct RunRendererLifecycleTestAccess;
+
+    // Lane F: the unique_ptr is the sole renderer-lifecycle truth. Keeping the
+    // always-on guard stateless prevents a second retained epoch bit from
+    // diverging from the concrete owner during startup or shutdown.
+    static RuntimeRenderer* RequireRenderer( RuntimeRenderer* renderer, const char* operation )
+    {
+        if ( !renderer )
+        {
+            SB_FATAL( "Runtime/Run", "%s requires the live renderer owner. renderer=%p", operation,
+                      static_cast<void*>( renderer ) );
+        }
+
+        return renderer;
+    }
 
     // Concept: Run is the process composition root. It constructs concrete
     // subsystem owners and retains only the process borrows and launch/result
@@ -206,15 +224,13 @@ class Run
         bool legacyDevelopmentUiActive = true;
     };
 
-    RuntimeRenderer& Renderer()
+    RuntimeRenderer& Renderer( const char* operation = "Run::Renderer" )
     {
-        assert( m_renderer );
-        return *m_renderer;
+        return *RequireRenderer( m_renderer.get(), operation );
     }
-    const RuntimeRenderer& Renderer() const
+    const RuntimeRenderer& Renderer( const char* operation = "Run::Renderer" ) const
     {
-        assert( m_renderer );
-        return *m_renderer;
+        return *RequireRenderer( m_renderer.get(), operation );
     }
     Rendering::Dx12BackbufferCapture& BackbufferCapture() const
     {

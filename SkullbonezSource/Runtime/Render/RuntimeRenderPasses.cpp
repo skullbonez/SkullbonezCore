@@ -25,6 +25,8 @@ Invariants:
     pass saves, mutates, or restores another pass's fixed-function state.
   - Generic contact patches render independently of the operator's live physics
     debug flags and never enter the live-contact linger cache.
+  - SkyPass verifies its live world-view sky owner before matrix construction,
+    texture commands, or draw submission.
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h declares pass contracts.
@@ -399,6 +401,11 @@ void FullscreenQuadPass::ReleaseGpuResources( Rendering::Dx12GeometryOwner* rend
 
 void SkyPass::EnsureGpuResources( const RenderResourceContext& resources )
 {
+    // Lifetime: frame-resource publication is also the world-view publication
+    // boundary. ReleaseGpuResources closes this borrow before any backend-owned
+    // state is torn down; a later rebuild observes the current scene owner.
+    m_worldViewLease.Open( m_skyBox.get() );
+
     if ( !resources.cinematicEnabled )
     {
         return;
@@ -416,7 +423,14 @@ void SkyPass::EnsureGpuResources( const RenderResourceContext& resources )
 
 void SkyPass::ReleaseGpuResources()
 {
+    m_worldViewLease.Close();
     m_skyResources.atmosphereShader.reset();
+}
+
+
+SkullbonezCore::Geometry::SkyBox& SkyPass::RequireWorldView( const char* operation )
+{
+    return *m_worldViewLease.Require( operation );
 }
 
 
@@ -933,14 +947,18 @@ void SkyPass::Render( const RenderCameraLighting& camera, const Math::Transforma
                       Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12TextureOwner& renderTextures,
                       SkyPassMode mode )
 {
-    const bool useCinematicAtmosphere = mode == SkyPassMode::CinematicIfEnabled && cinematic &&
-                                        cinematic->skyAtmosphereEnabled;
+    const bool useCinematicAtmosphere = UsesCinematicAtmosphere( cinematic, mode );
 
     if ( useCinematicAtmosphere )
     {
         RenderCinematicSky( camera, view, *cinematic, renderGeometry, renderTextures );
         return;
     }
+
+    // Lane F: only the authored cube-map path borrows the world SkyBox. Guard
+    // that borrow before matrix work or texture-owner commands; the independent
+    // cinematic path above remains valid without a SkyBox.
+    SkullbonezCore::Geometry::SkyBox& skyBox = RequireWorldView( "Render" );
 
     // The cube-map sky follows camera X/Z so the box feels infinitely far away,
     // while its Y stays authored by config to preserve the long-standing horizon.
@@ -950,8 +968,7 @@ void SkyPass::Render( const RenderCameraLighting& camera, const Math::Transforma
     // Pass contract: cube-map skybox faces sample only slot 0. Slots owned by
     // water, post, or shadows must not leak into these six mesh draws.
     ClearRenderTextureSlotsExcept( renderTextures, RENDER_TEXTURE_SLOT_0 );
-    assert( m_skyBox && "SkyPass requires the world-view sky owner after initialise" );
-    ReportRenderTextureResult( "Frame/Render/Skybox", m_skyBox->Render( skyView, camera.projection ) );
+    ReportRenderTextureResult( "Frame/Render/Skybox", skyBox.Render( skyView, camera.projection ) );
 }
 
 

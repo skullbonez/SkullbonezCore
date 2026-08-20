@@ -1,7 +1,7 @@
 # MASTER PLAN
 
-Date: 2026-08-20
-Status: Four active plans; 51/74 tasks complete
+Date: 2026-08-21
+Status: Four active plans; 55/80 tasks complete
 
 ## Owner Direction
 
@@ -57,10 +57,10 @@ Status: Four active plans; 51/74 tasks complete
   preservation with deterministic 0/1/4-worker evidence. The terminal plan-
   completion gate passed every phase through DX12 and Automation before the
   mapped 35,303-line protected Physics-oracle stop. No baseline was refreshed.
-- Invariant Enforcement And Assertion Hardening is active after rest-stability
-  closure. It rebaselines the exact repository assertion/invariant worklist,
-  assigns every finding an owner and Release-safe enforcement lane, repairs the
-  selected sites, and closes with negative proof plus independent review.
+- Invariant Enforcement And Assertion Hardening is complete. It rebaselined the
+  exact repository assertion/invariant worklist, assigned every finding an owner
+  and Release-safe enforcement lane, repaired the selected sites, and closed
+  with negative proof plus independent review.
   IH1 now validates Terrain height-map dimensions and all derived counts before
   construction, and its Profile witness proves malformed, overflow, exact-
   minimum, normal, and retired 5/2 mismatch behavior without unsafe mutation.
@@ -73,12 +73,51 @@ Status: Four active plans; 51/74 tasks complete
   Its cumulative 650-test unit gate is green; the fast gate clears its static
   checks and build matrix, with terminal reachability deferred solely by the
   Visual Studio-owned live Profile executable lock.
-- Full Validation Time And Value Audit is registered after invariant hardening.
+  IH4 replaces Rendering/DX12/World assert-only safety with embedded production
+  epoch, scope, backend-identity, rebuild-lease, and bounded-preview owners.
+  Focused Profile lifecycle/capacity proof and warnings-as-errors builds pass;
+  its 19/19 touched-source audit has no deferrals and independent post-fix
+  review is blocker-free. IH5 makes Run's unique renderer owner its sole
+  lifecycle truth, makes owned gesture rejection atomic across every owner and
+  capture rule, closes Sky/Profile UI leases at real teardown boundaries, skips
+  unavailable memory sampling, and proves SceneWorld handle-map repair. No new
+  Run bag, Runtime dependency edge, or Replay growth privilege was introduced.
+  IH6 completes the 45-site allocation-comment taxonomy, reclassifies the
+  worker threshold as a performance reason, and brings all six substantial
+  diagnostic tools under truthful bounded-output/hazard learning headers. The
+  exact source/tool checklist is 94/94 with zero deferrals; Related paths and
+  glossary ownership are clean, and independent post-fix review is blocker-free.
+  IH7 reconciled the final 96/96 source checklist with zero deferrals and the
+  terminal inventory at 67 production asserts and 18 reviewed assert-only
+  candidates. A focused policy test pins ordinary-versus-cinematic frame-
+  resource selection, while Automation and the one-minute graphics stress pin
+  the corrected production Sky publication path. The current fast gate passes
+  663 tests plus terminal Debug/Profile reachability; Automation, DX12, the
+  dependency gate, and all ownership inventories pass. The terminal full gate
+  stopped only at the protected 35,303-line Physics CSV mismatch beginning at
+  line 1,239; no golden was refreshed. Two independent post-fix reviews are
+  blocker-free.
+- Full Source Comment Truth Replacement is active immediately after completed
+  invariant hardening. Its six phases rebase the frozen 843-file audit, discard
+  replacements made redundant by IH, regenerate every stale or conflicting
+  hunk against the post-IH tree, and land the remaining comment truth by owner
+  area. Current implementation and IH enforcement prose are authoritative; the
+  old 261-hunk count is not a completion target. CT5 closes with full inventory,
+  glossary, semantic, ownership-ruling, fast-gate, and independent truth review.
+  CT0 has reconciled the live checklist at 843/843 files. The frozen artifact
+  addresses 262 targets including the engine glossary, 37 of which changed
+  after its snapshot. Strict and three-way checks now fail broadly, and a
+  detached check at the declared snapshot also does not apply cleanly under the
+  current checkout. No live source was changed. The artifact remains provenance
+  only; CT0 must regenerate the surviving replacements semantically from the
+  current tree before any owner-area batch lands.
+- Full Validation Time And Value Audit is registered after comment truth
+  replacement.
   Its six phases will measure every nested full-validation stage under warm,
   leaf-source, broad-header, and fresh-build conditions; judge each stage by
   unique defect evidence as well as cost; and test build, scan, test, coverage,
   runtime, and informational-lane reductions without weakening failure
-  propagation or owner-controlled oracles. VTA0 follows IH7 so it audits a
+  propagation or owner-controlled oracles. VTA0 follows CT5 so it audits a
   stable gate topology rather than changing validation beneath active work.
 - Repository Hygiene Cleanup is registered after the validation-time audit.
   Its six phases separate ignored generated output, retained investigation
@@ -193,7 +232,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Invariant Enforcement And Assertion Hardening | `INVARIANT_HARDENING` | 8 | 4 | `TODO/invariant-enforcement-hardening.md` |
+| Full Source Comment Truth Replacement | `COMMENT_TRUTH` | 6 | 0 | `TODO/full-source-comment-truth-replacement.md` |
 | Full Validation Time And Value Audit | `VALIDATION_TIME_AUDIT` | 6 | 0 | `TODO/full-validation-time-value-audit.md` |
 | Repository Hygiene Cleanup | `REPOSITORY_CLEANUP` | 6 | 0 | `TODO/repository-hygiene-cleanup.md` |
 | Cause Hierarchy Scientific Inspector | `CAUSE_HIERARCHY_UI` | 7 | 0 | `TODO/cause-hierarchy-scientific-inspector.md` |
@@ -211,7 +250,6 @@ an owner decision, not a run decision.
 |---|---|---|---|
 | Contact Stack Stability Techniques | Owner-parked 2026-08-02 | 0/7 | `WNF/contact-stack-stability-techniques.md` |
 | Deterministic Trigonometry Adoption | Owner-parked 2026-08-18 | 0/8 | `WNF/deterministic-trigonometry-adoption.md` |
-| Full Source Comment Truth Replacement | Prepared; waits for in-flight source work | 582 clean, 261 queued | `TODO/full-source-comment-truth-replacement.md` |
 | Reversible GPU Fracture Replay | Backlog; blocked | 0/7 | `WNF/fracture-replay-feature.md` |
 | ImGui + Tracy E17 Comment Audit | Complete | 96/96, 0 deferred | `DONE/imgui-tracy-e17-comment-audit.md` |
 
@@ -230,11 +268,10 @@ states elsewhere, and both are recorded rather than silently corrected:
 
 ## Binding Order
 
-1. `INVARIANT_HARDENING` IH0 through IH7 — rebase the repository invariant and
-   assertion inventory after the preceding source work, repair every audited
-   high-, medium-, and low-severity finding with an explicit Release-safe
-   enforcement lane, correct comment taxonomy, and close with independent
-   false-pass and ownership review.
+1. `COMMENT_TRUTH` CT0 through CT5 - rebase the frozen replacement after IH7,
+   discard redundant hunks, regenerate conflicts against current source, apply
+   the remaining truthful comments by owner area, and close with a complete
+   checklist, semantic comparison, fast gate, and independent truth review.
 2. `VALIDATION_TIME_AUDIT` VTA0 through VTA5 - instrument and measure the full
    plan-completion call graph, evaluate every stage's unique evidence and cost,
    implement only owner-approved reductions with false-pass controls, and close
@@ -273,13 +310,14 @@ contracts into Rendering.
 
 ## Portfolio Progress
 
-51/74 tasks complete with four active plans.
+55/80 tasks complete with four active plans.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
-Invariant Enforcement And Assertion Hardening IH0-IH3 are complete; IH4-IH7
-remain, with IH4 next.
-Full Validation Time And Value Audit VTA0-VTA5 follows IH7; all six phases
+Invariant Enforcement And Assertion Hardening IH0-IH7 is complete.
+Full Source Comment Truth Replacement CT0 is active at semantic patch
+regeneration; all six phases remain incomplete.
+Full Validation Time And Value Audit VTA0-VTA5 follows CT5; all six phases
 remain.
 Repository Hygiene Cleanup RC0-RC5 follows VTA5; all six phases remain.
 Cause Hierarchy Scientific Inspector CHUI0-CHUI6 follows RC5; all seven phases

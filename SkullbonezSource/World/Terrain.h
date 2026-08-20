@@ -14,8 +14,6 @@ Glossary:
   shared render/collision post grid.
   Terrain post: Authoritative height sample shared by terrain rendering and
   collision queries.
-  VBO (Vertex Buffer Object): Legacy engine term for renderer-owned terrain
-  vertex/index storage; the DX12 path backs it through MeshDX12.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -27,6 +25,8 @@ Invariants:
     pixel/post/quad counts.
   - Terrain color and shadow draws consume caller-owned raster buckets; terrain
     does not infer fixed-function state from renderer history.
+  - Render-resource release preserves rebuild borrows; reset validates the full
+    config/asset/builder set, and color submission requires a clip plane.
 
 Related:
   - SkullbonezSource/World/Terrain.cpp
@@ -39,6 +39,7 @@ Related:
 #include "../Core/Common.h"
 #include "../Core/Config.h"
 #include "../Core/SbResult.h"
+#include "../Core/FatalError.h"
 #include "../Maths/Vector3.h"
 #include "../Maths/Matrix4.h"
 #include "../Maths/GeometricStructures.h"
@@ -74,6 +75,44 @@ struct ShadowFrameData;
 
 namespace Geometry
 {
+// Lifetime: terrain preserves its rebuild borrows when GPU resources are
+// released; only backend rebinding replaces this complete identity tuple.
+class TerrainRenderRebuildLease
+{
+  public:
+    void Bind( const void* config, const void* assets, const void* resources ) noexcept
+    {
+        m_config = config;
+        m_assets = assets;
+        m_resources = resources;
+    }
+    bool Complete() const noexcept
+    {
+        return m_config && m_assets && m_resources;
+    }
+    void PreserveAcrossResourceRelease() const noexcept
+    {
+        // Intentional no-op: release destroys GPU objects, not the stable
+        // rebuild-service lease used by the subsequent reset.
+    }
+    void Require( const char* operation ) const
+    {
+        if ( !Complete() )
+        {
+            SB_FATAL( "World/Terrain",
+                      "Terrain render-resource operation requires complete backend-epoch bindings. operation=%s config=%d "
+                      "assets=%d resources=%d",
+                      operation ? operation : "unknown", m_config ? 1 : 0, m_assets ? 1 : 0, m_resources ? 1 : 0 );
+        }
+    }
+
+  private:
+    const void* m_config = nullptr;
+    const void* m_assets = nullptr;
+    const void* m_resources = nullptr;
+};
+
+struct TerrainRenderLifecycleTestAccess;
 
 class Terrain
 {
@@ -167,6 +206,8 @@ class Terrain
     Physics::PhysicsTerrainView PhysicsView() const noexcept;                                         // Detached scene-lifetime collision view registered with Physics.
 
   private:
+    friend struct TerrainRenderLifecycleTestAccess;
+
     std::uint32_t displayListReference;                                                               // Legacy display-list token retained for serialized state.
 
     // Why: the standalone CPU test executable validates the authoritative
@@ -193,6 +234,15 @@ class Terrain
     const SkullbonezCore::Core::EngineConfig* m_config;                                               // Borrowed runtime config for terrain scale/render settings.
     Assets::AssetSystem* m_assets;                                                                    // Borrowed asset registry for terrain shaders.
     Rendering::Dx12ResourceBuilder* m_resources;                                                      // Borrowed cold builder for terrain mesh/shaders.
+    TerrainRenderRebuildLease m_renderLease;                                                          // Authoritative preserved rebuild-borrow tuple.
+    void RequireRenderBindings( const char* operation ) const;
+    static void RequireClipPlane( const float* clipPlane )
+    {
+        if ( !clipPlane )
+        {
+            SB_FATAL( "World/Terrain", "Terrain color pass requires a clip plane before draw submission." );
+        }
+    }
 
     // Flat slope mode
     bool m_isFlatSlope;

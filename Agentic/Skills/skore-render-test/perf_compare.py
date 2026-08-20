@@ -1,25 +1,27 @@
 """
-perf_compare.py — Compare two perf JSON artifacts produced by analyze_perf.py.
+File: Agentic/Skills/skore-render-test/perf_compare.py
+Purpose:
+  Compares current and baseline render-performance JSON artifacts.
 
-Usage:
-    py perf_compare.py --current <path/to/{renderer}_perf.json> \
-                       --previous <path/to/{renderer}_perf.json>
+Summary:
+  The comparison prints one bounded row per current marker, applies a
+  duration-sensitive CPU regression threshold, reports GPU timers without
+  gating them, and rejects memory growth above the fixed artifact threshold.
+  Different renderers fail; different machines produce a warning-only result.
 
-Exits 1 if any regression threshold is exceeded, 0 otherwise.
+Glossary:
+  Ramped threshold: Percentage allowance `max(10, 10/sqrt(baseline_ms))` that
+    gives sub-millisecond markers additional scheduling-jitter headroom.
+  Measurement floor: Baseline below 0.05 ms, where percentage gating is skipped.
 
-Delta = (current - baseline) / baseline * 100
-  Negative = current is FASTER  → 🟢 green  (>5% improvement)
-  Near zero = noise             → 🔵 blue   (<5% either way)
-  Small positive = minor        → 🟡 yellow (5–threshold%)
-  Large positive = regression   → 🔴 red    (>threshold%)
+Invariants:
+  - Only matching renderer labels are comparable.
+  - GPU timer and PipelineSync rows remain visible but never gate commits.
+  - Output size is bounded by current marker count and detected failures.
 
-Thresholds are ramped by baseline duration — short timers are dominated by OS
-scheduling jitter so they receive proportionally more headroom:
-
-  0.05 ms → ~45%     0.20 ms → ~22%     1.00 ms → 10%
-  0.10 ms → ~32%     0.50 ms → ~14%     5.00 ms → 10%  (floor)
-
-Formula: max(10, 10 / sqrt(baseline_ms))
+Related:
+  - Agentic/Skills/skore-render-test/analyze_perf.py
+  - Agentic/Skills/skore-render-test/skill.md
 """
 import argparse
 import json
@@ -27,8 +29,6 @@ import math
 import sys
 from pathlib import Path
 
-
-# ── ramp threshold ───────────────────────────────────────────────────────────
 
 def ramp_threshold(baseline_ms: float) -> float:
     """Dynamic regression % threshold scaled to baseline duration.
@@ -39,16 +39,12 @@ def ramp_threshold(baseline_ms: float) -> float:
     return max(10.0, 10.0 / math.sqrt(max(baseline_ms, 1e-9)))
 
 
-# ── stats ────────────────────────────────────────────────────────────────────
-
 def percentile(s, p):
     if not s: return 0.0
     k = (len(s) - 1) * (p / 100.0)
     f = int(k); c = min(f + 1, len(s) - 1)
     return s[f] + (k - f) * (s[c] - s[f])
 
-
-# ── color cell ───────────────────────────────────────────────────────────────
 
 def color_cell(cur_val, bas_val):
     if bas_val == 0:
@@ -68,8 +64,6 @@ def color_cell(cur_val, bas_val):
     pad = " " * max(0, 9 - (3 + len(s)))
     return f"{dot} {s}{pad}"
 
-
-# ── box table ────────────────────────────────────────────────────────────────
 
 H  = "\u2500"; V  = "\u2502"
 TL = "\u250c"; TM = "\u252c"; TR = "\u2510"
@@ -118,8 +112,6 @@ def print_table(title, markers, cur_stats, bas_stats, prev_commit):
     print("  " + hline(BL, BM, BR, ws))
 
 
-# ── memory table ─────────────────────────────────────────────────────────────
-
 def mem_cell(cur_mb, bas_mb):
     d = cur_mb - bas_mb
     sign = "+" if d >= 0 else ""
@@ -143,8 +135,6 @@ def print_memory(cur_json, bas_json):
     print(vrow(["Delta", mem_cell(ms, bms), mem_cell(mr, bmr), mem_cell(me, bme)]))
     print("  " + hline(BL, BM, BR, ws))
 
-
-# ── regression check ─────────────────────────────────────────────────────────
 
 def check_regressions(cur_stats, bas_stats, cur_json, bas_json):
     failures = []
@@ -184,8 +174,6 @@ def check_regressions(cur_stats, bas_stats, cur_json, bas_json):
     return failures
 
 
-# ── main ─────────────────────────────────────────────────────────────────────
-
 def main():
     parser = argparse.ArgumentParser(description="Compare two SkullbonezCore perf JSON artifacts.")
     parser.add_argument("--current",  required=True, type=Path, help="Current {renderer}_perf.json")
@@ -207,7 +195,8 @@ def main():
         print(f"ERROR: Renderer mismatch — current={cur_renderer}, previous={bas_renderer}")
         return 1
 
-    # Machine check
+    # Hazard: timing deltas across CPUs are not comparable. Preserve a clean
+    # exit so shared artifact inspection remains possible, but skip the gate.
     cur_cpu = cur_json.get("machine", {}).get("cpu", "")
     bas_cpu = bas_json.get("machine", {}).get("cpu", "")
     if bas_cpu and cur_cpu != bas_cpu:

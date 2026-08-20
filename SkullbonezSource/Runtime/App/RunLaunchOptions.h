@@ -97,11 +97,12 @@ struct RunLaunchOptions
     char predictTargetName[64] = {};                                                             // CLI --predict <body display name>
     float predictHorizonSeconds = 0.0f;                                                          // CLI --predict-seconds (0 = owner default)
     bool predictPauseOnStart = true;                                                             // CLI --predict-running clears this
+
+    // Runtime allocation policy: startup selects measurement/fatal behavior
+    // before owner registration and steady gameplay begin.
     SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode
         allocationGuardMode = SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Off; // CLI --allocation-guard
 
-    // tracking mode for runtime
-    // heap evidence.
     GeneratedObjectTypeOverride generatedObjectTypeOverride = GeneratedObjectTypeOverride::Mixed;
     bool hasPhysicsDebugFlagsOverride = false;
     uint32_t physicsDebugFlagsOverride = Physics::PHYSICS_DEBUG_NONE;

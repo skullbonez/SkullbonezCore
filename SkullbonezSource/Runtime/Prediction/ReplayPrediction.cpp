@@ -138,10 +138,10 @@ bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore, Physics:
 bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore, Physics::PhysicsSceneObjectId id, ModelRowHint& hint,
                                      int modelCount, int& outModelIndex )
 {
-    // Why: retained replay UI state still carries modelIndex integers until the
-    // fable-06 conversion rows are complete. Naming the cache as ModelRowHint
-    // keeps stable scene object identity in Physics::PhysicsSceneObjectId while this resolver heals or
-    // invalidates the dense-row guess.
+    // Why: retained replay UI state carries modelIndex integers as staleable
+    // hints. Naming the cache as ModelRowHint keeps stable scene object identity
+    // in Physics::PhysicsSceneObjectId while this resolver heals or invalidates
+    // the dense-row guess.
     if ( !TryResolveReplayBodyModelIndex( bodyStore, id, hint.value, modelCount, outModelIndex ) )
     {
         hint.value = -1;
@@ -184,7 +184,7 @@ constexpr float REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE = 0.05f;
 constexpr float REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE_SQ = REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE *
                                                                  REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE;
 
-// Invariant: Worker dispatch is only worth it for large body snapshots. Small
+// Why: Worker dispatch is only worth it for large body snapshots. Small
 // scenes stay serial so replay overlays do not pay thread wakeup cost to copy a
 // few kilobytes.
 constexpr int REPLAY_PREDICTION_PARALLEL_BODY_MIN = 2048;
@@ -497,11 +497,10 @@ bool CaptureReplayPredictionFrame( ReplayPrediction& predictionOwner, RunReplayP
 
 namespace
 {
-// Concept: prediction visualizer section.
+// Concept: prediction visualizer orchestration.
 //
-// This block stays after the helper section so job setup, stepping, and drawing
-// can keep using the replay prediction helpers without a new compatibility
-// header.
+// These operations share the private setup, stepping, and publication helpers
+// above; cross-unit declarations remain on the named Prediction owner headers.
 void MarkReplayPredictionWorkerFailed( RunReplayPredictionState& prediction )
 {
     prediction.build.publication.MarkWorkerFailed();
@@ -712,9 +711,10 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayPrediction& predictionOwner
 
     if ( !publicationBegan )
     {
-        // Invariant: begin-job reserve owns this fixed snapshot capacity. A
-        // failure is therefore a rejected generation, never permission to
-        // allocate or expose a mixed bank on the completion frame.
+        // Runtime allocation policy: begin-job reserve owns this fixed snapshot
+        // capacity; failure never permits opportunistic growth.
+        // Invariant: reserve failure rejects the generation before a mixed bank
+        // can become visible on the completion frame.
         prediction.build.dirty = true;
         return false;
     }
@@ -1187,7 +1187,7 @@ ReplayPredictionFrameSourceAction ReplayPrediction::SelectFrameSource( const Rep
 
     if ( !predictionOwner.GenerationPermitted() )
     {
-        // Probe assertion lane: the archive may remain visually enabled, but
+        // Lane P: the archive may remain visually enabled, but
         // this branch draws only restored values and never reaches a snapshot,
         // reserve, worker, or future-simulation path.
         prediction.build.dirty = false;

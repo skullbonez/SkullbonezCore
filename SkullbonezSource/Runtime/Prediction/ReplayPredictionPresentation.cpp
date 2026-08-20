@@ -254,8 +254,10 @@ bool ReplayPredictionPresentation::CanAppendGhostDrawRequests( std::size_t count
 
 void ReplayPredictionPresentation::AppendGhostDrawRequest( const ReplayPredictionGhostDrawRequest& request )
 {
-    // Invariant: callers prove capacity before the bounded presentation pass;
-    // replay steady-state rendering must never grow this vector.
+    // Invariant: callers prove a complete request set fits before the bounded
+    // presentation pass, so this append cannot expose a partial ghost list.
+    // Runtime allocation policy: replay steady-state rendering never grows this
+    // vector.
     if ( m_ghostDrawRequests.size() < m_ghostDrawRequests.capacity() )
     {
         m_ghostDrawRequests.push_back( request );

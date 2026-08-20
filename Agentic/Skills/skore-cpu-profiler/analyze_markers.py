@@ -1,5 +1,27 @@
 #!/usr/bin/env python3
-"""Summarize profiler CSV markers under a parent marker path."""
+"""
+File: Agentic/Skills/skore-cpu-profiler/analyze_markers.py
+Purpose:
+  Summarizes one profiler marker subtree from a SkullbonezCore CSV capture.
+
+Summary:
+  The analyzer selects pass-two samples when available, computes bounded
+  average/percentile rows for the requested marker and its descendants, ranks
+  direct children, and can publish the same statistics into one session slot.
+
+Glossary:
+  Marker subtree: A slash-delimited parent marker and every sampled descendant.
+  Session slot: The `before` or `after` statistics field in session_markers.json.
+
+Invariants:
+  - Output contains at most one statistics row per CSV marker column.
+  - Percentiles use linear interpolation over sorted samples.
+  - Updating a session replaces only the selected slot's CSV/statistics fields
+    and the shared area path.
+
+Related:
+  - Agentic/Skills/skore-cpu-profiler/skill.md
+"""
 
 from __future__ import annotations
 
@@ -20,6 +42,8 @@ def percentile(values: list[float], pct: float) -> float:
 
 
 def read_rows(path: Path) -> tuple[list[str], list[dict[str, str]]]:
+    # Hazard: profiler files may repeat their header between passes. The latest
+    # header owns subsequent rows; comment and blank lines are never samples.
     with path.open(newline="") as handle:
         rows: list[dict[str, str]] = []
         fieldnames: list[str] | None = None
@@ -95,7 +119,7 @@ def update_session(path: Path, slot: str, csv_path: Path, area: str, stats: dict
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description="Summarize profiler CSV markers under a parent marker path.")
     parser.add_argument("--csv", type=Path, required=True)
     parser.add_argument("--area", required=True, help="parent marker path, e.g. Frame/Render/Balls")
     parser.add_argument("--session", type=Path, help="optional session_markers.json to update")

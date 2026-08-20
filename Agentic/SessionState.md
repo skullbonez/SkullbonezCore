@@ -1,16 +1,16 @@
 # Session State
 
-Date: 2026-08-20
-Branch: `nightrunner-18th-AUG-26`
-Status: Four active plans; 51/74 tasks complete
+Date: 2026-08-21
+Branch: `nightrunner-20th-AUG-26`
+Status: Four active plans; 55/80 tasks complete
 
-At-Rest Ball Stability RS0-RS7 is complete. Invariant Enforcement And Assertion
-Hardening IH0-IH3 are complete and IH4-IH7 remain. Causal C0-C8, Determinism T0-T8,
+At-Rest Ball Stability RS0-RS7 and Invariant Enforcement And Assertion
+Hardening IH0-IH7 are complete. Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7, and Continuous
-Orbital Forecast OF0-OF6 are complete. `MASTER-PLAN.md` binds IH4 next, then
-Full Validation Time And Value Audit VTA0-VTA5 after IH7, followed by
-Repository Hygiene Cleanup RC0-RC5, then Cause Hierarchy Scientific Inspector
-CHUI0-CHUI6.
+Orbital Forecast OF0-OF6 are complete. `MASTER-PLAN.md` binds Full Source
+Comment Truth Replacement CT0-CT5 next, followed by Full
+Validation Time And Value Audit VTA0-VTA5, Repository Hygiene Cleanup RC0-RC5,
+and Cause Hierarchy Scientific Inspector CHUI0-CHUI6.
 Completed plan files were deleted under the repository convention; Git history
 retains their phase evidence.
 
@@ -386,28 +386,28 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `INVARIANT_HARDENING` IH4. IH0 rebased 847 tracked source-bearing files,
-132 production plain assertions, 62 assert-only successor candidates, and 45
-allocation-comment taxonomy candidates. The owning plan now carries exact
-assertion/policy dispositions and a 77-file live checklist; ignored source evidence
-is under `TestOutput/validation/INVARIANT_HARDENING_IH0/`. IH1 repaired Terrain
-dimension validation and centralized checked pixel/post/quad arithmetic before
-construction. Its Profile proof passes 5 cases / 231 assertions, including the
-retired 5/2 floor/ceiling mismatch as a non-mutating negative control. IH2
-hardened the selected Core, Maths, Assets, and Gameplay findings. Texture and
-tornado exact-capacity/lifecycle failures are now Release-safe, while the lock-
-order and math tripwires retain their intentional Debug-only policy with
-focused controls. The full unit gate passes 645 cases / 2,522,019 assertions,
-the 17/17 touched/selected-source audit has zero deferrals, and `validate_fast`
-is green. IH3 completed the selected Physics findings with transactional
-collider refresh, guarded shape compaction, Release-safe scratch/body/solver
-bounds, and a Debug-only awake-membership classifier. Focused Profile tests are
-green, the IH3 source audit is 14/14 with zero deferrals, and the full unit gate
-passes 650 cases / 2,522,407 assertions. The fast gate clears static checks and
-the Profile/Automation/Debug matrix; compiled-symbol reachability is deferred
-only while Visual Studio owns a live lock on `Profile\\SKULLBONEZ_CORE.exe` and
-concurrent user-owned edits remain outside the IH3 commit. IH4 owns the selected
-Rendering, DX12, World, and Scene findings.
+Execute `COMMENT_TRUTH` CT0. `INVARIANT_HARDENING` IH0-IH7 is complete: the
+final source checklist is 96/96 with zero deferrals, the terminal inventory has
+67 production asserts and 18 reviewed assert-only candidates, and the current
+fast gate passes 663 tests plus Debug/Profile reachability. Automation, DX12,
+the dependency gate, all ownership inventories, and a one-minute graphics
+stress pass after the production Sky scheduling repair. The terminal full gate
+stopped only at the protected 35,303-line Physics CSV mismatch beginning at
+line 1,239; no baseline was refreshed. Two independent post-fix reviews are
+blocker-free, and the completed IH plan was deleted under the repository
+convention.
+
+Treat the frozen 261-file comment replacement set as audit evidence: discard
+hunks made redundant by IH, regenerate stale or conflicting replacements
+against current implementation, and preserve every post-IH enforcement-lane
+and ownership comment. CT0 must resolve the known strict conflicts in
+`TestUIDrawValues.cpp` and `TestVector3.cpp` before any batched application.
+The live checklist reconciles at 843/843 files. The frozen artifact has 262
+targets including the glossary, 37 changed after its snapshot, and now fails
+both strict and three-way checks broadly; a detached check at the declared
+snapshot also fails under the current checkout. No live source changed. Resume
+by regenerating surviving replacements semantically from current source rather
+than applying or merging the frozen artifact.
 
 At-Rest Ball Stability closed in `f2e192f53`. Its uncapped all-three-asleep
 semantic witness, deterministic 0/1/4-worker proof, box and moving-slope
@@ -420,7 +420,7 @@ not part of the active queue.
 
 ## Blockers
 
-- None. Continue with `INVARIANT_HARDENING` IH4. The stale Physics CSV,
+- None. Continue with `COMMENT_TRUTH` CT0. The stale Physics CSV,
   noisy relative Physics performance sample, and
   corrected-topology visual oracle remain owner-controlled validation findings;
   do not refresh any of them without approval.

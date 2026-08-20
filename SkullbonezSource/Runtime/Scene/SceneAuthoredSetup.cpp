@@ -240,7 +240,7 @@ SkullbonezCore::Core::SbResult AppendAuthoredSimpleRagdoll( SkullbonezCore::Core
         }
     }
 
-    // Transaction preflight: reserve every body, box payload, and joint before
+    // Precondition: reserve every body, box payload, and joint before
     // the first part row is published. During initial scene load this is a
     // no-op against the exact whole-scene commit; editor placement extends the
     // retained backing and logical joint allowance once.

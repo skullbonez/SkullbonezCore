@@ -1,5 +1,27 @@
 #!/usr/bin/env python3
-"""Remove SKORE profiler sentinel blocks recorded in session_markers.json."""
+"""
+File: Agentic/Skills/skore-cpu-profiler/cleanup_markers.py
+Purpose:
+  Removes profiler instrumentation blocks named by a session manifest.
+
+Summary:
+  Cleanup is manifest-driven rather than repository-wide: each recorded file
+  and escaped marker id selects its sentinel-delimited source ranges. Missing
+  files or markers fail the run, and the session is deleted only after complete
+  success.
+
+Glossary:
+  Sentinel block: Source range delimited by matching SKORE-PROFILER-BEGIN and
+    SKORE-PROFILER-END comments carrying the same marker id.
+
+Invariants:
+  - The mutation set is bounded to file/id pairs in `added_markers`.
+  - Marker ids are regex-escaped before matching source text.
+  - `--delete-session` cannot discard recovery metadata after a partial cleanup.
+
+Related:
+  - Agentic/Skills/skore-cpu-profiler/skill.md
+"""
 
 from __future__ import annotations
 
@@ -10,6 +32,9 @@ from pathlib import Path
 
 
 def remove_marker(content: str, marker_id: str) -> tuple[str, bool]:
+    # Hazard: DOTALL intentionally consumes everything between one matching
+    # sentinel pair. Escaping the manifest id prevents it from widening that
+    # source range through regex metacharacters.
     pattern = re.compile(
         rf"[ \t]*// \[SKORE-PROFILER-BEGIN:{re.escape(marker_id)}\][^\r\n]*(?:\r?\n)"
         rf".*?"
@@ -21,7 +46,7 @@ def remove_marker(content: str, marker_id: str) -> tuple[str, bool]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description="Remove profiler sentinel blocks recorded in a session manifest.")
     parser.add_argument("--repo", type=Path, default=Path(__file__).resolve().parents[3])
     parser.add_argument(
         "--session",
