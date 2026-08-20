@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-20
-Status: Four active plans; 51/74 tasks complete
+Status: Five active plans; 51/80 tasks complete
 
 ## Owner Direction
 
@@ -73,12 +73,20 @@ Status: Four active plans; 51/74 tasks complete
   Its cumulative 650-test unit gate is green; the fast gate clears its static
   checks and build matrix, with terminal reachability deferred solely by the
   Visual Studio-owned live Profile executable lock.
-- Full Validation Time And Value Audit is registered after invariant hardening.
+- Full Source Comment Truth Replacement is registered immediately after
+  invariant hardening. Its six phases rebase the frozen 843-file audit, discard
+  replacements made redundant by IH, regenerate every stale or conflicting
+  hunk against the post-IH tree, and land the remaining comment truth by owner
+  area. Current implementation and IH enforcement prose are authoritative; the
+  old 261-hunk count is not a completion target. CT5 closes with full inventory,
+  glossary, semantic, ownership-ruling, fast-gate, and independent truth review.
+- Full Validation Time And Value Audit is registered after comment truth
+  replacement.
   Its six phases will measure every nested full-validation stage under warm,
   leaf-source, broad-header, and fresh-build conditions; judge each stage by
   unique defect evidence as well as cost; and test build, scan, test, coverage,
   runtime, and informational-lane reductions without weakening failure
-  propagation or owner-controlled oracles. VTA0 follows IH7 so it audits a
+  propagation or owner-controlled oracles. VTA0 follows CT5 so it audits a
   stable gate topology rather than changing validation beneath active work.
 - Repository Hygiene Cleanup is registered after the validation-time audit.
   Its six phases separate ignored generated output, retained investigation
@@ -194,6 +202,7 @@ Completed plan files were deleted; git history is the archive.
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
 | Invariant Enforcement And Assertion Hardening | `INVARIANT_HARDENING` | 8 | 4 | `TODO/invariant-enforcement-hardening.md` |
+| Full Source Comment Truth Replacement | `COMMENT_TRUTH` | 6 | 0 | `TODO/full-source-comment-truth-replacement.md` |
 | Full Validation Time And Value Audit | `VALIDATION_TIME_AUDIT` | 6 | 0 | `TODO/full-validation-time-value-audit.md` |
 | Repository Hygiene Cleanup | `REPOSITORY_CLEANUP` | 6 | 0 | `TODO/repository-hygiene-cleanup.md` |
 | Cause Hierarchy Scientific Inspector | `CAUSE_HIERARCHY_UI` | 7 | 0 | `TODO/cause-hierarchy-scientific-inspector.md` |
@@ -211,7 +220,6 @@ an owner decision, not a run decision.
 |---|---|---|---|
 | Contact Stack Stability Techniques | Owner-parked 2026-08-02 | 0/7 | `WNF/contact-stack-stability-techniques.md` |
 | Deterministic Trigonometry Adoption | Owner-parked 2026-08-18 | 0/8 | `WNF/deterministic-trigonometry-adoption.md` |
-| Full Source Comment Truth Replacement | Prepared; waits for in-flight source work | 582 clean, 261 queued | `TODO/full-source-comment-truth-replacement.md` |
 | Reversible GPU Fracture Replay | Backlog; blocked | 0/7 | `WNF/fracture-replay-feature.md` |
 | ImGui + Tracy E17 Comment Audit | Complete | 96/96, 0 deferred | `DONE/imgui-tracy-e17-comment-audit.md` |
 
@@ -235,15 +243,19 @@ states elsewhere, and both are recorded rather than silently corrected:
    high-, medium-, and low-severity finding with an explicit Release-safe
    enforcement lane, correct comment taxonomy, and close with independent
    false-pass and ownership review.
-2. `VALIDATION_TIME_AUDIT` VTA0 through VTA5 - instrument and measure the full
+2. `COMMENT_TRUTH` CT0 through CT5 - rebase the frozen replacement after IH7,
+   discard redundant hunks, regenerate conflicts against current source, apply
+   the remaining truthful comments by owner area, and close with a complete
+   checklist, semantic comparison, fast gate, and independent truth review.
+3. `VALIDATION_TIME_AUDIT` VTA0 through VTA5 - instrument and measure the full
    plan-completion call graph, evaluate every stage's unique evidence and cost,
    implement only owner-approved reductions with false-pass controls, and close
    with one timed terminal full gate.
-3. `REPOSITORY_CLEANUP` RC0 through RC5 - rebase the deletion inventory, obtain
+4. `REPOSITORY_CLEANUP` RC0 through RC5 - rebase the deletion inventory, obtain
    owner dispositions, remove only explicit ignored/build/worktree targets,
    reconcile tracked artifacts and stale references, and close with independent
    data-loss and reachability review.
-4. `CAUSE_HIERARCHY_UI` CHUI0 through CHUI6 - preserve the approved concept as
+5. `CAUSE_HIERARCHY_UI` CHUI0 through CHUI6 - preserve the approved concept as
    an exact visual contract, restyle and filter the existing hierarchy, attach
    one animated tabbed evidence drawer to the hierarchy's sole placement owner,
    and close with deterministic compact-viewport screenshots, UI/Automation/
@@ -273,13 +285,15 @@ contracts into Rendering.
 
 ## Portfolio Progress
 
-51/74 tasks complete with four active plans.
+51/80 tasks complete with five active plans.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
 Invariant Enforcement And Assertion Hardening IH0-IH3 are complete; IH4-IH7
 remain, with IH4 next.
-Full Validation Time And Value Audit VTA0-VTA5 follows IH7; all six phases
+Full Source Comment Truth Replacement CT0-CT5 follows IH7; all six phases
+remain.
+Full Validation Time And Value Audit VTA0-VTA5 follows CT5; all six phases
 remain.
 Repository Hygiene Cleanup RC0-RC5 follows VTA5; all six phases remain.
 Cause Hierarchy Scientific Inspector CHUI0-CHUI6 follows RC5; all seven phases
