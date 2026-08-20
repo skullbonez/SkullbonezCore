@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-20
-Status: No active plans; 47/47 tasks complete
+Status: One active plan; 47/55 tasks complete
 
 ## Owner Direction
 
@@ -57,6 +57,10 @@ Status: No active plans; 47/47 tasks complete
   preservation with deterministic 0/1/4-worker evidence. The terminal plan-
   completion gate passed every phase through DX12 and Automation before the
   mapped 35,303-line protected Physics-oracle stop. No baseline was refreshed.
+- Invariant Enforcement And Assertion Hardening is active after rest-stability
+  closure. It rebaselines the exact repository assertion/invariant worklist,
+  assigns every finding an owner and Release-safe enforcement lane, repairs the
+  selected sites, and closes with negative proof plus independent review.
 - Continuous Orbital Forecast was reactivated by owner direction on
   2026-08-17. It follows predicted solver detail and owns the separate
   interactive continuous prediction mode, coherent rolling 120-second path
@@ -153,7 +157,9 @@ Completed plan files were deleted; git history is the archive.
 
 ## Active Plans
 
-No plan is currently active.
+| Plan | Commit name | Tasks | Done | File |
+|---|---|---|---|---|
+| Invariant Enforcement And Assertion Hardening | `INVARIANT_HARDENING` | 8 | 0 | `TODO/invariant-enforcement-hardening.md` |
 
 ## Parked, Backlog, And Completed Plans
 
@@ -187,7 +193,11 @@ states elsewhere, and both are recorded rather than silently corrected:
 
 ## Binding Order
 
-No active plan is currently bound.
+1. `INVARIANT_HARDENING` IH0 through IH7 — rebase the repository invariant and
+   assertion inventory after the preceding source work, repair every audited
+   high-, medium-, and low-severity finding with an explicit Release-safe
+   enforcement lane, correct comment taxonomy, and close with independent
+   false-pass and ownership review.
 
 `CAUSAL_INSPECT` no longer re-steps an old frame to regenerate solver detail, so
 it does not consume the tier-2 determinism guarantee and has no ordering
@@ -208,8 +218,10 @@ than pinning pre-repair impulses, activation times, or sleep frames.
 
 ## Portfolio Progress
 
-47/47 tasks complete with no active plan. Causal C0-C8, Determinism T0-T8,
+47/55 tasks complete with one active plan.
+Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
+Invariant Enforcement And Assertion Hardening IH0-IH7 is active, with IH0 next.
 Deterministic
 Trigonometry is owner-parked and excluded from progress.

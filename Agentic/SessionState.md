@@ -2,13 +2,14 @@
 
 Date: 2026-08-20
 Branch: `nightrunner-18th-AUG-26`
-Status: No active plans; 47/47 tasks complete
+Status: One active plan; 47/55 tasks complete
 
-At-Rest Ball Stability RS0-RS7 is complete. Causal C0-C8, Determinism T0-T8,
+At-Rest Ball Stability RS0-RS7 is complete. Invariant Enforcement And Assertion
+Hardening IH0-IH7 is now the sole active plan. Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7, and Continuous
-Orbital Forecast OF0-OF6 are complete. No active plan remains in the canonical
-binding order. Completed plan files were deleted under the
-repository convention; Git history retains their phase evidence.
+Orbital Forecast OF0-OF6 are complete. `MASTER-PLAN.md` binds IH0 next.
+Completed plan files were deleted under the repository convention; Git history
+retains their phase evidence.
 
 ORBIT_FORECAST OF0 is complete. It ratifies the fixed sun as the primary,
 Earth and Mars as core bodies, and the ship as an auxiliary whose orbital-
@@ -382,52 +383,24 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-`REST_STABILITY` RS0-RS7 is complete. RS0 added the authored all-three-ball sleep
-completion gate; no frame/time cap or aborted run can complete the unlimited
-scene. Its preserved baseline and 42-query SkullScope packet ratify the owning
-causes and exact semantic thresholds. RS1 turned those thresholds into a
-failure-first semantic analyzer with 19 focused clean/negative cases, exact
-all-six timeline coverage, authored-gate evidence, and box non-regression
-ceilings before Physics behavior changes. RS2's one-variable A/Bs identify the
-heightfield as required causal context, the 2.0 m/s terrain separation-bias cap
-as the normal reimpact trigger, and post-PGS torque-only rolling resistance as
-the source of residual slip. RS3 owns stable-support normal-axis energy
-injection and now prevents stable subthreshold terrain rows from commanding a
-separating velocity while preserving impact restitution and position correction.
-Its authored trace has zero renewed resting reimpacts and zero quiet supported
-bias rows, with all box controls retained. RS4 is complete. It moves bounded
-terrain rolling and normal-axis spin resistance into the existing PGS owner,
-retains no-slip coupling and slope motion, drives post-impact terrain residuals
-to 0.000001, and preserves all box controls. It activates the pre-existing Core
-spin coefficient at the previously missing Physics snapshot boundary without
-retuning any authored value. RS5 is complete. It keeps production Physics sleep
-thresholds and ownership unchanged, narrows the semantic reset audit to the
-post-final-impact quiet run, stamps semantic schema version 2, and pins the
-first-post-impact false-pass boundary plus focused counter-reset and idempotent
-wake-owner tests. V4 reports zero post-final-impact resets/wakes and sleep
-latencies of 984/566/907 frames. RS6 owns integrated object/object slip and
-final motion-quality acceptance.
-Semantic oracles must pin all three balls' vertical tail motion, slip, rolling
-reversals, support/sleep latency, and final sleeping state while retaining the
-boxes as controls. Repair normal vibration, tangent/rolling response, and sleep
-transition separately, preserve candidate artifacts, and refresh no baseline
-without owner approval. RS6 is complete. Its terrain-normal sphere sweep and
-exact non-penetrating separating sphere-row rejection produce the uncapped
-all-three-asleep semantic pass, byte-identical repeat and 0/1/4-worker results,
-zero steady-gameplay allocation violations, and no RS5-relative physics-bench
-regression under the repository threshold.
-RS7 closed the false-pass boundary, added a moving-slope terrain witness, and
-completed four independent review passes with three finding/fix cycles. The
-terminal plan-completion run passed preflight, 638 unit cases, coverage, CPU,
-DX12, and Automation phases before the protected 35,303-line varied-physics
-oracle stop. No baseline was refreshed, and no canonical active plan remains.
+Execute `INVARIANT_HARDENING` IH0. Regenerate the tracked assertion and
+invariant inventories against the completed forecast/rest-stability source,
+then append the exact file/site checklists and enforcement-lane dispositions to
+`Agentic/Plans/TODO/invariant-enforcement-hardening.md` before any production
+repair begins. The post-IH0 order is IH1 through IH7.
+
+At-Rest Ball Stability closed in `f2e192f53`. Its uncapped all-three-asleep
+semantic witness, deterministic 0/1/4-worker proof, box and moving-slope
+controls, allocation/performance checks, four review passes, and terminal gate
+evidence are retained in that commit. The terminal run stopped only at the
+mapped protected 35,303-line varied-Physics oracle; no baseline was refreshed.
 
 Deterministic Trigonometry remains owner-parked in `Agentic/Plans/WNF/` and is
 not part of the active queue.
 
 ## Blockers
 
-- None. The stale Physics CSV,
+- None. Continue with `INVARIANT_HARDENING` IH0. The stale Physics CSV,
   noisy relative Physics performance sample, and
   corrected-topology visual oracle remain owner-controlled validation findings;
   do not refresh any of them without approval.
