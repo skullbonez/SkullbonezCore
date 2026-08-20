@@ -2,12 +2,14 @@
 
 Date: 2026-08-20
 Branch: `nightrunner-18th-AUG-26`
-Status: One active plan; 51/55 tasks complete
+Status: Three active plans; 51/67 tasks complete
 
 At-Rest Ball Stability RS0-RS7 is complete. Invariant Enforcement And Assertion
 Hardening IH0-IH3 are complete and IH4-IH7 remain. Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7, and Continuous
-Orbital Forecast OF0-OF6 are complete. `MASTER-PLAN.md` binds IH4 next.
+Orbital Forecast OF0-OF6 are complete. `MASTER-PLAN.md` binds IH4 next, then
+Full Validation Time And Value Audit VTA0-VTA5 after IH7, followed by
+Repository Hygiene Cleanup RC0-RC5.
 Completed plan files were deleted under the repository convention; Git history
 retains their phase evidence.
 

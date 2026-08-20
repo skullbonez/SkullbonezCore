@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-20
-Status: One active plan; 51/55 tasks complete
+Status: Three active plans; 51/67 tasks complete
 
 ## Owner Direction
 
@@ -73,6 +73,19 @@ Status: One active plan; 51/55 tasks complete
   Its cumulative 650-test unit gate is green; the fast gate clears its static
   checks and build matrix, with terminal reachability deferred solely by the
   Visual Studio-owned live Profile executable lock.
+- Full Validation Time And Value Audit is registered after invariant hardening.
+  Its six phases will measure every nested full-validation stage under warm,
+  leaf-source, broad-header, and fresh-build conditions; judge each stage by
+  unique defect evidence as well as cost; and test build, scan, test, coverage,
+  runtime, and informational-lane reductions without weakening failure
+  propagation or owner-controlled oracles. VTA0 follows IH7 so it audits a
+  stable gate topology rather than changing validation beneath active work.
+- Repository Hygiene Cleanup is registered after the validation-time audit.
+  Its six phases separate ignored generated output, retained investigation
+  evidence, detached worktrees, and tracked repository artifacts; require an
+  explicit absolute-path manifest before deletion; and reconcile every tracked
+  candidate through owner review. RC0 follows VTA5 so the audit can measure a
+  stable evidence corpus before cleanup removes historical local output.
 - Continuous Orbital Forecast was reactivated by owner direction on
   2026-08-17. It follows predicted solver detail and owns the separate
   interactive continuous prediction mode, coherent rolling 120-second path
@@ -172,6 +185,8 @@ Completed plan files were deleted; git history is the archive.
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
 | Invariant Enforcement And Assertion Hardening | `INVARIANT_HARDENING` | 8 | 4 | `TODO/invariant-enforcement-hardening.md` |
+| Full Validation Time And Value Audit | `VALIDATION_TIME_AUDIT` | 6 | 0 | `TODO/full-validation-time-value-audit.md` |
+| Repository Hygiene Cleanup | `REPOSITORY_CLEANUP` | 6 | 0 | `TODO/repository-hygiene-cleanup.md` |
 
 ## Parked, Backlog, And Completed Plans
 
@@ -210,6 +225,14 @@ states elsewhere, and both are recorded rather than silently corrected:
    high-, medium-, and low-severity finding with an explicit Release-safe
    enforcement lane, correct comment taxonomy, and close with independent
    false-pass and ownership review.
+2. `VALIDATION_TIME_AUDIT` VTA0 through VTA5 - instrument and measure the full
+   plan-completion call graph, evaluate every stage's unique evidence and cost,
+   implement only owner-approved reductions with false-pass controls, and close
+   with one timed terminal full gate.
+3. `REPOSITORY_CLEANUP` RC0 through RC5 - rebase the deletion inventory, obtain
+   owner dispositions, remove only explicit ignored/build/worktree targets,
+   reconcile tracked artifacts and stale references, and close with independent
+   data-loss and reachability review.
 
 `CAUSAL_INSPECT` no longer re-steps an old frame to regenerate solver detail, so
 it does not consume the tier-2 determinism guarantee and has no ordering
@@ -230,11 +253,14 @@ than pinning pre-repair impulses, activation times, or sleep frames.
 
 ## Portfolio Progress
 
-50/55 tasks complete with one active plan.
+51/67 tasks complete with three active plans.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
 Invariant Enforcement And Assertion Hardening IH0-IH3 are complete; IH4-IH7
 remain, with IH4 next.
+Full Validation Time And Value Audit VTA0-VTA5 follows IH7; all six phases
+remain.
+Repository Hygiene Cleanup RC0-RC5 follows VTA5; all six phases remain.
 Deterministic
 Trigonometry is owner-parked and excluded from progress.
