@@ -18,6 +18,8 @@ Invariants:
   - Hot and authoring rows share the same dense index and compact together.
   - Sphere and box stores compact by kind; hull variants retain stable indices
     until scene clear so shared references never need refcounts.
+  - Rebind and removal validate per-kind indices and hull/identity parity
+    before dereferencing or compacting shape storage.
   - Hull capacity is driven by distinct shareable plus explicitly unique
     variants, not total hull collider count.
   - Standalone creation keeps rows dense for cache-friendly scans; handles map
@@ -174,6 +176,7 @@ class ColliderStore
 
   private:
     friend class PhysicsEngine;
+    friend struct ColliderStoreTestAccess;
 
     // Invariant: replay prediction storage cloning remains a private
     // PhysicsEngine-coordinated operation and always rebinds copied shape
@@ -191,6 +194,10 @@ class ColliderStore
     void RemoveShape( const ColliderRecord& record, int ignoredRecordIndex );
     void RebindShapeReferences();
     void RebindShapeReferences( ColliderShapeKind shapeKind );
+    ColliderRecord* RequireMovedShapeOwner( ColliderShapeKind shapeKind, std::size_t removedIndex, std::size_t movedIndex,
+                                            int ignoredRecordIndex );
+    static void RequireShapeStorage( ColliderShapeKind shapeKind, std::size_t index, std::size_t shapeCount,
+                                     std::size_t identityCount, const char* operation );
 
     ColliderRecordList m_colliders { "ColliderStore.colliders",
                                      PhysicsCapacityReason::SceneColliders };                              // Dense live collider records.

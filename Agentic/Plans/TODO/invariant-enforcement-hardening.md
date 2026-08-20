@@ -1,7 +1,7 @@
 # Invariant Enforcement And Assertion Hardening
 
 Date: 2026-08-20
-Status: Active; 3/8 phases complete
+Status: Active; 4/8 phases complete
 Impact area: repository-wide invariant enforcement, assertion policy, failure
 lanes, tests, comment taxonomy, and substantial diagnostic tools
 Owner: subsystem owners named by each affected path
@@ -219,7 +219,7 @@ A126, A128, A129, A130, A131, and A132.
 | A005 | `TornadoVisualPass::EnsureTransientCapacity`; Release dereferences a required frame snapshot | Lane F | IH2 now checks both Gameplay-owned frame borrows before capacity calculation and drawing; prepared, unprepared, and release-cleared lifecycle proofs cover the boundary |
 | A010 | `Quaternion::RotateAboutAxis`; Release math is defined but a non-unit axis changes the requested rotation | Debug tripwire | IH2 retained the tripwire after proving every production caller supplies a unit basis or explicitly normalized axis; focused Profile proof pins the distinct non-unit legacy result and normalized output |
 | A011 | `Vector3::Normalise`; Release intentionally propagates IEEE invalid values while `TryNormalise` owns caller-recoverable failure | Debug tripwire | IH2 retained the tripwire; focused proof distinguishes plain Profile IEEE propagation from `TryNormalise` failure that leaves the vector unchanged |
-| A017 | `ColliderStore::RefreshBodyBindings`; current `bool` path returns false before dereference | Lane R | IH3 remove the duplicate assertion and pin mismatched/missing body rows returning false without mutation |
+| A017 | `ColliderStore::RefreshBodyBindings`; current `bool` path returns false before dereference | Lane R | IH3 removed the duplicate assertion, preflighted every body row, and pinned mismatch returning false without mutation; a missing row is structurally excluded by the unchanged synchronous `PhysicsBodyStore::Count`/`RecordForModelIndex` contract |
 | A018-A020 | `ColliderStore::RebindShapeReferences`; Release indexes per-kind backing unchecked | Lane F | IH3 fatal before sphere/box/hull indexing; subprocess corrupt-index negatives plus legal clone/rebind positives |
 | A023-A026 | `ColliderStore` shape compaction; Release indexes or pops per-kind backing and assumes hull-row parity | Lane F | IH3 owner/capacity diagnostics before mutation; death tests for stale indices/parity and positive first/middle/last compaction |
 | A028 | `DisjointSet::Reset`; Release writes `rowCount` borrowed rows | Lane F | IH3 fatal before `fill_n`; exact-capacity and one-over subprocess cases |
@@ -287,7 +287,8 @@ The first 67 rows below are the complete IH0 selected-file union: 62 assert-only
 candidates across 22 files, 45 policy-comment candidates across 35 files, the
 complete eight-file `Run*` logical surface, Terrain construction, the worker
 taxonomy site, and the six named tools. IH1 appended two supporting files and
-IH2 appended eight more, so the live checklist now contains 77 rows. A row
+IH2 appended eight more and IH3 appended six more, so the live checklist now
+contains 83 rows. A row
 remains unchecked until its owning phase inspects the entire file, applies the
 comment audit, and records the focused proof. IH7 reruns `git ls-files` and
 reconciles this list.
@@ -307,13 +308,13 @@ reconciles this list.
 - [x] `SkullbonezSource/Gameplay/TornadoVisualPass.cpp` — A005; IH2 full-file audit and lifecycle Lane F proof
 - [x] `SkullbonezSource/Maths/Quaternion.cpp` — A010; IH2 full-file audit, all-caller normalization proof, and Profile negative control
 - [x] `SkullbonezSource/Maths/Vector3.h` — A011; IH2 full-file audit and plain/Try normalization proof
-- [ ] `SkullbonezSource/Physics/ColliderStore.cpp` — A017-A020, A023-A026, P009-P010
-- [ ] `SkullbonezSource/Physics/DisjointSet.h` — A028
-- [ ] `SkullbonezSource/Physics/PhysicsBodyStore.cpp` — A030, A033
-- [ ] `SkullbonezSource/Physics/PhysicsFixedList.h` — P011
-- [ ] `SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.cpp` — A048-A052, P012
-- [ ] `SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.Execution.cpp` — P013
-- [ ] `SkullbonezSource/Physics/Stages/PhysicsSleepController.cpp` — A058
+- [x] `SkullbonezSource/Physics/ColliderStore.cpp` — A017-A020, A023-A026, P009-P010; IH3 full-file audit, transactional refresh, per-kind Lane F, and compaction proof
+- [x] `SkullbonezSource/Physics/DisjointSet.h` — A028; IH3 full-file audit and exact/one-over borrowed-scratch proof
+- [x] `SkullbonezSource/Physics/PhysicsBodyStore.cpp` — A030, A033; IH3 full-file audit and hot-index/sleep-destination boundary proof
+- [x] `SkullbonezSource/Physics/PhysicsFixedList.h` — P011; IH3 full-file audit retained relocation correctness separately from runtime allocation policy
+- [x] `SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.cpp` — A048-A052, P012; IH3 full-file audit, five-lane diagnostics, and allocation-policy split
+- [x] `SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.Execution.cpp` — P013; IH3 full-file audit retained mechanical island write-offset correctness
+- [x] `SkullbonezSource/Physics/Stages/PhysicsSleepController.cpp` — A058; IH3 full-file audit retained Debug-only awake-membership tripwire with pure-classifier proof
 - [ ] `SkullbonezSource/Rendering/DX12/MeshDX12.cpp` — P014
 - [ ] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp` — A063, A065-A066
 - [ ] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp` — A070
@@ -366,9 +367,15 @@ reconciles this list.
 - [x] `SkullbonezSource/Gameplay/TornadoGameplay.cpp` — IH2 supporting visual lifecycle owner; full-file comment audit
 - [x] `SkullbonezSource/Gameplay/TornadoVisualPass.h` — IH2 supporting lifecycle contract; full-file comment audit
 - [x] `SkullbonezTests/TestQuaternion.cpp` — IH2 supporting unit/non-unit proof; full-file comment audit
-- [x] `SkullbonezTests/TestRuntimeContracts.cpp` — IH2 supporting fatal and Debug-policy proof; full-file comment audit
+- [x] `SkullbonezTests/TestRuntimeContracts.cpp` — IH2/IH3 supporting fatal, exact-capacity, and Debug-policy proof; full-file comment audit refreshed in IH3
 - [x] `SkullbonezTests/TestSceneParserUnit.cpp` — IH2 supporting exact/one-over tornado proof; full-file comment audit
 - [x] `SkullbonezTests/TestVector3.cpp` — IH2 supporting plain/Try normalization proof; full-file comment audit
+- [x] `SkullbonezSource/Physics/ColliderStore.h` — IH3 supporting shape-topology test seam and owner contract; full-file comment audit
+- [x] `SkullbonezSource/Physics/PhysicsBodyStore.h` — IH3 supporting hot-row test seam and owner contract; full-file comment audit
+- [x] `SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h` — IH3 supporting five-lane consequence test seam and owner contract; full-file comment audit
+- [x] `SkullbonezSource/Physics/Stages/PhysicsSleepController.h` — IH3 supporting Debug-classifier test seam and owner contract; full-file comment audit
+- [x] `SkullbonezTests/TestPhysicsHandles.cpp` — IH3 supporting refresh, compaction, and sleep-export proof; full-file comment audit
+- [x] `SkullbonezTests/TestSleepController.cpp` — IH3 supporting awake-membership classifier and consistency proof; full-file comment audit
 
 ## Phases
 
@@ -428,12 +435,33 @@ reconciles this list.
   dependencies, all ownership inventories, Profile/Automation/Debug builds,
   tests, and compiled-symbol reachability.
 
-- [ ] **IH3 — Harden Physics findings.** Repair all `ColliderStore` index,
+- [x] **IH3 — Harden Physics findings.** Repair all `ColliderStore` index,
   identity, compaction, and body-binding assert-only paths identified by IH0;
   review the remaining Physics assertions by complete owner rather than line in
   isolation. Add positive branch coverage and subprocess negative tests while
   preserving hot-store layout, deterministic ordering, and the no-new-body-
-  field rule.
+  field rule. Collider refresh now preflights its complete body topology and
+  returns false without mutation on a count mismatch. Shape rebind/removal,
+  disjoint-set reset, hot-body access, sleep export, and every solver
+  consequence lane now validate before unsafe access in Profile/Release, with
+  owner-specific Lane F diagnostics. The five solver assertions were removed
+  as ceremonial duplicates; the awake-list assertion remains an explicitly
+  Debug-only Lane P tripwire backed by a pure four-case classifier. Focused
+  Profile proof passes refresh 1/8, first/final shape compaction 1/12,
+  sleep-state export 1/3, awake membership/classifier 2/45, exact scratch and
+  consequence capacity 1/7, and the fatal harness 1/347. Existing middle-row
+  compaction remains covered by the cumulative suite. The selected/touched
+  comment audit is 14/14 with zero deferred files; P009-P011 and P013 remain
+  mechanical `Invariant:` claims, while P012 now separates deterministic
+  completeness from `Runtime allocation policy:`. The final
+  `tools\\validate_tests.bat` gate passes 650 cases / 2,522,407 assertions on
+  the current workspace. Formatting, project metadata, dependency direction,
+  all non-reachability ownership inventories, staged-size policy, and the
+  Profile/Automation/Debug build matrix also pass inside
+  `tools\\validate_fast.bat`; its terminal compiled-symbol inventory is deferred
+  only because Visual Studio is actively running and locking
+  `Profile\\SKULLBONEZ_CORE.exe` while concurrent user-owned source edits are
+  present. No IH3 source, test, or governance failure remains.
 
 - [ ] **IH4 — Harden Rendering, DX12, World, and Scene findings.** Repair
   primitive-batch scope/lifetime checks, render-resource preview capacity, and

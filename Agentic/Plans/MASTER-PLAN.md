@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-20
-Status: One active plan; 50/55 tasks complete
+Status: One active plan; 51/55 tasks complete
 
 ## Owner Direction
 
@@ -67,7 +67,12 @@ Status: One active plan; 50/55 tasks complete
   IH2 adds Release-safe texture and tornado capacity/lifecycle enforcement,
   retains Debug-only lock/math tripwires with focused negative controls, and
   separates mechanical capacity invariants from runtime allocation policy.
-  Its cumulative 645-test unit gate and fast repository gate are green.
+  IH3 adds transactional collider rebinding, guarded shape compaction,
+  Release-safe disjoint-set/body-store/solver consequence bounds, and a tested
+  Debug-only awake-list classifier without changing hot Physics storage.
+  Its cumulative 650-test unit gate is green; the fast gate clears its static
+  checks and build matrix, with terminal reachability deferred solely by the
+  Visual Studio-owned live Profile executable lock.
 - Continuous Orbital Forecast was reactivated by owner direction on
   2026-08-17. It follows predicted solver detail and owns the separate
   interactive continuous prediction mode, coherent rolling 120-second path
@@ -166,7 +171,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Invariant Enforcement And Assertion Hardening | `INVARIANT_HARDENING` | 8 | 3 | `TODO/invariant-enforcement-hardening.md` |
+| Invariant Enforcement And Assertion Hardening | `INVARIANT_HARDENING` | 8 | 4 | `TODO/invariant-enforcement-hardening.md` |
 
 ## Parked, Backlog, And Completed Plans
 
@@ -229,7 +234,7 @@ than pinning pre-repair impulses, activation times, or sleep frames.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
-Invariant Enforcement And Assertion Hardening IH0-IH2 are complete; IH3-IH7
-remain, with IH3 next.
+Invariant Enforcement And Assertion Hardening IH0-IH3 are complete; IH4-IH7
+remain, with IH4 next.
 Deterministic
 Trigonometry is owner-parked and excluded from progress.

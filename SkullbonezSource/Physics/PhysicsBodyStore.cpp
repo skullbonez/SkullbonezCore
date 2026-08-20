@@ -17,6 +17,8 @@ Invariants:
     the last row to close a hole without changing live handles.
   - Pending impulses and sleep state are preserved across descriptor refresh
     by handle identity, even if a descriptor refresh reorders slots.
+  - Private hot-state access and sleep-state export prove caller indices and
+    destination length before touching component-array storage.
   - Impulse application is all-or-nothing per linear/angular component; invalid
     zero mass or inertia absorbs that component rather than publishing NaNs.
 
@@ -1156,7 +1158,7 @@ void PhysicsBodyStore::ResizeHotFields( std::size_t count )
 
 PhysicsBodyHotState PhysicsBodyStore::HotStateForModelIndex( int modelIndex ) const
 {
-    assert( modelIndex >= 0 && modelIndex < Count() );
+    RequireModelIndex( modelIndex, "read-hot-state" );
     const std::size_t index = static_cast<std::size_t>( modelIndex );
     PhysicsBodyHotState state;
     state.position = Vector3( m_positionX[index], m_positionY[index], m_positionZ[index] );
@@ -1177,7 +1179,7 @@ PhysicsBodyHotState PhysicsBodyStore::HotStateForModelIndex( int modelIndex ) co
 
 void PhysicsBodyStore::StoreHotStateAt( int modelIndex, const PhysicsBodyHotState& state )
 {
-    assert( modelIndex >= 0 && modelIndex < Count() );
+    RequireModelIndex( modelIndex, "write-hot-state" );
     const std::size_t index = static_cast<std::size_t>( modelIndex );
     m_positionX[index] = state.position.x;
     m_positionY[index] = state.position.y;
@@ -1198,6 +1200,17 @@ void PhysicsBodyStore::StoreHotStateAt( int modelIndex, const PhysicsBodyHotStat
     m_boundingRadius[index] = state.boundingRadius;
     m_fixed[index] = state.fixed ? 1u : 0u;
     m_awake[index] = state.awake ? 1u : 0u;
+}
+
+
+void PhysicsBodyStore::RequireModelIndex( int modelIndex, const char* operation ) const
+{
+    if ( modelIndex < 0 || modelIndex >= Count() )
+    {
+        SB_FATAL( "Physics/PhysicsBodyStore",
+                  "Hot-state model index is outside the live body set. operation=%s index=%d count=%d.", operation,
+                  modelIndex, Count() );
+    }
 }
 
 
@@ -1682,7 +1695,12 @@ void PhysicsBodyStore::CopySleepStatesFrom( std::span<const uint8_t> sleepStates
 void PhysicsBodyStore::CopySleepStatesTo( std::span<uint8_t> sleepStates ) const
 {
     const PhysicsBodyHotFieldsConstView hotFields = HotFields();
-    assert( sleepStates.size() == hotFields.awake.size() );
+
+    if ( sleepStates.size() != hotFields.awake.size() )
+    {
+        SB_FATAL( "Physics/PhysicsBodyStore", "Sleep-state destination size mismatch. provided=%zu required=%zu.",
+                  sleepStates.size(), hotFields.awake.size() );
+    }
 
     for ( std::size_t i = 0; i < hotFields.awake.size(); ++i )
     {

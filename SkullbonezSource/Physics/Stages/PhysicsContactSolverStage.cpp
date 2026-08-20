@@ -37,6 +37,7 @@ Related:
 
 #include <algorithm>
 #include <cassert>
+#include <limits>
 
 using namespace SkullbonezCore::Physics;
 
@@ -175,23 +176,39 @@ void PhysicsContactSolverStage::PrepareSideEffects( int modelCount, std::size_t 
     m_sideEffects.releaseWakeBodies.clear();
     m_sideEffects.fixedTreeReleases.clear();
 
-    // Invariant: preserving deterministic output requires every list to fit
-    // its scene-load reservation; allocating or dropping a command is not
-    // an acceptable runtime fallback.
-    assert( m_sideEffects.collisionVisualBodies.capacity() >= candidatePairCount * 2 );
-    assert( m_sideEffects.fixedContactBodies.capacity() >= static_cast<std::size_t>( modelCount ) );
-    assert( m_sideEffects.releaseWakeBodies.capacity() >= static_cast<std::size_t>( modelCount ) );
-    assert( m_sideEffects.fixedTreeReleases.capacity() >= static_cast<std::size_t>( modelCount ) );
-    assert( m_sideEffects.pipelineRecords.capacity() >= static_cast<std::size_t>( pipelineRecordCapacity ) );
-
-    if ( m_sideEffects.collisionVisualBodies.capacity() < candidatePairCount * 2 ||
-         m_sideEffects.fixedContactBodies.capacity() < static_cast<std::size_t>( modelCount ) ||
-         m_sideEffects.releaseWakeBodies.capacity() < static_cast<std::size_t>( modelCount ) ||
-         m_sideEffects.fixedTreeReleases.capacity() < static_cast<std::size_t>( modelCount ) ||
-         m_sideEffects.pipelineRecords.capacity() < static_cast<std::size_t>( pipelineRecordCapacity ) )
+    if ( modelCount < 0 || pipelineRecordCapacity < 0 ||
+         candidatePairCount > ( std::numeric_limits<std::size_t>::max )() / 2u )
     {
-        SB_FATAL( "Physics/PhysicsContactSolverStage", "Persistent-contact consequence capacity exhausted." );
+        SB_FATAL( "Physics/PhysicsContactSolverStage",
+                  "Persistent-contact consequence requirement is invalid. model_count=%d candidate_pairs=%zu "
+                  "pipeline_records=%d.",
+                  modelCount, candidatePairCount, pipelineRecordCapacity );
     }
+
+    const std::size_t bodyCount = static_cast<std::size_t>( modelCount );
+    const std::size_t collisionVisualCount = candidatePairCount * 2u;
+    const std::size_t pipelineCount = static_cast<std::size_t>( pipelineRecordCapacity );
+
+    // Invariant: deterministic publication is complete or fatal. Every
+    // consequence lane must fit, because dropping or reordering one command
+    // changes the fixed-step result observed by later owners.
+    const auto requireCapacity = []( const char* lane, std::size_t capacity, std::size_t required )
+    {
+        if ( capacity < required )
+        {
+            SB_FATAL( "Physics/PhysicsContactSolverStage",
+                      "Persistent-contact consequence capacity exhausted. lane=%s required=%zu capacity=%zu.", lane,
+                      required, capacity );
+        }
+    };
+
+    // Runtime allocation policy: scene-load reservation pays for these lists;
+    // PrepareSideEffects and Solve clear and reuse storage but never grow it.
+    requireCapacity( "collisionVisualBodies", m_sideEffects.collisionVisualBodies.capacity(), collisionVisualCount );
+    requireCapacity( "fixedContactBodies", m_sideEffects.fixedContactBodies.capacity(), bodyCount );
+    requireCapacity( "releaseWakeBodies", m_sideEffects.releaseWakeBodies.capacity(), bodyCount );
+    requireCapacity( "fixedTreeReleases", m_sideEffects.fixedTreeReleases.capacity(), bodyCount );
+    requireCapacity( "pipelineRecords", m_sideEffects.pipelineRecords.capacity(), pipelineCount );
 }
 
 void PhysicsContactCacheWakeAccess::ForgetBody( int bodyIndex ) const

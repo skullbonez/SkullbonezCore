@@ -25,6 +25,8 @@ Invariants:
     hot arrays before a step or explicit editor/replay commit.
   - Every hot component backing allocation starts on a 32-byte boundary and
     has exactly the same live dense prefix as the cold metadata rows.
+  - Hot-row helpers and sleep-state export reject invalid indices or destination
+    lengths before component-array reads or writes.
   - Steady-frame pose, velocity, and sleep state do not copy back to authoring data;
     readers must use the body, collider, render, or diagnostics stores.
 
@@ -444,6 +446,7 @@ class PhysicsBodyStore
 
   private:
     friend class PhysicsEngine;
+    friend struct PhysicsBodyStoreTestAccess;
 
     // Replay prediction seeds a private engine under the registered Replay
     // owner. Keeping this clone private prevents ordinary store copies from
@@ -455,6 +458,7 @@ class PhysicsBodyStore
     void RetireUnassignedHandles( const PhysicsHandleAssignmentMask& assignedHandleSlots );
     void ClearHotFields();
     void ResizeHotFields( std::size_t count );
+    void RequireModelIndex( int modelIndex, const char* operation ) const;
     PhysicsBodyHotState HotStateForModelIndex( int modelIndex ) const;
     void StoreHotStateAt( int modelIndex, const PhysicsBodyHotState& state );
 

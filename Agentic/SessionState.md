@@ -2,12 +2,12 @@
 
 Date: 2026-08-20
 Branch: `nightrunner-18th-AUG-26`
-Status: One active plan; 50/55 tasks complete
+Status: One active plan; 51/55 tasks complete
 
 At-Rest Ball Stability RS0-RS7 is complete. Invariant Enforcement And Assertion
-Hardening IH0-IH2 are complete and IH3-IH7 remain. Causal C0-C8, Determinism T0-T8,
+Hardening IH0-IH3 are complete and IH4-IH7 remain. Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7, and Continuous
-Orbital Forecast OF0-OF6 are complete. `MASTER-PLAN.md` binds IH3 next.
+Orbital Forecast OF0-OF6 are complete. `MASTER-PLAN.md` binds IH4 next.
 Completed plan files were deleted under the repository convention; Git history
 retains their phase evidence.
 
@@ -383,7 +383,7 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `INVARIANT_HARDENING` IH3. IH0 rebased 847 tracked source-bearing files,
+Execute `INVARIANT_HARDENING` IH4. IH0 rebased 847 tracked source-bearing files,
 132 production plain assertions, 62 assert-only successor candidates, and 45
 allocation-comment taxonomy candidates. The owning plan now carries exact
 assertion/policy dispositions and a 77-file live checklist; ignored source evidence
@@ -396,7 +396,15 @@ tornado exact-capacity/lifecycle failures are now Release-safe, while the lock-
 order and math tripwires retain their intentional Debug-only policy with
 focused controls. The full unit gate passes 645 cases / 2,522,019 assertions,
 the 17/17 touched/selected-source audit has zero deferrals, and `validate_fast`
-is green. IH3 owns the selected Physics findings.
+is green. IH3 completed the selected Physics findings with transactional
+collider refresh, guarded shape compaction, Release-safe scratch/body/solver
+bounds, and a Debug-only awake-membership classifier. Focused Profile tests are
+green, the IH3 source audit is 14/14 with zero deferrals, and the full unit gate
+passes 650 cases / 2,522,407 assertions. The fast gate clears static checks and
+the Profile/Automation/Debug matrix; compiled-symbol reachability is deferred
+only while Visual Studio owns a live lock on `Profile\\SKULLBONEZ_CORE.exe` and
+concurrent user-owned edits remain outside the IH3 commit. IH4 owns the selected
+Rendering, DX12, World, and Scene findings.
 
 At-Rest Ball Stability closed in `f2e192f53`. Its uncapped all-three-asleep
 semantic witness, deterministic 0/1/4-worker proof, box and moving-slope
@@ -409,7 +417,7 @@ not part of the active queue.
 
 ## Blockers
 
-- None. Continue with `INVARIANT_HARDENING` IH3. The stale Physics CSV,
+- None. Continue with `INVARIANT_HARDENING` IH4. The stale Physics CSV,
   noisy relative Physics performance sample, and
   corrected-topology visual oracle remain owner-controlled validation findings;
   do not refresh any of them without approval.

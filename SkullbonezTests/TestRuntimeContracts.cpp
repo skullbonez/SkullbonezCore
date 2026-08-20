@@ -40,6 +40,8 @@
 //     exhaustion reports the exact owner, capacity, high-water, and phase.
 //   - Sleep support edges fail before either the scene-committed reservation or
 //     the semantic ceiling can be exceeded.
+//   - Physics scratch, shape, hot-row, sleep-export, and every contact
+//     consequence lane fail in isolated children before an invalid access.
 //   - Pipeline batch counting rejects full-record mode so retained row count
 //     cannot diverge from the recorder's canonical event count.
 //   - DX12 retirement accounting records a real below-capacity peak, resets at
@@ -80,7 +82,10 @@
 #include "../SkullbonezSource/Gameplay/TornadoVisualPass.h"
 #include "../SkullbonezSource/Physics/SpatialGrid.h"
 #include "../SkullbonezSource/Physics/SleepIslandSystem.h"
+#include "../SkullbonezSource/Physics/ColliderStore.h"
+#include "../SkullbonezSource/Physics/DisjointSet.h"
 #include "../SkullbonezSource/Physics/PhysicsApi.h"
+#include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
 #include "../SkullbonezSource/Physics/PhysicsEngine.h"
 #include "../SkullbonezSource/Physics/PhysicsFixedList.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h"
@@ -220,6 +225,42 @@ struct PersistentContactSolveTransactionTestAccess
     static void Advance( PersistentContactSolveTransaction& transaction, PersistentContactSolvePhaseCursor::Phase next )
     {
         transaction.AdvanceOrFatal( next, "ExhaustiveFatalProbe" );
+    }
+};
+
+struct ColliderStoreTestAccess
+{
+    static void RequireShapeStorage( ColliderShapeKind shapeKind, std::size_t index, std::size_t shapeCount,
+                                     std::size_t identityCount, const char* operation )
+    {
+        ColliderStore::RequireShapeStorage( shapeKind, index, shapeCount, identityCount, operation );
+    }
+};
+
+struct PhysicsBodyStoreTestAccess
+{
+    static PhysicsBodyHotState ReadHotState( const PhysicsBodyStore& store, int modelIndex )
+    {
+        return store.HotStateForModelIndex( modelIndex );
+    }
+};
+
+struct PhysicsContactSolverStageTestAccess
+{
+    static void ReserveAndPrepare( PhysicsContactSolverStage& stage, std::size_t collisionVisualCapacity,
+                                   std::size_t fixedContactCapacity, std::size_t releaseWakeCapacity,
+                                   std::size_t fixedTreeCapacity, std::size_t pipelineCapacity )
+    {
+        {
+            Core::Allocation::RuntimeAllocationScope sceneLoadScope( Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+            stage.m_sideEffects.collisionVisualBodies.Reserve( collisionVisualCapacity );
+            stage.m_sideEffects.fixedContactBodies.Reserve( fixedContactCapacity );
+            stage.m_sideEffects.releaseWakeBodies.Reserve( releaseWakeCapacity );
+            stage.m_sideEffects.fixedTreeReleases.Reserve( fixedTreeCapacity );
+            stage.m_sideEffects.pipelineRecords.Reserve( pipelineCapacity );
+        }
+
+        stage.PrepareSideEffects( 2, 2u, 2 );
     }
 };
 } // namespace Physics
@@ -487,6 +528,73 @@ bool RunRuntimeFatalCase( const char* caseName )
     {
         SkullbonezCore::Textures::TextureCollectionTestAccess::FirstFreeSlot(
             SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "collider-rebind-shape-index" ) == 0 )
+    {
+        SkullbonezCore::Physics::ColliderStoreTestAccess::RequireShapeStorage(
+            SkullbonezCore::Physics::ColliderShapeKind::Sphere, 3u, 3u, 3u, "rebind" );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "collider-remove-shape-index" ) == 0 )
+    {
+        SkullbonezCore::Physics::ColliderStoreTestAccess::RequireShapeStorage(
+            SkullbonezCore::Physics::ColliderShapeKind::Box, 1u, 1u, 1u, "remove" );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "collider-hull-shape-parity" ) == 0 )
+    {
+        SkullbonezCore::Physics::ColliderStoreTestAccess::RequireShapeStorage(
+            SkullbonezCore::Physics::ColliderShapeKind::ConvexHull, 0u, 1u, 0u, "remove" );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "disjoint-set-scratch-capacity" ) == 0 )
+    {
+        std::array<int, 1> parent {};
+        std::array<uint8_t, 1> rank {};
+        SkullbonezCore::Physics::DisjointSet disjointSet( std::span<int>( parent ), std::span<uint8_t>( rank ), 2 );
+        disjointSet.Reset();
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "physics-body-hot-index" ) == 0 )
+    {
+        SkullbonezCore::Physics::PhysicsBodyStore store;
+        SkullbonezCore::Physics::PhysicsBodyStoreTestAccess::ReadHotState( store, 0 );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "physics-body-sleep-destination" ) == 0 )
+    {
+        SkullbonezCore::Physics::PhysicsBodyStore store;
+
+        {
+            RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+            store.ReserveCapacity( 1u );
+            store.CreateBodyRecord( SkullbonezCore::Physics::PhysicsBodyCreateRecord {} );
+        }
+
+        std::array<uint8_t, 0> sleepStates {};
+        store.CopySleepStatesTo( sleepStates );
+        return true;
+    }
+
+    const bool collisionVisualShort = std::strcmp( caseName, "contact-side-effect-collision-visual" ) == 0;
+    const bool fixedContactShort = std::strcmp( caseName, "contact-side-effect-fixed-contact" ) == 0;
+    const bool releaseWakeShort = std::strcmp( caseName, "contact-side-effect-release-wake" ) == 0;
+    const bool fixedTreeShort = std::strcmp( caseName, "contact-side-effect-fixed-tree" ) == 0;
+    const bool pipelineShort = std::strcmp( caseName, "contact-side-effect-pipeline" ) == 0;
+
+    if ( collisionVisualShort || fixedContactShort || releaseWakeShort || fixedTreeShort || pipelineShort )
+    {
+        SkullbonezCore::Physics::PhysicsContactSolverStage stage;
+        SkullbonezCore::Physics::PhysicsContactSolverStageTestAccess::ReserveAndPrepare(
+            stage, collisionVisualShort ? 3u : 4u, fixedContactShort ? 1u : 2u, releaseWakeShort ? 1u : 2u,
+            fixedTreeShort ? 1u : 2u, pipelineShort ? 1u : 2u );
         return true;
     }
 
@@ -1520,6 +1628,35 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
                      { "FATAL: PhysicsFixedList reserve denied", "owner=fatal.physics-fixed-list.phase", "requested=1",
                        "runtime_capacity=0", "compile_capacity=2", "phase=startup" } );
 
+    ExpectFatalCase( "collider-rebind-shape-index",
+                     { "FATAL[Physics/ColliderStore]", "operation=rebind", "kind=0", "index=3", "shape_count=3" } );
+    ExpectFatalCase( "collider-remove-shape-index",
+                     { "FATAL[Physics/ColliderStore]", "operation=remove", "kind=1", "index=1", "shape_count=1" } );
+    ExpectFatalCase( "collider-hull-shape-parity",
+                     { "FATAL[Physics/ColliderStore]", "operation=remove", "kind=2", "shape_count=1",
+                       "identity_count=0" } );
+    ExpectFatalCase( "disjoint-set-scratch-capacity",
+                     { "FATAL[Physics/DisjointSet]", "count=2", "parent_rows=1", "rank_rows=1" } );
+    ExpectFatalCase( "physics-body-hot-index",
+                     { "FATAL[Physics/PhysicsBodyStore]", "operation=read-hot-state", "index=0", "count=0" } );
+    ExpectFatalCase( "physics-body-sleep-destination",
+                     { "FATAL[Physics/PhysicsBodyStore]", "provided=0", "required=1" } );
+    ExpectFatalCase( "contact-side-effect-collision-visual",
+                     { "FATAL[Physics/PhysicsContactSolverStage]", "lane=collisionVisualBodies", "required=4",
+                       "capacity=3" } );
+    ExpectFatalCase( "contact-side-effect-fixed-contact",
+                     { "FATAL[Physics/PhysicsContactSolverStage]", "lane=fixedContactBodies", "required=2",
+                       "capacity=1" } );
+    ExpectFatalCase( "contact-side-effect-release-wake",
+                     { "FATAL[Physics/PhysicsContactSolverStage]", "lane=releaseWakeBodies", "required=2",
+                       "capacity=1" } );
+    ExpectFatalCase( "contact-side-effect-fixed-tree",
+                     { "FATAL[Physics/PhysicsContactSolverStage]", "lane=fixedTreeReleases", "required=2",
+                       "capacity=1" } );
+    ExpectFatalCase( "contact-side-effect-pipeline",
+                     { "FATAL[Physics/PhysicsContactSolverStage]", "lane=pipelineRecords", "required=2",
+                       "capacity=1" } );
+
     ExpectFatalCase( "physics-prediction-seed-wrong-replay-owner",
                      { "FATAL[Physics/ReplayPredictionClone]",
                        "PhysicsEngine seed requires the canonical ReplayPrediction owner scope",
@@ -1629,6 +1766,25 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
 #endif
     ExpectFatalCase( "allocation-size-overflow", { "FATAL[Runtime/Allocation]", "global operator new failed",
                                                    "reason=size_arithmetic_overflow", "size=18446744073709551615" } );
+}
+
+
+TEST_CASE( "Physics invariant guards admit exact scratch and consequence capacities" )
+{
+    std::array<int, 2> parent {};
+    std::array<uint8_t, 2> rank {};
+    SkullbonezCore::Physics::DisjointSet disjointSet( std::span<int>( parent ), std::span<uint8_t>( rank ), 2 );
+    disjointSet.Reset();
+    CHECK( ( parent == std::array<int, 2> { 0, 1 } ) );
+    CHECK( ( rank == std::array<uint8_t, 2> { 0u, 0u } ) );
+
+    SkullbonezCore::Physics::PhysicsContactSolverStage stage;
+    SkullbonezCore::Physics::PhysicsContactSolverStageTestAccess::ReserveAndPrepare( stage, 4u, 2u, 2u, 2u, 2u );
+    CHECK( stage.GetSideEffects().collisionVisualBodies.empty() );
+    CHECK( stage.GetSideEffects().fixedContactBodies.empty() );
+    CHECK( stage.GetSideEffects().releaseWakeBodies.empty() );
+    CHECK( stage.GetSideEffects().fixedTreeReleases.empty() );
+    CHECK( stage.GetSideEffects().pipelineRecords.empty() );
 }
 
 TEST_CASE( "Persistent contact solve transaction enforces every phase edge through Lane F" )

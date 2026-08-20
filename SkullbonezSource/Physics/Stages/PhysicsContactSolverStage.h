@@ -22,7 +22,8 @@ Glossary:
 Invariants:
   - Owned lists commit scene-derived runtime capacities before play and fail
     loudly rather than grow during steady gameplay.
-  - Solve prepares a fresh consequence batch before invoking the row solver.
+  - Solve proves every consequence lane's required capacity independently,
+    then prepares a fresh batch before invoking the row solver.
   - Contact phases advance in one adjacent order. The two existing no-work
     exits may terminate only from entry/setup or terrain-row completion.
   - The solve transaction owns solver-body scratch and impulse application; it
@@ -297,6 +298,7 @@ class PhysicsContactSolverStage
   private:
     friend class PersistentContactSolveTransaction;
     friend struct PersistentContactPositionCorrectionTestAccess;
+    friend struct PhysicsContactSolverStageTestAccess;
 
     PersistentContactList m_persistentContacts { "PhysicsContactSolverStage.persistentContacts",
                                                  PhysicsCapacityReason::PersistentContacts };
@@ -311,6 +313,8 @@ class PhysicsContactSolverStage
     PersistentContactSolveTransaction m_solveTransaction;
     PersistentContactSolverSideEffects m_sideEffects;
 
+    // Invariant: all five consequence lanes are proved independently before
+    // Solve can publish into fixed-capacity storage.
     void PrepareSideEffects( int modelCount, std::size_t candidatePairCount, int pipelineRecordCapacity );
 
   public:

@@ -23,9 +23,8 @@ Invariants:
     validation behavior.
   - The helper borrows scratch buffers from its stage owner; it owns no storage
     and depends on those buffers being committed before fixed-step gameplay.
-  - Callers finish sizing parent/rank buffers before constructing the helper and
-
-    do not resize those buffers while the helper is alive.
+  - Reset proves non-negative count and both borrowed capacities before its
+    first fill, then callers must not resize either buffer while the helper lives.
 
 Related:
   - PhysicsWorld.cpp owns the deterministic solver stages that use this helper.
@@ -36,6 +35,8 @@ Related:
 #include <cstddef>
 #include <cstdint>
 #include <span>
+
+#include "../Core/FatalError.h"
 
 namespace SkullbonezCore::Physics
 {
@@ -48,12 +49,19 @@ class DisjointSet
     {
     }
 
-    // Invariant: callers size these buffers before construction. Reset writes
-    // the borrowed rows in place and cannot change owner storage.
+    // Invariant: Reset proves both borrowed ranges before its first write. It
+    // initializes rows in place and cannot resize or replace owner storage.
     void Reset()
     {
+        if ( m_count < 0 || static_cast<std::size_t>( m_count ) > m_parent.size() ||
+             static_cast<std::size_t>( m_count ) > m_rank.size() )
+        {
+            SB_FATAL( "Physics/DisjointSet",
+                      "Borrowed scratch capacity is too small. count=%d parent_rows=%zu rank_rows=%zu.", m_count,
+                      m_parent.size(), m_rank.size() );
+        }
+
         const std::size_t rowCount = static_cast<std::size_t>( m_count );
-        assert( rowCount <= m_parent.size() && rowCount <= m_rank.size() );
         std::fill_n( m_parent.begin(), rowCount, 0 );
         std::fill_n( m_rank.begin(), rowCount, uint8_t { 0 } );
 

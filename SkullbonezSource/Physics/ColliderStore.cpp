@@ -19,6 +19,8 @@ Invariants:
   - Authoring rows have exactly the same count and compaction moves as hot rows.
   - Per-kind shape backing capacity grows only at approved cold mutation
     boundaries; relocation rebinds affected hot-row references.
+  - Shape rebind and compaction prove per-kind indices, hull parity, and the
+    moved payload owner before reading or mutating shape storage.
   - Hull rows retain stable scene-lifetime indices and share only when their
     cold authored identities match exactly.
   - Standalone records stay dense; deleting a collider may move the final row
@@ -35,6 +37,7 @@ Related:
 #include "PhysicsBodyStore.h"
 #include "PhysicsEngine.ReplayPredictionCloneScope.h"
 #include "PhysicsObjectPolicy.h"
+#include "../Core/FatalError.h"
 
 #include <algorithm>
 #include <cassert>
@@ -302,8 +305,18 @@ bool ColliderStore::RefreshBodyBindings( const PhysicsBodyStore& bodyStore )
 
     if ( Count() != bodyCount || static_cast<int>( m_modelColliderHandles.size() ) != bodyCount )
     {
-        assert( false && "ColliderStore body-binding refresh requires existing collider rows." );
         return false;
+    }
+
+    // Invariant: refresh is a topology transaction. Prove every borrowed body
+    // row before changing collider identity or allocator-handle maps, so a
+    // recoverable caller mismatch cannot publish a partially rebound store.
+    for ( int i = 0; i < bodyCount; ++i )
+    {
+        if ( bodyStore.RecordForModelIndex( i ) == nullptr )
+        {
+            return false;
+        }
     }
 
     m_assignedHandleScratch.assign( m_handleGenerations.size(), 0 );
@@ -313,17 +326,10 @@ bool ColliderStore::RefreshBodyBindings( const PhysicsBodyStore& bodyStore )
     {
         ColliderRecord& record = m_colliders[static_cast<std::size_t>( i )];
         const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( i );
-        assert( body != nullptr );
 
         // Invariant: topology repair updates identity only. Shape, material,
         // and broadphase fields stay in this dense row until an explicit
-        // authoring/config command replaces the row. Missing body rows mean the
-        // owner must repair PhysicsBodyStore before asking ColliderStore to bind.
-        if ( !body )
-        {
-            return false;
-        }
-
+        // authoring/config command replaces the row.
         record.body = body->handle;
         record.sceneObjectId = body->sceneObjectId;
         const PhysicsSceneObjectId sceneObjectId = record.sceneObjectId;
@@ -333,6 +339,42 @@ bool ColliderStore::RefreshBodyBindings( const PhysicsBodyStore& bodyStore )
 
     RetireUnassignedHandles( assignedHandleSlots );
     return true;
+}
+
+
+void ColliderStore::RequireShapeStorage( ColliderShapeKind shapeKind, std::size_t index, std::size_t shapeCount,
+                                         std::size_t identityCount, const char* operation )
+{
+    const bool hullParityBroken = shapeKind == ColliderShapeKind::ConvexHull && shapeCount != identityCount;
+
+    if ( index >= shapeCount || hullParityBroken )
+    {
+        SB_FATAL( "Physics/ColliderStore",
+                  "Shape storage invariant failed before mutation. operation=%s kind=%u index=%zu shape_count=%zu "
+                  "identity_count=%zu.",
+                  operation, static_cast<unsigned int>( shapeKind ), index, shapeCount, identityCount );
+    }
+}
+
+
+ColliderRecord* ColliderStore::RequireMovedShapeOwner( ColliderShapeKind shapeKind, std::size_t removedIndex,
+                                                       std::size_t movedIndex, int ignoredRecordIndex )
+{
+    for ( int recordIndex = 0; recordIndex < Count(); ++recordIndex )
+    {
+        ColliderRecord& candidate = m_colliders[static_cast<std::size_t>( recordIndex )];
+
+        if ( recordIndex != ignoredRecordIndex && candidate.shapeKind == shapeKind &&
+             candidate.shape.StorageIndex() == movedIndex )
+        {
+            return &candidate;
+        }
+    }
+
+    SB_FATAL( "Physics/ColliderStore",
+              "Shape compaction lost its owning collider row before mutation. kind=%u removed_index=%zu "
+              "moved_index=%zu.",
+              static_cast<unsigned int>( shapeKind ), removedIndex, movedIndex );
 }
 
 
@@ -350,15 +392,15 @@ void ColliderStore::RebindShapeReferences( ColliderShapeKind shapeKind )
         switch ( shapeKind )
         {
         case ColliderShapeKind::Sphere:
-            assert( index < m_sphereShapes.size() );
+            RequireShapeStorage( shapeKind, index, m_sphereShapes.size(), m_sphereShapes.size(), "rebind" );
             record.shape = CollisionShapeReference( m_sphereShapes[index], static_cast<uint32_t>( index ) );
             break;
         case ColliderShapeKind::Box:
-            assert( index < m_boxShapes.size() );
+            RequireShapeStorage( shapeKind, index, m_boxShapes.size(), m_boxShapes.size(), "rebind" );
             record.shape = CollisionShapeReference( m_boxShapes[index], static_cast<uint32_t>( index ) );
             break;
         case ColliderShapeKind::ConvexHull:
-            assert( index < m_hullShapes.size() );
+            RequireShapeStorage( shapeKind, index, m_hullShapes.size(), m_hullIdentities.size(), "rebind" );
             record.shape = CollisionShapeReference( m_hullShapes[index], static_cast<uint32_t>( index ) );
             break;
         }
@@ -458,74 +500,57 @@ void ColliderStore::RemoveShape( const ColliderRecord& record, int ignoredRecord
 {
     const std::size_t removedIndex = record.shape.StorageIndex();
 
-    const auto remapMovedShape = [&]( std::size_t previousLastIndex )
-    {
-        if ( removedIndex == previousLastIndex )
-        {
-            return;
-        }
-
-        for ( int recordIndex = 0; recordIndex < Count(); ++recordIndex )
-        {
-            if ( recordIndex == ignoredRecordIndex )
-            {
-                continue;
-            }
-
-            ColliderRecord& candidate = m_colliders[static_cast<std::size_t>( recordIndex )];
-
-            if ( candidate.shapeKind == record.shapeKind && candidate.shape.StorageIndex() == previousLastIndex )
-            {
-                candidate.shape = record.shapeKind == ColliderShapeKind::Sphere
-                                      ? CollisionShapeReference( m_sphereShapes[removedIndex],
-                                                                 static_cast<uint32_t>( removedIndex ) )
-                                  : record.shapeKind == ColliderShapeKind::Box
-                                      ? CollisionShapeReference( m_boxShapes[removedIndex],
-                                                                 static_cast<uint32_t>( removedIndex ) )
-                                      : CollisionShapeReference( m_hullShapes[removedIndex],
-                                                                 static_cast<uint32_t>( removedIndex ) );
-
-                return;
-            }
-        }
-
-        assert( false && "ColliderStore shape compaction lost its owning collider row." );
-    };
-
+    // Invariant: compaction is one payload/reference transaction. The source
+    // index and moved row owner are proved before pop_back can invalidate the
+    // old topology; only then may the dense payload and its borrow move.
     switch ( record.shapeKind )
     {
     case ColliderShapeKind::Sphere:
     {
-        assert( removedIndex < m_sphereShapes.size() );
+        RequireShapeStorage( record.shapeKind, removedIndex, m_sphereShapes.size(), m_sphereShapes.size(), "remove" );
         const std::size_t last = m_sphereShapes.size() - 1u;
+        ColliderRecord* movedOwner = nullptr;
 
         if ( removedIndex != last )
         {
+            movedOwner = RequireMovedShapeOwner( record.shapeKind, removedIndex, last, ignoredRecordIndex );
             m_sphereShapes[removedIndex] = std::move( m_sphereShapes[last] );
         }
 
         m_sphereShapes.pop_back();
-        remapMovedShape( last );
+
+        if ( movedOwner != nullptr )
+        {
+            movedOwner->shape = CollisionShapeReference( m_sphereShapes[removedIndex],
+                                                         static_cast<uint32_t>( removedIndex ) );
+        }
+
         break;
     }
     case ColliderShapeKind::Box:
     {
-        assert( removedIndex < m_boxShapes.size() );
+        RequireShapeStorage( record.shapeKind, removedIndex, m_boxShapes.size(), m_boxShapes.size(), "remove" );
         const std::size_t last = m_boxShapes.size() - 1u;
+        ColliderRecord* movedOwner = nullptr;
 
         if ( removedIndex != last )
         {
+            movedOwner = RequireMovedShapeOwner( record.shapeKind, removedIndex, last, ignoredRecordIndex );
             m_boxShapes[removedIndex] = std::move( m_boxShapes[last] );
         }
 
         m_boxShapes.pop_back();
-        remapMovedShape( last );
+
+        if ( movedOwner != nullptr )
+        {
+            movedOwner->shape = CollisionShapeReference( m_boxShapes[removedIndex], static_cast<uint32_t>( removedIndex ) );
+        }
+
         break;
     }
     case ColliderShapeKind::ConvexHull:
     {
-        assert( removedIndex < m_hullShapes.size() );
-        assert( m_hullShapes.size() == m_hullIdentities.size() );
+        RequireShapeStorage( record.shapeKind, removedIndex, m_hullShapes.size(), m_hullIdentities.size(), "remove" );
 
         // Lifetime: hull variants and their stable indices remain until Clear.
         // Cold destruction needs no refcount and cannot invalidate another
