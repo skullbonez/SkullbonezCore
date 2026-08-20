@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-21
-Status: Five active plans; 54/80 tasks complete
+Status: Four active plans; 55/80 tasks complete
 
 ## Owner Direction
 
@@ -57,10 +57,10 @@ Status: Five active plans; 54/80 tasks complete
   preservation with deterministic 0/1/4-worker evidence. The terminal plan-
   completion gate passed every phase through DX12 and Automation before the
   mapped 35,303-line protected Physics-oracle stop. No baseline was refreshed.
-- Invariant Enforcement And Assertion Hardening is active after rest-stability
-  closure. It rebaselines the exact repository assertion/invariant worklist,
-  assigns every finding an owner and Release-safe enforcement lane, repairs the
-  selected sites, and closes with negative proof plus independent review.
+- Invariant Enforcement And Assertion Hardening is complete. It rebaselined the
+  exact repository assertion/invariant worklist, assigned every finding an owner
+  and Release-safe enforcement lane, repaired the selected sites, and closed
+  with negative proof plus independent review.
   IH1 now validates Terrain height-map dimensions and all derived counts before
   construction, and its Profile witness proves malformed, overflow, exact-
   minimum, normal, and retired 5/2 mismatch behavior without unsafe mutation.
@@ -87,7 +87,17 @@ Status: Five active plans; 54/80 tasks complete
   diagnostic tools under truthful bounded-output/hazard learning headers. The
   exact source/tool checklist is 94/94 with zero deferrals; Related paths and
   glossary ownership are clean, and independent post-fix review is blocker-free.
-- Full Source Comment Truth Replacement is registered immediately after
+  IH7 reconciled the final 96/96 source checklist with zero deferrals and the
+  terminal inventory at 67 production asserts and 18 reviewed assert-only
+  candidates. A focused policy test pins ordinary-versus-cinematic frame-
+  resource selection, while Automation and the one-minute graphics stress pin
+  the corrected production Sky publication path. The current fast gate passes
+  663 tests plus terminal Debug/Profile reachability; Automation, DX12, the
+  dependency gate, and all ownership inventories pass. The terminal full gate
+  stopped only at the protected 35,303-line Physics CSV mismatch beginning at
+  line 1,239; no golden was refreshed. Two independent post-fix reviews are
+  blocker-free.
+- Full Source Comment Truth Replacement is active immediately after completed
   invariant hardening. Its six phases rebase the frozen 843-file audit, discard
   replacements made redundant by IH, regenerate every stale or conflicting
   hunk against the post-IH tree, and land the remaining comment truth by owner
@@ -215,7 +225,6 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Invariant Enforcement And Assertion Hardening | `INVARIANT_HARDENING` | 8 | 7 | `TODO/invariant-enforcement-hardening.md` |
 | Full Source Comment Truth Replacement | `COMMENT_TRUTH` | 6 | 0 | `TODO/full-source-comment-truth-replacement.md` |
 | Full Validation Time And Value Audit | `VALIDATION_TIME_AUDIT` | 6 | 0 | `TODO/full-validation-time-value-audit.md` |
 | Repository Hygiene Cleanup | `REPOSITORY_CLEANUP` | 6 | 0 | `TODO/repository-hygiene-cleanup.md` |
@@ -252,24 +261,19 @@ states elsewhere, and both are recorded rather than silently corrected:
 
 ## Binding Order
 
-1. `INVARIANT_HARDENING` IH0 through IH7 — rebase the repository invariant and
-   assertion inventory after the preceding source work, repair every audited
-   high-, medium-, and low-severity finding with an explicit Release-safe
-   enforcement lane, correct comment taxonomy, and close with independent
-   false-pass and ownership review.
-2. `COMMENT_TRUTH` CT0 through CT5 - rebase the frozen replacement after IH7,
+1. `COMMENT_TRUTH` CT0 through CT5 - rebase the frozen replacement after IH7,
    discard redundant hunks, regenerate conflicts against current source, apply
    the remaining truthful comments by owner area, and close with a complete
    checklist, semantic comparison, fast gate, and independent truth review.
-3. `VALIDATION_TIME_AUDIT` VTA0 through VTA5 - instrument and measure the full
+2. `VALIDATION_TIME_AUDIT` VTA0 through VTA5 - instrument and measure the full
    plan-completion call graph, evaluate every stage's unique evidence and cost,
    implement only owner-approved reductions with false-pass controls, and close
    with one timed terminal full gate.
-4. `REPOSITORY_CLEANUP` RC0 through RC5 - rebase the deletion inventory, obtain
+3. `REPOSITORY_CLEANUP` RC0 through RC5 - rebase the deletion inventory, obtain
    owner dispositions, remove only explicit ignored/build/worktree targets,
    reconcile tracked artifacts and stale references, and close with independent
    data-loss and reachability review.
-5. `CAUSE_HIERARCHY_UI` CHUI0 through CHUI6 - preserve the approved concept as
+4. `CAUSE_HIERARCHY_UI` CHUI0 through CHUI6 - preserve the approved concept as
    an exact visual contract, restyle and filter the existing hierarchy, attach
    one animated tabbed evidence drawer to the hierarchy's sole placement owner,
    and close with deterministic compact-viewport screenshots, UI/Automation/
@@ -299,14 +303,12 @@ contracts into Rendering.
 
 ## Portfolio Progress
 
-54/80 tasks complete with five active plans.
+55/80 tasks complete with four active plans.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
-Invariant Enforcement And Assertion Hardening IH0-IH6 are complete; IH7
-remains and is next.
-Full Source Comment Truth Replacement CT0-CT5 follows IH7; all six phases
-remain.
+Invariant Enforcement And Assertion Hardening IH0-IH7 is complete.
+Full Source Comment Truth Replacement CT0-CT5 is next; all six phases remain.
 Full Validation Time And Value Audit VTA0-VTA5 follows CT5; all six phases
 remain.
 Repository Hygiene Cleanup RC0-RC5 follows VTA5; all six phases remain.

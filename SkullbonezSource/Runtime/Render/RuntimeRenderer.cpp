@@ -1909,15 +1909,33 @@ RuntimeRenderer::CompileRenderPassGraph( SkullbonezCore::Rendering::RenderGraph&
 
 void RuntimeRenderer::EnsureFrameResources( const RenderResourceContext& resources )
 {
-    if ( resources.cinematicEnabled )
+    // Lifetime: the schedule publishes the cube-map world owner on every
+    // resource epoch. Cinematic-only owners stay lazy until their path is live.
+    if ( RuntimeFrameResourcePassRequired( RuntimeFrameResourcePass::Sky, resources.cinematicEnabled ) )
+    {
+        m_skyPass.EnsureGpuResources( resources );
+    }
+
+    if ( RuntimeFrameResourcePassRequired( RuntimeFrameResourcePass::FullscreenQuad, resources.cinematicEnabled ) )
     {
         // Lifetime: cinematic resources are lazy. A window resize or backend
         // rebuild drops them; the next cinematic frame recreates the targets and
         // shader objects with the current window dimensions.
         m_fullscreenQuadPass.EnsureGpuResources( resources );
-        m_skyPass.EnsureGpuResources( resources );
+    }
+
+    if ( RuntimeFrameResourcePassRequired( RuntimeFrameResourcePass::SceneTarget, resources.cinematicEnabled ) )
+    {
         m_sceneTargetPass.EnsureGpuResources( resources );
+    }
+
+    if ( RuntimeFrameResourcePassRequired( RuntimeFrameResourcePass::Volumetric, resources.cinematicEnabled ) )
+    {
         m_volumetricPass.EnsureGpuResources( resources );
+    }
+
+    if ( RuntimeFrameResourcePassRequired( RuntimeFrameResourcePass::Tonemap, resources.cinematicEnabled ) )
+    {
         m_tonemapPass.EnsureGpuResources( resources );
     }
 }

@@ -1,12 +1,12 @@
 # Nightrunner Manual Test Checklist
 
-Date prepared: 2026-08-20  
-Branch: `nightrunner-18th-AUG-26`  
-Source snapshot: `608ff81f76d1cf44857c29950c2d106a7e7a3fb1`  
+Date prepared: 2026-08-21
+Branch: `nightrunner-20th-AUG-26`
+Source snapshot: current branch tip after `INVARIANT_HARDENING` IH7
 Scope: completed Predicted Solver Cause Hierarchy, Continuous Orbital Forecast,
-At-Rest Ball Stability, and Invariant Hardening IH0-IH2 work currently on this
-branch. IH3-IH7 are still implementation work and are listed separately at the
-end rather than presented as ready for sign-off.
+At-Rest Ball Stability, and Invariant Hardening IH0-IH7 work currently on this
+branch. Automated IH closure is complete; the operator observations below
+remain manual sign-off work.
 
 This is an operator checklist, not a substitute for the automated gates. Tick a
 box only after observing the behavior yourself. Put screenshots, videos, dumps,
@@ -379,19 +379,12 @@ to update baselines during this manual pass.
 - [ ] Confirm no Physics, replay, performance, known-issue, or visual baseline was
   regenerated or copied over its canonical file.
 
-## O. Items Not Yet Ready For Manual Sign-Off
+## O. Invariant Hardening Closure Context
 
-The current branch reports Invariant Hardening at 3/8 phases. Do not mark these
-areas complete solely from this checklist:
-
-- [ ] IH3: Physics collider-store and remaining Physics assertion hardening.
-- [ ] IH4: Rendering, DX12, World, Scene, primitive-batch, and preview-capacity
-  hardening.
-- [ ] IH5: Runtime, Input, Interaction, Replay, Planning, UI, and `Run` lifecycle
-  hardening.
-- [ ] IH6: invariant taxonomy, allocation-policy comments, and tool headers.
-- [ ] IH7: integrated validation, final inventory reconciliation, independent
-  review, and closure.
+IH0-IH7 automated implementation and review are complete. That closure does not
+pre-check any operator box in this document: perform every applicable manual
+observation against the final branch tip and record failures without refreshing
+an owner-controlled golden.
 
 ## Final Sign-Off
 
@@ -404,4 +397,3 @@ areas complete solely from this checklist:
   end-to-end pass.
 - [ ] Tester verdict: **PASS / PASS WITH KNOWN STOPS / FAIL**
 - [ ] Summary notes:
-

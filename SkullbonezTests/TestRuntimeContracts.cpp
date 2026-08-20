@@ -56,8 +56,12 @@
 //     failures terminate in Profile children before stale access or indexing.
 //   - Targeted assert-only controls exit cleanly outside Debug, proving each
 //     rendering Lane F group would detect its former false-pass implementation.
+//   - Targeted IH2/IH3 controls retain the retired assert-only tornado,
+//     collider, disjoint-set, and physics-body shapes under NDEBUG.
 //   - Runtime lifecycle probes exercise the exact Run, Input, SkyPass, and UiTextPass
 //     behavior owners through valid, absent, and teardown-closed transitions.
+//   - The production frame-resource policy schedules Sky once for ordinary and
+//     cinematic frames while keeping the four post-chain owners cinematic-only.
 //   - Targeted assert-only controls prove the retired Run/sky/profiler
 //     checks would return cleanly outside Debug.
 //
@@ -111,6 +115,7 @@
 #include "../SkullbonezSource/Core/TracyClientOwner.h"
 #include "../SkullbonezSource/Runtime/App/Run.h"
 #include "../SkullbonezSource/Runtime/Input/Input.h"
+#include "../SkullbonezSource/Runtime/Render/RuntimeRenderer.h"
 #include "../SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h"
 #include "../SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h"
@@ -455,8 +460,7 @@ struct SkyPassTestAccess
         SkyPass::WorldViewLease m_lease;
     };
 
-    static bool UsesCinematicAtmosphere( const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
-                                         SkyPassMode mode )
+    static bool UsesCinematicAtmosphere( const SkullbonezCore::Core::CinematicRenderConfig* cinematic, SkyPassMode mode )
     {
         return SkyPass::UsesCinematicAtmosphere( cinematic, mode );
     }
@@ -490,10 +494,12 @@ struct UiTextPassTestAccess
     static SkullbonezCore::Core::MainMemoryStats ProjectMemoryTab( bool sourceValid, int& sampleCount,
                                                                    const SkullbonezCore::Core::MainMemoryStats& sample )
     {
-        return UiTextPass::ProjectMemoryTabStats( sourceValid, [&]() {
-            ++sampleCount;
-            return sample;
-        } );
+        return UiTextPass::ProjectMemoryTabStats( sourceValid,
+                                                  [&]()
+                                                  {
+                                                      ++sampleCount;
+                                                      return sample;
+                                                  } );
     }
 };
 
@@ -655,14 +661,15 @@ TEST_CASE( "IH5 runtime lifecycle owners preserve valid and unavailable policy" 
     sampledMemory.sampleTimeSeconds = 3.0;
     sampledMemory.replay.totalBytes = 31u;
     int memorySampleCount = 0;
-    const SkullbonezCore::Core::MainMemoryStats unavailableMemory =
-        UiTextPassTestAccess::ProjectMemoryTab( false, memorySampleCount, sampledMemory );
+    const SkullbonezCore::Core::MainMemoryStats
+        unavailableMemory = UiTextPassTestAccess::ProjectMemoryTab( false, memorySampleCount, sampledMemory );
     CHECK_FALSE( unavailableMemory.process.available );
     CHECK( unavailableMemory.replay.totalBytes == 0u );
     CHECK( memorySampleCount == 0 );
 
-    const SkullbonezCore::Core::MainMemoryStats availableMemory =
-        UiTextPassTestAccess::ProjectMemoryTab( true, memorySampleCount, sampledMemory );
+    const SkullbonezCore::Core::MainMemoryStats availableMemory = UiTextPassTestAccess::ProjectMemoryTab( true,
+                                                                                                          memorySampleCount,
+                                                                                                          sampledMemory );
     CHECK( availableMemory.sampleTimeSeconds == doctest::Approx( 3.0 ) );
     CHECK( availableMemory.replay.totalBytes == 31u );
     CHECK( memorySampleCount == 1 );
@@ -675,10 +682,44 @@ TEST_CASE( "IH5 runtime lifecycle owners preserve valid and unavailable policy" 
 
     SkullbonezCore::Core::CinematicRenderConfig cinematic;
     cinematic.skyAtmosphereEnabled = true;
-    CHECK( SkyPassTestAccess::UsesCinematicAtmosphere( &cinematic,
-                                                       SkullbonezCore::Runtime::SkyPassMode::CinematicIfEnabled ) );
+    CHECK(
+        SkyPassTestAccess::UsesCinematicAtmosphere( &cinematic, SkullbonezCore::Runtime::SkyPassMode::CinematicIfEnabled ) );
     CHECK_FALSE(
         SkyPassTestAccess::UsesCinematicAtmosphere( &cinematic, SkullbonezCore::Runtime::SkyPassMode::CubemapOnly ) );
+}
+
+
+TEST_CASE( "IH7 frame resource schedule publishes ordinary sky without cinematic-only passes" )
+{
+    using SkullbonezCore::Runtime::RuntimeFrameResourcePass;
+    using SkullbonezCore::Runtime::RuntimeFrameResourcePassRequired;
+
+    constexpr std::array passes { RuntimeFrameResourcePass::Sky, RuntimeFrameResourcePass::FullscreenQuad,
+                                  RuntimeFrameResourcePass::SceneTarget, RuntimeFrameResourcePass::Volumetric,
+                                  RuntimeFrameResourcePass::Tonemap };
+
+    int ordinaryRequired = 0;
+    int ordinarySky = 0;
+    int cinematicRequired = 0;
+    int cinematicSky = 0;
+    for ( const RuntimeFrameResourcePass pass : passes )
+    {
+        if ( RuntimeFrameResourcePassRequired( pass, false ) )
+        {
+            ++ordinaryRequired;
+            ordinarySky += pass == RuntimeFrameResourcePass::Sky ? 1 : 0;
+        }
+        if ( RuntimeFrameResourcePassRequired( pass, true ) )
+        {
+            ++cinematicRequired;
+            cinematicSky += pass == RuntimeFrameResourcePass::Sky ? 1 : 0;
+        }
+    }
+
+    CHECK( ordinaryRequired == 1 );
+    CHECK( ordinarySky == 1 );
+    CHECK( cinematicRequired == static_cast<int>( passes.size() ) );
+    CHECK( cinematicSky == 1 );
 }
 
 
@@ -945,6 +986,20 @@ void RunLegacyAssertOnlyControl( bool condition, const char* group )
 }
 
 
+void RunIh23LegacyAssertOnlyControl( bool condition, const char* group )
+{
+    // Negative control: the selected IH2/IH3 paths formerly asserted the
+    // owner precondition and then continued toward a dereference, index, or
+    // bounded write. NDEBUG removes that barrier and reaches this clean return.
+    assert( condition );
+
+    if ( !condition )
+    {
+        std::printf( "IH2/IH3 legacy assert-only %s path returned in a non-Debug child\n", group );
+    }
+}
+
+
 void RunIh5LegacyAssertOnlyControl( bool condition, const char* group )
 {
     // Negative control: the selected SkyPass/UiTextPass paths previously used
@@ -980,6 +1035,30 @@ bool RunRuntimeFatalCase( const char* caseName )
     if ( std::strcmp( caseName, "ih4-legacy-dx12-false-pass" ) == 0 )
     {
         RunLegacyAssertOnlyControl( false, "dx12 lifecycle" );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "ih23-legacy-tornado-false-pass" ) == 0 )
+    {
+        RunIh23LegacyAssertOnlyControl( false, "tornado lifecycle" );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "ih23-legacy-collider-false-pass" ) == 0 )
+    {
+        RunIh23LegacyAssertOnlyControl( false, "collider shape/index" );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "ih23-legacy-disjoint-set-false-pass" ) == 0 )
+    {
+        RunIh23LegacyAssertOnlyControl( false, "disjoint-set scratch" );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "ih23-legacy-physics-body-false-pass" ) == 0 )
+    {
+        RunIh23LegacyAssertOnlyControl( false, "physics-body index/span" );
         return true;
     }
 
@@ -1220,22 +1299,22 @@ bool RunRuntimeFatalCase( const char* caseName )
 
     if ( std::strcmp( caseName, "collider-rebind-shape-index" ) == 0 )
     {
-        SkullbonezCore::Physics::ColliderStoreTestAccess::RequireShapeStorage(
-            SkullbonezCore::Physics::ColliderShapeKind::Sphere, 3u, 3u, 3u, "rebind" );
+        SkullbonezCore::Physics::ColliderStoreTestAccess::
+            RequireShapeStorage( SkullbonezCore::Physics::ColliderShapeKind::Sphere, 3u, 3u, 3u, "rebind" );
         return true;
     }
 
     if ( std::strcmp( caseName, "collider-remove-shape-index" ) == 0 )
     {
-        SkullbonezCore::Physics::ColliderStoreTestAccess::RequireShapeStorage(
-            SkullbonezCore::Physics::ColliderShapeKind::Box, 1u, 1u, 1u, "remove" );
+        SkullbonezCore::Physics::ColliderStoreTestAccess::
+            RequireShapeStorage( SkullbonezCore::Physics::ColliderShapeKind::Box, 1u, 1u, 1u, "remove" );
         return true;
     }
 
     if ( std::strcmp( caseName, "collider-hull-shape-parity" ) == 0 )
     {
-        SkullbonezCore::Physics::ColliderStoreTestAccess::RequireShapeStorage(
-            SkullbonezCore::Physics::ColliderShapeKind::ConvexHull, 0u, 1u, 0u, "remove" );
+        SkullbonezCore::Physics::ColliderStoreTestAccess::
+            RequireShapeStorage( SkullbonezCore::Physics::ColliderShapeKind::ConvexHull, 0u, 1u, 0u, "remove" );
         return true;
     }
 
@@ -1279,9 +1358,12 @@ bool RunRuntimeFatalCase( const char* caseName )
     if ( collisionVisualShort || fixedContactShort || releaseWakeShort || fixedTreeShort || pipelineShort )
     {
         SkullbonezCore::Physics::PhysicsContactSolverStage stage;
-        SkullbonezCore::Physics::PhysicsContactSolverStageTestAccess::ReserveAndPrepare(
-            stage, collisionVisualShort ? 3u : 4u, fixedContactShort ? 1u : 2u, releaseWakeShort ? 1u : 2u,
-            fixedTreeShort ? 1u : 2u, pipelineShort ? 1u : 2u );
+        SkullbonezCore::Physics::PhysicsContactSolverStageTestAccess::ReserveAndPrepare( stage,
+                                                                                         collisionVisualShort ? 3u : 4u,
+                                                                                         fixedContactShort ? 1u : 2u,
+                                                                                         releaseWakeShort ? 1u : 2u,
+                                                                                         fixedTreeShort ? 1u : 2u,
+                                                                                         pipelineShort ? 1u : 2u );
         return true;
     }
 
@@ -2292,6 +2374,19 @@ TEST_CASE( "IH4 rendering and world lifecycle misuse terminates before stale acc
 
 
 #if !defined( _DEBUG )
+TEST_CASE( "IH2 and IH3 old assert-only implementations are proven non-Debug false passes" )
+{
+    ExpectCleanControlCase( "ih23-legacy-tornado-false-pass",
+                            { "IH2/IH3 legacy assert-only tornado lifecycle path returned in a non-Debug child" } );
+    ExpectCleanControlCase( "ih23-legacy-collider-false-pass",
+                            { "IH2/IH3 legacy assert-only collider shape/index path returned in a non-Debug child" } );
+    ExpectCleanControlCase( "ih23-legacy-disjoint-set-false-pass",
+                            { "IH2/IH3 legacy assert-only disjoint-set scratch path returned in a non-Debug child" } );
+    ExpectCleanControlCase( "ih23-legacy-physics-body-false-pass",
+                            { "IH2/IH3 legacy assert-only physics-body index/span path returned in a non-Debug child" } );
+}
+
+
 TEST_CASE( "IH4 old assert-only implementation is a proven non-Debug false pass" )
 {
     ExpectCleanControlCase( "ih4-legacy-dx12-false-pass",
@@ -2308,10 +2403,11 @@ TEST_CASE( "IH4 old assert-only implementation is a proven non-Debug false pass"
 
 TEST_CASE( "IH5 render-pass lifecycle misuse terminates before stale access" )
 {
-    ExpectFatalCase( "run-renderer-before-init",
-                     { "FATAL[Runtime/Run]", "BeforeInitProbe requires the live renderer owner", "renderer=0000000000000000" } );
+    ExpectFatalCase( "run-renderer-before-init", { "FATAL[Runtime/Run]", "BeforeInitProbe requires the live renderer owner",
+                                                   "renderer=0000000000000000" } );
     ExpectFatalCase( "run-renderer-after-shutdown",
-                     { "FATAL[Runtime/Run]", "AfterShutdownProbe requires the live renderer owner", "renderer=0000000000000000" } );
+                     { "FATAL[Runtime/Run]", "AfterShutdownProbe requires the live renderer owner",
+                       "renderer=0000000000000000" } );
     ExpectFatalCase( "sky-pass-before-init",
                      { "FATAL[Runtime/Render/SkyPass]", "BeforeInitProbe requires the live world-view sky owner" } );
     ExpectFatalCase( "sky-pass-after-release",
@@ -2398,29 +2494,22 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
     ExpectFatalCase( "collider-remove-shape-index",
                      { "FATAL[Physics/ColliderStore]", "operation=remove", "kind=1", "index=1", "shape_count=1" } );
     ExpectFatalCase( "collider-hull-shape-parity",
-                     { "FATAL[Physics/ColliderStore]", "operation=remove", "kind=2", "shape_count=1",
-                       "identity_count=0" } );
+                     { "FATAL[Physics/ColliderStore]", "operation=remove", "kind=2", "shape_count=1", "identity_count=0" } );
     ExpectFatalCase( "disjoint-set-scratch-capacity",
                      { "FATAL[Physics/DisjointSet]", "count=2", "parent_rows=1", "rank_rows=1" } );
     ExpectFatalCase( "physics-body-hot-index",
                      { "FATAL[Physics/PhysicsBodyStore]", "operation=read-hot-state", "index=0", "count=0" } );
-    ExpectFatalCase( "physics-body-sleep-destination",
-                     { "FATAL[Physics/PhysicsBodyStore]", "provided=0", "required=1" } );
-    ExpectFatalCase( "contact-side-effect-collision-visual",
-                     { "FATAL[Physics/PhysicsContactSolverStage]", "lane=collisionVisualBodies", "required=4",
-                       "capacity=3" } );
+    ExpectFatalCase( "physics-body-sleep-destination", { "FATAL[Physics/PhysicsBodyStore]", "provided=0", "required=1" } );
+    ExpectFatalCase( "contact-side-effect-collision-visual", { "FATAL[Physics/PhysicsContactSolverStage]",
+                                                               "lane=collisionVisualBodies", "required=4", "capacity=3" } );
     ExpectFatalCase( "contact-side-effect-fixed-contact",
-                     { "FATAL[Physics/PhysicsContactSolverStage]", "lane=fixedContactBodies", "required=2",
-                       "capacity=1" } );
+                     { "FATAL[Physics/PhysicsContactSolverStage]", "lane=fixedContactBodies", "required=2", "capacity=1" } );
     ExpectFatalCase( "contact-side-effect-release-wake",
-                     { "FATAL[Physics/PhysicsContactSolverStage]", "lane=releaseWakeBodies", "required=2",
-                       "capacity=1" } );
+                     { "FATAL[Physics/PhysicsContactSolverStage]", "lane=releaseWakeBodies", "required=2", "capacity=1" } );
     ExpectFatalCase( "contact-side-effect-fixed-tree",
-                     { "FATAL[Physics/PhysicsContactSolverStage]", "lane=fixedTreeReleases", "required=2",
-                       "capacity=1" } );
+                     { "FATAL[Physics/PhysicsContactSolverStage]", "lane=fixedTreeReleases", "required=2", "capacity=1" } );
     ExpectFatalCase( "contact-side-effect-pipeline",
-                     { "FATAL[Physics/PhysicsContactSolverStage]", "lane=pipelineRecords", "required=2",
-                       "capacity=1" } );
+                     { "FATAL[Physics/PhysicsContactSolverStage]", "lane=pipelineRecords", "required=2", "capacity=1" } );
 
     ExpectFatalCase( "physics-prediction-seed-wrong-replay-owner",
                      { "FATAL[Physics/ReplayPredictionClone]",

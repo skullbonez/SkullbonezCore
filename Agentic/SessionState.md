@@ -2,13 +2,13 @@
 
 Date: 2026-08-21
 Branch: `nightrunner-20th-AUG-26`
-Status: Five active plans; 54/80 tasks complete
+Status: Four active plans; 55/80 tasks complete
 
-At-Rest Ball Stability RS0-RS7 is complete. Invariant Enforcement And Assertion
-Hardening IH0-IH6 are complete and IH7 remains. Causal C0-C8, Determinism T0-T8,
+At-Rest Ball Stability RS0-RS7 and Invariant Enforcement And Assertion
+Hardening IH0-IH7 are complete. Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7, and Continuous
-Orbital Forecast OF0-OF6 are complete. `MASTER-PLAN.md` binds IH7 next, then
-Full Source Comment Truth Replacement CT0-CT5 after IH7, followed by Full
+Orbital Forecast OF0-OF6 are complete. `MASTER-PLAN.md` binds Full Source
+Comment Truth Replacement CT0-CT5 next, followed by Full
 Validation Time And Value Audit VTA0-VTA5, Repository Hygiene Cleanup RC0-RC5,
 and Cause Hierarchy Scientific Inspector CHUI0-CHUI6.
 Completed plan files were deleted under the repository convention; Git history
@@ -386,68 +386,22 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `INVARIANT_HARDENING` IH7. IH0 rebased 847 tracked source-bearing files,
-132 production plain assertions, 62 assert-only successor candidates, and 45
-allocation-comment taxonomy candidates. The owning plan now carries exact
-assertion/policy dispositions and a 90-file live checklist; ignored source evidence
-is under `TestOutput/validation/INVARIANT_HARDENING_IH0/`. IH1 repaired Terrain
-dimension validation and centralized checked pixel/post/quad arithmetic before
-construction. Its Profile proof passes 5 cases / 231 assertions, including the
-retired 5/2 floor/ceiling mismatch as a non-mutating negative control. IH2
-hardened the selected Core, Maths, Assets, and Gameplay findings. Texture and
-tornado exact-capacity/lifecycle failures are now Release-safe, while the lock-
-order and math tripwires retain their intentional Debug-only policy with
-focused controls. The full unit gate passes 645 cases / 2,522,019 assertions,
-the 17/17 touched/selected-source audit has zero deferrals, and `validate_fast`
-is green. IH3 completed the selected Physics findings with transactional
-collider refresh, guarded shape compaction, Release-safe scratch/body/solver
-bounds, and a Debug-only awake-membership classifier. Focused Profile tests are
-green, the IH3 source audit is 14/14 with zero deferrals, and the full unit gate
-passes 650 cases / 2,522,407 assertions. The fast gate clears static checks and
-the Profile/Automation/Debug matrix; compiled-symbol reachability is deferred
-only while Visual Studio owns a live lock on `Profile\\SKULLBONEZ_CORE.exe` and
-concurrent user-owned edits remain outside the IH3 commit. IH4 completed the
-selected Rendering, DX12, and World findings with embedded production epoch,
-scope, backend-identity, rebuild-lease, and bounded-preview owners. Focused
-Profile proof passes 3/3 IH4 cases and 115 assertions, preview 1/1 and 6, and
-the real RenderInstanceStore mismatch 1/1 and 3; Profile tests and the full
-renderer build pass with warnings as errors, and `validate_tests` passes 656
-cases / 2,523,264 assertions. The 19/19 touched-source comment
-audit has zero deferrals, exact aggregate rulings are current, and independent
-post-fix review is blocker-free. The complete `validate_fast` gate passes,
-  including terminal Debug/Profile compiled-symbol reachability. IH5 completed
-  the selected Runtime, Input, Interaction, UI, SceneWorld, and complete Run-
-  surface findings. Run's unique_ptr is the sole mandatory renderer lifecycle
-  truth; SkyPass and Profile UI leases close at backend teardown; unavailable
-  Replay accounting invokes no memory sampler; gesture rejection is atomic for
-  every owner/payload/capture rule; and RenderInstanceStore owns complete dense
-  handle-map consistency. Focused Profile IH5 proof passes 3 cases / 66
-  assertions, Debug passes 2 / 52, and the expanded interaction matrix passes
-  1 / 157 in both configurations. The standalone Debug/Release interaction
-  policy suite passes all 26 cases. Profile core and Debug/Profile test builds
-  pass with warnings as errors. The 21-file source audit is complete with zero
-  deferrals, the live checklist is 65/94, and no new Run bag, Runtime dependency
-  edge, or Replay growth privilege appeared. The full unit gate passes 661 cases
-  / 2,521,198 assertions, `validate_fast` passes through terminal Debug/Profile
-  reachability, and the third independent post-fix review is blocker-free.
-  IH6 completed the 45-candidate allocation-comment adjudication and the
-  remaining 29-file source/tool comment audit. Mechanical correctness remains
-  under `Invariant:`, no-growth/phase/cap rules use `Runtime allocation
-  policy:`, and the worker dispatch threshold is correctly a performance
-  `Why:`. All six substantial tools now have truthful ownership, bounded-output,
-  and hazard documentation; their syntax/help/parser/count smokes pass. The
-  full Related-path and strict glossary checks plus their self-tests pass. The
-  exact checklist is 94/94 checked, 94 unique, all tracked, with zero deferrals,
-  and independent post-fix review is blocker-free. IH7 now owns integrated
-  validation, regenerated inventories, terminal independent closure review,
-  and plan deletion after every acceptance criterion passes.
+Execute `COMMENT_TRUTH` CT0. `INVARIANT_HARDENING` IH0-IH7 is complete: the
+final source checklist is 96/96 with zero deferrals, the terminal inventory has
+67 production asserts and 18 reviewed assert-only candidates, and the current
+fast gate passes 663 tests plus Debug/Profile reachability. Automation, DX12,
+the dependency gate, all ownership inventories, and a one-minute graphics
+stress pass after the production Sky scheduling repair. The terminal full gate
+stopped only at the protected 35,303-line Physics CSV mismatch beginning at
+line 1,239; no baseline was refreshed. Two independent post-fix reviews are
+blocker-free, and the completed IH plan was deleted under the repository
+convention.
 
-After IH7, execute `COMMENT_TRUTH` CT0. Treat the frozen 261-file replacement
-set as audit evidence: discard hunks made redundant by IH, regenerate stale or
-conflicting replacements against current implementation, and preserve every
-post-IH enforcement-lane and ownership comment. CT0 must resolve the known
-strict conflicts in `TestUIDrawValues.cpp` and `TestVector3.cpp` before any
-batched application.
+Treat the frozen 261-file comment replacement set as audit evidence: discard
+hunks made redundant by IH, regenerate stale or conflicting replacements
+against current implementation, and preserve every post-IH enforcement-lane
+and ownership comment. CT0 must resolve the known strict conflicts in
+`TestUIDrawValues.cpp` and `TestVector3.cpp` before any batched application.
 
 At-Rest Ball Stability closed in `f2e192f53`. Its uncapped all-three-asleep
 semantic witness, deterministic 0/1/4-worker proof, box and moving-slope
@@ -460,7 +414,7 @@ not part of the active queue.
 
 ## Blockers
 
-- None. Continue with `INVARIANT_HARDENING` IH7. The stale Physics CSV,
+- None. Continue with `COMMENT_TRUTH` CT0. The stale Physics CSV,
   noisy relative Physics performance sample, and
   corrected-topology visual oracle remain owner-controlled validation findings;
   do not refresh any of them without approval.

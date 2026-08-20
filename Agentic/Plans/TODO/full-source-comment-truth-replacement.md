@@ -1,17 +1,17 @@
 # Full Source Comment Truth Audit And Deferred Replacement
 
-Date: 2026-08-20
-Status: Registered; 0/6 phases complete; begins after `INVARIANT_HARDENING` IH7.
+Date: 2026-08-21
+Status: Active; 0/6 phases complete; `INVARIANT_HARDENING` IH0-IH7 is complete.
 Snapshot base: `154506e0312e42d1bfa0065fba900b24d8225889`
 Impact areas: repository-wide source comments, tests, shaders, and substantial tools
 Owner: Repository comment truth with each touched subsystem retaining semantic authority
-Priority: Second active queue item; begins after `INVARIANT_HARDENING` IH7
+Priority: First active queue item
 Commit name: `COMMENT_TRUTH`
 
 ## Registration And Ordering
 
-The master ledger activates CT0 immediately after invariant hardening and before
-`VALIDATION_TIME_AUDIT`. IH4-IH7 remain authoritative for every source and
+The master ledger activates CT0 immediately after completed invariant hardening
+and before `VALIDATION_TIME_AUDIT`. IH4-IH7 remain authoritative for every source and
 comment they change. The frozen patch is audit evidence, not a post-IH source of
 truth: CT0 must discard a hunk when IH made it redundant, regenerate it when the
 implementation or invariant changed, and preserve the current IH wording when
