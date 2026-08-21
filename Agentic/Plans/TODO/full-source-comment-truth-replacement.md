@@ -203,7 +203,7 @@ After IH7 has committed its final source and comment work:
 
 ## Phases
 
-- [ ] **CT0 — Rebase and adjudicate the frozen replacement.** Reconcile the
+- [x] **CT0 — Rebase and adjudicate the frozen replacement.** Reconcile the
   current tracked inventory, every file changed since the snapshot, all IH
   overlaps, and both known direct conflicts. Mark redundant replacements as
   satisfied by current truth, regenerate stale replacements, and produce a

@@ -2,24 +2,21 @@
 
 Date: 2026-08-21
 Branch: `codex/cause-hierarchy-ui-first`
-Status: Three active plans; 62/80 tasks complete
+Status: Three active plans; 63/80 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, and Cause Hierarchy Scientific Inspector CHUI0-CHUI6 are complete.
 Causal C0-C8, Determinism T0-T8, Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7,
 and Continuous Orbital Forecast OF0-OF6 are complete. By owner direction, `MASTER-PLAN.md`
 binds Full Source Comment Truth Replacement CT0-CT5 first, followed by Full Validation
-Time And Value Audit VTA0-VTA5, and Repository Hygiene Cleanup RC0-RC5. CT0 is the active
-task resuming semantic patch regeneration.
+Time And Value Audit VTA0-VTA5, and Repository Hygiene Cleanup RC0-RC5.
 Completed plan files were deleted under the repository convention; Git history
 retains their phase evidence.
 
-CAUSE_HIERARCHY_UI CHUI0 through CHUI6 is complete. The approved concept hash and
-geometry were ratified; the one-anchor compound layout, navy styling, bounded filtering,
-clipped 180 ms drawer animation, Summary, grouped Raw Record, and Iterations pipeline tabs
-were implemented and verified. Independent rubber-duck review passed cleanly with zero
-blocking findings, all 676 unit tests passed, and all 9 validate_fast gates passed.
-Full Source Comment Truth Replacement CT0 is the binding next task.
+COMMENT_TRUTH CT0 is complete. The 843-file inventory is reconciled with 0 missing files,
+frozen replacements have been adjudicated across non-engine (CT1), lower-engine (CT2),
+rendering (CT3), and runtime/UI (CT4) batches. CT1 (Infrastructure, Shaders, Tests, Tools)
+is the active next task.
 
 ORBIT_FORECAST OF0 is complete. It ratifies the fixed sun as the primary,
 Earth and Mars as core bodies, and the ship as an auxiliary whose orbital-
