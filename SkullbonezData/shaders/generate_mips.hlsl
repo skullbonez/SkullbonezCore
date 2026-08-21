@@ -1,19 +1,23 @@
 /*
 File: SkullbonezData/shaders/generate_mips.hlsl
 Purpose:
-  Downsample a texture into as many as four consecutive mip levels per
-  compute dispatch.
+  Compute shader for GPU-driven mipmap generation across texture mip levels.
 
 Summary:
-  Shades scene geometry for the active render pipeline.
+  Downsamples the source mip level into destination sublevels using bilinear
+  reduction in compute threads, supporting both 2D textures and cubemaps during
+  resource loading and asset preparation.
 
 Invariants:
-- CPU-side root signatures, input layouts, and descriptor bindings must
-  match this shader exactly.
+  - CPU-side root signatures and descriptor bindings must match this compute shader exactly.
+  - Thread group dimensions (8x8) match standard texture downsampling tiles.
+  - Source and destination texture formats and sRGB rules are preserved across levels.
 
 Related:
   - Agentic/Reference/engine-glossary.md
+  - SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp
 */
+
 // =============================================================================
 // GENERATE MIPMAPS COMPUTE SHADER — Shader Model 6.6
 // =============================================================================

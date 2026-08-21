@@ -1,4 +1,4 @@
-  - Agentic/Reference/engine-glossary.md/*
+/*
 File: SkullbonezTests/TestColliderStoreFixtures.h
 Purpose:
   Supplies explicit cold-row defaults when tests create collider topology.
@@ -18,6 +18,7 @@ Invariants:
     production convenience overloads.
 
 Related:
+  - Agentic/Reference/engine-glossary.md
   - SkullbonezSource/Physics/ColliderStore.h
 */
 #pragma once

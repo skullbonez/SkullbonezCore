@@ -1,4 +1,4 @@
-  - Agentic/Reference/engine-glossary.md/*
+/*
 File: SkullbonezTests/TestSceneSnapshotWriter.cpp
 Purpose:
   Verifies version-4 scene snapshots preserve every owner-published save field
@@ -28,6 +28,7 @@ Invariants:
   - Every runtime save entry serializes all three owner publications.
 
 Related:
+  - Agentic/Reference/engine-glossary.md
   - SkullbonezSource/Scene/SceneSnapshotWriter.cpp
   - SkullbonezSource/Runtime/Scene/SceneSaveOperations.cpp
   - SkullbonezSource/Scene/AuthoredSceneParser.cpp

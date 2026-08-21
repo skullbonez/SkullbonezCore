@@ -1,6 +1,4 @@
-// Invariant: commit emits only a valid preview for the active control; stale
-// values from a previous drag cannot become a command.// Concept: time scale publishes continuously for live feedback, while
-// model count remains a preview until release because it requests scene reconstruction./*
+/*
 File : SkullbonezSource / UI / UITabOptions.cpp Purpose : Implements runtime option toggles plus time - scale and model -
     count preview / commit controls.
 
@@ -15,7 +13,7 @@ File : SkullbonezSource / UI / UITabOptions.cpp Purpose : Implements runtime opt
                          Related : -SkullbonezSource /
             UI / UITabOptions.h -
         Agentic / Reference / engine -
-        glossary.md* /
+        glossary.md*/
 #include "UITabOptions.h"
 
 #include "UI.h"
@@ -25,7 +23,7 @@ File : SkullbonezSource / UI / UITabOptions.cpp Purpose : Implements runtime opt
 #include <algorithm>
 #include <cstdio>
 
-            using namespace SkullbonezCore::UI::Layout;
+using namespace SkullbonezCore::UI::Layout;
 using namespace SkullbonezCore::UI::Widgets;
 
 namespace
@@ -76,6 +74,8 @@ void ResetPreviewState( UIOptionsTabState& state )
 }
 
 
+// Concept: time scale publishes continuously for live feedback, while model count
+// remains a preview until release because it requests scene reconstruction.
 bool HandleContentClick( UIOptionsTabState& state, InGameUIInputResult& result, int& activeSlider, int mouseX, int mouseY,
                          float contentX, float rowBase, float contentW, int modelCapacity )
 {
@@ -128,6 +128,8 @@ bool HandleContentClick( UIOptionsTabState& state, InGameUIInputResult& result, 
 }
 
 
+// Invariant: commit emits only a valid preview for the active control; stale
+// values from a previous drag cannot become a command.
 bool UpdateActiveSlider( UIOptionsTabState& state, int activeSlider, int mouseX, int modelCapacity,
                          InGameUIInputResult& result )
 {

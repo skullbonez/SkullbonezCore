@@ -1,21 +1,23 @@
 /*
 File: SkullbonezData/shaders/trajectory_ribbon.hlsl
 Purpose:
-  Shader stage implementation.
+  Render replay and predicted trajectory ribbon paths with halo highlights and time markers.
 
 Summary:
-  Shades scene geometry for the active render pipeline.
+  Expands 3D trajectory segments into screen-space ribbons with analytic width,
+  applying path color, historical fading, branch selection halos, and contact
+  markers.
 
 Invariants:
-- Input layout is start, end/width, color/alpha, style hints, previous, then
-    next; CPU generation and the DX12 upload path must keep the same 19-float
-    vertex shape.
-  - The shader changes only presentation. Replay simulation and prediction data
-    remain owned by replay runtime code.
+  - CPU-side root signatures, input layouts, and descriptor bindings must match this shader exactly.
+  - Ribbon expansion maintains constant screen-space pixel width regardless of camera distance.
 
 Related:
   - Agentic/Reference/engine-glossary.md
+  - SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.h
+  - SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.h
 */
+
 #pragma pack_matrix( column_major )
 
 cbuffer Uniforms : register( b0 )

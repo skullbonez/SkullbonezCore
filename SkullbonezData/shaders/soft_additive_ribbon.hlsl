@@ -1,20 +1,21 @@
 /*
 File: SkullbonezData/shaders/soft_additive_ribbon.hlsl
 Purpose:
-  Shader stage implementation.
+  Render additive particle trails, thruster exhaust ribbons, and energy arcs.
 
 Summary:
-  Shades scene geometry for the active render pipeline.
+  Generates camera-facing quad strips with smooth edge alpha falloff and
+  additive blending for high-energy transient visual effects.
 
 Invariants:
-- Input layout is position, color, then ribbon style payload; CPU generation
-    in RunEditorTracer must keep the same 11-float vertex shape.
-  - Glow/emphasis is presentation-only. It must not alter simulation or replay
-    state.
+  - Alpha blend state is set to additive (One, One) on the pipeline state.
+  - Ribbon vertices are authored in monotonic timeline sequence.
 
 Related:
   - Agentic/Reference/engine-glossary.md
+  - SkullbonezSource/Rendering/PrimitiveBatchRenderer.h
 */
+
 #pragma pack_matrix( column_major )
 
 cbuffer Uniforms : register( b0 )

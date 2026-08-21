@@ -1,4 +1,4 @@
-  - Agentic/Reference/engine-glossary.md/*
+/*
 File: SkullbonezTests/TestSceneEntityStore.cpp
 Purpose:
   Verifies scene identity storage and the paired render creation row.
@@ -25,6 +25,7 @@ Invariants:
     SceneWorld render snapshot is exposed.
 
 Related:
+  - Agentic/Reference/engine-glossary.md
   - SkullbonezSource/Runtime/Scene/SceneEntityStore.h
   - SkullbonezSource/Rendering/RenderInstanceStore.h
 */

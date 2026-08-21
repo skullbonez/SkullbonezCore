@@ -1,4 +1,4 @@
-  - Agentic/Reference/engine-glossary.md/*
+/*
 File: TestInputRouter.cpp
 Purpose:
   Verifies allocation-free input snapshots, action edges, binding predicates,
@@ -34,6 +34,7 @@ Invariants:
     suppresses owner calls after the first accepted stage.
 
 Related:
+  - Agentic/Reference/engine-glossary.md
   - SkullbonezSource/Runtime/Input/InputRouter.h
   - SkullbonezTests/TestRuntimeInputBindings.cpp
 */

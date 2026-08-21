@@ -4,15 +4,20 @@ Purpose:
   Render the outer water zone with displaced waves and perturbed reflection.
 
 Summary:
-  Shades scene geometry for the active render pipeline.
+  Layered vertex waves move the surface while the pixel stage perturbs
+  reflection coordinates from the undisplaced world position. Cinematic mode
+  adds the same authored warm response and sun glint selected by the C++
+  water-style owner.
 
 Invariants:
-- CPU-side root signatures, input layouts, and descriptor bindings must
-  match this shader exactly.
+  - Gerstner wave displacement runs entirely on GPU in vertex stage.
+  - Reflection distortion uses surface normal perturbation.
 
 Related:
   - Agentic/Reference/engine-glossary.md
+  - SkullbonezSource/World/WorldEnvironment.h
 */
+
 // =============================================================================
 // OCEAN WATER SHADER — Shader Model 6.6 (Combined VS+PS)
 // =============================================================================

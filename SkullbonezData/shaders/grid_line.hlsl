@@ -1,19 +1,21 @@
 /*
 File: SkullbonezData/shaders/grid_line.hlsl
 Purpose:
-  Project per-vertex colored world-space line segments for the spatial-grid
-  overlay.
+  Render spatial grid lines and world coordinate planes.
 
 Summary:
-  Shades scene geometry for the active render pipeline.
+  Transforms dynamic line batches for spatial broadphase grid visualization
+  and editor world axes, applying vertex color and distance attenuation.
 
 Invariants:
-- CPU-side root signatures, input layouts, and descriptor bindings must
-  match this shader exactly.
+  - CPU-side root signatures, input layouts, and descriptor bindings must match this shader exactly.
+  - Line primitives require line-list topology configured on the pipeline state.
 
 Related:
   - Agentic/Reference/engine-glossary.md
+  - SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.cpp
 */
+
 // =============================================================================
 // GRID LINE SHADER — Shader Model 6.6 (Combined VS+PS)
 // =============================================================================

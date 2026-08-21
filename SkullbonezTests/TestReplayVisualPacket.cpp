@@ -1,4 +1,4 @@
-  - Agentic/Reference/engine-glossary.md/*
+/*
 File: SkullbonezTests/TestReplayVisualPacket.cpp
 Purpose:
   Locks typed and ordered first-difference behavior for replay visual packets.
@@ -40,6 +40,7 @@ Invariants:
     relax that rule.
 
 Related:
+  - Agentic/Reference/engine-glossary.md
   - SkullbonezSource/Runtime/Replay/ReplayVisualPacket.h
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp
 */

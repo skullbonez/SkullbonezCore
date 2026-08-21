@@ -4,15 +4,19 @@ Purpose:
   Render the flat inner water zone with undistorted projective reflection.
 
 Summary:
-  Shades scene geometry for the active render pipeline.
+  The vertex stage keeps the surface planar. The pixel stage maps the
+  reflection target in screen space, applies authored basin and cinematic
+  response, and avoids the displacement used by the outer ocean.
 
 Invariants:
-- CPU-side root signatures, input layouts, and descriptor bindings must
-  match this shader exactly.
+  - Planar reflection texture coordinates match projective camera geometry.
+  - Cinematic mode uses scene water style parameters for sun glint and depth color.
 
 Related:
   - Agentic/Reference/engine-glossary.md
+  - SkullbonezSource/World/WorldEnvironment.h
 */
+
 // =============================================================================
 // CALM WATER SHADER — Shader Model 6.6 (Combined VS+PS)
 // =============================================================================

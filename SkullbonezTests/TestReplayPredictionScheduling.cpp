@@ -1,4 +1,4 @@
-  - Agentic/Reference/engine-glossary.md/*
+/*
 File: TestReplayPredictionScheduling.cpp
 Purpose:
   Locks replay prediction scheduling and publication protocols.
@@ -38,6 +38,7 @@ Invariants:
   - Generic physics-force values cannot select all-body path presentation.
 
 Related:
+  - Agentic/Reference/engine-glossary.md
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionScheduling.h
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionPackets.h
   - SkullbonezSource/Runtime/Prediction/ContinuousPredictionSampleRing.h

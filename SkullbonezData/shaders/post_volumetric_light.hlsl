@@ -1,21 +1,21 @@
 /*
 File: SkullbonezData/shaders/post_volumetric_light.hlsl
 Purpose:
-  Build the half-resolution screen-space sun-light texture consumed by
-  tonemapping.
+  Render screen-space sun god rays and atmospheric light scattering.
 
 Summary:
-  Shades scene geometry for the active render pipeline.
+  Performs radial blur from the projected sun position across the occlusion
+  mask, accumulating light shafts that are composited additively onto scene color.
 
 Invariants:
-- CPU-side root signatures, input layouts, and descriptor bindings must
-    match this shader exactly.
-  - This is the sole screen-space sun march; tonemap only composites its output.
-  - Depth values at or above 0.9999 represent unobstructed sky for the march.
+  - Sun position is projected to screen coordinates; off-screen sun fades smoothly.
+  - Sampling density and decay parameters match authored cinematic sky settings.
 
 Related:
   - Agentic/Reference/engine-glossary.md
+  - SkullbonezSource/World/SkyBox.cpp
 */
+
 #pragma pack_matrix(column_major)
 
 // =============================================================================

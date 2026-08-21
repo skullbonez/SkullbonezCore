@@ -1,4 +1,4 @@
-  - Agentic/Reference/engine-glossary.md/*
+/*
 File: TestOwnerRequestQueues.cpp
 Purpose:
   Verifies fixed scene, capture, render-default, and operator-editor request contracts.
@@ -50,6 +50,7 @@ Invariants:
     returned Runtime copy retains the exact failure bytes.
 
 Related:
+  - Agentic/Reference/engine-glossary.md
   - SkullbonezSource/Runtime/Capture/CaptureController.h
   - SkullbonezSource/Runtime/Scene/SceneRequestQueue.h
   - SkullbonezSource/Runtime/Render/RenderDefaultsStore.h

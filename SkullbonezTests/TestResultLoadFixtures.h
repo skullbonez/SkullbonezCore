@@ -1,4 +1,4 @@
-  - Agentic/Reference/engine-glossary.md/*
+/*
 File: SkullbonezTests/TestResultLoadFixtures.h
 Purpose:
   Keeps successful parser fixtures on the production result-returning APIs.
@@ -14,6 +14,7 @@ Invariants:
   - Helpers retain neither diagnostic stores nor parsed values.
 
 Related:
+  - Agentic/Reference/engine-glossary.md
   - SkullbonezSource/Physics/ConvexHullShape.h
   - SkullbonezSource/Scene/AuthoredScene.h
 */

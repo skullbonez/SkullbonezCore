@@ -1,6 +1,4 @@
-// Concept: population counts remain preview-only during a drag and become typed
-// run requests on release; seed and fluid sliders publish their values directly.// Invariant: ball and box previews share
-// one model-capacity budget; changing one immediately reduces the other slider's admissible maximum./*
+/*
 File : SkullbonezSource / UI / UITabControls.cpp Purpose : Implements the seed, scene - population,
     and fluid control surface and its typed commands.
 
@@ -15,7 +13,7 @@ File : SkullbonezSource / UI / UITabControls.cpp Purpose : Implements the seed, 
                          Related : -SkullbonezSource /
             UI / UITabControls.h -
         Agentic / Reference / engine -
-        glossary.md* /
+        glossary.md*/
 #include "UITabControls.h"
 
 #include "UI.h"
@@ -25,7 +23,7 @@ File : SkullbonezSource / UI / UITabControls.cpp Purpose : Implements the seed, 
 #include <algorithm>
 #include <cstdio>
 
-            using namespace SkullbonezCore::UI::Layout;
+using namespace SkullbonezCore::UI::Layout;
 using namespace SkullbonezCore::UI::Widgets;
 
 namespace
@@ -134,6 +132,8 @@ bool HandleContentClick( UIControlsTabState& state, InGameUIInputResult& result,
 }
 
 
+// Invariant: ball and box previews share one model-capacity budget; changing one
+// immediately reduces the other slider's admissible maximum.
 bool UpdateActiveSlider( UIControlsTabState& state, int activeSlider, int mouseX, int modelCapacity, int lastSolverBallCount,
                          int lastSolverBoxCount, InGameUIInputResult& result )
 {

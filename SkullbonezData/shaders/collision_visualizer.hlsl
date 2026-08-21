@@ -1,19 +1,24 @@
 /*
 File: SkullbonezData/shaders/collision_visualizer.hlsl
 Purpose:
-  Shade instanced collision-debug meshes from per-instance color and view-
-  space lighting.
+  Render physics collision shapes, contact points, and solver impulses as colored debug lines and solids.
 
 Summary:
-  Shades scene geometry for the active render pipeline.
+  The vertex shader transforms dynamic debug geometry submitted by the physics
+  diagnostic sink. The pixel shader applies vertex coloring and optional depth
+  biasing so debug overlays remain readable against complex scene geometry.
 
 Invariants:
-- CPU-side root signatures, input layouts, and descriptor bindings must
-  match this shader exactly.
+  - CPU-side root signatures, input layouts, and descriptor bindings must match this shader exactly.
+  - Alpha blending respects the debug visualization mode requested by runtime tools.
+  - Depth test uses the shared scene depth buffer with configured depth-bias state.
 
 Related:
   - Agentic/Reference/engine-glossary.md
+  - SkullbonezSource/Runtime/Debug/CollisionVisualizer.cpp
+  - SkullbonezSource/Physics/Diagnostics/SkullScope.cpp
 */
+
 #pragma pack_matrix(column_major)
 
 cbuffer Uniforms : register(b0)

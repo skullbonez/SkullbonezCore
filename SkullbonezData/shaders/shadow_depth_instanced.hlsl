@@ -1,18 +1,22 @@
 /*
 File: SkullbonezData/shaders/shadow_depth_instanced.hlsl
 Purpose:
-  Project instanced object geometry into light-space depth.
+  Render instanced mesh depth from the directional light view into shadow maps.
 
 Summary:
-  Shades scene geometry for the active render pipeline.
+  Applies per-instance transform matrices from instance vertex buffers to
+  project instanced trees, rocks, and props into light space for shadow mapping.
 
 Invariants:
-- CPU-side root signatures, input layouts, and descriptor bindings must
-  match this shader exactly.
+  - Instance buffer layout matches RenderInstanceStore vertex stream format.
+  - Culled or hidden instances are excluded prior to draw call dispatch.
 
 Related:
   - Agentic/Reference/engine-glossary.md
+  - SkullbonezSource/Rendering/RenderInstanceStore.h
+  - SkullbonezSource/Rendering/Shadow.h
 */
+
 #pragma pack_matrix(column_major)
 
 cbuffer Uniforms : register(b0)

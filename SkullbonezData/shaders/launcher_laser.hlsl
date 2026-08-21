@@ -1,19 +1,21 @@
 /*
 File: SkullbonezData/shaders/launcher_laser.hlsl
 Purpose:
-  Shader stage implementation.
+  Render player aim laser and predictive aim guides with soft falloff.
 
 Summary:
-  Shades scene geometry for the active render pipeline.
+  Expands ribbon vertices along camera-facing vectors to draw the glowing aim
+  raycast trajectory with animated pulse intensity and core-to-edge glow falloff.
 
 Invariants:
-- Input layout is float3 position followed by float4 color.
-  - The shader does not compute laser geometry; CPU-side ribbon construction
-    owns width, length, and alpha policy.
+  - CPU-side root signatures, input layouts, and descriptor bindings must match this shader exactly.
+  - Additive blending combines core laser and outer glow in a single pass.
 
 Related:
   - Agentic/Reference/engine-glossary.md
+  - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp
 */
+
 #pragma pack_matrix(column_major)
 
 cbuffer Uniforms : register(b0)

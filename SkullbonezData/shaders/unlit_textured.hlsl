@@ -4,15 +4,19 @@ Purpose:
   Project textured skybox geometry without scene lighting.
 
 Summary:
-  Shades scene geometry for the active render pipeline.
+  The shader samples the authored sky texture and applies only the supplied
+  tint. Baked texture lighting remains authoritative, so no object-lighting
+  or shadow path participates.
 
 Invariants:
-- CPU-side root signatures, input layouts, and descriptor bindings must
-  match this shader exactly.
+  - CPU-side root signatures, input layouts, and descriptor bindings must match this shader exactly.
+  - Texture sampler uses clamp addressing for skybox cubemaps.
 
 Related:
   - Agentic/Reference/engine-glossary.md
+  - SkullbonezSource/World/SkyBox.cpp
 */
+
 // =============================================================================
 // UNLIT TEXTURED SHADER — Shader Model 6.6 (Combined VS+PS)
 // =============================================================================

@@ -1,17 +1,24 @@
 /*
 File: SkullbonezData/shaders/UIBackdropBlur.hlsl
 Purpose:
-  Blur and tint the rendered scene behind a translucent UI surface.
+  Apply multi-pass separable gaussian blur to the captured backdrop texture.
 
 Summary:
-  Shades scene geometry for the active render pipeline.
+  The shader performs horizontal and vertical blur passes over the scene color
+  texture captured before UI rendering, producing the blurred backdrop sampled
+  by transparent UI panels.
 
 Invariants:
-- CPU-side root signatures, input layouts, and descriptor bindings must
+  - CPU-side root signatures, input layouts, and descriptor bindings must match this shader exactly.
+  - Direction uniform selects horizontal (1,0) or vertical (0,1) sampling.
+  - Gaussian kernel weights sum to 1.0 to preserve overall scene luminance.
 
 Related:
   - Agentic/Reference/engine-glossary.md
+  - SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp
+  - SkullbonezSource/UI/UIBackdropBlur.h
 */
+
 #pragma pack_matrix(column_major)
 
 cbuffer Uniforms : register(b0)

@@ -1,4 +1,4 @@
-  - Agentic/Reference/engine-glossary.md/*
+/*
 File: SkullbonezTests/TestRuntimeInputBindings.cpp
 Purpose:
   Locks the runtime keyboard shortcut table as observable data.
@@ -19,6 +19,7 @@ Invariants:
   - The shared table is the source under test; do not mirror it wholesale here.
 
 Related:
+  - Agentic/Reference/engine-glossary.md
   - SkullbonezSource/Runtime/Input/InputController.Bindings.h
   - SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp
 */

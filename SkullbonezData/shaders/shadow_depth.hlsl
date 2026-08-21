@@ -1,18 +1,21 @@
 /*
 File: SkullbonezData/shaders/shadow_depth.hlsl
 Purpose:
-  Project non-instanced shadow casters into light-space depth.
+  Render scene depth from the directional light's perspective into shadow maps.
 
 Summary:
-  Shades scene geometry for the active render pipeline.
+  Transforms non-instanced geometry through the light space view-projection
+  matrix, writing linear depth values into the cascading shadow map atlas.
 
 Invariants:
-- CPU-side root signatures, input layouts, and descriptor bindings must
-  match this shader exactly.
+  - Pixel shader is null or minimal; depth write is hardware-accelerated.
+  - Slope-scaled depth bias is bound on the pipeline state to prevent shadow acne.
 
 Related:
   - Agentic/Reference/engine-glossary.md
+  - SkullbonezSource/Rendering/Shadow.h
 */
+
 #pragma pack_matrix(column_major)
 
 cbuffer Uniforms : register(b0)

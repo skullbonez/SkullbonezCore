@@ -1,19 +1,22 @@
 /*
 File: SkullbonezData/shaders/post_tonemap.hlsl
 Purpose:
-  Composite the HDR scene, depth, volumetric light, bloom, and display
-  mapping into final color.
+  Perform fullscreen HDR-to-SDR tonemapping, gamma correction, and vignette application.
 
 Summary:
-  Shades scene geometry for the active render pipeline.
+  The pixel shader reads the HDR scene color target, applies ACES filmic or
+  Reinhard tonemapping with exposure control, and converts color to the swapchain
+  sRGB backbuffer.
 
 Invariants:
-- CPU-side root signatures, input layouts, and descriptor bindings must
-  match this shader exactly.
+  - Fullscreen triangle covers NDC [-1, 1] without vertex buffer storage.
+  - Tonemapped output is clamped to [0, 1] SDR range before presentation.
 
 Related:
   - Agentic/Reference/engine-glossary.md
+  - SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp
 */
+
 #pragma pack_matrix(column_major)
 
 // =============================================================================

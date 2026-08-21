@@ -1,18 +1,21 @@
 /*
 File: SkullbonezData/shaders/solid_color_batch.hlsl
 Purpose:
-  Draw many independently colored screen-space quads in one batch.
+  Render untextured solid color primitive batches for tools, UI bounds, and gizmos.
 
 Summary:
-  Shades scene geometry for the active render pipeline.
+  Transforms batched 2D and 3D primitives with per-vertex or per-instance color
+  for runtime tooling, editor wireframes, and selection overlays.
 
 Invariants:
-- CPU-side root signatures, input layouts, and descriptor bindings must
-  match this shader exactly.
+  - Depth testing and write are selectable via the pipeline state object.
+  - Vertex format matches PrimitiveBatchRenderer vertex specification.
 
 Related:
   - Agentic/Reference/engine-glossary.md
+  - SkullbonezSource/Rendering/PrimitiveBatchRenderer.h
 */
+
 // =============================================================================
 // SOLID COLOR BATCH SHADER — Shader Model 6.6 (Combined VS+PS)
 // =============================================================================

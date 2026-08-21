@@ -1,19 +1,21 @@
 /*
 File: SkullbonezData/shaders/transient_colored_triangles.hlsl
 Purpose:
-  Shader stage implementation.
+  Render dynamic per-frame transient colored triangles for tornado shells and visual passes.
 
 Summary:
-  Shades scene geometry for the active render pipeline.
+  Draws unindexed dynamic triangle buffers allocated per-frame for fluid
+  surfaces, vortex funnels, and transient geometric effects without retained GPU buffers.
 
 Invariants:
-- Input layout is position, color, then fx payload; CPU generation must match
-    those semantics exactly.
-  - fx.z selects dust behavior; non-dust ribbon pixels return the CPU color.
+  - Storage is allocated from transient frame dynamic heaps and valid for one frame only.
+  - Alpha blending respects authored visual pass sorting order.
 
 Related:
   - Agentic/Reference/engine-glossary.md
+  - SkullbonezSource/Gameplay/TornadoVisualPass.cpp
 */
+
 #pragma pack_matrix(column_major)
 
 cbuffer Uniforms : register(b0)

@@ -1,4 +1,4 @@
-  - Agentic/Reference/engine-glossary.md/*
+/*
 File: SkullbonezTests/TestApplicationExitState.cpp
 Purpose:
   Verifies application-exit request, failure precedence, bounded diagnostics,
@@ -21,6 +21,7 @@ Invariants:
     coverage.
 
 Related:
+  - Agentic/Reference/engine-glossary.md
   - SkullbonezSource/Runtime/App/ApplicationExitState.h defines the tested contract.
   - SkullbonezSource/Core/SbResult.h defines success and recoverable failure values.
 */

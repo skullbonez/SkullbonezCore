@@ -1,8 +1,4 @@
-// Concept: velocity-forward changes the look target, not the orbiting eye.
-// A zero velocity reuses the last finite look direction before geometric fallback.// Invariant: orbit capture derives from
-// the visible pose. Degenerate eye/target
-// input falls back along the last view direction before retained angles publish.// Why: camera publication must stay finite
-// even when authored or replay-restored basis vectors collapse; world up is the final deterministic fallback./*
+/*
 File: SkullbonezSource/Runtime/Camera/AttachedCameraController.InspectionPolicy.cpp
 Purpose:
   Implements the stateless attached-camera orbit and focused-inspection policy.
@@ -129,6 +125,8 @@ float WrapOrbitYaw( float yaw )
 }
 
 
+// Why: camera publication must stay finite even when authored or replay-restored
+// basis vectors collapse; world up is the final deterministic fallback.
 Vector3 OrbitOffset( float yaw, float pitch, float distance )
 {
     const float horizontal = cosf( pitch ) * distance;

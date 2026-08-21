@@ -2,22 +2,21 @@
 
 Date: 2026-08-21
 Branch: `codex/cause-hierarchy-ui-first`
-Status: Three active plans; 67/80 tasks complete
+Status: Two active plans; 68/80 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
-Hardening IH0-IH7, and Cause Hierarchy Scientific Inspector CHUI0-CHUI6 are complete.
-Causal C0-C8, Determinism T0-T8, Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7,
-and Continuous Orbital Forecast OF0-OF6 are complete. By owner direction, `MASTER-PLAN.md`
-binds Full Source Comment Truth Replacement CT0-CT5 first, followed by Full Validation
-Time And Value Audit VTA0-VTA5, and Repository Hygiene Cleanup RC0-RC5.
+Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, and Full Source Comment
+Truth Replacement CT0-CT5 are complete. Causal C0-C8, Determinism T0-T8, Catto CD0-CD5,
+Predicted Solver Cause Hierarchy PSD0-PSD7, and Continuous Orbital Forecast OF0-OF6 are complete.
+By owner direction, `MASTER-PLAN.md` binds Full Validation Time And Value Audit VTA0-VTA5 next,
+followed by Repository Hygiene Cleanup RC0-RC5.
 Completed plan files were deleted under the repository convention; Git history
 retains their phase evidence.
 
-COMMENT_TRUTH CT0-CT4 is complete. CT0 reconciled the 843-file inventory; CT1 applied
-infrastructure, tools, shaders, tests, and engine glossary truth replacements; CT2 applied
-lower-layer engine truth replacements; CT3 applied Rendering and DX12 truth replacements;
-CT4 applied Runtime and UI truth replacements. CT5 (Terminal reconciliation, whole-pass
-truth review, and plan closure) is the active next task.
+VALIDATION_TIME_AUDIT VTA0-VTA5 is the active next plan. Its goal is to instrument and measure
+the full plan-completion call graph, evaluate every stage's unique evidence and runtime cost,
+implement only owner-approved reductions with false-pass controls, and close with a single timed
+terminal full gate.
 
 ORBIT_FORECAST OF0 is complete. It ratifies the fixed sun as the primary,
 Earth and Mars as core bodies, and the ship as an auxiliary whose orbital-
