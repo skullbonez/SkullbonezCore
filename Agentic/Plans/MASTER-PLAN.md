@@ -233,7 +233,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Full Validation Time And Value Audit | `VALIDATION_TIME_AUDIT` | 6 | 2 | `TODO/full-validation-time-value-audit.md` |
+| Full Validation Time And Value Audit | `VALIDATION_TIME_AUDIT` | 6 | 3 | `TODO/full-validation-time-value-audit.md` |
 | Repository Hygiene Cleanup | `REPOSITORY_CLEANUP` | 6 | 0 | `TODO/repository-hygiene-cleanup.md` |
 
 ## Parked, Backlog, And Completed Plans
@@ -309,13 +309,13 @@ contracts into Rendering.
 
 ## Portfolio Progress
 
-70/80 tasks complete with two active plans.
+71/80 tasks complete with two active plans.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
 Invariant Enforcement And Assertion Hardening IH0-IH7 is complete.
 Cause Hierarchy Scientific Inspector CHUI0-CHUI6 is complete. Full Source Comment Truth
-Replacement CT0-CT5 is complete. Full Validation Time And Value Audit VTA0-VTA1 are complete and VTA2 is next; four of six phases
+Replacement CT0-CT5 is complete. Full Validation Time And Value Audit VTA0-VTA2 are complete and VTA3 is next; three of six phases
 remain.
 Repository Hygiene Cleanup RC0-RC5 follows VTA5; all six phases remain.
 Deterministic

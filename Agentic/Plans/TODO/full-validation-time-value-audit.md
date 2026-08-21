@@ -1,7 +1,7 @@
 # Full Validation Time And Value Audit
 
 Date: 2026-08-20
-Status: Active; 2/6 phases complete
+Status: Active; 3/6 phases complete
 Impact area: validation orchestration, build configuration, repository
 inventories, CPU test and coverage gates, runtime probes, diagnostics, and
 validation governance
@@ -226,11 +226,11 @@ remain recorded with the reason so a later audit does not repeat them blindly.
 
 ### VTA2 - Evidence Value Audit And Owner Rulings
 
-- [ ] Complete the eight-question decision record for every stage.
-- [ ] Mine bounded Git/CI/local logs for real catches and distinguish them from
+- [x] Complete the eight-question decision record for every stage.
+- [x] Mine bounded Git/CI/local logs for real catches and distinguish them from
   assertions that a stage is useful.
-- [ ] Add or run false-pass controls where a stage lacks credible failure proof.
-- [ ] Obtain owner rulings for every proposed removal, demotion, merge, cache,
+- [x] Add or run false-pass controls where a stage lacks credible failure proof.
+- [x] Obtain owner rulings for every proposed removal, demotion, merge, cache,
   or workload reduction and freeze the approved experiment set.
 
 ### VTA3 - Build And Preflight Critical-Path Reduction
