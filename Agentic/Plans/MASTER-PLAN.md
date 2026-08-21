@@ -233,7 +233,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Repository Hygiene Cleanup | `REPOSITORY_CLEANUP` | 6 | 4 | `TODO/repository-hygiene-cleanup.md` |
+| Repository Hygiene Cleanup | `REPOSITORY_CLEANUP` | 6 | 5 | `TODO/repository-hygiene-cleanup.md` |
 
 ## Parked, Backlog, And Completed Plans
 
@@ -249,20 +249,13 @@ an owner decision, not a run decision.
 | Contact Stack Stability Techniques | Owner-parked 2026-08-02 | 0/7 | `WNF/contact-stack-stability-techniques.md` |
 | Deterministic Trigonometry Adoption | Owner-parked 2026-08-18 | 0/8 | `WNF/deterministic-trigonometry-adoption.md` |
 | Reversible GPU Fracture Replay | Backlog; blocked | 0/7 | `WNF/fracture-replay-feature.md` |
-| ImGui + Tracy E17 Comment Audit | Complete | 96/96, 0 deferred | `DONE/imgui-tracy-e17-comment-audit.md` |
 
-Two details in that table are inconsistent with the conventions this ledger
-states elsewhere, and both are recorded rather than silently corrected:
+One detail in that table is recorded:
 
 - `WNF/fracture-replay-feature.md` sits in `WNF/` but its own header reads
   `Status: Backlog`, not the owner-parked wording the other two WNF plans use.
   Parked and backlog are different dispositions, so the file and this row
   disagree with the directory. An owner ruling should settle which it is.
-- The Owner Direction note above states that completed plan files were deleted
-  and git history is the archive. `DONE/imgui-tracy-e17-comment-audit.md`
-  survives that rule as the sole retained completed plan. Either the rule has an
-  unstated exception or the file is a leftover; deleting it is an owner call
-  because it is the only record of that audit outside git history.
 
 ## Binding Order
 
@@ -308,13 +301,13 @@ contracts into Rendering.
 
 ## Portfolio Progress
 
-78/80 tasks complete with one active plan.
+79/80 tasks complete with one active plan.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
 Invariant Enforcement And Assertion Hardening IH0-IH7 is complete.
 Cause Hierarchy Scientific Inspector CHUI0-CHUI6 is complete. Full Source Comment Truth
 Replacement CT0-CT5 is complete. Full Validation Time And Value Audit VTA0-VTA5 is complete.
-Repository Hygiene Cleanup RC0-RC3 are complete and RC4 is next; two phases remain.
+Repository Hygiene Cleanup RC0-RC4 are complete and RC5 is next; one phase remains.
 Deterministic
 Trigonometry is owner-parked and excluded from progress.

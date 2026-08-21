@@ -1,7 +1,7 @@
 # Repository Hygiene Cleanup
 
 Date: 2026-08-20
-Status: Active; 4/6 phases complete. Bound after `VALIDATION_TIME_AUDIT`.
+Status: Active; 5/6 phases complete. Bound after `VALIDATION_TIME_AUDIT`.
 Impact areas: ignored validation evidence, build and IDE output, detached Git
 worktrees, tracked visual references, plan topology, and repository hygiene
 Owner: repository hygiene and artifact-retention owners
@@ -188,15 +188,15 @@ from tracked inputs.
 
 ## RC4 - Reconcile Tracked Artifacts And Documentation
 
-- Apply the RC0 owner decisions to the old water baseline, shadow references,
+- [x] Apply the RC0 owner decisions to the old water baseline, shadow references,
   Concepts mood board, sole completed-plan exception, and stale parked-plan
   report link.
-- When deleting the completed plan, remove its live-file ledger row and retain
+- [x] When deleting the completed plan, remove its live-file ledger row and retain
   closure in Git history. When keeping it, document the narrow exception so it
   no longer contradicts the stated convention.
-- Replace the deleted Reports link with a durable source, root document,
+- [x] Replace the deleted Reports link with a durable source, root document,
   `Agentic/Reference` path, `tools` path, or commit identity.
-- Do not refresh, regenerate, or substitute a baseline. A deletion decision is
+- [x] Do not refresh, regenerate, or substitute a baseline. A deletion decision is
   reviewed on its own diff.
 
 **RC4 acceptance:** every tracked candidate has an intentional disposition,
