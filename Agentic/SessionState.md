@@ -2,7 +2,7 @@
 
 Date: 2026-08-21
 Branch: `codex/cause-hierarchy-ui-first`
-Status: Three active plans; 64/80 tasks complete
+Status: Three active plans; 65/80 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, and Cause Hierarchy Scientific Inspector CHUI0-CHUI6 are complete.
@@ -13,10 +13,10 @@ Time And Value Audit VTA0-VTA5, and Repository Hygiene Cleanup RC0-RC5.
 Completed plan files were deleted under the repository convention; Git history
 retains their phase evidence.
 
-COMMENT_TRUTH CT0-CT1 is complete. CT0 reconciled the 843-file inventory; CT1 applied
-infrastructure, tools, shaders, tests, and engine glossary truth replacements with zero
-regressions and fresh shader bake freshness verified. CT2 (Lower-Layer Engine: Assets,
-Core, Maths, Physics, Scene, World) is the active next task.
+COMMENT_TRUTH CT0-CT2 is complete. CT0 reconciled the 843-file inventory; CT1 applied
+infrastructure, tools, shaders, tests, and engine glossary truth replacements; CT2 applied
+lower-layer engine truth replacements across Assets, Core, Maths, Physics, Scene, and World.
+CT3 (Rendering and DX12) is the active next task.
 
 ORBIT_FORECAST OF0 is complete. It ratifies the fixed sun as the primary,
 Earth and Mars as core bodies, and the ship as an auxiliary whose orbital-

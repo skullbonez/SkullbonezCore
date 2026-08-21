@@ -30,7 +30,7 @@ Related:
 #include "../Maths/Matrix4.h"
 
 
-// --- Forward declarations ---
+// Forward declarations:
 namespace SkullbonezCore
 {
 namespace Math

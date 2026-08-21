@@ -53,7 +53,7 @@ class BoundingBox
     BoundingBox();
     BoundingBox( const Vector::Vector3& halfExtents, const Vector::Vector3& position );
 
-    // --- Shape interface (matches BoundingSphere for std::visit dispatch) ---
+    // Shape interface (matches BoundingSphere for std::visit dispatch):
     Transformation::Matrix4 GetModelMatrix( const Vector::Vector3& worldPos, const Transformation::Matrix4& rotation ) const;
     float GetVolume() const;
     float GetDragCoefficient() const;
@@ -61,10 +61,10 @@ class BoundingBox
     float GetBoundingRadius() const;
     const Vector::Vector3& GetPosition() const;
 
-    // --- Box-specific accessors ---
+    // Box-specific accessors:
     const Vector::Vector3& GetHalfExtents() const;
 
-    // --- Collision tests ---
+    // Collision tests:
     // Sphere-box sweep: broadphase-style time query; manifold generation owns exact resting contacts.
     float TestCollision( const BoundingSphere& target, const Geometry::Ray& targetRay, const Geometry::Ray& focusRay ) const;
 

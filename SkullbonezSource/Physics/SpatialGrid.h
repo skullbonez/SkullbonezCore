@@ -82,7 +82,7 @@ class SpatialGrid
 
   private:
 
-    // --- Capacity derivation ---
+    // Capacity derivation:
     // Static objects of radius R in a grid of cell size C span at most
     // ceil(2R/C + 1) cells per axis. PhysicsWorld chooses C from the largest
     // current broadphase radius, capped by the configured legacy cell size, so

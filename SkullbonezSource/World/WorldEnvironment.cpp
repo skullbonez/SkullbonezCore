@@ -278,7 +278,7 @@ void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, co
     const WaterStyleParams calmStyle = BuildCalmWaterStyle( cinematic, cinematicStyle );
     const WaterStyleParams oceanStyle = BuildOceanWaterStyle( cinematic, cinematicStyle );
 
-    // --- calm (inner) pass: flat, reflective unless disabled ---
+    // Calm (inner) pass: flat, reflective unless disabled:
     m_calmShader->Use();
     m_calmShader->SetMat4( "uView", view );
     m_calmShader->SetMat4( "uProjection", proj );
@@ -294,7 +294,7 @@ void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, co
         return;
     }
 
-    // --- ocean (outer) pass: vertex displacement + UV perturbation ---
+    // Ocean (outer) pass: vertex displacement + UV perturbation:
     m_oceanShader->Use();
     m_oceanShader->SetMat4( "uView", view );
     m_oceanShader->SetMat4( "uProjection", proj );

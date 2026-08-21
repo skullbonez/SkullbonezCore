@@ -151,7 +151,7 @@ Matrix4 Matrix4::LookAt( const Vector3& eye, const Vector3& center, const Vector
 
     Vector3 s = CrossProduct( f, u );
 
-    // f and u are parallel (e.g. top-down camera) — pick arbitrary perpendicular
+    // Why: f and u are parallel (for example, a top-down camera), so choose a deterministic perpendicular
     if ( VectorMag( s ) < 1e-6f )
     {
         u = ( fabsf( f.x ) < 0.9f ) ? Vector3( 1.0f, 0.0f, 0.0f ) : Vector3( 0.0f, 0.0f, 1.0f );
@@ -214,7 +214,7 @@ Matrix4 Matrix4::Scale( float uniform )
 
 Matrix4 Matrix4::FromQuaternion( const Quaternion& q )
 {
-    // Unit quaternion q = (qx, qy, qz, qw) becomes a 4x4 column-major rotation matrix.
+    // Concept: a unit quaternion q = (qx, qy, qz, qw) becomes a 4x4 column-major rotation matrix.
     //
     // Derivation:
     //   Applying rotation q to a vector v uses the sandwich product: v' = q * (0,v) * q'

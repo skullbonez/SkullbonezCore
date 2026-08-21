@@ -1,32 +1,35 @@
-/*
-File: SkullbonezSource/Physics/Stages/PhysicsTerrainStage.cpp
-Purpose:
-  Implements deterministic swept-terrain detection and manifold commit.
+// Invariant: a hit without a stable manifold inhibits sleep. Only a
+// classifier-approved manifold may publish support for this frame.    // Invariant: integrate to the swept hit before
+// building its manifold. The prepared value keeps diagnostic publication between pose integration and the later
+// sleep/support commit without exposing a half-committed row.    // Invariant: candidate rows retain dense body identity
+// even when workers receive compact awake-list slots. Ascending awake indices make serial and parallel detection publish the
+// same body-indexed results./*
+File : SkullbonezSource / Physics / Stages / PhysicsTerrainStage.cpp Purpose : Implements deterministic swept -
+    terrain detection and manifold commit.
 
-Summary:
-  Detection maps worker slots through the ascending awake-body list while
-  preserving the original thresholds. Prepared commits preserve the original
-  float expressions and body-index order, while a narrow sequencer gap retains
-  diagnostics and visual side effects at their certified positions.
+    Summary : Detection maps worker slots through the ascending awake -
+    body list while preserving the original thresholds.Prepared commits preserve the original float expressions and body -
+    index order,
 
-Glossary:
-  Manifold commit: Append of solver-ready terrain contact points and sleep policy.
-  Sequencer gap: Typed boundary where cross-domain diagnostics are emitted.
+    while a narrow sequencer gap retains diagnostics and visual side effects at their certified positions.
 
-Invariants:
-  - Worker scheduling never changes candidate slot identity.
-  - Body integration and manifold construction occur before diagnostics.
-  - Manifold/sleep writes occur after diagnostics and before clock completion.
-  - Full and count-only lanes observe the same hit; only the full lane samples
-    the diagnostic position/manifold payload.
-  - Dormant and fixed bodies never enter terrain-detection dispatch.
+        Glossary : Manifold commit : Append of solver -
+        ready terrain contact points and sleep policy.Sequencer gap : Typed boundary where cross -
+        domain diagnostics are emitted
+            .
 
-Related:
-  - SkullbonezSource/Physics/Stages/PhysicsTerrainStage.h
-  - SkullbonezSource/Physics/PhysicsWorld.cpp
-  - SkullbonezSource/Physics/TerrainContactManifold.cpp
-  - Agentic/Reference/engine-glossary.md
-*/
+        Invariants : -Worker scheduling never changes candidate slot identity.-
+        Body integration and manifold construction occur before diagnostics.-
+        Manifold / sleep writes occur after diagnostics and before clock completion.- Full and count -
+        only lanes observe the same hit;
+only the full lane samples the diagnostic position / manifold payload.- Dormant and fixed bodies never enter terrain -
+    detection dispatch.
+
+        Related : -SkullbonezSource /
+        Physics / Stages / PhysicsTerrainStage.h -
+    SkullbonezSource / Physics / PhysicsWorld.cpp - SkullbonezSource / Physics / TerrainContactManifold.cpp -
+    Agentic / Reference / engine -
+    glossary.md* /
 #include "PhysicsTerrainStage.h"
 
 #include "../../Core/Common.h"
@@ -37,7 +40,7 @@ Related:
 
 #include <algorithm>
 
-using namespace SkullbonezCore::Physics;
+        using namespace SkullbonezCore::Physics;
 using SkullbonezCore::Math::Vector::ZERO_VECTOR;
 namespace Physics = SkullbonezCore::Physics;
 

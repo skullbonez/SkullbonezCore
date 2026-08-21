@@ -53,7 +53,7 @@ struct WorkerBeginEndMarker
 {
     // Lifetime: the scope row is fixed thread-local storage armed by ambient
     // Begin and closed by the matching End on the same worker thread. Runtime
-    // allocation policy: it is stored by value and armed through Open rather
+    // Runtime allocation policy: it is stored by value and armed through Open rather
     // than emplaced into an optional, so no marker row constructs storage on a
     // steady-state worker path.
     WorkerProfilerScope scope;

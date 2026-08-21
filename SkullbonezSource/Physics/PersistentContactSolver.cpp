@@ -16,8 +16,7 @@ Summary:
   friction is a distinct normal-axis row and cannot be mistaken for rolling.
 
 Glossary:
-  Warm starting: Reusing the previous tick's cached accumulated impulse so a
-    matching contact begins near its converged solution.
+
   Terrain support seed: Same-tick body-weight impulse estimate used before
     iteration when a terrain row has no sufficient cached normal impulse.
   Friction: Tangent impulse that resists sliding along the contact plane.

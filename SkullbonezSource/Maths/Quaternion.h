@@ -10,11 +10,9 @@ Summary:
 
 Glossary:
   Quaternion: Four-component rotation representation that avoids gimbal lock
-  during incremental orientation updates.
-  Identity quaternion: No-rotation value (0,0,0,1); multiplying by it leaves an
-  orientation unchanged.
+    during incremental orientation updates.
   Euler decomposition: Splitting rotation into ordered X/Y/Z angles; this file
-  avoids depending on that order for incremental angular displacement.
+    avoids depending on that order for incremental angular displacement.
   Shortest nlerp: Normalized linear interpolation that first chooses the
     quaternion sign representing the shorter equivalent rotation arc.
 
@@ -27,6 +25,7 @@ Invariants:
     cosine/sine routine; its arithmetic can change byte-exact Physics baselines.
 
 Related:
+  - Agentic/Reference/engine-glossary.md
   - SkullbonezSource/Maths/Quaternion.cpp
   - SkullbonezSource/Maths/DeterministicMath.h
 */

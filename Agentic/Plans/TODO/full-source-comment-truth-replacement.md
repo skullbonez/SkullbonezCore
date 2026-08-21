@@ -211,7 +211,7 @@ After IH7 has committed its final source and comment work:
 - [x] **CT1 — Apply infrastructure, generated-data, shader, test, and tool
   replacements.** Land the non-engine batches, synchronize the generated shader
   reflection producer, and prove script/command semantics plus generated output.
-- [ ] **CT2 — Apply lower-layer engine replacements.** Re-audit and update
+- [x] **CT2 — Apply lower-layer engine replacements.** Re-audit and update
   Assets, Core, Maths, Physics, Scene, and World without replacing any later IH
   invariant, ownership, enforcement-lane, or hazard truth.
 - [ ] **CT3 — Apply Rendering and DX12 replacements.** Preserve feature-neutral
@@ -290,7 +290,7 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 ### `SkullbonezSource`
 
 - [x] `SkullbonezSource/Assets/AssetKeys.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Assets/AssetSystem.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Assets/AssetSystem.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Assets/AssetSystem.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Assets/TextureCollection.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Assets/TextureCollection.h` -- inspected; no replacement required
@@ -298,16 +298,16 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 - [x] `SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Core/Allocation/DevelopmentToolsCapability.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Core/AmortizedTask.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Core/AmortizedTask.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Core/AtomicTextFileWriter.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Core/AtomicTextFileWriter.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Core/ByteView.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Core/Common.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Core/Config.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Core/Config.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Core/Config.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Core/FatalError.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Core/FatalError.h` -- inspected; no replacement required
@@ -322,7 +322,7 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 - [x] `SkullbonezSource/Core/PlatformProfiler.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Core/PlatformProfiler.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Core/PlatformWin32.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Core/Profiler.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Core/Profiler.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Core/Profiler.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Core/SbDiagnosticStore.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Core/SbResult.cpp` -- inspected; no replacement required
@@ -350,19 +350,19 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 - [x] `SkullbonezSource/Maths/GeometricMath.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Maths/GeometricStructures.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Maths/MathsCommon.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Maths/Matrix4.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Maths/Matrix4.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Maths/Matrix4.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Maths/OrbitalMechanics.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Maths/OrbitalMechanics.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Maths/Quaternion.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Maths/Quaternion.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Maths/Quaternion.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Maths/RotationMatrix.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Maths/RotationMatrix.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Maths/Vector3.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Physics/BoundingBox.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/Physics/BoundingBox.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Physics/BoundingBox.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Physics/BoundingBox.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Physics/BoundingSphere.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Physics/BoundingSphere.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Physics/BoundingSphere.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Physics/BuoyancySystem.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Physics/BuoyancySystem.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Physics/ColliderStore.cpp` -- inspected; no replacement required
@@ -377,7 +377,7 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 - [x] `SkullbonezSource/Physics/DisjointSet.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Physics/ObjectContactManifold.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Physics/ObjectContactManifold.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Physics/PersistentContactSolver.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Physics/PersistentContactSolver.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Physics/PersistentContactSolver.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Physics/PhysicsApi.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Physics/PhysicsBodyStore.cpp` -- inspected; no replacement required
@@ -389,7 +389,7 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 - [x] `SkullbonezSource/Physics/PhysicsDiagnosticsSink.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Physics/PhysicsDiagnosticsView.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Physics/PhysicsEngine.ReplayPredictionCloneScope.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Physics/PhysicsEngine.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Physics/PhysicsEngine.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Physics/PhysicsEngine.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Physics/PhysicsFixedList.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Physics/PhysicsHandles.h` -- inspected; no replacement required
@@ -398,8 +398,8 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 - [x] `SkullbonezSource/Physics/PhysicsObjectPolicy.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Physics/PhysicsPoseIntegration.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Physics/PhysicsPoseIntegration.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Physics/PhysicsRuntimeSettings.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/Physics/PhysicsSceneVectorReserve.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Physics/PhysicsRuntimeSettings.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Physics/PhysicsSceneVectorReserve.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Physics/PhysicsSolverSnapshot.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Physics/PhysicsStageCapacity.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Physics/PhysicsTerrainView.cpp` -- inspected; no replacement required
@@ -414,7 +414,7 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 - [x] `SkullbonezSource/Physics/SleepIslandSystem.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Physics/SolverBroadphaseStage.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Physics/SpatialGrid.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Physics/SpatialGrid.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Physics/SpatialGrid.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Physics/Stages/ExternalForceStage.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Physics/Stages/ExternalForceStage.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.cpp` -- inspected; no replacement required
@@ -429,14 +429,14 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 - [x] `SkullbonezSource/Physics/Stages/PhysicsSleepController.State.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Physics/Stages/PhysicsSleepController.Wake.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Physics/Stages/PhysicsSleepController.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Physics/Stages/PhysicsSleepController.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Physics/Stages/PhysicsSleepController.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Physics/Stages/PhysicsStepDiagnostics.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Physics/Stages/PhysicsStepDiagnostics.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Physics/Stages/PhysicsTerrainStage.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Physics/Stages/PhysicsTerrainStage.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Physics/Stages/PhysicsTerrainStage.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Physics/TerrainContactManifold.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Physics/TerrainContactManifold.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Physics/TerrainContactManifold.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Physics/TerrainSupportClassifier.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Physics/TerrainSupportClassifier.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Rendering/ContactManifoldPresentation.h` -- inspected; no replacement required
 - [ ] `SkullbonezSource/Rendering/DX12/BLASDX12.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Rendering/DX12/BLASDX12.h` -- inspected; no replacement required
@@ -821,7 +821,7 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 - [x] `SkullbonezSource/Scene/OrbitalStabilityContract.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Scene/SceneSnapshotWriter.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Scene/SceneSnapshotWriter.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Scene/StandaloneStyleWriter.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Scene/StandaloneStyleWriter.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Scene/StandaloneStyleWriter.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/UI/OperatorEditorExchange.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/UI/OperatorEditorExchange.h` -- inspected; no replacement required
@@ -898,7 +898,7 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 - [x] `SkullbonezSource/World/SkyBox.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/World/Terrain.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/World/Terrain.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/World/WorldEnvironment.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/World/WorldEnvironment.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/World/WorldEnvironment.h` -- inspected; no replacement required
 
 ### `SkullbonezTests`

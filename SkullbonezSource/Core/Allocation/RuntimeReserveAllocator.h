@@ -17,11 +17,10 @@ Summary:
   ImGui and Tracy owners without changing the gameplay phase.
 
 Glossary:
-  Reserve owner: A runtime subsystem buffer with a named capacity contract.
+
   Owner scope: A cheap thread-local label used by the global allocation hook to
     attribute generic C++ heap traffic to the owner currently doing work.
-  Replay growth: A rare capacity increase requested during replay and bounded
-    by its registered hard capacity.
+
   Development tool permission: Compile-time-only owner metadata that lets one
     calling thread allocate for ImGui or Tracy up to a hard active-byte cap.
 

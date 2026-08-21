@@ -884,10 +884,10 @@ SbResult ReadConfigFormatVersion( SbDiagnosticStore& diagnostics, const char* pa
 }
 } // anonymous namespace
 
-/* ---------------------------------------------------------------------------------*/
+
 SbResult EngineConfig::Load( SbDiagnosticStore& diagnostics, const char* path )
 {
-    // engine.cfg is an optional developer/runtime defaults file. Unknown or
+    // Concept: engine.cfg is an optional developer/runtime defaults file. Unknown or
     // malformed lines are skipped with a warning so older configs do not block
     // startup after a setting is removed.
     unsigned int formatVersion = 0;
@@ -973,7 +973,6 @@ SbResult EngineConfig::Load( SbDiagnosticStore& diagnostics, const char* path )
 }
 
 
-/* ---------------------------------------------------------------------------------*/
 void EngineConfig::Dump( FILE* out ) const
 {
     if ( !out )

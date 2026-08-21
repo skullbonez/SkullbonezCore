@@ -253,7 +253,7 @@ Json BuildDocument( const StandaloneStyleSnapshot& snapshot )
     Json root;
 
     // Invariant: insertion order is serialized order for ordered_json. Keep
-    // this root/cinematic/material sequence aligned with the LL0 contract and
+    // this root/cinematic/material sequence aligned with the version-1 format and
     // the pinned byte fingerprint in TestLookLabSerialization.cpp.
     root["format"] = "skullbonez.style.json";
     root["version"] = 1;

@@ -16,7 +16,6 @@ Glossary:
     or render instances.
   Pending impulse: One-shot velocity edit queued on a body record and consumed
     by the next solver step.
-  Determinism: Same inputs produce byte-exact validation artifacts.
 
 Invariants:
   - Store refresh order must preserve deterministic model-view order.

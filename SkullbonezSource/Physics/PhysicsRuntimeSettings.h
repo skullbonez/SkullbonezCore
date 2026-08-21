@@ -9,8 +9,6 @@ Summary:
   into Core configuration types during a fixed tick.
 
 Glossary:
-  Runtime settings snapshot: Physics-owned copy of every process-configured
-    scalar or switch that can affect deterministic simulation.
   Stamp boundary: Cold ApplyRuntimeConfig operation that replaces the snapshot
     before authored values or fixed-step work consume it.
 
@@ -23,6 +21,7 @@ Invariants:
     pointers into caller-owned process configuration.
 
 Related:
+  - Agentic/Reference/engine-glossary.md
   - SkullbonezSource/Physics/PhysicsEngine.cpp
 */
 #pragma once

@@ -10,8 +10,6 @@ Summary:
   global allocation hook records which phase owned each heap request.
 
 Glossary:
-  Allocation guard: CLI-enabled measurement mode that counts heap requests by
-    runtime phase and warns when steady gameplay allocates.
   Phase scope: RAII marker that labels allocations on the calling thread until
     the scope restores that thread's previous phase.
   Steady gameplay: Frame work after startup, backend init, and scene load where
@@ -25,6 +23,7 @@ Invariants:
     never relabel allocations made concurrently on another thread.
 
 Related:
+  - Agentic/Reference/engine-glossary.md
   - AGENTS.md (Runtime Static Allocation Policy)
   - tools/check_allocation_policy.py
 */
