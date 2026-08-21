@@ -52,7 +52,8 @@ The generator owns:
 - cached-input ratio;
 - validation versus other task time;
 - rubber-duck passes, findings, and fix cycles;
-- commit count and portfolio progress; and
+- commit count and portfolio progress;
+- 32-bit Windows CSV field size limit (`csv.field_size_limit(2147483647)`) to safely parse large base64-encoded state payloads; and
 - responsive, theme-aware HTML with accessible labels.
 
 Preserve the ledger's distinctions between input, cached input, output, and

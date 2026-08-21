@@ -96,3 +96,10 @@ type.
 - The same `PROFILE_SCOPED` and balanced `PROFILE_BEGIN`/`PROFILE_END` calls
   detect worker threads internally. Never pass a profiler just to select the
   worker recording path.
+
+## UI And Inspection Lifecycle Invariants
+
+- When implementing modal, drawer, or overlay inspection lifecycles with "outside click to exit/return" behavior:
+  - An outside exit click must explicitly verify that pointer interaction is not claimed by any child control, drawer tab, search/filter text field, filter chip, resize grip, or active drag gesture (`!causeInteractionActive`).
+  - Never treat a click with `requestedRow < 0` (or unselected entity) as an automatic exit click without confirming the click lies outside the compound window boundary.
+  - Text input fields must cleanly capture keyboard focus while open and release focus upon `Enter` (`VK_RETURN`), `Escape` (`VK_ESCAPE`), or outside clicks.
