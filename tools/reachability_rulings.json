@@ -726,7 +726,7 @@
       "signature": "SkullbonezCore::Core::SbResult AuthoredScene::TryLoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path, AuthoredScene& outScene )",
       "owner": "AuthoredScene transactional parser",
       "disposition": "retain-owner",
-      "reason": "It is the registry-free Lane-R seam that only publishes a complete parsed scene.",
+      "reason": "It is the registry-free Recoverable-result seam that only publishes a complete parsed scene.",
       "evidence": "Scene parser unit tests call it with fixtures and verify failed parsing does not publish partial state. 2026-07-30 final synchronized Debug/Profile census: classification=test-only; mapping=exact; own_tu_calls=0; test_calls=1; ambiguous_production_calls=0; required_arity=3/3; symbols=?TryLoadFromFile@AuthoredScene@Runtime@SkullbonezCore@@SA?AVSbResult@Core@3@AEAVSbDiagnosticStore@53@PEBDAEAV123@@Z",
       "plan": ""
     },
@@ -735,7 +735,7 @@
       "signature": "SkullbonezCore::Core::SbResult AuthoredScene::TryLoadStyleFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path, AuthoredScene& outScene )",
       "owner": "AuthoredScene transactional style parser",
       "disposition": "retain-owner",
-      "reason": "It is the registry-free Lane-R seam that only publishes a complete parsed style scene.",
+      "reason": "It is the registry-free Recoverable-result seam that only publishes a complete parsed style scene.",
       "evidence": "Scene parser unit tests call it with fixtures and verify failure remains non-publishing. 2026-07-30 final synchronized Debug/Profile census: classification=test-only; mapping=exact; own_tu_calls=0; test_calls=1; ambiguous_production_calls=0; required_arity=3/3; symbols=?TryLoadStyleFromFile@AuthoredScene@Runtime@SkullbonezCore@@SA?AVSbResult@Core@3@AEAVSbDiagnosticStore@53@PEBDAEAV123@@Z",
       "plan": ""
     },
@@ -771,7 +771,7 @@
       "signature": "SkullbonezCore::Core::SbResult Terrain::TryCreatePhysicsFromHeightMap( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* fileName, int mapSize, int stepSize, int textureWrap, const SkullbonezCore::Core::EngineConfig& config, std::unique_ptr<Terrain>& outTerrain )",
       "owner": "Terrain authoritative height-map physics construction",
       "disposition": "retain-owner",
-      "reason": "It is the CPU/render-free Lane-R seam that owns validated terrain creation.",
+      "reason": "It is the CPU/render-free Recoverable-result seam that owns validated terrain creation.",
       "evidence": "TestTerrain.cpp and runtime-contract fatal probes use it to exercise authoritative terrain loading without a render device. 2026-07-30 final synchronized Debug/Profile census: classification=test-only; mapping=exact; own_tu_calls=0; test_calls=1; ambiguous_production_calls=0; required_arity=7/7; symbols=?TryCreatePhysicsFromHeightMap@Terrain@Geometry@SkullbonezCore@@SA?AVSbResult@Core@3@AEAVSbDiagnosticStore@53@PEBDHHHAEBVEngineConfig@53@AEAV?$unique_ptr@VTerrain@Geometry@SkullbonezCore@@U?$default_delete@VTerrain@Geometry@SkullbonezCore@@@std@@@std@@@Z",
       "plan": ""
     },

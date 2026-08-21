@@ -782,7 +782,7 @@ bool PhysicsEngine::UpdateAuthoredBodyAndCollider( const PhysicsBodyUpdateDesc& 
                                                  colliderDesc.shape, MakeColliderAuthoringRecordFromDesc( colliderDesc ),
                                                  colliderDesc.hullIdentity ) )
     {
-        // Lane F: preflighted fixed-capacity rows disappearing during one
+        // Fatal invariant: preflighted fixed-capacity rows disappearing during one
         // synchronous owner command is internal handle-map corruption.
         SB_FATAL( "Physics/PhysicsEngine", "Coordinated body/collider update lost a preflighted row." );
     }

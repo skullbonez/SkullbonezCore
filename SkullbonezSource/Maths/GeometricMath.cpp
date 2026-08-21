@@ -72,7 +72,7 @@ Plane GeometricMath::ComputePlane( const Triangle& triangle )
 //   t = -( dot( n, origin ) - d ) / dot( n, direction )
 float GeometricMath::CalculateIntersectionTime( const Plane& plane, const Ray& ray )
 {
-    // Why: malformed query geometry is caller-reachable input, not lane F.
+    // Why: malformed query geometry is caller-reachable input, not fatal invariant.
     // Debug diagnoses misuse; Release falls through to the ordinary parallel
     // denominator path and reports NO_COLLISION.
     assert( plane.m_normal != ZERO_VECTOR && "CalculateIntersectionTime requires a non-zero plane normal" );

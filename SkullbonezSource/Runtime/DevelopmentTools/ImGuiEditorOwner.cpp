@@ -328,7 +328,7 @@ SkullbonezCore::Core::SbResult ImGuiEditorOwner::Start( HWND window, Rendering::
 
     if ( !m_context )
     {
-        // Lane F: a development editor context that cannot establish its sole
+        // Fatal invariant: a development editor context that cannot establish its sole
         // owner cannot safely continue into frame calls.
         SB_FATAL( "DevelopmentTools/ImGui", "Dear ImGui context creation failed." );
     }
@@ -762,7 +762,7 @@ bool ImGuiEditorOwner::BeginFrame( const ImGuiEditorFrameInput& input )
 
     if ( m_frameActive )
     {
-        // Lane F: nested frames corrupt ImGui retained stacks and settings.
+        // Fatal invariant: nested frames corrupt ImGui retained stacks and settings.
         SB_FATAL( "DevelopmentTools/ImGui", "BeginFrame called while an editor frame is already active." );
     }
 

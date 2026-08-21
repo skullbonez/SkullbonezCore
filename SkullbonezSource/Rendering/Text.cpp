@@ -579,7 +579,7 @@ SkullbonezCore::Core::SbResult Text2d::BuildFont( SkullbonezCore::Core::SbDiagno
     // Compile the batched per-vertex-RGBA quad shader (used by FlushQuads — one draw for all quads)
     Text2d::pSolidBatchShader = assets.CreateShader( renderResources, "shader.solid_color_batch" );
 
-    // Lane R: text is required UI, not an optional effect. Returning success
+    // Recoverable error: text is required UI, not an optional effect. Returning success
     // with a missing shader makes every glyph draw quietly disappear while
     // panels still render, so startup must reject any incomplete resource set.
     if ( !Text2d::fontTexture || !Text2d::textBatchVB || !Text2d::dynamicVB || !Text2d::quadBatchVB ||

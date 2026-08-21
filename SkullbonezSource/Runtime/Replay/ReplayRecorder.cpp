@@ -154,7 +154,7 @@ template <typename T> uint64_t ReplayRecorderVectorBytes( std::size_t capacity )
 
     if ( capacity > maxCapacity )
     {
-        // Lane F: a capacity arithmetic overflow means the replay retention
+        // Fatal invariant: a capacity arithmetic overflow means the replay retention
         // contract can no longer bound its sample storage.
         SB_FATAL( "Runtime/Replay", "Replay sample reserve byte overflow. capacity=%llu element_bytes=%llu",
                   static_cast<unsigned long long>( capacity ), static_cast<unsigned long long>( elementBytes ) );
@@ -165,7 +165,7 @@ template <typename T> uint64_t ReplayRecorderVectorBytes( std::size_t capacity )
 
 void ReportReplayRecorderReserveFailure( const char* targetName, std::size_t requestedCapacity, uint64_t requestedBytes )
 {
-    // Lane F: if a retained sample cannot fit inside the replay reserve budget,
+    // Fatal invariant: if a retained sample cannot fit inside the replay reserve budget,
     // continuing would make scrub/restore state partial and nondeterministic.
     SB_FATAL( "Runtime/Replay",
               "Replay recorder reserve denied. target=%s requested_capacity=%llu requested_bytes=%llu hard_bytes=%d",
@@ -1967,7 +1967,7 @@ void ReplayRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_t even
 
     if ( physicsDt <= 0.0f )
     {
-        // Lane F: recorder time is derived from its monotonic frame index.
+        // Fatal invariant: recorder time is derived from its monotonic frame index.
         // A non-positive fixed step would make artifact time ambiguous.
         SB_FATAL( "Runtime/ReplayRecorder", "Capture requires a positive physics step" );
     }
@@ -2702,7 +2702,7 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_
 
     if ( physicsDt <= 0.0f )
     {
-        // Lane F: solver hashes and presentation hashes share recorder-local
+        // Fatal invariant: solver hashes and presentation hashes share recorder-local
         // time, so every capture must advance by one positive fixed step.
         SB_FATAL( "Runtime/ReplaySolverRecorder", "Capture requires a positive physics step" );
     }

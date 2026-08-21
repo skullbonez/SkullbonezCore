@@ -95,7 +95,7 @@ void Dx12ShaderDevelopment::RegisterShader( ShaderDX12* shader )
 
     if ( m_liveShaderCount >= m_liveShaders.size() )
     {
-        // Lane F: the registry is a fixed backend-lifetime contract. Growing it
+        // Fatal invariant: the registry is a fixed backend-lifetime contract. Growing it
         // during resource creation would violate the runtime allocation policy.
         SB_FATAL( "Dx12ShaderDevelopment", "Live raster shader registry exhausted. capacity=%zu", m_liveShaders.size() );
     }
@@ -169,7 +169,7 @@ SkullbonezCore::Core::SbResult Dx12ShaderDevelopment::BakeSourceGeneration() con
 
     if ( !exited || exitCode != 0 )
     {
-        // Lane R: the external bake can fail without changing the live generation.
+        // Recoverable error: the external bake can fail without changing the live generation.
         return m_resultDiagnostics.Failure( "Rendering/DX12", "Shader bake failed (wait=%lu exit=%lu)", waitResult,
                                             exitCode );
     }
@@ -201,7 +201,7 @@ SkullbonezCore::Core::SbResult Dx12ShaderDevelopment::ReloadBakedGeneration( ID3
         {
             generateMipsCandidate->Release();
 
-            // Lane R: a changed shader interface needs a rebuilt executable;
+            // Recoverable error: a changed shader interface needs a rebuilt executable;
             // every live shader and PSO still names the previous generation.
             return m_resultDiagnostics.Failure( "Rendering/DX12",
                                                 "Shader hot reload rejected changed or invalid bytecode contract" );

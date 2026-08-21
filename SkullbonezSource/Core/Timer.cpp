@@ -9,7 +9,7 @@ Summary:
   time queries.
 
 Invariants:
-  - Timer startup returns a Lane R result when high-resolution counters are
+  - Timer startup returns a recoverable result when high-resolution counters are
     unavailable because frame pacing and profiling depend on sub-frame timing.
   - Elapsed intervals use the last StartTimer/StopTimer pair; total time remains
     relative to successful startup.

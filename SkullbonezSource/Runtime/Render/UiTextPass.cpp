@@ -596,7 +596,7 @@ SkullbonezCore::Core::MainMemoryStats
 UiTextPass::ProjectMemoryTabStats( DiagnosticsRuntime& diagnosticsRuntime, const ReplayHudStatus& replayHud,
                                    const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects, double nowSeconds )
 {
-    // Lane R: the Memory tab may be opened before Replay has published its
+    // Recoverable error: the Memory tab may be opened before Replay has published its
     // first accounting snapshot. The inline policy does not invoke this sampler
     // until the source is valid, so stale diagnostics cannot masquerade as the
     // current scene.

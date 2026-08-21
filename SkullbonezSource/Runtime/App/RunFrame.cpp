@@ -961,7 +961,7 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
 
     if ( !result.captureResult.Ok() )
     {
-        // Lane R: capture readback/file IO failed after rendering, so terminate
+        // Recoverable error: capture readback/file IO failed after rendering, so terminate
         // automation with diagnostics instead of marking the scene complete.
         fprintf( stderr, "%s: %s\n", result.captureResult.ErrorOwner(), result.captureResult.ErrorMessage() );
         fflush( stderr );
@@ -1075,7 +1075,7 @@ void Run::TickAutoCycle( const SceneFrameProceedPolicy& proceedPolicy )
 
     if ( !result.captureResult.Ok() )
     {
-        // Lane R: auto-cycle captures are validation side effects; failed file
+        // Recoverable error: auto-cycle captures are validation side effects; failed file
         // output exits the run rather than recording a false capture success.
         fprintf( stderr, "%s: %s\n", result.captureResult.ErrorOwner(), result.captureResult.ErrorMessage() );
         fflush( stderr );

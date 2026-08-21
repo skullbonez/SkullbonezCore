@@ -102,7 +102,7 @@ class Window
     } // True when CreateAppWindow selected fullscreen mode.
     HDC AcquireDeviceContext();                                                    // Caches GetDC() for startup render initialization.
     void ReleaseDeviceContext();                                                   // Releases the cached HDC before native window teardown.
-    SkullbonezCore::Core::SbResult HandleScreenResize();                           // Resizes the renderer/projection or reports a Lane R resize
+    SkullbonezCore::Core::SbResult HandleScreenResize();                           // Resizes the renderer/projection or reports a recoverable error resize
 
     // failure.
     void SetTitleText( const char* text );                                         // Updates the native title bar without touching renderer text.
@@ -124,7 +124,7 @@ class Window
     void SetWindowDimensions( int width, int height );                             // Caches dimensions from explicit client width/height.
     SkullbonezCore::Core::SbResult
     CreateAppWindow( HINSTANCE instance, bool isFullScreenMode,
-                     bool showOnCreate = true );                                   // Creates the native window or reports Lane R startup failure.
+                     bool showOnCreate = true );                                   // Creates the native window or report recoverable error startup failure.
     void ChangeToFullScreen( int xResolution, int yResolution );                   // Applies fullscreen display mode dimensions.
     int MsgBox( const char* text, const char* title,
                 const UINT type );                                                 // Native modal message box for startup/validation failures.

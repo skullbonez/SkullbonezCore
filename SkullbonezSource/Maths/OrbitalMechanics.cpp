@@ -7,7 +7,7 @@ Summary:
   Classical two-body formulas provide element conversion and Kepler
   propagation. A universal-variable Lambert solve supplies a bounded
   single-revolution seed for higher-level planners while keeping every
-  caller-reachable numeric failure in recoverable status lane R.
+  caller-reachable numeric failure in recoverable status result.
 
 Glossary:
   Perifocal frame: Orbit-local XY plane whose +X axis points to periapsis.

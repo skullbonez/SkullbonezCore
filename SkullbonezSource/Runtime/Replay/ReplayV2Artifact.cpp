@@ -1547,7 +1547,7 @@ bool ReadTornadoSystemConfig( ByteCursor& cursor, SkullbonezCore::Gameplay::Torn
         return false;
     }
 
-    // Lane R: artifact input must fail before restore reaches Gameplay's fatal
+    // Recoverable error: artifact input must fail before restore reaches Gameplay's fatal
     // fixed-capacity invariant; replay files never receive a truncation path.
     if ( count > SkullbonezCore::Gameplay::MAX_TORNADO_ACTIVE_FORCE_FIELDS )
     {

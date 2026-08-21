@@ -89,7 +89,7 @@ bool MeshDX12::Create( ID3D12Device* device, ID3D12GraphicsCommandList* cmdList,
 
     if ( FAILED( hr ) )
     {
-        // Lane R: mesh buffers are backend resources. Factory callers receive
+        // Recoverable error: mesh buffers are backend resources. Factory callers receive
         // a null mesh and skip the dependent draw path while the DX12 gate keeps
         // the HRESULT visible.
         SkullbonezCore::Core::Log()

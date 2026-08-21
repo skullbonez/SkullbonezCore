@@ -299,7 +299,7 @@ void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, Replay
 
         if ( !outSurface.TryAdd( control ) )
         {
-            // Lane F: a duplicate id or undersized compile-time table makes UI
+            // Fatal invariant: a duplicate id or undersized compile-time table makes UI
             // z-order and dispatch ambiguous, so the frame cannot safely continue.
             SB_FATAL( "ReplayScrubberSurface", "Cannot publish replay scrubber control id=%u.", control.id.value );
         }

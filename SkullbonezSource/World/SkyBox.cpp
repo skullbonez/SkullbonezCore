@@ -15,7 +15,7 @@ Invariants:
   - All six face draws share one pass-local opaque raster bucket, precompiled
     against the active target before the first face submission.
   - Reset requires texture, config, asset, and resource-builder borrows; release
-    clears all four so stale backend-epoch use reaches Lane F before dereference.
+    clears all four so stale backend-epoch use reaches fatal invariant before dereference.
 
 Related:
   - SkullbonezSource/World/SkyBox.h

@@ -18,7 +18,7 @@ Invariants:
     index, matching Terrain's world-X-major post construction.
   - The diagonal comparison and plane-height expression are byte-order
     sensitive and must not be algebraically rearranged.
-  - Out-of-bounds sampling is a lane-F caller invariant failure.
+  - Out-of-bounds sampling is a fatal-invariant caller invariant failure.
 
 Related:
   - SkullbonezSource/Physics/PhysicsTerrainView.h

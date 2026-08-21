@@ -955,7 +955,7 @@ void SkyPass::Render( const RenderCameraLighting& camera, const Math::Transforma
         return;
     }
 
-    // Lane F: only the authored cube-map path borrows the world SkyBox. Guard
+    // Fatal invariant: only the authored cube-map path borrows the world SkyBox. Guard
     // that borrow before matrix work or texture-owner commands; the independent
     // cinematic path above remains valid without a SkyBox.
     SkullbonezCore::Geometry::SkyBox& skyBox = RequireWorldView( "Render" );

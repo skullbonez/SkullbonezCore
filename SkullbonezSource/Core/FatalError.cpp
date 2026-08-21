@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/Core/FatalError.cpp
 Purpose:
-  Implements the Lane F fatal-invariant termination path.
+  Implements the fatal-invariant termination path.
 
 Summary:
   Fatal invariants are not recoverable input failures. The useful behavior is

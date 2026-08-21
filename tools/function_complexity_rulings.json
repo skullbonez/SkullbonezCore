@@ -35,12 +35,15 @@
     {
       "file": "SkullbonezSource/Runtime/App/InputFrameExecution.cpp",
       "signature": "Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput )",
-      "body_sha256": "99fcb43199941e887b40a509e023296b1e8bd930ddf3921d3fd036209bd2c8aa",
+      "body_sha256": "6ad2a7767f0a993ce261d54804fb76c0356fb4c1fa3f91b4adaa057f37183e17",
       "owner": "Runtime input frame phase",
       "disposition": "retain-owner",
       "reason": "One ordered input turn runs from automation sampling through device routing, typed command production, scene-scoped owner retirement, and terminal restore publication; the continuous-forecast automation command is submitted at the same typed-command checkpoint as the visible operator request. Every participant is a synchronous Run-owned borrow, and splitting the phase would move frame ordering into one-call helpers without creating an independently testable owner.",
       "evidence": "git history: look-lab-random-style-authoring-ll5-breadth-reuse-idle (2026-08-01); C1 causal-row transport owner review (2026-08-17); PREDICT_SOLVER_DETAIL PSD1 typed replay play/pause routing (2026-08-18); ORBIT_FORECAST OF4 scene-transition join review and OF5 typed automation-command review (2026-08-19)",
-      "plan": ""
+      "plan": "",
+      "body_lines": 1130,
+      "max_brace_depth": 7,
+      "closure_count": 12
     },
     {
       "file": "SkullbonezSource/UI/UIWindowInteractionOwner.cpp",
@@ -65,12 +68,15 @@
     {
       "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",
       "signature": "template <typename InspectGizmoInteractionActive> InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools, const InteractionAutomationController& automation, const ReplayAutomationView& replay, RuntimeInteractionController& interaction, const InputRouter& inputRouter, CameraControlState& camera, const SceneWorld& world, SkullbonezCore::UI::InGameUI& ui, const InteractionAutomationDevelopmentUiView& developmentUi, const ContinuousOrbitalForecastView& forecast, const Rendering::RenderSceneSnapshot& renderSnapshot, const RunInteractionAutomationAction& action, InspectGizmoInteractionActive inspectGizmoInteractionActive )",
-      "body_sha256": "3bbf2ff763a2a1542a063616bba31599c4919395490be645c24f7c9257eb2114",
+      "body_sha256": "2e6ba130da50acdb5ba5c764b9bb0f8f9081761cc3abd769e452c984e102eb12",
       "owner": "Interaction automation assertion phase",
       "disposition": "retain-owner",
       "reason": "One exhaustive assertion phase reads one selected action against detached snapshots and synchronous runtime owners, then emits one evaluation; the continuous-forecast cases inspect only the copied post-render view alongside the existing closed assertion schema. Category extraction would preserve one flat dispatcher and relay the same evaluation authority without creating an independent algorithm or lifetime.",
       "evidence": "PREDICT_SOLVER_DETAIL PSD7 combined-workflow assertion review; ORBIT_FORECAST OF5 rolling-window evidence review (2026-08-19)",
-      "plan": ""
+      "plan": "",
+      "body_lines": 853,
+      "max_brace_depth": 7,
+      "closure_count": 2
     },
     {
       "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",
@@ -85,22 +91,28 @@
     {
       "file": "SkullbonezSource/Runtime/Scene/SceneController.Load.cpp",
       "signature": "SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& request, SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions, const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender, const RunStartupState& startup, Assets::AssetSystem& assets, Threading::WorkerPool& workerPool, DiagnosticsRuntime& diagnosticsRuntime, Rendering::Dx12FrameOwner* renderFrame, Rendering::Dx12ResourceBuilder* renderResources, RuntimeRenderer& renderer, SceneLoadTransaction& transaction )",
-      "body_sha256": "607c892dabe2afdf05a6b1f2ed1e1f7ca9c18872366762535b4e894d3e18abe4",
+      "body_sha256": "8bb0852660e4169201426573a3744f917c3f24c9d2f221adcb9fb71bb289d35d",
       "owner": "SceneController load transaction",
       "disposition": "retain-owner",
       "reason": "One scene-load transaction sequences authored decode, owner construction, render publication, diagnostics, and commit or rollback; the explicit transaction owns the phase invariant and every service borrow expires at return.",
       "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
-      "plan": ""
+      "plan": "",
+      "body_lines": 689,
+      "max_brace_depth": 4,
+      "closure_count": 2
     },
     {
       "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.cpp",
       "signature": "SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( InteractionAutomationRunStatus& status, const char* scriptPath, const SceneWorld& world, const SceneSessionState& scene, const char* scenePath, const RuntimeTools& runtimeTools, const ReplayAutomationView& replay, const RuntimeInteractionController& interaction, const CameraControlState& camera, const UI::InGameUI& ui, const Rendering::RenderSceneSnapshot& renderSnapshot )",
-      "body_sha256": "25ff91d96c3fb0196ae8f0bae9c1233f512dbb650853c6bff6c2c8a2b4a869fd",
+      "body_sha256": "1b099f7fac484c5cddd24fe9957fb5f04556a8a65b8037ba36294be8880378ce",
       "owner": "InteractionAutomationReportWriter report transaction",
       "disposition": "retain-owner",
       "reason": "One writer projects the bounded automation result schema from synchronized runtime snapshots and emits one durable report; PSD7 evidence/reconciliation fields and OF6 private-simulation component hashes plus separate source-clock metadata join the same field-order, single-write, and failure-cleanup invariant.",
       "evidence": "PREDICT_SOLVER_DETAIL PSD7 and ORBIT_FORECAST OF6 report-schema reviews (2026-08-19)",
-      "plan": ""
+      "plan": "",
+      "body_lines": 871,
+      "max_brace_depth": 5,
+      "closure_count": 5
     },
     {
       "file": "SkullbonezSource/UI/UI.cpp",
@@ -115,12 +127,15 @@
     {
       "file": "SkullbonezSource/Runtime/App/InputFrame.cpp",
       "signature": "RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, bool keyboardToggleEditorMode, const RuntimeInputFrameFacts& facts )",
-      "body_sha256": "04dd8abddddd34394655d389f560d8f727719f6c2fd0135fd0eea882318ef275",
+      "body_sha256": "930b1b103ae4096ec190592a2534a15ea4911205f2292d443bf81287b985f9fe",
       "owner": "Runtime input-command application phase",
       "disposition": "retain-owner",
       "reason": "One post-routing phase applies the complete typed command set in frame order and returns the resulting UI frame value; all owner access is synchronous and ordering is the operation invariant. App resolves bounded-PREDICT/continuous-forecast mutual exclusion here because it composes the Replay and Planning owners, and both visible and automation-originated forecast commands enter that same queue. Extracting the added branch would split one atomic mode transition without moving authority.",
       "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); re-ruled for C1 causal-row transport (2026-08-17); ORBIT_FORECAST OF4 mutual-exclusion review and OF5 typed command review (2026-08-19)",
-      "plan": ""
+      "plan": "",
+      "body_lines": 683,
+      "max_brace_depth": 4,
+      "closure_count": 6
     },
     {
       "file": "SkullbonezSource/Physics/ConvexHullShape.cpp",
@@ -195,12 +210,15 @@
     {
       "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",
       "signature": "InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutomationController& state, Window& windowOwner, const SkullbonezCore::Core::EngineConfig& config, SceneController& scene, RunTimerState& timers, CameraControlState& camera, InputRouter& inputRouter, RuntimeInteractionController& interaction, RuntimeTools& runtimeTools, SkullbonezCore::UI::InGameUI& ui, const ReplayAutomationView& replayView, const Rendering::RenderSceneSnapshot& renderSnapshot )",
-      "body_sha256": "4d535274bd118c029cc27234efdac8bc0e7514221eb739a2ae6d4bc649ca1f03",
+      "body_sha256": "5f886549a9e831a957d3f12f03a5055872345de2c71194f1d1b62c11b9031a56",
       "owner": "Pre-input interaction automation tick",
       "disposition": "retain-owner",
       "reason": "One pre-input automation phase interprets the current scripted action across the exact runtime owners before device routing; the continuous-forecast action produces one typed command value for the normal input transaction and retains no Planning authority. Its branches are one frame-indexed state machine, so extraction would preserve caller-ordered action dispatch rather than create a separate owner.",
       "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); ORBIT_FORECAST OF5 typed automation-command review (2026-08-19)",
-      "plan": ""
+      "plan": "",
+      "body_lines": 465,
+      "max_brace_depth": 7,
+      "closure_count": 3
     },
     {
       "file": "SkullbonezSource/UI/UITabProfiler.cpp",
@@ -230,7 +248,10 @@
       "disposition": "retain-owner",
       "reason": "One profiler owner closes the current frame, aggregates all marker and timing lanes, advances histories, and publishes the next immutable view; those steps share one frame-boundary invariant. The worker lane is one more such lane, committed and averaged on the same cadence and under the worker mutex the core samples already hold; depth 6 is unchanged.",
       "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); re-ruled when per-marker worker time became its own lane",
-      "plan": ""
+      "plan": "",
+      "body_lines": 2,
+      "max_brace_depth": 1,
+      "closure_count": 0
     },
     {
       "file": "SkullbonezSource/Rendering/RenderGraph.cpp",
@@ -269,7 +290,7 @@
       "owner": "TornadoVisualPass frame render",
       "disposition": "retain-owner",
       "reason": "One gameplay visual pass projects the tornado frame view into its complete ordered render extension; all generated geometry and style decisions share the current frame lifetime.",
-      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); INVARIANT_HARDENING IH2 prepared-frame Lane F guard (2026-08-20)",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); INVARIANT_HARDENING IH2 prepared-frame fatal invariant guard (2026-08-20)",
       "plan": ""
     },
     {
@@ -295,12 +316,15 @@
     {
       "file": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp",
       "signature": "void RenderBackendDX12::Shutdown()",
-      "body_sha256": "62fbe22750c345668002f9989a1e340ae885b44499464cd61b2f3fa445ff6aef",
+      "body_sha256": "deae1c93d776b32ac3cfdf5f04a6aaa98913efc6e0ab57e2212d517e57267aee",
       "owner": "RenderBackendDX12 shutdown transaction",
       "disposition": "retain-owner",
       "reason": "One backend owner tears down GPU work, frame resources, diagnostics, and device objects in lifetime order; the nested guards encode optional-resource ownership and cannot be reordered independently.",
       "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
-      "plan": ""
+      "plan": "",
+      "body_lines": 229,
+      "max_brace_depth": 7,
+      "closure_count": 0
     },
     {
       "file": "SkullbonezSource/Runtime/Startup/StartupCommandLine.cpp",

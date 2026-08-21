@@ -21,7 +21,7 @@ Invariants:
   - Style polling is style-only; it must not reload scene physics or replace
     runtime-owned bodies.
   - Pending capture text is bounded and cleared after the controller consumes the save
-    request, whether the screenshot succeeds or reports a Lane R failure.
+    request, whether the screenshot succeeds or reports a recoverable failure.
 
 Related:
   - SkullbonezSource/Runtime/Direction/LiveStyleController.cpp

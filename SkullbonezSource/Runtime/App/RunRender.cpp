@@ -47,7 +47,7 @@ namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 void Run::Render( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha )
 {
-    // Lane F: RuntimeRenderer is a mandatory composition owner. Require it once
+    // Fatal invariant: RuntimeRenderer is a mandatory composition owner. Require it once
     // before any render-phase state is prepared; there is no recoverable frame
     // cancellation path for a missing process renderer.
     RuntimeRenderer& renderer = Renderer( "Render" );

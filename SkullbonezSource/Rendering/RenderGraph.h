@@ -446,7 +446,7 @@ struct RenderGraphTransientMaterializationStats
     size_t releasedAtFrameEnd = 0;
     size_t descriptorRowsOwned = 0;
 
-    // Lane R: backend materialization can fail because the device rejects an
+    // Recoverable error: backend materialization can fail because the device rejects an
     // allocation. Keep fixed diagnostics here so frame reports can describe the
     // skipped graph resource without allocating another string.
     bool failed = false;

@@ -3152,7 +3152,7 @@ InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
         std::ostringstream misses;
 
         // Why: the assertion's actual field carries the bounded sequence, not
-        // merely "true", so a passing lane-P report is also convergence evidence.
+        // merely "true", so a passing test-probe report is also convergence evidence.
         for ( std::size_t index = 0; index < replay.tripPlanner.iterationMissCount; ++index )
         {
             if ( index != 0 )
@@ -4216,7 +4216,7 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
         ClearInteractionAutomationInput( state );
 
         // Why: latch the automation-owned diagnostic before WM_QUIT. The
-        // report writer is another Lane R boundary, so it also cannot replace
+        // report writer is another recoverable boundary, so it also cannot replace
         // the earlier script failure if both operations fail.
         result.status = InteractionAutomationResult( state );
         const SkullbonezCore::Core::SbResult reportResult = state.reportWriter.Write( state.status, state.scriptPath,

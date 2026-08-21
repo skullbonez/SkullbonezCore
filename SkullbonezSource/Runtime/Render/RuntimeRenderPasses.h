@@ -23,7 +23,7 @@ Invariants:
   - Pass order is owned by RuntimeRenderer::RenderPreparedFrame.
   - Debug contact packets are synchronous Rendering values, not Replay or Planning state.
   - RuntimeRenderTargetPreviewSnapshot owns its fixed-catalog append boundary;
-    every producer reaches Lane F before an overflow can index storage.
+    every producer reaches fatal invariant before an overflow can index storage.
   - Sky and Profile UI passes close their lifecycle leases before backend
     resource teardown and reject access outside the active epoch.
 

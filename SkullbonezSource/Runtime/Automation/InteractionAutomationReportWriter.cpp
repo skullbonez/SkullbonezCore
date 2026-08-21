@@ -1341,7 +1341,7 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
             visualPackets.push_back( BuildReplayVisualArchiveSample( tick, canonicalTopologyVersion ) );
         }
 
-        // Lane R: the artifact is cold validation IO. Its failure belongs in
+        // Recoverable error: the artifact is cold validation IO. Its failure belongs in
         // the machine-readable automation result, never in runtime ownership.
         char archiveReason[192] = {};
 

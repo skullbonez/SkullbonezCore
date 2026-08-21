@@ -15,7 +15,7 @@ Glossary:
 Invariants:
   - File handles are opened lazily and owned by EngineLog until process exit or
     FlushAll teardown.
-  - Debug/test logging serializes map and FILE access so a worker-side Lane F
+  - Debug/test logging serializes map and FILE access so a worker-side fatal invariant
     diagnostic cannot race an ordinary main-thread write or flush.
   - Writef appends through retained buffered handles; WriteEventf flushes its
     event row immediately, and process teardown closes every retained handle.

@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/Core/SbResult.h
 Purpose:
-  Declares the compact Lane R recoverable-result lease.
+  Declares the compact recoverable-result lease.
 
 Summary:
   A successful result is a zero identity. A failed result leases immutable
@@ -85,6 +85,6 @@ class [[nodiscard]] SbResult
 };
 
 
-static_assert( sizeof( SbResult ) == 16, "SbResult must remain the compact two-word Lane R carrier" );
+static_assert( sizeof( SbResult ) == 16, "SbResult must remain the compact two-word recoverable result carrier" );
 } // namespace Core
 } // namespace SkullbonezCore

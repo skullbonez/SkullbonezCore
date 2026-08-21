@@ -336,7 +336,7 @@ struct InteractionAutomationController
     }
 
     // Lifetime: Run owns this store for the controller's complete process
-    // lifetime. Automation uses it only for Lane R publication and child-owner
+    // lifetime. Automation uses it only for recoverable error publication and child-owner
     // construction; it never replaces the App-owned diagnostic authority.
     SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics;
     bool enabled = false;

@@ -16,7 +16,7 @@ Glossary:
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
     are the validation contract.
-  - SpatialGrid capacity and index failures are Lane F invariants: callers
+  - SpatialGrid capacity and index failures are fatal invariants: callers
     cannot recover while preserving the frame's broadphase contract.
   - Persistent membership is a pure function of current integer ranges; only
     storage order carries history, and canonical pair emission removes it.
@@ -110,7 +110,7 @@ void ValidateBroadphaseBounds( int index, const Vector3& minBounds, const Vector
 
     if ( !insideExtent || !ordered || !convertible )
     {
-        // Lane F: non-finite, inverted, or unrepresentable physics bounds are
+        // Fatal invariant: non-finite, inverted, or unrepresentable physics bounds are
         // corrupt engine state. Continuing would either hide the body from
         // broadphase or invoke undefined float-to-int conversion behavior.
         SB_FATAL( "Physics/SpatialGrid",
@@ -183,7 +183,7 @@ void SpatialGrid::SetCellSize( float requestedCellSize )
 {
     if ( requestedCellSize < MIN_CELL_SIZE || !std::isfinite( requestedCellSize ) )
     {
-        // Lane F: an invalid cell size makes every subsequent float-to-cell
+        // Fatal invariant: an invalid cell size makes every subsequent float-to-cell
         // conversion unsafe; construction and runtime reconfiguration share
         // this owner boundary.
         SB_FATAL( "Physics/SpatialGrid", "SpatialGrid cell size invalid: value=%.9g minimum=%.9g.", requestedCellSize,
@@ -1459,7 +1459,7 @@ void SpatialGrid::GetFilteredCandidatePairsImpl( SkullbonezCore::Physics::Physic
 
                 if ( static_cast<size_t>( candidatePairNodeCount ) >= callerCapacity )
                 {
-                    // Lane F: growing or dropping the list would respectively
+                    // Fatal invariant: growing or dropping the list would respectively
                     // violate the runtime allocation policy or hide a collision.
                     SB_FATAL( "Physics/SpatialGrid",
                               "Canonical candidate list exhausted: owner=Physics/SpatialGrid "

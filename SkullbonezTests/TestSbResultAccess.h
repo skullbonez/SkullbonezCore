@@ -1,15 +1,15 @@
 /*
 File: SkullbonezTests/TestSbResultAccess.h
 Purpose:
-  Exposes only private diagnostic-store seams required by Lane F child probes.
+  Exposes only private diagnostic-store seams required by fatal child probes.
 
 Summary:
   Production callers cannot manipulate slot counters or the store lock directly.
-  The render-free test target uses this friend only for isolated Lane F probes
+  The render-free test target uses this friend only for isolated fatal invariant probes
   that prove stale release, overflow, and lock re-entry terminate.
 
 Glossary:
-  Fatal child: Isolated test process expected to terminate through Lane F.
+  Fatal child: Isolated test process expected to terminate through fatal invariant.
 
 Invariants:
   - This class is a friend only when SKULLBONEZ_RENDER_FREE_TESTS is defined.

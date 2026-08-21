@@ -246,7 +246,7 @@ const SourceAssetRecord& AssetSystem::RegisterSourceAsset( AssetKind kind, const
                                                            const char* relativePath )
 {
     // Invariant: registration is an engine-owned setup path. Authored asset
-    // file failures are Lane R elsewhere; a blank registry key means the caller
+    // file failures are recoverable error elsewhere; a blank registry key means the caller
     // violated the AssetSystem API contract.
     if ( !logicalName || logicalName[0] == '\0' )
     {

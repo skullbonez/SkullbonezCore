@@ -206,7 +206,7 @@ void Window::ChangeToFullScreen( int xResolution, int yResolution )
     {
         MsgBox( "Could Not Enumerate Display Settings", "Error", MB_OK );
 
-        // Lane R: this boundary has no Run-owned result carrier, so publish a
+        // Recoverable error: this boundary has no Run-owned result carrier, so publish a
         // nonzero platform code for ApplicationExitState to translate.
         PostQuitMessage( 1 );
     }
@@ -225,7 +225,7 @@ void Window::ChangeToFullScreen( int xResolution, int yResolution )
     {
         MsgBox( "Display Mode Not Compatible", "Error", MB_OK );
 
-        // Lane R: preserve failure at the process boundary even though Win32
+        // Recoverable error: preserve failure at the process boundary even though Win32
         // supplies only the display-change status here.
         PostQuitMessage( 1 );
     }
@@ -478,7 +478,7 @@ SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE instance, bool
 
     if ( !hWnd )
     {
-        // Lane R: native window creation can fail because of the host desktop
+        // Recoverable error: native window creation can fail because of the host desktop
         // environment, so startup reports the result instead of unwinding.
         return m_resultDiagnostics.Failure( "Runtime/Window", "Window creation failed." );
     }

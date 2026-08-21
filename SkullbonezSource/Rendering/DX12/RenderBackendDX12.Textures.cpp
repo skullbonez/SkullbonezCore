@@ -65,7 +65,7 @@ static inline SkullbonezCore::Core::SbResult Dx12TextureStartupResult( Skullbone
 {
     if ( FAILED( hr ) )
     {
-        // Lane R: generate-mips setup depends on baked shader assets and driver
+        // Recoverable error: generate-mips setup depends on baked shader assets and driver
         // resource creation. Startup reports that environment failure
         // through the render lifecycle result path.
         return diagnostics.Failure( "Rendering/DX12", "%s (HRESULT 0x%08X)", msg ? msg : "DX12 texture startup call failed",
@@ -625,7 +625,7 @@ uint32_t Dx12TextureOwner::CreateTexture2D( Dx12TextureCommands& commands, const
 
     if ( FAILED( textureResult ) || !texResource )
     {
-        // Lane R: texture residency can fail because of the active device or
+        // Recoverable error: texture residency can fail because of the active device or
         // memory budget. The renderer texture handle contract already uses 0
         // for "no usable texture", which TextureCollection reports to callers.
         SkullbonezCore::Core::Log().WriteEventf( "dx12_texture_create_failed width=%d height=%d mips=%u hresult=0x%08X", w,

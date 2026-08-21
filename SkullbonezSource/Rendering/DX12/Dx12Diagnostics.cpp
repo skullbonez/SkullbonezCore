@@ -252,7 +252,7 @@ SkullbonezCore::Core::SbResult Dx12Diagnostics::InitializeGpuTimers( ID3D12Devic
 
     if ( FAILED( device->CreateQueryHeap( &heapDesc, IID_PPV_ARGS( &m_gpuTimers.queryHeap ) ) ) )
     {
-        // Lane R: GPU timing is optional diagnostics. Renderer startup remains
+        // Recoverable error: GPU timing is optional diagnostics. Renderer startup remains
         // usable when the driver cannot expose a timestamp query heap.
         return SkullbonezCore::Core::SbResult::Success();
     }
@@ -272,7 +272,7 @@ SkullbonezCore::Core::SbResult Dx12Diagnostics::InitializeGpuTimers( ID3D12Devic
 
     if ( FAILED( frequencyResult ) )
     {
-        // Lane R: frequency is driver/device capability discovered at startup.
+        // Recoverable error: frequency is driver/device capability discovered at startup.
         ShutdownGpuTimers();
         return m_resultDiagnostics.Failure( "Dx12Diagnostics", "GetTimestampFrequency failed (HRESULT 0x%08X)",
                                             static_cast<unsigned int>( frequencyResult ) );

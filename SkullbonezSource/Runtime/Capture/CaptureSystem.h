@@ -76,7 +76,7 @@ struct RuntimeCaptureResult
     bool restartFrame = false;
     RuntimeCaptureCompletion completion = RuntimeCaptureCompletion::None;
     RuntimeCaptureAutomation automation = RuntimeCaptureAutomation::None;
-    SkullbonezCore::Core::SbResult captureResult; // Lane R result from screenshot readback/write side effects.
+    SkullbonezCore::Core::SbResult captureResult; // recoverable result from screenshot readback/write side effects.
 };
 
 class CaptureController;

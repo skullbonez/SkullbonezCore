@@ -28,7 +28,7 @@ Invariants:
     no scene, replay, renderer, input, or UI owner pointer crosses this seam.
   - Every queue is inline and bounded; submission cannot grow an STL container.
   - Legacy commands have deterministic first priority, exact secondary duplicates
-    coalesce, and conflicting duplicate payloads fail through Lane R.
+    coalesce, and conflicting duplicate payloads fail through recoverable result.
   - Projection produces at most one established owner request per action type.
 
 Related:

@@ -79,7 +79,7 @@ class Vector3
         float magSq = x * x + y * y + z * z;
 
         // Why: a zero direction is a caller-reachable numeric edge, not a
-        // lane-F engine invariant. TryNormalise reports it; the plain hot API
+        // fatal-invariant engine invariant. TryNormalise reports it; the plain hot API
         // keeps only a Debug misuse tripwire and Release IEEE propagation.
         assert( magSq != 0.0f && "Vector3::Normalise requires a non-zero vector" );
         const float oneOverMag = 1.0f / sqrtf( magSq );

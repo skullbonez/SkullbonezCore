@@ -573,7 +573,7 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CompleteSetup( ID3D12Device*
 
 void Dx12RaytracingOwner::AbortSetup( const SkullbonezCore::Core::SbResult& failure )
 {
-    // Lane R: optional raytracing setup may fail while raster rendering stays
+    // Recoverable error: optional raytracing setup may fail while raster rendering stays
     // available. Retain one bounded reason after releasing safely drained DXR
     // resources so diagnostics can explain the fallback.
     m_featureResult.Publish( failure );

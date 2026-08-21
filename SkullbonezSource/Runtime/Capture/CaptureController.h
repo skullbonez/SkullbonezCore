@@ -106,7 +106,7 @@ class CaptureController
                                         Rendering::Dx12BackbufferCapture& backend );
 
     // Accepts one bounded BMP path for the next input-frame capture checkpoint.
-    // Invalid or truncating paths return Lane R failure without entering the queue.
+    // Invalid or truncating paths return recoverable failure without entering the queue.
     SkullbonezCore::Core::SbResult QueueScreenshot( const char* path );
     CaptureRequestBatchResult DrainScreenshotRequests( Rendering::Dx12BackbufferCapture& backend );
     std::size_t PendingScreenshotCount() const;

@@ -99,7 +99,7 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::BindContext( ImGuiContext
 
     if ( !m_device.Device() || !m_device.GraphicsQueue() || !m_descriptors.DevelopmentUiHeap() )
     {
-        // Lane R: device/heap publication depends on the host graphics environment.
+        // Recoverable error: device/heap publication depends on the host graphics environment.
         return m_resultDiagnostics
             .Failure( "Rendering/DX12/ImGui",
                       "Cannot bind ImGui renderer without a complete device, queue, and development descriptor heap" );
@@ -185,7 +185,7 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::EnsureGameViewportTexture
 
     if ( FAILED( createResult ) || !candidate )
     {
-        // Lane R: the editor image is optional development presentation, but a
+        // Recoverable error: the editor image is optional development presentation, but a
         // requested visible surface cannot silently display stale pixels.
         return m_resultDiagnostics.Failure( "Rendering/DX12/ImGui",
                                             "CreateCommittedResource for the game viewport failed (hr=0x%08X extent=%dx%d)",

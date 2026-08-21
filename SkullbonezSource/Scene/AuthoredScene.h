@@ -541,7 +541,7 @@ class AuthoredScene
   public:
     AuthoredScene();
 
-    // Lane R: runtime scene/style callers use TryLoad* so malformed authored
+    // Recoverable error: runtime scene/style callers use TryLoad* so malformed authored
     // JSON returns owner/message diagnostics at the load boundary.
     static SkullbonezCore::Core::SbResult TryLoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                            const char* path, AuthoredScene& outScene );

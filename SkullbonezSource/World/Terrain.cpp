@@ -5,7 +5,7 @@ Purpose:
   rendering resources.
 
 Summary:
-  A Lane R factory boundary validates RAW dimensions and computes one checked
+  A recoverable factory boundary validates RAW dimensions and computes one checked
   pixel/post/quad shape before height samples become a world-X-major post grid.
   Collision queries, cached physics planes, render meshes, shadows, and debug
   geometry all derive from that same grid so they cannot describe different
@@ -152,7 +152,7 @@ SkullbonezCore::Core::SbResult Terrain::TryValidateHeightMapDimensions( Skullbon
                                     stepSize );
     }
 
-    // Lane R: existing terrain indexing and render counts use signed int rows.
+    // Recoverable error: existing terrain indexing and render counts use signed int rows.
     // Reject shapes whose derived products would overflow those owners before
     // allocating bytes or constructing a partially initialized Terrain.
     constexpr std::size_t maxSupportedCount = static_cast<std::size_t>( ( std::numeric_limits<int>::max )() );
@@ -238,7 +238,7 @@ Terrain::TryCreateFromHeightMap( SkullbonezCore::Core::SbDiagnosticStore& diagno
                                  std::unique_ptr<Terrain>& outTerrain )
 {
     // Concept: RAW terrain files are external asset input. The factory keeps
-    // a failed load out of the scene owner and reports Lane R instead of
+    // a failed load out of the scene owner and report recoverable error instead of
     // letting constructor exceptions escape through scene startup.
     std::size_t pixelCount = 0u;
     int postsPerSide = 0;
@@ -621,7 +621,7 @@ int Terrain::GetPixelHeightAt( int worldXCoordinate, int worldZCoordinate )
 SkullbonezCore::Core::SbResult Terrain::LoadTerrainData( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                          const char* fileName )
 {
-    // Lane R: height-map files are config/scene-selected assets. Missing or
+    // Recoverable error: height-map files are config/scene-selected assets. Missing or
     // truncated bytes report a recoverable load failure at the scene boundary.
     if ( !fileName || fileName[0] == '\0' )
     {

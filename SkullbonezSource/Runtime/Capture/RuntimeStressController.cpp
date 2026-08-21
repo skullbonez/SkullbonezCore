@@ -919,7 +919,7 @@ SkullbonezCore::Core::SbResult Run::RunUIStressActions( RunCameraMode replayRest
     {
         if ( !action.status.Ok() )
         {
-            // Lane R: resources remain intact; return before later stress churn
+            // Recoverable error: resources remain intact; return before later stress churn
             // and let the input boundary report and end the run.
             return action.status;
         }

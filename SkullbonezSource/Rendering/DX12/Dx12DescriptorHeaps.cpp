@@ -37,7 +37,7 @@ SkullbonezCore::Core::SbResult DescriptorInitResult( SkullbonezCore::Core::SbDia
 {
     if ( FAILED( result ) )
     {
-        // Lane R: descriptor heap creation depends on device/driver capacity.
+        // Recoverable error: descriptor heap creation depends on device/driver capacity.
         return resultDiagnostics.Failure( "Dx12DescriptorHeaps", "%s (HRESULT 0x%08X)", operation,
                                           static_cast<unsigned int>( result ) );
     }
@@ -295,7 +295,7 @@ Dx12DevelopmentUiDescriptor Dx12DescriptorHeaps::AllocateDevelopmentUi()
         return descriptor;
     }
 
-    // Lane F: the vendor callback cannot return allocation failure. Capacity is
+    // Fatal invariant: the vendor callback cannot return allocation failure. Capacity is
     // a fixed owner contract, so exhaustion terminates with actionable usage.
     SB_FATAL( "Dx12DescriptorHeaps", "Development UI descriptor heap exhausted. owner=DearImGui capacity=%u high_water=%u",
               MAX_DEVELOPMENT_UI_SRVS, m_developmentUiHighWater );

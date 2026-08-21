@@ -24,7 +24,7 @@ Invariants:
   - Offline projection cannot submit rendering or start another prediction.
   - Completing the committed frame prefix latches capture closure; later
     scripted assertions cannot restart reveal control before offline proof.
-  - Report failure is Lane R and must not overwrite an earlier probe failure.
+  - Report failure is recoverable error and must not overwrite an earlier probe failure.
 
 Related:
   - SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp

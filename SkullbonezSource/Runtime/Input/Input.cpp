@@ -169,7 +169,7 @@ SkullbonezCore::Core::SbResult Input::CaptureDeviceInputFrame( SkullbonezCore::C
 
     if ( !GetKeyboardState( keyboardState ) )
     {
-        // Lane R: desktop/session state can make Win32 keyboard capture fail.
+        // Recoverable error: desktop/session state can make Win32 keyboard capture fail.
         // The frame owner must stop rather than route a fabricated all-up frame.
         return diagnostics.Failure( "Runtime/Input", "GetKeyboardState failed while capturing the device frame (win32=%lu)",
                                     static_cast<unsigned long>( GetLastError() ) );
@@ -234,7 +234,7 @@ SkullbonezCore::Core::SbResult Input::CaptureDeviceInputFrame( SkullbonezCore::C
 SkullbonezCore::Core::SbResult Input::SetNativeMouseCapture( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                              bool captured )
 {
-    // Lane R: InputRouter owns the decision, while this narrow hardware seam
+    // Recoverable error: InputRouter owns the decision, while this narrow hardware seam
     // verifies that Win32 accepted the requested capture transition.
     Window* window = s_windowBridge.BoundWindow();
     const HWND windowHandle = window ? window->NativeWindowHandle() : nullptr;
@@ -464,7 +464,7 @@ void Input::ResetMouseLookDeltas()
 
 
 // Why: Win32 cursor queries can fail for environment reasons outside engine
-// ownership. Return a Lane R result so frame/UI owners can skip pointer input
+// ownership. Return a recoverable result so frame/UI owners can skip pointer input
 // without unwinding through WndProc or the run loop.
 Input::MouseCoordinatesResult Input::GetMouseCoordinates( SkullbonezCore::Core::SbDiagnosticStore& diagnostics )
 {

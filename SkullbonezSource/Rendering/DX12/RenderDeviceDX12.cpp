@@ -46,7 +46,7 @@ static inline SkullbonezCore::Core::SbResult Dx12StartupResult( SkullbonezCore::
 {
     if ( FAILED( hr ) )
     {
-        // Lane R: adapter, driver, swap-chain, and Win32 event creation can fail
+        // Recoverable error: adapter, driver, swap-chain, and Win32 event creation can fail
         // because of the host environment. Report the failing DX12 startup step
         // to the process bootstrap instead of escaping through an exception.
         return resultDiagnostics.Failure( "Rendering/DX12", "%s (HRESULT 0x%08X)", msg ? msg : "DX12 startup call failed",
@@ -190,7 +190,7 @@ SkullbonezCore::Core::SbResult Dx12FenceTimeline::Signal( UINT64& outValue )
     // Signal creates the next completion marker on the GPU timeline. The queue
     // does not write this value immediately. It writes the value after every
     // command submitted before this Signal() has finished on the GPU.
-    // Lane R: queue/fence calls can fail because the device or driver is gone.
+    // Recoverable error: queue/fence calls can fail because the device or driver is gone.
     // Keep the timeline value unchanged unless the marker was actually queued.
     const UINT64 value = m_lastSignaledValue + 1;
     const SkullbonezCore::Core::SbResult signalResult = Dx12RuntimeResult( m_resultDiagnostics,
@@ -1127,7 +1127,7 @@ const uint8_t* Dx12ReadbackBuffer::MapRead( UINT64 sizeBytes ) const
     void* mappedData = nullptr;
     D3D12_RANGE readRange = { 0, static_cast<SIZE_T>( sizeBytes ) };
 
-    // Lane R: Map can fail after device removal or readback-memory pressure.
+    // Recoverable error: Map can fail after device removal or readback-memory pressure.
     // Callers own the report boundary, so return null instead of unwinding.
     if ( FAILED( m_resource->Map( 0, &readRange, &mappedData ) ) )
     {

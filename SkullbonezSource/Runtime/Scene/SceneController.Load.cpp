@@ -422,7 +422,7 @@ SkullbonezCore::Core::SbResult UseDefaultTerrain( SkullbonezCore::Core::SbDiagno
 
             if ( !flushResult.Ok() )
             {
-                // Lane R: keep the currently owned terrain alive when its GPU
+                // Recoverable error: keep the currently owned terrain alive when its GPU
                 // references cannot be proven drained.
                 return flushResult;
             }
@@ -474,7 +474,7 @@ SkullbonezCore::Core::SbResult UseFlatSlopeTerrain( SkullbonezCore::Core::SbDiag
 
         if ( !flushResult.Ok() )
         {
-            // Lane R: assignment below destroys the old terrain. Leave it
+            // Recoverable error: assignment below destroys the old terrain. Leave it
             // untouched unless the GPU drain and command-list reopen succeeded.
             return flushResult;
         }
@@ -524,7 +524,7 @@ void SceneLoadTransaction::AdvanceOrFatal( SceneLoadPhaseCursor::Phase next, con
 
     if ( !m_phase.TryAdvance( next ) )
     {
-        // Lane F: accepting an out-of-order phase would expose partially
+        // Fatal invariant: accepting an out-of-order phase would expose partially
         // updated scene owners or publish presentation before reactions.
         SB_FATAL( "Runtime/SceneLoadTransaction", "Illegal phase transition. operation=%s current=%u next=%u", operation,
                   static_cast<unsigned int>( current ), static_cast<unsigned int>( next ) );
@@ -684,7 +684,7 @@ void SceneLoadTransaction::ApplyRuntimeReactions( const RunLaunchOptions& launch
     }
 
     // Invariant: only a successfully completed defaults write enters this
-    // batch, so a failed Lane-R save cannot advance the editor clean cursor.
+    // batch, so a failed Recoverable-result save cannot advance the editor clean cursor.
     for ( std::size_t index = 0; index < outputs.completedRequests.count; ++index )
     {
         if ( outputs.completedRequests.requests[index].type == SceneRequestType::SaveCurrentDefaults )
@@ -808,7 +808,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 
     if ( !request.accepted )
     {
-        // Lane R: a rejected navigation value cannot identify a scene to load;
+        // Recoverable error: a rejected navigation value cannot identify a scene to load;
         // preserve the active scene and report the owner boundary violation.
         return m_resultDiagnostics.Failure( "SceneController", "Rejected scene load request reached execution." );
     }
@@ -841,7 +841,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 
     if ( !loadBegin.status.Ok() )
     {
-        // Lane R: preparation has not mutated or destroyed the old
+        // Recoverable error: preparation has not mutated or destroyed the old
         // scene after a failed GPU drain, so preserve that state and end load.
         lastSceneLoadResult = loadBegin.status;
         LogSceneLoadFailure( loadBegin.status, loadBegin.scenePath ? *loadBegin.scenePath : std::string {} );

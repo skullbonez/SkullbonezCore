@@ -169,7 +169,7 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseSceneRayTracin
         return SkullbonezCore::Core::SbResult::Success();
     }
 
-    // Lane R: device resource creation and shader bytecode failures remain a
+    // Recoverable error: device resource creation and shader bytecode failures remain a
     // recoverable renderer result reported through the scene-load transaction.
     const Rendering::RaytracingSetupDesc setup {
         { terrainVBVA, terrainMesh->GetVertexCount(), terrainMesh->GetStride() },

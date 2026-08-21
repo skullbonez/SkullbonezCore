@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/Core/SbResult.cpp
 Purpose:
-  Implements compact Lane R leases and the fixed diagnostic store.
+  Implements compact recoverable result leases and the fixed diagnostic store.
 
 Summary:
   Failure publication claims one fixed slot, copies complete diagnostic bytes,
@@ -21,7 +21,7 @@ Invariants:
     while the store lock is held.
   - Message formatting is bounded to 511 bytes plus a null terminator.
   - Retain-before-release makes copy assignment safe for shared-entry aliases.
-  - Lane F is emitted only after the store lock has been released.
+  - fatal invariant is emitted only after the store lock has been released.
 
 Related:
   - SkullbonezSource/Core/SbResult.h
@@ -413,7 +413,7 @@ void SbDiagnosticStore::Lock() const noexcept
     {
         // Hazard: a diagnostic callback that republishes while this store is
         // locked would otherwise spin forever. Clear the outer ownership only
-        // because Lane F terminates immediately after this point.
+        // because SB_FATAL terminates immediately after this point.
         m_lockOwnerThread.store( 0u, std::memory_order_relaxed );
         m_lock.clear( std::memory_order_release );
         SB_FATAL( "Core/SbDiagnosticStore", "diagnostic store lock re-entered by its owning thread" );

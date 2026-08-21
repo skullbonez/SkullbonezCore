@@ -169,7 +169,7 @@ bool SameToolIdentity( const OperatorEditorToolCommand& left, const OperatorEdit
 
     // Entity flag actions are independent per durable scene object. Selection
     // remains one action identity so a surface and injected producer cannot
-    // select two objects in the same turn without a Lane-R conflict.
+    // select two objects in the same turn without a Recoverable-result conflict.
     return ( left.type != OperatorEditorToolCommandType::SetEntityVisible &&
              left.type != OperatorEditorToolCommandType::SetEntityLocked ) ||
            left.sceneObjectId == right.sceneObjectId;
@@ -1032,7 +1032,7 @@ SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( SkullbonezCore::Co
 {
     // Invariant: preview commands never escape presentation. Projection emits
     // only committed intent into the established narrow owner packets.
-    // Lane R: surfaces are untrusted presentation inputs. Re-run bounded
+    // Recoverable error: surfaces are untrusted presentation inputs. Re-run bounded
     // validation before modifying the established owner command packet.
     const OperatorEditorArbitrationResult validated = ArbitrateOperatorEditorCommands( diagnostics, exchange, {} );
 

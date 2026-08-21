@@ -1552,7 +1552,7 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const CinematicPostGrap
 
             if ( !postState.volumetricLight.IsValid() )
             {
-                // Lane R: if graph-managed texture allocation fails, the
+                // Recoverable error: if graph-managed texture allocation fails, the
                 // optional volumetric callback records no draw and tonemap
                 // proceeds without its sample. Keep the failure visible.
                 SkullbonezCore::Core::Log()
@@ -2394,8 +2394,8 @@ RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceRelea
 
     if ( !flushResult.Ok() )
     {
-        // Lane R: return before the first release. The destructor caller
-        // converts this non-returnable teardown failure to Lane F.
+        // Recoverable error: return before the first release. The destructor caller
+        // converts this non-returnable teardown failure to fatal invariant.
         return flushResult;
     }
 

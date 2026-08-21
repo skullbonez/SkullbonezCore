@@ -246,7 +246,7 @@ InputRouter::RouteRuntimePointer( const RuntimePointerEvent& pointer, bool repla
 
     // Invariant: this order is the world-pointer arbitration contract. Each
     // concrete owner sees the immutable pointer/ray values only when every
-    // earlier owner declined the gesture. The phase cursor lane-F fails a
+    // earlier owner declined the gesture. The phase cursor fatal-invariant fails a
     // reordered, skipped, or repeated stage.
     (void)arbitration.BeginStage( RuntimePointerRouteStage::Editor );
     const EditorPointerRouteResult editorResult = RouteEditorPointer( pointer, hasWorldRay, rayOrigin, rayDirection,

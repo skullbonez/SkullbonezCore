@@ -258,7 +258,7 @@ SkullbonezCore::Core::SbResult CaptureSystem::SaveBackbufferBmp( SkullbonezCore:
                                                                  Rendering::Dx12BackbufferCapture& backend,
                                                                  const char* path )
 {
-    // Lane R: capture support, readback dimensions, and file output can fail
+    // Recoverable error: capture support, readback dimensions, and file output can fail
     // because of renderer/device/file-system environment state, so callers get
     // an owner/message result instead of an exception unwind.
     if ( !backend.SupportsBackbufferCapture() )

@@ -86,7 +86,7 @@ index 46f0fd66aa02f6beb31765a06d57bef376390b7b..75beb4ecb7c527a1a457d2ae977c1bd0
 @@ -98,0 +105 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 +| Determinism | Property that the same inputs and configuration produce the same observable validation data. |
 @@ -114,0 +122 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
-+| Fatal probe | Child invocation expected to terminate through the engine's Lane F path. |
++| Fatal probe | Child invocation expected to terminate through the engine's fatal invariant path. |
 @@ -118,0 +127,2 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 +| FIFO (First In, First Out) | Ordering rule where requests drain in their original submission order. |
 +| First difference | Typed location of the earliest semantic field where two compared artifacts diverge. |
@@ -101,7 +101,7 @@ index 46f0fd66aa02f6beb31765a06d57bef376390b7b..75beb4ecb7c527a1a457d2ae977c1bd0
 @@ -173,0 +188 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 +| Logical asset name | Stable engine-facing string key used to resolve an authored source asset. |
 @@ -191,0 +207 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
-+| Owned failure | Recoverable Lane R result already attributed to the subsystem owner and message that produced it. |
++| Owned failure | Recoverable recoverable result already attributed to the subsystem owner and message that produced it. |
 @@ -199,0 +216 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 +| Percentage-closer filtering (PCF) | Fixed pattern of depth-comparison samples averaged to soften a shadow edge deterministically. |
 @@ -205 +222 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
@@ -1288,7 +1288,7 @@ index adb272cb9e2cd4c47c73bae9e7ce2b752d07bd20..9f6e3da456a73987dcdfb9b50005278b
 +// and a command list. Dry-run callers receive flags rather than a hidden DX12 call.
 @@ -193,0 +198,2 @@ Dx12RenderGraphBarrierRecord ExecuteDx12RenderGraphSingleTransition( const char*
 +// Hazard: a UAV ordering point without the exact native resource or command list
-+// cannot be emitted; the result preserves that missing evidence for Lane F review.
++// cannot be emitted; the result preserves that missing evidence for fatal invariant review.
 diff --git a/SkullbonezSource/Rendering/DX12/RenderBackendDX12.CommandRecordingState.h b/SkullbonezSource/Rendering/DX12/RenderBackendDX12.CommandRecordingState.h
 index 114895a229f6b8e4abc17bc4f4e7a90949988d88..c2162fd14d44eef84edfac81e78d26ca4f1eb314 100644
 --- a/SkullbonezSource/Rendering/DX12/RenderBackendDX12.CommandRecordingState.h
@@ -1560,7 +1560,7 @@ index 34c7be1b28e225d2ddc6e4e9a05e616b86686e3b..491e26fb1cb679f1111fae8e5179f6f9
 --- a/SkullbonezSource/Runtime/App/ApplicationExitState.cpp
 +++ b/SkullbonezSource/Runtime/App/ApplicationExitState.cpp
 @@ -17,3 +16,0 @@ Glossary:
--  Synthetic failure: Generic Lane R result created from a nonzero message exit
+-  Synthetic failure: Generic recoverable result created from a nonzero message exit
 -    code when no subsystem supplied a richer result.
 -
 @@ -27,0 +25 @@ Related:
@@ -1570,7 +1570,7 @@ index 6f9c64c7f0d383d81b093a734ead02dec9cb44b5..6ccac361e3c2377bc9f40e2532cd06a7
 --- a/SkullbonezSource/Runtime/App/ApplicationExitState.h
 +++ b/SkullbonezSource/Runtime/App/ApplicationExitState.h
 @@ -14,3 +13,0 @@ Glossary:
--  Owned failure: Lane R failure already attributed to the subsystem that
+-  Owned failure: recoverable failure already attributed to the subsystem that
 -    detected it, including a lease on its immutable owner and diagnostic
 -    message.
 diff --git a/SkullbonezSource/Runtime/App/Init.cpp b/SkullbonezSource/Runtime/App/Init.cpp
@@ -2232,7 +2232,7 @@ index 63c6cb865a9fa588027f033cb89293851067022e..d0b6da7ae7dcb79e4055583a23418249
 --- a/SkullbonezTests/TestApplicationExitState.cpp
 +++ b/SkullbonezTests/TestApplicationExitState.cpp
 @@ -13,3 +12,0 @@ Glossary:
--  Owned failure: Lane R result carrying the subsystem owner and message that
+-  Owned failure: recoverable result carrying the subsystem owner and message that
 -    originally explained why the run must stop.
 -  Synthetic failure: Generic failure created only from a nonzero message code.
 @@ -25,0 +23 @@ Related:
@@ -2279,7 +2279,7 @@ index 250977c0051b0843d7ab0ffe57d635d656c0c9f3..bc06d66cafccc70468b09847458d1012
 +++ b/SkullbonezTests/TestFatalCases.h
 @@ -10,4 +9,0 @@
 -// Glossary:
--//   Fatal probe: Child invocation expected to end through an engine Lane F
+-//   Fatal probe: Child invocation expected to end through an engine fatal invariant
 -//   invariant rather than return normally.
 -//
 @@ -18,0 +15 @@
@@ -2473,7 +2473,7 @@ index 83b5a71784d058d5e8d795ed063f379494c68126..c2df4d6f5fa5347dbef1a763345e4000
 +++ b/SkullbonezTests/TestResultLoadFixtures.h
 @@ -11,4 +10,0 @@ Summary:
 -Glossary:
--  Lane R: Recoverable result path that returns diagnostics without terminating
+-  Recoverable result: Error path that returns diagnostics without terminating
 -    the process or publishing a partially parsed value.
 -
 @@ -19,0 +16 @@ Related:
@@ -2485,7 +2485,7 @@ index e1da03edb66071818a60563c4096dcc31dbe12a3..3471135bba7fca6ca219d9a425d6d4e6
 @@ -12 +11,0 @@
 -//   Fatal probe: Child invocation expected to end through SB_FATAL.
 @@ -15,2 +13,0 @@
--//   Lane R: Recoverable result path that returns an owned error instead of
+-//   Recoverable result: Error path that returns an owned error instead of
 -//     terminating the engine.
 @@ -48,0 +46 @@
 +//   - Agentic/Reference/engine-glossary.md
@@ -2553,7 +2553,7 @@ index 5b673c671f597553f1532ab2849709a1e288268f..97c5c9a15030bd522b2e10bc30abbc61
 --- a/SkullbonezTests/TestStartup.cpp
 +++ b/SkullbonezTests/TestStartup.cpp
 @@ -15,2 +14,0 @@
--//   Lane R: Recoverable external-input failure returned to process startup.
+-//   Recoverable result: External-input failure returned to process startup.
 -//
 @@ -22,0 +21 @@
 +//   - Agentic/Reference/engine-glossary.md

@@ -401,7 +401,7 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( ReplayRestoreTransaction& transac
 
     // Hazard: a recoverable restore failure may return only after the live
     // backup was reapplied. Continuing from a half-restored solver would make
-    // later physics output nondeterministic, so rollback failure is Lane F.
+    // later physics output nondeterministic, so rollback failure is a fatal invariant failure.
     if ( !hashMatched && !fallbackRestored )
     {
         SB_FATAL( "Runtime/ReplayRestore", "Replay restore verification failed and the live backup could not be restored" );

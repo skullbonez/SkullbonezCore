@@ -214,7 +214,7 @@ RenderGraphTransientMaterializationStats Dx12GraphTransientPool::Materialize( co
 
             if ( FAILED( hr ) )
             {
-                // Lane R: optional post-process passes may use their older
+                // Recoverable error: optional post-process passes may use their older
                 // framebuffer path when native transient creation fails.
                 MarkMaterializationFailure( m_stats, hr, resource );
                 m_resources.pop_back();
@@ -393,7 +393,7 @@ size_t Dx12GraphTransientPool::ExecuteTransitions( const RenderGraph& graph, con
 
         if ( !slot || !slot->resource )
         {
-            // Lane R: materialization already logged the allocation failure.
+            // Recoverable error: materialization already logged the allocation failure.
             // The callback disables that optional effect, so there is no native
             // resource and therefore no barrier to emit for this logical edge.
             continue;

@@ -76,7 +76,7 @@ void ReportStartupFailure( const SkullbonezCore::Core::SbResult& result, const c
 
     sprintf_s( dialogMessage, sizeof( dialogMessage ), "%s\n\n%s", safeOwner, safeMessage );
 
-    // Lane R: startup cannot rely on the game window or an attached terminal to
+    // Recoverable error: startup cannot rely on the game window or an attached terminal to
     // expose failures. Persist the diagnostic and block on a native error dialog
     // so a normal Explorer/IDE launch can never look like a silent clean exit.
     SkullbonezCore::Core::Log().WriteEventf( "startup_failure owner=\"%s\" message=\"%s\"", safeOwner, safeMessage );
@@ -143,7 +143,7 @@ SkullbonezCore::Core::SbResult InitRenderBackend( SkullbonezCore::Core::SbDiagno
 
     if ( !renderInitResult.Ok() )
     {
-        // Lane R: render backend startup probes the host graphics environment.
+        // Recoverable error: render backend startup probes the host graphics environment.
         // Failures are reported at process bootstrap before any runtime borrows
         // are published.
         return renderInitResult;

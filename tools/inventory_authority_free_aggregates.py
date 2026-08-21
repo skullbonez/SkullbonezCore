@@ -572,7 +572,7 @@ struct RuntimePresentationUICommandContext
 FIXTURE_INVARIANT_OWNER = """
 // Concept: one phase-checked transaction owns the load walk.
 // Invariant: phases run Load -> RuntimeReactions -> Presentation exactly once;
-//   an out-of-order call is lane-F fatal.
+//   an out-of-order call is fatal-invariant fatal.
 struct SceneLoadTransactionInput
 {
     int phaseCursor;

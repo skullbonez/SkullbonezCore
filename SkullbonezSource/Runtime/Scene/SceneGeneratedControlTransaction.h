@@ -15,7 +15,7 @@ Glossary:
   Generated UI command: One-frame Scene/Run tab request for generated object
     counts.
   Rebuild action: Returned flags for caller-owned replay/profiler cleanup.
-  Action status: Lane R result that blocks all rebuild mutations when the GPU
+  Action status: recoverable result that blocks all rebuild mutations when the GPU
     drain cannot prove old resource use complete.
 
 Invariants:
@@ -24,7 +24,7 @@ Invariants:
   - The transaction stores request/policy/result values only; every mutable
     runtime owner is borrowed by Execute and expires before it returns.
   - Generated model/resource mutation starts only after a successful GPU drain;
-    an illegal phase transition is Lane F fatal.
+    an illegal phase transition is fatal invariant.
   - TestOwnerRequestQueues.cpp proves the cursor matrix, partial-count
     arbitration, failed-drain mutation gate, and active-rebuild follow-ups.
 
@@ -100,7 +100,7 @@ class SceneGeneratedControlPhaseCursor
 
 struct SceneGeneratedControlAction
 {
-    // Lane R: callers must terminate the current command/frame when a GPU
+    // Recoverable error: callers must terminate the current command/frame when a GPU
     // drain failed; no generated model/resource mutation has occurred.
     SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
     bool resetReplayTimeline = false;

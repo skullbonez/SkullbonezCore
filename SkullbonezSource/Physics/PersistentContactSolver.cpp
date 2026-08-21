@@ -205,7 +205,7 @@ void PersistentContactSolveTransaction::AdvanceOrFatal( PersistentContactSolvePh
 
     if ( !m_phase.TryAdvance( next ) )
     {
-        // Lane F: running a contact phase twice, backward, or after skipping a
+        // Fatal invariant: running a contact phase twice, backward, or after skipping a
         // predecessor can publish rows, velocities, or cache state from a
         // partially solved fixed tick.
         SB_FATAL( "Physics/PersistentContactSolveTransaction", "Illegal phase transition. operation=%s current=%u next=%u",
@@ -2256,7 +2256,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
 
     if ( timeRemaining.size() < static_cast<std::size_t>( modelCount ) )
     {
-        // Lane F: every live contact row indexes the corresponding remainder.
+        // Fatal invariant: every live contact row indexes the corresponding remainder.
         // A short span would make the solver invent a contact interval or read
         // beyond the PhysicsWorld-owned fixed-step state.
         SB_FATAL( "Physics/PhysicsContactSolverStage", "timeRemaining span is shorter than the live body set." );

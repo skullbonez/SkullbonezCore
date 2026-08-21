@@ -8,7 +8,7 @@
 //   uses that path to re-enter the binary in one isolated negative scenario.
 //
 // Glossary:
-//   Fatal probe: Child invocation expected to end through an engine Lane F
+//   Fatal probe: Child invocation expected to end through an engine fatal invariant
 //   invariant rather than return normally.
 //
 // Invariants:
@@ -31,7 +31,7 @@ const char* RuntimeTestExecutablePath();
 void ExpectRuntimeFatalCase( const char* caseName, std::initializer_list<const char*> expectedDiagnostics );
 
 // Returns false for an unknown name. A recognized RenderGraph case must reach
-// its Lane F invariant before this dispatcher can return true.
+// its fatal invariant before this dispatcher can return true.
 bool RunRenderGraphFatalCase( const char* caseName );
 
 // Routes a named fatal child to its subsystem-owned dispatcher. A known case

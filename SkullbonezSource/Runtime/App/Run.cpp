@@ -426,7 +426,7 @@ Run::~Run()
 
     if ( !releaseResult.Ok() )
     {
-        // Lane F: a destructor cannot propagate Lane R to a caller, and letting
+        // Fatal invariant: a destructor cannot propagate recoverable error to a caller, and letting
         // member destruction continue after an uncertain GPU drain is unsafe.
         SB_FATAL( "Runtime/Run", "Backend resource release could not establish GPU safety. owner=%s reason=%s",
                   releaseResult.ErrorOwner()[0] != '\0' ? releaseResult.ErrorOwner() : "Rendering/DX12",
@@ -537,7 +537,7 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
 
     return result;
 #else
-    // Lane R: interaction scripts are external validation input. Ordinary game
+    // Recoverable error: interaction scripts are external validation input. Ordinary game
     // builds reject them instead of linking the diagnostic controller into the
     // frame loop; tools must use the dedicated Automation configuration.
     return m_resultDiagnostics.Failure( "InteractionAutomation", "--interaction-script requires an Automation|x64 build." );
@@ -567,7 +567,7 @@ void Run::ApplyStartupPredictionRequest()
     const int modelIndex = sceneWorld.Entities().FindByDisplayName( m_launchOptions.predictTargetName );
     const PhysicsBodyRecord* body = modelIndex >= 0 ? sceneWorld.BodyStore().RecordForModelIndex( modelIndex ) : nullptr;
 
-    // Lane R: --predict names external launch input. A scene whose bodies are
+    // Recoverable error: --predict names external launch input. A scene whose bodies are
     // still loading simply retries next frame; only a scene that has finished
     // loading without the name is a reportable operator mistake.
     if ( !body || !body->sceneObjectId.IsValid() )
@@ -636,7 +636,7 @@ void Run::Initialise()
 {
     // Why: timers default to inert storage so Run construction cannot throw
     // before the startup reporter exists. Initialise them at this boundary and
-    // return platform counter failures through the normal Lane R process path.
+    // return platform counter failures through the normal recoverable error process path.
     const SkullbonezCore::Core::SbResult timerStartupResult = m_timers.Initialise( m_resultDiagnostics );
 
     if ( !timerStartupResult.Ok() )
@@ -689,7 +689,7 @@ void Run::Initialise()
     m_sceneController.Scene().Environment().SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
 
     // Why: SDF atlas generation is a startup asset/tooling boundary. Report it
-    // as Lane R before scene loading instead of throwing through Run startup.
+    // as recoverable error before scene loading instead of throwing through Run startup.
     const SkullbonezCore::Core::SbResult
         uiTextResourceResult = Renderer().ResourceLifecycle().EnsureUiTextResources( cfg.window.screenX,
                                                                                      cfg.window.screenY );

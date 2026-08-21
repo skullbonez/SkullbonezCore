@@ -15,7 +15,7 @@ Glossary:
 
 Invariants:
   - The normal walk is select, backup, topology, checkpoint, step, verify,
-    complete; illegal transitions are Lane F.
+    complete; illegal transitions are fatal invariant.
   - Failure before mutation ends in Failed; failure after a live backup and
     possible mutation ends only after rollback.
   - No owner pointer, reference, callback, or service bundle is retained;
@@ -125,7 +125,7 @@ class ReplayRestorePhaseCursor
 
 // Invariant:
 // - Restore follows the adjacent selection, backup, topology, checkpoint,
-//   stepping, verification, and completion walk. Illegal order is Lane F.
+//   stepping, verification, and completion walk. Illegal order is a fatal invariant failure.
 // - Recoverable failure before mutation ends in Failed. Once live state may
 //   have changed, failure can return only after the retained backup is applied
 //   and the cursor reaches RolledBack.
@@ -460,7 +460,7 @@ class ReplayRestoreTransaction
 
         if ( !m_phase.TryAdvance( next ) )
         {
-            // Lane F: accepting an out-of-order restore phase could publish a
+            // Fatal invariant: accepting an out-of-order restore phase could publish a
             // partial topology or return after mutation without rollback.
             SB_FATAL( "Runtime/ReplayRestoreTransaction", "Illegal phase transition. operation=%s current=%u next=%u",
                       operation, static_cast<unsigned int>( current ), static_cast<unsigned int>( next ) );

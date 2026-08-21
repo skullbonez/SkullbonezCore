@@ -137,7 +137,7 @@ void ExpectHeightMapShapeFailure( int mapSize, int stepSize, const char* expecte
 
 TEST_CASE( "Terrain: invalid height-map dimensions fail before construction" )
 {
-    // Lane P: the retired floor-sized allocation reserved four posts for the
+    // Test probe: the retired floor-sized allocation reserved four posts for the
     // 5/2 shape while its ceiling-shaped translation loops wrote nine. This
     // local fixture keeps the old false-pass mechanism observable without
     // executing an out-of-bounds write.

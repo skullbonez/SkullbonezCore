@@ -144,7 +144,7 @@ class Input
 
     struct MouseCoordinatesResult
     {
-        SkullbonezCore::Core::SbResult result;                                                                          // Lane R result for Win32 cursor/client-coordinate failures.
+        SkullbonezCore::Core::SbResult result;                                                                          // recoverable result for Win32 cursor/client-coordinate failures.
         POINT coordinates = {};
     };
 

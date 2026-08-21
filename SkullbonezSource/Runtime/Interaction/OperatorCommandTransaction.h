@@ -16,7 +16,7 @@ Invariants:
   - The only legal walk is Idle -> DeviceAndMode -> PhysicsControl ->
     RuntimePresentation -> SimulationPolicy -> PhysicsMaterial -> WorldPolicy ->
     CinematicPolicy -> Complete. A skip, repeat, regression, or sentinel phase
-    call is Lane-F fatal.
+    call is Fatal-invariant fatal.
   - Arbitration is encoded by phase and operation order: explicit water mode
     follows reflection cycling; explicit tornado-shell toggle follows tornado
     auto-sync; render/cinematic saves sample later tuning; cinematic mode follows

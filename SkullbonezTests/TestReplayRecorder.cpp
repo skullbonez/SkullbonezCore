@@ -250,7 +250,7 @@ TEST_CASE( "ReplayRecorder: presentation resolution reuses a bounded dense-buffe
     // by the same UI turn; this is why latest has a dedicated reusable buffer.
     CHECK( oldest->frameIndex == 0u );
 
-    // Lane P: one dense body cache per retained tick exceeded this
+    // Test probe: one dense body cache per retained tick exceeded this
     // bound for this fixture. Compact frames plus the fixed working-buffer pool
     // stay comfortably below it.
     constexpr uint64_t maxPresentationBytes = 1ull * 1024ull * 1024ull;

@@ -143,7 +143,7 @@ reconciled, and E17 regenerated and re-inspected this complete union.
 - Human-approved wording still required: none
 
 The E17 review fixes add local comments for the rpmalloc backing-map cap,
-atomic reservation, VirtualAlloc/VirtualFree lifetime, Lane F failure, and the
+atomic reservation, VirtualAlloc/VirtualFree lifetime, fatal invariant failure, and the
 exclusive Legacy replay-presentation fence. Those are behavioral changes, so
 the campaign's final mapped validation is required; this is not a comment-only
 pass.

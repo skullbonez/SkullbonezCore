@@ -157,7 +157,7 @@ enum class RuntimePointerRouteStage : uint8_t
 // Invariant: one route visits Editor -> MousePickup -> AttachedCamera -> Replay
 // -> Launcher exactly once. The first consuming stage wins; later stages remain
 // structurally visited but receive no owner call. Illegal phase transitions are
-// Lane F failures. SkullbonezTests/TestInputRouter.cpp exhaustively exercises
+// fatal invariant failures. SkullbonezTests/TestInputRouter.cpp exhaustively exercises
 // every combination of the five stage claims.
 class RuntimePointerArbitration
 {

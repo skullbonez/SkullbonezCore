@@ -14,7 +14,7 @@ Glossary:
 
 Invariants:
   - Path policy is entry-specific, while serialized owner coverage is identical.
-  - A writer failure is returned through Lane R with its original diagnostics.
+  - A writer failure is returned through recoverable result with its original diagnostics.
   - No owner pointer, publication, or path borrow survives the operation.
 
 Related:

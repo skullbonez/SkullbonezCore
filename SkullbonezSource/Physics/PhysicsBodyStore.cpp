@@ -808,7 +808,7 @@ void ApplyWorldImpulse( const PhysicsBodyRecord& record, PhysicsBodyHotState& ho
                         const Vector3& worldTorqueImpulse )
 {
     // Why: malformed zero mass/inertia is caller-reachable authored data, not
-    // lane F. On failure the invalid component absorbs the impulse, and no
+    // fatal invariant. On failure the invalid component absorbs the impulse, and no
     // partial velocity write escapes.
     Vector3 linearImpulseDelta;
 

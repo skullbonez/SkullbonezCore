@@ -105,7 +105,7 @@ std::string NormalizeScenePathForCreate( const std::string& path )
 std::filesystem::path UniqueScenePath( const std::filesystem::path& sceneDir, const std::string& baseName,
                                        std::error_code& error )
 {
-    // Lane R: directory probing is editor-authored IO. Preserve filesystem
+    // Recoverable error: directory probing is editor-authored IO. Preserve filesystem
     // errors for the caller instead of invoking a throwing overload.
     std::filesystem::path candidate = sceneDir / ( baseName + ".scene.json" );
 

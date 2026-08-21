@@ -58,7 +58,7 @@ class LockOrderValidator
         HeldStackExhausted,
     };
 
-    // Lane P: RecordAcquisition owns the Debug-only graph and stack mutation,
+    // Test probe: RecordAcquisition owns the Debug-only graph and stack mutation,
     // while this pure classifier lets focused tests prove every tripwire
     // condition without deliberately invoking the CRT assertion dialog.
     static constexpr AcquisitionProbeFinding ClassifyAcquisitionProbe( uint32_t lockId, bool cycleDetected,

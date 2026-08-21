@@ -630,7 +630,7 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
     // Invariant: the active surface and optional automation/probe intent
     // converge here exactly once. Runtime selection keeps the human surfaces
     // exclusive; arbitration still coalesces exact duplicate injected intent
-    // and rejects conflicting payloads through Lane R.
+    // and rejects conflicting payloads through recoverable result.
     const SkullbonezCore::UI::OperatorEditorArbitrationResult
         editorCommands = SkullbonezCore::UI::ArbitrateOperatorEditorCommands( m_resultDiagnostics,
                                                                               result.commands.operatorEditor,

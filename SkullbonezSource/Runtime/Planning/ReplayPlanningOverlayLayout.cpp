@@ -15,7 +15,7 @@ Glossary:
 
 Invariants:
   - Cell-to-index mapping matches ReplayPorkchopPanel sweep order exactly.
-  - Failure to publish the compile-time control count is a lane-F invariant.
+  - Failure to publish the compile-time control count is a fatal-invariant invariant.
 
 Related:
   - SkullbonezSource/Runtime/Planning/ReplayPlanningOverlayLayout.h

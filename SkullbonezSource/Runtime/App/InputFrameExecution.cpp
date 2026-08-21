@@ -544,7 +544,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
         if ( !stressResult.Ok() )
         {
-            // Lane R: focus loss still routes stress churn through the same guarded
+            // Recoverable error: focus loss still routes stress churn through the same guarded
             // rebuild path. End the run before returning to the frame loop.
             ReportRuntimeInputFailure( stressResult );
             std::fflush( stderr );
@@ -1234,7 +1234,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
     if ( !uiFrameResult.status.Ok() )
     {
-        // Lane R: a generated-resource rebuild could not prove its GPU drain.
+        // Recoverable error: a generated-resource rebuild could not prove its GPU drain.
         // Stop this frame and end the run before any later world/input mutation.
         ReportRuntimeInputFailure( uiFrameResult.status );
         std::fflush( stderr );

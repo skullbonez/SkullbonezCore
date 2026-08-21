@@ -133,7 +133,7 @@ class Run
   private:
     friend struct RunRendererLifecycleTestAccess;
 
-    // Lane F: the unique_ptr is the sole renderer-lifecycle truth. Keeping the
+    // Fatal invariant: the unique_ptr is the sole renderer-lifecycle truth. Keeping the
     // always-on guard stateless prevents a second retained epoch bit from
     // diverging from the concrete owner during startup or shutdown.
     static RuntimeRenderer* RequireRenderer( RuntimeRenderer* renderer, const char* operation )

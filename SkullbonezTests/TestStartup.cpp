@@ -6,13 +6,13 @@
 // Summary:
 //   Exercises the production command-line and launch-resolution units without
 //   constructing a window, renderer, worker pool, or Run owner. Table-driven
-//   failure cases assert the exact Lane-R messages consumed by automation, and
+//   failure cases assert the exact Recoverable-result messages consumed by automation, and
 //   development builds lock the exclusive editor selector's launch projection.
 //
 // Glossary:
 //   Assigned option: A value supplied as --name=value rather than a later token.
 //   Launch packet: ParsedArgs values projected into RunStartupOverrides.
-//   Lane R: Recoverable external-input failure returned to process startup.
+//   Recoverable result: External-input failure returned to process startup.
 //
 // Invariants:
 //   - Aliases, defaults, validation order, and error strings are compatibility surface.

@@ -20,7 +20,7 @@ Glossary:
   Scene object id: Stable nonzero physics identity explicitly authored in v2
     and writer-made v3 scenes, or deterministically filled for compact v1/v3
     input.
-  Lane R result: Recoverable parser failure returned by AuthoredScene::TryLoad*
+  Recoverable result: Recoverable parser failure returned by AuthoredScene::TryLoad*
     entry points with owner/message diagnostics.
 
 Invariants:

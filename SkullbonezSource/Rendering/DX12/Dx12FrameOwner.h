@@ -405,7 +405,7 @@ class Dx12FrameOwner
     // then reopens command recording for the next runtime operation.
     SkullbonezCore::Core::SbResult FinishAndReopen( Dx12Diagnostics& diagnostics );
 
-    // Runtime mutation drain: closes/submits/waits/reopens or returns Lane R.
+    // Runtime mutation drain: closes/submits/waits/reopens or returns recoverable result.
     SkullbonezCore::Core::SbResult FlushGPU();
 
     // Terminal drain: proves release safety without reopening a failed epoch.

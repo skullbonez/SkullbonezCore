@@ -127,7 +127,7 @@ class Terrain
     TryCreateFromHeightMap( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* fileName, int mapSize,
                             int stepSize, int textureWrap, const SkullbonezCore::Core::EngineConfig& config,
                             Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& resources,
-                            std::unique_ptr<Terrain>& outTerrain );                                   // Lane R factory for external RAW height-map input.
+                            std::unique_ptr<Terrain>& outTerrain );                                   // recoverable factory for external RAW height-map input.
     static SkullbonezCore::Core::SbResult
     TryCreatePhysicsFromHeightMap( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* fileName, int mapSize,
                                    int stepSize, int textureWrap, const SkullbonezCore::Core::EngineConfig& config,
@@ -259,7 +259,7 @@ class Terrain
     static SkullbonezCore::Core::SbResult
     TryValidateHeightMapDimensions( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, int mapSize, int stepSize,
                                     std::size_t& outPixelCount, int& outPostsPerSide, std::size_t& outPostCount,
-                                    std::size_t& outQuadCount );                                      // Lane R boundary before tagged construction.
+                                    std::size_t& outQuadCount );                                      // recoverable boundary before tagged construction.
 
     SkullbonezCore::Core::SbResult
     LoadTerrainData( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,

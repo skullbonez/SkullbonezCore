@@ -334,7 +334,7 @@ TEST_CASE( "Development tool allocation scopes remain separate without masking g
         ReleaseDevelopmentToolBackingMemory( DevelopmentToolAllocationOwner::Tracy, 64u * 1024u );
     }
 
-    // Lane P: this unscoped allocation uses the same Render phase as
+    // Test probe: this unscoped allocation uses the same Render phase as
     // the tool calls. It must still fail the gameplay guard.
     void* gameplayBlock = ::operator new( 16u );
     ::operator delete( gameplayBlock );

@@ -13,7 +13,7 @@ Glossary:
   Render record: Core timing span that brackets renderer-owned GPU work.
 
 Invariants:
-  - Marker identity is the full path plus hash; collisions are Lane F failures.
+  - Marker identity is the full path plus hash; collisions are fatal invariant failures.
   - Begin/end nesting balances before FrameEnd.
   - GPU samples enter as value records; Core never includes Rendering.
 
@@ -198,7 +198,7 @@ void Profiler::AbortMismatch( const char* msg, const char* details ) const
     OutputDebugStringA( buf );
 
     // Hazard: marker hash collisions and begin/end mismatches corrupt the
-    // profiler's nesting stack. Treat them as Lane F engine invariants so the
+    // profiler's nesting stack. Treat them as fatal invariant engine invariants so the
     // fatal path owns stderr logging, event-log flushing, and termination.
     if ( safeDetails[0] != '\0' )
     {

@@ -625,7 +625,7 @@ void* AllocateOrFatal( std::size_t size, std::size_t alignment, void* callsite )
         return pointer;
     }
 
-    // Lane F / Hazard: malloc has already failed inside the global allocation
+    // Fatal invariant / Hazard: malloc has already failed inside the global allocation
     // hook, so this path must not call SB_FATAL or any SkullbonezCore::Core::EngineLog-backed helper.
     FatalAllocationFailure( size, normalizedAlignment, overflowed ? "size_arithmetic_overflow" : "exhausted_memory" );
 }

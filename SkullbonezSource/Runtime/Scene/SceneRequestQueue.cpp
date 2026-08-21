@@ -46,7 +46,7 @@ SkullbonezCore::Core::SbResult SceneRequestQueue::Submit( SkullbonezCore::Core::
 
     if ( m_count >= SCENE_REQUEST_QUEUE_CAPACITY )
     {
-        // Lane F: UI/input cannot legally emit more scene intents than the
+        // Fatal invariant: UI/input cannot legally emit more scene intents than the
         // owner budget between drains; growing here would allocate in runtime.
         SB_FATAL( "Runtime/SceneRequestQueue", "Scene request capacity exhausted. capacity=%d high_water=%d phase=input",
                   SCENE_REQUEST_QUEUE_CAPACITY, m_count );

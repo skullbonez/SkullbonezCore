@@ -116,7 +116,7 @@ bool ShaderDX12::Compile( const char* hlslPath, const char* contractBaseName )
 
     if ( !loadedBaked )
     {
-        // Lane R: runtime accepts only the pinned offline-DXC artifact. Manual
+        // Recoverable error: runtime accepts only the pinned offline-DXC artifact. Manual
         // hot reload reruns that same bake before asking this loader to try again.
         SkullbonezCore::Core::Log().WriteEventf( "dx12_shader_bytecode_rejected path=%s reason=%s",
                                                  hlslPath ? hlslPath : "<null>", loadError.c_str() );
@@ -141,7 +141,7 @@ bool ShaderDX12::Compile( const char* hlslPath, const char* contractBaseName )
 
     if ( !ValidateGeneratedShaderProgramContract( hlslPath, *m_contract, contractError ) )
     {
-        // Lane R: authored shader assets are external startup inputs. Reject
+        // Recoverable error: authored shader assets are external startup inputs. Reject
         // a stale CPU/DXIL ABI with the owning shader and exact mismatch.
         SkullbonezCore::Core::Log()
             .WriteEventf( "dx12_shader_reflection_contract_rejected owner=ShaderDX12 path=%s reason=%s",
@@ -264,7 +264,7 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
 
     if ( !ReflectShaderBytecode( blob, reflect, hr ) )
     {
-        // Lane R: reflection depends on compiler output and device tooling. A
+        // Recoverable error: reflection depends on compiler output and device tooling. A
         // failed reflection pass means this shader cannot expose a safe uniform
         // contract, so report failure to Compile() instead of throwing.
         SkullbonezCore::Core::Log().WriteEventf( "dx12_shader_reflect_failed stage=%s hresult=0x%08X path=%s",
@@ -1017,7 +1017,7 @@ D3D12_GPU_VIRTUAL_ADDRESS ShaderDX12::FlushCB() const
         return 0;
     }
 
-    // Lane R: constant buffers use the frame owner's phase-aware reservation.
+    // Recoverable error: constant buffers use the frame owner's phase-aware reservation.
     // A steady-frame denial returns zero and the pipeline skips that draw;
     // cold lifecycle/capture work retains the legacy flush-and-retry path.
     D3D12_GPU_VIRTUAL_ADDRESS addr = m_uploadReservations.ReserveConstantUpload( m_cbSize );

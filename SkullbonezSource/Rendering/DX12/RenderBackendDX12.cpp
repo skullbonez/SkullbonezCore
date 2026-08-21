@@ -123,7 +123,7 @@ Dx12BackendInitResult( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostic
 {
     if ( FAILED( hr ) )
     {
-        // Lane R: renderer startup depends on the adapter, driver, window, and
+        // Recoverable error: renderer startup depends on the adapter, driver, window, and
         // available descriptor resources. Return a bounded owner/message so the
         // process bootstrap can report the environment failure cleanly.
         return resultDiagnostics.Failure( "Rendering/DX12", "%s (HRESULT 0x%08X)",
@@ -138,7 +138,7 @@ Dx12BackendOperationResult( SkullbonezCore::Core::SbDiagnosticStore& resultDiagn
 {
     if ( FAILED( hr ) )
     {
-        // Lane R: runtime presentation, resize, and render-target creation
+        // Recoverable error: runtime presentation, resize, and render-target creation
         // depend on the active adapter/driver/window state. Report the device
         // operation that failed instead of escaping through exception unwinding.
         return resultDiagnostics.Failure( "Rendering/DX12", "%s (HRESULT 0x%08X)",
@@ -337,7 +337,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, 
         return deviceResult;
     }
 
-    // Lane R: all shipping raster shaders use SM6.6 direct heap indexing. A
+    // Recoverable error: all shipping raster shaders use SM6.6 direct heap indexing. A
     // table-binding fallback would retain the per-draw descriptor copies this
     // renderer contract deliberately removes, so unsupported devices fail
     // startup with actionable capability diagnostics.
@@ -588,7 +588,7 @@ SkullbonezCore::Core::SbResult Dx12PipelineOwner::Initialize( ID3D12Device* devi
 
     if ( !ValidateGeneratedUnifiedRasterRootSignature( reflectedContractError ) )
     {
-        // Lane R: checked-in DXIL is startup input. Reject a stale or incompatible
+        // Recoverable error: checked-in DXIL is startup input. Reject a stale or incompatible
         // family before publishing a native root signature or any PSO that uses it.
         return m_resultDiagnostics.Failure( "Dx12PipelineOwner", "%s reflection rejected: %s",
                                             UnifiedRasterRootSignature::NAME, reflectedContractError.c_str() );
@@ -725,7 +725,7 @@ SkullbonezCore::Core::SbResult Dx12PipelineOwner::Initialize( ID3D12Device* devi
 
     NameDx12Object( m_rootSignature, L"Skullbonez DX12 UnifiedRaster Root Signature" );
 
-    // Lane F: exhausting a 64-bit sequence requires more successful root-
+    // Fatal invariant: exhausting a 64-bit sequence requires more successful root-
     // signature creations than this owner can perform in any valid lifetime.
     // Publishing zero or reusing an old identity could alias incompatible PSOs.
     if ( m_nextRootSignatureIdentity == 0 )
@@ -735,7 +735,7 @@ SkullbonezCore::Core::SbResult Dx12PipelineOwner::Initialize( ID3D12Device* devi
 
     m_rootSignatureIdentity = m_nextRootSignatureIdentity++;
 
-    // Lane R: a persistent PSO cache is an optional cold-start accelerator.
+    // Recoverable error: a persistent PSO cache is an optional cold-start accelerator.
     // Its owner logs and discards missing/corrupt/driver-incompatible bytes;
     // failure must never reject an otherwise valid renderer device.
     // Why: ID3DBlob publishes serialized bytes through its COM void-pointer
@@ -765,7 +765,7 @@ void RenderBackendDX12::Shutdown()
     {
         if ( m_frameOwner.HasSubmittedWork() )
         {
-            // Lane F: terminal shutdown cannot release a partially owned device
+            // Fatal invariant: terminal shutdown cannot release a partially owned device
             // after losing the only fence path that could prove queue completion.
             SB_FATAL( "RenderBackendDX12",
                       "Shutdown found submitted GPU work after the DX12 device/fence became unavailable." );
@@ -791,7 +791,7 @@ void RenderBackendDX12::Shutdown()
 
         if ( !openResult.Ok() )
         {
-            // Lane F: shutdown cannot return a recoverable result, and Present
+            // Fatal invariant: shutdown cannot return a recoverable result, and Present
             // cannot legally drain a back buffer left in render-target state.
             SB_FATAL( "RenderBackendDX12",
                       "Shutdown could not open the command list for the final backbuffer transition. owner=%s "
@@ -840,7 +840,7 @@ void RenderBackendDX12::Shutdown()
 
     if ( !initialDrainResult.Ok() )
     {
-        // Lane F: releasing any backend object after this point could race a
+        // Fatal invariant: releasing any backend object after this point could race a
         // submitted command stream. Terminal shutdown must stop instead.
         SB_FATAL( "RenderBackendDX12", "Shutdown could not prove initial GPU queue completion. owner=%s reason=%s",
                   initialDrainResult.ErrorOwner(), initialDrainResult.ErrorMessage() );
@@ -964,7 +964,7 @@ void RenderBackendDX12::Shutdown()
 
     if ( m_imguiRenderer.IsInitialized() )
     {
-        // Lane F: only the ImGui context owner can safely invoke the vendor
+        // Fatal invariant: only the ImGui context owner can safely invoke the vendor
         // shutdown API. Reaching device teardown still bound would release
         // descriptor/device storage before its context-owned resources.
         SB_FATAL( "RenderBackendDX12", "DX12 shutdown reached descriptor teardown with the ImGui renderer still bound." );
@@ -1129,7 +1129,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::FlushGPU()
     if ( !CommandList() || !m_device.GraphicsQueue() || !m_device.FrameFence().IsReady() ||
          !m_device.CommandAllocator( AllocatorIndex() ) )
     {
-        // Lane R: an active resource-mutation drain cannot claim success unless
+        // Recoverable error: an active resource-mutation drain cannot claim success unless
         // it can both wait for submitted work and reopen the recording epoch.
         return RetainFailure( m_resultDiagnostics
                                   .Failure( "Rendering/DX12",
@@ -1151,7 +1151,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::FlushGPU()
 
         if ( !drainProgress.CommitClose() || !drainProgress.CanSubmit() )
         {
-            // Lane F: this local sequence can advance only after the successful
+            // Fatal invariant: this local sequence can advance only after the successful
             // Close above; disagreement means the engine's ordering proof broke.
             SB_FATAL( "Dx12FrameOwner", "FlushGPU drain order rejected a successful command-list Close." );
         }
@@ -1176,7 +1176,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::FlushGPU()
 
     // Hazard: ExecuteCommandLists has no success result. SubmitClosedCommandList
     // already marked the work live; if this drain fence fails, both the sticky
-    // Lane R result and m_submittedWork block mutation, reuse, and unfenced release.
+    // recoverable result and m_submittedWork block mutation, reuse, and unfenced release.
     const SkullbonezCore::Core::SbResult waitResult = CommitWait( WaitForGpu() );
 
     if ( !waitResult.Ok() )
@@ -1227,7 +1227,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::DrainForResourceRelease()
 
     // Lifetime: a failed, never-submitted recording epoch cannot reference any
     // resource from the GPU. Release is already safe and teardown must not turn
-    // that expected Lane R path into a second submission or a destructor fatal.
+    // that expected recoverable error path into a second submission or a destructor fatal.
     if ( !HasSubmittedWork() )
     {
         return SkullbonezCore::Core::SbResult::Success();
@@ -1247,7 +1247,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::Resize( int width, int height )
         return SkullbonezCore::Core::SbResult::Success();
     }
 
-    // Lane R: Resize replaces back buffers and depth memory. FlushGPU closes and
+    // Recoverable error: Resize replaces back buffers and depth memory. FlushGPU closes and
     // submits any open list, proves all queue work complete, and reopens an empty
     // recording epoch. Do not release the first old resource on any failure.
     const SkullbonezCore::Core::SbResult drainResult = FlushGPU();
