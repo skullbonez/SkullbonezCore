@@ -2,53 +2,24 @@
 
 Date: 2026-08-21
 Branch: `codex/cause-hierarchy-ui-first`
-Status: Four active plans; 61/80 tasks complete
+Status: Three active plans; 62/80 tasks complete
 
-At-Rest Ball Stability RS0-RS7 and Invariant Enforcement And Assertion
-Hardening IH0-IH7 are complete. Causal C0-C8, Determinism T0-T8,
-Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7, and Continuous
-Orbital Forecast OF0-OF6 are complete. By owner direction, `MASTER-PLAN.md`
-binds Cause Hierarchy Scientific Inspector CHUI0-CHUI6 first, followed by Full
-Source Comment Truth Replacement CT0-CT5, Full Validation Time And Value Audit
-VTA0-VTA5, and Repository Hygiene Cleanup RC0-RC5. CT0 remains incomplete at
-semantic patch regeneration and resumes after CHUI6.
+At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
+Hardening IH0-IH7, and Cause Hierarchy Scientific Inspector CHUI0-CHUI6 are complete.
+Causal C0-C8, Determinism T0-T8, Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7,
+and Continuous Orbital Forecast OF0-OF6 are complete. By owner direction, `MASTER-PLAN.md`
+binds Full Source Comment Truth Replacement CT0-CT5 first, followed by Full Validation
+Time And Value Audit VTA0-VTA5, and Repository Hygiene Cleanup RC0-RC5. CT0 is the active
+task resuming semantic patch regeneration.
 Completed plan files were deleted under the repository convention; Git history
 retains their phase evidence.
 
-CAUSE_HIERARCHY_UI CHUI0 is complete. The approved concept hash and 1509 x
-1042 pixels were verified; the plan now records exact geometry, typography,
-sampled colors, ownership, negative screenshots, and eleven deterministic
-states. Five focused target/negative-control cases pass 48 assertions, including
-the legacy 10 px gutter, unrelated height, slow transition, and low-opacity
-failures. CHUI1 now provides one compound hierarchy/drawer projection, shared
-compact clamping, drawer-title routing into ReplayAuthoring's sole anchor, and
-the same control rectangles in renderer, pointer, Automation, and tests. Its
-focused geometry cases pass 64 assertions, the existing solver-scroll case
-passes 29, Profile/Automation builds pass, and the cumulative 670-test gate is
-green. The touched-source audit is 11/11 with none deferred. CHUI2 adds the
-approved navy hierarchy, evidence-family accents, fixed ASCII filter, All /
-Prediction / Contacts controls, ancestor-preserving source-index projection,
-selected-row scroll correction, and same-frame keyboard suppression. Its
-focused projection case passes 72 assertions, the cumulative gate passes 671
-cases / 2,521,550 assertions, both Profile and Automation build cleanly, and
-the inspected multi-body capture exits 0. CHUI3 adds the clipped, behind-
-hierarchy 180 ms drawer animation, visible-rectangle input ownership, fixed
-Summary tab, four exact-field metric cards, signed basis component bars, and
-row-dynamics/policy table. The focused cause group passes 16 cases / 299
-assertions, the cumulative gate passes 672 cases / 2,522,865 assertions,
-Profile and Automation builds plus smoke pass, and the inspected multi-body
-Summary capture exits 0. Its touched-source audit is 5/5 with none deferred.
-CHUI4 adds the grouped Raw Record property table with aligned numeric columns,
-section rules, alternating fills, bounded internal scrolling, and cold clipboard
-copying without retaining clipboard authority in Planning or Replay. Its focused
-cases pass, the cumulative test gate passes 674 cases / 2,521,885 assertions, the
-dependency scan is clean, and the touched-source audit is 7/7 with none deferred.
-CHUI5 adds the structured Iterations tab projecting exact pipeline stages (warm
-start, per-iteration deltas and accumulators, friction limit clamping, position
-correction, cache store, velocity writeback), refactors drawer rendering to modular
-tab dispatches, and handles close-button return and tab switching. The cumulative
-test gate passes 676 cases / 2,521,698 assertions and all governance scans are
-clean. CHUI6 is the binding next task.
+CAUSE_HIERARCHY_UI CHUI0 through CHUI6 is complete. The approved concept hash and
+geometry were ratified; the one-anchor compound layout, navy styling, bounded filtering,
+clipped 180 ms drawer animation, Summary, grouped Raw Record, and Iterations pipeline tabs
+were implemented and verified. Independent rubber-duck review passed cleanly with zero
+blocking findings, all 676 unit tests passed, and all 9 validate_fast gates passed.
+Full Source Comment Truth Replacement CT0 is the binding next task.
 
 ORBIT_FORECAST OF0 is complete. It ratifies the fixed sun as the primary,
 Earth and Mars as core bodies, and the ship as an auxiliary whose orbital-

@@ -97,34 +97,30 @@ Status: Four active plans; 60/80 tasks complete
   stopped only at the protected 35,303-line Physics CSV mismatch beginning at
   line 1,239; no golden was refreshed. Two independent post-fix reviews are
   blocker-free.
-- Cause Hierarchy Scientific Inspector is the first active queue item by owner
-  direction on 2026-08-21. Its seven phases replace the existing causal window
-  with the owner-approved dark-blue filtered hierarchy and turn exact solver
-  detail into a flush-attached Summary / Raw Record / Iterations drawer. The
-  drawer animates left from behind the hierarchy, shares one anchor and
-  drag/resize owner with it, and never owns an independent placement or
-  vertically expanding raw surface. CHUI0 ratified the exact visual/state
-  contract and negative controls; CHUI1 landed the one-anchor compound layout,
-  shared clamping, drawer-title routing, and Automation rectangles. CHUI2 owns
-  the visible hierarchy styling and filtering. CHUI3 owns the clipped 180 ms
-  attached animation and exact-evidence Summary tab. CHUI4 lands the grouped
-  Raw Record tab and cold clipboard copy action. The
-  previously active COMMENT_TRUTH CT0 remains incomplete and resumes after
-  CHUI6.
-- Full Source Comment Truth Replacement follows Cause Hierarchy Scientific
-  Inspector. Its six phases rebase the frozen 843-file audit, discard
-  replacements made redundant by IH, regenerate every stale or conflicting
-  hunk against the post-IH tree, and land the remaining comment truth by owner
-  area. Current implementation and IH enforcement prose are authoritative; the
-  old 261-hunk count is not a completion target. CT5 closes with full inventory,
-  glossary, semantic, ownership-ruling, fast-gate, and independent truth review.
-  CT0 has reconciled the live checklist at 843/843 files. The frozen artifact
-  addresses 262 targets including the engine glossary, 37 of which changed
-  after its snapshot. Strict and three-way checks now fail broadly, and a
-  detached check at the declared snapshot also does not apply cleanly under the
-  current checkout. No live source was changed. The artifact remains provenance
-  only; CT0 must regenerate the surviving replacements semantically from the
-  current tree before any owner-area batch lands.
+- Cause Hierarchy Scientific Inspector is complete. Its seven phases replaced the
+  existing causal window with the owner-approved dark-blue filtered hierarchy and
+  turned exact solver detail into a flush-attached Summary / Raw Record / Iterations
+  drawer. The drawer animates left from behind the hierarchy, shares one anchor and
+  drag/resize owner with it, and never owns an independent placement or vertically
+  expanding raw surface. CHUI0 ratified the exact visual/state contract and negative
+  controls; CHUI1 landed the one-anchor compound layout, shared clamping, drawer-title
+  routing, and Automation rectangles; CHUI2 landed the navy hierarchy styling and
+  bounded filtering; CHUI3 added the clipped 180 ms drawer animation and Summary tab;
+  CHUI4 landed the grouped Raw Record tab and cold clipboard copy action; CHUI5 added
+  the Iterations pipeline stage projection and modular drawer dispatch; CHUI6 passed
+  independent rubber-duck review, full unit tests, and terminal validation.
+- Full Source Comment Truth Replacement is the active queue item. Its six phases
+  rebase the frozen 843-file audit, discard replacements made redundant by IH,
+  regenerate every stale or conflicting hunk against the post-IH tree, and land the
+  remaining comment truth by owner area. Current implementation and IH enforcement
+  prose are authoritative; the old 261-hunk count is not a completion target. CT5 closes
+  with full inventory, glossary, semantic, ownership-ruling, fast-gate, and independent
+  truth review. CT0 has reconciled the live checklist at 843/843 files. The frozen artifact
+  addresses 262 targets including the engine glossary, 37 of which changed after its
+  snapshot. Strict and three-way checks now fail broadly, and a detached check at the
+  declared snapshot also does not apply cleanly under the current checkout. No live source
+  was changed. The artifact remains provenance only; CT0 must regenerate the surviving
+  replacements semantically from the current tree before any owner-area batch lands.
 - Full Validation Time And Value Audit is registered after comment truth
   replacement.
   Its six phases will measure every nested full-validation stage under warm,
@@ -315,15 +311,13 @@ contracts into Rendering.
 
 ## Portfolio Progress
 
-61/80 tasks complete with four active plans.
+62/80 tasks complete with three active plans.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
 Invariant Enforcement And Assertion Hardening IH0-IH7 is complete.
-Cause Hierarchy Scientific Inspector CHUI0-CHUI5 is complete and CHUI6 is next
-by owner direction; one of seven phases remains. Full Source Comment Truth
-Replacement CT0 is deferred at semantic patch regeneration until CHUI6; all
-six phases remain incomplete.
+Cause Hierarchy Scientific Inspector CHUI0-CHUI6 is complete. Full Source Comment Truth
+Replacement CT0 is the active queue item; all six phases remain.
 Full Validation Time And Value Audit VTA0-VTA5 follows CT5; all six phases
 remain.
 Repository Hygiene Cleanup RC0-RC5 follows VTA5; all six phases remain.
