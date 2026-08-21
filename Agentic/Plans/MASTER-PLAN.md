@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-21
-Status: Four active plans; 56/80 tasks complete
+Status: Four active plans; 57/80 tasks complete
 
 ## Owner Direction
 
@@ -104,7 +104,9 @@ Status: Four active plans; 56/80 tasks complete
   drawer animates left from behind the hierarchy, shares one anchor and
   drag/resize owner with it, and never owns an independent placement or
   vertically expanding raw surface. CHUI0 ratified the exact visual/state
-  contract and negative controls; CHUI1 owns the compound layout. The
+  contract and negative controls; CHUI1 landed the one-anchor compound layout,
+  shared clamping, drawer-title routing, and Automation rectangles. CHUI2 owns
+  the visible hierarchy styling and filtering. The
   previously active COMMENT_TRUTH CT0 remains incomplete and resumes after
   CHUI6.
 - Full Source Comment Truth Replacement follows Cause Hierarchy Scientific
@@ -233,7 +235,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Cause Hierarchy Scientific Inspector | `CAUSE_HIERARCHY_UI` | 7 | 1 | `TODO/cause-hierarchy-scientific-inspector.md` |
+| Cause Hierarchy Scientific Inspector | `CAUSE_HIERARCHY_UI` | 7 | 2 | `TODO/cause-hierarchy-scientific-inspector.md` |
 | Full Source Comment Truth Replacement | `COMMENT_TRUTH` | 6 | 0 | `TODO/full-source-comment-truth-replacement.md` |
 | Full Validation Time And Value Audit | `VALIDATION_TIME_AUDIT` | 6 | 0 | `TODO/full-validation-time-value-audit.md` |
 | Repository Hygiene Cleanup | `REPOSITORY_CLEANUP` | 6 | 0 | `TODO/repository-hygiene-cleanup.md` |
@@ -311,13 +313,13 @@ contracts into Rendering.
 
 ## Portfolio Progress
 
-56/80 tasks complete with four active plans.
+57/80 tasks complete with four active plans.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
 Invariant Enforcement And Assertion Hardening IH0-IH7 is complete.
-Cause Hierarchy Scientific Inspector CHUI0 is complete and CHUI1 is next by
-owner direction; six of seven phases remain. Full Source Comment Truth
+Cause Hierarchy Scientific Inspector CHUI0-CHUI1 is complete and CHUI2 is next
+by owner direction; five of seven phases remain. Full Source Comment Truth
 Replacement CT0 is deferred at semantic patch regeneration until CHUI6; all
 six phases remain incomplete.
 Full Validation Time And Value Audit VTA0-VTA5 follows CT5; all six phases

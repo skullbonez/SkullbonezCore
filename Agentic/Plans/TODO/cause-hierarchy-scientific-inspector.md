@@ -1,7 +1,7 @@
 # Cause Hierarchy Scientific Inspector
 
 Date: 2026-08-20
-Status: Active; 1/7 phases complete. First active queue item by owner direction.
+Status: Active; 2/7 phases complete. First active queue item by owner direction.
 Impact areas: Runtime Replay cause-window state and input, Runtime Planning
 inspection state and rendering, App input composition, UI presentation, replay
 Automation, deterministic screenshots, and tests
@@ -9,7 +9,7 @@ Owner: ReplayAuthoring owns the cause hierarchy anchor, size, filtering, and
 row selection; ReplayCauseInspection owns the attached detail drawer lifecycle,
 tab, animation, and exact detached evidence; App composes typed commands and
 camera/transport effects without retaining a second UI owner
-Priority: First active queue item; CHUI1 follows completed CHUI0
+Priority: First active queue item; CHUI2 follows completed CHUI1
 Commit name: `CAUSE_HIERARCHY_UI`
 
 ## Goal
@@ -322,21 +322,36 @@ presentation is unchanged.
 
 ### CHUI1 - One Compound Layout And Placement Owner
 
-- [ ] Replace the separate solver-panel placement projection with one pure
+- [x] Replace the separate solver-panel placement projection with one pure
       hierarchy-plus-drawer compound layout containing hierarchy, visible
       drawer, target drawer, shared seam, title bars, tabs, content, scrollbars,
       resize handle, and combined bounds.
-- [ ] Keep one ReplayAuthoring anchor and resize owner. Dragging either title
+- [x] Keep one ReplayAuthoring anchor and resize owner. Dragging either title
       bar moves the same anchor; the drawer stores no x/y coordinates.
-- [ ] Clamp closed and open surfaces against normal, compact, resolution-change,
+- [x] Clamp closed and open surfaces against normal, compact, resolution-change,
       and edge/corner placements while keeping title, close, and resize controls
       reachable.
-- [ ] Publish the exact same control rectangles to renderer, pointer input,
+- [x] Publish the exact same control rectangles to renderer, pointer input,
       Automation, and tests.
 
 **CHUI1 acceptance:** closed/open/mid-animation geometry is exact at 1920 x
 1080 and 931 x 643; a drag or resize moves the joined surface without relative
 drift; no second retained placement or pointer owner exists.
+
+**CHUI1 evidence (2026-08-21):** Planning now publishes one compound layout for
+the hierarchy, moving/visible/target drawer, seam, both title bars, close, tabs,
+content, both scrollbars, resize handle, and current/target compound bounds.
+ReplayOverlayLayout clamps a generic attached-left extent while ReplayAuthoring
+retains the only anchor, size, drag offsets, and resize state; App routes drawer
+title hits into that owner. Renderer, pointer routing, Automation JSON, and tests
+consume the same rectangles. Exact normal/compact, midpoint, edge/corner,
+drawer-title drag, and resize cases pass 7 cases / 64 assertions; the existing
+solver scroll case passes 29 assertions. Profile app/tests and the Automation
+solution build with warnings as errors. `validate_tests` passes 670 cases /
+2,522,048 assertions. The touched-source audit is 11/11 with zero deferrals and
+Related paths are clean. `validate_fast` stopped only on its formatter stage;
+the mandated formatter repair is applied and the rerun is deferred to the next
+visible UI checkpoint by owner priority.
 
 ### CHUI2 - Cause Hierarchy Visual System And Filtering
 

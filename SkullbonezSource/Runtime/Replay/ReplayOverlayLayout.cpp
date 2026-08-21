@@ -5,13 +5,17 @@ Purpose:
 
 Summary:
   Replay layout is a replay subsystem concern. Input hit boxes and drawn
-  controls should stay mechanically identical by using the same helpers.
+  controls stay mechanically identical by using the same helpers, including
+  generic attached-left clamping that preserves the cause hierarchy's sole
+  retained anchor.
 
 Invariants:
   - Input and rendering must call these helpers for the same rectangles.
   - Scrubber controls are published front-to-back so disabled rows block
     click-through and broad panel rows cannot steal specific actions.
   - Clamp movable overlay windows before drawing or hit testing them.
+  - Attached surfaces contribute only a desired/minimum width; they never add
+    retained placement coordinates to Replay layout.
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h
@@ -29,7 +33,7 @@ namespace
 {
 // Why: the top-right scene/camera badges own the first screen rows, so the
 // draggable cause window starts below them instead of covering status text.
-constexpr int REPLAY_CAUSE_WINDOW_SAFE_TOP = 124;
+constexpr int REPLAY_CAUSE_WINDOW_SAFE_TOP = 84;
 
 int ReplayCauseWindowMinY( int screenH )
 {
@@ -384,36 +388,79 @@ float ReplayCauseWindowMaxScroll( const RunReplayCauseTreeState& state )
     return (std::max)( 0.0f, ReplayCauseWindowContentHeight( state ) - content.h );
 }
 
-void ClampReplayCauseWindow( RunReplayCauseTreeState& state, int screenW, int screenH )
+float ReplayCauseWindowAttachedWidth( const RunReplayCauseTreeState& state, int screenW, float desiredWidth,
+                                      float minimumWidth )
+{
+    const float desired = (std::max)( 0.0f, desiredWidth );
+    const float minimum = std::clamp( minimumWidth, 0.0f, desired );
+    const float available = (std::max)( 0.0f, static_cast<float>( screenW - 16 - state.width ) );
+
+    // Why: the drawer shrinks before the hierarchy, but a viewport narrower
+    // than both minima still gets a truthful bounded remainder rather than an
+    // off-screen target rectangle.
+    return std::clamp( available, (std::min)( minimum, available ), desired );
+}
+
+void ClampReplayCauseWindow( RunReplayCauseTreeState& state, int screenW, int screenH, float desiredAttachedLeftWidth,
+                             float minimumAttachedLeftWidth )
 {
     // Invariant: the resize handle and title bar must remain reachable after a
     // resolution change, or the inspection window can become permanently
     // off-screen for the session.
+    const int availableWidth = (std::max)( 1, screenW - 16 );
     state.width = (std::max)( REPLAY_CAUSE_WINDOW_MIN_W,
-                              (std::min)( state.width, (std::max)( REPLAY_CAUSE_WINDOW_MIN_W, screenW - 16 ) ) );
+                              (std::min)( state.width, (std::max)( REPLAY_CAUSE_WINDOW_MIN_W, availableWidth ) ) );
+
+    const int minimumAttachment = static_cast<int>( std::ceil( (std::max)( 0.0f, minimumAttachedLeftWidth ) ) );
+    const int hierarchyWidthWithMinimumAttachment = availableWidth - minimumAttachment;
+
+    if ( hierarchyWidthWithMinimumAttachment >= REPLAY_CAUSE_WINDOW_MIN_W )
+    {
+        state.width = (std::min)( state.width, hierarchyWidthWithMinimumAttachment );
+    }
 
     state.height = (std::max)( REPLAY_CAUSE_WINDOW_MIN_H,
                                (std::min)( state.height, (std::max)( REPLAY_CAUSE_WINDOW_MIN_H, screenH - 16 ) ) );
 
+    const float attachedWidth = ReplayCauseWindowAttachedWidth( state, screenW, desiredAttachedLeftWidth,
+                                                                minimumAttachedLeftWidth );
     const int minY = ReplayCauseWindowMinY( screenH );
-    state.x = std::clamp( state.x, 8, (std::max)( 8, screenW - state.width - 8 ) );
+    const int minimumX = 8 + static_cast<int>( std::ceil( attachedWidth ) );
+    state.x = std::clamp( state.x, minimumX, (std::max)( minimumX, screenW - state.width - 8 ) );
     state.y = std::clamp( state.y, minY, (std::max)( minY, screenH - state.height - 8 ) );
     state.scrollY = std::clamp( state.scrollY, 0.0f, ReplayCauseWindowMaxScroll( state ) );
 }
 
-void EnsureReplayCauseWindowPlacement( RunReplayCauseTreeState& state, int screenW, int screenH )
+void EnsureReplayCauseWindowPlacement( RunReplayCauseTreeState& state, int screenW, int screenH,
+                                       float desiredAttachedLeftWidth, float minimumAttachedLeftWidth )
 {
     if ( !state.hasWindowPlacement )
     {
         const int minY = ReplayCauseWindowMinY( screenH );
         state.width = (std::min)( 380, (std::max)( REPLAY_CAUSE_WINDOW_MIN_W, screenW - 48 ) );
-        state.height = (std::min)( 520, (std::max)( REPLAY_CAUSE_WINDOW_MIN_H, screenH - minY - 120 ) );
+        state.height = (std::min)( 520, (std::max)( REPLAY_CAUSE_WINDOW_MIN_H, screenH - minY - 8 ) );
         state.x = (std::max)( 12, screenW - state.width - 24 );
         state.y = minY;
         state.hasWindowPlacement = true;
     }
 
-    ClampReplayCauseWindow( state, screenW, screenH );
+    ClampReplayCauseWindow( state, screenW, screenH, desiredAttachedLeftWidth, minimumAttachedLeftWidth );
+}
+
+void MoveReplayCauseWindow( RunReplayCauseTreeState& state, int mouseX, int mouseY, int screenW, int screenH,
+                            float desiredAttachedLeftWidth, float minimumAttachedLeftWidth )
+{
+    state.x = mouseX - state.dragOffsetX;
+    state.y = mouseY - state.dragOffsetY;
+    ClampReplayCauseWindow( state, screenW, screenH, desiredAttachedLeftWidth, minimumAttachedLeftWidth );
+}
+
+void ResizeReplayCauseWindow( RunReplayCauseTreeState& state, int mouseX, int mouseY, int screenW, int screenH,
+                              float desiredAttachedLeftWidth, float minimumAttachedLeftWidth )
+{
+    state.width = state.resizeStartWidth + ( mouseX - state.resizeStartMouseX );
+    state.height = state.resizeStartHeight + ( mouseY - state.resizeStartMouseY );
+    ClampReplayCauseWindow( state, screenW, screenH, desiredAttachedLeftWidth, minimumAttachedLeftWidth );
 }
 
 float ReplayScrubberPositionFromMouse( int mouseX, int screenW, int screenH, RunReplayTrack trackName )

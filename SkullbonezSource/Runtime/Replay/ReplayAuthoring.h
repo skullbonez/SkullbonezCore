@@ -4,9 +4,9 @@ Purpose:
   Owns replay velocity-edit, causal-authoring, and branch-provenance state.
 
 Summary:
-  ReplayAuthoring retains operator edits and cause-tree selection. Held velocity
-  samples publish a newest preview value; release publishes the single request
-  that refreshes authoritative prediction.
+  ReplayAuthoring retains operator edits, the one cause-tree anchor/size, and
+  source-row selection. Held velocity samples publish a newest preview value;
+  release publishes the single request that refreshes authoritative prediction.
 
 Glossary:
   Velocity preview request: Fixed-size target and delta-v command that replaces
@@ -14,6 +14,8 @@ Glossary:
 
 Invariants:
   - Cause rows retain Physics::PhysicsSceneObjectId as identity and dense rows only as hints.
+  - Attached cause-inspector geometry may change clamping extents but never adds
+    another retained x/y or resize owner beside the cause-tree state.
   - Authoring receives prediction only as a read-only frame-local publication;
     the composition root consumes queued mutation requests in frame order.
   - Held velocity samples never set the prediction-refresh bit; the release
@@ -184,7 +186,8 @@ class ReplayAuthoring
     // Cause-window commands retain layout mutation inside the authoring owner;
     // input and rendering consume only the published const state.
     void BeginCauseTreeInputFrame() noexcept;
-    void EnsureCauseTreeWindowPlacement( int screenWidth, int screenHeight ) noexcept;
+    void EnsureCauseTreeWindowPlacement( int screenWidth, int screenHeight, float desiredAttachedLeftWidth = 0.0f,
+                                         float minimumAttachedLeftWidth = 0.0f ) noexcept;
     void SetCauseTreePointer( int mouseX, int mouseY, bool blocked ) noexcept;
     void MoveCauseTreeWindow( int mouseX, int mouseY, int screenWidth, int screenHeight ) noexcept;
     void ResizeCauseTreeWindow( int mouseX, int mouseY, int screenWidth, int screenHeight ) noexcept;

@@ -7,8 +7,8 @@ Summary:
   Replay overlay rendering is a late UI pass. Keep the same screen-space layout
   and pointer eligibility as replay input by rebuilding the same fixed-capacity
   surfaces from ReplayOverlayLayout. The causal solver panel renders exact-frame
-  copied evidence in a translucent compact panel beside its cause tree through
-  Planning's shared layout, with a scrollbar after the fourth visible row.
+  copied evidence in a flush attached drawer projected from the cause-tree
+  anchor through Planning's shared compound layout.
 
 Invariants:
   - Drawn controls use the same surface rows and pointer-block fact as input, so
@@ -17,7 +17,7 @@ Invariants:
     and runtime replay helpers.
   - Solver rows expose their units and sign conventions on the surface; missing
     stages render neutral values without inventing a replacement record.
-  - Solver-panel draw bounds come from the same pure projection used by input;
+  - Inspector draw bounds come from the same pure projection used by input;
     no more than four complete contact rows appear at once, and unavailable
     detail never reserves row-sized empty space.
 
@@ -114,38 +114,37 @@ void RenderReplayCauseSolverDetailPanel( const UI::UIDrawContext& draw, const Re
     }
 
     PROFILE_SCOPED( "Frame/Replay/CauseInspection/PanelRender" );
-    const ReplayCauseSolverPanelLayout layout = BuildReplayCauseSolverPanelLayout( inspection, replay.causeTree, screenW,
-                                                                                   screenH );
+    const ReplayCauseInspectorLayout layout = BuildReplayCauseInspectorLayout( inspection, replay.causeTree, screenW,
+                                                                               screenH, 1.0f );
     const UI::Style::UIPalette& palette = UI::Style::Palette();
     const UI::Style::UIRadii& radii = UI::Style::Radii();
     UI::Style::UIColor panelFill = palette.windowSubtle;
     panelFill.a = REPLAY_CAUSE_SOLVER_PANEL_OPACITY;
     UI::Style::UIColor panelBorder = palette.innerBorder;
     panelBorder.a = 0.62f;
-    draw.RoundedPanel( layout.panel, radii.window, panelFill, panelBorder );
-    draw.Text( layout.panel.x + 12.0f, layout.panel.y + 8.0f, 12.5f, palette.textPrimary.r, palette.textPrimary.g,
+    draw.RoundedPanel( layout.drawer, radii.window, panelFill, panelBorder );
+    draw.Text( layout.drawer.x + 12.0f, layout.drawer.y + 8.0f, 12.5f, palette.textPrimary.r, palette.textPrimary.g,
                palette.textPrimary.b, "SOLVER ROW DETAIL" );
 
     char frameLabel[96] = {};
     sprintf_s( frameLabel, sizeof( frameLabel ), "FRAME %llu | %zu ROWS%s",
                static_cast<unsigned long long>( inspection.targetFrame ), inspection.solverDetailContacts.size(),
                inspection.contactPresentation.truncated ? " | PATCH TRUNCATED" : "" );
-    draw.Text( layout.panel.x + 154.0f, layout.panel.y + 10.0f, 9.0f,
+    draw.Text( layout.drawer.x + 154.0f, layout.drawer.y + 10.0f, 9.0f,
                inspection.contactPresentation.truncated ? palette.warningAccent.r : palette.accent.r,
                inspection.contactPresentation.truncated ? palette.warningAccent.g : palette.accent.g,
                inspection.contactPresentation.truncated ? palette.warningAccent.b : palette.accent.b, frameLabel );
 
     // Sign/units are rendered as part of the surface so a captured frame remains
     // interpretable without consulting solver implementation comments.
-    draw.Text( layout.panel.x + 12.0f, layout.panel.y + REPLAY_CAUSE_SOLVER_PANEL_TITLE_HEIGHT + 1.0f, 8.3f,
-               palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b, REPLAY_CAUSE_SOLVER_PANEL_UNITS );
-    draw.Text( layout.panel.x + 12.0f, layout.panel.y + REPLAY_CAUSE_SOLVER_PANEL_TITLE_HEIGHT + 13.0f, 8.3f,
-               palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
-               REPLAY_CAUSE_SOLVER_PANEL_UNITS_MORE );
-    draw.Text( layout.panel.x + 12.0f, layout.panel.y + REPLAY_CAUSE_SOLVER_PANEL_TITLE_HEIGHT + 29.0f, 8.3f,
-               palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, REPLAY_CAUSE_SOLVER_PANEL_SIGNS );
-    draw.Text( layout.panel.x + 12.0f, layout.panel.y + REPLAY_CAUSE_SOLVER_PANEL_TITLE_HEIGHT + 41.0f, 8.3f,
-               palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, REPLAY_CAUSE_SOLVER_PANEL_SIGNS_MORE );
+    draw.Text( layout.drawer.x + 12.0f, layout.drawer.y + 33.0f, 8.3f, palette.textSecondary.r, palette.textSecondary.g,
+               palette.textSecondary.b, REPLAY_CAUSE_SOLVER_PANEL_UNITS );
+    draw.Text( layout.drawer.x + 12.0f, layout.drawer.y + 45.0f, 8.3f, palette.textSecondary.r, palette.textSecondary.g,
+               palette.textSecondary.b, REPLAY_CAUSE_SOLVER_PANEL_UNITS_MORE );
+    draw.Text( layout.drawer.x + 12.0f, layout.drawer.y + 58.0f, 8.3f, palette.textMuted.r, palette.textMuted.g,
+               palette.textMuted.b, REPLAY_CAUSE_SOLVER_PANEL_SIGNS );
+    draw.Text( layout.drawer.x + 12.0f, layout.drawer.y + 68.0f, 8.3f, palette.textMuted.r, palette.textMuted.g,
+               palette.textMuted.b, REPLAY_CAUSE_SOLVER_PANEL_SIGNS_MORE );
 
     if ( inspection.solverDetailAvailability != ReplayCauseSolverDetailAvailability::Available ||
          inspection.solverDetailContacts.empty() )

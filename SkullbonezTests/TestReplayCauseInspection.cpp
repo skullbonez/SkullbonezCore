@@ -17,11 +17,11 @@
 //   lifetime, the compact unavailable state, and the up-to-four-row scrolling
 //   viewport.
 //   The UI projection test pins exact solver-value text, units, and signs.
-//   The scientific-inspector target model pins the approved compound surface:
+//   The scientific-inspector projection pins the approved compound surface:
 //   exact visual states, flush drawer geometry, one-anchor motion, fixed tabs,
-//   180 ms easing, and ancestor-preserving filtered source-row identity. Its
-//   negative control must continue detecting the legacy detached panel until
-//   the later inspector phases replace that presentation.
+//   180 ms easing, reachable compact controls, and ancestor-preserving filtered
+//   source-row identity. Its negative control records why the retired detached
+//   placement could not satisfy the joined contract.
 //   The Planning transition tests also pin request coalescing, pause ownership,
 //   Space aftermath, total-elapsed cubic easing, symmetric discrete frame
 //   rounding, and saved-camera return policy without host owners.
@@ -36,7 +36,7 @@
 //   - A current or coincident diagnostics row never substitutes for a mismatched frame stamp or row index.
 //   - Detached contact packets use exact retained points when present and derive
 //     only surviving rows when an exact point record is unavailable.
-//   - Retarget, aftermath, return, failure, and reset clear the panel and
+//   - Retarget, aftermath, return, failure, and reset clear the drawer and
 //     manifold packet through one paired visibility edge.
 //   - Forward and reverse transport are monotonic and land on the exact target.
 //
@@ -49,6 +49,7 @@
 
 #include "../SkullbonezSource/Runtime/Planning/ReplayCauseInspection.h"
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionView.h"
+#include "../SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
 
 #include <array>
@@ -68,72 +69,14 @@ ReplayRecorderStats RetainedSolverWindow()
     return stats;
 }
 
-// Concept: the target model is deliberately test-local while the legacy panel
-// remains live. It turns the approved visual contract into exact failing-shape
-// evidence without changing production presentation during fixture ratification.
-enum class CauseInspectorTargetTab : uint8_t
-{
-    Summary,
-    RawRecord,
-    Iterations
-};
-
 constexpr float CAUSE_INSPECTOR_TARGET_DRAWER_WIDTH = 520.0f;
 constexpr double CAUSE_INSPECTOR_TARGET_DRAWER_SECONDS = 0.18;
-
-// Invariant: every rectangle is derived from the hierarchy anchor and shared
-// height. Changing tabs may replace content, but never changes the footprint.
-struct CauseInspectorTargetLayout
-{
-    SkullbonezCore::UI::UIRect hierarchy;
-    SkullbonezCore::UI::UIRect drawer;
-    SkullbonezCore::UI::UIRect drawerClip;
-    SkullbonezCore::UI::UIRect compound;
-    SkullbonezCore::UI::UIRect content;
-    std::array<SkullbonezCore::UI::UIRect, 3> tabs;
-};
 
 float CauseInspectorTargetDrawerEase( double elapsedSeconds )
 {
     const double t = std::clamp( elapsedSeconds / CAUSE_INSPECTOR_TARGET_DRAWER_SECONDS, 0.0, 1.0 );
     const double remaining = 1.0 - t;
     return static_cast<float>( 1.0 - remaining * remaining * remaining );
-}
-
-CauseInspectorTargetLayout BuildCauseInspectorTargetLayout( const RunReplayCauseTreeState& state, float easedProgress,
-                                                            CauseInspectorTargetTab tab )
-{
-    (void)tab;
-    const float visibleWidth = CAUSE_INSPECTOR_TARGET_DRAWER_WIDTH * std::clamp( easedProgress, 0.0f, 1.0f );
-    const float drawerX = static_cast<float>( state.x ) - visibleWidth;
-    CauseInspectorTargetLayout layout;
-    layout.hierarchy = { static_cast<float>( state.x ), static_cast<float>( state.y ), static_cast<float>( state.width ),
-                         static_cast<float>( state.height ) };
-    layout.drawer = { drawerX, layout.hierarchy.y, CAUSE_INSPECTOR_TARGET_DRAWER_WIDTH, layout.hierarchy.h };
-    layout.drawerClip = { drawerX, layout.hierarchy.y, visibleWidth, layout.hierarchy.h };
-    layout.compound = { drawerX, layout.hierarchy.y, layout.hierarchy.w + visibleWidth, layout.hierarchy.h };
-
-    constexpr float padding = 12.0f;
-    constexpr float drawerHeaderHeight = 76.0f;
-    constexpr float tabHeight = 38.0f;
-    const float tabWidth = ( CAUSE_INSPECTOR_TARGET_DRAWER_WIDTH - padding * 2.0f ) / 3.0f;
-
-    for ( std::size_t index = 0; index < layout.tabs.size(); ++index )
-    {
-        layout.tabs[index] = { drawerX + padding + tabWidth * static_cast<float>( index ),
-                               layout.hierarchy.y + drawerHeaderHeight, tabWidth, tabHeight };
-    }
-
-    layout.content = { drawerX + padding, layout.hierarchy.y + drawerHeaderHeight + tabHeight + padding,
-                       CAUSE_INSPECTOR_TARGET_DRAWER_WIDTH - padding * 2.0f,
-                       layout.hierarchy.h - drawerHeaderHeight - tabHeight - padding * 2.0f };
-    return layout;
-}
-
-bool SameRect( const SkullbonezCore::UI::UIRect& left, const SkullbonezCore::UI::UIRect& right )
-{
-    return left.x == doctest::Approx( right.x ) && left.y == doctest::Approx( right.y ) &&
-           left.w == doctest::Approx( right.w ) && left.h == doctest::Approx( right.h );
 }
 
 struct CauseInspectorTargetFilterRow
@@ -202,23 +145,23 @@ TEST_CASE( "Cause hierarchy inspector target: deterministic visual fixtures pin 
         int width;
         int height;
         int selectedSourceRow;
-        CauseInspectorTargetTab tab;
+        ReplayCauseInspectorTab tab;
         float progress;
         int scrollRows;
     };
 
     constexpr std::array fixtures = {
-        Fixture { "hierarchy-only", 1920, 1080, -1, CauseInspectorTargetTab::Summary, 0.0f, 0 },
-        Fixture { "opening-midpoint", 1920, 1080, 3, CauseInspectorTargetTab::Summary, 0.5f, 0 },
-        Fixture { "summary-open", 1920, 1080, 3, CauseInspectorTargetTab::Summary, 1.0f, 0 },
-        Fixture { "raw-top", 1920, 1080, 3, CauseInspectorTargetTab::RawRecord, 1.0f, 0 },
-        Fixture { "raw-scrolled", 1920, 1080, 3, CauseInspectorTargetTab::RawRecord, 1.0f, 6 },
-        Fixture { "iterations", 1920, 1080, 3, CauseInspectorTargetTab::Iterations, 1.0f, 0 },
-        Fixture { "filtered", 1920, 1080, 3, CauseInspectorTargetTab::Summary, 0.0f, 0 },
-        Fixture { "unavailable", 1920, 1080, 3, CauseInspectorTargetTab::Summary, 1.0f, 0 },
-        Fixture { "moved", 1920, 1080, 3, CauseInspectorTargetTab::Summary, 1.0f, 0 },
-        Fixture { "resized", 1920, 1080, 3, CauseInspectorTargetTab::Summary, 1.0f, 0 },
-        Fixture { "compact", 931, 643, 3, CauseInspectorTargetTab::RawRecord, 1.0f, 0 },
+        Fixture { "hierarchy-only", 1920, 1080, -1, ReplayCauseInspectorTab::Summary, 0.0f, 0 },
+        Fixture { "opening-midpoint", 1920, 1080, 3, ReplayCauseInspectorTab::Summary, 0.5f, 0 },
+        Fixture { "summary-open", 1920, 1080, 3, ReplayCauseInspectorTab::Summary, 1.0f, 0 },
+        Fixture { "raw-top", 1920, 1080, 3, ReplayCauseInspectorTab::RawRecord, 1.0f, 0 },
+        Fixture { "raw-scrolled", 1920, 1080, 3, ReplayCauseInspectorTab::RawRecord, 1.0f, 6 },
+        Fixture { "iterations", 1920, 1080, 3, ReplayCauseInspectorTab::Iterations, 1.0f, 0 },
+        Fixture { "filtered", 1920, 1080, 3, ReplayCauseInspectorTab::Summary, 0.0f, 0 },
+        Fixture { "unavailable", 1920, 1080, 3, ReplayCauseInspectorTab::Summary, 1.0f, 0 },
+        Fixture { "moved", 1920, 1080, 3, ReplayCauseInspectorTab::Summary, 1.0f, 0 },
+        Fixture { "resized", 1920, 1080, 3, ReplayCauseInspectorTab::Summary, 1.0f, 0 },
+        Fixture { "compact", 931, 643, 3, ReplayCauseInspectorTab::RawRecord, 1.0f, 0 },
     };
 
     CHECK( fixtures.size() == 11u );
@@ -239,32 +182,20 @@ TEST_CASE( "Cause hierarchy inspector target: one anchor controls flush drawer m
     state.width = 430;
     state.height = 500;
 
-    const CauseInspectorTargetLayout summary = BuildCauseInspectorTargetLayout( state, 1.0f,
-                                                                                CauseInspectorTargetTab::Summary );
-    const CauseInspectorTargetLayout raw = BuildCauseInspectorTargetLayout( state, 1.0f,
-                                                                            CauseInspectorTargetTab::RawRecord );
-    const CauseInspectorTargetLayout iterations = BuildCauseInspectorTargetLayout( state, 1.0f,
-                                                                                   CauseInspectorTargetTab::Iterations );
-    CHECK( summary.drawer.x + summary.drawer.w == doctest::Approx( summary.hierarchy.x ) );
+    const ReplayCauseInspectionView inspection;
+    const ReplayCauseInspectorLayout summary = BuildReplayCauseInspectorLayout( inspection, state, 1920, 1080, 1.0f );
+    CHECK( summary.targetDrawer.x + summary.targetDrawer.w == doctest::Approx( summary.hierarchy.x ) );
     CHECK( summary.drawer.y == doctest::Approx( summary.hierarchy.y ) );
     CHECK( summary.drawer.h == doctest::Approx( summary.hierarchy.h ) );
     CHECK( summary.compound.x == doctest::Approx( 660.0f ) );
     CHECK( summary.compound.w == doctest::Approx( 950.0f ) );
-    CHECK( SameRect( summary.drawer, raw.drawer ) );
-    CHECK( SameRect( summary.drawer, iterations.drawer ) );
-    CHECK( SameRect( summary.content, raw.content ) );
-    CHECK( SameRect( summary.content, iterations.content ) );
-
-    for ( std::size_t index = 0; index < summary.tabs.size(); ++index )
-    {
-        CHECK( SameRect( summary.tabs[index], raw.tabs[index] ) );
-        CHECK( SameRect( summary.tabs[index], iterations.tabs[index] ) );
-    }
+    CHECK( summary.tabs[0].w == doctest::Approx( summary.tabs[1].w ) );
+    CHECK( summary.tabs[1].w == doctest::Approx( summary.tabs[2].w ) );
+    CHECK( summary.tabs[0].y == doctest::Approx( summary.tabs[2].y ) );
 
     state.x += 73;
     state.y += 41;
-    const CauseInspectorTargetLayout moved = BuildCauseInspectorTargetLayout( state, 1.0f,
-                                                                              CauseInspectorTargetTab::Summary );
+    const ReplayCauseInspectorLayout moved = BuildReplayCauseInspectorLayout( inspection, state, 1920, 1080, 1.0f );
     CHECK( moved.hierarchy.x - summary.hierarchy.x == doctest::Approx( 73.0f ) );
     CHECK( moved.drawer.x - summary.drawer.x == doctest::Approx( 73.0f ) );
     CHECK( moved.hierarchy.y - summary.hierarchy.y == doctest::Approx( 41.0f ) );
@@ -280,22 +211,95 @@ TEST_CASE( "Cause hierarchy inspector target: compact geometry and 180 ms ease h
     compact.width = 380;
     compact.height = 520;
 
-    const CauseInspectorTargetLayout closed = BuildCauseInspectorTargetLayout( compact,
-                                                                               CauseInspectorTargetDrawerEase( 0.0 ),
-                                                                               CauseInspectorTargetTab::Summary );
-    const CauseInspectorTargetLayout midpoint = BuildCauseInspectorTargetLayout( compact,
-                                                                                 CauseInspectorTargetDrawerEase( 0.09 ),
-                                                                                 CauseInspectorTargetTab::Summary );
-    const CauseInspectorTargetLayout open = BuildCauseInspectorTargetLayout( compact, CauseInspectorTargetDrawerEase( 0.18 ),
-                                                                             CauseInspectorTargetTab::Summary );
-    CHECK( closed.drawerClip.w == doctest::Approx( 0.0f ) );
-    CHECK( midpoint.drawerClip.w == doctest::Approx( 455.0f ) );
-    CHECK( open.drawer.x == doctest::Approx( 8.0f ) );
-    CHECK( open.drawer.w == doctest::Approx( 520.0f ) );
+    const ReplayCauseInspectionView inspection;
+    const ReplayCauseInspectorLayout closed = BuildReplayCauseInspectorLayout( inspection, compact, 931, 643,
+                                                                               CauseInspectorTargetDrawerEase( 0.0 ) );
+    const ReplayCauseInspectorLayout midpoint = BuildReplayCauseInspectorLayout( inspection, compact, 931, 643,
+                                                                                 CauseInspectorTargetDrawerEase( 0.09 ) );
+    const ReplayCauseInspectorLayout open = BuildReplayCauseInspectorLayout( inspection, compact, 931, 643,
+                                                                             CauseInspectorTargetDrawerEase( 0.18 ) );
+    CHECK( closed.visibleDrawer.w == doctest::Approx( 0.0f ) );
+    CHECK( midpoint.visibleDrawer.w == doctest::Approx( 455.0f ) );
+    CHECK( open.targetDrawer.x == doctest::Approx( 8.0f ) );
+    CHECK( open.targetDrawer.w == doctest::Approx( 520.0f ) );
     CHECK( open.compound.x == doctest::Approx( 8.0f ) );
     CHECK( open.compound.w == doctest::Approx( 900.0f ) );
     CHECK( open.compound.h == doctest::Approx( 520.0f ) );
     CHECK( CauseInspectorTargetDrawerEase( 1.0 ) == doctest::Approx( 1.0f ) );
+}
+
+TEST_CASE( "Cause hierarchy inspector layout: compound clamping preserves reachable normal and compact controls" )
+{
+    RunReplayCauseTreeState normal;
+    ReplayOverlay::EnsureReplayCauseWindowPlacement( normal, 1920, 1080, REPLAY_CAUSE_INSPECTOR_DRAWER_WIDTH,
+                                                     REPLAY_CAUSE_INSPECTOR_DRAWER_MIN_WIDTH );
+    CHECK( normal.x == 1516 );
+    CHECK( normal.y == 84 );
+    CHECK( normal.width == 380 );
+    CHECK( normal.height == 520 );
+
+    RunReplayCauseTreeState compact;
+    ReplayOverlay::EnsureReplayCauseWindowPlacement( compact, 931, 643, REPLAY_CAUSE_INSPECTOR_DRAWER_WIDTH,
+                                                     REPLAY_CAUSE_INSPECTOR_DRAWER_MIN_WIDTH );
+    CHECK( compact.x == 528 );
+    CHECK( compact.y == 84 );
+    CHECK( compact.width == 380 );
+    CHECK( compact.height == 520 );
+
+    compact.x = -900;
+    compact.y = -900;
+    ReplayOverlay::ClampReplayCauseWindow( compact, 931, 643, REPLAY_CAUSE_INSPECTOR_DRAWER_WIDTH,
+                                           REPLAY_CAUSE_INSPECTOR_DRAWER_MIN_WIDTH );
+    const ReplayCauseInspectionView inspection;
+    const ReplayCauseInspectorLayout topLeft = BuildReplayCauseInspectorLayout( inspection, compact, 931, 643, 1.0f );
+    CHECK( topLeft.targetCompound.x == doctest::Approx( 8.0f ) );
+    CHECK( topLeft.targetCompound.y == doctest::Approx( 84.0f ) );
+    CHECK( topLeft.drawerClose.x + topLeft.drawerClose.w <= topLeft.hierarchy.x );
+    CHECK( topLeft.resize.x + topLeft.resize.w <= 923.0f );
+
+    compact.x = 9000;
+    compact.y = 9000;
+    ReplayOverlay::ClampReplayCauseWindow( compact, 931, 643, REPLAY_CAUSE_INSPECTOR_DRAWER_WIDTH,
+                                           REPLAY_CAUSE_INSPECTOR_DRAWER_MIN_WIDTH );
+    const ReplayCauseInspectorLayout bottomRight = BuildReplayCauseInspectorLayout( inspection, compact, 931, 643, 1.0f );
+    CHECK( bottomRight.targetCompound.x >= 8.0f );
+    CHECK( bottomRight.compound.x + bottomRight.compound.w <= 923.0f );
+    CHECK( bottomRight.compound.y + bottomRight.compound.h <= 635.0f );
+}
+
+TEST_CASE( "Cause hierarchy inspector layout: drawer-title drag and resize mutate only the Replay anchor" )
+{
+    RunReplayCauseTreeState state;
+    ReplayOverlay::EnsureReplayCauseWindowPlacement( state, 1920, 1080, REPLAY_CAUSE_INSPECTOR_DRAWER_WIDTH,
+                                                     REPLAY_CAUSE_INSPECTOR_DRAWER_MIN_WIDTH );
+    const ReplayCauseInspectionView inspection;
+    const ReplayCauseInspectorLayout before = BuildReplayCauseInspectorLayout( inspection, state, 1920, 1080, 1.0f );
+    const int drawerTitleX = static_cast<int>( before.drawerTitle.x + 20.0f );
+    const int drawerTitleY = static_cast<int>( before.drawerTitle.y + 16.0f );
+
+    state.dragOffsetX = drawerTitleX - state.x;
+    state.dragOffsetY = drawerTitleY - state.y;
+    ReplayOverlay::MoveReplayCauseWindow( state, drawerTitleX - 73, drawerTitleY + 41, 1920, 1080,
+                                          REPLAY_CAUSE_INSPECTOR_DRAWER_WIDTH, REPLAY_CAUSE_INSPECTOR_DRAWER_MIN_WIDTH );
+    const ReplayCauseInspectorLayout moved = BuildReplayCauseInspectorLayout( inspection, state, 1920, 1080, 1.0f );
+    CHECK( moved.hierarchy.x - before.hierarchy.x == doctest::Approx( -73.0f ) );
+    CHECK( moved.targetDrawer.x - before.targetDrawer.x == doctest::Approx( -73.0f ) );
+    CHECK( moved.hierarchy.y - before.hierarchy.y == doctest::Approx( 41.0f ) );
+    CHECK( moved.targetDrawer.y - before.targetDrawer.y == doctest::Approx( 41.0f ) );
+
+    const int resizeX = static_cast<int>( moved.resize.x + moved.resize.w );
+    const int resizeY = static_cast<int>( moved.resize.y + moved.resize.h );
+    state.resizeStartMouseX = resizeX;
+    state.resizeStartMouseY = resizeY;
+    state.resizeStartWidth = state.width;
+    state.resizeStartHeight = state.height;
+    ReplayOverlay::ResizeReplayCauseWindow( state, resizeX + 50, resizeY - 20, 1920, 1080,
+                                            REPLAY_CAUSE_INSPECTOR_DRAWER_WIDTH, REPLAY_CAUSE_INSPECTOR_DRAWER_MIN_WIDTH );
+    const ReplayCauseInspectorLayout resized = BuildReplayCauseInspectorLayout( inspection, state, 1920, 1080, 1.0f );
+    CHECK( resized.targetDrawer.x == doctest::Approx( moved.targetDrawer.x ) );
+    CHECK( resized.targetDrawer.h == doctest::Approx( resized.hierarchy.h ) );
+    CHECK( resized.hierarchy.w - moved.hierarchy.w == doctest::Approx( 50.0f ) );
+    CHECK( resized.hierarchy.h - moved.hierarchy.h == doctest::Approx( -20.0f ) );
 }
 
 TEST_CASE( "Cause hierarchy inspector target: filtering preserves ancestor paths and source-row identity" )
@@ -331,11 +335,11 @@ TEST_CASE( "Cause hierarchy inspector negative control: legacy detached panel fa
     state.width = 380;
     state.height = 500;
 
-    const ReplayCauseSolverPanelLayout legacy = BuildReplayCauseSolverPanelLayout( inspection, state, 1920, 1080 );
-    const CauseInspectorTargetLayout target = BuildCauseInspectorTargetLayout( state, 1.0f,
-                                                                               CauseInspectorTargetTab::Summary );
-    CHECK_FALSE( legacy.panel.x == doctest::Approx( target.drawer.x ) ); // Legacy keeps a 10 px gutter.
-    CHECK_FALSE( legacy.panel.h == doctest::Approx( target.drawer.h ) ); // Legacy grows from row count.
+    const ReplayCauseInspectorLayout target = BuildReplayCauseInspectorLayout( inspection, state, 1920, 1080, 1.0f );
+    const SkullbonezCore::UI::UIRect legacy { state.x - 10.0f - CAUSE_INSPECTOR_TARGET_DRAWER_WIDTH,
+                                              static_cast<float>( state.y ), CAUSE_INSPECTOR_TARGET_DRAWER_WIDTH, 226.0f };
+    CHECK_FALSE( legacy.x == doctest::Approx( target.targetDrawer.x ) ); // Legacy kept a 10 px gutter.
+    CHECK_FALSE( legacy.h == doctest::Approx( target.targetDrawer.h ) ); // Legacy grew from row count.
     CHECK( EvaluateReplayCauseTransitionProgress( CAUSE_INSPECTOR_TARGET_DRAWER_SECONDS ) < 1.0f );
     CHECK( REPLAY_CAUSE_SOLVER_PANEL_OPACITY < 0.9f );
 }
@@ -748,48 +752,52 @@ TEST_CASE( "Replay cause solver panel: copied rows survive restore sources and s
     causeTree.x = 1500;
     causeTree.y = 100;
     causeTree.width = 380;
-    causeTree.height = 420;
-    const ReplayCauseSolverPanelLayout layout = BuildReplayCauseSolverPanelLayout( published, causeTree, 1920, 1080 );
-    CHECK( layout.panel.w == doctest::Approx( 520.0f ) );
+    causeTree.height = 520;
+    const ReplayCauseInspectorLayout layout = BuildReplayCauseInspectorLayout( published, causeTree, 1920, 1080, 1.0f );
+    CHECK( layout.targetDrawer.w == doctest::Approx( 520.0f ) );
     CHECK( layout.visibleRows == 4 );
-    CHECK( layout.content.h == doctest::Approx( layout.rowHeight * 4.0f ) );
+    CHECK( layout.content.h >= layout.rowHeight * 4.0f );
 
     // The panel has no second placement state: every cause-window drag or
     // resize moves the adjacent surface through this same projection.
-    causeTree.x = 120;
-    causeTree.y = 180;
-    causeTree.width = 460;
-    const ReplayCauseSolverPanelLayout moved = BuildReplayCauseSolverPanelLayout( published, causeTree, 1920, 1080 );
-    CHECK( moved.panel.x == doctest::Approx( 590.0f ) );
-    CHECK( moved.panel.y == doctest::Approx( 180.0f ) );
+    causeTree.x = 1180;
+    causeTree.y = 140;
+    causeTree.width = 430;
+    causeTree.height = 500;
+    const ReplayCauseInspectorLayout moved = BuildReplayCauseInspectorLayout( published, causeTree, 1920, 1080, 1.0f );
+    CHECK( moved.targetDrawer.x == doctest::Approx( 660.0f ) );
+    CHECK( moved.targetDrawer.y == doctest::Approx( 140.0f ) );
+    CHECK( moved.targetDrawer.h == doctest::Approx( moved.hierarchy.h ) );
 
     ReplayCauseInspectionView unavailable = published;
     unavailable.solverDetailAvailability = ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable;
     unavailable.solverDetailContacts = {};
     unavailable.solverDetailPipelineRecords = {};
-    causeTree.x = 1114;
-    causeTree.y = 28;
+    causeTree.x = 528;
+    causeTree.y = 84;
     causeTree.width = 380;
-    const ReplayCauseSolverPanelLayout compactUnavailable = BuildReplayCauseSolverPanelLayout( unavailable, causeTree, 1125,
-                                                                                               541 );
-    CHECK( compactUnavailable.panel.w == doctest::Approx( REPLAY_CAUSE_SOLVER_PANEL_WIDTH ) );
-    CHECK( compactUnavailable.panel.h < 200.0f );
-    CHECK( compactUnavailable.panel.w < 1125.0f * 0.5f );
-    CHECK( compactUnavailable.content.h == doctest::Approx( REPLAY_CAUSE_SOLVER_PANEL_EMPTY_HEIGHT ) );
+    causeTree.height = 520;
+    const ReplayCauseInspectorLayout compactUnavailable = BuildReplayCauseInspectorLayout( unavailable, causeTree, 931, 643,
+                                                                                           1.0f );
+    CHECK( compactUnavailable.targetDrawer.w == doctest::Approx( REPLAY_CAUSE_INSPECTOR_DRAWER_WIDTH ) );
+    CHECK( compactUnavailable.targetDrawer.h == doctest::Approx( 520.0f ) );
+    CHECK( compactUnavailable.targetCompound.x == doctest::Approx( 8.0f ) );
+    CHECK( compactUnavailable.targetCompound.w == doctest::Approx( 900.0f ) );
     CHECK( compactUnavailable.visibleRows == 0 );
     CHECK( REPLAY_CAUSE_SOLVER_PANEL_OPACITY == doctest::Approx( 0.78f ) );
 
-    causeTree.x = 120;
-    causeTree.y = 180;
-    causeTree.width = 460;
-    const int panelX = static_cast<int>( moved.panel.x + 20.0f );
-    const int panelY = static_cast<int>( moved.panel.y + 20.0f );
+    causeTree.x = 1180;
+    causeTree.y = 140;
+    causeTree.width = 430;
+    causeTree.height = 500;
+    const int panelX = static_cast<int>( moved.content.x + 20.0f );
+    const int panelY = static_cast<int>( moved.content.y + 20.0f );
     REQUIRE( inspection.TickSolverDetailPanelInput( causeTree, panelX, panelY, true, false, -120, 1920, 1080 ) );
     CHECK( inspection.View().solverDetailFirstRow == 1 );
     REQUIRE( inspection.TickSolverDetailPanelInput( causeTree, panelX, panelY, true, false, -120, 1920, 1080 ) );
     CHECK( inspection.View().solverDetailFirstRow == 2 );
     REQUIRE( inspection.TickSolverDetailPanelInput( causeTree, panelX, panelY, true, false, -120, 1920, 1080 ) );
-    CHECK( inspection.View().solverDetailFirstRow == 2 );
+    CHECK( inspection.View().solverDetailFirstRow == 3 );
     CHECK_FALSE( inspection.TickSolverDetailPanelInput( causeTree, 1919, 1079, true, false, -120, 1920, 1080 ) );
 }
 

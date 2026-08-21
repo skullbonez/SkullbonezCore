@@ -5,8 +5,9 @@
 //
 // Summary:
 //   These tests exercise the frame-policy matrix and the screen-space control
-//   packets shared by replay input and drawing. They deliberately avoid the
-//   engine loop and renderer so failures identify owner logic directly.
+//   packets shared by replay input and drawing, including the cause hierarchy's
+//   ratified 84 px safe top. They deliberately avoid the engine loop and
+//   renderer so failures identify owner logic directly.
 //
 // Glossary:
 //   Frame policy: Value packet deciding physics advance, camera-look state, or
@@ -245,8 +246,7 @@ TEST_CASE( "Runtime interaction: every gesture preserves owner and capture consi
           RuntimeGizmoDragKind::Rotate, 1, true },
         { RuntimeInteractionGestureKind::MousePickupDrag, RuntimeWorkspace::Live, WorldInteractionOwner::Manipulator,
           RuntimeGizmoDragKind::None, -1, true },
-        { RuntimeInteractionGestureKind::ReplayScrubDrag, RuntimeWorkspace::Replay,
-          WorldInteractionOwner::ReplayScrub },
+        { RuntimeInteractionGestureKind::ReplayScrubDrag, RuntimeWorkspace::Replay, WorldInteractionOwner::ReplayScrub },
         { RuntimeInteractionGestureKind::ReplayVelocityDrag, RuntimeWorkspace::Replay,
           WorldInteractionOwner::ReplayVelocityEdit, RuntimeGizmoDragKind::None, 2, true },
         { RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag, RuntimeWorkspace::Replay,
@@ -293,8 +293,9 @@ TEST_CASE( "Runtime interaction: every gesture preserves owner and capture consi
     CHECK( cameraController.Gesture().kind == RuntimeInteractionGestureKind::None );
     CHECK( cameraController.PointerCapture() == RuntimePointerCaptureOwner::None );
 
-    const auto expectRejected = []( RuntimeWorkspace workspace, WorldInteractionOwner owner,
-                                    const RuntimeInteractionGesture& gesture ) {
+    const auto expectRejected =
+        []( RuntimeWorkspace workspace, WorldInteractionOwner owner, const RuntimeInteractionGesture& gesture )
+    {
         RuntimeInteractionController controller;
         controller.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Live, WorldInteractionOwner::Launcher,
                                                         InteractionExitReason::EnterLauncher );
@@ -721,7 +722,7 @@ TEST_CASE( "Replay overlay: cause-window packets clamp placement and scrolling" 
 
     ClampReplayCauseWindow( state, 800, 600 );
     CHECK( state.x == 8 );
-    CHECK( state.y == 124 );
+    CHECK( state.y == 84 );
     CHECK( state.width == 784 );
     CHECK( state.height == 584 );
     CHECK( state.scrollY == doctest::Approx( ReplayCauseWindowMaxScroll( state ) ) );
@@ -745,7 +746,7 @@ TEST_CASE( "Replay overlay: cause-window packets clamp placement and scrolling" 
     EnsureReplayCauseWindowPlacement( fresh, 1024, 768 );
     CHECK( fresh.hasWindowPlacement );
     CHECK( fresh.x == 620 );
-    CHECK( fresh.y == 124 );
+    CHECK( fresh.y == 84 );
     CHECK( fresh.width == 380 );
     CHECK( fresh.height == 520 );
 }

@@ -5,8 +5,9 @@ Purpose:
   and replay overlay rendering.
 
 Summary:
-  Replay input and replay drawing must agree on hit boxes. Keep geometry here
-  so the runtime composition root does not own screen-space replay layout.
+  Replay input and replay drawing must agree on hit boxes. Keep hierarchy
+  geometry and generic attached-left clamping here so the runtime composition
+  root does not own screen-space replay placement.
 
 Glossary:
   Track: Normalized timeline lane, either presentation or solver-backed.
@@ -16,6 +17,8 @@ Invariants:
   - Constants in this file shape both hit testing and rendering.
   - Slider helpers clamp to valid normalized or seconds ranges before callers
     mutate replay state.
+  - Attachment extents may constrain the one window anchor but never retain a
+    second x/y pair.
 
 Related:
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp
@@ -153,7 +156,20 @@ UI::UIRect ReplayCauseWindowResizeRect( const RunReplayCauseTreeState& state );
 bool ReplayCauseWindowContainsPoint( const RunReplayCauseTreeState& state, int x, int y );
 float ReplayCauseWindowContentHeight( const RunReplayCauseTreeState& state );
 float ReplayCauseWindowMaxScroll( const RunReplayCauseTreeState& state );
-void ClampReplayCauseWindow( RunReplayCauseTreeState& state, int screenW, int screenH );
-void EnsureReplayCauseWindowPlacement( RunReplayCauseTreeState& state, int screenW, int screenH );
+
+// Returns the width that an attachment on the window's left can retain after
+// preserving the hierarchy's minimum width and the viewport's outer margins.
+// The attachment owns no placement; callers project it from the hierarchy
+// anchor and pass the same desired/minimum widths to clamping and drawing.
+float ReplayCauseWindowAttachedWidth( const RunReplayCauseTreeState& state, int screenW, float desiredWidth,
+                                      float minimumWidth );
+void ClampReplayCauseWindow( RunReplayCauseTreeState& state, int screenW, int screenH, float desiredAttachedLeftWidth = 0.0f,
+                             float minimumAttachedLeftWidth = 0.0f );
+void EnsureReplayCauseWindowPlacement( RunReplayCauseTreeState& state, int screenW, int screenH,
+                                       float desiredAttachedLeftWidth = 0.0f, float minimumAttachedLeftWidth = 0.0f );
+void MoveReplayCauseWindow( RunReplayCauseTreeState& state, int mouseX, int mouseY, int screenW, int screenH,
+                            float desiredAttachedLeftWidth = 0.0f, float minimumAttachedLeftWidth = 0.0f );
+void ResizeReplayCauseWindow( RunReplayCauseTreeState& state, int mouseX, int mouseY, int screenW, int screenH,
+                              float desiredAttachedLeftWidth = 0.0f, float minimumAttachedLeftWidth = 0.0f );
 float ReplayScrubberPositionFromMouse( int mouseX, int screenW, int screenH, RunReplayTrack trackName );
 } // namespace SkullbonezCore::Runtime::ReplayOverlay

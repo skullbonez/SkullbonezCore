@@ -5,11 +5,14 @@ Purpose:
 
 Summary:
   ReplayAuthoring retains the bounded cause-row surface and applies input
-  gestures over that lower Replay value. Prediction composes row contents in
-  its own package, while this file never names Prediction state or scheduling.
+  gestures over that lower Replay value. App may route an attached title hit
+  into the same drag offsets, while Prediction composes row contents in its own
+  package and this file never names Prediction state or scheduling.
 
 Invariants:
   - Window placement and row selection mutate only ReplayAuthoring state.
+  - Move and resize arithmetic delegates to ReplayOverlayLayout so attachment
+    clamping and unit tests exercise the same anchor mutation.
   - Pointer capture is released when a cause-window drag ends or becomes unavailable.
   - Selected rows are returned as values; host-camera transitions remain in Runtime/App.
 
@@ -39,9 +42,11 @@ void ReplayAuthoring::BeginCauseTreeInputFrame() noexcept
 }
 
 
-void ReplayAuthoring::EnsureCauseTreeWindowPlacement( int screenWidth, int screenHeight ) noexcept
+void ReplayAuthoring::EnsureCauseTreeWindowPlacement( int screenWidth, int screenHeight, float desiredAttachedLeftWidth,
+                                                      float minimumAttachedLeftWidth ) noexcept
 {
-    ReplayOverlay::EnsureReplayCauseWindowPlacement( m_causeTree, screenWidth, screenHeight );
+    ReplayOverlay::EnsureReplayCauseWindowPlacement( m_causeTree, screenWidth, screenHeight, desiredAttachedLeftWidth,
+                                                     minimumAttachedLeftWidth );
 }
 
 
@@ -55,17 +60,13 @@ void ReplayAuthoring::SetCauseTreePointer( int mouseX, int mouseY, bool blocked 
 
 void ReplayAuthoring::MoveCauseTreeWindow( int mouseX, int mouseY, int screenWidth, int screenHeight ) noexcept
 {
-    m_causeTree.x = mouseX - m_causeTree.dragOffsetX;
-    m_causeTree.y = mouseY - m_causeTree.dragOffsetY;
-    ReplayOverlay::ClampReplayCauseWindow( m_causeTree, screenWidth, screenHeight );
+    ReplayOverlay::MoveReplayCauseWindow( m_causeTree, mouseX, mouseY, screenWidth, screenHeight );
 }
 
 
 void ReplayAuthoring::ResizeCauseTreeWindow( int mouseX, int mouseY, int screenWidth, int screenHeight ) noexcept
 {
-    m_causeTree.width = m_causeTree.resizeStartWidth + ( mouseX - m_causeTree.resizeStartMouseX );
-    m_causeTree.height = m_causeTree.resizeStartHeight + ( mouseY - m_causeTree.resizeStartMouseY );
-    ReplayOverlay::ClampReplayCauseWindow( m_causeTree, screenWidth, screenHeight );
+    ReplayOverlay::ResizeReplayCauseWindow( m_causeTree, mouseX, mouseY, screenWidth, screenHeight );
 }
 
 

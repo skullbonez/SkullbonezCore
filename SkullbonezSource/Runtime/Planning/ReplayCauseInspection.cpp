@@ -12,11 +12,12 @@ Summary:
   stages without allocating or retaining source borrows. Before restore can
   retire those borrows, Planning copies the event-frame body poses and every
   bounded contact frame into a feature-neutral Rendering value, and copies the
-  joined contact and pipeline records into fixed arrays. One shared layout
-  projection shows up to four complete rows, collapses the unavailable state,
-  and owns bounded wheel scrolling. The transition owner derives a fixed cubic curve from total wall-clock elapsed,
-  coalesces its discrete frame requests, rejects stale completion tokens, and
-  publishes pause/return actions for App to apply through concrete owners.
+  joined contact and pipeline records into fixed arrays. One shared compound
+  layout projects the fixed-height drawer and up to four complete rows from
+  Replay's anchor while Planning owns bounded wheel scrolling. The transition
+  owner derives a fixed cubic curve from total wall-clock elapsed, coalesces its
+  discrete frame requests, rejects stale completion tokens, and publishes
+  pause/return actions for App to apply through concrete owners.
 
 Glossary:
   In-flight generation: Exact transport token currently awaiting Replay restore
@@ -34,7 +35,7 @@ Invariants:
     bounded patch cannot be proven from the same solver frame.
   - Solver-detail publication fails closed before exposing partial copied spans;
     its scroll offset always clamps to the projected visible-row viewport.
-  - The panel and manifold packet share one visibility edge and are cleared
+  - The drawer and manifold packet share one visibility edge and are cleared
     together before any retarget, aftermath, return, failure, or scene reset.
   - Only the current generation may reveal detail or complete a return.
   - Forward and reverse transport round symmetrically and reach the exact target
@@ -51,6 +52,7 @@ Related:
 
 #include "../../Core/Profiler.h"
 #include "../Prediction/ReplayPredictionView.h"
+#include "../Replay/ReplayOverlayLayout.h"
 #include "../Replay/ReplayRecorder.h"
 
 #include <algorithm>
@@ -229,12 +231,13 @@ bool ShouldBeginReplayCauseReturn( const ReplayCauseInspectionView& inspection, 
            ( nonSelectionClick || scrubExit || inspection.mode == ReplayCauseInspectionMode::Returning );
 }
 
-ReplayCauseSolverPanelLayout BuildReplayCauseSolverPanelLayout( const ReplayCauseInspectionView& inspection,
-                                                                const RunReplayCauseTreeState& causeTree, int screenWidth,
-                                                                int screenHeight ) noexcept
+ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseInspectionView& inspection,
+                                                            const RunReplayCauseTreeState& causeTree, int screenWidth,
+                                                            int screenHeight, float drawerProgress ) noexcept
 {
     PROFILE_SCOPED( "Frame/Replay/CauseInspection/PanelLayout" );
-    ReplayCauseSolverPanelLayout layout;
+    (void)screenHeight;
+    ReplayCauseInspectorLayout layout;
     int maximumIterations = 0;
 
     for ( std::size_t row = 0; row < inspection.solverDetailContacts.size(); ++row )
@@ -247,45 +250,76 @@ ReplayCauseSolverPanelLayout BuildReplayCauseSolverPanelLayout( const ReplayCaus
     layout.rowHeight = REPLAY_CAUSE_SOLVER_PANEL_BASE_ROW_HEIGHT +
                        static_cast<float>( iterationLines ) * REPLAY_CAUSE_SOLVER_PANEL_ITERATION_LINE_HEIGHT;
 
-    const float margin = 8.0f;
-    const float gap = 10.0f;
-    const float availableWidth = (std::max)( 1.0f, static_cast<float>( screenWidth ) - margin * 2.0f );
-    const float panelWidth = (std::min)( REPLAY_CAUSE_SOLVER_PANEL_WIDTH, availableWidth );
+    const float targetDrawerWidth = ReplayOverlay::ReplayCauseWindowAttachedWidth( causeTree, screenWidth,
+                                                                                   REPLAY_CAUSE_INSPECTOR_DRAWER_WIDTH,
+                                                                                   REPLAY_CAUSE_INSPECTOR_DRAWER_MIN_WIDTH );
+    layout.drawerProgress = std::clamp( drawerProgress, 0.0f, 1.0f );
+    const float visibleDrawerWidth = targetDrawerWidth * layout.drawerProgress;
+    layout.hierarchy = ReplayOverlay::ReplayCauseWindowRect( causeTree );
+    layout.hierarchyTitle = ReplayOverlay::ReplayCauseWindowTitleRect( causeTree );
+    layout.hierarchyScrollbar = { layout.hierarchy.x + layout.hierarchy.w - REPLAY_CAUSE_INSPECTOR_SCROLLBAR_WIDTH - 4.0f,
+                                  layout.hierarchy.y + ReplayOverlay::REPLAY_CAUSE_WINDOW_TITLE_HEIGHT + 10.0f,
+                                  REPLAY_CAUSE_INSPECTOR_SCROLLBAR_WIDTH,
+                                  (std::max)( 0.0f, layout.hierarchy.h - ReplayOverlay::REPLAY_CAUSE_WINDOW_TITLE_HEIGHT -
+                                                        22.0f ) };
+    layout.resize = ReplayOverlay::ReplayCauseWindowResizeRect( causeTree );
+    layout.targetDrawer = { layout.hierarchy.x - targetDrawerWidth, layout.hierarchy.y, targetDrawerWidth,
+                            layout.hierarchy.h };
+    layout.drawer = { layout.hierarchy.x - visibleDrawerWidth, layout.hierarchy.y, targetDrawerWidth, layout.hierarchy.h };
+    layout.visibleDrawer = { layout.drawer.x, layout.drawer.y, visibleDrawerWidth, layout.drawer.h };
+    layout.compound = { layout.drawer.x, layout.hierarchy.y, layout.hierarchy.w + visibleDrawerWidth, layout.hierarchy.h };
+    layout.targetCompound = { layout.targetDrawer.x, layout.hierarchy.y, layout.hierarchy.w + targetDrawerWidth,
+                              layout.hierarchy.h };
+    layout.sharedSeam = { layout.hierarchy.x - REPLAY_CAUSE_INSPECTOR_SHARED_SEAM_WIDTH, layout.hierarchy.y,
+                          REPLAY_CAUSE_INSPECTOR_SHARED_SEAM_WIDTH, layout.hierarchy.h };
+    layout.drawerTitle = { layout.drawer.x, layout.drawer.y,
+                           (std::max)( 0.0f, targetDrawerWidth - REPLAY_CAUSE_INSPECTOR_CLOSE_SIZE -
+                                                 REPLAY_CAUSE_INSPECTOR_PADDING * 2.0f ),
+                           ReplayOverlay::REPLAY_CAUSE_WINDOW_TITLE_HEIGHT };
+    layout.drawerClose = { layout.drawer.x + targetDrawerWidth - REPLAY_CAUSE_INSPECTOR_PADDING -
+                               REPLAY_CAUSE_INSPECTOR_CLOSE_SIZE,
+                           layout.drawer.y + 8.0f, REPLAY_CAUSE_INSPECTOR_CLOSE_SIZE, REPLAY_CAUSE_INSPECTOR_CLOSE_SIZE };
+
+    const float tabWidth = (std::max)( 0.0f, ( targetDrawerWidth - REPLAY_CAUSE_INSPECTOR_PADDING * 2.0f ) / 3.0f );
+
+    for ( std::size_t tab = 0; tab < layout.tabs.size(); ++tab )
+    {
+        layout.tabs[tab] = { layout.drawer.x + REPLAY_CAUSE_INSPECTOR_PADDING + tabWidth * static_cast<float>( tab ),
+                             layout.drawer.y + REPLAY_CAUSE_INSPECTOR_DRAWER_HEADER_HEIGHT, tabWidth,
+                             REPLAY_CAUSE_INSPECTOR_TAB_HEIGHT };
+    }
+
+    layout.content = { layout.drawer.x + REPLAY_CAUSE_INSPECTOR_PADDING,
+                       layout.drawer.y + REPLAY_CAUSE_INSPECTOR_DRAWER_HEADER_HEIGHT + REPLAY_CAUSE_INSPECTOR_TAB_HEIGHT +
+                           REPLAY_CAUSE_INSPECTOR_PADDING,
+                       (std::max)( 0.0f, targetDrawerWidth - REPLAY_CAUSE_INSPECTOR_PADDING * 2.0f ),
+                       (std::max)( 0.0f, layout.drawer.h - REPLAY_CAUSE_INSPECTOR_DRAWER_HEADER_HEIGHT -
+                                             REPLAY_CAUSE_INSPECTOR_TAB_HEIGHT - REPLAY_CAUSE_INSPECTOR_PADDING * 2.0f ) };
+    layout.drawerScrollbar = { layout.content.x + layout.content.w - REPLAY_CAUSE_INSPECTOR_SCROLLBAR_WIDTH,
+                               layout.content.y, REPLAY_CAUSE_INSPECTOR_SCROLLBAR_WIDTH, layout.content.h };
+
     const bool hasRows = inspection.solverDetailAvailability == ReplayCauseSolverDetailAvailability::Available &&
                          !inspection.solverDetailContacts.empty();
-    const float fixedHeight = REPLAY_CAUSE_SOLVER_PANEL_TITLE_HEIGHT + REPLAY_CAUSE_SOLVER_PANEL_GUIDE_HEIGHT + 12.0f;
-    const float availableContentHeight = (std::max)( layout.rowHeight,
-                                                     static_cast<float>( screenHeight ) - margin * 2.0f - fixedHeight );
 
     if ( hasRows )
     {
-        // Invariant: a normal viewport shows four complete rows. Short windows
-        // reduce only the visible row count and keep the same wheel/scroll owner,
-        // so the panel cannot consume the viewport merely to preserve a
-        // desktop-sized height.
-        layout.visibleRows = std::clamp( static_cast<int>( availableContentHeight / layout.rowHeight ), 1,
+        // Invariant: the fixed drawer footprint decides how many complete rows
+        // fit; exact evidence never grows the joined surface vertically.
+        layout.visibleRows = std::clamp( static_cast<int>( layout.content.h / layout.rowHeight ), 0,
                                          REPLAY_CAUSE_SOLVER_PANEL_VISIBLE_ROWS );
     }
 
-    const float contentHeight = hasRows ? layout.rowHeight * static_cast<float>( layout.visibleRows )
-                                        : REPLAY_CAUSE_SOLVER_PANEL_EMPTY_HEIGHT;
-    const float panelHeight = fixedHeight + contentHeight;
-    const float leftX = static_cast<float>( causeTree.x ) - gap - panelWidth;
-    const float rightX = static_cast<float>( causeTree.x + causeTree.width ) + gap;
-    float panelX = leftX >= margin ? leftX : rightX;
-
-    if ( panelX + panelWidth > static_cast<float>( screenWidth ) - margin )
-    {
-        panelX = (std::max)( margin, static_cast<float>( screenWidth ) - margin - panelWidth );
-    }
-
-    const float maximumY = (std::max)( margin, static_cast<float>( screenHeight ) - margin - panelHeight );
-    const float panelY = std::clamp( static_cast<float>( causeTree.y ), margin, maximumY );
-    layout.panel = { panelX, panelY, panelWidth, panelHeight };
-    layout.content = { panelX + 8.0f,
-                       panelY + REPLAY_CAUSE_SOLVER_PANEL_TITLE_HEIGHT + REPLAY_CAUSE_SOLVER_PANEL_GUIDE_HEIGHT,
-                       panelWidth - 16.0f, contentHeight };
     return layout;
+}
+
+bool ReplayCauseInspectorContainsPoint( const ReplayCauseInspectorLayout& layout, int x, int y ) noexcept
+{
+    return PointInside( layout.compound, x, y );
+}
+
+bool ReplayCauseInspectorDrawerTitleContainsPoint( const ReplayCauseInspectorLayout& layout, int x, int y ) noexcept
+{
+    return PointInside( layout.visibleDrawer, x, y ) && PointInside( layout.drawerTitle, x, y );
 }
 
 float EvaluateReplayCauseTransitionProgress( double elapsedSeconds ) noexcept
@@ -1006,10 +1040,11 @@ bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTree
     }
 
     PROFILE_SCOPED( "Frame/Replay/CauseInspection/PanelInput" );
-    const ReplayCauseSolverPanelLayout layout = BuildReplayCauseSolverPanelLayout( m_state, causeTree, screenWidth,
-                                                                                   screenHeight );
+    const ReplayCauseInspectorLayout layout = BuildReplayCauseInspectorLayout( m_state, causeTree, screenWidth, screenHeight,
+                                                                               1.0f );
 
-    if ( !PointInside( layout.panel, mouseX, mouseY ) )
+    if ( !ReplayCauseInspectorContainsPoint( layout, mouseX, mouseY ) ||
+         !PointInside( layout.visibleDrawer, mouseX, mouseY ) )
     {
         return false;
     }

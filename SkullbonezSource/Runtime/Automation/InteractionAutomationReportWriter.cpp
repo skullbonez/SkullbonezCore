@@ -12,7 +12,8 @@ Summary:
   Prediction witnesses serialize complete bounded trajectory, future-node, and
   cause-row topology, exact evidence stamps, and solver anchors so root-policy
   or stale-bank regressions are reviewable without inferring structure from a
-  screenshot.
+  screenshot. Cause-inspector reports serialize the same compound control
+  rectangles consumed by drawing and pointer routing.
 
 Glossary:
   Report fact: Derived validation value shared by live assertions and final JSON.
@@ -45,6 +46,7 @@ Related:
 #include "../Editor/EditorTools.h"
 #include "../Prediction/ReplayPrediction.h"
 #include "../Prediction/ReplayPredictionArchive.h"
+#include "../Planning/ReplayCauseInspection.h"
 #include "../Planning/ReplayOverlayRenderer.h"
 #include "../Replay/ReplayPresentation.h"
 #include "../Replay/ReplayV2Artifact.h"
@@ -1767,6 +1769,25 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
         replayCauseTreeMaximumDepth = (std::max)( replayCauseTreeMaximumDepth, row.depth );
     }
 
+    // Automation has the clamped Replay anchor but not a second viewport copy.
+    // The anchor's reachable right/bottom margins provide the minimum viewport
+    // that reproduces the exact effective attachment width, including compact
+    // cases where the drawer has already shrunk.
+    const int causeInspectorLayoutWidth = (std::max)( 1, replay.causeTree.x + replay.causeTree.width + 8 );
+    const int causeInspectorLayoutHeight = (std::max)( 1, replay.causeTree.y + replay.causeTree.height + 8 );
+    const ReplayCauseInspectorLayout
+        causeInspectorLayout = BuildReplayCauseInspectorLayout( replay.causeInspection, replay.causeTree,
+                                                                causeInspectorLayoutWidth, causeInspectorLayoutHeight,
+                                                                replay.causeInspection.detailVisible ? 1.0f : 0.0f );
+    const auto inspectorRect = []( const UI::UIRect& rect )
+    { return Json { { "x", rect.x }, { "y", rect.y }, { "width", rect.w }, { "height", rect.h } }; };
+    Json causeInspectorTabBounds = Json::array();
+
+    for ( const UI::UIRect& tab : causeInspectorLayout.tabs )
+    {
+        causeInspectorTabBounds.push_back( inspectorRect( tab ) );
+    }
+
     PredictionTrajectoryFingerprint predictionTrajectoryFingerprint = BuildPredictionTrajectoryFingerprint( replay );
 
     if ( m_replayVisualFidelityTrajectoryCaptured )
@@ -2093,6 +2114,28 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
                                 { "replayCauseTreeMouseX", replay.causeTree.mouseX },
                                 { "replayCauseTreeMouseY", replay.causeTree.mouseY },
                                 { "replayCauseTreePointerBlocked", replay.causeTree.pointerBlocked },
+                                { "replayCauseInspectorHierarchyBounds", inspectorRect( causeInspectorLayout.hierarchy ) },
+                                { "replayCauseInspectorDrawerBounds", inspectorRect( causeInspectorLayout.drawer ) },
+                                { "replayCauseInspectorVisibleDrawerBounds",
+                                  inspectorRect( causeInspectorLayout.visibleDrawer ) },
+                                { "replayCauseInspectorTargetDrawerBounds",
+                                  inspectorRect( causeInspectorLayout.targetDrawer ) },
+                                { "replayCauseInspectorCompoundBounds", inspectorRect( causeInspectorLayout.compound ) },
+                                { "replayCauseInspectorTargetCompoundBounds",
+                                  inspectorRect( causeInspectorLayout.targetCompound ) },
+                                { "replayCauseInspectorHierarchyTitleBounds",
+                                  inspectorRect( causeInspectorLayout.hierarchyTitle ) },
+                                { "replayCauseInspectorDrawerTitleBounds",
+                                  inspectorRect( causeInspectorLayout.drawerTitle ) },
+                                { "replayCauseInspectorCloseBounds", inspectorRect( causeInspectorLayout.drawerClose ) },
+                                { "replayCauseInspectorTabBounds", causeInspectorTabBounds },
+                                { "replayCauseInspectorContentBounds", inspectorRect( causeInspectorLayout.content ) },
+                                { "replayCauseInspectorDrawerScrollbarBounds",
+                                  inspectorRect( causeInspectorLayout.drawerScrollbar ) },
+                                { "replayCauseInspectorHierarchyScrollbarBounds",
+                                  inspectorRect( causeInspectorLayout.hierarchyScrollbar ) },
+                                { "replayCauseInspectorSharedSeamBounds", inspectorRect( causeInspectorLayout.sharedSeam ) },
+                                { "replayCauseInspectorResizeBounds", inspectorRect( causeInspectorLayout.resize ) },
                                 { "replayCauseInspectionMode", static_cast<int>( replay.causeInspection.mode ) },
                                 { "replayCauseInspectionDetailVisible", replay.causeInspection.detailVisible },
                                 { "replayCauseInspectionDetailAvailability",

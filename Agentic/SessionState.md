@@ -2,7 +2,7 @@
 
 Date: 2026-08-21
 Branch: `codex/cause-hierarchy-ui-first`
-Status: Four active plans; 56/80 tasks complete
+Status: Four active plans; 57/80 tasks complete
 
 At-Rest Ball Stability RS0-RS7 and Invariant Enforcement And Assertion
 Hardening IH0-IH7 are complete. Causal C0-C8, Determinism T0-T8,
@@ -20,8 +20,13 @@ CAUSE_HIERARCHY_UI CHUI0 is complete. The approved concept hash and 1509 x
 sampled colors, ownership, negative screenshots, and eleven deterministic
 states. Five focused target/negative-control cases pass 48 assertions, including
 the legacy 10 px gutter, unrelated height, slow transition, and low-opacity
-failures. The touched-source comment audit is 1/1 with none deferred. CHUI1 is
-the binding next task.
+failures. CHUI1 now provides one compound hierarchy/drawer projection, shared
+compact clamping, drawer-title routing into ReplayAuthoring's sole anchor, and
+the same control rectangles in renderer, pointer, Automation, and tests. Its
+focused geometry cases pass 64 assertions, the existing solver-scroll case
+passes 29, Profile/Automation builds pass, and the cumulative 670-test gate is
+green. The touched-source audit is 11/11 with none deferred. CHUI2 is the
+binding next task.
 
 ORBIT_FORECAST OF0 is complete. It ratifies the fixed sun as the primary,
 Earth and Mars as core bodies, and the ship as an auxiliary whose orbital-
@@ -395,7 +400,7 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `CAUSE_HIERARCHY_UI` CHUI1. `INVARIANT_HARDENING` IH0-IH7 is complete: the
+Execute `CAUSE_HIERARCHY_UI` CHUI2. `INVARIANT_HARDENING` IH0-IH7 is complete: the
 final source checklist is 96/96 with zero deferrals, the terminal inventory has
 67 production asserts and 18 reviewed assert-only candidates, and the current
 fast gate passes 663 tests plus Debug/Profile reachability. Automation, DX12,
@@ -429,7 +434,7 @@ not part of the active queue.
 
 ## Blockers
 
-- None. Continue with `CAUSE_HIERARCHY_UI` CHUI1. The stale Physics CSV,
+- None. Continue with `CAUSE_HIERARCHY_UI` CHUI2. The stale Physics CSV,
   noisy relative Physics performance sample, and
   corrected-topology visual oracle remain owner-controlled validation findings;
   do not refresh any of them without approval.

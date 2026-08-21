@@ -13,8 +13,9 @@ Summary:
   identity and live restore transaction. Exact-frame contact presentation is
   copied before the final restore can retire its recorded solver ring or
   replace its exact prediction evidence bank. The
-  adjacent solver panel shares one Planning layout projection between drawing
-  and hit-testing, and App composes its mouse ownership ahead of the cause tree.
+  attached solver drawer shares one Planning compound-layout projection between
+  drawing and hit-testing. App routes its title-bar gesture into ReplayAuthoring's
+  existing anchor mutation instead of retaining another placement owner.
 
 Glossary:
   Live restore: Applying a retained replay sample back into the current scene.
@@ -38,8 +39,8 @@ Invariants:
     an interrupted or superseded row cannot reveal stale detail.
   - Causal contact geometry and body poses are copied from the exact recorded
     sample or predicted frame before restore or replacement can retire its source.
-  - Solver-panel wheel input is consumed only inside the visible shared panel
-    bounds and cannot fall through to the cause-tree surface.
+  - Drawer wheel and title input are consumed only inside the visible compound
+    bounds and cannot fall through to the cause-tree or scrubber surfaces.
 
 Related:
   - SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp
@@ -826,16 +827,32 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
 
     const bool planningOwnsMouse = m_planningOwner.TickPointerSurface( input.uiBlocksMouse, input.screenWidth, inputRouter );
 
-    const RuntimePointerEvent& preScrubberPointer = inputRouter.RuntimeSnapshot().pointer;
     const bool predictionCauseRows = !m_authoring.CauseTree().rows.empty() &&
                                      m_authoring.CauseTree().rows.front().prediction;
     const bool causeWindowAvailable = !m_authoring.CauseTree().rows.empty() &&
                                       ReplayPredictionCauseWindowAvailable( m_predictionOwner.PresentationView().detailMode,
                                                                             predictionCauseRows );
+
+    // Invariant: reserve the complete target drawer before any pointer phase.
+    // Opening the drawer therefore never shifts the Replay-owned hierarchy
+    // anchor, including after a compact-window or resolution transition.
+    if ( causeWindowAvailable && input.screenWidth > 0 && input.screenHeight > 0 )
+    {
+        m_authoring.EnsureCauseTreeWindowPlacement( input.screenWidth, input.screenHeight,
+                                                    REPLAY_CAUSE_INSPECTOR_DRAWER_WIDTH,
+                                                    REPLAY_CAUSE_INSPECTOR_DRAWER_MIN_WIDTH );
+    }
+
+    const ReplayCauseInspectionView preScrubberInspection = m_planningOwner.CauseInspection().View();
+    const ReplayCauseInspectorLayout
+        preScrubberInspectorLayout = BuildReplayCauseInspectorLayout( preScrubberInspection, m_authoring.CauseTree(),
+                                                                      input.screenWidth, input.screenHeight,
+                                                                      preScrubberInspection.detailVisible ? 1.0f : 0.0f );
+    const RuntimePointerEvent& preScrubberPointer = inputRouter.RuntimeSnapshot().pointer;
     const bool pointerOverCauseWindow = causeWindowAvailable && preScrubberPointer.hasClientPosition &&
-                                        ReplayOverlay::ReplayCauseWindowContainsPoint( m_authoring.CauseTree(),
-                                                                                       preScrubberPointer.clientX,
-                                                                                       preScrubberPointer.clientY );
+                                        ReplayCauseInspectorContainsPoint( preScrubberInspectorLayout,
+                                                                           preScrubberPointer.clientX,
+                                                                           preScrubberPointer.clientY );
 
     // Why: the scrubber runs before cause-row hit testing. Treat the visible
     // cause panel as an upstream surface now so its click cannot first mutate
@@ -916,6 +933,37 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
     if ( !input.editorModeEnabled && causeTreeRowsReady )
     {
         const RuntimePointerEvent& pointer = inputRouter.RuntimeSnapshot().pointer;
+        const ReplayCauseInspectionView inspection = m_planningOwner.CauseInspection().View();
+        const ReplayCauseInspectorLayout inspectorLayout = BuildReplayCauseInspectorLayout( inspection,
+                                                                                            m_authoring.CauseTree(),
+                                                                                            input.screenWidth,
+                                                                                            input.screenHeight,
+                                                                                            inspection.detailVisible
+                                                                                                ? 1.0f
+                                                                                                : 0.0f );
+        const RuntimeMouseEdges& pointerEdges = inputRouter.UiSnapshot().mouse;
+
+        if ( inspection.detailVisible && pointer.hasClientPosition && pointerEdges.leftPressed && !input.uiBlocksMouse &&
+             !scrubberOwnsMouse &&
+             ReplayCauseInspectorDrawerTitleContainsPoint( inspectorLayout, pointer.clientX, pointer.clientY ) )
+        {
+            RuntimeInteractionGesture gesture;
+            gesture.kind = RuntimeInteractionGestureKind::ReplayCauseTreeDrag;
+            gesture.button = RuntimePointerButton::Left;
+            gesture.startX = pointer.clientX;
+            gesture.startY = pointer.clientY;
+            gesture.axis = 0;
+
+            if ( interaction.BeginOwnedToolGesture( RuntimeWorkspace::Replay, WorldInteractionOwner::ReplayCauseTree,
+                                                    gesture ) )
+            {
+                // App only routes the Planning rectangle. ReplayAuthoring still
+                // owns the sole drag offsets, anchor mutation, and native capture.
+                m_authoring.BeginCauseTreeMove( pointer.clientX, pointer.clientY );
+                inputRouter.RequestNativeCapture();
+            }
+        }
+
         solverDetailOwnsMouse = m_planningOwner.CauseInspection()
                                     .TickSolverDetailPanelInput( m_authoring.CauseTree(), pointer.clientX, pointer.clientY,
                                                                  pointer.hasClientPosition,
@@ -937,6 +985,16 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
                                                                     input.wheelDelta, input.editorModeEnabled,
                                                                     input.screenWidth, input.screenHeight,
                                                                     requestedCauseTreeFocusRow, exitCauseTreeInspection );
+
+    // Drag and resize paths clamp the hierarchy during Replay input; apply the
+    // same target attachment extent afterward so the joined surface cannot
+    // drift outside the viewport at an edge or corner.
+    if ( input.screenWidth > 0 && input.screenHeight > 0 )
+    {
+        m_authoring.EnsureCauseTreeWindowPlacement( input.screenWidth, input.screenHeight,
+                                                    REPLAY_CAUSE_INSPECTOR_DRAWER_WIDTH,
+                                                    REPLAY_CAUSE_INSPECTOR_DRAWER_MIN_WIDTH );
+    }
 
     if ( requestedCauseTreeFocusRow < 0 && input.requestedCauseRow >= 0 )
     {
