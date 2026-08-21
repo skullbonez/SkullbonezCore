@@ -1,7 +1,7 @@
 # Repository Hygiene Cleanup
 
 Date: 2026-08-20
-Status: Active; 2/6 phases complete. Bound after `VALIDATION_TIME_AUDIT`.
+Status: Active; 3/6 phases complete. Bound after `VALIDATION_TIME_AUDIT`.
 Impact areas: ignored validation evidence, build and IDE output, detached Git
 worktrees, tracked visual references, plan topology, and repository hygiene
 Owner: repository hygiene and artifact-retention owners
@@ -155,14 +155,14 @@ remains, and the tracked worktree is byte-for-byte unchanged.
 
 ## RC2 - Retire Clean Historical Worktrees
 
-- Re-run `git worktree list --porcelain` and inspect every candidate with
+- [x] Re-run `git worktree list --porcelain` and inspect every candidate with
   `git status --porcelain --ignore-submodules=all`.
-- Prove each candidate HEAD remains reachable from a retained branch or tag and
+- [x] Prove each candidate HEAD remains reachable from a retained branch or tag and
   that no active Codex task, owner workflow, or process uses the path.
-- Remove only clean approved worktrees through Git, then run `git worktree
+- [x] Remove only clean approved worktrees through Git, then run `git worktree
   prune --dry-run` before any metadata pruning. Preserve every dirty, missing-
   proof, app-owned, or owner-retained worktree.
-- Record worktree path, old HEAD, reachability proof, removal result, and bytes
+- [x] Record worktree path, old HEAD, reachability proof, removal result, and bytes
   reclaimed.
 
 **RC2 acceptance:** no dirty or app-owned worktree is removed, every removed
