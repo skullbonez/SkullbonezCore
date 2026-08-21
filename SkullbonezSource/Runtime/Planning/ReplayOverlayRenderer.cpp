@@ -117,21 +117,259 @@ const Physics::PhysicsPipelineRecord* FindSolverDetailRecord( const ReplayCauseI
 
     return nullptr;
 }
+
+static void RenderReplayCauseSummaryTab( const UI::UIDrawContext& draw, const ReplayCauseInspectionView& inspection,
+                                         const ReplayCauseInspectorLayout& layout, const UI::Style::UIPalette& palette )
+{
+    const Physics::PhysicsSolverPersistentContactSample& contact = inspection.solverDetailContacts.front();
+    const ReplayCauseSummaryText summary = BuildReplayCauseSummaryText( inspection, 0 );
+    static constexpr const char* CARD_LABELS[] = { "NORMAL IMPULSE", "FRICTION |T|", "PENETRATION", "EFFECTIVE MASS" };
+    const char* cardValues[] = { summary.normalImpulse, summary.frictionImpulse, summary.penetration,
+                                 summary.effectiveMass };
+    const float gap = 8.0f;
+    const float cardW = ( layout.content.w - gap ) * 0.5f;
+    const float cardH = 56.0f;
+
+    for ( int cardIndex = 0; cardIndex < 4; ++cardIndex )
+    {
+        const int column = cardIndex % 2;
+        const int row = cardIndex / 2;
+        const UI::UIRect card { layout.content.x + static_cast<float>( column ) * ( cardW + gap ),
+                                layout.content.y + static_cast<float>( row ) * ( cardH + gap ), cardW, cardH };
+        const UI::Style::UIColor& accent = cardIndex < 2 ? CAUSE_SOLVER : CAUSE_MANIFOLD;
+        draw.RoundedRect( card.x, card.y, card.w, card.h, 5.0f, CAUSE_NAVY_ALT.r, CAUSE_NAVY_ALT.g, CAUSE_NAVY_ALT.b, 1.0f );
+        draw.Rect( card.x, card.y, 3.0f, card.h, accent.r, accent.g, accent.b, 0.9f );
+        draw.Text( card.x + 11.0f, card.y + 9.0f, 9.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b,
+                   CARD_LABELS[cardIndex] );
+        draw.Text( card.x + 11.0f, card.y + 27.0f, 15.0f, accent.r, accent.g, accent.b, cardValues[cardIndex] );
+    }
+
+    const float basisY = layout.content.y + 128.0f;
+    draw.Text( layout.content.x, basisY, 10.0f, CAUSE_PREDICTION.r, CAUSE_PREDICTION.g, CAUSE_PREDICTION.b,
+               "CONTACT BASIS COMPONENTS  [-1, +1]" );
+    const Math::Vector::Vector3 basis[] = { contact.normal, contact.tangent1, contact.tangent2 };
+    static constexpr const char* BASIS_LABELS[] = { "NORMAL", "TANGENT 1", "TANGENT 2" };
+
+    for ( int basisIndex = 0; basisIndex < 3; ++basisIndex )
+    {
+        const float rowY = basisY + 20.0f + static_cast<float>( basisIndex ) * 34.0f;
+        const float components[] = { basis[basisIndex].x, basis[basisIndex].y, basis[basisIndex].z };
+        draw.Text( layout.content.x, rowY + 5.0f, 9.5f, palette.textSecondary.r, palette.textSecondary.g,
+                   palette.textSecondary.b, BASIS_LABELS[basisIndex] );
+
+        for ( int componentIndex = 0; componentIndex < 3; ++componentIndex )
+        {
+            const float componentX = layout.content.x + 80.0f + static_cast<float>( componentIndex ) * 118.0f;
+            const float centerX = componentX + 48.0f;
+            const float value = std::clamp( components[componentIndex], -1.0f, 1.0f );
+            draw.Rect( componentX, rowY, 96.0f, 18.0f, CAUSE_NAVY_ALT.r, CAUSE_NAVY_ALT.g, CAUSE_NAVY_ALT.b, 1.0f );
+            draw.Rect( centerX, rowY + 2.0f, 1.0f, 14.0f, CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b, 0.45f );
+            draw.Rect( value < 0.0f ? centerX + value * 42.0f : centerX, rowY + 5.0f, std::abs( value ) * 42.0f, 8.0f,
+                       CAUSE_PREDICTION.r, CAUSE_PREDICTION.g, CAUSE_PREDICTION.b, 0.88f );
+            char component[32] = {};
+            sprintf_s( component, sizeof( component ), "%c %.3f", "XYZ"[componentIndex], components[componentIndex] );
+            draw.Text( componentX + 5.0f, rowY + 4.0f, 8.5f, palette.textPrimary.r, palette.textPrimary.g,
+                       palette.textPrimary.b, component );
+        }
+    }
+
+    const float dynamicsY = basisY + 128.0f;
+    draw.RoundedRect( layout.content.x, dynamicsY, layout.content.w, 86.0f, 5.0f, CAUSE_NAVY_ALT.r, CAUSE_NAVY_ALT.g,
+                      CAUSE_NAVY_ALT.b, 1.0f );
+    draw.Text( layout.content.x + 10.0f, dynamicsY + 10.0f, 10.0f, CAUSE_MANIFOLD.r, CAUSE_MANIFOLD.g, CAUSE_MANIFOLD.b,
+               "ROW DYNAMICS" );
+    draw.Text( layout.content.x + 10.0f, dynamicsY + 28.0f, 9.5f, palette.textPrimary.r, palette.textPrimary.g,
+               palette.textPrimary.b, summary.identity );
+    draw.Text( layout.content.x + 10.0f, dynamicsY + 46.0f, 9.0f, palette.textSecondary.r, palette.textSecondary.g,
+               palette.textSecondary.b, summary.dynamics );
+    draw.Text( layout.content.x + 10.0f, dynamicsY + 64.0f, 9.0f, palette.textMuted.r, palette.textMuted.g,
+               palette.textMuted.b, summary.policy );
+}
+
+static void RenderReplayCauseRawRecordTab( UI::UIDrawList& drawList, const UI::UIDrawContext& draw,
+                                          const ReplayCauseInspectionView& inspection,
+                                          const ReplayCauseInspectorLayout& layout, const UI::Style::UIPalette& palette )
+{
+    const ReplayCauseRawRecordProjection projection = BuildReplayCauseRawRecordProjection( inspection, 0 );
+    const int rowCount = static_cast<int>( projection.rowCount );
+    const int firstRow = std::clamp( inspection.rawRecordFirstRow, 0,
+                                     (std::max)( 0, rowCount - layout.rawVisibleRows ) );
+    const int endRow = (std::min)( rowCount, firstRow + layout.rawVisibleRows );
+
+    drawList.PushClip( layout.rawTable.x, layout.rawTable.y, layout.rawTable.w, layout.rawTable.h );
+
+    const bool hasScrollbar = rowCount > layout.rawVisibleRows;
+    const float tableRowWidth = layout.rawTable.w - ( hasScrollbar ? REPLAY_CAUSE_INSPECTOR_SCROLLBAR_WIDTH + 4.0f : 0.0f );
+
+    for ( int rowIndex = firstRow; rowIndex < endRow; ++rowIndex )
+    {
+        const ReplayCauseRawRecordRow& row = projection.rows[static_cast<std::size_t>( rowIndex )];
+        const float rowY = layout.rawTable.y + static_cast<float>( rowIndex - firstRow ) * REPLAY_CAUSE_RAW_RECORD_ROW_HEIGHT;
+
+        if ( row.kind == ReplayCauseRawRecordRowKind::Section )
+        {
+            draw.Rect( layout.rawTable.x, rowY + REPLAY_CAUSE_RAW_RECORD_ROW_HEIGHT - 1.0f, tableRowWidth, 1.0f, CAUSE_RULE.r,
+                       CAUSE_RULE.g, CAUSE_RULE.b, 0.45f );
+            draw.Text( layout.rawTable.x + 4.0f, rowY + 4.0f, 10.0f, CAUSE_MANIFOLD.r, CAUSE_MANIFOLD.g, CAUSE_MANIFOLD.b,
+                       row.label );
+        }
+        else
+        {
+            const UI::Style::UIColor& fill = ( rowIndex % 2 == 0 ) ? CAUSE_NAVY_ALT : CAUSE_NAVY;
+            draw.RoundedRect( layout.rawTable.x, rowY, tableRowWidth, REPLAY_CAUSE_RAW_RECORD_ROW_HEIGHT - 1.0f, 2.0f, fill.r,
+                              fill.g, fill.b, 1.0f );
+            draw.Text( layout.rawTable.x + 8.0f, rowY + 4.0f, 9.5f, palette.textSecondary.r, palette.textSecondary.g,
+                       palette.textSecondary.b, row.label );
+            draw.Text( layout.rawTable.x + 190.0f, rowY + 4.0f, 9.5f, palette.textPrimary.r, palette.textPrimary.g,
+                       palette.textPrimary.b, row.value );
+            if ( row.unit[0] != '\0' )
+            {
+                draw.Text( layout.rawTable.x + tableRowWidth - 48.0f, rowY + 4.0f, 9.0f, palette.textMuted.r,
+                           palette.textMuted.g, palette.textMuted.b, row.unit );
+            }
+        }
+    }
+
+    drawList.PopClip();
+
+    if ( hasScrollbar && rowCount > 0 )
+    {
+        draw.RoundedRect( layout.drawerScrollbar.x, layout.drawerScrollbar.y, layout.drawerScrollbar.w,
+                          layout.drawerScrollbar.h, 2.0f, CAUSE_NAVY_ALT.r, CAUSE_NAVY_ALT.g, CAUSE_NAVY_ALT.b, 0.8f );
+        const float trackH = layout.drawerScrollbar.h;
+        const float thumbH = (std::max)( 16.0f, trackH * static_cast<float>( layout.rawVisibleRows ) /
+                                                    static_cast<float>( rowCount ) );
+        const float maxScroll = static_cast<float>( (std::max)( 1, rowCount - layout.rawVisibleRows ) );
+        const float thumbY = layout.drawerScrollbar.y + ( trackH - thumbH ) * ( static_cast<float>( firstRow ) / maxScroll );
+        draw.RoundedRect( layout.drawerScrollbar.x, thumbY, layout.drawerScrollbar.w, thumbH, 2.0f, CAUSE_RULE.r, CAUSE_RULE.g,
+                          CAUSE_RULE.b, 0.85f );
+    }
+
+    // Render Copy Record action button
+    draw.RoundedRect( layout.rawCopy.x, layout.rawCopy.y, layout.rawCopy.w, layout.rawCopy.h, 4.0f, CAUSE_NAVY_ALT.r,
+                      CAUSE_NAVY_ALT.g, CAUSE_NAVY_ALT.b, 1.0f );
+    draw.Rect( layout.rawCopy.x, layout.rawCopy.y, 3.0f, layout.rawCopy.h, CAUSE_MANIFOLD.r, CAUSE_MANIFOLD.g,
+               CAUSE_MANIFOLD.b, 0.88f );
+    draw.Text( layout.rawCopy.x + 16.0f, layout.rawCopy.y + 8.0f, 11.0f, palette.textPrimary.r, palette.textPrimary.g,
+               palette.textPrimary.b, "COPY RECORD" );
+    draw.Text( layout.rawCopy.x + layout.rawCopy.w - 140.0f, layout.rawCopy.y + 9.0f, 9.0f, palette.textMuted.r,
+               palette.textMuted.g, palette.textMuted.b, "Copy text to clipboard" );
+}
+
+static void RenderReplayCauseIterationsTab( UI::UIDrawList& drawList, const UI::UIDrawContext& draw,
+                                            const ReplayCauseInspectionView& inspection,
+                                            const ReplayCauseInspectorLayout& layout,
+                                            const UI::Style::UIPalette& palette )
+{
+    const ReplayCauseIterationsProjection projection = BuildReplayCauseIterationsProjection( inspection, 0 );
+    const int rowCount = static_cast<int>( projection.rowCount );
+    const int firstRow = std::clamp( inspection.iterationsFirstRow, 0,
+                                     (std::max)( 0, rowCount - layout.iterationsVisibleRows ) );
+    const int endRow = (std::min)( rowCount, firstRow + layout.iterationsVisibleRows );
+
+    draw.Text( layout.content.x, layout.content.y + 2.0f, 9.5f, CAUSE_SOLVER.r, CAUSE_SOLVER.g, CAUSE_SOLVER.b,
+               projection.summary );
+
+    if ( rowCount == 0 )
+    {
+        draw.RoundedRect( layout.iterationsTable.x, layout.iterationsTable.y, layout.iterationsTable.w, 40.0f, 4.0f,
+                          CAUSE_NAVY_ALT.r, CAUSE_NAVY_ALT.g, CAUSE_NAVY_ALT.b, 1.0f );
+        draw.Text( layout.iterationsTable.x + 10.0f, layout.iterationsTable.y + 14.0f, 10.0f, palette.textMuted.r,
+                   palette.textMuted.g, palette.textMuted.b, "No iteration pipeline records for selected contact" );
+        return;
+    }
+
+    drawList.PushClip( layout.iterationsTable.x, layout.iterationsTable.y, layout.iterationsTable.w,
+                       layout.iterationsTable.h );
+
+    const bool hasScrollbar = rowCount > layout.iterationsVisibleRows;
+    const float tableRowWidth = layout.iterationsTable.w -
+                                ( hasScrollbar ? REPLAY_CAUSE_INSPECTOR_SCROLLBAR_WIDTH + 4.0f : 0.0f );
+
+    for ( int rowIndex = firstRow; rowIndex < endRow; ++rowIndex )
+    {
+        const ReplayCauseIterationRow& row = projection.rows[static_cast<std::size_t>( rowIndex )];
+        const float rowY = layout.iterationsTable.y +
+                           static_cast<float>( rowIndex - firstRow ) * REPLAY_CAUSE_ITERATIONS_ROW_HEIGHT;
+        const UI::Style::UIColor& fill = ( rowIndex % 2 == 0 ) ? CAUSE_NAVY_ALT : CAUSE_NAVY;
+        draw.RoundedRect( layout.iterationsTable.x, rowY, tableRowWidth, REPLAY_CAUSE_ITERATIONS_ROW_HEIGHT - 1.0f, 2.0f,
+                          fill.r, fill.g, fill.b, 1.0f );
+
+        draw.Text( layout.iterationsTable.x + 6.0f, rowY + 4.0f, 9.0f, palette.textPrimary.r, palette.textPrimary.g,
+                   palette.textPrimary.b, row.stage );
+
+        if ( row.kind == ReplayCauseIterationRowKind::SolverIteration )
+        {
+            draw.Text( layout.iterationsTable.x + 76.0f, rowY + 4.0f, 8.5f, palette.textSecondary.r,
+                       palette.textSecondary.g, palette.textSecondary.b, row.deltaNormal );
+            draw.Text( layout.iterationsTable.x + 140.0f, rowY + 4.0f, 8.5f, palette.textPrimary.r,
+                       palette.textPrimary.g, palette.textPrimary.b, row.accNormal );
+            draw.Text( layout.iterationsTable.x + 204.0f, rowY + 4.0f, 8.5f, palette.textPrimary.r,
+                       palette.textPrimary.g, palette.textPrimary.b, row.tangentImpulse );
+            const bool isClamped = ( std::strcmp( row.status, "CLAMP" ) == 0 );
+            const UI::Style::UIColor& statusColor = isClamped ? CAUSE_SOLVER : palette.textMuted;
+            draw.Text( layout.iterationsTable.x + 276.0f, rowY + 4.0f, 8.5f, statusColor.r, statusColor.g, statusColor.b,
+                       row.status );
+        }
+        else
+        {
+            if ( row.accNormal[0] != '\0' )
+            {
+                draw.Text( layout.iterationsTable.x + 140.0f, rowY + 4.0f, 8.5f, palette.textPrimary.r,
+                           palette.textPrimary.g, palette.textPrimary.b, row.accNormal );
+            }
+            else if ( row.deltaNormal[0] != '\0' )
+            {
+                draw.Text( layout.iterationsTable.x + 76.0f, rowY + 4.0f, 8.5f, palette.textSecondary.r,
+                           palette.textSecondary.g, palette.textSecondary.b, row.deltaNormal );
+            }
+
+            if ( row.status[0] != '\0' )
+            {
+                draw.Text( layout.iterationsTable.x + 276.0f, rowY + 4.0f, 8.5f, CAUSE_MANIFOLD.r, CAUSE_MANIFOLD.g,
+                           CAUSE_MANIFOLD.b, row.status );
+            }
+
+            if ( row.details[0] != '\0' )
+            {
+                draw.Text( layout.iterationsTable.x + 330.0f, rowY + 4.0f, 8.5f, palette.textMuted.r, palette.textMuted.g,
+                           palette.textMuted.b, row.details );
+            }
+        }
+    }
+
+    drawList.PopClip();
+
+    if ( hasScrollbar && rowCount > 0 )
+    {
+        draw.RoundedRect( layout.drawerScrollbar.x, layout.drawerScrollbar.y, layout.drawerScrollbar.w,
+                          layout.drawerScrollbar.h, 2.0f, CAUSE_NAVY_ALT.r, CAUSE_NAVY_ALT.g, CAUSE_NAVY_ALT.b, 0.8f );
+        const float trackH = layout.drawerScrollbar.h;
+        const float thumbH = (std::max)( 16.0f, trackH * static_cast<float>( layout.iterationsVisibleRows ) /
+                                                    static_cast<float>( rowCount ) );
+        const float maxScroll = static_cast<float>( (std::max)( 1, rowCount - layout.iterationsVisibleRows ) );
+        const float thumbY = layout.drawerScrollbar.y +
+                             ( trackH - thumbH ) * ( static_cast<float>( firstRow ) / maxScroll );
+        draw.RoundedRect( layout.drawerScrollbar.x, thumbY, layout.drawerScrollbar.w, thumbH, 2.0f, CAUSE_RULE.r, CAUSE_RULE.g,
+                          CAUSE_RULE.b, 0.85f );
+    }
+}
+
 void RenderReplayCauseSolverDetailPanel( UI::UIDrawList& drawList, const UI::UIDrawContext& draw,
                                          const ReplayOverlayStateView& replay, int screenW, int screenH )
 {
+    PROFILE_SCOPED( "Frame/Replay/RenderCauseInspectorDrawer" );
     const ReplayCauseInspectionView& inspection = replay.causeInspection;
 
-    if ( !inspection.detailVisible )
+    if ( !inspection.detailVisible || replay.causeTree.rows.empty() )
     {
         return;
     }
 
-    PROFILE_SCOPED( "Frame/Replay/CauseInspection/PanelRender" );
-    const ReplayCauseInspectorLayout layout = BuildReplayCauseInspectorLayout( inspection, replay.causeTree, screenW,
-                                                                               screenH, inspection.drawerProgress );
+    const ReplayCauseInspectorLayout layout = BuildReplayCauseInspectorLayout( inspection, replay.causeTree, screenW, screenH,
+                                                                               inspection.drawerProgress );
 
-    if ( layout.visibleDrawer.w <= 0.0f )
+    if ( layout.visibleDrawer.w <= 1.0f )
     {
         return;
     }
@@ -198,254 +436,17 @@ void RenderReplayCauseSolverDetailPanel( UI::UIDrawList& drawList, const UI::UID
         return;
     }
 
-    if ( inspection.activeTab == ReplayCauseInspectorTab::Summary )
+    switch ( inspection.activeTab )
     {
-        const Physics::PhysicsSolverPersistentContactSample& contact = inspection.solverDetailContacts.front();
-        const ReplayCauseSummaryText summary = BuildReplayCauseSummaryText( inspection, 0 );
-        static constexpr const char* CARD_LABELS[] = { "NORMAL IMPULSE", "FRICTION |T|", "PENETRATION", "EFFECTIVE MASS" };
-        const char* cardValues[] = { summary.normalImpulse, summary.frictionImpulse, summary.penetration,
-                                     summary.effectiveMass };
-        const float gap = 8.0f;
-        const float cardW = ( layout.content.w - gap ) * 0.5f;
-        const float cardH = 56.0f;
-
-        for ( int cardIndex = 0; cardIndex < 4; ++cardIndex )
-        {
-            const int column = cardIndex % 2;
-            const int row = cardIndex / 2;
-            const UI::UIRect card { layout.content.x + static_cast<float>( column ) * ( cardW + gap ),
-                                    layout.content.y + static_cast<float>( row ) * ( cardH + gap ), cardW, cardH };
-            const UI::Style::UIColor& accent = cardIndex < 2 ? CAUSE_SOLVER : CAUSE_MANIFOLD;
-            draw.RoundedRect( card.x, card.y, card.w, card.h, 5.0f, CAUSE_NAVY_ALT.r, CAUSE_NAVY_ALT.g, CAUSE_NAVY_ALT.b,
-                              1.0f );
-            draw.Rect( card.x, card.y, 3.0f, card.h, accent.r, accent.g, accent.b, 0.9f );
-            draw.Text( card.x + 11.0f, card.y + 9.0f, 9.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b,
-                       CARD_LABELS[cardIndex] );
-            draw.Text( card.x + 11.0f, card.y + 27.0f, 15.0f, accent.r, accent.g, accent.b, cardValues[cardIndex] );
-        }
-
-        const float basisY = layout.content.y + 128.0f;
-        draw.Text( layout.content.x, basisY, 10.0f, CAUSE_PREDICTION.r, CAUSE_PREDICTION.g, CAUSE_PREDICTION.b,
-                   "CONTACT BASIS COMPONENTS  [-1, +1]" );
-        const Math::Vector::Vector3 basis[] = { contact.normal, contact.tangent1, contact.tangent2 };
-        static constexpr const char* BASIS_LABELS[] = { "NORMAL", "TANGENT 1", "TANGENT 2" };
-
-        for ( int basisIndex = 0; basisIndex < 3; ++basisIndex )
-        {
-            const float rowY = basisY + 20.0f + static_cast<float>( basisIndex ) * 34.0f;
-            const float components[] = { basis[basisIndex].x, basis[basisIndex].y, basis[basisIndex].z };
-            draw.Text( layout.content.x, rowY + 5.0f, 9.5f, palette.textSecondary.r, palette.textSecondary.g,
-                       palette.textSecondary.b, BASIS_LABELS[basisIndex] );
-
-            for ( int componentIndex = 0; componentIndex < 3; ++componentIndex )
-            {
-                const float componentX = layout.content.x + 80.0f + static_cast<float>( componentIndex ) * 118.0f;
-                const float centerX = componentX + 48.0f;
-                const float value = std::clamp( components[componentIndex], -1.0f, 1.0f );
-                draw.Rect( componentX, rowY, 96.0f, 18.0f, CAUSE_NAVY_ALT.r, CAUSE_NAVY_ALT.g, CAUSE_NAVY_ALT.b, 1.0f );
-                draw.Rect( centerX, rowY + 2.0f, 1.0f, 14.0f, CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b, 0.45f );
-                draw.Rect( value < 0.0f ? centerX + value * 42.0f : centerX, rowY + 5.0f, std::abs( value ) * 42.0f, 8.0f,
-                           CAUSE_PREDICTION.r, CAUSE_PREDICTION.g, CAUSE_PREDICTION.b, 0.88f );
-                char component[32] = {};
-                sprintf_s( component, sizeof( component ), "%c %.3f", "XYZ"[componentIndex], components[componentIndex] );
-                draw.Text( componentX + 5.0f, rowY + 4.0f, 8.5f, palette.textPrimary.r, palette.textPrimary.g,
-                           palette.textPrimary.b, component );
-            }
-        }
-
-        const float dynamicsY = basisY + 128.0f;
-        draw.RoundedRect( layout.content.x, dynamicsY, layout.content.w, 86.0f, 5.0f, CAUSE_NAVY_ALT.r, CAUSE_NAVY_ALT.g,
-                          CAUSE_NAVY_ALT.b, 1.0f );
-        draw.Text( layout.content.x + 10.0f, dynamicsY + 10.0f, 10.0f, CAUSE_MANIFOLD.r, CAUSE_MANIFOLD.g, CAUSE_MANIFOLD.b,
-                   "ROW DYNAMICS" );
-        draw.Text( layout.content.x + 10.0f, dynamicsY + 28.0f, 9.5f, palette.textPrimary.r, palette.textPrimary.g,
-                   palette.textPrimary.b, summary.identity );
-        draw.Text( layout.content.x + 10.0f, dynamicsY + 46.0f, 9.0f, palette.textSecondary.r, palette.textSecondary.g,
-                   palette.textSecondary.b, summary.dynamics );
-        draw.Text( layout.content.x + 10.0f, dynamicsY + 64.0f, 9.0f, palette.textMuted.r, palette.textMuted.g,
-                   palette.textMuted.b, summary.policy );
-        drawList.PopClip();
-        return;
-    }
-
-    if ( inspection.activeTab == ReplayCauseInspectorTab::RawRecord )
-    {
-        const ReplayCauseRawRecordProjection projection = BuildReplayCauseRawRecordProjection( inspection, 0 );
-        const int rowCount = static_cast<int>( projection.rowCount );
-        const int firstRow = std::clamp( inspection.rawRecordFirstRow, 0,
-                                         (std::max)( 0, rowCount - layout.rawVisibleRows ) );
-        const int endRow = (std::min)( rowCount, firstRow + layout.rawVisibleRows );
-
-        drawList.PushClip( layout.rawTable.x, layout.rawTable.y, layout.rawTable.w, layout.rawTable.h );
-
-        const bool hasScrollbar = rowCount > layout.rawVisibleRows;
-        const float tableRowWidth = layout.rawTable.w - ( hasScrollbar ? REPLAY_CAUSE_INSPECTOR_SCROLLBAR_WIDTH + 4.0f : 0.0f );
-
-        for ( int rowIndex = firstRow; rowIndex < endRow; ++rowIndex )
-        {
-            const ReplayCauseRawRecordRow& row = projection.rows[static_cast<std::size_t>( rowIndex )];
-            const float rowY = layout.rawTable.y + static_cast<float>( rowIndex - firstRow ) * REPLAY_CAUSE_RAW_RECORD_ROW_HEIGHT;
-
-            if ( row.kind == ReplayCauseRawRecordRowKind::Section )
-            {
-                draw.Rect( layout.rawTable.x, rowY + REPLAY_CAUSE_RAW_RECORD_ROW_HEIGHT - 1.0f, tableRowWidth, 1.0f,
-                           CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b, 0.45f );
-                draw.Text( layout.rawTable.x + 4.0f, rowY + 4.0f, 10.0f, CAUSE_MANIFOLD.r, CAUSE_MANIFOLD.g,
-                           CAUSE_MANIFOLD.b, row.label );
-            }
-            else
-            {
-                const UI::Style::UIColor& fill = ( rowIndex % 2 == 0 ) ? CAUSE_NAVY_ALT : CAUSE_NAVY;
-                draw.RoundedRect( layout.rawTable.x, rowY, tableRowWidth, REPLAY_CAUSE_RAW_RECORD_ROW_HEIGHT - 1.0f, 2.0f,
-                                  fill.r, fill.g, fill.b, 1.0f );
-                draw.Text( layout.rawTable.x + 8.0f, rowY + 4.0f, 9.5f, palette.textSecondary.r, palette.textSecondary.g,
-                           palette.textSecondary.b, row.label );
-                draw.Text( layout.rawTable.x + 190.0f, rowY + 4.0f, 9.5f, palette.textPrimary.r, palette.textPrimary.g,
-                           palette.textPrimary.b, row.value );
-                if ( row.unit[0] != '\0' )
-                {
-                    draw.Text( layout.rawTable.x + tableRowWidth - 48.0f, rowY + 4.0f, 9.0f, palette.textMuted.r,
-                               palette.textMuted.g, palette.textMuted.b, row.unit );
-                }
-            }
-        }
-
-        drawList.PopClip();
-
-        if ( hasScrollbar && rowCount > 0 )
-        {
-            draw.RoundedRect( layout.drawerScrollbar.x, layout.drawerScrollbar.y, layout.drawerScrollbar.w,
-                              layout.drawerScrollbar.h, 2.0f, CAUSE_NAVY_ALT.r, CAUSE_NAVY_ALT.g, CAUSE_NAVY_ALT.b, 0.8f );
-            const float trackH = layout.drawerScrollbar.h;
-            const float thumbH = (std::max)( 16.0f, trackH * static_cast<float>( layout.rawVisibleRows ) /
-                                                        static_cast<float>( rowCount ) );
-            const float maxScroll = static_cast<float>( (std::max)( 1, rowCount - layout.rawVisibleRows ) );
-            const float thumbY = layout.drawerScrollbar.y + ( trackH - thumbH ) * ( static_cast<float>( firstRow ) / maxScroll );
-            draw.RoundedRect( layout.drawerScrollbar.x, thumbY, layout.drawerScrollbar.w, thumbH, 2.0f, CAUSE_RULE.r,
-                              CAUSE_RULE.g, CAUSE_RULE.b, 0.85f );
-        }
-
-        // Render Copy Record action button
-        draw.RoundedRect( layout.rawCopy.x, layout.rawCopy.y, layout.rawCopy.w, layout.rawCopy.h, 4.0f, CAUSE_NAVY_ALT.r,
-                          CAUSE_NAVY_ALT.g, CAUSE_NAVY_ALT.b, 1.0f );
-        draw.Rect( layout.rawCopy.x, layout.rawCopy.y, 3.0f, layout.rawCopy.h, CAUSE_MANIFOLD.r, CAUSE_MANIFOLD.g,
-                   CAUSE_MANIFOLD.b, 0.88f );
-        draw.Text( layout.rawCopy.x + 16.0f, layout.rawCopy.y + 8.0f, 11.0f, palette.textPrimary.r, palette.textPrimary.g,
-                   palette.textPrimary.b, "COPY RECORD" );
-        draw.Text( layout.rawCopy.x + layout.rawCopy.w - 140.0f, layout.rawCopy.y + 9.0f, 9.0f, palette.textMuted.r,
-                   palette.textMuted.g, palette.textMuted.b, "Copy text to clipboard" );
-
-        drawList.PopClip();
-        return;
-    }
-
-    const int rowCount = static_cast<int>( inspection.solverDetailContacts.size() );
-    const int firstRow = std::clamp( inspection.solverDetailFirstRow, 0, (std::max)( 0, rowCount - layout.visibleRows ) );
-    const int endRow = (std::min)( rowCount, firstRow + layout.visibleRows );
-
-    for ( int rowIndex = firstRow; rowIndex < endRow; ++rowIndex )
-    {
-        const Physics::PhysicsSolverPersistentContactSample&
-            contact = inspection.solverDetailContacts[static_cast<std::size_t>( rowIndex )];
-        const float rowY = layout.content.y + static_cast<float>( rowIndex - firstRow ) * layout.rowHeight;
-        const UI::UIRect rowRect { layout.content.x, rowY, layout.content.w - 8.0f, layout.rowHeight - 3.0f };
-        const UI::Style::UIColor& rowFill = ( rowIndex % 2 ) == 0 ? CAUSE_NAVY_ALT : CAUSE_NAVY;
-        draw.RoundedRect( rowRect.x, rowRect.y, rowRect.w, rowRect.h, 6.0f, rowFill.r, rowFill.g, rowFill.b, 1.0f );
-        draw.Rect( rowRect.x, rowRect.y, 3.0f, rowRect.h, CAUSE_SOLVER.r, CAUSE_SOLVER.g, CAUSE_SOLVER.b, 0.88f );
-
-        const Physics::PhysicsPipelineRecord*
-            correction = FindSolverDetailRecord( inspection, contact.featureId,
-                                                 Physics::PhysicsPipelineStage::PositionCorrection );
-        const Physics::PhysicsPipelineRecord* cache = FindSolverDetailRecord( inspection, contact.featureId,
-                                                                              Physics::PhysicsPipelineStage::CacheStore );
-        const ReplayCauseSolverPanelRowText values = BuildReplayCauseSolverPanelRowText( inspection, rowIndex );
-        char line[768] = {};
-        float textY = rowY + 4.0f;
-        draw.Text( rowRect.x + 9.0f, textY, 10.0f, CAUSE_SOLVER.r, CAUSE_SOLVER.g, CAUSE_SOLVER.b, values.headline );
-        textY += 12.0f;
-        draw.Text( rowRect.x + 9.0f, textY, 10.0f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
-                   values.basis );
-        textY += 11.0f;
-        draw.Text( rowRect.x + 9.0f, textY, 10.0f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
-                   values.geometry );
-        textY += 11.0f;
-        draw.Text( rowRect.x + 9.0f, textY, 10.0f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
-                   values.masses );
-        textY += 11.0f;
-        draw.Text( rowRect.x + 9.0f, textY, 10.0f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
-                   values.impulses );
-        textY += 12.0f;
-
-        int iterationColumn = 0;
-
-        for ( const Physics::PhysicsPipelineRecord& record : inspection.solverDetailPipelineRecords )
-        {
-            if ( record.stage != Physics::PhysicsPipelineStage::SolverIteration || record.featureId != contact.featureId )
-            {
-                continue;
-            }
-
-            // Physics emits scalarC as the tangent-impulse magnitude. Treat a
-            // value at the cone radius as clamped; no UI-only solver state is retained.
-            const bool clamped = contact.frictionLimit > 0.0f && record.scalarC >= contact.frictionLimit - 1.0e-5f;
-            const int column = iterationColumn % REPLAY_CAUSE_SOLVER_PANEL_ITERATIONS_PER_LINE;
-            const int lineIndex = iterationColumn / REPLAY_CAUSE_SOLVER_PANEL_ITERATIONS_PER_LINE;
-            const float columnWidth = ( rowRect.w - 16.0f ) /
-                                      static_cast<float>( REPLAY_CAUSE_SOLVER_PANEL_ITERATIONS_PER_LINE );
-            sprintf_s( line, sizeof( line ), "i%d dN %.3g N %.3g T %.3g %s", record.iteration, record.scalarA,
-                       record.scalarB, record.scalarC, clamped ? "CLAMP" : "free" );
-            draw.Text( rowRect.x + 7.0f + static_cast<float>( column ) * columnWidth,
-                       textY + static_cast<float>( lineIndex ) * REPLAY_CAUSE_SOLVER_PANEL_ITERATION_LINE_HEIGHT, 9.0f,
-                       clamped ? CAUSE_SOLVER.r : palette.textMuted.r, clamped ? CAUSE_SOLVER.g : palette.textMuted.g,
-                       clamped ? CAUSE_SOLVER.b : palette.textMuted.b, line );
-            ++iterationColumn;
-        }
-
-        const int iterationLines = ( iterationColumn + REPLAY_CAUSE_SOLVER_PANEL_ITERATIONS_PER_LINE - 1 ) /
-                                   REPLAY_CAUSE_SOLVER_PANEL_ITERATIONS_PER_LINE;
-        textY += static_cast<float>( iterationLines ) * REPLAY_CAUSE_SOLVER_PANEL_ITERATION_LINE_HEIGHT;
-
-        char velocityText[256] = "wb none";
-        int velocityCount = 0;
-
-        for ( const Physics::PhysicsPipelineRecord& record : inspection.solverDetailPipelineRecords )
-        {
-            if ( record.stage != Physics::PhysicsPipelineStage::VelocityWriteback ||
-                 ( record.bodyA != contact.bodyA && record.bodyA != contact.bodyB ) )
-            {
-                continue;
-            }
-
-            char append[96] = {};
-            sprintf_s( append, sizeof( append ), "%sB%d L %.3g A %.3g", velocityCount == 0 ? "" : " / ", record.bodyA,
-                       record.scalarA, record.scalarB );
-
-            if ( velocityCount == 0 )
-            {
-                strcpy_s( velocityText, sizeof( velocityText ), "wb " );
-            }
-
-            strcat_s( velocityText, sizeof( velocityText ), append );
-            ++velocityCount;
-        }
-
-        sprintf_s( line, sizeof( line ), "corr %.4g (pen %.4g slop %.4g) | %s | cache (%.4g %.4g %.4g)",
-                   correction ? correction->scalarA : 0.0f, correction ? correction->scalarB : 0.0f,
-                   correction ? correction->scalarC : 0.0f, velocityText, cache ? cache->scalarA : 0.0f,
-                   cache ? cache->scalarB : 0.0f, cache ? cache->scalarC : 0.0f );
-        draw.Text( rowRect.x + 9.0f, textY, 9.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, line );
-    }
-
-    if ( rowCount > layout.visibleRows )
-    {
-        const float trackX = layout.content.x + layout.content.w - 5.0f;
-        const int maximumFirst = rowCount - layout.visibleRows;
-        const float knobH = layout.content.h * static_cast<float>( layout.visibleRows ) / static_cast<float>( rowCount );
-        const float travel = layout.content.h - knobH;
-        const float knobY = layout.content.y + travel * static_cast<float>( firstRow ) / static_cast<float>( maximumFirst );
-        draw.Rect( trackX, layout.content.y, 3.0f, layout.content.h, CAUSE_NAVY_ALT.r, CAUSE_NAVY_ALT.g, CAUSE_NAVY_ALT.b,
-                   1.0f );
-        draw.RoundedRect( trackX - 1.0f, knobY, 5.0f, knobH, 2.0f, CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b, 0.88f );
+    case ReplayCauseInspectorTab::Summary:
+        RenderReplayCauseSummaryTab( draw, inspection, layout, palette );
+        break;
+    case ReplayCauseInspectorTab::RawRecord:
+        RenderReplayCauseRawRecordTab( drawList, draw, inspection, layout, palette );
+        break;
+    case ReplayCauseInspectorTab::Iterations:
+        RenderReplayCauseIterationsTab( drawList, draw, inspection, layout, palette );
+        break;
     }
 
     drawList.PopClip();

@@ -213,6 +213,7 @@ struct ReplayCauseInspectionView
     const char* solverDetailFeedback = "Solver detail not available";
     int solverDetailFirstRow = 0;
     int rawRecordFirstRow = 0;
+    int iterationsFirstRow = 0;
     Rendering::ContactManifoldPresentation contactPresentation;
     ReplayCauseInspectorTab activeTab = ReplayCauseInspectorTab::Summary;
     bool detailVisible = false;
@@ -303,6 +304,38 @@ struct ReplayCauseRawRecordProjection
 
 inline constexpr std::size_t REPLAY_CAUSE_INSPECTOR_COPY_TEXT_CAPACITY = 4096u;
 
+enum class ReplayCauseIterationRowKind : uint8_t
+{
+    WarmStart,
+    SolverIteration,
+    PositionCorrection,
+    CacheStore,
+    VelocityWriteback
+};
+
+struct ReplayCauseIterationRow
+{
+    ReplayCauseIterationRowKind kind = ReplayCauseIterationRowKind::SolverIteration;
+    int iterationIndex = 0;
+    char stage[32] = {};
+    char deltaNormal[24] = {};
+    char accNormal[24] = {};
+    char tangentImpulse[24] = {};
+    char frictionLimit[24] = {};
+    char status[24] = {};
+    char details[80] = {};
+};
+
+inline constexpr std::size_t REPLAY_CAUSE_ITERATIONS_ROW_CAPACITY = 32u;
+inline constexpr float REPLAY_CAUSE_ITERATIONS_ROW_HEIGHT = 20.0f;
+
+struct ReplayCauseIterationsProjection
+{
+    std::array<ReplayCauseIterationRow, REPLAY_CAUSE_ITERATIONS_ROW_CAPACITY> rows;
+    std::size_t rowCount = 0;
+    char summary[128] = {};
+};
+
 enum class ReplayCauseInspectorCommandKind : uint8_t
 {
     None,
@@ -330,6 +363,7 @@ struct ReplayCauseInspectorLayout
     UI::UIRect content;
     UI::UIRect rawTable;
     UI::UIRect rawCopy;
+    UI::UIRect iterationsTable;
     UI::UIRect drawerScrollbar;
     UI::UIRect sharedSeam;
     UI::UIRect compound;
@@ -338,6 +372,7 @@ struct ReplayCauseInspectorLayout
     float drawerProgress = 0.0f;
     int visibleRows = 0;
     int rawVisibleRows = 0;
+    int iterationsVisibleRows = 0;
 };
 
 // Concept: one projection describes both retained Replay placement and the
@@ -354,6 +389,8 @@ ReplayCauseSolverPanelRowText BuildReplayCauseSolverPanelRowText( const ReplayCa
 ReplayCauseSummaryText BuildReplayCauseSummaryText( const ReplayCauseInspectionView& inspection, int rowIndex ) noexcept;
 ReplayCauseRawRecordProjection BuildReplayCauseRawRecordProjection( const ReplayCauseInspectionView& inspection,
                                                                     int rowIndex ) noexcept;
+ReplayCauseIterationsProjection BuildReplayCauseIterationsProjection( const ReplayCauseInspectionView& inspection,
+                                                                      int rowIndex ) noexcept;
 bool SerializeReplayCauseRawRecord( const ReplayCauseRawRecordProjection& projection, char* destination,
                                     std::size_t destinationCapacity ) noexcept;
 

@@ -1555,3 +1555,208 @@ TEST_CASE( "Cause hierarchy inspector: Raw Record input handles copy command and
         CHECK( inspection.View().rawRecordFirstRow == 0 );
     }
 }
+
+TEST_CASE( "Cause hierarchy inspector: Iterations tab projects exact pipeline stages" )
+{
+    using SkullbonezCore::Math::Vector::Vector3;
+    using SkullbonezCore::Physics::PhysicsPipelineRecord;
+    using SkullbonezCore::Physics::PhysicsPipelineStage;
+    using SkullbonezCore::Physics::PhysicsSolverPersistentContactSample;
+
+    ReplayCauseInspectionView view;
+    view.targetFrame = 120u;
+    view.seekSource = ReplayCauseSeekSource::SolverHistory;
+
+    std::array<PhysicsSolverPersistentContactSample, 1> contacts;
+    contacts[0].bodyA = 2;
+    contacts[0].bodyB = 8;
+    contacts[0].featureId = 99u;
+    contacts[0].frictionLimit = 2.5f;
+    contacts[0].normalMass = 5.0f;
+    contacts[0].warmStarted = true;
+
+    std::array<PhysicsPipelineRecord, 6> records;
+    // Stage 1: WarmStart
+    records[0].stage = PhysicsPipelineStage::WarmStart;
+    records[0].featureId = 99u;
+    records[0].scalarA = 1.0f; // accNormal
+    records[0].scalarB = 0.2f; // tangent 1
+    records[0].scalarC = 0.1f; // tangent 2
+
+    // Stage 2: Iteration 1 (free)
+    records[1].stage = PhysicsPipelineStage::SolverIteration;
+    records[1].featureId = 99u;
+    records[1].iteration = 1;
+    records[1].scalarA = 0.5f; // deltaNormal
+    records[1].scalarB = 1.5f; // accNormal
+    records[1].scalarC = 0.8f; // tangent impulse
+
+    // Stage 3: Iteration 2 (clamped: 2.5 >= 2.5)
+    records[2].stage = PhysicsPipelineStage::SolverIteration;
+    records[2].featureId = 99u;
+    records[2].iteration = 2;
+    records[2].scalarA = 0.3f; // deltaNormal
+    records[2].scalarB = 1.8f; // accNormal
+    records[2].scalarC = 2.5f; // tangent impulse = frictionLimit
+
+    // Stage 4: PositionCorrection
+    records[3].stage = PhysicsPipelineStage::PositionCorrection;
+    records[3].featureId = 99u;
+    records[3].scalarA = 0.008f;
+
+    // Stage 5: CacheStore
+    records[4].stage = PhysicsPipelineStage::CacheStore;
+    records[4].featureId = 99u;
+    records[4].scalarA = 1.8f;
+    records[4].scalarB = 1.2f;
+    records[4].scalarC = 0.0f;
+
+    // Stage 6: VelocityWriteback
+    records[5].stage = PhysicsPipelineStage::VelocityWriteback;
+    records[5].featureId = 99u;
+    records[5].point = Vector3( 1.5f, -0.5f, 0.0f );
+
+    view.solverDetailContacts = contacts;
+    view.solverDetailPipelineRecords = records;
+
+    SUBCASE( "invalid row index returns empty projection" )
+    {
+        const ReplayCauseIterationsProjection emptyNeg = BuildReplayCauseIterationsProjection( view, -1 );
+        CHECK( emptyNeg.rowCount == 0u );
+        CHECK( std::strstr( emptyNeg.summary, "No contact" ) != nullptr );
+
+        const ReplayCauseIterationsProjection emptyHigh = BuildReplayCauseIterationsProjection( view, 4 );
+        CHECK( emptyHigh.rowCount == 0u );
+    }
+
+    SUBCASE( "valid contact projects all pipeline stages accurately" )
+    {
+        const ReplayCauseIterationsProjection proj = BuildReplayCauseIterationsProjection( view, 0 );
+        REQUIRE( proj.rowCount == 6u );
+        CHECK( std::strstr( proj.summary, "Feature 99" ) != nullptr );
+
+        // WarmStart
+        CHECK( proj.rows[0].kind == ReplayCauseIterationRowKind::WarmStart );
+        CHECK( std::strcmp( proj.rows[0].stage, "Warm Start" ) == 0 );
+        CHECK( std::strcmp( proj.rows[0].status, "ACTIVE" ) == 0 );
+
+        // Iteration 1 (free)
+        CHECK( proj.rows[1].kind == ReplayCauseIterationRowKind::SolverIteration );
+        CHECK( proj.rows[1].iterationIndex == 1 );
+        CHECK( std::strcmp( proj.rows[1].stage, "Iter 1" ) == 0 );
+        CHECK( std::strcmp( proj.rows[1].status, "FREE" ) == 0 );
+
+        // Iteration 2 (clamped)
+        CHECK( proj.rows[2].kind == ReplayCauseIterationRowKind::SolverIteration );
+        CHECK( proj.rows[2].iterationIndex == 2 );
+        CHECK( std::strcmp( proj.rows[2].stage, "Iter 2" ) == 0 );
+        CHECK( std::strcmp( proj.rows[2].status, "CLAMP" ) == 0 );
+
+        // Pos Correct
+        CHECK( proj.rows[3].kind == ReplayCauseIterationRowKind::PositionCorrection );
+        CHECK( std::strcmp( proj.rows[3].stage, "Pos Correct" ) == 0 );
+        CHECK( std::strcmp( proj.rows[3].status, "APPLIED" ) == 0 );
+
+        // Cache Store
+        CHECK( proj.rows[4].kind == ReplayCauseIterationRowKind::CacheStore );
+        CHECK( std::strcmp( proj.rows[4].stage, "Cache Store" ) == 0 );
+        CHECK( std::strcmp( proj.rows[4].status, "SAVED" ) == 0 );
+
+        // Writeback
+        CHECK( proj.rows[5].kind == ReplayCauseIterationRowKind::VelocityWriteback );
+        CHECK( std::strcmp( proj.rows[5].stage, "Writeback" ) == 0 );
+        CHECK( std::strcmp( proj.rows[5].status, "COMMITTED" ) == 0 );
+    }
+}
+
+TEST_CASE( "Cause hierarchy inspector: Iterations tab input and interaction handling" )
+{
+    using SkullbonezCore::Physics::PhysicsPipelineRecord;
+    using SkullbonezCore::Physics::PhysicsPipelineStage;
+    using SkullbonezCore::Physics::PhysicsSolverPersistentContactSample;
+
+    RunReplayCauseTreeState treeState;
+    treeState.hasWindowPlacement = true;
+    treeState.x = 1180;
+    treeState.y = 140;
+    treeState.width = 430;
+    treeState.height = 500;
+
+    ReplayCauseSeekResult seek;
+    seek.availability = ReplayCauseSeekAvailability::Available;
+    seek.source = ReplayCauseSeekSource::SolverHistory;
+    seek.frame = 10u;
+
+    std::array<PhysicsSolverPersistentContactSample, 1> contacts;
+    contacts[0].bodyA = 1;
+    contacts[0].bodyB = 2;
+    contacts[0].featureId = 5u;
+
+    std::array<PhysicsPipelineRecord, 10> records;
+    for ( int i = 0; i < 10; ++i )
+    {
+        records[static_cast<std::size_t>( i )].stage = PhysicsPipelineStage::SolverIteration;
+        records[static_cast<std::size_t>( i )].featureId = 5u;
+        records[static_cast<std::size_t>( i )].iteration = i + 1;
+        records[static_cast<std::size_t>( i )].scalarA = 0.1f * static_cast<float>( i + 1 );
+        records[static_cast<std::size_t>( i )].scalarB = 0.5f * static_cast<float>( i + 1 );
+    }
+
+    ReplayCauseSolverDetailResult detail;
+    detail.frame = 10u;
+    detail.availability = ReplayCauseSolverDetailAvailability::Available;
+    detail.sourceContacts = contacts;
+    detail.sourcePipelineRecords = records;
+    detail.pipelineRecordCount = 10u;
+    detail.bodyA = 1;
+    detail.bodyB = 2;
+    detail.contactRowCount = 1u;
+
+    ReplayCauseInspection inspection;
+    REQUIRE( inspection.Select( 0, seek, 5u, false, 1.0 ) );
+    inspection.Advance( 2.5 );
+    ReplayCauseTransportRequest request;
+    REQUIRE( inspection.TakeTransportRequest( request ) );
+    inspection.PublishSolverDetail( request.generation, detail );
+    inspection.CompleteTransport( request.generation, true );
+
+    const ReplayCauseInspectorLayout layout = BuildReplayCauseInspectorLayout( inspection.View(), treeState, 1920, 1080, 1.0f );
+    CHECK( layout.iterationsTable.h > 0.0f );
+    CHECK( layout.iterationsVisibleRows > 0 );
+
+    SUBCASE( "switching to iterations tab (tab 2) and scrolling" )
+    {
+        // Click Iterations tab (tabs[2])
+        const int tabX = static_cast<int>( layout.tabs[2].x + layout.tabs[2].w * 0.5f );
+        const int tabY = static_cast<int>( layout.tabs[2].y + layout.tabs[2].h * 0.5f );
+        CHECK( inspection.TickSolverDetailPanelInput( treeState, tabX, tabY, true, false, true, 0, 1920, 1080 ) );
+        CHECK( inspection.View().activeTab == ReplayCauseInspectorTab::Iterations );
+
+        const int insideX = static_cast<int>( layout.iterationsTable.x + 10.0f );
+        const int insideY = static_cast<int>( layout.iterationsTable.y + 10.0f );
+
+        CHECK( inspection.View().iterationsFirstRow == 0 );
+        // Scroll down
+        (void)inspection.TickSolverDetailPanelInput( treeState, insideX, insideY, true, false, false, -120, 1920, 1080 );
+        CHECK( inspection.View().iterationsFirstRow >= 0 );
+
+        // Scroll up
+        (void)inspection.TickSolverDetailPanelInput( treeState, insideX, insideY, true, false, false, 120, 1920, 1080 );
+        CHECK( inspection.View().iterationsFirstRow == 0 );
+
+        // Switch to Summary tab (tabs[0]) resets iterationsFirstRow
+        const int summaryTabX = static_cast<int>( layout.tabs[0].x + layout.tabs[0].w * 0.5f );
+        const int summaryTabY = static_cast<int>( layout.tabs[0].y + layout.tabs[0].h * 0.5f );
+        CHECK( inspection.TickSolverDetailPanelInput( treeState, summaryTabX, summaryTabY, true, false, true, 0, 1920, 1080 ) );
+        CHECK( inspection.View().activeTab == ReplayCauseInspectorTab::Summary );
+        CHECK( inspection.View().iterationsFirstRow == 0 );
+    }
+
+    SUBCASE( "clicking close button initiates return" )
+    {
+        const int closeX = static_cast<int>( layout.drawerClose.x + layout.drawerClose.w * 0.5f );
+        const int closeY = static_cast<int>( layout.drawerClose.y + layout.drawerClose.h * 0.5f );
+        CHECK( inspection.TickSolverDetailPanelInput( treeState, closeX, closeY, true, false, true, 0, 1920, 1080 ) );
+        CHECK( inspection.View().mode == ReplayCauseInspectionMode::Returning );
+    }
+}

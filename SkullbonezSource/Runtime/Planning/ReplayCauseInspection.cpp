@@ -533,6 +533,93 @@ bool SerializeReplayCauseRawRecord( const ReplayCauseRawRecordProjection& projec
     return writer.Valid();
 }
 
+ReplayCauseIterationsProjection BuildReplayCauseIterationsProjection( const ReplayCauseInspectionView& inspection,
+                                                                      int rowIndex ) noexcept
+{
+    ReplayCauseIterationsProjection projection;
+    if ( inspection.solverDetailContacts.empty() || rowIndex < 0 ||
+         static_cast<std::size_t>( rowIndex ) >= inspection.solverDetailContacts.size() )
+    {
+        sprintf_s( projection.summary, sizeof( projection.summary ), "No contact selected" );
+        return projection;
+    }
+
+    const Physics::PhysicsSolverPersistentContactSample& contact =
+        inspection.solverDetailContacts[static_cast<std::size_t>( rowIndex )];
+
+    sprintf_s( projection.summary, sizeof( projection.summary ),
+               "Feature %u  Body %d <-> %d  limit=%.3g",
+               contact.featureId, contact.bodyA, contact.bodyB, contact.frictionLimit );
+
+    for ( const Physics::PhysicsPipelineRecord& record : inspection.solverDetailPipelineRecords )
+    {
+        if ( record.featureId != contact.featureId )
+        {
+            continue;
+        }
+
+        if ( projection.rowCount >= REPLAY_CAUSE_ITERATIONS_ROW_CAPACITY )
+        {
+            break;
+        }
+
+        ReplayCauseIterationRow row;
+
+        if ( record.stage == Physics::PhysicsPipelineStage::WarmStart )
+        {
+            row.kind = ReplayCauseIterationRowKind::WarmStart;
+            sprintf_s( row.stage, sizeof( row.stage ), "Warm Start" );
+            sprintf_s( row.accNormal, sizeof( row.accNormal ), "%.4g", record.scalarA );
+            sprintf_s( row.tangentImpulse, sizeof( row.tangentImpulse ), "%.4g", std::hypot( record.scalarB, record.scalarC ) );
+            sprintf_s( row.status, sizeof( row.status ), contact.warmStarted ? "ACTIVE" : "NONE" );
+            sprintf_s( row.details, sizeof( row.details ), "t1=%.3g t2=%.3g", record.scalarB, record.scalarC );
+            projection.rows[projection.rowCount++] = row;
+        }
+        else if ( record.stage == Physics::PhysicsPipelineStage::SolverIteration )
+        {
+            row.kind = ReplayCauseIterationRowKind::SolverIteration;
+            row.iterationIndex = record.iteration;
+            sprintf_s( row.stage, sizeof( row.stage ), "Iter %d", record.iteration );
+            sprintf_s( row.deltaNormal, sizeof( row.deltaNormal ), "%.4g", record.scalarA );
+            sprintf_s( row.accNormal, sizeof( row.accNormal ), "%.4g", record.scalarB );
+            sprintf_s( row.tangentImpulse, sizeof( row.tangentImpulse ), "%.4g", record.scalarC );
+            sprintf_s( row.frictionLimit, sizeof( row.frictionLimit ), "%.4g", contact.frictionLimit );
+            const bool clamped = contact.frictionLimit > 0.0f && record.scalarC >= contact.frictionLimit - 1.0e-5f;
+            sprintf_s( row.status, sizeof( row.status ), clamped ? "CLAMP" : "FREE" );
+            projection.rows[projection.rowCount++] = row;
+        }
+        else if ( record.stage == Physics::PhysicsPipelineStage::PositionCorrection )
+        {
+            row.kind = ReplayCauseIterationRowKind::PositionCorrection;
+            sprintf_s( row.stage, sizeof( row.stage ), "Pos Correct" );
+            sprintf_s( row.deltaNormal, sizeof( row.deltaNormal ), "%.4g", record.scalarA );
+            sprintf_s( row.status, sizeof( row.status ), "APPLIED" );
+            sprintf_s( row.details, sizeof( row.details ), "Penetration repair" );
+            projection.rows[projection.rowCount++] = row;
+        }
+        else if ( record.stage == Physics::PhysicsPipelineStage::CacheStore )
+        {
+            row.kind = ReplayCauseIterationRowKind::CacheStore;
+            sprintf_s( row.stage, sizeof( row.stage ), "Cache Store" );
+            sprintf_s( row.accNormal, sizeof( row.accNormal ), "%.4g", record.scalarA );
+            sprintf_s( row.tangentImpulse, sizeof( row.tangentImpulse ), "%.4g", std::hypot( record.scalarB, record.scalarC ) );
+            sprintf_s( row.status, sizeof( row.status ), "SAVED" );
+            sprintf_s( row.details, sizeof( row.details ), "Cached for next tick" );
+            projection.rows[projection.rowCount++] = row;
+        }
+        else if ( record.stage == Physics::PhysicsPipelineStage::VelocityWriteback )
+        {
+            row.kind = ReplayCauseIterationRowKind::VelocityWriteback;
+            sprintf_s( row.stage, sizeof( row.stage ), "Writeback" );
+            sprintf_s( row.status, sizeof( row.status ), "COMMITTED" );
+            sprintf_s( row.details, sizeof( row.details ), "v=(%.2f,%.2f,%.2f)", record.point.x, record.point.y, record.point.z );
+            projection.rows[projection.rowCount++] = row;
+        }
+    }
+
+    return projection;
+}
+
 bool ShouldBeginReplayCauseAftermath( const ReplayCauseInspectionView& inspection, bool spaceDown ) noexcept
 {
     return spaceDown && inspection.mode == ReplayCauseInspectionMode::DetailPaused;
@@ -620,6 +707,10 @@ ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseIns
     layout.rawTable = { layout.content.x, layout.content.y, layout.content.w,
                         (std::max)( 0.0f, layout.content.h - REPLAY_CAUSE_RAW_RECORD_COPY_HEIGHT - rawCopyGap ) };
     layout.rawVisibleRows = static_cast<int>( layout.rawTable.h / REPLAY_CAUSE_RAW_RECORD_ROW_HEIGHT );
+
+    layout.iterationsTable = { layout.content.x, layout.content.y + 22.0f, layout.content.w,
+                               (std::max)( 0.0f, layout.content.h - 22.0f ) };
+    layout.iterationsVisibleRows = static_cast<int>( layout.iterationsTable.h / REPLAY_CAUSE_ITERATIONS_ROW_HEIGHT );
 
     const bool hasRows = inspection.solverDetailAvailability == ReplayCauseSolverDetailAvailability::Available &&
                          !inspection.solverDetailContacts.empty();
@@ -1397,6 +1488,7 @@ bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTree
                 m_state.activeTab = static_cast<ReplayCauseInspectorTab>( tab );
                 m_state.solverDetailFirstRow = 0;
                 m_state.rawRecordFirstRow = 0;
+                m_state.iterationsFirstRow = 0;
                 return true;
             }
         }
@@ -1415,7 +1507,15 @@ bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTree
 
     if ( wheelDelta != 0 )
     {
-        if ( m_state.activeTab == ReplayCauseInspectorTab::RawRecord && layout.rawVisibleRows > 0 )
+        if ( m_state.activeTab == ReplayCauseInspectorTab::Iterations && layout.iterationsVisibleRows > 0 )
+        {
+            const ReplayCauseIterationsProjection projection = BuildReplayCauseIterationsProjection( m_state, 0 );
+            const int direction = wheelDelta > 0 ? -1 : 1;
+            const int wheelSteps = (std::max)( 1, std::abs( wheelDelta ) / 120 ) * 3;
+            const int maximumFirstRow = (std::max)( 0, static_cast<int>( projection.rowCount ) - layout.iterationsVisibleRows );
+            m_state.iterationsFirstRow = std::clamp( m_state.iterationsFirstRow + direction * wheelSteps, 0, maximumFirstRow );
+        }
+        else if ( m_state.activeTab == ReplayCauseInspectorTab::RawRecord && layout.rawVisibleRows > 0 )
         {
             const ReplayCauseRawRecordProjection projection = BuildReplayCauseRawRecordProjection( m_state, 0 );
             const int direction = wheelDelta > 0 ? -1 : 1;
@@ -1462,6 +1562,7 @@ void ReplayCauseInspection::ClearFocusedSurface() noexcept
     m_state.solverDetailFeedback = SOLVER_DETAIL_UNAVAILABLE_FEEDBACK;
     m_state.solverDetailFirstRow = 0;
     m_state.rawRecordFirstRow = 0;
+    m_state.iterationsFirstRow = 0;
     m_state.contactPresentation = {};
 }
 

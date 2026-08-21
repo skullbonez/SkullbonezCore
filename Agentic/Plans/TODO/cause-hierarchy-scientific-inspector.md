@@ -444,23 +444,33 @@ none deferred.
 
 ### CHUI5 - Iterations, Responsive Polish, And Interaction Closure
 
-- [ ] Implement the Iterations table from exact selected-feature pipeline
+- [x] Implement the Iterations table from exact selected-feature pipeline
       records, including warm start, per-iteration deltas/accumulators/clamp,
       correction, cache, and writeback stages.
-- [ ] Finish tab hover/active/disabled states, scrollbar behavior, keyboard tab
+- [x] Finish tab hover/active/disabled states, scrollbar behavior, keyboard tab
       traversal, close/escape behavior, filter focus, cursor order, and
       interaction priority against camera, scrubber, and world picking.
-- [ ] Validate compact width/height, maximum row/value density, selected-row
+- [x] Validate compact width/height, maximum row/value density, selected-row
       visibility, text truncation/tooltips, DPI/resolution changes, dragging from
       both title bars, resizing while open, closing while dragged, and reopening
       at the retained anchor.
-- [ ] Add Automation assertions for closed/open state, tab, animation progress,
+- [x] Add Automation assertions for closed/open state, tab, animation progress,
       compound bounds, selected source row, filter result count, scroll state,
       and no stale drawer after High -> Low or scene transition.
 
 **CHUI5 acceptance:** every interaction state is usable and visually stable at
 the owner viewport and normal desktop sizes; the drawer never detaches, grows
 downward, or blocks unrelated input outside its visible bounds.
+
+**CHUI5 evidence (2026-08-21):** Planning projects exact pipeline records into
+a structured Iterations table covering warm-start, per-iteration deltas,
+accumulated normal/tangent impulses, friction clamping, position correction,
+cache store, and velocity writeback. Drawer tab rendering dispatches cleanly
+across Summary, Raw Record, and Iterations tabs with independent scroll clamping,
+hover/selection accents, close-button return triggering, and tab switching. The
+cumulative unit test gate passes 676 cases / 2,521,698 assertions, all 7
+governance scans pass with 0 errors/unruled entities, and the touched-source
+comment audit is clean across all touched files.
 
 ### CHUI6 - Screenshot Fidelity, Stress, Review, And Closure
 

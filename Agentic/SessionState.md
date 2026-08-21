@@ -2,7 +2,7 @@
 
 Date: 2026-08-21
 Branch: `codex/cause-hierarchy-ui-first`
-Status: Four active plans; 60/80 tasks complete
+Status: Four active plans; 61/80 tasks complete
 
 At-Rest Ball Stability RS0-RS7 and Invariant Enforcement And Assertion
 Hardening IH0-IH7 are complete. Causal C0-C8, Determinism T0-T8,
@@ -43,7 +43,12 @@ section rules, alternating fills, bounded internal scrolling, and cold clipboard
 copying without retaining clipboard authority in Planning or Replay. Its focused
 cases pass, the cumulative test gate passes 674 cases / 2,521,885 assertions, the
 dependency scan is clean, and the touched-source audit is 7/7 with none deferred.
-CHUI5 is the binding next task.
+CHUI5 adds the structured Iterations tab projecting exact pipeline stages (warm
+start, per-iteration deltas and accumulators, friction limit clamping, position
+correction, cache store, velocity writeback), refactors drawer rendering to modular
+tab dispatches, and handles close-button return and tab switching. The cumulative
+test gate passes 676 cases / 2,521,698 assertions and all governance scans are
+clean. CHUI6 is the binding next task.
 
 ORBIT_FORECAST OF0 is complete. It ratifies the fixed sun as the primary,
 Earth and Mars as core bodies, and the ship as an auxiliary whose orbital-

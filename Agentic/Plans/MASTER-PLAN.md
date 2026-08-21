@@ -315,13 +315,13 @@ contracts into Rendering.
 
 ## Portfolio Progress
 
-59/80 tasks complete with four active plans.
+61/80 tasks complete with four active plans.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
 Invariant Enforcement And Assertion Hardening IH0-IH7 is complete.
-Cause Hierarchy Scientific Inspector CHUI0-CHUI4 is complete and CHUI5 is next
-by owner direction; two of seven phases remain. Full Source Comment Truth
+Cause Hierarchy Scientific Inspector CHUI0-CHUI5 is complete and CHUI6 is next
+by owner direction; one of seven phases remains. Full Source Comment Truth
 Replacement CT0 is deferred at semantic patch regeneration until CHUI6; all
 six phases remain incomplete.
 Full Validation Time And Value Audit VTA0-VTA5 follows CT5; all six phases
