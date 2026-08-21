@@ -30,6 +30,7 @@ Related:
 #include "../../Scene/SceneSnapshotWriter.h"
 
 #include <cstdint>
+#include <cstddef>
 
 namespace SkullbonezCore
 {
@@ -66,13 +67,18 @@ struct OverlayDebugState
     float physicsDebugContactLinger = 0.45f;                  // Seconds to keep contact manifolds visible after their solver row
 
     // disappears
-    int physicsDebugPipelineStageCursor = 0;                  // F7/F8-selected Catto pipeline stage for PHYSICS_DEBUG_PIPELINE
+    int physicsDebugPipelineStageCursor = 0;                  // Bracket-selected Catto pipeline stage for PHYSICS_DEBUG_PIPELINE
     bool isCollisionVisualizer = false;                       // Render solid collision/sleep colours for balls and boxes (toggle with V)
     bool isTextOnly = false;                                  // Suppress all 3D rendering; show solid background with large pangram text
     bool isUITestPattern = false;                             // Bright 2D backdrop behind UI for visual blur tests
     bool isTopTextHidden = false;                             // Hide top-left HUD text while leaving other overlays active
     bool isBroadphaseOverlay = false;                         // Broadphase spatial grid visualizer overlay (toggle with G)
     bool isInteractionRecording = false;                      // Human interaction test recording active (toggled via F8)
+    double interactionRecordingElapsedSeconds = 0.0;          // Committed tape duration; pending transition-sensitive turn is excluded.
+    int interactionRecordingMaximumMinutes = 1;
+    std::size_t interactionRecordingFrameCount = 0u;
+    std::size_t interactionRecordingFrameCapacity = 0u;
+    char interactionRecordingFailure[128] = {};
     float frozenWaterTime = 0.0f;                             // Simulation time captured when freeze was toggled on
 #ifdef _DEBUG
     char reproSnapshotMessage[128] = {};                      // Short HUD confirmation after launcher-mode repro dump

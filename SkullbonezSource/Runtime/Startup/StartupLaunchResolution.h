@@ -48,6 +48,10 @@ bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs&
 // scene paths without retaining pointers into commandLine.
 bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string>& sceneList, bool& isSuiteOrSceneMode );
 
+// Recorded manifests are self-contained launch inputs. Resolves their relative
+// scene/replay sidecars after ordinary CLI parsing and before Run construction.
+bool ResolveInteractionRecordingLaunch( ParsedArgs& args );
+
 // Converts parsed policy into the value consumed synchronously by RunApp.
 RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args );
 

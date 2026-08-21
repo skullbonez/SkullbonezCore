@@ -301,6 +301,71 @@ The in-game Cine tab exposes live sliders for tonemap, style modes, style grade,
 
 Physics regression CSV output is command-line only via `--physics-regression-log` and `--physics-collision-time-log`; scene files must not enable it.
 
+## Recorded Interaction Repros
+
+Press F8 while the game has idle input to arm recording. The next pre-input
+frame boundary saves the complete scene baseline, and recording begins after
+that save succeeds; neither the starting nor stopping F8 frame is included.
+Press F8 again to stop and save. A scene transition stops recording
+automatically and discards the input frame that requested the transition, so a
+manifest always describes one scene. An orderly shutdown also saves an active
+recording in Debug, Profile, and Automation builds.
+
+Each capture is written to
+`TestOutput/recordings/<UTC timestamp>-<sequence>/interaction.json`. Adjacent
+`scene.scene.json` and, when replay state is active, `replay.skreplay` files are
+published first. The manifest is atomically published last and contains format
+version, completion and stop reason, viewport metadata, duration, turn count,
+the detached camera/tool/UI/replay baseline, SHA-256-bound relative sidecar
+paths, and one complete keyboard/mouse device frame per recorded turn.
+Incomplete `.partial` files are not runnable recordings.
+The replay baseline includes track positions, historical/live pause state,
+prediction and path selection, plus the active cause-inspection row, tab,
+scroll offsets, transition progress, and camera-focus rebuild state.
+
+Run a recording with no separate scene argument:
+
+```bat
+Automation\SKULLBONEZ_CORE.exe --interaction-script "TestOutput\recordings\<capture>\interaction.json" --interaction-report "TestOutput\recordings\<capture>\report.json"
+```
+
+Startup validates the manifest and safe relative sidecar paths, automatically
+loads the saved scene and optional replay artifact, restores owner-local
+baseline values, clears prior input, and starts at recorded turn zero.
+Playback replaces physical keyboard, mouse buttons, wheel, focus, pointer, and
+raw mouse delta for every turn. It uses recorded deltas and its own monotonic
+turn clock, finishes after the final turn, writes the normal interaction
+report, and exits deterministically. Existing hand-authored interaction
+scripts retain their scene-frame timing and schema.
+
+Pointer positions are stored as normalized viewport coordinates and are mapped
+to the current client size on playback. Raw mouse deltas are stored separately
+and are never viewport-scaled, so mouse-look camera motion remains identical
+when the playback window size changes. A semantic anchor, when present, takes
+priority over the normalized fallback for UI or stable-object interactions.
+
+`--interaction-record-max-minutes N` accepts integer values from 1 through 60
+and defaults to 1. Recording reserves one 14,400-frame minute chunk at start;
+additional chunks are requested only as needed up to the configured limit.
+The on-screen REC status shows elapsed/maximum time, used/capacity frames,
+saving progress, stop reason, or failure text. Duration/capacity limits save a
+complete prefix. Snapshot, reserve, allocation, serialization, digest, path,
+restore, or playback failures are visible on stderr and produce a nonzero
+process result; a manifest is never published on partial-output failure.
+
+Troubleshooting rules:
+
+- If F8 reports that input is not idle, release all keys and mouse buttons,
+  finish any drag, and leave text-entry capture before pressing F8 again.
+- If playback rejects a manifest, keep it unchanged and inspect the named
+  unsafe path, missing sidecar, digest, version, completion, or numeric-field
+  error.
+- Treat `TestOutput/recordings/` as local evidence unless the user explicitly
+  asks to promote one recording into a tracked regression fixture.
+- A recording reproduces actions and initial state; the user's stated expected
+  behavior remains the acceptance oracle. Do not refresh a golden baseline to
+  make playback succeed.
+
 ## Key Bindings
 
 | Key | Action |
@@ -317,6 +382,7 @@ Physics regression CSV output is command-line only via `--physics-regression-log
 | R | Reset or rerun the current scene/generated demo while preserving live controls. |
 | F2 | Save a scene snapshot. |
 | F3 | Save a screenshot. |
+| F8 | Start or stop a recorded interaction repro. Recording starts only from idle input and captures its baseline at the next pre-input boundary. |
 | Backtick / ~ | Toggle edit mode. |
 | Alt | In edit mode, toggle Place/Gizmo mode. Outside edit mode, toggle replay velocity edit for the selected dynamic replay target. |
 | Tab | In edit mode, cycle the placement object type. |
@@ -341,7 +407,7 @@ Physics regression CSV output is command-line only via `--physics-regression-log
 | H | In Legacy development UI, toggle the faint heliocentric Earth and Mars guide rings for mutual-gravity scenes. The rings default off and hide automatically in other scenes. |
 | J | In Legacy development UI, toggle the solar-system trip planner. Select the ship path and intercept target first; the panel offers TOF, PLAN, COMMIT, and CANCEL controls. |
 | I | In Legacy development UI, toggle the 64 by 48 solar porkchop panel. Hover a cell to inspect wait time, flight time, and delta-v; click a valid cell to seed the trip planner TOF while retaining the recommended wait. |
-| F7 / F8 | Step the physics pipeline debug overlay to the previous or next Catto stage. |
+| [ / ] | Step the physics pipeline debug overlay to the previous or next Catto stage. |
 | G | Toggle broadphase visualizer, or cycle the tracked ball when ball tracking is active and the visualizer is off. |
 
 Fly, launcher, and Attach active-follow mode use WASD, mouse look, Shift for faster movement, and Space to step physics while fly/Attach mode is paused. Attach mode follows a selected object and can be selected from the camera combo or by cycling camera modes with Tab.

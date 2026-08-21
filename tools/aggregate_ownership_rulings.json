@@ -154,7 +154,7 @@
     },
     {
       "key": "FramePresentationFacts",
-      "site": "SkullbonezSource/Runtime/App/Run.h:219",
+      "site": "SkullbonezSource/Runtime/App/Run.h:218",
       "members": 4,
       "verdict": "retain",
       "owner": "NA2 / Runtime/App",
@@ -263,7 +263,7 @@
     {
       "key": "ParsedArgs",
       "site": "SkullbonezSource/Runtime/Startup/StartupCommandLine.h:56",
-      "members": 85,
+      "members": 86,
       "verdict": "retain",
       "owner": "CA0 / Runtime/Startup",
       "reason": "All command-line switches are normalized once into one immutable startup interpretation; cross-field defaults and explicitness flags must be resolved together before initialization reads them.",
@@ -280,7 +280,7 @@
     },
     {
       "key": "PointerPresentationPolicyInput",
-      "site": "SkullbonezSource/Runtime/Input/InputRouter.h:260",
+      "site": "SkullbonezSource/Runtime/Input/InputRouter.h:269",
       "members": 6,
       "verdict": "retain",
       "owner": "CA0 / Runtime/Input",
@@ -397,7 +397,7 @@
     },
     {
       "key": "ReplayInteractionExitInput",
-      "site": "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:195",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:198",
       "members": 5,
       "verdict": "retain",
       "owner": "CA0 / Runtime/Replay",
@@ -415,7 +415,7 @@
     },
     {
       "key": "ReplayKeyboardVelocityEditInput",
-      "site": "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:306",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:309",
       "members": 4,
       "verdict": "retain",
       "owner": "CA0 / Runtime/Replay",
@@ -523,7 +523,7 @@
     },
     {
       "key": "ReplaySceneTimelineResetInput",
-      "site": "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:254",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:257",
       "members": 13,
       "verdict": "retain",
       "owner": "CA0 / Runtime/Replay",
@@ -550,7 +550,7 @@
     },
     {
       "key": "ReplayStartupRequest",
-      "site": "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:213",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:216",
       "members": 12,
       "verdict": "retain",
       "owner": "CA0 / Runtime/Replay",
@@ -613,7 +613,7 @@
     },
     {
       "key": "RuntimeCameraMovementInput",
-      "site": "SkullbonezSource/Runtime/Input/InputController.h:276",
+      "site": "SkullbonezSource/Runtime/Input/InputController.h:277",
       "members": 10,
       "verdict": "retain",
       "owner": "CA0 / Runtime/Input",
@@ -622,7 +622,7 @@
     },
     {
       "key": "RuntimeInputContext",
-      "site": "SkullbonezSource/Runtime/Input/InputController.h:298",
+      "site": "SkullbonezSource/Runtime/Input/InputController.h:299",
       "members": 9,
       "verdict": "retain",
       "owner": "CA0 / Runtime/Input",

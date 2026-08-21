@@ -225,6 +225,30 @@ struct ReplayCauseInspectionView
     float drawerProgress = 0.0f;
 };
 
+// Value-only checkpoint used when App restores an interaction recording. The
+// solver-detail arrays are regenerated from the replay artifact by the normal
+// selection path before these transition/presentation scalars are applied.
+struct ReplayCauseInspectionRecordingState
+{
+    ReplayCauseInspectionMode mode = ReplayCauseInspectionMode::Inactive;
+    ReplayCauseInspectorTab activeTab = ReplayCauseInspectorTab::Summary;
+    int selectedRow = -1;
+    int selectedDetailContactRow = -1;
+    int solverDetailFirstRow = 0;
+    int rawRecordFirstRow = 0;
+    int iterationsFirstRow = 0;
+    ReplayFrameIndex sourceFrame = 0;
+    ReplayFrameIndex targetFrame = 0;
+    ReplayFrameIndex presentedFrame = 0;
+    bool detailVisible = false;
+    bool ownsPause = false;
+    bool transportPending = false;
+    bool transportInFlight = false;
+    bool returnIssued = false;
+    float easedProgress = 0.0f;
+    float drawerProgress = 0.0f;
+};
+
 // These host-decision seams keep keyboard and pointer mapping testable while
 // ReplayCauseInspection remains the sole retained transition owner.
 bool ShouldBeginReplayCauseAftermath( const ReplayCauseInspectionView& inspection, bool spaceDown ) noexcept;
@@ -413,6 +437,8 @@ class ReplayCauseInspection
     bool BeginAftermath( bool& outReleasePause ) noexcept;
     ReplayCauseExitAction BeginReturn() noexcept;
     void CompleteReturn() noexcept;
+    void RestoreInteractionRecordingBaseline( const ReplayCauseInspectionRecordingState& baseline,
+                                              double nowSeconds ) noexcept;
     bool TickSolverDetailPanelInput( const RunReplayCauseTreeState& causeTree, int mouseX, int mouseY,
                                      bool hasClientPosition, bool pointerBlocked, bool leftPressed, int wheelDelta,
                                      int screenWidth, int screenHeight,

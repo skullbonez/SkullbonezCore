@@ -1484,6 +1484,48 @@ void ReplayCauseInspection::CompleteReturn() noexcept
     }
 }
 
+void ReplayCauseInspection::RestoreInteractionRecordingBaseline( const ReplayCauseInspectionRecordingState& baseline,
+                                                                 double nowSeconds ) noexcept
+{
+    // Why: Select regenerated the selected row and detached detail evidence
+    // from the loaded artifact. Restore only scalar transition/presentation
+    // state here so no serialized span or stale owner address can cross runs.
+    m_state.mode = baseline.mode;
+    m_state.activeTab = baseline.activeTab;
+    m_state.selectedRow = baseline.selectedRow;
+    m_state.selectedDetailContactRow = baseline.selectedDetailContactRow;
+    m_state.solverDetailFirstRow = (std::max)( 0, baseline.solverDetailFirstRow );
+    m_state.rawRecordFirstRow = (std::max)( 0, baseline.rawRecordFirstRow );
+    m_state.iterationsFirstRow = (std::max)( 0, baseline.iterationsFirstRow );
+    m_state.sourceFrame = baseline.sourceFrame;
+    m_state.targetFrame = baseline.targetFrame;
+    m_state.presentedFrame = baseline.presentedFrame;
+    m_state.detailVisible = baseline.detailVisible;
+    m_state.ownsPause = baseline.ownsPause;
+    m_state.returnIssued = baseline.returnIssued;
+    m_state.easedProgress = std::clamp( baseline.easedProgress, 0.0f, 1.0f );
+    m_state.drawerProgress = std::clamp( baseline.drawerProgress, 0.0f, 1.0f );
+
+    const double transitionUnit = 1.0 - std::cbrt( 1.0 - static_cast<double>( m_state.easedProgress ) );
+    m_startedAtSeconds = nowSeconds - transitionUnit * REPLAY_CAUSE_TRANSITION_SECONDS;
+    m_lastAdvanceSeconds = nowSeconds;
+
+    m_drawerTargetOpen = baseline.mode != ReplayCauseInspectionMode::Returning && baseline.detailVisible;
+    m_drawerStartProgress = m_drawerTargetOpen ? 0.0f : 1.0f;
+    const float drawerCurveProgress = m_drawerTargetOpen ? m_state.drawerProgress : 1.0f - m_state.drawerProgress;
+    const double drawerUnit = 1.0 - std::cbrt( 1.0 - static_cast<double>( drawerCurveProgress ) );
+    m_drawerStartedAtSeconds = nowSeconds - drawerUnit * REPLAY_CAUSE_INSPECTOR_DRAWER_SECONDS;
+
+    // A captured in-flight restore cannot survive process restart. Reissue its
+    // deterministic current curve position through the normal transport owner.
+    m_state.transportInFlight = false;
+    m_state.transportPending = baseline.mode == ReplayCauseInspectionMode::Transporting &&
+                               ( baseline.transportPending || baseline.transportInFlight );
+    m_pendingFrame = EvaluateReplayCauseTransitionFrame( m_state.sourceFrame, m_state.targetFrame, m_state.easedProgress );
+    m_inFlightFrame = 0;
+    m_inFlightGeneration = 0;
+}
+
 bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTreeState& causeTree, int mouseX, int mouseY,
                                                         bool hasClientPosition, bool pointerBlocked, bool leftPressed,
                                                         int wheelDelta, int screenWidth, int screenHeight,

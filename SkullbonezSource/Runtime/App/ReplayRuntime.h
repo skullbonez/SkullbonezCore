@@ -235,6 +235,30 @@ class ReplayProbeRunner
 #endif
 };
 
+// Detached replay-inspection values that are not part of the replay artifact.
+// ReplayRuntime translates this recording baseline back through the concrete
+// Planning, Replay presentation, and Camera owners before turn zero is routed.
+struct ReplayInteractionRecordingCauseState
+{
+    ReplayCauseInspectionMode mode = ReplayCauseInspectionMode::Inactive;
+    ReplayCauseInspectorTab activeTab = ReplayCauseInspectorTab::Summary;
+    int selectedRow = -1;
+    int selectedDetailContactRow = -1;
+    int solverDetailFirstRow = 0;
+    int rawRecordFirstRow = 0;
+    int iterationsFirstRow = 0;
+    ReplayFrameIndex sourceFrame = 0;
+    ReplayFrameIndex targetFrame = 0;
+    ReplayFrameIndex presentedFrame = 0;
+    bool detailVisible = false;
+    bool ownsPause = false;
+    bool transportPending = false;
+    bool transportInFlight = false;
+    bool returnIssued = false;
+    float easedProgress = 0.0f;
+    float drawerProgress = 0.0f;
+};
+
 class ReplayRuntime
 {
   public:
@@ -298,6 +322,10 @@ class ReplayRuntime
     // scene/run body cap known before capture so replay frames do not allocate.
     ReplayRecordingActivationResult ConfigureRecording( bool enabled, int retentionSeconds, const char* hashLogPath,
                                                         int runtimeBodyCapacity );
+
+    // Cold recording boundary: writes the Replay-owned presentation/solver/event
+    // baseline without exposing recorder storage to App.
+    bool SaveInteractionRecordingBaseline( const char* path ) const;
 
     // Applies a UI or tool policy request. A true return means recorder windows
     // changed or queued policy state changed before recording was configured.
@@ -399,6 +427,19 @@ class ReplayRuntime
                                 ReplayWorkspaceOutput& output );
     void ConfigureStartupWorkflows( const ReplayStartupRequest& request );
     ReplayFrameIntentResult ApplyFrameIntent( const ReplayFrameIntent& intent );
+
+    // Restores only Replay-owned transport values from an interaction manifest
+    // after the referenced v2 artifact has been loaded.
+    void RestoreInteractionRecordingBaseline( RunReplayTrack track, float presentationTrackPosition,
+                                              float solverTrackPosition, bool historicalPaused, bool liveAdvanceHeld );
+
+    // Rebuilds the selected cause row from the loaded replay artifact and then
+    // restores the detached inspector transition values through their owners.
+    bool RestoreInteractionRecordingCauseBaseline( const ReplayInteractionRecordingCauseState& baseline, double now,
+                                                   const ReplayWorkspaceFrameInput& input, InputRouter& inputRouter,
+                                                   RuntimeInteractionController& interaction, SceneWorld& world,
+                                                   AttachedCameraController& attachedCamera, CameraControlState& camera,
+                                                   RunMousePickupState& mousePickup );
     ReplayStartupResult RunStartupWorkflows( const ReplayStartupLoadInput& loadInput
 #ifdef _DEBUG
                                              ,

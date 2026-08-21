@@ -518,7 +518,7 @@ void UiTextPass::RenderChromeStatus( const UiTextViewport& viewport, const Overl
 
     const auto renderRecordingIndicator = [&]()
     {
-        if ( !debug.isInteractionRecording )
+        if ( !debug.isInteractionRecording && debug.interactionRecordingFailure[0] == '\0' )
         {
             return;
         }
@@ -529,21 +529,38 @@ void UiTextPass::RenderChromeStatus( const UiTextViewport& viewport, const Overl
 
         constexpr float x = 16.0f;
         constexpr float y = 16.0f;
-        constexpr float panelW = 68.0f;
-        constexpr float panelH = 26.0f;
+        constexpr float panelW = 286.0f;
+        constexpr float panelH = 42.0f;
 
         SkullbonezCore::UI::Style::UIColor fill = palette.windowSubtle;
         fill.a = 0.88f;
         draw.RoundedPanel( { x, y, panelW, panelH }, radii.control, fill, palette.innerBorder );
 
-        // Red recording dot in top left
         constexpr float dotX = x + 8.0f;
-        constexpr float dotY = y + 7.0f;
+        constexpr float dotY = y + 8.0f;
         constexpr float dotSize = 12.0f;
-        draw.RoundedRect( dotX, dotY, dotSize, dotSize, dotSize * 0.5f, 0.96f, 0.18f, 0.18f, 1.0f );
+        const bool failed = debug.interactionRecordingFailure[0] != '\0';
+        draw.RoundedRect( dotX, dotY, dotSize, dotSize, dotSize * 0.5f, failed ? 1.0f : 0.96f, failed ? 0.65f : 0.18f,
+                          failed ? 0.10f : 0.18f, 1.0f );
+        draw.Text( dotX + dotSize + 6.0f, y + 5.0f, 12.0f, failed ? 1.0f : 0.96f, failed ? 0.68f : 0.22f,
+                   failed ? 0.12f : 0.22f, failed ? "RECORDING FAILED" : "REC F8 TO STOP" );
 
-        // "REC" label next to dot
-        draw.Text( dotX + dotSize + 6.0f, y + 6.0f, 13.0f, 0.96f, 0.22f, 0.22f, "REC" );
+        if ( failed )
+        {
+            char statusLine[160] = {};
+            sprintf_s( statusLine, sizeof( statusLine ), "%s", debug.interactionRecordingFailure );
+            draw.Text( x + 8.0f, y + 23.0f, 9.5f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
+                       statusLine );
+        }
+        else
+        {
+            char statusLine[160] = {};
+            sprintf_s( statusLine, sizeof( statusLine ), "%.1fs / %dm   %zu / %zu turns",
+                       debug.interactionRecordingElapsedSeconds, debug.interactionRecordingMaximumMinutes,
+                       debug.interactionRecordingFrameCount, debug.interactionRecordingFrameCapacity );
+            draw.Text( x + 8.0f, y + 23.0f, 9.5f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
+                       statusLine );
+        }
     };
 
     renderScenePauseBadge();
@@ -1295,11 +1312,11 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport, OverlayMo
         };
 
         static const KeyEntry kRight[nRows] = {
-            { "Esc", "Min/expand UI" },    { "Esc Esc", "Quit" },         { "P", "Replay play/pause" },
-            { "1", "Freeze water" },       { "2", "Reflection mode" },    { "3", "Toggle water flat" },
-            { "4", "Toggle terrain" },     { "5", "Toggle water" },       { "6", "Debug body alpha" },
-            { "G", "Broadphase overlay" }, { "C", "Physics debug" },      { "O", "Terrain probe" },
-            { "PgUp/Dn", "Water height" }, { "F7/F8", "Pipeline stage" }, { "F6", "Memory waterline" },
+            { "Esc", "Min/expand UI" },    { "Esc Esc", "Quit" },       { "P", "Replay play/pause" },
+            { "1", "Freeze water" },       { "2", "Reflection mode" },  { "3", "Toggle water flat" },
+            { "4", "Toggle terrain" },     { "5", "Toggle water" },     { "6", "Debug body alpha" },
+            { "G", "Broadphase overlay" }, { "C", "Physics debug" },    { "O", "Terrain probe" },
+            { "PgUp/Dn", "Water height" }, { "[/]", "Pipeline stage" }, { "F8", "Record repro" },
         };
 
         for ( int i = 0; i < nRows; ++i )

@@ -390,7 +390,8 @@ an owner-controlled golden.
 
 - [ ] Every applicable section above has a Pass, Fail, or Not Applicable result.
 - [ ] Every failure includes reproduction steps, scene, commit, configuration,
-  screenshot/video, and relevant stdout/stderr.
+  expected behavior, screenshot/video, relevant stdout/stderr, and an unchanged
+  interaction manifest when the failure can be recorded.
 - [ ] No failure was hidden by changing a golden baseline.
 - [ ] Replay High/Low, continuous forecast, at-rest stability, valid terrain,
   tornado, texture, scene reset/load, and shutdown received at least one complete

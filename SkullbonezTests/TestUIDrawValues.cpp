@@ -87,6 +87,22 @@ TEST_CASE( "UI window close hides the panel instead of minimizing it" )
     CHECK( owner.IsMinimized() );
 }
 
+TEST_CASE( "UI interaction anchors preserve a window-local point across layout sizes" )
+{
+    SkullbonezCore::UI::UIWindowInteractionOwner owner;
+    owner.SetWindowBounds( 100, 120, 760, 520 );
+
+    char anchor[64] = {};
+    REQUIRE( owner.CaptureInteractionAnchor( 479, 379, anchor, sizeof( anchor ) ) );
+
+    owner.SetWindowBounds( 25, 40, 380, 260 );
+    int resolvedX = 0;
+    int resolvedY = 0;
+    REQUIRE( owner.ResolveInteractionAnchor( anchor, resolvedX, resolvedY ) );
+    CHECK( resolvedX == 214 );
+    CHECK( resolvedY == 169 );
+}
+
 TEST_CASE( "UI rolling prediction checkbox publishes forecast toggle intent" )
 {
     using SkullbonezCore::UI::InGameUI;

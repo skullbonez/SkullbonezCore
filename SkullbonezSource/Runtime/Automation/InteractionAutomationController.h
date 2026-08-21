@@ -1,16 +1,14 @@
 /*
 File: SkullbonezSource/Runtime/Automation/InteractionAutomationController.h
 Purpose:
-  Defines the CLI interaction automation action sequencer.
+  Defines legacy interaction-script sequencing and recorded-manifest playback.
 
 Summary:
-  Interaction automation is a validation harness, not gameplay state. Scripts
-  describe frame-indexed input/runtime commands, including typed Planning
-  forecast requests. Concrete input and report owners hold synthetic device
-  state and bounded evidence outside the sequencer.
-  The controller interprets one scheduled script turn into typed value requests
-  and assertion inputs. Concrete runtime owners apply those requests; the
-  controller retains only script progress and bounded report evidence.
+  Legacy scripts remain scene-frame-indexed command sequences. Recorded
+  manifests instead restore detached owner baselines and publish one complete
+  input frame per private recording turn using captured timing. Concrete runtime
+  owners still apply all requests; the controller retains progress and bounded
+  report evidence, never gameplay authority.
 
 Glossary:
   Automation action: One scheduled command from an interaction script.
@@ -24,6 +22,10 @@ Glossary:
 
 Invariants:
   - Automation state is active only for CLI validation launches.
+  - Recorded playback timing and completion use the recording-turn clock, not
+    scene-frame numbers or wall time.
+  - A recorded manifest and every referenced sidecar pass structural, safe-path,
+    and SHA-256 validation before its first input turn is published.
   - Report vectors are owned by `InteractionAutomationReportWriter`, not by the
     action sequencer or hot-path gameplay storage.
   - Synthetic input is cleared through `InteractionAutomationInputDriver` after
@@ -53,6 +55,7 @@ Related:
 #include "../RuntimeFrameViews.h"
 #include "../App/ReplayRuntimePackets.h"
 #include "InteractionAutomationInputDriver.h"
+#include "InteractionAutomationRecorder.h"
 #include "InteractionAutomationReportWriter.h"
 #include "../App/RunLaunchOptions.h"
 
@@ -342,8 +345,15 @@ struct InteractionAutomationController
     bool enabled = false;
     bool scriptLoaded = false;
     bool finished = false;
+    bool recordedManifest = false;
+    bool recordedBaselineApplied = false;
+    bool recordedFramePublished = false;
+    uint64_t recordedTurn = 0u;
+    double recordedDeltaSeconds = 0.0;
     char scriptPath[260] = {};
     std::vector<RunInteractionAutomationAction> actions;
+    std::vector<RecordedInputFrame> recordedFrames;
+    InteractionRecordingBaseline recordedBaseline;
     InteractionAutomationRunStatus status;
     InteractionAutomationInputDriver inputDriver;
     InteractionAutomationReportWriter reportWriter;
@@ -374,6 +384,8 @@ struct InteractionAutomationFrameResult
     static constexpr std::size_t DEVELOPMENT_UI_COMMAND_CAPACITY = 8u;
 
     bool requestQuit = false;
+    bool hasRecordedDeltaSeconds = false;
+    double recordedDeltaSeconds = 0.0;
     SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
 
     // Value-only replay mutations are applied once by the frame composition
@@ -392,6 +404,14 @@ struct InteractionAutomationFrameResult
     bool setWorldInteractionOwner = false;
     WorldInteractionOwner worldInteractionOwner = WorldInteractionOwner::None;
     InteractionExitReason worldInteractionReason = InteractionExitReason::EnterReplay;
+    bool restoreRecordedReplayBaseline = false;
+    bool recordedReplayScrubPaused = false;
+    bool recordedReplayLiveAdvanceHeld = false;
+    RunReplayTrack recordedReplayTrack = RunReplayTrack::Solver;
+    float recordedReplayPresentationTrackPosition = 1.0f;
+    float recordedReplaySolverTrackPosition = 1.0f;
+    bool restoreRecordedReplayCauseBaseline = false;
+    InteractionRecordingBaseline recordedReplayCauseBaseline;
     std::array<InteractionAutomationDevelopmentUiCommand, DEVELOPMENT_UI_COMMAND_CAPACITY> developmentUiCommands = {};
     std::size_t developmentUiCommandCount = 0u;
 };

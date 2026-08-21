@@ -89,6 +89,7 @@ struct RunLaunchOptions
     int graphicsStressSceneIntervalFrames = 45;                                                  // CLI --graphics-stress-scene-interval
     int graphicsStressMemoryIntervalFrames = 1800;                                               // CLI --graphics-stress-memory-interval
     bool replayGuideArcsAtStartup = false;                                                       // CLI --guide-arcs re-enables the default-off Legacy guide after scene load.
+    int interactionRecordMaxMinutes = 1;                                                         // F8 tape hard limit; 1..60 minute chunks.
 
     // Concept: a prediction launch request, not live prediction authority.
     // ReplayPrediction still owns enablement, horizon, and the build; Run only
@@ -133,6 +134,7 @@ struct RunStartupOverrides
     const char* interactionScriptPath = nullptr;                                                 // CLI interaction harness script copied by its owner.
     const char* interactionReportPath = nullptr;                                                 // Optional interaction report destination.
     const char* interactionRecordPath = nullptr;                                                 // CLI --record-automation output destination.
+    int interactionRecordMaxMinutes = 1;                                                         // CLI recorder startup copy of the same launch limit.
     bool configureReplayRecording = false;                                                       // True when replay capture or hash logging must be configured
     bool replayRecordingEnabled = true;
     int replayRetentionSeconds = 0;

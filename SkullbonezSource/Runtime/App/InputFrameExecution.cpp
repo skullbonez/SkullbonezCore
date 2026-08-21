@@ -60,7 +60,6 @@ Related:
 #include "../Scene/SceneLoadTransaction.h"
 #include "../Scene/SceneCinematicPolicy.h"
 #include "../Scene/SceneController.h"
-#include "../Scene/SceneSaveOperations.h"
 #include "../../Core/Log.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
@@ -689,6 +688,54 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
         case RuntimeInputAction::SaveLookLabBundle:
             BeginLookLabSave();
             break;
+        case RuntimeInputAction::ToggleInteractionRecording:
+        {
+            if ( m_interactionRecorder.IsRecording() )
+            {
+                const Core::SbResult save = m_interactionRecorder.StopAndSave( m_resultDiagnostics, "operator", false );
+
+                if ( !save.Ok() )
+                {
+                    applicationExit.RequestPhaseFailure( save );
+                }
+
+                break;
+            }
+
+            bool idle = !deviceFrame.leftDown && !deviceFrame.rightDown && !deviceFrame.middleDown &&
+                        deviceFrame.wheelDelta == 0 && deviceFrame.rawMouseX == 0 && deviceFrame.rawMouseY == 0 &&
+                        interaction.Gesture().kind == RuntimeInteractionGestureKind::None && !externalUiCapture.text;
+            const std::span<const uint64_t> keyWords = deviceFrame.keys.Words();
+
+            for ( std::size_t word = 0u; idle && word < keyWords.size(); ++word )
+            {
+                uint64_t allowed = 0u;
+
+                if ( word == static_cast<std::size_t>( VK_F8 ) / 64u )
+                {
+                    allowed = uint64_t { 1 } << ( static_cast<unsigned int>( VK_F8 ) & 63u );
+                }
+
+                idle = ( keyWords[word] & ~allowed ) == 0u;
+            }
+
+            if ( !idle )
+            {
+                std::fprintf( stderr, "[recorder] Start rejected: release other keys/buttons and finish the active gesture "
+                                      "first.\n" );
+                break;
+            }
+
+            const Core::SbResult arm = m_interactionRecorder.Arm( m_resultDiagnostics, nullptr,
+                                                                  launchOptions.interactionRecordMaxMinutes );
+
+            if ( !arm.Ok() )
+            {
+                applicationExit.RequestPhaseFailure( arm );
+            }
+
+            break;
+        }
         case RuntimeInputAction::ToggleEditor:
 
             // Backtick is captured early but applied after UI command processing.
@@ -1290,36 +1337,14 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
                                       pointerResult.modeActions[actionIndex], RuntimeInputActionSource::Mouse );
     }
 
-    if ( routedDeviceFrame.keys.IsDown( VK_F8 ) && !m_f8WasDown )
-    {
-        const char* defaultJsonPath = "TestScenarios/recorded_interactive_test.json";
-        const char* defaultScenePath = "TestScenarios/recorded_interactive_test.scene.json";
-
-        if ( !m_interactionRecorder.IsRecording() )
-        {
-            (void)SaveSceneLoadOnlySnapshot( m_resultDiagnostics, defaultScenePath, sceneController.Scene().GetSaveState(),
-                                             sceneController.State().GetSaveState(), debug.GetSaveState() );
-            m_interactionRecorder.StartRecording( defaultJsonPath, defaultScenePath );
-            printf( "[recorder] Recording STARTED (scene snapshot saved to %s). Press F8 again to stop and save actions.\n",
-                    defaultScenePath );
-        }
-        else
-        {
-            m_interactionRecorder.StopRecording();
-            printf( "[recorder] Recording STOPPED and saved to %s\n", defaultJsonPath );
-        }
-    }
-
-    m_f8WasDown = routedDeviceFrame.keys.IsDown( VK_F8 );
-
-    if ( m_interactionRecorder.IsRecording() )
-    {
-        m_interactionRecorder.RecordFrame( sceneController.State().currentFrame, window.ClientWidth(), window.ClientHeight(),
-                                           inputRouter, interaction, replayRuntime.CauseTree(),
-                                           replayRuntime.CauseInspectionView() );
-    }
-
-    debug.isInteractionRecording = m_interactionRecorder.IsRecording();
+    const InteractionRecordingStatusView recordingStatus = m_interactionRecorder.Status();
+    debug.isInteractionRecording = m_interactionRecorder.IsActive();
+    debug.interactionRecordingElapsedSeconds = recordingStatus.elapsedSeconds;
+    debug.interactionRecordingMaximumMinutes = recordingStatus.maximumMinutes;
+    debug.interactionRecordingFrameCount = recordingStatus.frameCount;
+    debug.interactionRecordingFrameCapacity = recordingStatus.frameCapacity;
+    strncpy_s( debug.interactionRecordingFailure, sizeof( debug.interactionRecordingFailure ), recordingStatus.failure,
+               _TRUNCATE );
 
     if ( ui.BlocksKeyboard() || externalUiCapture.keyboard || externalUiCapture.text )
     {

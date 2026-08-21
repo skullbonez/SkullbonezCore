@@ -837,15 +837,6 @@
       "reason": "Pure point-in-rect hit test helper for the legacy hierarchy window bounds.",
       "evidence": "TestReplayCauseInspection verifies boundary containment.",
       "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationRecorder.cpp",
-      "signature": "void InteractionAutomationRecorder::ToggleRecording( const char* defaultPath, int currentFrame, const char* defaultScenePath )",
-      "owner": "InteractionAutomationRecorder recording toggle handler",
-      "disposition": "retain-owner",
-      "reason": "Convenience entry point for toggling interaction recording on F8 key press or developer commands.",
-      "evidence": "F8 interaction test recorder framework (2026-08-21)",
-      "plan": ""
     }
   ]
 }

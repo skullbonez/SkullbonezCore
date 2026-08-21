@@ -41,6 +41,8 @@ Invariants:
     without reconstructing or overriding their domain decisions.
   - Frame work enters only through an active Run renderer epoch; missing or
     teardown-closed renderer access terminates before phase dispatch.
+  - Recording starts at a pre-input boundary, captures after routing, and commits
+    only at the following boundary so F8 and scene-transition turns are excluded.
 
 Related:
   - SkullbonezSource/Runtime/App/Run.h defines the frame-coordinator calling convention.
@@ -61,6 +63,7 @@ Related:
 #include "../Planning/ReplayOverlayPackets.h"
 #include "../Direction/DemoDirectorPlayback.h"
 #include "../Scene/SceneLoadTransaction.h"
+#include "../Scene/SceneSaveOperations.h"
 
 #include "../Capture/CaptureSystem.h"
 #include "../Capture/RuntimeStressController.h"
@@ -92,6 +95,7 @@ Related:
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
 #include <limits>
 #include <utility>
 #include <vector>
@@ -124,6 +128,21 @@ float ResolvePresentationAlpha( const SkullbonezCore::Core::EngineConfig& config
     }
 
     return std::clamp( simulationPresentationAlpha, 0.0f, 1.0f );
+}
+
+bool PublishInteractionSidecar( const std::filesystem::path& partial, const std::filesystem::path& destination )
+{
+    // Invariant: only complete sidecars receive their manifest-visible names.
+    // The manifest itself is published later, after digesting these files.
+    if ( MoveFileExA( partial.string().c_str(), destination.string().c_str(),
+                      MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH ) )
+    {
+        return true;
+    }
+
+    std::error_code ignored;
+    std::filesystem::remove( partial, ignored );
+    return false;
 }
 
 } // namespace
@@ -223,6 +242,151 @@ double Run::BeginFrameTurn()
     return secondsPerFrame;
 }
 
+void Run::AdvanceInteractionRecordingBoundary()
+{
+    if ( m_interactionRecorder.IsArmed() )
+    {
+        CoreAllocation::RuntimeAllocationScope diagnosticsScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
+        const std::filesystem::path scenePath = m_interactionRecorder.ScenePath();
+        const std::filesystem::path scenePartial = scenePath.string() + ".partial";
+        const Core::SbResult sceneResult = SaveSceneLoadOnlySnapshot( m_resultDiagnostics, scenePartial.string().c_str(),
+                                                                      m_sceneController.Scene().GetSaveState(),
+                                                                      m_sceneController.State().GetSaveState(),
+                                                                      m_overlayDiagnostics->PresentationSnapshot()
+                                                                          .GetSaveState() );
+
+        if ( !sceneResult.Ok() || !PublishInteractionSidecar( scenePartial, scenePath ) )
+        {
+            std::error_code ignored;
+            std::filesystem::remove( scenePartial, ignored );
+            const Core::SbResult failure = m_interactionRecorder
+                                               .Abort( m_resultDiagnostics,
+                                                       "failed to save the interaction recording scene snapshot" );
+            m_applicationExit.RequestPhaseFailure( failure );
+            return;
+        }
+
+        InteractionRecordingBaseline baseline;
+        baseline.cameraMode = static_cast<int>( m_camera.mode );
+        baseline.worldInteractionOwner = static_cast<int>( m_interaction.Owner() );
+        baseline.uiVisible = m_operatorUi->IsVisible();
+        baseline.uiMinimized = m_operatorUi->IsMinimized();
+        baseline.activeUiTab = static_cast<int>( m_operatorUi->GetActiveTab() );
+        baseline.editorModeEnabled = m_runtimeTools.Editor().editorModeEnabled;
+        baseline.editorPlacementModeEnabled = m_runtimeTools.Editor().placementModeEnabled;
+        baseline.editorPlaceStatic = m_runtimeTools.Editor().placeStaticObject;
+        baseline.editorTerrainAlign = m_runtimeTools.Editor().autoTerrainAlign;
+        baseline.editorObjectType = m_runtimeTools.Editor().objectType;
+        const int selectedEditorModel = PeekSelectedEditorModelIndex( m_runtimeTools.Editor(),
+                                                                      m_sceneController.Scene().BodyStore() );
+
+        if ( selectedEditorModel >= 0 && selectedEditorModel < m_sceneController.Scene().SceneEntityCount() )
+        {
+            strncpy_s( baseline.editorSelectionName, sizeof( baseline.editorSelectionName ),
+                       m_sceneController.Scene().Entities().At( selectedEditorModel ).displayName, _TRUNCATE );
+        }
+
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+        baseline.developmentUiSurface = static_cast<int>( m_imguiEditor.SelectedSurface() );
+#endif
+        const ReplayInputView replay = m_replayRuntime.BuildInputView();
+        const bool replayBaselineRequired = replay.activeInteraction || replay.scrubPaused || replay.predictionEnabled ||
+                                            replay.hasPathTarget || replay.hasCameraFocus;
+        bool replaySidecarWritten = false;
+
+        if ( replayBaselineRequired )
+        {
+            const std::filesystem::path replayPath = m_interactionRecorder.ReplayPath();
+            const std::filesystem::path replayPartial = replayPath.string() + ".partial";
+            replaySidecarWritten = m_replayRuntime.SaveInteractionRecordingBaseline( replayPartial.string().c_str() ) &&
+                                   PublishInteractionSidecar( replayPartial, replayPath );
+
+            if ( !replaySidecarWritten )
+            {
+                const Core::SbResult failure = m_interactionRecorder
+                                                   .Abort( m_resultDiagnostics,
+                                                           "failed to save the active replay interaction baseline" );
+                m_applicationExit.RequestPhaseFailure( failure );
+                return;
+            }
+        }
+
+        baseline.replayActive = replayBaselineRequired;
+        baseline.replayScrubPaused = replay.scrubPaused;
+        baseline.replayLiveAdvanceHeld = replay.liveAdvanceHeld;
+        baseline.replayPredictionEnabled = replay.predictionEnabled;
+        baseline.replayTrack = static_cast<int>( replay.activeTrack );
+        baseline.replayPresentationTrackPosition = replay.presentationTrackPosition;
+        baseline.replaySolverTrackPosition = replay.solverTrackPosition;
+        const ReplayCauseInspectionView causeInspection = m_replayRuntime.CauseInspectionView();
+        baseline.replayCauseInspectionMode = static_cast<int>( causeInspection.mode );
+        baseline.replayCauseSelectedRow = causeInspection.selectedRow;
+        baseline.replayCauseActiveTab = static_cast<int>( causeInspection.activeTab );
+        baseline.replayCauseSelectedDetailContactRow = causeInspection.selectedDetailContactRow;
+        baseline.replayCauseSolverDetailFirstRow = causeInspection.solverDetailFirstRow;
+        baseline.replayCauseRawRecordFirstRow = causeInspection.rawRecordFirstRow;
+        baseline.replayCauseIterationsFirstRow = causeInspection.iterationsFirstRow;
+        baseline.replayCauseSourceFrame = causeInspection.sourceFrame;
+        baseline.replayCauseTargetFrame = causeInspection.targetFrame;
+        baseline.replayCausePresentedFrame = causeInspection.presentedFrame;
+        baseline.replayCauseDetailVisible = causeInspection.detailVisible;
+        baseline.replayCauseOwnsPause = causeInspection.ownsPause;
+        baseline.replayCauseTransportPending = causeInspection.transportPending;
+        baseline.replayCauseTransportInFlight = causeInspection.transportInFlight;
+        baseline.replayCauseReturnIssued = causeInspection.returnIssued;
+        baseline.replayCauseEasedProgress = causeInspection.easedProgress;
+        baseline.replayCauseDrawerProgress = causeInspection.drawerProgress;
+
+        if ( replay.hasPathTarget && replay.pathTargetModelRow >= 0 &&
+             replay.pathTargetModelRow < m_sceneController.Scene().SceneEntityCount() )
+        {
+            strncpy_s( baseline.replayPathTargetName, sizeof( baseline.replayPathTargetName ),
+                       m_sceneController.Scene().Entities().At( replay.pathTargetModelRow ).displayName, _TRUNCATE );
+        }
+
+        const Core::SbResult begin = m_interactionRecorder.BeginAtBoundary( m_resultDiagnostics, m_window.ClientWidth(),
+                                                                            m_window.ClientHeight(),
+                                                                            m_sceneController.LifecyclePacket().generation,
+                                                                            baseline, replaySidecarWritten );
+
+        if ( !begin.Ok() )
+        {
+            m_applicationExit.RequestPhaseFailure( begin );
+        }
+
+        return;
+    }
+
+    if ( m_interactionRecorder.IsRecording() )
+    {
+        const Core::SbResult advance = m_interactionRecorder
+                                           .AdvanceBoundary( m_resultDiagnostics,
+                                                             m_sceneController.LifecyclePacket().generation );
+
+        if ( !advance.Ok() )
+        {
+            m_applicationExit.RequestPhaseFailure( advance );
+        }
+    }
+}
+
+void Run::CaptureInteractionRecordingTurn( double secondsPerFrame )
+{
+    if ( m_interactionRecorder.IsRecording() )
+    {
+        char semanticAnchor[64] = {};
+        const DeviceInputFrame& input = m_inputRouter.DeviceFrame();
+
+        if ( input.hasClientPosition )
+        {
+            m_operatorUi->CaptureInteractionAnchor( input.clientX, input.clientY, semanticAnchor, sizeof( semanticAnchor ) );
+        }
+
+        m_interactionRecorder.CapturePendingTurn( secondsPerFrame, m_window.ClientWidth(), m_window.ClientHeight(), input,
+                                                  semanticAnchor );
+    }
+}
+
 void Run::BeginFrameDiagnosticsPhase()
 {
     // Frame boundary: publish prior-frame GPU counters before resetting the
@@ -268,6 +432,15 @@ Run::FrameInputPhaseResult Run::RunAutomationAndInputPhase()
 
     (void)m_replayRuntime.ApplyFrameIntent( result.replayIntent );
 
+    if ( result.restoreRecordedReplayBaseline )
+    {
+        m_replayRuntime.RestoreInteractionRecordingBaseline( result.recordedReplayTrack,
+                                                             result.recordedReplayPresentationTrackPosition,
+                                                             result.recordedReplaySolverTrackPosition,
+                                                             result.recordedReplayScrubPaused,
+                                                             result.recordedReplayLiveAdvanceHeld );
+    }
+
     if ( result.setWorldInteractionOwner )
     {
         const SceneSessionState& sceneState = m_sceneController.State();
@@ -280,6 +453,55 @@ Run::FrameInputPhaseResult Run::RunAutomationAndInputPhase()
         m_inputRouter.SetWorldInteractionOwner( result.worldInteractionOwner, result.worldInteractionReason, m_runtimeTools,
                                                 m_interaction, m_attachedCamera, m_camera, m_sceneController,
                                                 m_replayRuntime, normalizedRestoreMode );
+    }
+
+    if ( result.restoreRecordedReplayCauseBaseline )
+    {
+        const InteractionRecordingBaseline& recorded = result.recordedReplayCauseBaseline;
+        ReplayInteractionRecordingCauseState cause;
+        cause.mode = static_cast<ReplayCauseInspectionMode>( recorded.replayCauseInspectionMode );
+        cause.activeTab = static_cast<ReplayCauseInspectorTab>( recorded.replayCauseActiveTab );
+        cause.selectedRow = recorded.replayCauseSelectedRow;
+        cause.selectedDetailContactRow = recorded.replayCauseSelectedDetailContactRow;
+        cause.solverDetailFirstRow = recorded.replayCauseSolverDetailFirstRow;
+        cause.rawRecordFirstRow = recorded.replayCauseRawRecordFirstRow;
+        cause.iterationsFirstRow = recorded.replayCauseIterationsFirstRow;
+        cause.sourceFrame = recorded.replayCauseSourceFrame;
+        cause.targetFrame = recorded.replayCauseTargetFrame;
+        cause.presentedFrame = recorded.replayCausePresentedFrame;
+        cause.detailVisible = recorded.replayCauseDetailVisible;
+        cause.ownsPause = recorded.replayCauseOwnsPause;
+        cause.transportPending = recorded.replayCauseTransportPending;
+        cause.transportInFlight = recorded.replayCauseTransportInFlight;
+        cause.returnIssued = recorded.replayCauseReturnIssued;
+        cause.easedProgress = recorded.replayCauseEasedProgress;
+        cause.drawerProgress = recorded.replayCauseDrawerProgress;
+
+        ReplayWorkspaceFrameInput causeInput;
+        causeInput.normalizedCurrentMode = m_camera.mode;
+        causeInput.normalizedRestoreMode = m_camera.mode;
+        causeInput.now = m_timers.simulationTimer.GetTotalTime();
+        causeInput.screenWidth = m_window.ClientWidth();
+        causeInput.screenHeight = m_window.ClientHeight();
+
+        if ( !m_replayRuntime.RestoreInteractionRecordingCauseBaseline( cause, causeInput.now, causeInput, m_inputRouter,
+                                                                        m_interaction, m_sceneController.Scene(),
+                                                                        m_attachedCamera, m_camera,
+                                                                        m_runtimeTools.MousePickup() ) )
+        {
+            const Core::SbResult failure = m_resultDiagnostics
+                                               .Failure( "InteractionAutomation",
+                                                         "recorded replay cause-inspection baseline could not be restored" );
+            m_applicationExit.RequestPhaseFailure( failure );
+        }
+
+        // Cause selection uses normal replay ownership and may acquire a pause.
+        // Reapply the recorded transport values after that owner-local rebuild.
+        m_replayRuntime.RestoreInteractionRecordingBaseline( result.recordedReplayTrack,
+                                                             result.recordedReplayPresentationTrackPosition,
+                                                             result.recordedReplaySolverTrackPosition,
+                                                             result.recordedReplayScrubPaused,
+                                                             result.recordedReplayLiveAdvanceHeld );
     }
 
     if ( !result.status.Ok() )
@@ -653,7 +875,13 @@ SkullbonezCore::Core::SbResult Run::Execute()
         CoreAllocation::RuntimeAllocationScope frameAllocationScope {
             CoreAllocation::RuntimeAllocationPhase::SteadyGameplay };
 
-        const double secondsPerFrame = BeginFrameTurn();
+        double secondsPerFrame = BeginFrameTurn();
+        AdvanceInteractionRecordingBoundary();
+
+        if ( m_applicationExit.ExitRequested() )
+        {
+            return m_applicationExit.Resolve( 0 );
+        }
 
         BeginFrameDiagnosticsPhase();
         PROFILE_BEGIN( "Frame/Input" );
@@ -661,6 +889,14 @@ SkullbonezCore::Core::SbResult Run::Execute()
         const FrameInputPhaseResult input = RunAutomationAndInputPhase();
 #else
         const FrameInputPhaseResult input = RunInputPhase( nullptr );
+#endif
+        CaptureInteractionRecordingTurn( secondsPerFrame );
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
+
+        if ( m_interactionAutomation.recordedManifest && m_interactionAutomation.recordedFramePublished )
+        {
+            secondsPerFrame = m_interactionAutomation.recordedDeltaSeconds;
+        }
 #endif
         PROFILE_END( "Frame/Input" );
 

@@ -206,6 +206,15 @@ struct DeviceInputFrame
     bool leftDown = false;
     bool rightDown = false;
     bool middleDown = false;
+
+    void SetClientPosition( bool available, int x, int y )
+    {
+        // Invariant: unavailable coordinates stay neutral. Consumers must use
+        // the availability bit instead of receiving a fabricated corner hit.
+        hasClientPosition = available;
+        clientX = available ? x : 0;
+        clientY = available ? y : 0;
+    }
 };
 
 

@@ -1,502 +1,658 @@
 /*
 File: SkullbonezSource/Runtime/Automation/InteractionAutomationRecorder.cpp
 Purpose:
-  Implements the resolution-independent human interaction test recorder.
+  Captures and atomically publishes deterministic interaction manifests.
 
 Summary:
-  Tracks input events and translates screen interactions into semantic UI control
-  identifiers and normalized viewport coordinates. Outputs structured JSON that can
-  be executed deterministically across diverse display sizes.
+  This implementation retains raw device snapshots rather than synthesizing
+  sparse actions. One pending-turn commit delays publication until the next
+  scene lifecycle boundary, while SHA-256 sidecar binding and manifest-last
+  replacement make every visible artifact independently replayable.
 
 Invariants:
-  - Fixed-capacity action storage prevents allocation during frame recording.
-  - Output coordinates map to [0, 1] relative to the active presentation surface.
-  - Serialization runs synchronously upon completion and flushes to disk cleanly.
+  - JSON numbers never carry 64-bit key masks; masks use fixed-width hex text.
+  - Pointer coordinates are normalized only when a client position exists.
+  - Raw camera deltas remain unscaled and therefore independent of viewport size.
+  - Serialization and reserve growth run only inside explicit Diagnostics work.
 
 Related:
   - SkullbonezSource/Runtime/Automation/InteractionAutomationRecorder.h
-  - SkullbonezSource/Runtime/Automation/InteractionAutomationController.h
-  - SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h
-  - SkullbonezSource/Runtime/Planning/ReplayCauseInspection.h
+  - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h
+  - SkullbonezSource/Runtime/Startup/StartupLaunchResolution.cpp
 */
 #include "InteractionAutomationRecorder.h"
+
 #include "../Input/InputRouter.h"
-#include "../Interaction/RuntimeInteractionController.h"
-#include "../Replay/ReplayOverlayLayout.h"
-#include "../Replay/ReplayOverlaySurface.h"
-#include "../Planning/ReplayCauseInspection.h"
+#include "../../Core/Allocation/RuntimeAllocationTracker.h"
+#include "../../Core/Allocation/RuntimeReserveAllocator.h"
+#include "../../Core/SbDiagnosticStore.h"
 
 #include <algorithm>
+#include <bcrypt.h>
+#include <chrono>
 #include <cstdio>
-#include <cstring>
+#include <ctime>
+#include <filesystem>
 #include <fstream>
+#include <iomanip>
+#include <limits>
+#include <sstream>
 
-using namespace SkullbonezCore::Runtime;
-using namespace SkullbonezCore::Runtime::ReplayOverlay;
+#pragma comment( lib, "bcrypt.lib" )
+#pragma warning( push, 0 )
+#include "../../../ThirdPtySource/nlohmann/json.hpp"
+#pragma warning( pop )
+
+namespace CoreAllocation = SkullbonezCore::Core::Allocation;
+using Json = nlohmann::ordered_json;
+using SkullbonezCore::Runtime::InteractionAutomationRecorder;
+using SkullbonezCore::Runtime::InteractionRecordingBaseline;
+using SkullbonezCore::Runtime::InteractionRecordingState;
+using SkullbonezCore::Runtime::InteractionRecordingStatusView;
+using SkullbonezCore::Runtime::RecordedInputFrame;
 
 namespace
 {
-constexpr bool PointInsideRect( const SkullbonezCore::UI::UIRect& r, int px, int py ) noexcept
+constexpr const char* INTERACTION_RECORDING_FORMAT = "skullbonez.interaction-recording";
+constexpr int INTERACTION_RECORDING_VERSION = 1;
+constexpr const char* INTERACTION_RECORDING_RESERVE_OWNER = "Runtime.Automation.InteractionRecordingFrames";
+constexpr int INTERACTION_RECORDING_HARD_FRAMES = static_cast<int>( InteractionAutomationRecorder::FRAMES_PER_MINUTE ) *
+                                                  InteractionAutomationRecorder::MAX_RECORDING_MINUTES;
+
+CoreAllocation::RuntimeReserveOwnerHandle InteractionRecordingReserveOwner()
 {
-    return px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h;
+    static const CoreAllocation::RuntimeReserveOwnerHandle owner = CoreAllocation::RuntimeReserveAllocator::RegisterOwner( { INTERACTION_RECORDING_RESERVE_OWNER, CoreAllocation::RuntimeReserveSubsystem::Diagnostics,
+                                                                                                                             CoreAllocation::RuntimeReservePhase::Diagnostics, 0, INTERACTION_RECORDING_HARD_FRAMES,
+                                                                                                                             CoreAllocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED, false,
+                                                                                                                             "F8 interaction tape grows in one-minute chunks only while explicitly recording", false,
+                                                                                                                             static_cast<int>( sizeof( RecordedInputFrame ) ) } );
+
+    return owner;
 }
 
-const char* VirtualKeyToString( int virtualKey ) noexcept
+std::string UtcRecordingDirectoryName()
 {
-    switch ( virtualKey )
+    const std::time_t now = std::chrono::system_clock::to_time_t( std::chrono::system_clock::now() );
+    std::tm utc = {};
+    gmtime_s( &utc, &now );
+    char value[32] = {};
+    std::strftime( value, sizeof( value ), "%Y%m%dT%H%M%SZ", &utc );
+    return value;
+}
+
+std::string HexWord( uint64_t value )
+{
+    std::ostringstream stream;
+    stream << std::hex << std::setfill( '0' ) << std::setw( 16 ) << value;
+    return stream.str();
+}
+
+bool Sha256File( const std::filesystem::path& path, std::string& outDigest )
+{
+    std::ifstream input( path, std::ios::binary );
+
+    if ( !input )
     {
-    case VK_F1:
-        return "F1";
-    case VK_F2:
-        return "F2";
-    case VK_F3:
-        return "F3";
-    case VK_F4:
-        return "F4";
-    case VK_F5:
-        return "F5";
-    case VK_F6:
-        return "F6";
-    case VK_F7:
-        return "F7";
-    case VK_F8:
-        return "F8";
-    case VK_F9:
-        return "F9";
-    case VK_F10:
-        return "F10";
-    case VK_F11:
-        return "F11";
-    case VK_F12:
-        return "F12";
-    case VK_SPACE:
-        return "Space";
-    case VK_ESCAPE:
-        return "Escape";
-    case VK_RETURN:
-        return "Return";
-    case VK_TAB:
-        return "Tab";
-    case VK_BACK:
-        return "Backspace";
-    case VK_DELETE:
-        return "Delete";
-    case VK_SHIFT:
-    case VK_LSHIFT:
-    case VK_RSHIFT:
-        return "Shift";
-    case VK_CONTROL:
-    case VK_LCONTROL:
-    case VK_RCONTROL:
-        return "Control";
-    case VK_MENU:
-    case VK_LMENU:
-    case VK_RMENU:
-        return "Alt";
-    case VK_UP:
-        return "Up";
-    case VK_DOWN:
-        return "Down";
-    case VK_LEFT:
-        return "Left";
-    case VK_RIGHT:
-        return "Right";
-    case VK_OEM_COMMA:
-        return "Comma";
-    case VK_OEM_3:
-        return "Tilde";
-    default:
-        break;
+        return false;
     }
 
-    if ( virtualKey >= 'A' && virtualKey <= 'Z' )
+    BCRYPT_ALG_HANDLE algorithm = nullptr;
+    BCRYPT_HASH_HANDLE hash = nullptr;
+    DWORD objectBytes = 0;
+    DWORD resultBytes = 0;
+    std::vector<UCHAR> object;
+    std::array<UCHAR, 32> digest = {};
+    bool ok = BCryptOpenAlgorithmProvider( &algorithm, BCRYPT_SHA256_ALGORITHM, nullptr, 0 ) >= 0;
+
+    if ( ok )
     {
-        static char charBuf[2] = { 0, 0 };
-        charBuf[0] = static_cast<char>( virtualKey );
-        return charBuf;
+        ok = BCryptGetProperty( algorithm, BCRYPT_OBJECT_LENGTH, reinterpret_cast<PUCHAR>( &objectBytes ),
+                                sizeof( objectBytes ), &resultBytes, 0 ) >= 0;
     }
 
-    if ( virtualKey >= '0' && virtualKey <= '9' )
+    if ( ok )
     {
-        static char digitBuf[2] = { 0, 0 };
-        digitBuf[0] = static_cast<char>( virtualKey );
-        return digitBuf;
+        object.resize( objectBytes );
+        ok = BCryptCreateHash( algorithm, &hash, object.data(), objectBytes, nullptr, 0, 0 ) >= 0;
     }
 
-    return nullptr;
+    std::array<char, 64 * 1024> buffer = {};
+
+    while ( ok && input )
+    {
+        input.read( buffer.data(), static_cast<std::streamsize>( buffer.size() ) );
+        const std::streamsize count = input.gcount();
+
+        if ( count > 0 )
+        {
+            ok = BCryptHashData( hash, reinterpret_cast<PUCHAR>( buffer.data() ), static_cast<ULONG>( count ), 0 ) >= 0;
+        }
+    }
+
+    if ( ok )
+    {
+        ok = BCryptFinishHash( hash, digest.data(), static_cast<ULONG>( digest.size() ), 0 ) >= 0;
+    }
+
+    if ( hash )
+    {
+        BCryptDestroyHash( hash );
+    }
+
+    if ( algorithm )
+    {
+        BCryptCloseAlgorithmProvider( algorithm, 0 );
+    }
+
+    if ( !ok )
+    {
+        return false;
+    }
+
+    std::ostringstream stream;
+    stream << std::hex << std::setfill( '0' );
+
+    for ( const UCHAR byte : digest )
+    {
+        stream << std::setw( 2 ) << static_cast<unsigned int>( byte );
+    }
+
+    outDigest = stream.str();
+    return true;
 }
 } // namespace
 
-void InteractionAutomationRecorder::StartRecording( const char* outputPath, const char* scenePath )
+namespace SkullbonezCore::Runtime
 {
-    m_isRecording = true;
-    m_actionCount = 0;
-    m_startFrame = 0;
-    m_recordingTurn = 0;
-    m_previousPointerX = -1;
-    m_previousPointerY = -1;
-    m_actions.fill( {} );
-    m_previousKeys.fill( 0u );
-    m_keyDownFrame.fill( -1 );
-    m_previousLeftDown = false;
-    m_previousRightDown = false;
-    m_dragStartFrame = -1;
+Core::SbResult InteractionAutomationRecorder::Arm( Core::SbDiagnosticStore& diagnostics, const char* requestedManifestPath,
+                                                   int maximumMinutes )
+{
+    Reset();
 
-    if ( outputPath && outputPath[0] != '\0' )
+    if ( maximumMinutes < 1 || maximumMinutes > MAX_RECORDING_MINUTES )
     {
-        strncpy_s( m_outputPath, sizeof( m_outputPath ), outputPath, _TRUNCATE );
-    }
-    else
-    {
-        strncpy_s( m_outputPath, sizeof( m_outputPath ), "TestScenarios/recorded_interactive_test.json", _TRUNCATE );
+        Fail( "interaction recording maximum must be between 1 and 60 minutes" );
+        return diagnostics.Failure( "InteractionRecorder", "%s", m_failure.c_str() );
     }
 
-    if ( scenePath && scenePath[0] != '\0' )
+    m_maximumMinutes = maximumMinutes;
+
+    if ( !PreparePaths( requestedManifestPath ) )
     {
-        strncpy_s( m_scenePath, sizeof( m_scenePath ), scenePath, _TRUNCATE );
-    }
-    else
-    {
-        m_scenePath[0] = '\0';
+        Fail( "failed to prepare interaction recording output paths" );
+        return diagnostics.Failure( "InteractionRecorder", "%s", m_failure.c_str() );
     }
 
-    printf( "[recorder] Started recording to: %s\n", m_outputPath );
+    if ( !EnsureFrameCapacity( diagnostics, FRAMES_PER_MINUTE ) )
+    {
+        return diagnostics.Failure( "InteractionRecorder", "%s", m_failure.c_str() );
+    }
+
+    m_state = InteractionRecordingState::Armed;
+    std::printf( "[recorder] Armed; baseline will be captured at the next clean frame boundary: %s\n",
+                 m_manifestPath.c_str() );
+    return Core::SbResult::Success();
 }
 
-void InteractionAutomationRecorder::StopRecording()
+Core::SbResult InteractionAutomationRecorder::BeginAtBoundary( Core::SbDiagnosticStore& diagnostics, int sourceWidth,
+                                                               int sourceHeight, uint64_t sceneGeneration,
+                                                               const InteractionRecordingBaseline& baseline,
+                                                               bool replaySidecarWritten )
 {
-    if ( !m_isRecording )
+    if ( m_state != InteractionRecordingState::Armed )
+    {
+        return Core::SbResult::Success();
+    }
+
+    if ( sourceWidth <= 0 || sourceHeight <= 0 || !std::filesystem::is_regular_file( m_scenePath ) )
+    {
+        Fail( "scene snapshot or source viewport was unavailable at recording start" );
+        return diagnostics.Failure( "InteractionRecorder", "%s", m_failure.c_str() );
+    }
+
+    m_sourceWidth = sourceWidth;
+    m_sourceHeight = sourceHeight;
+    m_sceneGeneration = sceneGeneration;
+    m_baseline = baseline;
+    m_replaySidecarWritten = replaySidecarWritten;
+    m_state = InteractionRecordingState::Recording;
+    std::printf( "[recorder] Recording started. scene=%s max_minutes=%d capacity=%zu\n", m_scenePath.c_str(),
+                 m_maximumMinutes, m_frames.capacity() );
+    return Core::SbResult::Success();
+}
+
+Core::SbResult InteractionAutomationRecorder::AdvanceBoundary( Core::SbDiagnosticStore& diagnostics,
+                                                               uint64_t sceneGeneration )
+{
+    if ( m_state != InteractionRecordingState::Recording )
+    {
+        return Core::SbResult::Success();
+    }
+
+    if ( sceneGeneration != m_sceneGeneration )
+    {
+        // Hazard: the pending input may have requested the scene change. It is
+        // deliberately discarded so the saved prefix remains single-scene.
+        m_hasPendingTurn = false;
+        return StopAndSave( diagnostics, "scene_transition", false );
+    }
+
+    const std::size_t maximumFrames = static_cast<std::size_t>( m_maximumMinutes ) * FRAMES_PER_MINUTE;
+
+    if ( m_hasPendingTurn && m_frames.size() >= maximumFrames )
+    {
+        m_hasPendingTurn = false;
+        return StopAndSave( diagnostics, "frame_capacity_limit", false );
+    }
+
+    const Core::SbResult commit = CommitPendingTurn( diagnostics );
+
+    if ( !commit.Ok() )
+    {
+        return commit;
+    }
+
+    if ( m_elapsedSeconds >= static_cast<double>( m_maximumMinutes ) * 60.0 )
+    {
+        return StopAndSave( diagnostics, "duration_limit", false );
+    }
+
+    return Core::SbResult::Success();
+}
+
+void InteractionAutomationRecorder::CapturePendingTurn( double deltaSeconds, int sourceWidth, int sourceHeight,
+                                                        const DeviceInputFrame& frame, const char* semanticAnchor )
+{
+    if ( m_state != InteractionRecordingState::Recording )
     {
         return;
     }
 
-    // Flush any keys that were still held down when recording stopped
-    for ( int vk = 0; vk < 256; ++vk )
-    {
-        if ( m_keyDownFrame[vk] >= 0 && vk != VK_F8 )
-        {
-            if ( const char* keyName = VirtualKeyToString( vk ) )
-            {
-                RecordedInteractionAction keyAction;
-                keyAction.frame = m_keyDownFrame[vk];
-                keyAction.kind = RecordedActionKind::PressKey;
-                keyAction.virtualKey = vk;
-                keyAction.holdFrames = (std::max)( 1, m_recordingTurn - m_keyDownFrame[vk] );
-                strncpy_s( keyAction.keyName, sizeof( keyAction.keyName ), keyName, _TRUNCATE );
-                (void)AppendAction( keyAction );
-            }
+    m_pendingTurn = {};
+    m_pendingTurn.turn = static_cast<uint64_t>( m_frames.size() );
+    m_pendingTurn.deltaSeconds = std::clamp( deltaSeconds, 0.0, 0.05 );
+    const std::span<const uint64_t> words = frame.keys.Words();
 
-            m_keyDownFrame[vk] = -1;
-        }
+    for ( std::size_t index = 0u; index < m_pendingTurn.keyWords.size() && index < words.size(); ++index )
+    {
+        m_pendingTurn.keyWords[index] = words[index];
     }
 
-    // Ensure strictly monotonic action frame order
-    std::stable_sort( m_actions.begin(), m_actions.begin() + m_actionCount,
-                      []( const RecordedInteractionAction& a, const RecordedInteractionAction& b )
-                      { return a.frame < b.frame; } );
+    // F8 is recorder control, never replay input. Clearing the bit also covers
+    // a slow release that spans the clean-boundary transition.
+    const std::size_t f8Word = static_cast<std::size_t>( VK_F8 ) / 64u;
+    m_pendingTurn.keyWords[f8Word] &= ~( uint64_t { 1 } << ( static_cast<unsigned int>( VK_F8 ) & 63u ) );
+    m_pendingTurn.hasPointer = frame.hasClientPosition && sourceWidth > 0 && sourceHeight > 0;
 
-    m_isRecording = false;
-    printf( "[recorder] Stopped recording. Total actions captured: %zu\n", m_actionCount );
-    (void)SaveToFile();
+    if ( m_pendingTurn.hasPointer )
+    {
+        const int sourceMaxX = (std::max)( 0, sourceWidth - 1 );
+        const int sourceMaxY = (std::max)( 0, sourceHeight - 1 );
+        m_pendingTurn.normalizedX = sourceMaxX > 0
+                                        ? std::clamp( static_cast<float>( frame.clientX ) / static_cast<float>( sourceMaxX ),
+                                                      0.0f, 1.0f )
+                                        : 0.0f;
+        m_pendingTurn.normalizedY = sourceMaxY > 0
+                                        ? std::clamp( static_cast<float>( frame.clientY ) / static_cast<float>( sourceMaxY ),
+                                                      0.0f, 1.0f )
+                                        : 0.0f;
+    }
+
+    m_pendingTurn.rawMouseX = frame.rawMouseX;
+    m_pendingTurn.rawMouseY = frame.rawMouseY;
+    m_pendingTurn.wheelDelta = frame.wheelDelta;
+    m_pendingTurn.appFocused = frame.appFocused;
+    m_pendingTurn.leftDown = frame.leftDown;
+    m_pendingTurn.rightDown = frame.rightDown;
+    m_pendingTurn.middleDown = frame.middleDown;
+
+    // An anchor refines a real pointer sample; it cannot create one. This keeps
+    // failed cursor capture from becoming a deterministic but fabricated hit.
+    if ( m_pendingTurn.hasPointer && semanticAnchor && semanticAnchor[0] != '\0' )
+    {
+        strncpy_s( m_pendingTurn.semanticAnchor, sizeof( m_pendingTurn.semanticAnchor ), semanticAnchor, _TRUNCATE );
+    }
+
+    m_hasPendingTurn = true;
 }
 
-void InteractionAutomationRecorder::ToggleRecording( const char* defaultPath, int currentFrame,
-                                                     const char* defaultScenePath )
+Core::SbResult InteractionAutomationRecorder::StopAndSave( Core::SbDiagnosticStore& diagnostics, const char* reason,
+                                                           bool commitPendingTurn )
 {
-    if ( m_isRecording )
+    if ( m_state != InteractionRecordingState::Recording && m_state != InteractionRecordingState::Armed )
     {
-        StopRecording();
+        return m_state == InteractionRecordingState::Failed
+                   ? diagnostics.Failure( "InteractionRecorder", "%s", m_failure.c_str() )
+                   : Core::SbResult::Success();
+    }
+
+    if ( m_state == InteractionRecordingState::Armed )
+    {
+        Fail( "recording stopped before its baseline could be captured" );
+        return diagnostics.Failure( "InteractionRecorder", "%s", m_failure.c_str() );
+    }
+
+    if ( commitPendingTurn )
+    {
+        const Core::SbResult commit = CommitPendingTurn( diagnostics );
+
+        if ( !commit.Ok() )
+        {
+            return commit;
+        }
     }
     else
     {
-        StartRecording( defaultPath, defaultScenePath );
-        m_startFrame = currentFrame;
+        m_hasPendingTurn = false;
     }
+
+    m_stopReason = reason && reason[0] != '\0' ? reason : "operator";
+    m_state = InteractionRecordingState::Saving;
+    return SaveManifestAtomically( diagnostics );
 }
 
-bool InteractionAutomationRecorder::AppendAction( const RecordedInteractionAction& action )
+void InteractionAutomationRecorder::Reset()
 {
-    if ( m_actionCount >= MAX_RECORDED_ACTIONS )
+    m_state = InteractionRecordingState::Idle;
+    m_baseline = {};
+    std::vector<RecordedInputFrame>().swap( m_frames );
+    m_pendingTurn = {};
+    m_manifestPath.clear();
+    m_scenePath.clear();
+    m_replayPath.clear();
+    m_stopReason.clear();
+    m_failure.clear();
+    m_sceneGeneration = 0u;
+    m_elapsedSeconds = 0.0;
+    m_sourceWidth = 0;
+    m_sourceHeight = 0;
+    m_maximumMinutes = 1;
+    m_hasPendingTurn = false;
+    m_replaySidecarWritten = false;
+}
+
+Core::SbResult InteractionAutomationRecorder::Abort( Core::SbDiagnosticStore& diagnostics, const char* message )
+{
+    Fail( message );
+    return diagnostics.Failure( "InteractionRecorder", "%s", m_failure.c_str() );
+}
+
+InteractionRecordingStatusView InteractionAutomationRecorder::Status() const noexcept
+{
+    return { m_state,          m_elapsedSeconds,    m_maximumMinutes,
+             m_frames.size(),  m_frames.capacity(), m_stopReason.c_str(),
+             m_failure.c_str() };
+}
+
+bool InteractionAutomationRecorder::PreparePaths( const char* requestedManifestPath )
+{
+    std::error_code error;
+    std::filesystem::path manifest;
+
+    if ( requestedManifestPath && requestedManifestPath[0] != '\0' )
+    {
+        manifest = requestedManifestPath;
+    }
+    else
+    {
+        std::filesystem::path root = std::filesystem::path( "TestOutput" ) / "recordings" / UtcRecordingDirectoryName();
+        int sequence = 0;
+
+        while ( std::filesystem::exists( root, error ) && sequence < 1000 )
+        {
+            ++sequence;
+            root = std::filesystem::path( "TestOutput" ) / "recordings" /
+                   ( UtcRecordingDirectoryName() + "-" + std::to_string( sequence ) );
+        }
+
+        manifest = root / "interaction.json";
+    }
+
+    if ( manifest.filename().empty() )
     {
         return false;
     }
 
-    m_actions[m_actionCount++] = action;
+    // Invariant: a complete manifest is immutable evidence. Refusing to reuse
+    // its path prevents a later capture from temporarily invalidating the
+    // digests of an already published reproduction.
+    if ( std::filesystem::exists( manifest, error ) || error )
+    {
+        return false;
+    }
+
+    const std::filesystem::path parent = manifest.has_parent_path() ? manifest.parent_path() : std::filesystem::path( "." );
+    std::filesystem::create_directories( parent, error );
+
+    if ( error )
+    {
+        return false;
+    }
+
+    m_manifestPath = manifest.lexically_normal().string();
+    m_scenePath = ( parent / "scene.scene.json" ).lexically_normal().string();
+    m_replayPath = ( parent / "replay.skreplay" ).lexically_normal().string();
     return true;
 }
 
-void InteractionAutomationRecorder::RecordFrame( int currentFrame, int screenWidth, int screenHeight,
-                                                 const InputRouter& inputRouter,
-                                                 const RuntimeInteractionController& interaction,
-                                                 const RunReplayCauseTreeState& causeTree,
-                                                 const ReplayCauseInspectionView& causeInspection )
+bool InteractionAutomationRecorder::EnsureFrameCapacity( Core::SbDiagnosticStore& diagnostics, std::size_t requiredCapacity )
 {
-    (void)interaction;
-    (void)currentFrame;
-
-    if ( !m_isRecording || screenWidth <= 0 || screenHeight <= 0 )
+    if ( requiredCapacity <= m_frames.capacity() )
     {
-        return;
+        return true;
     }
 
-    const int relativeFrame = m_recordingTurn++;
-    const RuntimePointerEvent& pointer = inputRouter.RuntimeSnapshot().pointer;
-    const RuntimeMouseEdges& mouse = inputRouter.UiSnapshot().mouse;
-    const InputKeySnapshot& keys = inputRouter.DeviceFrame().keys;
-    const std::span<const uint64_t> keyWords = keys.Words();
+    const std::size_t maximumFrames = static_cast<std::size_t>( m_maximumMinutes ) * FRAMES_PER_MINUTE;
+    const std::size_t requested = (std::min)( maximumFrames,
+                                              ( ( requiredCapacity + FRAMES_PER_MINUTE - 1u ) / FRAMES_PER_MINUTE ) *
+                                                  FRAMES_PER_MINUTE );
 
-    const float normX = std::clamp( static_cast<float>( pointer.clientX ) / static_cast<float>( screenWidth ), 0.0f, 1.0f );
-    const float normY = std::clamp( static_cast<float>( pointer.clientY ) / static_cast<float>( screenHeight ), 0.0f, 1.0f );
-
-    // 1. Mouse Movement / Camera Look Detection
-    if ( m_previousPointerX >= 0 && ( pointer.clientX != m_previousPointerX || pointer.clientY != m_previousPointerY ) )
+    if ( requested < requiredCapacity || requested > static_cast<std::size_t>( ( std::numeric_limits<int>::max )() ) )
     {
-        RecordedInteractionAction move;
-        move.frame = relativeFrame;
-        move.kind = RecordedActionKind::MoveMouse;
-        move.pixelX = pointer.clientX;
-        move.pixelY = pointer.clientY;
-        move.normalizedX = normX;
-        move.normalizedY = normY;
-        (void)AppendAction( move );
-    }
-
-    m_previousPointerX = pointer.clientX;
-    m_previousPointerY = pointer.clientY;
-
-    // 2. Mouse Button Down / Click / Drag
-    if ( mouse.leftPressed || mouse.rightPressed )
-    {
-        RecordedInteractionAction click;
-        click.frame = relativeFrame;
-        click.pixelX = pointer.clientX;
-        click.pixelY = pointer.clientY;
-        click.normalizedX = normX;
-        click.normalizedY = normY;
-        click.isRightButton = mouse.rightPressed;
-
-        // Check Semantic Controls inside Replay Cause Tree / Inspector
-        bool isSemanticControl = false;
-        const ReplayCauseInspectorLayout inspectorLayout = BuildReplayCauseInspectorLayout( causeInspection, causeTree,
-                                                                                            screenWidth, screenHeight,
-                                                                                            causeInspection.drawerProgress );
-
-        if ( causeInspection.detailVisible )
-        {
-            if ( PointInsideRect( inspectorLayout.drawerClose, pointer.clientX, pointer.clientY ) )
-            {
-                click.kind = RecordedActionKind::ClickReplayControl;
-                strncpy_s( click.semanticControl, sizeof( click.semanticControl ), "causeCloseDrawer", _TRUNCATE );
-                isSemanticControl = true;
-            }
-            else if ( PointInsideRect( inspectorLayout.rawCopy, pointer.clientX, pointer.clientY ) )
-            {
-                click.kind = RecordedActionKind::ClickReplayControl;
-                strncpy_s( click.semanticControl, sizeof( click.semanticControl ), "causeCopyRawRecord", _TRUNCATE );
-                isSemanticControl = true;
-            }
-            else
-            {
-                for ( std::size_t tab = 0; tab < inspectorLayout.tabs.size(); ++tab )
-                {
-                    if ( PointInsideRect( inspectorLayout.tabs[tab], pointer.clientX, pointer.clientY ) )
-                    {
-                        click.kind = RecordedActionKind::ClickReplayControl;
-                        const char* tabNames[] = { "causeTabSummary", "causeTabRawRecord", "causeTabIterations" };
-                        strncpy_s( click.semanticControl, sizeof( click.semanticControl ), tabNames[tab], _TRUNCATE );
-                        isSemanticControl = true;
-                        break;
-                    }
-                }
-            }
-        }
-
-        if ( !isSemanticControl && causeTree.hasWindowPlacement )
-        {
-            const UI::UIRect funnelRect = ReplayCauseWindowFilterFunnelRect( causeTree );
-            const UI::UIRect fieldRect = ReplayCauseWindowFilterFieldRect( causeTree );
-            const UI::UIRect chipAll = ReplayCauseWindowFilterChipRect( causeTree, RunReplayCauseTreeFilter::All );
-            const UI::UIRect chipPred = ReplayCauseWindowFilterChipRect( causeTree, RunReplayCauseTreeFilter::Prediction );
-            const UI::UIRect chipCont = ReplayCauseWindowFilterChipRect( causeTree, RunReplayCauseTreeFilter::Contacts );
-
-            if ( PointInsideRect( funnelRect, pointer.clientX, pointer.clientY ) )
-            {
-                click.kind = RecordedActionKind::ClickReplayControl;
-                strncpy_s( click.semanticControl, sizeof( click.semanticControl ), "causeFilterFunnel", _TRUNCATE );
-                isSemanticControl = true;
-            }
-            else if ( PointInsideRect( fieldRect, pointer.clientX, pointer.clientY ) )
-            {
-                click.kind = RecordedActionKind::ClickReplayControl;
-                strncpy_s( click.semanticControl, sizeof( click.semanticControl ), "causeFilterField", _TRUNCATE );
-                isSemanticControl = true;
-            }
-            else if ( PointInsideRect( chipAll, pointer.clientX, pointer.clientY ) )
-            {
-                click.kind = RecordedActionKind::ClickReplayControl;
-                strncpy_s( click.semanticControl, sizeof( click.semanticControl ), "causeFilterAll", _TRUNCATE );
-                isSemanticControl = true;
-            }
-            else if ( PointInsideRect( chipPred, pointer.clientX, pointer.clientY ) )
-            {
-                click.kind = RecordedActionKind::ClickReplayControl;
-                strncpy_s( click.semanticControl, sizeof( click.semanticControl ), "causeFilterPrediction", _TRUNCATE );
-                isSemanticControl = true;
-            }
-            else if ( PointInsideRect( chipCont, pointer.clientX, pointer.clientY ) )
-            {
-                click.kind = RecordedActionKind::ClickReplayControl;
-                strncpy_s( click.semanticControl, sizeof( click.semanticControl ), "causeFilterContacts", _TRUNCATE );
-                isSemanticControl = true;
-            }
-        }
-
-        if ( !isSemanticControl )
-        {
-            click.kind = RecordedActionKind::ClickPoint;
-        }
-
-        (void)AppendAction( click );
-    }
-
-    // 3. Mouse Wheel Scroll
-    if ( inputRouter.DeviceFrame().wheelDelta != 0 )
-    {
-        RecordedInteractionAction scroll;
-        scroll.frame = relativeFrame;
-        scroll.kind = RecordedActionKind::ScrollPoint;
-        scroll.pixelX = pointer.clientX;
-        scroll.pixelY = pointer.clientY;
-        scroll.normalizedX = normX;
-        scroll.normalizedY = normY;
-        scroll.wheelDelta = inputRouter.DeviceFrame().wheelDelta;
-        (void)AppendAction( scroll );
-    }
-
-    // 4. Keyboard Holds & Continuous Movement (WASD, Space, Shift, etc.)
-    for ( int vk = 0; vk < InputKeySnapshot::VIRTUAL_KEY_COUNT; ++vk )
-    {
-        const std::size_t word = static_cast<std::size_t>( vk ) / 64u;
-        const uint64_t bit = uint64_t { 1 } << ( static_cast<unsigned int>( vk ) & 63u );
-        const bool isDown = keys.IsDown( vk );
-        const bool wasDown = ( m_previousKeys[word] & bit ) != 0u;
-
-        if ( isDown && !wasDown && vk != VK_F8 ) // F8 is reserved for recorder toggle
-        {
-            m_keyDownFrame[vk] = relativeFrame;
-        }
-        else if ( !isDown && wasDown && vk != VK_F8 )
-        {
-            if ( m_keyDownFrame[vk] >= 0 )
-            {
-                if ( const char* keyName = VirtualKeyToString( vk ) )
-                {
-                    RecordedInteractionAction keyAction;
-                    keyAction.frame = m_keyDownFrame[vk];
-                    keyAction.kind = RecordedActionKind::PressKey;
-                    keyAction.virtualKey = vk;
-                    keyAction.holdFrames = (std::max)( 1, relativeFrame - m_keyDownFrame[vk] );
-                    strncpy_s( keyAction.keyName, sizeof( keyAction.keyName ), keyName, _TRUNCATE );
-                    (void)AppendAction( keyAction );
-                }
-
-                m_keyDownFrame[vk] = -1;
-            }
-        }
-    }
-
-    // Save previous state for edge detection
-    for ( std::size_t i = 0; i < 4 && i < keyWords.size(); ++i )
-    {
-        m_previousKeys[i] = keyWords[i];
-    }
-
-    m_previousLeftDown = mouse.leftDown;
-    m_previousRightDown = mouse.rightDown;
-}
-
-bool InteractionAutomationRecorder::SaveToFile()
-{
-    if ( m_outputPath[0] == '\0' )
-    {
+        Fail( "interaction recording reached its configured frame capacity" );
         return false;
     }
 
-    std::ofstream out( m_outputPath );
+    const CoreAllocation::RuntimeReserveOwnerHandle owner = InteractionRecordingReserveOwner();
+    const CoreAllocation::RuntimeReserveGrowthRequest request = { INTERACTION_RECORDING_RESERVE_OWNER,
+                                                                  "RecordedInputFrameTape",
+                                                                  CoreAllocation::RuntimeReservePhase::Diagnostics,
+                                                                  static_cast<int>( m_frames.size() ),
+                                                                  static_cast<int>( m_frames.capacity() ),
+                                                                  static_cast<int>( requested ),
+                                                                  static_cast<int>( sizeof( RecordedInputFrame ) ) };
+    const CoreAllocation::RuntimeReserveGrowthResult
+        growth = CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
 
-    if ( !out.is_open() )
+    if ( !growth.granted )
     {
-        printf( "[recorder] Error: failed to open output file %s\n", m_outputPath );
+        Fail( "Diagnostics reserve denied interaction recording frame growth" );
         return false;
     }
 
-    out << "{\n";
+    CoreAllocation::RuntimeAllocationScope diagnosticsScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
+    CoreAllocation::RuntimeReserveOwnerScope ownerScope( owner );
+    m_frames.reserve( requested );
 
-    if ( m_scenePath[0] != '\0' )
+    if ( m_frames.capacity() < requiredCapacity )
     {
-        out << "  \"scene\": \"" << m_scenePath << "\",\n";
+        Fail( "interaction recording frame allocation did not provide the requested capacity" );
+        return false;
     }
 
-    out << "  \"actions\": [\n";
-
-    for ( std::size_t i = 0; i < m_actionCount; ++i )
-    {
-        const RecordedInteractionAction& a = m_actions[i];
-        out << "    { \"frame\": " << a.frame;
-
-        switch ( a.kind )
-        {
-        case RecordedActionKind::ClickReplayControl:
-            out << ", \"clickReplayControl\": \"" << a.semanticControl << "\"";
-            break;
-        case RecordedActionKind::ClickPoint:
-            out << ", \"clickPoint\": [" << a.pixelX << ", " << a.pixelY << "]";
-            out << ", \"normalizedPoint\": [" << a.normalizedX << ", " << a.normalizedY << "]";
-
-            if ( a.isRightButton )
-            {
-                out << ", \"button\": \"right\"";
-            }
-
-            if ( a.holdFrames > 1 )
-            {
-                out << ", \"holdFrames\": " << a.holdFrames;
-            }
-
-            break;
-        case RecordedActionKind::MoveMouse:
-            out << ", \"moveMouse\": [" << a.pixelX << ", " << a.pixelY << "]";
-            out << ", \"normalizedPoint\": [" << a.normalizedX << ", " << a.normalizedY << "]";
-            break;
-        case RecordedActionKind::ScrollPoint:
-            out << ", \"scrollPoint\": [" << a.pixelX << ", " << a.pixelY << ", " << a.wheelDelta << "]";
-            break;
-        case RecordedActionKind::PressKey:
-            out << ", \"pressKey\": \"" << a.keyName << "\"";
-
-            if ( a.holdFrames > 1 )
-            {
-                out << ", \"holdFrames\": " << a.holdFrames;
-            }
-
-            break;
-        case RecordedActionKind::SelectReplayCauseRow:
-            out << ", \"selectReplayCauseRow\": " << a.selectedRow;
-            break;
-        case RecordedActionKind::ScrubReplaySolverTrack:
-            out << ", \"scrubReplaySolverTrack\": " << a.scrubFraction;
-            break;
-        default:
-            break;
-        }
-
-        out << " }" << ( i + 1 < m_actionCount ? ",\n" : "\n" );
-    }
-
-    out << "  ]\n";
-    out << "}\n";
-    out.close();
-
-    printf( "[recorder] Successfully saved %zu actions to %s\n", m_actionCount, m_outputPath );
+    (void)diagnostics;
     return true;
 }
+
+Core::SbResult InteractionAutomationRecorder::CommitPendingTurn( Core::SbDiagnosticStore& diagnostics )
+{
+    if ( !m_hasPendingTurn )
+    {
+        return Core::SbResult::Success();
+    }
+
+    if ( !EnsureFrameCapacity( diagnostics, m_frames.size() + 1u ) )
+    {
+        return diagnostics.Failure( "InteractionRecorder", "%s", m_failure.c_str() );
+    }
+
+    m_pendingTurn.turn = static_cast<uint64_t>( m_frames.size() );
+    const double durationLimit = static_cast<double>( m_maximumMinutes ) * 60.0;
+    m_pendingTurn.deltaSeconds = (std::min)( m_pendingTurn.deltaSeconds,
+                                             (std::max)( 0.0, durationLimit - m_elapsedSeconds ) );
+    m_elapsedSeconds += m_pendingTurn.deltaSeconds;
+    m_frames.push_back( m_pendingTurn );
+    m_pendingTurn = {};
+    m_hasPendingTurn = false;
+    return Core::SbResult::Success();
+}
+
+Core::SbResult InteractionAutomationRecorder::SaveManifestAtomically( Core::SbDiagnosticStore& diagnostics )
+{
+    CoreAllocation::RuntimeAllocationScope diagnosticsScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
+    std::string sceneDigest;
+
+    if ( !Sha256File( m_scenePath, sceneDigest ) )
+    {
+        Fail( "failed to hash the recorded scene snapshot" );
+        return diagnostics.Failure( "InteractionRecorder", "%s", m_failure.c_str() );
+    }
+
+    std::string replayDigest;
+
+    if ( m_replaySidecarWritten && !Sha256File( m_replayPath, replayDigest ) )
+    {
+        Fail( "failed to hash the recorded replay sidecar" );
+        return diagnostics.Failure( "InteractionRecorder", "%s", m_failure.c_str() );
+    }
+
+    Json root;
+    root["format"] = INTERACTION_RECORDING_FORMAT;
+    root["version"] = INTERACTION_RECORDING_VERSION;
+    root["complete"] = true;
+    root["stopReason"] = m_stopReason;
+    root["scene"] = { { "path", std::filesystem::path( m_scenePath ).filename().string() }, { "sha256", sceneDigest } };
+
+    if ( m_replaySidecarWritten )
+    {
+        root["replay"] = { { "path", std::filesystem::path( m_replayPath ).filename().string() },
+                           { "sha256", replayDigest } };
+    }
+
+    root["sourceViewport"] = { { "width", m_sourceWidth }, { "height", m_sourceHeight } };
+    root["durationSeconds"] = m_elapsedSeconds;
+    root["turnCount"] = m_frames.size();
+    Json causeInspection = Json::object();
+    causeInspection["mode"] = m_baseline.replayCauseInspectionMode;
+    causeInspection["selectedRow"] = m_baseline.replayCauseSelectedRow;
+    causeInspection["activeTab"] = m_baseline.replayCauseActiveTab;
+    causeInspection["selectedDetailContactRow"] = m_baseline.replayCauseSelectedDetailContactRow;
+    causeInspection["solverDetailFirstRow"] = m_baseline.replayCauseSolverDetailFirstRow;
+    causeInspection["rawRecordFirstRow"] = m_baseline.replayCauseRawRecordFirstRow;
+    causeInspection["iterationsFirstRow"] = m_baseline.replayCauseIterationsFirstRow;
+    causeInspection["sourceFrame"] = m_baseline.replayCauseSourceFrame;
+    causeInspection["targetFrame"] = m_baseline.replayCauseTargetFrame;
+    causeInspection["presentedFrame"] = m_baseline.replayCausePresentedFrame;
+    causeInspection["detailVisible"] = m_baseline.replayCauseDetailVisible;
+    causeInspection["ownsPause"] = m_baseline.replayCauseOwnsPause;
+    causeInspection["transportPending"] = m_baseline.replayCauseTransportPending;
+    causeInspection["transportInFlight"] = m_baseline.replayCauseTransportInFlight;
+    causeInspection["returnIssued"] = m_baseline.replayCauseReturnIssued;
+    causeInspection["easedProgress"] = m_baseline.replayCauseEasedProgress;
+    causeInspection["drawerProgress"] = m_baseline.replayCauseDrawerProgress;
+
+    Json replayBaseline = { { "active", m_baseline.replayActive },
+                            { "scrubPaused", m_baseline.replayScrubPaused },
+                            { "liveAdvanceHeld", m_baseline.replayLiveAdvanceHeld },
+                            { "predictionEnabled", m_baseline.replayPredictionEnabled },
+                            { "track", m_baseline.replayTrack },
+                            { "presentationTrackPosition", m_baseline.replayPresentationTrackPosition },
+                            { "solverTrackPosition", m_baseline.replaySolverTrackPosition },
+                            { "pathTarget", m_baseline.replayPathTargetName },
+                            { "causeInspection", std::move( causeInspection ) } };
+    root["baseline"] = { { "camera", { { "mode", m_baseline.cameraMode } } },
+                         { "interaction", { { "worldOwner", m_baseline.worldInteractionOwner } } },
+                         { "tools",
+                           { { "editorMode", m_baseline.editorModeEnabled },
+                             { "placementMode", m_baseline.editorPlacementModeEnabled },
+                             { "placeStatic", m_baseline.editorPlaceStatic },
+                             { "terrainAlign", m_baseline.editorTerrainAlign },
+                             { "objectType", m_baseline.editorObjectType },
+                             { "selection", m_baseline.editorSelectionName } } },
+                         { "ui",
+                           { { "visible", m_baseline.uiVisible },
+                             { "minimized", m_baseline.uiMinimized },
+                             { "activeTab", m_baseline.activeUiTab },
+                             { "developmentSurface", m_baseline.developmentUiSurface } } },
+                         { "replay", std::move( replayBaseline ) } };
+    Json frames = Json::array();
+
+    for ( const RecordedInputFrame& frame : m_frames )
+    {
+        Json words = Json::array();
+
+        for ( const uint64_t word : frame.keyWords )
+        {
+            words.push_back( HexWord( word ) );
+        }
+
+        Json entry = { { "turn", frame.turn },
+                       { "deltaSeconds", frame.deltaSeconds },
+                       { "keys", std::move( words ) },
+                       { "focused", frame.appFocused },
+                       { "left", frame.leftDown },
+                       { "right", frame.rightDown },
+                       { "middle", frame.middleDown },
+                       { "wheel", frame.wheelDelta },
+                       { "rawMouse", { frame.rawMouseX, frame.rawMouseY } } };
+
+        if ( frame.hasPointer )
+        {
+            entry["pointer"] = { frame.normalizedX, frame.normalizedY };
+        }
+
+        if ( frame.semanticAnchor[0] != '\0' )
+        {
+            entry["semanticAnchor"] = frame.semanticAnchor;
+        }
+
+        frames.push_back( std::move( entry ) );
+    }
+
+    root["frames"] = std::move( frames );
+    const std::filesystem::path temporary = m_manifestPath + ".partial";
+    std::ofstream output( temporary, std::ios::binary | std::ios::trunc );
+
+    if ( !output )
+    {
+        Fail( "failed to open the interaction manifest partial file" );
+        return diagnostics.Failure( "InteractionRecorder", "%s", m_failure.c_str() );
+    }
+
+    output << root.dump( 2 ) << '\n';
+    output.flush();
+    const bool writeOk = output.good();
+    output.close();
+
+    if ( !writeOk || !MoveFileExA( temporary.string().c_str(), m_manifestPath.c_str(),
+                                   MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH ) )
+    {
+        std::error_code ignored;
+        std::filesystem::remove( temporary, ignored );
+        Fail( "failed to atomically publish the interaction manifest" );
+        return diagnostics.Failure( "InteractionRecorder", "%s", m_failure.c_str() );
+    }
+
+    m_state = InteractionRecordingState::Saved;
+    std::printf( "[recorder] Saved %zu turns (%.3fs) to %s reason=%s\n", m_frames.size(), m_elapsedSeconds,
+                 m_manifestPath.c_str(), m_stopReason.c_str() );
+    return Core::SbResult::Success();
+}
+
+void InteractionAutomationRecorder::Fail( const char* message )
+{
+    m_state = InteractionRecordingState::Failed;
+    m_failure = message ? message : "interaction recording failed";
+    std::fprintf( stderr, "[recorder] FAILED: %s\n", m_failure.c_str() );
+}
+} // namespace SkullbonezCore::Runtime

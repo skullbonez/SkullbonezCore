@@ -4,14 +4,17 @@ Purpose:
   Implements stateful in-game UI window and widget interaction ownership.
 
 Summary:
-  This owner translates detached UI input snapshots into typed command values and retains
-  the window, widget, tab, and gesture state shared with drawing. InGameUI
-  borrows only a synchronous WidgetView and is never reachable from this owner.
+  This owner translates detached UI input snapshots into typed command values
+  and retains the window, widget, tab, and gesture state shared with drawing.
+  It also maps recording anchors through window-local normalized coordinates so
+  playback follows the same UI region after layout resize. InGameUI borrows only
+  a synchronous WidgetView and is never reachable from this owner.
 
 Invariants:
   - Device input produces commands; runtime subsystem mutation remains outside UI.
   - WidgetView is not retained beyond the caller's immediate draw operation.
   - Layout bounds and hit-test bounds are the same widget state.
+  - Anchor resolution uses current window bounds and never retains a viewport pointer.
 
 Related:
   - SkullbonezSource/UI/UIWindowInteractionOwner.h
@@ -28,6 +31,8 @@ Related:
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <cstring>
 
 using namespace SkullbonezCore::UI;
 using namespace SkullbonezCore::UI::Widgets;
@@ -304,6 +309,50 @@ void UIWindowInteractionOwner::SetWindowBounds( int x, int y, int width, int hei
     m_scrollbarVisibleUntil = 0.0;
     m_backdropBlur.Invalidate( UIBackdropBlurInvalidationReason::Bounds );
     m_cache.Reset();
+}
+
+bool UIWindowInteractionOwner::CaptureInteractionAnchor( int clientX, int clientY, char* output,
+                                                         std::size_t outputSize ) const
+{
+    if ( !output || outputSize == 0u || !m_window.isVisible || m_window.width <= 1 || m_window.height <= 1 ||
+         clientX < m_window.x || clientY < m_window.y || clientX >= m_window.x + m_window.width ||
+         clientY >= m_window.y + m_window.height )
+    {
+        return false;
+    }
+
+    // Concept: the stable anchor is local to the owning UI window rather than
+    // the process viewport. Layout movement and window-size changes therefore
+    // preserve the same semantic window location, with viewport normalization
+    // retained independently as fallback evidence.
+    const float localX = static_cast<float>( clientX - m_window.x ) / static_cast<float>( m_window.width - 1 );
+    const float localY = static_cast<float>( clientY - m_window.y ) / static_cast<float>( m_window.height - 1 );
+    const int written = std::snprintf( output, outputSize, "operator-ui:%.6f,%.6f", localX, localY );
+    return written > 0 && static_cast<std::size_t>( written ) < outputSize;
+}
+
+bool UIWindowInteractionOwner::ResolveInteractionAnchor( const char* anchor, int& clientX, int& clientY ) const
+{
+    constexpr const char* PREFIX = "operator-ui:";
+
+    if ( !anchor || std::strncmp( anchor, PREFIX, std::strlen( PREFIX ) ) != 0 || !m_window.isVisible ||
+         m_window.width <= 1 || m_window.height <= 1 )
+    {
+        return false;
+    }
+
+    float localX = 0.0f;
+    float localY = 0.0f;
+
+    if ( sscanf_s( anchor + std::strlen( PREFIX ), "%f,%f", &localX, &localY ) != 2 || !std::isfinite( localX ) ||
+         !std::isfinite( localY ) || localX < 0.0f || localX > 1.0f || localY < 0.0f || localY > 1.0f )
+    {
+        return false;
+    }
+
+    clientX = m_window.x + static_cast<int>( std::lround( localX * static_cast<float>( m_window.width - 1 ) ) );
+    clientY = m_window.y + static_cast<int>( std::lround( localY * static_cast<float>( m_window.height - 1 ) ) );
+    return true;
 }
 
 

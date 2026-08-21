@@ -103,6 +103,14 @@ void InGameUI::SetWindowBounds( int x, int y, int width, int height )
 {
     m_windowInteraction.SetWindowBounds( x, y, width, height );
 }
+bool InGameUI::CaptureInteractionAnchor( int clientX, int clientY, char* output, std::size_t outputSize ) const
+{
+    return m_windowInteraction.CaptureInteractionAnchor( clientX, clientY, output, outputSize );
+}
+bool InGameUI::ResolveInteractionAnchor( const char* anchor, int& clientX, int& clientY ) const
+{
+    return m_windowInteraction.ResolveInteractionAnchor( anchor, clientX, clientY );
+}
 void InGameUI::SetBlurEnabled( bool enabled )
 {
     m_windowInteraction.SetBlurEnabled( enabled );

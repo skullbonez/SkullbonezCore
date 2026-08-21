@@ -130,6 +130,12 @@ class UIWindowInteractionOwner
     bool BlocksKeyboard() const;
     bool WantsNativeMouseCursor() const;
     void SetWindowBounds( int x, int y, int width, int height );
+
+    // Writes a stable window-local anchor only when the client point is inside this owner.
+    bool CaptureInteractionAnchor( int clientX, int clientY, char* output, std::size_t outputSize ) const;
+
+    // Maps a supported anchor to the current window's client coordinates.
+    bool ResolveInteractionAnchor( const char* anchor, int& clientX, int& clientY ) const;
     void SetBlurEnabled( bool enabled );
     void SetRendererComboOpen( bool open );
     void SetWaterComboOpen( bool open );

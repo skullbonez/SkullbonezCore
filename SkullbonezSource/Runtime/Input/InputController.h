@@ -115,6 +115,7 @@ enum class RuntimeInputAction
     ToggleTerrainContactProbe,
     StepPhysicsPipelinePrevious,
     StepPhysicsPipelineNext,
+    ToggleInteractionRecording,
     TogglePhysicsDebugTransparent,
     ReportRendererRuntimeRetired,
     ReloadShadersFromSource,

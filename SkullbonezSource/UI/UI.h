@@ -275,6 +275,12 @@ class InGameUI
     bool BlocksKeyboard() const;
     bool WantsNativeMouseCursor() const;
     void SetWindowBounds( int x, int y, int width, int height );
+
+    // Captures a window-local semantic pointer anchor when the point belongs to this UI.
+    bool CaptureInteractionAnchor( int clientX, int clientY, char* output, std::size_t outputSize ) const;
+
+    // Resolves a recorded UI anchor against the current window layout.
+    bool ResolveInteractionAnchor( const char* anchor, int& clientX, int& clientY ) const;
     void SetBlurEnabled( bool enabled );
     void SetRendererComboOpen( bool open );
     void SetWaterComboOpen( bool open );

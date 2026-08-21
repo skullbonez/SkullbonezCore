@@ -1,4 +1,3 @@
-//   - Agentic/Reference/engine-glossary.md//
 // File: SkullbonezTests/TestStartup.cpp
 // Purpose:
 //   Locks startup token parsing, frozen diagnostics, and launch-policy resolution.
@@ -6,7 +5,8 @@
 // Summary:
 //   Exercises the production command-line and launch-resolution units without
 //   constructing a window, renderer, worker pool, or Run owner. Table-driven
-//   failure cases assert the exact Recoverable-result messages consumed by automation, and
+//   failure cases assert the exact recoverable-result messages consumed by
+//   automation. Recorded-manifest cases prove adjacent scene resolution, while
 //   development builds lock the exclusive editor selector's launch projection.
 //
 // Glossary:
@@ -21,6 +21,7 @@
 // Related:
 //   - SkullbonezSource/Runtime/Startup/StartupCommandLine.cpp
 //   - SkullbonezSource/Runtime/Startup/StartupLaunchResolution.cpp
+//   - Agentic/Reference/engine-glossary.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
@@ -194,7 +195,8 @@ TEST_CASE( "Startup launch values: every run directive family projects into owne
     const CommandLineView commandLine = View( "--seed 17 --frames=9 --allocation_guard gameplay "
                                               "--style-harness TestOutput/style --scene_snapshot_out TestOutput/scene.json "
                                               "--memory_dump TestOutput/memory.json --interaction_script script.json "
-                                              "--interaction_report report.json --replay off --replay_seconds 12 "
+                                              "--interaction_report report.json --interaction_record_max_minutes 3 "
+                                              "--replay off --replay_seconds 12 "
                                               "--replay_scrub_probe 0.5 --replay_restore_probe 0.75 "
                                               "--replay_save_probe save.skreplay --replay_load load.skreplay "
                                               "--replay_load_probe probe.skreplay --replay_restore_file_probe restore.skreplay "
@@ -216,6 +218,7 @@ TEST_CASE( "Startup launch values: every run directive family projects into owne
     CHECK( std::strcmp( args.memoryDumpPath, "TestOutput/memory.json" ) == 0 );
     CHECK( std::strcmp( args.interactionScriptPath, "script.json" ) == 0 );
     CHECK( std::strcmp( args.interactionReportPath, "report.json" ) == 0 );
+    CHECK( args.interactionRecordMaxMinutes == 3 );
     CHECK( args.replayRecording );
     CHECK( args.replayExplicit );
     CHECK( args.replaySeconds == 12 );
@@ -261,6 +264,8 @@ TEST_CASE( "Startup launch values: malformed directives keep exact recoverable m
         { "--memory-dump", "--memory-dump requires an output path." },
         { "--interaction-script", "--interaction-script requires an output path." },
         { "--interaction-report", "--interaction-report requires an output path." },
+        { "--interaction-record-max-minutes 0", "--interaction-record-max-minutes expects 1..60." },
+        { "--interaction-record-max-minutes 61", "--interaction-record-max-minutes expects 1..60." },
         { "--replay maybe", "--replay expects optional on|off." },
         { "--replay-seconds 0", "--replay-seconds expects 1..600." },
         { "--replay-scrub-probe 0.995", "--replay-scrub-probe expects a normalized position in the range 0..0.995." },
@@ -288,6 +293,33 @@ TEST_CASE( "Startup launch values: malformed directives keep exact recoverable m
         CAPTURE( failure.commandLine );
         CheckRunDirectiveFailure( failure.commandLine, failure.message );
     }
+}
+
+TEST_CASE( "Startup recorded interaction owns its adjacent scene launch" )
+{
+    const std::string manifest = WriteSuite(
+        "recorded_interaction.json",
+        R"({"format":"skullbonez.interaction-recording","version":1,"complete":true,"scene":{"path":"saved.scene.json","sha256":"0000000000000000000000000000000000000000000000000000000000000000"},"frames":[]})" );
+    ParsedArgs args;
+    strcpy_s( args.interactionScriptPath, manifest.c_str() );
+    REQUIRE( ResolveInteractionRecordingLaunch( args ) );
+    REQUIRE( args.sceneList.size() == 1u );
+    CHECK( std::filesystem::path( args.sceneList[0] ).filename() == "saved.scene.json" );
+    CHECK( args.isSuiteOrSceneMode );
+    CHECK( args.interactiveRun );
+    CHECK( args.suppressExitDialog );
+}
+
+TEST_CASE( "Startup recorded interaction rejects escaping sidecar paths" )
+{
+    const std::string manifest = WriteSuite(
+        "recorded_interaction_escape.json",
+        R"({"format":"skullbonez.interaction-recording","version":1,"complete":true,"scene":{"path":"../saved.scene.json","sha256":"0000000000000000000000000000000000000000000000000000000000000000"},"frames":[]})" );
+    ParsedArgs args;
+    strcpy_s( args.interactionScriptPath, manifest.c_str() );
+    CHECK_FALSE( ResolveInteractionRecordingLaunch( args ) );
+    CHECK( std::strcmp( GetCommandLineError(),
+                        "recorded --interaction-script scene path may not escape its directory." ) == 0 );
 }
 
 TEST_CASE( "Startup physics debug: component, float, and optional switches compose deterministically" )

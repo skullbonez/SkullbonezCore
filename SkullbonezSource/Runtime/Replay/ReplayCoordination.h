@@ -184,6 +184,9 @@ struct ReplayInputView
     bool hasCameraFocus = false;
     RunCameraMode restoreCameraMode = RunCameraMode::Demo;
     int pathTargetModelRow = -1;
+    RunReplayTrack activeTrack = RunReplayTrack::Solver;
+    float presentationTrackPosition = 1.0f;
+    float solverTrackPosition = 1.0f;
     float solverPresentTrackPosition = 1.0f;
     float predictionRevealProgress = 0.0f;
     bool predictionRevealAvailable = false;

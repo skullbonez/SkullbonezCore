@@ -4,11 +4,10 @@ Purpose:
   Publishes deterministic synthetic device frames for CLI interaction probes.
 
 Summary:
-  The input driver applies hold/release policy independently of camera, scene,
-  replay, UI, and tool owners, then forwards a value snapshot to Input.
-  Actions set held state and release deadlines. The frame sequencer first
-  expires deadlines, applies this frame's actions, then publishes one immutable
-  snapshot to the existing input bridge.
+  Legacy actions set held state and release deadlines; recorded playback copies
+  the complete captured key/button/focus/wheel/raw-mouse frame. Both paths are
+  independent of camera, scene, replay, UI, and tool owners and publish through
+  the existing Input bridge.
 
 Glossary:
   Input bridge: Process-global validation seam consumed by the normal input
@@ -19,14 +18,19 @@ Glossary:
 Invariants:
   - Release deadlines are evaluated before same-frame actions.
   - `PublishFrame` decrements a focus-loss hold only after publishing it.
+  - Recorded absolute pointers scale with the client area; raw look deltas do not.
 
 Related:
   - SkullbonezSource/Runtime/Automation/InteractionAutomationInputDriver.h
   - SkullbonezSource/Runtime/Input/Input.cpp
 */
 #include "InteractionAutomationInputDriver.h"
+#include "InteractionAutomationRecorder.h"
 
 #include "../Input/Input.h"
+
+#include <algorithm>
+#include <cmath>
 
 using SkullbonezCore::Hardware::Input;
 
@@ -138,6 +142,7 @@ void SkullbonezCore::Runtime::InteractionAutomationInputDriver::PublishFrame()
     inputState.mouseClientPosition = m_mouseClientPosition;
     inputState.leftMouseDown = m_leftMouseDown;
     inputState.rightMouseDown = m_rightMouseDown;
+    inputState.middleMouseDown = m_middleMouseDown;
     inputState.mouseWheelDelta = m_mouseWheelDelta;
     inputState.keyVirtualKey = m_keyVirtualKey;
     inputState.keyDown = m_keyDown;
@@ -150,4 +155,37 @@ void SkullbonezCore::Runtime::InteractionAutomationInputDriver::PublishFrame()
     {
         --m_unfocusedInputFrames;
     }
+}
+
+void SkullbonezCore::Runtime::InteractionAutomationInputDriver::PublishRecordedFrame( const RecordedInputFrame& frame,
+                                                                                      int targetWidth, int targetHeight,
+                                                                                      const POINT* semanticPosition )
+{
+    Input::AutomationState inputState;
+    inputState.enabled = true;
+    inputState.overrideAppFocused = true;
+    inputState.appFocused = frame.appFocused;
+    inputState.hasMouseClientPosition = frame.hasPointer;
+
+    if ( semanticPosition )
+    {
+        inputState.hasMouseClientPosition = true;
+        inputState.mouseClientPosition = *semanticPosition;
+    }
+    else if ( frame.hasPointer )
+    {
+        const int targetMaxX = (std::max)( 0, targetWidth - 1 );
+        const int targetMaxY = (std::max)( 0, targetHeight - 1 );
+        inputState.mouseClientPosition.x = static_cast<LONG>( std::lround( std::clamp( frame.normalizedX, 0.0f, 1.0f ) * static_cast<float>( targetMaxX ) ) );
+        inputState.mouseClientPosition.y = static_cast<LONG>( std::lround( std::clamp( frame.normalizedY, 0.0f, 1.0f ) * static_cast<float>( targetMaxY ) ) );
+    }
+
+    inputState.leftMouseDown = frame.leftDown;
+    inputState.rightMouseDown = frame.rightDown;
+    inputState.middleMouseDown = frame.middleDown;
+    inputState.mouseWheelDelta = frame.wheelDelta;
+    inputState.rawMouseDeltaX = frame.rawMouseX;
+    inputState.rawMouseDeltaY = frame.rawMouseY;
+    inputState.keyWords = frame.keyWords;
+    Input::SetAutomationState( inputState );
 }

@@ -35,11 +35,11 @@
     {
       "file": "SkullbonezSource/Runtime/App/InputFrameExecution.cpp",
       "signature": "Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput )",
-      "body_sha256": "bc9ec5a72a55b10e36579a0848415419162b32913f5278a9af310501b9b334ba",
+      "body_sha256": "b37806cfc433135d94cb7f78feb20a7edd3a8a2417a9f68778f1369738ad7ee2",
       "owner": "Runtime input frame phase",
       "disposition": "retain-owner",
-      "reason": "One ordered input turn runs from automation sampling through device routing, typed command production, scene-scoped owner retirement, and terminal restore publication; the continuous-forecast automation command is submitted at the same typed-command checkpoint as the visible operator request. Every participant is a synchronous Run-owned borrow, and splitting the phase would move frame ordering into one-call helpers without creating an independently testable owner.",
-      "evidence": "git history: look-lab-random-style-authoring-ll5-breadth-reuse-idle (2026-08-01); C1 causal-row transport owner review (2026-08-17); PREDICT_SOLVER_DETAIL PSD1 typed replay play/pause routing (2026-08-18); ORBIT_FORECAST OF4 scene-transition join review and OF5 typed automation-command review (2026-08-19)",
+      "reason": "One ordered input turn runs from automation sampling through device routing, typed command production, scene-scoped owner retirement, and terminal restore publication. F8 recording control is a routed input action in that same transaction: it only arms or closes the detached Diagnostics tape after the router proves idle state. Every participant is a synchronous Run-owned borrow, and splitting the phase would move frame ordering into one-call helpers without creating an independently testable owner.",
+      "evidence": "git history: look-lab-random-style-authoring-ll5-breadth-reuse-idle (2026-08-01); C1 causal-row transport owner review (2026-08-17); interaction recording routed-control review (2026-08-22)",
       "plan": "",
       "body_lines": 1130,
       "max_brace_depth": 7,
@@ -210,13 +210,13 @@
     {
       "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",
       "signature": "InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutomationController& state, Window& windowOwner, const SkullbonezCore::Core::EngineConfig& config, SceneController& scene, RunTimerState& timers, CameraControlState& camera, InputRouter& inputRouter, RuntimeInteractionController& interaction, RuntimeTools& runtimeTools, SkullbonezCore::UI::InGameUI& ui, const ReplayAutomationView& replayView, const Rendering::RenderSceneSnapshot& renderSnapshot )",
-      "body_sha256": "f52211b04e9747dc35c1b9389b58826542b59c25ffa609be0bd87e1e13a3c63e",
+      "body_sha256": "c9b565f68b494c4983dd15bcaf3a48893e78507d3cf234c3a89775ad24219b41",
       "owner": "Pre-input interaction automation tick",
       "disposition": "retain-owner",
-      "reason": "One pre-input automation phase interprets the current scripted action across the exact runtime owners before device routing; the continuous-forecast action produces one typed command value for the normal input transaction and retains no Planning authority. Its branches are one frame-indexed state machine, so extraction would preserve caller-ordered action dispatch rather than create a separate owner.",
-      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); ORBIT_FORECAST OF5 typed automation-command review (2026-08-19)",
+      "reason": "One pre-input automation phase interprets either the next legacy scene-frame action or one recorded full-device turn across the exact runtime owners before normal device routing. Recorded baseline application, replay cause-inspection state publication, and semantic-anchor resolution happen once at turn zero; later turns publish detached input only. Both paths are one mutually exclusive automation state machine, and extraction would preserve caller-ordered dispatch rather than create a separate owner.",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); recorded-manifest full-device playback review (2026-08-22)",
       "plan": "",
-      "body_lines": 465,
+      "body_lines": 654,
       "max_brace_depth": 7,
       "closure_count": 3
     },
@@ -438,19 +438,6 @@
       "reason": "One automation query resolves a named scene model through camera and window projection into one pointer coordinate; all nested rejection paths protect the single success output.",
       "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationRecorder.cpp",
-      "signature": "void InteractionAutomationRecorder::RecordFrame( int currentFrame, int screenWidth, int screenHeight, const InputRouter& inputRouter, const RuntimeInteractionController& interaction, const RunReplayCauseTreeState& causeTree, const ReplayCauseInspectionView& causeInspection )",
-      "body_sha256": "a77cbe94600f7aa7c31d451ec154fe6e6f2be8e3a3dc2e79eebcc5a624b41289",
-      "owner": "Interaction automation frame recorder",
-      "disposition": "retain-owner",
-      "reason": "Samples frame interaction events, keyboard and pointer states, scrubber actions, cause tree inspections, and UI interaction snapshots into recorded interaction actions without allocating or modifying runtime state.",
-      "evidence": "git history: F8 universal interaction test recorder framework (2026-08-21)",
-      "plan": "",
-      "body_lines": 183,
-      "max_brace_depth": 7,
-      "closure_count": 0
     }
   ]
 }

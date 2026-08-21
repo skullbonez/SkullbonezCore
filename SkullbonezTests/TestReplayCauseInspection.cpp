@@ -70,6 +70,58 @@ ReplayRecorderStats RetainedSolverWindow()
     return stats;
 }
 
+TEST_CASE( "Cause inspection recording restore preserves detached transition state and safely reissues transport" )
+{
+    ReplayCauseSeekResult seek;
+    seek.availability = ReplayCauseSeekAvailability::Available;
+    seek.source = ReplayCauseSeekSource::SolverHistory;
+    seek.frame = 80u;
+
+    ReplayCauseInspection inspection;
+    REQUIRE( inspection.Select( 3, seek, 20u, false, 5.0 ) );
+
+    ReplayCauseInspectionRecordingState baseline;
+    baseline.mode = ReplayCauseInspectionMode::Transporting;
+    baseline.activeTab = ReplayCauseInspectorTab::Iterations;
+    baseline.selectedRow = 3;
+    baseline.selectedDetailContactRow = 2;
+    baseline.solverDetailFirstRow = 4;
+    baseline.rawRecordFirstRow = 5;
+    baseline.iterationsFirstRow = 6;
+    baseline.sourceFrame = 20u;
+    baseline.targetFrame = 80u;
+    baseline.presentedFrame = 45u;
+    baseline.detailVisible = true;
+    baseline.ownsPause = true;
+    baseline.transportInFlight = true;
+    baseline.easedProgress = 0.5f;
+    baseline.drawerProgress = 0.4f;
+
+    inspection.RestoreInteractionRecordingBaseline( baseline, 10.0 );
+    const ReplayCauseInspectionView restored = inspection.View();
+    CHECK( restored.mode == ReplayCauseInspectionMode::Transporting );
+    CHECK( restored.activeTab == ReplayCauseInspectorTab::Iterations );
+    CHECK( restored.selectedRow == 3 );
+    CHECK( restored.selectedDetailContactRow == 2 );
+    CHECK( restored.solverDetailFirstRow == 4 );
+    CHECK( restored.rawRecordFirstRow == 5 );
+    CHECK( restored.iterationsFirstRow == 6 );
+    CHECK( restored.sourceFrame == 20u );
+    CHECK( restored.targetFrame == 80u );
+    CHECK( restored.presentedFrame == 45u );
+    CHECK( restored.detailVisible );
+    CHECK( restored.ownsPause );
+    CHECK_FALSE( restored.transportInFlight );
+    CHECK( restored.transportPending );
+    CHECK( restored.easedProgress == doctest::Approx( 0.5f ) );
+    CHECK( restored.drawerProgress == doctest::Approx( 0.4f ) );
+
+    ReplayCauseTransportRequest reissued;
+    REQUIRE( inspection.TakeTransportRequest( reissued ) );
+    CHECK( reissued.sourceFrame == 20u );
+    CHECK( reissued.targetFrame == EvaluateReplayCauseTransitionFrame( 20u, 80u, 0.5f ) );
+}
+
 constexpr float CAUSE_INSPECTOR_TARGET_DRAWER_WIDTH = 520.0f;
 constexpr double CAUSE_INSPECTOR_TARGET_DRAWER_SECONDS = 0.18;
 
@@ -1917,5 +1969,4 @@ TEST_CASE( "Cause hierarchy inspector: multi-contact selection assigns and consu
     CHECK( std::strstr( copyCmd.text, "Feature ID: 202" ) != nullptr );
     CHECK( std::strstr( copyCmd.text, "Feature ID: 201" ) == nullptr );
 }
-
 

@@ -178,7 +178,6 @@ class Run
     InputRouter m_inputRouter;                                                                                    // Owns keyboard/pointer edge memory and binding-context enforcement.
     RuntimeInteractionController m_interaction;                                                                   // Authoritative runtime workspace and world-input owner.
     InteractionAutomationRecorder m_interactionRecorder;                                                          // Interactive test recorder capturing human input into resolution-independent scripts.
-    bool m_f8WasDown = false;
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     InteractionAutomationController m_interactionAutomation;                                                      // Automation-build CLI harness that injects runtime mouse input for regression tests.
 #endif
@@ -239,6 +238,8 @@ class Run
 
     bool PumpFrameMessages( int& messageExitCode );                                                               // Bounded Win32 drain; true ends the frame loop.
     double BeginFrameTurn();                                                                                      // Starts timing/profiling and validates renderer composition.
+    void AdvanceInteractionRecordingBoundary();                                                                   // Commits the prior pending turn or captures an armed baseline.
+    void CaptureInteractionRecordingTurn( double secondsPerFrame );                                               // Copies the routed device frame after input completes.
     void BeginFrameDiagnosticsPhase();                                                                            // Publishes prior GPU timing, then resets draw counters.
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     FrameInputPhaseResult RunAutomationAndInputPhase();

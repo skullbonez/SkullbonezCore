@@ -49,6 +49,36 @@ changes, or `codegraph index .` if the graph appears inconsistent.
 
 ---
 
+## Recorded Interaction Repro Workflow
+
+When the user supplies an interaction manifest, the following workflow is
+mandatory:
+
+1. Preserve the manifest and every adjacent sidecar as read-only evidence. Run
+   the exact recording before editing with:
+   `Automation\SKULLBONEZ_CORE.exe --interaction-script "<manifest>" --interaction-report "<report>"`.
+2. Confirm that the observed behavior matches the problem the user described.
+   If it does not reproduce, report the mismatch; do not guess at the cause or
+   alter the recording.
+3. Treat the user's written expected behavior as the acceptance oracle. The
+   recording captures actions and starting state, not what the correct outcome
+   should be.
+4. After implementation, replay the exact unchanged manifest. Record the
+   command, process exit result, report path, and observed outcome in the
+   handoff.
+5. Add a focused automated assertion whenever the expected result can be
+   expressed mechanically. A recording supplements subsystem validation; it
+   never replaces it.
+6. Never refresh a physics, visual, replay, or other golden baseline merely to
+   make a recorded interaction pass.
+
+Recordings created under `TestOutput/recordings/` are local artifacts. Track a
+recording as a regression fixture only when the user explicitly requests it,
+and place that deliberate fixture with the owning test data rather than
+weakening the `TestOutput` ignore policy.
+
+---
+
 ## Plan Implementation Mode
 
 When implementing work from `Agentic/Plans`, use the repo-local orchestrator

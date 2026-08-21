@@ -8,7 +8,8 @@ Summary:
   Each test supplies immutable device frames and a tiny static binding table.
   BeginFrame advances all physical edge memory; RoutePhase then proves which
   semantic events are eligible under current context facts. Pointer arbitration
-  tests drive the production phase cursor without constructing domain owners.
+  tests drive the production phase cursor without constructing domain owners,
+  and device-frame tests preserve the distinction between no pointer and (0,0).
 
 Glossary:
   UI (user interface): Interactive engine controls evaluated between routing
@@ -101,6 +102,19 @@ DeviceInputFrame UnfocusedFrame()
     return frame;
 }
 } // namespace
+
+
+TEST_CASE( "Device input frame does not fabricate a corner pointer when the sample is absent" )
+{
+    DeviceInputFrame frame;
+    frame.SetClientPosition( true, 731, 419 );
+    REQUIRE( frame.hasClientPosition );
+
+    frame.SetClientPosition( false, 731, 419 );
+    CHECK_FALSE( frame.hasClientPosition );
+    CHECK_EQ( frame.clientX, 0 );
+    CHECK_EQ( frame.clientY, 0 );
+}
 
 
 TEST_CASE( "Input router: world pointer arbitration exhaustively preserves production precedence" )

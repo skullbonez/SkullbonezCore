@@ -366,13 +366,26 @@ Run::~Run()
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Shutdown );
     CancelPendingLookLabSave( "shutdown cancelled screenshot" );
     m_continuousForecast.Stop();
-#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 
-    if ( m_interactionRecorder.IsRecording() )
+    if ( m_interactionRecorder.IsArmed() )
     {
-        m_interactionRecorder.StopRecording();
+        // Orderly shutdown can arrive after the F8 edge but before the next
+        // run-loop boundary. The owners are still alive here, so capture the
+        // promised baseline before publishing the zero-turn recording.
+        AdvanceInteractionRecordingBoundary();
     }
-#endif
+
+    if ( m_interactionRecorder.IsActive() )
+    {
+        const SkullbonezCore::Core::SbResult save = m_interactionRecorder.StopAndSave( m_resultDiagnostics, "shutdown",
+                                                                                       true );
+
+        if ( !save.Ok() )
+        {
+            std::fprintf( stderr, "[recorder] Shutdown save failed: %s\n", save.ErrorMessage() );
+        }
+    }
+
     const std::string* currentScenePath = m_sceneController.CurrentPath();
     m_diagnosticsRuntime.ReportStoreCapacityRows( m_sceneController.State(),
                                                   currentScenePath ? currentScenePath->c_str() : nullptr, "process_end" );
@@ -522,7 +535,14 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
 
     if ( overrides.interactionRecordPath )
     {
-        m_interactionRecorder.StartRecording( overrides.interactionRecordPath );
+        const SkullbonezCore::Core::SbResult arm = m_interactionRecorder.Arm( m_resultDiagnostics,
+                                                                              overrides.interactionRecordPath,
+                                                                              overrides.interactionRecordMaxMinutes );
+
+        if ( !arm.Ok() )
+        {
+            return arm;
+        }
     }
 
     if ( !overrides.interactionScriptPath )

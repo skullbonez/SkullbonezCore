@@ -82,6 +82,9 @@ JSON_COLD_BOUNDARY_TRANSLATION_UNITS = frozenset(
         "Runtime/Editor/EditorPlacementAssets.cpp",
         "Runtime/Editor/EditorTracer.cpp",
         "Runtime/Automation/InteractionAutomationController.cpp",
+        # Recorder parses no gameplay data; it emits the final manifest only
+        # during the Diagnostics-owned stop/save publication boundary.
+        "Runtime/Automation/InteractionAutomationRecorder.cpp",
         "Runtime/Automation/InteractionAutomationReportWriter.cpp",
         "Runtime/Replay/ReplayV2Artifact.cpp",
         "Runtime/Scene/SceneController.Load.cpp",
