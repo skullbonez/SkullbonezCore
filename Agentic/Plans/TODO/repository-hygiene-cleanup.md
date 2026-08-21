@@ -1,7 +1,7 @@
 # Repository Hygiene Cleanup
 
 Date: 2026-08-20
-Status: Active; 1/6 phases complete. Bound after `VALIDATION_TIME_AUDIT`.
+Status: Active; 2/6 phases complete. Bound after `VALIDATION_TIME_AUDIT`.
 Impact areas: ignored validation evidence, build and IDE output, detached Git
 worktrees, tracked visual references, plan topology, and repository hygiene
 Owner: repository hygiene and artifact-retention owners
@@ -142,12 +142,12 @@ deleted in this phase.
 
 ## RC1 - Retire Historical Test And Validation Output
 
-- Delete only the approved historical `TestOutput` children from the RC0
+- [x] Delete only the approved historical `TestOutput` children from the RC0
   manifest. Keep `baselines`, current active-plan evidence, owner-review
   candidates, and named session-state artifacts.
-- Remove obsolete `Agentic/Reports` logs and `Agentic/Temp` scratch after
+- [x] Remove obsolete `Agentic/Reports` logs and `Agentic/Temp` scratch after
   confirming no current process holds or names them. Do not recreate Reports.
-- Record per-target bytes removed, failures/deferred paths, resulting free disk
+- [x] Record per-target bytes removed, failures/deferred paths, resulting free disk
   space, and `git status` proof that tracked files did not change.
 
 **RC1 acceptance:** approved historical artifacts are gone, protected evidence
