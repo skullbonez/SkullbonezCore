@@ -1,7 +1,7 @@
 # Full Validation Time And Value Audit
 
 Date: 2026-08-20
-Status: Active; 0/6 phases complete
+Status: Active; 1/6 phases complete
 Impact area: validation orchestration, build configuration, repository
 inventories, CPU test and coverage gates, runtime probes, diagnostics, and
 validation governance
@@ -205,14 +205,14 @@ remain recorded with the reason so a later audit does not repeat them blindly.
 
 ### VTA0 - Topology And Timing Instrumentation
 
-- [ ] Generate the reconciled stage manifest from current scripts and account
+- [x] Generate the reconciled stage manifest from current scripts and account
   for every external process and conditional branch.
-- [ ] Add or select a timing mechanism that obeys the measurement contract and
+- [x] Add or select a timing mechanism that obeys the measurement contract and
   has self-tests for success, child failure, timeout, missing executable,
   spaces/quoting, redirected logs, and Ctrl+C/termination propagation.
-- [ ] Prove instrumentation overhead with a bounded no-op/control workload and
+- [x] Prove instrumentation overhead with a bounded no-op/control workload and
   record its resolution limits.
-- [ ] Capture the machine/toolchain manifest and artifact schema.
+- [x] Capture the machine/toolchain manifest and artifact schema.
 
 ### VTA1 - Controlled Baseline Measurements
 

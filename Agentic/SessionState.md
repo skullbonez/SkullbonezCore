@@ -2,7 +2,7 @@
 
 Date: 2026-08-21
 Branch: `codex/cause-hierarchy-ui-first`
-Status: Two active plans; 68/80 tasks complete
+Status: Two active plans; 69/80 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, and Full Source Comment
@@ -13,10 +13,10 @@ followed by Repository Hygiene Cleanup RC0-RC5.
 Completed plan files were deleted under the repository convention; Git history
 retains their phase evidence.
 
-VALIDATION_TIME_AUDIT VTA0-VTA5 is the active next plan. Its goal is to instrument and measure
-the full plan-completion call graph, evaluate every stage's unique evidence and runtime cost,
-implement only owner-approved reductions with false-pass controls, and close with a single timed
-terminal full gate.
+VALIDATION_TIME_AUDIT VTA0 is complete. The stage topology manifest is reconciled,
+time_validation_pipeline.py is deployed with passing self-tests and overhead calibration (25.56 ms/invocation),
+and the machine/toolchain context is captured in TestOutput/validation/VALIDATION_TIME_AUDIT/stage_manifest.json.
+VTA1 (Controlled Baseline Measurements) is the active next task.
 
 ORBIT_FORECAST OF0 is complete. It ratifies the fixed sun as the primary,
 Earth and Mars as core bodies, and the ship as an auxiliary whose orbital-
