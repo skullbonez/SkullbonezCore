@@ -33,9 +33,9 @@ When CodeGraph is installed and `.codegraph/` exists, use it as a first-pass
 map before opening large source files:
 
 1. Run `codegraph status .` to check whether the local index is current.
-2. If CodeGraph MCP tools are available in the current Codex session, prefer
-   them over shelling out. Use `codegraph_explore`/`codegraph_node` style tools
-   for focused symbol, file, caller/callee, and impact lookups.
+2. If CodeGraph MCP tools are available in the current Codex or Antigravity session,
+   prefer them over shelling out. Use `codegraph_explore`/`codegraph_node` style
+   tools for focused symbol, file, caller/callee, and impact lookups.
 3. If MCP tools are unavailable, use the CLI: `codegraph query <name-or-topic>`
    or `codegraph explore "<area>"` to find likely symbols and files.
 4. Use `codegraph node <symbol-or-path>` for focused source context.

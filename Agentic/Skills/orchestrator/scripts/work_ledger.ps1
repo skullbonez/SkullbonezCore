@@ -155,6 +155,11 @@ function Get-ApiPricing {
         'gpt-5.2' { @(1.75, 0.175, 14.0); break }
         'gpt-5.1' { @(1.25, 0.125, 10.0); break }
         'gpt-5' { @(1.25, 0.125, 10.0); break }
+        'gemini-3.7-flash' { @(0.10, 0.025, 0.40); break }
+        'gemini-2.5-pro' { @(1.25, 0.3125, 5.00); break }
+        'gemini-2.5-flash' { @(0.075, 0.01875, 0.30); break }
+        'gemini-1.5-pro' { @(1.25, 0.3125, 5.00); break }
+        'gemini-1.5-flash' { @(0.075, 0.01875, 0.30); break }
         default { throw "No verified standard short-context API pricing is configured for model '$Model'." }
     }
     return [pscustomobject][ordered]@{
@@ -206,7 +211,13 @@ function New-TokenSource {
     }
 
     if ([string]::IsNullOrWhiteSpace($ThreadId)) {
-        throw 'A token source requires CODEX_THREAD_ID, -MainThreadId, -WorkerThreadId, or an explicit session file.'
+        if (-not [string]::IsNullOrWhiteSpace($env:ANTIGRAVITY_CONVERSATION_ID)) {
+            $ThreadId = $env:ANTIGRAVITY_CONVERSATION_ID
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($ThreadId)) {
+        throw 'A token source requires CODEX_THREAD_ID, ANTIGRAVITY_CONVERSATION_ID, -MainThreadId, -WorkerThreadId, or an explicit session file.'
     }
 
     if ([string]::IsNullOrWhiteSpace($Root)) {
@@ -226,20 +237,27 @@ function Resolve-SessionFile {
     if (-not [string]::IsNullOrWhiteSpace([string]$Source.SessionFile)) {
         $path = [string]$Source.SessionFile
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
-            throw "Codex session file not found: $path"
+            throw "Session file not found: $path"
         }
         return $path
     }
 
     $root = [string]$Source.SessionRoot
     $threadId = [string]$Source.ThreadId
+
+    # Check Antigravity brain transcript path first if present
+    $agyTranscript = Join-Path $env:USERPROFILE ".gemini\antigravity\brain\$threadId\.system_generated\logs\transcript.jsonl"
+    if (Test-Path -LiteralPath $agyTranscript -PathType Leaf) {
+        return $agyTranscript
+    }
+
     if (-not (Test-Path -LiteralPath $root -PathType Container)) {
-        throw "Codex session directory not found: $root"
+        throw "Session directory not found: $root (and Antigravity transcript not found at $agyTranscript)"
     }
 
     $matches = @(Get-ChildItem -LiteralPath $root -Recurse -File -Filter "*$threadId.jsonl")
     if ($matches.Count -ne 1) {
-        throw "Expected one Codex session stream for thread '$threadId' under '$root'; found $($matches.Count)."
+        throw "Expected one session stream for thread '$threadId' under '$root'; found $($matches.Count)."
     }
     return $matches[0].FullName
 }

@@ -1,6 +1,6 @@
 ---
 name: orchestrator
-description: Run SkullbonezCore's persistent MASTER-PLAN implementation queue in the main Codex agent, using a deterministic Night Runner branch and sub-agents only for rubber-duck review. Use when the user asks for the orchestrator, night runner, nightrunner, overnight runner, queued plan runner, MASTER-PLAN runner, or asks Codex to complete one or more Agentic/Plans items, then continue through blockers, validate, commit, and push each accepted plan.
+description: Run SkullbonezCore's persistent MASTER-PLAN implementation queue in the main Codex or Antigravity agent, using a deterministic Night Runner branch and sub-agents only for rubber-duck review. Use when the user asks for the orchestrator, night runner, nightrunner, overnight runner, queued plan runner, MASTER-PLAN runner, or asks Codex/Antigravity to complete one or more Agentic/Plans items, then continue through blockers, validate, commit, and push each accepted plan.
 ---
 
 # Orchestrator
@@ -97,11 +97,12 @@ Git because the final post-push hash update cannot be part of the commit whose
 hash it records. Never stage or hand-edit this runtime artifact.
 
 Every batch call reads the exact cumulative token counter for
-`CODEX_THREAD_ID`, captures a local ISO-8601 timestamp with timezone, and
-atomically rewrites valid CSV plus its final embedded recovery-state row. A failed
-call is an orchestration blocker: do not replace exact telemetry with an
-estimate or an in-memory row. The unfinished row identifies the live step, so
-the owner can inspect the ledger at any time while work is running.
+`CODEX_THREAD_ID` (or Antigravity conversation ID / transcript stream),
+captures a local ISO-8601 timestamp with timezone, and atomically rewrites
+valid CSV plus its final embedded recovery-state row. A failed call is an
+orchestration blocker: do not replace exact telemetry with an estimate or an
+in-memory row. The unfinished row identifies the live step, so the owner can
+inspect the ledger at any time while work is running.
 
 Run `work_ledger.bat show` before inspecting the CSV. `show` refreshes the open
 row's current elapsed time, input/output/cached-input counters, API-cost
@@ -128,18 +129,20 @@ tokens or wall time are lost or double-counted:
 Agentic\Skills\orchestrator\scripts\work_ledger.bat transition -Task "<PLAN>-T<n>" -Outcome "ready for review" -Step "rubber-duck-01" -Kind rubber-duck -Label "Rubber duck pass 1"
 ```
 
-For a newly created rubber-duck agent/thread, transition before launching it,
-then attach its returned thread/session id with a zero baseline. Zero is the
+For a newly created rubber-duck agent/thread/subagent, transition before launching it,
+then attach its returned thread/session/conversation id with a zero baseline. Zero is the
 exact start of that new reviewer session, including its prompt and context:
 
 ```bat
 Agentic\Skills\orchestrator\scripts\work_ledger.bat attach-worker -Task "<PLAN>-T<n>" -WorkerThreadId "<reviewer id>" -WorkerBaselineZero
 ```
 
-Use the reviewer's actual `CODEX_THREAD_ID`, not an orchestration handle that
-cannot be resolved under `.codex\sessions`. If the launch API returns only a
-handle, have the reviewer read and return `$env:CODEX_THREAD_ID`; attaching it
-afterward with a zero baseline still accounts for that complete new session.
+Use the reviewer's actual `CODEX_THREAD_ID` or Antigravity `ConversationId`, not
+an orchestration handle that cannot be resolved under `.codex\sessions` or
+`.gemini\antigravity\brain\<id>\.system_generated\logs\transcript.jsonl`. If the launch
+API returns only a handle, have the reviewer read and return `$env:CODEX_THREAD_ID` or
+its assigned conversation ID; attaching it afterward with a zero baseline still accounts
+for that complete new session.
 
 When reusing an existing reviewer session, attach or open the step with
 `-WorkerThreadId` and omit `-WorkerBaselineZero`; the helper snapshots its
@@ -208,15 +211,16 @@ leave it active and report the blocker inventory.
 
 ## Sub-Agent Tools
 
-Use sub-agents or Codex thread tools only for independent `$rubber-duck` review
-at the end of a major plan/checkpoint or whole job. Earlier review is allowed
-only when the user explicitly asks for one, or when the same failure mode has
-repeated and independent critique is the cheapest way to get unstuck. Do not run
-a review per edit, per checklist row, per source file, per commit, or per small
-slice. Do not dispatch plan implementation, cleanup, validation, staging,
+Use sub-agents, Antigravity `invoke_subagent`, or Codex thread tools only for independent
+`$rubber-duck` review at the end of a major plan/checkpoint or whole job. Earlier
+review is allowed only when the user explicitly asks for one, or when the same
+failure mode has repeated and independent critique is the cheapest way to get unstuck.
+Do not run a review per edit, per checklist row, per source file, per commit, or per
+small slice. Do not dispatch plan implementation, cleanup, validation, staging,
 committing, or pushing to a sub-agent. If the tools are not already loaded,
-search for them with `tool_search` using names such as `create_thread`,
-`send_message_to_thread`, `read_thread`, `handoff_thread`, and `list_threads`.
+search for them: in Codex use names such as `create_thread`, `send_message_to_thread`,
+`read_thread`, `handoff_thread`, and `list_threads`; in Antigravity use `invoke_subagent`,
+`define_subagent`, and `send_message`.
 
 If a review tool creates a separate worktree, keep it read-only. Keep one active
 implementation plan at a time unless the user explicitly asks for a different

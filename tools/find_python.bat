@@ -66,7 +66,7 @@ if exist "%CODEX_PYTHON%" (
     goto :found
 )
 
-echo ERROR: Python not found. Install Python or run from Codex with bundled runtime available.
+echo ERROR: Python not found. Install Python or run from Codex/Antigravity with bundled runtime available.
 exit /b 99
 
 :found
