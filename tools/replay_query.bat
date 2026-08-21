@@ -2,7 +2,7 @@
 REM File: tools\replay_query.bat
 REM Purpose: Query chunked replay v2 artifacts through the repo Python helper.
 REM
-REM Mental model:
+REM Summary:
 REM   This wrapper resolves the repo-local Python runtime and delegates bounded
 REM   replay artifact queries to replay_query.py.
 REM

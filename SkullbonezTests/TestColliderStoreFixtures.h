@@ -1,4 +1,4 @@
-/*
+  - Agentic/Reference/engine-glossary.md/*
 File: SkullbonezTests/TestColliderStoreFixtures.h
 Purpose:
   Supplies explicit cold-row defaults when tests create collider topology.
@@ -11,7 +11,6 @@ Summary:
 Glossary:
   Cold row: Scene-authoring metadata retained beside the hot collision shape
     but excluded from per-step physics scans.
-  Hull identity: Stable path-and-scale key used to share immutable hull data.
 
 Invariants:
   - Every test collider row is created through ColliderStore's full transaction.

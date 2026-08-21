@@ -11,7 +11,7 @@ defined in more than one tracked source file, this glossary owns its single
 definition and the source copies must be removed. Counts describe current
 structure; they are not thresholds, budgets, or permission to retain copies.
 
-These 321 definitions are owner adjudications. Terms are distinguished by exact
+These 341 definitions are owner adjudications. Terms are distinguished by exact
 spelling and capitalization, so case-distinct terms remain distinct until an
 owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 --repo .` to re-derive the current multi-file definition set.
@@ -96,11 +96,13 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 | Dense row | Compact store array index used by hot simulation scans. |
 | Descriptor | Small binding record that tells the GPU or output-merger how to interpret a resource. |
 | Descriptor heap | DX12 table of descriptor rows; shader-visible heaps can be indexed by GPU commands. |
+| Detached presentation and simulation choices sampled after input for one frame. |  |
 | Development tool owner | A thread-local, hard-capped ImGui or Tracy scope that is permitted only when the shared development capability is compiled. |
 | Development UI command | Fixed presentation or native-window request emitted by the sequencer and applied synchronously by this automation owner. |
 | Diagnostic-name table | Fixed pointer table whose pointed-to scene names remain owned by stable scene metadata. |
 | Diagnostics artifact | File produced for validation, profiling, or analysis. |
 | Diagnostics view | Synchronous spans and references into one PhysicsEngine. |
+| Directed relationship from a grounded supporter to a supported body used for sleep propagation. |  |
 | Director playback | Runtime camera mode that applies authored shot-list poses plus optional phase styles and prediction reveal pacing. |
 | Draw command | Lightweight record describing a UI shape or text batch to render later in the frame. |
 | DRED (Device Removed Extended Data) | DX12 diagnostic report for GPU device loss, breadcrumbs, and page-fault clues. |
@@ -117,6 +119,8 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 | FBO (Framebuffer Object) | Engine shorthand for an off-screen render target exposed through the renderer abstraction. |
 | Feature ID | Deterministic contact key used to match rows across frames for warm starting. |
 | Fence | GPU/CPU synchronization counter used to prove submitted command work has completed before memory is reused. |
+| FIFO (First In, First Out) | Ordering rule where requests drain in their original submission order. |
+| Fixed pattern of depth-comparison samples averaged to soften a shadow edge deterministically. |  |
 | Fixed-step | Deterministic mode that advances physics by one fixed delta per requested tick instead of wall-clock time. |
 | Fixed-tree release | Store-owned command that turns authored fixed props into dynamic bodies and wakes same-tree parts after an accepted impulse. |
 | Fluid surface | World-space Y plane where the fluid medium begins. |
@@ -125,6 +129,7 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 | FNV (Fowler-Noll-Vo) | Small string hash used here to identify stable scope paths without storing dynamic lookup tables. |
 | FNV-1a | Small deterministic hash used only to prove each surface implementation consumed the same frame values; it is not durable identity or serialization. |
 | Focus mask | Dense frame-local rows faded around the selected path family. |
+| Focus resynchronization | First focused input sample after focus loss; held controls are sampled without manufacturing new press edges. |
 | Force frame | Ordered cylindrical field values plus per-body timer spans borrowed by Physics for exactly one fixed tick. |
 | Fork-join | Pattern where the main thread splits work, workers run chunks, and the main thread waits before merging results. |
 | Frame publication | One-time projection of owner-backed rows and values for synchronous render-pass consumption during the current frame. |
@@ -154,6 +159,7 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 | Hull identity | Cold normalized authored path plus exact canonical scale bits. |
 | Hull scale | Per-axis size multiplier for convex hull editor assets. |
 | HWND (Window Handle) | Win32 identifier for the native application window. |
+| Identity quaternion | No-rotation quaternion `(0,0,0,1)` that leaves a composed rotation unchanged. |
 | Input edge | Transition from not pressed to pressed, used for one-shot commands. |
 | Input turn | Ordered frame interval that samples hardware, offers actions to UI/tools/replay, and commits accepted capture/default/scene requests. |
 | Input turn result | Value-only process request emitted after semantic actions are interpreted; Run applies process-wide policy without rescanning input. |
@@ -179,6 +185,7 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 | Model row hint | Caller-owned cached dense-row guess that must be repaired or invalidated against stable identity before use. |
 | Mutual-gravity pair scratch | Preallocated triangular force table whose unique slots let workers compute pairs without racing or regrouping additions. |
 | Narrowphase | Precise collision pass that computes contact points, normals, and penetration. |
+| Nonzero object identity that remains authoritative when dense storage rows move. |  |
 | Numbered path | Prefix plus sequence number chosen to avoid overwriting an existing artifact. |
 | OBB (Oriented Bounding Box) | Box with rotation, used for exact object-space collision tests. |
 | Operator-owned state | Live runtime choice made after scene load. |
@@ -186,6 +193,7 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 | Overlay state view | Read-only replay publication borrowed for one late pass. |
 | Overlay viewport | Coupled pixel width and height used by overlay layout; the render-command target remains an explicit synchronous borrow. |
 | Override mask | Bitfield that records which optional JSON fields were authored so unspecified values keep engine.cfg defaults. |
+| Owned failure | Recoverable recoverable result already attributed to the subsystem owner and message that produced it. |
 | Owner | The tool or subsystem currently allowed to consume world input. |
 | Owner event | Stable wire-coded record of accepted owner work. |
 | Owner view | Three synchronous const store references plus Gameplay byte values projected by SceneWorld. |
@@ -199,12 +207,14 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 | Persistent membership | Cell occupancy retained across fixed steps until a body's integer cell range changes. |
 | Persistent tail | Fixed suffix excluded from ordinary frame resets so retained GPU geometry can reuse cold-created upload memory across frames. |
 | PGS (Projected Gauss-Seidel) | Iterative constraint-solver method used for bounded contact impulses. |
-| Phase cursor | Value that permits only the adjacent OC0 phase walk. |
+| Phase cursor | Value that permits only the adjacent input-arbitration phase walk. |
 | Physics body handle | Generational id for the picked body-store row. |
 | Physics diagnostic command | One-frame key or UI request that changes debug presentation state, not simulation state. |
 | Physics material | Runtime policy for collider friction and sphere drag. |
 | Physics-debug override | Visualization-only startup request that must not alter solver state. |
+| Physics-owned copy of process configuration stamped into fixed-step stage owners. |  |
 | Pick purpose | The tool-specific policy for interpreting a mouse ray. |
+| Pick ray | World-space ray projected from a screen-space pointer for selection and tool interaction. |
 | Pipeline cursor | Selected physics pipeline stage rendered by the debug pass. |
 | PIX | Microsoft GPU debugger/profiler that can read engine markers and DX12 object names. |
 | Placement gesture | Mouse drag and wheel input used to size an object before placement commits. |
@@ -230,13 +240,15 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 | Projection | Conversion from the common queue back into established narrow UI command structs consumed by concrete runtime owners. |
 | PSO (Pipeline State Object) | Precompiled bundle of shaders and fixed render state that DX12 binds before drawing or dispatching. |
 | Publication | Owner-produced save value; SceneWorld's publication borrows its stores only for the duration of this operation. |
+| Publication token | Monotonic version that invalidates retained readers when an owner replaces published data. |
 | Published prefix | Contiguous completed rows that a reader may consume after the owning publication boundary. |
 | Ragdoll part | One model body in the generated simple ragdoll assembly. |
 | RayT | Distance along the supplied pick ray to the first shape hit. |
 | Readback buffer | CPU-readable landing resource for a GPU texture copy. |
-| Recoverable Error | Recoverable error-handling path for external input or environment failure, represented by an `SbResult` without exceptions or fatal termination. |
 | Record version | Monotonic identity for a replaced record; readers can detect replacement without comparing point arrays. |
 | Recording epoch | One reusable command-list lifetime from successful Reset to Close. |
+| Recoverable Error | Recoverable error-handling path for external input or environment failure, represented by an `SbResult` without exceptions or fatal termination. |
+| Registered capacity increase allowed only for its named replay owner, phase gate, and hard cap. |  |
 | Render command context | Renderer capability borrowed only while drawing a collision-visualizer frame. |
 | Render diagnostics | Renderer capability borrowed to name child draw-trace scopes without reopening global renderer access. |
 | Render instance | CPU-side record describing one model's draw transform and material intent. |
@@ -249,6 +261,7 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 | Replay visual sample | Compact snapshot of tool visuals restored while replay scrubbing so debug feedback follows recorded frames. |
 | Request batch | Ordered fixed-capacity copy drained at one frame checkpoint. |
 | Required contact | Named body pair that must touch before automation completes. |
+| Reserve owner | Named runtime storage owner with an initial capacity, hard cap, and capacity telemetry row. |
 | Reset snapshot | Value-only copy of owner state preserved across same-scene reset. |
 | Resource builder | Cold renderer owner borrowed only while compiling the laser shader. |
 | Resource context | Creation/rebuild-only render factory bundle used by EnsureGpuResources methods, not by draw methods. |
@@ -258,6 +271,7 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 | Retained ribbon chunk | Fixed compact segment slice appended by prediction; its physical handle is stable while packet commands sort it canonically. |
 | Retention window | Maximum authored duration requested for retained past samples. |
 | Retirement quarantine | Fixed queue holding resources or descriptor rows until a covering fence completes. |
+| Reuse of a matching previous-tick accumulated impulse to stabilize the current solver step. |  |
 | Reveal cursor | Monotonic presentation frame reached by the prediction clock. |
 | Ribbon | Thin render strip used for the laser core and glow. |
 | Ring buffer | Fixed-size history where new launcher/raycast entries overwrite the oldest slots. |
@@ -287,6 +301,7 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 | Shader handle | Runtime id that resolves to renderer-owned shader state. |
 | Shadow caster stream | Owner-prepared opaque bin selecting one primitive submission path without inspecting material or asset content here. |
 | Shared editor view | Frame-owned storage passed to the operator-editor composer and then consumed by the selected development frontend. |
+| Signed world-space adjustment emitted by input instead of exposing device state to the world owner. |  |
 | SkullScope | Structured Physics diagnostic capture and query surface used by validation and tooling. |
 | Sky feature | Toggle for sky, clouds, god rays, or volumetric lighting. |
 | Sky slider | Focused cinematic parameter slider owned by this tab. |
@@ -297,16 +312,21 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 | Solver object | Exact-count validation object used by deterministic physics scenes. |
 | Solver sample | Physics-facing state retained for rollback and diagnostics. |
 | Solver snapshot | Physics state retained at a tick boundary for deterministic restore and diagnostic comparison. |
+| Source asset | CPU-side authored record used to resolve or rebuild a backend resource without owning that resource. |
 | Sphere cap | Portion of a sphere below the fluid surface; its analytic volume gives a deterministic submerged fraction without sampling. |
 | SRV (Shader Resource View) | Descriptor row used when shaders read textures or buffers. |
+| Stable engine-facing string key used to resolve an authored source asset. |  |
+| Stable UI catalog row resolved to a current renderer texture only during submission. |  |
 | Step policy | Once-per-solve normalized view of authored contact bounds used by both object and terrain rows. |
 | Sticky failure | First active command-path failure retained until a new device initialization establishes a fresh command-list lifetime. |
 | Style scene | Authored scene used as material/cinematic source data. |
 | Submission | Conversion of selected replay values into bounded draw commands. |
+| Submitted work | GPU queue work that remains unsafe for reuse or release until a covering fence completes. |
 | Submitted-frame mark | One Tracy frame boundary emitted only after DX12 Present succeeds. |
 | Support edge budget | Fixed four-edges-per-body storage ceiling shared by contact and point-joint producers. |
 | Surface | Presentation boundary or ordered control surface exposed for one UI or operator domain. |
 | Swept overlay | One-step grid coverage of a body's start-to-end path that cannot pollute its persistent current-position membership. |
+| Synthetic failure | Generic owned failure created from a nonzero message-style process exit when no richer result exists. |
 | Terrain sweep | Continuous collision query against the terrain plane under a body. |
 | Test Probe | Bounded validation or probe-result path; it reports proof evidence and is not production error handling. |
 | TLAS (Top-Level Acceleration Structure) | Raytracing spatial index for scene instances that point at BLAS geometry. |
@@ -315,8 +335,7 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 | Transport command | Presentation-independent record, scrub, prediction, or artifact intent translated by ReplayRuntime into existing replay owners. |
 | Tween | Time-based interpolation between camera poses for non-jarring cuts. |
 | UAV (Unordered Access View) | Descriptor row used when compute or raytracing shaders write textures or buffers. |
-| UI (User Interface) | Runtime controls and overlays drawn over the 3D scene. |
-| UI (user interface) | Interactive engine controls evaluated between the input router's pre-UI and after-UI phases. |
+| UI (User Interface) | Interactive runtime controls and overlays drawn over the 3D scene between the input router's pre-UI and after-UI phases. |
 | UI options | Optional `ui` block parsed from a `.scene.json` file. |
 | UI override | Live Scene/Run-tab value that survives an interactive reset and feeds the next generated-scene rebuild. |
 | UI stress | Deterministic diagnostics input churn driven by scene data. |
@@ -336,6 +355,7 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 | Warmup frame | Completed frame intentionally excluded from profiler stats and perf CSV rows while a scene/pass settles. |
 | Widget view | Short-lived typed references to owner-held controls whose bounds are shared by input hit testing and drawing. |
 | Win32 | Windows desktop API used for the app window, messages, and process integration. |
+| Wire code | Explicit serialized value whose meaning is independent of C++ enum ordinals. |
 | WndProc | Win32 window callback that receives mouse wheel and raw mouse packets before the frame boundary captures input. |
 | Worker pool | Persistent thread group that runs bounded jobs outside the main thread. |
 | Workspace | Coarse runtime mode such as live, inspect, edit, or replay. |

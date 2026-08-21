@@ -4,7 +4,7 @@
 # Purpose:
 #   Documents and runs the update_baselines.py developer/validation helper script.
 #
-# Mental model:
+# Summary:
 #   Tools are command-line guardrails around builds, validation, screenshots,
 #   diagnostics, and artifact handling. They make the safe path repeatable and
 #   keep output bounded for humans and agents.

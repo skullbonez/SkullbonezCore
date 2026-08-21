@@ -208,7 +208,7 @@ After IH7 has committed its final source and comment work:
   overlaps, and both known direct conflicts. Mark redundant replacements as
   satisfied by current truth, regenerate stale replacements, and produce a
   conflict-free patch plus exact per-file dispositions before live source edits.
-- [ ] **CT1 — Apply infrastructure, generated-data, shader, test, and tool
+- [x] **CT1 — Apply infrastructure, generated-data, shader, test, and tool
   replacements.** Land the non-engine batches, synchronize the generated shader
   reflection producer, and prove script/command semantics plus generated output.
 - [ ] **CT2 — Apply lower-layer engine replacements.** Re-audit and update
@@ -236,56 +236,56 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 
 ### `.githooks`
 
-- [ ] `.githooks/check-braces.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `.githooks/check-headers.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `.githooks/fix-line-endings.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `.githooks/run-clang-format.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `.githooks/trim-whitespace.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `.githooks/check-braces.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `.githooks/check-headers.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `.githooks/fix-line-endings.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `.githooks/run-clang-format.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `.githooks/trim-whitespace.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 
 ### `Agentic`
 
-- [ ] `Agentic/Manuals/SkullbonezCoreManual/build_manual.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `Agentic/Skills/collapse_params.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `Agentic/Skills/loc_count.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `Agentic/Skills/orchestrator/scripts/resolve_nightrunner_branch.ps1` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `Agentic/Manuals/SkullbonezCoreManual/build_manual.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `Agentic/Skills/collapse_params.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `Agentic/Skills/loc_count.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `Agentic/Skills/orchestrator/scripts/resolve_nightrunner_branch.ps1` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `Agentic/Skills/orchestrator/scripts/work_ledger.bat` -- inspected; no replacement required
 - [x] `Agentic/Skills/orchestrator/scripts/work_ledger.ps1` -- inspected; no replacement required
 - [x] `Agentic/Skills/render-work-ledger/scripts/render_work_ledger.py` -- inspected; no replacement required
-- [ ] `Agentic/Skills/skore-cpu-profiler/analyze_markers.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `Agentic/Skills/skore-cpu-profiler/cleanup_markers.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `Agentic/Skills/skore-render-test/analyze_perf.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `Agentic/Skills/skore-render-test/perf_compare.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `Agentic/Tests/Dx12ArchUnitTests/Dx12ArchUnitTests.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `Agentic/Tests/RuntimeInteractionPolicyTests/RuntimeInteractionPolicyTests.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `Agentic/Tests/SceneParserUnitTests/SceneParserUnitTests.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `Agentic/Skills/skore-cpu-profiler/analyze_markers.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `Agentic/Skills/skore-cpu-profiler/cleanup_markers.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `Agentic/Skills/skore-render-test/analyze_perf.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `Agentic/Skills/skore-render-test/perf_compare.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `Agentic/Tests/Dx12ArchUnitTests/Dx12ArchUnitTests.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `Agentic/Tests/RuntimeInteractionPolicyTests/RuntimeInteractionPolicyTests.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `Agentic/Tests/SceneParserUnitTests/SceneParserUnitTests.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `Agentic/Tests/UiBoundaryUnitTests/UiBoundaryUnitTests.cpp` -- inspected; no replacement required
 
 ### `SkullbonezData`
 
-- [ ] `SkullbonezData/generated/GeneratedShaderReflection.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`; producer synchronization is specified above
-- [ ] `SkullbonezData/shaders/UIBackdropBlur.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezData/shaders/collision_visualizer.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezData/shaders/generate_mips.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezData/shaders/grid_line.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezData/shaders/launcher_laser.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezData/shaders/lit_textured.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezData/shaders/lit_textured_instanced.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezData/shaders/post_tonemap.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezData/shaders/post_volumetric_light.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezData/shaders/reflect.rt.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezData/shaders/shadow_depth.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezData/shaders/shadow_depth_instanced.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezData/shaders/sky_atmosphere.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezData/shaders/soft_additive_ribbon.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezData/shaders/solid_color.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezData/shaders/solid_color_batch.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezData/shaders/text.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezData/shaders/trajectory_ribbon.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezData/shaders/transient_colored_triangles.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezData/shaders/ui_render_target_preview.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezData/shaders/unlit_textured.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezData/shaders/water_calm.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezData/shaders/water_ocean.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezData/generated/GeneratedShaderReflection.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`; producer synchronization is specified above
+- [x] `SkullbonezData/shaders/UIBackdropBlur.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezData/shaders/collision_visualizer.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezData/shaders/generate_mips.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezData/shaders/grid_line.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezData/shaders/launcher_laser.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezData/shaders/lit_textured.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezData/shaders/lit_textured_instanced.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezData/shaders/post_tonemap.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezData/shaders/post_volumetric_light.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezData/shaders/reflect.rt.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezData/shaders/shadow_depth.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezData/shaders/shadow_depth_instanced.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezData/shaders/sky_atmosphere.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezData/shaders/soft_additive_ribbon.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezData/shaders/solid_color.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezData/shaders/solid_color_batch.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezData/shaders/text.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezData/shaders/trajectory_ribbon.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezData/shaders/transient_colored_triangles.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezData/shaders/ui_render_target_preview.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezData/shaders/unlit_textured.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezData/shaders/water_calm.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezData/shaders/water_ocean.hlsl` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 
 ### `SkullbonezSource`
 
@@ -903,197 +903,197 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 
 ### `SkullbonezTests`
 
-- [ ] `SkullbonezTests/TestApplicationExitState.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezTests/TestAssetSystem.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestApplicationExitState.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestAssetSystem.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezTests/TestBounds.cpp` -- inspected; no replacement required
 - [x] `SkullbonezTests/TestCamera.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezTests/TestColliderStoreFixtures.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezTests/TestCollisionShapeFixtures.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestColliderStoreFixtures.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestCollisionShapeFixtures.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezTests/TestConfig.cpp` -- inspected; no replacement required
 - [x] `SkullbonezTests/TestContinuousOrbitalStability.cpp` -- inspected; no replacement required
 - [x] `SkullbonezTests/TestContinuousPredictionProducer.cpp` -- inspected; no replacement required
 - [x] `SkullbonezTests/TestConvexHull.cpp` -- inspected; no replacement required
 - [x] `SkullbonezTests/TestDeterminism.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezTests/TestDeterministicMath.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestDeterministicMath.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezTests/TestDx12CachedPsoStore.cpp` -- inspected; no replacement required
 - [x] `SkullbonezTests/TestDx12OnlyRuntime.cpp` -- inspected; no replacement required
 - [x] `SkullbonezTests/TestEditorCommandHistory.cpp` -- inspected; no replacement required
 - [x] `SkullbonezTests/TestEditorTerrainOrientation.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezTests/TestFatalCases.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestFatalCases.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezTests/TestFixedSeed.h` -- inspected; no replacement required
 - [x] `SkullbonezTests/TestFrustum.cpp` -- inspected; no replacement required
 - [x] `SkullbonezTests/TestGeometricMath.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezTests/TestInputRouter.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezTests/TestLookLabController.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestInputRouter.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestLookLabController.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezTests/TestLookLabGenerator.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezTests/TestLookLabSerialization.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestLookLabSerialization.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezTests/TestMain.cpp` -- inspected; no replacement required
 - [x] `SkullbonezTests/TestMatrix4.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezTests/TestObjectContactManifold.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezTests/TestOperatorCommandTransaction.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestObjectContactManifold.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestOperatorCommandTransaction.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezTests/TestOrbitalMechanics.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezTests/TestOwnerRequestQueues.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezTests/TestPersistentContactSolver.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezTests/TestPhysicsApi.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezTests/TestPhysicsHandles.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestOwnerRequestQueues.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestPersistentContactSolver.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestPhysicsApi.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestPhysicsHandles.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezTests/TestPhysicsPoseIntegration.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezTests/TestPhysicsStageState.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezTests/TestQuaternion.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestPhysicsStageState.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestQuaternion.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezTests/TestRagdoll.cpp` -- inspected; no replacement required
 - [x] `SkullbonezTests/TestRenderGraph.cpp` -- inspected; no replacement required
 - [x] `SkullbonezTests/TestReplayArtifact.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezTests/TestReplayCauseInspection.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestReplayCauseInspection.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezTests/TestReplayDeterminism.cpp` -- inspected; no replacement required
 - [x] `SkullbonezTests/TestReplayGuideArcs.cpp` -- inspected; no replacement required
 - [x] `SkullbonezTests/TestReplayInterceptReadout.cpp` -- inspected; no replacement required
 - [x] `SkullbonezTests/TestReplayPorkchopPanel.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezTests/TestReplayPredictionScheduling.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestReplayPredictionScheduling.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezTests/TestReplayPredictionSolverEvidenceStore.cpp` -- inspected; no replacement required
 - [x] `SkullbonezTests/TestReplayRecorder.cpp` -- inspected; no replacement required
 - [x] `SkullbonezTests/TestReplayRecorderFullCaptureBoundary.cpp` -- inspected; no replacement required
 - [x] `SkullbonezTests/TestReplayTripPlanner.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezTests/TestReplayVisualPacket.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezTests/TestReserveAllocator.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezTests/TestResultLoadFixtures.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezTests/TestRuntimeContracts.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezTests/TestRuntimeInputBindings.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezTests/TestRuntimeValueSeams.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestReplayVisualPacket.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestReserveAllocator.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestResultLoadFixtures.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestRuntimeContracts.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestRuntimeInputBindings.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestRuntimeValueSeams.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezTests/TestSbResult.cpp` -- inspected; no replacement required
 - [x] `SkullbonezTests/TestSbResultAccess.h` -- inspected; no replacement required
 - [x] `SkullbonezTests/TestSceneAuthoredImpulseSetup.cpp` -- inspected; no replacement required
 - [x] `SkullbonezTests/TestSceneAutomationGates.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezTests/TestSceneEntityStore.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestSceneEntityStore.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezTests/TestSceneParserUnit.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezTests/TestSceneSnapshotWriter.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestSceneSnapshotWriter.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezTests/TestShaderReflectionContracts.cpp` -- inspected; no replacement required
 - [x] `SkullbonezTests/TestShadow.cpp` -- inspected; no replacement required
 - [x] `SkullbonezTests/TestSimulationSystem.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezTests/TestSleepController.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestSleepController.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezTests/TestSmoke.cpp` -- inspected; no replacement required
 - [x] `SkullbonezTests/TestSolverBroadphaseStage.cpp` -- inspected; no replacement required
 - [x] `SkullbonezTests/TestSpatialGrid.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezTests/TestStartup.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezTests/TestTerrain.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezTests/TestUIDrawValues.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezTests/TestVector3.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestStartup.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestTerrain.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestUIDrawValues.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezTests/TestVector3.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 
 ### `tools`
 
-- [ ] `tools/agent_validate.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/align_header_inline_comments.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/agent_validate.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/align_header_inline_comments.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `tools/analyze_at_rest_stability.py` -- inspected; no replacement required (late-arriving in-flight file)
 - [x] `tools/analyze_replay_prediction_spikes.py` -- inspected; no replacement required
-- [ ] `tools/archive_validation_artifacts.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/archive_validation_artifacts.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/bake_hulls.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/bake_hulls.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/archive_validation_artifacts.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/archive_validation_artifacts.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/bake_hulls.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/bake_hulls.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `tools/bake_shaders.bat` -- inspected; no replacement required
-- [ ] `tools/bake_shaders.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/capture_ui_screenshot.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/check_allocation_policy.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/bake_shaders.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/capture_ui_screenshot.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/check_allocation_policy.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `tools/check_at_rest_stability_analyzer.py` -- inspected; no replacement required (late-arriving in-flight file)
-- [ ] `tools/check_broadphase_pair_stream_oracle.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/check_build_config_consistency.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/check_broadphase_pair_stream_oracle.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/check_build_config_consistency.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `tools/check_causal_tree_interaction.py` -- inspected; no replacement required
-- [ ] `tools/check_contact_energy_scenes.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/check_coverage.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/check_contact_energy_scenes.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/check_coverage.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `tools/check_dependency_graph.py` -- inspected; no replacement required
 - [x] `tools/check_determinism_math_policy.py` -- inspected; no replacement required
-- [ ] `tools/check_dx12_baselines.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/check_dx12_validation.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/check_perf_budgets.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/check_physics_known_issue_regression.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/check_physics_query_regression.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/check_physics_regression.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/check_related_paths.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/check_dx12_baselines.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/check_dx12_validation.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/check_perf_budgets.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/check_physics_known_issue_regression.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/check_physics_query_regression.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/check_physics_regression.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/check_related_paths.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `tools/check_replay_prediction_determinism.py` -- inspected; no replacement required
-- [ ] `tools/check_replay_scrub_regression.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/check_replay_scrub_regression.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `tools/check_replay_v2_artifact.py` -- inspected; no replacement required
-- [ ] `tools/check_replay_visual_fidelity.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/check_shooting_reaction.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/check_staged_file_sizes.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/check_ui_blur.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/check_replay_visual_fidelity.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/check_shooting_reaction.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/check_staged_file_sizes.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/check_ui_blur.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `tools/codex_usage_daily.bat` -- inspected; no replacement required
 - [x] `tools/cpp_source_scan.py` -- inspected; no replacement required
-- [ ] `tools/export_screenshot_png.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/find_clang_format.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/find_git.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/find_msbuild.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/find_python.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/format_fix.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/generate_physics_scale_sleepy_scene.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/inventory_authority_free_aggregates.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/inventory_extraction_scars.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/inventory_function_complexity.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/inventory_glossary_terms.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/inventory_unreachable_symbols.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/export_screenshot_png.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/find_clang_format.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/find_git.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/find_msbuild.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/find_python.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/format_fix.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/generate_physics_scale_sleepy_scene.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/inventory_authority_free_aggregates.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/inventory_extraction_scars.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/inventory_function_complexity.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/inventory_glossary_terms.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/inventory_unreachable_symbols.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `tools/inventory_wide_signatures.py` -- inspected; no replacement required
-- [ ] `tools/launch_tracy_viewer.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/loc_count.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/launch_tracy_viewer.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/loc_count.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `tools/measure_causal_inspection_perf.py` -- inspected; no replacement required
 - [x] `tools/measure_dense_pile_sleep.py` -- inspected; no replacement required
 - [x] `tools/migrate_data_formats.py` -- inspected; no replacement required
-- [ ] `tools/physics_query.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/physics_query.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `tools/physics_query.py` -- inspected; no replacement required
-- [ ] `tools/refresh_hulls.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/replay_query.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/refresh_hulls.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/replay_query.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `tools/replay_query.py` -- inspected; no replacement required
-- [ ] `tools/run_graphics_stress.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/run_graphics_stress.ps1` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/run_graphics_stress.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/run_graphics_stress.ps1` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `tools/separate_multiline_cpp_declarations.py` -- inspected; no replacement required
-- [ ] `tools/style_harness.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/style_harness.ps1` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/style_harness.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/style_harness.ps1` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `tools/test_analyze_replay_prediction_spikes.py` -- inspected; no replacement required
-- [ ] `tools/update_baselines.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/update_baselines.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/validate_all_cpu_tests.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/validate_alt_velocity_visualization.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/update_baselines.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/update_baselines.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_all_cpu_tests.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_alt_velocity_visualization.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `tools/validate_at_rest_stability.bat` -- inspected; no replacement required (late-arriving in-flight file)
-- [ ] `tools/validate_automation.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/validate_build.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/validate_build_all.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/validate_concepts.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/validate_concepts.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/validate_coverage.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/validate_deep.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/validate_demo_stress.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_automation.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_build.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_build_all.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_concepts.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_concepts.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_coverage.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_deep.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_demo_stress.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `tools/validate_dependency_graph.bat` -- inspected; no replacement required
-- [ ] `tools/validate_dx12_arch_tests.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/validate_dx12_fault_injection.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/validate_dx12_renderer.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_dx12_arch_tests.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_dx12_fault_injection.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_dx12_renderer.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `tools/validate_fast.bat` -- inspected; no replacement required
-- [ ] `tools/validate_format.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_format.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `tools/validate_full.bat` -- inspected; no replacement required
-- [ ] `tools/validate_interaction_clicks.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_interaction_clicks.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `tools/validate_look_lab_reuse.py` -- inspected; no replacement required
 - [x] `tools/validate_native_diagnostics.bat` -- inspected; no replacement required
 - [x] `tools/validate_native_diagnostics.py` -- inspected; no replacement required
-- [ ] `tools/validate_perf.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_perf.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `tools/validate_physics.bat` -- inspected; no replacement required
-- [ ] `tools/validate_physics_deep.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/validate_physics_query.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/validate_project_filters.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_physics_deep.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_physics_query.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_project_filters.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `tools/validate_project_filters.py` -- inspected; no replacement required
-- [ ] `tools/validate_ready_builds.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/validate_renderers.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_ready_builds.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_renderers.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `tools/validate_replay_allocation_policy.bat` -- inspected; no replacement required
 - [x] `tools/validate_replay_prediction_frame_spikes.bat` -- inspected; no replacement required
-- [ ] `tools/validate_replay_scrub.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/validate_replay_v2_artifact.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_replay_scrub.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_replay_v2_artifact.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `tools/validate_replay_visual_fidelity.bat` -- inspected; no replacement required
-- [ ] `tools/validate_runtime_interaction_policy.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/validate_scene_loads.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/validate_scene_loads.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/validate_scene_parser_tests.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/validate_select.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/validate_shaders.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/validate_shaders.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/validate_tests.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_runtime_interaction_policy.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_scene_loads.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_scene_loads.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_scene_parser_tests.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_select.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_shaders.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_shaders.py` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_tests.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `tools/validate_ui.bat` -- inspected; no replacement required
 - [x] `tools/validate_ui_boundary_tests.bat` -- inspected; no replacement required
-- [ ] `tools/validate_ui_stress.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/watch_demo_stress.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `tools/watch_ui_stress.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/validate_ui_stress.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/watch_demo_stress.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `tools/watch_ui_stress.bat` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 
 ## Reconciliation Totals
 

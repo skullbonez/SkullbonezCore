@@ -10,7 +10,7 @@ Summary:
   reflects the resulting bytecode, and updates generated assets only when
   their bytes actually change.
 
-Mental model:
+
   The manifest is a content-addressed handoff between authoring and startup.
   Each row binds one source, entry point, target, and fixed compiler command to
   one bytecode file; --check verifies those hashes without rewriting assets.

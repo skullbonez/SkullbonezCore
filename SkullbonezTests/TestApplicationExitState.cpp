@@ -1,4 +1,4 @@
-/*
+  - Agentic/Reference/engine-glossary.md/*
 File: SkullbonezTests/TestApplicationExitState.cpp
 Purpose:
   Verifies application-exit request, failure precedence, bounded diagnostics,
@@ -10,9 +10,7 @@ Summary:
   must retain the most useful failure without requiring a real window loop.
 
 Glossary:
-  Owned failure: recoverable result carrying the subsystem owner and message that
-    originally explained why the run must stop.
-  Synthetic failure: Generic failure created only from a nonzero message code.
+
   Precedence: Stable rule selecting the first owned failure over later exit data.
 
 Invariants:

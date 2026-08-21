@@ -4,7 +4,7 @@
 @rem   Preserves the historical replay-scrub entry point while delegating to
 @rem   the authoritative 200-box replay visual-fidelity gate.
 @rem
-@rem Mental model:
+@rem Summary:
 @rem   Tools are command-line guardrails around builds, validation, screenshots,
 @rem   diagnostics, and artifact handling. This file is a compatibility entry
 @rem   point, not a second oracle: the complete visual, causal, deterministic,

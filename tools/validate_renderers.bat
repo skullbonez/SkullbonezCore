@@ -3,7 +3,7 @@
 @rem Purpose:
 @rem   Compatibility alias for the retired tri-renderer validation command.
 @rem
-@rem Mental model:
+@rem Summary:
 @rem   DX12 is now the only runtime renderer. Old habits and older plans may
 @rem   still mention validate_renderers.bat, so this wrapper keeps those commands
 @rem   productive while routing them to the DX12 screenshot and InfoQueue gate.

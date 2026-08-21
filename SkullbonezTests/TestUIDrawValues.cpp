@@ -10,7 +10,6 @@ Summary:
   detached memory rows, window interaction, and every production surface.
 
 Glossary:
-  Preview identity: UI catalog row resolved to a texture only during submission.
   Clip stack: Nested screen rectangles constraining later draw commands.
   Capacity row: Runtime-owned label and numeric values rendered without a live
     allocator borrow.
@@ -22,6 +21,7 @@ Invariants:
   - Memory rows sort largest-resident-first without exhausting draw storage.
 
 Related:
+  - Agentic/Reference/engine-glossary.md
   - SkullbonezSource/UI/UIDrawList.h
   - SkullbonezSource/UI/UIFontMetrics.h
 */
@@ -287,19 +287,19 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
     };
     constexpr uint64_t expected[] = {
 
-        // Profiler: refreshed when the per-marker Work column was added so
+        // Why: the profiler fingerprint was refreshed when the per-marker Work column was added so
         // worker-thread time stopped being summed into the frame-thread rows.
         // Only this surface moved; the other ten fingerprints prove the column
         // did not disturb any other tab's stream.
 #if defined( SKULLBONEZ_PORTABLE_CPU )
-        // The portable target links the non-instrumented UI library, matching
+        // Why: the portable target links the non-instrumented UI library, matching
         // the standalone UI boundary executable rather than the Profile app.
         17282268762934632125ull,
 #else
         16424379413615724563ull,
 #endif
-        // Scene: the rolling-prediction checkbox and forecast stability rows
-        // are part of the committed operator stream.
+        // Invariant: scene continuous-forecast controls and stability rows are part of
+        // the committed operator stream.
         12227598808358033913ull,
         643319089294822447ull,
         9774020997193876338ull,

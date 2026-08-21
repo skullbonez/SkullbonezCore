@@ -12,7 +12,7 @@ Summary:
   own-TU-only, and test-only rows. Exact current-source owner rulings make every
   reported row reviewable without turning the population into a count budget.
 
-Mental model:
+
   This is a review inventory, not a linker. A row means no decorated-object or
   unique source edge roots the definition through the current production relay
   graph. The row still names lexical uncertainty; owner evidence remains

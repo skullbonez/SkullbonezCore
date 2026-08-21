@@ -1,4 +1,4 @@
-//
+//   - Agentic/Reference/engine-glossary.md//
 // File: SkullbonezTests/TestReserveAllocator.cpp
 // Purpose:
 //   Lock allocation-tracker phase accounting and RuntimeReserveAllocator
@@ -11,20 +11,13 @@
 //   Reportable stores also publish per-scene capacity rows and unload text.
 //
 // Glossary:
-//   Reserve owner: Named runtime storage owner with an initial capacity and hard
-//     capacity budget.
-//   Replay growth: Bounded capacity increase allowed only while replay tools are
-//     doing replay-phase work.
+
 //   Development tool owner: Thread-local ImGui or Tracy attribution that admits
 //     bounded vendor storage without changing the process gameplay phase.
 //   Growth event: Fixed-ring diagnostic row recording one grant or denial.
 //   Capacity session: One scene's live/high-water interval, advanced after the
 //     preceding scene is cleared.
-//   Lifecycle phase: Always-on calling-thread label used by allocation and
-//     upload policies even when allocation counting is disabled.
-//   Allocation guard: Process-wide measurement mode that attributes global
-//     heap requests to lifecycle phases and flags steady-gameplay violations.
-//
+
 // Invariants:
 //   - Gameplay-phase owners never receive replay growth approval.
 //   - Denied growth increments policy violations and still records an event.

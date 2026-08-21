@@ -1,4 +1,4 @@
-//
+//   - Agentic/Reference/engine-glossary.md//
 // File: SkullbonezTests/TestAssetSystem.cpp
 // Purpose:
 //   Locks asset-library source registration and lookup behavior used by scene parsing.
@@ -10,10 +10,7 @@
 //
 // Glossary:
 //   Asset library: JSON recipe file containing reusable placeable assets.
-//   Logical asset name: Stable string key such as `assetlib.buildings` used by
-//     scenes and tools instead of raw paths.
-//   Source asset: CPU-side load description, not a renderer-created GPU resource.
-//
+
 // Invariants:
 //   - Asset ids are assigned by AssetSystem and remain stable for the registered row.
 //   - Built-in asset libraries must stay discoverable by their logical names.

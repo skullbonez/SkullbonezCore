@@ -3,7 +3,7 @@
 @rem Purpose:
 @rem   Builds and runs CPU-only scene parser unit tests.
 @rem
-@rem Mental model:
+@rem Summary:
 @rem   Parser tests exercise user-facing scene/style authoring syntax without
 @rem   launching the renderer or updating screenshot baselines.
 @rem

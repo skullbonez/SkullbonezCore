@@ -759,7 +759,7 @@ TEST_CASE( "Replay cause solver panel: copied rows survive restore sources and s
     CHECK( layout.visibleRows == 4 );
     CHECK( layout.content.h >= layout.rowHeight * 4.0f );
 
-    // The panel has no second placement state: every cause-window drag or
+    // Invariant: the panel has no second placement state: every cause-window drag or
     // resize moves the adjacent surface through this same projection.
     causeTree.x = 1180;
     causeTree.y = 140;
@@ -1081,7 +1081,7 @@ TEST_CASE( "Replay cause inspection: pause ownership survives pre-pause, Space, 
         inspection.Advance( 2.68 );
         CHECK_FALSE( inspection.View().detailVisible );
 
-        // Direct retargeting from aftermath reacquires only the pause released
+        // Invariant: direct retargeting from aftermath reacquires only the pause released
         // above and keeps the same bounded transition owner.
         ReplayCauseSeekResult retarget = seek;
         retarget.frame = 15u;
@@ -1297,7 +1297,7 @@ TEST_CASE( "Replay cause inspection: elapsed curve is cadence independent and co
             elapsed += cadence;
         }
 
-        // The owner samples total wall-clock elapsed, so render cadence does
+        // Invariant: the owner samples total wall-clock elapsed, so render cadence does
         // not enter the curve evaluation even when the last interval is partial.
         elapsed = 0.75;
         CHECK( EvaluateReplayCauseTransitionProgress( elapsed ) == doctest::Approx( reference ) );

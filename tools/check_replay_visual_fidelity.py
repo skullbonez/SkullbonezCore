@@ -3,7 +3,7 @@ Purpose:
   Turns the Automation interaction report into a bounded, immutable golden contract
   for every deterministic prediction reveal frame.
 
-Mental model:
+Summary:
   One hidden engine process records the approved prediction once. This checker
   compares that report with the golden and inspects the saved artifact bytes.
   It never launches a second engine or presents reconstructed visuals.

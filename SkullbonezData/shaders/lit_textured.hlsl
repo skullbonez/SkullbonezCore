@@ -1,29 +1,22 @@
 /*
 File: SkullbonezData/shaders/lit_textured.hlsl
 Purpose:
-  Runs the lit_textured HLSL shader program used by the renderer.
+  Shade non-instanced terrain and object geometry with textures, lighting,
+  and two shadow scales.
 
 Summary:
-  lit_textured.hlsl is shader source for the renderer's lit_textured pass.
-  Keep edits anchored on shader inputs, bindings, and render-output contracts
-  and on the glossary/invariants below.
-
-Glossary:
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
-  Broad shadow map: Terrain-sized depth projection used as the fallback across
-    the authored world.
-  Detail shadow map: Tighter object-centered depth projection that replaces the
-    broad result only inside its valid receiver footprint.
-  Percentage-closer filtering (PCF): Averages fixed depth-comparison taps to
-    soften a shadow edge while keeping the tap pattern deterministic.
+  The vertex stage publishes world/view data and the pixel stage combines
+  bindless material color with broad and detail shadow maps. The detail map
+  replaces the broad result only inside its receiver footprint.
 
 Invariants:
-  - CPU-side root signatures, input layouts, and descriptor bindings must
+- CPU-side root signatures, input layouts, and descriptor bindings must
   match this shader exactly.
   - The detail map occupies bindless payload index 5; index 4 remains the
     instanced material-table ABI.
+
+Related:
+  - Agentic/Reference/engine-glossary.md
 */
 // =============================================================================
 // LIT TEXTURED SHADER — Shader Model 6.6 (Combined Vertex + Pixel Shader)

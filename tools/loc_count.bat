@@ -4,7 +4,7 @@
 @rem   Reports source logical lines of code, then summarizes tracked file counts
 @rem   and physical line counts by common SkullbonezCore file category.
 @rem
-@rem Mental model:
+@rem Summary:
 @rem   The Python helper owns the existing logical LOC report for first-party C++
 @rem   source. The footer uses git-tracked files so generated, ignored, and build
 @rem   output directories do not inflate the file inventory.

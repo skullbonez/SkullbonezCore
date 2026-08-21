@@ -15,7 +15,7 @@ Summary:
   owner-review surface. It reports member count, whether the type names an
   invariant, and lexical construction/consumer sites.
 
-Mental model:
+
   A legitimate aggregate answers "what rule do I enforce?" — a phase order, a
   lifetime, an arbitration policy — and its header says so in an `Invariant:`
   block. An authority-free bag answers only "what does this call need?", so it is

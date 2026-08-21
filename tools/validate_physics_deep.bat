@@ -3,7 +3,7 @@
 @rem Purpose:
 @rem   Runs the opt-in broad physics regression sweep.
 @rem
-@rem Mental model:
+@rem Summary:
 @rem   The default physics gate stays cheap. This script keeps the broader
 @rem   deterministic coverage available for collision, baseline, and diagnostic
 @rem   work that warrants the extra executable launches.

@@ -4,7 +4,7 @@ Purpose:
   Verifies that repository-relative entries in source learning-header
   `Related:` blocks resolve to existing repository paths.
 
-Mental model:
+Summary:
   `Related:` is navigable metadata, not prose. Bare topic names remain valid
   hints, while path-shaped entries resolve from the repository root, the
   declaring source directory, a source ancestor, or one unique source name.

@@ -1,4 +1,4 @@
-/*
+  - Agentic/Reference/engine-glossary.md/*
 File: SkullbonezTests/TestResultLoadFixtures.h
 Purpose:
   Keeps successful parser fixtures on the production result-returning APIs.
@@ -8,9 +8,6 @@ Summary:
   operation used by runtime owners. No test-only fail-fast production wrapper
   is needed to obtain a value.
 
-Glossary:
-  Recoverable result: Error path that returns diagnostics without terminating
-    the process or publishing a partially parsed value.
 
 Invariants:
   - A false return leaves the caller-owned output available for diagnostics.

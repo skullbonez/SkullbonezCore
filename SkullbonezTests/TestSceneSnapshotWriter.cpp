@@ -1,4 +1,4 @@
-/*
+  - Agentic/Reference/engine-glossary.md/*
 File: SkullbonezTests/TestSceneSnapshotWriter.cpp
 Purpose:
   Verifies version-4 scene snapshots preserve every owner-published save field
@@ -13,8 +13,7 @@ Summary:
 Glossary:
   Live part state: Current body/collider values, independent of the original
     asset instance transform.
-  Collider authoring row: Cold material text stored beside, not inside, the hot
-    collider record.
+
   Stable root id: Scene object id shared by every part affiliation in one asset
     instance.
   Entry policy: Production operation that owns editor numbering, load-only

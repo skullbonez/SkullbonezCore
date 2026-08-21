@@ -2,7 +2,7 @@
 REM File: tools\refresh_hulls.bat
 REM Purpose: Refresh every committed convex hull asset from source geometry.
 REM
-REM Mental model:
+REM Summary:
 REM   This is the intentional write path for hull metadata refreshes. It runs the
 REM   bake tool in write mode, then immediately checks the result.
 REM

@@ -1,21 +1,17 @@
 /*
 File: SkullbonezData/shaders/solid_color_batch.hlsl
 Purpose:
-  Runs the solid_color_batch HLSL shader program used by the renderer.
+  Draw many independently colored screen-space quads in one batch.
 
 Summary:
-  solid_color_batch.hlsl is shader source for the renderer's solid_color_batch
-  pass. Keep edits anchored on shader inputs, bindings, and render-output
-  contracts and on the glossary/invariants below.
-
-Glossary:
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
+  Shades scene geometry for the active render pipeline.
 
 Invariants:
-  - CPU-side root signatures, input layouts, and descriptor bindings must
+- CPU-side root signatures, input layouts, and descriptor bindings must
   match this shader exactly.
+
+Related:
+  - Agentic/Reference/engine-glossary.md
 */
 // =============================================================================
 // SOLID COLOR BATCH SHADER — Shader Model 6.6 (Combined VS+PS)

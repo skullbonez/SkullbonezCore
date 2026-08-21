@@ -3,7 +3,7 @@
 @rem Purpose:
 @rem   Runs the opt-in expensive validation path.
 @rem
-@rem Mental model:
+@rem Summary:
 @rem   Normal PR validation should stay cheap and launch the executable twice.
 @rem   This script is for deliberate broad sweeps where the extra runtime
 @rem   launches are worth the cost.

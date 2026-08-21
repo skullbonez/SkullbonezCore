@@ -1,21 +1,17 @@
 /*
 File: SkullbonezData/shaders/unlit_textured.hlsl
 Purpose:
-  Runs the unlit_textured HLSL shader program used by the renderer.
+  Project textured skybox geometry without scene lighting.
 
 Summary:
-  unlit_textured.hlsl is shader source for the renderer's unlit_textured pass.
-  Keep edits anchored on shader inputs, bindings, and render-output contracts
-  and on the glossary/invariants below.
-
-Glossary:
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
+  Shades scene geometry for the active render pipeline.
 
 Invariants:
-  - CPU-side root signatures, input layouts, and descriptor bindings must
+- CPU-side root signatures, input layouts, and descriptor bindings must
   match this shader exactly.
+
+Related:
+  - Agentic/Reference/engine-glossary.md
 */
 // =============================================================================
 // UNLIT TEXTURED SHADER — Shader Model 6.6 (Combined VS+PS)

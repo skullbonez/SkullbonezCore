@@ -1,4 +1,4 @@
-//
+//   - Agentic/Reference/engine-glossary.md//
 // File: SkullbonezTests/TestSleepController.cpp
 // Purpose:
 //   Locks PhysicsSleepController wake fan-out, underwater, support, and awake-list transitions.
@@ -12,9 +12,7 @@
 // Glossary:
 //   Visual island: Positive diagnostic id shared by bodies that slept together.
 //   Resting wake graph: Retained-contact/proximity graph traversed by explicit wake.
-//   Underwater lock: Dormancy state that rejects ordinary wake while a ball is submerged.
-//   Support edge: Directed relation from a grounded supporter to a supported body.
-//
+
 // Invariants:
 //   - Test owners reserve once in scene-load phase and reset all retained rows per case.
 //   - Explicit wake reaches complete visual, point-joint, and resting components,

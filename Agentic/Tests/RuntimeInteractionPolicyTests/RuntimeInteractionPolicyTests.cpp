@@ -1,4 +1,4 @@
-/*
+  - Agentic/Reference/engine-glossary.md/*
 File: Agentic/Tests/RuntimeInteractionPolicyTests/RuntimeInteractionPolicyTests.cpp
 Purpose:
   Verifies CPU-side runtime interaction, picker, and fixed-capacity UI surface
@@ -8,7 +8,7 @@ Summary:
   Covers interaction ownership, pointer capture, picking, and shared UI bounds
   through deterministic CPU-only policy tests.
 
-Mental model:
+
   RuntimeInteractionPolicyTests.cpp verifies CPU-side runtime interaction and
   picker rules that should not require a renderer launch. As an implementation
   unit, keep edits anchored on the behavior under test and the regression
@@ -16,7 +16,7 @@ Mental model:
 
 Glossary:
   Pointer capture: Exclusive owner for an in-progress mouse gesture.
-  Pick ray: World-space line projected from a screen pointer into the scene.
+
   Collision shape: Authored sphere, oriented box, or convex hull used as the
     pickable geometry for a model.
   Runtime UI surface: Disposable ordered table that gives input and rendering

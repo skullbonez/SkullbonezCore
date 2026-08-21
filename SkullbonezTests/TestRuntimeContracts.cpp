@@ -1,4 +1,4 @@
-//
+//   - Agentic/Reference/engine-glossary.md//
 // File: SkullbonezTests/TestRuntimeContracts.cpp
 // Purpose:
 //   Exercises result values, logger concurrency, worker-task lifetime, and
@@ -9,11 +9,10 @@
 //   executable as a named child case so the parent suite survives.
 //
 // Glossary:
-//   Fatal probe: Child invocation expected to end through SB_FATAL.
+
 //   In-flight task: AmortizedTask range currently owned by a worker callback.
 //   Fatal invariant: Error path that records diagnostics and terminates.
-//   Recoverable result: Error path that returns an owned error instead of
-//     terminating the engine.
+
 //   Disabled marker seam: Development-profiler macro that must discard its
 //     argument tokens when the vendor client is absent from the test build.
 //

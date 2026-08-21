@@ -3,7 +3,7 @@
 # Purpose:
 #   Compares compact signatures for known-risk physics scenes.
 #
-# Mental model:
+# Summary:
 #   Tools are command-line guardrails around builds, validation, screenshots,
 #   diagnostics, and artifact handling. Known-risk physics scenes can be too
 #   large for committed CSV baselines, so this checker records exact file

@@ -189,7 +189,7 @@ TEST_CASE( "Look Lab controller publishes one candidate and clears it for scene 
     lookLab.MarkApplied();
     CHECK( lookLab.Status().kind == Runtime::LookLabStatusKind::Applied );
 
-    // A rejected reroll reports failure but preserves the last successfully
+    // Invariant: a rejected reroll reports failure but preserves the last successfully
     // resolved candidate so F11 cannot observe half-published values.
     Core::CinematicRenderConfig invalidActive = active;
     invalidActive.shadow.mapSize = 1;

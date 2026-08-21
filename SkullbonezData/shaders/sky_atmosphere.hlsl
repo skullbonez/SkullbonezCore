@@ -1,26 +1,22 @@
 /*
 File: SkullbonezData/shaders/sky_atmosphere.hlsl
 Purpose:
-  Runs the sky_atmosphere HLSL shader program used by the renderer.
+  Shade the world-stable procedural sky from scene-authored cinematic
+  values.
 
 Summary:
-  sky_atmosphere.hlsl is shader source for the renderer's sky_atmosphere pass.
-  Keep edits anchored on shader inputs, bindings, and render-output contracts
-  and on the glossary/invariants below.
-
-Glossary:
-  Cinematic sky: Scene-authored sky pass driven by horizon, zenith, sun, cloud,
-    and style-mode constants rather than by a bitmap skybox.
-  Procedural ridge: Generated low-poly horizon silhouette used by some style
-    modes to suggest distance without an external backdrop asset.
-  Sky mode: Integer style selector supplied by scene data; each mode must keep
-    existing scene defaults stable unless that scene explicitly opts in.
+  Each pixel reconstructs a world-space view ray, then combines horizon and
+  zenith palettes, sun response, clouds, and optional ridges. No external
+  sky texture participates in this path.
 
 Invariants:
-  - CPU-side root signatures, input layouts, and descriptor bindings must
+- CPU-side root signatures, input layouts, and descriptor bindings must
     match this shader exactly.
   - Style modes are scene-authored compatibility surface; default mode behavior
     must not drift when adding a special-case showcase mode.
+
+Related:
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma pack_matrix(column_major)
 

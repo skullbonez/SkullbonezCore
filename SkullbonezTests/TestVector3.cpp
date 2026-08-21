@@ -61,9 +61,9 @@ TEST_CASE( "Vector3: zero vector is detectable before plain normalise" )
 TEST_CASE( "Vector3: plain zero normalise asserts in Debug and propagates IEEE values otherwise" )
 {
 #if defined( _DEBUG )
-    // Hazard: doctest cannot intercept the CRT assert in Normalise(). The
-    // source tripwire owns interactive misuse detection; do not invoke this
-    // branch in-process because an assertion dialog would stall the gate.
+    // Hazard: doctest cannot intercept the CRT assert in Normalise(). The Debug
+    // branch deliberately avoids that call because an assertion dialog would
+    // stall the test gate; the non-Debug branch records the IEEE result.
     CHECK( true );
 #else
     Vector3 zero = SkullbonezCore::Math::Vector::ZERO_VECTOR;

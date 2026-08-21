@@ -1,4 +1,4 @@
-//
+//   - Agentic/Reference/engine-glossary.md//
 // File: SkullbonezTests/TestRuntimeValueSeams.cpp
 // Purpose:
 //   Lock CPU-only interaction, render-policy, and replay-overlay value seams.
@@ -10,8 +10,7 @@
 //   renderer so failures identify owner logic directly.
 //
 // Glossary:
-//   Frame policy: Value packet deciding physics advance, camera-look state, or
-//     whether a cross-scene-locked frame may proceed.
+
 //   Control surface: Fixed-capacity ordered table of replay controls and hit
 //     regions rebuilt for one frame.
 //   Historical sample: Retained replay state that must not advance live physics.
@@ -680,7 +679,7 @@ TEST_CASE( "Replay memory: one Low-detail snapshot reconciles released evidence"
 
     CHECK( SkullbonezCore::Core::MainMemoryReplayPredictionEvidenceReleaseReconciles( stats ) );
 
-    // A stale total or category row must fail even when the release checkpoint
+    // Hazard: a stale total or category row must fail even when the release checkpoint
     // itself says that both banks reached zero.
     ++stats.totalBytes;
     CHECK_FALSE( SkullbonezCore::Core::MainMemoryReplayPredictionEvidenceReleaseReconciles( stats ) );
@@ -698,7 +697,7 @@ TEST_CASE( "Replay memory: one Low-detail snapshot reconciles released evidence"
     CHECK_FALSE( SkullbonezCore::Core::MainMemoryReplayPredictionEvidenceReleaseReconciles( stats ) );
     --stats.predictionEvidence.lastReleaseBeforeCategoryTotalBytes;
 
-    // Subtraction is guarded before it can underflow, including an extreme
+    // Hazard: subtraction is guarded before it can underflow, including an extreme
     // fabricated checkpoint that would have overflowed the retired add-back proof.
     stats.predictionEvidence.lastReleaseBeforeReplayTotalBytes = 0u;
     stats.predictionEvidence.lastReleaseAfterReplayTotalBytes = UINT64_MAX;

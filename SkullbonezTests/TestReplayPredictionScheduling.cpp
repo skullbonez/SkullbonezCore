@@ -1,4 +1,4 @@
-/*
+  - Agentic/Reference/engine-glossary.md/*
 File: TestReplayPredictionScheduling.cpp
 Purpose:
   Locks replay prediction scheduling and publication protocols.
@@ -17,7 +17,6 @@ Glossary:
   Supersede: Retain one pending restart without cancelling in-flight work.
   Presented replacement: Build prefix prepared coherently by the frame thread
     at least once, so a newer velocity may safely replace it.
-  Model row hint: Sample-local lookup shortcut; stable scene id remains authority.
 
 Invariants:
   - A zero instant budget always preserves amortized scheduling.

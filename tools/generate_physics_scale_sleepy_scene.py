@@ -2,7 +2,7 @@
 Purpose:
   Generates or verifies the deterministic 5,000-body sleeping scale fixture.
 
-Mental model:
+Summary:
   The fixture uses the current version-3 authored body schema. Four thousand
   rows begin asleep and 1,000 high-altitude rows remain in flight for the
   bounded performance run. Wide X/Z spacing avoids knife-edge contacts.

@@ -1,21 +1,17 @@
 /*
 File: SkullbonezData/shaders/water_ocean.hlsl
 Purpose:
-  Runs the water_ocean HLSL shader program used by the renderer.
+  Render the outer water zone with displaced waves and perturbed reflection.
 
 Summary:
-  water_ocean.hlsl is shader source for the renderer's water_ocean pass. Keep
-  edits anchored on shader inputs, bindings, and render-output contracts and
-  on the glossary/invariants below.
-
-Glossary:
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
+  Shades scene geometry for the active render pipeline.
 
 Invariants:
-  - CPU-side root signatures, input layouts, and descriptor bindings must
+- CPU-side root signatures, input layouts, and descriptor bindings must
   match this shader exactly.
+
+Related:
+  - Agentic/Reference/engine-glossary.md
 */
 // =============================================================================
 // OCEAN WATER SHADER — Shader Model 6.6 (Combined VS+PS)

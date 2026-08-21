@@ -1,4 +1,7 @@
-//
+// Summary:
+//   Each helper constructs one origin-centered shape value so collision tests
+//   share geometry setup without sharing mutable fixtures or expected outcomes.
+////
 // File: SkullbonezTests/TestCollisionShapeFixtures.h
 // Purpose:
 //   Share value-only collision-shape constructors across subsystem test files.

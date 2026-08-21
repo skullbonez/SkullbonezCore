@@ -1,4 +1,4 @@
-/*
+  - Agentic/Reference/engine-glossary.md/*
 File: TestOwnerRequestQueues.cpp
 Purpose:
   Verifies fixed scene, capture, render-default, and operator-editor request contracts.
@@ -9,8 +9,7 @@ Summary:
   they consume storage, and duplicate frontend intent projects only once.
 
 Glossary:
-  FIFO (First In, First Out): Requests drain in submission order.
-  Wire code: Explicit serialized replay value independent of C++ enum ordinals.
+
   Readback result: Recoverable capture owner/message returned by the renderer
     after it attempts to copy the backbuffer into CPU-visible bytes.
   Editor projection: Conversion of an arbitrated common action into the
@@ -19,8 +18,7 @@ Glossary:
     splits without requiring a vendor context in this test executable.
   Preference record: Fixed benign editor state that round-trips independently
     of authored scenes and resets stale layout/panel identity during migration.
-  Lifecycle generation: Monotonic identity for one post-preflight scene-load
-    attempt, including attempts that fail before activation.
+
   Velocity preview command: Newest target and delta-v used to bend only the
     selected committed path while a pointer drag is held.
 
@@ -108,7 +106,7 @@ namespace SkullbonezCore
 namespace Runtime
 {
 
-// Test access seeds transaction-private values and invokes the exact production
+// Lifetime: test access seeds transaction-private values and invokes the exact production
 // kernels. It stores no owner and introduces no parallel arbitration rule.
 struct SceneLoadTransactionTestAccess
 {
@@ -374,7 +372,7 @@ TEST_CASE( "Scene lifecycle accepts only ordered phases within one generation" )
     CHECK( SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent::AfterScenePopulate,
                                                  SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
 
-    // A retry must open a new generation and reset the previous event to None;
+    // Invariant: a retry must open a new generation and reset the previous event to None;
     // it cannot restart or skip inside an existing generation.
     CHECK_FALSE( SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent::BeforeScenePopulate,
                                                        SceneRuntimeLifecycleEvent::BeforeSceneUnload ) );
@@ -405,7 +403,7 @@ TEST_CASE( "Scene lifecycle generations publish failures and repeated scene load
     SceneLifecycleGenerationObserver clearObserver;
     SceneLifecycleGenerationObserver activationObserver;
 
-    // A failure before BeginLoad crossed no mutation boundary and publishes no
+    // Invariant: a failure before BeginLoad crossed no mutation boundary and publishes no
     // generation for reactive owners to consume.
     CHECK( scene.LifecyclePacket().generation == 0 );
     CHECK_FALSE( clearObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
@@ -441,7 +439,7 @@ TEST_CASE( "Scene lifecycle generations publish failures and repeated scene load
     CHECK_FALSE(
         activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
 
-    // Same index and unchanged entity count are still a distinct load attempt.
+    // Concept: the same index and unchanged entity count are still a distinct load attempt.
     scene.BeginLoadAttempt( 0, {} );
     scene.BeginLoad( 0 );
     CHECK( scene.LifecyclePacket().generation == 2 );

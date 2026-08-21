@@ -1,4 +1,4 @@
-//
+//   - Agentic/Reference/engine-glossary.md//
 // File: SkullbonezTests/TestPersistentContactSolver.cpp
 // Purpose:
 //   Lock direct behavioral coverage for persistent contact solver rows.
@@ -18,13 +18,11 @@
 // Glossary:
 //   Contact row: Solver constraint row that applies one normal impulse and two
 //     tangent impulses at a contact point.
-//   Warm starting: Reusing the previous frame's accumulated impulse so a stable
-//     contact begins near its converged solution.
+
 //   Friction cone: Two tangent impulses clamped as one vector budget so diagonal
 //     sliding cannot exceed the authored friction limit.
 //   Restitution: Bounce response from a closing contact velocity.
-//   Determinism: Same fixture inputs produce the same row cache and body
-//     writeback, matching the physics baseline contract.
+
 //   Sleep support edge: Directed relationship used later to propagate grounded
 //     sleep eligibility through an object stack.
 //   Solver step policy: Once-per-solve normalized contact limits shared by

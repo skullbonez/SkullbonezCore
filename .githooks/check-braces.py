@@ -4,7 +4,7 @@
 # Purpose:
 #   Rejects multi-line braceless if/for/while statements before commit.
 #
-# Mental model:
+# Summary:
 #   This hook is a lightweight style guard. It scans staged source text for
 #   risky control-flow shapes that are easy to misread in reviews.
 #

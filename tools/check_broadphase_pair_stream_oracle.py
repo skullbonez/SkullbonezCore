@@ -10,7 +10,7 @@ Summary:
   boundary and all five pair-list boundaries before an artifact can serve as a
   byte-exact baseline or comparison result.
 
-Mental model:
+
   A stream is a file header, zero or more complete pass records, and one global
   trailer. Every pass contains raw-grid, post-augmentation, raw first-seen
   sleep, final solver, and final sleep lists; its footer repeats the ordinal and

@@ -1,4 +1,4 @@
-/*
+  - Agentic/Reference/engine-glossary.md/*
 File: SkullbonezTests/TestSceneEntityStore.cpp
 Purpose:
   Verifies scene identity storage and the paired render creation row.
@@ -8,9 +8,9 @@ Summary:
   row once downstream owner rows exist.
 
 Glossary:
-  Stable identity: Nonzero PhysicsSceneObjectId independent of dense row order.
+
   Asset affiliation: Durable library/asset/instance/part provenance.
-  Behavior group: Ragdoll/tree membership keyed by stable root id and part order.
+
   Editor metadata: Transient visibility and mutation-lock state keyed by stable identity.
 
 Invariants:
@@ -308,7 +308,7 @@ TEST_CASE( "RenderInstanceStore: fixed-tick poses interpolate and discontinuitie
     REQUIRE( renderStore.TryGetPresentationPose( 0, 0.25f, presentedPosition, presentedOrientation ) );
     CHECK( presentedPosition.x == doctest::Approx( 2.0f ) );
 
-    // A teleport between ticks is a discontinuity. Refresh must publish it
+    // Concept: a teleport between ticks is a discontinuity. Refresh must publish it
     // exactly instead of blending from the previous physics endpoint.
     hotFields.positionX[0] = 100.0f;
     renderStore.Refresh( bodyStore, colliderStore, 0.25f );
@@ -316,7 +316,7 @@ TEST_CASE( "RenderInstanceStore: fixed-tick poses interpolate and discontinuitie
     REQUIRE( renderStore.TryGetPresentationPose( 0, 0.25f, presentedPosition, presentedOrientation ) );
     CHECK( presentedPosition.x == doctest::Approx( 100.0f ) );
 
-    // Input can teleport a body immediately before a solver tick. The begin
+    // Invariant: input can teleport a body immediately before a solver tick. The begin
     // capture detects that endpoint break, so the next legitimate tick blends
     // from the teleported pose instead of resurrecting the old path.
     hotFields.positionX[0] = 200.0f;

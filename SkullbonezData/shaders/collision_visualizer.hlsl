@@ -1,21 +1,18 @@
 /*
 File: SkullbonezData/shaders/collision_visualizer.hlsl
 Purpose:
-  Runs the collision_visualizer HLSL shader program used by the renderer.
+  Shade instanced collision-debug meshes from per-instance color and view-
+  space lighting.
 
 Summary:
-  collision_visualizer.hlsl is shader source for the renderer's
-  collision_visualizer pass. Keep edits anchored on shader inputs, bindings,
-  and render-output contracts and on the glossary/invariants below.
-
-Glossary:
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
+  Shades scene geometry for the active render pipeline.
 
 Invariants:
-  - CPU-side root signatures, input layouts, and descriptor bindings must
+- CPU-side root signatures, input layouts, and descriptor bindings must
   match this shader exactly.
+
+Related:
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma pack_matrix(column_major)
 

@@ -1,4 +1,4 @@
-/*
+  - Agentic/Reference/engine-glossary.md/*
 File: TestInputRouter.cpp
 Purpose:
   Verifies allocation-free input snapshots, action edges, binding predicates,
@@ -18,12 +18,7 @@ Glossary:
   Context activation: Mode/UI fact mask that permits a binding to emit.
   Ghost press: False press caused by activating a context while its key was
     already held.
-  Fluid-surface command: World-unit adjustment value emitted instead of raw
-    Page Up/Page Down flags.
-  Focus resynchronization: Refocus sample that remembers held input without
-    treating it as newly pressed.
-  Lifecycle generation: Scene-load identity that lets cursor intent publish
-    once after activation without polling hardware in tests.
+
   Pointer arbitration: Ordered production cursor that gives the first consuming
     editor, pickup, camera, Replay, or launcher stage exclusive ownership.
 
@@ -256,7 +251,7 @@ TEST_CASE( "Input router: captured tool input requires release and repress befor
     CHECK_FALSE( router.DeviceFrame().keys.IsDown( 'A' ) );
     CHECK_FALSE( router.DeviceFrame().leftDown );
 
-    // Tool focus returns while the physical inputs remain held. The router
+    // Invariant: tool focus returns while the physical inputs remain held. The router
     // resynchronizes levels instead of manufacturing a press.
     router.BeginFrame( FocusedFrame( { 'A' }, true ), view, output );
     router.RoutePhase( view, InputActionPhase::PreUi, active, output );
@@ -498,7 +493,7 @@ TEST_CASE( "Input router: cold start initializes cursor and focus loss restores 
     InputActions output;
     PointerPresentationState presentation;
 
-    // Regression: the Win32 cursor latch starts outside InputRouter ownership.
+    // Hazard: the Win32 cursor latch starts outside InputRouter ownership.
     // The first consume must publish visible/no-capture even though those are
     // also the router's member defaults.
     REQUIRE( router.ConsumePointerPresentationChange( presentation ) );
@@ -506,7 +501,7 @@ TEST_CASE( "Input router: cold start initializes cursor and focus loss restores 
     CHECK( presentation.cursorVisible );
     CHECK_FALSE( router.ConsumePointerPresentationChange( presentation ) );
 
-    // A platform UI may have changed HWND capture/cursor state without changing
+    // Why: a platform UI may have changed HWND capture/cursor state without changing
     // the engine's desired values. Deferral must republish those same values.
     router.DeferPointerPresentationCommit();
     REQUIRE( router.ConsumePointerPresentationChange( presentation ) );

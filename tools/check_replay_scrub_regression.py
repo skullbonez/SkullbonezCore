@@ -4,7 +4,7 @@
 #   Validates that replay scrub probes move presentation state backward and are
 #   queryable through SkullScope.
 #
-# Mental model:
+# Summary:
 #   The replay scrubber is a presentation feature. This test drives the CLI
 #   probe, imports the emitted SkullScope trace, and asserts relational facts
 #   instead of maintaining a fragile full-trace baseline.

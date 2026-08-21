@@ -3,7 +3,7 @@
 @rem Purpose:
 @rem   Runs the focused replay v2 save/load/restore/query artifact validation.
 @rem
-@rem Mental model:
+@rem Summary:
 @rem   This gate proves the executable can write a real v2 presentation
 @rem   .skreplay file, reload presentation data, restore a saved solver
 @rem   checkpoint, report an expected saved-file restore failure, and expose

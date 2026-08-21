@@ -11,7 +11,7 @@ Summary:
   current-source migration ruling. Strict mode turns missing, changed, stale,
   or malformed rulings into validation failures without imposing a count limit.
 
-Mental model:
+
   A glossary term is local only while one tracked source file defines it. Once
   two files define the same term, the shared glossary owns the definition and
   the source copies form one review finding until the consolidation plan removes

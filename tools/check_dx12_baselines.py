@@ -3,7 +3,7 @@
 # Purpose:
 #   Compares DX12 renderer screenshots against committed DX12 baselines.
 #
-# Mental model:
+# Summary:
 #   Tools are command-line guardrails around builds, validation, screenshots,
 #   diagnostics, and artifact handling. They make the safe path repeatable and
 #   keep output bounded for humans and agents.

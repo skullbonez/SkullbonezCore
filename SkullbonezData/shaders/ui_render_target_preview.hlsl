@@ -1,24 +1,17 @@
 /*
 File: SkullbonezData/shaders/ui_render_target_preview.hlsl
 Purpose:
-  Displays renderer-owned texture resources inside the in-game UI.
+  Shader stage implementation.
 
 Summary:
-  This is a diagnostic UI shader. The CPU supplies an already shader-readable
-  texture handle plus a mode flag for color, HDR color, or depth display.
-
-Glossary:
-  HDR (High Dynamic Range): Floating-point scene color that can hold values
-  brighter than display white until tonemapping resolves it.
-  SRV (Shader Resource View): Descriptor row used when shaders read a texture or
-  buffer.
+  Shades scene geometry for the active render pipeline.
 
 Invariants:
-  - CPU-side dynamic vertex attributes are float2 position followed by float2 UV.
+- CPU-side dynamic vertex attributes are float2 position followed by float2 UV.
   - Bindless payload index 0 selects the render target or buffer SRV.
 
 Related:
-  - SkullbonezSource/UI/UITabProfiler.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma pack_matrix(column_major)
 

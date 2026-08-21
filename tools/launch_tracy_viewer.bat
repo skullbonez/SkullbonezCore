@@ -3,7 +3,7 @@
 @rem Purpose:
 @rem   Builds the repository-pinned Tracy profiler on first use and opens it.
 @rem
-@rem Mental model:
+@rem Summary:
 @rem   The ImGui button starts this cold developer action asynchronously. A
 @rem   ready viewer connects to the local engine immediately; a fresh machine
 @rem   configures and builds it under ignored validation output first.

@@ -2,7 +2,7 @@
 # Purpose:
 #   Launch the DX12 graphics stress executable and sample process memory while it runs.
 #
-# Mental model:
+# Summary:
 #   The engine emits semantic stress and renderer-memory records to stdout. This
 #   wrapper records coarse OS process counters from outside the process so a
 #   hard crash or forced stop still leaves a time-series artifact.

@@ -5,7 +5,7 @@ REM   Validate scripted runtime interaction clicks for inspect gizmo, Attach
 REM   target selection, manipulator pickup, launcher fire, replay prediction,
 REM   and editor history workflows.
 REM
-REM Mental model:
+REM Summary:
 REM   This is a focused UI/runtime interaction gate. It builds Automation, runs
 REM   deterministic interaction scripts, and writes reports/screenshots for the
 REM   six covered click paths.

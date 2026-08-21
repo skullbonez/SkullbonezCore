@@ -3,7 +3,7 @@
 @rem Purpose:
 @rem   Provides agents one explicit entry point for terminal plan validation.
 @rem
-@rem Mental model:
+@rem Summary:
 @rem   This is a stable alias, not another pipeline. Both this wrapper and
 @rem   validate_full require --plan-completion so ordinary PR preparation cannot
 @rem   accidentally launch the terminal gate.

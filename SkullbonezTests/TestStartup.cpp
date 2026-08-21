@@ -1,4 +1,4 @@
-//
+//   - Agentic/Reference/engine-glossary.md//
 // File: SkullbonezTests/TestStartup.cpp
 // Purpose:
 //   Locks startup token parsing, frozen diagnostics, and launch-policy resolution.
@@ -12,8 +12,7 @@
 // Glossary:
 //   Assigned option: A value supplied as --name=value rather than a later token.
 //   Launch packet: ParsedArgs values projected into RunStartupOverrides.
-//   Recoverable result: External-input failure returned to process startup.
-//
+
 // Invariants:
 //   - Aliases, defaults, validation order, and error strings are compatibility surface.
 //   - Suite tests use caller-owned temporary files and never launch the engine.
@@ -155,9 +154,9 @@ TEST_CASE( "Startup command line: primitive value parsers reject partial writes 
     CHECK( unsignedValue == ( std::numeric_limits<unsigned int>::max )() );
     CHECK_FALSE( ParseUnsignedCommandLineToken( "4294967296", unsignedValue ) );
 
-    // Hazard: MSVC strtoul accepts a leading minus and wraps -1 to UINT_MAX.
-    // Startup compatibility currently exposes that value; changing the parser
-    // is product behavior and belongs to a separately ruled seam task.
+    // Invariant: startup compatibility preserves MSVC strtoul's unsigned wrap
+    // for a leading minus. This assertion records the observable parser result;
+    // changing it is a product-behavior change, not a comment cleanup.
     CHECK( ParseUnsignedCommandLineToken( "-1", unsignedValue ) );
     CHECK( unsignedValue == ( std::numeric_limits<unsigned int>::max )() );
 

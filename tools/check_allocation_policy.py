@@ -9,7 +9,7 @@ Summary:
   reserve-growth, dynamic-storage, and STL growth shapes, then reconciles every
   finding against owner- and phase-specific allowlist metadata.
 
-Mental model:
+
   This checker catches heap APIs, replay reserve-growth APIs, owning dynamic
   STL members, and STL growth calls that are easy to detect textually. Findings
   must either disappear or carry allowlist metadata naming the owner, phase,

@@ -1,33 +1,20 @@
 /*
 File: SkullbonezData/shaders/lit_textured_instanced.hlsl
 Purpose:
-  Runs the lit_textured_instanced HLSL shader program used by the renderer.
+  Shade instanced object geometry from per-instance transforms and material
+  response rows.
 
 Summary:
-  lit_textured_instanced.hlsl is shader source for the renderer's
-  lit_textured_instanced pass. Keep edits anchored on shader inputs, bindings,
-  and render-output contracts and on the glossary/invariants below.
-
-Glossary:
-  SRV (Shader Resource View): Descriptor row used when shaders read textures or
-  buffers.
-  TEXCOORD semantic: Named vertex/interpolator channel shared between the input
-  layout and shader stages.
-  Material table: Texture selected by bindless payload index 4 that stores
-  default material response values by material kind.
-  Material payload: Four per-instance float4 rows named material0 through
-  material3.
-  Contact flash alpha: material3.w blend that pushes the final lit color toward
-  white for short render-only feedback.
-  Percentage-closer filtering (PCF): Averages fixed depth-comparison taps to
-    soften a shadow edge while keeping the tap pattern deterministic.
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
+  Each instance carries four transform rows and four material rows. The
+  shader resolves bindless texture/material data, applies broad/detail
+  shadows, and folds contact-flash feedback into final color.
 
 Invariants:
-  - CPU-side root signatures, input layouts, and descriptor bindings must
+- CPU-side root signatures, input layouts, and descriptor bindings must
   match this shader exactly.
+
+Related:
+  - Agentic/Reference/engine-glossary.md
 */
 // =============================================================================
 // INSTANCED LIT TEXTURED SHADER — Shader Model 6.6 (Combined VS+PS)

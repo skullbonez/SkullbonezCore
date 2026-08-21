@@ -20,7 +20,7 @@
 #
 # Invariants:
 #   - A truncated packet is never accepted as complete evidence.
-#   - Scene energy tolerance is derived from ES0 float precision, not observed
+#   - Scene energy tolerance is derived from SkullScope's six-decimal JSON precision, not observed
 #     post-change divergence. After the first object contact, a running minimum
 #     exposes later recovery and deducts only explicit separation-bias work, so
 #     the wall's large impact loss cannot hide a later injection.

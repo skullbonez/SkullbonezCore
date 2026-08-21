@@ -1,4 +1,4 @@
-/*
+  - Agentic/Reference/engine-glossary.md/*
 File: SkullbonezTests/TestRuntimeInputBindings.cpp
 Purpose:
   Locks the runtime keyboard shortcut table as observable data.
@@ -11,8 +11,7 @@ Summary:
 
 Glossary:
   Virtual key: Win32 integer key code used by the runtime input poller.
-  Context mask: Binding bits that decide which dispatch pass or runtime state
-    owns a shortcut.
+
   Exact binding: One virtual key plus one context mask mapping to one action.
 
 Invariants:

@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""Trim trailing whitespace from files."""
+"""
+File: .githooks/trim-whitespace.py
+Purpose:
+  Remove trailing whitespace from staged C++ source and headers.
+
+Summary:
+  The hook rewrites each .cpp or .h line with normalized trailing whitespace and
+  one newline. Per-file failures are reported without blocking the commit.
+
+Invariants:
+  - Unsupported suffixes are ignored.
+  - Blank lines remain blank and non-whitespace text is preserved.
+"""
 import sys
 
 for filepath in sys.argv[1:]:

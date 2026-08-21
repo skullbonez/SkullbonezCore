@@ -3,7 +3,7 @@ File: tools/check_coverage.py
 Purpose:
   Summarize OpenCppCoverage Cobertura XML and enforce versioned subsystem floors.
 
-Mental model:
+Summary:
   Cobertura records each instrumented product line and its hit count. This tool
   normalizes those paths, applies the repository-owned tier/exclusion map, then
   aggregates unique source lines per subsystem. The whole-engine percentage is

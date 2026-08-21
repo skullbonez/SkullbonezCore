@@ -1,23 +1,18 @@
 /*
 File: SkullbonezData/shaders/launcher_laser.hlsl
 Purpose:
-  Draws launcher-mode laser ribbon triangles.
+  Shader stage implementation.
 
 Summary:
-  CPU code builds short-lived world-space ribbon quads. The shader only
-  transforms them and forwards per-vertex color/alpha.
-
-Glossary:
-  Ribbon: Camera-facing strip geometry emitted by CPU launcher diagnostics.
-  Vertex color: Per-vertex RGBA payload supplied in TEXCOORD0.
+  Shades scene geometry for the active render pipeline.
 
 Invariants:
-  - Input layout is float3 position followed by float4 color.
+- Input layout is float3 position followed by float4 color.
   - The shader does not compute laser geometry; CPU-side ribbon construction
     owns width, length, and alpha policy.
 
 Related:
-  - SkullbonezSource/SkullbonezLauncherLaser.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma pack_matrix(column_major)
 

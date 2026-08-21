@@ -259,7 +259,7 @@ TEST_CASE( "Physics API frames: point-joint anchors are body-local rather than w
     CheckVectorApprox( localAnchorResult.linearVelocity, ZERO_VECTOR );
     CheckVectorApprox( localAnchorResult.angularVelocity, ZERO_VECTOR );
 
-    // A world point is numerically plausible input but means a very different
+    // Hazard: a world point is numerically plausible input but means a very different
     // lever after the body-to-world rotation. Its response proves the API does
     // not silently reinterpret anchors as absolute positions.
     const PhysicsBodyHotState wrongFrameResult = SolveAnchorCase( Vector3( 10.0f, 24.0f, 30.0f ) );

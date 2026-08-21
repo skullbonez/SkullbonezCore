@@ -1,23 +1,18 @@
 /*
 File: SkullbonezData/shaders/post_tonemap.hlsl
 Purpose:
-  Runs the post_tonemap HLSL shader program used by the renderer.
+  Composite the HDR scene, depth, volumetric light, bloom, and display
+  mapping into final color.
 
 Summary:
-  post_tonemap.hlsl is shader source for the renderer's post_tonemap pass.
-  Keep edits anchored on shader inputs, bindings, and render-output contracts
-  and on the glossary/invariants below.
-
-Glossary:
-  HDR (High Dynamic Range): Floating-point scene color that can hold values
-  brighter than display white until tonemapping resolves it.
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
+  Shades scene geometry for the active render pipeline.
 
 Invariants:
-  - CPU-side root signatures, input layouts, and descriptor bindings must
+- CPU-side root signatures, input layouts, and descriptor bindings must
   match this shader exactly.
+
+Related:
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma pack_matrix(column_major)
 

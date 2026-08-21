@@ -158,7 +158,7 @@ TEST_CASE( "Deterministic math: ComputeCosSin covers every certified range-reduc
         uint32_t upper;
     };
 
-    // Repeated binary32 subtraction moves high-turn transitions away from the
+    // Invariant: repeated binary32 subtraction moves high-turn transitions away from the
     // nominal odd-pi float. These are the actual adjacent transition pairs,
     // ordered from -63*pi through +63*pi, and are part of the byte contract.
     static constexpr BoundaryRow BOUNDARIES[] = {

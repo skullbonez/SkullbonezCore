@@ -4,7 +4,7 @@
 @rem   Builds every configuration the repository's compiled-symbol gates read,
 @rem   so a scan never compares fresh source against a stale object root.
 @rem
-@rem Mental model:
+@rem Summary:
 @rem   Tools are command-line guardrails around builds, validation, screenshots,
 @rem   diagnostics, and artifact handling. This one exists because compiled
 @rem   evidence has three producers, not one: inventory_unreachable_symbols.py

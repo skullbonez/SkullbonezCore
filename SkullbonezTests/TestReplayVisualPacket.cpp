@@ -1,4 +1,4 @@
-/*
+  - Agentic/Reference/engine-glossary.md/*
 File: SkullbonezTests/TestReplayVisualPacket.cpp
 Purpose:
   Locks typed and ordered first-difference behavior for replay visual packets.
@@ -23,17 +23,11 @@ Summary:
 
 Glossary:
   Packet span: Non-owning view of one ordered production submission stream.
-  First difference: Earliest semantic field or float where two packets differ.
-  Publication token: Monotonic value that invalidates retained draw commands
-    only when a reader-visible trajectory prefix changes.
-  All-body path: Space-scene future record selected independently of causal
-    child topology.
+
   Retained attachment: Shared packet operation that joins persistent prediction
     geometry with frame-local moving tails without copying either span.
   Retained chunk: Stable compact range whose continuation repairs only the
     previous chunk's open adjacency tail.
-  Committed frame prefix: Reader-visible portion of a retained prediction frame
-    bank; slots beyond the count are allocation storage, not published future.
 
 Invariants:
   - Packet comparison is bit-exact and order-sensitive.

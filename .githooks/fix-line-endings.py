@@ -1,5 +1,18 @@
 #!/usr/bin/env python3
-"""Fix CRLF to LF line endings."""
+"""
+File: .githooks/fix-line-endings.py
+Purpose:
+  Normalize staged C++ source and headers from CRLF to LF in the pre-commit hook.
+
+Summary:
+  The hook receives candidate paths, filters to .cpp and .h files, and performs
+  a byte-preserving newline substitution. Per-file failures are reported but do
+  not block the commit, so this remains an advisory cleanup step.
+
+Invariants:
+  - Bytes other than CRLF newline pairs are unchanged.
+  - Unsupported suffixes are ignored.
+"""
 import sys
 
 for filepath in sys.argv[1:]:
