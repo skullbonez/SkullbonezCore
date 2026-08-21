@@ -72,35 +72,7 @@ REM and determinism-math inventories report current structure and fail on
 REM missing/stale owner judgements. Their triggers start qualitative review;
 REM none is a ceiling or count budget. Self-tests run first so a scanner
 REM regression is distinguishable from a source finding.
-python "%~dp0check_build_config_consistency.py" --self-test
-if errorlevel 1 exit /b 8
-python "%~dp0inventory_unreachable_symbols.py" --self-test
-if errorlevel 1 exit /b 8
-python "%~dp0inventory_authority_free_aggregates.py" --self-test
-if errorlevel 1 exit /b 8
-python "%~dp0inventory_extraction_scars.py" --self-test
-if errorlevel 1 exit /b 8
-python "%~dp0inventory_wide_signatures.py" --self-test
-if errorlevel 1 exit /b 8
-python "%~dp0inventory_function_complexity.py" --self-test
-if errorlevel 1 exit /b 8
-python "%~dp0inventory_glossary_terms.py" --self-test
-if errorlevel 1 exit /b 8
-python "%~dp0check_determinism_math_policy.py" --self-test
-if errorlevel 1 exit /b 8
-python "%~dp0inventory_authority_free_aggregates.py" --repo "%~dp0.." --strict
-if errorlevel 1 exit /b 8
-python "%~dp0inventory_extraction_scars.py" --repo "%~dp0.."
-if errorlevel 1 exit /b 8
-python "%~dp0inventory_wide_signatures.py" --repo "%~dp0.." --threshold 12 --format json --strict >nul
-if errorlevel 1 exit /b 8
-python "%~dp0inventory_function_complexity.py" --repo "%~dp0.." --strict
-if errorlevel 1 exit /b 8
-python "%~dp0inventory_glossary_terms.py" --repo "%~dp0.." --strict --format json >nul
-if errorlevel 1 exit /b 8
-python "%~dp0check_build_config_consistency.py" --repo "%~dp0.." --format json >nul
-if errorlevel 1 exit /b 8
-python "%~dp0check_determinism_math_policy.py" --repo "%~dp0.." --format json >nul
+python "%~dp0validate_governance_inventories.py" --repo "%~dp0.."
 if errorlevel 1 exit /b 8
 
 echo [5/9] Checking staged file sizes...

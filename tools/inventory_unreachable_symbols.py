@@ -61,6 +61,7 @@ Related:
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 import ctypes
 import functools
 import json
@@ -451,27 +452,43 @@ def _coff_index(
     symbol_line = re.compile(
         r"^\s*[0-9A-F]+\s+[0-9A-F]+\s+(?P<section>\S+).*?\bExternal\b.*?\|\s+(?P<symbol>\S+)"
     )
-    current_file: Path | None = None
-    for start in range(0, len(object_paths), 40):
+
+    def _process_batch(batch: list[Path]) -> tuple[dict[str, set[Path]], dict[str, set[Path]]]:
+        batch_defs: dict[str, set[Path]] = {}
+        batch_refs: dict[str, set[Path]] = {}
         result = subprocess.run(
-            [str(dumpbin), "/nologo", "/symbols", *map(str, object_paths[start : start + 40])],
+            [str(dumpbin), "/nologo", "/symbols", *map(str, batch)],
             check=True,
             capture_output=True,
             text=True,
             errors="replace",
         )
+        curr_file: Path | None = None
         for line in result.stdout.splitlines():
             if line.startswith("Dump of file "):
-                current_file = Path(line[len("Dump of file ") :].strip()).resolve()
+                curr_file = Path(line[len("Dump of file ") :].strip()).resolve()
                 continue
             match = symbol_line.match(line)
-            if match is None or current_file is None:
+            if match is None or curr_file is None:
                 continue
             symbol = match.group("symbol")
             if not symbol.startswith("?"):
                 continue
-            destination = references if match.group("section") == "UNDEF" else definitions
-            destination.setdefault(symbol, set()).add(current_file)
+            dest = batch_refs if match.group("section") == "UNDEF" else batch_defs
+            dest.setdefault(symbol, set()).add(curr_file)
+        return batch_defs, batch_refs
+
+    batches = [object_paths[i : i + 30] for i in range(0, len(object_paths), 30)]
+    max_workers = min(32, os.cpu_count() or 4)
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        batch_results = list(executor.map(_process_batch, batches))
+
+    for b_defs, b_refs in batch_results:
+        for sym, files in b_defs.items():
+            definitions.setdefault(sym, set()).update(files)
+        for sym, files in b_refs.items():
+            references.setdefault(sym, set()).update(files)
+
     demangled = {symbol: _demangle(symbol) for symbol in definitions}
     return definitions, references, demangled
 
@@ -703,6 +720,21 @@ def _candidate_specialization_symbols(
     return tuple(sorted(symbols))
 
 
+def _scan_single_file_worker(args: tuple[Path, Path]) -> tuple[Path, list[Candidate], str, list[tuple[int, str, str, int]]]:
+    path, r = args
+    text = path.read_text(encoding="utf-8", errors="strict")
+    masked = mask_cpp(text)
+    call_masked = mask_cpp(text, preserve_literal_argument=True)
+    candidates, _ = scan_file(path, r, text=text, masked=masked)
+    declaration_opens = {candidate.opening_paren for candidate in candidates}
+    occurrences = [
+        occurrence
+        for occurrence in _call_occurrences(call_masked)
+        if occurrence[0] not in declaration_opens
+    ]
+    return path, candidates, masked, occurrences
+
+
 def scan_paths(
     repo: Path,
     production_files: list[Path],
@@ -715,30 +747,22 @@ def scan_paths(
     test_occurrences: list[tuple[int, str, str, int]] = []
     agentic_test_occurrences: list[tuple[int, str, str, int]] = []
 
-    for path in production_files:
-        text = path.read_text(encoding="utf-8", errors="strict")
-        masked = mask_cpp(text)
-        call_masked = mask_cpp(text, preserve_literal_argument=True)
-        candidates, _ = scan_file(path, repo, text=text, masked=masked)
+    max_workers = min(32, os.cpu_count() or 4)
+    # If small number of files (e.g. self-test), avoid process spawn overhead
+    if len(production_files) + len(test_files) <= 10:
+        prod_results = [_scan_single_file_worker((p, repo)) for p in production_files]
+        test_results = [_scan_single_file_worker((p, repo)) for p in test_files]
+    else:
+        with ProcessPoolExecutor(max_workers=max_workers) as executor:
+            prod_results = list(executor.map(_scan_single_file_worker, [(p, repo) for p in production_files], chunksize=8))
+            test_results = list(executor.map(_scan_single_file_worker, [(p, repo) for p in test_files], chunksize=8))
+
+    for path, candidates, masked, occurrences in prod_results:
         candidates_by_file[path] = candidates
         masked_by_file[path] = masked
-        declaration_opens = {candidate.opening_paren for candidate in candidates}
-        production_occurrences[path] = [
-            occurrence
-            for occurrence in _call_occurrences(call_masked)
-            if occurrence[0] not in declaration_opens
-        ]
-    for path in test_files:
-        text = path.read_text(encoding="utf-8", errors="strict")
-        masked = mask_cpp(text)
-        call_masked = mask_cpp(text, preserve_literal_argument=True)
-        candidates, _ = scan_file(path, repo, text=text, masked=masked)
-        declaration_opens = {candidate.opening_paren for candidate in candidates}
-        occurrences = [
-            occurrence
-            for occurrence in _call_occurrences(call_masked)
-            if occurrence[0] not in declaration_opens
-        ]
+        production_occurrences[path] = occurrences
+
+    for path, candidates, masked, occurrences in test_results:
         test_occurrences.extend(occurrences)
         if "Agentic" in path.parts:
             agentic_test_occurrences.extend(occurrences)

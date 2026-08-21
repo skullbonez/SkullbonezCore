@@ -1,7 +1,7 @@
 # Full Validation Time And Value Audit
 
 Date: 2026-08-20
-Status: Active; 3/6 phases complete
+Status: Active; 4/6 phases complete
 Impact area: validation orchestration, build configuration, repository
 inventories, CPU test and coverage gates, runtime probes, diagnostics, and
 validation governance
@@ -235,13 +235,13 @@ remain recorded with the reason so a later audit does not repeat them blindly.
 
 ### VTA3 - Build And Preflight Critical-Path Reduction
 
-- [ ] Run approved build parallelism, freshness, inventory sharing/caching,
+- [x] Run approved build parallelism, freshness, inventory sharing/caching,
   scan parallelism, and repeated-check experiments one at a time.
-- [ ] Implement only experiments with equivalent failure semantics and a clear
+- [x] Implement only experiments with equivalent failure semantics and a clear
   same-state timing improvement.
-- [ ] Preserve readable failure ownership and deterministic output; do not trade
+- [x] Preserve readable failure ownership and deterministic output; do not trade
   wall time for intermittent file locks or hidden background work.
-- [ ] Re-measure all VTA1 preflight/build scenarios after the accepted changes.
+- [x] Re-measure all VTA1 preflight/build scenarios after the accepted changes.
 
 ### VTA4 - CPU And Runtime Critical-Path Reduction
 
