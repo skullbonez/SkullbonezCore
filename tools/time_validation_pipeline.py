@@ -336,11 +336,124 @@ def run_self_tests() -> bool:
     return True
 
 
+def parse_historical_log(log_path: Path) -> Dict[str, Any]:
+    if not log_path.exists():
+        return {"error": f"Log file not found: {log_path}"}
+
+    text = log_path.read_text(encoding="utf-8", errors="replace")
+    lines = text.splitlines()
+
+    result = {
+        "log_path": str(log_path),
+        "total_lines": len(lines),
+        "phases_detected": [],
+        "doctest_cases": None,
+        "doctest_assertions": None,
+        "doctest_duration_seconds": None,
+        "summary": {}
+    }
+
+    for line in lines:
+        if "=== Phase " in line:
+            result["phases_detected"].append(line.strip())
+        if "test cases:" in line and "passed" in line:
+            result["doctest_summary"] = line.strip()
+        if "assertions:" in line and "passed" in line:
+            result["assertions_summary"] = line.strip()
+        if "Time Elapsed" in line:
+            result["summary"].setdefault("time_elapsed_entries", []).append(line.strip())
+
+    return result
+
+
+def measure_stage(stage: Dict[str, Any], env: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+    cmd_str = stage["command"]
+    # Handle batch files vs python scripts on Windows
+    if cmd_str.startswith("tools\\") or cmd_str.startswith("tools/"):
+        tokens = ["cmd.exe", "/c"] + cmd_str.split()
+    elif cmd_str.startswith("python "):
+        tokens = [sys.executable] + cmd_str.split()[1:]
+    else:
+        tokens = cmd_str.split()
+
+    return run_instrumented_command(stage["id"], tokens, env=env)
+
+
+def run_baseline_measurement(samples_count: int = 3) -> Dict[str, Any]:
+    print(f"Starting baseline timing measurement ({samples_count} samples per stage)...")
+
+    # Ensure build is warm first
+    warm_env = {
+        "SKULLBONEZ_SKIP_READY_BUILDS": "1",
+        "SKULLBONEZ_ASSUME_PROFILE_BUILT": "1",
+        "SKULLBONEZ_ASSUME_DEBUG_BUILT": "1"
+    }
+
+    stages_to_measure = [
+        {"id": "phase_0a_build_automation", "command": "tools\\validate_build.bat Automation", "desc": "Phase 0A: Automation build"},
+        {"id": "phase_0b_build_debug", "command": "tools\\validate_build.bat Debug", "desc": "Phase 0B: Debug build"},
+        {"id": "phase_1_fast_preflight", "command": "tools\\validate_fast.bat --preflight-only", "desc": "Phase 1: CPU Preflight"},
+        {"id": "fast_format", "command": "tools\\validate_format.bat", "desc": "Fast 1/9: Format check"},
+        {"id": "fast_project_filters", "command": "python tools/check_project_filters.py --repo .", "desc": "Fast 2/9: Project filters"},
+        {"id": "fast_dependency_graph", "command": "tools\\validate_dependency_graph.bat", "desc": "Fast 3/9: Dependency graph"},
+        {"id": "fast_inventories", "command": "python tools/inventory_glossary_terms.py --repo . --strict", "desc": "Fast 4/9: Glossary inventory"},
+        {"id": "fast_build_profile", "command": "tools\\validate_build.bat Profile", "desc": "Fast 6/9: Profile build"},
+        {"id": "phase_2_all_cpu_tests", "command": "tools\\validate_all_cpu_tests.bat", "desc": "Phase 2: All CPU tests"},
+        {"id": "cpu_1_doctests_profile", "command": "tools\\validate_tests.bat Profile", "desc": "CPU 1/6: Profile doctests"},
+        {"id": "phase_3_automation", "command": "tools\\validate_automation.bat", "desc": "Phase 3: Automation lane"},
+        {"id": "phase_4_dx12", "command": "tools\\validate_dx12_renderer.bat", "desc": "Phase 4: DX12 renderer"},
+        {"id": "phase_5_physics", "command": "tools\\validate_physics.bat", "desc": "Phase 5: Physics validation"},
+        {"id": "phase_6_replay_spikes", "command": "tools\\validate_replay_prediction_frame_spikes.bat", "desc": "Phase 6: Replay spikes"}
+    ]
+
+    results = []
+
+    for stage in stages_to_measure:
+        stage_samples = []
+        print(f"  Measuring {stage['desc']} ({stage['id']})...")
+        for s in range(samples_count):
+            rec = measure_stage(stage, env=warm_env)
+            stage_samples.append(rec)
+            print(f"    Sample {s+1}/{samples_count}: {rec['wall_duration_seconds']:.3f} s (exit: {rec['exit_code']})")
+
+        durations = [r["wall_duration_seconds"] for r in stage_samples]
+        durations_sorted = sorted(durations)
+        median_dur = durations_sorted[len(durations_sorted) // 2]
+        min_dur = min(durations)
+        max_dur = max(durations)
+        avg_dur = sum(durations) / len(durations)
+
+        results.append({
+            "id": stage["id"],
+            "desc": stage["desc"],
+            "command": stage["command"],
+            "samples": stage_samples,
+            "min_seconds": min_dur,
+            "median_seconds": median_dur,
+            "max_seconds": max_dur,
+            "avg_seconds": avg_dur,
+            "all_passed": all(r["exit_code"] == 0 for r in stage_samples)
+        })
+
+    report = {
+        "timestamp_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "machine": collect_machine_context(),
+        "samples_per_stage": samples_count,
+        "stages": results,
+        "total_median_critical_path_seconds": sum(r["median_seconds"] for r in results if r["id"].startswith("phase_"))
+    }
+
+    return report
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Validation Pipeline Timing and Stage Audit Tool (VTA0)")
+    parser = argparse.ArgumentParser(description="Validation Pipeline Timing and Stage Audit Tool (VTA0-VTA5)")
     parser.add_argument("--self-test", action="store_true", help="Run tool self-tests and overhead calibration")
     parser.add_argument("--manifest", action="store_true", help="Print the reconciled stage topology manifest")
-    parser.add_argument("--output-json", type=Path, help="Save timing results to the specified JSON path")
+    parser.add_argument("--measure-baseline", action="store_true", help="Run multi-sample baseline timing measurement")
+    parser.add_argument("--samples", type=int, default=3, help="Number of samples per stage (default: 3)")
+    parser.add_argument("--parse-historical", type=Path, help="Parse historical validation log file")
+    parser.add_argument("--output-json", type=Path, help="Save output results to JSON path")
 
     args = parser.parse_args()
 
@@ -359,6 +472,28 @@ def main():
             args.output_json.parent.mkdir(parents=True, exist_ok=True)
             args.output_json.write_text(out_text, encoding="utf-8")
             print(f"Stage manifest written to {args.output_json}")
+        else:
+            print(out_text)
+        sys.exit(0)
+
+    if args.parse_historical:
+        data = parse_historical_log(args.parse_historical)
+        out_text = json.dumps(data, indent=2)
+        if args.output_json:
+            args.output_json.parent.mkdir(parents=True, exist_ok=True)
+            args.output_json.write_text(out_text, encoding="utf-8")
+            print(f"Historical parse written to {args.output_json}")
+        else:
+            print(out_text)
+        sys.exit(0)
+
+    if args.measure_baseline:
+        report = run_baseline_measurement(samples_count=args.samples)
+        out_text = json.dumps(report, indent=2)
+        if args.output_json:
+            args.output_json.parent.mkdir(parents=True, exist_ok=True)
+            args.output_json.write_text(out_text, encoding="utf-8")
+            print(f"Baseline report written to {args.output_json}")
         else:
             print(out_text)
         sys.exit(0)

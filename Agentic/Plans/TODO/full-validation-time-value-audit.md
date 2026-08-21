@@ -1,7 +1,7 @@
 # Full Validation Time And Value Audit
 
 Date: 2026-08-20
-Status: Active; 1/6 phases complete
+Status: Active; 2/6 phases complete
 Impact area: validation orchestration, build configuration, repository
 inventories, CPU test and coverage gates, runtime probes, diagnostics, and
 validation governance
@@ -216,13 +216,13 @@ remain recorded with the reason so a later audit does not repeat them blindly.
 
 ### VTA1 - Controlled Baseline Measurements
 
-- [ ] Measure the warm, leaf-source, broad-header, fresh-build, and historical
+- [x] Measure the warm, leaf-source, broad-header, fresh-build, and historical
   scenarios without repeatedly invoking the terminal full wrapper.
-- [ ] Produce the nested flame/timeline table, parent-versus-child reconciliation,
+- [x] Produce the nested flame/timeline table, parent-versus-child reconciliation,
   build fan-out, CPU/coverage comparison, and runtime-workload breakdown.
-- [ ] Identify variance and repeat noisy samples rather than selecting the most
+- [x] Identify variance and repeat noisy samples rather than selecting the most
   favorable run.
-- [ ] Record the baseline critical path and the largest cumulative contributors.
+- [x] Record the baseline critical path and the largest cumulative contributors.
 
 ### VTA2 - Evidence Value Audit And Owner Rulings
 
