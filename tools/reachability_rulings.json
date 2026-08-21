@@ -819,6 +819,24 @@
       "reason": "The paired owner must measure peak build-plus-committed capacity rather than either physical bank independently.",
       "evidence": "The scanner sees six ambiguous same-name calls; the compiled private identity is exact. 2026-08-18 census: classification=no-reference; mapping=exact; ambiguous_production_calls=6; required_arity=0/0.",
       "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Planning/ReplayCauseInspection.cpp",
+      "signature": "ReplayCauseSolverPanelRowText BuildReplayCauseSolverPanelRowText( const ReplayCauseInspectionView& inspection, int rowIndex ) noexcept",
+      "owner": "ReplayCauseInspection solver-detail text projection",
+      "disposition": "retain-owner",
+      "reason": "Detached row text projection used by tests and diagnostics to verify formatted contact basis and dynamics values without requiring a rendering backend.",
+      "evidence": "TestReplayCauseInspection directly proves value-to-label mapping.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.cpp",
+      "signature": "bool ReplayCauseWindowContainsPoint( const RunReplayCauseTreeState& state, int x, int y )",
+      "owner": "ReplayOverlayLayout cause window bounds",
+      "disposition": "retain-owner",
+      "reason": "Pure point-in-rect hit test helper for the legacy hierarchy window bounds.",
+      "evidence": "TestReplayCauseInspection verifies boundary containment.",
+      "plan": ""
     }
   ]
 }

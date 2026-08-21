@@ -187,13 +187,12 @@ static void RenderReplayCauseSummaryTab( const UI::UIDrawContext& draw, const Re
 }
 
 static void RenderReplayCauseRawRecordTab( UI::UIDrawList& drawList, const UI::UIDrawContext& draw,
-                                          const ReplayCauseInspectionView& inspection,
-                                          const ReplayCauseInspectorLayout& layout, const UI::Style::UIPalette& palette )
+                                           const ReplayCauseInspectionView& inspection,
+                                           const ReplayCauseInspectorLayout& layout, const UI::Style::UIPalette& palette )
 {
     const ReplayCauseRawRecordProjection projection = BuildReplayCauseRawRecordProjection( inspection, 0 );
     const int rowCount = static_cast<int>( projection.rowCount );
-    const int firstRow = std::clamp( inspection.rawRecordFirstRow, 0,
-                                     (std::max)( 0, rowCount - layout.rawVisibleRows ) );
+    const int firstRow = std::clamp( inspection.rawRecordFirstRow, 0, (std::max)( 0, rowCount - layout.rawVisibleRows ) );
     const int endRow = (std::min)( rowCount, firstRow + layout.rawVisibleRows );
 
     drawList.PushClip( layout.rawTable.x, layout.rawTable.y, layout.rawTable.w, layout.rawTable.h );
@@ -204,24 +203,26 @@ static void RenderReplayCauseRawRecordTab( UI::UIDrawList& drawList, const UI::U
     for ( int rowIndex = firstRow; rowIndex < endRow; ++rowIndex )
     {
         const ReplayCauseRawRecordRow& row = projection.rows[static_cast<std::size_t>( rowIndex )];
-        const float rowY = layout.rawTable.y + static_cast<float>( rowIndex - firstRow ) * REPLAY_CAUSE_RAW_RECORD_ROW_HEIGHT;
+        const float rowY = layout.rawTable.y +
+                           static_cast<float>( rowIndex - firstRow ) * REPLAY_CAUSE_RAW_RECORD_ROW_HEIGHT;
 
         if ( row.kind == ReplayCauseRawRecordRowKind::Section )
         {
-            draw.Rect( layout.rawTable.x, rowY + REPLAY_CAUSE_RAW_RECORD_ROW_HEIGHT - 1.0f, tableRowWidth, 1.0f, CAUSE_RULE.r,
-                       CAUSE_RULE.g, CAUSE_RULE.b, 0.45f );
+            draw.Rect( layout.rawTable.x, rowY + REPLAY_CAUSE_RAW_RECORD_ROW_HEIGHT - 1.0f, tableRowWidth, 1.0f,
+                       CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b, 0.45f );
             draw.Text( layout.rawTable.x + 4.0f, rowY + 4.0f, 10.0f, CAUSE_MANIFOLD.r, CAUSE_MANIFOLD.g, CAUSE_MANIFOLD.b,
                        row.label );
         }
         else
         {
             const UI::Style::UIColor& fill = ( rowIndex % 2 == 0 ) ? CAUSE_NAVY_ALT : CAUSE_NAVY;
-            draw.RoundedRect( layout.rawTable.x, rowY, tableRowWidth, REPLAY_CAUSE_RAW_RECORD_ROW_HEIGHT - 1.0f, 2.0f, fill.r,
-                              fill.g, fill.b, 1.0f );
+            draw.RoundedRect( layout.rawTable.x, rowY, tableRowWidth, REPLAY_CAUSE_RAW_RECORD_ROW_HEIGHT - 1.0f, 2.0f,
+                              fill.r, fill.g, fill.b, 1.0f );
             draw.Text( layout.rawTable.x + 8.0f, rowY + 4.0f, 9.5f, palette.textSecondary.r, palette.textSecondary.g,
                        palette.textSecondary.b, row.label );
             draw.Text( layout.rawTable.x + 190.0f, rowY + 4.0f, 9.5f, palette.textPrimary.r, palette.textPrimary.g,
                        palette.textPrimary.b, row.value );
+
             if ( row.unit[0] != '\0' )
             {
                 draw.Text( layout.rawTable.x + tableRowWidth - 48.0f, rowY + 4.0f, 9.0f, palette.textMuted.r,
@@ -241,8 +242,8 @@ static void RenderReplayCauseRawRecordTab( UI::UIDrawList& drawList, const UI::U
                                                     static_cast<float>( rowCount ) );
         const float maxScroll = static_cast<float>( (std::max)( 1, rowCount - layout.rawVisibleRows ) );
         const float thumbY = layout.drawerScrollbar.y + ( trackH - thumbH ) * ( static_cast<float>( firstRow ) / maxScroll );
-        draw.RoundedRect( layout.drawerScrollbar.x, thumbY, layout.drawerScrollbar.w, thumbH, 2.0f, CAUSE_RULE.r, CAUSE_RULE.g,
-                          CAUSE_RULE.b, 0.85f );
+        draw.RoundedRect( layout.drawerScrollbar.x, thumbY, layout.drawerScrollbar.w, thumbH, 2.0f, CAUSE_RULE.r,
+                          CAUSE_RULE.g, CAUSE_RULE.b, 0.85f );
     }
 
     // Render Copy Record action button
@@ -258,8 +259,7 @@ static void RenderReplayCauseRawRecordTab( UI::UIDrawList& drawList, const UI::U
 
 static void RenderReplayCauseIterationsTab( UI::UIDrawList& drawList, const UI::UIDrawContext& draw,
                                             const ReplayCauseInspectionView& inspection,
-                                            const ReplayCauseInspectorLayout& layout,
-                                            const UI::Style::UIPalette& palette )
+                                            const ReplayCauseInspectorLayout& layout, const UI::Style::UIPalette& palette )
 {
     const ReplayCauseIterationsProjection projection = BuildReplayCauseIterationsProjection( inspection, 0 );
     const int rowCount = static_cast<int>( projection.rowCount );
@@ -300,12 +300,12 @@ static void RenderReplayCauseIterationsTab( UI::UIDrawList& drawList, const UI::
 
         if ( row.kind == ReplayCauseIterationRowKind::SolverIteration )
         {
-            draw.Text( layout.iterationsTable.x + 76.0f, rowY + 4.0f, 8.5f, palette.textSecondary.r,
-                       palette.textSecondary.g, palette.textSecondary.b, row.deltaNormal );
-            draw.Text( layout.iterationsTable.x + 140.0f, rowY + 4.0f, 8.5f, palette.textPrimary.r,
-                       palette.textPrimary.g, palette.textPrimary.b, row.accNormal );
-            draw.Text( layout.iterationsTable.x + 204.0f, rowY + 4.0f, 8.5f, palette.textPrimary.r,
-                       palette.textPrimary.g, palette.textPrimary.b, row.tangentImpulse );
+            draw.Text( layout.iterationsTable.x + 76.0f, rowY + 4.0f, 8.5f, palette.textSecondary.r, palette.textSecondary.g,
+                       palette.textSecondary.b, row.deltaNormal );
+            draw.Text( layout.iterationsTable.x + 140.0f, rowY + 4.0f, 8.5f, palette.textPrimary.r, palette.textPrimary.g,
+                       palette.textPrimary.b, row.accNormal );
+            draw.Text( layout.iterationsTable.x + 204.0f, rowY + 4.0f, 8.5f, palette.textPrimary.r, palette.textPrimary.g,
+                       palette.textPrimary.b, row.tangentImpulse );
             const bool isClamped = ( std::strcmp( row.status, "CLAMP" ) == 0 );
             const UI::Style::UIColor& statusColor = isClamped ? CAUSE_SOLVER : palette.textMuted;
             draw.Text( layout.iterationsTable.x + 276.0f, rowY + 4.0f, 8.5f, statusColor.r, statusColor.g, statusColor.b,
@@ -348,10 +348,9 @@ static void RenderReplayCauseIterationsTab( UI::UIDrawList& drawList, const UI::
         const float thumbH = (std::max)( 16.0f, trackH * static_cast<float>( layout.iterationsVisibleRows ) /
                                                     static_cast<float>( rowCount ) );
         const float maxScroll = static_cast<float>( (std::max)( 1, rowCount - layout.iterationsVisibleRows ) );
-        const float thumbY = layout.drawerScrollbar.y +
-                             ( trackH - thumbH ) * ( static_cast<float>( firstRow ) / maxScroll );
-        draw.RoundedRect( layout.drawerScrollbar.x, thumbY, layout.drawerScrollbar.w, thumbH, 2.0f, CAUSE_RULE.r, CAUSE_RULE.g,
-                          CAUSE_RULE.b, 0.85f );
+        const float thumbY = layout.drawerScrollbar.y + ( trackH - thumbH ) * ( static_cast<float>( firstRow ) / maxScroll );
+        draw.RoundedRect( layout.drawerScrollbar.x, thumbY, layout.drawerScrollbar.w, thumbH, 2.0f, CAUSE_RULE.r,
+                          CAUSE_RULE.g, CAUSE_RULE.b, 0.85f );
     }
 }
 
@@ -366,8 +365,8 @@ void RenderReplayCauseSolverDetailPanel( UI::UIDrawList& drawList, const UI::UID
         return;
     }
 
-    const ReplayCauseInspectorLayout layout = BuildReplayCauseInspectorLayout( inspection, replay.causeTree, screenW, screenH,
-                                                                               inspection.drawerProgress );
+    const ReplayCauseInspectorLayout layout = BuildReplayCauseInspectorLayout( inspection, replay.causeTree, screenW,
+                                                                               screenH, inspection.drawerProgress );
 
     if ( layout.visibleDrawer.w <= 1.0f )
     {

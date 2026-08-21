@@ -310,15 +310,17 @@ Return findings with file/line references and a clear verdict.
    the reviewed risk area or the reviewer requested a follow-up. Transition at
    both sides of every repeat so each pass and fix cycle is a separate live
    ledger row.
-8. Open the `validation` ledger step before running the smallest cumulative
-   pre-commit validation from `AGENTS.md` for that
-   task's changed-file set. Documentation-only changes require no validation.
-   Still record a bounded documentation/diff inspection in the validation row
-   so its duration and outcome are explicit. Do not run full validation for an
-   intermediate task or ordinary PR commit.
-   Run `tools\agent_validate.bat --plan-completion` once, after independent
-   review and immediately before the terminal commit that closes the entire
-   implementation plan.
+8. Open the `validation` ledger step. For intermediate task implementation work,
+   do not run heavy validation suites (anything taking more than a minute or two,
+   such as full multi-minute test suites, graphics stress, or deep regression gates);
+   `validate_fast` or focused checks are sufficient while iterating. The primary
+   objective is to complete the bulk of the implementation tasks as quickly as
+   possible. All heavy validation (`validate_tests`, full test runs, stress gates,
+   rubber duck review, adversarial audit, refactors, and minor fixups) is concentrated
+   at the very end of the working plan in the final terminal closure pass.
+   Documentation-only changes require no validation. Run `tools\agent_validate.bat --plan-completion`
+   (or the mapped full test and review gate) once, after independent review and
+   immediately before the terminal commit that closes the entire implementation plan.
 9. Update `Agentic/SessionState.md` whenever a task or phase completes, a plan
     closes, a blocker is recorded, or the portfolio denominator moves. This is a
     write step, not a read step: steps 10 and 11 stage and report the update, but

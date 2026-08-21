@@ -66,7 +66,7 @@ bypass it.
 
 1. Follow the Agent Startup Contract above.
 2. Identify your change's impact area: DX12, physics, scene system, tests, documentation.
-3. State whether validation is required now. For normal implementation work, do not run repository validation scripts while iterating; name the targeted validation command to defer until PR-bound commit/PR prep. For documentation-only changes, state that no validation is required.
+3. State whether validation is required now. For intermediate task implementation work, do not run heavy validation suites (anything taking more than 1-2 minutes, such as full test suites, graphics stress, or deep regression gates); `validate_fast` or focused checks are sufficient while iterating. The primary objective is to complete the bulk of the implementation work as quickly and cleanly as possible. All heavy validation (`validate_tests`, full test runs, stress gates, rubber duck review, adversarial checks, refactors, and final fixups) is concentrated at the very end of the working plan in the terminal closure pass. For documentation-only changes, state that no validation is required.
 4. If unrelated dirty files are present, leave them alone. Do not overwrite,
    revert, stage, or format user-owned changes unless explicitly requested.
 5. For any source-bearing file you edit (`.cpp`, `.h`, `.hpp`, `.inl`,
