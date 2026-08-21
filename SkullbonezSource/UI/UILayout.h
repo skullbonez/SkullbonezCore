@@ -1,7 +1,8 @@
 /*
 File: SkullbonezSource/UI/UILayout.h
 Purpose:
-  Implements UI Layout widgets, layout, drawing, or UI state for the in-engine controls.
+  Declares deterministic UI geometry, clipping, interpolation, and value-
+  conversion helpers.
 
 Summary:
   Centralizes deterministic geometry and value

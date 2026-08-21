@@ -19,8 +19,6 @@ Glossary:
   Report fact: Derived validation value shared by live assertions and final JSON.
   RVIS (Replay Visual Instance State): Ordered visual packet rows stored beside
     replay samples for offline fidelity verification.
-  Committed frame prefix: Reader-visible prediction rows; retained rows beyond
-    its count remain private allocation storage.
 
 Invariants:
   - JSON field names and replay byte/order calculations are validation contracts.

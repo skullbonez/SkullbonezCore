@@ -18,8 +18,6 @@ Glossary:
   Context exit release: Synthetic release emitted when an accepted action is
     still held but its owning context becomes inactive.
   Focus cancellation: Release events emitted when the application loses focus.
-  Fluid-surface command: Signed world-space velocity published in the immutable
-    RuntimeInputSnapshot.
 
 Invariants:
   - No operation in this file allocates or retains caller-owned storage.

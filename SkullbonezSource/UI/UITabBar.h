@@ -1,7 +1,8 @@
 /*
 File: SkullbonezSource/UI/UITabBar.h
 Purpose:
-  Implements UI TabBar widgets, layout, drawing, or UI state for the in-engine controls.
+  Declares tab-strip geometry, selection hit testing, and active-tab
+  drawing.
 
 Summary:
   Maps tab bounds to a selected index and

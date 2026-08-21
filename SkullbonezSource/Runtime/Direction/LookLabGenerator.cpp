@@ -330,9 +330,9 @@ void AppendFloat( std::vector<uint8_t>& bytes, float value )
 
 void AppendCinematic( std::vector<uint8_t>& bytes, const Core::CinematicRenderConfig& c )
 {
-    // Invariant: this is the LL6-corrected 84-atom prerelease version-1 field
-    // order, not an in-memory dump. After LL6 closure, insertions belong in a
-    // new generator version because changing this order invalidates
+    // Invariant: prerelease generator version 1 consumes exactly 84 atoms in
+    // this field order; it is not an in-memory dump. Insertions require a new
+    // generator version because changing this order invalidates
     // fingerprints and later reproducibility receipts.
     const bool toggles[] = { c.enabled,        c.skyAtmosphereEnabled,      c.cloudsEnabled,
                              c.godRaysEnabled, c.volumetricLightingEnabled, c.bloomEnabled,

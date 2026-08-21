@@ -2020,9 +2020,9 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
                                        m_resources.Config(),
                                        m_resources.PrimitiveBatches() };
 
-    // These passes currently borrow subsystem-owned mesh/material resources,
-    // but keeping the ensure calls in the frame story gives future extraction
-    // work an obvious place to move those GPU resources.
+    // Why: these passes borrow subsystem-owned mesh/material resources. Keep
+    // readiness checks beside their frame submissions so each draw observes the
+    // same resource generation selected for this frame.
     {
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
         m_objectPass.EnsureGpuResources( resourceContext );

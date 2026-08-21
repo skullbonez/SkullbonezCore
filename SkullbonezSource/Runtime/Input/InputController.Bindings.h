@@ -12,8 +12,7 @@ Summary:
 Glossary:
   Runtime input action: Engine command name produced from a key, UI, mouse, or
     scripted source.
-  Context mask: Bit set describing which dispatch pass or runtime state owns a
-    binding row.
+
   Binding view: Borrowed pointer/count pair over static rows; callers must not
     store it past process lifetime assumptions.
 

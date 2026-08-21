@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/UI/UIIconButton.h
 Purpose:
-  Implements UI IconButton widgets, layout, drawing, or UI state for the in-engine controls.
+  Declares compact icon-button geometry, hit testing, and chevron drawing.
 
 Summary:
   Keeps expander hit testing and chevron

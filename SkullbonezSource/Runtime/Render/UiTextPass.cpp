@@ -1150,13 +1150,13 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport, OverlayMo
     const UI::UIProfilerOverlayPresenter profilerOverlay;
 #endif
 
-    // --- Overlay: None ---
+    // Overlay: None:
     if ( mode == OverlayMode::None )
     {
         return;
     }
 
-    // --- Overlay: Scene telemetry ---
+    // Overlay: Scene telemetry:
     if ( mode == OverlayMode::SceneStats )
     {
         const float titleSz = 0.013f;
@@ -1183,7 +1183,7 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport, OverlayMo
         return;
     }
 
-    // --- Overlay: Visual profiler bars (normalized or absolute) ---
+    // Overlay: Visual profiler bars (normalized or absolute):
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
 
     if ( mode == OverlayMode::BarsNormalized || mode == OverlayMode::BarsAbsolute )
@@ -1211,7 +1211,7 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport, OverlayMo
     }
 #endif
 
-    // --- Overlay: Keys reference screen (compact, bottom-left) ---
+    // Overlay: Keys reference screen (compact, bottom-left):
     if ( mode == OverlayMode::Keys )
     {
         const float titleSz = 0.013f;
@@ -1283,7 +1283,7 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport, OverlayMo
         return;
     }
 
-    // --- Overlay: Timers / HUD (OverlayMode::Timers) ---
+    // Overlay: Timers / HUD (OverlayMode::Timers):
 
     // SkullbonezCore::Core::Profiler overlay - bottom-left anchored.
     // Compiled out in Release; always shown when overlay is Timers in Debug/Profile.

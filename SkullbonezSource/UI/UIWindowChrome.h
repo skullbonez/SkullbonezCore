@@ -1,7 +1,8 @@
 /*
 File: SkullbonezSource/UI/UIWindowChrome.h
 Purpose:
-  Implements UI WindowChrome widgets, layout, drawing, or UI state for the in-engine controls.
+  Declares window placement, clamping, title fitting, animation, and chrome
+  drawing.
 
 Summary:
   Owns window placement, clamping,

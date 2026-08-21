@@ -18,8 +18,7 @@ Glossary:
   Route phase: Pre-UI, after-UI, or capture stage that owns a binding row.
   Context predicate: All-of bit mask that must be active before an action edge
     may be delivered.
-  Focus resynchronization: First focused sample after focus loss; held inputs are
-    remembered without being reported as fresh presses.
+
   Transition cleanup: Ordered cancellation sent to the replay/tool owners before
     a new workspace or world-input owner begins consuming gestures.
   Lifecycle activation: Completed scene-load phase that can publish a new

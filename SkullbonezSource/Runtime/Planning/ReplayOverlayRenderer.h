@@ -14,8 +14,6 @@ Glossary:
     cause-tree inspection.
   Retained prediction list: Append-only trajectory chunks reused until the
     prediction generation, source bank, palette, or topology changes.
-  All-body path: Space-scene future trajectory selected by body identity rather
-    than contact-derived causality.
 
 Invariants:
   - Replay state reaches each draw operation only through the published overlay

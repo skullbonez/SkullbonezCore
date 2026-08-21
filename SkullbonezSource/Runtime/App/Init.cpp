@@ -86,9 +86,9 @@ void ReportStartupFailure( const SkullbonezCore::Core::SbResult& result, const c
     MessageBoxA( nullptr, dialogMessage, title, MB_OK | MB_ICONERROR | MB_SETFOREGROUND );
 }
 
-// ---------------------------------------------------------------------------
+
 // Console
-// ---------------------------------------------------------------------------
+
 
 // GUI apps have no console by default; attach to the parent terminal so
 // fprintf(stderr/stdout) is visible when launched from cmd/PowerShell.
@@ -126,9 +126,9 @@ void AttachParentConsole()
     }
 }
 
-// ---------------------------------------------------------------------------
+
 // Render backend
-// ---------------------------------------------------------------------------
+
 
 SkullbonezCore::Core::SbResult InitRenderBackend( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, Window* window,
                                                   std::unique_ptr<RenderBackendDX12>& outBackend )
@@ -293,9 +293,9 @@ int RunApp( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, Window* window
     return 0;
 }
 
-// ---------------------------------------------------------------------------
+
 // Cleanup
-// ---------------------------------------------------------------------------
+
 
 void CleanupWindow( Window* window, HINSTANCE instance, std::unique_ptr<RenderBackendDX12>& renderBackend )
 {
@@ -346,9 +346,8 @@ int ReportDiagnosticStoreSession( SkullbonezCore::Core::SbDiagnosticStore& diagn
 } // anonymous namespace
 
 
-// ---------------------------------------------------------------------------
 // Entry point
-// ---------------------------------------------------------------------------
+
 
 int WINAPI WinMain( HINSTANCE instance, HINSTANCE previousInstance, PSTR commandLineText, int showCommand )
 {

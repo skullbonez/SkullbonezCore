@@ -11,9 +11,7 @@ Summary:
   exit messages arrive later.
 
 Glossary:
-  Owned failure: recoverable failure already attributed to the subsystem that
-    detected it, including a lease on its immutable owner and diagnostic
-    message.
+
   Message exit code: Integer supplied by the platform message loop when it
     announces process exit; this owner intentionally has no Win32 dependency.
 

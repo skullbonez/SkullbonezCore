@@ -197,7 +197,7 @@ class ReplayPredictionSolverEvidenceStore
     uint64_t m_lifetimePeakCapacityBytes = 0;
 };
 
-// Synchronous read-only borrow over one sealed frame in a segmented bank.
+// Lifetime: synchronous read-only borrow over one sealed frame in a segmented bank.
 // The bank owner controls lifetime; consumers retain neither pointer beyond
 // their command nor assumptions about physical segment layout.
 struct ReplayPredictionSolverEvidenceFrameView

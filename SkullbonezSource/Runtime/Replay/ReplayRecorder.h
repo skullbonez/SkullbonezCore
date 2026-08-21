@@ -22,8 +22,7 @@ Glossary:
     object ids; transient handles and model rows are not persisted identity.
   Event sample: Accepted owner action, restore, or branch record that must be
     replayed alongside solver state for authoritative rollback work.
-  Wire code: Explicit serialized value whose meaning is independent of a C++
-    domain enum's declaration order.
+
   Recorder reserve owner: Aggregate replay-only byte budget shared by retained
     presentation, solver, world-delta, and visual sample vectors.
 

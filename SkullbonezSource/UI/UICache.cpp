@@ -1,7 +1,8 @@
 /*
 File: SkullbonezSource/UI/UICache.cpp
 Purpose:
-  Implements UI Cache widgets, layout, drawing, or UI state for the in-engine controls.
+  Implements retained UI draw-command caching and its semantic invalidation
+  inputs.
 
 Summary:
   Replays retained draw commands only when style,

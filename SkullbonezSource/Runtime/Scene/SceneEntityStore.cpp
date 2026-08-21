@@ -8,8 +8,6 @@ Summary:
   commits physics owner rows, then publishes the fully linked entity record.
   Reserved storage prevents steady-runtime growth.
 
-Glossary:
-  Stable identity: Nonzero PhysicsSceneObjectId that survives dense-row movement.
 
 Invariants:
   - Preflight is mutation-free.

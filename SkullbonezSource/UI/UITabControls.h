@@ -1,7 +1,8 @@
 /*
 File: SkullbonezSource/UI/UITabControls.h
 Purpose:
-  Implements UI TabControls widgets, layout, drawing, or UI state for the in-engine controls.
+  Declares the seed, scene-population, and fluid control surface and its
+  typed commands.
 
 Summary:
   Previews and commits scene-population,

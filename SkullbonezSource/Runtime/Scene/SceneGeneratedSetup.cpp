@@ -349,7 +349,7 @@ SkullbonezCore::Core::SbResult SceneGeneratedSetup::SetUpSolverObjects( SceneSes
 
     auto randSign = [&]() -> float { return ( NextSceneRand( scene.rngState ) % 2 == 0 ) ? 1.0f : -1.0f; };
 
-    // --- Sphere pass ---
+    // Sphere pass:
     for ( int i = 0; i < balls; ++i )
     {
         float posX = randFloat( config.generatedScene.spawnXBase, config.generatedScene.spawnXRange );
@@ -392,7 +392,7 @@ SkullbonezCore::Core::SbResult SceneGeneratedSetup::SetUpSolverObjects( SceneSes
         sceneWorld.Physics().SetPendingBodyImpulse( body, force, impulseWorldOffsetFromCenter );
     }
 
-    // --- Box pass ---
+    // Box pass:
     // Box inertia tensor (solid cuboid about centre of mass):
     //   Ix = m/12 * (hy^2 + hz^2),  Iy = m/12 * (hx^2 + hz^2),  Iz = m/12 * (hx^2 + hy^2)
     // where hx, hy, hz are the full extents (2 * half-extents).

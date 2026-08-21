@@ -26,8 +26,6 @@ Glossary:
     surfaces without exposing mutable owners.
   Development UI apply result: One automation-owned batch outcome containing
     only a recoverable status and an optional Run-owned surface selection.
-  FIFO (First In, First Out): Platform-message order retained when the bounded
-    drain defers excess messages to the next frame.
 
 Invariants:
   - Frame work updates input, simulation, capture, rendering, and diagnostics

@@ -1,7 +1,8 @@
 /*
 File: SkullbonezSource/UI/UITabProfiler.h
 Purpose:
-  Implements UI TabProfiler widgets, layout, drawing, or UI state for the in-engine controls.
+  Declares bounded profiler snapshots, expansion state, timeline, histogram,
+  and worker controls.
 
 Summary:
   Retains bounded profiler snapshots, expansion state,

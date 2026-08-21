@@ -1,7 +1,8 @@
 /*
 File: SkullbonezSource/UI/UIState.h
 Purpose:
-  Implements UI State widgets, layout, drawing, or UI state for the in-engine controls.
+  Declares persistent window placement and frame-local UI interaction state
+  values.
 
 Summary:
   Separates persistent window placement from

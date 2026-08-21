@@ -8,9 +8,6 @@ Summary:
   Teardown commands clear only lifecycle-owned state and leave frame/pass order
   to RuntimeRenderer.
 
-Glossary:
-  Source asset: Stable authored record used to rebuild a backend texture handle.
-
 Invariants:
   - Allocation-prone setup executes only in backend-init or scene-load phases.
   - Capability publication and required concrete backend owners agree.
@@ -19,6 +16,7 @@ Invariants:
     boundary; lifecycle code never indexes the catalog directly.
 
 Related:
+  - Agentic/Reference/engine-glossary.md
   - SkullbonezSource/Runtime/Render/RenderResourceLifecycle.h
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp

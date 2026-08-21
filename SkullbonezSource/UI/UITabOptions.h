@@ -1,7 +1,8 @@
 /*
 File: SkullbonezSource/UI/UITabOptions.h
 Purpose:
-  Implements UI TabOptions widgets, layout, drawing, or UI state for the in-engine controls.
+  Declares runtime option toggles plus time-scale and model-count
+  preview/commit controls.
 
 Summary:
   Previews and commits runtime option

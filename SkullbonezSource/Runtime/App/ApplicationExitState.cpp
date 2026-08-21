@@ -5,16 +5,15 @@ Purpose:
   window system or allocating runtime storage.
 
 Summary:
-  The state is a small latch. Normal exit sets the latch, while the first recoverable failure retains its compact diagnostic
-lease. Resolution prefers that exact immutable diagnostic over the less informative integer delivered by a platform message
-loop.
+  The state is a small latch. Normal exit sets the latch, while the first
+  recoverable failure retains its compact diagnostic lease. Resolution prefers
+  that exact immutable diagnostic over the less informative integer delivered by
+  a platform message loop.
 
 Glossary:
   Exit latch: Boolean state recording that the frame loop should stop.
   Failure precedence: Rule that preserves the earliest subsystem-owned failure
     instead of replacing it with later, less specific exit information.
-  Synthetic failure: Generic recoverable result created from a nonzero message exit
-    code when no subsystem supplied a richer result.
 
 Invariants:
   - RequestOwnedFailure never mutates state for an SkullbonezCore::Core::SbResult success value.
@@ -24,8 +23,9 @@ Invariants:
     and message never change.
 
 Related:
-  - SkullbonezSource/Runtime/App/ApplicationExitState.h declares the caller contract.
-  - SkullbonezTests/TestApplicationExitState.cpp covers precedence and bounds.
+  - Agentic/Reference/engine-glossary.md
+  - SkullbonezSource/Runtime/App/ApplicationExitState.h
+  - SkullbonezTests/TestApplicationExitState.cpp
 */
 #include "ApplicationExitState.h"
 

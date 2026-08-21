@@ -217,7 +217,7 @@ After IH7 has committed its final source and comment work:
 - [x] **CT3 — Apply Rendering and DX12 replacements.** Preserve feature-neutral
   Rendering vocabulary and the final IH4 lifecycle/capacity contracts while
   correcting stale summaries, fence semantics, and local teaching comments.
-- [ ] **CT4 — Apply Runtime and UI replacements.** Preserve the final IH5 owner,
+- [x] **CT4 — Apply Runtime and UI replacements.** Preserve the final IH5 owner,
   lifecycle, package-direction, replay-growth, and input-router contracts while
   replacing only comments still false or incomplete on the post-IH tree.
 - [ ] **CT5 — Reconcile and close the full-source truth pass.** Re-run the exact
@@ -513,9 +513,9 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 - [x] `SkullbonezSource/Rendering/Text.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Rendering/Text.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Rendering/WorldRenderExtension.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Runtime/App/ApplicationExitState.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/Runtime/App/ApplicationExitState.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/Runtime/App/Init.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/App/ApplicationExitState.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/App/ApplicationExitState.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/App/Init.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Runtime/App/InputFrame.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/App/InputFrame.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/App/InputFrameExecution.cpp` -- inspected; no replacement required
@@ -529,8 +529,8 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 - [x] `SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/App/ReplayValidation.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/App/Run.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Runtime/App/Run.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/Runtime/App/RunFrame.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/App/Run.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/App/RunFrame.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Runtime/App/RunLaunchOptions.Renderer.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/App/RunLaunchOptions.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/App/RunRender.cpp` -- inspected; no replacement required
@@ -542,11 +542,11 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 - [x] `SkullbonezSource/Runtime/Automation/InteractionAutomationController.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Automation/InteractionAutomationInputDriver.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Automation/InteractionAutomationInputDriver.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Automation/RuntimeValidationHarness.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Automation/RuntimeValidationHarness.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Runtime/Camera/AttachedCameraController.InspectionPolicy.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/Camera/AttachedCameraController.InspectionPolicy.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Runtime/Camera/AttachedCameraController.InspectionPolicy.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Camera/AttachedCameraController.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Camera/AttachedCameraController.h` -- inspected; no replacement required
@@ -564,9 +564,9 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 - [x] `SkullbonezSource/Runtime/Capture/GraphicsStressController.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Capture/RuntimeStressController.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Capture/RuntimeStressController.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Runtime/Debug/CollisionVisualizer.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/Debug/CollisionVisualizer.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Runtime/Debug/CollisionVisualizer.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.h` -- inspected; no replacement required
@@ -595,17 +595,17 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 - [x] `SkullbonezSource/Runtime/Direction/DemoDirectorPlayback.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Direction/LiveStyleController.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Direction/LiveStyleController.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Runtime/Direction/LookLabBundleWriter.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/Direction/LookLabBundleWriter.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Runtime/Direction/LookLabBundleWriter.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Direction/LookLabController.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Direction/LookLabController.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Runtime/Direction/LookLabGenerator.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/Direction/LookLabGenerator.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Runtime/Direction/LookLabGenerator.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Editor/EditorCommandHistory.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Editor/EditorCommandHistory.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Editor/EditorGizmoTools.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Editor/EditorHistory.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Runtime/Editor/EditorHullAssets.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/Editor/EditorHullAssets.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Editor/EditorObjectPlacement.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Editor/EditorOverlayTools.cpp` -- inspected; no replacement required
@@ -624,20 +624,20 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 - [x] `SkullbonezSource/Runtime/Input/Input.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Input/Input.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Input/InputController.Bindings.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Runtime/Input/InputController.Bindings.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/Input/InputController.Bindings.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Runtime/Input/InputController.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Input/InputController.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Runtime/Input/InputRouter.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/Runtime/Input/InputRouter.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.Commands.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/Input/InputRouter.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/Input/InputRouter.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.Commands.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Runtime/Interaction/RuntimeInteractionCommands.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Interaction/RuntimePickGeometry.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Interaction/RuntimePickGeometry.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Runtime/Interaction/RuntimePickService.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/Interaction/RuntimePickService.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Runtime/Interaction/RuntimePickService.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Planning/ContinuousOrbitalForecast.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Planning/ContinuousOrbitalForecast.h` -- inspected; no replacement required
@@ -651,10 +651,10 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 - [x] `SkullbonezSource/Runtime/Planning/ReplayInterceptReadout.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Planning/ReplayOverlayPackets.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Runtime/Planning/ReplayPlanningOverlayLayout.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Planning/ReplayPlanningOverlayLayout.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Runtime/Planning/ReplayPlanningRuntime.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/Planning/ReplayPlanningRuntime.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Runtime/Planning/ReplayPlanningRuntime.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Planning/ReplayPorkchopPanel.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Planning/ReplayPorkchopPanel.h` -- inspected; no replacement required
@@ -672,7 +672,7 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 - [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionPackets.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionPresentation.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionPresentation.h` -- inspected; no replacement required
@@ -687,7 +687,7 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 - [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionScheduling.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionScheduling.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionTopologyPublication.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionView.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Prediction/TrajectoryStore.cpp` -- inspected; no replacement required
@@ -698,18 +698,18 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 - [x] `SkullbonezSource/Runtime/Render/RenderModelFramePublisher.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Render/RenderModelFramePublisher.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Render/RenderPresentationSettings.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Runtime/Render/RenderResourceLifecycle.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/Render/RenderResourceLifecycle.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Runtime/Render/RenderResourceLifecycle.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Runtime/Render/RuntimeRenderFrameValues.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/Render/RuntimeRenderFrameValues.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Runtime/Render/RuntimeRenderHost.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Render/RuntimeRenderResources.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Runtime/Render/RuntimeRenderer.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Render/UiDrawSubmission.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Runtime/Render/UiDrawSubmission.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/Runtime/Render/UiTextPass.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/Render/UiDrawSubmission.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/Render/UiTextPass.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Runtime/Replay/ReplayArtifactHashLog.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Replay/ReplayArtifactHashLog.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Replay/ReplayArtifactSource.h` -- inspected; no replacement required
@@ -732,7 +732,7 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 - [x] `SkullbonezSource/Runtime/Replay/ReplayPresentationSubmission.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Replay/ReplayProbeState.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayRecorder.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayRecorder.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Runtime/Replay/ReplayRestoreService.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Replay/ReplayRetainedMemory.h` -- inspected; no replacement required
@@ -744,8 +744,8 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 - [x] `SkullbonezSource/Runtime/Replay/ReplayTrajectoryPackets.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Replay/ReplayV2Artifact.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayVisualPacket.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayVisualPacketFingerprint.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayVisualPacket.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayVisualPacketFingerprint.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Runtime/Replay/ReplayVisualPacketFingerprint.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/RuntimeFrameViews.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.CameraSlots.h` -- inspected; no replacement required
@@ -761,13 +761,13 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 - [x] `SkullbonezSource/Runtime/Scene/SceneController.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Scene/SceneController.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Scene/SceneControllerState.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Runtime/Scene/SceneEntityStore.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneEntityStore.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/Scene/SceneEntityStore.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/Scene/SceneEntityStore.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Runtime/Scene/SceneGeneratedControlTransaction.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Scene/SceneGeneratedControlTransaction.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Runtime/Scene/SceneLifecycle.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Runtime/Scene/SceneLifecycle.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Runtime/Scene/SceneLoadPreparation.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Scene/SceneLoadPresentation.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Runtime/Scene/SceneLoadRequest.h` -- inspected; no replacement required
@@ -829,70 +829,70 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 - [x] `SkullbonezSource/UI/UI.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/UI/UIBackdropBlur.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/UI/UIBackdropBlur.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/UI/UIButton.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/UI/UIButton.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/UI/UICache.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/UI/UICache.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/UI/UICheckBox.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/UI/UICheckBox.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/UI/UIComboBox.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/UI/UIComboBox.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UIButton.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UIButton.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UICache.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UICache.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UICheckBox.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UICheckBox.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UIComboBox.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UIComboBox.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/UI/UICommands.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/UI/UIDraw.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/UI/UIDraw.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/UI/UIDrawList.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/UI/UIDrawList.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/UI/UIDrawWidgets.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/UI/UIDrawWidgets.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UIDrawWidgets.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UIDrawWidgets.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/UI/UIEditorMiniPalette.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/UI/UIEditorMiniPaletteDraw.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/UI/UIFontMetrics.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/UI/UIFontMetrics.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/UI/UIFrameComposition.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/UI/UIFrameComposition.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/UI/UIIconButton.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/UI/UIIconButton.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UIIconButton.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UIIconButton.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/UI/UIInput.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/UI/UIInput.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/UI/UILayout.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/UI/UILayout.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UILayout.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UILayout.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/UI/UIProfilerOverlayPresenter.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/UI/UIProfilerOverlayPresenter.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/UI/UIRenderAuthoringCatalog.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/UI/UIRenderDiagnostics.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/UI/UISceneNavigationModel.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/UI/UIScrollBar.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/UI/UIScrollBar.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/UI/UISlider.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/UI/UISlider.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/UI/UIState.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/UI/UIStyle.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/UI/UIStyle.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/UI/UITabBar.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/UI/UITabBar.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UIScrollBar.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UIScrollBar.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UISlider.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UISlider.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UIState.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UIStyle.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UIStyle.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UITabBar.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UITabBar.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/UI/UITabCinematic.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/UI/UITabCinematic.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/UI/UITabControls.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/UI/UITabControls.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UITabControls.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UITabControls.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/UI/UITabEditor.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/UI/UITabEditor.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/UI/UITabMemory.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/UI/UITabMemory.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/UI/UITabOptions.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/UI/UITabOptions.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/UI/UITabPhysics.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/UI/UITabPhysics.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UITabOptions.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UITabOptions.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UITabPhysics.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UITabPhysics.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/UI/UITabProfiler.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezSource/UI/UITabProfiler.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UITabProfiler.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/UI/UITabProfilerHistogram.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezSource/UI/UITabScene.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/UI/UITabScene.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UITabScene.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UITabScene.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/UI/UITabSky.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/UI/UITabSky.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/UI/UIWindowChrome.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/UI/UIWindowChrome.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UIWindowChrome.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UIWindowChrome.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/UI/UIWindowInteractionOwner.cpp` -- inspected; no replacement required
-- [ ] `SkullbonezSource/UI/UIWindowInteractionOwner.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/UI/UIWindowInteractionOwner.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/World/FluidSurfaceAdjustment.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/World/SkyBox.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/World/SkyBox.h` -- inspected; no replacement required

@@ -1,20 +1,21 @@
-/*
-File: SkullbonezSource/UI/UITabControls.cpp
-Purpose:
-  Implements UI TabControls widgets, layout, drawing, or UI state for the in-engine controls.
+// Concept: population counts remain preview-only during a drag and become typed
+// run requests on release; seed and fluid sliders publish their values directly.// Invariant: ball and box previews share
+// one model-capacity budget; changing one immediately reduces the other slider's admissible maximum./*
+File : SkullbonezSource / UI / UITabControls.cpp Purpose : Implements the seed, scene - population,
+    and fluid control surface and its typed commands.
 
-Summary:
-  Previews and commits scene-population,
-  seed, and fluid sliders as typed UI commands.
+        Summary : Previews and commits scene -
+        population,
+    seed,
+    and fluid sliders as typed UI commands
+                .
 
-Invariants:
-  - Draw geometry and hit testing must be derived from the same layout
-  constants.
+            Invariants : -Draw geometry and hit testing must be derived from the same layout constants.
 
-Related:
-  - SkullbonezSource/UI/UITabControls.h
-  - Agentic/Reference/engine-glossary.md
-*/
+                         Related : -SkullbonezSource /
+            UI / UITabControls.h -
+        Agentic / Reference / engine -
+        glossary.md* /
 #include "UITabControls.h"
 
 #include "UI.h"
@@ -24,7 +25,7 @@ Related:
 #include <algorithm>
 #include <cstdio>
 
-using namespace SkullbonezCore::UI::Layout;
+            using namespace SkullbonezCore::UI::Layout;
 using namespace SkullbonezCore::UI::Widgets;
 
 namespace

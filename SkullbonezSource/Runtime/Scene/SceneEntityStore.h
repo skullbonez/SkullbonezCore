@@ -10,7 +10,7 @@ Summary:
   is identity.
 
 Glossary:
-  Behavior group: Ragdoll/tree membership keyed by stable root object id and part order.
+
   Commit: Append after capacity, identity, body, collider, and render preflight.
 
 Invariants:

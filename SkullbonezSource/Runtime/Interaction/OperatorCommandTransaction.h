@@ -128,7 +128,7 @@ class OperatorCommandPhaseCursor
     Phase m_phase = Phase::Idle;
 };
 
-// One value-only record carries every accepted-action fact beyond its phase.
+// Concept: one value-only record carries every accepted-action fact beyond its phase.
 // Every field has a named InputFrame or replay consumer in the OC0 census.
 struct OperatorCommandAcceptanceLedger
 {

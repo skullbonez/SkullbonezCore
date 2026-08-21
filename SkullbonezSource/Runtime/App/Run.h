@@ -274,7 +274,7 @@ class Run
                       float presentationAlpha );                                                 // simulationDt drives physics; cameraDt is unscaled wall time.
     void AfterPhysicsStep();                                                                     // Post-step hooks that must see committed physics state.
 
-    // --- Per-frame tick helpers (called from Execute()) ---
+    // Per-frame tick helpers (called from Execute()):
     float TickPhysics( double dt, bool capturePresentationPinned,
                        const SceneFrameProceedPolicy& proceedPolicy );                           // Returns the live fixed-tick interpolation fraction.
     bool TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy );                        // Screenshot triggers; true restarts frame.

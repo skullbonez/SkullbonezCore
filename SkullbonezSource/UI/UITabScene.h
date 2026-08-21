@@ -1,7 +1,8 @@
 /*
 File: SkullbonezSource/UI/UITabScene.h
 Purpose:
-  Implements UI TabScene widgets, layout, drawing, or UI state for the in-engine controls.
+  Declares filtered scene navigation, time controls, and detached forecast
+  presentation.
 
 Summary:
   Owns filtered scene selection, scene commands, time-control interaction, and

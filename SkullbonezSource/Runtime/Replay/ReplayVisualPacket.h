@@ -17,9 +17,6 @@ Glossary:
     presentation has applied its capacity and priority rules.
   Retained marker: Replay-owned entry, rest, and horizon poses that remain
     visible after their activation tick.
-  First difference: Typed location of the earliest unequal packet field or
-    submission float; recordIndex names its row and floatIndex names the field
-    or component within that row.
 
 Invariants:
   - Buffer spans borrow EditorTracer storage for the current render frame only.
