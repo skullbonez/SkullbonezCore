@@ -526,7 +526,7 @@ shape or their effect on parameter count.
   long-lived owner pointers. Borrowed owners enter phase methods and expire
   when those calls return.
 - Multi-step work whose correctness depends on call order must enforce that
-  order in a type, using a phase cursor and lane-F fatal on an illegal
+  order in a type, using a phase cursor and fatal invariant on an illegal
   transition, rather than relying on comments or caller discipline.
 - Three or more sibling input/participant/output structs combined with a wide
   apply free function and ordering/arbitration comments are an extrusion
@@ -630,8 +630,8 @@ signature; it enforced no lifecycle, ordering, arbitration, or authority
 rule.
 
 **Legitimate example — invariant owner:** a transaction type may own a phase
-cursor whose legal walk is tested, make an out-of-order phase call lane-F
-fatal, and expose arbitration methods that replace free which-value-wins
+cursor whose legal walk is tested, make an out-of-order phase call a fatal
+invariant, and expose arbitration methods that replace free which-value-wins
 helpers. Its header must name the exact phase-order and arbitration invariant
 it enforces.
 
@@ -772,14 +772,14 @@ Exceptions are banned for engine code. The strict source throw inventory is
 zero as of 2026-07-10. Do not add a new throw-count ratchet or frozen budget;
 any new `throw` is a review failure.
 
-| Lane | Use For | Mechanism |
-|------|---------|-----------|
-| F: Fatal invariant | Should-never-happen engine state in physics, stores, solver, frame loop, replay internals, or other owned runtime logic | `SB_FATAL(owner, ...)`; logs owner/diagnostics, flushes, breaks in Debug/Profile, and never returns |
-| R: Recoverable result | External input or environment failure: scene/asset files, editor commands, automation input, device support, file IO | `SbResult`/future value-carrying result; operation fails and reports an owner/message to the UI or log boundary |
-| P: Probe assertion | Validation, interaction, replay, scrub, and stress probes that should become machine-readable failures | Existing probe/report channel such as `FailAutomation(...)`, with interaction report `ok=false` and a failure message |
+| Category | Use For | Mechanism |
+|---|---|---|
+| Fatal invariant | Should-never-happen engine state in physics, stores, solver, frame loop, replay internals, or other owned runtime logic | `SB_FATAL(owner, ...)`; logs owner/diagnostics, flushes, breaks in Debug/Profile, and never returns |
+| Recoverable error | External input or environment failure: scene/asset files, editor commands, automation input, device support, file IO | `SbResult`/future value-carrying result; operation fails and reports an owner/message to the UI or log boundary |
+| Test probe | Validation, interaction, replay, scrub, and stress probes that should become machine-readable failures | Existing probe/report channel such as `FailAutomation(...)`, with interaction report `ok=false` and a failure message |
 
-New fatal or recoverable paths must name their lane in source comments or the
-owning plan when the lane is not obvious from the API being used.
+New fatal or recoverable paths must clarify their error category in source comments or the
+owning plan when not obvious from the API being used.
 
 ## After Editing
 

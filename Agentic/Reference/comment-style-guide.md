@@ -295,19 +295,17 @@ use `Concept:`, `Why:`, `Invariant:`, `Lifetime:`, or `Hazard:`. `Docs:` is a
 Rendering-local marker for an authoritative external API link beside the choice
 it supports; file-level repository navigation still belongs in `Related:`.
 
-### Result, Failure, And Proof Lanes
+### Error Handling And Validation Categories
 
-Lane labels classify handling; structured tags explain the nearby reason or
-risk. They may therefore appear together.
+Structured comments classify how failures and validation probes are handled:
 
-| Lane | Meaning |
+| Category | Meaning |
 |---|---|
-| `Lane R` | Recoverable external-input or environment failure represented by an owner/message result. |
-| `Lane F` | Fatal should-never-happen owned engine state. |
-| `Lane P` | Bounded validation or probe result, not production error handling. |
+| `Fatal Invariant` | Fatal should-never-happen owned engine state, terminating via `SB_FATAL`. |
+| `Recoverable Error` | Recoverable external-input or environment failure represented by an `SbResult`. |
+| `Test Probe` | Bounded validation or probe result, not production error handling. |
 
-Use these exact spellings. A `Hazard:` comment does not replace Lane F, and a
-`Why:` comment does not replace Lane R or Lane P.
+Use clear, descriptive comments. A `Hazard:` comment explains risks but does not replace a fatal invariant explanation, and a `Why:` comment explains design decisions but does not replace documenting recoverable error or probe conditions.
 
 ### Algorithm Citations And Engine Decisions
 
@@ -486,8 +484,8 @@ When editing a file, check:
   glossary?
 - Are comments explaining concepts, reasons, invariants, lifetimes, hazards, or units?
 - Do runtime allocation comments use `Runtime allocation policy:` exactly?
-- Are Lane R/F/P and CATTO REF/ENGINE-SPECIFIC labels used for their documented
-  handling and citation jobs?
+- Are fatal invariants, recoverable errors, and test probes clearly documented,
+  and are CATTO REF/ENGINE-SPECIFIC labels used for their documented citation jobs?
 - Does every custom heading name a precise domain category rather than aliasing
   a standard structured tag?
 - Did any code change make an existing comment stale?

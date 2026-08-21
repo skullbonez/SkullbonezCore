@@ -112,6 +112,7 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 | Editor command | Intent emitted by a widget and applied later by runtime code. |
 | Engine module | A source file with one focused responsibility inside the SkullbonezCore runtime. |
 | Event cursor | Monotonic sequence marker stored on checkpoints so restore can resume timeline events without replaying old side effects. |
+| Fatal Invariant | Fatal invariant for should-never-happen owned engine state; it records diagnostics and terminates immediately via `SB_FATAL`. |
 | Fault injection | Debug-only synthetic failure used to prove that queue work stops before the first unsafe submission. |
 | FBO (Framebuffer Object) | Engine shorthand for an off-screen render target exposed through the renderer abstraction. |
 | Feature ID | Deterministic contact key used to match rows across frames for warm starting. |
@@ -159,12 +160,8 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 | Instant build | One worker submission that completes the remaining horizon. |
 | Interaction owner | Concrete owner of persistent UI controls and cross-frame pointer/capture state; it emits typed command values rather than mutating runtime subsystems. |
 | Interaction signature | Hash of pointer/focus state used to invalidate hit data. |
-| Intercept assertion | Lane P proof over the replay-owned closest-approach snapshot; it observes distance, ETA, and contact without owning the scan. |
+| Intercept assertion | Test probe proof over the replay-owned closest-approach snapshot; it observes distance, ETA, and contact without owning the scan. |
 | JSON (JavaScript Object Notation) | Text metadata format used inside the manifest chunk. |
-| Lane F | Fatal invariant lane for should-never-happen owned engine state; it records diagnostics and does not return. |
-| Lane P | Bounded validation or probe-result lane; it reports proof evidence and is not production error handling. |
-| Lane R | Recoverable error-handling lane for external input or environment failure, represented by an owner/message result. |
-| Lane R result | Recoverable owner/message result for external input or environment failure, reported without exceptions or fatal termination. |
 | Lifecycle generation | Monotonic identity for one accepted scene-load attempt, independent of scene index or successful activation. |
 | Live edge | The newest retained replay sample. |
 | Live graph | Production callback schedule accumulated across the frame. |
@@ -237,6 +234,7 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 | Ragdoll part | One model body in the generated simple ragdoll assembly. |
 | RayT | Distance along the supplied pick ray to the first shape hit. |
 | Readback buffer | CPU-readable landing resource for a GPU texture copy. |
+| Recoverable Error | Recoverable error-handling path for external input or environment failure, represented by an `SbResult` without exceptions or fatal termination. |
 | Record version | Monotonic identity for a replaced record; readers can detect replacement without comparing point arrays. |
 | Recording epoch | One reusable command-list lifetime from successful Reset to Close. |
 | Render command context | Renderer capability borrowed only while drawing a collision-visualizer frame. |
@@ -244,7 +242,7 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 | Render instance | CPU-side record describing one model's draw transform and material intent. |
 | Render pass | A named slice of frame rendering with explicit inputs, outputs, and GPU resource ownership. |
 | Render pose | The eye/view/up triple actually used for the current frame; it can differ from the selected camera slot while a tween is active. |
-| Replay probe | Debug-only command-line workflow that validates one replay behavior and reports a machine-readable Lane P result. |
+| Replay probe | Debug-only command-line workflow that validates one replay behavior and reports a machine-readable test probe result. |
 | Replay ribbon | Screen-space-width overlay stroke generated from replay path segments, with an analytic edge and optional selected-path halo. |
 | Replay target marker | Debug overlay outline/ring drawn around a replay body from live body/collider store values. |
 | Replay transfer | Deterministic copy between owned sleep rows and the solver snapshot. |
@@ -310,6 +308,7 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 | Surface | Presentation boundary or ordered control surface exposed for one UI or operator domain. |
 | Swept overlay | One-step grid coverage of a body's start-to-end path that cannot pollute its persistent current-position membership. |
 | Terrain sweep | Continuous collision query against the terrain plane under a body. |
+| Test Probe | Bounded validation or probe-result path; it reports proof evidence and is not production error handling. |
 | TLAS (Top-Level Acceleration Structure) | Raytracing spatial index for scene instances that point at BLAS geometry. |
 | Topology drift | Temporary mismatch between editor model count and physics store rows after scene/editor construction or deletion. |
 | Trajectory lane | Named path category such as past root, future root, child incoming/outgoing, retained trail, or baseline root. |
