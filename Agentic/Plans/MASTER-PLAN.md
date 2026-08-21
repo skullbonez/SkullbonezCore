@@ -233,7 +233,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Repository Hygiene Cleanup | `REPOSITORY_CLEANUP` | 6 | 3 | `TODO/repository-hygiene-cleanup.md` |
+| Repository Hygiene Cleanup | `REPOSITORY_CLEANUP` | 6 | 4 | `TODO/repository-hygiene-cleanup.md` |
 
 ## Parked, Backlog, And Completed Plans
 
@@ -308,13 +308,13 @@ contracts into Rendering.
 
 ## Portfolio Progress
 
-77/80 tasks complete with one active plan.
+78/80 tasks complete with one active plan.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
 Invariant Enforcement And Assertion Hardening IH0-IH7 is complete.
 Cause Hierarchy Scientific Inspector CHUI0-CHUI6 is complete. Full Source Comment Truth
 Replacement CT0-CT5 is complete. Full Validation Time And Value Audit VTA0-VTA5 is complete.
-Repository Hygiene Cleanup RC0-RC2 are complete and RC3 is next; three phases remain.
+Repository Hygiene Cleanup RC0-RC3 are complete and RC4 is next; two phases remain.
 Deterministic
 Trigonometry is owner-parked and excluded from progress.

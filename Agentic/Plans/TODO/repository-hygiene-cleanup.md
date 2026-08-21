@@ -1,7 +1,7 @@
 # Repository Hygiene Cleanup
 
 Date: 2026-08-20
-Status: Active; 3/6 phases complete. Bound after `VALIDATION_TIME_AUDIT`.
+Status: Active; 4/6 phases complete. Bound after `VALIDATION_TIME_AUDIT`.
 Impact areas: ignored validation evidence, build and IDE output, detached Git
 worktrees, tracked visual references, plan topology, and repository hygiene
 Owner: repository hygiene and artifact-retention owners
@@ -171,14 +171,14 @@ removal.
 
 ## RC3 - Reclaim Derived Build, IDE, And Diagnostic Output
 
-- Close Visual Studio before removing the approved `.vs` cache.
-- Remove approved old `Release`, `Profile-WPO`, portable `build`, and standalone
+- [x] Close Visual Studio before removing the approved `.vs` cache.
+- [x] Remove approved old `Release`, `Profile-WPO`, portable `build`, and standalone
   test `x64` outputs. Keep current `Profile`/`Automation` outputs unless RC0
   proves they are no longer needed.
-- Remove only approved diagnostic trace/database files from `Debug`; retain the
+- [x] Remove only approved diagnostic trace/database files from `Debug`; retain the
   current executable/object roots needed by pending validation and reachability
   work.
-- Remove explicit root probe objects and historical root build logs while
+- [x] Remove explicit root probe objects and historical root build logs while
   preserving editor preferences and current launch arguments unless the owner
   opts in to their deletion.
 
