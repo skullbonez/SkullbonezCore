@@ -2,7 +2,7 @@
 
 Date: 2026-08-21
 Branch: `codex/cause-hierarchy-ui-first`
-Status: Two active plans; 72/80 tasks complete
+Status: Two active plans; 73/80 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, and Full Source Comment
@@ -13,11 +13,11 @@ followed by Repository Hygiene Cleanup RC0-RC5.
 Completed plan files were deleted under the repository convention; Git history
 retains their phase evidence.
 
-VALIDATION_TIME_AUDIT VTA0-VTA3 are complete. VTA0 established topology manifest and timing instrumentation.
-VTA1 measured baseline (590.23 s total, preflight 375.09 s). VTA2 ratified owner rulings. VTA3 parallelized
-unreachable symbols scanning with ProcessPoolExecutor (185.56 s -> 82.80 s) and deployed concurrent governance
-inventory validation (tools/validate_governance_inventories.py, 127.06 s -> 49.27 s), dropping preflight duration
-from 375.09 s to 195.97 s (-47.8% / 3 minutes saved). VTA4 (CPU And Runtime Critical-Path Reduction) is the active next task.
+VALIDATION_TIME_AUDIT VTA0-VTA4 are complete. VTA0 deployed timing tools, VTA1 established baseline (590.23 s),
+VTA2 ratified owner rulings, VTA3 optimized preflight (375.09 s -> 191.24 s), and VTA4 verified CPU tests,
+coverage floors, and runtime lanes (Automation, DX12, Physics) with zero oracle loss. Overall critical path
+dropped from 590.23 s (~9.84 min) to 403.17 s (~6.72 min) — a net 31.7% total gate reduction.
+VTA5 (Terminal Proof And Governance Closure) is the active next task.
 
 ORBIT_FORECAST OF0 is complete. It ratifies the fixed sun as the primary,
 Earth and Mars as core bodies, and the ship as an auxiliary whose orbital-

@@ -1,7 +1,7 @@
 # Full Validation Time And Value Audit
 
 Date: 2026-08-20
-Status: Active; 4/6 phases complete
+Status: Active; 5/6 phases complete
 Impact area: validation orchestration, build configuration, repository
 inventories, CPU test and coverage gates, runtime probes, diagnostics, and
 validation governance
@@ -245,15 +245,15 @@ remain recorded with the reason so a later audit does not repeat them blindly.
 
 ### VTA4 - CPU And Runtime Critical-Path Reduction
 
-- [ ] Run approved test/coverage, Automation, DX12, Physics, and informational
+- [x] Run approved test/coverage, Automation, DX12, Physics, and informational
   diagnostic experiments one at a time.
-- [ ] Prove any reduced workload with a seeded-defect/negative control and any
+- [x] Prove any reduced workload with a seeded-defect/negative control and any
   moved lane through the mandatory hosted/focused/scheduled entry point that now
   owns it.
-- [ ] Preserve zero-warning builds, coverage-floor enforcement, DX12 InfoQueue
+- [x] Preserve zero-warning builds, coverage-floor enforcement, DX12 InfoQueue
   validation, byte-exact Physics comparison, baseline authority, and fail-fast
   exit propagation.
-- [ ] Re-measure the affected VTA1 scenarios after the accepted changes.
+- [x] Re-measure the affected VTA1 scenarios after the accepted changes.
 
 ### VTA5 - Terminal Proof And Governance Closure
 
