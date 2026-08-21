@@ -50,7 +50,7 @@ static const int FONT_ATLAS_H = FONT_CELL_H * FONT_ROWS; // 288 pixels
 static const int SDF_SCALE = 6;      // hi-res render factor: final × SDF_SCALE = hi-res
 static const int SDF_SPREAD_HI = 36; // max encoded signed distance (hi-res px) = 6 final-atlas px
 
-// --- Text batch accumulation buffers ---
+// Text batch accumulation buffers:
 // Layout per vertex: [x, y, u, v, r, g, b] (7 floats)
 // Batching all Render2dText* calls into one UploadAndDrawDynamicVB per frame
 // eliminates ~20 individual draw calls, shader binds, and state save/restores.
@@ -58,7 +58,7 @@ static constexpr int TEXT_BATCH_MAX_CHARS = TextBatch::TEXT_MAX_CHARS;
 static constexpr int TEXT_BATCH_FLOATS_PER_VERT = TextBatch::TEXT_FLOATS_PER_VERTEX;
 static constexpr int TEXT_BATCH_VERTS_PER_CHAR = TextBatch::TEXT_VERTICES_PER_CHAR;
 
-// --- Quad batch accumulation buffers ---
+// Quad batch accumulation buffers:
 // Layout per vertex: [x, y, r, g, b, a] (6 floats)
 // BatchQuad() accumulates quads here; FlushQuads() uploads and draws them all in
 // one draw call — so an entire profiler bar overlay (background + N segments +
@@ -88,9 +88,9 @@ struct FileCloser
 using FileHandle = std::unique_ptr<FILE, FileCloser>;
 } // namespace
 
-// =============================================================================
+
 // SDF ATLAS — binary file format
-// =============================================================================
+
 //
 // Header (416 bytes) followed directly by (atlasW × atlasH) R8 pixel bytes.
 //   0   = far outside the glyph
@@ -99,7 +99,7 @@ using FileHandle = std::unique_ptr<FILE, FileCloser>;
 //
 // The SDF is computed at SDF_SCALE × resolution then box-filtered down,
 // preserving sub-pixel gradient information through the downsample.
-// =============================================================================
+
 struct SdfFileHeader
 {
     char magic[8];    // "SBSDF001" — format identifier
@@ -121,21 +121,20 @@ struct SdfFileHeader
 };
 
 
-// =============================================================================
 // 1D Euclidean Distance Transform  (Felzenszwalb & Huttenlocher, PAMI 2012)
-// =============================================================================
+
 //
 // Transforms f[0..n-1] in place using caller-supplied scratch arrays.
 //   Before: f[i] = 0 for source pixels, 1e20 for non-source.
 //   After:  f[i] = squared Euclidean distance to the nearest source.
 //
 // scratch_src / scratch_v / scratch_z must have capacity ≥ n, n, n+1 respectively.
-// =============================================================================
+
 static void ComputeEDT1D( float* f, int n, float* scratch_src, int* scratch_v, float* scratch_z )
 {
     memcpy( scratch_src, f, static_cast<size_t>( n ) * sizeof( float ) );
 
-    // --- Build phase: lower envelope of upward parabolas g_q(x) = (x−q)² + src[q] ---
+    // Build phase: lower envelope of upward parabolas g_q(x) = (x−q)² + src[q]:
     //
     // We maintain a stack of non-dominated parabolas, whose pairwise intersection
     // x-coordinates are strictly increasing left to right.  Each new parabola q
@@ -168,7 +167,7 @@ static void ComputeEDT1D( float* f, int n, float* scratch_src, int* scratch_v, f
         scratch_z[k + 1] = +1e20f;
     }
 
-    // --- Query phase: evaluate the lower envelope at each pixel position ---
+    // Query phase: evaluate the lower envelope at each pixel position:
     k = 0;
 
     for ( int q = 0; q < n; ++q )
@@ -265,9 +264,8 @@ static bool LoadSdfAtlasFromFile( Dx12TextureOwner& renderTextures, const char* 
 }
 
 
-// =============================================================================
 // Text2d::GenerateSdfAtlasToFile
-// =============================================================================
+
 //
 // All 96 printable ASCII glyphs are drawn at SDF_SCALE x resolution using GDI,
 // computes a per-cell Signed Distance Field via two 2D Euclidean Distance
@@ -277,7 +275,7 @@ static bool LoadSdfAtlasFromFile( Dx12TextureOwner& renderTextures, const char* 
 // This function requires no window or GPU context — it can run from --gen-atlas
 // before any graphics initialisation.  Call it when the atlas is absent or
 // when the font or cell dimensions have changed.
-// =============================================================================
+
 bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPath )
 {
     // Hi-res dimensions — each axis is SDF_SCALE × the final atlas.
@@ -292,9 +290,9 @@ bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPat
 
     const float INF = 1e20f;
 
-    // =========================================================================
+
     // Phase 1: render glyphs into a hi-res GDI memory bitmap
-    // =========================================================================
+
     //
     // CreateCompatibleDC(nullptr) creates a DC compatible with the display without
     // requiring an existing window, so this runs before renderer startup.
@@ -406,9 +404,9 @@ bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPat
     DeleteObject( hBitmap );
     DeleteDC( memDC );
 
-    // =========================================================================
+
     // Phase 2 — signed distance field via two 2D Euclidean Distance Transforms
-    // =========================================================================
+
     //
     // For each hi-res glyph cell:
     //   edtOut[p] = squared dist from p to the nearest OUTSIDE pixel
@@ -422,7 +420,7 @@ bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPat
     //
     // Each SDF_SCALE×SDF_SCALE block is box-averaged to one final-atlas byte,
     // preserving sub-pixel gradients through the 6× downsample.
-    // =========================================================================
+
     const int finalTotalPx = FONT_ATLAS_W * FONT_ATLAS_H;
     std::unique_ptr<uint8_t[]> finalAtlas( new uint8_t[finalTotalPx] );
 
@@ -496,9 +494,9 @@ bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPat
         }
     }
 
-    // =========================================================================
+
     // Phase 3 — write binary atlas file
-    // =========================================================================
+
     FILE* rawFile = nullptr;
 
     if ( fopen_s( &rawFile, outputPath, "wb" ) != 0 || !rawFile )

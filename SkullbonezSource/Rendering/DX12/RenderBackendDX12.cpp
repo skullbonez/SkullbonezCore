@@ -24,7 +24,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 
-// --- DX12 Architecture ---
+// DX12 Architecture:
 //
 // DX12 is explicit: the engine records command lists, submits them to queues,
 // manages resource states, and waits on fences before reusing memory.
@@ -104,7 +104,6 @@ using namespace SkullbonezCore::Rendering;
 using Microsoft::WRL::ComPtr;
 
 
-// --- Helpers ---
 static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIndex, UINT capacity )
 {
     const char* name = heapName ? heapName : "unknown";
@@ -153,7 +152,7 @@ static bool IsDx12DeviceLostResult( HRESULT hr )
     return hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET || hr == DXGI_ERROR_DRIVER_INTERNAL_ERROR;
 }
 
-// --- Backend Setup Entry Point ---
+// Backend Setup Entry Point:
 
 
 RenderBackendDX12::RenderBackendDX12( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics )
@@ -318,7 +317,7 @@ void Dx12GraphTransientPool::EndGraphTextureRenderTarget( const RenderGraphTextu
     EndRenderTarget( binding, passName );
 }
 
-// --- Init / Shutdown ---
+// Init / Shutdown:
 
 
 SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height,
@@ -991,7 +990,7 @@ void RenderBackendDX12::Shutdown()
 }
 
 
-// --- Frame Management ---
+// Frame Management:
 
 
 SkullbonezCore::Core::SbResult Dx12FrameOwner::Present( Dx12Diagnostics& diagnostics )
@@ -1090,10 +1089,9 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::Present( Dx12Diagnostics& diagnos
     SetFrameFenceValue( AllocatorIndex(), presentFenceValue );
     AssignRetirementFence( presentFenceValue );
 
-    // Timer readback can be mapped once this frame's signal fence is reached.
-    // If there's an unconsumed readback still pending (e.g. fence wasn't ready during the
-    // non-blocking TryConsume at the top of Present), do a blocking consume now to avoid
-    // permanently losing that frame's GPU timing data by overwriting readFenceValue.
+    // Invariant: publish this frame's resolved timer fence without waiting for an older
+    // diagnostic sample. Dx12Diagnostics deliberately replaces a stale pending sample so
+    // free-running Present never blocks the renderer merely to preserve timing telemetry.
     diagnostics.PublishResolvedGpuTimerFence( resolvedTimerSlotsThisFrame, presentFenceValue );
 
     // Advance to next frame's allocator and swap chain buffer.
@@ -1441,7 +1439,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::Resize( int width, int height )
 }
 
 
-// --- Viewport & Clear ---
+// Viewport & Clear:
 
 
 void Dx12FrameOwner::SetViewport( int x, int y, int w, int h )
@@ -1498,16 +1496,15 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
 }
 
 
-// --- PSO Management ---
+// PSO Management:
 
 
-// --- Resource Creation ---
+// Resource Creation:
 
 
-// --- Textures ---
+// Textures:
 
 
-// =============================================================================
 // InitGenMipsPipeline — compile generate_mips.hlsl, create root signature and
 // GPU-side mip generation uses a compute PSO separate from raster draw PSOs.
 //
@@ -1516,10 +1513,8 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
 //   Param 1: Descriptor table — 1 SRV  (t0): source mip (single-level view)
 //   Param 2: Descriptor table — 4 UAVs (u0-u3): output mips (unused slots use null UAV)
 //   Static sampler s0: LinearClamp
-// =============================================================================
 
 
-// =============================================================================
 // GenerateMipsGPU — GPU compute shader mip generation.
 //
 // The texture must have been created with D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS
@@ -1532,13 +1527,12 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
 //        c. Dispatches the compute shader.
 //        d. UAV barrier, then transitions outputs to NON_PIXEL_SHADER_RESOURCE.
 //   3. Transitions all mips to PIXEL_SHADER_RESOURCE (D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES).
-// =============================================================================
 
 
-// --- Screenshot ---
+// Screenshot:
 
 
-// --- Dynamic VB ---
+// Dynamic VB:
 
 
 // Per-vertex colored line data is interleaved [x,y,z,r,g,b] per vertex (6 floats each).
@@ -1546,13 +1540,13 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
 // Lazy-creates a LINE_LIST PSO on first call.
 
 
-// --- Instanced mesh ---
+// Instanced mesh:
 
 
-// --- Queries ---
+// Queries:
 
 
-// --- DXR Raytracing ---
+// DXR Raytracing:
 
 
-// --- GPU Timers ---
+// GPU Timers:

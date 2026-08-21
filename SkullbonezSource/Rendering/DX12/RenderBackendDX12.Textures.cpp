@@ -46,7 +46,6 @@ using namespace SkullbonezCore::Rendering;
 using Microsoft::WRL::ComPtr;
 
 
-// --- Helpers ---
 static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIndex, UINT capacity )
 {
     const char* name = heapName ? heapName : "unknown";
@@ -74,8 +73,6 @@ static inline SkullbonezCore::Core::SbResult Dx12TextureStartupResult( Skullbone
 
     return SkullbonezCore::Core::SbResult::Success();
 }
-
-// --- RenderBackendDX12 Textures methods ---
 
 
 bool Dx12TextureCommands::Transition( const char* passName, const char* resourceName, ID3D12Resource* resource,
@@ -401,7 +398,7 @@ bool Dx12TextureOwner::GenerateMips( Dx12TextureCommands& commands, ID3D12Resour
         UINT dstW = (std::max)( srcMipW >> 1, 1u );
         UINT dstH = (std::max)( srcMipH >> 1, 1u );
 
-        // ------------------------------------------------------------------
+
         // Source SRV: single-level view of the source mip.
         //
         // A mip is one resolution level of a texture. The compute shader reads
@@ -410,7 +407,7 @@ bool Dx12TextureOwner::GenerateMips( Dx12TextureCommands& commands, ID3D12Resour
         //
         // This descriptor is transient because it is useful only while this
         // command list records the current mip-generation dispatch.
-        // ------------------------------------------------------------------
+
         UINT srcSrvIdx = commands.AllocateTransientSrv();
         {
             D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
@@ -425,7 +422,7 @@ bool Dx12TextureOwner::GenerateMips( Dx12TextureCommands& commands, ID3D12Resour
             commands.Device()->CreateShaderResourceView( tex, &srvDesc, cpuHandle );
         }
 
-        // ------------------------------------------------------------------
+
         // UAV slots: 4 consecutive transient slots (u0=base, u1=+1, u2=+2,
         // u3=+3).
         //
@@ -434,7 +431,7 @@ bool Dx12TextureOwner::GenerateMips( Dx12TextureCommands& commands, ID3D12Resour
         // dispatch. The root signature expects four UAV table entries every
         // time, so unused entries receive a null UAV descriptor rather than a
         // missing table row.
-        // ------------------------------------------------------------------
+
         UINT uavBase = commands.AllocateTransientSrvRange( 4 ); // u0..u3, checked as one contiguous table range
 
         for ( UINT i = 0; i < 4; ++i )
@@ -458,9 +455,8 @@ bool Dx12TextureOwner::GenerateMips( Dx12TextureCommands& commands, ID3D12Resour
             }
         }
 
-        // ------------------------------------------------------------------
+
         // Transition destination mips COPY_DEST → UNORDERED_ACCESS
-        // ------------------------------------------------------------------
         for ( UINT i = 0; i < mipsToGenerate; ++i )
         {
             if ( !commands.Transition( "GenerateMipsCopyToUav", "TextureMip", tex, RenderGraphResourceAccess::CopyDest,
@@ -505,10 +501,9 @@ bool Dx12TextureOwner::GenerateMips( Dx12TextureCommands& commands, ID3D12Resour
             return false;
         }
 
-        // ------------------------------------------------------------------
+
         // Transition output mips UNORDERED_ACCESS -> SHADER_RESOURCE so the next
         // compute batch and later pixel passes both see a legal read state.
-        // ------------------------------------------------------------------
         for ( UINT i = 0; i < mipsToGenerate; ++i )
         {
             if ( !commands.Transition( "GenerateMipsUavToSrv", "TextureMip", tex, RenderGraphResourceAccess::UnorderedAccess,
@@ -637,11 +632,11 @@ uint32_t Dx12TextureOwner::CreateTexture2D( Dx12TextureCommands& commands, const
         return 0;
     }
 
-    // -------------------------------------------------------------------------
+
     // Upload mip 0 only. GetCopyableFootprints for 1 subresource gives the
     // GPU row-pitch-aligned layout we must write to in the upload buffer.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-getcopyablefootprints
-    // -------------------------------------------------------------------------
+
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT fp0 = {};
     UINT rowCount0;
     UINT64 rowSize0, mip0Bytes;
@@ -678,10 +673,9 @@ uint32_t Dx12TextureOwner::CreateTexture2D( Dx12TextureCommands& commands, const
 
     commands.CommandList()->CopyTextureRegion( &dstLoc, 0, 0, 0, &srcLoc, nullptr );
 
-    // -------------------------------------------------------------------------
+
     // Generate remaining mips on the GPU (compute shader), or transition
     // directly to PIXEL_SHADER_RESOURCE for single-mip textures.
-    // -------------------------------------------------------------------------
     if ( numMips > 1 )
     {
         if ( !GenerateMips( commands, texResource, fmt, static_cast<UINT>( w ), static_cast<UINT>( h ), numMips,

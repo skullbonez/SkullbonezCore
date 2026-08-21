@@ -23,7 +23,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 
-// --- DXR Ray Tracing: Top-Level Acceleration Structure (TLAS) ---
+// DXR Ray Tracing: Top-Level Acceleration Structure (TLAS):
 //
 //  The TLAS represents the entire scene for ray tracing. It contains "instances" — each instance
 //  points to a BLAS (mesh geometry) and has a transform matrix that positions it in the world.

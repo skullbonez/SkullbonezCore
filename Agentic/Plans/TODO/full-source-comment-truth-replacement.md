@@ -214,7 +214,7 @@ After IH7 has committed its final source and comment work:
 - [x] **CT2 — Apply lower-layer engine replacements.** Re-audit and update
   Assets, Core, Maths, Physics, Scene, and World without replacing any later IH
   invariant, ownership, enforcement-lane, or hazard truth.
-- [ ] **CT3 — Apply Rendering and DX12 replacements.** Preserve feature-neutral
+- [x] **CT3 — Apply Rendering and DX12 replacements.** Preserve feature-neutral
   Rendering vocabulary and the final IH4 lifecycle/capacity contracts while
   correcting stale summaries, fence semantics, and local teaching comments.
 - [ ] **CT4 — Apply Runtime and UI replacements.** Preserve the final IH5 owner,
@@ -438,7 +438,7 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 - [x] `SkullbonezSource/Physics/TerrainContactManifold.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Physics/TerrainSupportClassifier.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Rendering/ContactManifoldPresentation.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Rendering/DX12/BLASDX12.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Rendering/DX12/BLASDX12.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Rendering/DX12/BLASDX12.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Rendering/DX12/Dx12BackbufferCapture.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Rendering/DX12/Dx12BackbufferCapture.h` -- inspected; no replacement required
@@ -455,7 +455,7 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 - [x] `SkullbonezSource/Rendering/DX12/Dx12GraphTransientPool.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Rendering/DX12/Dx12ImGuiRendererOwner.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Rendering/DX12/Dx12ImGuiRendererOwner.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Rendering/DX12/Dx12RenderGraphExecutor.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Rendering/DX12/Dx12RenderGraphExecutor.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Rendering/DX12/Dx12RenderGraphExecutor.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Rendering/DX12/Dx12ResourceBuilder.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Rendering/DX12/Dx12ShaderDevelopment.cpp` -- inspected; no replacement required
@@ -465,32 +465,32 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 - [x] `SkullbonezSource/Rendering/DX12/FramebufferDX12.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Rendering/DX12/MeshDX12.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Rendering/DX12/MeshDX12.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.CommandRecordingState.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.DXR.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Pipeline.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.CommandRecordingState.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.DXR.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Pipeline.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.PipelineState.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Resources.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Resources.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Rendering/DX12/RenderDeviceDX12.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Rendering/DX12/RenderDeviceDX12.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Rendering/DX12/RenderGraphTransientDX12.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Rendering/DX12/SBTDX12.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Rendering/DX12/SBTDX12.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Rendering/DX12/SBTDX12.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Rendering/DX12/ShaderBytecodeManifest.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Rendering/DX12/ShaderBytecodeManifest.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Rendering/DX12/ShaderDX12.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Rendering/DX12/ShaderDX12.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Rendering/DX12/TLASDX12.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Rendering/DX12/TLASDX12.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Rendering/DX12/TLASDX12.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Rendering/DrawCallTrace.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Rendering/DrawCallTrace.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Rendering/DrawCallTrace.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Rendering/PrimitiveBatchRenderer.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Rendering/PrimitiveMeshBuilder.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Rendering/RenderCommandTypes.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Rendering/RenderCommandTypes.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Rendering/RenderDiagnosticsTypes.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Rendering/RenderGpuTimingOwner.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Rendering/RenderGpuTimingOwner.h` -- inspected; no replacement required
@@ -500,7 +500,7 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 - [x] `SkullbonezSource/Rendering/RenderInstanceRenderer.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Rendering/RenderInstanceStore.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Rendering/RenderInstanceStore.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Rendering/RenderMaterial.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Rendering/RenderMaterial.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Rendering/RenderPipeline.cpp` -- inspected; no replacement required
 - [x] `SkullbonezSource/Rendering/RenderPipeline.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Rendering/RenderRasterBindingContract.h` -- inspected; no replacement required
@@ -509,8 +509,8 @@ patch. Every row has a disposition; unchecked does not mean unreviewed.
 - [x] `SkullbonezSource/Rendering/RenderSceneSnapshot.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Rendering/ShaderContracts.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Rendering/ShaderReflectionContracts.h` -- inspected; no replacement required
-- [ ] `SkullbonezSource/Rendering/Shadow.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
-- [ ] `SkullbonezSource/Rendering/Text.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Rendering/Shadow.h` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
+- [x] `SkullbonezSource/Rendering/Text.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`
 - [x] `SkullbonezSource/Rendering/Text.h` -- inspected; no replacement required
 - [x] `SkullbonezSource/Rendering/WorldRenderExtension.h` -- inspected; no replacement required
 - [ ] `SkullbonezSource/Runtime/App/ApplicationExitState.cpp` -- replacement queued in `Agentic/Plans/TODO/full-source-comment-truth-replacement.patch`

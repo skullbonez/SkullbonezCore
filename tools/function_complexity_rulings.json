@@ -306,12 +306,15 @@
     {
       "file": "SkullbonezSource/Rendering/Text.cpp",
       "signature": "bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPath )",
-      "body_sha256": "1c1939335506ba78f067ce487cf6c1d0f1a2eda4894c196417231ec2f120082e",
+      "body_sha256": "90e9a4670f5e073ce24fcd53d99608b0bca67a9e2b735872aeac8001e738d291",
       "owner": "Text2d atlas generation transaction",
       "disposition": "retain-owner",
       "reason": "One cold atlas-generation transaction rasterizes the configured glyph set, packs the image, and writes its matching metadata; image and metadata layout must succeed or fail together.",
       "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
-      "plan": ""
+      "plan": "",
+      "body_lines": 243,
+      "max_brace_depth": 6,
+      "closure_count": 0
     },
     {
       "file": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp",

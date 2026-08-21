@@ -53,7 +53,6 @@ using namespace SkullbonezCore::Rendering;
 using Microsoft::WRL::ComPtr;
 
 
-// --- Helpers ---
 static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIndex, UINT capacity )
 {
     const char* name = heapName ? heapName : "unknown";
@@ -137,8 +136,6 @@ bool IsGridLineRasterState( const RasterStateDesc& raster )
            !raster.depthBias.enabled;
 }
 } // namespace
-
-// --- Dx12GeometryOwner methods ---
 
 
 void Dx12GeometryOwner::AdoptGridLineShader( std::unique_ptr<ShaderDX12> shader )
@@ -905,7 +902,7 @@ void Dx12GeometryOwner::RequireSubmissionEpoch( const char* operation ) const
 }
 
 
-// --- RenderBackendDX12 draw coordination ---
+// RenderBackendDX12 draw coordination:
 
 
 bool Dx12GeometryOwner::PrecompileDynamicVBRasterState( uint32_t handle, const PassRasterStateBucket& bucket )

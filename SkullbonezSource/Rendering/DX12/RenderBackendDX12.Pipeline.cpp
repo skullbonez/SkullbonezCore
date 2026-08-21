@@ -48,10 +48,6 @@ using namespace SkullbonezCore::Rendering;
 using Microsoft::WRL::ComPtr;
 
 
-// --- Helpers ---
-// --- RenderBackendDX12 Pipeline methods ---
-
-
 static D3D12_BLEND MapBlendFactor( BlendFactor f )
 {
     switch ( f )

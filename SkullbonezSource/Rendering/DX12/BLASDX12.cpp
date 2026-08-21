@@ -18,7 +18,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 
-// --- DXR Ray Tracing: Bottom-Level Acceleration Structure (BLAS) ---
+// DXR Ray Tracing: Bottom-Level Acceleration Structure (BLAS):
 //
 //  A BLAS holds the actual triangle geometry for a single mesh. Think of it as a spatial
 //  index (like a BVH tree) that lets the GPU quickly test if a ray hits any triangle in

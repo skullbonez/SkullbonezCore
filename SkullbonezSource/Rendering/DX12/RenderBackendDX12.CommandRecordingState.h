@@ -11,8 +11,7 @@ Summary:
   that an earlier failed close, reset, or wait was harmless.
 
 Glossary:
-  Submitted work: Command stream passed to ExecuteCommandLists whose completion
-    must be proven by a later fence before allocator or resource reuse.
+
   Mapped pointer: CPU address returned by a successful resource Map operation.
   Recreation transaction: Staged replacement of swap-chain resources whose
     public generation advances only after every candidate exists.

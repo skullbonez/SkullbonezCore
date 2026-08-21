@@ -43,7 +43,6 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Rendering;
 
 
-// --- Helpers ---
 static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIndex, UINT capacity )
 {
     const char* name = heapName ? heapName : "unknown";
@@ -56,8 +55,6 @@ static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIn
 
     SkullbonezCore::Core::Log().FlushAll();
 }
-
-// --- Dx12ResourceBuilder methods ---
 
 
 std::unique_ptr<ShaderDX12> Dx12ResourceBuilder::CreateShader( const char* baseName, const char* contractBaseName )

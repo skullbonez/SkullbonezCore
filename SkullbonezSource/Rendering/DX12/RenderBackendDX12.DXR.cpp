@@ -57,7 +57,7 @@ using Microsoft::WRL::ComPtr;
 using SkullbonezCore::Core::SbResult;
 
 
-// --- Concrete raytracing owner ---
+// Concrete raytracing owner:
 
 
 void Dx12RaytracingOwner::ProbeCapability( ID3D12Device* device )
