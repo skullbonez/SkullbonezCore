@@ -71,9 +71,8 @@ class TextureCollection
   public:
     struct TextureHandleResult
     {
-        SkullbonezCore::Core::SbResult
-            result;          // recoverable error texture residency/load result before the backend handle can be used.
-        uint32_t handle = 0; // Opaque renderer texture handle; 0 means no usable texture.
+        SkullbonezCore::Core::SbResult result; // recoverable error texture residency/load result before the backend handle can be used.
+        uint32_t handle = 0;                   // Opaque renderer texture handle; 0 means no usable texture.
     };
 
   private:

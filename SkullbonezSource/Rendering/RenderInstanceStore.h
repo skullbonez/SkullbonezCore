@@ -118,34 +118,32 @@ enum class ShadowCasterStream : uint8_t
 
 struct RenderInstanceRecord
 {
-    RenderInstanceHandle handle;                                         // Stable render handle paired with the model slot.
-    Physics::PhysicsSceneObjectId sceneObjectId;                         // Stable cross-system identity paired with this instance.
-    Math::Transformation::Matrix4 modelMatrix;                           // World transform used by object rendering.
-    RenderMaterial material;                                             // Backend-neutral material intent.
-    float boundingRadius = 0.0f;                                         // Conservative render/shadow bounds radius.
-    RenderInstanceShapeKind shapeKind = RenderInstanceShapeKind::Sphere; // Cheap draw-path shape discriminator.
-    ShadowCasterStream shadowCasterStream = ShadowCasterStream::None;    // Owner-prepared opaque submission bin.
-    bool editorVisible = true;                                           // Session-only hierarchy visibility; false suppresses raster/shadow submission.
-    bool isFixed = false;                                                // Fixed bodies can receive contact-highlight tinting.
-    float fixedContactAlpha = 0.0f;                                      // Render-only red contact feedback strength.
-    Math::Vector::Vector3 previousPosition = Math::Vector::ZERO_VECTOR;  // Solver pose before the latest completed fixed tick.
-    Math::Vector::Vector3 currentPosition = Math::Vector::ZERO_VECTOR;   // Solver pose after the latest completed fixed tick.
-    Math::Orientation::Quaternion
-        previousOrientation = Math::Orientation::IDENTITY_QUATERNION;    // Orientation paired with previousPosition.
-    Math::Orientation::Quaternion
-        currentOrientation = Math::Orientation::IDENTITY_QUATERNION;     // Orientation paired with currentPosition.
-    bool poseHistoryValid = false;                                       // Both endpoints belong to this live body row.
+    RenderInstanceHandle handle;                                                                // Stable render handle paired with the model slot.
+    Physics::PhysicsSceneObjectId sceneObjectId;                                                // Stable cross-system identity paired with this instance.
+    Math::Transformation::Matrix4 modelMatrix;                                                  // World transform used by object rendering.
+    RenderMaterial material;                                                                    // Backend-neutral material intent.
+    float boundingRadius = 0.0f;                                                                // Conservative render/shadow bounds radius.
+    RenderInstanceShapeKind shapeKind = RenderInstanceShapeKind::Sphere;                        // Cheap draw-path shape discriminator.
+    ShadowCasterStream shadowCasterStream = ShadowCasterStream::None;                           // Owner-prepared opaque submission bin.
+    bool editorVisible = true;                                                                  // Session-only hierarchy visibility; false suppresses raster/shadow submission.
+    bool isFixed = false;                                                                       // Fixed bodies can receive contact-highlight tinting.
+    float fixedContactAlpha = 0.0f;                                                             // Render-only red contact feedback strength.
+    Math::Vector::Vector3 previousPosition = Math::Vector::ZERO_VECTOR;                         // Solver pose before the latest completed fixed tick.
+    Math::Vector::Vector3 currentPosition = Math::Vector::ZERO_VECTOR;                          // Solver pose after the latest completed fixed tick.
+    Math::Orientation::Quaternion previousOrientation = Math::Orientation::IDENTITY_QUATERNION; // Orientation paired with previousPosition.
+    Math::Orientation::Quaternion currentOrientation = Math::Orientation::IDENTITY_QUATERNION;  // Orientation paired with currentPosition.
+    bool poseHistoryValid = false;                                                              // Both endpoints belong to this live body row.
 };
 
 struct RenderInstancePresentationRecord
 {
-    RenderMaterial material;                                             // Backend-neutral material intent.
-    ShadowCasterStream shadowCasterStream = ShadowCasterStream::None;    // Scene-owner stream choice copied into the draw row.
-    bool editorVisible = true;                                           // Scene editor visibility copied into the prepared draw row.
-    char displayName[64] = {};                                           // Presentation/debug label paired with the model slot.
-    bool simpleRagdollPart = false;                                      // Presentation filter metadata copied from scene grouping.
-    float fixedContactAlpha = 0.0f;                                      // Render-only red contact feedback strength.
-    float fixedContactSeconds = 0.0f;                                    // Seconds remaining for fixed-body contact feedback.
+    RenderMaterial material;                                                                    // Backend-neutral material intent.
+    ShadowCasterStream shadowCasterStream = ShadowCasterStream::None;                           // Scene-owner stream choice copied into the draw row.
+    bool editorVisible = true;                                                                  // Scene editor visibility copied into the prepared draw row.
+    char displayName[64] = {};                                                                  // Presentation/debug label paired with the model slot.
+    bool simpleRagdollPart = false;                                                             // Presentation filter metadata copied from scene grouping.
+    float fixedContactAlpha = 0.0f;                                                             // Render-only red contact feedback strength.
+    float fixedContactSeconds = 0.0f;                                                           // Seconds remaining for fixed-body contact feedback.
 };
 
 class RenderInstanceStore
@@ -204,10 +202,9 @@ class RenderInstanceStore
     std::size_t RecordCapacity() const;
 
   private:
-    std::vector<RenderInstancePresentationRecord>
-        m_presentationRecords;                                           // Render-facing material/highlight values keyed by model slot.
-    std::vector<RenderInstanceRecord> m_instances;                       // Render records in scene/model slot order.
-    std::vector<RenderInstanceHandle> m_modelInstanceHandles;            // Model index to render handle map.
+    std::vector<RenderInstancePresentationRecord> m_presentationRecords;                        // Render-facing material/highlight values keyed by model slot.
+    std::vector<RenderInstanceRecord> m_instances;                                              // Render records in scene/model slot order.
+    std::vector<RenderInstanceHandle> m_modelInstanceHandles;                                   // Model index to render handle map.
 };
 } // namespace Rendering
 } // namespace SkullbonezCore

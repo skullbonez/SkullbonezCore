@@ -105,33 +105,33 @@ struct PrimitiveBatchRendererState
     static constexpr int HULL_MAX_TRIANGLE_VERTICES = 96 * ( 16 - 2 ) * 3;
     static constexpr int HULL_DYNAMIC_FLOATS_PER_VERTEX = 3 + 3 + 2 + INSTANCE_FLOATS;
 
-    std::unique_ptr<Rendering::ShaderDX12> sphereShader;                                             // Shared lit_textured_instanced shader.
-    std::unique_ptr<Rendering::ShaderDX12> shadowDepthShader;                                        // Shared instanced directional shadow depth shader.
-    uint32_t sphereInstMesh = 0;                                                                     // Instanced mesh handle owned by the active geometry owner.
-    int sphereVertexCount = 0;                                                                       // Per-sphere vertex count.
-    std::vector<float> sphereInstanceData;                                                           // Queued sphere transforms/materials between batch begin/end.
-    uint32_t lowPolySphereInstMesh = 0;                                                              // Faceted sphere mesh for low-poly cinematic styles.
-    int lowPolySphereVertexCount = 0;                                                                // Per-low-poly-sphere vertex count.
-    uint32_t activeSphereInstMesh = 0;                                                               // Mesh selected for the current sphere batch.
-    int activeSphereVertexCount = 0;                                                                 // Vertex count selected for the current sphere batch.
-    uint32_t boxInstMesh = 0;                                                                        // Instanced mesh handle for boxes.
-    int boxVertexCount = 0;                                                                          // Per-box vertex count.
-    std::vector<float> boxInstanceData;                                                              // Queued box transforms/materials between batch begin/end.
-    uint32_t pineInstMesh = 0;                                                                       // Instanced mesh handle for low-poly pine foliage tiers.
-    int pineVertexCount = 0;                                                                         // Per-pine-tier vertex count.
-    std::vector<float> pineInstanceData;                                                             // Queued pine transforms/materials between batch begin/end.
-    float clipPlane[4] = { 0.0f, 1.0f, 0.0f, 1.0e9f };                                               // Default: always pass.
+    std::unique_ptr<Rendering::ShaderDX12> sphereShader;                                                                // Shared lit_textured_instanced shader.
+    std::unique_ptr<Rendering::ShaderDX12> shadowDepthShader;                                                           // Shared instanced directional shadow depth shader.
+    uint32_t sphereInstMesh = 0;                                                                                        // Instanced mesh handle owned by the active geometry owner.
+    int sphereVertexCount = 0;                                                                                          // Per-sphere vertex count.
+    std::vector<float> sphereInstanceData;                                                                              // Queued sphere transforms/materials between batch begin/end.
+    uint32_t lowPolySphereInstMesh = 0;                                                                                 // Faceted sphere mesh for low-poly cinematic styles.
+    int lowPolySphereVertexCount = 0;                                                                                   // Per-low-poly-sphere vertex count.
+    uint32_t activeSphereInstMesh = 0;                                                                                  // Mesh selected for the current sphere batch.
+    int activeSphereVertexCount = 0;                                                                                    // Vertex count selected for the current sphere batch.
+    uint32_t boxInstMesh = 0;                                                                                           // Instanced mesh handle for boxes.
+    int boxVertexCount = 0;                                                                                             // Per-box vertex count.
+    std::vector<float> boxInstanceData;                                                                                 // Queued box transforms/materials between batch begin/end.
+    uint32_t pineInstMesh = 0;                                                                                          // Instanced mesh handle for low-poly pine foliage tiers.
+    int pineVertexCount = 0;                                                                                            // Per-pine-tier vertex count.
+    std::vector<float> pineInstanceData;                                                                                // Queued pine transforms/materials between batch begin/end.
+    float clipPlane[4] = { 0.0f, 1.0f, 0.0f, 1.0e9f };                                                                  // Default: always pass.
     bool sphereBatchTransparent = false;
     bool boxBatchTransparent = false;
     bool pineBatchTransparent = false;
     bool sphereBatchReady = false;
     bool boxBatchReady = false;
     bool pineBatchReady = false;
-    Rendering::Dx12ResourceBuilder* renderResources = nullptr;                                       // Backend factory borrowed while helper handles are live.
+    Rendering::Dx12ResourceBuilder* renderResources = nullptr;                                                          // Backend factory borrowed while helper handles are live.
     Rendering::Dx12TextureOwner* renderTextures = nullptr;
     Rendering::Dx12GeometryOwner* renderGeometry = nullptr;
-    uint32_t materialTableTexture = 0;                                                               // Material defaults bound at shader slot t4.
-    uint32_t convexHullDynamicVB = 0;                                                                // Dynamic vertex buffer used by immediate convex hull draws.
+    uint32_t materialTableTexture = 0;                                                                                  // Material defaults bound at shader slot t4.
+    uint32_t convexHullDynamicVB = 0;                                                                                   // Dynamic vertex buffer used by immediate convex hull draws.
     std::array<float, HULL_MAX_TRIANGLE_VERTICES * HULL_DYNAMIC_FLOATS_PER_VERTEX> convexHullVertexData = {};
 };
 
@@ -256,16 +256,15 @@ class PrimitiveBatchRenderer
   private:
     friend struct PrimitiveBatchRendererTestAccess;
 
-    PrimitiveBatchRendererState m_state;                                                             // Owned primitive render cache and batch scratch.
-    PrimitiveResourceOwnerIdentity m_resourceOwnerIdentity;                                          // Stable backend tuple for this renderer epoch.
+    PrimitiveBatchRendererState m_state;                                                                                // Owned primitive render cache and batch scratch.
+    PrimitiveResourceOwnerIdentity m_resourceOwnerIdentity;                                                             // Stable backend tuple for this renderer epoch.
 
     void EnsureSphereShader( const PrimitiveRenderContext& context );
     void EnsureShadowDepthShader( const PrimitiveRenderContext& context );
-    void BuildSphereMesh( const PrimitiveRenderContext& context, int slices, int stacks );           // Generate UV sphere instanced mesh
-    void BuildLowPolySphereMesh( const PrimitiveRenderContext& context, int slices,
-                                 int stacks );                                                       // Generate faceted sphere instanced mesh
-    void BuildBoxMesh( const PrimitiveRenderContext& context );                                      // Generate unit cube instanced mesh
-    void BuildPineMesh( const PrimitiveRenderContext& context );                                     // Generate unit low-poly pine tier mesh
+    void BuildSphereMesh( const PrimitiveRenderContext& context, int slices, int stacks );                              // Generate UV sphere instanced mesh
+    void BuildLowPolySphereMesh( const PrimitiveRenderContext& context, int slices, int stacks );                       // Generate faceted sphere instanced mesh
+    void BuildBoxMesh( const PrimitiveRenderContext& context );                                                         // Generate unit cube instanced mesh
+    void BuildPineMesh( const PrimitiveRenderContext& context );                                                        // Generate unit low-poly pine tier mesh
 
   public:
     explicit PrimitiveBatchRenderer( Rendering::Dx12ResourceBuilder* renderResources = nullptr,
@@ -292,7 +291,7 @@ class PrimitiveBatchRenderer
         friend struct PrimitiveBatchRendererTestAccess;
 
         PrimitiveBatchScope( PrimitiveBatchRenderer& renderer, const PrimitiveRenderContext& context,
-                             PrimitiveBatchKind kind );                                              // Batch scopes borrow their context until destruction.
+                             PrimitiveBatchKind kind );                                                                 // Batch scopes borrow their context until destruction.
         void EndIfActive();
 
         PrimitiveBatchRenderer* m_renderer = nullptr;
@@ -338,37 +337,36 @@ class PrimitiveBatchRenderer
                                          const Math::Transformation::Matrix4& model,
                                          const Math::Transformation::Matrix4& view,
                                          const Math::Transformation::Matrix4& proj );
-    void EnsureSphereMesh( const PrimitiveRenderContext& context );                                  // Create the shared sphere mesh before DXR BLAS
+    void EnsureSphereMesh( const PrimitiveRenderContext& context );                                                     // Create the shared sphere mesh before DXR BLAS
 
     // construction needs its vertex data.
-    void EnsureShadowDepthPrimitiveResources( const PrimitiveRenderContext& context );               // Prewarm primitive shadow meshes and the shared depth shader.
+    void EnsureShadowDepthPrimitiveResources( const PrimitiveRenderContext& context );                                  // Prewarm primitive shadow meshes and the shared depth shader.
 
   private:
     void BindRenderResourceOwners( Rendering::Dx12ResourceBuilder& renderResources,
                                    Rendering::Dx12TextureOwner& renderTextures,
                                    Rendering::Dx12GeometryOwner& renderGeometry );
-    void ReleaseOwnedRenderResources();                                                              // Destroy renderer-owned backend handles before factory teardown.
+    void ReleaseOwnedRenderResources();                                                                                 // Destroy renderer-owned backend handles before factory teardown.
     void DrawSphereBatchBegin( const PrimitiveRenderContext& context, const Math::Transformation::Matrix4& view,
                                const Math::Transformation::Matrix4& proj, const float lightPos[4],
                                bool isTransparent = false,
                                const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
                                const Rendering::ShadowFrameData* shadow = nullptr, float materialAlpha = 1.0f );
-    void DrawSphereBatchModel( const Math::Transformation::Matrix4& model,
-                               const Rendering::RenderMaterial& material );                          // Append model matrix and material payload to instance buffer
+    void DrawSphereBatchModel( const Math::Transformation::Matrix4& model, const Rendering::RenderMaterial& material ); // Append model matrix and material payload to instance buffer
                                void DrawSphereBatchEnd( const PrimitiveRenderContext& context );
                                void DrawBoxBatchBegin( const PrimitiveRenderContext& context, const Math::Transformation::Matrix4& view,
                                const Math::Transformation::Matrix4& proj, const float lightPos[4], bool isTransparent = false,
                                const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
                                const Rendering::ShadowFrameData* shadow = nullptr, float materialAlpha = 1.0f );
                                void DrawBoxBatchModel( const Math::Transformation::Matrix4& model,
-                                                       const Rendering::RenderMaterial& material );  // Append box model matrix and material payload to instance buffer
+                                                       const Rendering::RenderMaterial& material );                     // Append box model matrix and material payload to instance buffer
                                void DrawBoxBatchEnd( const PrimitiveRenderContext& context );
                                void DrawPineBatchBegin( const PrimitiveRenderContext& context, const Math::Transformation::Matrix4& view,
                                const Math::Transformation::Matrix4& proj, const float lightPos[4], bool isTransparent = false,
                                const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
                                const Rendering::ShadowFrameData* shadow = nullptr, float materialAlpha = 1.0f );
                                void DrawPineBatchModel( const Math::Transformation::Matrix4& model,
-                                                        const Rendering::RenderMaterial& material ); // Append pine model matrix and material payload to instance buffer
+                                                        const Rendering::RenderMaterial& material );                    // Append pine model matrix and material payload to instance buffer
                                void DrawPineBatchEnd( const PrimitiveRenderContext& context );
                                void DrawShadowDepthSphereBatchBegin( const PrimitiveRenderContext& context, const Math::Transformation::Matrix4& view,
                                const Math::Transformation::Matrix4& proj,

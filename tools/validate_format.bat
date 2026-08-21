@@ -61,6 +61,9 @@ if errorlevel 1 (
     exit /b 1
 )
 
+"%PYTHON_EXE%" "%~dp0align_header_inline_comments.py" --self-test
+if errorlevel 1 exit /b 1
+
 "%PYTHON_EXE%" "%~dp0align_header_inline_comments.py" --repo "%REPO%" --check-pipeline --clang-format "%CLANG_FMT%"
 if errorlevel 1 (
     echo FAIL: Header formatting pipeline is not clean.

@@ -49,27 +49,26 @@ class Quaternion
 {
 
   public:
-    Quaternion();                                                     // Initializes to identity orientation.
-    Quaternion( float x, float y, float z, float w );                 // Explicit component construction for deserialization/math helpers.
+    Quaternion();                                                       // Initializes to identity orientation.
+    Quaternion( float x, float y, float z, float w );                   // Explicit component construction for deserialization/math helpers.
     ~Quaternion() = default;
-    void Identity();                                                  // Resets orientation to the no-rotation value.
-    void Normalise();                                                 // Removes floating-point drift before conversion to matrices or solver rows.
+    void Identity();                                                    // Resets orientation to the no-rotation value.
+    void Normalise();                                                   // Removes floating-point drift before conversion to matrices or solver rows.
 
     // Precondition: axis is normalized. Debug asserts on misuse; Release keeps
     // the existing unchecked arithmetic and post-composition normalization.
-    void RotateAboutAxis( const Vector::Vector3& axis, float angle ); // Applies angle radians about a world-space axis.
+    void RotateAboutAxis( const Vector::Vector3& axis, float angle );   // Applies angle radians about a world-space axis.
 
     // Returns the active-rotation matrix for this Hamilton quaternion.
     Transformation::RotationMatrix GetOrientationMatrix() const;
 
     // Standard Hamilton order: lhs * rhs applies rhs first, then lhs.
     Quaternion operator*( const Quaternion& q ) const;
-    Quaternion& operator*=( const Quaternion& q );                    // In-place rotation composition; caller normalizes if drift matters.
-    void GetComponents( float& x, float& y, float& z,
-                        float& w ) const;                             // Exposes raw components for deterministic serialization.
+    Quaternion& operator*=( const Quaternion& q );                      // In-place rotation composition; caller normalizes if drift matters.
+    void GetComponents( float& x, float& y, float& z, float& w ) const; // Exposes raw components for deterministic serialization.
 
   private:
-    float m_x, m_y, m_z, m_w;                                         // Stored as vector part xyz plus scalar w.
+    float m_x, m_y, m_z, m_w;                                           // Stored as vector part xyz plus scalar w.
 };
 
 // One program-wide no-rotation value shared by every including translation unit.

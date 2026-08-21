@@ -83,15 +83,15 @@ class Text2d
 
   public:
     inline static uint32_t fontTexture = 0;
-    inline static uint32_t dynamicVB = 0;                                   // solid-quad VB: [x,y,u,v] — used by Render2dQuad (immediate, one draw per call)
-    inline static uint32_t textBatchVB = 0;                                 // batch text VB: [x,y,u,v,r,g,b] — flushed once per frame
-    inline static uint32_t quadBatchVB = 0;                                 // batch quad VB: [x,y,r,g,b,a] — flushed once per frame via FlushQuads()
+    inline static uint32_t dynamicVB = 0;                                                     // solid-quad VB: [x,y,u,v] — used by Render2dQuad (immediate, one draw per call)
+    inline static uint32_t textBatchVB = 0;                                                   // batch text VB: [x,y,u,v,r,g,b] — flushed once per frame
+    inline static uint32_t quadBatchVB = 0;                                                   // batch quad VB: [x,y,r,g,b,a] — flushed once per frame via FlushQuads()
 #if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
     // The CPU unit-test lane intentionally omits backend object code. These
     // process-global shader owners exist only in renderer-bearing builds.
     inline static std::unique_ptr<Rendering::ShaderDX12> pTextShader;
     inline static std::unique_ptr<Rendering::ShaderDX12> pSolidShader;
-    inline static std::unique_ptr<Rendering::ShaderDX12> pSolidBatchShader; // per-vertex RGBA batch shader
+    inline static std::unique_ptr<Rendering::ShaderDX12> pSolidBatchShader;                   // per-vertex RGBA batch shader
 #endif
     inline static float charAdvance[96] = {};
 
@@ -101,32 +101,29 @@ class Text2d
     // Queues white SDF text for this frame's text batch.
     static void Render2dTextColor( TextBatch& batch, float xPosition, float yPosition, float size, float r, float g, float b,
                                    const char* format,
-                                   ... );                                   // Queues colored SDF text for this frame's text batch.
+                                   ... );                                                     // Queues colored SDF text for this frame's text batch.
     static void
     FlushText( TextBatch& batch, Rendering::Dx12TextureOwner& renderTextures,
-               Rendering::Dx12GeometryOwner& renderCommands );              // Uploads queued text once so HUD strings stay one draw call.
+               Rendering::Dx12GeometryOwner& renderCommands );                                // Uploads queued text once so HUD strings stay one draw call.
     static void Render2dQuad( TextBatch& batch, Rendering::Dx12GeometryOwner& renderCommands, float x0, float y0, float x1,
                               float y1, float r, float g, float b,
-                              float a );                                    // Immediate HUD quad path for legacy call sites.
+                              float a );                                                      // Immediate HUD quad path for legacy call sites.
     static void BatchQuad( TextBatch& batch, Rendering::Dx12GeometryOwner& renderCommands, float x0, float y0, float x1,
                            float y1, float r, float g, float b,
-                           float a );                                       // Queues a colored quad for the shared HUD batch.
+                           float a );                                                         // Queues a colored quad for the shared HUD batch.
     static void BatchTriangle( TextBatch& batch, Rendering::Dx12GeometryOwner& renderCommands, float x0, float y0, float x1,
                                float y1, float x2, float y2, float r, float g, float b,
-                               float a );                                   // Queues a colored triangle in the shared HUD batch.
-    static void
-    FlushQuads( TextBatch& batch,
-                Rendering::Dx12GeometryOwner& renderCommands );             // Uploads queued quads/triangles once for the frame.
+                               float a );                                                     // Queues a colored triangle in the shared HUD batch.
+    static void FlushQuads( TextBatch& batch, Rendering::Dx12GeometryOwner& renderCommands ); // Uploads queued quads/triangles once for the frame.
     static SkullbonezCore::Core::SbResult
     BuildFont( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, TextBatch& batch,
                Rendering::Dx12ResourceBuilder& renderResources, Rendering::Dx12TextureOwner& renderTextures,
                Rendering::Dx12GeometryOwner& renderGeometry, const Assets::AssetSystem& assets, int screenW, int screenH,
-               const char* fontName );                                      // Loads or generates SDF atlas resources for the active backend.
-    static bool GenerateSdfAtlasToFile( const char* fontName,
-                                        const char* outputPath );           // Offline SDF atlas writer used by --gen-atlas tooling.
+               const char* fontName );                                                        // Loads or generates SDF atlas resources for the active backend.
+    static bool GenerateSdfAtlasToFile( const char* fontName, const char* outputPath );       // Offline SDF atlas writer used by --gen-atlas tooling.
     static void DeleteFont( TextBatch& batch, Rendering::Dx12TextureOwner* renderTextures,
-                            Rendering::Dx12GeometryOwner* renderGeometry ); // Releases GPU font resources while a backend is still available.
-    static void RebuildProjection( TextBatch& batch, int w, int h );        // Recomputes owned ortho projection after a window resize.
+                            Rendering::Dx12GeometryOwner* renderGeometry );                   // Releases GPU font resources while a backend is still available.
+    static void RebuildProjection( TextBatch& batch, int w, int h );                          // Recomputes owned ortho projection after a window resize.
     static float HalfW( const TextBatch& batch )
     {
         return batch.m_halfWidth;
@@ -135,7 +132,7 @@ class Text2d
     {
         return batch.m_halfHeight;
     } // Top edge Y in text space; fixed by the text projection FOV.
-    static float MeasureText( float size, const char* text );               // Width in text-space units for already-formatted strings.
+    static float MeasureText( float size, const char* text );                                 // Width in text-space units for already-formatted strings.
 
   private:
     static void RenderTextInternal( TextBatch& batch, float xPosition, float yPosition, float size, float colR, float colG,
