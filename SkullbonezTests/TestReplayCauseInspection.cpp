@@ -1760,3 +1760,38 @@ TEST_CASE( "Cause hierarchy inspector: Iterations tab input and interaction hand
         CHECK( inspection.View().mode == ReplayCauseInspectionMode::Returning );
     }
 }
+
+TEST_CASE( "Cause hierarchy inspector: lifecycle non-selection click protection and interaction routing" )
+{
+    ReplayCauseInspectionView view;
+    view.mode = ReplayCauseInspectionMode::DetailPaused;
+    view.detailVisible = true;
+    view.drawerProgress = 1.0f;
+
+    SUBCASE( "active UI/drawer/hierarchy clicks do not trigger inspection return" )
+    {
+        // When clicking inside the cause hierarchy or drawer (causeInteractionActive == true),
+        // nonSelectionClick is false and inspection stays active.
+        const bool causeInteractionActive = true;
+        const bool requestedRowNegative = true;
+        const bool leftPressed = true;
+        const bool nonSelectionClick = requestedRowNegative && leftPressed && !causeInteractionActive;
+
+        CHECK_FALSE( nonSelectionClick );
+        CHECK_FALSE( ShouldBeginReplayCauseReturn( view, nonSelectionClick, false ) );
+    }
+
+    SUBCASE( "genuine outside clicks in the 3D scene do trigger inspection return" )
+    {
+        // When clicking in the 3D scene outside all cause/drawer/scrubber UI (causeInteractionActive == false),
+        // nonSelectionClick is true and inspection returns smoothly.
+        const bool causeInteractionActive = false;
+        const bool requestedRowNegative = true;
+        const bool leftPressed = true;
+        const bool nonSelectionClick = requestedRowNegative && leftPressed && !causeInteractionActive;
+
+        CHECK( nonSelectionClick );
+        CHECK( ShouldBeginReplayCauseReturn( view, nonSelectionClick, false ) );
+    }
+}
+

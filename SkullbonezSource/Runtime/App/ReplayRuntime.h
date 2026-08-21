@@ -502,7 +502,7 @@ class ReplayRuntime
                                          AttachedCameraController& attachedCamera, CameraControlState& camera,
                                          ReplayWorkspaceOutput& output );
     void ApplyCauseInspectionLifecycle( int requestedRow, bool exitCauseTreeInspection,
-                                        ReplayInspectionCameraAction scrubberHostAction,
+                                        ReplayInspectionCameraAction scrubberHostAction, bool causeInteractionActive,
                                         const ReplayWorkspaceFrameInput& input, InputRouter& inputRouter,
                                         RuntimeInteractionController& interaction, Environment::CameraCollection* cameras,
                                         Geometry::Terrain* terrain, CameraControlState& camera,

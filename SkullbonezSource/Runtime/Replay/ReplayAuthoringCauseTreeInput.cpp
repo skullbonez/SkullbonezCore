@@ -260,9 +260,9 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
             filterChanged = ReplayOverlay::ClearReplayCauseFilterText( m_causeTree ) || filterChanged;
         }
 
-        if ( filterKeyPressed( VK_ESCAPE ) )
+        if ( filterKeyPressed( VK_ESCAPE ) || filterKeyPressed( VK_RETURN ) )
         {
-            if ( m_causeTree.filterText[0] != '\0' )
+            if ( filterKeyPressed( VK_ESCAPE ) && m_causeTree.filterText[0] != '\0' )
             {
                 filterChanged = ReplayOverlay::ClearReplayCauseFilterText( m_causeTree ) || filterChanged;
             }

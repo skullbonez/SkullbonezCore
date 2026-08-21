@@ -744,8 +744,8 @@ void ReplayRuntime::ApplyCauseInspectionTransition( const ReplayWorkspaceFrameIn
 
 void ReplayRuntime::ApplyCauseInspectionLifecycle( int requestedRow, bool exitCauseTreeInspection,
                                                    ReplayInspectionCameraAction scrubberHostAction,
-                                                   const ReplayWorkspaceFrameInput& input, InputRouter& inputRouter,
-                                                   RuntimeInteractionController& interaction,
+                                                   bool causeInteractionActive, const ReplayWorkspaceFrameInput& input,
+                                                   InputRouter& inputRouter, RuntimeInteractionController& interaction,
                                                    Environment::CameraCollection* cameras, Geometry::Terrain* terrain,
                                                    CameraControlState& camera, AttachedCameraController& attachedCamera )
 {
@@ -771,16 +771,18 @@ void ReplayRuntime::ApplyCauseInspectionLifecycle( int requestedRow, bool exitCa
     }
 
     const RuntimeMouseEdges& mouse = inputRouter.UiSnapshot().mouse;
-    const bool nonSelectionClick = requestedRow < 0 && ( mouse.leftPressed || mouse.rightPressed );
+    const bool nonSelectionClick = requestedRow < 0 && ( mouse.leftPressed || mouse.rightPressed ) &&
+                                   !causeInteractionActive && !exitCauseTreeInspection;
 
     // Why: the scrubber evaluates its own surface before the cause window has
     // published a row intent, so a valid row click can also look like an
     // outside-scrubber exit. The row selection wins this turn; a later genuine
     // non-selection click still returns from causal inspection.
-    const bool scrubExit = requestedRow < 0 && scrubberHostAction == ReplayInspectionCameraAction::Exit;
+    const bool scrubExit = requestedRow < 0 && scrubberHostAction == ReplayInspectionCameraAction::Exit &&
+                           !causeInteractionActive;
     inspection = m_planningOwner.CauseInspectionView();
 
-    if ( !ShouldBeginReplayCauseReturn( inspection, nonSelectionClick, scrubExit ) )
+    if ( !ShouldBeginReplayCauseReturn( inspection, nonSelectionClick || exitCauseTreeInspection, scrubExit ) )
     {
         return;
     }
@@ -1013,8 +1015,14 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
                              mousePickup, output );
     ApplyCauseInspectionTransition( input, input.uiBlocksMouse || causeTreeOwnsMouse, world, attachedCamera, camera,
                                     output );
-    ApplyCauseInspectionLifecycle( requestedCauseTreeFocusRow, exitCauseTreeInspection, scrubberHostAction, input,
-                                   inputRouter, interaction, cameras, terrain, camera, attachedCamera );
+
+    const bool causeInteractionActive = input.uiBlocksMouse || scrubberOwnsMouse || causeTreeOwnsMouse ||
+                                        solverDetailOwnsMouse || pointerOverCauseWindow ||
+                                        interaction.Gesture().kind == RuntimeInteractionGestureKind::ReplayCauseTreeDrag;
+
+    ApplyCauseInspectionLifecycle( requestedCauseTreeFocusRow, exitCauseTreeInspection, scrubberHostAction,
+                                   causeInteractionActive, input, inputRouter, interaction, cameras, terrain, camera,
+                                   attachedCamera );
 
     ApplyAuthoringPredictionRequest();
 
