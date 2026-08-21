@@ -97,7 +97,8 @@ void SkullbonezCore::Runtime::InteractionAutomationInputDriver::PressMouse( bool
     m_releaseLeftFrame = frame + holdFrames;
 }
 
-void SkullbonezCore::Runtime::InteractionAutomationInputDriver::PressKey( int virtualKey, bool controlDown, int frame, int holdFrames )
+void SkullbonezCore::Runtime::InteractionAutomationInputDriver::PressKey( int virtualKey, bool controlDown, int frame,
+                                                                          int holdFrames )
 {
     m_keyVirtualKey = virtualKey;
     m_keyDown = true;

@@ -31,6 +31,7 @@ SELF_TEST_COMMANDS = [
     ["tools/inventory_extraction_scars.py", "--self-test"],
     ["tools/inventory_wide_signatures.py", "--self-test"],
     ["tools/inventory_function_complexity.py", "--self-test"],
+    ["tools/inventory_unreachable_symbols.py", "--self-test"],
     ["tools/inventory_glossary_terms.py", "--self-test"],
     ["tools/check_build_config_consistency.py", "--self-test"],
     ["tools/check_determinism_math_policy.py", "--self-test"],

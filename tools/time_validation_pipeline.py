@@ -4,16 +4,16 @@
 #
 # Summary:
 # Implements the measurement contract for the Full Validation Time And Value Audit (VTA0-VTA5).
-# Provides high-resolution wall-clock and CPU time tracking, peak memory monitoring, process
-# exit code preservation, structured JSON artifact serialization, and a verified stage manifest.
+# Provides high-resolution wall-clock duration tracking, output line counts, process exit code
+# preservation, structured JSON artifact serialization, and a verified stage manifest.
 #
 # Glossary:
 # Stage id: Stable dot-delimited identifier naming a node in the validation call tree.
-# Timing artifact: Structured JSON record containing per-process timing, memory, exit code,
-# and machine context.
+# Timing artifact: Structured JSON record containing per-process wall-clock timing, output line
+# counts, exit code, and machine context.
 #
 # Invariants:
-# - Child process exit code, stdout/stderr streams, and fail-fast behavior are preserved exactly.
+# - Child process exit code, stdout/stderr line counts, and fail-fast behavior are preserved.
 # - Instrumentation failure must never convert a failed gate into a false-pass.
 # - Raw timing artifacts are written to TestOutput/validation/VALIDATION_TIME_AUDIT/.
 #
@@ -503,9 +503,8 @@ def main():
             args.output_json.parent.mkdir(parents=True, exist_ok=True)
             args.output_json.write_text(out_text, encoding="utf-8")
             print(f"Baseline report written to {args.output_json}")
-        else:
-            print(out_text)
-        sys.exit(0)
+        all_passed = all(stage.get("all_passed", False) for stage in report.get("stages", []))
+        sys.exit(0 if all_passed else 1)
 
     parser.print_help()
 

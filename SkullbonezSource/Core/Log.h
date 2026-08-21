@@ -13,12 +13,13 @@ Glossary:
   diagnostic FILE handles.
 
 Invariants:
-  - File handles are opened lazily and owned by EngineLog until process exit or
-    FlushAll teardown.
+  - File handles are opened lazily and owned by EngineLog until process exit,
+    FlushAll teardown, or an explicit ResetLog that drops one retained handle.
   - Debug/test logging serializes map and FILE access so a worker-side fatal invariant
     diagnostic cannot race an ordinary main-thread write or flush.
   - Writef appends through retained buffered handles; WriteEventf flushes its
-    event row immediately, and process teardown closes every retained handle.
+    event row immediately, ResetLog closes and drops one named handle so its next
+    write truncates, and process teardown closes every retained handle.
   - Release builds keep the interface shape but carry no FILE handle state.
   - EngineLog::Get is the sole sanctioned cold/fatal magic static. It must not
     become a frame-service locator or be resolved from ordinary hot loops.
@@ -59,6 +60,13 @@ class EngineLog
     void WriteVf( const char* fileName, const char* fmt, va_list args );
     void WriteEventf( const char* fmt, ... );
     void FlushAll();
+
+    // Resets one lazily opened log: closes and drops its retained handle so the
+    // next Writef reopens the file in truncate mode. A same-process re-run (for
+    // example a replayed physics regression scene) must start its byte-exact CSV
+    // over rather than append a second run behind the first. No-op in Release
+    // and for a path that is not currently open.
+    void ResetLog( const char* fileName );
 #if defined( SKULLBONEZ_TEST_ENGINE_LOG )
     // Test-only cold boundary: closes retained handles after a concurrency
     // probe so the test can inspect exact bytes on Windows.

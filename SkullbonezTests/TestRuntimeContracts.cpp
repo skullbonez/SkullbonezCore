@@ -2147,6 +2147,42 @@ TEST_CASE( "SkullbonezCore::Core::EngineLog: concurrent file and event writes sh
 #endif
 }
 
+TEST_CASE( "SkullbonezCore::Core::EngineLog: ResetLog truncates a retained log so a re-run does not append" )
+{
+#if defined( SKULLBONEZ_TEST_ENGINE_LOG )
+    // Pins the fix for the doubled physics-regression CSV: EngineLog retains one
+    // open handle per path, so a same-process second run appended a second run
+    // behind the first. ResetLog must drop the handle so the next write starts
+    // the file over. This is exactly the append-on-replay hazard that made a
+    // byte-identical golden read as a divergence.
+    constexpr const char* path = "Debug/engine_log_reset_test.log";
+    std::remove( path );
+
+    EngineLog& log = SkullbonezCore::Core::EngineLog::Get();
+
+    // First run: three rows land in a freshly opened file.
+    log.Writef( path, "run1,%d\n", 0 );
+    log.Writef( path, "run1,%d\n", 1 );
+    log.Writef( path, "run1,%d\n", 2 );
+
+    // Reset while the handle is still retained (no close): the next write must
+    // truncate rather than append behind run 1.
+    log.ResetLog( path );
+
+    log.Writef( path, "run2,%d\n", 0 );
+    log.Writef( path, "run2,%d\n", 1 );
+
+    log.FlushAll();
+    log.CloseAllForTests();
+
+    const std::string contents = ReadSharedFileText( path );
+    CHECK( static_cast<int>( std::count( contents.begin(), contents.end(), '\n' ) ) == 2 );
+    CHECK( contents.find( "run1" ) == std::string::npos );
+    CHECK( contents.find( "run2,0" ) != std::string::npos );
+    CHECK( contents.find( "run2,1" ) != std::string::npos );
+#endif
+}
+
 TEST_CASE( "AmortizedTask: Reset reports idle success and in-flight refusal" )
 {
     LockOrderValidator lockOrderValidator;

@@ -151,6 +151,13 @@ void PhysicsDiagnosticsSink::SetPhysicsRegressionLogPath( const char* path )
 {
     strcpy_s( m_physicsRegressionLogPath, sizeof( m_physicsRegressionLogPath ), path );
     m_physicsRegressionLogFrame = 0;
+
+    // Why: this setter marks the start of one regression run, but EngineLog
+    // retains an open handle per path. Without this reset a same-process scene
+    // replay would append a second header + rows into the byte-exact golden
+    // artifact and read as a divergence. Reset so the next emit truncates and
+    // each run owns exactly one complete CSV. See tools/check_physics_regression.py.
+    SkullbonezCore::Core::Log().ResetLog( m_physicsRegressionLogPath );
 }
 
 
@@ -159,6 +166,10 @@ void PhysicsDiagnosticsSink::SetPhysicsCollisionTimeLogPath( const char* path )
     strcpy_s( m_physicsCollisionTimeLogPath, sizeof( m_physicsCollisionTimeLogPath ), path );
     m_physicsCollisionTimeLogFrame = 0;
     m_physicsCollisionTimeHeaderWritten = false;
+
+    // Why: same retained-handle hazard as the regression log above; a re-run must
+    // start this diagnostic file over rather than append behind the prior run.
+    SkullbonezCore::Core::Log().ResetLog( m_physicsCollisionTimeLogPath );
 }
 
 

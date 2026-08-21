@@ -981,8 +981,8 @@ TEST_CASE( "Replay solver panel: value mapping includes exact values units and s
     CHECK( std::strcmp( values.impulses,
                         "accN 3.50000  accT1 -3.75000  accT2 4.00000  warm-start YES  previous normal impulse 11.25000" ) ==
            0 );
-    CHECK( std::strcmp( summary.normalImpulse, "3.50000 N*s" ) == 0 );
-    CHECK( std::strcmp( summary.frictionImpulse, "5.48293 N*s" ) == 0 );
+    CHECK( std::strcmp( summary.normalImpulse, "3.50000 mass*u/s" ) == 0 );
+    CHECK( std::strcmp( summary.frictionImpulse, "5.48293 mass*u/s" ) == 0 );
     CHECK( std::strcmp( summary.penetration, "0.12500 u" ) == 0 );
     CHECK( std::strcmp( summary.effectiveMass, "2.00000 mass" ) == 0 );
     CHECK( std::strcmp( summary.identity, "ROW 0  FEATURE 101  BODIES 3 / 7  OBJECT" ) == 0 );
@@ -1576,12 +1576,14 @@ TEST_CASE( "Cause hierarchy inspector: Iterations tab projects exact pipeline st
     contacts[0].warmStarted = true;
 
     std::array<PhysicsPipelineRecord, 6> records;
-    // Stage 1: WarmStart
+    // Stage 1: WarmStart (scalarA: warmStarted flag, scalarB: accN, scalarC: frictionLimit)
     records[0].stage = PhysicsPipelineStage::WarmStart;
     records[0].featureId = 99u;
-    records[0].scalarA = 1.0f; // accNormal
-    records[0].scalarB = 0.2f; // tangent 1
-    records[0].scalarC = 0.1f; // tangent 2
+    records[0].bodyA = 2;
+    records[0].bodyB = 8;
+    records[0].scalarA = 1.0f; // warmStarted flag
+    records[0].scalarB = 1.0f; // accNormal (accN)
+    records[0].scalarC = 2.5f; // frictionLimit
 
     // Stage 2: Iteration 1 (free)
     records[1].stage = PhysicsPipelineStage::SolverIteration;
@@ -1611,10 +1613,13 @@ TEST_CASE( "Cause hierarchy inspector: Iterations tab projects exact pipeline st
     records[4].scalarB = 1.2f;
     records[4].scalarC = 0.0f;
 
-    // Stage 6: VelocityWriteback
+    // Stage 6: VelocityWriteback (production: featureId = 0, bodyA = body index, point = pos, scalarA = |v|, scalarB = |w|)
     records[5].stage = PhysicsPipelineStage::VelocityWriteback;
-    records[5].featureId = 99u;
+    records[5].bodyA = 2;
+    records[5].featureId = 0u;
     records[5].point = Vector3( 1.5f, -0.5f, 0.0f );
+    records[5].scalarA = 3.2f;
+    records[5].scalarB = 0.8f;
 
     view.solverDetailContacts = contacts;
     view.solverDetailPipelineRecords = records;
@@ -1639,6 +1644,9 @@ TEST_CASE( "Cause hierarchy inspector: Iterations tab projects exact pipeline st
         CHECK( proj.rows[0].kind == ReplayCauseIterationRowKind::WarmStart );
         CHECK( std::strcmp( proj.rows[0].stage, "Warm Start" ) == 0 );
         CHECK( std::strcmp( proj.rows[0].status, "ACTIVE" ) == 0 );
+        CHECK( std::strcmp( proj.rows[0].accNormal, "1" ) == 0 );
+        CHECK( std::strcmp( proj.rows[0].frictionLimit, "2.5" ) == 0 );
+        CHECK( std::strstr( proj.rows[0].details, "accN=1" ) != nullptr );
 
         // Iteration 1 (free)
         CHECK( proj.rows[1].kind == ReplayCauseIterationRowKind::SolverIteration );
@@ -1666,6 +1674,9 @@ TEST_CASE( "Cause hierarchy inspector: Iterations tab projects exact pipeline st
         CHECK( proj.rows[5].kind == ReplayCauseIterationRowKind::VelocityWriteback );
         CHECK( std::strcmp( proj.rows[5].stage, "Writeback" ) == 0 );
         CHECK( std::strcmp( proj.rows[5].status, "COMMITTED" ) == 0 );
+        CHECK( std::strstr( proj.rows[5].details, "Body 2" ) != nullptr );
+        CHECK( std::strstr( proj.rows[5].details, "|v|=3.20" ) != nullptr );
+        CHECK( std::strstr( proj.rows[5].details, "|w|=0.80" ) != nullptr );
     }
 }
 
@@ -1794,4 +1805,117 @@ TEST_CASE( "Cause hierarchy inspector: lifecycle non-selection click protection 
         CHECK( ShouldBeginReplayCauseReturn( view, nonSelectionClick, false ) );
     }
 }
+
+TEST_CASE( "Cause hierarchy inspector: multi-contact selection assigns and consumes selectedDetailContactRow" )
+{
+    using SkullbonezCore::Physics::PhysicsPipelineRecord;
+    using SkullbonezCore::Physics::PhysicsPipelineStage;
+    using SkullbonezCore::Physics::PhysicsSolverPersistentContactSample;
+
+    RunReplayCauseTreeState treeState;
+    treeState.hasWindowPlacement = true;
+    treeState.x = 1180;
+    treeState.y = 140;
+    treeState.width = 430;
+    treeState.height = 500;
+
+    std::array<PhysicsSolverPersistentContactSample, 2> contacts;
+    // Contact 0
+    contacts[0].bodyA = 4;
+    contacts[0].bodyB = 9;
+    contacts[0].featureId = 201u;
+    contacts[0].accN = 10.0f;
+    contacts[0].penetration = 0.05f;
+    contacts[0].normalMass = 3.0f;
+    contacts[0].frictionLimit = 1.5f;
+
+    // Contact 1
+    contacts[1].bodyA = 4;
+    contacts[1].bodyB = 9;
+    contacts[1].featureId = 202u;
+    contacts[1].accN = 25.0f;
+    contacts[1].penetration = 0.12f;
+    contacts[1].normalMass = 4.5f;
+    contacts[1].frictionLimit = 3.0f;
+
+    std::array<PhysicsPipelineRecord, 2> pipeline;
+    pipeline[0].stage = PhysicsPipelineStage::WarmStart;
+    pipeline[0].bodyA = 4;
+    pipeline[0].bodyB = 9;
+    pipeline[0].featureId = 201u;
+    pipeline[0].scalarA = 1.0f;
+    pipeline[0].scalarB = 10.0f;
+    pipeline[0].scalarC = 1.5f;
+
+    pipeline[1].stage = PhysicsPipelineStage::WarmStart;
+    pipeline[1].bodyA = 4;
+    pipeline[1].bodyB = 9;
+    pipeline[1].featureId = 202u;
+    pipeline[1].scalarA = 1.0f;
+    pipeline[1].scalarB = 25.0f;
+    pipeline[1].scalarC = 3.0f;
+
+    RunReplayCauseTreeRow row;
+    row.kind = RunReplayCauseTreeRowKind::SolverRow;
+    row.firstFrame = 50u;
+    row.modelRow.value = 4;
+    row.counterpartModelRow.value = 9;
+    row.contactIndex = 1;
+    row.featureId = 202;
+
+    ReplayCauseSeekResult seek;
+    seek.availability = ReplayCauseSeekAvailability::Available;
+    seek.source = ReplayCauseSeekSource::SolverHistory;
+    seek.frame = 50u;
+
+    const ReplayCauseSolverDetailSource source { 50u, contacts, pipeline };
+    const ReplayCauseSolverDetailResult detail = EvaluateReplayCauseSolverDetail( row, seek, source );
+
+    REQUIRE( detail.HasDetail() );
+    CHECK( detail.contactRowCount == 2u );
+    CHECK( detail.selectedDetailContactRow == 1 );
+
+    ReplayCauseInspection inspection;
+    REQUIRE( inspection.Select( 1, seek, 40u, false, 0.0 ) );
+    inspection.Advance( 1.0 );
+    ReplayCauseTransportRequest transportReq;
+    REQUIRE( inspection.TakeTransportRequest( transportReq ) );
+    inspection.PublishSolverDetail( transportReq.generation, detail );
+    inspection.CompleteTransport( transportReq.generation, true );
+
+    const ReplayCauseInspectionView view = inspection.View();
+    CHECK( view.selectedDetailContactRow == 1 );
+
+    // Summary text for selected row 1 vs row 0
+    const ReplayCauseSummaryText summary0 = BuildReplayCauseSummaryText( view, 0 );
+    const ReplayCauseSummaryText summary1 = BuildReplayCauseSummaryText( view, 1 );
+    CHECK( std::strstr( summary0.identity, "FEATURE 201" ) != nullptr );
+    CHECK( std::strstr( summary1.identity, "FEATURE 202" ) != nullptr );
+    CHECK( std::strcmp( summary1.normalImpulse, "25.00000 mass*u/s" ) == 0 );
+
+    // Iterations projection for selected row 1
+    const ReplayCauseIterationsProjection iterations1 = BuildReplayCauseIterationsProjection( view, 1 );
+    REQUIRE( iterations1.rowCount == 1u );
+    CHECK( std::strstr( iterations1.summary, "Feature 202" ) != nullptr );
+    CHECK( std::strcmp( iterations1.rows[0].accNormal, "25" ) == 0 );
+
+    // Raw record projection for selected row 1
+    const ReplayCauseRawRecordProjection raw1 = BuildReplayCauseRawRecordProjection( view, 1 );
+    REQUIRE( raw1.rowCount > 0u );
+
+    // Copy command in Raw Record tab copies selected row 1 (Feature 202, not Feature 201)
+    const ReplayCauseInspectorLayout layout = BuildReplayCauseInspectorLayout( view, treeState, 1920, 1080, 1.0f );
+    const int rawTabX = static_cast<int>( layout.tabs[1].x + layout.tabs[1].w * 0.5f );
+    const int rawTabY = static_cast<int>( layout.tabs[1].y + layout.tabs[1].h * 0.5f );
+    CHECK( inspection.TickSolverDetailPanelInput( treeState, rawTabX, rawTabY, true, false, true, 0, 1920, 1080 ) );
+
+    const int copyX = static_cast<int>( layout.rawCopy.x + layout.rawCopy.w * 0.5f );
+    const int copyY = static_cast<int>( layout.rawCopy.y + layout.rawCopy.h * 0.5f );
+    ReplayCauseInspectorCommand copyCmd;
+    CHECK( inspection.TickSolverDetailPanelInput( treeState, copyX, copyY, true, false, true, 0, 1920, 1080, &copyCmd ) );
+    CHECK( copyCmd.kind == ReplayCauseInspectorCommandKind::CopyRecord );
+    CHECK( std::strstr( copyCmd.text, "Feature ID: 202" ) != nullptr );
+    CHECK( std::strstr( copyCmd.text, "Feature ID: 201" ) == nullptr );
+}
+
 

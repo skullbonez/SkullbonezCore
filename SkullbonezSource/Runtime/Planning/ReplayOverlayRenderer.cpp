@@ -118,11 +118,23 @@ const Physics::PhysicsPipelineRecord* FindSolverDetailRecord( const ReplayCauseI
     return nullptr;
 }
 
+static inline int ReplayCauseSelectedContactIndex( const ReplayCauseInspectionView& inspection ) noexcept
+{
+    if ( inspection.selectedDetailContactRow >= 0 &&
+         static_cast<std::size_t>( inspection.selectedDetailContactRow ) < inspection.solverDetailContacts.size() )
+    {
+        return inspection.selectedDetailContactRow;
+    }
+
+    return 0;
+}
+
 static void RenderReplayCauseSummaryTab( const UI::UIDrawContext& draw, const ReplayCauseInspectionView& inspection,
                                          const ReplayCauseInspectorLayout& layout, const UI::Style::UIPalette& palette )
 {
-    const Physics::PhysicsSolverPersistentContactSample& contact = inspection.solverDetailContacts.front();
-    const ReplayCauseSummaryText summary = BuildReplayCauseSummaryText( inspection, 0 );
+    const int contactIndex = ReplayCauseSelectedContactIndex( inspection );
+    const Physics::PhysicsSolverPersistentContactSample& contact = inspection.solverDetailContacts[contactIndex];
+    const ReplayCauseSummaryText summary = BuildReplayCauseSummaryText( inspection, contactIndex );
     static constexpr const char* CARD_LABELS[] = { "NORMAL IMPULSE", "FRICTION |T|", "PENETRATION", "EFFECTIVE MASS" };
     const char* cardValues[] = { summary.normalImpulse, summary.frictionImpulse, summary.penetration,
                                  summary.effectiveMass };
@@ -190,7 +202,8 @@ static void RenderReplayCauseRawRecordTab( UI::UIDrawList& drawList, const UI::U
                                            const ReplayCauseInspectionView& inspection,
                                            const ReplayCauseInspectorLayout& layout, const UI::Style::UIPalette& palette )
 {
-    const ReplayCauseRawRecordProjection projection = BuildReplayCauseRawRecordProjection( inspection, 0 );
+    const int contactIndex = ReplayCauseSelectedContactIndex( inspection );
+    const ReplayCauseRawRecordProjection projection = BuildReplayCauseRawRecordProjection( inspection, contactIndex );
     const int rowCount = static_cast<int>( projection.rowCount );
     const int firstRow = std::clamp( inspection.rawRecordFirstRow, 0, (std::max)( 0, rowCount - layout.rawVisibleRows ) );
     const int endRow = (std::min)( rowCount, firstRow + layout.rawVisibleRows );
@@ -261,7 +274,8 @@ static void RenderReplayCauseIterationsTab( UI::UIDrawList& drawList, const UI::
                                             const ReplayCauseInspectionView& inspection,
                                             const ReplayCauseInspectorLayout& layout, const UI::Style::UIPalette& palette )
 {
-    const ReplayCauseIterationsProjection projection = BuildReplayCauseIterationsProjection( inspection, 0 );
+    const int contactIndex = ReplayCauseSelectedContactIndex( inspection );
+    const ReplayCauseIterationsProjection projection = BuildReplayCauseIterationsProjection( inspection, contactIndex );
     const int rowCount = static_cast<int>( projection.rowCount );
     const int firstRow = std::clamp( inspection.iterationsFirstRow, 0,
                                      (std::max)( 0, rowCount - layout.iterationsVisibleRows ) );
@@ -420,7 +434,7 @@ void RenderReplayCauseSolverDetailPanel( UI::UIDrawList& drawList, const UI::UID
     }
 
     draw.Text( layout.drawer.x + 12.0f, layout.drawer.y + 42.0f, 9.0f, palette.textSecondary.r, palette.textSecondary.g,
-               palette.textSecondary.b, "UNITS  v=u/s  w=rad/s  impulse=N*s  mass=u  depth=u" );
+               palette.textSecondary.b, "UNITS  v=u/s  w=rad/s  impulse=mass*u/s  mass=mass  depth=u" );
     draw.Text( layout.drawer.x + 12.0f, layout.drawer.y + 55.0f, 9.0f, palette.textMuted.r, palette.textMuted.g,
                palette.textMuted.b, "SIGNS  +penetration=overlap  normal A->B  CLAMP=friction limit" );
 

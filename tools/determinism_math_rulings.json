@@ -273,7 +273,7 @@
     },
     {
       "path": "SkullbonezSource/Maths/RotationMatrix.h",
-      "line": 88,
+      "line": 87,
       "column": 21,
       "call": "sinf",
       "source_fingerprint": "c94d9d10cbcac1811ad448b888483e161888b65e57f7a05988493b4aff97472a",
@@ -283,7 +283,7 @@
     },
     {
       "path": "SkullbonezSource/Maths/RotationMatrix.h",
-      "line": 89,
+      "line": 88,
       "column": 21,
       "call": "cosf",
       "source_fingerprint": "d8fd1c4f2f967633c6f49f1728c723b970f9117ba101580069131191b3545b03",

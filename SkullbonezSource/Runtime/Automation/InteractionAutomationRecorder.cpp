@@ -185,15 +185,15 @@ void InteractionAutomationRecorder::StopRecording()
                 strncpy_s( keyAction.keyName, sizeof( keyAction.keyName ), keyName, _TRUNCATE );
                 (void)AppendAction( keyAction );
             }
+
             m_keyDownFrame[vk] = -1;
         }
     }
 
     // Ensure strictly monotonic action frame order
     std::stable_sort( m_actions.begin(), m_actions.begin() + m_actionCount,
-                      []( const RecordedInteractionAction& a, const RecordedInteractionAction& b ) {
-                          return a.frame < b.frame;
-                      } );
+                      []( const RecordedInteractionAction& a, const RecordedInteractionAction& b )
+                      { return a.frame < b.frame; } );
 
     m_isRecording = false;
     printf( "[recorder] Stopped recording. Total actions captured: %zu\n", m_actionCount );
@@ -399,6 +399,7 @@ void InteractionAutomationRecorder::RecordFrame( int currentFrame, int screenWid
                     strncpy_s( keyAction.keyName, sizeof( keyAction.keyName ), keyName, _TRUNCATE );
                     (void)AppendAction( keyAction );
                 }
+
                 m_keyDownFrame[vk] = -1;
             }
         }

@@ -121,7 +121,9 @@ TEST_CASE( "Look Lab interaction key parser covers reroll and save authoring key
     CHECK( virtualKey == VK_F10 );
     CHECK( Runtime::TryParseInteractionAutomationVirtualKey( "F11", virtualKey ) );
     CHECK( virtualKey == VK_F11 );
-    CHECK_FALSE( Runtime::TryParseInteractionAutomationVirtualKey( "F12", virtualKey ) );
+    CHECK( Runtime::TryParseInteractionAutomationVirtualKey( "F12", virtualKey ) );
+    CHECK( virtualKey == VK_F12 );
+    CHECK_FALSE( Runtime::TryParseInteractionAutomationVirtualKey( "F13", virtualKey ) );
     CHECK_FALSE( Runtime::TryParseInteractionAutomationVirtualKey( nullptr, virtualKey ) );
 }
 

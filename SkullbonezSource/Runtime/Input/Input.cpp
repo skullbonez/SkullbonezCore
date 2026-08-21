@@ -208,7 +208,8 @@ SkullbonezCore::Core::SbResult Input::CaptureDeviceInputFrame( SkullbonezCore::C
 
     if ( s_automationState.enabled )
     {
-        for ( std::size_t wordIndex = 0; wordIndex < words.size() && wordIndex < s_automationState.keyWords.size(); ++wordIndex )
+        for ( std::size_t wordIndex = 0; wordIndex < words.size() && wordIndex < s_automationState.keyWords.size();
+              ++wordIndex )
         {
             words[wordIndex] |= s_automationState.keyWords[wordIndex];
         }

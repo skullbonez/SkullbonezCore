@@ -210,7 +210,7 @@
     {
       "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",
       "signature": "InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutomationController& state, Window& windowOwner, const SkullbonezCore::Core::EngineConfig& config, SceneController& scene, RunTimerState& timers, CameraControlState& camera, InputRouter& inputRouter, RuntimeInteractionController& interaction, RuntimeTools& runtimeTools, SkullbonezCore::UI::InGameUI& ui, const ReplayAutomationView& replayView, const Rendering::RenderSceneSnapshot& renderSnapshot )",
-      "body_sha256": "972847ff2fc2a31c8f3c97c9cfcde6e655711c84c280d8fe6842caf29e5bf902",
+      "body_sha256": "f52211b04e9747dc35c1b9389b58826542b59c25ffa609be0bd87e1e13a3c63e",
       "owner": "Pre-input interaction automation tick",
       "disposition": "retain-owner",
       "reason": "One pre-input automation phase interprets the current scripted action across the exact runtime owners before device routing; the continuous-forecast action produces one typed command value for the normal input transaction and retains no Planning authority. Its branches are one frame-indexed state machine, so extraction would preserve caller-ordered action dispatch rather than create a separate owner.",
@@ -438,6 +438,19 @@
       "reason": "One automation query resolves a named scene model through camera and window projection into one pointer coordinate; all nested rejection paths protect the single success output.",
       "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationRecorder.cpp",
+      "signature": "void InteractionAutomationRecorder::RecordFrame( int currentFrame, int screenWidth, int screenHeight, const InputRouter& inputRouter, const RuntimeInteractionController& interaction, const RunReplayCauseTreeState& causeTree, const ReplayCauseInspectionView& causeInspection )",
+      "body_sha256": "a77cbe94600f7aa7c31d451ec154fe6e6f2be8e3a3dc2e79eebcc5a624b41289",
+      "owner": "Interaction automation frame recorder",
+      "disposition": "retain-owner",
+      "reason": "Samples frame interaction events, keyboard and pointer states, scrubber actions, cause tree inspections, and UI interaction snapshots into recorded interaction actions without allocating or modifying runtime state.",
+      "evidence": "git history: F8 universal interaction test recorder framework (2026-08-21)",
+      "plan": "",
+      "body_lines": 183,
+      "max_brace_depth": 7,
+      "closure_count": 0
     }
   ]
 }
