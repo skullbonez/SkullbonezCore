@@ -268,6 +268,77 @@ void RenderReplayCauseSolverDetailPanel( UI::UIDrawList& drawList, const UI::UID
         return;
     }
 
+    if ( inspection.activeTab == ReplayCauseInspectorTab::RawRecord )
+    {
+        const ReplayCauseRawRecordProjection projection = BuildReplayCauseRawRecordProjection( inspection, 0 );
+        const int rowCount = static_cast<int>( projection.rowCount );
+        const int firstRow = std::clamp( inspection.rawRecordFirstRow, 0,
+                                         (std::max)( 0, rowCount - layout.rawVisibleRows ) );
+        const int endRow = (std::min)( rowCount, firstRow + layout.rawVisibleRows );
+
+        drawList.PushClip( layout.rawTable.x, layout.rawTable.y, layout.rawTable.w, layout.rawTable.h );
+
+        const bool hasScrollbar = rowCount > layout.rawVisibleRows;
+        const float tableRowWidth = layout.rawTable.w - ( hasScrollbar ? REPLAY_CAUSE_INSPECTOR_SCROLLBAR_WIDTH + 4.0f : 0.0f );
+
+        for ( int rowIndex = firstRow; rowIndex < endRow; ++rowIndex )
+        {
+            const ReplayCauseRawRecordRow& row = projection.rows[static_cast<std::size_t>( rowIndex )];
+            const float rowY = layout.rawTable.y + static_cast<float>( rowIndex - firstRow ) * REPLAY_CAUSE_RAW_RECORD_ROW_HEIGHT;
+
+            if ( row.kind == ReplayCauseRawRecordRowKind::Section )
+            {
+                draw.Rect( layout.rawTable.x, rowY + REPLAY_CAUSE_RAW_RECORD_ROW_HEIGHT - 1.0f, tableRowWidth, 1.0f,
+                           CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b, 0.45f );
+                draw.Text( layout.rawTable.x + 4.0f, rowY + 4.0f, 10.0f, CAUSE_MANIFOLD.r, CAUSE_MANIFOLD.g,
+                           CAUSE_MANIFOLD.b, row.label );
+            }
+            else
+            {
+                const UI::Style::UIColor& fill = ( rowIndex % 2 == 0 ) ? CAUSE_NAVY_ALT : CAUSE_NAVY;
+                draw.RoundedRect( layout.rawTable.x, rowY, tableRowWidth, REPLAY_CAUSE_RAW_RECORD_ROW_HEIGHT - 1.0f, 2.0f,
+                                  fill.r, fill.g, fill.b, 1.0f );
+                draw.Text( layout.rawTable.x + 8.0f, rowY + 4.0f, 9.5f, palette.textSecondary.r, palette.textSecondary.g,
+                           palette.textSecondary.b, row.label );
+                draw.Text( layout.rawTable.x + 190.0f, rowY + 4.0f, 9.5f, palette.textPrimary.r, palette.textPrimary.g,
+                           palette.textPrimary.b, row.value );
+                if ( row.unit[0] != '\0' )
+                {
+                    draw.Text( layout.rawTable.x + tableRowWidth - 48.0f, rowY + 4.0f, 9.0f, palette.textMuted.r,
+                               palette.textMuted.g, palette.textMuted.b, row.unit );
+                }
+            }
+        }
+
+        drawList.PopClip();
+
+        if ( hasScrollbar && rowCount > 0 )
+        {
+            draw.RoundedRect( layout.drawerScrollbar.x, layout.drawerScrollbar.y, layout.drawerScrollbar.w,
+                              layout.drawerScrollbar.h, 2.0f, CAUSE_NAVY_ALT.r, CAUSE_NAVY_ALT.g, CAUSE_NAVY_ALT.b, 0.8f );
+            const float trackH = layout.drawerScrollbar.h;
+            const float thumbH = (std::max)( 16.0f, trackH * static_cast<float>( layout.rawVisibleRows ) /
+                                                        static_cast<float>( rowCount ) );
+            const float maxScroll = static_cast<float>( (std::max)( 1, rowCount - layout.rawVisibleRows ) );
+            const float thumbY = layout.drawerScrollbar.y + ( trackH - thumbH ) * ( static_cast<float>( firstRow ) / maxScroll );
+            draw.RoundedRect( layout.drawerScrollbar.x, thumbY, layout.drawerScrollbar.w, thumbH, 2.0f, CAUSE_RULE.r,
+                              CAUSE_RULE.g, CAUSE_RULE.b, 0.85f );
+        }
+
+        // Render Copy Record action button
+        draw.RoundedRect( layout.rawCopy.x, layout.rawCopy.y, layout.rawCopy.w, layout.rawCopy.h, 4.0f, CAUSE_NAVY_ALT.r,
+                          CAUSE_NAVY_ALT.g, CAUSE_NAVY_ALT.b, 1.0f );
+        draw.Rect( layout.rawCopy.x, layout.rawCopy.y, 3.0f, layout.rawCopy.h, CAUSE_MANIFOLD.r, CAUSE_MANIFOLD.g,
+                   CAUSE_MANIFOLD.b, 0.88f );
+        draw.Text( layout.rawCopy.x + 16.0f, layout.rawCopy.y + 8.0f, 11.0f, palette.textPrimary.r, palette.textPrimary.g,
+                   palette.textPrimary.b, "COPY RECORD" );
+        draw.Text( layout.rawCopy.x + layout.rawCopy.w - 140.0f, layout.rawCopy.y + 9.0f, 9.0f, palette.textMuted.r,
+                   palette.textMuted.g, palette.textMuted.b, "Copy text to clipboard" );
+
+        drawList.PopClip();
+        return;
+    }
+
     const int rowCount = static_cast<int>( inspection.solverDetailContacts.size() );
     const int firstRow = std::clamp( inspection.solverDetailFirstRow, 0, (std::max)( 0, rowCount - layout.visibleRows ) );
     const int endRow = (std::min)( rowCount, firstRow + layout.visibleRows );

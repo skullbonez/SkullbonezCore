@@ -14,10 +14,11 @@ Summary:
   bounded contact frame into a feature-neutral Rendering value, and copies the
   joined contact and pipeline records into fixed arrays. One shared compound
   layout projects the fixed-height drawer and up to four complete rows from
-  Replay's anchor while Planning owns bounded wheel scrolling. The transition
-  owner derives a fixed cubic curve from total wall-clock elapsed, coalesces its
-  discrete frame requests, rejects stale completion tokens, and publishes
-  pause/return actions for App to apply through concrete owners.
+  Replay's anchor while Planning owns bounded wheel scrolling and tabbed Summary
+  / Raw Record projections. The transition owner derives a fixed cubic curve from
+  total wall-clock elapsed, coalesces its discrete frame requests, rejects stale
+  completion tokens, and publishes pause/return actions for App to apply through
+  concrete owners.
 
 Glossary:
   In-flight generation: Exact transport token currently awaiting Replay restore
@@ -57,8 +58,12 @@ Related:
 #include "../Replay/ReplayRecorder.h"
 
 #include <algorithm>
+#include <charconv>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
+#include <limits>
+#include <string_view>
 
 namespace SkullbonezCore::Runtime
 {
@@ -137,6 +142,136 @@ bool PointInside( const UI::UIRect& rect, int x, int y ) noexcept
     const float pointX = static_cast<float>( x );
     const float pointY = static_cast<float>( y );
     return pointX >= rect.x && pointX <= rect.x + rect.w && pointY >= rect.y && pointY <= rect.y + rect.h;
+}
+
+class FixedTextWriter
+{
+  public:
+    FixedTextWriter( char* destination, std::size_t capacity ) noexcept : m_destination( destination ), m_capacity( capacity )
+    {
+        if ( m_destination && m_capacity > 0u )
+        {
+            m_destination[0] = '\0';
+        }
+    }
+
+    bool Append( std::string_view text ) noexcept
+    {
+        if ( !m_valid || !m_destination || text.size() >= m_capacity - m_size )
+        {
+            m_valid = false;
+            return false;
+        }
+
+        std::memcpy( m_destination + m_size, text.data(), text.size() );
+        m_size += text.size();
+        m_destination[m_size] = '\0';
+        return true;
+    }
+
+    bool Valid() const noexcept
+    {
+        return m_valid;
+    }
+
+  private:
+    char* m_destination = nullptr;
+    std::size_t m_capacity = 0u;
+    std::size_t m_size = 0u;
+    bool m_valid = true;
+};
+
+template <typename Integer>
+void FormatInteger( Integer value, char* destination, std::size_t capacity ) noexcept
+{
+    if ( !destination || capacity == 0u )
+    {
+        return;
+    }
+
+    const std::to_chars_result result = std::to_chars( destination, destination + capacity - 1u, value );
+    destination[result.ec == std::errc {} ? static_cast<std::size_t>( result.ptr - destination ) : 0u] = '\0';
+}
+
+void FormatFloat( float value, char* destination, std::size_t capacity ) noexcept
+{
+    if ( !destination || capacity == 0u )
+    {
+        return;
+    }
+
+    const std::to_chars_result result =
+        std::to_chars( destination, destination + capacity - 1u, value, std::chars_format::general,
+                       std::numeric_limits<float>::max_digits10 );
+    destination[result.ec == std::errc {} ? static_cast<std::size_t>( result.ptr - destination ) : 0u] = '\0';
+}
+
+void FormatVector( const Math::Vector::Vector3& value, char* destination, std::size_t capacity ) noexcept
+{
+    char x[32] = {};
+    char y[32] = {};
+    char z[32] = {};
+    FormatFloat( value.x, x, sizeof( x ) );
+    FormatFloat( value.y, y, sizeof( y ) );
+    FormatFloat( value.z, z, sizeof( z ) );
+    FixedTextWriter writer( destination, capacity );
+    (void)writer.Append( x );
+    (void)writer.Append( ", " );
+    (void)writer.Append( y );
+    (void)writer.Append( ", " );
+    (void)writer.Append( z );
+}
+
+void AddRawSection( ReplayCauseRawRecordProjection& projection, const char* label ) noexcept
+{
+    if ( projection.rowCount >= projection.rows.size() )
+    {
+        return;
+    }
+
+    ReplayCauseRawRecordRow& row = projection.rows[projection.rowCount++];
+    row.kind = ReplayCauseRawRecordRowKind::Section;
+    strcpy_s( row.label, sizeof( row.label ), label );
+}
+
+void AddRawValue( ReplayCauseRawRecordProjection& projection, const char* label, const char* value,
+                  const char* unit = "" ) noexcept
+{
+    if ( projection.rowCount >= projection.rows.size() )
+    {
+        return;
+    }
+
+    ReplayCauseRawRecordRow& row = projection.rows[projection.rowCount++];
+    row.kind = ReplayCauseRawRecordRowKind::Value;
+    strcpy_s( row.label, sizeof( row.label ), label );
+    strcpy_s( row.value, sizeof( row.value ), value );
+    strcpy_s( row.unit, sizeof( row.unit ), unit );
+}
+
+template <typename Integer>
+void AddRawInteger( ReplayCauseRawRecordProjection& projection, const char* label, Integer value,
+                    const char* unit = "" ) noexcept
+{
+    char text[48] = {};
+    FormatInteger( value, text, sizeof( text ) );
+    AddRawValue( projection, label, text, unit );
+}
+
+void AddRawFloat( ReplayCauseRawRecordProjection& projection, const char* label, float value,
+                  const char* unit ) noexcept
+{
+    char text[48] = {};
+    FormatFloat( value, text, sizeof( text ) );
+    AddRawValue( projection, label, text, unit );
+}
+
+void AddRawVector( ReplayCauseRawRecordProjection& projection, const char* label,
+                   const Math::Vector::Vector3& value, const char* unit ) noexcept
+{
+    char text[128] = {};
+    FormatVector( value, text, sizeof( text ) );
+    AddRawValue( projection, label, text, unit );
 }
 } // namespace
 
@@ -248,6 +383,155 @@ ReplayCauseSummaryText BuildReplayCauseSummaryText( const ReplayCauseInspectionV
     return text;
 }
 
+ReplayCauseRawRecordProjection BuildReplayCauseRawRecordProjection( const ReplayCauseInspectionView& inspection,
+                                                                    int rowIndex ) noexcept
+{
+    ReplayCauseRawRecordProjection projection;
+
+    if ( rowIndex < 0 || static_cast<std::size_t>( rowIndex ) >= inspection.solverDetailContacts.size() )
+    {
+        return projection;
+    }
+
+    const Physics::PhysicsSolverPersistentContactSample&
+        contact = inspection.solverDetailContacts[static_cast<std::size_t>( rowIndex )];
+
+    Math::Vector::Vector3 point = Math::Vector::ZERO_VECTOR;
+    const bool hasPresentationPoint = static_cast<std::size_t>( rowIndex ) < inspection.contactPresentation.pointCount;
+
+    if ( hasPresentationPoint )
+    {
+        point = inspection.contactPresentation.points[static_cast<std::size_t>( rowIndex )].point;
+    }
+    else
+    {
+        for ( const Physics::PhysicsPipelineRecord& record : inspection.solverDetailPipelineRecords )
+        {
+            if ( record.stage == Physics::PhysicsPipelineStage::ManifoldRow && record.featureId == contact.featureId )
+            {
+                point = record.point;
+                break;
+            }
+        }
+    }
+
+    // IDENTITY
+    AddRawSection( projection, "IDENTITY" );
+    AddRawInteger( projection, "Row Index", rowIndex );
+    AddRawInteger( projection, "Feature ID", contact.featureId );
+    AddRawInteger( projection, "Body A", contact.bodyA );
+    AddRawInteger( projection, "Body B", contact.bodyB );
+    AddRawInteger( projection, "Manifold Points", static_cast<unsigned>( contact.manifoldPointCount ) );
+    AddRawInteger( projection, "Source Frame", static_cast<unsigned long long>( inspection.targetFrame ) );
+    AddRawValue( projection, "Source Kind",
+                 inspection.seekSource == ReplayCauseSeekSource::Prediction ? "PREDICTION" : "RECORDED" );
+    if ( contact.key != 0 )
+    {
+        AddRawInteger( projection, "Persistent Key", contact.key );
+    }
+
+    // GEOMETRY
+    AddRawSection( projection, "GEOMETRY" );
+    AddRawVector( projection, "Contact Point", point, "u" );
+    AddRawVector( projection, "Arm rA", contact.rA, "u" );
+    AddRawVector( projection, "Arm rB", contact.rB, "u" );
+    AddRawFloat( projection, "Penetration", contact.penetration, "u" );
+    AddRawValue( projection, "Terrain Contact", contact.isTerrain ? "YES" : "NO" );
+    if ( contact.isTerrain )
+    {
+        AddRawVector( projection, "Terrain Normal", contact.terrainNormal, "" );
+    }
+
+    // CONTACT BASIS
+    AddRawSection( projection, "CONTACT BASIS" );
+    AddRawVector( projection, "Normal n", contact.normal, "" );
+    AddRawVector( projection, "Tangent t1", contact.tangent1, "" );
+    AddRawVector( projection, "Tangent t2", contact.tangent2, "" );
+
+    // SOLVER VALUES
+    AddRawSection( projection, "SOLVER VALUES" );
+    AddRawFloat( projection, "Normal Mass", contact.normalMass, "mass" );
+    AddRawFloat( projection, "Tangent Mass 1", contact.tangentMass1, "mass" );
+    AddRawFloat( projection, "Tangent Mass 2", contact.tangentMass2, "mass" );
+    AddRawFloat( projection, "Bias Velocity", contact.bias, "u/s" );
+    AddRawFloat( projection, "Friction Limit", contact.frictionLimit, "N*s" );
+
+    for ( const Physics::PhysicsPipelineRecord& record : inspection.solverDetailPipelineRecords )
+    {
+        if ( record.featureId == contact.featureId &&
+             record.stage == Physics::PhysicsPipelineStage::PositionCorrection )
+        {
+            AddRawFloat( projection, "Position Correction", record.scalarA, "u" );
+            break;
+        }
+    }
+
+    // ACCUMULATED IMPULSES
+    AddRawSection( projection, "ACCUMULATED IMPULSES" );
+    AddRawFloat( projection, "Normal Impulse accN", contact.accN, "N*s" );
+    AddRawFloat( projection, "Tangent Impulse accT1", contact.accT1, "N*s" );
+    AddRawFloat( projection, "Tangent Impulse accT2", contact.accT2, "N*s" );
+    const float frictionMagnitude = std::sqrt( contact.accT1 * contact.accT1 + contact.accT2 * contact.accT2 );
+    AddRawFloat( projection, "Tangent Magnitude |T|", frictionMagnitude, "N*s" );
+    if ( contact.isTerrain && contact.terrainWarmStart != 0.0f )
+    {
+        AddRawFloat( projection, "Terrain Warm Start", contact.terrainWarmStart, "N*s" );
+    }
+
+    // FLAGS & POLICY
+    AddRawSection( projection, "FLAGS & POLICY" );
+    AddRawValue( projection, "Warm Started", contact.warmStarted ? "YES" : "NO" );
+    AddRawValue( projection, "Supports Resting Policy", contact.supportsRestingPolicy ? "YES" : "NO" );
+    AddRawValue( projection, "Allows Tangent Friction", contact.allowsTangentFriction ? "YES" : "NO" );
+    AddRawValue( projection, "Normal Coupled Friction", contact.normalCoupledFriction ? "YES" : "NO" );
+    AddRawValue( projection, "Sleep Inhibition", contact.inhibitsSleep ? "INHIBITED" : "ALLOWED" );
+
+    return projection;
+}
+
+bool SerializeReplayCauseRawRecord( const ReplayCauseRawRecordProjection& projection, char* destination,
+                                    std::size_t destinationCapacity ) noexcept
+{
+    if ( !destination || destinationCapacity == 0u || projection.rowCount == 0u )
+    {
+        if ( destination && destinationCapacity > 0u )
+        {
+            destination[0] = '\0';
+        }
+        return false;
+    }
+
+    FixedTextWriter writer( destination, destinationCapacity );
+
+    for ( std::size_t i = 0; i < projection.rowCount; ++i )
+    {
+        const ReplayCauseRawRecordRow& row = projection.rows[i];
+        if ( row.kind == ReplayCauseRawRecordRowKind::Section )
+        {
+            if ( i > 0 )
+            {
+                (void)writer.Append( "\n" );
+            }
+            (void)writer.Append( "[" );
+            (void)writer.Append( row.label );
+            (void)writer.Append( "]\n" );
+        }
+        else
+        {
+            (void)writer.Append( row.label );
+            (void)writer.Append( ": " );
+            (void)writer.Append( row.value );
+            if ( row.unit[0] != '\0' )
+            {
+                (void)writer.Append( " " );
+                (void)writer.Append( row.unit );
+            }
+            (void)writer.Append( "\n" );
+        }
+    }
+
+    return writer.Valid();
+}
 
 bool ShouldBeginReplayCauseAftermath( const ReplayCauseInspectionView& inspection, bool spaceDown ) noexcept
 {
@@ -328,6 +612,14 @@ ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseIns
                                              REPLAY_CAUSE_INSPECTOR_TAB_HEIGHT - REPLAY_CAUSE_INSPECTOR_PADDING * 2.0f ) };
     layout.drawerScrollbar = { layout.content.x + layout.content.w - REPLAY_CAUSE_INSPECTOR_SCROLLBAR_WIDTH,
                                layout.content.y, REPLAY_CAUSE_INSPECTOR_SCROLLBAR_WIDTH, layout.content.h };
+
+    const float rawCopyGap = 8.0f;
+    layout.rawCopy = { layout.content.x,
+                       layout.content.y + layout.content.h - REPLAY_CAUSE_RAW_RECORD_COPY_HEIGHT,
+                       layout.content.w, REPLAY_CAUSE_RAW_RECORD_COPY_HEIGHT };
+    layout.rawTable = { layout.content.x, layout.content.y, layout.content.w,
+                        (std::max)( 0.0f, layout.content.h - REPLAY_CAUSE_RAW_RECORD_COPY_HEIGHT - rawCopyGap ) };
+    layout.rawVisibleRows = static_cast<int>( layout.rawTable.h / REPLAY_CAUSE_RAW_RECORD_ROW_HEIGHT );
 
     const bool hasRows = inspection.solverDetailAvailability == ReplayCauseSolverDetailAvailability::Available &&
                          !inspection.solverDetailContacts.empty();
@@ -1072,7 +1364,8 @@ void ReplayCauseInspection::CompleteReturn() noexcept
 
 bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTreeState& causeTree, int mouseX, int mouseY,
                                                         bool hasClientPosition, bool pointerBlocked, bool leftPressed,
-                                                        int wheelDelta, int screenWidth, int screenHeight ) noexcept
+                                                        int wheelDelta, int screenWidth, int screenHeight,
+                                                        ReplayCauseInspectorCommand* outCommand ) noexcept
 {
     if ( !m_state.detailVisible || !hasClientPosition || pointerBlocked || screenWidth <= 0 || screenHeight <= 0 )
     {
@@ -1103,19 +1396,42 @@ bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTree
             {
                 m_state.activeTab = static_cast<ReplayCauseInspectorTab>( tab );
                 m_state.solverDetailFirstRow = 0;
+                m_state.rawRecordFirstRow = 0;
                 return true;
             }
         }
+
+        if ( m_state.activeTab == ReplayCauseInspectorTab::RawRecord && PointInside( layout.rawCopy, mouseX, mouseY ) )
+        {
+            if ( outCommand )
+            {
+                outCommand->kind = ReplayCauseInspectorCommandKind::CopyRecord;
+                const ReplayCauseRawRecordProjection projection = BuildReplayCauseRawRecordProjection( m_state, 0 );
+                SerializeReplayCauseRawRecord( projection, outCommand->text, sizeof( outCommand->text ) );
+            }
+            return true;
+        }
     }
 
-    if ( wheelDelta != 0 && layout.visibleRows > 0 )
+    if ( wheelDelta != 0 )
     {
-        const int direction = wheelDelta > 0 ? -1 : 1;
-        const int wheelSteps = (std::max)( 1, std::abs( wheelDelta ) / 120 );
-        const int maximumFirstRow = (std::max)( 0, static_cast<int>( m_state.solverDetailContacts.size() ) -
-                                                       layout.visibleRows );
-        m_state.solverDetailFirstRow = std::clamp( m_state.solverDetailFirstRow + direction * wheelSteps, 0,
-                                                   maximumFirstRow );
+        if ( m_state.activeTab == ReplayCauseInspectorTab::RawRecord && layout.rawVisibleRows > 0 )
+        {
+            const ReplayCauseRawRecordProjection projection = BuildReplayCauseRawRecordProjection( m_state, 0 );
+            const int direction = wheelDelta > 0 ? -1 : 1;
+            const int wheelSteps = (std::max)( 1, std::abs( wheelDelta ) / 120 ) * 3;
+            const int maximumFirstRow = (std::max)( 0, static_cast<int>( projection.rowCount ) - layout.rawVisibleRows );
+            m_state.rawRecordFirstRow = std::clamp( m_state.rawRecordFirstRow + direction * wheelSteps, 0, maximumFirstRow );
+        }
+        else if ( layout.visibleRows > 0 )
+        {
+            const int direction = wheelDelta > 0 ? -1 : 1;
+            const int wheelSteps = (std::max)( 1, std::abs( wheelDelta ) / 120 );
+            const int maximumFirstRow = (std::max)( 0, static_cast<int>( m_state.solverDetailContacts.size() ) -
+                                                           layout.visibleRows );
+            m_state.solverDetailFirstRow = std::clamp( m_state.solverDetailFirstRow + direction * wheelSteps, 0,
+                                                       maximumFirstRow );
+        }
     }
 
     return true;
@@ -1145,6 +1461,7 @@ void ReplayCauseInspection::ClearFocusedSurface() noexcept
     m_state.solverDetailPipelineRecords = {};
     m_state.solverDetailFeedback = SOLVER_DETAIL_UNAVAILABLE_FEEDBACK;
     m_state.solverDetailFirstRow = 0;
+    m_state.rawRecordFirstRow = 0;
     m_state.contactPresentation = {};
 }
 

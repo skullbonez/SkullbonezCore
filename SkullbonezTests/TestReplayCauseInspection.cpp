@@ -19,8 +19,9 @@
 //   The UI projection test pins exact solver-value text, units, and signs.
 //   The scientific-inspector projection pins the approved compound surface:
 //   exact visual states, flush drawer geometry, one-anchor motion, fixed tabs,
-//   180 ms easing, reachable compact controls, and ancestor-preserving filtered
-//   source-row identity. Its negative control records why the retired detached
+//   180 ms easing, reachable compact controls, ancestor-preserving filtered
+//   source-row identity, and the grouped Raw Record projection plus serialized
+//   copy payload. Its negative control records why the retired detached
 //   placement could not satisfy the joined contract.
 //   The Planning transition tests also pin request coalescing, pause ownership,
 //   Space aftermath, total-elapsed cubic easing, symmetric discrete frame
@@ -1325,4 +1326,232 @@ TEST_CASE( "Replay cause inspection: forward and reverse frame rounding stay mon
 
     CHECK( previousForward == 20u );
     CHECK( previousReverse == 10u );
+}
+
+TEST_CASE( "Cause hierarchy inspector: Raw Record tab projects complete grouped properties and serializes copy payload" )
+{
+    using SkullbonezCore::Math::Vector::Vector3;
+    using SkullbonezCore::Physics::PhysicsPipelineRecord;
+    using SkullbonezCore::Physics::PhysicsPipelineStage;
+    using SkullbonezCore::Physics::PhysicsSolverPersistentContactSample;
+
+    ReplayCauseInspectionView view;
+    view.targetFrame = 95u;
+    view.seekSource = ReplayCauseSeekSource::SolverHistory;
+
+    std::array<PhysicsSolverPersistentContactSample, 1> contacts;
+    contacts[0].bodyA = 3;
+    contacts[0].bodyB = 7;
+    contacts[0].featureId = 42u;
+    contacts[0].key = 10042;
+    contacts[0].normal = Vector3( 0.0f, 1.0f, 0.0f );
+    contacts[0].tangent1 = Vector3( 1.0f, 0.0f, 0.0f );
+    contacts[0].tangent2 = Vector3( 0.0f, 0.0f, 1.0f );
+    contacts[0].rA = Vector3( 0.1f, -0.5f, 0.0f );
+    contacts[0].rB = Vector3( 0.1f, 0.5f, 0.0f );
+    contacts[0].penetration = 0.0125f;
+    contacts[0].normalMass = 4.5f;
+    contacts[0].tangentMass1 = 2.25f;
+    contacts[0].tangentMass2 = 2.25f;
+    contacts[0].bias = 0.05f;
+    contacts[0].frictionLimit = 1.8f;
+    contacts[0].accN = 1.2f;
+    contacts[0].accT1 = 0.3f;
+    contacts[0].accT2 = 0.4f;
+    contacts[0].warmStarted = true;
+    contacts[0].isTerrain = false;
+    contacts[0].supportsRestingPolicy = true;
+    contacts[0].allowsTangentFriction = true;
+    contacts[0].normalCoupledFriction = false;
+    contacts[0].inhibitsSleep = false;
+    contacts[0].manifoldPointCount = 2;
+
+    std::array<PhysicsPipelineRecord, 2> records;
+    records[0].stage = PhysicsPipelineStage::ManifoldRow;
+    records[0].featureId = 42u;
+    records[0].point = Vector3( 10.0f, 5.0f, -2.0f );
+
+    records[1].stage = PhysicsPipelineStage::PositionCorrection;
+    records[1].featureId = 42u;
+    records[1].scalarA = 0.005f;
+
+    view.solverDetailContacts = contacts;
+    view.solverDetailPipelineRecords = records;
+
+    SUBCASE( "invalid row index returns empty projection" )
+    {
+        const ReplayCauseRawRecordProjection emptyNeg = BuildReplayCauseRawRecordProjection( view, -1 );
+        CHECK( emptyNeg.rowCount == 0u );
+
+        const ReplayCauseRawRecordProjection emptyHigh = BuildReplayCauseRawRecordProjection( view, 5 );
+        CHECK( emptyHigh.rowCount == 0u );
+    }
+
+    SUBCASE( "valid row index projects all sections and values correctly" )
+    {
+        const ReplayCauseRawRecordProjection proj = BuildReplayCauseRawRecordProjection( view, 0 );
+        REQUIRE( proj.rowCount > 0u );
+        CHECK( proj.rowCount <= REPLAY_CAUSE_RAW_RECORD_ROW_CAPACITY );
+
+        bool foundIdentity = false;
+        bool foundGeometry = false;
+        bool foundBasis = false;
+        bool foundSolver = false;
+        bool foundImpulses = false;
+        bool foundFlags = false;
+        bool foundRowIndex = false;
+        bool foundFeature = false;
+        bool foundBodyA = false;
+        bool foundBodyB = false;
+        bool foundPoint = false;
+        bool foundNormal = false;
+        bool foundAccN = false;
+        bool foundWarm = false;
+
+        for ( std::size_t i = 0; i < proj.rowCount; ++i )
+        {
+            const auto& row = proj.rows[i];
+            if ( row.kind == ReplayCauseRawRecordRowKind::Section )
+            {
+                if ( std::strcmp( row.label, "IDENTITY" ) == 0 ) foundIdentity = true;
+                if ( std::strcmp( row.label, "GEOMETRY" ) == 0 ) foundGeometry = true;
+                if ( std::strcmp( row.label, "CONTACT BASIS" ) == 0 ) foundBasis = true;
+                if ( std::strcmp( row.label, "SOLVER VALUES" ) == 0 ) foundSolver = true;
+                if ( std::strcmp( row.label, "ACCUMULATED IMPULSES" ) == 0 ) foundImpulses = true;
+                if ( std::strcmp( row.label, "FLAGS & POLICY" ) == 0 ) foundFlags = true;
+            }
+            else
+            {
+                if ( std::strcmp( row.label, "Row Index" ) == 0 && std::strcmp( row.value, "0" ) == 0 ) foundRowIndex = true;
+                if ( std::strcmp( row.label, "Feature ID" ) == 0 && std::strcmp( row.value, "42" ) == 0 ) foundFeature = true;
+                if ( std::strcmp( row.label, "Body A" ) == 0 && std::strcmp( row.value, "3" ) == 0 ) foundBodyA = true;
+                if ( std::strcmp( row.label, "Body B" ) == 0 && std::strcmp( row.value, "7" ) == 0 ) foundBodyB = true;
+                if ( std::strcmp( row.label, "Contact Point" ) == 0 ) foundPoint = true;
+                if ( std::strcmp( row.label, "Normal n" ) == 0 ) foundNormal = true;
+                if ( std::strcmp( row.label, "Normal Impulse accN" ) == 0 ) foundAccN = true;
+                if ( std::strcmp( row.label, "Warm Started" ) == 0 && std::strcmp( row.value, "YES" ) == 0 ) foundWarm = true;
+            }
+        }
+
+        CHECK( foundIdentity );
+        CHECK( foundGeometry );
+        CHECK( foundBasis );
+        CHECK( foundSolver );
+        CHECK( foundImpulses );
+        CHECK( foundFlags );
+        CHECK( foundRowIndex );
+        CHECK( foundFeature );
+        CHECK( foundBodyA );
+        CHECK( foundBodyB );
+        CHECK( foundPoint );
+        CHECK( foundNormal );
+        CHECK( foundAccN );
+        CHECK( foundWarm );
+
+        char buffer[2048] = {};
+        const bool serialized = SerializeReplayCauseRawRecord( proj, buffer, sizeof( buffer ) );
+        CHECK( serialized );
+        CHECK( std::strstr( buffer, "[IDENTITY]" ) != nullptr );
+        CHECK( std::strstr( buffer, "Row Index: 0" ) != nullptr );
+        CHECK( std::strstr( buffer, "Feature ID: 42" ) != nullptr );
+        CHECK( std::strstr( buffer, "[GEOMETRY]" ) != nullptr );
+        CHECK( std::strstr( buffer, "[CONTACT BASIS]" ) != nullptr );
+        CHECK( std::strstr( buffer, "[SOLVER VALUES]" ) != nullptr );
+        CHECK( std::strstr( buffer, "[ACCUMULATED IMPULSES]" ) != nullptr );
+        CHECK( std::strstr( buffer, "[FLAGS & POLICY]" ) != nullptr );
+        CHECK( std::strstr( buffer, "Warm Started: YES" ) != nullptr );
+    }
+
+    SUBCASE( "serialization handles edge cases and buffer limits" )
+    {
+        const ReplayCauseRawRecordProjection proj = BuildReplayCauseRawRecordProjection( view, 0 );
+        char tinyBuffer[16] = {};
+        CHECK_FALSE( SerializeReplayCauseRawRecord( proj, tinyBuffer, sizeof( tinyBuffer ) ) );
+        CHECK_FALSE( SerializeReplayCauseRawRecord( proj, nullptr, 100u ) );
+
+        ReplayCauseRawRecordProjection emptyProj;
+        char buffer[128] = {};
+        CHECK_FALSE( SerializeReplayCauseRawRecord( emptyProj, buffer, sizeof( buffer ) ) );
+    }
+}
+
+TEST_CASE( "Cause hierarchy inspector: Raw Record input handles copy command and scrolling" )
+{
+    using SkullbonezCore::Physics::PhysicsSolverPersistentContactSample;
+
+    RunReplayCauseTreeState treeState;
+    treeState.hasWindowPlacement = true;
+    treeState.x = 1180;
+    treeState.y = 140;
+    treeState.width = 430;
+    treeState.height = 500;
+
+    ReplayCauseSeekResult seek;
+    seek.availability = ReplayCauseSeekAvailability::Available;
+    seek.source = ReplayCauseSeekSource::SolverHistory;
+    seek.frame = 10u;
+
+    std::array<PhysicsSolverPersistentContactSample, 1> contacts;
+    contacts[0].bodyA = 1;
+    contacts[0].bodyB = 2;
+    contacts[0].featureId = 5u;
+
+    ReplayCauseSolverDetailResult detail;
+    detail.frame = 10u;
+    detail.availability = ReplayCauseSolverDetailAvailability::Available;
+    detail.sourceContacts = contacts;
+    detail.bodyA = 1;
+    detail.bodyB = 2;
+    detail.contactRowCount = 1u;
+
+    ReplayCauseInspection inspection;
+    REQUIRE( inspection.Select( 0, seek, 5u, false, 1.0 ) );
+    inspection.Advance( 2.5 );
+    ReplayCauseTransportRequest request;
+    REQUIRE( inspection.TakeTransportRequest( request ) );
+    inspection.PublishSolverDetail( request.generation, detail );
+    inspection.CompleteTransport( request.generation, true );
+
+    const ReplayCauseInspectorLayout layout = BuildReplayCauseInspectorLayout( inspection.View(), treeState, 1920, 1080, 1.0f );
+    CHECK( layout.rawTable.h > 0.0f );
+    CHECK( layout.rawCopy.h == doctest::Approx( REPLAY_CAUSE_RAW_RECORD_COPY_HEIGHT ) );
+    CHECK( layout.rawVisibleRows > 0 );
+
+    SUBCASE( "switching to raw record tab and clicking copy record emits command" )
+    {
+        // Click Raw Record tab (tabs[1])
+        const int tabX = static_cast<int>( layout.tabs[1].x + layout.tabs[1].w * 0.5f );
+        const int tabY = static_cast<int>( layout.tabs[1].y + layout.tabs[1].h * 0.5f );
+        CHECK( inspection.TickSolverDetailPanelInput( treeState, tabX, tabY, true, false, true, 0, 1920, 1080 ) );
+        CHECK( inspection.View().activeTab == ReplayCauseInspectorTab::RawRecord );
+
+        // Click Copy button
+        const int copyX = static_cast<int>( layout.rawCopy.x + layout.rawCopy.w * 0.5f );
+        const int copyY = static_cast<int>( layout.rawCopy.y + layout.rawCopy.h * 0.5f );
+        ReplayCauseInspectorCommand command;
+        CHECK( inspection.TickSolverDetailPanelInput( treeState, copyX, copyY, true, false, true, 0, 1920, 1080, &command ) );
+        CHECK( command.kind == ReplayCauseInspectorCommandKind::CopyRecord );
+        CHECK( std::strstr( command.text, "[IDENTITY]" ) != nullptr );
+        CHECK( std::strstr( command.text, "Feature ID: 5" ) != nullptr );
+    }
+
+    SUBCASE( "wheel scroll in raw record tab scrolls rawRecordFirstRow within bounds" )
+    {
+        // Switch to Raw Record tab
+        const int tabX = static_cast<int>( layout.tabs[1].x + layout.tabs[1].w * 0.5f );
+        const int tabY = static_cast<int>( layout.tabs[1].y + layout.tabs[1].h * 0.5f );
+        (void)inspection.TickSolverDetailPanelInput( treeState, tabX, tabY, true, false, true, 0, 1920, 1080 );
+
+        const int insideX = static_cast<int>( layout.rawTable.x + 10.0f );
+        const int insideY = static_cast<int>( layout.rawTable.y + 10.0f );
+
+        CHECK( inspection.View().rawRecordFirstRow == 0 );
+        // Scroll down
+        (void)inspection.TickSolverDetailPanelInput( treeState, insideX, insideY, true, false, false, -120, 1920, 1080 );
+        CHECK( inspection.View().rawRecordFirstRow >= 0 );
+
+        // Scroll up
+        (void)inspection.TickSolverDetailPanelInput( treeState, insideX, insideY, true, false, false, 120, 1920, 1080 );
+        CHECK( inspection.View().rawRecordFirstRow == 0 );
+    }
 }

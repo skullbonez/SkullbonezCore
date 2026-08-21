@@ -63,8 +63,8 @@ Related:
 #include "../../UI/UIDraw.h"
 
 #include <array>
-#include <span>
 #include <cstdint>
+#include <span>
 
 namespace SkullbonezCore::Runtime
 {
@@ -122,6 +122,8 @@ struct ReplayCauseSolverDetailResult
     int bodyA = -1;
     int bodyB = -1;
     bool terrain = false;
+    int sourceContactIndex = -1;
+    int selectedDetailContactRow = -1;
     std::size_t contactRowCount = 0;
     std::size_t pipelineRecordCount = 0;
 
@@ -202,12 +204,15 @@ struct ReplayCauseInspectionView
     ReplayCauseSolverDetailAvailability
         solverDetailAvailability = ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable;
     int selectedRow = -1;
+    int selectedDetailContactRow = -1;
+    int sourceContactIndex = -1;
     std::size_t solverDetailContactRowCount = 0;
     std::size_t solverDetailPipelineRecordCount = 0;
     std::span<const Physics::PhysicsSolverPersistentContactSample> solverDetailContacts;
     std::span<const Physics::PhysicsPipelineRecord> solverDetailPipelineRecords;
     const char* solverDetailFeedback = "Solver detail not available";
     int solverDetailFirstRow = 0;
+    int rawRecordFirstRow = 0;
     Rendering::ContactManifoldPresentation contactPresentation;
     ReplayCauseInspectorTab activeTab = ReplayCauseInspectorTab::Summary;
     bool detailVisible = false;
@@ -238,6 +243,8 @@ inline constexpr float REPLAY_CAUSE_INSPECTOR_CLOSE_SIZE = 22.0f;
 inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_EMPTY_HEIGHT = 44.0f;
 inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_BASE_ROW_HEIGHT = 82.0f;
 inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_ITERATION_LINE_HEIGHT = 12.0f;
+inline constexpr float REPLAY_CAUSE_RAW_RECORD_ROW_HEIGHT = 21.0f;
+inline constexpr float REPLAY_CAUSE_RAW_RECORD_COPY_HEIGHT = 28.0f;
 inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_OPACITY = 0.78f;
 inline constexpr int REPLAY_CAUSE_SOLVER_PANEL_ITERATIONS_PER_LINE = 4;
 inline constexpr const char*
@@ -270,6 +277,44 @@ struct ReplayCauseSummaryText
     char policy[256] = {};
 };
 
+enum class ReplayCauseRawRecordRowKind : uint8_t
+{
+    Section,
+    Value
+};
+
+struct ReplayCauseRawRecordRow
+{
+    ReplayCauseRawRecordRowKind kind = ReplayCauseRawRecordRowKind::Value;
+    char label[40] = {};
+    char value[128] = {};
+    char unit[24] = {};
+};
+
+inline constexpr std::size_t REPLAY_CAUSE_RAW_RECORD_ROW_CAPACITY = 48u;
+
+struct ReplayCauseRawRecordProjection
+{
+    // Invariant: this bounded table is the single value-to-label projection
+    // used by both the visible Raw Record tab and its cold copy payload.
+    std::array<ReplayCauseRawRecordRow, REPLAY_CAUSE_RAW_RECORD_ROW_CAPACITY> rows;
+    std::size_t rowCount = 0;
+};
+
+inline constexpr std::size_t REPLAY_CAUSE_INSPECTOR_COPY_TEXT_CAPACITY = 4096u;
+
+enum class ReplayCauseInspectorCommandKind : uint8_t
+{
+    None,
+    CopyRecord
+};
+
+struct ReplayCauseInspectorCommand
+{
+    ReplayCauseInspectorCommandKind kind = ReplayCauseInspectorCommandKind::None;
+    char text[REPLAY_CAUSE_INSPECTOR_COPY_TEXT_CAPACITY] = {};
+};
+
 struct ReplayCauseInspectorLayout
 {
     UI::UIRect hierarchy;
@@ -283,6 +328,8 @@ struct ReplayCauseInspectorLayout
     UI::UIRect drawerClose;
     std::array<UI::UIRect, 3> tabs;
     UI::UIRect content;
+    UI::UIRect rawTable;
+    UI::UIRect rawCopy;
     UI::UIRect drawerScrollbar;
     UI::UIRect sharedSeam;
     UI::UIRect compound;
@@ -290,6 +337,7 @@ struct ReplayCauseInspectorLayout
     float rowHeight = REPLAY_CAUSE_SOLVER_PANEL_BASE_ROW_HEIGHT;
     float drawerProgress = 0.0f;
     int visibleRows = 0;
+    int rawVisibleRows = 0;
 };
 
 // Concept: one projection describes both retained Replay placement and the
@@ -304,6 +352,10 @@ int ReplayCauseSolverDetailIterationCount( const ReplayCauseInspectionView& insp
 ReplayCauseSolverPanelRowText BuildReplayCauseSolverPanelRowText( const ReplayCauseInspectionView& inspection,
                                                                   int rowIndex ) noexcept;
 ReplayCauseSummaryText BuildReplayCauseSummaryText( const ReplayCauseInspectionView& inspection, int rowIndex ) noexcept;
+ReplayCauseRawRecordProjection BuildReplayCauseRawRecordProjection( const ReplayCauseInspectionView& inspection,
+                                                                    int rowIndex ) noexcept;
+bool SerializeReplayCauseRawRecord( const ReplayCauseRawRecordProjection& projection, char* destination,
+                                    std::size_t destinationCapacity ) noexcept;
 
 struct ReplayCauseExitAction
 {
@@ -326,7 +378,8 @@ class ReplayCauseInspection
     void CompleteReturn() noexcept;
     bool TickSolverDetailPanelInput( const RunReplayCauseTreeState& causeTree, int mouseX, int mouseY,
                                      bool hasClientPosition, bool pointerBlocked, bool leftPressed, int wheelDelta,
-                                     int screenWidth, int screenHeight ) noexcept;
+                                     int screenWidth, int screenHeight,
+                                     ReplayCauseInspectorCommand* outCommand = nullptr ) noexcept;
     void Reset() noexcept;
     ReplayCauseInspectionView View() const noexcept;
 

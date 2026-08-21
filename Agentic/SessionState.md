@@ -2,7 +2,7 @@
 
 Date: 2026-08-21
 Branch: `codex/cause-hierarchy-ui-first`
-Status: Four active plans; 59/80 tasks complete
+Status: Four active plans; 60/80 tasks complete
 
 At-Rest Ball Stability RS0-RS7 and Invariant Enforcement And Assertion
 Hardening IH0-IH7 are complete. Causal C0-C8, Determinism T0-T8,
@@ -38,7 +38,12 @@ row-dynamics/policy table. The focused cause group passes 16 cases / 299
 assertions, the cumulative gate passes 672 cases / 2,522,865 assertions,
 Profile and Automation builds plus smoke pass, and the inspected multi-body
 Summary capture exits 0. Its touched-source audit is 5/5 with none deferred.
-CHUI4 is the binding next task.
+CHUI4 adds the grouped Raw Record property table with aligned numeric columns,
+section rules, alternating fills, bounded internal scrolling, and cold clipboard
+copying without retaining clipboard authority in Planning or Replay. Its focused
+cases pass, the cumulative test gate passes 674 cases / 2,521,885 assertions, the
+dependency scan is clean, and the touched-source audit is 7/7 with none deferred.
+CHUI5 is the binding next task.
 
 ORBIT_FORECAST OF0 is complete. It ratifies the fixed sun as the primary,
 Earth and Mars as core bodies, and the ship as an auxiliary whose orbital-
@@ -412,7 +417,7 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `CAUSE_HIERARCHY_UI` CHUI2. `INVARIANT_HARDENING` IH0-IH7 is complete: the
+Execute `CAUSE_HIERARCHY_UI` CHUI5. `INVARIANT_HARDENING` IH0-IH7 is complete: the
 final source checklist is 96/96 with zero deferrals, the terminal inventory has
 67 production asserts and 18 reviewed assert-only candidates, and the current
 fast gate passes 663 tests plus Debug/Profile reachability. Automation, DX12,

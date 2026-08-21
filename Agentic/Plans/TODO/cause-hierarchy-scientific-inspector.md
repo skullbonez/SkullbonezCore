@@ -1,7 +1,7 @@
 # Cause Hierarchy Scientific Inspector
 
 Date: 2026-08-20
-Status: Active; 4/7 phases complete. First active queue item by owner direction.
+Status: Active; 5/7 phases complete. First active queue item by owner direction.
 Impact areas: Runtime Replay cause-window state and input, Runtime Planning
 inspection state and rendering, App input composition, UI presentation, replay
 Automation, deterministic screenshots, and tests
@@ -9,7 +9,7 @@ Owner: ReplayAuthoring owns the cause hierarchy anchor, size, filtering, and
 row selection; ReplayCauseInspection owns the attached detail drawer lifecycle,
 tab, animation, and exact detached evidence; App composes typed commands and
 camera/transport effects without retaining a second UI owner
-Priority: First active queue item; CHUI4 follows completed CHUI3
+Priority: First active queue item; CHUI5 follows completed CHUI4
 Commit name: `CAUSE_HIERARCHY_UI`
 
 ## Goal
@@ -417,20 +417,30 @@ source comment audit is 5/5 with none deferred.
 
 ### CHUI4 - Raw Record Tab And Copy Action
 
-- [ ] Implement the grouped Raw Record property table with aligned numeric
+- [x] Implement the grouped Raw Record property table with aligned numeric
       columns, alternating fills, explicit units, thin rules, bounded internal
       scrolling, and the full retained-field mapping above.
-- [ ] Keep drawer geometry invariant while switching Summary <-> Raw Record;
+- [x] Keep drawer geometry invariant while switching Summary <-> Raw Record;
       preserve/reset scroll only under the ratified selected-identity rules.
-- [ ] Route `Copy record` as a typed cold action and serialize one stable,
+- [x] Route `Copy record` as a typed cold action and serialize one stable,
       complete, locale-independent record without retaining clipboard/service
       authority in Planning or Replay.
-- [ ] Cover unavailable/truncated evidence, maximum field widths, terrain and
+- [x] Cover unavailable/truncated evidence, maximum field widths, terrain and
       object rows, warm/cold rows, flags, copied text, and mouse-wheel ownership.
 
 **CHUI4 acceptance:** clicking `RAW RECORD` produces the concept's readable
 scrolling table inside the same drawer footprint and copies exactly the values
 shown without changing runtime ownership.
+
+**CHUI4 evidence (2026-08-21):** Planning now projects exact grouped contact
+properties into a bounded Raw Record table and serializes complete,
+locale-independent records for cold clipboard copying. The drawer footprint
+remains invariant across Summary and Raw Record tabs, with independent scroll
+clamping and reset on selection retargeting. App handles typed copy commands
+through the platform clipboard adapter. The cumulative unit test gate passes
+674 cases / 2,521,885 assertions, the dependency graph scan is clean, all
+governance inventories pass, and the touched-source comment audit is 7/7 with
+none deferred.
 
 ### CHUI5 - Iterations, Responsive Polish, And Interaction Closure
 

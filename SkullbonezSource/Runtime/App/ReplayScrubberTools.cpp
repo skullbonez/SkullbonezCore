@@ -58,6 +58,7 @@ Related:
 #include "../Tools/RuntimeTools.h"
 #include "../../Core/Profiler.h"
 #include "../../Core/FatalError.h"
+#include "../../Core/PlatformWin32.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
@@ -962,12 +963,18 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
             }
         }
 
+        ReplayCauseInspectorCommand inspectorCommand;
         solverDetailOwnsMouse = m_planningOwner.CauseInspection()
                                     .TickSolverDetailPanelInput( m_authoring.CauseTree(), pointer.clientX, pointer.clientY,
                                                                  pointer.hasClientPosition,
                                                                  input.uiBlocksMouse || scrubberOwnsMouse,
                                                                  pointer.leftPressed, input.wheelDelta, input.screenWidth,
-                                                                 input.screenHeight );
+                                                                 input.screenHeight, &inspectorCommand );
+
+        if ( inspectorCommand.kind == ReplayCauseInspectorCommandKind::CopyRecord )
+        {
+            SkullbonezCore::Core::Platform::CopyTextToClipboard( inspectorCommand.text );
+        }
 
         if ( solverDetailOwnsMouse && input.wheelDelta != 0 )
         {
