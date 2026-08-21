@@ -112,6 +112,7 @@ struct ParsedArgs
     char memoryDumpPath[260] = {};
     char interactionScriptPath[260] = {};
     char interactionReportPath[260] = {};
+    char interactionRecordPath[260] = {};
 
     // CLI --predict <body> arms the replay prediction workflow at startup so a
     // profiling session reaches worker simulation without manual UI steps.

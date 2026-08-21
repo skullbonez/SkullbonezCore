@@ -543,6 +543,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Automation\InteractionAutomationReportWriter.cpp">
       <Filter>Source Files\Runtime\Automation</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Automation\InteractionAutomationRecorder.cpp">
+      <Filter>Source Files\Runtime\Automation</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\App\InputRouter.Interactions.cpp">
       <Filter>Source Files\Runtime\Input</Filter>
     </ClCompile>
@@ -1013,6 +1016,9 @@
       <Filter>Header Files\Runtime\Automation</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionAutomationReportWriter.h">
+      <Filter>Header Files\Runtime\Automation</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionAutomationRecorder.h">
       <Filter>Header Files\Runtime\Automation</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\App\RunLaunchOptions.h">

@@ -516,8 +516,39 @@ void UiTextPass::RenderChromeStatus( const UiTextViewport& viewport, const Overl
                    palette.textSecondary.b, detail );
     };
 
+    const auto renderRecordingIndicator = [&]()
+    {
+        if ( !debug.isInteractionRecording )
+        {
+            return;
+        }
+
+        const SkullbonezCore::UI::UIDrawContext& draw = badgeDraw;
+        const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
+        const SkullbonezCore::UI::Style::UIRadii& radii = SkullbonezCore::UI::Style::Radii();
+
+        constexpr float x = 16.0f;
+        constexpr float y = 16.0f;
+        constexpr float panelW = 68.0f;
+        constexpr float panelH = 26.0f;
+
+        SkullbonezCore::UI::Style::UIColor fill = palette.windowSubtle;
+        fill.a = 0.88f;
+        draw.RoundedPanel( { x, y, panelW, panelH }, radii.control, fill, palette.innerBorder );
+
+        // Red recording dot in top left
+        constexpr float dotX = x + 8.0f;
+        constexpr float dotY = y + 7.0f;
+        constexpr float dotSize = 12.0f;
+        draw.RoundedRect( dotX, dotY, dotSize, dotSize, dotSize * 0.5f, 0.96f, 0.18f, 0.18f, 1.0f );
+
+        // "REC" label next to dot
+        draw.Text( dotX + dotSize + 6.0f, y + 6.0f, 13.0f, 0.96f, 0.22f, 0.22f, "REC" );
+    };
+
     renderScenePauseBadge();
     renderRuntimeModeBadge();
+    renderRecordingIndicator();
 
     if ( !m_badgeDrawList.Empty() )
     {

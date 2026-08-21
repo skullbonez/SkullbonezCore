@@ -574,6 +574,18 @@ ReplayInputView ReplayRuntime::BuildInputView() const noexcept
 }
 
 
+const RunReplayCauseTreeState& ReplayRuntime::CauseTree() const noexcept
+{
+    return m_authoring.CauseTree();
+}
+
+
+ReplayCauseInspectionView ReplayRuntime::CauseInspectionView() const noexcept
+{
+    return m_planningOwner.CauseInspectionView();
+}
+
+
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 ReplayAutomationView ReplayRuntime::BuildAutomationView() const
 {

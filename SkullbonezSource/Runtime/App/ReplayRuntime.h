@@ -242,6 +242,8 @@ class ReplayRuntime
 
     // Publishes scalar input decisions without exposing replay owner storage.
     ReplayInputView BuildInputView() const noexcept;
+    const RunReplayCauseTreeState& CauseTree() const noexcept;
+    ReplayCauseInspectionView CauseInspectionView() const noexcept;
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     // Lifetime: returned references/spans are synchronous validation evidence;
     // callers must rebuild the view after any replay mutation. The method is

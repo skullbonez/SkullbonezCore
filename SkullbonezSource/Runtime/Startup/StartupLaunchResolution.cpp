@@ -387,6 +387,17 @@ bool ApplyInteractionReportPath( const char* value, ParsedArgs& args )
     fprintf( stdout, "[interaction] Report output: %s\n", args.interactionReportPath );
     return true;
 }
+bool ApplyInteractionRecordPath( const char* value, ParsedArgs& args )
+{
+    if ( !CopyCommandLinePath( value, "--record-automation", args.interactionRecordPath,
+                               sizeof( args.interactionRecordPath ) ) )
+    {
+        return false;
+    }
+
+    fprintf( stdout, "[recorder] Automation recording target: %s\n", args.interactionRecordPath );
+    return true;
+}
 bool ApplyReplayHashLogPath( const char* value, ParsedArgs& args )
 {
     if ( IsOptionValueMissing( value ) )
@@ -765,6 +776,7 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
     overrides.mainMemoryDumpPath = args.memoryDumpPath[0] != '\0' ? args.memoryDumpPath : nullptr;
     overrides.interactionScriptPath = args.interactionScriptPath[0] != '\0' ? args.interactionScriptPath : nullptr;
     overrides.interactionReportPath = args.interactionReportPath[0] != '\0' ? args.interactionReportPath : nullptr;
+    overrides.interactionRecordPath = args.interactionRecordPath[0] != '\0' ? args.interactionRecordPath : nullptr;
     const bool replayDefaultAllowed = !args.isSuiteOrSceneMode || args.interactiveRun || args.liveStyleControlDir[0] != '\0';
 
     const bool replayEnabled = args.replayExplicit ? args.replayRecording : ( args.replayRecording && replayDefaultAllowed );
@@ -894,6 +906,8 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
         { "--memory-dump", "--memory_dump", ApplyMemoryDumpPath },
         { "--interaction-script", "--interaction_script", ApplyInteractionScriptPath },
         { "--interaction-report", "--interaction_report", ApplyInteractionReportPath },
+        { "--record-automation", "--record_automation", ApplyInteractionRecordPath },
+        { "--record-interaction", "--record_interaction", ApplyInteractionRecordPath },
         { "--predict", nullptr, ApplyPredictTargetName },
         { "--predict-seconds", "--predict_seconds", ApplyPredictHorizonSeconds },
         { "--replay",

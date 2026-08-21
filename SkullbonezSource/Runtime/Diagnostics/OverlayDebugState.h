@@ -72,6 +72,7 @@ struct OverlayDebugState
     bool isUITestPattern = false;                             // Bright 2D backdrop behind UI for visual blur tests
     bool isTopTextHidden = false;                             // Hide top-left HUD text while leaving other overlays active
     bool isBroadphaseOverlay = false;                         // Broadphase spatial grid visualizer overlay (toggle with G)
+    bool isInteractionRecording = false;                      // Human interaction test recording active (toggled via F8)
     float frozenWaterTime = 0.0f;                             // Simulation time captured when freeze was toggled on
 #ifdef _DEBUG
     char reproSnapshotMessage[128] = {};                      // Short HUD confirmation after launcher-mode repro dump

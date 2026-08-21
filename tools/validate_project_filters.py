@@ -358,6 +358,7 @@ RUNTIME_AUTOMATION_PREFIXES = (
     "GraphicsStressController",
     "InteractionAutomationController",
     "InteractionAutomationInputDriver",
+    "InteractionAutomationRecorder",
     "InteractionAutomationReportWriter",
     "RuntimeStressController",
     "RuntimeValidationHarness",

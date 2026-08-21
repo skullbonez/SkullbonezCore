@@ -60,6 +60,7 @@ Related:
 #include "../Scene/SceneLoadTransaction.h"
 #include "../Scene/SceneCinematicPolicy.h"
 #include "../Scene/SceneController.h"
+#include "../Scene/SceneSaveOperations.h"
 #include "../../Core/Log.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
@@ -1288,6 +1289,37 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
         inputRouter.RecordModeAction( camera, runtimeTools, interaction, attachedCamera, runtimeInput,
                                       pointerResult.modeActions[actionIndex], RuntimeInputActionSource::Mouse );
     }
+
+    if ( routedDeviceFrame.keys.IsDown( VK_F8 ) && !m_f8WasDown )
+    {
+        const char* defaultJsonPath = "TestScenarios/recorded_interactive_test.json";
+        const char* defaultScenePath = "TestScenarios/recorded_interactive_test.scene.json";
+
+        if ( !m_interactionRecorder.IsRecording() )
+        {
+            (void)SaveSceneLoadOnlySnapshot( m_resultDiagnostics, defaultScenePath, sceneController.Scene().GetSaveState(),
+                                             sceneController.State().GetSaveState(), debug.GetSaveState() );
+            m_interactionRecorder.StartRecording( defaultJsonPath, defaultScenePath );
+            printf( "[recorder] Recording STARTED (scene snapshot saved to %s). Press F8 again to stop and save actions.\n",
+                    defaultScenePath );
+        }
+        else
+        {
+            m_interactionRecorder.StopRecording();
+            printf( "[recorder] Recording STOPPED and saved to %s\n", defaultJsonPath );
+        }
+    }
+
+    m_f8WasDown = routedDeviceFrame.keys.IsDown( VK_F8 );
+
+    if ( m_interactionRecorder.IsRecording() )
+    {
+        m_interactionRecorder.RecordFrame( sceneController.State().currentFrame, window.ClientWidth(), window.ClientHeight(),
+                                           inputRouter, interaction, replayRuntime.CauseTree(),
+                                           replayRuntime.CauseInspectionView() );
+    }
+
+    debug.isInteractionRecording = m_interactionRecorder.IsRecording();
 
     if ( ui.BlocksKeyboard() || externalUiCapture.keyboard || externalUiCapture.text )
     {

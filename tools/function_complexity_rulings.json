@@ -35,7 +35,7 @@
     {
       "file": "SkullbonezSource/Runtime/App/InputFrameExecution.cpp",
       "signature": "Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput )",
-      "body_sha256": "6ad2a7767f0a993ce261d54804fb76c0356fb4c1fa3f91b4adaa057f37183e17",
+      "body_sha256": "bc9ec5a72a55b10e36579a0848415419162b32913f5278a9af310501b9b334ba",
       "owner": "Runtime input frame phase",
       "disposition": "retain-owner",
       "reason": "One ordered input turn runs from automation sampling through device routing, typed command production, scene-scoped owner retirement, and terminal restore publication; the continuous-forecast automation command is submitted at the same typed-command checkpoint as the visible operator request. Every participant is a synchronous Run-owned borrow, and splitting the phase would move frame ordering into one-call helpers without creating an independently testable owner.",
@@ -210,7 +210,7 @@
     {
       "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",
       "signature": "InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutomationController& state, Window& windowOwner, const SkullbonezCore::Core::EngineConfig& config, SceneController& scene, RunTimerState& timers, CameraControlState& camera, InputRouter& inputRouter, RuntimeInteractionController& interaction, RuntimeTools& runtimeTools, SkullbonezCore::UI::InGameUI& ui, const ReplayAutomationView& replayView, const Rendering::RenderSceneSnapshot& renderSnapshot )",
-      "body_sha256": "5f886549a9e831a957d3f12f03a5055872345de2c71194f1d1b62c11b9031a56",
+      "body_sha256": "972847ff2fc2a31c8f3c97c9cfcde6e655711c84c280d8fe6842caf29e5bf902",
       "owner": "Pre-input interaction automation tick",
       "disposition": "retain-owner",
       "reason": "One pre-input automation phase interprets the current scripted action across the exact runtime owners before device routing; the continuous-forecast action produces one typed command value for the normal input transaction and retains no Planning authority. Its branches are one frame-indexed state machine, so extraction would preserve caller-ordered action dispatch rather than create a separate owner.",

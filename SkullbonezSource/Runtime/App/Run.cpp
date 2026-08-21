@@ -366,6 +366,13 @@ Run::~Run()
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Shutdown );
     CancelPendingLookLabSave( "shutdown cancelled screenshot" );
     m_continuousForecast.Stop();
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
+
+    if ( m_interactionRecorder.IsRecording() )
+    {
+        m_interactionRecorder.StopRecording();
+    }
+#endif
     const std::string* currentScenePath = m_sceneController.CurrentPath();
     m_diagnosticsRuntime.ReportStoreCapacityRows( m_sceneController.State(),
                                                   currentScenePath ? currentScenePath->c_str() : nullptr, "process_end" );
@@ -512,6 +519,11 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
 #ifdef _DEBUG
     ApplyStartupDiagnosticsPolicy( overrides, m_diagnosticsRuntime, m_sceneController.Scene().Physics() );
 #endif
+
+    if ( overrides.interactionRecordPath )
+    {
+        m_interactionRecorder.StartRecording( overrides.interactionRecordPath );
+    }
 
     if ( !overrides.interactionScriptPath )
     {

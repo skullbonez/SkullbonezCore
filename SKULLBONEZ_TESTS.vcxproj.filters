@@ -79,6 +79,9 @@
     <Filter Include="Source Files\Runtime\Startup">
       <UniqueIdentifier>{0A690EBA-E39F-4CD4-BE1D-65B9AE6D6504}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Runtime\Automation">
+      <UniqueIdentifier>{A1B2C3D4-E5F6-4A7B-8C9D-0E1F2A3B4C5D}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Runtime\Editor">
       <UniqueIdentifier>{A84A2248-37E9-4E32-9D84-7709D31D8802}</UniqueIdentifier>
     </Filter>
@@ -288,6 +291,9 @@
     <ClCompile Include="SkullbonezTests\TestSceneAutomationGates.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestInteractionAutomationRecorder.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestSceneParserUnit.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
@@ -437,6 +443,9 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Tools\RuntimeFileWriter.cpp">
       <Filter>Source Files\Runtime\Tools</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Automation\InteractionAutomationRecorder.cpp">
+      <Filter>Source Files\Runtime\Automation</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\RuntimeInteractionController.cpp">
       <Filter>Source Files\Runtime\Interaction</Filter>

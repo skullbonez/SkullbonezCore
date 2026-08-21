@@ -68,6 +68,8 @@ Related:
 #include "../../Core/SbDiagnosticStore.h"
 #include "../Editor/EditorTools.h"
 #include "../Replay/ReplayOverlaySurface.h"
+#include "../Replay/ReplayOverlayLayout.h"
+#include "../Planning/ReplayCauseInspection.h"
 #include "../Direction/DemoDirectorPlayback.h"
 #include "../Tools/RuntimeFileWriter.h"
 #include "../Interaction/RuntimePickService.h"
@@ -1337,6 +1339,110 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
         return;
     }
 
+    if ( strcmp( action.text, "causeTabSummary" ) == 0 || strcmp( action.text, "causeTabRawRecord" ) == 0 ||
+         strcmp( action.text, "causeTabIterations" ) == 0 || strcmp( action.text, "causeCloseDrawer" ) == 0 ||
+         strcmp( action.text, "causeCopyRawRecord" ) == 0 )
+    {
+        const int screenW = window ? window->ClientWidth() : config.window.screenX;
+        const int screenH = window ? window->ClientHeight() : config.window.screenY;
+        const ReplayCauseInspectionView causeInspection = replay.causeInspection;
+        const ReplayCauseInspectorLayout inspectorLayout = BuildReplayCauseInspectorLayout( causeInspection,
+                                                                                            replay.causeTree, screenW,
+                                                                                            screenH,
+                                                                                            causeInspection.drawerProgress );
+
+        if ( strcmp( action.text, "causeTabSummary" ) == 0 && causeInspection.detailVisible )
+        {
+            InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
+                                                           inspectorLayout.tabs[0], "mouse press at Summary tab" );
+            return;
+        }
+
+        if ( strcmp( action.text, "causeTabRawRecord" ) == 0 && causeInspection.detailVisible )
+        {
+            InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
+                                                           inspectorLayout.tabs[1], "mouse press at Raw Record tab" );
+            return;
+        }
+
+        if ( strcmp( action.text, "causeTabIterations" ) == 0 && causeInspection.detailVisible )
+        {
+            InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
+                                                           inspectorLayout.tabs[2], "mouse press at Iterations tab" );
+            return;
+        }
+
+        if ( strcmp( action.text, "causeCloseDrawer" ) == 0 && causeInspection.detailVisible )
+        {
+            InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
+                                                           inspectorLayout.drawerClose,
+                                                           "mouse press at drawer close button" );
+            return;
+        }
+
+        if ( strcmp( action.text, "causeCopyRawRecord" ) == 0 && causeInspection.detailVisible )
+        {
+            InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
+                                                           inspectorLayout.rawCopy,
+                                                           "mouse press at copy raw record button" );
+            return;
+        }
+    }
+
+    if ( strcmp( action.text, "causeFilterAll" ) == 0 || strcmp( action.text, "causeFilterPrediction" ) == 0 ||
+         strcmp( action.text, "causeFilterContacts" ) == 0 || strcmp( action.text, "causeFilterField" ) == 0 ||
+         strcmp( action.text, "causeFilterFunnel" ) == 0 )
+    {
+        if ( replay.causeTree.hasWindowPlacement )
+        {
+            if ( strcmp( action.text, "causeFilterAll" ) == 0 )
+            {
+                InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
+                                                               ReplayCauseWindowFilterChipRect( replay.causeTree,
+                                                                                                RunReplayCauseTreeFilter::
+                                                                                                    All ),
+                                                               "mouse press at Filter All chip" );
+                return;
+            }
+
+            if ( strcmp( action.text, "causeFilterPrediction" ) == 0 )
+            {
+                InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
+                                                               ReplayCauseWindowFilterChipRect( replay.causeTree,
+                                                                                                RunReplayCauseTreeFilter::
+                                                                                                    Prediction ),
+                                                               "mouse press at Filter Prediction chip" );
+                return;
+            }
+
+            if ( strcmp( action.text, "causeFilterContacts" ) == 0 )
+            {
+                InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
+                                                               ReplayCauseWindowFilterChipRect( replay.causeTree,
+                                                                                                RunReplayCauseTreeFilter::
+                                                                                                    Contacts ),
+                                                               "mouse press at Filter Contacts chip" );
+                return;
+            }
+
+            if ( strcmp( action.text, "causeFilterField" ) == 0 )
+            {
+                InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
+                                                               ReplayCauseWindowFilterFieldRect( replay.causeTree ),
+                                                               "mouse press at Filter Field" );
+                return;
+            }
+
+            if ( strcmp( action.text, "causeFilterFunnel" ) == 0 )
+            {
+                InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
+                                                               ReplayCauseWindowFilterFunnelRect( replay.causeTree ),
+                                                               "mouse press at Filter Funnel" );
+                return;
+            }
+        }
+    }
+
     AppendInteractionAutomationReplayControlFailure( state, frame, action,
                                                      "unsupported replay control in interaction script",
                                                      "unsupported replay control" );
@@ -1496,8 +1602,16 @@ bool ParseClickPointAction( const Json& entry, RunInteractionAutomationAction& o
 
     outAction.type = RunInteractionAutomationActionType::ClickPoint;
     outAction.mouse = { point[0].get<long>(), point[1].get<long>() };
-
     outAction.hasMouse = true;
+
+    if ( entry.contains( "normalizedPoint" ) && entry["normalizedPoint"].is_array() &&
+         entry["normalizedPoint"].size() == 2 && entry["normalizedPoint"][0].is_number() &&
+         entry["normalizedPoint"][1].is_number() )
+    {
+        outAction.vectorValue.x = entry["normalizedPoint"][0].get<float>();
+        outAction.vectorValue.y = entry["normalizedPoint"][1].get<float>();
+        outAction.boolValue = true;
+    }
 
     if ( entry.contains( "button" ) )
     {
@@ -1569,8 +1683,17 @@ bool ParseMoveMouseAction( const Json& entry, RunInteractionAutomationAction& ou
 
     outAction.type = RunInteractionAutomationActionType::MoveMouse;
     outAction.mouse = { point[0].get<long>(), point[1].get<long>() };
-
     outAction.hasMouse = true;
+
+    if ( entry.contains( "normalizedPoint" ) && entry["normalizedPoint"].is_array() &&
+         entry["normalizedPoint"].size() == 2 && entry["normalizedPoint"][0].is_number() &&
+         entry["normalizedPoint"][1].is_number() )
+    {
+        outAction.vectorValue.x = entry["normalizedPoint"][0].get<float>();
+        outAction.vectorValue.y = entry["normalizedPoint"][1].get<float>();
+        outAction.boolValue = true;
+    }
+
     return true;
 }
 
@@ -4528,10 +4651,26 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
             break;
         }
         case RunInteractionAutomationActionType::MoveMouse:
-            state.inputDriver.MoveMouse( action.mouse );
-            AppendReportAction( state, frame, action.type, nullptr, &action.mouse, true, "mouse move injected" );
+        {
+            POINT mousePos = action.mouse;
+
+            if ( action.boolValue && ( action.vectorValue.x > 0.0f || action.vectorValue.y > 0.0f ) )
+            {
+                const int screenW = window ? window->ClientWidth() : config.window.screenX;
+                const int screenH = window ? window->ClientHeight() : config.window.screenY;
+
+                if ( screenW > 0 && screenH > 0 )
+                {
+                    mousePos.x = static_cast<long>( action.vectorValue.x * static_cast<float>( screenW ) );
+                    mousePos.y = static_cast<long>( action.vectorValue.y * static_cast<float>( screenH ) );
+                }
+            }
+
+            state.inputDriver.MoveMouse( mousePos );
+            AppendReportAction( state, frame, action.type, nullptr, &mousePos, true, "mouse move injected" );
             action.processed = true;
             break;
+        }
         case RunInteractionAutomationActionType::ClickReplayControl:
             ApplyInteractionAutomationReplayControlClick( state, window, config, scene.State(), timers, result.replayIntent,
                                                           replayView, action, frame );
@@ -4617,18 +4756,50 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
             break;
         }
         case RunInteractionAutomationActionType::ClickPoint:
-            state.inputDriver.MoveMouse( action.mouse );
+        {
+            POINT mousePos = action.mouse;
+
+            if ( action.boolValue && ( action.vectorValue.x > 0.0f || action.vectorValue.y > 0.0f ) )
+            {
+                const int screenW = window ? window->ClientWidth() : config.window.screenX;
+                const int screenH = window ? window->ClientHeight() : config.window.screenY;
+
+                if ( screenW > 0 && screenH > 0 )
+                {
+                    mousePos.x = static_cast<long>( action.vectorValue.x * static_cast<float>( screenW ) );
+                    mousePos.y = static_cast<long>( action.vectorValue.y * static_cast<float>( screenH ) );
+                }
+            }
+
+            state.inputDriver.MoveMouse( mousePos );
             state.inputDriver.PressMouse( action.button == RunInteractionAutomationButton::Right, frame, action.holdFrames );
 
-            AppendReportAction( state, frame, action.type, nullptr, &action.mouse, true, "mouse press injected" );
+            AppendReportAction( state, frame, action.type, nullptr, &mousePos, true, "mouse press injected" );
             action.processed = true;
             break;
+        }
         case RunInteractionAutomationActionType::ScrollPoint:
-            state.inputDriver.MoveMouse( action.mouse );
+        {
+            POINT mousePos = action.mouse;
+
+            if ( action.boolValue && ( action.vectorValue.x > 0.0f || action.vectorValue.y > 0.0f ) )
+            {
+                const int screenW = window ? window->ClientWidth() : config.window.screenX;
+                const int screenH = window ? window->ClientHeight() : config.window.screenY;
+
+                if ( screenW > 0 && screenH > 0 )
+                {
+                    mousePos.x = static_cast<long>( action.vectorValue.x * static_cast<float>( screenW ) );
+                    mousePos.y = static_cast<long>( action.vectorValue.y * static_cast<float>( screenH ) );
+                }
+            }
+
+            state.inputDriver.MoveMouse( mousePos );
             state.inputDriver.ScrollMouse( action.integerValue );
-            AppendReportAction( state, frame, action.type, nullptr, &action.mouse, true, "mouse wheel injected" );
+            AppendReportAction( state, frame, action.type, nullptr, &mousePos, true, "mouse wheel injected" );
             action.processed = true;
             break;
+        }
         case RunInteractionAutomationActionType::SelectReplayCauseRow:
         {
             const bool available = action.integerValue >= 0 &&

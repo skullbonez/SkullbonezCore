@@ -442,6 +442,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Automation\InteractionAutomationReportWriter.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'!='Automation|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Automation\InteractionAutomationRecorder.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\InputRouter.Interactions.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Direction\LiveStyleController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RenderModelFramePublisher.cpp" />
@@ -592,6 +593,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionAutomationController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionAutomationInputDriver.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionAutomationReportWriter.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionAutomationRecorder.h" />
     <ClInclude Include="SkullbonezSource\Runtime\App\RunLaunchOptions.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Startup\StartupCommandLine.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Startup\StartupCrashLogging.h" />

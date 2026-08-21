@@ -65,6 +65,7 @@ Related:
 #endif
 #include "RunLaunchOptions.h"
 #include "../Camera/CameraControlState.h"
+#include "../Automation/InteractionAutomationRecorder.h"
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 #include "../Automation/InteractionAutomationController.h"
 #endif
@@ -177,6 +178,9 @@ class Run
     RunTimerState m_timers;                                                                      // Frame/simulation timers and rolling timing values
     InputRouter m_inputRouter;                                                                   // Owns keyboard/pointer edge memory and binding-context enforcement.
     RuntimeInteractionController m_interaction;                                                  // Authoritative runtime workspace and world-input owner.
+    InteractionAutomationRecorder
+        m_interactionRecorder;                                                                   // Interactive test recorder capturing human input into resolution-independent scripts.
+    bool m_f8WasDown = false;
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     InteractionAutomationController
         m_interactionAutomation;                                                                 // Automation-build CLI harness that injects runtime mouse input for regression tests.
