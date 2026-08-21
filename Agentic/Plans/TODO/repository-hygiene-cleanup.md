@@ -1,7 +1,7 @@
 # Repository Hygiene Cleanup
 
 Date: 2026-08-20
-Status: Active; 0/6 phases complete. Bound after `VALIDATION_TIME_AUDIT`.
+Status: Active; 1/6 phases complete. Bound after `VALIDATION_TIME_AUDIT`.
 Impact areas: ignored validation evidence, build and IDE output, detached Git
 worktrees, tracked visual references, plan topology, and repository hygiene
 Owner: repository hygiene and artifact-retention owners
@@ -124,16 +124,16 @@ are separate filename-addressed runtime assets, not duplicate-file proof.
 
 ## RC0 - Rebase Inventory And Obtain Dispositions
 
-- Record the current branch, HEAD, dirty files, registered worktrees, active
+- [x] Record the current branch, HEAD, dirty files, registered worktrees, active
   processes that may own build/IDE output, and free disk space.
-- Recompute directory and file sizes without reading large diagnostics into
+- [x] Recompute directory and file sizes without reading large diagnostics into
   model context. Inventory current plan/candidate evidence by exact path.
-- Recheck references, Git history, and current consumers for every tracked
+- [x] Recheck references, Git history, and current consumers for every tracked
   candidate. Record keep/delete/relocate and the responsible owner in the table.
-- Run the compiled reachability inventory only after its required object roots
+- [x] Run the compiled reachability inventory only after its required object roots
   are current. Record that no source deletion is authorized if the inventory is
   stale or a reported symbol's invocation mechanism is unresolved.
-- Produce explicit RC1-RC3 absolute-path manifests and an exclusion manifest.
+- [x] Produce explicit RC1-RC3 absolute-path manifests and an exclusion manifest.
   The manifests, not an age cutoff or wildcard, become the deletion authority.
 
 **RC0 acceptance:** every candidate has an owner disposition; every destructive

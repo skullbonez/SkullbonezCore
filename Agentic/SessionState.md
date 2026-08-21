@@ -2,7 +2,7 @@
 
 Date: 2026-08-21
 Branch: `codex/cause-hierarchy-ui-first`
-Status: One active plan; 74/80 tasks complete
+Status: One active plan; 75/80 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -13,12 +13,10 @@ By owner direction, `MASTER-PLAN.md` binds Repository Hygiene Cleanup RC0-RC5 ne
 single active plan. Completed plan files were deleted under the repository convention;
 Git history retains their phase evidence.
 
-VALIDATION_TIME_AUDIT (VTA0-VTA5) is 100% complete, reviewed, and closed. Preflight duration
-dropped from 375.09 s to 191.24 s (-49.0% / ~3 minutes saved) and total critical path from
-590.23 s to 403.17 s (-31.7% / >3 minutes saved). All 26 stages evaluated; 100% of behavioral
-oracles, coverage floors, DX12 InfoQueue checks, and deterministic physics baselines preserved.
-Terminal gate `agent_validate.bat --plan-completion` passed cleanly.
-REPOSITORY_CLEANUP (RC0-RC5) is active next.
+REPOSITORY_CLEANUP RC0 is complete and RC1 is active next. RC0 recorded baseline inventory,
+re-measured local directory sizes (TestOutput 74.67 GiB, .vs 4.08 GiB, Release 1.18 GiB), verified 7 clean
+history-reachable worktrees for retirement (~22.07 GiB), protected 5 active/user-owned worktrees,
+and produced explicit absolute-path deletion manifests for RC1-RC3 without deleting any files in RC0.
 
 ORBIT_FORECAST OF0 is complete. It ratifies the fixed sun as the primary,
 Earth and Mars as core bodies, and the ship as an auxiliary whose orbital-
