@@ -1,7 +1,7 @@
 # Cause Hierarchy Scientific Inspector
 
 Date: 2026-08-20
-Status: Active; 3/7 phases complete. First active queue item by owner direction.
+Status: Active; 4/7 phases complete. First active queue item by owner direction.
 Impact areas: Runtime Replay cause-window state and input, Runtime Planning
 inspection state and rendering, App input composition, UI presentation, replay
 Automation, deterministic screenshots, and tests
@@ -9,7 +9,7 @@ Owner: ReplayAuthoring owns the cause hierarchy anchor, size, filtering, and
 row selection; ReplayCauseInspection owns the attached detail drawer lifecycle,
 tab, animation, and exact detached evidence; App composes typed commands and
 camera/transport effects without retaining a second UI owner
-Priority: First active queue item; CHUI3 follows completed CHUI2
+Priority: First active queue item; CHUI4 follows completed CHUI3
 Commit name: `CAUSE_HIERARCHY_UI`
 
 ## Goal
@@ -386,22 +386,34 @@ deterministic multi-body scenario exits 0 while producing the inspected
 
 ### CHUI3 - Attached Animation And Summary Tab
 
-- [ ] Add Planning-owned open/close animation timing driven by total elapsed
+- [x] Add Planning-owned open/close animation timing driven by total elapsed
       time and a tested ease curve. Selection opens immediately; close and
       retargeting remain generation-safe.
-- [ ] Render the drawer behind the opaque hierarchy during motion, then as one
+- [x] Render the drawer behind the opaque hierarchy during motion, then as one
       flush joined surface with continuous outline/seam, shared height, stable
       tab bar, and no content bleed.
-- [ ] Implement the Summary metric cards, numeric contact-basis component bars,
+- [x] Implement the Summary metric cards, numeric contact-basis component bars,
       row-dynamics table, availability/loading states, units, and faithful
       exact-field mapping.
-- [ ] Ensure the visible animation rectangle owns hit testing: concealed or
+- [x] Ensure the visible animation rectangle owns hit testing: concealed or
       occluded controls cannot steal clicks, and rapid open/close/retarget
       sequences cannot leave pointer capture or stale detail active.
 
 **CHUI3 acceptance:** selecting a row produces a smooth joined slide-out that
 looks like the concept at rest, behaves consistently at variable frame rates,
 and shows only exact selected evidence.
+
+CHUI3 is complete. Planning now owns a 180 ms total-elapsed cubic drawer ease,
+including symmetric close, safe retargeting, and visible-rectangle hit testing.
+The renderer clips the final-coordinate drawer to its exposed slice behind the
+opaque hierarchy and defaults exact selected evidence to a Summary tab with
+four unit-labelled metrics, signed basis bars, and row dynamics/policy. The
+focused cause group passes 16 cases / 299 assertions, the cumulative gate passes
+672 cases / 2,522,865 assertions, Profile and Automation builds pass with
+warnings as errors, the Automation smoke passes, and the deterministic
+multi-body scenario exits 0 with the inspected Summary capture at
+`TestOutput/interaction/multi_body_prediction_cause_high.bmp`. The touched-
+source comment audit is 5/5 with none deferred.
 
 ### CHUI4 - Raw Record Tab And Copy Action
 

@@ -117,8 +117,8 @@ const Physics::PhysicsPipelineRecord* FindSolverDetailRecord( const ReplayCauseI
 
     return nullptr;
 }
-void RenderReplayCauseSolverDetailPanel( const UI::UIDrawContext& draw, const ReplayOverlayStateView& replay, int screenW,
-                                         int screenH )
+void RenderReplayCauseSolverDetailPanel( UI::UIDrawList& drawList, const UI::UIDrawContext& draw,
+                                         const ReplayOverlayStateView& replay, int screenW, int screenH )
 {
     const ReplayCauseInspectionView& inspection = replay.causeInspection;
 
@@ -129,7 +129,17 @@ void RenderReplayCauseSolverDetailPanel( const UI::UIDrawContext& draw, const Re
 
     PROFILE_SCOPED( "Frame/Replay/CauseInspection/PanelRender" );
     const ReplayCauseInspectorLayout layout = BuildReplayCauseInspectorLayout( inspection, replay.causeTree, screenW,
-                                                                               screenH, 1.0f );
+                                                                               screenH, inspection.drawerProgress );
+
+    if ( layout.visibleDrawer.w <= 0.0f )
+    {
+        return;
+    }
+
+    // Invariant: the moving drawer is painted at its final coordinates behind
+    // the hierarchy and clipped to the exposed slice. No hidden tab can render
+    // or receive input before its pixels become visible.
+    drawList.PushClip( layout.visibleDrawer.x, layout.visibleDrawer.y, layout.visibleDrawer.w, layout.visibleDrawer.h );
     const UI::Style::UIPalette& palette = UI::Style::Palette();
     UI::Style::UIColor drawerFill = CAUSE_NAVY;
     drawerFill.a = REPLAY_CAUSE_SOLVER_PANEL_OPACITY;
@@ -155,12 +165,12 @@ void RenderReplayCauseSolverDetailPanel( const UI::UIDrawContext& draw, const Re
 
     // Sign/units are rendered as part of the surface so a captured frame remains
     // interpretable without consulting solver implementation comments.
-    static constexpr const char* TAB_LABELS[] = { "SUMMARY", "MANIFOLD", "SOLVER" };
+    static constexpr const char* TAB_LABELS[] = { "SUMMARY", "RAW RECORD", "ITERATIONS" };
 
     for ( int tabIndex = 0; tabIndex < 3; ++tabIndex )
     {
         const UI::UIRect& tab = layout.tabs[static_cast<std::size_t>( tabIndex )];
-        const bool selected = tabIndex == 2;
+        const bool selected = tabIndex == static_cast<int>( inspection.activeTab );
         const UI::Style::UIColor& tabFill = selected ? CAUSE_SELECTED : CAUSE_NAVY_ALT;
         const UI::Style::UIColor& tabAccent = tabIndex == 0 ? CAUSE_PREDICTION
                                                             : ( tabIndex == 1 ? CAUSE_MANIFOLD : CAUSE_SOLVER );
@@ -184,6 +194,77 @@ void RenderReplayCauseSolverDetailPanel( const UI::UIDrawContext& draw, const Re
                           CAUSE_NAVY_ALT.g, CAUSE_NAVY_ALT.b, 1.0f );
         draw.Text( layout.content.x + 10.0f, layout.content.y + 15.0f, 11.5f, palette.textSecondary.r,
                    palette.textSecondary.g, palette.textSecondary.b, inspection.solverDetailFeedback );
+        drawList.PopClip();
+        return;
+    }
+
+    if ( inspection.activeTab == ReplayCauseInspectorTab::Summary )
+    {
+        const Physics::PhysicsSolverPersistentContactSample& contact = inspection.solverDetailContacts.front();
+        const ReplayCauseSummaryText summary = BuildReplayCauseSummaryText( inspection, 0 );
+        static constexpr const char* CARD_LABELS[] = { "NORMAL IMPULSE", "FRICTION |T|", "PENETRATION", "EFFECTIVE MASS" };
+        const char* cardValues[] = { summary.normalImpulse, summary.frictionImpulse, summary.penetration,
+                                     summary.effectiveMass };
+        const float gap = 8.0f;
+        const float cardW = ( layout.content.w - gap ) * 0.5f;
+        const float cardH = 56.0f;
+
+        for ( int cardIndex = 0; cardIndex < 4; ++cardIndex )
+        {
+            const int column = cardIndex % 2;
+            const int row = cardIndex / 2;
+            const UI::UIRect card { layout.content.x + static_cast<float>( column ) * ( cardW + gap ),
+                                    layout.content.y + static_cast<float>( row ) * ( cardH + gap ), cardW, cardH };
+            const UI::Style::UIColor& accent = cardIndex < 2 ? CAUSE_SOLVER : CAUSE_MANIFOLD;
+            draw.RoundedRect( card.x, card.y, card.w, card.h, 5.0f, CAUSE_NAVY_ALT.r, CAUSE_NAVY_ALT.g, CAUSE_NAVY_ALT.b,
+                              1.0f );
+            draw.Rect( card.x, card.y, 3.0f, card.h, accent.r, accent.g, accent.b, 0.9f );
+            draw.Text( card.x + 11.0f, card.y + 9.0f, 9.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b,
+                       CARD_LABELS[cardIndex] );
+            draw.Text( card.x + 11.0f, card.y + 27.0f, 15.0f, accent.r, accent.g, accent.b, cardValues[cardIndex] );
+        }
+
+        const float basisY = layout.content.y + 128.0f;
+        draw.Text( layout.content.x, basisY, 10.0f, CAUSE_PREDICTION.r, CAUSE_PREDICTION.g, CAUSE_PREDICTION.b,
+                   "CONTACT BASIS COMPONENTS  [-1, +1]" );
+        const Math::Vector::Vector3 basis[] = { contact.normal, contact.tangent1, contact.tangent2 };
+        static constexpr const char* BASIS_LABELS[] = { "NORMAL", "TANGENT 1", "TANGENT 2" };
+
+        for ( int basisIndex = 0; basisIndex < 3; ++basisIndex )
+        {
+            const float rowY = basisY + 20.0f + static_cast<float>( basisIndex ) * 34.0f;
+            const float components[] = { basis[basisIndex].x, basis[basisIndex].y, basis[basisIndex].z };
+            draw.Text( layout.content.x, rowY + 5.0f, 9.5f, palette.textSecondary.r, palette.textSecondary.g,
+                       palette.textSecondary.b, BASIS_LABELS[basisIndex] );
+
+            for ( int componentIndex = 0; componentIndex < 3; ++componentIndex )
+            {
+                const float componentX = layout.content.x + 80.0f + static_cast<float>( componentIndex ) * 118.0f;
+                const float centerX = componentX + 48.0f;
+                const float value = std::clamp( components[componentIndex], -1.0f, 1.0f );
+                draw.Rect( componentX, rowY, 96.0f, 18.0f, CAUSE_NAVY_ALT.r, CAUSE_NAVY_ALT.g, CAUSE_NAVY_ALT.b, 1.0f );
+                draw.Rect( centerX, rowY + 2.0f, 1.0f, 14.0f, CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b, 0.45f );
+                draw.Rect( value < 0.0f ? centerX + value * 42.0f : centerX, rowY + 5.0f, std::abs( value ) * 42.0f, 8.0f,
+                           CAUSE_PREDICTION.r, CAUSE_PREDICTION.g, CAUSE_PREDICTION.b, 0.88f );
+                char component[32] = {};
+                sprintf_s( component, sizeof( component ), "%c %.3f", "XYZ"[componentIndex], components[componentIndex] );
+                draw.Text( componentX + 5.0f, rowY + 4.0f, 8.5f, palette.textPrimary.r, palette.textPrimary.g,
+                           palette.textPrimary.b, component );
+            }
+        }
+
+        const float dynamicsY = basisY + 128.0f;
+        draw.RoundedRect( layout.content.x, dynamicsY, layout.content.w, 86.0f, 5.0f, CAUSE_NAVY_ALT.r, CAUSE_NAVY_ALT.g,
+                          CAUSE_NAVY_ALT.b, 1.0f );
+        draw.Text( layout.content.x + 10.0f, dynamicsY + 10.0f, 10.0f, CAUSE_MANIFOLD.r, CAUSE_MANIFOLD.g, CAUSE_MANIFOLD.b,
+                   "ROW DYNAMICS" );
+        draw.Text( layout.content.x + 10.0f, dynamicsY + 28.0f, 9.5f, palette.textPrimary.r, palette.textPrimary.g,
+                   palette.textPrimary.b, summary.identity );
+        draw.Text( layout.content.x + 10.0f, dynamicsY + 46.0f, 9.0f, palette.textSecondary.r, palette.textSecondary.g,
+                   palette.textSecondary.b, summary.dynamics );
+        draw.Text( layout.content.x + 10.0f, dynamicsY + 64.0f, 9.0f, palette.textMuted.r, palette.textMuted.g,
+                   palette.textMuted.b, summary.policy );
+        drawList.PopClip();
         return;
     }
 
@@ -295,6 +376,8 @@ void RenderReplayCauseSolverDetailPanel( const UI::UIDrawContext& draw, const Re
                    1.0f );
         draw.RoundedRect( trackX - 1.0f, knobY, 5.0f, knobH, 2.0f, CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b, 0.88f );
     }
+
+    drawList.PopClip();
 }
 } // namespace
 
@@ -1191,6 +1274,7 @@ void RenderReplayCauseTreeOverlay( UiDrawSubmission& submission, Text::TextBatch
     drawList.Clear();
     const UI::UIDrawContext draw( screenW, screenH, drawList );
     const UI::Style::UIPalette& palette = UI::Style::Palette();
+    RenderReplayCauseSolverDetailPanel( drawList, draw, replay, screenW, screenH );
     UI::Style::UIColor panelBorder = CAUSE_RULE;
     panelBorder.a = 0.72f;
     draw.RoundedPanel( panel, 6.0f, CAUSE_NAVY, panelBorder );
@@ -1473,8 +1557,6 @@ void RenderReplayCauseTreeOverlay( UiDrawSubmission& submission, Text::TextBatch
 
     draw.Rect( resize.x + resize.w - 5.0f, resize.y + 4.0f, 1.0f, resize.h - 7.0f, CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b,
                0.72f );
-
-    RenderReplayCauseSolverDetailPanel( draw, replay, screenW, screenH );
 
     FlushReplayDrawList( submission, drawList, textBatch, renderTextures, renderCommands, renderDiagnostics, screenW,
                          screenH );

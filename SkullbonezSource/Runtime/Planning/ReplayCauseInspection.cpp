@@ -35,8 +35,9 @@ Invariants:
     bounded patch cannot be proven from the same solver frame.
   - Solver-detail publication fails closed before exposing partial copied spans;
     its scroll offset always clamps to the projected visible-row viewport.
-  - The drawer and manifold packet share one visibility edge and are cleared
-    together before any retarget, aftermath, return, failure, or scene reset.
+  - The drawer visibility eases independently from evidence lifetime: evidence
+    is cleared at every lifecycle edge while the empty shell may finish its
+    bounded reverse animation.
   - Only the current generation may reveal detail or complete a return.
   - Forward and reverse transport round symmetrically and reach the exact target
     only at eased progress 1, independent of render cadence.
@@ -214,6 +215,36 @@ ReplayCauseSolverPanelRowText BuildReplayCauseSolverPanelRowText( const ReplayCa
     sprintf_s( text.impulses, sizeof( text.impulses ),
                "accN %.5f  accT1 %.5f  accT2 %.5f  warm-start %s  previous normal impulse %.5f", contact.accN, contact.accT1,
                contact.accT2, contact.warmStarted ? "YES" : "NO", previousNormalImpulse );
+    return text;
+}
+
+ReplayCauseSummaryText BuildReplayCauseSummaryText( const ReplayCauseInspectionView& inspection, int rowIndex ) noexcept
+{
+    ReplayCauseSummaryText text;
+
+    if ( rowIndex < 0 || static_cast<std::size_t>( rowIndex ) >= inspection.solverDetailContacts.size() )
+    {
+        return text;
+    }
+
+    const Physics::PhysicsSolverPersistentContactSample&
+        contact = inspection.solverDetailContacts[static_cast<std::size_t>( rowIndex )];
+    const float frictionMagnitude = std::sqrt( contact.accT1 * contact.accT1 + contact.accT2 * contact.accT2 );
+
+    sprintf_s( text.normalImpulse, sizeof( text.normalImpulse ), "%.5f N*s", contact.accN );
+    sprintf_s( text.frictionImpulse, sizeof( text.frictionImpulse ), "%.5f N*s", frictionMagnitude );
+    sprintf_s( text.penetration, sizeof( text.penetration ), "%.5f u", contact.penetration );
+    sprintf_s( text.effectiveMass, sizeof( text.effectiveMass ), "%.5f mass", contact.normalMass );
+    sprintf_s( text.identity, sizeof( text.identity ), "ROW %d  FEATURE %u  BODIES %d / %d  %s", rowIndex, contact.featureId,
+               contact.bodyA, contact.bodyB, contact.isTerrain ? "TERRAIN" : "OBJECT" );
+    sprintf_s( text.dynamics, sizeof( text.dynamics ),
+               "bias %.5f   friction limit %.5f   tangent mass %.5f / %.5f   manifold points %u", contact.bias,
+               contact.frictionLimit, contact.tangentMass1, contact.tangentMass2,
+               static_cast<unsigned>( contact.manifoldPointCount ) );
+    sprintf_s( text.policy, sizeof( text.policy ), "warm %s   resting %s   tangent friction %s   coupled %s   sleep %s",
+               contact.warmStarted ? "YES" : "NO", contact.supportsRestingPolicy ? "YES" : "NO",
+               contact.allowsTangentFriction ? "YES" : "NO", contact.normalCoupledFriction ? "YES" : "NO",
+               contact.inhibitsSleep ? "INHIBITED" : "ALLOWED" );
     return text;
 }
 
@@ -826,15 +857,21 @@ bool ReplayCauseInspection::Select( int rowIndex, const ReplayCauseSeekResult& s
     m_state.seekSource = seek.source;
     m_state.selectedRow = rowIndex;
     ClearFocusedSurface();
+    m_state.activeTab = ReplayCauseInspectorTab::Summary;
     m_state.transportPending = false;
     m_state.easedProgress = 0.0f;
     m_startedAtSeconds = nowSeconds;
+    m_lastAdvanceSeconds = nowSeconds;
+    SetDrawerTarget( true, nowSeconds );
     m_pendingFrame = presentedFrame;
     return true;
 }
 
 void ReplayCauseInspection::Advance( double nowSeconds ) noexcept
 {
+    m_lastAdvanceSeconds = nowSeconds;
+    AdvanceDrawer( nowSeconds );
+
     if ( m_state.mode != ReplayCauseInspectionMode::Transporting )
     {
         return;
@@ -966,6 +1003,7 @@ void ReplayCauseInspection::CompleteTransport( uint64_t generation, bool succeed
     {
         m_state.mode = ReplayCauseInspectionMode::Returning;
         ClearFocusedSurface();
+        SetDrawerTarget( false, m_lastAdvanceSeconds );
         return;
     }
 
@@ -989,6 +1027,7 @@ bool ReplayCauseInspection::BeginAftermath( bool& outReleasePause ) noexcept
 
     m_state.mode = ReplayCauseInspectionMode::AftermathFollow;
     ClearFocusedSurface();
+    SetDrawerTarget( false, m_lastAdvanceSeconds );
     outReleasePause = m_state.ownsPause;
     m_state.ownsPause = false;
     return true;
@@ -1007,6 +1046,7 @@ ReplayCauseExitAction ReplayCauseInspection::BeginReturn() noexcept
     action.releasePause = m_state.ownsPause;
     m_state.ownsPause = false;
     ClearFocusedSurface();
+    SetDrawerTarget( false, m_lastAdvanceSeconds );
     m_state.transportPending = false;
     m_state.mode = ReplayCauseInspectionMode::Returning;
     m_state.returnIssued = true;
@@ -1031,8 +1071,8 @@ void ReplayCauseInspection::CompleteReturn() noexcept
 }
 
 bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTreeState& causeTree, int mouseX, int mouseY,
-                                                        bool hasClientPosition, bool pointerBlocked, int wheelDelta,
-                                                        int screenWidth, int screenHeight ) noexcept
+                                                        bool hasClientPosition, bool pointerBlocked, bool leftPressed,
+                                                        int wheelDelta, int screenWidth, int screenHeight ) noexcept
 {
     if ( !m_state.detailVisible || !hasClientPosition || pointerBlocked || screenWidth <= 0 || screenHeight <= 0 )
     {
@@ -1041,12 +1081,31 @@ bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTree
 
     PROFILE_SCOPED( "Frame/Replay/CauseInspection/PanelInput" );
     const ReplayCauseInspectorLayout layout = BuildReplayCauseInspectorLayout( m_state, causeTree, screenWidth, screenHeight,
-                                                                               1.0f );
+                                                                               m_state.drawerProgress );
 
     if ( !ReplayCauseInspectorContainsPoint( layout, mouseX, mouseY ) ||
          !PointInside( layout.visibleDrawer, mouseX, mouseY ) )
     {
         return false;
+    }
+
+    if ( leftPressed )
+    {
+        if ( PointInside( layout.drawerClose, mouseX, mouseY ) )
+        {
+            (void)BeginReturn();
+            return true;
+        }
+
+        for ( std::size_t tab = 0; tab < layout.tabs.size(); ++tab )
+        {
+            if ( PointInside( layout.tabs[tab], mouseX, mouseY ) )
+            {
+                m_state.activeTab = static_cast<ReplayCauseInspectorTab>( tab );
+                m_state.solverDetailFirstRow = 0;
+                return true;
+            }
+        }
     }
 
     if ( wheelDelta != 0 && layout.visibleRows > 0 )
@@ -1066,6 +1125,10 @@ void ReplayCauseInspection::Reset() noexcept
 {
     m_state = ReplayCauseInspectionView {};
     m_startedAtSeconds = 0.0;
+    m_lastAdvanceSeconds = 0.0;
+    m_drawerStartedAtSeconds = 0.0;
+    m_drawerStartProgress = 0.0f;
+    m_drawerTargetOpen = false;
     m_pendingFrame = 0;
     m_inFlightFrame = 0;
     m_inFlightGeneration = 0;
@@ -1083,7 +1146,43 @@ void ReplayCauseInspection::ClearFocusedSurface() noexcept
     m_state.solverDetailFeedback = SOLVER_DETAIL_UNAVAILABLE_FEEDBACK;
     m_state.solverDetailFirstRow = 0;
     m_state.contactPresentation = {};
-    m_state.detailVisible = false;
+}
+
+void ReplayCauseInspection::SetDrawerTarget( bool open, double nowSeconds ) noexcept
+{
+    if ( m_drawerTargetOpen == open && ( open || m_state.drawerProgress <= 0.0f ) )
+    {
+        return;
+    }
+
+    m_drawerTargetOpen = open;
+    m_drawerStartProgress = m_state.drawerProgress;
+    m_drawerStartedAtSeconds = nowSeconds;
+    m_state.detailVisible = true;
+}
+
+void ReplayCauseInspection::AdvanceDrawer( double nowSeconds ) noexcept
+{
+    if ( !m_state.detailVisible )
+    {
+        return;
+    }
+
+    const double elapsed = (std::max)( 0.0, nowSeconds - m_drawerStartedAtSeconds );
+    const float eased = EvaluateReplayCauseTransitionProgress( elapsed * REPLAY_CAUSE_TRANSITION_SECONDS /
+                                                               REPLAY_CAUSE_INSPECTOR_DRAWER_SECONDS );
+    const float target = m_drawerTargetOpen ? 1.0f : 0.0f;
+    m_state.drawerProgress = m_drawerStartProgress + ( target - m_drawerStartProgress ) * eased;
+
+    if ( eased >= 1.0f )
+    {
+        m_state.drawerProgress = target;
+
+        if ( !m_drawerTargetOpen )
+        {
+            m_state.detailVisible = false;
+        }
+    }
 }
 
 ReplayCauseInspectionView ReplayCauseInspection::View() const noexcept

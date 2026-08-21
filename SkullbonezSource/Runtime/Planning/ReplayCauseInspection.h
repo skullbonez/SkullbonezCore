@@ -36,8 +36,9 @@ Invariants:
   - Drawing, input, Automation, and tests use the same compound layout. The
     drawer stores no x/y position and projects every control from Replay's
     hierarchy anchor, shared height, and one supplied animation progress.
-  - Drawer rows and manifold geometry are one focused surface: every retarget,
-    aftermath, return, failure, or reset hides both and drops all published views.
+  - Drawer rows and manifold geometry are one focused evidence surface: every
+    retarget, aftermath, return, failure, or reset drops published values before
+    the independently timed drawer shell can finish closing.
   - At most one transport request is in flight; a newer selection replaces the
     pending request and cannot be completed by an older generation.
   - The published eased sample is the single causal-transition clock consumed
@@ -182,6 +183,13 @@ struct ReplayCauseTransportRequest
     ReplayCauseSeekSource source = ReplayCauseSeekSource::SolverHistory;
 };
 
+enum class ReplayCauseInspectorTab : uint8_t
+{
+    Summary,
+    RawRecord,
+    Iterations
+};
+
 struct ReplayCauseInspectionView
 {
     ReplayCauseInspectionMode mode = ReplayCauseInspectionMode::Inactive;
@@ -201,12 +209,14 @@ struct ReplayCauseInspectionView
     const char* solverDetailFeedback = "Solver detail not available";
     int solverDetailFirstRow = 0;
     Rendering::ContactManifoldPresentation contactPresentation;
+    ReplayCauseInspectorTab activeTab = ReplayCauseInspectorTab::Summary;
     bool detailVisible = false;
     bool ownsPause = false;
     bool transportInFlight = false;
     bool transportPending = false;
     bool returnIssued = false;
     float easedProgress = 0.0f;
+    float drawerProgress = 0.0f;
 };
 
 // These host-decision seams keep keyboard and pointer mapping testable while
@@ -216,6 +226,7 @@ bool ShouldBeginReplayCauseReturn( const ReplayCauseInspectionView& inspection, 
                                    bool scrubExit ) noexcept;
 
 inline constexpr int REPLAY_CAUSE_SOLVER_PANEL_VISIBLE_ROWS = 4;
+inline constexpr double REPLAY_CAUSE_INSPECTOR_DRAWER_SECONDS = 0.18;
 inline constexpr float REPLAY_CAUSE_INSPECTOR_DRAWER_WIDTH = 520.0f;
 inline constexpr float REPLAY_CAUSE_INSPECTOR_DRAWER_MIN_WIDTH = 280.0f;
 inline constexpr float REPLAY_CAUSE_INSPECTOR_DRAWER_HEADER_HEIGHT = 76.0f;
@@ -248,11 +259,15 @@ struct ReplayCauseSolverPanelRowText
     char impulses[256] = {};
 };
 
-enum class ReplayCauseInspectorTab : uint8_t
+struct ReplayCauseSummaryText
 {
-    Summary,
-    RawRecord,
-    Iterations
+    char normalImpulse[48] = {};
+    char frictionImpulse[48] = {};
+    char penetration[48] = {};
+    char effectiveMass[48] = {};
+    char identity[160] = {};
+    char dynamics[256] = {};
+    char policy[256] = {};
 };
 
 struct ReplayCauseInspectorLayout
@@ -288,6 +303,7 @@ bool ReplayCauseInspectorDrawerTitleContainsPoint( const ReplayCauseInspectorLay
 int ReplayCauseSolverDetailIterationCount( const ReplayCauseInspectionView& inspection, std::size_t contactRow ) noexcept;
 ReplayCauseSolverPanelRowText BuildReplayCauseSolverPanelRowText( const ReplayCauseInspectionView& inspection,
                                                                   int rowIndex ) noexcept;
+ReplayCauseSummaryText BuildReplayCauseSummaryText( const ReplayCauseInspectionView& inspection, int rowIndex ) noexcept;
 
 struct ReplayCauseExitAction
 {
@@ -309,13 +325,15 @@ class ReplayCauseInspection
     ReplayCauseExitAction BeginReturn() noexcept;
     void CompleteReturn() noexcept;
     bool TickSolverDetailPanelInput( const RunReplayCauseTreeState& causeTree, int mouseX, int mouseY,
-                                     bool hasClientPosition, bool pointerBlocked, int wheelDelta, int screenWidth,
-                                     int screenHeight ) noexcept;
+                                     bool hasClientPosition, bool pointerBlocked, bool leftPressed, int wheelDelta,
+                                     int screenWidth, int screenHeight ) noexcept;
     void Reset() noexcept;
     ReplayCauseInspectionView View() const noexcept;
 
   private:
     void ClearFocusedSurface() noexcept;
+    void SetDrawerTarget( bool open, double nowSeconds ) noexcept;
+    void AdvanceDrawer( double nowSeconds ) noexcept;
 
     ReplayCauseInspectionView m_state;
 
@@ -326,6 +344,10 @@ class ReplayCauseInspection
         m_solverDetailContacts {};
     std::array<Physics::PhysicsPipelineRecord, Physics::PHYSICS_MAX_PIPELINE_TRACE_RECORDS> m_solverDetailPipelineRecords {};
     double m_startedAtSeconds = 0.0;
+    double m_lastAdvanceSeconds = 0.0;
+    double m_drawerStartedAtSeconds = 0.0;
+    float m_drawerStartProgress = 0.0f;
+    bool m_drawerTargetOpen = false;
     ReplayFrameIndex m_pendingFrame = 0;
     ReplayFrameIndex m_inFlightFrame = 0;
     uint64_t m_inFlightGeneration = 0;

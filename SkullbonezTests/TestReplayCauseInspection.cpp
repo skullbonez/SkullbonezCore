@@ -36,8 +36,8 @@
 //   - A current or coincident diagnostics row never substitutes for a mismatched frame stamp or row index.
 //   - Detached contact packets use exact retained points when present and derive
 //     only surviving rows when an exact point record is unavailable.
-//   - Retarget, aftermath, return, failure, and reset clear the drawer and
-//     manifold packet through one paired visibility edge.
+//   - Retarget, aftermath, return, failure, and reset clear exact evidence
+//     immediately while drawer visibility completes its bounded reverse ease.
 //   - Forward and reverse transport are monotonic and land on the exact target.
 //
 // Related:
@@ -792,13 +792,13 @@ TEST_CASE( "Replay cause solver panel: copied rows survive restore sources and s
     causeTree.height = 500;
     const int panelX = static_cast<int>( moved.content.x + 20.0f );
     const int panelY = static_cast<int>( moved.content.y + 20.0f );
-    REQUIRE( inspection.TickSolverDetailPanelInput( causeTree, panelX, panelY, true, false, -120, 1920, 1080 ) );
+    REQUIRE( inspection.TickSolverDetailPanelInput( causeTree, panelX, panelY, true, false, false, -120, 1920, 1080 ) );
     CHECK( inspection.View().solverDetailFirstRow == 1 );
-    REQUIRE( inspection.TickSolverDetailPanelInput( causeTree, panelX, panelY, true, false, -120, 1920, 1080 ) );
+    REQUIRE( inspection.TickSolverDetailPanelInput( causeTree, panelX, panelY, true, false, false, -120, 1920, 1080 ) );
     CHECK( inspection.View().solverDetailFirstRow == 2 );
-    REQUIRE( inspection.TickSolverDetailPanelInput( causeTree, panelX, panelY, true, false, -120, 1920, 1080 ) );
+    REQUIRE( inspection.TickSolverDetailPanelInput( causeTree, panelX, panelY, true, false, false, -120, 1920, 1080 ) );
     CHECK( inspection.View().solverDetailFirstRow == 3 );
-    CHECK_FALSE( inspection.TickSolverDetailPanelInput( causeTree, 1919, 1079, true, false, -120, 1920, 1080 ) );
+    CHECK_FALSE( inspection.TickSolverDetailPanelInput( causeTree, 1919, 1079, true, false, false, -120, 1920, 1080 ) );
 }
 
 TEST_CASE( "Replay cause manifold presentation: exact records and event poses form one owned packet" )
@@ -960,6 +960,7 @@ TEST_CASE( "Replay solver panel: value mapping includes exact values units and s
     inspection.contactPresentation.pointCount = 1u;
     inspection.contactPresentation.points[0].point = Vector3( 7.0f, 8.0f, 9.0f );
     const ReplayCauseSolverPanelRowText values = BuildReplayCauseSolverPanelRowText( inspection, 0 );
+    const ReplayCauseSummaryText summary = BuildReplayCauseSummaryText( inspection, 0 );
 
     CHECK( std::strcmp( REPLAY_CAUSE_SOLVER_PANEL_UNITS,
                         "UNITS: vectors/penetration/correction = scene units; bias/linear writeback = u/s;" ) == 0 );
@@ -979,6 +980,41 @@ TEST_CASE( "Replay solver panel: value mapping includes exact values units and s
     CHECK( std::strcmp( values.impulses,
                         "accN 3.50000  accT1 -3.75000  accT2 4.00000  warm-start YES  previous normal impulse 11.25000" ) ==
            0 );
+    CHECK( std::strcmp( summary.normalImpulse, "3.50000 N*s" ) == 0 );
+    CHECK( std::strcmp( summary.frictionImpulse, "5.48293 N*s" ) == 0 );
+    CHECK( std::strcmp( summary.penetration, "0.12500 u" ) == 0 );
+    CHECK( std::strcmp( summary.effectiveMass, "2.00000 mass" ) == 0 );
+    CHECK( std::strcmp( summary.identity, "ROW 0  FEATURE 101  BODIES 3 / 7  OBJECT" ) == 0 );
+    CHECK( std::strcmp( summary.dynamics,
+                        "bias 2.75000   friction limit 3.00000   tangent mass 2.25000 / 2.50000   manifold points 1" ) ==
+           0 );
+    CHECK( std::strcmp( summary.policy, "warm YES   resting YES   tangent friction YES   coupled NO   sleep ALLOWED" ) ==
+           0 );
+}
+
+TEST_CASE( "Replay cause inspector drawer: total elapsed easing is cadence independent and closes symmetrically" )
+{
+    ReplayCauseInspection inspection;
+    ReplayCauseSeekResult seek;
+    seek.availability = ReplayCauseSeekAvailability::Available;
+    seek.source = ReplayCauseSeekSource::SolverHistory;
+    seek.frame = 12u;
+
+    REQUIRE( inspection.Select( 0, seek, 20u, false, 10.0 ) );
+    CHECK( inspection.View().detailVisible );
+    CHECK( inspection.View().drawerProgress == doctest::Approx( 0.0f ) );
+    inspection.Advance( 10.09 );
+    CHECK( inspection.View().drawerProgress == doctest::Approx( 0.875f ).epsilon( 0.001 ) );
+    inspection.Advance( 10.18 );
+    CHECK( inspection.View().drawerProgress == doctest::Approx( 1.0f ) );
+
+    REQUIRE( inspection.BeginReturn().apply );
+    inspection.Advance( 10.27 );
+    CHECK( inspection.View().detailVisible );
+    CHECK( inspection.View().drawerProgress == doctest::Approx( 0.125f ).epsilon( 0.001 ) );
+    inspection.Advance( 10.36 );
+    CHECK_FALSE( inspection.View().detailVisible );
+    CHECK( inspection.View().drawerProgress == doctest::Approx( 0.0f ) );
 }
 
 TEST_CASE( "Replay cause inspection: newest selection coalesces behind one in-flight restore" )
@@ -1040,6 +1076,8 @@ TEST_CASE( "Replay cause inspection: pause ownership survives pre-pause, Space, 
         REQUIRE( inspection.BeginAftermath( releasePause ) );
         CHECK( releasePause );
         CHECK( inspection.View().mode == ReplayCauseInspectionMode::AftermathFollow );
+        CHECK( inspection.View().detailVisible );
+        inspection.Advance( 2.68 );
         CHECK_FALSE( inspection.View().detailVisible );
 
         // Direct retargeting from aftermath reacquires only the pause released
@@ -1130,9 +1168,8 @@ TEST_CASE( "Replay cause inspection: focused panel and manifold clear together a
         REQUIRE( inspection.View().solverDetailContacts.size() == 1u );
         REQUIRE( inspection.View().contactPresentation.HasGeometry() );
     };
-    const auto checkSurfaceCleared = []( const ReplayCauseInspectionView& view )
+    const auto checkEvidenceCleared = []( const ReplayCauseInspectionView& view )
     {
-        CHECK_FALSE( view.detailVisible );
         CHECK( view.solverDetailContacts.empty() );
         CHECK( view.solverDetailPipelineRecords.empty() );
         CHECK_FALSE( view.contactPresentation.HasGeometry() );
@@ -1146,7 +1183,10 @@ TEST_CASE( "Replay cause inspection: focused panel and manifold clear together a
         bool releasePause = false;
         REQUIRE( inspection.BeginAftermath( releasePause ) );
         CHECK( inspection.View().mode == ReplayCauseInspectionMode::AftermathFollow );
-        checkSurfaceCleared( inspection.View() );
+        CHECK( inspection.View().detailVisible );
+        checkEvidenceCleared( inspection.View() );
+        inspection.Advance( 2.68 );
+        CHECK_FALSE( inspection.View().detailVisible );
     }
 
     SUBCASE( "direct retarget hides the old surface before the new transport" )
@@ -1158,7 +1198,8 @@ TEST_CASE( "Replay cause inspection: focused panel and manifold clear together a
         REQUIRE( inspection.Select( 4, retarget, 12u, true, 3.0 ) );
         CHECK( inspection.View().selectedRow == 4 );
         CHECK( inspection.View().targetFrame == 15u );
-        checkSurfaceCleared( inspection.View() );
+        CHECK( inspection.View().detailVisible );
+        checkEvidenceCleared( inspection.View() );
     }
 
     SUBCASE( "return and reset cannot leave a frozen surface" )
@@ -1166,10 +1207,12 @@ TEST_CASE( "Replay cause inspection: focused panel and manifold clear together a
         ReplayCauseInspection inspection;
         publishFocusedSurface( inspection );
         REQUIRE( inspection.BeginReturn().apply );
-        checkSurfaceCleared( inspection.View() );
+        CHECK( inspection.View().detailVisible );
+        checkEvidenceCleared( inspection.View() );
         inspection.CompleteReturn();
         CHECK( inspection.View().mode == ReplayCauseInspectionMode::Inactive );
-        checkSurfaceCleared( inspection.View() );
+        CHECK_FALSE( inspection.View().detailVisible );
+        checkEvidenceCleared( inspection.View() );
     }
 }
 
@@ -1191,6 +1234,8 @@ TEST_CASE( "Replay cause inspection: cancellation invalidates an interrupted tra
 
     inspection.CompleteTransport( request.generation, true );
     CHECK( inspection.View().mode == ReplayCauseInspectionMode::Returning );
+    CHECK( inspection.View().detailVisible );
+    inspection.Advance( 1.68 );
     CHECK_FALSE( inspection.View().detailVisible );
 }
 
@@ -1227,7 +1272,7 @@ TEST_CASE( "Replay cause inspection: click or scrub return is accepted during en
             REQUIRE( ShouldBeginReplayCauseAftermath( inspection.View(), true ) );
             bool releasePause = false;
             REQUIRE( inspection.BeginAftermath( releasePause ) );
-            CHECK_FALSE( inspection.View().detailVisible );
+            CHECK( inspection.View().detailVisible );
             REQUIRE( ShouldBeginReplayCauseReturn( inspection.View(), !scrubExit, scrubExit ) );
             const ReplayCauseExitAction exit = inspection.BeginReturn();
             CHECK( exit.apply );

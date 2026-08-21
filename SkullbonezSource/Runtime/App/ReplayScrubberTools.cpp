@@ -847,7 +847,7 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
     const ReplayCauseInspectorLayout
         preScrubberInspectorLayout = BuildReplayCauseInspectorLayout( preScrubberInspection, m_authoring.CauseTree(),
                                                                       input.screenWidth, input.screenHeight,
-                                                                      preScrubberInspection.detailVisible ? 1.0f : 0.0f );
+                                                                      preScrubberInspection.drawerProgress );
     const RuntimePointerEvent& preScrubberPointer = inputRouter.RuntimeSnapshot().pointer;
     const bool pointerOverCauseWindow = causeWindowAvailable && preScrubberPointer.hasClientPosition &&
                                         ReplayCauseInspectorContainsPoint( preScrubberInspectorLayout,
@@ -938,9 +938,7 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
                                                                                             m_authoring.CauseTree(),
                                                                                             input.screenWidth,
                                                                                             input.screenHeight,
-                                                                                            inspection.detailVisible
-                                                                                                ? 1.0f
-                                                                                                : 0.0f );
+                                                                                            inspection.drawerProgress );
         const RuntimeMouseEdges& pointerEdges = inputRouter.UiSnapshot().mouse;
 
         if ( inspection.detailVisible && pointer.hasClientPosition && pointerEdges.leftPressed && !input.uiBlocksMouse &&
@@ -967,8 +965,9 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
         solverDetailOwnsMouse = m_planningOwner.CauseInspection()
                                     .TickSolverDetailPanelInput( m_authoring.CauseTree(), pointer.clientX, pointer.clientY,
                                                                  pointer.hasClientPosition,
-                                                                 input.uiBlocksMouse || scrubberOwnsMouse, input.wheelDelta,
-                                                                 input.screenWidth, input.screenHeight );
+                                                                 input.uiBlocksMouse || scrubberOwnsMouse,
+                                                                 pointer.leftPressed, input.wheelDelta, input.screenWidth,
+                                                                 input.screenHeight );
 
         if ( solverDetailOwnsMouse && input.wheelDelta != 0 )
         {

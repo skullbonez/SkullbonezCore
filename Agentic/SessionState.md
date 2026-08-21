@@ -2,7 +2,7 @@
 
 Date: 2026-08-21
 Branch: `codex/cause-hierarchy-ui-first`
-Status: Four active plans; 58/80 tasks complete
+Status: Four active plans; 59/80 tasks complete
 
 At-Rest Ball Stability RS0-RS7 and Invariant Enforcement And Assertion
 Hardening IH0-IH7 are complete. Causal C0-C8, Determinism T0-T8,
@@ -31,7 +31,14 @@ Prediction / Contacts controls, ancestor-preserving source-index projection,
 selected-row scroll correction, and same-frame keyboard suppression. Its
 focused projection case passes 72 assertions, the cumulative gate passes 671
 cases / 2,521,550 assertions, both Profile and Automation build cleanly, and
-the inspected multi-body capture exits 0. CHUI3 is the binding next task.
+the inspected multi-body capture exits 0. CHUI3 adds the clipped, behind-
+hierarchy 180 ms drawer animation, visible-rectangle input ownership, fixed
+Summary tab, four exact-field metric cards, signed basis component bars, and
+row-dynamics/policy table. The focused cause group passes 16 cases / 299
+assertions, the cumulative gate passes 672 cases / 2,522,865 assertions,
+Profile and Automation builds plus smoke pass, and the inspected multi-body
+Summary capture exits 0. Its touched-source audit is 5/5 with none deferred.
+CHUI4 is the binding next task.
 
 ORBIT_FORECAST OF0 is complete. It ratifies the fixed sun as the primary,
 Earth and Mars as core bodies, and the ship as an auxiliary whose orbital-
