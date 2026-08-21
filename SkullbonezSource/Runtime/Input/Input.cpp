@@ -471,6 +471,17 @@ Input::MouseCoordinatesResult Input::GetMouseCoordinates( SkullbonezCore::Core::
     MouseCoordinatesResult result;
     POINT mousePos = {};
 
+    if ( s_automationState.enabled )
+    {
+        if ( s_automationState.hasMouseClientPosition )
+        {
+            mousePos = s_automationState.mouseClientPosition;
+        }
+
+        result.coordinates = mousePos;
+        return result;
+    }
+
     if ( !GetCursorPos( &mousePos ) ) // attempt to get the mouse m_position
     {
         result.result = diagnostics.Failure( "Runtime/Input",
@@ -489,9 +500,13 @@ Input::MouseCoordinatesResult Input::GetClientMouseCoordinates( SkullbonezCore::
 {
     MouseCoordinatesResult result;
 
-    if ( s_automationState.enabled && s_automationState.hasMouseClientPosition )
+    if ( s_automationState.enabled )
     {
-        result.coordinates = s_automationState.mouseClientPosition;
+        if ( s_automationState.hasMouseClientPosition )
+        {
+            result.coordinates = s_automationState.mouseClientPosition;
+        }
+
         return result;
     }
 

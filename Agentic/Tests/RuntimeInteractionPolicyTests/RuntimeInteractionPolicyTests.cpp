@@ -1,4 +1,4 @@
-  - Agentic/Reference/engine-glossary.md/*
+/*
 File: Agentic/Tests/RuntimeInteractionPolicyTests/RuntimeInteractionPolicyTests.cpp
 Purpose:
   Verifies CPU-side runtime interaction, picker, and fixed-capacity UI surface

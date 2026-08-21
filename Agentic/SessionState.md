@@ -2,22 +2,23 @@
 
 Date: 2026-08-21
 Branch: `codex/cause-hierarchy-ui-first`
-Status: Two active plans; 73/80 tasks complete
+Status: One active plan; 74/80 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
-Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, and Full Source Comment
-Truth Replacement CT0-CT5 are complete. Causal C0-C8, Determinism T0-T8, Catto CD0-CD5,
-Predicted Solver Cause Hierarchy PSD0-PSD7, and Continuous Orbital Forecast OF0-OF6 are complete.
-By owner direction, `MASTER-PLAN.md` binds Full Validation Time And Value Audit VTA0-VTA5 next,
-followed by Repository Hygiene Cleanup RC0-RC5.
-Completed plan files were deleted under the repository convention; Git history
-retains their phase evidence.
+Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
+Truth Replacement CT0-CT5, and Full Validation Time And Value Audit VTA0-VTA5 are complete.
+Causal C0-C8, Determinism T0-T8, Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7,
+and Continuous Orbital Forecast OF0-OF6 are complete.
+By owner direction, `MASTER-PLAN.md` binds Repository Hygiene Cleanup RC0-RC5 next as the
+single active plan. Completed plan files were deleted under the repository convention;
+Git history retains their phase evidence.
 
-VALIDATION_TIME_AUDIT VTA0-VTA4 are complete. VTA0 deployed timing tools, VTA1 established baseline (590.23 s),
-VTA2 ratified owner rulings, VTA3 optimized preflight (375.09 s -> 191.24 s), and VTA4 verified CPU tests,
-coverage floors, and runtime lanes (Automation, DX12, Physics) with zero oracle loss. Overall critical path
-dropped from 590.23 s (~9.84 min) to 403.17 s (~6.72 min) — a net 31.7% total gate reduction.
-VTA5 (Terminal Proof And Governance Closure) is the active next task.
+VALIDATION_TIME_AUDIT (VTA0-VTA5) is 100% complete, reviewed, and closed. Preflight duration
+dropped from 375.09 s to 191.24 s (-49.0% / ~3 minutes saved) and total critical path from
+590.23 s to 403.17 s (-31.7% / >3 minutes saved). All 26 stages evaluated; 100% of behavioral
+oracles, coverage floors, DX12 InfoQueue checks, and deterministic physics baselines preserved.
+Terminal gate `agent_validate.bat --plan-completion` passed cleanly.
+REPOSITORY_CLEANUP (RC0-RC5) is active next.
 
 ORBIT_FORECAST OF0 is complete. It ratifies the fixed sun as the primary,
 Earth and Mars as core bodies, and the ship as an auxiliary whose orbital-

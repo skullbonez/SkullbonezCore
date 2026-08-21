@@ -11,7 +11,7 @@ validation.
 |--------|----------|---------|
 | `agent_validate.bat --plan-completion` | Terminal gate after an entire implementation plan is complete | CPU tests + 5 engine processes |
 | `validate_select.bat` | Run any subset of validations by name | ~depends |
-| `validate_fast.bat` | Small code refactors: preflight plus the doctest runner | ~30s |
+| `validate_fast.bat` | Small code refactors: preflight plus the doctest runner | ~3.2m preflight / ~4m with tests |
 | `validate_all_cpu_tests.bat` | Run every mandatory CPU test and coverage gate with fail-fast attribution | incremental builds + 7 console launches |
 | `validate_tests.bat` | Build and run the doctest unit-test executable | build + console test runner |
 | `validate_coverage.bat` | Build the Debug doctest runner, export Cobertura product coverage, and report/check versioned subsystem floors | incremental Debug build + console test runner |

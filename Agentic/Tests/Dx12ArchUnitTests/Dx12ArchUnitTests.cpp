@@ -1,4 +1,4 @@
-  - Agentic/Reference/engine-glossary.md/*
+/*
 File: Agentic/Tests/Dx12ArchUnitTests/Dx12ArchUnitTests.cpp
 Purpose:
   Contains DX12 architecture checks that guard renderer ownership and dependency boundaries.

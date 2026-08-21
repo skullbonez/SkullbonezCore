@@ -1,4 +1,4 @@
-  - Agentic/Reference/engine-glossary.md/*
+/*
 File: Agentic/Tests/SceneParserUnitTests/SceneParserUnitTests.cpp
 Purpose:
   Checks scene/style parser contracts that do not need a renderer launch.

@@ -33,7 +33,7 @@ setlocal
 REM ===============================================================
 REM  validate_fast.bat - Quick sanity check: format + metadata + staged-size + build.
 REM  Use for: small code refactors and non-rendering code edits.
-REM  Runtime: about 30 seconds.
+REM  Runtime: about 3 minutes (preflight) / 4 minutes (with unit tests).
 REM ===============================================================
 
 set "PREFLIGHT_ONLY=0"
