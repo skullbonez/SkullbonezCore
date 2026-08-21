@@ -1,7 +1,7 @@
 # Cause Hierarchy Scientific Inspector
 
 Date: 2026-08-20
-Status: Active; 2/7 phases complete. First active queue item by owner direction.
+Status: Active; 3/7 phases complete. First active queue item by owner direction.
 Impact areas: Runtime Replay cause-window state and input, Runtime Planning
 inspection state and rendering, App input composition, UI presentation, replay
 Automation, deterministic screenshots, and tests
@@ -9,7 +9,7 @@ Owner: ReplayAuthoring owns the cause hierarchy anchor, size, filtering, and
 row selection; ReplayCauseInspection owns the attached detail drawer lifecycle,
 tab, animation, and exact detached evidence; App composes typed commands and
 camera/transport effects without retaining a second UI owner
-Priority: First active queue item; CHUI2 follows completed CHUI1
+Priority: First active queue item; CHUI3 follows completed CHUI2
 Commit name: `CAUSE_HIERARCHY_UI`
 
 ## Goal
@@ -355,23 +355,34 @@ visible UI checkpoint by owner priority.
 
 ### CHUI2 - Cause Hierarchy Visual System And Filtering
 
-- [ ] Restyle the existing causal window to the concept's dark-blue `CAUSE
+- [x] Restyle the existing causal window to the concept's dark-blue `CAUSE
       HIERARCHY` surface, node colors, hierarchy rules, selected/hover states,
       footer, opacity, spacing, and readable two-line evidence rows.
-- [ ] Add a fixed-capacity filter field, funnel control, and compact All /
+- [x] Add a fixed-capacity filter field, funnel control, and compact All /
       Prediction / Contacts filters through ReplayAuthoring's existing input
       owner. Text entry, focus, clear, escape, and pointer capture must compose
       with camera and scrubber input.
-- [ ] Build a bounded filtered row projection that keeps ancestors, preserves
+- [x] Build a bounded filtered row projection that keeps ancestors, preserves
       source identity/depth, performs no steady-runtime growth, and keeps a
       selected match visible without reparenting it.
-- [ ] Cover empty/no-match, long-input truncation, Unicode/unsupported input
+- [x] Cover empty/no-match, long-input truncation, Unicode/unsupported input
       handling, chip/text combinations, selection mapping, scroll clamping, and
       mode-transition clearing/persistence.
 
 **CHUI2 acceptance:** the hierarchy alone matches the approved closed-state
 appearance, filters exact rows without allocation or identity drift, and leaves
 the viewport unobstructed until selection.
+
+CHUI2 is complete. ReplayAuthoring retains one fixed ASCII filter/key-edge
+state, ReplayOverlayLayout builds an ancestor-preserving source-index bitset,
+and input plus rendering consume that same projection. All / Prediction /
+Contacts chips, focus/clear/escape, no-match feedback, selected-row scroll
+correction, the hierarchy footer, and keyboard suppression are live. The
+focused projection case passes 72 assertions, the existing geometry case
+passes 19, the cumulative gate passes 671 cases / 2,521,550 assertions,
+Profile and Automation builds pass with warnings as errors, and the
+deterministic multi-body scenario exits 0 while producing the inspected
+`TestOutput/interaction/multi_body_prediction_cause_high.bmp` capture.
 
 ### CHUI3 - Attached Animation And Summary Tab
 

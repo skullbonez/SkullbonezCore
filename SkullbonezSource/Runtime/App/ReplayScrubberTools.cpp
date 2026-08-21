@@ -1049,6 +1049,10 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
     ApplyAuthoringPredictionRequest();
 
     output.consumesMouse = output.consumesMouse || causeTreeOwnsMouse || solverDetailOwnsMouse || velocityEditOwnsMouse;
+
+    // ReplayAuthoring publishes focus as a value; InputFrame uses this result
+    // to block later runtime key bindings while text entry is active.
+    output.consumesKeyboard = output.consumesKeyboard || m_authoring.CauseTree().filterFocused;
     output.enterInteractive = output.enterInteractive || output.restoreRequest.enterInteractive;
 }
 

@@ -2,7 +2,7 @@
 
 Date: 2026-08-21
 Branch: `codex/cause-hierarchy-ui-first`
-Status: Four active plans; 57/80 tasks complete
+Status: Four active plans; 58/80 tasks complete
 
 At-Rest Ball Stability RS0-RS7 and Invariant Enforcement And Assertion
 Hardening IH0-IH7 are complete. Causal C0-C8, Determinism T0-T8,
@@ -25,8 +25,13 @@ compact clamping, drawer-title routing into ReplayAuthoring's sole anchor, and
 the same control rectangles in renderer, pointer, Automation, and tests. Its
 focused geometry cases pass 64 assertions, the existing solver-scroll case
 passes 29, Profile/Automation builds pass, and the cumulative 670-test gate is
-green. The touched-source audit is 11/11 with none deferred. CHUI2 is the
-binding next task.
+green. The touched-source audit is 11/11 with none deferred. CHUI2 adds the
+approved navy hierarchy, evidence-family accents, fixed ASCII filter, All /
+Prediction / Contacts controls, ancestor-preserving source-index projection,
+selected-row scroll correction, and same-frame keyboard suppression. Its
+focused projection case passes 72 assertions, the cumulative gate passes 671
+cases / 2,521,550 assertions, both Profile and Automation build cleanly, and
+the inspected multi-body capture exits 0. CHUI3 is the binding next task.
 
 ORBIT_FORECAST OF0 is complete. It ratifies the fixed sun as the primary,
 Earth and Mars as core bodies, and the ship as an auxiliary whose orbital-

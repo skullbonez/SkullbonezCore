@@ -8,7 +8,8 @@ Summary:
   and pointer eligibility as replay input by rebuilding the same fixed-capacity
   surfaces from ReplayOverlayLayout. The causal solver panel renders exact-frame
   copied evidence in a flush attached drawer projected from the cause-tree
-  anchor through Planning's shared compound layout.
+  anchor through Planning's shared compound layout. The hierarchy renders the
+  same bounded filtered source-index projection consumed by Replay input.
 
 Invariants:
   - Drawn controls use the same surface rows and pointer-block fact as input, so
@@ -20,6 +21,8 @@ Invariants:
   - Inspector draw bounds come from the same pure projection used by input;
     no more than four complete contact rows appear at once, and unavailable
     detail never reserves row-sized empty space.
+  - Filter labels, ancestry, selection, and footer counts are projections only;
+    renderer code never mutates or duplicates retained evidence.
 
 Related:
   - SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.h
@@ -53,6 +56,17 @@ using Text::Text2d;
 
 namespace
 {
+// Concept: the scientific inspector uses one deliberately restrained colour
+// system. Evidence families keep their colour across the hierarchy and drawer,
+// while navy surfaces preserve contrast over a bright simulation viewport.
+constexpr UI::Style::UIColor CAUSE_NAVY { 0.0f, 0.0745f, 0.1333f, 0.97f };
+constexpr UI::Style::UIColor CAUSE_NAVY_ALT { 0.0314f, 0.0980f, 0.1608f, 0.96f };
+constexpr UI::Style::UIColor CAUSE_SELECTED { 0.0f, 0.1922f, 0.3373f, 0.98f };
+constexpr UI::Style::UIColor CAUSE_RULE { 0.0f, 0.6431f, 0.9255f, 1.0f };
+constexpr UI::Style::UIColor CAUSE_PREDICTION { 0.6510f, 0.8078f, 0.4824f, 1.0f };
+constexpr UI::Style::UIColor CAUSE_MANIFOLD { 0.1294f, 0.6941f, 0.8275f, 1.0f };
+constexpr UI::Style::UIColor CAUSE_SOLVER { 0.9333f, 0.4157f, 0.2078f, 1.0f };
+
 bool ReplayPredictionContactsIncomplete( const ReplayPredictionPresentationView& prediction )
 {
     // Concept: contact payloads are optional prediction evidence. The root path
@@ -117,40 +131,57 @@ void RenderReplayCauseSolverDetailPanel( const UI::UIDrawContext& draw, const Re
     const ReplayCauseInspectorLayout layout = BuildReplayCauseInspectorLayout( inspection, replay.causeTree, screenW,
                                                                                screenH, 1.0f );
     const UI::Style::UIPalette& palette = UI::Style::Palette();
-    const UI::Style::UIRadii& radii = UI::Style::Radii();
-    UI::Style::UIColor panelFill = palette.windowSubtle;
-    panelFill.a = REPLAY_CAUSE_SOLVER_PANEL_OPACITY;
-    UI::Style::UIColor panelBorder = palette.innerBorder;
-    panelBorder.a = 0.62f;
-    draw.RoundedPanel( layout.drawer, radii.window, panelFill, panelBorder );
-    draw.Text( layout.drawer.x + 12.0f, layout.drawer.y + 8.0f, 12.5f, palette.textPrimary.r, palette.textPrimary.g,
-               palette.textPrimary.b, "SOLVER ROW DETAIL" );
+    UI::Style::UIColor drawerFill = CAUSE_NAVY;
+    drawerFill.a = REPLAY_CAUSE_SOLVER_PANEL_OPACITY;
+    UI::Style::UIColor drawerBorder = CAUSE_RULE;
+    drawerBorder.a = 0.72f;
+    draw.RoundedPanel( layout.drawer, 6.0f, drawerFill, drawerBorder );
+    draw.Rect( layout.drawer.x, layout.drawer.y, 3.0f, layout.drawer.h, CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b, 0.92f );
+    draw.Text( layout.drawerTitle.x + 12.0f, layout.drawerTitle.y + 9.0f, 14.0f, palette.textPrimary.r,
+               palette.textPrimary.g, palette.textPrimary.b, "SOLVER INSPECTOR" );
+    draw.RoundedRect( layout.drawerClose.x, layout.drawerClose.y, layout.drawerClose.w, layout.drawerClose.h, 4.0f,
+                      CAUSE_NAVY_ALT.r, CAUSE_NAVY_ALT.g, CAUSE_NAVY_ALT.b, 1.0f );
+    draw.Text( layout.drawerClose.x + 8.0f, layout.drawerClose.y + 4.0f, 12.0f, palette.textSecondary.r,
+               palette.textSecondary.g, palette.textSecondary.b, "X" );
 
     char frameLabel[96] = {};
     sprintf_s( frameLabel, sizeof( frameLabel ), "FRAME %llu | %zu ROWS%s",
                static_cast<unsigned long long>( inspection.targetFrame ), inspection.solverDetailContacts.size(),
                inspection.contactPresentation.truncated ? " | PATCH TRUNCATED" : "" );
-    draw.Text( layout.drawer.x + 154.0f, layout.drawer.y + 10.0f, 9.0f,
+    draw.Text( layout.drawerTitle.x + 170.0f, layout.drawerTitle.y + 12.0f, 10.0f,
                inspection.contactPresentation.truncated ? palette.warningAccent.r : palette.accent.r,
                inspection.contactPresentation.truncated ? palette.warningAccent.g : palette.accent.g,
                inspection.contactPresentation.truncated ? palette.warningAccent.b : palette.accent.b, frameLabel );
 
     // Sign/units are rendered as part of the surface so a captured frame remains
     // interpretable without consulting solver implementation comments.
-    draw.Text( layout.drawer.x + 12.0f, layout.drawer.y + 33.0f, 8.3f, palette.textSecondary.r, palette.textSecondary.g,
-               palette.textSecondary.b, REPLAY_CAUSE_SOLVER_PANEL_UNITS );
-    draw.Text( layout.drawer.x + 12.0f, layout.drawer.y + 45.0f, 8.3f, palette.textSecondary.r, palette.textSecondary.g,
-               palette.textSecondary.b, REPLAY_CAUSE_SOLVER_PANEL_UNITS_MORE );
-    draw.Text( layout.drawer.x + 12.0f, layout.drawer.y + 58.0f, 8.3f, palette.textMuted.r, palette.textMuted.g,
-               palette.textMuted.b, REPLAY_CAUSE_SOLVER_PANEL_SIGNS );
-    draw.Text( layout.drawer.x + 12.0f, layout.drawer.y + 68.0f, 8.3f, palette.textMuted.r, palette.textMuted.g,
-               palette.textMuted.b, REPLAY_CAUSE_SOLVER_PANEL_SIGNS_MORE );
+    static constexpr const char* TAB_LABELS[] = { "SUMMARY", "MANIFOLD", "SOLVER" };
+
+    for ( int tabIndex = 0; tabIndex < 3; ++tabIndex )
+    {
+        const UI::UIRect& tab = layout.tabs[static_cast<std::size_t>( tabIndex )];
+        const bool selected = tabIndex == 2;
+        const UI::Style::UIColor& tabFill = selected ? CAUSE_SELECTED : CAUSE_NAVY_ALT;
+        const UI::Style::UIColor& tabAccent = tabIndex == 0 ? CAUSE_PREDICTION
+                                                            : ( tabIndex == 1 ? CAUSE_MANIFOLD : CAUSE_SOLVER );
+        draw.RoundedRect( tab.x, tab.y, tab.w, tab.h, 4.0f, tabFill.r, tabFill.g, tabFill.b, 1.0f );
+        draw.Rect( tab.x, tab.y + tab.h - 2.0f, tab.w, 2.0f, tabAccent.r, tabAccent.g, tabAccent.b,
+                   selected ? 1.0f : 0.34f );
+        draw.Text( tab.x + 10.0f, tab.y + 7.0f, 10.0f, selected ? tabAccent.r : palette.textSecondary.r,
+                   selected ? tabAccent.g : palette.textSecondary.g, selected ? tabAccent.b : palette.textSecondary.b,
+                   TAB_LABELS[tabIndex] );
+    }
+
+    draw.Text( layout.drawer.x + 12.0f, layout.drawer.y + 42.0f, 9.0f, palette.textSecondary.r, palette.textSecondary.g,
+               palette.textSecondary.b, "UNITS  v=u/s  w=rad/s  impulse=N*s  mass=u  depth=u" );
+    draw.Text( layout.drawer.x + 12.0f, layout.drawer.y + 55.0f, 9.0f, palette.textMuted.r, palette.textMuted.g,
+               palette.textMuted.b, "SIGNS  +penetration=overlap  normal A->B  CLAMP=friction limit" );
 
     if ( inspection.solverDetailAvailability != ReplayCauseSolverDetailAvailability::Available ||
          inspection.solverDetailContacts.empty() )
     {
-        draw.RoundedRect( layout.content.x, layout.content.y, layout.content.w, layout.content.h, radii.control,
-                          palette.window.r, palette.window.g, palette.window.b, 0.30f );
+        draw.RoundedRect( layout.content.x, layout.content.y, layout.content.w, layout.content.h, 6.0f, CAUSE_NAVY_ALT.r,
+                          CAUSE_NAVY_ALT.g, CAUSE_NAVY_ALT.b, 1.0f );
         draw.Text( layout.content.x + 10.0f, layout.content.y + 15.0f, 11.5f, palette.textSecondary.r,
                    palette.textSecondary.g, palette.textSecondary.b, inspection.solverDetailFeedback );
         return;
@@ -166,8 +197,9 @@ void RenderReplayCauseSolverDetailPanel( const UI::UIDrawContext& draw, const Re
             contact = inspection.solverDetailContacts[static_cast<std::size_t>( rowIndex )];
         const float rowY = layout.content.y + static_cast<float>( rowIndex - firstRow ) * layout.rowHeight;
         const UI::UIRect rowRect { layout.content.x, rowY, layout.content.w - 8.0f, layout.rowHeight - 3.0f };
-        draw.RoundedRect( rowRect.x, rowRect.y, rowRect.w, rowRect.h, radii.control, palette.window.r, palette.window.g,
-                          palette.window.b, 0.44f );
+        const UI::Style::UIColor& rowFill = ( rowIndex % 2 ) == 0 ? CAUSE_NAVY_ALT : CAUSE_NAVY;
+        draw.RoundedRect( rowRect.x, rowRect.y, rowRect.w, rowRect.h, 6.0f, rowFill.r, rowFill.g, rowFill.b, 1.0f );
+        draw.Rect( rowRect.x, rowRect.y, 3.0f, rowRect.h, CAUSE_SOLVER.r, CAUSE_SOLVER.g, CAUSE_SOLVER.b, 0.88f );
 
         const Physics::PhysicsPipelineRecord*
             correction = FindSolverDetailRecord( inspection, contact.featureId,
@@ -177,19 +209,18 @@ void RenderReplayCauseSolverDetailPanel( const UI::UIDrawContext& draw, const Re
         const ReplayCauseSolverPanelRowText values = BuildReplayCauseSolverPanelRowText( inspection, rowIndex );
         char line[768] = {};
         float textY = rowY + 4.0f;
-        draw.Text( rowRect.x + 7.0f, textY, 9.3f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b,
-                   values.headline );
+        draw.Text( rowRect.x + 9.0f, textY, 10.0f, CAUSE_SOLVER.r, CAUSE_SOLVER.g, CAUSE_SOLVER.b, values.headline );
         textY += 12.0f;
-        draw.Text( rowRect.x + 7.0f, textY, 8.2f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
+        draw.Text( rowRect.x + 9.0f, textY, 10.0f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
                    values.basis );
         textY += 11.0f;
-        draw.Text( rowRect.x + 7.0f, textY, 8.2f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
+        draw.Text( rowRect.x + 9.0f, textY, 10.0f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
                    values.geometry );
         textY += 11.0f;
-        draw.Text( rowRect.x + 7.0f, textY, 8.2f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
+        draw.Text( rowRect.x + 9.0f, textY, 10.0f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
                    values.masses );
         textY += 11.0f;
-        draw.Text( rowRect.x + 7.0f, textY, 8.2f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
+        draw.Text( rowRect.x + 9.0f, textY, 10.0f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
                    values.impulses );
         textY += 12.0f;
 
@@ -212,10 +243,9 @@ void RenderReplayCauseSolverDetailPanel( const UI::UIDrawContext& draw, const Re
             sprintf_s( line, sizeof( line ), "i%d dN %.3g N %.3g T %.3g %s", record.iteration, record.scalarA,
                        record.scalarB, record.scalarC, clamped ? "CLAMP" : "free" );
             draw.Text( rowRect.x + 7.0f + static_cast<float>( column ) * columnWidth,
-                       textY + static_cast<float>( lineIndex ) * REPLAY_CAUSE_SOLVER_PANEL_ITERATION_LINE_HEIGHT, 7.0f,
-                       clamped ? palette.accentStrong.r : palette.textMuted.r,
-                       clamped ? palette.accentStrong.g : palette.textMuted.g,
-                       clamped ? palette.accentStrong.b : palette.textMuted.b, line );
+                       textY + static_cast<float>( lineIndex ) * REPLAY_CAUSE_SOLVER_PANEL_ITERATION_LINE_HEIGHT, 9.0f,
+                       clamped ? CAUSE_SOLVER.r : palette.textMuted.r, clamped ? CAUSE_SOLVER.g : palette.textMuted.g,
+                       clamped ? CAUSE_SOLVER.b : palette.textMuted.b, line );
             ++iterationColumn;
         }
 
@@ -251,7 +281,7 @@ void RenderReplayCauseSolverDetailPanel( const UI::UIDrawContext& draw, const Re
                    correction ? correction->scalarA : 0.0f, correction ? correction->scalarB : 0.0f,
                    correction ? correction->scalarC : 0.0f, velocityText, cache ? cache->scalarA : 0.0f,
                    cache ? cache->scalarB : 0.0f, cache ? cache->scalarC : 0.0f );
-        draw.Text( rowRect.x + 7.0f, textY, 7.8f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, line );
+        draw.Text( rowRect.x + 9.0f, textY, 9.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, line );
     }
 
     if ( rowCount > layout.visibleRows )
@@ -261,10 +291,9 @@ void RenderReplayCauseSolverDetailPanel( const UI::UIDrawContext& draw, const Re
         const float knobH = layout.content.h * static_cast<float>( layout.visibleRows ) / static_cast<float>( rowCount );
         const float travel = layout.content.h - knobH;
         const float knobY = layout.content.y + travel * static_cast<float>( firstRow ) / static_cast<float>( maximumFirst );
-        draw.Rect( trackX, layout.content.y, 3.0f, layout.content.h, palette.control.r, palette.control.g, palette.control.b,
-                   0.72f );
-        draw.RoundedRect( trackX - 1.0f, knobY, 5.0f, knobH, 2.0f, palette.accent.r, palette.accent.g, palette.accent.b,
-                          0.82f );
+        draw.Rect( trackX, layout.content.y, 3.0f, layout.content.h, CAUSE_NAVY_ALT.r, CAUSE_NAVY_ALT.g, CAUSE_NAVY_ALT.b,
+                   1.0f );
+        draw.RoundedRect( trackX - 1.0f, knobY, 5.0f, knobH, 2.0f, CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b, 0.88f );
     }
 }
 } // namespace
@@ -1154,41 +1183,72 @@ void RenderReplayCauseTreeOverlay( UiDrawSubmission& submission, Text::TextBatch
 
     const UI::UIRect panel = controlRect( ReplayCauseWindowControl::Panel );
     const UI::UIRect title = controlRect( ReplayCauseWindowControl::Title );
+    const UI::UIRect filterField = controlRect( ReplayCauseWindowControl::FilterField );
+    const UI::UIRect filterFunnel = controlRect( ReplayCauseWindowControl::FilterFunnel );
     const UI::UIRect content = controlRect( ReplayCauseWindowControl::Content );
     const UI::UIRect resize = controlRect( ReplayCauseWindowControl::Resize );
 
     drawList.Clear();
     const UI::UIDrawContext draw( screenW, screenH, drawList );
     const UI::Style::UIPalette& palette = UI::Style::Palette();
-    const UI::Style::UIRadii& radii = UI::Style::Radii();
-    UI::Style::UIColor panelFill = palette.windowSubtle;
-    panelFill.a = 0.93f;
-    UI::Style::UIColor panelBorder = palette.innerBorder;
-    panelBorder.a = 0.58f;
-    draw.RoundedPanel( panel, radii.window, panelFill, panelBorder );
-    draw.Rect( title.x + 12.0f, title.y + title.h - 1.0f, (std::max)( 0.0f, title.w - 24.0f ), 1.0f, palette.innerBorder.r,
-               palette.innerBorder.g, palette.innerBorder.b, 0.42f );
+    UI::Style::UIColor panelBorder = CAUSE_RULE;
+    panelBorder.a = 0.72f;
+    draw.RoundedPanel( panel, 6.0f, CAUSE_NAVY, panelBorder );
+    draw.Rect( title.x + 12.0f, title.y + title.h - 2.0f, (std::max)( 0.0f, title.w - 24.0f ), 2.0f, CAUSE_RULE.r,
+               CAUSE_RULE.g, CAUSE_RULE.b, 0.82f );
 
-    draw.Text( panel.x + 12.0f, panel.y + 10.0f, 13.5f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b,
-               "REPLAY CAMERA" );
-
-    draw.Text( panel.x + 136.0f, panel.y + 12.0f, 11.0f, palette.textSecondary.r, palette.textSecondary.g,
-               palette.textSecondary.b, "CAUSE" );
+    draw.Text( panel.x + 12.0f, panel.y + 9.0f, 14.0f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b,
+               "CAUSE HIERARCHY" );
 
     const char* sourceLabel = predictionRows ? "PREDICT" : "REPLAY";
     const float sourceW = Text2d::MeasureText( 9.5f, sourceLabel );
-    draw.RoundedRect( panel.x + panel.w - sourceW - 26.0f, panel.y + 9.0f, sourceW + 14.0f, 18.0f, radii.smallButton,
-                      predictionRows ? palette.controlHover.r : palette.control.r,
-                      predictionRows ? palette.controlHover.g : palette.control.g,
-                      predictionRows ? palette.controlHover.b : palette.control.b, 0.80f );
+    draw.RoundedRect( panel.x + panel.w - sourceW - 14.0f, panel.y + 8.0f, sourceW + 10.0f, 20.0f, 4.0f,
+                      predictionRows ? CAUSE_SELECTED.r : CAUSE_NAVY_ALT.r,
+                      predictionRows ? CAUSE_SELECTED.g : CAUSE_NAVY_ALT.g,
+                      predictionRows ? CAUSE_SELECTED.b : CAUSE_NAVY_ALT.b, 1.0f );
 
-    draw.Text( panel.x + panel.w - sourceW - 19.0f, panel.y + 13.0f, 9.5f,
-               predictionRows ? palette.accentStrong.r : palette.accent.r,
-               predictionRows ? palette.accentStrong.g : palette.accent.g,
-               predictionRows ? palette.accentStrong.b : palette.accent.b, sourceLabel );
+    draw.Text( panel.x + panel.w - sourceW - 9.0f, panel.y + 13.0f, 10.0f,
+               predictionRows ? CAUSE_PREDICTION.r : CAUSE_RULE.r, predictionRows ? CAUSE_PREDICTION.g : CAUSE_RULE.g,
+               predictionRows ? CAUSE_PREDICTION.b : CAUSE_RULE.b, sourceLabel );
 
-    draw.RoundedRect( content.x, content.y, content.w, content.h, radii.control, palette.window.r, palette.window.g,
-                      palette.window.b, 0.46f );
+    draw.RoundedRect( filterField.x, filterField.y, filterField.w, filterField.h, 4.0f,
+                      replay.causeTree.filterFocused ? CAUSE_SELECTED.r : CAUSE_NAVY_ALT.r,
+                      replay.causeTree.filterFocused ? CAUSE_SELECTED.g : CAUSE_NAVY_ALT.g,
+                      replay.causeTree.filterFocused ? CAUSE_SELECTED.b : CAUSE_NAVY_ALT.b, 1.0f );
+    const char* filterText = replay.causeTree.filterText[0] != '\0' ? replay.causeTree.filterText : "Filter evidence...";
+    draw.Text( filterField.x + 9.0f, filterField.y + 6.0f, 10.0f,
+               replay.causeTree.filterText[0] != '\0' ? palette.textPrimary.r : palette.textMuted.r,
+               replay.causeTree.filterText[0] != '\0' ? palette.textPrimary.g : palette.textMuted.g,
+               replay.causeTree.filterText[0] != '\0' ? palette.textPrimary.b : palette.textMuted.b, filterText );
+    draw.RoundedRect( filterFunnel.x, filterFunnel.y, filterFunnel.w, filterFunnel.h, 4.0f, CAUSE_NAVY_ALT.r,
+                      CAUSE_NAVY_ALT.g, CAUSE_NAVY_ALT.b, 1.0f );
+    draw.Rect( filterFunnel.x + 6.0f, filterFunnel.y + 7.0f, 14.0f, 2.0f, CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b, 0.86f );
+    draw.Rect( filterFunnel.x + 9.0f, filterFunnel.y + 11.0f, 8.0f, 2.0f, CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b, 0.86f );
+    draw.Rect( filterFunnel.x + 12.0f, filterFunnel.y + 15.0f, 2.0f, 4.0f, CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b, 0.86f );
+
+    static constexpr const char* FILTER_LABELS[] = { "ALL", "PREDICTION", "CONTACTS" };
+    static constexpr RunReplayCauseTreeFilter FILTER_VALUES[] = { RunReplayCauseTreeFilter::All,
+                                                                  RunReplayCauseTreeFilter::Prediction,
+                                                                  RunReplayCauseTreeFilter::Contacts };
+
+    for ( int filterIndex = 0; filterIndex < 3; ++filterIndex )
+    {
+        const RunReplayCauseTreeFilter filter = FILTER_VALUES[filterIndex];
+        const UI::UIRect chip = ReplayCauseWindowFilterChipRect( replay.causeTree, filter );
+        const bool active = replay.causeTree.filter == filter;
+        const UI::Style::UIColor& chipFill = active ? CAUSE_SELECTED : CAUSE_NAVY_ALT;
+        const UI::Style::UIColor& chipText = filter == RunReplayCauseTreeFilter::Contacts
+                                                 ? CAUSE_MANIFOLD
+                                                 : ( filter == RunReplayCauseTreeFilter::Prediction ? CAUSE_PREDICTION
+                                                                                                    : CAUSE_RULE );
+        draw.RoundedRect( chip.x, chip.y, chip.w - 4.0f, chip.h, 4.0f, chipFill.r, chipFill.g, chipFill.b,
+                          active ? 1.0f : 0.76f );
+        draw.Text( chip.x + 8.0f, chip.y + 6.0f, 9.5f, active ? chipText.r : palette.textMuted.r,
+                   active ? chipText.g : palette.textMuted.g, active ? chipText.b : palette.textMuted.b,
+                   FILTER_LABELS[filterIndex] );
+    }
+
+    draw.RoundedRect( content.x, content.y, content.w, content.h, 6.0f, CAUSE_NAVY.r, CAUSE_NAVY.g, CAUSE_NAVY.b, 1.0f );
 
     const ReplaySolverFrameSample* scrubSample = replay.selection.currentSolver;
     const ReplayFrameIndex presentFrame = scrubSample ? scrubSample->frameIndex : 0;
@@ -1224,10 +1284,17 @@ void RenderReplayCauseTreeOverlay( UiDrawSubmission& submission, Text::TextBatch
         }
     };
 
+    ReplayCauseWindowProjection projection;
+    BuildReplayCauseWindowProjection( replay.causeTree, projection );
+    char footerText[96] = {};
+    sprintf_s( footerText, sizeof( footerText ), "%d / %zu EVIDENCE   SELECT TO INSPECT", projection.count,
+               replay.causeTree.rows.size() );
+    draw.Text( panel.x + 12.0f, panel.y + panel.h - 17.0f, 9.5f, palette.textMuted.r, palette.textMuted.g,
+               palette.textMuted.b, footerText );
     const float rowAreaW = content.w - 12.0f;
     const int firstRow = (std::max)( 0, static_cast<int>( floorf( replay.causeTree.scrollY / REPLAY_CAUSE_WINDOW_ROW_HEIGHT ) ) );
 
-    const int rowCount = static_cast<int>( replay.causeTree.rows.size() );
+    const int rowCount = projection.count;
     int hoveredRow = -1;
 
     if ( surface.hasHotControl && surface.hotControl == ReplayCauseWindowControlId( ReplayCauseWindowControl::Content ) )
@@ -1241,10 +1308,17 @@ void RenderReplayCauseTreeOverlay( UiDrawSubmission& submission, Text::TextBatch
         }
     }
 
-    for ( int rowIndex = firstRow; rowIndex < rowCount; ++rowIndex )
+    if ( rowCount == 0 )
     {
-        const RunReplayCauseTreeRow& row = replay.causeTree.rows[static_cast<std::size_t>( rowIndex )];
-        const float rowY = content.y + static_cast<float>( rowIndex ) * REPLAY_CAUSE_WINDOW_ROW_HEIGHT -
+        draw.Text( content.x + 12.0f, content.y + 16.0f, 11.0f, palette.textMuted.r, palette.textMuted.g,
+                   palette.textMuted.b, "No matching evidence" );
+    }
+
+    for ( int visibleRow = firstRow; visibleRow < rowCount; ++visibleRow )
+    {
+        const int sourceRow = projection.SourceRow( visibleRow );
+        const RunReplayCauseTreeRow& row = replay.causeTree.rows[static_cast<std::size_t>( sourceRow )];
+        const float rowY = content.y + static_cast<float>( visibleRow ) * REPLAY_CAUSE_WINDOW_ROW_HEIGHT -
                            replay.causeTree.scrollY;
 
         if ( rowY + REPLAY_CAUSE_WINDOW_ROW_HEIGHT < content.y )
@@ -1258,14 +1332,19 @@ void RenderReplayCauseTreeOverlay( UiDrawSubmission& submission, Text::TextBatch
         }
 
         const UI::UIRect rowRect = { content.x + 2.0f, rowY, rowAreaW, REPLAY_CAUSE_WINDOW_ROW_HEIGHT - 2.0f };
-        const bool hovered = rowIndex == hoveredRow;
-        const bool selected = rowIndex == replay.causeTree.selectedRow;
+        const bool hovered = visibleRow == hoveredRow;
+        const bool selected = sourceRow == replay.causeTree.selectedRow;
 
-        if ( hovered || selected )
+        if ( selected )
         {
-            const UI::Style::UIColor& rowFill = selected ? palette.controlHover : palette.control;
-            draw.RoundedRect( rowRect.x, rowRect.y, rowRect.w, rowRect.h, radii.smallButton, rowFill.r, rowFill.g, rowFill.b,
-                              hovered ? 0.82f : 0.56f );
+            draw.RoundedRect( rowRect.x, rowRect.y, rowRect.w, rowRect.h, 4.0f, CAUSE_SELECTED.r, CAUSE_SELECTED.g,
+                              CAUSE_SELECTED.b, 1.0f );
+        }
+        else
+        {
+            const UI::Style::UIColor& rowFill = ( visibleRow % 2 ) == 0 ? CAUSE_NAVY_ALT : CAUSE_NAVY;
+            draw.RoundedRect( rowRect.x, rowRect.y, rowRect.w, rowRect.h, 4.0f, rowFill.r, rowFill.g, rowFill.b,
+                              hovered ? 1.0f : 0.78f );
         }
 
         const float indent = (std::min)( rowRect.w * 0.40f, static_cast<float>( row.depth ) * 16.0f );
@@ -1273,11 +1352,9 @@ void RenderReplayCauseTreeOverlay( UiDrawSubmission& submission, Text::TextBatch
         if ( row.depth > 0 )
         {
             const float lineX = rowRect.x + 8.0f + indent - 9.0f;
-            draw.Rect( lineX, rowRect.y + 4.0f, 1.0f, rowRect.h - 8.0f, palette.innerBorder.r, palette.innerBorder.g,
-                       palette.innerBorder.b, 0.34f );
+            draw.Rect( lineX, rowRect.y + 4.0f, 1.0f, rowRect.h - 8.0f, CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b, 0.28f );
 
-            draw.Rect( lineX, rowRect.y + rowRect.h * 0.5f, 8.0f, 1.0f, palette.innerBorder.r, palette.innerBorder.g,
-                       palette.innerBorder.b, 0.34f );
+            draw.Rect( lineX, rowRect.y + rowRect.h * 0.5f, 8.0f, 1.0f, CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b, 0.28f );
         }
 
         char prefix[32] = {};
@@ -1332,39 +1409,39 @@ void RenderReplayCauseTreeOverlay( UiDrawSubmission& submission, Text::TextBatch
         const int detailChars = static_cast<int>( ( rowRect.w - indent - 18.0f ) / 7.2f );
         truncateText( row.detail, clippedDetail, sizeof( clippedDetail ), detailChars );
 
-        float markerR = 0.94f;
-        float markerG = 1.0f;
-        float markerB = 0.74f;
+        float markerR = CAUSE_PREDICTION.r;
+        float markerG = CAUSE_PREDICTION.g;
+        float markerB = CAUSE_PREDICTION.b;
 
         if ( row.kind == RunReplayCauseTreeRowKind::Manifold )
         {
-            markerR = 0.20f;
-            markerG = 0.90f;
-            markerB = 1.0f;
+            markerR = CAUSE_MANIFOLD.r;
+            markerG = CAUSE_MANIFOLD.g;
+            markerB = CAUSE_MANIFOLD.b;
         }
         else if ( row.kind == RunReplayCauseTreeRowKind::SolverRow )
         {
-            markerR = 1.0f;
-            markerG = 0.42f;
-            markerB = 0.18f;
+            markerR = CAUSE_SOLVER.r;
+            markerG = CAUSE_SOLVER.g;
+            markerB = CAUSE_SOLVER.b;
         }
         else if ( row.kind == RunReplayCauseTreeRowKind::PredictionContact )
         {
-            markerR = 0.38f;
-            markerG = 1.0f;
-            markerB = 0.58f;
+            markerR = CAUSE_PREDICTION.r;
+            markerG = CAUSE_PREDICTION.g;
+            markerB = CAUSE_PREDICTION.b;
         }
         else if ( row.kind == RunReplayCauseTreeRowKind::PredictionMotion )
         {
-            markerR = 1.0f;
-            markerG = 0.72f;
-            markerB = 0.20f;
+            markerR = CAUSE_RULE.r;
+            markerG = CAUSE_RULE.g;
+            markerB = CAUSE_RULE.b;
         }
 
         const float markerX = rowRect.x + 8.0f + indent;
         const float markerY = rowRect.y + 8.0f;
         draw.Rect( markerX, markerY, 6.0f, 6.0f, markerR, markerG, markerB, 0.92f );
-        draw.Text( markerX + 11.0f, rowRect.y + 4.0f, 12.4f,
+        draw.Text( markerX + 11.0f, rowRect.y + 4.0f, 12.0f,
                    row.kind == RunReplayCauseTreeRowKind::Body ? palette.textPrimary.r : palette.textSecondary.r,
                    row.kind == RunReplayCauseTreeRowKind::Body ? palette.textPrimary.g : palette.textSecondary.g,
                    row.kind == RunReplayCauseTreeRowKind::Body ? palette.textPrimary.b : palette.textSecondary.b,
@@ -1372,7 +1449,7 @@ void RenderReplayCauseTreeOverlay( UiDrawSubmission& submission, Text::TextBatch
 
         if ( clippedDetail[0] != '\0' )
         {
-            draw.Text( markerX + 11.0f, rowRect.y + 22.0f, 10.4f, palette.textMuted.r, palette.textMuted.g,
+            draw.Text( markerX + 11.0f, rowRect.y + 22.0f, 10.0f, palette.textMuted.r, palette.textMuted.g,
                        palette.textMuted.b, clippedDetail );
         }
     }
@@ -1382,21 +1459,20 @@ void RenderReplayCauseTreeOverlay( UiDrawSubmission& submission, Text::TextBatch
     if ( maxScroll > 0.0f )
     {
         const float trackX = content.x + content.w - 5.0f;
-        draw.Rect( trackX, content.y + 3.0f, 3.0f, content.h - 6.0f, palette.control.r, palette.control.g, palette.control.b,
-                   0.72f );
+        draw.Rect( trackX, content.y + 3.0f, 3.0f, content.h - 6.0f, CAUSE_NAVY_ALT.r, CAUSE_NAVY_ALT.g, CAUSE_NAVY_ALT.b,
+                   1.0f );
 
         const float contentHeight = ReplayCauseWindowContentHeight( replay.causeTree );
         const float knobH = (std::max)( 24.0f, ( content.h / contentHeight ) * ( content.h - 6.0f ) );
         const float knobY = content.y + 3.0f + ( replay.causeTree.scrollY / maxScroll ) * ( content.h - 6.0f - knobH );
-        draw.RoundedRect( trackX - 1.0f, knobY, 5.0f, knobH, 2.0f, palette.accent.r, palette.accent.g, palette.accent.b,
-                          0.78f );
+        draw.RoundedRect( trackX - 1.0f, knobY, 5.0f, knobH, 2.0f, CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b, 0.88f );
     }
 
-    draw.Rect( resize.x + 4.0f, resize.y + resize.h - 5.0f, resize.w - 7.0f, 1.0f, palette.innerBorder.r,
-               palette.innerBorder.g, palette.innerBorder.b, 0.68f );
+    draw.Rect( resize.x + 4.0f, resize.y + resize.h - 5.0f, resize.w - 7.0f, 1.0f, CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b,
+               0.72f );
 
-    draw.Rect( resize.x + resize.w - 5.0f, resize.y + 4.0f, 1.0f, resize.h - 7.0f, palette.innerBorder.r,
-               palette.innerBorder.g, palette.innerBorder.b, 0.68f );
+    draw.Rect( resize.x + resize.w - 5.0f, resize.y + 4.0f, 1.0f, resize.h - 7.0f, CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b,
+               0.72f );
 
     RenderReplayCauseSolverDetailPanel( draw, replay, screenW, screenH );
 

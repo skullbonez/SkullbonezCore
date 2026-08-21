@@ -5,9 +5,10 @@ Purpose:
 
 Summary:
   ReplayAuthoring retains the bounded cause-row surface and applies input
-  gestures over that lower Replay value. App may route an attached title hit
-  into the same drag offsets, while Prediction composes row contents in its own
-  package and this file never names Prediction state or scheduling.
+  gestures plus fixed-capacity filter editing over that lower Replay value. App
+  may route an attached title hit into the same drag offsets, while Prediction
+  composes row contents in its own package and this file never names Prediction
+  state or scheduling.
 
 Invariants:
   - Window placement and row selection mutate only ReplayAuthoring state.
@@ -15,6 +16,8 @@ Invariants:
     clamping and unit tests exercise the same anchor mutation.
   - Pointer capture is released when a cause-window drag ends or becomes unavailable.
   - Selected rows are returned as values; host-camera transitions remain in Runtime/App.
+  - Filtered visible rows map back to original source indices before selection;
+    keyboard focus blocks later runtime actions without taking camera ownership.
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayAuthoring.h
@@ -129,6 +132,20 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
     const bool leftPressed = pointer.leftPressed;
     const bool leftReleased = pointer.leftReleased;
     BeginCauseTreeInputFrame();
+    const InputKeySnapshot& filterKeys = inputRouter.DeviceFrame().keys;
+    const std::array<uint64_t, InputKeySnapshot::WORD_COUNT> previousFilterKeys = m_causeTree.filterKeysWasDown;
+    m_causeTree.filterKeysWasDown = filterKeys.Words();
+    const auto filterKeyPressed = [&]( int virtualKey ) noexcept
+    {
+        if ( virtualKey < 0 || virtualKey >= InputKeySnapshot::VIRTUAL_KEY_COUNT )
+        {
+            return false;
+        }
+
+        const std::size_t word = static_cast<std::size_t>( virtualKey ) / 64u;
+        const uint64_t bit = uint64_t { 1 } << ( static_cast<unsigned int>( virtualKey ) & 63u );
+        return filterKeys.IsDown( virtualKey ) && ( previousFilterKeys[word] & bit ) == 0u;
+    };
     const int screenW = screenWidth;
     const int screenH = screenHeight;
     const auto causeTreeDragMode = [&]()
@@ -156,6 +173,7 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
 
     if ( !rowsReady )
     {
+        m_causeTree.filterFocused = false;
         endCauseTreeDragIfReleased();
         return false;
     }
@@ -187,6 +205,105 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
 
     const UI::UIRect content = contentControl->drawRect;
 
+    bool filterChanged = false;
+    const auto setFilter = [&]( RunReplayCauseTreeFilter filter )
+    {
+        if ( m_causeTree.filter != filter )
+        {
+            m_causeTree.filter = filter;
+            filterChanged = true;
+        }
+    };
+    const auto appendFilterChar = [&]( char value )
+    { filterChanged = ReplayOverlay::AppendReplayCauseFilterCharacter( m_causeTree, value ) || filterChanged; };
+
+    if ( m_causeTree.filterFocused )
+    {
+        for ( int key = 'A'; key <= 'Z'; ++key )
+        {
+            if ( filterKeyPressed( key ) )
+            {
+                appendFilterChar( static_cast<char>( 'a' + key - 'A' ) );
+            }
+        }
+
+        for ( int key = '0'; key <= '9'; ++key )
+        {
+            if ( filterKeyPressed( key ) )
+            {
+                appendFilterChar( static_cast<char>( key ) );
+            }
+        }
+
+        if ( filterKeyPressed( VK_SPACE ) )
+        {
+            appendFilterChar( ' ' );
+        }
+
+        if ( filterKeyPressed( VK_OEM_MINUS ) )
+        {
+            appendFilterChar( filterKeys.IsDown( VK_SHIFT ) ? '_' : '-' );
+        }
+
+        if ( filterKeyPressed( VK_OEM_PERIOD ) )
+        {
+            appendFilterChar( '.' );
+        }
+
+        if ( filterKeyPressed( VK_BACK ) && m_causeTree.filterText[0] != '\0' )
+        {
+            filterChanged = ReplayOverlay::BackspaceReplayCauseFilter( m_causeTree ) || filterChanged;
+        }
+
+        if ( filterKeyPressed( VK_DELETE ) )
+        {
+            filterChanged = ReplayOverlay::ClearReplayCauseFilterText( m_causeTree ) || filterChanged;
+        }
+
+        if ( filterKeyPressed( VK_ESCAPE ) )
+        {
+            if ( m_causeTree.filterText[0] != '\0' )
+            {
+                filterChanged = ReplayOverlay::ClearReplayCauseFilterText( m_causeTree ) || filterChanged;
+            }
+            else
+            {
+                m_causeTree.filterFocused = false;
+            }
+        }
+    }
+
+    const auto clampFilterScroll = [&]()
+    {
+        m_causeTree.scrollY = std::clamp( m_causeTree.scrollY, 0.0f,
+                                          ReplayOverlay::ReplayCauseWindowMaxScroll( m_causeTree ) );
+        ReplayOverlay::ReplayCauseWindowProjection projection;
+        ReplayOverlay::BuildReplayCauseWindowProjection( m_causeTree, projection );
+        const int selectedVisible = projection.VisibleRow( m_causeTree.selectedRow );
+
+        if ( selectedVisible < 0 )
+        {
+            return;
+        }
+
+        const float rowTop = static_cast<float>( selectedVisible ) * ReplayOverlay::REPLAY_CAUSE_WINDOW_ROW_HEIGHT;
+        const float rowBottom = rowTop + ReplayOverlay::REPLAY_CAUSE_WINDOW_ROW_HEIGHT;
+
+        if ( rowTop < m_causeTree.scrollY )
+        {
+            m_causeTree.scrollY = rowTop;
+        }
+        else if ( rowBottom > m_causeTree.scrollY + content.h )
+        {
+            m_causeTree.scrollY = rowBottom - content.h;
+        }
+    };
+
+    if ( filterChanged )
+    {
+        clampFilterScroll();
+    }
+
     if ( causeTreeDragMode() == 0 )
     {
         MoveCauseTreeWindow( mouse.x, mouse.y, screenW, screenH );
@@ -215,7 +332,47 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
 
     if ( uiBlocksMouse || !surface.consumesPointer )
     {
+        if ( leftPressed )
+        {
+            m_causeTree.filterFocused = false;
+        }
+
         return false;
+    }
+
+    if ( leftPressed && isHotControl( ReplayOverlay::ReplayCauseWindowControl::FilterField ) )
+    {
+        m_causeTree.filterFocused = true;
+        interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay, WorldInteractionOwner::ReplayCauseTree,
+                                                         InteractionExitReason::EnterReplay );
+        return true;
+    }
+
+    if ( leftPressed && isHotControl( ReplayOverlay::ReplayCauseWindowControl::FilterFunnel ) )
+    {
+        const RunReplayCauseTreeFilter next = m_causeTree.filter == RunReplayCauseTreeFilter::All
+                                                  ? RunReplayCauseTreeFilter::Prediction
+                                                  : ( m_causeTree.filter == RunReplayCauseTreeFilter::Prediction
+                                                          ? RunReplayCauseTreeFilter::Contacts
+                                                          : RunReplayCauseTreeFilter::All );
+        setFilter( next );
+        m_causeTree.filterFocused = false;
+        clampFilterScroll();
+        return true;
+    }
+
+    if ( leftPressed && ( isHotControl( ReplayOverlay::ReplayCauseWindowControl::FilterAll ) ||
+                          isHotControl( ReplayOverlay::ReplayCauseWindowControl::FilterPrediction ) ||
+                          isHotControl( ReplayOverlay::ReplayCauseWindowControl::FilterContacts ) ) )
+    {
+        setFilter( isHotControl( ReplayOverlay::ReplayCauseWindowControl::FilterAll )
+                       ? RunReplayCauseTreeFilter::All
+                       : ( isHotControl( ReplayOverlay::ReplayCauseWindowControl::FilterPrediction )
+                               ? RunReplayCauseTreeFilter::Prediction
+                               : RunReplayCauseTreeFilter::Contacts ) );
+        m_causeTree.filterFocused = false;
+        clampFilterScroll();
+        return true;
     }
 
     if ( wheelDelta != 0 )
@@ -270,8 +427,16 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
 
     if ( isHotControl( ReplayOverlay::ReplayCauseWindowControl::Content ) )
     {
+        if ( leftPressed )
+        {
+            m_causeTree.filterFocused = false;
+        }
+
         const float localY = static_cast<float>( mouse.y ) - content.y + CauseTree().scrollY;
-        const int rowIndex = static_cast<int>( floorf( localY / ReplayOverlay::REPLAY_CAUSE_WINDOW_ROW_HEIGHT ) );
+        const int visibleRow = static_cast<int>( floorf( localY / ReplayOverlay::REPLAY_CAUSE_WINDOW_ROW_HEIGHT ) );
+        ReplayOverlay::ReplayCauseWindowProjection projection;
+        ReplayOverlay::BuildReplayCauseWindowProjection( CauseTree(), projection );
+        const int rowIndex = projection.SourceRow( visibleRow );
         RunReplayCauseTreeRow selectedRow;
 
         if ( TryGetCauseTreeRow( rowIndex, selectedRow ) )

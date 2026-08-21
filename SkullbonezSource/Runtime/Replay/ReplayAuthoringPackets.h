@@ -8,7 +8,8 @@ Summary:
   values. Exact prediction rows carry the full immutable evidence stamp needed
   to reject a replacement bank before numeric offsets can resolve. Velocity
   drag state retains only its target, starting values, and whether release owes
-  one authoritative refresh.
+  one authoritative refresh. Cause filtering retains bounded ASCII text, chip
+  state, and key edges beside the sole ReplayAuthoring window owner.
 
 Glossary:
   Dense-row hint: Frame-local model row validated against a stable scene object id before use.
@@ -18,6 +19,8 @@ Glossary:
 Invariants:
   - PhysicsSceneObjectId remains durable identity; ModelRowHint is only a cache.
   - Cause rows reserve their bounded capacity before steady runtime.
+  - Filter text and key-edge memory are fixed-size and never create a second
+    filtered row store.
   - Prediction Manifold and SolverRow offsets are usable only with an exact
     generation/mode/epoch/frame/topology/publication identity match.
   - Velocity drag state is fixed-size and carries no Prediction owner borrow.
@@ -33,6 +36,7 @@ Related:
 #include "../../Maths/Vector3.h"
 #include "../../Physics/PhysicsHandles.h"
 
+#include <array>
 #include <vector>
 
 namespace SkullbonezCore::Runtime
@@ -86,6 +90,15 @@ struct RunReplayCauseTreeRow
     char detail[160] = {};
 };
 
+enum class RunReplayCauseTreeFilter : uint8_t
+{
+    All,
+    Prediction,
+    Contacts
+};
+
+inline constexpr std::size_t REPLAY_CAUSE_FILTER_TEXT_CAPACITY = 48u;
+
 struct RunReplayCauseTreeState
 {
     // Runtime allocation policy: Authoring reserves the full bounded row
@@ -110,6 +123,14 @@ struct RunReplayCauseTreeState
     int mouseX = 0;
     int mouseY = 0;
     bool pointerBlocked = true;
+
+    // Concept: ReplayAuthoring owns filter focus and its fixed text/key memory;
+    // rendering consumes only this detached value state. Unsupported virtual
+    // keys never enter the ASCII evidence search buffer.
+    char filterText[REPLAY_CAUSE_FILTER_TEXT_CAPACITY] = {};
+    RunReplayCauseTreeFilter filter = RunReplayCauseTreeFilter::All;
+    bool filterFocused = false;
+    std::array<uint64_t, 4> filterKeysWasDown = {};
 };
 
 struct RunReplayVelocityEditState

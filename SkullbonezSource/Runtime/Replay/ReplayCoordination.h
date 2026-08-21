@@ -110,6 +110,10 @@ struct ReplayWorkspaceOutput
 {
     ReplayLiveRestoreRequest restoreRequest;
     bool consumesMouse = false;
+
+    // Why: focused cause-filter text must block later runtime key bindings in
+    // the same frame without giving Replay retained access to InputRouter.
+    bool consumesKeyboard = false;
     bool enterInteractive = false;
 
     // Zero denotes ordinary replay transport. Planning uses a non-zero token to

@@ -587,7 +587,9 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( SkullbonezCore::Core::SbDiagnosticStor
 
     result.enterInteractiveScene = result.enterInteractiveScene || result.replayWorkspace.enterInteractive;
     result.suppressWorldActionThisFrame = result.suppressWorldActionThisFrame || result.replayWorkspace.consumesMouse;
-    runtimeInput.BeginFrame( true, ui.BlocksKeyboard() || facts.externalUiCapture.keyboard || facts.externalUiCapture.text,
+    runtimeInput.BeginFrame( true,
+                             ui.BlocksKeyboard() || facts.externalUiCapture.keyboard || facts.externalUiCapture.text ||
+                                 result.replayWorkspace.consumesKeyboard,
                              ui.BlocksCameraMouse() || facts.externalUiCapture.mouse ||
                                  result.replayWorkspace.consumesMouse );
 

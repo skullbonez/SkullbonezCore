@@ -6,8 +6,9 @@ Purpose:
 
 Summary:
   Replay input and replay drawing must agree on hit boxes. Keep hierarchy
-  geometry and generic attached-left clamping here so the runtime composition
-  root does not own screen-space replay placement.
+  geometry, filtered source-index projection, and generic attached-left
+  clamping here so the runtime composition root does not own screen-space
+  replay placement or filtered evidence.
 
 Glossary:
   Track: Normalized timeline lane, either presentation or solver-backed.
@@ -19,6 +20,8 @@ Invariants:
     mutate replay state.
   - Attachment extents may constrain the one window anchor but never retain a
     second x/y pair.
+  - Filter projection storage is fixed-capacity and contains source indices,
+    never duplicated evidence rows.
 
 Related:
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp
@@ -62,6 +65,8 @@ inline constexpr float REPLAY_CAUSE_TREE_PANEL_TOP = 84.0f;
 inline constexpr float REPLAY_CAUSE_TREE_ROW_HEIGHT = 22.0f;
 inline constexpr float REPLAY_CAUSE_TREE_HEADER_HEIGHT = 42.0f;
 inline constexpr float REPLAY_CAUSE_WINDOW_TITLE_HEIGHT = 38.0f;
+inline constexpr float REPLAY_CAUSE_WINDOW_FILTER_HEIGHT = 70.0f;
+inline constexpr float REPLAY_CAUSE_WINDOW_FOOTER_HEIGHT = 22.0f;
 inline constexpr float REPLAY_CAUSE_WINDOW_ROW_HEIGHT = 38.0f;
 inline constexpr float REPLAY_CAUSE_WINDOW_PADDING = 12.0f;
 inline constexpr float REPLAY_CAUSE_WINDOW_RESIZE_SIZE = 18.0f;
@@ -115,6 +120,11 @@ enum class ReplayCauseWindowControl : uint32_t
     None,
     Resize,
     Title,
+    FilterField,
+    FilterFunnel,
+    FilterAll,
+    FilterPrediction,
+    FilterContacts,
     Content,
     Panel
 };
@@ -124,7 +134,18 @@ inline RuntimeUiControlId ReplayCauseWindowControlId( ReplayCauseWindowControl c
     return RuntimeUiControlId { static_cast<uint32_t>( control ) };
 }
 
-using ReplayCauseWindowSurface = RuntimeUiSurface<4>;
+using ReplayCauseWindowSurface = RuntimeUiSurface<9>;
+
+struct ReplayCauseWindowProjection
+{
+    static constexpr std::size_t WORD_COUNT = ( REPLAY_CAUSE_TREE_ROW_CAPACITY + 63u ) / 64u;
+    std::array<uint64_t, WORD_COUNT> included = {};
+    int sourceCount = 0;
+    int count = 0;
+
+    int SourceRow( int visibleRow ) const noexcept;
+    int VisibleRow( int sourceRow ) const noexcept;
+};
 
 // Derives track/tool availability from replay state. Callers then add their
 // one-frame screen, gesture, and pointer-blocking facts before surface layout.
@@ -149,6 +170,9 @@ float ReplayPredictionHorizonFromMouse( int mouseX, const UI::UIRect& horizon );
 UI::UIRect ReplayScrubberHotZoneRect( int screenW, int screenH );
 UI::UIRect ReplayCauseWindowRect( const RunReplayCauseTreeState& state );
 UI::UIRect ReplayCauseWindowTitleRect( const RunReplayCauseTreeState& state );
+UI::UIRect ReplayCauseWindowFilterFieldRect( const RunReplayCauseTreeState& state );
+UI::UIRect ReplayCauseWindowFilterFunnelRect( const RunReplayCauseTreeState& state );
+UI::UIRect ReplayCauseWindowFilterChipRect( const RunReplayCauseTreeState& state, RunReplayCauseTreeFilter filter );
 UI::UIRect ReplayCauseWindowContentRect( const RunReplayCauseTreeState& state );
 UI::UIRect ReplayCauseWindowResizeRect( const RunReplayCauseTreeState& state );
 
@@ -156,6 +180,11 @@ UI::UIRect ReplayCauseWindowResizeRect( const RunReplayCauseTreeState& state );
 bool ReplayCauseWindowContainsPoint( const RunReplayCauseTreeState& state, int x, int y );
 float ReplayCauseWindowContentHeight( const RunReplayCauseTreeState& state );
 float ReplayCauseWindowMaxScroll( const RunReplayCauseTreeState& state );
+void BuildReplayCauseWindowProjection( const RunReplayCauseTreeState& state,
+                                       ReplayCauseWindowProjection& outProjection ) noexcept;
+bool AppendReplayCauseFilterCharacter( RunReplayCauseTreeState& state, char value ) noexcept;
+bool BackspaceReplayCauseFilter( RunReplayCauseTreeState& state ) noexcept;
+bool ClearReplayCauseFilterText( RunReplayCauseTreeState& state ) noexcept;
 
 // Returns the width that an attachment on the window's left can retain after
 // preserving the hierarchy's minimum width and the viewport's outer margins.
