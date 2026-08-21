@@ -15,6 +15,7 @@ Glossary:
 
 Invariants:
   - Duplicate ids and capacity exhaustion are recoverable preflight failures.
+  - Missing display names fail before paired body/collider/render mutation.
   - Successful commits retain exact identity, material, affiliation, and group values.
   - Clear and commit reuse the pre-scene reservation without growing storage.
   - Render creation publishes presentation, instance, and handle rows together.
@@ -101,8 +102,13 @@ TEST_CASE( "SceneEntityStore: preflight and commit preserve durable owner metada
 
     CHECK_FALSE( store.PreflightAppend( entity ).Ok() );
 
+    SceneEntityCreateDesc unnamed;
+    unnamed.sceneObjectId = PhysicsSceneObjectId { 44u };
+    CHECK_FALSE( store.PreflightAppend( unnamed ).Ok() );
+
     SceneEntityCreateDesc orphan;
-    orphan.sceneObjectId = PhysicsSceneObjectId { 44u };
+    orphan.sceneObjectId = PhysicsSceneObjectId { 45u };
+    orphan.SetName( "orphan" );
     orphan.SetBehaviorGroup( SceneBehaviorGroupKind::ReleasableTree, PhysicsSceneObjectId { 999u }, 1 );
     CHECK_FALSE( store.PreflightAppend( orphan ).Ok() );
 
@@ -133,6 +139,7 @@ TEST_CASE( "SceneEntityStore: active capacity is enforced without growth" )
 
     SceneEntityCreateDesc second;
     second.sceneObjectId = PhysicsSceneObjectId { 2u };
+    second.SetName( "second" );
     CHECK_FALSE( store.PreflightAppend( second ).Ok() );
     CHECK( store.Count() == 1 );
     CHECK( store.Capacity() == 1 );

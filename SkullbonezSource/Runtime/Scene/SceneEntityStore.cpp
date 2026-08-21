@@ -126,6 +126,15 @@ SkullbonezCore::Core::SbResult SceneEntityStore::PreflightAppend( const SceneEnt
         return m_diagnostics.Failure( "Scene/SceneEntityStore", "Cannot append a scene entity with id 0." );
     }
 
+    if ( entity.displayName[0] == '\0' )
+    {
+        // Why: snapshots and semantic interaction anchors both publish display
+        // names. Rejecting an unnamed row before any paired store mutates keeps
+        // the later F8 save boundary recoverable and serialization-ready.
+        return m_diagnostics.Failure( "Scene/SceneEntityStore", "Cannot append an unnamed scene entity. id=%u.",
+                                      entity.sceneObjectId.value );
+    }
+
     if ( FindBySceneObjectId( entity.sceneObjectId ) >= 0 )
     {
         return m_diagnostics.Failure( "Scene/SceneEntityStore", "Duplicate scene entity id %u.",
