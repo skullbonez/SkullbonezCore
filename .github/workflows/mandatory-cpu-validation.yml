@@ -203,8 +203,7 @@ jobs:
           retention-days: 14
 
   physics-artifact:
-    name: Build shared Debug physics artifact
-    needs: cpu-tests
+    name: Build early shared Debug physics artifact
     runs-on: windows-latest
     timeout-minutes: 30
 
@@ -215,6 +214,14 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
           submodules: recursive
+
+      - name: Verify owner-approved physics golden before setup
+        shell: pwsh
+        run: |
+          python tools/check_physics_baseline_guard.py --repo .
+          if ($LASTEXITCODE -ne 0) {
+            throw "Physics golden approval check failed (exit $LASTEXITCODE)"
+          }
 
       - name: Install pinned NuGet client
         uses: NuGet/setup-nuget@fd55a6f3b34392fa83fde1454582407d8c714123 # v4.0
@@ -377,7 +384,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 20
     strategy:
-      fail-fast: false
+      fail-fast: true
       max-parallel: 2
       matrix:
         replica: [1, 2]

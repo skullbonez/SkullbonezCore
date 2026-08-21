@@ -4,9 +4,9 @@
 @rem   Documents and runs the validate_physics.bat developer/validation helper script.
 @rem
 @rem Summary:
-@rem   Tools are command-line guardrails around builds, validation, screenshots,
-@rem   diagnostics, and artifact handling. They make the safe path repeatable and
-@rem   keep output bounded for humans and agents.
+@rem   The owner-approved golden digest is checked before any build. The gate
+@rem   then builds or reuses Debug, proves the PhysicsEngine lifecycle, runs the
+@rem   authored deterministic scene, and performs a byte-exact comparison.
 @rem
 @rem Glossary:
 @rem   SkullScope: Queryable physics diagnostics workflow backed by bounded trace
@@ -17,13 +17,17 @@
 @rem   commit or PR.
 @rem
 @rem Invariants:
-@rem   - Tool output should be bounded and readable because agents and humans use
-@rem   it for decisions.
+@rem   - A modified golden fails before build or launch unless its exact bytes
+@rem   have an owner approval record.
 @rem   - The engine lifecycle smoke must run before the scene regression so
 @rem   owner-lifecycle failures are visible apart from scene loading or rendering.
+@rem   - Commit-gate and parent full-gate calls defer ready-build restoration;
+@rem   their callers own any later build fan-in.
 @rem
 @rem Related:
 @rem   - AGENTS.md
+@rem   - tools/check_physics_baseline_guard.py
+@rem   - tools/check_physics_regression.py
 @rem
 @rem
 @echo off
@@ -33,6 +37,19 @@ REM  validate_physics.bat - Core physics determinism regression test.
 REM  Use for: normal physics, collision, solver, rigid body changes.
 REM  Runtime: engine lifecycle smoke, one authored varied-scene launch, and baseline comparison.
 REM ===============================================================
+
+set "COMMIT_GATE=0"
+if /I "%~1"=="--commit-gate" set "COMMIT_GATE=1"
+if not "%~1"=="" if not "%COMMIT_GATE%"=="1" (
+    echo ERROR: Unknown argument "%~1".
+    echo Usage: tools\validate_physics.bat [--commit-gate]
+    exit /b 64
+)
+if not "%~2"=="" (
+    echo ERROR: Too many arguments.
+    echo Usage: tools\validate_physics.bat [--commit-gate]
+    exit /b 64
+)
 
 set "REPO=%~dp0.."
 pushd "%REPO%"
@@ -44,7 +61,15 @@ echo   VALIDATE_PHYSICS - Determinism Check
 echo ========================================
 echo.
 
-echo [1/5] Ensuring Debug x64 build...
+echo [1/6] Verifying owner-approved golden digest...
+"%PYTHON_EXE%" "%~dp0check_physics_baseline_guard.py" --repo "%REPO%"
+if errorlevel 1 (
+    echo FAIL: Physics golden is missing owner approval or was modified.
+    popd
+    exit /b 3
+)
+
+echo [2/6] Ensuring Debug x64 build...
 if /I "%SKULLBONEZ_ASSUME_DEBUG_BUILT%"=="1" (
     echo PASS: Reusing prebuilt Debug x64.
 ) else (
@@ -52,14 +77,14 @@ if /I "%SKULLBONEZ_ASSUME_DEBUG_BUILT%"=="1" (
     if errorlevel 1 exit /b 1
 )
 
-echo [2/5] Running PhysicsEngine lifecycle smoke...
+echo [3/6] Running PhysicsEngine lifecycle smoke...
 "%REPO%\Debug\SKULLBONEZ_CORE.exe" --physics-standalone-smoke
 if errorlevel 1 (
     echo FAIL: PhysicsEngine lifecycle smoke failed.
     exit /b 2
 )
 
-echo [3/5] Running core physics regression scene...
+echo [4/6] Running core physics regression scene...
 del /q "%REPO%\Debug\physics_regression_*.csv" 2>nul
 
 echo   Running physics_bench_varied...
@@ -69,7 +94,7 @@ if errorlevel 1 (
     exit /b 2
 )
 
-echo [4/5] Comparing output against baselines...
+echo [5/6] Comparing output against baselines...
 set "SKORE_REPO=%REPO%"
 "%PYTHON_EXE%" "%~dp0check_physics_regression.py"
 if errorlevel 1 (
@@ -79,12 +104,22 @@ if errorlevel 1 (
     exit /b 2
 )
 
-echo [5/5] Leaving Profile and Debug builds ready...
+echo [6/6] Leaving Profile and Debug builds ready...
+if "%COMMIT_GATE%"=="1" (
+    echo       Deferred by commit gate; only the deterministic Debug proof is required.
+    goto :ready_complete
+)
+if /I "%SKULLBONEZ_SKIP_READY_BUILDS%"=="1" (
+    echo       Deferred to parent validation gate.
+    goto :ready_complete
+)
 call "%~dp0validate_ready_builds.bat"
 if errorlevel 1 (
     popd
     exit /b 4
 )
+
+:ready_complete
 
 echo.
 echo ========================================

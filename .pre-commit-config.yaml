@@ -2,6 +2,20 @@ repos:
   # Custom header/linting check
   - repo: local
     hooks:
+      - id: physics-baseline-approval
+        name: Physics Golden Owner Approval
+        entry: python tools/check_physics_baseline_guard.py --repo . --staged
+        language: system
+        always_run: true
+        pass_filenames: false
+
+      - id: physics-runtime-commit-gate
+        name: Physics Determinism Commit Gate
+        entry: python tools/check_physics_commit_gate.py --repo .
+        language: system
+        always_run: true
+        pass_filenames: false
+
       - id: header-consistency
         name: Header Consistency Check
         entry: python3 .githooks/check-headers.py

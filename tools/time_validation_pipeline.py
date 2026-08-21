@@ -18,8 +18,8 @@
 # - Raw timing artifacts are written to TestOutput/validation/VALIDATION_TIME_AUDIT/.
 #
 # Related:
-# - Agentic/Plans/TODO/full-validation-time-value-audit.md
 # - tools/agent_validate.bat
+# - tools/README.md
 # - tools/validate_full.bat
 # - tools/validate_fast.bat
 
@@ -36,19 +36,27 @@ from typing import Any, Dict, List, Optional
 
 STAGE_MANIFEST = [
     {
-        "id": "full.0A_build_automation",
+        "id": "full.0A_build_debug",
         "parent": "full",
-        "name": "Phase 0A: Build Automation Configuration",
-        "command": "tools\\validate_build.bat Automation",
-        "defect_class": "Automation configuration compilation and reachability baseline",
+        "name": "Phase 0A: Build Debug Configuration",
+        "command": "tools\\validate_build.bat Debug",
+        "defect_class": "Debug configuration compilation and physics executable prerequisite",
         "blocking": True
     },
     {
-        "id": "full.0B_build_debug",
+        "id": "full.0B_physics",
         "parent": "full",
-        "name": "Phase 0B: Build Debug Configuration",
-        "command": "tools\\validate_build.bat Debug",
-        "defect_class": "Debug configuration compilation and test executable prerequisite",
+        "name": "Phase 0B: Physics Validation - First Runtime Oracle",
+        "command": "tools\\validate_physics.bat",
+        "defect_class": "Owner-approved golden integrity and byte-exact deterministic physics",
+        "blocking": True
+    },
+    {
+        "id": "full.0C_build_automation",
+        "parent": "full",
+        "name": "Phase 0C: Build Automation Configuration",
+        "command": "tools\\validate_build.bat Automation",
+        "defect_class": "Automation configuration compilation and reachability baseline",
         "blocking": True
     },
     {
@@ -60,57 +68,65 @@ STAGE_MANIFEST = [
         "blocking": True
     },
     {
-        "id": "fast.1_format",
+        "id": "fast.1_physics_golden",
         "parent": "full.1_fast_preflight",
-        "name": "Fast 1/9: Format self-test & source/header formatting check",
+        "name": "Fast 1/10: Owner-approved physics golden integrity",
+        "command": "python tools/check_physics_baseline_guard.py --repo .",
+        "defect_class": "Unapproved or mismatched deterministic physics golden",
+        "blocking": True
+    },
+    {
+        "id": "fast.2_format",
+        "parent": "full.1_fast_preflight",
+        "name": "Fast 2/10: Format self-test & source/header formatting check",
         "command": "tools\\validate_format.bat",
         "defect_class": "Mechanical formatting, paragraph separation, aligned inline comments, Related paths",
         "blocking": True
     },
     {
-        "id": "fast.2_project_filters",
+        "id": "fast.3_project_filters",
         "parent": "full.1_fast_preflight",
-        "name": "Fast 2/9: Project filter validation",
+        "name": "Fast 3/10: Project filter validation",
         "command": "python tools/check_project_filters.py --repo .",
         "defect_class": "Missing or redundant vcxproj.filters entries",
         "blocking": True
     },
     {
-        "id": "fast.3_dependency_graph",
+        "id": "fast.4_dependency_graph",
         "parent": "full.1_fast_preflight",
-        "name": "Fast 3/9: Dependency graph & proof block check",
+        "name": "Fast 4/10: Dependency graph & proof block check",
         "command": "tools\\validate_dependency_graph.bat",
         "defect_class": "Physical layer direction violations, proof block desynchronization",
         "blocking": True
     },
     {
-        "id": "fast.4_inventories",
+        "id": "fast.5_inventories",
         "parent": "full.1_fast_preflight",
-        "name": "Fast 4/9: Ownership, complexity, aggregate, and determinism inventories",
+        "name": "Fast 5/10: Ownership, complexity, aggregate, and determinism inventories",
         "command": "python tools/inventory_glossary_terms.py ...",
         "defect_class": "Unruled aggregates, extraction scars, wide signatures, function complexity, glossary drift",
         "blocking": True
     },
     {
-        "id": "fast.5_staged_file_sizes",
+        "id": "fast.6_staged_file_sizes",
         "parent": "full.1_fast_preflight",
-        "name": "Fast 5/9: Staged file size check",
+        "name": "Fast 6/10: Staged file size check",
         "command": "python tools/check_staged_file_sizes.py --repo .",
         "defect_class": "Accidental large binary or dataset check-ins",
         "blocking": True
     },
     {
-        "id": "fast.6_build_profile",
+        "id": "fast.7_build_profile",
         "parent": "full.1_fast_preflight",
-        "name": "Fast 6/9: Build Profile Configuration",
+        "name": "Fast 7/10: Build Profile Configuration",
         "command": "tools\\validate_build.bat Profile",
         "defect_class": "Profile configuration compilation",
         "blocking": True
     },
     {
-        "id": "fast.9_reachability",
+        "id": "fast.10_reachability",
         "parent": "full.1_fast_preflight",
-        "name": "Fast 9/9: Compiled-symbol reachability check",
+        "name": "Fast 10/10: Compiled-symbol reachability check",
         "command": "python tools/inventory_unreachable_symbols.py ...",
         "defect_class": "Dead or unreachable exported symbols across configurations",
         "blocking": True
@@ -188,17 +204,9 @@ STAGE_MANIFEST = [
         "blocking": True
     },
     {
-        "id": "full.5_physics",
+        "id": "full.5_replay_spikes",
         "parent": "full",
-        "name": "Phase 5: Physics Validation",
-        "command": "tools\\validate_physics.bat",
-        "defect_class": "Deterministic physics simulation, bit-exact regressions, Catto corrections",
-        "blocking": True
-    },
-    {
-        "id": "full.6_replay_spikes",
-        "parent": "full",
-        "name": "Phase 6: Replay Prediction Frame-Spike Diagnostic",
+        "name": "Phase 5: Replay Prediction Frame-Spike Diagnostic",
         "command": "tools\\validate_replay_prediction_frame_spikes.bat",
         "defect_class": "Replay frame spike telemetry and analysis",
         "blocking": False
@@ -390,20 +398,21 @@ def run_baseline_measurement(samples_count: int = 3) -> Dict[str, Any]:
     }
 
     stages_to_measure = [
-        {"id": "phase_0a_build_automation", "command": "tools\\validate_build.bat Automation", "desc": "Phase 0A: Automation build"},
-        {"id": "phase_0b_build_debug", "command": "tools\\validate_build.bat Debug", "desc": "Phase 0B: Debug build"},
+        {"id": "phase_0a_build_debug", "command": "tools\\validate_build.bat Debug", "desc": "Phase 0A: Debug build"},
+        {"id": "phase_0b_physics", "command": "tools\\validate_physics.bat", "desc": "Phase 0B: Physics validation"},
+        {"id": "phase_0c_build_automation", "command": "tools\\validate_build.bat Automation", "desc": "Phase 0C: Automation build"},
         {"id": "phase_1_fast_preflight", "command": "tools\\validate_fast.bat --preflight-only", "desc": "Phase 1: CPU Preflight"},
-        {"id": "fast_format", "command": "tools\\validate_format.bat", "desc": "Fast 1/9: Format check"},
-        {"id": "fast_project_filters", "command": "python tools/check_project_filters.py --repo .", "desc": "Fast 2/9: Project filters"},
-        {"id": "fast_dependency_graph", "command": "tools\\validate_dependency_graph.bat", "desc": "Fast 3/9: Dependency graph"},
-        {"id": "fast_inventories", "command": "python tools/inventory_glossary_terms.py --repo . --strict", "desc": "Fast 4/9: Glossary inventory"},
-        {"id": "fast_build_profile", "command": "tools\\validate_build.bat Profile", "desc": "Fast 6/9: Profile build"},
+        {"id": "fast_physics_golden", "command": "python tools/check_physics_baseline_guard.py --repo .", "desc": "Fast 1/10: Physics golden"},
+        {"id": "fast_format", "command": "tools\\validate_format.bat", "desc": "Fast 2/10: Format check"},
+        {"id": "fast_project_filters", "command": "python tools/check_project_filters.py --repo .", "desc": "Fast 3/10: Project filters"},
+        {"id": "fast_dependency_graph", "command": "tools\\validate_dependency_graph.bat", "desc": "Fast 4/10: Dependency graph"},
+        {"id": "fast_inventories", "command": "python tools/inventory_glossary_terms.py --repo . --strict", "desc": "Fast 5/10: Glossary inventory"},
+        {"id": "fast_build_profile", "command": "tools\\validate_build.bat Profile", "desc": "Fast 7/10: Profile build"},
         {"id": "phase_2_all_cpu_tests", "command": "tools\\validate_all_cpu_tests.bat", "desc": "Phase 2: All CPU tests"},
         {"id": "cpu_1_doctests_profile", "command": "tools\\validate_tests.bat Profile", "desc": "CPU 1/6: Profile doctests"},
         {"id": "phase_3_automation", "command": "tools\\validate_automation.bat", "desc": "Phase 3: Automation lane"},
         {"id": "phase_4_dx12", "command": "tools\\validate_dx12_renderer.bat", "desc": "Phase 4: DX12 renderer"},
-        {"id": "phase_5_physics", "command": "tools\\validate_physics.bat", "desc": "Phase 5: Physics validation"},
-        {"id": "phase_6_replay_spikes", "command": "tools\\validate_replay_prediction_frame_spikes.bat", "desc": "Phase 6: Replay spikes"}
+        {"id": "phase_5_replay_spikes", "command": "tools\\validate_replay_prediction_frame_spikes.bat", "desc": "Phase 5: Replay spikes"}
     ]
 
     results = []

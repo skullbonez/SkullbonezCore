@@ -49,22 +49,23 @@ validation.
 
 `validate_full.bat --plan-completion` is the terminal full-plan superset. It is
 not an ordinary commit or PR gate. The script rejects calls without that exact
-token, then runs these owners in order and stops before any engine launch when a
-CPU target fails:
+token, then runs these owners in order:
 
-1. `validate_fast.bat --preflight-only` runs formatting, production project
-   metadata, staged-size policy, and the Profile build without a test launch.
-2. `validate_all_cpu_tests.bat` runs the doctest, enforced coverage floors,
+1. A Debug build and `validate_physics.bat` run first. Golden tampering fails
+   before the build; actual behavior drift is the first runtime result.
+2. The Automation build plus `validate_fast.bat --preflight-only` establish
+   current Debug/Automation/Profile reachability evidence and run formatting,
+   project metadata, dependency, governance, and staged-size checks.
+3. `validate_all_cpu_tests.bat` runs the doctest, enforced coverage floors,
    runtime-interaction, scene parser, renderer-free UI boundary, and DX12
    architecture targets.
-3. `validate_automation.bat` proves Profile rejects diagnostic scripts, builds
+4. `validate_automation.bat` proves Profile rejects diagnostic scripts, builds
    the dedicated Automation executable, and runs one combined replay/prediction
    plus development-UI command smoke required on every broad pre-commit pass.
-4. The Debug build, DX12 renderer gate, and core physics determinism gate run
-   only after the mandatory CPU and automation lanes pass. Automation launches
-   two engine processes, rendering launches one, and physics launches its
-    engine lifecycle smoke and regression scene, for five gated engine processes.
-5. `validate_replay_prediction_frame_spikes.bat` then runs four completed
+5. `validate_dx12_renderer.bat` runs the final blocking runtime lane. Across
+   the gate, automation launches two engine processes, rendering one, and
+   physics its lifecycle smoke and regression scene, for five gated processes.
+6. `validate_replay_prediction_frame_spikes.bat` then runs four completed
    120-second future-prediction generations and reports the largest frames. It
    is full-only and informational: missing artifacts, runner errors, and frame
    times are printed but cannot change the plan-completion gate from pass to fail.
@@ -267,9 +268,17 @@ Physics CSV and SkullScope JSON baselines are byte-exact behavior artifacts.
 The normal physics gate uses the authored 37-body, 1,200-frame varied scene as
 its full CSV contract. The deep gate retains the older seeded solver distribution
 as an exact SHA-256 signature in `physics_known_issue_signatures.json`.
-When a physics baseline update is intentional, copy it only from the final Debug
-artifact produced by the same scene/config state that will be committed, then
-rerun the matching gate:
+The normal core golden is bound to `tools/physics_baseline_approval.json` by
+SHA-256. Do not copy over it directly. After reviewing an intentional behavior
+change, the repository owner approves the final Debug artifact interactively:
+
+```bat
+python tools\check_physics_baseline_guard.py --repo . --approve-output Debug\physics_regression_varied.csv
+```
+
+That command replaces the golden, updates the tracked approval record, and
+creates a local receipt for the exact staged pair. Stage both tracked files
+together, then rerun the matching gate:
 
 ```bat
 tools\validate_physics.bat

@@ -1,0 +1,16 @@
+#!/bin/sh
+# Physics approval is repository-native so the safety gate still runs on a
+# fresh machine without the optional pre-commit Python package. When that
+# package is installed it owns the complete configured hook list, including
+# the same two physics checks below.
+set -eu
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+
+if python -c "import pre_commit" >/dev/null 2>&1; then
+    exec python -m pre_commit run --hook-stage pre-commit
+fi
+
+python tools/check_physics_baseline_guard.py --repo "$repo_root" --staged
+exec python tools/check_physics_commit_gate.py --repo "$repo_root"
