@@ -1,9 +1,8 @@
-# Future Physics
+# Future Physics — Multi-Mode Collision & Ragdoll Unification
 
-Date: 2026-08-16
+Date: 2026-08-22
 Status: Future and unregistered. 0/4 candidate phases complete.
-Impact area: continuous collision detection, contact-row time semantics,
-ragdoll point joints, shared constraint iteration, physics baselines and tests
+Impact area: collision detection modes (Discrete, Swept TOI, Speculative), dynamic velocity promotion threshold, ragdoll point joints, joint compliance, shared constraint iteration, physics baselines and tests
 Owner: Physics contact and joint solver
 Priority: Not selectable
 
@@ -15,17 +14,23 @@ plan runner must ignore it until the owner explicitly registers it in the
 master ledger, assigns a commit token and binding order, and approves the first
 behavior transition.
 
-The active Catto Divergence Repairs plan retains the existing partial-time CCD
-architecture and limits ragdoll work to stage (a), accumulated impulse caching
-and warm start. This future plan preserves the two larger ideas excluded by that
-ruling:
+The active Catto Divergence Repairs plan retained the existing partial-time CCD
+architecture and limited ragdoll work to stage (a), accumulated impulse caching
+and warm start. This future plan organizes the complete next-generation physics
+upgrade:
 
-1. Replace time-of-impact position advancement with speculative contacts.
-2. Continue ragdoll repair stages (b) through (d) after stage (a) has produced
-   measured evidence.
+1. **Tri-Mode Collision Architecture:** Establish three explicit collision detection
+   modes (**Discrete**, **Continuous Swept TOI**, and **Continuous Speculative**).
+   Retain Swept TOI for fast bouncy projectiles with sub-frame bounce fidelity; add
+   dynamic velocity promotion from Discrete to Swept TOI; and assign Speculative
+   CCD by default to ragdolls and articulated bodies.
+2. **Ragdoll & Joint Solver Unification:** Complete ragdoll stages (b) through (d):
+   true 3-DOF point-to-point constraint blocks, principled physical compliance and
+   damping, and unified contact/joint Projected Gauss-Seidel (PGS) iteration.
 
-These are independent projects. Registering one does not authorize the other,
-and neither carries baseline-refresh authority while this file is unregistered.
+These tracks can be registered independently or in sequence. Registering one does
+not authorize another, and none carries baseline-refresh authority while this file
+is unregistered.
 
 ## Evidence To Capture Before Registration
 
@@ -41,98 +46,80 @@ tree:
 - Current ownership and complexity inventories for the exact solver and ragdoll
   surfaces that would change.
 
-## FP1 — Speculative Contacts
+---
+
+## FP1 — Tri-Mode Collision Hierarchy & Speculative Contacts
 
 ### What This Aims To Solve
 
-The current CCD path advances a body to its detected time of impact, redirects
-velocity through the contact solver, and integrates that velocity through the
-remaining fraction of the fixed step. That design is valid and intentionally
-retained by the active R4 repair. Its structural costs are nevertheless worth a
-separate future evaluation:
+Rigid bodies have differing collision requirements:
+- 95%+ of bodies (crates, barrels, resting debris, terrain) are slow-moving and
+  perform best with standard, cheap **Discrete** collision.
+- High-speed bouncy projectiles (bullets, cannonballs, bouncing spheres) require
+  sub-frame temporal accuracy and exact restitution via **Continuous Swept TOI**.
+- Articulated ragdolls, animated kinematic obstacles, and fast limbs fail under
+  both Discrete (limb tunneling, wall snagging, joint explosion) and Swept TOI
+  (micro-substepping desynchronizes joint networks and explodes CPU cost).
 
-- Bodies can enter the shared solve at different positions within the same
-  fixed tick, so time-scaled row terms need explicit interval semantics.
-- Collision discovery happens before the shared velocity response. A response
-  that creates a second impact during the remaining interval may not place that
-  second contact in the same solve transaction.
-- Sequential time-of-impact processing resists broad parallelism when extended
-  to complete collision chains.
-- Per-body `m_timeRemaining` state crosses narrowphase, terrain, integration,
-  sleep, replay capture, and restore, increasing the proof surface.
-
-Speculative contacts aim to keep every body at one common step boundary. A
-contact row is created before overlap when current separation and closing speed
-show that the shapes would cross during the fixed step. The solver then limits
-closing velocity so ordinary uniform integration reaches contact without
-tunnelling.
+FP1 introduces a unified tri-mode collision classification, implements
+**Speculative Contacts** for articulated/kinematic bodies, and adds dynamic
+velocity-based promotion from Discrete to Swept TOI.
 
 ### Proposed Solution
 
-1. **Produce trustworthy predictive geometry.** Extend the swept broadphase only
-   as necessary to identify candidate pairs. At the current poses, compute the
-   closest points, separating normal, signed separation, feature identity, and a
-   conservative angular-motion contribution. Do not manufacture a speculative
-   manifold from an AABB overlap alone.
-2. **Admit a speculative row by an end-step test.** For relative normal speed
-   `vn`, positive separation `s`, and step `dt`, admit the row only when the
-   conservative predicted separation can cross the contact skin during the
-   step. The row target permits approach no faster than the rate that consumes
-   the available separation: conceptually `vn >= -s / dt`, with the repository's
-   sign convention stated beside the implementation.
-3. **Keep the constraint unilateral.** A speculative normal impulse may prevent
-   closing but may never pull separating bodies together. Preserve the
-   non-negative accumulated normal impulse and prove that a near miss, grazing
-   pass, or normal flip does not create a ghost collision.
-4. **Separate pre-contact from impact policy.** Do not apply restitution merely
-   because a speculative row exists. Define the exact boundary at which an
-   actual impact becomes eligible for restitution. Likewise, prove whether
-   friction begins only at touching contact or can be safely bounded during the
-   speculative interval without producing drag at a distance.
-5. **Solve predicted chains together.** Include speculative rows in the same
-   deterministic constraint graph as ordinary contacts so PGS iterations can
-   transmit an impulse through a bullet, struck body, and downstream obstacle
-   before positions integrate. Preserve canonical pair and feature ordering
-   across serial and worker-assisted preparation.
-6. **Integrate once with one fixed interval.** After the shared solve, advance
-   every awake body through the same `dt`. Remove time-of-impact advancement and
-   `m_timeRemaining` only after object, terrain, sleep, wake, replay, and
-   diagnostics consumers have proven they no longer need it. Do not leave a
-   compatibility clock beside the new path.
-7. **Adopt incrementally behind behavioral comparison.** Begin with the
-   high-speed object/object and terrain cases that currently require CCD. Keep a
-   test-only comparison path long enough to explain differences, but do not ship
-   two runtime CCD authorities or a permanent mode switch.
+1. **Define Explicit Collision Modes:**
+   Add `CollisionDetectionMode` to body/collider properties:
+   - `Discrete`: Standard static overlap / SAT / GJK tests at step boundaries.
+   - `ContinuousSwept` (TOI): Exact continuous swept-volume advancement with
+     sub-step restitution for fast, elastic projectiles.
+   - `ContinuousSpeculative`: Proactive velocity clamping for ragdolls, limbs,
+     and moving platforms to ensure zero tunneling without sub-stepping.
+2. **Dynamic Velocity Promotion (Discrete -> Swept TOI):**
+   - For bodies in `Discrete` mode, evaluate motion each tick: $d = \|\mathbf{v}\| \Delta t$.
+   - If $d > \alpha \cdot r_{\text{min}}$ (where $r_{\text{min}}$ is the minimum
+     bounding radius / thickness and $\alpha \approx 0.5$ is the safety margin),
+     dynamically promote the body to `ContinuousSwept` for that tick.
+   - Return to `Discrete` as soon as velocity drops below the threshold.
+3. **Default Ragdolls to Speculative CCD:**
+   - Authoring and spawning pipelines tag all ragdoll body records and colliders
+     as `ContinuousSpeculative` by default.
+4. **Produce Trustworthy Predictive Geometry:**
+   - For pairs involving `ContinuousSpeculative` bodies, extend swept broadphase
+     bounds along relative velocity.
+   - Compute closest points, separating normal, signed separation $s$, and
+     conservative angular motion.
+5. **Admit Speculative Constraint Rows:**
+   - For positive separation $s$ and closing normal velocity $v_n < 0$, admit a
+     speculative row if $s + v_n \Delta t < 0$.
+   - Target velocity: $v_n \ge -s / \Delta t$.
+   - Clamp impulse unilaterally ($\lambda \ge 0$) so speculative contacts only
+     brake closing speed and never pull separating bodies together.
+6. **Preserve Impact & Friction Boundaries:**
+   - Disable friction constraints while separated ($s > 0$) to prevent ghost drag.
+   - Fire restitution only when actual touching contact occurs ($s \le 0$),
+     preserving authentic inelastic resting for ragdolls.
+7. **Integrate at Uniform $\Delta t$:**
+   - Speculative contacts solve within the shared step without sub-stepping,
+     keeping all 15–20 ragdoll limbs on the exact same time boundary.
 
 ### Hazards And Required Tests
 
-- Near-miss and grazing trajectories must not receive impulses.
-- Fast rotation must not tunnel a long hull corner through another shape.
-- Restitution must occur once at impact, not while separated and not once per
-  speculative frame.
-- Static friction must still hold after contact without slowing separated
-  bodies.
-- A projectile striking a dynamic body that then strikes a third body must
-  produce the intended same-step chain response.
-- Terrain, fixed/dynamic, dynamic/dynamic, sleeping-body wake, and one-sided
-  surface rules need focused coverage.
-- Contact identity and warm-start lifetime must remain deterministic when a row
-  transitions from speculative separation to touching contact.
-- Serial, zero-worker, one-worker, and four-worker output must remain byte
-  identical.
-- The replacement must show a measured performance benefit or a clearly stated
-  correctness benefit large enough to justify the broader pipeline change.
+- Near-miss and grazing trajectories must not produce ghost collisions or mid-air deflection.
+- Fast rotation must not tunnel a long hull corner; conservative angular bounds must be tested.
+- Static friction must engage only upon physical surface contact ($s \le 0$).
+- High-speed discrete bodies must trigger dynamic promotion to Swept TOI without dropping frames.
+- Fast bouncy projectiles in Swept TOI mode must retain exact sub-frame bounce timing and energy.
+- Replay capture and restore must serialize and reproduce all three collision modes byte-identically.
 
 ### FP1 Acceptance
 
-- One uniform fixed-step interval governs row setup and final integration.
-- The focused CCD suite proves no tunnelling, ghost contact, premature friction,
-  duplicate restitution, or missed chain reaction.
-- Replay capture and restore reproduce the replacement state byte-for-byte.
-- The old TOI-advance authority and obsolete remaining-time state are deleted,
-  not retained behind a compatibility spelling.
-- Physics, replay visual fidelity, allocation, performance, and full validation
-  pass after an owner-approved exact baseline transition.
+- All three modes (`Discrete`, `ContinuousSwept`, `ContinuousSpeculative`) function correctly.
+- Ragdoll limbs swinging at $50\text{ m/s}$ do not tunnel through thin static or dynamic walls.
+- Fast discrete bodies automatically promote to Swept TOI when exceeding the motion threshold.
+- Fast bouncy projectiles in Swept TOI mode continue passing existing exact baseline tests.
+- Replay, deterministic 0/1/4-worker checks, and performance benchmarks pass.
+
+---
 
 ## FP2 — Ragdoll Stage (b): Three-Degree-Of-Freedom Point Joint
 
@@ -274,13 +261,15 @@ so one convergence process owns the coupled constrained system.
 
 ## Candidate Phase Order
 
-- [ ] **FP1 — Speculative contacts.** Independent structural CCD evaluation.
-- [ ] **FP2 — Ragdoll 3-DOF point joint.** Begins only after R2(a) evidence is
-  reviewed and the owner activates the ragdoll continuation.
-- [ ] **FP3 — Explicit ragdoll softness.** Begins only after FP2 establishes the
-  coupled vector constraint and its measurements.
-- [ ] **FP4 — Shared contact/joint iteration.** Begins only after FP2 and FP3;
-  the shared solver must not conceal an unresolved joint formulation.
+- [ ] **FP1 — Tri-Mode Collision Hierarchy & Speculative Contacts.** Establish
+  Discrete, Swept TOI, and Speculative modes with dynamic velocity promotion and
+  ragdoll speculative defaults.
+- [ ] **FP2 — Ragdoll 3-DOF point joint.** Pin linear anchor coincidence with
+  3x3 effective mass and 3D vector warm starting.
+- [ ] **FP3 — Explicit ragdoll softness.** Principled frequency/damping compliance
+  across timestep and iteration variations.
+- [ ] **FP4 — Shared contact/joint iteration.** Unified PGS sweeps eliminating
+  pass fighting between ragdoll ground contacts and joint pulls.
 
 FP1 may be registered independently of FP2 through FP4. The ragdoll phases are
 strictly ordered and each carries a stop-and-review boundary.
@@ -291,20 +280,18 @@ strictly ordered and each carries a stop-and-review boundary.
 - Do not add this file to `Agentic/Plans/MASTER-PLAN.md` or binding order without
   a new explicit owner direction.
 - Do not refresh physics, replay, SkullScope, visual, or performance baselines.
-- Do not retain old and new CCD or joint-solver authorities as permanent modes.
+- Do not discard Swept TOI continuous collision detection.
 - Do not import Box2D, Bullet, or another engine's source. Primary literature
   may guide the derivation, but repository code owns its contracts.
-- Do not combine speculative contacts with a ragdoll phase in one implementation
-  commit or baseline decision.
 
 ## Validation Map After Registration
 
 | Future change | Required pre-commit evidence |
 |---|---|
-| Speculative contact geometry or solver rows | Focused CCD tests; `tools\validate_physics.bat`; `tools\validate_physics_deep.bat`; `tools\validate_perf.bat`; `tools\validate_replay_visual_fidelity.bat`; `tools\validate_full.bat --plan-completion` only at plan closure |
+| Collision modes, velocity promotion, speculative rows | Focused CCD tests; `tools\validate_physics.bat`; `tools\validate_physics_deep.bat`; `tools\validate_perf.bat`; `tools\validate_replay_visual_fidelity.bat`; `tools\validate_full.bat --plan-completion` only at plan closure |
 | Ragdoll FP2 or FP3 | Focused ragdoll and solver tests; `tools\validate_physics.bat`; `tools\validate_replay_visual_fidelity.bat`; `tools\validate_perf.bat` |
 | Shared solver FP4 | Focused contact/joint tests; `tools\validate_physics.bat`; `tools\validate_replay_visual_fidelity.bat`; `tools\validate_perf.bat`; `tools\validate_full.bat --plan-completion` only at plan closure |
-| Authored joint-setting schema change | Versioned migration tests; `tools\migrate_data_formats.py --check`; mapped physics and full gates |
+| Authored joint/collision schema change | Versioned migration tests; `tools\migrate_data_formats.py --check`; mapped physics and full gates |
 | Documentation-only refinement | No validation required |
 
 ## Registration And Closure Conditions
