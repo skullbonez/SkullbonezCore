@@ -454,25 +454,79 @@ bool TryParseVirtualKey( const std::string& value, int& outVirtualKey )
         return true;
     }
 
-    if ( value == "Enter" || value == "Return" )
+    if ( value == "Space" || value == "space" )
+    {
+        outVirtualKey = VK_SPACE;
+        return true;
+    }
+
+    if ( value == "Escape" || value == "Esc" || value == "esc" )
+    {
+        outVirtualKey = VK_ESCAPE;
+        return true;
+    }
+
+    if ( value == "Shift" || value == "shift" )
+    {
+        outVirtualKey = VK_SHIFT;
+        return true;
+    }
+
+    if ( value == "Control" || value == "Ctrl" || value == "ctrl" )
+    {
+        outVirtualKey = VK_CONTROL;
+        return true;
+    }
+
+    if ( value == "Up" || value == "up" )
+    {
+        outVirtualKey = VK_UP;
+        return true;
+    }
+
+    if ( value == "Down" || value == "down" )
+    {
+        outVirtualKey = VK_DOWN;
+        return true;
+    }
+
+    if ( value == "Left" || value == "left" )
+    {
+        outVirtualKey = VK_LEFT;
+        return true;
+    }
+
+    if ( value == "Right" || value == "right" )
+    {
+        outVirtualKey = VK_RIGHT;
+        return true;
+    }
+
+    if ( value == "Backspace" || value == "backspace" )
+    {
+        outVirtualKey = VK_BACK;
+        return true;
+    }
+
+    if ( value == "Enter" || value == "Return" || value == "enter" || value == "return" )
     {
         outVirtualKey = VK_RETURN;
         return true;
     }
 
-    if ( value == "Tab" )
+    if ( value == "Tab" || value == "tab" )
     {
         outVirtualKey = VK_TAB;
         return true;
     }
 
-    if ( value == "Tilde" )
+    if ( value == "Tilde" || value == "tilde" )
     {
         outVirtualKey = VK_OEM_3;
         return true;
     }
 
-    if ( value == "Comma" )
+    if ( value == "Comma" || value == "comma" )
     {
         // Why: visual acceptance drives the same comma-owned presentation
         // command as a physical key, so mode order and UI reflection are tested
@@ -481,13 +535,13 @@ bool TryParseVirtualKey( const std::string& value, int& outVirtualKey )
         return true;
     }
 
-    if ( value == "Delete" )
+    if ( value == "Delete" || value == "delete" )
     {
         outVirtualKey = VK_DELETE;
         return true;
     }
 
-    if ( value == "Alt" )
+    if ( value == "Alt" || value == "alt" )
     {
         outVirtualKey = VK_MENU;
         return true;
@@ -1917,6 +1971,7 @@ bool ParsePressKeyAction( const Json& entry, RunInteractionAutomationAction& out
 
     CopyText( outAction.text, sizeof( outAction.text ), keyName );
     outAction.boolValue = entry.value( "control", false );
+    outAction.holdFrames = entry.value( "holdFrames", 1 );
     return true;
 }
 
@@ -4510,7 +4565,7 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
             // Why: key automation should still enter through Input and
             // RuntimeInputContext edge detection. This only supplies the
             // virtual-key state that a real keyboard would have provided.
-            state.inputDriver.PressKey( action.keyVirtualKey, action.boolValue, frame );
+            state.inputDriver.PressKey( action.keyVirtualKey, action.boolValue, frame, action.holdFrames );
             AppendReportAction( state, frame, action.type, action.text, nullptr, true, "key press injected" );
             action.processed = true;
             break;

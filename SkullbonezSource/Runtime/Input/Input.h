@@ -40,7 +40,9 @@ Related:
 #include "../../Core/Common.h"
 #include "../../Core/SbResult.h"
 
+#include <array>
 #include <cassert>
+#include <cstdint>
 
 namespace SkullbonezCore
 {
@@ -131,6 +133,7 @@ class Input
         int keyVirtualKey = 0;                                                                                          // Optional one-key automation override.
         bool keyDown = false;
         bool controlDown = false;                                                                                       // Optional modifier paired with the injected key.
+        std::array<uint64_t, 4> keyWords = {};                                                                          // Multi-key mask for held keyboard inputs (WASD, modifiers, space).
     };
 
     struct InputEventBuffer

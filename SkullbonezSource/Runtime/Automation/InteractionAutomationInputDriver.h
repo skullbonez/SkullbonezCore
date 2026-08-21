@@ -29,6 +29,9 @@ Related:
 
 #include "../../Core/PlatformWin32.h"
 
+#include <array>
+#include <cstdint>
+
 namespace SkullbonezCore::Runtime
 {
 class InteractionAutomationInputDriver
@@ -39,7 +42,7 @@ class InteractionAutomationInputDriver
     void MoveMouse( POINT position );
     void ScrollMouse( int wheelDelta );
     void PressMouse( bool rightButton, int frame, int holdFrames );
-    void PressKey( int virtualKey, bool controlDown, int frame );
+    void PressKey( int virtualKey, bool controlDown, int frame, int holdFrames = 1 );
     void LoseFocus( int frameCount );
     void PublishFrame();
 
@@ -52,6 +55,8 @@ class InteractionAutomationInputDriver
     int m_keyVirtualKey = 0;
     bool m_keyDown = false;
     bool m_controlDown = false;
+    std::array<uint64_t, 4> m_keyWords = {};
+    std::array<int, 256> m_releaseKeyFrames = {};
     int m_releaseLeftFrame = -1;
     int m_releaseRightFrame = -1;
     int m_releaseKeyFrame = -1;

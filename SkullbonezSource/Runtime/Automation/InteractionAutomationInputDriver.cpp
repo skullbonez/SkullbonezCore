@@ -33,6 +33,7 @@ using SkullbonezCore::Hardware::Input;
 void SkullbonezCore::Runtime::InteractionAutomationInputDriver::Reset()
 {
     *this = InteractionAutomationInputDriver {};
+    m_releaseKeyFrames.fill( -1 );
     Input::ClearAutomationState();
 }
 
@@ -60,6 +61,16 @@ void SkullbonezCore::Runtime::InteractionAutomationInputDriver::AdvanceReleases(
         m_controlDown = false;
         m_releaseKeyFrame = -1;
     }
+
+    for ( int vk = 0; vk < 256; ++vk )
+    {
+        if ( m_releaseKeyFrames[vk] >= 0 && frame >= m_releaseKeyFrames[vk] )
+        {
+            const std::size_t word = static_cast<std::size_t>( vk ) / 64u;
+            m_keyWords[word] &= ~( uint64_t { 1 } << ( static_cast<unsigned int>( vk ) & 63u ) );
+            m_releaseKeyFrames[vk] = -1;
+        }
+    }
 }
 
 void SkullbonezCore::Runtime::InteractionAutomationInputDriver::MoveMouse( POINT position )
@@ -86,12 +97,26 @@ void SkullbonezCore::Runtime::InteractionAutomationInputDriver::PressMouse( bool
     m_releaseLeftFrame = frame + holdFrames;
 }
 
-void SkullbonezCore::Runtime::InteractionAutomationInputDriver::PressKey( int virtualKey, bool controlDown, int frame )
+void SkullbonezCore::Runtime::InteractionAutomationInputDriver::PressKey( int virtualKey, bool controlDown, int frame, int holdFrames )
 {
     m_keyVirtualKey = virtualKey;
     m_keyDown = true;
     m_controlDown = controlDown;
-    m_releaseKeyFrame = frame + 1;
+    m_releaseKeyFrame = frame + (std::max)( 1, holdFrames );
+
+    if ( virtualKey >= 0 && virtualKey < 256 )
+    {
+        const std::size_t word = static_cast<std::size_t>( virtualKey ) / 64u;
+        m_keyWords[word] |= uint64_t { 1 } << ( static_cast<unsigned int>( virtualKey ) & 63u );
+        m_releaseKeyFrames[virtualKey] = frame + (std::max)( 1, holdFrames );
+    }
+
+    if ( controlDown )
+    {
+        const std::size_t word = static_cast<std::size_t>( VK_CONTROL ) / 64u;
+        m_keyWords[word] |= uint64_t { 1 } << ( static_cast<unsigned int>( VK_CONTROL ) & 63u );
+        m_releaseKeyFrames[VK_CONTROL] = frame + (std::max)( 1, holdFrames );
+    }
 }
 
 void SkullbonezCore::Runtime::InteractionAutomationInputDriver::LoseFocus( int frameCount )
@@ -116,6 +141,7 @@ void SkullbonezCore::Runtime::InteractionAutomationInputDriver::PublishFrame()
     inputState.keyVirtualKey = m_keyVirtualKey;
     inputState.keyDown = m_keyDown;
     inputState.controlDown = m_controlDown;
+    inputState.keyWords = m_keyWords;
     Input::SetAutomationState( inputState );
     m_mouseWheelDelta = 0;
 

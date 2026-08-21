@@ -406,32 +406,34 @@ inline bool TryParseInteractionAutomationVirtualKey( const char* value, int& out
 {
     const std::string_view key = value ? value : "";
 
-    if ( key == "F5" )
+    if ( key.size() >= 2 && ( key[0] == 'F' || key[0] == 'f' ) )
     {
-        outVirtualKey = VK_F5;
-    }
-    else if ( key == "F6" )
-    {
-        outVirtualKey = VK_F6;
-    }
-    else if ( key == "F9" )
-    {
-        outVirtualKey = VK_F9;
-    }
-    else if ( key == "F10" )
-    {
-        outVirtualKey = VK_F10;
-    }
-    else if ( key == "F11" )
-    {
-        outVirtualKey = VK_F11;
-    }
-    else
-    {
-        return false;
+        if ( key.size() == 2 && key[1] >= '1' && key[1] <= '9' )
+        {
+            outVirtualKey = VK_F1 + ( key[1] - '1' );
+            return true;
+        }
+
+        if ( key == "F10" || key == "f10" )
+        {
+            outVirtualKey = VK_F10;
+            return true;
+        }
+
+        if ( key == "F11" || key == "f11" )
+        {
+            outVirtualKey = VK_F11;
+            return true;
+        }
+
+        if ( key == "F12" || key == "f12" )
+        {
+            outVirtualKey = VK_F12;
+            return true;
+        }
     }
 
-    return true;
+    return false;
 }
 SkullbonezCore::Core::SbResult InteractionAutomationResult( const InteractionAutomationController& state );
 void ClearInteractionAutomationInput( InteractionAutomationController& state );

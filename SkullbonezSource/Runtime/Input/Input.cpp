@@ -206,6 +206,14 @@ SkullbonezCore::Core::SbResult Input::CaptureDeviceInputFrame( SkullbonezCore::C
         words[word] |= uint64_t { 1 } << ( static_cast<unsigned int>( VK_CONTROL ) & 63u );
     }
 
+    if ( s_automationState.enabled )
+    {
+        for ( std::size_t wordIndex = 0; wordIndex < words.size() && wordIndex < s_automationState.keyWords.size(); ++wordIndex )
+        {
+            words[wordIndex] |= s_automationState.keyWords[wordIndex];
+        }
+    }
+
     frame.keys = InputKeySnapshot::FromWords( words );
     const MouseCoordinatesResult clientPosition = GetClientMouseCoordinates( diagnostics );
 

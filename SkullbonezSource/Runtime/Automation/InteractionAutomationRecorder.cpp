@@ -45,26 +45,66 @@ const char* VirtualKeyToString( int virtualKey ) noexcept
 {
     switch ( virtualKey )
     {
+    case VK_F1:
+        return "F1";
+    case VK_F2:
+        return "F2";
+    case VK_F3:
+        return "F3";
+    case VK_F4:
+        return "F4";
     case VK_F5:
         return "F5";
     case VK_F6:
         return "F6";
+    case VK_F7:
+        return "F7";
+    case VK_F8:
+        return "F8";
     case VK_F9:
         return "F9";
     case VK_F10:
         return "F10";
     case VK_F11:
         return "F11";
+    case VK_F12:
+        return "F12";
     case VK_SPACE:
         return "Space";
     case VK_ESCAPE:
         return "Escape";
     case VK_RETURN:
         return "Return";
+    case VK_TAB:
+        return "Tab";
     case VK_BACK:
         return "Backspace";
     case VK_DELETE:
         return "Delete";
+    case VK_SHIFT:
+    case VK_LSHIFT:
+    case VK_RSHIFT:
+        return "Shift";
+    case VK_CONTROL:
+    case VK_LCONTROL:
+    case VK_RCONTROL:
+        return "Control";
+    case VK_MENU:
+    case VK_LMENU:
+    case VK_RMENU:
+        return "Alt";
+    case VK_UP:
+        return "Up";
+    case VK_DOWN:
+        return "Down";
+    case VK_LEFT:
+        return "Left";
+    case VK_RIGHT:
+        return "Right";
+    case VK_OEM_COMMA:
+        return "Comma";
+    case VK_OEM_3:
+        return "Tilde";
     default:
         break;
     }
@@ -92,8 +132,12 @@ void InteractionAutomationRecorder::StartRecording( const char* outputPath, cons
     m_isRecording = true;
     m_actionCount = 0;
     m_startFrame = 0;
+    m_recordingTurn = 0;
+    m_previousPointerX = -1;
+    m_previousPointerY = -1;
     m_actions.fill( {} );
     m_previousKeys.fill( 0u );
+    m_keyDownFrame.fill( -1 );
     m_previousLeftDown = false;
     m_previousRightDown = false;
     m_dragStartFrame = -1;
@@ -125,6 +169,31 @@ void InteractionAutomationRecorder::StopRecording()
     {
         return;
     }
+
+    // Flush any keys that were still held down when recording stopped
+    for ( int vk = 0; vk < 256; ++vk )
+    {
+        if ( m_keyDownFrame[vk] >= 0 && vk != VK_F8 )
+        {
+            if ( const char* keyName = VirtualKeyToString( vk ) )
+            {
+                RecordedInteractionAction keyAction;
+                keyAction.frame = m_keyDownFrame[vk];
+                keyAction.kind = RecordedActionKind::PressKey;
+                keyAction.virtualKey = vk;
+                keyAction.holdFrames = (std::max)( 1, m_recordingTurn - m_keyDownFrame[vk] );
+                strncpy_s( keyAction.keyName, sizeof( keyAction.keyName ), keyName, _TRUNCATE );
+                (void)AppendAction( keyAction );
+            }
+            m_keyDownFrame[vk] = -1;
+        }
+    }
+
+    // Ensure strictly monotonic action frame order
+    std::stable_sort( m_actions.begin(), m_actions.begin() + m_actionCount,
+                      []( const RecordedInteractionAction& a, const RecordedInteractionAction& b ) {
+                          return a.frame < b.frame;
+                      } );
 
     m_isRecording = false;
     printf( "[recorder] Stopped recording. Total actions captured: %zu\n", m_actionCount );
@@ -163,13 +232,14 @@ void InteractionAutomationRecorder::RecordFrame( int currentFrame, int screenWid
                                                  const ReplayCauseInspectionView& causeInspection )
 {
     (void)interaction;
+    (void)currentFrame;
 
     if ( !m_isRecording || screenWidth <= 0 || screenHeight <= 0 )
     {
         return;
     }
 
-    const int relativeFrame = currentFrame - m_startFrame;
+    const int relativeFrame = m_recordingTurn++;
     const RuntimePointerEvent& pointer = inputRouter.RuntimeSnapshot().pointer;
     const RuntimeMouseEdges& mouse = inputRouter.UiSnapshot().mouse;
     const InputKeySnapshot& keys = inputRouter.DeviceFrame().keys;
@@ -178,7 +248,23 @@ void InteractionAutomationRecorder::RecordFrame( int currentFrame, int screenWid
     const float normX = std::clamp( static_cast<float>( pointer.clientX ) / static_cast<float>( screenWidth ), 0.0f, 1.0f );
     const float normY = std::clamp( static_cast<float>( pointer.clientY ) / static_cast<float>( screenHeight ), 0.0f, 1.0f );
 
-    // 1. Mouse Button Down / Click
+    // 1. Mouse Movement / Camera Look Detection
+    if ( m_previousPointerX >= 0 && ( pointer.clientX != m_previousPointerX || pointer.clientY != m_previousPointerY ) )
+    {
+        RecordedInteractionAction move;
+        move.frame = relativeFrame;
+        move.kind = RecordedActionKind::MoveMouse;
+        move.pixelX = pointer.clientX;
+        move.pixelY = pointer.clientY;
+        move.normalizedX = normX;
+        move.normalizedY = normY;
+        (void)AppendAction( move );
+    }
+
+    m_previousPointerX = pointer.clientX;
+    m_previousPointerY = pointer.clientY;
+
+    // 2. Mouse Button Down / Click / Drag
     if ( mouse.leftPressed || mouse.rightPressed )
     {
         RecordedInteractionAction click;
@@ -273,7 +359,7 @@ void InteractionAutomationRecorder::RecordFrame( int currentFrame, int screenWid
         (void)AppendAction( click );
     }
 
-    // 2. Mouse Wheel Scroll
+    // 3. Mouse Wheel Scroll
     if ( inputRouter.DeviceFrame().wheelDelta != 0 )
     {
         RecordedInteractionAction scroll;
@@ -287,7 +373,7 @@ void InteractionAutomationRecorder::RecordFrame( int currentFrame, int screenWid
         (void)AppendAction( scroll );
     }
 
-    // 3. Keyboard Presses
+    // 4. Keyboard Holds & Continuous Movement (WASD, Space, Shift, etc.)
     for ( int vk = 0; vk < InputKeySnapshot::VIRTUAL_KEY_COUNT; ++vk )
     {
         const std::size_t word = static_cast<std::size_t>( vk ) / 64u;
@@ -297,14 +383,23 @@ void InteractionAutomationRecorder::RecordFrame( int currentFrame, int screenWid
 
         if ( isDown && !wasDown && vk != VK_F8 ) // F8 is reserved for recorder toggle
         {
-            if ( const char* keyName = VirtualKeyToString( vk ) )
+            m_keyDownFrame[vk] = relativeFrame;
+        }
+        else if ( !isDown && wasDown && vk != VK_F8 )
+        {
+            if ( m_keyDownFrame[vk] >= 0 )
             {
-                RecordedInteractionAction keyAction;
-                keyAction.frame = relativeFrame;
-                keyAction.kind = RecordedActionKind::PressKey;
-                keyAction.virtualKey = vk;
-                strncpy_s( keyAction.keyName, sizeof( keyAction.keyName ), keyName, _TRUNCATE );
-                (void)AppendAction( keyAction );
+                if ( const char* keyName = VirtualKeyToString( vk ) )
+                {
+                    RecordedInteractionAction keyAction;
+                    keyAction.frame = m_keyDownFrame[vk];
+                    keyAction.kind = RecordedActionKind::PressKey;
+                    keyAction.virtualKey = vk;
+                    keyAction.holdFrames = (std::max)( 1, relativeFrame - m_keyDownFrame[vk] );
+                    strncpy_s( keyAction.keyName, sizeof( keyAction.keyName ), keyName, _TRUNCATE );
+                    (void)AppendAction( keyAction );
+                }
+                m_keyDownFrame[vk] = -1;
             }
         }
     }
@@ -377,6 +472,12 @@ bool InteractionAutomationRecorder::SaveToFile()
             break;
         case RecordedActionKind::PressKey:
             out << ", \"pressKey\": \"" << a.keyName << "\"";
+
+            if ( a.holdFrames > 1 )
+            {
+                out << ", \"holdFrames\": " << a.holdFrames;
+            }
+
             break;
         case RecordedActionKind::SelectReplayCauseRow:
             out << ", \"selectReplayCauseRow\": " << a.selectedRow;

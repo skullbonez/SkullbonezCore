@@ -106,9 +106,13 @@ class InteractionAutomationRecorder
     char m_outputPath[260] = {};
     char m_scenePath[260] = {};
     int m_startFrame = 0;
+    int m_recordingTurn = 0;
+    int m_previousPointerX = -1;
+    int m_previousPointerY = -1;
     std::size_t m_actionCount = 0;
     std::array<RecordedInteractionAction, MAX_RECORDED_ACTIONS> m_actions = {};
     std::array<uint64_t, 4> m_previousKeys = {};
+    std::array<int, 256> m_keyDownFrame = {};
     bool m_previousLeftDown = false;
     bool m_previousRightDown = false;
     int m_dragStartFrame = -1;
