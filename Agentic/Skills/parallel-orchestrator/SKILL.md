@@ -100,15 +100,17 @@ eligible bug. This is a side lane, not a second source of plan priority.
 Run the bug lane through a separate agent on its own fresh branch and isolated
 worktree. Never execute it in the coordinator agent or worktree, attach it to a
 plan worker's branch, or consume its reserved slot with plan review or
-validation work. When one bug finishes, select and dispatch the next eligible
-bug without waiting for the primary-plan blocker to clear.
+validation work. When one bug finishes, have the dedicated bug agent rerun its
+triage and begin the next eligible bug without waiting for the primary-plan
+blocker to clear.
 
-### Select An Eligible Bug
+### Bug Agent Self-Triage
 
-Re-read the CSV before every selection, but do not trust its `fixed` column as
-the only state source. Cross-check the active plans, SessionState, source,
-tests, and relevant Git history because a report may intentionally remain
-read-only evidence after a plan closes a finding.
+The dedicated bug agent owns each selection. Re-read the CSV without trusting
+its `fixed` column alone. Cross-check active plans, SessionState, source, tests,
+relevant history, and coordinator-provided current/upcoming worker file leases,
+contracts, resources, and checkpoint. Start the highest-ranked eligible row
+without waiting for coordinator nomination.
 
 Before ranking bugs, build a conservative conflict forecast from:
 
@@ -149,10 +151,11 @@ two competing contracts. A bug that would require manual semantic transplant,
 plan redesign, baseline reinterpretation, or a conflict-resolution owner
 decision is ineligible.
 
-Prioritize memory corruption, data races, destructive I/O, silent success, and
-other high-impact rows among the eligible set. Independence outranks severity:
-a high-severity overlapping row stays with its owner while a lower-severity
-isolated row may proceed.
+After hard eligibility filtering, rank by reported severity descending, then
+predicted clash risk across files, contracts, tests, metadata, fixtures, and
+validation resources, then stable id. Independence outranks severity: when a
+higher-severity row carries materially more integration risk, choose the safer
+row and record why. Return the ranked shortlist and deferrals for audit.
 
 Do not select:
 
