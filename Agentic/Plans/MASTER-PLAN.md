@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-22
-Status: Ragdoll Physics Unification and Runtime Boundary Separation active; 87/104 tasks complete
+Status: Ragdoll Physics Unification, Runtime Boundary Separation, and Game UI Component Library Separation active; 87/111 tasks complete
 
 ## Owner Direction
 
@@ -20,6 +20,15 @@ Status: Ragdoll Physics Unification and Runtime Boundary Separation active; 87/1
   Visual Studio project topology. No project-count or source-line target is
   authorized; separation is judged by ownership, direction, behavior, and
   terminal validation.
+
+- Game UI Component Library Separation was activated by owner direction on
+  2026-08-22 and is binding after RBS7. UI0-UI6 retain the existing
+  `SKULLBONEZ_UI` static library as the reusable backend-neutral component
+  foundation, move Skullbonez-specific composition and commands above it, and
+  converge owner-local Runtime surfaces on shared component presentation. The
+  plan consumes RBS0/RBS4/RBS6/RBS7 results instead of duplicating package,
+  operator-phase, submission, or project-topology work. It creates no new
+  production project and does not modify the active Runtime plan.
 
 - Causal Event Inspection is complete. Its synchronized exact-frame transport,
   dedicated camera follow, bounded manifold presentation, and four-row solver
@@ -250,6 +259,7 @@ Completed plan files were deleted; git history is the archive.
 |---|---|---|---|---|
 | Deterministic Collision Modes And Ragdoll Unification | `RAGDOLL_PHYSICS` | 10 | 1 | `TODO/ragdoll-physics-unification.md` |
 | Runtime Boundary Separation And Project Topology | `RUNTIME_BOUNDARIES` | 8 | 0 | `TODO/runtime-boundary-separation.md` |
+| Game UI Component Library Separation | `GAME_UI_COMPONENTS` | 7 | 0 | `TODO/game-ui-component-library-separation.md` |
 
 ## Parked, Backlog, And Completed Plans
 
@@ -285,6 +295,11 @@ One detail in that table is recorded:
    native host and frame-metrics ownership, split operator projection/commands
    from GPU submission and process command application, close the logical `Run`
    surface, and adopt only VC project boundaries that strengthen ownership.
+3. `GAME_UI_COMPONENTS` UI0 through UI6 - consume the closed RBS ownership and
+   project graph, narrow the existing UI static library to reusable component
+   values/functions, migrate GameUI and owner-local Runtime surfaces to that
+   foundation, and move product composition above it without adding another
+   production project.
 
 `CAUSAL_INSPECT` no longer re-steps an old frame to regenerate solver detail, so
 it does not consume the tier-2 determinism guarantee and has no ordering
@@ -308,8 +323,9 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-87/104 tasks complete with Deterministic Collision Modes And Ragdoll Unification
-first and Runtime Boundary Separation And Project Topology second.
+87/111 tasks complete with Deterministic Collision Modes And Ragdoll Unification
+first, Runtime Boundary Separation And Project Topology second, and Game UI
+Component Library Separation third.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
@@ -320,5 +336,7 @@ Repository Hygiene Cleanup RC0-RC5 is complete.
 Core Engine Evidence-Driven Code Reduction CR0-CR5 is complete.
 Deterministic Collision Modes And Ragdoll Unification FP0-FP9 is active at 1/10; FP0 is complete and FP1 is next.
 Runtime Boundary Separation And Project Topology RBS0-RBS7 is active at 0/8.
+Game UI Component Library Separation UI0-UI6 is active at 0/7 and binding after
+RBS7.
 Deterministic
 Trigonometry is owner-parked and excluded from progress.
