@@ -1349,6 +1349,16 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
     debug.interactionRecordingFrameCapacity = recordingStatus.frameCapacity;
     strncpy_s( debug.interactionRecordingFailure, sizeof( debug.interactionRecordingFailure ), recordingStatus.failure,
                _TRUNCATE );
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
+    debug.isInteractionPlayback = m_interactionAutomation.enabled && m_interactionAutomation.recordedManifest &&
+                                  !m_interactionAutomation.finished;
+    debug.interactionPlaybackTurn = static_cast<std::size_t>( m_interactionAutomation.recordedTurn );
+    debug.interactionPlaybackTurnCount = m_interactionAutomation.recordedFrames.size();
+#else
+    debug.isInteractionPlayback = false;
+    debug.interactionPlaybackTurn = 0u;
+    debug.interactionPlaybackTurnCount = 0u;
+#endif
 
     if ( ui.BlocksKeyboard() || externalUiCapture.keyboard || externalUiCapture.text )
     {

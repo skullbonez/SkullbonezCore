@@ -516,9 +516,9 @@ void UiTextPass::RenderChromeStatus( const UiTextViewport& viewport, const Overl
                    palette.textSecondary.b, detail );
     };
 
-    const auto renderRecordingIndicator = [&]()
+    const auto renderInteractionIndicator = [&]()
     {
-        if ( !debug.isInteractionRecording && debug.interactionRecordingFailure[0] == '\0' )
+        if ( !debug.isInteractionRecording && !debug.isInteractionPlayback && debug.interactionRecordingFailure[0] == '\0' )
         {
             return;
         }
@@ -540,15 +540,30 @@ void UiTextPass::RenderChromeStatus( const UiTextViewport& viewport, const Overl
         constexpr float dotY = y + 8.0f;
         constexpr float dotSize = 12.0f;
         const bool failed = debug.interactionRecordingFailure[0] != '\0';
-        draw.RoundedRect( dotX, dotY, dotSize, dotSize, dotSize * 0.5f, failed ? 1.0f : 0.96f, failed ? 0.65f : 0.18f,
-                          failed ? 0.10f : 0.18f, 1.0f );
-        draw.Text( dotX + dotSize + 6.0f, y + 5.0f, 12.0f, failed ? 1.0f : 0.96f, failed ? 0.68f : 0.22f,
-                   failed ? 0.12f : 0.22f, failed ? "RECORDING FAILED" : "REC F8 TO STOP" );
+        const bool playing = debug.isInteractionPlayback && !failed;
+        const float statusR = failed ? 1.0f : ( playing ? 0.20f : 0.96f );
+        const float statusG = failed ? 0.65f : ( playing ? 0.88f : 0.18f );
+        const float statusB = failed ? 0.10f : ( playing ? 0.32f : 0.18f );
+        draw.RoundedRect( dotX, dotY, dotSize, dotSize, dotSize * 0.5f, statusR, statusG, statusB, 1.0f );
+        draw.Text( dotX + dotSize + 6.0f, y + 5.0f, 12.0f, statusR, statusG, statusB,
+                   failed ? "RECORDING FAILED" : ( playing ? "PLAYBACK" : "REC F8 TO STOP" ) );
 
         if ( failed )
         {
             char statusLine[160] = {};
             sprintf_s( statusLine, sizeof( statusLine ), "%s", debug.interactionRecordingFailure );
+            draw.Text( x + 8.0f, y + 23.0f, 9.5f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
+                       statusLine );
+        }
+        else if ( playing )
+        {
+            char statusLine[160] = {};
+            const std::size_t visibleTurn = debug.interactionPlaybackTurnCount == 0u
+                                                ? 0u
+                                                : (std::min)( debug.interactionPlaybackTurn + 1u,
+                                                              debug.interactionPlaybackTurnCount );
+            sprintf_s( statusLine, sizeof( statusLine ), "%zu / %zu turns", visibleTurn,
+                       debug.interactionPlaybackTurnCount );
             draw.Text( x + 8.0f, y + 23.0f, 9.5f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
                        statusLine );
         }
@@ -565,7 +580,7 @@ void UiTextPass::RenderChromeStatus( const UiTextViewport& viewport, const Overl
 
     renderScenePauseBadge();
     renderRuntimeModeBadge();
-    renderRecordingIndicator();
+    renderInteractionIndicator();
 
     if ( !m_badgeDrawList.Empty() )
     {

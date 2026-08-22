@@ -79,6 +79,9 @@ struct OverlayDebugState
     std::size_t interactionRecordingFrameCount = 0u;
     std::size_t interactionRecordingFrameCapacity = 0u;
     char interactionRecordingFailure[128] = {};
+    bool isInteractionPlayback = false;                       // Recorded-manifest playback is actively publishing synthetic input.
+    std::size_t interactionPlaybackTurn = 0u;                 // Zero-based turn currently published by Automation.
+    std::size_t interactionPlaybackTurnCount = 0u;
     float frozenWaterTime = 0.0f;                             // Simulation time captured when freeze was toggled on
 #ifdef _DEBUG
     char reproSnapshotMessage[128] = {};                      // Short HUD confirmation after launcher-mode repro dump
