@@ -90,6 +90,44 @@ plans. Select the next unfinished, dependency-safe item in binding order. Ignore
 MASTER-PLAN after every pushed slice because the queue and denominator may have
 changed.
 
+## Reversible Decision Autonomy
+
+Do not turn an under-specified but reversible implementation choice into a
+blocker. When no user or accepted contract fixes the answer, use best
+engineering judgement, choose the smallest testable assumption that preserves
+stated acceptance, and keep working. Goal and overnight runs optimize for
+useful recoverable progress: a bounded wrong assumption can be revised in a
+later commit, while idle time cannot be recovered.
+
+- Proceed autonomously when the choice is local, reversible with a normal
+  follow-up commit, has no destructive or external effect, and focused tests
+  can expose a bad choice. A generic `owner decision` or `TBD` placeholder does
+  not make a tuning constant blocking unless the user explicitly reserved it.
+- Preserve optionality: isolate the choice behind a named constant or narrow
+  policy seam, pin its current behavior in tests, and avoid spreading it through
+  unrelated owners.
+- Report it at the next progress update and in the final handoff as
+  `Provisional decision:` with the chosen value, rationale, evidence, affected
+  behavior, and exact revision seam. This is notice for later revision, not a
+  synchronous request for permission.
+- If evidence rejects the assumption, revise it autonomously. If the user later
+  chooses differently, correct it in the next normal commit; never defend sunk
+  work, rewrite history, or leave the run idle.
+
+For example, if motion eligibility needs hysteretic travel thresholds but no
+accepted contract supplies numbers, choose a simple thickness-independent
+policy such as `0.1` metres per Physics tick to promote and `0.075` metres to
+demote, assert both boundaries, and continue. Report those constants afterward
+as provisional and easy to revise. Waiting overnight for that local numeric
+choice is an orchestration failure.
+
+Still stop for choices that require authority the run does not have: destructive
+or externally visible actions, security or data-loss risk, irreversible
+migrations, dependency/schema/rule changes that require owner approval,
+owner-controlled baseline or golden transitions, or a user instruction that
+explicitly says to wait. Block only the affected path and continue every
+independent safe item under Blocker Continuation.
+
 ## Live Work Ledger
 
 Use the batch-owned live ledger for the complete orchestrator goal. It writes

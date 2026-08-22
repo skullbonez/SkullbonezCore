@@ -53,6 +53,20 @@ It does not authorize any of the following:
 If parallelism conflicts with one of those rules, reduce or remove parallelism.
 Never reinterpret a dependency as optional merely to keep a worker busy.
 
+### Reversible Decisions During Fan-Out
+
+Apply the base skill's Reversible Decision Autonomy before calling a contract
+unresolved. The coordinator should freeze a reasonable provisional contract
+and fan out instead of waiting for a small reversible choice. Give each worker
+a decision envelope; within it, the worker may choose local constants or test
+shapes, pin them with focused evidence, and report them for later revision.
+
+For example, an unspecified motion threshold may provisionally use `0.1`
+metres per Physics tick to promote and `0.075` metres to demote, independent of
+collider thickness. Keep the wave running and notify the user afterward. Pause
+only the affected lane for a true approval boundary; the dedicated bug lane and
+other independent lanes continue.
+
 ### Out-Of-Plan Bug And Backlog Work
 
 Invoking this skill does not make an unregistered bug ledger, audit, backlog, or
@@ -383,6 +397,7 @@ Tracking identity: <stable plan task id/title or bug finding id/title>
 Commit convention: <resolved current DONE/TOTAL header or normal bug subject>
 Lane kind and objective: <bounded outcome>
 Dependencies already satisfied: <commits/evidence>
+Reversible decision envelope: <choices the worker may make without waiting>
 Allowed write scope: <exact files/directories>
 Prohibited shared scope: <exact files/directories>
 Required focused evidence: <commands/assertions/artifacts>
