@@ -73,7 +73,7 @@ the orchestration run. After branch verification and before plan edits:
 3. Otherwise create this objective:
 
 ```text
-Complete Agentic/Plans/MASTER-PLAN.md on <branch> in binding priority order; validate, commit, and push accepted slices; record genuine blockers and continue with the next dependency-safe item without stopping.
+Complete Agentic/Plans/MASTER-PLAN.md on <branch> in direct dependency order; maximize merge-safe concurrency when the parallel policy is active; validate, commit, and push accepted slices; record genuine blockers and continue without stopping.
 ```
 
 4. If an unrelated unfinished goal prevents goal creation, record that tooling
@@ -83,12 +83,15 @@ Complete Agentic/Plans/MASTER-PLAN.md on <branch> in binding priority order; val
 5. Keep the goal active while any actionable MASTER-PLAN work remains. One
    blocked item never blocks or completes the whole goal.
 
-Use `Agentic/Plans/MASTER-PLAN.md` as the live queue. Read its Current Execution
-Priority, Portfolio Progress Ledger, plan-state tables, and linked `TODO/`
-plans. Select the next unfinished, dependency-safe item in binding order. Ignore
-`Agentic/Plans/WNF/` unless the owner explicitly reactivates an item. Re-read
-MASTER-PLAN after every pushed slice because the queue and denominator may have
-changed.
+Use `Agentic/Plans/MASTER-PLAN.md` as the live dependency graph. Read its
+Current Execution Priority, Portfolio Progress Ledger, plan-state tables, and
+linked `TODO/` plans. Plain orchestration selects the next unfinished,
+dependency-safe item in binding order. Explicit parallel-orchestrator
+invocation activates the native multi-plan queue policy: every unfinished plan
+whose direct prerequisites are satisfied may run concurrently. Binding order
+allocates scarce slots and orders fan-in; list position alone is not a
+dependency. Ignore `Agentic/Plans/WNF/` unless the owner reactivates an item,
+and re-read MASTER-PLAN after every pushed slice.
 
 ## Reversible Decision Autonomy
 
@@ -263,9 +266,10 @@ search for them: in Codex use names such as `create_thread`, `send_message_to_th
 `read_thread`, `handoff_thread`, and `list_threads`; in Antigravity use `invoke_subagent`,
 `define_subagent`, and `send_message`.
 
-If a review tool creates a separate worktree, keep it read-only. Keep one active
-implementation plan at a time unless the user explicitly asks for a different
-queue policy.
+If a review tool creates a separate worktree, keep it read-only. Plain
+orchestration keeps one active implementation plan. Invoking the parallel
+orchestrator is the explicit different queue policy: run every dependency-ready,
+merge-safe plan that available agents and machine resources can support.
 
 ### Ownership Evidence For The End-Of-Plan Review
 
@@ -354,7 +358,7 @@ reviewer explicitly required a follow-up.
 
 ## Plan Loop
 
-For each plan or source slice, in order:
+For each plain-mode plan, or each parallel-mode fan-in slice:
 
 1. Select the task from MASTER-PLAN, resolve its stable task id/title, and call
    `work_ledger.bat start-task` before deeper plan reading, investigation, or
@@ -371,8 +375,9 @@ Required commit subject first line: <PLAN_NAME>, TASK <DONE>/<TASK_COUNT> — <A
 ```
 
    Recalculate it if scope or task completion changes before commit.
-3. Complete exactly that plan in the main agent. Do not launch an implementation
-   worker or ask a sub-agent to edit files.
+3. In plain mode, complete exactly that plan in the main agent and do not launch
+   an implementation worker. In parallel mode, follow the parallel skill's
+   multi-plan fan-out while this main orchestrator remains the integration owner.
 4. Inspect the result with `git status --short` and targeted file reads or
    diffs.
 5. For ordinary incremental slices, skip rubber-duck review and proceed to the
@@ -436,10 +441,10 @@ Return findings with file/line references and a clear verdict.
     writes the full hash into the task group, and makes the completed ledger
     immediately queryable before advancing the queue.
 
-Advance after the current item has received the review and validation its risk
-classification requires, then is committed and pushed, or after its blocker
-record is committed and pushed under Blocker Continuation. A single plan
-failure is not a terminal condition.
+In plain mode, advance after the current item is reviewed, validated, committed,
+and pushed, or after its blocker record is pushed. In parallel mode, fan in any
+ready plan while other dependency-independent branches continue; one plan's
+review, validation, or blocker never idles unrelated work.
 
 ## Validation Discipline
 

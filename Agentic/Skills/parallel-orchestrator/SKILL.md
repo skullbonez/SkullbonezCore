@@ -1,14 +1,14 @@
 ---
 name: parallel-orchestrator
-description: Extend SkullbonezCore's repository orchestrator with dependency-safe implementation, test, investigation, validation, and independent bug-fix sub-agents running in isolated worktrees, including a dedicated bug worker that continues through primary-plan blockers. Use when the user explicitly invokes the parallel orchestrator, asks the orchestrator to parallelize a MASTER-PLAN or Agentic/Plans execution, requests multiple implementation agents or worktrees, asks to fix eligible master bug-report rows alongside planned work, or asks to reduce plan wall-clock time through concurrent lanes while preserving the normal orchestrator's branch, plan-order, validation, review, commit, push, blocker, ledger, and handoff rules.
+description: Extend SkullbonezCore's repository orchestrator with a native multi-plan queue that actively runs as many dependency-ready plans, implementation lanes, tests, investigations, validations, and independent bug fixes as available agents can safely support, each on an isolated branch and worktree before main-orchestrator fan-in. Use when the user explicitly invokes the parallel orchestrator, asks to parallelize MASTER-PLAN or Agentic/Plans execution, requests multiple implementation agents or worktrees, asks to fix eligible master bug-report rows alongside planned work, or asks to reduce plan wall-clock time while preserving dependency, validation, review, commit, push, blocker, ledger, and handoff rules.
 ---
 
 # Parallel Orchestrator
 
-Run the normal repository orchestrator with one additional authority: dispatch
-sub-agents to perform dependency-safe work concurrently in isolated worktrees.
-Parallel execution changes who may perform a bounded lane; it does not weaken
-the base orchestrator's engineering or delivery contract.
+Run the normal repository orchestrator with a native multi-plan queue. Fill
+available slots with dependency-ready, merge-safe plans or lanes on isolated
+branches/worktrees, then fan them into the integration branch through the main
+orchestrator. Parallelism changes scheduling, not the delivery contract.
 
 ## Load And Preserve The Base Contract
 
@@ -16,33 +16,30 @@ Before taking orchestration action, read
 `Agentic/Skills/orchestrator/SKILL.md` completely. Follow its startup,
 Night Runner branch resolution, persistent goal, MASTER-PLAN selection, live
 ledger, blocker continuation, risk-proportional review and validation, plan
-loop, commit/push, and final handoff procedures unchanged except for the single
+loop, commit/push, and final handoff procedures except for the native multi-plan
 override below.
 
-Also follow `AGENTS.md`, the selected plan, and every applicable repository
-skill or reference. A more specific repository or plan restriction remains
-binding.
+Also follow `AGENTS.md`, every selected plan, and applicable skills/references.
+A specific restriction remains binding only when it names a direct dependency,
+authority boundary, shared contract, or exclusive resource; generic one-plan
+wording does not disable this multi-plan policy.
 
-### The Only Standing Override
+### Native Multi-Plan Override
 
-Replace the base skill's prohibition on implementation sub-agents with this
-rule:
+Replace the base skill's plain one-plan queue and implementation-sub-agent
+prohibition with this rule:
 
-> Sub-agents may investigate, implement, test, validate, or prepare evidence for
-> independent lanes of the currently selected task. They may use fresh
-> worktrees and local feature branches. The coordinator remains responsible for
-> dependency analysis, scope and file leases, integration, acceptance,
-> validation selection, ledger truth, plan progress, commits, pushes, blocker
-> records, and final reporting.
+> Sub-agents may own separate dependency-ready plans or independent lanes within
+> a plan. Every writer uses a fresh branch and isolated worktree. The coordinator
+> actively maximizes safe occupancy, while retaining dependency analysis, file
+> leases, integration, acceptance, validation selection, ledger truth, plan
+> progress, commits, pushes, blocker records, and final reporting.
 
 Invoking this skill explicitly supplies that sub-agent/worktree authorization.
 It does not authorize any of the following:
 
-- selecting a later MASTER-PLAN item ahead of binding order;
-- starting a later phase before the selected plan's acceptance boundary permits
-  it;
-- running more than one active implementation plan when the base orchestrator
-  or selected plan requires one;
+- starting a plan or phase before its direct prerequisites or acceptance
+  boundary permit it;
 - changing a baseline, golden, rule, exception, dependency direction, or owner
   decision without the approval required by the repository;
 - committing or pushing directly on `main` without explicit confirmation;
@@ -50,8 +47,10 @@ It does not authorize any of the following:
 - weakening validation, review, comment, allocation, determinism, or handoff
   requirements.
 
-If parallelism conflicts with one of those rules, reduce or remove parallelism.
-Never reinterpret a dependency as optional merely to keep a worker busy.
+MASTER-PLAN position is priority, not a dependency edge. Use it to allocate
+scarce slots and order fan-in, but start a later-listed plan whenever no direct
+dependency or credible merge conflict requires waiting. Never leave an agent
+slot idle while dependency-ready, merge-safe work exists.
 
 ### Reversible Decisions During Fan-Out
 
@@ -75,8 +74,7 @@ parallel worker, classify it as:
 
 - `owned by active task`: leave it with that task and do not duplicate it on
   another branch;
-- `owned by later active plan`: preserve it for that plan unless the owner
-  explicitly changes binding order;
+- `owned by another active plan`: leave it to that plan and do not duplicate it;
 - `independent but unregistered`: require explicit user activation, a stable
   task/commit identity, acceptance criteria, validation, and a merge checkpoint;
   or
@@ -135,7 +133,7 @@ Choose a row only when all of these are true:
 
 - no active or future registered plan phase already owns the finding;
 - its source, tests, fixtures, baselines, project metadata, and generated files
-  do not overlap the selected plan task or another pending bug branch;
+  do not overlap any active plan task or another pending bug branch;
 - the fix needs no unresolved owner, schema, dependency, baseline, or golden
   decision;
 - one bounded regression test can mechanically express the expected behavior,
@@ -206,12 +204,10 @@ baseline, determinism, performance, graph, or validation evidence is still
 being established. Preserve its commit and focused evidence, then continue the
 main lane.
 
-Default the fan-in checkpoint to the end of the current active plan, after its
-terminal commit is pushed and before the next plan captures its baseline. This
-keeps the current plan's evidence coherent and prevents bug branches from
-drifting across the whole queue. A more frequent checkpoint is allowed when the
-selected plan explicitly permits it and the change cannot invalidate accepted
-evidence.
+Default fan-in to the first checkpoint after every overlapping active plan has
+published coherent evidence and before a dependent plan captures its baseline.
+This keeps evidence coherent without waiting for unrelated plans. A more
+frequent checkpoint is allowed when it cannot invalidate accepted evidence.
 
 When the primary plan is blocked, treat its pushed documentation-only blocker
 record as the bug fan-in checkpoint. Integrate completed independent bug branches
@@ -230,8 +226,8 @@ At the checkpoint:
 5. Push normally, record each full commit and result in the live ledger/handoff,
    and delete a worker worktree only after its evidence and integration are
    secure.
-6. Re-read MASTER-PLAN and refresh the next plan's inventories from the final
-   combined commit.
+6. Re-read MASTER-PLAN and refresh every newly ready plan's inventories from
+   the final combined commit.
 
 If a bug branch conflicts with accepted plan ownership or behavior at fan-in,
 do not guess through the conflict. Leave it unmerged, record the exact blocker
@@ -245,10 +241,10 @@ Complete the base orchestrator bootstrap first:
 2. Resolve and verify the Night Runner integration branch.
 3. Create or reuse the persistent orchestration goal.
 4. Start the base work ledger.
-5. Select the next dependency-safe task from MASTER-PLAN.
-6. Start its task and implementation step in the ledger.
-7. Read the owning plan deeply enough to resolve the exact acceptance boundary,
-   required commit count, risks, tests, baselines, and stop conditions.
+5. Build the direct dependency/conflict graph for every unfinished live plan.
+6. Select as many dependency-ready, merge-safe plans as available slots permit.
+7. Start and account for every dispatched plan task, then read each plan deeply
+   enough to resolve acceptance, counts, risks, tests, baselines, and stops.
 
 Do not create worker branches from uncommitted coordinator work. First preserve
 pre-existing dirty files as user-owned, then establish the exact clean commit
@@ -256,8 +252,11 @@ that every lane will use as its base.
 
 ## Build A Parallel Wave
 
-Treat each selected task or phase as a small dependency graph. Create concurrent
-lanes only after answering all of these questions:
+Treat the unfinished MASTER queue and each selected plan as one dependency
+graph. Fill every available slot with the highest-priority ready plan or lane;
+do not serialize independent plans merely because one appears later in MASTER.
+Give each plan its own branch and worktree, and merge completed branches only
+through the main orchestrator. Before dispatch, answer:
 
 1. What contract or design decision must be frozen before implementation
    divides?
@@ -310,10 +309,10 @@ land the shared contract first, or keep the task serial.
 
 ## Single-Writer Locks
 
-The coordinator owns these by default unless the selected plan gives one entire
+The coordinator owns these by default unless an active plan gives one entire
 lane exclusive ownership:
 
-- `Agentic/Plans/MASTER-PLAN.md`, `Agentic/SessionState.md`, and the active
+- `Agentic/Plans/MASTER-PLAN.md`, `Agentic/SessionState.md`, and every active
   plan's progress or closure evidence;
 - `Agentic/Plans/WORK_LEDGER.csv` and goal/task lifecycle commands;
 - baseline approvals, golden files, phase artifact manifests, and final
@@ -346,13 +345,12 @@ capacity and live-agent concurrency are separate concerns:
   dependency safety, and the ledger's ability to account for every live
   session, not by a fixed worktree count in this skill.
 
-The theoretical maximum under this skill is one writable worktree per
-dispatched agent/skill lane, plus the coordinator and integration worktrees.
-There is no standing two-worktree or two-lane ceiling. If the active ledger can
-account for only a subset of prepared lanes simultaneously, keep the remaining
-lanes parked and dispatch them in later waves; do not collapse their branches,
-reuse one writable tree across agents, invent a second ledger, or estimate
-usage.
+The maximum is one writable worktree per dispatched agent or lane, plus the
+coordinator and integration worktrees; there is no fixed plan or worktree
+ceiling. Open distinct task/step accounting for every live plan worker. A
+single-active-task or single-worker ledger seam is a tooling defect to repair,
+not permission to serialize merge-safe plans. Never invent usage or reuse one
+writable tree across agents.
 
 For every live worker, transition to an accountable step before dispatch,
 attach its real thread/session id using the supported ledger mechanism, and
@@ -395,7 +393,7 @@ Use the repository startup contract and the applicable plan.
 Base commit: <full hash>
 Integration branch: <branch>
 Worker branch/worktree: <branch and absolute path>
-Authority: <plan lane or master bug-report side lane>
+Authority: <independent plan, plan lane, or master bug-report side lane>
 Tracking identity: <stable plan task id/title or bug finding id/title>
 Commit convention: <resolved current DONE/TOTAL header or normal bug subject>
 Lane kind and objective: <bounded outcome>
@@ -453,10 +451,10 @@ When a worker completes:
    comment-audit worker.
 8. Use a separate read-only rubber-duck reviewer only at the cadence allowed by
    the base orchestrator.
-9. Run terminal plan-completion validation once, only when the entire selected
-   plan is actually closing.
-10. Update plan progress and SessionState, then commit, push, and finish the
-    ledger task exactly as the base orchestrator requires.
+9. Run terminal plan-completion validation once for each plan when that plan is
+   actually closing on the integrated tree.
+10. Update all affected plan progress and SessionState, then commit, push, and
+    finish each ledger task exactly as the base orchestrator requires.
 
 Remove a worker worktree only after its commit is integrated, the branch state
 is verified, and no evidence exists solely inside that worktree. Never use a
@@ -464,7 +462,7 @@ destructive cleanup command against an unresolved or computed broad path.
 
 ## Failure And Blocker Handling
 
-A failed worker lane does not automatically block the selected task. The
+A failed worker lane does not automatically block its owning plan. The
 coordinator should inspect its evidence, retry with a narrower lane when safe,
 or complete the work locally. When the underlying plan task is genuinely
 blocked, follow the base orchestrator's Blocker Continuation procedure and keep
@@ -472,7 +470,8 @@ advancing only dependency-safe work. Stop conflicting plan lanes, but keep the
 dedicated bug agent working from its separate branch and worktree whenever an
 eligible independent row exists.
 
-Stop fan-out and return to serial integration when:
+Stop only the affected fan-out and return those plans to serial integration
+when the following applies; keep every unrelated ready plan running:
 
 - the contract is still changing;
 - write scopes overlap or an undeclared shared file appears;

@@ -1,4 +1,4 @@
 interface:
   display_name: "Parallel Orchestrator"
-  short_description: "Parallelize plans and safe bug fixes"
-  default_prompt: "Use $parallel-orchestrator to execute the active plan with dependency-safe sub-agents, worktrees, and mergeable bug fixes."
+  short_description: "Run independent plans concurrently"
+  default_prompt: "Use $parallel-orchestrator to run every dependency-ready plan and safe bug fix concurrently in isolated worktrees, then integrate them through the main orchestrator."
