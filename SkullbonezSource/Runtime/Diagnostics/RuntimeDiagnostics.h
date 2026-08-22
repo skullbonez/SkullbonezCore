@@ -13,7 +13,8 @@ Glossary:
 
 Invariants:
   - Diagnostic artifacts are side-channel output; enabling them must not change
-  physics state except for explicitly forced fixed-step diagnostics.
+    physics state except for diagnostics' explicit render-frame-lockstep launch
+    policy.
 
 Related:
   - SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.cpp
@@ -44,28 +45,28 @@ struct SceneSessionState;
 
 struct RunPerfLogState
 {
-    bool isPerfTest = false;                        // Perf-suite mode; runtime writes pass/frame rows while scene advances.
-    bool perfHeaderWritten = false;                 // Prevents duplicate CSV headers across passes in one run.
-    char perfLogPath[256] = {};                     // Output path for perf CSV; empty disables file logging.
-    FILE* perfLogFile = nullptr;                    // Open perf CSV handle owned by RuntimeDiagnostics until ClosePerfLog.
-    bool isPerfLogFlushEnabled = false;             // Diagnostic mode: force flush after every perf write.
-    int perfLogFlushInterval = 0;                   // Flush every N writes; 0 means flush only at close.
-    int perfLogWritesSinceFlush = 0;                // Buffered perf-log rows since last explicit flush.
+    bool isPerfTest = false;                             // Perf-suite mode; runtime writes pass/frame rows while scene advances.
+    bool perfHeaderWritten = false;                      // Prevents duplicate CSV headers across passes in one run.
+    char perfLogPath[256] = {};                          // Output path for perf CSV; empty disables file logging.
+    FILE* perfLogFile = nullptr;                         // Open perf CSV handle owned by RuntimeDiagnostics until ClosePerfLog.
+    bool isPerfLogFlushEnabled = false;                  // Diagnostic mode: force flush after every perf write.
+    int perfLogFlushInterval = 0;                        // Flush every N writes; 0 means flush only at close.
+    int perfLogWritesSinceFlush = 0;                     // Buffered perf-log rows since last explicit flush.
 #ifdef _DEBUG
-    char physicsRegressionLogOverride[256] = {};    // CLI --physics-regression-log path (empty = disabled)
-    char physicsCollisionTimeLogOverride[256] = {}; // CLI --physics-collision-time-log path (empty = disabled)
+    char physicsRegressionLogOverride[256] = {};         // CLI --physics-regression-log path (empty = disabled)
+    char physicsCollisionTimeLogOverride[256] = {};      // CLI --physics-collision-time-log path (empty = disabled)
 #endif
 };
 
 #ifdef _DEBUG
 struct RunPhysicsDiagnosticsState
 {
-    char path[256] = {};                            // CLI --physics-diag path (empty = disabled)
-    char currentRunId[32] = {};                     // Stable per-load id written into NDJSON rows
-    bool isEnabled = false;                         // True when a diagnostics path was provided
-    bool isRunActive = false;                       // True after a run row and before the matching end row
-    bool fixedStepForcedByDiagnostics = false;      // True when --physics-diag forced fixed-step mode
-    int runSequence = 0;                            // Incremented on every scene/generated load
+    char path[256] = {};                                 // CLI --physics-diag path (empty = disabled)
+    char currentRunId[32] = {};                          // Stable per-load id written into NDJSON rows
+    bool isEnabled = false;                              // True when a diagnostics path was provided
+    bool isRunActive = false;                            // True after a run row and before the matching end row
+    bool renderFrameLockstepForcedByDiagnostics = false; // True when --physics-diag supplied the explicit lockstep request.
+    int runSequence = 0;                                 // Incremented on every scene/generated load
 };
 
 struct ReplayScrubProbeDiagnostic
@@ -177,12 +178,13 @@ class RuntimeDiagnostics
     // Diagnostics receives the physics owner directly; artifact setup never
     // needs scene lifecycle, request, or world-presentation authority.
     static void SetPhysicsDiagnosticsPath( RunPhysicsDiagnosticsState& diagnostics, Physics::PhysicsEngine& physics,
-                                           const char* path, bool fixedStepForcedByDiagnostics );
+                                           const char* path, bool renderFrameLockstepForcedByDiagnostics );
     static void LogSceneFinished( SceneSessionState& scene, const char* scenePath, const char* rendererName,
                                   const char* reason );
     static void BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics, Physics::PhysicsEngine& physics,
                                             const SceneSessionState& scene, const SkullbonezCore::Core::EngineConfig& config,
-                                            const char* scenePath, const char* rendererName );
+                                            const char* scenePath, const char* rendererName,
+                                            bool explicitRenderFrameLockstep, bool effectiveRenderFrameLockstep );
     static void LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagnostics, const SceneSessionState& scene,
                                      const ReplayScrubProbeDiagnostic& probe );
     static void LogReplayRestoreProbe( RunPhysicsDiagnosticsState& diagnostics, const SceneSessionState& scene,

@@ -300,7 +300,7 @@ struct UIEditorCommands
 struct UISceneOptionCommands
 {
     bool toggleTextOnly = false;
-    bool toggleFixedStep = false;
+    bool toggleFixedStep = false;                // Toggle the scene/capture render-frame-lockstep request.
     bool toggleTerrainHidden = false;
     bool toggleWaterHidden = false;
     bool toggleWaterFreeze = false;

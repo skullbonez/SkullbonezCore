@@ -1,7 +1,8 @@
 #
 # File: tools/physics_query.py
 # Purpose:
-#   Documents and runs the physics_query.py developer/validation helper script.
+#   Imports physics diagnostics and answers bounded developer/validation
+#   queries from a local SQLite cache.
 #
 # Summary:
 #   This tool imports append-only physics diagnostics into a sibling SQLite
@@ -14,7 +15,7 @@
 #   Convergence summary: One bounded row per retained solver iteration, with
 #     normal/tangent and maximum-row attribution.
 #   Validation gate: Repository script that proves a class of changes before
-#   commit or PR.
+#   commit or pull request.
 #
 # Invariants:
 #   - Tool output should be bounded and readable because agents and humans use
@@ -26,6 +27,8 @@
 #
 # Related:
 #   - AGENTS.md
+#   - SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.cpp
+#   - Agentic/Reference/physics-query-reference.md
 #
 #
 """
@@ -46,7 +49,7 @@ import sys
 import time
 
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 DEFAULT_LIMIT = 50
 SUMMARY_LIMIT = 20
 BODY_SAMPLE_LIMIT = 120
@@ -173,6 +176,10 @@ def create_schema(conn):
             seed integer,
             fixed_step integer,
             fixed_step_forced_by_diag integer,
+            scene_session_render_frame_lockstep_requested integer,
+            explicit_render_frame_lockstep integer,
+            effective_render_frame_lockstep integer,
+            render_frame_lockstep_forced_by_diag integer,
             renderer text,
             solver text,
             target_frames integer,
@@ -635,10 +642,12 @@ def insert_run(conn, item):
         """
         insert or replace into runs(
             run_id, scene, suite, scene_index, load_count, manual_reset_count, seed,
-            fixed_step, fixed_step_forced_by_diag, renderer, solver, target_frames,
-            model_count, frame_count, config_json
+            fixed_step, fixed_step_forced_by_diag,
+            scene_session_render_frame_lockstep_requested, explicit_render_frame_lockstep,
+            effective_render_frame_lockstep, render_frame_lockstep_forced_by_diag,
+            renderer, solver, target_frames, model_count, frame_count, config_json
         )
-        values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             run_id,
@@ -650,6 +659,10 @@ def insert_run(conn, item):
             as_int(item.get("seed")),
             as_int(item.get("fixed_step")),
             as_int(item.get("fixed_step_forced_by_diag")),
+            as_int(item.get("scene_session_render_frame_lockstep_requested")),
+            as_int(item.get("explicit_render_frame_lockstep")),
+            as_int(item.get("effective_render_frame_lockstep")),
+            as_int(item.get("render_frame_lockstep_forced_by_diag")),
             item.get("renderer"),
             item.get("solver"),
             as_int(item.get("target_frames")),

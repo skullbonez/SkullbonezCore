@@ -204,6 +204,9 @@ class ReplayRestoreService
         world.Environment().SetFluidDensity( sample.world.fluidDensity );
         debug.isWaterHidden = sample.world.waterHidden;
         debug.isTerrainHidden = sample.world.terrainHidden;
+
+        // Compatibility: restore the saved scene/capture request; Runtime
+        // resolves effective pacing again from live launch/session context.
         scene.isFixedStep = sample.world.fixedStep;
         scene.isScenePhysics = sample.world.scenePhysicsEnabled;
         scene.isSceneText = sample.world.sceneTextEnabled;

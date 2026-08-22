@@ -21,6 +21,8 @@ Invariants:
   - Render and cinematic UI values are clamped before they mutate live config.
   - Scene override masks must be updated with the value they describe.
   - Tornado commands mutate Gameplay-owned field/system/visual values in place.
+  - A scene lockstep request resets SimulationSystem only when the resolved
+    effective pacing policy changes.
 
 Related:
   - SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.h
@@ -316,8 +318,23 @@ void OperatorCommandTransaction::ApplyRuntimePresentation( OverlayDebugState& de
 
     if ( sceneOptions.toggleFixedStep )
     {
+        const SimulationPacingPolicy previousPacing = ResolveSimulationPacingPolicy( launchOptions.fixedStep,
+                                                                                     scene.isFixedStep,
+                                                                                     scene.targetFrameCount,
+                                                                                     scene.isInteractiveRun );
         scene.isFixedStep = !scene.isFixedStep;
-        simulation.Reset();
+        const SimulationPacingPolicy nextPacing = ResolveSimulationPacingPolicy( launchOptions.fixedStep, scene.isFixedStep,
+                                                                                 scene.targetFrameCount,
+                                                                                 scene.isInteractiveRun );
+
+        // Why: live and interactive scenes ignore this capture request. Do not
+        // discard their fractional wall-clock time when effective pacing did
+        // not actually change.
+        if ( previousPacing != nextPacing )
+        {
+            simulation.Reset();
+        }
+
         m_acceptance.toggledFixedStep = true;
     }
 

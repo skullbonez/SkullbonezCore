@@ -4,22 +4,29 @@ Purpose:
   Owns runtime simulation stepping policy and physics accumulators.
 
 Summary:
-  SimulationSystem translates scene timing settings and operator pause/step
-  state into deterministic physics ticks. Run remains responsible for
-  camera/UI logic that consumes the returned simulation/camera deltas.
+  SimulationSystem translates an effective pacing policy plus operator
+  pause/step state into deterministic physics ticks. Run resolves process/scene
+  launch intent and retains the camera/UI coordination that consumes the
+  returned simulation/camera deltas.
 
 Invariants:
   - SimulationSystem decides tick counts only; it does not borrow model owners,
     physics stores, world forces, worker pools, or presentation callbacks.
-  - Result deltas report what was committed this call; accumulator state remains
-    private to SimulationSystem.
-  - Deterministic and paused paths publish alpha 1 so capture/replay semantics
-    stay on exact committed solver state.
+  - Tick/drop counts report work committed or discarded this call. Frame-level
+    simulation/camera deltas report sanitized input even when no whole tick
+    commits; accumulator state remains private to SimulationSystem.
+  - Render-frame lockstep and paused paths publish alpha 1 so capture/replay
+    semantics stay on exact committed solver state.
   - Catch-up drops whole ticks only; fractional accumulator state survives.
+  - Non-finite timing inputs contribute no time; unrepresentable requested
+    whole-tick counts saturate at int max before cap/drop arithmetic.
+  - SimulationTickInput is one synchronous scheduler decision; the focused
+    TestSimulationSystem suite pins every pacing and pause/step field together.
 
 Related:
   - SkullbonezSource/Runtime/Simulation/SimulationSystem.cpp
   - SkullbonezSource/Runtime/App/RunFrame.cpp
+  - SkullbonezTests/TestSimulationSystem.cpp
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/engine-glossary.md
 */
@@ -32,13 +39,34 @@ Related:
 
 namespace SkullbonezCore::Runtime
 {
+enum class SimulationPacingPolicy : uint8_t
+{
+    WallClock = 0,
+    RenderFrameLockstep
+};
+
+// Invariant: explicit launch policy always wins. A scene-session request is
+// intentionally bounded to unattended finite captures so live and unlimited
+// scenes cannot change simulation speed with render frequency.
+constexpr SimulationPacingPolicy ResolveSimulationPacingPolicy( bool explicitRenderFrameLockstep,
+                                                                bool sceneRenderFrameLockstepRequest, int targetFrameCount,
+                                                                bool isInteractiveRun ) noexcept
+{
+    if ( explicitRenderFrameLockstep || ( sceneRenderFrameLockstepRequest && targetFrameCount > 0 && !isInteractiveRun ) )
+    {
+        return SimulationPacingPolicy::RenderFrameLockstep;
+    }
+
+    return SimulationPacingPolicy::WallClock;
+}
+
 struct SimulationTickInput
 {
     double secondsPerFrame = 0.0;
     float timeScale = 1.0f;
     bool isSceneMode = false;
     bool isScenePhysicsEnabled = true;
-    bool isFixedStep = false;
+    SimulationPacingPolicy pacingPolicy = SimulationPacingPolicy::WallClock;
     PhysicsAdvanceState physicsAdvance = PhysicsAdvanceState::Running;
     bool isStepRequested = false;
 
@@ -53,8 +81,8 @@ struct SimulationTickResult
     float simulationDt = 0.0f;
     float cameraDt = 0.0f;
     int committedPhysicsTicks = 0;
-    int droppedPhysicsTicks = 0;    // Whole fixed-step ticks discarded by the catch-up cap this call.
-    float presentationAlpha = 1.0f; // Leftover fixed-tick fraction; captures may override this to exact state.
+    int droppedPhysicsTicks = 0;    // Whole fixed-timestep drops derived from the saturated requested count.
+    float presentationAlpha = 1.0f; // Wall-clock fraction, or exact-state 1.0 for lockstep and paused paths.
 };
 
 class SimulationSystem
@@ -73,8 +101,8 @@ class SimulationSystem
     uint64_t PhysicsHitchEventCount() const noexcept;
 
   private:
-    float m_physicsAccumulator = 0.0f;
-    float m_fixedStepTickAccumulator = 0.0f;
+    double m_physicsAccumulator = 0.0;
+    double m_renderFrameLockstepTickAccumulator = 0.0;
     uint64_t m_droppedPhysicsTickCount = 0;
     uint64_t m_physicsHitchEventCount = 0;
     SceneLifecycleGenerationObserver m_sceneResetObserver;

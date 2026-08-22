@@ -5,11 +5,11 @@
     {
       "file": "SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp",
       "signature": "void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view, const ReplayOverlay::ReplayOverlayStateView& replay )",
-      "body_sha256": "372aebd216409fa07f38c1e7aa7a194ddcd2166fcb389f44aca1a6457de087ce",
+      "body_sha256": "f96f738643636134509f60e7f68aa6b5ec00e4d1a0376cacba9c03dea23296f9",
       "owner": "ImGuiEditorOwner development-shell frame pass",
       "disposition": "retain-owner",
       "reason": "One immediate-mode development-shell composition pass consumes detached frame views, including bounded Look Lab and continuous-forecast status, and emits only typed one-frame commands; its window and tree branches plus local widget values all expire at return, while helper extraction without a new invariant would only relay the same frame authority.",
-      "evidence": "git history: look-lab-random-style-authoring-ll4-input-capture (2026-08-01); ORBIT_FORECAST OF4 shared operator-surface review (2026-08-19); CR1 GameUI naming-only surface review (2026-08-22)",
+      "evidence": "git history: look-lab-random-style-authoring-ll4-input-capture (2026-08-01); ORBIT_FORECAST OF4 shared operator-surface review (2026-08-19); CR1 GameUI naming-only surface review (2026-08-22); SIM_PACING capture-lockstep label-only review (2026-08-23)",
       "plan": ""
     },
     {
@@ -107,11 +107,11 @@
     {
       "file": "SkullbonezSource/Runtime/Scene/SceneController.Load.cpp",
       "signature": "SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& request, SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions, const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender, const RunStartupState& startup, Assets::AssetSystem& assets, Threading::WorkerPool& workerPool, DiagnosticsRuntime& diagnosticsRuntime, Rendering::Dx12FrameOwner* renderFrame, Rendering::Dx12ResourceBuilder* renderResources, RuntimeRenderer& renderer, SceneLoadTransaction& transaction )",
-      "body_sha256": "8bb0852660e4169201426573a3744f917c3f24c9d2f221adcb9fb71bb289d35d",
+      "body_sha256": "18a6684e711654cc75462b56d9d573a8e780149b4bec4041fc001c69471a156e",
       "owner": "SceneController load transaction",
       "disposition": "retain-owner",
       "reason": "One scene-load transaction sequences authored decode, owner construction, render publication, diagnostics, and commit or rollback; the explicit transaction owns the phase invariant and every service borrow expires at return.",
-      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); SIM_PACING effective-policy diagnostics projection (2026-08-23)",
       "plan": "",
       "body_lines": 689,
       "max_brace_depth": 4,

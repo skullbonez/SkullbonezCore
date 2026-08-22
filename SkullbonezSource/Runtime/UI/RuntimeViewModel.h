@@ -41,7 +41,7 @@ struct RuntimeViewModel
     bool sceneMode = false;                // True when an authored scene is active
     bool scenePhysics = false;             // Active scene physics toggle
     bool sceneText = false;                // Active scene text overlay toggle
-    bool fixedStep = false;                // Active fixed-step toggle
+    bool fixedStep = false;                // Scene/capture render-frame-lockstep request; not live pacing authority
     bool screenshotPending = false;        // True when scene capture has not completed
     int sceneIndex = -1;                   // Current scene queue index
     int sceneCount = 0;                    // Number of queued scene entries

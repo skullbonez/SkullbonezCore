@@ -33,7 +33,10 @@ Target command:
 Debug\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\at_rest.scene.json --physics-diag Debug\at_rest.physicsdiag.ndjson
 ```
 
-`--physics-diag` automatically forces deterministic fixed-step playback. The runtime should print a message when it does that.
+`--physics-diag` automatically forces deterministic render-frame lockstep. The runtime should print a message when it does that.
+Each imported run keeps the legacy `fixed_step` columns for query compatibility
+and also exposes the scene-session request, explicit request, effective
+render-frame-lockstep policy, and diagnostics-forced request as separate fields.
 
 The deterministic CSV logger remains separate:
 

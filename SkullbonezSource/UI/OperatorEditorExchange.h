@@ -34,7 +34,7 @@ Invariants:
 Related:
   - SkullbonezSource/UI/UICommands.h
   - SkullbonezSource/Runtime/App/InputFrame.cpp
-  - SkullbonezSource/Runtime/DevelopmentTools editor owner
+  - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
@@ -168,7 +168,7 @@ struct OperatorEditorWorldView
     float tornadoInward = 0.0f;
     float tornadoSwirl = 0.0f;
     float tornadoLift = 0.0f;
-    bool fixedStep = false;
+    bool fixedStep = false; // Scene/capture render-frame-lockstep request; Runtime resolves effective pacing.
     bool physicsSleepEnabled = true;
     bool tornadoEnabled = false;
 };
@@ -319,7 +319,7 @@ struct OperatorEditorToolView
     bool placementModeEnabled = false;
     bool placeStaticObject = false;
     bool crossScenePauseLocked = false;
-    bool fixedStep = false;
+    bool fixedStep = false; // Scene/capture render-frame-lockstep request; Runtime resolves effective pacing.
     bool autoTerrainAlign = false;
     int undoDepth = 0;
     int redoDepth = 0;

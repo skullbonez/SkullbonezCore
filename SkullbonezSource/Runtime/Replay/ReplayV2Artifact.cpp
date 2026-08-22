@@ -91,7 +91,7 @@ enum ReplayV2WorldFlags : uint8_t
 {
     REPLAY_V2_WORLD_WATER_HIDDEN = 1u << 0,
     REPLAY_V2_WORLD_TERRAIN_HIDDEN = 1u << 1,
-    REPLAY_V2_WORLD_FIXED_STEP = 1u << 2,
+    REPLAY_V2_WORLD_FIXED_STEP = 1u << 2, // Compatibility bit for the saved scene/capture lockstep request.
     REPLAY_V2_WORLD_SCENE_PHYSICS_ENABLED = 1u << 3,
     REPLAY_V2_WORLD_SCENE_TEXT_ENABLED = 1u << 4
 };

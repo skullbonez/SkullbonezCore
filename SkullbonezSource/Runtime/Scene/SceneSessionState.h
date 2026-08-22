@@ -79,7 +79,7 @@ struct SceneSessionState
     unsigned int rngState = 1;                 // Local deterministic generator state for scene object setup
     uint32_t nextSceneObjectId = 1;            // Next per-load body/collider id assigned by scene creation.
     float timeScale = 1.0f;                    // Physics time multiplier
-    bool isFixedStep = false;                  // One physics tick per render frame at PHYSICS_FIXED_DT (deterministic)
+    bool isFixedStep = false;                  // Scene-session lockstep request; effective pacing resolves separately.
     bool isExitOnComplete = false;             // Exit automatically when targetFrameCount is reached
     bool isTestComplete = false;               // True after targetFrameCount without --exit; appends "- TEST COMPLETE" to HUD.
     bool isFinishLogged = false;               // Debug event log guard for scene completion

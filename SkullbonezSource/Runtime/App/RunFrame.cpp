@@ -14,8 +14,9 @@ Summary:
 Glossary:
   Simulation tick: One runtime decision about whether to advance logic, camera,
     and zero or more fixed physics steps this frame.
-  Fixed-step edge: Runtime-owned code that repairs model/body topology before
-    PhysicsEngine::Step and applies presentation-only refresh work after it.
+  Physics fixed-timestep edge: Runtime-owned code that repairs model/body topology
+    before PhysicsEngine::Step and applies presentation-only refresh work after
+    it; this edge is independent of render-frame pacing policy.
   PhysicsBodyStore: Physics-owned body rows for live pose, velocity, fixed
     state, and replay identity.
   ColliderStore: Physics-owned hot collider rows plus per-kind shape payloads,
@@ -167,7 +168,7 @@ void CaptureReplayPostStep( RuntimeTools& runtimeTools, SkullbonezCore::Runtime:
     worldSample.gravity = world.GetGravity();
     worldSample.fluidHeight = world.GetFluidSurfaceHeight();
     worldSample.fluidDensity = world.GetFluidDensity();
-    worldSample.fixedStep = scene.isFixedStep;
+    worldSample.fixedStep = scene.isFixedStep; // Compatibility: Replay stores the request, not resolved pacing.
     worldSample.scenePhysicsEnabled = scene.isScenePhysics;
     worldSample.sceneTextEnabled = scene.isSceneText;
     worldSample.waterHidden = debug.isWaterHidden;
@@ -1008,9 +1009,18 @@ float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned,
     const bool manipulatorPhysics = policy.manipulatorActive;
     const auto physicsWorldForces = m_sceneController.Scene().Environment().GetPhysicsWorldForces();
     constexpr bool canStepPhysics = true;
+    const SceneSessionState& sceneState = m_sceneController.State();
+
+    // Invariant: a scene-session lockstep request becomes effective only for
+    // finite unattended captures. Live, unlimited, and operator-controlled scenes
+    // remain wall-clock paced; an explicit startup request still selects render-frame lockstep.
+    const SimulationPacingPolicy pacingPolicy = ResolveSimulationPacingPolicy( m_launchOptions.fixedStep,
+                                                                               sceneState.isFixedStep,
+                                                                               sceneState.targetFrameCount,
+                                                                               sceneState.isInteractiveRun );
     const SimulationTickResult tick = m_simulation.Tick( SimulationTickInput { secondsPerFrame, policy.physicsTimeScale, m_sceneController.State().isSceneMode,
-                                                                               m_sceneController.State().isScenePhysics, m_sceneController.State().isFixedStep,
-                                                                               policy.physicsAdvance, stepRequested, canStepPhysics } );
+                                                                               m_sceneController.State().isScenePhysics, pacingPolicy, policy.physicsAdvance, stepRequested,
+                                                                               canStepPhysics } );
 
     const float presentationAlpha = ResolvePresentationAlpha( m_config, capturePresentationPinned, tick.presentationAlpha );
 
@@ -1018,9 +1028,9 @@ float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned,
     {
         PROFILE_BEGIN( "Frame/Physics" );
 
-        // Why: SimulationSystem now returns only a deterministic tick count.
-        // Runtime executes the store-owned physics step directly, then applies
-        // the remaining model-owned presentation sync as explicit edge work.
+        // Why: SimulationSystem decides the Physics tick count but never executes
+        // those steps. Runtime advances the store-owned physics state directly,
+        // then applies the remaining model-owned presentation sync as explicit edge work.
         for ( int tickIndex = 0; tickIndex < tick.committedPhysicsTicks; ++tickIndex )
         {
             PROFILE_SCOPED( "Frame/Physics/Step" );

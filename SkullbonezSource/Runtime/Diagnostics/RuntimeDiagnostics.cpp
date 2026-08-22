@@ -457,11 +457,11 @@ void RuntimeDiagnostics::SetPhysicsCollisionTimeLogOverride( RunPerfLogState& pe
 }
 
 void RuntimeDiagnostics::SetPhysicsDiagnosticsPath( RunPhysicsDiagnosticsState& diagnostics, Physics::PhysicsEngine& physics,
-                                                    const char* path, bool fixedStepForcedByDiagnostics )
+                                                    const char* path, bool renderFrameLockstepForcedByDiagnostics )
 {
     strcpy_s( diagnostics.path, sizeof( diagnostics.path ), path );
     diagnostics.isEnabled = diagnostics.path[0] != '\0';
-    diagnostics.fixedStepForcedByDiagnostics = fixedStepForcedByDiagnostics;
+    diagnostics.renderFrameLockstepForcedByDiagnostics = renderFrameLockstepForcedByDiagnostics;
     physics.SetPhysicsDiagnosticsPath( diagnostics.path );
 }
 
@@ -487,7 +487,8 @@ void RuntimeDiagnostics::LogSceneFinished( SceneSessionState& scene, const char*
 void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,
                                                      Physics::PhysicsEngine& physics, const SceneSessionState& scene,
                                                      const SkullbonezCore::Core::EngineConfig& config, const char* scenePath,
-                                                     const char* rendererName )
+                                                     const char* rendererName, bool explicitRenderFrameLockstep,
+                                                     bool effectiveRenderFrameLockstep )
 {
     if ( !diagnostics.isEnabled )
     {
@@ -504,11 +505,17 @@ void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState&
     std::string escapedRenderer = JsonEscape( rendererName && rendererName[0] != '\0' ? rendererName : "unknown" );
     std::string escapedSolver = JsonEscape( solverName );
 
+    // Compatibility: the first two fixed_step keys retain the original NDJSON
+    // schema. Adjacent fields distinguish session/explicit requests from the
+    // effective policy used by the scheduler.
     SkullbonezCore::Core::Log()
         .Writef( diagnostics.path,
                  "{\"kind\":\"run\",\"run\":\"%s\",\"scene\":\"%s\",\"scene_index\":%d,\"load_count\":%d,\"manual_"
                  "reset_count\":%d,\"renderer\":\"%s\",\"solver\":\"%s\",\"seed\":%u,\"fixed_step\":%d,\"fixed_step_"
-                 "forced_by_diag\":%d,\"target_frames\":%d,\"model_count\":%d,\"config\":{\"gravity\":%.6f,\"contact_"
+                 "forced_by_diag\":%d,\"scene_session_render_frame_lockstep_requested\":%d,\"explicit_render_frame_"
+                 "lockstep\":%d,"
+                 "\"effective_render_frame_lockstep\":%d,\"render_frame_lockstep_forced_by_diag\":%d,\"target_frames\":%d,"
+                 "\"model_count\":%d,\"config\":{\"gravity\":%.6f,\"contact_"
                  "epsilon\":%.6f,\"contact_restitution_threshold\":%.6f,\"friction_coeff\":%.6f,\"object_friction_"
                  "coeff\":%.6f,\"rolling_friction_coeff\":%.6f,\"spin_friction_coeff\":%.6f,\"broadphase_cell\":%.6f,"
                  "\"persistent_contact_slop\":%.6f,"
@@ -518,8 +525,10 @@ void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState&
                  "sleep_linear_speed\":%.6f,\"physics_sleep_angular_speed\":%.6f,\"physics_sleep_frames\":%d}}\n",
                  diagnostics.currentRunId, escapedScene.c_str(), scene.currentSceneIndex, scene.loadCount,
                  scene.manualResetCount, escapedRenderer.c_str(), escapedSolver.c_str(), scene.rngSeed,
-                 scene.isFixedStep ? 1 : 0, diagnostics.fixedStepForcedByDiagnostics ? 1 : 0, scene.targetFrameCount,
-                 scene.modelCount, config.worldForces.gravity, config.bodySimulation.contactEpsilon,
+                 scene.isFixedStep ? 1 : 0, diagnostics.renderFrameLockstepForcedByDiagnostics ? 1 : 0,
+                 scene.isFixedStep ? 1 : 0, explicitRenderFrameLockstep ? 1 : 0, effectiveRenderFrameLockstep ? 1 : 0,
+                 diagnostics.renderFrameLockstepForcedByDiagnostics ? 1 : 0, scene.targetFrameCount, scene.modelCount,
+                 config.worldForces.gravity, config.bodySimulation.contactEpsilon,
                  config.bodySimulation.contactRestitutionThreshold, config.physicsMaterial.frictionCoeff,
                  config.physicsMaterial.objectFrictionCoeff, config.physicsMaterial.rollingFrictionCoeff,
                  config.physicsMaterial.spinFrictionCoeff, config.broadphase.cellSize, config.persistentContactSolver.slop,

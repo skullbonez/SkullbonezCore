@@ -272,7 +272,7 @@ void ApplyStartupDiagnosticsPolicy( const RunStartupOverrides& overrides, Diagno
     if ( overrides.physicsDiagnosticsPath && overrides.physicsDiagnosticsPath[0] != '\0' )
     {
         diagnosticsRuntime.SetPhysicsDiagnosticsPath( physics, overrides.physicsDiagnosticsPath,
-                                                      overrides.physicsDiagnosticsFixedStepForced );
+                                                      overrides.physicsDiagnosticsRenderFrameLockstepForced );
     }
 }
 #endif

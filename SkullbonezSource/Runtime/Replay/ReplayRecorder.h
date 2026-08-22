@@ -112,7 +112,7 @@ struct ReplayWorldPresentationSample
     float fluidDensity = 0.0f;
     bool waterHidden = false;
     bool terrainHidden = false;
-    bool fixedStep = false;
+    bool fixedStep = false;         // Compatibility name: scene/capture lockstep request, not resolved pacing.
     bool scenePhysicsEnabled = true;
     bool sceneTextEnabled = true;
 };

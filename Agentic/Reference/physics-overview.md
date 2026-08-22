@@ -21,7 +21,7 @@ contacts. Terrain support classification remains explicit metadata: stable
 terrain support may seed sleep, while edge/point terrain contacts inhibit sleep
 and do not receive rest-only warm-start or damping policy.
 
-## Fixed-Step Ownership
+## Physics Fixed-Timestep Ownership
 
 `PhysicsWorld` is the composition root and deterministic sequencer. Concrete
 owners retain their own state and accept only typed values or synchronous
@@ -68,18 +68,33 @@ or retains a concrete sibling owner.
 
 ## Time Step
 
-The physics clock runs at a fixed 120 Hz:
+Each committed Physics tick advances the fixed 1/120-second interval; Runtime
+selects the tick count from elapsed wall time or render-frame lockstep:
 
 ```cpp
 accumulator += frameDt;
-while ( accumulator >= PHYSICS_FIXED_DT )
+const int requestedTicks = SaturatingWholeTickCount(
+    floor( ( accumulator + SCHEDULER_ROUNDING_EPSILON_SECONDS ) /
+           PHYSICS_FIXED_DT_SECONDS ) );
+const int committedTicks = min( requestedTicks, PHYSICS_MAX_STEPS_PER_FRAME );
+for ( int tick = 0; tick < committedTicks; ++tick )
 {
     RunPhysics( PHYSICS_FIXED_DT );
-    accumulator -= PHYSICS_FIXED_DT;
 }
+ReportDroppedTicks( requestedTicks - committedTicks );
+accumulator = RetainSubTickFraction( accumulator, PHYSICS_FIXED_DT_SECONDS, requestedTicks );
 ```
 
-Scene files can force `fixed_step`, which maps one physics tick to each rendered frame for deterministic test output.
+The cap prevents a slow frame from creating repeated catch-up stalls. Excess
+whole ticks are reported and discarded; only the fractional remainder carries
+into the next frame.
+
+The legacy scene field `playback.fixedStep` creates a render-frame-lockstep
+request that becomes effective only for finite unattended capture. Live,
+unlimited, and operator-controlled scenes select fixed 120 Hz ticks from elapsed
+wall time. Explicit `--fixed-step`
+continues to map unit time scale to one physics tick per rendered frame when
+Physics advancement is admitted for deterministic automation and diagnostics.
 
 ## Validation Expectations
 
@@ -105,7 +120,7 @@ committed with it. It is not an unconditional source-level promise across
 binaries or compiler versions. Every project and configuration explicitly uses
 `/fp:precise` and force-includes `FloatingPointContract.h`, which applies
 `#pragma fp_contract(off)` before each translation unit. Changing the compiler,
-toolset, floating-point flags, x64 instruction policy, fixed-step ordering,
+toolset, floating-point flags, x64 instruction policy, fixed-timestep stage ordering,
 worker reduction order, scenes, config, or baselines changes the certified
 envelope and requires the mapped gates.
 
@@ -194,5 +209,5 @@ redefine an owner-controlled physics query oracle.
 | Terrain support policy | `SkullbonezSource/Physics/TerrainSupportClassifier.h` |
 | Shapes | `SkullbonezSource/Physics/BoundingSphere*`, `SkullbonezSource/Physics/BoundingBox*`, `SkullbonezSource/Physics/ConvexHullShape*`, `SkullbonezSource/Physics/CollisionShape.h` |
 | Broadphase | `SkullbonezSource/Physics/SpatialGrid*`, `SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage*` |
-| Fixed-step owners | `SkullbonezSource/Physics/Stages/PhysicsForceStage*`, `PhysicsNarrowphaseStage*`, `PhysicsTerrainStage*`, `PhysicsContactSolverStage*`, `PhysicsSleepController*`, `PhysicsStepDiagnostics*` |
+| Fixed-timestep owners | `SkullbonezSource/Physics/Stages/PhysicsForceStage*`, `PhysicsNarrowphaseStage*`, `PhysicsTerrainStage*`, `PhysicsContactSolverStage*`, `PhysicsSleepController*`, `PhysicsStepDiagnostics*` |
 | Main physics sequence | `SkullbonezSource/Runtime/Scene/SceneController.Objects*`, `SkullbonezSource/Physics/PhysicsWorld*`, `SkullbonezSource/Runtime/Simulation/SimulationSystem*` |

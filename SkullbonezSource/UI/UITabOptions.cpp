@@ -1,19 +1,21 @@
 /*
-File : SkullbonezSource / UI / UITabOptions.cpp Purpose : Implements runtime option toggles plus time - scale and model -
-    count preview / commit controls.
+File: SkullbonezSource/UI/UITabOptions.cpp
+Purpose:
+  Implements runtime option toggles plus time-scale and model-count preview and
+  commit controls.
 
-                    Summary : Previews and commits runtime option toggles,
-    time scale,
-    and model -
-        count controls
-                .
+Summary:
+  The Options tab draws detached runtime values and emits typed one-frame
+  requests. Runtime owners decide whether a request changes effective policy.
 
-            Invariants : -Draw geometry and hit testing must be derived from the same layout constants.
+Invariants:
+  - Draw geometry and hit testing derive from the same layout constants.
+  - Capture lockstep is displayed as a scene request, not as live pacing state.
 
-                         Related : -SkullbonezSource /
-            UI / UITabOptions.h -
-        Agentic / Reference / engine -
-        glossary.md*/
+Related:
+  - SkullbonezSource/UI/UITabOptions.h
+  - Agentic/Reference/engine-glossary.md
+*/
 #include "UITabOptions.h"
 
 #include "UI.h"
@@ -191,7 +193,7 @@ void Draw( UIOptionsTabState& state, const UIDrawContext& draw, const InGameUIFr
 
     const int displayModelCount = std::clamp( rawModelCount, UI_MODEL_COUNT_MIN, modelMax );
     DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY, 16.0f, "Scene Options" );
-    DrawContentToggle( draw, contentY, contentH, state.toggles[0], col1, scrolledY + 42.0f, colW, "Fixed step",
+    DrawContentToggle( draw, contentY, contentH, state.toggles[0], col1, scrolledY + 42.0f, colW, "Capture lockstep",
                        data.fixedStep );
 
     DrawContentToggle( draw, contentY, contentH, state.toggles[1], col2, scrolledY + 42.0f, colW, "Hide terrain",

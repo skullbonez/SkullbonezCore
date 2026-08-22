@@ -615,10 +615,24 @@ TEST_CASE( "Startup full parse: config, flags, aliases, and launch values compos
     CHECK( config.runtimeRender.shadowParallelPrep );
 #ifdef _DEBUG
     CHECK( args.physicsDiagnosticsRequested );
+    CHECK_FALSE( args.renderFrameLockstepForcedByPhysicsDiagnostics );
     CHECK( args.replayScrubProbe );
     CHECK( args.replayRestoreProbe );
 #endif
 }
+
+#ifdef _DEBUG
+TEST_CASE( "Startup physics diagnostics explicitly requests render-frame lockstep" )
+{
+    EngineConfig config;
+    ParsedArgs args;
+    REQUIRE( ParseCommandLine( diagnostics, View( "--physics-diag TestOutput/startup_unit/physics.ndjson" ), config,
+                               args ) );
+    CHECK( args.physicsDiagnosticsRequested );
+    CHECK( args.fixedStep );
+    CHECK( args.renderFrameLockstepForcedByPhysicsDiagnostics );
+}
+#endif
 
 TEST_CASE( "Startup full parse: validation precedence publishes frozen messages" )
 {

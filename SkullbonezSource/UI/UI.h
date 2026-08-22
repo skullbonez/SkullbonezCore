@@ -203,7 +203,7 @@ struct InGameUIFrameData
     bool scenePhysicsEnabled = true;
     bool sceneTextEnabled = true;
     bool textOnly = false;
-    bool fixedStep = false;
+    bool fixedStep = false;           // Scene/capture render-frame-lockstep request; Runtime resolves effective pacing.
     bool exitOnComplete = false;
     bool testComplete = false;
     bool vsyncEnabled = false;

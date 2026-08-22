@@ -947,7 +947,7 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const InGameUIFram
         const float displayTimeScale = state.previewTimeScale > 0.0f ? state.previewTimeScale : data.timeScale;
         char statusBuf[64] = {};
 
-        snprintf( statusBuf, sizeof( statusBuf ), "%s / fixed %s", data.testComplete ? "complete" : "running",
+        snprintf( statusBuf, sizeof( statusBuf ), "%s / capture lockstep %s", data.testComplete ? "complete" : "running",
                   data.fixedStep ? "on" : "off" );
 
         DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 104.0f, "Renderer", data.rendererName,

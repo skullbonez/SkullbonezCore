@@ -31,6 +31,7 @@ Related:
   - SkullbonezSource/Runtime/App/Run.h
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -66,7 +67,7 @@ constexpr bool DevelopmentUiModeShowsImGui( DevelopmentUiMode mode ) noexcept
 struct RunLaunchOptions
 {
     float timeScaleOverride = 0.0f;                                                              // CLI --time-scale override applied after each scene load (0 = not set)
-    bool fixedStep = false;                                                                      // CLI --fixed-step override applied after each scene load
+    bool fixedStep = false;                                                                      // Explicit startup render-frame-lockstep request (flag or deterministic diagnostic/probe policy)
     unsigned int seedOverride = 0;                                                               // CLI --seed override applied after each scene load (0 = not set)
     bool noWater = false;                                                                        // CLI --no-water starts fluid below terrain
     bool noSleep = false;                                                                        // Startup CLI --no-sleep request; live policy can still be toggled from the Physics tab
@@ -164,7 +165,9 @@ struct RunStartupOverrides
     const char* physicsRegressionLogPath = nullptr;
     const char* physicsCollisionTimeLogPath = nullptr;
     const char* physicsDiagnosticsPath = nullptr;
-    bool physicsDiagnosticsFixedStepForced = false;
+    bool physicsDiagnosticsRenderFrameLockstepForced = false;                                    // True when --physics-diag supplied the explicit
+
+    // render-frame-lockstep request.
 #endif
 };
 

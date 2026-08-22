@@ -29,6 +29,7 @@ Invariants:
     depends upward on Scene or parser vocabulary.
   - Capacity rows are logged before clear; the next capacity session begins
     after clear and before population.
+
 Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/engine-glossary.md
@@ -50,6 +51,7 @@ Related:
 #include "../App/RunTimerState.h"
 #include "../App/Window.h"
 #include "../Render/RuntimeRenderer.h"
+#include "../Simulation/SimulationSystem.h"
 #include "SceneLoadRequest.h"
 #include "SceneLoadPreparation.h"
 #include "SceneSaveOperations.h"
@@ -1303,7 +1305,8 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
                                           suppressExitOnComplete );
     }
 
-    // CLI --time-scale and --fixed-step override anything the scene file sets.
+    // Invariant: the CLI --time-scale and explicit startup render-frame-lockstep
+    // requests override anything the scene file sets.
     if ( launchOptions.timeScaleOverride > 0.0f )
     {
         SceneState().timeScale = launchOptions.timeScaleOverride;
@@ -1438,18 +1441,27 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     }
 
 #ifdef _DEBUG
+    const SimulationPacingPolicy diagnosticsPacingPolicy = ResolveSimulationPacingPolicy( launchOptions.fixedStep,
+                                                                                          SceneState().isFixedStep,
+                                                                                          SceneState().targetFrameCount,
+                                                                                          SceneState().isInteractiveRun );
+    const bool effectiveRenderFrameLockstep = diagnosticsPacingPolicy == SimulationPacingPolicy::RenderFrameLockstep;
+
+    // Compatibility: fixed_step remains in the event stream for existing
+    // parsers; adjacent fields state its request sources and resolved policy.
     SkullbonezCore::Core::Log()
         .WriteEventf( "scene_started index=%d load=%d path=\"%s\" renderer=\"%s\" target_frames=%d seed=%u "
-                      "fixed_step=%d physics=%d text=%d models=%d",
+                      "fixed_step=%d scene_session_render_frame_lockstep_requested=%d explicit_render_frame_lockstep=%d "
+                      "effective_render_frame_lockstep=%d physics=%d text=%d models=%d",
                       SceneState().currentSceneIndex, SceneState().loadCount,
                       scenePath.empty() ? "generated" : scenePath.c_str(), rendererName, SceneState().targetFrameCount,
-                      SceneState().rngSeed, SceneState().isFixedStep ? 1 : 0, SceneState().isScenePhysics ? 1 : 0,
-                      SceneState().isSceneText ? 1 : 0, SceneState().modelCount );
-#endif
+                      SceneState().rngSeed, SceneState().isFixedStep ? 1 : 0, SceneState().isFixedStep ? 1 : 0,
+                      launchOptions.fixedStep ? 1 : 0, effectiveRenderFrameLockstep ? 1 : 0,
+                      SceneState().isScenePhysics ? 1 : 0, SceneState().isSceneText ? 1 : 0, SceneState().modelCount );
 
-#ifdef _DEBUG
     diagnosticsRuntime.BeginPhysicsDiagnosticsRun( sceneController.Scene().Physics(), SceneState(), config,
-                                                   scenePath.c_str(), rendererName );
+                                                   scenePath.c_str(), rendererName, launchOptions.fixedStep,
+                                                   effectiveRenderFrameLockstep );
 #endif
 
     const SkullbonezCore::Core::SbResult rayTracingResult = renderer.ResourceLifecycle().InitialiseSceneRayTracing( SkullbonezCore::Core::ActiveSceneObjectCapacity( config ) );

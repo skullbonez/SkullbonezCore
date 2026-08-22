@@ -117,11 +117,13 @@ class DiagnosticsRuntime
 
     void SetPhysicsRegressionLogOverride( const char* path );
     void SetPhysicsCollisionTimeLogOverride( const char* path );
-    void SetPhysicsDiagnosticsPath( Physics::PhysicsEngine& physics, const char* path, bool fixedStepForcedByDiagnostics );
+    void SetPhysicsDiagnosticsPath( Physics::PhysicsEngine& physics, const char* path,
+                                    bool renderFrameLockstepForcedByDiagnostics );
     void LogSceneFinished( SceneController& scene, const Rendering::Dx12Diagnostics* renderDiagnostics, const char* reason );
     void BeginPhysicsDiagnosticsRun( Physics::PhysicsEngine& physics, const SceneSessionState& scene,
                                      const SkullbonezCore::Core::EngineConfig& config, const char* scenePath,
-                                     const char* rendererName );
+                                     const char* rendererName, bool explicitRenderFrameLockstep,
+                                     bool effectiveRenderFrameLockstep );
     void LogReplayScrubProbe( const SceneSessionState& scene, const ReplayScrubProbeDiagnostic& probe );
     void LogReplayRestoreProbe( const SceneSessionState& scene, const ReplayRestoreProbeDiagnostic& probe );
     void LogReplayRestoreResult( const SceneSessionState& scene, const ReplayRestoreResultDiagnostic& result );

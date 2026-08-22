@@ -18,8 +18,8 @@ Glossary:
     when the optional repository font asset is absent or invalid.
   Dock shell: Versioned single-window host with deterministic editor, viewport,
     utility, replay, and status regions.
-  DPI style epoch: Fresh base style rescaled from 1.0 whenever monitor scale
-    changes, avoiding cumulative rounding drift.
+  DPI (Dots Per Inch) style epoch: Fresh base style rescaled from 1.0 whenever
+    monitor scale changes, avoiding cumulative rounding drift.
   Preview/commit edit: Scalar drag state rendered locally while active, followed
     by one typed owner command when the item deactivates after an edit.
   Causality detail: Dockable, virtualized view of replay-owned immutable rows;
@@ -41,6 +41,7 @@ Related:
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorInputPolicy.h
   - SkullbonezSource/Runtime/App/RunFrame.cpp
   - ThirdPtySource/imgui/imgui.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "ImGuiEditorOwner.h"
 #include "ImGuiEditorCausalityProjection.h"
@@ -69,7 +70,8 @@ Related:
 
 // The pinned backend intentionally hides this declaration behind #if 0 to
 // avoid forcing Windows types on every includer. This source already owns the
-// Win32 ABI boundary, so repeat the vendor-prescribed declaration here.
+// Win32 Application Binary Interface (ABI) boundary, so repeat the
+// vendor-prescribed declaration here.
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler( HWND window, UINT message, WPARAM wParam, LPARAM lParam );
 
 namespace CoreAllocation = SkullbonezCore::Core::Allocation;
@@ -2098,9 +2100,9 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
             if ( ImGui::CollapsingHeader( "Simulation", ImGuiTreeNodeFlags_DefaultOpen ) )
             {
-                bool fixedStep = world.fixedStep;
+                bool captureLockstepRequested = world.fixedStep;
 
-                if ( ImGui::Checkbox( "Fixed step", &fixedStep ) )
+                if ( ImGui::Checkbox( "Capture lockstep", &captureLockstepRequested ) )
                 {
                     submitProperty( UI::OperatorEditorPropertyCommandType::ToggleFixedStep );
                 }

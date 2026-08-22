@@ -269,11 +269,13 @@ class Run
     SkullbonezCore::Core::SbResult RunUIStressActions( RunCameraMode replayRestoreCameraMode );
 
     void Render( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha );                      // Skips 3D in text-only runs, then records passes for the current camera state.
-    void UpdateLogic( float simulationDt, float cameraDt, float presentationAlpha );                              // simulationDt drives physics; cameraDt is unscaled wall time.
+    void UpdateLogic( float simulationDt, float cameraDt, float presentationAlpha );                              // Scaled frame logic and unscaled camera time; any solver ticks have
+
+    // already committed at fixed timestep.
     void AfterPhysicsStep();                                                                                      // Post-step hooks that must see committed physics state.
 
     // Per-frame tick helpers (called from Execute()):
-    float TickPhysics( double dt, bool capturePresentationPinned, const SceneFrameProceedPolicy& proceedPolicy ); // Returns the live fixed-tick interpolation fraction.
+    float TickPhysics( double dt, bool capturePresentationPinned, const SceneFrameProceedPolicy& proceedPolicy ); // Returns scheduler alpha; render applies interpolation/capture pinning.
     bool TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy );                                         // Screenshot triggers; true restarts frame.
     void TickAutoCycle( const SceneFrameProceedPolicy& proceedPolicy );                                           // Auto-cycle capture; may post WM_QUIT.
     bool TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy );                                        // Completion/load policy; true restarts frame.

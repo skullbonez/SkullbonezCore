@@ -54,9 +54,9 @@ struct SceneResetPreservationSnapshot
     OverlayDebugState debug;                       // Debug overlays/visualizers, including the C-key physics debug mode and associated alpha/linger knobs
     bool isScenePhysics = true;                    // Live scene simulation toggle; reset should rebuild the run, not silently re-enable
 
-    // physics
+    // Preserved scene/session policy and presentation values.
     bool isSceneText = true;                       // Live text/HUD toggle from the scene controls
-    bool isFixedStep = false;                      // Live stepping mode; resetting the simulation should not change how it advances
+    bool isFixedStep = false;                      // Scene/capture lockstep request; effective pacing resolves after reset
     bool isExitOnComplete = false;                 // Interactive reset preserves the user's automation/hold choice
     bool isInteractiveRun = false;                 // Once a user owns the scene, a reset should not go back to CLI auto-quit behavior
     int targetFrameCount = -1;                     // Live frame-count control from the UI

@@ -926,7 +926,7 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
                                                 : nullptr;
 
     overrides.physicsDiagnosticsPath = args.physicsDiagnosticsPath[0] != '\0' ? args.physicsDiagnosticsPath : nullptr;
-    overrides.physicsDiagnosticsFixedStepForced = args.fixedStepForcedByPhysicsDiagnostics;
+    overrides.physicsDiagnosticsRenderFrameLockstepForced = args.renderFrameLockstepForcedByPhysicsDiagnostics;
 #endif
     return overrides;
 }

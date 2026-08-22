@@ -262,7 +262,7 @@
     },
     {
       "key": "ParsedArgs",
-      "site": "SkullbonezSource/Runtime/Startup/StartupCommandLine.h:56",
+      "site": "SkullbonezSource/Runtime/Startup/StartupCommandLine.h:58",
       "members": 87,
       "verdict": "retain",
       "owner": "CA0 / Runtime/Startup",
@@ -712,11 +712,11 @@
     },
     {
       "key": "SimulationTickInput",
-      "site": "SkullbonezSource/Runtime/Simulation/SimulationSystem.h:35",
+      "site": "SkullbonezSource/Runtime/Simulation/SimulationSystem.h:63",
       "members": 8,
       "verdict": "retain",
       "owner": "CA0 / Runtime/Simulation",
-      "reason": "Frame duration, time scale, scene/fixed-step modes, advance intent, step request, and step permission determine one simulation tick; the scheduler resolves the full set before advancing.",
+      "reason": "Frame duration, time scale, scene mode, effective pacing policy, advance intent, step request, and step permission determine one simulation tick; the scheduler consumes the full synchronous decision before advancing.",
       "destructures_at_entry": "no"
     },
     {

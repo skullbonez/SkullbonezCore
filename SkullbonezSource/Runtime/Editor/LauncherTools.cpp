@@ -386,8 +386,14 @@ LauncherReproSnapshotStatus RuntimeTools::WriteLauncherReproSnapshot( const Laun
     fprintf( f, "cmd_no_water,%d\n", context.launchOptions.noWater ? 1 : 0 );
     fprintf( f, "cmd_no_sleep,%d\n", context.launchOptions.noSleep ? 1 : 0 );
     fprintf( f, "physics_sleep_enabled,%d\n", context.physicsSleepEnabled ? 1 : 0 );
+
+    // Compatibility: retain the original two keys and their order for existing
+    // repro parsers. The new keys name request sources without repeating the
+    // legacy fixed_step_effective misnomer.
     fprintf( f, "fixed_step_effective,%d\n", context.sceneState.isFixedStep ? 1 : 0 );
     fprintf( f, "cmd_fixed_step_override,%d\n", context.launchOptions.fixedStep ? 1 : 0 );
+    fprintf( f, "scene_session_render_frame_lockstep_requested,%d\n", context.sceneState.isFixedStep ? 1 : 0 );
+    fprintf( f, "explicit_render_frame_lockstep,%d\n", context.launchOptions.fixedStep ? 1 : 0 );
     fprintf( f, "time_scale,%.6f\n", context.sceneState.timeScale );
     fprintf( f, "renderer,%s\n", rendererName );
     fprintf( f, "generated_object_override,%s\n", generatedObjectOverride );
@@ -401,14 +407,14 @@ LauncherReproSnapshotStatus RuntimeTools::WriteLauncherReproSnapshot( const Laun
                  "repro_command_hint,Debug\\SKULLBONEZ_CORE.exe --renderer %s --scene \"%s\" --seed %u --time-scale "
                  "%.6f%s%s%s%s\n",
                  rendererArg, scenePath, context.sceneState.rngSeed, context.sceneState.timeScale,
-                 context.sceneState.isFixedStep ? " --fixed-step" : "", context.launchOptions.noWater ? " --no-water" : "",
+                 context.launchOptions.fixedStep ? " --fixed-step" : "", context.launchOptions.noWater ? " --no-water" : "",
                  context.physicsSleepEnabled ? "" : " --no-sleep", generatedObjectArg );
     }
     else
     {
         fprintf( f, "repro_command_hint,Debug\\SKULLBONEZ_CORE.exe --renderer %s --seed %u --time-scale %.6f%s%s%s%s\n",
                  rendererArg, context.sceneState.rngSeed, context.sceneState.timeScale,
-                 context.sceneState.isFixedStep ? " --fixed-step" : "", context.launchOptions.noWater ? " --no-water" : "",
+                 context.launchOptions.fixedStep ? " --fixed-step" : "", context.launchOptions.noWater ? " --no-water" : "",
                  context.physicsSleepEnabled ? "" : " --no-sleep", generatedObjectArg );
     }
 

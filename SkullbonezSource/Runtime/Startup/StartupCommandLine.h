@@ -17,8 +17,9 @@ Glossary:
     compatibility.
 
 Invariants:
-  - Existing flag spellings, defaults, messages, directive order, and exit
-    behavior are compatibility surface and must remain byte-identical.
+  - Existing flag spellings, defaults, validation-error messages, directive
+    order, and exit behavior are compatibility surface and remain byte-exact.
+    Informational status lines may adopt clearer policy vocabulary.
   - ParsedArgs owns all path buffers consumed during synchronous startup.
   - Helpers never retain a CommandLineView or ParsedArgs reference.
 
@@ -27,6 +28,7 @@ Related:
   - StartupLaunchResolution.h
   - StartupProbeHarnesses.h
   - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -61,7 +63,7 @@ struct ParsedArgs
     std::vector<std::string> sceneList;
     bool isSuiteOrSceneMode = false;
     float timeScaleOverride = 0.0f;      // 0 = not set
-    bool fixedStep = false;
+    bool fixedStep = false;              // Explicit startup render-frame-lockstep request (flag or deterministic diagnostic/probe policy).
     unsigned int seedOverride = 0;       // 0 = not set
     bool noWater = false;
     bool noSleep = false;
@@ -148,7 +150,7 @@ struct ParsedArgs
     char physicsDiagnosticsPath[256] = {};
 #endif
     bool physicsDiagnosticsRequested = false;
-    bool fixedStepForcedByPhysicsDiagnostics = false;
+    bool renderFrameLockstepForcedByPhysicsDiagnostics = false;
     bool dumpConfig = false;
     bool dumpAssets = false;
 #if defined( SKULLBONEZ_PROFILE_ENABLED ) && defined( SKULLBONEZ_PLATFORM_PROFILER_PIX )

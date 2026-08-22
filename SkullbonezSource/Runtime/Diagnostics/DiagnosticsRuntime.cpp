@@ -953,10 +953,10 @@ void DiagnosticsRuntime::SetPhysicsCollisionTimeLogOverride( const char* path )
 
 
 void DiagnosticsRuntime::SetPhysicsDiagnosticsPath( Physics::PhysicsEngine& physics, const char* path,
-                                                    bool fixedStepForcedByDiagnostics )
+                                                    bool renderFrameLockstepForcedByDiagnostics )
 {
     RuntimeDiagnostics::SetPhysicsDiagnosticsPath( m_diagnostics.PhysicsDiagnostics(), physics, path,
-                                                   fixedStepForcedByDiagnostics );
+                                                   renderFrameLockstepForcedByDiagnostics );
 }
 
 
@@ -972,12 +972,14 @@ void DiagnosticsRuntime::LogSceneFinished( SceneController& scene, const Renderi
 
 void DiagnosticsRuntime::BeginPhysicsDiagnosticsRun( Physics::PhysicsEngine& physics, const SceneSessionState& scene,
                                                      const SkullbonezCore::Core::EngineConfig& config, const char* scenePath,
-                                                     const char* rendererName )
+                                                     const char* rendererName, bool explicitRenderFrameLockstep,
+                                                     bool effectiveRenderFrameLockstep )
 {
     // Lifetime: RuntimeDiagnostics owns the trace file/session. This boundary
     // only supplies current runtime state and never caches trace handles.
     RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( m_diagnostics.PhysicsDiagnostics(), physics, scene, config, scenePath,
-                                                    rendererName );
+                                                    rendererName, explicitRenderFrameLockstep,
+                                                    effectiveRenderFrameLockstep );
 }
 
 
