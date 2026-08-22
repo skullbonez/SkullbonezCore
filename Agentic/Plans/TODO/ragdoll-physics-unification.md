@@ -1,10 +1,10 @@
 # Deterministic Collision Modes And Ragdoll Unification
 
 Date: 2026-08-22
-Status: Active by explicit owner direction. 2/10 phases complete; FP2 activation blocked pending owner direction.
+Status: Active by explicit owner direction. 2/10 phases complete; FP2 active under motion-eligibility policy version 2.
 Impact area: collider local-offset correctness, deterministic Discrete simulation, automatic Swept TOI promotion, linear and angular motion eligibility, ragdoll point joints, joint compliance, shared constraint iteration, late speculative ragdoll contacts, physics baselines, determinism tests, and A/B performance evidence
 Owner: Physics contact and joint solver
-Priority: Binding first plan; resolve the FP2 activation contradiction before FP2-FP9 continue in strict order ahead of Runtime Boundary Separation
+Priority: Binding first plan; execute FP2-FP9 in strict order ahead of Runtime Boundary Separation
 Commit name: `RAGDOLL_PHYSICS`
 
 ## Owner Direction
@@ -13,6 +13,13 @@ The owner explicitly activated this plan on 2026-08-22, assigned the
 `RAGDOLL_PHYSICS` commit token, placed it ahead of every existing master-plan
 item, and approved FP0 as the first behavior transition. Later phases remain
 strictly gated by the acceptance boundary immediately before them.
+
+On 2026-08-23 the owner replaced FP1's thickness-scaled eligibility rule with
+motion-eligibility policy version 2. Linear centre travel and angular tip travel
+use absolute distances travelled during one Physics tick: `0.1` metres promotes
+and `0.075` metres demotes. Promotion equality still promotes, demotion equality
+still demotes, and neither decision depends on collider thickness. This owner
+direction activates FP2 without changing the authoritative 200-box workload.
 
 On 2026-08-22 the owner also authorized any Physics-baseline updates required
 by the accepted FP0-FP9 behavior transitions and directed the orchestrator not
@@ -245,11 +252,10 @@ performance comparison.
 
 ### What This Aims To Solve
 
-Swept TOI should be paid for only when a body's predicted fixed-tick motion can
-cross a meaningful part of its collision thickness. The classification must be
-cheap enough to run once per non-sleeping body per fixed Physics tick and exact
-enough to produce the same result across repetitions and supported worker
-counts.
+Swept TOI should be paid for only when a body's predicted fixed-tick motion
+crosses one simple absolute travel threshold. The classification must be cheap
+enough to run once per non-sleeping body per fixed Physics tick and exact enough
+to produce the same result across repetitions and supported worker counts.
 
 Long rotating shapes also need cheap conservative candidate coverage even when
 their centre barely moves. This phase covers angular eligibility and broadphase
@@ -262,18 +268,16 @@ rotational collision response.
    tick's velocities and before broadphase chooses its candidate paths.
 2. Skip fixed and sleeping bodies. Evaluate every awake dynamic body and every
    moving kinematic body exactly once per fixed tick.
-3. Resolve and cache two shape-owned geometric values when collider topology is
-   created or changed:
-   - minimum collision thickness `t_min`; and
-   - maximum radius from the centre of mass `r_max`.
-   Do not rediscover either value from vertices in the per-tick pass.
+3. Resolve and cache the maximum radius from the centre of mass `r_max` when
+   collider topology is created or changed. It supplies angular tip travel only;
+   linear eligibility consumes no collider-size or thickness fact.
 4. Evaluate linear motion without a square root:
 
    `linearTravelSq = |v|² * dt²`
 
-   Compare it with the exact squared promotion threshold:
+   Compare it with the exact squared absolute promotion threshold:
 
-   `linearPromoteSq = (alphaPromote * t_min)²`
+   `linearPromoteSq = promoteTravelPerTick²`
 
 5. Evaluate the cheap angular tip-motion bound without a square root:
 
@@ -282,10 +286,10 @@ rotational collision response.
    Angular eligibility expands conservative swept broadphase bounds so a long,
    rapidly rotating blade is not rejected solely because its centre moved
    little. Angular eligibility does not claim exact rotational TOI or response.
-6. Ratify exact, versioned values for `alphaPromote` and `alphaDemote`, with
-   `alphaDemote < alphaPromote`. Specify equality behavior explicitly and retain
-   the previous-tick promotion bit inside the stage-owned classification store
-   so near-threshold motion cannot chatter.
+6. Use the owner-ratified version-2 values `promoteTravelPerTick = 0.1 metres`
+   and `demoteTravelPerTick = 0.075 metres`. Specify equality behavior explicitly
+   and retain the previous-tick promotion bit inside the stage-owned
+   classification store so near-threshold motion cannot chatter.
 7. Define snapshot, restore, topology-change, sleep, wake, body removal, and
    replay behavior for the classification store. Promotion state must never be
    reconstructed through iteration-order-dependent discovery.
@@ -300,7 +304,7 @@ rotational collision response.
 - Equivalent 0/1/4-worker runs and repeated clean-process runs produce
   byte-identical classification streams.
 - Sphere, box, convex-hull, thin-projectile, and long-rotating-blade fixtures
-  prove cached `t_min` and `r_max` behavior.
+  prove thickness-independent absolute travel and cached `r_max` behavior.
 - The angular blade fixture proves conservative broadphase candidate retention
   without claiming impact-time or response correctness.
 - The one-pass classification timing and work counts are captured separately
@@ -351,20 +355,31 @@ rotational collision response.
 
 ---
 
-## FP2 Activation Blocker — 2026-08-23
+## FP2 Owner Resolution — 2026-08-23
 
-The literal 200-box acceptance below conflicts with FP1's ratified linear
-promotion threshold. The authoritative striker has radius 7, so `t_min` is 14
-and the `0.5 * t_min` threshold is 7 units per tick. Its speed is 170.00294 at
-120 Hz, which travels only 1.41669 units per tick; automatic promotion would
-require speed 840. The launcher contract is internally consistent: radius 0.85
-makes speed 102 the threshold, so exactly 52 supported values from 105 through
-360 promote.
+The owner confirmed that the authoritative 200-box striker is intentionally far
+faster than ordinary scene bodies and selected simple absolute per-tick travel
+thresholds: `0.1` metres promotes and `0.075` metres demotes. The checked-in
+striker travels `1.41669` metres per 120 Hz tick, so it promotes without a
+scene/name exception. Collider thickness no longer participates in either the
+linear or angular eligibility comparison. FP2 is active; focused tests and the
+phase performance evidence must measure how many additional bodies the simpler
+threshold promotes.
 
-FP2 must not begin until the owner chooses whether to revise the 200-box
-acceptance, revise the already-ratified FP1 policy/geometry semantics, or alter
-the separately controlled workload. Do not invent a scene/name exception or
-refresh the Replay visual oracle to hide the decision.
+The first version-2 checkpoint exposed a fixed SpatialGrid capacity ordering
+hazard in the 520-body tornado fixture: angular overlays could consume the
+shared 8,192-cell table before later bodies established persistent membership.
+Broadphase now commits all maintained persistent rows before admitting transient
+overlays, and the regression requires both classifications and actual
+overlay/fallback work in serial and parallel execution. On the same machine,
+the current 520-body measurement records Physics/Broadphase/GridMaintain means
+of `0.9809/0.3028/0.1769 ms` versus `0.8618/0.2322/0.1238 ms` at the accepted
+`07c065f65` base; this threshold/capacity checkpoint is intentionally not the
+FP4 Discrete A/B ruling. The current tree completes the 2,000-body scale run,
+while that base fatals at 8,192 active SpatialGrid cells. `validate_perf` still
+stops before runtime measurement on the same 40 static allocation-policy rows
+at both revisions, so these direct scale artifacts are evidence, not a green
+replacement gate or a baseline refresh.
 
 ## FP2 — Discrete Default & Automatic Swept TOI Promotion
 
@@ -400,6 +415,10 @@ scene-specific exceptions, or manual collision-mode authoring.
   worker-order drift.
 - Two bodies approaching in opposite directions must not tunnel while both are
   individually below the promotion threshold.
+- A ball that begins Discrete, receives a collision impulse above the promotion
+  threshold from a fast ball, and then reaches a thin wall must promote on the
+  following classification pass and use Swept TOI instead of tunnelling through
+  the wall.
 - Fast rotation must retain a broadphase candidate for a long hull corner, but
   no test may pretend that candidate retention proves rotational response.
 - Static friction and resting contact behavior must remain Discrete and must
@@ -423,6 +442,10 @@ scene-specific exceptions, or manual collision-mode authoring.
   the same collision path, proving classification is Physics-owned rather than
   gameplay-owned.
 - Fast bouncy bodies preserve the existing exact Swept TOI baseline behavior.
+- The collision-driven promotion fixture proves the target ball starts
+  Discrete, is accelerated past `0.1` metres per tick by another ball, publishes
+  the promoted bit on the next tick, and collides with a thin wall without
+  tunnelling.
 
 ---
 

@@ -31,8 +31,8 @@
 //     clamp policy remains at the consuming owner boundary.
 //   - Pipeline count-only and full-record modes share the fixed saturation
 //     ceiling, while full mode preserves every retained payload field.
-//   - Motion eligibility applies exact squared thresholds and stable hysteresis
-//     over cached shape facts without depending on worker scheduling.
+//   - Motion eligibility applies exact absolute squared thresholds and stable
+//     hysteresis independently of collider thickness or worker scheduling.
 //   - Sleep and parallel narrowphase count-only lanes preserve event identity
 //     while leaving their optional payload storage untouched.
 //
@@ -227,7 +227,7 @@ TEST_CASE( "Physics motion eligibility: exact thresholds hysteresis sleep wake a
     PhysicsBodyStore& bodies = StageBodyStore();
     ColliderStore& colliders = StageColliderStore();
     const CollisionShape sphere = UnitSphere();
-    const float linearSpeeds[] = { 0.99f, 1.0f, 1.01f, 0.0f, 10.0f };
+    const float linearSpeeds[] = { 0.099f, 0.1f, 0.101f, 0.0f, 10.0f };
 
     for ( int bodyIndex = 0; bodyIndex < 5; ++bodyIndex )
     {
@@ -236,7 +236,7 @@ TEST_CASE( "Physics motion eligibility: exact thresholds hysteresis sleep wake a
         body.hot.inverseMass = 1.0f;
         body.hot.fixed = bodyIndex == 4;
         body.hot.linearVelocity = Vector3( linearSpeeds[bodyIndex], 0.0f, 0.0f );
-        body.hot.angularVelocity = bodyIndex == 3 ? Vector3( 0.0f, 1.0f, 0.0f )
+        body.hot.angularVelocity = bodyIndex == 3 ? Vector3( 0.0f, 0.1f, 0.0f )
                                                   : SkullbonezCore::Math::Vector::ZERO_VECTOR;
         const auto handle = bodies.CreateBodyRecord( body );
         ColliderRecord collider;
@@ -263,34 +263,83 @@ TEST_CASE( "Physics motion eligibility: exact thresholds hysteresis sleep wake a
     CHECK( stage.Stats().discreteBodies == 2 );
     CHECK( stage.Stats().promotedBodies == 2 );
     CHECK( stage.Stats().angularExpandedBodies == 1 );
-    CHECK( stage.LinearTravelSquared()[1] == doctest::Approx( 1.0f ) );
-    CHECK( stage.AngularTravelSquared()[3] == doctest::Approx( 1.0f ) );
+    CHECK( stage.LinearTravelSquared()[1] == doctest::Approx( 0.01f ) );
+    CHECK( stage.AngularTravelSquared()[3] == doctest::Approx( 0.01f ) );
     CHECK( stage.Stats().passDurationNanoseconds > 0u );
     const uint64_t committedBytes = stage.CollectDynamicMemoryBytes();
 
     auto hot = bodies.MutableHotFields();
-    hot.linearVelocityX[0] = 0.8f; // never promoted: remains discrete below alphaPromote.
-    hot.linearVelocityX[1] = 0.8f; // promoted: remains promoted above alphaDemote.
+    hot.linearVelocityX[0] = 0.08f;   // Previously Discrete: remains below the promotion threshold.
+    hot.linearVelocityX[1] = 0.08f;   // Previously promoted: remains above the demotion threshold.
+    hot.angularVelocityY[3] = 0.075f; // Exact angular demotion equality.
     stage.Run( bodies, colliders, sleep, 1.0f );
     CHECK( stage.CollectDynamicMemoryBytes() == committedBytes );
     CHECK( ( stage.State()[0] & SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) == 0u );
     CHECK( ( stage.State()[1] & SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) != 0u );
+    CHECK( ( stage.State()[3] & SkullbonezCore::Physics::PhysicsMotionEligibilityAngularExpanded ) == 0u );
 
-    hot.linearVelocityX[1] = 0.75f; // exact demotion equality.
+    hot.linearVelocityX[1] = 0.075f; // Exact demotion equality.
     sleep[2] = 1u;
     stage.Run( bodies, colliders, sleep, 1.0f );
     CHECK( ( stage.State()[1] & SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) == 0u );
     CHECK( stage.State()[2] == SkullbonezCore::Physics::PhysicsMotionEligibilityNone );
 
     sleep[2] = 0u;
-    hot.linearVelocityX[2] = 1.01f;
+    hot.linearVelocityX[2] = 0.101f;
     stage.Run( bodies, colliders, sleep, 1.0f );
     CHECK( ( stage.State()[2] & SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) != 0u );
 
-    hot.linearVelocityX[2] = 0.8f;
+    hot.linearVelocityX[2] = 0.08f;
     stage.InvalidateBodyTopology();
     stage.Run( bodies, colliders, sleep, 1.0f );
     CHECK( ( stage.State()[2] & SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) == 0u );
+}
+
+TEST_CASE( "Physics motion eligibility: absolute linear and angular travel ignore collider thickness" )
+{
+    PhysicsBodyStore& bodies = StageBodyStore();
+    ColliderStore& colliders = StageColliderStore();
+    const CollisionShape shapes[] = {
+        BoundingSphere( 0.01f, SkullbonezCore::Math::Vector::ZERO_VECTOR, 0.0f ),
+        BoundingSphere( 100.0f, SkullbonezCore::Math::Vector::ZERO_VECTOR, 0.0f ),
+        BoundingSphere( 0.01f, SkullbonezCore::Math::Vector::ZERO_VECTOR, 0.0f ),
+        BoundingSphere( 100.0f, SkullbonezCore::Math::Vector::ZERO_VECTOR, 0.0f ),
+    };
+    const float colliderRadii[] = { 0.01f, 100.0f, 0.01f, 100.0f };
+    const float travelPerTick[] = { 0.099f, 0.099f, 0.1f, 0.1f };
+    const float angularTipTravelPerTick[] = { 0.05f, 0.05f, 0.2f, 0.2f };
+
+    for ( int bodyIndex = 0; bodyIndex < 4; ++bodyIndex )
+    {
+        PhysicsBodyCreateRecord body;
+        body.cold.mass = 1.0f;
+        body.hot.inverseMass = 1.0f;
+        body.hot.linearVelocity = Vector3( travelPerTick[bodyIndex], 0.0f, 0.0f );
+        body.hot.angularVelocity = Vector3( 0.0f, angularTipTravelPerTick[bodyIndex] / colliderRadii[bodyIndex], 0.0f );
+        const auto handle = bodies.CreateBodyRecord( body );
+        ColliderRecord collider;
+        collider.body = handle;
+        collider.boundingRadius = colliderRadii[bodyIndex];
+        REQUIRE( SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders, collider, shapes[bodyIndex] )
+                     .IsValid() );
+    }
+
+    SkullbonezCore::Physics::PhysicsMotionEligibilityStage stage;
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        stage.ReserveBodyCapacity( 4u );
+    }
+    const std::array<uint8_t, 4> sleep = {};
+    stage.Run( bodies, colliders, sleep, 1.0f );
+
+    REQUIRE( stage.State().size() == 4u );
+    CHECK( stage.State()[0] == SkullbonezCore::Physics::PhysicsMotionEligibilityNone );
+    CHECK( stage.State()[1] == SkullbonezCore::Physics::PhysicsMotionEligibilityNone );
+    CHECK( ( stage.State()[2] & SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) != 0u );
+    CHECK( ( stage.State()[3] & SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) != 0u );
+    CHECK( ( stage.State()[2] & SkullbonezCore::Physics::PhysicsMotionEligibilityAngularExpanded ) != 0u );
+    CHECK( ( stage.State()[3] & SkullbonezCore::Physics::PhysicsMotionEligibilityAngularExpanded ) != 0u );
 }
 
 TEST_CASE( "Physics motion eligibility: dense-row removal cannot inherit retired hysteresis" )

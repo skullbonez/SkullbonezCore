@@ -22,6 +22,9 @@ Status: Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Compon
   correctness bugs first, then deterministic Discrete collision and automatic
   Swept TOI promotion, then the completed ragdoll constraint/speculative path.
   No later phase may bypass an earlier acceptance boundary.
+  On 2026-08-23 the owner activated FP2 with motion policy version 2: absolute
+  travel of `0.1` metres per Physics tick promotes, `0.075` metres demotes, and
+  collider thickness does not participate.
 
 - Runtime Boundary Separation And Project Topology was activated by owner
   direction on 2026-08-22. RBS0-RBS7 make Runtime/App a true composition root,
@@ -361,7 +364,8 @@ Repository Hygiene Cleanup RC0-RC5 is complete.
 Core Engine Evidence-Driven Code Reduction CR0-CR5 is complete.
 Real-Time Physics Pacing SP0-SP2 is complete.
 Deterministic Collision Modes And Ragdoll Unification FP0-FP9 is active at 2/10;
-FP0-FP1 are complete and FP2 activation is blocked pending owner direction.
+FP0-FP1 are complete and FP2 is active under the owner-directed absolute-travel
+threshold.
 Runtime Boundary Separation And Project Topology RBS0-RBS7 is active at 0/8.
 Game UI Component Library Separation UI0-UI6 is active at 0/7 and binding after
 RBS7.

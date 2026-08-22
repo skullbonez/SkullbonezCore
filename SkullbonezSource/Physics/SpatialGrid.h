@@ -18,6 +18,9 @@ Invariants:
     float-to-cell conversion.
   - One 8,192-row table owns every stamped persistent or swept cell. Persistent
     exhaustion is fatal; an unstampable sweep takes complete-coverage fallback.
+  - PhysicsBroadphaseStage establishes every maintained persistent cell before
+    it uses the phase-only transient-overlay entry point; the combined
+    InsertSwept wrapper remains valid for isolated callers.
   - Angular reach never enlarges persistent membership; it uses the resettable
     overlay or complete-coverage fallback so long blades cannot exhaust the grid.
   - Candidate discovery may follow bucket/list order, but solver-visible output
@@ -322,6 +325,12 @@ class SpatialGrid
     {
         InsertSwept( index, position, displacement, radius, radius );
     }
+
+    // Invariant: the broadphase seeds every body-owned persistent cell before
+    // transient overlays may consume shared bucket rows. This phase-only entry
+    // point requires Insert() to have established index's current membership.
+    void InsertSweptOverlayAfterPersistent( int index, const Vector::Vector3& position, const Vector::Vector3& displacement,
+                                            float persistentRadius, float sweptRadius );
 
     // Marks every persistent cell currently reachable from one awake body as a
     // candidate source for this frame. Swept insertions stamp overlay cells as

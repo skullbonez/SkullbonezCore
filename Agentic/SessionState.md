@@ -461,25 +461,27 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Resolve the `RAGDOLL_PHYSICS` FP2 activation contradiction recorded below, then
-make Discrete the default collision path and route only FP1-promoted linear
-motion through the retained Swept TOI path, without adding an authored
-collision-mode obligation or a `PhysicsBodyRecord` hot field. The registered
-plan is `Agentic/Plans/TODO/ragdoll-physics-unification.md`;
+Execute `RAGDOLL_PHYSICS` FP2: make Discrete the default collision path and
+route only automatically promoted linear motion through the retained Swept TOI
+path, without adding an authored collision-mode obligation or a
+`PhysicsBodyRecord` hot field. Motion policy version 2 uses absolute per-tick
+travel: `0.1` metres promotes and `0.075` metres demotes, independent of
+collider thickness. The registered plan is
+`Agentic/Plans/TODO/ragdoll-physics-unification.md`;
 `RUNTIME_BOUNDARIES` RBS0 remains the binding next plan after FP9.
 
 ## Blockers
 
-- FP2 acceptance says the authoritative 200-box striker automatically promotes,
-  but FP1's ratified `0.5 * t_min` linear threshold cannot promote the checked-in
-  radius-7 striker at speed 170.00294. At 120 Hz it travels 1.41669 units per
-  tick against a 7-unit threshold and would require speed 840. Activation needs
-  an owner decision to revise that acceptance, revise the ratified FP1
-  policy/geometry semantics, or alter the separately controlled workload. Do
-  not infer a scene-specific exception or refresh its Replay visual oracle.
 - FP0 pre-change `tools\validate_perf.bat` stops on 33 existing non-Physics
   allocation-policy findings before performance measurement. Preserve this as
   inherited evidence; do not weaken the policy or attribute the rows to FP0.
+- At the FP2 version-2 threshold checkpoint, `tools\validate_perf.bat` stops on
+  the same 40 rows as clean base `07c065f65`: seven pre-existing
+  PhysicsFixedList mutation spellings in `PhysicsMotionEligibilityStage.cpp`
+  plus 33 inherited non-Physics/tooling rows, one of which is a stale allowlist
+  diagnostic. Direct 520/2,000-body measurements were run without changing the
+  checker, an allowlist, or a performance baseline; the registered FP4 A/B owner
+  ruling remains the place to adjudicate the intended Discrete transition.
 - FP0 pre-change `tools\validate_replay_visual_fidelity.bat` builds and passes
   its 18 typed/false-pass controls, then the authoritative run stops at reveal 0
   on `header.futureNodeCount`. Preserve the owner-controlled oracle.
@@ -514,12 +516,15 @@ is `cdefc1b53c3de37c0d75fdd9a423b61aac8df368b45919f8a312cf6dc73cc053`.
 
 ## FP1 Closure - 2026-08-22
 
-FP1 adds one deterministic post-force motion-eligibility pass, version-1
-promotion/demotion thresholds, collider-topology-owned thickness/farthest-point
-geometry, stage-owned hysteresis, conservative angular broadphase reach, and a
-version-4 Physics snapshot/replay tail. Angular expansion uses the resettable
-SpatialGrid overlay or complete-coverage fallback, so long blades do not inflate
-persistent membership or add fixed-step allocation.
+FP1 originally added one deterministic post-force motion-eligibility pass,
+version-1 thickness-scaled promotion/demotion thresholds, collider-topology-
+owned thickness/farthest-point geometry, stage-owned hysteresis, conservative
+angular broadphase reach, and a version-4 Physics snapshot/replay tail. On
+2026-08-23 the owner superseded only the threshold semantics with version 2:
+absolute `0.1`-metre promotion and `0.075`-metre demotion travel per Physics tick,
+independent of thickness. Angular expansion still uses cached farthest-point
+reach and the resettable SpatialGrid overlay or complete-coverage fallback, so
+long blades do not inflate persistent membership or add fixed-step allocation.
 
 The focused eligibility family passes 4/4 cases and 53/53 assertions in Debug
 and Profile; the real replay hysteresis-band continuation passes 1/1 case and

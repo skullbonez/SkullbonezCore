@@ -54,6 +54,8 @@
 //
 // Related:
 //   - SkullbonezSource/Physics/PhysicsEngine.h
+//   - SkullbonezSource/Physics/PhysicsMotionEligibility.h
+//   - SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.cpp
 //   - SkullbonezTests/TestReplayDeterminism.cpp
 //
 
@@ -73,6 +75,7 @@
 #include "../SkullbonezSource/Physics/PhysicsEngine.h"
 #include "../SkullbonezSource/Physics/PhysicsMotionEligibility.h"
 #include "../SkullbonezSource/Physics/PhysicsDiagnosticsSink.h"
+#include "../SkullbonezSource/Physics/SpatialGrid.h"
 #include "../SkullbonezSource/Gameplay/TornadoGameplay.h"
 #include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
 #include "../SkullbonezSource/Scene/AuthoredScene.h"
@@ -1054,6 +1057,18 @@ TEST_CASE( "Tornado external-force lane is byte-exact across serial and parallel
     parallel.Step( PHYSICS_FIXED_DT, NoGravityForces(), parallelGameplay.BuildForceFrame( PHYSICS_FIXED_DT, bodyCount ),
                    parallelWorkers, SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter {} );
 
+    // Invariant: every authored spin in this 520-body workload crosses the
+    // absolute angular threshold. Persistent grid cells must therefore be
+    // established before transient coverage is admitted in either execution mode.
+    CHECK( serial.GetDiagnosticsView().motionEligibilityStats.angularExpandedBodies == bodyCount );
+    CHECK( parallel.GetDiagnosticsView().motionEligibilityStats.angularExpandedBodies == bodyCount );
+    const auto exercisedAngularCoverage = []( const PhysicsEngine& engine )
+    {
+        const auto& grid = engine.GetDiagnosticsView().spatialGrid;
+        return grid.GetMaintenanceStats().sweptOverlayCellsAdded > 0 || grid.GetSweptFallbackBodyCount() > 0u;
+    };
+    CHECK( exercisedAngularCoverage( serial ) );
+    CHECK( exercisedAngularCoverage( parallel ) );
     CheckEngineKinematicsEqual( serial, parallel );
     CheckVectorContentsEqual( serialGameplay.CaptureSeconds(), parallelGameplay.CaptureSeconds() );
     CheckVectorContentsEqual( serialGameplay.EjectCooldownSeconds(), parallelGameplay.EjectCooldownSeconds() );
