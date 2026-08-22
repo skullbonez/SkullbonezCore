@@ -186,6 +186,7 @@
     <ClCompile Include="SkullbonezSource\Physics\PhysicsObjectPolicy.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsWorld.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsBroadphaseStage.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsMotionEligibilityStage.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsContactSolverStage.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsSleepController.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsSleepController.State.cpp" />
@@ -234,6 +235,7 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsSceneVectorReserve.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsHandles.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsMass.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsMotionEligibility.h" />
     <ClInclude Include="SkullbonezSource\Physics\ContactEnergyOracle.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsObjectPolicy.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsSolverSnapshot.h" />
@@ -246,6 +248,7 @@
     <ClInclude Include="SkullbonezSource\Physics\SolverBroadphaseStage.h" />
     <ClInclude Include="SkullbonezSource\Physics\SpatialGrid.h" />
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsBroadphaseStage.h" />
+    <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsMotionEligibilityStage.h" />
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsContactSolverStage.h" />
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsSleepController.h" />
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsStepDiagnostics.h" />

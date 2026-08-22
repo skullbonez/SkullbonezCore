@@ -27,6 +27,8 @@ Invariants:
   - V3+ visual rows are 76 bytes and v3+ dictionary rows are 80 bytes.
   - V2-v4 hashes are checked against historical bytes before quaternion
     migration; v5 is native and versions newer than v5 fail closed.
+  - Nested Physics snapshot versions are independent of the outer artifact;
+    snapshot v4 appends counted motion state after v3 point-joint rows.
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h
@@ -667,8 +669,9 @@ void AppendSolverSnapshot( std::vector<uint8_t>& out, const SkullbonezCore::Runt
     AppendCountedPodVector( out, physics.collisionCellKeys );
 
     // Wire schema: nested solver snapshot v3 appends counted point-joint rows
-    // after collision-cell keys. Snapshot v1/v2 omit this tail independently
-    // of the outer replay artifact's v2-v5 version.
+    // after collision-cell keys. Snapshot v4 then appends the per-body motion-
+    // eligibility bytes. These versions are independent of the outer replay
+    // artifact's v2-v5 version.
     if ( physics.version >= 3u )
     {
         AppendPod( out, CheckedU32( physics.pointJoints.size() ) );
@@ -677,6 +680,11 @@ void AppendSolverSnapshot( std::vector<uint8_t>& out, const SkullbonezCore::Runt
         {
             AppendPointJoint( out, joint );
         }
+    }
+
+    if ( physics.version >= 4u )
+    {
+        AppendCountedPodVector( out, physics.motionEligibilityState );
     }
 }
 
@@ -1756,9 +1764,15 @@ bool ReadSolverSnapshot( ByteCursor& cursor, SkullbonezCore::Runtime::ReplaySolv
         return false;
     }
 
-    // Wire schema: this conditional is the nested solver snapshot version, not
-    // the outer replay artifact version; v1/v2 end after collision-cell keys.
+    // Wire schema: these conditionals use the nested solver snapshot version,
+    // not the outer replay artifact version. v1/v2 end after collision-cell
+    // keys, v3 adds point joints, and v4 adds motion eligibility.
     if ( physics.version >= 3u && !ReadCountedStructVector( cursor, physics.pointJoints, ReadPointJoint ) )
+    {
+        return false;
+    }
+
+    if ( physics.version >= 4u && !ReadCountedPodVector( cursor, physics.motionEligibilityState ) )
     {
         return false;
     }

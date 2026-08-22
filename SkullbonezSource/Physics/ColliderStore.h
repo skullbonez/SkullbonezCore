@@ -8,6 +8,8 @@ Summary:
   row for scene round-trip text. Exact shape payloads live in separate
   sphere-, box-, and convex-hull stores, so ordinary collider rows contain only
   typed references and scenes without hulls allocate no hull payload storage.
+  Each collider row also caches immutable shape thickness and farthest-point
+  geometry so fixed-step motion classification never revisits shape topology.
   Runtime authoring code may replace these rows at explicit cold create/edit
   boundaries, while topology repair only refreshes body identity from
   PhysicsBodyStore. Handles are allocator identity; record order is only an
@@ -27,6 +29,8 @@ Invariants:
   - Collider handles are allocator-owned; model-order arrays use explicit maps
     instead of encoding model index inside the handle.
   - Body-binding refresh must not recapture shape/material authoring data.
+  - Collider create/update refreshes both cached motion-geometry scalars from
+    the same newly committed shape; body-binding refresh leaves them unchanged.
 
 Related:
   - SkullbonezSource/Physics/ColliderStore.cpp
@@ -72,6 +76,8 @@ struct ColliderRecord
     Math::CollisionDetection::CollisionShapeReference shape;                                               // Typed borrow into the store's per-kind shape storage.
     ColliderShapeKind shapeKind = ColliderShapeKind::Sphere;                                               // Cheap typed discriminator for tools and migration checks.
     float boundingRadius = 0.0f;                                                                           // Broadphase reads this conservative radius every fixed tick.
+    float minimumCollisionThickness = 0.0f;                                                                // Cold shape fact consumed by motion eligibility.
+    float maximumCenterOfMassRadius = 0.0f;                                                                // Cold farthest-point radius consumed by angular eligibility.
     float restitution = 0.0f;                                                                              // Contact generation reads this bounce policy every fixed tick.
     float friction = 0.0f;                                                                                 // Contact solving reads this tangential resistance every fixed tick.
     uint32_t contactMaterialId = 0;                                                                        // Runtime contact/gameplay classification hash.

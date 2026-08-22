@@ -102,6 +102,9 @@
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsBroadphaseStage.cpp">
       <Filter>Source Files\Stages</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsMotionEligibilityStage.cpp">
+      <Filter>Source Files\Stages</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsContactSolverStage.cpp">
       <Filter>Source Files\Stages</Filter>
     </ClCompile>
@@ -230,6 +233,9 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsMass.h">
       <Filter>Header Files\Bodies</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsMotionEligibility.h">
+      <Filter>Header Files\Solver</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\ContactEnergyOracle.h">
       <Filter>Header Files\Bodies</Filter>
     </ClInclude>
@@ -267,6 +273,9 @@
       <Filter>Header Files\Collision</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsBroadphaseStage.h">
+      <Filter>Header Files\Stages</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsMotionEligibilityStage.h">
       <Filter>Header Files\Stages</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsContactSolverStage.h">

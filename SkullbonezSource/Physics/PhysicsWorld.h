@@ -4,9 +4,10 @@ Purpose:
   Owns solver-stage working state shared across one scene's fixed steps.
 
 Summary:
-  PhysicsWorld owns solver stages, handle-keyed point-joint rows, fixed-capacity
-  scratch, and diagnostics. PhysicsEngine owns the body, collider, and buoyancy
-  stores and supplies explicit borrows while sequencing the world.
+  PhysicsWorld owns solver stages, including the single post-force motion-
+  eligibility pass, handle-keyed point-joint rows, fixed-capacity scratch, and
+  diagnostics. PhysicsEngine owns the body, collider, and buoyancy stores and
+  supplies explicit borrows while sequencing the world.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -14,7 +15,7 @@ Invariants:
   - Body and pair force scratch capacity is established during scene load and
     may not grow while fixed ticks are running.
   - Authored topology edits invalidate derived awake/grid state before the next
-    fixed step, including same-count destroy/create sequences.
+    fixed step, including motion hysteresis and same-count destroy/create sequences.
   - Replay preflights joint topology before trim, and trim preserves surviving
     joint-row order while body handles are still live.
 
@@ -45,6 +46,7 @@ Related:
 #include "Stages/ExternalForceStage.h"
 #include "Stages/PhysicsForceStage.h"
 #include "Stages/PhysicsNarrowphaseStage.h"
+#include "Stages/PhysicsMotionEligibilityStage.h"
 #include "Stages/PhysicsTerrainStage.h"
 #include "Stages/PhysicsSleepController.h"
 #include "Stages/PhysicsStepDiagnostics.h"
@@ -101,6 +103,10 @@ class PhysicsWorld
     // Concrete broadphase owner retains the grid, pair output, and diagnostic
     // cell keys. The sequencer borrows its candidate span for the remaining stages.
     PhysicsBroadphaseStage m_broadphase;
+
+    // Force-resolved velocities cross this owner exactly once before broadphase.
+    // Hysteresis bits are solver state; motion bounds are current-tick scratch.
+    PhysicsMotionEligibilityStage m_motionEligibility;
 
     // Narrowphase owns bounded pair/island scratch. The sequencer commits typed
     // events in pair order because they target sleep and diagnostics owners.

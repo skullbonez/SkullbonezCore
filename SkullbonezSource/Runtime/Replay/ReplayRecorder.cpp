@@ -346,6 +346,7 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
     VISIT( persistentContacts )                                                                                             \
     VISIT( persistentContactCache )                                                                                         \
     VISIT( pointJoints )                                                                                                    \
+    VISIT( motionEligibilityState )                                                                                         \
     VISIT( persistentContactCounts )                                                                                        \
     VISIT( persistentRestingContactCounts )                                                                                 \
     VISIT( debugContacts )                                                                                                  \
@@ -399,6 +400,7 @@ uint64_t SolverWorldSnapshotMemoryBytes( const SkullbonezCore::Runtime::ReplaySo
     bytes += VectorCapacityBytes( physics.persistentContacts );
     bytes += VectorCapacityBytes( physics.persistentContactCache );
     bytes += VectorCapacityBytes( physics.pointJoints );
+    bytes += VectorCapacityBytes( physics.motionEligibilityState );
     bytes += VectorCapacityBytes( physics.persistentContactCounts );
     bytes += VectorCapacityBytes( physics.persistentRestingContactCounts );
     bytes += VectorCapacityBytes( physics.debugContacts );
@@ -1562,6 +1564,13 @@ uint64_t HashSolverWorldSnapshot( uint64_t hash, const SkullbonezCore::Runtime::
         {
             hash = HashPointJoint( hash, joint );
         }
+    }
+
+    if ( physics.version >= 4u )
+    {
+        // Compatibility: v4 appends the eligibility bytes after v3's joint
+        // rows. Earlier snapshot hashes must remain byte-for-byte unchanged.
+        hash = HashUint8Vector( hash, physics.motionEligibilityState );
     }
 
     hash = HashSolverStats( hash, physics.solverStats );

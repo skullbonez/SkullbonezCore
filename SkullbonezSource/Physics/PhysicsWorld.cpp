@@ -283,6 +283,7 @@ void ReserveReplaySolverSnapshotVector( std::vector<T>& values, std::size_t requ
 // state grows.
 #define SB_REPLAY_SOLVER_FIXED_LIST_FIELDS( VISIT )                                                                         \
     VISIT( timeRemaining, m_timeRemaining, "timeRemaining" )                                                                \
+    VISIT( motionEligibilityState, m_motionEligibility.StateForReplay(), "motionEligibilityState" )                         \
     VISIT( collisionCellKeys, m_broadphase.CollisionCellKeysForReplay(), "collisionCellKeys" )
 
 #define SB_REPLAY_SOLVER_DIAGNOSTIC_VECTOR_FIELDS( VISIT )                                                                  \
@@ -392,6 +393,7 @@ void PhysicsWorld::Clear()
     m_forceStage.Clear();
     m_externalForceStage.Clear();
     m_broadphase.Clear();
+    m_motionEligibility.Clear();
     m_sleepController.Clear();
     m_stepDiagnostics.Clear();
     m_contactSolverStage.Clear();
@@ -409,6 +411,7 @@ void PhysicsWorld::InvalidateBodyTopology()
     // derived awake indices and persistent grid membership from owner stores.
     m_sleepController.InvalidateBodyTopology();
     m_broadphase.InvalidateBodyTopology();
+    m_motionEligibility.InvalidateBodyTopology();
 }
 
 
@@ -420,6 +423,7 @@ void PhysicsWorld::ReserveBodyScratchCapacity( std::size_t bodyCapacity, std::si
     m_forceStage.ReserveBodyScratchCapacity( bodyCapacity );
     m_externalForceStage.ReserveBodyCapacity( bodyCapacity );
     m_broadphase.ReserveSceneCapacity( bodyCapacity );
+    m_motionEligibility.ReserveBodyCapacity( bodyCapacity );
     m_narrowphase.ReserveSceneCapacity( bodyCapacity );
     m_contactSolverStage.ReserveSceneCapacity( bodyCapacity );
     m_stepDiagnostics.ReserveSceneCapacity( bodyCapacity );
@@ -550,6 +554,7 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapsh
     };
 
     normalizeBodyRows( outSnapshot.timeRemaining, 0.0f );
+    normalizeBodyRows( outSnapshot.motionEligibilityState, uint8_t { 0u } );
     normalizeBodyRows( outSnapshot.sleepSupportedThisFrame, uint8_t { 0u } );
     normalizeBodyRows( outSnapshot.sleepInhibitedThisFrame, uint8_t { 0u } );
     normalizeBodyRows( outSnapshot.sleepState, uint8_t { 0u } );
@@ -660,12 +665,24 @@ bool PhysicsWorld::CanRestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& 
     if ( modelCount < 0 || bodyStore.Records().size() < static_cast<std::size_t>( modelCount ) ||
          snapshot.timeRemaining.size() != static_cast<std::size_t>( modelCount ) ||
          snapshot.timeRemaining.size() > m_timeRemaining.capacity() ||
+         ( snapshot.version >= 4u &&
+           ( snapshot.motionEligibilityState.size() != static_cast<std::size_t>( modelCount ) ||
+             snapshot.motionEligibilityState.size() > m_motionEligibility.StateCapacityForReplay() ) ) ||
+         ( snapshot.version < 4u && !snapshot.motionEligibilityState.empty() ) ||
          snapshot.collisionCellKeys.size() > m_broadphase.CollisionCellKeyCapacityForReplay() ||
          !m_sleepController.CanRestoreReplayState( snapshot, modelCount ) ||
          !m_stepDiagnostics.CanRestoreReplayState( snapshot, modelCount ) ||
          !m_contactSolverStage.CanRestoreReplayState( snapshot, modelCount ) )
     {
         return false;
+    }
+
+    for ( uint8_t state : snapshot.motionEligibilityState )
+    {
+        if ( ( state & ~PHYSICS_MOTION_ELIGIBILITY_VALID_BITS ) != 0u )
+        {
+            return false;
+        }
     }
 
     uint64_t payloadBytes = 0u;
@@ -757,6 +774,8 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& sna
 
     SB_REPLAY_SOLVER_FIXED_LIST_FIELDS( RESTORE_REPLAY_SOLVER_FIXED_LIST_FIELD )
 #undef RESTORE_REPLAY_SOLVER_FIXED_LIST_FIELD
+
+    m_motionEligibility.CommitReplayRestoreState( snapshot.version >= 4u );
 
     m_sleepController.RestoreReplayState( snapshot );
     m_stepDiagnostics.RestoreReplayState( snapshot );
@@ -1046,15 +1065,19 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
     m_sleepController.FlushPendingAwakeBodyIndices();
     awakeBodyIndices = m_sleepController.GetAwakeBodyIndices();
 
+    // One deterministic dense pass consumes the final force-resolved velocities.
+    // Linear path bits cross diagnostics/replay without changing collision
+    // routing here. Broadphase consumes angular reach; rotational time-of-impact
+    // and response remain outside this classification stage.
+    m_motionEligibility.Run( bodyStore, colliderStore, sleepStates, dt );
+
     // Broadphase: sleeping membership remains resident, while awake rows update
     // their ranges and source awake-to-sleep wake-detection pairs.
     const float contactSkin = (std::max)( 0.0f, settings.body.contactEpsilon );
-    const std::span<const std::pair<int, int>> candidatePairs = m_broadphase.Run( bodyStore, colliderStore,
-                                                                                  settings.broadphase,
-                                                                                  m_pointJointConstraints, sleepStates,
-                                                                                  awakeBodyIndices, m_stepDiagnostics, dt,
-                                                                                  contactSkin, settings.body.contactEpsilon,
-                                                                                  m_profiler );
+    const std::span<const std::pair<int, int>>
+        candidatePairs = m_broadphase.Run( bodyStore, colliderStore, settings.broadphase, m_pointJointConstraints,
+                                           sleepStates, awakeBodyIndices, m_motionEligibility.AngularBroadphaseExpansion(),
+                                           m_stepDiagnostics, dt, contactSkin, settings.body.contactEpsilon );
 
     // Object/object CCD front-end: wake sleepers and advance swept hits to a
     // contact candidate, but leave velocity response to the persistent rows.
@@ -1644,7 +1667,11 @@ PhysicsDiagnosticsView PhysicsWorld::GetDiagnosticsView() const
                                     m_sleepController.GetSleepSupportEdgeVector(),
                                     m_sleepController.GetSleepIslandVisualIdVector(),
                                     m_stepDiagnostics.GetPipelineTrace(),
-                                    m_terrain.GetContactManifolds() };
+                                    m_terrain.GetContactManifolds(),
+                                    m_motionEligibility.State(),
+                                    m_motionEligibility.LinearTravelSquared(),
+                                    m_motionEligibility.AngularTravelSquared(),
+                                    m_motionEligibility.Stats() };
 }
 
 uint64_t PhysicsWorld::CollectMemoryBytes() const
@@ -1652,6 +1679,7 @@ uint64_t PhysicsWorld::CollectMemoryBytes() const
     uint64_t bytes = static_cast<uint64_t>( sizeof( *this ) );
     bytes += m_forceStage.CollectDynamicMemoryBytes();
     bytes += m_broadphase.CollectDynamicMemoryBytes();
+    bytes += m_motionEligibility.CollectDynamicMemoryBytes();
     bytes += ListCapacityBytes( m_timeRemaining );
     bytes += m_sleepController.CollectDynamicMemoryBytes();
     bytes += m_stepDiagnostics.CollectDynamicMemoryBytes();

@@ -6,7 +6,7 @@ Purpose:
 Summary:
   Replay restore is a controlled rollback boundary. The service resolves
   durable body identities, preflights surviving joint topology before mutation,
-  trims live owners, commits body and solver state, then applies matching world,
+  trims live owners, commits body rows then solver state, and applies matching world,
   camera, tool, and presentation state.
 
 Glossary:
@@ -19,6 +19,9 @@ Invariants:
     entities, and stores locally; it never borrows the lifecycle controller.
   - Body state, solver caches, world settings, scene flags, and tool visuals are
     restored as one ordered operation.
+  - Physics body rows commit before solver state because body restoration
+    invalidates topology-derived caches; the solver snapshot is the final
+    Physics commit that makes versioned hysteresis bytes authoritative.
   - Every recoverable rejection occurs before TrimForReplayRestore; rejection
     after trim is fatal because the commit boundary has already been crossed.
   - The service stores no owner borrow after returning.
@@ -27,6 +30,8 @@ Related:
   - SkullbonezSource/Runtime/App/Run.cpp
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
   - SkullbonezSource/Physics/PhysicsEngine.h
+  - SkullbonezTests/TestPhysicsHandles.cpp
+  - SkullbonezTests/TestDeterminism.cpp
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
@@ -151,13 +156,6 @@ class ReplayRestoreService
             return false;
         }
 
-        if ( !physics.RestoreReplaySolverSnapshot( sample.worldSnapshot.physics,
-                                                   Physics::MakePhysicsBodyCountFromNonNegativeInt( restoreModelCount ) ) )
-        {
-            SB_FATAL( "Runtime/ReplayRestore",
-                      "Replay solver commit rejected topology accepted by the pre-mutation preflight" );
-        }
-
         scene.ResetSceneObjectIdCursor( Physics::PhysicsEngine::ReadBodies( physics ) );
 
         for ( std::size_t bodyIndex = 0; bodyIndex < sample.bodies.size(); ++bodyIndex )
@@ -182,6 +180,16 @@ class ReplayRestoreService
                 SB_FATAL( "Runtime/ReplayRestore",
                           "Replay body commit failed after stable-id preflight; live state may be partially restored" );
             }
+        }
+
+        // Invariant: body rows restore first because each body mutation
+        // invalidates topology-derived stage state. The solver snapshot is the
+        // final Physics commit and makes v4 hysteresis bytes authoritative.
+        if ( !physics.RestoreReplaySolverSnapshot( sample.worldSnapshot.physics,
+                                                   Physics::MakePhysicsBodyCountFromNonNegativeInt( restoreModelCount ) ) )
+        {
+            SB_FATAL( "Runtime/ReplayRestore",
+                      "Replay solver commit rejected topology accepted by the pre-mutation preflight" );
         }
 
         physics.ClearPendingBodyImpulses();

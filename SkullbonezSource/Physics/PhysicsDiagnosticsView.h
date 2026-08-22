@@ -9,6 +9,8 @@ Summary:
   inspect diagnostics without importing the solver sequencer and every stage it
   owns. Persistent rows also retain the bounded scalar state needed by normal,
   sliding, angular rolling, and normal-axis spin constraints during one solve.
+  Motion eligibility publishes borrowed per-body decisions, squared travel
+  bounds, policy counts, and observational pass duration through the same seam.
 
 Invariants:
   - Every span and reference remains owned by the publishing PhysicsEngine and
@@ -19,6 +21,8 @@ Invariants:
     converts convergence evidence back to linear-impulse units.
   - This value boundary contains no PhysicsWorld or stage ownership.
   - Convergence samples are live diagnostics only and never enter replay state.
+  - Motion pass duration is observational only; worker-determinism comparisons
+    exclude it while comparing every classification value exactly.
 
 Related:
   - SkullbonezSource/Physics/PhysicsEngine.h
@@ -36,6 +40,7 @@ Related:
 
 #include "../Maths/Vector3.h"
 #include "PhysicsDebugData.h"
+#include "PhysicsMotionEligibility.h"
 #include "Ragdoll.h"
 #include "TerrainContactManifold.h"
 
@@ -204,6 +209,10 @@ struct PhysicsDiagnosticsView
     std::span<const int> sleepIslandVisualId;
     std::span<const PhysicsPipelineRecord> physicsPipelineTrace;
     std::span<const TerrainContactManifold> terrainContactManifolds;
+    std::span<const uint8_t> motionEligibilityState;
+    std::span<const float> linearTravelSquared;
+    std::span<const float> angularTravelSquared;
+    const PhysicsMotionEligibilityStats& motionEligibilityStats;
 };
 
 } // namespace Physics

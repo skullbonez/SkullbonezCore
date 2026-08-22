@@ -8,7 +8,8 @@ Summary:
   CollisionShapeReference is the non-owning runtime view used by dense collider
   rows to point into ColliderStore's separate sphere, box, and hull stores.
   Shared visitors keep both representations on the same exhaustive nonvirtual
-  dispatch surface.
+  dispatch surface and compute exact cold thickness/farthest-point geometry for
+  motion eligibility without adding vertex work to fixed ticks.
 
 Glossary:
   Shape reference: Typed borrowed pointer; store-backed references also carry a
@@ -26,6 +27,8 @@ Invariants:
   - ColliderStore may bind multiple hull references to one canonical
     path-plus-authored-scale row. Hull rows and their indices remain stable
     until the store is cleared.
+  - Motion geometry is measured in metres about the body origin and is cached
+    only at collider create/update boundaries.
 
 Related:
   - Agentic/Reference/physics-overview.md
@@ -228,6 +231,100 @@ template <typename ShapeLike> inline float GetShapeBodyOriginBoundingRadius( con
     // concrete shape radii are measured about the collider centre. Adding the
     // local-offset length is the rotation-independent conservative envelope.
     return GetShapeBoundingRadius( shape ) + Vector::VectorMag( GetShapePosition( shape ) );
+}
+
+struct CollisionShapeMotionGeometry
+{
+    // Invariant: both metre-valued scalars describe one immutable authored
+    // shape about its owning body origin and are cached in the same collider row.
+    float minimumCollisionThickness = 0.0f;
+    float maximumCenterOfMassRadius = 0.0f;
+};
+
+inline CollisionShapeMotionGeometry GetCollisionShapeMotionGeometry( const BoundingSphere& sphere )
+{
+    const float radius = (std::max)( 0.0f, sphere.GetRadius() );
+    return { radius * 2.0f, Vector::VectorMag( sphere.GetPosition() ) + radius };
+}
+
+inline CollisionShapeMotionGeometry GetCollisionShapeMotionGeometry( const BoundingBox& box )
+{
+    const Vector::Vector3 half = box.GetHalfExtents();
+    CollisionShapeMotionGeometry geometry;
+    geometry.minimumCollisionThickness = 2.0f *
+                                         (std::min)( { std::fabs( half.x ), std::fabs( half.y ), std::fabs( half.z ) } );
+
+    float maxRadiusSq = 0.0f;
+
+    for ( int sx : { -1, 1 } )
+    {
+        for ( int sy : { -1, 1 } )
+        {
+            for ( int sz : { -1, 1 } )
+            {
+                const Vector::Vector3 corner = box.GetPosition() + Vector::Vector3( half.x * static_cast<float>( sx ),
+                                                                                    half.y * static_cast<float>( sy ),
+                                                                                    half.z * static_cast<float>( sz ) );
+                maxRadiusSq = (std::max)( maxRadiusSq, Vector::VectorMagSquared( corner ) );
+            }
+        }
+    }
+
+    geometry.maximumCenterOfMassRadius = std::sqrt( maxRadiusSq );
+    return geometry;
+}
+
+inline CollisionShapeMotionGeometry GetCollisionShapeMotionGeometry( const ConvexHullShape& hull )
+{
+    CollisionShapeMotionGeometry geometry;
+    float minimumWidth = ( std::numeric_limits<float>::max )();
+    float maxRadiusSq = 0.0f;
+
+    for ( uint16_t vertexIndex = 0; vertexIndex < hull.GetVertexCount(); ++vertexIndex )
+    {
+        const Vector::Vector3 point = hull.GetPosition() + hull.GetVertex( vertexIndex );
+        maxRadiusSq = (std::max)( maxRadiusSq, Vector::VectorMagSquared( point ) );
+    }
+
+    // Invariant: a convex polyhedron's minimum width is attained along a
+    // supporting face normal. Serialized normals need not be unit length, so
+    // normalize them here to keep every projection and threshold in metres.
+    for ( uint16_t faceIndex = 0; faceIndex < hull.GetFaceCount(); ++faceIndex )
+    {
+        const Vector::Vector3 authoredNormal = hull.GetFace( faceIndex ).normalLocal;
+        const float normalLengthSquared = Vector::VectorMagSquared( authoredNormal );
+
+        if ( !std::isfinite( normalLengthSquared ) || normalLengthSquared <= 0.0f )
+        {
+            minimumWidth = 0.0f;
+            break;
+        }
+
+        const Vector::Vector3 normal = authoredNormal * ( 1.0f / std::sqrt( normalLengthSquared ) );
+        float minProjection = ( std::numeric_limits<float>::max )();
+        float maxProjection = ( std::numeric_limits<float>::lowest )();
+
+        for ( uint16_t vertexIndex = 0; vertexIndex < hull.GetVertexCount(); ++vertexIndex )
+        {
+            const float projection = Vector::Dot( normal, hull.GetVertex( vertexIndex ) );
+            minProjection = (std::min)( minProjection, projection );
+            maxProjection = (std::max)( maxProjection, projection );
+        }
+
+        minimumWidth = (std::min)( minimumWidth, maxProjection - minProjection );
+    }
+
+    geometry.minimumCollisionThickness = std::isfinite( minimumWidth ) ? (std::max)( 0.0f, minimumWidth ) : 0.0f;
+    geometry.maximumCenterOfMassRadius = std::sqrt( maxRadiusSq );
+    return geometry;
+}
+
+template <typename ShapeLike> inline CollisionShapeMotionGeometry GetCollisionShapeMotionGeometry( const ShapeLike& shape )
+{
+    // Why: eligibility runs every fixed tick, while exact shape topology changes
+    // only at cold collider create/update boundaries. Resolve vertex/face work
+    // once and cache the two scalars on the owning ColliderRecord.
+    return VisitCollisionShape( shape, []( const auto& value ) { return GetCollisionShapeMotionGeometry( value ); } );
 }
 
 template <typename ShapeLike> inline float GetShapeTerrainBottomOffset( const ShapeLike& shape )

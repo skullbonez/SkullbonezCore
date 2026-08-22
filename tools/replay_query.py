@@ -70,9 +70,10 @@ TORNADO_CONFIG = struct.Struct("<BB2s" + ("f" * 14))
 TORNADO_SYSTEM_HEADER = struct.Struct("<BB2sI")
 TORNADO_VORTEX_CONFIG_BYTES = TORNADO_CONFIG.size + COUNTED_FLOAT.size * 9
 SOLVER_STATS = struct.Struct("<iiiiiiiff")
-# Nested solver-snapshot v3 order: topology ordinal, endpoint scene ids, two
-# local anchors, slack/stiffness/damping/accumulated impulse, group, flags. This
-# schema version is independent of outer replay artifact versions 2 through 5.
+# Nested solver-snapshot v3 joint order: topology ordinal, endpoint scene ids,
+# two local anchors, slack/stiffness/damping/accumulated impulse, group, flags.
+# Snapshot v4 appends counted uint8 motion-eligibility state after these rows;
+# the nested schema is independent of outer replay artifact versions 2 through 5.
 POINT_JOINT_RECORD = struct.Struct("<3I10fIB")
 SOLVER_BODY = struct.Struct("<I" + ("f" * 21) + "5s3siHHff")
 VISUAL_PACKET_RECORD = struct.Struct("<" + ("Q" * 5) + ("I" * 9) + ("f" * 6) + ("Q" * 18) + ("I" * 13))
@@ -277,6 +278,7 @@ class SolverCheckpointInfo:
     pipeline_trace_count: int
     collision_cell_key_count: int
     point_joint_count: int
+    motion_eligibility_state_count: int
     bodies: list[dict[str, object]]
 
 
@@ -800,7 +802,7 @@ class ReplayV2:
             struct.Struct("<IiiBB2s")
         )
         reader.unpack(TORNADO_CONFIG)
-        if version < 1 or version > 3:
+        if version < 1 or version > 4:
             raise ReplayQueryError(f"unsupported solver snapshot version {version}")
         tornado_system_vortex_count = 0
         if version >= 2:
@@ -840,6 +842,7 @@ class ReplayV2:
         reader.skip(56 * pipeline_trace_count)
         collision_cell_key_count = ReplayV2._skip_counted(reader, COUNTED_I64)
         point_joint_count = ReplayV2._skip_counted(reader, POINT_JOINT_RECORD) if version >= 3 else 0
+        motion_eligibility_state_count = ReplayV2._skip_counted(reader, COUNTED_U8) if version >= 4 else 0
         return {
             "version": int(version),
             "modelCount": int(model_count),
@@ -849,6 +852,7 @@ class ReplayV2:
             "pipelineTraceCount": pipeline_trace_count,
             "collisionCellKeyCount": collision_cell_key_count,
             "pointJointCount": point_joint_count,
+            "motionEligibilityStateCount": motion_eligibility_state_count,
             "tornadoSystemVortexCount": tornado_system_vortex_count,
         }
 
@@ -953,6 +957,7 @@ class ReplayV2:
                     pipeline_trace_count=snapshot["pipelineTraceCount"],
                     collision_cell_key_count=snapshot["collisionCellKeyCount"],
                     point_joint_count=snapshot["pointJointCount"],
+                    motion_eligibility_state_count=snapshot["motionEligibilityStateCount"],
                     bodies=body_records,
                 )
             )
@@ -1456,6 +1461,7 @@ class ReplayV2:
                         "pipelineTraceCount": row.pipeline_trace_count,
                         "collisionCellKeyCount": row.collision_cell_key_count,
                         "pointJointCount": row.point_joint_count,
+                        "motionEligibilityStateCount": row.motion_eligibility_state_count,
                     },
                     "bodiesReturned": min(len(row.bodies), max(body_limit, 0)),
                     "bodies": row.bodies[: max(body_limit, 0)],

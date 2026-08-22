@@ -7,11 +7,11 @@
 //   tests drive its public value seams and disjoint narrowphase passes without
 //   constructing PhysicsWorld or a scene owner. Collision-event fixtures also
 //   pin exact full-width spatial-cell identity at the stage publication seam.
+//   Motion fixtures independently drive cached sphere/box/hull geometry,
+//   hysteresis lifecycle, and rotation-only broadphase expansion.
 //
 // Glossary:
-
 //   Pair slot: Event row whose index remains identical to the broadphase candidate index.
-
 //   Point-joint relaxation: Anchor-distance check that prevents a stretched
 //     constraint island from sleeping before the joint settles inside slack.
 //
@@ -31,6 +31,8 @@
 //     clamp policy remains at the consuming owner boundary.
 //   - Pipeline count-only and full-record modes share the fixed saturation
 //     ceiling, while full mode preserves every retained payload field.
+//   - Motion eligibility applies exact squared thresholds and stable hysteresis
+//     over cached shape facts without depending on worker scheduling.
 //   - Sleep and parallel narrowphase count-only lanes preserve event identity
 //     while leaving their optional payload storage untouched.
 //
@@ -38,6 +40,7 @@
 //   - SkullbonezSource/Physics/Stages/PhysicsSleepController.h
 //   - SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.h
 //   - SkullbonezSource/Physics/Stages/PhysicsStepDiagnostics.h
+//   - SkullbonezSource/Physics/Stages/PhysicsMotionEligibilityStage.h
 //   - SkullbonezSource/Physics/PhysicsSpatialCellKey.h
 //   - SkullbonezSource/Physics/PhysicsRuntimeSettings.h
 //   - SkullbonezSource/Physics/SleepIslandSystem.cpp
@@ -45,19 +48,27 @@
 
 #include "../ThirdPtySource/doctest/doctest.h"
 #include "TestColliderStoreFixtures.h"
+#include "TestResultLoadFixtures.h"
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 
 #include "../SkullbonezSource/Core/Config.h"
+#include "../SkullbonezSource/Core/SbResult.h"
+#include "../SkullbonezSource/Core/SbDiagnosticStore.h"
 #include "../SkullbonezSource/Core/WorkerPool.h"
 #include "../SkullbonezSource/Physics/BoundingSphere.h"
+#include "../SkullbonezSource/Physics/BoundingBox.h"
+#include "../SkullbonezSource/Physics/ConvexHullShape.h"
 #include "../SkullbonezSource/Physics/ColliderStore.h"
 #include "../SkullbonezSource/Physics/PhysicsApi.h"
 #include "../SkullbonezSource/Physics/PhysicsEngine.h"
 #include "../SkullbonezSource/Physics/PhysicsSpatialCellKey.h"
+#include "../SkullbonezSource/Physics/PhysicsMotionEligibility.h"
 #include "../SkullbonezSource/Physics/PhysicsTerrainView.h"
 #include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
 #include "../SkullbonezSource/Physics/TerrainContactManifold.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.h"
+#include "../SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.h"
+#include "../SkullbonezSource/Physics/Stages/PhysicsMotionEligibilityStage.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsSleepController.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsStepDiagnostics.h"
 
@@ -130,7 +141,7 @@ ColliderStore& StageColliderStore()
         SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
             SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         store->ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
-        store->ReserveShapeCapacity( 512u, 0u, 0u );
+        store->ReserveShapeCapacity( 512u, 512u, 16u );
     }
     store->Clear();
     return *store;
@@ -173,6 +184,227 @@ void CheckRuntimeSettingsMatchConfig( const PhysicsRuntimeSettings& settings,
     CHECK( settings.worldForces.gravity == config.worldForces.gravity );
 }
 } // namespace
+
+TEST_CASE( "Physics motion eligibility: cached sphere box hull facts are topology-owned" )
+{
+    namespace Collision = SkullbonezCore::Math::CollisionDetection;
+    const CollisionShape sphere = BoundingSphere( 0.25f, Vector3( 0.5f, 0.0f, 0.0f ), 0.0f );
+    const auto sphereFacts = Collision::GetCollisionShapeMotionGeometry( sphere );
+    CHECK( sphereFacts.minimumCollisionThickness == doctest::Approx( 0.5f ) );
+    CHECK( sphereFacts.maximumCenterOfMassRadius == doctest::Approx( 0.75f ) );
+
+    const CollisionShape box = Collision::BoundingBox( Vector3( 1.0f, 2.0f, 0.25f ), Vector3( 0.0f, 0.0f, 0.0f ) );
+    const auto boxFacts = Collision::GetCollisionShapeMotionGeometry( box );
+    CHECK( boxFacts.minimumCollisionThickness == doctest::Approx( 0.5f ) );
+    CHECK( boxFacts.maximumCenterOfMassRadius == doctest::Approx( std::sqrt( 5.0625f ) ) );
+
+    const CollisionShape thinProjectile =
+        Collision::BoundingBox( Vector3( 3.0f, 0.01f, 0.02f ), Vector3( 0.5f, 0.0f, 0.0f ) );
+    const auto thinProjectileFacts = Collision::GetCollisionShapeMotionGeometry( thinProjectile );
+    CHECK( thinProjectileFacts.minimumCollisionThickness == doctest::Approx( 0.02f ) );
+    CHECK( thinProjectileFacts.maximumCenterOfMassRadius == doctest::Approx( std::sqrt( 12.2505f ) ) );
+
+    SkullbonezCore::Core::SbDiagnosticStore diagnostics;
+    Collision::ConvexHullShape hull;
+    REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull(
+        diagnostics, "SkullbonezData/hulls/building_brick_unit.hull", hull ) );
+    const auto hullFacts = Collision::GetCollisionShapeMotionGeometry( CollisionShape( hull ) );
+    CHECK( std::isfinite( hullFacts.minimumCollisionThickness ) );
+    CHECK( hullFacts.minimumCollisionThickness == doctest::Approx( 0.68f ) );
+    CHECK( hullFacts.maximumCenterOfMassRadius == doctest::Approx( hull.GetBoundingRadius() ) );
+
+    Collision::ConvexHullShape scaledNormalHull;
+    REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull(
+        diagnostics, "SkullbonezData/hulls/test_scaled_normals_box.hull", scaledNormalHull ) );
+    const auto scaledNormalFacts =
+        Collision::GetCollisionShapeMotionGeometry( CollisionShape( scaledNormalHull ) );
+    CHECK( scaledNormalFacts.minimumCollisionThickness == doctest::Approx( hullFacts.minimumCollisionThickness ) );
+    CHECK( scaledNormalFacts.maximumCenterOfMassRadius == doctest::Approx( hullFacts.maximumCenterOfMassRadius ) );
+}
+
+TEST_CASE( "Physics motion eligibility: exact thresholds hysteresis sleep wake and topology reset are deterministic" )
+{
+    PhysicsBodyStore& bodies = StageBodyStore();
+    ColliderStore& colliders = StageColliderStore();
+    const CollisionShape sphere = UnitSphere();
+    const float linearSpeeds[] = { 0.99f, 1.0f, 1.01f, 0.0f, 10.0f };
+
+    for ( int bodyIndex = 0; bodyIndex < 5; ++bodyIndex )
+    {
+        PhysicsBodyCreateRecord body;
+        body.cold.mass = 1.0f;
+        body.hot.inverseMass = 1.0f;
+        body.hot.fixed = bodyIndex == 4;
+        body.hot.linearVelocity = Vector3( linearSpeeds[bodyIndex], 0.0f, 0.0f );
+        body.hot.angularVelocity = bodyIndex == 3 ? Vector3( 0.0f, 1.0f, 0.0f )
+                                                  : SkullbonezCore::Math::Vector::ZERO_VECTOR;
+        const auto handle = bodies.CreateBodyRecord( body );
+        ColliderRecord collider;
+        collider.body = handle;
+        collider.boundingRadius = 1.0f;
+        REQUIRE( SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders, collider, sphere ).IsValid() );
+    }
+
+    SkullbonezCore::Physics::PhysicsMotionEligibilityStage stage;
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        stage.ReserveBodyCapacity( 5u );
+    }
+    std::array<uint8_t, 5> sleep = {};
+    stage.Run( bodies, colliders, sleep, 1.0f );
+    REQUIRE( stage.State().size() == 5u );
+    CHECK( stage.State()[0] == SkullbonezCore::Physics::PhysicsMotionEligibilityNone );
+    CHECK( ( stage.State()[1] & SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) != 0u );
+    CHECK( ( stage.State()[2] & SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) != 0u );
+    CHECK( ( stage.State()[3] & SkullbonezCore::Physics::PhysicsMotionEligibilityAngularExpanded ) != 0u );
+    CHECK( stage.State()[4] == SkullbonezCore::Physics::PhysicsMotionEligibilityNone );
+    CHECK( stage.Stats().evaluatedBodies == 4 );
+    CHECK( stage.Stats().discreteBodies == 2 );
+    CHECK( stage.Stats().promotedBodies == 2 );
+    CHECK( stage.Stats().angularExpandedBodies == 1 );
+    CHECK( stage.LinearTravelSquared()[1] == doctest::Approx( 1.0f ) );
+    CHECK( stage.AngularTravelSquared()[3] == doctest::Approx( 1.0f ) );
+    CHECK( stage.Stats().passDurationNanoseconds > 0u );
+    const uint64_t committedBytes = stage.CollectDynamicMemoryBytes();
+
+    auto hot = bodies.MutableHotFields();
+    hot.linearVelocityX[0] = 0.8f; // never promoted: remains discrete below alphaPromote.
+    hot.linearVelocityX[1] = 0.8f; // promoted: remains promoted above alphaDemote.
+    stage.Run( bodies, colliders, sleep, 1.0f );
+    CHECK( stage.CollectDynamicMemoryBytes() == committedBytes );
+    CHECK( ( stage.State()[0] & SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) == 0u );
+    CHECK( ( stage.State()[1] & SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) != 0u );
+
+    hot.linearVelocityX[1] = 0.75f; // exact demotion equality.
+    sleep[2] = 1u;
+    stage.Run( bodies, colliders, sleep, 1.0f );
+    CHECK( ( stage.State()[1] & SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) == 0u );
+    CHECK( stage.State()[2] == SkullbonezCore::Physics::PhysicsMotionEligibilityNone );
+
+    sleep[2] = 0u;
+    hot.linearVelocityX[2] = 1.01f;
+    stage.Run( bodies, colliders, sleep, 1.0f );
+    CHECK( ( stage.State()[2] & SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) != 0u );
+
+    hot.linearVelocityX[2] = 0.8f;
+    stage.InvalidateBodyTopology();
+    stage.Run( bodies, colliders, sleep, 1.0f );
+    CHECK( ( stage.State()[2] & SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) == 0u );
+}
+
+TEST_CASE( "Physics motion eligibility: dense-row removal cannot inherit retired hysteresis" )
+{
+    PhysicsBodyStore& bodies = StageBodyStore();
+    ColliderStore& colliders = StageColliderStore();
+    const CollisionShape sphere = UnitSphere();
+    std::array<SkullbonezCore::Physics::PhysicsBodyHandle, 2> bodyHandles;
+    std::array<SkullbonezCore::Physics::PhysicsColliderHandle, 2> colliderHandles;
+
+    for ( int bodyIndex = 0; bodyIndex < 2; ++bodyIndex )
+    {
+        PhysicsBodyCreateRecord body;
+        body.cold.mass = 1.0f;
+        body.hot.inverseMass = 1.0f;
+        body.hot.linearVelocity = Vector3( bodyIndex == 0 ? 2.0f : 0.0f, 0.0f, 0.0f );
+        bodyHandles[static_cast<std::size_t>( bodyIndex )] = bodies.CreateBodyRecord( body );
+        ColliderRecord collider;
+        collider.body = bodyHandles[static_cast<std::size_t>( bodyIndex )];
+        collider.boundingRadius = 1.0f;
+        colliderHandles[static_cast<std::size_t>( bodyIndex )] =
+            SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders, collider, sphere );
+        REQUIRE( colliderHandles[static_cast<std::size_t>( bodyIndex )].IsValid() );
+    }
+
+    SkullbonezCore::Physics::PhysicsMotionEligibilityStage stage;
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        stage.ReserveBodyCapacity( 2u );
+    }
+    const std::array<uint8_t, 2> initialSleep = {};
+    stage.Run( bodies, colliders, initialSleep, 1.0f );
+    REQUIRE( ( stage.State()[0] & SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) != 0u );
+
+    REQUIRE( colliders.DestroyColliderRecord( colliderHandles[0] ) );
+    REQUIRE( bodies.DestroyBodyRecord( bodyHandles[0] ) );
+    stage.InvalidateBodyTopology();
+    const std::array<uint8_t, 1> survivingSleep = {};
+    stage.Run( bodies, colliders, survivingSleep, 1.0f );
+
+    REQUIRE( stage.State().size() == 1u );
+    CHECK( stage.State()[0] == SkullbonezCore::Physics::PhysicsMotionEligibilityNone );
+    CHECK( stage.LinearTravelSquared()[0] == 0.0f );
+}
+
+TEST_CASE( "Physics motion eligibility: angular blade expansion retains a conservative broadphase candidate" )
+{
+    namespace Collision = SkullbonezCore::Math::CollisionDetection;
+    PhysicsBodyStore& bodies = StageBodyStore();
+    ColliderStore& colliders = StageColliderStore();
+    const CollisionShape shapes[] = {
+        Collision::BoundingBox( Vector3( 5.0f, 0.1f, 0.1f ), SkullbonezCore::Math::Vector::ZERO_VECTOR ),
+        BoundingSphere( 0.1f, SkullbonezCore::Math::Vector::ZERO_VECTOR, 0.0f ),
+    };
+
+    for ( int bodyIndex = 0; bodyIndex < 2; ++bodyIndex )
+    {
+        PhysicsBodyCreateRecord body;
+        body.cold.mass = 1.0f;
+        body.hot.inverseMass = bodyIndex == 0 ? 1.0f : 0.0f;
+        body.hot.fixed = bodyIndex == 1;
+        body.hot.position = Vector3( bodyIndex == 0 ? 0.0f : 11.0f, 0.0f, 0.0f );
+        body.hot.angularVelocity = bodyIndex == 0 ? Vector3( 0.0f, 2.0f, 0.0f )
+                                                  : SkullbonezCore::Math::Vector::ZERO_VECTOR;
+        const auto handle = bodies.CreateBodyRecord( body );
+        ColliderRecord collider;
+        collider.body = handle;
+        collider.boundingRadius = Collision::GetShapeBodyOriginBoundingRadius( shapes[bodyIndex] );
+        REQUIRE( SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders, collider,
+                                                                                shapes[bodyIndex] ).IsValid() );
+    }
+
+    auto eligibility = std::make_unique<SkullbonezCore::Physics::PhysicsMotionEligibilityStage>();
+    auto broadphase = std::make_unique<SkullbonezCore::Physics::PhysicsBroadphaseStage>();
+    auto diagnostics = std::make_unique<SkullbonezCore::Physics::PhysicsStepDiagnostics>();
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        eligibility->ReserveBodyCapacity( 2u );
+        broadphase->ReserveSceneCapacity( 2u );
+        diagnostics->ReserveSceneCapacity( 2u );
+    }
+
+    const std::array<uint8_t, 2> sleep = {};
+    eligibility->Run( bodies, colliders, sleep, 1.0f );
+    REQUIRE( eligibility->AngularBroadphaseExpansion()[0] > 0.0f );
+    diagnostics->BeginStep( 2 );
+    const std::array<int, 1> awake = { 0 };
+    const std::array<SkullbonezCore::Physics::PointJointConstraint, 0> joints;
+    SkullbonezCore::Physics::BroadphaseSettings settings;
+    settings.cellSize = 5.0f;
+    const std::array<float, 2> noAngularExpansion = { 0.0f, 0.0f };
+    const auto rejectedPairs = broadphase->Run( bodies, colliders, settings, joints, sleep, awake,
+                                                noAngularExpansion, *diagnostics, 1.0f, 0.0f, 0.0f );
+    CHECK( rejectedPairs.empty() );
+    broadphase->InvalidateBodyTopology();
+    diagnostics->BeginStep( 2 );
+    const auto pairs = broadphase->Run( bodies, colliders, settings, joints, sleep, awake,
+                                        eligibility->AngularBroadphaseExpansion(), *diagnostics, 1.0f, 0.0f, 0.0f );
+    CHECK( std::find( pairs.begin(), pairs.end(), std::make_pair( 0, 1 ) ) != pairs.end() );
+
+    auto hot = bodies.MutableHotFields();
+    hot.positionX[1] = 100.0f;
+    hot.angularVelocityY[0] = ( std::numeric_limits<float>::infinity )();
+    eligibility->Run( bodies, colliders, sleep, 1.0f );
+    REQUIRE_FALSE( std::isfinite( eligibility->AngularBroadphaseExpansion()[0] ) );
+    broadphase->InvalidateBodyTopology();
+    diagnostics->BeginStep( 2 );
+    const auto fallbackPairs = broadphase->Run( bodies, colliders, settings, joints, sleep, awake,
+                                                eligibility->AngularBroadphaseExpansion(), *diagnostics, 1.0f, 0.0f,
+                                                0.0f );
+    CHECK( std::find( fallbackPairs.begin(), fallbackPairs.end(), std::make_pair( 0, 1 ) ) != fallbackPairs.end() );
+}
 
 TEST_CASE( "Physics terrain view: analytic and cached-cell sampling stay detached from World" )
 {

@@ -7,7 +7,8 @@
 //   A minimal authored physics world can be seeded directly through
 //   PhysicsEngine without SceneController or scene-load plumbing. Fixed-step
 //   determinism means two engines with identical body/collider rows produce the
-//   same byte-level kinematic state at the same tick boundaries.
+//   same byte-level kinematic, sleep, contact, and motion-classification state
+//   at the same tick boundaries.
 //
 // Glossary:
 //   Micro-world: Tiny unit-test physics scene with a few authored bodies and
@@ -39,6 +40,8 @@
 // Invariants:
 //   - The micro-world stays serial; worker fan-out starts far above this body count.
 //   - Snapshot losslessness needs both solver state and body replay state.
+//   - Replay restore commits body rows before solver state, then proves retained
+//     motion hysteresis by advancing a velocity inside the policy band.
 //   - Kinematic comparisons are byte-exact, not epsilon-based.
 //   - Invariant checks use explicit tolerances because they assert physical
 //     policy, not serialized replay bytes.
@@ -68,6 +71,7 @@
 #include "../SkullbonezSource/Physics/PhysicsApi.h"
 #include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
 #include "../SkullbonezSource/Physics/PhysicsEngine.h"
+#include "../SkullbonezSource/Physics/PhysicsMotionEligibility.h"
 #include "../SkullbonezSource/Physics/PhysicsDiagnosticsSink.h"
 #include "../SkullbonezSource/Gameplay/TornadoGameplay.h"
 #include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
@@ -781,14 +785,15 @@ MicroWorldSnapshot CaptureMicroWorldSnapshot( const PhysicsEngine& engine )
 
 void RestoreMicroWorldSnapshot( PhysicsEngine& engine, const MicroWorldSnapshot& snapshot )
 {
-    REQUIRE( engine.RestoreReplaySolverSnapshot( snapshot.solver, MakePhysicsBodyCountFromNonNegativeInt( kMicroBodyCount ) ) );
-
     for ( const BodyReplayState& state : snapshot.bodies )
     {
         REQUIRE( engine.RestoreReplayBodyState( PhysicsBodyRestoreState { state.handle, state.sceneObjectId, state.fixed, state.position, state.orientation,
                                                                           state.linearVelocity, state.angularVelocity, state.mass, state.inverseMass,
                                                                           state.rotationalInertia, state.inverseRotationalInertia } ) );
     }
+
+    REQUIRE( engine.RestoreReplaySolverSnapshot( snapshot.solver,
+                                                 MakePhysicsBodyCountFromNonNegativeInt( kMicroBodyCount ) ) );
 }
 
 void CheckVectorBytesEqual( const Vector3& lhs, const Vector3& rhs )
@@ -863,6 +868,22 @@ void CheckEngineWorkerDeterministicStateEqual( const PhysicsEngine& lhs, const P
 
     checkRowsEqual( SkullbonezCore::Physics::PhysicsEngine::ReadSleepIslandVisualIds( lhs ),
                     SkullbonezCore::Physics::PhysicsEngine::ReadSleepIslandVisualIds( rhs ) );
+
+    const auto leftDiagnostics = lhs.GetDiagnosticsView();
+    const auto rightDiagnostics = rhs.GetDiagnosticsView();
+    checkRowsEqual( leftDiagnostics.motionEligibilityState, rightDiagnostics.motionEligibilityState );
+    checkRowsEqual( leftDiagnostics.linearTravelSquared, rightDiagnostics.linearTravelSquared );
+    checkRowsEqual( leftDiagnostics.angularTravelSquared, rightDiagnostics.angularTravelSquared );
+    CHECK( leftDiagnostics.motionEligibilityStats.policyVersion ==
+           rightDiagnostics.motionEligibilityStats.policyVersion );
+    CHECK( leftDiagnostics.motionEligibilityStats.evaluatedBodies ==
+           rightDiagnostics.motionEligibilityStats.evaluatedBodies );
+    CHECK( leftDiagnostics.motionEligibilityStats.discreteBodies ==
+           rightDiagnostics.motionEligibilityStats.discreteBodies );
+    CHECK( leftDiagnostics.motionEligibilityStats.promotedBodies ==
+           rightDiagnostics.motionEligibilityStats.promotedBodies );
+    CHECK( leftDiagnostics.motionEligibilityStats.angularExpandedBodies ==
+           rightDiagnostics.motionEligibilityStats.angularExpandedBodies );
 }
 } // namespace
 
@@ -1441,4 +1462,48 @@ TEST_CASE( "PhysicsEngine determinism: solver snapshot plus body state restores 
     StepMicroWorld( restored, kReplayWindowTicks );
 
     CheckEngineKinematicsEqual( interrupted, restored );
+}
+
+TEST_CASE( "PhysicsEngine replay restore retains motion hysteresis through the next fixed step" )
+{
+    DeterminismTerrainFixture fixture( kDeepSpaceTerrainBaseY );
+    PhysicsEngine& engine = fixture.Engine();
+    EngineConfig config = MakeDeterministicConfig();
+    config.worldForces.gravity = 0.0f;
+    engine.Clear();
+    engine.ApplyRuntimeConfig( config );
+    engine.SetSleepEnabled( false );
+    AddMicroBody( engine, fixture.TerrainView(), 990u, Vector3( 0.0f, 0.0f, 0.0f ),
+                  Vector3( 130.0f, 0.0f, 0.0f ) );
+
+    const PhysicsWorldForces forces = NoGravityForces();
+    StepMicroWorldWith( engine, 1, forces );
+    REQUIRE( engine.GetDiagnosticsView().motionEligibilityState.size() == 1u );
+    REQUIRE( ( engine.GetDiagnosticsView().motionEligibilityState[0] &
+               SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) != 0u );
+
+    const PhysicsBodyHandle handle = RequireBodyHandle( engine, 0 );
+    REQUIRE( engine.SetBodyVelocity( handle, Vector3( 100.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), true ) );
+    const PhysicsBodyRecord* record = PhysicsEngine::ReadBodies( engine ).RecordForModelIndex( 0 );
+    REQUIRE( record != nullptr );
+    const BodyReplayState bodyState = CaptureBodyReplayState( *record, RequireBodyHotState( engine, 0 ) );
+    PhysicsSolverSnapshot solverSnapshot;
+    engine.CaptureReplaySolverSnapshot( solverSnapshot, MakePhysicsBodyCountFromNonNegativeInt( 1 ) );
+
+    REQUIRE( engine.SetBodyVelocity( handle, Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), true ) );
+    StepMicroWorldWith( engine, 1, forces );
+    CHECK( ( engine.GetDiagnosticsView().motionEligibilityState[0] &
+             SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) == 0u );
+
+    REQUIRE( engine.RestoreReplayBodyState( PhysicsBodyRestoreState {
+        bodyState.handle, bodyState.sceneObjectId, bodyState.fixed, bodyState.position, bodyState.orientation,
+        bodyState.linearVelocity, bodyState.angularVelocity, bodyState.mass, bodyState.inverseMass,
+        bodyState.rotationalInertia, bodyState.inverseRotationalInertia } ) );
+    REQUIRE( engine.RestoreReplaySolverSnapshot( solverSnapshot, MakePhysicsBodyCountFromNonNegativeInt( 1 ) ) );
+    REQUIRE( ( engine.GetDiagnosticsView().motionEligibilityState[0] &
+               SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) != 0u );
+
+    StepMicroWorldWith( engine, 1, forces );
+    CHECK( ( engine.GetDiagnosticsView().motionEligibilityState[0] &
+             SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) != 0u );
 }

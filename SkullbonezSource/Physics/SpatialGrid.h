@@ -4,8 +4,9 @@ Purpose:
   Partitions space into broadphase cells so physics can test nearby objects cheaply.
 
 Summary:
-  Persistent current-position membership and a one-step swept overlay feed one
-  fixed hash-bucket topology. Pair collection skips ineligible source cells,
+  Persistent current-position membership and a one-step motion overlay for
+  linear sweeps and angular reach feed one fixed hash-bucket topology. Pair
+  collection skips ineligible source cells,
   uses a scene-reserved triangular bitset to accept each normalized identity
   once in O(1), then emits fixed-staging results in canonical order. The bounded
   bitset is an intentional memory-for-CPU decision at the scene ceiling.
@@ -17,6 +18,8 @@ Invariants:
     float-to-cell conversion.
   - One 8,192-row table owns every stamped persistent or swept cell. Persistent
     exhaustion is fatal; an unstampable sweep takes complete-coverage fallback.
+  - Angular reach never enlarges persistent membership; it uses the resettable
+    overlay or complete-coverage fallback so long blades cannot exhaust the grid.
   - Candidate discovery may follow bucket/list order, but solver-visible output
     is canonical and uses fixed-capacity staging owned by this grid.
   - Exact cell coordinates remain `int` through hashing, membership,
@@ -259,11 +262,13 @@ class SpatialGrid
     bool MarkFilteredCandidatePairFirstSeen( int a, int b, const Physics::PhysicsBodyStore& bodyStore,
                                              const Physics::ColliderStore& colliderStore,
                                              std::span<const uint8_t> sleepState, float dt, float contactSkin,
+                                             std::span<const float> angularBroadphaseExpansion,
                                              Physics::PhysicsCandidatePairList* sleepPrunedPairs );
     void GetFilteredCandidatePairsImpl( Physics::PhysicsCandidatePairList& outPairs,
                                         const Physics::PhysicsBodyStore& bodyStore,
                                         const Physics::ColliderStore& colliderStore, std::span<const uint8_t> sleepState,
-                                        float dt, float contactSkin, Physics::PhysicsCandidatePairList* sleepPrunedPairs,
+                                        float dt, float contactSkin, std::span<const float> angularBroadphaseExpansion,
+                                        Physics::PhysicsCandidatePairList* sleepPrunedPairs,
                                         bool restrictToPairSourceCells );
 
   public:
@@ -309,9 +314,14 @@ class SpatialGrid
     void SetCellSize( float requestedCellSize );
     void Insert( int index, const Vector::Vector3& position, float radius );
 
-    // Maintains the body's ordinary current-position cells, then adds only the
-    // velocity-dependent sweep to the current frame's stamped overlay.
-    void InsertSwept( int index, const Vector::Vector3& position, const Vector::Vector3& displacement, float radius );
+    // Maintains ordinary current-position cells at persistentRadius, then adds
+    // the linear/angular motion envelope to the current frame's stamped overlay.
+    void InsertSwept( int index, const Vector::Vector3& position, const Vector::Vector3& displacement,
+                      float persistentRadius, float sweptRadius );
+    void InsertSwept( int index, const Vector::Vector3& position, const Vector::Vector3& displacement, float radius )
+    {
+        InsertSwept( index, position, displacement, radius, radius );
+    }
 
     // Marks every persistent cell currently reachable from one awake body as a
     // candidate source for this frame. Swept insertions stamp overlay cells as
@@ -325,11 +335,27 @@ class SpatialGrid
     void GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs, bool restrictToPairSourceCells = false );
     void GetFilteredCandidatePairs( Physics::PhysicsCandidatePairList& outPairs, const Physics::PhysicsBodyStore& bodyStore,
                                     const Physics::ColliderStore& colliderStore, std::span<const uint8_t> sleepState,
-                                    float dt, float contactSkin, Physics::PhysicsCandidatePairList& sleepPrunedPairs,
+                                    float dt, float contactSkin, std::span<const float> angularBroadphaseExpansion,
+                                    Physics::PhysicsCandidatePairList& sleepPrunedPairs, bool restrictToPairSourceCells );
+    void GetFilteredCandidatePairs( Physics::PhysicsCandidatePairList& outPairs, const Physics::PhysicsBodyStore& bodyStore,
+                                    const Physics::ColliderStore& colliderStore, std::span<const uint8_t> sleepState,
+                                    float dt, float contactSkin, std::span<const float> angularBroadphaseExpansion,
                                     bool restrictToPairSourceCells );
     void GetFilteredCandidatePairs( Physics::PhysicsCandidatePairList& outPairs, const Physics::PhysicsBodyStore& bodyStore,
                                     const Physics::ColliderStore& colliderStore, std::span<const uint8_t> sleepState,
-                                    float dt, float contactSkin, bool restrictToPairSourceCells );
+                                    float dt, float contactSkin, Physics::PhysicsCandidatePairList& sleepPrunedPairs,
+                                    bool restrictToPairSourceCells )
+    {
+        GetFilteredCandidatePairs( outPairs, bodyStore, colliderStore, sleepState, dt, contactSkin, {}, sleepPrunedPairs,
+                                   restrictToPairSourceCells );
+    }
+    void GetFilteredCandidatePairs( Physics::PhysicsCandidatePairList& outPairs, const Physics::PhysicsBodyStore& bodyStore,
+                                    const Physics::ColliderStore& colliderStore, std::span<const uint8_t> sleepState,
+                                    float dt, float contactSkin, bool restrictToPairSourceCells )
+    {
+        GetFilteredCandidatePairs( outPairs, bodyStore, colliderStore, sleepState, dt, contactSkin, {},
+                                   restrictToPairSourceCells );
+    }
     float GetCellSize() const
     {
         return cellSize;

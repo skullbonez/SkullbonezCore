@@ -6,9 +6,9 @@ Purpose:
 Summary:
   Solver snapshots are not render poses. A restorable replay tick also needs
   the persistent contact cache, point-joint descriptors and accumulated warm-
-  start impulses, sleep state, and diagnostics that determine the next fixed
-  physics step. Physics owns this value contract; Runtime replay may retain and
-  serialize it without defining solver state.
+  start impulses, sleep state, motion-eligibility hysteresis, and diagnostics
+  that determine the next fixed physics step. Physics owns this value contract;
+  Runtime replay may retain and serialize it without defining solver state.
 
 Glossary:
   Contact cache: Persistent contact rows and accumulated impulses reused by the
@@ -17,6 +17,8 @@ Glossary:
 
 Invariants:
   - Snapshot compatibility is explicit and versioned when fields are added.
+  - Version 4 stores exactly one valid motion-eligibility byte per body; older
+    versions omit the field and restore cold classification state.
   - Restored snapshots contain enough state for the next fixed step to match.
   - Replay-only vector growth is registered under one fixed owner and cannot
     exceed the measured 8 MiB hard cap.
@@ -40,7 +42,7 @@ Related:
 namespace SkullbonezCore::Physics
 {
 inline constexpr const char* PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER = "replay_solver_snapshot";
-inline constexpr uint32_t PHYSICS_SOLVER_SNAPSHOT_VERSION = 3u;
+inline constexpr uint32_t PHYSICS_SOLVER_SNAPSHOT_VERSION = 4u;
 
 // Test probe: the strict two-generation prediction probe measured 3,401,552 bytes.
 // Eight MiB preserves 2.466112x measured headroom.
@@ -130,6 +132,7 @@ struct PhysicsSolverSnapshot
     bool sleepEnabled = true;
     bool collisionVisualFrameActive = false;
     std::vector<float> timeRemaining;
+    std::vector<uint8_t> motionEligibilityState;
     std::vector<uint8_t> sleepSupportedThisFrame;
     std::vector<uint8_t> sleepInhibitedThisFrame;
     std::vector<uint8_t> sleepState;
@@ -166,6 +169,7 @@ struct PhysicsSolverSnapshot
         sleepEnabled = true;
         collisionVisualFrameActive = false;
         timeRemaining.clear();
+        motionEligibilityState.clear();
         sleepSupportedThisFrame.clear();
         sleepInhibitedThisFrame.clear();
         sleepState.clear();

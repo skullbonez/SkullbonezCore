@@ -5,9 +5,10 @@ Purpose:
 
 Summary:
   The stage maintains persistent integer-range membership, adds a one-step
-  swept overlay for fast projectiles, canonicalizes solver-visible pair order,
-  stamps cells reached by awake bodies, suppresses sleep-only work at emission,
-  prunes fixed/joint pairs, and records bounded pipeline evidence.
+  motion overlay for fast projectiles and angular shape reach, canonicalizes
+  solver-visible pair order, stamps cells reached by awake bodies, suppresses
+  sleep-only work at emission, prunes fixed/joint pairs, and records bounded
+  pipeline evidence.
 
 Glossary:
   Broadphase filter: Shape-aware cheap predicate applied while grid pairs form.
@@ -40,6 +41,7 @@ Related:
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <limits>
 
 using SkullbonezCore::Math::Vector::Vector3;
 namespace Physics = SkullbonezCore::Physics;
@@ -430,8 +432,8 @@ void PhysicsBroadphaseStage::ResetTransientAfterReplayRestore()
 
 std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const BroadphaseSettings& broadphaseSettings,
                                                                   std::span<const PointJointConstraint> pointJointConstraints, std::span<const uint8_t> sleepState,
-                                                                  std::span<const int> awakeBodyIndices, PhysicsStepDiagnostics& stepDiagnostics, float dt, float contactSkin,
-                                                                  float contactEpsilon, Core::Profiler* )
+                                                                  std::span<const int> awakeBodyIndices, std::span<const float> angularBroadphaseExpansion,
+                                                                  PhysicsStepDiagnostics& stepDiagnostics, float dt, float contactSkin, float contactEpsilon )
 {
     PROFILE_BEGIN( "Frame/Physics/Broadphase" );
     const std::span<const PhysicsBodyRecord> bodyRecords = bodyStore.Records();
@@ -488,16 +490,22 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         const bool fullSeed = !m_gridMembershipSeeded || m_gridMembershipBodyCount != modelCount;
         auto maintainBody = [&]( int bodyIndex, bool isAwakeSource )
         {
-            const float radius = SolverShapeRadius( colliderRecords, bodyIndex ) + contactSkin;
+            const float baseRadius = SolverShapeRadius( colliderRecords, bodyIndex ) + contactSkin;
+            const float angularExpansion = bodyIndex < static_cast<int>( angularBroadphaseExpansion.size() )
+                                               ? angularBroadphaseExpansion[static_cast<std::size_t>( bodyIndex )]
+                                               : 0.0f;
+            const float radius = std::isfinite( angularExpansion ) ? baseRadius + (std::max)( 0.0f, angularExpansion )
+                                                                   : ( std::numeric_limits<float>::quiet_NaN )();
             const Vector3 colliderCenter = SolverColliderCenter( hotFields, colliderRecords, bodyIndex );
 
             const Vector3 displacement = PhysicsBodyLinearVelocity( hotFields, static_cast<size_t>( bodyIndex ) ) * dt;
 
             const float displacementSq = Vector::VectorMagSquared( displacement );
 
-            if ( isAwakeSource && displacementSq > radius * radius )
+            if ( isAwakeSource &&
+                 ( displacementSq > baseRadius * baseRadius || !std::isfinite( radius ) || radius > baseRadius ) )
             {
-                m_spatialGrid.InsertSwept( bodyIndex, colliderCenter, displacement, radius );
+                m_spatialGrid.InsertSwept( bodyIndex, colliderCenter, displacement, baseRadius, radius );
             }
             else
             {
@@ -543,12 +551,12 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         // Debug walks the full retained grid to preserve one bounded
         // SleepPrunedPair breadcrumb per old sleep-only pair.
         m_spatialGrid.GetFilteredCandidatePairs( m_candidatePairs, bodyStore, colliderStore, sleepState, dt, contactSkin,
-                                                 m_sleepPrunedPairs, false );
+                                                 angularBroadphaseExpansion, m_sleepPrunedPairs, false );
 #else
         // Production visits only cells reached by an awake body this step;
         // sleep-only cells retain membership but emit no candidate work.
         m_spatialGrid.GetFilteredCandidatePairs( m_candidatePairs, bodyStore, colliderStore, sleepState, dt, contactSkin,
-                                                 true );
+                                                 angularBroadphaseExpansion, true );
 #endif
     }
 

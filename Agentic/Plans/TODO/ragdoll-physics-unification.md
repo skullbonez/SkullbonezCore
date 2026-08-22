@@ -1,7 +1,7 @@
 # Deterministic Collision Modes And Ragdoll Unification
 
 Date: 2026-08-22
-Status: Active by explicit owner direction. 1/10 phases complete; FP0 complete, FP1 next.
+Status: Active by explicit owner direction. 2/10 phases complete; FP0-FP1 complete, FP2 next.
 Impact area: collider local-offset correctness, deterministic Discrete simulation, automatic Swept TOI promotion, linear and angular motion eligibility, ragdoll point joints, joint compliance, shared constraint iteration, late speculative ragdoll contacts, physics baselines, determinism tests, and A/B performance evidence
 Owner: Physics contact and joint solver
 Priority: Binding first plan; FP0 through FP9 execute in strict order before Runtime Boundary Separation
@@ -305,6 +305,49 @@ rotational collision response.
   without claiming impact-time or response correctness.
 - The one-pass classification timing and work counts are captured separately
   from the collision work it selects.
+
+### FP1 Closure Evidence - 2026-08-22
+
+- One serial dense pass now runs after force/external-force wake publication and
+  before broadphase. Policy version 1 ratifies `alphaPromote = 0.5` and
+  `alphaDemote = 0.375`; cold equality promotes and hot demotion equality
+  demotes. Fixed/sleeping rows clear their bits. The current engine has no
+  kinematic body kind, so every representable moving non-fixed body is covered.
+- Collider create/update caches exact metre-valued `t_min` and `r_max` geometry
+  for spheres, boxes, and convex hulls. The focused sphere/box/hull, threshold,
+  hysteresis, sleep/wake/topology-reset/removal, thin-projectile, scaled-normal
+  hull, and long-blade/non-finite-fallback family passes 4/4 cases and 53/53
+  assertions in both Debug and Profile. The real PhysicsEngine replay
+  hysteresis-band continuation passes 1/1 case and 14/14 assertions.
+- Angular reach uses resettable SpatialGrid overlay/fallback coverage while
+  persistent membership retains the ordinary radius. The long-blade negative
+  control rejects the unexpanded pair and the expanded path retains it without
+  claiming rotational impact time or response.
+- Motion state is a version-4 Physics snapshot tail with exact size/bit
+  preflight, cold legacy restore, sparse replay deltas, deterministic hashing,
+  v1-v4 query support, and disk checkpoint round-trip. The production replay
+  snapshot fixture passes 645/645 assertions; artifact compatibility and the
+  strict two-generation replay allocation policy pass.
+- Exact 0/1/4-worker comparison passes 36,981/36,981 assertions. Two clean
+  Profile processes produced byte-identical test evidence at SHA-256
+  `5CFCB874C9AA34488AABD437BB0FCD9B00301189DA50C04C57ACCF3B6599B6E3`.
+- The Profile focused success probe measured 3,800 ns for four evaluated rows
+  while independently reporting two Discrete, two linear-promoted, and one
+  angular-expanded body. Timing remains observational and is excluded from
+  deterministic state equality.
+- `tools\validate_physics.bat`, replay artifact compatibility, dependency,
+  project-filter, ownership, compiled-symbol reachability, and strict replay
+  allocation gates pass. The 44,401-line Physics golden remains byte-identical
+  at SHA-256 `debf57f744774d4e7c1eb5cc61f05ba6e41dc6dc997ad20db6c91b02b0958c32`;
+  no Physics baseline transition was required.
+- `tools\validate_fast.bat --preflight-only` passes after complete current
+  Debug/Profile rebuilds, and the final Profile test executable passes 708/708
+  cases with 2,544,123 assertions.
+- The final Debug executable and manifest are retained under
+  `Agentic/Plans/Artifacts/ragdoll-physics-unification/FP1/`; executable
+  SHA-256 is `612461c8dbd48eb8823468a8b06d1fb3f576b5610b6e48610b6b5a870ae7888a`.
+- The touched-source comment audit checked 29/29 files with zero deferrals;
+  strict glossary inventory reports 999 unique definitions and no drift.
 
 ---
 
@@ -702,7 +745,7 @@ solver changes.
 - [x] **FP0 — Physics correctness prerequisites.** Close the verified collider
   offset, snapshot, swept-overlay, and grid-key findings before measuring or
   changing collision paths.
-- [ ] **FP1 — Deterministic motion eligibility and instrumentation.** One cheap
+- [x] **FP1 — Deterministic motion eligibility and instrumentation.** One cheap
   classification per awake/moving body per fixed tick, including conservative
   angular broadphase eligibility.
 - [ ] **FP2 — Discrete default and automatic Swept TOI promotion.** No projectile

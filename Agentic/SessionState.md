@@ -2,7 +2,7 @@
 
 Date: 2026-08-22
 Branch: `main`
-Status: Ragdoll Physics Unification and Runtime Boundary Separation active; 87/104 tasks complete
+Status: Ragdoll Physics Unification, Runtime Boundary Separation, and Game UI Component Library Separation active; 88/111 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -11,7 +11,7 @@ Hygiene Cleanup RC0-RC5 are 100% complete, reviewed, and closed.
 Causal C0-C8, Determinism T0-T8, Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7,
 and Continuous Orbital Forecast OF0-OF6 are complete.
 Deterministic Collision Modes And Ragdoll Unification FP0-FP9 is the binding
-first plan by explicit owner direction. FP0 is complete; FP1-FP4 establish
+first plan by explicit owner direction. FP0-FP1 are complete; FP2-FP4 establish
 deterministic Discrete collision with automatic Swept TOI
 promotion and isolated A/B evidence; FP5-FP9 complete the ragdoll joint and late
 speculative-contact path. Runtime Boundary Separation And Project Topology
@@ -435,9 +435,9 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `RAGDOLL_PHYSICS` FP1. Add deterministic once-per-moving-body linear
-and angular motion eligibility plus instrumentation without adding an authored
-collision-mode obligation or a PhysicsBodyRecord hot field. The registered plan is
+Execute `RAGDOLL_PHYSICS` FP2. Make Discrete the default collision path and
+route only FP1-promoted linear motion through the retained Swept TOI path,
+without adding an authored collision-mode obligation or a PhysicsBodyRecord hot field. The registered plan is
 `Agentic/Plans/TODO/ragdoll-physics-unification.md`; `RUNTIME_BOUNDARIES` RBS0
 remains the binding next plan after FP9.
 
@@ -477,6 +477,32 @@ baseline update was necessary. The inherited replay visual reveal-0
 Debug executable and manifest live under
 `Agentic/Plans/Artifacts/ragdoll-physics-unification/FP0/`; executable SHA-256
 is `cdefc1b53c3de37c0d75fdd9a423b61aac8df368b45919f8a312cf6dc73cc053`.
+
+## FP1 Closure - 2026-08-22
+
+FP1 adds one deterministic post-force motion-eligibility pass, version-1
+promotion/demotion thresholds, collider-topology-owned thickness/farthest-point
+geometry, stage-owned hysteresis, conservative angular broadphase reach, and a
+version-4 Physics snapshot/replay tail. Angular expansion uses the resettable
+SpatialGrid overlay or complete-coverage fallback, so long blades do not inflate
+persistent membership or add fixed-step allocation.
+
+The focused eligibility family passes 4/4 cases and 53/53 assertions in Debug
+and Profile; the real replay hysteresis-band continuation passes 1/1 case and
+14/14 assertions. Exact 0/1/4-worker comparison passes 36,981 assertions, two clean
+Profile processes emit byte-identical evidence at SHA-256
+`5CFCB874C9AA34488AABD437BB0FCD9B00301189DA50C04C57ACCF3B6599B6E3`, and the
+Profile pass probe reports 3,800 ns for four evaluated rows with counts captured
+separately. Production prediction snapshot, replay artifact v1-v4 compatibility,
+strict two-generation allocation, dependency, ownership, and Physics gates pass.
+The Physics golden remains unchanged at
+`debf57f744774d4e7c1eb5cc61f05ba6e41dc6dc997ad20db6c91b02b0958c32`.
+The final Profile suite passes 708/708 cases and 2,544,123 assertions, and the
+exact-current `validate_fast --preflight-only` gate passes after complete
+Debug/Profile rebuilds and strict reachability. The 29-file touched source/tool
+comment audit has zero deferrals. The final FP1 Debug executable and manifest
+live under `Agentic/Plans/Artifacts/ragdoll-physics-unification/FP1/` with
+SHA-256 `612461c8dbd48eb8823468a8b06d1fb3f576b5610b6e48610b6b5a870ae7888a`.
 
 ## CI Note
 

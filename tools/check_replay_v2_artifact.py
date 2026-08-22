@@ -82,9 +82,9 @@ def remove_if_exists(path):
 
 
 def validate_snapshot_query_versions():
-    # validation probe / Invariant: synthetic v2/v3 payloads pin the nested solver-
-    # snapshot schema and point-joint tail without launching the runtime.
-    def make_fixture(version, point_joint_count):
+    # Test Probe: synthetic v1-v4 payloads pin the nested solver-snapshot tails
+    # and a v5 false-pass control without launching the runtime.
+    def make_fixture(version, point_joint_count, motion_eligibility_state):
         raw = bytearray()
         raw.extend(struct.pack("<IiiBB2s", version, 0, 1, 1, 0, b"\0\0"))
         raw.extend(bytes(TORNADO_CONFIG.size))
@@ -102,10 +102,15 @@ def validate_snapshot_query_versions():
             raw.extend(U32.pack(point_joint_count))
             for index in range(point_joint_count):
                 raw.extend(POINT_JOINT_RECORD.pack(index, 501, 502, *([0.0] * 10), 7, 1))
+
+        if version >= 4:
+            raw.extend(U32.pack(len(motion_eligibility_state)))
+            raw.extend(bytes(motion_eligibility_state))
         return bytes(raw)
 
-    for version, expected_joint_count in ((2, 0), (3, 1)):
-        raw = make_fixture(version, expected_joint_count)
+    fixtures = ((1, 0, ()), (2, 0, ()), (3, 1, ()), (4, 1, (0, 1, 1)))
+    for version, expected_joint_count, expected_motion_state in fixtures:
+        raw = make_fixture(version, expected_joint_count, expected_motion_state)
         reader = ChunkReader(raw, f"snapshot-v{version}-fixture")
         summary = ReplayV2._parse_snapshot_summary(reader)
         if reader.offset != len(raw):
@@ -114,6 +119,16 @@ def validate_snapshot_query_versions():
             raise RuntimeError(f"snapshot v{version} fixture reported the wrong version")
         if int(summary.get("pointJointCount") or 0) != expected_joint_count:
             raise RuntimeError(f"snapshot v{version} fixture reported the wrong point-joint count")
+        if int(summary.get("motionEligibilityStateCount") or 0) != len(expected_motion_state):
+            raise RuntimeError(f"snapshot v{version} fixture reported the wrong motion-eligibility count")
+
+    future_reader = ChunkReader(make_fixture(5, 1, (1,)), "snapshot-v5-fixture")
+    try:
+        ReplayV2._parse_snapshot_summary(future_reader)
+    except ReplayQueryError:
+        pass
+    else:
+        raise RuntimeError("future solver snapshot v5 fixture was accepted")
 
 
 def run_checked(args, cwd):
@@ -994,10 +1009,14 @@ def query_artifact():
     if int(first_checkpoint.get("bodyCount") or 0) <= 0 or not first_checkpoint.get("bodies"):
         raise RuntimeError("replay checkpoint query did not return solver body payloads")
     snapshot = first_checkpoint.get("snapshot") or {}
-    if int(snapshot.get("version") or 0) not in (1, 2, 3):
+    if int(snapshot.get("version") or 0) not in (1, 2, 3, 4):
         raise RuntimeError("replay checkpoint query returned an unsupported snapshot version")
     if int(snapshot.get("modelCount") or 0) != int(first_checkpoint.get("bodyCount") or 0):
         raise RuntimeError("replay checkpoint snapshot model count did not match body count")
+    if int(snapshot.get("version") or 0) >= 4 and int(snapshot.get("motionEligibilityStateCount") or 0) != int(
+        snapshot.get("modelCount") or 0
+    ):
+        raise RuntimeError("replay checkpoint motion-eligibility state count did not match model count")
 
     export_end = min(first_frame + 5, last_frame)
     export_command = [
@@ -1045,7 +1064,7 @@ def query_artifact():
 
 def main():
     try:
-        print("  Checking replay query snapshot v2/v3 fixtures...")
+        print("  Checking replay query snapshot v1-v4 fixtures...")
         validate_snapshot_query_versions()
         print("  Generating replay v2 artifact...")
         generate_artifact()

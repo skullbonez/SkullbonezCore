@@ -37,6 +37,8 @@
 //     refresh mismatch leaves the pre-existing identity/shape row untouched.
 //   - Partially submerged box and convex-hull forces remain finite and produce
 //     an upward velocity response.
+//   - Version 4 replay snapshots reject malformed motion-state size/bits before
+//     mutation; legacy version 2 restores cold motion classification.
 //   - The production Replay prediction reserve adapter preserves committed
 //     scene capacity, owns an independent collider graph after source
 //     destruction, copies point-joint warm-start state, retains a per-test
@@ -771,7 +773,7 @@ TEST_CASE( "Physics handles: sleep-state copy admits the exact live body count" 
 
 TEST_CASE( "Collider shape stores: hot rows stay compact and zero-hull scenes commit no hull payload" )
 {
-    CHECK( sizeof( ColliderRecord ) == 80u );
+    CHECK( sizeof( ColliderRecord ) == 88u );
 
     auto store = std::make_unique<ColliderStore>();
     const CollisionShape sphereOne = MakeColliderShape( 1.0f );
@@ -1028,9 +1030,9 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
     RuntimeReserveGrowthEventView events[128] = {};
     const int eventCount = RuntimeReserveAllocator::CopyRecentGrowthEvents( events, 128 );
 #if defined( _DEBUG )
-    REQUIRE( eventCount == 93 );
+    REQUIRE( eventCount == 98 );
 #else
-    REQUIRE( eventCount == 92 );
+    REQUIRE( eventCount == 97 );
 #endif
     CHECK( static_cast<uint64_t>( eventCount ) == RuntimeReserveAllocator::GrowthEventCount() );
 
@@ -1064,6 +1066,10 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
         { "PhysicsForceStage.m_mutualGravityPairForces", 130816 },
         { "ExternalForceStage.fixedTreeReleaseWakeScratch", 2000 },
         { "ExternalForceStage.releaseWakeBodies", 2000 },
+        { "PhysicsMotionEligibilityStage.state", 2000 },
+        { "PhysicsMotionEligibilityStage.linearTravelSquared", 2000 },
+        { "PhysicsMotionEligibilityStage.angularTravelSquared", 2000 },
+        { "PhysicsMotionEligibilityStage.angularBroadphaseExpansion", 2000 },
         { "SpatialGrid.entries", 17024 },
         { "SpatialGrid.overlayEntries", 16000 },
         { "SpatialGrid.sweptFallbackBodies", 2000 },
@@ -1152,9 +1158,9 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
     };
 
 #if defined( _DEBUG )
-    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 106 );
+    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 110 );
 #else
-    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 105 );
+    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 109 );
 #endif
 
     for ( const ExpectedRegisteredWithoutGrowth& expected : expectedRegisteredWithoutGrowth )
@@ -1635,6 +1641,7 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
                                                       SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt(
                                                           bodyCount ) );
         CHECK( afterReject.timeRemaining == beforeReject.timeRemaining );
+        CHECK( afterReject.motionEligibilityState == beforeReject.motionEligibilityState );
         CHECK( afterReject.sleepState == beforeReject.sleepState );
         CHECK( afterReject.sleepSupportEdges == beforeReject.sleepSupportEdges );
         CHECK( afterReject.persistentContactCounts == beforeReject.persistentContactCounts );
@@ -1648,6 +1655,16 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
     REQUIRE_FALSE( malformedDenseRows.sleepState.empty() );
     malformedDenseRows.sleepState.pop_back();
     checkRejectedSnapshotLeavesStateUntouched( malformedDenseRows );
+
+    auto malformedEligibilityRows = solverSnapshot;
+    REQUIRE_FALSE( malformedEligibilityRows.motionEligibilityState.empty() );
+    malformedEligibilityRows.motionEligibilityState.pop_back();
+    checkRejectedSnapshotLeavesStateUntouched( malformedEligibilityRows );
+
+    auto malformedEligibilityBits = solverSnapshot;
+    REQUIRE_FALSE( malformedEligibilityBits.motionEligibilityState.empty() );
+    malformedEligibilityBits.motionEligibilityState[0] = 0x80u;
+    checkRejectedSnapshotLeavesStateUntouched( malformedEligibilityBits );
 
     auto malformedSupportEdge = solverSnapshot;
     malformedSupportEdge.sleepSupportEdges.emplace_back( 0, bodyCount );
@@ -1730,6 +1747,7 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
     SkullbonezCore::Physics::PhysicsSolverSnapshot legacySnapshot = solverSnapshot;
     legacySnapshot.version = 2u;
     legacySnapshot.pointJoints.clear();
+    legacySnapshot.motionEligibilityState.clear();
     REQUIRE( predictionEngine.RestoreReplaySolverSnapshot( legacySnapshot,
                                                            SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt(
                                                                bodyCount ) ) );

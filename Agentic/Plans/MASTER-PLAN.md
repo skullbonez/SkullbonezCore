@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-22
-Status: Ragdoll Physics Unification, Runtime Boundary Separation, and Game UI Component Library Separation active; 87/111 tasks complete
+Status: Ragdoll Physics Unification, Runtime Boundary Separation, and Game UI Component Library Separation active; 88/111 tasks complete
 
 ## Owner Direction
 
@@ -257,7 +257,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Deterministic Collision Modes And Ragdoll Unification | `RAGDOLL_PHYSICS` | 10 | 1 | `TODO/ragdoll-physics-unification.md` |
+| Deterministic Collision Modes And Ragdoll Unification | `RAGDOLL_PHYSICS` | 10 | 2 | `TODO/ragdoll-physics-unification.md` |
 | Runtime Boundary Separation And Project Topology | `RUNTIME_BOUNDARIES` | 8 | 0 | `TODO/runtime-boundary-separation.md` |
 | Game UI Component Library Separation | `GAME_UI_COMPONENTS` | 7 | 0 | `TODO/game-ui-component-library-separation.md` |
 
@@ -323,7 +323,7 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-87/111 tasks complete with Deterministic Collision Modes And Ragdoll Unification
+88/111 tasks complete with Deterministic Collision Modes And Ragdoll Unification
 first, Runtime Boundary Separation And Project Topology second, and Game UI
 Component Library Separation third.
 Causal C0-C8, Determinism T0-T8,
@@ -334,7 +334,7 @@ Cause Hierarchy Scientific Inspector CHUI0-CHUI6 is complete. Full Source Commen
 Replacement CT0-CT5 is complete. Full Validation Time And Value Audit VTA0-VTA5 is complete.
 Repository Hygiene Cleanup RC0-RC5 is complete.
 Core Engine Evidence-Driven Code Reduction CR0-CR5 is complete.
-Deterministic Collision Modes And Ragdoll Unification FP0-FP9 is active at 1/10; FP0 is complete and FP1 is next.
+Deterministic Collision Modes And Ragdoll Unification FP0-FP9 is active at 2/10; FP0-FP1 are complete and FP2 is next.
 Runtime Boundary Separation And Project Topology RBS0-RBS7 is active at 0/8.
 Game UI Component Library Separation UI0-UI6 is active at 0/7 and binding after
 RBS7.

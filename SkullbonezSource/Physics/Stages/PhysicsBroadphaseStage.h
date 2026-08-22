@@ -5,10 +5,10 @@ Purpose:
 
 Summary:
   PhysicsBroadphaseStage incrementally maintains persistent spatial membership
-  during one fixed tick, overlays conservative fast sweeps, visits only cells
-  reached by awake bodies in production, and exposes its retained candidate span
-  to later stages. Collision-cell keys share this owner because they use the
-  same coordinates.
+  during one fixed tick, overlays conservative linear sweeps and angular reach,
+  visits only cells reached by awake bodies in production, and exposes its
+  retained candidate span to later stages. Collision-cell keys share this owner
+  because they use the same coordinates.
 
 Glossary:
   Fast-sweep augmentation: Conservative segment check that protects tiny,
@@ -25,7 +25,8 @@ Invariants:
   - Returned spans remain valid only until the next Run or Clear call.
   - Candidate and collision-key lists commit scene-derived capacities before
     play and fail rather than grow during a fixed step.
-  - Swept occupancy expires every step and never changes persistent membership.
+  - Linear-swept and angular-expanded occupancy expires every step and never
+    changes persistent membership.
   - Debug full-cell traversal preserves bounded SleepPrunedPair diagnostics;
     Profile/Release never generate sleep-only candidate work.
 
@@ -49,11 +50,6 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Core
-{
-class Profiler;
-} // namespace Core
-
 namespace Physics
 {
 class ColliderStore;
@@ -91,12 +87,11 @@ class PhysicsBroadphaseStage
 
     // Lifetime: every argument is borrowed for this synchronous fixed-step
     // call; only the stage-owned grid and bounded result buffers are retained.
-    std::span<const std::pair<int, int>> Run( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                                              const BroadphaseSettings& broadphaseSettings,
-                                              std::span<const PointJointConstraint> pointJointConstraints,
-                                              std::span<const uint8_t> sleepState, std::span<const int> awakeBodyIndices,
-                                              PhysicsStepDiagnostics& stepDiagnostics, float dt, float contactSkin,
-                                              float contactEpsilon, Core::Profiler* profiler );
+    std::span<const std::pair<int, int>>
+    Run( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const BroadphaseSettings& broadphaseSettings,
+         std::span<const PointJointConstraint> pointJointConstraints, std::span<const uint8_t> sleepState,
+         std::span<const int> awakeBodyIndices, std::span<const float> angularBroadphaseExpansion,
+         PhysicsStepDiagnostics& stepDiagnostics, float dt, float contactSkin, float contactEpsilon );
 
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const;
     float GetCellSize() const;

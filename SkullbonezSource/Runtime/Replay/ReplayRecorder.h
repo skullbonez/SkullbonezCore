@@ -6,8 +6,8 @@ Purpose:
 Summary:
   Replay capture has two bounded tracks. Presentation samples feed immediate
   visual scrubbing. Solver samples keep same-tick body constants, inertia,
-  sleep/contact summaries, retained point-joint topology and impulses, and
-  hashes for the authoritative rollback path.
+  sleep/contact summaries, retained point-joint topology and impulses, motion-
+  eligibility hysteresis, and hashes for the authoritative rollback path.
 
 Glossary:
   Visual body metadata: Stable body identity/display fields stored once and
@@ -29,6 +29,8 @@ Glossary:
 Invariants:
   - Capture order is chronological even though storage wraps internally.
   - Hash fields are compatibility surface for deterministic validation.
+  - Snapshot v4 motion state participates in sparse deltas and hashes; v1-v3
+    hash byte order remains unchanged.
   - Owner-action wire values never serialize domain enum ordinals.
   - Retained vector growth shares `replay_recorder_samples`; no record or vector
     receives a private copy of the 32 MiB hard cap.
@@ -355,6 +357,7 @@ struct ReplaySolverWorldDeltaFrame
     ReplaySolverVectorDelta<Physics::PhysicsSolverPersistentContactSample> persistentContacts;
     ReplaySolverVectorDelta<Physics::PhysicsSolverContactCacheSample> persistentContactCache;
     ReplaySolverVectorDelta<Physics::PhysicsSolverPointJointSample> pointJoints;
+    ReplaySolverVectorDelta<uint8_t> motionEligibilityState;
     ReplaySolverVectorDelta<uint16_t> persistentContactCounts;
     ReplaySolverVectorDelta<uint16_t> persistentRestingContactCounts;
     ReplaySolverVectorDelta<Physics::PhysicsDebugContact> debugContacts;

@@ -7,8 +7,9 @@
 //   Tests create presentation and solver artifacts through the production
 //   writer, then mutate isolated header/table fields to prove every malformed
 //   file is rejected as a recoverable false result without partially published
-//   rows. The full-track fixture also restores a v3 point-joint checkpoint after
-//   a cold topology rebuild so persisted identity is tested across handle epochs.
+//   rows. The full-track fixture also restores a current versioned checkpoint
+//   after a cold topology rebuild so persisted identity and v4 motion
+//   eligibility survive new handle epochs.
 //
 // Glossary:
 //   Chunk table: Fixed-width directory mapping four-byte tags to payload ranges.
@@ -24,10 +25,13 @@
 //   - Point-joint checkpoints use durable body ids and topology order, carry
 //     sparse impulse deltas, affect solver hashes, and reproduce the next step
 //     after bodies and constraints are recreated with new handles.
+//   - Motion eligibility is retained as a per-body v4 snapshot tail, participates
+//     in solver hashes and sparse deltas, and round-trips through disk checkpoints.
 //
 // Related:
 //   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.cpp
 //   - SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp
+//   - SkullbonezSource/Physics/PhysicsSolverSnapshot.h
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
@@ -546,6 +550,8 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     const ReplaySolverFrameSample* sample = solver.LatestSample();
     REQUIRE( sample != nullptr );
     REQUIRE( sample->worldSnapshot.physics.pointJoints.size() == 1u );
+    REQUIRE( sample->worldSnapshot.physics.motionEligibilityState.size() == 2u );
+    const std::vector<uint8_t> capturedMotionEligibilityState = sample->worldSnapshot.physics.motionEligibilityState;
     const float capturedJointImpulse = sample->worldSnapshot.physics.pointJoints[0].accumulatedImpulse;
     REQUIRE( capturedJointImpulse != 0.0f );
     const uint64_t capturedSolverHash = sample->solverHash;
@@ -567,6 +573,19 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     REQUIRE( engine.RestoreReplaySolverSnapshot(
         sample->worldSnapshot.physics, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( 2 ) ) );
 
+    auto changedMotionSnapshot = sample->worldSnapshot.physics;
+    changedMotionSnapshot.motionEligibilityState[0] ^= 1u;
+    REQUIRE( engine.RestoreReplaySolverSnapshot( changedMotionSnapshot,
+                                                 SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( 2 ) ) );
+    hashVerifier.ResetTimeline( "coverage-floor-motion-eligibility-hash" );
+    hashVerifier.CaptureFrame( captureBranch, 3u, 20, 1.0f / 120.0f, captureWorld, captureCamera, launcher, engine,
+                               tornadoGameplay, entities, PhysicsEngine::ReadBodies( engine ),
+                               PhysicsEngine::ReadColliders( engine ) );
+    REQUIRE( hashVerifier.LatestSample() != nullptr );
+    CHECK( hashVerifier.LatestSample()->solverHash != capturedSolverHash );
+    REQUIRE( engine.RestoreReplaySolverSnapshot( sample->worldSnapshot.physics,
+                                                 SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( 2 ) ) );
+
     const ReplaySolverFrameSample* historical = solver.SampleAtNormalized( 0.0f );
     REQUIRE( historical != nullptr );
     const uint64_t firstResolveCount = solver.GetStats().denseSampleResolveCount;
@@ -577,7 +596,9 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     REQUIRE( engine.SetBodyVelocity( registration.body, Vector3( 2.0f, 1.0f, -1.0f ), Vector3( 0.1f, 0.2f, 0.3f ), true ) );
     auto changedDeltaSnapshot = sample->worldSnapshot.physics;
     changedDeltaSnapshot.pointJoints[0].accumulatedImpulse += 0.5f;
+    changedDeltaSnapshot.motionEligibilityState[0] ^= 1u;
     const float changedDeltaImpulse = changedDeltaSnapshot.pointJoints[0].accumulatedImpulse;
+    const std::vector<uint8_t> changedDeltaMotionEligibilityState = changedDeltaSnapshot.motionEligibilityState;
     REQUIRE( engine.RestoreReplaySolverSnapshot(
         changedDeltaSnapshot, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( 2 ) ) );
     solver.CaptureFrame( captureBranch, 4u, 21, 1.0f / 120.0f, captureWorld, captureCamera, launcher, engine,
@@ -596,6 +617,7 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     REQUIRE( resolvedDelta->worldSnapshot.physics.pointJoints.size() == 1u );
     CHECK( std::memcmp( &resolvedDelta->worldSnapshot.physics.pointJoints[0].accumulatedImpulse,
                         &changedDeltaImpulse, sizeof( changedDeltaImpulse ) ) == 0 );
+    CHECK( resolvedDelta->worldSnapshot.physics.motionEligibilityState == changedDeltaMotionEligibilityState );
 
     for ( ReplayFrameIndex frame = 0u; frame < 2u; ++frame )
     {
@@ -642,6 +664,7 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     CHECK( checkpoints[0].launcherVisual.rayLines.size() == 1u );
     CHECK( checkpoints[0].launcherVisual.laserShots.size() == 1u );
     REQUIRE( checkpoints[0].worldSnapshot.physics.pointJoints.size() == 1u );
+    CHECK( checkpoints[0].worldSnapshot.physics.motionEligibilityState == capturedMotionEligibilityState );
     const auto& loadedJoint = checkpoints[0].worldSnapshot.physics.pointJoints[0];
     CHECK( loadedJoint.topologyOrdinal == 0u );
     CHECK( loadedJoint.bodyASceneObjectId == bodyDesc.sceneObjectId );
@@ -686,9 +709,9 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
         }
     };
 
+    applyLoadedBodies( registration.body, secondRegistration.body );
     REQUIRE( engine.RestoreReplaySolverSnapshot(
         loadedCheckpoint.worldSnapshot.physics, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( 2 ) ) );
-    applyLoadedBodies( registration.body, secondRegistration.body );
     engine.Step( 1.0f / 120.0f, forces, workerPool, SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter {} );
     ReplaySolverRecorder expectedAfterRestoreRecorder;
     REQUIRE( expectedAfterRestoreRecorder.Configure( config ) );
@@ -718,9 +741,9 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     }
     CHECK( registration.body != originalBodyA );
     CHECK( secondRegistration.body != originalBodyB );
+    applyLoadedBodies( registration.body, secondRegistration.body );
     REQUIRE( engine.RestoreReplaySolverSnapshot(
         loadedCheckpoint.worldSnapshot.physics, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( 2 ) ) );
-    applyLoadedBodies( registration.body, secondRegistration.body );
     engine.Step( 1.0f / 120.0f, forces, workerPool, SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter {} );
     entities.Clear();
     entity.sceneObjectId = bodyDesc.sceneObjectId;

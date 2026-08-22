@@ -5,10 +5,11 @@ Purpose:
 
 Summary:
   SpatialGrid provides locality candidates; this stage rejects pairs whose
-  swept bounding spheres cannot touch during the current fixed tick and rejects
-  dormant/dormant pairs before they enter solver-visible work. The geometry-only
-  predicate remains explicit so Debug can preserve sleep-pruned diagnostics at
-  the same admission boundary without restoring dormant solver work.
+  swept bounding spheres, including per-body angular reach, cannot touch during
+  the current fixed tick and rejects dormant/dormant pairs before they enter
+  solver-visible work. The geometry-only predicate remains explicit so Debug
+  can preserve sleep-pruned diagnostics at the same admission boundary without
+  restoring dormant solver work.
 
 Glossary:
   Contact skin: Extra radius added to a broadphase sphere so near misses still
@@ -80,7 +81,8 @@ inline float BroadphaseCandidateBodyRadius( std::span<const ColliderRecord> coll
 // it must not reject a pair whose exact shapes could touch during this fixed
 // tick; the relative-motion segment covers CCD and wakeup cases.
 inline bool BroadphaseCandidateGeometryCanTouch( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                                                 float dt, float contactSkin, int a, int b )
+                                                 float dt, float contactSkin, int a, int b,
+                                                 std::span<const float> angularBroadphaseExpansion = {} )
 {
     const int modelCount = (std::min)( bodyStore.Count(), colliderStore.Count() );
 
@@ -91,10 +93,17 @@ inline bool BroadphaseCandidateGeometryCanTouch( const PhysicsBodyStore& bodySto
 
     const PhysicsBodyHotFieldsConstView hotFields = bodyStore.HotFields();
     const std::span<const ColliderRecord> colliderRecords = colliderStore.Records();
-    const float radiusA = BroadphaseCandidateBodyRadius( colliderRecords, a );
-    const float radiusB = BroadphaseCandidateBodyRadius( colliderRecords, b );
+    const float expansionA = a < static_cast<int>( angularBroadphaseExpansion.size() )
+                                 ? angularBroadphaseExpansion[static_cast<std::size_t>( a )]
+                                 : 0.0f;
+    const float expansionB = b < static_cast<int>( angularBroadphaseExpansion.size() )
+                                 ? angularBroadphaseExpansion[static_cast<std::size_t>( b )]
+                                 : 0.0f;
+    const float radiusA = BroadphaseCandidateBodyRadius( colliderRecords, a ) + (std::max)( 0.0f, expansionA );
+    const float radiusB = BroadphaseCandidateBodyRadius( colliderRecords, b ) + (std::max)( 0.0f, expansionB );
 
-    if ( !std::isfinite( radiusA ) || !std::isfinite( radiusB ) || radiusA < 0.0f || radiusB < 0.0f )
+    if ( !std::isfinite( radiusA ) || !std::isfinite( radiusB ) || !std::isfinite( expansionA ) ||
+         !std::isfinite( expansionB ) || radiusA < 0.0f || radiusB < 0.0f )
     {
         return true;
     }

@@ -625,6 +625,9 @@ PhysicsColliderHandle ColliderStore::CreateColliderRecord( const ColliderRecord&
     record.handle = handle;
     record.shapeKind = ShapeKindForShape( shape );
     record.shape = AppendShape( shape, hullIdentity );
+    const auto motionFacts = SkullbonezCore::Math::CollisionDetection::GetCollisionShapeMotionGeometry( shape );
+    record.minimumCollisionThickness = motionFacts.minimumCollisionThickness;
+    record.maximumCenterOfMassRadius = motionFacts.maximumCenterOfMassRadius;
 
     if ( !record.sceneObjectId.IsValid() )
     {
@@ -666,6 +669,9 @@ bool ColliderStore::UpdateRecordForHandle( PhysicsColliderHandle handle, const C
     updated.handle = handle;
     updated.shape = updatedShape;
     updated.shapeKind = updatedShapeKind;
+    const auto motionFacts = SkullbonezCore::Math::CollisionDetection::GetCollisionShapeMotionGeometry( shape );
+    updated.minimumCollisionThickness = motionFacts.minimumCollisionThickness;
+    updated.maximumCenterOfMassRadius = motionFacts.maximumCenterOfMassRadius;
 
     if ( !updated.sceneObjectId.IsValid() )
     {

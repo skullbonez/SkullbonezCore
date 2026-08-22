@@ -932,17 +932,31 @@ int SpatialGrid::CollectBucketObjects( const Bucket& bucket, int* outIndices, in
 // Insert a dynamic body over the world-space AABB swept by its center this tick.
 // Narrowphase still computes the exact time-of-impact; this only prevents the
 // broadphase from skipping a fast body that starts outside the target cell.
-void SpatialGrid::InsertSwept( int index, const Vector3& position, const Vector3& displacement, float radius )
+void SpatialGrid::InsertSwept( int index, const Vector3& position, const Vector3& displacement, float persistentRadius,
+                               float sweptRadius )
 {
-    Insert( index, position, radius );
-    const Vector3 endPosition = position + displacement;
-    const Vector3 minBounds( (std::min)( position.x, endPosition.x ) - radius,
-                             (std::min)( position.y, endPosition.y ) - radius,
-                             (std::min)( position.z, endPosition.z ) - radius );
+    // Invariant: rotation-only reach belongs to the resettable overlay. Keeping
+    // ordinary membership at persistentRadius prevents a large blade envelope
+    // from consuming the fixed persistent grid on every later frame.
+    Insert( index, position, persistentRadius );
 
-    const Vector3 maxBounds( (std::max)( position.x, endPosition.x ) + radius,
-                             (std::max)( position.y, endPosition.y ) + radius,
-                             (std::max)( position.z, endPosition.z ) + radius );
+    if ( !std::isfinite( sweptRadius ) || sweptRadius < persistentRadius )
+    {
+        // Hazard: non-finite motion cannot produce trustworthy cell bounds.
+        // The canonical fallback stream is the only complete conservative
+        // representation, so admit every pair incident to this body.
+        MarkSweptFallback( index );
+        return;
+    }
+
+    const Vector3 endPosition = position + displacement;
+    const Vector3 minBounds( (std::min)( position.x, endPosition.x ) - sweptRadius,
+                             (std::min)( position.y, endPosition.y ) - sweptRadius,
+                             (std::min)( position.z, endPosition.z ) - sweptRadius );
+
+    const Vector3 maxBounds( (std::max)( position.x, endPosition.x ) + sweptRadius,
+                             (std::max)( position.y, endPosition.y ) + sweptRadius,
+                             (std::max)( position.z, endPosition.z ) + sweptRadius );
 
     // The swept range is transient; persistent membership above remains a pure
     // function of the body's current position and radius.
@@ -987,6 +1001,13 @@ void SpatialGrid::InsertSwept( int index, const Vector3& position, const Vector3
 
     if ( distanceSq <= TOLERANCE )
     {
+        if ( sweptRadius > persistentRadius )
+        {
+            // A rotation-only envelope too large for exact overlay coverage
+            // still requires complete candidate admission.
+            MarkSweptFallback( index );
+        }
+
         return;
     }
 
@@ -1002,7 +1023,7 @@ void SpatialGrid::InsertSwept( int index, const Vector3& position, const Vector3
     const int64_t traversalSteps = std::llabs( static_cast<int64_t>( endX ) - cx ) +
                                    std::llabs( static_cast<int64_t>( endY ) - cy ) +
                                    std::llabs( static_cast<int64_t>( endZ ) - cz );
-    const int64_t maximumSampleAxisCells = static_cast<int64_t>( ceilf( radius * 2.0f * inverseCellSize ) ) + 2;
+    const int64_t maximumSampleAxisCells = static_cast<int64_t>( ceilf( sweptRadius * 2.0f * inverseCellSize ) ) + 2;
     const int64_t coverageBudget = (std::min)( remainingOverlayRows, remainingBucketRows );
     int64_t conservativeTraversalRows = traversalSteps + 2;
     bool traversalCoverageFits = traversalSteps <= MAX_SWEPT_TRAVERSED_CELLS;
@@ -1075,8 +1096,8 @@ void SpatialGrid::InsertSwept( int index, const Vector3& position, const Vector3
     axisTraversal( position.y, displacement.y, cy, stepY, tMaxY, tDeltaY );
     axisTraversal( position.z, displacement.z, cz, stepZ, tMaxZ, tDeltaZ );
 
-    InsertOverlayBounds( index, Vector3( position.x - radius, position.y - radius, position.z - radius ),
-                         Vector3( position.x + radius, position.y + radius, position.z + radius ) );
+    InsertOverlayBounds( index, Vector3( position.x - sweptRadius, position.y - sweptRadius, position.z - sweptRadius ),
+                         Vector3( position.x + sweptRadius, position.y + sweptRadius, position.z + sweptRadius ) );
 
     int visitedCells = 0;
 
@@ -1105,14 +1126,15 @@ void SpatialGrid::InsertSwept( int index, const Vector3& position, const Vector3
 
         const float t = (std::max)( 0.0f, (std::min)( 1.0f, nextT ) );
         const Vector3 sample = position + displacement * t;
-        InsertOverlayBounds( index, Vector3( sample.x - radius, sample.y - radius, sample.z - radius ),
-                             Vector3( sample.x + radius, sample.y + radius, sample.z + radius ) );
+        InsertOverlayBounds( index, Vector3( sample.x - sweptRadius, sample.y - sweptRadius, sample.z - sweptRadius ),
+                             Vector3( sample.x + sweptRadius, sample.y + sweptRadius, sample.z + sweptRadius ) );
 
         ++visitedCells;
     }
 
-    InsertOverlayBounds( index, Vector3( endPosition.x - radius, endPosition.y - radius, endPosition.z - radius ),
-                         Vector3( endPosition.x + radius, endPosition.y + radius, endPosition.z + radius ) );
+    InsertOverlayBounds( index,
+                         Vector3( endPosition.x - sweptRadius, endPosition.y - sweptRadius, endPosition.z - sweptRadius ),
+                         Vector3( endPosition.x + sweptRadius, endPosition.y + sweptRadius, endPosition.z + sweptRadius ) );
 }
 
 
@@ -1209,6 +1231,7 @@ bool SpatialGrid::MarkFilteredCandidatePairFirstSeen( int a, int b,
                                                       const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
                                                       const SkullbonezCore::Physics::ColliderStore& colliderStore,
                                                       std::span<const uint8_t> sleepState, float dt, float contactSkin,
+                                                      std::span<const float> angularBroadphaseExpansion,
                                                       SkullbonezCore::Physics::PhysicsCandidatePairList* sleepPrunedPairs )
 {
     if ( !MarkCandidatePairFirstSeen( a, b ) )
@@ -1220,8 +1243,8 @@ bool SpatialGrid::MarkFilteredCandidatePairFirstSeen( int a, int b,
     {
         // Preserve the old diagnostic boundary: SleepPrunedPair described a
         // geometrically admitted candidate, not every dormant co-cell pair.
-        if ( !SkullbonezCore::Physics::BroadphaseCandidateGeometryCanTouch( bodyStore, colliderStore, dt, contactSkin, a,
-                                                                            b ) )
+        if ( !SkullbonezCore::Physics::BroadphaseCandidateGeometryCanTouch( bodyStore, colliderStore, dt, contactSkin, a, b,
+                                                                            angularBroadphaseExpansion ) )
         {
             return false;
         }
@@ -1240,7 +1263,8 @@ bool SpatialGrid::MarkFilteredCandidatePairFirstSeen( int a, int b,
         return false;
     }
 
-    return SkullbonezCore::Physics::BroadphaseCandidateGeometryCanTouch( bodyStore, colliderStore, dt, contactSkin, a, b );
+    return SkullbonezCore::Physics::BroadphaseCandidateGeometryCanTouch( bodyStore, colliderStore, dt, contactSkin, a, b,
+                                                                         angularBroadphaseExpansion );
 }
 
 
@@ -1452,6 +1476,7 @@ void SpatialGrid::GetFilteredCandidatePairsImpl( SkullbonezCore::Physics::Physic
                                                  const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
                                                  const SkullbonezCore::Physics::ColliderStore& colliderStore,
                                                  std::span<const uint8_t> sleepState, float dt, float contactSkin,
+                                                 std::span<const float> angularBroadphaseExpansion,
                                                  SkullbonezCore::Physics::PhysicsCandidatePairList* sleepPrunedPairs,
                                                  bool restrictToPairSourceCells )
 {
@@ -1543,7 +1568,7 @@ void SpatialGrid::GetFilteredCandidatePairsImpl( SkullbonezCore::Physics::Physic
                 }
 
                 if ( !MarkFilteredCandidatePairFirstSeen( a, bIdx, bodyStore, colliderStore, sleepState, dt, contactSkin,
-                                                          sleepPrunedPairs ) )
+                                                          angularBroadphaseExpansion, sleepPrunedPairs ) )
                 {
                     continue;
                 }
@@ -1579,7 +1604,7 @@ void SpatialGrid::GetFilteredCandidatePairsImpl( SkullbonezCore::Physics::Physic
             const int b = (std::max)( fallbackBody, otherBody );
 
             if ( !MarkFilteredCandidatePairFirstSeen( a, b, bodyStore, colliderStore, sleepState, dt, contactSkin,
-                                                      sleepPrunedPairs ) )
+                                                      angularBroadphaseExpansion, sleepPrunedPairs ) )
             {
                 continue;
             }
@@ -1669,22 +1694,23 @@ void SpatialGrid::GetFilteredCandidatePairs( SkullbonezCore::Physics::PhysicsCan
                                              const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
                                              const SkullbonezCore::Physics::ColliderStore& colliderStore,
                                              std::span<const uint8_t> sleepState, float dt, float contactSkin,
+                                             std::span<const float> angularBroadphaseExpansion,
                                              SkullbonezCore::Physics::PhysicsCandidatePairList& sleepPrunedPairs,
                                              bool restrictToPairSourceCells )
 {
-    GetFilteredCandidatePairsImpl( outPairs, bodyStore, colliderStore, sleepState, dt, contactSkin, &sleepPrunedPairs,
-                                   restrictToPairSourceCells );
+    GetFilteredCandidatePairsImpl( outPairs, bodyStore, colliderStore, sleepState, dt, contactSkin,
+                                   angularBroadphaseExpansion, &sleepPrunedPairs, restrictToPairSourceCells );
 }
-
 
 void SpatialGrid::GetFilteredCandidatePairs( SkullbonezCore::Physics::PhysicsCandidatePairList& outPairs,
                                              const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
                                              const SkullbonezCore::Physics::ColliderStore& colliderStore,
                                              std::span<const uint8_t> sleepState, float dt, float contactSkin,
+                                             std::span<const float> angularBroadphaseExpansion,
                                              bool restrictToPairSourceCells )
 {
-    GetFilteredCandidatePairsImpl( outPairs, bodyStore, colliderStore, sleepState, dt, contactSkin, nullptr,
-                                   restrictToPairSourceCells );
+    GetFilteredCandidatePairsImpl( outPairs, bodyStore, colliderStore, sleepState, dt, contactSkin,
+                                   angularBroadphaseExpansion, nullptr, restrictToPairSourceCells );
 }
 
 
