@@ -6,7 +6,7 @@ Purpose:
 Summary:
   Runtime frame work uses concrete operands or direct `Run` coordinator member
   reach. This header retains only the immutable value snapshot shared by the
-  Legacy and ImGui presentation paths.
+  GameUI and ImGui presentation paths.
 
 Invariants:
   - UI facts contain no mutable owner references.
@@ -42,7 +42,7 @@ struct RuntimeUiTextFrameFacts
     float presentationAlpha = 0.0f;
     bool presentationPinned = false;
     double secondsPerFrame = 0.0;
-    bool legacyDevelopmentUiActive = true;
+    bool gameUiActive = true;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

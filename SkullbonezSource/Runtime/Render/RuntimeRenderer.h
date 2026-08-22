@@ -168,7 +168,7 @@ struct UiOperatorPresentationGraphInvocation
     size_t expectedTransitionCount = 0;
 };
 
-// Operation: resolves preview resources, draws Legacy UI, and flushes text.
+// Operation: resolves preview resources, draws GameUI, and flushes text.
 struct UiOperatorSubmissionGraphInvocation
 {
     UiTextPass* pass = nullptr;
@@ -193,7 +193,7 @@ struct UiReplayGraphInvocation
     Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
     const ReplayOverlay::ReplayOverlayStateView* overlay = nullptr;
     Core::Profiler* profiler = nullptr;
-    bool legacySurfaceActive = true;
+    bool gameUiSurfaceActive = true;
     bool scenePhysicsEnabled = false;
     RuntimeInteractionGestureKind gesture = RuntimeInteractionGestureKind::None;
     UiTextViewport viewport;

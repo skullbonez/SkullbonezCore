@@ -4,7 +4,7 @@ Purpose:
   Implements bounded operator-editor command validation and arbitration.
 
 Summary:
-  Legacy one-frame fields are normalized into fixed domain queues. The merge
+  GameUI one-frame fields are normalized into fixed domain queues. The merge
   order is fixed, exact active-surface/injected duplicates collapse to one
   request, and a same-action/different-payload conflict reports a recoverable
   result before any runtime owner sees ambiguous intent.
@@ -586,10 +586,10 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( SkullbonezCore::Core
     }
 }
 
-SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+SkullbonezCore::Core::SbResult NormalizeGameUiOperatorEditorCommands( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                                       InGameUICommands& commands )
 {
-    // Invariant: normalization drains legacy one-frame fields exactly once.
+    // Invariant: normalization drains GameUI one-frame fields exactly once.
     // Typed queues then become the only arbitration input for either surface.
     OperatorEditorCommandQueues normalized = commands.operatorEditor;
     SkullbonezCore::Core::SbResult result = SkullbonezCore::Core::SbResult::Success();
@@ -947,7 +947,7 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( Skullbonez
 }
 
 OperatorEditorArbitrationResult ArbitrateOperatorEditorCommands( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                                                                 const OperatorEditorCommandQueues& legacy,
+                                                                 const OperatorEditorCommandQueues& gameUi,
                                                                  const OperatorEditorCommandQueues& secondary )
 {
     OperatorEditorArbitrationResult result;
@@ -1016,7 +1016,7 @@ OperatorEditorArbitrationResult ArbitrateOperatorEditorCommands( SkullbonezCore:
         return status;
     };
 
-    result.status = mergeAll( legacy, result.acceptedLegacyCommands );
+    result.status = mergeAll( gameUi, result.acceptedGameUiCommands );
 
     if ( result.status.Ok() )
     {
@@ -1513,7 +1513,7 @@ uint64_t FingerprintOperatorEditorFrameView( const OperatorEditorFrameView& view
     HashValue( hash, view.forecast.auxiliaryOrbitalHealthy );
     HashValue( hash, view.forecast.energyDriftAvailable );
     HashValue( hash, view.forecast.angularMomentumDriftAvailable );
-    HashValue( hash, view.surfaces.legacyVisible );
+    HashValue( hash, view.surfaces.gameUiVisible );
     HashValue( hash, view.surfaces.secondaryVisible );
     HashValue( hash, view.tools.editorModeEnabled );
     HashValue( hash, view.tools.placementModeEnabled );

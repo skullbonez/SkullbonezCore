@@ -332,6 +332,7 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 | Topology drift | Temporary mismatch between editor model count and physics store rows after scene/editor construction or deletion. |
 | Trajectory lane | Named path category such as past root, future root, child incoming/outgoing, retained trail, or baseline root. |
 | Transport command | Presentation-independent record, scrub, prediction, or artifact intent translated by ReplayRuntime into existing replay owners. |
+| Turn trace | Incremental JSONL evidence pairing each injected device frame and routed semantic action with runtime state observed after that interaction turn. |
 | Tween | Time-based interpolation between camera poses for non-jarring cuts. |
 | UAV (Unordered Access View) | Descriptor row used when compute or raytracing shaders write textures or buffers. |
 | UI (User Interface) | Interactive runtime controls and overlays drawn over the 3D scene between the input router's pre-UI and after-UI phases. |

@@ -405,7 +405,7 @@ class InputRouter
                                AttachedCameraController& attachedCamera, CameraControlState& camera, UI::InGameUI& ui,
                                SceneController& sceneController, ReplayRuntime& replayRuntime,
                                RuntimeInputContext& runtimeInput );
-    bool DispatchAfterUiDismiss( InputActions& actions, bool uiUserInteracted, double nowSeconds, bool legacyUiActive,
+    bool DispatchAfterUiDismiss( InputActions& actions, bool uiUserInteracted, double nowSeconds, bool gameUiActive,
                                  DiagnosticsRuntime& diagnosticsRuntime, CameraControlState& camera,
                                  AttachedCameraController& attachedCamera, RuntimeTools& runtimeTools, UI::InGameUI& ui,
                                  SceneController& sceneController, RuntimeOverlayDiagnostics& overlays,

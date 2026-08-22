@@ -989,12 +989,12 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
           {
               if ( !value || IsOptionValueMissing( value ) )
               {
-                  return FailCommandLineParse( "--dev-ui expects legacy|imgui; the two surfaces are mutually exclusive." );
+                  return FailCommandLineParse( "--dev-ui expects game|imgui; the two surfaces are mutually exclusive." );
               }
 
-              if ( strcmp( value, "legacy" ) == 0 )
+              if ( strcmp( value, "game" ) == 0 )
               {
-                  args.developmentUiMode = DevelopmentUiMode::Legacy;
+                  args.developmentUiMode = DevelopmentUiMode::GameUI;
               }
               else if ( strcmp( value, "imgui" ) == 0 )
               {
@@ -1002,7 +1002,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               }
               else
               {
-                  return FailCommandLineParse( "--dev-ui expects legacy|imgui; the two surfaces are mutually exclusive." );
+                  return FailCommandLineParse( "--dev-ui expects game|imgui; the two surfaces are mutually exclusive." );
               }
 
               args.developmentUiModeExplicit = true;

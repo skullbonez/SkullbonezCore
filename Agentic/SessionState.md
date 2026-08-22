@@ -2,7 +2,7 @@
 
 Date: 2026-08-22
 Branch: `codex/cause-hierarchy-ui-first`
-Status: Core Engine Evidence-Driven Code Reduction active; 81/86 tasks complete (94.19%)
+Status: Core Engine Evidence-Driven Code Reduction active; 82/86 tasks complete (95.35%)
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -14,14 +14,19 @@ The completed portfolio remains closed; Core Engine Evidence-Driven Code
 Reduction CR0-CR5 is the sole active plan. Completed plan files were deleted
 under the repository convention; Git history retains their phase evidence.
 
-CORE_REDUCTION CR0 is complete. Owner direction activated the plan without a
+CORE_REDUCTION CR0-CR1 are complete. Owner direction activated the plan without a
 new branch. The clean `cc194f9aa` baseline contains 615 tracked production
 source files and 207,080 physical lines. CodeGraph is current; Debug, Profile,
 and Automation builds pass; decorated-symbol reachability reports 93 ruled rows
 and zero blockers. No dead-production candidate was approved merely to create
 savings. The accepted work is the GameUI naming correction plus exact DX12
 completed-fence, Replay capacity, cold `FILE` deleter, and render-lifecycle log
-duplication. CR1 is next. No golden was refreshed.
+duplication. CR1 renamed the complete built-in development surface to GameUI,
+including `--dev-ui game`, automation values/assertions, runtime fields, labels,
+fixtures, and manuals. The focused 7-case/170-assertion set, 832-item project
+filters, explicit GameUI launch, and full GameUI/ImGui stress matrix pass across
+Profile, Debug, and Automation with zero DX12 validation errors. CR2 is next. No
+golden was refreshed.
 
 REPOSITORY_CLEANUP (RC0-RC5) is 100% complete and closed.
 - RC0 rebased inventory and established strict absolute-path deletion manifests.
@@ -80,7 +85,7 @@ include, reserve privilege, Physics row field, or post-start growth path.
 
 ORBIT_FORECAST OF4 is complete. Planning now composes the continuous producer
 and stability analyzer; App owns lifetime, frame admission, mutual exclusion
-with bounded `PREDICT`, scene-transition joins, and shutdown. Legacy and ImGui
+with bounded `PREDICT`, scene-transition joins, and shutdown. GameUI and ImGui
 route typed continuous/reset/exit commands and publish aligned detached status,
 timing, first-cause, and conservation readouts while retaining the accepted
 bounded-horizon control discrepancy. `validate_fast`, all 620 unit cases,

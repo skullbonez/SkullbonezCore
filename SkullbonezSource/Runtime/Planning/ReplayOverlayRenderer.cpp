@@ -1043,7 +1043,7 @@ void RenderReplayInterceptOverlay( UiDrawSubmission& submission, Text::TextBatch
                                    Rendering::Dx12Diagnostics& renderDiagnostics, int screenW, int screenH )
 {
     // Why: closest approach is useful while the scrubber is hidden, so this
-    // independent Legacy surface is invoked before scrubber visibility policy.
+    // independent GameUI surface is invoked before scrubber visibility policy.
     const ReplayInterceptView& intercept = replay.intercept;
 
     if ( !intercept.valid || screenW <= 0 || screenH <= 0 )

@@ -21,7 +21,7 @@ Invariants:
   - Published references and sample pointers remain valid for one frame only.
   - Overlay functions consume every publication and render borrow synchronously.
   - A stable trajectory publication returns before traversing source records.
-  - Legacy scrubber and cause-tree pixels draw only while the Legacy
+  - GameUI scrubber and cause-tree pixels draw only while the GameUI
     development surface owns presentation; ImGui consumes the same values in
     its own exclusive surface.
 

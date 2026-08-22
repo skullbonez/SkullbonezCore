@@ -1,7 +1,7 @@
 /*
 File: UIFontMetrics.h
 Purpose:
-  Owns the renderer-independent glyph advances used by Legacy UI layout.
+  Owns the renderer-independent glyph advances used by GameUI layout.
 
 Summary:
   Publishes one fixed immutable metric table so every UI measurement uses the

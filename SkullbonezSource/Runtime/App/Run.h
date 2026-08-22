@@ -211,7 +211,7 @@ class Run
     struct FrameInputPhaseResult
     {
         SceneFrameProceedPolicy proceedPolicy;
-        bool legacyDevelopmentUiActive = true;
+        bool gameUiActive = true;
     };
     struct FrameSimulationPhaseResult;
     struct FrameRenderPhaseResult;
@@ -220,7 +220,7 @@ class Run
         float presentationAlpha = 1.0f;
         bool capturePresentationPinned = false;
         double secondsPerFrame = 0.0;
-        bool legacyDevelopmentUiActive = true;
+        bool gameUiActive = true;
     };
 
     RuntimeRenderer& Renderer( const char* operation = "Run::Renderer" )
@@ -246,13 +246,12 @@ class Run
 #endif
     FrameInputPhaseResult RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput );
     FrameSimulationPhaseResult RunSimulationPhase( double secondsPerFrame, const SceneFrameProceedPolicy& proceedPolicy );
-    FrameRenderPhaseResult PrepareRenderPhase( bool legacyDevelopmentUiActive,
-                                               const FrameSimulationPhaseResult& simulation );
+    FrameRenderPhaseResult PrepareRenderPhase( bool gameUiActive, const FrameSimulationPhaseResult& simulation );
     RuntimeRenderModelFrameView PublishRenderModelsPhase();
     void RenderWorldPhase( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha );
 
     void RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels, const FramePresentationFacts& facts );
-    void RunPostDrawDiagnosticsPhase( bool legacyDevelopmentUiActive );
+    void RunPostDrawDiagnosticsPhase( bool gameUiActive );
     void FinishFrameWorkPhase( const SceneFrameProceedPolicy& proceedPolicy );
     void PresentFramePhase();
     bool CompleteFramePhase( const SceneFrameProceedPolicy& proceedPolicy );

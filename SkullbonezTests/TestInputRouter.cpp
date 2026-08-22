@@ -72,14 +72,16 @@ RuntimeInputContextMask Context( RuntimeInputBindingContext context )
 InputKeySnapshot SnapshotFromDownKeys( std::initializer_list<int> downKeys )
 {
     std::array<uint64_t, InputKeySnapshot::WORD_COUNT> words = {};
+
     for ( const int virtualKey : downKeys )
     {
         if ( virtualKey >= 0 && virtualKey < InputKeySnapshot::VIRTUAL_KEY_COUNT )
         {
-            words[static_cast<std::size_t>( virtualKey ) / 64u] |=
-                uint64_t { 1 } << ( static_cast<unsigned int>( virtualKey ) % 64u );
+            words[static_cast<std::size_t>( virtualKey ) / 64u] |= uint64_t { 1 }
+                                                                   << ( static_cast<unsigned int>( virtualKey ) % 64u );
         }
     }
+
     return InputKeySnapshot::FromWords( words );
 }
 
@@ -213,8 +215,8 @@ TEST_CASE( "ImGui input policy: the selected surface routes each event class to 
     };
 
     const MatrixRow rows[] = {
-        { "legacy tool mouse", { false, true, true, true, false, false }, ImGuiEditorMessageClass::Mouse, false },
-        { "legacy tool keyboard", { false, true, true, true, false, false }, ImGuiEditorMessageClass::Keyboard, false },
+        { "GameUI tool mouse", { false, true, true, true, false, false }, ImGuiEditorMessageClass::Mouse, false },
+        { "GameUI tool keyboard", { false, true, true, true, false, false }, ImGuiEditorMessageClass::Keyboard, false },
         { "imgui tool drag", { true, true, false, false, false, false }, ImGuiEditorMessageClass::Mouse, true },
         { "imgui tool drag repeat", { true, true, false, false, false, false }, ImGuiEditorMessageClass::Mouse, true },
         { "imgui tool typing", { true, false, true, true, false, false }, ImGuiEditorMessageClass::Keyboard, true },
@@ -434,7 +436,6 @@ TEST_CASE( "Input router: quick-repeat timing is action-owned" )
     CHECK( router.IsQuickRepeat( RuntimeInputAction::DismissOrExitUI, 10.31, 0.32 ) );
     CHECK_FALSE( router.IsQuickRepeat( RuntimeInputAction::DismissOrExitUI, 10.33, 0.32 ) );
     CHECK_FALSE( router.IsQuickRepeat( RuntimeInputAction::ToggleEditor, 10.1, 0.32 ) );
-
 }
 
 

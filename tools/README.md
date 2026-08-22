@@ -31,7 +31,7 @@ validation.
 | `validate_project_filters.bat` | Visual Studio project/filter drift plus transitive JSON cold-boundary fence | ~depends |
 | `validate_dependency_graph.bat` | Data-driven include direction, planted generated-proof drift, Runtime package closure, Replay boundary, retired ownership-vocabulary deletion, and exact project-ownership XML/path fixtures plus repository scan | ~2s |
 | `validate_ui.bat` | Optional in-game UI visual screenshots, blur, and control automation | ~depends |
-| `validate_ui_stress.bat` | Deterministic Legacy plus ImGui editor stress matrix with exclusive hot swaps, scene/replay churn, resize/DPI captures, and DX12 checks | ~depends |
+| `validate_ui_stress.bat` | Deterministic GameUI plus ImGui editor stress matrix with exclusive hot swaps, scene/replay churn, resize/DPI captures, and DX12 checks | ~depends |
 | `launch_tracy_viewer.bat [--build-only]` | Build the pinned external Tracy profiler on first use and connect it to the local engine; `--build-only` verifies without starting the GUI | first use depends |
 | `validate_demo_stress.bat` | Generated demo scene plus UI interaction crash sweep | ~depends |
 | `run_graphics_stress.bat` | General DX12 graphics stress fuzzer with scene/settings churn and memory telemetry | bounded or overnight |
@@ -211,7 +211,7 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `validate_replay_scrub.bat` | Historical replay-scrub entry point; delegates exclusively to `validate_replay_visual_fidelity.bat` and preserves its failure status |
 | `validate_alt_velocity_visualization.bat` | Builds Automation and runs instant/amortized N-body ALT-VEL drags, requiring a live selected-path preview, zero held-drag restarts, and release-only authoritative replacement |
 | `validate_ui.bat` | Optional DX12 UI suite that captures UI screenshots and checks blur strength |
-| `validate_ui_stress.bat` | Run the Legacy UI backdrop sweep, then an ImGui editor matrix covering exclusive hot swaps, exact scene transition, typed replay scrub, panel/layout churn, minimum/default/ultrawide captures, descriptor bounds, logs, and DX12 validation |
+| `validate_ui_stress.bat` | Run the GameUI backdrop sweep, then an ImGui editor matrix covering exclusive hot swaps, exact scene transition, typed replay scrub, panel/layout churn, minimum/default/ultrawide captures, descriptor bounds, logs, and DX12 validation |
 | `validate_demo_stress.bat` | Generated demo scene crash sweep that keeps physics/rendering active while changing UI settings |
 | `run_graphics_stress.bat [minutes\|overnight] [seed] [actions] [sceneInterval] [memoryInterval]` | General DX12 graphics stress runner; writes stdout, stderr, CSV, and JSON memory artifacts under `TestOutput\graphics_stress` |
 | `validate_dx12_renderer.bat` | Build or reuse Profile, run only DX12 render-test scenes, check InfoQueue, and compare screenshots against DX12 baselines |

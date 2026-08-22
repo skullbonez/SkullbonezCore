@@ -24,8 +24,6 @@ Glossary:
     the same operator-command queue as the visible Planning controls.
   Automation report: JSON side-channel describing what the scripted interaction
   observed without mutating validation baselines directly.
-  Turn trace: Incremental JSONL evidence pairing the injected device frame and
-    routed semantic actions with the runtime state observed after that turn.
 
 Invariants:
   - Scripts must exercise normal runtime routing, not bypass tool ownership or
@@ -38,7 +36,7 @@ Invariants:
     pointers beyond the synchronous automation turn.
   - Forecast presentation assertions observe the detached post-render view;
     they never read the worker-owned rolling ring directly.
-  - Surface selection accepts Legacy or ImGui only; one frame can publish at
+  - Surface selection accepts GameUI or ImGui only; one frame can publish at
     most one process-surface request.
   - Development UI application stops on the first recoverable command failure;
     Run owns process exit policy and converts that result at its boundary.
@@ -1022,8 +1020,8 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "developmentUiSurface";
     case RunInteractionAutomationAssertKind::ImGuiVisible:
         return "imguiVisible";
-    case RunInteractionAutomationAssertKind::LegacyReplayPresentationActive:
-        return "legacyReplayPresentationActive";
+    case RunInteractionAutomationAssertKind::GameUiReplayPresentationActive:
+        return "gameUiReplayPresentationActive";
     case RunInteractionAutomationAssertKind::ImGuiPanelMask:
         return "imguiPanelMask";
     case RunInteractionAutomationAssertKind::ImGuiLayoutResetCountMin:
@@ -2172,15 +2170,15 @@ bool ParseSetDevelopmentUiSurfaceAction( const Json& entry, RunInteractionAutoma
 {
     if ( !entry["setDevelopmentUiSurface"].is_string() )
     {
-        outError = "setDevelopmentUiSurface must be legacy or imgui";
+        outError = "setDevelopmentUiSurface must be game or imgui";
         return false;
     }
 
     const std::string surface = entry["setDevelopmentUiSurface"].get<std::string>();
 
-    if ( surface != "legacy" && surface != "imgui" )
+    if ( surface != "game" && surface != "imgui" )
     {
-        outError = "setDevelopmentUiSurface must be legacy or imgui";
+        outError = "setDevelopmentUiSurface must be game or imgui";
         return false;
     }
 
@@ -3061,9 +3059,9 @@ AssertionParseStatus ParseRuntimeAssertion( const std::string& name, const Json&
     {
         const std::string surface = expected.get<std::string>();
 
-        if ( surface != "legacy" && surface != "imgui" )
+        if ( surface != "game" && surface != "imgui" )
         {
-            outError = "developmentUiSurface must be legacy or imgui";
+            outError = "developmentUiSurface must be game or imgui";
             return AssertionParseStatus::Failure;
         }
 
@@ -3081,9 +3079,9 @@ AssertionParseStatus ParseRuntimeAssertion( const std::string& name, const Json&
         return AssertionParseStatus::Success;
     }
 
-    if ( name == "legacyReplayPresentationActive" )
+    if ( name == "gameUiReplayPresentationActive" )
     {
-        outAction.assertKind = RunInteractionAutomationAssertKind::LegacyReplayPresentationActive;
+        outAction.assertKind = RunInteractionAutomationAssertKind::GameUiReplayPresentationActive;
         outAction.boolValue = ReadBool( expected );
 
         return AssertionParseStatus::Success;
@@ -3239,7 +3237,7 @@ bool ParseAssertAction( const Json& entry, RunInteractionAutomationAction& outAc
                              name == "uiBlocksMouse" || name == "launcherRayActive" ||
                              name == "replayHistoricalSamplePaused" || name == "memoryOverlayEnabled" ||
                              name == "editorSelectionExists" || name == "editorSelectionHasTerrain" ||
-                             name == "imguiVisible" || name == "legacyReplayPresentationActive" ||
+                             name == "imguiVisible" || name == "gameUiReplayPresentationActive" ||
                              name == "imguiPreferencesRecovered";
 
     const bool expectsPositionTolerance = name == "predictionTargetLastNear";
@@ -4151,10 +4149,10 @@ InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
     }
     case RunInteractionAutomationAssertKind::DevelopmentUiSurface:
         evaluation.expected = action.text;
-        evaluation.actual = developmentUi.available ? ( developmentUi.selectedImGui ? "imgui" : "legacy" ) : "unavailable";
+        evaluation.actual = developmentUi.available ? ( developmentUi.selectedImGui ? "imgui" : "game" ) : "unavailable";
 
         evaluation.passed = developmentUi.available && evaluation.actual == evaluation.expected &&
-                            !( developmentUi.legacyVisible && developmentUi.imguiVisible );
+                            !( developmentUi.gameUiVisible && developmentUi.imguiVisible );
 
         break;
     case RunInteractionAutomationAssertKind::ImGuiVisible:
@@ -4162,10 +4160,10 @@ InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
         evaluation.actual = BoolString( developmentUi.imguiVisible );
         evaluation.passed = developmentUi.available && developmentUi.imguiVisible == action.boolValue;
         break;
-    case RunInteractionAutomationAssertKind::LegacyReplayPresentationActive:
+    case RunInteractionAutomationAssertKind::GameUiReplayPresentationActive:
         evaluation.expected = BoolString( action.boolValue );
-        evaluation.actual = BoolString( developmentUi.legacyReplayPresentationActive );
-        evaluation.passed = developmentUi.available && developmentUi.legacyReplayPresentationActive == action.boolValue;
+        evaluation.actual = BoolString( developmentUi.gameUiReplayPresentationActive );
+        evaluation.passed = developmentUi.available && developmentUi.gameUiReplayPresentationActive == action.boolValue;
         break;
     case RunInteractionAutomationAssertKind::ImGuiPanelMask:
     {
@@ -4856,7 +4854,7 @@ InteractionAutomationController::ApplyDevelopmentUiCommands( const InteractionAu
             // after interpreting the script command alongside its peers.
             result.selectSurface = true;
             result.surface = std::strcmp( command.target, "imgui" ) == 0 ? DevelopmentUiMode::ImGui
-                                                                         : DevelopmentUiMode::Legacy;
+                                                                         : DevelopmentUiMode::GameUI;
 
             break;
         case InteractionAutomationDevelopmentUiCommandType::SetPanelVisible:
@@ -4959,14 +4957,14 @@ InteractionAutomationController::SubmitOperatorEditorForecastCommand( const Inte
 
 InteractionAutomationDevelopmentUiView
 InteractionAutomationController::BuildDevelopmentUiView( const DevelopmentTools::ImGuiEditorStatus& editor,
-                                                         bool legacyVisible, bool legacyReplayPresentationActive ) const
+                                                         bool gameUiVisible, bool gameUiReplayPresentationActive ) const
 {
     InteractionAutomationDevelopmentUiView view;
     view.available = editor.initialized;
     view.selectedImGui = editor.selectedSurface == DevelopmentUiMode::ImGui;
-    view.legacyVisible = legacyVisible;
+    view.gameUiVisible = gameUiVisible;
     view.imguiVisible = editor.visible;
-    view.legacyReplayPresentationActive = legacyReplayPresentationActive;
+    view.gameUiReplayPresentationActive = gameUiReplayPresentationActive;
     view.panelVisibilityMask = editor.panelVisibilityMask;
     view.layoutResetCount = editor.layoutResetCount;
     view.automationFocusCount = editor.automationFocusCount;
@@ -5262,9 +5260,8 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
                 InteractionAutomationDevelopmentUiCommand&
                     command = result.developmentUiCommands[result.developmentUiCommandCount++];
                 command.type = InteractionAutomationDevelopmentUiCommandType::SelectSurface;
-                strcpy_s( command.target, baseline.developmentUiSurface == static_cast<int>( DevelopmentUiMode::ImGui )
-                                              ? "imgui"
-                                              : "legacy" );
+                strcpy_s( command.target,
+                          baseline.developmentUiSurface == static_cast<int>( DevelopmentUiMode::ImGui ) ? "imgui" : "game" );
             }
 #endif
             state.recordedBaselineApplied = true;

@@ -106,7 +106,6 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-
 // Lifetime: test access seeds transaction-private values and invokes the exact production
 // kernels. It stores no owner and introduces no parallel arbitration rule.
 struct SceneLoadTransactionTestAccess
@@ -156,7 +155,6 @@ struct SceneGeneratedControlTransactionTestAccess
 
     static bool PublishAfterRepopulation( SceneGeneratedControlTransaction& transaction )
     {
-
         if ( !transaction.m_phase.TryAdvance( SceneGeneratedControlPhaseCursor::Phase::Repopulate ) ||
              !transaction.m_phase.TryAdvance( SceneGeneratedControlPhaseCursor::Phase::PublishFollowUps ) )
         {
@@ -429,16 +427,14 @@ TEST_CASE( "Scene lifecycle generations publish failures and repeated scene load
 
     CHECK( clearObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
     CHECK_FALSE( clearObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
-    CHECK_FALSE(
-        activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
+    CHECK_FALSE( activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
 
     scene.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeScenePopulate, 0 );
     scene.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterScenePopulate, 0 );
     scene.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneActivated, 0 );
     CHECK_FALSE( clearObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
     CHECK( activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
-    CHECK_FALSE(
-        activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
+    CHECK_FALSE( activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
 
     // Concept: the same index and unchanged entity count are still a distinct load attempt.
     scene.BeginLoadAttempt( 0, {} );
@@ -451,8 +447,7 @@ TEST_CASE( "Scene lifecycle generations publish failures and repeated scene load
                                 SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
 
     CHECK( clearObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
-    CHECK_FALSE(
-        activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
+    CHECK_FALSE( activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
     CHECK( clearObserver.LastAppliedGeneration() == 2 );
 }
 
@@ -521,7 +516,6 @@ TEST_CASE( "Scene load phase cursor accepts only the complete adjacent walk" )
 
     for ( std::size_t fromIndex = 0; fromIndex < phases.size(); ++fromIndex )
     {
-
         for ( std::size_t toIndex = 0; toIndex < phases.size(); ++toIndex )
         {
             const bool expected = fromIndex < 4 && toIndex == fromIndex + 1;
@@ -550,7 +544,6 @@ TEST_CASE( "Generated-scene control phase cursor accepts only the complete adjac
 
     for ( std::size_t fromIndex = 0; fromIndex < phases.size(); ++fromIndex )
     {
-
         for ( std::size_t toIndex = 0; toIndex < phases.size(); ++toIndex )
         {
             const bool expected = fromIndex < 4 && toIndex == fromIndex + 1;
@@ -591,7 +584,6 @@ TEST_CASE( "Replay restore phase cursor exposes the complete legal transition ma
 
     for ( std::size_t fromIndex = 0; fromIndex < phases.size(); ++fromIndex )
     {
-
         for ( std::size_t toIndex = 0; toIndex < phases.size(); ++toIndex )
         {
             const bool adjacentSuccess = fromIndex < 6u && toIndex == fromIndex + 1u;
@@ -1294,21 +1286,21 @@ TEST_CASE( "Operator editor queues coalesce identical frontend intent before pro
     static_assert( OperatorEditorForecastCommandQueue::capacity == 4u );
     static_assert( OperatorEditorToolCommandQueue::capacity == 16u );
 
-    InGameUICommands legacy;
-    legacy.scene.resetScene = true;
-    legacy.sceneOptions.requestedTimeScale = 0.5f;
-    legacy.renderer.toggleVsync = true;
-    legacy.replayMemory.requestPolicy = true;
-    legacy.replayMemory.requestedPresetIndex = 2;
-    legacy.replayMemory.requestedRetentionSeconds = 45;
-    legacy.replayMemory.requestedBudgetMiB = 96;
-    legacy.forecast.type = UIForecastCommandType::ToggleContinuous;
-    REQUIRE( NormalizeLegacyOperatorEditorCommands( diagnostics, legacy ).Ok() );
-    CHECK_FALSE( legacy.scene.resetScene );
-    CHECK( legacy.sceneOptions.requestedTimeScale < 0.0f );
-    CHECK_FALSE( legacy.renderer.toggleVsync );
-    CHECK_FALSE( legacy.replayMemory.requestPolicy );
-    CHECK( legacy.forecast.type == UIForecastCommandType::None );
+    InGameUICommands gameUi;
+    gameUi.scene.resetScene = true;
+    gameUi.sceneOptions.requestedTimeScale = 0.5f;
+    gameUi.renderer.toggleVsync = true;
+    gameUi.replayMemory.requestPolicy = true;
+    gameUi.replayMemory.requestedPresetIndex = 2;
+    gameUi.replayMemory.requestedRetentionSeconds = 45;
+    gameUi.replayMemory.requestedBudgetMiB = 96;
+    gameUi.forecast.type = UIForecastCommandType::ToggleContinuous;
+    REQUIRE( NormalizeGameUiOperatorEditorCommands( diagnostics, gameUi ).Ok() );
+    CHECK_FALSE( gameUi.scene.resetScene );
+    CHECK( gameUi.sceneOptions.requestedTimeScale < 0.0f );
+    CHECK_FALSE( gameUi.renderer.toggleVsync );
+    CHECK_FALSE( gameUi.replayMemory.requestPolicy );
+    CHECK( gameUi.forecast.type == UIForecastCommandType::None );
 
     OperatorEditorCommandQueues secondary;
     REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.scene,
@@ -1319,9 +1311,8 @@ TEST_CASE( "Operator editor queues coalesce identical frontend intent before pro
                                           { OperatorEditorPropertyCommandType::SetTimeScale, 0.5f } )
                  .Ok() );
 
-    REQUIRE(
-        SubmitOperatorEditorCommand( diagnostics, secondary.rendering, { OperatorEditorRenderingCommandType::ToggleVsync } )
-            .Ok() );
+    REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.rendering, { OperatorEditorRenderingCommandType::ToggleVsync } )
+                 .Ok() );
 
     REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.replay,
                                           { OperatorEditorReplayCommandType::SetMemoryPolicy, 2, 45, 96 } )
@@ -1331,32 +1322,32 @@ TEST_CASE( "Operator editor queues coalesce identical frontend intent before pro
                                           { OperatorEditorForecastCommandType::ToggleContinuous } )
                  .Ok() );
 
-    const OperatorEditorArbitrationResult merged = ArbitrateOperatorEditorCommands( diagnostics, legacy.operatorEditor,
+    const OperatorEditorArbitrationResult merged = ArbitrateOperatorEditorCommands( diagnostics, gameUi.operatorEditor,
                                                                                     secondary );
 
     REQUIRE( merged.status.Ok() );
-    CHECK( merged.acceptedLegacyCommands == 5u );
+    CHECK( merged.acceptedGameUiCommands == 5u );
     CHECK( merged.acceptedSecondaryCommands == 0u );
     CHECK( merged.coalescedDuplicateCommands == 5u );
     REQUIRE( merged.commands.forecast.count == 1u );
     CHECK( merged.commands.forecast.commands[0].type == OperatorEditorForecastCommandType::ToggleContinuous );
 
-    REQUIRE( ProjectOperatorEditorCommands( diagnostics, merged.commands, legacy ).Ok() );
-    CHECK( legacy.scene.resetScene );
-    CHECK( legacy.sceneOptions.requestedTimeScale == doctest::Approx( 0.5f ) );
-    CHECK( legacy.renderer.toggleVsync );
-    CHECK( legacy.replayMemory.requestPolicy );
-    CHECK( legacy.replayMemory.requestedPresetIndex == 2 );
-    CHECK( legacy.replayMemory.requestedRetentionSeconds == 45 );
-    CHECK( legacy.replayMemory.requestedBudgetMiB == 96 );
+    REQUIRE( ProjectOperatorEditorCommands( diagnostics, merged.commands, gameUi ).Ok() );
+    CHECK( gameUi.scene.resetScene );
+    CHECK( gameUi.sceneOptions.requestedTimeScale == doctest::Approx( 0.5f ) );
+    CHECK( gameUi.renderer.toggleVsync );
+    CHECK( gameUi.replayMemory.requestPolicy );
+    CHECK( gameUi.replayMemory.requestedPresetIndex == 2 );
+    CHECK( gameUi.replayMemory.requestedRetentionSeconds == 45 );
+    CHECK( gameUi.replayMemory.requestedBudgetMiB == 96 );
 }
 
 TEST_CASE( "Operator editor queue rejects conflict and malformed surface values" )
 {
     using namespace SkullbonezCore::UI;
-    OperatorEditorCommandQueues legacy;
+    OperatorEditorCommandQueues gameUi;
     OperatorEditorCommandQueues secondary;
-    REQUIRE( SubmitOperatorEditorCommand( diagnostics, legacy.property,
+    REQUIRE( SubmitOperatorEditorCommand( diagnostics, gameUi.property,
                                           { OperatorEditorPropertyCommandType::SetTimeScale, 1.0f } )
                  .Ok() );
 
@@ -1364,7 +1355,7 @@ TEST_CASE( "Operator editor queue rejects conflict and malformed surface values"
                                           { OperatorEditorPropertyCommandType::SetTimeScale, 0.5f } )
                  .Ok() );
 
-    CHECK_FALSE( ArbitrateOperatorEditorCommands( diagnostics, legacy, secondary ).status.Ok() );
+    CHECK_FALSE( ArbitrateOperatorEditorCommands( diagnostics, gameUi, secondary ).status.Ok() );
 
     OperatorEditorPropertyCommandQueue invalidProperty;
     CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, invalidProperty,
@@ -1391,8 +1382,8 @@ TEST_CASE( "Operator editor queue rejects conflict and malformed surface values"
 TEST_CASE( "Operator editor replay transport validates values and arbitrates one owner action" )
 {
     using namespace SkullbonezCore::UI;
-    const auto replayCommand =
-        []( OperatorEditorReplayCommandType type, float value = 0.0f, int rowIndex = -1, bool enabled = false )
+    const auto replayCommand = []( OperatorEditorReplayCommandType type,
+                                  float value = 0.0f, int rowIndex = -1, bool enabled = false )
     {
         OperatorEditorReplayCommand command;
 
@@ -1404,10 +1395,9 @@ TEST_CASE( "Operator editor replay transport validates values and arbitrates one
     };
 
     OperatorEditorReplayCommandQueue valid;
-    CHECK(
-        SubmitOperatorEditorCommand( diagnostics, valid,
-                                     replayCommand( OperatorEditorReplayCommandType::SetRecordingEnabled, 0.0f, -1, true ) )
-            .Ok() );
+    CHECK( SubmitOperatorEditorCommand( diagnostics, valid,
+                                        replayCommand( OperatorEditorReplayCommandType::SetRecordingEnabled, 0.0f, -1, true ) )
+               .Ok() );
 
     CHECK( SubmitOperatorEditorCommand( diagnostics, valid, replayCommand( OperatorEditorReplayCommandType::Scrub, 0.5f ) )
                .Ok() );
@@ -1446,9 +1436,9 @@ TEST_CASE( "Operator editor replay transport validates values and arbitrates one
 
     CHECK( invalid.count == 0u );
 
-    OperatorEditorCommandQueues legacy;
+    OperatorEditorCommandQueues gameUi;
     OperatorEditorCommandQueues secondary;
-    REQUIRE( SubmitOperatorEditorCommand( diagnostics, legacy.replay,
+    REQUIRE( SubmitOperatorEditorCommand( diagnostics, gameUi.replay,
                                           replayCommand( OperatorEditorReplayCommandType::Scrub, 0.25f ) )
                  .Ok() );
 
@@ -1456,7 +1446,7 @@ TEST_CASE( "Operator editor replay transport validates values and arbitrates one
                                           replayCommand( OperatorEditorReplayCommandType::Scrub, 0.25f ) )
                  .Ok() );
 
-    const OperatorEditorArbitrationResult duplicate = ArbitrateOperatorEditorCommands( diagnostics, legacy, secondary );
+    const OperatorEditorArbitrationResult duplicate = ArbitrateOperatorEditorCommands( diagnostics, gameUi, secondary );
     REQUIRE( duplicate.status.Ok() );
     CHECK( duplicate.coalescedDuplicateCommands == 1u );
 
@@ -1465,7 +1455,7 @@ TEST_CASE( "Operator editor replay transport validates values and arbitrates one
                                           replayCommand( OperatorEditorReplayCommandType::Scrub, 0.75f ) )
                  .Ok() );
 
-    CHECK_FALSE( ArbitrateOperatorEditorCommands( diagnostics, legacy, secondary ).status.Ok() );
+    CHECK_FALSE( ArbitrateOperatorEditorCommands( diagnostics, gameUi, secondary ).status.Ok() );
 }
 
 TEST_CASE( "Operator editor world previews stay local and commits project to established owners" )
@@ -1541,59 +1531,58 @@ TEST_CASE( "Operator editor world previews stay local and commits project to est
     CHECK( projected.physics.requestTornadoSwirl );
     CHECK( projected.physics.requestTornadoLift );
 
-    InGameUICommands legacy;
-    legacy.scene.requestDemoScene = true;
-    legacy.sceneOptions.requestedTimeScale = 0.75f;
-    legacy.sceneOptions.toggleFixedStep = true;
-    legacy.sceneOptions.requestedModelCount = 120;
-    legacy.run.requestedSeed = 42;
-    legacy.run.requestedSolverBallCount = 70;
-    legacy.run.requestedSolverBoxCount = 50;
-    legacy.water.requestWorldGravity = true;
-    legacy.water.requestedWorldGravity = -12.0f;
-    legacy.water.requestWorldFluidHeight = true;
-    legacy.water.requestedWorldFluidHeight = 8.0f;
-    legacy.water.requestWorldFluidDensity = true;
-    legacy.water.requestedWorldFluidDensity = 1.2f;
-    legacy.physics.togglePhysicsSleepPolicy = true;
-    legacy.physics.requestTerrainFrictionCoeff = true;
-    legacy.physics.requestedTerrainFrictionCoeff = 0.8f;
-    legacy.physics.requestObjectFrictionCoeff = true;
-    legacy.physics.requestedObjectFrictionCoeff = 0.6f;
-    legacy.physics.requestRollingFrictionCoeff = true;
-    legacy.physics.requestedRollingFrictionCoeff = 0.04f;
-    legacy.physics.toggleTornado = true;
-    legacy.physics.requestTornadoRadius = true;
-    legacy.physics.requestedTornadoRadius = 140.0f;
-    legacy.physics.requestTornadoHeight = true;
-    legacy.physics.requestedTornadoHeight = 180.0f;
-    legacy.physics.requestTornadoInward = true;
-    legacy.physics.requestedTornadoInward = 90.0f;
-    legacy.physics.requestTornadoSwirl = true;
-    legacy.physics.requestedTornadoSwirl = 130.0f;
-    legacy.physics.requestTornadoLift = true;
-    legacy.physics.requestedTornadoLift = 65.0f;
-    REQUIRE( NormalizeLegacyOperatorEditorCommands( diagnostics, legacy ).Ok() );
-    CHECK_FALSE( legacy.scene.requestDemoScene );
-    CHECK_FALSE( legacy.sceneOptions.toggleFixedStep );
-    CHECK( legacy.sceneOptions.requestedModelCount == -1 );
-    CHECK( legacy.run.requestedSeed == -1 );
-    CHECK_FALSE( legacy.water.requestWorldFluidHeight );
-    CHECK_FALSE( legacy.physics.toggleTornado );
-    CHECK( legacy.operatorEditor.property.count == 19u );
-    const OperatorEditorArbitrationResult arbitration = ArbitrateOperatorEditorCommands( diagnostics, legacy.operatorEditor,
+    InGameUICommands gameUi;
+    gameUi.scene.requestDemoScene = true;
+    gameUi.sceneOptions.requestedTimeScale = 0.75f;
+    gameUi.sceneOptions.toggleFixedStep = true;
+    gameUi.sceneOptions.requestedModelCount = 120;
+    gameUi.run.requestedSeed = 42;
+    gameUi.run.requestedSolverBallCount = 70;
+    gameUi.run.requestedSolverBoxCount = 50;
+    gameUi.water.requestWorldGravity = true;
+    gameUi.water.requestedWorldGravity = -12.0f;
+    gameUi.water.requestWorldFluidHeight = true;
+    gameUi.water.requestedWorldFluidHeight = 8.0f;
+    gameUi.water.requestWorldFluidDensity = true;
+    gameUi.water.requestedWorldFluidDensity = 1.2f;
+    gameUi.physics.togglePhysicsSleepPolicy = true;
+    gameUi.physics.requestTerrainFrictionCoeff = true;
+    gameUi.physics.requestedTerrainFrictionCoeff = 0.8f;
+    gameUi.physics.requestObjectFrictionCoeff = true;
+    gameUi.physics.requestedObjectFrictionCoeff = 0.6f;
+    gameUi.physics.requestRollingFrictionCoeff = true;
+    gameUi.physics.requestedRollingFrictionCoeff = 0.04f;
+    gameUi.physics.toggleTornado = true;
+    gameUi.physics.requestTornadoRadius = true;
+    gameUi.physics.requestedTornadoRadius = 140.0f;
+    gameUi.physics.requestTornadoHeight = true;
+    gameUi.physics.requestedTornadoHeight = 180.0f;
+    gameUi.physics.requestTornadoInward = true;
+    gameUi.physics.requestedTornadoInward = 90.0f;
+    gameUi.physics.requestTornadoSwirl = true;
+    gameUi.physics.requestedTornadoSwirl = 130.0f;
+    gameUi.physics.requestTornadoLift = true;
+    gameUi.physics.requestedTornadoLift = 65.0f;
+    REQUIRE( NormalizeGameUiOperatorEditorCommands( diagnostics, gameUi ).Ok() );
+    CHECK_FALSE( gameUi.scene.requestDemoScene );
+    CHECK_FALSE( gameUi.sceneOptions.toggleFixedStep );
+    CHECK( gameUi.sceneOptions.requestedModelCount == -1 );
+    CHECK( gameUi.run.requestedSeed == -1 );
+    CHECK_FALSE( gameUi.water.requestWorldFluidHeight );
+    CHECK_FALSE( gameUi.physics.toggleTornado );
+    CHECK( gameUi.operatorEditor.property.count == 19u );
+    const OperatorEditorArbitrationResult arbitration = ArbitrateOperatorEditorCommands( diagnostics, gameUi.operatorEditor,
                                                                                          commits );
 
     REQUIRE( arbitration.status.Ok() );
-    CHECK( arbitration.acceptedLegacyCommands == 20u );
+    CHECK( arbitration.acceptedGameUiCommands == 20u );
     CHECK( arbitration.acceptedSecondaryCommands == 0u );
     CHECK( arbitration.coalescedDuplicateCommands == 20u );
 
     OperatorEditorPropertyCommandQueue invalid;
-    CHECK_FALSE(
-        SubmitOperatorEditorCommand( diagnostics, invalid,
-                                     OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::SetSeed, 0.0f, 0 } )
-            .Ok() );
+    CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, invalid,
+                                              OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::SetSeed, 0.0f, 0 } )
+                     .Ok() );
 }
 
 TEST_CASE( "Operator editor frame fingerprint follows semantic values only" )
@@ -1713,10 +1702,9 @@ TEST_CASE( "Operator editor rendering and diagnostics retain canonical owner pro
                                           { OperatorEditorDiagnosticsCommandType::SetWorkerThreads, 0u, 4 } )
                  .Ok() );
 
-    REQUIRE(
-        SubmitOperatorEditorCommand( diagnostics, commits.diagnostics,
-                                     { OperatorEditorDiagnosticsCommandType::SetRayCastImpulseStrength, 0u, 0, 125.0f } )
-            .Ok() );
+    REQUIRE( SubmitOperatorEditorCommand( diagnostics, commits.diagnostics,
+                                          { OperatorEditorDiagnosticsCommandType::SetRayCastImpulseStrength, 0u, 0, 125.0f } )
+                 .Ok() );
 
     InGameUICommands projected;
     REQUIRE( ProjectOperatorEditorCommands( diagnostics, commits, projected ).Ok() );
@@ -1731,23 +1719,23 @@ TEST_CASE( "Operator editor rendering and diagnostics retain canonical owner pro
     CHECK( projected.physics.requestRayCastImpulseStrength );
     CHECK( projected.physics.requestedRayCastImpulseStrength == doctest::Approx( 125.0f ) );
 
-    InGameUICommands legacy;
-    legacy.renderTuning.requestedParam = UIRenderParam::WaterFresnel;
-    legacy.renderTuning.requestedValue = 0.04f;
-    legacy.cinematic.requestedParam = UICinematicParam::BloomStrength;
-    legacy.cinematic.requestedValue = 0.6f;
-    legacy.cinematic.requestedFeature = UICinematicFeature::Bloom;
-    legacy.sceneOptions.toggleWaterFreeze = true;
-    legacy.physics.physicsDebugOverlayToToggle = UIPhysicsDebugOverlay::Contacts;
-    legacy.profiler.requestedWorkerThreads = 4;
-    legacy.physics.requestRayCastImpulseStrength = true;
-    legacy.physics.requestedRayCastImpulseStrength = 125.0f;
-    REQUIRE( NormalizeLegacyOperatorEditorCommands( diagnostics, legacy ).Ok() );
-    CHECK( legacy.renderTuning.requestedParam == UIRenderParam::None );
-    CHECK( legacy.cinematic.requestedParam == UICinematicParam::None );
-    CHECK( legacy.physics.physicsDebugOverlayToToggle == UIPhysicsDebugOverlay::None );
-    CHECK( legacy.profiler.requestedWorkerThreads == -2 );
-    const OperatorEditorArbitrationResult merged = ArbitrateOperatorEditorCommands( diagnostics, legacy.operatorEditor,
+    InGameUICommands gameUi;
+    gameUi.renderTuning.requestedParam = UIRenderParam::WaterFresnel;
+    gameUi.renderTuning.requestedValue = 0.04f;
+    gameUi.cinematic.requestedParam = UICinematicParam::BloomStrength;
+    gameUi.cinematic.requestedValue = 0.6f;
+    gameUi.cinematic.requestedFeature = UICinematicFeature::Bloom;
+    gameUi.sceneOptions.toggleWaterFreeze = true;
+    gameUi.physics.physicsDebugOverlayToToggle = UIPhysicsDebugOverlay::Contacts;
+    gameUi.profiler.requestedWorkerThreads = 4;
+    gameUi.physics.requestRayCastImpulseStrength = true;
+    gameUi.physics.requestedRayCastImpulseStrength = 125.0f;
+    REQUIRE( NormalizeGameUiOperatorEditorCommands( diagnostics, gameUi ).Ok() );
+    CHECK( gameUi.renderTuning.requestedParam == UIRenderParam::None );
+    CHECK( gameUi.cinematic.requestedParam == UICinematicParam::None );
+    CHECK( gameUi.physics.physicsDebugOverlayToToggle == UIPhysicsDebugOverlay::None );
+    CHECK( gameUi.profiler.requestedWorkerThreads == -2 );
+    const OperatorEditorArbitrationResult merged = ArbitrateOperatorEditorCommands( diagnostics, gameUi.operatorEditor,
                                                                                     commits );
 
     REQUIRE( merged.status.Ok() );
@@ -1772,10 +1760,9 @@ TEST_CASE( "Operator editor scene hierarchy and asset intents project through ty
     create.type = OperatorEditorSceneCommandType::CreateScene;
     strcpy_s( create.sceneName, "typed-editor-scene" );
     REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.scene, create ).Ok() );
-    REQUIRE(
-        SubmitOperatorEditorCommand( diagnostics, secondary.scene,
-                                     OperatorEditorSceneCommand { OperatorEditorSceneCommandType::SetCurrentSceneIndex, 4 } )
-            .Ok() );
+    REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.scene,
+                                          OperatorEditorSceneCommand { OperatorEditorSceneCommandType::SetCurrentSceneIndex, 4 } )
+                 .Ok() );
 
     REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.scene,
                                           OperatorEditorSceneCommand { OperatorEditorSceneCommandType::SaveCurrentScene } )
@@ -1822,30 +1809,28 @@ TEST_CASE( "Operator editor scene hierarchy and asset intents project through ty
     CHECK( projected.editor.requestDeleteSelection );
 
     OperatorEditorToolCommandQueue malformed;
-    CHECK_FALSE(
-        SubmitOperatorEditorCommand( diagnostics, malformed,
-                                     OperatorEditorToolCommand { OperatorEditorToolCommandType::SelectSceneObject, 0u } )
-            .Ok() );
+    CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, malformed,
+                                              OperatorEditorToolCommand { OperatorEditorToolCommandType::SelectSceneObject, 0u } )
+                     .Ok() );
 
-    CHECK_FALSE(
-        SubmitOperatorEditorCommand( diagnostics, malformed,
-                                     OperatorEditorToolCommand { OperatorEditorToolCommandType::SetPlacementObjectType, 0u,
-                                                                 37 } )
-            .Ok() );
+    CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, malformed,
+                                              OperatorEditorToolCommand { OperatorEditorToolCommandType::SetPlacementObjectType, 0u,
+                                                                          37 } )
+                     .Ok() );
 }
 
 TEST_CASE( "Operator editor tool commands coalesce and project into established owner packets" )
 {
     using namespace SkullbonezCore::UI;
-    InGameUICommands legacy;
-    legacy.editor.toggleEditorMode = true;
-    legacy.editor.togglePlacementMode = true;
-    legacy.editor.requestUndo = true;
-    legacy.editor.requestRedo = true;
-    legacy.scene.toggleCrossScenePause = true;
-    legacy.scene.requestSingleStep = true;
-    REQUIRE( NormalizeLegacyOperatorEditorCommands( diagnostics, legacy ).Ok() );
-    CHECK( legacy.operatorEditor.tools.count == 6u );
+    InGameUICommands gameUi;
+    gameUi.editor.toggleEditorMode = true;
+    gameUi.editor.togglePlacementMode = true;
+    gameUi.editor.requestUndo = true;
+    gameUi.editor.requestRedo = true;
+    gameUi.scene.toggleCrossScenePause = true;
+    gameUi.scene.requestSingleStep = true;
+    REQUIRE( NormalizeGameUiOperatorEditorCommands( diagnostics, gameUi ).Ok() );
+    CHECK( gameUi.operatorEditor.tools.count == 6u );
 
     OperatorEditorCommandQueues secondary;
 
@@ -1857,26 +1842,25 @@ TEST_CASE( "Operator editor tool commands coalesce and project into established 
         REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.tools, OperatorEditorToolCommand { type } ).Ok() );
     }
 
-    const OperatorEditorArbitrationResult merged = ArbitrateOperatorEditorCommands( diagnostics, legacy.operatorEditor,
+    const OperatorEditorArbitrationResult merged = ArbitrateOperatorEditorCommands( diagnostics, gameUi.operatorEditor,
                                                                                     secondary );
 
     REQUIRE( merged.status.Ok() );
-    CHECK( merged.acceptedLegacyCommands == 6u );
+    CHECK( merged.acceptedGameUiCommands == 6u );
     CHECK( merged.acceptedSecondaryCommands == 0u );
     CHECK( merged.coalescedDuplicateCommands == 6u );
-    REQUIRE( ProjectOperatorEditorCommands( diagnostics, merged.commands, legacy ).Ok() );
-    CHECK( legacy.editor.toggleEditorMode );
-    CHECK( legacy.editor.togglePlacementMode );
-    CHECK( legacy.editor.requestUndo );
-    CHECK( legacy.editor.requestRedo );
-    CHECK( legacy.scene.toggleCrossScenePause );
-    CHECK( legacy.scene.requestSingleStep );
+    REQUIRE( ProjectOperatorEditorCommands( diagnostics, merged.commands, gameUi ).Ok() );
+    CHECK( gameUi.editor.toggleEditorMode );
+    CHECK( gameUi.editor.togglePlacementMode );
+    CHECK( gameUi.editor.requestUndo );
+    CHECK( gameUi.editor.requestRedo );
+    CHECK( gameUi.scene.toggleCrossScenePause );
+    CHECK( gameUi.scene.requestSingleStep );
 
     OperatorEditorToolCommandQueue malformed;
-    CHECK_FALSE(
-        SubmitOperatorEditorCommand( diagnostics, malformed,
-                                     OperatorEditorToolCommand { static_cast<OperatorEditorToolCommandType>( 255 ) } )
-            .Ok() );
+    CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, malformed,
+                                              OperatorEditorToolCommand { static_cast<OperatorEditorToolCommandType>( 255 ) } )
+                     .Ok() );
 
     CHECK( malformed.count == 0u );
 }

@@ -138,7 +138,7 @@ struct UIProfilerMarkerOption
 // code, input hit-testing, and runtime state changes separated.
 struct InGameUIFrameData
 {
-    // Shared domain view consumed by both operator front ends. Legacy flat
+    // Shared domain view consumed by both operator front ends. GameUI flat
     // fields remain for primary-surface consumers that have not adopted it.
     OperatorEditorFrameView operatorEditor;
     int screenW = 1;

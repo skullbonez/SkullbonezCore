@@ -20,10 +20,10 @@
     { "frame": 45, "assert": { "imguiPanelMask": 3583 } },
     { "frame": 45, "assert": { "imguiFocusCountMin": 2 } },
 
-    { "frame": 50, "setDevelopmentUiSurface": "legacy" },
-    { "frame": 52, "assert": { "developmentUiSurface": "legacy" } },
+    { "frame": 50, "setDevelopmentUiSurface": "game" },
+    { "frame": 52, "assert": { "developmentUiSurface": "game" } },
     { "frame": 52, "assert": { "imguiVisible": false } },
-    { "frame": 54, "screenshot": "TestOutput/interaction/imgui_e16_legacy.bmp" },
+    { "frame": 54, "screenshot": "TestOutput/interaction/imgui_e16_game_ui.bmp" },
     { "frame": 58, "setDevelopmentUiSurface": "imgui" },
     { "frame": 60, "assert": { "developmentUiSurface": "imgui" } },
 
@@ -35,13 +35,13 @@
     { "frame": 78, "assert": { "developmentUiSurface": "imgui" } },
     { "frame": 78, "assert": { "imguiVisible": true } },
 
-    { "frame": 80, "setDevelopmentUiSurface": "legacy" },
+    { "frame": 80, "setDevelopmentUiSurface": "game" },
     { "frame": 82, "setDevelopmentUiSurface": "imgui" },
-    { "frame": 84, "setDevelopmentUiSurface": "legacy" },
+    { "frame": 84, "setDevelopmentUiSurface": "game" },
     { "frame": 86, "setDevelopmentUiSurface": "imgui" },
-    { "frame": 88, "setDevelopmentUiSurface": "legacy" },
+    { "frame": 88, "setDevelopmentUiSurface": "game" },
     { "frame": 90, "setDevelopmentUiSurface": "imgui" },
-    { "frame": 92, "setDevelopmentUiSurface": "legacy" },
+    { "frame": 92, "setDevelopmentUiSurface": "game" },
     { "frame": 94, "setDevelopmentUiSurface": "imgui" },
 
     { "frame": 96, "showReplayScrubber": true },

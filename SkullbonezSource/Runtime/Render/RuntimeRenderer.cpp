@@ -668,7 +668,7 @@ void ExecuteUiReplayGraphCallback( const SkullbonezCore::Rendering::RenderGraphP
     }
 
     (void)ExecuteRequiredGraphTransitions( context, data.renderGraph, data.compiled, data.expectedTransitionCount );
-    data.pass->RenderReplay( *data.overlay, data.profiler, data.legacySurfaceActive, data.scenePhysicsEnabled, data.gesture,
+    data.pass->RenderReplay( *data.overlay, data.profiler, data.gameUiSurfaceActive, data.scenePhysicsEnabled, data.gesture,
                              data.viewport, data.nowSeconds, *data.renderTextures, *data.renderGeometry,
                              *data.renderDiagnostics );
 }
@@ -1763,7 +1763,7 @@ int RuntimeRenderer::RenderUiText( RunTimerState& timers, const RuntimeRenderMod
 
     // Invariant: the focused callbacks retain the historical draw order while
     // sharing one graph compile/execute cycle. Text-only schedules only chrome;
-    // visible Legacy UI skips HUD overlay/final flush but still draws Replay.
+    // visible GameUI skips HUD overlay/final flush but still draws Replay.
     const Rendering::RenderGraphCompileResult& compiled = CompileRenderPassGraph( graph );
     chrome.compiled = &compiled;
     chrome.expectedTransitionCount = CountCompiledTransitionsForPass( compiled, chromePass );

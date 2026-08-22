@@ -67,7 +67,7 @@
     },
     {
       "file": "SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp",
-      "signature": "bool InputRouter::DispatchAfterUiDismiss( InputActions& actions, bool uiUserInteracted, double nowSeconds, bool legacyUiActive, DiagnosticsRuntime& diagnosticsRuntime, CameraControlState& camera, AttachedCameraController& attachedCamera, RuntimeTools& runtimeTools, UI::InGameUI& ui, SceneController& sceneController, RuntimeOverlayDiagnostics& overlays, const ReplayInputView& replayInput )",
+      "signature": "bool InputRouter::DispatchAfterUiDismiss( InputActions& actions, bool uiUserInteracted, double nowSeconds, bool gameUiActive, DiagnosticsRuntime& diagnosticsRuntime, CameraControlState& camera, AttachedCameraController& attachedCamera, RuntimeTools& runtimeTools, UI::InGameUI& ui, SceneController& sceneController, RuntimeOverlayDiagnostics& overlays, const ReplayInputView& replayInput )",
       "owner": "InputRouter",
       "disposition": "retain-owner",
       "reason": "The sole retained input-routing owner controls after-UI command order and quick-exit arbitration using synchronous participant borrows.",

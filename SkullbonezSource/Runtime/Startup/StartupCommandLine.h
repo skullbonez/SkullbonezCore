@@ -130,7 +130,7 @@ struct ParsedArgs
     bool replayGuideArcsAtStartup = false;
     bool workerSelfTest = false;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    DevelopmentUiMode developmentUiMode = DevelopmentUiMode::Legacy;
+    DevelopmentUiMode developmentUiMode = DevelopmentUiMode::GameUI;
     bool developmentUiModeExplicit = false;
 #endif
     GeneratedObjectTypeOverride objectTypeOverride = GeneratedObjectTypeOverride::Mixed;

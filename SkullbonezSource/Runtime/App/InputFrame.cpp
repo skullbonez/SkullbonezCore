@@ -543,7 +543,7 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( SkullbonezCore::Core::SbDiagnosticStor
 
     result.editorUnhandledWheelDelta = UIResult.unhandledWheelDelta;
     result.commands = UIResult.commands;
-    result.status = NormalizeLegacyOperatorEditorCommands( diagnostics, result.commands );
+    result.status = NormalizeGameUiOperatorEditorCommands( diagnostics, result.commands );
 
     if ( !result.status.Ok() )
     {
@@ -571,10 +571,10 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( SkullbonezCore::Core::SbDiagnosticStor
     inputRouter.PublishRuntimeSnapshot( RuntimeInteractionFrameInput {}, result.suppressWorldActionThisFrame );
     replayRuntime
         .TickWorkspace( ReplayWorkspaceFrameInput { windowHandle, ui.BlocksCameraMouse() || facts.externalUiCapture.mouse,
-                                                    facts.legacyDevelopmentUiActive, result.editorUnhandledWheelDelta,
-                                                    replayPointerRay, facts.replayCurrentCameraMode,
-                                                    facts.replayRestoreCameraMode, attachedCamera.State().activeFollow,
-                                                    camera.director.grabbed, runtimeTools.Editor().editorModeEnabled,
+                                                    facts.gameUiActive, result.editorUnhandledWheelDelta, replayPointerRay,
+                                                    facts.replayCurrentCameraMode, facts.replayRestoreCameraMode,
+                                                    attachedCamera.State().activeFollow, camera.director.grabbed,
+                                                    runtimeTools.Editor().editorModeEnabled,
                                                     sceneController.State().isScenePhysics, ui.IsVisible(), ui.IsMinimized(),
                                                     inputRouter.DeviceFrame().keys.IsDown( VK_SPACE ), window.ClientWidth(),
                                                     window.ClientHeight(), camera.mouseRadiansPerPixel,

@@ -248,7 +248,7 @@ enum class RunInteractionAutomationAssertKind
     EditorSelectionMatchesCapture,
     DevelopmentUiSurface,
     ImGuiVisible,
-    LegacyReplayPresentationActive,
+    GameUiReplayPresentationActive,
     ImGuiPanelMask,
     ImGuiLayoutResetCountMin,
     ImGuiFocusCountMin,
@@ -283,7 +283,7 @@ struct InteractionAutomationDevelopmentUiApplyResult
 {
     SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
     bool selectSurface = false;
-    DevelopmentUiMode surface = DevelopmentUiMode::Legacy;
+    DevelopmentUiMode surface = DevelopmentUiMode::GameUI;
 };
 #endif
 
@@ -293,12 +293,12 @@ struct InteractionAutomationDevelopmentUiView
 {
     bool available = false;
     bool selectedImGui = false;
-    bool legacyVisible = false;
+    bool gameUiVisible = false;
     bool imguiVisible = false;
 
     // Exact authority consumed by the completed late replay-render pass. This
-    // may differ from next-frame selection during an ImGui-to-Legacy swap.
-    bool legacyReplayPresentationActive = false;
+    // may differ from next-frame selection during an ImGui-to-GameUI swap.
+    bool gameUiReplayPresentationActive = false;
     uint32_t panelVisibilityMask = 0u;
     uint32_t layoutResetCount = 0u;
     uint32_t automationFocusCount = 0u;
@@ -378,8 +378,8 @@ struct InteractionAutomationController
     // Projects copied editor facts into the exact after-render assertion view;
     // no editor owner or mutable renderer state crosses this value boundary.
     InteractionAutomationDevelopmentUiView BuildDevelopmentUiView( const DevelopmentTools::ImGuiEditorStatus& editor,
-                                                                   bool legacyVisible,
-                                                                   bool legacyReplayPresentationActive ) const;
+                                                                   bool gameUiVisible,
+                                                                   bool gameUiReplayPresentationActive ) const;
 #endif
 };
 

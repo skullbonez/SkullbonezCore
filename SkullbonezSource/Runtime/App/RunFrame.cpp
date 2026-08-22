@@ -575,8 +575,7 @@ Run::FrameSimulationPhaseResult Run::RunSimulationPhase( double secondsPerFrame,
     return FrameSimulationPhaseResult { interpolationAlpha, capturePresentationPinned };
 }
 
-Run::FrameRenderPhaseResult Run::PrepareRenderPhase( bool legacyDevelopmentUiActive,
-                                                     const FrameSimulationPhaseResult& simulation )
+Run::FrameRenderPhaseResult Run::PrepareRenderPhase( bool gameUiActive, const FrameSimulationPhaseResult& simulation )
 {
     // Concept: graphics stress is render/runtime churn, not UI command work.
     // This top-level phase coordinates its concrete planning, load, action, and
@@ -603,7 +602,7 @@ Run::FrameRenderPhaseResult Run::PrepareRenderPhase( bool legacyDevelopmentUiAct
                                            Renderer() )
                                     .Ok();
 
-            if ( !legacyDevelopmentUiActive )
+            if ( !gameUiActive )
             {
                 sceneLoad.PreserveInactiveDevelopmentUi();
             }
@@ -638,7 +637,7 @@ Run::FrameRenderPhaseResult Run::PrepareRenderPhase( bool legacyDevelopmentUiAct
             fflush( stdout );
         }
 
-        if ( legacyDevelopmentUiActive )
+        if ( gameUiActive )
         {
             m_operatorUi->SetVisible( true, m_timers.simulationTimer.GetTotalTime() );
             m_operatorUi->SetMinimized( false, m_timers.simulationTimer.GetTotalTime() );
@@ -714,7 +713,7 @@ void Run::RenderWorldPhase( const RuntimeRenderModelFrameView& renderModels, flo
     PROFILE_END( "Frame/Render" );
 }
 
-void Run::RunPostDrawDiagnosticsPhase( bool legacyDevelopmentUiActive )
+void Run::RunPostDrawDiagnosticsPhase( bool gameUiActive )
 {
     // Invariant: the F11 request was formed during input after its candidate was
     // applied. Draining after world/UI draw and before Present captures that
@@ -734,8 +733,7 @@ void Run::RunPostDrawDiagnosticsPhase( bool legacyDevelopmentUiActive )
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     const DevelopmentTools::ImGuiEditorStatus imguiAutomationStatus = m_imguiEditor.CopyStatus();
     automationDevelopmentUiView = m_interactionAutomation.BuildDevelopmentUiView( imguiAutomationStatus,
-                                                                                  m_operatorUi->IsVisible(),
-                                                                                  legacyDevelopmentUiActive );
+                                                                                  m_operatorUi->IsVisible(), gameUiActive );
 
 #endif
     const InteractionAutomationFrameResult
@@ -760,7 +758,7 @@ void Run::RunPostDrawDiagnosticsPhase( bool legacyDevelopmentUiActive )
 
     PROFILE_END( "Frame/PostDraw/InteractionAutomation" );
 #else
-    (void)legacyDevelopmentUiActive;
+    (void)gameUiActive;
 #endif
 }
 
@@ -910,7 +908,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
         }
 
         const auto simulation = RunSimulationPhase( secondsPerFrame, input.proceedPolicy );
-        const auto render = PrepareRenderPhase( input.legacyDevelopmentUiActive, simulation );
+        const auto render = PrepareRenderPhase( input.gameUiActive, simulation );
 
         // Invariant: every frame phase below has a status-free return. Failure
         // is observable only through the ApplicationExitState latch.
@@ -922,7 +920,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
         RuntimeRenderModelFrameView models = PublishRenderModelsPhase();
         RenderWorldPhase( models, render.presentationAlpha );
         const auto facts = FramePresentationFacts { render.presentationAlpha, simulation.capturePresentationPinned,
-                                                    secondsPerFrame, input.legacyDevelopmentUiActive };
+                                                    secondsPerFrame, input.gameUiActive };
 
         RenderOperatorUiPhase( models, facts );
 
@@ -931,7 +929,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
             return m_applicationExit.Resolve( 0 );
         }
 
-        RunPostDrawDiagnosticsPhase( input.legacyDevelopmentUiActive );
+        RunPostDrawDiagnosticsPhase( input.gameUiActive );
 
         if ( m_applicationExit.ExitRequested() )
         {

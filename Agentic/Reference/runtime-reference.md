@@ -81,6 +81,7 @@ consumer parameter.
 | `--cinematic` | optional `on`, `off` | Force cinematic HDR/post rendering on or off for every loaded scene. Bare flag means `on`. Alias: `--cinematic-rendering`. |
 | `--shadows` | optional `on`, `off` | Force directional shadow maps on or off for every loaded scene. Bare flag means `on`; shadows work in normal and cinematic rendering. Aliases: `--shadow-maps`, `--cinematic-shadows`, `--cinematic_shadows`. |
 | `--interactive` | optional `on`, `off` | Keep scene automation from quitting the app so a screenshot/validation scene can be inspected live. Bare flag means `on`. Alias: `--hold`. |
+| `--dev-ui` | `game`, `imgui` | Select the exclusive development UI surface. Omitted or `game` uses the built-in GameUI game/level-editor presentation; `imgui` selects the optional ImGui development surface. |
 | `--live-style-control` | directory | Watch `<directory>\live.style.json` and `<directory>\capture.txt` while the scene keeps running. Applies style-only JSON descriptors without reloading physics and saves requested screenshots after the current frame is drawn. Aliases: `--style-harness`, `--live_style_control`, `--style_harness`. |
 | `--profiler` | flag | Start with the timer/profiler HUD visible. Alias: `--show-profiler`. |
 | `--platform-profiler-markers` | flag | Emit existing profiler markers to the platform profiler marker API when support is available. Enabled by default in Debug and Profile builds while PIX marker support is compiled in. Aliases: `--platform-profiler`, `--pix-markers`, `--pix`. Environment fallback/override: `SKULLBONEZ_PLATFORM_PROFILER_MARKERS=1`; set it to `0` to disable the default. `SKULLBONEZ_PIX_MARKERS=1` is still accepted as a Windows PIX compatibility alias. |
@@ -91,7 +92,7 @@ consumer parameter.
 | `--graphics-stress-scene-interval` | `1..600` | Minimum graphics stress frames between forced scene reloads. Alias: `--graphics_stress_scene_interval`. |
 | `--graphics-stress-memory-interval` | `0..36000` | Emit `[graphics-stress-memory]` stdout records every N graphics stress frames; `0` disables engine-side memory records. The records include process memory, engine buckets, DXGI local/non-local usage, descriptor pressure, upload arena pressure, and cache/pool counts. Alias: `--graphics_stress_memory_interval`. |
 | `--hide-top-text` | flag | Hide the always-on top HUD rows while leaving profiler/key overlays available. Alias: `--no-top-text`. |
-| `--guide-arcs` | flag | Start each loaded scene with the Legacy analytic planet guide toggle enabled; non-mutual-gravity scenes still draw nothing. Alias: `--replay-guide-arcs`. |
+| `--guide-arcs` | flag | Start each loaded scene with the GameUI analytic planet guide toggle enabled; non-mutual-gravity scenes still draw nothing. Alias: `--replay-guide-arcs`. |
 | `--broadphase-visualizer` | flag | Start with the broadphase spatial grid visualizer enabled. Alias: `--broadphase-overlay`. |
 | `--all-balls` | flag | Force generated object populations to spawn as balls. |
 | `--all-boxes` | flag | Force generated object populations to spawn as boxes and use the solver path for those objects. |
@@ -233,7 +234,7 @@ Interaction automation supports Director takes with `loadShotList`, `directorPla
 
 ## Replay Capture And Scrub
 
-Outside launcher mode, `Ctrl+Left Click` selects a separate closest-approach target without replacing the replay path root. With mutual gravity and prediction enabled, Legacy view shows either the closest miss distance and ETA or an intercept ETA. In launcher mode, `Ctrl+Left Click` retains its existing path-target selection behavior instead of firing.
+Outside launcher mode, `Ctrl+Left Click` selects a separate closest-approach target without replacing the replay path root. With mutual gravity and prediction enabled, GameUI shows either the closest miss distance and ETA or an intercept ETA. In launcher mode, `Ctrl+Left Click` retains its existing path-target selection behavior instead of firing.
 
 Replay capture keeps the last 30 seconds of presentation and solver samples in memory by default for generated and interactive runs. Scene/suite automation leaves replay off unless the command line opts in with `--replay on`, `--replay-seconds`, or `--replay-hashes`. With the in-game UI minimized and editor mode off, move the mouse near the bottom edge to reveal the scrubber. Click-hold or drag a row thumb left to inspect earlier retained frames; physics pauses while a historical frame is selected. The active row is the only row whose thumb moves while dragging, and the opposite row is muted at its own stored position. Drag the active thumb back to the live end to resume simulation. Entering scrub inspection copies the current render camera once into the internal `CAMERA_FREE` camera, then leaves the camera completely user-controlled; retained replay camera poses are not applied during inspection preview. Press `P` to toggle replay play/pause through the shared transport command in live, predicted, historical, and inspection views. Space steps physics without clearing the current prediction drawing.
 
@@ -422,9 +423,9 @@ Troubleshooting rules:
 | V | Toggle collision visualiser. |
 | C | Cycle physics debug overlay: none, axes, contacts, sleep, all. |
 | O | Toggle terrain contact probe overlay for rolling sphere terrain inspection. |
-| H | In Legacy development UI, toggle the faint heliocentric Earth and Mars guide rings for mutual-gravity scenes. The rings default off and hide automatically in other scenes. |
-| J | In Legacy development UI, toggle the solar-system trip planner. Select the ship path and intercept target first; the panel offers TOF, PLAN, COMMIT, and CANCEL controls. |
-| I | In Legacy development UI, toggle the 64 by 48 solar porkchop panel. Hover a cell to inspect wait time, flight time, and delta-v; click a valid cell to seed the trip planner TOF while retaining the recommended wait. |
+| H | In GameUI, toggle the faint heliocentric Earth and Mars guide rings for mutual-gravity scenes. The rings default off and hide automatically in other scenes. |
+| J | In GameUI, toggle the solar-system trip planner. Select the ship path and intercept target first; the panel offers TOF, PLAN, COMMIT, and CANCEL controls. |
+| I | In GameUI, toggle the 64 by 48 solar porkchop panel. Hover a cell to inspect wait time, flight time, and delta-v; click a valid cell to seed the trip planner TOF while retaining the recommended wait. |
 | [ / ] | Step the physics pipeline debug overlay to the previous or next Catto stage. |
 | G | Toggle broadphase visualizer, or cycle the tracked ball when ball tracking is active and the visualizer is off. |
 

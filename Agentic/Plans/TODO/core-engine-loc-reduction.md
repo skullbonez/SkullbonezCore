@@ -1,7 +1,7 @@
 # Core Engine Evidence-Driven Code Reduction Plan
 
 Date: 2026-08-22
-Status: Active by owner direction. 1/6 phases complete.
+Status: Active by owner direction. 2/6 phases complete.
 Impact area: `SkullbonezSource/` production code, project metadata for deleted files, and focused behavioral tests
 Owner: Engine architecture and the owner of each touched subsystem
 Priority: Current execution priority; CR0 through CR5 run in order.
@@ -222,18 +222,18 @@ its default, its behavior, or its feature set.
 
 ### Tasks
 
-- [ ] Inventory every UI-surface use of `Legacy`, including identifiers, comments,
+- [x] Inventory every UI-surface use of `Legacy`, including identifiers, comments,
       logs, menu labels, startup parsing, tests, scripts, manuals, and automation.
-- [ ] Rename the enum member and predicates to `GameUI`/`ShowsGameUI`.
-- [ ] Rename surface-specific locals and fields, such as
+- [x] Rename the enum member and predicates to `GameUI`/`ShowsGameUI`.
+- [x] Rename surface-specific locals and fields, such as
       `legacyDevelopmentUiActive`, without touching unrelated compatibility terms.
-- [ ] Change user-facing labels from `Legacy UI` to `Game UI`.
-- [ ] Change the tracked command-line selector and fixtures from
+- [x] Change user-facing labels from `Legacy UI` to `Game UI`.
+- [x] Change the tracked command-line selector and fixtures from
       `--dev-ui legacy` to `--dev-ui game`, subject to the external-compatibility
       ruling described above.
-- [ ] Update comments to state that GameUI owns the built-in game and level-editor
+- [x] Update comments to state that GameUI owns the built-in game and level-editor
       presentation while ImGui is an optional development surface.
-- [ ] Verify that the omitted selector still chooses GameUI and that exclusive
+- [x] Verify that the omitted selector still chooses GameUI and that exclusive
       focus, input capture, visibility, and switching behavior are unchanged.
 
 ### Acceptance
@@ -243,6 +243,30 @@ its default, its behavior, or its feature set.
 - Default launch, explicit GameUI launch, explicit ImGui launch, and both switch
   directions retain their established behavior.
 - The phase is reported as a naming correction, not LOC reduction.
+
+### CR1 evidence
+
+- The tracked inventory covered source, tests, `SkullbonezData/interaction/`,
+  validation scripts, manuals, labels, and filenames. No external compatibility
+  obligation was found, so `legacy` is not retained as a CLI or automation alias.
+- The canonical selector and automation values are now `game|imgui`; the omitted
+  selector and `DevelopmentUiMode` default remain GameUI. The default GameUI run,
+  explicit `--dev-ui game` run, explicit ImGui run, and repeated two-way surface
+  switches all completed without simultaneous visibility or input ownership.
+- `tools\validate_ui_stress.bat` passed its deterministic GameUI run, ImGui
+  automation matrix, DX12 validation, log scan, and Profile/Debug/Automation
+  warnings-as-errors builds. The focused startup/input/operator-editor set passed
+  7 cases and 170 assertions; project-filter validation passed 832/832 items.
+- Scoped tracked-source search finds no remaining `legacy` spelling that names
+  GameUI. Retained occurrences describe hand-authored interaction scripts,
+  serialized schemas, rendering/math compatibility, or explicit negative
+  controls rather than the built-in UI surface.
+- Production accounting: 161 additions, 164 deletions, net `-3` physical lines:
+  the naming/format work is net `-1`, while the mandatory shared-glossary repair
+  is net `-2`. CR1 is recorded as a naming correction, not as code-reduction
+  savings. Touched-source comment audit:
+  44/44 inspected, zero deferred; all learning headers remain complete and the
+  renamed ownership/selection claims match the passing surface matrix.
 
 ---
 

@@ -1038,7 +1038,7 @@ void UiTextPass::ProjectOperatorPresentation( UI::InGameUIFrameData& UIData, con
     UIData.presentationAlpha = view.presentationAlpha;
     UIData.canSaveSceneDefaults = view.sceneMode && sceneHasCurrentEntry && currentScenePath && currentScenePath[0] != '\0';
 
-    // Invariant: representative legacy controls display the same immutable
+    // Invariant: representative GameUI controls display the same immutable
     // values supplied to the secondary editor for this frame.
     UIData.operatorEditor = operatorEditorView;
     UIData.sceneName = UIData.operatorEditor.scene.sceneName;
@@ -1372,12 +1372,12 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport, OverlayMo
 
 
 void UiTextPass::RenderReplay( const ReplayOverlay::ReplayOverlayStateView& overlay, Core::Profiler* profiler,
-                               bool legacySurfaceActive, bool scenePhysicsEnabled, RuntimeInteractionGestureKind gesture,
+                               bool gameUiSurfaceActive, bool scenePhysicsEnabled, RuntimeInteractionGestureKind gesture,
                                const UiTextViewport& viewport, double nowSeconds,
                                Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderCommands,
                                Rendering::Dx12Diagnostics& renderDiagnostics )
 {
-    if ( !legacySurfaceActive )
+    if ( !gameUiSurfaceActive )
     {
         return;
     }

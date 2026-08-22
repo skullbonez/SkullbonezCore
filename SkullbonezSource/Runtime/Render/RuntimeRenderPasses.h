@@ -936,7 +936,7 @@ class UiTextPass
                                float sceneEnergyForDisplay, Rendering::Dx12TextureOwner& renderTextures,
                                Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12Diagnostics& renderDiagnostics );
     void RenderReplay( const ReplayOverlay::ReplayOverlayStateView& overlay, Core::Profiler* profiler,
-                       bool legacySurfaceActive, bool scenePhysicsEnabled, RuntimeInteractionGestureKind gesture,
+                       bool gameUiSurfaceActive, bool scenePhysicsEnabled, RuntimeInteractionGestureKind gesture,
                        const UiTextViewport& viewport, double nowSeconds, Rendering::Dx12TextureOwner& renderTextures,
                        Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12Diagnostics& renderDiagnostics );
     void FinalizeOverlay( OverlayMode mode, Rendering::Dx12TextureOwner& renderTextures,

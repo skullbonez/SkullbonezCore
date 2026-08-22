@@ -247,7 +247,7 @@ void InputRouter::BeginFrame( const DeviceInputFrame& frame, RuntimeInputKeyBind
     if ( capture.mouse )
     {
         // Invariant: ImGui already received these native events in WndProc.
-        // Engine, legacy UI, camera, gizmo, and replay see a neutral device
+        // Engine, GameUI, camera, gizmo, and replay see a neutral device
         // class rather than independently consuming the same click or drag.
         routedFrame.rawMouseX = 0;
         routedFrame.rawMouseY = 0;

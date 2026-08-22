@@ -46,7 +46,7 @@ if exist "%REPORT%" del /q "%REPORT%"
 if exist "%LOG%" del /q "%LOG%"
 
 echo [replay-allocation-policy] Running strict two-generation prediction probe...
-Automation\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\tornado_alley_showcase.scene.json --frames 220 --renderer dx12 --vsync off --cinematic off --shadows off --fixed-step --hide-top-text --automation-hidden-window --allocation-guard gameplay --dev-ui legacy --interaction-script SkullbonezData\interaction\replay_allocation_policy_two_generation.json --interaction-report "%REPORT%" --replay on --replay-seconds 2 > "%LOG%" 2>&1
+Automation\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\tornado_alley_showcase.scene.json --frames 220 --renderer dx12 --vsync off --cinematic off --shadows off --fixed-step --hide-top-text --automation-hidden-window --allocation-guard gameplay --dev-ui game --interaction-script SkullbonezData\interaction\replay_allocation_policy_two_generation.json --interaction-report "%REPORT%" --replay on --replay-seconds 2 > "%LOG%" 2>&1
 if errorlevel 1 (
     echo FAIL: strict replay allocation process exited nonzero. See "%LOG%"
     exit /b 1

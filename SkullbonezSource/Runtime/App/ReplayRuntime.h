@@ -417,7 +417,7 @@ class ReplayRuntime
                         AttachedCameraController& attachedCamera, RunMousePickupState& mousePickup,
                         ReplayWorkspaceOutput& output );
 
-    // Applies one editor/legacy-independent transport value through the same
+    // Applies one editor/GameUI-independent transport value through the same
     // concrete replay owners used by pointer controls. Recoverable unavailable
     // states publish bounded scrubber feedback instead of failing the run.
     void ApplyTransportCommand( const ReplayTransportCommand& command, const ReplayTransportHostContext& host,

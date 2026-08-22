@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/UI/UIDrawList.h
 Purpose:
-  Declares the fixed-capacity ordered draw values authored by Legacy UI.
+  Declares the fixed-capacity ordered draw values authored by GameUI.
 
 Summary:
   UIDrawList stores plain screen-space commands plus copied text. Cached lists

@@ -10,7 +10,6 @@ Summary:
 
 Glossary:
   Recordings root: The canonical TestOutput/recordings directory that bounds selectable evidence.
-  Turn trace: Incremental JSONL evidence emitted beside the final playback report.
 
 Invariants:
   - Catalog order is descending recording directory name with a path tie-break.
@@ -20,6 +19,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Automation/InteractionRecordingBrowser.h
   - SkullbonezSource/UI/UISceneNavigationModel.h
+  - Agentic/Reference/engine-glossary.md
   - Agentic/Reference/runtime-reference.md
 */
 #include "InteractionRecordingBrowser.h"

@@ -11,13 +11,13 @@
 @rem Glossary:
 @rem   Validation gate: Repository script that proves a class of changes before
 @rem   commit or PR.
-@rem   Exclusive surface matrix: Sequential Legacy and ImGui runs plus atomic
+@rem   Exclusive surface matrix: Sequential GameUI and ImGui runs plus atomic
 @rem   hot swaps that prove only one development UI owns focus at a time.
 @rem
 @rem Invariants:
 @rem   - Tool output should be bounded and readable because agents and humans use
 @rem   it for decisions.
-@rem   - Legacy and ImGui stress execute sequentially; they are never active in
+@rem   - GameUI and ImGui stress execute sequentially; they are never active in
 @rem   parallel processes during this gate.
 @rem
 @rem Related:
@@ -47,7 +47,7 @@ echo [2/6] Building Profile x64...
 call "%~dp0validate_build.bat" Profile
 if errorlevel 1 exit /b 2
 
-echo [3/6] Running deterministic Legacy UI stress scene...
+echo [3/6] Running deterministic Game UI stress scene...
 del /q "%REPO%\Profile\ui_stress_stdout.txt" 2>nul
 del /q "%REPO%\Profile\ui_stress_stderr.txt" 2>nul
 del /q "%REPO%\dx12_validation.txt" 2>nul

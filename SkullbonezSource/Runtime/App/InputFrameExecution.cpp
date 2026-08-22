@@ -14,14 +14,15 @@ Glossary:
     the gesture.
   Post-UI snapshot: Immutable hit/capture result published after widget layout
     so world tools do not reinterpret UI-owned input.
-  Selected development surface: The one Legacy or ImGui implementation allowed
+  Selected development surface: The one built-in GameUI or optional ImGui
+    development implementation allowed
     to own development-tool input and visibility for the current frame.
 
 Invariants:
   - Device input is captured once; later phases consume router-owned values.
   - UI hit testing completes before pointer ownership is finalized.
   - Every concrete owner is borrowed synchronously for this call only.
-  - An inactive Legacy surface cannot reactivate itself through stress actions.
+  - An inactive GameUI surface cannot reactivate itself through stress actions.
   - Process policy consumes typed results; it never rescans InputRouter actions.
 
 Related:
@@ -241,7 +242,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 {
     UiInputCaptureIntent externalUiCapture;
     SkullbonezCore::UI::OperatorEditorCommandQueues externalEditorCommands;
-    bool legacyDevelopmentUiActive = true;
+    bool gameUiActive = true;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     externalUiCapture = m_imguiEditor.ConsumeInputCaptureIntent();
     externalEditorCommands = m_imguiEditor.ConsumeOperatorEditorCommands();
@@ -270,7 +271,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 #else
     (void)automationBeforeInput;
 #endif
-    legacyDevelopmentUiActive = m_imguiEditor.SelectedSurface() == DevelopmentUiMode::Legacy;
+    gameUiActive = m_imguiEditor.SelectedSurface() == DevelopmentUiMode::GameUI;
 #else
     (void)automationBeforeInput;
 #endif
@@ -320,7 +321,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
         if ( launchOptions.developmentUiModeExplicit || m_imguiEditor.HasActivatedSurfaceSelection() )
         {
-            // Invariant: scene load may apply a Legacy default during input. An
+            // Invariant: scene load may apply a GameUI default during input. An
             // explicit process selection wins before either UI begins its frame.
             SelectDevelopmentUiSurface( m_imguiEditor.SelectedSurface() );
         }
@@ -332,7 +333,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
         // RunInputPhase may consume Ctrl+0 after its snapshot; resample only
         // after every pre-render swap so both surfaces cannot draw concurrently.
-        legacyDevelopmentUiActive = m_imguiEditor.SelectedSurface() == DevelopmentUiMode::Legacy;
+        gameUiActive = m_imguiEditor.SelectedSurface() == DevelopmentUiMode::GameUI;
 #endif
         const SceneFrameProceedPolicy proceedPolicy = sceneController.BuildFrameProceedPolicy( inputRouter.RuntimeSnapshot().frameInput.stepHeld );
 
@@ -340,7 +341,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
                                          ActiveSceneCinematicConfig( sceneController.State(), config ),
                                          renderDefaults.CinematicBaseline() );
 
-        return FrameInputPhaseResult { proceedPolicy, legacyDevelopmentUiActive };
+        return FrameInputPhaseResult { proceedPolicy, gameUiActive };
     };
 
     const auto NormalizeCameraModeForCurrentScene = [&]( RunCameraMode mode )
@@ -364,10 +365,10 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
     const auto runUIStressBatch = [&]()
     {
-        // Invariant: the scene-authored stress harness mutates Legacy UI state.
+        // Invariant: the scene-authored stress harness mutates GameUI state.
         // Once ImGui owns the development surface, allowing that harness to
-        // re-show Legacy would violate the exclusive focus/visibility contract.
-        if ( !legacyDevelopmentUiActive )
+        // re-show GameUI would violate the exclusive focus/visibility contract.
+        if ( !gameUiActive )
         {
             return SkullbonezCore::Core::SbResult::Success();
         }
@@ -989,9 +990,9 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
             break;
         case RuntimeInputAction::ToggleReplayGuideArcs:
 
-            // Why: guide rings remain a Legacy-only teaching aid while ImGui
+            // Why: guide rings remain a GameUI-only teaching aid while ImGui
             // owns its separate development-tool presentation contract.
-            if ( legacyDevelopmentUiActive )
+            if ( gameUiActive )
             {
                 replayRuntime.ToggleGuideArcs();
             }
@@ -999,7 +1000,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
             break;
         case RuntimeInputAction::ToggleReplayTripPlanner:
 
-            if ( legacyDevelopmentUiActive )
+            if ( gameUiActive )
             {
                 (void)replayRuntime.QueueTripPlannerCommand( { ReplayTripPlannerCommandKind::TogglePanel } );
             }
@@ -1007,7 +1008,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
             break;
         case RuntimeInputAction::ToggleReplayPorkchopPanel:
 
-            if ( legacyDevelopmentUiActive )
+            if ( gameUiActive )
             {
                 replayRuntime.TogglePorkchopPanel();
             }
@@ -1042,9 +1043,9 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
         case RuntimeInputAction::TogglePerformanceHistogram:
         case RuntimeInputAction::ToggleMemoryOverlay:
         {
-            if ( event.action == RuntimeInputAction::ToggleUIVisibility && !legacyDevelopmentUiActive )
+            if ( event.action == RuntimeInputAction::ToggleUIVisibility && !gameUiActive )
             {
-                // Invariant: the legacy visibility shortcut is inert while the
+                // Invariant: the GameUI visibility shortcut is inert while the
                 // active ImGui surface owns focus and input.
                 break;
             }
@@ -1172,7 +1173,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
                                                    SkullbonezCore::Core::ActiveSceneObjectCapacity( config ),
                                                    externalUiCapture,
                                                    externalEditorCommands,
-                                                   legacyDevelopmentUiActive,
+                                                   gameUiActive,
                                                    requestedReplayCauseRow };
 
     RuntimeUIFrameResult uiFrameResult = BeginRuntimeUIFrame( m_resultDiagnostics, window, inputRouter, camera, runtimeTools,
@@ -1190,9 +1191,9 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
         presentationEdit.Commit();
         const bool quitRequested = inputRouter.DispatchAfterUiDismiss( inputActions,
                                                                        uiFrameResult.commands.ui.userInteracted,
-                                                                       timers.simulationTimer.GetTotalTime(),
-                                                                       legacyDevelopmentUiActive, diagnosticsRuntime, camera,
-                                                                       attachedCamera, runtimeTools, ui, sceneController,
+                                                                       timers.simulationTimer.GetTotalTime(), gameUiActive,
+                                                                       diagnosticsRuntime, camera, attachedCamera,
+                                                                       runtimeTools, ui, sceneController,
                                                                        *m_overlayDiagnostics,
                                                                        replayRuntime.BuildInputView() );
 
@@ -1211,7 +1212,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
                                                 SkullbonezCore::Core::ActiveSceneObjectCapacity( config ),
                                                 externalUiCapture,
                                                 externalEditorCommands,
-                                                legacyDevelopmentUiActive,
+                                                gameUiActive,
                                                 requestedReplayCauseRow };
 
     presentationEdit.Commit();

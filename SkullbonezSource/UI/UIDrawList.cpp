@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/UI/UIDrawList.cpp
 Purpose:
-  Implements bounded Legacy UI command storage, composition, and fingerprints.
+  Implements bounded GameUI command storage, composition, and fingerprints.
 
 Summary:
   Every authoring operation initializes one plain command. Append rebuilds

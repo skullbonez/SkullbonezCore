@@ -10,7 +10,7 @@ Summary:
   development UI surface consumes it.
   Run::RenderOperatorUiPhase is the owner-approved top-level phase coordinator.
   It reaches process-owned members for one ordered UI phase, builds one shared
-  value projection, submits Legacy and ImGui presentation, and retains no frame
+  value projection, submits GameUI and ImGui presentation, and retains no frame
   values after returning to the frame sequencer.
 
 Glossary:
@@ -278,7 +278,7 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
                                                 presentationFacts.presentationAlpha,
                                                 presentationFacts.capturePresentationPinned,
                                                 presentationFacts.secondsPerFrame,
-                                                presentationFacts.legacyDevelopmentUiActive };
+                                                presentationFacts.gameUiActive };
 
     const ReplayOverlay::ReplayOverlayStateView
         replayOverlay = m_replayRuntime.BuildOverlayStateView( m_runtimeTools.Editor().editorModeEnabled,
@@ -313,7 +313,7 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
     const bool sharedShadows = sharedCinematicRendering ? sharedCinematic.shadow.enabled
                                                         : config.ordinaryRender.shadow.enabled;
 
-    // Invariant: build this common value once. The legacy draw pass and the
+    // Invariant: build this common value once. The GameUI draw pass and the
     // secondary editor receive this exact object, not independently sampled owners.
     operatorEditorView.scene = { uiScenePath ? uiScenePath->c_str() : "",
                                  uiSceneBrowser.namePtrs.empty() ? nullptr : uiSceneBrowser.namePtrs.data(),
@@ -445,7 +445,7 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
                                   m_assets.FindAssetLibrarySourceAsset( "assetlib.buildings" ) != nullptr };
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    // Why: the legacy surface does not consume secondary-editor contextual detail. Sampling
+    // Why: the GameUI surface does not consume secondary-editor contextual detail. Sampling
     // cold body/collider/buoyancy/material rows only while the secondary editor is
     // visible keeps ordinary Profile and shipping frames on their prior path.
     if ( operatorEditorView.surfaces.secondaryVisible )
@@ -569,9 +569,9 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
 
     if ( operatorEditorView.surfaces.secondaryVisible )
     {
-        // Why: the secondary surface can be visible while the legacy UI is
+        // Why: the secondary surface can be visible while GameUI is
         // hidden. Sample its bounded authoring/diagnostic values here instead
-        // of making ImGui depend on whether the legacy text pass happens to run.
+        // of making ImGui depend on whether the GameUI text pass happens to run.
         runtimeViewModel = RuntimeViewModelBuilder::Build( sceneController.State(), sceneController.Scene(),
                                                            sceneController.QueueSize(), diagnosticsRuntime.Capture(),
                                                            config.runtimeRender.presentationInterpolation,
@@ -721,7 +721,7 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
         UiReplayGraphInvocation uiReplay;
         uiReplay.overlay = &replayOverlay;
         uiReplay.profiler = m_profiler;
-        uiReplay.legacySurfaceActive = uiTextFacts.legacyDevelopmentUiActive;
+        uiReplay.gameUiSurfaceActive = uiTextFacts.gameUiActive;
         uiReplay.scenePhysicsEnabled = scene.isScenePhysics;
         uiReplay.gesture = uiTextFacts.interactionGestureKind;
         uiReplay.viewport = { window.ClientWidth(), window.ClientHeight() };
@@ -778,7 +778,7 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
 
         if ( imguiResult.commands.requestSurfaceSwap )
         {
-            SelectDevelopmentUiSurface( DevelopmentUiMode::Legacy );
+            SelectDevelopmentUiSurface( DevelopmentUiMode::GameUI );
         }
 
         if ( imguiResult.commands.requestTracyStandardCapture )

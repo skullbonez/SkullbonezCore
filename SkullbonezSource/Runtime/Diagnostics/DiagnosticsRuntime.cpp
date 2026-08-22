@@ -568,7 +568,7 @@ DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( UI::InG
     case RuntimeInputAction::ToggleUIVisibility:
 
         // Concept: The tabbed diagnostics UI owns overlay text once visible, so
-        // the legacy one-line overlay is cleared by the UI shortcut owner.
+        // the GameUI one-line overlay is cleared by the UI shortcut owner.
         scene.isInteractiveRun = true;
         scene.isExitOnComplete = false;
         capture.Screenshot().isScreenshotAndExit = false;

@@ -5,11 +5,11 @@
     {
       "file": "SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp",
       "signature": "void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view, const ReplayOverlay::ReplayOverlayStateView& replay )",
-      "body_sha256": "e233103e15f36ed047690db02fbd397291e7971f53e70719dc68f8d4de09f89b",
+      "body_sha256": "372aebd216409fa07f38c1e7aa7a194ddcd2166fcb389f44aca1a6457de087ce",
       "owner": "ImGuiEditorOwner development-shell frame pass",
       "disposition": "retain-owner",
       "reason": "One immediate-mode development-shell composition pass consumes detached frame views, including bounded Look Lab and continuous-forecast status, and emits only typed one-frame commands; its window and tree branches plus local widget values all expire at return, while helper extraction without a new invariant would only relay the same frame authority.",
-      "evidence": "git history: look-lab-random-style-authoring-ll4-input-capture (2026-08-01); ORBIT_FORECAST OF4 shared operator-surface review (2026-08-19)",
+      "evidence": "git history: look-lab-random-style-authoring-ll4-input-capture (2026-08-01); ORBIT_FORECAST OF4 shared operator-surface review (2026-08-19); CR1 GameUI naming-only surface review (2026-08-22)",
       "plan": ""
     },
     {
@@ -35,11 +35,11 @@
     {
       "file": "SkullbonezSource/Runtime/App/InputFrameExecution.cpp",
       "signature": "Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput )",
-      "body_sha256": "e654257cc913230715099ae981588b153c6cb19f391184209d349b7413de904c",
+      "body_sha256": "d467fdbc2888d6760abbbcb83d75862fdac2f7f5c61e0b74f228a7bbee2ca917",
       "owner": "Runtime input frame phase",
       "disposition": "retain-owner",
       "reason": "One ordered input turn runs from automation sampling through device routing, typed command production, scene-scoped owner retirement, and terminal restore publication. F8 recording control is a routed input action in that same transaction: it only arms or closes the detached Diagnostics tape after the router proves idle state. Automation playback progress is copied into presentation-only overlay values during the same turn and retains no controller authority. Every participant is a synchronous Run-owned borrow, and splitting the phase would move frame ordering into one-call helpers without creating an independently testable owner.",
-      "evidence": "git history: look-lab-random-style-authoring-ll5-breadth-reuse-idle (2026-08-01); C1 causal-row transport owner review (2026-08-17); interaction recording routed-control review (2026-08-22)",
+      "evidence": "git history: look-lab-random-style-authoring-ll5-breadth-reuse-idle (2026-08-01); C1 causal-row transport owner review (2026-08-17); interaction recording routed-control review (2026-08-22); CR1 GameUI naming-only surface review (2026-08-22)",
       "plan": "",
       "body_lines": 1201,
       "max_brace_depth": 7,
@@ -71,11 +71,11 @@
     {
       "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",
       "signature": "template <typename InspectGizmoInteractionActive> InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools, const InteractionAutomationController& automation, const ReplayAutomationView& replay, RuntimeInteractionController& interaction, const InputRouter& inputRouter, CameraControlState& camera, const SceneWorld& world, SkullbonezCore::UI::InGameUI& ui, const InteractionAutomationDevelopmentUiView& developmentUi, const ContinuousOrbitalForecastView& forecast, const Rendering::RenderSceneSnapshot& renderSnapshot, const RunInteractionAutomationAction& action, InspectGizmoInteractionActive inspectGizmoInteractionActive )",
-      "body_sha256": "2e6ba130da50acdb5ba5c764b9bb0f8f9081761cc3abd769e452c984e102eb12",
+      "body_sha256": "6ab2d3e81b09206cf8c8249dab62efa11c27f8355078d3b4e2808a9d81f6b02f",
       "owner": "Interaction automation assertion phase",
       "disposition": "retain-owner",
       "reason": "One exhaustive assertion phase reads one selected action against detached snapshots and synchronous runtime owners, then emits one evaluation; the continuous-forecast cases inspect only the copied post-render view alongside the existing closed assertion schema. Category extraction would preserve one flat dispatcher and relay the same evaluation authority without creating an independent algorithm or lifetime.",
-      "evidence": "PREDICT_SOLVER_DETAIL PSD7 combined-workflow assertion review; ORBIT_FORECAST OF5 rolling-window evidence review (2026-08-19)",
+      "evidence": "PREDICT_SOLVER_DETAIL PSD7 combined-workflow assertion review; ORBIT_FORECAST OF5 rolling-window evidence review (2026-08-19); CR1 GameUI naming-only assertion review (2026-08-22)",
       "plan": "",
       "body_lines": 853,
       "max_brace_depth": 7,
@@ -186,11 +186,11 @@
     {
       "file": "SkullbonezSource/Runtime/UI/OperatorEditorFrameComposer.cpp",
       "signature": "void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels, const FramePresentationFacts& presentationFacts )",
-      "body_sha256": "aa878f9ffc0b2180ad0c3ba776b99f9cdb97e406104aa31605f816aa592a6aea",
+      "body_sha256": "6cc483d86d151cbd62937eb330eaed399c0320b38ac63b0d4d35a95f54a4d3d5",
       "owner": "Runtime operator UI frame phase",
       "disposition": "retain-owner",
       "reason": "One composition-root phase projects render-model, presentation, UI-owned detached Look Lab cache, and Planning-owned detached forecast status, runs the active operator UI, submits its commands, and latches any process failure before returning; neither surface samples owners independently and all borrows share that synchronous frame lifetime.",
-      "evidence": "git history: look-lab-random-style-authoring-ll5-breadth-reuse-idle (2026-08-01); ORBIT_FORECAST OF4 shared-view projection review (2026-08-19)",
+      "evidence": "git history: look-lab-random-style-authoring-ll5-breadth-reuse-idle (2026-08-01); ORBIT_FORECAST OF4 shared-view projection review (2026-08-19); CR1 GameUI naming-only surface review (2026-08-22)",
       "plan": ""
     },
     {
@@ -226,13 +226,13 @@
     {
       "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",
       "signature": "InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutomationController& state, Window& windowOwner, const SkullbonezCore::Core::EngineConfig& config, SceneController& scene, RunTimerState& timers, CameraControlState& camera, InputRouter& inputRouter, RuntimeInteractionController& interaction, RuntimeTools& runtimeTools, SkullbonezCore::UI::InGameUI& ui, const ReplayAutomationView& replayView, const Rendering::RenderSceneSnapshot& renderSnapshot )",
-      "body_sha256": "c9b565f68b494c4983dd15bcaf3a48893e78507d3cf234c3a89775ad24219b41",
+      "body_sha256": "87ca0d5e329faf76df9336fe02c02829e7cf8b8a2534f0d482dc58188ed42d1e",
       "owner": "Pre-input interaction automation tick",
       "disposition": "retain-owner",
       "reason": "One pre-input automation phase interprets either the next legacy scene-frame action or one recorded full-device turn across the exact runtime owners before normal device routing. Recorded baseline application, replay cause-inspection state publication, and semantic-anchor resolution happen once at turn zero; later turns publish detached input only. Both paths are one mutually exclusive automation state machine, and extraction would preserve caller-ordered dispatch rather than create a separate owner.",
-      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); recorded-manifest full-device playback review (2026-08-22)",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); recorded-manifest full-device playback review (2026-08-22); CR1 GameUI naming-only automation review (2026-08-22)",
       "plan": "",
-      "body_lines": 654,
+      "body_lines": 650,
       "max_brace_depth": 7,
       "closure_count": 3
     },

@@ -810,7 +810,7 @@ void Run::Initialise()
 
     m_skipExecute = replayStartup.skipExecute;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    // Scene-authored legacy window defaults run during load. Reapply the
+    // Scene-authored GameUI window defaults run during load. Reapply the
     // selected surface so an inactive implementation cannot become a second input owner.
     ApplyDevelopmentUiMode();
 #endif
@@ -826,8 +826,8 @@ void Run::ApplyDevelopmentUiMode()
 
     if ( !m_launchOptions.developmentUiModeExplicit && !m_imguiEditor.HasActivatedSurfaceSelection() )
     {
-        // Invariant: an omitted selector chooses the Legacy implementation but
-        // preserves the scene-authored Legacy visibility default. This keeps
+        // Invariant: an omitted selector chooses the GameUI implementation but
+        // preserves the scene-authored GameUI visibility default. This keeps
         // ordinary launches and capture baselines stable while ImGui stays dormant.
         m_imguiEditor.SetVisible( false );
         return;
@@ -840,9 +840,9 @@ void Run::SelectDevelopmentUiSurface( DevelopmentUiMode surface )
 {
     // Invariant: deactivate the source before activating the target. The two
     // implementations coexist in the build but never own focus in one instant.
-    if ( DevelopmentUiModeShowsLegacy( surface ) )
+    if ( DevelopmentUiModeShowsGameUI( surface ) )
     {
-        m_imguiEditor.SelectSurface( DevelopmentUiMode::Legacy );
+        m_imguiEditor.SelectSurface( DevelopmentUiMode::GameUI );
 
         if ( !m_operatorUi->IsVisible() )
         {
