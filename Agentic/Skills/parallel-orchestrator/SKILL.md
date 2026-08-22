@@ -1,6 +1,6 @@
 ---
 name: parallel-orchestrator
-description: Extend SkullbonezCore's repository orchestrator with dependency-safe implementation, test, investigation, validation, and independent bug-fix sub-agents running in isolated worktrees. Use when the user explicitly invokes the parallel orchestrator, asks the orchestrator to parallelize a MASTER-PLAN or Agentic/Plans execution, requests multiple implementation agents or worktrees, asks to fix eligible master bug-report rows alongside planned work, or asks to reduce plan wall-clock time through concurrent lanes while preserving the normal orchestrator's branch, plan-order, validation, review, commit, push, blocker, ledger, and handoff rules.
+description: Extend SkullbonezCore's repository orchestrator with dependency-safe implementation, test, investigation, validation, and independent bug-fix sub-agents running in isolated worktrees, including a dedicated bug worker that continues through primary-plan blockers. Use when the user explicitly invokes the parallel orchestrator, asks the orchestrator to parallelize a MASTER-PLAN or Agentic/Plans execution, requests multiple implementation agents or worktrees, asks to fix eligible master bug-report rows alongside planned work, or asks to reduce plan wall-clock time through concurrent lanes while preserving the normal orchestrator's branch, plan-order, validation, review, commit, push, blocker, ledger, and handoff rules.
 ---
 
 # Parallel Orchestrator
@@ -77,9 +77,17 @@ an accepted side branch lands.
 
 ## Concurrent Master Bug-Report Lane
 
-When `Agentic/Bugs/master_bug_report.csv` exists, keep one independent bug-fix
-lane moving while the coordinator advances the selected MASTER-PLAN task. This
-is a side lane, not a second source of plan priority.
+When `Agentic/Bugs/master_bug_report.csv` exists, reserve one live sub-agent slot
+for an independent bug-fix lane. Keep that lane moving both while the
+coordinator advances the selected MASTER-PLAN task and while the selected task,
+phase, or plan is blocked. A primary-plan blocker never suspends an otherwise
+eligible bug. This is a side lane, not a second source of plan priority.
+
+Run the bug lane through a separate agent on its own fresh branch and isolated
+worktree. Never execute it in the coordinator agent or worktree, attach it to a
+plan worker's branch, or consume its reserved slot with plan review or
+validation work. When one bug finishes, select and dispatch the next eligible
+bug without waiting for the primary-plan blocker to clear.
 
 ### Select An Eligible Bug
 
@@ -148,14 +156,16 @@ plan/phase, overlapping files or symbols, and safe reconsideration checkpoint.
 Do not repeatedly re-investigate the same ineligible row during one run unless
 the owning plan closes or its source scope materially changes.
 
-If no row is eligible, use the worker for an ordinary dependency-safe plan lane
-or keep execution serial. Never manufacture bug work to satisfy a concurrency
-target.
+If no row is eligible, record the eligibility screen and why each seriously
+considered row was deferred. Leave the dedicated bug lane idle until an eligible
+row appears; do not repurpose its agent as a comment-audit worker. Never
+manufacture bug work to satisfy a concurrency target.
 
 ### Execute One Bug Per Branch
 
-Use one branch per bug unless two rows have one inseparable root cause and one
-acceptance witness. Prefer:
+Use one separate agent, branch, and isolated worktree per active bug. Combine two
+rows only when they have one inseparable root cause and one acceptance witness.
+Prefer:
 
 ```text
 codex/bug-<finding-id-lower>-<short-slug>
@@ -185,6 +195,12 @@ keeps the current plan's evidence coherent and prevents bug branches from
 drifting across the whole queue. A more frequent checkpoint is allowed when the
 selected plan explicitly permits it and the change cannot invalidate accepted
 evidence.
+
+When the primary plan is blocked, treat its pushed documentation-only blocker
+record as the bug fan-in checkpoint. Integrate completed independent bug branches
+one at a time after focused review and validation, push the accepted commits,
+then dispatch the next eligible bug from a fresh branch and worktree. Do not
+hold safe bug fixes until the blocked plan completes.
 
 At the checkpoint:
 
@@ -246,6 +262,12 @@ Classify each proposed lane as one of:
 - `evidence`: bounded artifact or result collection that does not decide
   acceptance; or
 - `review`: the base orchestrator's independent read-only rubber-duck lane.
+
+Never create a dedicated comment-audit lane or dispatch a sub-agent whose job is
+only to audit comments. Every source-writing worker applies the repository
+comment standard to its own touched files, and the coordinator reconciles the
+complete integrated touched-file set before closure. This does not remove the
+base orchestrator's independent rubber-duck review requirement.
 
 Record the wave in coordinator commentary before dispatch. Include the frozen
 base commit, dependency edges, lane owners, write scopes, prohibited shared
@@ -408,8 +430,9 @@ When a worker completes:
    exclusive write scope is evidence that the wave definition was wrong; record
    and correct the scheduling rule before another wave.
 6. Run the cumulative focused evidence required for the integrated behavior.
-7. Apply the touched-source comment audit and ownership reviews required by
-   `AGENTS.md`.
+7. The coordinator applies the touched-source comment audit and ownership
+   reviews required by `AGENTS.md`; never delegate this step to a standalone
+   comment-audit worker.
 8. Use a separate read-only rubber-duck reviewer only at the cadence allowed by
    the base orchestrator.
 9. Run terminal plan-completion validation once, only when the entire selected
@@ -427,7 +450,9 @@ A failed worker lane does not automatically block the selected task. The
 coordinator should inspect its evidence, retry with a narrower lane when safe,
 or complete the work locally. When the underlying plan task is genuinely
 blocked, follow the base orchestrator's Blocker Continuation procedure and keep
-advancing only dependency-safe work.
+advancing only dependency-safe work. Stop conflicting plan lanes, but keep the
+dedicated bug agent working from its separate branch and worktree whenever an
+eligible independent row exists.
 
 Stop fan-out and return to serial integration when:
 
