@@ -35,13 +35,13 @@
     {
       "file": "SkullbonezSource/Runtime/App/InputFrameExecution.cpp",
       "signature": "Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput )",
-      "body_sha256": "1cf27006f596b8f29ee7bac13e85e4d517ddb68f0040dc702070e1f594e9c802",
+      "body_sha256": "e654257cc913230715099ae981588b153c6cb19f391184209d349b7413de904c",
       "owner": "Runtime input frame phase",
       "disposition": "retain-owner",
-      "reason": "One ordered input turn runs from automation sampling through device routing, typed command production, scene-scoped owner retirement, and terminal restore publication. F8 recording control is a routed input action in that same transaction: it only arms or closes the detached Diagnostics tape after the router proves idle state. Every participant is a synchronous Run-owned borrow, and splitting the phase would move frame ordering into one-call helpers without creating an independently testable owner.",
+      "reason": "One ordered input turn runs from automation sampling through device routing, typed command production, scene-scoped owner retirement, and terminal restore publication. F8 recording control is a routed input action in that same transaction: it only arms or closes the detached Diagnostics tape after the router proves idle state. Automation playback progress is copied into presentation-only overlay values during the same turn and retains no controller authority. Every participant is a synchronous Run-owned borrow, and splitting the phase would move frame ordering into one-call helpers without creating an independently testable owner.",
       "evidence": "git history: look-lab-random-style-authoring-ll5-breadth-reuse-idle (2026-08-01); C1 causal-row transport owner review (2026-08-17); interaction recording routed-control review (2026-08-22)",
       "plan": "",
-      "body_lines": 1191,
+      "body_lines": 1201,
       "max_brace_depth": 7,
       "closure_count": 12
     },

@@ -1,8 +1,8 @@
 # Session State
 
-Date: 2026-08-21
+Date: 2026-08-22
 Branch: `codex/cause-hierarchy-ui-first`
-Status: Zero active plans; 80/80 tasks complete (100% of Master Plan portfolio complete)
+Status: Core Engine Evidence-Driven Code Reduction active; 81/86 tasks complete (94.19%)
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -10,8 +10,18 @@ Truth Replacement CT0-CT5, Full Validation Time And Value Audit VTA0-VTA5, and R
 Hygiene Cleanup RC0-RC5 are 100% complete, reviewed, and closed.
 Causal C0-C8, Determinism T0-T8, Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7,
 and Continuous Orbital Forecast OF0-OF6 are complete.
-All active master plan portfolio tasks are closed. Completed plan files were deleted under
-the repository convention; Git history retains their phase evidence.
+The completed portfolio remains closed; Core Engine Evidence-Driven Code
+Reduction CR0-CR5 is the sole active plan. Completed plan files were deleted
+under the repository convention; Git history retains their phase evidence.
+
+CORE_REDUCTION CR0 is complete. Owner direction activated the plan without a
+new branch. The clean `cc194f9aa` baseline contains 615 tracked production
+source files and 207,080 physical lines. CodeGraph is current; Debug, Profile,
+and Automation builds pass; decorated-symbol reachability reports 93 ruled rows
+and zero blockers. No dead-production candidate was approved merely to create
+savings. The accepted work is the GameUI naming correction plus exact DX12
+completed-fence, Replay capacity, cold `FILE` deleter, and render-lifecycle log
+duplication. CR1 is next. No golden was refreshed.
 
 REPOSITORY_CLEANUP (RC0-RC5) is 100% complete and closed.
 - RC0 rebased inventory and established strict absolute-path deletion manifests.

@@ -1,10 +1,10 @@
 # Core Engine Evidence-Driven Code Reduction Plan
 
 Date: 2026-08-22
-Status: Unregistered proposal for owner review. 0/6 phases complete.
+Status: Active by owner direction. 1/6 phases complete.
 Impact area: `SkullbonezSource/` production code, project metadata for deleted files, and focused behavioral tests
 Owner: Engine architecture and the owner of each touched subsystem
-Priority: Unregistered (review only)
+Priority: Current execution priority; CR0 through CR5 run in order.
 
 ## Owner Direction
 
@@ -29,10 +29,10 @@ The plan deliberately makes no up-front LOC promise. Every accepted batch must
 record its additions, deletions, and net `SkullbonezSource/` delta. A rename is
 allowed to be LOC-neutral; every code-reduction batch should be deletion-positive.
 
-This file remains outside `Agentic/Plans/MASTER-PLAN.md`. It is not selectable
-for implementation until the owner registers it, establishes binding order, and
-confirms that the current dirty worktree has been reconciled without overwriting
-user-owned changes.
+The owner activated this plan on 2026-08-22. `Agentic/Plans/MASTER-PLAN.md`
+registers CR0 through CR5 after the completed 80-task portfolio. Work remains on
+the current `codex/cause-hierarchy-ui-first` branch by explicit owner direction;
+the clean baseline below is the comparison point for every measured batch.
 
 ---
 
@@ -147,40 +147,64 @@ deletion or consolidation.
 
 ### Tasks
 
-- [ ] Record the current branch, commit, dirty files, and source LOC baseline.
+- [x] Record the current branch, commit, dirty files, and source LOC baseline.
       Preserve all pre-existing dirty files as user-owned.
-- [ ] Confirm the CodeGraph index is current, then use it as the first-pass map
+- [x] Confirm the CodeGraph index is current, then use it as the first-pass map
       for symbol callers, callees, and impact.
-- [ ] Produce current Debug and Profile builds required by the decorated-symbol
+- [x] Produce current Debug and Profile builds required by the decorated-symbol
       reachability inventory, unless verified current artifacts already exist.
-- [ ] Run `tools/inventory_unreachable_symbols.py` and classify every candidate
+- [x] Run `tools/inventory_unreachable_symbols.py` and classify every candidate
       selected for this plan as delete, retain-owner, or separately owned repair.
-- [ ] Review `tools/inventory_extraction_scars.py`,
+- [x] Review `tools/inventory_extraction_scars.py`,
       `tools/inventory_function_complexity.py`, and
       `tools/inventory_wide_signatures.py` as candidate sources, not as proof of
       duplication.
-- [ ] Search for repeated multi-statement blocks and repeated predicates inside
+- [x] Search for repeated multi-statement blocks and repeated predicates inside
       each subsystem. Record exact file, function, and line evidence; exclude
       generated and third-party code.
-- [ ] Populate the three ledgers below before implementation begins.
+- [x] Populate the three ledgers below before implementation begins.
+
+### CR0 baseline
+
+- Branch: `codex/cause-hierarchy-ui-first` (owner-directed; no branch creation).
+- Commit: `cc194f9aacfb4d2d8872f7399df712159717dd27`.
+- Dirty files: none. The ignored work ledger and generated `TestOutput/`
+  diagnostics are not source inputs.
+- Production inventory: 615 tracked `.cpp`, `.h`, `.hpp`, `.inl`, and `.hlsl`
+  files under `SkullbonezSource/`, totaling 207,080 physical lines.
+- CodeGraph: current, 1,175 indexed files, 36,527 nodes, and 109,726 edges.
+- Build evidence: current Debug, Profile, and Automation warnings-as-errors
+  builds all pass.
+- Structural evidence: reachability reports 93 ruled rows (54 no-reference,
+  11 own-TU-only, 28 test-only) and zero blockers; extraction scars report one
+  ruled retained row; wide signatures pass every triggered owner ruling.
+  Function complexity identifies the playback-status edit to `RunInputPhase`
+  as an exact ruling-digest refresh, not a reduction candidate.
 
 ### Unreferenced candidate ledger
 
 | Symbol/file | Owner | Reachability evidence | Test-only exposure | Disposition | Expected deletion |
 |---|---|---|---|---|---|
-| _Populate during CR0_ | | | | | |
+| `ApplicationExitState::HasOwnedFailure` | App exit arbitration | Current Debug/Profile objects classify it test-only; CodeGraph/text inspection finds no production caller | `TestApplicationExitState.cpp` proves owned-failure precedence | Retain-owner: narrow observation seam protects the process-exit invariant | 0 |
+| `RenderDefaultsStore::PendingTypeAt` | Render defaults request queue | Current objects classify it test-only; production mutation remains behind the bounded queue | `TestOwnerRequestQueues.cpp` proves exact arbitration order | Retain-owner: deleting it would remove focused queue-order evidence | 0 |
+| `RenderGraph` enum `ToString` overloads | RenderGraph diagnostics | Same-TU diagnostic dump calls are live despite the cross-TU inventory classification | No test-only manufacture; `RenderGraph.cpp` uses every overload in diagnostics | Retain-owner: live same-TU diagnostic formatting | 0 |
 
 ### Duplicate-condition candidate ledger
 
 | Repeated condition/block | Sites | State and ordering equivalence | Intended owner | Disposition |
 |---|---|---|---|---|
-| _Populate during CR0_ | | | | |
+| Completed-fence observation and publication | `Dx12FrameOwner.cpp:870`, `:911`, `:955`, `:996` | Same fence owner, same readiness sample, same completed value, and same publication order before retirement decisions | `Dx12FrameOwner` | Accept for CR3: one private value-returning predicate helper, preserving each call site's later release policy |
+| Exit-latch return block | Seven checkpoints in `Run::Execute` | Predicate and return match, but each checkpoint is a distinct phase boundary and a helper/lambda would not be deletion-positive | App composition root | Reject: retain explicit phase checkpoints |
+| Disabled-recorder early return | Presentation, solver, and event recorder paths in `ReplayRecorder.cpp` | Predicate spelling matches; following mutations and concrete recorder ownership differ | Each concrete Replay recorder | Reject: retain separate owner guards |
 
 ### Duplicate-implementation candidate ledger
 
 | Repeated operation | Sites | Semantic equivalence | Helper owner | Expected net deletion | Disposition |
 |---|---|---|---|---|---|
-| _Populate during CR0_ | | | | | |
+| Replay sample/checkpoint capacity derivation | `ReplayRecorder.cpp:2556-2567` and `:3294-3305` | Same config type, clamp bounds, tick units, interval floor, and minimum capacity | Replay recorder translation unit | About 8 lines | Accept for CR4: one pure config-value helper used by both recorders |
+| `FILE` close deleter | `Core/Config.cpp:65-76`, `Rendering/Text.cpp:77-88`, `World/Terrain.cpp:73-84`, `Runtime/Capture/CaptureSystem.cpp:197-208` | All are cold `FILE*` RAII with the same `fclose` behavior; `unique_ptr` already suppresses null deletion | Each file-I/O owner using the standard-library deleter | About 36 lines | Accept for CR4: replace local structs with `decltype(&fclose)` deleters; do not add a Core helper |
+| Resource-lifecycle log forwarding | `ReflectionPass::LogResourceLifecycleStep` and `ShadowPass::LogResourceLifecycleStep` | Both synchronously forward unchanged strings to their borrowed `RenderResourceLifecycleLog` | Each render pass keeps its existing log borrow | About 8 lines | Accept for CR4: call the existing log owner directly and delete the forwarding declarations/definitions |
+| Moving-volume collision blocks | `BoundingBox.cpp` and `BoundingSphere.cpp` repeated quadratic fragments | Text is similar, but shape dispatch, contact sentinels, and volume-specific entry contracts require a dedicated physics design review | Physics collision owners | 0 | Reject from this campaign: similarity is not sufficient semantic proof |
 
 ### Acceptance
 
