@@ -2,7 +2,7 @@
 
 Date: 2026-08-23
 Branch: `nightrunner-22nd-AUG-26`
-Status: Real-Time Physics Pacing, Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 88/118 tasks complete
+Status: Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 91/118 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -26,9 +26,26 @@ Recorded Interaction Playback Cursor RIC0-RIC3 is registered after UI6; it adds
 only a fake recorded-playback overlay and explicitly forbids any hardware cursor
 or native capture change.
 
-Real-Time Physics Pacing SP0-SP2 is the first active item. It separates live
-wall-clock fixed-frequency physics from explicit deterministic render-frame
-lockstep before `RAGDOLL_PHYSICS` FP2 resumes.
+Real-Time Physics Pacing SP0-SP2 is complete. Live and unlimited scenes now
+schedule fixed-frequency Physics from elapsed wall time, while explicit startup
+intent and finite unattended capture can select deterministic render-frame
+lockstep. The scheduler retains fractional time across capped catch-up, reports
+dropped whole ticks and hitch events, and safely saturates enormous finite tick
+requests before integer conversion. VSync remains presentation-only.
+
+The focused SimulationSystem family passes 13/13 cases and 2,802 assertions;
+the UI fingerprint control passes 1/1 case and 51 assertions, and the standalone
+UI boundary probe renders all 11 detached surfaces. `validate_fast`, all 716
+unit cases and their assertions, `validate_physics`, Automation smoke, coverage,
+real DX12 validation, and `tools\agent_validate.bat --plan-completion` pass. The
+44,401-line Physics golden remains byte-identical at
+`debf57f744774d4e7c1eb5cc61f05ba6e41dc6dc997ad20db6c91b02b0958c32`.
+The Replay visual gate passes 18/18 typed-packet controls and 82 assertions,
+then reproduces the inherited reveal-0 `header.futureNodeCount` mismatch: the
+current corrected packet has 201 future nodes and 806 trajectory records while
+the preserved oracle expects the retired 200/802 topology. No Physics, Replay,
+or visual golden was refreshed. Independent review is blocker-free, and the
+touched-file comment audit checked 39/39 files with zero deferrals.
 
 CORE_REDUCTION CR0-CR5 are complete. Owner direction activated the plan without a
 new branch. The clean `cc194f9aa` baseline contains 615 tracked production
@@ -444,14 +461,22 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `RAGDOLL_PHYSICS` FP2. Make Discrete the default collision path and
-route only FP1-promoted linear motion through the retained Swept TOI path,
-without adding an authored collision-mode obligation or a PhysicsBodyRecord hot field. The registered plan is
-`Agentic/Plans/TODO/ragdoll-physics-unification.md`; `RUNTIME_BOUNDARIES` RBS0
-remains the binding next plan after FP9.
+Resolve the `RAGDOLL_PHYSICS` FP2 activation contradiction recorded below, then
+make Discrete the default collision path and route only FP1-promoted linear
+motion through the retained Swept TOI path, without adding an authored
+collision-mode obligation or a `PhysicsBodyRecord` hot field. The registered
+plan is `Agentic/Plans/TODO/ragdoll-physics-unification.md`;
+`RUNTIME_BOUNDARIES` RBS0 remains the binding next plan after FP9.
 
 ## Blockers
 
+- FP2 acceptance says the authoritative 200-box striker automatically promotes,
+  but FP1's ratified `0.5 * t_min` linear threshold cannot promote the checked-in
+  radius-7 striker at speed 170.00294. At 120 Hz it travels 1.41669 units per
+  tick against a 7-unit threshold and would require speed 840. Activation needs
+  an owner decision to revise that acceptance, revise the ratified FP1
+  policy/geometry semantics, or alter the separately controlled workload. Do
+  not infer a scene-specific exception or refresh its Replay visual oracle.
 - FP0 pre-change `tools\validate_perf.bat` stops on 33 existing non-Physics
   allocation-policy findings before performance measurement. Preserve this as
   inherited evidence; do not weaken the policy or attribute the rows to FP0.

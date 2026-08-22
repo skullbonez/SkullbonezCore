@@ -21,6 +21,7 @@
 //   - No bounded draw buffer may overflow while producing the fixture.
 //
 // Related:
+//   - Agentic/Reference/engine-glossary.md
 //   - SkullbonezSource/UI/UI.h
 //   - tools/validate_ui_boundary_tests.bat
 
@@ -57,12 +58,14 @@ constexpr std::array<uint64_t, kTabs.size()> kExpectedFingerprints = {
     // worker-thread time stopped being summed into the frame-thread rows. Only
     // this surface moved; the other ten prove the column disturbed no other tab.
     17282268762934632125ull,
-    // Scene: the rolling-prediction checkbox, forecast stability rows, and
-    // interaction-replay selector are part of the committed operator stream.
-    17348968595161242269ull,
+    // Scene: the rolling-prediction checkbox, forecast stability rows,
+    // interaction-replay selector, and Capture lockstep request label are part
+    // of the committed operator stream.
+    2399826200700883422ull,
     643319089294822447ull,
     9774020997193876338ull,
-    3787874871094680490ull,
+    // Options: the scene/session request is labelled Capture lockstep.
+    16562541090565446015ull,
     13838569643518502325ull,
     1186693958027131891ull,
     5057719176066529734ull,

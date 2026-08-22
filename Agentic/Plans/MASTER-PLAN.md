@@ -1,14 +1,20 @@
 # MASTER PLAN
 
 Date: 2026-08-23
-Status: Real-Time Physics Pacing, Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 88/118 tasks complete
+Status: Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 91/118 tasks complete
 
 ## Owner Direction
 
-- Real-Time Physics Pacing was activated by owner direction on 2026-08-23 and
-  placed ahead of every other active item. `SIM_PACING` SP0-SP2 separate live
-  wall-clock scheduling from explicit deterministic render-frame lockstep so
-  unlocked rendering cannot accelerate, slow, or pause simulation time.
+- Real-Time Physics Pacing is complete. `SIM_PACING` SP0-SP2 separate live
+  wall-clock scheduling from deterministic render-frame lockstep, preserve the
+  fractional wall-clock remainder across capped catch-up, and publish explicit
+  dropped-tick/hitch diagnostics. All 716 unit cases and every assertion pass;
+  the fast, byte-exact Physics, Automation, DX12, coverage, and terminal plan-
+  completion gates also pass. The 44,401-line Physics golden remains unchanged.
+  The separately mapped Replay visual gate passes its 18 typed-packet controls
+  before reproducing the inherited reveal-0 `header.futureNodeCount` rejection
+  of the corrected 201-node/806-record topology against the retired
+  200-node/802-record oracle. No Physics, Replay, or visual golden was refreshed.
 
 - Deterministic Collision Modes And Ragdoll Unification was activated by
   explicit owner direction on 2026-08-22 and placed ahead of every existing
@@ -270,7 +276,6 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Real-Time Physics Pacing | `SIM_PACING` | 3 | 0 | `TODO/real-time-physics-pacing.md` |
 | Deterministic Collision Modes And Ragdoll Unification | `RAGDOLL_PHYSICS` | 10 | 2 | `TODO/ragdoll-physics-unification.md` |
 | Runtime Boundary Separation And Project Topology | `RUNTIME_BOUNDARIES` | 8 | 0 | `TODO/runtime-boundary-separation.md` |
 | Game UI Component Library Separation | `GAME_UI_COMPONENTS` | 7 | 0 | `TODO/game-ui-component-library-separation.md` |
@@ -300,24 +305,22 @@ One detail in that table is recorded:
 
 ## Binding Order
 
-1. `SIM_PACING` SP0 through SP2 - decouple live fixed-frequency physics from
-   render FPS while preserving explicit deterministic automation lockstep.
-2. `RAGDOLL_PHYSICS` FP0 through FP9 - close verified Physics correctness bugs,
+1. `RAGDOLL_PHYSICS` FP0 through FP9 - close verified Physics correctness bugs,
    make Discrete the deterministic default with automatic Swept TOI promotion,
    prove its correctness and isolated performance, then complete the ragdoll
    joint and late speculative-contact path with independent determinism and cost
    evidence.
-3. `RUNTIME_BOUNDARIES` RBS0 through RBS7 - ratify and enforce an acyclic Runtime
+2. `RUNTIME_BOUNDARIES` RBS0 through RBS7 - ratify and enforce an acyclic Runtime
    package/project graph, remove every reverse Runtime/App dependency, separate
    native host and frame-metrics ownership, split operator projection/commands
    from GPU submission and process command application, close the logical `Run`
    surface, and adopt only VC project boundaries that strengthen ownership.
-4. `GAME_UI_COMPONENTS` UI0 through UI6 - consume the closed RBS ownership and
+3. `GAME_UI_COMPONENTS` UI0 through UI6 - consume the closed RBS ownership and
    project graph, narrow the existing UI static library to reusable component
    values/functions, migrate GameUI and owner-local Runtime surfaces to that
    foundation, and move product composition above it without adding another
    production project.
-5. `RECORDED_CURSOR` RIC0 through RIC3 - consume the final product-UI and
+4. `RECORDED_CURSOR` RIC0 through RIC3 - consume the final product-UI and
    submission boundary, publish one detached recorded-pointer presentation
    value, draw a topmost fake cursor across GameUI and ImGui, and prove the
    hardware cursor and native capture path remain completely untouched.
@@ -344,10 +347,10 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-88/118 tasks complete with Real-Time Physics Pacing first, Deterministic
-Collision Modes And Ragdoll Unification second, Runtime Boundary Separation And
-Project Topology third, Game UI Component Library Separation fourth, and
-Recorded Interaction Playback Cursor fifth.
+91/118 tasks complete with Deterministic Collision Modes And Ragdoll
+Unification first, Runtime Boundary Separation And Project Topology second,
+Game UI Component Library Separation third, and Recorded Interaction Playback
+Cursor fourth.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
@@ -356,9 +359,9 @@ Cause Hierarchy Scientific Inspector CHUI0-CHUI6 is complete. Full Source Commen
 Replacement CT0-CT5 is complete. Full Validation Time And Value Audit VTA0-VTA5 is complete.
 Repository Hygiene Cleanup RC0-RC5 is complete.
 Core Engine Evidence-Driven Code Reduction CR0-CR5 is complete.
-Real-Time Physics Pacing SP0-SP2 is active at 0/3 and binding before all other
-active work.
-Deterministic Collision Modes And Ragdoll Unification FP0-FP9 is active at 2/10; FP0-FP1 are complete and FP2 is next.
+Real-Time Physics Pacing SP0-SP2 is complete.
+Deterministic Collision Modes And Ragdoll Unification FP0-FP9 is active at 2/10;
+FP0-FP1 are complete and FP2 activation is blocked pending owner direction.
 Runtime Boundary Separation And Project Topology RBS0-RBS7 is active at 0/8.
 Game UI Component Library Separation UI0-UI6 is active at 0/7 and binding after
 RBS7.

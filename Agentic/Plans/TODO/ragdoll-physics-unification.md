@@ -1,10 +1,10 @@
 # Deterministic Collision Modes And Ragdoll Unification
 
 Date: 2026-08-22
-Status: Active by explicit owner direction. 2/10 phases complete; FP0-FP1 complete, FP2 next.
+Status: Active by explicit owner direction. 2/10 phases complete; FP2 activation blocked pending owner direction.
 Impact area: collider local-offset correctness, deterministic Discrete simulation, automatic Swept TOI promotion, linear and angular motion eligibility, ragdoll point joints, joint compliance, shared constraint iteration, late speculative ragdoll contacts, physics baselines, determinism tests, and A/B performance evidence
 Owner: Physics contact and joint solver
-Priority: Binding first plan; FP0 through FP9 execute in strict order before Runtime Boundary Separation
+Priority: Binding first plan; resolve the FP2 activation contradiction before FP2-FP9 continue in strict order ahead of Runtime Boundary Separation
 Commit name: `RAGDOLL_PHYSICS`
 
 ## Owner Direction
@@ -350,6 +350,21 @@ rotational collision response.
   strict glossary inventory reports 999 unique definitions and no drift.
 
 ---
+
+## FP2 Activation Blocker — 2026-08-23
+
+The literal 200-box acceptance below conflicts with FP1's ratified linear
+promotion threshold. The authoritative striker has radius 7, so `t_min` is 14
+and the `0.5 * t_min` threshold is 7 units per tick. Its speed is 170.00294 at
+120 Hz, which travels only 1.41669 units per tick; automatic promotion would
+require speed 840. The launcher contract is internally consistent: radius 0.85
+makes speed 102 the threshold, so exactly 52 supported values from 105 through
+360 promote.
+
+FP2 must not begin until the owner chooses whether to revise the 200-box
+acceptance, revise the already-ratified FP1 policy/geometry semantics, or alter
+the separately controlled workload. Do not invent a scene/name exception or
+refresh the Replay visual oracle to hide the decision.
 
 ## FP2 — Discrete Default & Automatic Swept TOI Promotion
 
