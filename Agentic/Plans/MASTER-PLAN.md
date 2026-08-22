@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-22
-Status: Core Engine Evidence-Driven Code Reduction active; 85/86 tasks complete (98.84%)
+Status: Zero active plans; 86/86 tasks complete (100% of Master Plan portfolio complete)
 
 ## Owner Direction
 
@@ -120,11 +120,16 @@ Status: Core Engine Evidence-Driven Code Reduction active; 85/86 tasks complete 
   space across historical test output, 7 clean detached worktrees, and derived build/IDE
   caches, while removing 10 approved unreferenced tracked candidates and reconciling
   all repository documentation.
-- Core Engine Evidence-Driven Code Reduction is active by owner direction on
-  2026-08-22. CR0 established the clean `cc194f9aa` baseline at 615 production
-  files and 207,080 physical lines, refreshed Debug/Profile/Automation objects,
-  and populated exact accepted and rejected reduction candidates. It remains on
-  `codex/cause-hierarchy-ui-first`; no implementation branch may be created.
+- Core Engine Evidence-Driven Code Reduction is complete. Against the clean
+  `cc194f9aa` baseline, its six phases corrected the GameUI surface name,
+  consolidated the approved DX12, Replay, cold-I/O, and render-lifecycle
+  duplication, and removed 70 net production lines (`+303/-373`) without
+  approving speculative dead-code deletion. All seven inventories, dependency
+  and project gates, 692 tests / 2,537,437 assertions, Automation, physics,
+  DX12, the terminal plan-completion gate, and one-minute graphics stress pass.
+  Independent review is blocker-free. The unchanged Replay visual oracle still
+  rejects the pre-existing corrected 201-node/806-record topology against its
+  retired 200-node/802-record baseline; no golden was refreshed.
 - Continuous Orbital Forecast was reactivated by owner direction on
   2026-08-17. It follows predicted solver detail and owns the separate
   interactive continuous prediction mode, coherent rolling 120-second path
@@ -223,7 +228,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Core Engine Evidence-Driven Code Reduction | `CORE_REDUCTION` | 6 | 5 | `TODO/core-engine-loc-reduction.md` |
+| (none) | — | 0 | 0 | — |
 
 ## Parked, Backlog, And Completed Plans
 
@@ -249,24 +254,20 @@ One detail in that table is recorded:
 
 ## Binding Order
 
-1. `CORE_REDUCTION` CR0 through CR5 - correct the GameUI name, delete only
-   proven dead code, consolidate only semantically identical conditions and
-   implementations, measure production LOC, and close without refreshing a
-   golden or removing GameUI, ImGui, Tracy, or the level editor.
-2. `CAUSE_HIERARCHY_UI` CHUI0 through CHUI6 - preserve the approved concept as
+1. `CAUSE_HIERARCHY_UI` CHUI0 through CHUI6 - preserve the approved concept as
    an exact visual contract, restyle and filter the existing hierarchy, attach
    one animated tabbed evidence drawer to the hierarchy's sole placement owner,
    and close with deterministic compact-viewport screenshots, UI/Automation/
    replay visual gates, stress, and independent ownership plus visual review.
-3. `COMMENT_TRUTH` CT0 through CT5 - resume the frozen replacement after CHUI6,
+2. `COMMENT_TRUTH` CT0 through CT5 - resume the frozen replacement after CHUI6,
    discard redundant hunks, regenerate conflicts against current source, apply
    the remaining truthful comments by owner area, and close with a complete
    checklist, semantic comparison, fast gate, and independent truth review.
-4. `VALIDATION_TIME_AUDIT` VTA0 through VTA5 - instrument and measure the full
+3. `VALIDATION_TIME_AUDIT` VTA0 through VTA5 - instrument and measure the full
    plan-completion call graph, evaluate every stage's unique evidence and cost,
    implement only owner-approved reductions with false-pass controls, and close
    with one timed terminal full gate.
-5. `REPOSITORY_CLEANUP` RC0 through RC5 - rebase the deletion inventory, obtain
+4. `REPOSITORY_CLEANUP` RC0 through RC5 - rebase the deletion inventory, obtain
    owner dispositions, remove only explicit ignored/build/worktree targets,
    reconcile tracked artifacts and stale references, and close with independent
    data-loss and reachability review.
@@ -295,7 +296,7 @@ contracts into Rendering.
 
 ## Portfolio Progress
 
-85/86 tasks complete with Core Engine Evidence-Driven Code Reduction active.
+86/86 tasks complete with zero active plans.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
@@ -303,6 +304,6 @@ Invariant Enforcement And Assertion Hardening IH0-IH7 is complete.
 Cause Hierarchy Scientific Inspector CHUI0-CHUI6 is complete. Full Source Comment Truth
 Replacement CT0-CT5 is complete. Full Validation Time And Value Audit VTA0-VTA5 is complete.
 Repository Hygiene Cleanup RC0-RC5 is complete.
-Core Engine Evidence-Driven Code Reduction CR0-CR4 are complete; CR5 terminal closure is next.
+Core Engine Evidence-Driven Code Reduction CR0-CR5 is complete.
 Deterministic
 Trigonometry is owner-parked and excluded from progress.

@@ -2,7 +2,7 @@
 
 Date: 2026-08-22
 Branch: `codex/cause-hierarchy-ui-first`
-Status: Core Engine Evidence-Driven Code Reduction active; 85/86 tasks complete (98.84%)
+Status: Zero active plans; 86/86 tasks complete (100% of Master Plan portfolio complete)
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -10,14 +10,14 @@ Truth Replacement CT0-CT5, Full Validation Time And Value Audit VTA0-VTA5, and R
 Hygiene Cleanup RC0-RC5 are 100% complete, reviewed, and closed.
 Causal C0-C8, Determinism T0-T8, Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7,
 and Continuous Orbital Forecast OF0-OF6 are complete.
-The completed portfolio remains closed; Core Engine Evidence-Driven Code
-Reduction CR0-CR5 is the sole active plan. Completed plan files were deleted
-under the repository convention; Git history retains their phase evidence.
+All active master plan portfolio tasks are closed. Completed plan files were
+deleted under the repository convention; Git history retains their phase
+evidence.
 
-CORE_REDUCTION CR0-CR4 are complete. Owner direction activated the plan without a
+CORE_REDUCTION CR0-CR5 are complete. Owner direction activated the plan without a
 new branch. The clean `cc194f9aa` baseline contains 615 tracked production
 source files and 207,080 physical lines. CodeGraph is current; Debug, Profile,
-and Automation builds pass; decorated-symbol reachability reports 93 ruled rows
+and Automation builds pass; final decorated-symbol reachability reports 87 ruled rows
 and zero blockers. No dead-production candidate was approved merely to create
 savings. The accepted work is the GameUI naming correction plus exact DX12
 completed-fence, Replay capacity, cold `FILE` deleter, and render-lifecycle log
@@ -35,8 +35,17 @@ The phase removes 5 net production lines; CPU architecture tests and the real
 DX12 screenshot/InfoQueue gate pass with zero validation errors. CR4 consolidates
 Replay capacity calculation, four cold `FILE*` deleters, and two render lifecycle
 log forwarders. It removes another 71 net production lines; 18 focused cases and
-822 assertions pass, and Profile builds cleanly. CR5 terminal closure is next.
-No golden was refreshed.
+822 assertions pass, and Profile builds cleanly. CR5 repaired process-local
+Replay topology restoration and archives the renderer-visible committed
+presentation bank, then closed at `+303/-373` production lines: a 70-line net
+reduction. All seven ownership inventories, dependency and project gates,
+`validate_fast`, 692 tests / 2,537,437 assertions, Automation, physics, DX12,
+the terminal `validate_full --plan-completion` gate, and one-minute graphics
+stress pass. Independent review found no blocker. The mapped Replay visual gate
+still rejects the inherited corrected 201-node/806-record topology and changed
+physics-derived wall outcome against its retired 200-node/802-record baseline.
+The topology mismatch predates CR0; the wall outcome follows the owner-approved
+2026-08-21 physics golden. No physics, Replay, or visual golden was refreshed.
 
 REPOSITORY_CLEANUP (RC0-RC5) is 100% complete and closed.
 - RC0 rebased inventory and established strict absolute-path deletion manifests.
