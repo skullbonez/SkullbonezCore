@@ -1,9 +1,18 @@
 # MASTER PLAN
 
 Date: 2026-08-22
-Status: Zero active plans; 86/86 tasks complete (100% of Master Plan portfolio complete)
+Status: Runtime Boundary Separation active; 86/94 tasks complete
 
 ## Owner Direction
+
+- Runtime Boundary Separation And Project Topology was activated by owner
+  direction on 2026-08-22. RBS0-RBS7 make Runtime/App a true composition root,
+  remove reverse App dependencies and multi-package Runtime cycles, separate UI
+  projection/commands from GPU submission and process command application, move
+  frame metrics out of Rendering mutation, and adopt an evidence-driven acyclic
+  Visual Studio project topology. No project-count or source-line target is
+  authorized; separation is judged by ownership, direction, behavior, and
+  terminal validation.
 
 - Causal Event Inspection is complete. Its synchronized exact-frame transport,
   dedicated camera follow, bounded manifold presentation, and four-row solver
@@ -228,7 +237,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| (none) | — | 0 | 0 | — |
+| Runtime Boundary Separation And Project Topology | `RUNTIME_BOUNDARIES` | 8 | 0 | `TODO/runtime-boundary-separation.md` |
 
 ## Parked, Backlog, And Completed Plans
 
@@ -254,23 +263,11 @@ One detail in that table is recorded:
 
 ## Binding Order
 
-1. `CAUSE_HIERARCHY_UI` CHUI0 through CHUI6 - preserve the approved concept as
-   an exact visual contract, restyle and filter the existing hierarchy, attach
-   one animated tabbed evidence drawer to the hierarchy's sole placement owner,
-   and close with deterministic compact-viewport screenshots, UI/Automation/
-   replay visual gates, stress, and independent ownership plus visual review.
-2. `COMMENT_TRUTH` CT0 through CT5 - resume the frozen replacement after CHUI6,
-   discard redundant hunks, regenerate conflicts against current source, apply
-   the remaining truthful comments by owner area, and close with a complete
-   checklist, semantic comparison, fast gate, and independent truth review.
-3. `VALIDATION_TIME_AUDIT` VTA0 through VTA5 - instrument and measure the full
-   plan-completion call graph, evaluate every stage's unique evidence and cost,
-   implement only owner-approved reductions with false-pass controls, and close
-   with one timed terminal full gate.
-4. `REPOSITORY_CLEANUP` RC0 through RC5 - rebase the deletion inventory, obtain
-   owner dispositions, remove only explicit ignored/build/worktree targets,
-   reconcile tracked artifacts and stale references, and close with independent
-   data-loss and reachability review.
+1. `RUNTIME_BOUNDARIES` RBS0 through RBS7 - ratify and enforce an acyclic Runtime
+   package/project graph, remove every reverse Runtime/App dependency, separate
+   native host and frame-metrics ownership, split operator projection/commands
+   from GPU submission and process command application, close the logical `Run`
+   surface, and adopt only VC project boundaries that strengthen ownership.
 
 `CAUSAL_INSPECT` no longer re-steps an old frame to regenerate solver detail, so
 it does not consume the tier-2 determinism guarantee and has no ordering
@@ -296,7 +293,7 @@ contracts into Rendering.
 
 ## Portfolio Progress
 
-86/86 tasks complete with zero active plans.
+86/94 tasks complete with Runtime Boundary Separation And Project Topology active.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
@@ -305,5 +302,6 @@ Cause Hierarchy Scientific Inspector CHUI0-CHUI6 is complete. Full Source Commen
 Replacement CT0-CT5 is complete. Full Validation Time And Value Audit VTA0-VTA5 is complete.
 Repository Hygiene Cleanup RC0-RC5 is complete.
 Core Engine Evidence-Driven Code Reduction CR0-CR5 is complete.
+Runtime Boundary Separation And Project Topology RBS0-RBS7 is active at 0/8.
 Deterministic
 Trigonometry is owner-parked and excluded from progress.

@@ -2,7 +2,7 @@
 
 Date: 2026-08-22
 Branch: `codex/cause-hierarchy-ui-first`
-Status: Zero active plans; 86/86 tasks complete (100% of Master Plan portfolio complete)
+Status: Runtime Boundary Separation active; 86/94 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -10,8 +10,11 @@ Truth Replacement CT0-CT5, Full Validation Time And Value Audit VTA0-VTA5, and R
 Hygiene Cleanup RC0-RC5 are 100% complete, reviewed, and closed.
 Causal C0-C8, Determinism T0-T8, Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7,
 and Continuous Orbital Forecast OF0-OF6 are complete.
-All active master plan portfolio tasks are closed. Completed plan files were
-deleted under the repository convention; Git history retains their phase
+Runtime Boundary Separation And Project Topology RBS0-RBS7 is the sole active
+plan. It owns Runtime/App composition-root closure, package-cycle removal,
+native host and frame-metrics separation, operator UI/render command boundaries,
+and evidence-driven Visual Studio project decomposition. Completed plan files
+remain deleted under the repository convention; Git history retains their phase
 evidence.
 
 CORE_REDUCTION CR0-CR5 are complete. Owner direction activated the plan without a
@@ -428,42 +431,15 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `CAUSE_HIERARCHY_UI` CHUI5. `INVARIANT_HARDENING` IH0-IH7 is complete: the
-final source checklist is 96/96 with zero deferrals, the terminal inventory has
-67 production asserts and 18 reviewed assert-only candidates, and the current
-fast gate passes 663 tests plus Debug/Profile reachability. Automation, DX12,
-the dependency gate, all ownership inventories, and a one-minute graphics
-stress pass after the production Sky scheduling repair. The terminal full gate
-stopped only at the protected 35,303-line Physics CSV mismatch beginning at
-line 1,239; no baseline was refreshed. Two independent post-fix reviews are
-blocker-free, and the completed IH plan was deleted under the repository
-convention.
-
-Treat the frozen 261-file comment replacement set as audit evidence: discard
-hunks made redundant by IH, regenerate stale or conflicting replacements
-against current implementation, and preserve every post-IH enforcement-lane
-and ownership comment. CT0 must resolve the known strict conflicts in
-`TestUIDrawValues.cpp` and `TestVector3.cpp` before any batched application.
-The live checklist reconciles at 843/843 files. The frozen artifact has 262
-targets including the glossary, 37 changed after its snapshot, and now fails
-both strict and three-way checks broadly; a detached check at the declared
-snapshot also fails under the current checkout. No live source changed. Resume
-by regenerating surviving replacements semantically from current source rather
-than applying or merging the frozen artifact.
-
-At-Rest Ball Stability closed in `f2e192f53`. Its uncapped all-three-asleep
-semantic witness, deterministic 0/1/4-worker proof, box and moving-slope
-controls, allocation/performance checks, four review passes, and terminal gate
-evidence are retained in that commit. The terminal run stopped only at the
-mapped protected 35,303-line varied-Physics oracle; no baseline was refreshed.
-
-Deterministic Trigonometry remains owner-parked in `Agentic/Plans/WNF/` and is
-not part of the active queue.
+Execute `RUNTIME_BOUNDARIES` RBS0. Refresh the resolved Runtime include graph,
+strongly connected components, non-App -> App edges, logical `Run` surface,
+project/source ownership, and build timings; then ratify the target package DAG
+and Visual Studio project decision table before implementation. The registered
+plan is `Agentic/Plans/TODO/runtime-boundary-separation.md`.
 
 ## Blockers
 
-- None. Continue with `CAUSE_HIERARCHY_UI` CHUI2. The stale Physics CSV,
-  noisy relative Physics performance sample, and
+- None. The stale Physics CSV, noisy relative Physics performance sample, and
   corrected-topology visual oracle remain owner-controlled validation findings;
   do not refresh any of them without approval.
 
