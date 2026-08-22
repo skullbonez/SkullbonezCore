@@ -35,6 +35,7 @@ struct RunSceneBrowserState
     std::vector<std::string> paths;
     std::vector<std::string> names;
     std::vector<const char*> namePtrs;
+    int selectedSceneIndex = 0;          // Current runtime scene projected for the Scene-tab combo.
     int selectedCineModeSceneIndex = -1; // -1=Demo/default look, otherwise scene-browser index of live cine/concept
     int CurrentIndexForPath( const std::string* currentScenePath ) const;
 
@@ -49,13 +50,25 @@ struct RunSceneUIOverrideState
     int solverBoxCountOverride = -1;
 };
 
+struct InteractionRecordingBrowserState
+{
+    // Invariant: paths and names use the same newest-first index. The UI emits
+    // only that index; Runtime resolves the path at the application boundary.
+    std::vector<std::string> paths;
+    std::vector<std::string> names;
+    std::vector<const char*> namePtrs;
+    int selectedIndex = 0;
+};
+
 struct SceneNavigationModel
 {
     // Invariant: browser pointer views and live override sentinels share the
     // UI owner's lifetime; Runtime consumers may borrow but never retain them.
     RunSceneBrowserState browser;
+    InteractionRecordingBrowserState recordings;
     RunSceneUIOverrideState overrides;
     void RefreshBrowserList();
+    void RefreshInteractionRecordings();
 };
 } // namespace UI
 } // namespace SkullbonezCore

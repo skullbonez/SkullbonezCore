@@ -391,6 +391,18 @@ bool ApplyInteractionReportPath( const char* value, ParsedArgs& args )
     fprintf( stdout, "[interaction] Report output: %s\n", args.interactionReportPath );
     return true;
 }
+bool ApplyInteractionTracePath( const char* value, ParsedArgs& args )
+{
+    if ( !CopyCommandLinePath( value, "--interaction-trace", args.interactionTracePath,
+                               sizeof( args.interactionTracePath ) ) )
+    {
+        return false;
+    }
+
+    args.suppressExitDialog = true;
+    fprintf( stdout, "[interaction] Turn trace: %s\n", args.interactionTracePath );
+    return true;
+}
 bool ApplyInteractionRecordPath( const char* value, ParsedArgs& args )
 {
     if ( !CopyCommandLinePath( value, "--record-automation", args.interactionRecordPath,
@@ -872,6 +884,7 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
     overrides.mainMemoryDumpPath = args.memoryDumpPath[0] != '\0' ? args.memoryDumpPath : nullptr;
     overrides.interactionScriptPath = args.interactionScriptPath[0] != '\0' ? args.interactionScriptPath : nullptr;
     overrides.interactionReportPath = args.interactionReportPath[0] != '\0' ? args.interactionReportPath : nullptr;
+    overrides.interactionTracePath = args.interactionTracePath[0] != '\0' ? args.interactionTracePath : nullptr;
     overrides.interactionRecordPath = args.interactionRecordPath[0] != '\0' ? args.interactionRecordPath : nullptr;
     overrides.interactionRecordMaxMinutes = args.interactionRecordMaxMinutes;
     const bool replayDefaultAllowed = !args.isSuiteOrSceneMode || args.interactiveRun || args.liveStyleControlDir[0] != '\0';
@@ -1003,6 +1016,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
         { "--memory-dump", "--memory_dump", ApplyMemoryDumpPath },
         { "--interaction-script", "--interaction_script", ApplyInteractionScriptPath },
         { "--interaction-report", "--interaction_report", ApplyInteractionReportPath },
+        { "--interaction-trace", "--interaction_trace", ApplyInteractionTracePath },
         { "--record-automation", "--record_automation", ApplyInteractionRecordPath },
         { "--record-interaction", "--record_interaction", ApplyInteractionRecordPath },
         { "--interaction-record-max-minutes",

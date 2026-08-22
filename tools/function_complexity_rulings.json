@@ -35,25 +35,28 @@
     {
       "file": "SkullbonezSource/Runtime/App/InputFrameExecution.cpp",
       "signature": "Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput )",
-      "body_sha256": "b37806cfc433135d94cb7f78feb20a7edd3a8a2417a9f68778f1369738ad7ee2",
+      "body_sha256": "1cf27006f596b8f29ee7bac13e85e4d517ddb68f0040dc702070e1f594e9c802",
       "owner": "Runtime input frame phase",
       "disposition": "retain-owner",
       "reason": "One ordered input turn runs from automation sampling through device routing, typed command production, scene-scoped owner retirement, and terminal restore publication. F8 recording control is a routed input action in that same transaction: it only arms or closes the detached Diagnostics tape after the router proves idle state. Every participant is a synchronous Run-owned borrow, and splitting the phase would move frame ordering into one-call helpers without creating an independently testable owner.",
       "evidence": "git history: look-lab-random-style-authoring-ll5-breadth-reuse-idle (2026-08-01); C1 causal-row transport owner review (2026-08-17); interaction recording routed-control review (2026-08-22)",
       "plan": "",
-      "body_lines": 1130,
+      "body_lines": 1191,
       "max_brace_depth": 7,
       "closure_count": 12
     },
     {
       "file": "SkullbonezSource/UI/UIWindowInteractionOwner.cpp",
-      "signature": "InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& input, int screenWidth, int screenHeight, double now, bool editorModeEnabled, bool editorPlacementMode, bool editorPlaceStatic, bool editorTerrainAlign, int cameraModeIndex, uint32_t cameraModeEnabledMask, std::span<const char* const> sceneOptionView, int selectedSceneOption )",
-      "body_sha256": "369744c13f3d002b2706b1a2912ac21c53beadc758bb071a709ad37819b8de7d",
+      "signature": "InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& input, int screenWidth, int screenHeight, double now, bool editorModeEnabled, bool editorPlacementMode, bool editorPlaceStatic, bool editorTerrainAlign, int cameraModeIndex, uint32_t cameraModeEnabledMask, const SceneNavigationModel& sceneNavigation )",
+      "body_sha256": "f568602ab9ac33d5090774f0e86f31e6f19f439e124a4504dd9e449a2c8dbd62",
       "owner": "UIWindowInteractionOwner input turn",
       "disposition": "retain-owner",
-      "reason": "One UI interaction owner resolves a detached input snapshot against viewport, editor, camera, scene-option, and forecast-control hit-test policy for a single turn; all hit-test and typed command state remains frame-local.",
-      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); ORBIT_FORECAST OF4 Legacy control review (2026-08-19)",
-      "plan": ""
+      "reason": "One UI interaction owner resolves a detached input snapshot against viewport, editor, camera, Scene-tab catalog, and forecast-control hit-test policy for a single turn; both scene and recording combos share this owner's open-state and click-order invariant, all model access is synchronous, and extraction would leave one-call hit-test helpers sharing the same widget state.",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); ORBIT_FORECAST OF4 Legacy control review (2026-08-19); interaction recording picker review (2026-08-22)",
+      "plan": "",
+      "body_lines": 1042,
+      "max_brace_depth": 8,
+      "closure_count": 1
     },
     {
       "file": "SkullbonezSource/Physics/Diagnostics/SkullScope.cpp",
@@ -77,6 +80,19 @@
       "body_lines": 853,
       "max_brace_depth": 7,
       "closure_count": 2
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",
+      "signature": "bool WriteInteractionTraceTurn( InteractionAutomationController& state, InputRouter& inputRouter, CameraControlState& camera, SkullbonezCore::UI::InGameUI& ui, SceneController& scene )",
+      "body_sha256": "f231966aad17164a98d433ca3a587632419d4e86677014749dd6282edabba0cb",
+      "owner": "Interaction automation turn-trace transaction",
+      "disposition": "retain-owner",
+      "reason": "One bounded after-render transaction pairs the injected device frame and ordered router receipts with the same turn's detached scene, camera, input-mode, and UI observations, then flushes one JSONL row. The depth comes from fixed key/action iteration and JSON field construction rather than unrelated policy; splitting those sections into one-call helpers would fragment the one-row evidence invariant without moving ownership or creating an independently useful algorithm.",
+      "evidence": "interaction replay observable trace review (2026-08-22)",
+      "plan": "",
+      "body_lines": 65,
+      "max_brace_depth": 6,
+      "closure_count": 0
     },
     {
       "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",
@@ -127,13 +143,13 @@
     {
       "file": "SkullbonezSource/Runtime/App/InputFrame.cpp",
       "signature": "RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, bool keyboardToggleEditorMode, const RuntimeInputFrameFacts& facts )",
-      "body_sha256": "930b1b103ae4096ec190592a2534a15ea4911205f2292d443bf81287b985f9fe",
+      "body_sha256": "24a4ca05ba8355ca9bea5478963f64d8fcd1f93b4d6212a86dc8c1fa801d24e5",
       "owner": "Runtime input-command application phase",
       "disposition": "retain-owner",
       "reason": "One post-routing phase applies the complete typed command set in frame order and returns the resulting UI frame value; all owner access is synchronous and ordering is the operation invariant. App resolves bounded-PREDICT/continuous-forecast mutual exclusion here because it composes the Replay and Planning owners, and both visible and automation-originated forecast commands enter that same queue. Extracting the added branch would split one atomic mode transition without moving authority.",
       "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); re-ruled for C1 causal-row transport (2026-08-17); ORBIT_FORECAST OF4 mutual-exclusion review and OF5 typed command review (2026-08-19)",
       "plan": "",
-      "body_lines": 683,
+      "body_lines": 699,
       "max_brace_depth": 4,
       "closure_count": 6
     },

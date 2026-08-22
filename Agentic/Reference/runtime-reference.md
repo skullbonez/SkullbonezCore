@@ -326,7 +326,7 @@ scroll offsets, transition progress, and camera-focus rebuild state.
 Run a recording with no separate scene argument:
 
 ```bat
-Automation\SKULLBONEZ_CORE.exe --interaction-script "TestOutput\recordings\<capture>\interaction.json" --interaction-report "TestOutput\recordings\<capture>\report.json"
+Automation\SKULLBONEZ_CORE.exe --interaction-script "TestOutput\recordings\<capture>\interaction.json" --interaction-report "TestOutput\recordings\<capture>\report.json" --interaction-trace "TestOutput\recordings\<capture>\trace.jsonl"
 ```
 
 Startup validates the manifest and safe relative sidecar paths, automatically
@@ -337,6 +337,24 @@ raw mouse delta for every turn. It uses recorded deltas and its own monotonic
 turn clock, finishes after the final turn, writes the normal interaction
 report, and exits deterministically. Existing hand-authored interaction
 scripts retain their scene-frame timing and schema.
+
+`--interaction-trace` writes newline-delimited JSON and flushes after every
+presented turn. The header identifies the exact manifest. Each turn then records
+the complete injected device state, down virtual keys with readable key names,
+ordered router actions with source/phase/edge/key receipts, and post-frame
+scene, camera, input-mode, and UI observations. Trace write failure terminates
+playback with a nonzero result, so missing evidence cannot be reported as a
+successful run. Continuous camera controls such as W/S/D and raw mouse delta
+consume the device frame directly, so their `routed` array may be empty; compare
+the injected state with the same row's observed camera vectors. `routed` is the
+receipt stream for discrete semantic bindings, not a synthesized duplicate of
+device state.
+
+The Scene tab contains a **Replay** combo directly beneath **Load scene**. It
+lists complete local manifests newest to oldest. Selecting one
+starts `Automation\SKULLBONEZ_CORE.exe` and writes `playback-report.json` plus
+`playback-trace.jsonl` beside that manifest. Capture completion refreshes the
+list immediately; `.partial` output is never offered.
 
 Pointer positions are stored as normalized viewport coordinates and are mapped
 to the current client size on playback. Raw mouse deltas are stored separately

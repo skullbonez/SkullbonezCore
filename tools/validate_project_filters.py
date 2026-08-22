@@ -363,6 +363,7 @@ RUNTIME_AUTOMATION_PREFIXES = (
     "InteractionAutomationInputDriver",
     "InteractionAutomationRecorder",
     "InteractionAutomationReportWriter",
+    "InteractionRecordingBrowser",
     "RuntimeStressController",
     "RuntimeValidationHarness",
 )

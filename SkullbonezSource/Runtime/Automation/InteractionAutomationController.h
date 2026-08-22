@@ -70,6 +70,7 @@ Related:
 #include <string>
 #include <string_view>
 #include <array>
+#include <fstream>
 #include <vector>
 
 namespace SkullbonezCore
@@ -349,8 +350,11 @@ struct InteractionAutomationController
     bool recordedBaselineApplied = false;
     bool recordedFramePublished = false;
     uint64_t recordedTurn = 0u;
+    uint64_t traceTurn = 0u;
     double recordedDeltaSeconds = 0.0;
     char scriptPath[260] = {};
+    char tracePath[260] = {};
+    std::ofstream traceOutput;
     std::vector<RunInteractionAutomationAction> actions;
     std::vector<RecordedInputFrame> recordedFrames;
     InteractionRecordingBaseline recordedBaseline;
@@ -417,7 +421,8 @@ struct InteractionAutomationFrameResult
 };
 
 SkullbonezCore::Core::SbResult ConfigureInteractionAutomation( InteractionAutomationController& state,
-                                                               const char* scriptPath, const char* reportPath );
+                                                               const char* scriptPath, const char* reportPath,
+                                                               const char* tracePath );
 
 // Converts script function-key labels to the Win32 value held by the input
 // driver. Keeping this value-only mapping inline lets CPU tests pin the same

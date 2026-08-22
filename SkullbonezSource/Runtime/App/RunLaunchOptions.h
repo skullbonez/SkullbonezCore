@@ -133,6 +133,7 @@ struct RunStartupOverrides
     const char* mainMemoryDumpPath = nullptr;                                                    // CLI --memory-dump
     const char* interactionScriptPath = nullptr;                                                 // CLI interaction harness script copied by its owner.
     const char* interactionReportPath = nullptr;                                                 // Optional interaction report destination.
+    const char* interactionTracePath = nullptr;                                                  // Optional incremental JSONL turn trace.
     const char* interactionRecordPath = nullptr;                                                 // CLI --record-automation output destination.
     int interactionRecordMaxMinutes = 1;                                                         // CLI recorder startup copy of the same launch limit.
     bool configureReplayRecording = false;                                                       // True when replay capture or hash logging must be configured

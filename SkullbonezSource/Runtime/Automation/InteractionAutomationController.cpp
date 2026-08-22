@@ -24,6 +24,8 @@ Glossary:
     the same operator-command queue as the visible Planning controls.
   Automation report: JSON side-channel describing what the scripted interaction
   observed without mutating validation baselines directly.
+  Turn trace: Incremental JSONL evidence pairing the injected device frame and
+    routed semantic actions with the runtime state observed after that turn.
 
 Invariants:
   - Scripts must exercise normal runtime routing, not bypass tool ownership or
@@ -42,6 +44,8 @@ Invariants:
     Run owns process exit policy and converts that result at its boundary.
   - Recorded numeric fields are range-checked before narrowing so malformed
     evidence remains a recoverable automation failure.
+  - Each turn trace row is flushed after rendering; a write failure fails the
+    run instead of allowing incomplete evidence to look successful.
 
 Related:
   - SkullbonezSource/Runtime/Interaction/RuntimePickService.h
@@ -62,6 +66,7 @@ Related:
 #include "../Interaction/RuntimeInteractionController.h"
 #include "../Camera/RuntimeCameraMode.h"
 #include "../Camera/CameraControlState.h"
+#include "../Camera/CameraCollection.h"
 #include "../App/RunTimerState.h"
 #include "../Tools/RuntimeTools.h"
 #include "../App/Window.h"
@@ -122,6 +127,145 @@ namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 namespace
 {
 using Json = nlohmann::ordered_json;
+
+const char* InputActionSourceName( RuntimeInputActionSource source )
+{
+    switch ( source )
+    {
+    case RuntimeInputActionSource::Keyboard:
+        return "keyboard";
+    case RuntimeInputActionSource::UI:
+        return "ui";
+    case RuntimeInputActionSource::Mouse:
+        return "mouse";
+    case RuntimeInputActionSource::FocusLost:
+        return "focus_lost";
+    case RuntimeInputActionSource::Runtime:
+    default:
+        return "runtime";
+    }
+}
+
+const char* InputActionPhaseName( InputActionPhase phase )
+{
+    switch ( phase )
+    {
+    case InputActionPhase::PreUi:
+        return "pre_ui";
+    case InputActionPhase::AfterUi:
+        return "after_ui";
+    case InputActionPhase::Capture:
+    default:
+        return "capture";
+    }
+}
+
+const char* InputActionEdgeName( InputActionEdge edge )
+{
+    switch ( edge )
+    {
+    case InputActionEdge::Pressed:
+        return "pressed";
+    case InputActionEdge::Held:
+        return "held";
+    case InputActionEdge::Released:
+    default:
+        return "released";
+    }
+}
+
+std::string VirtualKeyName( int virtualKey )
+{
+    switch ( virtualKey )
+    {
+    case VK_LBUTTON:
+        return "Mouse Left";
+    case VK_RBUTTON:
+        return "Mouse Right";
+    case VK_MBUTTON:
+        return "Mouse Middle";
+    default:
+        break;
+    }
+
+    char name[64] = {};
+    const UINT scanCode = MapVirtualKeyA( static_cast<UINT>( virtualKey ), MAPVK_VK_TO_VSC );
+
+    if ( scanCode != 0u && GetKeyNameTextA( static_cast<LONG>( scanCode << 16u ), name, sizeof( name ) ) > 0 )
+    {
+        return name;
+    }
+
+    return "VK_" + std::to_string( virtualKey );
+}
+
+bool WriteInteractionTraceTurn( InteractionAutomationController& state, InputRouter& inputRouter, CameraControlState& camera,
+                                SkullbonezCore::UI::InGameUI& ui, SceneController& scene )
+{
+    if ( !state.traceOutput.is_open() )
+    {
+        return true;
+    }
+
+    const DeviceInputFrame& device = inputRouter.DeviceFrame();
+    Json input = { { "focused", device.appFocused },    { "clientPositionAvailable", device.hasClientPosition },
+                   { "clientX", device.clientX },       { "clientY", device.clientY },
+                   { "rawMouseX", device.rawMouseX },   { "rawMouseY", device.rawMouseY },
+                   { "wheelDelta", device.wheelDelta }, { "left", device.leftDown },
+                   { "middle", device.middleDown },     { "right", device.rightDown } };
+    Json downKeys = Json::array();
+
+    for ( int key = 0; key < InputKeySnapshot::VIRTUAL_KEY_COUNT; ++key )
+    {
+        if ( device.keys.IsDown( key ) )
+        {
+            downKeys.push_back( { { "virtualKey", key }, { "name", VirtualKeyName( key ) } } );
+        }
+    }
+
+    input["downVirtualKeys"] = std::move( downKeys );
+    Json routed = Json::array();
+    const InputActions& actions = inputRouter.Actions();
+
+    for ( std::size_t index = 0u; index < actions.Count(); ++index )
+    {
+        const InputActionEvent& event = actions[index];
+        routed.push_back( { { "actionId", static_cast<int>( event.action ) },
+                            { "source", InputActionSourceName( event.source ) },
+                            { "phase", InputActionPhaseName( event.phase ) },
+                            { "edge", InputActionEdgeName( event.edge ) },
+                            { "virtualKey", event.virtualKey },
+                            { "virtualKeyName", VirtualKeyName( event.virtualKey ) } } );
+    }
+
+    const SceneSessionState& sceneState = scene.State();
+    const SkullbonezCore::Environment::CameraCollection& cameras = scene.Scene().Cameras();
+    const Vector3& cameraEye = cameras.GetCameraTranslation();
+    const Vector3& cameraView = cameras.GetCameraView();
+    const Vector3& cameraUp = cameras.GetCameraUp();
+    const Json line = { { "type", "turn" },
+                        { "turn", state.traceTurn },
+                        { "recordingTurn", state.recordedManifest ? Json( state.recordedTurn ) : Json() },
+                        { "deltaSeconds", state.recordedManifest ? state.recordedDeltaSeconds : 0.0 },
+                        { "injected", std::move( input ) },
+                        { "routed", std::move( routed ) },
+                        { "observed",
+                          { { "sceneFrame", sceneState.currentFrame },
+                            { "sceneLoadCount", sceneState.loadCount },
+                            { "sceneMode", sceneState.isSceneMode },
+                            { "cameraMode", static_cast<int>( camera.mode ) },
+                            { "cameraEye", { cameraEye.x, cameraEye.y, cameraEye.z } },
+                            { "cameraView", { cameraView.x, cameraView.y, cameraView.z } },
+                            { "cameraUp", { cameraUp.x, cameraUp.y, cameraUp.z } },
+                            { "inputMode", static_cast<int>( inputRouter.RuntimeContext().CurrentMode() ) },
+                            { "uiVisible", ui.IsVisible() },
+                            { "uiMinimized", ui.IsMinimized() },
+                            { "uiTab", static_cast<int>( ui.GetActiveTab() ) } } } };
+
+    state.traceOutput << line.dump() << '\n';
+    state.traceOutput.flush();
+    return state.traceOutput.good();
+}
 
 void CopyText( char* destination, std::size_t destinationSize, const std::string& value )
 {
@@ -4905,7 +5049,7 @@ void SkullbonezCore::Runtime::ClearInteractionAutomationInput( InteractionAutoma
 
 SkullbonezCore::Core::SbResult
 SkullbonezCore::Runtime::ConfigureInteractionAutomation( InteractionAutomationController& state, const char* scriptPath,
-                                                         const char* reportPath )
+                                                         const char* reportPath, const char* tracePath )
 {
     // Configure can be called again while applying startup options. Reset the
     // sequencer in place because its report writer owns store-bound tracer
@@ -4917,8 +5061,11 @@ SkullbonezCore::Runtime::ConfigureInteractionAutomation( InteractionAutomationCo
     state.recordedBaselineApplied = false;
     state.recordedFramePublished = false;
     state.recordedTurn = 0u;
+    state.traceTurn = 0u;
     state.recordedDeltaSeconds = 0.0;
     state.scriptPath[0] = '\0';
+    state.tracePath[0] = '\0';
+    state.traceOutput.close();
     state.actions.clear();
     state.recordedFrames.clear();
     state.recordedBaseline = {};
@@ -4934,9 +5081,38 @@ SkullbonezCore::Runtime::ConfigureInteractionAutomation( InteractionAutomationCo
     }
 
     strcpy_s( state.scriptPath, sizeof( state.scriptPath ), scriptPath );
+
+    if ( tracePath && tracePath[0] != '\0' )
+    {
+        strcpy_s( state.tracePath, sizeof( state.tracePath ), tracePath );
+
+        if ( !RuntimeFileWriter::OpenTextFile( state.tracePath, state.traceOutput ) )
+        {
+            state.finished = true;
+            state.status.Fail( "interaction turn trace could not be opened" );
+            return state.status.Result( state.resultDiagnostics );
+        }
+
+        state.traceOutput << Json( { { "type", "header" },
+                                     { "schema", "skullbonez.interaction-trace" },
+                                     { "version", 1 },
+                                     { "script", state.scriptPath } } )
+                                 .dump()
+                          << '\n';
+        state.traceOutput.flush();
+
+        if ( !state.traceOutput.good() )
+        {
+            state.finished = true;
+            state.status.Fail( "interaction turn trace header could not be written" );
+            return state.status.Result( state.resultDiagnostics );
+        }
+    }
+
     state.enabled = true;
     printf( "[interaction] Script: %s\n", state.scriptPath );
     printf( "[interaction] Report: %s\n", state.reportWriter.Path() );
+    printf( "[interaction] Trace: %s\n", state.tracePath[0] != '\0' ? state.tracePath : "disabled" );
     return SkullbonezCore::Core::SbResult::Success();
 }
 
@@ -5615,6 +5791,18 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
     {
         return result;
     }
+
+    if ( !WriteInteractionTraceTurn( state, inputRouter, camera, ui, scene ) )
+    {
+        FailAutomation( state, "interaction turn trace write failed" );
+        state.finished = true;
+        ClearInteractionAutomationInput( state );
+        result.status = InteractionAutomationResult( state );
+        result.requestQuit = true;
+        return result;
+    }
+
+    ++state.traceTurn;
 
     if ( state.recordedManifest )
     {

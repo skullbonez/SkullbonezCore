@@ -182,7 +182,7 @@ enum class UIPhysicsDebugOverlay : uint32_t
 // its concrete diagnostics owner so UI does not interpret Physics-owned bits.
 struct UIPhysicsDebugStatus
 {
-    uint32_t activeFlags = 0u;             // Display-only hexadecimal diagnostic value.
+    uint32_t activeFlags = 0u;                   // Display-only hexadecimal diagnostic value.
     const char* pipelineStageName = "";
     int pipelineStageIndex = 0;
     int pipelineStageCount = 0;
@@ -210,20 +210,21 @@ struct UIOnlyCommands
 struct UIRendererCommands
 {
     bool toggleVsync = false;
-    int requestedRendererIndex = -1;       // Retired compatibility field; DX12 is the only runtime renderer.
+    int requestedRendererIndex = -1;             // Retired compatibility field; DX12 is the only runtime renderer.
 };
 
 struct UISceneCommands
 {
-    bool resetScene = false;               // Rebuild current scene while preserving live runtime controls.
-    bool resetSceneDefaults = false;       // Discard live scene edits and reload authored defaults.
-    bool requestDemoScene = false;         // Switch to generated demo scene instead of a discovered scene file.
-    bool saveSceneDefaults = false;        // Persist editable-scene defaults back to disk.
-    bool createScene = false;              // Create a new starter scene from requestedSceneName.
+    bool resetScene = false;                     // Rebuild current scene while preserving live runtime controls.
+    bool resetSceneDefaults = false;             // Discard live scene edits and reload authored defaults.
+    bool requestDemoScene = false;               // Switch to generated demo scene instead of a discovered scene file.
+    bool saveSceneDefaults = false;              // Persist editable-scene defaults back to disk.
+    bool createScene = false;                    // Create a new starter scene from requestedSceneName.
     char requestedSceneName[64] = {};
-    int requestedSceneIndex = -1;          // index into sceneOptions, -1=no request
-    bool toggleCrossScenePause = false;    // Toggle the scene-flow owner's pause lock across scene transitions.
-    bool requestSingleStep = false;        // Advance one paused scene turn; never retained beyond this input frame.
+    int requestedSceneIndex = -1;                // index into sceneOptions, -1=no request
+    int requestedInteractionRecordingIndex = -1; // newest-first recording catalog index, -1=no request
+    bool toggleCrossScenePause = false;          // Toggle the scene-flow owner's pause lock across scene transitions.
+    bool requestSingleStep = false;              // Advance one paused scene turn; never retained beyond this input frame.
 };
 
 struct UIPhysicsCommands
@@ -282,9 +283,9 @@ struct UIEditorCommands
     bool requestPlaceStatic = false;
     bool requestedPlaceStatic = false;
     int requestedObjectType = -1;
-    bool requestUndo = false;              // Ask the editor history owner to undo one committed command.
-    bool requestRedo = false;              // Ask the editor history owner to redo one committed command.
-    bool requestSelectSceneObject = false; // Resolve stable scene identity at the editor-owner boundary.
+    bool requestUndo = false;                    // Ask the editor history owner to undo one committed command.
+    bool requestRedo = false;                    // Ask the editor history owner to redo one committed command.
+    bool requestSelectSceneObject = false;       // Resolve stable scene identity at the editor-owner boundary.
     uint32_t requestedSceneObjectId = 0u;
     bool requestDeleteSelection = false;
     bool requestDuplicateSelection = false;
@@ -318,7 +319,7 @@ struct UIWaterCommands
     float requestedWorldGravity = 0.0f;
     float requestedWorldFluidHeight = 0.0f;
     float requestedWorldFluidDensity = 0.0f;
-    int requestedWaterReflectionMode = -1; // 0=FBO, 1=DXR, 2=None, -1=no request
+    int requestedWaterReflectionMode = -1;       // 0=FBO, 1=DXR, 2=None, -1=no request
 };
 
 struct UIRunCommands
@@ -331,7 +332,7 @@ struct UIRunCommands
 
 struct UIProfilerCommands
 {
-    int requestedWorkerThreads = -2;       // -2 = unchanged, -1 = auto, 0 = disabled, >0 = explicit worker count
+    int requestedWorkerThreads = -2;             // -2 = unchanged, -1 = auto, 0 = disabled, >0 = explicit worker count
 };
 
 struct UICinematicCommands

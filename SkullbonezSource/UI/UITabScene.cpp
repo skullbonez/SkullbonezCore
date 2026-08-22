@@ -41,6 +41,7 @@ using namespace SkullbonezCore::UI::Widgets;
 namespace
 {
 constexpr int UI_SCENE_CONTENT_HEIGHT = 470;
+constexpr float UI_SCENE_RECORDING_COMBO_Y = 74.0f;
 constexpr float UI_SCENE_TIME_SCALE_SLIDER_Y = 196.0f;
 constexpr float UI_SCENE_PREDICTION_REVEAL_SLIDER_Y = 236.0f;
 constexpr float UI_SCENE_FORECAST_TITLE_Y = 286.0f;
@@ -136,6 +137,12 @@ void SetSceneHeaderBounds( SkullbonezCore::UI::UIComboBox& combo, SkullbonezCore
     resetSceneButton.SetBounds( resetX, rowBase, UI_SCENE_RESET_BUTTON_W, 24.0f );
     resetDefaultsButton.SetBounds( defaultsX, rowBase, UI_SCENE_RESET_DEFAULTS_BUTTON_W, 24.0f );
     saveDefaultsButton.SetBounds( saveDefaultsX, rowBase, UI_SCENE_SAVE_DEFAULTS_BUTTON_W, 24.0f );
+    combo.SetDropUp( false );
+}
+
+void SetRecordingComboBounds( SkullbonezCore::UI::UIComboBox& combo, float contentX, float rowBase, float contentW )
+{
+    combo.SetBounds( contentX, rowBase + ( UI_SCENE_RECORDING_COMBO_Y - 42.0f ), SceneTabComboWidth( contentW ), 24.0f );
     combo.SetDropUp( false );
 }
 
@@ -388,6 +395,11 @@ void CloseCombo( UISceneTabState& state )
 {
     state.combo.Close();
     ClearFilter( state );
+}
+
+void CloseRecordingCombo( UISceneTabState& state )
+{
+    state.recordingCombo.Close();
 }
 
 
@@ -675,6 +687,67 @@ bool HandleClosedComboClick( UISceneTabState& state, const InputControl::UIInput
     return false;
 }
 
+bool HandleRecordingComboWheel( UISceneTabState& state, int recordingOptionCount, int mouseX, int mouseY, int wheelDelta,
+                                float contentX, float rowBase, float contentW )
+{
+    if ( wheelDelta == 0 || !state.recordingCombo.IsOpen() )
+    {
+        return false;
+    }
+
+    const int visibleOptions = SceneComboVisibleCount( recordingOptionCount );
+    SetRecordingComboBounds( state.recordingCombo, contentX, rowBase, contentW );
+
+    if ( state.recordingCombo.HitBox( mouseX, mouseY ) ||
+         state.recordingCombo.HitOption( mouseX, mouseY, visibleOptions ) >= 0 )
+    {
+        state.recordingComboScroll = ClampSceneComboScroll( state.recordingComboScroll - wheelDelta / WHEEL_DELTA,
+                                                            recordingOptionCount );
+        return true;
+    }
+
+    return false;
+}
+
+bool HandleOpenRecordingComboClick( UISceneTabState& state, InGameUIInputResult& result, int recordingOptionCount,
+                                    int mouseX, int mouseY, float contentX, float rowBase, float contentW )
+{
+    if ( !state.recordingCombo.IsOpen() )
+    {
+        return false;
+    }
+
+    const int visibleOptions = SceneComboVisibleCount( recordingOptionCount );
+    state.recordingComboScroll = ClampSceneComboScroll( state.recordingComboScroll, recordingOptionCount );
+    SetRecordingComboBounds( state.recordingCombo, contentX, rowBase, contentW );
+    const int option = state.recordingCombo.HitOption( mouseX, mouseY, visibleOptions );
+
+    if ( option >= 0 && option < visibleOptions )
+    {
+        result.commands.scene.requestedInteractionRecordingIndex = state.recordingComboScroll + option;
+        result.commands.ui.userInteracted = true;
+    }
+
+    CloseRecordingCombo( state );
+    return true;
+}
+
+bool HandleClosedRecordingComboClick( UISceneTabState& state, int recordingOptionCount, int selectedRecordingOption,
+                                      int mouseX, int mouseY, float contentX, float rowBase, float contentW )
+{
+    SetRecordingComboBounds( state.recordingCombo, contentX, rowBase, contentW );
+
+    if ( recordingOptionCount <= 0 || !state.recordingCombo.HitBox( mouseX, mouseY ) )
+    {
+        return false;
+    }
+
+    state.recordingComboScroll = SceneComboScrollForSelection( selectedRecordingOption, recordingOptionCount );
+    state.recordingCombo.SetOpen( true );
+    CloseCombo( state );
+    return true;
+}
+
 
 bool HandleTimeScaleClick( UISceneTabState& state, InGameUIInputResult& result, int& activeSlider, int mouseX, int mouseY,
                            float contentX, float rowBase, float contentW )
@@ -833,9 +906,27 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const InGameUIFram
         selectedSceneName = filterDisplay;
     }
 
+    const int recordingVisibleCount = SceneComboVisibleCount( data.interactionRecordingOptionCount );
+    state.recordingComboScroll = ClampSceneComboScroll( state.recordingComboScroll, data.interactionRecordingOptionCount );
+    const char* visibleRecordingOptions[UI_SCENE_COMBO_VISIBLE_OPTIONS] = {};
+
+    for ( int i = 0; i < recordingVisibleCount; ++i )
+    {
+        visibleRecordingOptions[i] = data.interactionRecordingOptions[state.recordingComboScroll + i];
+    }
+
+    const char* selectedRecordingName = "No recordings";
+
+    if ( data.interactionRecordingOptions && data.selectedInteractionRecordingOption >= 0 &&
+         data.selectedInteractionRecordingOption < data.interactionRecordingOptionCount )
+    {
+        selectedRecordingName = data.interactionRecordingOptions[data.selectedInteractionRecordingOption];
+    }
+
     DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY, 16.0f, "Scene" );
     SetSceneHeaderBounds( combo, resetSceneButton, resetDefaultsButton, saveDefaultsButton, contentX, scrolledY + 42.0f,
                           contentW );
+    SetRecordingComboBounds( state.recordingCombo, contentX, scrolledY + 42.0f, contentW );
 
     if ( data.targetFrameCount > 0 )
     {
@@ -849,7 +940,7 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const InGameUIFram
         snprintf( buf, sizeof( buf ), "%d", data.currentFrame );
     }
 
-    if ( !combo.IsOpen() )
+    if ( !combo.IsOpen() && !state.recordingCombo.IsOpen() )
     {
         const float sceneCol2 = contentX + (std::max)( 208.0f, contentW * 0.48f );
         const Style::UIPalette& palette = Style::Palette();
@@ -859,29 +950,29 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const InGameUIFram
         snprintf( statusBuf, sizeof( statusBuf ), "%s / fixed %s", data.testComplete ? "complete" : "running",
                   data.fixedStep ? "on" : "off" );
 
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 82.0f, "Renderer", data.rendererName,
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 104.0f, "Renderer", data.rendererName,
                           palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b );
 
-        DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 82.0f, "Status", statusBuf, palette.accent.r,
+        DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 104.0f, "Status", statusBuf, palette.accent.r,
                           palette.accent.g, palette.accent.b );
 
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 108.0f, "Frame", buf, palette.textPrimary.r,
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 128.0f, "Frame", buf, palette.textPrimary.r,
                           palette.textPrimary.g, palette.textPrimary.b );
 
         snprintf( buf, sizeof( buf ), "%.1f FPS", data.fps );
-        DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 108.0f, "Frame rate", buf, palette.accentStrong.r,
+        DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 128.0f, "Frame rate", buf, palette.accentStrong.r,
                           palette.accentStrong.g, palette.accentStrong.b );
 
         snprintf( buf, sizeof( buf ), "%d / %d", data.currentSceneIndex + 1, data.sceneCount );
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 134.0f, "Scene index", buf, palette.textPrimary.r,
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 152.0f, "Scene index", buf, palette.textPrimary.r,
                           palette.textPrimary.g, palette.textPrimary.b );
 
         snprintf( buf, sizeof( buf ), "%.6f", data.sceneEnergy );
-        DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 134.0f, "Kinetic energy", buf,
+        DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 152.0f, "Kinetic energy", buf,
                           palette.warningAccent.r, palette.warningAccent.g, palette.warningAccent.b );
 
         snprintf( buf, sizeof( buf ), "%d", data.modelCount );
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 160.0f, "Model count", buf, palette.textPrimary.r,
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 176.0f, "Model count", buf, palette.textPrimary.r,
                           palette.textPrimary.g, palette.textPrimary.b );
 
         snprintf( buf, sizeof( buf ), "%.2fx", displayTimeScale );
@@ -998,6 +1089,18 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const InGameUIFram
     {
         combo.Draw( draw, "Load scene", selectedSceneName, visibleSceneOptions, sceneDrawCount, sceneSelectedInSlice, mouseX,
                     mouseY );
+    }
+
+
+    if ( !combo.IsOpen() && IsRowVisible( contentY, contentH, scrolledY + UI_SCENE_RECORDING_COMBO_Y, 24.0f ) )
+    {
+        const int selectedInSlice = data.selectedInteractionRecordingOption >= state.recordingComboScroll &&
+                                            data.selectedInteractionRecordingOption <
+                                                state.recordingComboScroll + recordingVisibleCount
+                                        ? data.selectedInteractionRecordingOption - state.recordingComboScroll
+                                        : -1;
+        state.recordingCombo.Draw( draw, "Replay", selectedRecordingName, visibleRecordingOptions, recordingVisibleCount,
+                                   selectedInSlice, mouseX, mouseY );
     }
 
     if ( IsRowVisible( contentY, contentH, scrolledY + 42.0f, 24.0f ) )

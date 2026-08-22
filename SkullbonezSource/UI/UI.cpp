@@ -329,13 +329,12 @@ InputControl::UIPointerOverride InGameUI::InputOverride() const
 InGameUIInputResult InGameUI::UpdateInput( const InputControl::UIInputSnapshot& input, int screenWidth, int screenHeight,
                                            double now, bool editorModeEnabled, bool editorPlacementMode,
                                            bool editorPlaceStatic, bool editorTerrainAlign, int cameraModeIndex,
-                                           uint32_t cameraModeEnabledMask, std::span<const char* const> sceneOptions,
-                                           int selectedSceneOption )
+                                           uint32_t cameraModeEnabledMask )
 {
     PROFILE_SCOPED( "Frame/UI/Input" );
     return m_windowInteraction.UpdateInput( input, screenWidth, screenHeight, now, editorModeEnabled, editorPlacementMode,
                                             editorPlaceStatic, editorTerrainAlign, cameraModeIndex, cameraModeEnabledMask,
-                                            sceneOptions, selectedSceneOption );
+                                            m_sceneNavigation );
 }
 const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
 {

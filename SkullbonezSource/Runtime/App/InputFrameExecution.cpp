@@ -698,6 +698,10 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
                 {
                     applicationExit.RequestPhaseFailure( save );
                 }
+                else
+                {
+                    ui.SceneNavigation().RefreshInteractionRecordings();
+                }
 
                 break;
             }

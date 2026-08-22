@@ -234,6 +234,7 @@ void UIWindowInteractionOwner::SetActiveTab( InGameUITab tab )
     m_reflectionCombo.Close();
     CloseSceneCombo();
     m_editorTab.objectCombo.Close();
+    SceneTab::CloseRecordingCombo( m_sceneTab );
     CinematicTab::CloseCombo( m_cinematicTab );
     m_renderTargetCombo.Close();
     m_cameraModeCombo.Close();
@@ -280,7 +281,8 @@ bool UIWindowInteractionOwner::BlocksCameraMouse() const
 bool UIWindowInteractionOwner::BlocksKeyboard() const
 {
     return m_window.isVisible && !m_window.isMinimized &&
-           ( m_sceneTab.combo.IsOpen() || CinematicTab::IsComboOpen( m_cinematicTab ) || m_editorTab.objectCombo.IsOpen() ||
+           ( m_sceneTab.combo.IsOpen() || m_sceneTab.recordingCombo.IsOpen() ||
+             CinematicTab::IsComboOpen( m_cinematicTab ) || m_editorTab.objectCombo.IsOpen() ||
              m_renderTargetCombo.IsOpen() );
 }
 
@@ -373,6 +375,7 @@ void UIWindowInteractionOwner::SetRendererComboOpen( bool open )
 
     if ( open )
     {
+        SceneTab::CloseRecordingCombo( m_sceneTab );
         m_reflectionCombo.Close();
         CloseSceneCombo();
         CinematicTab::CloseCombo( m_cinematicTab );
@@ -558,6 +561,7 @@ int UIWindowInteractionOwner::ContentHeight() const
 void UIWindowInteractionOwner::CloseSceneCombo()
 {
     SceneTab::CloseCombo( m_sceneTab );
+    SceneTab::CloseRecordingCombo( m_sceneTab );
 }
 
 
@@ -567,17 +571,31 @@ InputControl::UIPointerOverride UIWindowInteractionOwner::InputOverride() const
 }
 
 
-InGameUIInputResult
-UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& input, int screenWidth, int screenHeight,
-                                       double now, bool editorModeEnabled, bool editorPlacementMode, bool editorPlaceStatic,
-                                       bool editorTerrainAlign, int cameraModeIndex, uint32_t cameraModeEnabledMask,
-                                       std::span<const char* const> sceneOptionView, int selectedSceneOption )
+InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& input, int screenWidth,
+                                                           int screenHeight, double now, bool editorModeEnabled,
+                                                           bool editorPlacementMode, bool editorPlaceStatic,
+                                                           bool editorTerrainAlign, int cameraModeIndex,
+                                                           uint32_t cameraModeEnabledMask,
+                                                           const SceneNavigationModel& sceneNavigation )
 {
     InGameUIInputResult result;
     int screenW = screenWidth;
     int screenH = screenHeight;
+    const std::span<const char* const> sceneOptionView( sceneNavigation.browser.namePtrs.empty()
+                                                            ? nullptr
+                                                            : sceneNavigation.browser.namePtrs.data(),
+                                                        sceneNavigation.browser.namePtrs.size() );
+    const std::span<const char* const> interactionRecordingOptionView( sceneNavigation.recordings.namePtrs.empty()
+                                                                           ? nullptr
+                                                                           : sceneNavigation.recordings.namePtrs.data(),
+                                                                       sceneNavigation.recordings.namePtrs.size() );
     const char* const* sceneOptions = sceneOptionView.data();
     const int sceneOptionCount = static_cast<int>( sceneOptionView.size() );
+    const int selectedSceneOption = sceneNavigation.browser.selectedSceneIndex;
+    const int interactionRecordingOptionCount = static_cast<int>( interactionRecordingOptionView.size() );
+    const int selectedInteractionRecordingOption = sceneNavigation.recordings.paths.empty()
+                                                       ? -1
+                                                       : sceneNavigation.recordings.selectedIndex;
 
     // Concept: UI input produces command intents and capture state. The run loop
     // owns applying scene, physics, renderer, and editor mutations.
@@ -964,6 +982,15 @@ UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& inpu
                                                    wheelDelta, contentX, rowBase, contentW );
     }
 
+    else if ( wheelDelta != 0 && m_sceneTab.recordingCombo.IsOpen() && m_activeTab == InGameUITab::Scene )
+    {
+        const float contentX = static_cast<float>( inputX + contentPad );
+        const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
+        const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+        wheelHandled = SceneTab::HandleRecordingComboWheel( m_sceneTab, interactionRecordingOptionCount, m_mouseX, m_mouseY,
+                                                            wheelDelta, contentX, rowBase, contentW );
+    }
+
     if ( wheelDelta != 0 && inContent && !wheelHandled )
     {
         m_scrollY -= static_cast<float>( wheelDelta ) / UI_MOUSE_WHEEL_DELTA * 42.0f;
@@ -1028,6 +1055,27 @@ UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& inpu
             else
             {
                 CloseSceneCombo();
+            }
+
+            m_rendererCombo.Close();
+            m_reflectionCombo.Close();
+            CinematicTab::CloseCombo( m_cinematicTab );
+            m_editorTab.objectCombo.Close();
+            m_renderTargetCombo.Close();
+        }
+        else if ( m_sceneTab.recordingCombo.IsOpen() )
+        {
+            if ( m_activeTab == InGameUITab::Scene )
+            {
+                const float contentX = static_cast<float>( inputX + contentPad );
+                const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
+                const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+                SceneTab::HandleOpenRecordingComboClick( m_sceneTab, result, interactionRecordingOptionCount, m_mouseX,
+                                                         m_mouseY, contentX, rowBase, contentW );
+            }
+            else
+            {
+                SceneTab::CloseRecordingCombo( m_sceneTab );
             }
 
             m_rendererCombo.Close();
@@ -1193,6 +1241,13 @@ UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& inpu
             {
                 sceneClickHandled = SceneTab::HandleClosedComboClick( m_sceneTab, input, sceneOptions, sceneOptionCount,
                                                                       selectedSceneOption, m_mouseX, m_mouseY );
+            }
+
+            if ( !sceneClickHandled )
+            {
+                sceneClickHandled = SceneTab::HandleClosedRecordingComboClick( m_sceneTab, interactionRecordingOptionCount,
+                                                                               selectedInteractionRecordingOption, m_mouseX,
+                                                                               m_mouseY, contentX, rowBase, contentW );
             }
 
             if ( !sceneClickHandled )

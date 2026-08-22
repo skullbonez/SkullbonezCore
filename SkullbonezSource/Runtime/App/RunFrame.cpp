@@ -367,6 +367,10 @@ void Run::AdvanceInteractionRecordingBoundary()
         {
             m_applicationExit.RequestPhaseFailure( advance );
         }
+        else if ( !m_interactionRecorder.IsRecording() )
+        {
+            m_operatorUi->SceneNavigation().RefreshInteractionRecordings();
+        }
     }
 }
 

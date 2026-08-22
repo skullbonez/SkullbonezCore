@@ -1127,6 +1127,10 @@ void UiTextPass::SubmitOperatorFrame( UI::InGameUIFrameData& UIData, UI::InGameU
                                       Rendering::Dx12Diagnostics& renderDiagnostics, int uiPassDrawCallStart )
 {
     Text::TextBatch& textBatch = m_textBatch;
+    const SkullbonezCore::UI::InteractionRecordingBrowserState& recordings = ui.SceneNavigation().recordings;
+    UIData.interactionRecordingOptions = recordings.namePtrs.empty() ? nullptr : recordings.namePtrs.data();
+    UIData.interactionRecordingOptionCount = static_cast<int>( recordings.namePtrs.size() );
+    UIData.selectedInteractionRecordingOption = recordings.paths.empty() ? -1 : recordings.selectedIndex;
 
     // Invariant: the UI projection below omits backend handles. This
     // renderer-owned copy retains them only until submission resolves the

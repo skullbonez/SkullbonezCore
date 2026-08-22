@@ -28,6 +28,7 @@ Related:
 #include "Run.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "../Automation/RuntimeValidationHarness.h"
+#include "../Automation/InteractionRecordingBrowser.h"
 #include "../Camera/RuntimeCameraMode.h"
 #include "InputFrame.h"
 #include "Window.h"
@@ -313,6 +314,7 @@ Run::Run( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Window& wi
     m_sceneController.Scene().Physics().BindProfiler( profiler );
     m_sceneController.Scene().Cameras().ApplyMovementSettings( BuildCameraMovementSettings( cfg ) );
     m_operatorUi->SceneNavigation().RefreshBrowserList();
+    m_operatorUi->SceneNavigation().RefreshInteractionRecordings();
     m_sceneController.Scene().ApplyRuntimeConfig( cfg );
     m_renderDefaults.CaptureStartupCinematicBaseline( cfg.cinematicRender );
     m_startup.ApplyStartupConfig( cfg );
@@ -553,7 +555,8 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     const SkullbonezCore::Core::SbResult result = ConfigureInteractionAutomation( m_interactionAutomation,
                                                                                   overrides.interactionScriptPath,
-                                                                                  overrides.interactionReportPath );
+                                                                                  overrides.interactionReportPath,
+                                                                                  overrides.interactionTracePath );
 
     if ( !result.Ok() )
     {

@@ -148,6 +148,9 @@ struct InGameUIFrameData
     const char* const* sceneOptions = nullptr;
     int sceneOptionCount = 0;
     int selectedSceneOption = -1;
+    const char* const* interactionRecordingOptions = nullptr;
+    int interactionRecordingOptionCount = 0;
+    int selectedInteractionRecordingOption = -1;
     int selectedCineModeSceneOption = -1;
     int drawCallsBeforeUI = 0;
     int UIDrawCalls = 0;
@@ -327,8 +330,7 @@ class InGameUI
     InputControl::UIPointerOverride InputOverride() const;
     InGameUIInputResult UpdateInput( const InputControl::UIInputSnapshot& input, int screenWidth, int screenHeight,
                                      double now, bool editorModeEnabled, bool editorPlacementMode, bool editorPlaceStatic,
-                                     bool editorTerrainAlign, int cameraModeIndex, uint32_t cameraModeEnabledMask,
-                                     std::span<const char* const> sceneOptions, int selectedSceneOption );
+                                     bool editorTerrainAlign, int cameraModeIndex, uint32_t cameraModeEnabledMask );
 
     // Builds one complete ordered frame of backend-neutral draw values. The
     // returned view remains valid until the next Draw call on this owner.

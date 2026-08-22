@@ -112,6 +112,7 @@ struct ParsedArgs
     char memoryDumpPath[260] = {};
     char interactionScriptPath[260] = {};
     char interactionReportPath[260] = {};
+    char interactionTracePath[260] = {};
     char interactionRecordPath[260] = {};
     int interactionRecordMaxMinutes = 1; // Integer 1..60; one minute is the default allocation ceiling.
 

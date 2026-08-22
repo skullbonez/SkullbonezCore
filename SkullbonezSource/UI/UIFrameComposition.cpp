@@ -219,6 +219,14 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
         hash = HashTextValue( hash, data.sceneOptions[i] );
     }
 
+    hash = HashInt( hash, data.selectedInteractionRecordingOption );
+    hash = HashInt( hash, data.interactionRecordingOptionCount );
+
+    for ( int i = 0; i < data.interactionRecordingOptionCount && data.interactionRecordingOptions; ++i )
+    {
+        hash = HashTextValue( hash, data.interactionRecordingOptions[i] );
+    }
+
     hash = HashInt( hash, data.drawCallsBeforeUI );
     hash = HashInt( hash, data.UIDrawCalls );
 

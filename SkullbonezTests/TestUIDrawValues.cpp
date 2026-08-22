@@ -68,8 +68,8 @@ int FindDrawTextIndex( const UIDrawList& list, const char* expected )
 
 TEST_CASE( "UI window close hides the panel instead of minimizing it" )
 {
-    using SkullbonezCore::UI::InputControl::UIInputSnapshot;
     using SkullbonezCore::UI::UIWindowInteractionOwner;
+    using SkullbonezCore::UI::InputControl::UIInputSnapshot;
 
     UIWindowInteractionOwner owner;
     owner.SetVisible( true, 0.0 );
@@ -81,7 +81,8 @@ TEST_CASE( "UI window close hides the panel instead of minimizing it" )
     input.leftDown = true;
     input.leftPressed = true;
 
-    owner.UpdateInput( input, 1920, 1080, 1.0, false, false, false, false, 0, 0xffffffffu, {}, 0 );
+    const SkullbonezCore::UI::SceneNavigationModel sceneNavigation;
+    owner.UpdateInput( input, 1920, 1080, 1.0, false, false, false, false, 0, 0xffffffffu, sceneNavigation );
 
     CHECK_FALSE( owner.IsVisible() );
     CHECK( owner.IsMinimized() );
@@ -136,11 +137,37 @@ TEST_CASE( "UI rolling prediction checkbox publishes forecast toggle intent" )
     input.mouseY = static_cast<int>( label.y0 + 6.0f );
     input.leftDown = true;
     input.leftPressed = true;
-    const InGameUIInputResult result = ui->UpdateInput( input, data->screenW, data->screenH, 1.0, false, false, true, false,
-                                                        0, 0xffffffffu, sceneOptions, 0 );
+    ui->SceneNavigation().browser.names.emplace_back( sceneOptions[0] );
+    ui->SceneNavigation().browser.namePtrs.push_back( ui->SceneNavigation().browser.names[0].c_str() );
+    const InGameUIInputResult result =
+        ui->UpdateInput( input, data->screenW, data->screenH, 1.0, false, false, true, false, 0, 0xffffffffu );
 
     CHECK( result.commands.forecast.type == UIForecastCommandType::ToggleContinuous );
     CHECK( result.commands.ui.userInteracted );
+}
+
+TEST_CASE( "Scene recording combo publishes the newest-first catalog index" )
+{
+    using SkullbonezCore::UI::InGameUIInputResult;
+    using SkullbonezCore::UI::SceneTab::HandleClosedRecordingComboClick;
+    using SkullbonezCore::UI::SceneTab::HandleOpenRecordingComboClick;
+    using SkullbonezCore::UI::SceneTab::UISceneTabState;
+
+    UISceneTabState state;
+    constexpr float contentX = 20.0f;
+    constexpr float rowBase = 42.0f;
+    constexpr float contentW = 620.0f;
+    REQUIRE( HandleClosedRecordingComboClick( state, 3, 0, 100, 78, contentX, rowBase, contentW ) );
+    REQUIRE( state.recordingCombo.IsOpen() );
+
+    const SkullbonezCore::UI::UIRect dropdown = state.recordingCombo.DropdownBounds( 3 );
+    InGameUIInputResult result;
+    REQUIRE( HandleOpenRecordingComboClick( state, result, 3, static_cast<int>( dropdown.x + 5.0f ),
+                                            static_cast<int>( dropdown.y + dropdown.h - 5.0f ), contentX, rowBase,
+                                            contentW ) );
+    CHECK( result.commands.scene.requestedInteractionRecordingIndex == 2 );
+    CHECK( result.commands.ui.userInteracted );
+    CHECK_FALSE( state.recordingCombo.IsOpen() );
 }
 
 TEST_CASE( "UI draw values preserve primitive and text order" )
@@ -297,16 +324,16 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
     data->renderTargetPreviews[0] = { "Scene HDR", 1920, 1080, false, false, true };
 
     constexpr InGameUITab tabs[] = {
-        InGameUITab::Profiler, InGameUITab::Scene,   InGameUITab::Editor, InGameUITab::Physics,
-        InGameUITab::Options,  InGameUITab::Render,  InGameUITab::Targets, InGameUITab::Keys,
+        InGameUITab::Profiler, InGameUITab::Scene,     InGameUITab::Editor,  InGameUITab::Physics,
+        InGameUITab::Options,  InGameUITab::Render,    InGameUITab::Targets, InGameUITab::Keys,
         InGameUITab::Sky,      InGameUITab::Cinematic, InGameUITab::Memory,
     };
     constexpr uint64_t expected[] = {
 
-        // Why: the profiler fingerprint was refreshed when the per-marker Work column was added so
-        // worker-thread time stopped being summed into the frame-thread rows.
-        // Only this surface moved; the other ten fingerprints prove the column
-        // did not disturb any other tab's stream.
+    // Why: the profiler fingerprint was refreshed when the per-marker Work column was added so
+    // worker-thread time stopped being summed into the frame-thread rows.
+    // Only this surface moved; the other ten fingerprints prove the column
+    // did not disturb any other tab's stream.
 #if defined( SKULLBONEZ_PORTABLE_CPU )
         // Why: the portable target links the non-instrumented UI library, matching
         // the standalone UI boundary executable rather than the Profile app.
@@ -314,9 +341,9 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
 #else
         16424379413615724563ull,
 #endif
-        // Invariant: scene continuous-forecast controls and stability rows are part of
-        // the committed operator stream.
-        12227598808358033913ull,
+        // Invariant: the Scene stream includes the newest-first replay selector plus
+        // the existing continuous-forecast controls and stability rows.
+        17348968595161242269ull,
         643319089294822447ull,
         9774020997193876338ull,
         3787874871094680490ull,
@@ -400,11 +427,10 @@ TEST_CASE( "Memory capacity table sorts detached owner rows by resident bytes wi
     {
         SkullbonezCore::Core::Allocation::RuntimeAllocationScope renderScope(
             SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Render );
-        SkullbonezCore::UI::MemoryTab::Draw( measuredDraw, measuredState, *data, 20.0f, 0.0f, 720.0f, 260.0f, -450.0f, 0,
-                                            0, 0 );
+        SkullbonezCore::UI::MemoryTab::Draw( measuredDraw, measuredState, *data, 20.0f, 0.0f, 720.0f, 260.0f, -450.0f, 0, 0,
+                                             0 );
     }
-    const uint64_t memoryDrawAllocationViolations =
-        SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount();
+    const uint64_t memoryDrawAllocationViolations = SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount();
     SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode(
         SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Off );
 

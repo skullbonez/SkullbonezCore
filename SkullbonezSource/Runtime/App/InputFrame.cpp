@@ -30,6 +30,7 @@ Related:
 #include "InputFrame.h"
 #include "Run.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
+#include "../Automation/InteractionRecordingBrowser.h"
 #include "../Camera/AttachedCameraController.h"
 #include "ApplicationExitState.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
@@ -513,23 +514,19 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( SkullbonezCore::Core::SbDiagnosticStor
     result.suppressWorldActionThisFrame = facts.suppressWorldActionThisFrame || facts.externalUiCapture.mouse;
     result.frameActive = true;
 
-    const int selectedSceneBrowserIndex = ui.SceneNavigation().browser.CurrentIndexForPath( sceneController.CurrentPath() );
+    ui.SceneNavigation().browser.selectedSceneIndex = ui.SceneNavigation().browser.CurrentIndexForPath( sceneController.CurrentPath() );
     const HWND windowHandle = window.NativeWindowHandle();
     const SkullbonezCore::UI::InputControl::UIInputSnapshot uiInput = BuildUIInputSnapshot( inputRouter.DeviceFrame(),
                                                                                             inputRouter.UiSnapshot().mouse,
                                                                                             ui.InputOverride() );
 
-    InGameUIInputResult
-        UIResult = ui.UpdateInput( uiInput, window.ClientWidth(), window.ClientHeight(),
-                                   timers.simulationTimer.GetTotalTime(), runtimeTools.Editor().editorModeEnabled,
-                                   runtimeTools.Editor().placementModeEnabled, runtimeTools.Editor().placeStaticObject,
-                                   runtimeTools.Editor().autoTerrainAlign, static_cast<int>( camera.mode ),
-                                   facts.cameraModeEnabledMask,
-                                   std::span<const char* const>( ui.SceneNavigation().browser.namePtrs.empty()
-                                                                     ? nullptr
-                                                                     : ui.SceneNavigation().browser.namePtrs.data(),
-                                                                 ui.SceneNavigation().browser.namePtrs.size() ),
-                                   selectedSceneBrowserIndex );
+    InGameUIInputResult UIResult = ui.UpdateInput( uiInput, window.ClientWidth(), window.ClientHeight(),
+                                                   timers.simulationTimer.GetTotalTime(),
+                                                   runtimeTools.Editor().editorModeEnabled,
+                                                   runtimeTools.Editor().placementModeEnabled,
+                                                   runtimeTools.Editor().placeStaticObject,
+                                                   runtimeTools.Editor().autoTerrainAlign, static_cast<int>( camera.mode ),
+                                                   facts.cameraModeEnabledMask );
 
     switch ( UIResult.nativeMouseCapture )
     {
@@ -649,6 +646,22 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
     if ( !result.status.Ok() )
     {
         return result;
+    }
+
+    const int requestedRecording = result.commands.scene.requestedInteractionRecordingIndex;
+
+    if ( requestedRecording >= 0 )
+    {
+        SkullbonezCore::UI::InteractionRecordingBrowserState& recordings = ui.SceneNavigation().recordings;
+        result.status = LaunchInteractionRecording( m_resultDiagnostics, recordings, requestedRecording );
+
+        if ( !result.status.Ok() )
+        {
+            return result;
+        }
+
+        recordings.selectedIndex = requestedRecording;
+        result.commands.scene.requestedInteractionRecordingIndex = -1;
     }
 
     const InGameUICommands& uiCommands = result.commands;
