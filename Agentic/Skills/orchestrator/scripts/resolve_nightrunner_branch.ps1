@@ -3,7 +3,7 @@ File: Agentic/Skills/orchestrator/scripts/resolve_nightrunner_branch.ps1
 Purpose:
   Resolve and optionally select the one canonical Night Runner branch.
 
-Mental model:
+Summary:
   Existing Night Runner branches win, including historical spellings. Otherwise
   one local-date name is computed, reused locally or from origin, or created
   from the current tip. Dry-run and self-test modes never modify Git state.

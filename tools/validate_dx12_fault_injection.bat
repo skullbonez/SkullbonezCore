@@ -4,7 +4,7 @@
 @rem   Proves that the Debug DX12 backend fails closed before its first queue
 @rem   submission and propagates that failure to a nonzero process exit.
 @rem
-@rem Mental model:
+@rem Summary:
 @rem   The engine owns a Debug-only fault point immediately before
 @rem   ExecuteCommandLists. This gate arms it for one bounded scene launch and
 @rem   verifies process, diagnostic, submission-count, and InfoQueue evidence.

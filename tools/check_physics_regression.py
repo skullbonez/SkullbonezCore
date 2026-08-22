@@ -3,10 +3,10 @@
 # Purpose:
 #   Documents and runs the check_physics_regression.py developer/validation helper script.
 #
-# Mental model:
-#   Tools are command-line guardrails around builds, validation, screenshots,
-#   diagnostics, and artifact handling. They make the safe path repeatable and
-#   keep output bounded for humans and agents.
+# Summary:
+#   The checker canonicalizes repeated complete runs, rejects inconsistent
+#   repetitions, and compares each generated CSV byte-for-byte with its golden.
+#   It reports only the first bounded differences and never updates behavior.
 #
 # Glossary:
 #   CSV (Comma-Separated Values): Text table format used for byte-exact physics
@@ -17,9 +17,12 @@
 # Invariants:
 #   - Tool output should be bounded and readable because agents and humans use
 #   it for decisions.
+#   - This comparator is read-only; only the owner-interactive baseline guard
+#   may replace the committed core golden.
 #
 # Related:
 #   - AGENTS.md
+#   - tools/check_physics_baseline_guard.py
 #
 #
 """
@@ -78,15 +81,18 @@ def canonical_complete_run(data, artifact_name):
 
 
 def main():
-    update = False
     deep = False
     for arg in sys.argv[1:]:
-        if arg == "--update":
-            update = True
-        elif arg == "--deep":
+        if arg == "--deep":
             deep = True
         else:
-            print("usage: check_physics_regression.py [--update] [--deep]")
+            print("usage: check_physics_regression.py [--deep]")
+            if arg == "--update":
+                print(
+                    "baseline updates require repository-owner approval: "
+                    "python tools/check_physics_baseline_guard.py --approve-output "
+                    "Debug/physics_regression_varied.csv"
+                )
             return 2
 
     tests = DEEP_TESTS if deep else CORE_TESTS
@@ -96,11 +102,8 @@ def main():
     else:
         print("  Checking core physics regression baseline...")
 
-    if update and not deep:
-        print("  NOTE: updating only the core physics baseline. Use --deep to update the opt-in deep set.")
-
-    if len(sys.argv) > 3:
-        print("usage: check_physics_regression.py [--update] [--deep]")
+    if len(sys.argv) > 2:
+        print("usage: check_physics_regression.py [--deep]")
         return 2
 
     all_pass = True
@@ -111,15 +114,6 @@ def main():
         if not os.path.exists(output_path):
             print(f"  FAIL: {os.path.basename(output_path)} not produced")
             all_pass = False
-            continue
-
-        if update:
-            with open(output_path, "rb") as f:
-                current, run_count = canonical_complete_run(f.read(), baseline_name)
-            with open(baseline_path, "wb") as f:
-                f.write(current)
-            line_count = current.count(b"\n")
-            print(f"  BASELINE UPDATED: {baseline_name} ({line_count} lines from {run_count} byte-identical run(s))")
             continue
 
         if not os.path.exists(baseline_path):

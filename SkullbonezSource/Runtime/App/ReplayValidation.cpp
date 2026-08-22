@@ -16,7 +16,7 @@ Glossary:
     store after each restored physics step.
 
 Invariants:
-  - Restore failures report Lane R results or bounded reason strings; they do
+  - Restore failures report recoverable results or bounded reason strings; they do
     not throw. A rollback failure is a fatal replay invariant.
   - Replay restore uses PhysicsBodyStore and ColliderStore rows as authority.
   - Target restore must keep solver hashes byte-exact against saved v2 hashes.
@@ -1466,7 +1466,7 @@ bool RestoreReplayLiveBackupOrFatal( ReplayRestoreTransaction& transaction, Scen
 
     // Hazard: recoverable artifact errors must not return control with a
     // partially rebuilt scene. Failure to reapply the retained live sample is a
-    // Lane F replay invariant, not a usable runtime state.
+    // fatal invariant replay invariant, not a usable runtime state.
     if ( !fallbackRestored )
     {
         SB_FATAL( "Runtime/ReplayRestore", "V2 restore rollback failed after live state mutation: %s",

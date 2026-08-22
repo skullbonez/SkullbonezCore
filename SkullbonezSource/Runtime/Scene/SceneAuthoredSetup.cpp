@@ -233,7 +233,7 @@ SkullbonezCore::Core::SbResult AppendAuthoredSimpleRagdoll( SkullbonezCore::Core
     {
         if ( !Ragdoll::TryBuildSimplePartName( prefix, i, partNames[i] ) )
         {
-            // Lane R: preflight the longest generated names before the first
+            // Recoverable error: preflight the longest generated names before the first
             // append so one bad prefix cannot publish a partial ragdoll.
             return resultDiagnostics.Failure( "Runtime/SceneAuthoredSetup",
                                               "Ragdoll part name exceeds the 63-character display-name limit." );
@@ -329,7 +329,7 @@ SkullbonezCore::Core::SbResult ApplySceneBehaviorGroup( SkullbonezCore::Core::Sb
 
     if ( group.kind != SceneObjectGroupKind::ReleasableTree || !group.rootObjectId.IsValid() || group.partIndex < 0 )
     {
-        // Lane R: authored scene metadata can become invalid when an include or
+        // Recoverable error: authored scene metadata can become invalid when an include or
         // editor save names a group root that cannot be resolved for this hull section.
         return resultDiagnostics.Failure( "Runtime/SceneAuthoredSetup",
                                           "Invalid authored scene object group metadata: kind=%u root_id=%u part=%d.",

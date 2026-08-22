@@ -8,7 +8,8 @@ Summary:
   Each test supplies immutable device frames and a tiny static binding table.
   BeginFrame advances all physical edge memory; RoutePhase then proves which
   semantic events are eligible under current context facts. Pointer arbitration
-  tests drive the production phase cursor without constructing domain owners.
+  tests drive the production phase cursor without constructing domain owners,
+  and device-frame tests preserve the distinction between no pointer and (0,0).
 
 Glossary:
   UI (user interface): Interactive engine controls evaluated between routing
@@ -18,12 +19,7 @@ Glossary:
   Context activation: Mode/UI fact mask that permits a binding to emit.
   Ghost press: False press caused by activating a context while its key was
     already held.
-  Fluid-surface command: World-unit adjustment value emitted instead of raw
-    Page Up/Page Down flags.
-  Focus resynchronization: Refocus sample that remembers held input without
-    treating it as newly pressed.
-  Lifecycle generation: Scene-load identity that lets cursor intent publish
-    once after activation without polling hardware in tests.
+
   Pointer arbitration: Ordered production cursor that gives the first consuming
     editor, pickup, camera, Replay, or launcher stage exclusive ownership.
 
@@ -39,6 +35,7 @@ Invariants:
     suppresses owner calls after the first accepted stage.
 
 Related:
+  - Agentic/Reference/engine-glossary.md
   - SkullbonezSource/Runtime/Input/InputRouter.h
   - SkullbonezTests/TestRuntimeInputBindings.cpp
 */
@@ -75,14 +72,16 @@ RuntimeInputContextMask Context( RuntimeInputBindingContext context )
 InputKeySnapshot SnapshotFromDownKeys( std::initializer_list<int> downKeys )
 {
     std::array<uint64_t, InputKeySnapshot::WORD_COUNT> words = {};
+
     for ( const int virtualKey : downKeys )
     {
         if ( virtualKey >= 0 && virtualKey < InputKeySnapshot::VIRTUAL_KEY_COUNT )
         {
-            words[static_cast<std::size_t>( virtualKey ) / 64u] |=
-                uint64_t { 1 } << ( static_cast<unsigned int>( virtualKey ) % 64u );
+            words[static_cast<std::size_t>( virtualKey ) / 64u] |= uint64_t { 1 }
+                                                                   << ( static_cast<unsigned int>( virtualKey ) % 64u );
         }
     }
+
     return InputKeySnapshot::FromWords( words );
 }
 
@@ -105,6 +104,19 @@ DeviceInputFrame UnfocusedFrame()
     return frame;
 }
 } // namespace
+
+
+TEST_CASE( "Device input frame does not fabricate a corner pointer when the sample is absent" )
+{
+    DeviceInputFrame frame;
+    frame.SetClientPosition( true, 731, 419 );
+    REQUIRE( frame.hasClientPosition );
+
+    frame.SetClientPosition( false, 731, 419 );
+    CHECK_FALSE( frame.hasClientPosition );
+    CHECK_EQ( frame.clientX, 0 );
+    CHECK_EQ( frame.clientY, 0 );
+}
 
 
 TEST_CASE( "Input router: world pointer arbitration exhaustively preserves production precedence" )
@@ -203,8 +215,8 @@ TEST_CASE( "ImGui input policy: the selected surface routes each event class to 
     };
 
     const MatrixRow rows[] = {
-        { "legacy tool mouse", { false, true, true, true, false, false }, ImGuiEditorMessageClass::Mouse, false },
-        { "legacy tool keyboard", { false, true, true, true, false, false }, ImGuiEditorMessageClass::Keyboard, false },
+        { "GameUI tool mouse", { false, true, true, true, false, false }, ImGuiEditorMessageClass::Mouse, false },
+        { "GameUI tool keyboard", { false, true, true, true, false, false }, ImGuiEditorMessageClass::Keyboard, false },
         { "imgui tool drag", { true, true, false, false, false, false }, ImGuiEditorMessageClass::Mouse, true },
         { "imgui tool drag repeat", { true, true, false, false, false, false }, ImGuiEditorMessageClass::Mouse, true },
         { "imgui tool typing", { true, false, true, true, false, false }, ImGuiEditorMessageClass::Keyboard, true },
@@ -256,7 +268,7 @@ TEST_CASE( "Input router: captured tool input requires release and repress befor
     CHECK_FALSE( router.DeviceFrame().keys.IsDown( 'A' ) );
     CHECK_FALSE( router.DeviceFrame().leftDown );
 
-    // Tool focus returns while the physical inputs remain held. The router
+    // Invariant: tool focus returns while the physical inputs remain held. The router
     // resynchronizes levels instead of manufacturing a press.
     router.BeginFrame( FocusedFrame( { 'A' }, true ), view, output );
     router.RoutePhase( view, InputActionPhase::PreUi, active, output );
@@ -424,7 +436,6 @@ TEST_CASE( "Input router: quick-repeat timing is action-owned" )
     CHECK( router.IsQuickRepeat( RuntimeInputAction::DismissOrExitUI, 10.31, 0.32 ) );
     CHECK_FALSE( router.IsQuickRepeat( RuntimeInputAction::DismissOrExitUI, 10.33, 0.32 ) );
     CHECK_FALSE( router.IsQuickRepeat( RuntimeInputAction::ToggleEditor, 10.1, 0.32 ) );
-
 }
 
 
@@ -498,7 +509,7 @@ TEST_CASE( "Input router: cold start initializes cursor and focus loss restores 
     InputActions output;
     PointerPresentationState presentation;
 
-    // Regression: the Win32 cursor latch starts outside InputRouter ownership.
+    // Hazard: the Win32 cursor latch starts outside InputRouter ownership.
     // The first consume must publish visible/no-capture even though those are
     // also the router's member defaults.
     REQUIRE( router.ConsumePointerPresentationChange( presentation ) );
@@ -506,7 +517,7 @@ TEST_CASE( "Input router: cold start initializes cursor and focus loss restores 
     CHECK( presentation.cursorVisible );
     CHECK_FALSE( router.ConsumePointerPresentationChange( presentation ) );
 
-    // A platform UI may have changed HWND capture/cursor state without changing
+    // Why: a platform UI may have changed HWND capture/cursor state without changing
     // the engine's desired values. Deferral must republish those same values.
     router.DeferPointerPresentationCommit();
     REQUIRE( router.ConsumePointerPresentationChange( presentation ) );

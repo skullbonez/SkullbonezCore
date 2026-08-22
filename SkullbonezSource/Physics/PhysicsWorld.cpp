@@ -21,7 +21,7 @@ Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
     are the validation contract.
   - Fixed-capacity physics scratch buffers must not grow during gameplay; an
-    exhausted reserve is a Lane F failure because continuing would either
+    exhausted reserve is a fatal invariant failure because continuing would either
     allocate on a hot path or silently drop deterministic side effects.
   - Mutual-gravity chunk scheduling may vary, but pair slots and the final
     triangular replay order never depend on worker count.
@@ -204,7 +204,7 @@ CoreAllocation::RuntimeReserveOwnerHandle ReplaySolverSnapshotReserveOwner()
 
 void ReportReplaySolverSnapshotReserveFailure( const char* label, std::size_t requestedCapacity )
 {
-    // Lane F: a partial solver snapshot cannot support deterministic replay
+    // Fatal invariant: a partial solver snapshot cannot support deterministic replay
     // restore. Report the shared owner and cap before terminating.
     SB_FATAL( "Physics/SolverSnapshot",
               "Replay solver snapshot reserve denied. owner=%s target=%s requested_capacity=%llu hard_bytes=%d",
@@ -1336,7 +1336,7 @@ PhysicsConstraintHandle PhysicsWorld::CreatePointJoint( const PhysicsPointJointC
     constraint.groupId = desc.groupId;
     constraint.flags = desc.flags;
 
-    // Lane F: exhausting the monotonic handle space would let a stale command
+    // Fatal invariant: exhausting the monotonic handle space would let a stale command
     // retarget a new joint. A scene cannot approach this limit legitimately.
     if ( m_nextPointJointHandleIndex == ( std::numeric_limits<uint32_t>::max )() )
     {

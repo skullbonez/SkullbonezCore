@@ -169,7 +169,7 @@ void* MapTracyBackingMemory( std::size_t size, std::size_t* offset )
         CoreAllocation::DevelopmentToolAllocationStats stats;
         CoreAllocation::CopyDevelopmentToolAllocationStats( CoreAllocation::DevelopmentToolAllocationOwner::Tracy, stats );
 
-        // Lane F: continuing would either exceed the owner-approved cap or
+        // Fatal invariant: continuing would either exceed the owner-approved cap or
         // tempt the vendor allocator to fall back outside engine accounting.
         SB_FATAL( "DevelopmentTools/Tracy",
                   "rpmalloc backing cap exhausted: request=%llu active=%llu high_water=%llu cap=%d",

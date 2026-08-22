@@ -1,24 +1,21 @@
 /*
 File: SkullbonezData/shaders/launcher_laser.hlsl
 Purpose:
-  Draws launcher-mode laser ribbon triangles.
+  Render player aim laser and predictive aim guides with soft falloff.
 
 Summary:
-  CPU code builds short-lived world-space ribbon quads. The shader only
-  transforms them and forwards per-vertex color/alpha.
-
-Glossary:
-  Ribbon: Camera-facing strip geometry emitted by CPU launcher diagnostics.
-  Vertex color: Per-vertex RGBA payload supplied in TEXCOORD0.
+  Expands ribbon vertices along camera-facing vectors to draw the glowing aim
+  raycast trajectory with animated pulse intensity and core-to-edge glow falloff.
 
 Invariants:
-  - Input layout is float3 position followed by float4 color.
-  - The shader does not compute laser geometry; CPU-side ribbon construction
-    owns width, length, and alpha policy.
+  - CPU-side root signatures, input layouts, and descriptor bindings must match this shader exactly.
+  - Additive blending combines core laser and outer glow in a single pass.
 
 Related:
-  - SkullbonezSource/SkullbonezLauncherLaser.cpp
+  - Agentic/Reference/engine-glossary.md
+  - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp
 */
+
 #pragma pack_matrix(column_major)
 
 cbuffer Uniforms : register(b0)

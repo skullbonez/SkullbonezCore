@@ -16,8 +16,7 @@ experimental campaign based on the techniques actually used by Bullet and
 Box2D. It is not active MASTER-PLAN work and grants no production-edit,
 iteration-policy, or baseline-refresh authority while it remains under `WNF/`.
 
-Source investigation:
-`../../Reports/2026-08-02/contact-energy-stack-stability-reference-investigation.md`.
+Source investigation: Contact Energy and Warm-Start Integrity investigation in git history (2026-08-02).
 
 ## Problem And Evidence
 

@@ -5,13 +5,20 @@ Purpose:
 
 Summary:
   Replay layout is a replay subsystem concern. Input hit boxes and drawn
-  controls should stay mechanically identical by using the same helpers.
+  controls stay mechanically identical by using the same helpers, including
+  generic attached-left clamping that preserves the cause hierarchy's sole
+  retained anchor. The same pure bounded projection maps filtered visible rows
+  back to their original evidence indices for both input and drawing.
 
 Invariants:
   - Input and rendering must call these helpers for the same rectangles.
   - Scrubber controls are published front-to-back so disabled rows block
     click-through and broad panel rows cannot steal specific actions.
   - Clamp movable overlay windows before drawing or hit testing them.
+  - Attached surfaces contribute only a desired/minimum width; they never add
+    retained placement coordinates to Replay layout.
+  - Filtering preserves depth-first order and source indices; ancestor rows are
+    retained for context instead of copied into a replacement tree.
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h
@@ -22,6 +29,7 @@ Related:
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
 namespace SkullbonezCore::Runtime::ReplayOverlay
 {
@@ -29,13 +37,114 @@ namespace
 {
 // Why: the top-right scene/camera badges own the first screen rows, so the
 // draggable cause window starts below them instead of covering status text.
-constexpr int REPLAY_CAUSE_WINDOW_SAFE_TOP = 124;
+constexpr int REPLAY_CAUSE_WINDOW_SAFE_TOP = 84;
 
 int ReplayCauseWindowMinY( int screenH )
 {
     return (std::min)( REPLAY_CAUSE_WINDOW_SAFE_TOP, (std::max)( 8, screenH - REPLAY_CAUSE_WINDOW_MIN_H - 8 ) );
 }
+
+char ReplayCauseAsciiLower( char value ) noexcept
+{
+    return value >= 'A' && value <= 'Z' ? static_cast<char>( value + ( 'a' - 'A' ) ) : value;
+}
+
+bool ReplayCauseContainsAscii( const char* text, const char* query ) noexcept
+{
+    if ( !query || query[0] == '\0' )
+    {
+        return true;
+    }
+
+    if ( !text )
+    {
+        return false;
+    }
+
+    const std::size_t queryLength = strlen( query );
+
+    for ( const char* start = text; *start != '\0'; ++start )
+    {
+        std::size_t offset = 0;
+
+        while ( offset < queryLength && start[offset] != '\0' &&
+                ReplayCauseAsciiLower( start[offset] ) == ReplayCauseAsciiLower( query[offset] ) )
+        {
+            ++offset;
+        }
+
+        if ( offset == queryLength )
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool ReplayCauseRowMatchesFilter( const RunReplayCauseTreeRow& row, const RunReplayCauseTreeState& state ) noexcept
+{
+    const bool familyMatches = state.filter == RunReplayCauseTreeFilter::All ||
+                               ( state.filter == RunReplayCauseTreeFilter::Prediction && row.prediction ) ||
+                               ( state.filter == RunReplayCauseTreeFilter::Contacts &&
+                                 ( row.kind == RunReplayCauseTreeRowKind::Manifold ||
+                                   row.kind == RunReplayCauseTreeRowKind::SolverRow ||
+                                   row.kind == RunReplayCauseTreeRowKind::PredictionContact ) );
+    return familyMatches && ( ReplayCauseContainsAscii( row.name, state.filterText ) ||
+                              ReplayCauseContainsAscii( row.detail, state.filterText ) );
+}
 } // namespace
+
+int ReplayCauseWindowProjection::SourceRow( int visibleRow ) const noexcept
+{
+    if ( visibleRow < 0 || visibleRow >= count )
+    {
+        return -1;
+    }
+
+    int visible = 0;
+
+    for ( int sourceRow = 0; sourceRow < sourceCount; ++sourceRow )
+    {
+        const std::size_t word = static_cast<std::size_t>( sourceRow ) / 64u;
+        const uint64_t bit = uint64_t { 1 } << ( static_cast<unsigned int>( sourceRow ) & 63u );
+
+        if ( ( included[word] & bit ) != 0u && visible++ == visibleRow )
+        {
+            return sourceRow;
+        }
+    }
+
+    return -1;
+}
+
+int ReplayCauseWindowProjection::VisibleRow( int sourceRow ) const noexcept
+{
+    if ( sourceRow < 0 || sourceRow >= sourceCount )
+    {
+        return -1;
+    }
+
+    int visible = 0;
+
+    for ( int candidate = 0; candidate <= sourceRow; ++candidate )
+    {
+        const std::size_t word = static_cast<std::size_t>( candidate ) / 64u;
+        const uint64_t bit = uint64_t { 1 } << ( static_cast<unsigned int>( candidate ) & 63u );
+
+        if ( ( included[word] & bit ) != 0u )
+        {
+            if ( candidate == sourceRow )
+            {
+                return visible;
+            }
+
+            ++visible;
+        }
+    }
+
+    return -1;
+}
 
 // Concept: replay overlay geometry is the contract between input and drawing.
 //
@@ -190,7 +299,7 @@ void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, Replay
 
         if ( !outSurface.TryAdd( control ) )
         {
-            // Lane F: a duplicate id or undersized compile-time table makes UI
+            // Fatal invariant: a duplicate id or undersized compile-time table makes UI
             // z-order and dispatch ambiguous, so the frame cannot safely continue.
             SB_FATAL( "ReplayScrubberSurface", "Cannot publish replay scrubber control id=%u.", control.id.value );
         }
@@ -330,9 +439,18 @@ void BuildReplayCauseWindowSurface( const RunReplayCauseTreeState& state, Replay
         }
     };
 
-    // Resize and title sit in front of content and the broad panel background.
+    // Resize, title, and filter controls sit in front of content and the broad
+    // panel background. Specific controls publish before their containing rows.
     add( ReplayCauseWindowControl::Resize, RuntimeUiControlKind::ToolHandle, ReplayCauseWindowResizeRect( state ) );
     add( ReplayCauseWindowControl::Title, RuntimeUiControlKind::Track, ReplayCauseWindowTitleRect( state ) );
+    add( ReplayCauseWindowControl::FilterField, RuntimeUiControlKind::Button, ReplayCauseWindowFilterFieldRect( state ) );
+    add( ReplayCauseWindowControl::FilterFunnel, RuntimeUiControlKind::Button, ReplayCauseWindowFilterFunnelRect( state ) );
+    add( ReplayCauseWindowControl::FilterAll, RuntimeUiControlKind::Button,
+         ReplayCauseWindowFilterChipRect( state, RunReplayCauseTreeFilter::All ) );
+    add( ReplayCauseWindowControl::FilterPrediction, RuntimeUiControlKind::Button,
+         ReplayCauseWindowFilterChipRect( state, RunReplayCauseTreeFilter::Prediction ) );
+    add( ReplayCauseWindowControl::FilterContacts, RuntimeUiControlKind::Button,
+         ReplayCauseWindowFilterChipRect( state, RunReplayCauseTreeFilter::Contacts ) );
     add( ReplayCauseWindowControl::Content, RuntimeUiControlKind::Panel, ReplayCauseWindowContentRect( state ) );
     add( ReplayCauseWindowControl::Panel, RuntimeUiControlKind::Panel, ReplayCauseWindowRect( state ) );
 }
@@ -350,12 +468,38 @@ UI::UIRect ReplayCauseWindowTitleRect( const RunReplayCauseTreeState& state )
     return { panel.x, panel.y, panel.w, REPLAY_CAUSE_WINDOW_TITLE_HEIGHT };
 }
 
-UI::UIRect ReplayCauseWindowContentRect( const RunReplayCauseTreeState& state )
+UI::UIRect ReplayCauseWindowFilterFieldRect( const RunReplayCauseTreeState& state )
 {
     const UI::UIRect panel = ReplayCauseWindowRect( state );
     return { panel.x + REPLAY_CAUSE_WINDOW_PADDING, panel.y + REPLAY_CAUSE_WINDOW_TITLE_HEIGHT + 7.0f,
+             panel.w - REPLAY_CAUSE_WINDOW_PADDING * 2.0f - 32.0f, 24.0f };
+}
+
+UI::UIRect ReplayCauseWindowFilterFunnelRect( const RunReplayCauseTreeState& state )
+{
+    const UI::UIRect field = ReplayCauseWindowFilterFieldRect( state );
+    return { field.x + field.w + 6.0f, field.y, 26.0f, field.h };
+}
+
+UI::UIRect ReplayCauseWindowFilterChipRect( const RunReplayCauseTreeState& state, RunReplayCauseTreeFilter filter )
+{
+    const UI::UIRect panel = ReplayCauseWindowRect( state );
+    const float available = panel.w - REPLAY_CAUSE_WINDOW_PADDING * 2.0f;
+    const float chipWidth = available / 3.0f;
+    const int index = filter == RunReplayCauseTreeFilter::All ? 0
+                                                              : ( filter == RunReplayCauseTreeFilter::Prediction ? 1 : 2 );
+    return { panel.x + REPLAY_CAUSE_WINDOW_PADDING + chipWidth * static_cast<float>( index ),
+             panel.y + REPLAY_CAUSE_WINDOW_TITLE_HEIGHT + 38.0f, chipWidth, 24.0f };
+}
+
+UI::UIRect ReplayCauseWindowContentRect( const RunReplayCauseTreeState& state )
+{
+    const UI::UIRect panel = ReplayCauseWindowRect( state );
+    return { panel.x + REPLAY_CAUSE_WINDOW_PADDING,
+             panel.y + REPLAY_CAUSE_WINDOW_TITLE_HEIGHT + REPLAY_CAUSE_WINDOW_FILTER_HEIGHT,
              panel.w - REPLAY_CAUSE_WINDOW_PADDING * 2.0f,
-             panel.h - REPLAY_CAUSE_WINDOW_TITLE_HEIGHT - REPLAY_CAUSE_WINDOW_PADDING - 7.0f };
+             panel.h - REPLAY_CAUSE_WINDOW_TITLE_HEIGHT - REPLAY_CAUSE_WINDOW_FILTER_HEIGHT -
+                 REPLAY_CAUSE_WINDOW_FOOTER_HEIGHT - REPLAY_CAUSE_WINDOW_PADDING };
 }
 
 UI::UIRect ReplayCauseWindowResizeRect( const RunReplayCauseTreeState& state )
@@ -375,7 +519,9 @@ bool ReplayCauseWindowContainsPoint( const RunReplayCauseTreeState& state, int x
 
 float ReplayCauseWindowContentHeight( const RunReplayCauseTreeState& state )
 {
-    return static_cast<float>( state.rows.size() ) * REPLAY_CAUSE_WINDOW_ROW_HEIGHT;
+    ReplayCauseWindowProjection projection;
+    BuildReplayCauseWindowProjection( state, projection );
+    return static_cast<float>( projection.count ) * REPLAY_CAUSE_WINDOW_ROW_HEIGHT;
 }
 
 float ReplayCauseWindowMaxScroll( const RunReplayCauseTreeState& state )
@@ -384,36 +530,172 @@ float ReplayCauseWindowMaxScroll( const RunReplayCauseTreeState& state )
     return (std::max)( 0.0f, ReplayCauseWindowContentHeight( state ) - content.h );
 }
 
-void ClampReplayCauseWindow( RunReplayCauseTreeState& state, int screenW, int screenH )
+void BuildReplayCauseWindowProjection( const RunReplayCauseTreeState& state,
+                                       ReplayCauseWindowProjection& outProjection ) noexcept
+{
+    outProjection = {};
+    const int sourceCount = (std::min)( static_cast<int>( state.rows.size() ),
+                                        static_cast<int>( REPLAY_CAUSE_TREE_ROW_CAPACITY ) );
+    outProjection.sourceCount = sourceCount;
+    const auto includeSourceRow = [&]( int sourceRow )
+    {
+        const std::size_t word = static_cast<std::size_t>( sourceRow ) / 64u;
+        const uint64_t bit = uint64_t { 1 } << ( static_cast<unsigned int>( sourceRow ) & 63u );
+
+        if ( ( outProjection.included[word] & bit ) == 0u )
+        {
+            outProjection.included[word] |= bit;
+            ++outProjection.count;
+        }
+    };
+
+    for ( int sourceRow = 0; sourceRow < sourceCount; ++sourceRow )
+    {
+        const RunReplayCauseTreeRow& row = state.rows[static_cast<std::size_t>( sourceRow )];
+
+        if ( !ReplayCauseRowMatchesFilter( row, state ) )
+        {
+            continue;
+        }
+
+        includeSourceRow( sourceRow );
+        int ancestorDepth = row.depth - 1;
+
+        // Invariant: the source rows are depth-first. Walking backward to the
+        // nearest row at each lower depth retains ancestry without reparenting
+        // or copying evidence identity into a second tree.
+        for ( int ancestor = sourceRow - 1; ancestor >= 0 && ancestorDepth >= 0; --ancestor )
+        {
+            if ( state.rows[static_cast<std::size_t>( ancestor )].depth == ancestorDepth )
+            {
+                includeSourceRow( ancestor );
+                --ancestorDepth;
+            }
+        }
+    }
+}
+
+bool AppendReplayCauseFilterCharacter( RunReplayCauseTreeState& state, char value ) noexcept
+{
+    const unsigned char code = static_cast<unsigned char>( value );
+
+    // The engine's bitmap font and virtual-key path are ASCII-only. Rejecting
+    // unsupported bytes keeps truncation deterministic and prevents partial
+    // multibyte sequences from becoming misleading evidence queries.
+    if ( code < 32u || code > 126u )
+    {
+        return false;
+    }
+
+    const std::size_t length = strlen( state.filterText );
+
+    if ( length + 1u >= sizeof( state.filterText ) )
+    {
+        return false;
+    }
+
+    state.filterText[length] = value;
+    state.filterText[length + 1u] = '\0';
+    return true;
+}
+
+bool BackspaceReplayCauseFilter( RunReplayCauseTreeState& state ) noexcept
+{
+    const std::size_t length = strlen( state.filterText );
+
+    if ( length == 0u )
+    {
+        return false;
+    }
+
+    state.filterText[length - 1u] = '\0';
+    return true;
+}
+
+bool ClearReplayCauseFilterText( RunReplayCauseTreeState& state ) noexcept
+{
+    if ( state.filterText[0] == '\0' )
+    {
+        return false;
+    }
+
+    state.filterText[0] = '\0';
+    return true;
+}
+
+float ReplayCauseWindowAttachedWidth( const RunReplayCauseTreeState& state, int screenW, float desiredWidth,
+                                      float minimumWidth )
+{
+    const float desired = (std::max)( 0.0f, desiredWidth );
+    const float minimum = std::clamp( minimumWidth, 0.0f, desired );
+    const float available = (std::max)( 0.0f, static_cast<float>( screenW - 16 - state.width ) );
+
+    // Why: the drawer shrinks before the hierarchy, but a viewport narrower
+    // than both minima still gets a truthful bounded remainder rather than an
+    // off-screen target rectangle.
+    return std::clamp( available, (std::min)( minimum, available ), desired );
+}
+
+void ClampReplayCauseWindow( RunReplayCauseTreeState& state, int screenW, int screenH, float desiredAttachedLeftWidth,
+                             float minimumAttachedLeftWidth )
 {
     // Invariant: the resize handle and title bar must remain reachable after a
     // resolution change, or the inspection window can become permanently
     // off-screen for the session.
+    const int availableWidth = (std::max)( 1, screenW - 16 );
     state.width = (std::max)( REPLAY_CAUSE_WINDOW_MIN_W,
-                              (std::min)( state.width, (std::max)( REPLAY_CAUSE_WINDOW_MIN_W, screenW - 16 ) ) );
+                              (std::min)( state.width, (std::max)( REPLAY_CAUSE_WINDOW_MIN_W, availableWidth ) ) );
+
+    const int minimumAttachment = static_cast<int>( std::ceil( (std::max)( 0.0f, minimumAttachedLeftWidth ) ) );
+    const int hierarchyWidthWithMinimumAttachment = availableWidth - minimumAttachment;
+
+    if ( hierarchyWidthWithMinimumAttachment >= REPLAY_CAUSE_WINDOW_MIN_W )
+    {
+        state.width = (std::min)( state.width, hierarchyWidthWithMinimumAttachment );
+    }
 
     state.height = (std::max)( REPLAY_CAUSE_WINDOW_MIN_H,
                                (std::min)( state.height, (std::max)( REPLAY_CAUSE_WINDOW_MIN_H, screenH - 16 ) ) );
 
+    const float attachedWidth = ReplayCauseWindowAttachedWidth( state, screenW, desiredAttachedLeftWidth,
+                                                                minimumAttachedLeftWidth );
     const int minY = ReplayCauseWindowMinY( screenH );
-    state.x = std::clamp( state.x, 8, (std::max)( 8, screenW - state.width - 8 ) );
+    const int minimumX = 8 + static_cast<int>( std::ceil( attachedWidth ) );
+    state.x = std::clamp( state.x, minimumX, (std::max)( minimumX, screenW - state.width - 8 ) );
     state.y = std::clamp( state.y, minY, (std::max)( minY, screenH - state.height - 8 ) );
     state.scrollY = std::clamp( state.scrollY, 0.0f, ReplayCauseWindowMaxScroll( state ) );
 }
 
-void EnsureReplayCauseWindowPlacement( RunReplayCauseTreeState& state, int screenW, int screenH )
+void EnsureReplayCauseWindowPlacement( RunReplayCauseTreeState& state, int screenW, int screenH,
+                                       float desiredAttachedLeftWidth, float minimumAttachedLeftWidth )
 {
     if ( !state.hasWindowPlacement )
     {
         const int minY = ReplayCauseWindowMinY( screenH );
         state.width = (std::min)( 380, (std::max)( REPLAY_CAUSE_WINDOW_MIN_W, screenW - 48 ) );
-        state.height = (std::min)( 520, (std::max)( REPLAY_CAUSE_WINDOW_MIN_H, screenH - minY - 120 ) );
+        state.height = (std::min)( 520, (std::max)( REPLAY_CAUSE_WINDOW_MIN_H, screenH - minY - 8 ) );
         state.x = (std::max)( 12, screenW - state.width - 24 );
         state.y = minY;
         state.hasWindowPlacement = true;
     }
 
-    ClampReplayCauseWindow( state, screenW, screenH );
+    ClampReplayCauseWindow( state, screenW, screenH, desiredAttachedLeftWidth, minimumAttachedLeftWidth );
+}
+
+void MoveReplayCauseWindow( RunReplayCauseTreeState& state, int mouseX, int mouseY, int screenW, int screenH,
+                            float desiredAttachedLeftWidth, float minimumAttachedLeftWidth )
+{
+    state.x = mouseX - state.dragOffsetX;
+    state.y = mouseY - state.dragOffsetY;
+    ClampReplayCauseWindow( state, screenW, screenH, desiredAttachedLeftWidth, minimumAttachedLeftWidth );
+}
+
+void ResizeReplayCauseWindow( RunReplayCauseTreeState& state, int mouseX, int mouseY, int screenW, int screenH,
+                              float desiredAttachedLeftWidth, float minimumAttachedLeftWidth )
+{
+    state.width = state.resizeStartWidth + ( mouseX - state.resizeStartMouseX );
+    state.height = state.resizeStartHeight + ( mouseY - state.resizeStartMouseY );
+    ClampReplayCauseWindow( state, screenW, screenH, desiredAttachedLeftWidth, minimumAttachedLeftWidth );
 }
 
 float ReplayScrubberPositionFromMouse( int mouseX, int screenW, int screenH, RunReplayTrack trackName )

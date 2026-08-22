@@ -23,7 +23,7 @@ Invariants:
   - Pass order is owned by RuntimeRenderer::RenderPreparedFrame.
   - Debug contact packets are synchronous Rendering values, not Replay or Planning state.
   - RuntimeRenderTargetPreviewSnapshot owns its fixed-catalog append boundary;
-    every producer reaches Lane F before an overflow can index storage.
+    every producer reaches fatal invariant before an overflow can index storage.
   - Sky and Profile UI passes close their lifecycle leases before backend
     resource teardown and reject access outside the active epoch.
 
@@ -619,7 +619,6 @@ class ShadowPass
     ShadowPassOutput Render( const ShadowPassInputs& inputs );
 
   private:
-    void LogResourceLifecycleStep( const char* phase, const char* step ) const;
     Rendering::ShadowFrameData BuildTerrainFrameData( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                                       const Math::Vector::Vector3& lightDirectionWorld ) const;
     Rendering::ShadowFrameData BuildObjectFrameData( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
@@ -672,8 +671,6 @@ class ReflectionPass
     ReflectionPassOutput Render( const ReflectionPassInputs& inputs );
 
   private:
-    void LogResourceLifecycleStep( const char* phase, const char* step ) const;
-
     ReflectionPassResources& m_resources;
     Physics::CollisionVisualizer& m_collisionVisualizer;
     SkyPass& m_skyPass;
@@ -936,7 +933,7 @@ class UiTextPass
                                float sceneEnergyForDisplay, Rendering::Dx12TextureOwner& renderTextures,
                                Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12Diagnostics& renderDiagnostics );
     void RenderReplay( const ReplayOverlay::ReplayOverlayStateView& overlay, Core::Profiler* profiler,
-                       bool legacySurfaceActive, bool scenePhysicsEnabled, RuntimeInteractionGestureKind gesture,
+                       bool gameUiSurfaceActive, bool scenePhysicsEnabled, RuntimeInteractionGestureKind gesture,
                        const UiTextViewport& viewport, double nowSeconds, Rendering::Dx12TextureOwner& renderTextures,
                        Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12Diagnostics& renderDiagnostics );
     void FinalizeOverlay( OverlayMode mode, Rendering::Dx12TextureOwner& renderTextures,

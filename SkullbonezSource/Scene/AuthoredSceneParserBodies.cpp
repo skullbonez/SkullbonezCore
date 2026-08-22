@@ -604,7 +604,7 @@ void AuthoredSceneParser::ApplyObjectMaterial( const Json& materialJson, const s
     {
         Fail( path, "objectMaterial is missing required field 'mode'" );
 
-        // Lane R: Fail records a recoverable authoring error instead of
+        // Recoverable error: Fail records a recoverable authoring error instead of
         // unwinding. Return before dereferencing the absent JSON member.
         return;
     }

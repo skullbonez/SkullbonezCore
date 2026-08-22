@@ -1,35 +1,23 @@
 /*
 File: SkullbonezData/shaders/trajectory_ribbon.hlsl
 Purpose:
-  Draws replay trajectory ribbons from compact world-space segment payloads.
+  Render replay and predicted trajectory ribbon paths with halo highlights and time markers.
 
-Mental model:
-  CPU code emits six vertices per segment, but every vertex carries the same
-  start/end/style payload. The vertex shader uses SV_VertexID to pick the corner
-  and expands the segment in clip space. Authored width is the final full width
-  in screen pixels; the pixel shader covers that core with a one-pixel analytic
-  feather instead of layered glow bands.
-
-Glossary:
-  Segment payload: Previous/start/end/next positions, pixel width, color, and
-    anti-aliasing/emphasis style hints shared by six generated corners.
-  Analytic coverage: Pixel alpha derived from distance to the ideal spline
-    boundary rather than from a texture or several overlapping glow bands.
-  Selection emphasis: Positive style value that reserves halo geometry and
-    raises selected-path color above display range for bloom.
-  Screen-space width: Full ribbon width measured in pixels after projection.
+Summary:
+  Expands 3D trajectory segments into screen-space ribbons with analytic width,
+  applying path color, historical fading, branch selection halos, and contact
+  markers.
 
 Invariants:
-  - Input layout is start, end/width, color/alpha, style hints, previous, then
-    next; CPU generation and the DX12 upload path must keep the same 19-float
-    vertex shape.
-  - The shader changes only presentation. Replay simulation and prediction data
-    remain owned by replay runtime code.
+  - CPU-side root signatures, input layouts, and descriptor bindings must match this shader exactly.
+  - Ribbon expansion maintains constant screen-space pixel width regardless of camera distance.
 
 Related:
-  - SkullbonezSource/Runtime/Editor/RunEditorTracer.cpp
-  - SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp
+  - Agentic/Reference/engine-glossary.md
+  - SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.h
+  - SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.h
 */
+
 #pragma pack_matrix( column_major )
 
 cbuffer Uniforms : register( b0 )

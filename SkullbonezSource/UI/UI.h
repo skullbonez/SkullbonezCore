@@ -138,7 +138,7 @@ struct UIProfilerMarkerOption
 // code, input hit-testing, and runtime state changes separated.
 struct InGameUIFrameData
 {
-    // Shared domain view consumed by both operator front ends. Legacy flat
+    // Shared domain view consumed by both operator front ends. GameUI flat
     // fields remain for primary-surface consumers that have not adopted it.
     OperatorEditorFrameView operatorEditor;
     int screenW = 1;
@@ -148,6 +148,9 @@ struct InGameUIFrameData
     const char* const* sceneOptions = nullptr;
     int sceneOptionCount = 0;
     int selectedSceneOption = -1;
+    const char* const* interactionRecordingOptions = nullptr;
+    int interactionRecordingOptionCount = 0;
+    int selectedInteractionRecordingOption = -1;
     int selectedCineModeSceneOption = -1;
     int drawCallsBeforeUI = 0;
     int UIDrawCalls = 0;
@@ -275,6 +278,12 @@ class InGameUI
     bool BlocksKeyboard() const;
     bool WantsNativeMouseCursor() const;
     void SetWindowBounds( int x, int y, int width, int height );
+
+    // Captures a window-local semantic pointer anchor when the point belongs to this UI.
+    bool CaptureInteractionAnchor( int clientX, int clientY, char* output, std::size_t outputSize ) const;
+
+    // Resolves a recorded UI anchor against the current window layout.
+    bool ResolveInteractionAnchor( const char* anchor, int& clientX, int& clientY ) const;
     void SetBlurEnabled( bool enabled );
     void SetRendererComboOpen( bool open );
     void SetWaterComboOpen( bool open );
@@ -321,8 +330,7 @@ class InGameUI
     InputControl::UIPointerOverride InputOverride() const;
     InGameUIInputResult UpdateInput( const InputControl::UIInputSnapshot& input, int screenWidth, int screenHeight,
                                      double now, bool editorModeEnabled, bool editorPlacementMode, bool editorPlaceStatic,
-                                     bool editorTerrainAlign, int cameraModeIndex, uint32_t cameraModeEnabledMask,
-                                     std::span<const char* const> sceneOptions, int selectedSceneOption );
+                                     bool editorTerrainAlign, int cameraModeIndex, uint32_t cameraModeEnabledMask );
 
     // Builds one complete ordered frame of backend-neutral draw values. The
     // returned view remains valid until the next Draw call on this owner.

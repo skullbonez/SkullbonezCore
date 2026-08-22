@@ -51,8 +51,7 @@ struct SceneResetPreservationSnapshot
     Gameplay::TornadoFieldConfig tornadoField;
     Gameplay::TornadoSystemConfig tornadoSystem;
     Gameplay::TornadoVisualSettings tornadoVisual;
-    OverlayDebugState
-        debug;                                     // Debug overlays/visualizers, including the C-key physics debug mode and associated alpha/linger knobs
+    OverlayDebugState debug;                       // Debug overlays/visualizers, including the C-key physics debug mode and associated alpha/linger knobs
     bool isScenePhysics = true;                    // Live scene simulation toggle; reset should rebuild the run, not silently re-enable
 
     // physics

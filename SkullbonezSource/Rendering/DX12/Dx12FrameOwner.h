@@ -405,7 +405,7 @@ class Dx12FrameOwner
     // then reopens command recording for the next runtime operation.
     SkullbonezCore::Core::SbResult FinishAndReopen( Dx12Diagnostics& diagnostics );
 
-    // Runtime mutation drain: closes/submits/waits/reopens or returns Lane R.
+    // Runtime mutation drain: closes/submits/waits/reopens or returns recoverable result.
     SkullbonezCore::Core::SbResult FlushGPU();
 
     // Terminal drain: proves release safety without reopening a failed epoch.
@@ -585,6 +585,7 @@ class Dx12FrameOwner
   private:
     friend class Dx12DiagnosticsFrame;
     void WriteFaultProbe() const;
+    bool ObserveCompletedFence( UINT64& outCompletedFence );
     bool PrepareUploadReservation( UINT64 size, UINT64 alignment, RenderUploadCategory category );
 
     SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;

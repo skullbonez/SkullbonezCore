@@ -668,7 +668,7 @@ void ExecuteUiReplayGraphCallback( const SkullbonezCore::Rendering::RenderGraphP
     }
 
     (void)ExecuteRequiredGraphTransitions( context, data.renderGraph, data.compiled, data.expectedTransitionCount );
-    data.pass->RenderReplay( *data.overlay, data.profiler, data.legacySurfaceActive, data.scenePhysicsEnabled, data.gesture,
+    data.pass->RenderReplay( *data.overlay, data.profiler, data.gameUiSurfaceActive, data.scenePhysicsEnabled, data.gesture,
                              data.viewport, data.nowSeconds, *data.renderTextures, *data.renderGeometry,
                              *data.renderDiagnostics );
 }
@@ -1552,7 +1552,7 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const CinematicPostGrap
 
             if ( !postState.volumetricLight.IsValid() )
             {
-                // Lane R: if graph-managed texture allocation fails, the
+                // Recoverable error: if graph-managed texture allocation fails, the
                 // optional volumetric callback records no draw and tonemap
                 // proceeds without its sample. Keep the failure visible.
                 SkullbonezCore::Core::Log()
@@ -1763,7 +1763,7 @@ int RuntimeRenderer::RenderUiText( RunTimerState& timers, const RuntimeRenderMod
 
     // Invariant: the focused callbacks retain the historical draw order while
     // sharing one graph compile/execute cycle. Text-only schedules only chrome;
-    // visible Legacy UI skips HUD overlay/final flush but still draws Replay.
+    // visible GameUI skips HUD overlay/final flush but still draws Replay.
     const Rendering::RenderGraphCompileResult& compiled = CompileRenderPassGraph( graph );
     chrome.compiled = &compiled;
     chrome.expectedTransitionCount = CountCompiledTransitionsForPass( compiled, chromePass );
@@ -2020,9 +2020,9 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
                                        m_resources.Config(),
                                        m_resources.PrimitiveBatches() };
 
-    // These passes currently borrow subsystem-owned mesh/material resources,
-    // but keeping the ensure calls in the frame story gives future extraction
-    // work an obvious place to move those GPU resources.
+    // Why: these passes borrow subsystem-owned mesh/material resources. Keep
+    // readiness checks beside their frame submissions so each draw observes the
+    // same resource generation selected for this frame.
     {
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
         m_objectPass.EnsureGpuResources( resourceContext );
@@ -2394,8 +2394,8 @@ RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceRelea
 
     if ( !flushResult.Ok() )
     {
-        // Lane R: return before the first release. The destructor caller
-        // converts this non-returnable teardown failure to Lane F.
+        // Recoverable error: return before the first release. The destructor caller
+        // converts this non-returnable teardown failure to fatal invariant.
         return flushResult;
     }
 

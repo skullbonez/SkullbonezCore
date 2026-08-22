@@ -8,8 +8,6 @@ Summary:
   RuntimeRenderer supplies its own persistent resources rather than receiving
   them back through a broad service packet.
 
-Glossary:
-  Frame policy: Value-only presentation choices sampled after input.
 
 Invariants:
   - Model-frame references and spans are consumed synchronously and never stored.

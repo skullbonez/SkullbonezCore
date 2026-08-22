@@ -11,7 +11,7 @@ Summary:
   triggered row to an exact current-body owner ruling. Markdown, JSON, and CSV
   remain report formats; strict mode turns currentness drift into a gate.
 
-Mental model:
+
   The wide-signature inventory already decides which parenthesized forms are
   declarations and supplies their normalized identities. This tool follows each
   recognized definition to its body, measures that body, and prints the complete

@@ -210,7 +210,7 @@ bool VerifyRejectedArchivePreservesState( std::span<const uint8_t> rejectedBytes
 
 bool VerifyReplayPredictionArchiveRoundTrip( std::span<const uint8_t> bytes, char* outReason, std::size_t reasonSize )
 {
-    // Lane P: this is bounded validation work performed after the sole live
+    // Test probe: this is bounded validation work performed after the sole live
     // capture. Temporary vectors are diagnostics artifacts, never steady-state
     // replay storage or a second presentation path.
     // Hazard: RunReplayPredictionState measures 792,936 bytes. Three of them as

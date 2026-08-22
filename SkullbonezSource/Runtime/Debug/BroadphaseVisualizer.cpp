@@ -23,11 +23,11 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 
-// =============================================================================
+
 // BROADPHASE VISUALIZER (BroadphaseVisualizer.cpp)
-// =============================================================================
+
 //
-// PURPOSE: Real-time debug overlay rendering the spatial grid as colored
+
 // wireframe cubes. Each cell's color encodes its state:
 //
 //   White  = empty (no objects in this cell)
@@ -39,7 +39,6 @@ Related:
 // The visualizer maintains per-cell state across frames and generates
 // interleaved [position, color] vertex data for the DrawLinesColored API.
 //
-// =============================================================================
 
 
 #include "BroadphaseVisualizer.h"

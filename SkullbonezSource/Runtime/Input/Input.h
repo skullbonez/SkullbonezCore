@@ -40,7 +40,9 @@ Related:
 #include "../../Core/Common.h"
 #include "../../Core/SbResult.h"
 
+#include <array>
 #include <cassert>
+#include <cstdint>
 
 namespace SkullbonezCore
 {
@@ -127,10 +129,14 @@ class Input
         POINT mouseClientPosition = {};
         bool leftMouseDown = false;
         bool rightMouseDown = false;
+        bool middleMouseDown = false;
         int mouseWheelDelta = 0;                                                                                        // One-frame wheel delta routed through the normal device snapshot.
+        long rawMouseDeltaX = 0;                                                                                        // Synthetic relative camera-look movement; never viewport-scaled.
+        long rawMouseDeltaY = 0;
         int keyVirtualKey = 0;                                                                                          // Optional one-key automation override.
         bool keyDown = false;
         bool controlDown = false;                                                                                       // Optional modifier paired with the injected key.
+        std::array<uint64_t, 4> keyWords = {};                                                                          // Complete synthetic key snapshot; physical keys are ignored while enabled.
     };
 
     struct InputEventBuffer
@@ -144,7 +150,7 @@ class Input
 
     struct MouseCoordinatesResult
     {
-        SkullbonezCore::Core::SbResult result;                                                                          // Lane R result for Win32 cursor/client-coordinate failures.
+        SkullbonezCore::Core::SbResult result;                                                                          // recoverable result for Win32 cursor/client-coordinate failures.
         POINT coordinates = {};
     };
 

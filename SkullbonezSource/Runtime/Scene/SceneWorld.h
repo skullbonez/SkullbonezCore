@@ -72,7 +72,7 @@ namespace Runtime
 {
 struct SceneEntityCreateResult
 {
-    // Lane R: authored input failures leave every store unchanged; success
+    // Recoverable error: authored input failures leave every store unchanged; success
     // publishes the body handle created by the cross-store commit.
     SkullbonezCore::Core::SbResult status;
     Physics::PhysicsBodyHandle body;

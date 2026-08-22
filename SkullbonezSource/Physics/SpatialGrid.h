@@ -16,7 +16,7 @@ Invariants:
   - Inserted bounds stay finite and within MAX_WORLD_COORDINATE before any
     float-to-cell conversion.
   - One 8,192-row table owns every live persistent or current swept-overlay
-    cell; the next unique cell is a Lane F failure because dropping it could
+    cell; the next unique cell is a fatal invariant failure because dropping it could
     hide a collision.
   - Candidate discovery may follow bucket/list order, but solver-visible output
     is canonical and uses fixed-capacity staging owned by this grid.
@@ -82,7 +82,7 @@ class SpatialGrid
 
   private:
 
-    // --- Capacity derivation ---
+    // Capacity derivation:
     // Static objects of radius R in a grid of cell size C span at most
     // ceil(2R/C + 1) cells per axis. PhysicsWorld chooses C from the largest
     // current broadphase radius, capped by the configured legacy cell size, so

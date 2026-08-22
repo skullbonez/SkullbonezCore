@@ -48,10 +48,6 @@ using namespace SkullbonezCore::Rendering;
 using Microsoft::WRL::ComPtr;
 
 
-// --- Helpers ---
-// --- RenderBackendDX12 Pipeline methods ---
-
-
 static D3D12_BLEND MapBlendFactor( BlendFactor f )
 {
     switch ( f )
@@ -414,7 +410,7 @@ ID3D12PipelineState* Dx12PipelineOwner::CreatePSO( ID3D12Device* device, VertexF
 
     if ( !m_activeShader->ValidateInputLayout( elements, numElements, inputContractError ) )
     {
-        // Lane R: mesh/layout selection is startup-owned pipeline input. A
+        // Recoverable error: mesh/layout selection is startup-owned pipeline input. A
         // reflected mismatch skips PSO publication and names the owning path.
         SkullbonezCore::Core::Log().WriteEventf( "dx12_shader_input_contract_rejected owner=Dx12PipelineOwner reason=%s",
                                                  inputContractError );
@@ -486,7 +482,7 @@ ID3D12PipelineState* Dx12PipelineOwner::CreatePSO( ID3D12Device* device, VertexF
 
     if ( FAILED( hr ) && attachedCachedBlob )
     {
-        // Lane R: cached bytes are external driver-specific cold-start input.
+        // Recoverable error: cached bytes are external driver-specific cold-start input.
         // Retry the exact recipe once without them and evict the rejected row.
         SkullbonezCore::Core::Log()
             .WriteEventf( "dx12_pso_disk_cache_rejected owner=Dx12PipelineOwner hresult=0x%08X bytes=%llu",
@@ -499,7 +495,7 @@ ID3D12PipelineState* Dx12PipelineOwner::CreatePSO( ID3D12Device* device, VertexF
 
     if ( FAILED( hr ) || !pso )
     {
-        // Lane R: a graphics PSO can fail because the active shader/input layout
+        // Recoverable error: a graphics PSO can fail because the active shader/input layout
         // or device state is invalid. The draw path can skip this submission and
         // keep the renderer alive; fixed cache-cap exhaustion above remains fatal.
         SkullbonezCore::Core::Log()

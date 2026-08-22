@@ -13,7 +13,7 @@ Glossary:
   Render record: Core timing span that brackets renderer-owned GPU work.
 
 Invariants:
-  - Marker identity is the full path plus hash; collisions are Lane F failures.
+  - Marker identity is the full path plus hash; collisions are fatal invariant failures.
   - Begin/end nesting balances before FrameEnd.
   - GPU samples enter as value records; Core never includes Rendering.
 
@@ -53,7 +53,7 @@ struct WorkerBeginEndMarker
 {
     // Lifetime: the scope row is fixed thread-local storage armed by ambient
     // Begin and closed by the matching End on the same worker thread. Runtime
-    // allocation policy: it is stored by value and armed through Open rather
+    // Runtime allocation policy: it is stored by value and armed through Open rather
     // than emplaced into an optional, so no marker row constructs storage on a
     // steady-state worker path.
     WorkerProfilerScope scope;
@@ -198,7 +198,7 @@ void Profiler::AbortMismatch( const char* msg, const char* details ) const
     OutputDebugStringA( buf );
 
     // Hazard: marker hash collisions and begin/end mismatches corrupt the
-    // profiler's nesting stack. Treat them as Lane F engine invariants so the
+    // profiler's nesting stack. Treat them as fatal invariant engine invariants so the
     // fatal path owns stderr logging, event-log flushing, and termination.
     if ( safeDetails[0] != '\0' )
     {

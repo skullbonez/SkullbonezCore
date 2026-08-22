@@ -4,14 +4,17 @@ Purpose:
   Implements stateful in-game UI window and widget interaction ownership.
 
 Summary:
-  This owner translates detached UI input snapshots into typed command values and retains
-  the window, widget, tab, and gesture state shared with drawing. InGameUI
-  borrows only a synchronous WidgetView and is never reachable from this owner.
+  This owner translates detached UI input snapshots into typed command values
+  and retains the window, widget, tab, and gesture state shared with drawing.
+  It also maps recording anchors through window-local normalized coordinates so
+  playback follows the same UI region after layout resize. InGameUI borrows only
+  a synchronous WidgetView and is never reachable from this owner.
 
 Invariants:
   - Device input produces commands; runtime subsystem mutation remains outside UI.
   - WidgetView is not retained beyond the caller's immediate draw operation.
   - Layout bounds and hit-test bounds are the same widget state.
+  - Anchor resolution uses current window bounds and never retains a viewport pointer.
 
 Related:
   - SkullbonezSource/UI/UIWindowInteractionOwner.h
@@ -28,6 +31,8 @@ Related:
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <cstring>
 
 using namespace SkullbonezCore::UI;
 using namespace SkullbonezCore::UI::Widgets;
@@ -229,6 +234,7 @@ void UIWindowInteractionOwner::SetActiveTab( InGameUITab tab )
     m_reflectionCombo.Close();
     CloseSceneCombo();
     m_editorTab.objectCombo.Close();
+    SceneTab::CloseRecordingCombo( m_sceneTab );
     CinematicTab::CloseCombo( m_cinematicTab );
     m_renderTargetCombo.Close();
     m_cameraModeCombo.Close();
@@ -275,7 +281,8 @@ bool UIWindowInteractionOwner::BlocksCameraMouse() const
 bool UIWindowInteractionOwner::BlocksKeyboard() const
 {
     return m_window.isVisible && !m_window.isMinimized &&
-           ( m_sceneTab.combo.IsOpen() || CinematicTab::IsComboOpen( m_cinematicTab ) || m_editorTab.objectCombo.IsOpen() ||
+           ( m_sceneTab.combo.IsOpen() || m_sceneTab.recordingCombo.IsOpen() ||
+             CinematicTab::IsComboOpen( m_cinematicTab ) || m_editorTab.objectCombo.IsOpen() ||
              m_renderTargetCombo.IsOpen() );
 }
 
@@ -306,6 +313,50 @@ void UIWindowInteractionOwner::SetWindowBounds( int x, int y, int width, int hei
     m_cache.Reset();
 }
 
+bool UIWindowInteractionOwner::CaptureInteractionAnchor( int clientX, int clientY, char* output,
+                                                         std::size_t outputSize ) const
+{
+    if ( !output || outputSize == 0u || !m_window.isVisible || m_window.width <= 1 || m_window.height <= 1 ||
+         clientX < m_window.x || clientY < m_window.y || clientX >= m_window.x + m_window.width ||
+         clientY >= m_window.y + m_window.height )
+    {
+        return false;
+    }
+
+    // Concept: the stable anchor is local to the owning UI window rather than
+    // the process viewport. Layout movement and window-size changes therefore
+    // preserve the same semantic window location, with viewport normalization
+    // retained independently as fallback evidence.
+    const float localX = static_cast<float>( clientX - m_window.x ) / static_cast<float>( m_window.width - 1 );
+    const float localY = static_cast<float>( clientY - m_window.y ) / static_cast<float>( m_window.height - 1 );
+    const int written = std::snprintf( output, outputSize, "operator-ui:%.6f,%.6f", localX, localY );
+    return written > 0 && static_cast<std::size_t>( written ) < outputSize;
+}
+
+bool UIWindowInteractionOwner::ResolveInteractionAnchor( const char* anchor, int& clientX, int& clientY ) const
+{
+    constexpr const char* PREFIX = "operator-ui:";
+
+    if ( !anchor || std::strncmp( anchor, PREFIX, std::strlen( PREFIX ) ) != 0 || !m_window.isVisible ||
+         m_window.width <= 1 || m_window.height <= 1 )
+    {
+        return false;
+    }
+
+    float localX = 0.0f;
+    float localY = 0.0f;
+
+    if ( sscanf_s( anchor + std::strlen( PREFIX ), "%f,%f", &localX, &localY ) != 2 || !std::isfinite( localX ) ||
+         !std::isfinite( localY ) || localX < 0.0f || localX > 1.0f || localY < 0.0f || localY > 1.0f )
+    {
+        return false;
+    }
+
+    clientX = m_window.x + static_cast<int>( std::lround( localX * static_cast<float>( m_window.width - 1 ) ) );
+    clientY = m_window.y + static_cast<int>( std::lround( localY * static_cast<float>( m_window.height - 1 ) ) );
+    return true;
+}
+
 
 void UIWindowInteractionOwner::SetBlurEnabled( bool enabled )
 {
@@ -324,6 +375,7 @@ void UIWindowInteractionOwner::SetRendererComboOpen( bool open )
 
     if ( open )
     {
+        SceneTab::CloseRecordingCombo( m_sceneTab );
         m_reflectionCombo.Close();
         CloseSceneCombo();
         CinematicTab::CloseCombo( m_cinematicTab );
@@ -509,6 +561,7 @@ int UIWindowInteractionOwner::ContentHeight() const
 void UIWindowInteractionOwner::CloseSceneCombo()
 {
     SceneTab::CloseCombo( m_sceneTab );
+    SceneTab::CloseRecordingCombo( m_sceneTab );
 }
 
 
@@ -518,17 +571,31 @@ InputControl::UIPointerOverride UIWindowInteractionOwner::InputOverride() const
 }
 
 
-InGameUIInputResult
-UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& input, int screenWidth, int screenHeight,
-                                       double now, bool editorModeEnabled, bool editorPlacementMode, bool editorPlaceStatic,
-                                       bool editorTerrainAlign, int cameraModeIndex, uint32_t cameraModeEnabledMask,
-                                       std::span<const char* const> sceneOptionView, int selectedSceneOption )
+InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& input, int screenWidth,
+                                                           int screenHeight, double now, bool editorModeEnabled,
+                                                           bool editorPlacementMode, bool editorPlaceStatic,
+                                                           bool editorTerrainAlign, int cameraModeIndex,
+                                                           uint32_t cameraModeEnabledMask,
+                                                           const SceneNavigationModel& sceneNavigation )
 {
     InGameUIInputResult result;
     int screenW = screenWidth;
     int screenH = screenHeight;
+    const std::span<const char* const> sceneOptionView( sceneNavigation.browser.namePtrs.empty()
+                                                            ? nullptr
+                                                            : sceneNavigation.browser.namePtrs.data(),
+                                                        sceneNavigation.browser.namePtrs.size() );
+    const std::span<const char* const> interactionRecordingOptionView( sceneNavigation.recordings.namePtrs.empty()
+                                                                           ? nullptr
+                                                                           : sceneNavigation.recordings.namePtrs.data(),
+                                                                       sceneNavigation.recordings.namePtrs.size() );
     const char* const* sceneOptions = sceneOptionView.data();
     const int sceneOptionCount = static_cast<int>( sceneOptionView.size() );
+    const int selectedSceneOption = sceneNavigation.browser.selectedSceneIndex;
+    const int interactionRecordingOptionCount = static_cast<int>( interactionRecordingOptionView.size() );
+    const int selectedInteractionRecordingOption = sceneNavigation.recordings.paths.empty()
+                                                       ? -1
+                                                       : sceneNavigation.recordings.selectedIndex;
 
     // Concept: UI input produces command intents and capture state. The run loop
     // owns applying scene, physics, renderer, and editor mutations.
@@ -915,6 +982,15 @@ UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& inpu
                                                    wheelDelta, contentX, rowBase, contentW );
     }
 
+    else if ( wheelDelta != 0 && m_sceneTab.recordingCombo.IsOpen() && m_activeTab == InGameUITab::Scene )
+    {
+        const float contentX = static_cast<float>( inputX + contentPad );
+        const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
+        const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+        wheelHandled = SceneTab::HandleRecordingComboWheel( m_sceneTab, interactionRecordingOptionCount, m_mouseX, m_mouseY,
+                                                            wheelDelta, contentX, rowBase, contentW );
+    }
+
     if ( wheelDelta != 0 && inContent && !wheelHandled )
     {
         m_scrollY -= static_cast<float>( wheelDelta ) / UI_MOUSE_WHEEL_DELTA * 42.0f;
@@ -979,6 +1055,27 @@ UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& inpu
             else
             {
                 CloseSceneCombo();
+            }
+
+            m_rendererCombo.Close();
+            m_reflectionCombo.Close();
+            CinematicTab::CloseCombo( m_cinematicTab );
+            m_editorTab.objectCombo.Close();
+            m_renderTargetCombo.Close();
+        }
+        else if ( m_sceneTab.recordingCombo.IsOpen() )
+        {
+            if ( m_activeTab == InGameUITab::Scene )
+            {
+                const float contentX = static_cast<float>( inputX + contentPad );
+                const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
+                const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+                SceneTab::HandleOpenRecordingComboClick( m_sceneTab, result, interactionRecordingOptionCount, m_mouseX,
+                                                         m_mouseY, contentX, rowBase, contentW );
+            }
+            else
+            {
+                SceneTab::CloseRecordingCombo( m_sceneTab );
             }
 
             m_rendererCombo.Close();
@@ -1144,6 +1241,13 @@ UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& inpu
             {
                 sceneClickHandled = SceneTab::HandleClosedComboClick( m_sceneTab, input, sceneOptions, sceneOptionCount,
                                                                       selectedSceneOption, m_mouseX, m_mouseY );
+            }
+
+            if ( !sceneClickHandled )
+            {
+                sceneClickHandled = SceneTab::HandleClosedRecordingComboClick( m_sceneTab, interactionRecordingOptionCount,
+                                                                               selectedInteractionRecordingOption, m_mouseX,
+                                                                               m_mouseY, contentX, rowBase, contentW );
             }
 
             if ( !sceneClickHandled )

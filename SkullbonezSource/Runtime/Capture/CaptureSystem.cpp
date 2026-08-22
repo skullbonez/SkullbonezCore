@@ -194,18 +194,7 @@ SkullbonezCore::Core::SbResult CaptureSystem::BuildPngBytes( SkullbonezCore::Cor
 #if defined( SKULLBONEZ_CAPTURE_EXECUTION )
 namespace
 {
-struct FileCloser
-{
-    void operator()( FILE* file ) const
-    {
-        if ( file )
-        {
-            fclose( file );
-        }
-    }
-};
-
-using FileHandle = std::unique_ptr<FILE, FileCloser>;
+using FileHandle = std::unique_ptr<FILE, decltype( &fclose )>;
 
 SkullbonezCore::Core::SbResult WriteExact( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, FILE* file,
                                            SkullbonezCore::Core::ByteView bytes, const char* path )
@@ -258,7 +247,7 @@ SkullbonezCore::Core::SbResult CaptureSystem::SaveBackbufferBmp( SkullbonezCore:
                                                                  Rendering::Dx12BackbufferCapture& backend,
                                                                  const char* path )
 {
-    // Lane R: capture support, readback dimensions, and file output can fail
+    // Recoverable error: capture support, readback dimensions, and file output can fail
     // because of renderer/device/file-system environment state, so callers get
     // an owner/message result instead of an exception unwind.
     if ( !backend.SupportsBackbufferCapture() )
@@ -335,7 +324,7 @@ SkullbonezCore::Core::SbResult CaptureSystem::SaveBackbufferBmp( SkullbonezCore:
                                     "Failed to open screenshot file: %s  (CaptureSystem::SaveBackbufferBmp)", path );
     }
 
-    FileHandle file( rawFile );
+    FileHandle file( rawFile, &fclose );
 
     SkullbonezCore::Core::SbResult writeResult = WriteExact( diagnostics, file.get(), fileHeader, path );
 
@@ -397,7 +386,7 @@ SkullbonezCore::Core::SbResult CaptureSystem::SaveBackbufferPng( SkullbonezCore:
         return diagnostics.Failure( "Runtime/CaptureSystem", "Failed to open PNG screenshot file: %s", path );
     }
 
-    FileHandle file( rawFile );
+    FileHandle file( rawFile, &fclose );
     return WriteExact( diagnostics, file.get(), png, path );
 }
 #endif

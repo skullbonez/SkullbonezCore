@@ -4,7 +4,7 @@
 # Purpose:
 #   Finds clang-format and applies the repository C++ style to requested files.
 #
-# Mental model:
+# Summary:
 #   The hook is a thin launcher. It resolves the formatter from PATH or common
 #   Visual Studio LLVM locations, then delegates formatting to clang-format.
 #

@@ -1218,6 +1218,11 @@ bool ParseCommandLine( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, con
         return false;
     }
 
+    if ( !ResolveInteractionRecordingLaunch( out ) )
+    {
+        return false;
+    }
+
 #ifdef _DEBUG
 
     if ( out.replayScrubProbe )

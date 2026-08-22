@@ -10,9 +10,7 @@ Summary:
   must retain the most useful failure without requiring a real window loop.
 
 Glossary:
-  Owned failure: Lane R result carrying the subsystem owner and message that
-    originally explained why the run must stop.
-  Synthetic failure: Generic failure created only from a nonzero message code.
+
   Precedence: Stable rule selecting the first owned failure over later exit data.
 
 Invariants:
@@ -23,8 +21,9 @@ Invariants:
     coverage.
 
 Related:
+  - Agentic/Reference/engine-glossary.md
   - SkullbonezSource/Runtime/App/ApplicationExitState.h defines the tested contract.
-  - SkullbonezSource/Core/SbResult.h defines success and Lane R failure values.
+  - SkullbonezSource/Core/SbResult.h defines success and recoverable failure values.
 */
 #include "../SkullbonezSource/Runtime/App/ApplicationExitState.h"
 #include "../SkullbonezSource/Core/SbDiagnosticStore.h"

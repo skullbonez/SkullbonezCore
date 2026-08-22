@@ -18,14 +18,7 @@
 //   Handle generation: Version counter incremented when a handle slot is
 //     retired, making old handles fail lookup after slot reuse.
 //   Dense row: Compact store array index used by hot simulation scans.
-//   Model row hint: Cached dense-row guess that a resolver can repair after
-//     deletion compacts the store.
-//   Collider authoring row: Cold scene round-trip text paired with one dense
-//     hot collider row.
-//   Hull identity: Cold normalized source path and exact authored scale bits
-//     that permit equal immutable hull geometry to share one retained row.
-//   Scene object id: Stable id used by replay/diagnostics to find a body even
-//     when a model-index hint is stale.
+
 //   Hot SoA fields: 32-byte-aligned component arrays that keep adjacent body
 //     values contiguous for cache-friendly stage scans.
 //

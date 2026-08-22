@@ -10,7 +10,7 @@ Summary:
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
   must stay explicit.
-  - Build returns a Lane R result before recording GPU work when its instance
+  - Build returns a recoverable result before recording GPU work when its instance
     descriptor upload cannot be mapped safely.
 
 Related:

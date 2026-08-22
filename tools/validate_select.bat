@@ -3,7 +3,7 @@
 @rem Purpose:
 @rem   Runs one or more explicitly selected repository validation owners.
 @rem
-@rem Mental model:
+@rem Summary:
 @rem   This is a developer convenience router. Each selected target delegates to
 @rem   its owning script. The terminal plan-completion selector is explicit;
 @rem   generic full/agent aliases are rejected so routine validation cannot

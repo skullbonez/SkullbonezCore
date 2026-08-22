@@ -167,8 +167,9 @@ Profile\SKULLBONEZ_CORE.exe --physics-debug pipeline --scene SkullbonezData\scen
 ```
 
 `--physics-debug-pipeline on` and the scene directive
-`physics_debug_pipeline on` enable the same overlay component. In-game, F7 and
-F8 step backward and forward through the recorded stage cursor.
+`physics_debug_pipeline on` enable the same overlay component. In-game, `[` and
+`]` step backward and forward through the recorded stage cursor. F8 owns
+interaction-repro recording.
 
 SkullScope emits compact `pipeline_stages` rows that count bounded per-frame
 records by stage. Use `tools\physics_query.bat` for summaries instead of

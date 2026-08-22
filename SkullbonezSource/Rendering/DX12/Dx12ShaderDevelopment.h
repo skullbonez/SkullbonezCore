@@ -19,7 +19,7 @@ Glossary:
     submission accounting.
 
 Invariants:
-  - Registration never grows dynamically; capacity exhaustion is Lane F.
+  - Registration never grows dynamically; capacity exhaustion is a fatal invariant failure.
   - A bake or candidate-validation failure leaves every live shader and PSO unchanged.
   - ReloadShadersFromSource proves GPU completion before releasing old PSOs.
   - This owner stores concrete shader-domain owners, never the aggregate backend

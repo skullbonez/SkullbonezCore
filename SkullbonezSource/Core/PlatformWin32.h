@@ -152,6 +152,44 @@ inline uintptr_t ProcessImageBase() noexcept
     return reinterpret_cast<uintptr_t>( GetModuleHandleW( nullptr ) );
 }
 
+inline bool CopyTextToClipboard( const char* text ) noexcept
+{
+    if ( !text )
+    {
+        return false;
+    }
+
+    if ( OpenClipboard( nullptr ) == FALSE )
+    {
+        return false;
+    }
+
+    EmptyClipboard();
+    const std::size_t length = std::strlen( text ) + 1u;
+    HGLOBAL memory = GlobalAlloc( GMEM_MOVEABLE, length );
+
+    if ( !memory )
+    {
+        CloseClipboard();
+        return false;
+    }
+
+    void* destination = GlobalLock( memory );
+
+    if ( !destination )
+    {
+        GlobalFree( memory );
+        CloseClipboard();
+        return false;
+    }
+
+    std::memcpy( destination, text, length );
+    GlobalUnlock( memory );
+    SetClipboardData( CF_TEXT, memory );
+    CloseClipboard();
+    return true;
+}
+
 inline void DebugBreak() noexcept
 {
     __debugbreak();

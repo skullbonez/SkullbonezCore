@@ -1,7 +1,8 @@
 /*
 File: SkullbonezSource/UI/UIDrawWidgets.cpp
 Purpose:
-  Implements UI DrawWidgets widgets, layout, drawing, or UI state for the in-engine controls.
+  Implements stateless drawing primitives shared by window chrome, controls,
+  and diagnostics.
 
 Summary:
   Provides stateless drawing primitives for title

@@ -29,11 +29,15 @@ import argparse
 import csv
 import html
 import json
+import sys
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Iterable
+
+# Increase CSV field size limit for embedded base64 state payloads (Windows C long max)
+csv.field_size_limit(2147483647)
 
 
 @dataclass(frozen=True)

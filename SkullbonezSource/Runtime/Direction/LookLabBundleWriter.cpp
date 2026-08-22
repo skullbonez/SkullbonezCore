@@ -1,29 +1,25 @@
 /*
-File: LookLabBundleWriter.cpp
-Purpose:
-  Creates collision-safe Look Lab directories and exact derived receipts.
+File : LookLabBundleWriter.cpp Purpose : Creates collision -
+    safe Look Lab directories and exact derived receipts.
 
-Summary:
-  The writer validates all user-visible receipt text, reserves the bundle path
-  with exclusive directory creation, and combines fixed transaction facts with
-  Scene's complete flattened style listing.
+    Summary : The writer validates all user -
+    visible receipt text,
+    reserves the bundle path with exclusive directory creation,
+    and combines fixed transaction facts with Scene's complete flattened style listing.
 
-Glossary:
-  Exclusive directory creation: create_directory succeeds only when this call
-    owns a previously absent final bundle path.
-  Partial success: Style is reusable even when later screenshot capture fails;
-    the receipt reports both states independently.
+        Glossary : Exclusive directory creation
+    : create_directory succeeds only when this call owns a previously absent final bundle path.Partial success
+    : Style is reusable even when later screenshot capture fails;
+the receipt reports both states independently.
 
-Invariants:
-  - Bundle creation never deletes, merges into, or overwrites an existing path.
-  - Receipt output filenames are the fixed three bundle leaf names.
-  - Newline-bearing metadata is rejected before receipt serialization.
+    Invariants : -Bundle creation never deletes,
+    merges into, or overwrites an existing path.- Receipt output filenames are the fixed three bundle leaf names.- Newline -
+                         bearing metadata is rejected before receipt serialization.
 
-Related:
-  - SkullbonezSource/Runtime/Direction/LookLabBundleWriter.h
-  - SkullbonezSource/Scene/StandaloneStyleWriter.cpp
-  - SkullbonezSource/Core/AtomicTextFileWriter.cpp
-*/
+                             Related : -SkullbonezSource /
+                             Runtime / Direction / LookLabBundleWriter.h -
+                         SkullbonezSource / Scene / StandaloneStyleWriter.cpp -
+                         SkullbonezSource / Core / AtomicTextFileWriter.cpp*/
 #include "LookLabBundleWriter.h"
 #include "../../Core/AtomicTextFileWriter.h"
 #include "../../Core/SbDiagnosticStore.h"

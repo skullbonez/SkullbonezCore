@@ -4,10 +4,10 @@ Purpose:
   Attributes cold scene-sized std::vector backing to concrete Physics owners.
 
 Summary:
-  Raw vectors that have not yet moved to PhysicsRuntimeList still need the
-  allocation tracker to name the concrete row that grew. Scene loading creates
-  that row-specific authority; isolated replay prediction may only reuse the
-  already-approved outer Replay owner and never registers a second privilege.
+  This adapter applies named reserve policy when a Physics owner chooses raw
+  std::vector storage instead of PhysicsRuntimeList. The present production tree
+  has no callers; any adopter must supply the owner, phase, and hard-cap evidence
+  required by RuntimeReserveAllocator.
 
 Glossary:
   Retained backing: Physical vector allocation kept after a smaller scene

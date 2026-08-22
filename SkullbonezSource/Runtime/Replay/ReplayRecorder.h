@@ -22,8 +22,7 @@ Glossary:
     object ids; transient handles and model rows are not persisted identity.
   Event sample: Accepted owner action, restore, or branch record that must be
     replayed alongside solver state for authoritative rollback work.
-  Wire code: Explicit serialized value whose meaning is independent of a C++
-    domain enum's declaration order.
+
   Recorder reserve owner: Aggregate replay-only byte budget shared by retained
     presentation, solver, world-delta, and visual sample vectors.
 
@@ -499,8 +498,6 @@ class ReplayRecorder
     bool ResolveSampleAtOffset( std::size_t offset, ReplayPresentationSample& outSample ) const;
     void PromoteVisualFrameToKeyframe( std::size_t offset );
     void StoreCheckpointSummary( const ReplayPresentationSample& sample, std::size_t bodyCount );
-    std::size_t SampleCapacityFromConfig() const;
-    std::size_t CheckpointCapacityFromConfig() const;
 
     ReplayRecorderConfig m_config;
     std::vector<ReplayPresentationSample> m_samples;
@@ -667,8 +664,6 @@ class ReplaySolverRecorder
     bool ResolveSolverSampleAtOffset( std::size_t offset, ReplaySolverFrameSample& outSample ) const;
     void PromoteSolverFrameToKeyframe( std::size_t offset );
     void StoreCheckpointSummary( const ReplaySolverFrameSample& sample, std::size_t bodyCount );
-    std::size_t SampleCapacityFromConfig() const;
-    std::size_t CheckpointCapacityFromConfig() const;
 
     ReplayRecorderConfig m_config;
     std::vector<ReplaySolverFrameSample> m_samples;

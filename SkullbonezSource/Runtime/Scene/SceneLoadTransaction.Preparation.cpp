@@ -134,7 +134,7 @@ SceneLoadBeginResult SceneLoadTransaction::PrepareLoad( const SceneController& c
 
     if ( renderFrame )
     {
-        // Lane R: old scene resources may still be referenced by in-flight GPU
+        // Recoverable error: old scene resources may still be referenced by in-flight GPU
         // work. A failed drain must leave every scene/controller owner intact.
         result.status = renderFrame->FlushGPU();
 

@@ -21,8 +21,9 @@ Glossary:
     runtime composition root to arbitrate later.
   Layout version: Integer embedded in the persisted ini filename so an
     incompatible panel topology starts from a clean deterministic namespace.
-  Surface selection: Process-lifetime choice of active Legacy or ImGui
-    implementation kept outside scene and replay serialization.
+  Surface selection: Process-lifetime choice of the built-in GameUI
+    game/level-editor presentation or optional ImGui development surface, kept
+    outside scene and replay serialization.
   Viewport mapping: Last completed fitted image rectangle used by the next input
     frame to map Win32 client pixels back to the captured render extent.
   Property preview: One active ImGui scalar value kept inside presentation until
@@ -144,7 +145,7 @@ struct ImGuiEditorStatus
     bool frameActive = false;
     bool dockingEnabled = false;
     bool platformViewportsEnabled = false;
-    DevelopmentUiMode selectedSurface = DevelopmentUiMode::Legacy;
+    DevelopmentUiMode selectedSurface = DevelopmentUiMode::GameUI;
     int layoutVersion = 0;
     uint64_t completedFrames = 0u;
     uint64_t sharedViewFingerprint = 0u;
@@ -297,7 +298,7 @@ class ImGuiEditorOwner
     bool m_visible = false;
     bool m_surfaceSelectionInitialized = false;
     bool m_surfaceSelectionActivated = false;
-    DevelopmentUiMode m_selectedSurface = DevelopmentUiMode::Legacy;
+    DevelopmentUiMode m_selectedSurface = DevelopmentUiMode::GameUI;
     bool m_frameActive = false;
     bool m_platformBackendInitialized = false;
     bool m_gameViewportHovered = false;

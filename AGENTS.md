@@ -33,9 +33,9 @@ When CodeGraph is installed and `.codegraph/` exists, use it as a first-pass
 map before opening large source files:
 
 1. Run `codegraph status .` to check whether the local index is current.
-2. If CodeGraph MCP tools are available in the current Codex session, prefer
-   them over shelling out. Use `codegraph_explore`/`codegraph_node` style tools
-   for focused symbol, file, caller/callee, and impact lookups.
+2. If CodeGraph MCP tools are available in the current Codex or Antigravity session,
+   prefer them over shelling out. Use `codegraph_explore`/`codegraph_node` style
+   tools for focused symbol, file, caller/callee, and impact lookups.
 3. If MCP tools are unavailable, use the CLI: `codegraph query <name-or-topic>`
    or `codegraph explore "<area>"` to find likely symbols and files.
 4. Use `codegraph node <symbol-or-path>` for focused source context.
@@ -46,6 +46,39 @@ map before opening large source files:
 
 Refresh an existing local index with `codegraph sync .` after large source
 changes, or `codegraph index .` if the graph appears inconsistent.
+
+---
+
+## Recorded Interaction Repro Workflow
+
+When the user supplies an interaction manifest, the following workflow is
+mandatory:
+
+1. Preserve the manifest and every adjacent sidecar as read-only evidence. Run
+   the exact recording before editing with:
+   `Automation\SKULLBONEZ_CORE.exe --interaction-script "<manifest>" --interaction-report "<report>" --interaction-trace "<trace.jsonl>"`.
+2. Confirm that the observed behavior matches the problem the user described.
+   If it does not reproduce, report the mismatch; do not guess at the cause or
+   alter the recording.
+3. Treat the user's written expected behavior as the acceptance oracle. The
+   recording captures actions and starting state, not what the correct outcome
+   should be.
+4. Inspect the JSONL trace when the final report is insufficient. Each flushed
+   turn records the synthetic device state, ordered routed actions, and the
+   post-frame scene/camera/input/UI observation.
+5. After implementation, replay the exact unchanged manifest. Record the
+   command, process exit result, report and trace paths, and observed outcome in
+   the handoff.
+6. Add a focused automated assertion whenever the expected result can be
+   expressed mechanically. A recording supplements subsystem validation; it
+   never replaces it.
+7. Never refresh a physics, visual, replay, or other golden baseline merely to
+   make a recorded interaction pass.
+
+Recordings created under `TestOutput/recordings/` are local artifacts. Track a
+recording as a regression fixture only when the user explicitly requests it,
+and place that deliberate fixture with the owning test data rather than
+weakening the `TestOutput` ignore policy.
 
 ---
 
@@ -66,7 +99,7 @@ bypass it.
 
 1. Follow the Agent Startup Contract above.
 2. Identify your change's impact area: DX12, physics, scene system, tests, documentation.
-3. State whether validation is required now. For normal implementation work, do not run repository validation scripts while iterating; name the targeted validation command to defer until PR-bound commit/PR prep. For documentation-only changes, state that no validation is required.
+3. State whether validation is required now. For intermediate task implementation work, do not run heavy validation suites (anything taking more than 1-2 minutes, such as full test suites, graphics stress, or deep regression gates); `validate_fast` or focused checks are sufficient while iterating. The primary objective is to complete the bulk of the implementation work as quickly and cleanly as possible. All heavy validation (`validate_tests`, full test runs, stress gates, rubber duck review, adversarial checks, refactors, and final fixups) is concentrated at the very end of the working plan in the terminal closure pass. For documentation-only changes, state that no validation is required.
 4. If unrelated dirty files are present, leave them alone. Do not overwrite,
    revert, stage, or format user-owned changes unless explicitly requested.
 5. For any source-bearing file you edit (`.cpp`, `.h`, `.hpp`, `.inl`,
@@ -526,7 +559,7 @@ shape or their effect on parameter count.
   long-lived owner pointers. Borrowed owners enter phase methods and expire
   when those calls return.
 - Multi-step work whose correctness depends on call order must enforce that
-  order in a type, using a phase cursor and lane-F fatal on an illegal
+  order in a type, using a phase cursor and fatal invariant on an illegal
   transition, rather than relying on comments or caller discipline.
 - Three or more sibling input/participant/output structs combined with a wide
   apply free function and ordering/arbitration comments are an extrusion
@@ -630,8 +663,8 @@ signature; it enforced no lifecycle, ordering, arbitration, or authority
 rule.
 
 **Legitimate example — invariant owner:** a transaction type may own a phase
-cursor whose legal walk is tested, make an out-of-order phase call lane-F
-fatal, and expose arbitration methods that replace free which-value-wins
+cursor whose legal walk is tested, make an out-of-order phase call a fatal
+invariant, and expose arbitration methods that replace free which-value-wins
 helpers. Its header must name the exact phase-order and arbitration invariant
 it enforces.
 
@@ -772,14 +805,14 @@ Exceptions are banned for engine code. The strict source throw inventory is
 zero as of 2026-07-10. Do not add a new throw-count ratchet or frozen budget;
 any new `throw` is a review failure.
 
-| Lane | Use For | Mechanism |
-|------|---------|-----------|
-| F: Fatal invariant | Should-never-happen engine state in physics, stores, solver, frame loop, replay internals, or other owned runtime logic | `SB_FATAL(owner, ...)`; logs owner/diagnostics, flushes, breaks in Debug/Profile, and never returns |
-| R: Recoverable result | External input or environment failure: scene/asset files, editor commands, automation input, device support, file IO | `SbResult`/future value-carrying result; operation fails and reports an owner/message to the UI or log boundary |
-| P: Probe assertion | Validation, interaction, replay, scrub, and stress probes that should become machine-readable failures | Existing probe/report channel such as `FailAutomation(...)`, with interaction report `ok=false` and a failure message |
+| Category | Use For | Mechanism |
+|---|---|---|
+| Fatal invariant | Should-never-happen engine state in physics, stores, solver, frame loop, replay internals, or other owned runtime logic | `SB_FATAL(owner, ...)`; logs owner/diagnostics, flushes, breaks in Debug/Profile, and never returns |
+| Recoverable error | External input or environment failure: scene/asset files, editor commands, automation input, device support, file IO | `SbResult`/future value-carrying result; operation fails and reports an owner/message to the UI or log boundary |
+| Test probe | Validation, interaction, replay, scrub, and stress probes that should become machine-readable failures | Existing probe/report channel such as `FailAutomation(...)`, with interaction report `ok=false` and a failure message |
 
-New fatal or recoverable paths must name their lane in source comments or the
-owning plan when the lane is not obvious from the API being used.
+New fatal or recoverable paths must clarify their error category in source comments or the
+owning plan when not obvious from the API being used.
 
 ## After Editing
 

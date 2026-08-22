@@ -1,24 +1,21 @@
 /*
 File: SkullbonezData/shaders/post_volumetric_light.hlsl
 Purpose:
-  Runs the post_volumetric_light HLSL shader program used by the renderer.
+  Render screen-space sun god rays and atmospheric light scattering.
 
 Summary:
-  post_volumetric_light.hlsl is shader source for the renderer's
-  post_volumetric_light pass. Keep edits anchored on shader inputs, bindings,
-  and render-output contracts and on the glossary/invariants below.
-
-Glossary:
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
+  Performs radial blur from the projected sun position across the occlusion
+  mask, accumulating light shafts that are composited additively onto scene color.
 
 Invariants:
-  - CPU-side root signatures, input layouts, and descriptor bindings must
-    match this shader exactly.
-  - This is the sole screen-space sun march; tonemap only composites its output.
-  - Depth values at or above 0.9999 represent unobstructed sky for the march.
+  - Sun position is projected to screen coordinates; off-screen sun fades smoothly.
+  - Sampling density and decay parameters match authored cinematic sky settings.
+
+Related:
+  - Agentic/Reference/engine-glossary.md
+  - SkullbonezSource/World/SkyBox.cpp
 */
+
 #pragma pack_matrix(column_major)
 
 // =============================================================================

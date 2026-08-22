@@ -867,12 +867,8 @@ void Dx12FrameOwner::RetireResource( ID3D12Resource* resource )
         return;
     }
 
-    const bool fenceReady = m_device.FrameFence().IsReady();
-
-    if ( fenceReady )
-    {
-        m_submittedWork.ObserveCompletedFence( m_device.FrameFence().CompletedValue() );
-    }
+    UINT64 completedFence = 0;
+    const bool fenceReady = ObserveCompletedFence( completedFence );
 
     if ( ( !Device() || !fenceReady ) && !m_recording.IsOpen() && m_submittedWork.CanReleaseWithoutFence() )
     {
@@ -880,7 +876,6 @@ void Dx12FrameOwner::RetireResource( ID3D12Resource* resource )
         return;
     }
 
-    const UINT64 completedFence = fenceReady ? m_device.FrameFence().CompletedValue() : 0;
     bool hasOutstandingFrameWork = false;
 
     for ( const UINT64 frameFence : m_frameFenceValues )
@@ -908,14 +903,8 @@ void Dx12FrameOwner::RetireResource( ID3D12Resource* resource, UINT descriptorIn
         return;
     }
 
-    const bool fenceReady = m_device.FrameFence().IsReady();
-
-    if ( fenceReady )
-    {
-        m_submittedWork.ObserveCompletedFence( m_device.FrameFence().CompletedValue() );
-    }
-
-    const UINT64 completedFence = fenceReady ? m_device.FrameFence().CompletedValue() : 0;
+    UINT64 completedFence = 0;
+    ObserveCompletedFence( completedFence );
     bool hasOutstandingFrameWork = m_recording.IsOpen();
 
     for ( const UINT64 frameFence : m_frameFenceValues )
@@ -952,14 +941,8 @@ void Dx12FrameOwner::RetireResource( ID3D12Resource* resource, UINT descriptorIn
         return;
     }
 
-    const bool fenceReady = m_device.FrameFence().IsReady();
-
-    if ( fenceReady )
-    {
-        m_submittedWork.ObserveCompletedFence( m_device.FrameFence().CompletedValue() );
-    }
-
-    const UINT64 completedFence = fenceReady ? m_device.FrameFence().CompletedValue() : 0;
+    UINT64 completedFence = 0;
+    ObserveCompletedFence( completedFence );
     bool hasOutstandingFrameWork = m_recording.IsOpen();
 
     for ( const UINT64 frameFence : m_frameFenceValues )
@@ -993,14 +976,8 @@ void Dx12FrameOwner::RetireStaticDescriptor( UINT descriptorIndex )
     // Lifetime: descriptor rows use the resource retirement proof because a
     // transient shader-visible copy may outlive the registry entry that named
     // its staging row. Reuse is legal only after all covering frame fences.
-    const bool fenceReady = m_device.FrameFence().IsReady();
-
-    if ( fenceReady )
-    {
-        m_submittedWork.ObserveCompletedFence( m_device.FrameFence().CompletedValue() );
-    }
-
-    const UINT64 completedFence = fenceReady ? m_device.FrameFence().CompletedValue() : 0;
+    UINT64 completedFence = 0;
+    ObserveCompletedFence( completedFence );
     bool hasOutstandingFrameWork = m_recording.IsOpen();
 
     for ( const UINT64 frameFence : m_frameFenceValues )
@@ -1015,6 +992,23 @@ void Dx12FrameOwner::RetireStaticDescriptor( UINT descriptorIndex )
     }
 
     m_retirement.QuarantineStaticDescriptor( descriptorIndex );
+}
+
+
+bool Dx12FrameOwner::ObserveCompletedFence( UINT64& outCompletedFence )
+{
+    // Invariant: retirement decisions and submitted-work publication consume
+    // one sample from the same ready fence timeline.
+    outCompletedFence = 0;
+
+    if ( !m_device.FrameFence().IsReady() )
+    {
+        return false;
+    }
+
+    outCompletedFence = m_device.FrameFence().CompletedValue();
+    m_submittedWork.ObserveCompletedFence( outCompletedFence );
+    return true;
 }
 
 

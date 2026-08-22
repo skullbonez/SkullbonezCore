@@ -8,13 +8,14 @@ Summary:
   row once downstream owner rows exist.
 
 Glossary:
-  Stable identity: Nonzero PhysicsSceneObjectId independent of dense row order.
+
   Asset affiliation: Durable library/asset/instance/part provenance.
-  Behavior group: Ragdoll/tree membership keyed by stable root id and part order.
+
   Editor metadata: Transient visibility and mutation-lock state keyed by stable identity.
 
 Invariants:
   - Duplicate ids and capacity exhaustion are recoverable preflight failures.
+  - Missing display names fail before paired body/collider/render mutation.
   - Successful commits retain exact identity, material, affiliation, and group values.
   - Clear and commit reuse the pre-scene reservation without growing storage.
   - Render creation publishes presentation, instance, and handle rows together.
@@ -25,6 +26,7 @@ Invariants:
     SceneWorld render snapshot is exposed.
 
 Related:
+  - Agentic/Reference/engine-glossary.md
   - SkullbonezSource/Runtime/Scene/SceneEntityStore.h
   - SkullbonezSource/Rendering/RenderInstanceStore.h
 */
@@ -100,8 +102,13 @@ TEST_CASE( "SceneEntityStore: preflight and commit preserve durable owner metada
 
     CHECK_FALSE( store.PreflightAppend( entity ).Ok() );
 
+    SceneEntityCreateDesc unnamed;
+    unnamed.sceneObjectId = PhysicsSceneObjectId { 44u };
+    CHECK_FALSE( store.PreflightAppend( unnamed ).Ok() );
+
     SceneEntityCreateDesc orphan;
-    orphan.sceneObjectId = PhysicsSceneObjectId { 44u };
+    orphan.sceneObjectId = PhysicsSceneObjectId { 45u };
+    orphan.SetName( "orphan" );
     orphan.SetBehaviorGroup( SceneBehaviorGroupKind::ReleasableTree, PhysicsSceneObjectId { 999u }, 1 );
     CHECK_FALSE( store.PreflightAppend( orphan ).Ok() );
 
@@ -132,6 +139,7 @@ TEST_CASE( "SceneEntityStore: active capacity is enforced without growth" )
 
     SceneEntityCreateDesc second;
     second.sceneObjectId = PhysicsSceneObjectId { 2u };
+    second.SetName( "second" );
     CHECK_FALSE( store.PreflightAppend( second ).Ok() );
     CHECK( store.Count() == 1 );
     CHECK( store.Capacity() == 1 );
@@ -308,7 +316,7 @@ TEST_CASE( "RenderInstanceStore: fixed-tick poses interpolate and discontinuitie
     REQUIRE( renderStore.TryGetPresentationPose( 0, 0.25f, presentedPosition, presentedOrientation ) );
     CHECK( presentedPosition.x == doctest::Approx( 2.0f ) );
 
-    // A teleport between ticks is a discontinuity. Refresh must publish it
+    // Concept: a teleport between ticks is a discontinuity. Refresh must publish it
     // exactly instead of blending from the previous physics endpoint.
     hotFields.positionX[0] = 100.0f;
     renderStore.Refresh( bodyStore, colliderStore, 0.25f );
@@ -316,7 +324,7 @@ TEST_CASE( "RenderInstanceStore: fixed-tick poses interpolate and discontinuitie
     REQUIRE( renderStore.TryGetPresentationPose( 0, 0.25f, presentedPosition, presentedOrientation ) );
     CHECK( presentedPosition.x == doctest::Approx( 100.0f ) );
 
-    // Input can teleport a body immediately before a solver tick. The begin
+    // Invariant: input can teleport a body immediately before a solver tick. The begin
     // capture detects that endpoint break, so the next legitimate tick blends
     // from the teleported pose instead of resurrecting the old path.
     hotFields.positionX[0] = 200.0f;

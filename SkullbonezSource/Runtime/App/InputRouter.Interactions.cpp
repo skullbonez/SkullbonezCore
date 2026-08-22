@@ -246,7 +246,7 @@ InputRouter::RouteRuntimePointer( const RuntimePointerEvent& pointer, bool repla
 
     // Invariant: this order is the world-pointer arbitration contract. Each
     // concrete owner sees the immutable pointer/ray values only when every
-    // earlier owner declined the gesture. The phase cursor lane-F fails a
+    // earlier owner declined the gesture. The phase cursor fatal-invariant fails a
     // reordered, skipped, or repeated stage.
     (void)arbitration.BeginStage( RuntimePointerRouteStage::Editor );
     const EditorPointerRouteResult editorResult = RouteEditorPointer( pointer, hasWorldRay, rayOrigin, rayDirection,
@@ -715,10 +715,10 @@ void InputRouter::DispatchCaptureActions( InputActions& actions, DiagnosticsRunt
 }
 
 
-bool InputRouter::DispatchAfterUiDismiss( InputActions& actions, bool uiUserInteracted, double nowSeconds,
-                                          bool legacyUiActive, DiagnosticsRuntime& diagnosticsRuntime,
-                                          CameraControlState& camera, AttachedCameraController& attachedCamera,
-                                          RuntimeTools& runtimeTools, UI::InGameUI& ui, SceneController& sceneController,
+bool InputRouter::DispatchAfterUiDismiss( InputActions& actions, bool uiUserInteracted, double nowSeconds, bool gameUiActive,
+                                          DiagnosticsRuntime& diagnosticsRuntime, CameraControlState& camera,
+                                          AttachedCameraController& attachedCamera, RuntimeTools& runtimeTools,
+                                          UI::InGameUI& ui, SceneController& sceneController,
                                           RuntimeOverlayDiagnostics& overlays, const ReplayInputView& replayInput )
 {
     RuntimeOverlayPresentationEdit presentationEdit = overlays.EditPresentation();
@@ -763,10 +763,10 @@ bool InputRouter::DispatchAfterUiDismiss( InputActions& actions, bool uiUserInte
         {
             return true;
         }
-        else if ( !legacyUiActive )
+        else if ( !gameUiActive )
         {
             // ImGui owns Escape/focus policy in this process. Remember the tap
-            // for the existing quick-exit gesture without activating Legacy.
+            // for the existing quick-exit gesture without activating GameUI.
             RecordTap( event.action, nowSeconds );
         }
         else

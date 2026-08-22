@@ -1,20 +1,18 @@
 /*
-File: SkullbonezSource/UI/UIWindowChrome.cpp
-Purpose:
-  Implements UI WindowChrome widgets, layout, drawing, or UI state for the in-engine controls.
+File : SkullbonezSource / UI / UIWindowChrome.cpp Purpose : Implements window placement, clamping, title fitting, animation,
+    and chrome drawing.
 
-Summary:
-  Owns window placement, clamping,
-  maximize/minimize animation, title controls, and frame drawing.
+        Summary : Owns window placement,
+    clamping, maximize / minimize animation, title controls,
+    and frame drawing
+                .
 
-Invariants:
-  - Draw geometry and hit testing must be derived from the same layout
-  constants.
+            Invariants : -Draw geometry and hit testing must be derived from the same layout constants.
 
-Related:
-  - SkullbonezSource/UI/UIWindowChrome.h
-  - Agentic/Reference/engine-glossary.md
-*/
+                         Related : -SkullbonezSource /
+            UI / UIWindowChrome.h -
+        Agentic / Reference / engine -
+        glossary.md*/
 #include "UIWindowChrome.h"
 #include "UIFontMetrics.h"
 #include "UI.h"
@@ -33,7 +31,8 @@ namespace UI
 {
 namespace Chrome
 {
-
+// Invariant: title fitting preserves the newest suffix and always terminates in
+// the caller's bounded buffer, falling back to an ellipsis when nothing fits.
 void BuildWindowTitle( const InGameUIFrameData& data, char* out, size_t outSize )
 {
     if ( outSize == 0 )
@@ -135,6 +134,8 @@ void ApplyDefaultWindowPlacement( UIWindowState& window, int screenW, int screen
 }
 
 
+// Invariant: maximize captures restore bounds before replacing them; restore then
+// clamps that snapshot to the current screen rather than trusting stale dimensions.
 void ClampWindowToScreen( UIWindowState& window, int screenW, int screenH, int minW, int minH, int margin )
 {
     screenW = (std::max)( 1, screenW );

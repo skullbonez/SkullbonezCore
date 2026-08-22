@@ -2,7 +2,7 @@
 REM File: tools\bake_hulls.bat
 REM Purpose: Bake or check serialized convex hull runtime data.
 REM
-REM Mental model:
+REM Summary:
 REM   This wrapper resolves the repo-local Python runtime and delegates all hull
 REM   parsing and serialization to bake_hulls.py.
 REM

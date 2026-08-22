@@ -4,7 +4,7 @@
 @rem   Proves that scripted replay/prediction diagnostics are absent from the
 @rem   ordinary Profile game and remain operational in the Automation build.
 @rem
-@rem Mental model:
+@rem Summary:
 @rem   Automation is a Profile-equivalent executable with one extra compile-time
 @rem   diagnostics surface. This gate tests both sides of that boundary, then
 @rem   runs one combined replay-prediction and development-UI interaction used

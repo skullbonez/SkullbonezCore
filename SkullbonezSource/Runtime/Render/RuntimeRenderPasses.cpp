@@ -495,7 +495,7 @@ void ReflectionPass::EnsureGpuResources( const RenderResourceContext& resources 
 
     if ( needsReflectionTarget )
     {
-        LogResourceLifecycleStep( "window_resize", "reflection_target_recreate_if_needed" );
+        m_lifecycleLog.Write( "window_resize", "reflection_target_recreate_if_needed" );
 
         if ( m_resources.target )
         {
@@ -510,7 +510,7 @@ void ReflectionPass::EnsureGpuResources( const RenderResourceContext& resources 
 
 void ReflectionPass::ReleaseGpuResources()
 {
-    LogResourceLifecycleStep( "reflection_reset", "reflection_target" );
+    m_lifecycleLog.Write( "reflection_reset", "reflection_target" );
 
     // Lifetime: ResetResources gives the backend a chance to release device
     // objects before the unique_ptr destructor drops the concrete target owner.
@@ -520,12 +520,6 @@ void ReflectionPass::ReleaseGpuResources()
     }
 
     m_resources.target.reset();
-}
-
-
-void ReflectionPass::LogResourceLifecycleStep( const char* phase, const char* step ) const
-{
-    m_lifecycleLog.Write( phase, step );
 }
 
 
@@ -562,12 +556,6 @@ void ShadowPass::EnsureGpuResources( const RenderResourceContext& resources,
 }
 
 
-void ShadowPass::LogResourceLifecycleStep( const char* phase, const char* step ) const
-{
-    m_lifecycleLog.Write( phase, step );
-}
-
-
 void ShadowPass::ReleaseGpuResources()
 {
     // Lifetime: drop both the backing framebuffer and the per-frame payload.
@@ -597,7 +585,7 @@ void ShadowPass::ReleaseGpuResources()
 
     for ( const ShadowResetPhase& phase : resetSteps )
     {
-        LogResourceLifecycleStep( "shadow_reset", phase.name );
+        m_lifecycleLog.Write( "shadow_reset", phase.name );
 
         switch ( phase.step )
         {
@@ -955,7 +943,7 @@ void SkyPass::Render( const RenderCameraLighting& camera, const Math::Transforma
         return;
     }
 
-    // Lane F: only the authored cube-map path borrows the world SkyBox. Guard
+    // Fatal invariant: only the authored cube-map path borrows the world SkyBox. Guard
     // that borrow before matrix work or texture-owner commands; the independent
     // cinematic path above remains valid without a SkyBox.
     SkullbonezCore::Geometry::SkyBox& skyBox = RequireWorldView( "Render" );

@@ -50,7 +50,7 @@ struct Dx12UploadReservationResolution
     bool coldRetryAttempted = false;
 };
 
-// Lane R: steady render reservations fail at the draw boundary. Cold lifecycle
+// Recoverable error: steady render reservations fail at the draw boundary. Cold lifecycle
 // phases retain the legacy submit/wait retry because their stalls do not become
 // frame hitches.
 inline Dx12UploadOverflowAction

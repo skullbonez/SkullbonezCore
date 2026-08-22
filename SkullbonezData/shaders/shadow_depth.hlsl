@@ -1,22 +1,21 @@
 /*
 File: SkullbonezData/shaders/shadow_depth.hlsl
 Purpose:
-  Runs the shadow_depth HLSL shader program used by the renderer.
+  Render scene depth from the directional light's perspective into shadow maps.
 
 Summary:
-  shadow_depth.hlsl is shader source for the renderer's shadow_depth pass.
-  Keep edits anchored on shader inputs, bindings, and render-output contracts
-  and on the glossary/invariants below.
-
-Glossary:
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
+  Transforms non-instanced geometry through the light space view-projection
+  matrix, writing linear depth values into the cascading shadow map atlas.
 
 Invariants:
-  - CPU-side root signatures, input layouts, and descriptor bindings must
-  match this shader exactly.
+  - Pixel shader is null or minimal; depth write is hardware-accelerated.
+  - Slope-scaled depth bias is bound on the pipeline state to prevent shadow acne.
+
+Related:
+  - Agentic/Reference/engine-glossary.md
+  - SkullbonezSource/Rendering/Shadow.h
 */
+
 #pragma pack_matrix(column_major)
 
 cbuffer Uniforms : register(b0)

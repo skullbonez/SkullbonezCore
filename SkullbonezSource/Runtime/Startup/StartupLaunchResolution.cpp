@@ -5,8 +5,9 @@ Purpose:
 
 Summary:
   This unit resolves authored launch tokens, visualization-only physics-debug
-  overrides, suite JSON, run/replay/stress value directives, and the final
-  RunStartupOverrides value without retaining command-line storage.
+  overrides, suite JSON, recorded-interaction sidecars, run/replay/stress value
+  directives, and the final RunStartupOverrides value without retaining
+  command-line storage.
 
 Glossary:
   Launch token: CLI value naming a scene, suite, built-in hero, or generated
@@ -19,6 +20,8 @@ Invariants:
   - ParsedArgs is borrowed synchronously; returned Run values own or borrow only
     the same storage lifetime as before extraction.
   - Resolution performs no window, renderer, worker, or Run construction.
+  - Recorded scene/replay paths stay adjacent to the manifest and cannot escape
+    its directory; the automation controller verifies their content digests.
 
 Related:
   - StartupLaunchResolution.h
@@ -35,6 +38,7 @@ Related:
 #include <cstdint>
 #include <cstring>
 #include <fstream>
+#include <filesystem>
 #include <io.h>
 #include <string>
 #include <vector>
@@ -387,6 +391,29 @@ bool ApplyInteractionReportPath( const char* value, ParsedArgs& args )
     fprintf( stdout, "[interaction] Report output: %s\n", args.interactionReportPath );
     return true;
 }
+bool ApplyInteractionTracePath( const char* value, ParsedArgs& args )
+{
+    if ( !CopyCommandLinePath( value, "--interaction-trace", args.interactionTracePath,
+                               sizeof( args.interactionTracePath ) ) )
+    {
+        return false;
+    }
+
+    args.suppressExitDialog = true;
+    fprintf( stdout, "[interaction] Turn trace: %s\n", args.interactionTracePath );
+    return true;
+}
+bool ApplyInteractionRecordPath( const char* value, ParsedArgs& args )
+{
+    if ( !CopyCommandLinePath( value, "--record-automation", args.interactionRecordPath,
+                               sizeof( args.interactionRecordPath ) ) )
+    {
+        return false;
+    }
+
+    fprintf( stdout, "[recorder] Automation recording target: %s\n", args.interactionRecordPath );
+    return true;
+}
 bool ApplyReplayHashLogPath( const char* value, ParsedArgs& args )
 {
     if ( IsOptionValueMissing( value ) )
@@ -715,6 +742,97 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
 
     return true;
 }
+
+bool ResolveInteractionRecordingLaunch( ParsedArgs& args )
+{
+    if ( args.interactionScriptPath[0] == '\0' )
+    {
+        return true;
+    }
+
+    const std::filesystem::path manifestPath = std::filesystem::path( args.interactionScriptPath ).lexically_normal();
+    std::ifstream input( manifestPath );
+
+    if ( !input )
+    {
+        return true; // The Automation owner publishes the established script-open diagnostic.
+    }
+
+    Json root = Json::parse( input, nullptr, false );
+
+    if ( root.is_discarded() || root.value( "format", std::string {} ) != "skullbonez.interaction-recording" )
+    {
+        return true; // Legacy interaction script; retain existing scene CLI behavior.
+    }
+
+    if ( args.isSuiteOrSceneMode )
+    {
+        return FailCommandLineParse( "recorded --interaction-script already owns its scene; remove --scene/--suite." );
+    }
+
+    if ( !root.value( "complete", false ) || root.value( "version", 0 ) != 1 || !root.contains( "scene" ) ||
+         !root["scene"].is_object() || !root["scene"].contains( "path" ) || !root["scene"]["path"].is_string() )
+    {
+        return FailCommandLineParse( "recorded --interaction-script is incomplete or has invalid scene metadata." );
+    }
+
+    const auto resolveSidecar = [&]( const Json& sidecar, const char* label, char* destination,
+                                     std::size_t destinationSize ) -> bool
+    {
+        const std::filesystem::path relative = sidecar["path"].get<std::string>();
+
+        if ( relative.empty() || relative.is_absolute() || relative.has_root_name() || relative.has_root_directory() )
+        {
+            return FailCommandLineParse( "recorded --interaction-script %s path must be relative.", label );
+        }
+
+        for ( const std::filesystem::path& component : relative )
+        {
+            if ( component == ".." )
+            {
+                return FailCommandLineParse( "recorded --interaction-script %s path may not escape its directory.", label );
+            }
+        }
+
+        const std::string resolved = ( manifestPath.parent_path() / relative ).lexically_normal().string();
+
+        if ( resolved.size() >= destinationSize )
+        {
+            return FailCommandLineParse( "recorded --interaction-script %s path is too long.", label );
+        }
+
+        strcpy_s( destination, destinationSize, resolved.c_str() );
+        return true;
+    };
+
+    char scenePath[260] = {};
+
+    if ( !resolveSidecar( root["scene"], "scene", scenePath, sizeof( scenePath ) ) )
+    {
+        return false;
+    }
+
+    args.sceneList.assign( 1u, scenePath );
+    args.isSuiteOrSceneMode = true;
+    args.interactiveRun = true;
+    args.suppressExitDialog = true;
+
+    if ( root.contains( "replay" ) )
+    {
+        if ( !root["replay"].is_object() || !root["replay"].contains( "path" ) || !root["replay"]["path"].is_string() ||
+             !resolveSidecar( root["replay"], "replay", args.replayLoadPath, sizeof( args.replayLoadPath ) ) )
+        {
+            return FailCommandLineParse( "recorded --interaction-script has invalid replay metadata." );
+        }
+
+        args.replayLoad = true;
+        args.replayRecording = true;
+        args.replayExplicit = true;
+    }
+
+    fprintf( stdout, "[interaction] Recorded manifest scene: %s\n", scenePath );
+    return true;
+}
 RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
 {
     RunStartupOverrides overrides;
@@ -744,6 +862,7 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
     launch.graphicsStressSceneIntervalFrames = args.graphicsStressSceneIntervalFrames;
     launch.graphicsStressMemoryIntervalFrames = args.graphicsStressMemoryIntervalFrames;
     launch.replayGuideArcsAtStartup = args.replayGuideArcsAtStartup;
+    launch.interactionRecordMaxMinutes = args.interactionRecordMaxMinutes;
     launch.allocationGuardMode = args.allocationGuardMode;
     launch.generatedObjectTypeOverride = args.objectTypeOverride;
     launch.hasPhysicsDebugFlagsOverride = args.hasPhysicsDebugFlagsOverride;
@@ -765,6 +884,9 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
     overrides.mainMemoryDumpPath = args.memoryDumpPath[0] != '\0' ? args.memoryDumpPath : nullptr;
     overrides.interactionScriptPath = args.interactionScriptPath[0] != '\0' ? args.interactionScriptPath : nullptr;
     overrides.interactionReportPath = args.interactionReportPath[0] != '\0' ? args.interactionReportPath : nullptr;
+    overrides.interactionTracePath = args.interactionTracePath[0] != '\0' ? args.interactionTracePath : nullptr;
+    overrides.interactionRecordPath = args.interactionRecordPath[0] != '\0' ? args.interactionRecordPath : nullptr;
+    overrides.interactionRecordMaxMinutes = args.interactionRecordMaxMinutes;
     const bool replayDefaultAllowed = !args.isSuiteOrSceneMode || args.interactiveRun || args.liveStyleControlDir[0] != '\0';
 
     const bool replayEnabled = args.replayExplicit ? args.replayRecording : ( args.replayRecording && replayDefaultAllowed );
@@ -867,12 +989,12 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
           {
               if ( !value || IsOptionValueMissing( value ) )
               {
-                  return FailCommandLineParse( "--dev-ui expects legacy|imgui; the two surfaces are mutually exclusive." );
+                  return FailCommandLineParse( "--dev-ui expects game|imgui; the two surfaces are mutually exclusive." );
               }
 
-              if ( strcmp( value, "legacy" ) == 0 )
+              if ( strcmp( value, "game" ) == 0 )
               {
-                  args.developmentUiMode = DevelopmentUiMode::Legacy;
+                  args.developmentUiMode = DevelopmentUiMode::GameUI;
               }
               else if ( strcmp( value, "imgui" ) == 0 )
               {
@@ -880,7 +1002,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               }
               else
               {
-                  return FailCommandLineParse( "--dev-ui expects legacy|imgui; the two surfaces are mutually exclusive." );
+                  return FailCommandLineParse( "--dev-ui expects game|imgui; the two surfaces are mutually exclusive." );
               }
 
               args.developmentUiModeExplicit = true;
@@ -894,6 +1016,24 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
         { "--memory-dump", "--memory_dump", ApplyMemoryDumpPath },
         { "--interaction-script", "--interaction_script", ApplyInteractionScriptPath },
         { "--interaction-report", "--interaction_report", ApplyInteractionReportPath },
+        { "--interaction-trace", "--interaction_trace", ApplyInteractionTracePath },
+        { "--record-automation", "--record_automation", ApplyInteractionRecordPath },
+        { "--record-interaction", "--record_interaction", ApplyInteractionRecordPath },
+        { "--interaction-record-max-minutes",
+          "--interaction_record_max_minutes",
+          []( const char* value, ParsedArgs& args ) -> bool
+          {
+              int minutes = 0;
+
+              if ( !ParseIntCommandLineToken( value, minutes ) || minutes < 1 || minutes > 60 )
+              {
+                  return FailCommandLineParse( "--interaction-record-max-minutes expects 1..60." );
+              }
+
+              args.interactionRecordMaxMinutes = minutes;
+              fprintf( stdout, "[recorder] Maximum duration: %d minute(s).\n", minutes );
+              return true;
+          } },
         { "--predict", nullptr, ApplyPredictTargetName },
         { "--predict-seconds", "--predict_seconds", ApplyPredictHorizonSeconds },
         { "--replay",

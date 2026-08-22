@@ -5,7 +5,7 @@
 #   Blocks accidental commits or pull requests containing large blobs outside
 #   approved data locations.
 #
-# Mental model:
+# Summary:
 #   This is a tip-tree hygiene guardrail. Local validation reads the git index;
 #   hosted CI can compare HEAD with an explicit base ref. Neither mode rewrites
 #   history, and both inspect exact git blobs rather than working-tree metadata.

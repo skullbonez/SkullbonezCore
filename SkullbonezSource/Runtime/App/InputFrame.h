@@ -13,7 +13,7 @@ Summary:
 Glossary:
   Composition boundary: Stateless sequencing code that connects domain owners
     without taking ownership of their state or decisions.
-  Editor arbitration: Deterministic merge that keeps the canonical legacy lane
+  Editor arbitration: Deterministic merge that keeps the canonical GameUI lane
     first, coalesces exact duplicate injected intent, and rejects conflicts.
 
 Invariants:
@@ -107,9 +107,9 @@ struct RuntimeInputFrameFacts
     // synchronously and never retained by input orchestration.
     UI::OperatorEditorCommandQueues externalEditorCommands;
 
-    // Invariant: only the selected Legacy surface may sample its pointer tools
+    // Invariant: only the selected GameUI surface may sample its pointer tools
     // or scene-authored stress actions during this input turn.
-    bool legacyDevelopmentUiActive = true;
+    bool gameUiActive = true;
     int requestedReplayCauseRow = -1; // Automation-only typed equivalent of one cause-window row hit.
 };
 

@@ -7,7 +7,7 @@ Summary:
   ReplayRuntime supplies three live body-state values and the scene's mutual
   gravity constant. This cold presentation owner converts the two planet states
   into elliptic elements, samples two bounded polylines, and retains them for
-  faint Legacy overlay drawing.
+  faint GameUI overlay drawing.
 
 Glossary:
   Guide ring: Analytic two-body orbit shape used as a visual reference.
@@ -73,7 +73,7 @@ class ReplayGuideArcs
 {
   public:
 
-    // Inverts the Legacy affordance and makes the next enabled update due.
+    // Inverts the GameUI affordance and makes the next enabled update due.
     void Toggle() noexcept;
 
     // Applies idempotent startup/scene policy without repeated calls flipping

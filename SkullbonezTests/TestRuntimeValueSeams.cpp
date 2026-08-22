@@ -1,16 +1,16 @@
-//
+//   - Agentic/Reference/engine-glossary.md//
 // File: SkullbonezTests/TestRuntimeValueSeams.cpp
 // Purpose:
 //   Lock CPU-only interaction, render-policy, and replay-overlay value seams.
 //
 // Summary:
 //   These tests exercise the frame-policy matrix and the screen-space control
-//   packets shared by replay input and drawing. They deliberately avoid the
-//   engine loop and renderer so failures identify owner logic directly.
+//   packets shared by replay input and drawing, including the cause hierarchy's
+//   ratified 84 px safe top. They deliberately avoid the engine loop and
+//   renderer so failures identify owner logic directly.
 //
 // Glossary:
-//   Frame policy: Value packet deciding physics advance, camera-look state, or
-//     whether a cross-scene-locked frame may proceed.
+
 //   Control surface: Fixed-capacity ordered table of replay controls and hit
 //     regions rebuilt for one frame.
 //   Historical sample: Retained replay state that must not advance live physics.
@@ -245,8 +245,7 @@ TEST_CASE( "Runtime interaction: every gesture preserves owner and capture consi
           RuntimeGizmoDragKind::Rotate, 1, true },
         { RuntimeInteractionGestureKind::MousePickupDrag, RuntimeWorkspace::Live, WorldInteractionOwner::Manipulator,
           RuntimeGizmoDragKind::None, -1, true },
-        { RuntimeInteractionGestureKind::ReplayScrubDrag, RuntimeWorkspace::Replay,
-          WorldInteractionOwner::ReplayScrub },
+        { RuntimeInteractionGestureKind::ReplayScrubDrag, RuntimeWorkspace::Replay, WorldInteractionOwner::ReplayScrub },
         { RuntimeInteractionGestureKind::ReplayVelocityDrag, RuntimeWorkspace::Replay,
           WorldInteractionOwner::ReplayVelocityEdit, RuntimeGizmoDragKind::None, 2, true },
         { RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag, RuntimeWorkspace::Replay,
@@ -293,8 +292,9 @@ TEST_CASE( "Runtime interaction: every gesture preserves owner and capture consi
     CHECK( cameraController.Gesture().kind == RuntimeInteractionGestureKind::None );
     CHECK( cameraController.PointerCapture() == RuntimePointerCaptureOwner::None );
 
-    const auto expectRejected = []( RuntimeWorkspace workspace, WorldInteractionOwner owner,
-                                    const RuntimeInteractionGesture& gesture ) {
+    const auto expectRejected =
+        []( RuntimeWorkspace workspace, WorldInteractionOwner owner, const RuntimeInteractionGesture& gesture )
+    {
         RuntimeInteractionController controller;
         controller.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Live, WorldInteractionOwner::Launcher,
                                                         InteractionExitReason::EnterLauncher );
@@ -679,7 +679,7 @@ TEST_CASE( "Replay memory: one Low-detail snapshot reconciles released evidence"
 
     CHECK( SkullbonezCore::Core::MainMemoryReplayPredictionEvidenceReleaseReconciles( stats ) );
 
-    // A stale total or category row must fail even when the release checkpoint
+    // Hazard: a stale total or category row must fail even when the release checkpoint
     // itself says that both banks reached zero.
     ++stats.totalBytes;
     CHECK_FALSE( SkullbonezCore::Core::MainMemoryReplayPredictionEvidenceReleaseReconciles( stats ) );
@@ -697,7 +697,7 @@ TEST_CASE( "Replay memory: one Low-detail snapshot reconciles released evidence"
     CHECK_FALSE( SkullbonezCore::Core::MainMemoryReplayPredictionEvidenceReleaseReconciles( stats ) );
     --stats.predictionEvidence.lastReleaseBeforeCategoryTotalBytes;
 
-    // Subtraction is guarded before it can underflow, including an extreme
+    // Hazard: subtraction is guarded before it can underflow, including an extreme
     // fabricated checkpoint that would have overflowed the retired add-back proof.
     stats.predictionEvidence.lastReleaseBeforeReplayTotalBytes = 0u;
     stats.predictionEvidence.lastReleaseAfterReplayTotalBytes = UINT64_MAX;
@@ -721,7 +721,7 @@ TEST_CASE( "Replay overlay: cause-window packets clamp placement and scrolling" 
 
     ClampReplayCauseWindow( state, 800, 600 );
     CHECK( state.x == 8 );
-    CHECK( state.y == 124 );
+    CHECK( state.y == 84 );
     CHECK( state.width == 784 );
     CHECK( state.height == 584 );
     CHECK( state.scrollY == doctest::Approx( ReplayCauseWindowMaxScroll( state ) ) );
@@ -735,7 +735,7 @@ TEST_CASE( "Replay overlay: cause-window packets clamp placement and scrolling" 
 
     ReplayCauseWindowSurface surface;
     BuildReplayCauseWindowSurface( state, surface );
-    CHECK( surface.controlCount == 4u );
+    CHECK( surface.controlCount == 9u );
     CHECK( surface.controls[0].id == ReplayCauseWindowControlId( ReplayCauseWindowControl::Resize ) );
     CHECK( surface.controls[1].id == ReplayCauseWindowControlId( ReplayCauseWindowControl::Title ) );
     CHECK( ReplayCauseWindowContainsPoint( state, state.x + 20, state.y + 60 ) );
@@ -745,7 +745,86 @@ TEST_CASE( "Replay overlay: cause-window packets clamp placement and scrolling" 
     EnsureReplayCauseWindowPlacement( fresh, 1024, 768 );
     CHECK( fresh.hasWindowPlacement );
     CHECK( fresh.x == 620 );
-    CHECK( fresh.y == 124 );
+    CHECK( fresh.y == 84 );
     CHECK( fresh.width == 380 );
     CHECK( fresh.height == 520 );
+}
+
+TEST_CASE( "Replay overlay: cause filtering preserves source ancestry and identity" )
+{
+    RunReplayCauseTreeState state;
+    state.rows.resize( 6u );
+    state.rows[0].kind = RunReplayCauseTreeRowKind::Body;
+    state.rows[0].depth = 0;
+    state.rows[0].prediction = true;
+    strcpy_s( state.rows[0].name, "Root" );
+    state.rows[1].kind = RunReplayCauseTreeRowKind::Body;
+    state.rows[1].depth = 1;
+    state.rows[1].prediction = true;
+    strcpy_s( state.rows[1].name, "Alpha" );
+    state.rows[2].kind = RunReplayCauseTreeRowKind::Manifold;
+    state.rows[2].depth = 2;
+    state.rows[2].prediction = true;
+    strcpy_s( state.rows[2].name, "Crash contact" );
+    state.rows[3].kind = RunReplayCauseTreeRowKind::SolverRow;
+    state.rows[3].depth = 3;
+    state.rows[3].prediction = true;
+    strcpy_s( state.rows[3].detail, "friction clamp" );
+    state.rows[4].kind = RunReplayCauseTreeRowKind::Body;
+    state.rows[4].depth = 1;
+    strcpy_s( state.rows[4].name, "Recorded Beta" );
+    state.rows[5].kind = RunReplayCauseTreeRowKind::PredictionMotion;
+    state.rows[5].depth = 2;
+    state.rows[5].prediction = true;
+    strcpy_s( state.rows[5].name, "Forecast arc" );
+
+    ReplayCauseWindowProjection projection;
+    BuildReplayCauseWindowProjection( state, projection );
+    CHECK( projection.count == 6 );
+    CHECK( projection.SourceRow( 3 ) == 3 );
+    CHECK( projection.VisibleRow( 4 ) == 4 );
+
+    state.filter = RunReplayCauseTreeFilter::Contacts;
+    BuildReplayCauseWindowProjection( state, projection );
+    REQUIRE( projection.count == 4 );
+    CHECK( projection.SourceRow( 0 ) == 0 );
+    CHECK( projection.SourceRow( 1 ) == 1 );
+    CHECK( projection.SourceRow( 2 ) == 2 );
+    CHECK( projection.SourceRow( 3 ) == 3 );
+
+    state.filter = RunReplayCauseTreeFilter::All;
+    strcpy_s( state.filterText, "CLAMP" );
+    BuildReplayCauseWindowProjection( state, projection );
+    REQUIRE( projection.count == 4 );
+    CHECK( projection.SourceRow( 3 ) == 3 );
+
+    state.filter = RunReplayCauseTreeFilter::Prediction;
+    strcpy_s( state.filterText, "beta" );
+    BuildReplayCauseWindowProjection( state, projection );
+    CHECK( projection.count == 0 );
+    CHECK( projection.SourceRow( 0 ) == -1 );
+
+    state.filter = RunReplayCauseTreeFilter::All;
+    BuildReplayCauseWindowProjection( state, projection );
+    REQUIRE( projection.count == 2 );
+    CHECK( projection.SourceRow( 0 ) == 0 );
+    CHECK( projection.SourceRow( 1 ) == 4 );
+    CHECK( projection.VisibleRow( 4 ) == 1 );
+
+    RunReplayCauseTreeState textState;
+    CHECK_FALSE( AppendReplayCauseFilterCharacter( textState, '\x01' ) );
+    CHECK_FALSE( AppendReplayCauseFilterCharacter( textState, static_cast<char>( 0xE9 ) ) );
+
+    for ( std::size_t index = 0; index < REPLAY_CAUSE_FILTER_TEXT_CAPACITY - 1u; ++index )
+    {
+        CHECK( AppendReplayCauseFilterCharacter( textState, 'x' ) );
+    }
+
+    CHECK_FALSE( AppendReplayCauseFilterCharacter( textState, 'y' ) );
+    CHECK( strlen( textState.filterText ) == REPLAY_CAUSE_FILTER_TEXT_CAPACITY - 1u );
+    CHECK( BackspaceReplayCauseFilter( textState ) );
+    CHECK( strlen( textState.filterText ) == REPLAY_CAUSE_FILTER_TEXT_CAPACITY - 2u );
+    CHECK( ClearReplayCauseFilterText( textState ) );
+    CHECK( textState.filterText[0] == '\0' );
+    CHECK_FALSE( ClearReplayCauseFilterText( textState ) );
 }

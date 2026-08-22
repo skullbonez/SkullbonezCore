@@ -1,22 +1,21 @@
 /*
 File: SkullbonezData/shaders/grid_line.hlsl
 Purpose:
-  Runs the grid_line HLSL shader program used by the renderer.
+  Render spatial grid lines and world coordinate planes.
 
 Summary:
-  grid_line.hlsl is shader source for the renderer's grid_line pass. Keep
-  edits anchored on shader inputs, bindings, and render-output contracts and
-  on the glossary/invariants below.
-
-Glossary:
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
+  Transforms dynamic line batches for spatial broadphase grid visualization
+  and editor world axes, applying vertex color and distance attenuation.
 
 Invariants:
-  - CPU-side root signatures, input layouts, and descriptor bindings must
-  match this shader exactly.
+  - CPU-side root signatures, input layouts, and descriptor bindings must match this shader exactly.
+  - Line primitives require line-list topology configured on the pipeline state.
+
+Related:
+  - Agentic/Reference/engine-glossary.md
+  - SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.cpp
 */
+
 // =============================================================================
 // GRID LINE SHADER — Shader Model 6.6 (Combined VS+PS)
 // =============================================================================

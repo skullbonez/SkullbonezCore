@@ -28,6 +28,7 @@ Related:
 #include "Run.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "../Automation/RuntimeValidationHarness.h"
+#include "../Automation/InteractionRecordingBrowser.h"
 #include "../Camera/RuntimeCameraMode.h"
 #include "InputFrame.h"
 #include "Window.h"
@@ -313,6 +314,7 @@ Run::Run( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Window& wi
     m_sceneController.Scene().Physics().BindProfiler( profiler );
     m_sceneController.Scene().Cameras().ApplyMovementSettings( BuildCameraMovementSettings( cfg ) );
     m_operatorUi->SceneNavigation().RefreshBrowserList();
+    m_operatorUi->SceneNavigation().RefreshInteractionRecordings();
     m_sceneController.Scene().ApplyRuntimeConfig( cfg );
     m_renderDefaults.CaptureStartupCinematicBaseline( cfg.cinematicRender );
     m_startup.ApplyStartupConfig( cfg );
@@ -366,6 +368,26 @@ Run::~Run()
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Shutdown );
     CancelPendingLookLabSave( "shutdown cancelled screenshot" );
     m_continuousForecast.Stop();
+
+    if ( m_interactionRecorder.IsArmed() )
+    {
+        // Orderly shutdown can arrive after the F8 edge but before the next
+        // run-loop boundary. The owners are still alive here, so capture the
+        // promised baseline before publishing the zero-turn recording.
+        AdvanceInteractionRecordingBoundary();
+    }
+
+    if ( m_interactionRecorder.IsActive() )
+    {
+        const SkullbonezCore::Core::SbResult save = m_interactionRecorder.StopAndSave( m_resultDiagnostics, "shutdown",
+                                                                                       true );
+
+        if ( !save.Ok() )
+        {
+            std::fprintf( stderr, "[recorder] Shutdown save failed: %s\n", save.ErrorMessage() );
+        }
+    }
+
     const std::string* currentScenePath = m_sceneController.CurrentPath();
     m_diagnosticsRuntime.ReportStoreCapacityRows( m_sceneController.State(),
                                                   currentScenePath ? currentScenePath->c_str() : nullptr, "process_end" );
@@ -426,7 +448,7 @@ Run::~Run()
 
     if ( !releaseResult.Ok() )
     {
-        // Lane F: a destructor cannot propagate Lane R to a caller, and letting
+        // Fatal invariant: a destructor cannot propagate recoverable error to a caller, and letting
         // member destruction continue after an uncertain GPU drain is unsafe.
         SB_FATAL( "Runtime/Run", "Backend resource release could not establish GPU safety. owner=%s reason=%s",
                   releaseResult.ErrorOwner()[0] != '\0' ? releaseResult.ErrorOwner() : "Rendering/DX12",
@@ -513,6 +535,18 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
     ApplyStartupDiagnosticsPolicy( overrides, m_diagnosticsRuntime, m_sceneController.Scene().Physics() );
 #endif
 
+    if ( overrides.interactionRecordPath )
+    {
+        const SkullbonezCore::Core::SbResult arm = m_interactionRecorder.Arm( m_resultDiagnostics,
+                                                                              overrides.interactionRecordPath,
+                                                                              overrides.interactionRecordMaxMinutes );
+
+        if ( !arm.Ok() )
+        {
+            return arm;
+        }
+    }
+
     if ( !overrides.interactionScriptPath )
     {
         return SkullbonezCore::Core::SbResult::Success();
@@ -521,7 +555,8 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     const SkullbonezCore::Core::SbResult result = ConfigureInteractionAutomation( m_interactionAutomation,
                                                                                   overrides.interactionScriptPath,
-                                                                                  overrides.interactionReportPath );
+                                                                                  overrides.interactionReportPath,
+                                                                                  overrides.interactionTracePath );
 
     if ( !result.Ok() )
     {
@@ -537,7 +572,7 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
 
     return result;
 #else
-    // Lane R: interaction scripts are external validation input. Ordinary game
+    // Recoverable error: interaction scripts are external validation input. Ordinary game
     // builds reject them instead of linking the diagnostic controller into the
     // frame loop; tools must use the dedicated Automation configuration.
     return m_resultDiagnostics.Failure( "InteractionAutomation", "--interaction-script requires an Automation|x64 build." );
@@ -567,7 +602,7 @@ void Run::ApplyStartupPredictionRequest()
     const int modelIndex = sceneWorld.Entities().FindByDisplayName( m_launchOptions.predictTargetName );
     const PhysicsBodyRecord* body = modelIndex >= 0 ? sceneWorld.BodyStore().RecordForModelIndex( modelIndex ) : nullptr;
 
-    // Lane R: --predict names external launch input. A scene whose bodies are
+    // Recoverable error: --predict names external launch input. A scene whose bodies are
     // still loading simply retries next frame; only a scene that has finished
     // loading without the name is a reportable operator mistake.
     if ( !body || !body->sceneObjectId.IsValid() )
@@ -636,7 +671,7 @@ void Run::Initialise()
 {
     // Why: timers default to inert storage so Run construction cannot throw
     // before the startup reporter exists. Initialise them at this boundary and
-    // return platform counter failures through the normal Lane R process path.
+    // return platform counter failures through the normal recoverable error process path.
     const SkullbonezCore::Core::SbResult timerStartupResult = m_timers.Initialise( m_resultDiagnostics );
 
     if ( !timerStartupResult.Ok() )
@@ -689,7 +724,7 @@ void Run::Initialise()
     m_sceneController.Scene().Environment().SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
 
     // Why: SDF atlas generation is a startup asset/tooling boundary. Report it
-    // as Lane R before scene loading instead of throwing through Run startup.
+    // as recoverable error before scene loading instead of throwing through Run startup.
     const SkullbonezCore::Core::SbResult
         uiTextResourceResult = Renderer().ResourceLifecycle().EnsureUiTextResources( cfg.window.screenX,
                                                                                      cfg.window.screenY );
@@ -775,7 +810,7 @@ void Run::Initialise()
 
     m_skipExecute = replayStartup.skipExecute;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    // Scene-authored legacy window defaults run during load. Reapply the
+    // Scene-authored GameUI window defaults run during load. Reapply the
     // selected surface so an inactive implementation cannot become a second input owner.
     ApplyDevelopmentUiMode();
 #endif
@@ -791,8 +826,8 @@ void Run::ApplyDevelopmentUiMode()
 
     if ( !m_launchOptions.developmentUiModeExplicit && !m_imguiEditor.HasActivatedSurfaceSelection() )
     {
-        // Invariant: an omitted selector chooses the Legacy implementation but
-        // preserves the scene-authored Legacy visibility default. This keeps
+        // Invariant: an omitted selector chooses the GameUI implementation but
+        // preserves the scene-authored GameUI visibility default. This keeps
         // ordinary launches and capture baselines stable while ImGui stays dormant.
         m_imguiEditor.SetVisible( false );
         return;
@@ -805,9 +840,9 @@ void Run::SelectDevelopmentUiSurface( DevelopmentUiMode surface )
 {
     // Invariant: deactivate the source before activating the target. The two
     // implementations coexist in the build but never own focus in one instant.
-    if ( DevelopmentUiModeShowsLegacy( surface ) )
+    if ( DevelopmentUiModeShowsGameUI( surface ) )
     {
-        m_imguiEditor.SelectSurface( DevelopmentUiMode::Legacy );
+        m_imguiEditor.SelectSurface( DevelopmentUiMode::GameUI );
 
         if ( !m_operatorUi->IsVisible() )
         {

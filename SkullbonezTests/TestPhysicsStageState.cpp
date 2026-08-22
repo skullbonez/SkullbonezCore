@@ -1,4 +1,4 @@
-//
+//   - Agentic/Reference/engine-glossary.md//
 // File: SkullbonezTests/TestPhysicsStageState.cpp
 // Purpose:
 //   Locks sleep-owner transitions and narrowphase island determinism.
@@ -9,11 +9,9 @@
 //   without constructing PhysicsWorld or a scene owner.
 //
 // Glossary:
-//   Support edge: Directed relation from a grounded supporter to a supported body.
-//   Underwater lock: Dormancy state that prevents a fully submerged ball from jitter-waking.
+
 //   Pair slot: Event row whose index remains identical to the broadphase candidate index.
-//   Runtime settings snapshot: Physics-owned copy stamped once from process
-//     configuration before fixed-step consumers borrow it.
+
 //   Point-joint relaxation: Anchor-distance check that prevents a stretched
 //     constraint island from sleeping before the joint settles inside slack.
 //

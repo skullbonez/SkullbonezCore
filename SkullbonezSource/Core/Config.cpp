@@ -62,18 +62,7 @@ struct ConfigSetting
     void ( *dump )( const EngineConfig& cfg, FILE* out, const ConfigSetting& setting );
 };
 
-struct FileCloser
-{
-    void operator()( FILE* file ) const
-    {
-        if ( file )
-        {
-            fclose( file );
-        }
-    }
-};
-
-using FileHandle = std::unique_ptr<FILE, FileCloser>;
+using FileHandle = std::unique_ptr<FILE, decltype( &fclose )>;
 
 bool IsSpaceOrTab( char c )
 {
@@ -803,7 +792,7 @@ SbResult ReadConfigFormatVersion( SbDiagnosticStore& diagnostics, const char* pa
         return SbResult::Success();
     }
 
-    FileHandle file( rawFile );
+    FileHandle file( rawFile, &fclose );
 
     bool sawVersion = false;
     char line[512];
@@ -884,10 +873,10 @@ SbResult ReadConfigFormatVersion( SbDiagnosticStore& diagnostics, const char* pa
 }
 } // anonymous namespace
 
-/* ---------------------------------------------------------------------------------*/
+
 SbResult EngineConfig::Load( SbDiagnosticStore& diagnostics, const char* path )
 {
-    // engine.cfg is an optional developer/runtime defaults file. Unknown or
+    // Concept: engine.cfg is an optional developer/runtime defaults file. Unknown or
     // malformed lines are skipped with a warning so older configs do not block
     // startup after a setting is removed.
     unsigned int formatVersion = 0;
@@ -905,7 +894,7 @@ SbResult EngineConfig::Load( SbDiagnosticStore& diagnostics, const char* path )
         return SbResult::Success();
     }
 
-    FileHandle file( rawFile );
+    FileHandle file( rawFile, &fclose );
 
     char line[512];
     int lineNumber = 0;
@@ -973,7 +962,6 @@ SbResult EngineConfig::Load( SbDiagnosticStore& diagnostics, const char* path )
 }
 
 
-/* ---------------------------------------------------------------------------------*/
 void EngineConfig::Dump( FILE* out ) const
 {
     if ( !out )

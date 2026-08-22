@@ -66,16 +66,8 @@
       "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28); ORBIT_FORECAST OF5 rolling-window assertion review (2026-08-19)"
     },
     {
-      "file": "SkullbonezSource/UI/UI.cpp",
-      "signature": "InGameUIInputResult InGameUI::UpdateInput( const InputControl::UIInputSnapshot& input, int screenWidth, int screenHeight, double now, bool editorModeEnabled, bool editorPlacementMode, bool editorPlaceStatic, bool editorTerrainAlign, int cameraModeIndex, uint32_t cameraModeEnabledMask, std::span<const char* const> sceneOptions, int selectedSceneOption )",
-      "owner": "InGameUI",
-      "disposition": "retain-owner",
-      "reason": "This stable UI entry seam receives the detached input, viewport, editor, camera, and scene-option facts for one UI turn.",
-      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
-    },
-    {
       "file": "SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp",
-      "signature": "bool InputRouter::DispatchAfterUiDismiss( InputActions& actions, bool uiUserInteracted, double nowSeconds, bool legacyUiActive, DiagnosticsRuntime& diagnosticsRuntime, CameraControlState& camera, AttachedCameraController& attachedCamera, RuntimeTools& runtimeTools, UI::InGameUI& ui, SceneController& sceneController, RuntimeOverlayDiagnostics& overlays, const ReplayInputView& replayInput )",
+      "signature": "bool InputRouter::DispatchAfterUiDismiss( InputActions& actions, bool uiUserInteracted, double nowSeconds, bool gameUiActive, DiagnosticsRuntime& diagnosticsRuntime, CameraControlState& camera, AttachedCameraController& attachedCamera, RuntimeTools& runtimeTools, UI::InGameUI& ui, SceneController& sceneController, RuntimeOverlayDiagnostics& overlays, const ReplayInputView& replayInput )",
       "owner": "InputRouter",
       "disposition": "retain-owner",
       "reason": "The sole retained input-routing owner controls after-UI command order and quick-exit arbitration using synchronous participant borrows.",
@@ -247,14 +239,6 @@
       "owner": "Text2d batching",
       "disposition": "retain-owner",
       "reason": "One text batch appends one coloured triangle; ordered coordinates and colour channels are primitive vertex values rather than unrelated authority.",
-      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
-    },
-    {
-      "file": "SkullbonezSource/UI/UIWindowInteractionOwner.cpp",
-      "signature": "InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& input, int screenWidth, int screenHeight, double now, bool editorModeEnabled, bool editorPlacementMode, bool editorPlaceStatic, bool editorTerrainAlign, int cameraModeIndex, uint32_t cameraModeEnabledMask, std::span<const char* const> sceneOptionView, int selectedSceneOption )",
-      "owner": "UIWindowInteractionOwner",
-      "disposition": "retain-owner",
-      "reason": "The interaction owner applies one UI input turn from presentation facts and a detached scene-option view.",
       "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     }
   ]

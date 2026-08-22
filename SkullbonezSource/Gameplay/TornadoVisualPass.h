@@ -22,7 +22,7 @@ Invariants:
   - Frame pointers borrow TornadoGameplay-owned configuration only until the
     synchronous registration completes.
   - Capacity calculation and drawing require both frame pointers; missing or
-    release-cleared borrows reach Gameplay-owned Lane F before dereference.
+    release-cleared borrows reach Gameplay-owned fatal invariant before dereference.
 
 Related:
   - SkullbonezSource/Gameplay/TornadoGameplay.h

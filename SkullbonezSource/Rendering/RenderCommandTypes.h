@@ -67,7 +67,7 @@ enum class BlendFactor
 // Concept: declared raster state is a complete fixed-function recipe selected
 // by a draw. It is a value boundary, not a request to mutate ambient backend
 // state. Target formats remain graph/pass-owned and are validated against the
-// active pass while M1 pilots the state half of the contract.
+// active pass while the graph executor validates resource-state transitions separately.
 enum class CullMode
 {
     None,

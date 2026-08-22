@@ -167,7 +167,7 @@ class PersistentContactSolvePhaseCursor
 //   retained rows, cache statistics, and consequence lists; no caller borrow
 //   survives a transaction method return.
 //   TestRuntimeContracts.cpp proves the complete transition matrix, every
-//   illegal Lane F edge, and non-copyability.
+//   illegal fatal invariant edge, and non-copyability.
 class PersistentContactSolveTransaction
 {
   public:

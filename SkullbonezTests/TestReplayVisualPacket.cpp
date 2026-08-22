@@ -23,17 +23,11 @@ Summary:
 
 Glossary:
   Packet span: Non-owning view of one ordered production submission stream.
-  First difference: Earliest semantic field or float where two packets differ.
-  Publication token: Monotonic value that invalidates retained draw commands
-    only when a reader-visible trajectory prefix changes.
-  All-body path: Space-scene future record selected independently of causal
-    child topology.
+
   Retained attachment: Shared packet operation that joins persistent prediction
     geometry with frame-local moving tails without copying either span.
   Retained chunk: Stable compact range whose continuation repairs only the
     previous chunk's open adjacency tail.
-  Committed frame prefix: Reader-visible portion of a retained prediction frame
-    bank; slots beyond the count are allocation storage, not published future.
 
 Invariants:
   - Packet comparison is bit-exact and order-sensitive.
@@ -46,6 +40,7 @@ Invariants:
     relax that rule.
 
 Related:
+  - Agentic/Reference/engine-glossary.md
   - SkullbonezSource/Runtime/Replay/ReplayVisualPacket.h
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp
 */
@@ -1929,6 +1924,19 @@ TEST_CASE( "Replay visual archive semantic hash stays canonical and content-sens
                                                                       reserveGrowthEvents ) );
     CHECK( expected != BuildCanonicalReplayVisualArchiveSemanticHash( visualStateHash, exactPacketHash, topologyVersion + 1u,
                                                                       reserveGrowthEvents ) );
+}
+
+TEST_CASE( "Replay visual topology versions canonicalize by first publication" )
+{
+    ReplayVisualTopologyVersionCanonicalizer versions;
+
+    CHECK( versions.Observe( 0u ) == 0u );
+    CHECK( versions.Observe( 12u ) == 1u );
+    CHECK( versions.Observe( 12u ) == 1u );
+    CHECK( versions.Observe( 4u ) == 2u );
+    CHECK( versions.Observe( 0u ) == 0u );
+    CHECK( versions.Observe( 9u ) == 3u );
+    CHECK( versions.Observe( 4u ) == 2u );
 }
 
 TEST_CASE( "Replay visual packet reports semantic divergence before buffer bytes" )

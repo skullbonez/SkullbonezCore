@@ -4,10 +4,9 @@
 @rem   Runs the inexpensive repository preflight and the primary doctest suite.
 @rem
 @rem Summary:
-@rem   Fast validation checks source hygiene, project metadata, staged-file size,
-@rem   and current Profile/Debug build evidence before running the main unit-test
-@rem   executable. The broad gate reuses the preflight and lets the CPU umbrella
-@rem   own all tests.
+@rem   Fast validation first proves that the deterministic physics golden still
+@rem   has the exact owner-approved digest, then checks source hygiene, project
+@rem   metadata, staged-file size, and current build evidence.
 @rem
 @rem Glossary:
 @rem   Preflight-only: Internal broad-gate mode that runs checks/builds but
@@ -16,6 +15,7 @@
 @rem   commit or PR.
 @rem
 @rem Invariants:
+@rem   - Physics golden tampering fails before formatting, inventories, or builds.
 @rem   - Direct validate_fast calls still run SKULLBONEZ_TESTS.
 @rem   - Preflight-only mode never runs a test executable, preventing broad-gate
 @rem   duplication when the CPU umbrella follows it.
@@ -24,6 +24,7 @@
 @rem
 @rem Related:
 @rem   - AGENTS.md
+@rem   - tools/check_physics_baseline_guard.py
 @rem   - tools/validate_all_cpu_tests.bat
 @rem   - tools/validate_full.bat
 @rem
@@ -33,7 +34,7 @@ setlocal
 REM ===============================================================
 REM  validate_fast.bat - Quick sanity check: format + metadata + staged-size + build.
 REM  Use for: small code refactors and non-rendering code edits.
-REM  Runtime: about 30 seconds.
+REM  Runtime: about 3 minutes (preflight) / 4 minutes (with unit tests).
 REM ===============================================================
 
 set "PREFLIGHT_ONLY=0"
@@ -50,7 +51,11 @@ echo   VALIDATE_FAST - Format + Metadata + Dependencies + Ownership + Size + Bui
 echo ========================================
 echo.
 
-echo [1/9] Checking formatting...
+echo [1/10] Checking owner-approved physics golden...
+python "%~dp0check_physics_baseline_guard.py" --repo "%~dp0.."
+if errorlevel 1 exit /b 9
+
+echo [2/10] Checking formatting...
 call "%~dp0validate_format.bat"
 if errorlevel 1 (
     echo.
@@ -58,52 +63,24 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [2/9] Checking Visual Studio project filters...
+echo [3/10] Checking Visual Studio project filters...
 call "%~dp0validate_project_filters.bat"
 if errorlevel 1 exit /b 2
 
-echo [3/9] Checking dependency graph...
+echo [4/10] Checking dependency graph...
 call "%~dp0validate_dependency_graph.bat"
 if errorlevel 1 exit /b 7
 
-echo [4/9] Checking ownership rulings...
+echo [5/10] Checking ownership rulings...
 REM Why: the build-config, shape, signature, complexity, reachability, glossary,
 REM and determinism-math inventories report current structure and fail on
 REM missing/stale owner judgements. Their triggers start qualitative review;
 REM none is a ceiling or count budget. Self-tests run first so a scanner
 REM regression is distinguishable from a source finding.
-python "%~dp0check_build_config_consistency.py" --self-test
-if errorlevel 1 exit /b 8
-python "%~dp0inventory_unreachable_symbols.py" --self-test
-if errorlevel 1 exit /b 8
-python "%~dp0inventory_authority_free_aggregates.py" --self-test
-if errorlevel 1 exit /b 8
-python "%~dp0inventory_extraction_scars.py" --self-test
-if errorlevel 1 exit /b 8
-python "%~dp0inventory_wide_signatures.py" --self-test
-if errorlevel 1 exit /b 8
-python "%~dp0inventory_function_complexity.py" --self-test
-if errorlevel 1 exit /b 8
-python "%~dp0inventory_glossary_terms.py" --self-test
-if errorlevel 1 exit /b 8
-python "%~dp0check_determinism_math_policy.py" --self-test
-if errorlevel 1 exit /b 8
-python "%~dp0inventory_authority_free_aggregates.py" --repo "%~dp0.." --strict
-if errorlevel 1 exit /b 8
-python "%~dp0inventory_extraction_scars.py" --repo "%~dp0.."
-if errorlevel 1 exit /b 8
-python "%~dp0inventory_wide_signatures.py" --repo "%~dp0.." --threshold 12 --format json --strict >nul
-if errorlevel 1 exit /b 8
-python "%~dp0inventory_function_complexity.py" --repo "%~dp0.." --strict
-if errorlevel 1 exit /b 8
-python "%~dp0inventory_glossary_terms.py" --repo "%~dp0.." --strict --format json >nul
-if errorlevel 1 exit /b 8
-python "%~dp0check_build_config_consistency.py" --repo "%~dp0.." --format json >nul
-if errorlevel 1 exit /b 8
-python "%~dp0check_determinism_math_policy.py" --repo "%~dp0.." --format json >nul
+python "%~dp0validate_governance_inventories.py" --repo "%~dp0.."
 if errorlevel 1 exit /b 8
 
-echo [5/9] Checking staged file sizes...
+echo [6/10] Checking staged file sizes...
 REM Why: the checker reads the git index, so keep it before the expensive build
 REM steps and pass the repo root explicitly for callers outside the worktree.
 REM Hosted CI supplies a base commit because its clean index contains no pending
@@ -115,11 +92,11 @@ if defined SKORE_SIZE_DIFF_BASE (
 )
 if errorlevel 1 exit /b 3
 
-echo [6/9] Building Profile x64...
+echo [7/10] Building Profile x64...
 call "%~dp0validate_build.bat" Profile
 if errorlevel 1 exit /b 4
 
-echo [7/9] Running unit tests...
+echo [8/10] Running unit tests...
 if "%PREFLIGHT_ONLY%"=="1" goto :tests_deferred
 call "%~dp0validate_tests.bat"
 if errorlevel 1 exit /b 5
@@ -130,7 +107,7 @@ echo       Deferred to validate_all_cpu_tests.bat; no test executable ran.
 
 :tests_complete
 
-echo [8/9] Checking ready builds...
+echo [9/10] Checking ready builds...
 if /I "%SKULLBONEZ_SKIP_READY_BUILDS%"=="1" if /I not "%SKULLBONEZ_ASSUME_DEBUG_BUILT%"=="1" (
     echo ERROR: Compiled-symbol reachability requires current Automation, Debug,
     echo        and Profile builds. A parent that skips ready builds must build
@@ -143,7 +120,7 @@ REM and failed the gate on staleness rather than on a real finding.
 call "%~dp0validate_build_all.bat"
 if errorlevel 1 exit /b 6
 
-echo [9/9] Checking compiled-symbol reachability...
+echo [10/10] Checking compiled-symbol reachability...
 REM Invariant: Automation, Debug, and Profile objects must all be current before
 REM this scan; it fails closed when one root predates current source.
 REM Decorated COFF identities distinguish overloads after each configuration's

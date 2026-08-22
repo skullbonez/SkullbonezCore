@@ -43,7 +43,6 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Rendering;
 
 
-// --- Helpers ---
 static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIndex, UINT capacity )
 {
     const char* name = heapName ? heapName : "unknown";
@@ -56,8 +55,6 @@ static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIn
 
     SkullbonezCore::Core::Log().FlushAll();
 }
-
-// --- Dx12ResourceBuilder methods ---
 
 
 std::unique_ptr<ShaderDX12> Dx12ResourceBuilder::CreateShader( const char* baseName, const char* contractBaseName )
@@ -73,7 +70,7 @@ std::unique_ptr<ShaderDX12> Dx12ResourceBuilder::CreateShader( const char* baseN
 
     if ( !shader->Compile( hlslPath.c_str(), contractBaseName ) )
     {
-        // Lane R: shader files and compiler output are external inputs. Return
+        // Recoverable error: shader files and compiler output are external inputs. Return
         // a null shader so setup/render owners can skip the dependent draw while
         // the DX12 validation log names the missing program.
         SkullbonezCore::Core::Log().WriteEventf( "dx12_shader_create_failed path=%s", hlslPath.c_str() );

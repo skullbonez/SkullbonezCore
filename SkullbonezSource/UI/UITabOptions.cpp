@@ -1,20 +1,19 @@
 /*
-File: SkullbonezSource/UI/UITabOptions.cpp
-Purpose:
-  Implements UI TabOptions widgets, layout, drawing, or UI state for the in-engine controls.
+File : SkullbonezSource / UI / UITabOptions.cpp Purpose : Implements runtime option toggles plus time - scale and model -
+    count preview / commit controls.
 
-Summary:
-  Previews and commits runtime option
-  toggles, time scale, and model-count controls.
+                    Summary : Previews and commits runtime option toggles,
+    time scale,
+    and model -
+        count controls
+                .
 
-Invariants:
-  - Draw geometry and hit testing must be derived from the same layout
-  constants.
+            Invariants : -Draw geometry and hit testing must be derived from the same layout constants.
 
-Related:
-  - SkullbonezSource/UI/UITabOptions.h
-  - Agentic/Reference/engine-glossary.md
-*/
+                         Related : -SkullbonezSource /
+            UI / UITabOptions.h -
+        Agentic / Reference / engine -
+        glossary.md*/
 #include "UITabOptions.h"
 
 #include "UI.h"
@@ -75,6 +74,8 @@ void ResetPreviewState( UIOptionsTabState& state )
 }
 
 
+// Concept: time scale publishes continuously for live feedback, while model count
+// remains a preview until release because it requests scene reconstruction.
 bool HandleContentClick( UIOptionsTabState& state, InGameUIInputResult& result, int& activeSlider, int mouseX, int mouseY,
                          float contentX, float rowBase, float contentW, int modelCapacity )
 {
@@ -127,6 +128,8 @@ bool HandleContentClick( UIOptionsTabState& state, InGameUIInputResult& result, 
 }
 
 
+// Invariant: commit emits only a valid preview for the active control; stale
+// values from a previous drag cannot become a command.
 bool UpdateActiveSlider( UIOptionsTabState& state, int activeSlider, int mouseX, int modelCapacity,
                          InGameUIInputResult& result )
 {

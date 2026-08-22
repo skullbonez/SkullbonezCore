@@ -11,8 +11,6 @@ Summary:
 Glossary:
   Caster value: Prepared model transform plus conservative world-space radius
     used to make a per-shadow-map visibility decision without owner lookups.
-  Percentage-closer filtering (PCF): Averages several depth comparisons to
-    soften a shadow boundary without blurring stored depth values.
 
 Invariants:
   - ShadowFrameData is frame-local render input; it does not own the depth

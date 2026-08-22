@@ -101,7 +101,7 @@ void AppendCandidatePairIfMissing( Physics::PhysicsCandidatePairList& candidateP
 
     if ( !Physics::BroadphaseCandidateAppendHasCapacity( candidatePairs.size(), candidatePairs.capacity() ) )
     {
-        // Lane F: growing here would violate the zero-allocation fixed-step
+        // Fatal invariant: growing here would violate the zero-allocation fixed-step
         // contract; dropping the conservative pair could miss a collision.
         SB_FATAL( "Physics/PhysicsBroadphaseStage",
                   "Candidate pair reserve exhausted: size=%zu capacity=%zu phase=steady_gameplay.", candidatePairs.size(),

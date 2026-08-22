@@ -10,7 +10,7 @@ Summary:
   configuration, joins exact current-setting rulings, and emits text or JSON
   evidence without invoking MSBuild or changing the worktree.
 
-Mental model:
+
   MSBuild starts each ClCompile item with project defaults, then applies
   file-specific metadata. List metadata keeps the inherited value only when the
   item contains its matching %(...) token. This checker evaluates that bounded

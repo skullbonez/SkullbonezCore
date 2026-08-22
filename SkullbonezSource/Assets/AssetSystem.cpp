@@ -9,9 +9,6 @@ Summary:
   renderer-facing owners create GPU resources from those records.
 
 Glossary:
-  Logical asset name: Stable engine-facing identifier such as
-    "shader.lit_textured" that scenes and runtime code can reference without
-    knowing a disk path.
   Shader base name: Data-root-relative shader path without the backend-specific
     file extension.
 
@@ -25,6 +22,7 @@ Invariants:
     values are caller contract failures, not recoverable asset-file failures.
 
 Related:
+  - Agentic/Reference/engine-glossary.md
   - SkullbonezSource/Assets/AssetSystem.h
   - Agentic/Reference/runtime-reference.md
 */
@@ -246,7 +244,7 @@ const SourceAssetRecord& AssetSystem::RegisterSourceAsset( AssetKind kind, const
                                                            const char* relativePath )
 {
     // Invariant: registration is an engine-owned setup path. Authored asset
-    // file failures are Lane R elsewhere; a blank registry key means the caller
+    // file failures are recoverable error elsewhere; a blank registry key means the caller
     // violated the AssetSystem API contract.
     if ( !logicalName || logicalName[0] == '\0' )
     {

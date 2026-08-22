@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/UI/UITabPhysics.cpp
 Purpose:
-  Implements UI TabPhysics widgets, layout, drawing, or UI state for the in-engine controls.
+  Implements physics-policy toggles and parameter-slider command projection.
 
 Summary:
   Maps physics toggles and parameter sliders to

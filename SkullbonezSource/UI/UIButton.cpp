@@ -1,7 +1,8 @@
 /*
 File: SkullbonezSource/UI/UIButton.cpp
 Purpose:
-  Implements UI Button widgets, layout, drawing, or UI state for the in-engine controls.
+  Implements bounded push-button geometry, hit testing, and label/background
+  drawing.
 
 Summary:
   Keeps button hit testing and

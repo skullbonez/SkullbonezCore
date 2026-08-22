@@ -8,9 +8,10 @@ Summary:
   replay, continuous-forecast, camera, director-shot, and world-input code that
   an operator would use, while concrete input/report owners publish device
   snapshots and evidence.
-  A frame-indexed script produces synthetic device state and typed owner
-  commands, then observes copied runtime facts after rendering. The controller
-  never becomes an alternate gameplay, replay, editor, or window owner.
+  Legacy scripts produce scene-frame-indexed actions. Recorded manifests use a
+  private turn clock, captured timing, complete device snapshots, and detached
+  owner baselines. Both paths observe copied runtime facts after rendering; the
+  controller never becomes an alternate gameplay, replay, editor, or window owner.
 
 Glossary:
   World click: Automation request that projects a screen-space click into the
@@ -35,10 +36,14 @@ Invariants:
     pointers beyond the synchronous automation turn.
   - Forecast presentation assertions observe the detached post-render view;
     they never read the worker-owned rolling ring directly.
-  - Surface selection accepts Legacy or ImGui only; one frame can publish at
+  - Surface selection accepts GameUI or ImGui only; one frame can publish at
     most one process-surface request.
   - Development UI application stops on the first recoverable command failure;
     Run owns process exit policy and converts that result at its boundary.
+  - Recorded numeric fields are range-checked before narrowing so malformed
+    evidence remains a recoverable automation failure.
+  - Each turn trace row is flushed after rendering; a write failure fails the
+    run instead of allowing incomplete evidence to look successful.
 
 Related:
   - SkullbonezSource/Runtime/Interaction/RuntimePickService.h
@@ -49,6 +54,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "InteractionAutomationController.h"
+#include "InteractionAutomationRecorder.h"
 #include "../Planning/ContinuousOrbitalForecast.h"
 #include "../App/Run.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
@@ -58,6 +64,7 @@ Related:
 #include "../Interaction/RuntimeInteractionController.h"
 #include "../Camera/RuntimeCameraMode.h"
 #include "../Camera/CameraControlState.h"
+#include "../Camera/CameraCollection.h"
 #include "../App/RunTimerState.h"
 #include "../Tools/RuntimeTools.h"
 #include "../App/Window.h"
@@ -68,6 +75,8 @@ Related:
 #include "../../Core/SbDiagnosticStore.h"
 #include "../Editor/EditorTools.h"
 #include "../Replay/ReplayOverlaySurface.h"
+#include "../Replay/ReplayOverlayLayout.h"
+#include "../Planning/ReplayCauseInspection.h"
 #include "../Direction/DemoDirectorPlayback.h"
 #include "../Tools/RuntimeFileWriter.h"
 #include "../Interaction/RuntimePickService.h"
@@ -88,11 +97,20 @@ Related:
 #pragma warning( pop )
 
 #include <algorithm>
+#include <array>
+#include <bcrypt.h>
+#include <charconv>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <iomanip>
+#include <limits>
 #include <sstream>
 #include <utility>
+
+#pragma comment( lib, "bcrypt.lib" )
 
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Runtime::ReplayScrubberOperations;
@@ -108,11 +126,150 @@ namespace
 {
 using Json = nlohmann::ordered_json;
 
+const char* InputActionSourceName( RuntimeInputActionSource source )
+{
+    switch ( source )
+    {
+    case RuntimeInputActionSource::Keyboard:
+        return "keyboard";
+    case RuntimeInputActionSource::UI:
+        return "ui";
+    case RuntimeInputActionSource::Mouse:
+        return "mouse";
+    case RuntimeInputActionSource::FocusLost:
+        return "focus_lost";
+    case RuntimeInputActionSource::Runtime:
+    default:
+        return "runtime";
+    }
+}
+
+const char* InputActionPhaseName( InputActionPhase phase )
+{
+    switch ( phase )
+    {
+    case InputActionPhase::PreUi:
+        return "pre_ui";
+    case InputActionPhase::AfterUi:
+        return "after_ui";
+    case InputActionPhase::Capture:
+    default:
+        return "capture";
+    }
+}
+
+const char* InputActionEdgeName( InputActionEdge edge )
+{
+    switch ( edge )
+    {
+    case InputActionEdge::Pressed:
+        return "pressed";
+    case InputActionEdge::Held:
+        return "held";
+    case InputActionEdge::Released:
+    default:
+        return "released";
+    }
+}
+
+std::string VirtualKeyName( int virtualKey )
+{
+    switch ( virtualKey )
+    {
+    case VK_LBUTTON:
+        return "Mouse Left";
+    case VK_RBUTTON:
+        return "Mouse Right";
+    case VK_MBUTTON:
+        return "Mouse Middle";
+    default:
+        break;
+    }
+
+    char name[64] = {};
+    const UINT scanCode = MapVirtualKeyA( static_cast<UINT>( virtualKey ), MAPVK_VK_TO_VSC );
+
+    if ( scanCode != 0u && GetKeyNameTextA( static_cast<LONG>( scanCode << 16u ), name, sizeof( name ) ) > 0 )
+    {
+        return name;
+    }
+
+    return "VK_" + std::to_string( virtualKey );
+}
+
+bool WriteInteractionTraceTurn( InteractionAutomationController& state, InputRouter& inputRouter, CameraControlState& camera,
+                                SkullbonezCore::UI::InGameUI& ui, SceneController& scene )
+{
+    if ( !state.traceOutput.is_open() )
+    {
+        return true;
+    }
+
+    const DeviceInputFrame& device = inputRouter.DeviceFrame();
+    Json input = { { "focused", device.appFocused },    { "clientPositionAvailable", device.hasClientPosition },
+                   { "clientX", device.clientX },       { "clientY", device.clientY },
+                   { "rawMouseX", device.rawMouseX },   { "rawMouseY", device.rawMouseY },
+                   { "wheelDelta", device.wheelDelta }, { "left", device.leftDown },
+                   { "middle", device.middleDown },     { "right", device.rightDown } };
+    Json downKeys = Json::array();
+
+    for ( int key = 0; key < InputKeySnapshot::VIRTUAL_KEY_COUNT; ++key )
+    {
+        if ( device.keys.IsDown( key ) )
+        {
+            downKeys.push_back( { { "virtualKey", key }, { "name", VirtualKeyName( key ) } } );
+        }
+    }
+
+    input["downVirtualKeys"] = std::move( downKeys );
+    Json routed = Json::array();
+    const InputActions& actions = inputRouter.Actions();
+
+    for ( std::size_t index = 0u; index < actions.Count(); ++index )
+    {
+        const InputActionEvent& event = actions[index];
+        routed.push_back( { { "actionId", static_cast<int>( event.action ) },
+                            { "source", InputActionSourceName( event.source ) },
+                            { "phase", InputActionPhaseName( event.phase ) },
+                            { "edge", InputActionEdgeName( event.edge ) },
+                            { "virtualKey", event.virtualKey },
+                            { "virtualKeyName", VirtualKeyName( event.virtualKey ) } } );
+    }
+
+    const SceneSessionState& sceneState = scene.State();
+    const SkullbonezCore::Environment::CameraCollection& cameras = scene.Scene().Cameras();
+    const Vector3& cameraEye = cameras.GetCameraTranslation();
+    const Vector3& cameraView = cameras.GetCameraView();
+    const Vector3& cameraUp = cameras.GetCameraUp();
+    const Json line = { { "type", "turn" },
+                        { "turn", state.traceTurn },
+                        { "recordingTurn", state.recordedManifest ? Json( state.recordedTurn ) : Json() },
+                        { "deltaSeconds", state.recordedManifest ? state.recordedDeltaSeconds : 0.0 },
+                        { "injected", std::move( input ) },
+                        { "routed", std::move( routed ) },
+                        { "observed",
+                          { { "sceneFrame", sceneState.currentFrame },
+                            { "sceneLoadCount", sceneState.loadCount },
+                            { "sceneMode", sceneState.isSceneMode },
+                            { "cameraMode", static_cast<int>( camera.mode ) },
+                            { "cameraEye", { cameraEye.x, cameraEye.y, cameraEye.z } },
+                            { "cameraView", { cameraView.x, cameraView.y, cameraView.z } },
+                            { "cameraUp", { cameraUp.x, cameraUp.y, cameraUp.z } },
+                            { "inputMode", static_cast<int>( inputRouter.RuntimeContext().CurrentMode() ) },
+                            { "uiVisible", ui.IsVisible() },
+                            { "uiMinimized", ui.IsMinimized() },
+                            { "uiTab", static_cast<int>( ui.GetActiveTab() ) } } } };
+
+    state.traceOutput << line.dump() << '\n';
+    state.traceOutput.flush();
+    return state.traceOutput.good();
+}
+
 void CopyText( char* destination, std::size_t destinationSize, const std::string& value )
 {
     if ( destination && destinationSize > 0 )
     {
-        strcpy_s( destination, destinationSize, value.c_str() );
+        strncpy_s( destination, destinationSize, value.c_str(), _TRUNCATE );
     }
 }
 
@@ -452,25 +609,79 @@ bool TryParseVirtualKey( const std::string& value, int& outVirtualKey )
         return true;
     }
 
-    if ( value == "Enter" || value == "Return" )
+    if ( value == "Space" || value == "space" )
+    {
+        outVirtualKey = VK_SPACE;
+        return true;
+    }
+
+    if ( value == "Escape" || value == "Esc" || value == "esc" )
+    {
+        outVirtualKey = VK_ESCAPE;
+        return true;
+    }
+
+    if ( value == "Shift" || value == "shift" )
+    {
+        outVirtualKey = VK_SHIFT;
+        return true;
+    }
+
+    if ( value == "Control" || value == "Ctrl" || value == "ctrl" )
+    {
+        outVirtualKey = VK_CONTROL;
+        return true;
+    }
+
+    if ( value == "Up" || value == "up" )
+    {
+        outVirtualKey = VK_UP;
+        return true;
+    }
+
+    if ( value == "Down" || value == "down" )
+    {
+        outVirtualKey = VK_DOWN;
+        return true;
+    }
+
+    if ( value == "Left" || value == "left" )
+    {
+        outVirtualKey = VK_LEFT;
+        return true;
+    }
+
+    if ( value == "Right" || value == "right" )
+    {
+        outVirtualKey = VK_RIGHT;
+        return true;
+    }
+
+    if ( value == "Backspace" || value == "backspace" )
+    {
+        outVirtualKey = VK_BACK;
+        return true;
+    }
+
+    if ( value == "Enter" || value == "Return" || value == "enter" || value == "return" )
     {
         outVirtualKey = VK_RETURN;
         return true;
     }
 
-    if ( value == "Tab" )
+    if ( value == "Tab" || value == "tab" )
     {
         outVirtualKey = VK_TAB;
         return true;
     }
 
-    if ( value == "Tilde" )
+    if ( value == "Tilde" || value == "tilde" )
     {
         outVirtualKey = VK_OEM_3;
         return true;
     }
 
-    if ( value == "Comma" )
+    if ( value == "Comma" || value == "comma" )
     {
         // Why: visual acceptance drives the same comma-owned presentation
         // command as a physical key, so mode order and UI reflection are tested
@@ -479,13 +690,13 @@ bool TryParseVirtualKey( const std::string& value, int& outVirtualKey )
         return true;
     }
 
-    if ( value == "Delete" )
+    if ( value == "Delete" || value == "delete" )
     {
         outVirtualKey = VK_DELETE;
         return true;
     }
 
-    if ( value == "Alt" )
+    if ( value == "Alt" || value == "alt" )
     {
         outVirtualKey = VK_MENU;
         return true;
@@ -809,8 +1020,8 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "developmentUiSurface";
     case RunInteractionAutomationAssertKind::ImGuiVisible:
         return "imguiVisible";
-    case RunInteractionAutomationAssertKind::LegacyReplayPresentationActive:
-        return "legacyReplayPresentationActive";
+    case RunInteractionAutomationAssertKind::GameUiReplayPresentationActive:
+        return "gameUiReplayPresentationActive";
     case RunInteractionAutomationAssertKind::ImGuiPanelMask:
         return "imguiPanelMask";
     case RunInteractionAutomationAssertKind::ImGuiLayoutResetCountMin:
@@ -1337,6 +1548,110 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
         return;
     }
 
+    if ( strcmp( action.text, "causeTabSummary" ) == 0 || strcmp( action.text, "causeTabRawRecord" ) == 0 ||
+         strcmp( action.text, "causeTabIterations" ) == 0 || strcmp( action.text, "causeCloseDrawer" ) == 0 ||
+         strcmp( action.text, "causeCopyRawRecord" ) == 0 )
+    {
+        const int screenW = window ? window->ClientWidth() : config.window.screenX;
+        const int screenH = window ? window->ClientHeight() : config.window.screenY;
+        const ReplayCauseInspectionView causeInspection = replay.causeInspection;
+        const ReplayCauseInspectorLayout inspectorLayout = BuildReplayCauseInspectorLayout( causeInspection,
+                                                                                            replay.causeTree, screenW,
+                                                                                            screenH,
+                                                                                            causeInspection.drawerProgress );
+
+        if ( strcmp( action.text, "causeTabSummary" ) == 0 && causeInspection.detailVisible )
+        {
+            InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
+                                                           inspectorLayout.tabs[0], "mouse press at Summary tab" );
+            return;
+        }
+
+        if ( strcmp( action.text, "causeTabRawRecord" ) == 0 && causeInspection.detailVisible )
+        {
+            InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
+                                                           inspectorLayout.tabs[1], "mouse press at Raw Record tab" );
+            return;
+        }
+
+        if ( strcmp( action.text, "causeTabIterations" ) == 0 && causeInspection.detailVisible )
+        {
+            InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
+                                                           inspectorLayout.tabs[2], "mouse press at Iterations tab" );
+            return;
+        }
+
+        if ( strcmp( action.text, "causeCloseDrawer" ) == 0 && causeInspection.detailVisible )
+        {
+            InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
+                                                           inspectorLayout.drawerClose,
+                                                           "mouse press at drawer close button" );
+            return;
+        }
+
+        if ( strcmp( action.text, "causeCopyRawRecord" ) == 0 && causeInspection.detailVisible )
+        {
+            InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
+                                                           inspectorLayout.rawCopy,
+                                                           "mouse press at copy raw record button" );
+            return;
+        }
+    }
+
+    if ( strcmp( action.text, "causeFilterAll" ) == 0 || strcmp( action.text, "causeFilterPrediction" ) == 0 ||
+         strcmp( action.text, "causeFilterContacts" ) == 0 || strcmp( action.text, "causeFilterField" ) == 0 ||
+         strcmp( action.text, "causeFilterFunnel" ) == 0 )
+    {
+        if ( replay.causeTree.hasWindowPlacement )
+        {
+            if ( strcmp( action.text, "causeFilterAll" ) == 0 )
+            {
+                InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
+                                                               ReplayCauseWindowFilterChipRect( replay.causeTree,
+                                                                                                RunReplayCauseTreeFilter::
+                                                                                                    All ),
+                                                               "mouse press at Filter All chip" );
+                return;
+            }
+
+            if ( strcmp( action.text, "causeFilterPrediction" ) == 0 )
+            {
+                InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
+                                                               ReplayCauseWindowFilterChipRect( replay.causeTree,
+                                                                                                RunReplayCauseTreeFilter::
+                                                                                                    Prediction ),
+                                                               "mouse press at Filter Prediction chip" );
+                return;
+            }
+
+            if ( strcmp( action.text, "causeFilterContacts" ) == 0 )
+            {
+                InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
+                                                               ReplayCauseWindowFilterChipRect( replay.causeTree,
+                                                                                                RunReplayCauseTreeFilter::
+                                                                                                    Contacts ),
+                                                               "mouse press at Filter Contacts chip" );
+                return;
+            }
+
+            if ( strcmp( action.text, "causeFilterField" ) == 0 )
+            {
+                InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
+                                                               ReplayCauseWindowFilterFieldRect( replay.causeTree ),
+                                                               "mouse press at Filter Field" );
+                return;
+            }
+
+            if ( strcmp( action.text, "causeFilterFunnel" ) == 0 )
+            {
+                InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
+                                                               ReplayCauseWindowFilterFunnelRect( replay.causeTree ),
+                                                               "mouse press at Filter Funnel" );
+                return;
+            }
+        }
+    }
+
     AppendInteractionAutomationReplayControlFailure( state, frame, action,
                                                      "unsupported replay control in interaction script",
                                                      "unsupported replay control" );
@@ -1496,8 +1811,16 @@ bool ParseClickPointAction( const Json& entry, RunInteractionAutomationAction& o
 
     outAction.type = RunInteractionAutomationActionType::ClickPoint;
     outAction.mouse = { point[0].get<long>(), point[1].get<long>() };
-
     outAction.hasMouse = true;
+
+    if ( entry.contains( "normalizedPoint" ) && entry["normalizedPoint"].is_array() &&
+         entry["normalizedPoint"].size() == 2 && entry["normalizedPoint"][0].is_number() &&
+         entry["normalizedPoint"][1].is_number() )
+    {
+        outAction.vectorValue.x = entry["normalizedPoint"][0].get<float>();
+        outAction.vectorValue.y = entry["normalizedPoint"][1].get<float>();
+        outAction.boolValue = true;
+    }
 
     if ( entry.contains( "button" ) )
     {
@@ -1569,8 +1892,17 @@ bool ParseMoveMouseAction( const Json& entry, RunInteractionAutomationAction& ou
 
     outAction.type = RunInteractionAutomationActionType::MoveMouse;
     outAction.mouse = { point[0].get<long>(), point[1].get<long>() };
-
     outAction.hasMouse = true;
+
+    if ( entry.contains( "normalizedPoint" ) && entry["normalizedPoint"].is_array() &&
+         entry["normalizedPoint"].size() == 2 && entry["normalizedPoint"][0].is_number() &&
+         entry["normalizedPoint"][1].is_number() )
+    {
+        outAction.vectorValue.x = entry["normalizedPoint"][0].get<float>();
+        outAction.vectorValue.y = entry["normalizedPoint"][1].get<float>();
+        outAction.boolValue = true;
+    }
+
     return true;
 }
 
@@ -1794,6 +2126,7 @@ bool ParsePressKeyAction( const Json& entry, RunInteractionAutomationAction& out
 
     CopyText( outAction.text, sizeof( outAction.text ), keyName );
     outAction.boolValue = entry.value( "control", false );
+    outAction.holdFrames = entry.value( "holdFrames", 1 );
     return true;
 }
 
@@ -1837,15 +2170,15 @@ bool ParseSetDevelopmentUiSurfaceAction( const Json& entry, RunInteractionAutoma
 {
     if ( !entry["setDevelopmentUiSurface"].is_string() )
     {
-        outError = "setDevelopmentUiSurface must be legacy or imgui";
+        outError = "setDevelopmentUiSurface must be game or imgui";
         return false;
     }
 
     const std::string surface = entry["setDevelopmentUiSurface"].get<std::string>();
 
-    if ( surface != "legacy" && surface != "imgui" )
+    if ( surface != "game" && surface != "imgui" )
     {
-        outError = "setDevelopmentUiSurface must be legacy or imgui";
+        outError = "setDevelopmentUiSurface must be game or imgui";
         return false;
     }
 
@@ -2726,9 +3059,9 @@ AssertionParseStatus ParseRuntimeAssertion( const std::string& name, const Json&
     {
         const std::string surface = expected.get<std::string>();
 
-        if ( surface != "legacy" && surface != "imgui" )
+        if ( surface != "game" && surface != "imgui" )
         {
-            outError = "developmentUiSurface must be legacy or imgui";
+            outError = "developmentUiSurface must be game or imgui";
             return AssertionParseStatus::Failure;
         }
 
@@ -2746,9 +3079,9 @@ AssertionParseStatus ParseRuntimeAssertion( const std::string& name, const Json&
         return AssertionParseStatus::Success;
     }
 
-    if ( name == "legacyReplayPresentationActive" )
+    if ( name == "gameUiReplayPresentationActive" )
     {
-        outAction.assertKind = RunInteractionAutomationAssertKind::LegacyReplayPresentationActive;
+        outAction.assertKind = RunInteractionAutomationAssertKind::GameUiReplayPresentationActive;
         outAction.boolValue = ReadBool( expected );
 
         return AssertionParseStatus::Success;
@@ -2904,7 +3237,7 @@ bool ParseAssertAction( const Json& entry, RunInteractionAutomationAction& outAc
                              name == "uiBlocksMouse" || name == "launcherRayActive" ||
                              name == "replayHistoricalSamplePaused" || name == "memoryOverlayEnabled" ||
                              name == "editorSelectionExists" || name == "editorSelectionHasTerrain" ||
-                             name == "imguiVisible" || name == "legacyReplayPresentationActive" ||
+                             name == "imguiVisible" || name == "gameUiReplayPresentationActive" ||
                              name == "imguiPreferencesRecovered";
 
     const bool expectsPositionTolerance = name == "predictionTargetLastNear";
@@ -3152,7 +3485,7 @@ InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
         std::ostringstream misses;
 
         // Why: the assertion's actual field carries the bounded sequence, not
-        // merely "true", so a passing lane-P report is also convergence evidence.
+        // merely "true", so a passing test-probe report is also convergence evidence.
         for ( std::size_t index = 0; index < replay.tripPlanner.iterationMissCount; ++index )
         {
             if ( index != 0 )
@@ -3816,10 +4149,10 @@ InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
     }
     case RunInteractionAutomationAssertKind::DevelopmentUiSurface:
         evaluation.expected = action.text;
-        evaluation.actual = developmentUi.available ? ( developmentUi.selectedImGui ? "imgui" : "legacy" ) : "unavailable";
+        evaluation.actual = developmentUi.available ? ( developmentUi.selectedImGui ? "imgui" : "game" ) : "unavailable";
 
         evaluation.passed = developmentUi.available && evaluation.actual == evaluation.expected &&
-                            !( developmentUi.legacyVisible && developmentUi.imguiVisible );
+                            !( developmentUi.gameUiVisible && developmentUi.imguiVisible );
 
         break;
     case RunInteractionAutomationAssertKind::ImGuiVisible:
@@ -3827,10 +4160,10 @@ InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
         evaluation.actual = BoolString( developmentUi.imguiVisible );
         evaluation.passed = developmentUi.available && developmentUi.imguiVisible == action.boolValue;
         break;
-    case RunInteractionAutomationAssertKind::LegacyReplayPresentationActive:
+    case RunInteractionAutomationAssertKind::GameUiReplayPresentationActive:
         evaluation.expected = BoolString( action.boolValue );
-        evaluation.actual = BoolString( developmentUi.legacyReplayPresentationActive );
-        evaluation.passed = developmentUi.available && developmentUi.legacyReplayPresentationActive == action.boolValue;
+        evaluation.actual = BoolString( developmentUi.gameUiReplayPresentationActive );
+        evaluation.passed = developmentUi.available && developmentUi.gameUiReplayPresentationActive == action.boolValue;
         break;
     case RunInteractionAutomationAssertKind::ImGuiPanelMask:
     {
@@ -3895,6 +4228,547 @@ InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
     return evaluation;
 }
 
+bool IsSafeRecordingSidecarPath( const std::filesystem::path& path )
+{
+    if ( path.empty() || path.is_absolute() || path.has_root_name() || path.has_root_directory() )
+    {
+        return false;
+    }
+
+    for ( const std::filesystem::path& component : path )
+    {
+        if ( component == ".." )
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool HashInteractionSidecar( const std::filesystem::path& path, std::string& outDigest )
+{
+    std::ifstream input( path, std::ios::binary );
+
+    if ( !input )
+    {
+        return false;
+    }
+
+    BCRYPT_ALG_HANDLE algorithm = nullptr;
+    BCRYPT_HASH_HANDLE hash = nullptr;
+    DWORD objectBytes = 0;
+    DWORD resultBytes = 0;
+    std::vector<UCHAR> object;
+    std::array<UCHAR, 32> digest = {};
+    bool ok = BCryptOpenAlgorithmProvider( &algorithm, BCRYPT_SHA256_ALGORITHM, nullptr, 0 ) >= 0;
+
+    if ( ok )
+    {
+        ok = BCryptGetProperty( algorithm, BCRYPT_OBJECT_LENGTH, reinterpret_cast<PUCHAR>( &objectBytes ),
+                                sizeof( objectBytes ), &resultBytes, 0 ) >= 0;
+    }
+
+    if ( ok )
+    {
+        object.resize( objectBytes );
+        ok = BCryptCreateHash( algorithm, &hash, object.data(), objectBytes, nullptr, 0, 0 ) >= 0;
+    }
+
+    std::array<char, 64 * 1024> buffer = {};
+
+    while ( ok && input )
+    {
+        input.read( buffer.data(), static_cast<std::streamsize>( buffer.size() ) );
+        const std::streamsize count = input.gcount();
+
+        if ( count > 0 )
+        {
+            ok = BCryptHashData( hash, reinterpret_cast<PUCHAR>( buffer.data() ), static_cast<ULONG>( count ), 0 ) >= 0;
+        }
+    }
+
+    // A normal EOF sets failbit after the final short read; badbit instead
+    // means the digest covered only a prefix and must never authenticate it.
+    ok = ok && !input.bad();
+
+    if ( ok )
+    {
+        ok = BCryptFinishHash( hash, digest.data(), static_cast<ULONG>( digest.size() ), 0 ) >= 0;
+    }
+
+    if ( hash )
+    {
+        BCryptDestroyHash( hash );
+    }
+
+    if ( algorithm )
+    {
+        BCryptCloseAlgorithmProvider( algorithm, 0 );
+    }
+
+    if ( !ok )
+    {
+        return false;
+    }
+
+    std::ostringstream stream;
+    stream << std::hex << std::setfill( '0' );
+
+    for ( const UCHAR byte : digest )
+    {
+        stream << std::setw( 2 ) << static_cast<unsigned int>( byte );
+    }
+
+    outDigest = stream.str();
+    return true;
+}
+
+bool ValidateInteractionSidecar( const Json& root, const char* field, const std::filesystem::path& manifestPath,
+                                 bool required, std::string& outError )
+{
+    const auto sidecar = root.find( field );
+
+    if ( sidecar == root.end() )
+    {
+        if ( required )
+        {
+            outError = std::string( "recorded manifest requires " ) + field + " sidecar metadata";
+            return false;
+        }
+
+        return true;
+    }
+
+    if ( !sidecar->is_object() || !sidecar->contains( "path" ) || !( *sidecar )["path"].is_string() ||
+         !sidecar->contains( "sha256" ) || !( *sidecar )["sha256"].is_string() )
+    {
+        outError = std::string( "recorded manifest " ) + field + " metadata is invalid";
+        return false;
+    }
+
+    const std::filesystem::path relative = ( *sidecar )["path"].get<std::string>();
+
+    if ( !IsSafeRecordingSidecarPath( relative ) )
+    {
+        outError = std::string( "recorded manifest " ) + field + " path is not a safe relative path";
+        return false;
+    }
+
+    const std::string expected = ( *sidecar )["sha256"].get<std::string>();
+    std::string actual;
+
+    if ( expected.size() != 64u || !HashInteractionSidecar( manifestPath.parent_path() / relative, actual ) ||
+         actual != expected )
+    {
+        outError = std::string( "recorded manifest " ) + field + " SHA-256 mismatch";
+        return false;
+    }
+
+    return true;
+}
+
+bool ParseHexKeyWord( const Json& value, uint64_t& out )
+{
+    if ( !value.is_string() )
+    {
+        return false;
+    }
+
+    const std::string text = value.get<std::string>();
+
+    if ( text.size() != 16u || text.find_first_not_of( "0123456789abcdefABCDEF" ) != std::string::npos )
+    {
+        return false;
+    }
+
+    const char* begin = text.data();
+    const char* end = begin + text.size();
+    const std::from_chars_result parsed = std::from_chars( begin, end, out, 16 );
+    return parsed.ec == std::errc {} && parsed.ptr == end;
+}
+
+bool ReadUnsignedInteger( const Json& value, uint64_t& out )
+{
+    if ( !value.is_number_unsigned() )
+    {
+        return false;
+    }
+
+    out = value.get<uint64_t>();
+    return true;
+}
+
+bool ReadSignedInteger( const Json& value, int64_t& out )
+{
+    if ( value.is_number_unsigned() )
+    {
+        const uint64_t unsignedValue = value.get<uint64_t>();
+
+        if ( unsignedValue > static_cast<uint64_t>( ( std::numeric_limits<int64_t>::max )() ) )
+        {
+            return false;
+        }
+
+        out = static_cast<int64_t>( unsignedValue );
+        return true;
+    }
+
+    if ( !value.is_number_integer() )
+    {
+        return false;
+    }
+
+    out = value.get<int64_t>();
+    return true;
+}
+
+bool ReadInt( const Json& value, int& out )
+{
+    int64_t parsed = 0;
+
+    if ( !ReadSignedInteger( value, parsed ) || parsed < ( std::numeric_limits<int>::min )() ||
+         parsed > ( std::numeric_limits<int>::max )() )
+    {
+        return false;
+    }
+
+    out = static_cast<int>( parsed );
+    return true;
+}
+
+bool ReadLong( const Json& value, long& out )
+{
+    int64_t parsed = 0;
+
+    if ( !ReadSignedInteger( value, parsed ) || parsed < ( std::numeric_limits<long>::min )() ||
+         parsed > ( std::numeric_limits<long>::max )() )
+    {
+        return false;
+    }
+
+    out = static_cast<long>( parsed );
+    return true;
+}
+
+bool LoadRecordedInteractionManifest( InteractionAutomationController& state, const Json& root )
+{
+    std::string error;
+    const std::filesystem::path manifestPath = std::filesystem::path( state.scriptPath ).lexically_normal();
+    int version = 0;
+
+    if ( !root.contains( "complete" ) || !root["complete"].is_boolean() || !root["complete"].get<bool>() ||
+         !root.contains( "version" ) || !ReadInt( root["version"], version ) || version != 1 )
+    {
+        FailAutomation( state, "recorded manifest is incomplete or has an unsupported version" );
+        return false;
+    }
+
+    int sourceWidth = 0;
+    int sourceHeight = 0;
+
+    if ( !root.contains( "sourceViewport" ) || !root["sourceViewport"].is_object() ||
+         !root["sourceViewport"].contains( "width" ) || !ReadInt( root["sourceViewport"]["width"], sourceWidth ) ||
+         !root["sourceViewport"].contains( "height" ) || !ReadInt( root["sourceViewport"]["height"], sourceHeight ) ||
+         sourceWidth <= 0 || sourceHeight <= 0 || !root.contains( "durationSeconds" ) ||
+         !root["durationSeconds"].is_number() )
+    {
+        FailAutomation( state, "recorded manifest viewport or duration metadata is invalid" );
+        return false;
+    }
+
+    const double declaredDuration = root["durationSeconds"].get<double>();
+
+    if ( !std::isfinite( declaredDuration ) || declaredDuration < 0.0 ||
+         declaredDuration > static_cast<double>( InteractionAutomationRecorder::MAX_RECORDING_MINUTES ) * 60.0 )
+    {
+        FailAutomation( state, "recorded manifest duration is outside the supported range" );
+        return false;
+    }
+
+    if ( !ValidateInteractionSidecar( root, "scene", manifestPath, true, error ) ||
+         !ValidateInteractionSidecar( root, "replay", manifestPath, false, error ) )
+    {
+        FailAutomation( state, error.c_str() );
+        return false;
+    }
+
+    const auto frames = root.find( "frames" );
+
+    if ( frames == root.end() || !frames->is_array() ||
+         frames->size() >
+             InteractionAutomationRecorder::FRAMES_PER_MINUTE * InteractionAutomationRecorder::MAX_RECORDING_MINUTES )
+    {
+        FailAutomation( state, "recorded manifest frames array is missing or exceeds the hard limit" );
+        return false;
+    }
+
+    state.recordedFrames.reserve( frames->size() );
+    double accumulatedDuration = 0.0;
+
+    for ( std::size_t index = 0u; index < frames->size(); ++index )
+    {
+        const Json& entry = ( *frames )[index];
+        RecordedInputFrame frame;
+        uint64_t recordedTurn = 0;
+
+        if ( !entry.is_object() || !entry.contains( "turn" ) || !ReadUnsignedInteger( entry["turn"], recordedTurn ) ||
+             recordedTurn != index || !entry.contains( "deltaSeconds" ) || !entry["deltaSeconds"].is_number() )
+        {
+            FailAutomation( state, "recorded manifest turn numbering or timing is invalid" );
+            return false;
+        }
+
+        frame.turn = index;
+        frame.deltaSeconds = entry["deltaSeconds"].get<double>();
+
+        if ( !std::isfinite( frame.deltaSeconds ) || frame.deltaSeconds < 0.0 || frame.deltaSeconds > 0.05 ||
+             !entry.contains( "keys" ) || !entry["keys"].is_array() || entry["keys"].size() != 4u )
+        {
+            FailAutomation( state, "recorded manifest contains invalid timing or key state" );
+            return false;
+        }
+
+        accumulatedDuration += frame.deltaSeconds;
+
+        for ( std::size_t word = 0u; word < frame.keyWords.size(); ++word )
+        {
+            if ( !ParseHexKeyWord( entry["keys"][word], frame.keyWords[word] ) )
+            {
+                FailAutomation( state, "recorded manifest contains an invalid key word" );
+                return false;
+            }
+        }
+
+        if ( !entry.contains( "focused" ) || !entry["focused"].is_boolean() || !entry.contains( "left" ) ||
+             !entry["left"].is_boolean() || !entry.contains( "right" ) || !entry["right"].is_boolean() ||
+             !entry.contains( "middle" ) || !entry["middle"].is_boolean() || !entry.contains( "wheel" ) )
+        {
+            FailAutomation( state, "recorded manifest contains invalid device state" );
+            return false;
+        }
+
+        frame.appFocused = entry["focused"].get<bool>();
+        frame.leftDown = entry["left"].get<bool>();
+        frame.rightDown = entry["right"].get<bool>();
+        frame.middleDown = entry["middle"].get<bool>();
+
+        if ( !ReadInt( entry["wheel"], frame.wheelDelta ) )
+        {
+            FailAutomation( state, "recorded manifest wheel delta is outside the supported integer range" );
+            return false;
+        }
+
+        if ( entry.contains( "rawMouse" ) )
+        {
+            if ( !entry["rawMouse"].is_array() || entry["rawMouse"].size() != 2u ||
+                 !ReadLong( entry["rawMouse"][0], frame.rawMouseX ) || !ReadLong( entry["rawMouse"][1], frame.rawMouseY ) )
+            {
+                FailAutomation( state, "recorded manifest raw mouse delta is invalid" );
+                return false;
+            }
+        }
+
+        if ( entry.contains( "pointer" ) )
+        {
+            const Json& pointer = entry["pointer"];
+
+            if ( !pointer.is_array() || pointer.size() != 2u || !pointer[0].is_number() || !pointer[1].is_number() )
+            {
+                FailAutomation( state, "recorded manifest pointer is invalid" );
+                return false;
+            }
+
+            frame.normalizedX = pointer[0].get<float>();
+            frame.normalizedY = pointer[1].get<float>();
+            frame.hasPointer = std::isfinite( frame.normalizedX ) && std::isfinite( frame.normalizedY ) &&
+                               frame.normalizedX >= 0.0f && frame.normalizedX <= 1.0f && frame.normalizedY >= 0.0f &&
+                               frame.normalizedY <= 1.0f;
+
+            if ( !frame.hasPointer )
+            {
+                FailAutomation( state, "recorded manifest normalized pointer is outside [0,1]" );
+                return false;
+            }
+        }
+
+        if ( entry.contains( "semanticAnchor" ) )
+        {
+            if ( !entry["semanticAnchor"].is_string() ||
+                 entry["semanticAnchor"].get_ref<const std::string&>().size() >= sizeof( frame.semanticAnchor ) )
+            {
+                FailAutomation( state, "recorded manifest semantic anchor is invalid" );
+                return false;
+            }
+
+            CopyText( frame.semanticAnchor, sizeof( frame.semanticAnchor ), entry["semanticAnchor"].get<std::string>() );
+        }
+
+        state.recordedFrames.push_back( frame );
+    }
+
+    uint64_t turnCount = 0;
+
+    if ( !root.contains( "turnCount" ) || !ReadUnsignedInteger( root["turnCount"], turnCount ) ||
+         turnCount != state.recordedFrames.size() )
+    {
+        FailAutomation( state, "recorded manifest turnCount does not match frames" );
+        return false;
+    }
+
+    if ( std::abs( accumulatedDuration - declaredDuration ) > 1.0e-6 )
+    {
+        FailAutomation( state, "recorded manifest duration does not match its frame timing" );
+        return false;
+    }
+
+    if ( !root.contains( "baseline" ) || !root["baseline"].is_object() )
+    {
+        FailAutomation( state, "recorded manifest baseline is missing" );
+        return false;
+    }
+
+    const Json& baseline = root["baseline"];
+    const Json camera = baseline.value( "camera", Json::object() );
+    const Json interaction = baseline.value( "interaction", Json::object() );
+    const Json tools = baseline.value( "tools", Json::object() );
+    const Json ui = baseline.value( "ui", Json::object() );
+    const Json replay = baseline.value( "replay", Json::object() );
+    const Json causeInspection = replay.value( "causeInspection", Json::object() );
+
+    if ( !camera.contains( "mode" ) || !interaction.contains( "worldOwner" ) || !tools.contains( "editorMode" ) ||
+         !tools["editorMode"].is_boolean() || !tools.contains( "placementMode" ) || !tools["placementMode"].is_boolean() ||
+         !tools.contains( "placeStatic" ) || !tools["placeStatic"].is_boolean() || !tools.contains( "terrainAlign" ) ||
+         !tools["terrainAlign"].is_boolean() || !tools.contains( "objectType" ) || !tools.contains( "selection" ) ||
+         !tools["selection"].is_string() || !ui.contains( "visible" ) || !ui["visible"].is_boolean() ||
+         !ui.contains( "minimized" ) || !ui["minimized"].is_boolean() || !ui.contains( "activeTab" ) ||
+         !ui.contains( "developmentSurface" ) || !replay.contains( "active" ) || !replay["active"].is_boolean() ||
+         !replay.contains( "scrubPaused" ) || !replay["scrubPaused"].is_boolean() || !replay.contains( "liveAdvanceHeld" ) ||
+         !replay["liveAdvanceHeld"].is_boolean() || !replay.contains( "predictionEnabled" ) ||
+         !replay["predictionEnabled"].is_boolean() || !replay.contains( "track" ) ||
+         !replay.contains( "presentationTrackPosition" ) || !replay["presentationTrackPosition"].is_number() ||
+         !replay.contains( "solverTrackPosition" ) || !replay["solverTrackPosition"].is_number() ||
+         !replay.contains( "pathTarget" ) || !replay["pathTarget"].is_string() || !causeInspection.contains( "mode" ) ||
+         !causeInspection.contains( "selectedRow" ) || !causeInspection.contains( "activeTab" ) ||
+         !causeInspection.contains( "selectedDetailContactRow" ) || !causeInspection.contains( "solverDetailFirstRow" ) ||
+         !causeInspection.contains( "rawRecordFirstRow" ) || !causeInspection.contains( "iterationsFirstRow" ) ||
+         !causeInspection.contains( "sourceFrame" ) || !causeInspection.contains( "targetFrame" ) ||
+         !causeInspection.contains( "presentedFrame" ) || !causeInspection.contains( "detailVisible" ) ||
+         !causeInspection["detailVisible"].is_boolean() || !causeInspection.contains( "ownsPause" ) ||
+         !causeInspection["ownsPause"].is_boolean() || !causeInspection.contains( "transportPending" ) ||
+         !causeInspection["transportPending"].is_boolean() || !causeInspection.contains( "transportInFlight" ) ||
+         !causeInspection["transportInFlight"].is_boolean() || !causeInspection.contains( "returnIssued" ) ||
+         !causeInspection["returnIssued"].is_boolean() || !causeInspection.contains( "easedProgress" ) ||
+         !causeInspection["easedProgress"].is_number() || !causeInspection.contains( "drawerProgress" ) ||
+         !causeInspection["drawerProgress"].is_number() )
+    {
+        FailAutomation( state, "recorded manifest baseline state is incomplete or invalid" );
+        return false;
+    }
+
+    int cameraMode = 0;
+    int worldOwner = 0;
+    int objectType = 0;
+    int activeUiTab = 0;
+    int developmentUiSurface = 0;
+    int replayTrack = 0;
+    int causeMode = 0;
+    int causeSelectedRow = -1;
+    int causeActiveTab = 0;
+    int causeSelectedDetailContactRow = -1;
+    int causeSolverDetailFirstRow = 0;
+    int causeRawRecordFirstRow = 0;
+    int causeIterationsFirstRow = 0;
+    uint64_t causeSourceFrame = 0u;
+    uint64_t causeTargetFrame = 0u;
+    uint64_t causePresentedFrame = 0u;
+    const std::string& selection = tools["selection"].get_ref<const std::string&>();
+    const std::string& pathTarget = replay["pathTarget"].get_ref<const std::string&>();
+    const double presentationTrackPosition = replay["presentationTrackPosition"].get<double>();
+    const double solverTrackPosition = replay["solverTrackPosition"].get<double>();
+    const double causeEasedProgress = causeInspection["easedProgress"].get<double>();
+    const double causeDrawerProgress = causeInspection["drawerProgress"].get<double>();
+
+    if ( !ReadInt( camera["mode"], cameraMode ) || !ReadInt( interaction["worldOwner"], worldOwner ) ||
+         !ReadInt( tools["objectType"], objectType ) || !ReadInt( ui["activeTab"], activeUiTab ) ||
+         !ReadInt( ui["developmentSurface"], developmentUiSurface ) || !ReadInt( replay["track"], replayTrack ) ||
+         !ReadInt( causeInspection["mode"], causeMode ) || !ReadInt( causeInspection["selectedRow"], causeSelectedRow ) ||
+         !ReadInt( causeInspection["activeTab"], causeActiveTab ) ||
+         !ReadInt( causeInspection["selectedDetailContactRow"], causeSelectedDetailContactRow ) ||
+         !ReadInt( causeInspection["solverDetailFirstRow"], causeSolverDetailFirstRow ) ||
+         !ReadInt( causeInspection["rawRecordFirstRow"], causeRawRecordFirstRow ) ||
+         !ReadInt( causeInspection["iterationsFirstRow"], causeIterationsFirstRow ) ||
+         !ReadUnsignedInteger( causeInspection["sourceFrame"], causeSourceFrame ) ||
+         !ReadUnsignedInteger( causeInspection["targetFrame"], causeTargetFrame ) ||
+         !ReadUnsignedInteger( causeInspection["presentedFrame"], causePresentedFrame ) || cameraMode < 0 ||
+         cameraMode >= static_cast<int>( RunCameraMode::Count ) ||
+         worldOwner < static_cast<int>( WorldInteractionOwner::None ) ||
+         worldOwner > static_cast<int>( WorldInteractionOwner::Manipulator ) || objectType < 0 ||
+         objectType >= SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT || activeUiTab < 0 ||
+         activeUiTab >= static_cast<int>( SkullbonezCore::UI::InGameUITab::Count ) || developmentUiSurface < 0 ||
+         developmentUiSurface > 1 || replayTrack < static_cast<int>( RunReplayTrack::Presentation ) ||
+         replayTrack > static_cast<int>( RunReplayTrack::Solver ) ||
+         causeMode < static_cast<int>( ReplayCauseInspectionMode::Inactive ) ||
+         causeMode > static_cast<int>( ReplayCauseInspectionMode::Returning ) || causeSelectedRow < -1 ||
+         causeActiveTab < static_cast<int>( ReplayCauseInspectorTab::Summary ) ||
+         causeActiveTab > static_cast<int>( ReplayCauseInspectorTab::Iterations ) || causeSelectedDetailContactRow < -1 ||
+         causeSolverDetailFirstRow < 0 || causeRawRecordFirstRow < 0 || causeIterationsFirstRow < 0 ||
+         selection.size() >= sizeof( state.recordedBaseline.editorSelectionName ) ||
+         pathTarget.size() >= sizeof( state.recordedBaseline.replayPathTargetName ) ||
+         !std::isfinite( presentationTrackPosition ) || presentationTrackPosition < 0.0 || presentationTrackPosition > 1.0 ||
+         !std::isfinite( solverTrackPosition ) || solverTrackPosition < 0.0 || solverTrackPosition > 1.0 ||
+         !std::isfinite( causeEasedProgress ) || causeEasedProgress < 0.0 || causeEasedProgress > 1.0 ||
+         !std::isfinite( causeDrawerProgress ) || causeDrawerProgress < 0.0 || causeDrawerProgress > 1.0 ||
+         ( causeMode == static_cast<int>( ReplayCauseInspectionMode::Inactive ) && causeSelectedRow != -1 ) ||
+         ( causeMode != static_cast<int>( ReplayCauseInspectionMode::Inactive ) &&
+           ( causeSelectedRow < 0 || !replay.value( "active", false ) ) ) )
+    {
+        FailAutomation( state, "recorded manifest baseline values are outside their supported ranges" );
+        return false;
+    }
+
+    state.recordedBaseline.cameraMode = cameraMode;
+    state.recordedBaseline.worldInteractionOwner = worldOwner;
+    state.recordedBaseline.editorModeEnabled = tools.value( "editorMode", false );
+    state.recordedBaseline.editorPlacementModeEnabled = tools.value( "placementMode", false );
+    state.recordedBaseline.editorPlaceStatic = tools.value( "placeStatic", false );
+    state.recordedBaseline.editorTerrainAlign = tools.value( "terrainAlign", false );
+    state.recordedBaseline.editorObjectType = objectType;
+    CopyText( state.recordedBaseline.editorSelectionName, sizeof( state.recordedBaseline.editorSelectionName ), selection );
+    state.recordedBaseline.uiVisible = ui.value( "visible", true );
+    state.recordedBaseline.uiMinimized = ui.value( "minimized", false );
+    state.recordedBaseline.activeUiTab = activeUiTab;
+    state.recordedBaseline.developmentUiSurface = developmentUiSurface;
+    state.recordedBaseline.replayActive = replay.value( "active", false );
+    state.recordedBaseline.replayScrubPaused = replay.value( "scrubPaused", false );
+    state.recordedBaseline.replayLiveAdvanceHeld = replay.value( "liveAdvanceHeld", false );
+    state.recordedBaseline.replayPredictionEnabled = replay.value( "predictionEnabled", false );
+    state.recordedBaseline.replayTrack = replayTrack;
+    state.recordedBaseline.replayPresentationTrackPosition = static_cast<float>( presentationTrackPosition );
+    state.recordedBaseline.replaySolverTrackPosition = static_cast<float>( solverTrackPosition );
+    state.recordedBaseline.replayCauseInspectionMode = causeMode;
+    state.recordedBaseline.replayCauseSelectedRow = causeSelectedRow;
+    state.recordedBaseline.replayCauseActiveTab = causeActiveTab;
+    state.recordedBaseline.replayCauseSelectedDetailContactRow = causeSelectedDetailContactRow;
+    state.recordedBaseline.replayCauseSolverDetailFirstRow = causeSolverDetailFirstRow;
+    state.recordedBaseline.replayCauseRawRecordFirstRow = causeRawRecordFirstRow;
+    state.recordedBaseline.replayCauseIterationsFirstRow = causeIterationsFirstRow;
+    state.recordedBaseline.replayCauseSourceFrame = causeSourceFrame;
+    state.recordedBaseline.replayCauseTargetFrame = causeTargetFrame;
+    state.recordedBaseline.replayCausePresentedFrame = causePresentedFrame;
+    state.recordedBaseline.replayCauseDetailVisible = causeInspection.value( "detailVisible", false );
+    state.recordedBaseline.replayCauseOwnsPause = causeInspection.value( "ownsPause", false );
+    state.recordedBaseline.replayCauseTransportPending = causeInspection.value( "transportPending", false );
+    state.recordedBaseline.replayCauseTransportInFlight = causeInspection.value( "transportInFlight", false );
+    state.recordedBaseline.replayCauseReturnIssued = causeInspection.value( "returnIssued", false );
+    state.recordedBaseline.replayCauseEasedProgress = static_cast<float>( causeEasedProgress );
+    state.recordedBaseline.replayCauseDrawerProgress = static_cast<float>( causeDrawerProgress );
+    CopyText( state.recordedBaseline.replayPathTargetName, sizeof( state.recordedBaseline.replayPathTargetName ),
+              pathTarget );
+    state.recordedManifest = true;
+    return true;
+}
+
 bool LoadScript( InteractionAutomationController& state )
 {
     CoreAllocation::RuntimeAllocationScope diagnosticsScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
@@ -3913,6 +4787,19 @@ bool LoadScript( InteractionAutomationController& state )
     {
         FailAutomation( state, "failed to parse interaction script: invalid JSON" );
         return false;
+    }
+
+    const auto format = root.find( "format" );
+
+    if ( format != root.end() && !format->is_string() )
+    {
+        FailAutomation( state, "interaction script format must be a string" );
+        return false;
+    }
+
+    if ( format != root.end() && format->get_ref<const std::string&>() == "skullbonez.interaction-recording" )
+    {
+        return LoadRecordedInteractionManifest( state, root );
     }
 
     if ( !root.contains( "actions" ) || !root["actions"].is_array() )
@@ -3967,7 +4854,7 @@ InteractionAutomationController::ApplyDevelopmentUiCommands( const InteractionAu
             // after interpreting the script command alongside its peers.
             result.selectSurface = true;
             result.surface = std::strcmp( command.target, "imgui" ) == 0 ? DevelopmentUiMode::ImGui
-                                                                         : DevelopmentUiMode::Legacy;
+                                                                         : DevelopmentUiMode::GameUI;
 
             break;
         case InteractionAutomationDevelopmentUiCommandType::SetPanelVisible:
@@ -4070,14 +4957,14 @@ InteractionAutomationController::SubmitOperatorEditorForecastCommand( const Inte
 
 InteractionAutomationDevelopmentUiView
 InteractionAutomationController::BuildDevelopmentUiView( const DevelopmentTools::ImGuiEditorStatus& editor,
-                                                         bool legacyVisible, bool legacyReplayPresentationActive ) const
+                                                         bool gameUiVisible, bool gameUiReplayPresentationActive ) const
 {
     InteractionAutomationDevelopmentUiView view;
     view.available = editor.initialized;
     view.selectedImGui = editor.selectedSurface == DevelopmentUiMode::ImGui;
-    view.legacyVisible = legacyVisible;
+    view.gameUiVisible = gameUiVisible;
     view.imguiVisible = editor.visible;
-    view.legacyReplayPresentationActive = legacyReplayPresentationActive;
+    view.gameUiReplayPresentationActive = gameUiReplayPresentationActive;
     view.panelVisibilityMask = editor.panelVisibilityMask;
     view.layoutResetCount = editor.layoutResetCount;
     view.automationFocusCount = editor.automationFocusCount;
@@ -4160,7 +5047,7 @@ void SkullbonezCore::Runtime::ClearInteractionAutomationInput( InteractionAutoma
 
 SkullbonezCore::Core::SbResult
 SkullbonezCore::Runtime::ConfigureInteractionAutomation( InteractionAutomationController& state, const char* scriptPath,
-                                                         const char* reportPath )
+                                                         const char* reportPath, const char* tracePath )
 {
     // Configure can be called again while applying startup options. Reset the
     // sequencer in place because its report writer owns store-bound tracer
@@ -4168,8 +5055,18 @@ SkullbonezCore::Runtime::ConfigureInteractionAutomation( InteractionAutomationCo
     state.enabled = false;
     state.scriptLoaded = false;
     state.finished = false;
+    state.recordedManifest = false;
+    state.recordedBaselineApplied = false;
+    state.recordedFramePublished = false;
+    state.recordedTurn = 0u;
+    state.traceTurn = 0u;
+    state.recordedDeltaSeconds = 0.0;
     state.scriptPath[0] = '\0';
+    state.tracePath[0] = '\0';
+    state.traceOutput.close();
     state.actions.clear();
+    state.recordedFrames.clear();
+    state.recordedBaseline = {};
     state.status = {};
     state.inputDriver.Reset();
     state.reportWriter.Configure( reportPath );
@@ -4182,9 +5079,38 @@ SkullbonezCore::Runtime::ConfigureInteractionAutomation( InteractionAutomationCo
     }
 
     strcpy_s( state.scriptPath, sizeof( state.scriptPath ), scriptPath );
+
+    if ( tracePath && tracePath[0] != '\0' )
+    {
+        strcpy_s( state.tracePath, sizeof( state.tracePath ), tracePath );
+
+        if ( !RuntimeFileWriter::OpenTextFile( state.tracePath, state.traceOutput ) )
+        {
+            state.finished = true;
+            state.status.Fail( "interaction turn trace could not be opened" );
+            return state.status.Result( state.resultDiagnostics );
+        }
+
+        state.traceOutput << Json( { { "type", "header" },
+                                     { "schema", "skullbonez.interaction-trace" },
+                                     { "version", 1 },
+                                     { "script", state.scriptPath } } )
+                                 .dump()
+                          << '\n';
+        state.traceOutput.flush();
+
+        if ( !state.traceOutput.good() )
+        {
+            state.finished = true;
+            state.status.Fail( "interaction turn trace header could not be written" );
+            return state.status.Result( state.resultDiagnostics );
+        }
+    }
+
     state.enabled = true;
     printf( "[interaction] Script: %s\n", state.scriptPath );
     printf( "[interaction] Report: %s\n", state.reportWriter.Path() );
+    printf( "[interaction] Trace: %s\n", state.tracePath[0] != '\0' ? state.tracePath : "disabled" );
     return SkullbonezCore::Core::SbResult::Success();
 }
 
@@ -4216,7 +5142,7 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
         ClearInteractionAutomationInput( state );
 
         // Why: latch the automation-owned diagnostic before WM_QUIT. The
-        // report writer is another Lane R boundary, so it also cannot replace
+        // report writer is another recoverable boundary, so it also cannot replace
         // the earlier script failure if both operations fail.
         result.status = InteractionAutomationResult( state );
         const SkullbonezCore::Core::SbResult reportResult = state.reportWriter.Write( state.status, state.scriptPath,
@@ -4233,6 +5159,143 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
         }
 
         result.requestQuit = true;
+        return result;
+    }
+
+    if ( state.recordedManifest )
+    {
+        if ( !state.recordedBaselineApplied )
+        {
+            const InteractionRecordingBaseline& baseline = state.recordedBaseline;
+
+            if ( baseline.cameraMode < 0 || baseline.cameraMode >= static_cast<int>( RunCameraMode::Count ) ||
+                 baseline.worldInteractionOwner < static_cast<int>( WorldInteractionOwner::None ) ||
+                 baseline.worldInteractionOwner > static_cast<int>( WorldInteractionOwner::Manipulator ) ||
+                 baseline.activeUiTab < 0 || baseline.activeUiTab >= static_cast<int>( UI::InGameUITab::Count ) )
+            {
+                FailAutomation( state, "recorded manifest baseline contains an invalid enum value" );
+                result.status = InteractionAutomationResult( state );
+                result.requestQuit = true;
+                return result;
+            }
+
+            result.applyCameraMode = true;
+            result.cameraMode = static_cast<RunCameraMode>( baseline.cameraMode );
+            result.setWorldInteractionOwner = true;
+            result.worldInteractionOwner = static_cast<WorldInteractionOwner>( baseline.worldInteractionOwner );
+            result.worldInteractionReason = InteractionExitReason::EnterReplay;
+            runtimeTools.Editor().editorModeEnabled = baseline.editorModeEnabled;
+            runtimeTools.Editor().placementModeEnabled = baseline.editorModeEnabled && baseline.editorPlacementModeEnabled;
+            runtimeTools.Editor().placeStaticObject = baseline.editorPlaceStatic;
+            runtimeTools.Editor().autoTerrainAlign = baseline.editorTerrainAlign;
+            runtimeTools.Editor().objectType = baseline.editorObjectType;
+
+            if ( baseline.editorSelectionName[0] != '\0' )
+            {
+                int selectedModel = -1;
+
+                if ( !TryFindInteractionAutomationModel( scene.Scene(), baseline.editorSelectionName, selectedModel ) )
+                {
+                    FailAutomation( state, "recorded manifest editor selection could not be restored" );
+                    result.status = InteractionAutomationResult( state );
+                    result.requestQuit = true;
+                    return result;
+                }
+
+                const Physics::PhysicsBodyRecord* selectedBody = scene.Scene().BodyStore().RecordForModelIndex( selectedModel );
+                const Physics::PhysicsColliderHandle selectedCollider = scene.Scene().Colliders().HandleForModelIndex( selectedModel );
+
+                if ( !selectedBody || !selectedBody->handle.IsValid() || !selectedCollider.IsValid() )
+                {
+                    FailAutomation( state, "recorded manifest editor selection identities are unavailable" );
+                    result.status = InteractionAutomationResult( state );
+                    result.requestQuit = true;
+                    return result;
+                }
+
+                runtimeTools.Editor().selectedModelRow.value = selectedModel;
+                runtimeTools.Editor().selectedBody = selectedBody->handle;
+                runtimeTools.Editor().selectedCollider = selectedCollider;
+            }
+
+            ui.SetVisible( baseline.uiVisible, timers.simulationTimer.GetTotalTime() );
+            ui.SetMinimized( baseline.uiMinimized, timers.simulationTimer.GetTotalTime() );
+            ui.SetActiveTab( static_cast<UI::InGameUITab>( baseline.activeUiTab ) );
+            result.replayIntent.setPredictionEnabled = true;
+            result.replayIntent.predictionEnabled = baseline.replayPredictionEnabled;
+            result.restoreRecordedReplayBaseline = baseline.replayActive;
+            result.recordedReplayScrubPaused = baseline.replayScrubPaused;
+            result.recordedReplayLiveAdvanceHeld = baseline.replayLiveAdvanceHeld;
+            result.recordedReplayTrack = static_cast<RunReplayTrack>( baseline.replayTrack );
+            result.recordedReplayPresentationTrackPosition = baseline.replayPresentationTrackPosition;
+            result.recordedReplaySolverTrackPosition = baseline.replaySolverTrackPosition;
+            result.restoreRecordedReplayCauseBaseline = baseline.replayActive &&
+                                                        baseline.replayCauseInspectionMode !=
+                                                            static_cast<int>( ReplayCauseInspectionMode::Inactive );
+            result.recordedReplayCauseBaseline = baseline;
+
+            if ( baseline.replayPathTargetName[0] != '\0' )
+            {
+                int modelIndex = -1;
+
+                if ( TryFindInteractionAutomationModel( scene.Scene(), baseline.replayPathTargetName, modelIndex ) )
+                {
+                    const Physics::PhysicsBodyRecord* body = scene.Scene().BodyStore().RecordForModelIndex( modelIndex );
+
+                    if ( body && body->sceneObjectId.IsValid() )
+                    {
+                        result.replayIntent.setPathTarget = true;
+                        result.replayIntent.pathTargetId = body->sceneObjectId;
+                        result.replayIntent.pathTargetModelRow.value = modelIndex;
+                        strncpy_s( result.replayIntent.pathTargetName, sizeof( result.replayIntent.pathTargetName ),
+                                   baseline.replayPathTargetName, _TRUNCATE );
+                    }
+                }
+            }
+
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+
+            if ( result.developmentUiCommandCount < result.developmentUiCommands.size() )
+            {
+                InteractionAutomationDevelopmentUiCommand&
+                    command = result.developmentUiCommands[result.developmentUiCommandCount++];
+                command.type = InteractionAutomationDevelopmentUiCommandType::SelectSurface;
+                strcpy_s( command.target,
+                          baseline.developmentUiSurface == static_cast<int>( DevelopmentUiMode::ImGui ) ? "imgui" : "game" );
+            }
+#endif
+            state.recordedBaselineApplied = true;
+        }
+
+        if ( state.recordedTurn >= state.recordedFrames.size() )
+        {
+            // A zero-turn prefix still has a meaningful restored baseline. Run
+            // one neutral synthetic frame so returned camera/replay/ownership
+            // commands apply before the after-render report observes them.
+            RecordedInputFrame neutralFrame;
+            neutralFrame.appFocused = false;
+            state.inputDriver.PublishRecordedFrame( neutralFrame, windowOwner.ClientWidth(), windowOwner.ClientHeight() );
+            state.recordedDeltaSeconds = 0.0;
+            state.recordedFramePublished = true;
+            result.hasRecordedDeltaSeconds = true;
+            result.recordedDeltaSeconds = 0.0;
+            return result;
+        }
+
+        const RecordedInputFrame& recorded = state.recordedFrames[static_cast<std::size_t>( state.recordedTurn )];
+        POINT semanticPosition = {};
+        int semanticX = 0;
+        int semanticY = 0;
+        const bool resolvedSemantic = recorded.semanticAnchor[0] != '\0' &&
+                                      ui.ResolveInteractionAnchor( recorded.semanticAnchor, semanticX, semanticY );
+        semanticPosition.x = semanticX;
+        semanticPosition.y = semanticY;
+        state.inputDriver.PublishRecordedFrame( recorded, windowOwner.ClientWidth(), windowOwner.ClientHeight(),
+                                                resolvedSemantic ? &semanticPosition : nullptr );
+        state.recordedDeltaSeconds = recorded.deltaSeconds;
+        state.recordedFramePublished = true;
+        result.hasRecordedDeltaSeconds = true;
+        result.recordedDeltaSeconds = recorded.deltaSeconds;
         return result;
     }
 
@@ -4387,7 +5450,7 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
             // Why: key automation should still enter through Input and
             // RuntimeInputContext edge detection. This only supplies the
             // virtual-key state that a real keyboard would have provided.
-            state.inputDriver.PressKey( action.keyVirtualKey, action.boolValue, frame );
+            state.inputDriver.PressKey( action.keyVirtualKey, action.boolValue, frame, action.holdFrames );
             AppendReportAction( state, frame, action.type, action.text, nullptr, true, "key press injected" );
             action.processed = true;
             break;
@@ -4528,10 +5591,26 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
             break;
         }
         case RunInteractionAutomationActionType::MoveMouse:
-            state.inputDriver.MoveMouse( action.mouse );
-            AppendReportAction( state, frame, action.type, nullptr, &action.mouse, true, "mouse move injected" );
+        {
+            POINT mousePos = action.mouse;
+
+            if ( action.boolValue && ( action.vectorValue.x > 0.0f || action.vectorValue.y > 0.0f ) )
+            {
+                const int screenW = window ? window->ClientWidth() : config.window.screenX;
+                const int screenH = window ? window->ClientHeight() : config.window.screenY;
+
+                if ( screenW > 0 && screenH > 0 )
+                {
+                    mousePos.x = static_cast<long>( action.vectorValue.x * static_cast<float>( screenW ) );
+                    mousePos.y = static_cast<long>( action.vectorValue.y * static_cast<float>( screenH ) );
+                }
+            }
+
+            state.inputDriver.MoveMouse( mousePos );
+            AppendReportAction( state, frame, action.type, nullptr, &mousePos, true, "mouse move injected" );
             action.processed = true;
             break;
+        }
         case RunInteractionAutomationActionType::ClickReplayControl:
             ApplyInteractionAutomationReplayControlClick( state, window, config, scene.State(), timers, result.replayIntent,
                                                           replayView, action, frame );
@@ -4617,18 +5696,50 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
             break;
         }
         case RunInteractionAutomationActionType::ClickPoint:
-            state.inputDriver.MoveMouse( action.mouse );
+        {
+            POINT mousePos = action.mouse;
+
+            if ( action.boolValue && ( action.vectorValue.x > 0.0f || action.vectorValue.y > 0.0f ) )
+            {
+                const int screenW = window ? window->ClientWidth() : config.window.screenX;
+                const int screenH = window ? window->ClientHeight() : config.window.screenY;
+
+                if ( screenW > 0 && screenH > 0 )
+                {
+                    mousePos.x = static_cast<long>( action.vectorValue.x * static_cast<float>( screenW ) );
+                    mousePos.y = static_cast<long>( action.vectorValue.y * static_cast<float>( screenH ) );
+                }
+            }
+
+            state.inputDriver.MoveMouse( mousePos );
             state.inputDriver.PressMouse( action.button == RunInteractionAutomationButton::Right, frame, action.holdFrames );
 
-            AppendReportAction( state, frame, action.type, nullptr, &action.mouse, true, "mouse press injected" );
+            AppendReportAction( state, frame, action.type, nullptr, &mousePos, true, "mouse press injected" );
             action.processed = true;
             break;
+        }
         case RunInteractionAutomationActionType::ScrollPoint:
-            state.inputDriver.MoveMouse( action.mouse );
+        {
+            POINT mousePos = action.mouse;
+
+            if ( action.boolValue && ( action.vectorValue.x > 0.0f || action.vectorValue.y > 0.0f ) )
+            {
+                const int screenW = window ? window->ClientWidth() : config.window.screenX;
+                const int screenH = window ? window->ClientHeight() : config.window.screenY;
+
+                if ( screenW > 0 && screenH > 0 )
+                {
+                    mousePos.x = static_cast<long>( action.vectorValue.x * static_cast<float>( screenW ) );
+                    mousePos.y = static_cast<long>( action.vectorValue.y * static_cast<float>( screenH ) );
+                }
+            }
+
+            state.inputDriver.MoveMouse( mousePos );
             state.inputDriver.ScrollMouse( action.integerValue );
-            AppendReportAction( state, frame, action.type, nullptr, &action.mouse, true, "mouse wheel injected" );
+            AppendReportAction( state, frame, action.type, nullptr, &mousePos, true, "mouse wheel injected" );
             action.processed = true;
             break;
+        }
         case RunInteractionAutomationActionType::SelectReplayCauseRow:
         {
             const bool available = action.integerValue >= 0 &&
@@ -4675,6 +5786,53 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
 
     if ( !state.enabled || state.finished )
     {
+        return result;
+    }
+
+    if ( !WriteInteractionTraceTurn( state, inputRouter, camera, ui, scene ) )
+    {
+        FailAutomation( state, "interaction turn trace write failed" );
+        state.finished = true;
+        ClearInteractionAutomationInput( state );
+        result.status = InteractionAutomationResult( state );
+        result.requestQuit = true;
+        return result;
+    }
+
+    ++state.traceTurn;
+
+    if ( state.recordedManifest )
+    {
+        if ( !state.recordedFramePublished )
+        {
+            return result;
+        }
+
+        state.recordedFramePublished = false;
+        ++state.recordedTurn;
+
+        if ( state.recordedTurn < state.recordedFrames.size() )
+        {
+            return result;
+        }
+
+        state.finished = true;
+        ClearInteractionAutomationInput( state );
+        result.status = InteractionAutomationResult( state );
+        const SkullbonezCore::Core::SbResult reportResult = state.reportWriter.Write( state.status, state.scriptPath,
+                                                                                      scene.Scene(), scene.State(),
+                                                                                      scene.CurrentPath()
+                                                                                          ? scene.CurrentPath()->c_str()
+                                                                                          : nullptr,
+                                                                                      runtimeTools, replayView, interaction,
+                                                                                      camera, ui, renderSnapshot );
+
+        if ( result.status.Ok() )
+        {
+            result.status = reportResult;
+        }
+
+        result.requestQuit = true;
         return result;
     }
 

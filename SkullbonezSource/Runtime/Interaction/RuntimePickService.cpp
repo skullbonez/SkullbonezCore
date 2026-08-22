@@ -9,8 +9,6 @@ Summary:
   policy surface over physics store records instead of several ad hoc model
   loops.
 
-Glossary:
-  Pick ray: World-space ray projected from the current screen-space pointer.
 
 Invariants:
   - The service never stores physics-store references; results are frame-local

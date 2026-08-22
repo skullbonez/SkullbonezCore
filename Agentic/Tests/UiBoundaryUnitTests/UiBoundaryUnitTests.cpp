@@ -57,9 +57,9 @@ constexpr std::array<uint64_t, kTabs.size()> kExpectedFingerprints = {
     // worker-thread time stopped being summed into the frame-thread rows. Only
     // this surface moved; the other ten prove the column disturbed no other tab.
     17282268762934632125ull,
-    // Scene: the rolling-prediction checkbox and forecast stability rows are
-    // part of the committed operator stream.
-    12227598808358033913ull,
+    // Scene: the rolling-prediction checkbox, forecast stability rows, and
+    // interaction-replay selector are part of the committed operator stream.
+    17348968595161242269ull,
     643319089294822447ull,
     9774020997193876338ull,
     3787874871094680490ull,

@@ -36,28 +36,26 @@ class Timer
 {
 
   private:
-    int m_frameCountCurrentSecond = 0;   // Frames accumulated for the current one-second FPS bucket.
-    int m_currentFPSValue = 0;           // Last completed one-second frame count.
-    double m_frameTimer = 0.0;           // Start time of the active FPS bucket.
-    double m_initialTime = 0.0;          // Startup timestamp for total-runtime queries.
-    double m_startTime = 0.0;            // Last StartTimer timestamp.
-    double m_endTime = 0.0;              // Last StopTimer timestamp.
-    double m_performanceFrequency = 0.0; // Counter ticks per second for this CPU.
-    bool m_initialized = false;          // True after the platform counter check succeeds.
+    int m_frameCountCurrentSecond = 0;                                                                 // Frames accumulated for the current one-second FPS bucket.
+    int m_currentFPSValue = 0;                                                                         // Last completed one-second frame count.
+    double m_frameTimer = 0.0;                                                                         // Start time of the active FPS bucket.
+    double m_initialTime = 0.0;                                                                        // Startup timestamp for total-runtime queries.
+    double m_startTime = 0.0;                                                                          // Last StartTimer timestamp.
+    double m_endTime = 0.0;                                                                            // Last StopTimer timestamp.
+    double m_performanceFrequency = 0.0;                                                               // Counter ticks per second for this CPU.
+    bool m_initialized = false;                                                                        // True after the platform counter check succeeds.
 
-    double GetCurrentTimeInSeconds();    // Converts the high-resolution counter to seconds.
+    double GetCurrentTimeInSeconds();                                                                  // Converts the high-resolution counter to seconds.
 
   public:
-    Timer() = default;                   // Starts inert; call Initialise before sampling time.
+    Timer() = default;                                                                                 // Starts inert; call Initialise before sampling time.
     ~Timer() = default;
-    SkullbonezCore::Core::SbResult
-    Initialise( SkullbonezCore::Core::SbDiagnosticStore&
-                    diagnostics );       // Captures counter frequency and starts the total-runtime clock.
-    void StartTimer();                   // Starts a measured interval.
-    void StopTimer();                    // Captures the active measured interval end timestamp.
-    double GetElapsedTime();             // Seconds between the last StartTimer and StopTimer calls.
-    double GetTimeSinceLastStart();      // Seconds since the active interval started.
-    double GetTotalTime();               // Seconds since this Timer successfully initialized.
+    SkullbonezCore::Core::SbResult Initialise( SkullbonezCore::Core::SbDiagnosticStore& diagnostics ); // Captures counter frequency and starts the total-runtime clock.
+    void StartTimer();                                                                                 // Starts a measured interval.
+    void StopTimer();                                                                                  // Captures the active measured interval end timestamp.
+    double GetElapsedTime();                                                                           // Seconds between the last StartTimer and StopTimer calls.
+    double GetTimeSinceLastStart();                                                                    // Seconds since the active interval started.
+    double GetTotalTime();                                                                             // Seconds since this Timer successfully initialized.
 
     // Advances FPS bucket; true means a full second elapsed.
     // Publishes the finished FPS bucket and starts a new one.

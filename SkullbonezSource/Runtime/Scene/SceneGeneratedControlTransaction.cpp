@@ -17,8 +17,8 @@ Glossary:
 
 Invariants:
   - Accepted requests follow DrainAndReset, Repopulate, PublishFollowUps, and
-    Complete; the transaction makes every other transition Lane F fatal.
-  - A failed GPU drain returns Lane R before UI overrides or topology mutate.
+    Complete; the transaction makes every other transition fatal invariant.
+  - A failed GPU drain returns recoverable result before UI overrides or topology mutate.
   - Replay/profiler resets are detached values published only after repopulation.
   - Camera tracking is clamped against the post-rebuild model count.
 
@@ -80,7 +80,7 @@ SkullbonezCore::Core::SbResult SceneGeneratedControlTransaction::DrainAndReset( 
 
         if ( !RecordDrainResult( flushResult ) )
         {
-            // Lane R: the input/stress boundary reports the device failure and
+            // Recoverable error: the input/stress boundary reports the device failure and
             // this transaction never enters Repopulate.
             return flushResult;
         }
@@ -182,7 +182,7 @@ void SceneGeneratedControlTransaction::AdvanceOrFatal( SceneGeneratedControlPhas
 
     if ( !m_phase.TryAdvance( next ) )
     {
-        // Lane F: accepting an out-of-order phase could mutate topology before
+        // Fatal invariant: accepting an out-of-order phase could mutate topology before
         // the GPU drain or publish replay state before repopulation.
         SB_FATAL( "Runtime/SceneGeneratedControlTransaction", "Illegal phase transition. operation=%s current=%u next=%u",
                   operation, static_cast<unsigned int>( current ), static_cast<unsigned int>( next ) );

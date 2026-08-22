@@ -1,24 +1,22 @@
 /*
-File: SkullbonezSource/Runtime/Planning/ReplayPlanningRuntime.cpp
-Purpose:
-  Implements the planning sibling's input, update, and Physics-mutation sequence.
+File : SkullbonezSource / Runtime / Planning /
+       ReplayPlanningRuntime.cpp Purpose : Implements the planning sibling's input, update, and Physics-mutation sequence.
 
-Summary:
-  Planning samples immutable replay/prediction publications, updates its four
-  retained product owners, and applies planner velocity candidates through
-  Physics. No borrowed sibling owner survives the frame call.
+                                           Summary : Planning samples immutable replay /
+       prediction publications,
+    updates its four retained product owners,
+    and applies planner velocity candidates through Physics.No borrowed sibling owner survives the frame
+            call.
 
-Invariants:
-  - Planning pointer geometry is shared with rendering.
-  - Stable scene identity is authoritative; dense rows are repairable hints.
-  - Baseline capture precedes candidate mutation, and successful mutation
-    commits prediction invalidation before the planner advances.
+        Invariants : -Planning pointer geometry is shared with rendering.-
+        Stable scene identity is authoritative;
+dense rows are repairable hints.- Baseline capture precedes candidate mutation,
+    and successful mutation commits prediction invalidation before the planner advances.
 
-Related:
-  - SkullbonezSource/Runtime/Planning/ReplayPlanningRuntime.h
-  - SkullbonezSource/Runtime/Planning/ReplayPlanningOverlayLayout.h
-  - Agentic/Reference/engine-glossary.md
-*/
+            Related : -SkullbonezSource /
+            Runtime / Planning / ReplayPlanningRuntime.h -
+        SkullbonezSource / Runtime / Planning / ReplayPlanningOverlayLayout.h - Agentic / Reference / engine -
+        glossary.md */
 #include "ReplayPlanningRuntime.h"
 
 #include "ReplayPlanningOverlayLayout.h"
@@ -45,6 +43,8 @@ float ColliderRadius( const Physics::ColliderStore& colliderStore, Physics::Phys
     return collider ? collider->boundingRadius : 0.0f;
 }
 
+// Concept: Planning treats the heaviest fixed body as the central guide body.
+// Stable scene identity is copied out; no body-store borrow survives this scan.
 bool ReadGuideBodyState( const SceneEntityStore& entities, const Physics::PhysicsBodyStore& bodyStore, int entityIndex,
                          ReplayGuideBodyState& outState ) noexcept
 {
@@ -300,6 +300,8 @@ bool ReplayPlanningRuntime::TickPointerSurface( bool uiBlocksMouse, int screenWi
     return porkchopOwnsMouse || tripPlannerOwnsMouse;
 }
 
+// Invariant: pointer ownership uses the same ReplayOverlay geometry rendered
+// later. UI blocking and porkchop capture are resolved before trip controls.
 ReplayPathPickResult ReplayPlanningRuntime::TryPickInterceptTarget( const ReplayPathPickInput& input,
                                                                     const Physics::PhysicsBodyStore& bodyStore,
                                                                     const Physics::ColliderStore& colliderStore )
@@ -482,6 +484,8 @@ void ReplayPlanningRuntime::BeginTripPlannerFrame( Physics::PhysicsEngine& physi
     (void)ApplyTripPlannerMutation( physics, m_tripPlanner.BeginFrame( input ), predictionOwner );
 }
 
+// Invariant: baseline preparation precedes the first candidate write. A failed
+// candidate attempts rollback through the same Physics velocity seam before aborting.
 void ReplayPlanningRuntime::ObserveTripPlannerPrediction( Physics::PhysicsEngine& physics,
                                                           const RunReplayPathVisualizerState& path,
                                                           const ReplayPredictionPresentationView& prediction,

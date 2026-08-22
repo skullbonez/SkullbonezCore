@@ -1,22 +1,21 @@
 /*
 File: SkullbonezData/shaders/solid_color_batch.hlsl
 Purpose:
-  Runs the solid_color_batch HLSL shader program used by the renderer.
+  Render untextured solid color primitive batches for tools, UI bounds, and gizmos.
 
 Summary:
-  solid_color_batch.hlsl is shader source for the renderer's solid_color_batch
-  pass. Keep edits anchored on shader inputs, bindings, and render-output
-  contracts and on the glossary/invariants below.
-
-Glossary:
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
+  Transforms batched 2D and 3D primitives with per-vertex or per-instance color
+  for runtime tooling, editor wireframes, and selection overlays.
 
 Invariants:
-  - CPU-side root signatures, input layouts, and descriptor bindings must
-  match this shader exactly.
+  - Depth testing and write are selectable via the pipeline state object.
+  - Vertex format matches PrimitiveBatchRenderer vertex specification.
+
+Related:
+  - Agentic/Reference/engine-glossary.md
+  - SkullbonezSource/Rendering/PrimitiveBatchRenderer.h
 */
+
 // =============================================================================
 // SOLID COLOR BATCH SHADER — Shader Model 6.6 (Combined VS+PS)
 // =============================================================================

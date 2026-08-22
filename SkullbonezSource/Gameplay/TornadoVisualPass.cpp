@@ -18,7 +18,7 @@ Invariants:
   - Live time advances only outside replay selection and while live advance is
     not held.
   - The callback retains no graph, frame, surface, or backend borrow.
-  - Capacity calculation and drawing fail through Lane F before dereferencing
+  - Capacity calculation and drawing fail through fatal invariant before dereferencing
     missing or release-cleared Gameplay frame borrows.
 
 Related:

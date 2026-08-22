@@ -3,7 +3,7 @@
 @rem Purpose:
 @rem   Documents and runs the validate_format.bat developer/validation helper script.
 @rem
-@rem Mental model:
+@rem Summary:
 @rem   Tools are command-line guardrails around builds, validation, screenshots,
 @rem   diagnostics, and artifact handling. They make the safe path repeatable and
 @rem   keep output bounded for humans and agents.
@@ -60,6 +60,9 @@ if errorlevel 1 (
     echo       Run: tools\format_fix.bat
     exit /b 1
 )
+
+"%PYTHON_EXE%" "%~dp0align_header_inline_comments.py" --self-test
+if errorlevel 1 exit /b 1
 
 "%PYTHON_EXE%" "%~dp0align_header_inline_comments.py" --repo "%REPO%" --check-pipeline --clang-format "%CLANG_FMT%"
 if errorlevel 1 (

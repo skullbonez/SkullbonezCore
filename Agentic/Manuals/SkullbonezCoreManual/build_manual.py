@@ -7,7 +7,7 @@ Summary:
   Generates the manual's shared text, figures, DOCX layout, and PDF rendering
   from one source so both deliverables retain the same structure and references.
 
-Mental model:
+
   The manual is generated because it contains repeated chapter furniture,
   figure plates, equation cards, and print geometry that are easier to keep
   consistent from code than by hand-editing Word paragraphs.

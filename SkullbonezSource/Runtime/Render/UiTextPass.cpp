@@ -516,8 +516,71 @@ void UiTextPass::RenderChromeStatus( const UiTextViewport& viewport, const Overl
                    palette.textSecondary.b, detail );
     };
 
+    const auto renderInteractionIndicator = [&]()
+    {
+        if ( !debug.isInteractionRecording && !debug.isInteractionPlayback && debug.interactionRecordingFailure[0] == '\0' )
+        {
+            return;
+        }
+
+        const SkullbonezCore::UI::UIDrawContext& draw = badgeDraw;
+        const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
+        const SkullbonezCore::UI::Style::UIRadii& radii = SkullbonezCore::UI::Style::Radii();
+
+        constexpr float x = 16.0f;
+        constexpr float y = 16.0f;
+        constexpr float panelW = 286.0f;
+        constexpr float panelH = 42.0f;
+
+        SkullbonezCore::UI::Style::UIColor fill = palette.windowSubtle;
+        fill.a = 0.88f;
+        draw.RoundedPanel( { x, y, panelW, panelH }, radii.control, fill, palette.innerBorder );
+
+        constexpr float dotX = x + 8.0f;
+        constexpr float dotY = y + 8.0f;
+        constexpr float dotSize = 12.0f;
+        const bool failed = debug.interactionRecordingFailure[0] != '\0';
+        const bool playing = debug.isInteractionPlayback && !failed;
+        const float statusR = failed ? 1.0f : ( playing ? 0.20f : 0.96f );
+        const float statusG = failed ? 0.65f : ( playing ? 0.88f : 0.18f );
+        const float statusB = failed ? 0.10f : ( playing ? 0.32f : 0.18f );
+        draw.RoundedRect( dotX, dotY, dotSize, dotSize, dotSize * 0.5f, statusR, statusG, statusB, 1.0f );
+        draw.Text( dotX + dotSize + 6.0f, y + 5.0f, 12.0f, statusR, statusG, statusB,
+                   failed ? "RECORDING FAILED" : ( playing ? "PLAYBACK" : "REC F8 TO STOP" ) );
+
+        if ( failed )
+        {
+            char statusLine[160] = {};
+            sprintf_s( statusLine, sizeof( statusLine ), "%s", debug.interactionRecordingFailure );
+            draw.Text( x + 8.0f, y + 23.0f, 9.5f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
+                       statusLine );
+        }
+        else if ( playing )
+        {
+            char statusLine[160] = {};
+            const std::size_t visibleTurn = debug.interactionPlaybackTurnCount == 0u
+                                                ? 0u
+                                                : (std::min)( debug.interactionPlaybackTurn + 1u,
+                                                              debug.interactionPlaybackTurnCount );
+            sprintf_s( statusLine, sizeof( statusLine ), "%zu / %zu turns", visibleTurn,
+                       debug.interactionPlaybackTurnCount );
+            draw.Text( x + 8.0f, y + 23.0f, 9.5f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
+                       statusLine );
+        }
+        else
+        {
+            char statusLine[160] = {};
+            sprintf_s( statusLine, sizeof( statusLine ), "%.1fs / %dm   %zu / %zu turns",
+                       debug.interactionRecordingElapsedSeconds, debug.interactionRecordingMaximumMinutes,
+                       debug.interactionRecordingFrameCount, debug.interactionRecordingFrameCapacity );
+            draw.Text( x + 8.0f, y + 23.0f, 9.5f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
+                       statusLine );
+        }
+    };
+
     renderScenePauseBadge();
     renderRuntimeModeBadge();
+    renderInteractionIndicator();
 
     if ( !m_badgeDrawList.Empty() )
     {
@@ -596,7 +659,7 @@ SkullbonezCore::Core::MainMemoryStats
 UiTextPass::ProjectMemoryTabStats( DiagnosticsRuntime& diagnosticsRuntime, const ReplayHudStatus& replayHud,
                                    const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects, double nowSeconds )
 {
-    // Lane R: the Memory tab may be opened before Replay has published its
+    // Recoverable error: the Memory tab may be opened before Replay has published its
     // first accounting snapshot. The inline policy does not invoke this sampler
     // until the source is valid, so stale diagnostics cannot masquerade as the
     // current scene.
@@ -975,7 +1038,7 @@ void UiTextPass::ProjectOperatorPresentation( UI::InGameUIFrameData& UIData, con
     UIData.presentationAlpha = view.presentationAlpha;
     UIData.canSaveSceneDefaults = view.sceneMode && sceneHasCurrentEntry && currentScenePath && currentScenePath[0] != '\0';
 
-    // Invariant: representative legacy controls display the same immutable
+    // Invariant: representative GameUI controls display the same immutable
     // values supplied to the secondary editor for this frame.
     UIData.operatorEditor = operatorEditorView;
     UIData.sceneName = UIData.operatorEditor.scene.sceneName;
@@ -1079,6 +1142,10 @@ void UiTextPass::SubmitOperatorFrame( UI::InGameUIFrameData& UIData, UI::InGameU
                                       Rendering::Dx12Diagnostics& renderDiagnostics, int uiPassDrawCallStart )
 {
     Text::TextBatch& textBatch = m_textBatch;
+    const SkullbonezCore::UI::InteractionRecordingBrowserState& recordings = ui.SceneNavigation().recordings;
+    UIData.interactionRecordingOptions = recordings.namePtrs.empty() ? nullptr : recordings.namePtrs.data();
+    UIData.interactionRecordingOptionCount = static_cast<int>( recordings.namePtrs.size() );
+    UIData.selectedInteractionRecordingOption = recordings.paths.empty() ? -1 : recordings.selectedIndex;
 
     // Invariant: the UI projection below omits backend handles. This
     // renderer-owned copy retains them only until submission resolves the
@@ -1150,13 +1217,13 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport, OverlayMo
     const UI::UIProfilerOverlayPresenter profilerOverlay;
 #endif
 
-    // --- Overlay: None ---
+    // Overlay: None:
     if ( mode == OverlayMode::None )
     {
         return;
     }
 
-    // --- Overlay: Scene telemetry ---
+    // Overlay: Scene telemetry:
     if ( mode == OverlayMode::SceneStats )
     {
         const float titleSz = 0.013f;
@@ -1183,7 +1250,7 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport, OverlayMo
         return;
     }
 
-    // --- Overlay: Visual profiler bars (normalized or absolute) ---
+    // Overlay: Visual profiler bars (normalized or absolute):
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
 
     if ( mode == OverlayMode::BarsNormalized || mode == OverlayMode::BarsAbsolute )
@@ -1211,7 +1278,7 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport, OverlayMo
     }
 #endif
 
-    // --- Overlay: Keys reference screen (compact, bottom-left) ---
+    // Overlay: Keys reference screen (compact, bottom-left):
     if ( mode == OverlayMode::Keys )
     {
         const float titleSz = 0.013f;
@@ -1264,11 +1331,11 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport, OverlayMo
         };
 
         static const KeyEntry kRight[nRows] = {
-            { "Esc", "Min/expand UI" },    { "Esc Esc", "Quit" },         { "P", "Replay play/pause" },
-            { "1", "Freeze water" },       { "2", "Reflection mode" },    { "3", "Toggle water flat" },
-            { "4", "Toggle terrain" },     { "5", "Toggle water" },       { "6", "Debug body alpha" },
-            { "G", "Broadphase overlay" }, { "C", "Physics debug" },      { "O", "Terrain probe" },
-            { "PgUp/Dn", "Water height" }, { "F7/F8", "Pipeline stage" }, { "F6", "Memory waterline" },
+            { "Esc", "Min/expand UI" },    { "Esc Esc", "Quit" },       { "P", "Replay play/pause" },
+            { "1", "Freeze water" },       { "2", "Reflection mode" },  { "3", "Toggle water flat" },
+            { "4", "Toggle terrain" },     { "5", "Toggle water" },     { "6", "Debug body alpha" },
+            { "G", "Broadphase overlay" }, { "C", "Physics debug" },    { "O", "Terrain probe" },
+            { "PgUp/Dn", "Water height" }, { "[/]", "Pipeline stage" }, { "F8", "Record repro" },
         };
 
         for ( int i = 0; i < nRows; ++i )
@@ -1283,7 +1350,7 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport, OverlayMo
         return;
     }
 
-    // --- Overlay: Timers / HUD (OverlayMode::Timers) ---
+    // Overlay: Timers / HUD (OverlayMode::Timers):
 
     // SkullbonezCore::Core::Profiler overlay - bottom-left anchored.
     // Compiled out in Release; always shown when overlay is Timers in Debug/Profile.
@@ -1305,12 +1372,12 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport, OverlayMo
 
 
 void UiTextPass::RenderReplay( const ReplayOverlay::ReplayOverlayStateView& overlay, Core::Profiler* profiler,
-                               bool legacySurfaceActive, bool scenePhysicsEnabled, RuntimeInteractionGestureKind gesture,
+                               bool gameUiSurfaceActive, bool scenePhysicsEnabled, RuntimeInteractionGestureKind gesture,
                                const UiTextViewport& viewport, double nowSeconds,
                                Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderCommands,
                                Rendering::Dx12Diagnostics& renderDiagnostics )
 {
-    if ( !legacySurfaceActive )
+    if ( !gameUiSurfaceActive )
     {
         return;
     }

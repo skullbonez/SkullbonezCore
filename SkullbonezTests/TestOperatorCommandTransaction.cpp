@@ -8,7 +8,7 @@ Summary:
   pointer-bearing acceptance values. Runtime checks pin detached command
   capture and the default ledger before phase execution.
 
-Mental model:
+
   One normalized UI packet enters one non-copyable transaction. The only
   durable output is a detached acceptance ledger consumed by InputFrame.
 

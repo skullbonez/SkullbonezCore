@@ -53,7 +53,6 @@ using namespace SkullbonezCore::Rendering;
 using Microsoft::WRL::ComPtr;
 
 
-// --- Helpers ---
 static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIndex, UINT capacity )
 {
     const char* name = heapName ? heapName : "unknown";
@@ -138,8 +137,6 @@ bool IsGridLineRasterState( const RasterStateDesc& raster )
 }
 } // namespace
 
-// --- Dx12GeometryOwner methods ---
-
 
 void Dx12GeometryOwner::AdoptGridLineShader( std::unique_ptr<ShaderDX12> shader )
 {
@@ -213,7 +210,7 @@ bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device, Dx12Pipeli
 
     if ( FAILED( hr ) || !gridLinePSO )
     {
-        // Lane R: debug-line rendering is diagnostic overlay work. A failed
+        // Recoverable error: debug-line rendering is diagnostic overlay work. A failed
         // line PSO should drop this overlay draw and report the device result,
         // not unwind the frame; cache capacity failures below remain fatal.
         SkullbonezCore::Core::Log().WriteEventf( "dx12_debug_line_pso_create_failed hresult=0x%08X rtv_format=%u",
@@ -664,7 +661,7 @@ uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticVertices, in
 
     if ( FAILED( staticBufferResult ) || !im.staticVB )
     {
-        // Lane R: instanced mesh handles already use 0 as "no backend mesh".
+        // Recoverable error: instanced mesh handles already use 0 as "no backend mesh".
         // Callers route uploads and draws through that handle, so creation can
         // fail as a logged result without leaving a partially registered mesh.
         SkullbonezCore::Core::Log()
@@ -905,7 +902,7 @@ void Dx12GeometryOwner::RequireSubmissionEpoch( const char* operation ) const
 }
 
 
-// --- RenderBackendDX12 draw coordination ---
+// RenderBackendDX12 draw coordination:
 
 
 bool Dx12GeometryOwner::PrecompileDynamicVBRasterState( uint32_t handle, const PassRasterStateBucket& bucket )

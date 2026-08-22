@@ -1,6 +1,6 @@
 ---
 name: orchestrator
-description: Run SkullbonezCore's persistent MASTER-PLAN implementation queue in the main Codex agent, using a deterministic Night Runner branch and sub-agents only for rubber-duck review. Use when the user asks for the orchestrator, night runner, nightrunner, overnight runner, queued plan runner, MASTER-PLAN runner, or asks Codex to complete one or more Agentic/Plans items, then continue through blockers, validate, commit, and push each accepted plan.
+description: Run SkullbonezCore's persistent MASTER-PLAN implementation queue in the main Codex or Antigravity agent, using a deterministic Night Runner branch and sub-agents only for rubber-duck review. Use when the user asks for the orchestrator, night runner, nightrunner, overnight runner, queued plan runner, MASTER-PLAN runner, or asks Codex/Antigravity to complete one or more Agentic/Plans items, then continue through blockers, validate, commit, and push each accepted plan.
 ---
 
 # Orchestrator
@@ -54,8 +54,9 @@ Follow the SkullbonezCore startup contract before any edit:
    `Agentic/SessionState.md`.
 2. Run `git status --short --branch`.
 3. Treat pre-existing dirty files as user-owned.
-4. State the impact area and the validation that will be deferred to the
-   commit/PR gate.
+4. State the impact area, classify the work with the risk-proportional cadence
+   below, and say which evidence is required now versus deferred to terminal
+   closure.
 5. Start a wall-clock timer and report elapsed time in the final handoff.
 
 Do not force-push, rebase, rewrite history, merge PRs, or commit/push on
@@ -97,11 +98,12 @@ Git because the final post-push hash update cannot be part of the commit whose
 hash it records. Never stage or hand-edit this runtime artifact.
 
 Every batch call reads the exact cumulative token counter for
-`CODEX_THREAD_ID`, captures a local ISO-8601 timestamp with timezone, and
-atomically rewrites valid CSV plus its final embedded recovery-state row. A failed
-call is an orchestration blocker: do not replace exact telemetry with an
-estimate or an in-memory row. The unfinished row identifies the live step, so
-the owner can inspect the ledger at any time while work is running.
+`CODEX_THREAD_ID` (or Antigravity conversation ID / transcript stream),
+captures a local ISO-8601 timestamp with timezone, and atomically rewrites
+valid CSV plus its final embedded recovery-state row. A failed call is an
+orchestration blocker: do not replace exact telemetry with an estimate or an
+in-memory row. The unfinished row identifies the live step, so the owner can
+inspect the ledger at any time while work is running.
 
 Run `work_ledger.bat show` before inspecting the CSV. `show` refreshes the open
 row's current elapsed time, input/output/cached-input counters, API-cost
@@ -128,18 +130,20 @@ tokens or wall time are lost or double-counted:
 Agentic\Skills\orchestrator\scripts\work_ledger.bat transition -Task "<PLAN>-T<n>" -Outcome "ready for review" -Step "rubber-duck-01" -Kind rubber-duck -Label "Rubber duck pass 1"
 ```
 
-For a newly created rubber-duck agent/thread, transition before launching it,
-then attach its returned thread/session id with a zero baseline. Zero is the
+For a newly created rubber-duck agent/thread/subagent, transition before launching it,
+then attach its returned thread/session/conversation id with a zero baseline. Zero is the
 exact start of that new reviewer session, including its prompt and context:
 
 ```bat
 Agentic\Skills\orchestrator\scripts\work_ledger.bat attach-worker -Task "<PLAN>-T<n>" -WorkerThreadId "<reviewer id>" -WorkerBaselineZero
 ```
 
-Use the reviewer's actual `CODEX_THREAD_ID`, not an orchestration handle that
-cannot be resolved under `.codex\sessions`. If the launch API returns only a
-handle, have the reviewer read and return `$env:CODEX_THREAD_ID`; attaching it
-afterward with a zero baseline still accounts for that complete new session.
+Use the reviewer's actual `CODEX_THREAD_ID` or Antigravity `ConversationId`, not
+an orchestration handle that cannot be resolved under `.codex\sessions` or
+`.gemini\antigravity\brain\<id>\.system_generated\logs\transcript.jsonl`. If the launch
+API returns only a handle, have the reviewer read and return `$env:CODEX_THREAD_ID` or
+its assigned conversation ID; attaching it afterward with a zero baseline still accounts
+for that complete new session.
 
 When reusing an existing reviewer session, attach or open the step with
 `-WorkerThreadId` and omit `-WorkerBaselineZero`; the helper snapshots its
@@ -151,9 +155,11 @@ count, total findings, reviewer input/output/cached-input counters and cost, and
 cumulative validation duration.
 
 At minimum, record implementation/investigation, every rubber-duck pass, every
-finding-fix cycle, final validation, and commit/push as separate steps. Use
-`other` for another material phase. After validation, transition to
-`commit-push`; after the commit has been pushed, close the task with its commit:
+finding-fix cycle, every validation actually run, and commit/push as separate
+steps. When the cadence below makes review or validation inapplicable, record
+that outcome without opening a fake work step. Use `other` for another material
+phase. After any required validation, transition to `commit-push`; after the
+commit has been pushed, close the task with its commit:
 
 ```bat
 Agentic\Skills\orchestrator\scripts\work_ledger.bat finish-task -Task "<PLAN>-T<n>" -Outcome "pushed" -Commit HEAD
@@ -208,15 +214,16 @@ leave it active and report the blocker inventory.
 
 ## Sub-Agent Tools
 
-Use sub-agents or Codex thread tools only for independent `$rubber-duck` review
-at the end of a major plan/checkpoint or whole job. Earlier review is allowed
-only when the user explicitly asks for one, or when the same failure mode has
-repeated and independent critique is the cheapest way to get unstuck. Do not run
-a review per edit, per checklist row, per source file, per commit, or per small
-slice. Do not dispatch plan implementation, cleanup, validation, staging,
+Use sub-agents, Antigravity `invoke_subagent`, or Codex thread tools only for independent
+`$rubber-duck` review at the end of a major plan/checkpoint or whole job. Earlier
+review is allowed only when the user explicitly asks for one, or when the same
+failure mode has repeated and independent critique is the cheapest way to get unstuck.
+Do not run a review per edit, per checklist row, per source file, per commit, or per
+small slice. Do not dispatch plan implementation, cleanup, validation, staging,
 committing, or pushing to a sub-agent. If the tools are not already loaded,
-search for them with `tool_search` using names such as `create_thread`,
-`send_message_to_thread`, `read_thread`, `handoff_thread`, and `list_threads`.
+search for them: in Codex use names such as `create_thread`, `send_message_to_thread`,
+`read_thread`, `handoff_thread`, and `list_threads`; in Antigravity use `invoke_subagent`,
+`define_subagent`, and `send_message`.
 
 If a review tool creates a separate worktree, keep it read-only. Keep one active
 implementation plan at a time unless the user explicitly asks for a different
@@ -260,6 +267,53 @@ finding count, and verdict. Keep this accounting separate from SkullScope
 diagnostics accounting; it measures agent-session usage, not repository
 artifacts or validation logs.
 
+## Risk-Proportional Review And Validation
+
+Choose review and validation cadence from the meaning and risk of the change,
+not from a ritual applied to every task. File count and LOC are useful context,
+but neither is the decision by itself. Consider behavior changed, subsystem
+criticality, reversibility, observability, ownership/concurrency impact, golden
+sensitivity, and how much unvalidated work has accumulated.
+
+Use these qualitative cadences:
+
+1. **Documentation, comments, bookkeeping, or mechanical metadata only:** use
+   targeted inspection and `git diff --check`; run zero rubber-duck passes and
+   no repository validation unless a specific documentation checker owns the
+   edited contract.
+2. **Very small, low-risk implementation slice inside a plan:** skip rubber-duck
+   review. Run only the narrow compile, test, launch, or inspection that answers
+   a concrete uncertainty; when the change is obvious and already covered by a
+   later plan gate, defer validation to the next meaningful integration
+   checkpoint.
+3. **Small cohesive plan:** normally accumulate implementation, then perform at
+   most one review and one mapped validation pass at terminal closure. A small
+   plan that is documentation-only or mechanically provable may require neither.
+4. **Large or multi-owner plan:** validate at meaningful integration checkpoints
+   and before commits that publish a substantial coherent slice. Use focused
+   owner gates during the plan and one terminal full gate. Rubber-duck only a
+   major completed checkpoint or the final integrated plan, not each task.
+5. **High-risk behavioral work:** before every commit that changes core Physics,
+   determinism, Replay serialization/restore, DX12 resource/fence lifetime,
+   concurrency, allocation/growth privilege, durable scene state, or another
+   golden-sensitive invariant, run the mapped focused gate that can detect that
+   slice's failure. This requirement applies even when the textual diff is
+   small. Reserve the full terminal suite and independent rubber-duck for the
+   integrated end unless the user requests an earlier review or repeated
+   failures make one cost-effective.
+
+A commit boundary alone does not justify validation. A meaningful unvalidated
+behavior boundary does. Conversely, do not defer a risky Physics or lifetime
+change merely because it is one line. Before opening a validation or review
+ledger step, state the concrete risk or question it will resolve. If no such
+question exists, skip the step and record zero review passes or deferred
+terminal evidence instead of manufacturing activity.
+
+Do not rerun a gate when only documentation or plan bookkeeping changed after
+that gate and its source inputs are unchanged. Do not repeat a clean rubber-duck
+unless subsequent fixes materially changed the reviewed risk area or the
+reviewer explicitly required a follow-up.
+
 ## Plan Loop
 
 For each plan or source slice, in order:
@@ -283,8 +337,8 @@ Required commit subject first line: <PLAN_NAME>, TASK <DONE>/<TASK_COUNT> — <A
    worker or ask a sub-agent to edit files.
 4. Inspect the result with `git status --short` and targeted file reads or
    diffs.
-5. For ordinary incremental slices, skip rubber-duck review and transition
-   directly from implementation to validation. When review is required,
+5. For ordinary incremental slices, skip rubber-duck review and proceed to the
+   risk-proportional validation decision in step 8. When review is required,
    transition to `rubber-duck-<nn>` before creating or messaging the reviewer.
    Launch a separate read-only rubber-duck review sub-agent only when the slice
    completes a major plan/checkpoint or whole job, when the user explicitly
@@ -301,20 +355,23 @@ Return findings with file/line references and a clear verdict.
 6. Attach the new reviewer thread id to the active ledger step immediately
    after creation. When its response arrives, count its findings and transition
    to `finding-fix-<nn>` before addressing blocking findings in the main agent.
-   If there are no fixes, transition directly to validation.
+   If there are no fixes, proceed directly to the step 8 validation decision.
 7. Repeat the rubber-duck pass only if the fix changed meaningful behavior in
    the reviewed risk area or the reviewer requested a follow-up. Transition at
    both sides of every repeat so each pass and fix cycle is a separate live
    ledger row.
-8. Open the `validation` ledger step before running the smallest cumulative
-   pre-commit validation from `AGENTS.md` for that
-   task's changed-file set. Documentation-only changes require no validation.
-   Still record a bounded documentation/diff inspection in the validation row
-   so its duration and outcome are explicit. Do not run full validation for an
-   intermediate task or ordinary PR commit.
-   Run `tools\agent_validate.bat --plan-completion` once, after independent
-   review and immediately before the terminal commit that closes the entire
-   implementation plan.
+8. Apply the risk-proportional cadence above. Open a `validation` ledger step
+   only when this slice needs evidence now; otherwise transition directly to
+   commit/push and record that validation is deferred or not applicable. Use
+   focused owner gates for intermediate high-risk or substantial integration
+   commits. Do not run heavy multi-minute suites, graphics stress, or deep
+   regression gates for ordinary low-risk increments. Concentrate those at the
+   end of a small plan or in the terminal closure pass of a large plan, except
+   where `AGENTS.md` maps a high-risk changed behavior to a pre-commit gate.
+   Documentation-only changes require no validation. Run
+   `tools\agent_validate.bat --plan-completion` once, after any appropriate
+   independent review and immediately before the terminal commit that closes
+   the entire implementation plan.
 9. Update `Agentic/SessionState.md` whenever a task or phase completes, a plan
     closes, a blocker is recorded, or the portfolio denominator moves. This is a
     write step, not a read step: steps 10 and 11 stage and report the update, but
@@ -327,7 +384,8 @@ Return findings with file/line references and a clear verdict.
 10. Run `git status --short --branch` before staging.
 11. Stage only files belonging to the completed plan and its required
     reports/session-state updates. Never stage the ignored live work ledger.
-12. After validation succeeds, transition to the `commit-push` ledger step.
+12. After required validation succeeds, or after recording that validation is
+    deferred or not applicable, transition to the `commit-push` ledger step.
     Commit with the required MASTER progress header as the subject's first
     fields, followed by a concise action summary. Use the post-commit ledger
     values and update MASTER in the same commit whenever task completion or the
@@ -340,15 +398,19 @@ Return findings with file/line references and a clear verdict.
     writes the full hash into the task group, and makes the completed ledger
     immediately queryable before advancing the queue.
 
-Advance after the current item is either reviewed, validated, committed, and
-pushed, or its blocker record is committed and pushed under Blocker
-Continuation. A single plan failure is not a terminal condition.
+Advance after the current item has received the review and validation its risk
+classification requires, then is committed and pushed, or after its blocker
+record is committed and pushed under Blocker Continuation. A single plan
+failure is not a terminal condition.
 
 ## Validation Discipline
 
-Do not run `tools\validate_*` scripts during normal iteration. They are
-pre-commit/PR gates. During implementation, use focused builds, launches, tests,
-or inspections only when they answer a specific question.
+Do not run `tools\validate_*` scripts reflexively during normal iteration. They
+are evidence gates, not progress rituals. During implementation, use focused
+builds, launches, tests, or inspections only when they answer a specific
+question. Before a substantial or high-risk commit, run the mapped focused
+validation required by the risk-proportional cadence; before a trivial or
+low-risk increment, defer it when the terminal gate will cover unchanged scope.
 
 When validation is required, run it in a visible console when available and
 mirror output to a log when practical. Never claim validation success without

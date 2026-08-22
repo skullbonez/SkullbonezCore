@@ -3,7 +3,7 @@
 @rem Purpose:
 @rem   Runs every first-party CPU test and coverage gate through one fail-fast entry point.
 @rem
-@rem Mental model:
+@rem Summary:
 @rem   This script is the CPU/coverage fan-in for PR validation. Each child still
 @rem   owns its build and executable, while this wrapper owns ordering, failure
 @rem   attribution, and the combined result shown to a caller.

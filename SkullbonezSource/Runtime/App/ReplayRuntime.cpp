@@ -288,6 +288,86 @@ ReplayFrameIntentResult ReplayRuntime::ApplyFrameIntent( const ReplayFrameIntent
 }
 
 
+void ReplayRuntime::RestoreInteractionRecordingBaseline( RunReplayTrack track, float presentationTrackPosition,
+                                                         float solverTrackPosition, bool historicalPaused,
+                                                         bool liveAdvanceHeld )
+{
+    m_scrubberOwner.SetTrackPosition( RunReplayTrack::Presentation, std::clamp( presentationTrackPosition, 0.0f, 1.0f ) );
+    m_scrubberOwner.SetTrackPosition( RunReplayTrack::Solver, std::clamp( solverTrackPosition, 0.0f, 1.0f ) );
+    m_scrubberOwner.SelectTrack( track );
+    m_scrubberOwner.SetHistoricalSamplePaused( historicalPaused );
+    (void)m_scrubberOwner.SetLiveAdvanceHeld( liveAdvanceHeld );
+}
+
+bool ReplayRuntime::RestoreInteractionRecordingCauseBaseline( const ReplayInteractionRecordingCauseState& baseline,
+                                                              double now, const ReplayWorkspaceFrameInput& input,
+                                                              InputRouter& inputRouter,
+                                                              RuntimeInteractionController& interaction, SceneWorld& world,
+                                                              AttachedCameraController& attachedCamera,
+                                                              CameraControlState& camera, RunMousePickupState& mousePickup )
+{
+    if ( baseline.mode == ReplayCauseInspectionMode::Inactive )
+    {
+        m_planningOwner.CauseInspection().Reset();
+        return baseline.selectedRow < 0;
+    }
+
+    if ( baseline.selectedRow < 0 )
+    {
+        return false;
+    }
+
+    int focusedCameraRow = -1;
+    const bool rowsAvailable = m_predictionOwner.BuildCauseTreeRows( m_authoring, m_visualPresentation.PathVisualizer(),
+                                                                     CurrentSolverScrubSample(),
+                                                                     world.RenderPresentationRecords(), world.BodyStore(),
+                                                                     m_visualPresentation.CameraView(), focusedCameraRow );
+
+    if ( !rowsAvailable || baseline.selectedRow >= static_cast<int>( m_authoring.CauseTree().rows.size() ) )
+    {
+        return false;
+    }
+
+    ReplayWorkspaceOutput output;
+    ApplyCauseTreeSelection( baseline.selectedRow, input, inputRouter, interaction, world, attachedCamera, camera,
+                             mousePickup, output );
+
+    const ReplayCauseInspectionView selected = m_planningOwner.CauseInspectionView();
+
+    if ( selected.mode == ReplayCauseInspectionMode::Inactive || selected.selectedRow != baseline.selectedRow )
+    {
+        return false;
+    }
+
+    ReplayCauseInspectionRecordingState restored;
+    restored.mode = baseline.mode;
+    restored.activeTab = baseline.activeTab;
+    restored.selectedRow = baseline.selectedRow;
+    restored.selectedDetailContactRow = baseline.selectedDetailContactRow;
+    restored.solverDetailFirstRow = baseline.solverDetailFirstRow;
+    restored.rawRecordFirstRow = baseline.rawRecordFirstRow;
+    restored.iterationsFirstRow = baseline.iterationsFirstRow;
+    restored.sourceFrame = baseline.sourceFrame;
+    restored.targetFrame = baseline.targetFrame;
+    restored.presentedFrame = baseline.presentedFrame;
+    restored.detailVisible = baseline.detailVisible;
+    restored.ownsPause = baseline.ownsPause;
+    restored.transportPending = baseline.transportPending;
+    restored.transportInFlight = baseline.transportInFlight;
+    restored.returnIssued = baseline.returnIssued;
+    restored.easedProgress = baseline.easedProgress;
+    restored.drawerProgress = baseline.drawerProgress;
+    m_planningOwner.CauseInspection().RestoreInteractionRecordingBaseline( restored, now );
+    return true;
+}
+
+
+bool ReplayRuntime::SaveInteractionRecordingBaseline( const char* path ) const
+{
+    return path && path[0] != '\0' && SavePresentationWithSolverHashes( path );
+}
+
+
 ReplaySceneTimelineResetInput ReplayTimelineOperations::DescribeReplaySceneTimeline( const SceneController& sceneController, const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
                                                                                      const SceneSessionState& scene, int sceneObjectCapacity, uint32_t generatedObjectTypeOverride )
 {
@@ -401,7 +481,7 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( ReplayRestoreTransaction& transac
 
     // Hazard: a recoverable restore failure may return only after the live
     // backup was reapplied. Continuing from a half-restored solver would make
-    // later physics output nondeterministic, so rollback failure is Lane F.
+    // later physics output nondeterministic, so rollback failure is a fatal invariant failure.
     if ( !hashMatched && !fallbackRestored )
     {
         SB_FATAL( "Runtime/ReplayRestore", "Replay restore verification failed and the live backup could not be restored" );
@@ -568,9 +648,24 @@ ReplayInputView ReplayRuntime::BuildInputView() const noexcept
     view.hasCameraFocus = camera.focusKind != RunReplayCameraFocusKind::None;
     view.restoreCameraMode = camera.restoreCameraMode;
     view.pathTargetModelRow = path.hasTarget ? path.targetModelRow.value : -1;
+    view.activeTrack = scrubber.activeTrack;
+    view.presentationTrackPosition = scrubber.presentationPosition;
+    view.solverTrackPosition = m_scrubberOwner.TrackPosition( RunReplayTrack::Solver );
     view.solverPresentTrackPosition = SolverPresentTrackPosition();
     view.predictionRevealAvailable = m_predictionOwner.RevealProgress01( view.predictionRevealProgress );
     return view;
+}
+
+
+const RunReplayCauseTreeState& ReplayRuntime::CauseTree() const noexcept
+{
+    return m_authoring.CauseTree();
+}
+
+
+ReplayCauseInspectionView ReplayRuntime::CauseInspectionView() const noexcept
+{
+    return m_planningOwner.CauseInspectionView();
 }
 
 

@@ -183,6 +183,28 @@ void EngineLog::FlushAll()
     }
 }
 
+
+void EngineLog::ResetLog( const char* fileName )
+{
+    // Why: OpenLog only truncates ("wb") on the first open of a path and then
+    // retains the handle. A same-process re-run therefore appends onto the prior
+    // run. Closing and erasing the handle here makes the next OpenLog reopen in
+    // truncate mode, so each run owns exactly one complete file. Guarded by the
+    // same mutex as OpenLog because it mutates the shared handle map.
+    std::lock_guard<std::mutex> lock( m_logMutex );
+    auto it = m_logs.find( fileName );
+
+    if ( it != m_logs.end() )
+    {
+        if ( it->second )
+        {
+            fclose( it->second );
+        }
+
+        m_logs.erase( it );
+    }
+}
+
 #if defined( SKULLBONEZ_TEST_ENGINE_LOG )
 void EngineLog::CloseAllForTests()
 {
@@ -226,6 +248,9 @@ void EngineLog::WriteEventf( const char*, ... )
 {
 }
 void EngineLog::FlushAll()
+{
+}
+void EngineLog::ResetLog( const char* )
 {
 }
 const char* EngineLog::EventLogPath()

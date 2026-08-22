@@ -10,7 +10,7 @@
 //
 // Glossary:
 //   Authored scene: A committed `.scene.json` file used by runtime validation.
-//   Parser contract: The observable success data or Lane R failure message that
+//   Parser contract: The observable success data or recoverable failure message that
 //     callers depend on.
 //
 // Invariants:
@@ -393,7 +393,7 @@ TEST_CASE( "AuthoredSceneParser: prediction path presentation is explicit and in
         CHECK_FALSE( scene.PredictionShowsAllBodies() );
     }
 
-    SUBCASE( "invalid presentation token fails through Lane R" )
+    SUBCASE( "invalid presentation token fails through recoverable result" )
     {
         const TemporaryMalformedSceneFile fixture( "unit_scene_parser_prediction_path_policy.scene.json",
                                                    scenePrefix + R"("predictionPathPresentation":"everything")" +

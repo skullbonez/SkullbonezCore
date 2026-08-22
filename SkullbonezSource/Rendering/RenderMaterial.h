@@ -12,8 +12,7 @@ Glossary:
   shader's visual branch, such as matte, metal, foliage, or shore.
   Material instance payload: Four float4 rows appended after each instance
   model matrix and consumed by lit_textured_instanced.hlsl.
-  Contact flash alpha: Per-instance final-color blend toward white for short
-    hit feedback that must be visible over any material branch.
+
   Legacy tint bridge: Compatibility path that maps old tint/colorOverride scene
   values into material0.rgb and material0.w.
   Backend-neutral: Data that belongs to engine rendering intent, not to a DX12
@@ -62,7 +61,7 @@ struct RenderMaterial
     char name[32] = {};
     RenderMaterialKind kind = RenderMaterialKind::Textured;
 
-    // Compatibility payload: object shaders receive color and material mode
+    // Compatibility: object shaders receive color and material mode
     // through the material0 row. This keeps old scene tint/colorOverride
     // authoring stable while adding typed roughness, specular, and emissive
     // values through the expanded material rows.
@@ -81,7 +80,7 @@ struct RenderMaterial
     uint32_t flags = 0;
 };
 
-// Stable scene-file spelling for a material category. These names
+// Compatibility: these are stable scene-file spellings for material categories. They
 // are authoring surface, so keep old spellings valid when adding new categories.
 inline const char* RenderMaterialKindName( RenderMaterialKind kind )
 {
@@ -120,7 +119,7 @@ inline const char* RenderMaterialKindName( RenderMaterialKind kind )
     }
 }
 
-// Bridge note: the old tint.a material mode still maps into the new CPU
+// Compatibility: authored tint.a material mode maps into the typed CPU
 // material kind. The negative textured sentinel and positive solid-material
 // values are preserved so existing scenes keep rendering the same while the
 // bridge is in place.
@@ -150,8 +149,8 @@ inline RenderMaterialKind RenderMaterialKindFromLegacyMode( float legacyMode )
     return RenderMaterialKind::Textured;
 }
 
-// Legacy payload contract: the current object instance stream still consumes a
-// packed tint.a material value.
+// Compatibility: the object instance stream consumes this packed tint.a value
+// while material0.w remains part of the shader ABI.
 inline float RenderMaterialKindLegacyMode( RenderMaterialKind kind )
 {
     if ( kind == RenderMaterialKind::Textured )
@@ -168,7 +167,7 @@ inline uint32_t RenderMaterialKindIndex( RenderMaterialKind kind )
     return index <= static_cast<uint32_t>( RenderMaterialKind::Pine ) ? index : 0u;
 }
 
-// Material mode value mirrored into material0.w. The value keeps
+// Compatibility: material mode is mirrored into material0.w. The value keeps
 // the old tint.a shader decision tree alive while newer fields carry typed
 // material response data in material1/material2.
 inline float RenderMaterialLegacyInstanceMode( const RenderMaterial& material )
@@ -181,7 +180,7 @@ inline float RenderMaterialLegacyInstanceMode( const RenderMaterial& material )
     return material.textureMode;
 }
 
-// Default shader response for a material kind. Scene/material
+// Concept: each material kind supplies a default shader response. Scene/material
 // authoring can override these fields later, but the generated t4 material table
 // uses the same defaults so CPU payloads and shader table rows stay coherent.
 inline void ApplyRenderMaterialDefaults( RenderMaterial& material )

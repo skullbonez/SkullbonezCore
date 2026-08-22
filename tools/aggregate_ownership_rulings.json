@@ -1,823 +1,823 @@
 {
-    "schema":  2,
-    "purpose":  "Owner rulings for the governance aggregate and extraction-scar inventories. Aggregate rows cover the bounded gate: every legacy-suffix candidate that states no invariant of its own. Discovery and review context remain wider. Counts are observations, never allowances; an unruled gated row fails strict mode.",
-    "verdicts":  {
-                     "remove":  "Authority-free; delete it and let callers take the real owners.",
-                     "retain":  "Owns a real invariant or binding requirement stated in the reason.",
-                     "retain-prior":  "Already ruled by a named earlier plan; carried forward unchanged.",
-                     "repair":  "Confirmed defect owned by the named plan; not yet implemented."
-                 },
-    "aggregates":  [
-                       {
-                           "key":  "BackbufferAcquireGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:351",
-                           "members":  3,
-                           "verdict":  "retain-prior",
-                           "owner":  "PB0 / GV1 render graph ruling",
-                           "reason":  "Distinct concrete render-graph node input; the graph nodes do not converge on one apply transaction.",
-                           "destructures_at_entry":  "yes"
-                       },
-                       {
-                           "key":  "BackendResourceReleaseContext",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:211",
-                           "members":  3,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Render",
-                           "reason":  "One backend teardown step must use the same phase label and the same optional UI/tools participants; splitting them permits lifecycle diagnostics and resource release to describe different retiring phases.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "BuoyancyBodyFacts",
-                           "site":  "SkullbonezSource/Physics/BuoyancySystem.h:45",
-                           "members":  5,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Physics/BuoyancySystem.h",
-                           "reason":  "Volume, projected area, drag, submersion, and contact epsilon are one pose-time sample used by a single force calculation; combining coefficients from different samples changes the computed force.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "CaptureRequest",
-                           "site":  "SkullbonezSource/Runtime/Capture/CaptureController.h:43",
-                           "members":  1,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Capture",
-                           "reason":  "The path is the value identity of one queued capture command; the controller may accept, defer, or reject that command without exposing capture-system ownership.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "CinematicPostGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:338",
-                           "members":  10,
-                           "verdict":  "retain-prior",
-                           "owner":  "PB0 / GV1 render graph ruling",
-                           "reason":  "Distinct concrete render-graph node input; the graph nodes do not converge on one apply transaction.",
-                           "destructures_at_entry":  "yes"
-                       },
-                       {
-                           "key":  "ContinuousOrbitalTickInput",
-                           "site":  "SkullbonezSource/Runtime/Planning/ContinuousOrbitalStability.h:74",
-                           "members":  5,
-                           "verdict":  "retain",
-                           "owner":  "ORBIT_FORECAST / Runtime/Planning stability analyzer",
-                           "reason":  "The complete body publication, contact publication, absolute tick, private-step result, and publication-validity bit are one fixed-tick observation. The analyzer must judge all five from the same speculative tick and retains none of the borrowed spans.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "DebugOverlayGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:398",
-                           "members":  2,
-                           "verdict":  "retain-prior",
-                           "owner":  "PB0 / GV1 render graph ruling",
-                           "reason":  "Distinct concrete render-graph node input; the graph nodes do not converge on one apply transaction.",
-                           "destructures_at_entry":  "yes"
-                       },
-                       {
-                           "key":  "DebugOverlayPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:427",
-                           "members":  12,
-                           "verdict":  "retain-prior",
-                           "owner":  "PB0 / GV1 render pass ruling",
-                           "reason":  "Distinct concrete render-pass input; it is a pass boundary rather than a cross-domain authority bag.",
-                           "destructures_at_entry":  "yes"
-                       },
-                       {
-                           "key":  "EditorGizmoDragPointerInput",
-                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:254",
-                           "members":  7,
-                           "verdict":  "retain",
-                           "owner":  "prior owner ruling carried by CA0",
-                           "reason":  "PB0 explicit retain: small consumer-specific command value with no mutable-owner grant.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "EditorInteractionPreviewInput",
-                           "site":  "SkullbonezSource/Runtime/Editor/EditorOverlayTools.h:69",
-                           "members":  6,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Editor",
-                           "reason":  "Mouse-ray validity, arbitration blocks, active gizmo state, and scale mode are sampled together for one preview decision; mixing frames can display a preview for an input the UI already consumed.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "EditorObjectPlacementRequest",
-                           "site":  "SkullbonezSource/Runtime/Editor/EditorTools.h:93",
-                           "members":  3,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Editor",
-                           "reason":  "Object kind, fixed/dynamic policy, and terrain point constitute one placement command whose acceptance is atomic; applying only part would create the wrong body at the right location or vice versa.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "EditorPointerPreviewInput",
-                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:221",
-                           "members":  6,
-                           "verdict":  "retain",
-                           "owner":  "prior owner ruling carried by CA0",
-                           "reason":  "PB0 explicit retain: small consumer-specific command value with no mutable-owner grant.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "EditorPointerSelectionInput",
-                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:233",
-                           "members":  4,
-                           "verdict":  "retain",
-                           "owner":  "prior owner ruling carried by CA0",
-                           "reason":  "PB0 explicit retain: small consumer-specific command value with no mutable-owner grant.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "EditorToolOverlayTraceInput",
-                           "site":  "SkullbonezSource/Runtime/Editor/EditorOverlayTools.h:85",
-                           "members":  6,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Editor",
-                           "reason":  "Trace lifetime, gizmo gesture, scale mode, and attached-camera state are the single-frame conditions for one overlay trace; they must not be combined across arbitration frames.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "EditorViewportPlacementInput",
-                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:315",
-                           "members":  10,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Tools",
-                           "reason":  "Buttons, modifiers, client position, wheel delta, and viewport-capture state are one sampled pointer event; placement consumes them atomically so a coordinate cannot be paired with another event's buttons.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ExternalForceFrameInput",
-                           "site":  "SkullbonezSource/Physics/Stages/ExternalForceStage.h:68",
-                           "members":  5,
-                           "verdict":  "retain",
-                           "owner":  "prior owner ruling carried by CA0",
-                           "reason":  "The force-field set, exposure/cooldown durations, step duration, and serial/parallel evaluation mode are frozen for one force-stage tick; every body in that tick must use the same configuration generation.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "FramePresentationFacts",
-                           "site":  "SkullbonezSource/Runtime/App/Run.h:219",
-                           "members":  4,
-                           "verdict":  "retain",
-                           "owner":  "NA2 / Runtime/App",
-                           "reason":  "Presentation alpha, capture pinning, frame duration, and active UI lane are sampled once after simulation and consumed by one frame publication; mixing ticks would publish mismatched visual and capture state.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "FrameEntryContext",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:218",
-                           "members":  8,
-                           "verdict":  "retain",
-                           "owner":  "PB0 / ORBIT_FORECAST OF5 renderer entry",
-                           "reason":  "One synchronous renderer entry samples the scene, camera, UI, Replay, and generic retained presentation values for the same frame. The added packet is a detached value whose spans expire with this call; splitting or grouping the inputs elsewhere would recreate a frame service bag rather than enforce a new invariant.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ImGuiEditorCausalityContext",
-                           "site":  "SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h:61",
-                           "members":  12,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/DevelopmentTools",
-                           "reason":  "Selected rows, causal links, replay tick, truncation state, and prediction state describe one causality projection generation; selection indices are valid only against that same row/link snapshot.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ImGuiEditorFrameInput",
-                           "site":  "SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h:102",
-                           "members":  7,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/DevelopmentTools",
-                           "reason":  "Display extent, DPI, delta time, and Tracy connection flags are sampled once at editor-frame begin and must drive one ImGui frame; mixing samples invalidates scaling and profiler-mode presentation.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "Input",
-                           "site":  "SkullbonezSource/Runtime/Input/Input.h:118",
-                           "members":  1,
-                           "verdict":  "retain",
-                           "owner":  "NA2 / Runtime/Input",
-                           "reason":  "Static operations normalize Win32 device sampling and deterministic automation overrides behind one platform boundary; callers cannot mutate the nested injection buffers or bypass the sampling policy.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "KeyboardContextFacts",
-                           "site":  "SkullbonezSource/Runtime/App/InputFrame.h:144",
-                           "members":  10,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/App",
-                           "reason":  "Keyboard availability and the scene, camera, launcher, director, editor, replay, and UI arbitration outcomes are one input-turn snapshot; command routing must use a single arbitration result.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "LauncherPointerInput",
-                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:352",
-                           "members":  5,
-                           "verdict":  "retain",
-                           "owner":  "prior owner ruling carried by CA0",
-                           "reason":  "PB0 explicit retain: small consumer-specific command value with no mutable-owner grant.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "LauncherReproSnapshotContext",
-                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:185",
-                           "members":  12,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Tools",
-                           "reason":  "World/scene identity, launch options, physics/render switches, diagnostics, renderer identity, and elapsed simulation time are captured together to make one reproducible launcher snapshot.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "LookLabReceiptFacts",
-                           "site":  "SkullbonezSource/Runtime/Direction/LookLabBundleWriter.h:62",
-                           "members":  11,
-                           "verdict":  "retain",
-                           "owner":  "LL2 / Runtime Direction Look Lab receipt revision",
-                           "reason":  "Timestamp/offset, generator identity, source-scene identity, and per-artifact status/diagnostic pairs are one immutable receipt revision; splitting them permits a receipt to combine statuses with a different candidate or source scene. TestLookLabSerialization proves pending-to-failed revision and rejects malformed detached text.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "LookLabSaveRequest",
-                           "site":  "SkullbonezSource/Runtime/Direction/LookLabController.h:77",
-                           "members":  5,
-                           "verdict":  "retain",
-                           "owner":  "LL4 / Runtime Direction Look Lab save transaction",
-                           "reason":  "Root, timestamp/offset, and source-scene identity name one bundle revision sampled synchronously by App; splitting them permits the receipt and directory to describe different save actions. LookLabController copies every borrow before return, and TestLookLabController proves the transaction lifecycle.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ObjectGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:362",
-                           "members":  2,
-                           "verdict":  "retain-prior",
-                           "owner":  "PB0 / GV1 render graph ruling",
-                           "reason":  "Distinct concrete render-graph node input; the graph nodes do not converge on one apply transaction.",
-                           "destructures_at_entry":  "yes"
-                       },
-                       {
-                           "key":  "ObjectPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:250",
-                           "members":  16,
-                           "verdict":  "retain-prior",
-                           "owner":  "PB0 / GV1 render pass ruling",
-                           "reason":  "Distinct concrete render-pass input; it is a pass boundary rather than a cross-domain authority bag.",
-                           "destructures_at_entry":  "yes"
-                       },
-                       {
-                           "key":  "ParsedArgs",
-                           "site":  "SkullbonezSource/Runtime/Startup/StartupCommandLine.h:56",
-                           "members":  84,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Startup",
-                           "reason":  "All command-line switches are normalized once into one immutable startup interpretation; cross-field defaults and explicitness flags must be resolved together before initialization reads them.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "PhysicsDiagnosticsFrameInput",
-                           "site":  "SkullbonezSource/Physics/PhysicsDiagnosticsSink.h:67",
-                           "members":  6,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Physics/PhysicsDiagnosticsSink.h",
-                           "reason":  "World, body/collider stores, names, writer, and delta time identify one diagnostics sample; emitting a row requires all references to describe the same physics frame.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "PointerPresentationPolicyInput",
-                           "site":  "SkullbonezSource/Runtime/Input/InputRouter.h:261",
-                           "members":  6,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Input",
-                           "reason":  "Editor and replay capture/look flags are evaluated as one policy snapshot to choose exactly one pointer presentation; independent reads could expose a cursor during an owned-look gesture.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "PostRenderCaptureRequest",
-                           "site":  "SkullbonezSource/Runtime/Capture/CaptureController.h:53",
-                           "members":  3,
-                           "verdict":  "retain",
-                           "owner":  "LL4 / Runtime Capture post-render queue",
-                           "reason":  "A bounded PNG path, transaction owner, and nonzero token are one queued capture command; Capture must return the exact correlation identity on both image-write success and failure. TestOwnerRequestQueues proves validation, retention, and cancellation.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "PrimitiveBatchShaderParams",
-                           "site":  "SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp:372",
-                           "members":  11,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Rendering/PrimitiveBatchRenderer.cpp",
-                           "reason":  "Builder state, transforms, lighting, clipping, cinematic/shadow policy, primitive kind, and alpha bind one shader draw submission; partial reuse would issue geometry under mismatched render state.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "PrimitiveRenderContext",
-                           "site":  "SkullbonezSource/Rendering/PrimitiveBatchRenderer.h:76",
-                           "members":  7,
-                           "verdict":  "retain-prior",
-                           "owner":  "prior owner ruling carried by CA0",
-                           "reason":  "Render resources, textures, geometry, diagnostics, assets, config, and renderer belong to one primitive-renderer composition generation; issuing a batch across generations would bind incompatible resource owners.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReflectionPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:291",
-                           "members":  22,
-                           "verdict":  "retain-prior",
-                           "owner":  "PB0 / GV1 render pass ruling",
-                           "reason":  "Distinct concrete render-pass input; it is a pass boundary rather than a cross-domain authority bag.",
-                           "destructures_at_entry":  "yes"
-                       },
-                       {
-                           "key":  "RenderGraphPassContext",
-                           "site":  "SkullbonezSource/Rendering/RenderGraph.h:156",
-                           "members":  5,
-                           "verdict":  "retain-prior",
-                           "owner":  "prior owner ruling carried by CA0",
-                           "reason":  "Render graph execution closure: callback ABI carries only graph/pass/debug-label state.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "RenderResourceContext",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:236",
-                           "members":  7,
-                           "verdict":  "retain",
-                           "owner":  "prior owner ruling carried by CA0",
-                           "reason":  "Cinematic mode, asset/resource/texture/geometry owners, and target dimensions define one render-resource creation generation; all created resources must share the same owners and extent.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReplayAuthoringPredictionRequest",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayAuthoring.h:80",
-                           "members":  8,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Velocity target/delta and the enable, refresh, cache, baseline, preview, and finish flags encode one authoring transition; their combinations select mutually dependent prediction actions.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReplayEventInput",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayRecorder.h:441",
-                           "members":  10,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Frame, branch, kind, flags, numeric payload, data word, and text are one append-only replay event record; hashing and playback require those fields to share one event identity.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReplayFailureProbeRequest",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayProbeState.h:178",
-                           "members":  5,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Status/action, target frame, rollback reference, and mismatch injection define one failure experiment; the probe result is meaningful only when all controls belong to the same attempt.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReplayGhostGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:387",
-                           "members":  8,
-                           "verdict":  "retain-prior",
-                           "owner":  "PB0 / GV1 render graph ruling",
-                           "reason":  "Distinct concrete render-graph node input; the graph nodes do not converge on one apply transaction.",
-                           "destructures_at_entry":  "yes"
-                       },
-                       {
-                           "key":  "ReplayGuideArcsUpdateInput",
-                           "site":  "SkullbonezSource/Runtime/Planning/ReplayGuideArcs.h:51",
-                           "members":  6,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Planning",
-                           "reason":  "The three bodies, gravity constant, epoch, and mutual-gravity mode are one orbital sample used to rebuild guide arcs; mixing epochs or gravity policy produces internally inconsistent curves.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReplayCauseTransportRequest",
-                           "site":  "SkullbonezSource/Runtime/Planning/ReplayCauseInspection.h:176",
-                           "members":  4,
-                           "verdict":  "retain",
-                           "owner":  "C1 / Runtime/Planning",
-                           "reason":  "Generation, source frame, target frame, and seek source identify one causal-inspection transport command; replay restore completion must acknowledge the exact generation that Planning issued.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReplayInteractionExitInput",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:191",
-                           "members":  5,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Workspace departure, prior ownership, restore mode, camera follow, and director capture form one interaction-exit arbitration result; cleanup must apply that result atomically.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReplayInterceptUpdateInput",
-                           "site":  "SkullbonezSource/Runtime/Planning/ReplayInterceptReadout.h:59",
-                           "members":  9,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Planning",
-                           "reason":  "Prediction frames, ship/target identity and radii, generation/topology versions, source mode, and enable state identify one intercept computation; stale generations must not be paired with current identities.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReplayKeyboardVelocityEditInput",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:302",
-                           "members":  4,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Modifier state, toggle permission, world ownership, and sample time are one keyboard-edit decision point; applying them from different turns could mutate velocity after ownership changed.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReplayLiveRestoreRequest",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayScrubber.h:161",
-                           "members":  9,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Restore kind, solver sample, frame, branch/hash controls, interaction mode, message track, time, and path define one transactional restore attempt with one success/failure outcome.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReplayMemoryPolicyRequest",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayTimeline.h:63",
-                           "members":  3,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Preset, retention duration, and byte budget are one memory-policy change; validation and application must reject or commit the combination rather than expose partially updated limits.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReplayOverlayBuildInput",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayPresentation.h:90",
-                           "members":  3,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Editor mode, current gesture, and scene frame are one overlay-build snapshot; the resulting controls must correspond to the same interaction turn and rendered frame.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReplayPathPickInput",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayPresentation.h:97",
-                           "members":  5,
-                           "verdict":  "retain",
-                           "owner":  "prior owner ruling carried by CA0",
-                           "reason":  "PB0 explicit retain: independently meaningful pick request with multiple domain consumers.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReplayPathVisualizerRenderContext",
-                           "site":  "SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.h:194",
-                           "members":  9,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Prediction",
-                           "reason":  "Prediction generation, profiler/path owners, physics/entities/tracer, present sample, and overlay flag bind one visualization submission; the sample-validity bit governs every participating owner.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReplayPorkchopSweepInput",
-                           "site":  "SkullbonezSource/Runtime/Planning/ReplayPorkchopPanel.h:63",
-                           "members":  6,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Planning",
-                           "reason":  "Departure/target bodies, sun, gravity constant, epoch, and mutual-gravity policy are one orbital boundary condition for a sweep; all generated cells must share it.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReplayPredictionFutureContext",
-                           "site":  "SkullbonezSource/Runtime/Prediction/ReplayPredictionTopologyPublication.cpp:450",
-                           "members":  5,
-                           "verdict":  "retain-prior",
-                           "owner":  "prior owner ruling carried by CA0",
-                           "reason":  "Prediction state, topology nodes/collection, root identity, and ragdoll-visual policy are one future-publication snapshot; traversal must not pair a root with another prediction generation's node collection.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReplayPredictionGhostDrawRequest",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayVisualPacket.h:207",
-                           "members":  8,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Model row, transform, alpha, tint, and tint strength are one immutable ghost draw command; the renderer consumes or drops the command as a unit.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReplayProbeRestoreRequest",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayProbeState.h:143",
-                           "members":  5,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Probe status, selected sample/frame, latest frame, and expected hash capture one restore assertion; comparing pieces from different selections would make the probe non-deterministic.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReplayProbeSaveRequest",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayProbeState.h:160",
-                           "members":  2,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Action and path are the complete value identity of one save-probe command; dispatch and reporting use the same pair without retaining a subsystem owner.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReplaySaveProbeArtifactContext",
-                           "site":  "SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp:472",
-                           "members":  5,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/App",
-                           "reason":  "Artifact path plus presentation, solver, event, and world snapshots are captured at one save boundary so serialization cannot combine state from different replay generations.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReplaySceneTimelineResetInput",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:250",
-                           "members":  13,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Scene identity, inspection/source preservation modes, topology counts, seed, capacity, generation override, and UI overrides define one timeline origin; reset commits that complete origin before recording resumes, while an intermediate causal restore explicitly retains its later source targets.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReplayScrubberSurfaceInput",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h:91",
-                           "members":  13,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Screen extent, track, gesture, loaded state, tool capabilities, target availability, and drag/hot-zone policy are one layout hit-test snapshot; geometry and interaction must share it.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReplayStartupLoadInput",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h:51",
-                           "members":  11,
-                           "verdict":  "retain-prior",
-                           "owner":  "prior owner ruling carried by CA0",
-                           "reason":  "PB0 explicit retain: startup boundary excludes solver, topology, and diagnostic authority.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReplayStartupRequest",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:209",
-                           "members":  12,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Load/save paths and scrub, restore, checkpoint, target, branch, and failure probe modes are normalized into one startup command; initialization validates their mutually dependent combinations once.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReplayTransportHostContext",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:155",
-                           "members":  6,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Window, normalized current/restore modes, follow/director ownership, and time are one transport-host arbitration snapshot; mode transitions and camera release consume it atomically.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReplayTripPlannerLiveInput",
-                           "site":  "SkullbonezSource/Runtime/Planning/ReplayTripPlanner.h:86",
-                           "members":  9,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Planning",
-                           "reason":  "Bodies, gravity policy, horizon, target selection, advance state, and target label are one live-planning sample; the displayed transfer must use the same physics inputs and selection identity.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReplayTripPlannerPredictionInput",
-                           "site":  "SkullbonezSource/Runtime/Planning/ReplayTripPlanner.h:99",
-                           "members":  9,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Planning",
-                           "reason":  "Prediction frames, intercept, identities, generation, completion/cancellation, advance state, and target availability describe one prediction result generation; stale frames cannot be published under newer status.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReplayVisualPacketBufferFacts",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayVisualPacketFingerprint.h:72",
-                           "members":  15,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Presence, hashes, and byte sizes for ordinary/priority lines, ribbons, and expanded vertices are one packet fingerprint; comparisons require every digest and extent from the same encoded buffer.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReplayWorkspaceFrameInput",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:83",
-                           "members":  19,
-                           "verdict":  "retain-prior",
-                           "owner":  "prior owner ruling carried by CA0",
-                           "reason":  "Window, pointer arbitration/ray/wheel, replay modes, camera/director ownership, editor/physics/UI state, viewport extent, cached mouse-angle scale, and time are frozen for one replay workspace input turn.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReplayWorldPointerInput",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayPresentation.h:143",
-                           "members":  9,
-                           "verdict":  "retain-prior",
-                           "owner":  "prior owner ruling carried by CA0",
-                           "reason":  "PB0/W1 explicit retain: focused replay gesture/pick command value.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "RuntimeCameraMovementInput",
-                           "site":  "SkullbonezSource/Runtime/Input/InputController.h:276",
-                           "members":  10,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Input",
-                           "reason":  "Keyboard/mouse deltas, height limits, ownership modes, and authored-scene state are one camera-control sample; movement applies only after the complete ownership predicate is resolved.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "RuntimeInputContext",
-                           "site":  "SkullbonezSource/Runtime/Input/InputController.h:298",
-                           "members":  9,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Input",
-                           "reason":  "This behavior owner maintains current/previous modes, focus/capture state, and a bounded transition ring; its methods enforce ordered transition history rather than merely carrying call operands.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "RuntimeInputFrameFacts",
-                           "site":  "SkullbonezSource/Runtime/App/InputFrame.h:97",
-                           "members":  9,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/App",
-                           "reason":  "Replay camera modes, enabled-mask, action suppression, scene capacity, external command sources, and active UI lane are resolved once for one input frame; downstream routing reads one coherent verdict.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "RuntimeInteractionFrameInput",
-                           "site":  "SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h:177",
-                           "members":  10,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Interaction",
-                           "reason":  "Physics/step, replay hold, pause lock, look ownership, forced-run, and time-scale facts are one interaction policy sample; the controller chooses one advance state from the complete predicate.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "RuntimePickRequest",
-                           "site":  "SkullbonezSource/Runtime/Interaction/RuntimePickService.h:48",
-                           "members":  5,
-                           "verdict":  "retain",
-                           "owner":  "prior owner ruling carried by CA0",
-                           "reason":  "PB0 explicit retain: independently meaningful pick request with multiple domain consumers.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "RuntimeReserveGrowthRequest",
-                           "site":  "SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h:112",
-                           "members":  7,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Core/Allocation",
-                           "reason":  "Owner/target identity, phase/frame provenance, old/requested capacities, and element size are one auditable reserve transaction; policy validation and byte accounting must use the same request.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "RuntimeUiTextFrameFacts",
-                           "site":  "SkullbonezSource/Runtime/RuntimeFrameViews.h:34",
-                           "members":  10,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/RuntimeFrameViews.h",
-                           "reason":  "Camera/launcher labels, interaction kinds, presentation state, frame duration, and active UI lane are one text-projection snapshot; all visible labels must describe the same frame.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "SceneLoadRequest",
-                           "site":  "SkullbonezSource/Runtime/Scene/SceneLoadRequest.h:48",
-                           "members":  7,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Scene",
-                           "reason":  "Acceptance, scene index, run-entry choice, preservation flags, exit suppression, and manual-reset marker form one admitted load command; queue arbitration commits or rejects the combination.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "SceneRequest",
-                           "site":  "SkullbonezSource/Runtime/Scene/SceneRequestQueue.h:43",
-                           "members":  6,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Scene",
-                           "reason":  "Request kind, scene index/text, and preservation/exit flags are the immutable value stored in the scene queue; FIFO identity and later dispatch depend on retaining them together.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "SceneSaveRequest",
-                           "site":  "SkullbonezSource/Scene/SceneSnapshotWriter.h:91",
-                           "members":  4,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Scene/SceneSnapshotWriter.h",
-                           "reason":  "Path plus world, session, and presentation borrows identify one same-frame snapshot write; serialization requires all three owners at one capture boundary and retains none afterward.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ShadowPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:446",
-                           "members":  12,
-                           "verdict":  "retain-prior",
-                           "owner":  "PB0 / GV1 render pass ruling",
-                           "reason":  "Distinct concrete render-pass input; it is a pass boundary rather than a cross-domain authority bag.",
-                           "destructures_at_entry":  "yes"
-                       },
-                       {
-                           "key":  "SimulationTickInput",
-                           "site":  "SkullbonezSource/Runtime/Simulation/SimulationSystem.h:35",
-                           "members":  8,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Simulation",
-                           "reason":  "Frame duration, time scale, scene/fixed-step modes, advance intent, step request, and step permission determine one simulation tick; the scheduler resolves the full set before advancing.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "SleepSupportPropagationContext",
-                           "site":  "SkullbonezSource/Physics/SleepIslandSystem.h:48",
-                           "members":  3,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Physics/SleepIslandSystem.h",
-                           "reason":  "Sleep state, support edges, and this-frame support marks are one propagation workspace; the traversal mutates all three under one graph walk and must not mix storage generations.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "TerrainGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:367",
-                           "members":  2,
-                           "verdict":  "retain-prior",
-                           "owner":  "PB0 / GV1 render graph ruling",
-                           "reason":  "Distinct concrete render-graph node input; the graph nodes do not converge on one apply transaction.",
-                           "destructures_at_entry":  "yes"
-                       },
-                       {
-                           "key":  "TerrainPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:275",
-                           "members":  10,
-                           "verdict":  "retain-prior",
-                           "owner":  "PB0 / GV1 render pass ruling",
-                           "reason":  "Distinct concrete render-pass input; it is a pass boundary rather than a cross-domain authority bag.",
-                           "destructures_at_entry":  "yes"
-                       },
-                       {
-                           "key":  "ToolOverlayBuildInput",
-                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:171",
-                           "members":  6,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Tools",
-                           "reason":  "Trace lifetime, gizmo/scale gesture, and attached-camera state are one tool-overlay sampling result; overlay geometry is built once from that coherent interaction state.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "UIDrawContext",
-                           "site":  "SkullbonezSource/UI/UIDraw.h:46",
-                           "members":  5,
-                           "verdict":  "retain-prior",
-                           "owner":  "prior owner ruling carried by CA0",
-                           "reason":  "UI renderer hard-boundary closure: behavior owner recording value-only draw commands, with renderer pointers removed.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "WaterGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:372",
-                           "members":  2,
-                           "verdict":  "retain-prior",
-                           "owner":  "PB0 / GV1 render graph ruling",
-                           "reason":  "Distinct concrete render-graph node input; the graph nodes do not converge on one apply transaction.",
-                           "destructures_at_entry":  "yes"
-                       },
-                       {
-                           "key":  "WaterPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:330",
-                           "members":  13,
-                           "verdict":  "retain-prior",
-                           "owner":  "PB0 / GV1 render pass ruling",
-                           "reason":  "Distinct concrete render-pass input; it is a pass boundary rather than a cross-domain authority bag.",
-                           "destructures_at_entry":  "yes"
-                       },
-                       {
-                           "key":  "WaterReflectionInput",
-                           "site":  "SkullbonezSource/World/WorldEnvironment.h:106",
-                           "members":  4,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / World/WorldEnvironment.h",
-                           "reason":  "Sample transform, texture identity, reflection-disable state, and raytracing mode bind one reflection sample; shading must not pair a texture with another mode's projection.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "WaterStyleParams",
-                           "site":  "SkullbonezSource/World/WorldEnvironment.h:125",
-                           "members":  19,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / World/WorldEnvironment.h",
-                           "reason":  "Tint, transparency, reflection/fresnel/glint, wave perturbation, sun color, basin bounds, mode, and cinematic flag are one validated water-style value applied consistently across rendering passes.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "WorldExtensionGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:377",
-                           "members":  7,
-                           "verdict":  "retain-prior",
-                           "owner":  "PB0 / GV1 render graph ruling",
-                           "reason":  "Distinct concrete render-graph node input; the graph nodes do not converge on one apply transaction.",
-                           "destructures_at_entry":  "yes"
-                       }
-                   ],
-    "extraction_scars":  [
-                             {
-                                 "key":  "SkullbonezSource/Core/WorkerPool.h:indexFn",
-                                 "site":  "SkullbonezSource/Core/WorkerPool.h:223",
-                                 "kind":  "pure-parameter-alias",
-                                 "verdict":  "retain",
-                                 "owner":  "core threading",
-                                 "reason":  "`IndexFunctionT\u0026 indexFn = fn;` binds a forwarding reference to an lvalue reference so the chunk lambda can capture it by reference. Deleting the alias changes capture semantics; this is a required binding, not a preserved pre-extraction spelling."
-                             }
-                         ]
+  "schema": 2,
+  "purpose": "Owner rulings for the governance aggregate and extraction-scar inventories. Aggregate rows cover the bounded gate: every legacy-suffix candidate that states no invariant of its own. Discovery and review context remain wider. Counts are observations, never allowances; an unruled gated row fails strict mode.",
+  "verdicts": {
+    "remove": "Authority-free; delete it and let callers take the real owners.",
+    "retain": "Owns a real invariant or binding requirement stated in the reason.",
+    "retain-prior": "Already ruled by a named earlier plan; carried forward unchanged.",
+    "repair": "Confirmed defect owned by the named plan; not yet implemented."
+  },
+  "aggregates": [
+    {
+      "key": "BackbufferAcquireGraphInputs",
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:351",
+      "members": 3,
+      "verdict": "retain-prior",
+      "owner": "PB0 / GV1 render graph ruling",
+      "reason": "Distinct concrete render-graph node input; the graph nodes do not converge on one apply transaction.",
+      "destructures_at_entry": "yes"
+    },
+    {
+      "key": "BackendResourceReleaseContext",
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:211",
+      "members": 3,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Render",
+      "reason": "One backend teardown step must use the same phase label and the same optional UI/tools participants; splitting them permits lifecycle diagnostics and resource release to describe different retiring phases.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "BuoyancyBodyFacts",
+      "site": "SkullbonezSource/Physics/BuoyancySystem.h:45",
+      "members": 5,
+      "verdict": "retain",
+      "owner": "CA0 / Physics/BuoyancySystem.h",
+      "reason": "Volume, projected area, drag, submersion, and contact epsilon are one pose-time sample used by a single force calculation; combining coefficients from different samples changes the computed force.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "CaptureRequest",
+      "site": "SkullbonezSource/Runtime/Capture/CaptureController.h:43",
+      "members": 1,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Capture",
+      "reason": "The path is the value identity of one queued capture command; the controller may accept, defer, or reject that command without exposing capture-system ownership.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "CinematicPostGraphInputs",
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:338",
+      "members": 10,
+      "verdict": "retain-prior",
+      "owner": "PB0 / GV1 render graph ruling",
+      "reason": "Distinct concrete render-graph node input; the graph nodes do not converge on one apply transaction.",
+      "destructures_at_entry": "yes"
+    },
+    {
+      "key": "ContinuousOrbitalTickInput",
+      "site": "SkullbonezSource/Runtime/Planning/ContinuousOrbitalStability.h:74",
+      "members": 5,
+      "verdict": "retain",
+      "owner": "ORBIT_FORECAST / Runtime/Planning stability analyzer",
+      "reason": "The complete body publication, contact publication, absolute tick, private-step result, and publication-validity bit are one fixed-tick observation. The analyzer must judge all five from the same speculative tick and retains none of the borrowed spans.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "DebugOverlayGraphInputs",
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:398",
+      "members": 2,
+      "verdict": "retain-prior",
+      "owner": "PB0 / GV1 render graph ruling",
+      "reason": "Distinct concrete render-graph node input; the graph nodes do not converge on one apply transaction.",
+      "destructures_at_entry": "yes"
+    },
+    {
+      "key": "DebugOverlayPassInputs",
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:427",
+      "members": 12,
+      "verdict": "retain-prior",
+      "owner": "PB0 / GV1 render pass ruling",
+      "reason": "Distinct concrete render-pass input; it is a pass boundary rather than a cross-domain authority bag.",
+      "destructures_at_entry": "yes"
+    },
+    {
+      "key": "EditorGizmoDragPointerInput",
+      "site": "SkullbonezSource/Runtime/Tools/RuntimeTools.h:254",
+      "members": 7,
+      "verdict": "retain",
+      "owner": "prior owner ruling carried by CA0",
+      "reason": "PB0 explicit retain: small consumer-specific command value with no mutable-owner grant.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "EditorInteractionPreviewInput",
+      "site": "SkullbonezSource/Runtime/Editor/EditorOverlayTools.h:69",
+      "members": 6,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Editor",
+      "reason": "Mouse-ray validity, arbitration blocks, active gizmo state, and scale mode are sampled together for one preview decision; mixing frames can display a preview for an input the UI already consumed.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "EditorObjectPlacementRequest",
+      "site": "SkullbonezSource/Runtime/Editor/EditorTools.h:93",
+      "members": 3,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Editor",
+      "reason": "Object kind, fixed/dynamic policy, and terrain point constitute one placement command whose acceptance is atomic; applying only part would create the wrong body at the right location or vice versa.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "EditorPointerPreviewInput",
+      "site": "SkullbonezSource/Runtime/Tools/RuntimeTools.h:221",
+      "members": 6,
+      "verdict": "retain",
+      "owner": "prior owner ruling carried by CA0",
+      "reason": "PB0 explicit retain: small consumer-specific command value with no mutable-owner grant.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "EditorPointerSelectionInput",
+      "site": "SkullbonezSource/Runtime/Tools/RuntimeTools.h:233",
+      "members": 4,
+      "verdict": "retain",
+      "owner": "prior owner ruling carried by CA0",
+      "reason": "PB0 explicit retain: small consumer-specific command value with no mutable-owner grant.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "EditorToolOverlayTraceInput",
+      "site": "SkullbonezSource/Runtime/Editor/EditorOverlayTools.h:85",
+      "members": 6,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Editor",
+      "reason": "Trace lifetime, gizmo gesture, scale mode, and attached-camera state are the single-frame conditions for one overlay trace; they must not be combined across arbitration frames.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "EditorViewportPlacementInput",
+      "site": "SkullbonezSource/Runtime/Tools/RuntimeTools.h:315",
+      "members": 10,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Tools",
+      "reason": "Buttons, modifiers, client position, wheel delta, and viewport-capture state are one sampled pointer event; placement consumes them atomically so a coordinate cannot be paired with another event's buttons.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ExternalForceFrameInput",
+      "site": "SkullbonezSource/Physics/Stages/ExternalForceStage.h:68",
+      "members": 5,
+      "verdict": "retain",
+      "owner": "prior owner ruling carried by CA0",
+      "reason": "The force-field set, exposure/cooldown durations, step duration, and serial/parallel evaluation mode are frozen for one force-stage tick; every body in that tick must use the same configuration generation.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "FramePresentationFacts",
+      "site": "SkullbonezSource/Runtime/App/Run.h:218",
+      "members": 4,
+      "verdict": "retain",
+      "owner": "NA2 / Runtime/App",
+      "reason": "Presentation alpha, capture pinning, frame duration, and active UI lane are sampled once after simulation and consumed by one frame publication; mixing ticks would publish mismatched visual and capture state.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "FrameEntryContext",
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:218",
+      "members": 8,
+      "verdict": "retain",
+      "owner": "PB0 / ORBIT_FORECAST OF5 renderer entry",
+      "reason": "One synchronous renderer entry samples the scene, camera, UI, Replay, and generic retained presentation values for the same frame. The added packet is a detached value whose spans expire with this call; splitting or grouping the inputs elsewhere would recreate a frame service bag rather than enforce a new invariant.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ImGuiEditorCausalityContext",
+      "site": "SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h:61",
+      "members": 12,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/DevelopmentTools",
+      "reason": "Selected rows, causal links, replay tick, truncation state, and prediction state describe one causality projection generation; selection indices are valid only against that same row/link snapshot.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ImGuiEditorFrameInput",
+      "site": "SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h:103",
+      "members": 7,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/DevelopmentTools",
+      "reason": "Display extent, DPI, delta time, and Tracy connection flags are sampled once at editor-frame begin and must drive one ImGui frame; mixing samples invalidates scaling and profiler-mode presentation.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "Input",
+      "site": "SkullbonezSource/Runtime/Input/Input.h:120",
+      "members": 1,
+      "verdict": "retain",
+      "owner": "NA2 / Runtime/Input",
+      "reason": "Static operations normalize Win32 device sampling and deterministic automation overrides behind one platform boundary; callers cannot mutate the nested injection buffers or bypass the sampling policy.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "KeyboardContextFacts",
+      "site": "SkullbonezSource/Runtime/App/InputFrame.h:144",
+      "members": 10,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/App",
+      "reason": "Keyboard availability and the scene, camera, launcher, director, editor, replay, and UI arbitration outcomes are one input-turn snapshot; command routing must use a single arbitration result.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "LauncherPointerInput",
+      "site": "SkullbonezSource/Runtime/Tools/RuntimeTools.h:352",
+      "members": 5,
+      "verdict": "retain",
+      "owner": "prior owner ruling carried by CA0",
+      "reason": "PB0 explicit retain: small consumer-specific command value with no mutable-owner grant.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "LauncherReproSnapshotContext",
+      "site": "SkullbonezSource/Runtime/Tools/RuntimeTools.h:185",
+      "members": 12,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Tools",
+      "reason": "World/scene identity, launch options, physics/render switches, diagnostics, renderer identity, and elapsed simulation time are captured together to make one reproducible launcher snapshot.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "LookLabReceiptFacts",
+      "site": "SkullbonezSource/Runtime/Direction/LookLabBundleWriter.h:62",
+      "members": 11,
+      "verdict": "retain",
+      "owner": "LL2 / Runtime Direction Look Lab receipt revision",
+      "reason": "Timestamp/offset, generator identity, source-scene identity, and per-artifact status/diagnostic pairs are one immutable receipt revision; splitting them permits a receipt to combine statuses with a different candidate or source scene. TestLookLabSerialization proves pending-to-failed revision and rejects malformed detached text.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "LookLabSaveRequest",
+      "site": "SkullbonezSource/Runtime/Direction/LookLabController.h:77",
+      "members": 5,
+      "verdict": "retain",
+      "owner": "LL4 / Runtime Direction Look Lab save transaction",
+      "reason": "Root, timestamp/offset, and source-scene identity name one bundle revision sampled synchronously by App; splitting them permits the receipt and directory to describe different save actions. LookLabController copies every borrow before return, and TestLookLabController proves the transaction lifecycle.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ObjectGraphInputs",
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:362",
+      "members": 2,
+      "verdict": "retain-prior",
+      "owner": "PB0 / GV1 render graph ruling",
+      "reason": "Distinct concrete render-graph node input; the graph nodes do not converge on one apply transaction.",
+      "destructures_at_entry": "yes"
+    },
+    {
+      "key": "ObjectPassInputs",
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:250",
+      "members": 16,
+      "verdict": "retain-prior",
+      "owner": "PB0 / GV1 render pass ruling",
+      "reason": "Distinct concrete render-pass input; it is a pass boundary rather than a cross-domain authority bag.",
+      "destructures_at_entry": "yes"
+    },
+    {
+      "key": "ParsedArgs",
+      "site": "SkullbonezSource/Runtime/Startup/StartupCommandLine.h:56",
+      "members": 87,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Startup",
+      "reason": "All command-line switches are normalized once into one immutable startup interpretation; cross-field defaults and explicitness flags must be resolved together before initialization reads them.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "PhysicsDiagnosticsFrameInput",
+      "site": "SkullbonezSource/Physics/PhysicsDiagnosticsSink.h:67",
+      "members": 6,
+      "verdict": "retain",
+      "owner": "CA0 / Physics/PhysicsDiagnosticsSink.h",
+      "reason": "World, body/collider stores, names, writer, and delta time identify one diagnostics sample; emitting a row requires all references to describe the same physics frame.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "PointerPresentationPolicyInput",
+      "site": "SkullbonezSource/Runtime/Input/InputRouter.h:269",
+      "members": 6,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Input",
+      "reason": "Editor and replay capture/look flags are evaluated as one policy snapshot to choose exactly one pointer presentation; independent reads could expose a cursor during an owned-look gesture.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "PostRenderCaptureRequest",
+      "site": "SkullbonezSource/Runtime/Capture/CaptureController.h:53",
+      "members": 3,
+      "verdict": "retain",
+      "owner": "LL4 / Runtime Capture post-render queue",
+      "reason": "A bounded PNG path, transaction owner, and nonzero token are one queued capture command; Capture must return the exact correlation identity on both image-write success and failure. TestOwnerRequestQueues proves validation, retention, and cancellation.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "PrimitiveBatchShaderParams",
+      "site": "SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp:372",
+      "members": 11,
+      "verdict": "retain",
+      "owner": "CA0 / Rendering/PrimitiveBatchRenderer.cpp",
+      "reason": "Builder state, transforms, lighting, clipping, cinematic/shadow policy, primitive kind, and alpha bind one shader draw submission; partial reuse would issue geometry under mismatched render state.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "PrimitiveRenderContext",
+      "site": "SkullbonezSource/Rendering/PrimitiveBatchRenderer.h:76",
+      "members": 7,
+      "verdict": "retain-prior",
+      "owner": "prior owner ruling carried by CA0",
+      "reason": "Render resources, textures, geometry, diagnostics, assets, config, and renderer belong to one primitive-renderer composition generation; issuing a batch across generations would bind incompatible resource owners.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ReflectionPassInputs",
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:291",
+      "members": 22,
+      "verdict": "retain-prior",
+      "owner": "PB0 / GV1 render pass ruling",
+      "reason": "Distinct concrete render-pass input; it is a pass boundary rather than a cross-domain authority bag.",
+      "destructures_at_entry": "yes"
+    },
+    {
+      "key": "RenderGraphPassContext",
+      "site": "SkullbonezSource/Rendering/RenderGraph.h:156",
+      "members": 5,
+      "verdict": "retain-prior",
+      "owner": "prior owner ruling carried by CA0",
+      "reason": "Render graph execution closure: callback ABI carries only graph/pass/debug-label state.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "RenderResourceContext",
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:236",
+      "members": 7,
+      "verdict": "retain",
+      "owner": "prior owner ruling carried by CA0",
+      "reason": "Cinematic mode, asset/resource/texture/geometry owners, and target dimensions define one render-resource creation generation; all created resources must share the same owners and extent.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ReplayAuthoringPredictionRequest",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayAuthoring.h:82",
+      "members": 8,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Replay",
+      "reason": "Velocity target/delta and the enable, refresh, cache, baseline, preview, and finish flags encode one authoring transition; their combinations select mutually dependent prediction actions.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ReplayEventInput",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayRecorder.h:440",
+      "members": 10,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Replay",
+      "reason": "Frame, branch, kind, flags, numeric payload, data word, and text are one append-only replay event record; hashing and playback require those fields to share one event identity.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ReplayFailureProbeRequest",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayProbeState.h:178",
+      "members": 5,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Replay",
+      "reason": "Status/action, target frame, rollback reference, and mismatch injection define one failure experiment; the probe result is meaningful only when all controls belong to the same attempt.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ReplayGhostGraphInputs",
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:387",
+      "members": 8,
+      "verdict": "retain-prior",
+      "owner": "PB0 / GV1 render graph ruling",
+      "reason": "Distinct concrete render-graph node input; the graph nodes do not converge on one apply transaction.",
+      "destructures_at_entry": "yes"
+    },
+    {
+      "key": "ReplayGuideArcsUpdateInput",
+      "site": "SkullbonezSource/Runtime/Planning/ReplayGuideArcs.h:51",
+      "members": 6,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Planning",
+      "reason": "The three bodies, gravity constant, epoch, and mutual-gravity mode are one orbital sample used to rebuild guide arcs; mixing epochs or gravity policy produces internally inconsistent curves.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ReplayCauseTransportRequest",
+      "site": "SkullbonezSource/Runtime/Planning/ReplayCauseInspection.h:180",
+      "members": 4,
+      "verdict": "retain",
+      "owner": "C1 / Runtime/Planning",
+      "reason": "Generation, source frame, target frame, and seek source identify one causal-inspection transport command; replay restore completion must acknowledge the exact generation that Planning issued.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ReplayInteractionExitInput",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:198",
+      "members": 5,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Replay",
+      "reason": "Workspace departure, prior ownership, restore mode, camera follow, and director capture form one interaction-exit arbitration result; cleanup must apply that result atomically.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ReplayInterceptUpdateInput",
+      "site": "SkullbonezSource/Runtime/Planning/ReplayInterceptReadout.h:59",
+      "members": 9,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Planning",
+      "reason": "Prediction frames, ship/target identity and radii, generation/topology versions, source mode, and enable state identify one intercept computation; stale generations must not be paired with current identities.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ReplayKeyboardVelocityEditInput",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:309",
+      "members": 4,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Replay",
+      "reason": "Modifier state, toggle permission, world ownership, and sample time are one keyboard-edit decision point; applying them from different turns could mutate velocity after ownership changed.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ReplayLiveRestoreRequest",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayScrubber.h:161",
+      "members": 9,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Replay",
+      "reason": "Restore kind, solver sample, frame, branch/hash controls, interaction mode, message track, time, and path define one transactional restore attempt with one success/failure outcome.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ReplayMemoryPolicyRequest",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayTimeline.h:63",
+      "members": 3,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Replay",
+      "reason": "Preset, retention duration, and byte budget are one memory-policy change; validation and application must reject or commit the combination rather than expose partially updated limits.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ReplayOverlayBuildInput",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayPresentation.h:90",
+      "members": 3,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Replay",
+      "reason": "Editor mode, current gesture, and scene frame are one overlay-build snapshot; the resulting controls must correspond to the same interaction turn and rendered frame.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ReplayPathPickInput",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayPresentation.h:97",
+      "members": 5,
+      "verdict": "retain",
+      "owner": "prior owner ruling carried by CA0",
+      "reason": "PB0 explicit retain: independently meaningful pick request with multiple domain consumers.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ReplayPathVisualizerRenderContext",
+      "site": "SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.h:192",
+      "members": 9,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Prediction",
+      "reason": "Prediction generation, profiler/path owners, physics/entities/tracer, present sample, and overlay flag bind one visualization submission; the sample-validity bit governs every participating owner.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ReplayPorkchopSweepInput",
+      "site": "SkullbonezSource/Runtime/Planning/ReplayPorkchopPanel.h:63",
+      "members": 6,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Planning",
+      "reason": "Departure/target bodies, sun, gravity constant, epoch, and mutual-gravity policy are one orbital boundary condition for a sweep; all generated cells must share it.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ReplayPredictionFutureContext",
+      "site": "SkullbonezSource/Runtime/Prediction/ReplayPredictionTopologyPublication.cpp:450",
+      "members": 5,
+      "verdict": "retain-prior",
+      "owner": "prior owner ruling carried by CA0",
+      "reason": "Prediction state, topology nodes/collection, root identity, and ragdoll-visual policy are one future-publication snapshot; traversal must not pair a root with another prediction generation's node collection.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ReplayPredictionGhostDrawRequest",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayVisualPacket.h:234",
+      "members": 8,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Replay",
+      "reason": "Model row, transform, alpha, tint, and tint strength are one immutable ghost draw command; the renderer consumes or drops the command as a unit.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ReplayProbeRestoreRequest",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayProbeState.h:143",
+      "members": 5,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Replay",
+      "reason": "Probe status, selected sample/frame, latest frame, and expected hash capture one restore assertion; comparing pieces from different selections would make the probe non-deterministic.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ReplayProbeSaveRequest",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayProbeState.h:160",
+      "members": 2,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Replay",
+      "reason": "Action and path are the complete value identity of one save-probe command; dispatch and reporting use the same pair without retaining a subsystem owner.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ReplaySaveProbeArtifactContext",
+      "site": "SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp:472",
+      "members": 5,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/App",
+      "reason": "Artifact path plus presentation, solver, event, and world snapshots are captured at one save boundary so serialization cannot combine state from different replay generations.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ReplaySceneTimelineResetInput",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:257",
+      "members": 13,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Replay",
+      "reason": "Scene identity, inspection/source preservation modes, topology counts, seed, capacity, generation override, and UI overrides define one timeline origin; reset commits that complete origin before recording resumes, while an intermediate causal restore explicitly retains its later source targets.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ReplayScrubberSurfaceInput",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h:99",
+      "members": 13,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Replay",
+      "reason": "Screen extent, track, gesture, loaded state, tool capabilities, target availability, and drag/hot-zone policy are one layout hit-test snapshot; geometry and interaction must share it.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ReplayStartupLoadInput",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h:51",
+      "members": 11,
+      "verdict": "retain-prior",
+      "owner": "prior owner ruling carried by CA0",
+      "reason": "PB0 explicit retain: startup boundary excludes solver, topology, and diagnostic authority.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ReplayStartupRequest",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:216",
+      "members": 12,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Replay",
+      "reason": "Load/save paths and scrub, restore, checkpoint, target, branch, and failure probe modes are normalized into one startup command; initialization validates their mutually dependent combinations once.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ReplayTransportHostContext",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:159",
+      "members": 6,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Replay",
+      "reason": "Window, normalized current/restore modes, follow/director ownership, and time are one transport-host arbitration snapshot; mode transitions and camera release consume it atomically.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ReplayTripPlannerLiveInput",
+      "site": "SkullbonezSource/Runtime/Planning/ReplayTripPlanner.h:86",
+      "members": 9,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Planning",
+      "reason": "Bodies, gravity policy, horizon, target selection, advance state, and target label are one live-planning sample; the displayed transfer must use the same physics inputs and selection identity.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ReplayTripPlannerPredictionInput",
+      "site": "SkullbonezSource/Runtime/Planning/ReplayTripPlanner.h:99",
+      "members": 9,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Planning",
+      "reason": "Prediction frames, intercept, identities, generation, completion/cancellation, advance state, and target availability describe one prediction result generation; stale frames cannot be published under newer status.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ReplayVisualPacketBufferFacts",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayVisualPacketFingerprint.h:72",
+      "members": 15,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Replay",
+      "reason": "Presence, hashes, and byte sizes for ordinary/priority lines, ribbons, and expanded vertices are one packet fingerprint; comparisons require every digest and extent from the same encoded buffer.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ReplayWorkspaceFrameInput",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:83",
+      "members": 19,
+      "verdict": "retain-prior",
+      "owner": "prior owner ruling carried by CA0",
+      "reason": "Window, pointer arbitration/ray/wheel, replay modes, camera/director ownership, editor/physics/UI state, viewport extent, cached mouse-angle scale, and time are frozen for one replay workspace input turn.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ReplayWorldPointerInput",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayPresentation.h:143",
+      "members": 9,
+      "verdict": "retain-prior",
+      "owner": "prior owner ruling carried by CA0",
+      "reason": "PB0/W1 explicit retain: focused replay gesture/pick command value.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "RuntimeCameraMovementInput",
+      "site": "SkullbonezSource/Runtime/Input/InputController.h:277",
+      "members": 10,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Input",
+      "reason": "Keyboard/mouse deltas, height limits, ownership modes, and authored-scene state are one camera-control sample; movement applies only after the complete ownership predicate is resolved.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "RuntimeInputContext",
+      "site": "SkullbonezSource/Runtime/Input/InputController.h:299",
+      "members": 9,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Input",
+      "reason": "This behavior owner maintains current/previous modes, focus/capture state, and a bounded transition ring; its methods enforce ordered transition history rather than merely carrying call operands.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "RuntimeInputFrameFacts",
+      "site": "SkullbonezSource/Runtime/App/InputFrame.h:97",
+      "members": 9,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/App",
+      "reason": "Replay camera modes, enabled-mask, action suppression, scene capacity, external command sources, and active UI lane are resolved once for one input frame; downstream routing reads one coherent verdict.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "RuntimeInteractionFrameInput",
+      "site": "SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h:177",
+      "members": 10,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Interaction",
+      "reason": "Physics/step, replay hold, pause lock, look ownership, forced-run, and time-scale facts are one interaction policy sample; the controller chooses one advance state from the complete predicate.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "RuntimePickRequest",
+      "site": "SkullbonezSource/Runtime/Interaction/RuntimePickService.h:48",
+      "members": 5,
+      "verdict": "retain",
+      "owner": "prior owner ruling carried by CA0",
+      "reason": "PB0 explicit retain: independently meaningful pick request with multiple domain consumers.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "RuntimeReserveGrowthRequest",
+      "site": "SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h:111",
+      "members": 7,
+      "verdict": "retain",
+      "owner": "CA0 / Core/Allocation",
+      "reason": "Owner/target identity, phase/frame provenance, old/requested capacities, and element size are one auditable reserve transaction; policy validation and byte accounting must use the same request.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "RuntimeUiTextFrameFacts",
+      "site": "SkullbonezSource/Runtime/RuntimeFrameViews.h:34",
+      "members": 10,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/RuntimeFrameViews.h",
+      "reason": "Camera/launcher labels, interaction kinds, presentation state, frame duration, and active UI lane are one text-projection snapshot; all visible labels must describe the same frame.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "SceneLoadRequest",
+      "site": "SkullbonezSource/Runtime/Scene/SceneLoadRequest.h:48",
+      "members": 7,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Scene",
+      "reason": "Acceptance, scene index, run-entry choice, preservation flags, exit suppression, and manual-reset marker form one admitted load command; queue arbitration commits or rejects the combination.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "SceneRequest",
+      "site": "SkullbonezSource/Runtime/Scene/SceneRequestQueue.h:43",
+      "members": 6,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Scene",
+      "reason": "Request kind, scene index/text, and preservation/exit flags are the immutable value stored in the scene queue; FIFO identity and later dispatch depend on retaining them together.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "SceneSaveRequest",
+      "site": "SkullbonezSource/Scene/SceneSnapshotWriter.h:91",
+      "members": 4,
+      "verdict": "retain",
+      "owner": "CA0 / Scene/SceneSnapshotWriter.h",
+      "reason": "Path plus world, session, and presentation borrows identify one same-frame snapshot write; serialization requires all three owners at one capture boundary and retains none afterward.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "ShadowPassInputs",
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:446",
+      "members": 12,
+      "verdict": "retain-prior",
+      "owner": "PB0 / GV1 render pass ruling",
+      "reason": "Distinct concrete render-pass input; it is a pass boundary rather than a cross-domain authority bag.",
+      "destructures_at_entry": "yes"
+    },
+    {
+      "key": "SimulationTickInput",
+      "site": "SkullbonezSource/Runtime/Simulation/SimulationSystem.h:35",
+      "members": 8,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Simulation",
+      "reason": "Frame duration, time scale, scene/fixed-step modes, advance intent, step request, and step permission determine one simulation tick; the scheduler resolves the full set before advancing.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "SleepSupportPropagationContext",
+      "site": "SkullbonezSource/Physics/SleepIslandSystem.h:48",
+      "members": 3,
+      "verdict": "retain",
+      "owner": "CA0 / Physics/SleepIslandSystem.h",
+      "reason": "Sleep state, support edges, and this-frame support marks are one propagation workspace; the traversal mutates all three under one graph walk and must not mix storage generations.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "TerrainGraphInputs",
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:367",
+      "members": 2,
+      "verdict": "retain-prior",
+      "owner": "PB0 / GV1 render graph ruling",
+      "reason": "Distinct concrete render-graph node input; the graph nodes do not converge on one apply transaction.",
+      "destructures_at_entry": "yes"
+    },
+    {
+      "key": "TerrainPassInputs",
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:275",
+      "members": 10,
+      "verdict": "retain-prior",
+      "owner": "PB0 / GV1 render pass ruling",
+      "reason": "Distinct concrete render-pass input; it is a pass boundary rather than a cross-domain authority bag.",
+      "destructures_at_entry": "yes"
+    },
+    {
+      "key": "ToolOverlayBuildInput",
+      "site": "SkullbonezSource/Runtime/Tools/RuntimeTools.h:171",
+      "members": 6,
+      "verdict": "retain",
+      "owner": "CA0 / Runtime/Tools",
+      "reason": "Trace lifetime, gizmo/scale gesture, and attached-camera state are one tool-overlay sampling result; overlay geometry is built once from that coherent interaction state.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "UIDrawContext",
+      "site": "SkullbonezSource/UI/UIDraw.h:46",
+      "members": 5,
+      "verdict": "retain-prior",
+      "owner": "prior owner ruling carried by CA0",
+      "reason": "UI renderer hard-boundary closure: behavior owner recording value-only draw commands, with renderer pointers removed.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "WaterGraphInputs",
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:372",
+      "members": 2,
+      "verdict": "retain-prior",
+      "owner": "PB0 / GV1 render graph ruling",
+      "reason": "Distinct concrete render-graph node input; the graph nodes do not converge on one apply transaction.",
+      "destructures_at_entry": "yes"
+    },
+    {
+      "key": "WaterPassInputs",
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:330",
+      "members": 13,
+      "verdict": "retain-prior",
+      "owner": "PB0 / GV1 render pass ruling",
+      "reason": "Distinct concrete render-pass input; it is a pass boundary rather than a cross-domain authority bag.",
+      "destructures_at_entry": "yes"
+    },
+    {
+      "key": "WaterReflectionInput",
+      "site": "SkullbonezSource/World/WorldEnvironment.h:106",
+      "members": 4,
+      "verdict": "retain",
+      "owner": "CA0 / World/WorldEnvironment.h",
+      "reason": "Sample transform, texture identity, reflection-disable state, and raytracing mode bind one reflection sample; shading must not pair a texture with another mode's projection.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "WaterStyleParams",
+      "site": "SkullbonezSource/World/WorldEnvironment.h:125",
+      "members": 19,
+      "verdict": "retain",
+      "owner": "CA0 / World/WorldEnvironment.h",
+      "reason": "Tint, transparency, reflection/fresnel/glint, wave perturbation, sun color, basin bounds, mode, and cinematic flag are one validated water-style value applied consistently across rendering passes.",
+      "destructures_at_entry": "no"
+    },
+    {
+      "key": "WorldExtensionGraphInputs",
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:377",
+      "members": 7,
+      "verdict": "retain-prior",
+      "owner": "PB0 / GV1 render graph ruling",
+      "reason": "Distinct concrete render-graph node input; the graph nodes do not converge on one apply transaction.",
+      "destructures_at_entry": "yes"
+    }
+  ],
+  "extraction_scars": [
+    {
+      "key": "SkullbonezSource/Core/WorkerPool.h:indexFn",
+      "site": "SkullbonezSource/Core/WorkerPool.h:223",
+      "kind": "pure-parameter-alias",
+      "verdict": "retain",
+      "owner": "core threading",
+      "reason": "`IndexFunctionT& indexFn = fn;` binds a forwarding reference to an lvalue reference so the chunk lambda can capture it by reference. Deleting the alias changes capture semantics; this is a required binding, not a preserved pre-extraction spelling."
+    }
+  ]
 }

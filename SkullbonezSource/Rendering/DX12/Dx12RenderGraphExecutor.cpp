@@ -1,27 +1,30 @@
 /*
-File: SkullbonezSource/Rendering/DX12/Dx12RenderGraphExecutor.cpp
-Purpose:
-  Translates render graph resource access records into DX12 barrier candidates.
+File : SkullbonezSource / Rendering / DX12 /
+       Dx12RenderGraphExecutor.cpp Purpose : Translates render graph resource access records into DX12 barrier candidates
+                                                 .
 
-Summary:
-  The graph compiler decides that a resource use changes from access A to
-  access B. This file translates A and B into DX12 states and optionally emits
-  the concrete transition barrier.
+                                             Summary
+    : The graph compiler decides that a resource use changes from access A to access
+          B.This file translates A and B into DX12 states and optionally emits the concrete transition barrier.
 
-Glossary:
-  Barrier: Command-list operation that orders GPU work or transitions a
-  resource between states.
+      Glossary : Barrier : Command -
+        list operation that orders GPU work or
+    transitions a resource between states
+            .
 
-Invariants:
-  - Unknown graph access is never translated to a fake COMMON transition.
-  - Dry-run mode records candidates only; it does not call ResourceBarrier().
-  - Live emission requires exact native resource identity.
+        Invariants : -Unknown graph access is never translated to a fake COMMON transition.-
+        Dry - run mode records candidates only;
+it does not call ResourceBarrier().- Live emission
+        requires exact
+    native resource identity.
 
-Related:
-  - SkullbonezSource/Rendering/DX12/Dx12RenderGraphExecutor.h
-  - SkullbonezSource/Rendering/RenderGraph.cpp
-  - Agentic/Reference/engine-glossary.md
-*/
+    Related : -SkullbonezSource /
+              Rendering /
+              DX12 /
+              Dx12RenderGraphExecutor.h -
+              SkullbonezSource / Rendering / RenderGraph.cpp -
+              Agentic / Reference / engine -
+              glossary.md */
 #include "Dx12RenderGraphExecutor.h"
 
 #include <cstdio>
@@ -90,6 +93,8 @@ Dx12RenderGraphBarrierRecord MakeSingleTransitionRecord( const char* sourcePrefi
 } // namespace
 
 
+// Invariant: Unknown writes a harmless diagnostic placeholder but returns false;
+// callers must never treat COMMON as a fabricated source-state proof.
 bool TryDx12RenderGraphAccessToResourceState( RenderGraphResourceAccess access, D3D12_RESOURCE_STATES& outState )
 {
     switch ( access )

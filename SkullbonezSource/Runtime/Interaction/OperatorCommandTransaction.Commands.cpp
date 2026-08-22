@@ -579,7 +579,7 @@ void OperatorCommandTransaction::ApplyCinematicPolicy( RunLaunchOptions& launchO
 void ApplyCinematicUIParam( SkullbonezCore::Core::CinematicRenderConfig& cinematic, SceneSessionState& scene,
                             UICinematicParam param, float rawValue )
 {
-    // The UI sends "the user dragged this slider to this raw value." This helper
+    // Concept: the UI sends "the user dragged this slider to this raw value." This helper
     // clamps the value into a safe range, writes it into the live cinematic
     // config, and marks the scene override bit so reloads keep the user's tweak.
     const auto clampValue = []( float value, float minValue, float maxValue ) -> float
@@ -866,7 +866,7 @@ void ApplyCinematicUIParam( SkullbonezCore::Core::CinematicRenderConfig& cinemat
 void SetCinematicShadowsEnabledFromUI( SkullbonezCore::Core::CinematicRenderConfig& cinematic, SceneSessionState& scene,
                                        bool enabled )
 {
-    // Shadow maps are configured next to the cinematic controls because the
+    // Why: shadow maps are configured next to the cinematic controls because the
     // original implementation grew from that renderer work, but the depth pass
     // now feeds normal rendering too. Toggling shadows from either the Options
     // tab or the Cine tab must therefore only touch the shadow flag and scene
@@ -1003,7 +1003,7 @@ void OperatorCommandTransaction::ApplyOrdinaryRenderParam( SkullbonezCore::Core:
 void ToggleCinematicUIFeature( SkullbonezCore::Core::CinematicRenderConfig& cinematic, SceneSessionState& scene,
                                UICinematicFeature feature )
 {
-    // Feature toggles are boolean pass switches: sky on/off, bloom on/off, etc.
+    // Concept: feature toggles are boolean pass switches: sky on/off, bloom on/off, etc.
     // Each toggle also marks the matching override bit for scene persistence.
     switch ( feature )
     {

@@ -585,7 +585,7 @@ bool RuntimeReserveAllocator::TryRecordDevelopmentToolBackingAllocation( Runtime
     {
         if ( activeBefore > hardBytes || bytes > hardBytes - activeBefore )
         {
-            // Lane F precursor: the caller reports the named vendor and map
+            // Fatal invariant precursor: the caller reports the named vendor and map
             // request before terminating. Count the rejected request here so
             // allocation-policy summaries cannot present the cap as healthy.
             owner.counters.failedGrowths.fetch_add( 1u, std::memory_order_relaxed );

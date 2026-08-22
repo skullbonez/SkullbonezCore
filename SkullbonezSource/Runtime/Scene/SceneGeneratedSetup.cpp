@@ -38,6 +38,7 @@ Related:
 #include "../../World/WorldEnvironment.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <utility>
 
 namespace SkullbonezCore
@@ -90,6 +91,21 @@ PhysicsBodyCreateDesc MakeGeneratedBodyDesc( Physics::PhysicsSceneObjectId scene
     return MakePhysicsBodyCreateDesc( sceneObjectId, shape, position, Math::Orientation::IDENTITY_QUATERNION,
                                       Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), rotationalInertia, mass,
                                       restitution, PhysicsBodyMotionKind::Dynamic );
+}
+
+SceneEntityCreateDesc MakeGeneratedEntityDesc( Physics::PhysicsSceneObjectId sceneObjectId, const char* shapeName )
+{
+    SceneEntityCreateDesc entity;
+    entity.sceneObjectId = sceneObjectId;
+
+    // Invariant: generated worlds must cross the same durable-identity boundary
+    // as authored worlds because F8 snapshots serialize and later resolve names.
+    // The allocated id is deterministic and unique for this scene lifetime, so
+    // including it keeps semantic anchors and saved references unambiguous.
+    char displayName[64] = {};
+    sprintf_s( displayName, "generated_%s_%u", shapeName, sceneObjectId.value );
+    entity.SetName( displayName );
+    return entity;
 }
 
 // Concept: one transient sample is the cohesive output of exactly one generated
@@ -252,10 +268,8 @@ SceneGeneratedSetup::SetUpSceneEntities( SceneSessionState& scene, const Skullbo
 
         if ( sample.makeBox )
         {
-            SceneEntityCreateDesc gameModel;
-
             const Physics::PhysicsSceneObjectId sceneObjectId = scene.AllocateSceneObjectId();
-            gameModel.sceneObjectId = sceneObjectId;
+            SceneEntityCreateDesc gameModel = MakeGeneratedEntityDesc( sceneObjectId, "box" );
             const BoundingBox shape( sample.boxHalfExtents, Vector3( 0.0f, 0.0f, 0.0f ) );
             const auto appendResult = sceneWorld.TryCreateSceneEntity( std::move( gameModel ),
                                                                        MakeGeneratedBodyDesc( sceneObjectId, shape,
@@ -276,10 +290,8 @@ SceneGeneratedSetup::SetUpSceneEntities( SceneSessionState& scene, const Skullbo
         }
         else
         {
-            SceneEntityCreateDesc gameModel;
-
             const Physics::PhysicsSceneObjectId sceneObjectId = scene.AllocateSceneObjectId();
-            gameModel.sceneObjectId = sceneObjectId;
+            SceneEntityCreateDesc gameModel = MakeGeneratedEntityDesc( sceneObjectId, "ball" );
             const BoundingSphere shape( sample.sphereRadius, Vector3( 0.0f, 0.0f, 0.0f ) );
             const auto appendResult = sceneWorld.TryCreateSceneEntity( std::move( gameModel ),
                                                                        MakeGeneratedBodyDesc( sceneObjectId, shape,
@@ -349,7 +361,7 @@ SkullbonezCore::Core::SbResult SceneGeneratedSetup::SetUpSolverObjects( SceneSes
 
     auto randSign = [&]() -> float { return ( NextSceneRand( scene.rngState ) % 2 == 0 ) ? 1.0f : -1.0f; };
 
-    // --- Sphere pass ---
+    // Sphere pass:
     for ( int i = 0; i < balls; ++i )
     {
         float posX = randFloat( config.generatedScene.spawnXBase, config.generatedScene.spawnXRange );
@@ -372,9 +384,8 @@ SkullbonezCore::Core::SbResult SceneGeneratedSetup::SetUpSolverObjects( SceneSes
 
         Vector3 impulseWorldOffsetFromCenter( randSign(), randSign(), randSign() );
 
-        SceneEntityCreateDesc gameModel;
         const Physics::PhysicsSceneObjectId sceneObjectId = scene.AllocateSceneObjectId();
-        gameModel.sceneObjectId = sceneObjectId;
+        SceneEntityCreateDesc gameModel = MakeGeneratedEntityDesc( sceneObjectId, "ball" );
         const BoundingSphere shape( radius, Vector3( 0.0f, 0.0f, 0.0f ) );
         const auto appendResult = sceneWorld.TryCreateSceneEntity( std::move( gameModel ),
                                                                    MakeGeneratedBodyDesc( sceneObjectId, shape,
@@ -392,7 +403,7 @@ SkullbonezCore::Core::SbResult SceneGeneratedSetup::SetUpSolverObjects( SceneSes
         sceneWorld.Physics().SetPendingBodyImpulse( body, force, impulseWorldOffsetFromCenter );
     }
 
-    // --- Box pass ---
+    // Box pass:
     // Box inertia tensor (solid cuboid about centre of mass):
     //   Ix = m/12 * (hy^2 + hz^2),  Iy = m/12 * (hx^2 + hz^2),  Iz = m/12 * (hx^2 + hy^2)
     // where hx, hy, hz are the full extents (2 * half-extents).
@@ -423,9 +434,8 @@ SkullbonezCore::Core::SbResult SceneGeneratedSetup::SetUpSolverObjects( SceneSes
         float m3 = mass / 3.0f;
         Vector3 inertia( m3 * ( hy2 + hz2 ), m3 * ( hx2 + hz2 ), m3 * ( hx2 + hy2 ) );
 
-        SceneEntityCreateDesc gameModel;
         const Physics::PhysicsSceneObjectId sceneObjectId = scene.AllocateSceneObjectId();
-        gameModel.sceneObjectId = sceneObjectId;
+        SceneEntityCreateDesc gameModel = MakeGeneratedEntityDesc( sceneObjectId, "box" );
         const BoundingBox shape( Vector3( hx, hy, hz ), Vector3( 0.0f, 0.0f, 0.0f ) );
         const auto appendResult = sceneWorld.TryCreateSceneEntity( std::move( gameModel ),
                                                                    MakeGeneratedBodyDesc( sceneObjectId, shape,

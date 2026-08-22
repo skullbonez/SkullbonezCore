@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/UI/UIIconButton.cpp
 Purpose:
-  Implements UI IconButton widgets, layout, drawing, or UI state for the in-engine controls.
+  Implements compact icon-button geometry, hit testing, and chevron drawing.
 
 Summary:
   Keeps expander hit testing and chevron

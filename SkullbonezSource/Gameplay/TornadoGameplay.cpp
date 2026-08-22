@@ -63,7 +63,7 @@ void TornadoVisualPass::RequirePreparedFrame( const char* operation ) const
 {
     if ( !m_frame.field || !m_frame.system )
     {
-        // Lane F: both borrows are one synchronous PrepareFrame/RegisterGraphPass
+        // Fatal invariant: both borrows are one synchronous PrepareFrame/RegisterGraphPass
         // transaction. Missing either pointer means an internal lifecycle edge
         // reached capacity calculation or drawing outside that transaction.
         SB_FATAL( "Gameplay/TornadoVisualPass", "Tornado visual frame is not prepared. operation=%s field=%d system=%d",
@@ -145,7 +145,7 @@ void TornadoGameplay::SetSystemConfig( const TornadoSystemConfig& config )
 {
     if ( config.vortices.size() > MAX_ACTIVE_FORCE_FIELDS )
     {
-        // Lane F: authored parsing must reject oversize content before owner
+        // Fatal invariant: authored parsing must reject oversize content before owner
         // mutation. Reaching this typed command with too many rows means that
         // recoverable preflight was bypassed.
         SB_FATAL( "Gameplay/TornadoGameplay", "External force field capacity exceeded. requested=%zu capacity=%zu",
@@ -408,7 +408,7 @@ void TornadoGameplay::EnsureStateBuffers( int modelCount )
     if ( modelCount < 0 || static_cast<std::size_t>( modelCount ) > m_captureSeconds.capacity() ||
          static_cast<std::size_t>( modelCount ) > m_ejectCooldownSeconds.capacity() )
     {
-        // Lane F: SceneWorld must reserve the authored capacity before steady
+        // Fatal invariant: SceneWorld must reserve the authored capacity before steady
         // gameplay. Growing either timer vector here would violate the global
         // runtime allocation policy.
         SB_FATAL( "Gameplay/TornadoGameplay",

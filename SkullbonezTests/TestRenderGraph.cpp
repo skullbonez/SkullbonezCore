@@ -17,11 +17,11 @@ Invariants:
   - Numeric overrides converge in insertion order and leave no stale state for
     the following all-resource use.
   - The ninth simultaneously active numeric override terminates through the
-    shared Lane F child-process harness.
+    shared fatal child-process harness.
   - Transient pool reuse requires both non-overlapping lifetimes and exact
     kind, format, dimensions, mip count, and descriptor needs.
   - Every planned transient is released at frame end; unused transients
-    terminate through the shared Lane F child-process harness.
+    terminate through the shared fatal child-process harness.
   - Every fixed ceiling accepts its exact boundary and terminates on the first
     excess row through an isolated child.
   - The frame execution contract admits either one named declaration-only edge
@@ -680,7 +680,7 @@ TEST_CASE( "Render graph transient output accepts exactly sixteen allocations" )
     CHECK( compiled.transientDiagnostics.highWaterDescriptors == 8u );
 }
 
-TEST_CASE( "Render graph fixed stores reject every first excess row in Lane F" )
+TEST_CASE( "Render graph fixed stores reject every first excess row with fatal invariant" )
 {
     ExpectRuntimeFatalCase( "render-graph-resource-capacity",
                             { "FATAL[RenderGraph]",

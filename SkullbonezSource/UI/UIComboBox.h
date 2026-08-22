@@ -1,7 +1,8 @@
 /*
 File: SkullbonezSource/UI/UIComboBox.h
 Purpose:
-  Implements UI ComboBox widgets, layout, drawing, or UI state for the in-engine controls.
+  Declares dropdown open state, shared field/option geometry, hit testing,
+  and drawing.
 
 Summary:
   Owns dropdown state and derives

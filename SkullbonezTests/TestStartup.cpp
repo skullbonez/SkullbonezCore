@@ -1,4 +1,3 @@
-//
 // File: SkullbonezTests/TestStartup.cpp
 // Purpose:
 //   Locks startup token parsing, frozen diagnostics, and launch-policy resolution.
@@ -6,14 +5,14 @@
 // Summary:
 //   Exercises the production command-line and launch-resolution units without
 //   constructing a window, renderer, worker pool, or Run owner. Table-driven
-//   failure cases assert the exact Lane-R messages consumed by automation, and
+//   failure cases assert the exact recoverable-result messages consumed by
+//   automation. Recorded-manifest cases prove adjacent scene resolution, while
 //   development builds lock the exclusive editor selector's launch projection.
 //
 // Glossary:
 //   Assigned option: A value supplied as --name=value rather than a later token.
 //   Launch packet: ParsedArgs values projected into RunStartupOverrides.
-//   Lane R: Recoverable external-input failure returned to process startup.
-//
+
 // Invariants:
 //   - Aliases, defaults, validation order, and error strings are compatibility surface.
 //   - Suite tests use caller-owned temporary files and never launch the engine.
@@ -22,6 +21,7 @@
 // Related:
 //   - SkullbonezSource/Runtime/Startup/StartupCommandLine.cpp
 //   - SkullbonezSource/Runtime/Startup/StartupLaunchResolution.cpp
+//   - Agentic/Reference/engine-glossary.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
@@ -155,9 +155,9 @@ TEST_CASE( "Startup command line: primitive value parsers reject partial writes 
     CHECK( unsignedValue == ( std::numeric_limits<unsigned int>::max )() );
     CHECK_FALSE( ParseUnsignedCommandLineToken( "4294967296", unsignedValue ) );
 
-    // Hazard: MSVC strtoul accepts a leading minus and wraps -1 to UINT_MAX.
-    // Startup compatibility currently exposes that value; changing the parser
-    // is product behavior and belongs to a separately ruled seam task.
+    // Invariant: startup compatibility preserves MSVC strtoul's unsigned wrap
+    // for a leading minus. This assertion records the observable parser result;
+    // changing it is a product-behavior change, not a comment cleanup.
     CHECK( ParseUnsignedCommandLineToken( "-1", unsignedValue ) );
     CHECK( unsignedValue == ( std::numeric_limits<unsigned int>::max )() );
 
@@ -195,7 +195,9 @@ TEST_CASE( "Startup launch values: every run directive family projects into owne
     const CommandLineView commandLine = View( "--seed 17 --frames=9 --allocation_guard gameplay "
                                               "--style-harness TestOutput/style --scene_snapshot_out TestOutput/scene.json "
                                               "--memory_dump TestOutput/memory.json --interaction_script script.json "
-                                              "--interaction_report report.json --replay off --replay_seconds 12 "
+                                              "--interaction_report report.json --interaction_trace trace.jsonl "
+                                              "--interaction_record_max_minutes 3 "
+                                              "--replay off --replay_seconds 12 "
                                               "--replay_scrub_probe 0.5 --replay_restore_probe 0.75 "
                                               "--replay_save_probe save.skreplay --replay_load load.skreplay "
                                               "--replay_load_probe probe.skreplay --replay_restore_file_probe restore.skreplay "
@@ -217,6 +219,8 @@ TEST_CASE( "Startup launch values: every run directive family projects into owne
     CHECK( std::strcmp( args.memoryDumpPath, "TestOutput/memory.json" ) == 0 );
     CHECK( std::strcmp( args.interactionScriptPath, "script.json" ) == 0 );
     CHECK( std::strcmp( args.interactionReportPath, "report.json" ) == 0 );
+    CHECK( std::strcmp( args.interactionTracePath, "trace.jsonl" ) == 0 );
+    CHECK( args.interactionRecordMaxMinutes == 3 );
     CHECK( args.replayRecording );
     CHECK( args.replayExplicit );
     CHECK( args.replaySeconds == 12 );
@@ -262,6 +266,8 @@ TEST_CASE( "Startup launch values: malformed directives keep exact recoverable m
         { "--memory-dump", "--memory-dump requires an output path." },
         { "--interaction-script", "--interaction-script requires an output path." },
         { "--interaction-report", "--interaction-report requires an output path." },
+        { "--interaction-record-max-minutes 0", "--interaction-record-max-minutes expects 1..60." },
+        { "--interaction-record-max-minutes 61", "--interaction-record-max-minutes expects 1..60." },
         { "--replay maybe", "--replay expects optional on|off." },
         { "--replay-seconds 0", "--replay-seconds expects 1..600." },
         { "--replay-scrub-probe 0.995", "--replay-scrub-probe expects a normalized position in the range 0..0.995." },
@@ -289,6 +295,33 @@ TEST_CASE( "Startup launch values: malformed directives keep exact recoverable m
         CAPTURE( failure.commandLine );
         CheckRunDirectiveFailure( failure.commandLine, failure.message );
     }
+}
+
+TEST_CASE( "Startup recorded interaction owns its adjacent scene launch" )
+{
+    const std::string manifest = WriteSuite(
+        "recorded_interaction.json",
+        R"({"format":"skullbonez.interaction-recording","version":1,"complete":true,"scene":{"path":"saved.scene.json","sha256":"0000000000000000000000000000000000000000000000000000000000000000"},"frames":[]})" );
+    ParsedArgs args;
+    strcpy_s( args.interactionScriptPath, manifest.c_str() );
+    REQUIRE( ResolveInteractionRecordingLaunch( args ) );
+    REQUIRE( args.sceneList.size() == 1u );
+    CHECK( std::filesystem::path( args.sceneList[0] ).filename() == "saved.scene.json" );
+    CHECK( args.isSuiteOrSceneMode );
+    CHECK( args.interactiveRun );
+    CHECK( args.suppressExitDialog );
+}
+
+TEST_CASE( "Startup recorded interaction rejects escaping sidecar paths" )
+{
+    const std::string manifest = WriteSuite(
+        "recorded_interaction_escape.json",
+        R"({"format":"skullbonez.interaction-recording","version":1,"complete":true,"scene":{"path":"../saved.scene.json","sha256":"0000000000000000000000000000000000000000000000000000000000000000"},"frames":[]})" );
+    ParsedArgs args;
+    strcpy_s( args.interactionScriptPath, manifest.c_str() );
+    CHECK_FALSE( ResolveInteractionRecordingLaunch( args ) );
+    CHECK( std::strcmp( GetCommandLineError(),
+                        "recorded --interaction-script scene path may not escape its directory." ) == 0 );
 }
 
 TEST_CASE( "Startup physics debug: component, float, and optional switches compose deterministically" )
@@ -445,6 +478,7 @@ TEST_CASE( "Startup launch packet: replay defaults and borrowed paths follow par
     strcpy_s( args.memoryDumpPath, "memory.json" );
     strcpy_s( args.interactionScriptPath, "script.json" );
     strcpy_s( args.interactionReportPath, "report.json" );
+    strcpy_s( args.interactionTracePath, "trace.jsonl" );
     strcpy_s( args.replayHashLogPath, "hashes.csv" );
     args.replayLoad = true;
     strcpy_s( args.replayLoadPath, "load.skreplay" );
@@ -475,6 +509,7 @@ TEST_CASE( "Startup launch packet: replay defaults and borrowed paths follow par
     CHECK( std::strcmp( overrides.mainMemoryDumpPath, "memory.json" ) == 0 );
     CHECK( std::strcmp( overrides.interactionScriptPath, "script.json" ) == 0 );
     CHECK( std::strcmp( overrides.interactionReportPath, "report.json" ) == 0 );
+    CHECK( std::strcmp( overrides.interactionTracePath, "trace.jsonl" ) == 0 );
     CHECK( overrides.configureReplayRecording );
     CHECK( overrides.replayRetentionSeconds == 14 );
     CHECK( std::strcmp( overrides.replayHashLogPath, "hashes.csv" ) == 0 );
@@ -491,11 +526,11 @@ TEST_CASE( "Startup launch packet: replay defaults and borrowed paths follow par
 }
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-TEST_CASE( "Startup development UI: one startup-selected surface owns focus and Legacy remains the default" )
+TEST_CASE( "Startup development UI: one startup-selected surface owns focus and GameUI remains the default" )
 {
     using SkullbonezCore::Runtime::DevelopmentUiMode;
+    using SkullbonezCore::Runtime::DevelopmentUiModeShowsGameUI;
     using SkullbonezCore::Runtime::DevelopmentUiModeShowsImGui;
-    using SkullbonezCore::Runtime::DevelopmentUiModeShowsLegacy;
 
     struct ModeCase
     {
@@ -503,7 +538,7 @@ TEST_CASE( "Startup development UI: one startup-selected surface owns focus and 
         DevelopmentUiMode expected;
     };
     const ModeCase cases[] = {
-        { "--dev-ui legacy", DevelopmentUiMode::Legacy },
+        { "--dev-ui game", DevelopmentUiMode::GameUI },
         { "--dev_ui=imgui", DevelopmentUiMode::ImGui },
     };
 
@@ -518,19 +553,19 @@ TEST_CASE( "Startup development UI: one startup-selected surface owns focus and 
         const RunStartupOverrides overrides = BuildRunStartupOverrides( args );
         CHECK( overrides.launch.developmentUiMode == modeCase.expected );
         CHECK( overrides.launch.developmentUiModeExplicit );
-        CHECK( DevelopmentUiModeShowsLegacy( modeCase.expected ) != DevelopmentUiModeShowsImGui( modeCase.expected ) );
+        CHECK( DevelopmentUiModeShowsGameUI( modeCase.expected ) != DevelopmentUiModeShowsImGui( modeCase.expected ) );
     }
 
     ParsedArgs omitted;
     REQUIRE( ApplyRunCliValueDirectives( View( "--frames 2" ), omitted ) );
-    CHECK( omitted.developmentUiMode == DevelopmentUiMode::Legacy );
+    CHECK( omitted.developmentUiMode == DevelopmentUiMode::GameUI );
     CHECK_FALSE( omitted.developmentUiModeExplicit );
     CHECK_FALSE( BuildRunStartupOverrides( omitted ).launch.developmentUiModeExplicit );
 }
 
 TEST_CASE( "Startup development UI: invalid mode keeps the frozen recoverable diagnostic" )
 {
-    constexpr const char* expected = "--dev-ui expects legacy|imgui; the two surfaces are mutually exclusive.";
+    constexpr const char* expected = "--dev-ui expects game|imgui; the two surfaces are mutually exclusive.";
     CheckRunDirectiveFailure( "--dev-ui unknown", expected );
     CheckRunDirectiveFailure( "--dev-ui both", expected );
     CheckRunDirectiveFailure( "--dev-ui", expected );

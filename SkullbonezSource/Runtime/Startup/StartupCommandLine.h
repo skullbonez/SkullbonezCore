@@ -60,9 +60,9 @@ struct ParsedArgs
     // omitted flags producing these exact policies.
     std::vector<std::string> sceneList;
     bool isSuiteOrSceneMode = false;
-    float timeScaleOverride = 0.0f;     // 0 = not set
+    float timeScaleOverride = 0.0f;      // 0 = not set
     bool fixedStep = false;
-    unsigned int seedOverride = 0;      // 0 = not set
+    unsigned int seedOverride = 0;       // 0 = not set
     bool noWater = false;
     bool noSleep = false;
     bool hasTornadoOverride = false;
@@ -112,13 +112,16 @@ struct ParsedArgs
     char memoryDumpPath[260] = {};
     char interactionScriptPath[260] = {};
     char interactionReportPath[260] = {};
+    char interactionTracePath[260] = {};
+    char interactionRecordPath[260] = {};
+    int interactionRecordMaxMinutes = 1; // Integer 1..60; one minute is the default allocation ceiling.
 
     // CLI --predict <body> arms the replay prediction workflow at startup so a
     // profiling session reaches worker simulation without manual UI steps.
     // Empty means the flag was omitted; --predict-seconds is ignored then.
     char predictTargetName[64] = {};
-    float predictHorizonSeconds = 0.0f; // 0 = keep the prediction owner's default horizon.
-    bool predictPauseOnStart = true;    // --predict-running leaves the simulation advancing.
+    float predictHorizonSeconds = 0.0f;  // 0 = keep the prediction owner's default horizon.
+    bool predictPauseOnStart = true;     // --predict-running leaves the simulation advancing.
     bool suppressExitDialog = false;
     bool automationWindowHidden = false;
     bool showProfiler = false;
@@ -127,7 +130,7 @@ struct ParsedArgs
     bool replayGuideArcsAtStartup = false;
     bool workerSelfTest = false;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    DevelopmentUiMode developmentUiMode = DevelopmentUiMode::Legacy;
+    DevelopmentUiMode developmentUiMode = DevelopmentUiMode::GameUI;
     bool developmentUiModeExplicit = false;
 #endif
     GeneratedObjectTypeOverride objectTypeOverride = GeneratedObjectTypeOverride::Mixed;

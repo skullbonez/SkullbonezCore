@@ -1,7 +1,8 @@
 /*
 File: SkullbonezSource/UI/UIButton.h
 Purpose:
-  Implements UI Button widgets, layout, drawing, or UI state for the in-engine controls.
+  Declares bounded push-button geometry, hit testing, and label/background
+  drawing.
 
 Summary:
   Keeps button hit testing and

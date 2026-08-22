@@ -4,7 +4,7 @@ Purpose:
   Defines the shared value boundary used by either operator editor surface.
 
 Summary:
-  Legacy and ImGui use the same domain-grouped frame snapshot and fixed-capacity
+  GameUI and ImGui use the same domain-grouped frame snapshot and fixed-capacity
   typed command queues, including detached forecast status and lifecycle intent,
   but runtime selection activates only one human surface. A deterministic
   arbitration pass also admits optional automation/probe intent before projecting
@@ -27,8 +27,8 @@ Invariants:
   - Views and commands contain values or immediate-frame borrowed labels only;
     no scene, replay, renderer, input, or UI owner pointer crosses this seam.
   - Every queue is inline and bounded; submission cannot grow an STL container.
-  - Legacy commands have deterministic first priority, exact secondary duplicates
-    coalesce, and conflicting duplicate payloads fail through Lane R.
+  - GameUI commands have deterministic first priority, exact secondary duplicates
+    coalesce, and conflicting duplicate payloads fail through recoverable result.
   - Projection produces at most one established owner request per action type.
 
 Related:
@@ -309,7 +309,7 @@ struct OperatorEditorForecastView
 
 struct OperatorEditorSurfaceView
 {
-    bool legacyVisible = true;
+    bool gameUiVisible = true;
     bool secondaryVisible = false;
 };
 
@@ -573,7 +573,7 @@ struct OperatorEditorArbitrationResult
 {
     OperatorEditorCommandQueues commands;
     SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
-    uint32_t acceptedLegacyCommands = 0u;
+    uint32_t acceptedGameUiCommands = 0u;
     uint32_t acceptedSecondaryCommands = 0u;
     uint32_t coalescedDuplicateCommands = 0u;
 };
@@ -607,12 +607,12 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( SkullbonezCore::Core
                                                             const OperatorEditorToolCommand& command,
                                                             bool* duplicate = nullptr );
 
-// Converts the representative legacy packet fields into the shared queues and
+// Converts the representative GameUI packet fields into the shared queues and
 // clears those fields so only the post-arbitration projection reaches owners.
-SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+SkullbonezCore::Core::SbResult NormalizeGameUiOperatorEditorCommands( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                                       InGameUICommands& commands );
 OperatorEditorArbitrationResult ArbitrateOperatorEditorCommands( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                                                                 const OperatorEditorCommandQueues& legacy,
+                                                                 const OperatorEditorCommandQueues& gameUi,
                                                                  const OperatorEditorCommandQueues& secondary );
 SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                               const OperatorEditorCommandQueues& exchange,

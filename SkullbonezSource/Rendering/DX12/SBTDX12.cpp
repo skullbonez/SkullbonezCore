@@ -20,7 +20,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 
-// --- DXR Ray Tracing: Shader Binding Table (SBT) ---
+// DXR Ray Tracing: Shader Binding Table (SBT):
 //
 //  The SBT maps ray interactions to shader code. When a ray hits geometry, the GPU uses the SBT
 //  to determine which shader to execute. It's laid out as a flat buffer with three sections:

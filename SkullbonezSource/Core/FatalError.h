@@ -1,10 +1,10 @@
 /*
 File: SkullbonezSource/Core/FatalError.h
 Purpose:
-  Declares the Lane F fatal-invariant helper and SB_FATAL macro.
+  Declares the fatal-invariant helper and SB_FATAL macro.
 
 Summary:
-  Lane F is for programmer invariants that must never be false in running
+  Fatal invariants are for programmer invariants that must never be false in running
   engine logic. It logs the owner and formatted diagnostics, flushes, then
   terminates the process instead of throwing through gameplay or render paths.
 
@@ -35,7 +35,7 @@ namespace Core
 } // namespace SkullbonezCore
 
 
-// Concept: SB_FATAL is the single Lane F spelling for new fatal invariants.
+// Concept: SB_FATAL is the single fatal-invariant spelling for new fatal invariants.
 //
 // Callers supply an owner plus printf-style diagnostics. The implementation
 // owns logging, debug/profile breaking, flushing, and process termination.

@@ -85,9 +85,9 @@ struct ReplayWorkspaceFrameInput
     HWND window = nullptr;
     bool uiBlocksMouse = false;
 
-    // Invariant: Legacy pointer tools must not sample or reset replay state
+    // Invariant: GameUI pointer tools must not sample or reset replay state
     // while the mutually exclusive ImGui development surface owns input.
-    bool legacyPointerSurfaceActive = true;
+    bool gameUiPointerSurfaceActive = true;
     int wheelDelta = 0;
     ReplayPathPickInput pointerRay;
     RunCameraMode normalizedCurrentMode = RunCameraMode::Demo;
@@ -110,6 +110,10 @@ struct ReplayWorkspaceOutput
 {
     ReplayLiveRestoreRequest restoreRequest;
     bool consumesMouse = false;
+
+    // Why: focused cause-filter text must block later runtime key bindings in
+    // the same frame without giving Replay retained access to InputRouter.
+    bool consumesKeyboard = false;
     bool enterInteractive = false;
 
     // Zero denotes ordinary replay transport. Planning uses a non-zero token to
@@ -121,7 +125,7 @@ struct ReplayWorkspaceOutput
     bool loadPresentationRequested = false;
 };
 
-// Semantic transport actions are independent of the legacy overlay and the
+// Semantic transport actions are independent of the GameUI overlay and the
 // ImGui presentation. ReplayRuntime translates these value commands into the
 // existing timeline, scrubber, prediction, authoring, and cold-I/O owners.
 enum class ReplayTransportAction : uint8_t
@@ -180,6 +184,9 @@ struct ReplayInputView
     bool hasCameraFocus = false;
     RunCameraMode restoreCameraMode = RunCameraMode::Demo;
     int pathTargetModelRow = -1;
+    RunReplayTrack activeTrack = RunReplayTrack::Solver;
+    float presentationTrackPosition = 1.0f;
+    float solverTrackPosition = 1.0f;
     float solverPresentTrackPosition = 1.0f;
     float predictionRevealProgress = 0.0f;
     bool predictionRevealAvailable = false;

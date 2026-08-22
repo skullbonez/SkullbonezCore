@@ -10,7 +10,7 @@ Summary:
   synchronous fixed-step operations.
 
 Glossary:
-  Support edge: Directed relationship used to propagate grounded support.
+
   Visual island id: Persisted debug id shared by bodies that slept together.
   Scratch flags: Transient per-row bits reused by point-joint and explicit-wake
     traversals; they are neither replay state nor cross-stage authority.

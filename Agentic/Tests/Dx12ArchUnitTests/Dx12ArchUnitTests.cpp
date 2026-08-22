@@ -7,7 +7,7 @@ Summary:
   Exercises CPU-only renderer state machines and ownership contracts without
   creating a D3D12 device or submitting GPU work.
 
-Mental model:
+
   Dx12ArchUnitTests.cpp contains DX12 architecture checks that guard renderer
   ownership and dependency boundaries. As an implementation unit, keep edits
   anchored on the behavior under test and the regression signal and on the
@@ -20,8 +20,7 @@ Glossary:
     later success cannot hide the unsafe earlier result.
   GPU drain: Close, submit, fence wait, and command-list reopen sequence that
     must complete before resource mutation is safe.
-  Submitted work: Queue work that remains unsafe for reuse/release until a
-    successful covering fence is observed complete.
+
   Dry run: CPU-only render-graph execution mode that records intended barriers
     without calling a real command list.
   Platform profiler GPU stack: Nested marker depth suspended when one command

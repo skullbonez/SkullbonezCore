@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/UI/UICheckBox.h
 Purpose:
-  Implements UI CheckBox widgets, layout, drawing, or UI state for the in-engine controls.
+  Declares checkbox geometry, hit testing, checked state, and drawing.
 
 Summary:
   Keeps toggle hit testing and

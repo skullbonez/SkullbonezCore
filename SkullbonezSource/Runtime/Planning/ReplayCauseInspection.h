@@ -8,11 +8,12 @@ Summary:
   bank. This value contract keeps the chosen frame, source track, and refusal
   state together so later transport cannot silently clamp to a nearby frame.
   ReplayCauseInspection owns one selected-event transition generation, including
-  the total-elapsed 1.5-second cubic progress sample, discrete request
+  the total-elapsed 1.5-second transport progress sample, discrete request
   coalescing, pause/return policy, exact-frame solver-detail availability, and
   fixed-capacity copies of the feature-neutral contact packet, contact rows,
   and pipeline records consumed synchronously by App composition. It also owns
-  the solver-panel scroll offset and shared compact layout projection.
+  the drawer scroll offset and the pure hierarchy-plus-drawer compound layout;
+  ReplayAuthoring remains the only retained anchor and resize owner.
 
 Glossary:
   Seek source: Timeline bank that must contain the row's exact frame before
@@ -32,11 +33,12 @@ Invariants:
   - Contact presentation and solver detail copy bounded values before restore
     may retire the source ring; published spans point only into Planning-owned
     fixed arrays and remain synchronous views.
-  - Drawing and input use the same solver-panel layout. Normal viewports show
-    four complete rows, short viewports show fewer complete rows, and missing
-    detail collapses to one compact feedback strip.
-  - Panel rows and manifold geometry are one focused surface: every retarget,
-    aftermath, return, failure, or reset hides both and drops all published views.
+  - Drawing, input, Automation, and tests use the same compound layout. The
+    drawer stores no x/y position and projects every control from Replay's
+    hierarchy anchor, shared height, and one supplied animation progress.
+  - Drawer rows and manifold geometry are one focused evidence surface: every
+    retarget, aftermath, return, failure, or reset drops published values before
+    the independently timed drawer shell can finish closing.
   - At most one transport request is in flight; a newer selection replaces the
     pending request and cannot be completed by an older generation.
   - The published eased sample is the single causal-transition clock consumed
@@ -61,8 +63,8 @@ Related:
 #include "../../UI/UIDraw.h"
 
 #include <array>
-#include <span>
 #include <cstdint>
+#include <span>
 
 namespace SkullbonezCore::Runtime
 {
@@ -120,6 +122,8 @@ struct ReplayCauseSolverDetailResult
     int bodyA = -1;
     int bodyB = -1;
     bool terrain = false;
+    int sourceContactIndex = -1;
+    int selectedDetailContactRow = -1;
     std::size_t contactRowCount = 0;
     std::size_t pipelineRecordCount = 0;
 
@@ -181,6 +185,13 @@ struct ReplayCauseTransportRequest
     ReplayCauseSeekSource source = ReplayCauseSeekSource::SolverHistory;
 };
 
+enum class ReplayCauseInspectorTab : uint8_t
+{
+    Summary,
+    RawRecord,
+    Iterations
+};
+
 struct ReplayCauseInspectionView
 {
     ReplayCauseInspectionMode mode = ReplayCauseInspectionMode::Inactive;
@@ -193,19 +204,49 @@ struct ReplayCauseInspectionView
     ReplayCauseSolverDetailAvailability
         solverDetailAvailability = ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable;
     int selectedRow = -1;
+    int selectedDetailContactRow = -1;
+    int sourceContactIndex = -1;
     std::size_t solverDetailContactRowCount = 0;
     std::size_t solverDetailPipelineRecordCount = 0;
     std::span<const Physics::PhysicsSolverPersistentContactSample> solverDetailContacts;
     std::span<const Physics::PhysicsPipelineRecord> solverDetailPipelineRecords;
     const char* solverDetailFeedback = "Solver detail not available";
     int solverDetailFirstRow = 0;
+    int rawRecordFirstRow = 0;
+    int iterationsFirstRow = 0;
     Rendering::ContactManifoldPresentation contactPresentation;
+    ReplayCauseInspectorTab activeTab = ReplayCauseInspectorTab::Summary;
     bool detailVisible = false;
     bool ownsPause = false;
     bool transportInFlight = false;
     bool transportPending = false;
     bool returnIssued = false;
     float easedProgress = 0.0f;
+    float drawerProgress = 0.0f;
+};
+
+// Value-only checkpoint used when App restores an interaction recording. The
+// solver-detail arrays are regenerated from the replay artifact by the normal
+// selection path before these transition/presentation scalars are applied.
+struct ReplayCauseInspectionRecordingState
+{
+    ReplayCauseInspectionMode mode = ReplayCauseInspectionMode::Inactive;
+    ReplayCauseInspectorTab activeTab = ReplayCauseInspectorTab::Summary;
+    int selectedRow = -1;
+    int selectedDetailContactRow = -1;
+    int solverDetailFirstRow = 0;
+    int rawRecordFirstRow = 0;
+    int iterationsFirstRow = 0;
+    ReplayFrameIndex sourceFrame = 0;
+    ReplayFrameIndex targetFrame = 0;
+    ReplayFrameIndex presentedFrame = 0;
+    bool detailVisible = false;
+    bool ownsPause = false;
+    bool transportPending = false;
+    bool transportInFlight = false;
+    bool returnIssued = false;
+    float easedProgress = 0.0f;
+    float drawerProgress = 0.0f;
 };
 
 // These host-decision seams keep keyboard and pointer mapping testable while
@@ -215,12 +256,20 @@ bool ShouldBeginReplayCauseReturn( const ReplayCauseInspectionView& inspection, 
                                    bool scrubExit ) noexcept;
 
 inline constexpr int REPLAY_CAUSE_SOLVER_PANEL_VISIBLE_ROWS = 4;
-inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_WIDTH = 520.0f;
-inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_TITLE_HEIGHT = 32.0f;
-inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_GUIDE_HEIGHT = 56.0f;
+inline constexpr double REPLAY_CAUSE_INSPECTOR_DRAWER_SECONDS = 0.18;
+inline constexpr float REPLAY_CAUSE_INSPECTOR_DRAWER_WIDTH = 520.0f;
+inline constexpr float REPLAY_CAUSE_INSPECTOR_DRAWER_MIN_WIDTH = 280.0f;
+inline constexpr float REPLAY_CAUSE_INSPECTOR_DRAWER_HEADER_HEIGHT = 76.0f;
+inline constexpr float REPLAY_CAUSE_INSPECTOR_TAB_HEIGHT = 38.0f;
+inline constexpr float REPLAY_CAUSE_INSPECTOR_PADDING = 12.0f;
+inline constexpr float REPLAY_CAUSE_INSPECTOR_SHARED_SEAM_WIDTH = 1.0f;
+inline constexpr float REPLAY_CAUSE_INSPECTOR_SCROLLBAR_WIDTH = 5.0f;
+inline constexpr float REPLAY_CAUSE_INSPECTOR_CLOSE_SIZE = 22.0f;
 inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_EMPTY_HEIGHT = 44.0f;
 inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_BASE_ROW_HEIGHT = 82.0f;
 inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_ITERATION_LINE_HEIGHT = 12.0f;
+inline constexpr float REPLAY_CAUSE_RAW_RECORD_ROW_HEIGHT = 21.0f;
+inline constexpr float REPLAY_CAUSE_RAW_RECORD_COPY_HEIGHT = 28.0f;
 inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_OPACITY = 0.78f;
 inline constexpr int REPLAY_CAUSE_SOLVER_PANEL_ITERATIONS_PER_LINE = 4;
 inline constexpr const char*
@@ -242,23 +291,132 @@ struct ReplayCauseSolverPanelRowText
     char impulses[256] = {};
 };
 
-struct ReplayCauseSolverPanelLayout
+struct ReplayCauseSummaryText
 {
-    UI::UIRect panel;
-    UI::UIRect content;
-    float rowHeight = REPLAY_CAUSE_SOLVER_PANEL_BASE_ROW_HEIGHT;
-    int visibleRows = 0;
+    char normalImpulse[48] = {};
+    char frictionImpulse[48] = {};
+    char penetration[48] = {};
+    char effectiveMass[48] = {};
+    char identity[160] = {};
+    char dynamics[256] = {};
+    char policy[256] = {};
 };
 
-// The custom replay overlay and App input composition share this pure layout
-// projection so hit-testing and drawing cannot disagree about the compact
-// four-row viewport or its short-screen fallback.
-ReplayCauseSolverPanelLayout BuildReplayCauseSolverPanelLayout( const ReplayCauseInspectionView& inspection,
-                                                                const RunReplayCauseTreeState& causeTree, int screenWidth,
-                                                                int screenHeight ) noexcept;
+enum class ReplayCauseRawRecordRowKind : uint8_t
+{
+    Section,
+    Value
+};
+
+struct ReplayCauseRawRecordRow
+{
+    ReplayCauseRawRecordRowKind kind = ReplayCauseRawRecordRowKind::Value;
+    char label[40] = {};
+    char value[128] = {};
+    char unit[24] = {};
+};
+
+inline constexpr std::size_t REPLAY_CAUSE_RAW_RECORD_ROW_CAPACITY = 48u;
+
+struct ReplayCauseRawRecordProjection
+{
+    // Invariant: this bounded table is the single value-to-label projection
+    // used by both the visible Raw Record tab and its cold copy payload.
+    std::array<ReplayCauseRawRecordRow, REPLAY_CAUSE_RAW_RECORD_ROW_CAPACITY> rows;
+    std::size_t rowCount = 0;
+};
+
+inline constexpr std::size_t REPLAY_CAUSE_INSPECTOR_COPY_TEXT_CAPACITY = 4096u;
+
+enum class ReplayCauseIterationRowKind : uint8_t
+{
+    WarmStart,
+    SolverIteration,
+    PositionCorrection,
+    CacheStore,
+    VelocityWriteback
+};
+
+struct ReplayCauseIterationRow
+{
+    ReplayCauseIterationRowKind kind = ReplayCauseIterationRowKind::SolverIteration;
+    int iterationIndex = 0;
+    char stage[32] = {};
+    char deltaNormal[24] = {};
+    char accNormal[24] = {};
+    char tangentImpulse[24] = {};
+    char frictionLimit[24] = {};
+    char status[24] = {};
+    char details[80] = {};
+};
+
+inline constexpr std::size_t REPLAY_CAUSE_ITERATIONS_ROW_CAPACITY = 32u;
+inline constexpr float REPLAY_CAUSE_ITERATIONS_ROW_HEIGHT = 20.0f;
+
+struct ReplayCauseIterationsProjection
+{
+    std::array<ReplayCauseIterationRow, REPLAY_CAUSE_ITERATIONS_ROW_CAPACITY> rows;
+    std::size_t rowCount = 0;
+    char summary[128] = {};
+};
+
+enum class ReplayCauseInspectorCommandKind : uint8_t
+{
+    None,
+    CopyRecord
+};
+
+struct ReplayCauseInspectorCommand
+{
+    ReplayCauseInspectorCommandKind kind = ReplayCauseInspectorCommandKind::None;
+    char text[REPLAY_CAUSE_INSPECTOR_COPY_TEXT_CAPACITY] = {};
+};
+
+struct ReplayCauseInspectorLayout
+{
+    UI::UIRect hierarchy;
+    UI::UIRect hierarchyTitle;
+    UI::UIRect hierarchyScrollbar;
+    UI::UIRect resize;
+    UI::UIRect drawer;
+    UI::UIRect visibleDrawer;
+    UI::UIRect targetDrawer;
+    UI::UIRect drawerTitle;
+    UI::UIRect drawerClose;
+    std::array<UI::UIRect, 3> tabs;
+    UI::UIRect content;
+    UI::UIRect rawTable;
+    UI::UIRect rawCopy;
+    UI::UIRect iterationsTable;
+    UI::UIRect drawerScrollbar;
+    UI::UIRect sharedSeam;
+    UI::UIRect compound;
+    UI::UIRect targetCompound;
+    float rowHeight = REPLAY_CAUSE_SOLVER_PANEL_BASE_ROW_HEIGHT;
+    float drawerProgress = 0.0f;
+    int visibleRows = 0;
+    int rawVisibleRows = 0;
+    int iterationsVisibleRows = 0;
+};
+
+// Concept: one projection describes both retained Replay placement and the
+// Planning-owned attached drawer. `drawerProgress` is already eased; CHUI3's
+// lifecycle supplies it without adding a second placement owner.
+ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseInspectionView& inspection,
+                                                            const RunReplayCauseTreeState& causeTree, int screenWidth,
+                                                            int screenHeight, float drawerProgress ) noexcept;
+bool ReplayCauseInspectorContainsPoint( const ReplayCauseInspectorLayout& layout, int x, int y ) noexcept;
+bool ReplayCauseInspectorDrawerTitleContainsPoint( const ReplayCauseInspectorLayout& layout, int x, int y ) noexcept;
 int ReplayCauseSolverDetailIterationCount( const ReplayCauseInspectionView& inspection, std::size_t contactRow ) noexcept;
 ReplayCauseSolverPanelRowText BuildReplayCauseSolverPanelRowText( const ReplayCauseInspectionView& inspection,
                                                                   int rowIndex ) noexcept;
+ReplayCauseSummaryText BuildReplayCauseSummaryText( const ReplayCauseInspectionView& inspection, int rowIndex ) noexcept;
+ReplayCauseRawRecordProjection BuildReplayCauseRawRecordProjection( const ReplayCauseInspectionView& inspection,
+                                                                    int rowIndex ) noexcept;
+ReplayCauseIterationsProjection BuildReplayCauseIterationsProjection( const ReplayCauseInspectionView& inspection,
+                                                                      int rowIndex ) noexcept;
+bool SerializeReplayCauseRawRecord( const ReplayCauseRawRecordProjection& projection, char* destination,
+                                    std::size_t destinationCapacity ) noexcept;
 
 struct ReplayCauseExitAction
 {
@@ -279,14 +437,19 @@ class ReplayCauseInspection
     bool BeginAftermath( bool& outReleasePause ) noexcept;
     ReplayCauseExitAction BeginReturn() noexcept;
     void CompleteReturn() noexcept;
+    void RestoreInteractionRecordingBaseline( const ReplayCauseInspectionRecordingState& baseline,
+                                              double nowSeconds ) noexcept;
     bool TickSolverDetailPanelInput( const RunReplayCauseTreeState& causeTree, int mouseX, int mouseY,
-                                     bool hasClientPosition, bool pointerBlocked, int wheelDelta, int screenWidth,
-                                     int screenHeight ) noexcept;
+                                     bool hasClientPosition, bool pointerBlocked, bool leftPressed, int wheelDelta,
+                                     int screenWidth, int screenHeight,
+                                     ReplayCauseInspectorCommand* outCommand = nullptr ) noexcept;
     void Reset() noexcept;
     ReplayCauseInspectionView View() const noexcept;
 
   private:
     void ClearFocusedSurface() noexcept;
+    void SetDrawerTarget( bool open, double nowSeconds ) noexcept;
+    void AdvanceDrawer( double nowSeconds ) noexcept;
 
     ReplayCauseInspectionView m_state;
 
@@ -297,6 +460,10 @@ class ReplayCauseInspection
         m_solverDetailContacts {};
     std::array<Physics::PhysicsPipelineRecord, Physics::PHYSICS_MAX_PIPELINE_TRACE_RECORDS> m_solverDetailPipelineRecords {};
     double m_startedAtSeconds = 0.0;
+    double m_lastAdvanceSeconds = 0.0;
+    double m_drawerStartedAtSeconds = 0.0;
+    float m_drawerStartProgress = 0.0f;
+    bool m_drawerTargetOpen = false;
     ReplayFrameIndex m_pendingFrame = 0;
     ReplayFrameIndex m_inFlightFrame = 0;
     uint64_t m_inFlightGeneration = 0;

@@ -3,7 +3,7 @@ File: tools/style_harness.ps1
 Purpose:
   Creates and controls a live style-authoring harness for renderer look tests.
 
-Mental model:
+Summary:
   The harness writes small control files under Agentic/style-harness, launches
   the DX12 runtime against them, and captures requested screenshots/status.
 

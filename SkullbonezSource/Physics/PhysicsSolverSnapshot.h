@@ -42,7 +42,7 @@ namespace SkullbonezCore::Physics
 inline constexpr const char* PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER = "replay_solver_snapshot";
 inline constexpr uint32_t PHYSICS_SOLVER_SNAPSHOT_VERSION = 3u;
 
-// Lane P: the strict two-generation prediction probe measured 3,401,552 bytes.
+// Test probe: the strict two-generation prediction probe measured 3,401,552 bytes.
 // Eight MiB preserves 2.466112x measured headroom.
 inline constexpr int PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES = 8 * 1024 * 1024;
 

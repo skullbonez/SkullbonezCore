@@ -1,7 +1,8 @@
 /*
 File: SkullbonezSource/UI/UIStyle.cpp
 Purpose:
-  Implements UI Style widgets, layout, drawing, or UI state for the in-engine controls.
+  Implements the immutable palette, radii, typography, spacing, and control-
+  style values.
 
 Summary:
   Owns immutable palette, radii, typography,

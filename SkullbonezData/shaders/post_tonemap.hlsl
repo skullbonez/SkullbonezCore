@@ -1,24 +1,22 @@
 /*
 File: SkullbonezData/shaders/post_tonemap.hlsl
 Purpose:
-  Runs the post_tonemap HLSL shader program used by the renderer.
+  Perform fullscreen HDR-to-SDR tonemapping, gamma correction, and vignette application.
 
 Summary:
-  post_tonemap.hlsl is shader source for the renderer's post_tonemap pass.
-  Keep edits anchored on shader inputs, bindings, and render-output contracts
-  and on the glossary/invariants below.
-
-Glossary:
-  HDR (High Dynamic Range): Floating-point scene color that can hold values
-  brighter than display white until tonemapping resolves it.
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
+  The pixel shader reads the HDR scene color target, applies ACES filmic or
+  Reinhard tonemapping with exposure control, and converts color to the swapchain
+  sRGB backbuffer.
 
 Invariants:
-  - CPU-side root signatures, input layouts, and descriptor bindings must
-  match this shader exactly.
+  - Fullscreen triangle covers NDC [-1, 1] without vertex buffer storage.
+  - Tonemapped output is clamped to [0, 1] SDR range before presentation.
+
+Related:
+  - Agentic/Reference/engine-glossary.md
+  - SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp
 */
+
 #pragma pack_matrix(column_major)
 
 // =============================================================================

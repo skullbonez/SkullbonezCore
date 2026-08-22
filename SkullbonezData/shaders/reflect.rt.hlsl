@@ -1,29 +1,21 @@
 /*
 File: SkullbonezData/shaders/reflect.rt.hlsl
 Purpose:
-  Runs the reflect.rt HLSL shader program used by the renderer.
+  Trace reflected water rays through scene acceleration structures into an
+  output image.
 
 Summary:
-  reflect.rt.hlsl is shader source for the renderer's reflect.rt pass. Keep
-  edits anchored on shader inputs, bindings, and render-output contracts and
-  on the glossary/invariants below.
-
-Glossary:
-  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
-  reflection dispatch.
-  BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
-  mesh's triangles.
-  TLAS (Top-Level Acceleration Structure): Raytracing spatial index for scene
-  instances that point at BLAS geometry.
-  UAV (Unordered Access View): Descriptor row used when compute or raytracing
-  shaders write textures or buffers.
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
+  Ray generation reconstructs a water-surface reflection ray per output
+  pixel. Closest-hit shades terrain or sphere geometry from bound scene
+  data, while miss samples the skybox before the payload reaches the output
+  image.
 
 Invariants:
-  - CPU-side root signatures, input layouts, and descriptor bindings must
+- CPU-side root signatures, input layouts, and descriptor bindings must
   match this shader exactly.
+
+Related:
+  - Agentic/Reference/engine-glossary.md
 */
 // =============================================================================
 // DXR REFLECTION SHADER — HLSL Library 6.3 (Raytracing)

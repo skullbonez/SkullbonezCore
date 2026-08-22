@@ -4,7 +4,7 @@
 # Purpose:
 #   Blocks restored legacy ASCII-art headers in C++ source files.
 #
-# Mental model:
+# Summary:
 #   This hook preserves the post-cleanup file shape. It is not a learning-header
 #   validator; it only prevents large decorative banners from coming back.
 #

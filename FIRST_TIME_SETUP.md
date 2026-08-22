@@ -50,6 +50,14 @@ Install the Python image dependency used by DX12 screenshot checks:
 python -m pip install Pillow
 ```
 
+Enable the repository-native commit hook. This makes physics-golden approval
+and deterministic runtime comparison mandatory for affected staged commits;
+it does not require an extra Python package:
+
+```powershell
+git config --local core.hooksPath .githooks
+```
+
 Install OpenCppCoverage for the Debug unit-coverage lane. Its installer is
 machine-scoped, so omit `--scope user`:
 
@@ -110,9 +118,10 @@ implementation, or routine PR preparation. Use the cumulative focused gates in
 tools\agent_validate.bat --plan-completion
 ```
 
-This delegates once to `tools\validate_full.bat --plan-completion`, which runs every mandatory
-CPU test target before the DX12 renderer and deterministic physics runtime
-lanes. Performance validation remains a separate targeted gate.
+This delegates once to `tools\validate_full.bat --plan-completion`. After the
+required Debug build, deterministic physics is the first runtime oracle; the
+remaining CPU, automation, and DX12 lanes follow. Performance validation
+remains a separate targeted gate.
 
 For targeted pre-commit/PR checks:
 

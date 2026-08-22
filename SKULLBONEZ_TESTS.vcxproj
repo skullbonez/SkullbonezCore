@@ -224,6 +224,7 @@
     <ClCompile Include="SkullbonezTests\TestEditorTerrainOrientation.cpp" />
     <ClCompile Include="SkullbonezTests\TestSceneEntityStore.cpp" />
     <ClCompile Include="SkullbonezTests\TestSceneAutomationGates.cpp" />
+    <ClCompile Include="SkullbonezTests\TestInteractionAutomationRecorder.cpp" />
     <ClCompile Include="SkullbonezTests\TestSceneSnapshotWriter.cpp" />
     <ClCompile Include="SkullbonezTests\TestPersistentContactSolver.cpp" />
     <ClCompile Include="SkullbonezTests\TestPhysicsApi.cpp" />
@@ -314,6 +315,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupCommandLine.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupLaunchResolution.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Tools\RuntimeFileWriter.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Automation\InteractionAutomationRecorder.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\RuntimeInteractionController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\OperatorCommandTransaction.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.cpp" />

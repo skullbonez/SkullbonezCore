@@ -15,7 +15,7 @@ Invariants:
   - Worker-disabled mode runs work inline through the same public helpers so
     validation can compare threaded and non-threaded behavior.
   - Worker callbacks obey the engine-wide no-exceptions policy; a returned
-    callback completed normally, while invariant failures terminate in Lane F.
+    callback completed normally, while invariant failures terminate with fatal invariant.
   - Every persistent worker receives its stable profiler label before it waits
 
     for the first job, so captures never depend on which task runs first.

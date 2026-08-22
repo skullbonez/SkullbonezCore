@@ -228,7 +228,7 @@ bool RecreatePrimitive( SceneWorld& world, SceneSessionState& scene, const Edito
     // recreated entity live; that would desynchronize the cursor and scene.
     if ( !world.DestroySceneEntity( outBody ) )
     {
-        // Lane F: a successful create must remain synchronously removable
+        // Fatal invariant: a successful create must remain synchronously removable
         // before any later command can observe it.
         SB_FATAL( "EditorCommandHistory", "Failed to roll back an incomplete primitive recreation." );
     }
@@ -309,7 +309,7 @@ bool ApplyTransformEntry( SceneWorld& world, const EditorCommandEntry& entry, bo
 
             if ( !ResetEditorModelMotionAndWake( world, modelIndices[index], update, std::move( colliderDesc ) ) )
             {
-                // Lane F: preflight resolved this owned body/collider. Failure
+                // Fatal invariant: preflight resolved this owned body/collider. Failure
                 // here would otherwise leave a group inverse partially applied.
                 SB_FATAL( "EditorCommandHistory", "Preflighted scale inverse failed during commit." );
             }
@@ -318,7 +318,7 @@ bool ApplyTransformEntry( SceneWorld& world, const EditorCommandEntry& entry, bo
         {
             if ( !ResetEditorModelMotionAndWake( world, modelIndices[index], update ) )
             {
-                // Lane F: stable-id preflight makes an update rejection an
+                // Fatal invariant: stable-id preflight makes an update rejection an
                 // ownership invariant failure, not a recoverable cursor miss.
                 SB_FATAL( "EditorCommandHistory", "Preflighted transform inverse failed during commit." );
             }

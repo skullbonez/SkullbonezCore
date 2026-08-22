@@ -18,18 +18,18 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 
-// =============================================================================
+
 // BOUNDING BOX (BoundingBox.cpp)
-// =============================================================================
+
 //
-// PURPOSE: Oriented Bounding Box (OBB) collision shape implementation.
+
 //
 // An OBB is defined by three half-extents (half the width/height/depth).
 // The actual world-space orientation is provided by the owning body row's
 // quaternion; this class only stores the shape definition and provides
 // volume/drag/collision queries.
 //
-// --- Inertia Tensor for a Solid Box ---
+// Inertia Tensor for a Solid Box:
 //
 //  For a rectangular box with half-extents (a, b, c) and mass m:
 //
@@ -40,7 +40,6 @@ Related:
 //  (where a,b,c are HALF-extents, so full side = 2a etc.)
 //  Equivalently with full sides (w,h,d): I_xx = m/12 * (h² + d²)
 //
-// =============================================================================
 
 
 #include "BoundingBox.h"
@@ -130,9 +129,8 @@ const Vector3& BoundingBox::GetHalfExtents() const
 }
 
 
-// =============================================================================
 // BROADPHASE SWEPT COLLISION TESTS
-// =============================================================================
+
 //
 // These tests approximate this OBB as a bounding sphere (radius = corner distance)
 // for the broadphase pair check. The broadphase only needs to know "could these
@@ -147,7 +145,6 @@ const Vector3& BoundingBox::GetHalfExtents() const
 // where d is the centre-to-centre vector, v_rel is relative velocity, R_combined
 // is the sum of the two bounding radii.
 //
-// =============================================================================
 
 
 // Box vs Sphere swept test: approximate box as bounding sphere for broadphase

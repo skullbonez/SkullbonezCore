@@ -13,7 +13,7 @@ Glossary:
   Scene collection: Vector-backed parsed scene array for cameras, bodies,
     constraints, or validation expectations that authored setup later replays
     into runtime owners.
-  Lane F fatal: Should-never-happen caller/scene-state invariant reported with
+  Parsed scene invariant: Should-never-happen caller/scene-state invariant reported with
     owner diagnostics before process termination.
   Schema version: Validated scene-file contract version retained with the
     parsed record so later save/load owners can choose the matching shape.
@@ -40,9 +40,9 @@ namespace
 {
 [[noreturn]] void FatalSceneIndexOutOfRange( const char* collectionName, const char* functionName, int index, int count )
 {
-    // Concept: parsed scene getters are Lane F once parsing has succeeded.
+    // Concept: parsed scene getters are fatal invariant once parsing has succeeded.
     //
-    // Scene JSON syntax/data failures are Lane R at TryLoadFromFile, but an
+    // Scene JSON syntax/data failures are recoverable error at TryLoadFromFile, but an
     // internal caller asking for an index outside the paired count is a scene
     // setup invariant failure. Fatal diagnostics keep the owner and collection
     // visible without unwinding through runtime setup.

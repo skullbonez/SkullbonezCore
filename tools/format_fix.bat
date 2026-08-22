@@ -3,7 +3,7 @@
 @rem Purpose:
 @rem   Documents and runs the format_fix.bat developer/validation helper script.
 @rem
-@rem Mental model:
+@rem Summary:
 @rem   Tools are command-line guardrails around builds, validation, screenshots,
 @rem   diagnostics, and artifact handling. They make the safe path repeatable and
 @rem   keep output bounded for humans and agents.
@@ -44,6 +44,9 @@ for /r "%REPO%\SkullbonezSource" %%f in (*.cpp *.h) do (
 if errorlevel 1 exit /b 1
 
 "%PYTHON_EXE%" "%~dp0separate_multiline_cpp_declarations.py" --repo "%REPO%" --write
+if errorlevel 1 exit /b 1
+
+"%PYTHON_EXE%" "%~dp0align_header_inline_comments.py" --self-test
 if errorlevel 1 exit /b 1
 
 "%PYTHON_EXE%" "%~dp0align_header_inline_comments.py" --repo "%REPO%" --write --clang-format "%CLANG_FMT%"

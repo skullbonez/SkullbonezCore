@@ -4,7 +4,7 @@ Purpose:
   Owns the bounded closest-approach scan over published Replay prediction rows.
 
 Summary:
-  A dedicated Legacy pick selects one durable target id. The readout then scans
+  A dedicated GameUI pick selects one durable target id. The readout then scans
   only newly published future frames for the prediction root/target minimum and
   publishes a small value packet for world markers and overlay text.
 

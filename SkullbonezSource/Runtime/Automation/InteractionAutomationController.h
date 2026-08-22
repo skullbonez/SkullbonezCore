@@ -1,16 +1,14 @@
 /*
 File: SkullbonezSource/Runtime/Automation/InteractionAutomationController.h
 Purpose:
-  Defines the CLI interaction automation action sequencer.
+  Defines legacy interaction-script sequencing and recorded-manifest playback.
 
 Summary:
-  Interaction automation is a validation harness, not gameplay state. Scripts
-  describe frame-indexed input/runtime commands, including typed Planning
-  forecast requests. Concrete input and report owners hold synthetic device
-  state and bounded evidence outside the sequencer.
-  The controller interprets one scheduled script turn into typed value requests
-  and assertion inputs. Concrete runtime owners apply those requests; the
-  controller retains only script progress and bounded report evidence.
+  Legacy scripts remain scene-frame-indexed command sequences. Recorded
+  manifests instead restore detached owner baselines and publish one complete
+  input frame per private recording turn using captured timing. Concrete runtime
+  owners still apply all requests; the controller retains progress and bounded
+  report evidence, never gameplay authority.
 
 Glossary:
   Automation action: One scheduled command from an interaction script.
@@ -24,6 +22,10 @@ Glossary:
 
 Invariants:
   - Automation state is active only for CLI validation launches.
+  - Recorded playback timing and completion use the recording-turn clock, not
+    scene-frame numbers or wall time.
+  - A recorded manifest and every referenced sidecar pass structural, safe-path,
+    and SHA-256 validation before its first input turn is published.
   - Report vectors are owned by `InteractionAutomationReportWriter`, not by the
     action sequencer or hot-path gameplay storage.
   - Synthetic input is cleared through `InteractionAutomationInputDriver` after
@@ -53,6 +55,7 @@ Related:
 #include "../RuntimeFrameViews.h"
 #include "../App/ReplayRuntimePackets.h"
 #include "InteractionAutomationInputDriver.h"
+#include "InteractionAutomationRecorder.h"
 #include "InteractionAutomationReportWriter.h"
 #include "../App/RunLaunchOptions.h"
 
@@ -67,6 +70,7 @@ Related:
 #include <string>
 #include <string_view>
 #include <array>
+#include <fstream>
 #include <vector>
 
 namespace SkullbonezCore
@@ -244,7 +248,7 @@ enum class RunInteractionAutomationAssertKind
     EditorSelectionMatchesCapture,
     DevelopmentUiSurface,
     ImGuiVisible,
-    LegacyReplayPresentationActive,
+    GameUiReplayPresentationActive,
     ImGuiPanelMask,
     ImGuiLayoutResetCountMin,
     ImGuiFocusCountMin,
@@ -279,7 +283,7 @@ struct InteractionAutomationDevelopmentUiApplyResult
 {
     SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
     bool selectSurface = false;
-    DevelopmentUiMode surface = DevelopmentUiMode::Legacy;
+    DevelopmentUiMode surface = DevelopmentUiMode::GameUI;
 };
 #endif
 
@@ -289,12 +293,12 @@ struct InteractionAutomationDevelopmentUiView
 {
     bool available = false;
     bool selectedImGui = false;
-    bool legacyVisible = false;
+    bool gameUiVisible = false;
     bool imguiVisible = false;
 
     // Exact authority consumed by the completed late replay-render pass. This
-    // may differ from next-frame selection during an ImGui-to-Legacy swap.
-    bool legacyReplayPresentationActive = false;
+    // may differ from next-frame selection during an ImGui-to-GameUI swap.
+    bool gameUiReplayPresentationActive = false;
     uint32_t panelVisibilityMask = 0u;
     uint32_t layoutResetCount = 0u;
     uint32_t automationFocusCount = 0u;
@@ -336,14 +340,24 @@ struct InteractionAutomationController
     }
 
     // Lifetime: Run owns this store for the controller's complete process
-    // lifetime. Automation uses it only for Lane R publication and child-owner
+    // lifetime. Automation uses it only for recoverable error publication and child-owner
     // construction; it never replaces the App-owned diagnostic authority.
     SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics;
     bool enabled = false;
     bool scriptLoaded = false;
     bool finished = false;
+    bool recordedManifest = false;
+    bool recordedBaselineApplied = false;
+    bool recordedFramePublished = false;
+    uint64_t recordedTurn = 0u;
+    uint64_t traceTurn = 0u;
+    double recordedDeltaSeconds = 0.0;
     char scriptPath[260] = {};
+    char tracePath[260] = {};
+    std::ofstream traceOutput;
     std::vector<RunInteractionAutomationAction> actions;
+    std::vector<RecordedInputFrame> recordedFrames;
+    InteractionRecordingBaseline recordedBaseline;
     InteractionAutomationRunStatus status;
     InteractionAutomationInputDriver inputDriver;
     InteractionAutomationReportWriter reportWriter;
@@ -364,8 +378,8 @@ struct InteractionAutomationController
     // Projects copied editor facts into the exact after-render assertion view;
     // no editor owner or mutable renderer state crosses this value boundary.
     InteractionAutomationDevelopmentUiView BuildDevelopmentUiView( const DevelopmentTools::ImGuiEditorStatus& editor,
-                                                                   bool legacyVisible,
-                                                                   bool legacyReplayPresentationActive ) const;
+                                                                   bool gameUiVisible,
+                                                                   bool gameUiReplayPresentationActive ) const;
 #endif
 };
 
@@ -374,6 +388,8 @@ struct InteractionAutomationFrameResult
     static constexpr std::size_t DEVELOPMENT_UI_COMMAND_CAPACITY = 8u;
 
     bool requestQuit = false;
+    bool hasRecordedDeltaSeconds = false;
+    double recordedDeltaSeconds = 0.0;
     SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
 
     // Value-only replay mutations are applied once by the frame composition
@@ -392,12 +408,21 @@ struct InteractionAutomationFrameResult
     bool setWorldInteractionOwner = false;
     WorldInteractionOwner worldInteractionOwner = WorldInteractionOwner::None;
     InteractionExitReason worldInteractionReason = InteractionExitReason::EnterReplay;
+    bool restoreRecordedReplayBaseline = false;
+    bool recordedReplayScrubPaused = false;
+    bool recordedReplayLiveAdvanceHeld = false;
+    RunReplayTrack recordedReplayTrack = RunReplayTrack::Solver;
+    float recordedReplayPresentationTrackPosition = 1.0f;
+    float recordedReplaySolverTrackPosition = 1.0f;
+    bool restoreRecordedReplayCauseBaseline = false;
+    InteractionRecordingBaseline recordedReplayCauseBaseline;
     std::array<InteractionAutomationDevelopmentUiCommand, DEVELOPMENT_UI_COMMAND_CAPACITY> developmentUiCommands = {};
     std::size_t developmentUiCommandCount = 0u;
 };
 
 SkullbonezCore::Core::SbResult ConfigureInteractionAutomation( InteractionAutomationController& state,
-                                                               const char* scriptPath, const char* reportPath );
+                                                               const char* scriptPath, const char* reportPath,
+                                                               const char* tracePath );
 
 // Converts script function-key labels to the Win32 value held by the input
 // driver. Keeping this value-only mapping inline lets CPU tests pin the same
@@ -406,32 +431,34 @@ inline bool TryParseInteractionAutomationVirtualKey( const char* value, int& out
 {
     const std::string_view key = value ? value : "";
 
-    if ( key == "F5" )
+    if ( key.size() >= 2 && ( key[0] == 'F' || key[0] == 'f' ) )
     {
-        outVirtualKey = VK_F5;
-    }
-    else if ( key == "F6" )
-    {
-        outVirtualKey = VK_F6;
-    }
-    else if ( key == "F9" )
-    {
-        outVirtualKey = VK_F9;
-    }
-    else if ( key == "F10" )
-    {
-        outVirtualKey = VK_F10;
-    }
-    else if ( key == "F11" )
-    {
-        outVirtualKey = VK_F11;
-    }
-    else
-    {
-        return false;
+        if ( key.size() == 2 && key[1] >= '1' && key[1] <= '9' )
+        {
+            outVirtualKey = VK_F1 + ( key[1] - '1' );
+            return true;
+        }
+
+        if ( key == "F10" || key == "f10" )
+        {
+            outVirtualKey = VK_F10;
+            return true;
+        }
+
+        if ( key == "F11" || key == "f11" )
+        {
+            outVirtualKey = VK_F11;
+            return true;
+        }
+
+        if ( key == "F12" || key == "f12" )
+        {
+            outVirtualKey = VK_F12;
+            return true;
+        }
     }
 
-    return true;
+    return false;
 }
 SkullbonezCore::Core::SbResult InteractionAutomationResult( const InteractionAutomationController& state );
 void ClearInteractionAutomationInput( InteractionAutomationController& state );

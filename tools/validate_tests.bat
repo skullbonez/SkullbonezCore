@@ -3,7 +3,7 @@
 @rem Purpose:
 @rem   Build and run the SKULLBONEZ_TESTS unit-test executable.
 @rem
-@rem Mental model:
+@rem Summary:
 @rem   Unit tests are the cheapest validation layer: they compile small
 @rem   contracts into a console runner and avoid launching the full runtime.
 @rem

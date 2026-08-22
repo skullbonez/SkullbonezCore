@@ -16,9 +16,9 @@ Invariants:
   - WidgetView is borrowed synchronously and is never stored by a consumer.
 
 Related:
+  - Agentic/Reference/engine-glossary.md
   - SkullbonezSource/UI/UI.cpp
   - SkullbonezSource/UI/UIWindowInteractionOwner.cpp
-  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -130,6 +130,12 @@ class UIWindowInteractionOwner
     bool BlocksKeyboard() const;
     bool WantsNativeMouseCursor() const;
     void SetWindowBounds( int x, int y, int width, int height );
+
+    // Writes a stable window-local anchor only when the client point is inside this owner.
+    bool CaptureInteractionAnchor( int clientX, int clientY, char* output, std::size_t outputSize ) const;
+
+    // Maps a supported anchor to the current window's client coordinates.
+    bool ResolveInteractionAnchor( const char* anchor, int& clientX, int& clientY ) const;
     void SetBlurEnabled( bool enabled );
     void SetRendererComboOpen( bool open );
     void SetWaterComboOpen( bool open );
@@ -160,7 +166,7 @@ class UIWindowInteractionOwner
     InGameUIInputResult UpdateInput( const InputControl::UIInputSnapshot& input, int screenWidth, int screenHeight,
                                      double now, bool editorModeEnabled, bool editorPlacementMode, bool editorPlaceStatic,
                                      bool editorTerrainAlign, int cameraModeIndex, uint32_t cameraModeEnabledMask,
-                                     std::span<const char* const> sceneOptions, int selectedSceneOption );
+                                     const SceneNavigationModel& sceneNavigation );
 
   private:
     void CloseSceneCombo();

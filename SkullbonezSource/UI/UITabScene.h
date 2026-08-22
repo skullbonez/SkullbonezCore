@@ -1,7 +1,8 @@
 /*
 File: SkullbonezSource/UI/UITabScene.h
 Purpose:
-  Implements UI TabScene widgets, layout, drawing, or UI state for the in-engine controls.
+  Declares filtered scene navigation, time controls, and detached forecast
+  presentation.
 
 Summary:
   Owns filtered scene selection, scene commands, time-control interaction, and
@@ -53,10 +54,12 @@ struct UISceneTabState
     char filter[64] = {};
     bool filterKeyWasDown[256] = {};
     int comboScroll = 0;
+    int recordingComboScroll = 0;
 
     // Concept: scene-selection controls belong to the Scene tab because their
     // open state, bounds, filtering, and commands form one interaction.
     UIComboBox combo;
+    UIComboBox recordingCombo;
     UIButton resetSceneButton;
     UIButton resetDefaultsButton;
     UIButton saveDefaultsButton;
@@ -83,6 +86,7 @@ int FilteredPositionForIndex( const char* const* options, int optionCount, const
 void ClearFilter( UISceneTabState& state );
 void SetFilter( UISceneTabState& state, const char* filter );
 void CloseCombo( UISceneTabState& state );
+void CloseRecordingCombo( UISceneTabState& state );
 void RequestFilterKeySync( UISceneTabState& state );
 void ResetPreviewState( UISceneTabState& state );
 
@@ -101,6 +105,13 @@ bool HandleHeaderClick( UISceneTabState& state, InGameUIInputResult& result, int
 bool HandleClosedComboClick( UISceneTabState& state, const InputControl::UIInputSnapshot& input,
                              const char* const* sceneOptions, int sceneOptionCount, int selectedSceneOption, int mouseX,
                              int mouseY );
+
+bool HandleRecordingComboWheel( UISceneTabState& state, int recordingOptionCount, int mouseX, int mouseY, int wheelDelta,
+                                float contentX, float rowBase, float contentW );
+bool HandleOpenRecordingComboClick( UISceneTabState& state, InGameUIInputResult& result, int recordingOptionCount,
+                                    int mouseX, int mouseY, float contentX, float rowBase, float contentW );
+bool HandleClosedRecordingComboClick( UISceneTabState& state, int recordingOptionCount, int selectedRecordingOption,
+                                      int mouseX, int mouseY, float contentX, float rowBase, float contentW );
 
 bool HandleTimeScaleClick( UISceneTabState& state, InGameUIInputResult& result, int& activeSlider, int mouseX, int mouseY,
                            float contentX, float rowBase, float contentW );

@@ -1,26 +1,21 @@
 /*
 File: SkullbonezData/shaders/transient_colored_triangles.hlsl
 Purpose:
-  Draws sparse tornado visual-effect triangles.
+  Render dynamic per-frame transient colored triangles for tornado shells and visual passes.
 
 Summary:
-  CPU code builds low-alpha world-space ribbons and dust billboards. This shader
-  transforms positions, keeps ribbons soft, and breaks dust quads into mottled
-  terrain-faded clumps.
-
-Glossary:
-  Ribbon: World-space strip used for the tornado funnel shell.
-  Dust billboard: Quad whose opacity is shaped in the pixel shader.
-  Terrain fade: Alpha falloff based on height above the authored terrain plane.
+  Draws unindexed dynamic triangle buffers allocated per-frame for fluid
+  surfaces, vortex funnels, and transient geometric effects without retained GPU buffers.
 
 Invariants:
-  - Input layout is position, color, then fx payload; CPU generation must match
-    those semantics exactly.
-  - fx.z selects dust behavior; non-dust ribbon pixels return the CPU color.
+  - Storage is allocated from transient frame dynamic heaps and valid for one frame only.
+  - Alpha blending respects authored visual pass sorting order.
 
 Related:
+  - Agentic/Reference/engine-glossary.md
   - SkullbonezSource/Gameplay/TornadoVisualPass.cpp
 */
+
 #pragma pack_matrix(column_major)
 
 cbuffer Uniforms : register(b0)

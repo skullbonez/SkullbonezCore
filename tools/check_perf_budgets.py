@@ -3,7 +3,7 @@ File: tools/check_perf_budgets.py
 Purpose:
   Enforces absolute millisecond budgets for perf artifacts produced by validate_perf.
 
-Mental model:
+Summary:
   Baseline comparisons catch relative drift only when a matching baseline and
   machine are available. This checker is the hard stop for critical frame
   markers: if physics or render work grows into whole-frame territory, the

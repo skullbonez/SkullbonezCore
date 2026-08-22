@@ -13,8 +13,6 @@ Glossary:
   Record cursor: Retained progress through one versioned trajectory record.
   Retained trail: Independently sampled marker path for a completed outgoing
     trajectory.
-  Publication token: Monotonic Prediction value that invalidates retained
-    geometry only when a reader-visible trajectory prefix changes.
 
 Invariants:
   - Draw cursors and retained command storage belong to Prediction.

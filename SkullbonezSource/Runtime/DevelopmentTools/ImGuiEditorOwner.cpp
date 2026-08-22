@@ -328,7 +328,7 @@ SkullbonezCore::Core::SbResult ImGuiEditorOwner::Start( HWND window, Rendering::
 
     if ( !m_context )
     {
-        // Lane F: a development editor context that cannot establish its sole
+        // Fatal invariant: a development editor context that cannot establish its sole
         // owner cannot safely continue into frame calls.
         SB_FATAL( "DevelopmentTools/ImGui", "Dear ImGui context creation failed." );
     }
@@ -640,7 +640,7 @@ ImGuiEditorNativeMessageRoute ImGuiEditorOwner::HandleNativeMessage( HWND window
 
     if ( !m_visible && route.messageClass != ImGuiEditorMessageClass::Platform )
     {
-        // Invariant: Legacy mode retains its native input/cursor behavior.
+        // Invariant: GameUI mode retains its native input/cursor behavior.
         // Focus, DPI, display, and device messages continue keeping the dormant
         // backend synchronized for a later atomic switch to ImGui.
         return route;
@@ -762,7 +762,7 @@ bool ImGuiEditorOwner::BeginFrame( const ImGuiEditorFrameInput& input )
 
     if ( m_frameActive )
     {
-        // Lane F: nested frames corrupt ImGui retained stacks and settings.
+        // Fatal invariant: nested frames corrupt ImGui retained stacks and settings.
         SB_FATAL( "DevelopmentTools/ImGui", "BeginFrame called while an editor frame is already active." );
     }
 
@@ -1367,10 +1367,10 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
         if ( ImGui::BeginMenu( "View" ) )
         {
-            if ( ImGui::MenuItem( "Switch to Legacy UI", "Ctrl+0" ) )
+            if ( ImGui::MenuItem( "Switch to Game UI", "Ctrl+0" ) )
             {
                 // The composition root consumes this after the ImGui frame and
-                // hides this source before activating the Legacy target.
+                // hides this source before activating the GameUI target.
                 m_frameCommands.requestSurfaceSwap = true;
             }
 
@@ -2717,7 +2717,7 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             else if ( causality.state == ImGuiEditorCausalityState::CapacityLimited )
             {
                 ImGui::TextWrapped( "The replay explanation exceeded its pre-reserved row capacity. "
-                                    "The legacy overlay and editor both fail closed; reduce scene/contact scope." );
+                                    "The GameUI overlay and editor both fail closed; reduce scene/contact scope." );
             }
             else if ( causality.state == ImGuiEditorCausalityState::Stale )
             {

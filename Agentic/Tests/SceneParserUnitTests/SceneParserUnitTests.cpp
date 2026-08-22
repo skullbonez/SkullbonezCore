@@ -7,7 +7,7 @@ Summary:
   Loads compact authored-data fixtures and verifies parsed values plus named
   recoverable failures without depending on renderer output.
 
-Mental model:
+
   These tests protect user-facing scene authoring JSON. They load checked-in
   fixtures and small TestOutput-generated fault cases through the same AuthoredScene
   entry points used by runtime code, then inspect the parsed data model.
@@ -17,10 +17,8 @@ Glossary:
   Contract test: Focused test that protects user-visible syntax and parsed
   output rather than renderer screenshots.
   Scene authoring JSON: Structured fields accepted by .scene.json and .style.json files.
-  Scene object id: Stable nonzero physics identity explicitly authored in v2
-    and writer-made v3 scenes, or deterministically filled for compact v1/v3
-    input.
-  Lane R result: Recoverable parser failure returned by AuthoredScene::TryLoad*
+
+  Recoverable result: Recoverable parser failure returned by AuthoredScene::TryLoad*
     entry points with owner/message diagnostics.
 
 Invariants:

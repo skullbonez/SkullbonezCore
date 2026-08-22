@@ -556,7 +556,7 @@ class EngineConfig
   public:
     EngineConfig() = default;
 
-    // Lane R: authored configuration is preflighted before any destination is
+    // Recoverable error: authored configuration is preflighted before any destination is
     // mutated, so an unsupported format cannot leave a partially loaded config.
     SbResult Load( SbDiagnosticStore& diagnostics, const char* path );
     void Dump( FILE* out ) const;

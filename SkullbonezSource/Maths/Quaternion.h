@@ -10,11 +10,9 @@ Summary:
 
 Glossary:
   Quaternion: Four-component rotation representation that avoids gimbal lock
-  during incremental orientation updates.
-  Identity quaternion: No-rotation value (0,0,0,1); multiplying by it leaves an
-  orientation unchanged.
+    during incremental orientation updates.
   Euler decomposition: Splitting rotation into ordered X/Y/Z angles; this file
-  avoids depending on that order for incremental angular displacement.
+    avoids depending on that order for incremental angular displacement.
   Shortest nlerp: Normalized linear interpolation that first chooses the
     quaternion sign representing the shorter equivalent rotation arc.
 
@@ -27,6 +25,7 @@ Invariants:
     cosine/sine routine; its arithmetic can change byte-exact Physics baselines.
 
 Related:
+  - Agentic/Reference/engine-glossary.md
   - SkullbonezSource/Maths/Quaternion.cpp
   - SkullbonezSource/Maths/DeterministicMath.h
 */
@@ -50,27 +49,26 @@ class Quaternion
 {
 
   public:
-    Quaternion();                                                     // Initializes to identity orientation.
-    Quaternion( float x, float y, float z, float w );                 // Explicit component construction for deserialization/math helpers.
+    Quaternion();                                                       // Initializes to identity orientation.
+    Quaternion( float x, float y, float z, float w );                   // Explicit component construction for deserialization/math helpers.
     ~Quaternion() = default;
-    void Identity();                                                  // Resets orientation to the no-rotation value.
-    void Normalise();                                                 // Removes floating-point drift before conversion to matrices or solver rows.
+    void Identity();                                                    // Resets orientation to the no-rotation value.
+    void Normalise();                                                   // Removes floating-point drift before conversion to matrices or solver rows.
 
     // Precondition: axis is normalized. Debug asserts on misuse; Release keeps
     // the existing unchecked arithmetic and post-composition normalization.
-    void RotateAboutAxis( const Vector::Vector3& axis, float angle ); // Applies angle radians about a world-space axis.
+    void RotateAboutAxis( const Vector::Vector3& axis, float angle );   // Applies angle radians about a world-space axis.
 
     // Returns the active-rotation matrix for this Hamilton quaternion.
     Transformation::RotationMatrix GetOrientationMatrix() const;
 
     // Standard Hamilton order: lhs * rhs applies rhs first, then lhs.
     Quaternion operator*( const Quaternion& q ) const;
-    Quaternion& operator*=( const Quaternion& q );                    // In-place rotation composition; caller normalizes if drift matters.
-    void GetComponents( float& x, float& y, float& z,
-                        float& w ) const;                             // Exposes raw components for deterministic serialization.
+    Quaternion& operator*=( const Quaternion& q );                      // In-place rotation composition; caller normalizes if drift matters.
+    void GetComponents( float& x, float& y, float& z, float& w ) const; // Exposes raw components for deterministic serialization.
 
   private:
-    float m_x, m_y, m_z, m_w;                                         // Stored as vector part xyz plus scalar w.
+    float m_x, m_y, m_z, m_w;                                           // Stored as vector part xyz plus scalar w.
 };
 
 // One program-wide no-rotation value shared by every including translation unit.

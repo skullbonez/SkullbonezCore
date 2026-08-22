@@ -1,4 +1,4 @@
-//
+//   - Agentic/Reference/engine-glossary.md//
 // File: SkullbonezTests/TestQuaternion.cpp
 // Purpose:
 //   Lock the first pure-math unit contracts for Quaternion.
@@ -9,7 +9,7 @@
 //   orientation. These tests pin that public contract for every current caller.
 //
 // Glossary:
-//   Identity quaternion: No-rotation value (0,0,0,1).
+
 //   Axis-angle rotation: Rotation described by one axis vector and one angle.
 //   Drift: Floating-point length error accumulated by repeated multiplication.
 //

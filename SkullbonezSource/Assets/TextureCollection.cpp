@@ -58,7 +58,7 @@ int TextureCollection::FindIndex( uint32_t hash ) const
         return index;
     }
 
-    // Invariant: public residency/loading APIs return Lane R failures before a
+    // Invariant: public residency/loading APIs return recoverable failures before a
     // caller asks for an index. Reaching this point means an internal caller
     // skipped the result contract.
     SB_FATAL( "TextureCollection", "Texture hash lookup failed after residency check. hash=0x%08X", hash );

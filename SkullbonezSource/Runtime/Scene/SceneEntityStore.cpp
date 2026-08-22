@@ -8,8 +8,6 @@ Summary:
   commits physics owner rows, then publishes the fully linked entity record.
   Reserved storage prevents steady-runtime growth.
 
-Glossary:
-  Stable identity: Nonzero PhysicsSceneObjectId that survives dense-row movement.
 
 Invariants:
   - Preflight is mutation-free.
@@ -126,6 +124,15 @@ SkullbonezCore::Core::SbResult SceneEntityStore::PreflightAppend( const SceneEnt
     if ( !entity.sceneObjectId.IsValid() )
     {
         return m_diagnostics.Failure( "Scene/SceneEntityStore", "Cannot append a scene entity with id 0." );
+    }
+
+    if ( entity.displayName[0] == '\0' )
+    {
+        // Why: snapshots and semantic interaction anchors both publish display
+        // names. Rejecting an unnamed row before any paired store mutates keeps
+        // the later F8 save boundary recoverable and serialization-ready.
+        return m_diagnostics.Failure( "Scene/SceneEntityStore", "Cannot append an unnamed scene entity. id=%u.",
+                                      entity.sceneObjectId.value );
     }
 
     if ( FindBySceneObjectId( entity.sceneObjectId ) >= 0 )

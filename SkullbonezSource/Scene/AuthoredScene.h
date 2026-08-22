@@ -61,12 +61,12 @@ struct SceneCamera
     Math::Vector::Vector3 view;
     Math::Vector::Vector3 up;
 
-    char name[64];                                               // Stable authoring name used by diagnostics and camera selection.
+    char name[64];                                                                                     // Stable authoring name used by diagnostics and camera selection.
 };
 
 struct SceneBall
 {
-    Physics::PhysicsSceneObjectId sceneObjectId;                 // Stable schema identity; never derived from shape-vector order.
+    Physics::PhysicsSceneObjectId sceneObjectId;                                                       // Stable schema identity; never derived from shape-vector order.
     char name[64];
     float posX, posY, posZ;
     float m_radius;
@@ -74,12 +74,11 @@ struct SceneBall
     float moment;
     float restitution;
     float forceX, forceY, forceZ;
-    float impulseWorldOffsetFromCenterX, impulseWorldOffsetFromCenterY,
-        impulseWorldOffsetFromCenterZ;                           // World-axis lever arm from the body's center of mass.
-    float eulerX, eulerY, eulerZ;                                // Initial orientation in degrees (optional, default 0)
-    char contactMaterial[32];                                    // Optional gameplay contact material token.
-    bool hasInitOrient;                                          // False means use default identity orientation.
-    bool isFixed;                                                // Fixed bodies participate in contacts but do not integrate.
+    float impulseWorldOffsetFromCenterX, impulseWorldOffsetFromCenterY, impulseWorldOffsetFromCenterZ; // World-axis lever arm from the body's center of mass.
+    float eulerX, eulerY, eulerZ;                                                                      // Initial orientation in degrees (optional, default 0)
+    char contactMaterial[32];                                                                          // Optional gameplay contact material token.
+    bool hasInitOrient;                                                                                // False means use default identity orientation.
+    bool isFixed;                                                                                      // Fixed bodies participate in contacts but do not integrate.
 };
 
 struct SceneBallState
@@ -92,7 +91,7 @@ struct SceneBallState
     float orientX, orientY, orientZ, orientW;
     float radius, mass, restitution;
     float inertiaX, inertiaY, inertiaZ;
-    char contactMaterial[32];                                    // Snapshot-preserved gameplay contact material token.
+    char contactMaterial[32];                                                                          // Snapshot-preserved gameplay contact material token.
     bool isFixed;
     bool isSleeping;
 };
@@ -108,7 +107,7 @@ struct SceneBoxState
     float halfX, halfY, halfZ;
     float mass, restitution;
     float inertiaX, inertiaY, inertiaZ;
-    char contactMaterial[32];                                    // Snapshot-preserved gameplay contact material token.
+    char contactMaterial[32];                                                                          // Snapshot-preserved gameplay contact material token.
     bool isFixed;
     bool isSleeping;
 };
@@ -122,9 +121,9 @@ enum class SceneObjectGroupKind : uint8_t
 struct SceneObjectGroupMetadata
 {
     SceneObjectGroupKind kind = SceneObjectGroupKind::None;
-    char rootObjectName[64] = {};                                // Authored root name, resolved after scene expansion.
-    Physics::PhysicsSceneObjectId rootObjectId;                  // Stable identity resolved from the authored root name.
-    int partIndex = -1;                                          // Deterministic part order inside the group.
+    char rootObjectName[64] = {};                                                                      // Authored root name, resolved after scene expansion.
+    Physics::PhysicsSceneObjectId rootObjectId;                                                        // Stable identity resolved from the authored root name.
+    int partIndex = -1;                                                                                // Deterministic part order inside the group.
 };
 
 enum SceneAssetInstanceOverrideBits : uint32_t
@@ -138,9 +137,9 @@ enum SceneAssetInstanceOverrideBits : uint32_t
 
 struct SceneAssetLibraryRef
 {
-    char token[260] = {};                                        // Exact token authored in assetLibraries[].
-    char resolvedPath[260] = {};                                 // Path actually loaded, retained for diagnostics and association.
-    Assets::AssetId resolvedAssetId = 0;                         // Process-local registry id; never serialized as scene identity.
+    char token[260] = {};                                                                              // Exact token authored in assetLibraries[].
+    char resolvedPath[260] = {};                                                                       // Path actually loaded, retained for diagnostics and association.
+    Assets::AssetId resolvedAssetId = 0;                                                               // Process-local registry id; never serialized as scene identity.
 };
 
 enum class SceneAssetPartSource : uint8_t
@@ -148,32 +147,32 @@ enum class SceneAssetPartSource : uint8_t
     BallState = 0,
     BoxState,
     ConvexHull,
-    ConvexHullState,                                             // Snapshot part whose pose/inertia are already live body state.
+    ConvexHullState,                                                                                   // Snapshot part whose pose/inertia are already live body state.
 };
 
 struct SceneAssetPartRef
 {
-    Physics::PhysicsSceneObjectId sceneObjectId;                 // Identity of the exact expanded physics row.
-    char partName[128] = {};                                     // Asset recipe name before instance-name expansion.
-    char objectName[64] = {};                                    // Generated display name used by current material/object paths.
-    uint32_t partIndex = 0;                                      // Authored order inside the asset recipe.
-    uint32_t sourceIndex = 0;                                    // Row in the exact AuthoredScene vector named by source.
+    Physics::PhysicsSceneObjectId sceneObjectId;                                                       // Identity of the exact expanded physics row.
+    char partName[128] = {};                                                                           // Asset recipe name before instance-name expansion.
+    char objectName[64] = {};                                                                          // Generated display name used by current material/object paths.
+    uint32_t partIndex = 0;                                                                            // Authored order inside the asset recipe.
+    uint32_t sourceIndex = 0;                                                                          // Row in the exact AuthoredScene vector named by source.
     SceneAssetPartSource source = SceneAssetPartSource::BallState;
-    float posX = 0.0f, posY = 0.0f, posZ = 0.0f;                 // Composed world position.
+    float posX = 0.0f, posY = 0.0f, posZ = 0.0f;                                                       // Composed world position.
     float orientX = 0.0f, orientY = 0.0f, orientZ = 0.0f, orientW = 1.0f;
 };
 
 struct SceneAssetInstanceRecord
 {
-    Physics::PhysicsSceneObjectId rootSceneObjectId;             // First ordered part; parts may otherwise use non-contiguous ids.
+    Physics::PhysicsSceneObjectId rootSceneObjectId;                                                   // First ordered part; parts may otherwise use non-contiguous ids.
     char assetName[128] = {};
     char instanceName[64] = {};
     uint32_t libraryRefIndex = 0;
-    uint32_t firstPart = 0;                                      // Range into AuthoredScene's ordered asset-part vector.
+    uint32_t firstPart = 0;                                                                            // Range into AuthoredScene's ordered asset-part vector.
     uint32_t partCount = 0;
     uint32_t overrideMask = 0;
     float posX = 0.0f, posY = 0.0f, posZ = 0.0f;
-    float eulerX = 0.0f, eulerY = 0.0f, eulerZ = 0.0f;           // Exact authored instance Euler degrees.
+    float eulerX = 0.0f, eulerY = 0.0f, eulerZ = 0.0f;                                                 // Exact authored instance Euler degrees.
     float orientX = 0.0f, orientY = 0.0f, orientZ = 0.0f, orientW = 1.0f;
     float velX = 0.0f, velY = 0.0f, velZ = 0.0f;
     float angVelX = 0.0f, angVelY = 0.0f, angVelZ = 0.0f;
@@ -193,8 +192,8 @@ struct SceneConvexHullState
     float mass, restitution;
     float inertiaX, inertiaY, inertiaZ;
     float contactReleaseImpulseThreshold;
-    char contactMaterial[32];                                    // Snapshot-preserved gameplay contact material token.
-    SceneObjectGroupMetadata group;                              // Parsed multi-part object ownership metadata.
+    char contactMaterial[32];                                                                          // Snapshot-preserved gameplay contact material token.
+    SceneObjectGroupMetadata group;                                                                    // Parsed multi-part object ownership metadata.
     bool isFixed;
     bool isSleeping;
     bool contactReleaseOnImpact;
@@ -202,7 +201,7 @@ struct SceneConvexHullState
 
 struct SceneRagdoll
 {
-    Physics::PhysicsSceneObjectId firstSceneObjectId;            // First id in the fixed SIMPLE_PART_COUNT topology.
+    Physics::PhysicsSceneObjectId firstSceneObjectId;                                                  // First id in the fixed SIMPLE_PART_COUNT topology.
     char name[64];
     float posX, posY, posZ;
     float scale;
@@ -230,12 +229,12 @@ struct SceneBox
     Physics::PhysicsSceneObjectId sceneObjectId;
     char name[64];
     float posX, posY, posZ;
-    float halfX, halfY, halfZ;                                   // Half-extents
+    float halfX, halfY, halfZ;                                                                         // Half-extents
     float mass;
     float restitution;
-    float eulerX, eulerY, eulerZ;                                // Initial orientation in degrees (optional, default 0)
-    float velX, velY, velZ;                                      // Initial linear velocity (optional, default 0)
-    char contactMaterial[32];                                    // Gameplay contact material token.
+    float eulerX, eulerY, eulerZ;                                                                      // Initial orientation in degrees (optional, default 0)
+    float velX, velY, velZ;                                                                            // Initial linear velocity (optional, default 0)
+    char contactMaterial[32];                                                                          // Gameplay contact material token.
     bool hasInitOrient;
     bool hasInitVelocity;
     bool isFixed;
@@ -250,14 +249,14 @@ struct SceneConvexHull
     float mass;
     float restitution;
     float eulerX, eulerY, eulerZ;
-    float orientX, orientY, orientZ, orientW;                    // Exact quaternion for composed asset-part orientation.
+    float orientX, orientY, orientZ, orientW;                                                          // Exact quaternion for composed asset-part orientation.
     float velX, velY, velZ;
     float angVelX, angVelY, angVelZ;
     float contactReleaseImpulseThreshold;
-    char contactMaterial[32];                                    // Gameplay contact material token.
-    SceneObjectGroupMetadata group;                              // Parsed multi-part object ownership metadata.
+    char contactMaterial[32];                                                                          // Gameplay contact material token.
+    SceneObjectGroupMetadata group;                                                                    // Parsed multi-part object ownership metadata.
     bool hasInitOrient;
-    bool hasInitQuaternionOrient;                                // Takes precedence over Euler when true.
+    bool hasInitQuaternionOrient;                                                                      // Takes precedence over Euler when true.
     bool hasInitVelocity;
     bool hasInitAngularVelocity;
     bool isFixed;
@@ -369,70 +368,70 @@ struct SceneOptions
     bool isPhysicsEnabled = true;
     bool isTextEnabled = true;
     bool isTextOnly = false;
-    bool predictionAllBodiesSpace = false;                       // Explicit all-body path policy; force settings do not select presentation.
-    int frameCount = -1;                                         // -1 = unlimited
-    unsigned int seed = 0;                                       // RNG seed (0 = use time-based default)
-    int solverBallCount = 0;                                     // exact impulse-solver balls to spawn (0 = not set)
-    int solverBoxCount = 0;                                      // exact impulse-solver boxes to spawn (0 = not set)
-    int modelCapacity = -1;                                      // active game-model capacity (-1 = use startup/config capacity)
-    int workerThreads = -2;                                      // -2 = use startup/config worker count, -1 = auto, 0 = disabled, >0 = explicit workers
-    float timeScale = 1.0f;                                      // Physics time multiplier (1.0 = realtime)
-    bool isFixedStep = false;                                    // If true, each render frame triggers exactly one physics tick at PHYSICS_FIXED_DT
-    bool pauseSnapshotState = true;                              // Start authored body-state scenes paused for inspection
-    uint32_t physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE;    // Physics debug overlay mask.
-    bool physicsDebugTransparent = false;                        // Translucent collision volumes while physics debug is visible.
-    float physicsDebugAlpha = 0.28f;                             // Alpha for translucent debug collision volumes
-    float physicsDebugContactLinger = 0.45f;                     // Seconds to keep contact manifold debug rows visible
-    float trackHeight = -1.0f;                                   // Height above tracked ball for camera (-1 = no tracking)
-    float autoCycleInterval = -1.0f;                             // Seconds between per-ball screenshots (-1 = disabled)
-    bool screenshotAndExit = false;                              // Capture first frame as SCENENAME.bmp then exit
-    bool exitOnComplete = false;                                 // Exit automatically when targetFrameCount is reached
-    bool collisionVisualizer = false;                            // Solid collision/sleep debug colours.
-    bool broadphaseOverlay = false;                              // Spatial broadphase debug overlay.
-    bool waterFreezeDebug = false;                               // Freeze water animation at load time
-    bool waterFlatDebug = false;                                 // Flat water mesh for debug captures.
-    int waterReflectionMode = 0;                                 // 0=FBO, 1=DXR, 2=None
-    bool waterHidden = false;                                    // Suppress water rendering (for clean texture comparison)
-    bool terrainHidden = false;                                  // Suppress terrain rendering
-    bool editableScene = false;                                  // Scene-tab starter scene; Save Defaults persists live object state
-    bool hasCinematicRenderingOverride = false;                  // Scene explicitly toggles cinematic HDR/post rendering
-    bool cinematicRendering = false;                             // Cinematic HDR/post rendering scene override
-    bool hasCinematicExposure = false;                           // Scene explicitly sets tonemap exposure
-    float cinematicExposure = 1.0f;                              // Scene tonemap exposure
-    bool hasCinematicGamma = false;                              // Scene explicitly sets output gamma
-    float cinematicGamma = 2.2f;                                 // Scene output gamma
-    uint64_t cinematicOverrideMask = 0;                          // Per-field overrides from cinematic JSON fields
-    SkullbonezCore::Core::CinematicRenderConfig cinematicRender; // Scene-authored cinematic values for overridden fields
+    bool predictionAllBodiesSpace = false;                                                             // Explicit all-body path policy; force settings do not select presentation.
+    int frameCount = -1;                                                                               // -1 = unlimited
+    unsigned int seed = 0;                                                                             // RNG seed (0 = use time-based default)
+    int solverBallCount = 0;                                                                           // exact impulse-solver balls to spawn (0 = not set)
+    int solverBoxCount = 0;                                                                            // exact impulse-solver boxes to spawn (0 = not set)
+    int modelCapacity = -1;                                                                            // active game-model capacity (-1 = use startup/config capacity)
+    int workerThreads = -2;                                                                            // -2 = use startup/config worker count, -1 = auto, 0 = disabled, >0 = explicit workers
+    float timeScale = 1.0f;                                                                            // Physics time multiplier (1.0 = realtime)
+    bool isFixedStep = false;                                                                          // If true, each render frame triggers exactly one physics tick at PHYSICS_FIXED_DT
+    bool pauseSnapshotState = true;                                                                    // Start authored body-state scenes paused for inspection
+    uint32_t physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE;                                          // Physics debug overlay mask.
+    bool physicsDebugTransparent = false;                                                              // Translucent collision volumes while physics debug is visible.
+    float physicsDebugAlpha = 0.28f;                                                                   // Alpha for translucent debug collision volumes
+    float physicsDebugContactLinger = 0.45f;                                                           // Seconds to keep contact manifold debug rows visible
+    float trackHeight = -1.0f;                                                                         // Height above tracked ball for camera (-1 = no tracking)
+    float autoCycleInterval = -1.0f;                                                                   // Seconds between per-ball screenshots (-1 = disabled)
+    bool screenshotAndExit = false;                                                                    // Capture first frame as SCENENAME.bmp then exit
+    bool exitOnComplete = false;                                                                       // Exit automatically when targetFrameCount is reached
+    bool collisionVisualizer = false;                                                                  // Solid collision/sleep debug colours.
+    bool broadphaseOverlay = false;                                                                    // Spatial broadphase debug overlay.
+    bool waterFreezeDebug = false;                                                                     // Freeze water animation at load time
+    bool waterFlatDebug = false;                                                                       // Flat water mesh for debug captures.
+    int waterReflectionMode = 0;                                                                       // 0=FBO, 1=DXR, 2=None
+    bool waterHidden = false;                                                                          // Suppress water rendering (for clean texture comparison)
+    bool terrainHidden = false;                                                                        // Suppress terrain rendering
+    bool editableScene = false;                                                                        // Scene-tab starter scene; Save Defaults persists live object state
+    bool hasCinematicRenderingOverride = false;                                                        // Scene explicitly toggles cinematic HDR/post rendering
+    bool cinematicRendering = false;                                                                   // Cinematic HDR/post rendering scene override
+    bool hasCinematicExposure = false;                                                                 // Scene explicitly sets tonemap exposure
+    float cinematicExposure = 1.0f;                                                                    // Scene tonemap exposure
+    bool hasCinematicGamma = false;                                                                    // Scene explicitly sets output gamma
+    float cinematicGamma = 2.2f;                                                                       // Scene output gamma
+    uint64_t cinematicOverrideMask = 0;                                                                // Per-field overrides from cinematic JSON fields
+    SkullbonezCore::Core::CinematicRenderConfig cinematicRender;                                       // Scene-authored cinematic values for overridden fields
 };
 
 struct SceneCaptureOptions
 {
-    char screenshotPath[256] = {};                               // output path for screenshot (empty = none)
-    int screenshotFrame = -1;                                    // trigger on frame N (-1 = unused)
-    int screenshotMs = -1;                                       // trigger at N ms elapsed (-1 = unused)
-    int screenshotInterval = -1;                                 // save screenshot every N frames (-1 = disabled)
-    char screenshotDir[256] = {};                                // output directory for interval captures
+    char screenshotPath[256] = {};                                                                     // output path for screenshot (empty = none)
+    int screenshotFrame = -1;                                                                          // trigger on frame N (-1 = unused)
+    int screenshotMs = -1;                                                                             // trigger at N ms elapsed (-1 = unused)
+    int screenshotInterval = -1;                                                                       // save screenshot every N frames (-1 = disabled)
+    char screenshotDir[256] = {};                                                                      // output directory for interval captures
 };
 
 struct SceneLoggingOptions
 {
-    char perfLogPath[256] = {};                                  // output path for perf CSV (empty = none)
-    bool isPerfLogFlush = false;                                 // Force flush after each perf-log write
-    int perfLogFlushInterval = 0;                                // Flush perf log every N writes (0 = only at close)
+    char perfLogPath[256] = {};                                                                        // output path for perf CSV (empty = none)
+    bool isPerfLogFlush = false;                                                                       // Force flush after each perf-log write
+    int perfLogFlushInterval = 0;                                                                      // Flush perf log every N writes (0 = only at close)
 };
 
 struct SceneRuntimeOverrides
 {
-    bool hasVsyncOverride = false;                               // Scene-level override present for vsync
-    bool isVsyncEnabled = true;                                  // V-Sync policy for scene when override is present
-    bool hasPipelineSyncOverride = false;                        // Scene-level pipeline-sync override present
-    bool isPipelineSyncEnabled = false;                          // Pipeline-sync policy for scene when override is present
+    bool hasVsyncOverride = false;                                                                     // Scene-level override present for vsync
+    bool isVsyncEnabled = true;                                                                        // V-Sync policy for scene when override is present
+    bool hasPipelineSyncOverride = false;                                                              // Scene-level pipeline-sync override present
+    bool isPipelineSyncEnabled = false;                                                                // Pipeline-sync policy for scene when override is present
 };
 
 struct SceneTerrainOverride
 {
-    bool hasFlatSlope = false;                                   // True when scene overrides terrain with analytic flat slope
-    float flatBaseY = 0.0f;                                      // y = flatBaseY + flatSlopeX*x + flatSlopeZ*z
+    bool hasFlatSlope = false;                                                                         // True when scene overrides terrain with analytic flat slope
+    float flatBaseY = 0.0f;                                                                            // y = flatBaseY + flatSlopeX*x + flatSlopeZ*z
     float flatSlopeX = 0.0f;
     float flatSlopeZ = 0.0f;
 };
@@ -443,7 +442,7 @@ struct SceneWorldOverride
     float worldGravity = 0.0f;
     float worldFluidHeight = 0.0f;
     float worldFluidDensity = 0.0f;
-    Physics::MutualGravitySettings mutualGravity;                // Optional authored n-body attraction settings.
+    Physics::MutualGravitySettings mutualGravity;                                                      // Optional authored n-body attraction settings.
 };
 
 struct SceneTornadoSystem
@@ -460,7 +459,7 @@ struct SceneUIOptions
     bool hasMinimized = false;
     bool isMinimized = false;
     bool hasActiveTab = false;
-    int activeTab = 0;                                           // InGameUITab ordinal.
+    int activeTab = 0;                                                                                 // InGameUITab ordinal.
     bool hasWindowRect = false;
     int windowX = 34;
     int windowY = 56;
@@ -526,7 +525,7 @@ class AuthoredScene
     std::vector<SceneAssetLibraryRef> m_assetLibraries;
     std::vector<SceneAssetInstanceRecord> m_assetInstances;
     std::vector<SceneAssetPartRef> m_assetParts;
-    uint32_t m_schemaVersion = 1;                                // Root scene schema after parser validation.
+    uint32_t m_schemaVersion = 1;                                                                      // Root scene schema after parser validation.
 
     SceneOptions m_sceneOptions;
     SceneCaptureOptions m_captureOptions;
@@ -541,7 +540,7 @@ class AuthoredScene
   public:
     AuthoredScene();
 
-    // Lane R: runtime scene/style callers use TryLoad* so malformed authored
+    // Recoverable error: runtime scene/style callers use TryLoad* so malformed authored
     // JSON returns owner/message diagnostics at the load boundary.
     static SkullbonezCore::Core::SbResult TryLoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                            const char* path, AuthoredScene& outScene );
@@ -591,10 +590,10 @@ class AuthoredScene
     bool IsPhysicsDebugTransparent() const;
     float GetPhysicsDebugAlpha() const;
     float GetPhysicsDebugContactLinger() const;
-    float GetTrackHeight() const;                                // Tracking camera height above ball; -1 disables.
-    float GetAutoCycleInterval() const;                          // Per-ball screenshot interval in seconds; -1 disables.
-    bool IsScreenshotAndExit() const;                            // True if scene should capture first frame then exit
-    bool IsExitOnComplete() const;                               // True when authored completion may advance or exit the scene.
+    float GetTrackHeight() const;                                                                      // Tracking camera height above ball; -1 disables.
+    float GetAutoCycleInterval() const;                                                                // Per-ball screenshot interval in seconds; -1 disables.
+    bool IsScreenshotAndExit() const;                                                                  // True if scene should capture first frame then exit
+    bool IsExitOnComplete() const;                                                                     // True when authored completion may advance or exit the scene.
     bool IsCollisionVisualizerEnabled() const;
     bool IsBroadphaseOverlayEnabled() const;
     bool IsWaterFreezeDebugEnabled() const;
@@ -611,7 +610,7 @@ class AuthoredScene
     float GetCinematicGamma() const;
     uint64_t GetCinematicOverrideMask() const;
     const SkullbonezCore::Core::CinematicRenderConfig& GetCinematicRenderConfig() const;
-    bool HasFlatSlope() const;                                   // True when scene specifies flat analytic slope terrain
+    bool HasFlatSlope() const;                                                                         // True when scene specifies flat analytic slope terrain
     float GetFlatBaseY() const;
     float GetFlatSlopeX() const;
     float GetFlatSlopeZ() const;

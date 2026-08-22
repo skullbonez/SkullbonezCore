@@ -3,7 +3,7 @@
 @rem Purpose:
 @rem   Documents and runs the validate_concepts.bat developer/validation helper script.
 @rem
-@rem Mental model:
+@rem Summary:
 @rem   Tools are command-line guardrails around builds, validation, screenshots,
 @rem   diagnostics, and artifact handling. They make the safe path repeatable and
 @rem   keep output bounded for humans and agents.

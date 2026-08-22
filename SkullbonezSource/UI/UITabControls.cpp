@@ -1,20 +1,19 @@
 /*
-File: SkullbonezSource/UI/UITabControls.cpp
-Purpose:
-  Implements UI TabControls widgets, layout, drawing, or UI state for the in-engine controls.
+File : SkullbonezSource / UI / UITabControls.cpp Purpose : Implements the seed, scene - population,
+    and fluid control surface and its typed commands.
 
-Summary:
-  Previews and commits scene-population,
-  seed, and fluid sliders as typed UI commands.
+        Summary : Previews and commits scene -
+        population,
+    seed,
+    and fluid sliders as typed UI commands
+                .
 
-Invariants:
-  - Draw geometry and hit testing must be derived from the same layout
-  constants.
+            Invariants : -Draw geometry and hit testing must be derived from the same layout constants.
 
-Related:
-  - SkullbonezSource/UI/UITabControls.h
-  - Agentic/Reference/engine-glossary.md
-*/
+                         Related : -SkullbonezSource /
+            UI / UITabControls.h -
+        Agentic / Reference / engine -
+        glossary.md*/
 #include "UITabControls.h"
 
 #include "UI.h"
@@ -133,6 +132,8 @@ bool HandleContentClick( UIControlsTabState& state, InGameUIInputResult& result,
 }
 
 
+// Invariant: ball and box previews share one model-capacity budget; changing one
+// immediately reduces the other slider's admissible maximum.
 bool UpdateActiveSlider( UIControlsTabState& state, int activeSlider, int mouseX, int modelCapacity, int lastSolverBallCount,
                          int lastSolverBoxCount, InGameUIInputResult& result )
 {

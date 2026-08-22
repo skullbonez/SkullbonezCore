@@ -18,9 +18,9 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 
-// =============================================================================
+
 // COLLISION VISUALIZER (CollisionVisualizer.cpp)
-// =============================================================================
+
 //
 // Debug renderer for the V-key collision/sleep-state view.
 //
@@ -32,7 +32,6 @@ Related:
 // sphere tessellation, box winding, and local orientation cannot drift between the
 // two renderers. GPU resources, shaders, and instance payloads remain separate
 // because this renderer needs a per-instance color in addition to each model matrix.
-// =============================================================================
 
 
 #include "CollisionVisualizer.h"

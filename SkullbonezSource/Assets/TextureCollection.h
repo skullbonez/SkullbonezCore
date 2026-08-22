@@ -14,7 +14,7 @@ Invariants:
   - m_assets is borrowed and may be null for legacy direct texture loads.
   - Texture creation/deletion uses a borrowed render-resource context; texture
     selection uses a borrowed command context.
-  - Texture file and backend creation failures are Lane R results; fixed slot
+  - Texture file and backend creation failures are recoverable results; fixed slot
     capacity and missing renderer facets remain fatal owner invariants.
 
 Related:
@@ -71,7 +71,7 @@ class TextureCollection
   public:
     struct TextureHandleResult
     {
-        SkullbonezCore::Core::SbResult result; // Lane R texture residency/load result before the backend handle can be used.
+        SkullbonezCore::Core::SbResult result; // recoverable error texture residency/load result before the backend handle can be used.
         uint32_t handle = 0;                   // Opaque renderer texture handle; 0 means no usable texture.
     };
 

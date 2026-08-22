@@ -69,7 +69,7 @@ bool GetClosestBoxTerrainVertex( SkullbonezCore::Core::Profiler*, const TerrainC
 
     for ( int v = 0; v < 8; ++v )
     {
-        // The low three bits enumerate the OBB corner signs. Sampling each
+        // Concept: the low three bits enumerate the OBB corner signs. Sampling each
         // world-space corner against its own terrain height keeps sleep/contact
         // decisions tied to the visible geometry instead of a center XZ sample.
         const Vector3 local( ( v & 1 ) ? he.x : -he.x, ( v & 2 ) ? he.y : -he.y, ( v & 4 ) ? he.z : -he.z );
@@ -149,7 +149,7 @@ template <typename ShapeView>
 float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const TerrainContactBodyView& body,
                                 const ShapeView& shape, float changeInTime, Ray& outTestingRay, Plane& outTestingPlane )
 {
-    // Swept terrain tests use the body's unobstructed path for the candidate
+    // Why: swept terrain tests use the body's unobstructed path for the candidate
     // timestep. Keeping this local makes the ray construction explicit at the
     // point where terrain collision state is prepared.
     outTestingRay = Ray( body.position, body.linearVelocity * changeInTime );
@@ -167,7 +167,7 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const 
 
     if ( box != nullptr )
     {
-        // Closed-form lowest-vertex Y offset. For an OBB, the maximum downward
+        // Concept: the closed-form lowest-vertex Y offset for an OBB is the maximum downward
         // extent from centre is dot(abs(rotationRow_Y), halfExtents). This is
         // only an early-out aid; exact terrain contact below samples real vertices.
         const Vector3& he = box->GetHalfExtents();
@@ -179,7 +179,7 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const 
         bottomOffset = sphere->GetRadius();
     }
 
-    // Airborne early-out: if the object's lowest point cannot reach the terrain's
+    // Why: if the object's lowest point cannot reach the terrain's
     // maximum height during this timestep, skip the expensive cached query.
     float minBottomY = body.position.y - bottomOffset;
     const float velY = body.linearVelocity.y;
@@ -196,7 +196,7 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const 
 
     if ( box != nullptr )
     {
-        // Boxes need a real vertex/terrain gap test before any center-based path
+        // Hazard: boxes need a real vertex/terrain gap test before any center-based path
         // runs. On sloped terrain, a center sample can say the box is supported
         // while every real vertex is still visibly above the surface.
         Vector3 closestVertex;
@@ -226,7 +226,7 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const 
         float earliestCollisionTime = NO_COLLISION;
         Plane earliestPlane;
         {
-            // When no vertex is currently touching, sweep every box vertex along
+            // Why: when no vertex is touching, sweep every box vertex along
             // the body's linear motion and take the earliest plane hit.
             PROFILE_SCOPED( "Frame/Physics/Terrain/BoxSweptVertexProbe" );
 

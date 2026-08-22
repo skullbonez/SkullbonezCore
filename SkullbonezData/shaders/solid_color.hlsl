@@ -1,22 +1,20 @@
 /*
 File: SkullbonezData/shaders/solid_color.hlsl
 Purpose:
-  Runs the solid_color HLSL shader program used by the renderer.
+  Draw one flat-color screen-space rectangle for UI and diagnostic
+  backdrops.
 
 Summary:
-  solid_color.hlsl is shader source for the renderer's solid_color pass. Keep
-  edits anchored on shader inputs, bindings, and render-output contracts and
-  on the glossary/invariants below.
-
-Glossary:
-  HUD (Heads-Up Display): On-screen diagnostics and control overlay.
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
+  The vertex stage applies the UI projection and the pixel stage returns one
+  uniform color. Alpha blending in the owning pass supplies panel
+  translucency.
 
 Invariants:
-  - CPU-side root signatures, input layouts, and descriptor bindings must
+- CPU-side root signatures, input layouts, and descriptor bindings must
   match this shader exactly.
+
+Related:
+  - Agentic/Reference/engine-glossary.md
 */
 // =============================================================================
 // SOLID COLOR SHADER — Shader Model 6.6 (Combined VS+PS)

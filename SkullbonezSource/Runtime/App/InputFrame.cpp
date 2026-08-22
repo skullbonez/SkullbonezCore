@@ -30,6 +30,7 @@ Related:
 #include "InputFrame.h"
 #include "Run.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
+#include "../Automation/InteractionRecordingBrowser.h"
 #include "../Camera/AttachedCameraController.h"
 #include "ApplicationExitState.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
@@ -513,23 +514,19 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( SkullbonezCore::Core::SbDiagnosticStor
     result.suppressWorldActionThisFrame = facts.suppressWorldActionThisFrame || facts.externalUiCapture.mouse;
     result.frameActive = true;
 
-    const int selectedSceneBrowserIndex = ui.SceneNavigation().browser.CurrentIndexForPath( sceneController.CurrentPath() );
+    ui.SceneNavigation().browser.selectedSceneIndex = ui.SceneNavigation().browser.CurrentIndexForPath( sceneController.CurrentPath() );
     const HWND windowHandle = window.NativeWindowHandle();
     const SkullbonezCore::UI::InputControl::UIInputSnapshot uiInput = BuildUIInputSnapshot( inputRouter.DeviceFrame(),
                                                                                             inputRouter.UiSnapshot().mouse,
                                                                                             ui.InputOverride() );
 
-    InGameUIInputResult
-        UIResult = ui.UpdateInput( uiInput, window.ClientWidth(), window.ClientHeight(),
-                                   timers.simulationTimer.GetTotalTime(), runtimeTools.Editor().editorModeEnabled,
-                                   runtimeTools.Editor().placementModeEnabled, runtimeTools.Editor().placeStaticObject,
-                                   runtimeTools.Editor().autoTerrainAlign, static_cast<int>( camera.mode ),
-                                   facts.cameraModeEnabledMask,
-                                   std::span<const char* const>( ui.SceneNavigation().browser.namePtrs.empty()
-                                                                     ? nullptr
-                                                                     : ui.SceneNavigation().browser.namePtrs.data(),
-                                                                 ui.SceneNavigation().browser.namePtrs.size() ),
-                                   selectedSceneBrowserIndex );
+    InGameUIInputResult UIResult = ui.UpdateInput( uiInput, window.ClientWidth(), window.ClientHeight(),
+                                                   timers.simulationTimer.GetTotalTime(),
+                                                   runtimeTools.Editor().editorModeEnabled,
+                                                   runtimeTools.Editor().placementModeEnabled,
+                                                   runtimeTools.Editor().placeStaticObject,
+                                                   runtimeTools.Editor().autoTerrainAlign, static_cast<int>( camera.mode ),
+                                                   facts.cameraModeEnabledMask );
 
     switch ( UIResult.nativeMouseCapture )
     {
@@ -546,7 +543,7 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( SkullbonezCore::Core::SbDiagnosticStor
 
     result.editorUnhandledWheelDelta = UIResult.unhandledWheelDelta;
     result.commands = UIResult.commands;
-    result.status = NormalizeLegacyOperatorEditorCommands( diagnostics, result.commands );
+    result.status = NormalizeGameUiOperatorEditorCommands( diagnostics, result.commands );
 
     if ( !result.status.Ok() )
     {
@@ -574,10 +571,10 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( SkullbonezCore::Core::SbDiagnosticStor
     inputRouter.PublishRuntimeSnapshot( RuntimeInteractionFrameInput {}, result.suppressWorldActionThisFrame );
     replayRuntime
         .TickWorkspace( ReplayWorkspaceFrameInput { windowHandle, ui.BlocksCameraMouse() || facts.externalUiCapture.mouse,
-                                                    facts.legacyDevelopmentUiActive, result.editorUnhandledWheelDelta,
-                                                    replayPointerRay, facts.replayCurrentCameraMode,
-                                                    facts.replayRestoreCameraMode, attachedCamera.State().activeFollow,
-                                                    camera.director.grabbed, runtimeTools.Editor().editorModeEnabled,
+                                                    facts.gameUiActive, result.editorUnhandledWheelDelta, replayPointerRay,
+                                                    facts.replayCurrentCameraMode, facts.replayRestoreCameraMode,
+                                                    attachedCamera.State().activeFollow, camera.director.grabbed,
+                                                    runtimeTools.Editor().editorModeEnabled,
                                                     sceneController.State().isScenePhysics, ui.IsVisible(), ui.IsMinimized(),
                                                     inputRouter.DeviceFrame().keys.IsDown( VK_SPACE ), window.ClientWidth(),
                                                     window.ClientHeight(), camera.mouseRadiansPerPixel,
@@ -587,7 +584,9 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( SkullbonezCore::Core::SbDiagnosticStor
 
     result.enterInteractiveScene = result.enterInteractiveScene || result.replayWorkspace.enterInteractive;
     result.suppressWorldActionThisFrame = result.suppressWorldActionThisFrame || result.replayWorkspace.consumesMouse;
-    runtimeInput.BeginFrame( true, ui.BlocksKeyboard() || facts.externalUiCapture.keyboard || facts.externalUiCapture.text,
+    runtimeInput.BeginFrame( true,
+                             ui.BlocksKeyboard() || facts.externalUiCapture.keyboard || facts.externalUiCapture.text ||
+                                 result.replayWorkspace.consumesKeyboard,
                              ui.BlocksCameraMouse() || facts.externalUiCapture.mouse ||
                                  result.replayWorkspace.consumesMouse );
 
@@ -628,7 +627,7 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
     // Invariant: the active surface and optional automation/probe intent
     // converge here exactly once. Runtime selection keeps the human surfaces
     // exclusive; arbitration still coalesces exact duplicate injected intent
-    // and rejects conflicting payloads through Lane R.
+    // and rejects conflicting payloads through recoverable result.
     const SkullbonezCore::UI::OperatorEditorArbitrationResult
         editorCommands = SkullbonezCore::UI::ArbitrateOperatorEditorCommands( m_resultDiagnostics,
                                                                               result.commands.operatorEditor,
@@ -647,6 +646,22 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
     if ( !result.status.Ok() )
     {
         return result;
+    }
+
+    const int requestedRecording = result.commands.scene.requestedInteractionRecordingIndex;
+
+    if ( requestedRecording >= 0 )
+    {
+        SkullbonezCore::UI::InteractionRecordingBrowserState& recordings = ui.SceneNavigation().recordings;
+        result.status = LaunchInteractionRecording( m_resultDiagnostics, recordings, requestedRecording );
+
+        if ( !result.status.Ok() )
+        {
+            return result;
+        }
+
+        recordings.selectedIndex = requestedRecording;
+        result.commands.scene.requestedInteractionRecordingIndex = -1;
     }
 
     const InGameUICommands& uiCommands = result.commands;

@@ -125,6 +125,8 @@ float WrapOrbitYaw( float yaw )
 }
 
 
+// Why: camera publication must stay finite even when authored or replay-restored
+// basis vectors collapse; world up is the final deterministic fallback.
 Vector3 OrbitOffset( float yaw, float pitch, float distance )
 {
     const float horizontal = cosf( pitch ) * distance;

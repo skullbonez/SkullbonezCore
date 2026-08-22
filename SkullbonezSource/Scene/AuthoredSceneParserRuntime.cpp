@@ -493,7 +493,7 @@ void AuthoredSceneParser::ApplyTornadoSystem( const Json& tornadoSystem, const s
 
     if ( vortices.size() > MAX_AUTHORED_TORNADO_VORTICES )
     {
-        // Lane R: authored input must fail before TornadoGameplay sees a value
+        // Recoverable error: authored input must fail before TornadoGameplay sees a value
         // that would exhaust its fixed steady-gameplay force-field storage.
         Fail( path, "Gameplay.TornadoGameplay tornadoSystem.vortices requested " + std::to_string( vortices.size() ) +
                         ", capacity is " + std::to_string( MAX_AUTHORED_TORNADO_VORTICES ) );

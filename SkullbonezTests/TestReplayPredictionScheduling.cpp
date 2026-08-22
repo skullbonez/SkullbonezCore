@@ -17,7 +17,6 @@ Glossary:
   Supersede: Retain one pending restart without cancelling in-flight work.
   Presented replacement: Build prefix prepared coherently by the frame thread
     at least once, so a newer velocity may safely replace it.
-  Model row hint: Sample-local lookup shortcut; stable scene id remains authority.
 
 Invariants:
   - A zero instant budget always preserves amortized scheduling.
@@ -39,6 +38,7 @@ Invariants:
   - Generic physics-force values cannot select all-body path presentation.
 
 Related:
+  - Agentic/Reference/engine-glossary.md
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionScheduling.h
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionPackets.h
   - SkullbonezSource/Runtime/Prediction/ContinuousPredictionSampleRing.h

@@ -68,7 +68,7 @@ Byte-exactness is the validation contract, not an aspiration.
 - Zero runtime allocation by policy. Storage is fixed or reserved before gameplay
   begins; exhaustion is a loud diagnostic with owner, capacity and high-water, never
   a silent grow.
-- No exceptions in engine code. Failures go down one of three explicit lanes:
+- No exceptions in engine code. Failures go down one of three explicit categories:
   fatal invariant, recoverable result, or probe assertion.
 
 ## Deterministic Replay and Prediction

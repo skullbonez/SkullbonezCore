@@ -146,7 +146,7 @@ void CheckCinematicApplication( const Runtime::AuthoredScene& parsed )
     const uint64_t mask = parsed.GetCinematicOverrideMask();
     Core::CinematicRenderConfig applied = source;
 
-    // Test sensitivity: every field begins different from the parsed source.
+    // Invariant: every field begins different from the parsed source.
     // A set bit must restore its source value; an unset bit must preserve the
     // perturbed inherited value. This mirrors the complete production surface.
 #define PERTURB( field ) applied.field = DifferentValue( source.field );

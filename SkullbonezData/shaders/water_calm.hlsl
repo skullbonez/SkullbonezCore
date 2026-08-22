@@ -1,22 +1,22 @@
 /*
 File: SkullbonezData/shaders/water_calm.hlsl
 Purpose:
-  Runs the water_calm HLSL shader program used by the renderer.
+  Render the flat inner water zone with undistorted projective reflection.
 
 Summary:
-  water_calm.hlsl is shader source for the renderer's water_calm pass. Keep
-  edits anchored on shader inputs, bindings, and render-output contracts and
-  on the glossary/invariants below.
-
-Glossary:
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
+  The vertex stage keeps the surface planar. The pixel stage maps the
+  reflection target in screen space, applies authored basin and cinematic
+  response, and avoids the displacement used by the outer ocean.
 
 Invariants:
-  - CPU-side root signatures, input layouts, and descriptor bindings must
-  match this shader exactly.
+  - Planar reflection texture coordinates match projective camera geometry.
+  - Cinematic mode uses scene water style parameters for sun glint and depth color.
+
+Related:
+  - Agentic/Reference/engine-glossary.md
+  - SkullbonezSource/World/WorldEnvironment.h
 */
+
 // =============================================================================
 // CALM WATER SHADER — Shader Model 6.6 (Combined VS+PS)
 // =============================================================================

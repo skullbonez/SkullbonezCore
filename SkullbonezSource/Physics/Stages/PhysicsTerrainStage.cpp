@@ -22,10 +22,10 @@ Invariants:
   - Dormant and fixed bodies never enter terrain-detection dispatch.
 
 Related:
+  - Agentic/Reference/engine-glossary.md
   - SkullbonezSource/Physics/Stages/PhysicsTerrainStage.h
   - SkullbonezSource/Physics/PhysicsWorld.cpp
   - SkullbonezSource/Physics/TerrainContactManifold.cpp
-  - Agentic/Reference/engine-glossary.md
 */
 #include "PhysicsTerrainStage.h"
 

@@ -1,18 +1,60 @@
 # Session State
 
-Date: 2026-08-21
-Branch: `nightrunner-20th-AUG-26`
-Status: Four active plans; 55/80 tasks complete
+Date: 2026-08-22
+Branch: `codex/cause-hierarchy-ui-first`
+Status: Zero active plans; 86/86 tasks complete (100% of Master Plan portfolio complete)
 
-At-Rest Ball Stability RS0-RS7 and Invariant Enforcement And Assertion
-Hardening IH0-IH7 are complete. Causal C0-C8, Determinism T0-T8,
-Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7, and Continuous
-Orbital Forecast OF0-OF6 are complete. `MASTER-PLAN.md` binds Full Source
-Comment Truth Replacement CT0-CT5 next, followed by Full
-Validation Time And Value Audit VTA0-VTA5, Repository Hygiene Cleanup RC0-RC5,
-and Cause Hierarchy Scientific Inspector CHUI0-CHUI6.
-Completed plan files were deleted under the repository convention; Git history
-retains their phase evidence.
+At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
+Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
+Truth Replacement CT0-CT5, Full Validation Time And Value Audit VTA0-VTA5, and Repository
+Hygiene Cleanup RC0-RC5 are 100% complete, reviewed, and closed.
+Causal C0-C8, Determinism T0-T8, Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7,
+and Continuous Orbital Forecast OF0-OF6 are complete.
+All active master plan portfolio tasks are closed. Completed plan files were
+deleted under the repository convention; Git history retains their phase
+evidence.
+
+CORE_REDUCTION CR0-CR5 are complete. Owner direction activated the plan without a
+new branch. The clean `cc194f9aa` baseline contains 615 tracked production
+source files and 207,080 physical lines. CodeGraph is current; Debug, Profile,
+and Automation builds pass; final decorated-symbol reachability reports 87 ruled rows
+and zero blockers. No dead-production candidate was approved merely to create
+savings. The accepted work is the GameUI naming correction plus exact DX12
+completed-fence, Replay capacity, cold `FILE` deleter, and render-lifecycle log
+duplication. CR1 renamed the complete built-in development surface to GameUI,
+including `--dev-ui game`, automation values/assertions, runtime fields, labels,
+fixtures, and manuals. The focused 7-case/170-assertion set, 832-item project
+filters, explicit GameUI launch, and full GameUI/ImGui stress matrix pass across
+Profile, Debug, and Automation with zero DX12 validation errors. CR2 reran the
+current reachability inventory: all 93 rows remain explicitly ruled, zero rows
+block, and the CR0 ledger still approves no production deletion. CR2 therefore
+closed honestly at 0 additions, 0 deletions, and 0 net reduction. CR3 replaces
+four identical DX12 retirement fence-observation blocks with one private
+`Dx12FrameOwner` predicate while leaving caller-specific release policy intact.
+The phase removes 5 net production lines; CPU architecture tests and the real
+DX12 screenshot/InfoQueue gate pass with zero validation errors. CR4 consolidates
+Replay capacity calculation, four cold `FILE*` deleters, and two render lifecycle
+log forwarders. It removes another 71 net production lines; 18 focused cases and
+822 assertions pass, and Profile builds cleanly. CR5 repaired process-local
+Replay topology restoration and archives the renderer-visible committed
+presentation bank, then closed at `+303/-373` production lines: a 70-line net
+reduction. All seven ownership inventories, dependency and project gates,
+`validate_fast`, 692 tests / 2,537,437 assertions, Automation, physics, DX12,
+the terminal `validate_full --plan-completion` gate, and one-minute graphics
+stress pass. Independent review found no blocker. The mapped Replay visual gate
+still rejects the inherited corrected 201-node/806-record topology and changed
+physics-derived wall outcome against its retired 200-node/802-record baseline.
+The topology mismatch predates CR0; the wall outcome follows the owner-approved
+2026-08-21 physics golden. No physics, Replay, or visual golden was refreshed.
+
+REPOSITORY_CLEANUP (RC0-RC5) is 100% complete and closed.
+- RC0 rebased inventory and established strict absolute-path deletion manifests.
+- RC1 deleted 69 historical TestOutput children and obsolete Agentic/Reports/Temp scratch (51.14 GiB reclaimed).
+- RC2 removed 7 clean history-reachable detached worktrees and pruned Git worktree metadata (22.07 GiB reclaimed).
+- RC3 removed derived build, IDE, and test build artifacts (6.59 GiB reclaimed). Total disk reclaimed: 79.80 GiB.
+- RC4 deleted 10 approved tracked candidates (old water baseline, 7 shadow reference images, Concepts mood board,
+  and lone DONE/ completed plan), reconciled MASTER-PLAN.md, and repaired WNF contact-stack report link.
+- RC5 verified all governance scans, passed fast validation, received Rubber Duck PASS verdict, and closed the plan.
 
 ORBIT_FORECAST OF0 is complete. It ratifies the fixed sun as the primary,
 Earth and Mars as core bodies, and the ship as an auxiliary whose orbital-
@@ -62,7 +104,7 @@ include, reserve privilege, Physics row field, or post-start growth path.
 
 ORBIT_FORECAST OF4 is complete. Planning now composes the continuous producer
 and stability analyzer; App owns lifetime, frame admission, mutual exclusion
-with bounded `PREDICT`, scene-transition joins, and shutdown. Legacy and ImGui
+with bounded `PREDICT`, scene-transition joins, and shutdown. GameUI and ImGui
 route typed continuous/reset/exit commands and publish aligned detached status,
 timing, first-cause, and conservation readouts while retaining the accepted
 bounded-horizon control discrepancy. `validate_fast`, all 620 unit cases,
@@ -386,7 +428,7 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `COMMENT_TRUTH` CT0. `INVARIANT_HARDENING` IH0-IH7 is complete: the
+Execute `CAUSE_HIERARCHY_UI` CHUI5. `INVARIANT_HARDENING` IH0-IH7 is complete: the
 final source checklist is 96/96 with zero deferrals, the terminal inventory has
 67 production asserts and 18 reviewed assert-only candidates, and the current
 fast gate passes 663 tests plus Debug/Profile reachability. Automation, DX12,
@@ -420,7 +462,7 @@ not part of the active queue.
 
 ## Blockers
 
-- None. Continue with `COMMENT_TRUTH` CT0. The stale Physics CSV,
+- None. Continue with `CAUSE_HIERARCHY_UI` CHUI2. The stale Physics CSV,
   noisy relative Physics performance sample, and
   corrected-topology visual oracle remain owner-controlled validation findings;
   do not refresh any of them without approval.

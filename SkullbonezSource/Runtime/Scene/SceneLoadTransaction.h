@@ -24,7 +24,7 @@ Glossary:
 
 Invariants:
   - The only legal phase walk is Idle -> Load -> RuntimeReactions ->
-    Presentation -> Complete; an illegal transition is lane-F fatal.
+    Presentation -> Complete; an illegal transition is fatal-invariant fatal.
   - Request, submitted camera/navigation/presentation/time/name, outputs, and
     arbitration state are private values. No runtime owner pointer or reference
     survives a phase-method return.
@@ -145,7 +145,7 @@ class SceneLoadTransaction
                    : submitted;
     }
 
-    // The stress lane may suppress Legacy activation without recovering the
+    // The stress lane may suppress GameUI activation without recovering the
     // complete private output record.
     void PreserveInactiveDevelopmentUi();
 

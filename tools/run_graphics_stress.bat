@@ -3,7 +3,7 @@
 @rem Purpose:
 @rem   Launch the persistent DX12 graphics stress run.
 @rem
-@rem Mental model:
+@rem Summary:
 @rem   Tools are command-line guardrails around builds, validation, screenshots,
 @rem   diagnostics, and artifact handling. This runner keeps the graphics fuzzer
 @rem   launch repeatable so crash seeds and logs can be reused later.

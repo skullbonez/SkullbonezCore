@@ -20,7 +20,7 @@ Invariants:
     so a saved scene reparses to the same stable identities.
   - The writer retains no borrowed store or request value after Save returns.
   - Owner count or identity disagreement is fatal topology drift; file failure
-    is a recoverable Lane R result.
+    is a recoverable recoverable result.
 
 Related:
   - SkullbonezSource/Scene/SceneSnapshotWriter.cpp
@@ -100,7 +100,7 @@ class SceneSnapshotWriter
 {
   public:
 
-    // Saves one current schema-v4 snapshot. External path/write failures return Lane R;
+    // Saves one current schema-v4 snapshot. External path/write failures return recoverable error;
     // mismatched owner topology fails through the engine fatal-invariant lane.
     static SkullbonezCore::Core::SbResult Save( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                 const SceneSaveRequest& request );

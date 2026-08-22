@@ -36,15 +36,14 @@ class RotationMatrix
 {
 
   public:
-    RotationMatrix();                                                    // Initializes to identity rotation.
-    RotationMatrix( float f11, float f12, float f13, float f21, float f22, float f23, float f31, float f32,
-                    float f33 );                                         // Explicit row-major component construction.
+    RotationMatrix();                                                                                                    // Initializes to identity rotation.
+    RotationMatrix( float f11, float f12, float f13, float f21, float f22, float f23, float f31, float f32, float f33 ); // Explicit row-major component construction.
     ~RotationMatrix() = default;
 
     // Resets to no-rotation matrix.
-    Vector::Vector3 operator*( const Vector::Vector3& v ) const;         // Applies this rotation to v.
-    Vector::Vector3 operator*=( const Vector::Vector3& v ) const;        // Legacy spelling for applying this rotation to v.
-    Vector::Vector3 TransposeMultiply( const Vector::Vector3& v ) const; // R^T * v (inverse rotation for orthogonal matrices)
+    Vector::Vector3 operator*( const Vector::Vector3& v ) const;                                                         // Applies this rotation to v.
+    Vector::Vector3 operator*=( const Vector::Vector3& v ) const;                                                        // Legacy spelling for applying this rotation to v.
+    Vector::Vector3 TransposeMultiply( const Vector::Vector3& v ) const;                                                 // R^T * v (inverse rotation for orthogonal matrices)
 
     // dot(abs(row_Y), v) is the maximum downward extent of an OBB with half-extents v.
     // Used for closed-form terrain bottom offset: avoids iterating all 8 vertices.
@@ -70,7 +69,7 @@ class RotationMatrix
 #endif
 
   private:
-    float m11, m12, m13, m21, m22, m23, m31, m32, m33;                   // Row-major 3x3 basis vectors.
+    float m11, m12, m13, m21, m22, m23, m31, m32, m33;                                                                   // Row-major 3x3 basis vectors.
 };
 
 // One program-wide no-rotation matrix shared by every including translation unit.

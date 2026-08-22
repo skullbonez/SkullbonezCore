@@ -17,7 +17,7 @@ Invariants:
   - Consequence queues are cleared but never re-reserved in Solve.
   - Pipeline consequences use one representation per step: ordered records or
     an equivalent count-only total.
-  - Capacity exhaustion is a Lane F fatal invariant violation.
+  - Capacity exhaustion is a fatal invariant invariant violation.
   - Cache erasure preserves the original packed-key body matching expressions.
   - Replay restore clears convergence diagnostics rather than presenting stale
     live-solve attribution as restored solver state.

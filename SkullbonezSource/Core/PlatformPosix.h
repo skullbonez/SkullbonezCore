@@ -160,6 +160,11 @@ inline uintptr_t ProcessImageBase() noexcept
     return 0u;
 }
 
+inline bool CopyTextToClipboard( const char* ) noexcept
+{
+    return false;
+}
+
 inline void DebugBreak() noexcept
 {
     raise( SIGTRAP );

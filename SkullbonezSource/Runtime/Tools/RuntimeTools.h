@@ -191,8 +191,8 @@ struct LauncherReproSnapshotContext
     bool physicsSleepEnabled;
     bool vsyncEnabled;
     bool pipelineSyncEnabled;
-    float contactEpsilon;                                                   // Physics contact tolerance captured from Run config for repro output.
-    float frictionCoeff;                                                    // Physics friction setting captured from Run config for repro output.
+    float contactEpsilon;                                                                          // Physics contact tolerance captured from Run config for repro output.
+    float frictionCoeff;                                                                           // Physics friction setting captured from Run config for repro output.
     const OverlayDebugState& debug;
     const char* rendererName;
     double simulationSeconds;
@@ -211,7 +211,7 @@ struct RunMousePickupState
     Physics::PhysicsBodyHandle body;
     Math::Vector::Vector3 planePoint = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 planeNormal = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
-    float cameraPlaneDistance = 0.0f;                                       // World units from camera eye to the camera-facing pickup plane.
+    float cameraPlaneDistance = 0.0f;                                                              // World units from camera eye to the camera-facing pickup plane.
     Math::Vector::Vector3 grabOffset = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 targetPoint = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 preservedAngularVelocity = Math::Vector::ZERO_VECTOR;
@@ -345,8 +345,8 @@ struct EditorViewportPlacementResult
 
 struct MousePickupPointerResult
 {
-    bool consumed = false;                                                  // Prevents later world owners from seeing this pointer gesture.
-    bool enteredInteractive = false;                                        // Composition disables automation quit after a successful grab begins.
+    bool consumed = false;                                                                         // Prevents later world owners from seeing this pointer gesture.
+    bool enteredInteractive = false;                                                               // Composition disables automation quit after a successful grab begins.
 };
 
 struct LauncherPointerInput
@@ -405,7 +405,7 @@ struct RunEditorPlacementState
     Math::Orientation::Quaternion placementOrientation = Math::Orientation::IDENTITY_QUATERNION;
     POINT placementScaleStartClient = {};
     Math::Vector::Vector3 gizmoDragStartPosition = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 gizmoDragPlaneNormal = Math::Vector::ZERO_VECTOR; // Unit normal frozen for an axis drag.
+    Math::Vector::Vector3 gizmoDragPlaneNormal = Math::Vector::ZERO_VECTOR;                        // Unit normal frozen for an axis drag.
     Math::Orientation::Quaternion gizmoDragStartOrientation = Math::Orientation::IDENTITY_QUATERNION;
     Math::CollisionDetection::CollisionShape gizmoDragStartShape;
 
@@ -422,10 +422,10 @@ class EditorTracer
   private:
     struct ReplayRibbonStyle
     {
-        float width = 2.0f;                                                 // Full screen-space width in pixels.
-        float alpha = 1.0f;                                                 // Blend weight before analytic edge coverage.
-        float edgeFeather = 1.0f;                                           // Anti-aliasing feather scale; 1 means one pixel.
-        float emphasis = 0.0f;                                              // 0 = display-range; positive values reserve halo and bloom emphasis.
+        float width = 2.0f;                                                                        // Full screen-space width in pixels.
+        float alpha = 1.0f;                                                                        // Blend weight before analytic edge coverage.
+        float edgeFeather = 1.0f;                                                                  // Anti-aliasing feather scale; 1 means one pixel.
+        float emphasis = 0.0f;                                                                     // 0 = display-range; positive values reserve halo and bloom emphasis.
     };
 
     // Invariant: every generic path and marker uses zero emphasis. Only the
@@ -445,22 +445,18 @@ class EditorTracer
     std::vector<float> m_lineData;
     std::vector<float> m_priorityLineData;
     std::vector<float> m_renderLineData;
-    std::vector<float> m_replayRibbonSegments;                              // Packed 13-float replay segments before shader-side expansion.
-    std::vector<float> m_priorityReplayRibbonSegments;                      // Retained yellow entry ribbon segments that survive path overflow.
-    std::vector<float> m_cachedReplayRibbonSegments;                        // Previous frame's compact ordinary source used for exact reuse checks.
-    std::vector<float>
-        m_cachedPriorityReplayRibbonSegments;                               // Previous frame's compact priority source used for exact reuse checks.
-    std::vector<float> m_replayRibbonVertexData;                            // Ordinary packed 19-float adjacency vertices.
-    std::vector<float>
-        m_priorityReplayRibbonVertexData;                                   // Priority packed vertices kept separate so ordinary appends never move them.
+    std::vector<float> m_replayRibbonSegments;                                                     // Packed 13-float replay segments before shader-side expansion.
+    std::vector<float> m_priorityReplayRibbonSegments;                                             // Retained yellow entry ribbon segments that survive path overflow.
+    std::vector<float> m_cachedReplayRibbonSegments;                                               // Previous frame's compact ordinary source used for exact reuse checks.
+    std::vector<float> m_cachedPriorityReplayRibbonSegments;                                       // Previous frame's compact priority source used for exact reuse checks.
+    std::vector<float> m_replayRibbonVertexData;                                                   // Ordinary packed 19-float adjacency vertices.
+    std::vector<float> m_priorityReplayRibbonVertexData;                                           // Priority packed vertices kept separate so ordinary appends never move them.
     std::size_t m_expandedOrdinarySegmentCount = 0;
     std::size_t m_expandedPrioritySegmentCount = 0;
-    bool m_replayRibbonCacheValid = false;                                  // First packet seeds count-bearing hashes even when both lanes are empty.
-    SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats
-        m_replaySubmissionStats;                                            // Frame-local submitted replay ribbon hash sampled after tracer render.
-    SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats
-        m_cachedRibbonSubmissionStats;                                      // Hash/count facts retained with the cached compact ribbon sources.
-    uint64_t m_replayGeometryRevision = 0;                                  // Successful line/ribbon append serial for retained marker publication.
+    bool m_replayRibbonCacheValid = false;                                                         // First packet seeds count-bearing hashes even when both lanes are empty.
+    SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats m_replaySubmissionStats;       // Frame-local submitted replay ribbon hash sampled after tracer render.
+    SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats m_cachedRibbonSubmissionStats; // Hash/count facts retained with the cached compact ribbon sources.
+    uint64_t m_replayGeometryRevision = 0;                                                         // Successful line/ribbon append serial for retained marker publication.
 
     void EmitLineTo( std::vector<float>& lineData, const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r,
                      float g, float bl );
@@ -493,8 +489,7 @@ class EditorTracer
                                          float b, const ReplayRibbonStyle& style,
                                          SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane );
     void BuildReplayRibbonVertices( const Math::Vector::Vector3& cameraEye, const Math::Vector::Vector3& cameraUp );
-    SkullbonezCore::Core::MainMemoryReplayTrajectoryStats
-        m_replayTrajectoryStats;                                            // Frame-local replay ribbon counters sampled by replay composition.
+    SkullbonezCore::Core::MainMemoryReplayTrajectoryStats m_replayTrajectoryStats;                 // Frame-local replay ribbon counters sampled by replay composition.
 
   public:
     explicit EditorTracer( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics );

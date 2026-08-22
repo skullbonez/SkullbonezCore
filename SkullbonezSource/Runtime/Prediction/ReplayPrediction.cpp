@@ -1187,7 +1187,7 @@ ReplayPredictionFrameSourceAction ReplayPrediction::SelectFrameSource( const Rep
 
     if ( !predictionOwner.GenerationPermitted() )
     {
-        // Lane P: the archive may remain visually enabled, but
+        // Test probe: the archive may remain visually enabled, but
         // this branch draws only restored values and never reaches a snapshot,
         // reserve, worker, or future-simulation path.
         prediction.build.dirty = false;

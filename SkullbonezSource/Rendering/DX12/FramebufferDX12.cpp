@@ -107,7 +107,7 @@ bool FramebufferDX12::Create( int width, int height )
 
     if ( FAILED( colorResult ) )
     {
-        // Lane R: off-screen targets are optional render resources for
+        // Recoverable error: off-screen targets are optional render resources for
         // reflection, shadow, and post passes. The factory returns null and the
         // owning pass skips until a later recreate succeeds.
         SkullbonezCore::Core::Log()

@@ -23,11 +23,11 @@
     { "frame": 108, "assert": { "imguiLayoutResetCountMin": 1 } },
     { "frame": 108, "assert": { "imguiFocusCountMin": 1 } },
     { "frame": 108, "assert": { "imguiDpiScale": 1.25 } },
-    { "frame": 110, "setDevelopmentUiSurface": "legacy" },
-    { "frame": 112, "assert": { "developmentUiSurface": "legacy" } },
+    { "frame": 110, "setDevelopmentUiSurface": "game" },
+    { "frame": 112, "assert": { "developmentUiSurface": "game" } },
     { "frame": 112, "assert": { "imguiVisible": false } },
     { "frame": 114, "pressKey": "0", "control": true },
     { "frame": 114, "assert": { "developmentUiSurface": "imgui" } },
-    { "frame": 114, "assert": { "legacyReplayPresentationActive": false } }
+    { "frame": 114, "assert": { "gameUiReplayPresentationActive": false } }
   ]
 }

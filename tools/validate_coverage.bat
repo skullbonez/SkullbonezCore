@@ -4,15 +4,15 @@
 @rem   Build the Debug doctest runner, capture product-line coverage, and check
 @rem   the versioned subsystem floors.
 @rem
-@rem Mental model:
+@rem Summary:
 @rem   OpenCppCoverage debugs one ordinary test process and exports the source
 @rem   lines observed through its program database. The Python checker owns all
 @rem   tier and exclusion policy so this wrapper stays mechanical.
 @rem
 @rem Glossary:
 @rem   Cobertura: XML coverage interchange format consumed by check_coverage.py.
-@rem   Report-only: U0 bring-up mode that measures ratified scopes without yet
-@rem   failing on their future floors.
+@rem   Report-only: Measurement mode that reports ratified scopes without
+@rem   enforcing minimum coverage floors.
 @rem
 @rem Invariants:
 @rem   - Coverage runs the Debug x64 SKULLBONEZ_TESTS executable from repo root.

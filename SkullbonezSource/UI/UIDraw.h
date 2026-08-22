@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/UI/UIDraw.h
 Purpose:
-  Declares the renderer-free screen-space recorder used by Legacy UI widgets.
+  Declares the renderer-free screen-space recorder used by GameUI widgets.
 
 Summary:
   UIDrawContext turns widget shapes and labels into one bounded UIDrawList.

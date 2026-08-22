@@ -137,7 +137,7 @@ void ExpectHeightMapShapeFailure( int mapSize, int stepSize, const char* expecte
 
 TEST_CASE( "Terrain: invalid height-map dimensions fail before construction" )
 {
-    // Lane P: the retired floor-sized allocation reserved four posts for the
+    // Test probe: the retired floor-sized allocation reserved four posts for the
     // 5/2 shape while its ceiling-shaped translation loops wrote nine. This
     // local fixture keeps the old false-pass mechanism observable without
     // executing an out-of-bounds write.
@@ -381,7 +381,7 @@ TEST_CASE( "Coverage floor contract: terrain sweep and manifold support every co
         CHECK( std::isfinite( manifold.tangent2.z ) );
     }
 
-    // A zero-time hit exercises the resting patch rather than the fast-impact
+    // Concept: a zero-time hit exercises the resting patch rather than the fast-impact
     // centroid reduction used by the swept cases above.
     TerrainContactBodyView resting;
     resting.position = Vector3( 20.0f, 1.0f, 20.0f );

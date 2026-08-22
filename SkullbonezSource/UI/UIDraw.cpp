@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/UI/UIDraw.cpp
 Purpose:
-  Implements renderer-free Legacy UI draw-command recording.
+  Implements renderer-free GameUI draw-command recording.
 
 Summary:
   Shapes and text remain in screen pixels and append to UIDrawList in caller

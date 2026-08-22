@@ -11,7 +11,7 @@ validation.
 |--------|----------|---------|
 | `agent_validate.bat --plan-completion` | Terminal gate after an entire implementation plan is complete | CPU tests + 5 engine processes |
 | `validate_select.bat` | Run any subset of validations by name | ~depends |
-| `validate_fast.bat` | Small code refactors: preflight plus the doctest runner | ~30s |
+| `validate_fast.bat` | Small code refactors: preflight plus the doctest runner | ~3.2m preflight / ~4m with tests |
 | `validate_all_cpu_tests.bat` | Run every mandatory CPU test and coverage gate with fail-fast attribution | incremental builds + 7 console launches |
 | `validate_tests.bat` | Build and run the doctest unit-test executable | build + console test runner |
 | `validate_coverage.bat` | Build the Debug doctest runner, export Cobertura product coverage, and report/check versioned subsystem floors | incremental Debug build + console test runner |
@@ -31,7 +31,7 @@ validation.
 | `validate_project_filters.bat` | Visual Studio project/filter drift plus transitive JSON cold-boundary fence | ~depends |
 | `validate_dependency_graph.bat` | Data-driven include direction, planted generated-proof drift, Runtime package closure, Replay boundary, retired ownership-vocabulary deletion, and exact project-ownership XML/path fixtures plus repository scan | ~2s |
 | `validate_ui.bat` | Optional in-game UI visual screenshots, blur, and control automation | ~depends |
-| `validate_ui_stress.bat` | Deterministic Legacy plus ImGui editor stress matrix with exclusive hot swaps, scene/replay churn, resize/DPI captures, and DX12 checks | ~depends |
+| `validate_ui_stress.bat` | Deterministic GameUI plus ImGui editor stress matrix with exclusive hot swaps, scene/replay churn, resize/DPI captures, and DX12 checks | ~depends |
 | `launch_tracy_viewer.bat [--build-only]` | Build the pinned external Tracy profiler on first use and connect it to the local engine; `--build-only` verifies without starting the GUI | first use depends |
 | `validate_demo_stress.bat` | Generated demo scene plus UI interaction crash sweep | ~depends |
 | `run_graphics_stress.bat` | General DX12 graphics stress fuzzer with scene/settings churn and memory telemetry | bounded or overnight |
@@ -49,22 +49,23 @@ validation.
 
 `validate_full.bat --plan-completion` is the terminal full-plan superset. It is
 not an ordinary commit or PR gate. The script rejects calls without that exact
-token, then runs these owners in order and stops before any engine launch when a
-CPU target fails:
+token, then runs these owners in order:
 
-1. `validate_fast.bat --preflight-only` runs formatting, production project
-   metadata, staged-size policy, and the Profile build without a test launch.
-2. `validate_all_cpu_tests.bat` runs the doctest, enforced coverage floors,
+1. A Debug build and `validate_physics.bat` run first. Golden tampering fails
+   before the build; actual behavior drift is the first runtime result.
+2. The Automation build plus `validate_fast.bat --preflight-only` establish
+   current Debug/Automation/Profile reachability evidence and run formatting,
+   project metadata, dependency, governance, and staged-size checks.
+3. `validate_all_cpu_tests.bat` runs the doctest, enforced coverage floors,
    runtime-interaction, scene parser, renderer-free UI boundary, and DX12
    architecture targets.
-3. `validate_automation.bat` proves Profile rejects diagnostic scripts, builds
+4. `validate_automation.bat` proves Profile rejects diagnostic scripts, builds
    the dedicated Automation executable, and runs one combined replay/prediction
    plus development-UI command smoke required on every broad pre-commit pass.
-4. The Debug build, DX12 renderer gate, and core physics determinism gate run
-   only after the mandatory CPU and automation lanes pass. Automation launches
-   two engine processes, rendering launches one, and physics launches its
-    engine lifecycle smoke and regression scene, for five gated engine processes.
-5. `validate_replay_prediction_frame_spikes.bat` then runs four completed
+5. `validate_dx12_renderer.bat` runs the final blocking runtime lane. Across
+   the gate, automation launches two engine processes, rendering one, and
+   physics its lifecycle smoke and regression scene, for five gated processes.
+6. `validate_replay_prediction_frame_spikes.bat` then runs four completed
    120-second future-prediction generations and reports the largest frames. It
    is full-only and informational: missing artifacts, runner errors, and frame
    times are printed but cannot change the plan-completion gate from pass to fail.
@@ -210,7 +211,7 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `validate_replay_scrub.bat` | Historical replay-scrub entry point; delegates exclusively to `validate_replay_visual_fidelity.bat` and preserves its failure status |
 | `validate_alt_velocity_visualization.bat` | Builds Automation and runs instant/amortized N-body ALT-VEL drags, requiring a live selected-path preview, zero held-drag restarts, and release-only authoritative replacement |
 | `validate_ui.bat` | Optional DX12 UI suite that captures UI screenshots and checks blur strength |
-| `validate_ui_stress.bat` | Run the Legacy UI backdrop sweep, then an ImGui editor matrix covering exclusive hot swaps, exact scene transition, typed replay scrub, panel/layout churn, minimum/default/ultrawide captures, descriptor bounds, logs, and DX12 validation |
+| `validate_ui_stress.bat` | Run the GameUI backdrop sweep, then an ImGui editor matrix covering exclusive hot swaps, exact scene transition, typed replay scrub, panel/layout churn, minimum/default/ultrawide captures, descriptor bounds, logs, and DX12 validation |
 | `validate_demo_stress.bat` | Generated demo scene crash sweep that keeps physics/rendering active while changing UI settings |
 | `run_graphics_stress.bat [minutes\|overnight] [seed] [actions] [sceneInterval] [memoryInterval]` | General DX12 graphics stress runner; writes stdout, stderr, CSV, and JSON memory artifacts under `TestOutput\graphics_stress` |
 | `validate_dx12_renderer.bat` | Build or reuse Profile, run only DX12 render-test scenes, check InfoQueue, and compare screenshots against DX12 baselines |
@@ -267,9 +268,17 @@ Physics CSV and SkullScope JSON baselines are byte-exact behavior artifacts.
 The normal physics gate uses the authored 37-body, 1,200-frame varied scene as
 its full CSV contract. The deep gate retains the older seeded solver distribution
 as an exact SHA-256 signature in `physics_known_issue_signatures.json`.
-When a physics baseline update is intentional, copy it only from the final Debug
-artifact produced by the same scene/config state that will be committed, then
-rerun the matching gate:
+The normal core golden is bound to `tools/physics_baseline_approval.json` by
+SHA-256. Do not copy over it directly. After reviewing an intentional behavior
+change, the repository owner approves the final Debug artifact interactively:
+
+```bat
+python tools\check_physics_baseline_guard.py --repo . --approve-output Debug\physics_regression_varied.csv
+```
+
+That command replaces the golden, updates the tracked approval record, and
+creates a local receipt for the exact staged pair. Stage both tracked files
+together, then rerun the matching gate:
 
 ```bat
 tools\validate_physics.bat

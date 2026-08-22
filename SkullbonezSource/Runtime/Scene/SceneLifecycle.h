@@ -9,8 +9,7 @@ Summary:
   frame boundaries and apply each relevant phase at most once.
 
 Glossary:
-  Lifecycle phase: Ordered commit edge describing how far the load transaction
-    progressed before it completed or failed.
+
   Consumer receipt: Review-time bit proving synchronous legacy consumers ran at
     a phase; migrated reactive owners instead use the generation packet.
 

@@ -10,13 +10,14 @@ Summary:
   is identity.
 
 Glossary:
-  Behavior group: Ragdoll/tree membership keyed by stable root object id and part order.
+
   Commit: Append after capacity, identity, body, collider, and render preflight.
 
 Invariants:
   - Storage reserves its configured hard capacity before scene population and
     never grows during steady gameplay.
-  - Every committed record has unique nonzero scene identity and a live body handle.
+  - Every committed record has unique nonzero scene identity, a nonempty display
+    name, and a live body handle.
   - A behavior-group root is part zero and is committed before later members.
   - Display names and provenance strings are fixed-capacity values.
 

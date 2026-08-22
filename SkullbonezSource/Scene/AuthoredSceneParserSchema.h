@@ -67,7 +67,7 @@ constexpr int kMaxStyleIncludeDepth = 8;
 constexpr float kSceneDegreesToRadians = 3.14159265f / 180.0f;
 
 // Concept: parser helpers still use the old "record failure and stop" shape,
-// but the failure now becomes a Lane R SkullbonezCore::Core::SbResult at the TryLoad boundary instead
+// but the failure now becomes a recoverable error SkullbonezCore::Core::SbResult at the TryLoad boundary instead
 // of a C++ exception escaping through scene-load code.
 struct ParserFailureState
 {
@@ -417,7 +417,7 @@ template <typename THull> void ValidateReleasableTreeGroups( const std::vector<T
             }
         }
 
-        // Lane R: a parsed scene must never publish group metadata that can
+        // Recoverable error: a parsed scene must never publish group metadata that can
         // only fail after earlier entities have already entered runtime stores.
         if ( !root || root->group.kind != hull.group.kind || root->group.rootObjectId.value != root->sceneObjectId.value ||
              root->group.partIndex != 0 )
@@ -851,7 +851,7 @@ inline Json ReadJsonFile( const std::string& path )
 
     if ( root.is_discarded() )
     {
-        // Lane R: malformed authored JSON is external input, so the parser
+        // Recoverable error: malformed authored JSON is external input, so the parser
         // records a recoverable failure without requiring exception support.
         Fail( path, "Invalid JSON" );
         return Json::object();

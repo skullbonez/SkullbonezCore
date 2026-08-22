@@ -335,7 +335,7 @@ void ClosestSegmentPoints( const Vector3& p1, const Vector3& q1, const Vector3& 
                            Vector3& closestB )
 {
 
-    // Invariant: the NM1 edge fixture uses non-parallel, interior-intersection
+    // Invariant: the positive edge fixture uses non-parallel, interior-intersection
     // segments. Its nonzero denominator keeps this analytic calculation out of
     // the production helper and independent of production edge selection.
     const Vector3 d1 = q1 - p1;
@@ -1020,7 +1020,7 @@ TEST_CASE( "Object contact manifold oracles: planted geometry identity and reduc
     REQUIRE( PointSetMatches( face, expectedPoints ) );
 
     // Hazard: each copy changes only the named manifold contract. The same
-    // predicates used by NM1's positive geometry fixtures must reject it, so a
+    // predicates used by the positive geometry fixtures must reject it, so a
     // passing control cannot be attributed to an unrelated assertion.
     ObjectContactManifold invertedNormal = face;
     invertedNormal.normal = -invertedNormal.normal;

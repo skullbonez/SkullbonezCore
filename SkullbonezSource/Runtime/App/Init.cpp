@@ -76,7 +76,7 @@ void ReportStartupFailure( const SkullbonezCore::Core::SbResult& result, const c
 
     sprintf_s( dialogMessage, sizeof( dialogMessage ), "%s\n\n%s", safeOwner, safeMessage );
 
-    // Lane R: startup cannot rely on the game window or an attached terminal to
+    // Recoverable error: startup cannot rely on the game window or an attached terminal to
     // expose failures. Persist the diagnostic and block on a native error dialog
     // so a normal Explorer/IDE launch can never look like a silent clean exit.
     SkullbonezCore::Core::Log().WriteEventf( "startup_failure owner=\"%s\" message=\"%s\"", safeOwner, safeMessage );
@@ -86,9 +86,9 @@ void ReportStartupFailure( const SkullbonezCore::Core::SbResult& result, const c
     MessageBoxA( nullptr, dialogMessage, title, MB_OK | MB_ICONERROR | MB_SETFOREGROUND );
 }
 
-// ---------------------------------------------------------------------------
+
 // Console
-// ---------------------------------------------------------------------------
+
 
 // GUI apps have no console by default; attach to the parent terminal so
 // fprintf(stderr/stdout) is visible when launched from cmd/PowerShell.
@@ -126,9 +126,9 @@ void AttachParentConsole()
     }
 }
 
-// ---------------------------------------------------------------------------
+
 // Render backend
-// ---------------------------------------------------------------------------
+
 
 SkullbonezCore::Core::SbResult InitRenderBackend( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, Window* window,
                                                   std::unique_ptr<RenderBackendDX12>& outBackend )
@@ -143,7 +143,7 @@ SkullbonezCore::Core::SbResult InitRenderBackend( SkullbonezCore::Core::SbDiagno
 
     if ( !renderInitResult.Ok() )
     {
-        // Lane R: render backend startup probes the host graphics environment.
+        // Recoverable error: render backend startup probes the host graphics environment.
         // Failures are reported at process bootstrap before any runtime borrows
         // are published.
         return renderInitResult;
@@ -293,9 +293,9 @@ int RunApp( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, Window* window
     return 0;
 }
 
-// ---------------------------------------------------------------------------
+
 // Cleanup
-// ---------------------------------------------------------------------------
+
 
 void CleanupWindow( Window* window, HINSTANCE instance, std::unique_ptr<RenderBackendDX12>& renderBackend )
 {
@@ -346,9 +346,8 @@ int ReportDiagnosticStoreSession( SkullbonezCore::Core::SbDiagnosticStore& diagn
 } // anonymous namespace
 
 
-// ---------------------------------------------------------------------------
 // Entry point
-// ---------------------------------------------------------------------------
+
 
 int WINAPI WinMain( HINSTANCE instance, HINSTANCE previousInstance, PSTR commandLineText, int showCommand )
 {

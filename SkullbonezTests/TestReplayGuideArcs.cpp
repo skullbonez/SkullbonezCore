@@ -5,7 +5,7 @@
 //
 // Summary:
 //   Circular Earth/Mars fixtures exercise the same orbital library used by the
-//   Legacy overlay without requiring a renderer or a live Physics world.
+//   GameUI overlay without requiring a renderer or a live Physics world.
 //
 // Glossary:
 //   Published ring: One complete 96-point owner span exposed to drawing.
@@ -45,17 +45,11 @@ ReplayGuideArcsUpdateInput CircularGuideInput( float earthRadius = 80.0f, double
     const Vector3 sunPosition( 10.0f, 3.0f, -5.0f );
 
     ReplayGuideArcsUpdateInput input;
-    input.sun = { PhysicsSceneObjectId{ 1u }, sunPosition, Vector3( 0.0f, 0.0f, 0.0f ), GUIDE_TEST_SUN_MASS, true };
-    input.earth = { PhysicsSceneObjectId{ 2u },
-                    sunPosition + Vector3( earthRadius, 0.0f, 0.0f ),
-                    Vector3( 0.0f, 0.0f, std::sqrt( mu / earthRadius ) ),
-                    1.0f,
-                    true };
-    input.mars = { PhysicsSceneObjectId{ 3u },
-                   sunPosition + Vector3( 120.0f, 0.0f, 0.0f ),
-                   Vector3( 0.0f, 0.0f, std::sqrt( mu / 120.0f ) ),
-                   0.1f,
-                   true };
+    input.sun = { PhysicsSceneObjectId { 1u }, sunPosition, Vector3( 0.0f, 0.0f, 0.0f ), GUIDE_TEST_SUN_MASS, true };
+    input.earth = { PhysicsSceneObjectId { 2u }, sunPosition + Vector3( earthRadius, 0.0f, 0.0f ),
+                    Vector3( 0.0f, 0.0f, std::sqrt( mu / earthRadius ) ), 1.0f, true };
+    input.mars = { PhysicsSceneObjectId { 3u }, sunPosition + Vector3( 120.0f, 0.0f, 0.0f ),
+                   Vector3( 0.0f, 0.0f, std::sqrt( mu / 120.0f ) ), 0.1f, true };
     input.gravitationalConstant = GUIDE_TEST_G;
     input.nowSeconds = nowSeconds;
     input.mutualGravityEnabled = true;
@@ -90,10 +84,12 @@ TEST_CASE( "Replay guide arcs default hidden and publish two fixed circular ring
     REQUIRE( view.valid );
     REQUIRE( view.earthPoints.size() == REPLAY_GUIDE_ARC_POINT_COUNT );
     REQUIRE( view.marsPoints.size() == REPLAY_GUIDE_ARC_POINT_COUNT );
+
     for ( const Vector3& point : view.earthPoints )
     {
         CHECK( RadiusFrom( point, input.sun.position ) == doctest::Approx( 80.0f ).epsilon( 0.001f ) );
     }
+
     for ( const Vector3& point : view.marsPoints )
     {
         CHECK( RadiusFrom( point, input.sun.position ) == doctest::Approx( 120.0f ).epsilon( 0.001f ) );
@@ -128,6 +124,7 @@ TEST_CASE( "Replay guide arcs refresh on cadence and hide outside mutual gravity
     guideArcs.Update( input );
     CHECK_FALSE( guideArcs.RefreshDue( input.nowSeconds ) );
     REQUIRE( guideArcs.View().valid );
+
     for ( const Vector3& point : guideArcs.View().earthPoints )
     {
         CHECK( RadiusFrom( point, input.sun.position ) == doctest::Approx( 70.0f ).epsilon( 0.001f ) );

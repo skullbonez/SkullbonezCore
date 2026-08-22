@@ -530,7 +530,7 @@ SceneEntityCreateResult SceneWorld::TryCreateSceneEntity( SceneEntityCreateDesc 
 
     // Invariant: every recoverable check is complete before the first mutation.
     // The following owner appends use fixed or pre-reserved storage; any count or
-    // identity mismatch is Lane F because partial topology cannot be recovered.
+    // identity mismatch is a fatal invariant failure because partial topology cannot be recovered.
     bodyDesc.sceneObjectId = entity.sceneObjectId;
     bodyDesc.fixedTreeReleaseRootIndex = entity.behaviorGroup.kind != SceneBehaviorGroupKind::ReleasableTree
                                              ? -1

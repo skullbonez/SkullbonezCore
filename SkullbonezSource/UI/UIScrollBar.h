@@ -1,7 +1,8 @@
 /*
 File: SkullbonezSource/UI/UIScrollBar.h
 Purpose:
-  Implements UI ScrollBar widgets, layout, drawing, or UI state for the in-engine controls.
+  Declares scroll-track/thumb geometry, offset projection, dragging, and
+  drawing.
 
 Summary:
   Projects content height and

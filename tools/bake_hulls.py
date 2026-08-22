@@ -1,7 +1,7 @@
 # File: tools/bake_hulls.py
 # Purpose: Serialize convex hull runtime topology and mass data into .hull files.
 #
-# Mental model:
+# Summary:
 #   Hull source data is an authored deterministic physics input. This tool
 #   validates topology, derives runtime metadata, and either checks or rewrites
 #   the serialized .hull file.

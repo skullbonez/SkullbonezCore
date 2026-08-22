@@ -11,7 +11,6 @@ Summary:
 Glossary:
   Cold row: Scene-authoring metadata retained beside the hot collision shape
     but excluded from per-step physics scans.
-  Hull identity: Stable path-and-scale key used to share immutable hull data.
 
 Invariants:
   - Every test collider row is created through ColliderStore's full transaction.
@@ -19,6 +18,7 @@ Invariants:
     production convenience overloads.
 
 Related:
+  - Agentic/Reference/engine-glossary.md
   - SkullbonezSource/Physics/ColliderStore.h
 */
 #pragma once

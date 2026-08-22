@@ -14,7 +14,7 @@ Summary:
   declaration whose declarator uses the `m_` member convention, and a declaration
   that is nothing but a second name for a parameter.
 
-Mental model:
+
   Both rules need the same primitive: "is this statement a *declaration*, and
   what is its declarator name?" `return m_dataRoot;` and `m_assets = assets;`
   are not declarations, so a loose pattern that keys on `m_` or on `name =`

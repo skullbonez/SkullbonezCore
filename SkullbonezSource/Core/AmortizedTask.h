@@ -19,7 +19,7 @@ Invariants:
     the whole range; an int result commits that many leading items.
   - Reset restarts the cursor only while idle, reports refusal while a worker
     owns the task, and preserves the configured callback and per-tick budget.
-  - Destruction while a chunk is in flight is Lane F because the worker ring
+  - Destruction while a chunk is in flight is a fatal invariant failure because the worker ring
     stores a raw pointer to this object.
 
 Related:

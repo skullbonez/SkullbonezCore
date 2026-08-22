@@ -3,7 +3,7 @@
 @rem Purpose:
 @rem   Builds and runs CPU-only runtime interaction controller policy tests.
 @rem
-@rem Mental model:
+@rem Summary:
 @rem   Runtime interaction policy is input/physics glue. Fast CPU tests catch
 @rem   impossible pointer capture, camera-look, and physics-step regressions
 @rem   before a full renderer or physics validation launch.

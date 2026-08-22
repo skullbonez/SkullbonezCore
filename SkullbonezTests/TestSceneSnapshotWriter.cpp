@@ -13,8 +13,7 @@ Summary:
 Glossary:
   Live part state: Current body/collider values, independent of the original
     asset instance transform.
-  Collider authoring row: Cold material text stored beside, not inside, the hot
-    collider record.
+
   Stable root id: Scene object id shared by every part affiliation in one asset
     instance.
   Entry policy: Production operation that owns editor numbering, load-only
@@ -29,6 +28,7 @@ Invariants:
   - Every runtime save entry serializes all three owner publications.
 
 Related:
+  - Agentic/Reference/engine-glossary.md
   - SkullbonezSource/Scene/SceneSnapshotWriter.cpp
   - SkullbonezSource/Runtime/Scene/SceneSaveOperations.cpp
   - SkullbonezSource/Scene/AuthoredSceneParser.cpp

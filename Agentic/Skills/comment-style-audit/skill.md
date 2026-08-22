@@ -80,16 +80,17 @@ only after it has been inspected against this skill and the guide.
    A heading that only means explanation, reason, rule, lifetime, or risk must
    use the standard tag instead. `Docs:` attaches an authoritative external API
    link locally; `Related:` owns repository navigation.
-10. Verify retained citation and lane conventions:
+10. Verify retained citation and error conventions:
     - `CATTO REF` identifies the external algorithm/equation supporting adjacent
       Physics code;
     - `ENGINE-SPECIFIC` identifies the local policy or geometry decision, may
       stand alone, and stays adjacent when it qualifies a CATTO REF;
-    - `Lane R` is recoverable external-input/environment failure, `Lane F` is
-      fatal owned invariant failure, and `Lane P` is bounded validation/probe
-      evidence; and
-    - lane labels classify handling and may coexist with Why/Invariant/Hazard.
-      Citations and lanes do not replace implementation/test proof.
+    - Error handling clearly distinguishes between recoverable external-input/environment
+      failures (`SbResult`), fatal owned invariant failures (`SB_FATAL`), and
+      bounded validation/test probe evidence; and
+    - Structured tags (`Concept:`, `Why:`, `Invariant:`, `Lifetime:`, `Hazard:`) explain
+      the reasoning, rules, and risks. Citations and error categories do not replace
+      implementation/test proof.
 11. For any type that aggregates unrelated-owner data or orchestrates
    multi-owner sequencing, require a header `Invariant:` block that names the
    rule the type enforces and identify the focused test that exercises it.
@@ -147,8 +148,8 @@ post-change source so ownership moves cannot create the same false finding.
   the modern header or nearby structured comment.
 - Precise domain headings name a real category or search target rather than
   aliasing Concept/Why/Invariant/Lifetime/Hazard.
-- `CATTO REF`/`ENGINE-SPECIFIC` and Lane R/F/P use their documented
-  source-versus-local-decision and recoverable/fatal/proof meanings.
+- `CATTO REF`/`ENGINE-SPECIFIC` and fatal invariant / recoverable error / test probe
+  conventions use their documented meanings.
 - Rendering files explain RTV, DSV, SRV, UAV, PSO, root signatures, resource
   states, barriers, DRED, PIX, BLAS, TLAS, or SBT when those terms appear.
 - Physics files explain broadphase, narrowphase, manifolds, contact rows, warm

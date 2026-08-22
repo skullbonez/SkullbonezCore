@@ -65,7 +65,7 @@ SkullbonezCore::Core::SbResult Dx12BackbufferCapture::CaptureBackbuffer( std::ve
 
     if ( !device || !commandList || !backbuffer || width <= 0 || height <= 0 )
     {
-        // Lane R: capture dimensions and device resources are external frame
+        // Recoverable error: capture dimensions and device resources are external frame
         // readiness, so report the unavailable operation to automation.
         outWidth = 0;
         outHeight = 0;

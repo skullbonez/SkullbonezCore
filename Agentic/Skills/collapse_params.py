@@ -1,6 +1,20 @@
 """
 File: Agentic/Skills/collapse_params.py
 Purpose:
+  Collapse balanced multiline C++ parameter lists before clang-format runs.
+
+Summary:
+  The formatter joins continuation lines while parentheses remain open, strips
+  comments that would swallow joined code, and leaves lambda signatures alone
+  so this pass and clang-format cannot oscillate over the same construct.
+
+Invariants:
+  - Only tracked .cpp and .h text under SkullbonezSource is considered.
+  - Lambda captures are not collapsed.
+"""
+"""
+File: Agentic/Skills/collapse_params.py
+Purpose:
   Collapses multiline parameter lists in top-level SkullbonezSource headers.
 
 Summary:

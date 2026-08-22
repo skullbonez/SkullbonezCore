@@ -23,6 +23,8 @@ Invariants:
     Release while Debug keeps the caller-contract tripwire.
   - ShowCursor is normalized through helper loops because Win32 exposes a
     reference counter, not a simple visible/hidden boolean.
+  - While automation is enabled, the complete synthetic keyboard, button,
+    wheel, focus, pointer, and raw-delta state replaces physical device state.
 
 Related:
   - SkullbonezSource/Runtime/Input/Input.h
@@ -165,68 +167,91 @@ SkullbonezCore::Core::SbResult Input::CaptureDeviceInputFrame( SkullbonezCore::C
         return SkullbonezCore::Core::SbResult::Success();
     }
 
-    BYTE keyboardState[InputKeySnapshot::VIRTUAL_KEY_COUNT] = {};
-
-    if ( !GetKeyboardState( keyboardState ) )
-    {
-        // Lane R: desktop/session state can make Win32 keyboard capture fail.
-        // The frame owner must stop rather than route a fabricated all-up frame.
-        return diagnostics.Failure( "Runtime/Input", "GetKeyboardState failed while capturing the device frame (win32=%lu)",
-                                    static_cast<unsigned long>( GetLastError() ) );
-    }
-
     std::array<uint64_t, InputKeySnapshot::WORD_COUNT> words = {};
 
-    for ( int virtualKey = 0; virtualKey < InputKeySnapshot::VIRTUAL_KEY_COUNT; ++virtualKey )
+    if ( s_automationState.enabled )
     {
-        if ( ( keyboardState[virtualKey] & 0x80u ) == 0u )
+        // Invariant: synthetic playback replaces the complete device snapshot.
+        // Operator input must never contaminate a deterministic automation run.
+        words = s_automationState.keyWords;
+
+        if ( s_automationState.keyDown && s_automationState.keyVirtualKey >= 0 &&
+             s_automationState.keyVirtualKey < InputKeySnapshot::VIRTUAL_KEY_COUNT )
         {
-            continue;
+            const int virtualKey = s_automationState.keyVirtualKey;
+            const std::size_t word = static_cast<std::size_t>( virtualKey ) / 64u;
+            words[word] |= uint64_t { 1 } << ( static_cast<unsigned int>( virtualKey ) & 63u );
         }
 
-        const std::size_t word = static_cast<std::size_t>( virtualKey ) / 64u;
-        words[word] |= uint64_t { 1 } << ( static_cast<unsigned int>( virtualKey ) & 63u );
+        if ( s_automationState.controlDown )
+        {
+            const std::size_t word = static_cast<std::size_t>( VK_CONTROL ) / 64u;
+            words[word] |= uint64_t { 1 } << ( static_cast<unsigned int>( VK_CONTROL ) & 63u );
+        }
     }
-
-    if ( s_automationState.enabled && s_automationState.keyDown && s_automationState.keyVirtualKey >= 0 &&
-         s_automationState.keyVirtualKey < InputKeySnapshot::VIRTUAL_KEY_COUNT )
+    else
     {
-        // Invariant: automation augments the same immutable snapshot consumed by
-        // physical input; it does not retain a second command-edge path.
-        const int virtualKey = s_automationState.keyVirtualKey;
-        const std::size_t word = static_cast<std::size_t>( virtualKey ) / 64u;
-        words[word] |= uint64_t { 1 } << ( static_cast<unsigned int>( virtualKey ) & 63u );
-    }
+        BYTE keyboardState[InputKeySnapshot::VIRTUAL_KEY_COUNT] = {};
 
-    if ( s_automationState.enabled && s_automationState.controlDown )
-    {
-        // Why: modifier-aware interaction probes must exercise the normal
-        // immutable keyboard snapshot used by editor shortcuts.
-        const std::size_t word = static_cast<std::size_t>( VK_CONTROL ) / 64u;
-        words[word] |= uint64_t { 1 } << ( static_cast<unsigned int>( VK_CONTROL ) & 63u );
+        if ( !GetKeyboardState( keyboardState ) )
+        {
+            return diagnostics.Failure( "Runtime/Input",
+                                        "GetKeyboardState failed while capturing the device frame (win32=%lu)",
+                                        static_cast<unsigned long>( GetLastError() ) );
+        }
+
+        for ( int virtualKey = 0; virtualKey < InputKeySnapshot::VIRTUAL_KEY_COUNT; ++virtualKey )
+        {
+            if ( ( keyboardState[virtualKey] & 0x80u ) != 0u )
+            {
+                const std::size_t word = static_cast<std::size_t>( virtualKey ) / 64u;
+                words[word] |= uint64_t { 1 } << ( static_cast<unsigned int>( virtualKey ) & 63u );
+            }
+        }
     }
 
     frame.keys = InputKeySnapshot::FromWords( words );
-    const MouseCoordinatesResult clientPosition = GetClientMouseCoordinates( diagnostics );
 
-    if ( !clientPosition.result.Ok() )
+    if ( s_automationState.enabled )
     {
-        return clientPosition.result;
+        // Invariant: absence is part of the recorded pointer state. Do not turn
+        // an absent sample into a synthetic (0,0) position that can hit UI.
+        frame.SetClientPosition( s_automationState.hasMouseClientPosition, s_automationState.mouseClientPosition.x,
+                                 s_automationState.mouseClientPosition.y );
+    }
+    else
+    {
+        const MouseCoordinatesResult clientPosition = GetClientMouseCoordinates( diagnostics );
+
+        if ( !clientPosition.result.Ok() )
+        {
+            return clientPosition.result;
+        }
+
+        frame.SetClientPosition( true, clientPosition.coordinates.x, clientPosition.coordinates.y );
     }
 
-    frame.clientX = clientPosition.coordinates.x;
-    frame.clientY = clientPosition.coordinates.y;
-    frame.hasClientPosition = true;
-    frame.leftDown = s_automationState.enabled ? s_automationState.leftMouseDown
-                                               : ( keyboardState[VK_LBUTTON] & 0x80u ) != 0u;
-
-    frame.rightDown = s_automationState.enabled ? s_automationState.rightMouseDown
-                                                : ( keyboardState[VK_RBUTTON] & 0x80u ) != 0u;
-
-    frame.middleDown = ( keyboardState[VK_MBUTTON] & 0x80u ) != 0u;
     const int callbackWheelDelta = ConsumeMouseWheelDelta();
-    frame.wheelDelta = s_automationState.enabled ? s_automationState.mouseWheelDelta : callbackWheelDelta;
-    (void)ConsumeRawMouseDelta( frame.rawMouseX, frame.rawMouseY );
+
+    if ( s_automationState.enabled )
+    {
+        frame.leftDown = s_automationState.leftMouseDown;
+        frame.rightDown = s_automationState.rightMouseDown;
+        frame.middleDown = s_automationState.middleMouseDown;
+        frame.wheelDelta = s_automationState.mouseWheelDelta;
+        frame.rawMouseX = s_automationState.rawMouseDeltaX;
+        frame.rawMouseY = s_automationState.rawMouseDeltaY;
+        ResetMouseLookDeltas();
+    }
+    else
+    {
+        frame.leftDown = frame.keys.IsDown( VK_LBUTTON );
+        frame.rightDown = frame.keys.IsDown( VK_RBUTTON );
+        frame.middleDown = frame.keys.IsDown( VK_MBUTTON );
+        frame.wheelDelta = callbackWheelDelta;
+        (void)ConsumeRawMouseDelta( frame.rawMouseX, frame.rawMouseY );
+    }
+
     return SkullbonezCore::Core::SbResult::Success();
 }
 
@@ -234,7 +259,7 @@ SkullbonezCore::Core::SbResult Input::CaptureDeviceInputFrame( SkullbonezCore::C
 SkullbonezCore::Core::SbResult Input::SetNativeMouseCapture( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                              bool captured )
 {
-    // Lane R: InputRouter owns the decision, while this narrow hardware seam
+    // Recoverable error: InputRouter owns the decision, while this narrow hardware seam
     // verifies that Win32 accepted the requested capture transition.
     Window* window = s_windowBridge.BoundWindow();
     const HWND windowHandle = window ? window->NativeWindowHandle() : nullptr;
@@ -464,12 +489,23 @@ void Input::ResetMouseLookDeltas()
 
 
 // Why: Win32 cursor queries can fail for environment reasons outside engine
-// ownership. Return a Lane R result so frame/UI owners can skip pointer input
+// ownership. Return a recoverable result so frame/UI owners can skip pointer input
 // without unwinding through WndProc or the run loop.
 Input::MouseCoordinatesResult Input::GetMouseCoordinates( SkullbonezCore::Core::SbDiagnosticStore& diagnostics )
 {
     MouseCoordinatesResult result;
     POINT mousePos = {};
+
+    if ( s_automationState.enabled )
+    {
+        if ( s_automationState.hasMouseClientPosition )
+        {
+            mousePos = s_automationState.mouseClientPosition;
+        }
+
+        result.coordinates = mousePos;
+        return result;
+    }
 
     if ( !GetCursorPos( &mousePos ) ) // attempt to get the mouse m_position
     {
@@ -489,9 +525,13 @@ Input::MouseCoordinatesResult Input::GetClientMouseCoordinates( SkullbonezCore::
 {
     MouseCoordinatesResult result;
 
-    if ( s_automationState.enabled && s_automationState.hasMouseClientPosition )
+    if ( s_automationState.enabled )
     {
-        result.coordinates = s_automationState.mouseClientPosition;
+        if ( s_automationState.hasMouseClientPosition )
+        {
+            result.coordinates = s_automationState.mouseClientPosition;
+        }
+
         return result;
     }
 

@@ -1,26 +1,23 @@
 /*
 File: SkullbonezData/shaders/generate_mips.hlsl
 Purpose:
-  Runs the generate_mips HLSL shader program used by the renderer.
+  Compute shader for GPU-driven mipmap generation across texture mip levels.
 
 Summary:
-  generate_mips.hlsl is shader source for the renderer's generate_mips pass.
-  Keep edits anchored on shader inputs, bindings, and render-output contracts
-  and on the glossary/invariants below.
-
-Glossary:
-  SRV (Shader Resource View): Descriptor row used when shaders read textures
-  or buffers.
-  UAV (Unordered Access View): Descriptor row used when compute or raytracing
-  shaders write textures or buffers.
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
+  Downsamples the source mip level into destination sublevels using bilinear
+  reduction in compute threads, supporting both 2D textures and cubemaps during
+  resource loading and asset preparation.
 
 Invariants:
-  - CPU-side root signatures, input layouts, and descriptor bindings must
-  match this shader exactly.
+  - CPU-side root signatures and descriptor bindings must match this compute shader exactly.
+  - Thread group dimensions (8x8) match standard texture downsampling tiles.
+  - Source and destination texture formats and sRGB rules are preserved across levels.
+
+Related:
+  - Agentic/Reference/engine-glossary.md
+  - SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp
 */
+
 // =============================================================================
 // GENERATE MIPMAPS COMPUTE SHADER — Shader Model 6.6
 // =============================================================================

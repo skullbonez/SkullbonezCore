@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/Core/SbDiagnosticStore.h
 Purpose:
-  Declares the fixed-capacity owner of immutable Lane R diagnostics.
+  Declares the fixed-capacity owner of immutable recoverable diagnostics.
 
 Summary:
   The App composition root creates one store before every result-producing
@@ -18,14 +18,13 @@ Invariants:
   - Publication, retain, release, lookup, and counters share one allocation-free
     spin lock; success paths never call the store.
   - The lock records one fixed thread token so same-thread re-entry terminates
-    through Lane F instead of spinning indefinitely.
+    through fatal invariant instead of spinning indefinitely.
   - App constructs the store before result-producing owners and destroys it
     after every failed result lease; destruction with an active lease is a
-    deterministic Lane F lifetime defect before the raw store can dangle.
+    deterministic fatal invariant lifetime defect before the raw store can dangle.
   - Fatal reporting is selected while locked but emitted only after unlocking.
   - Capacity, owner overflow, generation wrap, stale live access, lease overflow,
-    double release, and destruction with active leases are deterministic Lane F
-    defects.
+    double release, and destruction with active leases are deterministic fatal invariant defects.
 
 Related:
   - SkullbonezSource/Core/SbResult.h
@@ -55,7 +54,7 @@ class SbDiagnosticStore
 
     SbDiagnosticStore() noexcept = default;
 
-    // Lane F terminates instead of unwinding, so the lifetime guard preserves a
+    // SB_FATAL terminates instead of unwinding, so the lifetime guard preserves a
     // noexcept destruction contract.
     ~SbDiagnosticStore() noexcept;
     SbDiagnosticStore( const SbDiagnosticStore& ) = delete;

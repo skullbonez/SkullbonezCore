@@ -12,14 +12,13 @@ Summary:
   Prediction witnesses serialize complete bounded trajectory, future-node, and
   cause-row topology, exact evidence stamps, and solver anchors so root-policy
   or stale-bank regressions are reviewable without inferring structure from a
-  screenshot.
+  screenshot. Cause-inspector reports serialize the same compound control
+  rectangles consumed by drawing and pointer routing.
 
 Glossary:
   Report fact: Derived validation value shared by live assertions and final JSON.
   RVIS (Replay Visual Instance State): Ordered visual packet rows stored beside
     replay samples for offline fidelity verification.
-  Committed frame prefix: Reader-visible prediction rows; retained rows beyond
-    its count remain private allocation storage.
 
 Invariants:
   - JSON field names and replay byte/order calculations are validation contracts.
@@ -45,6 +44,7 @@ Related:
 #include "../Editor/EditorTools.h"
 #include "../Prediction/ReplayPrediction.h"
 #include "../Prediction/ReplayPredictionArchive.h"
+#include "../Planning/ReplayCauseInspection.h"
 #include "../Planning/ReplayOverlayRenderer.h"
 #include "../Replay/ReplayPresentation.h"
 #include "../Replay/ReplayV2Artifact.h"
@@ -809,13 +809,15 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
     EditorTracer& tracer = runtimeTools.Tracer();
     std::vector<ReplayVisualTrajectoryDigestState> trajectoryDigests;
     trajectoryDigests.reserve( offlinePrediction.State().trajectoryStore.RecordCount() );
-    std::vector<uint32_t> publishedTopologyVersions;
-    publishedTopologyVersions.reserve( m_replayVisualFidelityTicks.size() );
+
+    // Invariant: captured and reconstructed raw generations are independent
+    // processes; only their first-publication token sequences may be compared.
+    ReplayVisualPacketOperations::ReplayVisualTopologyVersionCanonicalizer capturedTopologyVersions;
+    ReplayVisualPacketOperations::ReplayVisualTopologyVersionCanonicalizer projectedTopologyVersions;
 
     for ( const ReplayVisualFidelityReportTick& tick : m_replayVisualFidelityTicks )
     {
-        const uint32_t canonicalTopologyVersion = CanonicalReplayArtifactTopologyVersion( tick.topologyVersion,
-                                                                                          publishedTopologyVersions );
+        const uint32_t canonicalTopologyVersion = capturedTopologyVersions.Observe( tick.topologyVersion );
 
         const ReplayVisualArchiveSample expected = BuildReplayVisualArchiveSample( tick, canonicalTopologyVersion );
         offlinePrediction.SetVerificationRevealFrame( expected.revealFrame );
@@ -861,6 +863,7 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
                                                                    latestSolverSample, expected.replayReserveGrowthEvents );
 
         projected = offlinePrediction.PresentationOwner().PublishedVisualPacketView();
+        projected.header.topologyVersion = projectedTopologyVersions.Observe( projected.header.topologyVersion );
         const ReplayVisualPacketFingerprint
             fingerprint = BuildReplayVisualPacketFingerprint( projected, trajectoryDigests,
                                                               ReplayVisualTrajectoryDigestPolicy::ReuseImmutableRecords );
@@ -1224,24 +1227,6 @@ SkullbonezCore::Runtime::InteractionAutomationReportWriter::ReplayPredictionBuil
     }
 }
 
-uint32_t SkullbonezCore::Runtime::InteractionAutomationReportWriter::CanonicalReplayArtifactTopologyVersion( uint32_t liveVersion, std::vector<uint32_t>& publishedVersions )
-{
-    if ( liveVersion == 0u )
-    {
-        return 0u;
-    }
-
-    const auto found = std::find( publishedVersions.begin(), publishedVersions.end(), liveVersion );
-
-    if ( found == publishedVersions.end() )
-    {
-        publishedVersions.push_back( liveVersion );
-        return static_cast<uint32_t>( publishedVersions.size() );
-    }
-
-    return static_cast<uint32_t>( std::distance( publishedVersions.begin(), found ) + 1 );
-}
-
 ReplayVisualArchiveSample SkullbonezCore::Runtime::InteractionAutomationReportWriter::BuildReplayVisualArchiveSample( const ReplayVisualFidelityReportTick& tick, uint32_t canonicalTopologyVersion )
 {
     ReplayVisualArchiveSample packet;
@@ -1328,18 +1313,16 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
         replayArtifactPath += ".skreplay";
         std::vector<ReplayVisualArchiveSample> visualPackets;
         visualPackets.reserve( m_replayVisualFidelityTicks.size() );
-        std::vector<uint32_t> publishedTopologyVersions;
-        publishedTopologyVersions.reserve( m_replayVisualFidelityTicks.size() );
+        ReplayVisualPacketOperations::ReplayVisualTopologyVersionCanonicalizer topologyVersions;
 
         for ( const ReplayVisualFidelityReportTick& tick : m_replayVisualFidelityTicks )
         {
-            const uint32_t canonicalTopologyVersion = CanonicalReplayArtifactTopologyVersion( tick.topologyVersion,
-                                                                                              publishedTopologyVersions );
+            const uint32_t canonicalTopologyVersion = topologyVersions.Observe( tick.topologyVersion );
 
             visualPackets.push_back( BuildReplayVisualArchiveSample( tick, canonicalTopologyVersion ) );
         }
 
-        // Lane R: the artifact is cold validation IO. Its failure belongs in
+        // Recoverable error: the artifact is cold validation IO. Its failure belongs in
         // the machine-readable automation result, never in runtime ownership.
         char archiveReason[192] = {};
 
@@ -1767,6 +1750,25 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
         replayCauseTreeMaximumDepth = (std::max)( replayCauseTreeMaximumDepth, row.depth );
     }
 
+    // Automation has the clamped Replay anchor but not a second viewport copy.
+    // The anchor's reachable right/bottom margins provide the minimum viewport
+    // that reproduces the exact effective attachment width, including compact
+    // cases where the drawer has already shrunk.
+    const int causeInspectorLayoutWidth = (std::max)( 1, replay.causeTree.x + replay.causeTree.width + 8 );
+    const int causeInspectorLayoutHeight = (std::max)( 1, replay.causeTree.y + replay.causeTree.height + 8 );
+    const ReplayCauseInspectorLayout
+        causeInspectorLayout = BuildReplayCauseInspectorLayout( replay.causeInspection, replay.causeTree,
+                                                                causeInspectorLayoutWidth, causeInspectorLayoutHeight,
+                                                                replay.causeInspection.detailVisible ? 1.0f : 0.0f );
+    const auto inspectorRect = []( const UI::UIRect& rect )
+    { return Json { { "x", rect.x }, { "y", rect.y }, { "width", rect.w }, { "height", rect.h } }; };
+    Json causeInspectorTabBounds = Json::array();
+
+    for ( const UI::UIRect& tab : causeInspectorLayout.tabs )
+    {
+        causeInspectorTabBounds.push_back( inspectorRect( tab ) );
+    }
+
     PredictionTrajectoryFingerprint predictionTrajectoryFingerprint = BuildPredictionTrajectoryFingerprint( replay );
 
     if ( m_replayVisualFidelityTrajectoryCaptured )
@@ -2093,6 +2095,28 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
                                 { "replayCauseTreeMouseX", replay.causeTree.mouseX },
                                 { "replayCauseTreeMouseY", replay.causeTree.mouseY },
                                 { "replayCauseTreePointerBlocked", replay.causeTree.pointerBlocked },
+                                { "replayCauseInspectorHierarchyBounds", inspectorRect( causeInspectorLayout.hierarchy ) },
+                                { "replayCauseInspectorDrawerBounds", inspectorRect( causeInspectorLayout.drawer ) },
+                                { "replayCauseInspectorVisibleDrawerBounds",
+                                  inspectorRect( causeInspectorLayout.visibleDrawer ) },
+                                { "replayCauseInspectorTargetDrawerBounds",
+                                  inspectorRect( causeInspectorLayout.targetDrawer ) },
+                                { "replayCauseInspectorCompoundBounds", inspectorRect( causeInspectorLayout.compound ) },
+                                { "replayCauseInspectorTargetCompoundBounds",
+                                  inspectorRect( causeInspectorLayout.targetCompound ) },
+                                { "replayCauseInspectorHierarchyTitleBounds",
+                                  inspectorRect( causeInspectorLayout.hierarchyTitle ) },
+                                { "replayCauseInspectorDrawerTitleBounds",
+                                  inspectorRect( causeInspectorLayout.drawerTitle ) },
+                                { "replayCauseInspectorCloseBounds", inspectorRect( causeInspectorLayout.drawerClose ) },
+                                { "replayCauseInspectorTabBounds", causeInspectorTabBounds },
+                                { "replayCauseInspectorContentBounds", inspectorRect( causeInspectorLayout.content ) },
+                                { "replayCauseInspectorDrawerScrollbarBounds",
+                                  inspectorRect( causeInspectorLayout.drawerScrollbar ) },
+                                { "replayCauseInspectorHierarchyScrollbarBounds",
+                                  inspectorRect( causeInspectorLayout.hierarchyScrollbar ) },
+                                { "replayCauseInspectorSharedSeamBounds", inspectorRect( causeInspectorLayout.sharedSeam ) },
+                                { "replayCauseInspectorResizeBounds", inspectorRect( causeInspectorLayout.resize ) },
                                 { "replayCauseInspectionMode", static_cast<int>( replay.causeInspection.mode ) },
                                 { "replayCauseInspectionDetailVisible", replay.causeInspection.detailVisible },
                                 { "replayCauseInspectionDetailAvailability",

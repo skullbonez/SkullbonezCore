@@ -1,22 +1,22 @@
 /*
 File: SkullbonezData/shaders/shadow_depth_instanced.hlsl
 Purpose:
-  Runs the shadow_depth_instanced HLSL shader program used by the renderer.
+  Render instanced mesh depth from the directional light view into shadow maps.
 
 Summary:
-  shadow_depth_instanced.hlsl is shader source for the renderer's
-  shadow_depth_instanced pass. Keep edits anchored on shader inputs, bindings,
-  and render-output contracts and on the glossary/invariants below.
-
-Glossary:
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
+  Applies per-instance transform matrices from instance vertex buffers to
+  project instanced trees, rocks, and props into light space for shadow mapping.
 
 Invariants:
-  - CPU-side root signatures, input layouts, and descriptor bindings must
-  match this shader exactly.
+  - Instance buffer layout matches RenderInstanceStore vertex stream format.
+  - Culled or hidden instances are excluded prior to draw call dispatch.
+
+Related:
+  - Agentic/Reference/engine-glossary.md
+  - SkullbonezSource/Rendering/RenderInstanceStore.h
+  - SkullbonezSource/Rendering/Shadow.h
 */
+
 #pragma pack_matrix(column_major)
 
 cbuffer Uniforms : register(b0)

@@ -3,7 +3,7 @@
 Purpose:
   Align trailing inline comments in C++ headers after the primary formatter.
 
-Mental model:
+
   This is a header-only post-pass for clang-format. Public header declarations
   often carry caller-contract comments; keeping them in one file-wide vertical
   column makes declaration blocks easier to scan without touching implementation
@@ -16,11 +16,14 @@ Summary:
 
 Glossary:
   Trailing inline comment: A // comment after code on the same line.
-  Column limit: Maximum preferred line width used when aligning comments.
+  Column limit: Maximum preferred width for code tokens. A trailing comment may
+  exceed it rather than force a short declaration's type and name apart.
 
 Invariants:
   - Only C++ header-style trailing comments are aligned; preprocessor lines,
     comment-only lines, and clang-format directives are skipped.
+  - A declaration that fits without its comment stays on one line even when the
+    complete commented line exceeds the preferred column limit.
   - The script rewrites text layout only and must not change code tokens.
 """
 
@@ -167,14 +170,17 @@ def normalize_code_fragments(fragments: Iterable[str]) -> str:
     return " ".join(fragment.strip() for fragment in fragments if fragment.strip())
 
 
-def can_rejoin_statement(code: str, comment: str, column_limit: int) -> bool:
+def can_rejoin_statement(code: str, column_limit: int) -> bool:
     if ";" not in code:
         return False
     if "{" in code or "}" in code:
         return False
     if code.count("(") != code.count(")"):
         return False
-    return len(code) + DEFAULT_MIN_SPACES + len(comment) <= column_limit
+    # Invariant: trailing prose never forces clang-format's type/name split.
+    # The code itself must still fit, so genuinely wide declarations retain
+    # their readable continuation layout.
+    return len(code.rstrip()) <= column_limit
 
 
 def rejoin_commented_declarations(lines: list[str], column_limit: int) -> tuple[list[str], int]:
@@ -199,7 +205,7 @@ def rejoin_commented_declarations(lines: list[str], column_limit: int) -> tuple[
         indent = preceding[0][: len(preceding[0]) - len(preceding[0].lstrip())]
         merged_code = indent + normalize_code_fragments([*preceding, code])
 
-        if can_rejoin_statement(merged_code.strip(), comment, column_limit):
+        if can_rejoin_statement(merged_code, column_limit):
             output.append(f"{merged_code}  {comment}")
             joined += 1
         else:
@@ -250,6 +256,31 @@ def format_header_text(text: str, column_limit: int) -> FormatResult:
         formatted += "\n"
 
     return FormatResult(formatted, aligned, joined)
+
+
+def run_self_tests() -> None:
+    long_comment = "// " + "behavior ownership detail " * 6
+    split_declaration = [
+        "    InteractionAutomationRecorder",
+        f"        m_interactionRecorder; {long_comment}",
+    ]
+    joined, joined_count = rejoin_commented_declarations(split_declaration, DEFAULT_COLUMN_LIMIT)
+    expected_code = "    InteractionAutomationRecorder m_interactionRecorder;"
+    if joined_count != 1 or len(joined) != 1 or not joined[0].startswith(expected_code):
+        raise AssertionError("a fitting declaration was not rejoined ahead of its long trailing comment")
+    if len(joined[0]) <= DEFAULT_COLUMN_LIMIT:
+        raise AssertionError("long-comment fixture does not prove permitted column overflow")
+
+    oversized_type = "Oversized" + ("Type" * 32)
+    oversized_declaration = [
+        f"    {oversized_type}",
+        f"        m_value; {long_comment}",
+    ]
+    retained, retained_count = rejoin_commented_declarations(oversized_declaration, DEFAULT_COLUMN_LIMIT)
+    if retained_count != 0 or retained != oversized_declaration:
+        raise AssertionError("a genuinely oversized declaration was incorrectly collapsed")
+
+    print("SELF_TEST_PASS: long comments cannot split fitting declarations; oversized code remains wrapped.")
 
 
 def iter_header_files(paths: Iterable[Path]) -> list[Path]:
@@ -312,14 +343,18 @@ def main() -> int:
     )
     parser.add_argument("--clang-format", type=Path, help="clang-format executable for --check-pipeline.")
     parser.add_argument("--write", action="store_true", help="Rewrite headers in place.")
+    parser.add_argument("--self-test", action="store_true", help="Run declaration/comment policy fixtures.")
     parser.add_argument("paths", nargs="*", type=Path, help="Header files or directories. Defaults to SkullbonezSource.")
     args = parser.parse_args()
 
-    selected_modes = sum(1 for enabled in (args.check, args.check_pipeline, args.write) if enabled)
+    selected_modes = sum(1 for enabled in (args.check, args.check_pipeline, args.write, args.self_test) if enabled)
     if selected_modes > 1:
-        parser.error("--check, --check-pipeline, and --write are mutually exclusive")
+        parser.error("--check, --check-pipeline, --write, and --self-test are mutually exclusive")
     if args.check_pipeline and args.clang_format is None:
         parser.error("--check-pipeline requires --clang-format")
+    if args.self_test:
+        run_self_tests()
+        return 0
 
     mode = "write" if args.write else "pipeline" if args.check_pipeline else "check"
     repo = args.repo.resolve()

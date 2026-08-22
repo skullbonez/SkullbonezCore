@@ -1,4 +1,8 @@
-@echo off
+REM Summary:
+REM   Two scripted pointer transactions cover instant and amortized prediction
+REM   replacement. Reports and screenshots prove the selected preview remains
+REM   coherent from held drag through the single release commit.
+REM@echo off
 REM File: tools\validate_alt_velocity_visualization.bat
 REM Purpose:
 REM   Exercise the real ALT-VEL button and held gizmo drag in the terrainless

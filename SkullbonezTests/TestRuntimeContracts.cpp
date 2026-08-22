@@ -1,19 +1,18 @@
-//
+//   - Agentic/Reference/engine-glossary.md//
 // File: SkullbonezTests/TestRuntimeContracts.cpp
 // Purpose:
 //   Exercises result values, logger concurrency, worker-task lifetime, and
-//   Lane F probes, including disabled development-profiler compile contracts.
+//   fatal invariant probes, including disabled development-profiler compile contracts.
 //
 // Summary:
 //   Ordinary contracts run in doctest. Contracts that must abort launch this
 //   executable as a named child case so the parent suite survives.
 //
 // Glossary:
-//   Fatal probe: Child invocation expected to end through SB_FATAL.
+
 //   In-flight task: AmortizedTask range currently owned by a worker callback.
-//   Lane F: Fatal-invariant error path that records diagnostics and terminates.
-//   Lane R: Recoverable result path that returns an owned error instead of
-//     terminating the engine.
+//   Fatal invariant: Error path that records diagnostics and terminates.
+
 //   Disabled marker seam: Development-profiler macro that must discard its
 //     argument tokens when the vendor client is absent from the test build.
 //
@@ -26,13 +25,13 @@
 //   - Blocking task tests release the worker before local state is destroyed.
 //   - Every threaded worker test shuts its pool down before local task state expires.
 //   - Disabled development-profiler macros never evaluate caller expressions.
-//   - Foreign page-boundary deletes reach allocation Lane F without faulting
+//   - Foreign page-boundary deletes reach allocation fatal invariant without faulting
 //     while probing their inaccessible candidate header.
 //   - Release foreign frees are proved in a child so their process-lifetime
 //     counter cannot contaminate later parent-process diagnostics.
-//   - Allocation-size overflow reaches allocation Lane F before CRT malloc.
+//   - Allocation-size overflow reaches allocation fatal invariant before CRT malloc.
 //   - The contact-solve phase cursor admits only its full ordered walk and two
-//     existing no-work terminal edges; every other edge terminates in Lane F.
+//     existing no-work terminal edges; every other edge terminates with fatal invariant.
 //   - Physics storage seeding rejects missing allocation/owner scopes,
 //     SceneLoad phase, missing Replay owner, and any Replay owner other than
 //     the canonical prediction working set.
@@ -55,7 +54,7 @@
 //   - Rendering lifecycle, primitive-scope, world-resource, and preview-capacity
 //     failures terminate in Profile children before stale access or indexing.
 //   - Targeted assert-only controls exit cleanly outside Debug, proving each
-//     rendering Lane F group would detect its former false-pass implementation.
+//     rendering fatal invariant group would detect its former false-pass implementation.
 //   - Targeted IH2/IH3 controls retain the retired assert-only tornado,
 //     collider, disjoint-set, and physics-body shapes under NDEBUG.
 //   - Runtime lifecycle probes exercise the exact Run, Input, SkyPass, and UiTextPass
@@ -975,7 +974,7 @@ struct WorkerFatalProbe
 void RunLegacyAssertOnlyControl( bool condition, const char* group )
 {
     // Negative control: this is the retired Profile shape. The assertion is
-    // compiled out under NDEBUG and the safe return proves the paired Lane F
+    // compiled out under NDEBUG and the safe return proves the paired fatal invariant
     // child would have false-passed without its always-on owner guard.
     assert( condition );
 
@@ -1885,7 +1884,7 @@ bool RunRuntimeFatalCase( const char* caseName )
 
         // Hazard: repeated Insert calls now move one persistent body. Fill the
         // remaining legal cells through the bounded swept-overlay path, then
-        // request one genuinely new cell to exercise the Lane F table limit.
+        // request one genuinely new cell to exercise the fatal invariant table limit.
         const Vector3 sweepStart( static_cast<float>( persistentCells ) + 0.25f, 0.25f, 0.25f );
         grid.InsertSwept( persistentCells, sweepStart, Vector3( static_cast<float>( persistentCells - 1 ), 0.0f, 0.0f ),
                           0.0f );
@@ -2145,6 +2144,42 @@ TEST_CASE( "SkullbonezCore::Core::EngineLog: concurrent file and event writes sh
 
     const std::string contents = ReadSharedFileText( path );
     CHECK( static_cast<int>( std::count( contents.begin(), contents.end(), '\n' ) ) == threadCount * writesPerThread );
+#endif
+}
+
+TEST_CASE( "SkullbonezCore::Core::EngineLog: ResetLog truncates a retained log so a re-run does not append" )
+{
+#if defined( SKULLBONEZ_TEST_ENGINE_LOG )
+    // Pins the fix for the doubled physics-regression CSV: EngineLog retains one
+    // open handle per path, so a same-process second run appended a second run
+    // behind the first. ResetLog must drop the handle so the next write starts
+    // the file over. This is exactly the append-on-replay hazard that made a
+    // byte-identical golden read as a divergence.
+    constexpr const char* path = "Debug/engine_log_reset_test.log";
+    std::remove( path );
+
+    EngineLog& log = SkullbonezCore::Core::EngineLog::Get();
+
+    // First run: three rows land in a freshly opened file.
+    log.Writef( path, "run1,%d\n", 0 );
+    log.Writef( path, "run1,%d\n", 1 );
+    log.Writef( path, "run1,%d\n", 2 );
+
+    // Reset while the handle is still retained (no close): the next write must
+    // truncate rather than append behind run 1.
+    log.ResetLog( path );
+
+    log.Writef( path, "run2,%d\n", 0 );
+    log.Writef( path, "run2,%d\n", 1 );
+
+    log.FlushAll();
+    log.CloseAllForTests();
+
+    const std::string contents = ReadSharedFileText( path );
+    CHECK( static_cast<int>( std::count( contents.begin(), contents.end(), '\n' ) ) == 2 );
+    CHECK( contents.find( "run1" ) == std::string::npos );
+    CHECK( contents.find( "run2,0" ) != std::string::npos );
+    CHECK( contents.find( "run2,1" ) != std::string::npos );
 #endif
 }
 
@@ -2641,7 +2676,7 @@ TEST_CASE( "Physics invariant guards admit exact scratch and consequence capacit
     CHECK( stage.GetSideEffects().pipelineRecords.empty() );
 }
 
-TEST_CASE( "Persistent contact solve transaction enforces every phase edge through Lane F" )
+TEST_CASE( "Persistent contact solve transaction enforces every phase edge through fatal invariant" )
 {
     using SkullbonezCore::Physics::PersistentContactSolvePhaseCursor;
     using SkullbonezCore::Physics::PersistentContactSolveTransaction;
@@ -2705,7 +2740,7 @@ TEST_CASE( "Persistent contact solve transaction enforces every phase edge throu
     static_assert( !std::is_copy_assignable_v<PersistentContactSolveTransaction> );
 }
 
-TEST_CASE( "Operator command transaction enforces every phase edge through Lane F" )
+TEST_CASE( "Operator command transaction enforces every phase edge through fatal invariant" )
 {
     using SkullbonezCore::Runtime::OperatorCommandPhaseCursor;
     using SkullbonezCore::Runtime::OperatorCommandTransaction;

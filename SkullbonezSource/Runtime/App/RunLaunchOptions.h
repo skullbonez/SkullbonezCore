@@ -16,8 +16,9 @@ Glossary:
   steady gameplay begins.
   Generated object type override: Debug/validation selector that forces
   generated demo scenes to all balls or all boxes.
-  Development UI mode: Process-lifetime selection between the Legacy and ImGui
-    operator surfaces; omitted command-line input selects Legacy.
+  Development UI mode: Process-lifetime selection between the built-in GameUI
+    game/level-editor surface and optional ImGui development surface; omitted
+    command-line input selects GameUI.
 
 Invariants:
   - These values are policy inputs; subsystems own the live state they modify.
@@ -47,13 +48,13 @@ namespace Runtime
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 enum class DevelopmentUiMode : uint8_t
 {
-    Legacy = 0,
+    GameUI = 0,
     ImGui
 };
 
-constexpr bool DevelopmentUiModeShowsLegacy( DevelopmentUiMode mode ) noexcept
+constexpr bool DevelopmentUiModeShowsGameUI( DevelopmentUiMode mode ) noexcept
 {
-    return mode == DevelopmentUiMode::Legacy;
+    return mode == DevelopmentUiMode::GameUI;
 }
 
 constexpr bool DevelopmentUiModeShowsImGui( DevelopmentUiMode mode ) noexcept
@@ -88,7 +89,8 @@ struct RunLaunchOptions
     int graphicsStressActions = 12;                                                              // CLI --graphics-stress-actions
     int graphicsStressSceneIntervalFrames = 45;                                                  // CLI --graphics-stress-scene-interval
     int graphicsStressMemoryIntervalFrames = 1800;                                               // CLI --graphics-stress-memory-interval
-    bool replayGuideArcsAtStartup = false;                                                       // CLI --guide-arcs re-enables the default-off Legacy guide after scene load.
+    bool replayGuideArcsAtStartup = false;                                                       // CLI --guide-arcs re-enables the default-off GameUI guide after scene load.
+    int interactionRecordMaxMinutes = 1;                                                         // F8 tape hard limit; 1..60 minute chunks.
 
     // Concept: a prediction launch request, not live prediction authority.
     // ReplayPrediction still owns enablement, horizon, and the build; Run only
@@ -113,10 +115,10 @@ struct RunLaunchOptions
     bool hasPhysicsDebugContactLingerOverride = false;
     float physicsDebugContactLingerOverride = 0.45f;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    // CLI --dev-ui imgui opts into the docked editor; omitted remains Legacy.
+    // CLI --dev-ui imgui opts into the docked editor; omitted remains GameUI.
     // Invariant: exactly one development UI owns window focus and input for a
     // process and there is no parallel/Both mode.
-    DevelopmentUiMode developmentUiMode = DevelopmentUiMode::Legacy;
+    DevelopmentUiMode developmentUiMode = DevelopmentUiMode::GameUI;
     bool developmentUiModeExplicit = false;
 #endif
 };
@@ -132,6 +134,9 @@ struct RunStartupOverrides
     const char* mainMemoryDumpPath = nullptr;                                                    // CLI --memory-dump
     const char* interactionScriptPath = nullptr;                                                 // CLI interaction harness script copied by its owner.
     const char* interactionReportPath = nullptr;                                                 // Optional interaction report destination.
+    const char* interactionTracePath = nullptr;                                                  // Optional incremental JSONL turn trace.
+    const char* interactionRecordPath = nullptr;                                                 // CLI --record-automation output destination.
+    int interactionRecordMaxMinutes = 1;                                                         // CLI recorder startup copy of the same launch limit.
     bool configureReplayRecording = false;                                                       // True when replay capture or hash logging must be configured
     bool replayRecordingEnabled = true;
     int replayRetentionSeconds = 0;

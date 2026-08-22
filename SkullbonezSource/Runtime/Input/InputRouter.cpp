@@ -18,8 +18,6 @@ Glossary:
   Context exit release: Synthetic release emitted when an accepted action is
     still held but its owning context becomes inactive.
   Focus cancellation: Release events emitted when the application loses focus.
-  Fluid-surface command: Signed world-space velocity published in the immutable
-    RuntimeInputSnapshot.
 
 Invariants:
   - No operation in this file allocates or retains caller-owned storage.
@@ -249,7 +247,7 @@ void InputRouter::BeginFrame( const DeviceInputFrame& frame, RuntimeInputKeyBind
     if ( capture.mouse )
     {
         // Invariant: ImGui already received these native events in WndProc.
-        // Engine, legacy UI, camera, gizmo, and replay see a neutral device
+        // Engine, GameUI, camera, gizmo, and replay see a neutral device
         // class rather than independently consuming the same click or drag.
         routedFrame.rawMouseX = 0;
         routedFrame.rawMouseY = 0;

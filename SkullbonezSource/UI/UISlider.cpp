@@ -1,7 +1,8 @@
 /*
 File: SkullbonezSource/UI/UISlider.cpp
 Purpose:
-  Implements UI Slider widgets, layout, drawing, or UI state for the in-engine controls.
+  Implements slider bounds, pointer-to-value quantization, hit testing, and
+  drawing.
 
 Summary:
   Maps mouse positions to quantized values and

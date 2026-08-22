@@ -18,8 +18,7 @@ Glossary:
   Route phase: Pre-UI, after-UI, or capture stage that owns a binding row.
   Context predicate: All-of bit mask that must be active before an action edge
     may be delivered.
-  Focus resynchronization: First focused sample after focus loss; held inputs are
-    remembered without being reported as fresh presses.
+
   Transition cleanup: Ordered cancellation sent to the replay/tool owners before
     a new workspace or world-input owner begins consuming gestures.
   Lifecycle activation: Completed scene-load phase that can publish a new
@@ -157,7 +156,7 @@ enum class RuntimePointerRouteStage : uint8_t
 // Invariant: one route visits Editor -> MousePickup -> AttachedCamera -> Replay
 // -> Launcher exactly once. The first consuming stage wins; later stages remain
 // structurally visited but receive no owner call. Illegal phase transitions are
-// Lane F failures. SkullbonezTests/TestInputRouter.cpp exhaustively exercises
+// fatal invariant failures. SkullbonezTests/TestInputRouter.cpp exhaustively exercises
 // every combination of the five stage claims.
 class RuntimePointerArbitration
 {
@@ -207,6 +206,15 @@ struct DeviceInputFrame
     bool leftDown = false;
     bool rightDown = false;
     bool middleDown = false;
+
+    void SetClientPosition( bool available, int x, int y )
+    {
+        // Invariant: unavailable coordinates stay neutral. Consumers must use
+        // the availability bit instead of receiving a fabricated corner hit.
+        hasClientPosition = available;
+        clientX = available ? x : 0;
+        clientY = available ? y : 0;
+    }
 };
 
 
@@ -397,7 +405,7 @@ class InputRouter
                                AttachedCameraController& attachedCamera, CameraControlState& camera, UI::InGameUI& ui,
                                SceneController& sceneController, ReplayRuntime& replayRuntime,
                                RuntimeInputContext& runtimeInput );
-    bool DispatchAfterUiDismiss( InputActions& actions, bool uiUserInteracted, double nowSeconds, bool legacyUiActive,
+    bool DispatchAfterUiDismiss( InputActions& actions, bool uiUserInteracted, double nowSeconds, bool gameUiActive,
                                  DiagnosticsRuntime& diagnosticsRuntime, CameraControlState& camera,
                                  AttachedCameraController& attachedCamera, RuntimeTools& runtimeTools, UI::InGameUI& ui,
                                  SceneController& sceneController, RuntimeOverlayDiagnostics& overlays,

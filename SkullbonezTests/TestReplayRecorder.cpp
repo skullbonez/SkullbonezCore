@@ -186,6 +186,8 @@ TEST_CASE( "ReplayRecorder: Configure does not pre-reserve future sample payload
 
     CHECK( presentation.GetStats().sampleCapacity == static_cast<std::size_t>( kReplayTicksPerSecond ) );
     CHECK( solver.GetStats().sampleCapacity == static_cast<std::size_t>( kReplayTicksPerSecond ) );
+    CHECK( presentation.GetStats().checkpointCapacity == 6u );
+    CHECK( solver.GetStats().checkpointCapacity == 6u );
 
     constexpr uint64_t maxConfiguredBytes = 64ull * 1024ull * 1024ull;
     CHECK( presentation.CollectMemoryBytes() < maxConfiguredBytes );
@@ -250,7 +252,7 @@ TEST_CASE( "ReplayRecorder: presentation resolution reuses a bounded dense-buffe
     // by the same UI turn; this is why latest has a dedicated reusable buffer.
     CHECK( oldest->frameIndex == 0u );
 
-    // Lane P: one dense body cache per retained tick exceeded this
+    // Test probe: one dense body cache per retained tick exceeded this
     // bound for this fixture. Compact frames plus the fixed working-buffer pool
     // stay comfortably below it.
     constexpr uint64_t maxPresentationBytes = 1ull * 1024ull * 1024ull;

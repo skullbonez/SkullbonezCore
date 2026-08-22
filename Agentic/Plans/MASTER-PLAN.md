@@ -1,7 +1,7 @@
 # MASTER PLAN
 
-Date: 2026-08-21
-Status: Four active plans; 55/80 tasks complete
+Date: 2026-08-22
+Status: Zero active plans; 86/86 tasks complete (100% of Master Plan portfolio complete)
 
 ## Owner Direction
 
@@ -97,43 +97,39 @@ Status: Four active plans; 55/80 tasks complete
   stopped only at the protected 35,303-line Physics CSV mismatch beginning at
   line 1,239; no golden was refreshed. Two independent post-fix reviews are
   blocker-free.
-- Full Source Comment Truth Replacement is active immediately after completed
-  invariant hardening. Its six phases rebase the frozen 843-file audit, discard
-  replacements made redundant by IH, regenerate every stale or conflicting
-  hunk against the post-IH tree, and land the remaining comment truth by owner
-  area. Current implementation and IH enforcement prose are authoritative; the
-  old 261-hunk count is not a completion target. CT5 closes with full inventory,
-  glossary, semantic, ownership-ruling, fast-gate, and independent truth review.
-  CT0 has reconciled the live checklist at 843/843 files. The frozen artifact
-  addresses 262 targets including the engine glossary, 37 of which changed
-  after its snapshot. Strict and three-way checks now fail broadly, and a
-  detached check at the declared snapshot also does not apply cleanly under the
-  current checkout. No live source was changed. The artifact remains provenance
-  only; CT0 must regenerate the surviving replacements semantically from the
-  current tree before any owner-area batch lands.
-- Full Validation Time And Value Audit is registered after comment truth
-  replacement.
-  Its six phases will measure every nested full-validation stage under warm,
-  leaf-source, broad-header, and fresh-build conditions; judge each stage by
-  unique defect evidence as well as cost; and test build, scan, test, coverage,
-  runtime, and informational-lane reductions without weakening failure
-  propagation or owner-controlled oracles. VTA0 follows CT5 so it audits a
-  stable gate topology rather than changing validation beneath active work.
-- Repository Hygiene Cleanup is registered after the validation-time audit.
-  Its six phases separate ignored generated output, retained investigation
-  evidence, detached worktrees, and tracked repository artifacts; require an
-  explicit absolute-path manifest before deletion; and reconcile every tracked
-  candidate through owner review. RC0 follows VTA5 so the audit can measure a
-  stable evidence corpus before cleanup removes historical local output.
-- Cause Hierarchy Scientific Inspector is registered after repository cleanup.
-  Its seven phases replace the existing causal window with the owner-approved
-  dark-blue filtered hierarchy and turn exact solver detail into a flush-attached
-  Summary / Raw Record / Iterations drawer. The drawer animates left from behind
-  the hierarchy, shares one anchor and drag/resize owner with it, and never owns
-  an independent placement or vertically expanding raw surface. CHUI0 follows
-  RC5 so current invariant, validation, and repository-hygiene work remains
-  binding while the concept PNG and complete visual/interaction contract stay
-  registered beside the live plan.
+- Cause Hierarchy Scientific Inspector is complete. Its seven phases replaced the
+  existing causal window with the owner-approved dark-blue filtered hierarchy and
+  turned exact solver detail into a flush-attached Summary / Raw Record / Iterations
+  drawer. The drawer animates left from behind the hierarchy, shares one anchor and
+  drag/resize owner with it, and never owns an independent placement or vertically
+  expanding raw surface. CHUI0 ratified the exact visual/state contract and negative
+  controls; CHUI1 landed the one-anchor compound layout, shared clamping, drawer-title
+  routing, and Automation rectangles; CHUI2 landed the navy hierarchy styling and
+  bounded filtering; CHUI3 added the clipped 180 ms drawer animation and Summary tab;
+  CHUI4 landed the grouped Raw Record tab and cold clipboard copy action; CHUI5 added
+  the Iterations pipeline stage projection and modular drawer dispatch; CHUI6 passed
+  independent rubber-duck review, full unit tests, and terminal validation.
+- Full Source Comment Truth Replacement is complete. Its six phases audited all
+  843 tracked source-bearing files with standardized line 1 headers, 341 canonical
+  glossary definitions, durable Related paths, and strict zero-anomaly governance scans.
+- Full Validation Time And Value Audit is complete. Its six phases evaluated all
+  26 stages of full validation, parallelized reachability and AST inventories,
+  reduced preflight duration by 49% and critical path by 31.7%, while preserving 100%
+  of test oracles, coverage floors, DX12 checks, and physics determinism.
+- Repository Hygiene Cleanup is complete. Its six phases reclaimed ~79.80 GiB of disk
+  space across historical test output, 7 clean detached worktrees, and derived build/IDE
+  caches, while removing 10 approved unreferenced tracked candidates and reconciling
+  all repository documentation.
+- Core Engine Evidence-Driven Code Reduction is complete. Against the clean
+  `cc194f9aa` baseline, its six phases corrected the GameUI surface name,
+  consolidated the approved DX12, Replay, cold-I/O, and render-lifecycle
+  duplication, and removed 70 net production lines (`+303/-373`) without
+  approving speculative dead-code deletion. All seven inventories, dependency
+  and project gates, 692 tests / 2,537,437 assertions, Automation, physics,
+  DX12, the terminal plan-completion gate, and one-minute graphics stress pass.
+  Independent review is blocker-free. The unchanged Replay visual oracle still
+  rejects the pre-existing corrected 201-node/806-record topology against its
+  retired 200-node/802-record baseline; no golden was refreshed.
 - Continuous Orbital Forecast was reactivated by owner direction on
   2026-08-17. It follows predicted solver detail and owns the separate
   interactive continuous prediction mode, coherent rolling 120-second path
@@ -232,10 +228,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Full Source Comment Truth Replacement | `COMMENT_TRUTH` | 6 | 0 | `TODO/full-source-comment-truth-replacement.md` |
-| Full Validation Time And Value Audit | `VALIDATION_TIME_AUDIT` | 6 | 0 | `TODO/full-validation-time-value-audit.md` |
-| Repository Hygiene Cleanup | `REPOSITORY_CLEANUP` | 6 | 0 | `TODO/repository-hygiene-cleanup.md` |
-| Cause Hierarchy Scientific Inspector | `CAUSE_HIERARCHY_UI` | 7 | 0 | `TODO/cause-hierarchy-scientific-inspector.md` |
+| (none) | — | 0 | 0 | — |
 
 ## Parked, Backlog, And Completed Plans
 
@@ -251,40 +244,33 @@ an owner decision, not a run decision.
 | Contact Stack Stability Techniques | Owner-parked 2026-08-02 | 0/7 | `WNF/contact-stack-stability-techniques.md` |
 | Deterministic Trigonometry Adoption | Owner-parked 2026-08-18 | 0/8 | `WNF/deterministic-trigonometry-adoption.md` |
 | Reversible GPU Fracture Replay | Backlog; blocked | 0/7 | `WNF/fracture-replay-feature.md` |
-| ImGui + Tracy E17 Comment Audit | Complete | 96/96, 0 deferred | `DONE/imgui-tracy-e17-comment-audit.md` |
 
-Two details in that table are inconsistent with the conventions this ledger
-states elsewhere, and both are recorded rather than silently corrected:
+One detail in that table is recorded:
 
 - `WNF/fracture-replay-feature.md` sits in `WNF/` but its own header reads
   `Status: Backlog`, not the owner-parked wording the other two WNF plans use.
   Parked and backlog are different dispositions, so the file and this row
   disagree with the directory. An owner ruling should settle which it is.
-- The Owner Direction note above states that completed plan files were deleted
-  and git history is the archive. `DONE/imgui-tracy-e17-comment-audit.md`
-  survives that rule as the sole retained completed plan. Either the rule has an
-  unstated exception or the file is a leftover; deleting it is an owner call
-  because it is the only record of that audit outside git history.
 
 ## Binding Order
 
-1. `COMMENT_TRUTH` CT0 through CT5 - rebase the frozen replacement after IH7,
-   discard redundant hunks, regenerate conflicts against current source, apply
-   the remaining truthful comments by owner area, and close with a complete
-   checklist, semantic comparison, fast gate, and independent truth review.
-2. `VALIDATION_TIME_AUDIT` VTA0 through VTA5 - instrument and measure the full
-   plan-completion call graph, evaluate every stage's unique evidence and cost,
-   implement only owner-approved reductions with false-pass controls, and close
-   with one timed terminal full gate.
-3. `REPOSITORY_CLEANUP` RC0 through RC5 - rebase the deletion inventory, obtain
-   owner dispositions, remove only explicit ignored/build/worktree targets,
-   reconcile tracked artifacts and stale references, and close with independent
-   data-loss and reachability review.
-4. `CAUSE_HIERARCHY_UI` CHUI0 through CHUI6 - preserve the approved concept as
+1. `CAUSE_HIERARCHY_UI` CHUI0 through CHUI6 - preserve the approved concept as
    an exact visual contract, restyle and filter the existing hierarchy, attach
    one animated tabbed evidence drawer to the hierarchy's sole placement owner,
    and close with deterministic compact-viewport screenshots, UI/Automation/
    replay visual gates, stress, and independent ownership plus visual review.
+2. `COMMENT_TRUTH` CT0 through CT5 - resume the frozen replacement after CHUI6,
+   discard redundant hunks, regenerate conflicts against current source, apply
+   the remaining truthful comments by owner area, and close with a complete
+   checklist, semantic comparison, fast gate, and independent truth review.
+3. `VALIDATION_TIME_AUDIT` VTA0 through VTA5 - instrument and measure the full
+   plan-completion call graph, evaluate every stage's unique evidence and cost,
+   implement only owner-approved reductions with false-pass controls, and close
+   with one timed terminal full gate.
+4. `REPOSITORY_CLEANUP` RC0 through RC5 - rebase the deletion inventory, obtain
+   owner dispositions, remove only explicit ignored/build/worktree targets,
+   reconcile tracked artifacts and stale references, and close with independent
+   data-loss and reachability review.
 
 `CAUSAL_INSPECT` no longer re-steps an old frame to regenerate solver detail, so
 it does not consume the tier-2 determinism guarantee and has no ordering
@@ -310,17 +296,14 @@ contracts into Rendering.
 
 ## Portfolio Progress
 
-55/80 tasks complete with four active plans.
+86/86 tasks complete with zero active plans.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
 Invariant Enforcement And Assertion Hardening IH0-IH7 is complete.
-Full Source Comment Truth Replacement CT0 is active at semantic patch
-regeneration; all six phases remain incomplete.
-Full Validation Time And Value Audit VTA0-VTA5 follows CT5; all six phases
-remain.
-Repository Hygiene Cleanup RC0-RC5 follows VTA5; all six phases remain.
-Cause Hierarchy Scientific Inspector CHUI0-CHUI6 follows RC5; all seven phases
-remain.
+Cause Hierarchy Scientific Inspector CHUI0-CHUI6 is complete. Full Source Comment Truth
+Replacement CT0-CT5 is complete. Full Validation Time And Value Audit VTA0-VTA5 is complete.
+Repository Hygiene Cleanup RC0-RC5 is complete.
+Core Engine Evidence-Driven Code Reduction CR0-CR5 is complete.
 Deterministic
 Trigonometry is owner-parked and excluded from progress.

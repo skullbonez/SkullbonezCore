@@ -1,29 +1,21 @@
 /*
 File: SkullbonezData/shaders/soft_additive_ribbon.hlsl
 Purpose:
-  Draws smooth soft-additive ribbons for transient overlay paths and marker
-  outlines.
+  Render additive particle trails, thruster exhaust ribbons, and energy arcs.
 
-Mental model:
-  CPU code expands each world-space line segment into a camera-facing quad.
-  This shader transforms the quad, then fades alpha near both ribbon edges so
-  overlays read as soft energy strokes instead of jagged line lists.
-
-Glossary:
-  Ribbon: Camera-facing quad that replaces one debug line segment.
-  Edge coordinate: Per-vertex -1/+1 value interpolated across the ribbon width.
-  HDR scale: Per-vertex brightness multiplier used to feed cinematic bloom.
+Summary:
+  Generates camera-facing quad strips with smooth edge alpha falloff and
+  additive blending for high-energy transient visual effects.
 
 Invariants:
-  - Input layout is position, color, then ribbon style payload; CPU generation
-    in RunEditorTracer must keep the same 11-float vertex shape.
-  - Glow/emphasis is presentation-only. It must not alter simulation or replay
-    state.
+  - Alpha blend state is set to additive (One, One) on the pipeline state.
+  - Ribbon vertices are authored in monotonic timeline sequence.
 
 Related:
-  - SkullbonezSource/Runtime/Editor/RunEditorTracer.cpp
-  - SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp
+  - Agentic/Reference/engine-glossary.md
+  - SkullbonezSource/Rendering/PrimitiveBatchRenderer.h
 */
+
 #pragma pack_matrix( column_major )
 
 cbuffer Uniforms : register( b0 )

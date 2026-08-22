@@ -16,11 +16,11 @@ Invariants:
   - Defaults here must match editor placement and scene snapshot serialization.
 
 Related:
+  - Agentic/Reference/engine-glossary.md
   - SkullbonezSource/Runtime/Editor/EditorTools.cpp
   - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - SkullbonezSource/Scene/SceneSnapshotWriter.cpp
-  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -126,6 +126,8 @@ inline const char* HullAssetBaseName( const char* token )
     return base;
 }
 
+// Compatibility: rooted-tree offsets preserve existing scene placement and
+// snapshot reconstruction; these are authored world-space Y distances.
 inline const EditorHullAssetInfo* FindEditorHullAssetInfo( EditorHullAsset asset )
 {
     for ( const EditorHullAssetInfo& info : EDITOR_HULL_ASSETS )
@@ -139,6 +141,8 @@ inline const EditorHullAssetInfo* FindEditorHullAssetInfo( EditorHullAsset asset
     return nullptr;
 }
 
+// Caller contract: accepts canonical tokens, tracked paths, and filenames so
+// old scene spellings resolve to one current built-in asset identity.
 inline EditorHullAsset EditorHullAssetFromToken( const char* token )
 {
     if ( !token || token[0] == '\0' )

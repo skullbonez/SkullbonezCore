@@ -4,7 +4,7 @@ Purpose:
   Defines the canonical metadata for ordinary and cinematic render controls.
 
 Summary:
-  Legacy and Dear ImGui operator surfaces share these enum-indexed labels,
+  GameUI and Dear ImGui operator surfaces share these enum-indexed labels,
   groups, ranges, steps, and formats. Runtime configuration values and owner
   commands remain outside this catalog.
 

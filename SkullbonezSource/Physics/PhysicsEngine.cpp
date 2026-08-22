@@ -16,7 +16,6 @@ Glossary:
     or render instances.
   Pending impulse: One-shot velocity edit queued on a body record and consumed
     by the next solver step.
-  Determinism: Same inputs produce byte-exact validation artifacts.
 
 Invariants:
   - Store refresh order must preserve deterministic model-view order.
@@ -782,7 +781,7 @@ bool PhysicsEngine::UpdateAuthoredBodyAndCollider( const PhysicsBodyUpdateDesc& 
                                                  colliderDesc.shape, MakeColliderAuthoringRecordFromDesc( colliderDesc ),
                                                  colliderDesc.hullIdentity ) )
     {
-        // Lane F: preflighted fixed-capacity rows disappearing during one
+        // Fatal invariant: preflighted fixed-capacity rows disappearing during one
         // synchronous owner command is internal handle-map corruption.
         SB_FATAL( "Physics/PhysicsEngine", "Coordinated body/collider update lost a preflighted row." );
     }

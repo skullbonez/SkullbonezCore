@@ -31,13 +31,13 @@ class Profiler;
 }
 namespace Physics
 {
-// Terrain support classification is not the collision response itself. It is a
+// Concept: terrain support classification is not the collision response itself. It is a
 // safety check for the sleep/resting layer: "is this terrain contact stable
 // enough that the body may be treated as supported?" A box can collide with
 // terrain on one corner, and the solver should still push it out, but that
 // corner contact should not let the body go to sleep as if it were lying flat.
 
-// These terrain-support constants are intentionally kept beside the classifier
+// ENGINE-SPECIFIC: these terrain-support constants stay beside the classifier
 // instead of buried inside a terrain response routine. They are not Catto solver row
 // constants; they describe Skullbonez policy for deciding whether a box/terrain
 // contact is credible enough to seed resting support and sleeping.
@@ -88,7 +88,7 @@ struct BoxTerrainSupportClassification
 
 inline Math::Vector::Vector3 GetBoxTerrainLocalCorner( const Math::Vector::Vector3& halfExtents, int cornerIndex )
 {
-    // cornerIndex uses three bits as signs: bit 0 chooses +/-X, bit 1 chooses
+    // Concept: cornerIndex uses three bits as signs: bit 0 chooses +/-X, bit 1 chooses
     // +/-Y, and bit 2 chooses +/-Z. This compactly enumerates all eight box
     // corners without a table.
     return Math::Vector::Vector3( ( cornerIndex & 1 ) ? halfExtents.x : -halfExtents.x,
@@ -101,7 +101,7 @@ inline float ComputeBoxTerrainBestFaceNormalDotImpl( const Math::Transformation:
 {
     using Math::Vector::Vector3;
 
-    // A box face normal is one of the oriented local axes. Taking absolute dots
+    // Why: a box face normal is one of the oriented local axes. Taking absolute dots
     // with the terrain normal lets either side of a face count, which is what we
     // want for support classification: the question is "is any face aligned with
     // this terrain plane?", not "which side of the box is facing up?".

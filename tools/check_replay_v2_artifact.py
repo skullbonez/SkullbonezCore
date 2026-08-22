@@ -82,7 +82,7 @@ def remove_if_exists(path):
 
 
 def validate_snapshot_query_versions():
-    # Lane P / Invariant: synthetic v2/v3 payloads pin the nested solver-
+    # validation probe / Invariant: synthetic v2/v3 payloads pin the nested solver-
     # snapshot schema and point-joint tail without launching the runtime.
     def make_fixture(version, point_joint_count):
         raw = bytearray()

@@ -1,21 +1,19 @@
 /*
-File: SkullbonezSource/UI/UIComboBox.cpp
-Purpose:
-  Implements UI ComboBox widgets, layout, drawing, or UI state for the in-engine controls.
+File : SkullbonezSource / UI / UIComboBox.cpp Purpose : Implements dropdown open state, shared field / option geometry,
+    hit testing,
+    and drawing.
 
-Summary:
-  Owns dropdown state and derives
-  field, option hit testing, and
-  drawing from one bounds model.
+        Summary : Owns dropdown state and derives field,
+    option hit testing,
+    and drawing from one bounds model
+                .
 
-Invariants:
-  - Draw geometry and hit testing must be derived from the same layout
-  constants.
+            Invariants : -Draw geometry and hit testing must be derived from the same layout constants.
 
-Related:
-  - SkullbonezSource/UI/UIComboBox.h
-  - Agentic/Reference/engine-glossary.md
-*/
+                         Related : -SkullbonezSource /
+            UI / UIComboBox.h -
+        Agentic / Reference / engine -
+        glossary.md*/
 #include "UIComboBox.h"
 #include "UIStyle.h"
 
@@ -147,6 +145,8 @@ UIRect UIComboBox::DropdownRect( int optionCount ) const
 }
 
 
+// Invariant: FieldRect and DropdownRect are the sole geometry authority for
+// both hit testing and drawing; label visibility only shifts the field once.
 void UIComboBox::Draw( const UIDrawContext& draw, const char* label, const char* const* options, int optionCount,
                        int selectedIndex, int mouseX, int mouseY, uint32_t disabledOptionMask ) const
 {

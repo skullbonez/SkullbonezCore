@@ -14,8 +14,6 @@ Glossary:
   Draw list: Ordered backend-neutral UI commands and copied text bytes.
   Immediate submitter: Stack-local pixel-to-text-space translator used while
     replaying one draw list.
-  Preview identity: Stable catalog index recorded by UI and resolved against
-    the current renderer snapshot only when submitted.
 
 Invariants:
   - No renderer pointer or frame borrow is retained after Submit returns.
@@ -25,6 +23,7 @@ Invariants:
   - Draw trace and GPU timing labels remain stable validation vocabulary.
 
 Related:
+  - Agentic/Reference/engine-glossary.md
   - SkullbonezSource/UI/UIDrawList.h
   - SkullbonezSource/Runtime/Render/UiTextPass.cpp
 */

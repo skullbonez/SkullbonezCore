@@ -339,7 +339,7 @@ RenderDefaultsStore::PersistOrdinary( const SkullbonezCore::Core::OrdinaryRender
 
     if ( !LoadConfigLines( configPath, lines ) )
     {
-        // Lane R: the user-facing config may be missing, locked, or unreadable.
+        // Recoverable error: the user-facing config may be missing, locked, or unreadable.
         return m_resultDiagnostics.Failure( "Runtime/RenderDefaultsStore", "Could not read render defaults file: %s",
                                             configPath.c_str() );
     }

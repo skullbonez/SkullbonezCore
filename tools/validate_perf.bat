@@ -5,7 +5,7 @@
 @rem   artifacts against committed baselines. The selected-ball path scenario
 @rem   also guards against full compact-history rebuilds on live ring eviction.
 @rem
-@rem Mental model:
+@rem Summary:
 @rem   Tools are command-line guardrails around builds, validation, screenshots,
 @rem   diagnostics, and artifact handling. They make the safe path repeatable and
 @rem   keep output bounded for humans and agents.

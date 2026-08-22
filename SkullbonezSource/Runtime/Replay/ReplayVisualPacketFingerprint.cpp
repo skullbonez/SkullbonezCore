@@ -77,7 +77,7 @@ void HashQuaternion( uint64_t& hash, const Math::Orientation::Quaternion& value 
 bool TrajectoryRecordParticipatesInCompletedPresentation( const ReplayVisualPacket& packet,
                                                           const ReplayTrajectoryRecord& record )
 {
-    // During a growing prediction the renderer may switch between committed
+    // Invariant: during a growing prediction the renderer may switch between committed
     // and worker banks according to prefix readiness, which is intentionally
     // left conservative here. Once completion is published, ReplayPredictionDrawing
     // draws only the committed root (branch 0) and committed child range.
@@ -152,7 +152,7 @@ ReplayVisualPacketBufferFacts BuildReplayVisualPacketBufferFacts( const ReplayVi
                                 packet.retainedPredictionPriorityRibbonVertices.size_bytes() +
                                 packet.priorityExpandedRibbonVertices.size_bytes();
 
-    // The ordinary expanded lane is the leading region before priority marker
+    // Invariant: the ordinary expanded lane is the leading region before priority marker
     // vertices. Its boundary is telemetry, so clamp here; the mandatory seam
     // check below rejects an invalid boundary before capture can succeed.
     facts.ordinaryExpandedVertexBytes = (std::min)( packet.submission.ordinaryVertexBytes, facts.expandedVertexBytes );
@@ -373,7 +373,7 @@ BuildReplayVisualPacketFingerprint( const ReplayVisualPacket& packet,
 
         HashScalar( recordPresentationHash, digest.prefixHash );
 
-        // Semantic diagnostics retain the complete ordered store, including
+        // Concept: semantic diagnostics retain the complete ordered store, including
         // inactive worker-bank records and their replacement versions. The
         // visual lane admits only records the completed overlay can select.
         HashScalar( internalTrajectoryStateHash, record.version );
@@ -439,7 +439,7 @@ BuildReplayVisualPacketFingerprint( const ReplayVisualPacket& packet,
 
     fingerprint.ghostStateHash = hash;
 
-    // Cross-process reconstruction ends here: absolute cache-generation ids,
+    // Invariant: cross-process reconstruction ends here; absolute cache-generation ids,
     // reserve counters, and trajectory diagnostics are validation telemetry,
     // not values consumed by rendering. The complete ordered topology above
     // remains in the visual hash, so a real causal/visual change still fails.
@@ -475,7 +475,7 @@ BuildReplayVisualPacketFingerprint( const ReplayVisualPacket& packet,
         HashScalar( hash, value );
     }
 
-    // Exact presentation deliberately branches from visualStateHash. Build
+    // Why: exact presentation deliberately branches from visualStateHash. Build
     // budget/retry telemetry can differ in an offline projection even when
     // every typed value and submitted byte is identical.
     fingerprint.exactHash = fingerprint.visualStateHash;
@@ -499,7 +499,7 @@ BuildReplayVisualPacketFingerprint( const ReplayVisualPacket& packet,
     SB_HASH_REPLAY_BUFFER_FACT( ordinaryExpandedVertexBytes );
 #undef SB_HASH_REPLAY_BUFFER_FACT
 
-    // Canonical marker hashes and structural counts are supplementary. The
+    // Invariant: canonical marker hashes and structural counts are supplementary. The
     // ordered hashes above are always derived from renderer-bound packet spans.
     const auto& submission = packet.submission;
     HashScalar( exactHash, submission.priorityLineCanonicalHash );

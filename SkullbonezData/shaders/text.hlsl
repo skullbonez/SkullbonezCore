@@ -1,23 +1,19 @@
 /*
 File: SkullbonezData/shaders/text.hlsl
 Purpose:
-  Runs the text HLSL shader program used by the renderer.
+  Render screen-space glyph quads from the font signed-distance atlas.
 
 Summary:
-  text.hlsl is shader source for the renderer's text pass. Keep edits anchored
-  on shader inputs, bindings, and render-output contracts and on the
-  glossary/invariants below.
-
-Glossary:
-  SDF (Signed Distance Field): Texture representation used for crisp scalable
-  text rendering.
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
+  CPU-authored positions and atlas coordinates reach the pixel stage
+  unchanged. The sampled distance controls glyph alpha while per-vertex
+  color preserves the UI owner's chosen tint.
 
 Invariants:
-  - CPU-side root signatures, input layouts, and descriptor bindings must
+- CPU-side root signatures, input layouts, and descriptor bindings must
   match this shader exactly.
+
+Related:
+  - Agentic/Reference/engine-glossary.md
 */
 // =============================================================================
 // TEXT RENDERING SHADER — Shader Model 6.6 (Combined VS+PS)

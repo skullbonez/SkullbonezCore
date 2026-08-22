@@ -90,7 +90,7 @@ class ConvexHullShape
   public:
     ConvexHullShape();
 
-    // Lane R: hull assets are external input. Callers that load scene/editor
+    // Recoverable error: hull assets are external input. Callers that load scene/editor
     // data should use this overload so malformed files report recoverable
     // diagnostics instead of escaping through runtime code.
     static SkullbonezCore::Core::SbResult TryLoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,

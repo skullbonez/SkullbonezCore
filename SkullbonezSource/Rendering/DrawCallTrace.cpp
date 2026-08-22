@@ -13,17 +13,18 @@ Glossary:
     Frame/Render/Water.
   Overflow: Count of trace nodes or draw events that exceeded the fixed budget;
 
-    totals remain partial instead of allocating in the hot path.
+totals remain partial instead of allocating in the hot path.
 
-Invariants:
-  - Current-frame arrays and snapshot arrays are separate so UI reads do not see
-    half-updated render data.
-  - Capacity overflow is reported explicitly and never grows storage mid-frame.
+        Invariants : -Current -
+        frame arrays and snapshot arrays are separate so UI reads do not see half - updated render data.-
+        Capacity overflow is reported explicitly and
+    never grows storage mid -
+        frame.
 
-Related:
-  - SkullbonezSource/Rendering/DrawCallTrace.h
-  - Agentic/Reference/engine-glossary.md
-*/
+            Related : -SkullbonezSource /
+            Rendering / DrawCallTrace.h -
+        Agentic / Reference / engine -
+        glossary.md */
 #include "DrawCallTrace.h"
 
 #include <algorithm>
@@ -48,6 +49,8 @@ DrawCallTrace::DrawCallTrace()
 }
 
 
+// Invariant: publish the completed frame before resetting current storage so UI readers
+// observe one coherent immutable snapshot.
 void DrawCallTrace::BeginFrame()
 {
     PublishSnapshot();
@@ -78,6 +81,8 @@ void DrawCallTrace::PushScope( const char* fullPathOrLeaf, uint32_t hash )
 }
 
 
+// Hazard: a mismatched hash records diagnostic evidence but still unwinds one
+// stack row; refusing to unwind would corrupt attribution for every later draw.
 void DrawCallTrace::PopScope( uint32_t hash )
 {
     if ( m_currentNodeIndex >= 0 )
@@ -148,6 +153,8 @@ DrawCallTraceSnapshot DrawCallTrace::Snapshot() const
 }
 
 
+// Lifetime: copied nodes must point at copied name storage; retaining current
+// frame pointers would make the snapshot aliases stale during ResetCurrentFrame.
 void DrawCallTrace::PublishSnapshot()
 {
     m_snapshotNodeCount = m_nodeCount;
