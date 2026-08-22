@@ -2,7 +2,7 @@
 
 Date: 2026-08-22
 Branch: `codex/cause-hierarchy-ui-first`
-Status: Core Engine Evidence-Driven Code Reduction active; 83/86 tasks complete (96.51%)
+Status: Core Engine Evidence-Driven Code Reduction active; 84/86 tasks complete (97.67%)
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -14,7 +14,7 @@ The completed portfolio remains closed; Core Engine Evidence-Driven Code
 Reduction CR0-CR5 is the sole active plan. Completed plan files were deleted
 under the repository convention; Git history retains their phase evidence.
 
-CORE_REDUCTION CR0-CR2 are complete. Owner direction activated the plan without a
+CORE_REDUCTION CR0-CR3 are complete. Owner direction activated the plan without a
 new branch. The clean `cc194f9aa` baseline contains 615 tracked production
 source files and 207,080 physical lines. CodeGraph is current; Debug, Profile,
 and Automation builds pass; decorated-symbol reachability reports 93 ruled rows
@@ -28,7 +28,11 @@ filters, explicit GameUI launch, and full GameUI/ImGui stress matrix pass across
 Profile, Debug, and Automation with zero DX12 validation errors. CR2 reran the
 current reachability inventory: all 93 rows remain explicitly ruled, zero rows
 block, and the CR0 ledger still approves no production deletion. CR2 therefore
-closed honestly at 0 additions, 0 deletions, and 0 net reduction. CR3 is next.
+closed honestly at 0 additions, 0 deletions, and 0 net reduction. CR3 replaces
+four identical DX12 retirement fence-observation blocks with one private
+`Dx12FrameOwner` predicate while leaving caller-specific release policy intact.
+The phase removes 5 net production lines; CPU architecture tests and the real
+DX12 screenshot/InfoQueue gate pass with zero validation errors. CR4 is next.
 No golden was refreshed.
 
 REPOSITORY_CLEANUP (RC0-RC5) is 100% complete and closed.

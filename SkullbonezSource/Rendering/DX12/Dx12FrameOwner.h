@@ -585,6 +585,7 @@ class Dx12FrameOwner
   private:
     friend class Dx12DiagnosticsFrame;
     void WriteFaultProbe() const;
+    bool ObserveCompletedFence( UINT64& outCompletedFence );
     bool PrepareUploadReservation( UINT64 size, UINT64 alignment, RenderUploadCategory category );
 
     SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;

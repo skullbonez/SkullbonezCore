@@ -1,7 +1,7 @@
 # Core Engine Evidence-Driven Code Reduction Plan
 
 Date: 2026-08-22
-Status: Active by owner direction. 3/6 phases complete.
+Status: Active by owner direction. 4/6 phases complete.
 Impact area: `SkullbonezSource/` production code, project metadata for deleted files, and focused behavioral tests
 Owner: Engine architecture and the owner of each touched subsystem
 Priority: Current execution priority; CR0 through CR5 run in order.
@@ -319,20 +319,37 @@ side effects, and owner authority.
 
 ### Tasks
 
-- [ ] Start with ledger entries where the same owner repeatedly evaluates the
+- [x] Start with ledger entries where the same owner repeatedly evaluates the
       same predicates over the same state and performs the same branch body.
-- [ ] Prefer merging adjacent branches or calculating one clearly named local
+- [x] Prefer merging adjacent branches or calculating one clearly named local
       decision once when the decision is frame-local.
-- [ ] Use an owner-level predicate helper only when it expresses a stable domain
+- [x] Use an owner-level predicate helper only when it expresses a stable domain
       question at two or more independent sites.
-- [ ] Preserve short-circuit behavior, null guards, floating-point comparisons,
+- [x] Preserve short-circuit behavior, null guards, floating-point comparisons,
       feature-flag compilation, logging order, mutation order, and command
       priority.
-- [ ] Do not replace readable conditions with opaque boolean parameter packs or a
+- [x] Do not replace readable conditions with opaque boolean parameter packs or a
       helper whose flags reconstruct the original branches.
-- [ ] Add or strengthen focused branch-matrix tests before consolidation when
+- [x] Add or strengthen focused branch-matrix tests before consolidation when
       existing coverage cannot distinguish the paths being merged.
-- [ ] Record the removed blocks and net production LOC for each ledger row.
+- [x] Record the removed blocks and net production LOC for each ledger row.
+
+### CR3 evidence
+
+- `Dx12FrameOwner::ObserveCompletedFence` replaces the four accepted retirement
+  blocks in `RetireResource` and `RetireStaticDescriptor`. It samples readiness
+  once, samples the completed value once only when ready, and publishes that
+  exact value to `Dx12SubmittedWorkState` before caller-specific release policy.
+- The first resource-only path still consumes the returned readiness predicate
+  for its device/unavailable fast release. The other three paths retain their
+  original recording, frame-fence, descriptor, and quarantine ordering.
+- Existing submitted-work and retirement branch tests already distinguish
+  unavailable, signal failure, wait failure, successful completion, and removed-
+  device release, so no test-only access to the new private helper was added.
+- Production accounting is 26 additions and 31 deletions: 5 net lines removed.
+  DX12 architecture tests, real DX12 screenshot/InfoQueue validation, Profile and
+  Debug builds, formatting, dependency direction, function complexity, and wide-
+  signature ownership all pass without refreshing a baseline.
 
 ### Acceptance
 
