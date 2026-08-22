@@ -6,7 +6,8 @@ Impact area: `SkullbonezSource/Runtime/`, Runtime-facing Rendering/UI seams,
 Visual Studio project topology, dependency enforcement, tests, and documentation
 Owner: Runtime architecture, with each moved value or behavior retained by its
 concrete subsystem owner
-Priority: Sole active plan; RBS0 through RBS7 execute in order
+Priority: Binding next plan after `RAGDOLL_PHYSICS`; RBS0 through RBS7 execute
+in order
 Commit name: `RUNTIME_BOUNDARIES`
 
 ## Owner Direction
@@ -30,10 +31,23 @@ Adequate separation requires all of the following:
 5. Visual Studio projects are split where a project/link boundary makes the
    dependency direction mechanically stronger. Project count is not a goal.
 
-The owner is willing to add Visual Studio projects. RBS0 therefore ratifies a
-specific project graph from measured dependencies and build costs. Do not create
-projects merely to reorganize Solution Explorer, and do not combine cyclic
-packages into one library to hide a source cycle.
+The owner approved a conservative Visual Studio topology on 2026-08-22. The
+source/package DAG remains mandatory, but source separation does not imply one
+project per package or Runtime tier. Existing Maths, Physics, and UI static
+libraries remain. One dedicated Rendering static library is approved in
+principle because Rendering is a cohesive subsystem with an existing
+feature-neutral dependency contract; RBS0 must still prove its exact source
+closure, project references, configuration parity, and build/link cost before
+RBS6 creates it.
+
+Core, Assets, Scene, World, Gameplay, and Runtime sources remain in
+`SKULLBONEZ_CORE` by default. Do not create a broad portable-engine library,
+per-tier Runtime libraries, or other production projects during this plan.
+Another project boundary requires a separate explicit owner decision supported
+by the RBS0 dependency and build evidence. A thin App is thin in authority and
+responsibility, not in source-file count. Do not create projects merely to
+reorganize Solution Explorer, empty the executable project, or absorb a source
+cycle into a linkable library.
 
 ---
 
@@ -77,8 +91,8 @@ not define completion thresholds.
 - Remove `Run` definitions from non-App packages and close the logical `Run`
   surface under the God-Object Closure Rule.
 - Add executable package-cycle proof to the dependency gate.
-- Use VC project boundaries where they make forbidden dependencies fail during
-  normal compilation or linking.
+- Add the approved Rendering VC project boundary if RBS0 proves that it
+  reinforces ownership without configuration drift or material build cost.
 - Preserve zero-allocation runtime, determinism, replay compatibility, UI
   behavior, DX12 validation, and all owner-controlled baselines.
 
@@ -93,6 +107,11 @@ not define completion thresholds.
   UI, Scene, or World.
 - Do not create a monolithic `RuntimeFoundation`, `RuntimeServices`, or similar
   library to make cyclic sources link.
+- Do not create per-package or per-tier Runtime projects, a broad portable-engine
+  project, or additional production libraries without a new explicit owner
+  decision.
+- Do not measure App closure by how few source files remain in
+  `SKULLBONEZ_CORE`; composition-root closure is an authority rule.
 - Do not refresh any golden baseline merely to make the separation pass.
 - Do not treat smaller functions or signatures as proof that authority moved.
 
@@ -100,12 +119,18 @@ not define completion thresholds.
 
 - Core Engine Evidence-Driven Code Reduction CR0-CR5 is complete; RBS work starts
   from its closing source rather than reopening its candidate ledger.
-- RBS0 is a binding design gate. Later phases may not invent package or project
-  placement that the refreshed DAG/project decision table did not ratify.
+- RBS0 is a binding design gate. Later phases may not invent package placement
+  that the refreshed DAG did not ratify or project placement outside the
+  conservative owner ruling above.
 - Source-package cycles are removed before RBS6 creates library boundaries. A
   linker-friendly grouping is not evidence that source direction is correct.
-- Existing Maths, Physics, and UI projects remain authoritative until RBS0 proves
-  a specific ownership change. No phase may duplicate their source into App.
+- Existing Maths, Physics, and UI projects remain authoritative. RBS0 may refine
+  their dependency evidence but may not replace, merge, or subdivide them. No
+  phase may duplicate their source into App.
+- Rendering is the only new production project authorized by this plan. If RBS0
+  cannot form that boundary without reverse references, duplicate compilation,
+  configuration drift, or unjustified build cost, stop for owner review instead
+  of creating substitute libraries.
 - Owner-controlled baseline mismatches are preserved and reported. This plan has
   no standing authority to refresh a behavioral oracle.
 - Implementing this plan follows `Agentic/Skills/orchestrator/SKILL.md`, including
@@ -159,16 +184,21 @@ source belongs to exactly one production project. Shared compilation across
 production projects is rejected unless a configuration-specific implementation
 need is proved.
 
-RBS0 assesses at least:
+The approved target is intentionally small:
 
-- a dedicated Rendering static library;
-- a library boundary for portable Core/Assets/Scene/World/Gameplay ownership;
-- Runtime libraries aligned with the ratified acyclic tiers;
-- a thin `SKULLBONEZ_CORE` App project retaining entry/composition only; and
-- test/CMake reuse without a second drifting source manifest.
+- retain `SKULLBONEZ_MATHS`, `SKULLBONEZ_PHYSICS`, and `SKULLBONEZ_UI`;
+- create one `SKULLBONEZ_RENDERING` static library after RBS0 proves its exact
+  closure and RBS6 can move each Rendering source into it exactly once;
+- retain the executable `SKULLBONEZ_CORE` project as the owner of App and the
+  remaining Core, Assets, Scene, World, Gameplay, and Runtime sources; and
+- preserve Tests and portable CMake reuse without a second drifting source
+  manifest.
 
-Each candidate receives `create`, `retain current`, or `defer`, plus owner,
-reason, dependency proof, compile/link impact, and any deletion condition.
+RBS0 records the Rendering project's source closure, dependency edges,
+configuration/PCH/FP contract, compile/link impact, and any stop condition. All
+other proposed production project boundaries receive `defer`; RBS0 may not
+promote one to `create` without a new explicit owner decision. Runtime packages
+still follow the ratified acyclic source DAG while sharing the App project.
 
 ---
 
@@ -216,13 +246,16 @@ the target topology before implementation.
 - [ ] Inventory `.vcxproj` source ownership, project references, duplicate
       compilation, PCH/flags, and portable CMake manifests.
 - [ ] Measure clean/incremental build and link time for Automation, Debug, Profile.
-- [ ] Ratify the final package DAG and VC project decision table in this plan.
+- [ ] Ratify the final package DAG and record the approved minimal VC topology:
+      retain Maths/Physics/UI, prove the one Rendering library, keep remaining
+      production sources in App, and defer every additional project boundary.
 - [ ] Add pre-change witnesses for timing cadence, resize/input, UI switching,
       stress, scene reload, and replay presentation where coverage is insufficient.
 
 **Acceptance:** Every cycle/reverse edge has an owner and disposition; the target
-has no unnamed shared bag; project choices enforce ownership; no owner decision
-is deferred into implementation.
+has no unnamed shared bag; the Rendering boundary has a proved source/config/build
+decision; every other new project remains deferred; no owner decision is deferred
+into implementation.
 
 ## Phase RBS1 - Make Package Direction Executable
 
@@ -313,12 +346,16 @@ switching, editor, Replay, Tracy, and failure behavior remain covered.
 **Acceptance:** No non-App Runtime file includes Runtime/App; every SCC has one
 package; the exception table is empty; no replacement god owner exists.
 
-## Phase RBS6 - Enforce The Architecture With VC Projects
+## Phase RBS6 - Enforce The Architecture With Minimal VC Topology
 
-**Goal:** Apply the RBS0 project decision so link topology reinforces the DAG.
+**Goal:** Add the one approved Rendering boundary so link topology reinforces the
+DAG without turning source packages into a proliferation of projects.
 
-- [ ] Create only approved static libraries with acyclic project references.
-- [ ] Keep App thin: entry, native startup, composition, application orchestration.
+- [ ] Create `SKULLBONEZ_RENDERING` with the exact source closure and acyclic
+      project references proved by RBS0; create no other production project.
+- [ ] Keep App thin in authority: entry, native startup, composition, application
+      orchestration, plus remaining sources whose ownership does not justify a
+      separate library. Do not use source-file count as an acceptance measure.
 - [ ] Assign every production `.cpp` to exactly one production project.
 - [ ] Reconcile filters, configurations, PCH, forced FP contract, warnings,
       feature macros, and reference order in all configurations.
@@ -327,9 +364,10 @@ package; the exception table is empty; no replacement god owner exists.
 - [ ] Compare build/link timings to RBS0; review material regressions.
 - [ ] Put project-DAG/single-owner checks into fast and hosted CPU gates.
 
-**Acceptance:** Project graph matches package direction; every source has one
-production owner; all configurations share required contracts; no library hides
-a source cycle.
+**Acceptance:** The production graph adds only the approved Rendering library;
+project references match package direction; every source has one production
+owner; all configurations share required contracts; no library hides a source
+cycle; App thinness is demonstrated by authority rather than project size.
 
 ## Phase RBS7 - Composition-Root And Terminal Closure
 
@@ -351,7 +389,8 @@ a source cycle.
 - [ ] Record commands, timings, results, project/package graphs, and baselines.
 
 **Terminal acceptance:** App is the sole composition root; package/project graphs
-are acyclic; no Run method exists outside App; Rendering mutates no App state;
+are acyclic; the project topology contains no unapproved production split; no Run
+method exists outside App; Rendering mutates no App state;
 UI projection, GPU submission, and process commands have separate owners; no bag,
 slice union, facade, friend reach-back, or renamed replacement remains; required
 gates are green; the exception table is empty; no unauthorized baseline changes.
@@ -430,7 +469,7 @@ is stale.
 
 ## Completion Reporting
 
-The closing handoff reports the final package and project graphs, SCC result,
-former App reverse edges and owners, Run surface, project/source moves, build
-timings, validation, review fixes, baseline disposition, and an empty exception
-table.
+The closing handoff reports the final package and minimal project graphs, SCC
+result, former App reverse edges and owners, Run surface, the Rendering
+project/source move, all explicitly deferred project candidates, build timings,
+validation, review fixes, baseline disposition, and an empty exception table.
