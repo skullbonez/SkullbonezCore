@@ -438,19 +438,26 @@ ownership regressions, or stale references.
 
 ### Tasks
 
-- [ ] Re-run all seven structural inventories named in `AGENTS.md` and adjudicate
+- [x] Re-run all seven structural inventories named in `AGENTS.md` and adjudicate
       new or stale rows caused by the final tree.
-- [ ] Run the dependency graph and project/filter consistency gates.
+- [x] Run the dependency graph and project/filter consistency gates.
 - [ ] Run focused tests for every touched owner, followed by the repository's
       terminal plan-completion validation.
 - [ ] Run graphics, replay, physics, automation, performance, or visual gates only
       where the implemented candidate batches touched those behaviors, plus any
       gates required by the terminal validation contract.
-- [ ] Reconcile every candidate ledger row with the final source. Remove rejected
+- [x] Reconcile every candidate ledger row with the final source. Remove rejected
       candidates from the claimed reduction and explain why they stayed separate.
-- [ ] Report production LOC added, deleted, and net change by phase and in total.
-- [ ] Confirm ImGui, Tracy, GameUI, and the level editor remain present and usable.
-- [ ] Confirm no golden baseline was refreshed merely to make the work pass.
+- [x] Report production LOC added, deleted, and net change by phase and in total.
+- [x] Confirm ImGui, Tracy, GameUI, and the level editor remain present and usable.
+- [x] Confirm no golden baseline was refreshed merely to make the work pass.
+
+Terminal validation found that restored visual replay compared process-local
+topology generations directly and serialized a newer prediction cache instead
+of the renderer-visible committed snapshot. The implementation now shares one
+first-publication canonicalizer and archives the presentation view. Per owner
+direction, the failed terminal run was not repeated before PR creation; the two
+validation checkboxes remain open until that exact unchanged gate is rerun.
 
 ### Final report table
 
@@ -460,7 +467,8 @@ ownership regressions, or stale references.
 | CR2 - Unreferenced deletion | 0 | 0 | 0 | 93 ruled reachability rows, zero blockers, and no deletion disposition |
 | CR3 - Duplicate conditions | 26 | 31 | 5 | DX12 architecture/renderer, InfoQueue, builds, ownership, and `validate_fast` pass |
 | CR4 - Owned helpers | 36 | 107 | 71 | 18 focused cases, allocation policy, DX12 renderer, builds, and `validate_fast` pass |
-| **Total** | **223** | **302** | **79** | No golden baseline refreshed |
+| CR5 - Terminal fixes | 76 | 70 | -6 | One focused canonicalizer test passed; terminal replay exposed two restore mismatches and was not rerun after the presentation-view fix |
+| **Total** | **299** | **372** | **73** | No golden baseline refreshed |
 
 ### Completion criteria
 

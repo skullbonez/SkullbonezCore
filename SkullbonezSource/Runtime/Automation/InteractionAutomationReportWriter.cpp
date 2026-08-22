@@ -809,13 +809,14 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
     EditorTracer& tracer = runtimeTools.Tracer();
     std::vector<ReplayVisualTrajectoryDigestState> trajectoryDigests;
     trajectoryDigests.reserve( offlinePrediction.State().trajectoryStore.RecordCount() );
-    std::vector<uint32_t> publishedTopologyVersions;
-    publishedTopologyVersions.reserve( m_replayVisualFidelityTicks.size() );
+    // Invariant: captured and reconstructed raw generations are independent
+    // processes; only their first-publication token sequences may be compared.
+    ReplayVisualPacketOperations::ReplayVisualTopologyVersionCanonicalizer capturedTopologyVersions;
+    ReplayVisualPacketOperations::ReplayVisualTopologyVersionCanonicalizer projectedTopologyVersions;
 
     for ( const ReplayVisualFidelityReportTick& tick : m_replayVisualFidelityTicks )
     {
-        const uint32_t canonicalTopologyVersion = CanonicalReplayArtifactTopologyVersion( tick.topologyVersion,
-                                                                                          publishedTopologyVersions );
+        const uint32_t canonicalTopologyVersion = capturedTopologyVersions.Observe( tick.topologyVersion );
 
         const ReplayVisualArchiveSample expected = BuildReplayVisualArchiveSample( tick, canonicalTopologyVersion );
         offlinePrediction.SetVerificationRevealFrame( expected.revealFrame );
@@ -861,6 +862,7 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
                                                                    latestSolverSample, expected.replayReserveGrowthEvents );
 
         projected = offlinePrediction.PresentationOwner().PublishedVisualPacketView();
+        projected.header.topologyVersion = projectedTopologyVersions.Observe( projected.header.topologyVersion );
         const ReplayVisualPacketFingerprint
             fingerprint = BuildReplayVisualPacketFingerprint( projected, trajectoryDigests,
                                                               ReplayVisualTrajectoryDigestPolicy::ReuseImmutableRecords );
@@ -1224,24 +1226,6 @@ SkullbonezCore::Runtime::InteractionAutomationReportWriter::ReplayPredictionBuil
     }
 }
 
-uint32_t SkullbonezCore::Runtime::InteractionAutomationReportWriter::CanonicalReplayArtifactTopologyVersion( uint32_t liveVersion, std::vector<uint32_t>& publishedVersions )
-{
-    if ( liveVersion == 0u )
-    {
-        return 0u;
-    }
-
-    const auto found = std::find( publishedVersions.begin(), publishedVersions.end(), liveVersion );
-
-    if ( found == publishedVersions.end() )
-    {
-        publishedVersions.push_back( liveVersion );
-        return static_cast<uint32_t>( publishedVersions.size() );
-    }
-
-    return static_cast<uint32_t>( std::distance( publishedVersions.begin(), found ) + 1 );
-}
-
 ReplayVisualArchiveSample SkullbonezCore::Runtime::InteractionAutomationReportWriter::BuildReplayVisualArchiveSample( const ReplayVisualFidelityReportTick& tick, uint32_t canonicalTopologyVersion )
 {
     ReplayVisualArchiveSample packet;
@@ -1328,13 +1312,11 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
         replayArtifactPath += ".skreplay";
         std::vector<ReplayVisualArchiveSample> visualPackets;
         visualPackets.reserve( m_replayVisualFidelityTicks.size() );
-        std::vector<uint32_t> publishedTopologyVersions;
-        publishedTopologyVersions.reserve( m_replayVisualFidelityTicks.size() );
+        ReplayVisualPacketOperations::ReplayVisualTopologyVersionCanonicalizer topologyVersions;
 
         for ( const ReplayVisualFidelityReportTick& tick : m_replayVisualFidelityTicks )
         {
-            const uint32_t canonicalTopologyVersion = CanonicalReplayArtifactTopologyVersion( tick.topologyVersion,
-                                                                                              publishedTopologyVersions );
+            const uint32_t canonicalTopologyVersion = topologyVersions.Observe( tick.topologyVersion );
 
             visualPackets.push_back( BuildReplayVisualArchiveSample( tick, canonicalTopologyVersion ) );
         }

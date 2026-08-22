@@ -780,7 +780,7 @@
       "signature": "bool ReplayCauseWindowContainsPoint( const RunReplayCauseTreeState& state, int x, int y )",
       "owner": "ReplayOverlayLayout cause window bounds",
       "disposition": "retain-owner",
-      "reason": "Pure point-in-rect hit test helper for the legacy hierarchy window bounds.",
+      "reason": "Pure point-in-rect hit test helper for the GameUI hierarchy window bounds.",
       "evidence": "TestReplayCauseInspection verifies boundary containment.",
       "plan": ""
     }

@@ -2151,28 +2151,11 @@ std::vector<uint8_t> BuildVisualPacketChunk( std::span<const ReplayVisualArchive
 {
     std::vector<uint8_t> bytes;
     AppendPod( bytes, CheckedU32( samples.size() ) );
-    std::vector<uint32_t> publishedTopologyVersions;
-    publishedTopologyVersions.reserve( samples.size() );
+    ReplayVisualPacketOperations::ReplayVisualTopologyVersionCanonicalizer topologyVersions;
 
     for ( const ReplayVisualArchiveSample& sample : samples )
     {
-        uint32_t canonicalTopologyVersion = 0u;
-
-        if ( sample.topologyVersion != 0u )
-        {
-            const auto found = std::find( publishedTopologyVersions.begin(), publishedTopologyVersions.end(),
-                                          sample.topologyVersion );
-
-            if ( found == publishedTopologyVersions.end() )
-            {
-                publishedTopologyVersions.push_back( sample.topologyVersion );
-                canonicalTopologyVersion = CheckedU32( publishedTopologyVersions.size() );
-            }
-            else
-            {
-                canonicalTopologyVersion = CheckedU32( static_cast<std::size_t>( std::distance( publishedTopologyVersions.begin(), found ) ) + 1u );
-            }
-        }
+        const uint32_t canonicalTopologyVersion = topologyVersions.Observe( sample.topologyVersion );
 
         constexpr uint64_t canonicalReplayReserveGrowthEvents = 0u;
 

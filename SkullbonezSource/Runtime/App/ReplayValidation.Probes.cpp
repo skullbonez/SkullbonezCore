@@ -1211,6 +1211,7 @@ ReplayProbeRunner::VerifyLoadedPresentation( ReplayTimeline& timeline, ReplayScr
         // presenting Debug probe deliberately replays first appearance from
         // frame zero, so only the probe resets publication state.
         std::vector<ReplayVisualTrajectoryDigestState> trajectoryDigests;
+        ReplayVisualTopologyVersionCanonicalizer topologyVersions;
 
         for ( const ReplayVisualArchiveSample& expected : visualPackets )
         {
@@ -1249,7 +1250,8 @@ ReplayProbeRunner::VerifyLoadedPresentation( ReplayTimeline& timeline, ReplayScr
                                                                 timeline.Solver().LatestSample(),
                                                                 expected.replayReserveGrowthEvents );
 
-            const ReplayVisualPacket projected = prediction.PresentationOwner().PublishedVisualPacketView();
+            ReplayVisualPacket projected = prediction.PresentationOwner().PublishedVisualPacketView();
+            projected.header.topologyVersion = topologyVersions.Observe( projected.header.topologyVersion );
             const ReplayVisualPacketFingerprint fingerprint = BuildReplayVisualPacketFingerprint( projected,
                                                                                                   trajectoryDigests );
 

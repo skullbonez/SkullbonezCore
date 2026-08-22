@@ -47,6 +47,7 @@ Related:
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <vector>
 
 namespace SkullbonezCore::Runtime
 {
@@ -62,6 +63,34 @@ inline constexpr uint16_t REPLAY_VISUAL_FUTURE_NODE_CAPACITY = 240u;
 
 namespace ReplayVisualPacketOperations
 {
+// Process-local topology generations are not durable identity. Capture and
+// reconstruction each use this owner to derive the same first-publication tokens.
+class ReplayVisualTopologyVersionCanonicalizer
+{
+  public:
+    uint32_t Observe( uint32_t topologyVersion )
+    {
+        if ( topologyVersion == 0u )
+        {
+            return 0u;
+        }
+
+        const auto found = std::find( m_publishedVersions.begin(), m_publishedVersions.end(), topologyVersion );
+
+        if ( found == m_publishedVersions.end() )
+        {
+            m_publishedVersions.push_back( topologyVersion );
+            return static_cast<uint32_t>( m_publishedVersions.size() );
+        }
+
+        return static_cast<uint32_t>( std::distance( m_publishedVersions.begin(), found ) + 1u );
+    }
+
+  private:
+    // Invariant: non-zero raw generations receive dense tokens in first-publication order.
+    std::vector<uint32_t> m_publishedVersions;
+};
+
 inline uint64_t HashReplayVisualFloatBuffer( std::span<const float> values ) noexcept
 {
     uint64_t hash = REPLAY_VISUAL_BUFFER_FNV_OFFSET;

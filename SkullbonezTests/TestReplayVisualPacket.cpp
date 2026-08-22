@@ -1926,6 +1926,19 @@ TEST_CASE( "Replay visual archive semantic hash stays canonical and content-sens
                                                                       reserveGrowthEvents ) );
 }
 
+TEST_CASE( "Replay visual topology versions canonicalize by first publication" )
+{
+    ReplayVisualTopologyVersionCanonicalizer versions;
+
+    CHECK( versions.Observe( 0u ) == 0u );
+    CHECK( versions.Observe( 12u ) == 1u );
+    CHECK( versions.Observe( 12u ) == 1u );
+    CHECK( versions.Observe( 4u ) == 2u );
+    CHECK( versions.Observe( 0u ) == 0u );
+    CHECK( versions.Observe( 9u ) == 3u );
+    CHECK( versions.Observe( 4u ) == 2u );
+}
+
 TEST_CASE( "Replay visual packet reports semantic divergence before buffer bytes" )
 {
     const std::array<float, 4> expectedFloats = { 1.0f, 2.0f, 3.0f, 4.0f };

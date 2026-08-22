@@ -145,7 +145,7 @@ class SceneLoadTransaction
                    : submitted;
     }
 
-    // The stress lane may suppress Legacy activation without recovering the
+    // The stress lane may suppress GameUI activation without recovering the
     // complete private output record.
     void PreserveInactiveDevelopmentUi();
 

@@ -52,7 +52,7 @@
       "owner": "UIWindowInteractionOwner input turn",
       "disposition": "retain-owner",
       "reason": "One UI interaction owner resolves a detached input snapshot against viewport, editor, camera, Scene-tab catalog, and forecast-control hit-test policy for a single turn; both scene and recording combos share this owner's open-state and click-order invariant, all model access is synchronous, and extraction would leave one-call hit-test helpers sharing the same widget state.",
-      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); ORBIT_FORECAST OF4 Legacy control review (2026-08-19); interaction recording picker review (2026-08-22)",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); ORBIT_FORECAST OF4 GameUI control review (2026-08-19); interaction recording picker review (2026-08-22)",
       "plan": "",
       "body_lines": 1042,
       "max_brace_depth": 8,
@@ -120,7 +120,7 @@
     {
       "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.cpp",
       "signature": "SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( InteractionAutomationRunStatus& status, const char* scriptPath, const SceneWorld& world, const SceneSessionState& scene, const char* scenePath, const RuntimeTools& runtimeTools, const ReplayAutomationView& replay, const RuntimeInteractionController& interaction, const CameraControlState& camera, const UI::InGameUI& ui, const Rendering::RenderSceneSnapshot& renderSnapshot )",
-      "body_sha256": "1b099f7fac484c5cddd24fe9957fb5f04556a8a65b8037ba36294be8880378ce",
+      "body_sha256": "cf4b00a2da6b0a3f9516f2bf5352d76c52ad4a0493d980d18e9e6935392c3023",
       "owner": "InteractionAutomationReportWriter report transaction",
       "disposition": "retain-owner",
       "reason": "One writer projects the bounded automation result schema from synchronized runtime snapshots and emits one durable report; PSD7 evidence/reconciliation fields and OF6 private-simulation component hashes plus separate source-clock metadata join the same field-order, single-write, and failure-cleanup invariant.",

@@ -252,7 +252,6 @@ class InteractionAutomationReportWriter
     static const char* OwnerName( WorldInteractionOwner owner );
     static const char* ReplayTrackName( RunReplayTrack track );
     static const char* ReplayPredictionBuildModeName( ReplayPredictionBuildMode mode );
-    static uint32_t CanonicalReplayArtifactTopologyVersion( uint32_t liveVersion, std::vector<uint32_t>& publishedVersions );
     static ReplayVisualArchiveSample BuildReplayVisualArchiveSample( const ReplayVisualFidelityReportTick& tick,
                                                                      uint32_t canonicalTopologyVersion );
 
