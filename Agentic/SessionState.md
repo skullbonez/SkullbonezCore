@@ -1,8 +1,8 @@
 # Session State
 
-Date: 2026-08-22
-Branch: `main`
-Status: Ragdoll Physics Unification, Runtime Boundary Separation, and Game UI Component Library Separation active; 88/111 tasks complete
+Date: 2026-08-23
+Branch: `nightrunner-22nd-AUG-26`
+Status: Real-Time Physics Pacing, Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 88/118 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -20,6 +20,15 @@ native host and frame-metrics separation, operator UI/render command boundaries,
 and evidence-driven Visual Studio project decomposition. Completed plan files
 remain deleted under the repository convention; Git history retains their phase
 evidence.
+
+Game UI Component Library Separation UI0-UI6 remains binding after RBS7.
+Recorded Interaction Playback Cursor RIC0-RIC3 is registered after UI6; it adds
+only a fake recorded-playback overlay and explicitly forbids any hardware cursor
+or native capture change.
+
+Real-Time Physics Pacing SP0-SP2 is the first active item. It separates live
+wall-clock fixed-frequency physics from explicit deterministic render-frame
+lockstep before `RAGDOLL_PHYSICS` FP2 resumes.
 
 CORE_REDUCTION CR0-CR5 are complete. Owner direction activated the plan without a
 new branch. The clean `cc194f9aa` baseline contains 615 tracked production
