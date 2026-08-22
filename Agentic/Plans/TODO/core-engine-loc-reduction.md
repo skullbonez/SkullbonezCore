@@ -1,7 +1,7 @@
 # Core Engine Evidence-Driven Code Reduction Plan
 
 Date: 2026-08-22
-Status: Active by owner direction. 2/6 phases complete.
+Status: Active by owner direction. 3/6 phases complete.
 Impact area: `SkullbonezSource/` production code, project metadata for deleted files, and focused behavioral tests
 Owner: Engine architecture and the owner of each touched subsystem
 Priority: Current execution priority; CR0 through CR5 run in order.
@@ -277,18 +277,30 @@ have no live production purpose.
 
 ### Tasks
 
-- [ ] Work in small owner-aligned batches from the approved CR0 ledger.
-- [ ] For each symbol, perform the full reachability review immediately before
+- [x] Work in small owner-aligned batches from the approved CR0 ledger.
+- [x] For each symbol, perform the full reachability review immediately before
       deletion so evidence cannot go stale.
-- [ ] Delete the declaration, definition, private helpers that become unreachable,
+- [x] Delete the declaration, definition, private helpers that become unreachable,
       obsolete includes, project/filter entries, and comments that promise the
       removed surface.
-- [ ] Remove or rewrite tests only when their sole subject was the retired code.
+- [x] Remove or rewrite tests only when their sole subject was the retired code.
       Preserve behavioral coverage through the surviving production entry point.
-- [ ] Rerun the reachability inventory after each owner batch and remove stale
+- [x] Rerun the reachability inventory after each owner batch and remove stale
       reachability rulings for symbols that no longer exist.
-- [ ] Record exact production additions/deletions and focused validation beside
+- [x] Record exact production additions/deletions and focused validation beside
       each ledger row.
+
+### CR2 evidence
+
+- The current Debug/Profile decorated-symbol inventory still reports the exact
+  CR0 population: 93 ruled rows (54 no-reference, 11 own-TU-only, and 28
+  test-only) with zero blocking diagnostics.
+- The approved CR0 ledger contains no deletion disposition. Its three reviewed
+  candidates remain live diagnostic behavior or narrow test seams for owned
+  invariants, so no owner-aligned deletion batch exists to execute.
+- No declaration, definition, test, project entry, reachability ruling, or
+  production line was removed. CR2 therefore records 0 additions, 0 deletions,
+  and 0 net reduction instead of manufacturing savings from uncertain code.
 
 ### Acceptance
 

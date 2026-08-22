@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-22
-Status: Core Engine Evidence-Driven Code Reduction active; 82/86 tasks complete (95.35%)
+Status: Core Engine Evidence-Driven Code Reduction active; 83/86 tasks complete (96.51%)
 
 ## Owner Direction
 
@@ -223,7 +223,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Core Engine Evidence-Driven Code Reduction | `CORE_REDUCTION` | 6 | 2 | `TODO/core-engine-loc-reduction.md` |
+| Core Engine Evidence-Driven Code Reduction | `CORE_REDUCTION` | 6 | 3 | `TODO/core-engine-loc-reduction.md` |
 
 ## Parked, Backlog, And Completed Plans
 
@@ -295,7 +295,7 @@ contracts into Rendering.
 
 ## Portfolio Progress
 
-82/86 tasks complete with Core Engine Evidence-Driven Code Reduction active.
+83/86 tasks complete with Core Engine Evidence-Driven Code Reduction active.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
@@ -303,6 +303,6 @@ Invariant Enforcement And Assertion Hardening IH0-IH7 is complete.
 Cause Hierarchy Scientific Inspector CHUI0-CHUI6 is complete. Full Source Comment Truth
 Replacement CT0-CT5 is complete. Full Validation Time And Value Audit VTA0-VTA5 is complete.
 Repository Hygiene Cleanup RC0-RC5 is complete.
-Core Engine Evidence-Driven Code Reduction CR0-CR1 are complete; CR2 is next.
+Core Engine Evidence-Driven Code Reduction CR0-CR2 are complete; CR3 is next.
 Deterministic
 Trigonometry is owner-parked and excluded from progress.
