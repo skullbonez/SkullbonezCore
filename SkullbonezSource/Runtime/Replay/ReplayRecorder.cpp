@@ -87,6 +87,22 @@ constexpr uint32_t REPLAY_EDITOR_TRANSFORM_TRANSLATE = 1u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_ROTATE = 2u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SCALE = 4u;
 
+// Invariant: presentation and solver recorders derive the same bounded sample
+// and checkpoint window from one normalized config calculation.
+struct ReplayRecorderCapacities
+{
+    std::size_t samples = 0;
+    std::size_t checkpoints = 0;
+};
+
+ReplayRecorderCapacities ReplayCapacitiesFromConfig( const ReplayRecorderConfig& config )
+{
+    const int seconds = std::clamp( config.retentionSeconds, REPLAY_MIN_SECONDS, REPLAY_MAX_SECONDS );
+    const std::size_t samples = static_cast<std::size_t>( seconds ) * static_cast<std::size_t>( REPLAY_TICKS_PER_SECOND );
+    const std::size_t interval = static_cast<std::size_t>( (std::max)( 1, config.checkpointIntervalFrames ) );
+    return { samples, (std::max)( static_cast<std::size_t>( 2 ), samples / interval + 2 ) };
+}
+
 int ReplayRuntimeBodyCapacity( const ReplayRecorderConfig& config )
 {
     return std::clamp( config.runtimeBodyCapacity, 1, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
@@ -1879,9 +1895,10 @@ bool ReplayRecorder::Configure( const ReplayRecorderConfig& config )
         return true;
     }
 
-    m_samples.resize( SampleCapacityFromConfig() );
+    const ReplayRecorderCapacities capacities = ReplayCapacitiesFromConfig( m_config );
+    m_samples.resize( capacities.samples );
     m_visualFrames.resize( m_samples.size() );
-    m_checkpoints.resize( CheckpointCapacityFromConfig() );
+    m_checkpoints.resize( capacities.checkpoints );
     const std::size_t bodyCapacity = static_cast<std::size_t>( m_config.runtimeBodyCapacity );
 
     // Runtime allocation policy: these are a fixed number of recorder working
@@ -2553,19 +2570,6 @@ void ReplayRecorder::StoreCheckpointSummary( const ReplayPresentationSample& sam
     checkpoint.pipelineRecordCount = sample.pipelineRecordCount;
 }
 
-std::size_t ReplayRecorder::SampleCapacityFromConfig() const
-{
-    const int seconds = std::clamp( m_config.retentionSeconds, REPLAY_MIN_SECONDS, REPLAY_MAX_SECONDS );
-    return static_cast<std::size_t>( seconds ) * static_cast<std::size_t>( REPLAY_TICKS_PER_SECOND );
-}
-
-std::size_t ReplayRecorder::CheckpointCapacityFromConfig() const
-{
-    const std::size_t sampleCapacity = SampleCapacityFromConfig();
-    const std::size_t interval = static_cast<std::size_t>( (std::max)( 1, m_config.checkpointIntervalFrames ) );
-    return (std::max)( static_cast<std::size_t>( 2 ), sampleCapacity / interval + 2 );
-}
-
 bool ReplaySolverRecorder::Configure( const ReplayRecorderConfig& config )
 {
     m_config = config;
@@ -2614,9 +2618,10 @@ bool ReplaySolverRecorder::Configure( const ReplayRecorderConfig& config )
         return true;
     }
 
-    m_samples.resize( SampleCapacityFromConfig() );
+    const ReplayRecorderCapacities capacities = ReplayCapacitiesFromConfig( m_config );
+    m_samples.resize( capacities.samples );
     m_solverFrames.resize( m_samples.size() );
-    m_checkpoints.resize( CheckpointCapacityFromConfig() );
+    m_checkpoints.resize( capacities.checkpoints );
     const std::size_t bodyCapacity = static_cast<std::size_t>( m_config.runtimeBodyCapacity );
 
     // Runtime allocation policy: reserve the fixed recorder working set once.
@@ -3289,19 +3294,6 @@ void ReplaySolverRecorder::StoreCheckpointSummary( const ReplaySolverFrameSample
     checkpoint.bodyCount = static_cast<uint32_t>( (std::min)( bodyCount, static_cast<std::size_t>( 0xffffffffu ) ) );
     checkpoint.contactCount = sample.contactCount;
     checkpoint.pipelineRecordCount = sample.pipelineRecordCount;
-}
-
-std::size_t ReplaySolverRecorder::SampleCapacityFromConfig() const
-{
-    const int seconds = std::clamp( m_config.retentionSeconds, REPLAY_MIN_SECONDS, REPLAY_MAX_SECONDS );
-    return static_cast<std::size_t>( seconds ) * static_cast<std::size_t>( REPLAY_TICKS_PER_SECOND );
-}
-
-std::size_t ReplaySolverRecorder::CheckpointCapacityFromConfig() const
-{
-    const std::size_t sampleCapacity = SampleCapacityFromConfig();
-    const std::size_t interval = static_cast<std::size_t>( (std::max)( 1, m_config.checkpointIntervalFrames ) );
-    return (std::max)( static_cast<std::size_t>( 2 ), sampleCapacity / interval + 2 );
 }
 
 bool ReplayEventRecorder::Configure( const ReplayRecorderConfig& config )

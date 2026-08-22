@@ -74,18 +74,7 @@ constexpr PassRasterStateBucket TEXT_RASTER_STATE = MakePassRasterStateBucket( 0
                                                                                { false, false, true, BlendFactor::SrcAlpha,
                                                                                  BlendFactor::OneMinusSrcAlpha } );
 
-struct FileCloser
-{
-    void operator()( FILE* file ) const
-    {
-        if ( file )
-        {
-            fclose( file );
-        }
-    }
-};
-
-using FileHandle = std::unique_ptr<FILE, FileCloser>;
+using FileHandle = std::unique_ptr<FILE, decltype( &fclose )>;
 } // namespace
 
 
@@ -228,7 +217,7 @@ static bool LoadSdfAtlasFromFile( Dx12TextureOwner& renderTextures, const char* 
         return false;
     }
 
-    FileHandle file( rawFile );
+    FileHandle file( rawFile, &fclose );
 
     SdfFileHeader hdr = {};
 
@@ -504,7 +493,7 @@ bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPat
         return false;
     }
 
-    FileHandle file( rawFile );
+    FileHandle file( rawFile, &fclose );
 
     SdfFileHeader hdr = {};
     memcpy( hdr.magic, "SBSDF001", 8 );

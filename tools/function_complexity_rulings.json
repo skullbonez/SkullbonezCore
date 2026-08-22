@@ -322,7 +322,7 @@
     {
       "file": "SkullbonezSource/Rendering/Text.cpp",
       "signature": "bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPath )",
-      "body_sha256": "90e9a4670f5e073ce24fcd53d99608b0bca67a9e2b735872aeac8001e738d291",
+      "body_sha256": "4698dc588d40d77f7875c1b5bf67cdd234918e1573e798971999c1fdfc69b458",
       "owner": "Text2d atlas generation transaction",
       "disposition": "retain-owner",
       "reason": "One cold atlas-generation transaction rasterizes the configured glyph set, packs the image, and writes its matching metadata; image and metadata layout must succeed or fail together.",

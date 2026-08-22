@@ -62,18 +62,7 @@ struct ConfigSetting
     void ( *dump )( const EngineConfig& cfg, FILE* out, const ConfigSetting& setting );
 };
 
-struct FileCloser
-{
-    void operator()( FILE* file ) const
-    {
-        if ( file )
-        {
-            fclose( file );
-        }
-    }
-};
-
-using FileHandle = std::unique_ptr<FILE, FileCloser>;
+using FileHandle = std::unique_ptr<FILE, decltype( &fclose )>;
 
 bool IsSpaceOrTab( char c )
 {
@@ -803,7 +792,7 @@ SbResult ReadConfigFormatVersion( SbDiagnosticStore& diagnostics, const char* pa
         return SbResult::Success();
     }
 
-    FileHandle file( rawFile );
+    FileHandle file( rawFile, &fclose );
 
     bool sawVersion = false;
     char line[512];
@@ -905,7 +894,7 @@ SbResult EngineConfig::Load( SbDiagnosticStore& diagnostics, const char* path )
         return SbResult::Success();
     }
 
-    FileHandle file( rawFile );
+    FileHandle file( rawFile, &fclose );
 
     char line[512];
     int lineNumber = 0;

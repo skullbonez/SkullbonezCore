@@ -186,6 +186,8 @@ TEST_CASE( "ReplayRecorder: Configure does not pre-reserve future sample payload
 
     CHECK( presentation.GetStats().sampleCapacity == static_cast<std::size_t>( kReplayTicksPerSecond ) );
     CHECK( solver.GetStats().sampleCapacity == static_cast<std::size_t>( kReplayTicksPerSecond ) );
+    CHECK( presentation.GetStats().checkpointCapacity == 6u );
+    CHECK( solver.GetStats().checkpointCapacity == 6u );
 
     constexpr uint64_t maxConfiguredBytes = 64ull * 1024ull * 1024ull;
     CHECK( presentation.CollectMemoryBytes() < maxConfiguredBytes );

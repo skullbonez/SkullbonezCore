@@ -619,7 +619,6 @@ class ShadowPass
     ShadowPassOutput Render( const ShadowPassInputs& inputs );
 
   private:
-    void LogResourceLifecycleStep( const char* phase, const char* step ) const;
     Rendering::ShadowFrameData BuildTerrainFrameData( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                                       const Math::Vector::Vector3& lightDirectionWorld ) const;
     Rendering::ShadowFrameData BuildObjectFrameData( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
@@ -672,8 +671,6 @@ class ReflectionPass
     ReflectionPassOutput Render( const ReflectionPassInputs& inputs );
 
   private:
-    void LogResourceLifecycleStep( const char* phase, const char* step ) const;
-
     ReflectionPassResources& m_resources;
     Physics::CollisionVisualizer& m_collisionVisualizer;
     SkyPass& m_skyPass;

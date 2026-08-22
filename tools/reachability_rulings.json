@@ -533,24 +533,6 @@
       "plan": ""
     },
     {
-      "file": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp",
-      "signature": "void ReflectionPass::LogResourceLifecycleStep( const char* phase, const char* step ) const",
-      "owner": "ReflectionPass lifecycle",
-      "disposition": "retain-owner",
-      "reason": "Logs reflection target recreation and release in pass-owned order.",
-      "evidence": "EnsureGpuResources and ReleaseGpuResources call it before target mutation. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=3; required_arity=2/2; symbols=?LogResourceLifecycleStep@ReflectionPass@Runtime@SkullbonezCore@@AEBAXPEBD0@Z",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp",
-      "signature": "void ShadowPass::LogResourceLifecycleStep( const char* phase, const char* step ) const",
-      "owner": "ShadowPass lifecycle",
-      "disposition": "retain-owner",
-      "reason": "Logs each ordered shadow reset phase.",
-      "evidence": "ShadowPass::ReleaseGpuResources calls it for terrain, object, and frame-payload reset steps. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=3; required_arity=2/2; symbols=?LogResourceLifecycleStep@ShadowPass@Runtime@SkullbonezCore@@AEBAXPEBD0@Z",
-      "plan": ""
-    },
-    {
       "file": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
       "signature": "uint64_t ReplayRecorder::CollectMemoryBytes() const",
       "owner": "Replay presentation recorder",
@@ -588,24 +570,6 @@
     },
     {
       "file": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
-      "signature": "std::size_t ReplayRecorder::SampleCapacityFromConfig() const",
-      "owner": "Replay presentation capacity policy",
-      "disposition": "retain-owner",
-      "reason": "Derives fixed ring/checkpoint capacity from recorder configuration.",
-      "evidence": "ReplayRecorder::Configure calls it before live capture storage is sized. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=4; required_arity=0/0; symbols=?SampleCapacityFromConfig@ReplayRecorder@Runtime@SkullbonezCore@@AEBA_KXZ",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
-      "signature": "std::size_t ReplayRecorder::CheckpointCapacityFromConfig() const",
-      "owner": "Replay presentation capacity policy",
-      "disposition": "retain-owner",
-      "reason": "Derives fixed ring/checkpoint capacity from recorder configuration.",
-      "evidence": "ReplayRecorder::Configure calls it before live capture storage is sized. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=2; required_arity=0/0; symbols=?CheckpointCapacityFromConfig@ReplayRecorder@Runtime@SkullbonezCore@@AEBA_KXZ",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
       "signature": "uint64_t ReplaySolverRecorder::CollectMemoryBytes() const",
       "owner": "Replay solver recorder",
       "disposition": "retain-owner",
@@ -638,24 +602,6 @@
       "disposition": "retain-owner",
       "reason": "Owns bounded solver-checkpoint cadence and summaries.",
       "evidence": "Live solver capture calls it when a checkpoint is due. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=3; required_arity=2/2; symbols=?StoreCheckpointSummary@ReplaySolverRecorder@Runtime@SkullbonezCore@@AEAAXAEBUReplaySolverFrameSample@23@_K@Z",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
-      "signature": "std::size_t ReplaySolverRecorder::SampleCapacityFromConfig() const",
-      "owner": "Replay solver capacity policy",
-      "disposition": "retain-owner",
-      "reason": "Derives fixed ring/checkpoint capacity from configuration.",
-      "evidence": "ReplaySolverRecorder::Configure calls it before live storage is sized. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=4; required_arity=0/0; symbols=?SampleCapacityFromConfig@ReplaySolverRecorder@Runtime@SkullbonezCore@@AEBA_KXZ",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
-      "signature": "std::size_t ReplaySolverRecorder::CheckpointCapacityFromConfig() const",
-      "owner": "Replay solver capacity policy",
-      "disposition": "retain-owner",
-      "reason": "Derives fixed ring/checkpoint capacity from configuration.",
-      "evidence": "ReplaySolverRecorder::Configure calls it before live storage is sized. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=2; required_arity=0/0; symbols=?CheckpointCapacityFromConfig@ReplaySolverRecorder@Runtime@SkullbonezCore@@AEBA_KXZ",
       "plan": ""
     },
     {

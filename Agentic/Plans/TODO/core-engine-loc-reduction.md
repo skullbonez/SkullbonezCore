@@ -1,7 +1,7 @@
 # Core Engine Evidence-Driven Code Reduction Plan
 
 Date: 2026-08-22
-Status: Active by owner direction. 4/6 phases complete.
+Status: Active by owner direction. 5/6 phases complete.
 Impact area: `SkullbonezSource/` production code, project metadata for deleted files, and focused behavioral tests
 Owner: Engine architecture and the owner of each touched subsystem
 Priority: Current execution priority; CR0 through CR5 run in order.
@@ -368,22 +368,44 @@ independently testable helpers.
 
 ### Tasks
 
-- [ ] Process only approved CR0 ledger entries with at least two independent
+- [x] Process only approved CR0 ledger entries with at least two independent
       call sites and demonstrated semantic equivalence.
-- [ ] Choose the lowest honest owner. Keep UI policy in UI, Runtime orchestration
+- [x] Choose the lowest honest owner. Keep UI policy in UI, Runtime orchestration
       in its Runtime package, Rendering values in Rendering, Physics algorithms
       in Physics, and infrastructure-only operations in Core.
-- [ ] Prefer pure value transformations or owner methods over shared mutable
+- [x] Prefer pure value transformations or owner methods over shared mutable
       state, service bags, callback packs, and forwarding facades.
-- [ ] Give parameters domain names and preserve units, coordinate spaces,
+- [x] Give parameters domain names and preserve units, coordinate spaces,
       capacities, sentinels, failure behavior, and allocation policy.
-- [ ] Replace all approved duplicate sites in the same batch. Do not leave a new
+- [x] Replace all approved duplicate sites in the same batch. Do not leave a new
       helper beside an equivalent hand-written copy without a recorded reason.
-- [ ] Delete extraction scars, obsolete aliases, redundant includes, and unused
+- [x] Delete extraction scars, obsolete aliases, redundant includes, and unused
       local wrappers exposed by the consolidation.
-- [ ] Apply the source comment guide to every touched source-bearing file and run
+- [x] Apply the source comment guide to every touched source-bearing file and run
       the required comment-style audit before closure.
-- [ ] Record helper LOC, call-site deletions, and net production reduction.
+- [x] Record helper LOC, call-site deletions, and net production reduction.
+
+### CR4 evidence
+
+- `ReplayCapacitiesFromConfig` now derives the paired sample/checkpoint window
+  once for both presentation and solver recorders. Both call sites retain their
+  own storage/reset policy, and the focused test now asserts equal 120-sample and
+  6-checkpoint capacities for the one-second/30-frame boundary.
+- Core config, Rendering text, World terrain, and Runtime capture replace four
+  identical local `FileCloser` types with the standard `fclose` function-pointer
+  deleter. Every open-failure result, read/write check, and scope exit remains at
+  its original owner and site.
+- Reflection and shadow passes write directly to their already-borrowed
+  `RenderResourceLifecycleLog`; the two declaration/definition forwarding pairs
+  are gone while every log call remains immediately before the same mutation.
+- Six obsolete decorated-symbol reachability rulings were removed with the four
+  recorder capacity methods and two render logging forwarders they described.
+- Production accounting is 36 additions and 107 deletions: 71 net lines removed.
+  The touched-source comment audit covers 8/8 production files with no deferrals.
+  Focused Replay recorder, config I/O, terrain I/O, PNG capture, and render-
+  lifecycle tests pass (18 cases, 822 assertions), and Profile builds with zero
+  warnings or errors. Strict Replay allocation policy, real DX12 screenshot and
+  InfoQueue validation, and `validate_fast` also pass without a baseline refresh.
 
 ### Rejection criteria
 
@@ -434,11 +456,11 @@ ownership regressions, or stale references.
 
 | Phase | Production lines added | Production lines deleted | Net reduction | Validation evidence |
 |---|---:|---:|---:|---|
-| CR1 - GameUI rename | | | | |
-| CR2 - Unreferenced deletion | | | | |
-| CR3 - Duplicate conditions | | | | |
-| CR4 - Owned helpers | | | | |
-| **Total** | | | | |
+| CR1 - GameUI rename | 161 | 164 | 3 | Focused startup/UI tests, UI stress, project filters, and `validate_fast` pass |
+| CR2 - Unreferenced deletion | 0 | 0 | 0 | 93 ruled reachability rows, zero blockers, and no deletion disposition |
+| CR3 - Duplicate conditions | 26 | 31 | 5 | DX12 architecture/renderer, InfoQueue, builds, ownership, and `validate_fast` pass |
+| CR4 - Owned helpers | 36 | 107 | 71 | 18 focused cases, allocation policy, DX12 renderer, builds, and `validate_fast` pass |
+| **Total** | **223** | **302** | **79** | No golden baseline refreshed |
 
 ### Completion criteria
 

@@ -498,8 +498,6 @@ class ReplayRecorder
     bool ResolveSampleAtOffset( std::size_t offset, ReplayPresentationSample& outSample ) const;
     void PromoteVisualFrameToKeyframe( std::size_t offset );
     void StoreCheckpointSummary( const ReplayPresentationSample& sample, std::size_t bodyCount );
-    std::size_t SampleCapacityFromConfig() const;
-    std::size_t CheckpointCapacityFromConfig() const;
 
     ReplayRecorderConfig m_config;
     std::vector<ReplayPresentationSample> m_samples;
@@ -666,8 +664,6 @@ class ReplaySolverRecorder
     bool ResolveSolverSampleAtOffset( std::size_t offset, ReplaySolverFrameSample& outSample ) const;
     void PromoteSolverFrameToKeyframe( std::size_t offset );
     void StoreCheckpointSummary( const ReplaySolverFrameSample& sample, std::size_t bodyCount );
-    std::size_t SampleCapacityFromConfig() const;
-    std::size_t CheckpointCapacityFromConfig() const;
 
     ReplayRecorderConfig m_config;
     std::vector<ReplaySolverFrameSample> m_samples;

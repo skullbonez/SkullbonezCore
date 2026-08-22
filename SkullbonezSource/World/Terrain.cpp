@@ -70,18 +70,7 @@ using SkullbonezCore::Core::SbResult;
 
 namespace
 {
-struct FileCloser
-{
-    void operator()( FILE* file ) const
-    {
-        if ( file )
-        {
-            fclose( file );
-        }
-    }
-};
-
-using FileHandle = std::unique_ptr<FILE, FileCloser>;
+using FileHandle = std::unique_ptr<FILE, decltype( &fclose )>;
 } // namespace
 
 
@@ -636,7 +625,7 @@ SkullbonezCore::Core::SbResult Terrain::LoadTerrainData( SkullbonezCore::Core::S
         return diagnostics.Failure( "World/Terrain", "Height map file not found: %s", fileName );
     }
 
-    FileHandle file( rawFile );
+    FileHandle file( rawFile, &fclose );
 
     m_terrainData.resize( m_pixelCount );
 
