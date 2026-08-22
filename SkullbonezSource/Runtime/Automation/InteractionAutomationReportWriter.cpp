@@ -809,6 +809,7 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
     EditorTracer& tracer = runtimeTools.Tracer();
     std::vector<ReplayVisualTrajectoryDigestState> trajectoryDigests;
     trajectoryDigests.reserve( offlinePrediction.State().trajectoryStore.RecordCount() );
+
     // Invariant: captured and reconstructed raw generations are independent
     // processes; only their first-publication token sequences may be compared.
     ReplayVisualPacketOperations::ReplayVisualTopologyVersionCanonicalizer capturedTopologyVersions;

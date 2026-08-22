@@ -467,8 +467,8 @@ validation checkboxes remain open until that exact unchanged gate is rerun.
 | CR2 - Unreferenced deletion | 0 | 0 | 0 | 93 ruled reachability rows, zero blockers, and no deletion disposition |
 | CR3 - Duplicate conditions | 26 | 31 | 5 | DX12 architecture/renderer, InfoQueue, builds, ownership, and `validate_fast` pass |
 | CR4 - Owned helpers | 36 | 107 | 71 | 18 focused cases, allocation policy, DX12 renderer, builds, and `validate_fast` pass |
-| CR5 - Terminal fixes | 76 | 70 | -6 | One focused canonicalizer test passed; terminal replay exposed two restore mismatches and was not rerun after the presentation-view fix |
-| **Total** | **299** | **372** | **73** | No golden baseline refreshed |
+| CR5 - Terminal fixes | 80 | 71 | -9 | One focused canonicalizer test passed; terminal replay exposed two restore mismatches and was not rerun after the presentation-view fix |
+| **Total** | **303** | **373** | **70** | No golden baseline refreshed |
 
 ### Completion criteria
 

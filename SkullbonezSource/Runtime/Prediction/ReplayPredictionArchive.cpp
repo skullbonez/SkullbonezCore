@@ -388,7 +388,7 @@ bool ReplayPredictionArchivePathPresentationMatchesRecords( const RunReplayPredi
 {
     const ReplayPredictionPresentationView presentation = ReplayPrediction::PresentationViewFromState( prediction, false );
     const uint16_t activeRootBranch = presentation.trajectoryBuildUsingBuildFrames ? REPLAY_TRAJECTORY_BUILD_BRANCH
-                                                                                    : REPLAY_TRAJECTORY_COMMITTED_BRANCH;
+                                                                                   : REPLAY_TRAJECTORY_COMMITTED_BRANCH;
     bool hasAdditionalRoot = false;
 
     for ( const ReplayTrajectoryRecord& record : prediction.trajectoryStore.ActiveRecords() )
@@ -398,8 +398,7 @@ bool ReplayPredictionArchivePathPresentationMatchesRecords( const RunReplayPredi
                                                    record.key.bodyId != presentation.trajectoryBuildRootId );
     }
 
-    return ReplayPredictionPathPresentationShowsAllBodies( presentation.pathPresentation ) ==
-           hasAdditionalRoot;
+    return ReplayPredictionPathPresentationShowsAllBodies( presentation.pathPresentation ) == hasAdditionalRoot;
 }
 } // namespace
 
@@ -410,6 +409,7 @@ bool BuildReplayPredictionArchiveForSchemaValidation( const RunReplayPathVisuali
                                                       std::vector<uint8_t>& outBytes )
 {
     outBytes.clear();
+
     // Invariant: a pending committed publication is the renderer-visible bank.
     // Durable replay must serialize that coherent snapshot, not a newer cache.
     const ReplayPredictionPresentationView presentation = ReplayPrediction::PresentationViewFromState( prediction, false );
@@ -418,7 +418,8 @@ bool BuildReplayPredictionArchiveForSchemaValidation( const RunReplayPathVisuali
                                       ( prediction.committedPublication.visibleSnapshotCaptured &&
                                         !prediction.BuildPrefixShouldBePresented() );
     const RunReplayPredictionTrajectoryBuildState& presentedTrajectory = usingVisibleSnapshot
-                                                                             ? prediction.committedPublication.visibleTrajectoryBuild
+                                                                             ? prediction.committedPublication
+                                                                                   .visibleTrajectoryBuild
                                                                              : prediction.trajectoryBuild;
 
     if ( schema < REPLAY_PREDICTION_ARCHIVE_MINIMUM_SCHEMA || schema > REPLAY_PREDICTION_ARCHIVE_LEGACY_SCHEMA ||

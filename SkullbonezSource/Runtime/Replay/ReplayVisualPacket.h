@@ -87,6 +87,7 @@ class ReplayVisualTopologyVersionCanonicalizer
     }
 
   private:
+
     // Invariant: non-zero raw generations receive dense tokens in first-publication order.
     std::vector<uint32_t> m_publishedVersions;
 };
