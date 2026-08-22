@@ -86,11 +86,14 @@ inline constexpr char SpatialGridBodyMemberships[] = "Exact scene body count for
 inline constexpr char SpatialGridPairDedupWords[] = "Triangular scene body-pair identities rounded up to 64-bit dedup words";
 inline constexpr char SpatialGridCandidatePairHeads[] = "Exact scene body count for canonical candidate-pair head rows";
 inline constexpr char SpatialGridCellObjectSeen[] = "Exact scene body count for per-cell dedup generation stamps";
-inline constexpr char SpatialGridCandidatePairNodes[] = "Four canonical candidate-pair nodes per scene body";
-inline constexpr char SpatialGridCandidatePairSortKeys[] = "Four canonical candidate-pair sort-key rows per scene body";
 inline constexpr char
-    SpatialGridCandidatePairSortScratch[] = "Four canonical candidate-pair radix-sort scratch rows per scene body";
-inline constexpr char SpatialGridSweptOverlayEntries[] = "Fixed 4096-row transient swept broadphase occupancy ceiling";
+    SpatialGridCandidatePairNodes[] = "Complete scene pair count capped by the fixed candidate-pair ceiling";
+inline constexpr char
+    SpatialGridCandidatePairSortKeys[] = "Complete scene pair count capped by the fixed candidate-pair ceiling";
+inline constexpr char
+    SpatialGridCandidatePairSortScratch[] = "Complete scene pair count capped by the fixed candidate-pair ceiling";
+inline constexpr char
+    SpatialGridSweptOverlayEntries[] = "Eight transient swept broadphase occupancy rows per committed scene body";
 inline constexpr char ExplicitTestCapacity[] = "Explicit unit-test fixed-list capacity";
 } // namespace PhysicsCapacityReason
 

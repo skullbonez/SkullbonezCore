@@ -9,9 +9,10 @@
 //   keep simulation rows compact by moving the final row into a deleted slot,
 //   while handle maps preserve live identity and reject stale generations.
 //   Replay tests prove durable scene identity survives new handle epochs and
-//   prefix trims preserve point-joint order; buoyancy tests prove its feature-
-//   owned facts mirror the body-row operations. Focused topology tests also
-//   prove failed collider refresh is non-mutating and shape compaction preserves
+//   prefix trims preserve point-joint order; malformed solver snapshots are
+//   rejected before any owner mutates; and buoyancy tests prove its feature-
+//   owned facts mirror body-row operations. Focused topology tests also prove
+//   failed collider refresh is non-mutating and shape compaction preserves
 //   first, middle, and final removal boundaries.
 //
 // Glossary:
@@ -43,6 +44,9 @@
 //     seeded state bit-for-bit.
 //   - Replay prefix trim stably compacts point-joint rows before retiring body
 //     handles, so checkpoint topology ordinals remain valid and no doomed row leaks.
+//   - Replay restore rejects malformed dense counts, references, contact keys,
+//     cache order/uniqueness, terrain flags, and capacities transactionally;
+//     every prior owner snapshot remains byte-for-byte unchanged.
 //   - The exact reserve census includes every registered SpatialGrid owner and
 //     rejects any unregistered growth or capacity-reporting row.
 //
@@ -70,6 +74,7 @@
 #include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
 #include "../SkullbonezSource/Physics/PhysicsEngine.h"
 #include "../SkullbonezSource/Physics/PhysicsFixedList.h"
+#include "../SkullbonezSource/Physics/PersistentContactSolver.h"
 #include "../SkullbonezSource/Physics/PhysicsTimestep.h"
 #include "../SkullbonezSource/Physics/PhysicsWorld.h"
 #include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
@@ -692,11 +697,12 @@ TEST_CASE( "Physics handles: collider binding mismatch preserves every existing 
 {
     PhysicsBodyStore& bodies = TestBodyStore();
     ColliderStore& colliders = TestColliderStore();
-    const PhysicsBodyHandle firstBody =
-        bodies.CreateBodyRecord( MakeBodyRecord( 111u, Vector3( 1.0f, 0.0f, 0.0f ) ) );
+    const PhysicsBodyHandle firstBody = bodies.CreateBodyRecord( MakeBodyRecord( 111u, Vector3( 1.0f, 0.0f, 0.0f ) ) );
     bodies.CreateBodyRecord( MakeBodyRecord( 222u, Vector3( 2.0f, 0.0f, 0.0f ) ) );
-    const PhysicsColliderHandle collider = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord(
-        colliders, MakeColliderRecord( firstBody, 111u, 1.0f ), MakeColliderShape( 1.0f ) );
+    const PhysicsColliderHandle
+        collider = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders,
+                                                                                 MakeColliderRecord( firstBody, 111u, 1.0f ),
+                                                                                 MakeColliderShape( 1.0f ) );
     REQUIRE( colliders.RecordForHandle( collider ) != nullptr );
     const ColliderRecord before = *colliders.RecordForHandle( collider );
 
@@ -714,12 +720,24 @@ TEST_CASE( "Physics handles: collider binding mismatch preserves every existing 
 TEST_CASE( "Physics handles: sphere compaction preserves first and final removal boundaries" )
 {
     ColliderStore& store = TestColliderStore();
-    const PhysicsColliderHandle first = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord(
-        store, MakeColliderRecord( PhysicsBodyHandle { 1u, 1u }, 101u, 1.0f ), MakeColliderShape( 1.0f ) );
-    const PhysicsColliderHandle middle = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord(
-        store, MakeColliderRecord( PhysicsBodyHandle { 2u, 1u }, 202u, 2.0f ), MakeColliderShape( 2.0f ) );
-    const PhysicsColliderHandle last = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord(
-        store, MakeColliderRecord( PhysicsBodyHandle { 3u, 1u }, 303u, 3.0f ), MakeColliderShape( 3.0f ) );
+    const PhysicsColliderHandle
+        first = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( store,
+                                                                              MakeColliderRecord( PhysicsBodyHandle { 1u,
+                                                                                                                      1u },
+                                                                                                  101u, 1.0f ),
+                                                                              MakeColliderShape( 1.0f ) );
+    const PhysicsColliderHandle
+        middle = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( store,
+                                                                               MakeColliderRecord( PhysicsBodyHandle { 2u,
+                                                                                                                       1u },
+                                                                                                   202u, 2.0f ),
+                                                                               MakeColliderShape( 2.0f ) );
+    const PhysicsColliderHandle
+        last = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( store,
+                                                                             MakeColliderRecord( PhysicsBodyHandle { 3u,
+                                                                                                                     1u },
+                                                                                                 303u, 3.0f ),
+                                                                             MakeColliderShape( 3.0f ) );
 
     REQUIRE( store.DestroyColliderRecord( first ) );
     REQUIRE( store.SphereShapeCount() == 2u );
@@ -1010,9 +1028,9 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
     RuntimeReserveGrowthEventView events[128] = {};
     const int eventCount = RuntimeReserveAllocator::CopyRecentGrowthEvents( events, 128 );
 #if defined( _DEBUG )
-    REQUIRE( eventCount == 100 );
+    REQUIRE( eventCount == 93 );
 #else
-    REQUIRE( eventCount == 99 );
+    REQUIRE( eventCount == 92 );
 #endif
     CHECK( static_cast<uint64_t>( eventCount ) == RuntimeReserveAllocator::GrowthEventCount() );
 
@@ -1046,37 +1064,28 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
         { "PhysicsForceStage.m_mutualGravityPairForces", 130816 },
         { "ExternalForceStage.fixedTreeReleaseWakeScratch", 2000 },
         { "ExternalForceStage.releaseWakeBodies", 2000 },
-        { "PhysicsBroadphaseStage.candidatePairs", 8000 },
-        { "PhysicsBroadphaseStage.collisionCellKeys", 8000 },
         { "SpatialGrid.entries", 17024 },
+        { "SpatialGrid.overlayEntries", 16000 },
+        { "SpatialGrid.sweptFallbackBodies", 2000 },
         { "SpatialGrid.bodyMemberships", 2000 },
         { "SpatialGrid.pairSeen", 31235 },
         { "SpatialGrid.candidatePairHeads", 2000 },
-        { "SpatialGrid.candidatePairNodes", 8000 },
-        { "SpatialGrid.candidatePairSortKeys", 8000 },
-        { "SpatialGrid.candidatePairSortScratch", 8000 },
         { "SpatialGrid.cellObjectSeen", 2000 },
-#if defined( _DEBUG )
-        { "PhysicsBroadphaseStage.sleepPrunedPairs", 8000 },
-#endif
-        { "PhysicsNarrowphaseStage.events", 8000 },
         { "PhysicsNarrowphaseStage.islands", 2000 },
-        { "PhysicsNarrowphaseStage.islandPairIndices", 8000 },
         { "PhysicsNarrowphaseStage.islandWriteOffsets", 2000 },
         { "PhysicsNarrowphaseStage.parent", 2000 },
         { "PhysicsNarrowphaseStage.rank", 2000 },
         { "PhysicsNarrowphaseStage.rootToIsland", 2000 },
-        { "PhysicsContactSolverStage.persistentContacts", 48000 },
-        { "PhysicsContactSolverStage.persistentContactCache", 48000 },
+        { "PhysicsContactSolverStage.persistentContacts", 147072 },
+        { "PhysicsContactSolverStage.persistentContactCache", 147072 },
         { "PhysicsContactSolverStage.persistentContactCounts", 2000 },
         { "PhysicsContactSolverStage.persistentRestingContactCounts", 2000 },
         { "PhysicsContactSolverStage.solverBodies", 2000 },
-        { "PhysicsContactSolverStage.collisionVisualBodies", 16000 },
-        { "PhysicsContactSolverStage.fixedContactBodies", 48000 },
+        { "PhysicsContactSolverStage.fixedContactBodies", 147072 },
         { "PhysicsContactSolverStage.releaseWakeBodies", 2000 },
         { "PhysicsContactSolverStage.fixedTreeReleases", 2000 },
         { "PhysicsStepDiagnostics.collisionVisualContacts", 2000 },
-        { "PhysicsStepDiagnostics.physicsDebugContacts", 48000 },
+        { "PhysicsStepDiagnostics.physicsDebugContacts", 147072 },
         { "PhysicsSleepController.m_sleepSupportedThisFrame", 2000 },
         { "PhysicsSleepController.m_sleepInhibitedThisFrame", 2000 },
         { "PhysicsSleepController.m_sleepState", 2000 },
@@ -1125,13 +1134,27 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
         { "PhysicsContactSolverStage.pipelineRecords", SkullbonezCore::Physics::PhysicsCapacityReason::PipelineRecords },
         { "PhysicsStepDiagnostics.physicsPipelineTrace", SkullbonezCore::Physics::PhysicsCapacityReason::PipelineRecords },
         { "PhysicsSleepController.m_sleepSupportEdges", SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
-        { "SpatialGrid.overlayEntries", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridSweptOverlayEntries },
+        { "PhysicsBroadphaseStage.candidatePairs", SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
+        { "PhysicsBroadphaseStage.collisionCellKeys", SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
+        { "SpatialGrid.candidatePairNodes",
+          SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairNodes },
+        { "SpatialGrid.candidatePairSortKeys",
+          SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairSortKeys },
+        { "SpatialGrid.candidatePairSortScratch",
+          SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairSortScratch },
+#if defined( _DEBUG )
+        { "PhysicsBroadphaseStage.sleepPrunedPairs", SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
+#endif
+        { "PhysicsNarrowphaseStage.events", SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
+        { "PhysicsNarrowphaseStage.islandPairIndices", SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
+        { "PhysicsContactSolverStage.collisionVisualBodies",
+          SkullbonezCore::Physics::PhysicsCapacityReason::CollisionVisualBodies },
     };
 
 #if defined( _DEBUG )
-    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 105 );
+    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 106 );
 #else
-    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 104 );
+    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 105 );
 #endif
 
     for ( const ExpectedRegisteredWithoutGrowth& expected : expectedRegisteredWithoutGrowth )
@@ -1199,9 +1222,9 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
     }
 
 #if defined( _DEBUG )
-    CHECK( physicsCapacityRowCount == 106 );
+    CHECK( physicsCapacityRowCount == 107 );
 #else
-    CHECK( physicsCapacityRowCount == 105 );
+    CHECK( physicsCapacityRowCount == 106 );
 #endif
 
     CHECK( PhysicsEngine::ReadBodies( *engine ).RecordCapacity() == 2000u );
@@ -1224,7 +1247,7 @@ TEST_CASE( "Broadphase owning memory total includes registered grid backing exac
         stage.ReserveSceneCapacity( 3u );
     }
 
-    constexpr uint64_t candidateCapacity = 12u;
+    constexpr uint64_t candidateCapacity = 3u;
     constexpr uint64_t productionStageBytes = candidateCapacity * ( sizeof( std::pair<int, int> ) + sizeof( int64_t ) );
 #if defined( _DEBUG )
     constexpr uint64_t debugDiagnosticBytes = candidateCapacity * sizeof( std::pair<int, int> );
@@ -1377,6 +1400,12 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
     liveEngine->CaptureReplaySolverSnapshot( solverSnapshot,
                                              SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( bodyCount ) );
 
+    for ( std::size_t cacheIndex = 1u; cacheIndex < solverSnapshot.persistentContactCache.size(); ++cacheIndex )
+    {
+        CHECK( solverSnapshot.persistentContactCache[cacheIndex - 1u].key <
+               solverSnapshot.persistentContactCache[cacheIndex].key );
+    }
+
     std::unique_ptr<PhysicsEngine> predictionEngineOwner;
     int reservedBytes = 0;
     REQUIRE(
@@ -1388,6 +1417,11 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
 
     REQUIRE( reservedBytes ==
              SkullbonezCore::Runtime::ReplayPredictionReserveOperations::ReplayPredictionEngineReserveBytes( *liveEngine ) );
+
+    CHECK(
+        predictionEngineOwner->CanRestoreReplaySolverSnapshot( solverSnapshot,
+                                                                SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt(
+                                                                    bodyCount ) ) );
 
     REQUIRE(
         predictionEngineOwner->RestoreReplaySolverSnapshot( solverSnapshot,
@@ -1550,7 +1584,7 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
                                 SkullbonezCore::Physics::LoadPhysicsBodyHotState( PhysicsEngine::ReadBodies(
                                                                                       predictionEngine )
                                                                                       .HotFields(),
-                                index ) );
+                                                                                  index ) );
     }
 
     REQUIRE( solverSnapshot.pointJoints.size() == 1u );
@@ -1563,34 +1597,154 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
     const int preflightBodyCount = PhysicsEngine::ReadBodies( predictionEngine ).Count();
     const int preflightColliderCount = PhysicsEngine::ReadColliders( predictionEngine ).Count();
     const auto preflightJointHandle = PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].handle;
-    CHECK_FALSE( predictionEngine.CanRestoreReplaySolverSnapshot(
-        mismatchedTopology, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( bodyCount ) ) );
+    CHECK_FALSE(
+        predictionEngine.CanRestoreReplaySolverSnapshot( mismatchedTopology,
+                                                         SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt(
+                                                             bodyCount ) ) );
     CHECK( PhysicsEngine::ReadBodies( predictionEngine ).Count() == preflightBodyCount );
     CHECK( PhysicsEngine::ReadColliders( predictionEngine ).Count() == preflightColliderCount );
     REQUIRE( PhysicsEngine::ReadPointJointConstraints( predictionEngine ).size() == 1u );
     CHECK( PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].handle == preflightJointHandle );
     CHECK( FloatBitsEqual( PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].accumulatedImpulse,
                            advancedJointImpulse ) );
-    CHECK_FALSE( predictionEngine.RestoreReplaySolverSnapshot(
-        mismatchedTopology, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( bodyCount ) ) );
+    CHECK_FALSE(
+        predictionEngine.RestoreReplaySolverSnapshot( mismatchedTopology,
+                                                      SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt(
+                                                          bodyCount ) ) );
     CHECK( FloatBitsEqual( PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].accumulatedImpulse,
                            advancedJointImpulse ) );
+
+    const auto checkRejectedSnapshotLeavesStateUntouched = [&]( const auto& malformedSnapshot )
+    {
+        SkullbonezCore::Physics::PhysicsSolverSnapshot beforeReject;
+        predictionEngine.CaptureReplaySolverSnapshot( beforeReject,
+                                                      SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt(
+                                                          bodyCount ) );
+
+        CHECK_FALSE(
+            predictionEngine.CanRestoreReplaySolverSnapshot( malformedSnapshot,
+                                                             SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt(
+                                                                 bodyCount ) ) );
+        CHECK_FALSE(
+            predictionEngine.RestoreReplaySolverSnapshot( malformedSnapshot,
+                                                          SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt(
+                                                              bodyCount ) ) );
+
+        SkullbonezCore::Physics::PhysicsSolverSnapshot afterReject;
+        predictionEngine.CaptureReplaySolverSnapshot( afterReject,
+                                                      SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt(
+                                                          bodyCount ) );
+        CHECK( afterReject.timeRemaining == beforeReject.timeRemaining );
+        CHECK( afterReject.sleepState == beforeReject.sleepState );
+        CHECK( afterReject.sleepSupportEdges == beforeReject.sleepSupportEdges );
+        CHECK( afterReject.persistentContactCounts == beforeReject.persistentContactCounts );
+        CHECK( afterReject.collisionCellKeys == beforeReject.collisionCellKeys );
+        REQUIRE( PhysicsEngine::ReadPointJointConstraints( predictionEngine ).size() == 1u );
+        CHECK( FloatBitsEqual( PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].accumulatedImpulse,
+                               advancedJointImpulse ) );
+    };
+
+    auto malformedDenseRows = solverSnapshot;
+    REQUIRE_FALSE( malformedDenseRows.sleepState.empty() );
+    malformedDenseRows.sleepState.pop_back();
+    checkRejectedSnapshotLeavesStateUntouched( malformedDenseRows );
+
+    auto malformedSupportEdge = solverSnapshot;
+    malformedSupportEdge.sleepSupportEdges.emplace_back( 0, bodyCount );
+    checkRejectedSnapshotLeavesStateUntouched( malformedSupportEdge );
+
+    auto malformedIslandParent = solverSnapshot;
+    REQUIRE_FALSE( malformedIslandParent.sleepIslandParent.empty() );
+    malformedIslandParent.sleepIslandParent[0] = bodyCount;
+    checkRejectedSnapshotLeavesStateUntouched( malformedIslandParent );
+
+    auto malformedContactCache = solverSnapshot;
+    SkullbonezCore::Physics::PhysicsSolverContactCacheSample foreignCache;
+    foreignCache.key = static_cast<int64_t>( static_cast<uint64_t>( bodyCount ) << 32 );
+    malformedContactCache.persistentContactCache.push_back( foreignCache );
+    checkRejectedSnapshotLeavesStateUntouched( malformedContactCache );
+
+    auto malformedContactCounts = solverSnapshot;
+    REQUIRE_FALSE( malformedContactCounts.persistentContactCounts.empty() );
+    ++malformedContactCounts.persistentContactCounts[0];
+    checkRejectedSnapshotLeavesStateUntouched( malformedContactCounts );
+
+    REQUIRE( bodyCount >= 2 );
+    auto malformedRestingContactCounts = solverSnapshot;
+    SkullbonezCore::Physics::PhysicsSolverPersistentContactSample missingRestingCount;
+    missingRestingCount.bodyA = 0;
+    missingRestingCount.bodyB = 1;
+    missingRestingCount.featureId = 16u;
+    missingRestingCount.key = SkullbonezCore::Physics::MakePersistentContactCacheKey( 0, 1, 16u );
+    missingRestingCount.supportsRestingPolicy = true;
+    malformedRestingContactCounts.persistentContacts.push_back( missingRestingCount );
+    ++malformedRestingContactCounts.persistentContactCounts[0];
+    ++malformedRestingContactCounts.persistentContactCounts[1];
+    checkRejectedSnapshotLeavesStateUntouched( malformedRestingContactCounts );
+
+    auto malformedContactKey = solverSnapshot;
+    SkullbonezCore::Physics::PhysicsSolverPersistentContactSample incoherentContact;
+    incoherentContact.bodyA = 0;
+    incoherentContact.bodyB = 1;
+    incoherentContact.featureId = 17u;
+    incoherentContact.key = SkullbonezCore::Physics::MakePersistentContactCacheKey( 0, 1, 18u );
+    incoherentContact.supportsRestingPolicy = false;
+    malformedContactKey.persistentContacts.push_back( incoherentContact );
+    ++malformedContactKey.persistentContactCounts[0];
+    ++malformedContactKey.persistentContactCounts[1];
+    checkRejectedSnapshotLeavesStateUntouched( malformedContactKey );
+
+    auto malformedTerrainFlag = solverSnapshot;
+    SkullbonezCore::Physics::PhysicsSolverPersistentContactSample incoherentTerrainFlag;
+    incoherentTerrainFlag.bodyA = 0;
+    incoherentTerrainFlag.bodyB = 1;
+    incoherentTerrainFlag.featureId = 19u;
+    incoherentTerrainFlag.key = SkullbonezCore::Physics::MakePersistentContactCacheKey( 0, 1, 19u );
+    incoherentTerrainFlag.isTerrain = true;
+    incoherentTerrainFlag.supportsRestingPolicy = false;
+    malformedTerrainFlag.persistentContacts.push_back( incoherentTerrainFlag );
+    ++malformedTerrainFlag.persistentContactCounts[0];
+    ++malformedTerrainFlag.persistentContactCounts[1];
+    checkRejectedSnapshotLeavesStateUntouched( malformedTerrainFlag );
+
+    auto unsortedContactCache = solverSnapshot;
+    unsortedContactCache.persistentContactCache.clear();
+    SkullbonezCore::Physics::PhysicsSolverContactCacheSample laterCache;
+    laterCache.key = SkullbonezCore::Physics::MakePersistentContactCacheKey( 0, 1, 2u );
+    SkullbonezCore::Physics::PhysicsSolverContactCacheSample earlierCache;
+    earlierCache.key = SkullbonezCore::Physics::MakePersistentContactCacheKey( 0, 1, 1u );
+    unsortedContactCache.persistentContactCache.push_back( laterCache );
+    unsortedContactCache.persistentContactCache.push_back( earlierCache );
+    checkRejectedSnapshotLeavesStateUntouched( unsortedContactCache );
+
+    auto duplicateContactCache = solverSnapshot;
+    duplicateContactCache.persistentContactCache.clear();
+    duplicateContactCache.persistentContactCache.push_back( earlierCache );
+    duplicateContactCache.persistentContactCache.push_back( earlierCache );
+    checkRejectedSnapshotLeavesStateUntouched( duplicateContactCache );
+
+    auto overCommittedCapacity = solverSnapshot;
+    overCommittedCapacity.collisionCellKeys.resize( 17u, 42 );
+    checkRejectedSnapshotLeavesStateUntouched( overCommittedCapacity );
 
     SkullbonezCore::Physics::PhysicsSolverSnapshot legacySnapshot = solverSnapshot;
     legacySnapshot.version = 2u;
     legacySnapshot.pointJoints.clear();
-    REQUIRE( predictionEngine.RestoreReplaySolverSnapshot(
-        legacySnapshot, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( bodyCount ) ) );
+    REQUIRE( predictionEngine.RestoreReplaySolverSnapshot( legacySnapshot,
+                                                           SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt(
+                                                               bodyCount ) ) );
     CHECK( PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].accumulatedImpulse == 0.0f );
 
     // Invariant: restoring historical solver state replaces a later cache on
     // both the live and prediction engines. The following fixed step therefore
     // consumes the same warm-start input instead of whichever impulse happened
     // to be live when prediction topology was cloned.
-    REQUIRE( liveEngine->RestoreReplaySolverSnapshot(
-        solverSnapshot, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( bodyCount ) ) );
-    REQUIRE( predictionEngine.RestoreReplaySolverSnapshot(
-        solverSnapshot, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( bodyCount ) ) );
+    REQUIRE( liveEngine->RestoreReplaySolverSnapshot( solverSnapshot,
+                                                      SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt(
+                                                          bodyCount ) ) );
+    REQUIRE( predictionEngine.RestoreReplaySolverSnapshot( solverSnapshot,
+                                                           SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt(
+                                                               bodyCount ) ) );
     CHECK( FloatBitsEqual( PhysicsEngine::ReadPointJointConstraints( *liveEngine )[0].accumulatedImpulse,
                            historicalJointImpulse ) );
     CHECK( FloatBitsEqual( PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].accumulatedImpulse,
@@ -1667,11 +1821,13 @@ TEST_CASE( "Replay body-prefix trim removes doomed point joints and preserves su
         for ( int row = 0; row < bodyCount; ++row )
         {
             const auto sceneObjectId = MakePhysicsSceneObjectId( 810u + static_cast<uint32_t>( row ) );
-            auto body = SkullbonezCore::Physics::MakePhysicsBodyCreateDesc(
-                sceneObjectId, shape, Vector3( static_cast<float>( row ), 10.0f, 0.0f ),
-                SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION, Vector3( 0.0f, 0.0f, 0.0f ),
-                Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 1.0f, 1.0f, 1.0f ), 1.0f, 0.0f,
-                SkullbonezCore::Physics::PhysicsBodyMotionKind::Dynamic, "replay-trim-joint-body" );
+            auto body = SkullbonezCore::Physics::
+                MakePhysicsBodyCreateDesc( sceneObjectId, shape, Vector3( static_cast<float>( row ), 10.0f, 0.0f ),
+                                           SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
+                                           Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ),
+                                           Vector3( 1.0f, 1.0f, 1.0f ), 1.0f, 0.0f,
+                                           SkullbonezCore::Physics::PhysicsBodyMotionKind::Dynamic,
+                                           "replay-trim-joint-body" );
             auto collider = SkullbonezCore::Physics::MakeColliderCreateDesc( shape, 0.0f, 0u, "replay-trim-joint" );
             collider.sceneObjectId = sceneObjectId;
             registrations[row] = engine.RegisterAuthoredBody( body, collider );
@@ -1699,22 +1855,23 @@ TEST_CASE( "Replay body-prefix trim removes doomed point joints and preserves su
     REQUIRE( survivorB.IsValid() );
 
     SkullbonezCore::Physics::PhysicsSolverSnapshot snapshot;
-    engine.CaptureReplaySolverSnapshot(
-        snapshot, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( restoredBodyCount ) );
+    engine.CaptureReplaySolverSnapshot( snapshot, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt(
+                                                      restoredBodyCount ) );
     REQUIRE( snapshot.pointJoints.size() == 2u );
     CHECK( snapshot.pointJoints[0].topologyOrdinal == 0u );
     CHECK( snapshot.pointJoints[1].topologyOrdinal == 1u );
-    REQUIRE( engine.CanRestoreReplaySolverSnapshot(
-        snapshot, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( restoredBodyCount ) ) );
+    REQUIRE(
+        engine.CanRestoreReplaySolverSnapshot( snapshot, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt(
+                                                             restoredBodyCount ) ) );
 
-    REQUIRE( engine.TrimBodiesToCount(
-        SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( restoredBodyCount ) ) );
+    REQUIRE(
+        engine.TrimBodiesToCount( SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( restoredBodyCount ) ) );
     const auto& survivors = PhysicsEngine::ReadPointJointConstraints( engine );
     REQUIRE( survivors.size() == snapshot.pointJoints.size() );
     CHECK( survivors[0].handle == survivorA );
     CHECK( survivors[1].handle == survivorB );
-    REQUIRE( engine.RestoreReplaySolverSnapshot(
-        snapshot, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( restoredBodyCount ) ) );
+    REQUIRE( engine.RestoreReplaySolverSnapshot( snapshot, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt(
+                                                               restoredBodyCount ) ) );
 }
 
 

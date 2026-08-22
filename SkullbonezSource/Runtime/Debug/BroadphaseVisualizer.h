@@ -26,6 +26,7 @@ Related:
 #include <vector>
 #include "../../Core/Common.h"
 #include "../../Physics/PhysicsBroadphaseDebugView.h"
+#include "../../Physics/PhysicsSpatialCellKey.h"
 #include "../../Maths/Matrix4.h"
 
 namespace SkullbonezCore
@@ -75,7 +76,7 @@ class BroadphaseVisualizer
     struct TrackedCell
     {
         int64_t key;                              // Packed cell coordinate key, stable across frames.
-        int16_t ix, iy, iz;
+        int ix, iy, iz;
         CellState state;
         float timer;                              // Seconds since the current visual state began.
         int collisionHeat;                        // Collision count driving the red-to-black gradient.
@@ -92,15 +93,22 @@ class BroadphaseVisualizer
     // Each cell wireframe cube = 12 edges × 2 verts = 24 verts × 6 floats = 144 floats
     std::vector<float> m_lineData;
 
-    static int64_t PackKey( int16_t ix, int16_t iy, int16_t iz );
     int FindCell( int64_t key ) const;
-    int FindOrAddCell( int64_t key, int16_t ix, int16_t iy, int16_t iz );
+    int FindOrAddCell( int64_t key, int ix, int iy, int iz );
     void RemoveCell( int index );
     void ComputeCellColor( const TrackedCell& cell, float& r, float& g, float& b ) const;
-    void EmitCubeWireframe( int16_t ix, int16_t iy, int16_t iz, float r, float g, float b );
+    void EmitCubeWireframe( int ix, int iy, int iz, float r, float g, float b );
 
   public:
     BroadphaseVisualizer();
+
+    // Diagnostic seam: Update uses this exact identity for active and
+    // collision cells, so focused tests can pin visualization parity with the
+    // Physics-owned spatial-key contract without exposing retained state.
+    static int64_t DiagnosticCellKey( int ix, int iy, int iz ) noexcept
+    {
+        return EncodeExactSpatialCellKey( ix, iy, iz );
+    }
 
     void SetCellSize( float size )
     {

@@ -101,6 +101,11 @@ void PhysicsPipelineTraceRecorder::RestoreFullRecords( std::span<const PhysicsPi
     m_retainFullRecords = true;
 }
 
+bool PhysicsPipelineTraceRecorder::CanRestoreFullRecords( std::size_t recordCount ) const noexcept
+{
+    return recordCount <= m_records.capacity();
+}
+
 bool PhysicsPipelineTraceRecorder::RetainsFullRecords() const
 {
     return m_retainFullRecords;
@@ -332,6 +337,14 @@ void PhysicsStepDiagnostics::CaptureReplayState( PhysicsSolverSnapshot& snapshot
     }
 
     snapshot.collisionVisualFrameActive = m_collisionVisualFrameActive;
+}
+
+bool PhysicsStepDiagnostics::CanRestoreReplayState( const PhysicsSolverSnapshot& snapshot, int modelCount ) const noexcept
+{
+    return modelCount >= 0 && snapshot.collisionVisualContacts.size() == static_cast<std::size_t>( modelCount ) &&
+           snapshot.collisionVisualContacts.size() <= m_collisionVisualContacts.capacity() &&
+           snapshot.debugContacts.size() <= m_physicsDebugContacts.capacity() &&
+           m_pipelineTrace.CanRestoreFullRecords( snapshot.pipelineTrace.size() );
 }
 
 void PhysicsStepDiagnostics::RestoreReplayState( const PhysicsSolverSnapshot& snapshot )

@@ -4,17 +4,18 @@
 //   Lock the first focused tests for SpatialGrid broadphase pairing.
 //
 // Summary:
-//   SpatialGrid is a fixed-capacity broadphase index. Objects are inserted into
-//   every cell touched by their bounding sphere or swept bounds, and candidate
-//   pairs are emitted once even when two objects share multiple cells. Focused
-//   fixtures also preserve traversal-first diagnostic order, eligible source-cell
-//   filtering, canonical emission, and the scene-reserved dense pair-bit owner.
-//   The capacity census pins the deliberate 4 MiB scene-ceiling trade.
+//   SpatialGrid is a fixed-capacity broadphase index. Persistent bounds occupy
+//   touched cells, while a sweep either occupies its complete overlay or joins
+//   deterministic complete-coverage fallback. Candidate pairs are emitted once
+//   across both paths. Focused fixtures also preserve traversal-first diagnostic
+//   order, eligible source-cell filtering, canonical emission, and the
+//   scene-reserved dense pair-bit owner. The capacity census pins the deliberate
+//   4 MiB scene-ceiling trade.
 //
 // Glossary:
 //   Cell: Integer grid bucket covering one cube of world space.
-//   Candidate pair: Pair of object indices that share at least one occupied
-//     cell and still need narrowphase testing.
+//   Candidate pair: Pair of object indices admitted from a shared occupied cell
+//     or complete-coverage sweep fallback and still needing narrowphase testing.
 //   Persistent membership: Cell occupancy retained until a body's integer cell
 //     range changes or a cold clear invalidates all ranges.
 //   Swept overlay: Velocity-dependent cells that expire at the next BeginFrame.
@@ -29,8 +30,8 @@
 //   - BeginFrame removes retired dense rows and expires only swept occupancy.
 //   - Pair-source stamps restrict work without evicting sleeping membership.
 //   - Clear() is a cold scene/config/replay reset, not the per-step path.
-//   - Geometry admission occurs only at the earliest eligible shared bucket,
-//     even when overlapping bodies share several cells or fail the predicate.
+//   - Bucket geometry admission occurs only at the earliest eligible shared
+//     bucket; fallback admission uses one deterministic body-pair traversal.
 //   - SceneLoad reservation fixes every scene-sized backing store. BeginFrame
 //     and Clear retain backing/high-water; additional admission also preserves
 //     existing persistent membership and generation state.
@@ -48,7 +49,9 @@
 #include "../SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h"
 #include "../SkullbonezSource/Physics/ColliderStore.h"
 #include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
+#include "../SkullbonezSource/Physics/PhysicsSpatialCellKey.h"
 #include "../SkullbonezSource/Physics/SpatialGrid.h"
+#include "../SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.h"
 
 #include <algorithm>
 #include <cstring>
@@ -62,6 +65,7 @@ using SkullbonezCore::Math::CollisionDetection::SpatialGrid;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderStore;
+using SkullbonezCore::Physics::EncodeExactSpatialCellKey;
 using SkullbonezCore::Physics::PhysicsBodyCreateRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 
@@ -167,12 +171,12 @@ TEST_CASE( "SpatialGrid: scene reserve sizes every registered store from its own
     CHECK( grid->GetPairDedupWordCapacity() == 1u );
     CHECK( grid->GetBodyMembershipCapacity() == 3u );
     CHECK( grid->GetCandidatePairHeadCapacity() == 3u );
-    CHECK( grid->GetCandidatePairNodeCapacity() == 12u );
-    CHECK( grid->GetCandidatePairSortKeyCapacity() == 12u );
-    CHECK( grid->GetCandidatePairSortScratchCapacity() == 12u );
+    CHECK( grid->GetCandidatePairNodeCapacity() == 3u );
+    CHECK( grid->GetCandidatePairSortKeyCapacity() == 3u );
+    CHECK( grid->GetCandidatePairSortScratchCapacity() == 3u );
     CHECK( grid->GetCellObjectSeenCapacity() == 3u );
-    CHECK( grid->GetSweptOverlayEntryCapacity() == 4096u );
-    CHECK( grid->CollectDynamicMemoryBytes() == 124160u );
+    CHECK( grid->GetSweptOverlayEntryCapacity() == 24u );
+    CHECK( grid->CollectDynamicMemoryBytes() == 42588u );
 
     const auto capacityRows = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::CapacityRows();
     const auto findRow = [capacityRows]( const char* ownerName )
@@ -193,14 +197,14 @@ TEST_CASE( "SpatialGrid: scene reserve sizes every registered store from its own
         { "SpatialGrid.candidatePairHeads", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairHeads,
           3 },
         { "SpatialGrid.candidatePairNodes", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairNodes,
-          12 },
+          3 },
         { "SpatialGrid.candidatePairSortKeys",
-          SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairSortKeys, 12 },
+          SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairSortKeys, 3 },
         { "SpatialGrid.candidatePairSortScratch",
-          SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairSortScratch, 12 },
+          SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairSortScratch, 3 },
         { "SpatialGrid.cellObjectSeen", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCellObjectSeen, 3 },
-        { "SpatialGrid.overlayEntries", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridSweptOverlayEntries,
-          4096 },
+        { "SpatialGrid.overlayEntries", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridSweptOverlayEntries, 24 },
+        { "SpatialGrid.sweptFallbackBodies", SkullbonezCore::Physics::PhysicsCapacityReason::SceneBodies, 3 },
     };
 
     for ( const ExpectedOwner& expected : expectedOwners )
@@ -683,25 +687,33 @@ TEST_CASE( "SpatialGrid: minimum cell size preserves exact-edge insert and query
 }
 
 
-TEST_CASE( "SpatialGrid: exact coordinate hash aliases share one conservative bucket" )
+TEST_CASE( "SpatialGrid: reported XOR aliases retain exact cell identity" )
 {
     SpatialGrid& grid = TestGrid();
     grid.SetCellSize( 1.0f );
     grid.BeginFrame( 2 );
     const Vector3 positions[] = {
-        Vector3( 0.25f, -0.75f, 1.25f ),
-        Vector3( 0.25f, 1.25f, -0.75f ),
+        Vector3( -4.75f, -0.75f, 5.25f ),
+        Vector3( -4.75f, 1.25f, -4.75f ),
     };
 
-    // Hazard: cells (0,-1,1) and (0,1,-1) both hash to -98,484,010.
-    // Bucket identity intentionally preserves the resulting false positive;
-    // exact-coordinate membership would silently change the broadphase.
+    // Hazard: the retired XOR identity maps both reported coordinates to
+    // 264,535,005. Exact packing and bucket identity must keep them separate.
+    CHECK( EncodeExactSpatialCellKey( -5, -1, 5 ) != EncodeExactSpatialCellKey( -5, 1, -5 ) );
+    CHECK( SkullbonezCore::Physics::BroadphaseVisualizer::DiagnosticCellKey( -5, -1, 5 ) !=
+           SkullbonezCore::Physics::BroadphaseVisualizer::DiagnosticCellKey( -5, 1, -5 ) );
     grid.Insert( 0, positions[0], 0.1f );
     grid.Insert( 1, positions[1], 0.1f );
     const auto unfilteredPairs = CandidatePairs( grid, 1 );
-    REQUIRE( unfilteredPairs.size() == 1u );
-    CHECK( unfilteredPairs[0] == std::make_pair( 0, 1 ) );
-    CHECK( grid.GetActiveCellCount() == 1 );
+    CHECK( unfilteredPairs.empty() );
+    CHECK( grid.GetActiveCellCount() == 2 );
+
+    SkullbonezCore::Physics::PhysicsBroadphaseActiveCell activeCells[2] {};
+    grid.GetActiveCells( activeCells, 2 );
+    const auto matchesCell = [&]( const auto& cell, int x, int y, int z )
+    { return cell.ix == x && cell.iy == y && cell.iz == z; };
+    CHECK( ( matchesCell( activeCells[0], -5, -1, 5 ) || matchesCell( activeCells[1], -5, -1, 5 ) ) );
+    CHECK( ( matchesCell( activeCells[0], -5, 1, -5 ) || matchesCell( activeCells[1], -5, 1, -5 ) ) );
 
     auto bodyStore = std::make_unique<PhysicsBodyStore>();
     auto colliderStore = std::make_unique<ColliderStore>();
@@ -740,7 +752,109 @@ TEST_CASE( "SpatialGrid: exact coordinate hash aliases share one conservative bu
 }
 
 
-TEST_CASE( "SpatialGrid: swept coordinate aliases retain only pair-bearing bucket memberships" )
+TEST_CASE( "SpatialGrid: active-cell diagnostics preserve coordinates wider than int16" )
+{
+    auto grid = std::make_unique<SpatialGrid>( SpatialGrid::MIN_CELL_SIZE );
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        grid->ReserveSceneCapacity( 1u );
+    }
+
+    grid->BeginFrame( 1 );
+    grid->Insert( 0, Vector3( 20000.25f, -20000.25f, 0.25f ), 0.0f );
+    REQUIRE( grid->GetActiveCellCount() == 1 );
+
+    SkullbonezCore::Physics::PhysicsBroadphaseActiveCell activeCell;
+    grid->GetActiveCells( &activeCell, 1 );
+    CHECK( activeCell.ix == 40000 );
+    CHECK( activeCell.iy == -40001 );
+    CHECK( activeCell.iz == 0 );
+    CHECK( EncodeExactSpatialCellKey( activeCell.ix, activeCell.iy, activeCell.iz ) ==
+           EncodeExactSpatialCellKey( 40000, -40001, 0 ) );
+}
+
+
+TEST_CASE( "SpatialGrid: aggregate swept demand above the retired ceiling remains fully covered" )
+{
+    constexpr int kMoverCount = 600;
+    constexpr int kBodyCount = kMoverCount * 2;
+    auto grid = std::make_unique<SpatialGrid>( 1.0f );
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        grid->ReserveSceneCapacity( kBodyCount );
+    }
+
+    grid->BeginFrame( kBodyCount );
+    for ( int mover = 0; mover < kMoverCount; ++mover )
+    {
+        const float lane = static_cast<float>( mover ) * 2.0f + 0.25f;
+        grid->InsertSwept( mover, Vector3( 0.25f, lane, 0.25f ), Vector3( 8.0f, 0.0f, 0.0f ), 0.0f );
+        grid->Insert( kMoverCount + mover, Vector3( 8.25f, lane, 0.25f ), 0.0f );
+    }
+
+    const auto pairs = CandidatePairs( *grid, kMoverCount );
+    CHECK( grid->GetSweptOverlayEntryHighWater() > 4096u );
+    CHECK( grid->GetSweptFallbackBodyCount() == 0u );
+    REQUIRE( pairs.size() == kMoverCount );
+    for ( int mover = 0; mover < kMoverCount; ++mover )
+    {
+        CHECK( pairs[static_cast<std::size_t>( mover )] == std::make_pair( mover, kMoverCount + mover ) );
+    }
+}
+
+
+TEST_CASE( "SpatialGrid: overlong swept path takes deterministic complete-coverage fallback" )
+{
+    auto grid = std::make_unique<SpatialGrid>( SpatialGrid::MIN_CELL_SIZE );
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        grid->ReserveSceneCapacity( 2u );
+    }
+
+    grid->BeginFrame( 2 );
+    grid->InsertSwept( 0, Vector3( -100000.0f, 0.25f, 0.25f ), Vector3( 200000.0f, 0.0f, 0.0f ), 0.0f );
+    grid->Insert( 1, Vector3( 0.25f, 0.25f, 0.25f ), 0.0f );
+
+    const auto pairs = CandidatePairs( *grid, 1 );
+    CHECK( grid->GetSweptFallbackBodyCount() == 1u );
+    REQUIRE( pairs.size() == 1u );
+    CHECK( pairs[0] == std::make_pair( 0, 1 ) );
+}
+
+
+TEST_CASE( "SpatialGrid: simultaneous overlong sweeps fit the complete scene pair topology" )
+{
+    constexpr int kBodyCount =
+        static_cast<int>( SkullbonezCore::Physics::PHYSICS_COMPLETE_PAIR_TOPOLOGY_MAX_BODIES );
+    constexpr int kExpectedPairCount = kBodyCount * ( kBodyCount - 1 ) / 2;
+    auto grid = std::make_unique<SpatialGrid>( SpatialGrid::MIN_CELL_SIZE );
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        grid->ReserveSceneCapacity( kBodyCount );
+    }
+
+    grid->BeginFrame( kBodyCount );
+    for ( int body = 0; body < kBodyCount; ++body )
+    {
+        grid->InsertSwept( body, Vector3( -100000.0f, 0.25f, 0.25f ), Vector3( 200000.0f, 0.0f, 0.0f ),
+                           0.0f );
+    }
+
+    const auto pairs = CandidatePairs( *grid, kExpectedPairCount );
+    CHECK( grid->GetSweptFallbackBodyCount() == static_cast<std::size_t>( kBodyCount ) );
+    REQUIRE( pairs.size() == static_cast<std::size_t>( kExpectedPairCount ) );
+    CHECK( pairs.front() == std::make_pair( 0, 1 ) );
+    CHECK( pairs.back() == std::make_pair( kBodyCount - 2, kBodyCount - 1 ) );
+    CHECK( std::is_sorted( pairs.begin(), pairs.end() ) );
+}
+
+
+TEST_CASE( "SpatialGrid: swept exact coordinates retain every traversed bucket" )
 {
     auto grid = std::make_unique<SpatialGrid>( 1.0f );
 
@@ -759,7 +873,7 @@ TEST_CASE( "SpatialGrid: swept coordinate aliases retain only pair-bearing bucke
     const auto pairs = CandidatePairs( *grid, 1 );
     REQUIRE( pairs.size() == 1u );
     CHECK( pairs[0] == std::make_pair( 0, 1 ) );
-    CHECK( grid->GetActiveCellCount() == 7 );
+    CHECK( grid->GetActiveCellCount() == 9 );
     CHECK( grid->GetPairDedupWordHighWater() == 1u );
 }
 

@@ -17,8 +17,9 @@ Invariants:
   - Consequence queues are cleared but never re-reserved in Solve.
   - Pipeline consequences use one representation per step: ordered records or
     an equivalent count-only total.
-  - Capacity exhaustion is a fatal invariant invariant violation.
-  - Cache erasure preserves the original packed-key body matching expressions.
+  - Capacity exhaustion is a fatal invariant violation.
+  - Cache capture, restore preflight, lookup, and erasure share one packed-key
+    encoder/decoder contract for body identity.
   - Replay restore clears convergence diagnostics rather than presenting stale
     live-solve attribution as restored solver state.
 
@@ -36,6 +37,8 @@ Related:
 #include "../PhysicsWorldForces.h"
 
 #include <algorithm>
+#include <array>
+#include <limits>
 #include <cassert>
 #include <limits>
 
@@ -213,26 +216,8 @@ void PhysicsContactSolverStage::PrepareSideEffects( int modelCount, std::size_t 
 
 void PhysicsContactCacheWakeAccess::ForgetBody( int bodyIndex ) const
 {
-    const auto cacheEntryReferencesBody = []( const PersistentContactCacheEntry& entry, int index ) -> bool
-    {
-        const uint64_t key = static_cast<uint64_t>( entry.key );
-
-        const uint32_t highBody = static_cast<uint32_t>( ( key >> 48 ) & 0xffffu );
-
-        if ( highBody == 0xffffu )
-        {
-            const uint32_t terrainBody = static_cast<uint32_t>( ( key >> 16 ) & 0xffffffffu );
-            return terrainBody == static_cast<uint32_t>( index );
-        }
-
-        const uint32_t lowBody = static_cast<uint32_t>( ( key >> 40 ) & 0xffffffu );
-        const uint32_t objectHighBody = static_cast<uint32_t>( ( key >> 16 ) & 0xffffffu );
-        return lowBody == static_cast<uint32_t>( index ) || objectHighBody == static_cast<uint32_t>( index );
-    };
-
-    m_cache.erase( std::remove_if( m_cache.begin(), m_cache.end(),
-                                   [bodyIndex, &cacheEntryReferencesBody]( const PersistentContactCacheEntry& entry )
-                                   { return cacheEntryReferencesBody( entry, bodyIndex ); } ),
+    m_cache.erase( std::remove_if( m_cache.begin(), m_cache.end(), [bodyIndex]( const PersistentContactCacheEntry& entry )
+                                   { return PersistentContactCacheKeyReferencesBody( entry.key, bodyIndex ); } ),
                    m_cache.end() );
 }
 
@@ -278,6 +263,81 @@ void PhysicsContactSolverStage::CaptureReplayState( PhysicsSolverSnapshot& outSn
 #define CAPTURE_REPLAY_SOLVER_STAT_FIELD( field ) outSnapshot.solverStats.field = m_persistentContactSolverStats.field;
     SB_REPLAY_SOLVER_STATS_FIELDS( CAPTURE_REPLAY_SOLVER_STAT_FIELD )
 #undef CAPTURE_REPLAY_SOLVER_STAT_FIELD
+}
+
+bool PhysicsContactSolverStage::CanRestoreReplayState( const PhysicsSolverSnapshot& snapshot, int modelCount ) const noexcept
+{
+    if ( modelCount < 0 )
+    {
+        return false;
+    }
+
+    const std::size_t bodyRows = static_cast<std::size_t>( modelCount );
+
+    if ( snapshot.persistentContactCounts.size() != bodyRows ||
+         snapshot.persistentContactCounts.size() > m_persistentContactCounts.capacity() ||
+         snapshot.persistentRestingContactCounts.size() != bodyRows ||
+         snapshot.persistentRestingContactCounts.size() > m_persistentRestingContactCounts.capacity() ||
+         snapshot.persistentContacts.size() > m_persistentContacts.capacity() ||
+         snapshot.persistentContactCache.size() > m_persistentContactCache.capacity() )
+    {
+        return false;
+    }
+
+    std::array<uint32_t, PHYSICS_MAX_BODY_ROWS> derivedContactCounts {};
+    std::array<uint32_t, PHYSICS_MAX_BODY_ROWS> derivedRestingContactCounts {};
+
+    for ( const PhysicsSolverPersistentContactSample& contact : snapshot.persistentContacts )
+    {
+        if ( contact.bodyA < 0 || contact.bodyA >= modelCount || contact.bodyB < -1 || contact.bodyB >= modelCount ||
+             contact.bodyA == contact.bodyB || contact.isTerrain != ( contact.bodyB == -1 ) ||
+             contact.key != MakePersistentContactCacheKey( contact.bodyA, contact.bodyB, contact.featureId ) )
+        {
+            return false;
+        }
+
+        // Invariant: terrain rows are deliberately absent from these counters;
+        // BuildPersistentContacts increments them for object/object rows only.
+        if ( !contact.isTerrain )
+        {
+            ++derivedContactCounts[static_cast<std::size_t>( contact.bodyA )];
+            ++derivedContactCounts[static_cast<std::size_t>( contact.bodyB )];
+
+            if ( contact.supportsRestingPolicy )
+            {
+                ++derivedRestingContactCounts[static_cast<std::size_t>( contact.bodyA )];
+                ++derivedRestingContactCounts[static_cast<std::size_t>( contact.bodyB )];
+            }
+        }
+    }
+
+    for ( std::size_t bodyIndex = 0; bodyIndex < bodyRows; ++bodyIndex )
+    {
+        if ( derivedContactCounts[bodyIndex] > ( std::numeric_limits<uint16_t>::max )() ||
+             derivedRestingContactCounts[bodyIndex] > ( std::numeric_limits<uint16_t>::max )() ||
+             snapshot.persistentContactCounts[bodyIndex] != derivedContactCounts[bodyIndex] ||
+             snapshot.persistentRestingContactCounts[bodyIndex] != derivedRestingContactCounts[bodyIndex] )
+        {
+            return false;
+        }
+    }
+
+    int64_t previousCacheKey = 0;
+    bool hasPreviousCacheKey = false;
+
+    for ( const PhysicsSolverContactCacheSample& cache : snapshot.persistentContactCache )
+    {
+        if ( !PersistentContactCacheKeyBodiesFit( cache.key, modelCount ) ||
+             ( hasPreviousCacheKey && cache.key <= previousCacheKey ) )
+        {
+            return false;
+        }
+
+        previousCacheKey = cache.key;
+        hasPreviousCacheKey = true;
+    }
+
+    return true;
 }
 
 void PhysicsContactSolverStage::RestoreReplayState( const PhysicsSolverSnapshot& snapshot )

@@ -9,13 +9,15 @@ Summary:
   those consumers detached from SpatialGrid storage and mutation authority.
 
 Glossary:
-  Visualization coordinate: Signed 16-bit projection used only for diagnostics;
-    collision identity retains full-width coordinates inside SpatialGrid.
+  Diagnostic cell coordinate: Full-width signed grid index shared with
+    SpatialGrid identity and Runtime visualization.
 
 Invariants:
   - The 8,192-row bound is the SpatialGrid bucket-table capacity; the grid uses
     this constant directly so diagnostics cannot silently truncate live cells.
   - `objectCount` includes persistent occupants plus current swept-overlay rows.
+  - Cell coordinates retain exact `int` identity through publication; consumers
+    must not narrow or hash them with a lossy visualization-only scheme.
   - These values carry no SpatialGrid owner, storage, or mutation capability.
 
 Related:
@@ -39,9 +41,9 @@ inline constexpr int PHYSICS_BROADPHASE_ACTIVE_CELL_CAPACITY = static_cast<int>(
 
 struct PhysicsBroadphaseActiveCell
 {
-    int16_t ix = 0;
-    int16_t iy = 0;
-    int16_t iz = 0;
+    int ix = 0;
+    int iy = 0;
+    int iz = 0;
     int objectCount = 0;
 };
 

@@ -56,6 +56,7 @@ using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::CollisionShape;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
+using SkullbonezCore::Math::CollisionDetection::GetShapeBodyOriginBoundingRadius;
 using SkullbonezCore::Math::CollisionDetection::GetShapeBoundingRadius;
 using SkullbonezCore::Math::CollisionDetection::GetShapePosition;
 using SkullbonezCore::Math::Transformation::RotationMatrix;
@@ -160,7 +161,7 @@ ColliderRecord MakeColliderRecordFromDesc( const PhysicsColliderCreateDesc& desc
     record.body = body.handle;
     record.sceneObjectId = desc.sceneObjectId.IsValid() ? desc.sceneObjectId : body.sceneObjectId;
     record.shapeKind = ShapeKindForColliderDesc( desc.shape );
-    record.boundingRadius = desc.boundingRadius;
+    record.boundingRadius = (std::max)( desc.boundingRadius, GetShapeBodyOriginBoundingRadius( desc.shape ) );
     record.restitution = desc.restitution;
     record.friction = desc.friction;
     record.contactMaterialId = desc.contactMaterialId;
@@ -192,13 +193,12 @@ bool BodyPassesQueryFilters( const PhysicsBodyHotFieldsConstView& hotFields, std
 }
 
 
-float EffectiveColliderRadius( const ColliderRecord& collider )
+float ColliderShapeRadius( const ColliderRecord& collider )
 {
-    // Invariant: a conservative query sphere must include a collider's local
-    // offset or a broadphase candidate can disappear before exact testing.
-    const float shapeRadius = GetShapeBoundingRadius( collider.shape ) + VectorMag( GetShapePosition( collider.shape ) );
-
-    return collider.boundingRadius > shapeRadius ? collider.boundingRadius : shapeRadius;
+    // The query center already includes the rotated local offset. Reusing the
+    // body-origin broadphase bound here would count that offset twice and turn
+    // displaced colliders into oversized false-positive query spheres.
+    return GetShapeBoundingRadius( collider.shape );
 }
 
 
@@ -1208,7 +1208,7 @@ PhysicsRayCastHit PhysicsEngine::RayCast( const PhysicsRayCastDesc& desc ) const
         float distance = 0.0f;
         const Vector3 center = ColliderWorldCenter( hotFields, static_cast<std::size_t>( bodyIndex ), collider );
 
-        if ( !IntersectRaySphere( desc.origin, direction, center, EffectiveColliderRadius( collider ), distance ) ||
+        if ( !IntersectRaySphere( desc.origin, direction, center, ColliderShapeRadius( collider ), distance ) ||
              distance > desc.maxDistance || distance >= closestDistance )
         {
             continue;
@@ -1247,9 +1247,8 @@ PhysicsBroadphaseQueryResultView PhysicsEngine::QueryBroadphaseCells( const Phys
             continue;
         }
 
-        bool overlaps = hotFields.boundingRadius[bodyIndex] > 0.0f &&
-                        SphereOverlapsAabb( PhysicsBodyPosition( hotFields, bodyIndex ), hotFields.boundingRadius[bodyIndex],
-                                            desc.min, desc.max );
+        bool hasCollider = false;
+        bool overlaps = false;
 
         for ( const ColliderRecord& collider : colliders )
         {
@@ -1260,9 +1259,20 @@ PhysicsBroadphaseQueryResultView PhysicsEngine::QueryBroadphaseCells( const Phys
 
             if ( collider.body == body.handle )
             {
+                hasCollider = true;
                 overlaps = SphereOverlapsAabb( ColliderWorldCenter( hotFields, bodyIndex, collider ),
-                                               EffectiveColliderRadius( collider ), desc.min, desc.max );
+                                               ColliderShapeRadius( collider ), desc.min, desc.max );
             }
+        }
+
+        if ( !hasCollider )
+        {
+            // Compatibility: topology tooling may expose a body before its
+            // collider row is committed. Its body-origin bound remains the
+            // only conservative query fact available at that boundary.
+            overlaps = hotFields.boundingRadius[bodyIndex] > 0.0f &&
+                       SphereOverlapsAabb( PhysicsBodyPosition( hotFields, bodyIndex ), hotFields.boundingRadius[bodyIndex],
+                                           desc.min, desc.max );
         }
 
         if ( overlaps )

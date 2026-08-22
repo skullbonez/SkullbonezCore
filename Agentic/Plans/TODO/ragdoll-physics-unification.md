@@ -1,18 +1,36 @@
-# Future Physics — Deterministic Collision Modes & Ragdoll Unification
+# Deterministic Collision Modes And Ragdoll Unification
 
 Date: 2026-08-22
-Status: Future and unregistered. 0/10 candidate phases complete.
+Status: Active by explicit owner direction. 1/10 phases complete; FP0 complete, FP1 next.
 Impact area: collider local-offset correctness, deterministic Discrete simulation, automatic Swept TOI promotion, linear and angular motion eligibility, ragdoll point joints, joint compliance, shared constraint iteration, late speculative ragdoll contacts, physics baselines, determinism tests, and A/B performance evidence
 Owner: Physics contact and joint solver
-Priority: Not selectable
+Priority: Binding first plan; FP0 through FP9 execute in strict order before Runtime Boundary Separation
+Commit name: `RAGDOLL_PHYSICS`
 
 ## Owner Direction
 
-This file deliberately floats under `Agentic/Plans/TODO/` without an entry in
-`Agentic/Plans/MASTER-PLAN.md`. It is a detailed design shelf, not live work. A
-plan runner must ignore it until the owner explicitly registers it in the
-master ledger, assigns a commit token and binding order, and approves the first
-behavior transition.
+The owner explicitly activated this plan on 2026-08-22, assigned the
+`RAGDOLL_PHYSICS` commit token, placed it ahead of every existing master-plan
+item, and approved FP0 as the first behavior transition. Later phases remain
+strictly gated by the acceptance boundary immediately before them.
+
+On 2026-08-22 the owner also authorized any Physics-baseline updates required
+by the accepted FP0-FP9 behavior transitions and directed the orchestrator not
+to pause for another approval. A required Physics golden change still goes
+through `tools/check_physics_baseline_guard.py --approve-output` with the exact
+candidate digest and lands atomically with the source, regression tests, and
+phase evidence. This authorization does not extend to replay, visual,
+SkullScope, or performance goldens.
+
+Every accepted phase preserves the final Debug runtime executable at
+`Agentic/Plans/Artifacts/ragdoll-physics-unification/<phase>/SKULLBONEZ_CORE-Debug.exe`.
+The adjacent `manifest.md` records the phase, source commit parent, build
+configuration, executable SHA-256 and byte size, Physics-baseline SHA-256, and
+validation result. The executable is force-added because the repository's
+global `*.exe` ignore rule otherwise hides this explicitly requested evidence.
+If a phase changes the Physics baseline, the manifest records both the prior
+and accepted digests; an unchanged phase records that no golden transition was
+needed.
 
 This is a major Physics-system transition, not only a ragdoll feature. Its
 non-negotiable order is:
@@ -81,6 +99,28 @@ tree:
   contact rows, and solver iterations.
 - Current ownership and complexity inventories for the exact solver and
   ragdoll surfaces that would change.
+
+### Registration Evidence — 2026-08-22, `4df765245` on `main`
+
+- `tools\validate_physics.bat` passed in 24.6 seconds. The owner-approved golden
+  digest `debf57f744774d4e7c1eb5cc61f05ba6e41dc6dc997ad20db6c91b02b0958c32`
+  matched; Debug/Profile builds and the byte-exact Physics comparison passed.
+- `tools\validate_perf.bat` built Profile, then stopped before measurement on
+  33 existing allocation-policy findings outside Physics. FP0 owns no exception
+  or allowlist change for those findings.
+- `tools\validate_replay_visual_fidelity.bat` built Automation and passed 18/18
+  typed-packet and false-pass controls (82 assertions), then the authoritative
+  200-box run failed the inherited reveal-0 `header.futureNodeCount` comparison.
+  No replay or Physics oracle was refreshed.
+- The authoritative run reported 212 admitted bodies, a 4,096-row fixed swept
+  overlay, 848 broadphase candidate-pair rows, and byte-capped Physics stores.
+  These are current measurements, not capacity allowances or ratchets.
+- CodeGraph was current at 1,175 files, 36,520 nodes, and 109,730 edges. Focused
+  exploration mapped the collider-offset, solver-snapshot, swept-overlay, and
+  exact-cell-identity owners before source editing.
+- FP0 is the only registered behavior transition. Threshold constants, Discrete
+  A/B artifacts, joint-schema rulings, and speculative-contact evidence belong
+  to their later phase activation boundaries and may not be invented in FP0.
 
 ---
 
@@ -167,6 +207,37 @@ performance comparison.
   `PHYS-010` without destabilizing cell order.
 - Focused repairs, byte-exact Physics, replay fidelity, allocation policy,
   dependency, and mapped Debug/Profile parity gates pass before FP1 begins.
+
+### FP0 Closure Evidence - 2026-08-22
+
+- Shared rotated collider centres and offset-inclusive bounds now agree across
+  broadphase, terrain, object CCD, queries, exact manifolds, and rendering.
+  Debug/Profile exact-bit Bounds fixtures pass 6/6 cases and 34 assertions in
+  each configuration; the Release-linked transform probe matches the same bits.
+- Replay solver restore now preflights all dense rows, committed capacities,
+  cross-vector counts, contact/key/terrain coherence, sorted-unique warm-start
+  keys, point-joint topology, and the byte cap before any owner mutates.
+  Duplicate live feature keys collapse to the first row observed by
+  `lower_bound`; the production clone fixture passes 612 assertions and the
+  exact strict two-generation replay allocation interaction passes.
+- Swept overlay admission uses complete-coverage fallback without partial path
+  insertion or hot growth. The 256-body simultaneous fallback fixture emits all
+  32,640 canonical pairs; the complete SpatialGrid family passes 31/31 cases
+  and 9,235 assertions.
+- Exact 57-bit spatial keys preserve full-width coordinates through grid,
+  narrowphase events, diagnostics, and Runtime visualization. The reported XOR
+  aliases remain distinct in the focused grid/visualizer fixture.
+- `tools/validate_physics.bat` and `tools/validate_fast.bat --preflight-only`
+  pass. The existing 44,401-line Physics golden remains byte-identical at
+  SHA-256 `debf57f744774d4e7c1eb5cc61f05ba6e41dc6dc997ad20db6c91b02b0958c32`;
+  no Physics baseline transition was required. Replay visual controls pass
+  18/18 before the separately controlled inherited reveal-0
+  `header.futureNodeCount` mismatch.
+- The final Debug executable is retained at
+  `Agentic/Plans/Artifacts/ragdoll-physics-unification/FP0/` with SHA-256
+  `cdefc1b53c3de37c0d75fdd9a423b61aac8df368b45919f8a312cf6dc73cc053`.
+- The touched-source comment audit checked 37/37 files with zero deferrals;
+  strict glossary inventory reports 999 unique definitions and no drift.
 
 ---
 
@@ -628,7 +699,7 @@ solver changes.
 
 ## Candidate Phase Order
 
-- [ ] **FP0 — Physics correctness prerequisites.** Close the verified collider
+- [x] **FP0 — Physics correctness prerequisites.** Close the verified collider
   offset, snapshot, swept-overlay, and grid-key findings before measuring or
   changing collision paths.
 - [ ] **FP1 — Deterministic motion eligibility and instrumentation.** One cheap
@@ -657,6 +728,10 @@ particular, no speculative row or ragdoll predictive classification belongs in
 the Discrete transition.
 
 ## Non-Goals While Unregistered
+
+This historical gate no longer applies to FP0-FP9 after the explicit
+2026-08-22 activation and baseline-transition authorization above. It remains
+the rule for any future phase or extension that has not been registered.
 
 - Do not select or implement any checkbox in this file.
 - Do not add this file to `Agentic/Plans/MASTER-PLAN.md` or binding order without

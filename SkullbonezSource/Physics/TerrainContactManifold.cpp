@@ -63,6 +63,7 @@ bool GetClosestBoxTerrainVertex( SkullbonezCore::Core::Profiler*, const TerrainC
 
     const Vector3& he = box.GetHalfExtents();
     const RotationMatrix rotMat = GetOrientationMatrix( body );
+    const Vector3 boxCenter = GetWorldShapeCenter( box, body.position, rotMat );
 
     bool found = false;
     float bestGap = 1.0e30f;
@@ -73,7 +74,7 @@ bool GetClosestBoxTerrainVertex( SkullbonezCore::Core::Profiler*, const TerrainC
         // world-space corner against its own terrain height keeps sleep/contact
         // decisions tied to the visible geometry instead of a center XZ sample.
         const Vector3 local( ( v & 1 ) ? he.x : -he.x, ( v & 2 ) ? he.y : -he.y, ( v & 4 ) ? he.z : -he.z );
-        const Vector3 worldVertex = body.position + ( rotMat * local );
+        const Vector3 worldVertex = boxCenter + ( rotMat * local );
 
         if ( !body.terrain.IsInBounds( worldVertex.x, worldVertex.z ) )
         {
@@ -152,17 +153,19 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const 
     // Why: swept terrain tests use the body's unobstructed path for the candidate
     // timestep. Keeping this local makes the ray construction explicit at the
     // point where terrain collision state is prepared.
-    outTestingRay = Ray( body.position, body.linearVelocity * changeInTime );
+    const BoundingBox* box = GetShapeIf<BoundingBox>( &shape );
+    const BoundingSphere* sphere = GetShapeIf<BoundingSphere>( &shape );
+    const ConvexHullShape* hull = GetShapeIf<ConvexHullShape>( &shape );
+    const RotationMatrix rotMat = GetOrientationMatrix( body );
+    const Vector3 shapeCenter = GetWorldShapeCenter( shape, body.position, rotMat );
+    outTestingRay = Ray( shapeCenter, body.linearVelocity * changeInTime );
 
-    // If out of bounds, no collision has occurred.
-    if ( !body.terrain.IsInBounds( body.position.x, body.position.z ) )
+    // If the collider centre is out of bounds, no collision has occurred.
+    if ( !body.terrain.IsInBounds( shapeCenter.x, shapeCenter.z ) )
     {
         return NO_COLLISION;
     }
 
-    const BoundingBox* box = GetShapeIf<BoundingBox>( &shape );
-    const BoundingSphere* sphere = GetShapeIf<BoundingSphere>( &shape );
-    const ConvexHullShape* hull = GetShapeIf<ConvexHullShape>( &shape );
     float bottomOffset = body.boundingRadius;
 
     if ( box != nullptr )
@@ -171,7 +174,6 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const 
         // extent from centre is dot(abs(rotationRow_Y), halfExtents). This is
         // only an early-out aid; exact terrain contact below samples real vertices.
         const Vector3& he = box->GetHalfExtents();
-        const RotationMatrix rotMat = GetOrientationMatrix( body );
         bottomOffset = rotMat.SupportExtentY( he );
     }
     else if ( sphere != nullptr )
@@ -181,7 +183,7 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const 
 
     // Why: if the object's lowest point cannot reach the terrain's
     // maximum height during this timestep, skip the expensive cached query.
-    float minBottomY = body.position.y - bottomOffset;
+    float minBottomY = shapeCenter.y - bottomOffset;
     const float velY = body.linearVelocity.y;
 
     if ( velY < 0.0f )
@@ -221,8 +223,6 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const 
         }
 
         const Vector3& he = box->GetHalfExtents();
-        const RotationMatrix rotMat = GetOrientationMatrix( body );
-
         float earliestCollisionTime = NO_COLLISION;
         Plane earliestPlane;
         {
@@ -233,7 +233,7 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const 
             for ( int v = 0; v < 8; ++v )
             {
                 const Vector3 local( ( v & 1 ) ? he.x : -he.x, ( v & 2 ) ? he.y : -he.y, ( v & 4 ) ? he.z : -he.z );
-                const Vector3 worldVertex = body.position + ( rotMat * local );
+                const Vector3 worldVertex = shapeCenter + ( rotMat * local );
 
                 if ( !body.terrain.IsInBounds( worldVertex.x, worldVertex.z ) )
                 {
@@ -288,7 +288,6 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const 
             return NO_COLLISION;
         }
 
-        const RotationMatrix rotMat = GetOrientationMatrix( body );
         const Vector3 hullCenter = body.position + ( rotMat * hull->GetPosition() );
 
         float earliestCollisionTime = NO_COLLISION;
@@ -338,8 +337,8 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const 
         // slopes even while the manifold pole still touched the plane, allowing
         // gravity to accumulate a new sub-threshold impact between rows.
         float terrainHeight = 0.0f;
-        body.terrain.HeightAndPlaneAt( body.position.x, body.position.z, terrainHeight, outTestingPlane );
-        const float signedGap = Dot( body.position, outTestingPlane.m_normal ) - outTestingPlane.m_distance -
+        body.terrain.HeightAndPlaneAt( shapeCenter.x, shapeCenter.z, terrainHeight, outTestingPlane );
+        const float signedGap = Dot( shapeCenter, outTestingPlane.m_normal ) - outTestingPlane.m_distance -
                                 sphere->GetRadius();
 
         if ( signedGap <= body.contactEpsilon )
@@ -352,15 +351,15 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const 
             return NO_COLLISION;
         }
 
-        outTestingRay.origin = body.position - outTestingPlane.m_normal * sphere->GetRadius();
+        outTestingRay.origin = shapeCenter - outTestingPlane.m_normal * sphere->GetRadius();
         return GeometricMath::CalculateIntersectionTime( outTestingPlane, outTestingRay );
     }
 
     // Cache-backed terrain lookup: one query returns the exact collision plane
     // and height for this XZ position, avoiding per-frame LocatePolygon work.
     float terrainHeight = 0.0f;
-    body.terrain.HeightAndPlaneAt( body.position.x, body.position.z, terrainHeight, outTestingPlane );
-    const float gap = body.position.y - bottomOffset - terrainHeight;
+    body.terrain.HeightAndPlaneAt( shapeCenter.x, shapeCenter.z, terrainHeight, outTestingPlane );
+    const float gap = shapeCenter.y - bottomOffset - terrainHeight;
 
     if ( gap <= body.contactEpsilon )
     {
@@ -455,7 +454,9 @@ bool BuildTerrainContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler, 
                                  // A sphere has one terrain point: the bottom pole along the
                                  // terrain normal. That becomes one normal row and two tangent rows.
                                  const float radius = shapeValue.GetRadius();
-                                 const Vector3 contactWorldPos = position - planeNormal * radius;
+                                 const RotationMatrix rotMat = GetOrientationMatrix( body );
+                                 const Vector3 sphereCenter = GetWorldShapeCenter( shapeValue, position, rotMat );
+                                 const Vector3 contactWorldPos = sphereCenter - planeNormal * radius;
                                  const float signedDist = ( Dot( contactWorldPos, planeNormal ) ) - colPlane.m_distance;
 
                                  TerrainContactPoint& point = out.points[0];
@@ -471,6 +472,7 @@ bool BuildTerrainContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler, 
 
                                  const Vector3& he = shapeValue.GetHalfExtents();
                                  const RotationMatrix rotMat = GetOrientationMatrix( body );
+                                 const Vector3 boxCenter = GetWorldShapeCenter( shapeValue, position, rotMat );
                                  Vector3 worldVerts[8];
                                  float signedDists[8];
                                  float minSignedDist = 1e10f;
@@ -478,7 +480,7 @@ bool BuildTerrainContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler, 
                                  for ( int v = 0; v < 8; ++v )
                                  {
                                      const Vector3 local = GetBoxTerrainLocalCorner( he, v );
-                                     worldVerts[v] = position + ( rotMat * local );
+                                     worldVerts[v] = boxCenter + ( rotMat * local );
                                      signedDists[v] = ( Dot( worldVerts[v], planeNormal ) ) - colPlane.m_distance;
 
                                      if ( signedDists[v] < minSignedDist )

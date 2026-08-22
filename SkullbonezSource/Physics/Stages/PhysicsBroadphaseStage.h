@@ -107,6 +107,7 @@ class PhysicsBroadphaseStage
     // Lifetime: replay restore mutates this capacity-governed buffer only
     // during the synchronous owner restore sequence; the reference is not retained.
     PhysicsCollisionCellKeyList& CollisionCellKeysForReplay();
+    std::size_t CollisionCellKeyCapacityForReplay() const noexcept;
     void AppendCollisionCellKey( int64_t collisionCellKey );
 
     uint64_t CollectDynamicMemoryBytes() const;

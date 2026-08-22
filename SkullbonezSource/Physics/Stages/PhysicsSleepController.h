@@ -271,6 +271,10 @@ class PhysicsSleepController
                          PhysicsPipelineTraceRecorder& physicsPipelineTrace, const PhysicsSleepStepPolicy& sleepPolicy );
 
     void CaptureReplayState( PhysicsSolverSnapshot& outSnapshot ) const;
+
+    // Invariant: restore performs no validation after its first mutation; this
+    // preflight must prove all dense-row, edge, and committed-capacity facts.
+    bool CanRestoreReplayState( const PhysicsSolverSnapshot& snapshot, int modelCount ) const noexcept;
     void RestoreReplayState( const PhysicsSolverSnapshot& snapshot );
 
     std::span<const uint8_t> GetSleepStates() const;

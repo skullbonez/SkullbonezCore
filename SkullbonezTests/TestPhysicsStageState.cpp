@@ -1,12 +1,12 @@
-//   - Agentic/Reference/engine-glossary.md//
 // File: SkullbonezTests/TestPhysicsStageState.cpp
 // Purpose:
 //   Locks sleep-owner transitions and narrowphase island determinism.
 //
 // Summary:
 //   Sleep policy is model-order state owned by PhysicsSleepController. These
-//   tests drive its public value seams and a disjoint parallel narrowphase pass
-//   without constructing PhysicsWorld or a scene owner.
+//   tests drive its public value seams and disjoint narrowphase passes without
+//   constructing PhysicsWorld or a scene owner. Collision-event fixtures also
+//   pin exact full-width spatial-cell identity at the stage publication seam.
 //
 // Glossary:
 
@@ -38,6 +38,7 @@
 //   - SkullbonezSource/Physics/Stages/PhysicsSleepController.h
 //   - SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.h
 //   - SkullbonezSource/Physics/Stages/PhysicsStepDiagnostics.h
+//   - SkullbonezSource/Physics/PhysicsSpatialCellKey.h
 //   - SkullbonezSource/Physics/PhysicsRuntimeSettings.h
 //   - SkullbonezSource/Physics/SleepIslandSystem.cpp
 //
@@ -52,6 +53,7 @@
 #include "../SkullbonezSource/Physics/ColliderStore.h"
 #include "../SkullbonezSource/Physics/PhysicsApi.h"
 #include "../SkullbonezSource/Physics/PhysicsEngine.h"
+#include "../SkullbonezSource/Physics/PhysicsSpatialCellKey.h"
 #include "../SkullbonezSource/Physics/PhysicsTerrainView.h"
 #include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
 #include "../SkullbonezSource/Physics/TerrainContactManifold.h"
@@ -61,6 +63,9 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
+#include <cstdint>
+#include <limits>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -858,4 +863,56 @@ TEST_CASE( "Physics narrowphase islands: repeated parallel evaluation preserves 
         CHECK( countOnly[static_cast<size_t>( pairIndex )].hasPipelineEvent == 1u );
         CHECK_FALSE( countOnly[static_cast<size_t>( pairIndex )].pipelineRecord.has_value() );
     }
+}
+
+
+TEST_CASE( "Physics narrowphase collision events preserve full-width spatial cell keys" )
+{
+    PhysicsBodyStore& bodies = StageBodyStore();
+    ColliderStore& colliders = StageColliderStore();
+    const CollisionShape sphere = BoundingSphere( 0.5f, SkullbonezCore::Math::Vector::ZERO_VECTOR, 0.0f );
+    const Vector3 positions[] = { Vector3( 20000.0f, 0.0f, 0.0f ), Vector3( 20002.0f, 0.0f, 0.0f ) };
+    for ( int bodyIndex = 0; bodyIndex < 2; ++bodyIndex )
+    {
+        PhysicsBodyCreateRecord body;
+        body.cold.mass = 1.0f;
+        body.hot.inverseMass = 1.0f;
+        body.hot.position = positions[bodyIndex];
+        body.hot.linearVelocity = bodyIndex == 0 ? Vector3( 120.0f, 0.0f, 0.0f )
+                                                 : SkullbonezCore::Math::Vector::ZERO_VECTOR;
+        const auto handle = bodies.CreateBodyRecord( body );
+        REQUIRE( handle.IsValid() );
+        ColliderRecord collider;
+        collider.body = handle;
+        collider.boundingRadius = 0.5f;
+        REQUIRE( SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders, collider, sphere ).IsValid() );
+    }
+
+    PhysicsSleepController sleep;
+    ReserveTestSleepCapacity( sleep );
+    sleep.MirrorFlagsFrom( bodies, 2 );
+    std::array<float, 2> timeRemaining = { 1.0f / 120.0f, 1.0f / 120.0f };
+    std::array<BuoyancyBodyFacts, 2> buoyancyFacts;
+    PhysicsWorldForces worldForces;
+    const auto wakeAccess = sleep.CreateNarrowphaseWakeAccess( bodies, colliders, {}, worldForces, buoyancyFacts,
+                                                               bodies.MutableRecords(), timeRemaining, 2,
+                                                               1.0f / 120.0f );
+    const std::array<std::pair<int, int>, 1> candidatePairs = { std::make_pair( 0, 1 ) };
+    const std::array<SkullbonezCore::Physics::PersistentContactCacheEntry, 0> persistentCache;
+    const ObjectNarrowphaseStepPolicy policy { 0.25f, 0.09f, 0.01f, 0.05f, 2.0f, 1.0f / 120.0f,
+                                                true,  false, true };
+    PhysicsNarrowphaseStage stage;
+    ObjectNarrowphaseEvent event;
+    stage.ProcessObjectNarrowphasePair<true>( bodies, colliders, {}, buoyancyFacts, candidatePairs, wakeAccess,
+                                               timeRemaining, persistentCache, policy, nullptr, 0, event );
+
+    REQUIRE( event.kind == ObjectNarrowphaseEventKind::SweptObjectHit );
+    REQUIRE( event.hasCollisionCellKey == 1u );
+    const auto hotFields = bodies.HotFields();
+    const Vector3 midpoint = ( SkullbonezCore::Physics::PhysicsBodyPosition( hotFields, 0u ) +
+                               SkullbonezCore::Physics::PhysicsBodyPosition( hotFields, 1u ) ) *
+                             0.5f;
+    const int exactCellX = static_cast<int>( floorf( midpoint.x * policy.invCellSize ) );
+    REQUIRE( exactCellX > (std::numeric_limits<int16_t>::max)() );
+    CHECK( event.collisionCellKey == SkullbonezCore::Physics::EncodeExactSpatialCellKey( exactCellX, 0, 0 ) );
 }

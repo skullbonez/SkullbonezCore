@@ -25,6 +25,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "PhysicsNarrowphaseStage.h"
+#include "../PhysicsSpatialCellKey.h"
 #include "PhysicsSleepController.h"
 
 #include "../../Core/Profiler.h"
@@ -321,11 +322,13 @@ void PhysicsNarrowphaseStage::WriteObjectCollisionCellEvent( ObjectNarrowphaseEv
                                PhysicsBodyPosition( hotFields, static_cast<size_t>( bodyB ) ) ) *
                              0.5f;
 
-    const int16_t cx = static_cast<int16_t>( floorf( midpoint.x * invCellSize ) );
-    const int16_t cy = static_cast<int16_t>( floorf( midpoint.y * invCellSize ) );
-    const int16_t cz = static_cast<int16_t>( floorf( midpoint.z * invCellSize ) );
-    event.collisionCellKey = ( static_cast<int64_t>( cx ) * 73856093 ) ^ ( static_cast<int64_t>( cy ) * 19349663 ) ^
-                             ( static_cast<int64_t>( cz ) * 83492791 );
+    // Invariant: diagnostics and Runtime visualization retain the same exact
+    // supported cell identity as SpatialGrid. No publication or presentation
+    // seam may narrow coordinates before or after this reversible encoding.
+    const int cx = static_cast<int>( floorf( midpoint.x * invCellSize ) );
+    const int cy = static_cast<int>( floorf( midpoint.y * invCellSize ) );
+    const int cz = static_cast<int>( floorf( midpoint.z * invCellSize ) );
+    event.collisionCellKey = EncodeExactSpatialCellKey( cx, cy, cz );
 
     event.hasCollisionCellKey = 1;
 }

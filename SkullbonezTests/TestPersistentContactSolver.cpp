@@ -1,4 +1,3 @@
-//   - Agentic/Reference/engine-glossary.md//
 // File: SkullbonezTests/TestPersistentContactSolver.cpp
 // Purpose:
 //   Lock direct behavioral coverage for persistent contact solver rows.
@@ -14,6 +13,8 @@
 //   including planted failures. Stable-support cases pin the boundary between
 //   non-energetic terrain overlap correction and restitution-bearing impacts;
 //   rolling/spin cases pin the coupled angular-row/tangent-friction ordering.
+//   Duplicate-feature cases pin sorted-and-unique cache publication before
+//   replay capture applies its transactional restore contract.
 //
 // Glossary:
 //   Contact row: Solver constraint row that applies one normal impulse and two
@@ -57,11 +58,14 @@
 //     rebound; unstable overlap and material impacts retain distinct paths.
 //   - Rolling resistance projects angular speed into the contact tangent plane;
 //     spin resistance owns the normal axis, and both precede sliding friction.
+//   - Equal contact-feature keys publish one cache row: lower-bound lookup's
+//     first observable impulse survives and unreachable duplicates do not.
 //
 // Related:
 //   - SkullbonezSource/Physics/PersistentContactSolver.cpp
 //   - SkullbonezSource/Physics/ContactEnergyOracle.h
 //   - SkullbonezSource/Physics/TerrainContactManifold.h
+//   - Agentic/Reference/engine-glossary.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
@@ -1220,6 +1224,23 @@ TEST_CASE( "Persistent contact solver: warm-start cache is reused on a matching 
     CHECK( second.solver.GetStats().cacheHits == 1 );
     CHECK( second.solver.GetStats().warmStartedRows == 1 );
     CHECK( second.solver.GetStats().solverIterations <= first.solver.GetStats().solverIterations );
+}
+
+TEST_CASE( "Persistent contact solver: duplicate features publish one warm-start cache key" )
+{
+    SolverFixture fixture;
+    fixture.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, -0.1f, 0.0f ) );
+    fixture.AddTerrainContact( 0, 42u, 0.05f );
+    fixture.AddTerrainContact( 0, 42u, 0.05f );
+    fixture.Solve();
+
+    REQUIRE( fixture.solver.GetPersistentContacts().size() == 2u );
+    REQUIRE( fixture.solver.GetPersistentContactCache().size() == 1u );
+
+    PhysicsSolverSnapshot snapshot;
+    fixture.solver.CaptureReplayState( snapshot );
+    REQUIRE( snapshot.persistentContactCache.size() == 1u );
+    CHECK( snapshot.persistentContactCache[0].key == fixture.solver.GetPersistentContactCache()[0].key );
 }
 
 TEST_CASE( "Persistent contact solver: restitution follows loaded contact-feature lifetime" )

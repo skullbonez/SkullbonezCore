@@ -53,6 +53,7 @@ using SkullbonezCore::Geometry::Plane;
 using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
+using SkullbonezCore::Math::CollisionDetection::GetShapeBodyOriginBoundingRadius;
 using SkullbonezCore::Math::CollisionDetection::GetShapeBoundingRadius;
 using SkullbonezCore::Math::CollisionDetection::GetShapeIf;
 using SkullbonezCore::Math::CollisionDetection::GetShapeTerrainBottomOffset;
@@ -1007,7 +1008,7 @@ void ApplyBodyDescriptorState( const PhysicsBodyCreateDesc& desc, PhysicsBodyRec
     // Why: descriptor refresh carries body-only scalars that are not derivable
     // from collider rows. Fluid and terrain-support facts are stamped by the
     // aligned BuoyancySystem owner at the same boundary.
-    hot.boundingRadius = desc.boundingRadius > 0.0f ? desc.boundingRadius : GetShapeBoundingRadius( desc.shape );
+    hot.boundingRadius = (std::max)( desc.boundingRadius, GetShapeBodyOriginBoundingRadius( desc.shape ) );
     cold.contactReleaseImpulseThreshold = desc.contactReleaseImpulseThreshold;
     cold.angularVelocityLimit = desc.angularVelocityLimit;
     hot.fixed = desc.motionKind == PhysicsBodyMotionKind::Fixed;

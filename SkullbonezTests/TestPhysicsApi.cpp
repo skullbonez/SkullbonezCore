@@ -36,10 +36,13 @@ Related:
 #include "../SkullbonezSource/Physics/PhysicsEngine.h"
 #include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
 #include "../SkullbonezSource/Physics/Ragdoll.h"
+#include "../SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.h"
+#include "../SkullbonezSource/Physics/Stages/PhysicsStepDiagnostics.h"
 #include "TestColliderStoreFixtures.h"
 
 #include <algorithm>
 #include <array>
+#include <memory>
 
 using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
@@ -88,9 +91,9 @@ void CheckVectorExact( const Vector3& actual, const Vector3& expected )
     CHECK( actual.z == expected.z );
 }
 
-Vector3 RunAngularDragCase( const CollisionShape& shape, const Vector3& bodyPrincipalInertia,
-                            const Quaternion& orientation, const Vector3& worldAngularVelocity,
-                            float dragCoefficient, float gasDensity, float deltaSeconds, bool usesWorldInertia )
+Vector3 RunAngularDragCase( const CollisionShape& shape, const Vector3& bodyPrincipalInertia, const Quaternion& orientation,
+                            const Vector3& worldAngularVelocity, float dragCoefficient, float gasDensity, float deltaSeconds,
+                            bool usesWorldInertia )
 {
     PhysicsBodyStore bodies;
     ColliderStore colliders;
@@ -146,7 +149,8 @@ PhysicsBodyHotState SolveAnchorCase( const Vector3& anchorForBodyA )
     PhysicsBodyStore bodies;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         bodies.ReserveCapacity( 2u );
     }
 
@@ -205,7 +209,8 @@ TEST_CASE( "Physics API frames: body-local shape offsets project into world quer
     PhysicsAuthoredBodyRegistration registration;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         engine.ReserveAuthoredBodyCapacity( 1u, 1u );
         registration = engine.RegisterAuthoredBody( bodyDesc, colliderDesc );
     }
@@ -231,8 +236,8 @@ TEST_CASE( "Physics API frames: body-local shape offsets project into world quer
     REQUIRE( hit.hit );
     CHECK( hit.body == registration.body );
     CHECK( hit.collider == registration.collider );
-    CHECK( hit.distance == doctest::Approx( 5.5f ).epsilon( 0.00001 ) );
-    CheckVectorApprox( hit.point, Vector3( 10.0f, 24.0f, 25.5f ) );
+    CHECK( hit.distance == doctest::Approx( 9.5f ).epsilon( 0.00001 ) );
+    CheckVectorApprox( hit.point, Vector3( 10.0f, 24.0f, 29.5f ) );
     CheckVectorApprox( hit.normal, Vector3( 0.0f, 0.0f, -1.0f ) );
 
     PhysicsBroadphaseCellQueryDesc worldQuery;
@@ -249,6 +254,67 @@ TEST_CASE( "Physics API frames: body-local shape offsets project into world quer
     unrotatedOffsetQuery.min = plausibleWrongWorldCenter - queryHalfExtents;
     unrotatedOffsetQuery.max = plausibleWrongWorldCenter + queryHalfExtents;
     CHECK( engine.QueryBroadphaseCells( unrotatedOffsetQuery ).bodyCount == 0u );
+}
+
+
+TEST_CASE( "Physics broadphase fixed step rotates body-local collider centers" )
+{
+    auto bodies = std::make_unique<PhysicsBodyStore>();
+    auto colliders = std::make_unique<ColliderStore>();
+    auto broadphase = std::make_unique<SkullbonezCore::Physics::PhysicsBroadphaseStage>();
+    auto diagnostics = std::make_unique<SkullbonezCore::Physics::PhysicsStepDiagnostics>();
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        bodies->ReserveCapacity( 2u );
+        colliders->ReserveCapacity( 2u );
+        colliders->ReserveShapeCapacity( 2u, 0u, 0u );
+        broadphase->ReserveSceneCapacity( 2u );
+        diagnostics->ReserveSceneCapacity( 2u );
+    }
+
+    const CollisionShape offsetShape = BoundingSphere( 0.5f, Vector3( 10.0f, 0.0f, 0.0f ) );
+    const CollisionShape originShape = BoundingSphere( 0.5f, ZERO_VECTOR );
+    const CollisionShape shapes[] = { offsetShape, originShape };
+    const Vector3 bodyPositions[] = { ZERO_VECTOR, Vector3( 0.0f, 10.0f, 0.0f ) };
+
+    for ( int bodyIndex = 0; bodyIndex < 2; ++bodyIndex )
+    {
+        PhysicsBodyCreateRecord body;
+        body.cold.sceneObjectId = MakePhysicsSceneObjectId( static_cast<uint32_t>( 81 + bodyIndex ) );
+        body.cold.mass = 1.0f;
+        body.hot.position = bodyPositions[bodyIndex];
+        body.hot.inverseMass = 1.0f;
+        body.hot.boundingRadius = SkullbonezCore::Math::CollisionDetection::GetShapeBodyOriginBoundingRadius(
+            shapes[bodyIndex] );
+        const auto bodyHandle = bodies->CreateBodyRecord( body );
+        REQUIRE( bodyHandle.IsValid() );
+        ColliderRecord collider;
+        collider.body = bodyHandle;
+        collider.sceneObjectId = body.cold.sceneObjectId;
+        collider.boundingRadius = body.hot.boundingRadius;
+        REQUIRE( SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( *colliders, collider, shapes[bodyIndex] )
+                     .IsValid() );
+    }
+
+    diagnostics->BeginStep( 2 );
+    const std::array<uint8_t, 2> sleepState = { 0u, 0u };
+    const std::array<int, 2> awakeBodies = { 0, 1 };
+    SkullbonezCore::Physics::BroadphaseSettings settings;
+    settings.cellSize = 2.0f;
+    const auto unrotatedPairs = broadphase->Run( *bodies, *colliders, settings, {}, sleepState, awakeBodies,
+                                                 *diagnostics, 1.0f / 120.0f, 0.0f, 0.05f, nullptr );
+    CHECK( unrotatedPairs.empty() );
+
+    auto offsetBody = SkullbonezCore::Physics::LoadPhysicsBodyHotState( bodies->HotFields(), 0u );
+    offsetBody.orientation.RotateAboutAxis( Vector3( 0.0f, 0.0f, 1.0f ), HALF_PI_RADIANS );
+    SkullbonezCore::Physics::StorePhysicsBodyHotState( bodies->MutableHotFields(), 0u, offsetBody );
+    broadphase->InvalidateBodyTopology();
+    diagnostics->BeginStep( 2 );
+    const auto pairs = broadphase->Run( *bodies, *colliders, settings, {}, sleepState, awakeBodies, *diagnostics,
+                                        1.0f / 120.0f, 0.0f, 0.05f, nullptr );
+    REQUIRE( pairs.size() == 1u );
+    CHECK( pairs[0] == std::make_pair( 0, 1 ) );
 }
 
 TEST_CASE( "Physics API frames: point-joint anchors are body-local rather than world positions" )
@@ -289,10 +355,10 @@ TEST_CASE( "Physics API frames: anisotropic angular drag clamps in body-principa
                                            deltaSeconds );
     bodyTorque.z = ClampDragAxisReference( bodyTorque.z, initialBodyAngularVelocity.z, bodyPrincipalInertia.z,
                                            deltaSeconds );
-    const Vector3 expectedBodyAngularVelocity =
-        initialBodyAngularVelocity + Vector3( bodyTorque.x * deltaSeconds / bodyPrincipalInertia.x,
-                                              bodyTorque.y * deltaSeconds / bodyPrincipalInertia.y,
-                                              bodyTorque.z * deltaSeconds / bodyPrincipalInertia.z );
+    const Vector3 expectedBodyAngularVelocity = initialBodyAngularVelocity +
+                                                Vector3( bodyTorque.x * deltaSeconds / bodyPrincipalInertia.x,
+                                                         bodyTorque.y * deltaSeconds / bodyPrincipalInertia.y,
+                                                         bodyTorque.z * deltaSeconds / bodyPrincipalInertia.z );
     const Vector3 expectedWorldAngularVelocity = rotation * expectedBodyAngularVelocity;
 
     const Vector3 actual = RunAngularDragCase( shape, bodyPrincipalInertia, orientation, initialWorldAngularVelocity,
@@ -316,12 +382,9 @@ TEST_CASE( "Physics API frames: isotropic angular drag retains exact world-path 
     const float radius = GetShapeBoundingRadius( shape );
     const float dragScale = dragCoefficient * gasDensity * radius * radius * radius;
     Vector3 worldTorque = initialWorldAngularVelocity * ( -dragScale );
-    worldTorque.x = ClampDragAxisReference( worldTorque.x, initialWorldAngularVelocity.x, isotropicInertia.x,
-                                            deltaSeconds );
-    worldTorque.y = ClampDragAxisReference( worldTorque.y, initialWorldAngularVelocity.y, isotropicInertia.y,
-                                            deltaSeconds );
-    worldTorque.z = ClampDragAxisReference( worldTorque.z, initialWorldAngularVelocity.z, isotropicInertia.z,
-                                            deltaSeconds );
+    worldTorque.x = ClampDragAxisReference( worldTorque.x, initialWorldAngularVelocity.x, isotropicInertia.x, deltaSeconds );
+    worldTorque.y = ClampDragAxisReference( worldTorque.y, initialWorldAngularVelocity.y, isotropicInertia.y, deltaSeconds );
+    worldTorque.z = ClampDragAxisReference( worldTorque.z, initialWorldAngularVelocity.z, isotropicInertia.z, deltaSeconds );
     const Vector3 bodyImpulse = rotation.TransposeMultiply( worldTorque * deltaSeconds );
     const Vector3 bodyDelta( bodyImpulse.x / isotropicInertia.x, bodyImpulse.y / isotropicInertia.y,
                              bodyImpulse.z / isotropicInertia.z );

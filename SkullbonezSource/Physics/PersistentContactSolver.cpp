@@ -14,6 +14,8 @@ Summary:
   rolling resistance is an angular tangent-plane row solved before sliding
   friction, so one PGS iteration preserves their contact-point coupling. Spin
   friction is a distinct normal-axis row and cannot be mistaken for rolling.
+  Cache publication sorts exact feature keys and collapses duplicate rows to
+  the single impulse record that next-step lower-bound lookup can observe.
 
 Glossary:
 
@@ -40,9 +42,13 @@ Invariants:
     historical summed delta remains diagnostic-only and cannot affect early-out.
   - Count-only pipeline specializations preserve canonical event counts while
     compiling payload reads, fills, and diagnostic magnitudes out of row loops.
+  - StoreCache publishes strictly increasing keys: after sorting, the first
+    equal-key row is retained and unreachable duplicates are removed before
+    live warm start or replay capture can consume them.
 
 Related:
   - SkullbonezSource/Physics/PersistentContactSolver.h
+  - SkullbonezTests/TestPersistentContactSolver.cpp
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/engine-glossary.md
 */
@@ -238,25 +244,7 @@ void PersistentContactSolveTransaction::Complete()
 //   bit for terrain rows.
 int64_t PersistentContactSolveTransaction::MakeKey( int bodyA, int bodyB, uint32_t featureId )
 {
-    if ( bodyB == TERRAIN_BODY_INDEX )
-    {
-        const uint64_t packed = ( 1ull << 62 ) |
-                                ( ( static_cast<uint64_t>( static_cast<uint32_t>( bodyA ) ) & PERSISTENT_CONTACT_BODY_MASK )
-                                  << 32 ) |
-                                static_cast<uint64_t>( featureId );
-
-        return static_cast<int64_t>( packed );
-    }
-
-    const int lo = ( bodyA < bodyB ) ? bodyA : bodyB;
-    const int hi = ( bodyA < bodyB ) ? bodyB : bodyA;
-    const uint64_t packed = ( ( static_cast<uint64_t>( static_cast<uint32_t>( lo ) ) & PERSISTENT_CONTACT_BODY_MASK )
-                              << 47 ) |
-                            ( ( static_cast<uint64_t>( static_cast<uint32_t>( hi ) ) & PERSISTENT_CONTACT_BODY_MASK )
-                              << 32 ) |
-                            static_cast<uint64_t>( featureId );
-
-    return static_cast<int64_t>( packed );
+    return MakePersistentContactCacheKey( bodyA, bodyB, featureId );
 }
 
 bool PersistentContactSolveTransaction::HasCachedImpulse( const PersistentContactCacheList& cache, int bodyA, int bodyB,
@@ -2113,6 +2101,17 @@ void PersistentContactSolveTransaction::StoreCache( PhysicsContactSolverStage& s
         std::sort( stage.m_persistentContactCache.begin(), stage.m_persistentContactCache.end(),
                    []( const PersistentContactCacheEntry& lhs, const PersistentContactCacheEntry& rhs )
                    { return lhs.key < rhs.key; } );
+
+        // Invariant: lower_bound observes the first row for an equal key. Keep
+        // that exact row and remove unreachable duplicates so every live cache
+        // is already sorted-and-unique before replay capture or next-step warm
+        // start consumes it.
+        stage.m_persistentContactCache.erase( std::unique( stage.m_persistentContactCache.begin(),
+                                                           stage.m_persistentContactCache.end(),
+                                                           []( const PersistentContactCacheEntry& lhs,
+                                                               const PersistentContactCacheEntry& rhs )
+                                                           { return lhs.key == rhs.key; } ),
+                                              stage.m_persistentContactCache.end() );
     }
 }
 

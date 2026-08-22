@@ -60,8 +60,10 @@ SkullbonezCore::Core::SbDiagnosticStore diagnostics;
 using SkullbonezCore::Core::Allocation::RuntimeAllocationPhase;
 using SkullbonezCore::Core::Allocation::RuntimeAllocationScope;
 using SkullbonezCore::Math::CollisionDetection::BoundingBox;
+using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::CollisionShape;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
+using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Vector::CrossProduct;
 using SkullbonezCore::Math::Vector::Dot;
 using SkullbonezCore::Math::Vector::Vector3;
@@ -928,7 +930,8 @@ TEST_CASE( "Object contact manifold reduction: deepest feature tie spread and pe
     };
 
     const ObjectContactCandidateSelection depthSelection = SelectObjectContactCandidateIndices( depthCandidates.data(),
-                                                                                                static_cast<int>( depthCandidates.size() ),
+                                                                                                static_cast<int>(
+                                                                                                    depthCandidates.size() ),
                                                                                                 normal );
 
     REQUIRE( depthSelection.count == 2 );
@@ -943,7 +946,8 @@ TEST_CASE( "Object contact manifold reduction: deepest feature tie spread and pe
     };
 
     const ObjectContactCandidateSelection tieSelection = SelectObjectContactCandidateIndices( tieCandidates.data(),
-                                                                                              static_cast<int>( tieCandidates.size() ),
+                                                                                              static_cast<int>(
+                                                                                                  tieCandidates.size() ),
                                                                                               normal );
 
     REQUIRE( tieSelection.count == 2 );
@@ -968,7 +972,8 @@ TEST_CASE( "Object contact manifold reduction: deepest feature tie spread and pe
         }
 
         const ObjectContactCandidateSelection selection = SelectObjectContactCandidateIndices( permuted.data(),
-                                                                                               static_cast<int>( permuted.size() ),
+                                                                                               static_cast<int>(
+                                                                                                   permuted.size() ),
                                                                                                normal );
 
         CHECK( SelectionMatchesFeatureIds( permuted, selection, kSpreadReductionFeatureIds ) );
@@ -1002,8 +1007,10 @@ TEST_CASE( "Object contact manifold identity: a changed narrowphase feature miss
     cached.accN = 1.0f;
     cache.push_back( cached );
 
-    CHECK( PersistentContactSolveTransaction::HasCachedImpulse( cache, faceX.bodyA, faceX.bodyB, faceX.points[0].featureId ) );
-    CHECK_FALSE( PersistentContactSolveTransaction::HasCachedImpulse( cache, faceY.bodyA, faceY.bodyB, faceY.points[0].featureId ) );
+    CHECK(
+        PersistentContactSolveTransaction::HasCachedImpulse( cache, faceX.bodyA, faceX.bodyB, faceX.points[0].featureId ) );
+    CHECK_FALSE(
+        PersistentContactSolveTransaction::HasCachedImpulse( cache, faceY.bodyA, faceY.bodyB, faceY.points[0].featureId ) );
 }
 
 
@@ -1051,7 +1058,8 @@ TEST_CASE( "Object contact manifold oracles: planted geometry identity and reduc
     const Vector3 reductionNormal( 0.0f, 0.0f, 1.0f );
     const std::array<ObjectContactCandidate, 6> candidates = MakeSpreadReductionCandidates();
     const ObjectContactCandidateSelection productionSelection = SelectObjectContactCandidateIndices( candidates.data(),
-                                                                                                     static_cast<int>( candidates.size() ),
+                                                                                                     static_cast<int>(
+                                                                                                         candidates.size() ),
                                                                                                      reductionNormal );
 
     REQUIRE( SelectionMatchesFeatureIds( candidates, productionSelection, kSpreadReductionFeatureIds ) );
@@ -1109,4 +1117,36 @@ TEST_CASE( "Coverage floor contract: every object manifold shape pair publishes 
     CHECK( sweep.hit );
     CHECK( sweep.collisionTime >= 0.0f );
     CHECK( sweep.collisionTime <= 1.0f );
+}
+
+
+TEST_CASE( "Object CCD: rotated local centres determine sphere and box sweep origins" )
+{
+    const Quaternion orientation( 0.0f, 0.0f, 0.70710677f, 0.70710677f );
+    const Vector3 localOffset( 4.0f, 0.0f, 0.0f );
+    const Vector3 desiredMovingCenter( -5.0f, 0.0f, 0.0f );
+    const Vector3 movingBodyPosition = desiredMovingCenter - orientation.GetOrientationMatrix() * localOffset;
+    const CollisionShape movingShapes[] = {
+        BoundingSphere( 1.0f, localOffset ),
+        BoundingBox( Vector3( 1.0f, 1.0f, 1.0f ), localOffset ),
+    };
+    const CollisionShape targetShapes[] = {
+        BoundingSphere( 1.0f, Vector3( 0.0f, 0.0f, 0.0f ) ),
+        BoundingBox( Vector3( 1.0f, 1.0f, 1.0f ), Vector3( 0.0f, 0.0f, 0.0f ) ),
+    };
+
+    for ( int shapeIndex = 0; shapeIndex < 2; ++shapeIndex )
+    {
+        ObjectContactBodyView moving;
+        moving.position = movingBodyPosition;
+        moving.orientation = orientation;
+        ObjectContactBodyView target;
+        target.position = Vector3( 0.0f, 0.0f, 0.0f );
+
+        const auto sweep = SweepObjectContact( moving, movingShapes[shapeIndex], Vector3( 10.0f, 0.0f, 0.0f ), target,
+                                               targetShapes[shapeIndex], Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
+        REQUIRE( sweep.hit );
+        CHECK( sweep.collisionTime >= 0.0f );
+        CHECK( sweep.collisionTime <= 1.0f );
+    }
 }

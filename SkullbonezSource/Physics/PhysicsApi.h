@@ -129,7 +129,7 @@ MakePhysicsBodyCreateDesc( PhysicsSceneObjectId sceneObjectId, const Math::Colli
     desc.rotationalInertia = rotationalInertia;
     desc.mass = mass;
     desc.restitution = restitution;
-    desc.boundingRadius = Math::CollisionDetection::GetShapeBoundingRadius( desc.shape );
+    desc.boundingRadius = Math::CollisionDetection::GetShapeBodyOriginBoundingRadius( desc.shape );
     desc.volume = Math::CollisionDetection::GetShapeVolume( desc.shape );
     desc.projectedSurfaceArea = Math::CollisionDetection::GetShapeProjectedSurfaceArea( desc.shape );
     desc.dragCoefficient = Math::CollisionDetection::GetShapeDragCoefficient( desc.shape );
@@ -276,7 +276,7 @@ inline PhysicsColliderCreateDesc MakeColliderCreateDesc( const Math::CollisionDe
     // collection owners do not rediscover shape metrics on append.
     PhysicsColliderCreateDesc desc;
     desc.shape = shape;
-    desc.boundingRadius = Math::CollisionDetection::GetShapeBoundingRadius( desc.shape );
+    desc.boundingRadius = Math::CollisionDetection::GetShapeBodyOriginBoundingRadius( desc.shape );
     desc.restitution = restitution;
     desc.contactMaterialId = contactMaterialId;
 

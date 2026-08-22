@@ -10,7 +10,8 @@ Summary:
 
 Glossary:
   B: Admitted body rows for the active scene.
-  P: Candidate-pair rows, bounded to four per admitted body.
+  P: Candidate-pair rows, bounded by the smaller of the complete body-pair
+    topology and the fixed compile-time ceiling.
   K: Persistent contact/cache rows, four manifolds per pair plus eight terrain
     rows per body.
   Grid bucket: Fixed hash-table row that owns one active broadphase cell.
@@ -43,6 +44,7 @@ namespace SkullbonezCore::Physics
 {
 inline constexpr std::size_t PHYSICS_MAX_BODY_ROWS = Scene::Capacity::MAX_SCENE_OBJECTS;
 inline constexpr std::size_t PHYSICS_MAX_CANDIDATE_PAIRS = PHYSICS_MAX_BODY_ROWS * 4u;
+inline constexpr std::size_t PHYSICS_COMPLETE_PAIR_TOPOLOGY_MAX_BODIES = 256u;
 inline constexpr std::size_t PHYSICS_MAX_CONTACT_ROWS = PHYSICS_MAX_CANDIDATE_PAIRS * 4u + PHYSICS_MAX_BODY_ROWS * 8u;
 inline constexpr std::size_t PHYSICS_MAX_COLLISION_VISUAL_BODY_ROWS = PHYSICS_MAX_CANDIDATE_PAIRS * 2u;
 inline constexpr std::size_t PHYSICS_MAX_PIPELINE_TRACE_RECORDS = 4096u;
@@ -50,10 +52,17 @@ inline constexpr std::size_t PHYSICS_MUTUAL_GRAVITY_MAX_BODIES = 512u;
 inline constexpr std::size_t PHYSICS_SPATIAL_GRID_BUCKET_COUNT = 8192u;
 inline constexpr std::size_t PHYSICS_MAX_MUTUAL_GRAVITY_PAIRS = PHYSICS_MUTUAL_GRAVITY_MAX_BODIES *
                                                                 ( PHYSICS_MUTUAL_GRAVITY_MAX_BODIES - 1u ) / 2u;
+static_assert( PHYSICS_COMPLETE_PAIR_TOPOLOGY_MAX_BODIES * ( PHYSICS_COMPLETE_PAIR_TOPOLOGY_MAX_BODIES - 1u ) / 2u <=
+                   PHYSICS_MAX_CANDIDATE_PAIRS,
+               "Complete-pair topology bound must fit the candidate ceiling." );
+static_assert( ( PHYSICS_COMPLETE_PAIR_TOPOLOGY_MAX_BODIES + 1u ) * PHYSICS_COMPLETE_PAIR_TOPOLOGY_MAX_BODIES / 2u >
+                   PHYSICS_MAX_CANDIDATE_PAIRS,
+               "Complete-pair topology bound must name the exact largest supported body count." );
 
 constexpr std::size_t PhysicsCandidatePairCapacity( std::size_t bodyCapacity )
 {
-    return (std::min)( bodyCapacity * 4u, PHYSICS_MAX_CANDIDATE_PAIRS );
+    const std::size_t completePairCount = bodyCapacity > 1u ? bodyCapacity * ( bodyCapacity - 1u ) / 2u : 0u;
+    return (std::min)( completePairCount, PHYSICS_MAX_CANDIDATE_PAIRS );
 }
 
 constexpr std::size_t PhysicsContactRowCapacity( std::size_t bodyCapacity )

@@ -1902,8 +1902,17 @@ ObjectContactSweepResult SweepObjectContactImpl( const ObjectContactBodyView& a,
     ObjectContactSweepResult result;
     result.collisionTime = changeInTime;
 
-    const Ray targetRay( b.position, linearVelocityB * changeInTime );
-    const Ray focusRay( a.position, linearVelocityA * changeInTime );
+    const RotationMatrix rotationA = a.orientation.GetOrientationMatrix();
+    const RotationMatrix rotationB = b.orientation.GetOrientationMatrix();
+
+    // Invariant: concrete swept-shape helpers add their stored local centre to
+    // the ray origin. Pre-adjust each body origin so that addition produces the
+    // rotated world collider centre. This changes byte-exact results only for
+    // non-zero-offset colliders and keeps the public shape sweep contract intact.
+    const Vector3 focusOrigin = GetWorldShapeCenter( shapeA, a.position, rotationA ) - GetShapePosition( shapeA );
+    const Vector3 targetOrigin = GetWorldShapeCenter( shapeB, b.position, rotationB ) - GetShapePosition( shapeB );
+    const Ray targetRay( targetOrigin, linearVelocityB * changeInTime );
+    const Ray focusRay( focusOrigin, linearVelocityA * changeInTime );
     const float collisionTime = TestShapeCollision( shapeA, shapeB, focusRay, targetRay );
 
     if ( collisionTime > 1.0f || collisionTime < ZERO_TAKE_TOLERANCE )

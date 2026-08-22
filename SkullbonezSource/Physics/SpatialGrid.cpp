@@ -7,7 +7,8 @@ Summary:
   Persistent per-body integer ranges own ordinary cell membership across fixed
   steps. Fixed hash chains and intrusive back-links make changed cells reusable
   without allocation. A separately stamped overlay carries swept motion for one
-  step only, while canonical emission hides all storage-history ordering.
+  step; paths that cannot fit take an all-body conservative fallback, while
+  canonical emission hides all storage-history ordering.
 
 Glossary:
   Intrusive back-link: Index stored in pooled rows so removal can unlink both
@@ -22,6 +23,8 @@ Invariants:
     storage order carries history, and canonical pair emission removes it.
   - Production pair work skips unstamped sleep-only cells before the dense
     first-seen bit is touched, so an ineligible visit cannot hide a later pair.
+  - Swept coverage commits completely or enters the bounded fallback lane;
+    aggregate capacity can neither truncate a path nor grow during a step.
 
 Related:
   - SkullbonezSource/Physics/SpatialGrid.h
@@ -37,6 +40,7 @@ Related:
 // storage, and duplicate-pair suppression.
 
 #include "SpatialGrid.h"
+#include "PhysicsSpatialCellKey.h"
 #include "SolverBroadphaseStage.h"
 #include "../Core/FatalError.h"
 #include <algorithm>
@@ -120,18 +124,15 @@ void ValidateBroadphaseBounds( int index, const Vector3& minBounds, const Vector
     }
 }
 
-int16_t ClampVisualizationCell( int cell )
+int SpatialCellHomeIndex( int64_t exactKey )
 {
-    // The hash key retains the full cell coordinate. Only the debug
-    // visualization payload is narrowed, so saturate instead of wrapping it.
-    return static_cast<int16_t>( (std::max)( SpatialGrid::MIN_VISUALIZATION_CELL_COORDINATE,
-                                             (std::min)( SpatialGrid::MAX_VISUALIZATION_CELL_COORDINATE, cell ) ) );
-}
-
-int64_t SpatialCellKey( int ix, int iy, int iz )
-{
-    return ( static_cast<int64_t>( ix ) * 73856093 ) ^ ( static_cast<int64_t>( iy ) * 19349663 ) ^
-           ( static_cast<int64_t>( iz ) * 83492791 );
+    uint64_t mixed = static_cast<uint64_t>( exactKey );
+    mixed ^= mixed >> 30u;
+    mixed *= 0xbf58476d1ce4e5b9ULL;
+    mixed ^= mixed >> 27u;
+    mixed *= 0x94d049bb133111ebULL;
+    mixed ^= mixed >> 31u;
+    return static_cast<int>( mixed & ( SpatialGrid::MAX_BUCKETS - 1 ) );
 }
 } // namespace
 
@@ -157,7 +158,8 @@ void SpatialGrid::ReserveSceneCapacity( std::size_t bodyCapacity )
     // 4,096 persistent rows duplicated that unrelated ceiling; production's
     // scene-derived cell size bounds ordinary membership to eight cells/body.
     entries.Reserve( persistentEntryCapacity );
-    overlayEntries.Reserve( MAX_SWEPT_CELL_ENTRIES );
+    overlayEntries.Reserve( bodyCapacity * static_cast<std::size_t>( PERSISTENT_ENTRIES_PER_BODY ) );
+    sweptFallbackBodies.Reserve( bodyCapacity );
     bodyMemberships.Reserve( bodyCapacity );
     const int64_t pairIdentities = bodyCapacity > 1u
                                        ? static_cast<int64_t>( bodyCapacity ) * static_cast<int64_t>( bodyCapacity - 1u ) / 2
@@ -217,6 +219,7 @@ void SpatialGrid::Clear()
     candidatePairSortKeys.clear();
     candidatePairSortScratch.clear();
     overlayEntries.clear();
+    sweptFallbackBodies.clear();
 
     for ( int bucketIndex = 0; bucketIndex < TABLE_SIZE; ++bucketIndex )
     {
@@ -286,7 +289,7 @@ void SpatialGrid::BeginFrame( int currentObjectCount )
 
 int SpatialGrid::FindBucket( int64_t key ) const
 {
-    const int homeIndex = static_cast<int>( static_cast<uint64_t>( key ) & TABLE_MASK );
+    const int homeIndex = SpatialCellHomeIndex( key );
 
     for ( int bucketIndex = bucketHashHeads[homeIndex]; bucketIndex != -1; bucketIndex = buckets[bucketIndex].nextHash )
     {
@@ -302,7 +305,7 @@ int SpatialGrid::FindBucket( int64_t key ) const
 }
 
 
-int SpatialGrid::FindOrCreateBucket( int64_t key, int16_t cx, int16_t cy, int16_t cz )
+int SpatialGrid::FindOrCreateBucket( int64_t key, int cx, int cy, int cz )
 {
     const int existing = FindBucket( key );
 
@@ -321,8 +324,9 @@ int SpatialGrid::FindOrCreateBucket( int64_t key, int16_t cx, int16_t cy, int16_
     const int bucketIndex = freeBucketHead;
     Bucket& created = buckets[bucketIndex];
     freeBucketHead = created.nextFree;
-    const int homeIndex = static_cast<int>( static_cast<uint64_t>( key ) & TABLE_MASK );
+    const int homeIndex = SpatialCellHomeIndex( key );
     created.key = key;
+    created.homeIndex = homeIndex;
     created.occupied = true;
     created.nextHash = bucketHashHeads[homeIndex];
     created.previousHash = -1;
@@ -376,7 +380,7 @@ void SpatialGrid::RetireBucketIfEmpty( int bucketIndex )
     buckets[movedBucketIndex].activeIndex = activeIndex;
     --activeBucketCount;
 
-    const int homeIndex = static_cast<int>( static_cast<uint64_t>( bucket.key ) & TABLE_MASK );
+    const int homeIndex = bucket.homeIndex;
 
     if ( bucket.previousHash != -1 )
     {
@@ -444,8 +448,7 @@ void SpatialGrid::InsertPersistentCell( int index, int ix, int iy, int iz )
         }
     }
 
-    const int bucketIndex = FindOrCreateBucket( SpatialCellKey( ix, iy, iz ), ClampVisualizationCell( ix ),
-                                                ClampVisualizationCell( iy ), ClampVisualizationCell( iz ) );
+    const int bucketIndex = FindOrCreateBucket( Physics::EncodeExactSpatialCellKey( ix, iy, iz ), ix, iy, iz );
 
     Bucket& bucket = buckets[bucketIndex];
     const int entryIndex = AllocatePersistentEntry();
@@ -768,6 +771,7 @@ void SpatialGrid::ResetSweptOverlay()
 
     overlayEntryCount = 0;
     overlayEntries.clear();
+    sweptFallbackBodies.clear();
     overlayActiveBucketCount = 0;
     ++overlayGeneration;
 
@@ -780,6 +784,20 @@ void SpatialGrid::ResetSweptOverlay()
             bucket.overlayGeneration = 0;
         }
     }
+}
+
+
+void SpatialGrid::MarkSweptFallback( int index )
+{
+    // Invariant: InsertSwept is issued at most once per body per fixed step.
+    // Keep the defensive duplicate check so direct tooling cannot multiply the
+    // all-body fallback work or perturb canonical pair discovery.
+    if ( std::find( sweptFallbackBodies.begin(), sweptFallbackBodies.end(), index ) != sweptFallbackBodies.end() )
+    {
+        return;
+    }
+
+    sweptFallbackBodies.Append( index );
 }
 
 
@@ -797,8 +815,7 @@ void SpatialGrid::InsertOverlayCell( int index, int ix, int iy, int iz )
         }
     }
 
-    const int bucketIndex = FindOrCreateBucket( SpatialCellKey( ix, iy, iz ), ClampVisualizationCell( ix ),
-                                                ClampVisualizationCell( iy ), ClampVisualizationCell( iz ) );
+    const int bucketIndex = FindOrCreateBucket( Physics::EncodeExactSpatialCellKey( ix, iy, iz ), ix, iy, iz );
 
     Bucket& bucket = buckets[bucketIndex];
     bucket.pairSourceGeneration = pairSourceGeneration;
@@ -944,8 +961,24 @@ void SpatialGrid::InsertSwept( int index, const Vector3& position, const Vector3
                                cellCountZ <= MAX_SWEPT_AABB_CELLS &&
                                cellCountX * cellCountY * cellCountZ <= MAX_SWEPT_AABB_CELLS;
 
+    const int64_t remainingOverlayRows = static_cast<int64_t>( overlayEntries.capacity() - overlayEntries.size() );
+    const int64_t remainingBucketRows = static_cast<int64_t>( TABLE_SIZE - activeBucketCount );
+    const auto completeCoverageFits = [&]( int64_t conservativeRows )
+    { return conservativeRows >= 0 && conservativeRows <= remainingOverlayRows && conservativeRows <= remainingBucketRows; };
+
     if ( exactAabbFits )
     {
+        // Insert() already committed at least the centre cell. Overlay writes
+        // skip every persistent cell, so subtracting one remains conservative
+        // while allowing a sweep to reuse the last free table row exactly.
+        const int64_t exactRows = (std::max)( int64_t( 0 ), cellCountX * cellCountY * cellCountZ - 1 );
+
+        if ( !completeCoverageFits( exactRows ) )
+        {
+            MarkSweptFallback( index );
+            return;
+        }
+
         InsertOverlayBounds( index, minBounds, maxBounds );
         return;
     }
@@ -965,6 +998,37 @@ void SpatialGrid::InsertSwept( int index, const Vector3& position, const Vector3
     const int endX = cellFor( endPosition.x );
     const int endY = cellFor( endPosition.y );
     const int endZ = cellFor( endPosition.z );
+
+    const int64_t traversalSteps = std::llabs( static_cast<int64_t>( endX ) - cx ) +
+                                   std::llabs( static_cast<int64_t>( endY ) - cy ) +
+                                   std::llabs( static_cast<int64_t>( endZ ) - cz );
+    const int64_t maximumSampleAxisCells = static_cast<int64_t>( ceilf( radius * 2.0f * inverseCellSize ) ) + 2;
+    const int64_t coverageBudget = (std::min)( remainingOverlayRows, remainingBucketRows );
+    int64_t conservativeTraversalRows = traversalSteps + 2;
+    bool traversalCoverageFits = traversalSteps <= MAX_SWEPT_TRAVERSED_CELLS;
+
+    for ( int axis = 0; axis < 3 && traversalCoverageFits; ++axis )
+    {
+        traversalCoverageFits = maximumSampleAxisCells > 0 &&
+                                conservativeTraversalRows <= coverageBudget / maximumSampleAxisCells;
+
+        if ( traversalCoverageFits )
+        {
+            conservativeTraversalRows *= maximumSampleAxisCells;
+        }
+    }
+
+    conservativeTraversalRows = (std::max)( int64_t( 0 ), conservativeTraversalRows - 1 );
+
+    // Complete-coverage fallback: a path is either stamped in full or its body
+    // is paired against every admitted body. This decision happens before the
+    // first transient write, so aggregate demand cannot partially consume the
+    // overlay and then abort or leave an uncovered suffix.
+    if ( !traversalCoverageFits || !completeCoverageFits( conservativeTraversalRows ) )
+    {
+        MarkSweptFallback( index );
+        return;
+    }
 
     auto axisTraversal = [&]( float start, float delta, int cell, int& outStep, float& outTMax, float& outTDelta )
     {
@@ -1289,6 +1353,35 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
         }
     }
 
+    for ( int fallbackBody : sweptFallbackBodies )
+    {
+        for ( int otherBody = 0; otherBody < objectCount; ++otherBody )
+        {
+            if ( fallbackBody == otherBody )
+            {
+                continue;
+            }
+
+            const int a = (std::min)( fallbackBody, otherBody );
+            const int b = (std::max)( fallbackBody, otherBody );
+
+            if ( !MarkCandidatePairFirstSeen( a, b ) )
+            {
+                continue;
+            }
+
+            if ( static_cast<std::size_t>( candidatePairNodeCount ) >= outPairs.capacity() )
+            {
+                SB_FATAL( "Physics/SpatialGrid",
+                          "Swept fallback candidate capacity exhausted: capacity=%zu fallback_bodies=%zu.",
+                          outPairs.capacity(), sweptFallbackBodies.size() );
+            }
+
+            candidatePairNodes.Append( CandidatePairNode { b, candidatePairHeads[a] } );
+            candidatePairHeads[a] = candidatePairNodeCount++;
+        }
+    }
+
     for ( int minIndex = 0; minIndex < objectCount; ++minIndex )
     {
         candidatePairSortKeys.clear();
@@ -1473,6 +1566,36 @@ void SpatialGrid::GetFilteredCandidatePairsImpl( SkullbonezCore::Physics::Physic
         }
     }
 
+    for ( int fallbackBody : sweptFallbackBodies )
+    {
+        for ( int otherBody = 0; otherBody < objectCount; ++otherBody )
+        {
+            if ( fallbackBody == otherBody )
+            {
+                continue;
+            }
+
+            const int a = (std::min)( fallbackBody, otherBody );
+            const int b = (std::max)( fallbackBody, otherBody );
+
+            if ( !MarkFilteredCandidatePairFirstSeen( a, b, bodyStore, colliderStore, sleepState, dt, contactSkin,
+                                                      sleepPrunedPairs ) )
+            {
+                continue;
+            }
+
+            if ( static_cast<std::size_t>( candidatePairNodeCount ) >= outPairs.capacity() )
+            {
+                SB_FATAL( "Physics/SpatialGrid",
+                          "Swept fallback candidate capacity exhausted: capacity=%zu fallback_bodies=%zu.",
+                          outPairs.capacity(), sweptFallbackBodies.size() );
+            }
+
+            candidatePairNodes.Append( CandidatePairNode { b, candidatePairHeads[a] } );
+            candidatePairHeads[a] = candidatePairNodeCount++;
+        }
+    }
+
     // Two stable radix passes cover the complete derived body-index width.
     // Total work is proportional to bodies plus accepted pairs and uses only
     // the grid's fixed staging arrays.
@@ -1586,9 +1709,9 @@ void SpatialGrid::GetActiveCells( Physics::PhysicsBroadphaseActiveCell* outCells
 uint64_t SpatialGrid::CollectDynamicMemoryBytes() const
 {
     uint64_t bytes = static_cast<uint64_t>( entries.committed_bytes() + overlayEntries.committed_bytes() +
-                                            bodyMemberships.committed_bytes() + pairSeen.committed_bytes() +
-                                            candidatePairHeads.committed_bytes() + candidatePairNodes.committed_bytes() +
-                                            candidatePairSortKeys.committed_bytes() +
+                                            sweptFallbackBodies.committed_bytes() + bodyMemberships.committed_bytes() +
+                                            pairSeen.committed_bytes() + candidatePairHeads.committed_bytes() +
+                                            candidatePairNodes.committed_bytes() + candidatePairSortKeys.committed_bytes() +
                                             candidatePairSortScratch.committed_bytes() + cellObjectSeen.committed_bytes() );
 
     return bytes;

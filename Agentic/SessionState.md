@@ -1,8 +1,8 @@
 # Session State
 
 Date: 2026-08-22
-Branch: `codex/cause-hierarchy-ui-first`
-Status: Runtime Boundary Separation active; 86/94 tasks complete
+Branch: `main`
+Status: Ragdoll Physics Unification and Runtime Boundary Separation active; 87/104 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -10,8 +10,12 @@ Truth Replacement CT0-CT5, Full Validation Time And Value Audit VTA0-VTA5, and R
 Hygiene Cleanup RC0-RC5 are 100% complete, reviewed, and closed.
 Causal C0-C8, Determinism T0-T8, Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7,
 and Continuous Orbital Forecast OF0-OF6 are complete.
-Runtime Boundary Separation And Project Topology RBS0-RBS7 is the sole active
-plan. It owns Runtime/App composition-root closure, package-cycle removal,
+Deterministic Collision Modes And Ragdoll Unification FP0-FP9 is the binding
+first plan by explicit owner direction. FP0 is complete; FP1-FP4 establish
+deterministic Discrete collision with automatic Swept TOI
+promotion and isolated A/B evidence; FP5-FP9 complete the ragdoll joint and late
+speculative-contact path. Runtime Boundary Separation And Project Topology
+RBS0-RBS7 remains active behind it and owns Runtime/App composition-root closure, package-cycle removal,
 native host and frame-metrics separation, operator UI/render command boundaries,
 and evidence-driven Visual Studio project decomposition. Completed plan files
 remain deleted under the repository convention; Git history retains their phase
@@ -431,17 +435,48 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `RUNTIME_BOUNDARIES` RBS0. Refresh the resolved Runtime include graph,
-strongly connected components, non-App -> App edges, logical `Run` surface,
-project/source ownership, and build timings; then ratify the target package DAG
-and Visual Studio project decision table before implementation. The registered
-plan is `Agentic/Plans/TODO/runtime-boundary-separation.md`.
+Execute `RAGDOLL_PHYSICS` FP1. Add deterministic once-per-moving-body linear
+and angular motion eligibility plus instrumentation without adding an authored
+collision-mode obligation or a PhysicsBodyRecord hot field. The registered plan is
+`Agentic/Plans/TODO/ragdoll-physics-unification.md`; `RUNTIME_BOUNDARIES` RBS0
+remains the binding next plan after FP9.
 
 ## Blockers
 
-- None. The stale Physics CSV, noisy relative Physics performance sample, and
-  corrected-topology visual oracle remain owner-controlled validation findings;
-  do not refresh any of them without approval.
+- FP0 pre-change `tools\validate_perf.bat` stops on 33 existing non-Physics
+  allocation-policy findings before performance measurement. Preserve this as
+  inherited evidence; do not weaken the policy or attribute the rows to FP0.
+- FP0 pre-change `tools\validate_replay_visual_fidelity.bat` builds and passes
+  its 18 typed/false-pass controls, then the authoritative run stops at reveal 0
+  on `header.futureNodeCount`. Preserve the owner-controlled oracle.
+- The stale Physics CSV, noisy relative Physics performance sample, and
+  corrected-topology visual oracle remain validation findings. On 2026-08-22
+  the owner explicitly authorized required Physics-baseline transitions for
+  FP0-FP9 without another pause, subject to the exact-digest baseline guard and
+  atomic source/test/evidence commits. Replay, visual, SkullScope, and
+  performance oracles remain separately owner-controlled.
+- Every accepted FP phase preserves its final Debug executable and digest
+  manifest under
+  `Agentic/Plans/Artifacts/ragdoll-physics-unification/<phase>/`; the first
+  artifact was produced when FP0 passed terminal review.
+
+## FP0 Closure - 2026-08-22
+
+FP0 closes `PHYS-001` through `PHYS-006` and `PHYS-008` through `PHYS-010`.
+World-shape transforms, default descriptors, transactional solver snapshots,
+complete swept fallback, and exact spatial-cell identity now have focused
+false-pass controls. The strict two-generation replay allocation interaction
+passes after sorted-unique cache publication/capture was made explicit; its
+allocation guard reports no gameplay or reserve-policy violation.
+
+`tools\validate_physics.bat` and the final ten-stage fast preflight pass. The
+44,401-line Physics golden remains byte-identical at
+`debf57f744774d4e7c1eb5cc61f05ba6e41dc6dc997ad20db6c91b02b0958c32`, so no
+baseline update was necessary. The inherited replay visual reveal-0
+`header.futureNodeCount` mismatch remains separately controlled. The final FP0
+Debug executable and manifest live under
+`Agentic/Plans/Artifacts/ragdoll-physics-unification/FP0/`; executable SHA-256
+is `cdefc1b53c3de37c0d75fdd9a423b61aac8df368b45919f8a312cf6dc73cc053`.
 
 ## CI Note
 

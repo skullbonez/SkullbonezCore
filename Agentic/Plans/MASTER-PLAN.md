@@ -1,9 +1,16 @@
 # MASTER PLAN
 
 Date: 2026-08-22
-Status: Runtime Boundary Separation active; 86/94 tasks complete
+Status: Ragdoll Physics Unification and Runtime Boundary Separation active; 87/104 tasks complete
 
 ## Owner Direction
+
+- Deterministic Collision Modes And Ragdoll Unification was activated by
+  explicit owner direction on 2026-08-22 and placed ahead of every existing
+  master-plan item. `RAGDOLL_PHYSICS` executes FP0 through FP9 in strict order:
+  correctness bugs first, then deterministic Discrete collision and automatic
+  Swept TOI promotion, then the completed ragdoll constraint/speculative path.
+  No later phase may bypass an earlier acceptance boundary.
 
 - Runtime Boundary Separation And Project Topology was activated by owner
   direction on 2026-08-22. RBS0-RBS7 make Runtime/App a true composition root,
@@ -20,10 +27,14 @@ Status: Runtime Boundary Separation active; 86/94 tasks complete
   and an independent ownership review finding no second retained transport,
   camera, pivot, input, or diagnostics owner.
 
-- Physics-baseline mismatches in Determinism or Catto phases do not stop this
-  orchestration run. Preserve every gate executable under a plan-and-phase name,
-  record the mismatch and artifact path, and continue without refreshing a
-  golden; the owner will review the candidate behaviors afterward.
+- On 2026-08-22 the owner explicitly authorized this orchestration run to make
+  required Physics-baseline transitions without pausing for another ruling.
+  Each transition must still use the repository's exact-digest approval guard,
+  describe the accepted behavior change, and land with its generating source
+  and tests. Preserve the accepted Debug executable for every FP phase under
+  `Agentic/Plans/Artifacts/ragdoll-physics-unification/<phase>/` with a manifest
+  recording executable and Physics-baseline SHA-256 values. Replay, visual, and
+  performance goldens retain their separate owner controls.
 
 - Determinism Envelope Tier-2 Hardening is complete. Physics-visible rotation
   and vector-angle construction now use the repository-owned deterministic math
@@ -237,6 +248,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
+| Deterministic Collision Modes And Ragdoll Unification | `RAGDOLL_PHYSICS` | 10 | 1 | `TODO/ragdoll-physics-unification.md` |
 | Runtime Boundary Separation And Project Topology | `RUNTIME_BOUNDARIES` | 8 | 0 | `TODO/runtime-boundary-separation.md` |
 
 ## Parked, Backlog, And Completed Plans
@@ -263,7 +275,12 @@ One detail in that table is recorded:
 
 ## Binding Order
 
-1. `RUNTIME_BOUNDARIES` RBS0 through RBS7 - ratify and enforce an acyclic Runtime
+1. `RAGDOLL_PHYSICS` FP0 through FP9 - close verified Physics correctness bugs,
+   make Discrete the deterministic default with automatic Swept TOI promotion,
+   prove its correctness and isolated performance, then complete the ragdoll
+   joint and late speculative-contact path with independent determinism and cost
+   evidence.
+2. `RUNTIME_BOUNDARIES` RBS0 through RBS7 - ratify and enforce an acyclic Runtime
    package/project graph, remove every reverse Runtime/App dependency, separate
    native host and frame-metrics ownership, split operator projection/commands
    from GPU submission and process command application, close the logical `Run`
@@ -289,11 +306,10 @@ exact-evidence owners. It may project retained values and compose existing
 selection/transport commands, but it must not rebuild evidence, add a second
 selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
-`future_physics.md` remains intentionally absent from this ledger.
-
 ## Portfolio Progress
 
-86/94 tasks complete with Runtime Boundary Separation And Project Topology active.
+87/104 tasks complete with Deterministic Collision Modes And Ragdoll Unification
+first and Runtime Boundary Separation And Project Topology second.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
@@ -302,6 +318,7 @@ Cause Hierarchy Scientific Inspector CHUI0-CHUI6 is complete. Full Source Commen
 Replacement CT0-CT5 is complete. Full Validation Time And Value Audit VTA0-VTA5 is complete.
 Repository Hygiene Cleanup RC0-RC5 is complete.
 Core Engine Evidence-Driven Code Reduction CR0-CR5 is complete.
+Deterministic Collision Modes And Ragdoll Unification FP0-FP9 is active at 1/10; FP0 is complete and FP1 is next.
 Runtime Boundary Separation And Project Topology RBS0-RBS7 is active at 0/8.
 Deterministic
 Trigonometry is owner-parked and excluded from progress.

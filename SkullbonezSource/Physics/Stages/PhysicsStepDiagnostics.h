@@ -82,6 +82,7 @@ class PhysicsPipelineTraceRecorder
     // Saturation exactly matches repeated Record calls at the fixed trace cap.
     void RecordEvents( std::size_t eventCount );
     void RestoreFullRecords( std::span<const PhysicsPipelineRecord> records );
+    bool CanRestoreFullRecords( std::size_t recordCount ) const noexcept;
     bool RetainsFullRecords() const;
     bool CanRecord() const;
     uint32_t Count() const;
@@ -141,6 +142,9 @@ class PhysicsStepDiagnostics
 #endif
 
     void CaptureReplayState( PhysicsSolverSnapshot& snapshot ) const;
+
+    // Invariant: diagnostics rows join the same all-or-nothing solver restore.
+    bool CanRestoreReplayState( const PhysicsSolverSnapshot& snapshot, int modelCount ) const noexcept;
     void RestoreReplayState( const PhysicsSolverSnapshot& snapshot );
     std::span<const uint8_t> GetCollisionVisualContacts() const;
 

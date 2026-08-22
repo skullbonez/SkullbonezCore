@@ -15,18 +15,16 @@ Invariants:
     are the validation contract.
   - Inserted bounds stay finite and within MAX_WORLD_COORDINATE before any
     float-to-cell conversion.
-  - One 8,192-row table owns every live persistent or current swept-overlay
-    cell; the next unique cell is a fatal invariant failure because dropping it could
-    hide a collision.
+  - One 8,192-row table owns every stamped persistent or swept cell. Persistent
+    exhaustion is fatal; an unstampable sweep takes complete-coverage fallback.
   - Candidate discovery may follow bucket/list order, but solver-visible output
     is canonical and uses fixed-capacity staging owned by this grid.
-  - Exact cell coordinates remain `int` through hashing and membership.
-    Visualization alone saturates them to signed 16-bit [-32,768, 32,767].
+  - Exact cell coordinates remain `int` through hashing, membership,
+    diagnostics publication, and Runtime visualization.
   - Pair-source stamps restrict this frame's work only; they never remove or
     mutate a sleeper's persistent membership.
   - A normalized pair is filtered only on its first eligible traversal visit;
-    coordinate-hash aliases intentionally collapse to one bucket identity and
-    the dense bitset suppresses all later visits.
+    table-home hash aliases retain separate exact-coordinate buckets.
   - Every scene-sized store is reserved under SceneLoad, retained across cold
     clears, and never grows during fixed-step work.
 
@@ -48,6 +46,7 @@ Related:
 #include "../Core/SceneCapacity.h"
 #include "../Maths/Vector3.h"
 #include "PhysicsBroadphaseDebugView.h"
+#include "PhysicsSpatialCellKey.h"
 #include "PhysicsStageCapacity.h"
 
 namespace SkullbonezCore
@@ -88,12 +87,10 @@ class SpatialGrid
     // current broadphase radius, capped by the configured legacy cell size, so
     // normal scene bodies are expected to use at most 2x2x2 = 8 cells.
     //
-    // Fast dynamic bodies can insert their swept AABB for CCD pairing. That is
-    // intentionally a limited escape hatch for bullets and other rare high-speed
-    // movers, not a promise that every body can sweep across the whole world in
-    // one tick. Large projectile clouds should use a dedicated ray/query path.
-    // One power-of-two table keeps lookup, storage, iteration, and exhaustion
-    // on the same deterministic path at both ordinary and scale-scene sizes.
+    // Fast dynamic bodies insert a swept AABB for CCD pairing. A sweep that
+    // cannot fit completely in the transient store is retained in the bounded
+    // fallback-body lane and tested against all admitted bodies. One power-of-
+    // two table keeps stamped lookup, iteration, and exhaustion deterministic.
     static constexpr int TABLE_SIZE = static_cast<int>( Physics::PHYSICS_SPATIAL_GRID_BUCKET_COUNT );
     static constexpr int TABLE_MASK = TABLE_SIZE - 1;
     static_assert( ( TABLE_SIZE & TABLE_MASK ) == 0, "SpatialGrid table size must remain a power of two" );
@@ -107,11 +104,23 @@ class SpatialGrid
     static constexpr int PERSISTENT_ENTRY_SPILL_ROWS = 1024;
     static constexpr int MAX_STATIC_CELL_ENTRIES = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS *
                                                    PERSISTENT_ENTRIES_PER_BODY;
-    static constexpr int MAX_SWEPT_CELL_ENTRIES = 4096;
+
+    // Owner ruling: eight transient rows per admitted body matches the ordinary
+    // membership derivation and costs at most 1.25 MiB at the scene ceiling.
+    // Sweeps that cannot fit their complete conservative coverage use the
+    // fixed fallback-body lane instead of growing, aborting, or truncating.
+    static constexpr int MAX_SWEPT_CELL_ENTRIES = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 8;
     static constexpr int MAX_CELL_ENTRIES = MAX_STATIC_CELL_ENTRIES + MAX_SWEPT_CELL_ENTRIES + 4;
     static constexpr int MAX_SWEPT_AABB_CELLS = MAX_SWEPT_CELL_ENTRIES / 2;
     static constexpr int MAX_SWEPT_TRAVERSED_CELLS = MAX_SWEPT_CELL_ENTRIES;
-    static constexpr int MAX_CANDIDATE_PAIRS = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 4;
+
+    // Owner ruling: scenes through PHYSICS_COMPLETE_PAIR_TOPOLOGY_MAX_BODIES
+    // reserve their complete triangular body-pair topology. Therefore any
+    // number of unstampable sweep bodies can take the all-body fallback without
+    // exceeding candidate storage. Larger scenes retain the fixed candidate
+    // ceiling and sparse-admission contract; fallback exhaustion there is the
+    // same loud invalid-topology rejection as an overfull ordinary bucket.
+    static constexpr int MAX_CANDIDATE_PAIRS = static_cast<int>( Physics::PHYSICS_MAX_CANDIDATE_PAIRS );
     static constexpr int64_t MAX_PAIR_IDENTITIES = static_cast<int64_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ) *
                                                    ( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS - 1 ) / 2;
     static_assert( MAX_PAIR_IDENTITIES - 1 <= ( std::numeric_limits<int>::max )(),
@@ -145,7 +154,8 @@ class SpatialGrid
 
     struct Bucket
     {
-        int64_t key;                   // Existing hashed cell identity; collisions remain conservative false positives.
+        int64_t key;                   // Exact packed cell identity; table-home hash collisions remain separate.
+        int homeIndex;                 // Hash-chain owner derived from key, retained for O(1) unlink.
         bool occupied;                 // Live hash-chain row; false rows belong to the bucket free list.
         int nextHash;                  // Next row sharing this table home slot.
         int previousHash;              // Back-link for O(1) removal from the hash chain.
@@ -157,7 +167,7 @@ class SpatialGrid
         int overlayHead;               // SweptOverlayEntry chain head for overlayGeneration.
         int overlayCount;              // Current swept-only object count.
         int activeIndex;               // Back-link into activeBuckets[] for swap removal.
-        int16_t ix, iy, iz;            // Cell grid coordinates (stored for visualization).
+        int ix, iy, iz;                // Exact cell grid coordinates retained for visualization.
     };
 
     struct BodyMembership
@@ -193,6 +203,8 @@ class SpatialGrid
         entries { "SpatialGrid.entries", Physics::PhysicsCapacityReason::SpatialGridPersistentEntries };
     Physics::PhysicsFixedList<SweptOverlayEntry, MAX_SWEPT_CELL_ENTRIES>
         overlayEntries { "SpatialGrid.overlayEntries", Physics::PhysicsCapacityReason::SpatialGridSweptOverlayEntries };
+    Physics::PhysicsBodyRowList<int> sweptFallbackBodies { "SpatialGrid.sweptFallbackBodies",
+                                                           Physics::PhysicsCapacityReason::SceneBodies };
     Physics::PhysicsFixedList<BodyMembership, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
         bodyMemberships { "SpatialGrid.bodyMemberships", Physics::PhysicsCapacityReason::SpatialGridBodyMemberships };
 
@@ -224,7 +236,7 @@ class SpatialGrid
     MaintenanceStats maintenanceStats;
 
     int FindBucket( int64_t key ) const;
-    int FindOrCreateBucket( int64_t key, int16_t cx, int16_t cy, int16_t cz );
+    int FindOrCreateBucket( int64_t key, int cx, int cy, int cz );
     void RetireBucketIfEmpty( int bucketIndex );
     int AllocatePersistentEntry();
     void ReleasePersistentEntry( int entryIndex );
@@ -240,6 +252,7 @@ class SpatialGrid
                               int capacity ) const;
     void MaintainBounds( int index, const Vector::Vector3& minBounds, const Vector::Vector3& maxBounds );
     void ResetSweptOverlay();
+    void MarkSweptFallback( int index );
     int CollectBucketObjects( const Bucket& bucket, int* outIndices, int capacity );
     void ResetCandidatePairDedup();
     bool MarkCandidatePairFirstSeen( int a, int b );
@@ -267,17 +280,15 @@ class SpatialGrid
     static constexpr float MAX_WORLD_COORDINATE = 100000.0f;
 
     // Hazard: exact coordinates can reach +/-200,000 at the minimum cell size.
-    // Bucket and PhysicsBroadphaseActiveCell retain only a saturated
-    // visualization projection; collision identity continues to use the
-    // full-width Entry coordinates and hash key. Widen both visualization
-    // structs before removing saturation.
-    static constexpr int MIN_VISUALIZATION_CELL_COORDINATE = ( std::numeric_limits<int16_t>::min )();
-    static constexpr int MAX_VISUALIZATION_CELL_COORDINATE = ( std::numeric_limits<int16_t>::max )();
+    // Bucket, diagnostics, and visualizer rows retain those full-width values;
+    // narrowing here would make collision heat target a different cell.
     static constexpr int MAX_ABSOLUTE_CELL_COORDINATE = static_cast<int>( MAX_WORLD_COORDINATE / MIN_CELL_SIZE );
     static_assert( MAX_ABSOLUTE_CELL_COORDINATE == 200000,
                    "SpatialGrid world/cell limits changed: review exact and visualization coordinate storage." );
     static_assert( MAX_ABSOLUTE_CELL_COORDINATE <= ( std::numeric_limits<int>::max )() - 1024,
                    "SpatialGrid exact cell coordinates exceed the guarded signed-int conversion range." );
+    static_assert( MAX_ABSOLUTE_CELL_COORDINATE == Physics::PHYSICS_MAX_ABSOLUTE_SPATIAL_CELL_COORDINATE,
+                   "Exact cell-key packing must cover the complete SpatialGrid coordinate range." );
 
     SpatialGrid( float requestedCellSize );
 
@@ -378,6 +389,10 @@ class SpatialGrid
     std::size_t GetSweptOverlayEntryHighWater() const
     {
         return overlayEntries.high_water();
+    }
+    std::size_t GetSweptFallbackBodyCount() const
+    {
+        return sweptFallbackBodies.size();
     }
     uint64_t CollectDynamicMemoryBytes() const;
     void GetActiveCells( Physics::PhysicsBroadphaseActiveCell* outCells, int maxCells ) const;

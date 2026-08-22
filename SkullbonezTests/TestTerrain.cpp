@@ -72,8 +72,12 @@ using SkullbonezCore::Assets::AssetSystem;
 using SkullbonezCore::Core::EngineConfig;
 using SkullbonezCore::Geometry::Plane;
 using SkullbonezCore::Geometry::Terrain;
+using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::CollisionShape;
+using SkullbonezCore::Math::CollisionDetection::GetShapeBodyOriginBoundingRadius;
+using SkullbonezCore::Math::CollisionDetection::GetWorldShapeCenter;
+using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::BuildTerrainContactManifold;
 using SkullbonezCore::Physics::ColliderRecord;
@@ -258,6 +262,45 @@ TEST_CASE( "Terrain: resting sphere sweep uses the same slope-normal pole as its
     CHECK( movingManifold.normal.x == doctest::Approx( plane.m_normal.x ) );
     CHECK( movingManifold.normal.y == doctest::Approx( plane.m_normal.y ) );
     CHECK( movingManifold.normal.z == doctest::Approx( plane.m_normal.z ) );
+}
+
+
+TEST_CASE( "Terrain: rotated local collider offsets own sweep and manifold geometry" )
+{
+    EngineConfig config;
+    Terrain terrain( 0.0f, 0.0f, 0.0f, config );
+    const Quaternion orientation( 0.0f, 0.0f, 0.70710677f, 0.70710677f );
+    const auto rotation = orientation.GetOrientationMatrix();
+    const Vector3 localOffset( 4.0f, 0.0f, 0.0f );
+    const Vector3 desiredCenter( 20.0f, 1.0f, 20.0f );
+    const Vector3 bodyPosition = desiredCenter - rotation * localOffset;
+    const CollisionShape shapes[] = {
+        BoundingSphere( 1.0f, localOffset ),
+        BoundingBox( Vector3( 1.0f, 1.0f, 1.0f ), localOffset ),
+    };
+
+    for ( int shapeIndex = 0; shapeIndex < 2; ++shapeIndex )
+    {
+        TerrainContactBodyView body;
+        body.position = bodyPosition;
+        body.orientation = orientation;
+        body.terrain = terrain.PhysicsView();
+        body.boundingRadius = GetShapeBodyOriginBoundingRadius( shapes[shapeIndex] );
+        body.contactEpsilon = 0.001f;
+        body.terrainContactThreshold = 0.01f;
+
+        CHECK( GetWorldShapeCenter( shapes[shapeIndex], body.position, rotation ).x == doctest::Approx( desiredCenter.x ) );
+        CHECK( GetWorldShapeCenter( shapes[shapeIndex], body.position, rotation ).y == doctest::Approx( desiredCenter.y ) );
+
+        const TerrainContactSweepResult sweep = SweepTerrainContact( body, shapes[shapeIndex], 1.0f / 120.0f );
+        REQUIRE( sweep.hit );
+        CHECK( sweep.collisionTime == 0.0f );
+
+        TerrainContactManifold manifold;
+        REQUIRE( BuildTerrainContactManifold( body, shapes[shapeIndex], shapeIndex, sweep, 1.0f / 120.0f, manifold ) );
+        REQUIRE( manifold.pointCount > 0u );
+        CHECK( manifold.points[0].point.y == doctest::Approx( 0.0f ).epsilon( 0.0001 ) );
+    }
 }
 
 

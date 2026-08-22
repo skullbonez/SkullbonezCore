@@ -5,8 +5,8 @@ Purpose:
 
 Summary:
   BroadphaseVisualizer turns bounded grid-cell facts into frame-scoped debug
-  lines so candidate-pair locality can be inspected without feeding state back
-  into physics.
+  lines and retains short enter/collide/fade color transitions so candidate-
+  pair locality can be inspected without feeding state back into physics.
 
 Glossary:
   Debug line command: Frame-scoped renderer command that draws colored line
@@ -23,12 +23,8 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 
-
-// BROADPHASE VISUALIZER (BroadphaseVisualizer.cpp)
-
-//
-
-// wireframe cubes. Each cell's color encodes its state:
+// Concept: active broadphase cells render as wireframe cubes. Color encodes
+// the short-lived visual state:
 //
 //   White  = empty (no objects in this cell)
 //   Yellow = ball just entered (fading to blue over 0.5s)
@@ -70,14 +66,6 @@ BroadphaseVisualizer::BroadphaseVisualizer()
 }
 
 
-int64_t BroadphaseVisualizer::PackKey( int16_t ix, int16_t iy, int16_t iz )
-{
-    // Pack three int16_t into a single int64_t for use as a cell map key.
-    return ( static_cast<int64_t>( ix ) * 73856093 ) ^ ( static_cast<int64_t>( iy ) * 19349663 ) ^
-           ( static_cast<int64_t>( iz ) * 83492791 );
-}
-
-
 int BroadphaseVisualizer::FindCell( int64_t key ) const
 {
     for ( int i = 0; i < m_cellCount; ++i )
@@ -92,7 +80,7 @@ int BroadphaseVisualizer::FindCell( int64_t key ) const
 }
 
 
-int BroadphaseVisualizer::FindOrAddCell( int64_t key, int16_t ix, int16_t iy, int16_t iz )
+int BroadphaseVisualizer::FindOrAddCell( int64_t key, int ix, int iy, int iz )
 {
     int idx = FindCell( key );
 
@@ -205,7 +193,7 @@ void BroadphaseVisualizer::ComputeCellColor( const TrackedCell& cell, float& r, 
 }
 
 
-void BroadphaseVisualizer::EmitCubeWireframe( int16_t ix, int16_t iy, int16_t iz, float r, float g, float b )
+void BroadphaseVisualizer::EmitCubeWireframe( int ix, int iy, int iz, float r, float g, float b )
 {
     // Grid indices become world-space cube corners for the debug wireframe.
     float x0 = static_cast<float>( ix ) * m_cellSize;
@@ -275,7 +263,7 @@ void BroadphaseVisualizer::Update( float dt, std::span<const PhysicsBroadphaseAc
     // Process active cells from the spatial grid
     for ( const PhysicsBroadphaseActiveCell& activeCell : activeCells )
     {
-        int64_t key = PackKey( activeCell.ix, activeCell.iy, activeCell.iz );
+        int64_t key = DiagnosticCellKey( activeCell.ix, activeCell.iy, activeCell.iz );
         int idx = FindOrAddCell( key, activeCell.ix, activeCell.iy, activeCell.iz );
 
         if ( idx < 0 )

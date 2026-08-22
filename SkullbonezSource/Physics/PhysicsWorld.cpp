@@ -29,14 +29,20 @@ Invariants:
     worker scheduling never changes the ascending stage iteration order.
   - Pipeline trace mode is fixed at BeginStep; stage commit seams preserve one
     saturated event count whether or not payload records are retained.
+  - Replay CanRestore validates dense rows, cross-owner references, committed
+    capacities, and point-joint topology for every owner before Restore mutates
+    any owner; rejection leaves the complete live world unchanged.
 
 Related:
   - SkullbonezSource/Physics/PhysicsWorld.h
+  - SkullbonezTests/TestPhysicsHandles.cpp
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "PhysicsWorld.h"
 #include "../Core/Common.h"
+
+#include <cstddef>
 
 #include "../Core/FatalError.h"
 #include "BuoyancySystem.h"
@@ -458,14 +464,18 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapsh
     };
 
 #define INCLUDE_REPLAY_SOLVER_VECTOR_RESERVE( snapshotField, worldValues, label )                                           \
-    includeSnapshotReserve( outSnapshot.snapshotField, worldValues.size() );
+    includeSnapshotReserve( outSnapshot.snapshotField,                                                                      \
+                            (std::max)( worldValues.size(), static_cast<std::size_t>( (std::max)( 0, modelCount ) ) ) );
     SB_REPLAY_SOLVER_VECTOR_FIELDS( INCLUDE_REPLAY_SOLVER_VECTOR_RESERVE )
 #undef INCLUDE_REPLAY_SOLVER_VECTOR_RESERVE
 
     const auto reserveSnapshotVectors = [&]()
     {
 #define RESERVE_REPLAY_SOLVER_VECTOR_FIELD( snapshotField, worldValues, label )                                             \
-    ReserveReplaySolverSnapshotVector( outSnapshot.snapshotField, worldValues.size(), label );
+    ReserveReplaySolverSnapshotVector( outSnapshot.snapshotField,                                                           \
+                                       (std::max)( worldValues.size(),                                                      \
+                                                   static_cast<std::size_t>( (std::max)( 0, modelCount ) ) ),               \
+                                       label );
         SB_REPLAY_SOLVER_VECTOR_FIELDS( RESERVE_REPLAY_SOLVER_VECTOR_FIELD )
 #undef RESERVE_REPLAY_SOLVER_VECTOR_FIELD
     };
@@ -520,6 +530,95 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapsh
     m_stepDiagnostics.CaptureReplayState( outSnapshot );
     m_contactSolverStage.CaptureReplayState( outSnapshot );
 
+    // Invariant: the requested replay prefix is a self-contained transaction,
+    // not a label attached to full live-world vectors. Normalize every body row
+    // and remove references to trimmed bodies before restore preflight sees it.
+    const std::size_t bodyRows = static_cast<std::size_t>( (std::max)( 0, modelCount ) );
+    const auto normalizeBodyRows = [bodyRows]( auto& values, const auto& defaultValue )
+    {
+        if ( values.size() > bodyRows )
+        {
+            values.erase( values.begin() + static_cast<std::ptrdiff_t>( bodyRows ), values.end() );
+        }
+
+        // Invariant: ReserveReplaySolverSnapshotStorage established at least
+        // bodyRows capacity before capture, so cold-state padding cannot grow.
+        while ( values.size() < bodyRows )
+        {
+            values.push_back( defaultValue );
+        }
+    };
+
+    normalizeBodyRows( outSnapshot.timeRemaining, 0.0f );
+    normalizeBodyRows( outSnapshot.sleepSupportedThisFrame, uint8_t { 0u } );
+    normalizeBodyRows( outSnapshot.sleepInhibitedThisFrame, uint8_t { 0u } );
+    normalizeBodyRows( outSnapshot.sleepState, uint8_t { 0u } );
+    normalizeBodyRows( outSnapshot.sleepCounter, uint8_t { 0u } );
+    normalizeBodyRows( outSnapshot.underwaterSleepLocked, uint8_t { 0u } );
+    normalizeBodyRows( outSnapshot.collisionVisualContacts, uint8_t { 0u } );
+    normalizeBodyRows( outSnapshot.sleepIslandVisualId, 0 );
+    normalizeBodyRows( outSnapshot.sleepIslandAssignedVisualId, 0 );
+    normalizeBodyRows( outSnapshot.sleepIslandParent, 0 );
+    normalizeBodyRows( outSnapshot.sleepIslandRank, uint8_t { 0u } );
+    normalizeBodyRows( outSnapshot.sleepIslandHasAwake, uint8_t { 0u } );
+    normalizeBodyRows( outSnapshot.sleepIslandHasSupportAnchor, uint8_t { 0u } );
+    normalizeBodyRows( outSnapshot.sleepIslandEligible, uint8_t { 0u } );
+    normalizeBodyRows( outSnapshot.sleepIslandCanSleep, uint8_t { 0u } );
+    outSnapshot.persistentContactCounts.assign( bodyRows, 0u );
+    outSnapshot.persistentRestingContactCounts.assign( bodyRows, 0u );
+
+    const auto bodyPairFitsPrefix = [modelCount]( int bodyA, int bodyB )
+    { return bodyA >= 0 && bodyA < modelCount && ( bodyB == -1 || ( bodyB >= 0 && bodyB < modelCount ) ); };
+
+    std::erase_if( outSnapshot.sleepSupportEdges, [modelCount]( const auto& edge )
+                   { return edge.first < 0 || edge.first >= modelCount || edge.second < 0 || edge.second >= modelCount; } );
+    std::erase_if( outSnapshot.persistentContacts,
+                   [&]( const auto& contact ) { return !bodyPairFitsPrefix( contact.bodyA, contact.bodyB ); } );
+    std::erase_if( outSnapshot.debugContacts,
+                   [&]( const auto& contact ) { return !bodyPairFitsPrefix( contact.bodyA, contact.bodyB ); } );
+    std::erase_if( outSnapshot.pipelineTrace,
+                   [&]( const auto& record ) { return record.bodyA >= modelCount || record.bodyB >= modelCount; } );
+    std::erase_if( outSnapshot.persistentContactCache, [modelCount]( const auto& cache )
+                   { return !PersistentContactCacheKeyBodiesFit( cache.key, modelCount ); } );
+
+    // Invariant: live cache lookup uses lower_bound and therefore observes only
+    // the first row for an equal key. Filtering preserves the owner's sorted
+    // order; collapsing adjacent duplicates retains that exact observable row
+    // while producing the strictly sorted-and-unique replay contract required
+    // for deterministic restore.
+    outSnapshot.persistentContactCache.erase( std::unique( outSnapshot.persistentContactCache.begin(),
+                                                           outSnapshot.persistentContactCache.end(),
+                                                           []( const auto& lhs, const auto& rhs )
+                                                           { return lhs.key == rhs.key; } ),
+                                              outSnapshot.persistentContactCache.end() );
+
+    for ( const PhysicsSolverPersistentContactSample& contact : outSnapshot.persistentContacts )
+    {
+        if ( contact.bodyB < 0 )
+        {
+            continue;
+        }
+
+        ++outSnapshot.persistentContactCounts[static_cast<std::size_t>( contact.bodyA )];
+        ++outSnapshot.persistentContactCounts[static_cast<std::size_t>( contact.bodyB )];
+
+        if ( contact.supportsRestingPolicy )
+        {
+            ++outSnapshot.persistentRestingContactCounts[static_cast<std::size_t>( contact.bodyA )];
+            ++outSnapshot.persistentRestingContactCounts[static_cast<std::size_t>( contact.bodyB )];
+        }
+    }
+
+    for ( std::size_t bodyIndex = 0; bodyIndex < bodyRows; ++bodyIndex )
+    {
+        const int parent = outSnapshot.sleepIslandParent[bodyIndex];
+
+        if ( parent < 0 || parent >= modelCount )
+        {
+            outSnapshot.sleepIslandParent[bodyIndex] = static_cast<int>( bodyIndex );
+        }
+    }
+
     const std::span<const PhysicsBodyRecord> bodyRecords = bodyStore.Records();
     uint32_t topologyOrdinal = 0u;
 
@@ -554,6 +653,39 @@ bool PhysicsWorld::CanRestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& 
                                                    const PhysicsBodyStore& bodyStore ) const
 {
     if ( snapshot.version < 1 || snapshot.version > PHYSICS_SOLVER_SNAPSHOT_VERSION || snapshot.modelCount != modelCount )
+    {
+        return false;
+    }
+
+    if ( modelCount < 0 || bodyStore.Records().size() < static_cast<std::size_t>( modelCount ) ||
+         snapshot.timeRemaining.size() != static_cast<std::size_t>( modelCount ) ||
+         snapshot.timeRemaining.size() > m_timeRemaining.capacity() ||
+         snapshot.collisionCellKeys.size() > m_broadphase.CollisionCellKeyCapacityForReplay() ||
+         !m_sleepController.CanRestoreReplayState( snapshot, modelCount ) ||
+         !m_stepDiagnostics.CanRestoreReplayState( snapshot, modelCount ) ||
+         !m_contactSolverStage.CanRestoreReplayState( snapshot, modelCount ) )
+    {
+        return false;
+    }
+
+    uint64_t payloadBytes = 0u;
+#define REQUIRE_REPLAY_PAYLOAD_BYTES( snapshotField, worldValues, label )                                                   \
+    if ( snapshot.snapshotField.size() > static_cast<std::size_t>( PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES ) /           \
+                                             sizeof( typename decltype( snapshot.snapshotField )::value_type ) )            \
+    {                                                                                                                       \
+        return false;                                                                                                       \
+    }                                                                                                                       \
+    payloadBytes += static_cast<uint64_t>( snapshot.snapshotField.size() ) *                                                \
+                    sizeof( typename decltype( snapshot.snapshotField )::value_type );
+    SB_REPLAY_SOLVER_VECTOR_FIELDS( REQUIRE_REPLAY_PAYLOAD_BYTES )
+#undef REQUIRE_REPLAY_PAYLOAD_BYTES
+
+    if ( payloadBytes > static_cast<uint64_t>( PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES ) )
+    {
+        return false;
+    }
+
+    if ( snapshot.version < 3u && !snapshot.pointJoints.empty() )
     {
         return false;
     }

@@ -45,6 +45,7 @@ Related:
 #include "BoundingSphere.h"
 #include "BoundingBox.h"
 #include "ConvexHullShape.h"
+#include "../Maths/RotationMatrix.h"
 
 namespace SkullbonezCore
 {
@@ -160,6 +161,41 @@ template <typename ShapeLike> inline const Vector::Vector3& GetShapePosition( co
     return VisitCollisionShape( shape, []( const auto& s ) -> const Vector::Vector3& { return s.GetPosition(); } );
 }
 
+template <typename ShapeLike>
+inline Vector::Vector3 GetWorldShapeCenter( const ShapeLike& shape, const Vector::Vector3& bodyPosition,
+                                            const Transformation::RotationMatrix& bodyOrientation )
+{
+    // Invariant: collider offsets are body-local. Broadphase, narrowphase,
+    // terrain, queries, and presentation must all rotate the offset before
+    // adding the body origin. This rule intentionally changes byte-exact
+    // Physics behavior only for non-zero-offset colliders.
+    return bodyPosition + bodyOrientation * GetShapePosition( shape );
+}
+
+inline Vector::Vector3 GetRenderShapeCenter( const Vector::Vector3& bodyPosition,
+                                             const Transformation::Matrix4& bodyRotation,
+                                             const Vector::Vector3& localPosition ) noexcept
+{
+    // Hazard: render transforms are compared bit-for-bit across Debug,
+    // Profile, and Release. Volatile stage results forbid optimized builds
+    // from fusing or reassociating this presentation-only matrix translation.
+    volatile float x = bodyRotation.m[0] * localPosition.x;
+    x = x + bodyRotation.m[4] * localPosition.y;
+    x = x + bodyRotation.m[8] * localPosition.z;
+    x = bodyPosition.x + x;
+
+    volatile float y = bodyRotation.m[1] * localPosition.x;
+    y = y + bodyRotation.m[5] * localPosition.y;
+    y = y + bodyRotation.m[9] * localPosition.z;
+    y = bodyPosition.y + y;
+
+    volatile float z = bodyRotation.m[2] * localPosition.x;
+    z = z + bodyRotation.m[6] * localPosition.y;
+    z = z + bodyRotation.m[10] * localPosition.z;
+    z = bodyPosition.z + z;
+    return Vector::Vector3( x, y, z );
+}
+
 template <typename ShapeLike> inline float GetShapeVolume( const ShapeLike& shape )
 {
     return VisitCollisionShape( shape, []( const auto& s ) { return s.GetVolume(); } );
@@ -184,6 +220,14 @@ template <typename ShapeLike> inline float GetShapeSubmergedVolumePercent( const
 template <typename ShapeLike> inline float GetShapeBoundingRadius( const ShapeLike& shape )
 {
     return VisitCollisionShape( shape, []( const auto& s ) { return s.GetBoundingRadius(); } );
+}
+
+template <typename ShapeLike> inline float GetShapeBodyOriginBoundingRadius( const ShapeLike& shape )
+{
+    // Why: authored broadphase radii are measured about the body origin, while
+    // concrete shape radii are measured about the collider centre. Adding the
+    // local-offset length is the rotation-independent conservative envelope.
+    return GetShapeBoundingRadius( shape ) + Vector::VectorMag( GetShapePosition( shape ) );
 }
 
 template <typename ShapeLike> inline float GetShapeTerrainBottomOffset( const ShapeLike& shape )

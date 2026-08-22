@@ -58,14 +58,24 @@ bool IsSolverBodyFixed( const Physics::PhysicsBodyHotFieldsConstView& hotFields,
     return hotFields.fixed[static_cast<size_t>( bodyIndex )] != 0u;
 }
 
-Vector3 SolverBodyPosition( const Physics::PhysicsBodyHotFieldsConstView& hotFields, int bodyIndex )
-{
-    return Physics::PhysicsBodyPosition( hotFields, static_cast<size_t>( bodyIndex ) );
-}
-
 float SolverBodyRadius( std::span<const Physics::ColliderRecord> colliderRecords, int bodyIndex )
 {
     return colliderRecords[static_cast<size_t>( bodyIndex )].boundingRadius;
+}
+
+float SolverShapeRadius( std::span<const Physics::ColliderRecord> colliderRecords, int bodyIndex )
+{
+    return SkullbonezCore::Math::CollisionDetection::GetShapeBoundingRadius( colliderRecords[static_cast<size_t>( bodyIndex )].shape );
+}
+
+Vector3 SolverColliderCenter( const Physics::PhysicsBodyHotFieldsConstView& hotFields,
+                              std::span<const Physics::ColliderRecord> colliderRecords, int bodyIndex )
+{
+    const size_t index = static_cast<size_t>( bodyIndex );
+    const auto orientation = Physics::PhysicsBodyOrientation( hotFields, index ).GetOrientationMatrix();
+    return SkullbonezCore::Math::CollisionDetection::GetWorldShapeCenter( colliderRecords[index].shape,
+                                                                          Physics::PhysicsBodyPosition( hotFields, index ),
+                                                                          orientation );
 }
 
 // Invariant: conservative augmentation appends only normalized pairs not
@@ -138,8 +148,8 @@ bool SweptSegmentTouchesExpandedBody( const Physics::PhysicsBodyHotFieldsConstVi
                                       std::span<const Physics::ColliderRecord> colliderRecords, int movingIndex,
                                       int targetIndex, float dt, float contactEpsilon )
 {
-    const Vector3 relativeStart = SolverBodyPosition( hotFields, movingIndex ) -
-                                  SolverBodyPosition( hotFields, targetIndex );
+    const Vector3 relativeStart = SolverColliderCenter( hotFields, colliderRecords, movingIndex ) -
+                                  SolverColliderCenter( hotFields, colliderRecords, targetIndex );
 
     const Vector3 relativeDisplacement = ( Physics::PhysicsBodyLinearVelocity( hotFields,
                                                                                static_cast<size_t>( movingIndex ) ) -
@@ -157,8 +167,8 @@ bool SweptSegmentTouchesExpandedBody( const Physics::PhysicsBodyHotFieldsConstVi
     float t = -( Dot( relativeStart, relativeDisplacement ) ) / relativeLengthSq;
     t = (std::max)( 0.0f, (std::min)( 1.0f, t ) );
     const Vector3 closestRelative = relativeStart + relativeDisplacement * t;
-    const float expandedRadius = SolverBodyRadius( colliderRecords, movingIndex ) +
-                                 SolverBodyRadius( colliderRecords, targetIndex ) + contactEpsilon +
+    const float expandedRadius = SolverShapeRadius( colliderRecords, movingIndex ) +
+                                 SolverShapeRadius( colliderRecords, targetIndex ) + contactEpsilon +
                                  PHYSICS_FAST_SWEEP_PAIR_SLOP;
 
     return Vector::VectorMagSquared( closestRelative ) <= expandedRadius * expandedRadius;
@@ -478,7 +488,8 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         const bool fullSeed = !m_gridMembershipSeeded || m_gridMembershipBodyCount != modelCount;
         auto maintainBody = [&]( int bodyIndex, bool isAwakeSource )
         {
-            const float radius = SolverBodyRadius( colliderRecords, bodyIndex ) + contactSkin;
+            const float radius = SolverShapeRadius( colliderRecords, bodyIndex ) + contactSkin;
+            const Vector3 colliderCenter = SolverColliderCenter( hotFields, colliderRecords, bodyIndex );
 
             const Vector3 displacement = PhysicsBodyLinearVelocity( hotFields, static_cast<size_t>( bodyIndex ) ) * dt;
 
@@ -486,11 +497,11 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
 
             if ( isAwakeSource && displacementSq > radius * radius )
             {
-                m_spatialGrid.InsertSwept( bodyIndex, SolverBodyPosition( hotFields, bodyIndex ), displacement, radius );
+                m_spatialGrid.InsertSwept( bodyIndex, colliderCenter, displacement, radius );
             }
             else
             {
-                m_spatialGrid.Insert( bodyIndex, SolverBodyPosition( hotFields, bodyIndex ), radius );
+                m_spatialGrid.Insert( bodyIndex, colliderCenter, radius );
             }
 
             if ( isAwakeSource )
@@ -691,6 +702,11 @@ std::span<const int64_t> PhysicsBroadphaseStage::CollisionCellKeysForReplay() co
 PhysicsCollisionCellKeyList& PhysicsBroadphaseStage::CollisionCellKeysForReplay()
 {
     return m_collisionCellKeys;
+}
+
+std::size_t PhysicsBroadphaseStage::CollisionCellKeyCapacityForReplay() const noexcept
+{
+    return m_collisionCellKeys.capacity();
 }
 
 

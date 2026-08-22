@@ -169,6 +169,7 @@ PHYSICS_COLLISION_PREFIXES = (
     "CollisionShape",
     "ConvexHullShape",
     "ObjectContactManifold",
+    "PhysicsSpatialCellKey",
     "PhysicsTerrainView",
     "SpatialGrid",
     "TerrainContactManifold",

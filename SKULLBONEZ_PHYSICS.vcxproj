@@ -230,6 +230,7 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsFixedList.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsEngine.ReplayPredictionCloneScope.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsStageCapacity.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsSpatialCellKey.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsSceneVectorReserve.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsHandles.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsMass.h" />

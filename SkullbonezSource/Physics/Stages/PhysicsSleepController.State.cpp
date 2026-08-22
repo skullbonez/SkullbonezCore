@@ -77,6 +77,60 @@ void PhysicsSleepController::CaptureReplayState( PhysicsSolverSnapshot& snapshot
     snapshot.sleepEnabled = m_sleepEnabled;
 }
 
+bool PhysicsSleepController::CanRestoreReplayState( const PhysicsSolverSnapshot& snapshot, int modelCount ) const noexcept
+{
+    if ( modelCount < 0 || snapshot.nextSleepIslandVisualId < 1 )
+    {
+        return false;
+    }
+
+    const std::size_t bodyRows = static_cast<std::size_t>( modelCount );
+#define REQUIRE_SLEEP_BODY_ROWS( snapshotField, ownerField )                                                                \
+    if ( snapshot.snapshotField.size() != bodyRows || snapshot.snapshotField.size() > ownerField.capacity() )               \
+    {                                                                                                                       \
+        return false;                                                                                                       \
+    }
+
+    REQUIRE_SLEEP_BODY_ROWS( sleepSupportedThisFrame, m_sleepSupportedThisFrame )
+    REQUIRE_SLEEP_BODY_ROWS( sleepInhibitedThisFrame, m_sleepInhibitedThisFrame )
+    REQUIRE_SLEEP_BODY_ROWS( sleepState, m_sleepState )
+    REQUIRE_SLEEP_BODY_ROWS( sleepCounter, m_sleepCounter )
+    REQUIRE_SLEEP_BODY_ROWS( underwaterSleepLocked, m_underwaterSleepLocked )
+    REQUIRE_SLEEP_BODY_ROWS( sleepIslandVisualId, m_sleepIslandVisualId )
+    REQUIRE_SLEEP_BODY_ROWS( sleepIslandAssignedVisualId, m_sleepIslandAssignedVisualId )
+    REQUIRE_SLEEP_BODY_ROWS( sleepIslandParent, m_sleepIslandParent )
+    REQUIRE_SLEEP_BODY_ROWS( sleepIslandRank, m_sleepIslandRank )
+    REQUIRE_SLEEP_BODY_ROWS( sleepIslandHasAwake, m_sleepIslandHasAwake )
+    REQUIRE_SLEEP_BODY_ROWS( sleepIslandHasSupportAnchor, m_sleepIslandHasSupportAnchor )
+    REQUIRE_SLEEP_BODY_ROWS( sleepIslandEligible, m_sleepIslandEligible )
+    REQUIRE_SLEEP_BODY_ROWS( sleepIslandCanSleep, m_sleepIslandCanSleep )
+#undef REQUIRE_SLEEP_BODY_ROWS
+
+    if ( snapshot.sleepSupportEdges.size() > m_sleepSupportEdges.capacity() )
+    {
+        return false;
+    }
+
+    for ( const auto& edge : snapshot.sleepSupportEdges )
+    {
+        if ( edge.first < 0 || edge.first >= modelCount || edge.second < 0 || edge.second >= modelCount ||
+             edge.first == edge.second )
+        {
+            return false;
+        }
+    }
+
+    for ( int parent : snapshot.sleepIslandParent )
+    {
+        if ( parent < 0 || parent >= modelCount )
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 void PhysicsSleepController::RestoreReplayState( const PhysicsSolverSnapshot& snapshot )
 {
     RestoreList( snapshot.sleepSupportedThisFrame, m_sleepSupportedThisFrame );

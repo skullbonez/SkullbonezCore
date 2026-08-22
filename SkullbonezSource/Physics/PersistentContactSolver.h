@@ -37,9 +37,74 @@ namespace Physics
 // 32-bit feature id. Widening this mask would consume bit 62, which
 // distinguishes terrain rows from object/object rows.
 inline constexpr uint64_t PERSISTENT_CONTACT_BODY_MASK = 0x7fffull;
+inline constexpr uint64_t PERSISTENT_CONTACT_TERRAIN_KIND_BIT = 1ull << 62;
 static_assert( static_cast<uint64_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS - 1 ) <=
                    PERSISTENT_CONTACT_BODY_MASK,
                "Persistent-contact key body fields must encode every valid scene body index." );
+
+inline int64_t MakePersistentContactCacheKey( int bodyA, int bodyB, uint32_t featureId ) noexcept
+{
+    if ( bodyB == -1 )
+    {
+        const uint64_t packed = PERSISTENT_CONTACT_TERRAIN_KIND_BIT |
+                                ( ( static_cast<uint64_t>( static_cast<uint32_t>( bodyA ) ) & PERSISTENT_CONTACT_BODY_MASK )
+                                  << 32 ) |
+                                static_cast<uint64_t>( featureId );
+        return static_cast<int64_t>( packed );
+    }
+
+    const int lowBody = ( bodyA < bodyB ) ? bodyA : bodyB;
+    const int highBody = ( bodyA < bodyB ) ? bodyB : bodyA;
+    const uint64_t packed = ( ( static_cast<uint64_t>( static_cast<uint32_t>( lowBody ) ) & PERSISTENT_CONTACT_BODY_MASK )
+                              << 47 ) |
+                            ( ( static_cast<uint64_t>( static_cast<uint32_t>( highBody ) ) & PERSISTENT_CONTACT_BODY_MASK )
+                              << 32 ) |
+                            static_cast<uint64_t>( featureId );
+    return static_cast<int64_t>( packed );
+}
+
+// Concept: the cache key keeps a 32-bit feature suffix beneath either one
+// terrain-body field or two canonically ordered object-body fields. Keeping
+// decoding beside the layout constants prevents lifecycle owners from
+// inventing incompatible masks when they filter or validate retained rows.
+inline bool PersistentContactCacheKeyReferencesBody( int64_t signedKey, int bodyIndex ) noexcept
+{
+    const uint64_t key = static_cast<uint64_t>( signedKey );
+    const uint64_t target = static_cast<uint64_t>( static_cast<uint32_t>( bodyIndex ) );
+
+    if ( ( key & PERSISTENT_CONTACT_TERRAIN_KIND_BIT ) != 0u )
+    {
+        return ( ( key >> 32 ) & PERSISTENT_CONTACT_BODY_MASK ) == target;
+    }
+
+    return ( ( key >> 47 ) & PERSISTENT_CONTACT_BODY_MASK ) == target ||
+           ( ( key >> 32 ) & PERSISTENT_CONTACT_BODY_MASK ) == target;
+}
+
+inline bool PersistentContactCacheKeyBodiesFit( int64_t signedKey, int bodyCount ) noexcept
+{
+    if ( bodyCount < 0 )
+    {
+        return false;
+    }
+
+    const uint64_t key = static_cast<uint64_t>( signedKey );
+    const uint64_t count = static_cast<uint64_t>( bodyCount );
+    const uint64_t highBody = ( key >> 32 ) & PERSISTENT_CONTACT_BODY_MASK;
+
+    if ( ( key & ( 1ull << 63 ) ) != 0u )
+    {
+        return false;
+    }
+
+    if ( ( key & PERSISTENT_CONTACT_TERRAIN_KIND_BIT ) != 0u )
+    {
+        return ( ( key >> 47 ) & PERSISTENT_CONTACT_BODY_MASK ) == 0u && highBody < count;
+    }
+
+    const uint64_t lowBody = ( key >> 47 ) & PERSISTENT_CONTACT_BODY_MASK;
+    return lowBody < highBody && highBody < count;
+}
 
 struct PersistentContactSolverStepPolicy
 {

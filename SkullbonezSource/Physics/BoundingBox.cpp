@@ -18,12 +18,6 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 
-
-// BOUNDING BOX (BoundingBox.cpp)
-
-//
-
-//
 // An OBB is defined by three half-extents (half the width/height/depth).
 // The actual world-space orientation is provided by the owning body row's
 // quaternion; this class only stores the shape definition and provides
@@ -43,6 +37,7 @@ Related:
 
 
 #include "BoundingBox.h"
+#include "CollisionShape.h"
 #include "../Maths/Vector3.h"
 #include "BoundingSphere.h"
 #include "ConvexHullShape.h"
@@ -68,15 +63,23 @@ BoundingBox::BoundingBox( const Vector3& halfExtents, const Vector3& position )
 // the body row, so any exact box-vs-box contact work must combine this shape
 // with the body's quaternion later in the narrowphase.
 
-// Compute model matrix: T(worldPos) * R * S(halfExtents)
+// Compute model matrix: T(worldPos) * R * T(localOffset) * S(halfExtents)
 // The shader renders a unit cube [-1,1]³ scaled by half-extents.
 Matrix4 BoundingBox::GetModelMatrix( const Vector3& worldPos, const Matrix4& rotation ) const
 {
-    Matrix4 translate = Matrix4::Translate( worldPos.x + m_position.x, worldPos.y + m_position.y,
-                                            worldPos.z + m_position.z );
-
     Matrix4 scale = Matrix4::Scale( m_halfExtents.x, m_halfExtents.y, m_halfExtents.z );
-    return translate * rotation * scale;
+    Matrix4 model = Matrix4::Translate( worldPos ) * rotation * Matrix4::Translate( m_position ) * scale;
+
+    // Why: compiler configurations may reassociate the matrix chain's
+    // translation arithmetic differently. Replacing only translation with the
+    // shared staged path keeps Debug/Profile/Release float bits identical while
+    // retaining the matrix product's rotation and scale.
+    const Vector3 center = GetRenderShapeCenter( worldPos, rotation, m_position );
+    model.m[12] = center.x;
+    model.m[13] = center.y;
+    model.m[14] = center.z;
+    model.m[15] = 1.0f;
+    return model;
 }
 
 
@@ -129,9 +132,8 @@ const Vector3& BoundingBox::GetHalfExtents() const
 }
 
 
-// BROADPHASE SWEPT COLLISION TESTS
-
-//
+// Concept: broadphase swept tests answer whether two moving bounds may touch;
+// the narrowphase still owns exact oriented-box contact geometry.
 // These tests approximate this OBB as a bounding sphere (radius = corner distance)
 // for the broadphase pair check. The broadphase only needs to know "could these
 // two objects possibly be touching this frame?" — a cheap sphere test is enough.

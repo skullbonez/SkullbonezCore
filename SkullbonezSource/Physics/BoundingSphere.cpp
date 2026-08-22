@@ -19,6 +19,7 @@ Related:
 */
 #include "BoundingSphere.h"
 #include "BoundingBox.h"
+#include "CollisionShape.h"
 #include "ConvexHullShape.h"
 #include <immintrin.h> // SSE intrinsics for scale pass in GetModelMatrix
 
@@ -29,7 +30,7 @@ using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Geometry;
 
 
-BoundingSphere::BoundingSphere() : m_radius( 0.0f ), m_dragCoefficient( 0.4f )
+BoundingSphere::BoundingSphere() : m_position( ZERO_VECTOR ), m_radius( 0.0f ), m_dragCoefficient( 0.4f )
 {
 }
 
@@ -48,7 +49,7 @@ BoundingSphere::BoundingSphere( float radius, const Vector3& localPosition, floa
 // "possible hit", PhysicsWorld asks the narrowphase manifold code for exact
 // contact points and lets the shared Catto-style row solver respond.
 
-/* --- Swept Sphere vs Sphere Collision Test (Continuous Collision Detection) ---
+/* Concept: swept sphere-vs-sphere collision detection.
  *
  * Finds the earliest time t ∈ [0,1] at which two moving spheres first touch.
  *
@@ -154,26 +155,15 @@ const Vector3& BoundingSphere::GetPosition() const
 Matrix4 BoundingSphere::GetModelMatrix( const Vector3& worldPos, const Matrix4& rotation ) const
 {
     // Builds the full TRS model matrix: T(worldPos) * rotation * T(m_position) * Scale(radius).
-    //
-    // SIMPLIFICATION: m_position is always ZERO_VECTOR in this engine — every sphere's local
-    // offset is zero because scene authoring creates spheres around their body origin.
-    // T(m_position) is therefore identity and the chain collapses to:
-    //   T(worldPos) * rotation * Scale(radius)
-    //
-    // This means the final matrix is just 'rotation' with each of its three direction columns
-    // (col0, col1, col2) uniformly scaled by m_radius, and col3 replaced by worldPos.
-    // No matrix multiply is needed at all.
-#ifdef _DEBUG
-    // Debug: full formula — makes T(m_position) visible even though it's always identity.
-    return Matrix4::Translate( worldPos ) * rotation * Matrix4::Translate( m_position ) *
-           Matrix4::Scale( m_radius, m_radius, m_radius );
-#else
-    // Release/Profile: 3 SSE scale passes + direct col3 write.
+    // One source path and GetRenderShapeCenter's staged arithmetic own all
+    // build configurations, so translation cannot drift with optimizer mode.
+
+    // Three SSE scale passes + direct col3 write.
     //
     // Each pass loads one 4-float column of 'rotation' (16-byte-unaligned is fine with
     // _mm_loadu_ps), multiplies all 4 lanes by the broadcast scalar m_radius, and stores
-    // the result directly into the output array.  col3 (the translation column) is set
-    // from worldPos with no SSE needed — it's only 4 scalar writes.
+    // the result directly into the output array. The translation column is then
+    // evaluated from the same T(body) * R * T(localOffset) rule as Debug.
     //
     // SSE INTRINSICS USED:
     //   _mm_set1_ps(s)         — broadcast s into all 4 lanes: (s, s, s, s)
@@ -189,14 +179,12 @@ Matrix4 BoundingSphere::GetModelMatrix( const Vector3& worldPos, const Matrix4& 
 
     _mm_storeu_ps( res + 8, _mm_mul_ps( _mm_loadu_ps( rotation.m + 8 ), rr ) ); // col2 * radius
 
-    res[12] = worldPos.x; // col3: translation
-
-    res[13] = worldPos.y;
-
-    res[14] = worldPos.z;
+    const Vector3 center = GetRenderShapeCenter( worldPos, rotation, m_position );
+    res[12] = center.x;
+    res[13] = center.y;
+    res[14] = center.z;
     res[15] = 1.0f; // homogeneous w
     return Matrix4( res );
-#endif
 }
 
 

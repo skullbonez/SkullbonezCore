@@ -263,6 +263,9 @@
     <ClInclude Include="SkullbonezSource\Physics\SpatialGrid.h">
       <Filter>Header Files\Collision</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsSpatialCellKey.h">
+      <Filter>Header Files\Collision</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsBroadphaseStage.h">
       <Filter>Header Files\Stages</Filter>
     </ClInclude>

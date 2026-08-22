@@ -338,6 +338,10 @@ class PhysicsContactSolverStage
     PhysicsContactCacheWakeAccess CreateWakeAccess();
 
     void CaptureReplayState( PhysicsSolverSnapshot& outSnapshot ) const;
+
+    // Invariant: replay restore is atomic only when every contact/count row is
+    // coherent and already fits this stage's committed backing.
+    bool CanRestoreReplayState( const PhysicsSolverSnapshot& snapshot, int modelCount ) const noexcept;
     void RestoreReplayState( const PhysicsSolverSnapshot& snapshot );
 
     std::span<const PersistentContact> GetPersistentContacts() const;
