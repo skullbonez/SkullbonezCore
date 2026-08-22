@@ -1211,7 +1211,7 @@ ReplayProbeRunner::VerifyLoadedPresentation( ReplayTimeline& timeline, ReplayScr
         // presenting Debug probe deliberately replays first appearance from
         // frame zero, so only the probe resets publication state.
         std::vector<ReplayVisualTrajectoryDigestState> trajectoryDigests;
-        ReplayVisualTopologyVersionCanonicalizer topologyVersions;
+        ReplayVisualPacketOperations::ReplayVisualTopologyVersionCanonicalizer topologyVersions;
 
         for ( const ReplayVisualArchiveSample& expected : visualPackets )
         {
