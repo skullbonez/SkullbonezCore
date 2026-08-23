@@ -312,6 +312,7 @@ WORLD_PREFIXES = (
 RUNTIME_LIFECYCLE_PREFIXES = (
     "ApplicationExitState",
     "Init",
+    "OperatorEditorFramePhase",
     "Run",
     "RunFrame",
     "RunTimerState",
@@ -549,7 +550,7 @@ RUNTIME_DIAGNOSTICS_PREFIXES = (
 # Why: shared runtime UI values have their own physical owner and Solution
 # Explorer filter; keeping this explicit prevents them drifting into Runtime.
 RUNTIME_UI_PREFIXES = (
-    "OperatorEditorFrameComposer",
+    "OperatorUiPhase",
     "UiTextPass",
     "RuntimeViewModel",
     "RenderDiagnosticsProjection",

@@ -1,13 +1,12 @@
 /*
-File: SkullbonezSource/Runtime/UI/OperatorEditorFrameComposer.cpp
+File: SkullbonezSource/Runtime/App/OperatorEditorFramePhase.cpp
 Purpose:
-  Builds and renders the shared operator-editor presentation for one frame.
+  Sequences the shared operator-editor presentation for one frame.
 
 Summary:
-  The composer synchronously samples scene, physics, replay, rendering, tools,
-  diagnostics, and input owners, then combines those facts with detached
-  UI-owned caches in one bounded OperatorEditorFrameView before either
-  development UI surface consumes it.
+  App synchronously samples domain owners, combines those facts in one bounded
+  OperatorEditorFrameView, and applies typed process commands after UI and GPU
+  work complete. Runtime/UI owns the value-only phase cursor and snapshot.
   Run::RenderOperatorUiPhase is the owner-approved top-level phase coordinator.
   It reaches process-owned members for one ordered UI phase, builds one shared
   value projection, submits GameUI and ImGui presentation, and retains no frame
@@ -25,14 +24,16 @@ Invariants:
 
 Related:
   - Runtime/App/Run.h owns the private frame-coordinator declaration.
-  - RuntimeFrameViews.h retains the value-only late-UI facts.
+  - Runtime/UI/OperatorUiPhase.h owns the value-only phase walk.
+  - Runtime/RuntimeFrameViews.h retains the value-only late-UI facts.
   - Agentic/Reference/engine-glossary.md
 */
-#include "../App/Run.h"
+#include "Run.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "../Automation/RuntimeValidationHarness.h"
 #include "../RuntimeFrameViews.h"
-#include "RuntimeViewModel.h"
+#include "../UI/OperatorUiPhase.h"
+#include "../UI/RuntimeViewModel.h"
 #include "../Startup/Window.h"
 #include "../../Core/WorkerPool.h"
 #include "../Planning/ReplayOverlayPackets.h"
@@ -268,18 +269,35 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     operatorEditorView.surfaces.secondaryVisible = m_imguiEditor.IsVisible();
 #endif
-    const RuntimeUiTextFrameFacts uiTextFacts { RuntimeCameraModeEnabledMask( m_sceneController.State().isSceneMode,
-                                                                              m_sceneController.Scene().SceneEntityCount() ),
-                                                m_camera.mode == RunCameraMode::Attach ? m_attachedCamera.ModeLabel()
-                                                                                       : RunCameraModeLabel( m_camera.mode ),
-                                                m_runtimeTools.LauncherFireModeLabel(),
-                                                RunCameraModeUsesLauncher( m_camera.mode ),
-                                                m_interaction.Gesture().kind,
-                                                m_interaction.Gesture().gizmoKind,
-                                                presentationFacts.presentationAlpha,
-                                                presentationFacts.capturePresentationPinned,
-                                                presentationFacts.secondsPerFrame,
-                                                presentationFacts.gameUiActive };
+    OperatorUiFrameSnapshot operatorUiSnapshot;
+    operatorUiSnapshot.uiText = { RuntimeCameraModeEnabledMask( m_sceneController.State().isSceneMode,
+                                                                m_sceneController.Scene().SceneEntityCount() ),
+                                  m_camera.mode == RunCameraMode::Attach ? m_attachedCamera.ModeLabel()
+                                                                         : RunCameraModeLabel( m_camera.mode ),
+                                  m_runtimeTools.LauncherFireModeLabel(),
+                                  RunCameraModeUsesLauncher( m_camera.mode ),
+                                  m_interaction.Gesture().kind,
+                                  m_interaction.Gesture().gizmoKind,
+                                  presentationFacts.presentationAlpha,
+                                  presentationFacts.capturePresentationPinned,
+                                  presentationFacts.secondsPerFrame,
+                                  presentationFacts.gameUiActive };
+
+    operatorUiSnapshot.metrics = frameMetrics;
+    operatorUiSnapshot.viewportWidth = m_window.ClientWidth();
+    operatorUiSnapshot.viewportHeight = m_window.ClientHeight();
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    operatorUiSnapshot.secondarySurfaceVisible = m_imguiEditor.IsVisible();
+#endif
+
+    OperatorUiPhaseOwner operatorUiPhase;
+
+    if ( !operatorUiPhase.Begin( operatorUiSnapshot ) )
+    {
+        SB_FATAL( "OperatorUI", "Operator UI phase failed to accept its detached frame snapshot." );
+    }
+
+    const RuntimeUiTextFrameFacts& uiTextFacts = operatorUiPhase.Snapshot().uiText;
 
     const ReplayOverlay::ReplayOverlayStateView
         replayOverlay = m_replayRuntime.BuildOverlayStateView( m_runtimeTools.Editor().editorModeEnabled,
@@ -298,7 +316,6 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
     RuntimeInputContext& runtimeInput = m_inputRouter.RuntimeContext();
     CameraControlState& camera = m_camera;
     SkullbonezCore::Threading::WorkerPool& workerPool = m_workerPool;
-    Window& window = m_window;
     RunLaunchOptions& launchOptions = m_launchOptions;
     RuntimeRenderer& renderer = Renderer();
     ReplayRuntime& replayRuntime = m_replayRuntime;
@@ -651,7 +668,13 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
 
     const bool replayPathVisualizerHasTarget = replayRuntime.BuildInputView().hasPathTarget;
 
+    if ( !operatorUiPhase.MarkComposed() )
+    {
+        SB_FATAL( "OperatorUI", "Operator UI phase skipped composition." );
+    }
+
     renderer.PrepareUiFrameTarget();
+    int gameUiDrawCalls = 0;
 
     if ( renderer.ResourceLifecycle().ShouldRenderUiText( debug, scene, sceneController.CrossScenePauseLocked(), camera, ui,
                                                           replayOverlay.shouldRenderScrubber,
@@ -676,80 +699,85 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
                                                 ui.GetActiveTab() == SkullbonezCore::UI::InGameUITab::Memory;
 
         const ReplayHudStatus replayHud = replayRuntime.BuildHudStatus( replayMemoryStatsRequested );
-        UiChromeGraphInvocation uiChrome;
-        uiChrome.debug = &debug;
-        uiChrome.crossScenePauseLocked = sceneController.CrossScenePauseLocked();
-        uiChrome.scene = &scene;
-        uiChrome.camera = &camera;
-        uiChrome.sceneQueueSize = sceneController.QueueSize();
-        uiChrome.cameraModeLabel = uiTextFacts.cameraModeLabel;
-        uiChrome.launcherFireModeLabel = uiTextFacts.launcherFireModeLabel;
-        uiChrome.launcherCameraMode = uiTextFacts.isLauncherCameraMode;
-        uiChrome.replayHud = &replayHud;
-        uiChrome.viewport = { window.ClientWidth(), window.ClientHeight() };
-
-        UiOperatorDiagnosticsGraphInvocation uiOperatorDiagnostics;
-        uiOperatorDiagnostics.replayHud = &replayHud;
-        uiOperatorDiagnostics.diagnosticsRuntime = &diagnosticsRuntime;
-        uiOperatorDiagnostics.ui = &ui;
-        uiOperatorDiagnostics.workerPool = &workerPool;
-
-        UiOperatorSettingsGraphInvocation uiOperatorSettings;
-        uiOperatorSettings.debug = &debug;
-        uiOperatorSettings.renderPresentation = &renderer.PresentationSettings();
-        uiOperatorSettings.world = &sceneController.Scene();
-        uiOperatorSettings.config = &config;
-        uiOperatorSettings.cinematic = &uiCinematic;
-        uiOperatorSettings.cinematicRendering = uiCinematicRendering;
-
-        UiOperatorInteractionGraphInvocation uiOperatorInteraction;
-        uiOperatorInteraction.rayCastTest = &runtimeTools.RayCastTest();
-        uiOperatorInteraction.editor = &runtimeTools.Editor();
-        uiOperatorInteraction.runtimeInput = &runtimeInput;
-        uiOperatorInteraction.camera = &camera;
-        uiOperatorInteraction.ui = &ui;
-        uiOperatorInteraction.cameraModeEnabledMask = uiTextFacts.cameraModeEnabledMask;
-        uiOperatorInteraction.cameraModeLabel = uiTextFacts.cameraModeLabel;
-
-        UiOperatorPresentationGraphInvocation uiOperatorPresentation;
-        uiOperatorPresentation.scene = &scene;
-        uiOperatorPresentation.runtimeViewModel = &runtimeViewModel;
-        uiOperatorPresentation.sceneBrowser = &uiSceneBrowser;
-        uiOperatorPresentation.operatorEditorView = &operatorEditorView;
-        uiOperatorPresentation.sceneHasCurrentEntry = sceneController.HasCurrentEntry();
-        uiOperatorPresentation.currentScenePath = uiScenePath ? uiScenePath->c_str() : nullptr;
-        uiOperatorPresentation.currentSceneBrowserIndex = uiSceneBrowser.CurrentIndexForPath( sceneController.CurrentPath() );
-
-        UiOperatorSubmissionGraphInvocation uiOperatorSubmission;
-        uiOperatorSubmission.ui = &ui;
-        uiOperatorSubmission.renderTargetPreviews = &renderTargetPreviews;
-        uiOperatorSubmission.assets = &m_assets;
-
-        UiReplayGraphInvocation uiReplay;
-        uiReplay.overlay = &replayOverlay;
-        uiReplay.profiler = m_profiler;
-        uiReplay.gameUiSurfaceActive = uiTextFacts.gameUiActive;
-        uiReplay.scenePhysicsEnabled = scene.isScenePhysics;
-        uiReplay.gesture = uiTextFacts.interactionGestureKind;
-        uiReplay.viewport = { window.ClientWidth(), window.ClientHeight() };
-        uiReplay.nowSeconds = frameMetrics.simulationTotalSeconds;
+        const UiTextViewport uiViewport { operatorUiPhase.Snapshot().viewportWidth,
+                                          operatorUiPhase.Snapshot().viewportHeight };
 
         PROFILE_BEGIN( "Frame/UI" );
         {
             CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Render );
+            const RuntimeFrameMetricsSnapshot& metrics = operatorUiPhase.Snapshot().metrics;
+            const int uiDrawCallStart = renderer.BeginUiTextFrame( uiViewport );
+            renderer.SubmitUiChrome( uiViewport, debug, sceneController.CrossScenePauseLocked(), scene, camera,
+                                     sceneController.QueueSize(), uiTextFacts.cameraModeLabel, replayHud,
+                                     uiTextFacts.isLauncherCameraMode, uiTextFacts.launcherFireModeLabel,
+                                     metrics.sceneElapsedSeconds );
 
-            // Lifetime: caller-owned ABI records and every direct borrow remain
-            // valid until the synchronous UI-text graph completes below.
-            m_timers.RecordUiDrawCalls( renderer.RenderUiText( frameMetrics, renderModels, uiChrome, uiOperatorDiagnostics,
-                                                               uiOperatorSettings, uiOperatorInteraction,
-                                                               uiOperatorPresentation, uiOperatorSubmission, uiReplay ) );
+            const bool textOnly = debug.isTextOnly;
+            const bool operatorNeeded = ui.NeedsUiTextPass();
+            const bool operatorVisible = ui.IsVisible();
+            const bool profilerBars = debug.overlayMode == OverlayMode::BarsNormalized ||
+                                      debug.overlayMode == OverlayMode::BarsAbsolute;
+            const OperatorUiSubmissionPlan submissionPlan = ResolveOperatorUiSubmissionPlan(
+                textOnly, operatorNeeded, operatorVisible, profilerBars );
+
+            if ( submissionPlan.composeGameUi )
+            {
+                // UI composition is a CPU value phase. Only prepare/submission
+                // touch the GPU, and each renderer callback borrow ends before
+                // the next focused operation begins.
+                SkullbonezCore::UI::InGameUIFrameData uiData;
+                renderer.PrepareOperatorUiFrame( uiData, uiViewport, debug.isUITestPattern );
+                renderer.ProjectOperatorUiDiagnostics( uiData, replayHud, metrics, renderModels, diagnosticsRuntime, ui,
+                                                        &workerPool );
+                renderer.ProjectOperatorUiSettings( uiData, debug, renderer.PresentationSettings(),
+                                                     sceneController.Scene(), config, uiCinematic,
+                                                     uiCinematicRendering );
+                renderer.ProjectOperatorUiInteraction( uiData, runtimeTools.RayCastTest(), runtimeTools.Editor(),
+                                                        runtimeInput, camera, ui, uiTextFacts.cameraModeEnabledMask,
+                                                        uiTextFacts.cameraModeLabel );
+                renderer.ProjectOperatorUiPresentation(
+                    uiData, scene, runtimeViewModel, uiSceneBrowser, operatorEditorView,
+                    sceneController.HasCurrentEntry(), uiScenePath ? uiScenePath->c_str() : nullptr,
+                    uiSceneBrowser.CurrentIndexForPath( sceneController.CurrentPath() ), metrics.sceneEnergy );
+                renderer.SubmitOperatorUiFrame( uiData, ui, renderTargetPreviews, m_assets, uiDrawCallStart );
+            }
+
+            if ( submissionPlan.submitOverlay )
+            {
+                const float rollingFps = metrics.rollingFrameSeconds > 0.0f ? 1.0f / metrics.rollingFrameSeconds : 0.0f;
+                renderer.SubmitUiOverlay( uiViewport, debug.overlayMode, scene.modelCount, rollingFps,
+                                          metrics.sceneEnergy );
+            }
+
+            if ( submissionPlan.submitReplay )
+            {
+                renderer.SubmitReplayUi( replayOverlay, m_profiler, uiTextFacts.gameUiActive, scene.isScenePhysics,
+                                         uiTextFacts.interactionGestureKind, uiViewport,
+                                         metrics.simulationTotalSeconds );
+            }
+
+            if ( submissionPlan.finalizeOverlay )
+            {
+                renderer.FinalizeUiOverlay( debug.overlayMode );
+            }
+
+            gameUiDrawCalls = renderer.EndUiTextFrame( uiDrawCallStart );
         }
         PROFILE_END( "Frame/UI" );
     }
     else
     {
-        m_timers.RecordUiDrawCalls( 0 );
+        gameUiDrawCalls = 0;
     }
+
+    if ( !operatorUiPhase.RecordGpuSubmission( gameUiDrawCalls ) )
+    {
+        SB_FATAL( "OperatorUI", "Operator UI phase recorded GPU submission out of order." );
+    }
+
+    m_timers.RecordUiDrawCalls( operatorUiPhase.GameUiDrawCalls() );
+
+    OperatorUiProcessCommands uiProcessCommands;
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     const UINT windowDpi = GetDpiForWindow( m_window.NativeWindowHandle() );
@@ -785,28 +813,47 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
 
         if ( imguiResult.commands.requestSurfaceSwap )
         {
-            SelectDevelopmentUiSurface( DevelopmentUiMode::GameUI );
+            uiProcessCommands.surface = OperatorUiSurfaceCommand::ShowGameUi;
         }
 
         if ( imguiResult.commands.requestTracyStandardCapture )
         {
-            bool tracyStarted = false;
+            uiProcessCommands.requestTracyStandardCapture = true;
+        }
+    }
+#endif
+
+    if ( !operatorUiPhase.EmitCommands( uiProcessCommands ) || !operatorUiPhase.Complete() )
+    {
+        SB_FATAL( "OperatorUI", "Operator UI phase failed to complete after command emission." );
+    }
+
+    // App alone applies process and native-surface effects after both UI
+    // presenters have finished consuming the immutable phase snapshot.
+    if ( operatorUiPhase.Commands().surface == OperatorUiSurfaceCommand::ShowGameUi )
+    {
+        SelectDevelopmentUiSurface( DevelopmentUiMode::GameUI );
+    }
+
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    if ( operatorUiPhase.Commands().requestTracyStandardCapture )
+    {
+        bool tracyStarted = false;
 #if defined( TRACY_ENABLE )
 
-            if ( m_tracyClientOwner )
-            {
-                CoreAllocation::RuntimeAllocationScope tracyStartScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
-                tracyStarted = m_tracyClientOwner->StartStandardCapture();
+        if ( m_tracyClientOwner )
+        {
+            CoreAllocation::RuntimeAllocationScope tracyStartScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
+            tracyStarted = m_tracyClientOwner->StartStandardCapture();
 
-                if ( tracyStarted )
-                {
-                    m_workerPool.Initialise( m_config.runtimeCapacity.workerThreads );
-                    m_workerPool.BindProfiler( m_profiler );
-                }
+            if ( tracyStarted )
+            {
+                m_workerPool.Initialise( m_config.runtimeCapacity.workerThreads );
+                m_workerPool.BindProfiler( m_profiler );
             }
-#endif
-            m_imguiEditor.ReportTracyClientStartResult( tracyStarted );
         }
+#endif
+        m_imguiEditor.ReportTracyClientStartResult( tracyStarted );
     }
 #endif
 }

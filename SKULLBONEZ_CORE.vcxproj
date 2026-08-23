@@ -401,7 +401,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\OperatorCommandTransaction.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\UI\RenderDiagnosticsProjection.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\UI\RuntimeViewModel.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\UI\OperatorEditorFrameComposer.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\App\OperatorEditorFramePhase.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\ApplicationExitState.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\PrimitiveBatchRenderer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\Init.cpp" />
@@ -572,6 +572,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\RuntimeOverlayDiagnostics.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Automation\RuntimeValidationHarness.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeFrameViews.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\UI\OperatorUiPhase.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Simulation\SimulationSystem.h" />
     <ClInclude Include="SkullbonezSource\Runtime\App\ApplicationExitState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Input\Input.h" />

@@ -361,6 +361,7 @@
           "Runtime/Startup/Window.h",
           "Runtime/Tools/RuntimeFileWriter.h",
           "Runtime/Tools/RuntimeTools.h",
+          "Runtime/UI/OperatorUiPhase.h",
           "Runtime/UI/RuntimeViewModel.h"
         ]
       }
@@ -615,11 +616,6 @@
         {"source": "Runtime/Tools/RuntimeTools.cpp", "line": 48, "target": "Runtime/Editor/EditorOverlayTools.h", "fingerprint": "deaa2ff16b65370aa3da2ac2d22333105acc1c87202ea5b9d321619a51bfa1c2", "repair_phase": "RBS2-RBS5"},
         {"source": "Runtime/Tools/RuntimeTools.h", "line": 46, "target": "Runtime/Editor/LauncherLaser.h", "fingerprint": "78aaeb1d29f01863fb0f35dc865207c2f8363219ed93f3b86de991654e9c5702", "repair_phase": "RBS2-RBS5"},
         {"source": "Runtime/Tools/RuntimeTools.h", "line": 47, "target": "Runtime/Editor/EditorCommandHistory.h", "fingerprint": "374d5f375e8d61b817947d32e284b7c6bf47e56958c002abf9317585d817c45d", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/UI/OperatorEditorFrameComposer.cpp", "line": 31, "target": "Runtime/App/Run.h", "fingerprint": "5b5d07c96ec1a49dad2e28a5e252873efff05d7c34791a1732264a9753632807", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/UI/OperatorEditorFrameComposer.cpp", "line": 32, "target": "Runtime/Diagnostics/RuntimeOverlayDiagnostics.h", "fingerprint": "91b00ab164de46bcfb2cce640a5744580ced29f3a3eef2eae32c8f07f93e4985", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/UI/OperatorEditorFrameComposer.cpp", "line": 33, "target": "Runtime/Automation/RuntimeValidationHarness.h", "fingerprint": "ae46b7c57428a6dd7106968b796c4e562e87fad646a90585d69e967ad4e5e0fb", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/UI/OperatorEditorFrameComposer.cpp", "line": 39, "target": "Runtime/Capture/CaptureSystem.h", "fingerprint": "f86d339b86668fdd7b6257a27c670e59659e27c47bad3937abe39a31354d7a46", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/UI/OperatorEditorFrameComposer.cpp", "line": 40, "target": "Runtime/Editor/EditorTools.h", "fingerprint": "b970b229fd8cfc44097e83a2da9bc8888785c2e74abc49c501730d909a452d8d", "repair_phase": "RBS2-RBS5"},
         {"source": "Runtime/UI/RuntimeViewModel.cpp", "line": 23, "target": "Runtime/Capture/CaptureController.h", "fingerprint": "8fc95d7d5b3c4b64261e983256ca639bbe9a836ebcfdb352c91b0464f372ec3a", "repair_phase": "RBS2-RBS5"},
         {"source": "Runtime/UI/RuntimeViewModel.cpp", "line": 24, "target": "Runtime/Scene/SceneController.h", "fingerprint": "a0c5356a835f6cc76f98e40dc326adaffa55464b35046938b291c83715b4b82c", "repair_phase": "RBS2-RBS5"}
       ]

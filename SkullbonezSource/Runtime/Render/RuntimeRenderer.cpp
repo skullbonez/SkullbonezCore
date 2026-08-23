@@ -17,10 +17,10 @@ Invariants:
     pointers returned from ShadowPassOutput or ReflectionPassOutput consumers.
   - Detached contact geometry reaches DebugOverlayPass as a Rendering value;
     RuntimeRenderer does not inspect its feature origin.
-  - UI-text scheduling executes frame metrics before one graph compile, then
-    chrome, focused operator projection/submission, HUD overlay, Replay, and
-    final flush callbacks in visual order. Font, timing, and ray-tracing
-    capabilities remain inside UiTextPass.
+  - UI-text scheduling samples frame metrics once, then executes focused chrome,
+    operator submission, HUD overlay, Replay, and final-flush graphs in visual
+    order. Each graph completes before its callback borrows expire; font,
+    timing, and ray-tracing capabilities remain inside UiTextPass.
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h declares pass contracts.
@@ -231,6 +231,65 @@ struct SkyboxGraphInvocation
     const RenderCameraLighting* camera = nullptr;
     SkullbonezCore::Rendering::Dx12GeometryOwner* renderGeometry = nullptr;
     SkullbonezCore::Rendering::Dx12TextureOwner* renderTextures = nullptr;
+};
+
+// Lifetime: these graph callback records never cross RuntimeRenderer's public
+// boundary. Each focused submission method executes its graph before returning.
+struct UiChromeGraphInvocation
+{
+    UiTextPass* pass = nullptr;
+    Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
+    const OverlayDebugState* debug = nullptr;
+    bool crossScenePauseLocked = false;
+    const SceneSessionState* scene = nullptr;
+    const CameraControlState* camera = nullptr;
+    int sceneQueueSize = 0;
+    const char* cameraModeLabel = "";
+    const char* launcherFireModeLabel = "";
+    bool launcherCameraMode = false;
+    const ReplayHudStatus* replayHud = nullptr;
+    UiTextViewport viewport;
+    double reproMessageAgeSeconds = 0.0;
+    Rendering::Dx12TextureOwner* renderTextures = nullptr;
+    Rendering::Dx12GeometryOwner* renderGeometry = nullptr;
+    Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
+    const Rendering::RenderGraphCompileResult* compiled = nullptr;
+    size_t expectedTransitionCount = 0;
+};
+
+struct UiOperatorSubmissionGraphInvocation
+{
+    UiTextPass* pass = nullptr;
+    Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
+    SkullbonezCore::UI::InGameUIFrameData* uiData = nullptr;
+    SkullbonezCore::UI::InGameUI* ui = nullptr;
+    const RuntimeRenderTargetPreviewSnapshot* renderTargetPreviews = nullptr;
+    SkullbonezCore::Assets::AssetSystem* assets = nullptr;
+    Rendering::Dx12ResourceBuilder* renderResources = nullptr;
+    Rendering::Dx12TextureOwner* renderTextures = nullptr;
+    Rendering::Dx12GeometryOwner* renderGeometry = nullptr;
+    Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
+    int uiPassDrawCallStart = 0;
+    const Rendering::RenderGraphCompileResult* compiled = nullptr;
+    size_t expectedTransitionCount = 0;
+};
+
+struct UiReplayGraphInvocation
+{
+    UiTextPass* pass = nullptr;
+    Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
+    const ReplayOverlay::ReplayOverlayStateView* overlay = nullptr;
+    SkullbonezCore::Core::Profiler* profiler = nullptr;
+    bool gameUiSurfaceActive = true;
+    bool scenePhysicsEnabled = false;
+    RuntimeInteractionGestureKind gesture = RuntimeInteractionGestureKind::None;
+    UiTextViewport viewport;
+    double nowSeconds = 0.0;
+    Rendering::Dx12TextureOwner* renderTextures = nullptr;
+    Rendering::Dx12GeometryOwner* renderGeometry = nullptr;
+    Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
+    const Rendering::RenderGraphCompileResult* compiled = nullptr;
+    size_t expectedTransitionCount = 0;
 };
 
 struct UiOperatorPrepareGraphInvocation
@@ -569,63 +628,6 @@ void ExecuteUiOperatorPrepareGraphCallback( const SkullbonezCore::Rendering::Ren
     (void)ExecuteRequiredGraphTransitions( context, data.renderGraph, data.compiled, data.expectedTransitionCount );
     data.pass->PrepareOperatorFrame( *data.uiData, data.viewport, data.drawTestPattern, *data.renderTextures,
                                      *data.renderGeometry, *data.renderDiagnostics );
-}
-
-void ExecuteUiOperatorDiagnosticsGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
-                                                UiOperatorDiagnosticsGraphInvocation& data )
-{
-    if ( !data.pass || !data.renderGraph || !data.uiData || !data.replayHud || !data.metrics || !data.models ||
-         !data.diagnosticsRuntime || !data.ui || !data.renderDiagnostics )
-    {
-        SB_FATAL( "RunRender", "UI operator diagnostics graph callback missing execution data." );
-    }
-
-    (void)ExecuteRequiredGraphTransitions( context, data.renderGraph, data.compiled, data.expectedTransitionCount );
-    data.pass->ProjectOperatorDiagnostics( *data.uiData, *data.replayHud, *data.metrics, *data.models,
-                                           *data.diagnosticsRuntime, *data.ui, data.workerPool, *data.renderDiagnostics );
-}
-
-void ExecuteUiOperatorSettingsGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
-                                             UiOperatorSettingsGraphInvocation& data )
-{
-    if ( !data.pass || !data.renderGraph || !data.uiData || !data.debug || !data.renderPresentation || !data.world ||
-         !data.config || !data.cinematic )
-    {
-        SB_FATAL( "RunRender", "UI operator settings graph callback missing execution data." );
-    }
-
-    (void)ExecuteRequiredGraphTransitions( context, data.renderGraph, data.compiled, data.expectedTransitionCount );
-    data.pass->ProjectOperatorSettings( *data.uiData, *data.debug, *data.renderPresentation, *data.world, *data.config,
-                                        *data.cinematic, data.cinematicRendering );
-}
-
-void ExecuteUiOperatorInteractionGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
-                                                UiOperatorInteractionGraphInvocation& data )
-{
-    if ( !data.pass || !data.renderGraph || !data.uiData || !data.rayCastTest || !data.editor || !data.runtimeInput ||
-         !data.camera || !data.ui )
-    {
-        SB_FATAL( "RunRender", "UI operator interaction graph callback missing execution data." );
-    }
-
-    (void)ExecuteRequiredGraphTransitions( context, data.renderGraph, data.compiled, data.expectedTransitionCount );
-    data.pass->ProjectOperatorInteraction( *data.uiData, *data.rayCastTest, *data.editor, *data.runtimeInput, *data.camera,
-                                           *data.ui, data.cameraModeEnabledMask, data.cameraModeLabel );
-}
-
-void ExecuteUiOperatorPresentationGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
-                                                 UiOperatorPresentationGraphInvocation& data )
-{
-    if ( !data.pass || !data.renderGraph || !data.uiData || !data.scene || !data.runtimeViewModel || !data.sceneBrowser ||
-         !data.operatorEditorView )
-    {
-        SB_FATAL( "RunRender", "UI operator presentation graph callback missing execution data." );
-    }
-
-    (void)ExecuteRequiredGraphTransitions( context, data.renderGraph, data.compiled, data.expectedTransitionCount );
-    data.pass->ProjectOperatorPresentation( *data.uiData, *data.scene, *data.runtimeViewModel, *data.sceneBrowser,
-                                            *data.operatorEditorView, data.sceneHasCurrentEntry, data.currentScenePath,
-                                            data.currentSceneBrowserIndex, data.sceneEnergyForDisplay );
 }
 
 void ExecuteUiOperatorSubmissionGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
@@ -1580,215 +1582,236 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const CinematicPostGrap
 }
 
 
-int RuntimeRenderer::RenderUiText( const RuntimeFrameMetricsSnapshot& metrics, const RuntimeRenderModelFrameView& models,
-                                   UiChromeGraphInvocation& chrome,
-                                   UiOperatorDiagnosticsGraphInvocation& operatorDiagnostics,
-                                   UiOperatorSettingsGraphInvocation& operatorSettings,
-                                   UiOperatorInteractionGraphInvocation& operatorInteraction,
-                                   UiOperatorPresentationGraphInvocation& operatorPresentation,
-                                   UiOperatorSubmissionGraphInvocation& operatorSubmission, UiReplayGraphInvocation& replay )
+int RuntimeRenderer::BeginUiTextFrame( const UiTextViewport& viewport )
 {
-    // Why: RenderGraph borrows callback userdata until ExecuteGraphCallbacksOrFatal(),
-    // so callers own each operation-specific ABI record until this method returns.
-    // Invariant: no record collects the UI union; focused passes register in
-    // visual order and share exactly one compile/execute cycle.
-    Rendering::Dx12Diagnostics* renderDiagnostics = &m_resources.RenderDiagnostics();
-
-    const int drawCallStart = renderDiagnostics->GetFrameDrawCallCount();
-    DRAW_CALL_TRACE_SCOPE( *renderDiagnostics, "Frame/UI" );
-    m_resources.UiText().BeginFrame( chrome.viewport.screenW, chrome.viewport.screenH );
-    const float sceneEnergyForDisplay = metrics.sceneEnergy;
-
-    chrome.reproMessageAgeSeconds = metrics.sceneElapsedSeconds;
-
-    UI::InGameUIFrameData uiData;
-    UiOperatorPrepareGraphInvocation operatorPrepare;
-    operatorPrepare.uiData = &uiData;
-    operatorPrepare.viewport = chrome.viewport;
-    operatorPrepare.drawTestPattern = operatorSettings.debug && operatorSettings.debug->isUITestPattern;
-
-    operatorDiagnostics.uiData = &uiData;
-    operatorDiagnostics.metrics = &metrics;
-    operatorDiagnostics.models = &models;
-    operatorSettings.uiData = &uiData;
-    operatorInteraction.uiData = &uiData;
-    operatorPresentation.uiData = &uiData;
-    operatorPresentation.sceneEnergyForDisplay = sceneEnergyForDisplay;
-    operatorSubmission.uiData = &uiData;
-    operatorSubmission.uiPassDrawCallStart = drawCallStart;
-
-    UiOverlayGraphInvocation overlay;
-    overlay.viewport = chrome.viewport;
-    overlay.mode = chrome.debug ? chrome.debug->overlayMode : OverlayMode::None;
-    overlay.modelCount = chrome.scene ? chrome.scene->modelCount : 0;
-    overlay.rollingFpsTime = metrics.rollingFrameSeconds > 0.0f ? 1.0f / metrics.rollingFrameSeconds : 0.0f;
-    overlay.sceneEnergyForDisplay = sceneEnergyForDisplay;
-
-    UiFinalizeGraphInvocation finalize;
-    finalize.mode = overlay.mode;
-
-    Rendering::RenderGraph& graph = BeginRenderPassGraph();
-
-    const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph, m_resources.RenderGraph() );
-
-    constexpr uint32_t INVALID_PASS = 0xFFFFFFFFu;
-    uint32_t callbackCount = 0;
-    const bool textOnly = chrome.debug && chrome.debug->isTextOnly;
-    const bool operatorNeeded = operatorSubmission.ui && operatorSubmission.ui->NeedsUiTextPass();
-    const bool operatorVisible = operatorSubmission.ui && operatorSubmission.ui->IsVisible();
-    const bool profilerBars = overlay.mode == OverlayMode::BarsNormalized || overlay.mode == OverlayMode::BarsAbsolute;
-
-    const uint32_t chromePass = graph.AddPass( "UiChrome", Rendering::RenderGraphQueueType::Graphics );
-    graph.AddWrite( chromePass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
-    chrome.pass = &m_resources.UiText();
-    chrome.renderGraph = &m_resources.RenderGraph();
-    chrome.renderTextures = &m_resources.RenderTextures();
-    chrome.renderGeometry = &m_resources.RenderGeometry();
-    chrome.renderDiagnostics = renderDiagnostics;
-    graph.SetPassCallback<ExecuteUiChromeGraphCallback>( chromePass, chrome, true, "Frame/UI/Chrome" );
-    ++callbackCount;
-
-    uint32_t operatorPreparePass = INVALID_PASS;
-    uint32_t operatorDiagnosticsPass = INVALID_PASS;
-    uint32_t operatorSettingsPass = INVALID_PASS;
-    uint32_t operatorInteractionPass = INVALID_PASS;
-    uint32_t operatorPresentationPass = INVALID_PASS;
-    uint32_t operatorSubmissionPass = INVALID_PASS;
-
-    if ( !textOnly && operatorNeeded )
-    {
-        // Invariant: one RenderGraph order owns the UIData write sequence.
-        // Prepare and submission are scheduled together, which balances the
-        // BuildData profile scope and prevents a partially projected draw.
-        auto addOperatorPass = [&]( const char* name ) -> uint32_t
-        {
-            const uint32_t pass = graph.AddPass( name, Rendering::RenderGraphQueueType::Graphics );
-
-            graph.AddWrite( pass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
-            ++callbackCount;
-            return pass;
-        };
-
-        operatorPreparePass = addOperatorPass( "UiOperatorPrepare" );
-        operatorPrepare.pass = &m_resources.UiText();
-        operatorPrepare.renderGraph = &m_resources.RenderGraph();
-        operatorPrepare.renderTextures = &m_resources.RenderTextures();
-        operatorPrepare.renderGeometry = &m_resources.RenderGeometry();
-        operatorPrepare.renderDiagnostics = renderDiagnostics;
-        graph.SetPassCallback<ExecuteUiOperatorPrepareGraphCallback>( operatorPreparePass, operatorPrepare, true,
-                                                                      "Frame/UI/Operator/Prepare" );
-
-        operatorDiagnosticsPass = addOperatorPass( "UiOperatorDiagnostics" );
-        operatorDiagnostics.pass = &m_resources.UiText();
-        operatorDiagnostics.renderGraph = &m_resources.RenderGraph();
-        operatorDiagnostics.renderDiagnostics = renderDiagnostics;
-        graph.SetPassCallback<ExecuteUiOperatorDiagnosticsGraphCallback>( operatorDiagnosticsPass, operatorDiagnostics, true,
-                                                                          "Frame/UI/Operator/Diagnostics" );
-
-        operatorSettingsPass = addOperatorPass( "UiOperatorSettings" );
-        operatorSettings.pass = &m_resources.UiText();
-        operatorSettings.renderGraph = &m_resources.RenderGraph();
-        graph.SetPassCallback<ExecuteUiOperatorSettingsGraphCallback>( operatorSettingsPass, operatorSettings, true,
-                                                                       "Frame/UI/Operator/Settings" );
-
-        operatorInteractionPass = addOperatorPass( "UiOperatorInteraction" );
-        operatorInteraction.pass = &m_resources.UiText();
-        operatorInteraction.renderGraph = &m_resources.RenderGraph();
-        graph.SetPassCallback<ExecuteUiOperatorInteractionGraphCallback>( operatorInteractionPass, operatorInteraction, true,
-                                                                          "Frame/UI/Operator/Interaction" );
-
-        operatorPresentationPass = addOperatorPass( "UiOperatorPresentation" );
-        operatorPresentation.pass = &m_resources.UiText();
-        operatorPresentation.renderGraph = &m_resources.RenderGraph();
-        graph.SetPassCallback<ExecuteUiOperatorPresentationGraphCallback>( operatorPresentationPass, operatorPresentation,
-                                                                           true, "Frame/UI/Operator/Presentation" );
-
-        operatorSubmissionPass = addOperatorPass( "UiOperatorSubmission" );
-        operatorSubmission.pass = &m_resources.UiText();
-        operatorSubmission.renderGraph = &m_resources.RenderGraph();
-        operatorSubmission.renderResources = &m_resources.RenderResources();
-        operatorSubmission.renderTextures = &m_resources.RenderTextures();
-        operatorSubmission.renderGeometry = &m_resources.RenderGeometry();
-        operatorSubmission.renderDiagnostics = renderDiagnostics;
-        graph.SetPassCallback<ExecuteUiOperatorSubmissionGraphCallback>( operatorSubmissionPass, operatorSubmission, true,
-                                                                         "Frame/UI/Operator/Submission" );
-    }
-
-    uint32_t overlayPass = INVALID_PASS;
-
-    if ( !textOnly && !operatorVisible )
-    {
-        overlayPass = graph.AddPass( "UiOverlay", Rendering::RenderGraphQueueType::Graphics );
-        graph.AddWrite( overlayPass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
-        overlay.pass = &m_resources.UiText();
-        overlay.renderGraph = &m_resources.RenderGraph();
-        overlay.renderTextures = &m_resources.RenderTextures();
-        overlay.renderGeometry = &m_resources.RenderGeometry();
-        overlay.renderDiagnostics = renderDiagnostics;
-        graph.SetPassCallback<ExecuteUiOverlayGraphCallback>( overlayPass, overlay, true, "Frame/UI/Overlay" );
-        ++callbackCount;
-    }
-
-    uint32_t replayPass = INVALID_PASS;
-
-    if ( !textOnly )
-    {
-        replayPass = graph.AddPass( "UiReplay", Rendering::RenderGraphQueueType::Graphics );
-        graph.AddWrite( replayPass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
-        replay.pass = &m_resources.UiText();
-        replay.renderGraph = &m_resources.RenderGraph();
-        replay.renderTextures = &m_resources.RenderTextures();
-        replay.renderGeometry = &m_resources.RenderGeometry();
-        replay.renderDiagnostics = renderDiagnostics;
-        graph.SetPassCallback<ExecuteUiReplayGraphCallback>( replayPass, replay, true, "Frame/UI/Replay" );
-        ++callbackCount;
-    }
-
-    uint32_t finalizePass = INVALID_PASS;
-
-    if ( !textOnly && !operatorVisible && !profilerBars )
-    {
-        finalizePass = graph.AddPass( "UiFinalize", Rendering::RenderGraphQueueType::Graphics );
-        graph.AddWrite( finalizePass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
-        finalize.pass = &m_resources.UiText();
-        finalize.renderGraph = &m_resources.RenderGraph();
-        finalize.renderTextures = &m_resources.RenderTextures();
-        finalize.renderGeometry = &m_resources.RenderGeometry();
-        finalize.renderDiagnostics = renderDiagnostics;
-        graph.SetPassCallback<ExecuteUiFinalizeGraphCallback>( finalizePass, finalize, true, "Frame/UI/Finalize" );
-        ++callbackCount;
-    }
-
-    // Invariant: the focused callbacks retain the historical draw order while
-    // sharing one graph compile/execute cycle. Text-only schedules only chrome;
-    // visible GameUI skips HUD overlay/final flush but still draws Replay.
-    const Rendering::RenderGraphCompileResult& compiled = CompileRenderPassGraph( graph );
-    chrome.compiled = &compiled;
-    chrome.expectedTransitionCount = CountCompiledTransitionsForPass( compiled, chromePass );
-    auto bindCompiledPass = [&]( auto& invocation, uint32_t pass )
-    {
-        if ( pass != INVALID_PASS )
-        {
-            invocation.compiled = &compiled;
-
-            invocation.expectedTransitionCount = CountCompiledTransitionsForPass( compiled, pass );
-        }
-    };
-    bindCompiledPass( operatorPrepare, operatorPreparePass );
-    bindCompiledPass( operatorDiagnostics, operatorDiagnosticsPass );
-    bindCompiledPass( operatorSettings, operatorSettingsPass );
-    bindCompiledPass( operatorInteraction, operatorInteractionPass );
-    bindCompiledPass( operatorPresentation, operatorPresentationPass );
-    bindCompiledPass( operatorSubmission, operatorSubmissionPass );
-    bindCompiledPass( overlay, overlayPass );
-    bindCompiledPass( replay, replayPass );
-    bindCompiledPass( finalize, finalizePass );
-    ExecuteGraphCallbacksOrFatal( graph, callbackCount, "UiText" );
-    m_resources.UiText().ReportRetainedDrawStats();
-    return (std::max)( 0, renderDiagnostics->GetFrameDrawCallCount() - drawCallStart );
+    Rendering::Dx12Diagnostics& diagnostics = m_resources.RenderDiagnostics();
+    m_resources.UiText().BeginFrame( viewport.screenW, viewport.screenH );
+    return diagnostics.GetFrameDrawCallCount();
 }
 
 
+void RuntimeRenderer::SubmitUiChrome( const UiTextViewport& viewport, const OverlayDebugState& debug,
+                                      bool crossScenePauseLocked, const SceneSessionState& scene,
+                                      const CameraControlState& camera, int sceneQueueSize, const char* cameraModeLabel,
+                                      const ReplayHudStatus& replayHud, bool launcherCameraMode,
+                                      const char* launcherFireModeLabel, double reproMessageAgeSeconds )
+{
+    UiChromeGraphInvocation invocation;
+    invocation.pass = &m_resources.UiText();
+    invocation.renderGraph = &m_resources.RenderGraph();
+    invocation.debug = &debug;
+    invocation.crossScenePauseLocked = crossScenePauseLocked;
+    invocation.scene = &scene;
+    invocation.camera = &camera;
+    invocation.sceneQueueSize = sceneQueueSize;
+    invocation.cameraModeLabel = cameraModeLabel;
+    invocation.launcherFireModeLabel = launcherFireModeLabel;
+    invocation.launcherCameraMode = launcherCameraMode;
+    invocation.replayHud = &replayHud;
+    invocation.viewport = viewport;
+    invocation.reproMessageAgeSeconds = reproMessageAgeSeconds;
+    invocation.renderTextures = &m_resources.RenderTextures();
+    invocation.renderGeometry = &m_resources.RenderGeometry();
+    invocation.renderDiagnostics = &m_resources.RenderDiagnostics();
+
+    Rendering::RenderGraph& graph = BeginRenderPassGraph();
+    const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph, m_resources.RenderGraph() );
+    const uint32_t pass = graph.AddPass( "UiChrome", Rendering::RenderGraphQueueType::Graphics );
+    graph.AddWrite( pass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
+    graph.SetPassCallback<ExecuteUiChromeGraphCallback>( pass, invocation, true, "Frame/UI/Chrome" );
+    const Rendering::RenderGraphCompileResult& compiled = CompileRenderPassGraph( graph );
+    invocation.compiled = &compiled;
+    invocation.expectedTransitionCount = CountCompiledTransitionsForPass( compiled, pass );
+    ExecuteGraphCallbacksOrFatal( graph, 1u, "UiChrome" );
+}
+
+
+void RuntimeRenderer::PrepareOperatorUiFrame( UI::InGameUIFrameData& uiData, const UiTextViewport& viewport,
+                                              bool drawTestPattern )
+{
+    UiOperatorPrepareGraphInvocation invocation;
+    invocation.pass = &m_resources.UiText();
+    invocation.renderGraph = &m_resources.RenderGraph();
+    invocation.uiData = &uiData;
+    invocation.viewport = viewport;
+    invocation.drawTestPattern = drawTestPattern;
+    invocation.renderTextures = &m_resources.RenderTextures();
+    invocation.renderGeometry = &m_resources.RenderGeometry();
+    invocation.renderDiagnostics = &m_resources.RenderDiagnostics();
+
+    Rendering::RenderGraph& graph = BeginRenderPassGraph();
+    const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph, m_resources.RenderGraph() );
+    const uint32_t pass = graph.AddPass( "UiOperatorPrepare", Rendering::RenderGraphQueueType::Graphics );
+    graph.AddWrite( pass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
+    graph.SetPassCallback<ExecuteUiOperatorPrepareGraphCallback>( pass, invocation, true, "Frame/UI/Operator/Prepare" );
+    const Rendering::RenderGraphCompileResult& compiled = CompileRenderPassGraph( graph );
+    invocation.compiled = &compiled;
+    invocation.expectedTransitionCount = CountCompiledTransitionsForPass( compiled, pass );
+    ExecuteGraphCallbacksOrFatal( graph, 1u, "UiOperatorPrepare" );
+}
+
+
+void RuntimeRenderer::ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& uiData, const ReplayHudStatus& replayHud,
+                                                    const RuntimeFrameMetricsSnapshot& metrics,
+                                                    const RuntimeRenderModelFrameView& models,
+                                                    DiagnosticsRuntime& diagnosticsRuntime, UI::InGameUI& ui,
+                                                    Threading::WorkerPool* workerPool )
+{
+    m_resources.UiText().ProjectOperatorDiagnostics( uiData, replayHud, metrics, models, diagnosticsRuntime, ui,
+                                                     workerPool, m_resources.RenderDiagnostics() );
+}
+
+
+void RuntimeRenderer::ProjectOperatorUiSettings( UI::InGameUIFrameData& uiData, const OverlayDebugState& debug,
+                                                 const RenderPresentationSettings& presentation, const SceneWorld& world,
+                                                 const SkullbonezCore::Core::EngineConfig& config,
+                                                 const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+                                                 bool cinematicRendering )
+{
+    m_resources.UiText().ProjectOperatorSettings( uiData, debug, presentation, world, config, cinematic,
+                                                  cinematicRendering );
+}
+
+
+void RuntimeRenderer::ProjectOperatorUiInteraction( UI::InGameUIFrameData& uiData, const RunRayCastTestState& rayCastTest,
+                                                    const RunEditorPlacementState& editor,
+                                                    const RuntimeInputContext& runtimeInput,
+                                                    const CameraControlState& camera, const UI::InGameUI& ui,
+                                                    uint32_t cameraModeEnabledMask, const char* cameraModeLabel )
+{
+    m_resources.UiText().ProjectOperatorInteraction( uiData, rayCastTest, editor, runtimeInput, camera, ui,
+                                                     cameraModeEnabledMask, cameraModeLabel );
+}
+
+
+void RuntimeRenderer::ProjectOperatorUiPresentation( UI::InGameUIFrameData& uiData, const SceneSessionState& scene,
+                                                     const RuntimeViewModel& runtimeViewModel,
+                                                     const UI::RunSceneBrowserState& sceneBrowser,
+                                                     const UI::OperatorEditorFrameView& operatorEditorView,
+                                                     bool sceneHasCurrentEntry, const char* currentScenePath,
+                                                     int currentSceneBrowserIndex, float sceneEnergyForDisplay )
+{
+    m_resources.UiText().ProjectOperatorPresentation( uiData, scene, runtimeViewModel, sceneBrowser, operatorEditorView,
+                                                      sceneHasCurrentEntry, currentScenePath, currentSceneBrowserIndex,
+                                                      sceneEnergyForDisplay );
+}
+
+
+void RuntimeRenderer::SubmitOperatorUiFrame( UI::InGameUIFrameData& uiData, UI::InGameUI& ui,
+                                             const RuntimeRenderTargetPreviewSnapshot& previews,
+                                             Assets::AssetSystem& assets, int uiPassDrawCallStart )
+{
+    UiOperatorSubmissionGraphInvocation invocation;
+    invocation.pass = &m_resources.UiText();
+    invocation.renderGraph = &m_resources.RenderGraph();
+    invocation.uiData = &uiData;
+    invocation.ui = &ui;
+    invocation.renderTargetPreviews = &previews;
+    invocation.assets = &assets;
+    invocation.renderResources = &m_resources.RenderResources();
+    invocation.renderTextures = &m_resources.RenderTextures();
+    invocation.renderGeometry = &m_resources.RenderGeometry();
+    invocation.renderDiagnostics = &m_resources.RenderDiagnostics();
+    invocation.uiPassDrawCallStart = uiPassDrawCallStart;
+
+    Rendering::RenderGraph& graph = BeginRenderPassGraph();
+    const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph, m_resources.RenderGraph() );
+    const uint32_t pass = graph.AddPass( "UiOperatorSubmission", Rendering::RenderGraphQueueType::Graphics );
+    graph.AddWrite( pass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
+    graph.SetPassCallback<ExecuteUiOperatorSubmissionGraphCallback>( pass, invocation, true,
+                                                                     "Frame/UI/Operator/Submission" );
+    const Rendering::RenderGraphCompileResult& compiled = CompileRenderPassGraph( graph );
+    invocation.compiled = &compiled;
+    invocation.expectedTransitionCount = CountCompiledTransitionsForPass( compiled, pass );
+    ExecuteGraphCallbacksOrFatal( graph, 1u, "UiOperatorSubmission" );
+}
+
+
+void RuntimeRenderer::SubmitUiOverlay( const UiTextViewport& viewport, OverlayMode mode, int modelCount,
+                                       float rollingFpsTime, float sceneEnergyForDisplay )
+{
+    UiOverlayGraphInvocation invocation;
+    invocation.pass = &m_resources.UiText();
+    invocation.renderGraph = &m_resources.RenderGraph();
+    invocation.viewport = viewport;
+    invocation.mode = mode;
+    invocation.modelCount = modelCount;
+    invocation.rollingFpsTime = rollingFpsTime;
+    invocation.sceneEnergyForDisplay = sceneEnergyForDisplay;
+    invocation.renderTextures = &m_resources.RenderTextures();
+    invocation.renderGeometry = &m_resources.RenderGeometry();
+    invocation.renderDiagnostics = &m_resources.RenderDiagnostics();
+
+    Rendering::RenderGraph& graph = BeginRenderPassGraph();
+    const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph, m_resources.RenderGraph() );
+    const uint32_t pass = graph.AddPass( "UiOverlay", Rendering::RenderGraphQueueType::Graphics );
+    graph.AddWrite( pass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
+    graph.SetPassCallback<ExecuteUiOverlayGraphCallback>( pass, invocation, true, "Frame/UI/Overlay" );
+    const Rendering::RenderGraphCompileResult& compiled = CompileRenderPassGraph( graph );
+    invocation.compiled = &compiled;
+    invocation.expectedTransitionCount = CountCompiledTransitionsForPass( compiled, pass );
+    ExecuteGraphCallbacksOrFatal( graph, 1u, "UiOverlay" );
+}
+
+
+void RuntimeRenderer::SubmitReplayUi( const ReplayOverlay::ReplayOverlayStateView& overlay, Core::Profiler* profiler,
+                                      bool gameUiSurfaceActive, bool scenePhysicsEnabled,
+                                      RuntimeInteractionGestureKind gesture, const UiTextViewport& viewport,
+                                      double nowSeconds )
+{
+    UiReplayGraphInvocation invocation;
+    invocation.pass = &m_resources.UiText();
+    invocation.renderGraph = &m_resources.RenderGraph();
+    invocation.overlay = &overlay;
+    invocation.profiler = profiler;
+    invocation.gameUiSurfaceActive = gameUiSurfaceActive;
+    invocation.scenePhysicsEnabled = scenePhysicsEnabled;
+    invocation.gesture = gesture;
+    invocation.viewport = viewport;
+    invocation.nowSeconds = nowSeconds;
+    invocation.renderTextures = &m_resources.RenderTextures();
+    invocation.renderGeometry = &m_resources.RenderGeometry();
+    invocation.renderDiagnostics = &m_resources.RenderDiagnostics();
+
+    Rendering::RenderGraph& graph = BeginRenderPassGraph();
+    const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph, m_resources.RenderGraph() );
+    const uint32_t pass = graph.AddPass( "UiReplay", Rendering::RenderGraphQueueType::Graphics );
+    graph.AddWrite( pass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
+    graph.SetPassCallback<ExecuteUiReplayGraphCallback>( pass, invocation, true, "Frame/UI/Replay" );
+    const Rendering::RenderGraphCompileResult& compiled = CompileRenderPassGraph( graph );
+    invocation.compiled = &compiled;
+    invocation.expectedTransitionCount = CountCompiledTransitionsForPass( compiled, pass );
+    ExecuteGraphCallbacksOrFatal( graph, 1u, "UiReplay" );
+}
+
+
+void RuntimeRenderer::FinalizeUiOverlay( OverlayMode mode )
+{
+    UiFinalizeGraphInvocation invocation;
+    invocation.pass = &m_resources.UiText();
+    invocation.renderGraph = &m_resources.RenderGraph();
+    invocation.mode = mode;
+    invocation.renderTextures = &m_resources.RenderTextures();
+    invocation.renderGeometry = &m_resources.RenderGeometry();
+    invocation.renderDiagnostics = &m_resources.RenderDiagnostics();
+
+    Rendering::RenderGraph& graph = BeginRenderPassGraph();
+    const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph, m_resources.RenderGraph() );
+    const uint32_t pass = graph.AddPass( "UiFinalize", Rendering::RenderGraphQueueType::Graphics );
+    graph.AddWrite( pass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
+    graph.SetPassCallback<ExecuteUiFinalizeGraphCallback>( pass, invocation, true, "Frame/UI/Finalize" );
+    const Rendering::RenderGraphCompileResult& compiled = CompileRenderPassGraph( graph );
+    invocation.compiled = &compiled;
+    invocation.expectedTransitionCount = CountCompiledTransitionsForPass( compiled, pass );
+    ExecuteGraphCallbacksOrFatal( graph, 1u, "UiFinalize" );
+}
+
+
+int RuntimeRenderer::EndUiTextFrame( int drawCallStart )
+{
+    m_resources.UiText().ReportRetainedDrawStats();
+    return (std::max)( 0, m_resources.RenderDiagnostics().GetFrameDrawCallCount() - drawCallStart );
+}
 RenderResourceContext RuntimeRenderer::BuildRenderResourceContext( bool cinematicRender )
 {
     return RenderResourceContext { cinematicRender,
