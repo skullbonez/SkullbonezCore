@@ -196,6 +196,65 @@ bool IsReplayScrubberToolOwner( WorldInteractionOwner owner )
 bool SelectReplayPresentationArtifact( ReplayScrubber& scrubber, HWND window, double now, char ( &outPath )[MAX_PATH] );
 void PublishReplayLoadResult( ReplayScrubber& scrubber, const char* path, bool loaded, double now );
 
+void ApplyReplayInteractionRequest( const ReplayInteractionRequest& request, InputRouter& inputRouter,
+                                    RuntimeInteractionController& interaction )
+{
+    if ( request.releaseNativeCapture )
+    {
+        inputRouter.ReleaseNativeCapture();
+    }
+
+    if ( request.endGesture )
+    {
+        const RuntimeInteractionGestureKind active = interaction.Gesture().kind;
+
+        if ( active == RuntimeInteractionGestureKind::ReplayCauseTreeDrag ||
+             active == RuntimeInteractionGestureKind::ReplayVelocityDrag )
+        {
+            interaction.EndGestureIfKind( active );
+        }
+    }
+
+    const WorldInteractionOwner requestedOwner = request.worldOwner == ReplayWorldOwnerRequest::CauseTree
+                                                     ? WorldInteractionOwner::ReplayCauseTree
+                                                 : request.worldOwner == ReplayWorldOwnerRequest::VelocityEdit
+                                                     ? WorldInteractionOwner::ReplayVelocityEdit
+                                                 : request.worldOwner == ReplayWorldOwnerRequest::Scrub
+                                                     ? WorldInteractionOwner::ReplayScrub
+                                                     : WorldInteractionOwner::None;
+
+    if ( requestedOwner != WorldInteractionOwner::None )
+    {
+        interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay, requestedOwner,
+                                                         InteractionExitReason::EnterReplay );
+    }
+
+    if ( request.beginGesture == ReplayToolGestureKind::None )
+    {
+        return;
+    }
+
+    RuntimeInteractionGesture gesture;
+    gesture.kind = request.beginGesture == ReplayToolGestureKind::CauseTreeDrag
+                       ? RuntimeInteractionGestureKind::ReplayCauseTreeDrag
+                       : RuntimeInteractionGestureKind::ReplayVelocityDrag;
+    gesture.button = RuntimePointerButton::Left;
+    gesture.startX = request.gestureStartX;
+    gesture.startY = request.gestureStartY;
+    gesture.body = request.gestureBody;
+    gesture.axis = request.gestureAxis;
+    gesture.angular = request.gestureAngular;
+    const WorldInteractionOwner gestureOwner = request.beginGesture == ReplayToolGestureKind::CauseTreeDrag
+                                                    ? WorldInteractionOwner::ReplayCauseTree
+                                                    : WorldInteractionOwner::ReplayVelocityEdit;
+
+    if ( interaction.BeginOwnedToolGesture( RuntimeWorkspace::Replay, gestureOwner, gesture ) &&
+         request.requestNativeCapture )
+    {
+        inputRouter.RequestNativeCapture();
+    }
+}
+
 } // namespace
 
 void SkullbonezCore::Runtime::ReplayInteractionOperations::CancelToolGesture( RuntimeInteractionController& interaction )
@@ -992,13 +1051,80 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
         }
     }
 
-    const bool causeTreeOwnsMouse = m_authoring.TickCauseTreeInput( m_visualPresentation, m_scrubberOwner, inputRouter,
-                                                                    interaction, causeTreeRowsReady,
-                                                                    input.uiBlocksMouse || scrubberOwnsMouse ||
-                                                                        solverDetailOwnsMouse,
-                                                                    input.wheelDelta, input.editorModeEnabled,
-                                                                    input.screenWidth, input.screenHeight,
-                                                                    requestedCauseTreeFocusRow, exitCauseTreeInspection );
+    const RuntimeMouseEdges& causePointerEdges = inputRouter.UiSnapshot().mouse;
+    const RuntimePointerEvent& causePointer = inputRouter.RuntimeSnapshot().pointer;
+    const InputKeySnapshot& causeKeys = inputRouter.DeviceFrame().keys;
+    const std::array<uint64_t, InputKeySnapshot::WORD_COUNT>& previousCauseKeys =
+        m_authoring.CauseTree().filterKeysWasDown;
+    const auto causeKeyPressed = [&]( int virtualKey ) noexcept
+    {
+        const std::size_t word = static_cast<std::size_t>( virtualKey ) / 64u;
+        const uint64_t bit = uint64_t { 1 } << ( static_cast<unsigned int>( virtualKey ) & 63u );
+        return causeKeys.IsDown( virtualKey ) && ( previousCauseKeys[word] & bit ) == 0u;
+    };
+    ReplayCauseTreeInputFrame causeInput;
+    causeInput.gesture = ProjectReplayToolGesture( interaction.Gesture() );
+    causeInput.currentFilterKeys = causeKeys.Words();
+    causeInput.mouseX = causePointer.clientX;
+    causeInput.mouseY = causePointer.clientY;
+    causeInput.wheelDelta = input.wheelDelta;
+    causeInput.screenWidth = input.screenWidth;
+    causeInput.screenHeight = input.screenHeight;
+    causeInput.leftPressed = causePointerEdges.leftPressed;
+    causeInput.leftReleased = causePointerEdges.leftReleased;
+    causeInput.hasClientPosition = causePointer.hasClientPosition;
+    causeInput.filterBackspacePressed = causeKeyPressed( VK_BACK );
+    causeInput.filterDeletePressed = causeKeyPressed( VK_DELETE );
+    causeInput.filterEscapePressed = causeKeyPressed( VK_ESCAPE );
+    causeInput.filterReturnPressed = causeKeyPressed( VK_RETURN );
+    causeInput.rowsReady = causeTreeRowsReady;
+    causeInput.uiBlocksMouse = input.uiBlocksMouse || scrubberOwnsMouse || solverDetailOwnsMouse;
+    causeInput.editorModeEnabled = input.editorModeEnabled;
+    const auto appendCauseCharacter = [&]( char value )
+    {
+        if ( causeInput.filterCharacterCount < causeInput.filterCharacters.size() )
+        {
+            causeInput.filterCharacters[causeInput.filterCharacterCount++] = value;
+        }
+    };
+
+    for ( int key = 'A'; key <= 'Z'; ++key )
+    {
+        if ( causeKeyPressed( key ) )
+        {
+            appendCauseCharacter( static_cast<char>( 'a' + key - 'A' ) );
+        }
+    }
+
+    for ( int key = '0'; key <= '9'; ++key )
+    {
+        if ( causeKeyPressed( key ) )
+        {
+            appendCauseCharacter( static_cast<char>( key ) );
+        }
+    }
+
+    if ( causeKeyPressed( VK_SPACE ) )
+    {
+        appendCauseCharacter( ' ' );
+    }
+
+    if ( causeKeyPressed( VK_OEM_MINUS ) )
+    {
+        appendCauseCharacter( causeKeys.IsDown( VK_SHIFT ) ? '_' : '-' );
+    }
+
+    if ( causeKeyPressed( VK_OEM_PERIOD ) )
+    {
+        appendCauseCharacter( '.' );
+    }
+
+    const ReplayCauseTreeInputResult causeResult =
+        m_authoring.TickCauseTreeInput( m_visualPresentation, m_scrubberOwner, causeInput );
+    ApplyReplayInteractionRequest( causeResult.interaction, inputRouter, interaction );
+    const bool causeTreeOwnsMouse = causeResult.consumesMouse;
+    requestedCauseTreeFocusRow = causeResult.focusRow;
+    exitCauseTreeInspection = causeResult.exitInspectionCamera;
 
     // Drag and resize paths clamp the hierarchy during Replay input; apply the
     // same target attachment extent afterward so the joined surface cannot
@@ -1034,26 +1160,50 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
 
     bool velocityEditOwnsMouse = false;
     ReplayInspectionCameraAction velocityInspectionCameraAction = ReplayInspectionCameraAction::None;
+    ReplayInteractionRequest velocityPreparationRequest;
 
     if ( m_authoring.PrepareVelocityEditInput( input.editorModeEnabled, input.scenePhysicsEnabled, input.screenWidth,
-                                               input.screenHeight, inputRouter, interaction ) )
+                                               input.screenHeight, ProjectReplayToolGesture( interaction.Gesture() ),
+                                               velocityPreparationRequest ) )
     {
-        bool velocityPathPickRequested = false;
+        const RuntimeMouseEdges& velocityPointerEdges = inputRouter.UiSnapshot().mouse;
+        const RuntimePointerEvent& velocityPointer = inputRouter.RuntimeSnapshot().pointer;
+        ReplayVelocityInputFrame velocityInput;
+        velocityInput.gesture = ProjectReplayToolGesture( interaction.Gesture() );
+        velocityInput.replayToolOwnsWorld = IsReplayScrubberToolOwner( interaction.Owner() );
+        velocityInput.velocityEditOwnsWorld = interaction.Owner() == WorldInteractionOwner::ReplayVelocityEdit;
+        velocityInput.mouseX = velocityPointer.clientX;
+        velocityInput.mouseY = velocityPointer.clientY;
+        velocityInput.leftDown = velocityPointerEdges.leftDown;
+        velocityInput.leftPressed = velocityPointerEdges.leftPressed;
+        velocityInput.leftReleased = velocityPointerEdges.leftReleased;
+        velocityInput.hasClientPosition = velocityPointer.hasClientPosition;
+        ReplayVelocityInputResult velocityResult;
         velocityEditOwnsMouse = m_authoring.TickVelocityEditInput( m_visualPresentation, m_scrubberOwner, input.pointerRay,
                                                                    input.uiBlocksMouse || scrubberOwnsMouse ||
                                                                        causeTreeOwnsMouse,
-                                                                   input.now, inputRouter, interaction, physics,
-                                                                   entities.Count(), output.enterInteractive,
-                                                                   velocityPathPickRequested,
+                                                                   input.now, velocityInput, physics, entities.Count(),
+                                                                   velocityResult,
                                                                    velocityInspectionCameraAction );
+        ApplyReplayInteractionRequest( velocityResult.interaction, inputRouter, interaction );
+        output.enterInteractive |= velocityResult.enterInteractive;
 
-        if ( velocityPathPickRequested )
+        if ( velocityResult.pathPickRequested )
         {
-            (void)m_authoring.TryPickVelocityEditTarget( m_visualPresentation, m_scrubberOwner, CurrentSolverScrubSample(),
-                                                         entities, presentation, physics, input.pointerRay, interaction,
-                                                         input.now, output.enterInteractive,
-                                                         velocityInspectionCameraAction );
+            const ReplayPathPickResult pickResult = ApplyPathPick( input.pointerRay, entities,
+                                                                   Physics::PhysicsEngine::ReadBodies( physics ),
+                                                                   Physics::PhysicsEngine::ReadColliders( physics ), presentation );
+            ReplayVelocityInputResult pickApplication;
+            (void)m_authoring.ApplyVelocityEditTargetPick( m_visualPresentation, m_scrubberOwner, pickResult,
+                                                            input.now, pickApplication,
+                                                            velocityInspectionCameraAction );
+            ApplyReplayInteractionRequest( pickApplication.interaction, inputRouter, interaction );
+            output.enterInteractive |= pickApplication.enterInteractive;
         }
+    }
+    else
+    {
+        ApplyReplayInteractionRequest( velocityPreparationRequest, inputRouter, interaction );
     }
 
     if ( velocityInspectionCameraAction == ReplayInspectionCameraAction::Enter )
@@ -1637,8 +1787,8 @@ ReplayScrubberPointerDecision ReplayScrubber::ResolvePointerAction( const Replay
 
     decision.surfaceAvailable = true;
     SetPointer( frame.mouseX, frame.mouseY );
-    const bool scrubDragActive = frame.gesture == RuntimeInteractionGestureKind::ReplayScrubDrag;
-    const bool horizonDragActive = frame.gesture == RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag;
+    const bool scrubDragActive = frame.gesture == ReplayToolGestureKind::ScrubDrag;
+    const bool horizonDragActive = frame.gesture == ReplayToolGestureKind::PredictionHorizonDrag;
 
     ReplayScrubberSurfaceInput surfaceInput = DescribeReplayScrubberAvailability( View(), frame.solverStats,
                                                                                   frame.loadedPresentation,
@@ -1662,9 +1812,9 @@ ReplayScrubberPointerDecision ReplayScrubber::ResolvePointerAction( const Replay
     const auto isHotControl = [&]( ReplayScrubberControl control )
     { return surface.hasHotControl && surface.hotControl == ReplayScrubberControlId( control ); };
 
-    const RuntimeUiControl* pointerControl = surface.hasPointerControl ? surface.Find( surface.pointerControl ) : nullptr;
+    const ReplayOverlayControl* pointerControl = surface.hasPointerControl ? surface.Find( surface.pointerControl ) : nullptr;
 
-    const RuntimeUiControl* horizonControl = surface.Find( ReplayScrubberControlId( ReplayScrubberControl::PredictionHorizon ) );
+    const ReplayOverlayControl* horizonControl = surface.Find( ReplayScrubberControlId( ReplayScrubberControl::PredictionHorizon ) );
 
     // Invariant: the fixed scrubber builder always publishes the horizon row;
     // disabled state changes eligibility, not the geometry table.
@@ -1713,11 +1863,11 @@ ReplayScrubberPointerDecision ReplayScrubber::ResolvePointerAction( const Replay
     }
     else if ( inputFrame.leftPressed && canTakeMouse )
     {
-        const RuntimeUiControl* hotControl = surface.hasHotControl ? surface.Find( surface.hotControl ) : nullptr;
+        const ReplayOverlayControl* hotControl = surface.hasHotControl ? surface.Find( surface.hotControl ) : nullptr;
 
         if ( hotControl )
         {
-            decision.action = static_cast<ReplayScrubberAction>( hotControl->action.value );
+            decision.action = static_cast<ReplayScrubberAction>( hotControl->action );
 
             if ( decision.action == ReplayScrubberAction::RestoreBranch && !branchControlVisible )
             {
@@ -2038,7 +2188,7 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput( bool uiBlocksMous
     const RuntimePointerEvent& runtimePointer = inputRouter.RuntimeSnapshot().pointer;
     ReplayScrubberPointerFrame pointerFrame;
     pointerFrame.solverStats = m_timeline.Solver().GetStats();
-    pointerFrame.gesture = interaction.Gesture().kind;
+    pointerFrame.gesture = ProjectReplayToolGesture( interaction.Gesture() ).kind;
     pointerFrame.now = now;
     pointerFrame.mouseX = runtimePointer.clientX;
     pointerFrame.mouseY = runtimePointer.clientY;

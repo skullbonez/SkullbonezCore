@@ -161,14 +161,70 @@ struct ReplayV2SaveResult;
 struct ReplayScrubProbeDiagnostic;
 #endif
 
+// Lifetime: startup presentation activation borrows lower owners only for the
+// synchronous App workflow. Replay receives no retained host-owner bundle.
+struct ReplayStartupLoadInput
+{
+    double now = 0.0;
+    Environment::CameraCollection* cameras = nullptr;
+    RunMousePickupState& mousePickup;
+    RunCameraMode normalizedCurrentMode = RunCameraMode::Demo;
+    InputRouter& inputRouter;
+    RuntimeInteractionController& interaction;
+    Geometry::Terrain* terrain = nullptr;
+    CameraControlState& camera;
+    RunCameraMode normalizedRestoreMode = RunCameraMode::Demo;
+    bool attachedFollow = false;
+    bool directorGrabbed = false;
+};
+
 namespace ReplayPresentationOperations
 {
+void EnterInspectionCamera( ReplayPresentation& presentation, Environment::CameraCollection* cameras,
+                            CameraControlState& camera, RunCameraMode normalizedCurrentMode,
+                            RuntimeInteractionController& interaction, InputRouter& inputRouter,
+                            RunMousePickupState& mousePickup, uint32_t inspectionCameraHash = CAMERA_FREE );
+void ExitInspectionCamera( ReplayPresentation& presentation, const ReplayAuthoring& authoring,
+                           Environment::CameraCollection* cameras, Geometry::Terrain* terrain,
+                           CameraControlState& camera, RunCameraMode normalizedRestoreMode, bool attachedFollow,
+                           bool directorGrabbed, RuntimeInteractionController& interaction, InputRouter& inputRouter );
+bool BeginLoadedPresentationActivation( bool hasLoadedPresentation, ReplayScrubber& scrubber,
+                                        ReplayPresentation& presentation, ReplayAuthoring& authoring,
+                                        RuntimeInteractionController& interaction, InputRouter& inputRouter );
 // App-level activation closes both lower Replay presentation state and the
 // sibling Prediction owner before arming the loaded scrub position.
 void ArmLoadedPresentation( float normalized, double now, ReplayScrubber& scrubber, ReplayPresentation& presentation,
                             ReplayAuthoring& authoring, ReplayPrediction& prediction,
                             RuntimeInteractionController& interaction );
 } // namespace ReplayPresentationOperations
+
+inline ReplayToolGestureView ProjectReplayToolGesture( const RuntimeInteractionGesture& gesture ) noexcept
+{
+    ReplayToolGestureView view;
+    view.body = gesture.body;
+    view.axis = gesture.axis;
+    view.angular = gesture.angular;
+
+    switch ( gesture.kind )
+    {
+    case RuntimeInteractionGestureKind::ReplayScrubDrag:
+        view.kind = ReplayToolGestureKind::ScrubDrag;
+        break;
+    case RuntimeInteractionGestureKind::ReplayVelocityDrag:
+        view.kind = ReplayToolGestureKind::VelocityDrag;
+        break;
+    case RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag:
+        view.kind = ReplayToolGestureKind::PredictionHorizonDrag;
+        break;
+    case RuntimeInteractionGestureKind::ReplayCauseTreeDrag:
+        view.kind = ReplayToolGestureKind::CauseTreeDrag;
+        break;
+    default:
+        break;
+    }
+
+    return view;
+}
 
 // App owns the probe workflow because debug verification composes lower Replay
 // state with the sibling Prediction owner. ReplayProbeState.h contains only the
@@ -602,6 +658,7 @@ class ReplayRuntime
     ReplayScrubber m_scrubberOwner;
     ReplayPresentation m_visualPresentation;
     ReplayLauncherVisualSample m_launcherVisualCaptureScratch;
+    std::array<const char*, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_captureEntityNamesScratch = {};
     ReplayAuthoring m_authoring;
     ReplayPrediction m_predictionOwner;
     ReplayPlanningRuntime m_planningOwner;

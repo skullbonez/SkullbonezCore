@@ -41,8 +41,12 @@ struct ReplayPathPickInput
 
 struct ReplayPathPickResult
 {
+    Physics::PhysicsSceneObjectId targetId;
+    Physics::ModelRowHint targetModelRow;
+    char targetName[64] = {};
     bool picked = false;
     bool exitInspectionCamera = false;
+    bool additive = false;
 };
 
 struct RunReplayPathTarget

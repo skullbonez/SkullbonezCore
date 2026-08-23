@@ -22,7 +22,7 @@ Related:
 
 #include "ReplayRecorder.h"
 #include "ReplayTimelinePackets.h"
-#include "../Interaction/RuntimeInteractionController.h"
+#include "ReplayAuthoringPackets.h"
 
 #include <algorithm>
 #include <cmath>
@@ -91,7 +91,7 @@ struct ReplayScrubberUnavailableResult
 struct ReplayScrubberPointerFrame
 {
     ReplayRecorderStats solverStats;
-    RuntimeInteractionGestureKind gesture = RuntimeInteractionGestureKind::None;
+    ReplayToolGestureKind gesture = ReplayToolGestureKind::None;
     double now = 0.0;
     int mouseX = 0;
     int mouseY = 0;

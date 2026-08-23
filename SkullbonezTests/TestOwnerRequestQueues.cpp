@@ -776,7 +776,7 @@ TEST_CASE( "Replay restore transaction detaches exact diagnostic values and text
 {
     ReplayRestoreTransaction transaction;
 
-    ReplayRestoreProbeDiagnostic probe;
+    ReplayRestoreProbePacket probe;
     probe.targetReplayFrame = 71;
     probe.targetSceneFrame = 19;
     probe.targetSolverHash = 0xA1u;
@@ -795,7 +795,7 @@ TEST_CASE( "Replay restore transaction detaches exact diagnostic values and text
     transaction.RecordRestoreProbeDiagnostic( probe );
 
     REQUIRE( transaction.HasRestoreProbeDiagnostic() );
-    const ReplayRestoreProbeDiagnostic& storedProbe = transaction.RestoreProbeDiagnostic();
+    const ReplayRestoreProbePacket& storedProbe = transaction.RestoreProbeDiagnostic();
     CHECK( storedProbe.targetReplayFrame == 71 );
     CHECK( storedProbe.targetSceneFrame == 19 );
     CHECK( storedProbe.targetSolverHash == 0xA1u );
@@ -814,7 +814,7 @@ TEST_CASE( "Replay restore transaction detaches exact diagnostic values and text
 
     char source[] = "v2_file_branch";
     char failure[] = "forced target hash mismatch";
-    ReplayRestoreResultDiagnostic result;
+    ReplayRestoreResultPacket result;
     result.restoreSource = source;
     result.targetReplayFrame = 91;
     result.targetSceneFrame = 23;
@@ -838,7 +838,7 @@ TEST_CASE( "Replay restore transaction detaches exact diagnostic values and text
     failure[0] = 'x';
 
     REQUIRE( transaction.HasRestoreResultDiagnostic() );
-    const ReplayRestoreResultDiagnostic& storedResult = transaction.RestoreResultDiagnostic();
+    const ReplayRestoreResultPacket& storedResult = transaction.RestoreResultDiagnostic();
     CHECK( std::strcmp( storedResult.restoreSource, "v2_file_branch" ) == 0 );
     CHECK( std::strcmp( storedResult.failureReason, "forced target hash mismatch" ) == 0 );
     CHECK( storedResult.targetReplayFrame == 91 );

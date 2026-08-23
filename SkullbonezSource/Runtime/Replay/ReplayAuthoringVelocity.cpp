@@ -34,8 +34,6 @@ Related:
 #include "ReplayPresentation.h"
 #include "ReplayScrubber.h"
 #include "../../Assets/AssetKeys.h"
-#include "../Input/InputRouter.h"
-#include "../Scene/SceneEntityStore.h"
 #include "../../Core/Profiler.h"
 
 #include "ReplayOverlayLayout.h"
@@ -57,14 +55,6 @@ using SkullbonezCore::Math::Vector::Vector3;
 
 namespace
 {
-bool IsReplayToolOwner( WorldInteractionOwner owner )
-{
-    return owner == WorldInteractionOwner::ReplayScrub || owner == WorldInteractionOwner::ReplayVelocityEdit ||
-           owner == WorldInteractionOwner::ReplayPrediction || owner == WorldInteractionOwner::ReplayBranchTarget ||
-           owner == WorldInteractionOwner::ReplayCauseTree;
-}
-
-
 Vector3 EditorAxisVector( int axis )
 {
     switch ( axis )
@@ -489,12 +479,12 @@ ReplayKeyboardVelocityEditResult ReplayAuthoring::ApplyKeyboardVelocityEdit( con
                 }
 
                 result.setWorldOwner = true;
-                result.worldOwner = WorldInteractionOwner::ReplayVelocityEdit;
+                result.worldOwner = ReplayWorldOwnerRequest::VelocityEdit;
             }
-            else if ( input.currentWorldOwner == WorldInteractionOwner::ReplayVelocityEdit )
+            else if ( input.velocityEditOwnsWorld )
             {
                 result.setWorldOwner = true;
-                result.worldOwner = WorldInteractionOwner::ReplayScrub;
+                result.worldOwner = ReplayWorldOwnerRequest::Scrub;
             }
         }
 
@@ -507,18 +497,20 @@ ReplayKeyboardVelocityEditResult ReplayAuthoring::ApplyKeyboardVelocityEdit( con
 
 
 bool ReplayAuthoring::PrepareVelocityEditInput( bool editorModeEnabled, bool scenePhysicsEnabled, int screenWidth,
-                                                int screenHeight, InputRouter& inputRouter,
-                                                RuntimeInteractionController& interaction )
+                                                int screenHeight, const ReplayToolGestureView& gesture,
+                                                ReplayInteractionRequest& outInteraction )
 {
+    outInteraction = {};
+
     if ( !VelocityEdit().enabled || editorModeEnabled || !scenePhysicsEnabled || screenWidth <= 0 || screenHeight <= 0 )
     {
-        const bool endDragGesture = interaction.Gesture().kind == RuntimeInteractionGestureKind::ReplayVelocityDrag;
+        const bool endDragGesture = gesture.kind == ReplayToolGestureKind::VelocityDrag;
         ClearVelocityEditInputState();
 
         if ( endDragGesture )
         {
-            interaction.EndGestureIfKind( RuntimeInteractionGestureKind::ReplayVelocityDrag );
-            inputRouter.ReleaseNativeCapture();
+            outInteraction.endGesture = true;
+            outInteraction.releaseNativeCapture = true;
         }
 
         return false;
@@ -530,27 +522,25 @@ bool ReplayAuthoring::PrepareVelocityEditInput( bool editorModeEnabled, bool sce
 
 bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwner, ReplayScrubber& scrubberOwner,
                                              const ReplayPathPickInput& pointerRay, bool uiBlocksMouse, double now,
-                                             InputRouter& inputRouter, RuntimeInteractionController& interaction,
-                                             PhysicsEngine& velocityPhysics, std::size_t entityCount,
-                                             bool& outEnterInteractive, bool& outPathPickRequested,
+                                             const ReplayVelocityInputFrame& frame, PhysicsEngine& velocityPhysics,
+                                             std::size_t entityCount, ReplayVelocityInputResult& outResult,
                                              ReplayInspectionCameraAction& outInspectionCameraAction )
 {
-    outPathPickRequested = false;
+    outResult = {};
     outInspectionCameraAction = ReplayInspectionCameraAction::None;
     PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Input" );
-    const RuntimeMouseEdges& pointer = inputRouter.UiSnapshot().mouse;
-    const bool leftDown = pointer.leftDown;
-    const bool leftPressed = pointer.leftPressed;
-    const bool leftReleased = pointer.leftReleased;
+    const bool leftDown = frame.leftDown;
+    const bool leftPressed = frame.leftPressed;
+    const bool leftReleased = frame.leftReleased;
     const auto velocityDragActive = [&]()
-    { return interaction.Gesture().kind == RuntimeInteractionGestureKind::ReplayVelocityDrag; };
+    { return frame.gesture.kind == ReplayToolGestureKind::VelocityDrag; };
 
     const auto finishVelocityDrag = [&]()
     {
         (void)FinishVelocityEditDrag();
 
-        interaction.EndGestureIfKind( RuntimeInteractionGestureKind::ReplayVelocityDrag );
-        inputRouter.ReleaseNativeCapture();
+        outResult.interaction.endGesture = true;
+        outResult.interaction.releaseNativeCapture = true;
     };
 
     const auto shouldUseInspectionCamera = [&]()
@@ -597,9 +587,9 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
         // before any velocity math touches the model collection.
         ReplayVelocityBodyView body;
 
-        const RuntimeInteractionGesture& gesture = interaction.Gesture();
+        const ReplayToolGestureView& gesture = frame.gesture;
 
-        if ( !tryResolveVelocityBody( body ) || gesture.kind != RuntimeInteractionGestureKind::ReplayVelocityDrag ||
+        if ( !tryResolveVelocityBody( body ) || gesture.kind != ReplayToolGestureKind::VelocityDrag ||
              gesture.axis < 0 )
         {
             finishVelocityDrag();
@@ -714,12 +704,11 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
 
     if ( !uiBlocksMouse && leftPressed )
     {
-        const RuntimePointerEvent& runtimePointer = inputRouter.RuntimeSnapshot().pointer;
         ReplayVelocityBodyView body;
 
-        if ( runtimePointer.hasClientPosition && tryResolveVelocityBody( body ) && !body.fixed )
+        if ( frame.hasClientPosition && tryResolveVelocityBody( body ) && !body.fixed )
         {
-            const POINT mouse { runtimePointer.clientX, runtimePointer.clientY };
+            const POINT mouse { frame.mouseX, frame.mouseY };
 
             if ( VelocityEdit().hotAngularAxis >= 0 )
             {
@@ -728,13 +717,11 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
                 if ( TryReplayVelocityAngularRayAngle( body, VelocityEdit().hotAngularAxis, rayOrigin, rayDirection,
                                                        startAngle ) )
                 {
-                    outEnterInteractive = true;
+                    outResult.enterInteractive = true;
 
-                    if ( scrubberOwner.SetLiveAdvanceHeld( true ) && !IsReplayToolOwner( interaction.Owner() ) )
+                    if ( scrubberOwner.SetLiveAdvanceHeld( true ) && !frame.replayToolOwnsWorld )
                     {
-                        interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
-                                                                         WorldInteractionOwner::ReplayScrub,
-                                                                         InteractionExitReason::EnterReplay );
+                        outResult.interaction.worldOwner = ReplayWorldOwnerRequest::Scrub;
                     }
 
                     if ( shouldUseInspectionCamera() )
@@ -746,21 +733,6 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
                         outInspectionCameraAction = ReplayInspectionCameraAction::Exit;
                     }
 
-                    RuntimeInteractionGesture gesture;
-                    gesture.kind = RuntimeInteractionGestureKind::ReplayVelocityDrag;
-                    gesture.button = RuntimePointerButton::Left;
-                    gesture.startX = mouse.x;
-                    gesture.startY = mouse.y;
-                    gesture.body = body.body;
-                    gesture.axis = VelocityEdit().hotAngularAxis;
-                    gesture.angular = true;
-
-                    if ( !interaction.BeginOwnedToolGesture( RuntimeWorkspace::Replay,
-                                                             WorldInteractionOwner::ReplayVelocityEdit, gesture ) )
-                    {
-                        return false;
-                    }
-
                     ReplayVelocityEditDragStart dragStart;
                     dragStart.targetId = path.targetId;
                     dragStart.angle = startAngle;
@@ -768,7 +740,14 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
                     dragStart.angularVelocity = body.angularVelocity;
                     armBaselineComparisonForDrag();
                     BeginVelocityEditDrag( dragStart );
-                    inputRouter.RequestNativeCapture();
+                    outResult.interaction.beginGesture = ReplayToolGestureKind::VelocityDrag;
+                    outResult.interaction.gestureStartX = mouse.x;
+                    outResult.interaction.gestureStartY = mouse.y;
+                    outResult.interaction.gestureBody = body.body;
+                    outResult.interaction.gestureAxis = VelocityEdit().hotAngularAxis;
+                    outResult.interaction.gestureAngular = true;
+                    outResult.interaction.requestNativeCapture = true;
+                    outResult.consumesMouse = true;
                     return true;
                 }
             }
@@ -779,13 +758,11 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
                 if ( TryReplayVelocityAxisRayParameter( body, VelocityEdit().hotLinearAxis, rayOrigin, rayDirection,
                                                         axisT ) )
                 {
-                    outEnterInteractive = true;
+                    outResult.enterInteractive = true;
 
-                    if ( scrubberOwner.SetLiveAdvanceHeld( true ) && !IsReplayToolOwner( interaction.Owner() ) )
+                    if ( scrubberOwner.SetLiveAdvanceHeld( true ) && !frame.replayToolOwnsWorld )
                     {
-                        interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
-                                                                         WorldInteractionOwner::ReplayScrub,
-                                                                         InteractionExitReason::EnterReplay );
+                        outResult.interaction.worldOwner = ReplayWorldOwnerRequest::Scrub;
                     }
 
                     if ( shouldUseInspectionCamera() )
@@ -797,21 +774,6 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
                         outInspectionCameraAction = ReplayInspectionCameraAction::Exit;
                     }
 
-                    RuntimeInteractionGesture gesture;
-                    gesture.kind = RuntimeInteractionGestureKind::ReplayVelocityDrag;
-                    gesture.button = RuntimePointerButton::Left;
-                    gesture.startX = mouse.x;
-                    gesture.startY = mouse.y;
-                    gesture.body = body.body;
-                    gesture.axis = VelocityEdit().hotLinearAxis;
-                    gesture.angular = false;
-
-                    if ( !interaction.BeginOwnedToolGesture( RuntimeWorkspace::Replay,
-                                                             WorldInteractionOwner::ReplayVelocityEdit, gesture ) )
-                    {
-                        return false;
-                    }
-
                     ReplayVelocityEditDragStart dragStart;
                     dragStart.targetId = path.targetId;
                     dragStart.axisT = axisT;
@@ -819,7 +781,14 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
                     dragStart.angularVelocity = body.angularVelocity;
                     armBaselineComparisonForDrag();
                     BeginVelocityEditDrag( dragStart );
-                    inputRouter.RequestNativeCapture();
+                    outResult.interaction.beginGesture = ReplayToolGestureKind::VelocityDrag;
+                    outResult.interaction.gestureStartX = mouse.x;
+                    outResult.interaction.gestureStartY = mouse.y;
+                    outResult.interaction.gestureBody = body.body;
+                    outResult.interaction.gestureAxis = VelocityEdit().hotLinearAxis;
+                    outResult.interaction.gestureAngular = false;
+                    outResult.interaction.requestNativeCapture = true;
+                    outResult.consumesMouse = true;
                     return true;
                 }
             }
@@ -827,37 +796,22 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
 
         // Target picking needs scene publications that gizmo mutation does not.
         // Defer that phase to ReplayRuntime instead of carrying another source pack.
-        outPathPickRequested = true;
+        outResult.pathPickRequested = true;
+        outResult.consumesMouse = true;
         return true;
     }
 
-    return VelocityEdit().hotLinearAxis >= 0 || VelocityEdit().hotAngularAxis >= 0;
+    outResult.consumesMouse = VelocityEdit().hotLinearAxis >= 0 || VelocityEdit().hotAngularAxis >= 0;
+    return outResult.consumesMouse;
 }
 
 
-bool ReplayAuthoring::TryPickVelocityEditTarget( ReplayPresentation& presentationOwner, ReplayScrubber& scrubberOwner, const ReplaySolverFrameSample* currentSolverSample,
-                                                 const SceneEntityStore& entities, std::span<const Rendering::RenderInstancePresentationRecord> presentation,
-                                                 PhysicsEngine& velocityPhysics, const ReplayPathPickInput& pointerRay, RuntimeInteractionController& interaction,
-                                                 double now, bool& outEnterInteractive, ReplayInspectionCameraAction& outInspectionCameraAction )
+bool ReplayAuthoring::ApplyVelocityEditTargetPick( ReplayPresentation& presentationOwner,
+                                                   ReplayScrubber& scrubberOwner,
+                                                   const ReplayPathPickResult& pickResult, double now,
+                                                   ReplayVelocityInputResult& outResult,
+                                                   ReplayInspectionCameraAction& outInspectionCameraAction )
 {
-    const PhysicsBodyStore& velocityBodies = PhysicsEngine::ReadBodies( velocityPhysics );
-    const ColliderStore& velocityColliders = PhysicsEngine::ReadColliders( velocityPhysics );
-
-    if ( velocityBodies.Count() != velocityColliders.Count() || velocityBodies.Count() != entities.Count() )
-    {
-        return false;
-    }
-
-    // Concept: velocity edit owns replay body targeting. A click on the body
-    // selects the gizmo target instead of falling through to world selection.
-    ReplayPathPickInput pickInput;
-    pickInput.hasWorldRay = pointerRay.hasWorldRay;
-    pickInput.rayOrigin = pointerRay.rayOrigin;
-    pickInput.rayDirection = pointerRay.rayDirection;
-    const ReplayPathPickResult pickResult = presentationOwner.TryPickPathTarget( pickInput, entities, velocityBodies,
-                                                                                 velocityColliders, presentation,
-                                                                                 currentSolverSample );
-
     if ( pickResult.picked )
     {
         QueuePredictionCacheReset();
@@ -880,7 +834,7 @@ bool ReplayAuthoring::TryPickVelocityEditTarget( ReplayPresentation& presentatio
 
     if ( presentationOwner.PathVisualizer().hasTarget )
     {
-        outEnterInteractive = true;
+        outResult.enterInteractive = true;
         const ReplayScrubberView scrubber = scrubberOwner.View();
         const bool shouldUseInspectionCamera = scrubber.historicalSamplePaused || scrubber.liveAdvanceHeld ||
                                                presentationOwner.CameraView().focusKind != RunReplayCameraFocusKind::None;
@@ -890,8 +844,7 @@ bool ReplayAuthoring::TryPickVelocityEditTarget( ReplayPresentation& presentatio
             outInspectionCameraAction = ReplayInspectionCameraAction::Enter;
         }
 
-        interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay, WorldInteractionOwner::ReplayVelocityEdit,
-                                                         InteractionExitReason::EnterReplay );
+        outResult.interaction.worldOwner = ReplayWorldOwnerRequest::VelocityEdit;
 
         QueuePredictionRefresh( true );
         scrubberOwner.SetVisible( true, now, REPLAY_SCRUBBER_VISIBLE_SECONDS );
@@ -903,7 +856,7 @@ bool ReplayAuthoring::TryPickVelocityEditTarget( ReplayPresentation& presentatio
 
 bool ReplayAuthoring::BuildVelocityOverlayCommand( Physics::PhysicsSceneObjectId targetId, ModelRowHint targetModelRow,
                                                    PhysicsEngine& velocityPhysics, bool editorModeEnabled,
-                                                   const RuntimeInteractionGesture& gesture,
+                                                   const ReplayToolGestureView& gesture,
                                                    ReplayVelocityOverlayCommand& outCommand ) const
 {
     PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Overlay" );
@@ -933,7 +886,7 @@ bool ReplayAuthoring::BuildVelocityOverlayCommand( Physics::PhysicsSceneObjectId
     outCommand.angularVelocity = body.angularVelocity;
     outCommand.hotLinearAxis = m_velocityEdit.hotLinearAxis;
     outCommand.hotAngularAxis = m_velocityEdit.hotAngularAxis;
-    outCommand.activeAxis = gesture.kind == RuntimeInteractionGestureKind::ReplayVelocityDrag ? gesture.axis : -1;
-    outCommand.activeAngular = gesture.kind == RuntimeInteractionGestureKind::ReplayVelocityDrag && gesture.angular;
+    outCommand.activeAxis = gesture.kind == ReplayToolGestureKind::VelocityDrag ? gesture.axis : -1;
+    outCommand.activeAngular = gesture.kind == ReplayToolGestureKind::VelocityDrag && gesture.angular;
     return true;
 }

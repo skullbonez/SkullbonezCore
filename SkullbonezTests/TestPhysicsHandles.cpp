@@ -90,7 +90,7 @@
 #include "../SkullbonezSource/Physics/Stages/PhysicsTerrainStage.h"
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionReserve.h"
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionRetainedMemory.h"
-#include "../SkullbonezSource/Runtime/Replay/ReplayRestoreService.h"
+#include "../SkullbonezSource/Runtime/App/ReplayRestoreOperations.h"
 #include "../SkullbonezSource/World/Terrain.h"
 
 #include <cstddef>
@@ -133,7 +133,7 @@ using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsEngine;
 using SkullbonezCore::Physics::PhysicsWorldForces;
-using SkullbonezCore::Runtime::ReplayRestoreService;
+using SkullbonezCore::Runtime::ReplayRestoreOperations;
 using SkullbonezCore::Runtime::ReplaySolverBodySample;
 using SkullbonezCore::Runtime::ReplaySolverFrameSample;
 using SkullbonezCore::Threading::LockOrderValidator;
@@ -514,14 +514,14 @@ TEST_CASE( "Replay restore: stable body ids override stale row hints" )
     secondSample.modelRow = SkullbonezCore::Physics::MakeModelRowHint( 0 );
     sample.bodies.push_back( secondSample );
 
-    ReplayRestoreService::ResolvedBodyTable resolved {};
+    ReplayRestoreOperations::ResolvedBodyTable resolved {};
     char reason[128] = {};
-    REQUIRE( ReplayRestoreService::ResolveBodiesForRestore( store, sample, resolved, reason, sizeof( reason ) ) );
+    REQUIRE( ReplayRestoreOperations::ResolveBodiesForRestore( store, sample, resolved, reason, sizeof( reason ) ) );
     CHECK( resolved[0] == first );
     CHECK( resolved[1] == second );
 
     sample.bodies[0].id.value = 999u;
-    CHECK_FALSE( ReplayRestoreService::ResolveBodiesForRestore( store, sample, resolved, reason, sizeof( reason ) ) );
+    CHECK_FALSE( ReplayRestoreOperations::ResolveBodiesForRestore( store, sample, resolved, reason, sizeof( reason ) ) );
     REQUIRE( store.RecordForHandle( first ) != nullptr );
     REQUIRE( store.RecordForHandle( second ) != nullptr );
     CHECK( PhysicsBodyPosition( store.HotFields(), static_cast<std::size_t>( store.ModelIndexForHandle( first ) ) ).x ==
@@ -532,7 +532,7 @@ TEST_CASE( "Replay restore: stable body ids override stale row hints" )
 
     sample.bodies[0].id.value = 101u;
     sample.bodies[1].id.value = 101u;
-    CHECK_FALSE( ReplayRestoreService::ResolveBodiesForRestore( store, sample, resolved, reason, sizeof( reason ) ) );
+    CHECK_FALSE( ReplayRestoreOperations::ResolveBodiesForRestore( store, sample, resolved, reason, sizeof( reason ) ) );
     CHECK( std::strstr( reason, "duplicate body ids" ) != nullptr );
 }
 

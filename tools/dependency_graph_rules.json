@@ -349,7 +349,6 @@
           "Runtime/Replay/ReplayPresentationPackets.h",
           "Runtime/Replay/ReplayProbeState.h",
           "Runtime/Replay/ReplayRecorder.h",
-          "Runtime/Replay/ReplayRestoreService.h",
           "Runtime/Replay/ReplayRestoreTransactions.h",
           "Runtime/Replay/ReplayRetainedMemory.h",
           "Runtime/Replay/ReplayRuntimePackets.h",
@@ -470,24 +469,7 @@
         {"source": "Runtime/Render/UiTextPass.cpp", "line": 55, "target": "Runtime/Tools/RuntimeTools.h", "fingerprint": "1b46c21b4ed9d2d818dbc05860eb36867ee4529a5db9840cc6b4c04f9ca54898", "repair_phase": "RBS2-RBS5"},
         {"source": "Runtime/Render/UiTextPass.cpp", "line": 58, "target": "Runtime/Diagnostics/DiagnosticsRuntime.h", "fingerprint": "dce39f26c4615e8f404d020a51c70021b3bf9e7c11ddba8a2985a44dea206262", "repair_phase": "RBS2-RBS5"},
         {"source": "Runtime/Render/UiTextPass.cpp", "line": 59, "target": "Runtime/Diagnostics/DiagnosticsPhysicsUI.h", "fingerprint": "c518600d35ffecc9457a5068571cec7028d6ab26d8c14fa02d2bd633f10c4870", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Render/UiTextPass.cpp", "line": 73, "target": "Runtime/UI/RenderDiagnosticsProjection.h", "fingerprint": "d69cd773810a1b788fd2c5b6b15b5e8d0c6d3a52627cb2e63658a95b9036a224", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Replay/ReplayAuthoringCauseTreeInput.cpp", "line": 33, "target": "Runtime/Input/InputRouter.h", "fingerprint": "23d1176d7890f732a2bf280ab391a3dc8865838e7920c97f926c98c23bcc7630", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Replay/ReplayAuthoringCauseTreeInput.cpp", "line": 34, "target": "Runtime/Interaction/RuntimeInteractionController.h", "fingerprint": "352a59c7a47ce41c401ea5c35426d5dc92fdc45122f089f5f147e202c66b5238", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Replay/ReplayAuthoringVelocity.cpp", "line": 37, "target": "Runtime/Input/InputRouter.h", "fingerprint": "cb5c9e7dc8e7e38a7e831ab61c704de570000de2073477d3219604d66603c128", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Replay/ReplayAuthoringVelocity.cpp", "line": 38, "target": "Runtime/Scene/SceneEntityStore.h", "fingerprint": "76072cadfde8b00de876fd9b96d9fa7c33971e0c2cdd78475a3f491e2540f7ba", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Replay/ReplayOverlayLayout.h", "line": 37, "target": "Runtime/Interaction/RuntimeInteractionController.h", "fingerprint": "6c86ba77258813e890960adfa81d2bfdf2f011317bd42ca1540ab51e0a262908", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Replay/ReplayOverlayLayout.h", "line": 38, "target": "Runtime/UI/RuntimeUiSurface.h", "fingerprint": "ccf81b4417ed2d882c31511d2f5a46d25c72b75f653248447030f09afb49c9c2", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Replay/ReplayPresentation.cpp", "line": 28, "target": "Runtime/Interaction/RuntimePickService.h", "fingerprint": "991ca7a640e8935690a1630cfb0eb626a6c0ae0c1a25a3f582949f387b678b8a", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Replay/ReplayPresentation.cpp", "line": 29, "target": "Runtime/Scene/SceneEntityStore.h", "fingerprint": "791b5587e730e7b34a57be3b23b2d3ad33a61a05becc3d2568b1e701c9ad3c5c", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Replay/ReplayPresentation.h", "line": 40, "target": "Runtime/Interaction/RuntimeInteractionController.h", "fingerprint": "f105abaed0d84655a60d766e8441a4e42f11e9ef0e148e0df6371f12f8636439", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Replay/ReplayRecorder.cpp", "line": 32, "target": "Runtime/Camera/CameraCollection.h", "fingerprint": "0d73989fbd9c2ebb6a1bd16410367a2bbe468b1f50de9b00b5695af23e34653d", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Replay/ReplayRecorder.cpp", "line": 38, "target": "Runtime/Scene/SceneEntityStore.h", "fingerprint": "88a9ad123c169b90eefd8ef8910641fcec1f8da12358b1951ef2713ba878727a", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Replay/ReplayRestoreService.h", "line": 41, "target": "Runtime/Camera/CameraCollection.h", "fingerprint": "1184497ebd2628590fc02fe6b7964a1d1451f1c3157d366b17f0f732a27f73c1", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Replay/ReplayRestoreService.h", "line": 42, "target": "Runtime/Diagnostics/OverlayDebugState.h", "fingerprint": "a577c8c2f0b6069d41c83b13bb3e1a3672ed2d56c67c682a5bf94be2c9e960f3", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Replay/ReplayRestoreService.h", "line": 43, "target": "Runtime/Scene/SceneWorld.h", "fingerprint": "1b8d2c6e2b183bb50e3756bfd81909dc5a1fdb3a91ce33d5a60a482aa4a22b4f", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Replay/ReplayRestoreService.h", "line": 44, "target": "Runtime/Scene/SceneSessionState.h", "fingerprint": "7fe6a23c19d7bad52962a07a5343efa2f3f1723fa771b5682ba49783b9457cdc", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Replay/ReplayRestoreTransactions.h", "line": 36, "target": "Runtime/Diagnostics/RuntimeDiagnostics.h", "fingerprint": "f6fda5b024368b625e55a1b767fffe34349552ef269631021e28c46005a8cde8", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Replay/ReplayScrubber.h", "line": 25, "target": "Runtime/Interaction/RuntimeInteractionController.h", "fingerprint": "558de48707b1cc9fcfb8e04cbc82fe6ff39b98f8cb09bca2573b3e6ec4f2f834", "repair_phase": "RBS2-RBS5"}
+        {"source": "Runtime/Render/UiTextPass.cpp", "line": 73, "target": "Runtime/UI/RenderDiagnosticsProjection.h", "fingerprint": "d69cd773810a1b788fd2c5b6b15b5e8d0c6d3a52627cb2e63658a95b9036a224", "repair_phase": "RBS2-RBS5"}
       ]
     }
   },

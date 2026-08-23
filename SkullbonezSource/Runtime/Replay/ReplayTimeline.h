@@ -31,6 +31,7 @@ Related:
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -249,7 +250,7 @@ class ReplayTimeline
     CaptureFrame( int sceneFrame, float physicsDt, const ReplayWorldPresentationSample& world,
                   const ReplayCameraSample& camera, const ReplayLauncherVisualSample& launcherVisual,
                   Physics::PhysicsEngine& physics, const Gameplay::TornadoGameplay& tornadoGameplay,
-                  const SceneEntityStore& entities, const Physics::PhysicsBodyStore& bodyStore,
+                  std::span<const char* const> entityDisplayNames, const Physics::PhysicsBodyStore& bodyStore,
                   const Physics::ColliderStore& colliderStore, const ReplayBranchInfo& branch );
     void RecordEvent( const ReplayEventInput& input );
 

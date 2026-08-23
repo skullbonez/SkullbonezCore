@@ -51,7 +51,7 @@ Related:
 #include "../../Assets/AssetKeys.h"
 #include "../Replay/ReplayOverlayLayout.h"
 #include "ReplayReserveInventory.h"
-#include "../Replay/ReplayRestoreService.h"
+#include "ReplayRestoreOperations.h"
 #include "../Replay/ReplayRestoreTransactions.h"
 #include "../Replay/ReplayV2Artifact.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
@@ -72,6 +72,7 @@ Related:
 #include "../../Physics/PhysicsTimestep.h"
 
 #include <algorithm>
+#include <cfloat>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -131,6 +132,137 @@ ReplayPlanningSceneView BuildReplayPlanningSceneView( const SceneEntityStore& en
         strncpy_s( result.targetName, target->displayName, _TRUNCATE );
     }
 
+    return result;
+}
+
+float ReplayPathPickColliderRadius( const ColliderStore& colliderStore, int modelIndex ) noexcept
+{
+    const Physics::PhysicsColliderHandle handle = colliderStore.HandleForModelIndex( modelIndex );
+    const Physics::ColliderRecord* collider = colliderStore.RecordForHandle( handle );
+
+    if ( !collider || colliderStore.ModelIndexForHandle( handle ) != modelIndex )
+    {
+        return 1.0f;
+    }
+
+    return (std::max)( collider->boundingRadius > 0.0f
+                           ? collider->boundingRadius
+                           : Math::CollisionDetection::GetShapeBoundingRadius( collider->shape ),
+                       1.0f );
+}
+
+bool ReplayPathPickIntersectsSphere( const Vector3& rayOrigin, const Vector3& rayDirection, const Vector3& center,
+                                     float radius, float& outT ) noexcept
+{
+    const Vector3 offset = rayOrigin - center;
+    const float projection = Dot( offset, rayDirection );
+    const float radialDistance = Dot( offset, offset ) - radius * radius;
+
+    if ( radialDistance > 0.0f && projection > 0.0f )
+    {
+        return false;
+    }
+
+    const float discriminant = projection * projection - radialDistance;
+
+    if ( discriminant < 0.0f )
+    {
+        return false;
+    }
+
+    outT = (std::max)( 0.0f, -projection - sqrtf( discriminant ) );
+    return true;
+}
+
+ReplayPathPickResult ResolveReplayPathPick(
+    const ReplayPathPickInput& input, const SceneEntityStore& entities, const PhysicsBodyStore& bodyStore,
+    const ColliderStore& colliderStore,
+    std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
+    const ReplaySolverFrameSample* currentSolverSample )
+{
+    ReplayPathPickResult result;
+    result.additive = input.additive;
+
+    if ( !input.hasWorldRay )
+    {
+        result.exitInspectionCamera = input.clearOnMiss;
+        return result;
+    }
+
+    const int modelCount = (std::min)( bodyStore.Count(), colliderStore.Count() );
+    int pickedIndex = -1;
+    Physics::PhysicsSceneObjectId pickedId;
+    const auto copyName = [&]( int modelIndex )
+    {
+        result.targetName[0] = '\0';
+
+        if ( modelIndex >= 0 && modelIndex < static_cast<int>( presentationRecords.size() ) )
+        {
+            strncpy_s( result.targetName, presentationRecords[static_cast<std::size_t>( modelIndex )].displayName,
+                       _TRUNCATE );
+        }
+    };
+
+    if ( currentSolverSample )
+    {
+        float bestT = FLT_MAX;
+
+        for ( const ReplaySolverBodySample& body : currentSolverSample->bodies )
+        {
+            const float radius = body.modelRow.value >= 0 && body.modelRow.value < modelCount
+                                     ? ReplayPathPickColliderRadius( colliderStore, body.modelRow.value ) + 1.0f
+                                     : 1.0f;
+            float rayT = 0.0f;
+
+            if ( ReplayPathPickIntersectsSphere( input.rayOrigin, input.rayDirection, body.position, radius, rayT ) &&
+                 rayT < bestT )
+            {
+                bestT = rayT;
+                pickedId = body.id;
+                pickedIndex = body.modelRow.value;
+                strncpy_s( result.targetName, body.name, _TRUNCATE );
+            }
+        }
+    }
+    else
+    {
+        RuntimePickRequest request;
+        request.purpose = RuntimePickPurpose::ReplayPathTarget;
+        request.bodyStore = &bodyStore;
+        request.colliderStore = &colliderStore;
+        request.rayOrigin = input.rayOrigin;
+        request.rayDirection = input.rayDirection;
+        RuntimePickResult pick;
+
+        if ( RuntimePickService::TryPickModel( request, pick ) )
+        {
+            pickedIndex = pick.modelRow.value;
+            const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( pickedIndex );
+            pickedId = body ? body->sceneObjectId : Physics::PhysicsSceneObjectId {};
+            copyName( pickedIndex );
+        }
+    }
+
+    if ( pickedIndex >= 0 && pickedIndex < modelCount )
+    {
+        const SceneEntityRecord* pickedEntity = entities.TryGet( pickedIndex );
+        const int collectionIndex = pickedEntity && pickedEntity->behaviorGroup.kind == SceneBehaviorGroupKind::SimpleRagdoll
+                                        ? entities.FindBySceneObjectId( pickedEntity->behaviorGroup.rootObjectId )
+                                        : pickedIndex;
+
+        if ( collectionIndex >= 0 && collectionIndex < modelCount && collectionIndex != pickedIndex )
+        {
+            pickedIndex = collectionIndex;
+            const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( collectionIndex );
+            pickedId = body ? body->sceneObjectId : Physics::PhysicsSceneObjectId {};
+            copyName( collectionIndex );
+        }
+    }
+
+    result.targetId = pickedId;
+    result.targetModelRow = Physics::MakeModelRowHint( pickedIndex );
+    result.picked = pickedId.IsValid() && pickedIndex >= 0;
+    result.exitInspectionCamera = !result.picked && input.clearOnMiss;
     return result;
 }
 
@@ -447,7 +579,7 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( ReplayRestoreTransaction& transac
     ReplaySolverFrameSample liveBackup;
     runtimeTools.BuildReplayLauncherVisualSample( m_launcherVisualCaptureScratch );
 
-    if ( !ReplayRestoreService::CaptureCurrentSolverSample( world, scene, debug, m_launcherVisualCaptureScratch, sample,
+    if ( !ReplayRestoreOperations::CaptureCurrentSolverSample( world, scene, debug, m_launcherVisualCaptureScratch, sample,
                                                             liveBackup ) )
     {
         transaction.FailBeforeMutation( "failed to capture live replay backup" );
@@ -474,7 +606,7 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( ReplayRestoreTransaction& transac
     transaction.MarkTopologyPrepared( false, false );
     char applyReason[128] = {};
 
-    if ( !ReplayRestoreService::ApplySolverSampleState( world, scene, debug, sample, applyReason, sizeof( applyReason ) ) )
+    if ( !ReplayRestoreOperations::ApplySolverSampleState( world, scene, debug, sample, applyReason, sizeof( applyReason ) ) )
     {
         transaction.FailBeforeMutation( applyReason[0] != '\0' ? applyReason : "restore apply failed" );
         return false;
@@ -485,7 +617,7 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( ReplayRestoreTransaction& transac
 
     ReplaySolverFrameSample restoredSample;
     runtimeTools.BuildReplayLauncherVisualSample( m_launcherVisualCaptureScratch );
-    const bool hashCaptured = ReplayRestoreService::CaptureCurrentSolverSample(
+    const bool hashCaptured = ReplayRestoreOperations::CaptureCurrentSolverSample(
         world, scene, debug, m_launcherVisualCaptureScratch, sample, restoredSample );
 
     transaction.MarkTargetStepped( sample.frameIndex, sample.eventCursor, 0 );
@@ -501,7 +633,7 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( ReplayRestoreTransaction& transac
     {
         char fallbackReason[128] = {};
 
-        fallbackRestored = ReplayRestoreService::ApplySolverSampleState( world, scene, debug, transaction.LiveBackup(),
+        fallbackRestored = ReplayRestoreOperations::ApplySolverSampleState( world, scene, debug, transaction.LiveBackup(),
                                                                          fallbackReason, sizeof( fallbackReason ) );
 
         if ( fallbackRestored )
@@ -511,7 +643,7 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( ReplayRestoreTransaction& transac
     }
 
 #ifdef _DEBUG
-    ReplayRestoreProbeDiagnostic restoreProbe;
+    ReplayRestoreProbePacket restoreProbe;
     restoreProbe.targetReplayFrame = sample.frameIndex;
     restoreProbe.targetSceneFrame = sample.sceneFrame;
     restoreProbe.targetSolverHash = sample.solverHash;
@@ -592,14 +724,49 @@ void ReplayRuntime::PublishRestoreDiagnostic( const ReplayRestoreTransaction& tr
     // synchronous write; neither DiagnosticsRuntime nor Scene is retained.
     if ( transaction.HasRestoreProbeDiagnostic() )
     {
-        diagnosticsRuntime.LogReplayRestoreProbe( ProjectSceneDiagnosticFacts( scene ),
-                                                  transaction.RestoreProbeDiagnostic() );
+        const ReplayRestoreProbePacket& packet = transaction.RestoreProbeDiagnostic();
+        ReplayRestoreProbeDiagnostic diagnostic;
+        diagnostic.targetReplayFrame = packet.targetReplayFrame;
+        diagnostic.targetSceneFrame = packet.targetSceneFrame;
+        diagnostic.targetSolverHash = packet.targetSolverHash;
+        diagnostic.targetPresentationHash = packet.targetPresentationHash;
+        diagnostic.targetBodyCount = packet.targetBodyCount;
+        diagnostic.restoredSolverHash = packet.restoredSolverHash;
+        diagnostic.restoredPresentationHash = packet.restoredPresentationHash;
+        diagnostic.restoredBodyCount = packet.restoredBodyCount;
+        diagnostic.contactCount = packet.contactCount;
+        diagnostic.pipelineRecordCount = packet.pipelineRecordCount;
+        diagnostic.checkpointBoundary = packet.checkpointBoundary;
+        diagnostic.hashCaptured = packet.hashCaptured;
+        diagnostic.hashMatched = packet.hashMatched;
+        diagnostic.fallbackAttempted = packet.fallbackAttempted;
+        diagnostic.fallbackRestored = packet.fallbackRestored;
+        diagnosticsRuntime.LogReplayRestoreProbe( ProjectSceneDiagnosticFacts( scene ), diagnostic );
     }
 
     if ( transaction.HasRestoreResultDiagnostic() )
     {
-        diagnosticsRuntime.LogReplayRestoreResult( ProjectSceneDiagnosticFacts( scene ),
-                                                   transaction.RestoreResultDiagnostic() );
+        const ReplayRestoreResultPacket& packet = transaction.RestoreResultDiagnostic();
+        ReplayRestoreResultDiagnostic diagnostic;
+        diagnostic.restoreSource = packet.restoreSource;
+        diagnostic.targetReplayFrame = packet.targetReplayFrame;
+        diagnostic.targetSceneFrame = packet.targetSceneFrame;
+        diagnostic.checkpointReplayFrame = packet.checkpointReplayFrame;
+        diagnostic.targetSolverHash = packet.targetSolverHash;
+        diagnostic.targetPresentationHash = packet.targetPresentationHash;
+        diagnostic.targetBodyCount = packet.targetBodyCount;
+        diagnostic.restoredSolverHash = packet.restoredSolverHash;
+        diagnostic.restoredPresentationHash = packet.restoredPresentationHash;
+        diagnostic.restoredBodyCount = packet.restoredBodyCount;
+        diagnostic.contactCount = packet.contactCount;
+        diagnostic.pipelineRecordCount = packet.pipelineRecordCount;
+        diagnostic.checkpointBoundary = packet.checkpointBoundary;
+        diagnostic.hashCaptured = packet.hashCaptured;
+        diagnostic.hashMatched = packet.hashMatched;
+        diagnostic.fallbackAttempted = packet.fallbackAttempted;
+        diagnostic.fallbackRestored = packet.fallbackRestored;
+        diagnostic.failureReason = packet.failureReason;
+        diagnosticsRuntime.LogReplayRestoreResult( ProjectSceneDiagnosticFacts( scene ), diagnostic );
     }
 }
 #endif
@@ -906,7 +1073,8 @@ void ReplayRuntime::PrepareRenderOverlay( PhysicsEngine& physics, const SceneEnt
                                                                                tracer, trajectoryAppearance );
 
     AppendOverlayTrace( physics, entities, tracer, prediction,
-                        ReplayOverlayBuildInput { editorModeEnabled, gesture, sceneFrame }, !retainedRenderingActive );
+                        ReplayOverlayBuildInput { editorModeEnabled, ProjectReplayToolGesture( gesture ), sceneFrame },
+                        !retainedRenderingActive );
 
     (void)m_predictionOwner.PresentationOwner().BuildGhostDrawRequests( prediction, presentationRecords,
                                                                         PhysicsEngine::ReadBodies( physics ) );
@@ -1049,9 +1217,9 @@ ReplayRuntime::ApplyPathPick( const ReplayPathPickInput& input, const SceneEntit
                               const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                               std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords )
 {
-    const ReplayPathPickResult result = m_visualPresentation.TryPickPathTarget( input, entities, bodyStore, colliderStore,
-                                                                                presentationRecords,
-                                                                                CurrentSolverScrubSample() );
+    const ReplayPathPickResult resolved = ResolveReplayPathPick( input, entities, bodyStore, colliderStore,
+                                                                 presentationRecords, CurrentSolverScrubSample() );
+    const ReplayPathPickResult result = m_visualPresentation.ApplyPathPickResult( resolved );
 
     if ( result.picked )
     {
@@ -1446,10 +1614,22 @@ void ReplayRuntime::CaptureFrame( int sceneFrame, float physicsDt, const ReplayW
     // branch and event cursor for this frame. Save/export code depends on that
     // alignment when it pairs visual frames with restore checkpoints.
     runtimeTools.BuildReplayLauncherVisualSample( m_launcherVisualCaptureScratch );
+    const std::size_t entityNameCount = (std::min)( entities.Count(),
+                                                    static_cast<int>( m_captureEntityNamesScratch.size() ) );
+
+    for ( std::size_t entityIndex = 0; entityIndex < entityNameCount; ++entityIndex )
+    {
+        const SceneEntityRecord* entity = entities.TryGet( static_cast<int>( entityIndex ) );
+        m_captureEntityNamesScratch[entityIndex] = entity ? entity->displayName : nullptr;
+    }
+
     const ReplaySolverFrameSample* solverSample = m_timeline.CaptureFrame( sceneFrame, physicsDt, world, camera,
                                                                            m_launcherVisualCaptureScratch, physics,
                                                                            tornadoGameplay,
-                                                                           entities, bodyStore, colliderStore,
+                                                                           std::span<const char* const>(
+                                                                               m_captureEntityNamesScratch.data(),
+                                                                               entityNameCount ),
+                                                                           bodyStore, colliderStore,
                                                                            m_authoring.Branch() );
 
     if ( solverSample )

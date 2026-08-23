@@ -37,7 +37,6 @@ Related:
 #include "ReplayPresentationPackets.h"
 #include "ReplayRecorder.h"
 #include "../Camera/RuntimeCameraMode.h"
-#include "../Interaction/RuntimeInteractionController.h"
 #include "../../Assets/AssetKeys.h"
 #include "../../Core/Common.h"
 #include "../../Core/MainMemoryStats.h"
@@ -76,7 +75,6 @@ class Terrain;
 }
 namespace Runtime
 {
-class SceneEntityStore;
 class InputRouter;
 class ReplayAuthoring;
 class ReplayPresentation;
@@ -89,7 +87,7 @@ struct RunReplayCauseTreeState;
 struct ReplayOverlayBuildInput
 {
     bool editorModeEnabled = false;
-    RuntimeInteractionGesture gesture;
+    ReplayToolGestureView gesture;
     int sceneFrame = 0;
 };
 
@@ -101,28 +99,6 @@ enum class ReplayInspectionCameraAction : uint8_t
     Enter,
     Exit
 };
-
-namespace ReplayPresentationOperations
-{
-// Stateless host-camera transitions shared by scrubber and authoring tools.
-// Every owner reference is a synchronous borrow; neither operation stores host
-// or replay authority after returning.
-void EnterInspectionCamera( ReplayPresentation& presentation, Environment::CameraCollection* cameras,
-                            CameraControlState& camera, RunCameraMode normalizedCurrentMode,
-                            RuntimeInteractionController& interaction, InputRouter& inputRouter,
-                            RunMousePickupState& mousePickup, uint32_t inspectionCameraHash = CAMERA_FREE );
-void ExitInspectionCamera( ReplayPresentation& presentation, const ReplayAuthoring& authoring,
-                           Environment::CameraCollection* cameras, Geometry::Terrain* terrain, CameraControlState& camera,
-                           RunCameraMode normalizedRestoreMode, bool attachedFollow, bool directorGrabbed,
-                           RuntimeInteractionController& interaction, InputRouter& inputRouter );
-
-// A committed load first releases gesture/camera ownership, then the caller
-// exits the host camera before arming the new scrub position. Keeping these
-// phases explicit prevents the load transaction from becoming a parameter bag.
-bool BeginLoadedPresentationActivation( bool hasLoadedPresentation, ReplayScrubber& scrubber,
-                                        ReplayPresentation& presentation, ReplayAuthoring& authoring,
-                                        RuntimeInteractionController& interaction, InputRouter& inputRouter );
-} // namespace ReplayPresentationOperations
 
 struct ReplayWorldPointerInput
 {
@@ -243,11 +219,7 @@ class ReplayPresentation
     // trajectory records remain unchanged and are recolored on the next draw.
     ReplayPathColorMode CyclePathColorMode() noexcept;
     bool SetPathTarget( Physics::PhysicsSceneObjectId id, Physics::ModelRowHint modelRow, const char* name );
-    ReplayPathPickResult TryPickPathTarget( const ReplayPathPickInput& input, const SceneEntityStore& entities,
-                                            const Physics::PhysicsBodyStore& bodyStore,
-                                            const Physics::ColliderStore& colliderStore,
-                                            std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
-                                            const ReplaySolverFrameSample* currentSolverSample );
+    ReplayPathPickResult ApplyPathPickResult( const ReplayPathPickResult& resolved );
     bool PrepareRenderPoseBodyMatch( int modelCount ) noexcept;
     bool ApplyPresentationSampleForRender( Rendering::RenderInstanceStore& renderInstances,
                                            const Physics::PhysicsBodyStore& bodyStore,

@@ -37,6 +37,8 @@ Related:
 #include "../../Physics/PhysicsHandles.h"
 
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <vector>
 
 namespace SkullbonezCore::Runtime
@@ -44,6 +46,97 @@ namespace SkullbonezCore::Runtime
 inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_MAX = 140.0f;
 inline constexpr float REPLAY_VELOCITY_EDIT_ANGULAR_MAX = 5.0f;
 inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_EXTRA = 36.0f;
+
+enum class ReplayToolGestureKind : uint8_t
+{
+    None,
+    ScrubDrag,
+    VelocityDrag,
+    PredictionHorizonDrag,
+    CauseTreeDrag
+};
+
+struct ReplayToolGestureView
+{
+    ReplayToolGestureKind kind = ReplayToolGestureKind::None;
+    Physics::PhysicsBodyHandle body;
+    int axis = -1;
+    bool angular = false;
+};
+
+enum class ReplayWorldOwnerRequest : uint8_t
+{
+    None,
+    Scrub,
+    VelocityEdit,
+    CauseTree
+};
+
+struct ReplayInteractionRequest
+{
+    ReplayWorldOwnerRequest worldOwner = ReplayWorldOwnerRequest::None;
+    ReplayToolGestureKind beginGesture = ReplayToolGestureKind::None;
+    int gestureStartX = 0;
+    int gestureStartY = 0;
+    int gestureAxis = -1;
+    Physics::PhysicsBodyHandle gestureBody;
+    bool gestureAngular = false;
+    bool endGesture = false;
+    bool requestNativeCapture = false;
+    bool releaseNativeCapture = false;
+};
+
+struct ReplayCauseTreeInputFrame
+{
+    ReplayToolGestureView gesture;
+    std::array<uint64_t, 4> currentFilterKeys = {};
+    std::array<char, 16> filterCharacters = {};
+    std::size_t filterCharacterCount = 0;
+    int mouseX = 0;
+    int mouseY = 0;
+    int wheelDelta = 0;
+    int screenWidth = 0;
+    int screenHeight = 0;
+    bool leftPressed = false;
+    bool leftReleased = false;
+    bool hasClientPosition = false;
+    bool filterBackspacePressed = false;
+    bool filterDeletePressed = false;
+    bool filterEscapePressed = false;
+    bool filterReturnPressed = false;
+    bool rowsReady = false;
+    bool uiBlocksMouse = false;
+    bool editorModeEnabled = false;
+};
+
+struct ReplayCauseTreeInputResult
+{
+    ReplayInteractionRequest interaction;
+    int focusRow = -1;
+    bool exitInspectionCamera = false;
+    bool consumesMouse = false;
+};
+
+struct ReplayVelocityInputFrame
+{
+    ReplayToolGestureView gesture;
+    bool replayToolOwnsWorld = false;
+    bool velocityEditOwnsWorld = false;
+    int mouseX = 0;
+    int mouseY = 0;
+    bool leftDown = false;
+    bool leftPressed = false;
+    bool leftReleased = false;
+    bool hasClientPosition = false;
+};
+
+struct ReplayVelocityInputResult
+{
+    ReplayInteractionRequest interaction;
+    bool enterInteractive = false;
+    bool pathPickRequested = false;
+    bool consumesMouse = false;
+};
 
 struct RunReplayCauseTreeRow
 {

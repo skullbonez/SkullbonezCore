@@ -46,6 +46,7 @@ Related:
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -64,7 +65,6 @@ namespace SkullbonezCore
 {
 namespace Environment
 {
-class CameraCollection;
 class WorldEnvironment;
 } // namespace Environment
 
@@ -78,7 +78,6 @@ class PhysicsBodyStore;
 namespace Runtime
 {
 class ReplayArtifactSource;
-class SceneEntityStore;
 
 struct ReplayBranchInfo
 {
@@ -471,7 +470,7 @@ class ReplayRecorder
     void ResetTimeline( const char* sceneLabel );
     void CaptureFrame( const ReplayBranchInfo& branch, uint32_t eventCursor, int sceneFrame, float physicsDt,
                        const ReplayWorldPresentationSample& world, const ReplayCameraSample& camera,
-                       Physics::PhysicsEngine& physics, const SceneEntityStore& entities,
+                       Physics::PhysicsEngine& physics, std::span<const char* const> entityDisplayNames,
                        const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore );
 
     // Records the presentation track from an already captured solver sample.
@@ -548,7 +547,8 @@ class ReplaySolverRecorder
     void CaptureFrame( const ReplayBranchInfo& branch, uint32_t eventCursor, int sceneFrame, float physicsDt,
                        const ReplayWorldPresentationSample& world, const ReplayCameraSample& camera,
                        const ReplayLauncherVisualSample& launcherVisual, Physics::PhysicsEngine& physics,
-                       const Gameplay::TornadoGameplay& tornadoGameplay, const SceneEntityStore& entities,
+                       const Gameplay::TornadoGameplay& tornadoGameplay,
+                       std::span<const char* const> entityDisplayNames,
                        const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore );
     bool IsEnabled() const;
     ReplayRecorderStats GetStats() const;

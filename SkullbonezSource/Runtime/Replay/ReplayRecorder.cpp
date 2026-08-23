@@ -29,13 +29,11 @@ Related:
 #include "ReplayRecorder.h"
 #include "ReplayRetainedMemory.h"
 
-#include "../Camera/CameraCollection.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
 #include "../../Core/Common.h"
 #include "../../Core/ByteView.h"
 #include "../../Core/FatalError.h"
-#include "../Scene/SceneEntityStore.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
@@ -49,7 +47,6 @@ Related:
 #include <utility>
 
 using namespace SkullbonezCore::Runtime;
-using SkullbonezCore::Environment::CameraCollection;
 using SkullbonezCore::Environment::WorldEnvironment;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::ColliderRecord;
@@ -1356,10 +1353,9 @@ uint64_t HashPersistentContact( uint64_t hash, const SkullbonezCore::Physics::Ph
     return hash;
 }
 
-// Concept: replay body samples borrow SceneEntityStore for stable display names.
-// Physics values come from dense stores; transient legacy object record rows are irrelevant
-// to capture identity and durable presentation intent.
-bool BuildReplayPresentationBodySample( int modelIndex, const SceneEntityStore& entities,
+// Concept: App projects stable display-name pointers for this synchronous
+// capture. Physics values still come from the dense stores.
+bool BuildReplayPresentationBodySample( int modelIndex, std::span<const char* const> entityDisplayNames,
                                         const Physics::PhysicsBodyStore& bodyStore,
                                         const Physics::ColliderStore& colliderStore, ReplayBodyPresentationSample& outBody )
 {
@@ -1368,9 +1364,7 @@ bool BuildReplayPresentationBodySample( int modelIndex, const SceneEntityStore& 
         return false;
     }
 
-    const SceneEntityRecord* entity = entities.TryGet( modelIndex );
-
-    if ( !entity )
+    if ( modelIndex >= static_cast<int>( entityDisplayNames.size() ) )
     {
         return false;
     }
@@ -1383,7 +1377,7 @@ bool BuildReplayPresentationBodySample( int modelIndex, const SceneEntityStore& 
     outBody = ReplayBodyPresentationSample {};
     outBody.id = bodyRecord.sceneObjectId;
     outBody.modelRow = Physics::MakeModelRowHint( modelIndex );
-    const char* modelName = entity->displayName;
+    const char* modelName = entityDisplayNames[static_cast<std::size_t>( modelIndex )];
 
     if ( modelName && modelName[0] != '\0' )
     {
@@ -1402,13 +1396,13 @@ bool BuildReplayPresentationBodySample( int modelIndex, const SceneEntityStore& 
     return true;
 }
 
-bool BuildReplaySolverBodySample( int modelIndex, const SceneEntityStore& entities,
+bool BuildReplaySolverBodySample( int modelIndex, std::span<const char* const> entityDisplayNames,
                                   const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore,
                                   ReplaySolverBodySample& outBody )
 {
     ReplayBodyPresentationSample presentationBody;
 
-    if ( !BuildReplayPresentationBodySample( modelIndex, entities, bodyStore, colliderStore, presentationBody ) )
+    if ( !BuildReplayPresentationBodySample( modelIndex, entityDisplayNames, bodyStore, colliderStore, presentationBody ) )
     {
         return false;
     }
@@ -1983,7 +1977,8 @@ void ReplayRecorder::ResetTimeline( const char* sceneLabel )
 
 void ReplayRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_t eventCursor, int sceneFrame, float physicsDt,
                                    const ReplayWorldPresentationSample& world, const ReplayCameraSample& camera,
-                                   Physics::PhysicsEngine& physics, const SceneEntityStore& entities,
+                                   Physics::PhysicsEngine& physics,
+                                   std::span<const char* const> entityDisplayNames,
                                    const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore )
 {
     if ( !m_config.enabled )
@@ -2065,7 +2060,7 @@ void ReplayRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_t even
         const std::size_t bodyIndex = static_cast<std::size_t>( i );
         ReplayBodyPresentationSample body;
 
-        if ( !BuildReplayPresentationBodySample( i, entities, bodyStore, colliderStore, body ) )
+        if ( !BuildReplayPresentationBodySample( i, entityDisplayNames, bodyStore, colliderStore, body ) )
         {
             continue;
         }
@@ -2706,7 +2701,8 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_
                                          float physicsDt, const ReplayWorldPresentationSample& world,
                                          const ReplayCameraSample& camera, const ReplayLauncherVisualSample& launcherVisual,
                                          Physics::PhysicsEngine& physics, const Gameplay::TornadoGameplay& tornadoGameplay,
-                                         const SceneEntityStore& entities, const Physics::PhysicsBodyStore& bodyStore,
+                                         std::span<const char* const> entityDisplayNames,
+                                         const Physics::PhysicsBodyStore& bodyStore,
                                          const Physics::ColliderStore& colliderStore )
 {
     if ( !m_config.enabled )
@@ -2801,7 +2797,7 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_
         const std::size_t bodyIndex = static_cast<std::size_t>( i );
         ReplaySolverBodySample body;
 
-        if ( !BuildReplaySolverBodySample( i, entities, bodyStore, colliderStore, body ) )
+        if ( !BuildReplaySolverBodySample( i, entityDisplayNames, bodyStore, colliderStore, body ) )
         {
             continue;
         }

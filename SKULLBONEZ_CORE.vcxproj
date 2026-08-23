@@ -676,7 +676,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRetainedMemory.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayEventCommand.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRestoreService.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\App\ReplayRestoreOperations.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayAuthoring.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayCoordination.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayAuthoringPackets.h" />

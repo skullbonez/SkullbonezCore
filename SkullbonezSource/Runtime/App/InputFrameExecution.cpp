@@ -1219,7 +1219,9 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
     if ( editorTools.Editor().editorModeEnabled )
     {
-        (void)replayRuntime.ApplyKeyboardVelocityEdit( { keyboardEditorToolShortcut.altDown, false, interaction.Owner(), timers.SimulationTotalSeconds() } );
+        (void)replayRuntime.ApplyKeyboardVelocityEdit(
+            { keyboardEditorToolShortcut.altDown, false,
+              interaction.Owner() == WorldInteractionOwner::ReplayVelocityEdit, timers.SimulationTotalSeconds() } );
 
         if ( keyboardEditorToolShortcut.togglePlacementMode )
         {
@@ -1228,7 +1230,9 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
     }
     else
     {
-        const ReplayKeyboardVelocityEditResult velocityEditResult = replayRuntime.ApplyKeyboardVelocityEdit( { keyboardEditorToolShortcut.altDown, true, interaction.Owner(), timers.SimulationTotalSeconds() } );
+        const ReplayKeyboardVelocityEditResult velocityEditResult = replayRuntime.ApplyKeyboardVelocityEdit(
+            { keyboardEditorToolShortcut.altDown, true,
+              interaction.Owner() == WorldInteractionOwner::ReplayVelocityEdit, timers.SimulationTotalSeconds() } );
 
         if ( velocityEditResult.cancelToolDrag )
         {
@@ -1257,7 +1261,10 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
         if ( velocityEditResult.setWorldOwner )
         {
-            inputRouter.SetWorldInteractionOwner( velocityEditResult.worldOwner, InteractionExitReason::EnterReplay,
+            const WorldInteractionOwner worldOwner = velocityEditResult.worldOwner == ReplayWorldOwnerRequest::VelocityEdit
+                                                         ? WorldInteractionOwner::ReplayVelocityEdit
+                                                         : WorldInteractionOwner::ReplayScrub;
+            inputRouter.SetWorldInteractionOwner( worldOwner, InteractionExitReason::EnterReplay,
                                                    editorTools, runtimeTools, interaction, attachedCamera, camera, sceneController,
                                                   replayRuntime,
                                                   NormalizeCameraModeForCurrentScene( replayRuntime.BuildInputView().restoreCameraMode ) );

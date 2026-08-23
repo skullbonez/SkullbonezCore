@@ -37,7 +37,7 @@ Related:
 #include "../../Assets/AssetSystem.h"
 #include "../../Core/WorkerPool.h"
 #include "../Editor/EditorTools.h"
-#include "../Replay/ReplayRestoreService.h"
+#include "ReplayRestoreOperations.h"
 #include "../Replay/ReplayRestoreTransactions.h"
 #include "ReplayValidation.Internal.h"
 #include "../Replay/ReplayVisualPacketFingerprint.h"
@@ -1244,7 +1244,7 @@ ReplayProbeRunner::VerifyLoadedPresentation( ReplayTimeline& timeline, ReplayScr
 
             if ( authoring.BuildVelocityOverlayCommand( path.targetId, path.targetModelRow, world.Physics(),
                                                         editorTools.Editor().editorModeEnabled,
-                                                        RuntimeInteractionGesture {}, velocityOverlay ) )
+                                                        ReplayToolGestureView {}, velocityOverlay ) )
             {
                 tracer.AddReplayVelocityGizmo( velocityOverlay.origin, velocityOverlay.orientation,
                                                velocityOverlay.shape, velocityOverlay.radius,
@@ -1944,7 +1944,7 @@ ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartup
                 liveReference.physicsDt = PHYSICS_FIXED_DT;
                 ReplayLauncherVisualSample launcherVisual;
                 runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
-                step.succeeded = ReplayRestoreService::CaptureCurrentSolverSample( world, scene, debug, launcherVisual,
+                step.succeeded = ReplayRestoreOperations::CaptureCurrentSolverSample( world, scene, debug, launcherVisual,
                                                                                    liveReference, liveBackup );
 
                 step.capturedSample = step.succeeded ? &liveBackup : nullptr;
@@ -1972,7 +1972,7 @@ ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartup
                 ReplayLauncherVisualSample launcherVisual;
                 runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
                 step.succeeded = request.rollbackReference &&
-                                 ReplayRestoreService::CaptureCurrentSolverHash( world, scene, debug, launcherVisual,
+                                 ReplayRestoreOperations::CaptureCurrentSolverHash( world, scene, debug, launcherVisual,
                                                                                  *request.rollbackReference, step.solverHash,
                                                                                  presentationHash, bodyCount );
             }

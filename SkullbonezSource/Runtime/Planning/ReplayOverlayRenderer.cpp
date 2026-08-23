@@ -545,18 +545,18 @@ const UI::UIDrawList& ReplayOverlayDrawOwner::Compose( const ReplayOverlayStateV
 
     surfaceInput.screenW = screenW;
     surfaceInput.screenH = screenH;
-    surfaceInput.gesture = gesture.scrubDrag ? RuntimeInteractionGestureKind::ReplayScrubDrag
+    surfaceInput.gesture = gesture.scrubDrag ? ReplayToolGestureKind::ScrubDrag
                                             : ( gesture.predictionHorizonDrag
-                                                    ? RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag
-                                                    : RuntimeInteractionGestureKind::None );
+                                                    ? ReplayToolGestureKind::PredictionHorizonDrag
+                                                    : ReplayToolGestureKind::None );
     surfaceInput.predictionEnabled = replay.prediction.enabled;
     surfaceInput.predictionHighDetail = replay.prediction.detailMode == ReplayPredictionDetailMode::High;
     ReplayScrubberSurface surface;
     BuildReplayScrubberSurface( surfaceInput, surface );
     surface.ResolvePointer( scrubber.mouseX, scrubber.mouseY );
-    const auto control = [&]( ReplayScrubberControl id ) -> const RuntimeUiControl&
+    const auto control = [&]( ReplayScrubberControl id ) -> const ReplayOverlayControl&
     {
-        const RuntimeUiControl* row = surface.Find( ReplayScrubberControlId( id ) );
+        const ReplayOverlayControl* row = surface.Find( ReplayScrubberControlId( id ) );
 
         if ( !row )
         {
@@ -1335,7 +1335,7 @@ static void ComposeReplayCauseTreeOverlay( UI::UIDrawList& drawList, const Repla
     surface.ResolvePointer( replay.causeTree.mouseX, replay.causeTree.mouseY, replay.causeTree.pointerBlocked );
     const auto controlRect = [&]( ReplayCauseWindowControl id ) -> const UI::UIRect&
     {
-        const RuntimeUiControl* row = surface.Find( ReplayCauseWindowControlId( id ) );
+        const ReplayOverlayControl* row = surface.Find( ReplayCauseWindowControlId( id ) );
 
         if ( !row )
         {

@@ -471,6 +471,7 @@ RUNTIME_PLANNING_PREFIXES = (
 RUNTIME_APP_PREFIXES = (
     "CameraFrameApplication",
     "ReplayReserveInventory",
+    "ReplayRestoreOperations",
     "ReplayRuntime",
     "ReplayScrubberTools",
     "ReplayValidation",
@@ -499,7 +500,6 @@ RUNTIME_REPLAY_PREFIXES = (
     "ReplayRecorder",
     "ReplayPresentation",
     "ReplayProbeState",
-    "ReplayRestoreService",
     "ReplayRestoreTransactions",
     "ReplayScrubber",
     "ReplayTimeline",

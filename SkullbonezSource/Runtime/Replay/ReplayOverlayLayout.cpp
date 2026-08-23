@@ -34,6 +34,98 @@ Related:
 
 namespace SkullbonezCore::Runtime::ReplayOverlay
 {
+void ReplayOverlaySurface::Reset() noexcept
+{
+    controlCount = 0;
+    hotControl = {};
+    pointerControl = {};
+    activeControl = {};
+    hasHotControl = false;
+    hasPointerControl = false;
+    hasActiveControl = false;
+    consumesPointer = false;
+}
+
+bool ReplayOverlaySurface::TryAdd( const ReplayOverlayControl& control ) noexcept
+{
+    if ( !control.id || controlCount >= controls.size() || Find( control.id ) )
+    {
+        return false;
+    }
+
+    controls[controlCount++] = control;
+    return true;
+}
+
+ReplayOverlayControl* ReplayOverlaySurface::Find( ReplayOverlayControlId id ) noexcept
+{
+    for ( std::size_t index = 0; index < controlCount; ++index )
+    {
+        if ( controls[index].id == id )
+        {
+            return &controls[index];
+        }
+    }
+
+    return nullptr;
+}
+
+const ReplayOverlayControl* ReplayOverlaySurface::Find( ReplayOverlayControlId id ) const noexcept
+{
+    for ( std::size_t index = 0; index < controlCount; ++index )
+    {
+        if ( controls[index].id == id )
+        {
+            return &controls[index];
+        }
+    }
+
+    return nullptr;
+}
+
+void ReplayOverlaySurface::ResolvePointer( int pointerX, int pointerY, bool pointerBlocked ) noexcept
+{
+    hotControl = {};
+    pointerControl = {};
+    hasHotControl = false;
+    hasPointerControl = false;
+    consumesPointer = false;
+
+    for ( std::size_t index = 0; index < controlCount; ++index )
+    {
+        controls[index].hovered = false;
+    }
+
+    if ( pointerBlocked )
+    {
+        return;
+    }
+
+    for ( std::size_t index = 0; index < controlCount; ++index )
+    {
+        ReplayOverlayControl& control = controls[index];
+        const float x = static_cast<float>( pointerX );
+        const float y = static_cast<float>( pointerY );
+        const UI::UIRect& bounds = control.hitRect;
+
+        if ( control.visible && x >= bounds.x && x <= bounds.x + bounds.w && y >= bounds.y && y <= bounds.y + bounds.h )
+        {
+            pointerControl = control.id;
+            hasPointerControl = true;
+            consumesPointer = true;
+
+            if ( control.enabled )
+            {
+                control.hovered = true;
+                hotControl = control.id;
+                hasHotControl = true;
+            }
+
+            return;
+        }
+    }
+}
+
 namespace
 {
 // Why: the top-right scene/camera badges own the first screen rows, so the
@@ -281,14 +373,14 @@ void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, Replay
 {
     outSurface.Reset();
 
-    const auto addControl = [&]( ReplayScrubberControl id, ReplayScrubberAction action, RuntimeUiControlKind kind,
+    const auto addControl = [&]( ReplayScrubberControl id, ReplayScrubberAction action, ReplayOverlayControlKind kind,
                                  const UI::UIRect& drawRect, const UI::UIRect& hitRect, bool visible, bool enabled,
                                  bool checked = false )
     {
-        RuntimeUiControl control;
+        ReplayOverlayControl control;
 
         control.id = ReplayScrubberControlId( id );
-        control.action = RuntimeUiActionId { static_cast<uint32_t>( action ) };
+        control.action = static_cast<uint32_t>( action );
 
         control.kind = kind;
         control.drawRect = drawRect;
@@ -328,55 +420,55 @@ void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, Replay
 
     // Invariant: rows are added front-to-back. Disabled controls still block
     // click-through, while broad panel/reveal zones sit behind real controls.
-    addControl( ReplayScrubberControl::Branch, ReplayScrubberAction::RestoreBranch, RuntimeUiControlKind::Button, branch,
+    addControl( ReplayScrubberControl::Branch, ReplayScrubberAction::RestoreBranch, ReplayOverlayControlKind::Button, branch,
                 branch, true, input.branchTargetAvailable );
 
     addControl( ReplayScrubberControl::HighDetail, ReplayScrubberAction::SetPredictionDetailMode,
-                RuntimeUiControlKind::Toggle, highDetail, highDetail, !input.loadedPresentation,
+                ReplayOverlayControlKind::Toggle, highDetail, highDetail, !input.loadedPresentation,
                 input.predictionToolsEnabled, input.predictionHighDetail );
 
-    addControl( ReplayScrubberControl::VelocityEdit, ReplayScrubberAction::ToggleVelocityEdit, RuntimeUiControlKind::Toggle,
+    addControl( ReplayScrubberControl::VelocityEdit, ReplayScrubberAction::ToggleVelocityEdit, ReplayOverlayControlKind::Toggle,
                 velocity, velocity, !input.loadedPresentation, input.solverToolsEnabled );
 
     addControl( ReplayScrubberControl::PredictionToggle, ReplayScrubberAction::TogglePrediction,
-                RuntimeUiControlKind::Toggle, predictionToggle, predictionToggle, !input.loadedPresentation,
+                ReplayOverlayControlKind::Toggle, predictionToggle, predictionToggle, !input.loadedPresentation,
                 input.predictionToolsEnabled );
 
     addControl( ReplayScrubberControl::PredictionHorizon, ReplayScrubberAction::SetPredictionHorizon,
-                RuntimeUiControlKind::Slider, predictionHorizon, predictionHorizonHit, !input.loadedPresentation,
+                ReplayOverlayControlKind::Slider, predictionHorizon, predictionHorizonHit, !input.loadedPresentation,
                 input.predictionToolsEnabled );
 
     addControl( ReplayScrubberControl::RagdollVisuals, ReplayScrubberAction::ToggleRagdollVisuals,
-                RuntimeUiControlKind::Toggle, ragdoll, ragdoll, !input.loadedPresentation, input.predictionToolsEnabled );
+                ReplayOverlayControlKind::Toggle, ragdoll, ragdoll, !input.loadedPresentation, input.predictionToolsEnabled );
 
-    addControl( ReplayScrubberControl::PastPath, ReplayScrubberAction::TogglePastPath, RuntimeUiControlKind::Toggle,
+    addControl( ReplayScrubberControl::PastPath, ReplayScrubberAction::TogglePastPath, ReplayOverlayControlKind::Toggle,
                 pastPath, pastPath, !input.loadedPresentation, input.pastPathToolsEnabled );
 
-    addControl( ReplayScrubberControl::Save, ReplayScrubberAction::Save, RuntimeUiControlKind::Button, save, save, true,
+    addControl( ReplayScrubberControl::Save, ReplayScrubberAction::Save, ReplayOverlayControlKind::Button, save, save, true,
                 input.solverToolsEnabled );
 
-    addControl( ReplayScrubberControl::Load, ReplayScrubberAction::Load, RuntimeUiControlKind::Button, load, load, true,
+    addControl( ReplayScrubberControl::Load, ReplayScrubberAction::Load, ReplayOverlayControlKind::Button, load, load, true,
                 true );
 
-    addControl( ReplayScrubberControl::ScrubTrack, ReplayScrubberAction::Scrub, RuntimeUiControlKind::Track, track, track,
+    addControl( ReplayScrubberControl::ScrubTrack, ReplayScrubberAction::Scrub, ReplayOverlayControlKind::Track, track, track,
                 true, input.scrubTrackDragEnabled );
 
-    addControl( ReplayScrubberControl::PredictionPanel, ReplayScrubberAction::None, RuntimeUiControlKind::Panel,
+    addControl( ReplayScrubberControl::PredictionPanel, ReplayScrubberAction::None, ReplayOverlayControlKind::Panel,
                 predictionPanel, predictionPanel, !input.loadedPresentation, input.predictionToolsEnabled );
 
-    addControl( ReplayScrubberControl::Panel, ReplayScrubberAction::None, RuntimeUiControlKind::Panel, panel, panel, true,
+    addControl( ReplayScrubberControl::Panel, ReplayScrubberAction::None, ReplayOverlayControlKind::Panel, panel, panel, true,
                 true );
 
-    addControl( ReplayScrubberControl::HotZone, ReplayScrubberAction::None, RuntimeUiControlKind::HotZone, hotZone, hotZone,
+    addControl( ReplayScrubberControl::HotZone, ReplayScrubberAction::None, ReplayOverlayControlKind::HotZone, hotZone, hotZone,
                 input.hotZoneEnabled, true );
 
     ReplayScrubberControl active = ReplayScrubberControl::None;
 
-    if ( input.gesture == RuntimeInteractionGestureKind::ReplayScrubDrag )
+    if ( input.gesture == ReplayToolGestureKind::ScrubDrag )
     {
         active = ReplayScrubberControl::ScrubTrack;
     }
-    else if ( input.gesture == RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag )
+    else if ( input.gesture == ReplayToolGestureKind::PredictionHorizonDrag )
     {
         active = ReplayScrubberControl::PredictionHorizon;
     }
@@ -386,7 +478,7 @@ void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, Replay
         outSurface.activeControl = ReplayScrubberControlId( active );
         outSurface.hasActiveControl = true;
 
-        if ( RuntimeUiControl* control = outSurface.Find( outSurface.activeControl ) )
+        if ( ReplayOverlayControl* control = outSurface.Find( outSurface.activeControl ) )
         {
             control->active = true;
         }
@@ -423,12 +515,12 @@ ReplayScrubberSurfaceInput DescribeReplayScrubberAvailability( const ReplayScrub
 void BuildReplayCauseWindowSurface( const RunReplayCauseTreeState& state, ReplayCauseWindowSurface& outSurface )
 {
     outSurface.Reset();
-    const auto add = [&]( ReplayCauseWindowControl id, RuntimeUiControlKind kind, const UI::UIRect& bounds )
+    const auto add = [&]( ReplayCauseWindowControl id, ReplayOverlayControlKind kind, const UI::UIRect& bounds )
     {
-        RuntimeUiControl control;
+        ReplayOverlayControl control;
 
         control.id = ReplayCauseWindowControlId( id );
-        control.action = RuntimeUiActionId { static_cast<uint32_t>( id ) };
+        control.action = static_cast<uint32_t>( id );
 
         control.kind = kind;
         control.drawRect = bounds;
@@ -442,18 +534,18 @@ void BuildReplayCauseWindowSurface( const RunReplayCauseTreeState& state, Replay
 
     // Resize, title, and filter controls sit in front of content and the broad
     // panel background. Specific controls publish before their containing rows.
-    add( ReplayCauseWindowControl::Resize, RuntimeUiControlKind::ToolHandle, ReplayCauseWindowResizeRect( state ) );
-    add( ReplayCauseWindowControl::Title, RuntimeUiControlKind::Track, ReplayCauseWindowTitleRect( state ) );
-    add( ReplayCauseWindowControl::FilterField, RuntimeUiControlKind::Button, ReplayCauseWindowFilterFieldRect( state ) );
-    add( ReplayCauseWindowControl::FilterFunnel, RuntimeUiControlKind::Button, ReplayCauseWindowFilterFunnelRect( state ) );
-    add( ReplayCauseWindowControl::FilterAll, RuntimeUiControlKind::Button,
+    add( ReplayCauseWindowControl::Resize, ReplayOverlayControlKind::ToolHandle, ReplayCauseWindowResizeRect( state ) );
+    add( ReplayCauseWindowControl::Title, ReplayOverlayControlKind::Track, ReplayCauseWindowTitleRect( state ) );
+    add( ReplayCauseWindowControl::FilterField, ReplayOverlayControlKind::Button, ReplayCauseWindowFilterFieldRect( state ) );
+    add( ReplayCauseWindowControl::FilterFunnel, ReplayOverlayControlKind::Button, ReplayCauseWindowFilterFunnelRect( state ) );
+    add( ReplayCauseWindowControl::FilterAll, ReplayOverlayControlKind::Button,
          ReplayCauseWindowFilterChipRect( state, RunReplayCauseTreeFilter::All ) );
-    add( ReplayCauseWindowControl::FilterPrediction, RuntimeUiControlKind::Button,
+    add( ReplayCauseWindowControl::FilterPrediction, ReplayOverlayControlKind::Button,
          ReplayCauseWindowFilterChipRect( state, RunReplayCauseTreeFilter::Prediction ) );
-    add( ReplayCauseWindowControl::FilterContacts, RuntimeUiControlKind::Button,
+    add( ReplayCauseWindowControl::FilterContacts, ReplayOverlayControlKind::Button,
          ReplayCauseWindowFilterChipRect( state, RunReplayCauseTreeFilter::Contacts ) );
-    add( ReplayCauseWindowControl::Content, RuntimeUiControlKind::Panel, ReplayCauseWindowContentRect( state ) );
-    add( ReplayCauseWindowControl::Panel, RuntimeUiControlKind::Panel, ReplayCauseWindowRect( state ) );
+    add( ReplayCauseWindowControl::Content, ReplayOverlayControlKind::Panel, ReplayCauseWindowContentRect( state ) );
+    add( ReplayCauseWindowControl::Panel, ReplayOverlayControlKind::Panel, ReplayCauseWindowRect( state ) );
 }
 
 

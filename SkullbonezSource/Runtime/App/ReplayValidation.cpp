@@ -42,7 +42,7 @@ Related:
 #include "../../Assets/AssetSystem.h"
 #include "../../Core/WorkerPool.h"
 #include "../Editor/EditorTools.h"
-#include "../Replay/ReplayRestoreService.h"
+#include "ReplayRestoreOperations.h"
 #include "../Replay/ReplayRestoreTransactions.h"
 #include "ReplayValidation.Internal.h"
 #include "../Replay/ReplayV2Artifact.h"
@@ -1071,7 +1071,7 @@ bool ValidateReplayRestoreSteppedFrame( ReplayRestoreTransaction& transaction, S
     ReplayLauncherVisualSample launcherVisual;
     runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
 
-    if ( !ReplayRestoreService::CaptureCurrentSolverHash( world, scene, debug, launcherVisual, stepReference, stepSolverHash,
+    if ( !ReplayRestoreOperations::CaptureCurrentSolverHash( world, scene, debug, launcherVisual, stepReference, stepSolverHash,
                                                           stepPresentationHash, stepBodyCount ) )
     {
         transaction.RecordFailure( "failed to capture stepped hash" );
@@ -1175,7 +1175,7 @@ bool CaptureAndValidateReplayRestoreTargetHash( const ReplayV2SolverHashSample& 
     ReplayLauncherVisualSample launcherVisual;
     runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
 
-    if ( !ReplayRestoreService::CaptureCurrentSolverHash( world, scene, debug, launcherVisual, reference, result.solverHash,
+    if ( !ReplayRestoreOperations::CaptureCurrentSolverHash( world, scene, debug, launcherVisual, reference, result.solverHash,
                                                           result.presentationHash, result.bodyCount ) )
     {
         strncpy_s( failure.message, "failed to capture target hash", _TRUNCATE );
@@ -1232,7 +1232,7 @@ void RecordReplayRestoreTargetSuccess( ReplayRestoreTransaction& transaction, co
                                        const ReplayRestoreTargetHashResult& targetHash )
 {
 #ifdef _DEBUG
-    ReplayRestoreResultDiagnostic result;
+    ReplayRestoreResultPacket result;
     result.restoreSource = restoreSource;
     result.targetReplayFrame = target.frameIndex;
     result.targetSceneFrame = target.sceneFrame;
@@ -1432,7 +1432,7 @@ bool ApplyReplayRestoreCheckpoint( ReplayRestoreTransaction& transaction, SceneC
 {
     char checkpointReason[288] = {};
 
-    if ( !ReplayRestoreService::ApplySolverSampleState( sceneController.Scene(), sceneController.State(), debug,
+    if ( !ReplayRestoreOperations::ApplySolverSampleState( sceneController.Scene(), sceneController.State(), debug,
                                                         checkpoint, checkpointReason,
                                                         sizeof( checkpointReason ) ) )
     {
@@ -1469,7 +1469,7 @@ bool RestoreReplayLiveBackupOrFatal( ReplayRestoreTransaction& transaction, Scen
     SceneWorld& world = sceneController.Scene();
     SceneSessionState& scene = sceneController.State();
     char fallbackReason[128] = {};
-    const bool fallbackRestored = ReplayRestoreService::ApplySolverSampleState( world, scene, debug,
+    const bool fallbackRestored = ReplayRestoreOperations::ApplySolverSampleState( world, scene, debug,
                                                                                 transaction.LiveBackup(), fallbackReason,
                                                                                 sizeof( fallbackReason ) );
 
@@ -1490,7 +1490,7 @@ bool RestoreReplayLiveBackupOrFatal( ReplayRestoreTransaction& transaction, Scen
     ReplayLauncherVisualSample launcherVisual;
     runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
 
-    if ( !ReplayRestoreService::CaptureCurrentSolverHash( world, scene, debug, launcherVisual, transaction.LiveBackup(),
+    if ( !ReplayRestoreOperations::CaptureCurrentSolverHash( world, scene, debug, launcherVisual, transaction.LiveBackup(),
                                                           rollbackSolverHash, rollbackPresentationHash,
                                                           rollbackBodyCount ) ||
          rollbackSolverHash != transaction.LiveBackup().solverHash )
@@ -1618,7 +1618,7 @@ bool ReplayRuntime::RestoreV2ArtifactTargetState( ReplayRestoreTransaction& tran
                                         bool fallbackRestored = false )
     {
 #ifdef _DEBUG
-        ReplayRestoreResultDiagnostic diagnostic;
+        ReplayRestoreResultPacket diagnostic;
         diagnostic.restoreSource = restoreSource;
         diagnostic.targetReplayFrame = diagnosticTarget ? diagnosticTarget->frameIndex
                                                         : ( request.requestedFrame == LATEST_NON_CHECKPOINT_TARGET
@@ -1690,7 +1690,7 @@ bool ReplayRuntime::RestoreV2ArtifactTargetState( ReplayRestoreTransaction& tran
     ReplayLauncherVisualSample launcherVisual;
     runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
 
-    if ( !ReplayRestoreService::CaptureCurrentSolverSample( world, scene, debug, launcherVisual, *checkpoint,
+    if ( !ReplayRestoreOperations::CaptureCurrentSolverSample( world, scene, debug, launcherVisual, *checkpoint,
                                                             liveBackup ) )
     {
         recordFailureDiagnostic( "failed to capture live state before restore", target, checkpoint );

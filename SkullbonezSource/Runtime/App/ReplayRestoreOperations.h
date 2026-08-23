@@ -1,10 +1,10 @@
 /*
-File: SkullbonezSource/Runtime/Replay/ReplayRestoreService.h
+File: SkullbonezSource/Runtime/App/ReplayRestoreOperations.h
 Purpose:
   Applies retained replay solver samples back into live runtime owners.
 
 Summary:
-  Replay restore is a controlled rollback boundary. The service resolves
+  App owns Replay restore as a controlled cross-owner rollback boundary. The operation resolves
   durable body identities, preflights surviving joint topology before mutation,
   trims live owners, commits body rows then solver state, and applies matching world,
   camera, and presentation state, then reports success so App can apply the
@@ -25,10 +25,10 @@ Invariants:
     Physics commit that makes versioned hysteresis bytes authoritative.
   - Every recoverable rejection occurs before TrimForReplayRestore; rejection
     after trim is fatal because the commit boundary has already been crossed.
-  - The service stores no owner borrow after returning.
+  - The operation stores no owner borrow after returning.
 
 Related:
-  - SkullbonezSource/Runtime/App/Run.cpp
+  - SkullbonezSource/Runtime/App/ReplayValidation.cpp
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
   - SkullbonezSource/Physics/PhysicsEngine.h
   - SkullbonezTests/TestPhysicsHandles.cpp
@@ -37,7 +37,7 @@ Related:
 */
 #pragma once
 
-#include "ReplayRecorder.h"
+#include "../Replay/ReplayRecorder.h"
 #include "../Camera/CameraCollection.h"
 #include "../Diagnostics/OverlayDebugState.h"
 #include "../Scene/SceneWorld.h"
@@ -50,15 +50,17 @@ Related:
 #include "../../Physics/PhysicsTimestep.h"
 #include "../../World/WorldEnvironment.h"
 
+#include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstring>
-#include <array>
+#include <span>
 
 namespace SkullbonezCore
 {
 namespace Runtime
 {
-class ReplayRestoreService
+class ReplayRestoreOperations
 {
   public:
     using ResolvedBodyTable = std::array<Physics::PhysicsBodyHandle, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
@@ -259,9 +261,21 @@ class ReplayRestoreService
         cameraSample.view = world.Cameras().GetCameraView();
         cameraSample.up = world.Cameras().GetCameraUp();
 
+        std::array<const char*, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> entityDisplayNames = {};
+        const SceneEntityStore& entities = world.Entities();
+        const std::size_t entityNameCount = (std::min)( static_cast<std::size_t>( entities.Count() ),
+                                                        entityDisplayNames.size() );
+
+        for ( std::size_t entityIndex = 0; entityIndex < entityNameCount; ++entityIndex )
+        {
+            const SceneEntityRecord* entity = entities.TryGet( static_cast<int>( entityIndex ) );
+            entityDisplayNames[entityIndex] = entity ? entity->displayName : nullptr;
+        }
+
         verifier.CaptureFrame( reference.branch, reference.eventCursor, reference.sceneFrame,
                                reference.physicsDt > 0.0f ? reference.physicsDt : PHYSICS_FIXED_DT, worldSample,
-                               cameraSample, launcherVisual, world.Physics(), world.Tornado(), world.Entities(),
+                               cameraSample, launcherVisual, world.Physics(), world.Tornado(),
+                               std::span<const char* const>( entityDisplayNames.data(), entityNameCount ),
                                world.BodyStore(), world.Colliders() );
 
         const ReplaySolverFrameSample* verified = verifier.LatestSample();

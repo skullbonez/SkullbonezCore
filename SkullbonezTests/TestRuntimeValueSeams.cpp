@@ -537,7 +537,7 @@ TEST_CASE( "Replay overlay: surface description publishes owner availability as 
                                                                            true );
     input.screenW = 1920;
     input.screenH = 1080;
-    input.gesture = RuntimeInteractionGestureKind::ReplayScrubDrag;
+    input.gesture = ReplayToolGestureKind::ScrubDrag;
     CHECK( input.track == RunReplayTrack::Solver );
     CHECK( input.solverToolsEnabled );
     CHECK( input.predictionToolsEnabled );
@@ -551,13 +551,13 @@ TEST_CASE( "Replay overlay: surface description publishes owner availability as 
     CHECK( surface.controlCount == 13u );
     CHECK( surface.hasActiveControl );
     CHECK( surface.activeControl == ReplayScrubberControlId( ReplayScrubberControl::ScrubTrack ) );
-    const RuntimeUiControl* active = surface.Find( surface.activeControl );
+    const ReplayOverlayControl* active = surface.Find( surface.activeControl );
     REQUIRE( active != nullptr );
     CHECK( active->active );
 
-    const RuntimeUiControl* highDetail = surface.Find( ReplayScrubberControlId( ReplayScrubberControl::HighDetail ) );
+    const ReplayOverlayControl* highDetail = surface.Find( ReplayScrubberControlId( ReplayScrubberControl::HighDetail ) );
     REQUIRE( highDetail != nullptr );
-    CHECK( highDetail->kind == RuntimeUiControlKind::Toggle );
+    CHECK( highDetail->kind == ReplayOverlayControlKind::Toggle );
     CHECK( highDetail->checked );
     CHECK( highDetail->drawRect.x == doctest::Approx( ReplayScrubberHighDetailToggleRect( 1920, 1080 ).x ) );
     CHECK( highDetail->drawRect.y == doctest::Approx( ReplayScrubberHighDetailToggleRect( 1920, 1080 ).y ) );
@@ -567,7 +567,7 @@ TEST_CASE( "Replay overlay: surface description publishes owner availability as 
     CHECK( surface.hasPointerControl );
     CHECK( surface.hasHotControl );
     CHECK( surface.hotControl == highDetail->id );
-    CHECK( surface.Find( surface.hotControl )->action.value ==
+    CHECK( surface.Find( surface.hotControl )->action ==
            static_cast<uint32_t>( ReplayScrubberAction::SetPredictionDetailMode ) );
 
     input.predictionHighDetail = false;
@@ -614,7 +614,7 @@ TEST_CASE( "Replay overlay: loaded and unavailable surfaces block invalid action
 
     ReplayScrubberSurface loadedSurface;
     BuildReplayScrubberSurface( loaded, loadedSurface );
-    const RuntimeUiControl* highDetail = loadedSurface.Find( ReplayScrubberControlId( ReplayScrubberControl::HighDetail ) );
+    const ReplayOverlayControl* highDetail = loadedSurface.Find( ReplayScrubberControlId( ReplayScrubberControl::HighDetail ) );
     REQUIRE( highDetail != nullptr );
     CHECK_FALSE( highDetail->visible );
 

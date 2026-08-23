@@ -30,8 +30,6 @@ Related:
 #include "ReplayOverlayLayout.h"
 #include "ReplayPresentation.h"
 #include "ReplayScrubber.h"
-#include "../Input/InputRouter.h"
-#include "../Interaction/RuntimeInteractionController.h"
 #include "../../Core/FatalError.h"
 #include "../../Core/Profiler.h"
 
@@ -115,88 +113,68 @@ void ReplayAuthoring::SetCauseTreeFocus( int rowIndex, Physics::PhysicsSceneObje
 }
 
 
-bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner, ReplayScrubber& scrubberOwner,
-                                          InputRouter& inputRouter, RuntimeInteractionController& interaction,
-                                          bool rowsReady, bool uiBlocksMouse, int wheelDelta, bool editorModeEnabled,
-                                          int screenWidth, int screenHeight, int& outFocusRow,
-                                          bool& outExitInspectionCamera )
+ReplayCauseTreeInputResult ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
+                                                                ReplayScrubber& scrubberOwner,
+                                                                const ReplayCauseTreeInputFrame& frame )
 {
-    outFocusRow = -1;
-    outExitInspectionCamera = false;
+    ReplayCauseTreeInputResult result;
     PROFILE_SCOPED( "Frame/Replay/CauseTree/Input" );
 
     // Concept: this phase owns only the explanatory window and reports row or
     // exit actions. ReplayRuntime resolves a selected row from current stores
     // before performing any host-camera transition.
-    const RuntimeMouseEdges& pointer = inputRouter.UiSnapshot().mouse;
-    const bool leftPressed = pointer.leftPressed;
-    const bool leftReleased = pointer.leftReleased;
+    const bool leftPressed = frame.leftPressed;
+    const bool leftReleased = frame.leftReleased;
     BeginCauseTreeInputFrame();
-    const InputKeySnapshot& filterKeys = inputRouter.DeviceFrame().keys;
-    const std::array<uint64_t, InputKeySnapshot::WORD_COUNT> previousFilterKeys = m_causeTree.filterKeysWasDown;
-    m_causeTree.filterKeysWasDown = filterKeys.Words();
-    const auto filterKeyPressed = [&]( int virtualKey ) noexcept
-    {
-        if ( virtualKey < 0 || virtualKey >= InputKeySnapshot::VIRTUAL_KEY_COUNT )
-        {
-            return false;
-        }
-
-        const std::size_t word = static_cast<std::size_t>( virtualKey ) / 64u;
-        const uint64_t bit = uint64_t { 1 } << ( static_cast<unsigned int>( virtualKey ) & 63u );
-        return filterKeys.IsDown( virtualKey ) && ( previousFilterKeys[word] & bit ) == 0u;
-    };
-    const int screenW = screenWidth;
-    const int screenH = screenHeight;
+    m_causeTree.filterKeysWasDown = frame.currentFilterKeys;
+    const int screenW = frame.screenWidth;
+    const int screenH = frame.screenHeight;
     const auto causeTreeDragMode = [&]()
     {
-        const RuntimeInteractionGesture& gesture = interaction.Gesture();
-
-        return gesture.kind == RuntimeInteractionGestureKind::ReplayCauseTreeDrag ? gesture.axis : -1;
+        return frame.gesture.kind == ReplayToolGestureKind::CauseTreeDrag ? frame.gesture.axis : -1;
     };
 
     const auto endCauseTreeDragIfReleased = [&]()
     {
         if ( leftReleased && causeTreeDragMode() >= 0 )
         {
-            inputRouter.ReleaseNativeCapture();
-
-            interaction.EndGestureIfKind( RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
+            result.interaction.releaseNativeCapture = true;
+            result.interaction.endGesture = true;
         }
     };
 
-    if ( editorModeEnabled || screenW <= 0 || screenH <= 0 )
+    if ( frame.editorModeEnabled || screenW <= 0 || screenH <= 0 )
     {
         endCauseTreeDragIfReleased();
-        return false;
+        return result;
     }
 
-    if ( !rowsReady )
+    if ( !frame.rowsReady )
     {
         m_causeTree.filterFocused = false;
         endCauseTreeDragIfReleased();
-        return false;
+        return result;
     }
 
     EnsureCauseTreeWindowPlacement( screenW, screenH );
-    const RuntimePointerEvent& runtimePointer = inputRouter.RuntimeSnapshot().pointer;
-
-    if ( !runtimePointer.hasClientPosition )
+    if ( !frame.hasClientPosition )
     {
         endCauseTreeDragIfReleased();
-        return false;
+        return result;
     }
 
-    const POINT mouse { runtimePointer.clientX, runtimePointer.clientY };
+    const int mouseX = frame.mouseX;
+    const int mouseY = frame.mouseY;
 
-    SetCauseTreePointer( mouse.x, mouse.y, uiBlocksMouse );
+    SetCauseTreePointer( mouseX, mouseY, frame.uiBlocksMouse );
     ReplayOverlay::ReplayCauseWindowSurface surface;
     ReplayOverlay::BuildReplayCauseWindowSurface( CauseTree(), surface );
-    surface.ResolvePointer( mouse.x, mouse.y, uiBlocksMouse );
+    surface.ResolvePointer( mouseX, mouseY, frame.uiBlocksMouse );
     const auto isHotControl = [&]( ReplayOverlay::ReplayCauseWindowControl control )
     { return surface.hasHotControl && surface.hotControl == ReplayOverlay::ReplayCauseWindowControlId( control ); };
 
-    const RuntimeUiControl* contentControl = surface.Find( ReplayOverlay::ReplayCauseWindowControlId( ReplayOverlay::ReplayCauseWindowControl::Content ) );
+    const ReplayOverlay::ReplayOverlayControl* contentControl =
+        surface.Find( ReplayOverlay::ReplayCauseWindowControlId( ReplayOverlay::ReplayCauseWindowControl::Content ) );
 
     if ( !contentControl )
     {
@@ -219,50 +197,27 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
 
     if ( m_causeTree.filterFocused )
     {
-        for ( int key = 'A'; key <= 'Z'; ++key )
+        const std::size_t characterCount = (std::min)( frame.filterCharacterCount,
+                                                       frame.filterCharacters.size() );
+
+        for ( std::size_t characterIndex = 0; characterIndex < characterCount; ++characterIndex )
         {
-            if ( filterKeyPressed( key ) )
-            {
-                appendFilterChar( static_cast<char>( 'a' + key - 'A' ) );
-            }
+            appendFilterChar( frame.filterCharacters[characterIndex] );
         }
 
-        for ( int key = '0'; key <= '9'; ++key )
-        {
-            if ( filterKeyPressed( key ) )
-            {
-                appendFilterChar( static_cast<char>( key ) );
-            }
-        }
-
-        if ( filterKeyPressed( VK_SPACE ) )
-        {
-            appendFilterChar( ' ' );
-        }
-
-        if ( filterKeyPressed( VK_OEM_MINUS ) )
-        {
-            appendFilterChar( filterKeys.IsDown( VK_SHIFT ) ? '_' : '-' );
-        }
-
-        if ( filterKeyPressed( VK_OEM_PERIOD ) )
-        {
-            appendFilterChar( '.' );
-        }
-
-        if ( filterKeyPressed( VK_BACK ) && m_causeTree.filterText[0] != '\0' )
+        if ( frame.filterBackspacePressed && m_causeTree.filterText[0] != '\0' )
         {
             filterChanged = ReplayOverlay::BackspaceReplayCauseFilter( m_causeTree ) || filterChanged;
         }
 
-        if ( filterKeyPressed( VK_DELETE ) )
+        if ( frame.filterDeletePressed )
         {
             filterChanged = ReplayOverlay::ClearReplayCauseFilterText( m_causeTree ) || filterChanged;
         }
 
-        if ( filterKeyPressed( VK_ESCAPE ) || filterKeyPressed( VK_RETURN ) )
+        if ( frame.filterEscapePressed || frame.filterReturnPressed )
         {
-            if ( filterKeyPressed( VK_ESCAPE ) && m_causeTree.filterText[0] != '\0' )
+            if ( frame.filterEscapePressed && m_causeTree.filterText[0] != '\0' )
             {
                 filterChanged = ReplayOverlay::ClearReplayCauseFilterText( m_causeTree ) || filterChanged;
             }
@@ -306,46 +261,48 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
 
     if ( causeTreeDragMode() == 0 )
     {
-        MoveCauseTreeWindow( mouse.x, mouse.y, screenW, screenH );
+        MoveCauseTreeWindow( mouseX, mouseY, screenW, screenH );
 
         if ( leftReleased )
         {
-            inputRouter.ReleaseNativeCapture();
-            interaction.EndGestureIfKind( RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
+            result.interaction.releaseNativeCapture = true;
+            result.interaction.endGesture = true;
         }
 
-        return true;
+        result.consumesMouse = true;
+        return result;
     }
 
     if ( causeTreeDragMode() == 1 )
     {
-        ResizeCauseTreeWindow( mouse.x, mouse.y, screenW, screenH );
+        ResizeCauseTreeWindow( mouseX, mouseY, screenW, screenH );
 
         if ( leftReleased )
         {
-            inputRouter.ReleaseNativeCapture();
-            interaction.EndGestureIfKind( RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
+            result.interaction.releaseNativeCapture = true;
+            result.interaction.endGesture = true;
         }
 
-        return true;
+        result.consumesMouse = true;
+        return result;
     }
 
-    if ( uiBlocksMouse || !surface.consumesPointer )
+    if ( frame.uiBlocksMouse || !surface.consumesPointer )
     {
         if ( leftPressed )
         {
             m_causeTree.filterFocused = false;
         }
 
-        return false;
+        return result;
     }
 
     if ( leftPressed && isHotControl( ReplayOverlay::ReplayCauseWindowControl::FilterField ) )
     {
         m_causeTree.filterFocused = true;
-        interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay, WorldInteractionOwner::ReplayCauseTree,
-                                                         InteractionExitReason::EnterReplay );
-        return true;
+        result.interaction.worldOwner = ReplayWorldOwnerRequest::CauseTree;
+        result.consumesMouse = true;
+        return result;
     }
 
     if ( leftPressed && isHotControl( ReplayOverlay::ReplayCauseWindowControl::FilterFunnel ) )
@@ -358,7 +315,8 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
         setFilter( next );
         m_causeTree.filterFocused = false;
         clampFilterScroll();
-        return true;
+        result.consumesMouse = true;
+        return result;
     }
 
     if ( leftPressed && ( isHotControl( ReplayOverlay::ReplayCauseWindowControl::FilterAll ) ||
@@ -372,57 +330,41 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
                                : RunReplayCauseTreeFilter::Contacts ) );
         m_causeTree.filterFocused = false;
         clampFilterScroll();
-        return true;
+        result.consumesMouse = true;
+        return result;
     }
 
-    if ( wheelDelta != 0 )
+    if ( frame.wheelDelta != 0 )
     {
-        interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay, WorldInteractionOwner::ReplayCauseTree,
-                                                         InteractionExitReason::EnterReplay );
-
-        const float wheelRows = static_cast<float>( wheelDelta ) / 120.0f;
+        result.interaction.worldOwner = ReplayWorldOwnerRequest::CauseTree;
+        const float wheelRows = static_cast<float>( frame.wheelDelta ) / 120.0f;
         ScrollCauseTreeWindow( -wheelRows * ReplayOverlay::REPLAY_CAUSE_WINDOW_ROW_HEIGHT * 3.0f, screenW, screenH );
-        return true;
+        result.consumesMouse = true;
+        return result;
     }
 
     if ( leftPressed && isHotControl( ReplayOverlay::ReplayCauseWindowControl::Resize ) )
     {
-        RuntimeInteractionGesture gesture;
-        gesture.kind = RuntimeInteractionGestureKind::ReplayCauseTreeDrag;
-        gesture.button = RuntimePointerButton::Left;
-        gesture.startX = mouse.x;
-        gesture.startY = mouse.y;
-        gesture.axis = 1;
-
-        if ( !interaction.BeginOwnedToolGesture( RuntimeWorkspace::Replay, WorldInteractionOwner::ReplayCauseTree,
-                                                 gesture ) )
-        {
-            return false;
-        }
-
-        BeginCauseTreeResize( mouse.x, mouse.y );
-        inputRouter.RequestNativeCapture();
-        return true;
+        BeginCauseTreeResize( mouseX, mouseY );
+        result.interaction.beginGesture = ReplayToolGestureKind::CauseTreeDrag;
+        result.interaction.gestureStartX = mouseX;
+        result.interaction.gestureStartY = mouseY;
+        result.interaction.gestureAxis = 1;
+        result.interaction.requestNativeCapture = true;
+        result.consumesMouse = true;
+        return result;
     }
 
     if ( leftPressed && isHotControl( ReplayOverlay::ReplayCauseWindowControl::Title ) )
     {
-        RuntimeInteractionGesture gesture;
-        gesture.kind = RuntimeInteractionGestureKind::ReplayCauseTreeDrag;
-        gesture.button = RuntimePointerButton::Left;
-        gesture.startX = mouse.x;
-        gesture.startY = mouse.y;
-        gesture.axis = 0;
-
-        if ( !interaction.BeginOwnedToolGesture( RuntimeWorkspace::Replay, WorldInteractionOwner::ReplayCauseTree,
-                                                 gesture ) )
-        {
-            return false;
-        }
-
-        BeginCauseTreeMove( mouse.x, mouse.y );
-        inputRouter.RequestNativeCapture();
-        return true;
+        BeginCauseTreeMove( mouseX, mouseY );
+        result.interaction.beginGesture = ReplayToolGestureKind::CauseTreeDrag;
+        result.interaction.gestureStartX = mouseX;
+        result.interaction.gestureStartY = mouseY;
+        result.interaction.gestureAxis = 0;
+        result.interaction.requestNativeCapture = true;
+        result.consumesMouse = true;
+        return result;
     }
 
     if ( isHotControl( ReplayOverlay::ReplayCauseWindowControl::Content ) )
@@ -432,7 +374,7 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
             m_causeTree.filterFocused = false;
         }
 
-        const float localY = static_cast<float>( mouse.y ) - content.y + CauseTree().scrollY;
+        const float localY = static_cast<float>( mouseY ) - content.y + CauseTree().scrollY;
         const int visibleRow = static_cast<int>( floorf( localY / ReplayOverlay::REPLAY_CAUSE_WINDOW_ROW_HEIGHT ) );
         ReplayOverlay::ReplayCauseWindowProjection projection;
         ReplayOverlay::BuildReplayCauseWindowProjection( CauseTree(), projection );
@@ -443,11 +385,8 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
         {
             if ( leftPressed )
             {
-                interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
-                                                                 WorldInteractionOwner::ReplayCauseTree,
-                                                                 InteractionExitReason::EnterReplay );
-
-                outFocusRow = rowIndex;
+                result.interaction.worldOwner = ReplayWorldOwnerRequest::CauseTree;
+                result.focusRow = rowIndex;
             }
         }
         else if ( leftPressed )
@@ -464,9 +403,10 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
             presentationOwner.ClearPathState();
             ResetCauseTreeRows();
             QueuePredictionCacheReset();
-            outExitInspectionCamera = true;
+            result.exitInspectionCamera = true;
         }
     }
 
-    return true;
+    result.consumesMouse = true;
+    return result;
 }

@@ -37,7 +37,6 @@ Related:
 #include "../../Physics/PhysicsHandles.h"
 
 #include <vector>
-#include <span>
 
 namespace SkullbonezCore
 {
@@ -45,41 +44,19 @@ namespace Core
 {
 class Profiler;
 }
-namespace Environment
-{
-class CameraCollection;
-}
-namespace Geometry
-{
-class Terrain;
-}
-namespace Rendering
-{
-struct RenderInstancePresentationRecord;
-}
 namespace Physics
 {
 class PhysicsEngine;
-class PhysicsBodyStore;
-class ColliderStore;
 } // namespace Physics
 namespace Runtime
 {
-class InputRouter;
 class ReplayPresentation;
 class ReplayScrubber;
-class RuntimeInteractionController;
-class SceneEntityStore;
 struct ReplayPathPickInput;
+struct ReplayPathPickResult;
 struct ReplayKeyboardVelocityEditInput;
 struct ReplayKeyboardVelocityEditResult;
-struct RunReplayCameraState;
-struct RunReplayPathVisualizerState;
-struct CameraControlState;
-struct RunMousePickupState;
-enum class RunCameraMode;
 enum class ReplayInspectionCameraAction : uint8_t;
-struct RuntimeInteractionGesture;
 struct ReplayAuthoringPredictionRequest
 {
     Physics::PhysicsSceneObjectId velocityPreviewTargetId;
@@ -213,26 +190,23 @@ class ReplayAuthoring
     void BeginCauseTreeMove( int mouseX, int mouseY ) noexcept;
     bool TryGetCauseTreeRow( int rowIndex, RunReplayCauseTreeRow& outRow ) const noexcept;
     void SetCauseTreeFocus( int rowIndex, Physics::PhysicsSceneObjectId focusedId ) noexcept;
-    bool TickCauseTreeInput( ReplayPresentation& presentationOwner, ReplayScrubber& scrubberOwner, InputRouter& inputRouter,
-                             RuntimeInteractionController& interaction, bool rowsReady, bool uiBlocksMouse, int wheelDelta,
-                             bool editorModeEnabled, int screenWidth, int screenHeight, int& outFocusRow,
-                             bool& outExitInspectionCamera );
+    ReplayCauseTreeInputResult TickCauseTreeInput( ReplayPresentation& presentationOwner,
+                                                   ReplayScrubber& scrubberOwner,
+                                                   const ReplayCauseTreeInputFrame& frame );
 
     // Unwinds a stale drag when velocity editing cannot run this frame. The
     // following gizmo and target-pick phases are invoked only when this succeeds.
     bool PrepareVelocityEditInput( bool editorModeEnabled, bool scenePhysicsEnabled, int screenWidth, int screenHeight,
-                                   InputRouter& inputRouter, RuntimeInteractionController& interaction );
+                                   const ReplayToolGestureView& gesture, ReplayInteractionRequest& outInteraction );
     bool TickVelocityEditInput( ReplayPresentation& presentationOwner, ReplayScrubber& scrubberOwner,
                                 const ReplayPathPickInput& pointerRay, bool uiBlocksMouse, double now,
-                                InputRouter& inputRouter, RuntimeInteractionController& interaction,
-                                Physics::PhysicsEngine& physics, std::size_t entityCount, bool& outEnterInteractive,
-                                bool& outPathPickRequested, ReplayInspectionCameraAction& outInspectionCameraAction );
-    bool TryPickVelocityEditTarget( ReplayPresentation& presentationOwner, ReplayScrubber& scrubberOwner,
-                                    const ReplaySolverFrameSample* currentSolverSample, const SceneEntityStore& entities,
-                                    std::span<const Rendering::RenderInstancePresentationRecord> presentation,
-                                    Physics::PhysicsEngine& physics, const ReplayPathPickInput& pointerRay,
-                                    RuntimeInteractionController& interaction, double now, bool& outEnterInteractive,
-                                    ReplayInspectionCameraAction& outInspectionCameraAction );
+                                const ReplayVelocityInputFrame& frame, Physics::PhysicsEngine& physics,
+                                std::size_t entityCount, ReplayVelocityInputResult& outResult,
+                                ReplayInspectionCameraAction& outInspectionCameraAction );
+    bool ApplyVelocityEditTargetPick( ReplayPresentation& presentationOwner, ReplayScrubber& scrubberOwner,
+                                      const ReplayPathPickResult& pickResult, double now,
+                                      ReplayVelocityInputResult& outResult,
+                                      ReplayInspectionCameraAction& outInspectionCameraAction );
     ReplayKeyboardVelocityEditResult ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input,
                                                                 ReplayScrubber& scrubberOwner,
                                                                 const ReplayPresentation& presentationOwner );
@@ -356,7 +330,7 @@ class ReplayAuthoring
     // identity. App applies the detached command to its Tools sibling.
     bool BuildVelocityOverlayCommand( Physics::PhysicsSceneObjectId targetId, Physics::ModelRowHint targetModelRow,
                                       Physics::PhysicsEngine& physics, bool editorModeEnabled,
-                                      const RuntimeInteractionGesture& gesture,
+                                      const ReplayToolGestureView& gesture,
                                       ReplayVelocityOverlayCommand& outCommand ) const;
 
     // Concept: authoring publishes a value command instead of holding a

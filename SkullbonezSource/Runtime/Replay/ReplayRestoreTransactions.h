@@ -23,7 +23,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/App/ReplayRuntime.h
-  - SkullbonezSource/Runtime/Replay/ReplayRestoreService.h
+  - SkullbonezSource/Runtime/App/ReplayRestoreOperations.h
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
@@ -32,9 +32,6 @@ Related:
 #include "ReplayRecorder.h"
 #include "ReplayScrubber.h"
 #include "../../Core/FatalError.h"
-#ifdef _DEBUG
-#include "../Diagnostics/RuntimeDiagnostics.h"
-#endif
 
 #include <cstddef>
 #include <cstdint>
@@ -45,22 +42,47 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-// Lifetime: startup presentation activation borrows input, interaction,
-// camera, and terrain owners only for the synchronous load call. Solver,
-// scene-rebuild, and diagnostic authority is intentionally excluded.
-struct ReplayStartupLoadInput
+// Detached restore evidence retained by Replay until App publishes it to the
+// diagnostics sibling. String pointers are copied into transaction storage.
+struct ReplayRestoreProbePacket
 {
-    double now = 0.0;
-    Environment::CameraCollection* cameras = nullptr;
-    RunMousePickupState& mousePickup;
-    RunCameraMode normalizedCurrentMode = RunCameraMode::Demo;
-    InputRouter& inputRouter;
-    RuntimeInteractionController& interaction;
-    Geometry::Terrain* terrain = nullptr;
-    CameraControlState& camera;
-    RunCameraMode normalizedRestoreMode = RunCameraMode::Demo;
-    bool attachedFollow = false;
-    bool directorGrabbed = false;
+    uint64_t targetReplayFrame = 0;
+    int targetSceneFrame = 0;
+    uint64_t targetSolverHash = 0;
+    uint64_t targetPresentationHash = 0;
+    std::size_t targetBodyCount = 0;
+    uint64_t restoredSolverHash = 0;
+    uint64_t restoredPresentationHash = 0;
+    std::size_t restoredBodyCount = 0;
+    uint16_t contactCount = 0;
+    uint16_t pipelineRecordCount = 0;
+    bool checkpointBoundary = false;
+    bool hashCaptured = false;
+    bool hashMatched = false;
+    bool fallbackAttempted = false;
+    bool fallbackRestored = false;
+};
+
+struct ReplayRestoreResultPacket
+{
+    const char* restoreSource = nullptr;
+    uint64_t targetReplayFrame = 0;
+    int targetSceneFrame = 0;
+    uint64_t checkpointReplayFrame = 0;
+    uint64_t targetSolverHash = 0;
+    uint64_t targetPresentationHash = 0;
+    std::size_t targetBodyCount = 0;
+    uint64_t restoredSolverHash = 0;
+    uint64_t restoredPresentationHash = 0;
+    std::size_t restoredBodyCount = 0;
+    uint16_t contactCount = 0;
+    uint16_t pipelineRecordCount = 0;
+    bool checkpointBoundary = false;
+    bool hashCaptured = false;
+    bool hashMatched = false;
+    bool fallbackAttempted = false;
+    bool fallbackRestored = false;
+    const char* failureReason = nullptr;
 };
 
 class ReplayRestorePhaseCursor
@@ -416,7 +438,7 @@ class ReplayRestoreTransaction
     }
 
 #ifdef _DEBUG
-    void RecordRestoreProbeDiagnostic( const ReplayRestoreProbeDiagnostic& diagnostic )
+    void RecordRestoreProbeDiagnostic( const ReplayRestoreProbePacket& diagnostic )
     {
         m_restoreProbeDiagnostic = diagnostic;
         m_hasRestoreProbeDiagnostic = true;
@@ -427,12 +449,12 @@ class ReplayRestoreTransaction
         return m_hasRestoreProbeDiagnostic;
     }
 
-    const ReplayRestoreProbeDiagnostic& RestoreProbeDiagnostic() const
+    const ReplayRestoreProbePacket& RestoreProbeDiagnostic() const
     {
         return m_restoreProbeDiagnostic;
     }
 
-    void RecordRestoreResultDiagnostic( const ReplayRestoreResultDiagnostic& diagnostic )
+    void RecordRestoreResultDiagnostic( const ReplayRestoreResultPacket& diagnostic )
     {
         m_restoreResultDiagnostic = diagnostic;
         strncpy_s( m_restoreSource, diagnostic.restoreSource ? diagnostic.restoreSource : "unknown", _TRUNCATE );
@@ -447,7 +469,7 @@ class ReplayRestoreTransaction
         return m_hasRestoreResultDiagnostic;
     }
 
-    const ReplayRestoreResultDiagnostic& RestoreResultDiagnostic() const
+    const ReplayRestoreResultPacket& RestoreResultDiagnostic() const
     {
         return m_restoreResultDiagnostic;
     }
@@ -495,8 +517,8 @@ class ReplayRestoreTransaction
 #ifdef _DEBUG
     // Lifetime: diagnostic strings are copied into transaction-owned bounded
     // storage so publication never borrows an artifact or stack reason buffer.
-    ReplayRestoreProbeDiagnostic m_restoreProbeDiagnostic;
-    ReplayRestoreResultDiagnostic m_restoreResultDiagnostic;
+    ReplayRestoreProbePacket m_restoreProbeDiagnostic;
+    ReplayRestoreResultPacket m_restoreResultDiagnostic;
     char m_restoreSource[32] = {};
     char m_restoreFailureReason[320] = {};
     bool m_hasRestoreProbeDiagnostic = false;
