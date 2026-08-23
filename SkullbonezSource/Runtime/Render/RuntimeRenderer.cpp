@@ -61,7 +61,7 @@ Related:
 #include "../../World/Terrain.h"
 #include "../../World/WorldEnvironment.h"
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-#include "../DevelopmentTools/ImGuiEditorOwner.h"
+#include "../../Rendering/DX12/Dx12ImGuiRendererOwner.h"
 #endif
 
 #include <algorithm>
@@ -349,7 +349,9 @@ struct ReplayGhostGraphInvocation
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 struct DevelopmentUiGraphInvocation
 {
-    SkullbonezCore::Runtime::DevelopmentTools::ImGuiEditorOwner* editor = nullptr;
+    SkullbonezCore::Rendering::Dx12ImGuiRendererOwner* renderer = nullptr;
+    ImGuiContext* context = nullptr;
+    ImDrawData* drawData = nullptr;
     SkullbonezCore::Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
     const SkullbonezCore::Rendering::RenderGraphCompileResult* compiled = nullptr;
     size_t expectedTransitionCount = 0;
@@ -559,13 +561,13 @@ void ExecuteReplayGhostGraphCallback( const SkullbonezCore::Rendering::RenderGra
 void ExecuteDevelopmentUiGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                         DevelopmentUiGraphInvocation& data )
 {
-    if ( !data.editor )
+    if ( !data.renderer || !data.context || !data.drawData )
     {
-        SB_FATAL( "RunRender", "ImGuiEditorPass graph callback missing its presentation owner." );
+        SB_FATAL( "RunRender", "ImGuiEditorPass graph callback missing prepared draw data." );
     }
 
     (void)ExecuteRequiredGraphTransitions( context, data.renderGraph, data.compiled, data.expectedTransitionCount );
-    data.status = data.editor->RenderPreparedDrawData();
+    data.status = data.renderer->RenderDrawData( *data.context, *data.drawData );
 }
 #endif
 
@@ -1830,7 +1832,12 @@ RuntimeRenderer::RuntimeRenderer( SkullbonezCore::Core::SbDiagnosticStore& resul
                                   Rendering::Dx12ResourceBuilder& renderResources,
                                   Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
                                   Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner& raytracing,
-                                  bool raytracingAvailable, const RenderWorldView& world, SceneSessionState& scene )
+                                  bool raytracingAvailable, const RenderWorldView& world, SceneSessionState& scene
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+                                  ,
+                                  Rendering::Dx12ImGuiRendererOwner& developmentUiRenderer
+#endif
+)
     : m_resultDiagnostics( resultDiagnostics ),
       m_resources( resultDiagnostics, renderDevice, renderFrame, renderGraph, renderResources, renderTextures,
                    renderGeometry, renderDiagnostics, raytracing, raytracingAvailable, world, scene ),
@@ -1838,6 +1845,9 @@ RuntimeRenderer::RuntimeRenderer( SkullbonezCore::Core::SbDiagnosticStore& resul
       m_collisionVisualizer( world.overlayResources.m_collisionOverlay ),
       m_broadphaseVisualizer( world.overlayResources.m_broadphaseOverlay ),
       m_physicsDebugVisualizer( world.overlayResources.m_physicsDebugOverlay ), m_profiler( world.profiler ),
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+      m_developmentUiRenderer( &developmentUiRenderer ),
+#endif
       m_fullscreenQuadPass( m_resources.PassResources().fullscreen ),
       m_skyPass( m_resources.PassResources().sky, m_resources.PassResources().fullscreen, m_resources.SkyBoxOwner(),
                  m_resources.Config(), m_profiler ),
@@ -2495,11 +2505,16 @@ void RuntimeRenderer::PrepareUiFrameTarget()
 
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-SkullbonezCore::Core::SbResult RuntimeRenderer::RenderDevelopmentUi( DevelopmentTools::ImGuiEditorOwner& editor )
+SkullbonezCore::Core::SbResult RuntimeRenderer::RenderDevelopmentUi( ImGuiContext* context, ImDrawData* drawData )
 {
     if ( !m_frameGraphRenderGraph )
     {
         return m_resultDiagnostics.Failure( "RuntimeRenderer", "Development UI has no active frame graph" );
+    }
+
+    if ( !m_developmentUiRenderer || !context || !drawData )
+    {
+        return m_resultDiagnostics.Failure( "RuntimeRenderer", "Development UI has no prepared DX12 draw data" );
     }
 
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
@@ -2508,7 +2523,9 @@ SkullbonezCore::Core::SbResult RuntimeRenderer::RenderDevelopmentUi( Development
     graph.AddWrite( pass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
 
     DevelopmentUiGraphInvocation callbackData;
-    callbackData.editor = &editor;
+    callbackData.renderer = m_developmentUiRenderer;
+    callbackData.context = context;
+    callbackData.drawData = drawData;
     callbackData.renderGraph = m_frameGraphRenderGraph;
     graph.SetPassCallback<ExecuteDevelopmentUiGraphCallback>( pass, callbackData, true, "Frame/UI/ImGuiEditor" );
     const Rendering::RenderGraphCompileResult& compiled = CompileRenderPassGraph( graph );

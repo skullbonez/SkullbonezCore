@@ -829,7 +829,8 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
 
         if ( imguiResult.status.Ok() )
         {
-            imguiResult.status = Renderer().RenderDevelopmentUi( m_imguiEditor );
+            const DevelopmentTools::ImGuiPreparedDrawDataView drawData = m_imguiEditor.PreparedDrawData();
+            imguiResult.status = Renderer().RenderDevelopmentUi( drawData.context, drawData.drawData );
         }
 
         if ( !imguiResult.status.Ok() )

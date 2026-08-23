@@ -333,7 +333,12 @@ Run::BindRenderBackend( Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx
                                                                          m_config, m_sceneController.Scene().Environment(),
                                                                          m_overlayDiagnostics->RenderResources(),
                                                                          m_profiler },
-                                                       m_sceneController.State() );
+                                                       m_sceneController.State()
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+                                                       ,
+                                                       developmentUiRenderer
+#endif
+    );
     m_renderer = std::move( renderer );
 
     m_shaderDevelopment = shaderDevelopment;

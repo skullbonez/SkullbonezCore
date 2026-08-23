@@ -55,12 +55,17 @@ Related:
 #include <cstdint>
 #include <vector>
 
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+struct ImDrawData;
+struct ImGuiContext;
+#endif
+
 namespace SkullbonezCore
 {
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-namespace Runtime::DevelopmentTools
+namespace Rendering
 {
-class ImGuiEditorOwner;
+class Dx12ImGuiRendererOwner;
 }
 #endif
 namespace Runtime
@@ -101,7 +106,12 @@ class RuntimeRenderer
                      Rendering::Dx12ResourceBuilder& renderResources, Rendering::Dx12TextureOwner& renderTextures,
                      Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12Diagnostics& renderDiagnostics,
                      Rendering::Dx12RaytracingOwner& raytracing, bool raytracingAvailable, const RenderWorldView& world,
-                     SceneSessionState& scene );
+                     SceneSessionState& scene
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+                     ,
+                     Rendering::Dx12ImGuiRendererOwner& developmentUiRenderer
+#endif
+    );
     ~RuntimeRenderer();
 
     // Runs after Core FrameBegin and before draw-call counters reset. This
@@ -168,7 +178,7 @@ class RuntimeRenderer
     const char* RendererName() const;
     void PrepareUiFrameTarget();
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    SkullbonezCore::Core::SbResult RenderDevelopmentUi( DevelopmentTools::ImGuiEditorOwner& editor );
+    SkullbonezCore::Core::SbResult RenderDevelopmentUi( ImGuiContext* context, ImDrawData* drawData );
 #endif
 
     // Adds the sole declaration-only Present edge and validates the submitted
@@ -341,6 +351,9 @@ class RuntimeRenderer
     Physics::BroadphaseVisualizer& m_broadphaseVisualizer;
     Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;
     SkullbonezCore::Core::Profiler* m_profiler = nullptr;                                                                         // Startup-bound diagnostics source; null in non-profile builds.
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    Rendering::Dx12ImGuiRendererOwner* m_developmentUiRenderer = nullptr;
+#endif
     std::array<Math::Transformation::Matrix4, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_dxrReflectionTransforms = {}; // Scratch matrices for DXR Top-Level Acceleration Structure (TLAS) instance
 
     // upload.

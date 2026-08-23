@@ -239,7 +239,7 @@ target, include spelling, and policy fingerprint. The ordinary repository
 gate accepts only an exact current seal and reports it as repair-plan debt;
 a new, changed, shifted, or deleted site fails. `--check-runtime-graph`
 ignores every repair row and fails every forbidden site and multi-package SCC.
-Canonical repair-policy SHA-256: `c55d4024297994d68711a0e09241d5a390add01da99b418c8f2745031f79d9e1`.
+Canonical repair-policy SHA-256: `b58e8d05195c6a907a21c9dc2a0d53b352c11f323ebccc57e2c5585bc00cad2c`.
 
 #### Content Rules
 

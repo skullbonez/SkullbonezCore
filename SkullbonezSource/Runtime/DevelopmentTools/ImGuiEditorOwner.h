@@ -58,6 +58,7 @@ Related:
 
 #include <cstdint>
 
+struct ImDrawData;
 struct ImGuiContext;
 
 namespace SkullbonezCore::Rendering
@@ -122,6 +123,12 @@ struct ImGuiEditorFrameResult
 {
     ImGuiEditorCommands commands;
     SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
+};
+
+struct ImGuiPreparedDrawDataView
+{
+    ImGuiContext* context = nullptr;
+    ImDrawData* drawData = nullptr;
 };
 
 struct ImGuiEditorNativeMessageRoute
@@ -275,9 +282,9 @@ class ImGuiEditorOwner
     void BuildEditorShell( const UI::OperatorEditorFrameView& view, const ReplayOverlay::ReplayOverlayStateView& replay );
     ImGuiEditorFrameResult EndFrame();
 
-    // Records draw data published by EndFrame. The caller must invoke this
-    // synchronously from the current frame's graph callback before Present.
-    SkullbonezCore::Core::SbResult RenderPreparedDrawData();
+    // The returned vendor pointers remain valid only until the next BeginFrame
+    // and must be submitted synchronously before Present.
+    ImGuiPreparedDrawDataView PreparedDrawData() noexcept;
     ImGuiEditorStatus CopyStatus() const noexcept;
 
   private:
