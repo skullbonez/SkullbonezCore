@@ -161,7 +161,7 @@ Concept: Free-function collision-shape visitors
     SweepSphereAgainstBox branch.
 */
 
-template <typename ShapeLike> inline const Vector::Vector3& GetShapePosition( const ShapeLike& shape )
+template <typename ShapeLike> inline Vector::Vector3 GetShapePosition( const ShapeLike& shape )
 {
     return VisitCollisionShape( shape, []( const auto& s ) -> const Vector::Vector3& { return s.GetPosition(); } );
 }
