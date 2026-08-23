@@ -303,9 +303,12 @@ Either finding blocks the touching change.
 
 Comment quality is part of completion, not a follow-up nicety.
 
-- If a task touches source for meaningful work, inspect every touched
-  source-bearing file with `Agentic/Skills/comment-style-audit/skill.md` before
-  reporting done.
+- If a task touches source for meaningful work, the source-writing agent applies
+  `Agentic/Reference/comment-style-guide.md` once while implementing the file.
+  Do not schedule a separate comment-audit pass or worker for ordinary
+  implementation. The terminal rubber-duck reviews implementation-level truth
+  and may block materially false ownership, sequencing, lifetime, unit, or
+  hazard claims; it does not perform cosmetic wording review.
 - Do not treat "file has a learning header" as full compliance. The body of the
   file must also teach local vocabulary, non-obvious ownership/lifetime rules,
   invariants, hazards, units, and validation-sensitive behavior.

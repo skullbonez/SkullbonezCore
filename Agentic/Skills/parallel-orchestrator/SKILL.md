@@ -281,9 +281,11 @@ Classify each proposed lane as one of:
 
 Never create a dedicated comment-audit lane or dispatch a sub-agent whose job is
 only to audit comments. Every source-writing worker applies the repository
-comment standard to its own touched files, and the coordinator reconciles the
-complete integrated touched-file set before closure. This does not remove the
-base orchestrator's independent rubber-duck review requirement.
+comment standard once while implementing its touched files. The coordinator
+does not reopen the integrated tree for a separate comment audit. The base
+orchestrator's independent rubber-duck reviews implementation and may report a
+materially false ownership, sequencing, lifetime, units, or hazard claim, but
+does not perform cosmetic comment review.
 
 Record the wave in coordinator commentary before dispatch. Include the frozen
 base commit, dependency edges, lane owners, write scopes, prohibited shared
@@ -446,9 +448,9 @@ When a worker completes:
    exclusive write scope is evidence that the wave definition was wrong; record
    and correct the scheduling rule before another wave.
 6. Run the cumulative focused evidence required for the integrated behavior.
-7. The coordinator applies the touched-source comment audit and ownership
-   reviews required by `AGENTS.md`; never delegate this step to a standalone
-   comment-audit worker.
+7. The coordinator reviews ownership evidence and relies on each source writer's
+   one-pass comment work. Do not add a separate comment-audit or wording-fix
+   phase; the independent rubber-duck checks implementation-level truth.
 8. Use a separate read-only rubber-duck reviewer only at the cadence allowed by
    the base orchestrator.
 9. Run terminal plan-completion validation once for each plan when that plan is

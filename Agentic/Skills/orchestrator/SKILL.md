@@ -356,6 +356,21 @@ that gate and its source inputs are unchanged. Do not repeat a clean rubber-duck
 unless subsequent fixes materially changed the reviewed risk area or the
 reviewer explicitly required a follow-up.
 
+## Write Comments Once
+
+Apply the repository comment standard while implementing each touched source
+file. Do not open a later comment-audit step, reread every comment through a
+separate skill, or spend a worker on wording review. The terminal rubber-duck
+reviews the implementation as a whole and may block a materially false comment
+about ownership, sequencing, lifetime, units, or a hazard; it does not run a
+second style pass or request cosmetic rewrites. Mechanical Related-path and
+glossary checks remain part of their existing validation gates and run once at
+the mapped checkpoint.
+
+The dedicated comment-audit skill remains available only when the user
+explicitly requests a comment/subsystem audit. Ordinary implementation work
+writes and verifies its comments once in the source-writing lane.
+
 ## Plan Loop
 
 For each plain-mode plan, or each parallel-mode fan-in slice:
