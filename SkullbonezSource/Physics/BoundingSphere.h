@@ -37,7 +37,6 @@ namespace Math
 {
 namespace CollisionDetection
 {
-class BoundingBox;
 class ConvexHullShape;
 } // namespace CollisionDetection
 } // namespace Math
@@ -77,7 +76,6 @@ class BoundingSphere
     float GetBoundingRadius() const;                                                                                          // Conservative broadphase radius; identical to radius for spheres.
     const Vector::Vector3& GetPosition() const;                                                                               // Local-space centre offset used by model transforms and collision queries.
     float TestCollision( const BoundingSphere& target, const Geometry::Ray& targetRay, const Geometry::Ray& focusRay ) const; // Public swept sphere-sphere test (delegates to CollisionDetect)
-    float TestCollision( const BoundingBox& target, const Geometry::Ray& targetRay, const Geometry::Ray& focusRay ) const;    // Sphere vs box: approximated via bounding-radius sphere test
     float TestCollision( const ConvexHullShape& target, const Geometry::Ray& targetRay,
                          const Geometry::Ray& focusRay ) const;
 };

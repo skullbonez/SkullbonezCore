@@ -39,7 +39,6 @@ Related:
 #include "BoundingBox.h"
 #include "CollisionShape.h"
 #include "../Maths/Vector3.h"
-#include "BoundingSphere.h"
 #include "ConvexHullShape.h"
 
 
@@ -132,70 +131,18 @@ const Vector3& BoundingBox::GetHalfExtents() const
 }
 
 
-// Concept: broadphase swept tests answer whether two moving bounds may touch;
-// the narrowphase still owns exact oriented-box contact geometry.
-// These tests approximate this OBB as a bounding sphere (radius = corner distance)
-// for the broadphase pair check. The broadphase only needs to know "could these
-// two objects possibly be touching this frame?" — a cheap sphere test is enough.
+// Concept: retained box sweeps answer whether two moving bounds may touch;
+// the narrowphase still owns exact oriented-box contact geometry. Box-box and
+// box-hull use corner-distance bounding spheres as conservative front-ends.
+// Sphere-box instead has one exact translational owner in
+// ObjectContactManifold.cpp, so this type exposes no competing approximation.
 //
-// Precise OBB-sphere and OBB-OBB narrowphase (SAT, contact manifold) happens in
-// the terrain/impulse response layer where the full orientation is available.
-//
-// Both tests below solve the same swept-sphere quadratic:
+// The retained tests solve the swept-sphere quadratic:
 //   |d + v_rel*t|² = R_combined²
 //   → a·t² + 2b·t + c = 0,  t = (-b - sqrt(b²-ac)) / a
 // where d is the centre-to-centre vector, v_rel is relative velocity, R_combined
 // is the sum of the two bounding radii.
 //
-
-
-// Box vs Sphere swept test: approximate box as bounding sphere for broadphase
-float BoundingBox::TestCollision( const BoundingSphere& target, const Ray& targetRay, const Ray& focusRay ) const
-{
-    // Cheap candidate test only. A later OBB/sphere manifold uses the real box
-    // axes and closest point, so this broadphase test is allowed to be generous.
-    // Approximate this box as a sphere of bounding radius for the swept test
-    float combinedRadius = GetBoundingRadius() + target.GetRadius();
-    float combinedRadiusSq = combinedRadius * combinedRadius;
-
-    // Relative movement
-    Vector3 totalMovement = targetRay.vector3 - focusRay.vector3;
-    float totalMovementSq = VectorMagSquared( totalMovement );
-
-    if ( totalMovementSq < TOLERANCE )
-    {
-        // Static overlap check
-        Vector3 delta = ( targetRay.origin + target.GetPosition() ) - ( focusRay.origin + m_position );
-
-        if ( VectorMagSquared( delta ) <= combinedRadiusSq )
-        {
-            return 0.0f;
-        }
-
-        return NO_COLLISION;
-    }
-
-    Vector3 d = ( focusRay.origin + m_position ) - ( targetRay.origin + target.GetPosition() );
-    float totalMovementMag = sqrtf( totalMovementSq );
-    Vector3 moveDir = totalMovement / totalMovementMag;
-
-    float dDotMoveDir = Dot( d, moveDir );
-    float discriminant = dDotMoveDir * dDotMoveDir - ( VectorMagSquared( d ) - combinedRadiusSq );
-
-    if ( discriminant < 0.0f )
-    {
-        return NO_COLLISION;
-    }
-
-    float t = ( dDotMoveDir - sqrtf( discriminant ) ) / totalMovementMag;
-
-    if ( t < 0.0f || t > 1.0f )
-    {
-        return NO_COLLISION;
-    }
-
-    return t;
-}
 
 
 // Box vs Box swept test: approximate both as bounding spheres for broadphase

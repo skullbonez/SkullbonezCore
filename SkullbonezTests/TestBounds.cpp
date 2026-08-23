@@ -18,8 +18,8 @@
 // Invariants:
 //   - Sphere-sphere static overlap returns NO_COLLISION here; static contact is
 //     resolved by later overlap handling.
-//   - Box-involved static overlap returns 0.0f because those overloads perform a
-//     bounding-radius overlap check.
+//   - Box-box static overlap returns 0.0f because that retained sweep performs
+//     a bounding-radius overlap check.
 //   - Box face/edge precision is not owned by these broadphase helpers.
 //   - Debug, Profile, and Release consume the same staged render-translation
 //     arithmetic so build configuration cannot alter its float bits.
@@ -109,19 +109,6 @@ TEST_CASE( "Bounds: box broadphase uses bounding-radius overlap and sweep times"
     CheckNear( focus.TestCollision( target, Motion( Vector3( 10.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ) ),
                                     Motion( Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 10.0f, 0.0f, 0.0f ) ) ),
                ( 10.0f - combinedRadius ) / 10.0f );
-}
-
-
-TEST_CASE( "Bounds: sphere-box broadphase is symmetric for shared setup" )
-{
-    const BoundingSphere sphere( 1.0f, Vector3( 0.0f, 0.0f, 0.0f ) );
-    const BoundingBox box( Vector3( 1.0f, 1.0f, 1.0f ), Vector3( 0.0f, 0.0f, 0.0f ) );
-    const Ray sphereMotion = Motion( Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 4.0f, 0.0f, 0.0f ) );
-    const Ray boxMotion = Motion( Vector3( 4.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ) );
-    const float expected = ( 4.0f - ( sphere.GetRadius() + box.GetBoundingRadius() ) ) / 4.0f;
-
-    CheckNear( sphere.TestCollision( box, boxMotion, sphereMotion ), expected );
-    CheckNear( box.TestCollision( sphere, sphereMotion, boxMotion ), expected );
 }
 
 

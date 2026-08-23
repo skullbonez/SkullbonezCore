@@ -397,28 +397,6 @@ inline bool ScaleShapeAxisFromBase( const ShapeLike& baseShape, int axis, float 
     return false;
 }
 
-/*
-Concept: Double-dispatch collision test
-
-    Tests collision between any owning/reference shape pair. Nested exhaustive
-    visits produce a compile-time N*N dispatch table, so adding a shape type
-    requires every concrete collision pair to compile.
-*/
-template <typename FocusShape, typename TargetShape>
-inline float TestShapeCollision( const FocusShape& focus, const TargetShape& target, const Geometry::Ray& focusRay,
-                                 const Geometry::Ray& targetRay )
-{
-    // Double visit is the collision-shape switchboard. If focus is a sphere and
-    // target is a box, the compiler chooses BoundingSphere::TestCollision(box).
-    // If both are boxes, it chooses BoundingBox::TestCollision(box), and so on.
-    return VisitCollisionShape( focus,
-                                [&]( const auto& f )
-                                {
-                                    return VisitCollisionShape( target, [&]( const auto& t )
-                                                                { return f.TestCollision( t, targetRay, focusRay ); } );
-                                } );
-}
-
 } // namespace CollisionDetection
 } // namespace Math
 } // namespace SkullbonezCore
