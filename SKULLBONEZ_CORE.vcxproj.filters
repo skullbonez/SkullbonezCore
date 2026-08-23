@@ -327,7 +327,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneLoadTransaction.Presentation.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Camera\AttachedCameraController.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\AttachedCameraController.cpp">
       <Filter>Source Files\Runtime\Camera</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Camera\AttachedCameraController.InspectionPolicy.cpp">
@@ -597,8 +597,8 @@
     <ClCompile Include="SkullbonezSource\Runtime\App\RunRender.cpp">
       <Filter>Source Files\Runtime\Render</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Camera\CameraControlState.cpp">
-      <Filter>Source Files\Runtime\Camera</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\App\CameraFrameApplication.cpp">
+      <Filter>Source Files\Runtime\App</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.Load.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
@@ -1582,7 +1582,10 @@
       <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12ImGuiRendererOwner.h">
         <Filter>Header Files\Rendering\DX12</Filter>
       </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Camera\AttachedCameraController.h">
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\AttachedCameraController.h">
+      <Filter>Header Files\Runtime\Camera</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Camera\AttachedCameraValues.h">
       <Filter>Header Files\Runtime\Camera</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Camera\AttachedCameraController.InspectionPolicy.h">

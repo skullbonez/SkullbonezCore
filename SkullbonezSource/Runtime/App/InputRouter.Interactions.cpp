@@ -29,7 +29,7 @@ Related:
 #include "Run.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "InputFrame.h"
-#include "../Camera/AttachedCameraController.h"
+#include "../Scene/AttachedCameraController.h"
 #include "../Editor/EditorTools.h"
 #include "../Input/InputController.Bindings.h"
 #include "../Input/InputController.h"

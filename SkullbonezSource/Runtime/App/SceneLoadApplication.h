@@ -41,6 +41,7 @@ class RuntimeOverlayDiagnostics;
 class RuntimeTools;
 class RuntimeValidationHarness;
 class SceneController;
+class SceneLifecycleGenerationObserver;
 class SceneLoadTransaction;
 class Window;
 struct RunLaunchOptions;
@@ -48,7 +49,9 @@ struct RunLaunchOptions;
 void ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction, const RunLaunchOptions& launchOptions,
                                      RuntimeOverlayDiagnostics& overlays, SceneController& sceneController,
                                      InputRouter& inputRouter, RuntimeInteractionController& interaction,
-                                     CameraControlState& camera, AttachedCameraController& attachedCamera,
+                                     SceneLifecycleGenerationObserver& cameraLifecycle, CameraControlState& camera,
+                                     SceneLifecycleGenerationObserver& attachedCameraLifecycle,
+                                     AttachedCameraController& attachedCamera,
                                      RuntimeTools& runtimeTools, ReplayRuntime& replayRuntime );
 
 void ApplySceneLoadPresentation( SceneLoadTransaction& transaction, Window& window, UI::InGameUI& operatorUi,

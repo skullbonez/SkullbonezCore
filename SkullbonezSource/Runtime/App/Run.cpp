@@ -750,7 +750,9 @@ void Run::Initialise()
 
     m_timers.ObserveSceneLifecycle( m_sceneController.LifecyclePacket() );
     ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_sceneController, m_inputRouter,
-                                    m_interaction, m_camera, m_attachedCamera, m_runtimeTools, m_replayRuntime );
+                                    m_interaction, m_cameraSceneLifecycleObserver, m_camera,
+                                    m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_runtimeTools,
+                                    m_replayRuntime );
 
     ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_launchOptions,
                                 &Renderer().RenderDevice(), Renderer().VsyncEnabled(), m_sceneController );
@@ -931,7 +933,9 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
 
         m_timers.ObserveSceneLifecycle( m_sceneController.LifecyclePacket() );
         ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_sceneController, m_inputRouter,
-                                        m_interaction, m_camera, m_attachedCamera, m_runtimeTools, m_replayRuntime );
+                                        m_interaction, m_cameraSceneLifecycleObserver, m_camera,
+                                        m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_runtimeTools,
+                                        m_replayRuntime );
 
         ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_launchOptions,
                                     &Renderer().RenderDevice(), Renderer().VsyncEnabled(), m_sceneController );

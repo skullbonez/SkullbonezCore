@@ -15,13 +15,13 @@ Invariants:
   - A moved target retargets the command without resetting transition progress.
 
 Related:
-  - SkullbonezSource/Runtime/Camera/AttachedCameraController.h
-  - SkullbonezSource/Runtime/Camera/AttachedCameraController.cpp
+  - SkullbonezSource/Runtime/Camera/AttachedCameraValues.h
+  - SkullbonezSource/Runtime/Scene/AttachedCameraController.cpp
   - SkullbonezTests/TestCamera.cpp
 */
 #pragma once
 
-#include "AttachedCameraController.h"
+#include "AttachedCameraValues.h"
 
 namespace SkullbonezCore::Runtime
 {

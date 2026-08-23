@@ -1,10 +1,10 @@
 /*
-File: SkullbonezSource/Runtime/Camera/AttachedCameraController.h
+File: SkullbonezSource/Runtime/Scene/AttachedCameraController.h
 Purpose:
   Owns attach-camera target identity, orbit state, and follow-pose solving.
 
 Summary:
-  Attach mode selects and follows a physics body through stable body/collider
+  Scene resolves attach mode against live bodies through stable body/collider
   handles, then turns the current body snapshot and camera pose into the next
   camera pose. AttachedCameraController owns that durable state and performs
   synchronous commands through borrowed model stores and cameras. The same
@@ -24,26 +24,19 @@ Invariants:
     retained only as a typed, revalidated cache.
   - The controller does not store borrowed collection or camera pointers.
   - Pose commands are finite and never point eye and view at the same point.
-  - Scene clearing invalidates the attached target at most once per lifecycle
-    generation.
+  - App applies Scene's clear event at most once per lifecycle generation.
   - Focused inspection never creates a second retained target owner; its saved
     ordinary state and temporary replay target remain private to this controller.
 
 Related:
+  - SkullbonezSource/Runtime/Camera/AttachedCameraValues.h
   - SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp
   - SkullbonezSource/Runtime/App/Run.h
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
-#include "../../Assets/AssetKeys.h"
-#include "../../Maths/RotationMatrix.h"
-#include "../../Maths/Vector3.h"
-#include "../../Physics/PhysicsHandles.h"
-#include "RuntimeCameraMode.h"
-#include "../Scene/SceneLifecycle.h"
-
-#include <cstdint>
+#include "../Camera/AttachedCameraValues.h"
 
 namespace SkullbonezCore
 {
@@ -58,84 +51,6 @@ class CameraCollection;
 
 namespace Runtime
 {
-enum class AttachedCameraSubmode
-{
-    FixedRelative,
-    VelocityForward,
-    RagdollEyes,
-    Count
-};
-
-struct AttachedCameraTarget
-{
-    Physics::PhysicsBodyHandle body;                   // Primary live physics identity for follow/orbit sampling.
-    Physics::PhysicsColliderHandle collider;           // Shape/radius identity paired with body.
-    Physics::ModelRowHint modelRow;                    // Cache only; body/scene object id remain authoritative.
-    Physics::PhysicsSceneObjectId sceneObjectId;       // Stable scene-local identity used to recover stale indices.
-    char name[64] = {};                                // Human/debug fallback when scene object id cannot recover the target.
-};
-
-struct AttachedCameraState
-{
-    AttachedCameraTarget target;                       // Camera-owned target; replay/editor selections are only seeds.
-    AttachedCameraSubmode submode = AttachedCameraSubmode::FixedRelative;
-    bool activeFollow = true;                          // false means pinned in world space with mouse released to UI.
-    bool hasFixedOffset = false;
-    bool hasOrbit = false;
-    bool hasLastLookDirection = false;
-    bool hasReturnCameraPose = false;
-    bool needsEntryTween = false;                      // Next valid follow solve should glide from the visible pose.
-    RunCameraMode returnMode = RunCameraMode::Inspect; // Logical workspace restored when Attach exits.
-    uint32_t returnCameraHash = CAMERA_FREE;           // Selected slot Attach should restore before applying returnEye/view/up.
-    float orbitYawRadians = 0.0f;
-    float orbitPitchRadians = 0.30f;
-    float orbitDistance = 8.0f;
-    Math::Vector::Vector3 localEyeOffset = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 localViewOffset = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
-    Math::Vector::Vector3 localUp = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
-    Math::Vector::Vector3 lastLookDirection = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
-    Math::Vector::Vector3 returnEye = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 returnView = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
-    Math::Vector::Vector3 returnUp = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
-};
-
-struct AttachedCameraPose
-{
-    Math::Vector::Vector3 eye = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 view = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
-    Math::Vector::Vector3 up = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
-};
-
-struct AttachedCameraPhysicsTarget
-{
-    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
-    Math::Transformation::RotationMatrix rotation;
-    float radius = 1.0f;
-};
-
-struct AttachedCameraPoseCommand
-{
-    AttachedCameraPose pose;
-    bool startEntryTween = false;
-};
-
-struct AttachedCameraTargetSelection
-{
-    AttachedCameraPhysicsTarget physics;               // Snapshot used to capture the initial camera-relative offset.
-    Physics::PhysicsBodyHandle body;                   // Exact selected body identity published to interaction composition.
-    Physics::PhysicsColliderHandle collider;           // Collider paired with body in the same store snapshot.
-    Physics::ModelRowHint modelRow;                    // Dense row valid for this synchronous command only.
-};
-
-enum class AttachedCameraSeedResult
-{
-    Failed,                                            // A supplied seed no longer resolved; no presentation effect should be published.
-    ReusedTarget,                                      // Existing stable identity was refreshed without changing editor selection.
-    SelectedSeed,                                      // The supplied replay/editor hint became the Attach target.
-    NoSeed                                             // Attach remains active and waits for a world click.
-};
-
 class AttachedCameraController
 {
   public:
@@ -188,14 +103,11 @@ class AttachedCameraController
                                  const AttachedCameraPose& currentPose, float orbitYawDelta, float orbitPitchDelta,
                                  float presentationAlpha, AttachedCameraPoseCommand& outCommand );
 
-    void ObserveSceneLifecycle( const SceneLifecyclePacket& packet )
+    void ResetForSceneLoad()
     {
-        if ( m_sceneLifecycleObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
-        {
-            Reset( m_state );
-            Reset( m_suspendedState );
-            m_hasSuspendedState = false;
-        }
+        Reset( m_state );
+        Reset( m_suspendedState );
+        m_hasSuspendedState = false;
     }
 
   private:
@@ -204,7 +116,6 @@ class AttachedCameraController
     AttachedCameraState m_state;
     AttachedCameraState m_suspendedState;
     bool m_hasSuspendedState = false;
-    SceneLifecycleGenerationObserver m_sceneLifecycleObserver;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

@@ -311,7 +311,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
       <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12ImGuiRendererOwner.cpp">
         <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
       </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Camera\AttachedCameraController.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\AttachedCameraController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Camera\AttachedCameraController.InspectionPolicy.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Capture\CaptureController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Capture\CaptureSystem.cpp" />
@@ -461,7 +461,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayAuthoringVelocity.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Tools\RuntimeTools.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\RunRender.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Camera\CameraControlState.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\App\CameraFrameApplication.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.Load.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\GraphicsStressApplication.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Simulation\SimulationSystem.cpp" />
@@ -534,7 +534,8 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
       <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorInputPolicy.h" />
       <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorLayoutPolicy.h" />
       <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12ImGuiRendererOwner.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Camera\AttachedCameraController.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\AttachedCameraController.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Camera\AttachedCameraValues.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Camera\AttachedCameraController.InspectionPolicy.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Capture\CaptureController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Capture\CaptureSystem.h" />

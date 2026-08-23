@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Camera/AttachedCameraController.cpp
+File: SkullbonezSource/Runtime/Scene/AttachedCameraController.cpp
 Purpose:
   Implements attach-camera target recovery and pose solving.
 
@@ -28,14 +28,14 @@ Invariants:
     entry tween; exit restores the suspended ordinary Attach state exactly once.
 
 Related:
-  - SkullbonezSource/Runtime/Camera/AttachedCameraController.h
+  - SkullbonezSource/Runtime/Scene/AttachedCameraController.h
   - SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp
   - Agentic/Reference/engine-glossary.md
 */
 #include "AttachedCameraController.h"
-#include "AttachedCameraController.InspectionPolicy.h"
-#include "CameraCollection.h"
-#include "../Scene/SceneWorld.h"
+#include "../Camera/AttachedCameraController.InspectionPolicy.h"
+#include "../Camera/CameraCollection.h"
+#include "SceneWorld.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsApi.h"

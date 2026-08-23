@@ -23,7 +23,7 @@ Related:
 #include "InputFrame.h"
 #include "ReplayRuntime.h"
 #include "../Automation/RuntimeValidationHarness.h"
-#include "../Camera/AttachedCameraController.h"
+#include "../Scene/AttachedCameraController.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "../Input/Input.h"
 #include "../Input/InputRouter.h"
@@ -153,7 +153,9 @@ void ApplySceneUiActivation( UI::InGameUI& ui, const SceneUiActivation& activati
 void ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction, const RunLaunchOptions& launchOptions,
                                      RuntimeOverlayDiagnostics& overlays, SceneController& sceneController,
                                      InputRouter& inputRouter, RuntimeInteractionController& interaction,
-                                     CameraControlState& camera, AttachedCameraController& attachedCamera,
+                                     SceneLifecycleGenerationObserver& cameraLifecycle, CameraControlState& camera,
+                                     SceneLifecycleGenerationObserver& attachedCameraLifecycle,
+                                     AttachedCameraController& attachedCamera,
                                      RuntimeTools& runtimeTools, ReplayRuntime& replayRuntime )
 {
     const SceneLoadResult& outputs = transaction.BeginRuntimeReactions();
@@ -170,7 +172,10 @@ void ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction, const Ru
     }
 
     runtimeTools.ObserveSceneLifecycle( lifecycle, sceneController.Scene(), inputRouter, interaction );
-    attachedCamera.ObserveSceneLifecycle( lifecycle );
+    if ( attachedCameraLifecycle.ShouldApply( lifecycle, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
+    {
+        attachedCamera.ResetForSceneLoad();
+    }
     replayRuntime.ObserveSceneLifecycleAfterClear( lifecycle, interaction, inputRouter );
 
     const bool enterInspectAfterActivation = outputs.camera.mode == RunCameraMode::Inspect;
@@ -179,7 +184,10 @@ void ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction, const Ru
           SceneLifecycleReached( lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneCleared ),
           SceneLifecycleReached( lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneActivated ) },
         enterInspectAfterActivation );
-    camera.ObserveSceneLifecycle( lifecycle, outputs.camera );
+    if ( cameraLifecycle.ShouldApply( lifecycle, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
+    {
+        camera = outputs.camera;
+    }
 
     if ( inputRouter.ObserveSceneLifecycle( lifecycle, enterInspectAfterActivation ) )
     {

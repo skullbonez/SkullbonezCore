@@ -41,7 +41,7 @@ Related:
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "../Automation/RuntimeValidationHarness.h"
 #include "../../Scene/StandaloneStyleWriter.h"
-#include "../Camera/AttachedCameraController.h"
+#include "../Scene/AttachedCameraController.h"
 #include "ApplicationExitState.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../Editor/EditorTools.h"
@@ -87,7 +87,6 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::UI::Layout;
 using SkullbonezCore::Hardware::Input;
-using SkullbonezCore::Hardware::InputState;
 using SkullbonezCore::UI::InGameUITab;
 
 
@@ -640,7 +639,9 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
         timers.ObserveSceneLifecycle( sceneController.LifecyclePacket() );
         ApplySceneLoadRuntimeReactions( sceneLoad, launchOptions, *m_overlayDiagnostics, sceneController, inputRouter,
-                                        interaction, camera, attachedCamera, runtimeTools, replayRuntime );
+                                        interaction, m_cameraSceneLifecycleObserver, camera,
+                                        m_attachedCameraSceneLifecycleObserver, attachedCamera, runtimeTools,
+                                        replayRuntime );
 
         ApplySceneLoadPresentation( sceneLoad, window, ui, validationHarness, launchOptions, &renderer.RenderDevice(),
                                     renderer.VsyncEnabled(), sceneController );
@@ -1366,10 +1367,10 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
     {
         interaction.CancelCameraLookGesture();
         InputController::ResetMouseLook( camera );
-        camera.input.Set( InputState::Up, false );
-        camera.input.Set( InputState::Down, false );
-        camera.input.Set( InputState::Left, false );
-        camera.input.Set( InputState::Right, false );
+        camera.input.moveForward = false;
+        camera.input.moveBackward = false;
+        camera.input.moveLeft = false;
+        camera.input.moveRight = false;
         inputRouter.ApplyPointerPresentation( EvaluateRuntimePointerPresentation( inputRouter, runtimeTools.Editor(), replayRuntime.BuildInputView() ) );
     }
     else
@@ -1428,7 +1429,8 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
     timers.ObserveSceneLifecycle( sceneController.LifecyclePacket() );
     ApplySceneLoadRuntimeReactions( sceneLoad, launchOptions, *m_overlayDiagnostics, sceneController, inputRouter,
-                                    interaction, camera, attachedCamera, runtimeTools, replayRuntime );
+                                    interaction, m_cameraSceneLifecycleObserver, camera,
+                                    m_attachedCameraSceneLifecycleObserver, attachedCamera, runtimeTools, replayRuntime );
 
     ApplySceneLoadPresentation( sceneLoad, window, ui, validationHarness, launchOptions, &renderer.RenderDevice(),
                                 renderer.VsyncEnabled(), sceneController );

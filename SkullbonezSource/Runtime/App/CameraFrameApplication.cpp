@@ -1,11 +1,11 @@
 /*
-File: SkullbonezSource/Runtime/Camera/CameraControlState.cpp
+File: SkullbonezSource/Runtime/App/CameraFrameApplication.cpp
 Purpose:
   Applies operator camera-selection intent to the scene-owned camera collection.
 
 Summary:
-  CameraControlState owns mode and generated-demo cycling state, while
-  CameraCollection owns camera poses. The update borrows pose/model owners for
+  App applies Camera's mode and generated-demo cycling state to Scene's camera
+  poses. The update borrows pose/model owners for
   one synchronous selection pass and retains no cross-owner pointers. It also
   publishes the current mouse-angle scale for an earlier replay input phase.
 
@@ -23,10 +23,10 @@ Related:
   - SkullbonezSource/Runtime/Camera/CameraControlState.h
   - SkullbonezSource/Runtime/Camera/CameraCollection.h
 */
-#include "CameraControlState.h"
+#include "../Camera/CameraControlState.h"
 
-#include "CameraCollection.h"
-#include "AttachedCameraController.h"
+#include "../Camera/CameraCollection.h"
+#include "../Scene/AttachedCameraController.h"
 #include "../Input/InputController.h"
 
 #include "../../Assets/AssetKeys.h"

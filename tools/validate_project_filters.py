@@ -342,6 +342,7 @@ RUNTIME_STARTUP_PREFIXES = (
 
 RUNTIME_CAMERA_PREFIXES = (
     "AttachedCameraController",
+    "AttachedCameraValues",
     "Camera",
     "CameraCollection",
     "CameraControlState",
@@ -465,6 +466,7 @@ RUNTIME_PLANNING_PREFIXES = (
 )
 
 RUNTIME_APP_PREFIXES = (
+    "CameraFrameApplication",
     "ReplayReserveInventory",
     "ReplayRuntime",
     "ReplayScrubberTools",

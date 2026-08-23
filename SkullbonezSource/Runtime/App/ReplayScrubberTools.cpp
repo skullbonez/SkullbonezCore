@@ -52,7 +52,7 @@ Related:
 #include "InputFrame.h"
 #include "../../Assets/AssetKeys.h"
 #include "../Camera/CameraCollection.h"
-#include "../Camera/AttachedCameraController.h"
+#include "../Scene/AttachedCameraController.h"
 #include "../Input/InputRouter.h"
 #include "../Interaction/RuntimeInteractionCommands.h"
 #include "../Camera/CameraControlState.h"

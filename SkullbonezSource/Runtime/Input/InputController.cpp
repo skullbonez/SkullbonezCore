@@ -251,18 +251,18 @@ RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( CameraCont
 
     if ( cameraKeyboardControlsActive )
     {
-        camera.input.Set( Hardware::InputState::Up, deviceFrame.keys.IsDown( 'W' ) );
-        camera.input.Set( Hardware::InputState::Left, deviceFrame.keys.IsDown( 'A' ) );
-        camera.input.Set( Hardware::InputState::Down, deviceFrame.keys.IsDown( 'S' ) );
-        camera.input.Set( Hardware::InputState::Right, deviceFrame.keys.IsDown( 'D' ) );
+        camera.input.moveForward = deviceFrame.keys.IsDown( 'W' );
+        camera.input.moveLeft = deviceFrame.keys.IsDown( 'A' );
+        camera.input.moveBackward = deviceFrame.keys.IsDown( 'S' );
+        camera.input.moveRight = deviceFrame.keys.IsDown( 'D' );
     }
     else
     {
         ResetMouseLook( camera );
-        camera.input.Set( Hardware::InputState::Up, false );
-        camera.input.Set( Hardware::InputState::Down, false );
-        camera.input.Set( Hardware::InputState::Left, false );
-        camera.input.Set( Hardware::InputState::Right, false );
+        camera.input.moveForward = false;
+        camera.input.moveBackward = false;
+        camera.input.moveLeft = false;
+        camera.input.moveRight = false;
     }
 
     return result;
@@ -272,10 +272,8 @@ RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( CameraCont
 void InputController::ApplyCameraMovement( CameraControlState& camera, Environment::CameraCollection& cameras,
                                            Geometry::Terrain& terrain, const RuntimeCameraMovementInput& input )
 {
-    const bool hasTravelInput = camera.input.Get( Hardware::InputState::Up ) ||
-                                camera.input.Get( Hardware::InputState::Down ) ||
-                                camera.input.Get( Hardware::InputState::Left ) ||
-                                camera.input.Get( Hardware::InputState::Right );
+    const bool hasTravelInput = camera.input.moveForward || camera.input.moveBackward || camera.input.moveLeft ||
+                                camera.input.moveRight;
 
     if ( !input.attachedOrbitOwnsCamera &&
          ( input.flyControlsActive || camera.mouseLookOwnsCursor || input.editorViewportLookActive || hasTravelInput ) )
@@ -289,22 +287,22 @@ void InputController::ApplyCameraMovement( CameraControlState& camera, Environme
 
         const float travelQuantity = input.keyMovementQuantity * camera.travelSpeedMultiplier;
 
-        if ( camera.input.Get( Hardware::InputState::Up ) )
+        if ( camera.input.moveForward )
         {
             cameras.MovePrimary( Environment::Camera::TravelDirection::Forward, travelQuantity );
         }
 
-        if ( camera.input.Get( Hardware::InputState::Left ) )
+        if ( camera.input.moveLeft )
         {
             cameras.MovePrimary( Environment::Camera::TravelDirection::Left, travelQuantity );
         }
 
-        if ( camera.input.Get( Hardware::InputState::Down ) )
+        if ( camera.input.moveBackward )
         {
             cameras.MovePrimary( Environment::Camera::TravelDirection::Backward, travelQuantity );
         }
 
-        if ( camera.input.Get( Hardware::InputState::Right ) )
+        if ( camera.input.moveRight )
         {
             cameras.MovePrimary( Environment::Camera::TravelDirection::Right, travelQuantity );
         }

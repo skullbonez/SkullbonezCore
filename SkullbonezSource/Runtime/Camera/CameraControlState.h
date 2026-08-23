@@ -24,10 +24,9 @@ Glossary:
 Invariants:
   - This shelf stores camera intent and helper timers, not authoritative camera
     pose; pose writes still go through CameraCollection.
-  - `input` is frame-local memory captured by InputController and must not be
-    used as a long-lived hardware snapshot.
-  - Applying a detached scene camera preserves the owner's lifecycle observer,
-    so repeated sampling cannot replay the same generation.
+  - `input` contains only camera movement facts captured by InputController;
+    Camera never retains the broad device snapshot.
+  - App applies detached scene-camera state once per lifecycle generation.
 
 Related:
   - SkullbonezSource/Runtime/App/Run.h
@@ -41,9 +40,7 @@ Related:
 #include "../../Core/Timer.h"
 #include "../../Core/Common.h"
 #include "DemoDirector.h"
-#include "../Input/Input.h"
 #include "RuntimeCameraMode.h"
-#include "../Scene/SceneLifecycle.h"
 #include "../../Physics/PhysicsHandles.h"
 #include "../../Assets/AssetKeys.h"
 
@@ -76,9 +73,19 @@ inline constexpr std::array<uint32_t, 3> DEMO_CAMERA_CYCLE_SLOTS = { CAMERA_SCEN
                                                                      CAMERA_FREE };
 
 class AttachedCameraController;
+struct CameraControlInput
+{
+    long xMove = 0;
+    long yMove = 0;
+    bool moveForward = false;
+    bool moveBackward = false;
+    bool moveLeft = false;
+    bool moveRight = false;
+};
+
 struct CameraControlState
 {
-    Hardware::InputState input = {};                           // Snapshot consumed by camera controls for this frame.
+    CameraControlInput input = {};                             // Focused movement facts consumed by camera controls this frame.
 
     int selectedCamera = 0;                                    // Keeps track of which camera is selected
     RunCameraMode mode = RunCameraMode::Demo;                  // Explicit operator camera mode shown in the minimized HUD.
@@ -118,21 +125,6 @@ struct CameraControlState
         cameraTime = 0.0f;
     }
 
-    // Applies the detached camera policy emitted by a load once after clearing.
-    // The observer itself remains owner-local and is never copied back from the
-    // transaction value.
-    void ObserveSceneLifecycle( const SceneLifecyclePacket& packet, const CameraControlState& sceneState )
-    {
-        if ( !m_sceneLifecycleObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
-        {
-            return;
-        }
-
-        const SceneLifecycleGenerationObserver appliedObserver = m_sceneLifecycleObserver;
-        *this = sceneState;
-        m_sceneLifecycleObserver = appliedObserver;
-    }
-
     // Lifetime: each camera tick borrows SceneWorld once and derives Cameras and
     // Terrain locally, keeping subowner identity inside this cohesive boundary.
     Core::SbResult InitialiseTiming( Core::SbDiagnosticStore& diagnostics )
@@ -149,7 +141,6 @@ struct CameraControlState
 
   private:
     Environment::Timer m_cameraTimer;
-    SceneLifecycleGenerationObserver m_sceneLifecycleObserver;
 };
 
 } // namespace Runtime
