@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Prediction/ReplayCauseFocusSubmission.cpp
+File: SkullbonezSource/Runtime/App/ReplayCauseFocusSubmission.cpp
 Purpose:
   Submits markers for the replay body, manifold, prediction-contact, and solver-row focus chosen by Presentation.
 
@@ -25,9 +25,10 @@ Related:
 #include "../Replay/ReplayPresentationSubmission.h"
 
 #include "../Replay/ReplayAuthoring.h"
-#include "ReplayPrediction.h"
+#include "../Prediction/ReplayPrediction.h"
 #include "ReplayPredictionPresentation.h"
-#include "ReplayPredictionPublicationOperations.h"
+#include "ReplayPredictionComposition.h"
+#include "../Prediction/ReplayPredictionPublicationOperations.h"
 #include "../Editor/EditorTools.h"
 #include "../Scene/SceneEntityStore.h"
 #include "../Tools/RuntimeTools.h"
@@ -35,6 +36,7 @@ Related:
 #include "../../Physics/PhysicsBodyStore.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 
@@ -294,6 +296,8 @@ void ReplayPredictionPresentation::RenderCauseFocusOverlay( const RunReplayCamer
             }
 
             bool drewPredictionManifold = false;
+            std::array<ReplayPredictionSceneEntityFact, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> sceneFacts = {};
+            const ReplayPredictionSceneView scene = BuildReplayPredictionSceneView( entities, sceneFacts );
 
             for ( const RunReplayPredictionFrame& frame : prediction.frames )
             {
@@ -306,9 +310,9 @@ void ReplayPredictionPresentation::RenderCauseFocusOverlay( const RunReplayCamer
                 // the complete manifold remains in the immutable frame debug values.
                 for ( const PhysicsDebugContact& contact : frame.debugContacts )
                 {
-                    const int contactModelA = ReplayRagdollTorsoModelIndexForPart( entities, contact.bodyA );
+                    const int contactModelA = ReplayRagdollTorsoModelIndexForPart( scene, contact.bodyA );
                     const int contactModelB = contact.bodyB >= 0
-                                                  ? ReplayRagdollTorsoModelIndexForPart( entities, contact.bodyB )
+                                                  ? ReplayRagdollTorsoModelIndexForPart( scene, contact.bodyB )
                                                   : contact.bodyB;
 
                     const bool selectedPairAB = contactModelA == focusedModelIndex &&

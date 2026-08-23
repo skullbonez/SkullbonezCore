@@ -1,26 +1,25 @@
 /*
-File: SkullbonezSource/Runtime/Prediction/ReplayPredictionPresentation.h
+File: SkullbonezSource/Runtime/App/ReplayPredictionPresentation.h
 Purpose:
   Owns prediction pose, ghost, focus-mask, trajectory, and visual-packet presentation state.
 
 Summary:
-  ReplayPredictionPresentation is the bounded visual sub-owner inside
-  ReplayPrediction. Runtime/App supplies synchronous Replay path and camera
-  values when sequencing a frame; the owner never retains a Replay owner.
+  ReplayPredictionPresentation is the App-owned visual composition state over
+  immutable Prediction publication and synchronous Replay/Scene/Tools borrows.
 
 Glossary:
   Presentation packet: Frame-local immutable spans submitted to rendering.
   Submission probe: Stable-window evidence for trajectory bytes and reserve growth.
 
 Invariants:
-  - Prediction presentation may consume Replay values but Replay never names this owner.
+  - App presentation may consume sibling values but no sibling retains this owner.
   - Every Replay path or camera borrow expires before the presentation command returns.
   - Pose matching and focus masks are capped by MAX_SCENE_OBJECTS.
   - Ghost requests reserve their complete steady-state capacity before gameplay.
 
 Related:
   - SkullbonezSource/Runtime/Prediction/ReplayPrediction.h
-  - SkullbonezSource/Runtime/Prediction/ReplayPredictionRetainedGeometry.h
+  - SkullbonezSource/Runtime/App/ReplayPredictionRetainedGeometry.h
   - SkullbonezSource/Runtime/Replay/ReplayPresentation.h
   - SkullbonezSource/Runtime/App/ReplayRuntime.h
   - Agentic/Reference/engine-glossary.md
@@ -28,7 +27,7 @@ Related:
 #pragma once
 
 #include "ReplayPredictionDrawing.h"
-#include "ReplayPredictionView.h"
+#include "../Prediction/ReplayPredictionView.h"
 #include "../Replay/ReplayPresentation.h"
 #include "../Replay/ReplayVisualPacket.h"
 #include "../Tools/RuntimeTools.h"

@@ -25,7 +25,7 @@ Invariants:
 
 Related:
   - ReplayPrediction.h
-  - ReplayPredictionPresentation.h
+  - SkullbonezSource/Runtime/App/ReplayPredictionPresentation.h
   - ReplayVisualPacket.h
   - Agentic/Reference/engine-glossary.md
 */
@@ -48,6 +48,43 @@ Related:
 
 namespace SkullbonezCore::Runtime
 {
+struct ReplayPredictionSceneEntityFact
+{
+    Physics::PhysicsSceneObjectId id;
+    Physics::PhysicsSceneObjectId ragdollRootId;
+    bool simpleRagdollPart = false;
+};
+
+// Lifetime: App assembles this frame-local span before Prediction publication;
+// no Scene owner or record type crosses the Prediction boundary.
+struct ReplayPredictionSceneView
+{
+    std::span<const ReplayPredictionSceneEntityFact> entities;
+
+    int Count() const noexcept
+    {
+        return static_cast<int>( entities.size() );
+    }
+
+    const ReplayPredictionSceneEntityFact* TryGet( int modelIndex ) const noexcept
+    {
+        return modelIndex >= 0 && modelIndex < Count() ? &entities[static_cast<std::size_t>( modelIndex )] : nullptr;
+    }
+
+    int FindBySceneObjectId( Physics::PhysicsSceneObjectId id ) const noexcept
+    {
+        for ( std::size_t modelIndex = 0; modelIndex < entities.size(); ++modelIndex )
+        {
+            if ( entities[modelIndex].id.value == id.value )
+            {
+                return static_cast<int>( modelIndex );
+            }
+        }
+
+        return -1;
+    }
+};
+
 struct ReplayPredictionEvidenceIdentity
 {
     uint32_t generation = 0;
@@ -118,7 +155,7 @@ struct RunReplayPredictionBodySample
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
     Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR; // m/s-equivalent simulation units.
-    bool sleeping = false;                                            // Solver sleep state used by whole-cascade outcome validation.
+    bool sleeping = false; // Solver sleep state used by whole-cascade outcome validation.
 };
 
 struct RunReplayPredictionFrame
@@ -167,10 +204,10 @@ struct ReplayPredictionPresentationView
     Physics::PhysicsSceneObjectId trajectoryBuildRootId;
     ReplayFrameIndex sourceFrame = 0;
     ReplayFrameIndex revealFrame = 0;
-    uint32_t generation = 0;                                          // Successful private-simulation generation owning this published prefix.
+    uint32_t generation = 0; // Successful private-simulation generation owning this published prefix.
     uint32_t topologyVersion = 0;
     uint32_t trajectoryBuildTopologyVersion = 0;
-    uint64_t trajectoryPublicationVersion = 0;                        // O(1) invalidation token for retained trajectory draw lists.
+    uint64_t trajectoryPublicationVersion = 0; // O(1) invalidation token for retained trajectory draw lists.
     std::size_t trajectoryBuiltNodeCount = 0;
     std::size_t trajectoryChildFrameCount = 0;
     ReplayPredictionBuildMode buildMode = ReplayPredictionBuildMode::Undecided;

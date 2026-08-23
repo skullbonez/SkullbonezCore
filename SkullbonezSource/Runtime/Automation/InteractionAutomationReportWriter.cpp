@@ -417,7 +417,6 @@ void SkullbonezCore::Runtime::InteractionAutomationReportWriter::Configure( cons
     m_replayVisualTrajectoryDigests.clear();
     m_replayVisualPredictionArchive.clear();
     m_replayVisualPredictionDrawList.Clear();
-    m_replayVisualPredictionDrawListState = {};
     m_replayVisualPredictionDrawPacket = {};
     m_replayVisualPredictionDrawCameraEye = Math::Vector::ZERO_VECTOR;
     m_replayVisualPredictionDrawCameraUp = Math::Vector::ZERO_VECTOR;
@@ -505,7 +504,6 @@ void SkullbonezCore::Runtime::InteractionAutomationReportWriter::BeginReplayVisu
     m_replayVisualTrajectoryDigests.clear();
     m_replayVisualPredictionArchive.clear();
     m_replayVisualPredictionDrawList.Clear();
-    m_replayVisualPredictionDrawListState = {};
     m_replayVisualPredictionDrawPacket = {};
     m_replayVisualPredictionDrawCameraEye = Math::Vector::ZERO_VECTOR;
     m_replayVisualPredictionDrawCameraUp = Math::Vector::ZERO_VECTOR;

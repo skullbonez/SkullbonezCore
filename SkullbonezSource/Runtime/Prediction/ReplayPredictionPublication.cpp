@@ -20,11 +20,8 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "ReplayPredictionPublicationOperations.h"
-#include "../Scene/SceneEntityStore.h"
 #include "../../Assets/EditorHullAssets.h"
-#include "../Replay/ReplayOverlayLayout.h"
 #include "ReplayPredictionReserve.h"
-#include "../Replay/ReplayScrubber.h"
 #include "../../Core/Config.h"
 #include "../../Core/SceneCapacity.h"
 #include "../../Physics/ColliderStore.h"
@@ -47,7 +44,6 @@ Related:
 
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Runtime::ReplayPredictionReserveOperations;
-using namespace SkullbonezCore::Runtime::ReplayScrubberOperations;
 namespace Gameplay = SkullbonezCore::Gameplay;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
@@ -73,7 +69,8 @@ constexpr float REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE = 0.05f;
 constexpr float REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE_SQ = REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE *
                                                                  REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE;
 constexpr double REPLAY_PREDICTION_REST_GRACE_SECONDS = 0.4;
-constexpr ReplayFrameIndex REPLAY_PREDICTION_REST_GRACE_FRAMES = static_cast<ReplayFrameIndex>( REPLAY_PREDICTION_REST_GRACE_SECONDS / PHYSICS_FIXED_DT );
+constexpr ReplayFrameIndex REPLAY_PREDICTION_REST_GRACE_FRAMES = static_cast<ReplayFrameIndex>(
+    REPLAY_PREDICTION_REST_GRACE_SECONDS / PHYSICS_FIXED_DT );
 constexpr float REPLAY_PREDICTION_REST_POSITION_EPSILON_SQ = 0.5f * 0.5f;
 
 } // namespace
@@ -154,29 +151,29 @@ Physics::PhysicsSceneObjectId ReplayPredictionBodyIdForModelIndex( const RunRepl
                                                                                                                modelIndex );
 }
 
-bool ReplayModelIndexIsRagdollPart( const SceneEntityStore& entities, int modelIndex )
+bool ReplayModelIndexIsRagdollPart( ReplayPredictionSceneView scene, int modelIndex )
 {
     // Hazard: physics debug contacts use -1 for terrain/world counterparts.
     // That sentinel is not a scene row and must never reach group metadata.
-    if ( modelIndex < 0 || modelIndex >= entities.Count() )
+    if ( modelIndex < 0 || modelIndex >= scene.Count() )
     {
         return false;
     }
 
-    const SceneEntityRecord* entity = entities.TryGet( modelIndex );
-    return entity && entity->behaviorGroup.kind == SceneBehaviorGroupKind::SimpleRagdoll;
+    const ReplayPredictionSceneEntityFact* entity = scene.TryGet( modelIndex );
+    return entity && entity->simpleRagdollPart;
 }
 
-int ReplayRagdollTorsoModelIndexForPart( const SceneEntityStore& entities, int modelIndex )
+int ReplayRagdollTorsoModelIndexForPart( ReplayPredictionSceneView scene, int modelIndex )
 {
-    const SceneEntityRecord* entity = entities.TryGet( modelIndex );
+    const ReplayPredictionSceneEntityFact* entity = scene.TryGet( modelIndex );
 
-    if ( !entity || entity->behaviorGroup.kind != SceneBehaviorGroupKind::SimpleRagdoll )
+    if ( !entity || !entity->simpleRagdollPart )
     {
         return modelIndex;
     }
 
-    const int rootRow = entities.FindBySceneObjectId( entity->behaviorGroup.rootObjectId );
+    const int rootRow = scene.FindBySceneObjectId( entity->ragdollRootId );
     return rootRow >= 0 ? rootRow : modelIndex;
 }
 
@@ -216,7 +213,8 @@ constexpr uint16_t REPLAY_TRAJECTORY_BUILD_BRANCH = 1;
 
 int ReplayTrajectoryFrameNumberForReserve( ReplayFrameIndex frameIndex )
 {
-    return static_cast<int>( (std::min)( frameIndex, static_cast<ReplayFrameIndex>( ( std::numeric_limits<int>::max )() ) ) );
+    return static_cast<int>(
+        (std::min)( frameIndex, static_cast<ReplayFrameIndex>( ( std::numeric_limits<int>::max )() ) ) );
 }
 
 ReplayTrajectoryRecordKey ReplayTrajectoryKey( Physics::PhysicsSceneObjectId bodyId, ReplayTrajectoryLane lane,
@@ -269,7 +267,7 @@ bool AppendReplayTrajectoryPoint( ReplayTrajectoryStore& store, ReplayTrajectory
     return true;
 }
 
-ReplayFrameIndex ReplayOldestFrameFromStats( const ReplayRecorderStats& stats )
+ReplayFrameIndex ReplayOldestFrameFromStats( ReplayPredictionRecorderWindow stats )
 {
     return stats.nextFrameIndex > static_cast<ReplayFrameIndex>( stats.sampleCount )
                ? stats.nextFrameIndex - static_cast<ReplayFrameIndex>( stats.sampleCount )
@@ -306,7 +304,8 @@ std::size_t ReplayPredictionTrajectoryRecordCapacity( std::size_t bodyCount )
 uint16_t ReplayPredictionChildTrajectoryBranch( std::size_t nodeIndex, bool usingBuildFrames )
 {
     const std::size_t branchBase = usingBuildFrames ? REPLAY_PATH_MAX_FUTURE_NODES : 0u;
-    return static_cast<uint16_t>( (std::min)( branchBase + nodeIndex, static_cast<std::size_t>( ( std::numeric_limits<uint16_t>::max )() ) ) );
+    return static_cast<uint16_t>(
+        (std::min)( branchBase + nodeIndex, static_cast<std::size_t>( ( std::numeric_limits<uint16_t>::max )() ) ) );
 }
 
 bool PrepareReplayPredictionTrajectoryBuild( RunReplayPredictionState& prediction, Physics::PhysicsSceneObjectId rootId,
@@ -361,8 +360,9 @@ bool PublishReplayPredictionRootTrajectoryFrame( RunReplayPredictionState& predi
         return true;
     }
 
-    ReplayTrajectoryRecord* record = prediction.trajectoryStore.FindRecord( ReplayTrajectoryKey( prediction.trajectoryBuild.rootId, ReplayTrajectoryLane::FutureRoot,
-                                                                                                 REPLAY_TRAJECTORY_BUILD_BRANCH ) );
+    ReplayTrajectoryRecord* record = prediction.trajectoryStore.FindRecord(
+        ReplayTrajectoryKey( prediction.trajectoryBuild.rootId, ReplayTrajectoryLane::FutureRoot,
+                             REPLAY_TRAJECTORY_BUILD_BRANCH ) );
 
     if ( !record || frameSlot >= record->points.size() )
     {
@@ -394,8 +394,9 @@ bool PublishReplayPredictionBuildRootTrajectoryPrefix( RunReplayPredictionState&
         return false;
     }
 
-    ReplayTrajectoryRecord* record = prediction.trajectoryStore.FindRecord( ReplayTrajectoryKey( prediction.trajectoryBuild.rootId, ReplayTrajectoryLane::FutureRoot,
-                                                                                                 REPLAY_TRAJECTORY_BUILD_BRANCH ) );
+    ReplayTrajectoryRecord* record = prediction.trajectoryStore.FindRecord(
+        ReplayTrajectoryKey( prediction.trajectoryBuild.rootId, ReplayTrajectoryLane::FutureRoot,
+                             REPLAY_TRAJECTORY_BUILD_BRANCH ) );
 
     if ( !record )
     {
@@ -497,7 +498,8 @@ bool BuildReplayPredictionChildTrajectoryRecord( RunReplayPredictionState& predi
 
     ReplayTrajectoryRecord* record = BeginReplayTrajectoryRecord( prediction.trajectoryStore,
                                                                   ReplayTrajectoryKey( node.id, lane, branchOrdinal ),
-                                                                  static_cast<uint16_t>( std::clamp( node.depth, 0, 0xFFFF ) ),
+                                                                  static_cast<uint16_t>(
+                                                                      std::clamp( node.depth, 0, 0xFFFF ) ),
                                                                   node.parentId, node.depth, node.firstFrame,
                                                                   node.contactDerived, pointCapacity );
 
@@ -557,7 +559,8 @@ bool AppendReplayPredictionChildTrajectoryFrames( RunReplayPredictionState& pred
                                                   bool usingBuildFrames, ReplayTrajectoryLane lane )
 {
     const uint16_t branchOrdinal = ReplayPredictionChildTrajectoryBranch( nodeIndex, usingBuildFrames );
-    ReplayTrajectoryRecord* record = prediction.trajectoryStore.FindRecord( ReplayTrajectoryKey( node.id, lane, branchOrdinal ) );
+    ReplayTrajectoryRecord* record = prediction.trajectoryStore.FindRecord(
+        ReplayTrajectoryKey( node.id, lane, branchOrdinal ) );
 
     if ( !record )
     {
@@ -630,7 +633,8 @@ bool ReplayPredictionChildTrajectoryRecordMatches( const RunReplayPredictionStat
                                                    const RunReplayPathTraceNode& node, std::size_t nodeIndex,
                                                    bool usingBuildFrames, ReplayTrajectoryLane lane )
 {
-    const ReplayTrajectoryRecord* record = prediction.trajectoryStore.FindRecord( ReplayTrajectoryKey( node.id, lane, ReplayPredictionChildTrajectoryBranch( nodeIndex, usingBuildFrames ) ) );
+    const ReplayTrajectoryRecord* record = prediction.trajectoryStore.FindRecord(
+        ReplayTrajectoryKey( node.id, lane, ReplayPredictionChildTrajectoryBranch( nodeIndex, usingBuildFrames ) ) );
 
     return record && record->styleId == static_cast<uint16_t>( std::clamp( node.depth, 0, 0xFFFF ) ) &&
            record->parentId.value == node.parentId.value && record->depth == node.depth &&
@@ -666,7 +670,8 @@ void UpdateReplayPredictionAllBodyTrajectories( RunReplayPredictionState& predic
         const RunReplayPredictionBodySample& seedBody = frames[0].bodies[bodyIndex];
 
         if ( seedBody.id.value != 0u && seedBody.id.value != rootId.value &&
-             !prediction.trajectoryStore.FindRecord( ReplayTrajectoryKey( seedBody.id, ReplayTrajectoryLane::FutureRoot, activeBranch ) ) )
+             !prediction.trajectoryStore.FindRecord(
+                 ReplayTrajectoryKey( seedBody.id, ReplayTrajectoryLane::FutureRoot, activeBranch ) ) )
         {
             builtPrefixMissing = true;
             break;
@@ -736,7 +741,8 @@ void UpdateReplayPredictionAllBodyTrajectories( RunReplayPredictionState& predic
             continue;
         }
 
-        bodyRecords[bodyIndex] = prediction.trajectoryStore.FindRecord( ReplayTrajectoryKey( seedBody.id, ReplayTrajectoryLane::FutureRoot, activeBranch ) );
+        bodyRecords[bodyIndex] = prediction.trajectoryStore.FindRecord(
+            ReplayTrajectoryKey( seedBody.id, ReplayTrajectoryLane::FutureRoot, activeBranch ) );
 
         if ( !bodyRecords[bodyIndex] )
         {
@@ -1037,7 +1043,7 @@ std::size_t BuildReplayPredictionAffectedBodyTrails( std::span<const RunReplayPr
                                                      std::size_t frameCount, ReplayFrameIndex revealFrame,
                                                      Physics::PhysicsSceneObjectId rootId, int rootModelIndex,
                                                      std::span<const RunReplayPathTraceNode> futureNodes,
-                                                     const SceneEntityStore& entities,
+                                                     ReplayPredictionSceneView scene,
                                                      std::span<ReplayPredictionAffectedBodyTrail> outTrails )
 {
     frameCount = (std::min)( frameCount, frames.size() );
@@ -1075,7 +1081,7 @@ std::size_t BuildReplayPredictionAffectedBodyTrails( std::span<const RunReplayPr
 
         if ( initialBody.id.value == 0 || initialBody.id.value == rootId.value ||
              initialBody.modelRow.value == rootModelIndex || idIsAlreadyPublished( initialBody.id ) ||
-             ReplayModelIndexIsRagdollPart( entities, initialBody.modelRow.value ) )
+             ReplayModelIndexIsRagdollPart( scene, initialBody.modelRow.value ) )
         {
             continue;
         }
@@ -1284,7 +1290,8 @@ bool CaptureReplayPredictionBaselineSnapshot( RunReplayPredictionState& predicti
 
     const RunReplayPredictionFrame& firstFrame = frames.front();
     const RunReplayPredictionFrame& lastFrame = frames[frameCount - 1];
-    const std::size_t bodyCapacity = (std::min)( static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ),
+    const std::size_t bodyCapacity = (std::min)( static_cast<std::size_t>(
+                                                     SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ),
                                                  firstFrame.bodies.size() );
 
     const int reserveFrame = static_cast<int>( lastFrame.frameIndex );

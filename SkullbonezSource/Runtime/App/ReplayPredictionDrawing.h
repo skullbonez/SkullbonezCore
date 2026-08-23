@@ -1,10 +1,10 @@
 /*
-File: SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.h
+File: SkullbonezSource/Runtime/App/ReplayPredictionDrawing.h
 Purpose:
   Declares retained and frame-local drawing over immutable Prediction publication.
 
 Summary:
-  Prediction owns the cursors that turn published trajectory prefixes into a
+  App presentation owns the cursors that turn published trajectory prefixes into a
   retained draw list. Callers supply Replay-owned path selection values and
   frame-local scene/render borrows; no draw operation can schedule prediction
   work or mutate a Replay owner.
@@ -15,21 +15,21 @@ Glossary:
     trajectory.
 
 Invariants:
-  - Draw cursors and retained command storage belong to Prediction.
+  - Draw cursors and retained command storage belong to App presentation.
   - Stable publication returns before traversing trajectory records.
   - Preview delta changes never rebuild retained non-selected paths.
   - All references in render contexts are synchronous frame borrows.
 
 Related:
-  - SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp
-  - SkullbonezSource/Runtime/Prediction/ReplayPredictionRetainedGeometry.h
+  - SkullbonezSource/Runtime/App/ReplayPredictionDrawing.cpp
+  - SkullbonezSource/Runtime/App/ReplayPredictionRetainedGeometry.h
   - SkullbonezSource/Runtime/Replay/ReplayPathPackets.h
   - SkullbonezSource/Runtime/Replay/ReplayTrajectoryPackets.h
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
-#include "ReplayPredictionView.h"
+#include "../Prediction/ReplayPredictionView.h"
 #include "ReplayPredictionRetainedGeometry.h"
 #include "../Replay/ReplayPathPackets.h"
 #include "../Replay/ReplayTrajectoryPackets.h"

@@ -24,7 +24,7 @@ Invariants:
     never duplicated evidence rows.
 
 Related:
-  - SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp
+  - SkullbonezSource/Runtime/App/ReplayPredictionDrawing.cpp
   - SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.h
   - Agentic/Reference/engine-glossary.md
 */

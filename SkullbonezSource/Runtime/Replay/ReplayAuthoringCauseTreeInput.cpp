@@ -22,7 +22,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayAuthoring.h
   - SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h
-  - SkullbonezSource/Runtime/Prediction/ReplayAuthoringCauseTree.cpp
+  - SkullbonezSource/Runtime/App/ReplayAuthoringCauseTree.cpp
   - Agentic/Reference/engine-glossary.md
 */
 #include "ReplayAuthoring.h"

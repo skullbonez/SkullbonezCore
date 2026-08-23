@@ -37,7 +37,7 @@ Related:
 #include "../../Core/SbDiagnosticStore.h"
 #include "../../Core/TracyClientOwner.h"
 #include "../Input/Input.h"
-#include "../Prediction/ReplayPredictionRetainedGeometry.h"
+#include "ReplayPredictionRetainedGeometry.h"
 #include "Run.h"
 #include "../Startup/StartupCommandLine.h"
 #include "../Startup/StartupCrashLogging.h"

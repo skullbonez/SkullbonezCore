@@ -38,22 +38,18 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/App/ReplayScrubberTools.cpp
-  - SkullbonezSource/Runtime/Prediction/ReplayAuthoringCauseTree.cpp
-  - SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp
+  - SkullbonezSource/Runtime/App/ReplayAuthoringCauseTree.cpp
+  - SkullbonezSource/Runtime/App/ReplayPredictionDrawing.cpp
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionScheduling.cpp
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.cpp
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "ReplayPrediction.h"
-#include "../Scene/SceneEntityStore.h"
 #include "../../Assets/EditorHullAssets.h"
-#include "../Replay/ReplayAuthoring.h"
-#include "../Replay/ReplayOverlayLayout.h"
 #include "ReplayPredictionArchive.h"
 #include "ReplayPredictionPublicationOperations.h"
 #include "ReplayPredictionReserve.h"
-#include "../Replay/ReplayScrubber.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
 #include "../../Physics/ColliderStore.h"
@@ -84,7 +80,6 @@ using namespace SkullbonezCore::Runtime::ReplayPredictionArchiveOperations;
 using namespace SkullbonezCore::Runtime::ReplayPredictionPublicationOperations;
 using namespace SkullbonezCore::Runtime::ReplayPredictionReserveOperations;
 using namespace SkullbonezCore::Runtime::ReplayPredictionSchedulingOperations;
-using namespace SkullbonezCore::Runtime::ReplayScrubberOperations;
 namespace Gameplay = SkullbonezCore::Gameplay;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
@@ -106,6 +101,18 @@ namespace
 {
 constexpr double REPLAY_PREDICTION_REFRESH_SECONDS = 0.35;
 constexpr double REPLAY_PREDICTION_MAX_WORK_MILLISECONDS = 5.0;
+constexpr float REPLAY_PREDICTION_LIVE_THRESHOLD = 0.995f;
+constexpr float REPLAY_PREDICTION_PRESENT_EPSILON = 0.0035f;
+
+bool ReplayPredictionAtPresentTrackPosition( float position, float presentPosition ) noexcept
+{
+    if ( presentPosition >= REPLAY_PREDICTION_LIVE_THRESHOLD )
+    {
+        return position >= REPLAY_PREDICTION_LIVE_THRESHOLD;
+    }
+
+    return std::fabs( position - presentPosition ) <= REPLAY_PREDICTION_PRESENT_EPSILON;
+}
 
 // Why: a time budget completes a different number of ticks per frame on every
 // CPU, so the frame a horizon finishes on is machine-dependent. Automation that
@@ -201,11 +208,14 @@ constexpr int REPLAY_PREDICTION_PARALLEL_BODY_MIN = 2048;
 // the final frame shows no visible motion and it has not drifted across the
 // final grace window; otherwise it has no resting pose and gets no grey box.
 constexpr double REPLAY_PREDICTION_REST_GRACE_SECONDS = 0.4;
-constexpr ReplayFrameIndex REPLAY_PREDICTION_REST_GRACE_FRAMES = static_cast<ReplayFrameIndex>( REPLAY_PREDICTION_REST_GRACE_SECONDS / PHYSICS_FIXED_DT );
+constexpr ReplayFrameIndex REPLAY_PREDICTION_REST_GRACE_FRAMES = static_cast<ReplayFrameIndex>(
+    REPLAY_PREDICTION_REST_GRACE_SECONDS / PHYSICS_FIXED_DT );
 constexpr float REPLAY_PREDICTION_REST_POSITION_EPSILON_SQ = 0.5f * 0.5f;
 
-constexpr uint32_t REPLAY_PREDICTION_CAPTURE_BODY_WORKER_HASH = HashStr( "Frame/Replay/Prediction/CaptureBodyState/WorkerBodies" );
-constexpr uint32_t REPLAY_PREDICTION_CAPTURE_SAMPLE_WORKER_HASH = HashStr( "Frame/Replay/Prediction/CaptureSample/WorkerBodies" );
+constexpr uint32_t REPLAY_PREDICTION_CAPTURE_BODY_WORKER_HASH = HashStr(
+    "Frame/Replay/Prediction/CaptureBodyState/WorkerBodies" );
+constexpr uint32_t REPLAY_PREDICTION_CAPTURE_SAMPLE_WORKER_HASH = HashStr(
+    "Frame/Replay/Prediction/CaptureSample/WorkerBodies" );
 
 // Concept: future-node building is an incremental cache.
 //
@@ -653,11 +663,11 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayPrediction& predictionOwner
 
     const bool hadCommittedPredictionFrames = prediction.HasCommittedFramePrefix();
     const bool solverWasOldLiveEdge = !hadCommittedPredictionFrames &&
-                                      ReplayAtPresentTrackPosition( solverTrackPosition, 1.0f );
+                                      ReplayPredictionAtPresentTrackPosition( solverTrackPosition, 1.0f );
 
     const bool scrubberWasPinnedToPresent = !historicalSamplePaused ||
-                                            ReplayAtPresentTrackPosition( solverTrackPosition,
-                                                                          solverPresentTrackPosition ) ||
+                                            ReplayPredictionAtPresentTrackPosition( solverTrackPosition,
+                                                                                    solverPresentTrackPosition ) ||
                                             solverWasOldLiveEdge;
 
     // Invariant: the trajectory builder switches to the build bank before its
@@ -902,11 +912,10 @@ ReplayPrediction::BeginFrameSource( PhysicsEngine& physicsEngine, const Skullbon
 
 
 bool ReplayPrediction::BeginFrameSimulation( PhysicsEngine& physicsEngine, const Gameplay::TornadoGameplay& tornadoGameplay,
-                                             const SceneEntityStore& entities,
-                                             const SkullbonezCore::Core::EngineConfig& config,
+                                             int sceneEntityCount, const SkullbonezCore::Core::EngineConfig& config,
                                              const SkullbonezCore::Physics::PhysicsWorldForces& worldForces,
-                                             ReplayPredictionPathPresentation pathPresentation,
-                                             SkullbonezCore::Threading::WorkerPool& workerPool,
+                                             ReplayPredictionPathPresentation pathPresentation, float minHorizonSeconds,
+                                             float maxHorizonSeconds, SkullbonezCore::Threading::WorkerPool& workerPool,
                                              ReplayPredictionSourcePreparation preparation )
 {
     ReplayPrediction& predictionOwner = *this;
@@ -921,11 +930,11 @@ bool ReplayPrediction::BeginFrameSimulation( PhysicsEngine& physicsEngine, const
     const int modelCount = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physicsEngine ).Count();
     const PhysicsBodyStore& liveBodyStore = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physicsEngine );
 
-    prediction.simulation.horizonSeconds = std::clamp( prediction.simulation.horizonSeconds,
-                                                       ReplayOverlay::REPLAY_PREDICTION_MIN_SECONDS,
-                                                       ReplayOverlay::REPLAY_PREDICTION_MAX_SECONDS );
+    prediction.simulation.horizonSeconds = std::clamp( prediction.simulation.horizonSeconds, minHorizonSeconds,
+                                                       maxHorizonSeconds );
 
-    const int predictionTicks = (std::max)( 1, static_cast<int>( std::ceil( prediction.simulation.horizonSeconds / PHYSICS_FIXED_DT ) ) );
+    const int predictionTicks = (std::max)( 1, static_cast<int>(
+                                                   std::ceil( prediction.simulation.horizonSeconds / PHYSICS_FIXED_DT ) ) );
 
     prediction.build.targetTickCount = predictionTicks;
     prediction.build.nextTick = 1;
@@ -988,7 +997,7 @@ bool ReplayPrediction::BeginFrameSimulation( PhysicsEngine& physicsEngine, const
     }
 
     if ( modelCount != SkullbonezCore::Physics::PhysicsEngine::ReadColliders( physicsEngine ).Count() ||
-         modelCount != entities.Count() ||
+         modelCount != sceneEntityCount ||
          !CaptureReplayPredictionBodyState( liveBodyStore, workerPool, predictionOwner.ProfilerBorrow(),
                                             prediction.simulation.predictionBodies ) )
     {
@@ -1277,7 +1286,8 @@ void ReplayPrediction::PrepareFrameRebuild( Physics::PhysicsSceneObjectId target
     }
     else
     {
-        ++result.rebuildCauses[static_cast<std::size_t>( SkullbonezCore::Core::MainMemoryReplayRebuildCause::AutomaticRefresh )];
+        ++result.rebuildCauses[static_cast<std::size_t>(
+            SkullbonezCore::Core::MainMemoryReplayRebuildCause::AutomaticRefresh )];
     }
 
     if ( prediction.baseline.comparisonActive && !prediction.baseline.valid && prediction.HasCommittedFramePrefix() )
@@ -1356,10 +1366,9 @@ bool ReplayPrediction::AdvanceFrameWorker( SkullbonezCore::Threading::WorkerPool
 }
 
 
-void ReplayPrediction::PublishCompletedFrame( const SceneEntityStore& entities, Physics::PhysicsSceneObjectId targetId )
+void ReplayPrediction::PublishCompletedFrame( Physics::PhysicsSceneObjectId targetId )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/PublishCompletedFrame" );
-    (void)entities;
     (void)targetId;
 
     // Why: the completed build bank remains the coherent visible publication.
@@ -1368,13 +1377,13 @@ void ReplayPrediction::PublishCompletedFrame( const SceneEntityStore& entities, 
 }
 
 
-void ReplayPrediction::PreparePresentation( const SceneEntityStore& entities, const ColliderStore& colliderStore,
+void ReplayPrediction::PreparePresentation( ReplayPredictionSceneView scene, const ColliderStore& colliderStore,
                                             Physics::PhysicsSceneObjectId targetId, ModelRowHint targetModelRow,
                                             bool targetAvailable, double budgetMilliseconds,
                                             ReplayPredictionUpdateResult& result )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay" );
-    PrepareReplayPredictionOverlay( m_state, entities, colliderStore, targetId, targetModelRow, targetAvailable,
+    PrepareReplayPredictionOverlay( m_state, scene, colliderStore, targetId, targetModelRow, targetAvailable,
                                     budgetMilliseconds, result );
 }
 void ReplayPrediction::MarkDirty() noexcept
@@ -1489,8 +1498,8 @@ bool ReplayPrediction::CopyCauseEvidence( const ReplayPredictionCauseEvidenceQue
 
         return ( bodyA == expectedA && bodyB == expectedB ) || ( bodyA == expectedB && bodyB == expectedA );
     };
-    const auto contactMatches = [&]( const Physics::PhysicsSolverPersistentContactSample& contact, int bodyA, int bodyB,
-                                     bool terrain )
+    const auto contactMatches =
+        [&]( const Physics::PhysicsSolverPersistentContactSample& contact, int bodyA, int bodyB, bool terrain )
     { return pairMatches( contact.bodyA, contact.bodyB, bodyA, bodyB, terrain ); };
     const auto solverStage = []( Physics::PhysicsPipelineStage stage )
     {
@@ -1508,10 +1517,10 @@ bool ReplayPrediction::CopyCauseEvidence( const ReplayPredictionCauseEvidenceQue
         }
     };
 
-    const Physics::PhysicsSolverPersistentContactSample* anchor =
-        store.Contact( frame->contacts, static_cast<std::size_t>( query.contactIndex ) );
-    const Physics::PhysicsPipelineRecord* sequenceAnchor =
-        store.Pipeline( frame->pipeline, static_cast<std::size_t>( query.pipelineIndex ) );
+    const Physics::PhysicsSolverPersistentContactSample* anchor = store.Contact( frame->contacts, static_cast<std::size_t>(
+                                                                                                      query.contactIndex ) );
+    const Physics::PhysicsPipelineRecord* sequenceAnchor = store.Pipeline( frame->pipeline,
+                                                                           static_cast<std::size_t>( query.pipelineIndex ) );
 
     if ( !anchor || !sequenceAnchor || query.featureId < 0 ||
          static_cast<uint32_t>( query.featureId ) != anchor->featureId ||
@@ -1754,7 +1763,7 @@ ReplayPredictionDetailTransitionAction ReplayPrediction::ApplyDetailModeCommand(
     return actions;
 }
 
-void ReplayPrediction::ApplyAuthoringRequest( const ReplayAuthoringPredictionRequest& request, float minHorizonSeconds,
+void ReplayPrediction::ApplyAuthoringRequest( const ReplayPredictionAuthoringCommand& request, float minHorizonSeconds,
                                               float maxHorizonSeconds )
 {
     if ( request.prepareVelocityMutationBaseline )
@@ -1876,7 +1885,8 @@ void ReplayPrediction::SetRevealRatePreservingCursor( double revealRate ) noexce
                                                            .count() );
 
         const double revealedSeconds = elapsedSeconds * previousRevealRate;
-        m_state.revealClock.anchor = now - std::chrono::duration_cast<std::chrono::steady_clock::duration>( std::chrono::duration<double>( revealedSeconds / normalizedRevealRate ) );
+        m_state.revealClock.anchor = now - std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                                               std::chrono::duration<double>( revealedSeconds / normalizedRevealRate ) );
     }
 
     m_state.revealClock.secondsPerSecond = normalizedRevealRate;
@@ -2037,96 +2047,90 @@ void ReplayPrediction::ClearCacheFromReplayInput()
     m_hasLoadedArchiveCapability = false;
 }
 
-ReplayPastTrajectoryUpdate ReplayPrediction::RefreshPastTrajectoryStore( const ReplaySolverRecorder& solver,
-                                                                         const ReplayPastTrajectoryView& path )
+ReplayPastTrajectoryRefreshPlan ReplayPrediction::BeginPastTrajectoryRefresh( ReplayPredictionRecorderWindow recorder,
+                                                                              const ReplayPastTrajectoryView& path )
 {
-    ReplayPastTrajectoryUpdate update;
+    ReplayPastTrajectoryRefreshPlan plan;
 
-    if ( !path.hasTarget || path.targetId.value == 0 )
+    if ( !path.hasTarget || path.targetId.value == 0 || !recorder.enabled || recorder.sampleCount == 0 ||
+         recorder.nextFrameIndex == 0 )
     {
-        update.apply = true;
-        return update;
+        plan.update.apply = true;
+        return plan;
     }
 
-    const ReplayRecorderStats stats = solver.GetStats();
-
-    if ( !stats.enabled || stats.sampleCount == 0 || stats.nextFrameIndex == 0 )
-    {
-        update.apply = true;
-        return update;
-    }
-
-    const ReplayFrameIndex oldestFrame = ReplayOldestFrameFromStats( stats );
-    const ReplayFrameIndex newestFrame = stats.nextFrameIndex - 1u;
+    const ReplayFrameIndex oldestFrame = ReplayOldestFrameFromStats( recorder );
+    const ReplayFrameIndex newestFrame = recorder.nextFrameIndex - 1u;
     const bool needsRebuild = !path.valid || path.retainedTargetId.value != path.targetId.value ||
-                              path.totalFramesEvicted != stats.totalFramesEvicted || path.firstFrame != oldestFrame ||
+                              path.totalFramesEvicted != recorder.totalFramesEvicted || path.firstFrame != oldestFrame ||
                               path.builtThroughFrame < newestFrame;
 
     if ( !needsRebuild )
     {
-        return update;
+        return plan;
     }
 
-    const int frameNumber = ReplayTrajectoryFrameNumberForReserve( newestFrame );
     ReplayTrajectoryRecord* record = BeginReplayPastRootTrajectoryRecord( m_state.trajectoryStore, path.targetId,
-                                                                          stats.sampleCount, frameNumber );
+                                                                          recorder.sampleCount,
+                                                                          ReplayTrajectoryFrameNumberForReserve(
+                                                                              newestFrame ) );
 
     if ( !record )
     {
-        update.apply = true;
+        plan.update.apply = true;
+        return plan;
+    }
+
+    plan.targetId = path.targetId;
+    plan.oldestFrame = oldestFrame;
+    plan.newestFrame = newestFrame;
+    plan.totalFramesEvicted = recorder.totalFramesEvicted;
+    plan.fullRebuildCount = path.fullRebuildCount + 1u;
+    plan.incrementalTrimCount = path.incrementalTrimCount;
+    plan.appendSamples = true;
+    return plan;
+}
+
+bool ReplayPrediction::AppendPastTrajectoryRefreshPoint( Physics::PhysicsSceneObjectId targetId, ReplayFrameIndex frame,
+                                                         Physics::ModelRowHint modelRow, const Vector3& position )
+{
+    (void)modelRow;
+    ReplayTrajectoryRecord* record = m_state.trajectoryStore.FindRecord( ReplayPastRootTrajectoryKey( targetId ) );
+    return record && AppendReplayTrajectoryPoint( m_state.trajectoryStore, *record, frame, position );
+}
+
+ReplayPastTrajectoryUpdate ReplayPrediction::CompletePastTrajectoryRefresh( const ReplayPastTrajectoryRefreshPlan& plan,
+                                                                            bool traversalOk, bool hasSample,
+                                                                            ReplayFrameIndex firstFrame,
+                                                                            Physics::ModelRowHint targetModelRow )
+{
+    ReplayPastTrajectoryUpdate update = plan.update;
+    update.apply = true;
+
+    ReplayTrajectoryRecord* record = m_state.trajectoryStore.FindRecord( ReplayPastRootTrajectoryKey( plan.targetId ) );
+
+    if ( !plan.appendSamples || !record || !traversalOk || !hasSample )
+    {
         return update;
     }
 
-    Physics::ModelRowHint targetModelRow;
-    ReplayFrameIndex firstFrame = 0;
-    bool hasSample = false;
-    bool rebuildOk = true;
-    const bool traversalOk = solver.ForEachBodyPositionChronological( path.targetId,
-                                                                      [&]( ReplayFrameIndex frameIndex, SkullbonezCore::Physics::ModelRowHint modelRow, const Vector3& position )
-                                                                      {
-                                                                      if ( !rebuildOk )
-                                                                      {
-                                                                      return;
-                                                                      }
+    record->firstFrame = firstFrame;
+    update.targetId = plan.targetId;
+    update.firstFrame = plan.oldestFrame;
+    update.builtThroughFrame = plan.newestFrame;
+    update.totalFramesEvicted = plan.totalFramesEvicted;
+    update.fullRebuildCount = plan.fullRebuildCount;
+    update.incrementalTrimCount = plan.incrementalTrimCount;
+    update.targetModelRow = targetModelRow;
+    update.targetModelRowRepaired = true;
+    update.valid = true;
+    return update;
+}
 
-                                                                      rebuildOk = AppendReplayTrajectoryPoint( m_state.trajectoryStore, *record, frameIndex, position );
-
-                                                                      if ( rebuildOk )
-                                                                      {
-                                                                      if ( !hasSample )
-                                                                      {
-                                                                      firstFrame = frameIndex;
-                                                                      hasSample = true;
-                                                                      }
-
-                                                                      targetModelRow = modelRow;
-                                                                      }
-                                                                      } );
-
-                                                                      if ( !traversalOk || !rebuildOk || !hasSample )
-                                                                      {
-                                                                      update.apply = true;
-                                                                      return update;
-                                                                      }
-
-                                                                      record->firstFrame = firstFrame;
-                                                                      update.targetId = path.targetId;
-                                                                      update.firstFrame = oldestFrame;
-                                                                      update.builtThroughFrame = newestFrame;
-                                                                      update.totalFramesEvicted = stats.totalFramesEvicted;
-                                                                      update.fullRebuildCount = path.fullRebuildCount + 1u;
-                                                                      update.incrementalTrimCount = path.incrementalTrimCount;
-                                                                      update.targetModelRow = targetModelRow;
-                                                                      update.apply = true;
-                                                                      update.targetModelRowRepaired = true;
-                                                                      update.valid = true;
-                                                                      return update;
-                                                                      }
-
-                                                                      void ReplayPrediction::AppendPastTrajectorySample( const ReplayRecorderStats& solverStats,
-                                                                      const ReplayPastTrajectoryView& path,
-                                                                      const ReplaySolverFrameSample& sample,
-                                                                      ReplayPastTrajectoryUpdate& update )
+void ReplayPrediction::AppendPastTrajectorySample( ReplayPredictionRecorderWindow solverStats,
+                                                   const ReplayPastTrajectoryView& path,
+                                                   const ReplaySolverFrameSample& sample,
+                                                   ReplayPastTrajectoryUpdate& update )
 {
     if ( !path.hasTarget || path.targetId.value == 0 || !path.valid || path.retainedTargetId.value != path.targetId.value )
     {
@@ -2231,8 +2235,10 @@ ReplayPredictionMemoryStats ReplayPrediction::CollectMemoryStats() const
         MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
                                           SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionFutureTree,
                                           ReplayPredictionVectorCapacityBytes( m_state.futureNodeCache.futureNodes ) +
-                                              ReplayPredictionVectorCapacityBytes( m_state.futureNodeCache.futureNodeBuildScratch ) +
-                                              ReplayPredictionVectorCapacityBytes( m_state.committedPublication.visibleFutureNodes ) );
+                                              ReplayPredictionVectorCapacityBytes(
+                                                  m_state.futureNodeCache.futureNodeBuildScratch ) +
+                                              ReplayPredictionVectorCapacityBytes(
+                                                  m_state.committedPublication.visibleFutureNodes ) );
 
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
                                                             SkullbonezCore::Core::MainMemoryReplayByteCategory::
@@ -2270,7 +2276,8 @@ ReplayPredictionMemoryStats ReplayPrediction::CollectMemoryStats() const
 
     for ( const ReplayTrajectoryRecord& record : m_state.trajectoryStore.ActiveRecords() )
     {
-        stats.trajectory.publishedPointCount += static_cast<uint64_t>( (std::min)( record.publishedPointCount, record.points.size() ) );
+        stats.trajectory.publishedPointCount += static_cast<uint64_t>(
+            (std::min)( record.publishedPointCount, record.points.size() ) );
         stats.trajectory.maxRecordVersion = (std::max)( stats.trajectory.maxRecordVersion, record.version );
     }
 

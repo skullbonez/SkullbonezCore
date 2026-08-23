@@ -22,7 +22,7 @@ Related:
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Rendering/ShaderReflectionContracts.h"
-#include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionRetainedGeometry.h"
+#include "../SkullbonezSource/Runtime/App/ReplayPredictionRetainedGeometry.h"
 
 #include <string>
 

@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Prediction/ReplayPredictionPresentation.cpp
+File: SkullbonezSource/Runtime/App/ReplayPredictionPresentation.cpp
 Purpose:
   Implements the bounded prediction presentation sub-owner.
 
@@ -15,7 +15,7 @@ Invariants:
   - No Replay owner pointer or reference is retained between commands.
 
 Related:
-  - SkullbonezSource/Runtime/Prediction/ReplayPredictionPresentation.h
+  - SkullbonezSource/Runtime/App/ReplayPredictionPresentation.h
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionView.h
   - Agentic/Reference/engine-glossary.md
 */
@@ -319,9 +319,10 @@ bool ReplayPredictionPresentation::ApplyFrameForRender( Rendering::RenderInstanc
     return HideUnmatchedBodies( renderInstances, bodyStore, colliderStore, matchedBodies, modelCount ) || queuedBodies;
 }
 
-bool ReplayPredictionPresentation::BuildGhostDrawRequests( const ReplayPredictionPresentationView& prediction,
-                                                           std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
-                                                           const Physics::PhysicsBodyStore& bodyStore )
+bool ReplayPredictionPresentation::BuildGhostDrawRequests(
+    const ReplayPredictionPresentationView& prediction,
+    std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
+    const Physics::PhysicsBodyStore& bodyStore )
 {
     ClearGhostDrawRequests();
     const std::span<const RunReplayPredictionFrame> frames = prediction.frames;
@@ -444,9 +445,10 @@ bool ReplayPredictionPresentation::BuildGhostDrawRequests( const ReplayPredictio
 }
 
 
-bool ReplayPredictionPresentation::PrepareRetainedGeometryDrawList( const ReplayPredictionPresentationView& prediction, const RunReplayPathVisualizerState& path,
-                                                                    const SceneEntityStore& entities, const Physics::ColliderStore& colliderStore, EditorTracer& frameTracer,
-                                                                    const Core::ReplayTrajectoryAppearanceConfig& trajectoryAppearance )
+bool ReplayPredictionPresentation::PrepareRetainedGeometryDrawList(
+    const ReplayPredictionPresentationView& prediction, const RunReplayPathVisualizerState& path,
+    const SceneEntityStore& entities, const Physics::ColliderStore& colliderStore, EditorTracer& frameTracer,
+    const Core::ReplayTrajectoryAppearanceConfig& trajectoryAppearance )
 {
     const bool retainedAppearanceChanged = m_retainedGeometry.SetAppearance( trajectoryAppearance );
     const bool markerAppearanceChanged = m_retainedMarkerDrawList.SetReplayTrajectoryAppearance( trajectoryAppearance );
@@ -591,7 +593,8 @@ void ReplayPredictionPresentation::ResetTrajectoryVisualStats() noexcept
 }
 
 
-void ReplayPredictionPresentation::RecordTrajectoryFrameStats( const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& frameStats )
+void ReplayPredictionPresentation::RecordTrajectoryFrameStats(
+    const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& frameStats )
 {
     for ( std::size_t index = 0; index < SkullbonezCore::Core::MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT; ++index )
     {
@@ -601,8 +604,9 @@ void ReplayPredictionPresentation::RecordTrajectoryFrameStats( const SkullbonezC
 }
 
 
-void ReplayPredictionPresentation::RecordTrajectorySubmissionFrame( const SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats& submissionStats, int frameNumber,
-                                                                    uint64_t reserveGrowthEventCount )
+void ReplayPredictionPresentation::RecordTrajectorySubmissionFrame(
+    const SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats& submissionStats, int frameNumber,
+    uint64_t reserveGrowthEventCount )
 {
     if ( !submissionStats.hasGeometry || submissionStats.vertexBytes == 0 || submissionStats.vertexCount == 0 )
     {

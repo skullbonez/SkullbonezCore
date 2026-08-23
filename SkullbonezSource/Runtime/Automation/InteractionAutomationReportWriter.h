@@ -39,7 +39,7 @@ Related:
 #include "../Camera/RuntimeCameraMode.h"
 #include "../Interaction/RuntimeInteractionController.h"
 
-#include "../Prediction/ReplayPredictionDrawing.h"
+
 #include "../Prediction/ReplayPredictionPackets.h"
 #include "../Replay/ReplayTimelinePackets.h"
 #include "../Replay/ReplayVisualPacket.h"
@@ -231,10 +231,9 @@ class InteractionAutomationReportWriter
     // owner addresses after this call returns.
     Core::SbResult Write( InteractionAutomationRunStatus& status, const char* scriptPath, const SceneWorld& world,
                           const SceneSessionState& scene, const char* scenePath, const EditorToolsOwner& editorTools,
-                          const RuntimeTools& runtimeTools,
-                          const ReplayAutomationView& replay, const RuntimeInteractionController& interaction,
-                          const CameraControlState& camera, const UI::InGameUI& ui,
-                          const Rendering::RenderSceneSnapshot& renderSnapshot );
+                          const RuntimeTools& runtimeTools, const ReplayAutomationView& replay,
+                          const RuntimeInteractionController& interaction, const CameraControlState& camera,
+                          const UI::InGameUI& ui, const Rendering::RenderSceneSnapshot& renderSnapshot );
 
     // Report facts are centralized here so live assertions and final JSON use
     // one implementation of every validation-sensitive calculation.
@@ -291,7 +290,6 @@ class InteractionAutomationReportWriter
     // shape as ReplayRuntime. Keeping its large fixed reserves on this
     // startup-allocated Automation owner avoids function-stack construction.
     EditorTracer m_replayVisualPredictionDrawList;
-    ReplayOverlay::ReplayPredictionDrawListState m_replayVisualPredictionDrawListState;
     ReplayVisualPacket m_replayVisualPredictionDrawPacket;
     Math::Vector::Vector3 m_replayVisualPredictionDrawCameraEye = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 m_replayVisualPredictionDrawCameraUp = Math::Vector::ZERO_VECTOR;

@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Prediction/ReplayAuthoringCauseTree.cpp
+File: SkullbonezSource/Runtime/App/ReplayAuthoringCauseTree.cpp
 Purpose:
   Implements Prediction-owned cause-row composition and focus activation.
 
@@ -27,15 +27,18 @@ Invariants:
   - Replay path, solver, camera, and store borrows expire before each command returns.
 
 Related:
-  - SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp
+  - SkullbonezSource/Runtime/App/ReplayPredictionDrawing.cpp
   - SkullbonezSource/Runtime/Replay/ReplayAuthoringCauseTreeInput.cpp
   - Agentic/Reference/engine-glossary.md
 */
 #include "../Replay/ReplayAuthoring.h"
 #include "../Replay/ReplayCoordination.h"
-#include "ReplayPrediction.h"
-#include "ReplayPredictionPublicationOperations.h"
+#include "../Replay/ReplayOverlayLayout.h"
+#include "ReplayAuthoringCauseTree.h"
+#include "../Prediction/ReplayPrediction.h"
+#include "../Prediction/ReplayPredictionPublicationOperations.h"
 #include "../Replay/ReplayPresentation.h"
+#include "../Interaction/RuntimeInteractionController.h"
 #include "../../Assets/AssetKeys.h"
 #include "../../Core/Profiler.h"
 #include "../../Core/SceneCapacity.h"
@@ -317,14 +320,14 @@ bool ReplayPipelineRecordAnchorsContact( const PhysicsPipelineRecord& record,
 }
 } // namespace
 
-bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const RunReplayPathVisualizerState& path,
-                                           const ReplaySolverFrameSample* solverSample,
-                                           std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
-                                           const PhysicsBodyStore& bodyStore, const RunReplayCameraState& camera,
-                                           int& outCameraFocusedRow )
+bool SkullbonezCore::Runtime::BuildReplayCauseTreeRows(
+    const ReplayPrediction& predictionOwner, ReplayAuthoring& authoring, const RunReplayPathVisualizerState& path,
+    const ReplaySolverFrameSample* solverSample,
+    std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords, const PhysicsBodyStore& bodyStore,
+    const RunReplayCameraState& camera, int& outCameraFocusedRow )
 {
-    const RunReplayPredictionState& prediction = m_state;
-    const std::span<const RunReplayPredictionFrame> activePredictionFrames = ActiveFrames();
+    const RunReplayPredictionState& prediction = predictionOwner.State();
+    const std::span<const RunReplayPredictionFrame> activePredictionFrames = predictionOwner.ActiveFrames();
     PROFILE_SCOPED( "Frame/Replay/CauseTree/BuildRows" );
     outCameraFocusedRow = -1;
     authoring.BeginCauseTreeRowBuild();
@@ -343,7 +346,7 @@ bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const Run
     const bool usePrediction = prediction.enabled && predictionPrefixVisible &&
                                prediction.simulation.targetId.value == path.targetId.value;
 
-    if ( usePrediction && !ReplayPredictionCauseWindowAvailable( m_detailMode, true ) )
+    if ( usePrediction && !ReplayPredictionCauseWindowAvailable( predictionOwner.DetailMode(), true ) )
     {
         // Low retains the compact scrubber control and lightweight path, but
         // publishes no predicted cause surface for rendering or hit testing.
@@ -357,7 +360,7 @@ bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const Run
     const std::size_t solverContactCount = solverSample ? solverSample->worldSnapshot.physics.persistentContacts.size()
                                                         : static_cast<std::size_t>( 0 );
 
-    const std::size_t estimatedRows = usePrediction && m_detailMode == ReplayPredictionDetailMode::High
+    const std::size_t estimatedRows = usePrediction && predictionOwner.DetailMode() == ReplayPredictionDetailMode::High
                                           ? REPLAY_CAUSE_TREE_ROW_CAPACITY
                                           : 1 + nodes.size() + solverContactCount * 3;
 
@@ -499,8 +502,8 @@ bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const Run
             predictionNodeIndex = predictionNode ? static_cast<int>( found - nodes.begin() ) : -1;
         }
 
-        if ( usePrediction &&
-             ( m_detailMode == ReplayPredictionDetailMode::Low || ( predictionNode && !predictionNode->contactDerived ) ) )
+        if ( usePrediction && ( predictionOwner.DetailMode() == ReplayPredictionDetailMode::Low ||
+                                ( predictionNode && !predictionNode->contactDerived ) ) )
         {
             if ( predictionNode )
             {
@@ -563,7 +566,7 @@ bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const Run
             }
 
             predictionFrame = &*foundFrame;
-            predictionEvidence = SolverEvidenceForPresentedFrame( bodyRow.firstFrame );
+            predictionEvidence = predictionOwner.SolverEvidenceForPresentedFrame( bodyRow.firstFrame );
 
             if ( !predictionEvidence.Valid() )
             {
@@ -782,7 +785,8 @@ bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const Run
             manifoldRow.modelRow.value = bodyRow.modelRow.value;
             manifoldRow.counterpartModelRow.value = group.otherModelIndex;
             manifoldRow.contactIndex = firstContactIndex;
-            const Physics::PhysicsSolverPersistentContactSample* firstContact = sourceContactAt( static_cast<std::size_t>( firstContactIndex ) );
+            const Physics::PhysicsSolverPersistentContactSample* firstContact = sourceContactAt(
+                static_cast<std::size_t>( firstContactIndex ) );
             manifoldRow.pipelineIndex = firstContact ? sourcePipelineIndexForContact( *firstContact ) : -1;
 
             if ( usePrediction && manifoldRow.pipelineIndex < 0 )
@@ -879,7 +883,8 @@ bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const Run
 
                 if ( solverRow.pipelineIndex >= 0 )
                 {
-                    const PhysicsPipelineRecord* record = sourcePipelineAt( static_cast<std::size_t>( solverRow.pipelineIndex ) );
+                    const PhysicsPipelineRecord* record = sourcePipelineAt(
+                        static_cast<std::size_t>( solverRow.pipelineIndex ) );
 
                     traceStage = record ? PhysicsPipelineStageName( record->stage ) : "";
                 }
@@ -1061,15 +1066,14 @@ bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const Run
 }
 
 
-bool ReplayPrediction::ActivateCauseTreeRow( ReplayAuthoring& authoring, int rowIndex, ReplayPresentation& presentationOwner,
-                                             ReplayScrubber& scrubberOwner,
-                                             const ReplaySolverFrameSample* currentSolverSample,
-                                             const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                                             RuntimeInteractionController& interaction, Vector3& outTargetPosition,
-                                             float& outTargetRadius )
+bool SkullbonezCore::Runtime::ActivateReplayCauseTreeRow(
+    const ReplayPrediction& predictionOwner, ReplayAuthoring& authoring, int rowIndex, ReplayPresentation& presentationOwner,
+    ReplayScrubber& scrubberOwner, const ReplaySolverFrameSample* currentSolverSample, const PhysicsBodyStore& bodyStore,
+    const ColliderStore& colliderStore, RuntimeInteractionController& interaction, Vector3& outTargetPosition,
+    float& outTargetRadius )
 {
-    const RunReplayPredictionState& prediction = m_state;
-    const std::span<const RunReplayPredictionFrame> activePredictionFrames = ActiveFrames();
+    const RunReplayPredictionState& prediction = predictionOwner.State();
+    const std::span<const RunReplayPredictionFrame> activePredictionFrames = predictionOwner.ActiveFrames();
     RunReplayCauseTreeRow row;
 
     if ( !authoring.TryGetCauseTreeRow( rowIndex, row ) )

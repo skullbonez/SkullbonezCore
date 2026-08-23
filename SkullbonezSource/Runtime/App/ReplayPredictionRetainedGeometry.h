@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Prediction/ReplayPredictionRetainedGeometry.h
+File: SkullbonezSource/Runtime/App/ReplayPredictionRetainedGeometry.h
 Purpose:
   Owns Prediction's compact retained-ribbon record and logical storage policy.
 
@@ -15,13 +15,13 @@ Glossary:
     adjacency tail without moving either physical slice.
 
 Invariants:
-  - Prediction owns all record component meanings and logical capacities.
+  - App presentation owns all record component meanings and logical capacities.
   - Range slices never overlap and never grow after creation.
   - Adjacent repair mutates only the two records that share a continuous join.
   - CPU storage is allocated during owner construction, before steady gameplay.
 
 Related:
-  - SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp
+  - SkullbonezSource/Runtime/App/ReplayPredictionDrawing.cpp
   - SkullbonezSource/Rendering/RenderCommandTypes.h
   - SkullbonezSource/Runtime/Replay/ReplayVisualPacket.h
 */
@@ -203,7 +203,7 @@ inline bool AppendPredictionRetainedContinuation( std::span<float> arena,
     return true;
 }
 
-// Prediction owns the compact record vocabulary, adjacency repair, logical
+// App presentation owns the compact record vocabulary, adjacency repair, logical
 // capacities, and stable range publication. Rendering sees only generic spans,
 // layout values, and cache tokens after PublishToPacket returns.
 class ReplayPredictionRetainedGeometry
