@@ -2,7 +2,7 @@
 
 Date: 2026-08-24
 Branch: `nightrunner-22nd-AUG-26`
-Status: Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 101/118 tasks complete
+Status: Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 102/118 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -33,12 +33,14 @@ behavioral and ownership validation. Completed plan files remain deleted under t
 Git history retains their phase evidence.
 
 Game UI Component Library Separation UI0-UI6 has phase-local RBS prerequisites
-and no Physics predecessor. UI0-UI2 are complete: all 70 tracked UI files have
+and no Physics predecessor. UI0-UI3 are complete: all 70 tracked UI files have
 binding dispositions; explicit stateless geometry/state contracts cover the
 proved shared component families; and the seven retained wrappers now route
 through those contracts without changing product fingerprints, command values,
-or interaction geometry. UI3 is ready; UI4's RBS5 and UI5's RBS6 prerequisites
-are satisfied, but phase order still requires UI3 then UI4. UI6 consumes RBS7.
+or interaction geometry. Repeated Replay/Planning controls and fitting Runtime
+badges now use shared components without moving semantic owners. UI4's RBS5 and
+UI5's RBS6 prerequisites are satisfied; phase order requires UI4 next. UI6
+consumes RBS7.
 Recorded Interaction Playback Cursor RIC0-RIC3 is registered after UI6; it adds
 only a fake recorded-playback overlay and explicitly forbids any hardware cursor
 or native capture change.
@@ -481,7 +483,7 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 Continue `RAGDOLL_PHYSICS` FP2 by closing the replay-visual terminal gate, then
 start FP3 on a fresh worker. Other slots may continue `RUNTIME_BOUNDARIES` RBS7
 when their current canonical subsystem, path-owner, worktree, and mutable
-resource leases are disjoint. UI3 is ready after RBS4. FP2 retains motion policy version 2: `0.1` metres
+resource leases are disjoint. UI4 is ready after RBS5. FP2 retains motion policy version 2: `0.1` metres
 of absolute per-tick travel promotes and `0.075` metres demotes, independent of
 collider thickness.
 

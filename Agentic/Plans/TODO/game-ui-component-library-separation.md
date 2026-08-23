@@ -1,7 +1,7 @@
 # Game UI Component Library Separation Plan
 
 Date: 2026-08-22
-Status: Active by owner direction. 3/7 phases complete; phase-local Runtime
+Status: Active by owner direction. 4/7 phases complete; phase-local Runtime
 Boundary Separation prerequisites apply.
 Impact area: `SkullbonezSource/UI/`, game-facing composition under
 `SkullbonezSource/Runtime/`, `SKULLBONEZ_UI.vcxproj`, focused UI tests,
@@ -597,23 +597,40 @@ frozen projection, command-application, and submission owners before editing.
 **Goal:** Remove repeated raw component presentation from Runtime while leaving
 domain state, layout decisions, and action routing with their current owners.
 
-- [ ] Convert the UI0-proved repeated Replay/Planning surfaces first, using the
+- [x] Convert the UI0-proved repeated Replay/Planning surfaces first, using the
       existing surface rows and geometry as component inputs.
-- [ ] Convert remaining product badges/panels only when the same component
+- [x] Convert remaining product badges/panels only when the same component
       contract fits without domain flags or callbacks.
-- [ ] Keep `RuntimeUiControlId`, `RuntimeUiActionId`, z-order, pointer blocking,
+- [x] Keep `RuntimeUiControlId`, `RuntimeUiActionId`, z-order, pointer blocking,
       selection identity, and typed command routing above the foundation.
-- [ ] Delete local button/toggle/tab/scrollbar/panel styling and renderer text
+- [x] Delete local button/toggle/tab/scrollbar/panel styling and renderer text
       measurement made redundant by shared components.
-- [ ] Preserve domain-specific charts, scientific visualizations, trajectories,
+- [x] Preserve domain-specific charts, scientific visualizations, trajectories,
       tables, and authored layouts as owner-local presentation; do not force
       them through an unsuitable generic widget.
-- [ ] Test pointer ownership, disabled click blocking, action identity, draw
+- [x] Test pointer ownership, disabled click blocking, action identity, draw
       ordering, Replay interaction, and exact detached-state rendering.
 
 **Acceptance:** Repeated controls use one component implementation; domain
 surfaces retain their semantic owners; no central UI god presenter, Runtime
 cycle, callback bridge, or product-aware foundation API is introduced.
+
+### UI3 Closure Evidence - 2026-08-24
+
+Replay/Planning intercept, trip-planner, and porkchop panel shells now use the
+shared stateless compact panel, and all five trip actions use the shared compact
+button. Planning retains rectangles, action/control identity, enabled state,
+pointer routing, and specialized scientific presentation. Runtime scene-pause,
+camera-mode, and interaction badges share the panel implementation while their
+detached chrome facts and status accents remain owner-local.
+
+Profile builds with zero warnings/errors. The renderer-free UI boundary passes;
+focused Runtime pointer/action and Planning detached-state/order witnesses pass
+9/9 and 25/25 assertions, with deterministic Planning fingerprint
+`309035145945859501`. Replay overlay, trip-planner, and composition-order suites
+pass, dependency enforcement reports zero findings, project filters pass
+856/856, and the deterministic Physics hook remains byte-exact. No baseline was
+refreshed.
 
 ## Phase UI4 - Move Product Composition Above The Foundation
 
