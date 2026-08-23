@@ -196,7 +196,10 @@ The current site classes cover failed-result creation, central result/fatal
 owners, failure/error wrappers, `SB_FATAL`, pre-entry termination, raw stderr,
 event/dialog/debugger/status presentation, message templates, runtime and
 static assertions, status-only returns, counter-only evidence, silent recovery
-operations, and retained-bundle import mismatches.
+operations, ignored CRT open/write/flush/close outcomes, and retained-bundle
+import mismatches. An ignored outcome row is separate from any raw-stderr row
+at the same call: one records bypassed presentation, while the other records
+that the persistence result itself was discarded.
 
 Each ruling has this exact schema:
 
@@ -207,9 +210,11 @@ Each ruling has this exact schema:
 | `operation` | Deterministic normalized operation identity. |
 | `source_fingerprint` | SHA-256 of the exact normalized source slice, or executable bytes plus import identity. |
 | `disposition` | `sb-warning`, `recoverable-sb-error`, `fatal-sb-error`, `successful-fallback-value-state`, `test-only-deliberate-failure`, `runtime-assertion`, or `repair`. |
+| `description` | Exact bounded current-source description evidence used during review. |
 | `description_classification` | One classification from the table above. |
 | `owner`, `reason` | Concrete path owner and qualitative judgement. |
 | `repair_phase` | Blank only when no repair remains; otherwise exactly E1-E5. |
+| `adjudication` | `owner-reviewed` only after a concrete owner has reviewed this exact identity; generated rows use `unreviewed`. |
 
 Repair ownership is phase-specific: E1 owns sink establishment and Core
 pre-entry delivery; E2 owns mechanically unavoidable failed-result creation;
@@ -218,10 +223,18 @@ and migration of non-central/silent sites; E5 owns runnable-bundle closure.
 
 Strict mode fails on malformed rows, duplicate identities, an unratified file,
 a missing durable reference/repair plan, a new unruled site, an edited or
-deleted stale ruling, description-classification drift, or an inadequate
-error/assertion without a repair phase. These are current qualitative rulings,
-not allowances. Row totals, class counts, and repair counts are measurements
-only and must never become ceilings, ratios, or ratchets.
+deleted stale ruling, description evidence/classification drift, an unreviewed
+row, an unchanged generator suggestion presented as adjudication, or an
+inadequate error/assertion without a repair phase. A successful fallback/value
+row must name its concrete owner plus operation or invariant basis. `FAILED`
+HRESULT checks and `Validate*`/`Hash*` failure returns cannot pass as value-only
+queries. Every reviewed reason begins with its exact owner and names the exact
+operation, site class, path, or current description evidence; removing a
+suggestion marker and flipping status fields is therefore still not review.
+
+These are current qualitative rulings, not allowances. Row totals, class
+counts, and repair counts are measurements only and must never become ceilings,
+ratios, or ratchets.
 
 Use the focused evidence commands from the repository root:
 
@@ -233,8 +246,12 @@ python tools\inventory_error_observability.py --strict --format json
 
 `--write-unreviewed-template <path>` writes a deterministic candidate file and
 refuses to overwrite an existing file. Its `unreviewed` status deliberately
-fails strict mode. A human/agent owner reviews the dispositions, description
-classes, owners, and repair phases before changing the status to `ratified`.
+fails strict mode. Changing only the document status or per-row adjudication
+spelling still fails because unchanged suggestion fields are not owner review;
+removing the suggestion prefix also fails the owner-led exact-basis rule. A
+human/agent owner reviews each disposition, exact description/class, owner,
+reason, and responsibility-correct repair phase before the document becomes
+`ratified`.
 
 ## Retained-Executable E5 Repair
 

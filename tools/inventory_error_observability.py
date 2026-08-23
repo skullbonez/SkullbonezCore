@@ -11,7 +11,8 @@ Summary:
   lexical shapes that can create, hide, or present an error, and fingerprints
   the exact source slice behind each row. Strict mode fails when a row is new,
   edited, deleted, unclassified, or backed by an inadequate description that
-  has no named repair phase.
+  has no named repair phase. Ignored CRT file outcomes are independent rows so
+  a write to an otherwise valid sink cannot silently lose durability evidence.
 
   Retained executables are part of the same surface because a missing imported
   runtime fails before engine code can report anything. The artifact pass
@@ -37,7 +38,8 @@ Invariants:
   - Strict mode accepts no unruled or stale row and no unowned repair.
   - Row totals are measurements only and are never compared with a ceiling.
   - The unreviewed-template mode cannot pass strict validation until an owner
-    ratifies the generated rows.
+    adjudicates every generated row; flipping review-state fields while keeping
+    suggestion semantics is rejected.
 
 Related:
   - Agentic/Reference/error-observability-reference.md
@@ -94,6 +96,7 @@ DESCRIPTION_CLASSIFICATIONS = {
 INADEQUATE_DESCRIPTIONS = {"generic", "code-only", "expression-only", "context-free", "missing"}
 REPAIR_PHASES = {"E1", "E2", "E3", "E4", "E5"}
 REVIEW_STATUSES = {"unreviewed", "ratified"}
+ADJUDICATION_STATUSES = {"unreviewed", "owner-reviewed"}
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
 
 # Concept: These are discovery signals, not policy budgets. A signal only asks
@@ -113,11 +116,12 @@ ERROR_TEXT_RE = re.compile(
     r"device[ _-]removed|page[ _-]fault)",
     re.IGNORECASE,
 )
-CONSTRAINT_TEXT_RE = re.compile(
+STRONG_CONSTRAINT_TEXT_RE = re.compile(
     r"(?:must|requires?|cannot|could not|invalid|missing|unavailable|unsupported|exceed|exhaust|out of range|"
-    r"mismatch|not found|non[- ]?finite|empty|denied|corrupt|failed|failure|overflow|illegal|unknown)",
+    r"mismatch|not found|non[- ]?finite|empty|denied|corrupt|overflow|illegal)",
     re.IGNORECASE,
 )
+PLATFORM_RESULT_TEXT_RE = re.compile(r"(?:HRESULT|Win32|errno|error|result|status|code)", re.IGNORECASE)
 GENERIC_WORDS = {
     "abort",
     "assert",
@@ -133,7 +137,7 @@ GENERIC_WORDS = {
     "unavailable",
     "warning",
 }
-PREDICATE_PREFIXES = ("is", "has", "can", "should", "needs", "supports", "enabled", "valid", "get", "copy")
+PREDICATE_PREFIXES = ("is", "has", "can", "should", "needs", "supports", "enabled", "get")
 PROBE_NAME_RE = re.compile(r"(?:FailAutomation|Probe|Test|Harness|MutationControl|NegativeFixture)", re.IGNORECASE)
 
 CALL_TOKEN_RE = re.compile(
@@ -153,6 +157,20 @@ TERMINATORS = {
     "RaiseFailFastException",
 }
 FORMATTERS = {"snprintf", "vsnprintf", "sprintf_s", "vsprintf_s", "FormatMessage", "FormatMessageA", "FormatMessageW"}
+CRT_IO_OUTCOME_NAMES = {
+    "fopen",
+    "fopen_s",
+    "_wfopen",
+    "_wfopen_s",
+    "fprintf",
+    "fprintf_s",
+    "vfprintf",
+    "fputs",
+    "fputc",
+    "fwrite",
+    "fflush",
+    "fclose",
+}
 
 COUNTER_MUTATION_RE = re.compile(
     r"(?:(?P<prefix_mutation>\+\+)\s*(?P<prefix_name>[A-Za-z_]\w*(?:(?:\.|->)[A-Za-z_]\w*)*)|"
@@ -307,6 +325,16 @@ def _statement_bounds(masked: str, offset: int) -> tuple[int, int]:
     return start, len(masked)
 
 
+def _call_result_is_ignored(masked: str, callee_start: int, closing: int) -> bool:
+    statement_start, statement_end = _statement_bounds(masked, callee_start)
+    prefix = masked[statement_start:callee_start].strip()
+    suffix = masked[closing + 1 : statement_end].strip()
+    if not prefix and suffix == ";":
+        return True
+    explicit_discard = re.fullmatch(r"(?:\(\s*void\s*\)|static_cast\s*<\s*void\s*>\s*\()", prefix)
+    return explicit_discard is not None and suffix in {";", ");"}
+
+
 def _split_arguments(source: str, masked: str, opening: int, closing: int) -> list[str]:
     arguments: list[str] = []
     start = opening + 1
@@ -373,7 +401,14 @@ def _classify_description(description: str, site_class: str) -> str:
     lowered = [word.lower() for word in words]
     if len(lowered) <= 3 and all(word in GENERIC_WORDS for word in lowered):
         return "generic"
-    if len(lowered) < 4 or CONSTRAINT_TEXT_RE.search(without_formats) is None:
+    has_platform_result = (
+        PLATFORM_RESULT_TEXT_RE.search(without_formats) is not None
+        and PRINTF_RE.search(text) is not None
+        and ERROR_TEXT_RE.search(without_formats) is not None
+    )
+    if len(lowered) < 4 or (
+        STRONG_CONSTRAINT_TEXT_RE.search(without_formats) is None and not has_platform_result
+    ):
         return "context-free"
     return "actionable"
 
@@ -442,11 +477,19 @@ def _path_owner(path: str) -> str:
 
 
 def _repair_phase_for_path(path: str, site_class: str) -> str:
+    """Return a conservative template hint; reviewed rulings may override it."""
     if site_class == "bundle-import-mismatch":
         return "E5"
-    if path.startswith("SkullbonezSource/Core/"):
-        return "E1" if site_class in {"pre-entry-fatal", "raw-stderr", "event-sink"} else "E3"
-    if path.startswith("SkullbonezSource/Runtime/App/") or path.startswith("SkullbonezSource/Runtime/Startup/"):
+    central_sink_path = path in {"SkullbonezSource/Core/Log.cpp", "SkullbonezSource/Core/FatalError.cpp"}
+    if central_sink_path and site_class in {
+        "pre-entry-fatal",
+        "raw-stderr",
+        "event-sink",
+        "debugger-sink",
+        "ignored-crt-io-outcome",
+    }:
+        return "E1"
+    if site_class == "pre-entry-fatal" and path == "SkullbonezSource/Runtime/Startup/StartupCrashLogging.cpp":
         return "E3"
     return "E4"
 
@@ -465,11 +508,6 @@ def _operation_name(operation: str) -> str:
     return re.split(r"::|->|\.", _operation_subject(operation))[-1]
 
 
-def _message_destination_name(operation: str) -> str:
-    destination = re.search(r"\(\s*([A-Za-z_]\w*(?:(?:\.|->)[A-Za-z_]\w*)*)\s*,", operation)
-    return re.split(r"->|\.", destination.group(1))[-1] if destination else ""
-
-
 def _is_probe(path: str, operation: str) -> bool:
     # Invariant: argument text is never ownership evidence.  A normal event can
     # mention a test/probe value without becoming a deliberate-failure origin.
@@ -479,14 +517,28 @@ def _is_probe(path: str, operation: str) -> bool:
 
 
 def _is_value_query(name: str) -> bool:
+    def semantic_prefix(prefix: str) -> bool:
+        if name.lower() == prefix:
+            return True
+        return (
+            name.lower().startswith(prefix)
+            and len(name) > len(prefix)
+            and (name[len(prefix)].isupper() or name[len(prefix)] == "_")
+        )
+
     lowered = name.lower()
+    if name == "FAILED" or lowered.startswith("validate"):
+        return False
     if lowered in {"failed", "ferror", "commdlgextendederror", "shortwriteerror", "lasterror"}:
         return True
     if lowered.endswith("failed") and not lowered.startswith(("mark", "set", "record", "report", "request", "fail")):
         return True
     if lowered.startswith(("error", "failure")) and lowered.endswith(("message", "owner", "reason", "code", "name", "count", "status")):
         return True
-    return lowered.startswith(PREDICATE_PREFIXES) or lowered.startswith(("clear", "reset", "name", "describe", "format", "current"))
+    return any(
+        semantic_prefix(prefix)
+        for prefix in (*PREDICATE_PREFIXES, "clear", "reset", "name", "describe", "format", "current")
+    )
 
 
 def _make_finding(
@@ -539,6 +591,7 @@ def scan_text(path: str, source: str) -> list[Finding]:
             or ERROR_NAME_RE.search(last_name) is not None
             or RECOVERY_NAME_RE.search(last_name) is not None
             or last_name in FORMATTERS
+            or last_name in CRT_IO_OUTCOME_NAMES
             or STATUS_PRESENTATION_NAME_RE.search(last_name) is not None
         )
         if not eligible_name:
@@ -598,21 +651,43 @@ def scan_text(path: str, source: str) -> list[Finding]:
             elif STATUS_PRESENTATION_NAME_RE.search(last_name) and ERROR_TEXT_RE.search(description):
                 site_class = "status-presentation"
 
-        if not site_class:
-            continue
-        description = _description_for_call(last_name, arguments, site_class)
-        finding = _make_finding(
-            path,
-            source,
-            masked,
-            match.start("callee"),
-            closing + 1,
-            site_class,
-            operation,
-            description,
-        )
-        add(finding)
-        occupied_call_spans.append((match.start("callee"), closing + 1))
+        discovered = False
+        if site_class:
+            description = _description_for_call(last_name, arguments, site_class)
+            finding = _make_finding(
+                path,
+                source,
+                masked,
+                match.start("callee"),
+                closing + 1,
+                site_class,
+                operation,
+                description,
+            )
+            add(finding)
+            discovered = True
+
+        if last_name in CRT_IO_OUTCOME_NAMES and _call_result_is_ignored(masked, match.start("callee"), closing):
+            # Hazard: these CRT calls report open/flush/close failure only in
+            # their return value. Discarding it can erase the last durable
+            # evidence that a diagnostic or artifact was not persisted.
+            description = " ".join(value for argument in arguments for value in _strings(argument))
+            add(
+                _make_finding(
+                    path,
+                    source,
+                    masked,
+                    match.start("callee"),
+                    closing + 1,
+                    "ignored-crt-io-outcome",
+                    f"ignored-outcome:{operation}",
+                    description,
+                )
+            )
+            discovered = True
+
+        if discovered:
+            occupied_call_spans.append((match.start("callee"), closing + 1))
 
     # Concept: A counter or sticky flag can be the only surviving evidence that
     # data was dropped. Reporting the mutation site lets E4 decide whether it is
@@ -880,10 +955,12 @@ def _validate_ruling(row: object, index: int) -> tuple[dict[str, object] | None,
         "operation",
         "source_fingerprint",
         "disposition",
+        "description",
         "description_classification",
         "owner",
         "reason",
         "repair_phase",
+        "adjudication",
     }
     missing = sorted(required - set(row))
     extra = sorted(set(row) - required)
@@ -894,7 +971,19 @@ def _validate_ruling(row: object, index: int) -> tuple[dict[str, object] | None,
     if issues:
         return None, issues
 
-    for field in ("path", "site_class", "operation", "source_fingerprint", "disposition", "description_classification", "owner", "reason", "repair_phase"):
+    for field in (
+        "path",
+        "site_class",
+        "operation",
+        "source_fingerprint",
+        "disposition",
+        "description",
+        "description_classification",
+        "owner",
+        "reason",
+        "repair_phase",
+        "adjudication",
+    ):
         if not isinstance(row[field], str):
             issues.append(RulingIssue(label, f"{field} must be a string"))
     for field in ("line", "column"):
@@ -912,6 +1001,8 @@ def _validate_ruling(row: object, index: int) -> tuple[dict[str, object] | None,
         issues.append(RulingIssue(label, f"unsupported disposition {row['disposition']!r}"))
     if row["description_classification"] not in DESCRIPTION_CLASSIFICATIONS:
         issues.append(RulingIssue(label, f"unsupported description classification {row['description_classification']!r}"))
+    if row["adjudication"] not in ADJUDICATION_STATUSES:
+        issues.append(RulingIssue(label, f"unsupported adjudication {row['adjudication']!r}"))
     if not str(row["owner"]).strip() or not str(row["reason"]).strip():
         issues.append(RulingIssue(label, "owner and reason must be non-empty"))
     repair_phase = str(row["repair_phase"])
@@ -999,19 +1090,51 @@ def evaluate(
         classification = str(row["description_classification"])
         repair_phase = str(row["repair_phase"])
         identity_text = _identity_text(finding.identity)
-        if classification == "not-applicable":
-            if (
-                finding.description_classification != "not-applicable"
-                and disposition not in {"successful-fallback-value-state", "test-only-deliberate-failure"}
-            ):
-                issues.append(RulingIssue(identity_text, "not-applicable description is invalid for an SB error/assertion"))
-        elif classification != finding.description_classification:
+        if row["description"] != finding.description:
+            issues.append(RulingIssue(identity_text, "description evidence drifted from the current source slice"))
+        if classification != finding.description_classification:
             issues.append(
                 RulingIssue(
                     identity_text,
                     f"description classification drift: ruling={classification} current={finding.description_classification}",
                 )
             )
+        if row["adjudication"] != "owner-reviewed":
+            issues.append(RulingIssue(identity_text, "row has not received owner-specific adjudication"))
+        suggestion = _suggest_ruling(finding)
+        suggested_fields = ("disposition", "description_classification", "owner", "reason", "repair_phase")
+        if all(row[field] == suggestion[field] for field in suggested_fields):
+            issues.append(RulingIssue(identity_text, "generated suggestion cannot masquerade as owner adjudication"))
+        reason = str(row["reason"])
+        owner = str(row["owner"])
+        operation_anchor = _operation_name(finding.operation)
+        has_exact_basis = (
+            operation_anchor in reason
+            or finding.site_class in reason
+            or finding.path in reason
+            or (bool(finding.description) and finding.description in reason)
+        )
+        if not reason.startswith(f"{owner} ") or len(reason) < 80 or not has_exact_basis:
+            issues.append(
+                RulingIssue(
+                    identity_text,
+                    "owner-reviewed ruling lacks an owner-led operation, site, path, or exact-description basis",
+                )
+            )
+        if disposition == "successful-fallback-value-state":
+            if owner not in reason or len(reason) < 80 or (
+                operation_anchor not in reason and finding.site_class not in reason
+            ):
+                issues.append(
+                    RulingIssue(
+                        identity_text,
+                        "successful value/fallback ruling lacks a concrete owner and operation/invariant basis",
+                    )
+                )
+            if finding.site_class == "error-wrapper" and operation_anchor == "FAILED":
+                issues.append(RulingIssue(identity_text, "FAILED(HRESULT operation) cannot be approved as value-only"))
+            if finding.site_class == "status-only" and re.match(r"^(?:Validate|Hash)", operation_anchor):
+                issues.append(RulingIssue(identity_text, "Validate*/Hash* failure return cannot be approved as a query"))
         if disposition in {"sb-warning", "recoverable-sb-error", "fatal-sb-error", "runtime-assertion"}:
             if classification in INADEQUATE_DESCRIPTIONS and not repair_phase:
                 issues.append(RulingIssue(identity_text, "inadequate error/assertion description has no repair phase"))
@@ -1023,6 +1146,7 @@ def evaluate(
             "status-presentation",
             "counter-only",
             "status-only",
+            "ignored-crt-io-outcome",
             "pre-entry-fatal",
             "bundle-import-mismatch",
         } and disposition not in {"successful-fallback-value-state", "test-only-deliberate-failure"} and not repair_phase:
@@ -1081,23 +1205,9 @@ def _suggest_ruling(finding: Finding) -> dict[str, object]:
             disposition = "test-only-deliberate-failure"
             repair_phase = ""
             reason = "Validation/probe-only evidence deliberately reports a bounded test outcome, not a production SB origin."
-        elif site_class in {"raw-stderr", "dialog-sink", "debugger-sink"}:
-            disposition = "repair"
-            reason = "Raw stderr, dialog, or debugger delivery bypasses the central SB packet policy and requires owner adjudication."
-        elif ERROR_TEXT_RE.search(finding.description) or ERROR_NAME_RE.search(finding.operation):
-            disposition = "repair"
-            reason = "Error-like evidence is emitted or assembled outside the mechanically unavoidable central SB origin path."
-        elif site_class == "message-template" and _message_destination_name(finding.operation).lower() not in {
-            "status",
-            "statusbuf",
-            "statusline",
-        }:
-            disposition = "repair"
-            reason = "A generic message destination can feed error presentation; E3/E4 must prove or migrate its concrete use."
         else:
-            disposition = "successful-fallback-value-state"
-            repair_phase = ""
-            reason = "Current text is informational event/value-state output rather than an SB warning or error."
+            disposition = "repair"
+            reason = "A non-central sink or message template requires owner-specific proof before it can be treated as informational."
     elif site_class == "error-wrapper":
         name = re.sub(r"[^A-Za-z0-9_]", "", operation_name)
         if _is_probe(finding.path, finding.operation):
@@ -1118,13 +1228,8 @@ def _suggest_ruling(finding: Finding) -> dict[str, object]:
             disposition = "repair"
             reason = "Error-named wrapper or template requires exact owner adjudication before central migration."
     elif site_class == "recovery-operation":
-        if "fallback" in finding.operation.lower() or _is_value_query(operation_name):
-            disposition = "successful-fallback-value-state"
-            repair_phase = ""
-            reason = "Names an explicit alternative/value-state operation rather than hiding an unreported failed result."
-        else:
-            disposition = "repair"
-            reason = "Drop, rejection, truncation, or degraded operation may hide recoverable loss and requires E4 adjudication."
+        disposition = "repair"
+        reason = "Recovery vocabulary alone cannot prove successful fallback; the owning invariant requires individual review."
     elif site_class == "status-only":
         function_name = finding.operation.split(":", 2)[1] if ":" in finding.operation else ""
         if _is_value_query(function_name.split("::")[-1]):
@@ -1142,10 +1247,12 @@ def _suggest_ruling(finding: Finding) -> dict[str, object]:
         else:
             disposition = "repair"
             reason = "Counter or sticky flag is the only local evidence of an error-like loss or rejection."
+    elif site_class == "ignored-crt-io-outcome":
+        disposition = "repair"
+        reason = "The CRT open/write/flush/close return value is discarded, so persistence failure requires an owning E-phase repair."
 
     classification = finding.description_classification
-    if disposition in {"successful-fallback-value-state", "test-only-deliberate-failure"}:
-        classification = "not-applicable"
+    reason = f"UNREVIEWED SUGGESTION: {reason}"
     return {
         "path": finding.path,
         "line": finding.line,
@@ -1154,10 +1261,12 @@ def _suggest_ruling(finding: Finding) -> dict[str, object]:
         "operation": finding.operation,
         "source_fingerprint": finding.source_fingerprint,
         "disposition": disposition,
+        "description": finding.description,
         "description_classification": classification,
         "owner": owner,
         "reason": reason,
         "repair_phase": repair_phase,
+        "adjudication": "unreviewed",
     }
 
 
@@ -1244,6 +1353,11 @@ def _render_text(payload: dict[str, object]) -> str:
 
 def _fixture_ruling(finding: Finding, *, disposition: str | None = None, repair_phase: str | None = None) -> dict[str, object]:
     row = _suggest_ruling(finding)
+    row["adjudication"] = "owner-reviewed"
+    row["reason"] = (
+        f"{row['owner']} reviewed {finding.site_class} at {finding.operation}; "
+        "the bounded self-test expectation owns this exact semantic classification."
+    )
     if disposition is not None:
         row["disposition"] = disposition
     if repair_phase is not None:
@@ -1251,7 +1365,7 @@ def _fixture_ruling(finding: Finding, *, disposition: str | None = None, repair_
     return row
 
 
-def _fixture_pe(import_name: str) -> bytes:
+def _fixture_pe(import_name: str, *, delay_import: bool = False) -> bytes:
     data = bytearray(0x400)
     data[:2] = b"MZ"
     struct.pack_into("<I", data, 0x3C, 0x80)
@@ -1262,11 +1376,15 @@ def _fixture_pe(import_name: str) -> bytes:
     struct.pack_into("<H", data, optional, 0x20B)
     struct.pack_into("<Q", data, optional + 24, 0x140000000)
     struct.pack_into("<I", data, optional + 108, 16)
-    struct.pack_into("<II", data, optional + 120, 0x1000, 40)
+    directory_offset = optional + 112 + (13 * 8 if delay_import else 8)
+    struct.pack_into("<II", data, directory_offset, 0x1000, 64 if delay_import else 40)
     section = optional + 0xF0
     data[section : section + 8] = b".rdata\0\0"
     struct.pack_into("<IIII", data, section + 8, 0x200, 0x1000, 0x200, 0x200)
-    struct.pack_into("<IIIII", data, 0x200, 0, 0, 0, 0x1050, 0)
+    if delay_import:
+        struct.pack_into("<IIIIIIII", data, 0x200, 1, 0x1050, 0, 0, 0, 0, 0, 0)
+    else:
+        struct.pack_into("<IIIII", data, 0x200, 0, 0, 0, 0x1050, 0)
     encoded = import_name.encode("ascii") + b"\0"
     data[0x250 : 0x250 + len(encoded)] = encoded
     return bytes(data)
@@ -1279,11 +1397,27 @@ def self_test() -> int:
 const char* decoy = "assert(false) and MessageBoxA are data";
 SbResult Build( SbDiagnosticStore& diagnostics )
 {
+    FILE* rawFile = nullptr;
+    fopen_s( &rawFile, "fixture.log", "wb" );
+    fprintf( rawFile, "fixture row=%d", row );
+    vfprintf( rawFile, format, args );
+    fputs( "fixture line", rawFile );
+    if ( fprintf( rawFile, "checked row=%d", row ) < 0 )
+        return false;
+    fflush( rawFile );
+    fclose( rawFile );
+    if ( fflush( rawFile ) != 0 )
+        return false;
     if ( badInput )
     {
         return diagnostics.Failure( "Fixture/Build", "Input width must be positive. width=%d", width );
     }
-    Log().WriteEventf( "build_failed code=%d", code );
+    if ( resourceFailed )
+        return diagnostics.Failure( "Fixture/Build", "CreateCommittedResource failed" );
+    if ( FAILED( device->CreateCommittedResource() ) )
+        return false;
+    MarkSweptFallback( 1 );
+    Log().WriteEventf( "projection diverged at frame=%d", frame );
     std::fprintf( stderr, "failed\n" );
     MessageBoxA( nullptr, "Asset is missing", "Fixture", 0 );
     CopyStatusMessage( state, "device unavailable" );
@@ -1297,6 +1431,16 @@ SbResult Build( SbDiagnosticStore& diagnostics )
     assert( ready );
     static_assert( sizeof( int ) >= 4, "int storage must cover four bytes" );
     return false;
+}
+bool ValidateLoadedReflection()
+{
+    return false;
+}
+bool HashGraphicsDesc()
+{
+    if ( FAILED( device->CreateQueryHeap() ) )
+        return false;
+    return true;
 }
 [[noreturn]] void FatalAllocationFailure()
 {
@@ -1312,6 +1456,7 @@ SbResult Build( SbDiagnosticStore& diagnostics )
         "dialog-sink",
         "status-presentation",
         "counter-only",
+        "ignored-crt-io-outcome",
         "recovery-operation",
         "runtime-assertion",
         "static-assertion",
@@ -1340,8 +1485,50 @@ SbResult Build( SbDiagnosticStore& diagnostics )
     if generic_message is None or _suggest_ruling(generic_message)["disposition"] != "repair":
         failures.append("generic message-template destination bypassed owner review")
     value_status = next((finding for finding in findings if "status, sizeof" in finding.operation), None)
-    if value_status is None or _suggest_ruling(value_status)["disposition"] != "successful-fallback-value-state":
-        failures.append("ordinary status formatter was mislabeled as an error")
+    if value_status is None or _suggest_ruling(value_status)["disposition"] != "repair":
+        failures.append("ordinary status formatter bypassed owner-specific adjudication")
+
+    ignored_crt = [finding for finding in findings if finding.site_class == "ignored-crt-io-outcome"]
+    if len(ignored_crt) != 7:
+        failures.append(f"ignored CRT I/O fixture count was {len(ignored_crt)}, expected 7")
+    ignored_non_stderr_fprintf = [
+        finding
+        for finding in ignored_crt
+        if "fprintf( rawFile" in finding.operation and finding.description.startswith("fixture row")
+    ]
+    if len(ignored_non_stderr_fprintf) != 1:
+        failures.append("ignored non-stderr fprintf outcome was not uniquely inventoried")
+    ignored_operation_names = {
+        match.group(1)
+        for finding in ignored_crt
+        if (match := re.search(r"call:(?:std::)?([A-Za-z_]+)\(", finding.operation)) is not None
+    }
+    if not {"fprintf", "vfprintf", "fputs", "fopen_s", "fflush", "fclose"}.issubset(ignored_operation_names):
+        failures.append("ignored CRT I/O fixtures did not cover Log/diagnostic write variants")
+    if any("checked row" in finding.description for finding in ignored_crt):
+        failures.append("handled fprintf outcome was inventoried as ignored")
+    failed_hresult = next((finding for finding in findings if finding.operation.startswith("call:FAILED(")), None)
+    if failed_hresult is None or _suggest_ruling(failed_hresult)["disposition"] != "repair":
+        failures.append("FAILED(HRESULT operation) was accepted as an ordinary predicate")
+    validate_return = next(
+        (finding for finding in findings if finding.operation == "status-return:ValidateLoadedReflection:false"), None
+    )
+    if validate_return is None or _suggest_ruling(validate_return)["disposition"] != "repair":
+        failures.append("Validate* failure return was accepted as an ordinary predicate")
+    hash_return = next((finding for finding in findings if finding.operation == "status-return:HashGraphicsDesc:false"), None)
+    if hash_return is None or _suggest_ruling(hash_return)["disposition"] != "repair":
+        failures.append("Hash* operation was mistaken for a Has* predicate")
+    fallback_call = next((finding for finding in findings if finding.operation.startswith("call:MarkSweptFallback(")), None)
+    if fallback_call is None or _suggest_ruling(fallback_call)["disposition"] != "repair":
+        failures.append("fallback vocabulary bypassed owner-specific adjudication")
+    diverged_event = next((finding for finding in findings if finding.description.startswith("projection diverged")), None)
+    if diverged_event is None or _suggest_ruling(diverged_event)["disposition"] != "repair":
+        failures.append("error event without generic error vocabulary was accepted as informational")
+    context_free_failure = next(
+        (finding for finding in findings if finding.description == "CreateCommittedResource failed"), None
+    )
+    if context_free_failure is None or context_free_failure.description_classification != "context-free":
+        failures.append("operation-plus-failed message was incorrectly marked actionable")
 
     description_cases = {
         "generic": _classify_description("failed", "raw-stderr"),
@@ -1383,6 +1570,42 @@ SbResult Build( SbDiagnosticStore& diagnostics )
         if exact.issues or exact.unruled or exact.stale:
             failures.append("exact current rulings did not pass")
 
+        prohibited_value_rows = list(rulings)
+        for prohibited_finding in (failed_hresult, hash_return):
+            assert prohibited_finding is not None
+            row_index = next(
+                index
+                for index, row in enumerate(prohibited_value_rows)
+                if _ruling_identity(row) == prohibited_finding.identity
+            )
+            prohibited_value_rows[row_index] = {
+                **prohibited_value_rows[row_index],
+                "disposition": "successful-fallback-value-state",
+                "repair_phase": "",
+            }
+        prohibited_values = evaluate(findings, "ratified", prohibited_value_rows, [], repo)
+        if not any("cannot be approved" in issue.message for issue in prohibited_values.issues):
+            failures.append("FAILED/Hash false-pass ruling bypassed strict semantic controls")
+
+        masquerading = []
+        for finding in findings:
+            row = _suggest_ruling(finding)
+            row["adjudication"] = "owner-reviewed"
+            masquerading.append(row)
+        unchanged_suggestions = evaluate(findings, "ratified", masquerading, [], repo)
+        if not any("cannot masquerade" in issue.message for issue in unchanged_suggestions.issues):
+            failures.append("generated suggestions passed after a mechanical adjudication-state flip")
+
+        transformed_suggestions = []
+        for finding in findings:
+            row = _suggest_ruling(finding)
+            row["adjudication"] = "owner-reviewed"
+            row["reason"] = str(row["reason"]).removeprefix("UNREVIEWED SUGGESTION: ")
+            transformed_suggestions.append(row)
+        transformed = evaluate(findings, "ratified", transformed_suggestions, [], repo)
+        if not any("lacks an owner-led" in issue.message for issue in transformed.issues):
+            failures.append("mechanically transformed suggestions passed without owner-authored bases")
+
         missing = evaluate(findings, "ratified", rulings[:-1], [], repo)
         if len(missing.unruled) != 1:
             failures.append("missing ruling did not create one unruled row")
@@ -1392,6 +1615,12 @@ SbResult Build( SbDiagnosticStore& diagnostics )
         drift = evaluate(findings, "ratified", edited, [], repo)
         if len(drift.unruled) != 1 or len(drift.stale) != 1:
             failures.append("fingerprint drift did not create unruled and stale rows")
+
+        description_edited = list(rulings)
+        description_edited[0] = {**description_edited[0], "description": "reviewer substituted evidence"}
+        description_drift = evaluate(findings, "ratified", description_edited, [], repo)
+        if not any("description evidence drifted" in issue.message for issue in description_drift.issues):
+            failures.append("description evidence drift was accepted")
 
         stale = evaluate(findings[:-1], "ratified", rulings, [], repo)
         if len(stale.stale) != 1:
@@ -1413,6 +1642,10 @@ SbResult Build( SbDiagnosticStore& diagnostics )
         imported = "winpixeventruntime.dll"
         if _pe_import_names(binary.read_bytes()) != {imported}:
             failures.append("bounded PE import parser did not recover the fixture import")
+        delay_imported = "dxcompiler.dll"
+        delay_binary = _fixture_pe("dxcompiler.dll", delay_import=True)
+        if _pe_import_names(delay_binary) != {delay_imported}:
+            failures.append("bounded PE delay-import parser did not recover the fixture import")
         fingerprint = _sha256_bytes(binary.read_bytes() + b"\0" + imported.encode("ascii"))
         bundle_finding = Finding(
             path="Agentic/Plans/Artifacts/fixture/retained.exe",
@@ -1429,13 +1662,43 @@ SbResult Build( SbDiagnosticStore& diagnostics )
         if bundle_row["repair_phase"] != "E5" or bundle_row["disposition"] != "repair":
             failures.append("retained import mismatch was not assigned to E5 repair")
 
+        artifact_root = repo / RETAINED_ARTIFACT_ROOT
+        normal_dir = artifact_root / "normal"
+        delay_dir = artifact_root / "delay"
+        present_dir = artifact_root / "present"
+        normal_dir.mkdir(parents=True)
+        delay_dir.mkdir(parents=True)
+        present_dir.mkdir(parents=True)
+        (normal_dir / "normal.exe").write_bytes(_fixture_pe("WinPixEventRuntime.dll"))
+        (delay_dir / "delay.exe").write_bytes(delay_binary)
+        (present_dir / "present.exe").write_bytes(_fixture_pe("dxil.dll"))
+        (present_dir / "dxil.dll").write_bytes(b"fixture runtime")
+        subprocess.run(["git", "init", "-q"], cwd=repo, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "add", "--", _normalize_path(artifact_root.relative_to(repo))],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+        )
+        directory_findings = _scan_bundle_mismatches(repo)
+        directory_operations = {(finding.path, finding.operation) for finding in directory_findings}
+        expected_directory_operations = {
+            (
+                "Agentic/Plans/Artifacts/normal/normal.exe",
+                "retained-bundle-import:winpixeventruntime.dll",
+            ),
+            ("Agentic/Plans/Artifacts/delay/delay.exe", "retained-bundle-import:dxcompiler.dll"),
+        }
+        if directory_operations != expected_directory_operations:
+            failures.append("end-to-end retained bundle-directory discovery did not preserve missing/present imports")
+
     if failures:
         for failure in failures:
             print(f"SELF_TEST_FAIL: {failure}", file=sys.stderr)
         return 1
     print(
-        "SELF_TEST_PASS: site classes, description classes, exact rulings, stale/currentness controls, "
-        "and E5 bundle mismatch are enforced."
+        "SELF_TEST_PASS: site classes, ignored/handled CRT I/O, negative classification controls, "
+        "owner-adjudication isolation, stale/currentness, and normal/delay PE bundle discovery are enforced."
     )
     return 0
 
