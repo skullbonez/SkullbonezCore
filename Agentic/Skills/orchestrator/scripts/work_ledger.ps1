@@ -38,7 +38,7 @@ Related:
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('start-goal', 'start-task', 'attach-worker', 'transition', 'finish-task', 'finish-goal', 'show', 'self-test')]
+    [ValidateSet('start-goal', 'start-task', 'attach-worker', 'transition', 'finish-task', 'stop-task', 'finish-goal', 'show', 'self-test')]
     [string]$Action = 'show',
 
     [string]$MasterPlanPath = 'Agentic/Plans/MASTER-PLAN.md',
@@ -1251,6 +1251,20 @@ function Invoke-LedgerAction {
                 $taskRecord.Outcome = $Outcome
                 $run.Commits = @($run.Commits) + $commitRecord
             }
+            'stop-task' {
+                if ($null -eq $state) {
+                    throw 'No live ledger exists to stop.'
+                }
+                if ([string]::IsNullOrWhiteSpace($Outcome)) {
+                    throw '-Outcome is required for stop-task.'
+                }
+                $run = Get-ActiveRun -State $state
+                $taskRecord = Get-ActiveTask -Run $run -TaskId $Task
+                $mainEnd = Complete-ActiveStep -Run $run -TaskRecord $taskRecord -Now $now
+                $taskRecord.FinishedAt = Format-Timestamp -Value $now
+                $taskRecord.EndMain = $mainEnd
+                $taskRecord.Outcome = $Outcome
+            }
             'finish-goal' {
                 if ($null -eq $state) {
                     throw 'No live ledger exists to finish.'
@@ -1401,8 +1415,8 @@ Status: One active plan; 2/5 tasks complete
             throw 'Concurrent show did not preserve both independently active task rows.'
         }
 
-        $null = & $powershell -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath finish-task -MasterPlanPath $plan -LedgerPath $ledger -Task 'PLAN-T2' -Outcome 'pushed' -Commit $head -RepositoryRoot $repo.Trim() -SkipPushVerification -At '2026-08-18T09:06:10+10:00'
-        if ($LASTEXITCODE -ne 0) { throw 'concurrent finish-task self-test failed.' }
+        $null = & $powershell -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath stop-task -MasterPlanPath $plan -LedgerPath $ledger -Task 'PLAN-T2' -Outcome 'handed off without a commit' -At '2026-08-18T09:06:10+10:00'
+        if ($LASTEXITCODE -ne 0) { throw 'concurrent stop-task self-test failed.' }
 
         $ledgerBeforeFailure = [Convert]::ToBase64String([IO.File]::ReadAllBytes($ledger))
         Write-FakeTokenEvent -Path $mainSession -InputTokens 140 -CachedTokens 65 -OutputTokens 25
@@ -1486,7 +1500,9 @@ Status: One active plan; 2/5 tasks complete
         if ($workerTaskRow[0].main_input_tokens -ne '50' -or
             $workerTaskRow[0].main_output_tokens -ne '10' -or
             $workerTaskRow[0].main_cached_input_tokens -ne '20' -or
-            $workerTaskRow[0].combined_api_cost_usd -ne '0.000460') {
+            $workerTaskRow[0].combined_api_cost_usd -ne '0.000460' -or
+            -not [string]::IsNullOrWhiteSpace($workerTaskRow[0].commit_hash) -or
+            $workerTaskRow[0].outcome -ne 'handed off without a commit') {
             throw 'CSV concurrent worker task did not preserve its independent primary-session usage.'
         }
         if ($goalRow[0].combined_input_tokens -ne '480' -or
@@ -1500,7 +1516,7 @@ Status: One active plan; 2/5 tasks complete
             throw 'CSV recovery-state row is empty.'
         }
 
-        Write-Output 'PASS: concurrent live CSV work-ledger tasks, transitions, progress, API cost, reviewer accounting, findings, validation timing, and commit attribution.'
+        Write-Output 'PASS: concurrent live CSV work-ledger tasks, no-commit handoff, transitions, progress, API cost, reviewer accounting, findings, validation timing, and commit attribution.'
     } finally {
         if (Test-Path -LiteralPath $testRoot -PathType Container) {
             Remove-Item -LiteralPath $testRoot -Recurse -Force

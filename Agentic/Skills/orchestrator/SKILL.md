@@ -214,6 +214,17 @@ the goal immediately before the final handoff:
 Agentic\Skills\orchestrator\scripts\work_ledger.bat finish-goal -Outcome "complete"
 ```
 
+When an investigation or interrupted lane ends without a repository commit,
+close only that ledger task with an explicit handoff outcome; do not attach an
+unrelated commit merely to satisfy accounting:
+
+```bat
+Agentic\Skills\orchestrator\scripts\work_ledger.bat stop-task -Task "<TASK>" -Outcome "<exact preserved state and continuation>"
+```
+
+`stop-task` closes usage and elapsed time without claiming plan progress. A
+later worker starts a new task id from the preserved branch/worktree state.
+
 The ledger groups step rows beneath each task and maintains task/run summaries
 with elapsed time; explicit input, output, and cached-input counters; main and
 reviewer splits; duck passes; fix cycles; findings; validation time; outcomes;

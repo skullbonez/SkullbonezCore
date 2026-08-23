@@ -359,6 +359,11 @@ attach its real thread/session id using the supported ledger mechanism, and
 fan in only after that worker finishes. Tool availability is never permission
 to omit accounting.
 
+At a run handoff, close an unfinished investigation or worker lane with the
+base ledger's `stop-task` action and an exact preserved-state outcome. Never
+bind an unrelated integration commit to a lane that produced no accepted
+commit. The next run opens a new task id for its new worker session.
+
 ## Create Worker Worktrees
 
 Create one isolated worktree for every dispatched lane, and create as many lane
