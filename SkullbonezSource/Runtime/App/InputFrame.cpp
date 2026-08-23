@@ -853,7 +853,7 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
                                                                           sceneController.State().isSceneMode,
                                                                           facts.cameraModeEnabledMask );
 
-            const RuntimeInteractionTransition restoreTransition = interaction.EnterCameraMode( restoreMode );
+            const RuntimeInteractionTransition restoreTransition = EnterInteractionForCameraMode( interaction, restoreMode );
             inputRouter.ApplyInteractionTransition( restoreTransition, runtimeTools, interaction, attachedCamera, camera,
                                                     sceneController, replayRuntime, facts.replayRestoreCameraMode );
 
@@ -889,8 +889,9 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
 
     if ( operatorAcceptance.cameraModeAccepted )
     {
-        inputRouter.ApplyCameraMode( operatorAcceptance.cameraMode, RuntimeInputActionSource::UI, runtimeTools, interaction,
-                                     attachedCamera, camera, sceneController, replayRuntime, runtimeInput );
+        inputRouter.ApplyCameraMode( static_cast<RunCameraMode>( operatorAcceptance.cameraModeIndex ),
+                                     RuntimeInputActionSource::UI, runtimeTools, interaction, attachedCamera, camera,
+                                     sceneController, replayRuntime, runtimeInput );
     }
 
     const EditorPlacementPreModeUICommandResult

@@ -164,9 +164,6 @@ class AttachedCameraController
     bool SetTarget( Runtime::SceneWorld& collection, int modelIndex, AttachedCameraTargetSelection& outSelection );
     AttachedCameraSeedResult SeedTarget( Runtime::SceneWorld& collection, int seedModelIndex,
                                          AttachedCameraTargetSelection& outSelection );
-    bool PickTarget( Runtime::SceneWorld& collection, bool hasWorldRay, const Math::Vector::Vector3& rayOrigin,
-                     const Math::Vector::Vector3& rayDirection, AttachedCameraTargetSelection& outSelection );
-
     static void Reset( AttachedCameraState& state );
     static void ClearTarget( AttachedCameraState& state );
     static bool TryAttachTargetHandlesFromModelIndex( const Runtime::SceneWorld& collection, int modelIndex,

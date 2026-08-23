@@ -36,6 +36,7 @@ Related:
 #include "../Replay/ReplayRestoreTransactions.h"
 #include "../Direction/DemoDirectorPlayback.h"
 #include "../Interaction/RuntimeInteractionCommands.h"
+#include "../Interaction/RuntimePickService.h"
 #include "../Scene/SceneGeneratedControlTransaction.h"
 #include "../Scene/SceneCinematicPolicy.h"
 #include "../../Core/Log.h"
@@ -315,8 +316,16 @@ InputRouter::RouteRuntimePointer( const RuntimePointerEvent& pointer, bool repla
          pointer.leftPressed && !pointer.suppressWorldAction )
     {
         AttachedCameraTargetSelection selection;
+        RuntimePickResult pick;
+        RuntimePickRequest request;
+        request.purpose = RuntimePickPurpose::AttachCameraTarget;
+        request.bodyStore = &models.Scene().BodyStore();
+        request.colliderStore = &models.Scene().Colliders();
+        request.rayOrigin = rayOrigin;
+        request.rayDirection = rayDirection;
 
-        if ( attachedCamera.PickTarget( models.Scene(), hasWorldRay, rayOrigin, rayDirection, selection ) )
+        if ( hasWorldRay && RuntimePickService::TryPickModel( request, pick ) &&
+             attachedCamera.SetTarget( models.Scene(), pick.modelRow.value, selection ) )
         {
             RuntimeInteractionCommand command;
             command.type = RuntimeInteractionCommandType::SetEditorSelection;
@@ -326,6 +335,10 @@ InputRouter::RouteRuntimePointer( const RuntimePointerEvent& pointer, bool repla
             command.claimSelectionOwner = false;
             runtimeTools.ApplySelectionCommand( command, models.Scene() );
             ApplyPointerPresentation( EvaluateRuntimePointerPresentation( *this, runtimeTools.Editor(), replayRuntime.BuildInputView() ) );
+        }
+        else
+        {
+            AttachedCameraController::ClearTarget( attachedCamera.State() );
         }
 
         result.enteredInteractiveScene = true;
@@ -441,7 +454,7 @@ void InputRouter::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource 
         DemoDirectorPlayback::EnterMode( camera, m_sceneController.Scene().Cameras() );
     }
 
-    const RuntimeInteractionTransition transition = interaction.EnterCameraMode( mode );
+    const RuntimeInteractionTransition transition = EnterInteractionForCameraMode( interaction, mode );
     inputRouter.ApplyInteractionTransition( transition, runtimeTools, interaction, attachedCamera, camera, m_sceneController,
                                             replayRuntime,
                                             NormalizeRuntimeCameraMode( replayRuntime.BuildInputView().restoreCameraMode,

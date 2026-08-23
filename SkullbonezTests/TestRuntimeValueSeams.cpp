@@ -35,6 +35,7 @@
 
 #include "../ThirdPtySource/doctest/doctest.h"
 
+#include "../SkullbonezSource/Runtime/App/InputFrame.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayArtifactSource.h"
 #include "../SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h"
@@ -70,6 +71,20 @@ int RectCenterY( const SkullbonezCore::UI::UIRect& rect )
     return static_cast<int>( std::round( rect.y + rect.h * 0.5f ) );
 }
 } // namespace
+
+TEST_CASE( "Runtime composition maps camera modes into interaction-owned workspaces" )
+{
+    RuntimeInteractionController controller;
+
+    CHECK( EnterInteractionForCameraMode( controller, RunCameraMode::Demo ).workspace == RuntimeWorkspace::Live );
+    CHECK( EnterInteractionForCameraMode( controller, RunCameraMode::Scene ).workspace == RuntimeWorkspace::Live );
+    CHECK( EnterInteractionForCameraMode( controller, RunCameraMode::Director ).workspace == RuntimeWorkspace::Live );
+    CHECK( EnterInteractionForCameraMode( controller, RunCameraMode::Inspect ).workspace == RuntimeWorkspace::Inspect );
+    CHECK( EnterInteractionForCameraMode( controller, RunCameraMode::Attach ).workspace == RuntimeWorkspace::Inspect );
+    CHECK( EnterInteractionForCameraMode( controller, RunCameraMode::Launcher ).owner == WorldInteractionOwner::Launcher );
+    CHECK( EnterInteractionForCameraMode( controller, RunCameraMode::Manipulator ).owner ==
+           WorldInteractionOwner::Manipulator );
+}
 
 TEST_CASE( "Operator UI phase: detached facts and process commands cross one ordered frame" )
 {

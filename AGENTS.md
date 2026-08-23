@@ -205,8 +205,8 @@ exact source/target pair) is listed. Self-package includes remain legal.
 | 1 | Runtime/RuntimeFrameViews.h | (none) |
 | 2 | Runtime/Startup | (none) |
 | 3 | Runtime/Camera | (none) |
-| 4 | Runtime/Interaction | Runtime/Camera/RuntimeCameraMode.h |
-| 5 | Runtime/Input | Runtime/Camera/CameraCollection.h, Runtime/Camera/CameraControlState.h, Runtime/Interaction/RuntimeInteractionController.h |
+| 4 | Runtime/Interaction | (none) |
+| 5 | Runtime/Input | Runtime/Camera/CameraCollection.h, Runtime/Camera/CameraControlState.h, Runtime/Camera/RuntimeCameraMode.h, Runtime/Interaction/RuntimeInteractionController.h |
 | 6 | Runtime/Simulation | Runtime/Interaction/PhysicsAdvanceState.h |
 | 7 | Runtime/Scene | Runtime/Camera/AttachedCameraController.h, Runtime/Camera/CameraCollection.h, Runtime/Camera/CameraControlState.h, Runtime/Input/Input.h, Runtime/Input/InputRouter.h, Runtime/Simulation/SimulationSystem.h, Runtime/Startup/RunLaunchOptions.h, Runtime/Startup/RunStartupState.h, Runtime/Startup/Window.h |
 | 8 | Runtime/Replay | Runtime/Camera/RuntimeCameraMode.h |
@@ -239,7 +239,7 @@ target, include spelling, and policy fingerprint. The ordinary repository
 gate accepts only an exact current seal and reports it as repair-plan debt;
 a new, changed, shifted, or deleted site fails. `--check-runtime-graph`
 ignores every repair row and fails every forbidden site and multi-package SCC.
-Canonical repair-policy SHA-256: `3e4bfd861b3303a36204324bef81a0fddcb0b780cb2153f6c7039cb9689691bb`.
+Canonical repair-policy SHA-256: `5fdf77b15f54934484b85b64ef38b2887b91b1c26bd8f035f06bcdd3eb521dd0`.
 
 #### Content Rules
 

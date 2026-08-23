@@ -84,9 +84,7 @@
       {
         "package": "Runtime/Interaction",
         "rank": 4,
-        "allowed_exact_target_files": [
-          "Runtime/Camera/RuntimeCameraMode.h"
-        ]
+        "allowed_exact_target_files": []
       },
       {
         "package": "Runtime/Input",
@@ -94,6 +92,7 @@
         "allowed_exact_target_files": [
           "Runtime/Camera/CameraCollection.h",
           "Runtime/Camera/CameraControlState.h",
+          "Runtime/Camera/RuntimeCameraMode.h",
           "Runtime/Interaction/RuntimeInteractionController.h"
         ]
       },
@@ -408,8 +407,7 @@
         {"source": "Runtime/Automation/RuntimeValidationHarness.cpp", "line": 42, "target": "Runtime/Capture/CaptureController.h", "fingerprint": "7b31c36f2f0613e0669d25c5b7dc57bc958d3fcef2edc94b8462dcffa0c0fb29", "repair_phase": "RBS2-RBS5"},
         {"source": "Runtime/Automation/RuntimeValidationHarness.h", "line": 43, "target": "Runtime/Capture/GraphicsStressController.h", "fingerprint": "7624219d3bcb7f4b047df964d747638bf8e77230836876268575f603f0b76735", "repair_phase": "RBS2-RBS5"},
         {"source": "Runtime/Automation/RuntimeValidationHarness.h", "line": 44, "target": "Runtime/Direction/LiveStyleController.h", "fingerprint": "33090a647d3e8406a7d020f4ffdfa6314395267f82a870c29938bfc9f3b096df", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Camera/AttachedCameraController.cpp", "line": 38, "target": "Runtime/Interaction/RuntimePickService.h", "fingerprint": "c670874d1d1c6bab8166ac47e2c9dbef4daa98a80081bebf9965cdf7e07263f0", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Camera/AttachedCameraController.cpp", "line": 39, "target": "Runtime/Scene/SceneWorld.h", "fingerprint": "9c04568f560f93cfca8b13a58e65393d5f3819f5d17b80cc7fc97988c9564e5e", "repair_phase": "RBS2-RBS5"},
+        {"source": "Runtime/Camera/AttachedCameraController.cpp", "line": 38, "target": "Runtime/Scene/SceneWorld.h", "fingerprint": "9d952f1956907ba26847e5f0d7c010dd1e5ccc2026d4a7b8d4165bf02e030b16", "repair_phase": "RBS2-RBS5"},
         {"source": "Runtime/Camera/AttachedCameraController.h", "line": 44, "target": "Runtime/Scene/SceneLifecycle.h", "fingerprint": "daffbe155fcf6d2444306f71f961ff1dc9d7a30772e456e1268956f86a1c5f07", "repair_phase": "RBS2-RBS5"},
         {"source": "Runtime/Camera/CameraControlState.cpp", "line": 30, "target": "Runtime/Input/InputController.h", "fingerprint": "eb421da832eddc2454263db93759949a85bdc2b21b5fc8e0b4c8fce01abfe276", "repair_phase": "RBS2-RBS5"},
         {"source": "Runtime/Camera/CameraControlState.cpp", "line": 34, "target": "Runtime/Scene/SceneWorld.h", "fingerprint": "a1106a6502ee7790e3c3ae62438c9dc9ac07e7487c1d8cd36ab3dfcba58aa1d0", "repair_phase": "RBS2-RBS5"},

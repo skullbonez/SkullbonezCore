@@ -32,7 +32,6 @@ Related:
 */
 #pragma once
 
-#include "../Camera/RuntimeCameraMode.h"
 #include "../../UI/UICommands.h"
 #include "../../World/WorldEnvironment.h"
 
@@ -133,7 +132,7 @@ struct OperatorCommandAcceptanceLedger
 {
     bool toggledVsync = false;
     bool cameraModeAccepted = false;
-    RunCameraMode cameraMode = RunCameraMode::Demo;
+    int cameraModeIndex = -1;
 
     bool toggledPhysicsSleepPolicy = false;
     bool toggledTornado = false;

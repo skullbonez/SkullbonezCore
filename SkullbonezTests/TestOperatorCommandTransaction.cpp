@@ -46,6 +46,7 @@ TEST_CASE( "Operator command transaction starts with a detached empty ledger" )
     CHECK( transaction.Phase() == SkullbonezCore::Runtime::OperatorCommandPhaseCursor::Phase::Idle );
     CHECK_FALSE( transaction.Acceptance().toggledVsync );
     CHECK_FALSE( transaction.Acceptance().cameraModeAccepted );
+    CHECK( transaction.Acceptance().cameraModeIndex == -1 );
     CHECK_FALSE( transaction.Acceptance().worldOverrideAccepted );
 }
 } // namespace

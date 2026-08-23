@@ -19,6 +19,7 @@ Related:
 */
 #pragma once
 
+#include "../Camera/RuntimeCameraMode.h"
 #include "InputRouter.h"
 #include "../../UI/OperatorEditorExchange.h"
 #include "../../UI/UIInput.h"

@@ -218,7 +218,7 @@ void OperatorCommandTransaction::ApplyDeviceAndMode( RuntimeRenderer& renderer, 
          m_commands.run.requestedCameraMode < static_cast<int>( RunCameraMode::Count ) )
     {
         m_acceptance.cameraModeAccepted = true;
-        m_acceptance.cameraMode = static_cast<RunCameraMode>( m_commands.run.requestedCameraMode );
+        m_acceptance.cameraModeIndex = m_commands.run.requestedCameraMode;
     }
 }
 

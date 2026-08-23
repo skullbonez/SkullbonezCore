@@ -49,6 +49,7 @@ Related:
 */
 #include "../Replay/ReplayScrubber.h"
 #include "ReplayRuntime.h"
+#include "InputFrame.h"
 #include "../../Assets/AssetKeys.h"
 #include "../Camera/CameraCollection.h"
 #include "../Camera/AttachedCameraController.h"
@@ -340,7 +341,7 @@ void SkullbonezCore::Runtime::ReplayPresentationOperations::ExitInspectionCamera
     }
     else
     {
-        interaction.EnterCameraMode( camera.mode );
+        EnterInteractionForCameraMode( interaction, camera.mode );
     }
 
     if ( cameras )
@@ -1275,7 +1276,7 @@ void ApplyReplayLiveAdvanceAction( ReplayPrediction& predictionOwner, ReplayPres
     }
     else if ( !scrubber.View().historicalSamplePaused && !hasCameraFocus )
     {
-        interaction.EnterCameraMode( camera.mode );
+        EnterInteractionForCameraMode( interaction, camera.mode );
     }
 }
 

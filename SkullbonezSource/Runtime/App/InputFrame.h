@@ -100,6 +100,30 @@ PointerPresentationPolicy EvaluateRuntimePointerPresentation( const InputRouter&
                                                               const RunEditorPlacementState& editor,
                                                               const ReplayInputView& replayInput );
 RunCameraMode NormalizeRuntimeCameraMode( RunCameraMode mode, bool authoredScene, uint32_t enabledMask );
+inline RuntimeInteractionTransition EnterInteractionForCameraMode( RuntimeInteractionController& interaction,
+                                                                   RunCameraMode mode )
+{
+    // Camera owns the user-facing mode while Interaction owns workspace and
+    // gesture cleanup. App is the only owner allowed to translate between them.
+    switch ( mode )
+    {
+    case RunCameraMode::Demo:
+    case RunCameraMode::Scene:
+    case RunCameraMode::Director:
+        return interaction.EnterLive();
+    case RunCameraMode::Inspect:
+    case RunCameraMode::Attach:
+        return interaction.EnterInspect();
+    case RunCameraMode::Launcher:
+        return interaction.EnterLauncher();
+    case RunCameraMode::Manipulator:
+        return interaction.EnterManipulator();
+    case RunCameraMode::Count:
+        break;
+    }
+
+    return interaction.EnterLive();
+}
 
 // Computes camera capabilities from value facts captured at the frame boundary;
 // input policy cannot traverse scene lifecycle or world ownership.

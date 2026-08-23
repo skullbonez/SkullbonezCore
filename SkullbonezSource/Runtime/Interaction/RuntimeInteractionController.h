@@ -39,7 +39,6 @@ Related:
 #include "../../World/FluidSurfaceAdjustment.h"
 #include "PhysicsAdvanceState.h"
 
-#include "../Camera/RuntimeCameraMode.h"
 #include "../../Physics/PhysicsHandles.h"
 
 #include <cstdint>
@@ -257,7 +256,6 @@ class RuntimeInteractionController
     RuntimeInteractionTransition EnterReplay();
     RuntimeInteractionTransition EnterLauncher();
     RuntimeInteractionTransition EnterManipulator();
-    RuntimeInteractionTransition EnterCameraMode( RunCameraMode mode );
     RuntimeInteractionTransition SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace workspace,
                                                                       WorldInteractionOwner owner,
                                                                       InteractionExitReason reason );

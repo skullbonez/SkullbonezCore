@@ -35,7 +35,6 @@ Related:
 #include "AttachedCameraController.h"
 #include "AttachedCameraController.InspectionPolicy.h"
 #include "CameraCollection.h"
-#include "../Interaction/RuntimePickService.h"
 #include "../Scene/SceneWorld.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
@@ -493,32 +492,6 @@ AttachedCameraSeedResult AttachedCameraController::SeedTarget( Runtime::SceneWor
 
     m_state.activeFollow = true;
     return AttachedCameraSeedResult::NoSeed;
-}
-
-
-bool AttachedCameraController::PickTarget( Runtime::SceneWorld& collection, bool hasWorldRay, const Vector3& rayOrigin,
-                                           const Vector3& rayDirection, AttachedCameraTargetSelection& outSelection )
-{
-    outSelection = AttachedCameraTargetSelection {};
-    RuntimePickResult pick;
-
-    if ( hasWorldRay )
-    {
-        RuntimePickRequest request;
-        request.purpose = RuntimePickPurpose::AttachCameraTarget;
-        request.bodyStore = &collection.BodyStore();
-        request.colliderStore = &collection.Colliders();
-        request.rayOrigin = rayOrigin;
-        request.rayDirection = rayDirection;
-
-        if ( RuntimePickService::TryPickModel( request, pick ) )
-        {
-            return SetTarget( collection, pick.modelRow.value, outSelection );
-        }
-    }
-
-    ClearTarget( m_state );
-    return false;
 }
 
 
