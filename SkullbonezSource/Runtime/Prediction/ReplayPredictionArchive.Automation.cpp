@@ -31,12 +31,14 @@ Related:
 */
 #include "ReplayPredictionArchive.h"
 #include "ReplayPrediction.h"
+#include "ReplayPredictionPublicationOperations.h"
 
 #include "../Replay/ReplayPathPackets.h"
 
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <cstring>
 #include <limits>
@@ -250,6 +252,67 @@ bool VerifyReplayPredictionArchiveRoundTrip( std::span<const uint8_t> bytes, cha
     {
         WriteAutomationReason( outReason, reasonSize, "prediction archive round-trip bytes diverged" );
         return false;
+    }
+
+    ReplayTrajectoryRecord* prefixProbeSource = nullptr;
+
+    for ( const ReplayTrajectoryRecord& record : restoredPrediction.trajectoryStore.ActiveRecords() )
+    {
+        if ( record.points.size() > 1u )
+        {
+            prefixProbeSource = restoredPrediction.trajectoryStore.FindRecord( record.key );
+            break;
+        }
+    }
+
+    if ( prefixProbeSource )
+    {
+        const std::size_t capturedPublishedPointCount = prefixProbeSource->publishedPointCount;
+        prefixProbeSource->publishedPointCount = prefixProbeSource->points.size() - 1u;
+        std::vector<uint8_t> prefixBytes;
+        const bool prefixBuilt = BuildReplayPredictionArchive( restoredPathVisualizer, restoredPrediction,
+                                                               ReplayPredictionDetailMode::High,
+                                                               restoredEvidenceStorage->Committed(), prefixBytes );
+        prefixProbeSource->publishedPointCount = capturedPublishedPointCount;
+
+        RunReplayPathVisualizerState prefixPathVisualizer;
+        const auto prefixPredictionStorage = std::make_unique<RunReplayPredictionState>();
+        RunReplayPredictionState& prefixPrediction = *prefixPredictionStorage;
+        const auto prefixEvidenceStorage = std::make_unique<ReplayPredictionSolverEvidenceBanks>();
+        ReplayPredictionArchiveDetailCapability prefixCapability = ReplayPredictionArchiveDetailCapability::Low;
+
+        if ( !prefixBuilt ||
+             !LoadReplayPredictionArchive( prefixBytes, prefixPathVisualizer, prefixPrediction, *prefixEvidenceStorage,
+                                           ReplayPredictionDetailMode::High, prefixCapability, outReason, reasonSize ) )
+        {
+            WriteAutomationReason( outReason, reasonSize, "published trajectory prefix archive probe failed" );
+            return false;
+        }
+
+        std::vector<uint8_t> prefixRoundTripBytes;
+
+        if ( !BuildReplayPredictionArchive( prefixPathVisualizer, prefixPrediction, ReplayPredictionDetailMode::High,
+                                            prefixEvidenceStorage->Committed(), prefixRoundTripBytes ) ||
+             prefixRoundTripBytes != prefixBytes )
+        {
+            WriteAutomationReason( outReason, reasonSize, "published trajectory prefix changed during archive round-trip" );
+            return false;
+        }
+
+        ReplayPredictionPublicationOperations::UpdateReplayPredictionTrajectoryStore(
+            prefixPrediction, prefixPrediction.simulation.frames, prefixPrediction.CommittedFrameCount(),
+            prefixPrediction.trajectoryBuild.usingBuildFrames, prefixPrediction.simulation.targetId,
+            std::chrono::steady_clock::now(), 0.0 );
+        std::vector<uint8_t> projectedPrefixBytes;
+
+        if ( !BuildReplayPredictionArchive( prefixPathVisualizer, prefixPrediction, ReplayPredictionDetailMode::High,
+                                            prefixEvidenceStorage->Committed(), projectedPrefixBytes ) ||
+             projectedPrefixBytes != prefixBytes )
+        {
+            WriteAutomationReason( outReason, reasonSize,
+                                   "offline projection changed an archived trajectory publication prefix" );
+            return false;
+        }
     }
 
     if ( restoredCapability != ReplayPredictionArchiveDetailCapability::High || bytes.size() < 72u ||

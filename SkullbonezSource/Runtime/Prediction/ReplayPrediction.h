@@ -707,6 +707,11 @@ struct RunReplayPredictionState
     RunReplayPredictionTrajectoryBuildState trajectoryBuild;
     ReplayPredictionCommittedPublicationState committedPublication;
 
+    // Invariant: RVPD stores final reader-visible topology and trajectory
+    // prefixes. Offline reveal projection may derive markers from those values,
+    // but must not resume the live builders from retained scratch capacity.
+    bool archivePresentationRestored = false;
+
     // Concept: the butterfly baseline is a retained presentation snapshot of
     // the pre-nudge future. It is intentionally smaller than the committed
     // simulation frame list: one cold root polyline, two poses per affected

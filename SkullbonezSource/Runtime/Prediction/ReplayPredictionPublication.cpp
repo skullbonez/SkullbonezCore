@@ -815,6 +815,15 @@ void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction
                                             const std::chrono::steady_clock::time_point& budgetStart,
                                             double budgetMilliseconds )
 {
+    if ( prediction.archivePresentationRestored )
+    {
+        // Invariant: RVPD serialized each record's reader-visible prefix. The
+        // retained point vector may contain a longer unpublished suffix, so an
+        // offline projection must present the archived count instead of treating
+        // that suffix as resumable live build work.
+        return;
+    }
+
     frameCount = (std::min)( frameCount, frames.size() );
 
     if ( rootId.value == 0 || frameCount < 2u )

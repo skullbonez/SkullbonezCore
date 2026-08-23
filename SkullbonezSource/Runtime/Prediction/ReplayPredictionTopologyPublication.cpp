@@ -633,6 +633,14 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
                                             const std::chrono::steady_clock::time_point& budgetStart,
                                             double budgetMilliseconds )
 {
+    if ( prediction.archivePresentationRestored )
+    {
+        // Invariant: the archive's visible topology is already canonical. Its
+        // live-build scratch vector is deliberately absent, so publishing that
+        // empty scratch would erase the restored nodes on the first reveal.
+        return;
+    }
+
     // Invariant: frameCount is the populated prefix of frames. buildFrames is
     // pre-sized for the whole prediction horizon, so using frames.size() while
     // building would scan empty rows and mark the future-node cache complete

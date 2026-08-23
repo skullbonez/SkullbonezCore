@@ -1406,6 +1406,7 @@ void CommitArchivePayload( RunReplayPathVisualizerState& destinationPath, RunRep
     swap( destinationPrediction.trajectoryStore, candidatePrediction.trajectoryStore );
     destinationPrediction.trajectoryBuild = candidatePrediction.trajectoryBuild;
     destinationPrediction.committedPublication.Reset();
+    destinationPrediction.archivePresentationRestored = true;
     destinationPrediction.baseline = std::move( candidatePrediction.baseline );
     destinationPrediction.velocityDragPreview.Clear();
     destinationPrediction.revealClock = candidatePrediction.revealClock;

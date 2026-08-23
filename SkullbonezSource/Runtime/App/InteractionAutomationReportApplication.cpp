@@ -814,8 +814,13 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
         tracer.Clear();
         const RunReplayPathVisualizerState& path = offlinePresentation.PathVisualizer();
         ReplayPredictionUpdateResult update;
+        // Hazard: a wall-clock budget makes archive verification depend on how
+        // many canonicalized trajectory rows this machine can rebuild before
+        // five milliseconds elapse. Zero disables the production frame budget
+        // for this cold CPU projection so every reveal compares one complete,
+        // deterministic presentation state.
         offlinePrediction.PreparePresentation( predictionScene, Physics::PhysicsEngine::ReadColliders( world.Physics() ),
-                                               path.targetId, path.targetModelRow, path.hasTarget, 5.0, update );
+                                               path.targetId, path.targetModelRow, path.hasTarget, 0.0, update );
 
         if ( update.targetModelRowRepaired )
         {
