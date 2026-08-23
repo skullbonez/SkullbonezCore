@@ -1,12 +1,11 @@
 /*
-File: SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.h
+File: SkullbonezSource/Runtime/Render/BroadphaseVisualizer.h
 Purpose:
   Draws the physics broadphase grid as an explanatory debug overlay.
 
 Summary:
-  The broadphase grid is a visibility/debug view into candidate-pair generation.
-  It should explain why objects are considered near each other without changing
-  physics state.
+  Render owns the bounded fade cache and line submission. Physics publishes
+  active-cell values; neither Scene nor Diagnostics retains visualizer state.
 
 Invariants:
   - Visualizer state is explanatory overlay state and never participates in
@@ -15,7 +14,7 @@ Invariants:
     unbounded per-frame allocation.
 
 Related:
-  - SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.cpp
+  - SkullbonezSource/Runtime/Render/BroadphaseVisualizer.cpp
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
@@ -36,7 +35,7 @@ namespace Rendering
 class Dx12GeometryOwner;
 }
 
-namespace Physics
+namespace Runtime
 {
 /*
 Concept: Broadphase visualizer
@@ -107,7 +106,7 @@ class BroadphaseVisualizer
     // Physics-owned spatial-key contract without exposing retained state.
     static int64_t DiagnosticCellKey( int ix, int iy, int iz ) noexcept
     {
-        return EncodeExactSpatialCellKey( ix, iy, iz );
+        return Physics::EncodeExactSpatialCellKey( ix, iy, iz );
     }
 
     void SetCellSize( float size )
@@ -130,7 +129,7 @@ class BroadphaseVisualizer
     // Call once per frame after broadphase + narrowphase complete.
     // activeCells: cells that have objects this frame.
     // collisionCells: packed keys of cells where narrowphase collisions occurred.
-    void Update( float dt, std::span<const PhysicsBroadphaseActiveCell> activeCells,
+    void Update( float dt, std::span<const Physics::PhysicsBroadphaseActiveCell> activeCells,
                  std::span<const int64_t> collisionKeys );
 
     // Generates line vertex data and submits it through the frame command context.
@@ -138,5 +137,5 @@ class BroadphaseVisualizer
     void Render( const Math::Transformation::Matrix4& viewProj, Rendering::Dx12GeometryOwner& renderCommands,
                  bool supportsDebugLines );
 };
-} // namespace Physics
+} // namespace Runtime
 } // namespace SkullbonezCore

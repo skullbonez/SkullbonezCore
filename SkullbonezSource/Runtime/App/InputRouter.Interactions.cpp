@@ -689,12 +689,13 @@ bool InputRouter::HandleUnfocusedFrame( RuntimeTools& runtimeTools, RuntimeInter
 }
 
 
-void InputRouter::DispatchCaptureActions( InputActions& actions, DiagnosticsRuntime& diagnosticsRuntime,
-                                          const CameraControlState& camera, const AttachedCameraController& attachedCamera,
-                                          const UI::InGameUI& ui, SceneController& sceneController,
-                                          const GameObjects::PresentationSaveState& presentation,
-                                          const ReplayInputView& replayInput )
+InputCaptureActionResult InputRouter::DispatchCaptureActions( InputActions& actions, const CameraControlState& camera,
+                                                              const AttachedCameraController& attachedCamera,
+                                                              const UI::InGameUI& ui, SceneController& sceneController,
+                                                              const GameObjects::PresentationSaveState& presentation,
+                                                              const ReplayInputView& replayInput )
 {
+    InputCaptureActionResult result;
     // Why: capture/reset shortcuts run after UI input so focused controls and
     // panels get first refusal on keyboard ownership.
     const bool flyCamera = RunCameraModeUsesFlyControls( camera.mode, attachedCamera.State().activeFollow,
@@ -738,7 +739,7 @@ void InputRouter::DispatchCaptureActions( InputActions& actions, DiagnosticsRunt
 
             break;
         case RuntimeInputAction::SaveScreenshot:
-            HandleEditorScreenshotHotkey( diagnosticsRuntime.Capture(), true );
+            result.screenshotRequested = true;
             break;
         case RuntimeInputAction::ResetScene:
 
@@ -759,15 +760,21 @@ void InputRouter::DispatchCaptureActions( InputActions& actions, DiagnosticsRunt
             break;
         }
     }
+
+    return result;
 }
 
 
-bool InputRouter::DispatchAfterUiDismiss( InputActions& actions, bool uiUserInteracted, double nowSeconds, bool gameUiActive,
-                                          DiagnosticsRuntime& diagnosticsRuntime, CameraControlState& camera,
-                                          AttachedCameraController& attachedCamera, RuntimeTools& runtimeTools,
-                                          UI::InGameUI& ui, SceneController& sceneController,
-                                          RuntimeOverlayDiagnostics& overlays, const ReplayInputView& replayInput )
+InputAfterUiDismissResult InputRouter::DispatchAfterUiDismiss( InputActions& actions, bool uiUserInteracted,
+                                                               double nowSeconds, bool gameUiActive,
+                                                               CameraControlState& camera,
+                                                               AttachedCameraController& attachedCamera,
+                                                               RuntimeTools& runtimeTools, UI::InGameUI& ui,
+                                                               SceneController& sceneController,
+                                                               RuntimeOverlayDiagnostics& overlays,
+                                                               const ReplayInputView& replayInput )
 {
+    InputAfterUiDismissResult result;
     RuntimeOverlayPresentationEdit presentationEdit = overlays.EditPresentation();
     OverlayDebugState& debug = presentationEdit.State();
     const bool flyCamera = RunCameraModeUsesFlyControls( camera.mode, attachedCamera.State().activeFollow,
@@ -808,7 +815,8 @@ bool InputRouter::DispatchAfterUiDismiss( InputActions& actions, bool uiUserInte
 
         if ( IsQuickRepeat( event.action, nowSeconds, ESC_QUICK_EXIT_SECONDS ) )
         {
-            return true;
+            result.quitRequested = true;
+            return result;
         }
         else if ( !gameUiActive )
         {
@@ -820,7 +828,7 @@ bool InputRouter::DispatchAfterUiDismiss( InputActions& actions, bool uiUserInte
         {
             sceneController.State().isInteractiveRun = true;
             sceneController.State().isExitOnComplete = false;
-            diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
+            result.disableCaptureAutomationExit = true;
             ui.ToggleVisible( nowSeconds );
             debug.overlayMode = OverlayMode::None;
             RecordTap( event.action, nowSeconds );
@@ -833,5 +841,5 @@ bool InputRouter::DispatchAfterUiDismiss( InputActions& actions, bool uiUserInte
         }
     }
 
-    return false;
+    return result;
 }

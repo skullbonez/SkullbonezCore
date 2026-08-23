@@ -266,7 +266,7 @@ bool Run::ExecutePendingSceneRequests( SceneLoadTransaction& transaction )
 
 
 void ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction, const RunLaunchOptions& launchOptions,
-                                     RuntimeOverlayDiagnostics& overlays,
+                                     RuntimeOverlayDiagnostics& overlays, CaptureController& capture,
                                      SceneLifecycleGenerationObserver& overlayLifecycle, SceneController& sceneController,
                                      SceneLifecycleGenerationObserver& inputLifecycle, InputRouter& inputRouter,
                                      RuntimeInteractionController& interaction,
@@ -277,6 +277,7 @@ void ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction, const Ru
 {
     const SceneLoadResult& outputs = transaction.BeginRuntimeReactions();
     const SceneLifecyclePacket& lifecycle = sceneController.LifecyclePacket();
+    ApplySceneCaptureReactions( capture, outputs.captureReactions );
 
     if ( overlayLifecycle.ShouldApply( lifecycle, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
     {

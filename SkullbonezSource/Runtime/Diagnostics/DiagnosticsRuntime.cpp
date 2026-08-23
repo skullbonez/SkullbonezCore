@@ -4,10 +4,8 @@ Purpose:
   Provides the runtime diagnostics ownership boundary.
 
 Summary:
-  DiagnosticsRuntime sequences capture, performance, memory, and physics
-  diagnostic work. Artifact-specific controllers own their formats while this
-  owner retains the process memory cache, capacity-table scene-end seam, and
-  shutdown memory-dump lifecycle.
+  DiagnosticsRuntime sequences performance, memory, and physics diagnostic
+  work. Capture remains a sibling owner applied by App from typed results.
 
 Glossary:
   Reconciled memory: Tracked engine bytes plus any process memory not accounted
@@ -16,7 +14,7 @@ Glossary:
 
 Invariants:
   - DiagnosticsRuntime is a boundary; artifact schema and heavy logging formats
-    stay in RuntimeDiagnostics or CaptureController unless this file owns them.
+    stay in RuntimeDiagnostics unless this file owns them.
   - Memory sampling is cached for diagnostics reads; deep process samples are
     reserved for explicit dumps and stress/perf evidence.
   - Debug-only physics diagnostics stay behind _DEBUG.
@@ -33,11 +31,9 @@ Related:
 
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
-#include "../Input/InputController.h"
 #include "OverlayDebugState.h"
 #include "../../Physics/PhysicsDebugData.h"
 #include "../../Rendering/DX12/Dx12Diagnostics.h"
-#include "../../Scene/AuthoredScene.h"
 #include "../../UI/UI.h"
 
 #include <cstddef>
@@ -48,11 +44,6 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-DiagnosticsRuntime::DiagnosticsRuntime( SkullbonezCore::Core::SbDiagnosticStore& diagnostics ) noexcept
-    : m_capture( diagnostics )
-{
-}
-
 namespace
 {
 constexpr double MAIN_MEMORY_SAMPLE_INTERVAL_SECONDS = 1.0;
@@ -390,179 +381,14 @@ void WriteReplayTrajectoryCounters( FILE* file, const SkullbonezCore::Core::Main
 }
 } // namespace
 
-bool HandleDiagnosticsKeyboardShortcut( OverlayDebugState& debug, int& cameraTrackBallIndex, int sceneEntityCount,
-                                        const Rendering::Dx12Diagnostics* renderDiagnostics, bool sceneMode,
-                                        double simulationSeconds, RuntimeInputAction action, bool wasPressed )
-{
-    if ( !wasPressed )
-    {
-        switch ( action )
-        {
-        case RuntimeInputAction::ToggleWaterFreeze:
-        case RuntimeInputAction::CycleWaterReflection:
-        case RuntimeInputAction::ToggleWaterFlat:
-        case RuntimeInputAction::ToggleTerrainHidden:
-        case RuntimeInputAction::ToggleWaterHidden:
-        case RuntimeInputAction::ToggleCollisionVisualizer:
-        case RuntimeInputAction::CyclePhysicsDebugOverlay:
-        case RuntimeInputAction::ToggleTerrainContactProbe:
-        case RuntimeInputAction::StepPhysicsPipelinePrevious:
-        case RuntimeInputAction::StepPhysicsPipelineNext:
-        case RuntimeInputAction::TogglePhysicsDebugTransparent:
-        case RuntimeInputAction::ReportRendererRuntimeRetired:
-        case RuntimeInputAction::ToggleBroadphaseOverlay:
-            return true;
-        default:
-            return false;
-        }
-    }
-
-
-    switch ( action )
-    {
-    case RuntimeInputAction::ToggleWaterFreeze:
-
-        // Numeric water and terrain toggles are visual diagnostics only; they
-        // must not feed back into simulation or scene ownership.
-        debug.isWaterFreezeDebug = !debug.isWaterFreezeDebug;
-
-        if ( debug.isWaterFreezeDebug )
-        {
-            debug.frozenWaterTime = static_cast<float>( simulationSeconds );
-        }
-
-        return true;
-    case RuntimeInputAction::CycleWaterReflection:
-    {
-        // Key '2' cycles FBO mirror rendering, DXR reflection when supported,
-        // no reflection, then back to FBO. Machines without DXR skip the
-        // unsupported mode instead of leaving the toggle in a dead state.
-        const bool dxrReflectionSupported = renderDiagnostics && renderDiagnostics->GetCapabilities().supportsDxrReflection;
-
-        if ( !debug.isWaterRTReflect && !debug.isWaterNoReflect )
-        {
-            if ( dxrReflectionSupported )
-            {
-                debug.isWaterRTReflect = true;
-            }
-            else
-            {
-                debug.isWaterNoReflect = true;
-            }
-        }
-        else if ( debug.isWaterRTReflect )
-        {
-            debug.isWaterRTReflect = false;
-            debug.isWaterNoReflect = true;
-        }
-        else
-        {
-            debug.isWaterNoReflect = false;
-        }
-
-        return true;
-    }
-    case RuntimeInputAction::ToggleWaterFlat:
-        debug.isWaterFlatDebug = !debug.isWaterFlatDebug;
-        return true;
-    case RuntimeInputAction::ToggleTerrainHidden:
-        debug.isTerrainHidden = !debug.isTerrainHidden;
-        return true;
-    case RuntimeInputAction::ToggleWaterHidden:
-        debug.isWaterHidden = !debug.isWaterHidden;
-        return true;
-    case RuntimeInputAction::ToggleCollisionVisualizer:
-        debug.isCollisionVisualizer = !debug.isCollisionVisualizer;
-        return true;
-    case RuntimeInputAction::CyclePhysicsDebugOverlay:
-
-        // C key: None -> Axes -> Contacts -> Sleep -> All -> None.
-        switch ( debug.physicsDebugFlags )
-        {
-        case Physics::PHYSICS_DEBUG_NONE:
-            debug.physicsDebugFlags = Physics::PHYSICS_DEBUG_AXES;
-            break;
-        case Physics::PHYSICS_DEBUG_AXES:
-            debug.physicsDebugFlags = Physics::PHYSICS_DEBUG_CONTACTS;
-            break;
-        case Physics::PHYSICS_DEBUG_CONTACTS:
-            debug.physicsDebugFlags = Physics::PHYSICS_DEBUG_SLEEP;
-            break;
-        case Physics::PHYSICS_DEBUG_SLEEP:
-            debug.physicsDebugFlags = Physics::PHYSICS_DEBUG_ALL;
-            break;
-        default:
-            debug.physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE;
-            break;
-        }
-
-        return true;
-    case RuntimeInputAction::ToggleTerrainContactProbe:
-
-        // O key layers the terrain polygon/contact probe over the C-key debug
-        // cycle, so it is toggled independently of the cycle state.
-        debug.physicsDebugFlags ^= Physics::PHYSICS_DEBUG_TERRAIN_CONTACT;
-        return true;
-    case RuntimeInputAction::StepPhysicsPipelinePrevious:
-
-        // F7/F8 inspect the bounded physics pipeline stage trace captured by
-        // the most recent physics tick; they do not advance simulation.
-        StepDiagnosticsPhysicsPipelineStage( debug, -1 );
-        return true;
-    case RuntimeInputAction::StepPhysicsPipelineNext:
-        StepDiagnosticsPhysicsPipelineStage( debug, 1 );
-        return true;
-    case RuntimeInputAction::TogglePhysicsDebugTransparent:
-
-        // Transparent volumes make contact rows readable inside bodies without
-        // changing the collision visualizer's solid debug pass.
-        debug.isPhysicsDebugTransparent = !debug.isPhysicsDebugTransparent;
-        return true;
-    case RuntimeInputAction::ReportRendererRuntimeRetired:
-
-        // Q used to cycle legacy renderers; keep the key as a bounded
-        // diagnostic report because DX12 is now the sole runtime backend.
-        fprintf( stderr, "Renderer switch ignored: DX12 is the only runtime renderer.\n" );
-        return true;
-    case RuntimeInputAction::ToggleBroadphaseOverlay:
-
-        // G cycles the tracked ball while the broadphase overlay is off; once
-        // the overlay is active, the same key owns overlay visibility.
-        if ( sceneMode && cameraTrackBallIndex >= 0 && !debug.isBroadphaseOverlay )
-        {
-            if ( sceneEntityCount > 0 )
-            {
-                cameraTrackBallIndex = ( cameraTrackBallIndex + 1 ) % sceneEntityCount;
-            }
-        }
-        else
-        {
-            debug.isBroadphaseOverlay = !debug.isBroadphaseOverlay;
-        }
-
-        return true;
-    default:
-        return false;
-    }
-}
-
-
 DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( UI::InGameUI& ui, OverlayDebugState& debug,
-                                                                         CaptureController& capture, double nowSeconds,
-                                                                         RuntimeInputAction action, bool wasPressed )
+                                                                         double nowSeconds,
+                                                                         DiagnosticsUiKeyboardCommand command,
+                                                                         bool wasPressed )
 {
     DiagnosticsUIKeyboardShortcutResult result;
 
-    switch ( action )
-    {
-    case RuntimeInputAction::ToggleUIVisibility:
-    case RuntimeInputAction::TogglePerformanceHistogram:
-    case RuntimeInputAction::ToggleMemoryOverlay:
-        result.handled = true;
-        break;
-    default:
-        return result;
-    }
+    result.handled = true;
 
     if ( !wasPressed )
     {
@@ -572,36 +398,30 @@ DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( UI::InG
     result.triggered = true;
     result.releaseMouseToUI = true;
 
-    switch ( action )
+    switch ( command )
     {
-    case RuntimeInputAction::ToggleUIVisibility:
+    case DiagnosticsUiKeyboardCommand::ToggleVisibility:
 
         // Concept: The tabbed diagnostics UI owns overlay text once visible, so
         // the GameUI one-line overlay is cleared by the UI shortcut owner.
         result.markInteractiveRun = true;
         result.disableExitOnComplete = true;
-        capture.Screenshot().isScreenshotAndExit = false;
+        result.disableCaptureAutomationExit = true;
         ui.ToggleVisible( nowSeconds );
         debug.overlayMode = OverlayMode::None;
         return result;
-    case RuntimeInputAction::TogglePerformanceHistogram:
+    case DiagnosticsUiKeyboardCommand::TogglePerformanceHistogram:
 
         // F5/F6 are lightweight diagnostic overlays; they do not implicitly open
         // or close the broader diagnostics window.
         ui.TogglePerformanceHistogramEnabled();
         return result;
-    case RuntimeInputAction::ToggleMemoryOverlay:
+    case DiagnosticsUiKeyboardCommand::ToggleMemoryOverlay:
         ui.ToggleMemoryOverlayEnabled();
         return result;
-    default:
-        return result;
     }
-}
 
-
-CaptureController& DiagnosticsRuntime::Capture()
-{
-    return m_capture;
+    return result;
 }
 
 
@@ -639,7 +459,6 @@ void DiagnosticsRuntime::ResetForSceneLoad( int completedPerfPass )
 {
     ClosePerfLogWithMemoryCheckpoint( completedPerfPass, "end" );
     ResetPerfLogForSceneLoad();
-    m_capture.ResetScreenshot();
     m_uiStress.Reset();
 }
 
@@ -656,34 +475,11 @@ void DiagnosticsRuntime::OpenScenePerfLog( const char* path, int pass )
 }
 
 
-void DiagnosticsRuntime::ApplySceneAutomationOptions( const AuthoredScene& scene, bool suppressAutomationExit, int perfPass )
+void DiagnosticsRuntime::ApplyScenePerfLogOptions( const char* path, int perfPass )
 {
-    // Concept: Scene-authored screenshot and perf-log directives are
-    // diagnostics automation. Keep the artifact state with DiagnosticsRuntime
-    // while scene loading decides when to call it.
-    RunScreenshotState& screenshot = m_capture.Screenshot();
-    screenshot.screenshotFrame = scene.GetScreenshotFrame();
-    screenshot.screenshotMs = scene.GetScreenshotMs();
-    screenshot.isScreenshotAndExit = suppressAutomationExit ? false : scene.IsScreenshotAndExit();
-
-    if ( scene.GetScreenshotPath()[0] != '\0' )
+    if ( path && path[0] != '\0' )
     {
-        strcpy_s( screenshot.screenshotPath, sizeof( screenshot.screenshotPath ), scene.GetScreenshotPath() );
-    }
-
-    screenshot.screenshotInterval = scene.GetScreenshotInterval();
-
-    if ( scene.GetScreenshotDir()[0] != '\0' )
-    {
-        strcpy_s( screenshot.screenshotDir, sizeof( screenshot.screenshotDir ), scene.GetScreenshotDir() );
-        CreateDirectoryA( screenshot.screenshotDir, nullptr );
-    }
-
-    const char* perfPath = scene.GetPerfLogPath();
-
-    if ( perfPath[0] != '\0' )
-    {
-        OpenScenePerfLog( perfPath, perfPass );
+        OpenScenePerfLog( path, perfPass );
     }
 }
 

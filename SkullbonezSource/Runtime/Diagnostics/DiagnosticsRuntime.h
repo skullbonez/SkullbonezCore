@@ -1,16 +1,15 @@
 /*
 File: SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.h
 Purpose:
-  Owns runtime diagnostics and capture controllers behind one diagnostics boundary.
+  Owns runtime diagnostics and publishes typed shortcut results.
 
 Summary:
-  DiagnosticsRuntime owns the process diagnostics lifecycle. Capture, perf,
-  memory, and SkullScope controllers keep their artifact-specific state behind
-  this boundary while frame code requests synchronous diagnostics operations.
+  DiagnosticsRuntime owns the perf, memory, and SkullScope lifecycle. Capture
+  remains a sibling owner composed by App; diagnostics shortcuts return bounded
+  actions instead of borrowing Input or Capture owners.
   Scene-end capacity tables are emitted while old scene identity remains live.
 
 Glossary:
-  Capture controller: Screenshot trigger and automation state.
   Diagnostics controller: Perf CSV and queryable physics diagnostic state.
   Capacity table: Resident-descending fixed-store rows emitted at scene unload
     and final process shutdown.
@@ -21,15 +20,14 @@ Invariants:
   - Capacity reporting is synchronous and retains no scene path or row span.
 
 Related:
-  - SkullbonezSource/Runtime/Capture/CaptureController.h
   - SkullbonezSource/Runtime/Diagnostics/DiagnosticsController.h
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
-#include "../Capture/CaptureController.h"
 #include "UIStressPolicy.h"
 #include "DiagnosticsController.h"
+#include "DiagnosticsKeyboardShortcuts.h"
 
 namespace SkullbonezCore
 {
@@ -51,9 +49,14 @@ class InGameUI;
 } // namespace UI
 namespace Runtime
 {
-class AuthoredScene;
-enum class RuntimeInputAction;
 struct OverlayDebugState;
+
+enum class DiagnosticsUiKeyboardCommand : uint8_t
+{
+    ToggleVisibility,
+    TogglePerformanceHistogram,
+    ToggleMemoryOverlay
+};
 
 struct DiagnosticsUIKeyboardShortcutResult
 {
@@ -62,23 +65,17 @@ struct DiagnosticsUIKeyboardShortcutResult
     bool releaseMouseToUI = false;                           // True when Run should refresh cursor ownership and release capture.
     bool markInteractiveRun = false;
     bool disableExitOnComplete = false;
+    bool disableCaptureAutomationExit = false;
 };
 
-bool HandleDiagnosticsKeyboardShortcut( OverlayDebugState& debug, int& cameraTrackBallIndex, int sceneEntityCount,
-                                        const Rendering::Dx12Diagnostics* renderDiagnostics, bool sceneMode,
-                                        double simulationSeconds, RuntimeInputAction action, bool wasPressed );
 DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( UI::InGameUI& ui, OverlayDebugState& debug,
-                                                                         CaptureController& capture, double nowSeconds,
-                                                                         RuntimeInputAction action, bool wasPressed );
+                                                                         double nowSeconds,
+                                                                         DiagnosticsUiKeyboardCommand command,
+                                                                         bool wasPressed );
 
 class DiagnosticsRuntime
 {
   public:
-    explicit DiagnosticsRuntime( SkullbonezCore::Core::SbDiagnosticStore& diagnostics ) noexcept;
-
-    CaptureController& Capture();
-
-
     // Startup binding that keeps perf CSV and frame-time diagnostics off the
     // global profiler accessor after initialization.
     void BindProfiler( SkullbonezCore::Core::Profiler* profiler );
@@ -91,7 +88,7 @@ class DiagnosticsRuntime
     void ResetForSceneLoad( int completedPerfPass );
     void ConfigurePerfLogFlush( bool enabled, int interval );
     void OpenScenePerfLog( const char* path, int pass );
-    void ApplySceneAutomationOptions( const AuthoredScene& scene, bool suppressAutomationExit, int perfPass );
+    void ApplyScenePerfLogOptions( const char* path, int perfPass );
     bool PerfTestActive() const;
     void TickPerfLog( int pass, int frame, float physicsTimeSeconds, float renderTimeSeconds );
     RuntimeProfilerFrameTimes SampleProfilerFrameTimes() const;
@@ -138,7 +135,6 @@ class DiagnosticsRuntime
     UIStressPolicyOwner& UIStress();
 
   private:
-    CaptureController m_capture;                             // Screenshot trigger and capture automation
     DiagnosticsController m_diagnostics;                     // Perf/test logs and queryable physics diagnostic trace
     SkullbonezCore::Core::MainMemoryStats m_mainMemoryStats; // Cached process/replay/model memory snapshot for UI and dumps.
     double m_lastMainMemorySampleSeconds = -1000.0;          // Coarse sampling guard so UI draw does not rescan every frame.

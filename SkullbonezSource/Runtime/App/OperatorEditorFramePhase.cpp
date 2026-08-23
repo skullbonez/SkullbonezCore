@@ -620,7 +620,7 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
         // hidden. Sample its bounded authoring/diagnostic values here instead
         // of making ImGui depend on whether the GameUI text pass happens to run.
         runtimeViewModel = BuildRuntimeViewModel( sceneController.State(), sceneController.Scene(),
-                                                  sceneController.QueueSize(), diagnosticsRuntime.Capture().Screenshot(),
+                                                  sceneController.QueueSize(), m_capture.Screenshot(),
                                                   config.runtimeRender.presentationInterpolation,
                                                   uiTextFacts.presentationPinned, uiTextFacts.presentationAlpha );
 
@@ -711,7 +711,7 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
                                                           replayPathVisualizerHasTarget ) )
     {
         runtimeViewModel = BuildRuntimeViewModel( sceneController.State(), sceneController.Scene(),
-                                                  sceneController.QueueSize(), diagnosticsRuntime.Capture().Screenshot(),
+                                                  sceneController.QueueSize(), m_capture.Screenshot(),
                                                   config.runtimeRender.presentationInterpolation,
                                                   uiTextFacts.presentationPinned, uiTextFacts.presentationAlpha );
 

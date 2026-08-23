@@ -524,6 +524,7 @@ void SceneLoadResult::ResetForLoad()
     camera = CameraControlState {};
     renderPolicy = SceneRenderPolicyState {};
     renderActivation = SceneRenderActivationRequest {};
+    captureReactions = SceneCaptureReactionBatch {};
     completedWorldChanges = {};
     completedWorldChangeCount = 0;
     completedRequests = SceneRequestBatch {};
@@ -705,6 +706,15 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
                                                                                             change.fluidHeight,
                                                                                             change.fluidDensity };
     };
+    const auto appendCaptureReaction = [&]( SceneCaptureReaction reaction )
+    {
+        if ( consumerOutputs.captureReactions.count >= consumerOutputs.captureReactions.reactions.size() )
+        {
+            SB_FATAL( "Runtime/SceneController", "Fixed scene capture reaction capacity exhausted." );
+        }
+
+        consumerOutputs.captureReactions.reactions[consumerOutputs.captureReactions.count++] = reaction;
+    };
 
     // Operator sleep policy is physics-owned and survives ordinary scene
     // changes. The scene reset snapshot restores the same owner explicitly.
@@ -723,7 +733,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         {
             State().isInteractiveRun = true;
             State().isExitOnComplete = false;
-            diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
+            appendCaptureReaction( { SceneCaptureReactionKind::DisableAutomationExit } );
         }
 
         return SkullbonezCore::Core::SbResult::Success();
@@ -782,7 +792,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     if ( request.enterInteractiveSceneRun )
     {
         State().isExitOnComplete = false;
-        diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
+        appendCaptureReaction( { SceneCaptureReactionKind::DisableAutomationExit } );
     }
 
     const bool suppressAutomationExit = loadBegin.suppressAutomationExit;
@@ -794,6 +804,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     // Reset scene-local state; operator HUD preferences are restored below.
     SceneState().ResetForLoad( config.cinematicRender );
     diagnosticsRuntime.ResetForSceneLoad( m_perfPass + 1 );
+    appendCaptureReaction( { SceneCaptureReactionKind::ResetScreenshot } );
     afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics );
     consumerOutputs.renderPolicy = { config.runtimeRender.vsyncEnabled, config.runtimeRender.forcePipelineSync };
 
@@ -1008,7 +1019,16 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 
         SceneState().targetFrameCount = scene.GetFrameCount();
         SceneState().isExitOnComplete = suppressAutomationExit ? false : scene.IsExitOnComplete();
-        diagnosticsRuntime.ApplySceneAutomationOptions( scene, suppressAutomationExit, m_perfPass );
+        SceneCaptureReaction captureReaction;
+        captureReaction.kind = SceneCaptureReactionKind::ApplyAutomation;
+        captureReaction.automation.screenshotFrame = scene.GetScreenshotFrame();
+        captureReaction.automation.screenshotMs = scene.GetScreenshotMs();
+        captureReaction.automation.screenshotAndExit = suppressAutomationExit ? false : scene.IsScreenshotAndExit();
+        captureReaction.automation.screenshotInterval = scene.GetScreenshotInterval();
+        strcpy_s( captureReaction.automation.screenshotPath, scene.GetScreenshotPath() );
+        strcpy_s( captureReaction.automation.screenshotDirectory, scene.GetScreenshotDir() );
+        appendCaptureReaction( captureReaction );
+        diagnosticsRuntime.ApplyScenePerfLogOptions( scene.GetPerfLogPath(), m_perfPass );
 
         // Override RNG seed for deterministic scenes. CLI --seed wins so a launcher snapshot can
         // replay an unseeded/random scene or deliberately override a scene file seed.
@@ -1309,7 +1329,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         SceneState().targetFrameCount = 0;
         SceneState().isTestComplete = false;
         SceneState().isExitOnComplete = false;
-        diagnosticsRuntime.Capture().ResetScreenshot();
+        appendCaptureReaction( { SceneCaptureReactionKind::ResetScreenshot } );
         diagnosticsRuntime.ClosePerfLog();
         diagnosticsRuntime.ResetPerfLogForSceneLoad();
         consumerOutputs.uiActivation.nowSeconds = transaction.m_sceneTimeSeconds;

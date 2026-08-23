@@ -44,9 +44,7 @@ using namespace SkullbonezCore::Runtime;
 using SkullbonezCore::Math::Vector::Vector3;
 namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
-namespace
-{
-RuntimeRenderFramePolicy ProjectRenderFramePolicy( const RuntimeOverlayFramePolicy& overlay )
+RuntimeRenderFramePolicy Run::ProjectRenderFramePolicy( const RuntimeOverlayFramePolicy& overlay )
 {
     RuntimeRenderFramePolicy policy;
     policy.textOnly = overlay.textOnly;
@@ -68,8 +66,6 @@ RuntimeRenderFramePolicy ProjectRenderFramePolicy( const RuntimeOverlayFramePoli
     policy.totalSimulationSeconds = overlay.totalSimulationSeconds;
     return policy;
 }
-} // namespace
-
 
 void Run::Render( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha )
 {

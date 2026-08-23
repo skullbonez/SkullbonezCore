@@ -1,26 +1,20 @@
 /*
 File: RuntimeOverlayDiagnostics.h
 Purpose:
-  Owns debug presentation policy and its physics visualization resources.
+  Owns debug presentation policy published to App and Render.
 
 Summary:
-  RuntimeOverlayDiagnostics is the cohesive process-lifetime owner for debug
-  presentation policy and its three visualizers. Mutations cross a stack-only
-  value transaction; renderer borrows cross one opaque resource capability.
+  RuntimeOverlayDiagnostics retains CPU presentation choices only. App copies
+  those choices into Render values; Render owns all visualizer caches and GPU
+  submission state.
 
 Glossary:
-  Debug visualizers: CPU-side broadphase, collision, and physics line data
-    refreshed after committed physics work and borrowed by RuntimeRenderer.
   Presentation edit: Stack-only copy committed atomically when its scope ends.
 
 Invariants:
-  - The owner is allocated only during the explicit Startup phase and lives
-    until renderer shutdown has released every borrowed backend resource.
-  - Post-physics refresh reads committed scene stores and publishes only
-    presentation data; it does not advance simulation or mutate topology.
+  - The owner is allocated only during the explicit Startup phase.
   - Renderer-facing policy is copied into a value record before submission.
-  - No caller receives the owner's mutable policy record or an individual
-    visualizer; edits and renderer resources cross typed capability boundaries.
+  - No caller receives the owner's mutable policy record.
 
 Related:
   - SkullbonezSource/Runtime/App/Run.cpp
@@ -33,11 +27,6 @@ Related:
 #include <cstdint>
 #include <memory>
 
-
-
-#include "../Debug/BroadphaseVisualizer.h"
-#include "../Debug/CollisionVisualizer.h"
-#include "../Debug/PhysicsDebugVisualizer.h"
 #include "OverlayDebugState.h"
 
 namespace SkullbonezCore
@@ -50,20 +39,9 @@ namespace UI
 {
 class InGameUI;
 }
-namespace Rendering
-{
-class RenderInstanceStore;
-}
-namespace Physics
-{
-class ColliderStore;
-class PhysicsBodyStore;
-class PhysicsEngine;
-}
 namespace Runtime
 {
 class RuntimeOverlayDiagnostics;
-class RuntimeRenderer;
 struct RunLaunchOptions;
 struct RunStartupOverrides;
 
@@ -108,48 +86,23 @@ class RuntimeOverlayPresentationEdit
     OverlayDebugState m_state;
 };
 
-// Capability: only RuntimeRenderer may unpack these process-lifetime resources.
-// Run can pass the binding but cannot recover the individual visualizers.
-class RuntimeOverlayRenderResources
-{
-  private:
-    friend class RuntimeOverlayDiagnostics;
-    friend class RuntimeRenderer;
-
-    Physics::BroadphaseVisualizer m_broadphaseOverlay;
-    Physics::CollisionVisualizer m_collisionOverlay;
-    Physics::PhysicsDebugVisualizer m_physicsDebugOverlay;
-};
-
 class RuntimeOverlayDiagnostics
 {
   public:
-    static std::unique_ptr<RuntimeOverlayDiagnostics> CreateForStartup( Core::Profiler* profiler );
-
-    explicit RuntimeOverlayDiagnostics( Core::Profiler* profiler ) : m_profiler( profiler )
-    {
-    }
+    static std::unique_ptr<RuntimeOverlayDiagnostics> CreateForStartup();
 
     void ApplyStartupPolicy( const RunStartupOverrides& overrides, RunLaunchOptions& launchOptions,
                              UI::InGameUI& operatorUi );
-    void UpdatePostPhysics( Physics::PhysicsEngine& physics, const Physics::PhysicsBodyStore& bodyStore,
-                            const Physics::ColliderStore& colliders,
-                            const Rendering::RenderInstanceStore& renderInstances, double secondsPerFrame );
     RuntimeOverlayFramePolicy BuildFramePolicy( double simulationSeconds, double totalSimulationSeconds ) const;
 
     void ApplyScenePresentation( const OverlayDebugState& scenePresentation );
     OverlayDebugState PresentationSnapshot() const;
     RuntimeOverlayPresentationEdit EditPresentation();
-    RuntimeOverlayRenderResources& RenderResources();
-
   private:
     friend class RuntimeOverlayPresentationEdit;
     void CommitPresentation( const OverlayDebugState& state );
 
-    // Lifetime: startup-bound diagnostics borrow; null when profiling is disabled.
-    Core::Profiler* m_profiler;
     OverlayDebugState m_presentationState;
-    RuntimeOverlayRenderResources m_renderResources;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

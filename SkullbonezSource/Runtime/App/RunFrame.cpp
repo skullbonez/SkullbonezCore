@@ -648,7 +648,7 @@ Run::FrameSimulationPhaseResult Run::RunSimulationPhase( double secondsPerFrame,
     // Invariant: capture pinning is fixed before physics and camera work. A
     // scheduled screenshot renders exact solver poses for this whole turn.
     const bool
-        capturePresentationPinned = m_diagnosticsRuntime.Capture()
+        capturePresentationPinned = m_capture
                                         .RequiresDeterministicPresentation( m_sceneController.State().isSceneMode,
                                                                             m_sceneController.State().currentFrame,
                                                                             m_timers.SceneElapsedSeconds() * 1000.0 ) ||
@@ -685,8 +685,6 @@ Run::FrameSimulationPhaseResult Run::RunSimulationPhase( double secondsPerFrame,
         (void)m_continuousForecast.AdvanceFrame( continuousForecastBudgetStart );
     }
     SceneWorld& scene = m_sceneController.Scene();
-    m_overlayDiagnostics->UpdatePostPhysics( scene.Physics(), scene.BodyStore(), scene.Colliders(), scene.RenderInstances(),
-                                             secondsPerFrame );
     scene.EndCollisionVisualFrame();
 
     SceneAutomationGateTracker& sceneGates = m_validationHarness->SceneGates();
@@ -736,7 +734,7 @@ Run::FrameRenderPhaseResult Run::PrepareRenderPhase( bool gameUiActive, const Fr
 
             ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, m_sceneController.LifecyclePacket(),
                                                m_timers );
-            ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics,
+            ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_capture,
                                             m_overlaySceneLifecycleObserver, m_sceneController,
                                             m_inputSceneLifecycleObserver, m_inputRouter, m_interaction,
                                             m_cameraSceneLifecycleObserver, m_camera,
@@ -865,7 +863,7 @@ void Run::RunPostDrawDiagnosticsPhase( bool gameUiActive )
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Capture );
         if ( m_validationHarness->HasPendingLiveStyleCapture() )
         {
-            const SkullbonezCore::Core::SbResult captureResult = m_diagnosticsRuntime.Capture().SaveScreenshot(
+            const SkullbonezCore::Core::SbResult captureResult = m_capture.SaveScreenshot(
                 BackbufferCapture(), m_validationHarness->PendingLiveStyleCapturePath() );
             m_validationHarness->CompleteLiveStyleCapture( captureResult );
         }
@@ -889,7 +887,7 @@ void Run::RunPostDrawDiagnosticsPhase( bool gameUiActive )
                                                                       automationDevelopmentUiView,
                                                                       m_continuousForecast.View(),
                                                                       Renderer().FrameGraphSnapshot(),
-                                                                      m_diagnosticsRuntime.Capture(), BackbufferCapture() );
+                                                                      m_capture, BackbufferCapture() );
 
     if ( !automationAfterRender.status.Ok() )
     {
@@ -909,7 +907,7 @@ void Run::RunPostDrawDiagnosticsPhase( bool gameUiActive )
 
 void Run::CompleteLookLabPostRenderCaptures()
 {
-    CaptureController& capture = m_diagnosticsRuntime.Capture();
+    CaptureController& capture = m_capture;
 
     if ( capture.PendingPostRenderCount() == 0 )
     {
@@ -1061,6 +1059,10 @@ SkullbonezCore::Core::SbResult Run::Execute()
         }
 
         RuntimeRenderModelFrameView models = PublishRenderModelsPhase();
+        const RuntimeRenderFramePolicy debugFramePolicy =
+            ProjectRenderFramePolicy( m_overlayDiagnostics->BuildFramePolicy( m_timers.SceneElapsedSeconds(),
+                                                                               m_timers.SimulationTotalSeconds() ) );
+        Renderer().UpdateDebugVisualizers( static_cast<float>( secondsPerFrame ), models, debugFramePolicy );
         // Fixed boundary: diagnostics advance once from completed frame-model
         // facts before Render or either optional UI surface can branch.
         m_timers.SampleFrame( { secondsPerFrame, models.sceneKineticEnergy } );
@@ -1308,7 +1310,7 @@ void Run::AfterPhysicsStep()
         if ( probeResult.enterInteractive )
         {
             m_sceneController.EnterInteractiveRun();
-            m_diagnosticsRuntime.Capture().DisableAutomationExit();
+            m_capture.DisableAutomationExit();
         }
     }
 #endif
@@ -1341,7 +1343,7 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
     }
 
     const std::string* scenePath = m_sceneController.CurrentPath();
-    const RuntimeCaptureResult result = m_diagnosticsRuntime.Capture()
+    const RuntimeCaptureResult result = m_capture
                                             .TickScreenshots( m_sceneController.State().isSceneMode,
                                                               m_sceneController.State().isInteractiveRun,
                                                               m_sceneController.State().currentFrame,
@@ -1424,7 +1426,7 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
 
             ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, m_sceneController.LifecyclePacket(),
                                                m_timers );
-            ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics,
+            ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_capture,
                                             m_overlaySceneLifecycleObserver, m_sceneController,
                                             m_inputSceneLifecycleObserver, m_inputRouter, m_interaction,
                                             m_cameraSceneLifecycleObserver, m_camera,
@@ -1449,7 +1451,7 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
     }
     case RuntimeCaptureAutomation::HoldInteractive:
         m_sceneController.MarkInteractiveRunComplete();
-        m_diagnosticsRuntime.Capture().DisableAutomationExit();
+        m_capture.DisableAutomationExit();
         m_camera.StopAutoCycle();
         break;
     case RuntimeCaptureAutomation::None:
@@ -1467,7 +1469,7 @@ void Run::TickAutoCycle( const SceneFrameProceedPolicy& proceedPolicy )
         return;
     }
 
-    const RuntimeCaptureResult result = m_diagnosticsRuntime.Capture()
+    const RuntimeCaptureResult result = m_capture
                                             .TickAutoCycle( m_sceneController.State().isSceneMode,
                                                             m_sceneController.State().isInteractiveRun,
                                                             m_sceneController.Scene().SceneEntityCount(),
@@ -1503,7 +1505,7 @@ void Run::TickAutoCycle( const SceneFrameProceedPolicy& proceedPolicy )
     else if ( result.automation == RuntimeCaptureAutomation::HoldInteractive )
     {
         m_sceneController.MarkInteractiveRunComplete();
-        m_diagnosticsRuntime.Capture().DisableAutomationExit();
+        m_capture.DisableAutomationExit();
         m_camera.StopAutoCycle();
     }
 }
@@ -1515,7 +1517,7 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
     const SceneFrameAdvanceResult
         result = m_sceneController.AdvanceFrame( automationGateStatus, proceedPolicy.proceedAllowed,
                                                  m_diagnosticsRuntime.PerfTestActive(),
-                                                 m_diagnosticsRuntime.Capture().Screenshot().isScreenshotSaved,
+                                                 m_capture.Screenshot().isScreenshotSaved,
                                                  RunCameraModeUsesManualControls( m_camera.mode,
                                                                                   m_attachedCamera.State().activeFollow,
                                                                                   m_camera.director.grabbed ),
@@ -1536,7 +1538,7 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
 
     if ( result.holdInteractive )
     {
-        m_diagnosticsRuntime.Capture().DisableAutomationExit();
+        m_capture.DisableAutomationExit();
         m_camera.StopAutoCycle();
     }
 
@@ -1555,7 +1557,7 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
         loadSucceeded = LoadSceneRequest( sceneLoad, result.loadRequest ).Ok();
 
         ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, m_sceneController.LifecyclePacket(), m_timers );
-        ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics,
+        ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_capture,
                                         m_overlaySceneLifecycleObserver, m_sceneController,
                                         m_inputSceneLifecycleObserver, m_inputRouter, m_interaction,
                                         m_cameraSceneLifecycleObserver, m_camera,

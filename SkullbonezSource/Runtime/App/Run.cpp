@@ -288,7 +288,7 @@ Run::Run( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Window& wi
     : m_resultDiagnostics( resultDiagnostics ), m_window( window ), m_workerPool( workerPool ), m_config( config ),
       m_profiler( profiler ), m_tracyClientOwner( tracyClientOwner ),
       m_sceneController( resultDiagnostics, std::move( sceneQueue ) ), m_applicationExit( resultDiagnostics ),
-      m_renderDefaults( resultDiagnostics ), m_diagnosticsRuntime( resultDiagnostics ), m_inputRouter( resultDiagnostics ),
+      m_renderDefaults( resultDiagnostics ), m_capture( resultDiagnostics ), m_inputRouter( resultDiagnostics ),
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
       m_interactionAutomation( resultDiagnostics ),
 #endif
@@ -297,7 +297,7 @@ Run::Run( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Window& wi
       m_imguiEditor( resultDiagnostics ),
 #endif
       m_operatorUi( CreateOperatorUiForStartup( profiler ) ),
-      m_overlayDiagnostics( RuntimeOverlayDiagnostics::CreateForStartup( profiler ) ),
+      m_overlayDiagnostics( RuntimeOverlayDiagnostics::CreateForStartup() ),
       m_validationHarness( RuntimeValidationHarness::CreateForStartup( resultDiagnostics ) ),
       m_backbufferCapture( backbufferCapture )
 {
@@ -331,7 +331,6 @@ Run::BindRenderBackend( Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx
                                                        RenderWorldView { m_assets, m_sceneController.Scene().Cameras(),
                                                                          m_sceneController.Scene().Terrain(), m_window,
                                                                          m_config, m_sceneController.Scene().Environment(),
-                                                                         m_overlayDiagnostics->RenderResources(),
                                                                          m_profiler },
                                                        m_sceneController.State()
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
@@ -492,7 +491,7 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
     {
         m_launchOptions.interactiveSceneRun = true;
         m_sceneController.EnterInteractiveRun();
-        m_diagnosticsRuntime.Capture().DisableAutomationExit();
+        m_capture.DisableAutomationExit();
         m_validationHarness->MarkLiveStyleReady();
     }
 
@@ -749,7 +748,7 @@ void Run::Initialise()
     m_lastSceneLoadResult = LoadSceneRequest( sceneLoad, SceneLoadRequest::Load( 0, false, false, false ) );
 
     ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, m_sceneController.LifecyclePacket(), m_timers );
-    ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics,
+    ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_capture,
                                     m_overlaySceneLifecycleObserver, m_sceneController,
                                     m_inputSceneLifecycleObserver, m_inputRouter, m_interaction,
                                     m_cameraSceneLifecycleObserver, m_camera,
@@ -931,7 +930,7 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
             LoadSceneRequest( sceneLoad, SceneLoadRequest::Load( i, false, false, false ) );
 
         ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, m_sceneController.LifecyclePacket(), m_timers );
-        ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics,
+        ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_capture,
                                         m_overlaySceneLifecycleObserver, m_sceneController,
                                         m_inputSceneLifecycleObserver, m_inputRouter, m_interaction,
                                         m_cameraSceneLifecycleObserver, m_camera,

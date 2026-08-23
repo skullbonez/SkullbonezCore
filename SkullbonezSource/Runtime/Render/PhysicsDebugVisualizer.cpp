@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.cpp
+File: SkullbonezSource/Runtime/Render/PhysicsDebugVisualizer.cpp
 Purpose:
   Draws physics contacts, axes, sleep state, and pipeline diagnostics.
 
@@ -24,7 +24,7 @@ Invariants:
     mutate the live-contact linger cache.
 
 Related:
-  - SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.h
+  - SkullbonezSource/Runtime/Render/PhysicsDebugVisualizer.h
   - SkullbonezSource/Physics/PhysicsDebugData.h
   - SkullbonezSource/Rendering/ContactManifoldPresentation.h
   - Agentic/Reference/physics-overview.md
@@ -50,6 +50,7 @@ using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Geometry;
+using namespace SkullbonezCore::Runtime;
 
 namespace
 {

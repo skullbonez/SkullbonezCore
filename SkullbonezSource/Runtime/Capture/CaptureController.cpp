@@ -28,6 +28,7 @@ Related:
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/FatalError.h"
 
+#include <Windows.h>
 #include <cstdio>
 #include <cstring>
 
@@ -63,6 +64,28 @@ void CaptureController::ResetScreenshot()
 void CaptureController::DisableAutomationExit()
 {
     m_screenshot.isScreenshotAndExit = false;
+}
+
+
+void CaptureController::ApplySceneAutomation( int screenshotFrame, int screenshotMs, bool screenshotAndExit,
+                                              const char* screenshotPath, int screenshotInterval,
+                                              const char* screenshotDirectory )
+{
+    m_screenshot.screenshotFrame = screenshotFrame;
+    m_screenshot.screenshotMs = screenshotMs;
+    m_screenshot.isScreenshotAndExit = screenshotAndExit;
+    m_screenshot.screenshotInterval = screenshotInterval;
+
+    if ( screenshotPath && screenshotPath[0] != '\0' )
+    {
+        strcpy_s( m_screenshot.screenshotPath, sizeof( m_screenshot.screenshotPath ), screenshotPath );
+    }
+
+    if ( screenshotDirectory && screenshotDirectory[0] != '\0' )
+    {
+        strcpy_s( m_screenshot.screenshotDir, sizeof( m_screenshot.screenshotDir ), screenshotDirectory );
+        CreateDirectoryA( m_screenshot.screenshotDir, nullptr );
+    }
 }
 
 

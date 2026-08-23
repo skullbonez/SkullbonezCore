@@ -64,10 +64,7 @@ class Profiler;
 } // namespace Core
 namespace Physics
 {
-class BroadphaseVisualizer;
-class CollisionVisualizer;
 class ColliderStore;
-class PhysicsDebugVisualizer;
 class PhysicsEngine;
 class PhysicsBodyStore;
 struct PhysicsDebugContact;
@@ -76,6 +73,9 @@ struct PhysicsPipelineRecord;
 
 namespace Runtime
 {
+class BroadphaseVisualizer;
+class CollisionVisualizer;
+class PhysicsDebugVisualizer;
 class SceneWorld;
 struct SkyPassTestAccess;
 struct UiTextPassTestAccess;
@@ -651,7 +651,7 @@ Concept: ReflectionPass
 class ReflectionPass
 {
   public:
-    ReflectionPass( ReflectionPassResources& resources, Physics::CollisionVisualizer& collisionVisualizer, SkyPass& skyPass,
+    ReflectionPass( ReflectionPassResources& resources, CollisionVisualizer& collisionVisualizer, SkyPass& skyPass,
                     const SkullbonezCore::Core::EngineConfig& config, Math::Transformation::Matrix4* dxrReflectionTransforms,
                     int dxrReflectionTransformCapacity, RenderResourceLifecycleLog& lifecycleLog,
                     SkullbonezCore::Core::Profiler* profiler )
@@ -668,7 +668,7 @@ class ReflectionPass
 
   private:
     ReflectionPassResources& m_resources;
-    Physics::CollisionVisualizer& m_collisionVisualizer;
+    CollisionVisualizer& m_collisionVisualizer;
     SkyPass& m_skyPass;
     const SkullbonezCore::Core::EngineConfig& m_config;
     Math::Transformation::Matrix4* m_dxrReflectionTransforms = nullptr;
@@ -687,7 +687,7 @@ Concept: ObjectPass
 class ObjectPass
 {
   public:
-    ObjectPass( Physics::CollisionVisualizer& collisionVisualizer, const SkullbonezCore::Core::EngineConfig& config,
+    ObjectPass( CollisionVisualizer& collisionVisualizer, const SkullbonezCore::Core::EngineConfig& config,
                 SkullbonezCore::Core::Profiler* profiler )
         : m_collisionVisualizer( collisionVisualizer ), m_config( config ), m_profiler( profiler )
     {
@@ -697,7 +697,7 @@ class ObjectPass
     void Render( const ObjectPassInputs& inputs );
 
   private:
-    Physics::CollisionVisualizer& m_collisionVisualizer;
+    CollisionVisualizer& m_collisionVisualizer;
     const SkullbonezCore::Core::EngineConfig& m_config;
     SkullbonezCore::Core::Profiler* m_profiler;      // Startup-bound diagnostics borrow; null when profiling is disabled.
 };
@@ -770,8 +770,8 @@ Concept: DebugOverlayPass
 class DebugOverlayPass
 {
   public:
-    DebugOverlayPass( Physics::BroadphaseVisualizer& broadphaseVisualizer,
-                      Physics::PhysicsDebugVisualizer& physicsDebugVisualizer, SceneTerrain& terrain,
+    DebugOverlayPass( BroadphaseVisualizer& broadphaseVisualizer,
+                      PhysicsDebugVisualizer& physicsDebugVisualizer, SceneTerrain& terrain,
                       Assets::AssetSystem& assets, SkullbonezCore::Core::Profiler* profiler )
         : m_broadphaseVisualizer( broadphaseVisualizer ), m_physicsDebugVisualizer( physicsDebugVisualizer ),
           m_terrain( terrain ), m_assets( assets ), m_profiler( profiler )
@@ -784,8 +784,8 @@ class DebugOverlayPass
   private:
     bool HasOverlayWork( const DebugOverlayPassInputs& inputs ) const;
 
-    Physics::BroadphaseVisualizer& m_broadphaseVisualizer;
-    Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;
+    BroadphaseVisualizer& m_broadphaseVisualizer;
+    PhysicsDebugVisualizer& m_physicsDebugVisualizer;
 
     // Lifetime: borrows the stable scene terrain owner and resolves its current
     // terrain after each scene load.

@@ -1,11 +1,11 @@
 /*
-File: SkullbonezSource/Runtime/Debug/CollisionVisualizer.h
+File: SkullbonezSource/Runtime/Render/CollisionVisualizer.h
 Purpose:
   Builds debug drawing for collision shapes and contact diagnostics.
 
 Summary:
-  CollisionVisualizer renders a read-only view of solver collision and sleep
-  state separately from production materials and physics decisions.
+  Render owns collision fade state, GPU resources, and submission while
+  Physics supplies only synchronous store and diagnostic views.
 
 Glossary:
   Sleep group: Connected set of bodies that can stop simulating together once
@@ -16,7 +16,7 @@ Invariants:
   are the validation contract.
 
 Related:
-  - SkullbonezSource/Runtime/Debug/CollisionVisualizer.cpp
+  - SkullbonezSource/Runtime/Render/CollisionVisualizer.cpp
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/engine-glossary.md
 */
@@ -60,11 +60,15 @@ namespace Physics
 {
 class ColliderStore;
 class PhysicsBodyStore;
+} // namespace Physics
+
+namespace Runtime
+{
 
 struct CollisionVisualizerFrameView
 {
-    const PhysicsBodyStore& bodies;
-    const ColliderStore& colliders;
+    const Physics::PhysicsBodyStore& bodies;
+    const Physics::ColliderStore& colliders;
     const Rendering::RenderInstanceStore& renderInstances;
     std::span<const uint8_t> collisionContacts;
     std::span<const uint8_t> sleepStates;
@@ -158,5 +162,5 @@ class CollisionVisualizer
                  const CollisionVisualizerFrameView& view, const Math::Transformation::Matrix4& cameraView,
                  const Math::Transformation::Matrix4& proj, const float lightPos[4] );
 };
-} // namespace Physics
+} // namespace Runtime
 } // namespace SkullbonezCore

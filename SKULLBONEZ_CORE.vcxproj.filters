@@ -146,9 +146,6 @@
     <Filter Include="Header Files\World">
       <UniqueIdentifier>{217A22AD-244D-2A7D-1436-502886F753B7}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\Runtime\Debug">
-      <UniqueIdentifier>{D8BF00CF-63EF-4D2F-99E3-FC1F178914B5}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Header Files\Runtime\Debug">
       <UniqueIdentifier>{31078CA6-457D-4C5C-8AB7-5EAC93A44543}</UniqueIdentifier>
     </Filter>
@@ -525,6 +522,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\App\SceneLoadApplication.cpp">
       <Filter>Source Files\Runtime\Lifecycle</Filter>
     </ClCompile>
+    <ClInclude Include="SkullbonezSource\Runtime\App\SceneCaptureApplication.h">
+      <Filter>Header Files\Runtime\Lifecycle</Filter>
+    </ClInclude>
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsController.cpp">
       <Filter>Source Files\Runtime\Diagnostics</Filter>
     </ClCompile>
@@ -636,6 +636,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.cpp">
       <Filter>Source Files\Runtime\Diagnostics</Filter>
     </ClCompile>
+    <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsKeyboardShortcuts.h">
+      <Filter>Header Files\Runtime\Diagnostics</Filter>
+    </ClInclude>
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\SceneMemoryDiagnostics.cpp">
       <Filter>Source Files\Runtime\Diagnostics</Filter>
     </ClCompile>
@@ -774,8 +777,8 @@
     <ClCompile Include="SkullbonezSource\Rendering\DX12\FramebufferDX12.cpp">
       <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Debug\BroadphaseVisualizer.cpp">
-      <Filter>Source Files\Runtime\Debug</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Render\BroadphaseVisualizer.cpp">
+      <Filter>Source Files\Runtime\Render</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Core\Allocation\RuntimeReserveAllocator.cpp">
       <Filter>Source Files\Core\Allocation</Filter>
@@ -804,11 +807,11 @@
     <ClCompile Include="SkullbonezSource\Runtime\Capture\CaptureSystem.cpp">
       <Filter>Source Files\Runtime\Capture</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Debug\CollisionVisualizer.cpp">
-      <Filter>Source Files\Runtime\Debug</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Render\CollisionVisualizer.cpp">
+      <Filter>Source Files\Runtime\Render</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Debug\PhysicsDebugVisualizer.cpp">
-      <Filter>Source Files\Runtime\Debug</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Render\PhysicsDebugVisualizer.cpp">
+      <Filter>Source Files\Runtime\Render</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Tools\LauncherLaser.cpp">
       <Filter>Source Files\Runtime\Tools</Filter>
@@ -1549,8 +1552,8 @@
     <ClInclude Include="SkullbonezSource\Rendering\DX12\FramebufferDX12.h">
       <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Debug\BroadphaseVisualizer.h">
-      <Filter>Header Files\Runtime\Debug</Filter>
+    <ClInclude Include="SkullbonezSource\Runtime\Render\BroadphaseVisualizer.h">
+      <Filter>Header Files\Runtime\Render</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Core\Allocation\RuntimeReserveAllocator.h">
       <Filter>Header Files\Core\Allocation</Filter>
@@ -1597,11 +1600,11 @@
     <ClInclude Include="SkullbonezSource\Runtime\Capture\CaptureSystem.h">
       <Filter>Header Files\Runtime\Capture</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Debug\CollisionVisualizer.h">
-      <Filter>Header Files\Runtime\Debug</Filter>
+    <ClInclude Include="SkullbonezSource\Runtime\Render\CollisionVisualizer.h">
+      <Filter>Header Files\Runtime\Render</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Debug\PhysicsDebugVisualizer.h">
-      <Filter>Header Files\Runtime\Debug</Filter>
+    <ClInclude Include="SkullbonezSource\Runtime\Render\PhysicsDebugVisualizer.h">
+      <Filter>Header Files\Runtime\Render</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Assets\EditorHullAssets.h">
       <Filter>Header Files\Assets</Filter>

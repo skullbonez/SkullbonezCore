@@ -51,7 +51,7 @@
 #include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
 #include "../SkullbonezSource/Physics/PhysicsSpatialCellKey.h"
 #include "../SkullbonezSource/Physics/SpatialGrid.h"
-#include "../SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.h"
+#include "../SkullbonezSource/Runtime/Render/BroadphaseVisualizer.h"
 
 #include <algorithm>
 #include <cstring>
@@ -700,8 +700,8 @@ TEST_CASE( "SpatialGrid: reported XOR aliases retain exact cell identity" )
     // Hazard: the retired XOR identity maps both reported coordinates to
     // 264,535,005. Exact packing and bucket identity must keep them separate.
     CHECK( EncodeExactSpatialCellKey( -5, -1, 5 ) != EncodeExactSpatialCellKey( -5, 1, -5 ) );
-    CHECK( SkullbonezCore::Physics::BroadphaseVisualizer::DiagnosticCellKey( -5, -1, 5 ) !=
-           SkullbonezCore::Physics::BroadphaseVisualizer::DiagnosticCellKey( -5, 1, -5 ) );
+    CHECK( SkullbonezCore::Runtime::BroadphaseVisualizer::DiagnosticCellKey( -5, -1, 5 ) !=
+           SkullbonezCore::Runtime::BroadphaseVisualizer::DiagnosticCellKey( -5, 1, -5 ) );
     grid.Insert( 0, positions[0], 0.1f );
     grid.Insert( 1, positions[1], 0.1f );
     const auto unfilteredPairs = CandidatePairs( grid, 1 );

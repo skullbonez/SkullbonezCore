@@ -1,13 +1,12 @@
 /*
-File: SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.h
+File: SkullbonezSource/Runtime/Render/PhysicsDebugVisualizer.h
 Purpose:
   Draws physics contacts, axes, sleep state, and pipeline diagnostics.
 
 Summary:
-  PhysicsDebugVisualizer converts copied solver records into presentation-only
-  line primitives and a short-lived contact cache. Detached contact-patch values
-  reuse the same glyph emitter without entering that cache; diagnostics never
-  feed back into physics.
+  Render converts copied solver records into line primitives and owns the
+  short-lived contact cache. Detached values never give Scene or Diagnostics
+  access to cached or GPU state.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -15,7 +14,7 @@ Invariants:
   - Detached contact packets are consumed synchronously and never retained.
 
 Related:
-  - SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.cpp
+  - SkullbonezSource/Runtime/Render/PhysicsDebugVisualizer.cpp
   - SkullbonezSource/Physics/PhysicsDebugData.h
   - SkullbonezSource/Rendering/ContactManifoldPresentation.h
   - Agentic/Reference/physics-overview.md
@@ -46,16 +45,20 @@ namespace Physics
 {
 class ColliderStore;
 class PhysicsBodyStore;
+} // namespace Physics
+
+namespace Runtime
+{
 
 struct PhysicsDebugFrameView
 {
-    const PhysicsBodyStore& bodies;
-    const ColliderStore& colliders;
+    const Physics::PhysicsBodyStore& bodies;
+    const Physics::ColliderStore& colliders;
     std::span<const uint8_t> sleepStates;
     std::span<const uint8_t> sleepSupportedStates;
     std::span<const uint8_t> sleepInhibitedStates;
-    std::span<const PhysicsDebugContact> debugContacts;
-    std::span<const PhysicsPipelineRecord> pipelineTrace;
+    std::span<const Physics::PhysicsDebugContact> debugContacts;
+    std::span<const Physics::PhysicsPipelineRecord> pipelineTrace;
     int modelCount = 0;
 };
 
@@ -66,18 +69,18 @@ class PhysicsDebugVisualizer
     {
         // Contact visuals linger briefly after the solver row disappears so a
         // human can actually see a one-frame impact. This is display-only state.
-        PhysicsDebugContact contact;
+        Physics::PhysicsDebugContact contact;
         float remainingSeconds = 0.0f;
         float lifetimeSeconds = 0.0f;
     };
 
-    uint32_t m_flags = PHYSICS_DEBUG_NONE;
+    uint32_t m_flags = Physics::PHYSICS_DEBUG_NONE;
     int m_pipelineStageCursor = 0;
     float m_contactLingerSeconds = 0.45f;
     std::vector<float> m_lineData;
     std::vector<TrackedContact> m_trackedContacts;
 
-    TrackedContact* FindTrackedContact( const PhysicsDebugContact& contact );
+    TrackedContact* FindTrackedContact( const Physics::PhysicsDebugContact& contact );
     float ContactFade( const TrackedContact& contact ) const;
     void EmitLine( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float bl );
     void EmitCross( const Math::Vector::Vector3& p, float size, float r, float g, float bl );
@@ -96,9 +99,9 @@ class PhysicsDebugVisualizer
 
     void SetFlags( uint32_t flags )
     {
-        m_flags = flags & PHYSICS_DEBUG_ALL;
+        m_flags = flags & Physics::PHYSICS_DEBUG_ALL;
 
-        if ( ( m_flags & PHYSICS_DEBUG_CONTACTS ) == 0 )
+        if ( ( m_flags & Physics::PHYSICS_DEBUG_CONTACTS ) == 0 )
         {
             m_trackedContacts.clear();
         }
@@ -109,7 +112,7 @@ class PhysicsDebugVisualizer
     }
     bool IsEnabled() const
     {
-        return m_flags != PHYSICS_DEBUG_NONE;
+        return m_flags != Physics::PHYSICS_DEBUG_NONE;
     }
     void SetContactLingerSeconds( float seconds );
     void SetPipelineStageCursor( int cursor );
@@ -126,5 +129,5 @@ class PhysicsDebugVisualizer
                                 const Math::Transformation::Matrix4& viewProj, Rendering::Dx12GeometryOwner& renderCommands,
                                 bool supportsDebugLines );
 };
-} // namespace Physics
+} // namespace Runtime
 } // namespace SkullbonezCore

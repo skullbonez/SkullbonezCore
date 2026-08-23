@@ -100,6 +100,58 @@ DemoCameraPose CaptureDemoDirectorPose( const SkullbonezCore::Environment::Camer
     pose.up = cameras.GetCameraUp();
     return pose;
 }
+
+DiagnosticsKeyboardCommand ProjectDiagnosticsKeyboardCommand( RuntimeInputAction action )
+{
+    switch ( action )
+    {
+    case RuntimeInputAction::ToggleWaterFreeze:
+        return DiagnosticsKeyboardCommand::ToggleWaterFreeze;
+    case RuntimeInputAction::CycleWaterReflection:
+        return DiagnosticsKeyboardCommand::CycleWaterReflection;
+    case RuntimeInputAction::ToggleWaterFlat:
+        return DiagnosticsKeyboardCommand::ToggleWaterFlat;
+    case RuntimeInputAction::ToggleTerrainHidden:
+        return DiagnosticsKeyboardCommand::ToggleTerrainHidden;
+    case RuntimeInputAction::ToggleWaterHidden:
+        return DiagnosticsKeyboardCommand::ToggleWaterHidden;
+    case RuntimeInputAction::ToggleCollisionVisualizer:
+        return DiagnosticsKeyboardCommand::ToggleCollisionVisualizer;
+    case RuntimeInputAction::CyclePhysicsDebugOverlay:
+        return DiagnosticsKeyboardCommand::CyclePhysicsDebugOverlay;
+    case RuntimeInputAction::ToggleTerrainContactProbe:
+        return DiagnosticsKeyboardCommand::ToggleTerrainContactProbe;
+    case RuntimeInputAction::StepPhysicsPipelinePrevious:
+        return DiagnosticsKeyboardCommand::StepPhysicsPipelinePrevious;
+    case RuntimeInputAction::StepPhysicsPipelineNext:
+        return DiagnosticsKeyboardCommand::StepPhysicsPipelineNext;
+    case RuntimeInputAction::TogglePhysicsDebugTransparent:
+        return DiagnosticsKeyboardCommand::TogglePhysicsDebugTransparent;
+    case RuntimeInputAction::ReportRendererRuntimeRetired:
+        return DiagnosticsKeyboardCommand::ReportRendererRuntimeRetired;
+    case RuntimeInputAction::ToggleBroadphaseOverlay:
+        return DiagnosticsKeyboardCommand::ToggleBroadphaseOverlay;
+    default:
+        SB_FATAL( "Runtime/InputFrameExecution", "Input action %u is not a diagnostics command.",
+                  static_cast<unsigned int>( action ) );
+    }
+}
+
+DiagnosticsUiKeyboardCommand ProjectDiagnosticsUiKeyboardCommand( RuntimeInputAction action )
+{
+    switch ( action )
+    {
+    case RuntimeInputAction::ToggleUIVisibility:
+        return DiagnosticsUiKeyboardCommand::ToggleVisibility;
+    case RuntimeInputAction::TogglePerformanceHistogram:
+        return DiagnosticsUiKeyboardCommand::TogglePerformanceHistogram;
+    case RuntimeInputAction::ToggleMemoryOverlay:
+        return DiagnosticsUiKeyboardCommand::ToggleMemoryOverlay;
+    default:
+        SB_FATAL( "Runtime/InputFrameExecution", "Input action %u is not a diagnostics UI command.",
+                  static_cast<unsigned int>( action ) );
+    }
+}
 } // namespace
 
 
@@ -197,7 +249,7 @@ void Run::BeginLookLabSave()
         return;
     }
 
-    CaptureController& capture = m_diagnosticsRuntime.Capture();
+    CaptureController& capture = m_capture;
     Core::SbResult queueResult = capture.QueuePostRenderPng( start.screenshotPath.data(), PostRenderCaptureOwner::LookLab,
                                                              start.captureToken );
 
@@ -220,7 +272,7 @@ void Run::CancelPendingLookLabSave( const char* reason )
     }
 
     const uint64_t token = m_lookLab.PendingSaveToken();
-    (void)m_diagnosticsRuntime.Capture().CancelPostRenderRequest( PostRenderCaptureOwner::LookLab, token );
+    (void)m_capture.CancelPostRenderRequest( PostRenderCaptureOwner::LookLab, token );
     const Core::SbResult result = m_lookLab.CancelPendingSave( m_resultDiagnostics, reason );
     PublishLookLabStatusView();
 
@@ -306,7 +358,6 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
     OverlayDebugState& debug = presentationEdit.State();
     ApplicationExitState& applicationExit = m_applicationExit;
     RenderDefaultsStore& renderDefaults = m_renderDefaults;
-    DiagnosticsRuntime& diagnosticsRuntime = m_diagnosticsRuntime;
     Assets::AssetSystem& assets = m_assets;
     Threading::WorkerPool& workerPool = m_workerPool;
     Window& window = m_window;
@@ -378,7 +429,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
     {
         sceneController.EnterInteractiveRun();
 
-        diagnosticsRuntime.Capture().DisableAutomationExit();
+        m_capture.DisableAutomationExit();
     };
 
     const auto runUIStressBatch = [&]()
@@ -400,7 +451,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
     const auto DrainCaptureRequests = [&]()
     {
-        CaptureController& capture = diagnosticsRuntime.Capture();
+        CaptureController& capture = m_capture;
 
         if ( capture.PendingScreenshotCount() == 0 )
         {
@@ -653,7 +704,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
         const bool loaded = LoadSceneRequest( sceneLoad, request ).Ok();
 
         ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, sceneController.LifecyclePacket(), timers );
-        ApplySceneLoadRuntimeReactions( sceneLoad, launchOptions, *m_overlayDiagnostics,
+        ApplySceneLoadRuntimeReactions( sceneLoad, launchOptions, *m_overlayDiagnostics, m_capture,
                                         m_overlaySceneLifecycleObserver, sceneController,
                                         m_inputSceneLifecycleObserver, inputRouter, interaction,
                                         m_cameraSceneLifecycleObserver, camera,
@@ -989,8 +1040,10 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
         case RuntimeInputAction::ReportRendererRuntimeRetired:
         case RuntimeInputAction::ToggleBroadphaseOverlay:
             HandleDiagnosticsKeyboardShortcut( debug, camera.trackBallRow.value, sceneController.Scene().SceneEntityCount(),
-                                               &renderer.RenderDiagnostics(), SceneState().isSceneMode,
-                                               timers.SceneElapsedSeconds(), event.action, true );
+                                               renderer.RenderDiagnostics().GetCapabilities().supportsDxrReflection,
+                                               SceneState().isSceneMode,
+                                               timers.SceneElapsedSeconds(),
+                                               ProjectDiagnosticsKeyboardCommand( event.action ), true );
 
             break;
         case RuntimeInputAction::ReloadShadersFromSource:
@@ -1094,8 +1147,8 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
             }
 
             const DiagnosticsUIKeyboardShortcutResult
-                shortcutResult = HandleDiagnosticsUIKeyboardShortcut( ui, debug, diagnosticsRuntime.Capture(),
-                                                                      timers.SimulationTotalSeconds(), event.action, true );
+                shortcutResult = HandleDiagnosticsUIKeyboardShortcut(
+                    ui, debug, timers.SimulationTotalSeconds(), ProjectDiagnosticsUiKeyboardCommand( event.action ), true );
 
             if ( shortcutResult.markInteractiveRun )
             {
@@ -1104,6 +1157,10 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
             if ( shortcutResult.disableExitOnComplete )
             {
                 SceneState().isExitOnComplete = false;
+            }
+            if ( shortcutResult.disableCaptureAutomationExit )
+            {
+                m_capture.DisableAutomationExit();
             }
 
             if ( shortcutResult.triggered )
@@ -1233,17 +1290,19 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
         }
 
         presentationEdit.Commit();
-        const bool quitRequested = inputRouter.DispatchAfterUiDismiss( inputActions,
-                                                                       uiFrameResult.commands.ui.userInteracted,
-                                                                       timers.SimulationTotalSeconds(), gameUiActive,
-                                                                       diagnosticsRuntime, camera, attachedCamera,
-                                                                       runtimeTools, ui, sceneController,
-                                                                       *m_overlayDiagnostics,
-                                                                       replayRuntime.BuildInputView() );
+        const InputAfterUiDismissResult dismissResult = inputRouter.DispatchAfterUiDismiss(
+            inputActions, uiFrameResult.commands.ui.userInteracted, timers.SimulationTotalSeconds(), gameUiActive,
+            camera, attachedCamera, runtimeTools, ui, sceneController, *m_overlayDiagnostics,
+            replayRuntime.BuildInputView() );
+
+        if ( dismissResult.disableCaptureAutomationExit )
+        {
+            m_capture.DisableAutomationExit();
+        }
 
         presentationEdit.Refresh();
 
-        if ( quitRequested )
+        if ( dismissResult.quitRequested )
         {
             PostQuitMessage( 0 );
         }
@@ -1312,7 +1371,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
                                                                                              restoreRequest.kind, restored );
 
 #ifdef _DEBUG
-        replayRuntime.PublishRestoreDiagnostic( transaction, diagnosticsRuntime, SceneState() );
+        replayRuntime.PublishRestoreDiagnostic( transaction, m_diagnosticsRuntime, SceneState() );
 #endif
         replayRuntime.ApplyRestoredBranchTimeline( transaction, restoreOutcome, sceneController, inputRouter, interaction,
                                                    camera,
@@ -1417,9 +1476,13 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
     }
     else
     {
-        inputRouter.DispatchCaptureActions( inputActions, diagnosticsRuntime, camera, attachedCamera, ui, sceneController,
-                                            m_overlayDiagnostics->PresentationSnapshot().GetSaveState(),
-                                            replayRuntime.BuildInputView() );
+        const InputCaptureActionResult captureActions = inputRouter.DispatchCaptureActions(
+            inputActions, camera, attachedCamera, ui, sceneController,
+            m_overlayDiagnostics->PresentationSnapshot().GetSaveState(), replayRuntime.BuildInputView() );
+        if ( captureActions.screenshotRequested )
+        {
+            HandleEditorScreenshotHotkey( m_capture, true );
+        }
 
         const RuntimeInteractionFramePolicy inputPolicy = interaction.BuildFramePolicy( inputSnapshot.frameInput );
         const bool mouseOwnsCursor = EvaluateRuntimePointerPresentation( inputRouter, runtimeTools.Editor(),
@@ -1468,7 +1531,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
     const bool processedScene = ExecutePendingSceneRequests( sceneLoad );
 
     ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, sceneController.LifecyclePacket(), timers );
-    ApplySceneLoadRuntimeReactions( sceneLoad, launchOptions, *m_overlayDiagnostics,
+    ApplySceneLoadRuntimeReactions( sceneLoad, launchOptions, *m_overlayDiagnostics, m_capture,
                                     m_overlaySceneLifecycleObserver, sceneController,
                                     m_inputSceneLifecycleObserver, inputRouter, interaction,
                                     m_cameraSceneLifecycleObserver, camera,

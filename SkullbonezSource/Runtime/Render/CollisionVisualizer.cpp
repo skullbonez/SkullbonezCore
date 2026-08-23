@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Debug/CollisionVisualizer.cpp
+File: SkullbonezSource/Runtime/Render/CollisionVisualizer.cpp
 Purpose:
   Builds debug drawing for collision shapes and contact diagnostics.
 
@@ -13,7 +13,7 @@ Invariants:
   are the validation contract.
 
 Related:
-  - SkullbonezSource/Runtime/Debug/CollisionVisualizer.h
+  - SkullbonezSource/Runtime/Render/CollisionVisualizer.h
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/engine-glossary.md
 */
@@ -53,6 +53,7 @@ Related:
 
 
 using namespace SkullbonezCore::Physics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;

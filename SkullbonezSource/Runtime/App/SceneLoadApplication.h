@@ -20,6 +20,7 @@ Related:
 */
 #pragma once
 
+#include "SceneCaptureApplication.h"
 #include "../Input/InputRouter.h"
 #include "../Diagnostics/RuntimeDiagnostics.h"
 #include "../Diagnostics/RuntimeFrameMetricsOwner.h"
@@ -130,7 +131,7 @@ constexpr bool SceneRenderActivationCompletesTransition( bool sceneMutationSucce
 }
 
 void ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction, const RunLaunchOptions& launchOptions,
-                                     RuntimeOverlayDiagnostics& overlays,
+                                     RuntimeOverlayDiagnostics& overlays, CaptureController& capture,
                                      SceneLifecycleGenerationObserver& overlayLifecycle, SceneController& sceneController,
                                      SceneLifecycleGenerationObserver& inputLifecycle, InputRouter& inputRouter,
                                      RuntimeInteractionController& interaction,

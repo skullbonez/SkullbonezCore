@@ -61,6 +61,7 @@ Related:
 
 #include "../SkullbonezSource/Runtime/Capture/CaptureController.h"
 #include "../SkullbonezSource/Runtime/Diagnostics/DiagnosticsPhysicsUI.h"
+#include "../SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.h"
 #include "../SkullbonezSource/Runtime/Diagnostics/OverlayDebugState.h"
 #include "../SkullbonezSource/Runtime/Render/RenderDefaultsStore.h"
 #include "../SkullbonezSource/Runtime/Diagnostics/RuntimeFrameMetricsOwner.h"
@@ -361,6 +362,24 @@ TEST_CASE( "Runtime applies Physics-tab diagnostics and publishes matching detac
     status = BuildDiagnosticsPhysicsUIStatus( debug );
     CHECK_FALSE( status.axes );
     CHECK( status.contacts );
+}
+
+TEST_CASE( "Diagnostics keyboard commands mutate presentation without Input ownership" )
+{
+    OverlayDebugState debug;
+    int trackedEntity = 0;
+
+    CHECK( HandleDiagnosticsKeyboardShortcut( debug, trackedEntity, 1, false, true, 3.0,
+                                              DiagnosticsKeyboardCommand::ToggleCollisionVisualizer, true ) );
+    CHECK( debug.isCollisionVisualizer );
+
+    CHECK( HandleDiagnosticsKeyboardShortcut( debug, trackedEntity, 1, false, false, 3.0,
+                                              DiagnosticsKeyboardCommand::ToggleBroadphaseOverlay, true ) );
+    CHECK( debug.isBroadphaseOverlay );
+
+    CHECK( HandleDiagnosticsKeyboardShortcut( debug, trackedEntity, 1, false, false, 3.0,
+                                              DiagnosticsKeyboardCommand::ToggleBroadphaseOverlay, false ) );
+    CHECK( debug.isBroadphaseOverlay );
 }
 
 TEST_CASE( "Scene lifecycle accepts only ordered phases within one generation" )
@@ -949,6 +968,38 @@ TEST_CASE( "CaptureController rejects truncating paths before enqueue" )
     const SkullbonezCore::Core::SbResult tooLong = capture.QueueScreenshot( oversized );
     CHECK_FALSE( tooLong.Ok() );
     CHECK( capture.PendingScreenshotCount() == 1 );
+}
+
+TEST_CASE( "App applies scene capture reactions in published order" )
+{
+    CaptureController capture( diagnostics );
+    SceneCaptureReactionBatch reactions;
+    reactions.reactions[reactions.count++].kind = SceneCaptureReactionKind::ResetScreenshot;
+
+    SceneCaptureReaction& apply = reactions.reactions[reactions.count++];
+    apply.kind = SceneCaptureReactionKind::ApplyAutomation;
+    apply.automation.screenshotFrame = 17;
+    apply.automation.screenshotMs = 250;
+    apply.automation.screenshotAndExit = true;
+    apply.automation.screenshotInterval = 3;
+    strcpy_s( apply.automation.screenshotPath, "captures/scene.bmp" );
+
+    reactions.reactions[reactions.count++].kind = SceneCaptureReactionKind::DisableAutomationExit;
+    ApplySceneCaptureReactions( capture, reactions );
+
+    const RunScreenshotState& screenshot = capture.Screenshot();
+    CHECK_EQ( screenshot.screenshotFrame, 17 );
+    CHECK_EQ( screenshot.screenshotMs, 250 );
+    CHECK_EQ( screenshot.screenshotInterval, 3 );
+    CHECK_EQ( std::strcmp( screenshot.screenshotPath, "captures/scene.bmp" ), 0 );
+    CHECK_FALSE( screenshot.isScreenshotAndExit );
+
+    SceneCaptureReactionBatch trailingReset;
+    trailingReset.reactions[trailingReset.count++] = apply;
+    trailingReset.reactions[trailingReset.count++].kind = SceneCaptureReactionKind::ResetScreenshot;
+    ApplySceneCaptureReactions( capture, trailingReset );
+    CHECK_EQ( capture.Screenshot().screenshotFrame, -1 );
+    CHECK_EQ( capture.Screenshot().screenshotPath[0], '\0' );
 }
 
 TEST_CASE( "CaptureController owns a fixed request budget" )

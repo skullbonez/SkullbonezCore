@@ -57,6 +57,7 @@ Related:
 #include "../Direction/LookLabController.h"
 #include "../Input/InputRouter.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
+#include "../Capture/CaptureController.h"
 #include "../Render/RenderDefaultsStore.h"
 #include "../Interaction/RuntimeInteractionController.h"
 #include "../Render/RuntimeRenderHost.h"
@@ -118,6 +119,7 @@ namespace Runtime
 class Window;
 struct RunRendererLifecycleTestAccess;
 class RuntimeOverlayDiagnostics;
+struct RuntimeOverlayFramePolicy;
 class RuntimeValidationHarness;
 struct DemoDirectorTickResult;
 struct InteractionAutomationFrameResult;
@@ -175,7 +177,8 @@ class Run
 
     // Subsystem owners below are ordered by lifetime dependency. Renderer and
     // frame bindings borrow from these objects; they do not own them.
-    DiagnosticsRuntime m_diagnosticsRuntime;                                                                      // Capture, perf, and queryable physics diagnostics owner.
+    CaptureController m_capture;                                                                                 // Capture-owned screenshot and automation state.
+    DiagnosticsRuntime m_diagnosticsRuntime;                                                                      // Perf, memory, and queryable physics diagnostics owner.
     RuntimeFrameMetricsOwner m_timers;                                                                            // Sole owner of frame/simulation timing and metric publication.
     RuntimeFrameMetricsLifecyclePolicy m_metricsSceneLifecyclePolicy;                                             // App maps Scene generations to timing reset/activation operations.
     SceneLifecycleGenerationObserver m_overlaySceneLifecycleObserver;                                             // App publishes detached Scene presentation once after each clear.
@@ -242,6 +245,8 @@ class Run
     {
         return m_backbufferCapture;
     }
+
+    static RuntimeRenderFramePolicy ProjectRenderFramePolicy( const RuntimeOverlayFramePolicy& overlay );
 
     bool PumpFrameMessages( int& messageExitCode );                                                               // Bounded Win32 drain; true ends the frame loop.
     double BeginFrameTurn();                                                                                      // Starts timing/profiling and validates renderer composition.

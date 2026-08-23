@@ -43,6 +43,9 @@ Related:
 #include "RuntimeRenderHost.h"
 #include "RuntimeRenderFrameValues.h"
 #include "RuntimeRenderPasses.h"
+#include "BroadphaseVisualizer.h"
+#include "CollisionVisualizer.h"
+#include "PhysicsDebugVisualizer.h"
 #include "RenderResourceLifecycle.h"
 #include "RenderPresentationSettings.h"
 #include "../../Rendering/RenderGraph.h"
@@ -117,6 +120,8 @@ class RuntimeRenderer
     // Runs after Core FrameBegin and before draw-call counters reset. This
     // reads completed GPU samples and publishes the preceding render counters.
     void BeginProfilerFrame();
+    void UpdateDebugVisualizers( float secondsPerFrame, const RuntimeRenderModelFrameView& models,
+                                 const RuntimeRenderFramePolicy& policy );
 
     const RenderPresentationSettings& PresentationSettings() const
     {
@@ -345,9 +350,9 @@ class RuntimeRenderer
     // state remains in its respective owner.
     RenderPresentationSettings m_presentationSettings;
     Environment::WorldEnvironment& m_world;                                                                                       // Fluid surface and gravity owner for pass contexts.
-    Physics::CollisionVisualizer& m_collisionVisualizer;
-    Physics::BroadphaseVisualizer& m_broadphaseVisualizer;
-    Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;
+    CollisionVisualizer m_collisionVisualizer;
+    BroadphaseVisualizer m_broadphaseVisualizer;
+    PhysicsDebugVisualizer m_physicsDebugVisualizer;
     SkullbonezCore::Core::Profiler* m_profiler = nullptr;                                                                         // Startup-bound diagnostics source; null in non-profile builds.
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     Rendering::Dx12ImGuiRendererOwner* m_developmentUiRenderer = nullptr;

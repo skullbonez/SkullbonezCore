@@ -231,9 +231,9 @@ PHYSICS_DEBUG_PREFIXES = (
     "PhysicsDebugVisualizer",
 )
 
-# Why: the visualizer filenames still describe physics overlays, but render
-# submission now lives under Runtime\Debug after the physics project split.
-RUNTIME_DEBUG_PREFIXES = (*PHYSICS_DEBUG_PREFIXES, "OverlayDebugState")
+# Why: OverlayDebugState remains a diagnostics presentation value; GPU-backed
+# visualizers are Render-owned and follow the render filter below.
+RUNTIME_DEBUG_PREFIXES = ("OverlayDebugState",)
 
 DX12_RENDERING_PREFIXES = (
     "BLASDX12",
@@ -322,6 +322,7 @@ RUNTIME_LIFECYCLE_PREFIXES = (
     "RunTimerState",
     "RuntimeFrameViews",
     "RuntimeOverlayDiagnostics",
+    "SceneCaptureApplication",
     "SceneLoadApplication",
     "SimulationSystem",
     "StartupLaunchApplication",
@@ -511,6 +512,7 @@ RUNTIME_REPLAY_PREFIXES = (
 )
 
 RUNTIME_RENDER_PREFIXES = (
+    *PHYSICS_DEBUG_PREFIXES,
     "RenderModelFramePublisher",
     "RenderResourceLifecycle",
     "RenderDefaultsStore",
@@ -549,6 +551,7 @@ RUNTIME_TOOLS_PREFIXES = (
 
 RUNTIME_DIAGNOSTICS_PREFIXES = (
     "DiagnosticsController",
+    "DiagnosticsKeyboardShortcuts",
     "DiagnosticsPhysicsUI",
     "DiagnosticsRuntime",
     "ImGuiEditorInputPolicy",

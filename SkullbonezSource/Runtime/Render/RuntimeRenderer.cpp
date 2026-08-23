@@ -36,10 +36,10 @@ Related:
 #include "../Camera/CameraControlState.h"
 #include "../RuntimeFrameViews.h"
 #include "../Diagnostics/RuntimeDiagnostics.h"
-#include "../Diagnostics/RuntimeOverlayDiagnostics.h"
+#include "BroadphaseVisualizer.h"
 #include "../Startup/Window.h"
 #include "../Tools/RuntimeTools.h"
-#include "../Debug/CollisionVisualizer.h"
+#include "CollisionVisualizer.h"
 #include "../Scene/SceneTerrain.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
@@ -50,6 +50,7 @@ Related:
 #include "../../Core/FatalError.h"
 #include "../../Core/Log.h"
 #include "../../Core/Profiler.h"
+#include "../../Physics/PhysicsEngine.h"
 #include "../../Rendering/PrimitiveBatchRenderer.h"
 #include "../../Rendering/DX12/Dx12Diagnostics.h"
 #include "../../Rendering/DX12/Dx12FrameOwner.h"
@@ -1827,10 +1828,7 @@ RuntimeRenderer::RuntimeRenderer( SkullbonezCore::Core::SbDiagnosticStore& resul
     : m_resultDiagnostics( resultDiagnostics ),
       m_resources( resultDiagnostics, renderDevice, renderFrame, renderGraph, renderResources, renderTextures,
                    renderGeometry, renderDiagnostics, raytracing, raytracingAvailable, world, scene ),
-      m_cameras( world.cameras ), m_window( world.window ), m_world( world.worldEnvironment ),
-      m_collisionVisualizer( world.overlayResources.m_collisionOverlay ),
-      m_broadphaseVisualizer( world.overlayResources.m_broadphaseOverlay ),
-      m_physicsDebugVisualizer( world.overlayResources.m_physicsDebugOverlay ), m_profiler( world.profiler ),
+      m_cameras( world.cameras ), m_window( world.window ), m_world( world.worldEnvironment ), m_profiler( world.profiler ),
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
       m_developmentUiRenderer( &developmentUiRenderer ),
 #endif
@@ -1870,6 +1868,57 @@ const char* RuntimeRenderer::RendererName() const
 void RuntimeRenderer::BeginProfilerFrame()
 {
     m_resources.GpuTiming().BeginFrame();
+}
+
+
+void RuntimeRenderer::UpdateDebugVisualizers( float secondsPerFrame, const RuntimeRenderModelFrameView& models,
+                                              const RuntimeRenderFramePolicy& policy )
+{
+    PROFILE_BEGIN( "Frame/PostPhysics" );
+
+    PROFILE_BEGIN( "Frame/PostPhysics/BroadphaseVisualizer" );
+    m_broadphaseVisualizer.SetEnabled( policy.broadphaseOverlay );
+    if ( policy.broadphaseOverlay )
+    {
+        m_broadphaseVisualizer.SetCellSize( Physics::PhysicsEngine::ReadBroadphaseCellSize( models.physicsEngine ) );
+        Physics::PhysicsBroadphaseActiveCell activeCells[Physics::PHYSICS_BROADPHASE_ACTIVE_CELL_CAPACITY];
+        const int activeCellCount = Physics::PhysicsEngine::ReadBroadphaseActiveCells( models.physicsEngine, activeCells );
+        m_broadphaseVisualizer.Update(
+            secondsPerFrame,
+            std::span<const Physics::PhysicsBroadphaseActiveCell>( activeCells,
+                                                                   static_cast<std::size_t>( activeCellCount ) ),
+            Physics::PhysicsEngine::ReadCollisionCellKeys( models.physicsEngine ) );
+    }
+    PROFILE_END( "Frame/PostPhysics/BroadphaseVisualizer" );
+
+    PROFILE_BEGIN( "Frame/PostPhysics/CollisionVisualizer" );
+    m_collisionVisualizer.SetEnabled( policy.collisionVisualizer );
+    m_collisionVisualizer.Update( secondsPerFrame,
+                                  CollisionVisualizerFrameView { models.bodyStore,
+                                                                 models.colliders,
+                                                                 models.renderInstances,
+                                                                 models.collisionVisualContacts,
+                                                                 models.sleepStates,
+                                                                 models.sleepIslandVisualIds,
+                                                                 models.modelCount } );
+    PROFILE_END( "Frame/PostPhysics/CollisionVisualizer" );
+
+    PROFILE_BEGIN( "Frame/PostPhysics/PhysicsDebugVisualizer" );
+    m_physicsDebugVisualizer.SetFlags( policy.physicsDebugFlags );
+    m_physicsDebugVisualizer.SetContactLingerSeconds( policy.physicsDebugContactLinger );
+    m_physicsDebugVisualizer.SetPipelineStageCursor( policy.physicsDebugPipelineStageCursor );
+    m_physicsDebugVisualizer.Update( secondsPerFrame,
+                                     PhysicsDebugFrameView { models.bodyStore,
+                                                             models.colliders,
+                                                             models.sleepStates,
+                                                             models.sleepSupportedStates,
+                                                             models.sleepInhibitedStates,
+                                                             models.physicsDebugContacts,
+                                                             models.physicsPipelineTrace,
+                                                             models.modelCount } );
+    PROFILE_END( "Frame/PostPhysics/PhysicsDebugVisualizer" );
+
+    PROFILE_END( "Frame/PostPhysics" );
 }
 
 

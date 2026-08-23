@@ -108,6 +108,17 @@ enum class WorldInteractionOwner;
 enum class InteractionExitReason;
 class ReplayRuntime;
 struct ReplayInputView;
+
+struct InputAfterUiDismissResult
+{
+    bool quitRequested = false;
+    bool disableCaptureAutomationExit = false;
+};
+
+struct InputCaptureActionResult
+{
+    bool screenshotRequested = false;
+};
 class RuntimeInteractionController;
 class RuntimeTools;
 class AttachedCameraController;
@@ -369,16 +380,17 @@ class InputRouter
                                AttachedCameraController& attachedCamera, CameraControlState& camera, UI::InGameUI& ui,
                                SceneController& sceneController, ReplayRuntime& replayRuntime,
                                RuntimeInputContext& runtimeInput );
-    bool DispatchAfterUiDismiss( InputActions& actions, bool uiUserInteracted, double nowSeconds, bool gameUiActive,
-                                 DiagnosticsRuntime& diagnosticsRuntime, CameraControlState& camera,
-                                 AttachedCameraController& attachedCamera, RuntimeTools& runtimeTools, UI::InGameUI& ui,
-                                 SceneController& sceneController, RuntimeOverlayDiagnostics& overlays,
-                                 const ReplayInputView& replayInput );
-    void DispatchCaptureActions( InputActions& actions, DiagnosticsRuntime& diagnosticsRuntime,
-                                 const CameraControlState& camera, const AttachedCameraController& attachedCamera,
-                                 const UI::InGameUI& ui, SceneController& sceneController,
-                                 const GameObjects::PresentationSaveState& presentation,
-                                 const ReplayInputView& replayInput );
+    InputAfterUiDismissResult DispatchAfterUiDismiss( InputActions& actions, bool uiUserInteracted, double nowSeconds,
+                                                      bool gameUiActive, CameraControlState& camera,
+                                                      AttachedCameraController& attachedCamera, RuntimeTools& runtimeTools,
+                                                      UI::InGameUI& ui, SceneController& sceneController,
+                                                      RuntimeOverlayDiagnostics& overlays,
+                                                      const ReplayInputView& replayInput );
+    InputCaptureActionResult DispatchCaptureActions( InputActions& actions, const CameraControlState& camera,
+                                                      const AttachedCameraController& attachedCamera,
+                                                      const UI::InGameUI& ui, SceneController& sceneController,
+                                                      const GameObjects::PresentationSaveState& presentation,
+                                                      const ReplayInputView& replayInput );
     void RecordModeAction( const CameraControlState& camera, const RuntimeTools& runtimeTools,
                            const RuntimeInteractionController& interaction, const AttachedCameraController& attachedCamera,
                            RuntimeInputContext& runtimeInput, RuntimeInputAction action, RuntimeInputActionSource source );

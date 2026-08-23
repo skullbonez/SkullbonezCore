@@ -77,7 +77,6 @@ namespace Runtime
 class Window;
 class LauncherLaser;
 class RuntimeInputContext;
-class RuntimeOverlayRenderResources;
 class SceneTerrain;
 enum class RunCameraMode;
 struct ReplayPresentationSample;
@@ -105,7 +104,6 @@ struct RenderWorldView
     Window& window;
     SkullbonezCore::Core::EngineConfig& config;
     Environment::WorldEnvironment& worldEnvironment;
-    RuntimeOverlayRenderResources& overlayResources;
     SkullbonezCore::Core::Profiler* profiler = nullptr;
 };
 

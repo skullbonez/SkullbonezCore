@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.cpp
+File: SkullbonezSource/Runtime/Render/BroadphaseVisualizer.cpp
 Purpose:
   Draws the physics broadphase grid as an explanatory debug overlay.
 
@@ -19,7 +19,7 @@ Invariants:
     instead of reallocating during a frame.
 
 Related:
-  - SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.h
+  - SkullbonezSource/Runtime/Render/BroadphaseVisualizer.h
   - Agentic/Reference/engine-glossary.md
 */
 
@@ -46,6 +46,7 @@ Related:
 
 
 using namespace SkullbonezCore::Physics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Rendering;
 using SkullbonezCore::Math::Transformation::Matrix4;
 

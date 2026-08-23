@@ -391,6 +391,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\RuntimeDiagnostics.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsPhysicsUI.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.cpp" />
+    <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsKeyboardShortcuts.h" />
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\SceneMemoryDiagnostics.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Tools\RuntimeFileWriter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\RuntimeInteractionController.cpp" />
@@ -416,6 +417,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\App\InputFrameExecution.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\RunUiStress.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\SceneLoadApplication.cpp" />
+    <ClInclude Include="SkullbonezSource\Runtime\App\SceneCaptureApplication.h" />
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorTools.cpp" />
     <ClCompile Include="SkullbonezSource\Core\LockOrderValidator.cpp" />
@@ -513,9 +515,9 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Rendering\DX12\BLASDX12.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\TLASDX12.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\SBTDX12.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Debug\BroadphaseVisualizer.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Debug\CollisionVisualizer.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Debug\PhysicsDebugVisualizer.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Render\BroadphaseVisualizer.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Render\CollisionVisualizer.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Render\PhysicsDebugVisualizer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SkullbonezSource\Gameplay\TornadoField.h" />
@@ -775,9 +777,9 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Rendering\DX12\TLASDX12.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\SBTDX12.h" />
     <ClInclude Include="ThirdPtySource\nlohmann\json.hpp" />
-    <ClInclude Include="SkullbonezSource\Runtime\Debug\BroadphaseVisualizer.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Debug\CollisionVisualizer.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Debug\PhysicsDebugVisualizer.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Render\BroadphaseVisualizer.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Render\CollisionVisualizer.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Render\PhysicsDebugVisualizer.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="SKULLBONEZ_UI.vcxproj">

@@ -895,7 +895,7 @@
       "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
     },
     {
-      "path": "SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.cpp",
+      "path": "SkullbonezSource/Runtime/Render/BroadphaseVisualizer.cpp",
       "patterns": [
         ".push_back(",
         ".reserve("
@@ -907,7 +907,7 @@
       "removal_or_wrapper_plan": "Replace staging vectors with fixed debug/tool buffers when those tools are converted to strict static storage."
     },
     {
-      "path": "SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.h",
+      "path": "SkullbonezSource/Runtime/Render/BroadphaseVisualizer.h",
       "patterns": [
         "std::vector<"
       ],
@@ -918,7 +918,7 @@
       "removal_or_wrapper_plan": "Replace staging vectors with fixed debug/tool buffers when those tools are converted to strict static storage."
     },
     {
-      "path": "SkullbonezSource/Runtime/Debug/CollisionVisualizer.cpp",
+      "path": "SkullbonezSource/Runtime/Render/CollisionVisualizer.cpp",
       "patterns": [
         ".assign(",
         ".insert(",
@@ -932,7 +932,7 @@
       "removal_or_wrapper_plan": "Replace staging vectors with fixed debug/tool buffers when those tools are converted to strict static storage."
     },
     {
-      "path": "SkullbonezSource/Runtime/Debug/CollisionVisualizer.h",
+      "path": "SkullbonezSource/Runtime/Render/CollisionVisualizer.h",
       "patterns": [
         "std::vector<"
       ],
@@ -943,7 +943,7 @@
       "removal_or_wrapper_plan": "Replace staging vectors with fixed debug/tool buffers when those tools are converted to strict static storage."
     },
     {
-      "path": "SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.cpp",
+      "path": "SkullbonezSource/Runtime/Render/PhysicsDebugVisualizer.cpp",
       "patterns": [
         ".insert(",
         ".push_back(",
@@ -956,7 +956,7 @@
       "removal_or_wrapper_plan": "Replace staging vectors with fixed debug/tool buffers when those tools are converted to strict static storage."
     },
     {
-      "path": "SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.h",
+      "path": "SkullbonezSource/Runtime/Render/PhysicsDebugVisualizer.h",
       "patterns": [
         "std::vector<"
       ],

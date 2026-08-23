@@ -1,12 +1,11 @@
 /*
 File: RuntimeOverlayDiagnostics.cpp
 Purpose:
-  Implements startup policy and per-frame refresh for debug presentation.
+  Implements startup and scene policy for debug presentation.
 
 Summary:
-  The owner translates startup options and committed physics stores into UI,
-  render-policy, and visualizer state. Run remains responsible for ordering;
-  the presentation domain owns its state transitions.
+  The owner translates startup and scene choices into an immutable frame
+  policy. App publishes that value to Render at the pre-render boundary.
 
 Glossary:
   Contact linger: Seconds that contact debug lines remain visible after their
@@ -14,9 +13,7 @@ Glossary:
 
 Invariants:
   - Construction is a single bounded startup allocation outside steady play.
-  - Visualizer refresh occurs after physics commits and before render samples.
-  - Visualizer refresh samples committed Physics-owned values without retaining
-    scene or store borrows.
+  - Presentation commits never mutate Render-owned caches or GPU resources.
 
 Related:
   - SkullbonezSource/Runtime/Diagnostics/RuntimeOverlayDiagnostics.h
@@ -26,31 +23,24 @@ Related:
 */
 #include "RuntimeOverlayDiagnostics.h"
 #include <algorithm>
-#include <span>
 
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../Startup/RunLaunchOptions.h"
-#include "../../Core/Profiler.h"
-#include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsApi.h"
-#include "../../Physics/PhysicsBodyStore.h"
-#include "../../Physics/PhysicsEngine.h"
-#include "../../Rendering/RenderInstanceStore.h"
 #include "../../UI/UI.h"
 
 using namespace SkullbonezCore::Runtime;
-using namespace SkullbonezCore::Physics;
 namespace SBUI = SkullbonezCore::UI;
 namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 
-std::unique_ptr<RuntimeOverlayDiagnostics> RuntimeOverlayDiagnostics::CreateForStartup( Core::Profiler* profiler )
+std::unique_ptr<RuntimeOverlayDiagnostics> RuntimeOverlayDiagnostics::CreateForStartup()
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Startup );
 
     // Runtime allocation policy: Run keeps this heavyweight cohesive owner out of its
     // public header. The one process-lifetime allocation is bounded to startup.
-    return std::make_unique<RuntimeOverlayDiagnostics>( profiler );
+    return std::make_unique<RuntimeOverlayDiagnostics>();
 }
 
 
@@ -106,7 +96,7 @@ void RuntimeOverlayDiagnostics::ApplyStartupPolicy( const RunStartupOverrides& o
     if ( launch.hasPhysicsDebugFlagsOverride )
     {
         launchOptions.hasPhysicsDebugFlagsOverride = true;
-        launchOptions.physicsDebugFlagsOverride = launch.physicsDebugFlagsOverride & PHYSICS_DEBUG_ALL;
+        launchOptions.physicsDebugFlagsOverride = launch.physicsDebugFlagsOverride & Physics::PHYSICS_DEBUG_ALL;
     }
 
     if ( launch.hasPhysicsDebugTransparentOverride )
@@ -128,62 +118,6 @@ void RuntimeOverlayDiagnostics::ApplyStartupPolicy( const RunStartupOverrides& o
                                                                       (std::min)( launch.physicsDebugContactLingerOverride,
                                                                                   5.0f ) );
     }
-}
-
-
-void RuntimeOverlayDiagnostics::UpdatePostPhysics( PhysicsEngine& physics, const PhysicsBodyStore& bodyStore,
-                                                   const ColliderStore& colliders,
-                                                   const Rendering::RenderInstanceStore& renderInstances,
-                                                   double secondsPerFrame )
-{
-    PROFILE_BEGIN( "Frame/PostPhysics" );
-
-    PROFILE_BEGIN( "Frame/PostPhysics/BroadphaseVisualizer" );
-
-    m_renderResources.m_broadphaseOverlay.SetEnabled( m_presentationState.isBroadphaseOverlay );
-    if ( m_presentationState.isBroadphaseOverlay )
-    {
-        m_renderResources.m_broadphaseOverlay.SetCellSize( PhysicsEngine::ReadBroadphaseCellSize( physics ) );
-        PhysicsBroadphaseActiveCell activeCells[PHYSICS_BROADPHASE_ACTIVE_CELL_CAPACITY];
-        const int activeCellCount = PhysicsEngine::ReadBroadphaseActiveCells( physics, activeCells );
-        const std::span<const PhysicsBroadphaseActiveCell> activeCellView( activeCells,
-                                                                           static_cast<std::size_t>( activeCellCount ) );
-        const std::span<const int64_t> collisionKeys = PhysicsEngine::ReadCollisionCellKeys( physics );
-        m_renderResources.m_broadphaseOverlay.Update( static_cast<float>( secondsPerFrame ), activeCellView, collisionKeys );
-    }
-
-    PROFILE_END( "Frame/PostPhysics/BroadphaseVisualizer" );
-
-    PROFILE_BEGIN( "Frame/PostPhysics/CollisionVisualizer" );
-    m_renderResources.m_collisionOverlay.SetEnabled( m_presentationState.isCollisionVisualizer );
-    const CollisionVisualizerFrameView collisionView { bodyStore,
-                                                       colliders,
-                                                       renderInstances,
-                                                       PhysicsEngine::ReadCollisionVisualContacts( physics ),
-                                                       PhysicsEngine::ReadSleepStates( physics ),
-                                                       PhysicsEngine::ReadSleepIslandVisualIds( physics ),
-                                                       bodyStore.Count() };
-
-    m_renderResources.m_collisionOverlay.Update( static_cast<float>( secondsPerFrame ), collisionView );
-    PROFILE_END( "Frame/PostPhysics/CollisionVisualizer" );
-
-    PROFILE_BEGIN( "Frame/PostPhysics/PhysicsDebugVisualizer" );
-    m_renderResources.m_physicsDebugOverlay.SetFlags( m_presentationState.physicsDebugFlags );
-    m_renderResources.m_physicsDebugOverlay.SetContactLingerSeconds( m_presentationState.physicsDebugContactLinger );
-    m_renderResources.m_physicsDebugOverlay.SetPipelineStageCursor( m_presentationState.physicsDebugPipelineStageCursor );
-    const PhysicsDebugFrameView physicsDebugView { bodyStore,
-                                                   colliders,
-                                                   PhysicsEngine::ReadSleepStates( physics ),
-                                                   PhysicsEngine::ReadSleepSupportedStates( physics ),
-                                                   PhysicsEngine::ReadSleepInhibitedStates( physics ),
-                                                   PhysicsEngine::ReadDebugContacts( physics ),
-                                                   PhysicsEngine::ReadPipelineTrace( physics ),
-                                                   bodyStore.Count() };
-
-    m_renderResources.m_physicsDebugOverlay.Update( static_cast<float>( secondsPerFrame ), physicsDebugView );
-    PROFILE_END( "Frame/PostPhysics/PhysicsDebugVisualizer" );
-
-    PROFILE_END( "Frame/PostPhysics" );
 }
 
 
@@ -261,19 +195,7 @@ RuntimeOverlayPresentationEdit RuntimeOverlayDiagnostics::EditPresentation()
 }
 
 
-RuntimeOverlayRenderResources& RuntimeOverlayDiagnostics::RenderResources()
-{
-    return m_renderResources;
-}
-
-
 void RuntimeOverlayDiagnostics::CommitPresentation( const OverlayDebugState& state )
 {
     m_presentationState = state;
-
-    // Invariant: cold scene/reset edits become visible before a no-physics
-    // scene's next render, rather than waiting for post-physics refresh.
-    m_renderResources.m_physicsDebugOverlay.SetFlags( state.physicsDebugFlags );
-    m_renderResources.m_physicsDebugOverlay.SetContactLingerSeconds( state.physicsDebugContactLinger );
-    m_renderResources.m_physicsDebugOverlay.SetPipelineStageCursor( state.physicsDebugPipelineStageCursor );
 }

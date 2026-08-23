@@ -54,6 +54,37 @@ namespace Runtime
 struct SceneLoadTransactionTestAccess;
 struct SceneLoadBeginResult;
 
+enum class SceneCaptureReactionKind : uint8_t
+{
+    DisableAutomationExit,
+    ResetScreenshot,
+    ApplyAutomation
+};
+
+struct SceneCaptureAutomationValues
+{
+    int screenshotFrame = -1;
+    int screenshotMs = -1;
+    bool screenshotAndExit = false;
+    char screenshotPath[256] = {};
+    int screenshotInterval = -1;
+    char screenshotDirectory[256] = {};
+};
+
+struct SceneCaptureReaction
+{
+    SceneCaptureReactionKind kind = SceneCaptureReactionKind::DisableAutomationExit;
+    SceneCaptureAutomationValues automation;
+};
+
+inline constexpr std::size_t SCENE_CAPTURE_REACTION_CAPACITY = 4;
+
+struct SceneCaptureReactionBatch
+{
+    std::array<SceneCaptureReaction, SCENE_CAPTURE_REACTION_CAPACITY> reactions = {};
+    std::size_t count = 0;
+};
+
 // Detached result of one cold scene-load batch. App consumes these values at
 // the runtime-reaction and presentation checkpoints; Scene retains no borrow
 // of the owners that apply them.
@@ -66,6 +97,7 @@ struct SceneLoadResult
     CameraControlState camera;
     SceneRenderPolicyState renderPolicy;
     SceneRenderActivationRequest renderActivation;
+    SceneCaptureReactionBatch captureReactions;
     std::array<SceneLoadCompletedWorldChange, 2> completedWorldChanges = {};
     std::size_t completedWorldChangeCount = 0;
     SceneRequestBatch completedRequests;
