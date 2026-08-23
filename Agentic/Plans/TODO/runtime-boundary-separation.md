@@ -1,7 +1,7 @@
 # Runtime Boundary Separation And Project Topology Plan
 
 Date: 2026-08-22
-Status: Active by owner direction. 4/8 phases complete; RBS4 ready.
+Status: Active by owner direction. 5/8 phases complete; RBS5 ready.
 Impact area: `SkullbonezSource/Runtime/`, Runtime-facing Rendering/UI seams,
 Visual Studio project topology, dependency enforcement, tests, and documentation
 Owner: Runtime architecture, with each moved value or behavior retained by its
@@ -844,20 +844,20 @@ publish identical facts across UI modes; the snapshot contains no owner borrow.
 
 **Goal:** Remove the complete UI capability surface from Run and RenderUiText.
 
-- [ ] Classify view projection, UI composition, command application, GPU
+- [x] Classify view projection, UI composition, command application, GPU
       submission, development UI, and process command application separately.
-- [ ] Give Runtime/UI a phase owner for
+- [x] Give Runtime/UI a phase owner for
       `snapshot -> compose -> submit -> emit commands -> complete`; retain values
       and cursor only, never subsystem pointers.
-- [ ] Have domain owners publish specific detached operator views.
-- [ ] Make GameUI and ImGui consume the same immutable facts where applicable.
-- [ ] Return typed commands for surface/editor/replay/Tracy/operator actions.
-- [ ] Keep Tracy startup, WorkerPool changes, application failure, and top-level
+- [x] Have domain owners publish specific detached operator views.
+- [x] Make GameUI and ImGui consume the same immutable facts where applicable.
+- [x] Return typed commands for surface/editor/replay/Tracy/operator actions.
+- [x] Keep Tracy startup, WorkerPool changes, application failure, and top-level
       surface choice in App after commands return.
-- [ ] Replace the seven-sibling RenderUiText surface with focused submission
+- [x] Replace the seven-sibling RenderUiText surface with focused submission
       values; callback ABI records remain renderer-local if required.
-- [ ] Answer all five ownership questions and correct false capability claims.
-- [ ] Return `Run::RenderOperatorUiPhase` to App once it only sequences/applies.
+- [x] Answer all five ownership questions and correct false capability claims.
+- [x] Return `Run::RenderOperatorUiPhase` to App once it only sequences/applies.
 
 **Acceptance:** No operation receives every UI capability slice; UI, Render, and
 App have separate owners; UI/Render cannot mutate process/domain owners; UI

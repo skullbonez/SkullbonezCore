@@ -2,7 +2,7 @@
 
 Date: 2026-08-23
 Branch: `nightrunner-22nd-AUG-26`
-Status: Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 98/118 tasks complete
+Status: Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 99/118 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -19,7 +19,7 @@ runnable bundle and the 6,800-frame 200-box comparison; only the repository-
 owner Physics golden approval remains before phase closure.
 FP5-FP9 complete the ragdoll joint and late speculative-contact path. Runtime
 Boundary Separation And Project Topology
-RBS0-RBS7 remains active behind it; RBS0-RBS3 are complete and RBS4 is ready.
+RBS0-RBS7 remains active behind it; RBS0-RBS4 are complete and RBS5 is ready.
 The ordinary gate now admits only exact current repair identities, strict mode
 fails the live 19-package SCC and all 276 forbidden sites, and all nine tracked
 Visual Studio projects belong to the closed topology policy. The plan owns Runtime/App composition-root closure, package-cycle removal,
@@ -475,10 +475,9 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 ## Next Work
 
 Continue `RAGDOLL_PHYSICS` FP2 after the repository owner approves the exact
-Physics golden transition. Other slots may resume `RUNTIME_BOUNDARIES` RBS4
+Physics golden transition. Other slots may resume `RUNTIME_BOUNDARIES` RBS5
 when their current canonical subsystem, path-owner, worktree, and mutable
-resource leases are disjoint. UI3
-waits for RBS4. FP2 retains motion policy version 2: `0.1` metres
+resource leases are disjoint. UI3 is ready after RBS4. FP2 retains motion policy version 2: `0.1` metres
 of absolute per-tick travel promotes and `0.075` metres demotes, independent of
 collider thickness.
 

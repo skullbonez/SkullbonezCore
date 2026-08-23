@@ -286,7 +286,7 @@ Completed plan files were deleted; git history is the archive.
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
 | Deterministic Collision Modes And Ragdoll Unification | `RAGDOLL_PHYSICS` | 10 | 2 | `TODO/ragdoll-physics-unification.md` |
-| Runtime Boundary Separation And Project Topology | `RUNTIME_BOUNDARIES` | 8 | 4 | `TODO/runtime-boundary-separation.md` |
+| Runtime Boundary Separation And Project Topology | `RUNTIME_BOUNDARIES` | 8 | 5 | `TODO/runtime-boundary-separation.md` |
 | Game UI Component Library Separation | `GAME_UI_COMPONENTS` | 7 | 3 | `TODO/game-ui-component-library-separation.md` |
 | Recorded Interaction Playback Cursor | `RECORDED_CURSOR` | 4 | 0 | `TODO/recorded-interaction-playback-cursor.md` |
 
@@ -362,7 +362,7 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-98/118 tasks complete with Deterministic Collision Modes And Ragdoll Unification
+99/118 tasks complete with Deterministic Collision Modes And Ragdoll Unification
 first, Runtime Boundary Separation And Project Topology second, Game UI Component
 Library Separation third, and Recorded Interaction Playback Cursor fourth.
 Causal C0-C8, Determinism T0-T8,
@@ -377,13 +377,14 @@ Real-Time Physics Pacing SP0-SP2 is complete.
 Deterministic Collision Modes And Ragdoll Unification FP0-FP9 is active at 2/10;
 FP0-FP1 are complete and FP2 is active under the owner-directed absolute-travel
 threshold.
-Runtime Boundary Separation And Project Topology RBS0-RBS7 is active at 4/8;
-RBS0-RBS3 are complete: exact Runtime repair identities, strict SCC/direction
+Runtime Boundary Separation And Project Topology RBS0-RBS7 is active at 5/8;
+RBS0-RBS4 are complete: exact Runtime repair identities, strict SCC/direction
 failure, a closed nine-project topology, Startup-owned launch/window values,
 bounded App-applied native events, and one immutable frame-metrics snapshot are
-executable; RBS4 is ready.
+executable; operator projection, commands, and GPU submission are separated;
+RBS5 is ready.
 Game UI Component Library Separation UI0-UI6 is active at 3/7; UI0-UI2 are
-complete and UI3 awaits RBS4;
+complete and UI3 is ready after RBS4;
 UI3/UI4/UI5/UI6 consume RBS4/RBS5/RBS6/RBS7 respectively and no UI phase has a
 Physics predecessor.
 Recorded Interaction Playback Cursor RIC0-RIC3 is active at 0/4 and binding
