@@ -18,6 +18,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "GraphicsStressApplication.h"
+#include "../Capture/GraphicsStressController.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "../Automation/RuntimeValidationHarness.h"
 #include "../Scene/AttachedCameraController.h"

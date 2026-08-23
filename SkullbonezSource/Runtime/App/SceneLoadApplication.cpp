@@ -24,6 +24,7 @@ Related:
 #include "ReplayRuntime.h"
 #include "Run.h"
 #include "../Automation/RuntimeValidationHarness.h"
+#include "../Capture/GraphicsStressController.h"
 #include "../Scene/AttachedCameraController.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "../Diagnostics/OverlayDebugState.h"
@@ -525,7 +526,9 @@ void ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction, const Ru
 
 
 void ApplySceneLoadPresentation( SceneLoadTransaction& transaction, Window& window, UI::InGameUI& operatorUi,
-                                 RuntimeValidationHarness& validationHarness, const RunLaunchOptions& launchOptions,
+                                 RuntimeValidationHarness& validationHarness, GraphicsStressController& graphicsStress,
+                                 SceneLifecycleGenerationObserver& graphicsStressSceneObserver,
+                                 const RunLaunchOptions& launchOptions,
                                  Rendering::Dx12RenderDevice* renderDevice, bool rendererVsyncEnabled,
                                  SceneController& sceneController )
 {
@@ -552,7 +555,14 @@ void ApplySceneLoadPresentation( SceneLoadTransaction& transaction, Window& wind
     }
 
     ApplySceneUiActivation( operatorUi, outputs.uiActivation );
-    validationHarness.ObserveSceneLifecycle( lifecycle, launchOptions );
+    // Invariant: a reload may be sampled more than once, but the Capture-owned
+    // random stream and cadence resume exactly once after population commits.
+    if ( launchOptions.graphicsStress &&
+         graphicsStressSceneObserver.ShouldApply( lifecycle, SceneRuntimeLifecycleEvent::AfterScenePopulate ) )
+    {
+        graphicsStress.ResumeAfterSceneLoad( launchOptions.graphicsStressSeed, launchOptions.graphicsStressActions,
+                                              launchOptions.graphicsStressSceneIntervalFrames );
+    }
     transaction.CompletePresentation();
 }
 } // namespace Runtime

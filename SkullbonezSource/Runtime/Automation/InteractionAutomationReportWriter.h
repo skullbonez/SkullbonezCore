@@ -5,11 +5,11 @@ Purpose:
 
 Summary:
   Bounded Automation-only evidence, reveal scheduling, archive freezing, and
-  CPU-only replay projection live here instead of on the sequencer. Runtime
-  owners are borrowed only for synchronous verification and serialization.
-  The controller sequences runtime actions and publishes typed reveal intent.
-  This owner decides when capture starts, records each presented packet, freezes
-  the archive, verifies it without presenting again, and serializes the result.
+  CPU-only replay projection live here instead of on the sequencer. App composes
+  lower-owner facts for synchronous verification and serialization. The
+  controller sequences runtime actions and publishes typed reveal intent. This
+  owner decides when capture starts, records each presented packet, freezes the
+  archive, verifies it without presenting again, and serializes the result.
 
 Glossary:
   Evidence row: Machine-readable action, assertion, causal, or visual fact
@@ -27,7 +27,7 @@ Invariants:
   - Report failure is recoverable error and must not overwrite an earlier probe failure.
 
 Related:
-  - SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp
+  - SkullbonezSource/Runtime/App/InteractionAutomationReportApplication.cpp
   - tools/validate_replay_visual_fidelity.bat
   - Agentic/Reference/engine-glossary.md
 */
@@ -37,14 +37,12 @@ Related:
 #include "../../Core/SbResult.h"
 #include "../../Maths/Vector3.h"
 #include "../Camera/RuntimeCameraMode.h"
-#include "../Interaction/RuntimeInteractionController.h"
 
 
 #include "../Prediction/ReplayPredictionPackets.h"
 #include "../Replay/ReplayTimelinePackets.h"
 #include "../Replay/ReplayVisualPacket.h"
 #include "../Replay/ReplayVisualPacketFingerprint.h"
-#include "../Tools/RuntimeTools.h"
 
 #include <cstdint>
 #include <string>
@@ -196,7 +194,7 @@ class InteractionAutomationReportWriter
 {
   public:
     explicit InteractionAutomationReportWriter( Core::SbDiagnosticStore& resultDiagnostics )
-        : m_resultDiagnostics( resultDiagnostics ), m_replayVisualPredictionDrawList( resultDiagnostics )
+        : m_resultDiagnostics( resultDiagnostics )
     {
     }
 
@@ -249,8 +247,8 @@ class InteractionAutomationReportWriter
     static bool LiveSolverHashStableAcrossPrediction( const ReplayAutomationView& replay, uint64_t* outSourceHash = nullptr,
                                                       uint64_t* outLiveHash = nullptr );
     static const char* CameraModeName( RunCameraMode mode );
-    static const char* WorkspaceName( RuntimeWorkspace workspace );
-    static const char* OwnerName( WorldInteractionOwner owner );
+    static const char* WorkspaceName( int workspace );
+    static const char* OwnerName( int owner );
     static const char* ReplayTrackName( RunReplayTrack track );
     static const char* ReplayPredictionBuildModeName( ReplayPredictionBuildMode mode );
     static ReplayVisualArchiveSample BuildReplayVisualArchiveSample( const ReplayVisualFidelityReportTick& tick,
@@ -286,16 +284,6 @@ class InteractionAutomationReportWriter
     std::vector<ReplayVisualTrajectoryDigestState> m_replayVisualTrajectoryDigests;
     std::vector<uint8_t> m_replayVisualPredictionArchive;
 
-    // Lifetime: the offline verifier owns the same retained CPU command-list
-    // shape as ReplayRuntime. Keeping its large fixed reserves on this
-    // startup-allocated Automation owner avoids function-stack construction.
-    EditorTracer m_replayVisualPredictionDrawList;
-    ReplayVisualPacket m_replayVisualPredictionDrawPacket;
-    Math::Vector::Vector3 m_replayVisualPredictionDrawCameraEye = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 m_replayVisualPredictionDrawCameraUp = Math::Vector::ZERO_VECTOR;
-    uint64_t m_replayVisualPredictionDrawStreamId = 1;
-    uint64_t m_replayVisualPredictionDrawRevision = 0;
-    bool m_replayVisualPredictionDrawCameraValid = false;
     int m_replayVisualFidelityStartFrame = -1;
     bool m_replayVisualFidelityCaptureEnabled = false;
     bool m_replayVisualFidelityCaptureComplete = false;

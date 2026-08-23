@@ -366,6 +366,9 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
     SimulationSystem& simulation = m_simulation;
     SkullbonezCore::UI::InGameUI& ui = *m_operatorUi;
     RuntimeValidationHarness& validationHarness = *m_validationHarness;
+    GraphicsStressController& graphicsStress = m_graphicsStress;
+    LiveStyleController& liveStyleController = m_liveStyle;
+    SceneLifecycleGenerationObserver& graphicsStressSceneObserver = m_graphicsStressSceneObserver;
     RuntimeTools& runtimeTools = m_runtimeTools;
     EditorToolsOwner& editorTools = m_editorTools;
     RuntimeRenderer& renderer = Renderer();
@@ -403,12 +406,12 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
         AuthoredScene liveStyle;
 
-        if ( validationHarness.PollLiveStyle( assets, liveStyle ) )
+        if ( liveStyleController.Poll( m_resultDiagnostics, assets, liveStyle ) )
         {
             sceneController.ApplyLiveStyle( launchOptions, ui.SceneNavigation().browser,
                                             ActiveSceneCinematicConfig( sceneController.State(), config ),
                                             renderDefaults.CinematicBaseline(), liveStyle );
-            validationHarness.MarkLiveStyleApplied();
+            liveStyleController.MarkStyleApplied();
         }
 
         return FrameInputPhaseResult { proceedPolicy, gameUiActive };
@@ -713,7 +716,8 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
                                         m_attachedCameraSceneLifecycleObserver, attachedCamera, editorTools, runtimeTools,
                                         replayRuntime );
 
-        ApplySceneLoadPresentation( sceneLoad, window, ui, validationHarness, launchOptions, &renderer.RenderDevice(),
+        ApplySceneLoadPresentation( sceneLoad, window, ui, validationHarness, graphicsStress,
+                                    graphicsStressSceneObserver, launchOptions, &renderer.RenderDevice(),
                                     renderer.VsyncEnabled(), sceneController );
 
         presentationEdit.Refresh();
@@ -1555,7 +1559,8 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
                                     m_attachedCameraSceneLifecycleObserver, attachedCamera, editorTools, runtimeTools,
                                     replayRuntime );
 
-    ApplySceneLoadPresentation( sceneLoad, window, ui, validationHarness, launchOptions, &renderer.RenderDevice(),
+    ApplySceneLoadPresentation( sceneLoad, window, ui, validationHarness, graphicsStress,
+                                graphicsStressSceneObserver, launchOptions, &renderer.RenderDevice(),
                                 renderer.VsyncEnabled(), sceneController );
 
     presentationEdit.Refresh();

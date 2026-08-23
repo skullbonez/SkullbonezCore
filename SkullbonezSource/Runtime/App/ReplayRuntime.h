@@ -262,9 +262,10 @@ class ReplayProbeRunner
     SkullbonezCore::Core::SbResult CurrentFailure() const;
     void RecordFailure( const SkullbonezCore::Core::SbResult& result );
     SkullbonezCore::Core::SbResult VerifyLoadedPresentation( ReplayTimeline& timeline, ReplayScrubber& scrubber,
-                                                             ReplayPresentation& presentation, ReplayAuthoring& authoring,
-                                                             ReplayPrediction& prediction,
-                                                             const ReplayStartupLoadInput& loadInput, SceneWorld& world,
+                                                              ReplayPresentation& presentation, ReplayAuthoring& authoring,
+                                                              ReplayPrediction& prediction,
+                                                              ReplayPredictionPresentation& predictionPresentation,
+                                                              const ReplayStartupLoadInput& loadInput, SceneWorld& world,
                                                              EditorToolsOwner& editorTools, RuntimeTools& runtimeTools,
                                                              float normalized );
     SkullbonezCore::Core::SbResult PrepareCheckpointFileProbe( const char* path, ReplaySolverFrameSample& outCheckpoint,

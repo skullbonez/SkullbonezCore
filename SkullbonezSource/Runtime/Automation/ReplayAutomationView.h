@@ -19,6 +19,7 @@ Related:
 */
 #pragma once
 
+#include "ReplayAutomationPackets.h"
 #include "../Planning/ReplayPlanningRuntime.h"
 #include "../Prediction/ReplayPrediction.h"
 #include "../Replay/ReplayCoordination.h"

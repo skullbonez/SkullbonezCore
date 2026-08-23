@@ -438,13 +438,13 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorObjectPlacement.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\RunFrame.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Direction\DemoDirectorPlayback.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Automation\InteractionAutomationController.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\App\InteractionAutomationApplication.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'!='Automation|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Automation\InteractionAutomationInputDriver.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'!='Automation|x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Automation\InteractionAutomationReportWriter.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\App\InteractionAutomationReportApplication.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'!='Automation|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Automation\InteractionAutomationRecorder.cpp" />
@@ -597,10 +597,12 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Rendering\PrimitiveMeshBuilder.h" />
     <ClInclude Include="SkullbonezSource\Core\Config.h" />
     <ClInclude Include="SkullbonezSource\Runtime\App\Run.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\App\InteractionAutomationApplication.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Camera\CameraControlState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Direction\DemoDirectorPlayback.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\OverlayDebugState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionAutomationController.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Automation\ReplayAutomationPackets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionAutomationInputDriver.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionAutomationReportWriter.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionAutomationRecorder.h" />

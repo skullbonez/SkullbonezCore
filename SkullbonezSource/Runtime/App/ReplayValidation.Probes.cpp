@@ -1151,8 +1151,9 @@ void ReplayProbeRunner::RecordFailure( const SkullbonezCore::Core::SbResult& res
 
 SkullbonezCore::Core::SbResult ReplayProbeRunner::VerifyLoadedPresentation(
     ReplayTimeline& timeline, ReplayScrubber& scrubber, ReplayPresentation& presentation, ReplayAuthoring& authoring,
-    ReplayPrediction& prediction, const ReplayStartupLoadInput& loadInput, SceneWorld& world, EditorToolsOwner& editorTools,
-    RuntimeTools& runtimeTools, float normalized )
+    ReplayPrediction& prediction, ReplayPredictionPresentation& predictionPresentation,
+    const ReplayStartupLoadInput& loadInput, SceneWorld& world, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools,
+    float normalized )
 {
     if ( prediction.GenerationPermitted() )
     {
@@ -1213,7 +1214,7 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::VerifyLoadedPresentation(
         // forbids BeginReplayPredictionJob even if a later edit regresses that bit.
         EditorTracer& tracer = runtimeTools.Tracer();
         presentation.ApplyArchivePathState( archivePath );
-        m_predictionPresentation.ResetTrajectoryVisualStats();
+        predictionPresentation.ResetTrajectoryVisualStats();
         prediction.ResetVerificationMarkers();
 
         // The archive retains the final marker prefix exactly. This optional
@@ -1226,7 +1227,7 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::VerifyLoadedPresentation(
         {
             prediction.SetVerificationRevealFrame( expected.revealFrame );
             tracer.Clear();
-            PrepareReplayProbePredictionPresentation( timeline, scrubber, presentation, prediction, m_predictionPresentation,
+            PrepareReplayProbePredictionPresentation( timeline, scrubber, presentation, prediction, predictionPresentation,
                                                       world.Physics(), world.Entities() );
 
             // Invariant: this cold probe runs production overlay and
@@ -1237,13 +1238,13 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::VerifyLoadedPresentation(
 
             const ReplaySolverFrameSample* presentSolver = currentSolver ? currentSolver : timeline.Solver().LatestSample();
 
-            m_predictionPresentation.RenderPathVisualizer( predictionView, presentation.PathVisualizer(), presentSolver,
-                                                           world.Physics(), world.Entities(), tracer );
+            predictionPresentation.RenderPathVisualizer( predictionView, presentation.PathVisualizer(), presentSolver,
+                                                         world.Physics(), world.Entities(), tracer );
 
-            m_predictionPresentation.RenderCauseFocusOverlay( presentation.CameraView(), authoring.CauseTree(),
-                                                              predictionView, currentSolver, world.BodyStore(),
-                                                              PhysicsEngine::ReadColliders( world.Physics() ),
-                                                              world.Entities(), tracer );
+            predictionPresentation.RenderCauseFocusOverlay( presentation.CameraView(), authoring.CauseTree(), predictionView,
+                                                            currentSolver, world.BodyStore(),
+                                                            PhysicsEngine::ReadColliders( world.Physics() ), world.Entities(),
+                                                            tracer );
 
             const RunReplayPathVisualizerState& path = presentation.PathVisualizer();
             ReplayVelocityOverlayCommand velocityOverlay;
@@ -1259,15 +1260,15 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::VerifyLoadedPresentation(
                                                velocityOverlay.activeAngular );
             }
 
-            (void)m_predictionPresentation.BuildGhostDrawRequests( predictionView, world.RenderPresentationRecords(),
-                                                                   world.BodyStore() );
+            (void)predictionPresentation.BuildGhostDrawRequests( predictionView, world.RenderPresentationRecords(),
+                                                                world.BodyStore() );
 
             ReplayVisualPacket packet = tracer.BuildReplayVisualPacket( expected.cameraEye, expected.cameraUp );
-            m_predictionPresentation.PublishVisualPacket( packet, predictionView, presentation.PathVisualizer().targetId,
-                                                          timeline.Solver().LatestSample(),
-                                                          expected.replayReserveGrowthEvents );
+            predictionPresentation.PublishVisualPacket( packet, predictionView, presentation.PathVisualizer().targetId,
+                                                        timeline.Solver().LatestSample(),
+                                                        expected.replayReserveGrowthEvents );
 
-            ReplayVisualPacket projected = m_predictionPresentation.PublishedVisualPacketView();
+            ReplayVisualPacket projected = predictionPresentation.PublishedVisualPacketView();
             projected.header.topologyVersion = topologyVersions.Observe( projected.header.topologyVersion );
             const ReplayVisualPacketFingerprint fingerprint = BuildReplayVisualPacketFingerprint( projected,
                                                                                                   trajectoryDigests );
@@ -1823,7 +1824,8 @@ ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows(
         }
 
         if ( !acceptProbe( m_probeRunner.VerifyLoadedPresentation( m_timeline, m_scrubberOwner, m_visualPresentation,
-                                                                   m_authoring, m_predictionOwner, loadInput, world,
+                                                                   m_authoring, m_predictionOwner, m_predictionPresentation,
+                                                                   loadInput, world,
                                                                    editorTools, runtimeTools, 0.25f ) ) )
         {
             return result;

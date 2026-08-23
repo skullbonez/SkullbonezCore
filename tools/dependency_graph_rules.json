@@ -294,6 +294,8 @@
         "allowed_exact_target_files": [
           "Runtime/Automation/InteractionAutomationController.h",
           "Runtime/Automation/InteractionAutomationRecorder.h",
+          "Runtime/Automation/InteractionAutomationReportWriter.h",
+          "Runtime/Automation/ReplayAutomationPackets.h",
           "Runtime/Automation/InteractionRecordingBrowser.h",
           "Runtime/Automation/ReplayAutomationView.h",
           "Runtime/Automation/RuntimeValidationHarness.h",
@@ -303,6 +305,7 @@
           "Runtime/Camera/RuntimeCameraMode.h",
           "Runtime/Capture/CaptureController.h",
           "Runtime/Capture/CaptureSystem.h",
+          "Runtime/Capture/GraphicsStressController.h",
           "Runtime/Capture/RuntimeStressController.h",
           "Runtime/DevelopmentTools/ImGuiEditorLayoutPolicy.h",
           "Runtime/DevelopmentTools/ImGuiEditorOwner.h",
@@ -315,6 +318,7 @@
           "Runtime/Diagnostics/SceneMemoryDiagnostics.h",
           "Runtime/Diagnostics/UIStressPolicy.h",
           "Runtime/Direction/DemoDirectorPlayback.h",
+          "Runtime/Direction/LiveStyleController.h",
           "Runtime/Direction/LookLabController.h",
           "Runtime/Editor/EditorTools.h",
           "Runtime/Input/Input.h",
@@ -327,10 +331,12 @@
           "Runtime/Interaction/RuntimeInteractionController.h",
           "Runtime/Interaction/RuntimePickService.h",
           "Runtime/Planning/ContinuousOrbitalForecast.h",
+          "Runtime/Planning/ReplayCauseInspection.h",
           "Runtime/Planning/ReplayOverlayPackets.h",
           "Runtime/Planning/ReplayOverlayRenderer.h",
           "Runtime/Planning/ReplayPlanningRuntime.h",
           "Runtime/Prediction/ReplayPrediction.h",
+          "Runtime/Prediction/ReplayPredictionArchive.h",
           "Runtime/Prediction/ReplayPredictionPublicationOperations.h",
           "Runtime/Prediction/ReplayPredictionRetainedMemory.h",
           "Runtime/Prediction/ReplayPredictionScheduling.h",
@@ -392,40 +398,12 @@
         ]
       }
     ],
-    "allowed_exact_edges": [
-      {
-        "source_file": "Runtime/Automation/InteractionAutomationController.cpp",
-        "target_file": "Runtime/Capture/CaptureController.h"
-      }
-    ],
+    "allowed_exact_edges": [],
     "repair_plan_policy": {
       "owner": "Runtime architecture",
       "plan": "RUNTIME_BOUNDARIES RBS2-RBS5",
       "reason": "The source-confirmed pre-separation edge remains forbidden by strict evaluation and is sealed only so the ordinary gate rejects new, changed, shifted, or stale debt while the owning removal phase executes.",
       "rulings": [
-        {"source": "Runtime/Automation/InteractionAutomationController.cpp", "line": 58, "target": "Runtime/Planning/ContinuousOrbitalForecast.h", "fingerprint": "3ca95823d35150e43dea6869f8d31f5f2d1c0f4f6589b3c0751d092c8f772b3f", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Automation/InteractionAutomationController.cpp", "line": 63, "target": "Runtime/Input/InputRouter.h", "fingerprint": "659677457bd0fd63e20a88db3957df69170f42e94fd5140bc7c6abfc38a251a9", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Automation/InteractionAutomationController.cpp", "line": 64, "target": "Runtime/Interaction/RuntimeInteractionController.h", "fingerprint": "b694a0f6de21678f7c42902dbc113189bf57f643a08475185b9e223f4de55eb6", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Automation/InteractionAutomationController.cpp", "line": 66, "target": "Runtime/Camera/CameraControlState.h", "fingerprint": "afd818ada6ca18277f3cb4e69d23217f9e471ea3ecfc4db7d5dedbbd3ee6c32b", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Automation/InteractionAutomationController.cpp", "line": 67, "target": "Runtime/Camera/CameraCollection.h", "fingerprint": "e2a2ccf1e01cc4cf9221eed8344534ea0c547af0e592d80f3415fb43be7727f8", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Automation/InteractionAutomationController.cpp", "line": 69, "target": "Runtime/Tools/RuntimeTools.h", "fingerprint": "4f3abe8d7f399beb27d8de2754e8a676fcf534096d82621b81eacab79c87df03", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Automation/InteractionAutomationController.cpp", "line": 71, "target": "Runtime/Scene/SceneController.h", "fingerprint": "a0d27759835fbd89d50098bd4cfab37acc94a6b5010ef643dafb10db1a9881ec", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Automation/InteractionAutomationController.cpp", "line": 72, "target": "Runtime/Scene/SceneSessionState.h", "fingerprint": "6cd659510050fa69c49737a583e591d99c54092ca1b7dbb6b0279e272fa36634", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Automation/InteractionAutomationController.cpp", "line": 76, "target": "Runtime/Editor/EditorTools.h", "fingerprint": "fb2a8eb35a368df8b2a3d2df50e8608b3d79085f20921fc6733fa52623a7f326", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Automation/InteractionAutomationController.cpp", "line": 77, "target": "Runtime/Replay/ReplayOverlaySurface.h", "fingerprint": "373fe381ec50b981300d70f4a6b7ef225e1fc9c1d9a90784a51d0abe3bd96241", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Automation/InteractionAutomationController.cpp", "line": 78, "target": "Runtime/Replay/ReplayOverlayLayout.h", "fingerprint": "6d9b265633de656f7bc367a575da30fd60def9211bf399d77789998e6c70a54f", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Automation/InteractionAutomationController.cpp", "line": 79, "target": "Runtime/Planning/ReplayCauseInspection.h", "fingerprint": "86fc282787c5a0b40a71be270fe641c1d340c7ee4415304d3a1a5c1948d2503c", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Automation/InteractionAutomationRecorder.cpp", "line": 25, "target": "Runtime/Input/InputRouter.h", "fingerprint": "c8359320ee6e8bb81efabf175ba0a9381ab8add69bf2059220ad4714afe8af90", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Automation/InteractionAutomationReportWriter.cpp", "line": 44, "target": "Runtime/Editor/EditorTools.h", "fingerprint": "2412fca8656f6659d091bbd614f65f096c99a94a56578f1b6b84d1ea3402bce5", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Automation/InteractionAutomationReportWriter.cpp", "line": 47, "target": "Runtime/Planning/ReplayCauseInspection.h", "fingerprint": "333c70b1f1e256256b55325729f3fca13ee8815ee321a39064b3690d68641a2b", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Automation/InteractionAutomationReportWriter.cpp", "line": 51, "target": "Runtime/Camera/CameraControlState.h", "fingerprint": "b8df0c154217d2103791b52643b95f6eea5c73f09bddbe77c1533f312d8cf475", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Automation/InteractionAutomationReportWriter.cpp", "line": 53, "target": "Runtime/Scene/SceneSessionState.h", "fingerprint": "a1d383aa3d40cc32fcfd270cd4453264e22f95c04be961da262d6284fc49f1ed", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Automation/InteractionAutomationReportWriter.cpp", "line": 54, "target": "Runtime/Scene/SceneWorld.h", "fingerprint": "eed73a9524a27db7b3deb21171678c99fd4dc4160bc90350bf233a8dcfe40d3f", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Automation/InteractionAutomationReportWriter.cpp", "line": 55, "target": "Runtime/Tools/RuntimeTools.h", "fingerprint": "0937a676fc7c7b62677459a95f2be812fd74f967d786e546d775e01b41eb1153", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Automation/InteractionAutomationReportWriter.h", "line": 40, "target": "Runtime/Interaction/RuntimeInteractionController.h", "fingerprint": "84d27071a44c6b7dc5cca056b5827ec84e7c3250e93544a3bb784f438e683eb8", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Automation/InteractionAutomationReportWriter.h", "line": 47, "target": "Runtime/Tools/RuntimeTools.h", "fingerprint": "68b4c901c6e15ca8c55143b1c2b072b686aaf318905713387e980fc1e3ce3407", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Automation/RuntimeValidationHarness.h", "line": 43, "target": "Runtime/Capture/GraphicsStressController.h", "fingerprint": "7624219d3bcb7f4b047df964d747638bf8e77230836876268575f603f0b76735", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Automation/RuntimeValidationHarness.h", "line": 44, "target": "Runtime/Direction/LiveStyleController.h", "fingerprint": "33090a647d3e8406a7d020f4ffdfa6314395267f82a870c29938bfc9f3b096df", "repair_phase": "RBS2-RBS5"}
       ]
     }
   },

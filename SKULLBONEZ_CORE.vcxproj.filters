@@ -540,14 +540,14 @@
     <ClCompile Include="SkullbonezSource\Runtime\Direction\DemoDirectorPlayback.cpp">
       <Filter>Source Files\Runtime\Demo</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Automation\InteractionAutomationController.cpp">
-      <Filter>Source Files\Runtime\Automation</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\App\InteractionAutomationApplication.cpp">
+      <Filter>Source Files\Runtime\App</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Automation\InteractionAutomationInputDriver.cpp">
       <Filter>Source Files\Runtime\Automation</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Automation\InteractionAutomationReportWriter.cpp">
-      <Filter>Source Files\Runtime\Automation</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\App\InteractionAutomationReportApplication.cpp">
+      <Filter>Source Files\Runtime\App</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Automation\InteractionAutomationRecorder.cpp">
       <Filter>Source Files\Runtime\Automation</Filter>
@@ -1038,6 +1038,12 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionAutomationController.h">
       <Filter>Header Files\Runtime\Automation</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Automation\ReplayAutomationPackets.h">
+      <Filter>Header Files\Runtime\Automation</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\App\InteractionAutomationApplication.h">
+      <Filter>Header Files\Runtime\App</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionAutomationInputDriver.h">
       <Filter>Header Files\Runtime\Automation</Filter>

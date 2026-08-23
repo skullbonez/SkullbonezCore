@@ -1,34 +1,26 @@
 /*
 File: RuntimeValidationHarness.cpp
 Purpose:
-  Implements validation-harness startup, frame, capture, and reload policy.
+  Implements authored scene-gate validation state.
 
 Summary:
-  This owner preserves the former Run call positions while keeping controller
-  state and launch normalization behind a validation-specific boundary.
+  This owner tracks authored scene-gate requirements. App retains the separate
+  live-style and graphics-stress controllers and sequences their cross-owner
+  effects at the original frame boundaries.
 
 Glossary:
-  Control directory: Folder watched by the live-style protocol.
-  Launch normalization: Bounded defaults copied from parsed CLI values into
-    reusable scene-load policy.
-  Exit summary: Final deterministic stress counters printed on WM_QUIT.
-  Scene gate tracker: Validation-owned authored requirements observed after
+  Scene gate tracker: Automation-owned authored requirements observed after
     committed physics work.
 
 Invariants:
   - Construction is one bounded process-lifetime Startup allocation.
-  - A configured live-style directory is marked ready only after Run applies
-    its interactive/capture side effects.
-  - Graphics-stress defaults and clamps remain byte-for-byte equivalent to the
-    former Run-local launch policy.
   - Gate checks read compact body/collider stores, Physics-owned awake bytes,
     and debug contacts; no mutable scene topology escapes into validation
     ownership.
 
 Related:
   - SkullbonezSource/Runtime/Automation/RuntimeValidationHarness.h
-  - SkullbonezSource/Runtime/Capture/GraphicsStressController.h
-  - SkullbonezSource/Runtime/Direction/LiveStyleController.h
+  - SkullbonezSource/Runtime/Scene/SceneSleepingDynamicBodyGatePolicy.h
 */
 #include "RuntimeValidationHarness.h"
 
@@ -39,7 +31,6 @@ Related:
 
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/SbDiagnosticStore.h"
-#include "../Startup/RunLaunchOptions.h"
 #include "../Scene/SceneSleepingDynamicBodyGatePolicy.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/ObjectContactManifold.h"
@@ -356,134 +347,13 @@ void SceneAutomationGateTracker::PrintMissingRequirements() const
 
 
 std::unique_ptr<RuntimeValidationHarness>
-RuntimeValidationHarness::CreateForStartup( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics )
+RuntimeValidationHarness::CreateForStartup()
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Startup );
 
     // Runtime allocation policy: keep both cold harness implementations out of Run.h.
     // The single owner allocation is bounded to process startup.
-    return std::make_unique<RuntimeValidationHarness>( resultDiagnostics );
-}
-
-
-bool RuntimeValidationHarness::ConfigureStartup( const RunStartupOverrides& overrides, RunLaunchOptions& launchOptions )
-{
-    bool liveStyleConfigured = false;
-
-    if ( overrides.liveStyleControlDirectory && overrides.liveStyleControlDirectory[0] != '\0' )
-    {
-        liveStyleConfigured = m_liveStyle.ConfigureDirectory( overrides.liveStyleControlDirectory );
-    }
-
-    const RunLaunchOptions& launch = overrides.launch;
-
-    if ( launch.uiStress )
-    {
-        launchOptions.uiStress = true;
-        launchOptions.uiStressSeed = launch.uiStressSeed > 0 ? launch.uiStressSeed : 0x7F4A7C15u;
-        launchOptions.uiStressActions = std::clamp( launch.uiStressActions, 1, 32 );
-    }
-
-    if ( !launch.graphicsStress )
-    {
-        return liveStyleConfigured;
-    }
-
-    const unsigned int resolvedSeed = launch.graphicsStressSeed > 0 ? launch.graphicsStressSeed : 0xC11E2026u;
-    launchOptions.graphicsStress = true;
-    launchOptions.graphicsStressSeed = resolvedSeed;
-    launchOptions.graphicsStressActions = std::clamp( launch.graphicsStressActions, 1, 64 );
-    launchOptions.graphicsStressSceneIntervalFrames = std::clamp( launch.graphicsStressSceneIntervalFrames, 1, 600 );
-    launchOptions.graphicsStressMemoryIntervalFrames = std::clamp( launch.graphicsStressMemoryIntervalFrames, 0, 36000 );
-
-    launchOptions.interactiveSceneRun = true;
-
-    m_graphicsStress.Configure( resolvedSeed, launchOptions.graphicsStressActions,
-                                launchOptions.graphicsStressSceneIntervalFrames,
-                                launchOptions.graphicsStressMemoryIntervalFrames );
-
-    return liveStyleConfigured;
-}
-
-
-void RuntimeValidationHarness::MarkLiveStyleReady()
-{
-    m_liveStyle.MarkReady();
-}
-
-
-bool RuntimeValidationHarness::PollLiveStyle( const Assets::AssetSystem& assets, AuthoredScene& outStyle )
-{
-    return m_liveStyle.Poll( m_resultDiagnostics, assets, outStyle );
-}
-
-
-void RuntimeValidationHarness::MarkLiveStyleApplied()
-{
-    m_liveStyle.MarkStyleApplied();
-}
-
-
-bool RuntimeValidationHarness::HasPendingLiveStyleCapture() const
-{
-    return m_liveStyle.HasPendingCapture();
-}
-
-
-const char* RuntimeValidationHarness::PendingLiveStyleCapturePath() const
-{
-    return m_liveStyle.PendingScreenshotPath();
-}
-
-
-void RuntimeValidationHarness::CompleteLiveStyleCapture( const SkullbonezCore::Core::SbResult& result )
-{
-    if ( result.Ok() )
-    {
-        m_liveStyle.MarkCaptureSaved();
-        return;
-    }
-
-    m_liveStyle.MarkCaptureFailed( result.ErrorMessage() );
-}
-
-
-void RuntimeValidationHarness::ResumeGraphicsStressAfterSceneLoad( const RunLaunchOptions& launchOptions )
-{
-    if ( !launchOptions.graphicsStress )
-    {
-        return;
-    }
-
-    m_graphicsStress.ResumeAfterSceneLoad( launchOptions.graphicsStressSeed, launchOptions.graphicsStressActions,
-                                           launchOptions.graphicsStressSceneIntervalFrames );
-}
-
-
-void RuntimeValidationHarness::ObserveSceneLifecycle( const SceneLifecyclePacket& packet,
-                                                      const RunLaunchOptions& launchOptions )
-{
-    // Invariant: a reload may be sampled more than once, but the stress random
-    // stream and cadence resume exactly once after population reaches commit.
-    if ( launchOptions.graphicsStress &&
-         m_graphicsStressSceneObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterScenePopulate ) )
-    {
-        ResumeGraphicsStressAfterSceneLoad( launchOptions );
-    }
-}
-
-
-void RuntimeValidationHarness::PrintGraphicsStressExitSummary( int currentSceneFrame ) const
-{
-    if ( !m_graphicsStress.IsEnabled() )
-    {
-        return;
-    }
-
-    std::printf( "[graphics-stress] WM_QUIT received at frame=%d scene_frame=%d scene_loads=%d\n",
-                 m_graphicsStress.FramesRun(), currentSceneFrame, m_graphicsStress.SceneLoadsRequested() );
-
-    std::fflush( stdout );
+    return std::make_unique<RuntimeValidationHarness>();
 }
 
 

@@ -48,6 +48,7 @@ struct OverlayDebugState;
 class RuntimeTools;
 class EditorToolsOwner;
 class RuntimeValidationHarness;
+class GraphicsStressController;
 class SceneController;
 class SceneLoadTransaction;
 struct ScenePresentationValues;
@@ -147,7 +148,9 @@ void ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction, const Ru
                                       ReplayRuntime& replayRuntime );
 
 void ApplySceneLoadPresentation( SceneLoadTransaction& transaction, Window& window, UI::InGameUI& operatorUi,
-                                 RuntimeValidationHarness& validationHarness, const RunLaunchOptions& launchOptions,
+                                 RuntimeValidationHarness& validationHarness, GraphicsStressController& graphicsStress,
+                                 SceneLifecycleGenerationObserver& graphicsStressSceneObserver,
+                                 const RunLaunchOptions& launchOptions,
                                  Rendering::Dx12RenderDevice* renderDevice, bool rendererVsyncEnabled,
                                  SceneController& sceneController );
 } // namespace Runtime

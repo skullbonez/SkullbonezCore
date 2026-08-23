@@ -4,7 +4,7 @@ Purpose:
   Proves full-frame recording, lifecycle-prefix safety, and atomic manifest publication.
 
 Summary:
-  Tests drive the production recorder with complete DeviceInputFrame values,
+  Tests drive the production recorder with complete detached input samples,
   verify JSON round trips at normalized boundaries, and prove scene replacement
   discards the transition-triggering pending turn.
 
@@ -20,8 +20,8 @@ Related:
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Core/SbDiagnosticStore.h"
+#include "../SkullbonezSource/Core/PlatformWin32.h"
 #include "../SkullbonezSource/Runtime/Automation/InteractionAutomationRecorder.h"
-#include "../SkullbonezSource/Runtime/Input/InputRouter.h"
 
 #pragma warning( push, 0 )
 #include "../ThirdPtySource/nlohmann/json.hpp"
@@ -78,8 +78,8 @@ TEST_CASE( "Interaction recorder round trips a complete resolution-independent d
     words[static_cast<std::size_t>( VK_SHIFT ) / 64u] |=
         uint64_t { 1 } << ( static_cast<unsigned int>( VK_SHIFT ) & 63u );
     words[static_cast<std::size_t>( VK_F8 ) / 64u] |= uint64_t { 1 } << ( static_cast<unsigned int>( VK_F8 ) & 63u );
-    DeviceInputFrame input;
-    input.keys = InputKeySnapshot::FromWords( words );
+    InteractionAutomationInputSample input;
+    input.keyWords = words;
     input.clientX = 0;
     input.clientY = 1079;
     input.hasClientPosition = true;
@@ -121,7 +121,7 @@ TEST_CASE( "Interaction recorder saves only the valid prefix when the scene gene
     WriteSceneSidecar( recorder );
     REQUIRE( recorder.BeginAtBoundary( diagnostics, 1280, 720, 7u, {}, false ).Ok() );
 
-    DeviceInputFrame transitionInput;
+    InteractionAutomationInputSample transitionInput;
     transitionInput.appFocused = true;
     transitionInput.leftDown = true;
     recorder.CapturePendingTurn( 1.0 / 60.0, 1280, 720, transitionInput );
@@ -142,9 +142,11 @@ TEST_CASE( "Interaction recorder preserves an unavailable pointer instead of ser
     WriteSceneSidecar( recorder );
     REQUIRE( recorder.BeginAtBoundary( diagnostics, 1280, 720, 8u, {}, false ).Ok() );
 
-    DeviceInputFrame input;
+    InteractionAutomationInputSample input;
     input.appFocused = true;
-    input.SetClientPosition( false, 511, 271 );
+    input.hasClientPosition = false;
+    input.clientX = 511;
+    input.clientY = 271;
     recorder.CapturePendingTurn( 1.0 / 60.0, 1280, 720, input, "ui:corner-control" );
     REQUIRE( recorder.AdvanceBoundary( diagnostics, 8u ).Ok() );
     REQUIRE( recorder.StopAndSave( diagnostics, "operator" ).Ok() );
@@ -172,7 +174,7 @@ TEST_CASE( "Interaction recorder grows only when a configured second minute is n
     WriteSceneSidecar( recorder );
     REQUIRE( recorder.BeginAtBoundary( diagnostics, 1280, 720, 9u, {}, false ).Ok() );
 
-    DeviceInputFrame input;
+    InteractionAutomationInputSample input;
     input.appFocused = true;
 
     for ( std::size_t turn = 0; turn <= InteractionAutomationRecorder::FRAMES_PER_MINUTE; ++turn )
@@ -194,7 +196,7 @@ TEST_CASE( "Interaction recorder saves automatically at the accumulated duration
     WriteSceneSidecar( recorder );
     REQUIRE( recorder.BeginAtBoundary( diagnostics, 1280, 720, 11u, {}, false ).Ok() );
 
-    DeviceInputFrame input;
+    InteractionAutomationInputSample input;
     input.appFocused = true;
 
     for ( int turn = 0; turn < 1'300 && recorder.IsRecording(); ++turn )

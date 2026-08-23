@@ -52,6 +52,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "Run.h"
+#include "InteractionAutomationApplication.h"
 #include "SceneLoadApplication.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "../Automation/RuntimeValidationHarness.h"
@@ -259,7 +260,13 @@ bool Run::PumpFrameMessages( int& messageExitCode )
 
         if ( message.quit )
         {
-            m_validationHarness->PrintGraphicsStressExitSummary( m_sceneController.State().currentFrame );
+            if ( m_graphicsStress.IsEnabled() )
+            {
+                std::printf( "[graphics-stress] WM_QUIT received at frame=%d scene_frame=%d scene_loads=%d\n",
+                             m_graphicsStress.FramesRun(), m_sceneController.State().currentFrame,
+                             m_graphicsStress.SceneLoadsRequested() );
+                std::fflush( stdout );
+            }
 
             // Concept: WM_QUIT is the platform stop notification, not the
             // process result. An earlier Run-owned failure remains authoritative.
@@ -500,7 +507,25 @@ void Run::CaptureInteractionRecordingTurn( double secondsPerFrame )
             m_operatorUi->CaptureInteractionAnchor( input.clientX, input.clientY, semanticAnchor, sizeof( semanticAnchor ) );
         }
 
-        m_interactionRecorder.CapturePendingTurn( secondsPerFrame, m_window.ClientWidth(), m_window.ClientHeight(), input,
+        InteractionAutomationInputSample sample;
+        const std::span<const uint64_t> keyWords = input.keys.Words();
+
+        for ( std::size_t index = 0u; index < sample.keyWords.size() && index < keyWords.size(); ++index )
+        {
+            sample.keyWords[index] = keyWords[index];
+        }
+
+        sample.clientX = input.clientX;
+        sample.clientY = input.clientY;
+        sample.rawMouseX = input.rawMouseX;
+        sample.rawMouseY = input.rawMouseY;
+        sample.wheelDelta = input.wheelDelta;
+        sample.hasClientPosition = input.hasClientPosition;
+        sample.appFocused = input.appFocused;
+        sample.leftDown = input.leftDown;
+        sample.rightDown = input.rightDown;
+        sample.middleDown = input.middleDown;
+        m_interactionRecorder.CapturePendingTurn( secondsPerFrame, m_window.ClientWidth(), m_window.ClientHeight(), sample,
                                                   semanticAnchor );
     }
 }
@@ -535,7 +560,8 @@ Run::FrameInputPhaseResult Run::RunAutomationAndInputPhase()
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     const InteractionAutomationDevelopmentUiApplyResult
-        developmentUiApply = m_interactionAutomation.ApplyDevelopmentUiCommands( result, m_window, m_imguiEditor );
+        developmentUiApply = ApplyInteractionAutomationDevelopmentUiCommands( m_interactionAutomation, result, m_window,
+                                                                               m_imguiEditor );
 
     if ( developmentUiApply.selectSurface )
     {
@@ -575,7 +601,8 @@ Run::FrameInputPhaseResult Run::RunAutomationAndInputPhase()
                                                                                 sceneState.isSceneMode,
                                                                                 cameraModeEnabledMask );
 
-        m_inputRouter.SetWorldInteractionOwner( result.worldInteractionOwner, result.worldInteractionReason, m_editorTools,
+        m_inputRouter.SetWorldInteractionOwner( static_cast<WorldInteractionOwner>( result.worldInteractionOwner ),
+                                                static_cast<InteractionExitReason>( result.worldInteractionReason ), m_editorTools,
                                                 m_runtimeTools, m_interaction, m_attachedCamera, m_camera, m_sceneController,
                                                 m_replayRuntime, normalizedRestoreMode );
     }
@@ -655,7 +682,7 @@ Run::FrameSimulationPhaseResult Run::RunSimulationPhase( double secondsPerFrame,
                                                                                  m_sceneController.State().currentFrame,
                                                                                  m_timers.SceneElapsedSeconds() * 1000.0 ) ||
                                     ( m_sceneController.State().isSceneMode && m_camera.autoCycleInterval > 0.0f ) ||
-                                    m_validationHarness->HasPendingLiveStyleCapture()
+                                    m_liveStyle.HasPendingCapture()
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
                                     || InteractionAutomationWillCaptureAfterRender( m_interactionAutomation,
                                                                                     m_sceneController.State().currentFrame )
@@ -711,7 +738,7 @@ Run::FrameRenderPhaseResult Run::PrepareRenderPhase( bool gameUiActive, const Fr
     // Concept: graphics stress is render/runtime churn, not UI command work.
     // This top-level phase coordinates its concrete planning, load, action, and
     // diagnostics operations without delegating the composition root.
-    GraphicsStressController& graphicsStress = m_validationHarness->GraphicsStress();
+    GraphicsStressController& graphicsStress = m_graphicsStress;
 
     if ( PrepareGraphicsStressChurn( graphicsStress, m_window, Renderer(), Renderer().RenderDiagnostics() ) )
     {
@@ -742,7 +769,8 @@ Run::FrameRenderPhaseResult Run::PrepareRenderPhase( bool gameUiActive, const Fr
                                             m_cameraSceneLifecycleObserver, m_camera, m_attachedCameraSceneLifecycleObserver,
                                             m_attachedCamera, m_editorTools, m_runtimeTools, m_replayRuntime );
 
-            ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_launchOptions,
+            ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_graphicsStress,
+                                        m_graphicsStressSceneObserver, m_launchOptions,
                                         &Renderer().RenderDevice(), Renderer().VsyncEnabled(), m_sceneController );
 
             if ( loaded )
@@ -865,12 +893,20 @@ void Run::RunPostDrawDiagnosticsPhase( bool gameUiActive )
     PROFILE_BEGIN( "Frame/PostDraw/LiveStyleCapture" );
     {
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Capture );
-        if ( m_validationHarness->HasPendingLiveStyleCapture() )
+        if ( m_liveStyle.HasPendingCapture() )
         {
             const SkullbonezCore::Core::SbResult
                 captureResult = m_capture.SaveScreenshot( BackbufferCapture(),
-                                                          m_validationHarness->PendingLiveStyleCapturePath() );
-            m_validationHarness->CompleteLiveStyleCapture( captureResult );
+                                                          m_liveStyle.PendingScreenshotPath() );
+
+            if ( captureResult.Ok() )
+            {
+                m_liveStyle.MarkCaptureSaved();
+            }
+            else
+            {
+                m_liveStyle.MarkCaptureFailed( captureResult.ErrorMessage() );
+            }
         }
     }
     PROFILE_END( "Frame/PostDraw/LiveStyleCapture" );
@@ -1436,7 +1472,8 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
                                             m_cameraSceneLifecycleObserver, m_camera, m_attachedCameraSceneLifecycleObserver,
                                             m_attachedCamera, m_editorTools, m_runtimeTools, m_replayRuntime );
 
-            ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_launchOptions,
+            ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_graphicsStress,
+                                        m_graphicsStressSceneObserver, m_launchOptions,
                                         &Renderer().RenderDevice(), Renderer().VsyncEnabled(), m_sceneController );
         }
 
@@ -1564,7 +1601,8 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
                                         m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_editorTools,
                                         m_runtimeTools, m_replayRuntime );
 
-        ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_launchOptions,
+        ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_graphicsStress,
+                                    m_graphicsStressSceneObserver, m_launchOptions,
                                     &Renderer().RenderDevice(), Renderer().VsyncEnabled(), m_sceneController );
     }
 

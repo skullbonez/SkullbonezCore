@@ -26,6 +26,7 @@ Related:
 */
 #pragma once
 
+#include "../Automation/ReplayAutomationPackets.h"
 #include "ReplayPredictionDrawing.h"
 #include "../Prediction/ReplayPredictionView.h"
 #include "../Replay/ReplayPresentation.h"
@@ -60,33 +61,6 @@ namespace Runtime
 {
 class EditorTracer;
 class SceneEntityStore;
-
-struct ReplayTrajectorySubmissionProbeStats
-{
-    bool hasSubmission = false;
-    bool stableWindowReady = false;
-    bool noReserveGrowth = true;
-    int observedFrameCount = 0;
-    int stableFrameCount = 0;
-    int stableWindowTargetFrameCount = 120;
-    int firstFrame = -1;
-    int lastFrame = -1;
-    uint64_t stableHash = 0;
-    uint64_t vertexBytes = 0;
-    uint32_t vertexCount = 0;
-    uint32_t segmentCount = 0;
-    uint64_t reserveGrowthEventsAtStart = 0;
-    uint64_t reserveGrowthEventsAtEnd = 0;
-
-    // Invariant: readiness may become true during a publication but cannot
-    // regress while the target/source publication key remains unchanged.
-    uint64_t presentationTargetId = 0;
-    ReplayFrameIndex presentationSourceFrame = 0;
-    uint32_t futureTreeReadinessDropCount = 0;
-    bool presentationKeyValid = false;
-    bool futureTreeReadySeen = false;
-    bool futureTreeReadyLastFrame = false;
-};
 
 struct ReplayPredictionPresentationMemoryStats
 {

@@ -1,10 +1,10 @@
 /*
-File: SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.cpp
+File: SkullbonezSource/Runtime/App/InteractionAutomationReportApplication.cpp
 Purpose:
   Serializes bounded interaction-probe evidence for Automation-only launches.
 
 Summary:
-  Shared report-fact functions serve both live assertions and final JSON, so
+  App assembles lower-owner facts for the Automation report and final JSON, so
   validation-sensitive calculations have one implementation.
   Runtime owners are borrowed synchronously through one report call. The
   writer computes report facts, verifies any durable replay artifact, writes
@@ -36,14 +36,16 @@ Related:
   - tools/validate_replay_visual_fidelity.bat
   - Agentic/Reference/engine-glossary.md
 */
-#include "InteractionAutomationReportWriter.h"
-#include "InteractionAutomationController.h"
+#include "../Automation/InteractionAutomationReportWriter.h"
+#include "../Automation/InteractionAutomationController.h"
 
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/SbDiagnosticStore.h"
 #include "../Editor/EditorTools.h"
 #include "../Prediction/ReplayPrediction.h"
 #include "../Prediction/ReplayPredictionArchive.h"
+#include "ReplayPredictionPresentation.h"
+#include "ReplayPredictionComposition.h"
 #include "../Planning/ReplayCauseInspection.h"
 
 #include "../Replay/ReplayPresentation.h"
@@ -416,13 +418,6 @@ void SkullbonezCore::Runtime::InteractionAutomationReportWriter::Configure( cons
     m_replayCausalTopology.clear();
     m_replayVisualTrajectoryDigests.clear();
     m_replayVisualPredictionArchive.clear();
-    m_replayVisualPredictionDrawList.Clear();
-    m_replayVisualPredictionDrawPacket = {};
-    m_replayVisualPredictionDrawCameraEye = Math::Vector::ZERO_VECTOR;
-    m_replayVisualPredictionDrawCameraUp = Math::Vector::ZERO_VECTOR;
-    m_replayVisualPredictionDrawStreamId = 1;
-    m_replayVisualPredictionDrawRevision = 0;
-    m_replayVisualPredictionDrawCameraValid = false;
     m_replayVisualFidelityStartFrame = -1;
     m_replayVisualFidelityCaptureEnabled = false;
     m_replayVisualFidelityCaptureComplete = false;
@@ -503,13 +498,6 @@ void SkullbonezCore::Runtime::InteractionAutomationReportWriter::BeginReplayVisu
     m_replayVisualOfflineProjectionComplete = false;
     m_replayVisualTrajectoryDigests.clear();
     m_replayVisualPredictionArchive.clear();
-    m_replayVisualPredictionDrawList.Clear();
-    m_replayVisualPredictionDrawPacket = {};
-    m_replayVisualPredictionDrawCameraEye = Math::Vector::ZERO_VECTOR;
-    m_replayVisualPredictionDrawCameraUp = Math::Vector::ZERO_VECTOR;
-    m_replayVisualPredictionDrawStreamId = 1;
-    m_replayVisualPredictionDrawRevision = 0;
-    m_replayVisualPredictionDrawCameraValid = false;
 }
 
 bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::UpdateReplayVisualReveal( int sceneFrame, int fixedStartFrame, bool liveAdvanceHeld, bool revealReady, InteractionAutomationRunStatus& status,
@@ -776,11 +764,15 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
     std::deque<ReplayPrediction> offlinePredictions;
     offlinePredictions.emplace_back( m_resultDiagnostics );
     ReplayPrediction& offlinePrediction = offlinePredictions.front();
+    ReplayPredictionPresentation offlinePredictionPresentation( m_resultDiagnostics );
     std::deque<ReplayPresentation> offlinePresentations;
     offlinePresentations.emplace_back();
     ReplayPresentation& offlinePresentation = offlinePresentations.front();
+    std::vector<ReplayPredictionSceneEntityFact> predictionSceneFacts(
+        static_cast<std::size_t>( world.SceneEntityCount() ) );
+    const ReplayPredictionSceneView predictionScene = BuildReplayPredictionSceneView( world.Entities(), predictionSceneFacts );
     offlinePrediction.EnterOfflineVerification();
-    offlinePrediction.PresentationOwner().ResetTrajectoryVisualStats();
+    offlinePredictionPresentation.ResetTrajectoryVisualStats();
     char archiveReason[192] = {};
 
     RunReplayPathVisualizerState archivePath;
@@ -802,7 +794,7 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
     // The archived value retains the final marker prefix. CPU projection starts
     // at reveal zero and rebuilds first appearance exactly as the sole presented
     // run did. No renderer/backend method is reachable from this function.
-    offlinePrediction.PresentationOwner().ResetTrajectoryVisualStats();
+    offlinePredictionPresentation.ResetTrajectoryVisualStats();
     offlinePrediction.ResetVerificationMarkers();
     EditorTracer& tracer = runtimeTools.Tracer();
     std::vector<ReplayVisualTrajectoryDigestState> trajectoryDigests;
@@ -822,7 +814,7 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
         tracer.Clear();
         const RunReplayPathVisualizerState& path = offlinePresentation.PathVisualizer();
         ReplayPredictionUpdateResult update;
-        offlinePrediction.PreparePresentation( world.Entities(), Physics::PhysicsEngine::ReadColliders( world.Physics() ),
+        offlinePrediction.PreparePresentation( predictionScene, Physics::PhysicsEngine::ReadColliders( world.Physics() ),
                                                path.targetId, path.targetModelRow, path.hasTarget, 5.0, update );
 
         if ( update.targetModelRowRepaired )
@@ -834,7 +826,8 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
         {
             for ( uint32_t count = 0; count < update.budgetExpiries[passIndex]; ++count )
             {
-                offlinePrediction.PresentationOwner().RecordTrajectoryBudgetExpiry( static_cast<Core::MainMemoryReplayBudgetPass>( passIndex ) );
+                offlinePredictionPresentation.RecordTrajectoryBudgetExpiry(
+                    static_cast<Core::MainMemoryReplayBudgetPass>( passIndex ) );
             }
         }
 
@@ -842,25 +835,25 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
         {
             for ( uint32_t count = 0; count < update.rebuildCauses[causeIndex]; ++count )
             {
-                offlinePrediction.PresentationOwner().RecordTrajectoryRebuildCause( static_cast<Core::MainMemoryReplayRebuildCause>( causeIndex ) );
+                offlinePredictionPresentation.RecordTrajectoryRebuildCause(
+                    static_cast<Core::MainMemoryReplayRebuildCause>( causeIndex ) );
             }
         }
 
         offlinePresentation.PreparePathDrawing( world.BodyStore() );
         const ReplayPredictionPresentationView prediction = offlinePrediction.PresentationView();
-        offlinePrediction.PresentationOwner().RenderPathVisualizer( prediction, offlinePresentation.PathVisualizer(),
-                                                                    latestSolverSample, world.Physics(), world.Entities(),
-                                                                    tracer );
+        offlinePredictionPresentation.RenderPathVisualizer( prediction, offlinePresentation.PathVisualizer(),
+                                                            latestSolverSample, world.Physics(), world.Entities(), tracer );
 
-        (void)offlinePrediction.PresentationOwner().BuildGhostDrawRequests( prediction, world.RenderPresentationRecords(),
-                                                                            world.BodyStore() );
+        (void)offlinePredictionPresentation.BuildGhostDrawRequests( prediction, world.RenderPresentationRecords(),
+                                                                   world.BodyStore() );
 
         ReplayVisualPacket projected = tracer.BuildReplayVisualPacket( expected.cameraEye, expected.cameraUp );
-        offlinePrediction.PresentationOwner().PublishVisualPacket( projected, prediction,
-                                                                   offlinePresentation.PathVisualizer().targetId,
-                                                                   latestSolverSample, expected.replayReserveGrowthEvents );
+        offlinePredictionPresentation.PublishVisualPacket( projected, prediction,
+                                                            offlinePresentation.PathVisualizer().targetId,
+                                                            latestSolverSample, expected.replayReserveGrowthEvents );
 
-        projected = offlinePrediction.PresentationOwner().PublishedVisualPacketView();
+        projected = offlinePredictionPresentation.PublishedVisualPacketView();
         projected.header.topologyVersion = projectedTopologyVersions.Observe( projected.header.topologyVersion );
         const ReplayVisualPacketFingerprint
             fingerprint = BuildReplayVisualPacketFingerprint( projected, trajectoryDigests,
@@ -1157,8 +1150,9 @@ const char* SkullbonezCore::Runtime::InteractionAutomationReportWriter::CameraMo
     return "Unknown";
 }
 
-const char* SkullbonezCore::Runtime::InteractionAutomationReportWriter::WorkspaceName( RuntimeWorkspace workspace )
+const char* SkullbonezCore::Runtime::InteractionAutomationReportWriter::WorkspaceName( int workspaceValue )
 {
+    const RuntimeWorkspace workspace = static_cast<RuntimeWorkspace>( workspaceValue );
     switch ( workspace )
     {
     case RuntimeWorkspace::Live:
@@ -1174,8 +1168,9 @@ const char* SkullbonezCore::Runtime::InteractionAutomationReportWriter::Workspac
     return "Unknown";
 }
 
-const char* SkullbonezCore::Runtime::InteractionAutomationReportWriter::OwnerName( WorldInteractionOwner owner )
+const char* SkullbonezCore::Runtime::InteractionAutomationReportWriter::OwnerName( int ownerValue )
 {
+    const WorldInteractionOwner owner = static_cast<WorldInteractionOwner>( ownerValue );
     switch ( owner )
     {
     case WorldInteractionOwner::None:
@@ -1893,8 +1888,8 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
                                 { "directorPhaseCameraEye", directorPhaseCameraEye },
                                 { "directorPhaseCameraView", directorPhaseCameraView },
                                 { "directorPhaseCameraUp", directorPhaseCameraUp },
-                                { "workspace", WorkspaceName( interaction.Workspace() ) },
-                                { "owner", OwnerName( interaction.Owner() ) },
+                                { "workspace", WorkspaceName( static_cast<int>( interaction.Workspace() ) ) },
+                                { "owner", OwnerName( static_cast<int>( interaction.Owner() ) ) },
                                 { "selectedObject", selectedName },
                                 { "selectedModelIndex", selectedIndex },
                                 { "gizmoVisible", gizmoVisible },

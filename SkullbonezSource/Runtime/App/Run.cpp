@@ -299,7 +299,7 @@ Run::Run( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Window& wi
 #endif
       m_operatorUi( CreateOperatorUiForStartup( profiler ) ),
       m_overlayDiagnostics( RuntimeOverlayDiagnostics::CreateForStartup() ),
-      m_validationHarness( RuntimeValidationHarness::CreateForStartup( resultDiagnostics ) ),
+      m_validationHarness( RuntimeValidationHarness::CreateForStartup() ),
       m_backbufferCapture( backbufferCapture )
 {
     const SkullbonezCore::Core::EngineConfig& cfg = m_config;
@@ -496,12 +496,39 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
         m_replayRuntime.SetGuideArcsEnabled( true );
     }
 
-    if ( m_validationHarness->ConfigureStartup( overrides, m_launchOptions ) )
+    if ( launch.uiStress )
+    {
+        m_launchOptions.uiStress = true;
+        m_launchOptions.uiStressSeed = launch.uiStressSeed > 0 ? launch.uiStressSeed : 0x7F4A7C15u;
+        m_launchOptions.uiStressActions = std::clamp( launch.uiStressActions, 1, 32 );
+    }
+
+    if ( launch.graphicsStress )
+    {
+        const unsigned int resolvedSeed = launch.graphicsStressSeed > 0 ? launch.graphicsStressSeed : 0xC11E2026u;
+        m_launchOptions.graphicsStress = true;
+        m_launchOptions.graphicsStressSeed = resolvedSeed;
+        m_launchOptions.graphicsStressActions = std::clamp( launch.graphicsStressActions, 1, 64 );
+        m_launchOptions.graphicsStressSceneIntervalFrames =
+            std::clamp( launch.graphicsStressSceneIntervalFrames, 1, 600 );
+        m_launchOptions.graphicsStressMemoryIntervalFrames =
+            std::clamp( launch.graphicsStressMemoryIntervalFrames, 0, 36000 );
+        m_launchOptions.interactiveSceneRun = true;
+        m_graphicsStress.Configure( resolvedSeed, m_launchOptions.graphicsStressActions,
+                                    m_launchOptions.graphicsStressSceneIntervalFrames,
+                                    m_launchOptions.graphicsStressMemoryIntervalFrames );
+    }
+
+    const bool liveStyleConfigured = overrides.liveStyleControlDirectory &&
+                                     overrides.liveStyleControlDirectory[0] != '\0' &&
+                                     m_liveStyle.ConfigureDirectory( overrides.liveStyleControlDirectory );
+
+    if ( liveStyleConfigured )
     {
         m_launchOptions.interactiveSceneRun = true;
         m_sceneController.EnterInteractiveRun();
         m_capture.DisableAutomationExit();
-        m_validationHarness->MarkLiveStyleReady();
+        m_liveStyle.MarkReady();
     }
 
     if ( overrides.mainMemoryDumpPath && overrides.mainMemoryDumpPath[0] != '\0' )
@@ -766,7 +793,8 @@ void Run::Initialise()
                                     m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_editorTools, m_runtimeTools,
                                     m_replayRuntime );
 
-    ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_launchOptions,
+    ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_graphicsStress,
+                                m_graphicsStressSceneObserver, m_launchOptions,
                                 &Renderer().RenderDevice(), Renderer().VsyncEnabled(), m_sceneController );
 
     if ( !m_lastSceneLoadResult.Ok() )
@@ -947,7 +975,8 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
                                         m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_editorTools,
                                         m_runtimeTools, m_replayRuntime );
 
-        ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_launchOptions,
+        ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_graphicsStress,
+                                    m_graphicsStressSceneObserver, m_launchOptions,
                                     &Renderer().RenderDevice(), Renderer().VsyncEnabled(), m_sceneController );
 
         if ( !loadResult.Ok() )

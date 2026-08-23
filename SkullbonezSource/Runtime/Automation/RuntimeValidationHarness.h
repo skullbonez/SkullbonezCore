@@ -1,14 +1,12 @@
 /*
 File: RuntimeValidationHarness.h
 Purpose:
-  Owns opt-in live-style and deterministic graphics-stress harness state.
+  Owns authored scene-gate validation state.
 
 Summary:
-  RuntimeValidationHarness groups external validation controls that mutate or
-  observe runtime state. Run sequences startup, frame, capture, scene-reload,
-  gate observation, and exit operations without retaining concrete controller
-  state elsewhere. Scene-dependent validation state reacts once to the
-  SceneController-owned lifecycle generation.
+  RuntimeValidationHarness retains only Automation-owned scene requirements.
+  App owns and sequences live-style and graphics-stress controllers because
+  those controllers apply effects across Direction, Capture, Scene, and Render.
 
 Glossary:
   Scene gate: Authored validation requirement that observes committed physics
@@ -18,13 +16,8 @@ Glossary:
 
 Invariants:
   - The owner is allocated only during Startup and lives for the process.
-  - Live-style polling stays in the input phase; capture consumption stays
-    after render and UI submission.
-  - Graphics-stress random state advances only through the owned controller.
-  - Scene reload resumes stress without resetting its persistent counters.
   - Scene-gate rows are private to the harness and rebuilt for each load.
-  - Gate replacement and graphics-stress resume each run at most once for their
-    relevant phase of a lifecycle generation.
+  - Gate replacement runs at most once for its relevant lifecycle generation.
 
 Related:
   - SkullbonezSource/Runtime/App/Run.cpp
@@ -40,8 +33,6 @@ Related:
 #include <span>
 #include <vector>
 
-#include "../Capture/GraphicsStressController.h"
-#include "../Direction/LiveStyleController.h"
 #include "../Scene/SceneAutomationGateConfiguration.h"
 #include "../Scene/SceneLifecycle.h"
 #include "../../Physics/PhysicsBroadphaseDebugView.h"
@@ -49,10 +40,6 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Assets
-{
-class AssetSystem;
-}
 namespace Core
 {
 class SbResult;
@@ -64,12 +51,6 @@ class PhysicsBodyStore;
 } // namespace Physics
 namespace Runtime
 {
-class AuthoredScene;
-class ReplayRuntime;
-class SceneController;
-struct RunLaunchOptions;
-struct RunStartupOverrides;
-
 struct SceneAutomationGatePhysicsView
 {
     // Lifetime: App constructs this immutable post-physics view for one
@@ -110,41 +91,11 @@ class SceneAutomationGateTracker
 class RuntimeValidationHarness
 {
   public:
-    explicit RuntimeValidationHarness( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics )
-        : m_resultDiagnostics( resultDiagnostics )
-    {
-    }
-
-    static std::unique_ptr<RuntimeValidationHarness>
-    CreateForStartup( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics );
-
-    bool ConfigureStartup( const RunStartupOverrides& overrides, RunLaunchOptions& launchOptions );
-    void MarkLiveStyleReady();
-    bool PollLiveStyle( const Assets::AssetSystem& assets, AuthoredScene& outStyle );
-    void MarkLiveStyleApplied();
-    bool HasPendingLiveStyleCapture() const;
-    const char* PendingLiveStyleCapturePath() const;
-    void CompleteLiveStyleCapture( const SkullbonezCore::Core::SbResult& result );
-
-    void ObserveSceneLifecycle( const SceneLifecyclePacket& packet, const RunLaunchOptions& launchOptions );
-    void PrintGraphicsStressExitSummary( int currentSceneFrame ) const;
-    GraphicsStressController& GraphicsStress()
-    {
-        return m_graphicsStress;
-    }
-    const GraphicsStressController& GraphicsStress() const
-    {
-        return m_graphicsStress;
-    }
+    static std::unique_ptr<RuntimeValidationHarness> CreateForStartup();
     SceneAutomationGateTracker& SceneGates();
 
   private:
-    void ResumeGraphicsStressAfterSceneLoad( const RunLaunchOptions& launchOptions );
-    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
-    LiveStyleController m_liveStyle;
-    GraphicsStressController m_graphicsStress;
     SceneAutomationGateTracker m_sceneGates;
-    SceneLifecycleGenerationObserver m_graphicsStressSceneObserver;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

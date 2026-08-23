@@ -58,6 +58,8 @@ Related:
 #include "../Input/InputRouter.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../Capture/CaptureController.h"
+#include "../Capture/GraphicsStressController.h"
+#include "../Direction/LiveStyleController.h"
 #include "../Render/RenderDefaultsStore.h"
 #include "../Interaction/RuntimeInteractionController.h"
 #include "../Render/RuntimeRenderHost.h"
@@ -179,10 +181,13 @@ class Run
     // Subsystem owners below are ordered by lifetime dependency. Renderer and
     // frame bindings borrow from these objects; they do not own them.
     CaptureController m_capture;                                                                                 // Capture-owned screenshot and automation state.
+    GraphicsStressController m_graphicsStress;                                                                    // Capture-owned deterministic render/runtime churn policy.
+    LiveStyleController m_liveStyle;                                                                              // Direction-owned live presentation command source.
     DiagnosticsRuntime m_diagnosticsRuntime;                                                                      // Perf, memory, and queryable physics diagnostics owner.
     RuntimeFrameMetricsOwner m_timers;                                                                            // Sole owner of frame/simulation timing and metric publication.
     RuntimeFrameMetricsLifecyclePolicy m_metricsSceneLifecyclePolicy;                                             // App maps Scene generations to timing reset/activation operations.
     SceneLifecycleGenerationObserver m_overlaySceneLifecycleObserver;                                             // App publishes detached Scene presentation once after each clear.
+    SceneLifecycleGenerationObserver m_graphicsStressSceneObserver;                                               // App resumes Capture stress once after each populated scene.
     SceneLifecycleGenerationObserver m_inputSceneLifecycleObserver;                                               // App applies scene-activation input presentation once per generation.
     InputRouter m_inputRouter;                                                                                    // Owns keyboard/pointer edge memory and binding-context enforcement.
     RuntimeInteractionController m_interaction;                                                                   // Authoritative runtime workspace and world-input owner.
@@ -213,7 +218,7 @@ class Run
     // Lifetime: the renderer borrows visualizers from this startup-created
     // owner, so declaration order destroys the renderer first.
     std::unique_ptr<RuntimeOverlayDiagnostics> m_overlayDiagnostics;
-    std::unique_ptr<RuntimeValidationHarness> m_validationHarness;                                                // Owns opt-in live-style and graphics-stress controls.
+    std::unique_ptr<RuntimeValidationHarness> m_validationHarness;                                                // Owns authored Automation scene gates only.
     Rendering::Dx12BackbufferCapture& m_backbufferCapture;                                                        // Required process-lifetime screenshot/readback owner.
     std::unique_ptr<RuntimeRenderer> m_renderer;                                                                  // Created once startup binds the concrete backend owners.
     std::optional<std::reference_wrapper<Rendering::Dx12ShaderDevelopment>> m_shaderDevelopment;                  // Explicit developer-only shader reload capability.

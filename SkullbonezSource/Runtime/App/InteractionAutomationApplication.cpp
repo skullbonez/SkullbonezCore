@@ -1,10 +1,10 @@
 /*
-File: SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp
+File: SkullbonezSource/Runtime/App/InteractionAutomationApplication.cpp
 Purpose:
   Drives deterministic runtime interaction scripts through the normal input path.
 
 Summary:
-  Interaction automation is a validation driver. It asks the same picking,
+  App applies interaction automation through the same picking,
   replay, continuous-forecast, camera, director-shot, and world-input code that
   an operator would use, while concrete input/report owners publish device
   snapshots and evidence.
@@ -53,8 +53,9 @@ Related:
   - SkullbonezSource/Runtime/Replay/ReplayCoordination.h
   - Agentic/Reference/engine-glossary.md
 */
-#include "InteractionAutomationController.h"
-#include "InteractionAutomationRecorder.h"
+#include "../Automation/InteractionAutomationController.h"
+#include "../Automation/InteractionAutomationRecorder.h"
+#include "InteractionAutomationApplication.h"
 #include "../Planning/ContinuousOrbitalForecast.h"
 
 
@@ -3414,7 +3415,7 @@ InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
     }
     case RunInteractionAutomationAssertKind::Owner:
         evaluation.expected = action.text;
-        evaluation.actual = InteractionAutomationReportWriter::OwnerName( interaction.Owner() );
+        evaluation.actual = InteractionAutomationReportWriter::OwnerName( static_cast<int>( interaction.Owner() ) );
         evaluation.passed = evaluation.actual == evaluation.expected;
         break;
     case RunInteractionAutomationAssertKind::CameraMode:
@@ -4853,8 +4854,9 @@ bool LoadScript( InteractionAutomationController& state )
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 InteractionAutomationDevelopmentUiApplyResult
-InteractionAutomationController::ApplyDevelopmentUiCommands( const InteractionAutomationFrameResult& frame, Window& window,
-                                                             DevelopmentTools::ImGuiEditorOwner& editor ) const
+SkullbonezCore::Runtime::ApplyInteractionAutomationDevelopmentUiCommands(
+    const InteractionAutomationController& state, const InteractionAutomationFrameResult& frame, Window& window,
+    DevelopmentTools::ImGuiEditorOwner& editor )
 {
     InteractionAutomationDevelopmentUiApplyResult result;
 
@@ -4881,7 +4883,7 @@ InteractionAutomationController::ApplyDevelopmentUiCommands( const InteractionAu
 
             if ( !DevelopmentTools::TryParseImGuiEditorPanel( command.target, panel ) )
             {
-                commandStatus = resultDiagnostics.Failure( "DevelopmentTools/ImGuiAutomation",
+                commandStatus = state.resultDiagnostics.Failure( "DevelopmentTools/ImGuiAutomation",
                                                            "Interaction script names an unknown ImGui panel: %s",
                                                            command.target );
 
@@ -4929,7 +4931,7 @@ InteractionAutomationController::ApplyDevelopmentUiCommands( const InteractionAu
                  !SetWindowPos( nativeWindow, nullptr, 0, 0, outer.right - outer.left, outer.bottom - outer.top,
                                 SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE ) )
             {
-                commandStatus = resultDiagnostics.Failure( "DevelopmentTools/ImGuiAutomation",
+                commandStatus = state.resultDiagnostics.Failure( "DevelopmentTools/ImGuiAutomation",
                                                            "Failed to resize the automation client area to %dx%d",
                                                            command.width, command.height );
             }
@@ -5199,8 +5201,8 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
             result.applyCameraMode = true;
             result.cameraMode = static_cast<RunCameraMode>( baseline.cameraMode );
             result.setWorldInteractionOwner = true;
-            result.worldInteractionOwner = static_cast<WorldInteractionOwner>( baseline.worldInteractionOwner );
-            result.worldInteractionReason = InteractionExitReason::EnterReplay;
+            result.worldInteractionOwner = baseline.worldInteractionOwner;
+            result.worldInteractionReason = static_cast<int>( InteractionExitReason::EnterReplay );
             editorTools.Editor().editorModeEnabled = baseline.editorModeEnabled;
             editorTools.Editor().placementModeEnabled = baseline.editorModeEnabled && baseline.editorPlacementModeEnabled;
             editorTools.Editor().placeStaticObject = baseline.editorPlaceStatic;
@@ -5434,8 +5436,8 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
                                                          [&]( WorldInteractionOwner owner, InteractionExitReason reason )
                                                          {
                                                              result.setWorldInteractionOwner = true;
-                                                             result.worldInteractionOwner = owner;
-                                                             result.worldInteractionReason = reason;
+                                                             result.worldInteractionOwner = static_cast<int>( owner );
+                                                             result.worldInteractionReason = static_cast<int>( reason );
                                                          } );
             action.processed = true;
             break;

@@ -81,11 +81,11 @@ JSON_COLD_BOUNDARY_TRANSLATION_UNITS = frozenset(
         "Runtime/Editor/EditorObjectPlacement.cpp",
         "Runtime/Editor/EditorPlacementAssets.cpp",
         "Runtime/Editor/EditorOverlayTools.cpp",
-        "Runtime/Automation/InteractionAutomationController.cpp",
+        "Runtime/App/InteractionAutomationApplication.cpp",
         # Recorder parses no gameplay data; it emits the final manifest only
         # during the Diagnostics-owned stop/save publication boundary.
         "Runtime/Automation/InteractionAutomationRecorder.cpp",
-        "Runtime/Automation/InteractionAutomationReportWriter.cpp",
+        "Runtime/App/InteractionAutomationReportApplication.cpp",
         "Runtime/Replay/ReplayV2Artifact.cpp",
         "Runtime/Scene/SceneController.Load.cpp",
         "Runtime/Scene/SceneController.Creation.cpp",
@@ -382,6 +382,7 @@ RUNTIME_AUTOMATION_PREFIXES = (
     "InteractionAutomationReportWriter",
     "InteractionRecordingBrowser",
     "ReplayAutomationView",
+    "ReplayAutomationPackets",
     "RuntimeStressController",
     "RuntimeValidationHarness",
 )
@@ -467,6 +468,8 @@ RUNTIME_PLANNING_PREFIXES = (
 
 RUNTIME_APP_PREFIXES = (
     "CameraFrameApplication",
+    "InteractionAutomationApplication",
+    "InteractionAutomationReportApplication",
     "ReplayAuthoringCauseTree",
     "ReplayCauseFocusSubmission",
     "ReplayPredictionComposition",
