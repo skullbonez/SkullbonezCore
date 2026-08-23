@@ -685,7 +685,8 @@ Run::FrameRenderPhaseResult Run::PrepareRenderPhase( bool gameUiActive, const Fr
 
             m_timers.ObserveSceneLifecycle( m_sceneController.LifecyclePacket() );
             ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_sceneController,
-                                            m_inputRouter, m_interaction, m_cameraSceneLifecycleObserver, m_camera,
+                                            m_inputSceneLifecycleObserver, m_inputRouter, m_interaction,
+                                            m_cameraSceneLifecycleObserver, m_camera,
                                             m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_runtimeTools,
                                             m_replayRuntime );
 
@@ -1363,7 +1364,8 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
 
             m_timers.ObserveSceneLifecycle( m_sceneController.LifecyclePacket() );
             ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_sceneController,
-                                            m_inputRouter, m_interaction, m_cameraSceneLifecycleObserver, m_camera,
+                                            m_inputSceneLifecycleObserver, m_inputRouter, m_interaction,
+                                            m_cameraSceneLifecycleObserver, m_camera,
                                             m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_runtimeTools,
                                             m_replayRuntime );
 
@@ -1495,7 +1497,8 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
 
         m_timers.ObserveSceneLifecycle( m_sceneController.LifecyclePacket() );
         ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_sceneController,
-                                        m_inputRouter, m_interaction, m_cameraSceneLifecycleObserver, m_camera,
+                                        m_inputSceneLifecycleObserver, m_inputRouter, m_interaction,
+                                        m_cameraSceneLifecycleObserver, m_camera,
                                         m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_runtimeTools,
                                         m_replayRuntime );
 

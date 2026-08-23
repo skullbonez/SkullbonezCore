@@ -749,8 +749,9 @@ void Run::Initialise()
                                             &Renderer().RenderResources(), Renderer() );
 
     m_timers.ObserveSceneLifecycle( m_sceneController.LifecyclePacket() );
-    ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_sceneController, m_inputRouter,
-                                    m_interaction, m_cameraSceneLifecycleObserver, m_camera,
+    ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_sceneController,
+                                    m_inputSceneLifecycleObserver, m_inputRouter, m_interaction,
+                                    m_cameraSceneLifecycleObserver, m_camera,
                                     m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_runtimeTools,
                                     m_replayRuntime );
 
@@ -932,8 +933,9 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
                                                                           &Renderer().RenderResources(), Renderer() );
 
         m_timers.ObserveSceneLifecycle( m_sceneController.LifecyclePacket() );
-        ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_sceneController, m_inputRouter,
-                                        m_interaction, m_cameraSceneLifecycleObserver, m_camera,
+        ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_sceneController,
+                                        m_inputSceneLifecycleObserver, m_inputRouter, m_interaction,
+                                        m_cameraSceneLifecycleObserver, m_camera,
                                         m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_runtimeTools,
                                         m_replayRuntime );
 

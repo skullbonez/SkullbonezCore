@@ -58,6 +58,30 @@ using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::UI::Layout;
 using SkullbonezCore::Math::Vector::Vector3;
 
+namespace
+{
+RuntimeInputAction ResolveEditorPointerModeAction( EditorPointerModeAction action )
+{
+    switch ( action )
+    {
+    case EditorPointerModeAction::EndPlacementScale:
+        return RuntimeInputAction::EndEditorPlacementScale;
+    case EditorPointerModeAction::EndGizmoDrag:
+        return RuntimeInputAction::EndEditorGizmoDrag;
+    case EditorPointerModeAction::BeginGizmoScale:
+        return RuntimeInputAction::BeginEditorGizmoScale;
+    case EditorPointerModeAction::BeginGizmoRotate:
+        return RuntimeInputAction::BeginEditorGizmoRotate;
+    case EditorPointerModeAction::BeginGizmoTranslate:
+        return RuntimeInputAction::BeginEditorGizmoTranslate;
+    case EditorPointerModeAction::BeginPlacementScale:
+        return RuntimeInputAction::BeginEditorPlacementScale;
+    }
+
+    SB_FATAL( "Runtime/InputRouter", "Editor pointer emitted an unknown mode action." );
+}
+} // namespace
+
 
 void InputRouter::ApplyInteractionTransitionCleanup( const RuntimeInteractionTransition& transition,
                                                      RuntimeTools& runtimeTools, RuntimeInteractionController& interaction,
@@ -276,7 +300,7 @@ InputRouter::RouteRuntimePointer( const RuntimePointerEvent& pointer, bool repla
 
     for ( std::size_t actionIndex = 0; actionIndex < editorResult.modeActionCount; ++actionIndex )
     {
-        appendModeAction( editorResult.modeActions[actionIndex] );
+        appendModeAction( ResolveEditorPointerModeAction( editorResult.modeActions[actionIndex] ) );
     }
 
     arbitration.FinishStage( RuntimePointerRouteStage::Editor, editorResult.consumed );

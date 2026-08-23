@@ -1582,7 +1582,7 @@ InputRouter::RouteEditorPointer( const RuntimePointerEvent& pointer, bool hasWor
     SceneWorld& sceneWorld = models.Scene();
     SceneSessionState& scene = models.State();
     EditorPointerRouteResult routeResult;
-    auto appendModeAction = [&routeResult]( RuntimeInputAction action )
+    auto appendModeAction = [&routeResult]( EditorPointerModeAction action )
     {
         if ( routeResult.modeActionCount >= routeResult.modeActions.size() )
         {
@@ -1654,7 +1654,7 @@ InputRouter::RouteEditorPointer( const RuntimePointerEvent& pointer, bool hasWor
     if ( placementScaleResult.endedGesture )
     {
         ReleaseNativeCapture();
-        appendModeAction( RuntimeInputAction::EndEditorPlacementScale );
+        appendModeAction( EditorPointerModeAction::EndPlacementScale );
     }
 
     consumedWorldClick = placementScaleResult.consumed;
@@ -1683,7 +1683,7 @@ InputRouter::RouteEditorPointer( const RuntimePointerEvent& pointer, bool hasWor
     if ( gizmoDragResult.endedGesture )
     {
         ReleaseNativeCapture();
-        appendModeAction( RuntimeInputAction::EndEditorGizmoDrag );
+        appendModeAction( EditorPointerModeAction::EndGizmoDrag );
     }
 
     consumedWorldClick = consumedWorldClick || gizmoDragResult.consumed;
@@ -1720,15 +1720,15 @@ InputRouter::RouteEditorPointer( const RuntimePointerEvent& pointer, bool hasWor
 
             if ( gestureResult.kind == EditorGizmoGestureKind::Scale )
             {
-                appendModeAction( RuntimeInputAction::BeginEditorGizmoScale );
+                appendModeAction( EditorPointerModeAction::BeginGizmoScale );
             }
             else if ( gestureResult.kind == EditorGizmoGestureKind::Rotate )
             {
-                appendModeAction( RuntimeInputAction::BeginEditorGizmoRotate );
+                appendModeAction( EditorPointerModeAction::BeginGizmoRotate );
             }
             else if ( gestureResult.kind == EditorGizmoGestureKind::Translate )
             {
-                appendModeAction( RuntimeInputAction::BeginEditorGizmoTranslate );
+                appendModeAction( EditorPointerModeAction::BeginGizmoTranslate );
             }
         }
 
@@ -1744,7 +1744,7 @@ InputRouter::RouteEditorPointer( const RuntimePointerEvent& pointer, bool hasWor
             if ( placementStart.beganGesture )
             {
                 RequestNativeCapture();
-                appendModeAction( RuntimeInputAction::BeginEditorPlacementScale );
+                appendModeAction( EditorPointerModeAction::BeginPlacementScale );
             }
 
             if ( !consumedWorldClick )

@@ -175,6 +175,7 @@ class Run
     // frame bindings borrow from these objects; they do not own them.
     DiagnosticsRuntime m_diagnosticsRuntime;                                                                      // Capture, perf, and queryable physics diagnostics owner.
     RuntimeFrameMetricsOwner m_timers;                                                                            // Sole owner of frame/simulation timing and metric publication.
+    SceneLifecycleGenerationObserver m_inputSceneLifecycleObserver;                                               // App applies scene-activation input presentation once per generation.
     InputRouter m_inputRouter;                                                                                    // Owns keyboard/pointer edge memory and binding-context enforcement.
     RuntimeInteractionController m_interaction;                                                                   // Authoritative runtime workspace and world-input owner.
     InteractionAutomationRecorder m_interactionRecorder;                                                          // Interactive test recorder capturing human input into resolution-independent scripts.

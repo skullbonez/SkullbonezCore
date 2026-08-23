@@ -272,6 +272,28 @@ struct EditorGizmoDragPointerResult
     bool endedGesture = false;
 };
 
+enum class EditorPointerModeAction
+{
+    EndPlacementScale,
+    EndGizmoDrag,
+    BeginGizmoScale,
+    BeginGizmoRotate,
+    BeginGizmoTranslate,
+    BeginPlacementScale
+};
+
+struct EditorPointerRouteResult
+{
+    static constexpr std::size_t MAX_MODE_ACTIONS = 2;
+    ReplayEventCommandBatch replayEvents;
+    RuntimeInteractionTransition interactionTransition;
+    bool consumed = false;
+    bool enteredInteractiveScene = false;
+    bool hasInteractionTransition = false;
+    std::array<EditorPointerModeAction, MAX_MODE_ACTIONS> modeActions = {};
+    std::size_t modeActionCount = 0;
+};
+
 enum class EditorGizmoGestureKind
 {
     None,

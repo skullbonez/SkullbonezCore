@@ -638,8 +638,9 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
                                 .Ok();
 
         timers.ObserveSceneLifecycle( sceneController.LifecyclePacket() );
-        ApplySceneLoadRuntimeReactions( sceneLoad, launchOptions, *m_overlayDiagnostics, sceneController, inputRouter,
-                                        interaction, m_cameraSceneLifecycleObserver, camera,
+        ApplySceneLoadRuntimeReactions( sceneLoad, launchOptions, *m_overlayDiagnostics, sceneController,
+                                        m_inputSceneLifecycleObserver, inputRouter, interaction,
+                                        m_cameraSceneLifecycleObserver, camera,
                                         m_attachedCameraSceneLifecycleObserver, attachedCamera, runtimeTools,
                                         replayRuntime );
 
@@ -1428,8 +1429,9 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
                                                                 &renderer.RenderResources(), renderer );
 
     timers.ObserveSceneLifecycle( sceneController.LifecyclePacket() );
-    ApplySceneLoadRuntimeReactions( sceneLoad, launchOptions, *m_overlayDiagnostics, sceneController, inputRouter,
-                                    interaction, m_cameraSceneLifecycleObserver, camera,
+    ApplySceneLoadRuntimeReactions( sceneLoad, launchOptions, *m_overlayDiagnostics, sceneController,
+                                    m_inputSceneLifecycleObserver, inputRouter, interaction,
+                                    m_cameraSceneLifecycleObserver, camera,
                                     m_attachedCameraSceneLifecycleObserver, attachedCamera, runtimeTools, replayRuntime );
 
     ApplySceneLoadPresentation( sceneLoad, window, ui, validationHarness, launchOptions, &renderer.RenderDevice(),

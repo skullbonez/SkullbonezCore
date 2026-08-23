@@ -54,10 +54,7 @@ Related:
 #pragma once
 
 #include "../../Core/PlatformWin32.h"
-#include "../Scene/SceneLifecycle.h"
-
 #include "InputController.Bindings.h"
-#include "../Replay/ReplayEventCommand.h"
 #include "../Interaction/RuntimeInteractionController.h"
 #include "../../Maths/Vector3.h"
 
@@ -119,17 +116,7 @@ class DiagnosticsRuntime;
 class Window;
 struct OverlayDebugState;
 
-struct EditorPointerRouteResult
-{
-    static constexpr std::size_t MAX_MODE_ACTIONS = 2;
-    ReplayEventCommandBatch replayEvents;
-    RuntimeInteractionTransition interactionTransition;
-    bool consumed = false;
-    bool enteredInteractiveScene = false;
-    bool hasInteractionTransition = false;
-    std::array<RuntimeInputAction, MAX_MODE_ACTIONS> modeActions = {};
-    std::size_t modeActionCount = 0;
-};
+struct EditorPointerRouteResult;
 
 struct RuntimePointerRouteResult
 {
@@ -458,8 +445,6 @@ class InputRouter
     // edges, not in a consumer's compatibility input context.
     bool IsQuickRepeat( RuntimeInputAction action, double nowSeconds, double intervalSeconds ) const;
     void RecordTap( RuntimeInputAction action, double nowSeconds );
-    bool ObserveSceneLifecycle( const SceneLifecyclePacket& packet, bool hideCursorAfterActivation );
-
     static bool ContextsSatisfied( RuntimeInputContextMask requiredContexts, RuntimeInputContextMask activeContexts );
     static InputActionPhase PhaseForBinding( const RuntimeInputKeyBinding& binding );
 
@@ -500,7 +485,6 @@ class InputRouter
     bool m_pointerPresentationCommitted = false;
     bool m_hasFrame = false;
     bool m_appFocused = false;
-    SceneLifecycleGenerationObserver m_sceneActivationObserver;
     bool m_frameFocused = false;
     bool m_keyboardCaptured = false;
     bool m_mouseCaptured = false;

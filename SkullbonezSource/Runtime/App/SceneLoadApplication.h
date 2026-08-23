@@ -20,6 +20,9 @@ Related:
 */
 #pragma once
 
+#include "../Input/InputRouter.h"
+#include "../Scene/SceneLifecycle.h"
+
 namespace SkullbonezCore
 {
 namespace Rendering
@@ -34,21 +37,35 @@ namespace Runtime
 {
 class AttachedCameraController;
 struct CameraControlState;
-class InputRouter;
 class ReplayRuntime;
 class RuntimeInteractionController;
 class RuntimeOverlayDiagnostics;
 class RuntimeTools;
 class RuntimeValidationHarness;
 class SceneController;
-class SceneLifecycleGenerationObserver;
 class SceneLoadTransaction;
 class Window;
 struct RunLaunchOptions;
 
+inline bool ApplySceneActivationInputReaction( const SceneLifecyclePacket& lifecycle, bool hideCursorAfterActivation,
+                                               SceneLifecycleGenerationObserver& lifecycleObserver,
+                                               InputRouter& inputRouter )
+{
+    const bool applyActivation =
+        lifecycleObserver.ShouldApply( lifecycle, SceneRuntimeLifecycleEvent::AfterSceneActivated );
+    if ( !applyActivation || !hideCursorAfterActivation )
+    {
+        return false;
+    }
+
+    inputRouter.RequestCursorVisible( false );
+    return true;
+}
+
 void ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction, const RunLaunchOptions& launchOptions,
                                      RuntimeOverlayDiagnostics& overlays, SceneController& sceneController,
-                                     InputRouter& inputRouter, RuntimeInteractionController& interaction,
+                                     SceneLifecycleGenerationObserver& inputLifecycle, InputRouter& inputRouter,
+                                     RuntimeInteractionController& interaction,
                                      SceneLifecycleGenerationObserver& cameraLifecycle, CameraControlState& camera,
                                      SceneLifecycleGenerationObserver& attachedCameraLifecycle,
                                      AttachedCameraController& attachedCamera,

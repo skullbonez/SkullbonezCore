@@ -152,7 +152,8 @@ void ApplySceneUiActivation( UI::InGameUI& ui, const SceneUiActivation& activati
 
 void ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction, const RunLaunchOptions& launchOptions,
                                      RuntimeOverlayDiagnostics& overlays, SceneController& sceneController,
-                                     InputRouter& inputRouter, RuntimeInteractionController& interaction,
+                                     SceneLifecycleGenerationObserver& inputLifecycle, InputRouter& inputRouter,
+                                     RuntimeInteractionController& interaction,
                                      SceneLifecycleGenerationObserver& cameraLifecycle, CameraControlState& camera,
                                      SceneLifecycleGenerationObserver& attachedCameraLifecycle,
                                      AttachedCameraController& attachedCamera,
@@ -189,7 +190,7 @@ void ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction, const Ru
         camera = outputs.camera;
     }
 
-    if ( inputRouter.ObserveSceneLifecycle( lifecycle, enterInspectAfterActivation ) )
+    if ( ApplySceneActivationInputReaction( lifecycle, enterInspectAfterActivation, inputLifecycle, inputRouter ) )
     {
         Hardware::Input::ResetMouseLookDeltas();
     }
