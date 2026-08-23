@@ -193,6 +193,25 @@ bool SameOwnerName( const char* lhs, const char* rhs ) noexcept
     return std::strcmp( lhs, rhs ) == 0;
 }
 
+int TryClaimOwnerSlot() noexcept
+{
+    int publishedOwnerCount = s_registeredOwnerCount.load( std::memory_order_relaxed );
+
+    // Invariant: this count is also the exclusive array bound consumed by
+    // ResetCounters() and PrintSummary(). The final valid slot may publish
+    // MAX_RUNTIME_RESERVE_OWNERS, but a rejected claim must never publish more.
+    while ( publishedOwnerCount < MAX_RUNTIME_RESERVE_OWNERS )
+    {
+        if ( s_registeredOwnerCount.compare_exchange_weak( publishedOwnerCount, publishedOwnerCount + 1,
+                                                           std::memory_order_acq_rel, std::memory_order_relaxed ) )
+        {
+            return publishedOwnerCount;
+        }
+    }
+
+    return -1;
+}
+
 void UpdateHighWaterU64( std::atomic<uint64_t>& highWater, uint64_t value ) noexcept
 {
     uint64_t observed = highWater.load( std::memory_order_relaxed );
@@ -397,9 +416,9 @@ RuntimeReserveOwnerHandle RuntimeReserveAllocator::RegisterOwner( const RuntimeR
         }
     }
 
-    const int index = s_registeredOwnerCount.fetch_add( 1, std::memory_order_acq_rel );
+    const int index = TryClaimOwnerSlot();
 
-    if ( index <= 0 || index >= MAX_RUNTIME_RESERVE_OWNERS )
+    if ( index < 0 )
     {
         s_policyViolations.fetch_add( 1u, std::memory_order_relaxed );
         return INVALID_RUNTIME_RESERVE_OWNER;

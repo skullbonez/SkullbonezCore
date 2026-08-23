@@ -39,6 +39,7 @@
 
 #include "../ThirdPtySource/doctest/doctest.h"
 
+#include "TestFatalCases.h"
 #include "../SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h"
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 #include "../SkullbonezSource/Physics/PhysicsFixedList.h"
@@ -52,11 +53,15 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <new>
 #include <ranges>
 #include <string>
 #include <thread>
+#if defined( _WIN32 )
+#include <process.h>
+#endif
 
 using SkullbonezCore::Core::Allocation::GetRuntimeAllocationGuardMode;
 using SkullbonezCore::Core::Allocation::GetRuntimeAllocationPhase;
@@ -213,6 +218,93 @@ std::string ReadFileText( FILE* file )
     }
 
     return text;
+}
+
+void ExerciseOwnerRegistryOverflow()
+{
+    constexpr std::size_t OWNER_REGISTRY_STORAGE_SLOTS = 160u;
+    constexpr std::size_t REPEATED_REJECTION_ATTEMPTS = 8u;
+    constexpr std::size_t REGISTRATION_ATTEMPTS = OWNER_REGISTRY_STORAGE_SLOTS - 1u + REPEATED_REJECTION_ATTEMPTS;
+    std::array<std::array<char, 64>, REGISTRATION_ATTEMPTS> ownerNames = {};
+    RuntimeReserveAllocator::ResetCounters();
+    RuntimeReserveOwnerHandle lastRegisteredOwner = INVALID_RUNTIME_RESERVE_OWNER;
+    const char* lastRegisteredName = nullptr;
+    const char* firstRejectedName = nullptr;
+    int rejectedRegistrations = 0;
+
+    for ( std::size_t index = 0; index < ownerNames.size(); ++index )
+    {
+        std::snprintf( ownerNames[index].data(), ownerNames[index].size(), "unit.reserve.registry-overflow.%zu", index );
+        const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner( MakeReplayOwnerDesc( ownerNames[index].data() ) );
+
+        if ( owner == INVALID_RUNTIME_RESERVE_OWNER )
+        {
+            if ( !firstRejectedName )
+            {
+                firstRejectedName = ownerNames[index].data();
+            }
+
+            ++rejectedRegistrations;
+            continue;
+        }
+
+        REQUIRE( rejectedRegistrations == 0 );
+        lastRegisteredOwner = owner;
+        lastRegisteredName = ownerNames[index].data();
+    }
+
+    REQUIRE( lastRegisteredOwner != INVALID_RUNTIME_RESERVE_OWNER );
+    REQUIRE( lastRegisteredName != nullptr );
+    REQUIRE( firstRejectedName != nullptr );
+    CHECK( rejectedRegistrations >= static_cast<int>( REPEATED_REJECTION_ATTEMPTS ) );
+    CHECK( RuntimeReserveAllocator::PolicyViolationCount() == static_cast<uint64_t>( rejectedRegistrations ) );
+    CHECK( RuntimeReserveAllocator::RegisterOwner( MakeReplayOwnerDesc( lastRegisteredName ) ) == lastRegisteredOwner );
+    CHECK( RuntimeReserveAllocator::PolicyViolationCount() == static_cast<uint64_t>( rejectedRegistrations ) );
+
+    // Test probe: reset and summary walk the complete published registry. They
+    // must remain bounded after any number of rejected registrations.
+    RuntimeReserveAllocator::ResetCounters();
+    CHECK_FALSE( RuntimeReserveAllocator::HasPolicyViolations() );
+    CHECK( RuntimeReserveAllocator::RegisterOwner( MakeReplayOwnerDesc( lastRegisteredName ) ) == lastRegisteredOwner );
+    CHECK_FALSE( RuntimeReserveAllocator::HasPolicyViolations() );
+    FILE* summaryFile = nullptr;
+    REQUIRE( tmpfile_s( &summaryFile ) == 0 );
+    REQUIRE( summaryFile != nullptr );
+    RuntimeReserveAllocator::PrintSummary( summaryFile );
+    const std::string summary = ReadFileText( summaryFile );
+    std::fclose( summaryFile );
+    CHECK( summary.find( "registered_owners=159" ) != std::string::npos );
+    CHECK( summary.find( firstRejectedName ) == std::string::npos );
+
+    constexpr const char* OWNER_ROW_PREFIX = "[runtime-reserve] owner=";
+    std::size_t ownerRowCount = 0u;
+    std::size_t ownerRowOffset = 0u;
+
+    while ( ( ownerRowOffset = summary.find( OWNER_ROW_PREFIX, ownerRowOffset ) ) != std::string::npos )
+    {
+        ++ownerRowCount;
+        ownerRowOffset += std::strlen( OWNER_ROW_PREFIX );
+    }
+
+    CHECK( ownerRowCount <= OWNER_REGISTRY_STORAGE_SLOTS - 1u );
+}
+
+int RunOwnerRegistryOverflowChild()
+{
+    constexpr const char* CHILD_FILTER = "--test-case=*owner*registry*overflow*child*probe*";
+    const char* executable = RuntimeTestExecutablePath();
+
+    if ( !executable )
+    {
+        return -1;
+    }
+
+#if defined( _WIN32 )
+    return static_cast<int>( _spawnl( _P_WAIT, executable, executable, CHILD_FILTER, "--no-skip=true", static_cast<char*>( nullptr ) ) );
+#else
+    const std::string command = "\"" + std::string( executable ) + "\" \"" + CHILD_FILTER + "\" --no-skip=true";
+    return std::system( command.c_str() );
+#endif
 }
 } // namespace
 
@@ -384,6 +476,20 @@ TEST_CASE( "RuntimeAllocationTracker: global allocation overloads preserve align
 
     PrintRuntimeAllocationSummary( nullptr );
     CHECK_FALSE( RuntimeAllocationGuardEnabled() );
+}
+
+TEST_CASE( "RuntimeReserveAllocator: owner registry overflow remains bounded" )
+{
+    // Lifetime: owner registrations persist for the process, so the destructive
+    // capacity probe runs in a child and cannot consume the parent suite's slots.
+    const int childExit = RunOwnerRegistryOverflowChild();
+    REQUIRE( childExit != -1 );
+    CHECK( childExit == 0 );
+}
+
+TEST_CASE( "RuntimeReserveAllocator: owner registry overflow child probe" * doctest::skip() )
+{
+    ExerciseOwnerRegistryOverflow();
 }
 
 TEST_CASE( "RuntimeReserveAllocator: replay growth under cap grants and records bytes" )
