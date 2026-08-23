@@ -1,7 +1,7 @@
 # Runtime Boundary Separation And Project Topology Plan
 
 Date: 2026-08-22
-Status: Active by owner direction. 3/8 phases complete; RBS3 ready.
+Status: Active by owner direction. 4/8 phases complete; RBS4 ready.
 Impact area: `SkullbonezSource/Runtime/`, Runtime-facing Rendering/UI seams,
 Visual Studio project topology, dependency enforcement, tests, and documentation
 Owner: Runtime architecture, with each moved value or behavior retained by its
@@ -828,13 +828,13 @@ and Automation; no callback pack or second window state exists.
 
 **Goal:** Move aggregation out of UI rendering and publish one immutable snapshot.
 
-- [ ] Introduce the ratified App/Diagnostics timing owner with explicit startup,
+- [x] Introduce the ratified App/Diagnostics timing owner with explicit startup,
       frame sample, scene lifecycle, and publication operations.
-- [ ] Move only metrics sharing that invariant; leave unrelated timers honest.
-- [ ] Update metrics at a fixed boundary independent of UI/pass visibility.
-- [ ] Publish an immutable snapshot to UI, Automation, Capture, and Render.
-- [ ] Delete Render -> App timing includes and repair ownership comments.
-- [ ] Test cadence, half-second aggregation, first sample, scene reset/activation,
+- [x] Move only metrics sharing that invariant; leave unrelated timers honest.
+- [x] Update metrics at a fixed boundary independent of UI/pass visibility.
+- [x] Publish an immutable snapshot to UI, Automation, Capture, and Render.
+- [x] Delete Render -> App timing includes and repair ownership comments.
+- [x] Test cadence, half-second aggregation, first sample, scene reset/activation,
       hidden UI, GameUI, and ImGui.
 
 **Acceptance:** Render cannot mutate/include the owner; identical frame sequences
