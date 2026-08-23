@@ -68,9 +68,6 @@ bool ContainsComponent( const UIRect& bounds, UIVisualState state, int pointerX,
 // generic hit helper that applies the Enabled flag.
 bool CanActivateComponent( const UIRect& bounds, UIVisualState state, int pointerX, int pointerY );
 
-void DrawPanel( const UIDrawContext& draw, const UIRect& bounds, UIVisualState state );
-void DrawLabelValueRow( const UIDrawContext& draw, const UIRect& bounds, const char* label, const char* value,
-                        const Style::UIColor& valueColor, UIVisualState state );
 void DrawButton( const UIDrawContext& draw, const UIRect& bounds, const char* label, UIVisualState state,
                  ComponentAppearance appearance = ComponentAppearance::Adaptive );
 void DrawToggle( const UIDrawContext& draw, const UIRect& bounds, const char* label, const Style::UIColor& accent,
@@ -95,8 +92,6 @@ struct TabLayout
 
 TabLayout ResolveTabLayout( const UIRect& stripBounds, int tabIndex, int tabCount,
                             ComponentAppearance appearance = ComponentAppearance::Adaptive );
-UIRect TabBounds( const UIRect& stripBounds, int tabIndex, int tabCount,
-                  ComponentAppearance appearance = ComponentAppearance::Adaptive );
 int HitTestTab( const UIRect& stripBounds, UIVisualState state, int pointerX, int pointerY, int tabCount,
                 ComponentAppearance appearance = ComponentAppearance::Adaptive );
 void DrawTab( const UIDrawContext& draw, const UIRect& bounds, const char* label, UIVisualState state,
@@ -108,17 +103,26 @@ void DrawScrollBar( const UIDrawContext& draw, const UIRect& trackBounds, float 
                     float scrollOffset, float alpha, UIVisualState state,
                     ComponentAppearance appearance = ComponentAppearance::Adaptive );
 
-UIRect ComboFieldBounds( const UIRect& bounds, bool labelVisible );
-UIRect ComboPopupBounds( const UIRect& bounds, bool labelVisible, bool dropUp, int optionCount );
+// Carries the complete combo geometry decision. Interaction bounds preserve
+// legacy full-component activation while field and popup bounds describe
+// exactly what the component draws.
+struct ComboLayout
+{
+    UIRect interactionBounds;
+    UIRect fieldBounds;
+    UIRect popupBounds;
+};
+
+ComboLayout ResolveComboLayout( const UIRect& bounds, bool labelVisible, bool dropUp, int optionCount );
 
 // Returns the geometric row even when the popup or row is disabled. The
 // interaction owner uses IsComboOptionEnabled before producing an action.
 int ComboOptionAtPointer( const UIRect& popupBounds, UIVisualState state, int pointerX, int pointerY, int optionCount );
 bool IsComboOptionEnabled( uint32_t disabledOptionMask, int optionIndex );
-void DrawComboField( const UIDrawContext& draw, const UIRect& bounds, const char* label, const char* selectedText,
+void DrawComboField( const UIDrawContext& draw, const ComboLayout& layout, const char* label, const char* selectedText,
                      bool labelVisible, bool open, UIVisualState state, bool selectedEnabled = true,
                      ComponentAppearance appearance = ComponentAppearance::Adaptive );
-void DrawComboPopup( const UIDrawContext& draw, const UIRect& popupBounds, const char* const* options, int optionCount,
+void DrawComboPopup( const UIDrawContext& draw, const ComboLayout& layout, const char* const* options, int optionCount,
                      int selectedIndex, int hoveredIndex, uint32_t disabledOptionMask, UIVisualState state,
                      ComponentAppearance appearance = ComponentAppearance::Adaptive );
 

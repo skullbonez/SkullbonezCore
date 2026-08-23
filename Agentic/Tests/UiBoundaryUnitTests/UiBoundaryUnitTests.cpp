@@ -77,7 +77,10 @@ constexpr std::array<uint64_t, 8> kExpectedStatelessStateFingerprints = {
     9138081368605736749ull, 49288575029089482ull,   211756514920079498ull,   6302452228787434232ull,
     2904659679807374515ull, 4645013559851399903ull, 13061036390687143437ull, 5558979605539197941ull,
 };
-constexpr uint64_t kExpectedStatelessFixtureFingerprint = 9020569520314488178ull;
+
+// The fixture contains only production-reachable component operations; the
+// retired test-only panel and label/value helpers no longer contribute rows.
+constexpr uint64_t kExpectedStatelessFixtureFingerprint = 4845307610235627768ull;
 
 constexpr std::array kTabs = {
     InGameUITab::Profiler, InGameUITab::Scene,     InGameUITab::Editor,  InGameUITab::Physics,
@@ -155,6 +158,22 @@ bool SameRect( const UIRect& left, const UIRect& right )
 }
 
 
+bool SameCommandGeometry( const UIDrawList::Command& left, const UIDrawList::Command& right )
+{
+    return left.type == right.type && NearlyEqual( left.x0, right.x0 ) && NearlyEqual( left.y0, right.y0 ) &&
+           NearlyEqual( left.x1, right.x1 ) && NearlyEqual( left.y1, right.y1 ) && NearlyEqual( left.x2, right.x2 ) &&
+           NearlyEqual( left.y2, right.y2 ) && NearlyEqual( left.w, right.w ) && NearlyEqual( left.h, right.h ) &&
+           NearlyEqual( left.radius, right.radius ) && NearlyEqual( left.pxSize, right.pxSize );
+}
+
+
+bool CommandHasColor( const UIDrawList::Command& command, const Style::UIColor& color, float alpha )
+{
+    return NearlyEqual( command.r, color.r ) && NearlyEqual( command.g, color.g ) && NearlyEqual( command.b, color.b ) &&
+           NearlyEqual( command.a, alpha );
+}
+
+
 bool CheckComponentBaselines()
 {
     // Invariant: geometry stays in each component, while selection, checked,
@@ -185,7 +204,7 @@ bool CheckComponentBaselines()
     const UIRect sliderBounds = slider.Bounds();
     const UIRect scrollBounds = scrollBar.Bounds();
     const UIRect tabBounds = tabBar.Bounds();
-    const UIRect comboPopup = Widgets::ComboPopupBounds( comboBounds, true, false, 3 );
+    const Widgets::ComboLayout comboLayout = Widgets::ResolveComboLayout( comboBounds, true, false, 3 );
     const Widgets::TabLayout adaptiveSecondTab = Widgets::ResolveTabLayout( tabBounds, 1, 3 );
     const Widgets::TabLayout establishedSecondTab = Widgets::ResolveTabLayout( tabBounds, 1, 3, kEstablished );
     const UIRect expectedSecondTabInteraction = { 130.0f, 240.0f, 120.0f, 50.0f };
@@ -225,10 +244,16 @@ bool CheckComponentBaselines()
                               !Widgets::ContainsComponent( establishedSecondTab.visualBounds, kEnabled, 130, 260 ) &&
                               SameRect( Widgets::ScrollThumbBounds( scrollBounds, 420.0f, 210.0f, 105.0f ),
                                         Widgets::ScrollThumbBounds( scrollBounds, 420.0f, 210.0f, 105.0f, kEstablished ) ) &&
-                              SameRect( comboBox.DropdownBounds( 3 ), comboPopup );
+                              SameRect( comboLayout.interactionBounds, comboBounds ) &&
+                              SameRect( comboBox.DropdownBounds( 3 ), comboLayout.popupBounds ) &&
+                              comboBox.HitBox( 20, 100 ) ==
+                                  Widgets::CanActivateComponent( comboLayout.interactionBounds, kEnabled, 20, 100 ) &&
+                              Widgets::ContainsComponent( comboLayout.interactionBounds, kEnabled, 20, 100 ) &&
+                              !Widgets::ContainsComponent( comboLayout.fieldBounds, kEnabled, 20, 100 );
     comboBox.SetOpen( true );
-    commandValuesValid = commandValuesValid && comboBox.HitOption( 80, 157, 3 ) ==
-                                                   Widgets::ComboOptionAtPointer( comboPopup, kEnabled, 80, 157, 3 );
+    commandValuesValid = commandValuesValid &&
+                         comboBox.HitOption( 80, 157, 3 ) ==
+                             Widgets::ComboOptionAtPointer( comboLayout.popupBounds, kEnabled, 80, 157, 3 );
     comboBox.SetOpen( false );
 
     static constexpr const char* kComboOptions[] = { "Alpha", "Beta", "Gamma" };
@@ -271,12 +296,12 @@ bool CheckComponentBaselines()
                              engaged ? kEnabled | UIVisualState::Checked : kEnabled, kEstablished );
 
         UIVisualState comboState = kEnabled;
-        Widgets::DrawComboField( draw, comboBounds, "Mode", "Beta", true, engaged, comboState, true, kEstablished );
+        Widgets::DrawComboField( draw, comboLayout, "Mode", "Beta", true, engaged, comboState, true, kEstablished );
 
         if ( engaged )
         {
-            const int hoveredOption = Widgets::ComboOptionAtPointer( comboPopup, comboState, 80, 157, 3 );
-            Widgets::DrawComboPopup( draw, comboPopup, kComboOptions, static_cast<int>( std::size( kComboOptions ) ), 1,
+            const int hoveredOption = Widgets::ComboOptionAtPointer( comboLayout.popupBounds, comboState, 80, 157, 3 );
+            Widgets::DrawComboPopup( draw, comboLayout, kComboOptions, static_cast<int>( std::size( kComboOptions ) ), 1,
                                      hoveredOption, 1u, comboState, kEstablished );
         }
 
@@ -334,6 +359,208 @@ bool CheckComponentBaselines()
     return false;
 }
 
+
+bool CheckComponentEdgeContracts()
+{
+    constexpr UIVisualState kEnabled = UIVisualState::Visible | UIVisualState::Enabled;
+    constexpr UIVisualState kDisabled = UIVisualState::Visible;
+    constexpr Widgets::ComponentAppearance kEstablished = Widgets::ComponentAppearance::Established;
+    constexpr Widgets::ComponentAppearance kFooter = Widgets::ComponentAppearance::Footer;
+    const UIRect comboBounds = { 10.0f, 90.0f, 180.0f, 28.0f };
+    const Widgets::ComboLayout labelled = Widgets::ResolveComboLayout( comboBounds, true, false, 3 );
+    const Widgets::ComboLayout labelHidden = Widgets::ResolveComboLayout( comboBounds, false, false, 3 );
+    const Widgets::ComboLayout dropUp = Widgets::ResolveComboLayout( comboBounds, true, true, 3 );
+    const Widgets::ComboLayout zeroOptions = Widgets::ResolveComboLayout( comboBounds, true, false, 0 );
+    const Widgets::ComboLayout negativeOptions = Widgets::ResolveComboLayout( comboBounds, true, false, -3 );
+
+    UIComboBox comboBox;
+    comboBox.SetBounds( comboBounds.x, comboBounds.y, comboBounds.w, comboBounds.h );
+
+    // False-pass control: the labelled wrapper deliberately activates its
+    // label column although only fieldBounds is drawn as the control. Every
+    // wrapper projection must equal the one resolved layout value.
+    const bool labelColumnValid = SameRect( labelled.interactionBounds, comboBounds ) && comboBox.HitBox( 20, 100 ) &&
+                                  Widgets::CanActivateComponent( labelled.interactionBounds, kEnabled, 20, 100 ) &&
+                                  !Widgets::ContainsComponent( labelled.fieldBounds, kEnabled, 20, 100 ) &&
+                                  SameRect( comboBox.DropdownBounds( 3 ), labelled.popupBounds );
+
+    comboBox.SetLabelVisible( false );
+    const bool labelHiddenValid = SameRect( labelHidden.interactionBounds, comboBounds ) &&
+                                  NearlyEqual( labelHidden.fieldBounds.x, 10.0f ) &&
+                                  NearlyEqual( labelHidden.fieldBounds.y, 94.0f ) &&
+                                  NearlyEqual( labelHidden.fieldBounds.w, 180.0f ) &&
+                                  NearlyEqual( labelHidden.popupBounds.x, 10.0f ) &&
+                                  NearlyEqual( labelHidden.popupBounds.y, 116.0f ) &&
+                                  NearlyEqual( labelHidden.popupBounds.w, 180.0f ) &&
+                                  SameRect( comboBox.DropdownBounds( 3 ), labelHidden.popupBounds );
+
+    comboBox.SetLabelVisible( true );
+    comboBox.SetDropUp( true );
+    const bool dropUpValid = NearlyEqual( dropUp.popupBounds.y, 30.0f ) &&
+                             SameRect( comboBox.DropdownBounds( 3 ), dropUp.popupBounds );
+    comboBox.SetDropUp( false );
+    comboBox.SetOpen( true );
+    const int disabledRow = comboBox.HitOption( 80, 120, 3 );
+    const bool optionEdgesValid = SameRect( zeroOptions.popupBounds, negativeOptions.popupBounds ) &&
+                                  NearlyEqual( zeroOptions.popupBounds.h, 20.0f ) &&
+                                  Widgets::ComboOptionAtPointer( zeroOptions.popupBounds, kEnabled, 80, 120, 0 ) == -1 &&
+                                  Widgets::ComboOptionAtPointer( negativeOptions.popupBounds, kEnabled, 80, 120, -3 ) ==
+                                      -1 &&
+                                  disabledRow == 0 && !Widgets::IsComboOptionEnabled( 1u, disabledRow );
+
+    auto drawList = std::make_unique<UIDrawList>();
+    UIDrawContext draw( 640, 360, *drawList );
+    const Style::UIPalette& palette = Style::Palette();
+    const Style::FooterToggleStyle& footer = Style::FooterToggle();
+    const UIRect footerBounds = { 12.0f, 12.0f, 156.0f, 26.0f };
+    std::array<UIDrawList::Command, 4> enabledFooterCommands = {};
+    std::array<UIDrawList::Command, 4> disabledFooterCommands = {};
+
+    // False-pass control: disabling a footer toggle changes all four authored
+    // colors without changing its command types or geometry.
+    drawList->Clear();
+    Widgets::DrawToggle( draw, footerBounds, "Enabled", Style::Accent(), kEnabled | UIVisualState::Checked, kFooter );
+    const uint64_t enabledFooterFingerprint = drawList->Fingerprint();
+    const auto enabledFooterView = drawList->Commands();
+    const bool enabledFooterCount = enabledFooterView.size() == enabledFooterCommands.size();
+
+    if ( enabledFooterCount )
+    {
+        for ( size_t index = 0; index < enabledFooterCommands.size(); ++index )
+        {
+            enabledFooterCommands[index] = enabledFooterView[index];
+        }
+    }
+
+    drawList->Clear();
+    Widgets::DrawToggle( draw, footerBounds, "Enabled", Style::Accent(), kDisabled | UIVisualState::Checked, kFooter );
+    const uint64_t disabledFooterFingerprint = drawList->Fingerprint();
+    const auto disabledFooterView = drawList->Commands();
+    const bool disabledFooterCount = disabledFooterView.size() == disabledFooterCommands.size();
+
+    if ( disabledFooterCount )
+    {
+        for ( size_t index = 0; index < disabledFooterCommands.size(); ++index )
+        {
+            disabledFooterCommands[index] = disabledFooterView[index];
+        }
+    }
+
+    bool footerGeometryValid = enabledFooterCount && disabledFooterCount;
+
+    for ( size_t index = 0; footerGeometryValid && index < enabledFooterCommands.size(); ++index )
+    {
+        footerGeometryValid = SameCommandGeometry( enabledFooterCommands[index], disabledFooterCommands[index] );
+    }
+
+    const bool footerStateValid = footerGeometryValid && enabledFooterFingerprint != disabledFooterFingerprint &&
+                                  CommandHasColor( enabledFooterCommands[0], footer.label, 1.0f ) &&
+                                  CommandHasColor( enabledFooterCommands[1], palette.border, palette.border.a ) &&
+                                  CommandHasColor( enabledFooterCommands[2], palette.accent, palette.accent.a ) &&
+                                  CommandHasColor( enabledFooterCommands[3], palette.accentStrong, 0.96f ) &&
+                                  CommandHasColor( disabledFooterCommands[0], palette.textMuted, 1.0f ) &&
+                                  CommandHasColor( disabledFooterCommands[1], palette.border, 0.05f ) &&
+                                  CommandHasColor( disabledFooterCommands[2], palette.windowSubtle, 0.58f ) &&
+                                  CommandHasColor( disabledFooterCommands[3], palette.textMuted, 0.62f );
+
+    std::array<UIDrawList::Command, 6> enabledChevronCommands = {};
+    std::array<UIDrawList::Command, 6> disabledChevronCommands = {};
+
+    // Invariant: Established chevrons are exactly six pixel rects. Inspecting
+    // each record prevents unrelated disabled commands from masking a chevron
+    // that still uses the enabled color.
+    drawList->Clear();
+    Widgets::DrawComboField( draw, labelled, "Mode", "Beta", true, false, kEnabled, true, kEstablished );
+    const uint64_t enabledChevronFingerprint = drawList->Fingerprint();
+    const auto enabledComboCommands = drawList->Commands();
+    const bool enabledChevronCount = enabledComboCommands.size() == 10;
+
+    if ( enabledChevronCount )
+    {
+        const size_t chevronStart = enabledComboCommands.size() - enabledChevronCommands.size();
+
+        for ( size_t index = 0; index < enabledChevronCommands.size(); ++index )
+        {
+            enabledChevronCommands[index] = enabledComboCommands[chevronStart + index];
+        }
+    }
+
+    drawList->Clear();
+    Widgets::DrawComboField( draw, labelled, "Mode", "Beta", true, false, kDisabled, false, kEstablished );
+    const uint64_t disabledChevronFingerprint = drawList->Fingerprint();
+    const auto disabledComboCommands = drawList->Commands();
+    const bool disabledChevronCount = disabledComboCommands.size() == 10;
+
+    if ( disabledChevronCount )
+    {
+        const size_t chevronStart = disabledComboCommands.size() - disabledChevronCommands.size();
+
+        for ( size_t index = 0; index < disabledChevronCommands.size(); ++index )
+        {
+            disabledChevronCommands[index] = disabledComboCommands[chevronStart + index];
+        }
+    }
+
+    bool chevronCommandsValid = enabledChevronCount && disabledChevronCount &&
+                                enabledChevronFingerprint != disabledChevronFingerprint;
+
+    for ( size_t index = 0; chevronCommandsValid && index < enabledChevronCommands.size(); ++index )
+    {
+        chevronCommandsValid = enabledChevronCommands[index].type == UIDrawList::CommandType::Rect &&
+                               disabledChevronCommands[index].type == UIDrawList::CommandType::Rect &&
+                               SameCommandGeometry( enabledChevronCommands[index], disabledChevronCommands[index] ) &&
+                               CommandHasColor( enabledChevronCommands[index], palette.textSecondary, 0.96f ) &&
+                               CommandHasColor( disabledChevronCommands[index], palette.textMuted, 0.56f );
+    }
+
+    static constexpr const char* kOptions[] = { "Alpha", "Beta", "Gamma" };
+
+    // Hazard: null catalogs and invalid counts are legal detached values. They
+    // may preserve popup framing but must never dereference text or select a
+    // row, while an out-of-range selection is equivalent to no selection.
+    drawList->Clear();
+    Widgets::DrawComboPopup( draw, labelled, nullptr, 3, 1, 2, 0u, kEnabled );
+    const auto nullOptionsStats = drawList->GetStats();
+    const bool nullOptionsValid = nullOptionsStats.commandCount == 5 && nullOptionsStats.textBytes == 0 &&
+                                  nullOptionsStats.maxClipDepth == 1 && !nullOptionsStats.clipOverflow;
+
+    drawList->Clear();
+    Widgets::DrawComboPopup( draw, labelled, kOptions, 3, -1, -1, 0u, kEnabled );
+    const uint64_t noSelectionFingerprint = drawList->Fingerprint();
+    drawList->Clear();
+    Widgets::DrawComboPopup( draw, labelled, kOptions, 3, 99, -1, 0u, kEnabled );
+    const bool outOfRangeSelectionValid = drawList->Fingerprint() == noSelectionFingerprint;
+
+    drawList->Clear();
+    Widgets::DrawComboPopup( draw, zeroOptions, kOptions, 0, -1, -1, 0u, kEnabled );
+    const bool zeroOptionsValid = drawList->GetStats().commandCount == 0;
+    drawList->Clear();
+    Widgets::DrawComboPopup( draw, negativeOptions, kOptions, -3, -1, -1, 0u, kEnabled );
+    const bool negativeOptionsValid = drawList->GetStats().commandCount == 0;
+
+    const bool passed = labelColumnValid && labelHiddenValid && dropUpValid && optionEdgesValid && footerStateValid &&
+                        chevronCommandsValid && nullOptionsValid && outOfRangeSelectionValid && zeroOptionsValid &&
+                        negativeOptionsValid;
+
+    if ( passed )
+    {
+        return true;
+    }
+
+    std::fprintf( stderr,
+                  "FAIL: component edges label=%d hidden=%d dropUp=%d options=%d footer=%d chevron=%d null=%d "
+                  "selection=%d zero=%d negative=%d footerFp=%llu/%llu chevronFp=%llu/%llu\n",
+                  labelColumnValid ? 1 : 0, labelHiddenValid ? 1 : 0, dropUpValid ? 1 : 0, optionEdgesValid ? 1 : 0,
+                  footerStateValid ? 1 : 0, chevronCommandsValid ? 1 : 0, nullOptionsValid ? 1 : 0,
+                  outOfRangeSelectionValid ? 1 : 0, zeroOptionsValid ? 1 : 0, negativeOptionsValid ? 1 : 0,
+                  static_cast<unsigned long long>( enabledFooterFingerprint ),
+                  static_cast<unsigned long long>( disabledFooterFingerprint ),
+                  static_cast<unsigned long long>( enabledChevronFingerprint ),
+                  static_cast<unsigned long long>( disabledChevronFingerprint ) );
+    return false;
+}
+
+
 bool CheckStatelessComponentContracts()
 {
     constexpr UIVisualState kEnabled = UIVisualState::Visible | UIVisualState::Enabled;
@@ -356,10 +583,9 @@ bool CheckStatelessComponentContracts()
     const UIRect comboBounds = { 10.0f, 90.0f, 180.0f, 28.0f };
     const UIRect sliderTrack = Widgets::SliderTrackBounds( sliderBounds );
     const UIRect sliderThumb = Widgets::SliderThumbBounds( sliderBounds, 0.5f, 0.0f, 1.0f );
-    const UIRect secondTab = Widgets::TabBounds( tabStrip, 1, 3 );
+    const UIRect secondTab = Widgets::ResolveTabLayout( tabStrip, 1, 3 ).visualBounds;
     const UIRect scrollThumb = Widgets::ScrollThumbBounds( scrollTrack, 420.0f, 210.0f, 105.0f );
-    const UIRect comboField = Widgets::ComboFieldBounds( comboBounds, true );
-    const UIRect comboPopup = Widgets::ComboPopupBounds( comboBounds, true, false, 3 );
+    const Widgets::ComboLayout comboLayout = Widgets::ResolveComboLayout( comboBounds, true, false, 3 );
 
     // Invariant: disabled rows still own their exact hit rectangle, but only
     // visible and enabled rows may become actions. Drawing receives these
@@ -383,11 +609,13 @@ bool CheckStatelessComponentContracts()
                                Widgets::HitTestTab( tabStrip, kDisabled, 190, 260, 3 ) == -1 &&
                                NearlyEqual( scrollThumb.x, 381.0f ) && NearlyEqual( scrollThumb.y, 62.5f ) &&
                                NearlyEqual( scrollThumb.w, 10.0f ) && NearlyEqual( scrollThumb.h, 105.0f ) &&
-                               NearlyEqual( comboField.x, 76.0f ) && NearlyEqual( comboField.y, 94.0f ) &&
-                               NearlyEqual( comboField.w, 114.0f ) && NearlyEqual( comboPopup.y, 116.0f ) &&
-                               NearlyEqual( comboPopup.h, 60.0f ) &&
-                               Widgets::ComboOptionAtPointer( comboPopup, kEnabled, 80, 157, 3 ) == 2 &&
-                               Widgets::ComboOptionAtPointer( comboPopup, kDisabled, 80, 157, 3 ) == 2 &&
+                               NearlyEqual( comboLayout.fieldBounds.x, 76.0f ) &&
+                               NearlyEqual( comboLayout.fieldBounds.y, 94.0f ) &&
+                               NearlyEqual( comboLayout.fieldBounds.w, 114.0f ) &&
+                               NearlyEqual( comboLayout.popupBounds.y, 116.0f ) &&
+                               NearlyEqual( comboLayout.popupBounds.h, 60.0f ) &&
+                               Widgets::ComboOptionAtPointer( comboLayout.popupBounds, kEnabled, 80, 157, 3 ) == 2 &&
+                               Widgets::ComboOptionAtPointer( comboLayout.popupBounds, kDisabled, 80, 157, 3 ) == 2 &&
                                !Widgets::IsComboOptionEnabled( 1u, 0 ) && Widgets::IsComboOptionEnabled( 1u, 1 );
 
     auto drawList = std::make_unique<UIDrawList>();
@@ -422,22 +650,8 @@ bool CheckStatelessComponentContracts()
 
     bool fingerprintsValid = stateFingerprints == kExpectedStatelessStateFingerprints;
 
-    // Clipping is an authored value, not backend state. The row owns one
-    // balanced clip pair and copies both text strings into the bounded list.
-    drawList->Clear();
-    Widgets::DrawLabelValueRow( draw, { 12.0f, 46.0f, 210.0f, 24.0f }, "Mode", "Inspect", Style::Palette().accentStrong,
-                                kEnabled | UIVisualState::Focused );
-    const auto rowCommands = drawList->Commands();
-    const auto rowStats = drawList->GetStats();
-    const bool clippingValid = rowCommands.size() == 5 && rowCommands.front().type == UIDrawList::CommandType::PushClip &&
-                               rowCommands.back().type == UIDrawList::CommandType::PopClip && rowStats.maxClipDepth == 1 &&
-                               !rowStats.clipOverflow && rowStats.textBytes > 0;
-
     static constexpr const char* kOptions[] = { "Alpha", "Beta", "Gamma" };
     drawList->Clear();
-    Widgets::DrawPanel( draw, { 4.0f, 4.0f, 500.0f, 330.0f }, kEnabled | UIVisualState::Selected );
-    Widgets::DrawLabelValueRow( draw, { 12.0f, 46.0f, 210.0f, 24.0f }, "Mode", "Inspect", Style::Palette().accentStrong,
-                                kEnabled | UIVisualState::Hovered );
     Widgets::DrawButton( draw, { 12.0f, 76.0f, 100.0f, 28.0f }, "Apply", kEnabled | UIVisualState::Active );
     Widgets::DrawButton( draw, { 118.0f, 76.0f, 100.0f, 28.0f }, "Blocked", kDisabled );
     Widgets::DrawToggle( draw, { 12.0f, 110.0f, 206.0f, 24.0f }, "Enabled", Style::Palette().accent,
@@ -458,12 +672,13 @@ bool CheckStatelessComponentContracts()
             tabState |= UIVisualState::Hovered;
         }
 
-        Widgets::DrawTab( draw, Widgets::TabBounds( tabStrip, tabIndex, 3 ), kOptions[tabIndex], tabState );
+        const Widgets::TabLayout tabLayout = Widgets::ResolveTabLayout( tabStrip, tabIndex, 3 );
+        Widgets::DrawTab( draw, tabLayout.visualBounds, kOptions[tabIndex], tabState );
     }
 
     Widgets::DrawScrollBar( draw, scrollTrack, 420.0f, 210.0f, 105.0f, 0.74f, kEnabled | UIVisualState::Active );
-    Widgets::DrawComboField( draw, comboBounds, "Mode", "Beta", true, true, kEnabled | UIVisualState::Focused );
-    Widgets::DrawComboPopup( draw, comboPopup, kOptions, static_cast<int>( std::size( kOptions ) ), 1, 2, 1u, kEnabled );
+    Widgets::DrawComboField( draw, comboLayout, "Mode", "Beta", true, true, kEnabled | UIVisualState::Focused );
+    Widgets::DrawComboPopup( draw, comboLayout, kOptions, static_cast<int>( std::size( kOptions ) ), 1, 2, 1u, kEnabled );
     Widgets::DrawIconButton( draw, { 234.0f, 46.0f, 24.0f, 24.0f }, Widgets::ComponentIcon::Plus,
                              kEnabled | UIVisualState::Hovered );
     Widgets::DrawIconButton( draw, { 264.0f, 46.0f, 24.0f, 24.0f }, Widgets::ComponentIcon::Close,
@@ -483,17 +698,16 @@ bool CheckStatelessComponentContracts()
     Widgets::DrawButton( draw, buttonBounds, "Overflow", kEnabled );
     const bool overflowReportingValid = drawList->GetStats().commandOverflow;
 
-    if ( geometryValid && stateBoundsValid && fingerprintsValid && !stateOverflow && clippingValid && fixtureValid &&
-         overflowReportingValid )
+    if ( geometryValid && stateBoundsValid && fingerprintsValid && !stateOverflow && fixtureValid && overflowReportingValid )
     {
         return true;
     }
 
     std::fprintf( stderr,
-                  "FAIL: stateless UI geometry=%d bounds=%d fingerprints=%d overflow=%d clipping=%d fixture=%llu/%llu "
+                  "FAIL: stateless UI geometry=%d bounds=%d fingerprints=%d overflow=%d fixture=%llu/%llu "
                   "fixtureStats=%d/%d/%d/%d overflowProbe=%d\n",
                   geometryValid ? 1 : 0, stateBoundsValid ? 1 : 0, fingerprintsValid ? 1 : 0, stateOverflow ? 1 : 0,
-                  clippingValid ? 1 : 0, static_cast<unsigned long long>( fixtureFingerprint ),
+                  static_cast<unsigned long long>( fixtureFingerprint ),
                   static_cast<unsigned long long>( kExpectedStatelessFixtureFingerprint ), fixtureStats.commandCount,
                   fixtureStats.textBytes, fixtureStats.maxClipDepth, fixtureStats.clipOverflow ? 1 : 0,
                   overflowReportingValid ? 1 : 0 );
@@ -517,6 +731,7 @@ int main()
     ui->SetMouseOverride( true, 12, 12 );
 
     bool failed = !CheckComponentBaselines();
+    failed = !CheckComponentEdgeContracts() || failed;
     failed = !CheckStatelessComponentContracts() || failed;
 
     for ( size_t surface = 0; surface < kTabs.size(); ++surface )

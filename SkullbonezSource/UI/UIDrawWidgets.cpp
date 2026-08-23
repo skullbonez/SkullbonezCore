@@ -200,85 +200,6 @@ bool CanActivateComponent( const UIRect& bounds, UIVisualState state, int pointe
 }
 
 
-void DrawPanel( const UIDrawContext& draw, const UIRect& bounds, UIVisualState state )
-{
-    if ( !IsVisible( state ) )
-    {
-        return;
-    }
-
-    const Style::UIPalette& palette = Style::Palette();
-    Style::UIColor fill = palette.window;
-
-    if ( !IsEnabled( state ) )
-    {
-        fill = WithAlpha( palette.windowSubtle, 0.52f );
-    }
-    else if ( HasVisualState( state, UIVisualState::Active ) )
-    {
-        fill = WithAlpha( palette.accent, 0.24f );
-    }
-    else if ( HasVisualState( state, UIVisualState::Selected ) )
-    {
-        fill = palette.windowRaised;
-    }
-    else if ( HasVisualState( state, UIVisualState::Checked ) )
-    {
-        fill = WithAlpha( palette.accent, 0.16f );
-    }
-    else if ( HasVisualState( state, UIVisualState::Hovered ) )
-    {
-        fill = WithAlpha( palette.controlHover, 0.76f );
-    }
-
-    draw.RoundedPanel( bounds, Style::Radii().window, fill, ControlBorder( state ) );
-}
-
-
-void DrawLabelValueRow( const UIDrawContext& draw, const UIRect& bounds, const char* label, const char* value,
-                        const Style::UIColor& valueColor, UIVisualState state )
-{
-    if ( !IsVisible( state ) )
-    {
-        return;
-    }
-
-    const Style::UIPalette& palette = Style::Palette();
-    const float textSize = 10.5f;
-    const char* safeValue = SafeText( value );
-    const float valueWidth = UIFontMetrics::MeasureText( textSize, safeValue );
-    const Style::UIColor labelColor = ControlText( state );
-    const Style::UIColor resolvedValueColor = IsEnabled( state ) ? valueColor : palette.textMuted;
-
-    // Invariant: every visible row records one balanced pair. No return is
-    // permitted between these calls because an unmatched clip poisons the
-    // remaining ordered draw stream.
-    draw.PushClip( bounds );
-
-    if ( HasVisualState( state, UIVisualState::Selected ) || HasVisualState( state, UIVisualState::Hovered ) ||
-         HasVisualState( state, UIVisualState::Active ) || HasVisualState( state, UIVisualState::Checked ) )
-    {
-        const Style::UIColor fill = ControlFill( state );
-        draw.RoundedRect( bounds.x + 1.0f, bounds.y + 1.0f, (std::max)( 0.0f, bounds.w - 2.0f ),
-                          (std::max)( 0.0f, bounds.h - 2.0f ), Style::Radii().smallButton, fill.r, fill.g, fill.b,
-                          fill.a * 0.42f );
-    }
-
-    if ( HasVisualState( state, UIVisualState::Focused ) )
-    {
-        const Style::UIColor& accent = palette.accentStrong;
-        draw.Rect( bounds.x, bounds.y + 2.0f, 2.0f, (std::max)( 0.0f, bounds.h - 4.0f ), accent.r, accent.g, accent.b,
-                   0.82f );
-    }
-
-    draw.Text( bounds.x + 8.0f, bounds.y + ( bounds.h - textSize ) * 0.5f - 1.0f, textSize, labelColor.r, labelColor.g,
-               labelColor.b, SafeText( label ) );
-    draw.Text( bounds.x + (std::max)( 8.0f, bounds.w - valueWidth - 8.0f ), bounds.y + ( bounds.h - textSize ) * 0.5f - 1.0f,
-               textSize, resolvedValueColor.r, resolvedValueColor.g, resolvedValueColor.b, safeValue );
-    draw.PopClip();
-}
-
-
 void DrawButton( const UIDrawContext& draw, const UIRect& bounds, const char* label, UIVisualState state,
                  ComponentAppearance appearance )
 {
@@ -334,20 +255,24 @@ void DrawToggle( const UIDrawContext& draw, const UIRect& bounds, const char* la
         // second toggle implementation.
         const Style::FooterToggleStyle& footer = Style::FooterToggle();
         const bool checked = HasVisualState( state, UIVisualState::Checked );
+        const bool enabled = IsEnabled( state );
         const float switchX = bounds.x + bounds.w - footer.switchW - 2.0f;
         const float switchY = bounds.y + 5.0f;
         const float labelAreaWidth = (std::max)( 1.0f, switchX - bounds.x - 6.0f );
         const float labelWidth = UIFontMetrics::MeasureText( footer.labelTextSize, SafeText( label ) );
         const float labelX = bounds.x + (std::max)( 0.0f, ( labelAreaWidth - labelWidth ) * 0.5f );
-        const Style::UIColor offFill = WithAlpha( palette.control, 0.78f );
-        const Style::UIColor knob = checked ? palette.accentStrong : palette.textMuted;
+        const Style::UIColor labelColor = enabled ? footer.label : palette.textMuted;
+        const Style::UIColor offFill = enabled ? WithAlpha( palette.control, 0.78f )
+                                               : WithAlpha( palette.windowSubtle, 0.58f );
+        const Style::UIColor switchFill = enabled && checked ? accent : offFill;
+        const Style::UIColor border = enabled ? palette.border : ControlBorder( state );
+        const Style::UIColor knob = enabled && checked ? palette.accentStrong : palette.textMuted;
 
-        draw.Text( labelX, bounds.y + 4.0f, footer.labelTextSize, footer.label.r, footer.label.g, footer.label.b,
+        draw.Text( labelX, bounds.y + 4.0f, footer.labelTextSize, labelColor.r, labelColor.g, labelColor.b,
                    SafeText( label ) );
-        draw.RoundedPanel( { switchX, switchY, footer.switchW, footer.switchH }, footer.switchH * 0.5f,
-                           checked ? accent : offFill, palette.border );
+        draw.RoundedPanel( { switchX, switchY, footer.switchW, footer.switchH }, footer.switchH * 0.5f, switchFill, border );
         draw.RoundedRect( switchX + ( checked ? footer.switchW - footer.knobW - 3.0f : 3.0f ), bounds.y + 8.0f, footer.knobW,
-                          footer.knobH, footer.knobW * 0.5f, knob.r, knob.g, knob.b, 0.96f );
+                          footer.knobH, footer.knobW * 0.5f, knob.r, knob.g, knob.b, enabled ? 0.96f : 0.62f );
         return;
     }
 
@@ -484,12 +409,6 @@ TabLayout ResolveTabLayout( const UIRect& stripBounds, int tabIndex, int tabCoun
 }
 
 
-UIRect TabBounds( const UIRect& stripBounds, int tabIndex, int tabCount, ComponentAppearance appearance )
-{
-    return ResolveTabLayout( stripBounds, tabIndex, tabCount, appearance ).visualBounds;
-}
-
-
 int HitTestTab( const UIRect& stripBounds, UIVisualState state, int pointerX, int pointerY, int tabCount,
                 ComponentAppearance appearance )
 {
@@ -546,7 +465,6 @@ void DrawTab( const UIDrawContext& draw, const UIRect& bounds, const char* label
     // Invariant: callers pass TabLayout::visualBounds. DrawTab never derives a
     // second rectangle, so a layout change cannot silently move rendering away
     // from the geometry value inspected by hit-routing tests.
-    const UIRect& visualBounds = bounds;
     Style::UIColor fill = WithAlpha( palette.windowSubtle, 0.20f );
 
     if ( !IsEnabled( state ) )
@@ -568,25 +486,24 @@ void DrawTab( const UIDrawContext& draw, const UIRect& bounds, const char* label
 
     if ( established && !selected )
     {
-        draw.RoundedRect( visualBounds.x, visualBounds.y, visualBounds.w, visualBounds.h, Style::Radii().control, fill.r,
-                          fill.g, fill.b, fill.a );
+        draw.RoundedRect( bounds.x, bounds.y, bounds.w, bounds.h, Style::Radii().control, fill.r, fill.g, fill.b, fill.a );
     }
     else
     {
         const Style::UIColor border = established ? palette.innerBorder : ControlBorder( state );
-        draw.RoundedPanel( visualBounds, Style::Radii().control, fill, border );
+        draw.RoundedPanel( bounds, Style::Radii().control, fill, border );
     }
 
     if ( selected )
     {
-        draw.Rect( visualBounds.x + 8.0f, visualBounds.y + visualBounds.h - 1.0f, (std::max)( 1.0f, visualBounds.w - 16.0f ),
-                   2.0f, palette.accent.r, palette.accent.g, palette.accent.b, 0.86f );
+        draw.Rect( bounds.x + 8.0f, bounds.y + bounds.h - 1.0f, (std::max)( 1.0f, bounds.w - 16.0f ), 2.0f, palette.accent.r,
+                   palette.accent.g, palette.accent.b, 0.86f );
     }
 
     float textSize = 11.5f;
     const char* safeLabel = SafeText( label );
 
-    while ( textSize > 8.5f && UIFontMetrics::MeasureText( textSize, safeLabel ) > visualBounds.w - 10.0f )
+    while ( textSize > 8.5f && UIFontMetrics::MeasureText( textSize, safeLabel ) > bounds.w - 10.0f )
     {
         textSize -= 0.5f;
     }
@@ -595,9 +512,9 @@ void DrawTab( const UIDrawContext& draw, const UIRect& bounds, const char* label
     const Style::UIColor text = established && IsEnabled( state )
                                     ? ( selected ? palette.textPrimary : palette.textSecondary )
                                     : ControlText( state );
-    const float labelY = established ? visualBounds.y + 8.0f : visualBounds.y + ( visualBounds.h - textSize ) * 0.5f - 1.0f;
-    draw.Text( visualBounds.x + (std::max)( 6.0f, ( visualBounds.w - labelWidth ) * 0.5f ), labelY, textSize, text.r, text.g,
-               text.b, safeLabel );
+    const float labelY = established ? bounds.y + 8.0f : bounds.y + ( bounds.h - textSize ) * 0.5f - 1.0f;
+    draw.Text( bounds.x + (std::max)( 6.0f, ( bounds.w - labelWidth ) * 0.5f ), labelY, textSize, text.r, text.g, text.b,
+               safeLabel );
 }
 
 
@@ -657,20 +574,22 @@ void DrawScrollBar( const UIDrawContext& draw, const UIRect& trackBounds, float 
 }
 
 
-UIRect ComboFieldBounds( const UIRect& bounds, bool labelVisible )
+ComboLayout ResolveComboLayout( const UIRect& bounds, bool labelVisible, bool dropUp, int optionCount )
 {
     const float labelWidth = labelVisible ? COMBO_LABEL_WIDTH : 0.0f;
-    return { bounds.x + labelWidth, bounds.y + COMBO_FIELD_Y, (std::max)( 54.0f, bounds.w - labelWidth ),
-             COMBO_FIELD_HEIGHT };
-}
-
-
-UIRect ComboPopupBounds( const UIRect& bounds, bool labelVisible, bool dropUp, int optionCount )
-{
-    const UIRect field = ComboFieldBounds( bounds, labelVisible );
+    const UIRect fieldBounds = { bounds.x + labelWidth, bounds.y + COMBO_FIELD_Y, (std::max)( 54.0f, bounds.w - labelWidth ),
+                                 COMBO_FIELD_HEIGHT };
     const float popupHeight = COMBO_OPTION_HEIGHT * static_cast<float>( (std::max)( 1, optionCount ) );
-    const float popupY = dropUp ? field.y - popupHeight - COMBO_POPUP_GAP : field.y + field.h + COMBO_POPUP_GAP;
-    return { field.x, popupY, field.w, popupHeight };
+    const float popupY = dropUp ? fieldBounds.y - popupHeight - COMBO_POPUP_GAP
+                                : fieldBounds.y + fieldBounds.h + COMBO_POPUP_GAP;
+    const UIRect popupBounds = { fieldBounds.x, popupY, fieldBounds.w, popupHeight };
+
+    // Compatibility: UIComboBox::HitBox is the retained activation seam used
+    // by UIWindowInteractionOwner and UITabScene. It has always accepted the
+    // full component, including the label column, while only fieldBounds is
+    // visible as the control. Delete this split when those callers migrate to
+    // explicit field-only activation and their pointer oracles are updated.
+    return { bounds, fieldBounds, popupBounds };
 }
 
 
@@ -693,7 +612,7 @@ bool IsComboOptionEnabled( uint32_t disabledOptionMask, int optionIndex )
 }
 
 
-void DrawComboField( const UIDrawContext& draw, const UIRect& bounds, const char* label, const char* selectedText,
+void DrawComboField( const UIDrawContext& draw, const ComboLayout& layout, const char* label, const char* selectedText,
                      bool labelVisible, bool open, UIVisualState state, bool selectedEnabled,
                      ComponentAppearance appearance )
 {
@@ -703,7 +622,6 @@ void DrawComboField( const UIDrawContext& draw, const UIRect& bounds, const char
     }
 
     const Style::UIPalette& palette = Style::Palette();
-    const UIRect field = ComboFieldBounds( bounds, labelVisible );
     const bool established = appearance == ComponentAppearance::Established;
     const bool hovered = HasVisualState( state, UIVisualState::Hovered );
     const Style::UIColor text = established && IsEnabled( state ) ? ( hovered ? palette.textPrimary : palette.textSecondary )
@@ -712,7 +630,8 @@ void DrawComboField( const UIDrawContext& draw, const UIRect& bounds, const char
 
     if ( labelVisible && label && label[0] != '\0' )
     {
-        draw.Text( bounds.x, bounds.y + 4.0f, 10.5f, labelColor.r, labelColor.g, labelColor.b, label );
+        draw.Text( layout.interactionBounds.x, layout.interactionBounds.y + 4.0f, 10.5f, labelColor.r, labelColor.g,
+                   labelColor.b, label );
     }
 
     const Style::UIColor fill = established && IsEnabled( state ) ? ( hovered ? palette.controlHover : palette.control )
@@ -720,22 +639,24 @@ void DrawComboField( const UIDrawContext& draw, const UIRect& bounds, const char
     const Style::UIColor border = established && IsEnabled( state )
                                       ? ( hovered ? palette.innerBorder : palette.border )
                                       : ( open && IsEnabled( state ) ? palette.accent : ControlBorder( state ) );
-    draw.RoundedPanel( field, Style::Radii().control, fill, border );
+    draw.RoundedPanel( layout.fieldBounds, Style::Radii().control, fill, border );
 
     if ( selectedText && selectedText[0] != '\0' )
     {
         const Style::UIColor selectedTextColor = selectedEnabled ? text : palette.textMuted;
-        draw.Text( field.x + 6.0f, field.y + 3.0f, 10.0f, selectedTextColor.r, selectedTextColor.g, selectedTextColor.b,
-                   selectedText );
+        draw.Text( layout.fieldBounds.x + 6.0f, layout.fieldBounds.y + 3.0f, 10.0f, selectedTextColor.r, selectedTextColor.g,
+                   selectedTextColor.b, selectedText );
     }
 
-    const Style::UIColor chevronColor = established ? WithAlpha( palette.textSecondary, 0.96f )
-                                                    : WithAlpha( text, IsEnabled( state ) ? 0.96f : 0.56f );
-    DrawComboChevron( draw, field, open, chevronColor, appearance );
+    const Style::UIColor chevronColor = established
+                                            ? WithAlpha( IsEnabled( state ) ? palette.textSecondary : palette.textMuted,
+                                                         IsEnabled( state ) ? 0.96f : 0.56f )
+                                            : WithAlpha( text, IsEnabled( state ) ? 0.96f : 0.56f );
+    DrawComboChevron( draw, layout.fieldBounds, open, chevronColor, appearance );
 }
 
 
-void DrawComboPopup( const UIDrawContext& draw, const UIRect& popupBounds, const char* const* options, int optionCount,
+void DrawComboPopup( const UIDrawContext& draw, const ComboLayout& layout, const char* const* options, int optionCount,
                      int selectedIndex, int hoveredIndex, uint32_t disabledOptionMask, UIVisualState state,
                      ComponentAppearance appearance )
 {
@@ -748,9 +669,10 @@ void DrawComboPopup( const UIDrawContext& draw, const UIRect& popupBounds, const
 
     const Style::UIPalette& palette = Style::Palette();
     const float radius = Style::Radii().control;
-    draw.RoundedRect( popupBounds.x - 4.0f, popupBounds.y - 4.0f, popupBounds.w + 8.0f, popupBounds.h + 8.0f, radius + 2.0f,
-                      0.0f, 0.0f, 0.0f, 0.26f );
-    draw.RoundedPanel( popupBounds, radius, palette.windowRaised, established ? palette.border : ControlBorder( state ) );
+    draw.RoundedRect( layout.popupBounds.x - 4.0f, layout.popupBounds.y - 4.0f, layout.popupBounds.w + 8.0f,
+                      layout.popupBounds.h + 8.0f, radius + 2.0f, 0.0f, 0.0f, 0.0f, 0.26f );
+    draw.RoundedPanel( layout.popupBounds, radius, palette.windowRaised,
+                       established ? palette.border : ControlBorder( state ) );
 
     // Why: Adaptive popups author an explicit clip contract. Established
     // popups preserve their existing clipping behavior and command order;
@@ -758,10 +680,10 @@ void DrawComboPopup( const UIDrawContext& draw, const UIRect& popupBounds, const
     // share option geometry and disabled-row policy below.
     if ( !established )
     {
-        draw.PushClip( popupBounds );
+        draw.PushClip( layout.popupBounds );
     }
 
-    const float optionHeight = optionCount > 0 ? popupBounds.h / static_cast<float>( optionCount ) : 0.0f;
+    const float optionHeight = optionCount > 0 ? layout.popupBounds.h / static_cast<float>( optionCount ) : 0.0f;
 
     for ( int optionIndex = 0; optionIndex < optionCount; ++optionIndex )
     {
@@ -787,7 +709,7 @@ void DrawComboPopup( const UIDrawContext& draw, const UIRect& popupBounds, const
             optionState |= UIVisualState::Hovered;
         }
 
-        const float optionY = popupBounds.y + static_cast<float>( optionIndex ) * optionHeight;
+        const float optionY = layout.popupBounds.y + static_cast<float>( optionIndex ) * optionHeight;
 
         if ( HasVisualState( optionState, UIVisualState::Selected ) ||
              HasVisualState( optionState, UIVisualState::Hovered ) )
@@ -798,7 +720,7 @@ void DrawComboPopup( const UIDrawContext& draw, const UIRect& popupBounds, const
                                             ? ( !optionEnabled ? palette.windowSubtle
                                                                : ( optionHovered ? palette.controlHover : palette.control ) )
                                             : ControlFill( optionState );
-            draw.RoundedRect( popupBounds.x + 2.0f, optionY + 2.0f, (std::max)( 0.0f, popupBounds.w - 4.0f ),
+            draw.RoundedRect( layout.popupBounds.x + 2.0f, optionY + 2.0f, (std::max)( 0.0f, layout.popupBounds.w - 4.0f ),
                               (std::max)( 0.0f, optionHeight - 4.0f ), (std::max)( 0.0f, radius - 2.0f ), fill.r, fill.g,
                               fill.b, fill.a );
         }
@@ -811,7 +733,8 @@ void DrawComboPopup( const UIDrawContext& draw, const UIRect& popupBounds, const
                                                                         ? palette.accentStrong
                                                                         : palette.textSecondary ) ) )
                                                 : ControlText( optionState );
-        draw.Text( popupBounds.x + 10.0f, optionY + 4.0f, 10.5f, text.r, text.g, text.b, SafeText( options[optionIndex] ) );
+        draw.Text( layout.popupBounds.x + 10.0f, optionY + 4.0f, 10.5f, text.r, text.g, text.b,
+                   SafeText( options[optionIndex] ) );
     }
 
     if ( !established )

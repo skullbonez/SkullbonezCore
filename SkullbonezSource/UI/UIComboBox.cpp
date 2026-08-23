@@ -10,8 +10,8 @@ Summary:
   facts, while UIDrawWidgets owns all geometry, style, and command recording.
 
 Invariants:
-  - ComboFieldBounds and ComboPopupBounds are the sole draw/hit geometry
-    authority.
+  - One ComboLayout is the sole interaction, field, and popup geometry
+    authority for each operation.
   - Disabled options remain pointer-blocking but never become enabled actions.
 
 Related:
@@ -41,21 +41,23 @@ UIRect UIComboBox::Bounds() const
 
 UIRect UIComboBox::DropdownBounds( int optionCount ) const
 {
-    return Widgets::ComboPopupBounds( m_bounds, m_labelVisible, m_dropUp, optionCount );
+    return Widgets::ResolveComboLayout( m_bounds, m_labelVisible, m_dropUp, optionCount ).popupBounds;
 }
 
 
 bool UIComboBox::HitBox( int mouseX, int mouseY ) const
 {
     constexpr UIVisualState kState = UIVisualState::Visible | UIVisualState::Enabled;
-    return Widgets::CanActivateComponent( m_bounds, kState, mouseX, mouseY );
+    const Widgets::ComboLayout layout = Widgets::ResolveComboLayout( m_bounds, m_labelVisible, m_dropUp, 0 );
+    return Widgets::CanActivateComponent( layout.interactionBounds, kState, mouseX, mouseY );
 }
 
 
 int UIComboBox::HitOption( int mouseX, int mouseY, int optionCount ) const
 {
     const UIVisualState state = m_isOpen ? UIVisualState::Visible : UIVisualState::None;
-    return Widgets::ComboOptionAtPointer( DropdownBounds( optionCount ), state, mouseX, mouseY, optionCount );
+    const Widgets::ComboLayout layout = Widgets::ResolveComboLayout( m_bounds, m_labelVisible, m_dropUp, optionCount );
+    return Widgets::ComboOptionAtPointer( layout.popupBounds, state, mouseX, mouseY, optionCount );
 }
 
 
@@ -112,18 +114,17 @@ void UIComboBox::Draw( const UIDrawContext& draw, const char* label, const char*
 void UIComboBox::Draw( const UIDrawContext& draw, const char* label, const char* selectedText, const char* const* options,
                        int optionCount, int selectedIndex, int mouseX, int mouseY, uint32_t disabledOptionMask ) const
 {
-    const UIRect field = Widgets::ComboFieldBounds( m_bounds, m_labelVisible );
-    const UIRect popup = Widgets::ComboPopupBounds( m_bounds, m_labelVisible, m_dropUp, optionCount );
+    const Widgets::ComboLayout layout = Widgets::ResolveComboLayout( m_bounds, m_labelVisible, m_dropUp, optionCount );
     UIVisualState state = UIVisualState::Visible | UIVisualState::Enabled;
 
-    if ( Widgets::ContainsComponent( field, state, mouseX, mouseY ) )
+    if ( Widgets::ContainsComponent( layout.fieldBounds, state, mouseX, mouseY ) )
     {
         state |= UIVisualState::Hovered;
     }
 
     const bool selectedDisabled = selectedIndex >= 0 && selectedIndex < 32 &&
                                   ( disabledOptionMask & ( 1u << selectedIndex ) ) != 0;
-    Widgets::DrawComboField( draw, m_bounds, label, selectedText, m_labelVisible, m_isOpen, state, !selectedDisabled,
+    Widgets::DrawComboField( draw, layout, label, selectedText, m_labelVisible, m_isOpen, state, !selectedDisabled,
                              Widgets::ComponentAppearance::Established );
 
     if ( !m_isOpen )
@@ -131,8 +132,8 @@ void UIComboBox::Draw( const UIDrawContext& draw, const char* label, const char*
         return;
     }
 
-    const int hoveredOption = Widgets::ComboOptionAtPointer( popup, state, mouseX, mouseY, optionCount );
-    Widgets::DrawComboPopup( draw, popup, options, optionCount, selectedIndex, hoveredOption, disabledOptionMask, state,
+    const int hoveredOption = Widgets::ComboOptionAtPointer( layout.popupBounds, state, mouseX, mouseY, optionCount );
+    Widgets::DrawComboPopup( draw, layout, options, optionCount, selectedIndex, hoveredOption, disabledOptionMask, state,
                              Widgets::ComponentAppearance::Established );
 }
 
