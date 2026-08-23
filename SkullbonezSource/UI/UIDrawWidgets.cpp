@@ -584,11 +584,13 @@ ComboLayout ResolveComboLayout( const UIRect& bounds, bool labelVisible, bool dr
                                 : fieldBounds.y + fieldBounds.h + COMBO_POPUP_GAP;
     const UIRect popupBounds = { fieldBounds.x, popupY, fieldBounds.w, popupHeight };
 
-    // Compatibility: UIComboBox::HitBox is the retained activation seam used
-    // by UIWindowInteractionOwner and UITabScene. It has always accepted the
-    // full component, including the label column, while only fieldBounds is
-    // visible as the control. Delete this split when those callers migrate to
-    // explicit field-only activation and their pointer oracles are updated.
+    // Compatibility: UIComboBox::HitBox retains 18 production activation
+    // calls: UIWindowInteractionOwner owns 10, UITabScene owns 4, and
+    // UITabEditor and UITabCinematic own 2 each. Every call has always accepted
+    // the full component, including the label column, while only fieldBounds
+    // is visible as the control. Delete this split only after all four owners
+    // and their corresponding pointer oracles migrate every call to explicit
+    // field-only activation.
     return { bounds, fieldBounds, popupBounds };
 }
 
