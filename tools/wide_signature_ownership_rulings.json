@@ -99,11 +99,19 @@
     },
     {
       "file": "SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.cpp",
-      "signature": "template <bool RetainPipelineRecords> void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, PhysicsTerrainView terrain, std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<const std::pair<int, int>> candidatePairs, PhysicsNarrowphaseWakeAccess wakeAccess, std::span<float> timeRemaining, std::span<const PersistentContactCacheEntry> persistentContactCache, const ObjectNarrowphaseStepPolicy& policy, Core::Profiler* profiler, int pairIndex, ObjectNarrowphaseEvent& event )",
+      "signature": "template <bool RetainPipelineRecords> void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, PhysicsTerrainView terrain, std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<const std::pair<int, int>> candidatePairs, PhysicsNarrowphaseWakeAccess wakeAccess, std::span<float> timeRemaining, std::span<const uint8_t> motionEligibilityState, const ObjectNarrowphaseStepPolicy& policy, Core::Profiler* profiler, int pairIndex, ObjectNarrowphaseEvent& event )",
       "owner": "PhysicsNarrowphaseStage",
       "disposition": "retain-owner",
-      "reason": "One pair-scoped operation owns contact, wake-event, and optional trace-payload production from explicit stores, policy, scratch, pair index, and output; the compile-time lane avoids a courier or sink abstraction.",
-      "evidence": "git history: solver-diagnostic-hot-path-cost-hp2-payload (2026-07-31)"
+      "reason": "One pair-scoped kernel owns wake arbitration and Swept TOI event production from synchronous store, per-tick eligibility, clock, policy, and output borrows. Every borrow expires with the pair call; collecting them would create a courier, while splitting the sleep-state branches would only move this one state machine into once-called helpers.",
+      "evidence": "git history: solver-diagnostic-hot-path-cost-hp2-payload (2026-07-31); RAGDOLL_PHYSICS FP2 qualitative owner review (2026-08-23)"
+    },
+    {
+      "file": "SkullbonezSource/Physics/Stages/PhysicsTerrainStage.cpp",
+      "signature": "void PhysicsTerrainStage::Detect( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, std::span<const BuoyancyBodyFacts> buoyancyFacts, PhysicsTerrainView terrain, const PhysicsRuntimeSettings& settings, std::span<const uint8_t> sleepState, std::span<const uint8_t> motionEligibilityState, std::span<const float> timeRemaining, Core::Profiler* profiler, std::span<const int> awakeBodyIndices, const PhysicsExecutionSettings& execution, Threading::WorkerPool& workerPool )",
+      "owner": "PhysicsTerrainStage",
+      "disposition": "retain-owner",
+      "reason": "The terrain stage owns one fixed-tick detection pass and its serial-or-worker arbitration. Body/collider facts, sleep and motion-path classifications, remaining-time clocks, awake rows, execution policy, and worker access share that synchronous pass lifetime; grouping them would create a context courier rather than a new invariant owner.",
+      "evidence": "RAGDOLL_PHYSICS FP2 qualitative owner review (2026-08-23)"
     },
     {
       "file": "SkullbonezSource/Rendering/RenderInstanceRenderer.cpp",

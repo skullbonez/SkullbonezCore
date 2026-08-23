@@ -311,12 +311,12 @@
     },
     {
       "file": "SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.cpp",
-      "signature": "template <bool RetainPipelineRecords> void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, PhysicsTerrainView terrain, std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<const std::pair<int, int>> candidatePairs, PhysicsNarrowphaseWakeAccess wakeAccess, std::span<float> timeRemaining, std::span<const PersistentContactCacheEntry> persistentContactCache, const ObjectNarrowphaseStepPolicy& policy, Core::Profiler* profiler, int pairIndex, ObjectNarrowphaseEvent& event )",
-      "body_sha256": "023b65ef3ef9df73bdc9685bc25fecc84ae9ed2db7d85765a64dfc0d492416db",
+      "signature": "template <bool RetainPipelineRecords> void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, PhysicsTerrainView terrain, std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<const std::pair<int, int>> candidatePairs, PhysicsNarrowphaseWakeAccess wakeAccess, std::span<float> timeRemaining, std::span<const uint8_t> motionEligibilityState, const ObjectNarrowphaseStepPolicy& policy, Core::Profiler* profiler, int pairIndex, ObjectNarrowphaseEvent& event )",
+      "body_sha256": "433f6491bb4b32a12e8af9a8a679735eb5e8dc9e39f0d3a6b174243c77a2e495",
       "owner": "Physics narrowphase pair kernel",
       "disposition": "retain-owner",
-      "reason": "One hot narrowphase kernel resolves exactly one candidate pair through shape dispatch, continuous collision policy, manifold output, wake evidence, and optional trace payload; scratch values and output event share the pair lifetime.",
-      "evidence": "git history: solver-diagnostic-hot-path-cost-hp2-payload (2026-07-31)",
+      "reason": "One hot pair kernel resolves the sleep-state branch, Swept TOI policy, wake evidence, time advancement, collision publication, and optional trace payload for exactly one candidate pair. Its nesting is one pair state machine; extraction would leave once-called helpers sharing the same ephemeral pair scratch and output authority.",
+      "evidence": "git history: solver-diagnostic-hot-path-cost-hp2-payload (2026-07-31); RAGDOLL_PHYSICS FP2 qualitative owner review (2026-08-23)",
       "plan": ""
     },
     {
