@@ -356,6 +356,7 @@ RUNTIME_CAPTURE_PREFIXES = (
 RUNTIME_DEMO_PREFIXES = (
     "DemoDirector",
     "DemoDirectorPlayback",
+    "DemoDirectorPersistence",
 )
 
 RUNTIME_INPUT_PREFIXES = (

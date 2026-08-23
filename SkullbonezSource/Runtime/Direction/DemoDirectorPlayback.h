@@ -31,6 +31,7 @@ Related:
 
 #include "../Camera/CameraControlState.h"
 #include "../Camera/CameraCollection.h"
+#include "DemoDirectorPersistence.h"
 
 namespace SkullbonezCore
 {

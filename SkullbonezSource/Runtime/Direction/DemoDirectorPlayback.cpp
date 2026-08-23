@@ -35,7 +35,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Direction/DemoDirectorPlayback.h
-  - SkullbonezSource/Runtime/Direction/DemoDirector.h
+  - SkullbonezSource/Runtime/Camera/DemoDirector.h
   - SkullbonezSource/Runtime/Scene/SceneController.h
   - Agentic/Reference/engine-glossary.md
 */

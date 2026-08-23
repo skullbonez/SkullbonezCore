@@ -541,7 +541,8 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Render\RenderDefaultsStore.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Camera\Camera.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Camera\CameraCollection.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Direction\DemoDirector.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Camera\DemoDirector.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Direction\DemoDirectorPersistence.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Direction\LookLabBundleWriter.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Direction\LookLabController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Direction\LookLabGenerator.h" />

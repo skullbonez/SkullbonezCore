@@ -40,7 +40,7 @@ Related:
 #include "../../Core/PlatformWin32.h"
 #include "../../Core/Timer.h"
 #include "../../Core/Common.h"
-#include "../Direction/DemoDirector.h"
+#include "DemoDirector.h"
 #include "../Input/Input.h"
 #include "RuntimeCameraMode.h"
 #include "../Scene/SceneLifecycle.h"

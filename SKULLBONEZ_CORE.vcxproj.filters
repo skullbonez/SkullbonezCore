@@ -871,7 +871,10 @@
     <ClInclude Include="SkullbonezSource\Runtime\Camera\CameraCollection.h">
       <Filter>Header Files\Runtime\Camera</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Direction\DemoDirector.h">
+    <ClInclude Include="SkullbonezSource\Runtime\Camera\DemoDirector.h">
+      <Filter>Header Files\Runtime\Demo</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Direction\DemoDirectorPersistence.h">
       <Filter>Header Files\Runtime\Demo</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Direction\LookLabBundleWriter.h">

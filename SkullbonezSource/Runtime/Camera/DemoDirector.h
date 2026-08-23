@@ -1,10 +1,11 @@
 /*
-File: SkullbonezSource/Runtime/Direction/DemoDirector.h
+File: SkullbonezSource/Runtime/Camera/DemoDirector.h
 Purpose:
   Defines the authored shot-list data and playback state used by the Demo Director.
 
 Summary:
-  A shot list is a compact sequence of operator-authored phases. Each phase
+  Camera owns the value-only shot-list schema and its playback cursor because
+  CameraControlState retains that cursor with the other camera intent. Each phase
   owns a camera pose, optional render style path, and the rule that advances to
   the next phase. Runtime playback keeps a bounded active shot list plus timing
   state so Director mode can blend and time these records without inventing
@@ -107,12 +108,6 @@ struct DemoDirectorPlaybackState
 
 const char* PhaseAdvanceName( PhaseAdvance advance );
 bool TryParsePhaseAdvance( const char* text, PhaseAdvance& outAdvance );
-
-// Loads into outShotList only after the full document is valid.
-bool LoadDemoShotList( const char* path, DemoShotList& outShotList );
-
-// Writes the stable `.shot.json` schema and creates the parent folder if needed.
-bool SaveDemoShotList( const char* path, const DemoShotList& shotList );
 
 } // namespace Runtime
 } // namespace SkullbonezCore

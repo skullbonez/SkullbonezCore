@@ -62,7 +62,7 @@ Related:
 #include "../../Core/Common.h"
 #include "../../Core/SbResult.h"
 #include "../../Maths/Vector3.h"
-#include "../Direction/DemoDirector.h"
+#include "../Camera/DemoDirector.h"
 #include "../Camera/RuntimeCameraMode.h"
 #include "../Replay/ReplayCoordination.h"
 #include "../../UI/OperatorEditorExchange.h"

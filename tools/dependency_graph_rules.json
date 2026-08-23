@@ -235,6 +235,7 @@
         "package": "Runtime/Direction",
         "rank": 17,
         "allowed_exact_target_files": [
+          "Runtime/Camera/DemoDirector.h",
           "Runtime/Tools/RuntimeFileWriter.h"
         ]
       },
@@ -244,7 +245,7 @@
         "allowed_exact_target_files": [
           "Runtime/Camera/RuntimeCameraMode.h",
           "Runtime/DevelopmentTools/ImGuiEditorOwner.h",
-          "Runtime/Direction/DemoDirector.h",
+          "Runtime/Camera/DemoDirector.h",
           "Runtime/Direction/DemoDirectorPlayback.h",
           "Runtime/Input/Input.h",
           "Runtime/Interaction/RuntimePickService.h",
@@ -411,7 +412,6 @@
         {"source": "Runtime/Camera/AttachedCameraController.h", "line": 44, "target": "Runtime/Scene/SceneLifecycle.h", "fingerprint": "daffbe155fcf6d2444306f71f961ff1dc9d7a30772e456e1268956f86a1c5f07", "repair_phase": "RBS2-RBS5"},
         {"source": "Runtime/Camera/CameraControlState.cpp", "line": 30, "target": "Runtime/Input/InputController.h", "fingerprint": "eb421da832eddc2454263db93759949a85bdc2b21b5fc8e0b4c8fce01abfe276", "repair_phase": "RBS2-RBS5"},
         {"source": "Runtime/Camera/CameraControlState.cpp", "line": 34, "target": "Runtime/Scene/SceneWorld.h", "fingerprint": "a1106a6502ee7790e3c3ae62438c9dc9ac07e7487c1d8cd36ab3dfcba58aa1d0", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Camera/CameraControlState.h", "line": 43, "target": "Runtime/Direction/DemoDirector.h", "fingerprint": "f7713304a263707c4660c7c2e4e564adfb5d0657e70928bbe27ed81f55bfb4b4", "repair_phase": "RBS2-RBS5"},
         {"source": "Runtime/Camera/CameraControlState.h", "line": 44, "target": "Runtime/Input/Input.h", "fingerprint": "8af5389bccde691c4348ac9fe320ae8d2787308c450e5560c2fd0ace2890b4b7", "repair_phase": "RBS2-RBS5"},
         {"source": "Runtime/Camera/CameraControlState.h", "line": 46, "target": "Runtime/Scene/SceneLifecycle.h", "fingerprint": "190b010cdd8a43bcd7f68b0dedbfbf5f78ef67c663bd75f37591e6dd80e3c753", "repair_phase": "RBS2-RBS5"},
         {"source": "Runtime/DevelopmentTools/ImGuiEditorOwner.cpp", "line": 48, "target": "Runtime/Input/InputRouter.h", "fingerprint": "60ceb6c5f1d7e9824beee0393f158984bc310c4f058463e238add269908a5b13", "repair_phase": "RBS2-RBS5"},
