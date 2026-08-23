@@ -65,7 +65,7 @@ Related:
 #include "../Camera/RuntimeCameraMode.h"
 #include "../Camera/CameraControlState.h"
 #include "../Camera/CameraCollection.h"
-#include "../App/RunTimerState.h"
+#include "../RuntimeFrameViews.h"
 #include "../Tools/RuntimeTools.h"
 #include "../Startup/Window.h"
 #include "../Scene/SceneController.h"
@@ -1254,10 +1254,11 @@ void PublishReplayDeterministicReveal( ReplayFrameIntent& intent, ReplayFrameInd
 
 template <typename TrySetReplayPathTarget, typename TrySetReplayInterceptTarget,
           typename SetWorldInteractionOwnerAfterTransition>
-void ApplyInteractionAutomationReplayStateAction( InteractionAutomationController& state, RunTimerState& timers,
-                                                  ReplayFrameIntent& replayIntent, const ReplayAutomationView& replay,
-                                                  Physics::PhysicsEngine& physics, RunInteractionAutomationAction& action,
-                                                  int frame, TrySetReplayPathTarget trySetReplayPathTarget,
+void ApplyInteractionAutomationReplayStateAction( InteractionAutomationController& state,
+                                                  const RuntimeFrameMetricsSnapshot& timers, ReplayFrameIntent& replayIntent,
+                                                  const ReplayAutomationView& replay, Physics::PhysicsEngine& physics,
+                                                  RunInteractionAutomationAction& action, int frame,
+                                                  TrySetReplayPathTarget trySetReplayPathTarget,
                                                   TrySetReplayInterceptTarget trySetReplayInterceptTarget,
                                                   SetWorldInteractionOwnerAfterTransition setWorldInteractionOwner )
 {
@@ -1267,7 +1268,7 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
     switch ( action.type )
     {
     case RunInteractionAutomationActionType::ShowReplayScrubber:
-        PublishReplayScrubberVisibility( replayIntent, action.boolValue, timers.simulationTimer.GetTotalTime(), 5.0 );
+        PublishReplayScrubberVisibility( replayIntent, action.boolValue, timers.simulationTotalSeconds, 5.0 );
         AppendReportAction( state, frame, action.type, "", nullptr, true, action.boolValue ? "visible" : "hidden" );
         break;
     case RunInteractionAutomationActionType::SetReplayPredictionEnabled:
@@ -1364,7 +1365,7 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
                 if ( applied )
                 {
                     CommitReplayVelocityMutation( replayIntent );
-                    PublishReplayScrubberVisibility( replayIntent, true, timers.simulationTimer.GetTotalTime(),
+                    PublishReplayScrubberVisibility( replayIntent, true, timers.simulationTotalSeconds,
                                                      REPLAY_SCRUBBER_VISIBLE_SECONDS );
 
                     setWorldInteractionOwner( WorldInteractionOwner::ReplayVelocityEdit,
@@ -1392,10 +1393,9 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
     }
 }
 
-void ShowInteractionAutomationReplayScrubber( RunTimerState& timers, ReplayFrameIntent& replayIntent )
+void ShowInteractionAutomationReplayScrubber( const RuntimeFrameMetricsSnapshot& timers, ReplayFrameIntent& replayIntent )
 {
-    PublishReplayScrubberVisibility( replayIntent, true, timers.simulationTimer.GetTotalTime(),
-                                     REPLAY_SCRUBBER_VISIBLE_SECONDS );
+    PublishReplayScrubberVisibility( replayIntent, true, timers.simulationTotalSeconds, REPLAY_SCRUBBER_VISIBLE_SECONDS );
 }
 
 void AppendInteractionAutomationReplayControlFailure( InteractionAutomationController& state, int frame,
@@ -1406,7 +1406,8 @@ void AppendInteractionAutomationReplayControlFailure( InteractionAutomationContr
     AppendReportAction( state, frame, action.type, action.text, nullptr, false, detail );
 }
 
-void InjectInteractionAutomationReplayControlClick( InteractionAutomationController& state, RunTimerState& timers,
+void InjectInteractionAutomationReplayControlClick( InteractionAutomationController& state,
+                                                    const RuntimeFrameMetricsSnapshot& timers,
                                                     ReplayFrameIntent& replayIntent, RunInteractionAutomationAction& action,
                                                     int frame, const SkullbonezCore::UI::UIRect& rect, const char* detail )
 {
@@ -1417,7 +1418,7 @@ void InjectInteractionAutomationReplayControlClick( InteractionAutomationControl
 
 void ApplyInteractionAutomationReplayControlClick( InteractionAutomationController& state, Window* window,
                                                    const SkullbonezCore::Core::EngineConfig& config,
-                                                   const SceneSessionState& scene, RunTimerState& timers,
+                                                   const SceneSessionState& scene, const RuntimeFrameMetricsSnapshot& timers,
                                                    ReplayFrameIntent& replayIntent, const ReplayAutomationView& replay,
                                                    RunInteractionAutomationAction& action, int frame )
 {
@@ -1658,9 +1659,10 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
 }
 
 void ApplyInteractionAutomationSolverTrackScrub( InteractionAutomationController& state, Window* window,
-                                                 const SkullbonezCore::Core::EngineConfig& config, RunTimerState& timers,
-                                                 ReplayFrameIntent& replayIntent, const ReplayAutomationView& replay,
-                                                 RunInteractionAutomationAction& action, int frame )
+                                                 const SkullbonezCore::Core::EngineConfig& config,
+                                                 const RuntimeFrameMetricsSnapshot& timers, ReplayFrameIntent& replayIntent,
+                                                 const ReplayAutomationView& replay, RunInteractionAutomationAction& action,
+                                                 int frame )
 {
     const int screenW = window ? window->ClientWidth() : config.window.screenX;
     const int screenH = window ? window->ClientHeight() : config.window.screenY;
@@ -5122,7 +5124,7 @@ SkullbonezCore::Runtime::InteractionAutomationResult( const InteractionAutomatio
 }
 
 InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutomationController& state, Window& windowOwner, const SkullbonezCore::Core::EngineConfig& config,
-                                                                                                SceneController& scene, RunTimerState& timers, CameraControlState& camera, InputRouter& inputRouter,
+                                                                                                SceneController& scene, const RuntimeFrameMetricsSnapshot& timers, CameraControlState& camera, InputRouter& inputRouter,
                                                                                                 RuntimeInteractionController& interaction, RuntimeTools& runtimeTools, SkullbonezCore::UI::InGameUI& ui,
                                                                                                 const ReplayAutomationView& replayView, const Rendering::RenderSceneSnapshot& renderSnapshot )
 {
@@ -5218,8 +5220,8 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
                 runtimeTools.Editor().selectedCollider = selectedCollider;
             }
 
-            ui.SetVisible( baseline.uiVisible, timers.simulationTimer.GetTotalTime() );
-            ui.SetMinimized( baseline.uiMinimized, timers.simulationTimer.GetTotalTime() );
+            ui.SetVisible( baseline.uiVisible, timers.simulationTotalSeconds );
+            ui.SetMinimized( baseline.uiMinimized, timers.simulationTotalSeconds );
             ui.SetActiveTab( static_cast<UI::InGameUITab>( baseline.activeUiTab ) );
             result.replayIntent.setPredictionEnabled = true;
             result.replayIntent.predictionEnabled = baseline.replayPredictionEnabled;

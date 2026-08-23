@@ -36,7 +36,7 @@ Related:
 #include "../Diagnostics/OverlayDebugState.h"
 #include "../Startup/RunLaunchOptions.h"
 #include "../Startup/RunStartupState.h"
-#include "../App/RunTimerState.h"
+#include "../RuntimeFrameViews.h"
 #include "../Interaction/RuntimeInteractionController.h"
 #include "../Scene/SceneController.h"
 #include "../Scene/SceneLoadTransaction.h"
@@ -132,9 +132,9 @@ class StressHarness
 // Lifetime: every borrow is consumed by one deterministic action and cannot be
 // retained as a replacement shell context.
 void ApplyUIStressAction( SkullbonezCore::UI::InGameUI& ui, RuntimeOverlayDiagnostics& overlays,
-                          SceneController& sceneController, RunTimerState& timers, SimulationSystem& simulation,
-                          RuntimeRenderer& renderer, ReplayRuntime& replayRuntime, UIStressState& stress,
-                          bool allowRuntimeChurn )
+                          SceneController& sceneController, const RuntimeFrameMetricsSnapshot& timers,
+                          SimulationSystem& simulation, RuntimeRenderer& renderer, ReplayRuntime& replayRuntime,
+                          UIStressState& stress, bool allowRuntimeChurn )
 {
     RuntimeOverlayPresentationEdit presentationEdit = overlays.EditPresentation();
     OverlayDebugState& debug = presentationEdit.State();
@@ -247,7 +247,7 @@ void ApplyUIStressAction( SkullbonezCore::UI::InGameUI& ui, RuntimeOverlayDiagno
 
             if ( debug.isWaterFreezeDebug )
             {
-                debug.frozenWaterTime = static_cast<float>( timers.simulationTimer.GetTimeSinceLastStart() );
+                debug.frozenWaterTime = static_cast<float>( timers.sceneElapsedSeconds );
             }
         }
 
@@ -338,7 +338,7 @@ void ApplyUIStressAction( SkullbonezCore::UI::InGameUI& ui, RuntimeOverlayDiagno
 
 void SkullbonezCore::Runtime::ApplyGraphicsStressPresentationAction( int action, GraphicsStressController& stress, const SkullbonezCore::Assets::AssetSystem& assets,
                                                                      RunLaunchOptions& launchOptions, SkullbonezCore::Core::EngineConfig& config, RuntimeOverlayDiagnostics& overlays,
-                                                                     SceneController& sceneController, RunTimerState& timers, SkullbonezCore::UI::InGameUI& ui,
+                                                                     SceneController& sceneController, const RuntimeFrameMetricsSnapshot& timers, SkullbonezCore::UI::InGameUI& ui,
                                                                      const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender, RuntimeRenderer& renderer )
 {
     RuntimeOverlayPresentationEdit presentationEdit = overlays.EditPresentation();
@@ -411,7 +411,7 @@ void SkullbonezCore::Runtime::ApplyGraphicsStressPresentationAction( int action,
 
         if ( debug.isWaterFreezeDebug )
         {
-            debug.frozenWaterTime = static_cast<float>( timers.simulationTimer.GetTimeSinceLastStart() );
+            debug.frozenWaterTime = static_cast<float>( timers.sceneElapsedSeconds );
         }
 
         break;
@@ -880,7 +880,7 @@ SkullbonezCore::Core::SbResult Run::RunUIStressActions( RunCameraMode replayRest
 {
     DiagnosticsRuntime& diagnosticsRuntime = m_diagnosticsRuntime;
     Window* window = &m_window;
-    RunTimerState& timers = m_timers;
+    const RuntimeFrameMetricsSnapshot timers = m_timers.Publish();
     SkullbonezCore::UI::InGameUI& ui = *m_operatorUi;
     SceneController& sceneController = m_sceneController;
     CameraControlState& camera = m_camera;
@@ -901,7 +901,7 @@ SkullbonezCore::Core::SbResult Run::RunUIStressActions( RunCameraMode replayRest
     }
 
     ++stress.framesRun;
-    const double UINow = timers.simulationTimer.GetTotalTime();
+    const double UINow = timers.simulationTotalSeconds;
     const int screenW = (std::max)( 1, window->ClientWidth() );
     const int screenH = (std::max)( 1, window->ClientHeight() );
 
@@ -1117,7 +1117,8 @@ GraphicsStressSceneLoadPlan SkullbonezCore::Runtime::PlanGraphicsStressSceneLoad
 }
 
 void SkullbonezCore::Runtime::FinishGraphicsStressFrame( GraphicsStressController& stress,
-                                                         DiagnosticsRuntime& diagnosticsRuntime, RunTimerState& timers,
+                                                         DiagnosticsRuntime& diagnosticsRuntime,
+                                                         const RuntimeFrameMetricsSnapshot& timers,
                                                          SceneController& sceneController, ReplayRuntime& replayRuntime,
                                                          const Rendering::Dx12Diagnostics& renderDiagnostics )
 {
@@ -1145,7 +1146,7 @@ void SkullbonezCore::Runtime::FinishGraphicsStressFrame( GraphicsStressControlle
                                                                                                          sceneController.Scene().Physics(),
                                                                                                          sceneController.Scene()
                                                                                                              .RenderInstances() } ),
-                                                   timers.simulationTimer.GetTotalTime(), true );
+                                                   timers.simulationTotalSeconds, true );
 
     const SkullbonezCore::Rendering::RenderMemoryStats renderStats = renderDiagnostics.GetRenderMemoryStats();
     printf( "[graphics-stress-memory] frame=%d scene_loads=%d task_manager_bytes=%llu "

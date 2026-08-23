@@ -48,7 +48,7 @@ Related:
 #include "../Diagnostics/OverlayDebugState.h"
 #include "../RuntimeFrameViews.h"
 #include "../UI/RuntimeViewModel.h"
-#include "../App/RunTimerState.h"
+
 #include "../Scene/SceneControllerState.h"
 #include "../Scene/SceneSessionState.h"
 #include "../Scene/SceneWorld.h"
@@ -279,8 +279,7 @@ void UiTextPass::SetDxrReflectionPreviewTexture( uint32_t textureHandle )
 }
 
 
-float UiTextPass::BeginFrame( RunTimerState& timers, const RuntimeRenderModelFrameView& models, double secondsPerFrame,
-                              int screenW, int screenH )
+void UiTextPass::BeginFrame( int screenW, int screenH )
 {
     m_testPatternDrawList.Clear();
     m_badgeDrawList.Clear();
@@ -290,53 +289,6 @@ float UiTextPass::BeginFrame( RunTimerState& timers, const RuntimeRenderModelFra
     static_cast<void>( m_profilerLifecycle.Require( "BeginFrame" ) );
 #endif
     Text2d::RebuildProjection( m_textBatch, (std::max)( 1, screenW ), (std::max)( 1, screenH ) );
-    return UpdateFrameMetrics( timers, models, secondsPerFrame );
-}
-
-
-float UiTextPass::UpdateFrameMetrics( RunTimerState& timers, const RuntimeRenderModelFrameView& models,
-                                      double secondsPerFrame )
-{
-    // Invariant: rolling diagnostics update before any overlay early return so
-    // FPS, physics time, render time, and scene energy age at the same cadence.
-    timers.updateTimer.StopTimer();
-    timers.timeSinceLastRender += static_cast<float>( timers.updateTimer.GetElapsedTime() );
-    timers.updateTimer.StartTimer();
-
-    const double currentSceneEnergy = models.sceneKineticEnergy;
-    timers.sceneEnergyAccumulator += currentSceneEnergy;
-    ++timers.sceneEnergySampleCount;
-
-    if ( timers.timeSinceLastRender > 0.5f )
-    {
-        if ( secondsPerFrame )
-        {
-            timers.rollingFpsTime = 1.0f / static_cast<float>( secondsPerFrame );
-            timers.rollingPhysicsTime = timers.physicsTime;
-            timers.rollingRenderTime = timers.renderTime;
-        }
-
-        if ( timers.sceneEnergySampleCount > 0 )
-        {
-            timers.rollingSceneEnergy = static_cast<float>( timers.sceneEnergyAccumulator /
-                                                            static_cast<double>( timers.sceneEnergySampleCount ) );
-
-            timers.sceneEnergyAccumulator = 0.0;
-            timers.sceneEnergySampleCount = 0;
-        }
-
-        timers.timeSinceLastRender = 0.0f;
-    }
-
-    float sceneEnergyForDisplay = timers.rollingSceneEnergy;
-
-    if ( timers.sceneEnergySampleCount > 0 && sceneEnergyForDisplay == 0.0f )
-    {
-        sceneEnergyForDisplay = static_cast<float>( timers.sceneEnergyAccumulator /
-                                                    static_cast<double>( timers.sceneEnergySampleCount ) );
-    }
-
-    return sceneEnergyForDisplay;
 }
 
 
@@ -673,26 +625,29 @@ UiTextPass::ProjectMemoryTabStats( DiagnosticsRuntime& diagnosticsRuntime, const
 
 
 void UiTextPass::ProjectOperatorDiagnostics( UI::InGameUIFrameData& UIData, const ReplayHudStatus& replayHud,
-                                             RunTimerState& timers, const RuntimeRenderModelFrameView& models,
+                                             const RuntimeFrameMetricsSnapshot& metrics,
+                                             const RuntimeRenderModelFrameView& models,
                                              DiagnosticsRuntime& diagnosticsRuntime, UI::InGameUI& ui,
-                                             Threading::WorkerPool* workerPool, double secondsPerFrame,
+                                             Threading::WorkerPool* workerPool,
                                              Rendering::Dx12Diagnostics& renderDiagnostics )
 {
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
     const SkullbonezCore::Core::Profiler& profiler = m_profilerLifecycle.Require( "ProjectOperatorDiagnostics" );
 #endif
-    UIData.UIDrawCalls = timers.lastUIDrawCalls;
+    UIData.UIDrawCalls = metrics.uiDrawCalls;
     UIData.visibility = ProjectRenderVisibilityDiagnostics( renderDiagnostics.GetFrameVisibilityStats() );
-    UIData.fps = timers.rollingFpsTime > 0.0f
-                     ? timers.rollingFpsTime
-                     : ( secondsPerFrame > 0.0 ? 1.0f / static_cast<float>( secondsPerFrame ) : 0.0f );
+    UIData.fps = metrics.rollingFrameSeconds > 0.0f
+                     ? 1.0f / metrics.rollingFrameSeconds
+                     : ( metrics.secondsPerFrame > 0.0 ? 1.0f / static_cast<float>( metrics.secondsPerFrame ) : 0.0f );
 
-    UIData.renderMs = ( timers.rollingRenderTime > 0.0f ? timers.rollingRenderTime : timers.renderTime ) * 1000.0f;
+    UIData.renderMs = ( metrics.rollingRenderSeconds > 0.0f ? metrics.rollingRenderSeconds : metrics.renderSeconds ) *
+                      1000.0f;
 
-    UIData.physicsMs = ( timers.rollingPhysicsTime > 0.0f ? timers.rollingPhysicsTime : timers.physicsTime ) * 1000.0f;
+    UIData.physicsMs = ( metrics.rollingPhysicsSeconds > 0.0f ? metrics.rollingPhysicsSeconds : metrics.physicsSeconds ) *
+                       1000.0f;
 
-    UIData.cpuFrameMs = timers.cpuFrameWorkMs;
-    UIData.gpuFrameMs = timers.gpuFrameWorkMs;
+    UIData.cpuFrameMs = metrics.cpuFrameWorkMs;
+    UIData.gpuFrameMs = metrics.gpuFrameWorkMs;
     {
         // Concept: render draw attribution is copied through UIData while
         // the render diagnostics capability is already borrowed by Run. The
@@ -921,7 +876,7 @@ void UiTextPass::ProjectOperatorDiagnostics( UI::InGameUIFrameData& UIData, cons
     }
     UIData.workerThreadCount = workerPool ? workerPool->GetThreadCount() : 0;
     UIData.maxWorkerThreadCount = SkullbonezCore::Threading::WorkerPool::MaxThreadCount();
-    UIData.now = timers.simulationTimer.GetTotalTime();
+    UIData.now = metrics.simulationTotalSeconds;
     UIData.replayMemoryPreset = replayHud.memoryPreset;
     UIData.replayMemoryRequestedRetentionSeconds = replayHud.requestedRetentionSeconds;
     UIData.replayMemoryRequestedBudgetMiB = replayHud.requestedBudgetMiB;

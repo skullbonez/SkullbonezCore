@@ -28,7 +28,7 @@ Related:
 #include "CameraCollection.h"
 #include "AttachedCameraController.h"
 #include "../Input/InputController.h"
-#include "../App/RunTimerState.h"
+
 #include "../../Assets/AssetKeys.h"
 #include "../../Core/Config.h"
 #include "../Scene/SceneWorld.h"
@@ -40,9 +40,9 @@ using SkullbonezCore::Math::Vector::Vector3;
 
 namespace SkullbonezCore::Runtime
 {
-void CameraControlState::UpdateViewingOrientation( RunTimerState& timers, Runtime::SceneWorld& world,
-                                                   bool replayCameraActive, bool sceneMode, bool attachedActiveFollow,
-                                                   bool cameraLookCaptured, float presentationAlpha, Core::Profiler* )
+void CameraControlState::UpdateViewingOrientation( Runtime::SceneWorld& world, bool replayCameraActive, bool sceneMode,
+                                                   bool attachedActiveFollow, bool cameraLookCaptured,
+                                                   float presentationAlpha, Core::Profiler* )
 {
     Environment::CameraCollection& cameras = world.Cameras();
 
@@ -50,8 +50,8 @@ void CameraControlState::UpdateViewingOrientation( RunTimerState& timers, Runtim
     {
         PROFILE_SCOPED( "Frame/Replay/Camera" );
         cameraTime = 0.0f;
-        timers.cameraTimer.StopTimer();
-        timers.cameraTimer.StartTimer();
+        m_cameraTimer.StopTimer();
+        m_cameraTimer.StartTimer();
         return;
     }
 
@@ -63,14 +63,14 @@ void CameraControlState::UpdateViewingOrientation( RunTimerState& timers, Runtim
     if ( RunCameraModeUsesFlyControls( mode, attachedActiveFollow, director.grabbed ) || cameraLookCaptured )
     {
         cameraTime = 0.0f;
-        timers.cameraTimer.StopTimer();
-        timers.cameraTimer.StartTimer();
+        m_cameraTimer.StopTimer();
+        m_cameraTimer.StartTimer();
         return;
     }
 
-    timers.cameraTimer.StopTimer();
-    cameraTime += static_cast<float>( timers.cameraTimer.GetElapsedTime() );
-    timers.cameraTimer.StartTimer();
+    m_cameraTimer.StopTimer();
+    cameraTime += static_cast<float>( m_cameraTimer.GetElapsedTime() );
+    m_cameraTimer.StartTimer();
 
     if ( cameraTime > 5.0f )
     {

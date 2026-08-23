@@ -70,7 +70,7 @@ Related:
 #include "../Automation/InteractionAutomationController.h"
 #endif
 #include "../Startup/RunStartupState.h"
-#include "RunTimerState.h"
+#include "../Diagnostics/RuntimeFrameMetricsOwner.h"
 #include "ReplayRuntime.h"
 #include "../Planning/ContinuousOrbitalForecast.h"
 #include "../Scene/SceneController.h"
@@ -174,7 +174,7 @@ class Run
     // Subsystem owners below are ordered by lifetime dependency. Renderer and
     // frame bindings borrow from these objects; they do not own them.
     DiagnosticsRuntime m_diagnosticsRuntime;                                                                      // Capture, perf, and queryable physics diagnostics owner.
-    RunTimerState m_timers;                                                                                       // Frame/simulation timers and rolling timing values
+    RuntimeFrameMetricsOwner m_timers;                                                                            // Sole owner of frame/simulation timing and metric publication.
     InputRouter m_inputRouter;                                                                                    // Owns keyboard/pointer edge memory and binding-context enforcement.
     RuntimeInteractionController m_interaction;                                                                   // Authoritative runtime workspace and world-input owner.
     InteractionAutomationRecorder m_interactionRecorder;                                                          // Interactive test recorder capturing human input into resolution-independent scripts.
@@ -250,7 +250,8 @@ class Run
     RuntimeRenderModelFrameView PublishRenderModelsPhase();
     void RenderWorldPhase( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha );
 
-    void RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels, const FramePresentationFacts& facts );
+    void RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels, const FramePresentationFacts& facts,
+                                const RuntimeFrameMetricsSnapshot& frameMetrics );
     void RunPostDrawDiagnosticsPhase( bool gameUiActive );
     void FinishFrameWorkPhase( const SceneFrameProceedPolicy& proceedPolicy );
     void PresentFramePhase();

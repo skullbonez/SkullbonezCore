@@ -542,6 +542,7 @@ RUNTIME_DIAGNOSTICS_PREFIXES = (
     "ImGuiEditorInputPolicy",
     "ImGuiEditorOwner",
     "RuntimeDiagnostics",
+    "RuntimeFrameMetricsOwner",
     "SceneMemoryDiagnostics",
 )
 

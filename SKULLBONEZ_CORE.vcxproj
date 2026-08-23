@@ -607,7 +607,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\App\ReplayValidation.Internal.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RenderPresentationSettings.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Startup\RunStartupState.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\App\RunTimerState.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\RuntimeFrameMetricsOwner.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Camera\RuntimeCameraMode.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Interaction\RuntimeInteractionCommands.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\RuntimeDiagnostics.h" />

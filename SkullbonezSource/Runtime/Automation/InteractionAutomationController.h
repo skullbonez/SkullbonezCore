@@ -105,7 +105,7 @@ class RuntimeTools;
 class SceneController;
 class Window;
 struct CameraControlState;
-struct RunTimerState;
+struct RuntimeFrameMetricsSnapshot;
 enum class RunInteractionAutomationActionType
 {
     LoadShotList,
@@ -463,7 +463,7 @@ inline bool TryParseInteractionAutomationVirtualKey( const char* value, int& out
 SkullbonezCore::Core::SbResult InteractionAutomationResult( const InteractionAutomationController& state );
 void ClearInteractionAutomationInput( InteractionAutomationController& state );
 InteractionAutomationFrameResult TickInteractionAutomationBeforeInput( InteractionAutomationController& state, Window& window, const SkullbonezCore::Core::EngineConfig& config,
-                                                                       SceneController& scene, RunTimerState& timers, CameraControlState& camera, InputRouter& inputRouter,
+                                                                       SceneController& scene, const RuntimeFrameMetricsSnapshot& timers, CameraControlState& camera, InputRouter& inputRouter,
                                                                        RuntimeInteractionController& interaction, RuntimeTools& runtimeTools, SkullbonezCore::UI::InGameUI& ui,
                                                                        const ReplayAutomationView& replayView, const Rendering::RenderSceneSnapshot& renderSnapshot );
 InteractionAutomationFrameResult TickInteractionAutomationAfterRender( InteractionAutomationController& state, RuntimeTools& runtimeTools, RuntimeInteractionController& interaction,

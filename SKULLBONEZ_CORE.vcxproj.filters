@@ -1060,8 +1060,8 @@
     <ClInclude Include="SkullbonezSource\Runtime\Startup\RunStartupState.h">
       <Filter>Header Files\Runtime\Startup</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\App\RunTimerState.h">
-      <Filter>Header Files\Runtime\Lifecycle</Filter>
+    <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\RuntimeFrameMetricsOwner.h">
+      <Filter>Header Files\Runtime\Diagnostics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Camera\RuntimeCameraMode.h">
       <Filter>Header Files\Runtime\Camera</Filter>

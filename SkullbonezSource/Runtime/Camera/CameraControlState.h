@@ -38,7 +38,7 @@ Related:
 #pragma once
 
 #include "../../Core/PlatformWin32.h"
-
+#include "../../Core/Timer.h"
 #include "../../Core/Common.h"
 #include "../Direction/DemoDirector.h"
 #include "../Input/Input.h"
@@ -76,7 +76,6 @@ inline constexpr std::array<uint32_t, 3> DEMO_CAMERA_CYCLE_SLOTS = { CAMERA_SCEN
                                                                      CAMERA_FREE };
 
 class AttachedCameraController;
-struct RunTimerState;
 struct CameraControlState
 {
     Hardware::InputState input = {};                           // Snapshot consumed by camera controls for this frame.
@@ -136,15 +135,20 @@ struct CameraControlState
 
     // Lifetime: each camera tick borrows SceneWorld once and derives Cameras and
     // Terrain locally, keeping subowner identity inside this cohesive boundary.
-    void UpdateViewingOrientation( RunTimerState& timers, Runtime::SceneWorld& world, bool replayCameraActive,
-                                   bool sceneMode, bool attachedActiveFollow, bool cameraLookCaptured,
-                                   float presentationAlpha, Core::Profiler* profiler );
+    Core::SbResult InitialiseTiming( Core::SbDiagnosticStore& diagnostics )
+    {
+        return m_cameraTimer.Initialise( diagnostics );
+    }
+    void UpdateViewingOrientation( Runtime::SceneWorld& world, bool replayCameraActive, bool sceneMode,
+                                   bool attachedActiveFollow, bool cameraLookCaptured, float presentationAlpha,
+                                   Core::Profiler* profiler );
     void AdvanceAutoCycleClock( bool sceneMode, float simulationDt );
     void TickControls( Runtime::SceneWorld& world, AttachedCameraController& attachedCamera,
                        const SkullbonezCore::Core::EngineConfig& config, bool editorModeEnabled, bool viewportLookActive,
                        bool sceneMode, float cameraDt, float presentationAlpha );
 
   private:
+    Environment::Timer m_cameraTimer;
     SceneLifecycleGenerationObserver m_sceneLifecycleObserver;
 };
 

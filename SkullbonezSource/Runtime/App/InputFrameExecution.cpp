@@ -53,7 +53,7 @@ Related:
 #include "../Diagnostics/OverlayDebugState.h"
 #include "../Startup/RunLaunchOptions.h"
 #include "../Startup/RunStartupState.h"
-#include "RunTimerState.h"
+#include "../Diagnostics/RuntimeFrameMetricsOwner.h"
 #include "../UI/RuntimeViewModel.h"
 #include "../Tools/RuntimeTools.h"
 #include "../Interaction/RuntimeInteractionCommands.h"
@@ -288,7 +288,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
     SkullbonezCore::Core::EngineConfig& config = m_config;
     RunLaunchOptions& launchOptions = m_launchOptions;
     const RunStartupState& startup = m_startup;
-    RunTimerState& timers = m_timers;
+    RuntimeFrameMetricsOwner& timers = m_timers;
     CameraControlState& camera = m_camera;
     RuntimeOverlayPresentationEdit presentationEdit = m_overlayDiagnostics->EditPresentation();
     OverlayDebugState& debug = presentationEdit.State();
@@ -629,7 +629,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
         presentationEdit.Commit();
         SceneLoadTransaction sceneLoad;
         sceneLoad.CaptureSubmittedState( camera, CaptureSceneLoadNavigationState( ui.SceneNavigation() ), debug,
-                                         renderer.RendererName(), timers.simulationTimer.GetTotalTime() );
+                                         renderer.RendererName(), timers.SimulationTotalSeconds() );
 
         const bool loaded = sceneLoad
                                 .Load( sceneController, request, config, launchOptions, renderDefaults.CinematicBaseline(),
@@ -637,8 +637,9 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
                                        &renderer.RenderResources(), renderer )
                                 .Ok();
 
-        sceneLoad.ApplyRuntimeReactions( launchOptions, timers, *m_overlayDiagnostics, sceneController, inputRouter,
-                                         interaction, camera, attachedCamera, runtimeTools, replayRuntime );
+        timers.ObserveSceneLifecycle( sceneController.LifecyclePacket() );
+        sceneLoad.ApplyRuntimeReactions( launchOptions, *m_overlayDiagnostics, sceneController, inputRouter, interaction,
+                                         camera, attachedCamera, runtimeTools, replayRuntime );
 
         sceneLoad.ApplyPresentationOutputs( window, ui, validationHarness, launchOptions, &renderer.RenderDevice(),
                                             renderer.VsyncEnabled(), sceneController );
@@ -856,7 +857,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
             if ( RunCameraModeUsesLauncher( camera.mode ) && !replayRuntime.BuildInputView().restoreConsumedThisFrame )
             {
-                const double simulationSeconds = timers.simulationTimer.GetTimeSinceLastStart();
+                const double simulationSeconds = timers.SceneElapsedSeconds();
                 runtimeTools
                     .WriteLauncherReproSnapshotWithStatusMessage( { sceneController.Scene(), SceneState(),
                                                                     sceneController.CurrentPath(), launchOptions,
@@ -954,7 +955,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
         case RuntimeInputAction::ToggleBroadphaseOverlay:
             HandleDiagnosticsKeyboardShortcut( debug, camera.trackBallRow.value, sceneController.Scene().SceneEntityCount(),
                                                &renderer.RenderDiagnostics(), SceneState().isSceneMode,
-                                               timers.simulationTimer.GetTimeSinceLastStart(), event.action, true );
+                                               timers.SceneElapsedSeconds(), event.action, true );
 
             break;
         case RuntimeInputAction::ReloadShadersFromSource:
@@ -1027,7 +1028,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
                                                                      NormalizeCameraModeForCurrentScene( replayRuntime.BuildInputView().restoreCameraMode ),
                                                                      attachedCamera.State().activeFollow,
                                                                      camera.director.grabbed,
-                                                                     timers.simulationTimer.GetTotalTime() },
+                                                                     timers.SimulationTotalSeconds() },
                                         inputRouter, interaction, &sceneController.Scene().Cameras(),
                                         sceneController.Scene().Terrain().Get(), camera, runtimeTools.MousePickup(),
                                         transportOutput );
@@ -1059,8 +1060,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
             const DiagnosticsUIKeyboardShortcutResult
                 shortcutResult = HandleDiagnosticsUIKeyboardShortcut( ui, debug, SceneState(), diagnosticsRuntime.Capture(),
-                                                                      timers.simulationTimer.GetTotalTime(), event.action,
-                                                                      true );
+                                                                      timers.SimulationTotalSeconds(), event.action, true );
 
             if ( shortcutResult.triggered )
             {
@@ -1117,7 +1117,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
     if ( runtimeTools.Editor().editorModeEnabled )
     {
-        (void)replayRuntime.ApplyKeyboardVelocityEdit( { keyboardEditorToolShortcut.altDown, false, interaction.Owner(), timers.simulationTimer.GetTotalTime() } );
+        (void)replayRuntime.ApplyKeyboardVelocityEdit( { keyboardEditorToolShortcut.altDown, false, interaction.Owner(), timers.SimulationTotalSeconds() } );
 
         if ( keyboardEditorToolShortcut.togglePlacementMode )
         {
@@ -1126,7 +1126,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
     }
     else
     {
-        const ReplayKeyboardVelocityEditResult velocityEditResult = replayRuntime.ApplyKeyboardVelocityEdit( { keyboardEditorToolShortcut.altDown, true, interaction.Owner(), timers.simulationTimer.GetTotalTime() } );
+        const ReplayKeyboardVelocityEditResult velocityEditResult = replayRuntime.ApplyKeyboardVelocityEdit( { keyboardEditorToolShortcut.altDown, true, interaction.Owner(), timers.SimulationTotalSeconds() } );
 
         if ( velocityEditResult.cancelToolDrag )
         {
@@ -1191,7 +1191,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
         presentationEdit.Commit();
         const bool quitRequested = inputRouter.DispatchAfterUiDismiss( inputActions,
                                                                        uiFrameResult.commands.ui.userInteracted,
-                                                                       timers.simulationTimer.GetTotalTime(), gameUiActive,
+                                                                       timers.SimulationTotalSeconds(), gameUiActive,
                                                                        diagnosticsRuntime, camera, attachedCamera,
                                                                        runtimeTools, ui, sceneController,
                                                                        *m_overlayDiagnostics,
@@ -1418,15 +1418,16 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
     SceneLoadTransaction sceneLoad;
     sceneLoad.CaptureSubmittedState( camera, sceneLoadNavigation, debug, renderer.RendererName(),
-                                     timers.simulationTimer.GetTotalTime() );
+                                     timers.SimulationTotalSeconds() );
 
     const bool processedScene = sceneController.ExecutePending( sceneLoad, config, launchOptions,
                                                                 renderDefaults.CinematicBaseline(), startup, assets,
                                                                 workerPool, diagnosticsRuntime, &renderer.RenderFrame(),
                                                                 &renderer.RenderResources(), renderer );
 
-    sceneLoad.ApplyRuntimeReactions( launchOptions, timers, *m_overlayDiagnostics, sceneController, inputRouter, interaction,
-                                     camera, attachedCamera, runtimeTools, replayRuntime );
+    timers.ObserveSceneLifecycle( sceneController.LifecyclePacket() );
+    sceneLoad.ApplyRuntimeReactions( launchOptions, *m_overlayDiagnostics, sceneController, inputRouter, interaction, camera,
+                                     attachedCamera, runtimeTools, replayRuntime );
 
     sceneLoad.ApplyPresentationOutputs( window, ui, validationHarness, launchOptions, &renderer.RenderDevice(),
                                         renderer.VsyncEnabled(), sceneController );

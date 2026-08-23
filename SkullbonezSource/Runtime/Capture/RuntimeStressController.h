@@ -63,7 +63,7 @@ class SimulationSystem;
 class Window;
 class DiagnosticsRuntime;
 struct RunLaunchOptions;
-struct RunTimerState;
+struct RuntimeFrameMetricsSnapshot;
 struct CameraControlState;
 
 struct GraphicsStressSceneLoadPlan
@@ -81,7 +81,7 @@ GraphicsStressSceneLoadPlan PlanGraphicsStressSceneLoad( GraphicsStressControlle
 void ApplyGraphicsStressPresentationAction( int action, GraphicsStressController& stress, const Assets::AssetSystem& assets,
                                             RunLaunchOptions& launchOptions, Core::EngineConfig& config,
                                             RuntimeOverlayDiagnostics& overlays, SceneController& sceneController,
-                                            RunTimerState& timers, UI::InGameUI& ui,
+                                            const RuntimeFrameMetricsSnapshot& timers, UI::InGameUI& ui,
                                             const Core::CinematicRenderConfig& defaultCinematicRender,
                                             RuntimeRenderer& renderer );
 void ApplyGraphicsStressRuntimeAction( int action, GraphicsStressController& stress, RunLaunchOptions& launchOptions,
@@ -89,7 +89,7 @@ void ApplyGraphicsStressRuntimeAction( int action, GraphicsStressController& str
                                        CameraControlState& camera, UI::InGameUI& ui, SimulationSystem& simulation,
                                        RuntimeTools& runtimeTools, ReplayRuntime& replayRuntime );
 void FinishGraphicsStressFrame( GraphicsStressController& stress, DiagnosticsRuntime& diagnosticsRuntime,
-                                RunTimerState& timers, SceneController& sceneController, ReplayRuntime& replayRuntime,
-                                const Rendering::Dx12Diagnostics& renderDiagnostics );
+                                const RuntimeFrameMetricsSnapshot& timers, SceneController& sceneController,
+                                ReplayRuntime& replayRuntime, const Rendering::Dx12Diagnostics& renderDiagnostics );
 } // namespace Runtime
 } // namespace SkullbonezCore

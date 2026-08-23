@@ -179,7 +179,7 @@ struct ReplayOverlayStateView;
 struct RuntimeRenderModelFrameView;
 struct RuntimeViewModel;
 struct SceneSessionState;
-struct RunTimerState;
+struct RuntimeFrameMetricsSnapshot;
 struct RunReplayPredictionFrame;
 
 // Concept: these private pass contracts are the extraction boundary.
@@ -894,8 +894,7 @@ class UiTextPass
                        const CameraControlState& camera, const UI::InGameUI& ui, bool replayScrubberVisible,
                        bool replayPathVisualizerHasTarget ) const;
     void SetDxrReflectionPreviewTexture( uint32_t textureHandle );
-    float BeginFrame( RunTimerState& timers, const RuntimeRenderModelFrameView& models, double secondsPerFrame, int screenW,
-                      int screenH );
+    void BeginFrame( int screenW, int screenH );
     void RenderChromeStatus( const UiTextViewport& viewport, const OverlayDebugState& debug, bool crossScenePauseLocked,
                              const SceneSessionState& scene, const CameraControlState& camera, int sceneQueueSize,
                              const char* cameraModeLabel, Rendering::Dx12TextureOwner& renderTextures,
@@ -906,10 +905,10 @@ class UiTextPass
     void PrepareOperatorFrame( UI::InGameUIFrameData& uiData, const UiTextViewport& viewport, bool drawTestPattern,
                                Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
                                Rendering::Dx12Diagnostics& renderDiagnostics );
-    void ProjectOperatorDiagnostics( UI::InGameUIFrameData& uiData, const ReplayHudStatus& replayHud, RunTimerState& timers,
-                                     const RuntimeRenderModelFrameView& models, DiagnosticsRuntime& diagnosticsRuntime,
-                                     UI::InGameUI& ui, Threading::WorkerPool* workerPool, double secondsPerFrame,
-                                     Rendering::Dx12Diagnostics& renderDiagnostics );
+    void ProjectOperatorDiagnostics( UI::InGameUIFrameData& uiData, const ReplayHudStatus& replayHud,
+                                     const RuntimeFrameMetricsSnapshot& metrics, const RuntimeRenderModelFrameView& models,
+                                     DiagnosticsRuntime& diagnosticsRuntime, UI::InGameUI& ui,
+                                     Threading::WorkerPool* workerPool, Rendering::Dx12Diagnostics& renderDiagnostics );
     void ProjectOperatorSettings( UI::InGameUIFrameData& uiData, const OverlayDebugState& debug,
                                   const RenderPresentationSettings& renderPresentation, const SceneWorld& world,
                                   const SkullbonezCore::Core::EngineConfig& config,
@@ -997,7 +996,6 @@ class UiTextPass
         return sampleMemory();
     }
 
-    float UpdateFrameMetrics( RunTimerState& timers, const RuntimeRenderModelFrameView& models, double secondsPerFrame );
     static SkullbonezCore::Core::MainMemoryStats
     ProjectMemoryTabStats( DiagnosticsRuntime& diagnosticsRuntime, const ReplayHudStatus& replayHud,
                            const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects, double nowSeconds );

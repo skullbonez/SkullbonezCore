@@ -48,7 +48,7 @@ Related:
 #include "../App/InputFrame.h"
 #include "../App/ReplayRuntime.h"
 #include "../Startup/RunStartupState.h"
-#include "../App/RunTimerState.h"
+
 #include "../Startup/Window.h"
 #include "../Render/RuntimeRenderer.h"
 #include "../Simulation/SimulationSystem.h"
@@ -606,11 +606,11 @@ void SceneLoadTransaction::PreserveInactiveDevelopmentUi()
 }
 
 
-void SceneLoadTransaction::ApplyRuntimeReactions( const RunLaunchOptions& launchOptions, RunTimerState& timers,
-                                                  RuntimeOverlayDiagnostics& overlays, SceneController& sceneController,
-                                                  InputRouter& inputRouter, RuntimeInteractionController& interaction,
-                                                  CameraControlState& camera, AttachedCameraController& attachedCamera,
-                                                  RuntimeTools& runtimeTools, ReplayRuntime& replayRuntime )
+void SceneLoadTransaction::ApplyRuntimeReactions( const RunLaunchOptions& launchOptions, RuntimeOverlayDiagnostics& overlays,
+                                                  SceneController& sceneController, InputRouter& inputRouter,
+                                                  RuntimeInteractionController& interaction, CameraControlState& camera,
+                                                  AttachedCameraController& attachedCamera, RuntimeTools& runtimeTools,
+                                                  ReplayRuntime& replayRuntime )
 {
     AdvanceOrFatal( SceneLoadPhaseCursor::Phase::RuntimeReactions, "ApplyRuntimeReactions" );
     Outputs& outputs = m_outputs;
@@ -622,7 +622,6 @@ void SceneLoadTransaction::ApplyRuntimeReactions( const RunLaunchOptions& launch
     // Invariant: reactive owners consume the generation before external
     // UI/validation effects. This preserves their former end-of-Load ordering
     // without returning them to the transaction participant graph.
-    timers.ObserveSceneLifecycle( lifecycle );
     overlays.ObserveSceneLifecycle( lifecycle, outputs.presentation );
 
     for ( std::size_t index = 0; index < outputs.completedWorldChangeCount; ++index )

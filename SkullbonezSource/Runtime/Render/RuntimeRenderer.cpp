@@ -34,7 +34,7 @@ Related:
 #include "RuntimeRenderPasses.h"
 #include "../Camera/CameraCollection.h"
 #include "../Camera/CameraControlState.h"
-#include "../App/RunTimerState.h"
+#include "../RuntimeFrameViews.h"
 #include "../Diagnostics/RuntimeDiagnostics.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "../Startup/Window.h"
@@ -574,16 +574,15 @@ void ExecuteUiOperatorPrepareGraphCallback( const SkullbonezCore::Rendering::Ren
 void ExecuteUiOperatorDiagnosticsGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                                 UiOperatorDiagnosticsGraphInvocation& data )
 {
-    if ( !data.pass || !data.renderGraph || !data.uiData || !data.replayHud || !data.timers || !data.models ||
+    if ( !data.pass || !data.renderGraph || !data.uiData || !data.replayHud || !data.metrics || !data.models ||
          !data.diagnosticsRuntime || !data.ui || !data.renderDiagnostics )
     {
         SB_FATAL( "RunRender", "UI operator diagnostics graph callback missing execution data." );
     }
 
     (void)ExecuteRequiredGraphTransitions( context, data.renderGraph, data.compiled, data.expectedTransitionCount );
-    data.pass->ProjectOperatorDiagnostics( *data.uiData, *data.replayHud, *data.timers, *data.models,
-                                           *data.diagnosticsRuntime, *data.ui, data.workerPool, data.secondsPerFrame,
-                                           *data.renderDiagnostics );
+    data.pass->ProjectOperatorDiagnostics( *data.uiData, *data.replayHud, *data.metrics, *data.models,
+                                           *data.diagnosticsRuntime, *data.ui, data.workerPool, *data.renderDiagnostics );
 }
 
 void ExecuteUiOperatorSettingsGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
@@ -1581,7 +1580,7 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const CinematicPostGrap
 }
 
 
-int RuntimeRenderer::RenderUiText( RunTimerState& timers, const RuntimeRenderModelFrameView& models, double secondsPerFrame,
+int RuntimeRenderer::RenderUiText( const RuntimeFrameMetricsSnapshot& metrics, const RuntimeRenderModelFrameView& models,
                                    UiChromeGraphInvocation& chrome,
                                    UiOperatorDiagnosticsGraphInvocation& operatorDiagnostics,
                                    UiOperatorSettingsGraphInvocation& operatorSettings,
@@ -1597,10 +1596,10 @@ int RuntimeRenderer::RenderUiText( RunTimerState& timers, const RuntimeRenderMod
 
     const int drawCallStart = renderDiagnostics->GetFrameDrawCallCount();
     DRAW_CALL_TRACE_SCOPE( *renderDiagnostics, "Frame/UI" );
-    const float sceneEnergyForDisplay = m_resources.UiText().BeginFrame( timers, models, secondsPerFrame,
-                                                                         chrome.viewport.screenW, chrome.viewport.screenH );
+    m_resources.UiText().BeginFrame( chrome.viewport.screenW, chrome.viewport.screenH );
+    const float sceneEnergyForDisplay = metrics.sceneEnergy;
 
-    chrome.reproMessageAgeSeconds = timers.simulationTimer.GetTimeSinceLastStart();
+    chrome.reproMessageAgeSeconds = metrics.sceneElapsedSeconds;
 
     UI::InGameUIFrameData uiData;
     UiOperatorPrepareGraphInvocation operatorPrepare;
@@ -1609,9 +1608,8 @@ int RuntimeRenderer::RenderUiText( RunTimerState& timers, const RuntimeRenderMod
     operatorPrepare.drawTestPattern = operatorSettings.debug && operatorSettings.debug->isUITestPattern;
 
     operatorDiagnostics.uiData = &uiData;
-    operatorDiagnostics.timers = &timers;
+    operatorDiagnostics.metrics = &metrics;
     operatorDiagnostics.models = &models;
-    operatorDiagnostics.secondsPerFrame = secondsPerFrame;
     operatorSettings.uiData = &uiData;
     operatorInteraction.uiData = &uiData;
     operatorPresentation.uiData = &uiData;
@@ -1623,7 +1621,7 @@ int RuntimeRenderer::RenderUiText( RunTimerState& timers, const RuntimeRenderMod
     overlay.viewport = chrome.viewport;
     overlay.mode = chrome.debug ? chrome.debug->overlayMode : OverlayMode::None;
     overlay.modelCount = chrome.scene ? chrome.scene->modelCount : 0;
-    overlay.rollingFpsTime = timers.rollingFpsTime;
+    overlay.rollingFpsTime = metrics.rollingFrameSeconds > 0.0f ? 1.0f / metrics.rollingFrameSeconds : 0.0f;
     overlay.sceneEnergyForDisplay = sceneEnergyForDisplay;
 
     UiFinalizeGraphInvocation finalize;

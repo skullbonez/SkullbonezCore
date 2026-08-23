@@ -78,7 +78,7 @@ struct CameraControlState;
 struct OverlayDebugState;
 struct RunLaunchOptions;
 struct RunStartupState;
-struct RunTimerState;
+class RuntimeFrameMetricsOwner;
 struct RuntimeViewModel;
 
 struct RuntimeUIFrameResult
@@ -117,9 +117,10 @@ void ReportRuntimeInputFailure( const SkullbonezCore::Core::SbResult& result );
 RuntimeUIFrameResult BeginRuntimeUIFrame( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, Window& window,
                                           InputRouter& inputRouter, CameraControlState& camera, RuntimeTools& runtimeTools,
                                           AttachedCameraController& attachedCamera,
-                                          RuntimeInteractionController& interaction, UI::InGameUI& ui, RunTimerState& timers,
-                                          SceneController& sceneController, ReplayRuntime& replayRuntime,
-                                          const ReplayPathPickInput& replayPointerRay, const RuntimeInputFrameFacts& facts );
+                                          RuntimeInteractionController& interaction, UI::InGameUI& ui,
+                                          RuntimeFrameMetricsOwner& timers, SceneController& sceneController,
+                                          ReplayRuntime& replayRuntime, const ReplayPathPickInput& replayPointerRay,
+                                          const RuntimeInputFrameFacts& facts );
 RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result, InputRouter& inputRouter,
                                                   CameraControlState& camera, RuntimeTools& runtimeTools,
                                                   RuntimeInteractionController& interaction,

@@ -106,12 +106,11 @@ struct UiOperatorDiagnosticsGraphInvocation
     Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
     UI::InGameUIFrameData* uiData = nullptr;
     const ReplayHudStatus* replayHud = nullptr;
-    RunTimerState* timers = nullptr;
+    const RuntimeFrameMetricsSnapshot* metrics = nullptr;
     const RuntimeRenderModelFrameView* models = nullptr;
     DiagnosticsRuntime* diagnosticsRuntime = nullptr;
     UI::InGameUI* ui = nullptr;
     Threading::WorkerPool* workerPool = nullptr;
-    double secondsPerFrame = 0.0;
     Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
     const Rendering::RenderGraphCompileResult* compiled = nullptr;
     size_t expectedTransitionCount = 0;
@@ -312,7 +311,7 @@ class RuntimeRenderer
 
     // Runs CPU frame preparation, then registers operation-specific callback
     // ABI records in one graph compile/execute cycle.
-    int RenderUiText( RunTimerState& timers, const RuntimeRenderModelFrameView& models, double secondsPerFrame,
+    int RenderUiText( const RuntimeFrameMetricsSnapshot& metrics, const RuntimeRenderModelFrameView& models,
                       UiChromeGraphInvocation& chrome, UiOperatorDiagnosticsGraphInvocation& operatorDiagnostics,
                       UiOperatorSettingsGraphInvocation& operatorSettings,
                       UiOperatorInteractionGraphInvocation& operatorInteraction,

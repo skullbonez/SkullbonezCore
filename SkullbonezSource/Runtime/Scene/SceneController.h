@@ -106,7 +106,6 @@ struct CameraControlState;
 struct OverlayDebugState;
 struct RunLaunchOptions;
 struct RunStartupState;
-struct RunTimerState;
 struct SceneFrameAdvanceResult
 {
     SceneLoadRequest loadRequest;

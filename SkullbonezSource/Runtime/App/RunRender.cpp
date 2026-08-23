@@ -64,7 +64,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
 
     // Update the active camera selection and any transition/tween state before
     // rendering asks for view matrices.
-    m_camera.UpdateViewingOrientation( m_timers, m_sceneController.Scene(), replayInput.inspectionCameraActive,
+    m_camera.UpdateViewingOrientation( m_sceneController.Scene(), replayInput.inspectionCameraActive,
                                        m_sceneController.State().isSceneMode, m_attachedCamera.State().activeFollow,
                                        m_interaction.PointerCapture() == RuntimePointerCaptureOwner::CameraLook,
                                        presentationAlpha, m_profiler );
@@ -103,9 +103,8 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
                                               attachedTargetIndex,
                                               m_attachedCamera.State().activeFollow };
 
-    const RuntimeRenderFramePolicy framePolicy = m_overlayDiagnostics
-                                                     ->BuildFramePolicy( m_timers.simulationTimer.GetTimeSinceLastStart(),
-                                                                         m_timers.simulationTimer.GetTotalTime() );
+    const RuntimeRenderFramePolicy framePolicy = m_overlayDiagnostics->BuildFramePolicy( m_timers.SceneElapsedSeconds(),
+                                                                                         m_timers.SimulationTotalSeconds() );
 
     // Invariant: Run owns the cross-domain ordering. Model interpolation must
     // finish before replay substitutes read-only historical/future poses, and

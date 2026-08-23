@@ -91,7 +91,6 @@ struct RunRayCastTestState;
 struct RunReplayPredictionFrame;
 struct RuntimeRenderPassResources;
 struct SceneSessionState;
-struct RunTimerState;
 struct RuntimeRenderModelFrameView;
 struct RuntimeViewModel;
 

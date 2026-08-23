@@ -43,7 +43,7 @@ Related:
 #include "../Diagnostics/OverlayDebugState.h"
 #include "../Startup/RunLaunchOptions.h"
 #include "../Startup/RunStartupState.h"
-#include "RunTimerState.h"
+#include "../Diagnostics/RuntimeFrameMetricsOwner.h"
 #include "../Startup/Window.h"
 #include "../Render/RuntimeRenderHost.h"
 #include "../Render/RuntimeRenderer.h"
@@ -505,7 +505,7 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( SkullbonezCore::Core::SbDiagnosticStor
                                           InputRouter& inputRouter, CameraControlState& camera, RuntimeTools& runtimeTools,
                                           AttachedCameraController& attachedCamera,
                                           RuntimeInteractionController& interaction, SkullbonezCore::UI::InGameUI& ui,
-                                          RunTimerState& timers, SceneController& sceneController,
+                                          RuntimeFrameMetricsOwner& timers, SceneController& sceneController,
                                           ReplayRuntime& replayRuntime, const ReplayPathPickInput& replayPointerRay,
                                           const RuntimeInputFrameFacts& facts )
 {
@@ -521,8 +521,7 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( SkullbonezCore::Core::SbDiagnosticStor
                                                                                             ui.InputOverride() );
 
     InGameUIInputResult UIResult = ui.UpdateInput( uiInput, window.ClientWidth(), window.ClientHeight(),
-                                                   timers.simulationTimer.GetTotalTime(),
-                                                   runtimeTools.Editor().editorModeEnabled,
+                                                   timers.SimulationTotalSeconds(), runtimeTools.Editor().editorModeEnabled,
                                                    runtimeTools.Editor().placementModeEnabled,
                                                    runtimeTools.Editor().placeStaticObject,
                                                    runtimeTools.Editor().autoTerrainAlign, static_cast<int>( camera.mode ),
@@ -578,7 +577,7 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( SkullbonezCore::Core::SbDiagnosticStor
                                                     sceneController.State().isScenePhysics, ui.IsVisible(), ui.IsMinimized(),
                                                     inputRouter.DeviceFrame().keys.IsDown( VK_SPACE ), window.ClientWidth(),
                                                     window.ClientHeight(), camera.mouseRadiansPerPixel,
-                                                    timers.simulationTimer.GetTotalTime(), facts.requestedReplayCauseRow },
+                                                    timers.SimulationTotalSeconds(), facts.requestedReplayCauseRow },
                         inputRouter, interaction, sceneController.Scene(), camera, attachedCamera,
                         runtimeTools.MousePickup(), result.replayWorkspace );
 
@@ -605,7 +604,7 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
     AttachedCameraController& attachedCamera = m_attachedCamera;
     RuntimeInteractionController& interaction = m_interaction;
     SkullbonezCore::UI::InGameUI& ui = *m_operatorUi;
-    RunTimerState& timers = m_timers;
+    RuntimeFrameMetricsOwner& timers = m_timers;
     RuntimeOverlayPresentationEdit presentationEdit = m_overlayDiagnostics->EditPresentation();
     OverlayDebugState& debug = presentationEdit.State();
     RunLaunchOptions& launchOptions = m_launchOptions;
@@ -677,7 +676,7 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
                                                                           facts.replayRestoreCameraMode,
                                                                           attachedCamera.State().activeFollow,
                                                                           camera.director.grabbed,
-                                                                          timers.simulationTimer.GetTotalTime() },
+                                                                          timers.SimulationTotalSeconds() },
                                              inputRouter, interaction, &sceneController.Scene().Cameras(),
                                              sceneController.Scene().Terrain().Get(), camera, runtimeTools.MousePickup(),
                                              transportOutput );
@@ -1088,7 +1087,7 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
     }
 
     operatorCommands.ApplyRuntimePresentation( debug, sceneController.State(), config, launchOptions, renderDefaults, true,
-                                               timers.simulationTimer.GetTimeSinceLastStart(), simulation );
+                                               timers.SceneElapsedSeconds(), simulation );
 
     if ( operatorAcceptance.toggledTextOnly )
     {

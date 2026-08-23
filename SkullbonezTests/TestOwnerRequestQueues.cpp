@@ -63,7 +63,7 @@ Related:
 #include "../SkullbonezSource/Runtime/Diagnostics/DiagnosticsPhysicsUI.h"
 #include "../SkullbonezSource/Runtime/Diagnostics/OverlayDebugState.h"
 #include "../SkullbonezSource/Runtime/Render/RenderDefaultsStore.h"
-#include "../SkullbonezSource/Runtime/App/RunTimerState.h"
+#include "../SkullbonezSource/Runtime/Diagnostics/RuntimeFrameMetricsOwner.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorLayoutPolicy.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h"
@@ -451,14 +451,14 @@ TEST_CASE( "Scene lifecycle generations publish failures and repeated scene load
     CHECK( clearObserver.LastAppliedGeneration() == 2 );
 }
 
-TEST_CASE( "Run timers consume reset and activation once per lifecycle generation" )
+TEST_CASE( "Frame metrics lifecycle consumes reset and activation once per generation" )
 {
-    RunTimerSceneLifecyclePolicy timerPolicy;
+    RuntimeFrameMetricsLifecyclePolicy timerPolicy;
 
     SceneLifecyclePacket packet;
     packet.generation = 1;
     packet.event = SceneRuntimeLifecycleEvent::BeforeSceneUnload;
-    RunTimerSceneLifecycleActions actions = timerPolicy.Observe( packet );
+    RuntimeFrameMetricsLifecycleActions actions = timerPolicy.Observe( packet );
     CHECK_FALSE( actions.resetMeasurements );
     CHECK_FALSE( actions.restartClocks );
 
@@ -484,6 +484,53 @@ TEST_CASE( "Run timers consume reset and activation once per lifecycle generatio
     CHECK( actions.restartClocks );
     CHECK( timerPolicy.LastResetGeneration() == 2 );
     CHECK( timerPolicy.LastActivationGeneration() == 2 );
+}
+
+TEST_CASE( "Frame metrics publish first sample and aggregate on the half-second cadence" )
+{
+    RuntimeFrameMetricsOwner metrics;
+    metrics.RecordProfilerSample( 0.003f, 0.004f, 5.0f );
+    metrics.SampleFrame( { 0.1, 10.0 } );
+
+    RuntimeFrameMetricsSnapshot snapshot = metrics.MetricsSnapshot();
+    CHECK( snapshot.secondsPerFrame == doctest::Approx( 0.1 ) );
+    CHECK( snapshot.sceneEnergy == doctest::Approx( 10.0f ) );
+    CHECK( snapshot.rollingFrameSeconds == 0.0f );
+
+    metrics.SampleFrame( { 0.1, 20.0 } );
+    CHECK( metrics.MetricsSnapshot().sceneEnergy == doctest::Approx( 15.0f ) );
+
+    for ( int sample = 0; sample < 4; ++sample )
+    {
+        metrics.SampleFrame( { 0.1, 20.0 } );
+    }
+
+    snapshot = metrics.MetricsSnapshot();
+    CHECK( snapshot.rollingFrameSeconds == doctest::Approx( 0.1f ) );
+    CHECK( snapshot.rollingPhysicsSeconds == doctest::Approx( 0.003f ) );
+    CHECK( snapshot.rollingRenderSeconds == doctest::Approx( 0.004f ) );
+    CHECK( snapshot.sceneEnergy == doctest::Approx( 110.0 / 6.0 ) );
+}
+
+TEST_CASE( "Frame metric cadence is identical for hidden GameUI and ImGui surfaces" )
+{
+    std::array<RuntimeFrameMetricsOwner, 3> surfaceOwners;
+    for ( RuntimeFrameMetricsOwner& owner : surfaceOwners )
+    {
+        owner.SampleFrame( { 0.2, 3.0 } );
+        owner.SampleFrame( { 0.2, 6.0 } );
+        owner.SampleFrame( { 0.2, 9.0 } );
+    }
+
+    const RuntimeFrameMetricsSnapshot hidden = surfaceOwners[0].MetricsSnapshot();
+    const RuntimeFrameMetricsSnapshot gameUi = surfaceOwners[1].MetricsSnapshot();
+    const RuntimeFrameMetricsSnapshot imgui = surfaceOwners[2].MetricsSnapshot();
+    CHECK( hidden.secondsPerFrame == gameUi.secondsPerFrame );
+    CHECK( gameUi.secondsPerFrame == imgui.secondsPerFrame );
+    CHECK( hidden.rollingFrameSeconds == gameUi.rollingFrameSeconds );
+    CHECK( gameUi.rollingFrameSeconds == imgui.rollingFrameSeconds );
+    CHECK( hidden.sceneEnergy == gameUi.sceneEnergy );
+    CHECK( gameUi.sceneEnergy == imgui.sceneEnergy );
 }
 
 TEST_CASE( "Scene batch followers prefer presentation values emitted by a completed clear" )

@@ -120,11 +120,11 @@ class SceneLoadTransaction
                                          Rendering::Dx12FrameOwner* renderFrame,
                                          Rendering::Dx12ResourceBuilder* renderResources, RuntimeRenderer& renderer );
 
-    void ApplyRuntimeReactions( const RunLaunchOptions& launchOptions, RunTimerState& timers,
-                                RuntimeOverlayDiagnostics& overlays, SceneController& sceneController,
-                                InputRouter& inputRouter, RuntimeInteractionController& interaction,
-                                CameraControlState& camera, AttachedCameraController& attachedCamera,
-                                RuntimeTools& runtimeTools, ReplayRuntime& replayRuntime );
+    void ApplyRuntimeReactions( const RunLaunchOptions& launchOptions, RuntimeOverlayDiagnostics& overlays,
+                                SceneController& sceneController, InputRouter& inputRouter,
+                                RuntimeInteractionController& interaction, CameraControlState& camera,
+                                AttachedCameraController& attachedCamera, RuntimeTools& runtimeTools,
+                                ReplayRuntime& replayRuntime );
 
     void ApplyPresentationOutputs( Window& window, UI::InGameUI& operatorUi, RuntimeValidationHarness& validationHarness,
                                    const RunLaunchOptions& launchOptions, Rendering::Dx12RenderDevice* renderDevice,

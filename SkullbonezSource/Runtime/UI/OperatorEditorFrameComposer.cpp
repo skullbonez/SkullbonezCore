@@ -244,7 +244,8 @@ static void FillOperatorRenderingParameters( SkullbonezCore::UI::OperatorEditorR
 using namespace OperatorEditorFrameComposer;
 
 void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels,
-                                 const FramePresentationFacts& presentationFacts )
+                                 const FramePresentationFacts& presentationFacts,
+                                 const RuntimeFrameMetricsSnapshot& frameMetrics )
 {
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     // Invariant: copy the completed world backbuffer before either operator
@@ -255,7 +256,7 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
 
         if ( !viewportCapture.Ok() )
         {
-            m_timers.frameTimer.StopTimer();
+            m_timers.FinishPresentedFrame();
             PROFILE_FRAME_END( m_profiler );
             m_applicationExit.RequestPhaseFailure( viewportCapture );
             return;
@@ -287,7 +288,6 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
                                                                renderModels.presentationRecords, renderModels.bodyStore );
 
     DiagnosticsRuntime& diagnosticsRuntime = m_diagnosticsRuntime;
-    RunTimerState& timers = m_timers;
     RuntimeOverlayPresentationEdit presentationEdit = m_overlayDiagnostics->EditPresentation();
     OverlayDebugState& debug = presentationEdit.State();
     SceneController& sceneController = m_sceneController;
@@ -590,17 +590,24 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
         renderDiagnosticsReadout = renderer.BuildDiagnosticsReadout();
         diagnostics.rendererName = renderDiagnosticsReadout.rendererName.data();
         diagnostics.drawCalls = renderDiagnosticsReadout.drawCalls;
-        diagnostics.uiDrawCalls = timers.lastUIDrawCalls;
+        diagnostics.uiDrawCalls = frameMetrics.uiDrawCalls;
         diagnostics.workerThreadCount = workerPool.GetThreadCount();
         diagnostics.maxWorkerThreadCount = SkullbonezCore::Threading::WorkerPool::MaxThreadCount();
-        diagnostics.fps = uiTextFacts.secondsPerFrame > 0.0 ? static_cast<float>( 1.0 / uiTextFacts.secondsPerFrame ) : 0.0f;
-        diagnostics.renderMs = ( timers.rollingRenderTime > 0.0f ? timers.rollingRenderTime : timers.renderTime ) * 1000.0f;
+        diagnostics.fps = frameMetrics.rollingFrameSeconds > 0.0f
+                              ? 1.0f / frameMetrics.rollingFrameSeconds
+                              : ( frameMetrics.secondsPerFrame > 0.0
+                                      ? static_cast<float>( 1.0 / frameMetrics.secondsPerFrame )
+                                      : 0.0f );
+        diagnostics.renderMs = ( frameMetrics.rollingRenderSeconds > 0.0f ? frameMetrics.rollingRenderSeconds
+                                                                          : frameMetrics.renderSeconds ) *
+                               1000.0f;
 
-        diagnostics.physicsMs = ( timers.rollingPhysicsTime > 0.0f ? timers.rollingPhysicsTime : timers.physicsTime ) *
+        diagnostics.physicsMs = ( frameMetrics.rollingPhysicsSeconds > 0.0f ? frameMetrics.rollingPhysicsSeconds
+                                                                            : frameMetrics.physicsSeconds ) *
                                 1000.0f;
 
-        diagnostics.cpuFrameMs = timers.cpuFrameWorkMs;
-        diagnostics.gpuFrameMs = timers.gpuFrameWorkMs;
+        diagnostics.cpuFrameMs = frameMetrics.cpuFrameWorkMs;
+        diagnostics.gpuFrameMs = frameMetrics.gpuFrameWorkMs;
         diagnostics.physicsDebugFlags = debug.physicsDebugFlags;
         const int stageCount = static_cast<int>( PhysicsPipelineStage::Count );
         int stageIndex = stageCount > 0 ? debug.physicsDebugPipelineStageCursor % stageCount : 0;
@@ -725,7 +732,7 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
         uiReplay.scenePhysicsEnabled = scene.isScenePhysics;
         uiReplay.gesture = uiTextFacts.interactionGestureKind;
         uiReplay.viewport = { window.ClientWidth(), window.ClientHeight() };
-        uiReplay.nowSeconds = timers.simulationTimer.GetTotalTime();
+        uiReplay.nowSeconds = frameMetrics.simulationTotalSeconds;
 
         PROFILE_BEGIN( "Frame/UI" );
         {
@@ -733,15 +740,15 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
 
             // Lifetime: caller-owned ABI records and every direct borrow remain
             // valid until the synchronous UI-text graph completes below.
-            timers.lastUIDrawCalls = renderer.RenderUiText( timers, renderModels, uiTextFacts.secondsPerFrame, uiChrome,
-                                                            uiOperatorDiagnostics, uiOperatorSettings, uiOperatorInteraction,
-                                                            uiOperatorPresentation, uiOperatorSubmission, uiReplay );
+            m_timers.RecordUiDrawCalls( renderer.RenderUiText( frameMetrics, renderModels, uiChrome, uiOperatorDiagnostics,
+                                                               uiOperatorSettings, uiOperatorInteraction,
+                                                               uiOperatorPresentation, uiOperatorSubmission, uiReplay ) );
         }
         PROFILE_END( "Frame/UI" );
     }
     else
     {
-        timers.lastUIDrawCalls = 0;
+        m_timers.RecordUiDrawCalls( 0 );
     }
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
@@ -770,7 +777,7 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
 
         if ( !imguiResult.status.Ok() )
         {
-            m_timers.frameTimer.StopTimer();
+            m_timers.FinishPresentedFrame();
             PROFILE_FRAME_END( m_profiler );
             m_applicationExit.RequestPhaseFailure( imguiResult.status );
             return;
