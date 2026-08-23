@@ -472,6 +472,32 @@ scene-specific exceptions, or manual collision-mode authoring.
   the promoted bit on the next tick, and collides with a thin wall without
   tunnelling.
 
+### FP2 Source-Closure Checkpoint - 2026-08-23
+
+The phase-local legacy-surface review deleted the test-only
+`BoundingBox::TestCollision(BoundingSphere, ...)` and
+`BoundingSphere::TestCollision(BoundingBox, ...)` overloads, the unused
+`TestShapeCollision` dispatcher, and the symmetry-only unit-test calls. Both
+live shape orders still converge on `SweepSphereAgainstBox` in
+`ObjectContactManifold`; the focused Bounds and Object CCD families pass 5/5
+and 3/3 cases respectively, including the both-order thin-wall witness.
+
+Fresh Automation, Debug, and Profile builds pass with zero warnings/errors.
+Strict compiled reachability now reports 87 current ruled rows and no blocking
+diagnostics after the two deleted repair rows were removed. Dependency,
+ownership, formatting, Related-path, and the broader focused promotion,
+eligibility, replay, wake, launcher, terrain, and SpatialGrid witnesses pass.
+Independent review found zero remaining implementation findings after one
+comment-truth correction.
+
+This checkpoint does not close FP2. `ERROR_OBSERVABILITY` E5 still owns the
+hash-complete runnable Debug bundle and sanitized-`PATH` launch evidence; FP2
+then needs the retained FP1-versus-FP2 authoritative 200-box packet comparison
+and the mapped Physics, deep-Physics, and replay-visual terminal gates. The
+ordinary Physics gate currently rebuilds and runs successfully before stopping
+on the registered 6,166-line Physics CSV transition, first difference at line
+4,998. No golden or baseline was refreshed.
+
 ---
 
 ## FP3 — Discrete Correctness & Determinism Closure

@@ -155,8 +155,10 @@ inline CollisionShape CopyCollisionShape( const CollisionShapeReference& shape )
 Concept: Free-function collision-shape visitors
 
     These functions dispatch on either the owning CollisionShape variant or the
-    borrowed CollisionShapeReference variant. Each shape type provides matching
-    member functions, and collision testing produces a compile-time table.
+    borrowed CollisionShapeReference variant. Shared property operations use
+    common member names. ObjectContactManifold owns swept-pair dispatch: generic
+    pairs use their shape members, while both sphere-box orders use its exact
+    SweepSphereAgainstBox branch.
 */
 
 template <typename ShapeLike> inline const Vector::Vector3& GetShapePosition( const ShapeLike& shape )

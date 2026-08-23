@@ -22,8 +22,12 @@ when leases are disjoint.
 Deterministic Collision Modes And Ragdoll Unification FP0-FP9 is the binding
 second plan. FP0-FP1 are complete; FP2-FP4 establish
 deterministic Discrete collision with automatic Swept TOI
-promotion and isolated A/B evidence; FP5-FP9 complete the ragdoll joint and late
-speculative-contact path. Runtime Boundary Separation And Project Topology
+promotion and isolated A/B evidence. FP2's retired sphere-box test surface and
+two reachability repair rows are gone, both live orders retain the exact sweep
+owner, and focused/all-config evidence is green; FP2 remains open for E5's
+runnable bundle, the retained 200-box comparison, and terminal Physics gates.
+FP5-FP9 complete the ragdoll joint and late speculative-contact path. Runtime
+Boundary Separation And Project Topology
 RBS0-RBS7 remains active behind it; RBS0 is complete and RBS1 is ready. The plan owns Runtime/App composition-root closure, package-cycle removal,
 native host and frame-metrics separation, operator UI/render command boundaries,
 and evidence-driven Visual Studio project decomposition. Completed plan files

@@ -124,10 +124,9 @@ TEST_CASE( "Bounds: default sphere and rotated local offsets share one transform
     CHECK( std::isfinite( defaultSphere.GetDragCoefficient() ) );
 
     const CollisionShape defaultShape = defaultSphere;
-    const auto defaultDescriptor = SkullbonezCore::Physics::MakePhysicsBodyCreateDesc(
-        SkullbonezCore::Physics::PhysicsSceneObjectId( 1u ), defaultShape, Vector3( 0.0f, 0.0f, 0.0f ),
-        Quaternion(), Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ),
-        Vector3( 0.0f, 0.0f, 0.0f ), 1.0f, 0.0f, SkullbonezCore::Physics::PhysicsBodyMotionKind::Dynamic );
+    const auto defaultDescriptor = SkullbonezCore::Physics::MakePhysicsBodyCreateDesc( SkullbonezCore::Physics::PhysicsSceneObjectId( 1u ), defaultShape, Vector3( 0.0f, 0.0f, 0.0f ),
+                                                                                       Quaternion(), Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ),
+                                                                                       Vector3( 0.0f, 0.0f, 0.0f ), 1.0f, 0.0f, SkullbonezCore::Physics::PhysicsBodyMotionKind::Dynamic );
     CHECK( std::isfinite( defaultDescriptor.boundingRadius ) );
     CHECK( std::isfinite( defaultDescriptor.volume ) );
     CHECK( std::isfinite( defaultDescriptor.projectedSurfaceArea ) );

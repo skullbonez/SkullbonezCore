@@ -127,8 +127,9 @@ float BoundingSphere::CollisionDetect( const BoundingSphere& target, const Ray& 
 
 float BoundingSphere::TestCollision( const BoundingSphere& target, const Ray& targetRay, const Ray& focusRay ) const
 {
-    // Public wrapper kept so CollisionShape's std::visit dispatch can call the
-    // same member name for every shape pair.
+    // Public wrapper for the generic sphere-sphere variant branch. Sphere-box
+    // intentionally has no matching member overload: ObjectContactManifold
+    // routes both orders through its exact SweepSphereAgainstBox owner.
     return CollisionDetect( target, targetRay, focusRay );
 }
 
