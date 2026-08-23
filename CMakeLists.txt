@@ -72,6 +72,7 @@ set(SKULLBONEZ_PORTABLE_CPU_SOURCES
     SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.cpp
     SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.cpp
     SkullbonezSource/Physics/Stages/PhysicsForceStage.cpp
+    SkullbonezSource/Physics/Stages/PhysicsMotionEligibilityStage.cpp
     SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.cpp
     SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.Execution.cpp
     SkullbonezSource/Physics/Stages/PhysicsSleepController.cpp

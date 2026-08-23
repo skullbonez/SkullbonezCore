@@ -1,7 +1,7 @@
 # Runtime Boundary Separation And Project Topology Plan
 
 Date: 2026-08-22
-Status: Active by owner direction. 6/8 phases complete; RBS6 ready.
+Status: Active by owner direction. 7/8 phases complete; RBS7 ready.
 Impact area: `SkullbonezSource/Runtime/`, Runtime-facing Rendering/UI seams,
 Visual Studio project topology, dependency enforcement, tests, and documentation
 Owner: Runtime architecture, with each moved value or behavior retained by its
@@ -884,27 +884,45 @@ package; the exception table is empty; no replacement god owner exists.
 **Goal:** Add the one approved Rendering boundary so link topology reinforces the
 DAG without turning source packages into a proliferation of projects.
 
-- [ ] Create `SKULLBONEZ_RENDERING` with the exact source closure and acyclic
+- [x] Create `SKULLBONEZ_RENDERING` with the exact source closure and acyclic
       project references proved by RBS0; create no other production project.
-- [ ] Keep App thin in authority: entry, native startup, composition, application
+- [x] Keep App thin in authority: entry, native startup, composition, application
       orchestration, plus remaining sources whose ownership does not justify a
       separate library. Do not use source-file count as an acceptance measure.
-- [ ] Assign every production `.cpp` to exactly one production project.
-- [ ] Reconcile filters, configurations, PCH, forced FP contract, warnings,
+- [x] Assign every production `.cpp` to exactly one production project.
+- [x] Reconcile filters, configurations, PCH, forced FP contract, warnings,
       feature macros, and reference order in all configurations.
-- [ ] Update build-config rulings only for reviewed intentional differences.
-- [ ] Reconcile Tests and CMake reuse without drifting source manifests.
-- [ ] Build Automation, Debug, and Profile through
+- [x] Update build-config rulings only for reviewed intentional differences.
+- [x] Reconcile Tests and CMake reuse without drifting source manifests.
+- [x] Build Automation, Debug, and Profile through
       `tools\validate_build_all.bat`, then build Release and Profile-WPO
       explicitly through `tools\validate_build.bat`; Profile-WPO is not part of
       the all-build helper.
-- [ ] Compare build/link timings to RBS0; review material regressions.
-- [ ] Put project-DAG/single-owner checks into fast and hosted CPU gates.
+- [x] Compare build/link timings to RBS0; review material regressions.
+- [x] Put project-DAG/single-owner checks into fast and hosted CPU gates.
 
 **Acceptance:** The production graph adds only the approved Rendering library;
 project references match package direction; every source has one production
 owner; all configurations share required contracts; no library hides a source
 cycle; App thinness is demonstrated by authority rather than project size.
+
+### RBS6 Closure Evidence - 2026-08-24
+
+`SKULLBONEZ_RENDERING` now owns exactly 32 implementation files and 44 headers;
+Core owns no Rendering source item. The production topology has five projects,
+eleven references, no cycle, no duplicate production owner, and one shader-bake
+owner ordered before compilation. Automation, Debug, Profile, Release, and
+Profile-WPO build successfully, every runnable bundle contains `dxcompiler.dll`,
+`dxil.dll`, and `WinPixEventRuntime.dll`, and the focused asset-resolution and
+renderer-lifecycle witnesses pass.
+
+Strict dependency enforcement remains at zero forbidden sites, debt, and SCCs;
+project filters pass 856/856. Clean Automation/Debug/Profile builds improved
+from the RBS0 measurements of 57.369/53.813/55.927 seconds to
+50.814/46.160/50.393 seconds, with no-change builds at
+1.485/1.431/1.467 seconds. Portable CMake now includes the complete Physics
+motion-eligibility source set, keeps the portable SpatialGrid test free of a
+Runtime renderer include, and passes its full build plus 1/1 CTest target.
 
 ## Phase RBS7 - Composition-Root And Terminal Closure
 
