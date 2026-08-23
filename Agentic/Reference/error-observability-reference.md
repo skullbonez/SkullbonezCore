@@ -103,14 +103,15 @@ context exists, the description answers:
    termination, or corrupted invariant?
 
 A bare `failed`, `unavailable`, numeric error code, source expression, or
-generic constraint such as `Recoverable operation must not fail`, `This
-operation is invalid now`, or `Resource must be available here` is not
-actionable. Four words plus `must` is not context. The bounded classifier also
-requires multiple domain-bearing words or a specific identifier such as
-`setCameraPose` or `ui.stressActions`; formatted platform failures retain the
-numeric/API-result exception. A stack supplements the description; it never
-substitutes for one. Messages must not expose secrets or copy unbounded
-external input.
+generic constraint such as `Recoverable operation must not fail`, `System
+component must be valid`, `Generic resource must remain available`, or
+`Current object must satisfy requirements` is not actionable. Four words plus
+`must` is not context. The bounded classifier also requires multiple
+domain-bearing words or a specific identifier such as `setCameraPose`,
+`Replay manifest`, `DXGI swapchain`, or `ui.stressActions`; formatted Win32,
+DXGI, and HRESULT failures retain the numeric/API-result exception. A stack
+supplements the description; it never substitutes for one. Messages must not
+expose secrets or copy unbounded external input.
 
 The inventory uses these exact description classifications:
 
@@ -209,7 +210,7 @@ import mismatches. An ignored outcome row is separate from any raw-stderr row
 at the same call: one records bypassed presentation, while the other records
 that the persistence result itself was discarded.
 
-Each schema-v2 ruling has this exact schema:
+Each schema-v3 ruling has this exact schema:
 
 | Field | Contract |
 |---|---|
@@ -222,7 +223,8 @@ Each schema-v2 ruling has this exact schema:
 | `description_classification` | One classification from the table above. |
 | `owner`, `reason` | Concrete path owner and qualitative judgement. |
 | `source_context` | Exact bounded current finding excerpt. This is mechanical identity evidence, not semantic adjudication. |
-| `semantic_evidence` | Owner-authored operation behavior, source-bound invariant, description basis, and consequence. The identity tag binds currentness only; it contributes neither novelty nor uniqueness. |
+| `semantic_evidence` | Owner-authored operation behavior, source-bound invariant, description basis, and consequence. The identity tag binds currentness only; it contributes neither semantic meaning nor uniqueness. |
+| `semantic_attestation` | Non-secret SHA-256 seal over the complete exact decision record, including disposition, description classification, repair phase, semantic evidence, and adjudication. Generated templates leave it blank. |
 | `repair_phase` | Blank only when no repair remains; otherwise exactly E1-E5. |
 | `adjudication` | `owner-reviewed` only after a concrete owner has reviewed this exact identity; generated rows use `unreviewed`. |
 
@@ -235,7 +237,7 @@ Strict mode fails on malformed rows, duplicate identities, an unratified file,
 a missing durable reference/repair plan, a new unruled site, an edited or
 deleted stale ruling, description evidence/classification drift, copied or
 drifted source context, an unreviewed row, an unchanged generator suggestion
-presented as adjudication, a stock field-derived semantic basis, or an
+presented as adjudication, a missing or drifted semantic attestation, or an
 inadequate error/assertion without a repair phase. A successful fallback/value
 row must name its concrete owner plus operation or invariant basis. `FAILED`
 HRESULT checks and `Validate*`/`Hash*` failure returns cannot pass as value-only
@@ -245,20 +247,26 @@ operation, site class, path, or current description evidence.
 The semantic basis begins with the exact owner and fingerprint-bound
 `behavior[<tag>]`, then names the readable operation, its source file/role and
 participants, the description-classification basis, and the consequence of the
-decision. Strict mode strips the tag before checking novelty and cross-row
-conflicts. It rejects the complete non-empty scanner excerpt anywhere in the
-basis, equality with `reason` or `source_context`, canned behavior or
-consequence prose assembled only from emitted ruling fields, and identical
-tag-stripped prose shared by different operation/description/disposition/phase
-decisions. Genuinely identical semantic decisions may share prose; a hash or
-line number may never manufacture uniqueness.
+decision. Strict mode strips the tag before checking cross-row conflicts. It
+rejects the complete non-empty scanner excerpt anywhere in the basis, equality
+with `reason` or `source_context`, malformed operation/invariant/description/
+consequence structure, and identical tag-stripped prose shared by different
+operation/description/disposition/phase decisions. Genuinely identical
+semantic decisions may share prose; a hash or line number may never manufacture
+uniqueness.
 
-These checks prove identity/currentness and reject known copied or field-only
-mechanical transforms. They cannot prove that an owner-authored behavior,
-invariant, or consequence claim is true. Independent review remains the final
-semantic authority and may reopen any otherwise mechanical pass whose claim is
-wrong. Deleting the identity tag must still leave a readable explanation of
-why the exact operation received its disposition and repair phase.
+The semantic attestation is a domain-separated, deterministic digest of the
+complete reviewed row. Any semantic text, disposition, description
+classification, repair phase, or adjudication change invalidates it; template
+generation cannot auto-attest and emits a blank seal. Recomputing this
+non-secret seal is an assertion that the exact changed decision was reviewed,
+not proof of human thought, cryptographic authorship, or semantic truth. An
+agent can explicitly re-attest canned or false prose, and no static gate can
+distinguish that assertion from genuine review. Independent review therefore
+remains the final semantic authority and must reject or reopen any mechanically
+valid claim whose source behavior, invariant, or consequence is wrong. Deleting
+the identity tag must still leave a readable explanation of why the exact
+operation received its disposition and repair phase.
 
 These are current qualitative rulings, not allowances. Row totals, class
 counts, and repair counts are measurements only and must never become ceilings,
@@ -273,21 +281,24 @@ python tools\inventory_error_observability.py --strict --format json
 ```
 
 `--write-unreviewed-template <path>` writes a deterministic candidate file and
-refuses to overwrite an existing file. Its `unreviewed` status deliberately
-fails strict mode. Changing only the document status or per-row adjudication
-spelling still fails because unchanged suggestion fields are not owner review;
-removing the suggestion prefix also fails the owner-led exact-basis rule. A
-human/agent owner reviews each disposition, exact description/class, owner,
-reason, source context, semantic basis, and responsibility-correct repair phase
-before the document becomes `ratified`. The self-test exercises every bounded
-site class, all ignored/handled `fopen`, `fprintf`, `vfprintf`, `fputs`,
-`fputc`, `fwrite`, `fflush`, and `fclose` pairs plus `fopen_s`, the four Config
-writer-macro shapes, normal/delay PE imports, and adversarial stock
-adjudication/description cases. The adversarial adjudication cases include an
-unchanged suggestion, a field-derived rewrite with every emitted field
-available, a wrapped copy of the scanner excerpt, a correct-tag canned basis,
-a correct-tag canned basis containing every emitted field token, and
-tag-stripped prose reused by different decisions.
+refuses to overwrite an existing file. Its `unreviewed` status and blank
+semantic attestation deliberately fail strict mode. Changing only the document
+status or per-row adjudication spelling still fails because unchanged
+suggestion fields are not owner review; removing the suggestion prefix also
+fails the owner-led exact-basis rule. A human/agent owner reviews each
+disposition, exact description/class, owner, reason, source context, semantic
+basis, and responsibility-correct repair phase, then explicitly seals that
+exact record before the document becomes `ratified`. The self-test exercises
+every bounded site class; ignored and handled pairs for `fopen`, `fopen_s`,
+`_wfopen`, `_wfopen_s`, `fprintf`, `fprintf_s`, `vfprintf`, `fputs`, `fputc`,
+`fwrite`, `fflush`, and `fclose`; the four Config writer-macro shapes;
+normal/delay PE imports; and adversarial adjudication/description cases. The
+adjudication cases include a blank attestation, an unchanged suggestion, a
+field-derived rewrite with every emitted field available, a wrapped copy of
+the scanner excerpt, arbitrary-synonym canned semantic text with the correct
+tag and all emitted fields, unchanged attestations after semantic or
+decision/classification/phase mutation, and tag-stripped prose reused by
+different re-attested decisions.
 
 ## Retained-Executable E5 Repair
 

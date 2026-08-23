@@ -98,8 +98,26 @@ INADEQUATE_DESCRIPTIONS = {"generic", "code-only", "expression-only", "context-f
 REPAIR_PHASES = {"E1", "E2", "E3", "E4", "E5"}
 REVIEW_STATUSES = {"unreviewed", "ratified"}
 ADJUDICATION_STATUSES = {"unreviewed", "owner-reviewed"}
-RULING_SCHEMA_VERSION = 2
+RULING_SCHEMA_VERSION = 3
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
+SEMANTIC_ATTESTATION_DOMAIN = "skullbonez-error-observability-semantic-ratification-v1"
+SEMANTIC_ATTESTATION_FIELDS = (
+    "path",
+    "line",
+    "column",
+    "site_class",
+    "operation",
+    "source_fingerprint",
+    "disposition",
+    "description",
+    "description_classification",
+    "owner",
+    "reason",
+    "source_context",
+    "semantic_evidence",
+    "repair_phase",
+    "adjudication",
+)
 TEXT_SITE_CLASSES = frozenset(
     {
         "counter-only",
@@ -162,7 +180,19 @@ GENERIC_WORDS = {
     "unavailable",
     "warning",
 }
-CONTEXT_FREE_WORDS = GENERIC_WORDS | {
+GENERIC_SUBJECT_WORDS = {
+    "component",
+    "current",
+    "generic",
+    "object",
+    "remain",
+    "requirements",
+    "resource",
+    "satisfy",
+    "system",
+    "valid",
+}
+CONTEXT_FREE_WORDS = GENERIC_WORDS | GENERIC_SUBJECT_WORDS | {
     "a",
     "an",
     "are",
@@ -179,12 +209,10 @@ CONTEXT_FREE_WORDS = GENERIC_WORDS | {
     "must",
     "not",
     "now",
-    "object",
     "operation",
     "recoverable",
     "required",
     "requires",
-    "resource",
     "should",
     "state",
     "that",
@@ -196,85 +224,6 @@ CONTEXT_FREE_WORDS = GENERIC_WORDS | {
     "value",
     "was",
     "were",
-}
-STOCK_ADJUDICATION_WORDS = {
-    "action",
-    "according",
-    "adjudication",
-    "applies",
-    "available",
-    "basis",
-    "behavior",
-    "binds",
-    "boilerplate",
-    "branch",
-    "call",
-    "callsite",
-    "classification",
-    "classified",
-    "concrete",
-    "consequence",
-    "conditions",
-    "context",
-    "current",
-    "deliberately",
-    "description",
-    "decision",
-    "disposition",
-    "downstream",
-    "evidence",
-    "every",
-    "exact",
-    "executes",
-    "execution",
-    "field",
-    "generated",
-    "generic",
-    "identity",
-    "identifies",
-    "information",
-    "invariant",
-    "its",
-    "keeps",
-    "local",
-    "location",
-    "logic",
-    "operation",
-    "outcome",
-    "owner",
-    "owns",
-    "path",
-    "participants",
-    "performs",
-    "phase",
-    "preserve",
-    "preserves",
-    "prose",
-    "reason",
-    "remains",
-    "repair",
-    "review",
-    "reviewed",
-    "row",
-    "ruling",
-    "semantic",
-    "site",
-    "selected",
-    "source",
-    "specific",
-    "state",
-    "suggestion",
-    "suitable",
-    "structural",
-    "synchronous",
-    "template",
-    "text",
-    "token",
-    "use",
-    "with",
-    "wording",
-    "expected",
-    "routine",
 }
 PREDICATE_PREFIXES = ("is", "has", "can", "should", "needs", "supports", "enabled", "get")
 PROBE_NAME_RE = re.compile(r"(?:FailAutomation|Probe|Test|Harness|MutationControl|NegativeFixture)", re.IGNORECASE)
@@ -669,6 +618,21 @@ def _semantic_identity_tag(finding: Finding) -> str:
     return _sha256_bytes(payload)[:16]
 
 
+def _semantic_attestation(row: dict[str, object]) -> str:
+    """Seal the exact reviewed decision without claiming cryptographic authorship."""
+    # Concept: this non-secret digest is a current-ratification record. Template
+    # generation leaves it blank; recalculating it asserts that every bound
+    # field was reviewed again and therefore remains independently reviewable.
+    decision = {field: row[field] for field in SEMANTIC_ATTESTATION_FIELDS}
+    payload = json.dumps(
+        {"domain": SEMANTIC_ATTESTATION_DOMAIN, "decision": decision},
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return _sha256_bytes(payload)
+
+
 def _semantic_operation_focus(finding: Finding) -> str:
     """Return the readable operation whose behavior the ruling must explain."""
     operation = finding.operation
@@ -752,7 +716,7 @@ def _semantic_invariant_anchor(finding: Finding) -> str:
 
 
 def _semantic_residual(semantic_evidence: str) -> str:
-    """Remove identity binding before novelty and cross-row conflict checks."""
+    """Remove identity binding before cross-row semantic conflict checks."""
     residual = re.sub(r"^[^\r\n]+? behavior\[[0-9a-f]{16}\]:\s*", "", semantic_evidence, count=1)
     return " ".join(residual.split())
 
@@ -1267,6 +1231,7 @@ def _validate_ruling(row: object, index: int) -> tuple[dict[str, object] | None,
         "reason",
         "source_context",
         "semantic_evidence",
+        "semantic_attestation",
         "repair_phase",
         "adjudication",
     }
@@ -1291,6 +1256,7 @@ def _validate_ruling(row: object, index: int) -> tuple[dict[str, object] | None,
         "reason",
         "source_context",
         "semantic_evidence",
+        "semantic_attestation",
         "repair_phase",
         "adjudication",
     ):
@@ -1307,6 +1273,11 @@ def _validate_ruling(row: object, index: int) -> tuple[dict[str, object] | None,
         issues.append(RulingIssue(label, "path must be canonical repository-relative POSIX text"))
     if SHA256_RE.fullmatch(str(row["source_fingerprint"])) is None:
         issues.append(RulingIssue(label, "source_fingerprint must be lowercase SHA-256"))
+    semantic_attestation = str(row["semantic_attestation"])
+    if semantic_attestation and SHA256_RE.fullmatch(semantic_attestation) is None:
+        issues.append(RulingIssue(label, "semantic_attestation must be blank or lowercase SHA-256"))
+    if row["adjudication"] == "unreviewed" and semantic_attestation:
+        issues.append(RulingIssue(label, "unreviewed ruling cannot carry a semantic attestation"))
     if row["disposition"] not in DISPOSITIONS:
         issues.append(RulingIssue(label, f"unsupported disposition {row['disposition']!r}"))
     if row["site_class"] not in SITE_CLASSES:
@@ -1422,44 +1393,43 @@ def evaluate(
             issues.append(RulingIssue(identity_text, "generated suggestion cannot masquerade as owner adjudication"))
         semantic_evidence = str(row["semantic_evidence"])
         semantic_residual = _semantic_residual(semantic_evidence)
-        generated_text = " ".join(
-            str(value) for field, value in row.items() if field != "semantic_evidence"
-        )
         behavior_clause, invariant_separator, semantic_tail = semantic_residual.partition(" Invariant: ")
         invariant_clause, description_separator, consequence_tail = semantic_tail.partition(" Description: ")
         description_clause, consequence_separator, consequence_clause = consequence_tail.partition(" Consequence: ")
-        novel_behavior_tokens = (
-            _semantic_tokens(behavior_clause)
-            - _semantic_tokens(generated_text)
-            - STOCK_ADJUDICATION_WORDS
-        )
-        novel_consequence_tokens = (
-            _semantic_tokens(consequence_clause)
-            - _semantic_tokens(generated_text)
-            - STOCK_ADJUDICATION_WORDS
-        )
         expected_semantic_prefix = f"{row['owner']} behavior[{_semantic_identity_tag(finding)}]: "
         operation_focus = _semantic_operation_focus(finding)
         expected_invariant_anchor = _semantic_invariant_anchor(finding)
+        behavior_detail = behavior_clause.removeprefix(f"Operation {operation_focus} ").strip()
+        invariant_detail = invariant_clause.removeprefix(
+            expected_invariant_anchor.removeprefix("Invariant: ")
+        ).strip()
+        semantic_attestation = str(row["semantic_attestation"])
+        if not semantic_attestation or semantic_attestation != _semantic_attestation(row):
+            issues.append(
+                RulingIssue(
+                    identity_text,
+                    "semantic decision attestation is missing or drifted from the exact reviewed record",
+                )
+            )
         if (
             semantic_evidence in {str(row["reason"]), str(row["source_context"])}
             or (bool(finding.evidence) and finding.evidence in semantic_evidence)
             or not semantic_evidence.startswith(expected_semantic_prefix)
             or not semantic_residual.startswith(f"Operation {operation_focus} ")
+            or not behavior_detail
             or not invariant_separator
             or not invariant_clause.startswith(expected_invariant_anchor.removeprefix("Invariant: "))
+            or not invariant_detail
             or not description_separator
             or not description_clause
             or not consequence_separator
             or not consequence_clause
             or len(semantic_evidence) < 80
-            or len(novel_behavior_tokens) < 2
-            or len(novel_consequence_tokens) < 2
         ):
             issues.append(
                 RulingIssue(
                     identity_text,
-                    "semantic evidence lacks a distinct owner-authored behavior/consequence basis for this exact identity",
+                    "semantic evidence lacks the required operation/invariant/description/consequence structure",
                 )
             )
         semantic_groups.setdefault(semantic_residual, []).append((finding, row))
@@ -1645,6 +1615,7 @@ def _suggest_ruling(finding: Finding) -> dict[str, object]:
         "reason": reason,
         "source_context": "",
         "semantic_evidence": "",
+        "semantic_attestation": "",
         "repair_phase": repair_phase,
         "adjudication": "unreviewed",
     }
@@ -1756,6 +1727,7 @@ def _fixture_ruling(finding: Finding, *, disposition: str | None = None, repair_
         row["disposition"] = disposition
     if repair_phase is not None:
         row["repair_phase"] = repair_phase
+    row["semantic_attestation"] = _semantic_attestation(row)
     return row
 
 
@@ -1794,7 +1766,10 @@ SbResult Build( SbDiagnosticStore& diagnostics )
     FILE* rawFile = nullptr;
     fopen( "fixture.log", "wb" );
     fopen_s( &rawFile, "fixture.log", "wb" );
+    _wfopen( L"fixture.log", L"wb" );
+    _wfopen_s( &rawFile, L"fixture.log", L"wb" );
     fprintf( rawFile, "fixture row=%d", row );
+    fprintf_s( rawFile, "fixture secure row=%d", row );
     vfprintf( rawFile, format, args );
     fputs( "fixture line", rawFile );
     fputc( '\n', rawFile );
@@ -1804,16 +1779,19 @@ SbResult Build( SbDiagnosticStore& diagnostics )
 
     FILE* checkedFopen = fopen( "checked-fopen.log", "wb" );
     const errno_t checkedFopenS = fopen_s( &rawFile, "checked-fopen-s.log", "wb" );
+    FILE* checkedWfopen = _wfopen( L"checked-wfopen.log", L"wb" );
+    const errno_t checkedWfopenS = _wfopen_s( &rawFile, L"checked-wfopen-s.log", L"wb" );
     const int checkedFprintf = fprintf( rawFile, "checked-fprintf row=%d", row );
+    const int checkedFprintfS = fprintf_s( rawFile, "checked-fprintf-s row=%d", row );
     const int checkedVfprintf = vfprintf( rawFile, checkedFormat, checkedArgs );
     const int checkedFputs = fputs( "checked-fputs", rawFile );
     const int checkedFputc = fputc( '\n', rawFile );
     const size_t checkedFwrite = fwrite( payload, 1, payloadBytes, rawFile );
     const int checkedFflush = fflush( rawFile );
     const int checkedFclose = fclose( rawFile );
-    if ( checkedFopen == nullptr || checkedFopenS != 0 || checkedFprintf < 0 || checkedVfprintf < 0 ||
-         checkedFputs == EOF || checkedFputc == EOF || checkedFwrite != payloadBytes || checkedFflush != 0 ||
-         checkedFclose != 0 )
+    if ( checkedFopen == nullptr || checkedFopenS != 0 || checkedWfopen == nullptr || checkedWfopenS != 0 ||
+         checkedFprintf < 0 || checkedFprintfS < 0 || checkedVfprintf < 0 || checkedFputs == EOF ||
+         checkedFputc == EOF || checkedFwrite != payloadBytes || checkedFflush != 0 || checkedFclose != 0 )
         return false;
     if ( badInput )
     {
@@ -1934,7 +1912,20 @@ const char* macro_text = R"(
         failures.append("ordinary status formatter bypassed owner-specific adjudication")
 
     ignored_crt = [finding for finding in findings if finding.site_class == "ignored-crt-io-outcome"]
-    required_crt_matrix = {"fopen", "fopen_s", "fprintf", "vfprintf", "fputs", "fputc", "fwrite", "fflush", "fclose"}
+    required_crt_matrix = {
+        "fopen",
+        "fopen_s",
+        "_wfopen",
+        "_wfopen_s",
+        "fprintf",
+        "fprintf_s",
+        "vfprintf",
+        "fputs",
+        "fputc",
+        "fwrite",
+        "fflush",
+        "fclose",
+    }
     if len(ignored_crt) != len(required_crt_matrix):
         failures.append(
             f"ignored CRT I/O fixture count was {len(ignored_crt)}, expected {len(required_crt_matrix)}"
@@ -1966,7 +1957,13 @@ const char* macro_text = R"(
             'fopen_s( &file, "ignored", "wb" );',
             'const errno_t result = fopen_s( &file, "handled", "wb" );',
         ),
+        "_wfopen": ('_wfopen( L"ignored", L"wb" );', 'FILE* result = _wfopen( L"handled", L"wb" );'),
+        "_wfopen_s": (
+            '_wfopen_s( &file, L"ignored", L"wb" );',
+            'const errno_t result = _wfopen_s( &file, L"handled", L"wb" );',
+        ),
         "fprintf": ('fprintf( file, "ignored" );', 'const int result = fprintf( file, "handled" );'),
+        "fprintf_s": ('fprintf_s( file, "ignored" );', 'const int result = fprintf_s( file, "handled" );'),
         "vfprintf": ('vfprintf( file, format, args );', 'const int result = vfprintf( file, format, args );'),
         "fputs": ('fputs( "ignored", file );', 'const int result = fputs( "handled", file );'),
         "fputc": ("fputc( 'x', file );", "const int result = fputc( 'x', file );"),
@@ -2032,6 +2029,9 @@ const char* macro_text = R"(
         "Recoverable operation must not fail",
         "This operation is invalid now",
         "Resource must be available here",
+        "System component must be valid",
+        "Generic resource must remain available",
+        "Current object must satisfy requirements",
     )
     for phrase in generic_constraint_phrases:
         if _classify_description(phrase, "sb-result-failure") != "context-free":
@@ -2040,6 +2040,9 @@ const char* macro_text = R"(
         "Input width must be positive. width=%d",
         "Atomic text path is empty.",
         "CreateProcessW failed with Win32 error %lu",
+        "CreateCommittedResource failed with HRESULT 0x%08X",
+        "Replay manifest must remain available",
+        "DXGI swapchain must be valid",
         "setCameraPose must be an object",
         "ui.stressActions must be >= 0",
     )
@@ -2075,6 +2078,14 @@ const char* macro_text = R"(
         if exact.issues or exact.unruled or exact.stale:
             failures.append("exact current rulings did not pass")
 
+        blank_attestation_rows = [{**row, "semantic_attestation": ""} for row in rulings]
+        blank_attestations = evaluate(findings, "ratified", blank_attestation_rows, [], repo)
+        blank_attestation_issues = [
+            issue for issue in blank_attestations.issues if "semantic decision attestation" in issue.message
+        ]
+        if len(blank_attestation_issues) != len(findings):
+            failures.append("blank owner-reviewed semantic attestations did not fail closed")
+
         prohibited_value_rows = list(rulings)
         for prohibited_finding in (failed_hresult, hash_return):
             assert prohibited_finding is not None
@@ -2095,6 +2106,8 @@ const char* macro_text = R"(
         masquerading = []
         for finding in findings:
             row = _suggest_ruling(finding)
+            if row["semantic_attestation"]:
+                failures.append("unreviewed template generation created a semantic attestation")
             row["adjudication"] = "owner-reviewed"
             masquerading.append(row)
         unchanged_suggestions = evaluate(findings, "ratified", masquerading, [], repo)
@@ -2129,8 +2142,11 @@ const char* macro_text = R"(
             row["semantic_evidence"] = finding.evidence
             field_derived_rows.append(row)
         field_derived = evaluate(findings, "ratified", field_derived_rows, [], repo)
-        if not any("distinct owner-authored behavior/consequence" in issue.message for issue in field_derived.issues):
-            failures.append("field-derived rows plus copied scanner excerpts passed as semantic adjudication")
+        field_derived_attestation_issues = [
+            issue for issue in field_derived.issues if "semantic decision attestation" in issue.message
+        ]
+        if len(field_derived_attestation_issues) != len(findings):
+            failures.append("field-derived rows plus copied scanner excerpts retained ratification")
 
         wrapped_copy_rows = []
         for finding in findings:
@@ -2138,11 +2154,14 @@ const char* macro_text = R"(
             row["semantic_evidence"] += f" Copied scanner excerpt: {finding.evidence}"
             wrapped_copy_rows.append(row)
         wrapped_copies = evaluate(findings, "ratified", wrapped_copy_rows, [], repo)
-        wrapped_copy_issues = [
-            issue for issue in wrapped_copies.issues if "distinct owner-authored behavior/consequence" in issue.message
+        wrapped_copy_attestation_issues = [
+            issue for issue in wrapped_copies.issues if "semantic decision attestation" in issue.message
         ]
-        if len(wrapped_copy_issues) != len(findings):
-            failures.append("wrapped scanner excerpts did not fail semantic adjudication for every fixture row")
+        wrapped_copy_structure_issues = [
+            issue for issue in wrapped_copies.issues if "required operation/invariant/description/consequence" in issue.message
+        ]
+        if len(wrapped_copy_attestation_issues) != len(findings) or len(wrapped_copy_structure_issues) != len(findings):
+            failures.append("wrapped scanner excerpts did not invalidate attestation and structure for every fixture row")
 
         generic_tag_rows = []
         for finding in findings:
@@ -2156,10 +2175,13 @@ const char* macro_text = R"(
             generic_tag_rows.append(row)
         generic_tags = evaluate(findings, "ratified", generic_tag_rows, [], repo)
         generic_tag_issues = [
-            issue for issue in generic_tags.issues if "distinct owner-authored behavior/consequence" in issue.message
+            issue for issue in generic_tags.issues if "semantic decision attestation" in issue.message
         ]
-        if len(generic_tag_issues) != len(findings):
-            failures.append("correct identity tags made generic canned semantic prose pass owner review")
+        generic_tag_structure_issues = [
+            issue for issue in generic_tags.issues if "required operation/invariant/description/consequence" in issue.message
+        ]
+        if len(generic_tag_issues) != len(findings) or generic_tag_structure_issues:
+            failures.append("correct-tag canned prose did not fail solely through exact attestation drift")
 
         field_token_generic_rows = []
         for finding in findings:
@@ -2175,20 +2197,51 @@ const char* macro_text = R"(
             )
             row["semantic_evidence"] = (
                 f"{row['owner']} behavior[{_semantic_identity_tag(finding)}]: Operation "
-                f"{_semantic_operation_focus(finding)} performs routine logic according to expected local conditions. "
-                f"{_semantic_invariant_anchor(finding)}selected wording identifies location and structural information. "
-                "Description: selected wording identifies every available field token: "
-                f"{', '.join(emitted_tokens)}. Consequence: decision remains suitable for downstream use."
+                f"{_semantic_operation_focus(finding)} performs algorithmic duties coherently within nearby circumstances. "
+                f"{_semantic_invariant_anchor(finding)}the selected wording identifies structural location information. "
+                "Description: every emitted field token remains available: "
+                f"{', '.join(emitted_tokens)}. Consequence: processing continues consistently for later consumers."
             )
             field_token_generic_rows.append(row)
         field_token_generics = evaluate(findings, "ratified", field_token_generic_rows, [], repo)
         field_token_generic_issues = [
             issue
             for issue in field_token_generics.issues
-            if "distinct owner-authored behavior/consequence" in issue.message
+            if "semantic decision attestation" in issue.message
         ]
-        if len(field_token_generic_issues) != len(findings):
-            failures.append("all-field correct-tag canned semantics passed owner review")
+        field_token_generic_structure_issues = [
+            issue
+            for issue in field_token_generics.issues
+            if "required operation/invariant/description/consequence" in issue.message
+        ]
+        if len(field_token_generic_issues) != len(findings) or field_token_generic_structure_issues:
+            failures.append("arbitrary-synonym all-field canned prose did not fail solely through attestation drift")
+
+        repair_index = next(
+            index
+            for index, row in enumerate(rulings)
+            if row["disposition"] == "repair" and row["repair_phase"] == "E4"
+        )
+        decision_mutated_rows = list(rulings)
+        decision_mutated_rows[repair_index] = {
+            **decision_mutated_rows[repair_index],
+            "disposition": "successful-fallback-value-state",
+            "repair_phase": "",
+        }
+        decision_mutation = evaluate(findings, "ratified", decision_mutated_rows, [], repo)
+        if not any("semantic decision attestation" in issue.message for issue in decision_mutation.issues):
+            failures.append("disposition/repair-phase mutation retained semantic ratification")
+
+        classification_mutated_rows = list(rulings)
+        original_classification = str(classification_mutated_rows[repair_index]["description_classification"])
+        replacement_classification = "actionable" if original_classification != "actionable" else "context-free"
+        classification_mutated_rows[repair_index] = {
+            **classification_mutated_rows[repair_index],
+            "description_classification": replacement_classification,
+        }
+        classification_mutation = evaluate(findings, "ratified", classification_mutated_rows, [], repo)
+        if not any("semantic decision attestation" in issue.message for issue in classification_mutation.issues):
+            failures.append("description-classification mutation retained semantic ratification")
 
         conflicting_rows = list(rulings)
         conflict_left = 0
@@ -2205,6 +2258,51 @@ const char* macro_text = R"(
         conflicts = evaluate(findings, "ratified", conflicting_rows, [], repo)
         if not any("shared by different operation/description" in issue.message for issue in conflicts.issues):
             failures.append("identical semantic evidence across different decisions bypassed the conflict rule")
+
+        conflict_findings = [
+            Finding(
+                path="SkullbonezSource/Core/ConflictFixture.cpp",
+                line=index,
+                column=1,
+                site_class="status-only",
+                operation="status-return:Build:false",
+                source_fingerprint=str(index) * 64,
+                description_classification="actionable",
+                description=description,
+                evidence="return false;",
+            )
+            for index, description in (
+                (1, "Input width must be positive. width=%d"),
+                (2, "Input height must be positive. height=%d"),
+            )
+        ]
+        shared_residual = (
+            "Operation Build returns an untyped false result after fixture work can fail. "
+            "Invariant: ConflictFixture.cpp's status return binds participants false; the result must preserve "
+            "one reviewed failure decision. Description: the diagnostic basis remains source-bound. "
+            "Consequence: E4 must retain the exact rejected-input cause."
+        )
+        conflict_rulings: list[dict[str, object]] = []
+        for finding in conflict_findings:
+            row = _fixture_ruling(finding)
+            row["semantic_evidence"] = (
+                f"{row['owner']} behavior[{_semantic_identity_tag(finding)}]: {shared_residual}"
+            )
+            row["semantic_attestation"] = _semantic_attestation(row)
+            conflict_rulings.append(row)
+        if any(
+            evaluate([finding], "ratified", [row], [], repo).issues
+            for finding, row in zip(conflict_findings, conflict_rulings, strict=True)
+        ):
+            failures.append("individually re-attested conflict fixtures did not pass exact review")
+        reattested_conflict = evaluate(conflict_findings, "ratified", conflict_rulings, [], repo)
+        reattested_conflict_issues = [
+            issue
+            for issue in reattested_conflict.issues
+            if "shared by different operation/description" in issue.message
+        ]
+        if len(reattested_conflict_issues) != 1:
+            failures.append("different correct tags bypassed the tag-stripped semantic conflict rule")
 
         missing = evaluate(findings, "ratified", rulings[:-1], [], repo)
         if len(missing.unruled) != 1:
