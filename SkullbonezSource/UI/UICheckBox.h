@@ -1,19 +1,18 @@
 /*
 File: SkullbonezSource/UI/UICheckBox.h
 Purpose:
-  Declares checkbox geometry, hit testing, checked state, and drawing.
+  Declares a retained-bounds adapter for the stateless toggle contract.
 
 Summary:
-  Keeps toggle hit testing and
-  checked-state drawing on
-  one shared bounds rectangle.
+  The wrapper retains layout bounds only. Checked state and accent color remain
+  caller values consumed by UIDrawWidgets for each frame.
 
 Invariants:
-  - Draw geometry and hit testing must be derived from the same layout
-  constants.
+  - The wrapper never retains checked, hover, command, or input state.
 
 Related:
   - SkullbonezSource/UI/UICheckBox.cpp
+  - SkullbonezSource/UI/UIDrawWidgets.h
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

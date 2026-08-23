@@ -1,19 +1,18 @@
 /*
 File: SkullbonezSource/UI/UIButton.h
 Purpose:
-  Declares bounded push-button geometry, hit testing, and label/background
-  drawing.
+  Declares a retained-bounds adapter for the stateless button contract.
 
 Summary:
-  Keeps button hit testing and
-  label/background drawing on one shared bounds rectangle.
+  Layout callers may keep one stable bounds value while UIDrawWidgets owns hit
+  policy, text measurement, style selection, and command recording.
 
 Invariants:
-  - Draw geometry and hit testing must be derived from the same layout
-  constants.
+  - Bounds are the only retained value; hover and commands remain frame-local.
 
 Related:
   - SkullbonezSource/UI/UIButton.cpp
+  - SkullbonezSource/UI/UIDrawWidgets.h
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

@@ -23,6 +23,8 @@
 //     active/selected/checked state and never rediscover it from pointer input.
 //   - Resting and engaged component fixtures must retain their exact command
 //     fingerprints without overflowing a bounded draw buffer.
+//   - Established wrappers and direct stateless calls must produce identical
+//     command streams and interaction values.
 //   - Every public tab must produce its committed production draw fingerprint.
 //   - No bounded draw buffer may overflow while producing the fixture.
 //
@@ -89,12 +91,14 @@ constexpr std::array<uint64_t, kTabs.size()> kExpectedFingerprints = {
     // worker-thread time stopped being summed into the frame-thread rows. Only
     // this surface moved; the other ten prove the column disturbed no other tab.
     17282268762934632125ull,
+
     // Scene: the rolling-prediction checkbox, forecast stability rows,
     // interaction-replay selector, and Capture lockstep request label are part
     // of the committed operator stream.
     2399826200700883422ull,
     643319089294822447ull,
     9774020997193876338ull,
+
     // Options: the scene/session request is labelled Capture lockstep.
     16562541090565446015ull,
     13838569643518502325ull,
@@ -102,6 +106,7 @@ constexpr std::array<uint64_t, kTabs.size()> kExpectedFingerprints = {
     5057719176066529734ull,
     3243788985155815295ull,
     15645422141942934428ull,
+
     // Memory: prediction evidence bank and release-checkpoint rows are part of
     // the detached UI contract; this must match the production unit fixture.
     14809053394253860312ull,
@@ -137,6 +142,19 @@ std::unique_ptr<InGameUIFrameData> MakeFrameData()
     return data;
 }
 
+bool NearlyEqual( float left, float right )
+{
+    return std::fabs( left - right ) < 0.0001f;
+}
+
+
+bool SameRect( const UIRect& left, const UIRect& right )
+{
+    return NearlyEqual( left.x, right.x ) && NearlyEqual( left.y, right.y ) && NearlyEqual( left.w, right.w ) &&
+           NearlyEqual( left.h, right.h );
+}
+
+
 bool CheckComponentBaselines()
 {
     // Invariant: geometry stays in each component, while selection, checked,
@@ -158,6 +176,21 @@ bool CheckComponentBaselines()
     UITabBar tabBar;
     tabBar.SetBounds( 10.0f, 240.0f, 360.0f, 50.0f );
 
+    constexpr UIVisualState kEnabled = UIVisualState::Visible | UIVisualState::Enabled;
+    constexpr Widgets::ComponentAppearance kEstablished = Widgets::ComponentAppearance::Established;
+    const UIRect buttonBounds = button.Bounds();
+    const UIRect checkBoxBounds = checkBox.Bounds();
+    const UIRect comboBounds = comboBox.Bounds();
+    const UIRect iconBounds = { 210.0f, 10.0f, 24.0f, 24.0f };
+    const UIRect sliderBounds = slider.Bounds();
+    const UIRect scrollBounds = scrollBar.Bounds();
+    const UIRect tabBounds = tabBar.Bounds();
+    const UIRect comboPopup = Widgets::ComboPopupBounds( comboBounds, true, false, 3 );
+    const Widgets::TabLayout adaptiveSecondTab = Widgets::ResolveTabLayout( tabBounds, 1, 3 );
+    const Widgets::TabLayout establishedSecondTab = Widgets::ResolveTabLayout( tabBounds, 1, 3, kEstablished );
+    const UIRect expectedSecondTabInteraction = { 130.0f, 240.0f, 120.0f, 50.0f };
+    const UIRect expectedSecondTabVisual = { 132.0f, 251.0f, 112.0f, 30.0f };
+
     comboBox.SetOpen( false );
     const bool geometryValid = button.HitTest( 20, 20 ) && !button.HitTest( 200, 20 ) && checkBox.HitTest( 20, 60 ) &&
                                !checkBox.HitTest( 200, 60 ) && comboBox.HitBox( 20, 100 ) &&
@@ -167,6 +200,36 @@ bool CheckComponentBaselines()
                                std::fabs( slider.ValueFromMouse( 213, 0.0f, 1.0f, 0.25f ) - 0.5f ) < 0.0001f &&
                                std::fabs( slider.ValueFromMouse( 640, 0.0f, 1.0f, 0.25f ) - 1.0f ) < 0.0001f &&
                                tabBar.HitTest( 190, 260, 3 ) == 1 && tabBar.HitTest( 400, 260, 3 ) == -1;
+
+    // False-pass control: wrappers and stateless operations must emit the same
+    // interaction values, including the established strip's exact boundary
+    // ownership. The two named rectangles are resolved by one layout operation:
+    // adaptive geometry cannot diverge, while the established inset is pinned
+    // as an explicit compatibility contract instead of a hidden hit/draw split.
+    // A wrapper-local hit, inset, or quantization path fails these comparisons
+    // even when ordinary center-point tests still pass.
+    bool commandValuesValid = button.HitTest( 20, 20 ) == Widgets::CanActivateComponent( buttonBounds, kEnabled, 20, 20 ) &&
+                              checkBox.HitTest( 20, 60 ) ==
+                                  Widgets::CanActivateComponent( checkBoxBounds, kEnabled, 20, 60 ) &&
+                              NearlyEqual( slider.ValueFromMouse( 213, 0.0f, 1.0f, 0.25f ),
+                                           Widgets::SliderValueFromPointer( sliderBounds, 213, 0.0f, 1.0f, 0.25f ) ) &&
+                              tabBar.HitTest( 130, 260, 3 ) ==
+                                  Widgets::HitTestTab( tabBounds, kEnabled, 130, 260, 3, kEstablished ) &&
+                              tabBar.HitTest( 130, 260, 3 ) == 1 &&
+                              SameRect( adaptiveSecondTab.interactionBounds, adaptiveSecondTab.visualBounds ) &&
+                              SameRect( establishedSecondTab.interactionBounds, expectedSecondTabInteraction ) &&
+                              SameRect( establishedSecondTab.visualBounds, expectedSecondTabVisual ) &&
+                              SameRect( adaptiveSecondTab.visualBounds, establishedSecondTab.visualBounds ) &&
+                              !SameRect( establishedSecondTab.interactionBounds, establishedSecondTab.visualBounds ) &&
+                              Widgets::ContainsComponent( establishedSecondTab.interactionBounds, kEnabled, 130, 260 ) &&
+                              !Widgets::ContainsComponent( establishedSecondTab.visualBounds, kEnabled, 130, 260 ) &&
+                              SameRect( Widgets::ScrollThumbBounds( scrollBounds, 420.0f, 210.0f, 105.0f ),
+                                        Widgets::ScrollThumbBounds( scrollBounds, 420.0f, 210.0f, 105.0f, kEstablished ) ) &&
+                              SameRect( comboBox.DropdownBounds( 3 ), comboPopup );
+    comboBox.SetOpen( true );
+    commandValuesValid = commandValuesValid && comboBox.HitOption( 80, 157, 3 ) ==
+                                                   Widgets::ComboOptionAtPointer( comboPopup, kEnabled, 80, 157, 3 );
+    comboBox.SetOpen( false );
 
     static constexpr const char* kComboOptions[] = { "Alpha", "Beta", "Gamma" };
     static constexpr const char* kTabLabels[] = { "One", "Two", "Three" };
@@ -192,27 +255,83 @@ bool CheckComponentBaselines()
     const auto restingStats = drawList->GetStats();
     const uint64_t engagedFingerprint = recordFixture( true );
     const auto engagedStats = drawList->GetStats();
+
+    auto recordStatelessFixture = [&]( bool engaged )
+    {
+        drawList->Clear();
+        UIVisualState buttonState = kEnabled;
+
+        if ( engaged )
+        {
+            buttonState |= UIVisualState::Hovered;
+        }
+
+        Widgets::DrawButton( draw, buttonBounds, "Apply", buttonState, kEstablished );
+        Widgets::DrawToggle( draw, checkBoxBounds, "Enabled", { 0.20f, 0.60f, 0.90f, 1.0f },
+                             engaged ? kEnabled | UIVisualState::Checked : kEnabled, kEstablished );
+
+        UIVisualState comboState = kEnabled;
+        Widgets::DrawComboField( draw, comboBounds, "Mode", "Beta", true, engaged, comboState, true, kEstablished );
+
+        if ( engaged )
+        {
+            const int hoveredOption = Widgets::ComboOptionAtPointer( comboPopup, comboState, 80, 157, 3 );
+            Widgets::DrawComboPopup( draw, comboPopup, kComboOptions, static_cast<int>( std::size( kComboOptions ) ), 1,
+                                     hoveredOption, 1u, comboState, kEstablished );
+        }
+
+        Widgets::DrawIconButton( draw, iconBounds, engaged ? Widgets::ComponentIcon::Minus : Widgets::ComponentIcon::Plus,
+                                 kEnabled, kEstablished );
+        Widgets::DrawSlider( draw, sliderBounds, "Strength", engaged ? "0.75" : "0.25", engaged ? 0.75f : 0.25f, 0.0f, 1.0f,
+                             kEnabled, kEstablished );
+        Widgets::DrawScrollBar( draw, scrollBounds, 420.0f, 210.0f, 105.0f, engaged ? 0.5f : 0.0f, kEnabled, kEstablished );
+
+        for ( int tabIndex = 0; tabIndex < static_cast<int>( std::size( kTabLabels ) ); ++tabIndex )
+        {
+            UIVisualState tabState = kEnabled;
+
+            if ( tabIndex == ( engaged ? 1 : 0 ) )
+            {
+                tabState |= UIVisualState::Selected;
+            }
+
+            const Widgets::TabLayout layout = Widgets::ResolveTabLayout( tabBounds, tabIndex, 3, kEstablished );
+            Widgets::DrawTab( draw, layout.visualBounds, kTabLabels[tabIndex], tabState, kEstablished );
+        }
+
+        return drawList->Fingerprint();
+    };
+
+    const uint64_t directRestingFingerprint = recordStatelessFixture( false );
+    const auto directRestingStats = drawList->GetStats();
+    const uint64_t directEngagedFingerprint = recordStatelessFixture( true );
+    const auto directEngagedStats = drawList->GetStats();
     const bool overflow = restingStats.commandOverflow || restingStats.textOverflow || restingStats.clipOverflow ||
-                          engagedStats.commandOverflow || engagedStats.textOverflow || engagedStats.clipOverflow;
+                          engagedStats.commandOverflow || engagedStats.textOverflow || engagedStats.clipOverflow ||
+                          directRestingStats.commandOverflow || directRestingStats.textOverflow ||
+                          directRestingStats.clipOverflow || directEngagedStats.commandOverflow ||
+                          directEngagedStats.textOverflow || directEngagedStats.clipOverflow;
     const bool fingerprintValid = restingFingerprint == kExpectedRestingComponentFingerprint &&
                                   engagedFingerprint == kExpectedEngagedComponentFingerprint;
+    const bool wrapperParityValid = directRestingFingerprint == restingFingerprint &&
+                                    directEngagedFingerprint == engagedFingerprint;
 
-    if ( geometryValid && fingerprintValid && !overflow )
+    if ( geometryValid && commandValuesValid && fingerprintValid && wrapperParityValid && !overflow )
     {
         return true;
     }
 
-    std::fprintf( stderr, "FAIL: UI component baseline geometry=%d resting=%llu/%llu engaged=%llu/%llu overflow=%d\n",
-                  geometryValid ? 1 : 0, static_cast<unsigned long long>( restingFingerprint ),
+    std::fprintf( stderr,
+                  "FAIL: UI component baseline geometry=%d commands=%d parity=%d resting=%llu/%llu/%llu "
+                  "engaged=%llu/%llu/%llu overflow=%d\n",
+                  geometryValid ? 1 : 0, commandValuesValid ? 1 : 0, wrapperParityValid ? 1 : 0,
+                  static_cast<unsigned long long>( restingFingerprint ),
+                  static_cast<unsigned long long>( directRestingFingerprint ),
                   static_cast<unsigned long long>( kExpectedRestingComponentFingerprint ),
                   static_cast<unsigned long long>( engagedFingerprint ),
+                  static_cast<unsigned long long>( directEngagedFingerprint ),
                   static_cast<unsigned long long>( kExpectedEngagedComponentFingerprint ), overflow ? 1 : 0 );
     return false;
-}
-
-bool NearlyEqual( float left, float right )
-{
-    return std::fabs( left - right ) < 0.0001f;
 }
 
 bool CheckStatelessComponentContracts()
@@ -399,12 +518,14 @@ int main()
 
     bool failed = !CheckComponentBaselines();
     failed = !CheckStatelessComponentContracts() || failed;
+
     for ( size_t surface = 0; surface < kTabs.size(); ++surface )
     {
         ui->SetActiveTab( kTabs[surface] );
         ui->ResetPresentationState();
         const SkullbonezCore::UI::UIDrawList& frame = ui->Draw( *data );
         const auto stats = frame.GetStats();
+
         if ( frame.Fingerprint() != kExpectedFingerprints[surface] || stats.commandOverflow || stats.textOverflow ||
              stats.clipOverflow )
         {

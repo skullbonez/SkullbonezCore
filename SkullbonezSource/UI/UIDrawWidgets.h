@@ -10,9 +10,11 @@ Summary:
   draw values; they retain no input, product, Runtime, or renderer authority.
 
 Invariants:
-  - A component's draw and hit helpers consume the same UIRect value.
+  - Component draw and hit geometry derives from the same caller-supplied
+    bounds model.
   - Disabled controls may block a pointer but cannot activate.
   - Hidden controls append no commands.
+  - Appearance profiles own presentation only and retain no caller state.
 
 Related:
   - SkullbonezSource/UI/UIDrawWidgets.cpp
@@ -33,6 +35,16 @@ class UICheckBox;
 
 namespace Widgets
 {
+// Selects a component-neutral presentation profile without changing caller-
+// resolved state or authority. Adaptive emphasizes the full state vocabulary;
+// Established preserves retained-wrapper command streams; Footer selects the
+// existing compact footer-toggle layout. All use the same stateless operations.
+enum class ComponentAppearance : unsigned char
+{
+    Adaptive,
+    Established,
+    Footer
+};
 
 enum class ComponentIcon
 {
@@ -59,23 +71,42 @@ bool CanActivateComponent( const UIRect& bounds, UIVisualState state, int pointe
 void DrawPanel( const UIDrawContext& draw, const UIRect& bounds, UIVisualState state );
 void DrawLabelValueRow( const UIDrawContext& draw, const UIRect& bounds, const char* label, const char* value,
                         const Style::UIColor& valueColor, UIVisualState state );
-void DrawButton( const UIDrawContext& draw, const UIRect& bounds, const char* label, UIVisualState state );
+void DrawButton( const UIDrawContext& draw, const UIRect& bounds, const char* label, UIVisualState state,
+                 ComponentAppearance appearance = ComponentAppearance::Adaptive );
 void DrawToggle( const UIDrawContext& draw, const UIRect& bounds, const char* label, const Style::UIColor& accent,
-                 UIVisualState state );
+                 UIVisualState state, ComponentAppearance appearance = ComponentAppearance::Adaptive );
 
 float SliderValueFromPointer( const UIRect& bounds, int pointerX, float minValue, float maxValue, float step );
 UIRect SliderTrackBounds( const UIRect& bounds );
 UIRect SliderThumbBounds( const UIRect& bounds, float value, float minValue, float maxValue );
 void DrawSlider( const UIDrawContext& draw, const UIRect& bounds, const char* label, const char* valueText, float value,
-                 float minValue, float maxValue, UIVisualState state );
+                 float minValue, float maxValue, UIVisualState state,
+                 ComponentAppearance appearance = ComponentAppearance::Adaptive );
 
-UIRect TabBounds( const UIRect& stripBounds, int tabIndex, int tabCount );
-int HitTestTab( const UIRect& stripBounds, UIVisualState state, int pointerX, int pointerY, int tabCount );
-void DrawTab( const UIDrawContext& draw, const UIRect& bounds, const char* label, UIVisualState state );
+// Carries the complete tab geometry decision. Adaptive tabs use one rectangle
+// for both fields. Established tabs preserve the retained strip's full pointer
+// partition while drawing the same inset pill; keeping both sub-rectangles in
+// one value makes that compatibility distinction explicit and testable.
+struct TabLayout
+{
+    UIRect interactionBounds;
+    UIRect visualBounds;
+};
 
-UIRect ScrollThumbBounds( const UIRect& trackBounds, float contentHeight, float viewportHeight, float scrollOffset );
+TabLayout ResolveTabLayout( const UIRect& stripBounds, int tabIndex, int tabCount,
+                            ComponentAppearance appearance = ComponentAppearance::Adaptive );
+UIRect TabBounds( const UIRect& stripBounds, int tabIndex, int tabCount,
+                  ComponentAppearance appearance = ComponentAppearance::Adaptive );
+int HitTestTab( const UIRect& stripBounds, UIVisualState state, int pointerX, int pointerY, int tabCount,
+                ComponentAppearance appearance = ComponentAppearance::Adaptive );
+void DrawTab( const UIDrawContext& draw, const UIRect& bounds, const char* label, UIVisualState state,
+              ComponentAppearance appearance = ComponentAppearance::Adaptive );
+
+UIRect ScrollThumbBounds( const UIRect& trackBounds, float contentHeight, float viewportHeight, float scrollOffset,
+                          ComponentAppearance appearance = ComponentAppearance::Adaptive );
 void DrawScrollBar( const UIDrawContext& draw, const UIRect& trackBounds, float contentHeight, float viewportHeight,
-                    float scrollOffset, float alpha, UIVisualState state );
+                    float scrollOffset, float alpha, UIVisualState state,
+                    ComponentAppearance appearance = ComponentAppearance::Adaptive );
 
 UIRect ComboFieldBounds( const UIRect& bounds, bool labelVisible );
 UIRect ComboPopupBounds( const UIRect& bounds, bool labelVisible, bool dropUp, int optionCount );
@@ -85,11 +116,14 @@ UIRect ComboPopupBounds( const UIRect& bounds, bool labelVisible, bool dropUp, i
 int ComboOptionAtPointer( const UIRect& popupBounds, UIVisualState state, int pointerX, int pointerY, int optionCount );
 bool IsComboOptionEnabled( uint32_t disabledOptionMask, int optionIndex );
 void DrawComboField( const UIDrawContext& draw, const UIRect& bounds, const char* label, const char* selectedText,
-                     bool labelVisible, bool open, UIVisualState state );
+                     bool labelVisible, bool open, UIVisualState state, bool selectedEnabled = true,
+                     ComponentAppearance appearance = ComponentAppearance::Adaptive );
 void DrawComboPopup( const UIDrawContext& draw, const UIRect& popupBounds, const char* const* options, int optionCount,
-                     int selectedIndex, int hoveredIndex, uint32_t disabledOptionMask, UIVisualState state );
+                     int selectedIndex, int hoveredIndex, uint32_t disabledOptionMask, UIVisualState state,
+                     ComponentAppearance appearance = ComponentAppearance::Adaptive );
 
-void DrawIconButton( const UIDrawContext& draw, const UIRect& bounds, ComponentIcon icon, UIVisualState state );
+void DrawIconButton( const UIDrawContext& draw, const UIRect& bounds, ComponentIcon icon, UIVisualState state,
+                     ComponentAppearance appearance = ComponentAppearance::Adaptive );
 
 enum class TitleButtonIcon
 {

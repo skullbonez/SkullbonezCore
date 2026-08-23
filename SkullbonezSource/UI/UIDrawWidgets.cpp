@@ -10,9 +10,12 @@ Summary:
   or retain product, Runtime, or renderer authority between calls.
 
 Invariants:
-  - A component's draw and hit helpers consume the same UIRect value.
+  - Component draw and hit geometry derives from the same caller-supplied
+    bounds model.
   - Hidden controls append no commands; disabled controls remain pointer-
     blocking but cannot activate.
+  - Appearance profiles change presentation only; they never retain state or
+    alter caller command identities.
 
 Related:
   - SkullbonezSource/UI/UIDrawWidgets.h
@@ -160,6 +163,29 @@ void DrawChevronGlyph( const UIDrawContext& draw, const UIRect& bounds, Componen
         break;
     }
 }
+
+
+void DrawComboChevron( const UIDrawContext& draw, const UIRect& field, bool open, const Style::UIColor& color,
+                       ComponentAppearance appearance )
+{
+    if ( appearance != ComponentAppearance::Established )
+    {
+        const UIRect iconBounds = { field.x + field.w - 22.0f, field.y, 20.0f, field.h };
+        DrawChevronGlyph( draw, iconBounds, open ? ComponentIcon::ChevronUp : ComponentIcon::ChevronDown, color );
+        return;
+    }
+
+    const float centerX = field.x + field.w - 12.0f;
+    const float centerY = field.y + field.h * 0.5f;
+
+    for ( int index = 0; index < 3; ++index )
+    {
+        const float offset = static_cast<float>( index ) * 2.0f;
+        const float y = open ? centerY + 3.0f - offset : centerY - 3.0f + offset;
+        draw.Rect( centerX - 4.0f + offset, y, 2.0f, 2.0f, color.r, color.g, color.b, color.a );
+        draw.Rect( centerX + 2.0f - offset, y, 2.0f, 2.0f, color.r, color.g, color.b, color.a );
+    }
+}
 } // namespace
 
 bool ContainsComponent( const UIRect& bounds, UIVisualState state, int pointerX, int pointerY )
@@ -253,7 +279,8 @@ void DrawLabelValueRow( const UIDrawContext& draw, const UIRect& bounds, const c
 }
 
 
-void DrawButton( const UIDrawContext& draw, const UIRect& bounds, const char* label, UIVisualState state )
+void DrawButton( const UIDrawContext& draw, const UIRect& bounds, const char* label, UIVisualState state,
+                 ComponentAppearance appearance )
 {
     if ( !IsVisible( state ) )
     {
@@ -264,13 +291,23 @@ void DrawButton( const UIDrawContext& draw, const UIRect& bounds, const char* la
     const char* safeLabel = SafeText( label );
     const float labelWidth = UIFontMetrics::MeasureText( textSize, safeLabel );
     const float labelX = bounds.x + (std::max)( 8.0f, ( bounds.w - labelWidth ) * 0.5f );
-    const Style::UIColor text = ControlText( state );
+    const Style::UIPalette& palette = Style::Palette();
+    const bool established = appearance == ComponentAppearance::Established;
+    const Style::UIColor fill = established && IsEnabled( state )
+                                    ? ( HasVisualState( state, UIVisualState::Hovered ) ? palette.controlHover
+                                                                                        : palette.control )
+                                    : ControlFill( state );
+    const Style::UIColor border = established && IsEnabled( state ) ? palette.border : ControlBorder( state );
+    const Style::UIColor text = established && IsEnabled( state )
+                                    ? ( HasVisualState( state, UIVisualState::Hovered ) ? palette.textPrimary
+                                                                                        : palette.textSecondary )
+                                    : ControlText( state );
 
-    draw.RoundedPanel( bounds, Style::Radii().control, ControlFill( state ), ControlBorder( state ) );
+    draw.RoundedPanel( bounds, Style::Radii().control, fill, border );
 
     if ( HasVisualState( state, UIVisualState::Selected ) )
     {
-        const Style::UIColor& accent = Style::Palette().accent;
+        const Style::UIColor& accent = palette.accent;
         draw.Rect( bounds.x + 8.0f, bounds.y + bounds.h - 3.0f, (std::max)( 1.0f, bounds.w - 16.0f ), 2.0f, accent.r,
                    accent.g, accent.b, 0.86f );
     }
@@ -280,7 +317,7 @@ void DrawButton( const UIDrawContext& draw, const UIRect& bounds, const char* la
 
 
 void DrawToggle( const UIDrawContext& draw, const UIRect& bounds, const char* label, const Style::UIColor& accent,
-                 UIVisualState state )
+                 UIVisualState state, ComponentAppearance appearance )
 {
     if ( !IsVisible( state ) )
     {
@@ -288,11 +325,38 @@ void DrawToggle( const UIDrawContext& draw, const UIRect& bounds, const char* la
     }
 
     const Style::UIPalette& palette = Style::Palette();
+
+    if ( appearance == ComponentAppearance::Footer )
+    {
+        // Why: footer toggles share the state and drawing algorithm but use a
+        // centered label column and a two-pixel-later switch anchor. Keeping
+        // that geometry here prevents the footer helper from becoming a
+        // second toggle implementation.
+        const Style::FooterToggleStyle& footer = Style::FooterToggle();
+        const bool checked = HasVisualState( state, UIVisualState::Checked );
+        const float switchX = bounds.x + bounds.w - footer.switchW - 2.0f;
+        const float switchY = bounds.y + 5.0f;
+        const float labelAreaWidth = (std::max)( 1.0f, switchX - bounds.x - 6.0f );
+        const float labelWidth = UIFontMetrics::MeasureText( footer.labelTextSize, SafeText( label ) );
+        const float labelX = bounds.x + (std::max)( 0.0f, ( labelAreaWidth - labelWidth ) * 0.5f );
+        const Style::UIColor offFill = WithAlpha( palette.control, 0.78f );
+        const Style::UIColor knob = checked ? palette.accentStrong : palette.textMuted;
+
+        draw.Text( labelX, bounds.y + 4.0f, footer.labelTextSize, footer.label.r, footer.label.g, footer.label.b,
+                   SafeText( label ) );
+        draw.RoundedPanel( { switchX, switchY, footer.switchW, footer.switchH }, footer.switchH * 0.5f,
+                           checked ? accent : offFill, palette.border );
+        draw.RoundedRect( switchX + ( checked ? footer.switchW - footer.knobW - 3.0f : 3.0f ), bounds.y + 8.0f, footer.knobW,
+                          footer.knobH, footer.knobW * 0.5f, knob.r, knob.g, knob.b, 0.96f );
+        return;
+    }
+
     const Style::UIControlStyle& control = Style::Control();
     const float switchX = bounds.x + (std::max)( 66.0f, bounds.w - control.switchW - 4.0f );
     const float switchY = bounds.y + 4.0f;
     const bool checked = HasVisualState( state, UIVisualState::Checked );
-    const Style::UIColor labelColor = ControlText( state );
+    const bool established = appearance == ComponentAppearance::Established;
+    const Style::UIColor labelColor = established && IsEnabled( state ) ? palette.textSecondary : ControlText( state );
     Style::UIColor switchFill = WithAlpha( palette.control, 0.78f );
 
     if ( !IsEnabled( state ) )
@@ -315,8 +379,8 @@ void DrawToggle( const UIDrawContext& draw, const UIRect& bounds, const char* la
     const float knobX = switchX + ( checked ? control.switchW - knobSize - 3.0f : 3.0f );
 
     draw.Text( bounds.x, bounds.y + 4.0f, 10.5f, labelColor.r, labelColor.g, labelColor.b, SafeText( label ) );
-    draw.RoundedPanel( { switchX, switchY, control.switchW, control.switchH }, control.switchH * 0.5f, switchFill,
-                       ControlBorder( state ) );
+    const Style::UIColor border = established && IsEnabled( state ) ? palette.border : ControlBorder( state );
+    draw.RoundedPanel( { switchX, switchY, control.switchW, control.switchH }, control.switchH * 0.5f, switchFill, border );
     draw.RoundedRect( knobX, switchY + 3.0f, knobSize, knobSize, knobSize * 0.5f, knobFill.r, knobFill.g, knobFill.b,
                       IsEnabled( state ) ? 0.98f : 0.62f );
 }
@@ -355,7 +419,7 @@ UIRect SliderThumbBounds( const UIRect& bounds, float value, float minValue, flo
 
 
 void DrawSlider( const UIDrawContext& draw, const UIRect& bounds, const char* label, const char* valueText, float value,
-                 float minValue, float maxValue, UIVisualState state )
+                 float minValue, float maxValue, UIVisualState state, ComponentAppearance appearance )
 {
     if ( !IsVisible( state ) )
     {
@@ -385,11 +449,14 @@ void DrawSlider( const UIDrawContext& draw, const UIRect& bounds, const char* la
                       palette.control.b, IsEnabled( state ) ? 0.78f : 0.34f );
     draw.RoundedRect( track.x, track.y, (std::max)( track.h, track.w * t ), track.h, track.h * 0.5f, progress.r, progress.g,
                       progress.b, IsEnabled( state ) ? 0.90f : 0.42f );
-    draw.RoundedPanel( thumb, 5.0f, thumbFill, ControlBorder( state ) );
+    const Style::UIColor thumbBorder = appearance == ComponentAppearance::Established && IsEnabled( state )
+                                           ? palette.border
+                                           : ControlBorder( state );
+    draw.RoundedPanel( thumb, 5.0f, thumbFill, thumbBorder );
 }
 
 
-UIRect TabBounds( const UIRect& stripBounds, int tabIndex, int tabCount )
+TabLayout ResolveTabLayout( const UIRect& stripBounds, int tabIndex, int tabCount, ComponentAppearance appearance )
 {
     if ( tabCount <= 0 || tabIndex < 0 || tabIndex >= tabCount )
     {
@@ -397,24 +464,64 @@ UIRect TabBounds( const UIRect& stripBounds, int tabIndex, int tabCount )
     }
 
     const float tabWidth = stripBounds.w / static_cast<float>( tabCount );
-    return { stripBounds.x + static_cast<float>( tabIndex ) * tabWidth + 2.0f, stripBounds.y + 11.0f,
-             (std::max)( 0.0f, tabWidth - 8.0f ), 30.0f };
+    const UIRect visualBounds = { stripBounds.x + static_cast<float>( tabIndex ) * tabWidth + 2.0f, stripBounds.y + 11.0f,
+                                  (std::max)( 0.0f, tabWidth - 8.0f ), 30.0f };
+
+    if ( appearance == ComponentAppearance::Established )
+    {
+        // Compatibility: UIWindowInteractionOwner routes clicks across the
+        // complete tab strip, and UIEditorMiniPalette draws those full-cell
+        // hitboxes. Established preserves that public pointer partition while
+        // exposing its inset pill in the same value. Delete the split when
+        // UITabBar no longer requests Established geometry and both production
+        // witnesses consume the adaptive pill bounds.
+        const UIRect interactionBounds = { stripBounds.x + static_cast<float>( tabIndex ) * tabWidth, stripBounds.y,
+                                           tabWidth, stripBounds.h };
+        return { interactionBounds, visualBounds };
+    }
+
+    return { visualBounds, visualBounds };
 }
 
 
-int HitTestTab( const UIRect& stripBounds, UIVisualState state, int pointerX, int pointerY, int tabCount )
+UIRect TabBounds( const UIRect& stripBounds, int tabIndex, int tabCount, ComponentAppearance appearance )
 {
-    if ( tabCount <= 0 || !IsEnabled( state ) )
+    return ResolveTabLayout( stripBounds, tabIndex, tabCount, appearance ).visualBounds;
+}
+
+
+int HitTestTab( const UIRect& stripBounds, UIVisualState state, int pointerX, int pointerY, int tabCount,
+                ComponentAppearance appearance )
+{
+    if ( tabCount <= 0 || stripBounds.w <= 0.0f || !IsEnabled( state ) )
     {
         return -1;
     }
 
-    // Invariant: the empty spacing between tab pills is not interactive. Both
-    // drawing and hit testing therefore consume TabBounds rather than treating
-    // the complete strip partition as drawn geometry.
+    if ( appearance == ComponentAppearance::Established )
+    {
+        // Invariant: resolve the exact partition index first so a shared edge
+        // belongs to the tab on its right, then validate the named interaction
+        // rectangle from the same layout value that supplies drawing.
+        const float tabWidth = stripBounds.w / static_cast<float>( tabCount );
+        const int tabIndex = static_cast<int>( ( static_cast<float>( pointerX ) - stripBounds.x ) / tabWidth );
+
+        if ( tabIndex < 0 || tabIndex >= tabCount )
+        {
+            return -1;
+        }
+
+        const TabLayout layout = ResolveTabLayout( stripBounds, tabIndex, tabCount, appearance );
+        return ContainsComponent( layout.interactionBounds, state, pointerX, pointerY ) ? tabIndex : -1;
+    }
+
+    // Invariant: adaptive tabs use one rectangle for drawing and interaction,
+    // so the empty spacing between pills is not interactive.
     for ( int tabIndex = 0; tabIndex < tabCount; ++tabIndex )
     {
-        if ( ContainsComponent( TabBounds( stripBounds, tabIndex, tabCount ), state, pointerX, pointerY ) )
+        const TabLayout layout = ResolveTabLayout( stripBounds, tabIndex, tabCount, appearance );
+
+        if ( ContainsComponent( layout.interactionBounds, state, pointerX, pointerY ) )
         {
             return tabIndex;
         }
@@ -424,7 +531,8 @@ int HitTestTab( const UIRect& stripBounds, UIVisualState state, int pointerX, in
 }
 
 
-void DrawTab( const UIDrawContext& draw, const UIRect& bounds, const char* label, UIVisualState state )
+void DrawTab( const UIDrawContext& draw, const UIRect& bounds, const char* label, UIVisualState state,
+              ComponentAppearance appearance )
 {
     if ( !IsVisible( state ) || bounds.w <= 0.0f || bounds.h <= 0.0f )
     {
@@ -433,6 +541,12 @@ void DrawTab( const UIDrawContext& draw, const UIRect& bounds, const char* label
 
     const Style::UIPalette& palette = Style::Palette();
     const bool selected = HasVisualState( state, UIVisualState::Selected );
+    const bool established = appearance == ComponentAppearance::Established;
+
+    // Invariant: callers pass TabLayout::visualBounds. DrawTab never derives a
+    // second rectangle, so a layout change cannot silently move rendering away
+    // from the geometry value inspected by hit-routing tests.
+    const UIRect& visualBounds = bounds;
     Style::UIColor fill = WithAlpha( palette.windowSubtle, 0.20f );
 
     if ( !IsEnabled( state ) )
@@ -452,36 +566,59 @@ void DrawTab( const UIDrawContext& draw, const UIRect& bounds, const char* label
         fill = WithAlpha( palette.controlHover, 0.62f );
     }
 
-    draw.RoundedPanel( bounds, Style::Radii().control, fill, ControlBorder( state ) );
+    if ( established && !selected )
+    {
+        draw.RoundedRect( visualBounds.x, visualBounds.y, visualBounds.w, visualBounds.h, Style::Radii().control, fill.r,
+                          fill.g, fill.b, fill.a );
+    }
+    else
+    {
+        const Style::UIColor border = established ? palette.innerBorder : ControlBorder( state );
+        draw.RoundedPanel( visualBounds, Style::Radii().control, fill, border );
+    }
 
     if ( selected )
     {
-        draw.Rect( bounds.x + 8.0f, bounds.y + bounds.h - 1.0f, (std::max)( 1.0f, bounds.w - 16.0f ), 2.0f, palette.accent.r,
-                   palette.accent.g, palette.accent.b, 0.86f );
+        draw.Rect( visualBounds.x + 8.0f, visualBounds.y + visualBounds.h - 1.0f, (std::max)( 1.0f, visualBounds.w - 16.0f ),
+                   2.0f, palette.accent.r, palette.accent.g, palette.accent.b, 0.86f );
     }
 
     float textSize = 11.5f;
     const char* safeLabel = SafeText( label );
 
-    while ( textSize > 8.5f && UIFontMetrics::MeasureText( textSize, safeLabel ) > bounds.w - 10.0f )
+    while ( textSize > 8.5f && UIFontMetrics::MeasureText( textSize, safeLabel ) > visualBounds.w - 10.0f )
     {
         textSize -= 0.5f;
     }
 
     const float labelWidth = UIFontMetrics::MeasureText( textSize, safeLabel );
-    const Style::UIColor text = ControlText( state );
-    draw.Text( bounds.x + (std::max)( 6.0f, ( bounds.w - labelWidth ) * 0.5f ),
-               bounds.y + ( bounds.h - textSize ) * 0.5f - 1.0f, textSize, text.r, text.g, text.b, safeLabel );
+    const Style::UIColor text = established && IsEnabled( state )
+                                    ? ( selected ? palette.textPrimary : palette.textSecondary )
+                                    : ControlText( state );
+    const float labelY = established ? visualBounds.y + 8.0f : visualBounds.y + ( visualBounds.h - textSize ) * 0.5f - 1.0f;
+    draw.Text( visualBounds.x + (std::max)( 6.0f, ( visualBounds.w - labelWidth ) * 0.5f ), labelY, textSize, text.r, text.g,
+               text.b, safeLabel );
 }
 
 
-UIRect ScrollThumbBounds( const UIRect& trackBounds, float contentHeight, float viewportHeight, float scrollOffset )
+UIRect ScrollThumbBounds( const UIRect& trackBounds, float contentHeight, float viewportHeight, float scrollOffset,
+                          ComponentAppearance appearance )
 {
     const float maxScroll = (std::max)( 0.0f, contentHeight - viewportHeight );
 
     if ( maxScroll <= 0.0f || contentHeight <= 0.0f || trackBounds.h <= 0.0f )
     {
         return {};
+    }
+
+    if ( appearance == ComponentAppearance::Established )
+    {
+        // Invariant: established wrappers define scroll travel in viewport
+        // pixels. Do not substitute track height or clamp the ratio here; that
+        // changes the retained command stream when layout and viewport differ.
+        const float thumbHeight = (std::max)( 28.0f, viewportHeight * viewportHeight / contentHeight );
+        return { trackBounds.x - 1.0f, trackBounds.y + ( viewportHeight - thumbHeight ) * ( scrollOffset / maxScroll ),
+                 trackBounds.w + 2.0f, thumbHeight };
     }
 
     const float thumbHeight = (std::min)( trackBounds.h,
@@ -493,10 +630,10 @@ UIRect ScrollThumbBounds( const UIRect& trackBounds, float contentHeight, float 
 
 
 void DrawScrollBar( const UIDrawContext& draw, const UIRect& trackBounds, float contentHeight, float viewportHeight,
-                    float scrollOffset, float alpha, UIVisualState state )
+                    float scrollOffset, float alpha, UIVisualState state, ComponentAppearance appearance )
 {
     alpha = std::clamp( alpha, 0.0f, 1.0f );
-    const UIRect thumb = ScrollThumbBounds( trackBounds, contentHeight, viewportHeight, scrollOffset );
+    const UIRect thumb = ScrollThumbBounds( trackBounds, contentHeight, viewportHeight, scrollOffset, appearance );
 
     if ( !IsVisible( state ) || alpha <= 0.02f || thumb.h <= 0.0f )
     {
@@ -505,11 +642,13 @@ void DrawScrollBar( const UIDrawContext& draw, const UIRect& trackBounds, float 
 
     const Style::UIPalette& palette = Style::Palette();
     const float enabledAlpha = IsEnabled( state ) ? alpha : alpha * 0.38f;
-    const Style::UIColor thumbColor = IsEnabled( state ) && HasVisualState( state, UIVisualState::Active )
-                                          ? palette.accentStrong
-                                          : ( IsEnabled( state ) && HasVisualState( state, UIVisualState::Hovered )
-                                                  ? palette.textPrimary
-                                                  : palette.accent );
+    const Style::UIColor thumbColor = appearance == ComponentAppearance::Established
+                                          ? palette.accent
+                                          : ( IsEnabled( state ) && HasVisualState( state, UIVisualState::Active )
+                                                  ? palette.accentStrong
+                                                  : ( IsEnabled( state ) && HasVisualState( state, UIVisualState::Hovered )
+                                                          ? palette.textPrimary
+                                                          : palette.accent ) );
 
     draw.RoundedRect( trackBounds.x, trackBounds.y, trackBounds.w, trackBounds.h, trackBounds.w * 0.5f, palette.control.r,
                       palette.control.g, palette.control.b, enabledAlpha * 0.52f );
@@ -555,7 +694,8 @@ bool IsComboOptionEnabled( uint32_t disabledOptionMask, int optionIndex )
 
 
 void DrawComboField( const UIDrawContext& draw, const UIRect& bounds, const char* label, const char* selectedText,
-                     bool labelVisible, bool open, UIVisualState state )
+                     bool labelVisible, bool open, UIVisualState state, bool selectedEnabled,
+                     ComponentAppearance appearance )
 {
     if ( !IsVisible( state ) )
     {
@@ -564,31 +704,44 @@ void DrawComboField( const UIDrawContext& draw, const UIRect& bounds, const char
 
     const Style::UIPalette& palette = Style::Palette();
     const UIRect field = ComboFieldBounds( bounds, labelVisible );
-    const Style::UIColor text = ControlText( state );
+    const bool established = appearance == ComponentAppearance::Established;
+    const bool hovered = HasVisualState( state, UIVisualState::Hovered );
+    const Style::UIColor text = established && IsEnabled( state ) ? ( hovered ? palette.textPrimary : palette.textSecondary )
+                                                                  : ControlText( state );
+    const Style::UIColor labelColor = established && IsEnabled( state ) ? palette.textSecondary : text;
 
     if ( labelVisible && label && label[0] != '\0' )
     {
-        draw.Text( bounds.x, bounds.y + 4.0f, 10.5f, text.r, text.g, text.b, label );
+        draw.Text( bounds.x, bounds.y + 4.0f, 10.5f, labelColor.r, labelColor.g, labelColor.b, label );
     }
 
-    draw.RoundedPanel( field, Style::Radii().control, ControlFill( state ),
-                       open && IsEnabled( state ) ? palette.accent : ControlBorder( state ) );
+    const Style::UIColor fill = established && IsEnabled( state ) ? ( hovered ? palette.controlHover : palette.control )
+                                                                  : ControlFill( state );
+    const Style::UIColor border = established && IsEnabled( state )
+                                      ? ( hovered ? palette.innerBorder : palette.border )
+                                      : ( open && IsEnabled( state ) ? palette.accent : ControlBorder( state ) );
+    draw.RoundedPanel( field, Style::Radii().control, fill, border );
 
     if ( selectedText && selectedText[0] != '\0' )
     {
-        draw.Text( field.x + 6.0f, field.y + 3.0f, 10.0f, text.r, text.g, text.b, selectedText );
+        const Style::UIColor selectedTextColor = selectedEnabled ? text : palette.textMuted;
+        draw.Text( field.x + 6.0f, field.y + 3.0f, 10.0f, selectedTextColor.r, selectedTextColor.g, selectedTextColor.b,
+                   selectedText );
     }
 
-    const UIRect iconBounds = { field.x + field.w - 22.0f, field.y, 20.0f, field.h };
-    DrawChevronGlyph( draw, iconBounds, open ? ComponentIcon::ChevronUp : ComponentIcon::ChevronDown,
-                      WithAlpha( text, IsEnabled( state ) ? 0.96f : 0.56f ) );
+    const Style::UIColor chevronColor = established ? WithAlpha( palette.textSecondary, 0.96f )
+                                                    : WithAlpha( text, IsEnabled( state ) ? 0.96f : 0.56f );
+    DrawComboChevron( draw, field, open, chevronColor, appearance );
 }
 
 
 void DrawComboPopup( const UIDrawContext& draw, const UIRect& popupBounds, const char* const* options, int optionCount,
-                     int selectedIndex, int hoveredIndex, uint32_t disabledOptionMask, UIVisualState state )
+                     int selectedIndex, int hoveredIndex, uint32_t disabledOptionMask, UIVisualState state,
+                     ComponentAppearance appearance )
 {
-    if ( !IsVisible( state ) || optionCount <= 0 )
+    const bool established = appearance == ComponentAppearance::Established;
+
+    if ( !IsVisible( state ) || ( optionCount <= 0 && !established ) )
     {
         return;
     }
@@ -597,10 +750,18 @@ void DrawComboPopup( const UIDrawContext& draw, const UIRect& popupBounds, const
     const float radius = Style::Radii().control;
     draw.RoundedRect( popupBounds.x - 4.0f, popupBounds.y - 4.0f, popupBounds.w + 8.0f, popupBounds.h + 8.0f, radius + 2.0f,
                       0.0f, 0.0f, 0.0f, 0.26f );
-    draw.RoundedPanel( popupBounds, radius, palette.windowRaised, ControlBorder( state ) );
-    draw.PushClip( popupBounds );
+    draw.RoundedPanel( popupBounds, radius, palette.windowRaised, established ? palette.border : ControlBorder( state ) );
 
-    const float optionHeight = popupBounds.h / static_cast<float>( optionCount );
+    // Why: Adaptive popups author an explicit clip contract. Established
+    // popups preserve their existing clipping behavior and command order;
+    // adding clip commands there changes the recorded stream. Both modes
+    // share option geometry and disabled-row policy below.
+    if ( !established )
+    {
+        draw.PushClip( popupBounds );
+    }
+
+    const float optionHeight = optionCount > 0 ? popupBounds.h / static_cast<float>( optionCount ) : 0.0f;
 
     for ( int optionIndex = 0; optionIndex < optionCount; ++optionIndex )
     {
@@ -631,21 +792,37 @@ void DrawComboPopup( const UIDrawContext& draw, const UIRect& popupBounds, const
         if ( HasVisualState( optionState, UIVisualState::Selected ) ||
              HasVisualState( optionState, UIVisualState::Hovered ) )
         {
-            const Style::UIColor fill = ControlFill( optionState );
+            const bool optionEnabled = IsEnabled( optionState );
+            const bool optionHovered = HasVisualState( optionState, UIVisualState::Hovered );
+            const Style::UIColor fill = established
+                                            ? ( !optionEnabled ? palette.windowSubtle
+                                                               : ( optionHovered ? palette.controlHover : palette.control ) )
+                                            : ControlFill( optionState );
             draw.RoundedRect( popupBounds.x + 2.0f, optionY + 2.0f, (std::max)( 0.0f, popupBounds.w - 4.0f ),
                               (std::max)( 0.0f, optionHeight - 4.0f ), (std::max)( 0.0f, radius - 2.0f ), fill.r, fill.g,
                               fill.b, fill.a );
         }
 
-        const Style::UIColor text = ControlText( optionState );
+        const Style::UIColor text = established ? ( !IsEnabled( optionState )
+                                                        ? palette.textMuted
+                                                        : ( HasVisualState( optionState, UIVisualState::Hovered )
+                                                                ? palette.textPrimary
+                                                                : ( HasVisualState( optionState, UIVisualState::Selected )
+                                                                        ? palette.accentStrong
+                                                                        : palette.textSecondary ) ) )
+                                                : ControlText( optionState );
         draw.Text( popupBounds.x + 10.0f, optionY + 4.0f, 10.5f, text.r, text.g, text.b, SafeText( options[optionIndex] ) );
     }
 
-    draw.PopClip();
+    if ( !established )
+    {
+        draw.PopClip();
+    }
 }
 
 
-void DrawIconButton( const UIDrawContext& draw, const UIRect& bounds, ComponentIcon icon, UIVisualState state )
+void DrawIconButton( const UIDrawContext& draw, const UIRect& bounds, ComponentIcon icon, UIVisualState state,
+                     ComponentAppearance appearance )
 {
     if ( !IsVisible( state ) )
     {
@@ -653,14 +830,31 @@ void DrawIconButton( const UIDrawContext& draw, const UIRect& bounds, ComponentI
     }
 
     const Style::UIPalette& palette = Style::Palette();
-    Style::UIColor iconColor = ControlText( state );
+    const bool established = appearance == ComponentAppearance::Established;
+    const bool hovered = HasVisualState( state, UIVisualState::Hovered );
+    const bool active = HasVisualState( state, UIVisualState::Active );
+    const bool expander = icon == ComponentIcon::Minus || icon == ComponentIcon::Plus;
+    Style::UIColor iconColor = established && IsEnabled( state ) ? ( hovered ? palette.textPrimary : palette.textSecondary )
+                                                                 : ControlText( state );
 
-    if ( icon == ComponentIcon::Close && IsEnabled( state ) && HasVisualState( state, UIVisualState::Hovered ) )
+    if ( icon == ComponentIcon::Close && IsEnabled( state ) && hovered )
     {
         iconColor = palette.warningAccent;
     }
 
-    draw.RoundedPanel( bounds, Style::Radii().smallButton, ControlFill( state ), ControlBorder( state ) );
+    const Style::UIColor fill = established && IsEnabled( state )
+                                    ? ( hovered ? palette.controlHover
+                                                : ( active ? palette.windowRaised : palette.control ) )
+                                    : ControlFill( state );
+    const Style::UIColor border = established && IsEnabled( state ) ? palette.border : ControlBorder( state );
+    const float establishedAlpha = expander ? 0.96f : ( hovered || active ? 0.98f : 0.88f );
+
+    if ( established )
+    {
+        iconColor.a = IsEnabled( state ) ? establishedAlpha : 0.56f;
+    }
+
+    draw.RoundedPanel( bounds, Style::Radii().smallButton, fill, border );
     const float cx = bounds.x + bounds.w * 0.5f;
     const float cy = bounds.y + bounds.h * 0.5f;
 
@@ -670,17 +864,44 @@ void DrawIconButton( const UIDrawContext& draw, const UIRect& bounds, ComponentI
     case ComponentIcon::ChevronRight:
     case ComponentIcon::ChevronUp:
     case ComponentIcon::ChevronDown:
-        DrawChevronGlyph( draw, bounds, icon, iconColor );
+
+        if ( established )
+        {
+            const float tipX = icon == ComponentIcon::ChevronLeft    ? cx - 4.0f
+                               : icon == ComponentIcon::ChevronRight ? cx + 4.0f
+                                                                     : cx;
+            const float rearX = icon == ComponentIcon::ChevronLeft    ? cx + 4.0f
+                                : icon == ComponentIcon::ChevronRight ? cx - 4.0f
+                                                                      : cx;
+
+            if ( icon == ComponentIcon::ChevronLeft || icon == ComponentIcon::ChevronRight )
+            {
+                draw.Triangle( tipX, cy, rearX, cy - 5.5f, rearX, cy + 5.5f, iconColor.r, iconColor.g, iconColor.b,
+                               iconColor.a );
+            }
+            else
+            {
+                DrawChevronGlyph( draw, bounds, icon, iconColor );
+            }
+        }
+        else
+        {
+            DrawChevronGlyph( draw, bounds, icon, iconColor );
+        }
+
         break;
     case ComponentIcon::Minus:
     case ComponentIcon::Minimize:
-        draw.Rect( cx - 5.0f, cy + ( icon == ComponentIcon::Minimize ? 4.0f : -1.0f ), 10.0f, 2.0f, iconColor.r, iconColor.g,
-                   iconColor.b, iconColor.a );
+        draw.Rect( cx - ( established && expander ? 4.0f : 5.0f ), cy + ( icon == ComponentIcon::Minimize ? 4.0f : -1.0f ),
+                   established && expander ? 8.0f : 10.0f, 2.0f, iconColor.r, iconColor.g, iconColor.b, iconColor.a );
         break;
     case ComponentIcon::Plus:
-        draw.Rect( cx - 5.0f, cy - 1.0f, 10.0f, 2.0f, iconColor.r, iconColor.g, iconColor.b, iconColor.a );
-        draw.Rect( cx - 1.0f, cy - 5.0f, 2.0f, 10.0f, iconColor.r, iconColor.g, iconColor.b, iconColor.a );
+    {
+        const float arm = established ? 8.0f : 10.0f;
+        draw.Rect( cx - arm * 0.5f, cy - 1.0f, arm, 2.0f, iconColor.r, iconColor.g, iconColor.b, iconColor.a );
+        draw.Rect( cx - 1.0f, cy - arm * 0.5f, 2.0f, arm, iconColor.r, iconColor.g, iconColor.b, iconColor.a );
         break;
+    }
     case ComponentIcon::Maximize:
         draw.Outline( cx - 6.0f, cy - 6.0f, 12.0f, 12.0f, iconColor.r, iconColor.g, iconColor.b, iconColor.a );
         draw.Rect( cx - 6.0f, cy - 6.0f, 12.0f, 2.0f, iconColor.r, iconColor.g, iconColor.b, iconColor.a );
@@ -719,88 +940,64 @@ bool IsRowVisible( float contentY, float contentH, float rowY, float rowH )
 
 void DrawTitleButton( const UIDrawContext& draw, const UIRect& bounds, TitleButtonIcon icon, bool hot, bool active )
 {
-    const Style::UIPalette& palette = Style::Palette();
-    const Style::UIColor bg = hot ? palette.controlHover : ( active ? palette.windowRaised : palette.control );
-    const Style::UIColor iconColor = icon == TitleButtonIcon::Close && hot ? palette.warningAccent : palette.textSecondary;
-
-    const float iconR = iconColor.r;
-    const float iconG = iconColor.g;
-    const float iconB = iconColor.b;
-    const float iconA = hot || active ? 0.98f : 0.88f;
-    const float cx = bounds.x + bounds.w * 0.5f;
-    const float cy = bounds.y + bounds.h * 0.5f;
-
-    draw.RoundedPanel( bounds, Style::Radii().smallButton, bg, palette.border );
+    ComponentIcon componentIcon = ComponentIcon::Minimize;
 
     switch ( icon )
     {
     case TitleButtonIcon::Minimize:
-        draw.Rect( cx - 5.0f, cy + 4.0f, 10.0f, 2.0f, iconR, iconG, iconB, iconA );
+        componentIcon = ComponentIcon::Minimize;
         break;
     case TitleButtonIcon::Maximize:
-        draw.Outline( cx - 6.0f, cy - 6.0f, 12.0f, 12.0f, iconR, iconG, iconB, iconA );
-        draw.Rect( cx - 6.0f, cy - 6.0f, 12.0f, 2.0f, iconR, iconG, iconB, iconA );
+        componentIcon = ComponentIcon::Maximize;
         break;
     case TitleButtonIcon::Restore:
-        draw.Outline( cx - 2.0f, cy - 7.0f, 10.0f, 10.0f, iconR, iconG, iconB, iconA * 0.72f );
-        draw.Rect( cx - 2.0f, cy - 7.0f, 10.0f, 2.0f, iconR, iconG, iconB, iconA * 0.72f );
-        draw.Outline( cx - 7.0f, cy - 2.0f, 10.0f, 10.0f, iconR, iconG, iconB, iconA );
-        draw.Rect( cx - 7.0f, cy - 2.0f, 10.0f, 2.0f, iconR, iconG, iconB, iconA );
+        componentIcon = ComponentIcon::Restore;
         break;
     case TitleButtonIcon::Close:
-
-        for ( int i = 0; i < 5; ++i )
-        {
-            const float offset = static_cast<float>( i ) * 2.0f;
-            draw.Rect( cx - 5.0f + offset, cy - 5.0f + offset, 2.0f, 2.0f, iconR, iconG, iconB, iconA );
-
-            if ( i != 2 )
-            {
-                draw.Rect( cx + 3.0f - offset, cy - 5.0f + offset, 2.0f, 2.0f, iconR, iconG, iconB, iconA );
-            }
-        }
-
+        componentIcon = ComponentIcon::Close;
         break;
     }
+
+    UIVisualState state = UIVisualState::Visible | UIVisualState::Enabled;
+
+    if ( hot )
+    {
+        state |= UIVisualState::Hovered;
+    }
+
+    if ( active )
+    {
+        state |= UIVisualState::Active;
+    }
+
+    DrawIconButton( draw, bounds, componentIcon, state, ComponentAppearance::Established );
 }
 
 
 void DrawPipelineStepButton( const UIDrawContext& draw, const UIRect& bounds, bool previous, bool hot )
 {
-    const Style::UIPalette& palette = Style::Palette();
-    const Style::UIColor bg = hot ? palette.controlHover : palette.control;
-    const Style::UIColor icon = hot ? palette.textPrimary : palette.textSecondary;
-    const float cx = bounds.x + bounds.w * 0.5f;
-    const float cy = bounds.y + bounds.h * 0.5f;
-    const float tipX = previous ? cx - 4.0f : cx + 4.0f;
-    const float rearX = previous ? cx + 4.0f : cx - 4.0f;
+    UIVisualState state = UIVisualState::Visible | UIVisualState::Enabled;
 
-    draw.RoundedPanel( bounds, Style::Radii().smallButton, bg, palette.border );
-    draw.Triangle( tipX, cy, rearX, cy - 5.5f, rearX, cy + 5.5f, icon.r, icon.g, icon.b, hot ? 0.98f : 0.88f );
+    if ( hot )
+    {
+        state |= UIVisualState::Hovered;
+    }
+
+    DrawIconButton( draw, bounds, previous ? ComponentIcon::ChevronLeft : ComponentIcon::ChevronRight, state,
+                    ComponentAppearance::Established );
 }
 
 
 void DrawFooterToggle( const UIDrawContext& draw, const UIRect& bounds, const char* label, bool checked )
 {
-    const Style::FooterToggleStyle& style = Style::FooterToggle();
-    const Style::UIPalette& palette = Style::Palette();
-    const Style::UIColor& accent = Style::Accent();
-    const float switchW = style.switchW;
-    const float switchH = style.switchH;
-    const float switchX = bounds.x + bounds.w - switchW - 2.0f;
-    const float switchY = bounds.y + 5.0f;
-    const float labelAreaW = (std::max)( 1.0f, switchX - bounds.x - 6.0f );
-    const float labelW = UIFontMetrics::MeasureText( style.labelTextSize, label );
-    const float labelX = bounds.x + (std::max)( 0.0f, ( labelAreaW - labelW ) * 0.5f );
+    UIVisualState state = UIVisualState::Visible | UIVisualState::Enabled;
 
-    draw.Text( labelX, bounds.y + 4.0f, style.labelTextSize, style.label.r, style.label.g, style.label.b, label );
-    const Style::UIColor offFill = { palette.control.r, palette.control.g, palette.control.b, 0.78f };
-    draw.RoundedPanel( { switchX, switchY, switchW, switchH }, switchH * 0.5f, checked ? accent : offFill, palette.border );
+    if ( checked )
+    {
+        state |= UIVisualState::Checked;
+    }
 
-    draw.RoundedRect( switchX + ( checked ? switchW - style.knobW - 3.0f : 3.0f ), bounds.y + 8.0f, style.knobW, style.knobH,
-                      style.knobW * 0.5f, checked ? palette.accentStrong.r : palette.textMuted.r,
-                      checked ? palette.accentStrong.g : palette.textMuted.g,
-                      checked ? palette.accentStrong.b : palette.textMuted.b, 0.96f );
+    DrawToggle( draw, bounds, label, Style::Accent(), state, ComponentAppearance::Footer );
 }
 
 

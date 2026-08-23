@@ -1,20 +1,19 @@
 /*
 File: SkullbonezSource/UI/UIScrollBar.h
 Purpose:
-  Declares scroll-track/thumb geometry, offset projection, dragging, and
+  Declares a retained-track adapter for stateless scrollbar projection and
   drawing.
 
 Summary:
-  Projects content height and
-  scroll offset into one
-  clipped viewport track and thumb.
+  The wrapper retains only its track bounds. Content, viewport, offset, and
+  visibility are caller values projected by UIDrawWidgets each frame.
 
 Invariants:
-  - Draw geometry and hit testing must be derived from the same layout
-  constants.
+  - No drag, pointer, visibility, or scroll offset state is retained here.
 
 Related:
   - SkullbonezSource/UI/UIScrollBar.cpp
+  - SkullbonezSource/UI/UIDrawWidgets.h
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

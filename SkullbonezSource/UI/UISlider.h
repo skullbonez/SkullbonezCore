@@ -1,19 +1,19 @@
 /*
 File: SkullbonezSource/UI/UISlider.h
 Purpose:
-  Declares slider bounds, pointer-to-value quantization, hit testing, and
-  drawing.
+  Declares a retained-bounds adapter for stateless slider value and draw
+  operations.
 
 Summary:
-  Maps mouse positions to quantized values and
-  renders the same track used for interaction.
+  The wrapper preserves source-compatible layout calls while UIDrawWidgets owns
+  track geometry, quantization, text measurement, style, and commands.
 
 Invariants:
-  - Draw geometry and hit testing must be derived from the same layout
-  constants.
+  - Value projection and drawing consume the same retained bounds.
 
 Related:
   - SkullbonezSource/UI/UISlider.cpp
+  - SkullbonezSource/UI/UIDrawWidgets.h
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
@@ -36,9 +36,6 @@ class UISlider
                float maxValue ) const;
 
   private:
-    float TrackX() const;
-    float TrackW() const;
-
     UIRect m_bounds;
 };
 

@@ -1,19 +1,19 @@
 /*
 File: SkullbonezSource/UI/UITabBar.h
 Purpose:
-  Declares tab-strip geometry, selection hit testing, and active-tab
-  drawing.
+  Declares a retained-strip adapter for stateless tab geometry, hit testing,
+  and drawing.
 
 Summary:
-  Maps tab bounds to a selected index and
-  draws active labels from the same geometry.
+  The wrapper retains only strip bounds. Labels, selection, and interaction
+  results remain caller values resolved through UIDrawWidgets.
 
 Invariants:
-  - Draw geometry and hit testing must be derived from the same layout
-  constants.
+  - Selection and pointer state are never retained by the tab strip.
 
 Related:
   - SkullbonezSource/UI/UITabBar.cpp
+  - SkullbonezSource/UI/UIDrawWidgets.h
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

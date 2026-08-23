@@ -1,27 +1,24 @@
 /*
 File: SkullbonezSource/UI/UIButton.cpp
 Purpose:
-  Implements bounded push-button geometry, hit testing, and label/background
-  drawing.
+  Adapts retained button bounds and legacy pointer inputs to stateless
+  component operations.
 
 Summary:
-  Keeps button hit testing and
-  label/background drawing on one shared bounds rectangle.
+  The wrapper resolves only disposable hover state. UIDrawWidgets remains the
+  single owner of button hit policy, text measurement, style, and draw output.
 
 Invariants:
-  - Draw geometry and hit testing must be derived from the same layout
-  constants.
+  - Draw and hit paths pass the same retained bounds to UIDrawWidgets.
 
 Related:
   - SkullbonezSource/UI/UIButton.h
+  - SkullbonezSource/UI/UIDrawWidgets.h
   - Agentic/Reference/engine-glossary.md
 */
 #include "UIButton.h"
 
-#include "UIFontMetrics.h"
-#include "UIStyle.h"
-
-#include <algorithm>
+#include "UIDrawWidgets.h"
 
 namespace SkullbonezCore
 {
@@ -42,23 +39,21 @@ UIRect UIButton::Bounds() const
 
 bool UIButton::HitTest( int mouseX, int mouseY ) const
 {
-    return m_bounds.Contains( mouseX, mouseY );
+    constexpr UIVisualState kState = UIVisualState::Visible | UIVisualState::Enabled;
+    return Widgets::CanActivateComponent( m_bounds, kState, mouseX, mouseY );
 }
 
 
 void UIButton::Draw( const UIDrawContext& draw, const char* label, int mouseX, int mouseY ) const
 {
-    const bool hot = HitTest( mouseX, mouseY );
-    const Style::UIPalette& palette = Style::Palette();
-    const float radius = Style::Radii().control;
-    const float textSize = 11.0f;
-    const float labelW = UIFontMetrics::MeasureText( textSize, label ? label : "" );
-    const float labelX = m_bounds.x + (std::max)( 8.0f, ( m_bounds.w - labelW ) * 0.5f );
-    const float labelY = m_bounds.y + ( m_bounds.h - textSize ) * 0.5f - 1.0f;
-    draw.RoundedPanel( m_bounds, radius, hot ? palette.controlHover : palette.control, palette.border );
-    draw.Text( labelX, labelY, textSize, hot ? palette.textPrimary.r : palette.textSecondary.r,
-               hot ? palette.textPrimary.g : palette.textSecondary.g, hot ? palette.textPrimary.b : palette.textSecondary.b,
-               label );
+    UIVisualState state = UIVisualState::Visible | UIVisualState::Enabled;
+
+    if ( Widgets::ContainsComponent( m_bounds, state, mouseX, mouseY ) )
+    {
+        state |= UIVisualState::Hovered;
+    }
+
+    Widgets::DrawButton( draw, m_bounds, label, state, Widgets::ComponentAppearance::Established );
 }
 
 } // namespace UI

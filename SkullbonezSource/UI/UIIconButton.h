@@ -1,18 +1,18 @@
 /*
 File: SkullbonezSource/UI/UIIconButton.h
 Purpose:
-  Declares compact icon-button geometry, hit testing, and chevron drawing.
+  Declares a retained-bounds adapter for stateless icon-button operations.
 
 Summary:
-  Keeps expander hit testing and chevron
-  drawing on one shared bounds rectangle.
+  The wrapper keeps layout bounds while expanded state and glyph selection are
+  disposable caller values consumed by UIDrawWidgets.
 
 Invariants:
-  - Draw geometry and hit testing must be derived from the same layout
-  constants.
+  - Expanded state, input, and commands are never retained here.
 
 Related:
   - SkullbonezSource/UI/UIIconButton.cpp
+  - SkullbonezSource/UI/UIDrawWidgets.h
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
