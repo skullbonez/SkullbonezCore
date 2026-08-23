@@ -33,7 +33,7 @@ Related:
 #include "../Tools/RuntimeTools.h"
 #include "../Input/InputRouter.h"
 #include "../Camera/CameraCollection.h"
-#include "../App/Window.h"
+#include "../Startup/Window.h"
 #include "../../Assets/AssetSystem.h"
 #include "../Scene/SceneController.h"
 #include "../Input/InputController.h"

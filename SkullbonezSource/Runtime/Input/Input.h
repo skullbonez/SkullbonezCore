@@ -53,12 +53,10 @@ class SbDiagnosticStore;
 namespace Runtime
 {
 struct DeviceInputFrame;
-class Window;
 } // namespace Runtime
 
 namespace Hardware
 {
-
 struct InputWindowBridgeTestAccess;
 
 struct InputState
@@ -154,8 +152,8 @@ class Input
         POINT coordinates = {};
     };
 
-    static void BindWindow( Runtime::Window& window );                                                                  // Binds the runtime-owned window used by frame capture.
-    static void UnbindWindow( Runtime::Window& window );                                                                // Clears the polling window before HWND teardown.
+    static void BindNativeWindow( HWND window );                                                                        // Binds the detached native handle used by frame capture.
+    static void UnbindNativeWindow( HWND window );                                                                      // Clears the polling handle before HWND teardown.
     static void SetSystemCursorVisible( bool visible );                                                                 // Shows or hides the Win32 cursor display counter
     static bool IsSystemCursorVisibleRequested();                                                                       // Last requested native cursor ownership state
     static SkullbonezCore::Core::SbResult CaptureDeviceInputFrame( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
@@ -167,8 +165,9 @@ class Input
                                                                    static void UnbindCallbackBridge( HWND window );     // Disarms callback-fed queues and clears stale queued input.
                                                                    static void ClearCallbackEventBuffer( HWND window ); // Clears queued callback data for the bound HWND.
                                                                    static bool RegisterRawMouseInput( HWND window );    // Registers the window for relative mouse movement messages
-                                                                   static void AccumulateRawMouseDelta( HWND window,
-                                                                   HRAWINPUT rawInput );                                // Adds WM_INPUT movement when the callback bridge is bound.
+                                                                   static void
+                                                                   AccumulateRawMouseSample( HWND window, long x, long y, bool absolute,
+                                                                   bool virtualDesktop );                               // Adds a copied WM_INPUT sample when the callback bridge is bound.
                                                                    static void ResetMouseLookDeltas();                  // Clears queued raw mouse movement and absolute tracking state
                                                                    static void AccumulateMouseWheelDelta( HWND window,
                                                                    int delta );                                         // Adds a Win32 wheel delta when the callback bridge is bound.
@@ -178,18 +177,22 @@ class Input
                                                                    private:
                                                                    friend struct InputWindowBridgeTestAccess;
 
-                                                                   class WindowBridge
+                                                                   class NativeWindowBinding
                                                                    {
                                                                    public:
-                                                                   void Bind( Runtime::Window* window )
+                                                                   void Bind( HWND window )
                                                                    {
-                                                                   assert( !m_window && "Input window bridge is already bound" );
+                                                                   assert( window && !m_window && "Input native window is already bound" );
+
+                                                                   if ( window && !m_window )
+                                                                   {
                                                                    m_window = window;
                                                                    }
+                                                                   }
 
-                                                                   void Unbind( Runtime::Window* window )
+                                                                   void Unbind( HWND window )
                                                                    {
-                                                                   assert( m_window == window && "Input window bridge unbound with a different window" );
+                                                                   assert( m_window == window && "Input native window unbound with a different HWND" );
 
                                                                    if ( m_window == window )
                                                                    {
@@ -197,19 +200,19 @@ class Input
                                                                    }
                                                                    }
 
-                                                                   Runtime::Window* BoundWindow() const
+                                                                   HWND BoundHandle() const
                                                                    {
                                                                    return m_window;
                                                                    }
 
                                                                    private:
 
-                                                                   // Lifetime: one process-local borrow follows the WinMain-owned Window
-                                                                   // from startup binding through explicit pre-destruction unbinding.
-                                                                   Runtime::Window* m_window = nullptr;
+                                                                   // Invariant: one detached HWND identity is active from startup bind
+                                                                   // through explicit pre-destruction unbind.
+                                                                   HWND m_window = nullptr;
                                                                    };
 
-                                                                   static WindowBridge s_windowBridge;
+                                                                   static NativeWindowBinding s_nativeWindow;
 
                                                                    // Hardware reads are private so steady runtime consumers cannot bypass the
                                                                    // one DeviceInputFrame capture performed at the frame boundary.

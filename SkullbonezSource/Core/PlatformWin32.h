@@ -25,7 +25,7 @@ Invariants:
 Related:
   - SkullbonezSource/Core/Common.h owns the platform-free legacy prelude.
   - SkullbonezSource/Core/PlatformPosix.h owns the non-Windows sibling contract.
-  - SkullbonezSource/Runtime/App/Window.h owns the application window handle.
+  - SkullbonezSource/Runtime/Startup/Window.h owns the application window handle.
   - SkullbonezSource/Rendering/DX12/RenderBackendDX12.h owns the native render startup boundary.
 */
 #pragma once

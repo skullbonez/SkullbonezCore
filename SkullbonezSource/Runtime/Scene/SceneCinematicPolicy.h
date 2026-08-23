@@ -24,7 +24,7 @@ Related:
 
 #include "SceneControllerState.h"
 #include "SceneSessionState.h"
-#include "../App/RunLaunchOptions.h"
+#include "../Startup/RunLaunchOptions.h"
 #include "../../Scene/AuthoredScene.h"
 
 #include <cstdint>

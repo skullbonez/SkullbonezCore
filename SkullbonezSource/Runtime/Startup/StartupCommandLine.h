@@ -33,7 +33,7 @@ Related:
 #pragma once
 
 #include "../Replay/ReplayCaptureLimits.h"
-#include "../App/RunLaunchOptions.h"
+#include "RunLaunchOptions.h"
 
 #include <cstddef>
 #include <string>
@@ -44,7 +44,8 @@ namespace SkullbonezCore
 namespace Core
 {
 class EngineConfig;
-}
+class SbDiagnosticStore;
+} // namespace Core
 
 namespace Runtime
 {

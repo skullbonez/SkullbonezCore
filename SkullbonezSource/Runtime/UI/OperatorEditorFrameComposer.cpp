@@ -33,7 +33,7 @@ Related:
 #include "../Automation/RuntimeValidationHarness.h"
 #include "../RuntimeFrameViews.h"
 #include "RuntimeViewModel.h"
-#include "../App/Window.h"
+#include "../Startup/Window.h"
 #include "../../Core/WorkerPool.h"
 #include "../Planning/ReplayOverlayPackets.h"
 #include "../Capture/CaptureSystem.h"

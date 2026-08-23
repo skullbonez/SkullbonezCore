@@ -1,69 +1,30 @@
 /*
-File: SkullbonezSource/Runtime/App/ReplayRuntimePackets.h
+File: SkullbonezSource/Runtime/Automation/ReplayAutomationView.h
 Purpose:
-  Defines application-level packets that aggregate Replay, Prediction, and Planning publications.
+  Defines the detached replay-family evidence consumed by Automation reports.
 
 Summary:
-  Runtime/App is the composition boundary for the three replay-family packages.
-  These packets may name all three siblings, while ReplayCoordination remains a
-  lower Replay-only seam. Render publication copies feature-neutral detached
-  contact geometry rather than exposing Planning state to render passes.
-
-Glossary:
-  Replay family: The Replay, Prediction, and Planning sibling packages.
-  Intent: Authority-free command value applied by the owning package.
+  App composes live Replay, Prediction, and Planning publications into one
+  synchronous read-only view. Automation may inspect that view while writing a
+  report but cannot retain or mutate any contributing owner.
 
 Invariants:
-  - References and spans are synchronous evidence and expire at the next owner mutation.
-  - Automation's solver-evidence reference is read-only and expires with the
-    same composed view; the report writer never retains it.
-  - Intent values contain no callback, owner pointer, or retained authority.
-  - Lower Replay headers never include this application aggregation.
-  - Detached Rendering packets own their values and carry no replay authority.
+  - Every reference and span expires when the composing App call returns.
+  - The view carries no callback and exposes no mutable owner operation.
+  - Memory and evidence counters describe the same sampled frame.
 
 Related:
   - SkullbonezSource/Runtime/App/ReplayRuntime.h
-  - SkullbonezSource/Runtime/Replay/ReplayCoordination.h
-  - SkullbonezSource/Rendering/ContactManifoldPresentation.h
+  - SkullbonezSource/Runtime/Automation/InteractionAutomationController.h
 */
 #pragma once
 
-#include "../Replay/ReplayCoordination.h"
-#include "../Replay/ReplayPresentationPackets.h"
-#include "../Prediction/ReplayPrediction.h"
 #include "../Planning/ReplayPlanningRuntime.h"
-#include "../../Rendering/ContactManifoldPresentation.h"
-
-#include <vector>
+#include "../Prediction/ReplayPrediction.h"
+#include "../Replay/ReplayCoordination.h"
 
 namespace SkullbonezCore::Runtime
 {
-// Concept: App composes the lower Replay selection with the sibling Prediction
-// row selected on the future side of the shared scrub track. Neither sibling
-// header needs to name the other's retained publication.
-// Lifetime: every pointer expires at the next Replay or Prediction mutation.
-struct ReplayFrameSelection
-{
-    ReplayPresentationSelection replay;
-    const RunReplayPredictionFrame* selectedPrediction = nullptr;
-    bool predictionTimelineAvailable = false;
-};
-
-// Render consumes one App-composed view after Replay pose selection and
-// Prediction visual publication are both complete for the frame.
-struct ReplayRenderFrameView
-{
-    const ReplayPresentationSample* presentationSample = nullptr;
-    const ReplaySolverFrameSample* solverSample = nullptr;
-    const RunReplayPredictionFrame* predictionFrame = nullptr;
-    const ReplayVisualPacket* visualPacket = nullptr;
-    const std::vector<uint8_t>* focusModelMask = nullptr;
-    Rendering::ContactManifoldPresentation contactPresentation;
-    bool predictionEnabled = false;
-    bool liveAdvanceHeld = false;
-    bool focusFadeActive = false;
-};
-
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 struct ReplayAutomationView
 {

@@ -37,7 +37,7 @@ Related:
 #include "../App/RunTimerState.h"
 #include "../Diagnostics/RuntimeDiagnostics.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
-#include "../App/Window.h"
+#include "../Startup/Window.h"
 #include "../Tools/RuntimeTools.h"
 #include "../Debug/CollisionVisualizer.h"
 #include "../Scene/SceneTerrain.h"

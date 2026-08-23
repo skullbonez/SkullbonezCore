@@ -57,9 +57,10 @@ Related:
 
 #include "../Replay/ReplayAuthoring.h"
 #include "../Replay/ReplayCoordination.h"
-#include "ReplayRuntimePackets.h"
+#include "../Automation/ReplayAutomationView.h"
 #include "../Planning/ReplayPlanningRuntime.h"
 #include "../Replay/ReplayIdentity.h"
+#include "../Replay/ReplayRuntimePackets.h"
 #include "../Prediction/ReplayPrediction.h"
 #include "../Replay/ReplayPresentation.h"
 #include "../Planning/ReplayOverlayRenderer.h"

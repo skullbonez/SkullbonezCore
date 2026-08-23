@@ -63,13 +63,13 @@ Related:
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 #include "../DevelopmentTools/ImGuiEditorOwner.h"
 #endif
-#include "RunLaunchOptions.h"
+#include "../Startup/RunLaunchOptions.h"
 #include "../Camera/CameraControlState.h"
 #include "../Automation/InteractionAutomationRecorder.h"
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 #include "../Automation/InteractionAutomationController.h"
 #endif
-#include "RunStartupState.h"
+#include "../Startup/RunStartupState.h"
 #include "RunTimerState.h"
 #include "ReplayRuntime.h"
 #include "../Planning/ContinuousOrbitalForecast.h"

@@ -31,6 +31,7 @@ Related:
 
 #include "../../Core/SbResult.h"
 #include "../../Core/Config.h"
+#include "../Startup/RunLaunchOptions.h"
 
 namespace SkullbonezCore
 {
@@ -55,13 +56,6 @@ class Terrain;
 namespace Runtime
 {
 struct SceneSessionState;
-
-enum class GeneratedObjectTypeOverride
-{
-    Mixed,
-    AllBalls,
-    AllBoxes
-};
 
 enum class GeneratedPopulationMode
 {

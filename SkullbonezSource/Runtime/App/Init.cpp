@@ -43,7 +43,7 @@ Related:
 #include "../Startup/StartupCrashLogging.h"
 #include "../Startup/StartupLaunchResolution.h"
 #include "../Startup/StartupProbeHarnesses.h"
-#include "Window.h"
+#include "../Startup/Window.h"
 #include "../../Core/WindowConstants.h"
 #include <cstdio>
 #include <cstring>
@@ -306,10 +306,9 @@ void CleanupWindow( Window* window, HINSTANCE instance, std::unique_ptr<RenderBa
     if ( windowHandle )
     {
         SkullbonezCore::Hardware::Input::UnbindCallbackBridge( windowHandle );
+        SkullbonezCore::Hardware::Input::UnbindNativeWindow( windowHandle );
     }
 
-    SkullbonezCore::Hardware::Input::UnbindWindow( *window );
-    window->SetResizeRenderFrameOwner( nullptr );
     renderBackend.reset();
 
     window->ReleaseDeviceContext();
@@ -476,6 +475,11 @@ int WINAPI WinMain( HINSTANCE instance, HINSTANCE previousInstance, PSTR command
         return ReportDiagnosticStoreSession( diagnostics, 1 );
     }
 
+    const HWND nativeWindow = window->NativeWindowHandle();
+    SkullbonezCore::Hardware::Input::BindNativeWindow( nativeWindow );
+    SkullbonezCore::Hardware::Input::BindCallbackBridge( nativeWindow );
+    SkullbonezCore::Hardware::Input::SetSystemCursorVisible( false );
+    (void)SkullbonezCore::Hardware::Input::RegisterRawMouseInput( nativeWindow );
     window->AcquireDeviceContext();
 
     std::unique_ptr<RenderBackendDX12> renderBackend;
@@ -493,8 +497,8 @@ int WINAPI WinMain( HINSTANCE instance, HINSTANCE previousInstance, PSTR command
         return ReportDiagnosticStoreSession( diagnostics, 1 );
     }
 
-    window->SetResizeRenderFrameOwner( &renderBackend->Frame() );
-    const SkullbonezCore::Core::SbResult initialResizeResult = window->HandleScreenResize();
+    const SkullbonezCore::Core::SbResult initialResizeResult = renderBackend->Frame().Resize( window->ClientWidth(),
+                                                                                              window->ClientHeight() );
 
     if ( !initialResizeResult.Ok() )
     {
@@ -507,6 +511,8 @@ int WINAPI WinMain( HINSTANCE instance, HINSTANCE previousInstance, PSTR command
         CoUninitialize();
         return ReportDiagnosticStoreSession( diagnostics, 1 );
     }
+
+    window->UpdateProjectionForCurrentClient();
 
     SkullbonezCore::Core::Profiler* profiler = nullptr;
 #if defined( SKULLBONEZ_PROFILE_ENABLED )

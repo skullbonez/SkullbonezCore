@@ -57,7 +57,8 @@ Related:
 #include "../RuntimeFrameViews.h"
 #include "../UI/RuntimeViewModel.h"
 #include "../Render/RenderModelFramePublisher.h"
-#include "Window.h"
+#include "../Startup/Window.h"
+#include "../Input/Input.h"
 #include "../../Core/WorkerPool.h"
 #include "InputFrame.h"
 #include "../Replay/ReplayRestoreTransactions.h"
@@ -199,29 +200,95 @@ struct Run::FrameRenderPhaseResult
 
 bool Run::PumpFrameMessages( int& messageExitCode )
 {
-    MSG msg;
     constexpr int kMaxMessagesPerFrame = 256;
     int messagesDrained = 0;
+    NativeHostMessage message;
 
     // Hazard: a device or window can flood the thread queue faster than frame
     // work consumes it. The cap defers excess FIFO messages to the next frame.
-    while ( messagesDrained < kMaxMessagesPerFrame && PeekMessage( &msg, nullptr, 0, 0, PM_REMOVE ) )
+    while ( messagesDrained < kMaxMessagesPerFrame && m_window.PeekNativeMessage( message ) )
     {
         ++messagesDrained;
 
-        if ( msg.message == WM_QUIT )
+        if ( message.quit )
         {
             m_validationHarness->PrintGraphicsStressExitSummary( m_sceneController.State().currentFrame );
 
             // Concept: WM_QUIT is the platform stop notification, not the
             // process result. An earlier Run-owned failure remains authoritative.
             m_applicationExit.RequestNormalExit();
-            messageExitCode = static_cast<int>( msg.wParam );
+            messageExitCode = message.exitCode;
             return true;
         }
 
-        TranslateMessage( &msg );
-        DispatchMessage( &msg );
+        NativeHostMessageRoute route;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+        const DevelopmentTools::ImGuiEditorNativeMessageRoute
+            developmentUiRoute = m_imguiEditor.HandleNativeMessage( message.window, message.id, message.wParam,
+                                                                    message.lParam );
+        route.engineConsumes = developmentUiRoute.decision.engineConsumes;
+        route.capturedResult = developmentUiRoute.backendResult;
+#endif
+
+        if ( route.engineConsumes )
+        {
+            if ( message.id == WM_SETFOCUS )
+            {
+                SkullbonezCore::Hardware::Input::SetSystemCursorVisible( SkullbonezCore::Hardware::Input::IsSystemCursorVisibleRequested() );
+            }
+            else if ( message.id == WM_KILLFOCUS )
+            {
+                SkullbonezCore::Hardware::Input::SetSystemCursorVisible( true );
+            }
+            else if ( message.id == WM_SETCURSOR && LOWORD( message.lParam ) == HTCLIENT )
+            {
+                const bool focused = GetForegroundWindow() == message.window;
+                SkullbonezCore::Hardware::Input::SetSystemCursorVisible( focused ? SkullbonezCore::Hardware::Input::IsSystemCursorVisibleRequested() : true );
+                route.engineCursorHandled = true;
+            }
+        }
+
+        m_window.DispatchNativeMessage( message, route );
+
+        NativeHostEvent event;
+
+        while ( m_window.ConsumeNativeEvent( event ) )
+        {
+            if ( event.type == NativeHostEventType::MouseWheel )
+            {
+                SkullbonezCore::Hardware::Input::AccumulateMouseWheelDelta( event.window, event.first );
+                continue;
+            }
+
+            if ( event.type == NativeHostEventType::RawMouse )
+            {
+                SkullbonezCore::Hardware::Input::AccumulateRawMouseSample( event.window, event.first, event.second,
+                                                                           event.absolute, event.virtualDesktop );
+                continue;
+            }
+
+            if ( event.first <= 0 || event.second <= 0 )
+            {
+                continue;
+            }
+
+            const SkullbonezCore::Core::SbResult resize = Renderer().RenderFrame().Resize( event.first, event.second );
+
+            if ( !resize.Ok() )
+            {
+                const char* owner = resize.ErrorOwner()[0] != '\0' ? resize.ErrorOwner() : "Runtime/Window";
+                const char* reason = resize.ErrorMessage()[0] != '\0' ? resize.ErrorMessage() : "window resize failed";
+                SkullbonezCore::Core::Log().WriteEventf( "window_resize_failed owner=\"%s\" message=\"%s\"", owner, reason );
+                std::fprintf( stderr, "[window] Resize failed owner=%s reason=\"%s\"\n", owner, reason );
+                std::fflush( stderr );
+                SkullbonezCore::Core::Log().FlushAll();
+                m_applicationExit.RequestOwnedFailure( resize );
+                messageExitCode = 1;
+                return true;
+            }
+
+            m_window.UpdateProjectionForCurrentClient();
+        }
     }
 
     return false;

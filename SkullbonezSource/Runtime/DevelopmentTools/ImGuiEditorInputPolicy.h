@@ -27,7 +27,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp
   - SkullbonezSource/Runtime/Input/InputRouter.h
-  - SkullbonezSource/Runtime/App/Window.cpp
+  - SkullbonezSource/Runtime/Startup/Window.cpp
 */
 #pragma once
 

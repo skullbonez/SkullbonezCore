@@ -31,7 +31,7 @@ Related:
 #include "StartupLaunchResolution.h"
 #include "StartupCommandLine.h"
 #include "../../Core/Common.h"
-#include "../App/RunLaunchOptions.h"
+#include "RunLaunchOptions.h"
 #include "../Replay/ReplayOverlaySurface.h"
 #include "../../Core/WindowConstants.h"
 #include <algorithm>
@@ -898,7 +898,7 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
     overrides.replayLoadPath = args.replayLoad ? args.replayLoadPath : nullptr;
     overrides.replayLoadProbe = args.replayLoadProbe;
     overrides.hasInitialOverlayMode = args.showProfiler;
-    overrides.initialOverlayMode = args.showProfiler ? OverlayMode::Timers : OverlayMode::None;
+    overrides.initialOverlayMode = args.showProfiler ? StartupOverlayMode::Timers : StartupOverlayMode::None;
     overrides.hideTopText = args.hideTopText;
     overrides.showBroadphaseVisualizer = args.showBroadphaseVisualizer;
 #ifdef _DEBUG

@@ -416,24 +416,6 @@
       "plan": ""
     },
     {
-      "file": "SkullbonezSource/Runtime/App/Window.cpp",
-      "signature": "DevelopmentTools::ImGuiEditorNativeMessageRoute Window::RouteDevelopmentUiMessage( HWND window, UINT message, WPARAM wParam, LPARAM lParam )",
-      "owner": "Window native-message boundary",
-      "disposition": "retain-owner",
-      "reason": "Routes Win32 messages through the development-UI owner before engine input.",
-      "evidence": "Window.cpp WndProc calls this exact method under SKULLBONEZ_DEVELOPMENT_TOOLS. 2026-07-30 final synchronized Debug/Profile census: classification=own-tu-only; mapping=exact; own_tu_calls=1; test_calls=0; ambiguous_production_calls=0; required_arity=4/4; symbols=?RouteDevelopmentUiMessage@Window@Runtime@SkullbonezCore@@QEAA?AUImGuiEditorNativeMessageRoute@DevelopmentTools@23@PEAUHWND__@@I_K_J@Z",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/App/Window.cpp",
-      "signature": "void Window::SetWindowDimensions( int m_width, int m_height )",
-      "owner": "Window size lifecycle",
-      "disposition": "retain-owner",
-      "reason": "Publishes WM_SIZE client dimensions before resize handling.",
-      "evidence": "Window.cpp WndProc calls this exact integer overload with LOWORD/HIWORD(lParam). 2026-07-30 final synchronized Debug/Profile census: classification=own-tu-only; mapping=exact; own_tu_calls=1; test_calls=0; ambiguous_production_calls=0; required_arity=2/2; symbols=?SetWindowDimensions@Window@Runtime@SkullbonezCore@@QEAAXHH@Z",
-      "plan": ""
-    },
-    {
       "file": "SkullbonezSource/Runtime/Editor/EditorCommandHistory.cpp",
       "signature": "std::size_t EditorCommandHistory::StoredCount() const",
       "owner": "EditorCommandHistory bounded ring",

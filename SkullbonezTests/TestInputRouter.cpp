@@ -43,7 +43,7 @@ Related:
 
 #include "../SkullbonezSource/Core/SbDiagnosticStore.h"
 #include "../SkullbonezSource/Runtime/Input/InputRouter.h"
-#include "../SkullbonezSource/Runtime/App/InputFrame.h"
+#include "../SkullbonezSource/Runtime/Input/InputFrameValues.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorInputPolicy.h"
 #include "../SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h"
 

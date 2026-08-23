@@ -31,7 +31,7 @@ Related:
 #include "../Automation/InteractionRecordingBrowser.h"
 #include "../Camera/RuntimeCameraMode.h"
 #include "InputFrame.h"
-#include "Window.h"
+#include "../Startup/Window.h"
 #include "../../Core/WindowConstants.h"
 #include "../Replay/ReplayRestoreTransactions.h"
 #include "../Tools/RuntimeFileWriter.h"
@@ -280,15 +280,6 @@ void ApplyStartupDiagnosticsPolicy( const RunStartupOverrides& overrides, Diagno
 } // namespace
 
 
-void RunStartupState::ApplyStartupConfig( const SkullbonezCore::Core::EngineConfig& config )
-{
-    sceneObjectCapacity = std::clamp( config.runtimeCapacity.sceneObjectCapacity, 1,
-                                      SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
-
-    workerThreads = config.runtimeCapacity.workerThreads;
-}
-
-
 Run::Run( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Window& window, std::vector<std::string> sceneQueue,
           SkullbonezCore::Core::EngineConfig& config, Threading::WorkerPool& workerPool,
           SkullbonezCore::Core::Profiler* profiler, Rendering::Dx12BackbufferCapture& backbufferCapture,
@@ -357,7 +348,6 @@ Run::BindRenderBackend( Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx
         return imguiStartResult;
     }
 
-    m_window.BindDevelopmentUiInput( m_imguiEditor );
 #endif
     return SkullbonezCore::Core::SbResult::Success();
 }
@@ -463,7 +453,6 @@ Run::~Run()
     // Lifetime: the preceding release path proved all submitted frames complete.
     // Destroy vendor GPU objects and return its descriptor rows while both the
     // ImGui context and concrete DX12 owners still exist.
-    m_window.UnbindDevelopmentUiInput( m_imguiEditor );
     m_imguiEditor.Shutdown();
 #endif
     m_renderer.reset();

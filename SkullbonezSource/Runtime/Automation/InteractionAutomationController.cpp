@@ -67,10 +67,10 @@ Related:
 #include "../Camera/CameraCollection.h"
 #include "../App/RunTimerState.h"
 #include "../Tools/RuntimeTools.h"
-#include "../App/Window.h"
+#include "../Startup/Window.h"
 #include "../Scene/SceneController.h"
 #include "../Scene/SceneSessionState.h"
-#include "../App/InputFrame.h"
+
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/SbDiagnosticStore.h"
 #include "../Editor/EditorTools.h"

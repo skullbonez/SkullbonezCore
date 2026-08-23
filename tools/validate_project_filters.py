@@ -314,23 +314,23 @@ RUNTIME_LIFECYCLE_PREFIXES = (
     "Init",
     "Run",
     "RunFrame",
-    "RunLaunchOptions",
-    "RunStartupState",
     "RunTimerState",
     "RuntimeFrameViews",
     "RuntimeOverlayDiagnostics",
     "SimulationSystem",
-    "Window",
 )
 
 # Startup units are process-entry policy owners rather than Run lifecycle
 # implementations. Keep their physical directory and Solution Explorer filter
 # aligned as the Init decomposition adds each planned unit.
 RUNTIME_STARTUP_PREFIXES = (
+    "RunLaunchOptions",
+    "RunStartupState",
     "StartupCommandLine",
     "StartupCrashLogging",
     "StartupLaunchResolution",
     "StartupProbeHarnesses",
+    "Window",
 )
 
 RUNTIME_CAMERA_PREFIXES = (
@@ -355,6 +355,7 @@ RUNTIME_INPUT_PREFIXES = (
     "Input",
     "InputController",
     "InputFrame",
+    "InputFrameValues",
     "InputFrameExecution",
     "InputRouter",
     "RunInput",
@@ -367,6 +368,7 @@ RUNTIME_AUTOMATION_PREFIXES = (
     "InteractionAutomationRecorder",
     "InteractionAutomationReportWriter",
     "InteractionRecordingBrowser",
+    "ReplayAutomationView",
     "RuntimeStressController",
     "RuntimeValidationHarness",
 )
@@ -456,7 +458,6 @@ RUNTIME_PLANNING_PREFIXES = (
 RUNTIME_APP_PREFIXES = (
     "ReplayReserveInventory",
     "ReplayRuntime",
-    "ReplayRuntimePackets",
     "ReplayScrubberTools",
     "ReplayValidation",
 )
@@ -480,6 +481,7 @@ RUNTIME_REPLAY_PREFIXES = (
     "ReplayPresentationSubmission",
     "ReplayPresentationPackets",
     "ReplayRetainedMemory",
+    "ReplayRuntimePackets",
     "ReplayRecorder",
     "ReplayPresentation",
     "ReplayProbeState",

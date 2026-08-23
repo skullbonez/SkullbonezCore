@@ -1,29 +1,30 @@
 /*
-File: SkullbonezSource/Runtime/App/Window.h
+File: SkullbonezSource/Runtime/Startup/Window.h
 Purpose:
   Creates and owns the Win32 window and message pump integration.
 
 Summary:
-  Window owns native window/client-size state, rebuilds projection values on
-  resize, and lends resize work to the bound render-frame owner without owning
-  renderer resources.
+  Window owns native window/client-size state and turns Win32 callbacks into a
+  bounded value queue. App synchronously applies those values to Input and the
+  renderer after each dispatched native message.
 
 Glossary:
-  Resize frame owner: Borrowed concrete owner used only to resize swap-chain and
-    depth resources when Win32 reports a new client size.
+  Native host event: Bounded value copied from one Win32 callback; it carries no
+    subsystem pointer or callback.
   Projection frustum: Camera depth range used when rebuilding the perspective
   matrix after a client-size change.
 
 Invariants:
   - Cached dimensions store client width/height, not monitor or full window
     bounds.
-  - m_resizeRenderFrame is borrowed from startup and must be cleared before
-    the render backend is destroyed.
+  - Native callbacks never call Runtime owners or retain subsystem pointers.
+  - App drains events synchronously after each dispatched message, so raw-input
+    values cannot outlive the native packet that produced them.
   - projectionMatrix must be rebuilt from cached depth settings whenever the
     client size changes.
 
 Related:
-  - SkullbonezSource/Runtime/App/Window.cpp
+  - SkullbonezSource/Runtime/Startup/Window.cpp
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/engine-glossary.md
 */
@@ -36,26 +37,55 @@ Related:
 #include "../../Core/SbResult.h"
 #include "../../Maths/Matrix4.h"
 
+#include <array>
+#include <cstddef>
+#include <cstdint>
+
 namespace SkullbonezCore
 {
-namespace Rendering
-{
-class Dx12FrameOwner;
-}
 namespace Runtime
 {
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-namespace DevelopmentTools
+enum class NativeHostEventType : uint8_t
 {
-class ImGuiEditorOwner;
-struct ImGuiEditorNativeMessageRoute;
-} // namespace DevelopmentTools
-#endif
+    Resize,
+    MouseWheel,
+    RawMouse
+};
+
+struct NativeHostEvent
+{
+    NativeHostEventType type = NativeHostEventType::Resize;
+    HWND window = nullptr;
+    int first = 0;
+    int second = 0;
+    bool absolute = false;
+    bool virtualDesktop = false;
+};
+
+struct NativeHostMessage
+{
+    HWND window = nullptr;
+    UINT id = 0;
+    WPARAM wParam = 0;
+    LPARAM lParam = 0;
+    int exitCode = 0;
+    bool quit = false;
+};
+
+struct NativeHostMessageRoute
+{
+    LRESULT capturedResult = 0;
+    bool engineConsumes = true;
+    bool engineCursorHandled = false;
+};
 
 class Window
 {
+    friend LRESULT CALLBACK WndProc( HWND windowHandle, UINT messageId, WPARAM wParam, LPARAM lParam );
 
   private:
+    static constexpr std::size_t kEventCapacity = 256;
+
     SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;                                                          // Process diagnostic lease owner borrowed for the window lifetime.
     HWND m_sWindow;                                                                                                        // Native Win32 window handle owned by startup/window creation.
     HDC m_sDevice;                                                                                                         // Native device context paired with m_sWindow.
@@ -66,10 +96,14 @@ class Window
     float m_projectionFarPlane;                                                                                            // Far depth plane used by the cached perspective projection.
     int m_startupWindowWidth = 1800;                                                                                       // Configured initial window width supplied by startup.
     int m_startupWindowHeight = 1000;                                                                                      // Configured initial window height supplied by startup.
-    Rendering::Dx12FrameOwner* m_resizeRenderFrame = nullptr;                                                              // Borrowed resize-only frame owner.
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    DevelopmentTools::ImGuiEditorOwner* m_developmentUiInput = nullptr;                                                    // Borrowed native-message target bound for Run lifetime.
-#endif
+    std::array<NativeHostEvent, kEventCapacity> m_events = {};
+    std::size_t m_eventRead = 0;
+    std::size_t m_eventCount = 0;
+    NativeHostMessageRoute m_activeRoute;
+    bool m_dispatchActive = false;
+
+    void PushEvent( const NativeHostEvent& event );
+    NativeHostMessageRoute ActiveRoute() const noexcept;
 
   public:
     explicit Window( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics );                                         // Startup constructs the single runtime window owner.
@@ -101,25 +135,17 @@ class Window
     } // True when CreateAppWindow selected fullscreen mode.
     HDC AcquireDeviceContext();                                                                                            // Caches GetDC() for startup render initialization.
     void ReleaseDeviceContext();                                                                                           // Releases the cached HDC before native window teardown.
-    SkullbonezCore::Core::SbResult HandleScreenResize();                                                                   // Resizes the renderer/projection or reports a recoverable error resize
-
-    // failure.
+    void UpdateProjectionForCurrentClient();                                                                               // Rebuilds the host projection after App accepts a nonzero resize.
     void SetTitleText( const char* text );                                                                                 // Updates the native title bar without touching renderer text.
     void SetProjectionFrustum( float nearPlane, float farPlane );                                                          // Stores projection depth planes used by later resize messages.
     void SetStartupWindowSize( int width, int height );                                                                    // Stores config-owned initial window/fullscreen dimensions.
-    void SetResizeRenderFrameOwner( Rendering::Dx12FrameOwner* renderFrame );                                              // Borrows or clears the resize transaction owner.
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    void BindDevelopmentUiInput( DevelopmentTools::ImGuiEditorOwner& owner );
-    void UnbindDevelopmentUiInput( DevelopmentTools::ImGuiEditorOwner& owner );
-    DevelopmentTools::ImGuiEditorNativeMessageRoute RouteDevelopmentUiMessage( HWND window, UINT message, WPARAM wParam,
-                                                                               LPARAM lParam );
-#endif
+    bool PeekNativeMessage( NativeHostMessage& message );                                                                  // Removes one thread message and returns a detached value.
+    void DispatchNativeMessage( const NativeHostMessage& message, const NativeHostMessageRoute& route );                   // Dispatches one message with App's synchronous UI route.
+    bool ConsumeNativeEvent( NativeHostEvent& event );                                                                     // Drains one callback-produced event in FIFO order.
     const Math::Transformation::Matrix4& GetProjectionMatrix() const
     {
         return projectionMatrix;
     } // Projection matrix currently used by render passes.
-    void SetWindowDimensions( const RECT dimensions );                                                                     // Caches dimensions from a Win32 RECT.
-    void SetWindowDimensions( int width, int height );                                                                     // Caches dimensions from explicit client width/height.
     SkullbonezCore::Core::SbResult CreateAppWindow( HINSTANCE instance, bool isFullScreenMode, bool showOnCreate = true ); // Creates the native window or report recoverable error startup failure.
     void ChangeToFullScreen( int xResolution, int yResolution );                                                           // Applies fullscreen display mode dimensions.
     int MsgBox( const char* text, const char* title, const UINT type );                                                    // Native modal message box for startup/validation failures.

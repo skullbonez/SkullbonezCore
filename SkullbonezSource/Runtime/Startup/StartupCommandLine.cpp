@@ -31,9 +31,12 @@ Related:
 #include "StartupCommandLine.h"
 #include "StartupLaunchResolution.h"
 #include "../../Core/Common.h"
+#include "../../Core/Config.h"
 #include "../../Core/PlatformProfiler.h"
+#include "../../Core/SbDiagnosticStore.h"
+#include "../../Core/SceneCapacity.h"
 #include "../../Core/WorkerPool.h"
-#include "../App/RunLaunchOptions.Renderer.h"
+#include "RunLaunchOptions.h"
 #include "../../Core/WindowConstants.h"
 #include <cerrno>
 #include <climits>

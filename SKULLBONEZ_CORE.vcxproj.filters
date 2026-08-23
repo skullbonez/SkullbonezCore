@@ -459,6 +459,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupProbeHarnesses.cpp">
       <Filter>Source Files\Runtime\Startup</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Startup\RunStartupState.cpp">
+      <Filter>Source Files\Runtime\Startup</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Input\Input.cpp">
       <Filter>Source Files\Runtime\Input</Filter>
     </ClCompile>
@@ -663,8 +666,8 @@
     <ClCompile Include="SkullbonezSource\Rendering\DrawCallTrace.cpp">
       <Filter>Source Files\Rendering</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\App\Window.cpp">
-      <Filter>Source Files\Runtime\Lifecycle</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Startup\Window.cpp">
+      <Filter>Source Files\Runtime\Startup</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Core\WorkerPool.cpp">
       <Filter>Source Files\Core</Filter>
@@ -946,6 +949,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\Input\Input.h">
       <Filter>Header Files\Runtime\Input</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Input\InputFrameValues.h">
+      <Filter>Header Files\Runtime\Input</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Input\InputController.Bindings.h">
       <Filter>Header Files\Runtime\Input</Filter>
     </ClInclude>
@@ -1027,8 +1033,8 @@
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionRecordingBrowser.h">
       <Filter>Header Files\Runtime\Automation</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\App\RunLaunchOptions.h">
-      <Filter>Header Files\Runtime\Lifecycle</Filter>
+    <ClInclude Include="SkullbonezSource\Runtime\Startup\RunLaunchOptions.h">
+      <Filter>Header Files\Runtime\Startup</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Startup\StartupCommandLine.h">
       <Filter>Header Files\Runtime\Startup</Filter>
@@ -1051,8 +1057,8 @@
     <ClInclude Include="SkullbonezSource\Runtime\Render\RenderPresentationSettings.h">
       <Filter>Header Files\Runtime\Render</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\App\RunStartupState.h">
-      <Filter>Header Files\Runtime\Lifecycle</Filter>
+    <ClInclude Include="SkullbonezSource\Runtime\Startup\RunStartupState.h">
+      <Filter>Header Files\Runtime\Startup</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\App\RunTimerState.h">
       <Filter>Header Files\Runtime\Lifecycle</Filter>
@@ -1068,9 +1074,6 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\RuntimeDiagnostics.h">
       <Filter>Header Files\Runtime\Diagnostics</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\App\RunLaunchOptions.Renderer.h">
-      <Filter>Header Files\Runtime\Lifecycle</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsPhysicsUI.h">
       <Filter>Header Files\Runtime\Diagnostics</Filter>
@@ -1309,6 +1312,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPresentationPackets.h">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRuntimePackets.h">
+      <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Planning\ReplayOverlayPackets.h">
       <Filter>Header Files\Runtime\Planning</Filter>
     </ClInclude>
@@ -1333,8 +1339,8 @@
     <ClInclude Include="SkullbonezSource\Runtime\App\ReplayRuntime.h">
       <Filter>Header Files\Runtime\App</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\App\ReplayRuntimePackets.h">
-      <Filter>Header Files\Runtime\App</Filter>
+    <ClInclude Include="SkullbonezSource\Runtime\Automation\ReplayAutomationView.h">
+      <Filter>Header Files\Runtime\Automation</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\App\ReplayReserveInventory.h">
       <Filter>Header Files\Runtime\App</Filter>
@@ -1390,8 +1396,8 @@
     <ClInclude Include="SkullbonezSource\Core\WindowConstants.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\App\Window.h">
-      <Filter>Header Files\Runtime\Lifecycle</Filter>
+    <ClInclude Include="SkullbonezSource\Runtime\Startup\Window.h">
+      <Filter>Header Files\Runtime\Startup</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Core\WorkerPool.h">
       <Filter>Header Files\Core</Filter>

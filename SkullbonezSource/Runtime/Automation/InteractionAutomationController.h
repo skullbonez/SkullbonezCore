@@ -53,11 +53,11 @@ Related:
 #include "../../Core/PlatformWin32.h"
 
 #include "../RuntimeFrameViews.h"
-#include "../App/ReplayRuntimePackets.h"
+#include "ReplayAutomationView.h"
 #include "InteractionAutomationInputDriver.h"
 #include "InteractionAutomationRecorder.h"
 #include "InteractionAutomationReportWriter.h"
-#include "../App/RunLaunchOptions.h"
+#include "../Startup/RunLaunchOptions.h"
 
 #include "../../Core/Common.h"
 #include "../../Core/SbResult.h"

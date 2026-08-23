@@ -34,7 +34,7 @@ Related:
 
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../Render/RuntimeRenderFrameValues.h"
-#include "../App/RunLaunchOptions.h"
+#include "../Startup/RunLaunchOptions.h"
 #include "../Scene/SceneWorld.h"
 #include "../../Core/Profiler.h"
 #include "../../Physics/PhysicsApi.h"
@@ -63,14 +63,16 @@ void RuntimeOverlayDiagnostics::ApplyStartupPolicy( const RunStartupOverrides& o
 
     if ( overrides.hasInitialOverlayMode )
     {
-        m_presentationState.overlayMode = overrides.initialOverlayMode;
+        const OverlayMode overlayMode = overrides.initialOverlayMode == StartupOverlayMode::Timers ? OverlayMode::Timers
+                                                                                                   : OverlayMode::None;
+        m_presentationState.overlayMode = overlayMode;
 
-        if ( overrides.initialOverlayMode != OverlayMode::None )
+        if ( overlayMode != OverlayMode::None )
         {
             operatorUi.SetVisible( true );
         }
 
-        switch ( overrides.initialOverlayMode )
+        switch ( overlayMode )
         {
         case OverlayMode::SceneStats:
             operatorUi.SetActiveTab( SBUI::InGameUITab::Scene );

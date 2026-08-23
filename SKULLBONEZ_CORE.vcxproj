@@ -409,6 +409,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupCrashLogging.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupLaunchResolution.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupProbeHarnesses.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Startup\RunStartupState.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Input\Input.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Input\InputController.Bindings.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Input\InputController.cpp" />
@@ -473,7 +474,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Assets\TextureCollection.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Timer.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DrawCallTrace.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\App\Window.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Startup\Window.cpp" />
     <ClCompile Include="SkullbonezSource\Core\WorkerPool.cpp" />
     <ClCompile Include="SkullbonezSource\World\WorldEnvironment.cpp" />
     <ClCompile Include="ThirdPtySource\stb\stb_image.cpp" />
@@ -574,6 +575,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Simulation\SimulationSystem.h" />
     <ClInclude Include="SkullbonezSource\Runtime\App\ApplicationExitState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Input\Input.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Input\InputFrameValues.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Input\InputController.Bindings.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Input\InputController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Input\InputRouter.h" />
@@ -596,7 +598,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionAutomationReportWriter.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionAutomationRecorder.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionRecordingBrowser.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\App\RunLaunchOptions.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Startup\RunLaunchOptions.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Startup\StartupCommandLine.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Startup\StartupCrashLogging.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Startup\StartupLaunchResolution.h" />
@@ -604,12 +606,11 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayProbeState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\App\ReplayValidation.Internal.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RenderPresentationSettings.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\App\RunStartupState.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Startup\RunStartupState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\App\RunTimerState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Camera\RuntimeCameraMode.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Interaction\RuntimeInteractionCommands.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\RuntimeDiagnostics.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\App\RunLaunchOptions.Renderer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsPhysicsUI.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\SceneMemoryDiagnostics.h" />
@@ -689,6 +690,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionPresentation.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPresentation.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPresentationPackets.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRuntimePackets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Planning\ReplayOverlayPackets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayOverlaySurface.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPresentationSubmission.h" />
@@ -697,7 +699,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayToolPackets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayTimelinePackets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\App\ReplayRuntime.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\App\ReplayRuntimePackets.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Automation\ReplayAutomationView.h" />
     <ClInclude Include="SkullbonezSource\Runtime\App\ReplayReserveInventory.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRestoreTransactions.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionArchive.h" />
@@ -716,7 +718,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Assets\TextureCollection.h" />
     <ClInclude Include="SkullbonezSource\Core\Timer.h" />
     <ClInclude Include="SkullbonezSource\Core\WindowConstants.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\App\Window.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Startup\Window.h" />
     <ClInclude Include="SkullbonezSource\Core\WorkerPool.h" />
     <ClInclude Include="SkullbonezSource\World\WorldEnvironment.h" />
     <ClInclude Include="SkullbonezSource\World\FluidSurfaceAdjustment.h" />

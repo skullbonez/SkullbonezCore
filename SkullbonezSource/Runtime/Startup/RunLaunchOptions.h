@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/App/RunLaunchOptions.h
+File: SkullbonezSource/Runtime/Startup/RunLaunchOptions.h
 Purpose:
   Owns CLI/startup launch policy that Run reapplies across scene loads.
 
@@ -37,15 +37,40 @@ Related:
 
 #include "../../Physics/PhysicsDebugData.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
-#include "../Diagnostics/OverlayDebugState.h"
-#include "../Scene/SceneGeneratedSetup.h"
 
 #include <cstdint>
+#include <cstddef>
 
 namespace SkullbonezCore
 {
 namespace Runtime
 {
+enum class GeneratedObjectTypeOverride
+{
+    Mixed,
+    AllBalls,
+    AllBoxes
+};
+
+enum class StartupOverlayMode : uint8_t
+{
+    None,
+    Timers
+};
+
+struct RuntimeRendererOption
+{
+    const char* name;
+    const char* alias;
+};
+
+inline constexpr RuntimeRendererOption kRuntimeRendererOptions[] = {
+    { "dx12", "d3d12" },
+};
+
+inline constexpr std::size_t kRuntimeRendererOptionCount = sizeof( kRuntimeRendererOptions ) /
+                                                           sizeof( kRuntimeRendererOptions[0] );
+
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 enum class DevelopmentUiMode : uint8_t
 {
@@ -151,7 +176,7 @@ struct RunStartupOverrides
     const char* replayRestoreFailureFileProbePath = nullptr;
 #endif
     bool hasInitialOverlayMode = false;
-    OverlayMode initialOverlayMode = OverlayMode::None;
+    StartupOverlayMode initialOverlayMode = StartupOverlayMode::None;
     bool hideTopText = false;
     bool showBroadphaseVisualizer = false;
 

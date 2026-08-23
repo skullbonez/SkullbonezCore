@@ -40,7 +40,7 @@ Related:
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/SbDiagnosticStore.h"
 #include "../Capture/CaptureController.h"
-#include "../App/RunLaunchOptions.h"
+#include "../Startup/RunLaunchOptions.h"
 #include "../Scene/SceneSleepingDynamicBodyGatePolicy.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/ObjectContactManifold.h"

@@ -231,23 +231,23 @@ struct InputWindowBridgeTestAccess
       public:
         void Bind( const void* identity )
         {
-            m_bridge.Bind( reinterpret_cast<Runtime::Window*>( const_cast<void*>( identity ) ) );
+            m_bridge.Bind( reinterpret_cast<HWND>( const_cast<void*>( identity ) ) );
         }
         void Unbind( const void* identity )
         {
-            m_bridge.Unbind( reinterpret_cast<Runtime::Window*>( const_cast<void*>( identity ) ) );
+            m_bridge.Unbind( reinterpret_cast<HWND>( const_cast<void*>( identity ) ) );
         }
         bool IsBoundTo( const void* identity ) const
         {
-            return m_bridge.BoundWindow() == reinterpret_cast<const Runtime::Window*>( identity );
+            return m_bridge.BoundHandle() == reinterpret_cast<HWND>( const_cast<void*>( identity ) );
         }
         bool IsUnbound() const
         {
-            return m_bridge.BoundWindow() == nullptr;
+            return m_bridge.BoundHandle() == nullptr;
         }
 
       private:
-        Input::WindowBridge m_bridge;
+        Input::NativeWindowBinding m_bridge;
     };
 };
 } // namespace SkullbonezCore::Hardware

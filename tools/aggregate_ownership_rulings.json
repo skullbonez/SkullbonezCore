@@ -190,7 +190,7 @@
     },
     {
       "key": "Input",
-      "site": "SkullbonezSource/Runtime/Input/Input.h:120",
+      "site": "SkullbonezSource/Runtime/Input/Input.h:118",
       "members": 1,
       "verdict": "retain",
       "owner": "NA2 / Runtime/Input",
@@ -199,10 +199,10 @@
     },
     {
       "key": "KeyboardContextFacts",
-      "site": "SkullbonezSource/Runtime/App/InputFrame.h:144",
+      "site": "SkullbonezSource/Runtime/Input/InputFrameValues.h:65",
       "members": 10,
       "verdict": "retain",
-      "owner": "CA0 / Runtime/App",
+      "owner": "CA0 / Runtime/Input",
       "reason": "Keyboard availability and the scene, camera, launcher, director, editor, replay, and UI arbitration outcomes are one input-turn snapshot; command routing must use a single arbitration result.",
       "destructures_at_entry": "no"
     },
@@ -262,7 +262,7 @@
     },
     {
       "key": "ParsedArgs",
-      "site": "SkullbonezSource/Runtime/Startup/StartupCommandLine.h:58",
+      "site": "SkullbonezSource/Runtime/Startup/StartupCommandLine.h:59",
       "members": 87,
       "verdict": "retain",
       "owner": "CA0 / Runtime/Startup",
@@ -631,10 +631,10 @@
     },
     {
       "key": "RuntimeInputFrameFacts",
-      "site": "SkullbonezSource/Runtime/App/InputFrame.h:97",
+      "site": "SkullbonezSource/Runtime/Input/InputFrameValues.h:28",
       "members": 9,
       "verdict": "retain",
-      "owner": "CA0 / Runtime/App",
+      "owner": "CA0 / Runtime/Input",
       "reason": "Replay camera modes, enabled-mask, action suppression, scene capacity, external command sources, and active UI lane are resolved once for one input frame; downstream routing reads one coherent verdict.",
       "destructures_at_entry": "no"
     },

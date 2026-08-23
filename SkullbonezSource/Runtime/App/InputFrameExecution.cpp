@@ -33,7 +33,7 @@ Related:
 */
 #include "InputFrame.h"
 #include "Run.h"
-#include "Window.h"
+#include "../Startup/Window.h"
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 #include "../DevelopmentTools/ImGuiEditorLayoutPolicy.h"
 #endif
@@ -51,8 +51,8 @@ Related:
 #include "../Render/RenderDefaultsStore.h"
 #include "../Render/RuntimeRenderer.h"
 #include "../Diagnostics/OverlayDebugState.h"
-#include "RunLaunchOptions.h"
-#include "RunStartupState.h"
+#include "../Startup/RunLaunchOptions.h"
+#include "../Startup/RunStartupState.h"
 #include "RunTimerState.h"
 #include "../UI/RuntimeViewModel.h"
 #include "../Tools/RuntimeTools.h"
