@@ -7,8 +7,9 @@ Purpose:
 Summary:
   The writer consumes SceneWorld, session, and presentation publications.
   Tests cover their persisted policy fields, then reparse asset-backed rows as
-  authoritative shape-specific part states. The three runtime save policies
-  are executed directly so no caller can regress to a partial publication.
+  authoritative shape-specific part states. The two Scene save policies and
+  Editor-owned numbered-path composition execute directly so no caller can
+  regress to a partial publication.
 
 Glossary:
   Live part state: Current body/collider values, independent of the original
@@ -47,6 +48,7 @@ Related:
 #include "../SkullbonezSource/Runtime/Scene/SceneEntityStore.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneSessionState.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneSaveOperations.h"
+#include "../SkullbonezSource/Runtime/Tools/RuntimeFileWriter.h"
 #include "../SkullbonezSource/Scene/SceneSnapshotWriter.h"
 #include "../SkullbonezSource/Scene/AuthoredScene.h"
 
@@ -235,9 +237,10 @@ TEST_CASE( "Scene save entry policies serialize complete owner publications" )
 
         std::filesystem::remove( kEditorSnapshotPath, ignored );
         int sequence = 9100;
-        Core::SbResult saveResult = Core::SbResult::Success();
-        REQUIRE( TrySaveNextEditorSceneSnapshot( diagnostics, sequence, world, session, presentation, saveResult ) );
-        REQUIRE( saveResult.Ok() );
+        char path[256] = {};
+        REQUIRE( RuntimeFileWriter::NextNumberedPath( path, sizeof( path ), "Scenes", "snapshot_", ".scene.json",
+                                                      sequence, 100 ) );
+        REQUIRE( SceneSnapshotWriter::Save( diagnostics, SceneSaveRequest { path, world, session, presentation } ).Ok() );
         CHECK( sequence == 9101 );
         CheckCompleteOwnerPublication( kEditorSnapshotPath, world, session, presentation );
     }

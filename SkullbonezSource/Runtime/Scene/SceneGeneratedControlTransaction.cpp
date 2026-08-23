@@ -6,20 +6,20 @@ Purpose:
 Summary:
   One stack-scoped owner resolves a count request, drains and resets the active
   scene, repopulates deterministic generated objects, and publishes detached
-  replay/profiler follow-ups. It retains no borrowed runtime owner.
+  tool/replay/profiler follow-ups. It retains no borrowed runtime owner.
 
 Glossary:
   Generated override: UI-selected model count or solver ball/box counts.
   Request arbitration: Selection of the untouched solver count from the newest
     accepted UI override before falling back to scene state.
-  Follow-up action: Returned flags that tell Run to reset replay and profiler
-    state after rebuilding generated objects.
+  Follow-up action: Returned flags that tell App to clear tool feedback and
+    reset replay/profiler state after rebuilding generated objects.
 
 Invariants:
   - Accepted requests follow DrainAndReset, Repopulate, PublishFollowUps, and
     Complete; the transaction makes every other transition fatal invariant.
   - A failed GPU drain returns recoverable result before UI overrides or topology mutate.
-  - Replay/profiler resets are detached values published only after repopulation.
+  - Tool/replay/profiler follow-ups are detached values published only after repopulation.
   - Camera tracking is clamped against the post-rebuild model count.
 
 Related:
@@ -29,7 +29,6 @@ Related:
 */
 #include "SceneGeneratedControlTransaction.h"
 #include "SceneController.h"
-#include "../Tools/RuntimeTools.h"
 #include "../Simulation/SimulationSystem.h"
 #include "../../Core/FatalError.h"
 #include "../../Rendering/DX12/Dx12FrameOwner.h"
@@ -60,7 +59,6 @@ void LogGeneratedControlFailure( const SkullbonezCore::Core::SbResult& result )
 
 SkullbonezCore::Core::SbResult SceneGeneratedControlTransaction::DrainAndReset( SceneController& scene,
                                                                                 SimulationSystem& simulation,
-                                                                                RuntimeTools& tools,
                                                                                 Rendering::Dx12FrameOwner* renderFrame )
 {
     AdvanceOrFatal( SceneGeneratedControlPhaseCursor::Phase::DrainAndReset, "DrainAndReset" );
@@ -99,7 +97,6 @@ SkullbonezCore::Core::SbResult SceneGeneratedControlTransaction::DrainAndReset( 
     }
 
     scene.Scene().Clear();
-    tools.ClearRayCastTestLines();
     simulation.Reset();
     scene.State().currentFrame = 0;
     scene.State().isTestComplete = false;
@@ -192,7 +189,7 @@ void SceneGeneratedControlTransaction::AdvanceOrFatal( SceneGeneratedControlPhas
 SceneGeneratedUICommandResult
 SceneGeneratedControlTransaction::Execute( const SkullbonezCore::Core::EngineConfig& config, SceneController& scene,
                                            SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                                           CameraControlState& camera, SimulationSystem& simulation, RuntimeTools& tools,
+                                           CameraControlState& camera, SimulationSystem& simulation,
                                            Rendering::Dx12FrameOwner* renderFrame )
 {
     // Invalid UI sentinel values do not represent a transaction and therefore
@@ -203,7 +200,7 @@ SceneGeneratedControlTransaction::Execute( const SkullbonezCore::Core::EngineCon
     }
 
     m_rebuildActiveScene = scene.HasCurrentEntry();
-    m_result.action.status = DrainAndReset( scene, simulation, tools, renderFrame );
+    m_result.action.status = DrainAndReset( scene, simulation, renderFrame );
 
     if ( !m_result.action.status.Ok() )
     {

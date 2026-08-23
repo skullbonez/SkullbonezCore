@@ -1135,6 +1135,11 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
     RecordPhysicsFrictionUIActions( operatorAcceptance, recordUIAction );
     const auto executeSceneGeneratedControlAction = [&]( const SceneGeneratedControlAction& action )
     {
+        if ( action.clearToolRayHistory )
+        {
+            runtimeTools.ClearRayCastTestLines();
+        }
+
         if ( action.resetReplayTimeline )
         {
             const ReplaySceneTimelineResetInput
@@ -1160,7 +1165,7 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
 
     const SceneGeneratedUICommandResult modelCountCommand = modelCountTransaction.Execute( config, sceneController,
                                                                                            ui.SceneNavigation().overrides,
-                                                                                           camera, simulation, runtimeTools,
+                                                                                           camera, simulation,
                                                                                            &renderer.RenderFrame() );
 
     if ( !modelCountCommand.action.status.Ok() )
@@ -1187,7 +1192,7 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
     const SceneGeneratedUICommandResult solverBallCountCommand = solverBallCountTransaction
                                                                      .Execute( config, sceneController,
                                                                                ui.SceneNavigation().overrides, camera,
-                                                                               simulation, runtimeTools,
+                                                                               simulation,
                                                                                &renderer.RenderFrame() );
 
     if ( !solverBallCountCommand.action.status.Ok() )
@@ -1211,7 +1216,7 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
     const SceneGeneratedUICommandResult solverBoxCountCommand = solverBoxCountTransaction
                                                                     .Execute( config, sceneController,
                                                                               ui.SceneNavigation().overrides, camera,
-                                                                              simulation, runtimeTools,
+                                                                              simulation,
                                                                               &renderer.RenderFrame() );
 
     if ( !solverBoxCountCommand.action.status.Ok() )

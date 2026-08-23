@@ -14,7 +14,7 @@ Glossary:
     rebuild phases.
   Generated UI command: One-frame Scene/Run tab request for generated object
     counts.
-  Rebuild action: Returned flags for caller-owned replay/profiler cleanup.
+  Rebuild action: Returned flags for App-owned tool/replay/profiler cleanup.
   Action status: recoverable result that blocks all rebuild mutations when the GPU
     drain cannot prove old resource use complete.
 
@@ -54,7 +54,6 @@ namespace Runtime
 {
 class SceneController;
 class SimulationSystem;
-class RuntimeTools;
 struct SceneGeneratedControlTransactionTestAccess;
 
 class SceneGeneratedControlPhaseCursor
@@ -103,6 +102,7 @@ struct SceneGeneratedControlAction
     // Recoverable error: callers must terminate the current command/frame when a GPU
     // drain failed; no generated model/resource mutation has occurred.
     SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
+    bool clearToolRayHistory = false;
     bool resetReplayTimeline = false;
     bool scheduleProfileReset = false;
 };
@@ -155,7 +155,7 @@ class SceneGeneratedControlTransaction
 
     SceneGeneratedUICommandResult Execute( const SkullbonezCore::Core::EngineConfig& config, SceneController& scene,
                                            SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                                           CameraControlState& camera, SimulationSystem& simulation, RuntimeTools& tools,
+                                           CameraControlState& camera, SimulationSystem& simulation,
                                            Rendering::Dx12FrameOwner* renderFrame );
 
     SceneGeneratedControlPhaseCursor::Phase Phase() const
@@ -231,7 +231,7 @@ class SceneGeneratedControlTransaction
 
         return true;
     }
-    SkullbonezCore::Core::SbResult DrainAndReset( SceneController& scene, SimulationSystem& simulation, RuntimeTools& tools,
+    SkullbonezCore::Core::SbResult DrainAndReset( SceneController& scene, SimulationSystem& simulation,
                                                   Rendering::Dx12FrameOwner* renderFrame );
     void Repopulate( const SkullbonezCore::Core::EngineConfig& config, SceneController& scene,
                      SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides, CameraControlState& camera );
@@ -256,6 +256,7 @@ class SceneGeneratedControlTransaction
     {
         if ( m_rebuildActiveScene )
         {
+            m_result.action.clearToolRayHistory = true;
             m_result.action.resetReplayTimeline = true;
             m_result.action.scheduleProfileReset = true;
         }

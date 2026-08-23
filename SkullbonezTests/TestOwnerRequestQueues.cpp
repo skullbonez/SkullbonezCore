@@ -819,6 +819,7 @@ TEST_CASE( "Generated-scene control transaction blocks mutation after a failed d
     CHECK_FALSE( SceneGeneratedControlTransactionTestAccess::MutationAllowedAfterDrain( transaction ) );
     CHECK( transaction.Phase() == SceneGeneratedControlPhaseCursor::Phase::DrainAndReset );
     CHECK_FALSE( SceneGeneratedControlTransactionTestAccess::Result( transaction ).action.status.Ok() );
+    CHECK_FALSE( SceneGeneratedControlTransactionTestAccess::Result( transaction ).action.clearToolRayHistory );
     CHECK_FALSE( SceneGeneratedControlTransactionTestAccess::Result( transaction ).action.resetReplayTimeline );
     CHECK_FALSE( SceneGeneratedControlTransactionTestAccess::Result( transaction ).action.scheduleProfileReset );
     CHECK( uiOverrides.solverBoxCountOverride == 40 );
@@ -841,8 +842,19 @@ TEST_CASE( "Generated-scene control transaction publishes follow-ups only for an
 
     CHECK( SceneGeneratedControlTransactionTestAccess::MutationAllowedAfterDrain( transaction ) );
     REQUIRE( SceneGeneratedControlTransactionTestAccess::PublishAfterRepopulation( transaction ) );
+    CHECK( SceneGeneratedControlTransactionTestAccess::Result( transaction ).action.clearToolRayHistory );
     CHECK( SceneGeneratedControlTransactionTestAccess::Result( transaction ).action.resetReplayTimeline );
     CHECK( SceneGeneratedControlTransactionTestAccess::Result( transaction ).action.scheduleProfileReset );
+
+    SceneGeneratedControlTransaction inactiveTransaction =
+        SceneGeneratedControlTransaction::ModelCount( 20, GeneratedObjectTypeOverride::Mixed, 100 );
+    REQUIRE( SceneGeneratedControlTransactionTestAccess::Resolve( inactiveTransaction, uiOverrides, sceneState ) );
+    REQUIRE( SceneGeneratedControlTransactionTestAccess::RecordDrain( inactiveTransaction, false,
+                                                                       SkullbonezCore::Core::SbResult::Success() ) );
+    REQUIRE( SceneGeneratedControlTransactionTestAccess::PublishAfterRepopulation( inactiveTransaction ) );
+    CHECK_FALSE( SceneGeneratedControlTransactionTestAccess::Result( inactiveTransaction ).action.clearToolRayHistory );
+    CHECK_FALSE( SceneGeneratedControlTransactionTestAccess::Result( inactiveTransaction ).action.resetReplayTimeline );
+    CHECK_FALSE( SceneGeneratedControlTransactionTestAccess::Result( inactiveTransaction ).action.scheduleProfileReset );
 }
 
 TEST_CASE( "Scene navigation returns value-only accepted load decisions" )

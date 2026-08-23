@@ -24,9 +24,9 @@ Related:
 #include "../Input/InputController.h"
 #include "../Tools/RuntimeFileWriter.h"
 #include "../Scene/SceneSessionState.h"
-#include "../Scene/SceneSaveOperations.h"
 #include "../Tools/RuntimeTools.h"
 #include "../../Core/Common.h"
+#include "../../Scene/SceneSnapshotWriter.h"
 #include "../Scene/SceneController.h"
 #include "../../UI/UICommands.h"
 #include "../../UI/UITabEditor.h"
@@ -437,11 +437,18 @@ void HandleEditorSceneSaveHotkey( SkullbonezCore::Core::SbDiagnosticStore& diagn
     }
 
     static int sSnapshotSeq = 0;
-    SkullbonezCore::Core::SbResult saveResult = SkullbonezCore::Core::SbResult::Success();
+    char path[256] = {};
 
-    if ( TrySaveNextEditorSceneSnapshot( diagnostics, sSnapshotSeq, world.GetSaveState(), scene.GetSaveState(), presentation,
-                                         saveResult ) &&
-         !saveResult.Ok() )
+    if ( !RuntimeFileWriter::NextNumberedPath( path, sizeof( path ), "Scenes", "snapshot_", ".scene.json", sSnapshotSeq,
+                                               100 ) )
+    {
+        return;
+    }
+
+    const SkullbonezCore::Core::SbResult saveResult = GameObjects::SceneSnapshotWriter::Save(
+        diagnostics, GameObjects::SceneSaveRequest { path, world.GetSaveState(), scene.GetSaveState(), presentation } );
+
+    if ( !saveResult.Ok() )
     {
         fprintf( stderr, "[%s] %s\n", saveResult.ErrorOwner(), saveResult.ErrorMessage() );
     }
