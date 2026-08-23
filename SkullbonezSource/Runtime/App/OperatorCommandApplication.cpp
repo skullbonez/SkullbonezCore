@@ -1,7 +1,7 @@
 /*
-File: SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.Commands.cpp
+File: SkullbonezSource/Runtime/App/OperatorCommandApplication.cpp
 Purpose:
-  Implements ordered operator-command phases and shared cinematic UI kernels.
+  Implements App-owned application of ordered operator-command phases.
 
 Summary:
   Each phase advances the transaction cursor before it reads the copied command
@@ -21,15 +21,15 @@ Invariants:
   - Render and cinematic UI values are clamped before they mutate live config.
   - Scene override masks must be updated with the value they describe.
   - Tornado commands mutate Gameplay-owned field/system/visual values in place.
-  - A scene lockstep request resets SimulationSystem only when the resolved
-    effective pacing policy changes.
+  - A scene lockstep request only toggles Scene state; App compares the previous
+    and next Simulation pacing values before applying a reset.
 
 Related:
   - SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.h
   - SkullbonezSource/Runtime/App/InputFrame.cpp
   - Agentic/Reference/engine-glossary.md
 */
-#include "OperatorCommandTransaction.h"
+#include "../Interaction/OperatorCommandTransaction.h"
 #include "../Scene/SceneController.h"
 #include "../Scene/SceneCinematicPolicy.h"
 
@@ -37,7 +37,6 @@ Related:
 #include "../Render/RenderDefaultsStore.h"
 #include "../../Core/WorkerPool.h"
 #include "../Scene/SceneWorld.h"
-#include "../Simulation/SimulationSystem.h"
 #include "../../Rendering/DX12/RenderDeviceDX12.h"
 #include "../../UI/UILayout.h"
 #include "../../World/WorldEnvironment.h"
@@ -303,7 +302,7 @@ void OperatorCommandTransaction::ApplyRuntimePresentation( OverlayDebugState& de
                                                            SkullbonezCore::Core::EngineConfig& config,
                                                            RunLaunchOptions& launchOptions,
                                                            RenderDefaultsStore& renderDefaults, bool graphicsReady,
-                                                           double simulationSeconds, SimulationSystem& simulation )
+                                                           double simulationSeconds )
 {
     AdvanceOrFatal( OperatorCommandPhaseCursor::Phase::RuntimePresentation, "ApplyRuntimePresentation" );
     const UI::UISceneOptionCommands& sceneOptions = m_commands.sceneOptions;
@@ -318,23 +317,7 @@ void OperatorCommandTransaction::ApplyRuntimePresentation( OverlayDebugState& de
 
     if ( sceneOptions.toggleFixedStep )
     {
-        const SimulationPacingPolicy previousPacing = ResolveSimulationPacingPolicy( launchOptions.fixedStep,
-                                                                                     scene.isFixedStep,
-                                                                                     scene.targetFrameCount,
-                                                                                     scene.isInteractiveRun );
         scene.isFixedStep = !scene.isFixedStep;
-        const SimulationPacingPolicy nextPacing = ResolveSimulationPacingPolicy( launchOptions.fixedStep, scene.isFixedStep,
-                                                                                 scene.targetFrameCount,
-                                                                                 scene.isInteractiveRun );
-
-        // Why: live and interactive scenes ignore this capture request. Do not
-        // discard their fractional wall-clock time when effective pacing did
-        // not actually change.
-        if ( previousPacing != nextPacing )
-        {
-            simulation.Reset();
-        }
-
         m_acceptance.toggledFixedStep = true;
     }
 
@@ -424,6 +407,7 @@ void OperatorCommandTransaction::ApplyRuntimePresentation( OverlayDebugState& de
         debug.isWaterNoReflect = mode == 2;
         m_acceptance.setWaterReflectionMode = true;
     }
+
 }
 
 void OperatorCommandTransaction::ApplySimulationPolicy( SceneSessionState& scene,

@@ -379,17 +379,19 @@ RuntimeInteractionTransition RuntimeInteractionController::ResetForScene( Intera
 }
 
 
-void RuntimeInteractionController::ObserveSceneLifecycle( const SceneLifecyclePacket& packet,
+void RuntimeInteractionController::ObserveSceneLifecycle( const RuntimeInteractionSceneLifecycleInput& input,
                                                           bool enterInspectAfterActivation )
 {
-    if ( m_sceneResetObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
+    if ( input.generation != 0 && input.generation != m_lastSceneResetGeneration && input.reachedAfterClear )
     {
+        m_lastSceneResetGeneration = input.generation;
         ResetForScene( InteractionExitReason::LoadScene );
     }
 
-    if ( enterInspectAfterActivation &&
-         m_sceneActivationObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneActivated ) )
+    if ( enterInspectAfterActivation && input.generation != 0 && input.generation != m_lastSceneActivationGeneration &&
+         input.reachedAfterActivation )
     {
+        m_lastSceneActivationGeneration = input.generation;
         EnterInspect();
     }
 }

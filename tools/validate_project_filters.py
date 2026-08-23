@@ -313,6 +313,7 @@ RUNTIME_LIFECYCLE_PREFIXES = (
     "ApplicationExitState",
     "GraphicsStressApplication",
     "Init",
+    "OperatorCommandApplication",
     "OperatorEditorFramePhase",
     "Run",
     "RunFrame",
@@ -378,6 +379,7 @@ RUNTIME_AUTOMATION_PREFIXES = (
 )
 
 RUNTIME_INTERACTION_PREFIXES = (
+    "PhysicsAdvanceState",
     "RuntimeInteractionCommands",
     "RuntimeInteractionController",
     "RuntimePickGeometry",

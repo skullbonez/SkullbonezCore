@@ -74,7 +74,6 @@ class RuntimeRenderer;
 class SceneController;
 struct SceneSessionState;
 class SceneWorld;
-class SimulationSystem;
 struct OverlayDebugState;
 struct RunLaunchOptions;
 struct OperatorCommandTransactionTestAccess;
@@ -181,7 +180,7 @@ class OperatorCommandTransaction
     void ApplyPhysicsControl( SceneWorld& world );
     void ApplyRuntimePresentation( OverlayDebugState& debug, SceneSessionState& scene, Core::EngineConfig& config,
                                    RunLaunchOptions& launchOptions, RenderDefaultsStore& renderDefaults, bool graphicsReady,
-                                   double simulationSeconds, SimulationSystem& simulation );
+                                   double simulationSeconds );
     void ApplySimulationPolicy( SceneSessionState& scene, UI::RunSceneUIOverrideState& uiOverrides,
                                 Core::EngineConfig& config, Threading::WorkerPool& workerPool );
     void ApplyPhysicsMaterial( Core::EngineConfig& config, SceneWorld& world );

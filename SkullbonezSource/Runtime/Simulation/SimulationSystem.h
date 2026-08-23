@@ -32,8 +32,7 @@ Related:
 */
 #pragma once
 
-#include "../Interaction/RuntimeInteractionController.h"
-#include "../Scene/SceneLifecycle.h"
+#include "../Interaction/PhysicsAdvanceState.h"
 
 #include <cstdint>
 
@@ -85,6 +84,12 @@ struct SimulationTickResult
     float presentationAlpha = 1.0f; // Wall-clock fraction, or exact-state 1.0 for lockstep and paused paths.
 };
 
+struct SimulationSceneLifecycleInput
+{
+    uint64_t generation = 0;
+    bool reachedAfterClear = false;
+};
+
 class SimulationSystem
 {
   public:
@@ -92,7 +97,7 @@ class SimulationSystem
 
     // Applies the pacing reset once after a scene transaction reaches clear;
     // SimulationSystem never needs to participate in scene population.
-    void ObserveSceneLifecycle( const SceneLifecyclePacket& packet );
+    void ObserveSceneLifecycle( const SimulationSceneLifecycleInput& input );
     SimulationTickResult Tick( const SimulationTickInput& input );
 
     // Cumulative diagnostics since Reset; callers may sample them without
@@ -105,6 +110,6 @@ class SimulationSystem
     double m_renderFrameLockstepTickAccumulator = 0.0;
     uint64_t m_droppedPhysicsTickCount = 0;
     uint64_t m_physicsHitchEventCount = 0;
-    SceneLifecycleGenerationObserver m_sceneResetObserver;
+    uint64_t m_lastSceneResetGeneration = 0;
 };
 } // namespace SkullbonezCore::Runtime

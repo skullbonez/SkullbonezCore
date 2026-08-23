@@ -100,7 +100,9 @@
       {
         "package": "Runtime/Simulation",
         "rank": 6,
-        "allowed_exact_target_files": []
+        "allowed_exact_target_files": [
+          "Runtime/Interaction/PhysicsAdvanceState.h"
+        ]
       },
       {
         "package": "Runtime/Scene",
@@ -447,13 +449,6 @@
         {"source": "Runtime/Editor/MousePickupTools.cpp", "line": 29, "target": "Runtime/Tools/RuntimeTools.h", "fingerprint": "35fcac231542f698fc2a4c4e26c035c9a64d4cd122f0768828f051cab86e7ab7", "repair_phase": "RBS2-RBS5"},
         {"source": "Runtime/Input/InputRouter.h", "line": 57, "target": "Runtime/Scene/SceneLifecycle.h", "fingerprint": "621483800b8c013d949b1a2f27d0b67762a003142b4a389e28f1844a4d01a5e0", "repair_phase": "RBS2-RBS5"},
         {"source": "Runtime/Input/InputRouter.h", "line": 60, "target": "Runtime/Replay/ReplayEventCommand.h", "fingerprint": "92760bba1243588a23d1666517cb1df496475292eddd0d1f16ff55043b2c3aa8", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Interaction/OperatorCommandTransaction.Commands.cpp", "line": 33, "target": "Runtime/Scene/SceneController.h", "fingerprint": "2f02a7ebad055aebd1f33946fb60a50393ec52c805eb94f8ede4bf146c8bb2e5", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Interaction/OperatorCommandTransaction.Commands.cpp", "line": 34, "target": "Runtime/Scene/SceneCinematicPolicy.h", "fingerprint": "a0d80a49bd5cee77c437f41d1c24100f32ae22c185b2d4ccdafc7a5986dae896", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Interaction/OperatorCommandTransaction.Commands.cpp", "line": 36, "target": "Runtime/Render/RuntimeRenderer.h", "fingerprint": "5f8f6dff59e40a2f464c71b17963165a9d20adeb2d7a1bc72e2293502d146135", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Interaction/OperatorCommandTransaction.Commands.cpp", "line": 37, "target": "Runtime/Render/RenderDefaultsStore.h", "fingerprint": "bd1bc4cb7cca8c428b88dfd4a85a784116346a7d4cc49c26026ba60ada94e989", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Interaction/OperatorCommandTransaction.Commands.cpp", "line": 39, "target": "Runtime/Scene/SceneWorld.h", "fingerprint": "e3a35e232adfa5e66dfd86fd4a82be717964cbd3984a898f3cc5227cb28adf77", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Interaction/OperatorCommandTransaction.Commands.cpp", "line": 40, "target": "Runtime/Simulation/SimulationSystem.h", "fingerprint": "5ddadb2e41e9385bf26bca620bbdc4ddf37731d489b65f0a29651e0da30dd652", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Interaction/RuntimeInteractionController.h", "line": 40, "target": "Runtime/Scene/SceneLifecycle.h", "fingerprint": "efde543b573616568d34e01d319188c4c166cc5a7a4470931cfc62748805213d", "repair_phase": "RBS2-RBS5"},
         {"source": "Runtime/Planning/ContinuousOrbitalForecast.cpp", "line": 33, "target": "Runtime/Scene/SceneEntityStore.h", "fingerprint": "875c728018b4ff1f1b3729809dcb46d308287a274e75de461b9d2eb03a92a6c2", "repair_phase": "RBS2-RBS5"},
         {"source": "Runtime/Planning/ReplayCauseInspection.cpp", "line": 57, "target": "Runtime/Replay/ReplayOverlayLayout.h", "fingerprint": "f4fe7d6ef3b1d8615b70283a937791c076e347607e668c8263e4bb7a99d551e9", "repair_phase": "RBS2-RBS5"},
         {"source": "Runtime/Planning/ReplayCauseInspection.cpp", "line": 58, "target": "Runtime/Replay/ReplayRecorder.h", "fingerprint": "d60b5f4f5b7cd09924a718019c63b079a29e5d8873b27eb04024955a6f2c91c7", "repair_phase": "RBS2-RBS5"},
@@ -577,8 +572,6 @@
         {"source": "Runtime/Scene/SceneSaveOperations.cpp", "line": 29, "target": "Runtime/Tools/RuntimeFileWriter.h", "fingerprint": "d30b66a9ddce11dfcc09cbe986a001ca91e2b485b36446b4abd47a2bdf6cefd1", "repair_phase": "RBS2-RBS5"},
         {"source": "Runtime/Scene/SceneWorld.cpp", "line": 45, "target": "Runtime/Debug/CollisionVisualizer.h", "fingerprint": "365550524773f293166a75a36913cdb25594d87df3f980a5ddec550af52488ec", "repair_phase": "RBS2-RBS5"},
         {"source": "Runtime/Scene/SceneWorld.cpp", "line": 46, "target": "Runtime/Debug/PhysicsDebugVisualizer.h", "fingerprint": "b9ed7581ea72d0f9959aa637017ceafd66bc5d6904f4d73b82dfa32ef0eef9de", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Simulation/SimulationSystem.h", "line": 35, "target": "Runtime/Interaction/RuntimeInteractionController.h", "fingerprint": "f49f8d21ff09534880118a624fe5c1c884e80f05338e69a714c939d00387e593", "repair_phase": "RBS2-RBS5"},
-        {"source": "Runtime/Simulation/SimulationSystem.h", "line": 36, "target": "Runtime/Scene/SceneLifecycle.h", "fingerprint": "14d9b578578ab6d0dcc5bc0a4096a1ac2b9d2281baa6cd82e028dca0259a90b3", "repair_phase": "RBS2-RBS5"},
         {"source": "Runtime/Startup/StartupCommandLine.h", "line": 35, "target": "Runtime/Replay/ReplayCaptureLimits.h", "fingerprint": "4d9e50086d0ffaabf02cf6c0d544e58d3caab87969d7551c267527909562e3e9", "repair_phase": "RBS2-RBS5"},
         {"source": "Runtime/Startup/StartupLaunchResolution.cpp", "line": 35, "target": "Runtime/Replay/ReplayOverlaySurface.h", "fingerprint": "c2a7708ee1a6bfa3512bf4e39ad91b6101067deda577a743971fc5840ee1c274", "repair_phase": "RBS2-RBS5"},
         {"source": "Runtime/Startup/StartupProbeHarnesses.cpp", "line": 45, "target": "Runtime/Scene/SceneController.h", "fingerprint": "113f63d98750807948a5886c7d3114b30179be73b9a95fb19a3005f627e387b1", "repair_phase": "RBS2-RBS5"},

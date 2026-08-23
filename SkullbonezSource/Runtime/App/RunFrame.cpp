@@ -1041,7 +1041,10 @@ float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned,
 {
     // Why: simulation pacing is a reactive frame concern. Sampling the ledger
     // here keeps SimulationSystem out of every cold scene-load call surface.
-    m_simulation.ObserveSceneLifecycle( m_sceneController.LifecyclePacket() );
+    const SceneLifecyclePacket& lifecycle = m_sceneController.LifecyclePacket();
+    m_simulation.ObserveSceneLifecycle(
+        { lifecycle.generation,
+          SceneLifecycleReached( lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneCleared ) } );
     const ReplayInputView replayInput = m_replayRuntime.BuildInputView();
 
     if ( replayInput.scrubPaused )

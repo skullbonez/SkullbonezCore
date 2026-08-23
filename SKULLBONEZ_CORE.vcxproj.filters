@@ -618,8 +618,8 @@
     <ClCompile Include="SkullbonezSource\Runtime\Automation\RuntimeValidationHarness.cpp">
       <Filter>Source Files\Runtime\Automation</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Interaction\OperatorCommandTransaction.Commands.cpp">
-      <Filter>Source Files\Runtime\Settings</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\App\OperatorCommandApplication.cpp">
+      <Filter>Source Files\Runtime\Lifecycle</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\OperatorCommandTransaction.cpp">
       <Filter>Source Files\Runtime\Settings</Filter>
@@ -1103,6 +1103,9 @@
       <Filter>Header Files\Runtime\Settings</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Interaction\RuntimeInteractionController.h">
+      <Filter>Header Files\Runtime\Interaction</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Interaction\PhysicsAdvanceState.h">
       <Filter>Header Files\Runtime\Interaction</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\UI\RuntimeUiSurface.h">

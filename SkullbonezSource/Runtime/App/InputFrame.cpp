@@ -1052,8 +1052,21 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
         recordUIAction( RuntimeInputAction::ToggleTerrainContactProbe );
     }
 
+    const SimulationPacingPolicy previousPacing = ResolveSimulationPacingPolicy(
+        launchOptions.fixedStep, sceneController.State().isFixedStep, sceneController.State().targetFrameCount,
+        sceneController.State().isInteractiveRun );
     operatorCommands.ApplyRuntimePresentation( debug, sceneController.State(), config, launchOptions, renderDefaults, true,
-                                               timers.SceneElapsedSeconds(), simulation );
+                                               timers.SceneElapsedSeconds() );
+
+    if ( operatorAcceptance.toggledFixedStep &&
+         previousPacing != ResolveSimulationPacingPolicy( launchOptions.fixedStep, sceneController.State().isFixedStep,
+                                                          sceneController.State().targetFrameCount,
+                                                          sceneController.State().isInteractiveRun ) )
+    {
+        // Why: live and interactive scenes ignore the fixed-step capture request.
+        // Preserve fractional wall-clock time when effective pacing did not change.
+        simulation.Reset();
+    }
 
     if ( operatorAcceptance.toggledTextOnly )
     {

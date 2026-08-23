@@ -397,7 +397,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\RuntimeInteractionController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\RuntimePickGeometry.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\RuntimePickService.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Interaction\OperatorCommandTransaction.Commands.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\App\OperatorCommandApplication.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\OperatorCommandTransaction.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\UI\RenderDiagnosticsProjection.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\UI\RuntimeViewModel.cpp" />
@@ -620,6 +620,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\App\SceneLoadApplication.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\SceneMemoryDiagnostics.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Interaction\OperatorCommandTransaction.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Interaction\PhysicsAdvanceState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Interaction\RuntimeInteractionController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\UI\RuntimeUiSurface.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Interaction\RuntimePickGeometry.h" />

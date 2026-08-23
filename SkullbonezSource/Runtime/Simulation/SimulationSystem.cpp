@@ -81,10 +81,11 @@ void SimulationSystem::Reset()
     m_physicsHitchEventCount = 0;
 }
 
-void SimulationSystem::ObserveSceneLifecycle( const SceneLifecyclePacket& packet )
+void SimulationSystem::ObserveSceneLifecycle( const SimulationSceneLifecycleInput& input )
 {
-    if ( m_sceneResetObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
+    if ( input.generation != 0 && input.generation != m_lastSceneResetGeneration && input.reachedAfterClear )
     {
+        m_lastSceneResetGeneration = input.generation;
         Reset();
     }
 }

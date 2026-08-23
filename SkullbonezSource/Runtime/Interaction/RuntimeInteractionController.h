@@ -37,10 +37,12 @@ Related:
 #pragma once
 
 #include "../../World/FluidSurfaceAdjustment.h"
-#include "../Scene/SceneLifecycle.h"
+#include "PhysicsAdvanceState.h"
 
 #include "../Camera/RuntimeCameraMode.h"
 #include "../../Physics/PhysicsHandles.h"
+
+#include <cstdint>
 
 namespace SkullbonezCore
 {
@@ -48,6 +50,12 @@ namespace Runtime
 {
 struct RuntimeGestureCommand;
 struct RuntimeGestureEvent;
+struct RuntimeInteractionSceneLifecycleInput
+{
+    uint64_t generation = 0;
+    bool reachedAfterClear = false;
+    bool reachedAfterActivation = false;
+};
 enum class RuntimeWorkspace
 {
     Live,
@@ -69,14 +77,6 @@ enum class WorldInteractionOwner
     ReplayCauseTree,
     Launcher,
     Manipulator
-};
-
-enum class PhysicsAdvanceState
-{
-    Disabled,
-    Paused,
-    Running,
-    RunWhileStepHeld
 };
 
 enum class CameraLookState
@@ -282,7 +282,7 @@ class RuntimeInteractionController
                                 bool mouseLookOwnsCursor );
     void CancelCameraLookGesture();
     RuntimeInteractionTransition ResetForScene( InteractionExitReason reason );
-    void ObserveSceneLifecycle( const SceneLifecyclePacket& packet, bool enterInspectAfterActivation );
+    void ObserveSceneLifecycle( const RuntimeInteractionSceneLifecycleInput& input, bool enterInspectAfterActivation );
 
     RuntimeInteractionFramePolicy BuildFramePolicy( const RuntimeInteractionFrameInput& input ) const;
 
@@ -306,8 +306,8 @@ class RuntimeInteractionController
     PhysicsAdvanceState m_physicsAdvance = PhysicsAdvanceState::Running;
     RuntimeInteractionGesture m_gesture;
     RuntimePointerCaptureOwner m_pointerCapture = RuntimePointerCaptureOwner::None;
-    SceneLifecycleGenerationObserver m_sceneResetObserver;
-    SceneLifecycleGenerationObserver m_sceneActivationObserver;
+    uint64_t m_lastSceneResetGeneration = 0;
+    uint64_t m_lastSceneActivationGeneration = 0;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

@@ -174,7 +174,11 @@ void ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction, const Ru
     replayRuntime.ObserveSceneLifecycleAfterClear( lifecycle, interaction, inputRouter );
 
     const bool enterInspectAfterActivation = outputs.camera.mode == RunCameraMode::Inspect;
-    interaction.ObserveSceneLifecycle( lifecycle, enterInspectAfterActivation );
+    interaction.ObserveSceneLifecycle(
+        { lifecycle.generation,
+          SceneLifecycleReached( lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneCleared ),
+          SceneLifecycleReached( lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneActivated ) },
+        enterInspectAfterActivation );
     camera.ObserveSceneLifecycle( lifecycle, outputs.camera );
 
     if ( inputRouter.ObserveSceneLifecycle( lifecycle, enterInspectAfterActivation ) )
