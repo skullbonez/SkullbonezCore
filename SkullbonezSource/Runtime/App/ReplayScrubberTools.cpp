@@ -56,6 +56,7 @@ Related:
 #include "../Input/InputRouter.h"
 #include "../Interaction/RuntimeInteractionCommands.h"
 #include "../Camera/CameraControlState.h"
+#include "../Tools/RuntimeFileWriter.h"
 #include "../Tools/RuntimeTools.h"
 #include "../../Core/Profiler.h"
 #include "../../Core/FatalError.h"
@@ -467,12 +468,13 @@ void ReplayRuntime::ExitInspectionCamera( Environment::CameraCollection* cameras
 
 bool ReplayRuntime::SavePresentationFromScrubber( double now )
 {
-    // Invariant: the timeline advances the process-local sequence and the
-    // scrubber publishes success only after the binary v2 writer completes.
+    // Invariant: App advances the process-local sequence and publishes success
+    // only after Replay's binary v2 writer completes.
     char path[256] = {};
     bool saved = false;
 
-    if ( m_timeline.NextPresentationSavePath( path, sizeof( path ) ) )
+    if ( RuntimeFileWriter::NextNumberedPath( path, sizeof( path ), "replays", "replay_v2_", ".skreplay",
+                                              m_presentationSaveSequence ) )
     {
         saved = SavePresentationWithSolverHashes( path );
     }

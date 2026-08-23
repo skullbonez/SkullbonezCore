@@ -140,7 +140,7 @@ enum class RunLauncherFireMode
 
 struct RunRayCastTestState
 {
-    static constexpr std::size_t MAX_LINES = 64;
+    static constexpr std::size_t MAX_LINES = REPLAY_LAUNCHER_RAY_LINE_CAPACITY;
 
     // Invariant: Ray lines are a visual ring buffer. Recording/replay restores
     // the cursor and line payload, so wrap behavior is part of the replay ABI.

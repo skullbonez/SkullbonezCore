@@ -32,6 +32,8 @@ Related:
 #include "ReplayAuthoringPackets.h"
 #include "ReplayRecorder.h"
 #include "../../Core/Common.h"
+#include "../../Maths/Quaternion.h"
+#include "../../Physics/CollisionShape.h"
 #include "../../Physics/PhysicsHandles.h"
 
 #include <vector>
@@ -66,7 +68,6 @@ namespace Runtime
 class InputRouter;
 class ReplayPresentation;
 class ReplayScrubber;
-class EditorTracer;
 class RuntimeInteractionController;
 class SceneEntityStore;
 struct ReplayPathPickInput;
@@ -98,6 +99,22 @@ struct ReplayVelocityEditDragStart
     float angle = 0.0f;
     Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
+};
+
+// Lifetime: the shape reference borrows ColliderStore only until App applies
+// this command during the same overlay composition call.
+struct ReplayVelocityOverlayCommand
+{
+    Math::Vector::Vector3 origin = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
+    Math::CollisionDetection::CollisionShapeReference shape;
+    Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
+    float radius = 1.0f;
+    int hotLinearAxis = -1;
+    int hotAngularAxis = -1;
+    int activeAxis = -1;
+    bool activeAngular = false;
 };
 
 struct ReplayAuthoringMemoryStats
@@ -335,11 +352,12 @@ class ReplayAuthoring
         return true;
     }
 
-    // Appends the authoring-owned velocity gizmo from value-selected replay
-    // identity. Presentation supplies the target but cannot mutate edit state.
-    void AppendVelocityEditOverlay( Physics::PhysicsSceneObjectId targetId, Physics::ModelRowHint targetModelRow,
-                                    Physics::PhysicsEngine& physics, bool editorModeEnabled,
-                                    const RuntimeInteractionGesture& gesture, EditorTracer& tracer ) const;
+    // Publishes the authoring-owned velocity gizmo from value-selected replay
+    // identity. App applies the detached command to its Tools sibling.
+    bool BuildVelocityOverlayCommand( Physics::PhysicsSceneObjectId targetId, Physics::ModelRowHint targetModelRow,
+                                      Physics::PhysicsEngine& physics, bool editorModeEnabled,
+                                      const RuntimeInteractionGesture& gesture,
+                                      ReplayVelocityOverlayCommand& outCommand ) const;
 
     // Concept: authoring publishes a value command instead of holding a
     // prediction pointer or callback. Multiple edits before consumption fold

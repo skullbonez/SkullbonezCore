@@ -34,7 +34,6 @@ Related:
 #include "ReplayPresentation.h"
 #include "ReplayScrubber.h"
 #include "../../Assets/AssetKeys.h"
-#include "../Tools/RuntimeTools.h"
 #include "../Input/InputRouter.h"
 #include "../Scene/SceneEntityStore.h"
 #include "../../Core/Profiler.h"
@@ -902,15 +901,17 @@ bool ReplayAuthoring::TryPickVelocityEditTarget( ReplayPresentation& presentatio
 }
 
 
-void ReplayAuthoring::AppendVelocityEditOverlay( Physics::PhysicsSceneObjectId targetId, ModelRowHint targetModelRow,
-                                                 PhysicsEngine& velocityPhysics, bool editorModeEnabled,
-                                                 const RuntimeInteractionGesture& gesture, EditorTracer& tracer ) const
+bool ReplayAuthoring::BuildVelocityOverlayCommand( Physics::PhysicsSceneObjectId targetId, ModelRowHint targetModelRow,
+                                                   PhysicsEngine& velocityPhysics, bool editorModeEnabled,
+                                                   const RuntimeInteractionGesture& gesture,
+                                                   ReplayVelocityOverlayCommand& outCommand ) const
 {
     PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Overlay" );
+    outCommand = ReplayVelocityOverlayCommand {};
 
     if ( !m_velocityEdit.enabled || editorModeEnabled )
     {
-        return;
+        return false;
     }
 
     ReplayVelocityBodyView body;
@@ -921,11 +922,18 @@ void ReplayAuthoring::AppendVelocityEditOverlay( Physics::PhysicsSceneObjectId t
                                             body ) ||
          body.fixed || !body.shape )
     {
-        return;
+        return false;
     }
 
-    tracer.AddReplayVelocityGizmo( body.position, body.orientation, *body.shape, body.radius, body.linearVelocity,
-                                   body.angularVelocity, m_velocityEdit.hotLinearAxis, m_velocityEdit.hotAngularAxis,
-                                   gesture.kind == RuntimeInteractionGestureKind::ReplayVelocityDrag ? gesture.axis : -1,
-                                   gesture.kind == RuntimeInteractionGestureKind::ReplayVelocityDrag && gesture.angular );
+    outCommand.origin = body.position;
+    outCommand.orientation = body.orientation;
+    outCommand.shape = *body.shape;
+    outCommand.radius = body.radius;
+    outCommand.linearVelocity = body.linearVelocity;
+    outCommand.angularVelocity = body.angularVelocity;
+    outCommand.hotLinearAxis = m_velocityEdit.hotLinearAxis;
+    outCommand.hotAngularAxis = m_velocityEdit.hotAngularAxis;
+    outCommand.activeAxis = gesture.kind == RuntimeInteractionGestureKind::ReplayVelocityDrag ? gesture.axis : -1;
+    outCommand.activeAngular = gesture.kind == RuntimeInteractionGestureKind::ReplayVelocityDrag && gesture.angular;
+    return true;
 }

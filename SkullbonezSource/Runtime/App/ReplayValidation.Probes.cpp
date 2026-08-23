@@ -1238,9 +1238,18 @@ ReplayProbeRunner::VerifyLoadedPresentation( ReplayTimeline& timeline, ReplayScr
                                                                     world.Entities(), tracer );
 
             const RunReplayPathVisualizerState& path = presentation.PathVisualizer();
-            authoring.AppendVelocityEditOverlay( path.targetId, path.targetModelRow, world.Physics(),
-                                                 runtimeTools.Editor().editorModeEnabled, RuntimeInteractionGesture {},
-                                                 tracer );
+            ReplayVelocityOverlayCommand velocityOverlay;
+
+            if ( authoring.BuildVelocityOverlayCommand( path.targetId, path.targetModelRow, world.Physics(),
+                                                        runtimeTools.Editor().editorModeEnabled,
+                                                        RuntimeInteractionGesture {}, velocityOverlay ) )
+            {
+                tracer.AddReplayVelocityGizmo( velocityOverlay.origin, velocityOverlay.orientation,
+                                               velocityOverlay.shape, velocityOverlay.radius,
+                                               velocityOverlay.linearVelocity, velocityOverlay.angularVelocity,
+                                               velocityOverlay.hotLinearAxis, velocityOverlay.hotAngularAxis,
+                                               velocityOverlay.activeAxis, velocityOverlay.activeAngular );
+            }
 
             (void)prediction.PresentationOwner().BuildGhostDrawRequests( predictionView, world.RenderPresentationRecords(),
                                                                          world.BodyStore() );
@@ -1931,7 +1940,9 @@ ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartup
             {
                 ReplaySolverFrameSample liveReference;
                 liveReference.physicsDt = PHYSICS_FIXED_DT;
-                step.succeeded = ReplayRestoreService::CaptureCurrentSolverSample( world, scene, debug, runtimeTools,
+                ReplayLauncherVisualSample launcherVisual;
+                runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
+                step.succeeded = ReplayRestoreService::CaptureCurrentSolverSample( world, scene, debug, launcherVisual,
                                                                                    liveReference, liveBackup );
 
                 step.capturedSample = step.succeeded ? &liveBackup : nullptr;
@@ -1956,8 +1967,10 @@ ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartup
             {
                 uint64_t presentationHash = 0;
                 std::size_t bodyCount = 0;
+                ReplayLauncherVisualSample launcherVisual;
+                runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
                 step.succeeded = request.rollbackReference &&
-                                 ReplayRestoreService::CaptureCurrentSolverHash( world, scene, debug, runtimeTools,
+                                 ReplayRestoreService::CaptureCurrentSolverHash( world, scene, debug, launcherVisual,
                                                                                  *request.rollbackReference, step.solverHash,
                                                                                  presentationHash, bodyCount );
             }

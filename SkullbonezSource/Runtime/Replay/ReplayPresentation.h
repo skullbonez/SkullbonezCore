@@ -81,7 +81,6 @@ class InputRouter;
 class ReplayAuthoring;
 class ReplayPresentation;
 class ReplayScrubber;
-class RuntimeTools;
 class EditorTracer;
 struct CameraControlState;
 struct RunMousePickupState;
@@ -225,13 +224,10 @@ class ReplayPresentation
     ReplayPastTrajectoryView PastTrajectoryView() const noexcept;
     ReplayPresentationMemoryStats CollectMemoryStats() const noexcept;
     bool HasLauncherVisualBackup() const noexcept;
-    void ReserveLauncherVisualCaptureBuffers();
-
-    // Lifetime: the returned capture scratch remains valid until this owner
-    // builds the next launcher sample; ReplayRuntime consumes it synchronously.
-    const ReplayLauncherVisualSample& CaptureLauncherVisual( RuntimeTools& runtimeTools );
-    void StoreLauncherVisualBackupFrom( RuntimeTools& runtimeTools );
-    void RestoreAndClearLauncherVisualBackup( RuntimeTools& runtimeTools );
+    void ReserveLauncherVisualBackupBuffers();
+    void StoreLauncherVisualBackup( const ReplayLauncherVisualSample& sample );
+    const ReplayLauncherVisualSample& LauncherVisualBackup() const noexcept;
+    void ClearLauncherVisualBackup() noexcept;
     void BeginCameraInspection( RunCameraMode restoreMode, uint32_t restoreCameraHash,
                                 const Math::Vector::Vector3& restoreEye, const Math::Vector::Vector3& restoreView,
                                 const Math::Vector::Vector3& restoreUp ) noexcept;
@@ -268,7 +264,6 @@ class ReplayPresentation
                                             std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
                                             const ReplaySolverFrameSample* currentSolverSample );
     bool PrepareRenderPoseBodyMatch( int modelCount ) noexcept;
-    void ClearLauncherVisualBackup();
     bool ApplyPresentationSampleForRender( Rendering::RenderInstanceStore& renderInstances,
                                            const Physics::PhysicsBodyStore& bodyStore,
                                            const Physics::ColliderStore& colliderStore,
@@ -281,7 +276,6 @@ class ReplayPresentation
     RunReplayCameraState m_camera;
     RunReplayPathVisualizerState m_pathVisualizer;
     ReplayLauncherVisualSample m_launcherVisualBackup;
-    ReplayLauncherVisualSample m_launcherVisualCaptureScratch;
 
     // Invariant: replay render pose matching is a per-frame mark table capped
     // by the live model budget, so scrub/prediction rendering never allocates.

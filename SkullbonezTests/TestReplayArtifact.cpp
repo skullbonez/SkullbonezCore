@@ -108,9 +108,9 @@ constexpr std::size_t kPresentationBodyOrientationOffset = 16u;
 std::string ArtifactPath( const char* leaf )
 {
 
-    // RuntimeFileWriter intentionally creates one parent directory rather than
-    // recursively interpreting an arbitrary path, so the fixture uses one
-    // owned directory directly beneath the existing TestOutput root.
+    // Replay artifact writing creates the requested parent directory before
+    // opening the binary output, so the fixture uses one owned directory under
+    // the existing TestOutput root.
     return std::string( "TestOutput/replay_artifact_unit/" ) + leaf;
 }
 

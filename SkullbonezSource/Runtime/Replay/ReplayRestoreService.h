@@ -7,7 +7,8 @@ Summary:
   Replay restore is a controlled rollback boundary. The service resolves
   durable body identities, preflights surviving joint topology before mutation,
   trims live owners, commits body rows then solver state, and applies matching world,
-  camera, tool, and presentation state.
+  camera, and presentation state, then reports success so App can apply the
+  detached launcher packet to its Tools sibling.
 
 Glossary:
   Restore operands: Concrete live owners borrowed only for one synchronous
@@ -17,8 +18,8 @@ Invariants:
   - Restore must reject samples whose body ids no longer match live store rows.
   - Restore borrows SceneWorld once and resolves physics, environment, cameras,
     entities, and stores locally; it never borrows the lifecycle controller.
-  - Body state, solver caches, world settings, scene flags, and tool visuals are
-    restored as one ordered operation.
+  - Body state, solver caches, world settings, and scene flags are restored as
+    one ordered operation; App applies tool visuals only after success.
   - Physics body rows commit before solver state because body restoration
     invalidates topology-derived caches; the solver snapshot is the final
     Physics commit that makes versioned hysteresis bytes authoritative.
@@ -41,7 +42,6 @@ Related:
 #include "../Diagnostics/OverlayDebugState.h"
 #include "../Scene/SceneWorld.h"
 #include "../Scene/SceneSessionState.h"
-#include "../Tools/RuntimeTools.h"
 #include "../../Core/FatalError.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Physics/PhysicsBodyStore.h"
@@ -113,8 +113,7 @@ class ReplayRestoreService
     }
 
     static bool ApplySolverSampleState( SceneWorld& world, SceneSessionState& scene, OverlayDebugState& debug,
-                                        RuntimeTools& runtimeTools, const ReplaySolverFrameSample& sample, char* outReason,
-                                        std::size_t reasonSize )
+                                        const ReplaySolverFrameSample& sample, char* outReason, std::size_t reasonSize )
     {
         if ( sample.worldSnapshot.physics.version < 1 ||
              sample.worldSnapshot.physics.version > Physics::PHYSICS_SOLVER_SNAPSHOT_VERSION )
@@ -222,7 +221,6 @@ class ReplayRestoreService
         world.Cameras().SetViewCoordinates( sample.camera.view );
         world.Cameras().SetCamera();
 
-        runtimeTools.RestoreReplayLauncherVisualSample( sample.launcherVisual );
         WriteReason( outReason, reasonSize, "applied" );
         return true;
     }
@@ -230,7 +228,8 @@ class ReplayRestoreService
     // Captures the live stores through a one-frame verifier recorder so hash
     // calculation uses the exact same field order as normal replay capture.
     static bool CaptureCurrentSolverSample( SceneWorld& world, const SceneSessionState& scene,
-                                            const OverlayDebugState& debug, RuntimeTools& runtimeTools,
+                                            const OverlayDebugState& debug,
+                                            const ReplayLauncherVisualSample& launcherVisual,
                                             const ReplaySolverFrameSample& reference, ReplaySolverFrameSample& outSample )
     {
         ReplayRecorderConfig config;
@@ -244,9 +243,6 @@ class ReplayRestoreService
         {
             return false;
         }
-
-        ReplayLauncherVisualSample launcherVisual;
-        runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
 
         ReplayWorldPresentationSample worldSample;
         worldSample.gravity = world.Environment().GetGravity();
@@ -280,12 +276,13 @@ class ReplayRestoreService
     }
 
     static bool CaptureCurrentSolverHash( SceneWorld& world, const SceneSessionState& scene, const OverlayDebugState& debug,
-                                          RuntimeTools& runtimeTools, const ReplaySolverFrameSample& reference,
+                                          const ReplayLauncherVisualSample& launcherVisual,
+                                          const ReplaySolverFrameSample& reference,
                                           uint64_t& outSolverHash, uint64_t& outPresentationHash, std::size_t& outBodyCount )
     {
         ReplaySolverFrameSample verified;
 
-        if ( !CaptureCurrentSolverSample( world, scene, debug, runtimeTools, reference, verified ) )
+        if ( !CaptureCurrentSolverSample( world, scene, debug, launcherVisual, reference, verified ) )
         {
             return false;
         }

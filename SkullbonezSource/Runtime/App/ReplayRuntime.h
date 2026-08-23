@@ -593,6 +593,7 @@ class ReplayRuntime
     ReplayProbeRunner m_probeRunner;
     ReplayScrubber m_scrubberOwner;
     ReplayPresentation m_visualPresentation;
+    ReplayLauncherVisualSample m_launcherVisualCaptureScratch;
     ReplayAuthoring m_authoring;
     ReplayPrediction m_predictionOwner;
     ReplayPlanningRuntime m_planningOwner;
@@ -603,6 +604,7 @@ class ReplayRuntime
     uint64_t m_predictionEvidenceReleaseAfterReplayTotalBytes = 0;
     uint64_t m_predictionEvidenceReleaseBeforeCategoryTotalBytes = 0;
     uint64_t m_predictionEvidenceReleaseAfterCategoryTotalBytes = 0;
+    int m_presentationSaveSequence = 0;
     SceneLifecycleGenerationObserver m_sceneClearObserver;
     SceneLifecycleGenerationObserver m_sceneActivationObserver;
 };

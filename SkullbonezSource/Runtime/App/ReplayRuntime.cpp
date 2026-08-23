@@ -402,8 +402,10 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( ReplayRestoreTransaction& transac
     m_predictionOwner.CancelJob( false );
     transaction.SelectArtifact( 0, 0 );
     ReplaySolverFrameSample liveBackup;
+    runtimeTools.BuildReplayLauncherVisualSample( m_launcherVisualCaptureScratch );
 
-    if ( !ReplayRestoreService::CaptureCurrentSolverSample( world, scene, debug, runtimeTools, sample, liveBackup ) )
+    if ( !ReplayRestoreService::CaptureCurrentSolverSample( world, scene, debug, m_launcherVisualCaptureScratch, sample,
+                                                            liveBackup ) )
     {
         transaction.FailBeforeMutation( "failed to capture live replay backup" );
         return false;
@@ -429,18 +431,19 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( ReplayRestoreTransaction& transac
     transaction.MarkTopologyPrepared( false, false );
     char applyReason[128] = {};
 
-    if ( !ReplayRestoreService::ApplySolverSampleState( world, scene, debug, runtimeTools, sample, applyReason,
-                                                        sizeof( applyReason ) ) )
+    if ( !ReplayRestoreService::ApplySolverSampleState( world, scene, debug, sample, applyReason, sizeof( applyReason ) ) )
     {
         transaction.FailBeforeMutation( applyReason[0] != '\0' ? applyReason : "restore apply failed" );
         return false;
     }
 
+    runtimeTools.RestoreReplayLauncherVisualSample( sample.launcherVisual );
     transaction.MarkCheckpointApplied();
 
     ReplaySolverFrameSample restoredSample;
-    const bool hashCaptured = ReplayRestoreService::CaptureCurrentSolverSample( world, scene, debug, runtimeTools, sample,
-                                                                                restoredSample );
+    runtimeTools.BuildReplayLauncherVisualSample( m_launcherVisualCaptureScratch );
+    const bool hashCaptured = ReplayRestoreService::CaptureCurrentSolverSample(
+        world, scene, debug, m_launcherVisualCaptureScratch, sample, restoredSample );
 
     transaction.MarkTargetStepped( sample.frameIndex, sample.eventCursor, 0 );
 
@@ -455,9 +458,13 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( ReplayRestoreTransaction& transac
     {
         char fallbackReason[128] = {};
 
-        fallbackRestored = ReplayRestoreService::ApplySolverSampleState( world, scene, debug, runtimeTools,
-                                                                         transaction.LiveBackup(), fallbackReason,
-                                                                         sizeof( fallbackReason ) );
+        fallbackRestored = ReplayRestoreService::ApplySolverSampleState( world, scene, debug, transaction.LiveBackup(),
+                                                                         fallbackReason, sizeof( fallbackReason ) );
+
+        if ( fallbackRestored )
+        {
+            runtimeTools.RestoreReplayLauncherVisualSample( transaction.LiveBackup().launcherVisual );
+        }
     }
 
 #ifdef _DEBUG
@@ -578,8 +585,17 @@ void ReplayRuntime::AppendOverlayTrace( PhysicsEngine& physics, const SceneEntit
                                                                    bodyStore, colliderStore, entities, tracer );
 
     const RunReplayPathVisualizerState& path = m_visualPresentation.PathVisualizer();
-    m_authoring.AppendVelocityEditOverlay( path.targetId, path.targetModelRow, physics, input.editorModeEnabled,
-                                           input.gesture, tracer );
+    ReplayVelocityOverlayCommand velocityOverlay;
+
+    if ( m_authoring.BuildVelocityOverlayCommand( path.targetId, path.targetModelRow, physics, input.editorModeEnabled,
+                                                  input.gesture, velocityOverlay ) )
+    {
+        tracer.AddReplayVelocityGizmo( velocityOverlay.origin, velocityOverlay.orientation, velocityOverlay.shape,
+                                       velocityOverlay.radius, velocityOverlay.linearVelocity,
+                                       velocityOverlay.angularVelocity, velocityOverlay.hotLinearAxis,
+                                       velocityOverlay.hotAngularAxis, velocityOverlay.activeAxis,
+                                       velocityOverlay.activeAngular );
+    }
 
     const ReplayInterceptView intercept = m_planningOwner.InterceptView();
 
@@ -818,7 +834,8 @@ ReplayFrameSelection ReplayRuntime::ApplyRenderPose( Rendering::RenderInstanceSt
 
             if ( !m_visualPresentation.HasLauncherVisualBackup() )
             {
-                m_visualPresentation.StoreLauncherVisualBackupFrom( runtimeTools );
+                runtimeTools.BuildReplayLauncherVisualSample( m_launcherVisualCaptureScratch );
+                m_visualPresentation.StoreLauncherVisualBackup( m_launcherVisualCaptureScratch );
                 runtimeTools.RestoreReplayLauncherVisualSample( solverSample->launcherVisual );
             }
         }
@@ -929,7 +946,8 @@ void ReplayRuntime::CancelRenderFrame( RuntimeTools& runtimeTools )
 {
     if ( m_visualPresentation.HasLauncherVisualBackup() )
     {
-        m_visualPresentation.RestoreAndClearLauncherVisualBackup( runtimeTools );
+        runtimeTools.RestoreReplayLauncherVisualSample( m_visualPresentation.LauncherVisualBackup() );
+        m_visualPresentation.ClearLauncherVisualBackup();
     }
 }
 
@@ -1220,7 +1238,9 @@ ReplayRecordingActivationResult ReplayRuntime::ConfigureRecording( bool enabled,
                                                                    const char* hashLogPath, int runtimeBodyCapacity )
 {
     ReplayRecordingActivationResult activation;
-    m_visualPresentation.ReserveLauncherVisualCaptureBuffers();
+    m_launcherVisualCaptureScratch.rayLines.reserve( REPLAY_LAUNCHER_RAY_LINE_CAPACITY );
+    m_launcherVisualCaptureScratch.laserShots.reserve( REPLAY_LAUNCHER_LASER_SHOT_CAPACITY );
+    m_visualPresentation.ReserveLauncherVisualBackupBuffers();
     activation.configuration = m_timeline.ConfigureRecording( enabled, retentionSeconds, hashLogPath, runtimeBodyCapacity );
 
     if ( activation.configuration.presentationConfig.enabled )
@@ -1379,9 +1399,10 @@ void ReplayRuntime::CaptureFrame( int sceneFrame, float physicsDt, const ReplayW
     // Invariant: presentation, solver, and event timelines share the same
     // branch and event cursor for this frame. Save/export code depends on that
     // alignment when it pairs visual frames with restore checkpoints.
-    const ReplayLauncherVisualSample& launcherVisual = m_visualPresentation.CaptureLauncherVisual( runtimeTools );
+    runtimeTools.BuildReplayLauncherVisualSample( m_launcherVisualCaptureScratch );
     const ReplaySolverFrameSample* solverSample = m_timeline.CaptureFrame( sceneFrame, physicsDt, world, camera,
-                                                                           launcherVisual, physics, tornadoGameplay,
+                                                                           m_launcherVisualCaptureScratch, physics,
+                                                                           tornadoGameplay,
                                                                            entities, bodyStore, colliderStore,
                                                                            m_authoring.Branch() );
 

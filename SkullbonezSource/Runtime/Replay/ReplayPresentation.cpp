@@ -27,7 +27,6 @@ Related:
 #include "ReplayPresentation.h"
 #include "../Interaction/RuntimePickService.h"
 #include "../Scene/SceneEntityStore.h"
-#include "../Tools/RuntimeTools.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Rendering/RenderInstanceStore.h"
@@ -55,36 +54,21 @@ ReplayPastTrajectoryView ReplayPresentation::PastTrajectoryView() const noexcept
     return view;
 }
 
-const ReplayLauncherVisualSample& ReplayPresentation::CaptureLauncherVisual( RuntimeTools& runtimeTools )
+void ReplayPresentation::ReserveLauncherVisualBackupBuffers()
 {
-    runtimeTools.BuildReplayLauncherVisualSample( m_launcherVisualCaptureScratch );
-    return m_launcherVisualCaptureScratch;
+    m_launcherVisualBackup.rayLines.reserve( REPLAY_LAUNCHER_RAY_LINE_CAPACITY );
+    m_launcherVisualBackup.laserShots.reserve( REPLAY_LAUNCHER_LASER_SHOT_CAPACITY );
 }
 
-void ReplayPresentation::ReserveLauncherVisualCaptureBuffers()
+void ReplayPresentation::StoreLauncherVisualBackup( const ReplayLauncherVisualSample& sample )
 {
-    constexpr std::size_t launcherLaserShotCapacity = 32;
-    m_launcherVisualCaptureScratch.rayLines.reserve( RunRayCastTestState::MAX_LINES );
-    m_launcherVisualCaptureScratch.laserShots.reserve( launcherLaserShotCapacity );
-    m_launcherVisualBackup.rayLines.reserve( RunRayCastTestState::MAX_LINES );
-    m_launcherVisualBackup.laserShots.reserve( launcherLaserShotCapacity );
-}
-
-void ReplayPresentation::StoreLauncherVisualBackupFrom( RuntimeTools& runtimeTools )
-{
-    runtimeTools.BuildReplayLauncherVisualSample( m_launcherVisualBackup );
+    m_launcherVisualBackup = sample;
     m_launcherVisualBackupActive = true;
 }
 
-void ReplayPresentation::RestoreAndClearLauncherVisualBackup( RuntimeTools& runtimeTools )
+const ReplayLauncherVisualSample& ReplayPresentation::LauncherVisualBackup() const noexcept
 {
-    if ( !m_launcherVisualBackupActive )
-    {
-        return;
-    }
-
-    runtimeTools.RestoreReplayLauncherVisualSample( m_launcherVisualBackup );
-    ClearLauncherVisualBackup();
+    return m_launcherVisualBackup;
 }
 
 namespace
@@ -828,7 +812,7 @@ bool ReplayPresentation::PrepareRenderPoseBodyMatch( int modelCount ) noexcept
 }
 
 
-void ReplayPresentation::ClearLauncherVisualBackup()
+void ReplayPresentation::ClearLauncherVisualBackup() noexcept
 {
     // Invariant: historical rendering borrows this scratch every frame. Clear
     // semantic values while retaining startup capacity so entering inspection

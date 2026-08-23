@@ -40,11 +40,10 @@ Related:
 #include "ReplayArtifactSource.h"
 #include "../../Core/ByteView.h"
 
-#include "../Tools/RuntimeFileWriter.h"
-
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <limits>
 #include <string>
@@ -86,6 +85,25 @@ constexpr uint32_t REPLAY_V2_EVENT_CURSOR_ENTRY_BYTES = 24;
 constexpr uint32_t REPLAY_V2_SOLVER_BODY_ENTRY_BYTES = 112;
 constexpr uint32_t REPLAY_V4_VISUAL_PACKET_ENTRY_BYTES = 296;
 constexpr char REPLAY_V2_MAGIC[8] = { 'S', 'K', 'R', 'E', 'P', 'V', '2', '\0' };
+
+bool EnsureReplayArtifactParentDirectory( const char* path )
+{
+    if ( !path || path[0] == '\0' )
+    {
+        return false;
+    }
+
+    const std::filesystem::path parent = std::filesystem::path( path ).parent_path();
+
+    if ( parent.empty() )
+    {
+        return true;
+    }
+
+    std::error_code error;
+    std::filesystem::create_directories( parent, error );
+    return !error;
+}
 
 enum ReplayV2WorldFlags : uint8_t
 {
@@ -2778,7 +2796,7 @@ bool ReplayV2Artifact::SavePresentation( const ReplayRecorder& recorder, const c
         return false;
     }
 
-    if ( !RuntimeFileWriter::EnsureParentDirectory( path ) )
+    if ( !EnsureReplayArtifactParentDirectory( path ) )
     {
         return false;
     }
@@ -2868,7 +2886,7 @@ bool SavePresentationWithTracks( const ReplayRecorder& recorder, const ReplaySol
         return false;
     }
 
-    if ( !RuntimeFileWriter::EnsureParentDirectory( path ) )
+    if ( !EnsureReplayArtifactParentDirectory( path ) )
     {
         return false;
     }

@@ -1065,8 +1065,10 @@ bool ValidateReplayRestoreSteppedFrame( ReplayRestoreTransaction& transaction, S
     uint64_t stepSolverHash = 0;
     uint64_t stepPresentationHash = 0;
     std::size_t stepBodyCount = 0;
+    ReplayLauncherVisualSample launcherVisual;
+    runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
 
-    if ( !ReplayRestoreService::CaptureCurrentSolverHash( world, scene, debug, runtimeTools, stepReference, stepSolverHash,
+    if ( !ReplayRestoreService::CaptureCurrentSolverHash( world, scene, debug, launcherVisual, stepReference, stepSolverHash,
                                                           stepPresentationHash, stepBodyCount ) )
     {
         transaction.RecordFailure( "failed to capture stepped hash" );
@@ -1166,8 +1168,10 @@ bool CaptureAndValidateReplayRestoreTargetHash( const ReplayV2SolverHashSample& 
     reference.sceneFrame = target.sceneFrame;
     reference.simulationSeconds = target.simulationSeconds;
     reference.physicsDt = PHYSICS_FIXED_DT;
+    ReplayLauncherVisualSample launcherVisual;
+    runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
 
-    if ( !ReplayRestoreService::CaptureCurrentSolverHash( world, scene, debug, runtimeTools, reference, result.solverHash,
+    if ( !ReplayRestoreService::CaptureCurrentSolverHash( world, scene, debug, launcherVisual, reference, result.solverHash,
                                                           result.presentationHash, result.bodyCount ) )
     {
         strncpy_s( failure.message, "failed to capture target hash", _TRUNCATE );
@@ -1425,7 +1429,7 @@ bool ApplyReplayRestoreCheckpoint( ReplayRestoreTransaction& transaction, SceneC
     char checkpointReason[288] = {};
 
     if ( !ReplayRestoreService::ApplySolverSampleState( sceneController.Scene(), sceneController.State(), debug,
-                                                        runtimeTools, checkpoint, checkpointReason,
+                                                        checkpoint, checkpointReason,
                                                         sizeof( checkpointReason ) ) )
     {
         if ( transaction.StateMutated() )
@@ -1440,6 +1444,7 @@ bool ApplyReplayRestoreCheckpoint( ReplayRestoreTransaction& transaction, SceneC
         return false;
     }
 
+    runtimeTools.RestoreReplayLauncherVisualSample( checkpoint.launcherVisual );
     transaction.MarkCheckpointApplied();
     return true;
 }
@@ -1460,7 +1465,7 @@ bool RestoreReplayLiveBackupOrFatal( ReplayRestoreTransaction& transaction, Scen
     SceneWorld& world = sceneController.Scene();
     SceneSessionState& scene = sceneController.State();
     char fallbackReason[128] = {};
-    const bool fallbackRestored = ReplayRestoreService::ApplySolverSampleState( world, scene, debug, runtimeTools,
+    const bool fallbackRestored = ReplayRestoreService::ApplySolverSampleState( world, scene, debug,
                                                                                 transaction.LiveBackup(), fallbackReason,
                                                                                 sizeof( fallbackReason ) );
 
@@ -1473,11 +1478,15 @@ bool RestoreReplayLiveBackupOrFatal( ReplayRestoreTransaction& transaction, Scen
                   fallbackReason[0] != '\0' ? fallbackReason : "unknown rollback failure" );
     }
 
+    runtimeTools.RestoreReplayLauncherVisualSample( transaction.LiveBackup().launcherVisual );
+
     uint64_t rollbackSolverHash = 0;
     uint64_t rollbackPresentationHash = 0;
     std::size_t rollbackBodyCount = 0;
+    ReplayLauncherVisualSample launcherVisual;
+    runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
 
-    if ( !ReplayRestoreService::CaptureCurrentSolverHash( world, scene, debug, runtimeTools, transaction.LiveBackup(),
+    if ( !ReplayRestoreService::CaptureCurrentSolverHash( world, scene, debug, launcherVisual, transaction.LiveBackup(),
                                                           rollbackSolverHash, rollbackPresentationHash,
                                                           rollbackBodyCount ) ||
          rollbackSolverHash != transaction.LiveBackup().solverHash )
@@ -1673,8 +1682,11 @@ bool ReplayRuntime::RestoreV2ArtifactTargetState( ReplayRestoreTransaction& tran
 #endif
 
     ReplaySolverFrameSample liveBackup;
+    ReplayLauncherVisualSample launcherVisual;
+    runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
 
-    if ( !ReplayRestoreService::CaptureCurrentSolverSample( world, scene, debug, runtimeTools, *checkpoint, liveBackup ) )
+    if ( !ReplayRestoreService::CaptureCurrentSolverSample( world, scene, debug, launcherVisual, *checkpoint,
+                                                            liveBackup ) )
     {
         recordFailureDiagnostic( "failed to capture live state before restore", target, checkpoint );
         transaction.FailBeforeMutation( "failed to capture live state before restore" );

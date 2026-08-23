@@ -60,7 +60,7 @@ class LauncherLaser
         bool hit = false;
     };
 
-    static constexpr std::size_t MAX_SHOTS = 32;
+    static constexpr std::size_t MAX_SHOTS = REPLAY_LAUNCHER_LASER_SHOT_CAPACITY;
     static constexpr int MAX_VERTICES = static_cast<int>( MAX_SHOTS * 96 );
 
     std::array<Shot, MAX_SHOTS> m_shots = {};

@@ -29,7 +29,6 @@ Related:
 
 #include "ReplayV2Artifact.h"
 
-#include "../Tools/RuntimeFileWriter.h"
 
 #include <cstdio>
 #include <cstring>
@@ -208,12 +207,6 @@ void ReplayTimeline::InstallLoadedPresentation( const char* path, std::vector<Re
     m_loadedPresentation.firstFrame = firstFrame;
     m_loadedPresentation.lastFrame = lastFrame;
     strncpy_s( m_loadedPresentation.path, sizeof( m_loadedPresentation.path ), path, _TRUNCATE );
-}
-
-bool ReplayTimeline::NextPresentationSavePath( char* outPath, std::size_t outPathSize )
-{
-    return RuntimeFileWriter::NextNumberedPath( outPath, outPathSize, "replays", "replay_v2_", ".skreplay",
-                                                m_presentationSaveSequence );
 }
 
 void ReplayTimeline::RecordEvent( const ReplayEventInput& input )
