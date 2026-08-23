@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-23
-Status: All-Build SB Error Observability, Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 93/125 tasks complete
+Status: All-Build SB Error Observability, Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 94/125 tasks complete
 
 ## Owner Direction
 
@@ -298,7 +298,7 @@ Completed plan files were deleted; git history is the archive.
 |---|---|---|---|---|
 | All-Build SB Error Observability And Launch Integrity | `ERROR_OBSERVABILITY` | 7 | 0 | `TODO/all-build-sb-error-observability.md` |
 | Deterministic Collision Modes And Ragdoll Unification | `RAGDOLL_PHYSICS` | 10 | 2 | `TODO/ragdoll-physics-unification.md` |
-| Runtime Boundary Separation And Project Topology | `RUNTIME_BOUNDARIES` | 8 | 0 | `TODO/runtime-boundary-separation.md` |
+| Runtime Boundary Separation And Project Topology | `RUNTIME_BOUNDARIES` | 8 | 1 | `TODO/runtime-boundary-separation.md` |
 | Game UI Component Library Separation | `GAME_UI_COMPONENTS` | 7 | 2 | `TODO/game-ui-component-library-separation.md` |
 | Recorded Interaction Playback Cursor | `RECORDED_CURSOR` | 4 | 0 | `TODO/recorded-interaction-playback-cursor.md` |
 
@@ -379,7 +379,7 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-93/125 tasks complete with All-Build SB Error Observability And Launch Integrity
+94/125 tasks complete with All-Build SB Error Observability And Launch Integrity
 first, Deterministic Collision Modes And Ragdoll Unification second, Runtime
 Boundary Separation And Project Topology third, Game UI Component Library
 Separation fourth, and Recorded Interaction Playback Cursor fifth.
@@ -393,12 +393,14 @@ Repository Hygiene Cleanup RC0-RC5 is complete.
 Core Engine Evidence-Driven Code Reduction CR0-CR5 is complete.
 Real-Time Physics Pacing SP0-SP2 is complete.
 All-Build SB Error Observability And Launch Integrity E0-E6 is active at 0/7;
-E0 is ready for the next parallel orchestrator run.
+E0 is repairing independent-review findings in its inventory and ruling gate.
 Deterministic Collision Modes And Ragdoll Unification FP0-FP9 is active at 2/10;
 FP0-FP1 are complete and FP2 is active under the owner-directed absolute-travel
 threshold.
-Runtime Boundary Separation And Project Topology RBS0-RBS7 is active at 0/8.
-Game UI Component Library Separation UI0-UI6 is active at 0/7 with UI0 ready;
+Runtime Boundary Separation And Project Topology RBS0-RBS7 is active at 1/8;
+RBS0 is complete and RBS1 is ready.
+Game UI Component Library Separation UI0-UI6 is active at 2/7; UI0-UI1 are
+complete and UI2 is active;
 UI3/UI4/UI5/UI6 consume RBS4/RBS5/RBS6/RBS7 respectively and no UI phase has a
 Physics predecessor.
 Recorded Interaction Playback Cursor RIC0-RIC3 is active at 0/4 and binding
