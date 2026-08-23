@@ -251,7 +251,8 @@ Canonical repair-policy SHA-256: `cecfc27976a237027863893b7a612a727d0d59729399a3
 | Rule | Path prefix | Suffixes | Required project | Forbidden projects |
 |---|---|---|---|---|
 | rendering_single_project_ownership | SkullbonezSource/Rendering | .cpp, .h, .hpp, .inl | SKULLBONEZ_RENDERING.vcxproj | SKULLBONEZ_CORE.vcxproj |
-| ui_single_project_ownership | SkullbonezSource/UI | .cpp, .h, .hpp, .inl | SKULLBONEZ_UI.vcxproj | SKULLBONEZ_CORE.vcxproj, SKULLBONEZ_TESTS.vcxproj |
+| runtime_ui_product_project_ownership | SkullbonezSource/Runtime/UI | .cpp, .h, .hpp, .inl | SKULLBONEZ_CORE.vcxproj | SKULLBONEZ_MATHS.vcxproj, SKULLBONEZ_PHYSICS.vcxproj, SKULLBONEZ_RENDERING.vcxproj, SKULLBONEZ_UI.vcxproj |
+| ui_single_project_ownership | SkullbonezSource/UI | .cpp, .h, .hpp, .inl | SKULLBONEZ_UI.vcxproj | SKULLBONEZ_CORE.vcxproj, SKULLBONEZ_MATHS.vcxproj, SKULLBONEZ_PHYSICS.vcxproj, SKULLBONEZ_RENDERING.vcxproj, SKULLBONEZ_TESTS.vcxproj |
 
 #### Executable Proof
 

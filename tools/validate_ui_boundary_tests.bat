@@ -5,8 +5,8 @@
 @rem
 @rem Summary:
 @rem   A successful Release link proves SKULLBONEZ_UI owns a backend-neutral
-@rem   presentation implementation. The executable then fingerprints every tab
-@rem   through InGameUI::Draw without launching or linking the engine.
+@rem   component implementation. The executable fingerprints only reusable
+@rem   component contracts without launching or linking the product engine.
 @rem
 @rem Glossary:
 @rem   Link probe: Executable whose dependency set is itself an architecture test.

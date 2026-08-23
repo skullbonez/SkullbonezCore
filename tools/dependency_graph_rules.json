@@ -46,7 +46,7 @@
       "mode": "deny",
       "target_prefixes": ["Runtime", "Rendering"],
       "positive_target": "Core/Common.h",
-      "negative_target": "Rendering/Text.h"
+      "negative_targets": ["Runtime/UI/GameUI/UI.h", "Rendering/Text.h"]
     },
     {
       "id": "replay_downward_boundary",
@@ -457,7 +457,25 @@
       "path_prefix": "SkullbonezSource/UI/",
       "suffixes": [".cpp", ".h", ".hpp", ".inl"],
       "required_project": "SKULLBONEZ_UI.vcxproj",
-      "forbidden_projects": ["SKULLBONEZ_CORE.vcxproj", "SKULLBONEZ_TESTS.vcxproj"]
+      "forbidden_projects": [
+        "SKULLBONEZ_CORE.vcxproj",
+        "SKULLBONEZ_MATHS.vcxproj",
+        "SKULLBONEZ_PHYSICS.vcxproj",
+        "SKULLBONEZ_RENDERING.vcxproj",
+        "SKULLBONEZ_TESTS.vcxproj"
+      ]
+    },
+    {
+      "id": "runtime_ui_product_project_ownership",
+      "path_prefix": "SkullbonezSource/Runtime/UI/",
+      "suffixes": [".cpp", ".h", ".hpp", ".inl"],
+      "required_project": "SKULLBONEZ_CORE.vcxproj",
+      "forbidden_projects": [
+        "SKULLBONEZ_MATHS.vcxproj",
+        "SKULLBONEZ_PHYSICS.vcxproj",
+        "SKULLBONEZ_RENDERING.vcxproj",
+        "SKULLBONEZ_UI.vcxproj"
+      ]
     },
     {
       "id": "rendering_single_project_ownership",
