@@ -23,7 +23,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Render/UiDrawSubmission.h
   - SkullbonezSource/UI/UIDrawList.h
-  - SkullbonezSource/UI/UIFrameComposition.cpp
+  - SkullbonezSource/UI/UIDraw.h
   - Agentic/Reference/engine-glossary.md
 */
 #include "UiDrawSubmission.h"
@@ -36,7 +36,7 @@ Related:
 #include "../../Rendering/DX12/RenderBackendDX12.h"
 #include "../../Rendering/RenderGpuTimingOwner.h"
 #include "../../Rendering/Text.h"
-#include "../UI/GameUI/UI.h"
+#include "../../UI/UIDraw.h"
 #include "../../UI/UIDrawList.h"
 
 #include <algorithm>

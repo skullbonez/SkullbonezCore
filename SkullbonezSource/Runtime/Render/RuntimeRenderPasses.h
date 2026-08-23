@@ -23,7 +23,7 @@ Invariants:
   - Pass order is owned by RuntimeRenderer::RenderPreparedFrame.
   - Debug contact packets are synchronous Rendering values, not Replay or Planning state.
   - RuntimeRenderTargetPreviewSnapshot owns its fixed-catalog append boundary;
-    every producer reaches fatal invariant before an overflow can index storage.
+    every renderer producer reaches fatal invariant before an overflow can index storage.
   - Sky and Profile UI passes close their lifecycle leases before backend
     resource teardown and reject access outside the active epoch.
 
@@ -44,7 +44,6 @@ Related:
 #include "../../Rendering/DX12/FramebufferDX12.h"
 #include "../../Rendering/Shadow.h"
 #include "../../Rendering/Text.h"
-#include "../UI/GameUI/UI.h"
 #include "../../UI/UIDrawList.h"
 #include "RenderPresentationSettings.h"
 #include "RuntimeRenderHost.h"
@@ -120,12 +119,6 @@ namespace Assets
 class AssetSystem;
 } // namespace Assets
 
-namespace UI
-{
-class InGameUI;
-struct InGameUIFrameData;
-struct OperatorEditorFrameView;
-} // namespace UI
 namespace Text
 {
 class TextBatch;
@@ -373,14 +366,15 @@ struct RuntimeRenderTargetPreview
 
 struct RuntimeRenderTargetPreviewSnapshot
 {
-    // Renderer-owned frame snapshot. Runtime/Render projects only label,
-    // dimensions, format flags, and availability into UI; texture handles stay
-    // here and are resolved from the recorded catalog identity at submission.
+    // Renderer-owned frame snapshot. App projects only label, dimensions,
+    // format flags, and availability into GameUI; texture handles stay in this
+    // parallel submission value and resolve the recorded catalog identity.
     std::array<RuntimeRenderTargetPreview, 12> targets {};
     int count = 0;
 
     // Invariant: both production producers share this fixed-catalog boundary;
-    // the base lifecycle contributes ten rows and UI may append one DXR row.
+    // the base lifecycle contributes ten rows and RuntimeRenderer may append
+    // one DXR row before App records the matching product draw list.
     void AppendCatalogTarget( const RuntimeRenderTargetPreview& preview )
     {
         AppendBounded( preview );
@@ -986,19 +980,25 @@ class UiTextPass
     void ReleaseGpuResources( Rendering::Dx12TextureOwner* renderTextures, Rendering::Dx12GeometryOwner* renderGeometry );
     bool ShouldRender( const UiTextVisibility& visibility ) const;
     void SetDxrReflectionPreviewTexture( uint32_t textureHandle );
+    uint32_t DxrReflectionPreviewTexture() const
+    {
+        return m_dxrReflectionPreviewTexture;
+    }
     void BeginFrame( int screenW, int screenH );
     void RenderChromeStatus( const UiTextViewport& viewport, const UiChromeStatusValues& values,
                              Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
                              Rendering::Dx12Diagnostics& renderDiagnostics );
     void RenderChromeTail( const UiChromeTailValues& values, Rendering::Dx12GeometryOwner& renderGeometry );
-    void PrepareOperatorFrame( UI::InGameUIFrameData& uiData, const UiTextViewport& viewport, bool drawTestPattern,
-                               Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
-                               Rendering::Dx12Diagnostics& renderDiagnostics );
-    void SubmitOperatorFrame( UI::InGameUIFrameData& uiData, UI::InGameUI& ui,
-                              const RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews, Assets::AssetSystem& assets,
-                              Rendering::Dx12ResourceBuilder& renderResources, Rendering::Dx12TextureOwner& renderTextures,
-                              Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12Diagnostics& renderDiagnostics,
-                              int uiPassDrawCallStart );
+    void PrepareOperatorSubmission( const UiTextViewport& viewport, bool drawTestPattern,
+                                    Rendering::Dx12TextureOwner& renderTextures,
+                                    Rendering::Dx12GeometryOwner& renderGeometry,
+                                    Rendering::Dx12Diagnostics& renderDiagnostics );
+    void SubmitOperatorDrawList( const UI::UIDrawList& drawList,
+                                 const RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews,
+                                 Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources,
+                                 Rendering::Dx12TextureOwner& renderTextures,
+                                 Rendering::Dx12GeometryOwner& renderGeometry,
+                                 Rendering::Dx12Diagnostics& renderDiagnostics, const UiTextViewport& viewport );
     void RenderOverlayContent( const UiTextViewport& viewport, UiOverlayMode mode, int modelCount, float rollingFpsTime,
                                float sceneEnergyForDisplay, Rendering::Dx12TextureOwner& renderTextures,
                                Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12Diagnostics& renderDiagnostics );

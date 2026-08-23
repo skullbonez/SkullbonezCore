@@ -54,7 +54,6 @@ class TextBatch;
 namespace UI
 {
 class UIDrawList;
-struct InGameUIFrameData;
 } // namespace UI
 namespace Runtime
 {

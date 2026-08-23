@@ -47,11 +47,9 @@ Related:
 #include "../../Rendering/DX12/Dx12Diagnostics.h"
 #include "../../Rendering/DX12/RenderBackendDX12.h"
 #include "../../Rendering/Text.h"
-#include "../UI/GameUI/UI.h"
 #include "../../UI/UIDraw.h"
 #include "../../UI/UIDrawList.h"
 #include "../../UI/UIDrawWidgets.h"
-#include "../UI/GameUI/UIFrameComposition.h"
 #include "../../UI/UIFontMetrics.h"
 #include "UIProfilerOverlayPresenter.h"
 #include "../../UI/UIStyle.h"
@@ -63,8 +61,6 @@ Related:
 
 using namespace SkullbonezCore::Runtime;
 using SkullbonezCore::Text::Text2d;
-using SkullbonezCore::UI::InGameUIFrameData;
-
 namespace
 {
 class RetainedUIDrawStatsScope
@@ -536,82 +532,41 @@ void UiTextPass::RenderChromeTail( const UiChromeTailValues& values, Rendering::
 }
 
 
-void UiTextPass::PrepareOperatorFrame( UI::InGameUIFrameData& UIData, const UiTextViewport& viewport, bool drawTestPattern,
-                                       Rendering::Dx12TextureOwner& renderTextures,
-                                       Rendering::Dx12GeometryOwner& renderCommands,
-                                       Rendering::Dx12Diagnostics& renderDiagnostics )
+void UiTextPass::PrepareOperatorSubmission( const UiTextViewport& viewport, bool drawTestPattern,
+                                            Rendering::Dx12TextureOwner& renderTextures,
+                                            Rendering::Dx12GeometryOwner& renderCommands,
+                                            Rendering::Dx12Diagnostics& renderDiagnostics )
 {
     Text::TextBatch& textBatch = m_textBatch;
     PROFILE_BEGIN( "Frame/UI/BuildData" );
-    UIData.screenW = viewport.screenW;
-    UIData.screenH = viewport.screenH;
-    UIData.rendererName = renderDiagnostics.GetRendererName();
 
     if ( drawTestPattern )
     {
         DrawUiTestPattern( m_uiDrawSubmission, m_testPatternDrawList, textBatch, renderTextures, renderCommands,
-                           renderDiagnostics, UIData.screenW, UIData.screenH );
+                           renderDiagnostics, viewport.screenW, viewport.screenH );
     }
 }
 
 
-void UiTextPass::SubmitOperatorFrame( UI::InGameUIFrameData& UIData, UI::InGameUI& ui,
-                                      const RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews,
-                                      Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources,
-                                      Rendering::Dx12TextureOwner& renderTextures,
-                                      Rendering::Dx12GeometryOwner& renderCommands,
-                                      Rendering::Dx12Diagnostics& renderDiagnostics, int uiPassDrawCallStart )
+void UiTextPass::SubmitOperatorDrawList( const UI::UIDrawList& drawList,
+                                         const RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews,
+                                         Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources,
+                                         Rendering::Dx12TextureOwner& renderTextures,
+                                         Rendering::Dx12GeometryOwner& renderCommands,
+                                         Rendering::Dx12Diagnostics& renderDiagnostics,
+                                         const UiTextViewport& viewport )
 {
     Text::TextBatch& textBatch = m_textBatch;
-    const SkullbonezCore::UI::InteractionRecordingBrowserState& recordings = ui.SceneNavigation().recordings;
-    UIData.interactionRecordingOptions = recordings.namePtrs.empty() ? nullptr : recordings.namePtrs.data();
-    UIData.interactionRecordingOptionCount = static_cast<int>( recordings.namePtrs.size() );
-    UIData.selectedInteractionRecordingOption = recordings.paths.empty() ? -1 : recordings.selectedIndex;
-
-    // Invariant: the UI projection below omits backend handles. This
-    // renderer-owned copy retains them only until submission resolves the
-    // recorded catalog index for this same frame.
-    RuntimeRenderTargetPreviewSnapshot resolvedPreviews = renderTargetPreviews;
-    {
-        const uint32_t dxrReflection = m_dxrReflectionPreviewTexture;
-
-        RuntimeRenderTargetPreview dxrPreview;
-        dxrPreview.label = "DXR Reflection";
-        dxrPreview.textureHandle = dxrReflection;
-        dxrPreview.width = UIData.screenW * 2;
-        dxrPreview.height = UIData.screenH * 2;
-        dxrPreview.available = UIData.waterRTReflect && !UIData.waterNoReflect && dxrReflection != 0;
-        dxrPreview.depth = false;
-        dxrPreview.hdr = false;
-        resolvedPreviews.AppendOptionalDxrTarget( dxrPreview );
-
-        for ( int index = 0; index < resolvedPreviews.count; ++index )
-        {
-            const RuntimeRenderTargetPreview& source = resolvedPreviews.targets[static_cast<size_t>( index )];
-            SkullbonezCore::UI::UIRenderTargetPreviewResource&
-                preview = UIData.renderTargetPreviews[UIData.renderTargetPreviewCount++];
-
-            preview.label = source.label;
-            preview.width = source.width;
-            preview.height = source.height;
-            preview.available = source.available && source.width > 0 && source.height > 0;
-            preview.depth = source.depth;
-            preview.hdr = source.hdr;
-        }
-    }
     PROFILE_END( "Frame/UI/BuildData" );
-
     PROFILE_BEGIN( "Frame/UI/PreFlushText" );
     {
         DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "PreFlushText" );
         Text2d::FlushText( textBatch, renderTextures, renderCommands );
     }
     PROFILE_END( "Frame/UI/PreFlushText" );
-    UIData.drawCallsBeforeUI = uiPassDrawCallStart;
-    const UI::UIDrawList& uiDrawList = ui.Draw( UIData );
-    m_uiDrawSubmission.SubmitWithPreviews( uiDrawList, resolvedPreviews, textBatch, m_gpuTiming, assets, renderResources,
-                                           renderTextures, renderCommands, renderDiagnostics, UIData.screenW,
-                                           UIData.screenH );
+    m_uiDrawSubmission.SubmitWithPreviews( drawList, renderTargetPreviews, textBatch, m_gpuTiming, assets, renderResources,
+                                           renderTextures, renderCommands, renderDiagnostics, viewport.screenW,
+                                           viewport.screenH );
 
     PROFILE_BEGIN( "Frame/UI/PostFlushText" );
     {

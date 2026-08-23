@@ -29,9 +29,9 @@ Invariants:
   - Backend resource release begins only after a successful GPU drain, then
     keeps consumer passes ahead of producer passes.
   - The world-extension registration is consumed before its stack scope ends.
-  - UI-text callers invoke focused projection or submission operations;
-    graph callback ABI records and backend owner injection remain private to
-    RuntimeRenderer.
+  - UI-text callers compose product UI before submission. RuntimeRenderer sees
+    only foundation draw commands and the parallel renderer-owned preview
+    snapshot; graph callback ABI records and backend injection remain private.
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h
@@ -199,10 +199,12 @@ class RuntimeRenderer
     int BeginUiTextFrame( const UiTextViewport& viewport );
     void SubmitUiChrome( const UiTextViewport& viewport, const UiChromeStatusValues& status,
                          const UiChromeTailValues& tail );
-    void PrepareOperatorUiFrame( UI::InGameUIFrameData& uiData, const UiTextViewport& viewport, bool drawTestPattern );
-    void SubmitOperatorUiFrame( UI::InGameUIFrameData& uiData, UI::InGameUI& ui,
-                                const RuntimeRenderTargetPreviewSnapshot& previews, Assets::AssetSystem& assets,
-                                int uiPassDrawCallStart );
+    void PrepareOperatorUiSubmission( const UiTextViewport& viewport, bool drawTestPattern );
+    void AppendDxrReflectionPreview( RuntimeRenderTargetPreviewSnapshot& previews, const UiTextViewport& viewport,
+                                     bool available ) const;
+    void SubmitOperatorUiDrawList( const UI::UIDrawList& drawList,
+                                   const RuntimeRenderTargetPreviewSnapshot& previews, Assets::AssetSystem& assets,
+                                   const UiTextViewport& viewport );
     void SubmitUiOverlay( const UiTextViewport& viewport, UiOverlayMode mode, int modelCount, float rollingFpsTime,
                           float sceneEnergyForDisplay );
     void SubmitUiDrawList( const UI::UIDrawList& drawList, const UiTextViewport& viewport );

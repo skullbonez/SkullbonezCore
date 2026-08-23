@@ -93,6 +93,7 @@
           "Runtime/Camera/CameraCollection.h",
           "Runtime/Camera/CameraControlState.h",
           "Runtime/Camera/RuntimeCameraMode.h",
+          "Runtime/Interaction/OperatorEditorExchange.h",
           "Runtime/Interaction/RuntimeInteractionController.h"
         ]
       },
@@ -113,6 +114,7 @@
           "Runtime/Camera/CameraControlState.h",
           "Runtime/Input/Input.h",
           "Runtime/Input/InputRouter.h",
+          "Runtime/Interaction/OperatorUiCommands.h",
           "Runtime/Simulation/SimulationSystem.h",
           "Runtime/Startup/RunLaunchOptions.h",
           "Runtime/Startup/RunStartupState.h",
@@ -159,6 +161,7 @@
           "Runtime/Camera/CameraCollection.h",
           "Runtime/Camera/RuntimeCameraMode.h",
           "Runtime/Input/InputRouter.h",
+          "Runtime/Interaction/OperatorUiCommands.h",
           "Runtime/Interaction/RuntimeInteractionCommands.h",
           "Runtime/Interaction/RuntimeInteractionController.h",
           "Runtime/Interaction/RuntimePickService.h",
@@ -182,6 +185,8 @@
           "Runtime/Camera/RuntimeCameraMode.h",
           "Runtime/Input/InputController.h",
           "Runtime/Input/InputRouter.h",
+          "Runtime/Interaction/OperatorEditorObjectCatalog.h",
+          "Runtime/Interaction/OperatorUiCommands.h",
           "Runtime/Interaction/RuntimeInteractionCommands.h",
           "Runtime/Interaction/RuntimeInteractionController.h",
           "Runtime/Interaction/RuntimePickService.h",
@@ -207,6 +212,7 @@
         "rank": 13,
         "allowed_exact_target_files": [
           "Runtime/Editor/EditorTools.h",
+          "Runtime/Interaction/OperatorUiCommands.h",
           "Runtime/Replay/ReplayRuntimePackets.h",
           "Runtime/Replay/ReplayVisualPacket.h",
           "Runtime/RuntimeFrameViews.h",
@@ -217,6 +223,7 @@
         "package": "Runtime/Diagnostics",
         "rank": 14,
         "allowed_exact_target_files": [
+          "Runtime/Interaction/OperatorUiCommands.h",
           "Runtime/RuntimeFrameViews.h",
           "Runtime/Scene/SceneLifecycle.h",
           "Runtime/Startup/RunLaunchOptions.h"
@@ -226,7 +233,10 @@
         "package": "Runtime/DevelopmentTools",
         "rank": 15,
         "allowed_exact_target_files": [
+          "Runtime/Interaction/OperatorEditorExchange.h",
+          "Runtime/Interaction/OperatorEditorObjectCatalog.h",
           "Runtime/Planning/ReplayOverlayPackets.h",
+          "Runtime/Render/UIRenderAuthoringCatalog.h",
           "Runtime/Startup/RunLaunchOptions.h"
         ]
       },
@@ -234,6 +244,7 @@
         "package": "Runtime/Capture",
         "rank": 16,
         "allowed_exact_target_files": [
+          "Runtime/Interaction/OperatorUiCommands.h",
           "Runtime/RuntimeFrameViews.h",
           "Runtime/Scene/SceneLoadRequest.h",
           "Runtime/Startup/RunLaunchOptions.h",
@@ -258,6 +269,7 @@
           "Runtime/Camera/DemoDirector.h",
           "Runtime/Direction/DemoDirectorPlayback.h",
           "Runtime/Input/Input.h",
+          "Runtime/Interaction/OperatorEditorExchange.h",
           "Runtime/Interaction/RuntimePickService.h",
           "Runtime/Planning/ReplayPlanningRuntime.h",
           "Runtime/Prediction/ReplayPrediction.h",
@@ -273,6 +285,7 @@
           "Runtime/RuntimeFrameViews.h",
           "Runtime/Scene/SceneAutomationGateConfiguration.h",
           "Runtime/Scene/SceneLifecycle.h",
+          "Runtime/Scene/SceneNavigationModel.h",
           "Runtime/Scene/SceneSleepingDynamicBodyGatePolicy.h",
           "Runtime/Startup/RunLaunchOptions.h",
           "Runtime/Startup/Window.h",
@@ -283,8 +296,12 @@
         "package": "Runtime/UI",
         "rank": 19,
         "allowed_exact_target_files": [
+          "Runtime/Interaction/OperatorEditorObjectCatalog.h",
+          "Runtime/Interaction/OperatorUiCommands.h",
           "Runtime/Planning/ReplayOverlayPackets.h",
+          "Runtime/Render/UIRenderAuthoringCatalog.h",
           "Runtime/RuntimeFrameViews.h",
+          "Runtime/Scene/SceneNavigationModel.h",
           "Runtime/Startup/Window.h"
         ]
       },
@@ -327,6 +344,7 @@
           "Runtime/Input/InputFrameValues.h",
           "Runtime/Input/InputRouter.h",
           "Runtime/Interaction/OperatorCommandTransaction.h",
+          "Runtime/Interaction/OperatorUiCommands.h",
           "Runtime/Interaction/RuntimeInteractionCommands.h",
           "Runtime/Interaction/RuntimeInteractionController.h",
           "Runtime/Interaction/RuntimePickService.h",
@@ -394,7 +412,10 @@
           "Runtime/Tools/RuntimeTools.h",
           "Runtime/UI/OperatorUiPhase.h",
           "Runtime/UI/RenderDiagnosticsProjection.h",
-          "Runtime/UI/RuntimeViewModel.h"
+          "Runtime/UI/RuntimeViewModel.h",
+          "Runtime/UI/GameUI/UI.h",
+          "Runtime/UI/GameUI/UIFrameComposition.h",
+          "Runtime/UI/GameUI/UITabEditor.h"
         ]
       }
     ],

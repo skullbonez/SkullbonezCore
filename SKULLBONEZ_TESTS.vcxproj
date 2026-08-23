@@ -386,6 +386,14 @@
       <Project>{2CC512B8-5A21-49F4-AE75-9982116F5B62}</Project>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <!-- Product UI tests compile the moved sources with the same profiler ABI
+         as their SKULLBONEZ_CORE owner. Portable CPU builds omit it and retain
+         their separately asserted non-instrumented fingerprint. -->
+    <ClCompile Update="SkullbonezSource\Runtime\UI\GameUI\*.cpp">
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64' Or '$(Configuration)|$(Platform)'=='Profile|x64' Or '$(Configuration)|$(Platform)'=='Profile-WPO|x64'">SKULLBONEZ_PROFILE_ENABLED;TRACY_ENABLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets"></ImportGroup>
 </Project>

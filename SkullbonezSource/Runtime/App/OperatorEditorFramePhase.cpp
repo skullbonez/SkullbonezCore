@@ -421,13 +421,13 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
 
             if ( submissionPlan.composeGameUi )
             {
-                // UI composition is a CPU value phase. Only prepare/submission
-                // touch the GPU, and each renderer callback borrow ends before
-                // the next focused operation begins.
+                // UI composition is a CPU value phase. Render receives the
+                // completed backend-neutral draw list and the parallel
+                // renderer-owned preview catalog only for synchronous replay.
                 SkullbonezCore::UI::InGameUIFrameData uiData;
                 SkullbonezCore::UI::UIRuntimeReserveCapacityRow
                     reserveCapacityRows[SkullbonezCore::UI::UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX] = {};
-                renderer.PrepareOperatorUiFrame( uiData, uiViewport, debug.isUITestPattern );
+                renderer.PrepareOperatorUiSubmission( uiViewport, debug.isUITestPattern );
                 ProjectOperatorUiDiagnostics( uiData, replayHud, metrics, renderModels, diagnosticsRuntime, ui, &workerPool,
                                               m_profiler, reserveCapacityRows, renderer.RenderDiagnostics() );
                 ProjectOperatorUiSettings( uiData, debug, renderer.PresentationSettings(), sceneController.Scene(), config,
@@ -439,7 +439,40 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
                                                uiScenePath ? uiScenePath->c_str() : nullptr,
                                                uiSceneBrowser.CurrentIndexForPath( sceneController.CurrentPath() ),
                                                metrics.sceneEnergy );
-                renderer.SubmitOperatorUiFrame( uiData, ui, renderTargetPreviews, m_assets, uiDrawCallStart );
+
+                uiData.screenW = uiViewport.screenW;
+                uiData.screenH = uiViewport.screenH;
+                const RenderDiagnosticsReadout operatorDiagnostics = renderer.BuildDiagnosticsReadout();
+                uiData.rendererName = operatorDiagnostics.rendererName.data();
+                uiData.drawCallsBeforeUI = uiDrawCallStart;
+
+                const SkullbonezCore::UI::InteractionRecordingBrowserState& recordings =
+                    ui.SceneNavigation().recordings;
+                uiData.interactionRecordingOptions = recordings.namePtrs.empty() ? nullptr : recordings.namePtrs.data();
+                uiData.interactionRecordingOptionCount = static_cast<int>( recordings.namePtrs.size() );
+                uiData.selectedInteractionRecordingOption = recordings.paths.empty() ? -1 : recordings.selectedIndex;
+
+                renderer.AppendDxrReflectionPreview( renderTargetPreviews, uiViewport,
+                                                     uiData.waterRTReflect && !uiData.waterNoReflect );
+                uiData.renderTargetPreviewCount =
+                    (std::min)( renderTargetPreviews.count, SkullbonezCore::UI::UI_RENDER_TARGET_PREVIEW_MAX );
+
+                for ( int index = 0; index < uiData.renderTargetPreviewCount; ++index )
+                {
+                    const RuntimeRenderTargetPreview& source =
+                        renderTargetPreviews.targets[static_cast<std::size_t>( index )];
+                    SkullbonezCore::UI::UIRenderTargetPreviewResource& destination =
+                        uiData.renderTargetPreviews[index];
+                    destination.label = source.label;
+                    destination.width = source.width;
+                    destination.height = source.height;
+                    destination.available = source.available && source.width > 0 && source.height > 0;
+                    destination.depth = source.depth;
+                    destination.hdr = source.hdr;
+                }
+
+                const SkullbonezCore::UI::UIDrawList& drawList = ui.Draw( uiData );
+                renderer.SubmitOperatorUiDrawList( drawList, renderTargetPreviews, m_assets, uiViewport );
             }
 
             if ( submissionPlan.submitOverlay )

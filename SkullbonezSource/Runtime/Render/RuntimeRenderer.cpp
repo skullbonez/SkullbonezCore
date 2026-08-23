@@ -51,7 +51,6 @@ Related:
 #include "../../Rendering/RenderGraph.h"
 #include "../../Rendering/RenderInstanceStore.h"
 #include "../../Rendering/RenderPipeline.h"
-#include "../UI/GameUI/UI.h"
 #include "../../World/SkyBox.h"
 #include "../../World/Terrain.h"
 #include "../../World/WorldEnvironment.h"
@@ -247,15 +246,14 @@ struct UiOperatorSubmissionGraphInvocation
 {
     UiTextPass* pass = nullptr;
     Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
-    SkullbonezCore::UI::InGameUIFrameData* uiData = nullptr;
-    SkullbonezCore::UI::InGameUI* ui = nullptr;
+    const SkullbonezCore::UI::UIDrawList* drawList = nullptr;
     const RuntimeRenderTargetPreviewSnapshot* renderTargetPreviews = nullptr;
     SkullbonezCore::Assets::AssetSystem* assets = nullptr;
     Rendering::Dx12ResourceBuilder* renderResources = nullptr;
     Rendering::Dx12TextureOwner* renderTextures = nullptr;
     Rendering::Dx12GeometryOwner* renderGeometry = nullptr;
     Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
-    int uiPassDrawCallStart = 0;
+    UiTextViewport viewport;
     const Rendering::RenderGraphCompileResult* compiled = nullptr;
     size_t expectedTransitionCount = 0;
 };
@@ -277,7 +275,6 @@ struct UiOperatorPrepareGraphInvocation
 {
     UiTextPass* pass = nullptr;
     SkullbonezCore::Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
-    SkullbonezCore::UI::InGameUIFrameData* uiData = nullptr;
     UiTextViewport viewport;
     bool drawTestPattern = false;
     SkullbonezCore::Rendering::Dx12TextureOwner* renderTextures = nullptr;
@@ -604,30 +601,30 @@ void ExecuteUiChromeGraphCallback( const SkullbonezCore::Rendering::RenderGraphP
 void ExecuteUiOperatorPrepareGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                             UiOperatorPrepareGraphInvocation& data )
 {
-    if ( !data.pass || !data.renderGraph || !data.uiData || !data.renderTextures || !data.renderGeometry ||
+    if ( !data.pass || !data.renderGraph || !data.renderTextures || !data.renderGeometry ||
          !data.renderDiagnostics )
     {
         SB_FATAL( "RunRender", "UI operator prepare graph callback missing execution data." );
     }
 
     (void)ExecuteRequiredGraphTransitions( context, data.renderGraph, data.compiled, data.expectedTransitionCount );
-    data.pass->PrepareOperatorFrame( *data.uiData, data.viewport, data.drawTestPattern, *data.renderTextures,
-                                     *data.renderGeometry, *data.renderDiagnostics );
+    data.pass->PrepareOperatorSubmission( data.viewport, data.drawTestPattern, *data.renderTextures,
+                                          *data.renderGeometry, *data.renderDiagnostics );
 }
 
 void ExecuteUiOperatorSubmissionGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                                UiOperatorSubmissionGraphInvocation& data )
 {
-    if ( !data.pass || !data.renderGraph || !data.uiData || !data.ui || !data.renderTargetPreviews || !data.assets ||
+    if ( !data.pass || !data.renderGraph || !data.drawList || !data.renderTargetPreviews || !data.assets ||
          !data.renderResources || !data.renderTextures || !data.renderGeometry || !data.renderDiagnostics )
     {
         SB_FATAL( "RunRender", "UI operator submission graph callback missing execution data." );
     }
 
     (void)ExecuteRequiredGraphTransitions( context, data.renderGraph, data.compiled, data.expectedTransitionCount );
-    data.pass->SubmitOperatorFrame( *data.uiData, *data.ui, *data.renderTargetPreviews, *data.assets, *data.renderResources,
-                                    *data.renderTextures, *data.renderGeometry, *data.renderDiagnostics,
-                                    data.uiPassDrawCallStart );
+    data.pass->SubmitOperatorDrawList( *data.drawList, *data.renderTargetPreviews, *data.assets, *data.renderResources,
+                                       *data.renderTextures, *data.renderGeometry, *data.renderDiagnostics,
+                                       data.viewport );
 }
 
 void ExecuteUiOverlayGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
@@ -1607,13 +1604,11 @@ void RuntimeRenderer::SubmitUiChrome( const UiTextViewport& viewport, const UiCh
 }
 
 
-void RuntimeRenderer::PrepareOperatorUiFrame( UI::InGameUIFrameData& uiData, const UiTextViewport& viewport,
-                                              bool drawTestPattern )
+void RuntimeRenderer::PrepareOperatorUiSubmission( const UiTextViewport& viewport, bool drawTestPattern )
 {
     UiOperatorPrepareGraphInvocation invocation;
     invocation.pass = &m_resources.UiText();
     invocation.renderGraph = &m_resources.RenderGraph();
-    invocation.uiData = &uiData;
     invocation.viewport = viewport;
     invocation.drawTestPattern = drawTestPattern;
     invocation.renderTextures = &m_resources.RenderTextures();
@@ -1632,22 +1627,37 @@ void RuntimeRenderer::PrepareOperatorUiFrame( UI::InGameUIFrameData& uiData, con
 }
 
 
-void RuntimeRenderer::SubmitOperatorUiFrame( UI::InGameUIFrameData& uiData, UI::InGameUI& ui,
-                                             const RuntimeRenderTargetPreviewSnapshot& previews, Assets::AssetSystem& assets,
-                                             int uiPassDrawCallStart )
+void RuntimeRenderer::AppendDxrReflectionPreview( RuntimeRenderTargetPreviewSnapshot& previews,
+                                                  const UiTextViewport& viewport, bool available ) const
+{
+    const uint32_t textureHandle = m_resources.UiText().DxrReflectionPreviewTexture();
+    RuntimeRenderTargetPreview preview;
+    preview.label = "DXR Reflection";
+    preview.textureHandle = textureHandle;
+    preview.width = viewport.screenW * 2;
+    preview.height = viewport.screenH * 2;
+    preview.available = available && textureHandle != 0;
+    preview.depth = false;
+    preview.hdr = false;
+    previews.AppendOptionalDxrTarget( preview );
+}
+
+
+void RuntimeRenderer::SubmitOperatorUiDrawList( const UI::UIDrawList& drawList,
+                                                const RuntimeRenderTargetPreviewSnapshot& previews,
+                                                Assets::AssetSystem& assets, const UiTextViewport& viewport )
 {
     UiOperatorSubmissionGraphInvocation invocation;
     invocation.pass = &m_resources.UiText();
     invocation.renderGraph = &m_resources.RenderGraph();
-    invocation.uiData = &uiData;
-    invocation.ui = &ui;
+    invocation.drawList = &drawList;
     invocation.renderTargetPreviews = &previews;
     invocation.assets = &assets;
     invocation.renderResources = &m_resources.RenderResources();
     invocation.renderTextures = &m_resources.RenderTextures();
     invocation.renderGeometry = &m_resources.RenderGeometry();
     invocation.renderDiagnostics = &m_resources.RenderDiagnostics();
-    invocation.uiPassDrawCallStart = uiPassDrawCallStart;
+    invocation.viewport = viewport;
 
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph, m_resources.RenderGraph() );
