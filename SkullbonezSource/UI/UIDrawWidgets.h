@@ -1,16 +1,18 @@
 /*
 File: SkullbonezSource/UI/UIDrawWidgets.h
 Purpose:
-  Declares stateless drawing primitives shared by window chrome, controls,
-  and diagnostics.
+  Declares stateless component geometry, value, hit-testing, and drawing
+  contracts shared by UI presenters.
 
 Summary:
-  Provides stateless drawing primitives for title
-  controls, toggles, labels, and footer diagnostics.
+  Presenters resolve disposable visual state and pass it with one geometry
+  value. The helpers measure text through UIFontMetrics and append only bounded
+  draw values; they retain no input, product, Runtime, or renderer authority.
 
 Invariants:
-  - Draw geometry and hit testing must be derived from the same layout
-  constants.
+  - A component's draw and hit helpers consume the same UIRect value.
+  - Disabled controls may block a pointer but cannot activate.
+  - Hidden controls append no commands.
 
 Related:
   - SkullbonezSource/UI/UIDrawWidgets.cpp
@@ -19,6 +21,8 @@ Related:
 #pragma once
 
 #include "UIDraw.h"
+
+#include <cstdint>
 
 namespace SkullbonezCore
 {
@@ -29,6 +33,63 @@ class UICheckBox;
 
 namespace Widgets
 {
+
+enum class ComponentIcon
+{
+    ChevronLeft,
+    ChevronRight,
+    ChevronUp,
+    ChevronDown,
+    Minus,
+    Plus,
+    Minimize,
+    Maximize,
+    Restore,
+    Close
+};
+
+// Returns whether a visible component owns this point. Disabled controls keep
+// this result so an interaction owner can prevent click-through.
+bool ContainsComponent( const UIRect& bounds, UIVisualState state, int pointerX, int pointerY );
+
+// Returns whether the same point may produce an action. This is the only
+// generic hit helper that applies the Enabled flag.
+bool CanActivateComponent( const UIRect& bounds, UIVisualState state, int pointerX, int pointerY );
+
+void DrawPanel( const UIDrawContext& draw, const UIRect& bounds, UIVisualState state );
+void DrawLabelValueRow( const UIDrawContext& draw, const UIRect& bounds, const char* label, const char* value,
+                        const Style::UIColor& valueColor, UIVisualState state );
+void DrawButton( const UIDrawContext& draw, const UIRect& bounds, const char* label, UIVisualState state );
+void DrawToggle( const UIDrawContext& draw, const UIRect& bounds, const char* label, const Style::UIColor& accent,
+                 UIVisualState state );
+
+float SliderValueFromPointer( const UIRect& bounds, int pointerX, float minValue, float maxValue, float step );
+UIRect SliderTrackBounds( const UIRect& bounds );
+UIRect SliderThumbBounds( const UIRect& bounds, float value, float minValue, float maxValue );
+void DrawSlider( const UIDrawContext& draw, const UIRect& bounds, const char* label, const char* valueText, float value,
+                 float minValue, float maxValue, UIVisualState state );
+
+UIRect TabBounds( const UIRect& stripBounds, int tabIndex, int tabCount );
+int HitTestTab( const UIRect& stripBounds, UIVisualState state, int pointerX, int pointerY, int tabCount );
+void DrawTab( const UIDrawContext& draw, const UIRect& bounds, const char* label, UIVisualState state );
+
+UIRect ScrollThumbBounds( const UIRect& trackBounds, float contentHeight, float viewportHeight, float scrollOffset );
+void DrawScrollBar( const UIDrawContext& draw, const UIRect& trackBounds, float contentHeight, float viewportHeight,
+                    float scrollOffset, float alpha, UIVisualState state );
+
+UIRect ComboFieldBounds( const UIRect& bounds, bool labelVisible );
+UIRect ComboPopupBounds( const UIRect& bounds, bool labelVisible, bool dropUp, int optionCount );
+
+// Returns the geometric row even when the popup or row is disabled. The
+// interaction owner uses IsComboOptionEnabled before producing an action.
+int ComboOptionAtPointer( const UIRect& popupBounds, UIVisualState state, int pointerX, int pointerY, int optionCount );
+bool IsComboOptionEnabled( uint32_t disabledOptionMask, int optionIndex );
+void DrawComboField( const UIDrawContext& draw, const UIRect& bounds, const char* label, const char* selectedText,
+                     bool labelVisible, bool open, UIVisualState state );
+void DrawComboPopup( const UIDrawContext& draw, const UIRect& popupBounds, const char* const* options, int optionCount,
+                     int selectedIndex, int hoveredIndex, uint32_t disabledOptionMask, UIVisualState state );
+
+void DrawIconButton( const UIDrawContext& draw, const UIRect& bounds, ComponentIcon icon, UIVisualState state );
 
 enum class TitleButtonIcon
 {
