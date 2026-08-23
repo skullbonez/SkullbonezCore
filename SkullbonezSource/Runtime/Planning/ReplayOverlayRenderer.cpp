@@ -40,6 +40,7 @@ Related:
 #include "../../Physics/PhysicsTimestep.h"
 #include "../../UI/UIDraw.h"
 #include "../../UI/UIDrawList.h"
+#include "../../UI/UIDrawWidgets.h"
 #include "../../UI/UIFrameComposition.h"
 #include "../../UI/UIFontMetrics.h"
 #include "../../UI/UIStyle.h"
@@ -1066,7 +1067,6 @@ static void ComposeReplayInterceptOverlay( UI::UIDrawList& drawList, const Repla
     const UI::UIDrawContext draw( screenW, screenH, drawList );
     const UI::UIRect panel = ReplayInterceptReadoutRect( screenW );
     const UI::Style::UIPalette& palette = UI::Style::Palette();
-    const UI::Style::UIRadii& radii = UI::Style::Radii();
     const UI::Style::UIColor accent = intercept.intercept ? palette.accentStrong : palette.warningAccent;
 
     char label[64] = {};
@@ -1080,7 +1080,8 @@ static void ComposeReplayInterceptOverlay( UI::UIDrawList& drawList, const Repla
         sprintf_s( label, sizeof( label ), "MISS %.1fu  ETA %.1fs", intercept.missDistance, intercept.etaSeconds );
     }
 
-    draw.RoundedPanel( panel, radii.control, palette.windowSubtle, palette.innerBorder );
+    UI::Widgets::DrawPanel( draw, panel, UI::UIVisualState::Visible | UI::UIVisualState::Enabled,
+                            UI::Widgets::ComponentAppearance::Compact );
     const float labelWidth = UI::UIFontMetrics::MeasureText( 11.0f, label );
     draw.Text( panel.x + ( panel.w - labelWidth ) * 0.5f, panel.y + 7.0f, 11.0f, accent.r, accent.g, accent.b, label );
 }
@@ -1097,14 +1098,14 @@ static void ComposeReplayTripPlannerOverlay( UI::UIDrawList& drawList, const Rep
 
     const UI::UIDrawContext draw( screenW, screenH, drawList );
     const UI::Style::UIPalette& palette = UI::Style::Palette();
-    const UI::Style::UIRadii& radii = UI::Style::Radii();
 
     // Invariant: rendering consumes the same fixed control rectangles that
     // ReplayScrubberTools uses for hit testing; draw and input cannot drift.
     ReplayTripPlannerSurface surface;
     BuildReplayTripPlannerSurface( planner, screenW, surface );
     const UI::UIRect panel = ReplayTripPlannerPanelRect( screenW );
-    draw.RoundedPanel( panel, radii.control, palette.windowSubtle, palette.innerBorder );
+    UI::Widgets::DrawPanel( draw, panel, UI::UIVisualState::Visible | UI::UIVisualState::Enabled,
+                            UI::Widgets::ComponentAppearance::Compact );
 
     const auto control = [&]( ReplayTripPlannerControl id ) -> const ReplayTripPlannerControlRow&
     {
@@ -1122,15 +1123,8 @@ static void ComposeReplayTripPlannerOverlay( UI::UIDrawList& drawList, const Rep
     const auto button = [&]( ReplayTripPlannerControl id, const char* label )
     {
         const ReplayTripPlannerControlRow& row = control( id );
-
-        const UI::Style::UIColor fill = row.enabled ? palette.control : palette.windowSubtle;
-        const UI::Style::UIColor text = row.enabled ? palette.textPrimary : palette.textMuted;
-        draw.RoundedRect( row.drawRect.x, row.drawRect.y, row.drawRect.w, row.drawRect.h, radii.smallButton, fill.r, fill.g,
-                          fill.b, row.enabled ? 0.92f : 0.45f );
-
-        const float width = UI::UIFontMetrics::MeasureText( 9.0f, label );
-        draw.Text( row.drawRect.x + ( row.drawRect.w - width ) * 0.5f, row.drawRect.y + 7.0f, 9.0f, text.r, text.g, text.b,
-                   label );
+        UI::Widgets::DrawButton( draw, row.drawRect, label, ReplayTripPlannerControlVisualState( row ),
+                                 UI::Widgets::ComponentAppearance::Compact );
     };
 
     const char* stateLabel = "IDLE";
@@ -1194,10 +1188,10 @@ static void ComposeReplayPorkchopOverlay( UI::UIDrawList& drawList, const Replay
 
     const UI::UIDrawContext draw( screenW, screenH, drawList );
     const UI::Style::UIPalette& palette = UI::Style::Palette();
-    const UI::Style::UIRadii& radii = UI::Style::Radii();
     const UI::UIRect panel = ReplayPorkchopPanelRect( screenW );
     const UI::UIRect grid = ReplayPorkchopGridRect( screenW );
-    draw.RoundedPanel( panel, radii.control, palette.windowSubtle, palette.innerBorder );
+    UI::Widgets::DrawPanel( draw, panel, UI::UIVisualState::Visible | UI::UIVisualState::Enabled,
+                            UI::Widgets::ComponentAppearance::Compact );
 
     char title[128] = {};
 

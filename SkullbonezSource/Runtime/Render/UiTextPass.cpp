@@ -50,6 +50,7 @@ Related:
 #include "../../UI/UI.h"
 #include "../../UI/UIDraw.h"
 #include "../../UI/UIDrawList.h"
+#include "../../UI/UIDrawWidgets.h"
 #include "../../UI/UIFrameComposition.h"
 #include "../../UI/UIFontMetrics.h"
 #include "../../UI/UIProfilerOverlayPresenter.h"
@@ -331,9 +332,10 @@ void UiTextPass::RenderChromeStatus( const UiTextViewport& viewport, const UiChr
         const float x = static_cast<float>( screenW ) - TOP_RIGHT_BADGE_MARGIN - panelW;
         const float y = topRightBadgeY;
 
-        SkullbonezCore::UI::Style::UIColor fill = palette.windowSubtle;
-        fill.a = 0.88f;
-        draw.RoundedPanel( { x, y, panelW, panelH }, radii.control, fill, palette.innerBorder );
+        SkullbonezCore::UI::Widgets::DrawPanel( draw, { x, y, panelW, panelH },
+                                                SkullbonezCore::UI::UIVisualState::Visible |
+                                                    SkullbonezCore::UI::UIVisualState::Enabled,
+                                                SkullbonezCore::UI::Widgets::ComponentAppearance::Compact, 0.88f );
         draw.RoundedRect( x + 1.0f, y + 1.0f, 4.0f, panelH - 2.0f, radii.smallButton,
                           values.crossScenePauseLocked ? palette.warningAccent.r : palette.accent.r,
                           values.crossScenePauseLocked ? palette.warningAccent.g : palette.accent.g,
@@ -406,9 +408,10 @@ void UiTextPass::RenderChromeStatus( const UiTextViewport& viewport, const UiChr
         const float x = static_cast<float>( screenW ) - TOP_RIGHT_BADGE_MARGIN - panelW;
         const float y = topRightBadgeY;
 
-        SkullbonezCore::UI::Style::UIColor fill = palette.windowSubtle;
-        fill.a = 0.86f;
-        draw.RoundedPanel( { x, y, panelW, panelH }, radii.control, fill, palette.innerBorder );
+        SkullbonezCore::UI::Widgets::DrawPanel( draw, { x, y, panelW, panelH },
+                                                SkullbonezCore::UI::UIVisualState::Visible |
+                                                    SkullbonezCore::UI::UIVisualState::Enabled,
+                                                SkullbonezCore::UI::Widgets::ComponentAppearance::Compact, 0.86f );
         draw.RoundedRect( x + 1.0f, y + 1.0f, 4.0f, panelH - 2.0f, radii.smallButton, accent.r, accent.g, accent.b, 0.88f );
 
         draw.Text( x + padX, y + padY, titlePx, accent.r, accent.g, accent.b, modeLine );
@@ -425,16 +428,16 @@ void UiTextPass::RenderChromeStatus( const UiTextViewport& viewport, const UiChr
 
         const SkullbonezCore::UI::UIDrawContext& draw = badgeDraw;
         const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
-        const SkullbonezCore::UI::Style::UIRadii& radii = SkullbonezCore::UI::Style::Radii();
 
         constexpr float x = 16.0f;
         constexpr float y = 16.0f;
         constexpr float panelW = 286.0f;
         constexpr float panelH = 42.0f;
 
-        SkullbonezCore::UI::Style::UIColor fill = palette.windowSubtle;
-        fill.a = 0.88f;
-        draw.RoundedPanel( { x, y, panelW, panelH }, radii.control, fill, palette.innerBorder );
+        SkullbonezCore::UI::Widgets::DrawPanel( draw, { x, y, panelW, panelH },
+                                                SkullbonezCore::UI::UIVisualState::Visible |
+                                                    SkullbonezCore::UI::UIVisualState::Enabled,
+                                                SkullbonezCore::UI::Widgets::ComponentAppearance::Compact, 0.88f );
 
         constexpr float dotX = x + 8.0f;
         constexpr float dotY = y + 8.0f;

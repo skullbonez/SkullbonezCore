@@ -36,6 +36,7 @@
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Runtime/App/InputFrame.h"
+#include "../SkullbonezSource/Runtime/Planning/ReplayPlanningOverlayLayout.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayArtifactSource.h"
 #include "../SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h"
@@ -43,6 +44,9 @@
 #include "../SkullbonezSource/Runtime/Render/RuntimeRenderFrameValues.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneController.h"
 #include "../SkullbonezSource/Runtime/UI/OperatorUiPhase.h"
+#include "../SkullbonezSource/Runtime/UI/RuntimeUiSurface.h"
+#include "../SkullbonezSource/UI/UIDrawList.h"
+#include "../SkullbonezSource/UI/UIDrawWidgets.h"
 
 #include <cmath>
 #include <cstring>
@@ -522,6 +526,88 @@ TEST_CASE( "Replay overlay: scrubber geometry clamps compact and wide screens" )
 
     CHECK( ReplayScrubberPositionFromMouse( -100, 1920, 1080, RunReplayTrack::Solver ) == 0.0f );
     CHECK( ReplayScrubberPositionFromMouse( 4000, 1920, 1080, RunReplayTrack::Solver ) == 1.0f );
+}
+
+TEST_CASE( "Runtime UI components preserve pointer ownership and action identity" )
+{
+    RuntimeUiSurface<3> surface;
+    RuntimeUiControl disabled;
+    disabled.id = RuntimeUiControlId { 1u };
+    disabled.kind = RuntimeUiControlKind::Button;
+    disabled.action = RuntimeUiActionId { 41u };
+    disabled.drawRect = { 20.0f, 20.0f, 80.0f, 24.0f };
+    disabled.hitRect = disabled.drawRect;
+    disabled.enabled = false;
+    REQUIRE( surface.TryAdd( disabled ) );
+
+    RuntimeUiControl behind = disabled;
+    behind.id = RuntimeUiControlId { 2u };
+    behind.action = RuntimeUiActionId { 99u };
+    behind.enabled = true;
+    REQUIRE( surface.TryAdd( behind ) );
+
+    surface.ResolvePointer( 40, 30 );
+    CHECK( surface.consumesPointer );
+    CHECK( surface.hasPointerControl );
+    CHECK( surface.pointerControl == disabled.id );
+    CHECK_FALSE( surface.hasHotControl );
+    REQUIRE( surface.Find( disabled.id ) != nullptr );
+    CHECK( surface.Find( disabled.id )->action.value == 41u );
+    CHECK( surface.Find( behind.id )->action.value == 99u );
+}
+
+TEST_CASE( "Planning UI components render detached trip controls in owner order" )
+{
+    ReplayTripPlannerView planner;
+    planner.visible = true;
+    planner.available = true;
+    ReplayTripPlannerSurface surface;
+    BuildReplayTripPlannerSurface( planner, 1280, surface );
+    REQUIRE( surface.controlCount == 6u );
+
+    const ReplayTripPlannerControlRow* commit = surface.Find( ReplayTripPlannerControl::Commit );
+    REQUIRE( commit != nullptr );
+    CHECK( commit->action == ReplayTripPlannerCommandKind::Commit );
+    CHECK_FALSE( commit->enabled );
+    const SkullbonezCore::UI::UIVisualState commitState = ReplayTripPlannerControlVisualState( *commit );
+    CHECK( SkullbonezCore::UI::HasVisualState( commitState, SkullbonezCore::UI::UIVisualState::Visible ) );
+    CHECK_FALSE( SkullbonezCore::UI::HasVisualState( commitState, SkullbonezCore::UI::UIVisualState::Enabled ) );
+    surface.ResolvePointer( RectCenterX( commit->hitRect ), RectCenterY( commit->hitRect ), false );
+    CHECK( surface.consumesPointer );
+    CHECK_FALSE( surface.hasHotControl );
+
+    constexpr ReplayTripPlannerControl order[] = { ReplayTripPlannerControl::TimeOfFlightDecrease,
+                                                   ReplayTripPlannerControl::TimeOfFlightIncrease,
+                                                   ReplayTripPlannerControl::Plan, ReplayTripPlannerControl::Commit,
+                                                   ReplayTripPlannerControl::Cancel };
+    constexpr const char* labels[] = { "-", "+", "PLAN", "COMMIT", "CANCEL" };
+    SkullbonezCore::UI::UIDrawList drawList;
+    const SkullbonezCore::UI::UIDrawContext draw( 1280, 720, drawList );
+    SkullbonezCore::UI::Widgets::DrawPanel( draw, ReplayTripPlannerPanelRect( 1280 ),
+                                            SkullbonezCore::UI::UIVisualState::Visible |
+                                                SkullbonezCore::UI::UIVisualState::Enabled,
+                                            SkullbonezCore::UI::Widgets::ComponentAppearance::Compact );
+
+    for ( std::size_t index = 0; index < std::size( order ); ++index )
+    {
+        const ReplayTripPlannerControlRow* row = surface.Find( order[index] );
+        REQUIRE( row != nullptr );
+        SkullbonezCore::UI::Widgets::DrawButton( draw, row->drawRect, labels[index],
+                                                 ReplayTripPlannerControlVisualState( *row ),
+                                                 SkullbonezCore::UI::Widgets::ComponentAppearance::Compact );
+    }
+
+    const std::span<const SkullbonezCore::UI::UIDrawList::Command> commands = drawList.Commands();
+    REQUIRE( commands.size() == 12u );
+
+    for ( std::size_t index = 0; index < std::size( labels ); ++index )
+    {
+        const SkullbonezCore::UI::UIDrawList::Command& text = commands[3u + index * 2u];
+        CHECK( text.type == SkullbonezCore::UI::UIDrawList::CommandType::Text );
+        CHECK( std::strcmp( drawList.TextAt( text.textOffset ), labels[index] ) == 0 );
+    }
+
+    CHECK( drawList.Fingerprint() == 309035145945859501ull );
 }
 
 TEST_CASE( "Replay overlay: surface description publishes owner availability as values" )

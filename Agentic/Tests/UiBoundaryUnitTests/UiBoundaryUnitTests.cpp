@@ -78,9 +78,9 @@ constexpr std::array<uint64_t, 8> kExpectedStatelessStateFingerprints = {
     2904659679807374515ull, 4645013559851399903ull, 13061036390687143437ull, 5558979605539197941ull,
 };
 
-// The fixture contains only production-reachable component operations; the
-// retired test-only panel and label/value helpers no longer contribute rows.
-constexpr uint64_t kExpectedStatelessFixtureFingerprint = 4845307610235627768ull;
+// The fixture contains only production-reachable component operations,
+// including the compact panel and button adopted by Runtime owners.
+constexpr uint64_t kExpectedStatelessFixtureFingerprint = 7518969973781773681ull;
 
 constexpr std::array kTabs = {
     InGameUITab::Profiler, InGameUITab::Scene,     InGameUITab::Editor,  InGameUITab::Physics,
@@ -652,6 +652,10 @@ bool CheckStatelessComponentContracts()
 
     static constexpr const char* kOptions[] = { "Alpha", "Beta", "Gamma" };
     drawList->Clear();
+    Widgets::DrawPanel( draw, { 8.0f, 68.0f, 218.0f, 44.0f }, kEnabled,
+                        Widgets::ComponentAppearance::Compact, 0.88f );
+    Widgets::DrawButton( draw, { 12.0f, 46.0f, 100.0f, 22.0f }, "Compact", kEnabled,
+                         Widgets::ComponentAppearance::Compact );
     Widgets::DrawButton( draw, { 12.0f, 76.0f, 100.0f, 28.0f }, "Apply", kEnabled | UIVisualState::Active );
     Widgets::DrawButton( draw, { 118.0f, 76.0f, 100.0f, 28.0f }, "Blocked", kDisabled );
     Widgets::DrawToggle( draw, { 12.0f, 110.0f, 206.0f, 24.0f }, "Enabled", Style::Palette().accent,

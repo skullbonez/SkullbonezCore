@@ -72,6 +72,13 @@ struct ReplayTripPlannerControlRow
     bool enabled = false;
 };
 
+// Planning retains command identity and pointer order; the component receives
+// only the detached visibility/availability facts needed to draw this row.
+inline UI::UIVisualState ReplayTripPlannerControlVisualState( const ReplayTripPlannerControlRow& control ) noexcept
+{
+    return control.enabled ? UI::UIVisualState::Visible | UI::UIVisualState::Enabled : UI::UIVisualState::Visible;
+}
+
 struct ReplayTripPlannerSurface
 {
     ReplayTripPlannerControlRow controls[6] = {};

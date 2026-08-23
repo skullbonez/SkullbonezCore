@@ -43,6 +43,7 @@ enum class ComponentAppearance : unsigned char
 {
     Adaptive,
     Established,
+    Compact,
     Footer
 };
 
@@ -68,6 +69,10 @@ bool ContainsComponent( const UIRect& bounds, UIVisualState state, int pointerX,
 // generic hit helper that applies the Enabled flag.
 bool CanActivateComponent( const UIRect& bounds, UIVisualState state, int pointerX, int pointerY );
 
+// Compact panels preserve the restrained owner-local Runtime surface while
+// keeping fill, border, and radius decisions inside the component foundation.
+void DrawPanel( const UIDrawContext& draw, const UIRect& bounds, UIVisualState state,
+                ComponentAppearance appearance = ComponentAppearance::Adaptive, float fillOpacity = 1.0f );
 void DrawButton( const UIDrawContext& draw, const UIRect& bounds, const char* label, UIVisualState state,
                  ComponentAppearance appearance = ComponentAppearance::Adaptive );
 void DrawToggle( const UIDrawContext& draw, const UIRect& bounds, const char* label, const Style::UIColor& accent,

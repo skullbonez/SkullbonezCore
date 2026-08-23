@@ -200,6 +200,29 @@ bool CanActivateComponent( const UIRect& bounds, UIVisualState state, int pointe
 }
 
 
+void DrawPanel( const UIDrawContext& draw, const UIRect& bounds, UIVisualState state, ComponentAppearance appearance,
+                float fillOpacity )
+{
+    if ( !IsVisible( state ) )
+    {
+        return;
+    }
+
+    const Style::UIPalette& palette = Style::Palette();
+    const bool compact = appearance == ComponentAppearance::Compact;
+    Style::UIColor fill = compact ? palette.windowSubtle : palette.window;
+
+    if ( !IsEnabled( state ) )
+    {
+        fill.a *= 0.52f;
+    }
+
+    fill.a *= std::clamp( fillOpacity, 0.0f, 1.0f );
+    const Style::UIColor border = compact ? palette.innerBorder : ControlBorder( state );
+    draw.RoundedPanel( bounds, compact ? Style::Radii().control : Style::Radii().window, fill, border );
+}
+
+
 void DrawButton( const UIDrawContext& draw, const UIRect& bounds, const char* label, UIVisualState state,
                  ComponentAppearance appearance )
 {
@@ -208,11 +231,27 @@ void DrawButton( const UIDrawContext& draw, const UIRect& bounds, const char* la
         return;
     }
 
-    const float textSize = 11.0f;
     const char* safeLabel = SafeText( label );
+    const bool compact = appearance == ComponentAppearance::Compact;
+    const float textSize = compact ? 9.0f : 11.0f;
     const float labelWidth = UIFontMetrics::MeasureText( textSize, safeLabel );
     const float labelX = bounds.x + (std::max)( 8.0f, ( bounds.w - labelWidth ) * 0.5f );
     const Style::UIPalette& palette = Style::Palette();
+
+    if ( compact )
+    {
+        const bool enabled = IsEnabled( state );
+        const Style::UIColor fill = enabled && HasVisualState( state, UIVisualState::Hovered ) ? palette.controlHover
+                                                                                               : palette.control;
+        const Style::UIColor disabledFill = palette.windowSubtle;
+        const Style::UIColor text = enabled ? palette.textPrimary : palette.textMuted;
+        const Style::UIColor& resolvedFill = enabled ? fill : disabledFill;
+        draw.RoundedRect( bounds.x, bounds.y, bounds.w, bounds.h, Style::Radii().smallButton, resolvedFill.r, resolvedFill.g,
+                          resolvedFill.b, enabled ? 0.92f : 0.45f );
+        draw.Text( labelX, bounds.y + 7.0f, textSize, text.r, text.g, text.b, safeLabel );
+        return;
+    }
+
     const bool established = appearance == ComponentAppearance::Established;
     const Style::UIColor fill = established && IsEnabled( state )
                                     ? ( HasVisualState( state, UIVisualState::Hovered ) ? palette.controlHover
