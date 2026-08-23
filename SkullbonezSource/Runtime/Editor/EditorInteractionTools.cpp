@@ -29,7 +29,7 @@ Related:
 #include "EditorOverlayTools.h"
 #include "EditorPlacementAssets.h"
 #include "EditorTools.h"
-#include "EditorHullAssets.h"
+#include "../../Assets/EditorHullAssets.h"
 #include "../Tools/RuntimeTools.h"
 #include "../Input/InputRouter.h"
 #include "../Camera/CameraCollection.h"

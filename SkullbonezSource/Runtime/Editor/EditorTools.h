@@ -22,7 +22,7 @@ Related:
 #pragma once
 
 
-#include "EditorHullAssets.h"
+#include "../../Assets/EditorHullAssets.h"
 #include "../Replay/ReplayAuthoringPackets.h"
 #include "../Input/InputController.h"
 #include "../Camera/RuntimeCameraMode.h"

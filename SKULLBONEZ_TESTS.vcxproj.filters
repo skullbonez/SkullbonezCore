@@ -408,8 +408,8 @@
     <ClCompile Include="SkullbonezSource\Runtime\Capture\CaptureSystem.cpp">
       <Filter>Source Files\Runtime\Capture</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.cpp">
-      <Filter>Source Files\Runtime\Editor</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Tools\EditorCommandHistory.cpp">
+      <Filter>Source Files\Runtime\Tools</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorTerrainOrientation.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>

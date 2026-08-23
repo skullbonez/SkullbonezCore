@@ -47,7 +47,7 @@ Related:
 */
 #include "ReplayPrediction.h"
 #include "../Scene/SceneEntityStore.h"
-#include "../Editor/EditorHullAssets.h"
+#include "../../Assets/EditorHullAssets.h"
 #include "../Replay/ReplayAuthoring.h"
 #include "../Replay/ReplayOverlayLayout.h"
 #include "ReplayPredictionArchive.h"

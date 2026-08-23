@@ -21,7 +21,7 @@ Invariants:
     transforms remain explicitly unique.
 
 Related:
-  - SkullbonezSource/Runtime/Editor/EditorCommandHistory.h
+  - SkullbonezSource/Runtime/Tools/EditorCommandHistory.h
   - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
   - SkullbonezSource/Runtime/Scene/SceneWorld.cpp
 */

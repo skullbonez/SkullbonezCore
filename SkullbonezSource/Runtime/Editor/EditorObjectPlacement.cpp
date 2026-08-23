@@ -29,7 +29,7 @@ Related:
 #include "EditorPlacementAssets.h"
 #include "../../Assets/AssetKeys.h"
 #include "EditorTools.h"
-#include "EditorHullAssets.h"
+#include "../../Assets/EditorHullAssets.h"
 #include "../Tools/RuntimeTools.h"
 #include "../Scene/SceneControllerState.h"
 #include "../Scene/SceneSessionState.h"

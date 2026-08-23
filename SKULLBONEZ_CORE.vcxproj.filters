@@ -471,8 +471,8 @@
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorInteractionTools.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.cpp">
-      <Filter>Source Files\Runtime\Editor</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Tools\EditorCommandHistory.cpp">
+      <Filter>Source Files\Runtime\Tools</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorHistory.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
@@ -810,8 +810,8 @@
     <ClCompile Include="SkullbonezSource\Runtime\Debug\PhysicsDebugVisualizer.cpp">
       <Filter>Source Files\Runtime\Debug</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Editor\LauncherLaser.cpp">
-      <Filter>Source Files\Runtime\Editor</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Tools\LauncherLaser.cpp">
+      <Filter>Source Files\Runtime\Tools</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Editor\LauncherTools.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
@@ -982,8 +982,8 @@
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorTools.h">
       <Filter>Header Files\Runtime\Editor</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.h">
-      <Filter>Header Files\Runtime\Editor</Filter>
+    <ClInclude Include="SkullbonezSource\Runtime\Tools\EditorCommandHistory.h">
+      <Filter>Header Files\Runtime\Tools</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorPlacementAssets.h">
       <Filter>Header Files\Runtime\Editor</Filter>
@@ -1603,11 +1603,11 @@
     <ClInclude Include="SkullbonezSource\Runtime\Debug\PhysicsDebugVisualizer.h">
       <Filter>Header Files\Runtime\Debug</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorHullAssets.h">
-      <Filter>Header Files\Runtime\Editor</Filter>
+    <ClInclude Include="SkullbonezSource\Assets\EditorHullAssets.h">
+      <Filter>Header Files\Assets</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Editor\LauncherLaser.h">
-      <Filter>Header Files\Runtime\Editor</Filter>
+    <ClInclude Include="SkullbonezSource\Runtime\Tools\LauncherLaser.h">
+      <Filter>Header Files\Runtime\Tools</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Core\AmortizedTask.h">
       <Filter>Header Files\Core</Filter>

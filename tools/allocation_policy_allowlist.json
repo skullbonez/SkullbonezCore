@@ -978,7 +978,7 @@
       "removal_or_wrapper_plan": "Move runtime orchestration storage to typed fixed buffers or owner wrappers as each subsystem is decomposed."
     },
     {
-      "path": "SkullbonezSource/Runtime/Editor/LauncherLaser.cpp",
+      "path": "SkullbonezSource/Runtime/Tools/LauncherLaser.cpp",
       "patterns": [
         ".insert(",
         ".push_back(",
@@ -991,7 +991,7 @@
       "removal_or_wrapper_plan": "Move editor staging to fixed tool buffers when editor runtime allocation policy is tightened."
     },
     {
-      "path": "SkullbonezSource/Runtime/Editor/LauncherLaser.h",
+      "path": "SkullbonezSource/Runtime/Tools/LauncherLaser.h",
       "patterns": [
         "std::vector<"
       ],

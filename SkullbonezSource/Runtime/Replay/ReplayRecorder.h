@@ -55,7 +55,6 @@ Related:
 #include "../../Maths/Vector3.h"
 #include "../../Physics/PhysicsHandles.h"
 #include "../../Physics/PhysicsSolverSnapshot.h"
-#include "../Editor/LauncherLaser.h"
 #include "ReplayEventCommand.h"
 #include "ReplayToolPackets.h"
 #include "ReplayCaptureLimits.h"

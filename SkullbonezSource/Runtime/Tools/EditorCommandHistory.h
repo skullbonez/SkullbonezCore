@@ -1,7 +1,7 @@
 /*
-File: SkullbonezSource/Runtime/Editor/EditorCommandHistory.h
+File: SkullbonezSource/Runtime/Tools/EditorCommandHistory.h
 Purpose:
-  Defines the editor-owned fixed-capacity inverse-command history.
+  Defines the Tools-owned fixed-capacity inverse-command history used by Editor policy.
 
 Summary:
   Editor mutations publish a complete fixed-size before/after command only when

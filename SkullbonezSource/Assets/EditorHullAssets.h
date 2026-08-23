@@ -1,7 +1,7 @@
 /*
-File: SkullbonezSource/Runtime/Editor/EditorHullAssets.h
+File: SkullbonezSource/Assets/EditorHullAssets.h
 Purpose:
-  Names built-in convex hull assets used by the editor and scene snapshots.
+  Names built-in convex hull assets used by authored scenes and editor placement.
 
 Summary:
   Scene files should prefer stable logical hull ids such as diamond or hex_prism.

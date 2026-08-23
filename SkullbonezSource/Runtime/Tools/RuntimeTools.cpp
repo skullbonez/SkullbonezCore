@@ -44,8 +44,6 @@ Related:
 #include "../../UI/UICommands.h"
 #include "../../UI/UILayout.h"
 #include "../Camera/CameraCollection.h"
-#include "../Editor/EditorTools.h"
-#include "../Editor/EditorOverlayTools.h"
 #include "../Input/InputRouter.h"
 #include "../Interaction/RuntimeInteractionCommands.h"
 #include "../Interaction/RuntimeInteractionController.h"
@@ -166,38 +164,9 @@ bool RuntimeTools::ApplySelectionCommand( const RuntimeInteractionCommand& comma
 }
 
 
-bool RuntimeTools::HasActiveEditorInteractionState( const RuntimeInteractionController& interaction ) const
-{
-    const RuntimeInteractionGestureKind gesture = interaction.Gesture().kind;
-    return m_editor.editorModeEnabled || m_editor.placementModeEnabled || m_editor.viewportLookActive ||
-           m_editor.placementPreviewVisible || gesture == RuntimeInteractionGestureKind::EditorPlacementScaleDrag ||
-           gesture == RuntimeInteractionGestureKind::GizmoDrag || m_editor.hotGizmoAxis >= 0 ||
-           m_editor.hotRotationAxis >= 0;
-}
-
-
 bool RuntimeTools::InspectGizmoInteractionActive( RunCameraMode cameraMode, bool replayInspectionActive ) const
 {
     return !m_editor.editorModeEnabled && cameraMode == RunCameraMode::Inspect && !replayInspectionActive;
-}
-
-
-void RuntimeTools::ClearEditorInteractionForTransition( bool clearSelection, SceneWorld& world,
-                                                        RuntimeInteractionController& interaction )
-{
-    ClearEditorManipulationState( m_editor, interaction );
-    m_editor.viewportLookActive = false;
-    m_editor.placementModeEnabled = false;
-    m_editor.hotGizmoAxis = -1;
-    m_editor.hotRotationAxis = -1;
-
-    if ( clearSelection )
-    {
-        RuntimeInteractionCommand command;
-        command.type = RuntimeInteractionCommandType::SetEditorSelection;
-        command.claimSelectionOwner = false;
-        ApplySelectionCommand( command, world );
-    }
 }
 
 
@@ -884,14 +853,4 @@ EditorTracer& RuntimeTools::Tracer()
 }
 
 
-void RuntimeTools::PrepareOverlayTrace( SceneWorld& world, const Assets::AssetSystem& assets,
-                                        const ToolOverlayBuildInput& input )
-{
-    // Invariant: one owner clears and rebuilds the shared tracer exactly once
-    // before replay appends its records for the same frame.
-    m_editorTracer.Clear();
-    BuildEditorToolOverlayTrace( m_editor, m_rayCastTest, m_mousePickup, world, assets, m_editorTracer,
-                                 { input.rayLingerSeconds, input.inspectGizmoActive, input.scaleMode, input.gesture,
-                                   input.attachedCameraTargetIndex, input.attachedCameraActiveFollow } );
-}
 } // namespace SkullbonezCore::Runtime

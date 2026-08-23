@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Editor/LauncherLaser.cpp
+File: SkullbonezSource/Runtime/Tools/LauncherLaser.cpp
 Purpose:
   Draws launcher-mode laser shots as short-lived camera-facing ribbons.
 
@@ -16,7 +16,7 @@ Invariants:
   - Expired shots must stop drawing without changing launcher hit history.
 
 Related:
-  - SkullbonezSource/Runtime/Editor/LauncherLaser.h
+  - SkullbonezSource/Runtime/Tools/LauncherLaser.h
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp
   - Agentic/Reference/engine-glossary.md
 */

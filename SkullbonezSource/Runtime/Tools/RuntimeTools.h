@@ -43,8 +43,8 @@ Related:
 
 #include "../../Core/Common.h"
 #include "../../Core/MainMemoryStats.h"
-#include "../Editor/LauncherLaser.h"
-#include "../Editor/EditorCommandHistory.h"
+#include "LauncherLaser.h"
+#include "EditorCommandHistory.h"
 #include "../Camera/RuntimeCameraMode.h"
 #include "../Scene/SceneLifecycle.h"
 #include "../Interaction/RuntimeInteractionController.h"

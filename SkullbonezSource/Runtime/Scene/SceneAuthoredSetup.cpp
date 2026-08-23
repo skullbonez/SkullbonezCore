@@ -36,7 +36,7 @@ Related:
 #include "../../Core/SbDiagnosticStore.h"
 #include "SceneSessionState.h"
 #include "../Camera/CameraCollection.h"
-#include "../Editor/EditorHullAssets.h"
+#include "../../Assets/EditorHullAssets.h"
 #include "SceneController.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Maths/RotationMatrix.h"

@@ -322,7 +322,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabBundleWriter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabGenerator.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Editor\LauncherLaser.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Tools\LauncherLaser.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\LauncherTools.cpp" />
     <ClCompile Include="SkullbonezSource\Core\AmortizedTask.cpp" />
     <ClCompile Include="SkullbonezSource\Core\FatalError.cpp" />
@@ -423,7 +423,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Core\Config.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\Run.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorInteractionTools.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Tools\EditorCommandHistory.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorHistory.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorPlacementAssets.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorTerrainOrientation.cpp" />
@@ -547,12 +547,12 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Direction\LookLabController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Direction\LookLabGenerator.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorTools.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Tools\EditorCommandHistory.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorPlacementAssets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorTerrainOrientation.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorOverlayTools.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorHullAssets.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Editor\LauncherLaser.h" />
+    <ClInclude Include="SkullbonezSource\Assets\EditorHullAssets.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Tools\LauncherLaser.h" />
     <ClInclude Include="SkullbonezSource\Core\AmortizedTask.h" />
     <ClInclude Include="SkullbonezSource\Core\ByteView.h" />
     <ClInclude Include="SkullbonezSource\Core\Common.h" />

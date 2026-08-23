@@ -23,6 +23,7 @@ Related:
 #include "EditorOverlayTools.h"
 #include "EditorTools.h"
 #include "../Tools/RuntimeTools.h"
+#include "../Interaction/RuntimeInteractionCommands.h"
 #include "../Scene/SceneWorld.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
@@ -43,6 +44,47 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
+bool RuntimeTools::HasActiveEditorInteractionState( const RuntimeInteractionController& interaction ) const
+{
+    const RuntimeInteractionGestureKind gesture = interaction.Gesture().kind;
+    return m_editor.editorModeEnabled || m_editor.placementModeEnabled || m_editor.viewportLookActive ||
+           m_editor.placementPreviewVisible || gesture == RuntimeInteractionGestureKind::EditorPlacementScaleDrag ||
+           gesture == RuntimeInteractionGestureKind::GizmoDrag || m_editor.hotGizmoAxis >= 0 ||
+           m_editor.hotRotationAxis >= 0;
+}
+
+
+void RuntimeTools::ClearEditorInteractionForTransition( bool clearSelection, SceneWorld& world,
+                                                        RuntimeInteractionController& interaction )
+{
+    ClearEditorManipulationState( m_editor, interaction );
+    m_editor.viewportLookActive = false;
+    m_editor.placementModeEnabled = false;
+    m_editor.hotGizmoAxis = -1;
+    m_editor.hotRotationAxis = -1;
+
+    if ( clearSelection )
+    {
+        RuntimeInteractionCommand command;
+        command.type = RuntimeInteractionCommandType::SetEditorSelection;
+        command.claimSelectionOwner = false;
+        ApplySelectionCommand( command, world );
+    }
+}
+
+
+void RuntimeTools::PrepareOverlayTrace( SceneWorld& world, const Assets::AssetSystem& assets,
+                                        const ToolOverlayBuildInput& input )
+{
+    // Invariant: editor policy clears and rebuilds the shared tracer exactly
+    // once before replay appends its records for the same frame.
+    m_editorTracer.Clear();
+    BuildEditorToolOverlayTrace( m_editor, m_rayCastTest, m_mousePickup, world, assets, m_editorTracer,
+                                 { input.rayLingerSeconds, input.inspectGizmoActive, input.scaleMode, input.gesture,
+                                   input.attachedCameraTargetIndex, input.attachedCameraActiveFollow } );
+}
+
+
 EditorInteractionPreviewResult UpdateEditorInteractionPreview( Core::SbDiagnosticStore& diagnostics,
                                                                RunEditorPlacementState& editor, SceneWorld& world,
                                                                RuntimeInteractionController& interaction,

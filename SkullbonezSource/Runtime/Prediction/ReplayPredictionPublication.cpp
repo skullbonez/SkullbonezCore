@@ -21,7 +21,7 @@ Related:
 */
 #include "ReplayPredictionPublicationOperations.h"
 #include "../Scene/SceneEntityStore.h"
-#include "../Editor/EditorHullAssets.h"
+#include "../../Assets/EditorHullAssets.h"
 #include "../Replay/ReplayOverlayLayout.h"
 #include "ReplayPredictionReserve.h"
 #include "../Replay/ReplayScrubber.h"

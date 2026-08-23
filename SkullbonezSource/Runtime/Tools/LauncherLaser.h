@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Editor/LauncherLaser.h
+File: SkullbonezSource/Runtime/Tools/LauncherLaser.h
 Purpose:
   Owns launcher-mode laser ribbon shots and their transient render resources.
 
@@ -14,7 +14,7 @@ Invariants:
     neither reads nor restores ambient raster state.
 
 Related:
-  - SkullbonezSource/Runtime/Editor/LauncherLaser.cpp
+  - SkullbonezSource/Runtime/Tools/LauncherLaser.cpp
   - SkullbonezSource/Runtime/Editor/LauncherTools.cpp
   - Agentic/Reference/engine-glossary.md
 */
@@ -27,6 +27,7 @@ Related:
 
 #include "../../Maths/Matrix4.h"
 #include "../../Maths/Vector3.h"
+#include "../Replay/ReplayToolPackets.h"
 
 namespace SkullbonezCore
 {
@@ -44,18 +45,6 @@ class AssetSystem;
 
 namespace Runtime
 {
-struct LauncherLaserShotSnapshot
-{
-    Math::Vector::Vector3 start = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 end = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 cameraRight = Math::Vector::Vector3( 1.0f, 0.0f, 0.0f );
-    Math::Vector::Vector3 cameraUp = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
-    float ageSeconds = 0.0f;
-    float lifetimeSeconds = 0.18f;
-    bool active = false;
-    bool hit = false;
-};
-
 class LauncherLaser
 {
   private:

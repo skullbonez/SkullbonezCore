@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Editor/EditorCommandHistory.cpp
+File: SkullbonezSource/Runtime/Tools/EditorCommandHistory.cpp
 Purpose:
   Implements fixed editor history cursor, branch, overflow, and clear rules.
 
@@ -19,7 +19,7 @@ Invariants:
   - No heap-backed container or growth operation is used.
 
 Related:
-  - SkullbonezSource/Runtime/Editor/EditorCommandHistory.h
+  - SkullbonezSource/Runtime/Tools/EditorCommandHistory.h
   - SkullbonezTests/TestEditorCommandHistory.cpp
 */
 #include "EditorCommandHistory.h"

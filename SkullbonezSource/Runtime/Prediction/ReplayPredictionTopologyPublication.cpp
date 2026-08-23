@@ -23,7 +23,7 @@ Related:
 #include "ReplayPredictionPublicationOperations.h"
 #include "ReplayPredictionPublication.MarkerScan.inl"
 #include "../Scene/SceneEntityStore.h"
-#include "../Editor/EditorHullAssets.h"
+#include "../../Assets/EditorHullAssets.h"
 #include "../Replay/ReplayOverlayLayout.h"
 #include "../Replay/ReplayScrubber.h"
 #include "../../Core/Config.h"

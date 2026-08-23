@@ -41,7 +41,7 @@ Related:
 #include "../Physics/ConvexHullShape.h"
 #include "../Physics/PhysicsBodyStore.h"
 #include "../Physics/Ragdoll.h"
-#include "../Runtime/Editor/EditorHullAssets.h"
+#include "../Assets/EditorHullAssets.h"
 #include "../Rendering/RenderMaterial.h"
 #include "../Runtime/Tools/RuntimeFileWriter.h"
 

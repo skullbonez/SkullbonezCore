@@ -416,7 +416,7 @@
       "plan": ""
     },
     {
-      "file": "SkullbonezSource/Runtime/Editor/EditorCommandHistory.cpp",
+      "file": "SkullbonezSource/Runtime/Tools/EditorCommandHistory.cpp",
       "signature": "std::size_t EditorCommandHistory::StoredCount() const",
       "owner": "EditorCommandHistory bounded ring",
       "disposition": "retain-owner",

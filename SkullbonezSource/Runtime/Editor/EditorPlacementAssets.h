@@ -29,7 +29,7 @@ Related:
 */
 #pragma once
 
-#include "EditorHullAssets.h"
+#include "../../Assets/EditorHullAssets.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Maths/RotationMatrix.h"
 #include "../../Maths/Vector3.h"

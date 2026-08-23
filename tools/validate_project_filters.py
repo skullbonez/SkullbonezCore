@@ -141,6 +141,7 @@ MATH_PREFIXES = (
 ASSET_PREFIXES = (
     "AssetKeys",
     "AssetSystem",
+    "EditorHullAssets",
     "TextureCollection",
 )
 
@@ -524,7 +525,6 @@ RUNTIME_RENDER_PREFIXES = (
 )
 
 RUNTIME_EDITOR_PREFIXES = (
-    "EditorCommandHistory",
     "EditorGizmoTools",
     "EditorHistory",
     "EditorInteractionTools",
@@ -534,15 +534,15 @@ RUNTIME_EDITOR_PREFIXES = (
     "EditorTools",
     "EditorOverlayTools",
     "EditorTracer",
-    "EditorHullAssets",
     "ImGuiEditorCausalityProjection",
     "ImGuiEditorLayoutPolicy",
-    "LauncherLaser",
     "LauncherTools",
     "MousePickupTools",
 )
 
 RUNTIME_TOOLS_PREFIXES = (
+    "EditorCommandHistory",
+    "LauncherLaser",
     "RuntimeFileWriter",
     "RuntimeTools",
 )

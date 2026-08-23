@@ -19,7 +19,7 @@ Invariants:
     launcher shot history.
 
 Related:
-  - SkullbonezSource/Runtime/Editor/LauncherLaser.h
+  - SkullbonezSource/Runtime/Tools/LauncherLaser.h
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/engine-glossary.md
 */
