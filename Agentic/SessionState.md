@@ -2,7 +2,7 @@
 
 Date: 2026-08-23
 Branch: `nightrunner-22nd-AUG-26`
-Status: Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 96/118 tasks complete
+Status: Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 97/118 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -14,11 +14,12 @@ Deterministic Collision Modes And Ragdoll Unification FP0-FP9 is the binding
 deterministic Discrete collision with automatic Swept TOI
 promotion and isolated A/B evidence. FP2's retired sphere-box test surface and
 two reachability repair rows are gone, both live orders retain the exact sweep
-owner, and focused/all-config evidence is green; FP2 remains open for E5's
-runnable bundle, the retained 200-box comparison, and terminal Physics gates.
+owner, and focused/all-config evidence is green. FP2 now retains a hash-complete
+runnable bundle and the 6,800-frame 200-box comparison; only the repository-
+owner Physics golden approval remains before phase closure.
 FP5-FP9 complete the ragdoll joint and late speculative-contact path. Runtime
 Boundary Separation And Project Topology
-RBS0-RBS7 remains active behind it; RBS0-RBS1 are complete and RBS2 is ready.
+RBS0-RBS7 remains active behind it; RBS0-RBS2 are complete and RBS3 is ready.
 The ordinary gate now admits only exact current repair identities, strict mode
 fails the live 19-package SCC and all 276 forbidden sites, and all nine tracked
 Visual Studio projects belong to the closed topology policy. The plan owns Runtime/App composition-root closure, package-cycle removal,
@@ -473,18 +474,16 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Continue `RAGDOLL_PHYSICS` FP2. Other slots may resume
-`RUNTIME_BOUNDARIES` RBS2 when their current canonical
-subsystem, path-owner, worktree, and mutable resource leases are disjoint. UI3
+Continue `RAGDOLL_PHYSICS` FP2 after the repository owner approves the exact
+Physics golden transition. Other slots may resume `RUNTIME_BOUNDARIES` RBS3
+when their current canonical subsystem, path-owner, worktree, and mutable
+resource leases are disjoint. UI3
 waits for RBS4. FP2 retains motion policy version 2: `0.1` metres
 of absolute per-tick travel promotes and `0.075` metres demotes, independent of
 collider thickness.
 
 ## Blockers
 
-- Retained FP0/FP1 Physics artifact directories contain the Debug executable but
-  not its imported `WinPixEventRuntime.dll`. FP2 owns copying and hashing its
-  runtime DLLs and proving an isolated launch before phase closure.
 - FP0 pre-change `tools\validate_perf.bat` stops on 33 existing non-Physics
   allocation-policy findings before performance measurement. Preserve this as
   inherited evidence; do not weaken the policy or attribute the rows to FP0.

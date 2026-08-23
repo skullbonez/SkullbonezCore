@@ -1,7 +1,7 @@
 # Runtime Boundary Separation And Project Topology Plan
 
 Date: 2026-08-22
-Status: Active by owner direction. 2/8 phases complete; RBS2 ready.
+Status: Active by owner direction. 3/8 phases complete; RBS3 ready.
 Impact area: `SkullbonezSource/Runtime/`, Runtime-facing Rendering/UI seams,
 Visual Studio project topology, dependency enforcement, tests, and documentation
 Owner: Runtime architecture, with each moved value or behavior retained by its
@@ -810,15 +810,15 @@ present at base `ad94aca1e`; RBS1 changes none of those source files or paths.
 
 **Goal:** Remove the broad low-level reasons packages include App.
 
-- [ ] Move launch options and startup state to the ratified Startup/value owner,
+- [x] Move launch options and startup state to the ratified Startup/value owner,
       updating consumers without App forwarding headers.
-- [ ] Split native window handles/dimensions/fullscreen/message interpretation
+- [x] Split native window handles/dimensions/fullscreen/message interpretation
       from renderer resize and ImGui routing.
-- [ ] Emit bounded typed native events; App applies them synchronously to owners.
-- [ ] Remove retained `Dx12FrameOwner` and `ImGuiEditorOwner` window borrows after
+- [x] Emit bounded typed native events; App applies them synchronously to owners.
+- [x] Remove retained `Dx12FrameOwner` and `ImGuiEditorOwner` window borrows after
       the event path is proven.
-- [ ] Move source-neutral replay/frame packets to their lowest honest owner.
-- [ ] Delete obsolete includes, friends, exceptions, project items, and comments.
+- [x] Move source-neutral replay/frame packets to their lowest honest owner.
+- [x] Delete obsolete includes, friends, exceptions, project items, and comments.
 
 **Acceptance:** Startup/Input/Editor/DevelopmentTools/Render no longer include App
 for launch/window values; behavior matches across resize, fullscreen, UI surfaces,
