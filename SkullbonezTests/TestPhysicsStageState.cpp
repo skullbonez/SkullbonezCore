@@ -1099,11 +1099,12 @@ TEST_CASE( "Physics narrowphase islands: repeated parallel evaluation preserves 
     std::vector<float> timeRemaining( kBodyCount, 1.0f / 120.0f );
     PhysicsWorldForces worldForces;
     std::vector<BuoyancyBodyFacts> buoyancyFacts( kBodyCount );
-    std::vector<SkullbonezCore::Physics::PersistentContactCacheEntry> persistentCache;
+    std::vector<uint8_t> motionEligibilityState( kBodyCount,
+                                                 SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted );
     const auto wakeAccess = sleep.CreateNarrowphaseWakeAccess( bodies, colliders, {}, worldForces, buoyancyFacts,
                                                                bodies.MutableRecords(), timeRemaining, kBodyCount,
                                                                1.0f / 120.0f );
-    const ObjectNarrowphaseStepPolicy policy { 0.25f, 0.09f, 0.01f, 0.05f, 1.0f / 24.0f, 1.0f / 120.0f, true, true, true };
+    const ObjectNarrowphaseStepPolicy policy { 0.25f, 0.09f, 0.01f, 1.0f / 24.0f, 1.0f / 120.0f, true, true, true };
     LockOrderValidator lockOrderValidator;
     WorkerPool workerPool( lockOrderValidator );
     workerPool.Initialise( 1 );
@@ -1116,16 +1117,16 @@ TEST_CASE( "Physics narrowphase islands: repeated parallel evaluation preserves 
     }
 
     REQUIRE( stage.TryRunParallel( bodies, colliders, {}, buoyancyFacts, candidatePairs, wakeAccess, timeRemaining,
-                                   persistentCache, policy, nullptr, workerPool ) );
+                                   motionEligibilityState, policy, nullptr, workerPool ) );
     const std::vector<ObjectNarrowphaseEvent> first( stage.GetEvents().begin(), stage.GetEvents().end() );
     REQUIRE( stage.TryRunParallel( bodies, colliders, {}, buoyancyFacts, candidatePairs, wakeAccess, timeRemaining,
-                                   persistentCache, policy, nullptr, workerPool ) );
+                                   motionEligibilityState, policy, nullptr, workerPool ) );
     const std::vector<ObjectNarrowphaseEvent> second( stage.GetEvents().begin(), stage.GetEvents().end() );
 
     ObjectNarrowphaseStepPolicy countOnlyPolicy = policy;
     countOnlyPolicy.retainPipelineRecords = false;
     REQUIRE( stage.TryRunParallel( bodies, colliders, {}, buoyancyFacts, candidatePairs, wakeAccess, timeRemaining,
-                                   persistentCache, countOnlyPolicy, nullptr, workerPool ) );
+                                   motionEligibilityState, countOnlyPolicy, nullptr, workerPool ) );
     const std::vector<ObjectNarrowphaseEvent> countOnly( stage.GetEvents().begin(), stage.GetEvents().end() );
 
     REQUIRE( first.size() == kPairCount );
@@ -1179,13 +1180,15 @@ TEST_CASE( "Physics narrowphase collision events preserve full-width spatial cel
                                                                bodies.MutableRecords(), timeRemaining, 2,
                                                                1.0f / 120.0f );
     const std::array<std::pair<int, int>, 1> candidatePairs = { std::make_pair( 0, 1 ) };
-    const std::array<SkullbonezCore::Physics::PersistentContactCacheEntry, 0> persistentCache;
-    const ObjectNarrowphaseStepPolicy policy { 0.25f, 0.09f, 0.01f, 0.05f, 2.0f, 1.0f / 120.0f,
-                                                true,  false, true };
+    const std::array<uint8_t, 2> motionEligibilityState = {
+        SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted,
+        SkullbonezCore::Physics::PhysicsMotionEligibilityNone,
+    };
+    const ObjectNarrowphaseStepPolicy policy { 0.25f, 0.09f, 0.05f, 2.0f, 1.0f / 120.0f, true, false, true };
     PhysicsNarrowphaseStage stage;
     ObjectNarrowphaseEvent event;
     stage.ProcessObjectNarrowphasePair<true>( bodies, colliders, {}, buoyancyFacts, candidatePairs, wakeAccess,
-                                               timeRemaining, persistentCache, policy, nullptr, 0, event );
+                                               timeRemaining, motionEligibilityState, policy, nullptr, 0, event );
 
     REQUIRE( event.kind == ObjectNarrowphaseEventKind::SweptObjectHit );
     REQUIRE( event.hasCollisionCellKey == 1u );
@@ -1196,4 +1199,56 @@ TEST_CASE( "Physics narrowphase collision events preserve full-width spatial cel
     const int exactCellX = static_cast<int>( floorf( midpoint.x * policy.invCellSize ) );
     REQUIRE( exactCellX > (std::numeric_limits<int16_t>::max)() );
     CHECK( event.collisionCellKey == SkullbonezCore::Physics::EncodeExactSpatialCellKey( exactCellX, 0, 0 ) );
+}
+
+
+TEST_CASE( "Physics motion promotion: promoted swept impact wakes a sleeping target" )
+{
+    PhysicsBodyStore& bodies = StageBodyStore();
+    ColliderStore& colliders = StageColliderStore();
+    const CollisionShape sphere = BoundingSphere( 0.5f, SkullbonezCore::Math::Vector::ZERO_VECTOR, 0.0f );
+    std::array<SkullbonezCore::Physics::PhysicsBodyHandle, 2> handles;
+
+    for ( int bodyIndex = 0; bodyIndex < 2; ++bodyIndex )
+    {
+        PhysicsBodyCreateRecord body;
+        body.cold.mass = 1.0f;
+        body.hot.inverseMass = 1.0f;
+        body.hot.position = Vector3( bodyIndex == 0 ? -2.0f : 0.0f, 0.0f, 0.0f );
+        body.hot.linearVelocity = bodyIndex == 0 ? Vector3( 240.0f, 0.0f, 0.0f )
+                                                 : SkullbonezCore::Math::Vector::ZERO_VECTOR;
+        handles[static_cast<std::size_t>( bodyIndex )] = bodies.CreateBodyRecord( body );
+        ColliderRecord collider;
+        collider.body = handles[static_cast<std::size_t>( bodyIndex )];
+        collider.boundingRadius = 0.5f;
+        REQUIRE( SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders, collider, sphere ).IsValid() );
+    }
+
+    PhysicsSleepController sleep;
+    ReserveTestSleepCapacity( sleep );
+    REQUIRE( sleep.MirrorFlagsFrom( bodies, 2 ) );
+    REQUIRE( bodies.SeedBodyAsleep( handles[1] ) );
+    sleep.SeedModelAsleep( bodies, 1 );
+    REQUIRE( sleep.GetSleepStates()[1] != 0u );
+    std::array<float, 2> timeRemaining = { 1.0f / 120.0f, 1.0f / 120.0f };
+    std::array<BuoyancyBodyFacts, 2> buoyancyFacts;
+    PhysicsWorldForces worldForces;
+    const auto wakeAccess = sleep.CreateNarrowphaseWakeAccess( bodies, colliders, {}, worldForces, buoyancyFacts,
+                                                               bodies.MutableRecords(), timeRemaining, 2,
+                                                               1.0f / 120.0f );
+    const std::array<std::pair<int, int>, 1> candidatePairs = { std::make_pair( 0, 1 ) };
+    const std::array<uint8_t, 2> motionEligibilityState = {
+        SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted,
+        SkullbonezCore::Physics::PhysicsMotionEligibilityNone,
+    };
+    const ObjectNarrowphaseStepPolicy policy { 0.25f, 0.09f, 0.05f, 2.0f, 1.0f / 120.0f, true, false, true };
+    PhysicsNarrowphaseStage stage;
+    ObjectNarrowphaseEvent event;
+
+    stage.ProcessObjectNarrowphasePair<true>( bodies, colliders, {}, buoyancyFacts, candidatePairs, wakeAccess,
+                                               timeRemaining, motionEligibilityState, policy, nullptr, 0, event );
+
+    REQUIRE( event.kind == ObjectNarrowphaseEventKind::SweptObjectHit );
+    CHECK( sleep.GetSleepStates()[1] == 0u );
+    CHECK( timeRemaining[0] < 1.0f / 120.0f );
 }

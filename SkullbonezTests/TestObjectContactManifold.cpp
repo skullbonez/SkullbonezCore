@@ -1150,3 +1150,45 @@ TEST_CASE( "Object CCD: rotated local centres determine sphere and box sweep ori
         CHECK( sweep.collisionTime <= 1.0f );
     }
 }
+
+
+TEST_CASE( "Object CCD: sphere crosses a thin tall box without a bounding-sphere proxy miss" )
+{
+    const CollisionShape sphere = BoundingSphere( 0.1f, Vector3( 0.0f, 0.0f, 0.0f ) );
+    const CollisionShape thinWall = BoundingBox( Vector3( 0.005f, 1.0f, 1.0f ), Vector3( 0.0f, 0.0f, 0.0f ) );
+    const Vector3 sphereVelocity( 1.0f, 0.0f, 0.0f );
+    const Vector3 stationary( 0.0f, 0.0f, 0.0f );
+    ObjectContactBodyView movingSphere;
+    movingSphere.position = Vector3( 0.0f, 0.0f, 0.0f );
+    ObjectContactBodyView wall;
+    wall.position = Vector3( 0.5f, 0.0f, 0.0f );
+
+    const auto sphereFirst = SweepObjectContact( movingSphere, sphere, sphereVelocity, wall, thinWall, stationary, 1.0f );
+    const auto wallFirst = SweepObjectContact( wall, thinWall, stationary, movingSphere, sphere, sphereVelocity, 1.0f );
+
+    REQUIRE( sphereFirst.hit );
+    REQUIRE( wallFirst.hit );
+    CHECK( sphereFirst.collisionTime == doctest::Approx( 0.395f ).epsilon( 0.0001f ) );
+    CHECK( wallFirst.collisionTime == doctest::Approx( sphereFirst.collisionTime ).epsilon( 0.0001f ) );
+
+    movingSphere.position.y = 1.2f;
+    CHECK_FALSE( SweepObjectContact( movingSphere, sphere, sphereVelocity, wall, thinWall, stationary, 1.0f ).hit );
+}
+
+
+TEST_CASE( "Object CCD: shallow oblique sphere motion reaches a box face" )
+{
+    const CollisionShape sphere = BoundingSphere( 0.1f, Vector3( 0.0f, 0.0f, 0.0f ) );
+    const CollisionShape box = BoundingBox( Vector3( 1.0f, 1.0f, 1.0f ), Vector3( 0.0f, 0.0f, 0.0f ) );
+    const Vector3 shallowObliqueVelocity( -0.001f, 0.1f, 0.0f );
+    const Vector3 stationary( 0.0f, 0.0f, 0.0f );
+    ObjectContactBodyView movingSphere;
+    movingSphere.position = Vector3( 1.1005f, 0.0f, 0.0f );
+    ObjectContactBodyView stationaryBox;
+
+    const auto sweep =
+        SweepObjectContact( movingSphere, sphere, shallowObliqueVelocity, stationaryBox, box, stationary, 1.0f );
+
+    REQUIRE( sweep.hit );
+    CHECK( sweep.collisionTime == doctest::Approx( 0.5f ).epsilon( 0.0001f ) );
+}

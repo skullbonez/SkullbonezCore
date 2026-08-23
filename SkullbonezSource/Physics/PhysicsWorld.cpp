@@ -1066,9 +1066,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
     awakeBodyIndices = m_sleepController.GetAwakeBodyIndices();
 
     // One deterministic dense pass consumes the final force-resolved velocities.
-    // Linear path bits cross diagnostics/replay without changing collision
-    // routing here. Broadphase consumes angular reach; rotational time-of-impact
-    // and response remain outside this classification stage.
+    // Narrowphase consumes linear path bits, while broadphase consumes angular
+    // reach; rotational time-of-impact and response remain outside this phase.
     m_motionEligibility.Run( bodyStore, colliderStore, sleepStates, dt );
 
     // Broadphase: sleeping membership remains resident, while awake rows update
@@ -1096,7 +1095,6 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
 
     const ObjectNarrowphaseStepPolicy narrowphasePolicy { sleepPolicy.linearSpeedSquared,
                                                           sleepPolicy.angularSpeedSquared,
-                                                          contactSkin,
                                                           settings.body.contactEpsilon,
                                                           invCellSize,
                                                           dt,
@@ -1106,8 +1104,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
 
     const bool ranParallelNarrowphase = m_narrowphase.TryRunParallel( bodyStore, colliderStore, m_terrainView, buoyancyFacts,
                                                                       candidatePairs, narrowphaseWake, m_timeRemaining,
-                                                                      m_contactSolverStage.GetPersistentContactCache(),
-                                                                      narrowphasePolicy, m_profiler, workerPool );
+                                                                      m_motionEligibility.State(), narrowphasePolicy,
+                                                                      m_profiler, workerPool );
 
     if ( ranParallelNarrowphase )
     {
@@ -1158,8 +1156,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
                 ObjectNarrowphaseEvent event;
                 m_narrowphase.ProcessObjectNarrowphasePair<true>( bodyStore, colliderStore, m_terrainView, buoyancyFacts,
                                                                   candidatePairs, narrowphaseWake, m_timeRemaining,
-                                                                  m_contactSolverStage.GetPersistentContactCache(),
-                                                                  narrowphasePolicy, m_profiler, pairIndex, event );
+                                                                  m_motionEligibility.State(), narrowphasePolicy, m_profiler,
+                                                                  pairIndex, event );
 
                 if ( event.pipelineRecord )
                 {
@@ -1178,8 +1176,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
                 ObjectNarrowphaseEvent event;
                 m_narrowphase.ProcessObjectNarrowphasePair<false>( bodyStore, colliderStore, m_terrainView, buoyancyFacts,
                                                                    candidatePairs, narrowphaseWake, m_timeRemaining,
-                                                                   m_contactSolverStage.GetPersistentContactCache(),
-                                                                   narrowphasePolicy, m_profiler, pairIndex, event );
+                                                                   m_motionEligibility.State(), narrowphasePolicy,
+                                                                   m_profiler, pairIndex, event );
 
                 pipelineEventCount += event.hasPipelineEvent;
                 CommitObjectNarrowphaseEvent( event );
@@ -1197,16 +1195,17 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
     awakeBodyIndices = m_sleepController.GetAwakeBodyIndices();
 
     // Terrain phase ownership:
-    //   1. Keep swept terrain detection here so fast bodies still stop at the
-    //      correct time of impact.
+    //   1. Detect only the current boundary for Discrete bodies; linearly
+    //      promoted bodies inspect their full remaining path and stop at TOI.
     //   2. Convert the hit into a terrain manifold only. Do not apply impulses
     //      or terrain-only velocity response in this phase.
     //   3. Leave remaining-time integration and all normal/friction response to
     //      the shared persistent contact rows below.
     PROFILE_BEGIN( "Frame/Physics/Terrain" );
     PROFILE_BEGIN( "Frame/Physics/Terrain/Detect" );
-    m_terrain.Detect( bodyStore, colliderStore, buoyancyFacts, m_terrainView, settings, sleepStates, m_timeRemaining,
-                      m_profiler, awakeBodyIndices, settings.execution, workerPool );
+    m_terrain.Detect( bodyStore, colliderStore, buoyancyFacts, m_terrainView, settings, sleepStates,
+                      m_motionEligibility.State(), m_timeRemaining, m_profiler, awakeBodyIndices, settings.execution,
+                      workerPool );
 
     const std::span<const TerrainDetectionCandidate> terrainCandidates = m_terrain.GetDetectionCandidates();
 

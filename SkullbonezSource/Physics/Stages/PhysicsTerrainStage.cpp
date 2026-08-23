@@ -34,6 +34,7 @@ Related:
 #include "../../Core/WorkerPool.h"
 #include "../ColliderStore.h"
 #include "../PhysicsBodyStore.h"
+#include "../PhysicsMotionEligibility.h"
 
 #include <algorithm>
 
@@ -101,6 +102,7 @@ void PhysicsTerrainStage::DetectTerrainAt( std::span<const PhysicsBodyRecord> bo
                                            const PhysicsBodyHotFieldsConstView& hotFields,
                                            std::span<const ColliderRecord> colliderRecords, PhysicsTerrainView terrain,
                                            const PhysicsRuntimeSettings& settings, std::span<const uint8_t> sleepState,
+                                           std::span<const uint8_t> motionEligibilityState,
                                            std::span<const float> timeRemaining, Core::Profiler* profiler, int bodyIndex )
 {
     TerrainDetectionCandidate& candidate = m_detectionCandidates[static_cast<size_t>( bodyIndex )];
@@ -121,11 +123,17 @@ void PhysicsTerrainStage::DetectTerrainAt( std::span<const PhysicsBodyRecord> bo
     }
 
     candidate.availableTime = timeRemaining[bodyIndex];
+
+    // Hazard: a short classification span cannot safely opt a body out of CCD.
+    // Production supplies one row per body; direct callers fail conservative.
+    const bool linearPromoted = bodyIndex >= static_cast<int>( motionEligibilityState.size() ) ||
+                                ( motionEligibilityState[static_cast<std::size_t>( bodyIndex )] &
+                                  PhysicsMotionEligibilityLinearPromoted ) != 0u;
+    const float detectionHorizon = linearPromoted ? candidate.availableTime : 0.0f;
     candidate.sweep = SweepTerrainContact( profiler,
                                            TerrainContactBodyViewForIndex( buoyancyFacts, hotFields, terrain, settings,
                                                                            bodyIndex ),
-                                           colliderRecords[static_cast<size_t>( bodyIndex )].shape,
-                                           candidate.availableTime );
+                                           colliderRecords[static_cast<size_t>( bodyIndex )].shape, detectionHorizon );
 
     candidate.tested = 1;
 }
@@ -133,9 +141,9 @@ void PhysicsTerrainStage::DetectTerrainAt( std::span<const PhysicsBodyRecord> bo
 void PhysicsTerrainStage::Detect( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                                   std::span<const BuoyancyBodyFacts> buoyancyFacts, PhysicsTerrainView terrain,
                                   const PhysicsRuntimeSettings& settings, std::span<const uint8_t> sleepState,
-                                  std::span<const float> timeRemaining, Core::Profiler* profiler,
-                                  std::span<const int> awakeBodyIndices, const PhysicsExecutionSettings& execution,
-                                  Threading::WorkerPool& workerPool )
+                                  std::span<const uint8_t> motionEligibilityState, std::span<const float> timeRemaining,
+                                  Core::Profiler* profiler, std::span<const int> awakeBodyIndices,
+                                  const PhysicsExecutionSettings& execution, Threading::WorkerPool& workerPool )
 {
     const std::span<const PhysicsBodyRecord> bodyRecords = bodyStore.Records();
     const PhysicsBodyHotFieldsConstView hotFields = bodyStore.HotFields();
@@ -148,7 +156,8 @@ void PhysicsTerrainStage::Detect( const PhysicsBodyStore& bodyStore, const Colli
     const auto detectAwakeBody = [&]( int bodySlot )
     {
         DetectTerrainAt( bodyRecords, buoyancyFacts, hotFields, colliderRecords, terrain, settings, sleepState,
-                         timeRemaining, profiler, awakeBodyIndices[static_cast<std::size_t>( bodySlot )] );
+                         motionEligibilityState, timeRemaining, profiler,
+                         awakeBodyIndices[static_cast<std::size_t>( bodySlot )] );
     };
 
     const int awakeBodyCount = static_cast<int>( awakeBodyIndices.size() );

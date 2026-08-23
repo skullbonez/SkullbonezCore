@@ -56,9 +56,8 @@ template <typename T> uint64_t ListCapacityBytes( const T& values )
 template <bool RetainPipelineRecords>
 void PhysicsNarrowphaseStage::ProcessObjectNarrowphaseIsland( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, PhysicsTerrainView terrain,
                                                               std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<const std::pair<int, int>> candidatePairs,
-                                                              PhysicsNarrowphaseWakeAccess wakeAccess, std::span<float> timeRemaining,
-                                                              std::span<const PersistentContactCacheEntry> persistentContactCache, const ObjectNarrowphaseStepPolicy& policy,
-                                                              Core::Profiler* profiler, int islandIndex )
+                                                              PhysicsNarrowphaseWakeAccess wakeAccess, std::span<float> timeRemaining, std::span<const uint8_t> motionEligibilityState,
+                                                              const ObjectNarrowphaseStepPolicy& policy, Core::Profiler* profiler, int islandIndex )
 {
     const ObjectNarrowphaseIsland& island = m_objectNarrowphaseIslands[static_cast<size_t>( islandIndex )];
     const size_t pairEnd = island.firstPairOffset + island.pairCount;
@@ -68,7 +67,7 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphaseIsland( PhysicsBodyStore& 
         const int pairIndex = m_objectNarrowphaseIslandPairIndices[pairCursor];
         ProcessObjectNarrowphasePair<RetainPipelineRecords>( bodyStore, colliderStore, terrain, buoyancyFacts,
                                                              candidatePairs, wakeAccess, timeRemaining,
-                                                             persistentContactCache, policy, profiler, pairIndex,
+                                                             motionEligibilityState, policy, profiler, pairIndex,
                                                              m_objectNarrowphaseEvents[static_cast<size_t>( pairIndex )] );
     }
 }
@@ -241,13 +240,13 @@ void PhysicsNarrowphaseStage::ObjectNarrowphaseIslandStage::operator()( int isla
     if ( policy.retainPipelineRecords )
     {
         stage.ProcessObjectNarrowphaseIsland<true>( bodyStore, colliderStore, terrain, buoyancyFacts, candidatePairs,
-                                                    wakeAccess, timeRemaining, persistentContactCache, policy, profiler,
+                                                    wakeAccess, timeRemaining, motionEligibilityState, policy, profiler,
                                                     islandIndex );
     }
     else
     {
         stage.ProcessObjectNarrowphaseIsland<false>( bodyStore, colliderStore, terrain, buoyancyFacts, candidatePairs,
-                                                     wakeAccess, timeRemaining, persistentContactCache, policy, profiler,
+                                                     wakeAccess, timeRemaining, motionEligibilityState, policy, profiler,
                                                      islandIndex );
     }
 }
@@ -256,7 +255,7 @@ bool PhysicsNarrowphaseStage::TryRunParallel( PhysicsBodyStore& bodyStore, const
                                               PhysicsTerrainView terrain, std::span<BuoyancyBodyFacts> buoyancyFacts,
                                               std::span<const std::pair<int, int>> candidatePairs,
                                               PhysicsNarrowphaseWakeAccess wakeAccess, std::span<float> timeRemaining,
-                                              std::span<const PersistentContactCacheEntry> persistentContactCache,
+                                              std::span<const uint8_t> motionEligibilityState,
                                               const ObjectNarrowphaseStepPolicy& policy, Core::Profiler* profiler,
                                               Threading::WorkerPool& workerPool )
 {
@@ -293,7 +292,7 @@ bool PhysicsNarrowphaseStage::TryRunParallel( PhysicsBodyStore& bodyStore, const
     m_objectNarrowphaseEvents.assign( candidatePairs.size(), ObjectNarrowphaseEvent() );
     ObjectNarrowphaseIslandStage islandStage { *this,      bodyStore,     colliderStore,
                                                terrain,    buoyancyFacts, candidatePairs,
-                                               wakeAccess, timeRemaining, persistentContactCache,
+                                               wakeAccess, timeRemaining, motionEligibilityState,
                                                policy,     profiler };
 
     {

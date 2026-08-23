@@ -44,19 +44,6 @@ namespace Vector = SkullbonezCore::Math::Vector;
 
 namespace
 {
-constexpr float PHYSICS_OBJECT_CCD_RADIUS_FRACTION = 0.25f;
-constexpr float PHYSICS_OBJECT_CCD_SKIN_SCALE = 4.0f;
-
-bool IsSolverBodyFixed( const PhysicsBodyHotFieldsConstView& hotFields, int bodyIndex )
-{
-    return hotFields.fixed[static_cast<size_t>( bodyIndex )] != 0u;
-}
-
-float SolverBodyRadius( std::span<const ColliderRecord> colliderRecords, int bodyIndex )
-{
-    return colliderRecords[static_cast<size_t>( bodyIndex )].boundingRadius;
-}
-
 // Concept: wake energy uses the same quietness thresholds as sleep eligibility.
 // A body with enough linear or angular motion can wake a sleeping neighbor
 // during persistent-contact handling.
@@ -209,52 +196,26 @@ ObjectContactSweepResult SweepObjectPair( SkullbonezCore::Core::Profiler*, const
                                PhysicsBodyLinearVelocity( hotFields, static_cast<size_t>( bodyB ) ), availableTime );
 }
 
-bool PersistentContactCacheEntryPrecedesKey( const PersistentContactCacheEntry& entry, int64_t lookupKey )
+bool BodyRequiresSweptTranslation( std::span<const uint8_t> motionEligibilityState, int bodyIndex )
 {
-    return entry.key < lookupKey;
-}
-
-bool ObjectPairHasPersistentContactCache( std::span<const PersistentContactCacheEntry> persistentContactCache, int bodyA,
-                                          int bodyB )
-{
-    const int lo = ( bodyA < bodyB ) ? bodyA : bodyB;
-    const int hi = ( bodyA < bodyB ) ? bodyB : bodyA;
-
-    // Invariant: this mirrors the object/object prefix of the persistent solver
-    // cache key. Feature ids occupy the low 32 bits, so masking those away
-    // answers whether any cached contact row existed for this pair.
-    const uint64_t pairPrefix = ( ( static_cast<uint64_t>( static_cast<uint32_t>( lo ) ) & PERSISTENT_CONTACT_BODY_MASK )
-                                  << 47 ) |
-                                ( ( static_cast<uint64_t>( static_cast<uint32_t>( hi ) ) & PERSISTENT_CONTACT_BODY_MASK )
-                                  << 32 );
-
-    const int64_t firstKey = static_cast<int64_t>( pairPrefix );
-    auto cachedIt = std::lower_bound( persistentContactCache.begin(), persistentContactCache.end(), firstKey,
-                                      PersistentContactCacheEntryPrecedesKey );
-
-    return cachedIt != persistentContactCache.end() &&
-           ( static_cast<uint64_t>( cachedIt->key ) & 0xffffffff00000000ull ) == pairPrefix;
+    // Hazard: a short or invalid classification span cannot safely opt a body
+    // out of CCD. The production owner publishes one row per body; direct tools
+    // and future callers fail conservative until their contract is corrected.
+    return bodyIndex < 0 || bodyIndex >= static_cast<int>( motionEligibilityState.size() ) ||
+           ( motionEligibilityState[static_cast<std::size_t>( bodyIndex )] & PhysicsMotionEligibilityLinearPromoted ) != 0u;
 }
 
 bool ObjectPairNeedsSweptCcd( const PhysicsBodyHotFieldsConstView& hotFields,
-                              std::span<const ColliderRecord> colliderRecords,
-                              std::span<const PersistentContactCacheEntry> persistentContactCache, int bodyAIndex,
-                              int bodyBIndex, float availableTime, float contactSkin )
+                              std::span<const uint8_t> motionEligibilityState, int bodyAIndex, int bodyBIndex,
+                              float availableTime )
 {
     if ( availableTime <= TOLERANCE )
     {
         return false;
     }
 
-    if ( !ObjectPairHasPersistentContactCache( persistentContactCache, bodyAIndex, bodyBIndex ) )
-    {
-        return true;
-    }
-
-    const float radiusA = SolverBodyRadius( colliderRecords, bodyAIndex );
-    const float radiusB = SolverBodyRadius( colliderRecords, bodyBIndex );
-
-    if ( !std::isfinite( radiusA ) || !std::isfinite( radiusB ) || radiusA <= TOLERANCE || radiusB <= TOLERANCE )
+    if ( BodyRequiresSweptTranslation( motionEligibilityState, bodyAIndex ) ||
+         BodyRequiresSweptTranslation( motionEligibilityState, bodyBIndex ) )
     {
         return true;
     }
@@ -263,23 +224,15 @@ bool ObjectPairNeedsSweptCcd( const PhysicsBodyHotFieldsConstView& hotFields,
                                                  PhysicsBodyLinearVelocity( hotFields,
                                                                             static_cast<size_t>( bodyBIndex ) ) ) *
                                                availableTime;
+    const float relativeTravelSquared = Vector::VectorMagSquared( relativeLinearDisplacement );
+    constexpr float RELATIVE_PROMOTION_THRESHOLD_SQUARED = PHYSICS_MOTION_PROMOTE_TRAVEL_PER_TICK *
+                                                           PHYSICS_MOTION_PROMOTE_TRAVEL_PER_TICK;
 
-    const float linearTravel = Vector::VectorMag( relativeLinearDisplacement );
-    const float angularTravel = ( Vector::VectorMag( PhysicsBodyAngularVelocity( hotFields, static_cast<size_t>( bodyAIndex ) ) ) *
-                                      radiusA +
-                                  Vector::VectorMag( PhysicsBodyAngularVelocity( hotFields, static_cast<size_t>( bodyBIndex ) ) ) *
-                                      radiusB ) *
-                                availableTime;
-
-    const float sweptTravel = linearTravel + angularTravel;
-    const float smallerRadius = (std::min)( radiusA, radiusB );
-    const float ccdThreshold = (std::max)( contactSkin * PHYSICS_OBJECT_CCD_SKIN_SCALE,
-                                           smallerRadius * PHYSICS_OBJECT_CCD_RADIUS_FRACTION );
-
-    // Why: only already-persistent pairs may bypass the swept front-end. New
-    // contacts keep their old time-of-impact path; settled contacts rely on
-    // persistent manifolds unless motion is large enough to tunnel.
-    return sweptTravel > ccdThreshold;
+    // Invariant: each individually Discrete body travels strictly less than the
+    // absolute promotion threshold. Opposing motion still selects Swept TOI when
+    // their combined relative travel reaches that same threshold. This remains
+    // independent of collider thickness and angular reach.
+    return !std::isfinite( relativeTravelSquared ) || relativeTravelSquared >= RELATIVE_PROMOTION_THRESHOLD_SQUARED;
 }
 
 } // namespace
@@ -336,9 +289,8 @@ void PhysicsNarrowphaseStage::WriteObjectCollisionCellEvent( ObjectNarrowphaseEv
 template <bool RetainPipelineRecords>
 void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, PhysicsTerrainView terrain,
                                                             std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<const std::pair<int, int>> candidatePairs,
-                                                            PhysicsNarrowphaseWakeAccess wakeAccess, std::span<float> timeRemaining,
-                                                            std::span<const PersistentContactCacheEntry> persistentContactCache, const ObjectNarrowphaseStepPolicy& policy,
-                                                            Core::Profiler* profiler, int pairIndex, ObjectNarrowphaseEvent& event )
+                                                            PhysicsNarrowphaseWakeAccess wakeAccess, std::span<float> timeRemaining, std::span<const uint8_t> motionEligibilityState,
+                                                            const ObjectNarrowphaseStepPolicy& policy, Core::Profiler* profiler, int pairIndex, ObjectNarrowphaseEvent& event )
 {
     const PhysicsBodyHotFieldsConstView hotFields = bodyStore.HotFields();
     const std::span<const ColliderRecord> colliderRecords = colliderStore.Records();
@@ -365,8 +317,8 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bo
             // overlap wakes too so sleepers cannot stay frozen after a hit.
             bool wokeBySweptImpact = false;
 
-            if ( timeRemaining[y] > 0.0f && ObjectPairNeedsSweptCcd( hotFields, colliderRecords, persistentContactCache, y,
-                                                                     x, timeRemaining[y], policy.contactSkin ) )
+            if ( timeRemaining[y] > 0.0f &&
+                 ObjectPairNeedsSweptCcd( hotFields, motionEligibilityState, y, x, timeRemaining[y] ) )
             {
                 ObjectContactSweepResult sweep = SweepObjectPair( profiler, hotFields, colliderRecords, y, x,
                                                                   timeRemaining[y] );
@@ -458,8 +410,8 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bo
 
             bool wokeBySweptImpact = false;
 
-            if ( timeRemaining[x] > 0.0f && ObjectPairNeedsSweptCcd( hotFields, colliderRecords, persistentContactCache, x,
-                                                                     y, timeRemaining[x], policy.contactSkin ) )
+            if ( timeRemaining[x] > 0.0f &&
+                 ObjectPairNeedsSweptCcd( hotFields, motionEligibilityState, x, y, timeRemaining[x] ) )
             {
                 ObjectContactSweepResult sweep = SweepObjectPair( profiler, hotFields, colliderRecords, x, y,
                                                                   timeRemaining[x] );
@@ -554,27 +506,10 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bo
 
     float availableTime = (std::min)( timeRemaining[x], timeRemaining[y] );
 
-    if ( !ObjectPairNeedsSweptCcd( hotFields, colliderRecords, persistentContactCache, x, y, availableTime,
-                                   policy.contactSkin ) )
+    if ( !ObjectPairNeedsSweptCcd( hotFields, motionEligibilityState, x, y, availableTime ) )
     {
-        if constexpr ( RetainPipelineRecords )
-        {
-            Physics::PhysicsPipelineRecord record;
-            record.stage = Physics::PhysicsPipelineStage::SweptObjectMiss;
-            record.bodyA = x;
-            record.bodyB = y;
-            record.point = ( PhysicsBodyPosition( hotFields, static_cast<size_t>( x ) ) +
-                             PhysicsBodyPosition( hotFields, static_cast<size_t>( y ) ) ) *
-                           0.5f;
-
-            record.scalarA = availableTime;
-            RecordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectMiss, record );
-        }
-        else
-        {
-            ObserveObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectMiss );
-        }
-
+        // Invariant: a Discrete pair performs no swept query and therefore emits
+        // neither a SweptObjectHit nor a misleading SweptObjectMiss event.
         return;
     }
 
@@ -640,17 +575,9 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bo
     }
 }
 
-template void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair<true>( PhysicsBodyStore&, const ColliderStore&,
-                                                                           PhysicsTerrainView, std::span<BuoyancyBodyFacts>,
-                                                                           std::span<const std::pair<int, int>>,
-                                                                           PhysicsNarrowphaseWakeAccess, std::span<float>,
-                                                                           std::span<const PersistentContactCacheEntry>,
-                                                                           const ObjectNarrowphaseStepPolicy&,
-                                                                           Core::Profiler*, int, ObjectNarrowphaseEvent& );
-template void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair<false>( PhysicsBodyStore&, const ColliderStore&,
-                                                                            PhysicsTerrainView, std::span<BuoyancyBodyFacts>,
-                                                                            std::span<const std::pair<int, int>>,
-                                                                            PhysicsNarrowphaseWakeAccess, std::span<float>,
-                                                                            std::span<const PersistentContactCacheEntry>,
-                                                                            const ObjectNarrowphaseStepPolicy&,
-                                                                            Core::Profiler*, int, ObjectNarrowphaseEvent& );
+template void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair<true>( PhysicsBodyStore&, const ColliderStore&, PhysicsTerrainView, std::span<BuoyancyBodyFacts>,
+                                                                           std::span<const std::pair<int, int>>, PhysicsNarrowphaseWakeAccess, std::span<float>, std::span<const uint8_t>,
+                                                                           const ObjectNarrowphaseStepPolicy&, Core::Profiler*, int, ObjectNarrowphaseEvent& );
+template void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair<false>( PhysicsBodyStore&, const ColliderStore&, PhysicsTerrainView, std::span<BuoyancyBodyFacts>,
+                                                                            std::span<const std::pair<int, int>>, PhysicsNarrowphaseWakeAccess, std::span<float>, std::span<const uint8_t>,
+                                                                            const ObjectNarrowphaseStepPolicy&, Core::Profiler*, int, ObjectNarrowphaseEvent& );
