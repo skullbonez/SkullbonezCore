@@ -1,7 +1,7 @@
 # Runtime Boundary Separation And Project Topology Plan
 
 Date: 2026-08-22
-Status: Active by owner direction. 1/8 phases complete; RBS1 ready.
+Status: Active by owner direction. 2/8 phases complete; RBS2 ready.
 Impact area: `SkullbonezSource/Runtime/`, Runtime-facing Rendering/UI seams,
 Visual Studio project topology, dependency enforcement, tests, and documentation
 Owner: Runtime architecture, with each moved value or behavior retained by its
@@ -765,17 +765,48 @@ required.
 
 **Goal:** Make future Runtime cycles and reverse App edges fail mechanically.
 
-- [ ] Add data-driven Runtime DAG/rank rules to `dependency_graph_rules.json`.
-- [ ] Extend `check_dependency_graph.py` to report edges, SCCs, and forbidden-edge
+- [x] Add data-driven Runtime DAG/rank rules to `dependency_graph_rules.json`.
+- [x] Extend `check_dependency_graph.py` to report edges, SCCs, and forbidden-edge
       traces without hardcoded package names.
-- [ ] Fail every multi-package SCC; add no ceiling or grandfathered cycle budget.
-- [ ] Add fixtures for legal downward, reverse App, two-node/long cycles, exact
+- [x] Fail every multi-package SCC; add no ceiling or grandfathered cycle budget.
+- [x] Add fixtures for legal downward, reverse App, two-node/long cycles, exact
       exceptions, and parser residuals.
-- [ ] Add project-DAG and single-production-owner checks to the build-config owner.
-- [ ] Regenerate the AGENTS dependency proof with rule data in the same commit.
+- [x] Add project-DAG and single-production-owner checks to the build-config owner.
+- [x] Regenerate the AGENTS dependency proof with rule data in the same commit.
 
 **Acceptance:** The pre-separation tree reports the source-confirmed problems;
 negative controls fail for the intended reasons; no frozen debt count exists.
+
+### RBS1 Closure Evidence - 2026-08-23
+
+Integrated source commit `45656b307` makes Runtime direction and project
+topology executable without treating current debt as permission. The ordinary
+dependency gate admits only 276 exact, source-bound repair rows; delimiter,
+separator, line, target, or include-spelling drift invalidates a row. Strict
+mode ignores those rows and exits nonzero on the current 276 forbidden sites
+and one 19-package SCC, so no count ceiling or grandfathered cycle exists.
+
+The deterministic Runtime report covers 300 files, 21 packages, 144 edges,
+585 sites, 36 bidirectional pairs, and 35 reverse-root sites. Its two branch
+runs were byte-identical at
+`f8df6d72d7c0d90a9f8dee838c024a907f3387ece715a61e476745ff222923e9`;
+the generated repair-policy proof digest is
+`396a362feb8d7e8a8d9cba94773f843e1c93fce2cc6a438f9d3c19bed4a28815`.
+The build owner is closed-world over all nine tracked Visual Studio projects:
+five contribute effective metadata, four standalone tests remain explicit
+topology-only projects, eight reference edges form no cycle, and all 272
+tracked production sources have exactly one production owner. Its two branch
+reports were byte-identical at
+`cac1df830bc9a07fbdcd50cd507198f26e872767a6a890dcb90a90e34bf48b21`.
+
+Integrated Python compilation, both tool self-tests, JSON parsing, generated
+proof checking, the ordinary and strict dependency controls,
+`validate_dependency_graph.bat`, the build-config repository scan, governance
+inventories, and `git diff --check` pass. Independent review first found and
+then verified fixes for normalized include spelling and an open project
+universe; the repeat verdict is PASS with zero findings. `validate_fast` still
+stops on the three absent inherited Tracy/ImGui `Related:` targets already
+present at base `ad94aca1e`; RBS1 changes none of those source files or paths.
 
 ## Phase RBS2 - Separate Startup Values And Native Host Ownership
 

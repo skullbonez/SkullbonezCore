@@ -2,7 +2,7 @@
 
 Date: 2026-08-23
 Branch: `nightrunner-22nd-AUG-26`
-Status: All-Build SB Error Observability, Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 96/125 tasks complete
+Status: All-Build SB Error Observability, Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 97/125 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -31,7 +31,10 @@ owner, and focused/all-config evidence is green; FP2 remains open for E5's
 runnable bundle, the retained 200-box comparison, and terminal Physics gates.
 FP5-FP9 complete the ragdoll joint and late speculative-contact path. Runtime
 Boundary Separation And Project Topology
-RBS0-RBS7 remains active behind it; RBS0 is complete and RBS1 is ready. The plan owns Runtime/App composition-root closure, package-cycle removal,
+RBS0-RBS7 remains active behind it; RBS0-RBS1 are complete and RBS2 is ready.
+The ordinary gate now admits only exact current repair identities, strict mode
+fails the live 19-package SCC and all 276 forbidden sites, and all nine tracked
+Visual Studio projects belong to the closed topology policy. The plan owns Runtime/App composition-root closure, package-cycle removal,
 native host and frame-metrics separation, operator UI/render command boundaries,
 and evidence-driven Visual Studio project decomposition. Completed plan files
 remain deleted under the repository convention; Git history retains their phase
@@ -485,7 +488,7 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 Continue the first subsystem-safe slot on `ERROR_OBSERVABILITY` E1 using
 `Agentic/Plans/TODO/all-build-sb-error-observability.md`. Other slots may resume
-`RAGDOLL_PHYSICS` FP2 and `RUNTIME_BOUNDARIES` RBS1 when their current canonical
+`RAGDOLL_PHYSICS` FP2 and `RUNTIME_BOUNDARIES` RBS2 when their current canonical
 subsystem, path-owner, worktree, and mutable resource leases are disjoint. UI3
 waits for RBS4. FP2 retains motion policy version 2: `0.1` metres
 of absolute per-tick travel promotes and `0.075` metres demotes, independent of
