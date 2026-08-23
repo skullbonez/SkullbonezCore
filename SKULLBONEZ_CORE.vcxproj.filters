@@ -435,9 +435,6 @@
     <ClCompile Include="SkullbonezSource\Runtime\Tools\RuntimeFileWriter.cpp">
       <Filter>Source Files\Runtime\Tools</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\UI\RuntimeViewModel.cpp">
-      <Filter>Source Files\Runtime\UI</Filter>
-    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\UI\RenderDiagnosticsProjection.cpp">
       <Filter>Source Files\Runtime\UI</Filter>
     </ClCompile>

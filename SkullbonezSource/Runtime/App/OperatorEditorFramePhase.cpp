@@ -70,6 +70,35 @@ namespace Runtime
 namespace OperatorEditorFrameComposer
 {
 
+static RuntimeViewModel BuildRuntimeViewModel( const SceneSessionState& scene, const SceneWorld& world, int sceneCount,
+                                               const RunScreenshotState& screenshot, bool presentationInterpolation,
+                                               bool presentationPinned, float presentationAlpha )
+{
+    RuntimeViewModel view;
+    const bool screenshotConfigured = screenshot.isScreenshotAndExit || screenshot.screenshotFrame >= 0 ||
+                                      screenshot.screenshotMs >= 0 || screenshot.screenshotPath[0] != '\0' ||
+                                      screenshot.screenshotInterval > 0;
+
+    view.sceneMode = scene.isSceneMode;
+    view.scenePhysics = scene.isScenePhysics;
+    view.sceneText = scene.isSceneText;
+    view.fixedStep = scene.isFixedStep;
+    view.screenshotPending = screenshotConfigured && !screenshot.isScreenshotSaved;
+    view.sceneIndex = scene.currentSceneIndex;
+    view.sceneCount = sceneCount;
+    view.frame = scene.currentFrame;
+    view.targetFrameCount = scene.targetFrameCount;
+
+    // Why: Physics body rows remain the runtime count authority; App copies
+    // the scalar before UI receives this detached presentation value.
+    view.modelCount = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( world.Physics() ).Count();
+    view.timeScale = scene.timeScale;
+    view.presentationInterpolation = presentationInterpolation;
+    view.presentationPinned = presentationPinned;
+    view.presentationAlpha = std::clamp( presentationAlpha, 0.0f, 1.0f );
+    return view;
+}
+
 static SkullbonezCore::UI::OperatorEditorForecastCause MapForecastCause( ContinuousOrbitalInstabilityCause cause ) noexcept
 {
     using Cause = ContinuousOrbitalInstabilityCause;
@@ -589,10 +618,10 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
         // Why: the secondary surface can be visible while GameUI is
         // hidden. Sample its bounded authoring/diagnostic values here instead
         // of making ImGui depend on whether the GameUI text pass happens to run.
-        runtimeViewModel = RuntimeViewModelBuilder::Build( sceneController.State(), sceneController.Scene(),
-                                                           sceneController.QueueSize(), diagnosticsRuntime.Capture(),
-                                                           config.runtimeRender.presentationInterpolation,
-                                                           uiTextFacts.presentationPinned, uiTextFacts.presentationAlpha );
+        runtimeViewModel = BuildRuntimeViewModel( sceneController.State(), sceneController.Scene(),
+                                                  sceneController.QueueSize(), diagnosticsRuntime.Capture().Screenshot(),
+                                                  config.runtimeRender.presentationInterpolation,
+                                                  uiTextFacts.presentationPinned, uiTextFacts.presentationAlpha );
 
         renderTargetPreviews = renderer.ResourceLifecycle()
                                    .BuildRenderTargetPreviewSnapshot( sharedShadows, sharedCinematicRendering,
@@ -680,10 +709,10 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
                                                           replayOverlay.shouldRenderScrubber,
                                                           replayPathVisualizerHasTarget ) )
     {
-        runtimeViewModel = RuntimeViewModelBuilder::Build( sceneController.State(), sceneController.Scene(),
-                                                           sceneController.QueueSize(), diagnosticsRuntime.Capture(),
-                                                           config.runtimeRender.presentationInterpolation,
-                                                           uiTextFacts.presentationPinned, uiTextFacts.presentationAlpha );
+        runtimeViewModel = BuildRuntimeViewModel( sceneController.State(), sceneController.Scene(),
+                                                  sceneController.QueueSize(), diagnosticsRuntime.Capture().Screenshot(),
+                                                  config.runtimeRender.presentationInterpolation,
+                                                  uiTextFacts.presentationPinned, uiTextFacts.presentationAlpha );
 
         const SkullbonezCore::Core::CinematicRenderConfig& uiCinematic = ActiveSceneCinematicConfig( scene, config );
         const bool uiCinematicRendering = IsSceneCinematicRenderingEnabled( scene, config, launchOptions, debug, true );
