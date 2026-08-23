@@ -312,11 +312,11 @@
     {
       "file": "SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.cpp",
       "signature": "template <bool RetainPipelineRecords> void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, PhysicsTerrainView terrain, std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<const std::pair<int, int>> candidatePairs, PhysicsNarrowphaseWakeAccess wakeAccess, std::span<float> timeRemaining, std::span<const uint8_t> motionEligibilityState, const ObjectNarrowphaseStepPolicy& policy, Core::Profiler* profiler, int pairIndex, ObjectNarrowphaseEvent& event )",
-      "body_sha256": "433f6491bb4b32a12e8af9a8a679735eb5e8dc9e39f0d3a6b174243c77a2e495",
+      "body_sha256": "ec406da946198b8320a234e67e53b5f36b64e2c3ad64d0d8300f013c3f55d72f",
       "owner": "Physics narrowphase pair kernel",
       "disposition": "retain-owner",
       "reason": "One hot pair kernel resolves the sleep-state branch, Swept TOI policy, wake evidence, time advancement, collision publication, and optional trace payload for exactly one candidate pair. Its nesting is one pair state machine; extraction would leave once-called helpers sharing the same ephemeral pair scratch and output authority.",
-      "evidence": "git history: solver-diagnostic-hot-path-cost-hp2-payload (2026-07-31); RAGDOLL_PHYSICS FP2 qualitative owner review (2026-08-23)",
+      "evidence": "git history: solver-diagnostic-hot-path-cost-hp2-payload (2026-07-31); RAGDOLL_PHYSICS FP2 geometry-aware Discrete-pair safety review (2026-08-23)",
       "plan": ""
     },
     {
