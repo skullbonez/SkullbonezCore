@@ -376,7 +376,9 @@ Core Engine Evidence-Driven Code Reduction CR0-CR5 is complete.
 Real-Time Physics Pacing SP0-SP2 is complete.
 Deterministic Collision Modes And Ragdoll Unification FP0-FP9 is active at 2/10;
 FP0-FP1 are complete and FP2 is active under the owner-directed absolute-travel
-threshold.
+threshold. Its owner-approved Physics golden set, retained Debug/Profile
+executables, and core/deep Physics gates are complete; the replay-visual
+terminal gate remains before FP2 closure.
 Runtime Boundary Separation And Project Topology RBS0-RBS7 is active at 6/8;
 RBS0-RBS5 are complete: exact Runtime package direction is enforced with zero
 forbidden sites, zero repair debt, zero reverse-App edges, and no multi-package

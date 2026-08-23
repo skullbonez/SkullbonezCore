@@ -481,13 +481,12 @@ eligibility, replay, wake, launcher, terrain, and SpatialGrid witnesses pass.
 Independent review found zero remaining implementation findings after one
 comment-truth correction.
 
-This checkpoint does not close FP2. FP2 still needs the hash-complete runnable
-Debug bundle and sanitized-`PATH` launch evidence, the retained FP1-versus-FP2
-authoritative 200-box packet comparison,
-and the mapped Physics, deep-Physics, and replay-visual terminal gates. The
-ordinary Physics gate currently rebuilds and runs successfully before stopping
-on the registered 6,166-line Physics CSV transition, first difference at line
-4,998. No golden or baseline was refreshed.
+This checkpoint does not close FP2. The owner-approved exact-digest override
+has now accepted the FP2 Physics transition. The core and deep Physics gates
+pass against the updated goldens, and the artifact manifest retains the final
+Debug/Profile executables, launch DLLs, hashes, and FP1-versus-FP2 200-box
+evidence. FP2 still needs the replay-visual terminal gate to pass before phase
+closure and FP3 activation.
 
 ---
 

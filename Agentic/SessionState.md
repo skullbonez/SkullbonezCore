@@ -14,9 +14,11 @@ Deterministic Collision Modes And Ragdoll Unification FP0-FP9 is the binding
 deterministic Discrete collision with automatic Swept TOI
 promotion and isolated A/B evidence. FP2's retired sphere-box test surface and
 two reachability repair rows are gone, both live orders retain the exact sweep
-owner, and focused/all-config evidence is green. FP2 now retains a hash-complete
-runnable bundle and the 6,800-frame 200-box comparison; only the repository-
-owner Physics golden approval remains before phase closure.
+owner, and focused/all-config evidence is green. The owner-approved exact-digest
+override accepted the FP2 Physics transition; core and deep Physics gates pass,
+and the artifact manifest retains final Debug/Profile executables, launch DLLs,
+hashes, and the 6,800-frame 200-box comparison. The replay-visual terminal gate
+remains before phase closure.
 FP5-FP9 complete the ragdoll joint and late speculative-contact path. Runtime
 Boundary Separation And Project Topology
 RBS0-RBS7 remains active behind it; RBS0-RBS5 are complete and RBS6 is ready.
@@ -475,8 +477,8 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Continue `RAGDOLL_PHYSICS` FP2 after the repository owner approves the exact
-Physics golden transition. Other slots may resume `RUNTIME_BOUNDARIES` RBS5
+Continue `RAGDOLL_PHYSICS` FP2 by closing the replay-visual terminal gate, then
+start FP3 on a fresh worker. Other slots may continue `RUNTIME_BOUNDARIES` RBS6
 when their current canonical subsystem, path-owner, worktree, and mutable
 resource leases are disjoint. UI3 is ready after RBS4. FP2 retains motion policy version 2: `0.1` metres
 of absolute per-tick travel promotes and `0.075` metres demotes, independent of

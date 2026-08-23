@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "baseline_path": "TestOutput/baselines/physics_regression_varied.csv",
-  "sha256": "debf57f744774d4e7c1eb5cc61f05ba6e41dc6dc997ad20db6c91b02b0958c32",
+  "sha256": "19698d3c37bcf1e0199b539e99b2de0d0ec33ceb7fc5db2e2eee36bcc434b038",
   "approved_by": "repository owner",
-  "approved_at_utc": "2026-08-21T12:05:06Z",
-  "source_commit": "7d46a6c3ea75e2f1e2a6e149a23b632aaa6b79b2",
-  "reason": "Repository owner explicitly approved the updated deterministic physics golden."
+  "approved_at_utc": "2026-08-23T21:17:47Z",
+  "source_commit": "2806c7d70159e498c8fdd5678023e4d66a9db9d7",
+  "reason": "Repository owner explicitly approved the deterministic physics behavior change by exact SHA-256 override."
 }

@@ -823,8 +823,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     const bool shouldPreserveRuntimeState = loadBegin.shouldPreserveRuntimeState;
     const SceneResetPreservationSnapshot& resetSnapshot = loadBegin.resetSnapshot;
     const std::string& scenePath = *loadBegin.scenePath;
-    SceneLifecycleConsumerMask afterClearConsumers = 0;
-
     // Reset scene-local state; operator HUD preferences are restored below.
     SceneState().ResetForLoad( config.cinematicRender );
     SceneDiagnosticsReaction resetDiagnostics;
@@ -859,9 +857,9 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     bool sceneMutualGravityEnabled = false;
     AuthoredTornadoSystemConfig sceneTornadoSystem;
 
-    // Each bit is attached to its concrete call above. SceneController rejects the
-    // phase if a future edit drops an owner receipt without updating policy.
-    sceneController.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneCleared, afterClearConsumers );
+    // Diagnostics reset is a detached reaction applied by App after Load returns,
+    // so no synchronous owner receipt belongs to the cleared commit edge.
+    sceneController.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneCleared, 0 );
     sceneController.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeScenePopulate, 0 );
 
     // Branch on file-backed scene mode vs generated demo mode.

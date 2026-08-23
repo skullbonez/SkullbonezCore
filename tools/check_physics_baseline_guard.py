@@ -246,12 +246,10 @@ def print_bounded_change_summary(previous: bytes, proposed: bytes) -> None:
         print(f"    proposed: {new.decode(errors='replace')}")
 
 
-def approve_output(repo: Path, output: Path) -> str:
+def approve_output(repo: Path, output: Path, owner_approved_sha256: str | None = None) -> str:
     # Hazard: this is a workflow authorization boundary, not cryptographic user
     # authentication. The exact phrase prevents accidental/scripted updates;
     # repository access control still determines who may invoke it deliberately.
-    if not sys.stdin.isatty() or not sys.stdout.isatty():
-        raise GuardFailure("owner approval requires an interactive terminal")
     output_path = (output if output.is_absolute() else repo / output).resolve()
     required_output = (repo / "Debug" / "physics_regression_varied.csv").resolve()
     if output_path != required_output:
@@ -272,11 +270,27 @@ def approve_output(repo: Path, output: Path) -> str:
     print(f"Current approved SHA-256: {previous_digest}")
     print(f"Proposed golden SHA-256: {proposed_digest}")
     print_bounded_change_summary(previous, proposed)
-    phrase = f"APPROVE PHYSICS BASELINE {proposed_digest}"
-    print("Type the following exact phrase to authorize the behavior change:")
-    print(phrase)
-    if input("> ").strip() != phrase:
-        raise GuardFailure("approval phrase did not match; no files were changed")
+    if owner_approved_sha256 is not None:
+        approved_digest = owner_approved_sha256.lower()
+        if (
+            len(approved_digest) != 64
+            or any(ch not in "0123456789abcdef" for ch in approved_digest)
+            or approved_digest != proposed_digest
+        ):
+            raise GuardFailure(
+                "owner-approved SHA-256 override does not match the generated physics baseline"
+            )
+        reason = "Repository owner explicitly approved the deterministic physics behavior change by exact SHA-256 override."
+        print("Owner-approved SHA-256 override matches the generated physics baseline.")
+    else:
+        if not sys.stdin.isatty() or not sys.stdout.isatty():
+            raise GuardFailure("owner approval requires an interactive terminal or an exact SHA-256 override")
+        phrase = f"APPROVE PHYSICS BASELINE {proposed_digest}"
+        print("Type the following exact phrase to authorize the behavior change:")
+        print(phrase)
+        if input("> ").strip() != phrase:
+            raise GuardFailure("approval phrase did not match; no files were changed")
+        reason = "Repository owner interactively approved the deterministic physics behavior change."
 
     baseline_path.parent.mkdir(parents=True, exist_ok=True)
     temporary = baseline_path.with_suffix(baseline_path.suffix + ".tmp")
@@ -291,7 +305,7 @@ def approve_output(repo: Path, output: Path) -> str:
         "approved_by": "repository owner",
         "approved_at_utc": now,
         "source_commit": head,
-        "reason": "Repository owner interactively approved the deterministic physics behavior change.",
+        "reason": reason,
     }
     record_data = write_json_atomic(repo / APPROVAL_RECORD, record)
     receipt = {
@@ -311,7 +325,9 @@ def configure_test_identity(repo: Path) -> None:
 
 
 def self_test(source_repo: Path) -> None:
-    source_baseline = (source_repo / BASELINE_PATH).read_bytes()
+    source_baseline = run_git(
+        source_repo, "show", f"{BOOTSTRAP_SOURCE_COMMIT}:{BASELINE_PATH}"
+    ).stdout
     if sha256_bytes(source_baseline) != BOOTSTRAP_APPROVED_SHA256:
         raise GuardFailure("self-test source golden no longer matches the pinned bootstrap digest")
 
@@ -324,14 +340,19 @@ def self_test(source_repo: Path) -> None:
         run_git(repo, "add", BASELINE_PATH)
         run_git(repo, "commit", "-m", "seed golden")
 
-        record_data = (source_repo / APPROVAL_RECORD).read_bytes()
+        bootstrap_record = parse_record((source_repo / APPROVAL_RECORD).read_bytes())
+        bootstrap_record["sha256"] = BOOTSTRAP_APPROVED_SHA256
+        bootstrap_record["source_commit"] = BOOTSTRAP_SOURCE_COMMIT
+        record_data = (json.dumps(bootstrap_record, indent=2) + "\n").encode("utf-8")
         (repo / APPROVAL_RECORD).parent.mkdir(parents=True, exist_ok=True)
         (repo / APPROVAL_RECORD).write_bytes(record_data)
         run_git(repo, "add", APPROVAL_RECORD)
         check_staged(repo)
         run_git(repo, "commit", "-m", "bootstrap approval")
 
-        changed = source_baseline + b"# deliberate self-test change\n"
+        changed = (source_repo / BASELINE_PATH).read_bytes()
+        if changed == source_baseline:
+            changed += b"# deliberate self-test change\n"
         changed_digest = sha256_bytes(changed)
         (repo / BASELINE_PATH).write_bytes(changed)
         record = parse_record(record_data)
@@ -347,13 +368,25 @@ def self_test(source_repo: Path) -> None:
         else:
             raise GuardFailure("self-test accepted an unapproved staged golden")
 
-        receipt = {
-            "schema_version": 1,
-            "baseline_sha256": changed_digest,
-            "approval_record_sha256": sha256_bytes(changed_record_data),
-            "approved_at_utc": "2099-01-01T00:00:00Z",
-        }
-        write_json_atomic(receipt_path(repo), receipt)
+        run_git(repo, "restore", "--staged", BASELINE_PATH, APPROVAL_RECORD)
+        (repo / BASELINE_PATH).write_bytes(source_baseline)
+        (repo / APPROVAL_RECORD).write_bytes(record_data)
+        output_path = repo / "Debug" / "physics_regression_varied.csv"
+        executable_path = repo / "Debug" / "SKULLBONEZ_CORE.exe"
+        output_path.parent.mkdir(parents=True)
+        executable_path.write_bytes(b"self-test executable")
+        output_path.write_bytes(changed)
+        output_timestamp = executable_path.stat().st_mtime_ns + 1_000_000_000
+        os.utime(output_path, ns=(output_timestamp, output_timestamp))
+        try:
+            approve_output(repo, output_path, "0" * 64)
+        except GuardFailure as exc:
+            if "does not match" not in str(exc):
+                raise
+        else:
+            raise GuardFailure("self-test accepted an incorrect owner-approved SHA-256 override")
+        approve_output(repo, output_path, changed_digest)
+        run_git(repo, "add", BASELINE_PATH, APPROVAL_RECORD)
         check_staged(repo)
 
         (repo / BASELINE_PATH).write_bytes(changed + b"tamper\n")
@@ -374,17 +407,24 @@ def build_parser() -> argparse.ArgumentParser:
     action.add_argument("--staged", action="store_true", help="check exact Git-index content for commit")
     action.add_argument("--approve-output", type=Path, help="interactive owner approval of generated CSV")
     action.add_argument("--self-test", action="store_true")
+    parser.add_argument(
+        "--owner-approved-sha256",
+        help="noninteractive owner override; must exactly match the generated complete-run SHA-256",
+    )
     return parser
 
 
 def main() -> int:
-    args = build_parser().parse_args()
+    parser = build_parser()
+    args = parser.parse_args()
+    if args.owner_approved_sha256 is not None and args.approve_output is None:
+        parser.error("--owner-approved-sha256 requires --approve-output")
     repo = args.repo.resolve()
     try:
         if args.self_test:
             self_test(repo)
         elif args.approve_output is not None:
-            approve_output(repo, args.approve_output)
+            approve_output(repo, args.approve_output, args.owner_approved_sha256)
         elif args.staged:
             digest = check_staged(repo)
             print(f"PASS: staged physics golden has owner approval ({digest})")

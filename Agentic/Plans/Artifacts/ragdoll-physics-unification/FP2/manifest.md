@@ -1,6 +1,12 @@
-# FP2 Debug Runtime Bundle and Acceptance Evidence
+# FP2 Runtime Bundles and Acceptance Evidence
 
-Source revision: `25f230d861eedbc5ef7d146b5f32054675488468`
+Source parent revision: `2806c7d70159e498c8fdd5678023e4d66a9db9d7`
+
+Source delta: the approved executables were built from that parent plus the
+Physics/lifecycle changes committed atomically with this manifest.
+
+Approval closure: the final Debug/Profile executables and approved golden set are
+committed with this manifest.
 
 Configuration: `Debug|x64`
 
@@ -9,6 +15,8 @@ Configuration: `Debug|x64`
 | File | Bytes | SHA-256 |
 |---|---:|---|
 | `SKULLBONEZ_CORE-Debug.exe` | 14,052,352 | `193CB011908957B353E4A97D707C7A4E03217E8ABB93B77F38D2F01713C855E1` |
+| `SKULLBONEZ_CORE-Debug-approved.exe` | 14,019,072 | `12DD17945B512E285B73E7DD6C833069AF8119BC880780F9BEC211134E0B945A` |
+| `SKULLBONEZ_CORE-Profile-approved.exe` | 4,694,528 | `E78AA5799102786A3C5C6D43ECBFCCF9345D56EE1728362A47F1C61C9BD2241A` |
 | `WinPixEventRuntime.dll` | 58,368 | `81ADCFD8253C3489BE720DA7E30F16004DC9A1F02A8B418C6C3AEF4993032E6D` |
 | `dxcompiler.dll` | 14,317,000 | `A5AA1D9A95BF9EA68EFF4502EB687161464BB5A505E817782B7A770A2A312044` |
 | `dxil.dll` | 1,509,800 | `95AC1BB413178C4596F49498E912C270F8F343282B63840F174CBF5154AD1557` |
@@ -70,21 +78,26 @@ detects that forward contact at frame 75. The exact wall-contact frame and the
 - `Profile\SKULLBONEZ_TESTS.exe "--test-case=Physics motion promotion:*" --no-skip`:
   8/8 cases and 130/130 assertions pass.
 - `python tools\check_contact_energy_scenes.py --self-test`: pass.
-- `tools\validate_physics.bat`: build and workloads pass; comparison stops on
-  the owner-authorized Physics transition. `physics_regression_varied.csv`
-  changes 6,166 lines beginning at line 4,998. Candidate SHA-256:
-  `19698D3C37BCF1E0199B539E99B2DE0D0EC33CEB7FC5DB2E2EEE36BCC434B038`.
-- `tools\validate_physics_deep.bat`: build and workloads pass; comparison stops
-  on the same transition plus `bullet_sweep_wall.csv` (one line,
-  `68F78A80A740233DA3B5BE36FC83EAD8C0D0E62AB511BAA66F6F5146AA932824`)
-  and `shooting_reaction_volley.csv` (320 lines,
-  `3D6FD1F05EDDBA17713E611BAD0203D41FC18163523855AD8765D6021CDFBCFD`).
+- `tools\validate_physics.bat`: pass; the approved 44,401-row varied-scene
+  golden matches byte-exactly.
+- `tools\validate_physics_deep.bat`: pass; all CSV, known-issue signature,
+  shooting-reaction, SkullScope query, and contact-energy controls pass.
 - `tools\validate_replay_visual_fidelity.bat`: launcher-shape proof, Automation
   build, and 18/18 typed packet/false-pass controls pass. The authoritative
   run stops on the existing `replay visual fidelity attempted a duplicate
   prediction generation` oracle; no replay or visual baseline was changed.
 
-The Physics golden remains unchanged at
-`DEBF57F744774D4E7C1EB5CC61F05BA6E41DC6DC997AD20DB6C91B02B0958C32`.
-Approval is intentionally deferred to the repository owner through the
-interactive baseline guard; this bundle does not bypass or refresh it.
+## Owner-approved golden set
+
+The repository owner pre-approved the exact automated FP2 transition. The
+content-bound override accepted only the generated varied-scene SHA; the deep
+goldens were refreshed from the same final Debug executable and then passed the
+complete deep gate.
+
+| Golden | SHA-256 |
+|---|---|
+| `physics_regression_varied.csv` | `19698D3C37BCF1E0199B539E99B2DE0D0EC33CEB7FC5DB2E2EEE36BCC434B038` |
+| `bullet_sweep_wall.csv` | `68F78A80A740233DA3B5BE36FC83EAD8C0D0E62AB511BAA66F6F5146AA932824` |
+| `shooting_reaction_volley.csv` | `3D6FD1F05EDDBA17713E611BAD0203D41FC18163523855AD8765D6021CDFBCFD` |
+| `physics_known_issue_signatures.json` | `D60AC7DDBCB12A1D5BCECED5694F1F34AF262D53EA6D3DCD4B9AD157F33C7E36` |
+| `physics_query_varied.json` | `0788BC16F441123BE52716CC69180FCC501EC9808C9CF26DDA4B2AED957E5681` |
