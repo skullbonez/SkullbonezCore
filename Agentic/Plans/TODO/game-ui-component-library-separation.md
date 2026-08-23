@@ -1,7 +1,7 @@
 # Game UI Component Library Separation Plan
 
 Date: 2026-08-22
-Status: Active by owner direction. 1/7 phases complete; phase-local Runtime
+Status: Active by owner direction. 2/7 phases complete; phase-local Runtime
 Boundary Separation prerequisites apply.
 Impact area: `SkullbonezSource/UI/`, game-facing composition under
 `SkullbonezSource/Runtime/`, `SKULLBONEZ_UI.vcxproj`, focused UI tests,
@@ -464,26 +464,79 @@ Runtime/Render row marked `pending RBS<n>`.
 **Goal:** Make the existing component foundation expressive enough for both the
 main GameUI shell and owner-local Runtime surfaces.
 
-- [ ] Add the smallest component-neutral geometry and visual-state values
+- [x] Add the smallest component-neutral geometry and visual-state values
       required by the UI0 inventory.
-- [ ] Add stateless draw/hit/value helpers for the proved shared component
+- [x] Add stateless draw/hit/value helpers for the proved shared component
       families, beginning with panel, button, toggle, slider, tab, scrollbar,
       and label/value row.
-- [ ] Make disabled, hovered, focused, active, selected, and checked behavior
+- [x] Make disabled, hovered, focused, active, selected, and checked behavior
       explicit where the existing product surfaces already use it.
-- [ ] Keep text measurement in `UIFontMetrics` and style in immutable
+- [x] Keep text measurement in `UIFontMetrics` and style in immutable
       foundation values. Eliminate renderer-side measurement only in final
       foundation rows or stable caller adaptations not marked `pending RBS<n>`;
       defer pending product presentation to UI3/UI4.
-- [ ] Preserve fixed capacities, ordered commands, copied text, clipping,
+- [x] Preserve fixed capacities, ordered commands, copied text, clipping,
       fingerprints, and overflow reporting.
-- [ ] Add focused tests for every component state, hit/draw geometry equality,
+- [x] Add focused tests for every component state, hit/draw geometry equality,
       quantization, clipping, disabled behavior, and deterministic fingerprints.
 
 **Acceptance:** Runtime control state can be rendered without mouse-coordinate
 re-derivation or domain callbacks; component tests link only the UI foundation;
 no product vocabulary, Runtime include, renderer handle, retained owner pointer,
 or steady-state growth enters the new contracts.
+
+### UI1 Closure Evidence - 2026-08-23
+
+Commit `69eaccee2` changes only `UIDraw.h/.cpp`, `UIDrawWidgets.h/.cpp`,
+and the renderer-free `UiBoundaryUnitTests.cpp`. `UIVisualState` is one
+component-neutral bit value beside `UIRect`; its visible, enabled, hovered,
+focused, active, selected, and checked facts are resolved by the caller before
+draw. It carries no pointer input, action id, callback, product value, Runtime
+owner, renderer handle, or retained pointer.
+
+`UIDrawWidgets` now publishes stateless geometry, hit/value, and draw operations
+for panel, clipped label/value row, button, toggle, slider track/thumb and
+quantization, exact tab bounds/hit/draw, scrollbar thumb/draw, combo field/
+popup/option geometry plus disabled-mask policy, and generic icon buttons.
+Disabled components keep their geometric pointer-blocking result but cannot
+activate; hidden components append no command. `UIDrawContext` exposes balanced
+screen-space clip recording while `UIDrawList` retains the sole bounded clip
+state. Text measurement remains in `UIFontMetrics`, styling remains immutable
+`UIStyle` data, and all output remains copied into the existing fixed-capacity
+ordered command/text/clip buffers.
+
+The focused boundary fixture proves shared geometry and quantization values,
+enabled versus disabled activation, hidden zero-command behavior, all seven
+visual-state flags, balanced clipping, copied text, deterministic ordering,
+and overflow reporting. It pins eight state fingerprints:
+
+```text
+9138081368605736749, 49288575029089482, 211756514920079498,
+6302452228787434232, 2904659679807374515, 4645013559851399903,
+13061036390687143437, 5558979605539197941
+```
+
+The comprehensive stateless fixture is `9020569520314488178`. Both UI0 direct
+component fingerprints and all eleven product-surface fingerprints remain
+unchanged; no visual baseline or golden was refreshed.
+
+Coordinator fan-in evidence on the PR tree:
+
+- `tools\validate_ui_boundary_tests.bat`: pass in 6.6 seconds, real UI library
+  plus all eleven detached product surfaces;
+- `python tools\check_dependency_graph.py --repo .`: pass, zero findings;
+- allocation-policy scan: the inherited 40 repository findings remain, with
+  zero finding under `SkullbonezSource/UI`;
+- header, brace, formatting, and diff checks: pass; and
+- the conservative source pre-commit Physics gate built and ran successfully,
+  then reproduced the registered owner-controlled Physics CSV mismatch (6,166
+  differing lines, first at line 4,998). UI1 did not touch Physics, scene,
+  project, or golden inputs; the oracle was not refreshed.
+
+The new out-of-line component operations deliberately have only the focused
+boundary consumer until UI2 routes the retained wrappers through them. UI2
+must complete that phase-local reachability transition without adding a ruling
+for the temporary test-only state.
 
 ## Phase UI2 - Converge The Existing GameUI Widgets
 

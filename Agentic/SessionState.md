@@ -2,7 +2,7 @@
 
 Date: 2026-08-23
 Branch: `nightrunner-22nd-AUG-26`
-Status: All-Build SB Error Observability, Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 92/125 tasks complete
+Status: All-Build SB Error Observability, Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 93/125 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -31,11 +31,11 @@ remain deleted under the repository convention; Git history retains their phase
 evidence.
 
 Game UI Component Library Separation UI0-UI6 has phase-local RBS prerequisites
-and no Physics predecessor. UI0 is complete: all 70 tracked UI files, component
-state, Runtime authoring sites, manifests, capacities, allocation behavior, and
-fingerprints have binding dispositions, and the renderer-free component witness
-passes on the integrated PR tree. UI1 is ready independently; UI3/UI4/UI5/UI6
-consume RBS4/RBS5/RBS6/RBS7 respectively.
+and no Physics predecessor. UI0-UI1 are complete: all 70 tracked UI files have
+binding dispositions, and explicit stateless geometry/state contracts now cover
+the proved shared component families without Runtime, Rendering, product
+authority, callbacks, retained pointers, or growth. UI2 is ready independently;
+UI3/UI4/UI5/UI6 consume RBS4/RBS5/RBS6/RBS7 respectively.
 Recorded Interaction Playback Cursor RIC0-RIC3 is registered after UI6; it adds
 only a fake recorded-playback overlay and explicitly forbids any hardware cursor
 or native capture change.
@@ -477,7 +477,7 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 Give the first available subsystem-safe slot to `ERROR_OBSERVABILITY` E0 using
 `Agentic/Plans/TODO/all-build-sb-error-observability.md`. Other slots may resume
-`RAGDOLL_PHYSICS` FP2, `RUNTIME_BOUNDARIES` RBS0, and `GAME_UI_COMPONENTS` UI1
+`RAGDOLL_PHYSICS` FP2, `RUNTIME_BOUNDARIES` RBS0, and `GAME_UI_COMPONENTS` UI2
 when their current canonical subsystem, path-owner, worktree, and mutable
 resource leases are disjoint. FP2 retains motion policy version 2: `0.1` metres
 of absolute per-tick travel promotes and `0.075` metres demotes, independent of

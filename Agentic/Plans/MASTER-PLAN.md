@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-23
-Status: All-Build SB Error Observability, Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 92/125 tasks complete
+Status: All-Build SB Error Observability, Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 93/125 tasks complete
 
 ## Owner Direction
 
@@ -299,7 +299,7 @@ Completed plan files were deleted; git history is the archive.
 | All-Build SB Error Observability And Launch Integrity | `ERROR_OBSERVABILITY` | 7 | 0 | `TODO/all-build-sb-error-observability.md` |
 | Deterministic Collision Modes And Ragdoll Unification | `RAGDOLL_PHYSICS` | 10 | 2 | `TODO/ragdoll-physics-unification.md` |
 | Runtime Boundary Separation And Project Topology | `RUNTIME_BOUNDARIES` | 8 | 0 | `TODO/runtime-boundary-separation.md` |
-| Game UI Component Library Separation | `GAME_UI_COMPONENTS` | 7 | 1 | `TODO/game-ui-component-library-separation.md` |
+| Game UI Component Library Separation | `GAME_UI_COMPONENTS` | 7 | 2 | `TODO/game-ui-component-library-separation.md` |
 | Recorded Interaction Playback Cursor | `RECORDED_CURSOR` | 4 | 0 | `TODO/recorded-interaction-playback-cursor.md` |
 
 ## Parked, Backlog, And Completed Plans
@@ -379,7 +379,7 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-92/125 tasks complete with All-Build SB Error Observability And Launch Integrity
+93/125 tasks complete with All-Build SB Error Observability And Launch Integrity
 first, Deterministic Collision Modes And Ragdoll Unification second, Runtime
 Boundary Separation And Project Topology third, Game UI Component Library
 Separation fourth, and Recorded Interaction Playback Cursor fifth.
