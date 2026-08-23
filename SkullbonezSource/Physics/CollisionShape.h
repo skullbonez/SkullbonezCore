@@ -163,8 +163,6 @@ Concept: Free-function collision-shape visitors
 
 template <typename ShapeLike> inline Vector::Vector3 GetShapePosition( const ShapeLike& shape )
 {
-    // Lifetime: concrete shapes convert to a temporary CollisionShape for the
-    // visitor; copy the position before that temporary leaves this expression.
     return VisitCollisionShape( shape, []( const auto& s ) -> const Vector::Vector3& { return s.GetPosition(); } );
 }
 

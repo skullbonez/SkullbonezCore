@@ -4,8 +4,7 @@ Date: 2026-08-22
 Status: Active by explicit owner direction. 2/10 phases complete; FP2 active under motion-eligibility policy version 2.
 Impact area: collider local-offset correctness, deterministic Discrete simulation, automatic Swept TOI promotion, linear and angular motion eligibility, ragdoll point joints, joint compliance, shared constraint iteration, late speculative ragdoll contacts, physics baselines, determinism tests, and A/B performance evidence
 Owner: Physics contact and joint solver
-Priority: Binding second plan under the superseding 2026-08-23 owner direction;
-execute FP2-FP9 in strict internal order. This position allocates scarce slots
+Priority: Binding first plan; execute FP2-FP9 in strict internal order. This position allocates scarce slots
 and orders fan-in; it is not a Runtime or UI predecessor.
 Commit name: `RAGDOLL_PHYSICS`
 
@@ -15,11 +14,6 @@ The owner explicitly activated this plan on 2026-08-22, assigned the
 `RAGDOLL_PHYSICS` commit token, placed it ahead of every existing master-plan
 item, and approved FP0 as the first behavior transition. Later phases remain
 strictly gated by the acceptance boundary immediately before them.
-
-On 2026-08-23 the owner activated `ERROR_OBSERVABILITY` ahead of this plan.
-That later direction changes scarce-slot priority and coordinator fan-in only;
-it does not weaken FP2-FP9 internal order or make Physics a Runtime/UI
-predecessor.
 
 On 2026-08-23 the owner replaced FP1's thickness-scaled eligibility rule with
 motion-eligibility policy version 2. Linear centre travel and angular tip travel
@@ -48,12 +42,9 @@ needed.
 
 The 2026-08-23 FP1 launch audit proved that a lone retained executable is not a
 runnable artifact: FP0/FP1 import `WinPixEventRuntime.dll`, but their artifact
-directories do not contain it. `ERROR_OBSERVABILITY` E5 owns the deterministic
-bundle tool and FP0/FP1 backfill. FP2 source/focused evidence may proceed in a
-disjoint worktree, but FP2 cannot close until its artifact stages and hashes
-every non-system runtime and passes the isolated sanitized-`PATH` launch gate
-defined by `all-build-sb-error-observability.md`. Do not launch the current
-FP0/FP1 lone executable and accept the Windows loader dialog as Physics evidence.
+directories do not contain it. Each Physics phase now copies the executable and
+its non-system runtime DLLs into its artifact directory, records their hashes,
+and launches that directory with a sanitized `PATH` before closure.
 
 This is a major Physics-system transition, not only a ragdoll feature. Its
 non-negotiable order is:
@@ -490,9 +481,9 @@ eligibility, replay, wake, launcher, terrain, and SpatialGrid witnesses pass.
 Independent review found zero remaining implementation findings after one
 comment-truth correction.
 
-This checkpoint does not close FP2. `ERROR_OBSERVABILITY` E5 still owns the
-hash-complete runnable Debug bundle and sanitized-`PATH` launch evidence; FP2
-then needs the retained FP1-versus-FP2 authoritative 200-box packet comparison
+This checkpoint does not close FP2. FP2 still needs the hash-complete runnable
+Debug bundle and sanitized-`PATH` launch evidence, the retained FP1-versus-FP2
+authoritative 200-box packet comparison,
 and the mapped Physics, deep-Physics, and replay-visual terminal gates. The
 ordinary Physics gate currently rebuilds and runs successfully before stopping
 on the registered 6,166-line Physics CSV transition, first difference at line

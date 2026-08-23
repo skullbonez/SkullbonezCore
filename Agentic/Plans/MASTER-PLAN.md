@@ -1,20 +1,9 @@
 # MASTER PLAN
 
 Date: 2026-08-23
-Status: All-Build SB Error Observability, Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 97/125 tasks complete
+Status: Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 96/118 tasks complete
 
 ## Owner Direction
-
-- All-Build SB Error Observability And Launch Integrity was activated by explicit
-  owner direction on 2026-08-23 and receives the first scarce slot. E0-E6 make
-  every existing error description actionable; emit every recoverable/fatal SB
-  error as message then creation-site stack in Debug, Profile, Profile-WPO, and
-  Automation; keep warnings Debug-only; make first-party runtime assertions emit
-  expression, description, source, and stack; and keep Release limited to a
-  minimal fatal SB owner/message record. The plan also makes retained runtimes
-  self-contained bundles so loader failures such as a missing
-  `WinPixEventRuntime.dll` fail validation before launch. Its priority is not a
-  Physics or UI predecessor when current leases and resources are disjoint.
 
 - Real-Time Physics Pacing is complete. `SIM_PACING` SP0-SP2 separate live
   wall-clock scheduling from deterministic render-frame lockstep, preserve the
@@ -296,7 +285,6 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| All-Build SB Error Observability And Launch Integrity | `ERROR_OBSERVABILITY` | 7 | 1 | `TODO/all-build-sb-error-observability.md` |
 | Deterministic Collision Modes And Ragdoll Unification | `RAGDOLL_PHYSICS` | 10 | 2 | `TODO/ragdoll-physics-unification.md` |
 | Runtime Boundary Separation And Project Topology | `RUNTIME_BOUNDARIES` | 8 | 2 | `TODO/runtime-boundary-separation.md` |
 | Game UI Component Library Separation | `GAME_UI_COMPONENTS` | 7 | 3 | `TODO/game-ui-component-library-separation.md` |
@@ -326,34 +314,29 @@ One detail in that table is recorded:
 
 ## Binding Order
 
-1. `ERROR_OBSERVABILITY` E0 through E6 - make every existing error description
-   actionable, log every non-shipping recoverable/fatal SB error with its
-   creation-site stack, make assertions print their failure and stack, keep
-   Debug warnings separate, retain only fatal SB owner/message in Release, and
-   verify every runtime bundle before launch.
-2. `RAGDOLL_PHYSICS` FP0 through FP9 - close verified Physics correctness bugs,
+1. `RAGDOLL_PHYSICS` FP0 through FP9 - close verified Physics correctness bugs,
    make Discrete the deterministic default with automatic Swept TOI promotion,
    prove its correctness and isolated performance, then complete the ragdoll
    joint and late speculative-contact path with independent determinism and cost
    evidence.
-3. `RUNTIME_BOUNDARIES` RBS0 through RBS7 - ratify and enforce an acyclic Runtime
+2. `RUNTIME_BOUNDARIES` RBS0 through RBS7 - ratify and enforce an acyclic Runtime
    package/project graph, remove every reverse Runtime/App dependency, separate
    native host and frame-metrics ownership, split operator projection/commands
    from GPU submission and process command application, close the logical `Run`
    surface, and adopt only VC project boundaries that strengthen ownership.
-4. `GAME_UI_COMPONENTS` UI0 through UI6 - close the component foundation in
+3. `GAME_UI_COMPONENTS` UI0 through UI6 - close the component foundation in
    UI0-UI2 while RBS/Physics may continue, then consume RBS4/RBS5/RBS6/RBS7 at
    UI3/UI4/UI5/UI6 respectively; migrate GameUI and owner-local Runtime surfaces
    without adding another production project.
-5. `RECORDED_CURSOR` RIC0 through RIC3 - consume the final product-UI and
+4. `RECORDED_CURSOR` RIC0 through RIC3 - consume the final product-UI and
    submission boundary, publish one detached recorded-pointer presentation
    value, draw a topmost fake cursor across GameUI and ImGui, and prove the
    hardware cursor and native capture path remain completely untouched.
 
 This order allocates scarce slots and orders coordinator fan-in; it is not an
 implicit dependency chain. Named phase prerequisites are the edges. In
-particular, ready `ERROR_OBSERVABILITY`, `RAGDOLL_PHYSICS`,
-`RUNTIME_BOUNDARIES`, and `GAME_UI_COMPONENTS` phases may occupy separate
+particular, ready `RAGDOLL_PHYSICS`, `RUNTIME_BOUNDARIES`, and
+`GAME_UI_COMPONENTS` phases may occupy separate
 worktrees concurrently when their canonical subsystem, unmatched path-owner,
 and mutable resource leases are pairwise disjoint.
 
@@ -379,10 +362,9 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-97/125 tasks complete with All-Build SB Error Observability And Launch Integrity
-first, Deterministic Collision Modes And Ragdoll Unification second, Runtime
-Boundary Separation And Project Topology third, Game UI Component Library
-Separation fourth, and Recorded Interaction Playback Cursor fifth.
+96/118 tasks complete with Deterministic Collision Modes And Ragdoll Unification
+first, Runtime Boundary Separation And Project Topology second, Game UI Component
+Library Separation third, and Recorded Interaction Playback Cursor fourth.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
@@ -392,9 +374,6 @@ Replacement CT0-CT5 is complete. Full Validation Time And Value Audit VTA0-VTA5 
 Repository Hygiene Cleanup RC0-RC5 is complete.
 Core Engine Evidence-Driven Code Reduction CR0-CR5 is complete.
 Real-Time Physics Pacing SP0-SP2 is complete.
-All-Build SB Error Observability And Launch Integrity E0-E6 is active at 1/7;
-E0 is complete after strict 4,163-row integrated closure and independent review;
-E1 is ready.
 Deterministic Collision Modes And Ragdoll Unification FP0-FP9 is active at 2/10;
 FP0-FP1 are complete and FP2 is active under the owner-directed absolute-travel
 threshold.

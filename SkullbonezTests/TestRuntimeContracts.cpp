@@ -925,6 +925,17 @@ void ExpectFatalCase( const char* caseName, std::initializer_list<const char*> e
     {
         CHECK( child.output.find( expected ) != std::string::npos );
     }
+
+    const bool checksStack = std::any_of( expectedDiagnostics.begin(), expectedDiagnostics.end(),
+                                          []( const char* expected )
+                                          {
+                                              return expected &&
+                                                     std::strcmp( expected, "FATAL[Tests/WorkerFatalProbe]" ) == 0;
+                                          } );
+    if ( checksStack )
+    {
+        CHECK( child.output.find( "STACK[0]=" ) != std::string::npos );
+    }
 #endif
 }
 
@@ -2600,8 +2611,7 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
                      { "FATAL: PhysicsFixedList capacity exceeded", "owner=SpatialGrid.entries", "requested=1033",
                        "runtime_capacity=1032", "compile_capacity=131076", "high_water=1032", "phase=physics" } );
 
-    ExpectCleanControlCase( "spatial-grid-overlay-entry-capacity",
-                            { "spatial-grid-overlay-fallback-complete" } );
+    ExpectCleanControlCase( "spatial-grid-overlay-entry-capacity", { "spatial-grid-overlay-fallback-complete" } );
 
     ExpectFatalCase( "spatial-grid-bucket-capacity", { "FATAL[Physics/SpatialGrid]", "bucket capacity exceeded",
                                                        "capacity=8192", "active=8192", "phase=steady_gameplay" } );

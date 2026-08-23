@@ -6,11 +6,9 @@ Impact area: `SkullbonezSource/Runtime/`, Runtime-facing Rendering/UI seams,
 Visual Studio project topology, dependency enforcement, tests, and documentation
 Owner: Runtime architecture, with each moved value or behavior retained by its
 concrete subsystem owner
-Priority: Binding third plan under the superseding 2026-08-23 owner direction;
-RBS0 through RBS7 execute in strict internal order. `ERROR_OBSERVABILITY` and
-`RAGDOLL_PHYSICS` receive scarce-slot and fan-in priority, but are not
-predecessors when phase-local leases and mutable validation outputs are
-disjoint.
+Priority: Binding second plan. RBS0 through RBS7 execute in strict internal
+order. `RAGDOLL_PHYSICS` receives scarce-slot and fan-in priority, but is not a
+predecessor when phase-local leases and mutable validation outputs are disjoint.
 Commit name: `RUNTIME_BOUNDARIES`
 
 ## Owner Direction
