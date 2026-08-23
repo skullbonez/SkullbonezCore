@@ -1,7 +1,8 @@
 # All-Build SB Error Observability And Launch Integrity
 
 Date: 2026-08-23
-Status: Active by explicit owner direction. 0/7 phases complete; E0 ready.
+Status: Active by explicit owner direction. 1/7 phases complete; E0 complete and
+E1 ready.
 Impact area: Core diagnostic storage, durable logging, creation-site stack
 capture, fatal reporting, build-configuration policy, raw recoverable-error
 sinks, startup/termination reporting, retained executable bundles, and
@@ -395,22 +396,26 @@ before changing reporting behavior.
 
 Tasks:
 
-- Add `tools/inventory_error_observability.py` with self-test fixtures and a
-  repository report. It inventories failed-result construction, `SB_FATAL`, raw
-  `stderr`, event-only, dialog/UI-only, assertion-only, status-only, and silent
-  recovery sites, production runtime assertions, and description quality.
-- Give each site an exact current-source disposition: SB warning, recoverable SB
-  error, fatal SB error, successful fallback/value state, test-only deliberate
-  failure, runtime assertion, or repair owned by a named E phase.
-- Bind rulings to file, normalized operation/site, and source fingerprint. An
-  unruled or stale site fails; the row total is never a ceiling or ratchet.
-- Bind each current error/assertion description to its site fingerprint and mark
-  generic, code-only, expression-only, context-free, or missing descriptions as
-  E3/E4 repairs. A ruling cannot approve an inadequate message permanently.
-- Add the build-policy matrix and packet grammar to a durable Core reference
-  document consumed by implementation and review.
-- Record the current retained-executable import/bundle mismatch as an E5 repair,
-  not as an accepted artifact exception.
+- [x] Add `tools/inventory_error_observability.py` with self-test fixtures and
+      a repository report. It inventories failed-result construction,
+      `SB_FATAL`, raw `stderr`, event-only, dialog/UI-only, assertion-only,
+      status-only, and silent recovery sites, production runtime assertions,
+      and description quality.
+- [x] Give each site an exact current-source disposition: SB warning,
+      recoverable SB error, fatal SB error, successful fallback/value state,
+      test-only deliberate failure, runtime assertion, or repair owned by a
+      named E phase.
+- [x] Bind rulings to file, normalized operation/site, and source fingerprint.
+      An unruled or stale site fails; the row total is never a ceiling or
+      ratchet.
+- [x] Bind each current error/assertion description to its site fingerprint and
+      mark generic, code-only, expression-only, context-free, or missing
+      descriptions as E3/E4 repairs. A ruling cannot approve an inadequate
+      message permanently.
+- [x] Add the build-policy matrix and packet grammar to a durable Core reference
+      document consumed by implementation and review.
+- [x] Record the current retained-executable import/bundle mismatch as an E5
+      repair, not as an accepted artifact exception.
 
 Acceptance:
 
@@ -421,6 +426,44 @@ Acceptance:
   assertion site without an unclassified row.
 - Independent review confirms that ordinary fallback values were not mislabeled
   merely to reduce work.
+
+### E0 Closure Evidence - 2026-08-23
+
+`tools/inventory_error_observability.py`, the schema-v3 exact ruling file, and
+`Agentic/Reference/error-observability-reference.md` landed through commits
+`f377fd291`, `c6dc45908`, `706b537e7`, and `efb719eef`. The scanner covers SB
+failure/fatal creation, wrappers and message templates, raw and UI/dialog
+sinks, status/counter/recovery paths, pre-entry failures, assertions, ignored
+CRT I/O outcomes, and retained executable imports. Its self-test includes all
+site classes, stale/unruled failure, the twelve-operation ignored-versus-
+handled CRT matrix, generalized description-classification negatives, macro
+bodies, delayed imports, and adversarial semantic-ruling mutations.
+
+Every ruling binds the current file coordinate, normalized operation,
+source fingerprint, description/classification, disposition, owner reason,
+semantic evidence, repair phase, and owner adjudication. A non-secret SHA-256
+attestation seals that complete decision record. Recomputing the seal explicitly
+asserts a new review; it does not prove authorship, human thought, or semantic
+truth, so independent review remains authoritative as the durable reference
+states.
+
+After UI2 moved five unchanged `UIComboBox` findings and deleted six others,
+coordinator fan-in preserved all five semantic decisions, updated only their
+current identities/tags/attestations, and removed the six stale rows. Two fresh
+strict scans on the integrated PR tree agree exactly:
+
+```text
+source_files=619 findings=4163 current_rulings=4163
+unruled=0 stale=0 issues=0
+source_manifest_sha256=6196ec5872007925361b37f1d423b4fe99c6a55875bb03062f1d9bf305d5f4ec
+inventory_sha256=c21b2419280187719e5e2711ad837d1981be596d8b65155e9adf7eb99b4c28ef
+```
+
+The final independent acceptance and fan-in reviews both report zero findings
+and zero missing evidence. All 4,163 schema-v3 attestations recompute exactly;
+the four retained bundle-import mismatches remain exact E5 repairs rather than
+accepted runtime artifacts. No Physics, replay, visual, performance, or other
+golden was changed.
 
 ## Phase E1 - Establish The All-Configuration Durable Sink
 

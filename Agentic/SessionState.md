@@ -2,7 +2,7 @@
 
 Date: 2026-08-23
 Branch: `nightrunner-22nd-AUG-26`
-Status: All-Build SB Error Observability, Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 95/125 tasks complete
+Status: All-Build SB Error Observability, Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 96/125 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -11,8 +11,11 @@ Hygiene Cleanup RC0-RC5 are 100% complete, reviewed, and closed.
 Causal C0-C8, Determinism T0-T8, Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7,
 and Continuous Orbital Forecast OF0-OF6 are complete.
 All-Build SB Error Observability And Launch Integrity E0-E6 is the binding
-first-slot plan by explicit owner direction. E0 is repairing independent-review
-findings in its inventory and ruling gate. It requires actionable descriptions for every existing error,
+first-slot plan by explicit owner direction. E0 is complete: the integrated
+schema-v3 inventory covers 4,163 current sites with zero unruled, stale, or
+invalid rulings, and both final independent reviews report zero findings and
+zero missing evidence. E1 is ready. The plan requires actionable descriptions
+for every existing error,
 message-first creation-site stacks for every recoverable/fatal SB error in all
 non-shipping builds, assertion expression/description/source/stack reporting,
 Debug-only warnings, minimal fatal-only Release logging, and verified runnable
@@ -480,7 +483,7 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Continue the first subsystem-safe slot on `ERROR_OBSERVABILITY` E0 using
+Continue the first subsystem-safe slot on `ERROR_OBSERVABILITY` E1 using
 `Agentic/Plans/TODO/all-build-sb-error-observability.md`. Other slots may resume
 `RAGDOLL_PHYSICS` FP2 and `RUNTIME_BOUNDARIES` RBS1 when their current canonical
 subsystem, path-owner, worktree, and mutable resource leases are disjoint. UI3

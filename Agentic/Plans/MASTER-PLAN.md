@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-23
-Status: All-Build SB Error Observability, Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 95/125 tasks complete
+Status: All-Build SB Error Observability, Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 96/125 tasks complete
 
 ## Owner Direction
 
@@ -296,7 +296,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| All-Build SB Error Observability And Launch Integrity | `ERROR_OBSERVABILITY` | 7 | 0 | `TODO/all-build-sb-error-observability.md` |
+| All-Build SB Error Observability And Launch Integrity | `ERROR_OBSERVABILITY` | 7 | 1 | `TODO/all-build-sb-error-observability.md` |
 | Deterministic Collision Modes And Ragdoll Unification | `RAGDOLL_PHYSICS` | 10 | 2 | `TODO/ragdoll-physics-unification.md` |
 | Runtime Boundary Separation And Project Topology | `RUNTIME_BOUNDARIES` | 8 | 1 | `TODO/runtime-boundary-separation.md` |
 | Game UI Component Library Separation | `GAME_UI_COMPONENTS` | 7 | 3 | `TODO/game-ui-component-library-separation.md` |
@@ -379,7 +379,7 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-95/125 tasks complete with All-Build SB Error Observability And Launch Integrity
+96/125 tasks complete with All-Build SB Error Observability And Launch Integrity
 first, Deterministic Collision Modes And Ragdoll Unification second, Runtime
 Boundary Separation And Project Topology third, Game UI Component Library
 Separation fourth, and Recorded Interaction Playback Cursor fifth.
@@ -392,8 +392,9 @@ Replacement CT0-CT5 is complete. Full Validation Time And Value Audit VTA0-VTA5 
 Repository Hygiene Cleanup RC0-RC5 is complete.
 Core Engine Evidence-Driven Code Reduction CR0-CR5 is complete.
 Real-Time Physics Pacing SP0-SP2 is complete.
-All-Build SB Error Observability And Launch Integrity E0-E6 is active at 0/7;
-E0 is repairing independent-review findings in its inventory and ruling gate.
+All-Build SB Error Observability And Launch Integrity E0-E6 is active at 1/7;
+E0 is complete after strict 4,163-row integrated closure and independent review;
+E1 is ready.
 Deterministic Collision Modes And Ragdoll Unification FP0-FP9 is active at 2/10;
 FP0-FP1 are complete and FP2 is active under the owner-directed absolute-travel
 threshold.
