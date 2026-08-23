@@ -205,9 +205,10 @@ bool BodyRequiresSweptTranslation( std::span<const uint8_t> motionEligibilitySta
            ( motionEligibilityState[static_cast<std::size_t>( bodyIndex )] & PhysicsMotionEligibilityLinearPromoted ) != 0u;
 }
 
-bool ObjectPairNeedsSweptCcd( const PhysicsBodyHotFieldsConstView& hotFields,
+bool ObjectPairNeedsSweptCcd( SkullbonezCore::Core::Profiler* profiler, const PhysicsBodyHotFieldsConstView& hotFields,
+                              std::span<const ColliderRecord> colliderRecords,
                               std::span<const uint8_t> motionEligibilityState, int bodyAIndex, int bodyBIndex,
-                              float availableTime )
+                              float availableTime, float contactEpsilon )
 {
     if ( availableTime <= TOLERANCE )
     {
@@ -228,11 +229,46 @@ bool ObjectPairNeedsSweptCcd( const PhysicsBodyHotFieldsConstView& hotFields,
     constexpr float RELATIVE_PROMOTION_THRESHOLD_SQUARED = PHYSICS_MOTION_PROMOTE_TRAVEL_PER_TICK *
                                                            PHYSICS_MOTION_PROMOTE_TRAVEL_PER_TICK;
 
-    // Invariant: each individually Discrete body travels strictly less than the
-    // absolute promotion threshold. Opposing motion still selects Swept TOI when
-    // their combined relative travel reaches that same threshold. This remains
-    // independent of collider thickness and angular reach.
-    return !std::isfinite( relativeTravelSquared ) || relativeTravelSquared >= RELATIVE_PROMOTION_THRESHOLD_SQUARED;
+    // Invariant: per-body promotion remains an absolute, thickness-independent
+    // travel policy. Pair geometry is only a narrowphase fallback for two bodies
+    // that each stayed Discrete but can still close a smaller gap together.
+    if ( !std::isfinite( relativeTravelSquared ) || relativeTravelSquared >= RELATIVE_PROMOTION_THRESHOLD_SQUARED )
+    {
+        return true;
+    }
+
+    if ( relativeTravelSquared <= TOLERANCE * TOLERANCE )
+    {
+        return false;
+    }
+
+    const std::size_t bodyA = static_cast<std::size_t>( bodyAIndex );
+    const std::size_t bodyB = static_cast<std::size_t>( bodyBIndex );
+    const Vector3 relativeCenterStart = PhysicsBodyPosition( hotFields, bodyA ) - PhysicsBodyPosition( hotFields, bodyB );
+    const float combinedRadius = (std::max)( 0.0f, colliderRecords[bodyA].boundingRadius ) +
+                                 (std::max)( 0.0f, colliderRecords[bodyB].boundingRadius ) +
+                                 (std::max)( 0.0f, contactEpsilon );
+    const float closestTimeFraction = std::clamp( -Vector::Dot( relativeCenterStart, relativeLinearDisplacement ) /
+                                                      relativeTravelSquared,
+                                                  0.0f, 1.0f );
+    const Vector3 closestCenterDelta = relativeCenterStart + relativeLinearDisplacement * closestTimeFraction;
+    const float closestCenterDistanceSquared = Vector::VectorMagSquared( closestCenterDelta );
+    const float combinedRadiusSquared = combinedRadius * combinedRadius;
+
+    if ( !std::isfinite( closestCenterDistanceSquared ) || !std::isfinite( combinedRadiusSquared ) )
+    {
+        return true;
+    }
+
+    if ( closestCenterDistanceSquared > combinedRadiusSquared )
+    {
+        return false;
+    }
+
+    // Why: a current exact manifold belongs to the persistent solver. Keeping
+    // that pair Discrete preserves resting/static-friction response while the
+    // conservative body-origin spheres route only a possible future contact.
+    return !HasObjectContactAtTime( profiler, hotFields, colliderRecords, bodyAIndex, bodyBIndex, 0.0f, contactEpsilon );
 }
 
 } // namespace
@@ -318,7 +354,8 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bo
             bool wokeBySweptImpact = false;
 
             if ( timeRemaining[y] > 0.0f &&
-                 ObjectPairNeedsSweptCcd( hotFields, motionEligibilityState, y, x, timeRemaining[y] ) )
+                 ObjectPairNeedsSweptCcd( profiler, hotFields, colliderRecords, motionEligibilityState, y, x,
+                                          timeRemaining[y], policy.contactEpsilon ) )
             {
                 ObjectContactSweepResult sweep = SweepObjectPair( profiler, hotFields, colliderRecords, y, x,
                                                                   timeRemaining[y] );
@@ -411,7 +448,8 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bo
             bool wokeBySweptImpact = false;
 
             if ( timeRemaining[x] > 0.0f &&
-                 ObjectPairNeedsSweptCcd( hotFields, motionEligibilityState, x, y, timeRemaining[x] ) )
+                 ObjectPairNeedsSweptCcd( profiler, hotFields, colliderRecords, motionEligibilityState, x, y,
+                                          timeRemaining[x], policy.contactEpsilon ) )
             {
                 ObjectContactSweepResult sweep = SweepObjectPair( profiler, hotFields, colliderRecords, x, y,
                                                                   timeRemaining[x] );
@@ -506,7 +544,8 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bo
 
     float availableTime = (std::min)( timeRemaining[x], timeRemaining[y] );
 
-    if ( !ObjectPairNeedsSweptCcd( hotFields, motionEligibilityState, x, y, availableTime ) )
+    if ( !ObjectPairNeedsSweptCcd( profiler, hotFields, colliderRecords, motionEligibilityState, x, y, availableTime,
+                                   policy.contactEpsilon ) )
     {
         // Invariant: a Discrete pair performs no swept query and therefore emits
         // neither a SweptObjectHit nor a misleading SweptObjectMiss event.
