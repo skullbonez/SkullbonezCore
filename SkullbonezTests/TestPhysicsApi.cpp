@@ -7,7 +7,9 @@ Summary:
   These tests use rotated bodies and deliberately non-origin offsets so a
   plausible body/world-frame mix cannot pass through zero or identity values.
   Query, point-joint, and angular-drag behavior provide independent observable
-  oracles for the frame matrix documented by PhysicsApi.h.
+  oracles for the frame matrix documented by PhysicsApi.h. The launcher matrix
+  also drives authored descriptors through PhysicsEngine so presentation names
+  cannot influence motion-path classification.
 
 Invariants:
   - Shape centers and point-joint anchors are body-local values.
@@ -15,33 +17,48 @@ Invariants:
   - A non-unit ray direction changes no reported world-space distance.
   - Ragdoll point-joint solving rotates local anchors before applying inertia.
   - Angular drag clamps in body-principal axes and returns a world-space torque.
+  - Every launcher slider value from 105 through 360 metres per second promotes
+    at 120 Hz, and an identically shaped generic body receives the same bits.
 
 Related:
   - SkullbonezSource/Physics/PhysicsApi.h
   - SkullbonezSource/Physics/PhysicsBodyStore.cpp
   - SkullbonezSource/Physics/PhysicsEngine.cpp
+  - SkullbonezSource/Physics/PhysicsMotionEligibility.h
   - SkullbonezSource/Physics/Ragdoll.cpp
+  - SkullbonezSource/Runtime/Tools/RuntimeTools.cpp
+  - SkullbonezSource/UI/UILayout.h
 */
 
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 #include "../SkullbonezSource/Core/Common.h"
+#include "../SkullbonezSource/Core/Config.h"
+#include "../SkullbonezSource/Core/LockOrderValidator.h"
+#include "../SkullbonezSource/Core/WorkerPool.h"
 #include "../SkullbonezSource/Physics/BoundingBox.h"
 #include "../SkullbonezSource/Physics/BoundingSphere.h"
 #include "../SkullbonezSource/Physics/BuoyancySystem.h"
 #include "../SkullbonezSource/Physics/ColliderStore.h"
 #include "../SkullbonezSource/Physics/PhysicsApi.h"
 #include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
+#include "../SkullbonezSource/Physics/PhysicsDiagnosticsSink.h"
 #include "../SkullbonezSource/Physics/PhysicsEngine.h"
+#include "../SkullbonezSource/Physics/PhysicsMotionEligibility.h"
+#include "../SkullbonezSource/Physics/PhysicsTimestep.h"
 #include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
 #include "../SkullbonezSource/Physics/Ragdoll.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsStepDiagnostics.h"
+#include "../SkullbonezSource/UI/UILayout.h"
+#include "../SkullbonezSource/World/Terrain.h"
 #include "TestColliderStoreFixtures.h"
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 
 using SkullbonezCore::Math::CollisionDetection::BoundingBox;
@@ -76,6 +93,49 @@ using SkullbonezCore::Physics::Ragdoll;
 namespace
 {
 constexpr float HALF_PI_RADIANS = 1.57079632679489661923f;
+constexpr float FIRST_FP2_LAUNCHER_SPEED = 105.0f;
+constexpr int FIRST_FP2_LAUNCHER_SPEED_STEP = static_cast<int>(
+    ( FIRST_FP2_LAUNCHER_SPEED - SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MIN ) /
+    SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_STEP );
+constexpr int LAST_LAUNCHER_SPEED_STEP = static_cast<int>( ( SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MAX -
+                                                             SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MIN ) /
+                                                           SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_STEP );
+constexpr int FP2_LAUNCHER_SPEED_COUNT = LAST_LAUNCHER_SPEED_STEP - FIRST_FP2_LAUNCHER_SPEED_STEP + 1;
+constexpr int FP2_LAUNCHER_BODY_COUNT = FP2_LAUNCHER_SPEED_COUNT * 2;
+
+static_assert( SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MIN +
+                       static_cast<float>( FIRST_FP2_LAUNCHER_SPEED_STEP ) *
+                           SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_STEP ==
+                   FIRST_FP2_LAUNCHER_SPEED,
+               "The FP2 matrix must begin on a supported launcher slider step." );
+static_assert( SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MIN +
+                       static_cast<float>( LAST_LAUNCHER_SPEED_STEP ) *
+                           SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_STEP ==
+                   SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MAX,
+               "The FP2 matrix must include the supported launcher maximum." );
+static_assert( FP2_LAUNCHER_SPEED_COUNT == 52 );
+
+// Invariant: these body constants mirror RuntimeTools' launcher projectile.
+// The paired rows differ in presentation name and position only, leaving shape
+// and velocity as identical Physics classification inputs.
+void AddLauncherClassificationBody( PhysicsEngine& engine, uint32_t sceneObjectId, float speed, float z,
+                                    const char* diagnosticName )
+{
+    constexpr float projectileRadius = 0.85f;
+    constexpr float projectileMass = 6.0f;
+    constexpr float projectileRestitution = 0.42f;
+    constexpr float projectileMoment = 0.4f * projectileMass * projectileRadius * projectileRadius;
+    const CollisionShape shape = BoundingSphere( projectileRadius, ZERO_VECTOR, 0.0f );
+    auto body = MakePhysicsBodyCreateDesc( MakePhysicsSceneObjectId( sceneObjectId ), shape, Vector3( 0.0f, 0.0f, z ),
+                                           SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
+                                           Vector3( speed, 0.0f, 0.0f ), ZERO_VECTOR,
+                                           Vector3( projectileMoment, projectileMoment, projectileMoment ), projectileMass,
+                                           projectileRestitution, PhysicsBodyMotionKind::Dynamic, diagnosticName );
+    body.angularVelocityLimit = 1000.0f;
+    auto collider = MakeColliderCreateDesc( shape, projectileRestitution, 0u, "unit" );
+    collider.sceneObjectId = body.sceneObjectId;
+    REQUIRE( engine.RegisterAuthoredBody( body, collider ).IsValid() );
+}
 
 void CheckVectorApprox( const Vector3& actual, const Vector3& expected )
 {
@@ -188,6 +248,82 @@ PhysicsBodyHotState SolveAnchorCase( const Vector3& anchorForBodyA )
     return SkullbonezCore::Physics::LoadPhysicsBodyHotState( bodies.HotFields(), static_cast<std::size_t>( dynamicRow ) );
 }
 } // namespace
+
+TEST_CASE( "Physics launcher classification: every supported fast speed promotes independent of name" )
+{
+    SkullbonezCore::Core::EngineConfig config;
+    config.physicsExecution.parallel = false;
+    config.physicsExecution.parallelApplyForces = false;
+    config.physicsExecution.parallelMutualGravity = false;
+    config.physicsExecution.parallelExternalForceFields = false;
+    config.physicsExecution.parallelNarrowphase = false;
+    config.physicsExecution.parallelTerrainDetect = false;
+    config.physicsExecution.parallelIntegrate = false;
+    config.bodySimulation.velocityLimit = 1000.0f;
+
+    // Lifetime: PhysicsEngine retains the terrain view, so declaration order
+    // destroys the engine before its deep no-contact terrain owner.
+    SkullbonezCore::Geometry::Terrain terrain( -100000.0f, 0.0f, 0.0f, config );
+    PhysicsEngine engine;
+    engine.ApplyRuntimeConfig( config );
+    engine.SetTerrainView( terrain.PhysicsView() );
+    engine.SetSleepEnabled( false );
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        engine.ReserveAuthoredBodyCapacity( static_cast<std::size_t>( FP2_LAUNCHER_BODY_COUNT ),
+                                            static_cast<std::size_t>( FP2_LAUNCHER_BODY_COUNT ) );
+
+        for ( int speedStep = FIRST_FP2_LAUNCHER_SPEED_STEP; speedStep <= LAST_LAUNCHER_SPEED_STEP; ++speedStep )
+        {
+            const int speedOffset = speedStep - FIRST_FP2_LAUNCHER_SPEED_STEP;
+            const int firstBodyRow = speedOffset * 2;
+            const float speed = SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MIN +
+                                static_cast<float>( speedStep ) *
+                                    SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_STEP;
+            AddLauncherClassificationBody( engine, 12000u + static_cast<uint32_t>( firstBodyRow ), speed,
+                                           static_cast<float>( firstBodyRow ) * 4.0f, "launcher_projectile" );
+            AddLauncherClassificationBody( engine, 12001u + static_cast<uint32_t>( firstBodyRow ), speed,
+                                           static_cast<float>( firstBodyRow + 1 ) * 4.0f, "generic_fast_ball" );
+        }
+    }
+
+    REQUIRE( PhysicsEngine::ReadBodies( engine ).Count() == FP2_LAUNCHER_BODY_COUNT );
+    SkullbonezCore::Threading::LockOrderValidator lockOrderValidator;
+    SkullbonezCore::Threading::WorkerPool workerPool( lockOrderValidator );
+    PhysicsWorldForces noForces;
+    noForces.angularDragMultiplier = 0.0f;
+    engine.Step( PHYSICS_FIXED_DT, noForces, workerPool, SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter {} );
+
+    const auto diagnostics = engine.GetDiagnosticsView();
+    REQUIRE( diagnostics.motionEligibilityState.size() == static_cast<std::size_t>( FP2_LAUNCHER_BODY_COUNT ) );
+    CHECK( diagnostics.motionEligibilityStats.evaluatedBodies == FP2_LAUNCHER_BODY_COUNT );
+    CHECK( diagnostics.motionEligibilityStats.promotedBodies == FP2_LAUNCHER_BODY_COUNT );
+    CHECK( diagnostics.motionEligibilityStats.discreteBodies == 0 );
+
+    const auto hot = PhysicsEngine::ReadBodies( engine ).HotFields();
+
+    for ( int speedStep = FIRST_FP2_LAUNCHER_SPEED_STEP; speedStep <= LAST_LAUNCHER_SPEED_STEP; ++speedStep )
+    {
+        const int speedOffset = speedStep - FIRST_FP2_LAUNCHER_SPEED_STEP;
+        const std::size_t launcherRow = static_cast<std::size_t>( speedOffset * 2 );
+        const std::size_t genericRow = launcherRow + 1u;
+        const float speed = SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MIN +
+                            static_cast<float>( speedStep ) * SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_STEP;
+        const float expectedTravel = speed * PHYSICS_FIXED_DT;
+        CAPTURE( speed );
+
+        CHECK( expectedTravel >= SkullbonezCore::Physics::PHYSICS_MOTION_PROMOTE_TRAVEL_PER_TICK );
+        CHECK( hot.positionX[launcherRow] == doctest::Approx( expectedTravel ) );
+        CHECK( hot.positionX[genericRow] == doctest::Approx( expectedTravel ) );
+        CHECK( diagnostics.motionEligibilityState[launcherRow] ==
+               SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted );
+        CHECK( diagnostics.motionEligibilityState[genericRow] ==
+               SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted );
+        CHECK( diagnostics.motionEligibilityState[genericRow] == diagnostics.motionEligibilityState[launcherRow] );
+    }
+}
 
 TEST_CASE( "Physics API frames: body-local shape offsets project into world queries" )
 {
