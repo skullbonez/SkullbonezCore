@@ -33,19 +33,6 @@
       "plan": ""
     },
     {
-      "file": "SkullbonezSource/Runtime/App/InputFrameExecution.cpp",
-      "signature": "Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput )",
-      "body_sha256": "d467fdbc2888d6760abbbcb83d75862fdac2f7f5c61e0b74f228a7bbee2ca917",
-      "owner": "Runtime input frame phase",
-      "disposition": "retain-owner",
-      "reason": "One ordered input turn runs from automation sampling through device routing, typed command production, scene-scoped owner retirement, and terminal restore publication. F8 recording control is a routed input action in that same transaction: it only arms or closes the detached Diagnostics tape after the router proves idle state. Automation playback progress is copied into presentation-only overlay values during the same turn and retains no controller authority. Every participant is a synchronous Run-owned borrow, and splitting the phase would move frame ordering into one-call helpers without creating an independently testable owner.",
-      "evidence": "git history: look-lab-random-style-authoring-ll5-breadth-reuse-idle (2026-08-01); C1 causal-row transport owner review (2026-08-17); interaction recording routed-control review (2026-08-22); CR1 GameUI naming-only surface review (2026-08-22)",
-      "plan": "",
-      "body_lines": 1201,
-      "max_brace_depth": 7,
-      "closure_count": 12
-    },
-    {
       "file": "SkullbonezSource/UI/UIWindowInteractionOwner.cpp",
       "signature": "InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& input, int screenWidth, int screenHeight, double now, bool editorModeEnabled, bool editorPlacementMode, bool editorPlaceStatic, bool editorTerrainAlign, int cameraModeIndex, uint32_t cameraModeEnabledMask, const SceneNavigationModel& sceneNavigation )",
       "body_sha256": "f568602ab9ac33d5090774f0e86f31e6f19f439e124a4504dd9e449a2c8dbd62",
@@ -103,19 +90,6 @@
       "reason": "One flat depth-two dispatcher maps the closed replay and prediction assertion namespace into one typed action value; every branch writes only that output and returns immediately, so extracting category helpers would relay the same parse authority without creating an independent invariant or lifetime.",
       "evidence": "PREDICT_SOLVER_DETAIL PSD7 combined-workflow parser review (2026-08-19)",
       "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Scene/SceneController.Load.cpp",
-      "signature": "SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& request, SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions, const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender, const RunStartupState& startup, Assets::AssetSystem& assets, Threading::WorkerPool& workerPool, DiagnosticsRuntime& diagnosticsRuntime, Rendering::Dx12FrameOwner* renderFrame, Rendering::Dx12ResourceBuilder* renderResources, RuntimeRenderer& renderer, SceneLoadTransaction& transaction )",
-      "body_sha256": "18a6684e711654cc75462b56d9d573a8e780149b4bec4041fc001c69471a156e",
-      "owner": "SceneController load transaction",
-      "disposition": "retain-owner",
-      "reason": "One scene-load transaction sequences authored decode, owner construction, render publication, diagnostics, and commit or rollback; the explicit transaction owns the phase invariant and every service borrow expires at return.",
-      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); SIM_PACING effective-policy diagnostics projection (2026-08-23)",
-      "plan": "",
-      "body_lines": 689,
-      "max_brace_depth": 4,
-      "closure_count": 2
     },
     {
       "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.cpp",
@@ -181,16 +155,6 @@
       "disposition": "retain-owner",
       "reason": "One presentation pass converts a detached replay overlay snapshot into an ordered draw submission for one viewport and time; renderer owners are synchronous sinks and no overlay state is retained.",
       "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); PREDICT_SOLVER_DETAIL PSD1 shared High Detail control rendering (2026-08-18)",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/UI/OperatorEditorFrameComposer.cpp",
-      "signature": "void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels, const FramePresentationFacts& presentationFacts )",
-      "body_sha256": "6cc483d86d151cbd62937eb330eaed399c0320b38ac63b0d4d35a95f54a4d3d5",
-      "owner": "Runtime operator UI frame phase",
-      "disposition": "retain-owner",
-      "reason": "One composition-root phase projects render-model, presentation, UI-owned detached Look Lab cache, and Planning-owned detached forecast status, runs the active operator UI, submits its commands, and latches any process failure before returning; neither surface samples owners independently and all borrows share that synchronous frame lifetime.",
-      "evidence": "git history: look-lab-random-style-authoring-ll5-breadth-reuse-idle (2026-08-01); ORBIT_FORECAST OF4 shared-view projection review (2026-08-19); CR1 GameUI naming-only surface review (2026-08-22)",
       "plan": ""
     },
     {

@@ -54,6 +54,7 @@ class Dx12RaytracingOwner;
 class Dx12RenderDevice;
 class Dx12ResourceBuilder;
 class Dx12TextureOwner;
+class RenderBackendDX12;
 } // namespace Rendering
 namespace Runtime
 {
@@ -61,11 +62,8 @@ class RenderResourceLifecycle
 {
   public:
     RenderResourceLifecycle( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
-                             Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame,
-                             Rendering::Dx12GraphTransientPool& renderGraph, Rendering::Dx12ResourceBuilder& renderResources,
-                             Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
-                             Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner& raytracing,
-                             bool raytracingAvailable, const RenderWorldView& world, int sceneIndex, int sceneLoadCount );
+                             Rendering::RenderBackendDX12& backend, const RenderWorldView& world,
+                             int sceneIndex, int sceneLoadCount );
     ~RenderResourceLifecycle();
 
     SkullbonezCore::Core::SbResult InitialiseProcessResources( bool dumpTextureAssets );

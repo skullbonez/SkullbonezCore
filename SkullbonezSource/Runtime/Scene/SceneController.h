@@ -4,10 +4,10 @@ Purpose:
   Owns scene lifecycle, queue navigation, cold scene mutation, and scene requests.
 
 Summary:
-  SceneController owns the scene queue, cold mutation, frame completion policy,
-  and ordered request batch. SceneLoadTransaction separately enforces consumer
-  phase order. The controller composes one concrete SceneWorld for the active
-  scene; callers borrow it instead of reaching domains through forwarding.
+  SceneController owns the scene queue, active world, frame completion policy,
+  and ordered request batch. SceneLoadTransaction applies cold mutations through
+  that public Scene surface while enforcing consumer phase order. The controller
+  exposes no transaction backdoor or duplicated SceneWorld forwarding surface.
 
 Glossary:
   Scene world: Concrete owner for active-scene entities, physics, cameras,
@@ -48,33 +48,12 @@ namespace SkullbonezCore
 {
 namespace Core
 {
-class EngineConfig;
 struct CinematicRenderConfig;
 } // namespace Core
 namespace Assets
 {
 class AssetSystem;
 }
-namespace Environment
-{
-class CameraCollection;
-class WorldEnvironment;
-} // namespace Environment
-namespace Physics
-{
-class PhysicsEngine;
-class PhysicsDebugVisualizer;
-struct PhysicsWorldForces;
-} // namespace Physics
-namespace Threading
-{
-class WorkerPool;
-}
-namespace Rendering
-{
-class Dx12FrameOwner;
-class Dx12ResourceBuilder;
-} // namespace Rendering
 namespace UI
 {
 } // namespace UI
@@ -86,12 +65,8 @@ namespace Runtime
 {
 class AuthoredScene;
 struct SceneAutomationGateStatus;
-class SceneLoadTransaction;
-class SimulationSystem;
-struct AttachedCameraState;
 struct CameraControlState;
 struct RunLaunchOptions;
-struct RunStartupState;
 struct SceneFrameAdvanceResult
 {
     SceneLoadRequest loadRequest;
@@ -197,21 +172,6 @@ class SceneController : public SceneSession
     SceneRequestBatch TakePendingRequests();
 
   private:
-    friend class SceneLoadTransaction;
-
-    // Lifetime: cold load orchestration borrows each phase value only for this
-    // call. The transaction owns detached outputs; neither owner stores a Run
-    // backpointer or complete mutable context.
-    // Hazard: renderFrame proves old GPU use complete before scene mutation;
-    // renderResources is borrowed only afterward for cold terrain construction.
-    SkullbonezCore::Core::SbResult
-    Load( const SceneLoadRequest& request, SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions,
-          const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender, const RunStartupState& startup,
-          Assets::AssetSystem& assets, Threading::WorkerPool& workerPool,
-          const SceneDiagnosticsLoadInput& diagnosticsInput, Rendering::Dx12FrameOwner* renderFrame,
-          Rendering::Dx12ResourceBuilder* renderResources,
-          SceneLoadTransaction& transaction );
-
     SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     SceneRequestQueue m_requests;         // Fixed scene-only deferred intent ring.
     int m_perfPass = 0;                   // Scene navigation pass index for two-pass performance captures.

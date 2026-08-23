@@ -129,10 +129,11 @@ struct SceneLoadTransactionTestAccess
     }
 
     static void SetRenderValues( SceneLoadTransaction& transaction, SceneRenderPolicyState policy,
-                                 SceneRenderActivationRequest activation )
+                                 int activationSceneObjectCapacity, bool activationPending )
     {
         transaction.m_outputs.renderPolicy = policy;
-        transaction.m_outputs.renderActivation = activation;
+        transaction.m_outputs.renderActivationSceneObjectCapacity = activationSceneObjectCapacity;
+        transaction.m_outputs.renderActivationPending = activationPending;
     }
 
 };
@@ -1205,12 +1206,12 @@ TEST_CASE( "Scene render activation gates transition completion before a queued 
 TEST_CASE( "Scene load transaction publishes detached render policy and activation capacity" )
 {
     SceneLoadTransaction transaction;
-    SceneLoadTransactionTestAccess::SetRenderValues( transaction, { false, true }, { 8192, true } );
+    SceneLoadTransactionTestAccess::SetRenderValues( transaction, { false, true }, 8192, true );
 
     CHECK_FALSE( transaction.RenderPolicy().vsyncEnabled );
     CHECK( transaction.RenderPolicy().pipelineSyncEnabled );
-    CHECK( transaction.RenderActivation().pending );
-    CHECK( transaction.RenderActivation().sceneObjectCapacity == 8192 );
+    CHECK( transaction.RenderActivationPending() );
+    CHECK( transaction.RenderActivationSceneObjectCapacity() == 8192 );
 }
 
 TEST_CASE( "Scene request execution saves navigation committed by an earlier load" )

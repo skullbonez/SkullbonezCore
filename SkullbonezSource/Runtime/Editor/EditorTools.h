@@ -39,6 +39,7 @@ Related:
 
 #include <array>
 #include <cstddef>
+#include <span>
 #include <string>
 
 namespace SkullbonezCore
@@ -266,32 +267,6 @@ struct RunEditorPlacementState
     std::array<Math::Orientation::Quaternion, GIZMO_DRAG_GROUP_CAPACITY> gizmoDragGroupStartOrientations = {};
 };
 
-struct EditorScreenshotRequest
-{
-    bool requested = false;
-    std::string path;
-};
-
-struct EditorOverlayFacts
-{
-    static constexpr std::size_t SELECTION_CAPACITY = RunEditorPlacementState::GIZMO_DRAG_GROUP_CAPACITY;
-    bool editorModeEnabled = false;
-    bool placementModeEnabled = false;
-    bool placementPreviewVisible = false;
-    int objectType = 0;
-    int hotGizmoAxis = -1;
-    int hotRotationAxis = -1;
-    Math::Vector::Vector3 placementTerrainPoint = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 placementCenter = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 placementRayOrigin = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 placementRayHit = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 placementScale = Math::Vector::ZERO_VECTOR;
-    Math::Orientation::Quaternion placementOrientation = Math::Orientation::IDENTITY_QUATERNION;
-    std::array<Physics::PhysicsBodyHandle, SELECTION_CAPACITY> selectionBodies = {};
-    std::array<Physics::PhysicsColliderHandle, SELECTION_CAPACITY> selectionColliders = {};
-    std::size_t selectionCount = 0;
-};
-
 struct EditorTerrainPlacement
 {
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
@@ -368,7 +343,6 @@ class EditorToolsOwner
 
     RunEditorPlacementState& Editor();
     const RunEditorPlacementState& Editor() const;
-    EditorOverlayFacts BuildOverlayFacts( const SceneWorld& world );
     void AppendPlacementGhost( EditorTracer& tracer, const Assets::AssetSystem& assets ) const;
     bool PrepareSelectionCommand( const RuntimeInteractionCommand& command, const SceneWorld& world,
                                   RuntimeInteractionSelectionPlan& outPlan );
@@ -451,6 +425,9 @@ void ClearEditorManipulationState( RunEditorPlacementState& editor, RuntimeInter
 // the tool boundary before UI-only code needs a temporary model row.
 int ResolveSelectedEditorModelIndex( RunEditorPlacementState& editor, const Physics::PhysicsBodyStore& bodyStore );
 int PeekSelectedEditorModelIndex( const RunEditorPlacementState& editor, const Physics::PhysicsBodyStore& bodyStore );
+std::size_t ProjectEditorOverlaySelection( RunEditorPlacementState& editor, const SceneWorld& world,
+                                           std::span<Physics::PhysicsBodyHandle> bodies,
+                                           std::span<Physics::PhysicsColliderHandle> colliders );
 
 // Concept: split editor tool translation units share this store-backed
 // transform vocabulary. Keep it narrow so gizmo math, overlay tracing, and
@@ -545,6 +522,6 @@ void UpdateEditorGizmoHotAxes( RunEditorPlacementState& editor, SceneWorld& worl
 void HandleEditorSceneSaveHotkey( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, SceneWorld& world,
                                   const SceneSessionState& scene, const GameObjects::PresentationSaveState& presentation,
                                   bool wasPressed );
-EditorScreenshotRequest BuildEditorScreenshotRequest( bool wasPressed );
+std::string BuildEditorScreenshotPath();
 } // namespace Runtime
 } // namespace SkullbonezCore

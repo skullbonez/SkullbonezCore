@@ -476,48 +476,40 @@ bool TryGetEditorSelectionFrame( const SceneWorld& world, PhysicsBodyHandle sele
 }
 
 
-EditorOverlayFacts EditorToolsOwner::BuildOverlayFacts( const SceneWorld& world )
+std::size_t ProjectEditorOverlaySelection( RunEditorPlacementState& editor, const SceneWorld& world,
+                                           std::span<PhysicsBodyHandle> bodies,
+                                           std::span<PhysicsColliderHandle> colliders )
 {
-    EditorOverlayFacts facts;
-    facts.editorModeEnabled = m_editor.editorModeEnabled;
-    facts.placementModeEnabled = m_editor.placementModeEnabled;
-    facts.placementPreviewVisible = m_editor.placementPreviewVisible;
-    facts.objectType = m_editor.objectType;
-    facts.hotGizmoAxis = m_editor.hotGizmoAxis;
-    facts.hotRotationAxis = m_editor.hotRotationAxis;
-    facts.placementTerrainPoint = m_editor.placementTerrainPoint;
-    facts.placementCenter = m_editor.placementCenter;
-    facts.placementRayOrigin = m_editor.placementRayOrigin;
-    facts.placementRayHit = m_editor.placementRayHit;
-    facts.placementScale = m_editor.placementScale;
-    facts.placementOrientation = m_editor.placementOrientation;
-
     const PhysicsBodyStore& bodyStore = world.BodyStore();
     const ColliderStore& colliderStore = world.Colliders();
-    const int selectedModelIndex = ResolveSelectedEditorModelIndex( m_editor, bodyStore );
+    const int selectedModelIndex = ResolveSelectedEditorModelIndex( editor, bodyStore );
     EditorGizmoGroupIndices indices = {};
     const int count = selectedModelIndex >= 0 ? GatherSelectedEditorTransformGroup( world, selectedModelIndex, indices ) : 0;
-    for ( int i = 0; i < count && facts.selectionCount < facts.selectionBodies.size(); ++i )
+    std::size_t selectionCount = 0;
+
+    for ( int i = 0; i < count && selectionCount < bodies.size() && selectionCount < colliders.size(); ++i )
     {
         const int modelIndex = indices[static_cast<std::size_t>( i )];
-        const PhysicsBodyHandle body = modelIndex == selectedModelIndex ? m_editor.selectedBody
+        const PhysicsBodyHandle body = modelIndex == selectedModelIndex ? editor.selectedBody
                                                                         : bodyStore.HandleForModelIndex( modelIndex );
         const PhysicsColliderHandle collider = modelIndex == selectedModelIndex
-                                                   ? m_editor.selectedCollider
+                                                   ? editor.selectedCollider
                                                    : colliderStore.HandleForBodyHandle( body );
         const PhysicsBodyRecord* bodyRecord = nullptr;
         const ColliderRecord* colliderRecord = nullptr;
+
         if ( !TryResolveEditorBodyCollider( bodyStore, colliderStore, body, collider, modelIndex, bodyRecord,
                                             colliderRecord ) )
         {
-            facts.selectionCount = 0;
-            break;
+            return 0;
         }
-        facts.selectionBodies[facts.selectionCount] = body;
-        facts.selectionColliders[facts.selectionCount] = collider;
-        ++facts.selectionCount;
+
+        bodies[selectionCount] = body;
+        colliders[selectionCount] = collider;
+        ++selectionCount;
     }
-    return facts;
+
+    return selectionCount;
 }
 
 

@@ -63,16 +63,6 @@ struct ScenePresentationValues
     }
 };
 
-// Detached Diagnostics facts sampled by App before entering the cold Scene
-// load. Scene consumes values only and never borrows the diagnostics owner.
-struct SceneDiagnosticsLoadInput
-{
-    bool physicsDiagnosticsEnabled = false;
-    char physicsDiagnosticsPath[256] = {};
-    char physicsRegressionLogPath[256] = {};
-    char physicsCollisionTimeLogPath[256] = {};
-};
-
 enum class SceneDiagnosticsReactionKind : uint8_t
 {
     ResetForSceneLoad,

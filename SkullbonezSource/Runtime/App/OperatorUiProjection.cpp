@@ -21,16 +21,19 @@ Related:
 #include "OperatorUiProjection.h"
 
 #include "../Camera/CameraControlState.h"
+#include "../Capture/CaptureSystem.h"
 #include "../Diagnostics/DiagnosticsPhysicsUI.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../Diagnostics/OverlayDebugState.h"
 #include "../Editor/EditorTools.h"
 #include "../Input/InputController.h"
+#include "../Planning/ContinuousOrbitalForecast.h"
 #include "../Render/RenderPresentationSettings.h"
 #include "../Render/RuntimeRenderFrameValues.h"
 #include "../RuntimeFrameViews.h"
 #include "../Replay/ReplayRuntimePackets.h"
 #include "../Scene/SceneControllerState.h"
+#include "../Scene/SceneEntityStore.h"
 #include "../Scene/SceneSessionState.h"
 #include "../Scene/SceneWorld.h"
 #include "../UI/RenderDiagnosticsProjection.h"
@@ -41,6 +44,9 @@ Related:
 #include "../../Core/Profiler.h"
 #include "../../Core/TracyClientOwner.h"
 #include "../../Core/WorkerPool.h"
+#include "../../Physics/ColliderStore.h"
+#include "../../Physics/PhysicsApi.h"
+#include "../../Physics/PhysicsEngine.h"
 #include "../../Physics/PhysicsDebugData.h"
 #include "../../Rendering/DX12/Dx12Diagnostics.h"
 #include "../../UI/UI.h"
@@ -68,7 +74,427 @@ BuildMainMemoryOverlayStats( const DiagnosticsRuntime& diagnosticsRuntime,
     stats.reconciliationDeltaBytes = 0;
     return stats;
 }
+
+SkullbonezCore::UI::OperatorEditorForecastCause MapForecastCause( ContinuousOrbitalInstabilityCause cause ) noexcept
+{
+    using Cause = ContinuousOrbitalInstabilityCause;
+    using ViewCause = SkullbonezCore::UI::OperatorEditorForecastCause;
+
+    switch ( cause )
+    {
+    case Cause::InvalidContract:
+        return ViewCause::InvalidContract;
+    case Cause::NonFiniteState:
+        return ViewCause::NonFiniteState;
+    case Cause::PrivateStepFailure:
+        return ViewCause::PrivateStepFailure;
+    case Cause::InvalidPublication:
+        return ViewCause::InvalidPublication;
+    case Cause::InnerEnvelope:
+        return ViewCause::InnerEnvelope;
+    case Cause::OuterEnvelope:
+        return ViewCause::OuterEnvelope;
+    case Cause::SustainedEscape:
+        return ViewCause::SustainedEscape;
+    case Cause::Collision:
+        return ViewCause::Collision;
+    case Cause::None:
+    default:
+        return ViewCause::None;
+    }
+}
+
+void FillOperatorRenderingParameters( SkullbonezCore::UI::OperatorEditorRenderingView& view,
+                                      const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary,
+                                      const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
+{
+    using SkullbonezCore::UI::UICinematicFeature;
+    using SkullbonezCore::UI::UICinematicParam;
+    using SkullbonezCore::UI::UIRenderParam;
+
+    static_assert( static_cast<int>( UIRenderParam::Count ) ==
+                   SkullbonezCore::UI::OperatorEditorRenderingView::ordinaryParameterCount );
+    static_assert( static_cast<int>( UICinematicParam::Count ) ==
+                   SkullbonezCore::UI::OperatorEditorRenderingView::cinematicParameterCount );
+    static_assert( static_cast<int>( UICinematicFeature::Count ) ==
+                   SkullbonezCore::UI::OperatorEditorRenderingView::cinematicFeatureCount );
+
+    const auto ordinaryValue = [&]( UIRenderParam parameter, float value )
+    { view.ordinaryParameters[static_cast<int>( parameter )] = value; };
+
+    ordinaryValue( UIRenderParam::SunIntensity, ordinary.sunIntensity );
+    ordinaryValue( UIRenderParam::SunRed, ordinary.sunColorR );
+    ordinaryValue( UIRenderParam::SunGreen, ordinary.sunColorG );
+    ordinaryValue( UIRenderParam::SunBlue, ordinary.sunColorB );
+    ordinaryValue( UIRenderParam::AmbientStrength, ordinary.ambientStrength );
+    ordinaryValue( UIRenderParam::SkyRed, ordinary.skyAmbientR );
+    ordinaryValue( UIRenderParam::SkyGreen, ordinary.skyAmbientG );
+    ordinaryValue( UIRenderParam::SkyBlue, ordinary.skyAmbientB );
+    ordinaryValue( UIRenderParam::GroundRed, ordinary.groundAmbientR );
+    ordinaryValue( UIRenderParam::GroundGreen, ordinary.groundAmbientG );
+    ordinaryValue( UIRenderParam::GroundBlue, ordinary.groundAmbientB );
+    ordinaryValue( UIRenderParam::ShadowStrength, ordinary.shadow.strength );
+    ordinaryValue( UIRenderParam::ShadowSoftness, ordinary.shadow.softness );
+    ordinaryValue( UIRenderParam::ShadowDepthBias, ordinary.shadow.depthBias );
+    ordinaryValue( UIRenderParam::ShadowSlopeBias, ordinary.shadow.slopeBias );
+    ordinaryValue( UIRenderParam::WaterRed, ordinary.waterTintR );
+    ordinaryValue( UIRenderParam::WaterGreen, ordinary.waterTintG );
+    ordinaryValue( UIRenderParam::WaterBlue, ordinary.waterTintB );
+    ordinaryValue( UIRenderParam::WaterAlpha, ordinary.waterAlpha );
+    ordinaryValue( UIRenderParam::WaterReflection, ordinary.waterReflectionStrength );
+    ordinaryValue( UIRenderParam::WaterFresnel, ordinary.waterFresnelF0 );
+    ordinaryValue( UIRenderParam::BallRoughness, ordinary.ballRoughnessScale );
+    ordinaryValue( UIRenderParam::BallSpecular, ordinary.ballSpecularScale );
+    ordinaryValue( UIRenderParam::BoxRoughness, ordinary.boxRoughnessScale );
+    ordinaryValue( UIRenderParam::BoxSpecular, ordinary.boxSpecularScale );
+    ordinaryValue( UIRenderParam::TrajectoryFutureWidth, ordinary.replayTrajectory.futureWidth );
+    ordinaryValue( UIRenderParam::TrajectoryFutureAlpha, ordinary.replayTrajectory.futureAlpha );
+    ordinaryValue( UIRenderParam::TrajectoryFutureEdgeFeather, ordinary.replayTrajectory.futureEdgeFeather );
+    ordinaryValue( UIRenderParam::TrajectoryCausalWidth, ordinary.replayTrajectory.causalWidth );
+    ordinaryValue( UIRenderParam::TrajectoryCausalAlpha, ordinary.replayTrajectory.causalAlpha );
+    ordinaryValue( UIRenderParam::TrajectoryCausalEdgeFeather, ordinary.replayTrajectory.causalEdgeFeather );
+    ordinaryValue( UIRenderParam::TrajectoryBaselineWidth, ordinary.replayTrajectory.baselineWidth );
+    ordinaryValue( UIRenderParam::TrajectoryBaselineAlpha, ordinary.replayTrajectory.baselineAlpha );
+    ordinaryValue( UIRenderParam::TrajectoryBaselineEdgeFeather, ordinary.replayTrajectory.baselineEdgeFeather );
+    ordinaryValue( UIRenderParam::TrajectoryMarkerWidth, ordinary.replayTrajectory.markerWidth );
+    ordinaryValue( UIRenderParam::TrajectoryMarkerAlpha, ordinary.replayTrajectory.markerAlpha );
+    ordinaryValue( UIRenderParam::TrajectoryMarkerEdgeFeather, ordinary.replayTrajectory.markerEdgeFeather );
+    ordinaryValue( UIRenderParam::TrajectorySelectedEmphasis, ordinary.replayTrajectory.selectedEmphasis );
+
+    const auto cinematicValue = [&]( UICinematicParam parameter, float value )
+    { view.cinematicParameters[static_cast<int>( parameter )] = value; };
+
+    cinematicValue( UICinematicParam::Exposure, cinematic.exposure );
+    cinematicValue( UICinematicParam::Gamma, cinematic.gamma );
+    cinematicValue( UICinematicParam::SkyMode, static_cast<float>( cinematic.skyMode ) );
+    cinematicValue( UICinematicParam::TerrainMode, static_cast<float>( cinematic.terrainMode ) );
+    cinematicValue( UICinematicParam::ObjectStyle, static_cast<float>( cinematic.objectStyle ) );
+    cinematicValue( UICinematicParam::WaterMode, static_cast<float>( cinematic.waterMode ) );
+    cinematicValue( UICinematicParam::StyleSaturation, cinematic.styleSaturation );
+    cinematicValue( UICinematicParam::StyleContrast, cinematic.styleContrast );
+    cinematicValue( UICinematicParam::StyleVignette, cinematic.styleVignette );
+    cinematicValue( UICinematicParam::SunAzimuth, cinematic.sunAzimuth );
+    cinematicValue( UICinematicParam::SunElevation, cinematic.sunElevation );
+    cinematicValue( UICinematicParam::SunBrightness, cinematic.sunIntensity );
+    cinematicValue( UICinematicParam::SunRed, cinematic.sunColorR );
+    cinematicValue( UICinematicParam::SunGreen, cinematic.sunColorG );
+    cinematicValue( UICinematicParam::SunBlue, cinematic.sunColorB );
+    cinematicValue( UICinematicParam::SkyGlow, cinematic.skyGlowStrength );
+    cinematicValue( UICinematicParam::HorizonRed, cinematic.skyHorizonR );
+    cinematicValue( UICinematicParam::HorizonGreen, cinematic.skyHorizonG );
+    cinematicValue( UICinematicParam::HorizonBlue, cinematic.skyHorizonB );
+    cinematicValue( UICinematicParam::ZenithRed, cinematic.skyZenithR );
+    cinematicValue( UICinematicParam::ZenithGreen, cinematic.skyZenithG );
+    cinematicValue( UICinematicParam::ZenithBlue, cinematic.skyZenithB );
+    cinematicValue( UICinematicParam::CloudCoverage, cinematic.cloudCoverage );
+    cinematicValue( UICinematicParam::CloudSoftness, cinematic.cloudSoftness );
+    cinematicValue( UICinematicParam::CloudScale, cinematic.cloudScale );
+    cinematicValue( UICinematicParam::CloudIntensity, cinematic.cloudIntensity );
+    cinematicValue( UICinematicParam::ShaftStrength, cinematic.sunShaftStrength );
+    cinematicValue( UICinematicParam::ShaftFalloff, cinematic.sunShaftFalloff );
+    cinematicValue( UICinematicParam::VolumetricStrength, cinematic.volumetricStrength );
+    cinematicValue( UICinematicParam::VolumetricDensity, cinematic.volumetricDensity );
+    cinematicValue( UICinematicParam::VolumetricDecay, cinematic.volumetricDecay );
+    cinematicValue( UICinematicParam::BloomThreshold, cinematic.bloomThreshold );
+    cinematicValue( UICinematicParam::BloomKnee, cinematic.bloomKnee );
+    cinematicValue( UICinematicParam::BloomStrength, cinematic.bloomStrength );
+    cinematicValue( UICinematicParam::BloomRadius, cinematic.bloomRadius );
+    cinematicValue( UICinematicParam::TerrainRelief, cinematic.terrainRelief );
+    cinematicValue( UICinematicParam::TerrainTintRed, cinematic.terrainTintR );
+    cinematicValue( UICinematicParam::TerrainTintGreen, cinematic.terrainTintG );
+    cinematicValue( UICinematicParam::TerrainTintBlue, cinematic.terrainTintB );
+    cinematicValue( UICinematicParam::TerrainAccentRed, cinematic.terrainAccentR );
+    cinematicValue( UICinematicParam::TerrainAccentGreen, cinematic.terrainAccentG );
+    cinematicValue( UICinematicParam::TerrainAccentBlue, cinematic.terrainAccentB );
+    cinematicValue( UICinematicParam::TerrainGridScale, cinematic.terrainGridScale );
+    cinematicValue( UICinematicParam::TerrainGridStrength, cinematic.terrainGridStrength );
+    cinematicValue( UICinematicParam::WaterTintRed, cinematic.waterTintR );
+    cinematicValue( UICinematicParam::WaterTintGreen, cinematic.waterTintG );
+    cinematicValue( UICinematicParam::WaterTintBlue, cinematic.waterTintB );
+    cinematicValue( UICinematicParam::WaterAlpha, cinematic.waterAlpha );
+    cinematicValue( UICinematicParam::WaterReflection, cinematic.waterReflectionStrength );
+    cinematicValue( UICinematicParam::WaterGlint, cinematic.waterGlintStrength );
+    cinematicValue( UICinematicParam::BasinCenterX, cinematic.basinCenterX );
+    cinematicValue( UICinematicParam::BasinCenterZ, cinematic.basinCenterZ );
+    cinematicValue( UICinematicParam::BasinRadiusX, cinematic.basinRadiusX );
+    cinematicValue( UICinematicParam::BasinRadiusZ, cinematic.basinRadiusZ );
+    cinematicValue( UICinematicParam::BasinFeather, cinematic.basinFeather );
+    cinematicValue( UICinematicParam::BasinDepth, cinematic.basinDepth );
+    cinematicValue( UICinematicParam::BasinRimLift, cinematic.basinRimLift );
+    cinematicValue( UICinematicParam::FogDensity, cinematic.fogDensity );
+    cinematicValue( UICinematicParam::FogOpacity, cinematic.fogMaxOpacity );
+    cinematicValue( UICinematicParam::FogStart, cinematic.fogStart );
+    cinematicValue( UICinematicParam::FogEnd, cinematic.fogEnd );
+    cinematicValue( UICinematicParam::FogRed, cinematic.fogColorR );
+    cinematicValue( UICinematicParam::FogGreen, cinematic.fogColorG );
+    cinematicValue( UICinematicParam::FogBlue, cinematic.fogColorB );
+
+    view.cinematicFeatures[static_cast<int>( UICinematicFeature::Sky )] = cinematic.skyAtmosphereEnabled;
+    view.cinematicFeatures[static_cast<int>( UICinematicFeature::Clouds )] = cinematic.cloudsEnabled;
+    view.cinematicFeatures[static_cast<int>( UICinematicFeature::GodRays )] = cinematic.godRaysEnabled;
+    view.cinematicFeatures[static_cast<int>( UICinematicFeature::VolumetricLight )] = cinematic.volumetricLightingEnabled;
+    view.cinematicFeatures[static_cast<int>( UICinematicFeature::Bloom )] = cinematic.bloomEnabled;
+    view.cinematicFeatures[static_cast<int>( UICinematicFeature::Fog )] = cinematic.fogEnabled;
+    view.cinematicFeatures[static_cast<int>( UICinematicFeature::TerrainRelief )] = cinematic.terrainReliefEnabled;
+    view.cinematicFeatures[static_cast<int>( UICinematicFeature::Shadows )] = cinematic.shadow.enabled;
+}
 } // namespace
+
+RuntimeViewModel BuildOperatorRuntimeViewModel( const SceneSessionState& scene, const SceneWorld& world, int sceneCount,
+                                                const RunScreenshotState& screenshot,
+                                                bool presentationInterpolation, bool presentationPinned,
+                                                float presentationAlpha )
+{
+    RuntimeViewModel view;
+    const bool screenshotConfigured = screenshot.isScreenshotAndExit || screenshot.screenshotFrame >= 0 ||
+                                      screenshot.screenshotMs >= 0 || screenshot.screenshotPath[0] != '\0' ||
+                                      screenshot.screenshotInterval > 0;
+    view.sceneMode = scene.isSceneMode;
+    view.scenePhysics = scene.isScenePhysics;
+    view.sceneText = scene.isSceneText;
+    view.fixedStep = scene.isFixedStep;
+    view.screenshotPending = screenshotConfigured && !screenshot.isScreenshotSaved;
+    view.sceneIndex = scene.currentSceneIndex;
+    view.sceneCount = sceneCount;
+    view.frame = scene.currentFrame;
+    view.targetFrameCount = scene.targetFrameCount;
+    view.modelCount = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( world.Physics() ).Count();
+    view.timeScale = scene.timeScale;
+    view.presentationInterpolation = presentationInterpolation;
+    view.presentationPinned = presentationPinned;
+    view.presentationAlpha = std::clamp( presentationAlpha, 0.0f, 1.0f );
+    return view;
+}
+
+void ProjectOperatorEditorScene( UI::OperatorEditorFrameView& view, const char* currentScenePath,
+                                 const UI::RunSceneBrowserState& sceneBrowser, int currentSceneBrowserIndex,
+                                 const SceneSessionState& scene, const SceneWorld& world )
+{
+    view.scene = { currentScenePath ? currentScenePath : "",
+                   sceneBrowser.namePtrs.empty() ? nullptr : sceneBrowser.namePtrs.data(),
+                   currentSceneBrowserIndex,
+                   static_cast<int>( sceneBrowser.namePtrs.size() ),
+                   scene.currentFrame,
+                   world.SceneEntityCount(),
+                   scene.timeScale,
+                   currentScenePath && currentScenePath[0] != '\0',
+                   false };
+    view.property = { world.Environment().GetGravity(), world.Environment().GetFluidSurfaceHeight(),
+                      world.Environment().GetFluidDensity() };
+}
+
+void ProjectOperatorEditorRendering( UI::OperatorEditorFrameView& view,
+                                     const RenderPresentationSettings& presentation,
+                                     const Core::EngineConfig& config, const Core::CinematicRenderConfig& cinematic,
+                                     const OverlayDebugState& debug, const RuntimeUiTextFrameFacts& uiTextFacts,
+                                     bool cinematicRendering, bool shadowsEnabled )
+{
+    UI::OperatorEditorRenderingView& rendering = view.rendering;
+    rendering.vsyncEnabled = presentation.vsyncEnabled;
+    rendering.shadowsEnabled = shadowsEnabled;
+    rendering.cinematicRendering = cinematicRendering;
+    rendering.presentationInterpolation = config.runtimeRender.presentationInterpolation;
+    rendering.presentationAlpha = uiTextFacts.presentationAlpha;
+    rendering.terrainHidden = debug.isTerrainHidden;
+    rendering.waterHidden = debug.isWaterHidden;
+    rendering.waterFrozen = debug.isWaterFreezeDebug;
+    rendering.waterFlat = debug.isWaterFlatDebug;
+    rendering.waterReflectionMode = debug.isWaterNoReflect ? 2 : ( debug.isWaterRTReflect ? 1 : 0 );
+    FillOperatorRenderingParameters( rendering, config.ordinaryRender, cinematic );
+
+    const char* gizmoMode = "translate";
+    if ( uiTextFacts.interactionGestureKind == RuntimeInteractionGestureKind::GizmoDrag )
+    {
+        if ( uiTextFacts.interactionGizmoKind == RuntimeGizmoDragKind::Rotate )
+        {
+            gizmoMode = "rotate";
+        }
+        else if ( uiTextFacts.interactionGizmoKind == RuntimeGizmoDragKind::Scale )
+        {
+            gizmoMode = "scale";
+        }
+    }
+    view.viewport = { uiTextFacts.cameraModeLabel, gizmoMode, uiTextFacts.presentationPinned };
+}
+
+void ProjectOperatorEditorForecast( UI::OperatorEditorFrameView& view,
+                                    const ContinuousOrbitalForecastView& forecast )
+{
+    const bool blockingFailureFirst = forecast.stability.firstBlockingFailure.latched &&
+                                      ( !forecast.stability.firstAuxiliaryFailure.latched ||
+                                        forecast.stability.firstBlockingFailure.absoluteTick <=
+                                            forecast.stability.firstAuxiliaryFailure.absoluteTick );
+    const ContinuousOrbitalFailure& firstFailure = blockingFailureFirst ? forecast.stability.firstBlockingFailure
+                                                                        : forecast.stability.firstAuxiliaryFailure;
+    UI::OperatorEditorForecastView& target = view.forecast;
+    target.simulatedSeconds = forecast.simulatedSeconds;
+    target.simulatedSecondsPerRealSecond = forecast.simulatedSecondsPerRealSecond;
+    target.rollingWindowAgeSeconds = forecast.rollingWindowAgeSeconds;
+    target.energyDrift = forecast.stability.conservation.energyDrift;
+    target.angularMomentumDrift = forecast.stability.conservation.angularMomentumDrift;
+    target.maximumAbsoluteEnergyDrift = forecast.stability.conservation.maximumAbsoluteEnergyDrift;
+    target.maximumAngularMomentumDrift = forecast.stability.conservation.maximumAngularMomentumDrift;
+    target.firstFailureSeconds = firstFailure.simulatedSeconds;
+    target.newestAbsoluteTick = forecast.newestAbsoluteTick;
+    target.retainedBytes = static_cast<uint64_t>( forecast.retainedBytes );
+    target.firstFailureSubject = firstFailure.subject.value;
+    target.firstFailureOther = firstFailure.other.value;
+    target.firstFailureCause = MapForecastCause( firstFailure.cause );
+    target.available = forecast.available;
+    target.active = forecast.active;
+    target.workerInFlight = forecast.workerInFlight;
+    target.failed = forecast.failed;
+    target.configured = forecast.stability.configured;
+    target.numericalHealthy = forecast.stability.numericalHealthy;
+    target.systemOrbitalHealthy = forecast.stability.systemOrbitalHealthy;
+    target.auxiliaryOrbitalHealthy = forecast.stability.auxiliaryOrbitalHealthy;
+    target.energyDriftAvailable = forecast.stability.conservation.energyDriftAvailable;
+    target.angularMomentumDriftAvailable = forecast.stability.conservation.angularMomentumDriftAvailable;
+}
+
+int ProjectOperatorEditorHierarchy( UI::OperatorEditorFrameView& view, const RunEditorPlacementState& editor,
+                                    const SceneWorld& world, bool crossScenePauseLocked, bool fixedStep,
+                                    bool buildingAssetsAvailable )
+{
+    view.scene.dirty = editor.history.IsDirty();
+    view.tools = { editor.editorModeEnabled, editor.placementModeEnabled, editor.placeStaticObject,
+                   crossScenePauseLocked, fixedStep, editor.autoTerrainAlign,
+                   static_cast<int>( editor.history.UndoDepth() ), static_cast<int>( editor.history.RedoDepth() ) };
+
+    const SceneEntityStore& entities = world.Entities();
+    const int selectedRow = PeekSelectedEditorModelIndex( editor, world.BodyStore() );
+    view.hierarchy.totalRowCount = static_cast<uint32_t>( entities.Count() );
+    view.hierarchy.rowCount = (std::min)( view.hierarchy.totalRowCount,
+                                          UI::OPERATOR_EDITOR_HIERARCHY_ROW_CAPACITY );
+    view.hierarchy.truncated = view.hierarchy.totalRowCount > view.hierarchy.rowCount;
+    for ( uint32_t index = 0u; index < view.hierarchy.rowCount; ++index )
+    {
+        const SceneEntityRecord& entity = entities.At( static_cast<int>( index ) );
+        UI::OperatorEditorHierarchyRow& row = view.hierarchy.rows[index];
+        row.displayName = entity.displayName;
+        row.sceneObjectId = entity.sceneObjectId.value;
+        row.groupRootObjectId = entity.behaviorGroup.rootObjectId.value;
+        row.groupPartIndex = entity.behaviorGroup.partIndex;
+        row.assetBacked = entity.asset.isAssetBacked;
+        row.visible = entity.editorVisible;
+        row.locked = entity.editorLocked;
+        row.selected = static_cast<int>( index ) == selectedRow;
+        if ( row.selected )
+        {
+            view.hierarchy.selectedSceneObjectId = row.sceneObjectId;
+        }
+    }
+    view.assets = { editor.objectType, UI::EditorTab::OBJECT_TYPE_COUNT, buildingAssetsAvailable };
+    return selectedRow;
+}
+
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+void ProjectOperatorEditorInspectorAndWorld( UI::OperatorEditorFrameView& view,
+                                             const RunEditorPlacementState& editor, const SceneWorld& world,
+                                             int selectedHierarchyRow, const SceneSessionState& scene,
+                                             const Core::EngineConfig& config )
+{
+    UI::OperatorEditorInspectorView& inspector = view.inspector;
+    if ( editor.selectedBody.IsValid() && selectedHierarchyRow < 0 )
+    {
+        inspector.selectionState = UI::OperatorEditorInspectorSelectionState::Stale;
+    }
+    else if ( selectedHierarchyRow >= 0 )
+    {
+        const SceneEntityRecord* entity = world.Entities().TryGet( selectedHierarchyRow );
+        const Physics::PhysicsBodyStore& bodyStore = world.BodyStore();
+        const Physics::ColliderStore& colliderStore = world.Colliders();
+        const std::span<const Physics::BuoyancyBodyFacts> buoyancyFacts =
+            Physics::PhysicsEngine::ReadBuoyancyFacts( world.Physics() );
+        const Physics::PhysicsBodyRecord* body = entity ? bodyStore.RecordForHandle( entity->body ) : nullptr;
+        const Physics::PhysicsColliderHandle colliderHandle = entity ? colliderStore.HandleForBodyHandle( entity->body )
+                                                                    : Physics::PhysicsColliderHandle {};
+        const Physics::ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
+        const Physics::ColliderAuthoringRecord* colliderAuthoring =
+            colliderStore.AuthoringRecordForHandle( colliderHandle );
+        if ( !entity || !body || !collider || !colliderAuthoring ||
+             selectedHierarchyRow >= static_cast<int>( buoyancyFacts.size() ) )
+        {
+            inspector.selectionState = UI::OperatorEditorInspectorSelectionState::Stale;
+        }
+        else
+        {
+            const Physics::PhysicsBodyHotFieldsConstView hot = bodyStore.HotFields();
+            const std::size_t row = static_cast<std::size_t>( selectedHierarchyRow );
+            const auto position = Physics::PhysicsBodyPosition( hot, row );
+            const auto orientation = Physics::PhysicsBodyOrientation( hot, row );
+            const auto linearVelocity = Physics::PhysicsBodyLinearVelocity( hot, row );
+            const auto angularVelocity = Physics::PhysicsBodyAngularVelocity( hot, row );
+            inspector.displayName = entity->displayName;
+            inspector.renderMaterialName = entity->renderMaterial.name[0] != '\0'
+                                               ? entity->renderMaterial.name
+                                               : Rendering::RenderMaterialKindName( entity->renderMaterial.kind );
+            inspector.contactMaterialName = colliderAuthoring->contactMaterialName;
+            inspector.assetName = entity->asset.assetName;
+            inspector.assetInstanceName = entity->asset.instanceName;
+            inspector.assetPartName = entity->asset.partName;
+            inspector.selectionState = UI::OperatorEditorInspectorSelectionState::Single;
+            inspector.sceneObjectId = entity->sceneObjectId.value;
+            inspector.selectionCount = 1u;
+            inspector.renderMaterialKind = static_cast<int>( entity->renderMaterial.kind );
+            inspector.colliderShapeKind = static_cast<int>( collider->shapeKind );
+            inspector.behaviorGroupKind = static_cast<int>( entity->behaviorGroup.kind );
+            inspector.behaviorPartIndex = entity->behaviorGroup.partIndex;
+            inspector.position[0] = position.x;
+            inspector.position[1] = position.y;
+            inspector.position[2] = position.z;
+            orientation.GetComponents( inspector.orientation[0], inspector.orientation[1], inspector.orientation[2],
+                                       inspector.orientation[3] );
+            inspector.linearVelocity[0] = linearVelocity.x;
+            inspector.linearVelocity[1] = linearVelocity.y;
+            inspector.linearVelocity[2] = linearVelocity.z;
+            inspector.angularVelocity[0] = angularVelocity.x;
+            inspector.angularVelocity[1] = angularVelocity.y;
+            inspector.angularVelocity[2] = angularVelocity.z;
+            for ( int channel = 0; channel < 4; ++channel )
+            {
+                inspector.baseColor[channel] = entity->renderMaterial.baseColor[channel];
+            }
+            inspector.mass = body->mass;
+            inspector.volume = buoyancyFacts[row].volume;
+            inspector.boundingRadius = collider->boundingRadius;
+            inspector.dragCoefficient = collider->dragCoefficient;
+            inspector.friction = collider->friction;
+            inspector.restitution = collider->restitution;
+            inspector.roughness = entity->renderMaterial.roughness;
+            inspector.metallic = entity->renderMaterial.metallic;
+            inspector.specular = entity->renderMaterial.specular;
+            inspector.visible = entity->editorVisible;
+            inspector.locked = entity->editorLocked;
+            inspector.fixed = hot.fixed[row] != 0u;
+            inspector.sleeping = hot.awake[row] == 0u;
+            inspector.assetBacked = entity->asset.isAssetBacked;
+        }
+    }
+
+    const Gameplay::TornadoFieldConfig& tornado = world.Tornado().GetFieldConfig();
+    view.world = { scene.modelCount,
+                   config.runtimeCapacity.sceneObjectCapacity,
+                   scene.solverBallCount,
+                   scene.solverBoxCount,
+                   static_cast<int>( scene.rngSeed ),
+                   scene.timeScale,
+                   world.Environment().GetGravity(),
+                   world.Environment().GetFluidSurfaceHeight(),
+                   world.Environment().GetFluidDensity(),
+                   config.physicsMaterial.frictionCoeff,
+                   config.physicsMaterial.objectFrictionCoeff,
+                   config.physicsMaterial.rollingFrictionCoeff,
+                   tornado.radius,
+                   tornado.height,
+                   tornado.inwardAcceleration,
+                   tornado.swirlAcceleration,
+                   tornado.liftAcceleration,
+                   scene.isFixedStep,
+                   world.Physics().IsSleepEnabled(),
+                   tornado.enabled };
+}
+#endif
 
 SkullbonezCore::Core::MainMemoryStats
 ProjectMemoryTabStats( DiagnosticsRuntime& diagnosticsRuntime, const ReplayHudStatus& replayHud,

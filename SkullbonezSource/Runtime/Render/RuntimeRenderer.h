@@ -65,6 +65,10 @@ struct ImGuiContext;
 
 namespace SkullbonezCore
 {
+namespace Rendering
+{
+class RenderBackendDX12;
+}
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 namespace Rendering
 {
@@ -105,17 +109,9 @@ class RuntimeRenderer
         bool cinematicRequested = false;
     };
 
-    RuntimeRenderer( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Rendering::Dx12RenderDevice& renderDevice,
-                     Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12GraphTransientPool& renderGraph,
-                     Rendering::Dx12ResourceBuilder& renderResources, Rendering::Dx12TextureOwner& renderTextures,
-                     Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12Diagnostics& renderDiagnostics,
-                     Rendering::Dx12RaytracingOwner& raytracing, bool raytracingAvailable, const RenderWorldView& world,
-                     int sceneIndex, int sceneLoadCount
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-                     ,
-                     Rendering::Dx12ImGuiRendererOwner& developmentUiRenderer
-#endif
-    );
+    RuntimeRenderer( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
+                     Rendering::RenderBackendDX12& backend, const RenderWorldView& world,
+                     int sceneIndex, int sceneLoadCount );
     ~RuntimeRenderer();
 
     // Runs after Core FrameBegin and before draw-call counters reset. This
@@ -136,7 +132,6 @@ class RuntimeRenderer
     void SetVsyncEnabled( bool enabled );
     bool PipelineSyncEnabled() const;
     void SetPipelineSyncEnabled( bool enabled );
-    void ResetSceneRuntimePolicyFromConfig();
     void SetSceneIdentity( int sceneIndex, int sceneLoadCount )
     {
         m_resources.Log().SetSceneIdentity( sceneIndex, sceneLoadCount );

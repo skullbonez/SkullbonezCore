@@ -49,12 +49,6 @@ namespace Runtime
 {
 struct RuntimeGestureCommand;
 struct RuntimeGestureEvent;
-struct RuntimeInteractionSceneLifecycleInput
-{
-    uint64_t generation = 0;
-    bool reachedAfterClear = false;
-    bool reachedAfterActivation = false;
-};
 enum class RuntimeWorkspace
 {
     Live,
@@ -280,7 +274,8 @@ class RuntimeInteractionController
                                 bool mouseLookOwnsCursor );
     void CancelCameraLookGesture();
     RuntimeInteractionTransition ResetForScene( InteractionExitReason reason );
-    void ObserveSceneLifecycle( const RuntimeInteractionSceneLifecycleInput& input, bool enterInspectAfterActivation );
+    void ObserveSceneLifecycle( uint64_t generation, bool reachedAfterClear, bool reachedAfterActivation,
+                                bool enterInspectAfterActivation );
 
     RuntimeInteractionFramePolicy BuildFramePolicy( const RuntimeInteractionFrameInput& input ) const;
 

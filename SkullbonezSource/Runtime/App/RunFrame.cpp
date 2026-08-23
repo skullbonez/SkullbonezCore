@@ -235,17 +235,6 @@ void CaptureReplayPostStep( RuntimeTools& runtimeTools, SkullbonezCore::Runtime:
 
 } // namespace
 
-struct Run::FrameSimulationPhaseResult
-{
-    float interpolationAlpha = 1.0f;
-    bool capturePresentationPinned = false;
-};
-
-struct Run::FrameRenderPhaseResult
-{
-    float presentationAlpha = 1.0f;
-};
-
 bool Run::PumpFrameMessages( int& messageExitCode )
 {
     constexpr int kMaxMessagesPerFrame = 256;
@@ -539,7 +528,7 @@ void Run::BeginFrameDiagnosticsPhase()
 }
 
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
-Run::FrameInputPhaseResult Run::RunAutomationAndInputPhase()
+SceneFrameProceedPolicy Run::RunAutomationAndInputPhase( bool& gameUiActive )
 {
     const ReplayAutomationView automationReplayView = m_replayRuntime.BuildAutomationView();
     const ReplayInputView automationReplayInput = automationReplayView.input;
@@ -666,26 +655,25 @@ Run::FrameInputPhaseResult Run::RunAutomationAndInputPhase()
         PostQuitMessage( 0 );
     }
 
-    return RunInputPhase( &result );
+    return RunInputPhase( &result, gameUiActive );
 }
 #endif
 
-Run::FrameSimulationPhaseResult Run::RunSimulationPhase( double secondsPerFrame,
-                                                         const SceneFrameProceedPolicy& proceedPolicy )
+float Run::RunSimulationPhase( double secondsPerFrame, const SceneFrameProceedPolicy& proceedPolicy,
+                               bool& capturePresentationPinned )
 {
     m_sceneController.Scene().BeginCollisionVisualFrame();
 
     // Invariant: capture pinning is fixed before physics and camera work. A
     // scheduled screenshot renders exact solver poses for this whole turn.
-    const bool
-        capturePresentationPinned = m_capture.RequiresDeterministicPresentation( m_sceneController.State().isSceneMode,
-                                                                                 m_sceneController.State().currentFrame,
-                                                                                 m_timers.SceneElapsedSeconds() * 1000.0 ) ||
-                                    ( m_sceneController.State().isSceneMode && m_camera.autoCycleInterval > 0.0f ) ||
-                                    m_liveStyle.HasPendingCapture()
+    capturePresentationPinned = m_capture.RequiresDeterministicPresentation( m_sceneController.State().isSceneMode,
+                                                                             m_sceneController.State().currentFrame,
+                                                                             m_timers.SceneElapsedSeconds() * 1000.0 ) ||
+                                ( m_sceneController.State().isSceneMode && m_camera.autoCycleInterval > 0.0f ) ||
+                                m_liveStyle.HasPendingCapture()
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
-                                    || InteractionAutomationWillCaptureAfterRender( m_interactionAutomation,
-                                                                                    m_sceneController.State().currentFrame )
+                                || InteractionAutomationWillCaptureAfterRender( m_interactionAutomation,
+                                                                                m_sceneController.State().currentFrame )
 #endif
         ;
 
@@ -730,10 +718,10 @@ Run::FrameSimulationPhaseResult Run::RunSimulationPhase( double secondsPerFrame,
                                                                             scene.Physics() ) },
                                        m_config.bodySimulation.contactEpsilon );
 
-    return FrameSimulationPhaseResult { interpolationAlpha, capturePresentationPinned };
+    return interpolationAlpha;
 }
 
-Run::FrameRenderPhaseResult Run::PrepareRenderPhase( bool gameUiActive, const FrameSimulationPhaseResult& simulation )
+float Run::PrepareRenderPhase( bool gameUiActive, bool capturePresentationPinned, float interpolationAlpha )
 {
     // Concept: graphics stress is render/runtime churn, not UI command work.
     // This top-level phase coordinates its concrete planning, load, action, and
@@ -763,11 +751,7 @@ Run::FrameRenderPhaseResult Run::PrepareRenderPhase( bool gameUiActive, const Fr
 
             ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, m_sceneController.LifecyclePacket(),
                                                m_timers );
-            ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_capture,
-                                            m_overlaySceneLifecycleObserver, m_sceneController,
-                                            m_inputSceneLifecycleObserver, m_inputRouter, m_interaction,
-                                            m_cameraSceneLifecycleObserver, m_camera, m_attachedCameraSceneLifecycleObserver,
-                                            m_attachedCamera, m_editorTools, m_runtimeTools, m_replayRuntime );
+            ApplySceneLoadRuntimeReactions( sceneLoad );
 
             ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_graphicsStress,
                                         m_graphicsStressSceneObserver, m_launchOptions,
@@ -838,8 +822,7 @@ Run::FrameRenderPhaseResult Run::PrepareRenderPhase( bool gameUiActive, const Fr
                                    m_replayRuntime.CollectMemoryStats(), Renderer().RenderDiagnostics() );
     }
 
-    const float presentationAlpha = ResolvePresentationAlpha( m_config, simulation.capturePresentationPinned,
-                                                              simulation.interpolationAlpha );
+    const float presentationAlpha = ResolvePresentationAlpha( m_config, capturePresentationPinned, interpolationAlpha );
 
     if ( Renderer().PipelineSyncEnabled() )
     {
@@ -856,11 +839,11 @@ Run::FrameRenderPhaseResult Run::PrepareRenderPhase( bool gameUiActive, const Fr
             m_timers.FinishPresentedFrame();
             PROFILE_FRAME_END( m_profiler );
             m_applicationExit.RequestPhaseFailure( finishResult );
-            return FrameRenderPhaseResult { presentationAlpha };
+            return presentationAlpha;
         }
     }
 
-    return FrameRenderPhaseResult { presentationAlpha };
+    return presentationAlpha;
 }
 
 RuntimeRenderModelFrameView Run::PublishRenderModelsPhase()
@@ -1069,10 +1052,11 @@ SkullbonezCore::Core::SbResult Run::Execute()
 
         BeginFrameDiagnosticsPhase();
         PROFILE_BEGIN( "Frame/Input" );
+        bool gameUiActive = true;
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
-        const FrameInputPhaseResult input = RunAutomationAndInputPhase();
+        const SceneFrameProceedPolicy proceedPolicy = RunAutomationAndInputPhase( gameUiActive );
 #else
-        const FrameInputPhaseResult input = RunInputPhase( nullptr );
+        const SceneFrameProceedPolicy proceedPolicy = RunInputPhase( nullptr, gameUiActive );
 #endif
         CaptureInteractionRecordingTurn( secondsPerFrame );
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
@@ -1089,8 +1073,11 @@ SkullbonezCore::Core::SbResult Run::Execute()
             return m_applicationExit.Resolve( 0 );
         }
 
-        const auto simulation = RunSimulationPhase( secondsPerFrame, input.proceedPolicy );
-        const auto render = PrepareRenderPhase( input.gameUiActive, simulation );
+        bool capturePresentationPinned = false;
+        const float interpolationAlpha = RunSimulationPhase( secondsPerFrame, proceedPolicy,
+                                                             capturePresentationPinned );
+        const float presentationAlpha = PrepareRenderPhase( gameUiActive, capturePresentationPinned,
+                                                            interpolationAlpha );
 
         // Invariant: every frame phase below has a status-free return. Failure
         // is observable only through the ApplicationExitState latch.
@@ -1107,18 +1094,16 @@ SkullbonezCore::Core::SbResult Run::Execute()
         // facts before Render or either optional UI surface can branch.
         m_timers.SampleFrame( { secondsPerFrame, models.sceneKineticEnergy } );
         const RuntimeFrameMetricsSnapshot frameMetrics = m_timers.Publish();
-        RenderWorldPhase( models, render.presentationAlpha );
-        const auto facts = FramePresentationFacts { render.presentationAlpha, simulation.capturePresentationPinned,
-                                                    secondsPerFrame, input.gameUiActive };
-
-        RenderOperatorUiPhase( models, facts, frameMetrics );
+        RenderWorldPhase( models, presentationAlpha );
+        RenderOperatorUiPhase( models, presentationAlpha, capturePresentationPinned, secondsPerFrame, gameUiActive,
+                               frameMetrics );
 
         if ( m_applicationExit.ExitRequested() )
         {
             return m_applicationExit.Resolve( 0 );
         }
 
-        RunPostDrawDiagnosticsPhase( input.gameUiActive );
+        RunPostDrawDiagnosticsPhase( gameUiActive );
 
         if ( m_applicationExit.ExitRequested() )
         {
@@ -1128,12 +1113,12 @@ SkullbonezCore::Core::SbResult Run::Execute()
         {
             CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Capture );
 
-            if ( TickScreenshots( input.proceedPolicy ) )
+            if ( TickScreenshots( proceedPolicy ) )
             {
                 continue;
             }
         }
-        FinishFrameWorkPhase( input.proceedPolicy );
+        FinishFrameWorkPhase( proceedPolicy );
         PresentFramePhase();
 
         if ( m_applicationExit.ExitRequested() )
@@ -1141,7 +1126,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
             return m_applicationExit.Resolve( 0 );
         }
 
-        if ( CompleteFramePhase( input.proceedPolicy ) )
+        if ( CompleteFramePhase( proceedPolicy ) )
         {
             continue;
         }
@@ -1158,7 +1143,7 @@ float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned,
     // here keeps SimulationSystem out of every cold scene-load call surface.
     const SceneLifecyclePacket& lifecycle = m_sceneController.LifecyclePacket();
     m_simulation.ObserveSceneLifecycle(
-        { lifecycle.generation, SceneLifecycleReached( lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneCleared ) } );
+        lifecycle.generation, SceneLifecycleReached( lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
     const ReplayInputView replayInput = m_replayRuntime.BuildInputView();
 
     if ( replayInput.scrubPaused )
@@ -1466,11 +1451,7 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
 
             ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, m_sceneController.LifecyclePacket(),
                                                m_timers );
-            ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_capture,
-                                            m_overlaySceneLifecycleObserver, m_sceneController,
-                                            m_inputSceneLifecycleObserver, m_inputRouter, m_interaction,
-                                            m_cameraSceneLifecycleObserver, m_camera, m_attachedCameraSceneLifecycleObserver,
-                                            m_attachedCamera, m_editorTools, m_runtimeTools, m_replayRuntime );
+            ApplySceneLoadRuntimeReactions( sceneLoad );
 
             ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_graphicsStress,
                                         m_graphicsStressSceneObserver, m_launchOptions,
@@ -1595,11 +1576,7 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
         loadSucceeded = LoadSceneRequest( sceneLoad, result.loadRequest ).Ok();
 
         ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, m_sceneController.LifecyclePacket(), m_timers );
-        ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_capture,
-                                        m_overlaySceneLifecycleObserver, m_sceneController, m_inputSceneLifecycleObserver,
-                                        m_inputRouter, m_interaction, m_cameraSceneLifecycleObserver, m_camera,
-                                        m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_editorTools,
-                                        m_runtimeTools, m_replayRuntime );
+        ApplySceneLoadRuntimeReactions( sceneLoad );
 
         ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_graphicsStress,
                                     m_graphicsStressSceneObserver, m_launchOptions,

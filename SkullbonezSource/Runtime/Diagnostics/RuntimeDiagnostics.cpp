@@ -466,7 +466,7 @@ void RuntimeDiagnostics::SetPhysicsDiagnosticsPath( RunPhysicsDiagnosticsState& 
 bool RuntimeDiagnostics::LogSceneFinished( const RuntimeSceneDiagnosticFacts& scene, const char* scenePath,
                                            const char* rendererName, const char* reason )
 {
-    if ( scene.finishLogged )
+    if ( scene.FinishLogged() )
     {
         return false;
     }
@@ -474,10 +474,11 @@ bool RuntimeDiagnostics::LogSceneFinished( const RuntimeSceneDiagnosticFacts& sc
     SkullbonezCore::Core::Log()
         .WriteEventf( "scene_finished index=%d load=%d path=\"%s\" reason=%s frame=%d target_frames=%d "
                       "renderer=\"%s\" models=%d test_complete=%d",
-                      scene.currentSceneIndex, scene.loadCount, scenePath && scenePath[0] != '\0' ? scenePath : "generated",
-                      reason && reason[0] != '\0' ? reason : "unknown", scene.currentFrame, scene.targetFrameCount,
-                      rendererName && rendererName[0] != '\0' ? rendererName : "unknown", scene.modelCount,
-                      scene.testComplete ? 1 : 0 );
+                      scene.CurrentSceneIndex(), scene.LoadCount(),
+                      scenePath && scenePath[0] != '\0' ? scenePath : "generated",
+                      reason && reason[0] != '\0' ? reason : "unknown", scene.CurrentFrame(), scene.TargetFrameCount(),
+                      rendererName && rendererName[0] != '\0' ? rendererName : "unknown", scene.ModelCount(),
+                      scene.TestComplete() ? 1 : 0 );
 
     return true;
 }
@@ -522,11 +523,11 @@ void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState&
                  "\"persistent_contact_solver_iterations\":%d,\"terrain_contact_threshold\":%.6f,\"terrain_contact_"
                  "slop\":%.6f,\"terrain_contact_baumgarte_beta\":%.6f,\"terrain_max_baumgarte_bias\":%.6f,\"physics_"
                  "sleep_linear_speed\":%.6f,\"physics_sleep_angular_speed\":%.6f,\"physics_sleep_frames\":%d}}\n",
-                 diagnostics.currentRunId, escapedScene.c_str(), scene.currentSceneIndex, scene.loadCount,
-                 scene.manualResetCount, escapedRenderer.c_str(), escapedSolver.c_str(), scene.rngSeed,
-                 scene.fixedStep ? 1 : 0, diagnostics.renderFrameLockstepForcedByDiagnostics ? 1 : 0,
-                 scene.fixedStep ? 1 : 0, explicitRenderFrameLockstep ? 1 : 0, effectiveRenderFrameLockstep ? 1 : 0,
-                 diagnostics.renderFrameLockstepForcedByDiagnostics ? 1 : 0, scene.targetFrameCount, scene.modelCount,
+                 diagnostics.currentRunId, escapedScene.c_str(), scene.CurrentSceneIndex(), scene.LoadCount(),
+                 scene.ManualResetCount(), escapedRenderer.c_str(), escapedSolver.c_str(), scene.RngSeed(),
+                 scene.FixedStep() ? 1 : 0, diagnostics.renderFrameLockstepForcedByDiagnostics ? 1 : 0,
+                 scene.FixedStep() ? 1 : 0, explicitRenderFrameLockstep ? 1 : 0, effectiveRenderFrameLockstep ? 1 : 0,
+                 diagnostics.renderFrameLockstepForcedByDiagnostics ? 1 : 0, scene.TargetFrameCount(), scene.ModelCount(),
                  config.worldForces.gravity, config.bodySimulation.contactEpsilon,
                  config.bodySimulation.contactRestitutionThreshold, config.physicsMaterial.frictionCoeff,
                  config.physicsMaterial.objectFrictionCoeff, config.physicsMaterial.rollingFrictionCoeff,
@@ -555,7 +556,7 @@ void RuntimeDiagnostics::LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagno
                  "s\",\"selected_pos\":[%.6f,%.6f,%.6f],\"live_pos\":[%.6f,%.6f,%.6f],\"distance_sq\":%.9f,\"selected_"
                  "body_count\":%zu,\"live_body_count\":%zu,\"applied\":%d,\"restored\":%d,\"pre_live_delta_sq\":%.9f,"
                  "\"applied_delta_sq\":%.9f,\"restored_delta_sq\":%.9f}\n",
-                 diagnostics.currentRunId, scene.currentFrame, probe.normalized,
+                 diagnostics.currentRunId, scene.CurrentFrame(), probe.normalized,
                  static_cast<unsigned long long>( probe.selectedReplayFrame ),
                  static_cast<unsigned long long>( probe.liveReplayFrame ), probe.selectedSceneFrame, probe.liveSceneFrame,
                  static_cast<unsigned long long>( probe.selectedStateHash ),
@@ -617,7 +618,7 @@ void RuntimeDiagnostics::LogReplayRestoreResult( RunPhysicsDiagnosticsState& dia
                  "\"restored_body_count\":%zu,\"contact_count\":%u,\"pipeline_record_count\":%u,"
                  "\"checkpoint_boundary\":%d,\"hash_captured\":%d,\"hash_matched\":%d,\"fallback_attempted\":%d,"
                  "\"fallback_restored\":%d,\"failure_reason\":\"%s\"}\n",
-                 diagnostics.currentRunId, scene.currentFrame, static_cast<unsigned long long>( result.targetReplayFrame ),
+                 diagnostics.currentRunId, scene.CurrentFrame(), static_cast<unsigned long long>( result.targetReplayFrame ),
                  escapedSource.c_str(), static_cast<unsigned long long>( result.checkpointReplayFrame ),
                  result.targetSceneFrame, static_cast<unsigned long long>( result.targetSolverHash ),
                  static_cast<unsigned long long>( result.targetPresentationHash ),
@@ -643,7 +644,7 @@ void RuntimeDiagnostics::EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& d
     std::string escapedStatus = JsonEscape( status && status[0] != '\0' ? status : "ended" );
     SkullbonezCore::Core::Log().Writef( diagnostics.path,
                                         "{\"kind\":\"end\",\"run\":\"%s\",\"frame\":%d,\"status\":\"%s\"}\n",
-                                        diagnostics.currentRunId, scene.currentFrame, escapedStatus.c_str() );
+                                        diagnostics.currentRunId, scene.CurrentFrame(), escapedStatus.c_str() );
 
     SkullbonezCore::Core::Log().FlushAll();
 

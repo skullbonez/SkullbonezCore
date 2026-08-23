@@ -146,7 +146,12 @@ RuntimeInputMode InputController::ResolveMode( const RuntimeInputModeState& stat
 
 void InputController::ResetUnfocusedInput( CameraControlState& camera )
 {
-    camera.input = {};
+    camera.inputXMove = 0;
+    camera.inputYMove = 0;
+    camera.inputMoveForward = false;
+    camera.inputMoveBackward = false;
+    camera.inputMoveLeft = false;
+    camera.inputMoveRight = false;
     camera.mouseLookOwnsCursor = false;
     camera.travelSpeedMultiplier = 1.0f;
     camera.hasMouseLookLastClient = false;
@@ -155,8 +160,8 @@ void InputController::ResetUnfocusedInput( CameraControlState& camera )
 
 void InputController::ResetMouseLook( CameraControlState& camera )
 {
-    camera.input.xMove = 0;
-    camera.input.yMove = 0;
+    camera.inputXMove = 0;
+    camera.inputYMove = 0;
     camera.hasMouseLookLastClient = false;
     camera.needsMouseLookReset = true;
 }
@@ -168,13 +173,13 @@ void InputController::SetMouseLookDelta( CameraControlState& camera, long rawX, 
 
     if ( absX > CAMERA_MOUSE_SPIKE_DELTA_PIXELS || absY > CAMERA_MOUSE_SPIKE_DELTA_PIXELS )
     {
-        camera.input.xMove = 0;
-        camera.input.yMove = 0;
+        camera.inputXMove = 0;
+        camera.inputYMove = 0;
         return;
     }
 
-    camera.input.xMove = std::clamp( rawX, -CAMERA_MOUSE_MAX_DELTA_PIXELS, CAMERA_MOUSE_MAX_DELTA_PIXELS );
-    camera.input.yMove = std::clamp( rawY, -CAMERA_MOUSE_MAX_DELTA_PIXELS, CAMERA_MOUSE_MAX_DELTA_PIXELS );
+    camera.inputXMove = std::clamp( rawX, -CAMERA_MOUSE_MAX_DELTA_PIXELS, CAMERA_MOUSE_MAX_DELTA_PIXELS );
+    camera.inputYMove = std::clamp( rawY, -CAMERA_MOUSE_MAX_DELTA_PIXELS, CAMERA_MOUSE_MAX_DELTA_PIXELS );
 }
 
 RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( CameraControlState& camera, bool appFocused,
@@ -215,8 +220,8 @@ RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( CameraCont
 
             if ( camera.needsMouseLookReset )
             {
-                camera.input.xMove = 0;
-                camera.input.yMove = 0;
+                camera.inputXMove = 0;
+                camera.inputYMove = 0;
                 camera.mouseLookLastClient = currentClient;
                 camera.hasMouseLookLastClient = true;
                 camera.needsMouseLookReset = false;
@@ -229,8 +234,8 @@ RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( CameraCont
             }
             else if ( !camera.hasMouseLookLastClient )
             {
-                camera.input.xMove = 0;
-                camera.input.yMove = 0;
+                camera.inputXMove = 0;
+                camera.inputYMove = 0;
                 camera.mouseLookLastClient = currentClient;
                 camera.hasMouseLookLastClient = true;
             }
@@ -251,18 +256,18 @@ RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( CameraCont
 
     if ( cameraKeyboardControlsActive )
     {
-        camera.input.moveForward = deviceFrame.keys.IsDown( 'W' );
-        camera.input.moveLeft = deviceFrame.keys.IsDown( 'A' );
-        camera.input.moveBackward = deviceFrame.keys.IsDown( 'S' );
-        camera.input.moveRight = deviceFrame.keys.IsDown( 'D' );
+        camera.inputMoveForward = deviceFrame.keys.IsDown( 'W' );
+        camera.inputMoveLeft = deviceFrame.keys.IsDown( 'A' );
+        camera.inputMoveBackward = deviceFrame.keys.IsDown( 'S' );
+        camera.inputMoveRight = deviceFrame.keys.IsDown( 'D' );
     }
     else
     {
         ResetMouseLook( camera );
-        camera.input.moveForward = false;
-        camera.input.moveBackward = false;
-        camera.input.moveLeft = false;
-        camera.input.moveRight = false;
+        camera.inputMoveForward = false;
+        camera.inputMoveBackward = false;
+        camera.inputMoveLeft = false;
+        camera.inputMoveRight = false;
     }
 
     return result;
@@ -272,37 +277,37 @@ RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( CameraCont
 void InputController::ApplyCameraMovement( CameraControlState& camera, Environment::CameraCollection& cameras,
                                            Geometry::Terrain& terrain, const RuntimeCameraMovementInput& input )
 {
-    const bool hasTravelInput = camera.input.moveForward || camera.input.moveBackward || camera.input.moveLeft ||
-                                camera.input.moveRight;
+    const bool hasTravelInput = camera.inputMoveForward || camera.inputMoveBackward || camera.inputMoveLeft ||
+                                camera.inputMoveRight;
 
     if ( !input.attachedOrbitOwnsCamera &&
          ( input.flyControlsActive || camera.mouseLookOwnsCursor || input.editorViewportLookActive || hasTravelInput ) )
     {
         if ( ( !input.editorModeEnabled || input.editorViewportLookActive ) &&
-             ( camera.input.xMove != 0 || camera.input.yMove != 0 ) )
+             ( camera.inputXMove != 0 || camera.inputYMove != 0 ) )
         {
-            cameras.RotatePrimary( camera.input.xMove * input.mouseMovementQuantity,
-                                   camera.input.yMove * input.mouseMovementQuantity );
+            cameras.RotatePrimary( camera.inputXMove * input.mouseMovementQuantity,
+                                   camera.inputYMove * input.mouseMovementQuantity );
         }
 
         const float travelQuantity = input.keyMovementQuantity * camera.travelSpeedMultiplier;
 
-        if ( camera.input.moveForward )
+        if ( camera.inputMoveForward )
         {
             cameras.MovePrimary( Environment::Camera::TravelDirection::Forward, travelQuantity );
         }
 
-        if ( camera.input.moveLeft )
+        if ( camera.inputMoveLeft )
         {
             cameras.MovePrimary( Environment::Camera::TravelDirection::Left, travelQuantity );
         }
 
-        if ( camera.input.moveBackward )
+        if ( camera.inputMoveBackward )
         {
             cameras.MovePrimary( Environment::Camera::TravelDirection::Backward, travelQuantity );
         }
 
-        if ( camera.input.moveRight )
+        if ( camera.inputMoveRight )
         {
             cameras.MovePrimary( Environment::Camera::TravelDirection::Right, travelQuantity );
         }

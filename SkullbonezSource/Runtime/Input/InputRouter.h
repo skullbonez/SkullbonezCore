@@ -400,13 +400,6 @@ class InputRouter
                         const Math::Vector::Vector3& rayDirection, RunCameraMode cameraMode, bool replayInspectionActive,
                         int activeModelCapacity, Assets::AssetSystem& assets, EditorToolsOwner& editorTools,
                         RuntimeInteractionController& interaction, SceneController& sceneController );
-    RuntimePointerRouteResult RouteRuntimePointer( const RuntimePointerEvent& pointer, bool replayInspectionActive,
-                                                   int activeModelCapacity, const Window& window,
-                                                   Assets::AssetSystem& assets, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools,
-                                                   AttachedCameraController& attachedCamera,
-                                                   RuntimeInteractionController& interaction, CameraControlState& camera,
-                                                   SceneController& sceneController, ReplayRuntime& replayRuntime,
-                                                   RunCameraMode replayRestoreCameraMode );
     bool TryBuildWorldRay( const Environment::CameraCollection& cameras, const Window& window,
                            Math::Vector::Vector3& outOrigin, Math::Vector::Vector3& outDirection,
                            bool clampToViewport = false ) const;

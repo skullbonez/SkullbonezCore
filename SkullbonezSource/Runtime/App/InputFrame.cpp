@@ -467,40 +467,34 @@ void RecordSceneUIActions( const SceneUICommandSubmissionResult& commands, Recor
 // Concept: UI sampling and replay workspace arbitration publish the post-UI
 // frame before mapped keyboard commands run. The returned commands are fixed
 // value records; no callback retains access to the application shell.
-RuntimeUIFrameResult BeginRuntimeUIFrame( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, Window& window,
-                                           InputRouter& inputRouter, CameraControlState& camera, EditorToolsOwner& editorTools,
-                                           RuntimeTools& runtimeTools,
-                                          AttachedCameraController& attachedCamera,
-                                          RuntimeInteractionController& interaction, SkullbonezCore::UI::InGameUI& ui,
-                                          RuntimeFrameMetricsOwner& timers, SceneController& sceneController,
-                                          ReplayRuntime& replayRuntime, const ReplayPathPickInput& replayPointerRay,
-                                          const RuntimeInputFrameFacts& facts )
+RuntimeUIFrameResult Run::BeginRuntimeUIFrame( const ReplayPathPickInput& replayPointerRay,
+                                               const RuntimeInputFrameFacts& facts )
 {
-    RuntimeInputContext& runtimeInput = inputRouter.RuntimeContext();
+    RuntimeInputContext& runtimeInput = m_inputRouter.RuntimeContext();
     RuntimeUIFrameResult result;
     result.suppressWorldActionThisFrame = facts.suppressWorldActionThisFrame || facts.externalUiCapture.mouse;
     result.frameActive = true;
 
-    ui.SceneNavigation().browser.selectedSceneIndex = ui.SceneNavigation().browser.CurrentIndexForPath( sceneController.CurrentPath() );
-    const HWND windowHandle = window.NativeWindowHandle();
-    const SkullbonezCore::UI::InputControl::UIInputSnapshot uiInput = BuildUIInputSnapshot( inputRouter.DeviceFrame(),
-                                                                                            inputRouter.UiSnapshot().mouse,
-                                                                                            ui.InputOverride() );
+    m_operatorUi->SceneNavigation().browser.selectedSceneIndex =
+        m_operatorUi->SceneNavigation().browser.CurrentIndexForPath( m_sceneController.CurrentPath() );
+    const HWND windowHandle = m_window.NativeWindowHandle();
+    const SkullbonezCore::UI::InputControl::UIInputSnapshot uiInput =
+        BuildUIInputSnapshot( m_inputRouter.DeviceFrame(), m_inputRouter.UiSnapshot().mouse,
+                              m_operatorUi->InputOverride() );
 
-    InGameUIInputResult UIResult = ui.UpdateInput( uiInput, window.ClientWidth(), window.ClientHeight(),
-                                                   timers.SimulationTotalSeconds(), editorTools.Editor().editorModeEnabled,
-                                                   editorTools.Editor().placementModeEnabled,
-                                                   editorTools.Editor().placeStaticObject,
-                                                   editorTools.Editor().autoTerrainAlign, static_cast<int>( camera.mode ),
-                                                   facts.cameraModeEnabledMask );
+    InGameUIInputResult UIResult = m_operatorUi->UpdateInput(
+        uiInput, m_window.ClientWidth(), m_window.ClientHeight(), m_timers.SimulationTotalSeconds(),
+        m_editorTools.Editor().editorModeEnabled, m_editorTools.Editor().placementModeEnabled,
+        m_editorTools.Editor().placeStaticObject, m_editorTools.Editor().autoTerrainAlign,
+        static_cast<int>( m_camera.mode ), facts.cameraModeEnabledMask );
 
     switch ( UIResult.nativeMouseCapture )
     {
     case InGameUIInputResult::NativeMouseCaptureRequest::Acquire:
-        inputRouter.RequestNativeCapture();
+        m_inputRouter.RequestNativeCapture();
         break;
     case InGameUIInputResult::NativeMouseCaptureRequest::Release:
-        inputRouter.ReleaseNativeCapture();
+        m_inputRouter.ReleaseNativeCapture();
         break;
     case InGameUIInputResult::NativeMouseCaptureRequest::Unchanged:
     default:
@@ -509,51 +503,56 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( SkullbonezCore::Core::SbDiagnosticStor
 
     result.editorUnhandledWheelDelta = UIResult.unhandledWheelDelta;
     result.commands = UIResult.commands;
-    result.status = NormalizeGameUiOperatorEditorCommands( diagnostics, result.commands );
+    result.status = NormalizeGameUiOperatorEditorCommands( m_resultDiagnostics, result.commands );
 
     if ( !result.status.Ok() )
     {
         return result;
     }
 
-    const DeviceInputFrame& deviceFrame = inputRouter.DeviceFrame();
+    const DeviceInputFrame& deviceFrame = m_inputRouter.DeviceFrame();
     UiInputHitSnapshot uiSnapshot;
-    uiSnapshot.mouse = inputRouter.UiSnapshot().mouse;
+    uiSnapshot.mouse = m_inputRouter.UiSnapshot().mouse;
     uiSnapshot.clientX = deviceFrame.clientX;
     uiSnapshot.clientY = deviceFrame.clientY;
     uiSnapshot.hasClientPosition = deviceFrame.hasClientPosition;
     uiSnapshot.unhandledWheelDelta = UIResult.unhandledWheelDelta;
     uiSnapshot.userInteracted = result.commands.ui.userInteracted;
-    uiSnapshot.blocksKeyboard = ui.BlocksKeyboard() || facts.externalUiCapture.keyboard || facts.externalUiCapture.text;
-    uiSnapshot.blocksCameraMouse = ui.BlocksCameraMouse() || facts.externalUiCapture.mouse;
-    uiSnapshot.wantsNativeCursor = ui.WantsNativeMouseCursor();
-    inputRouter.PublishUiSnapshot( uiSnapshot );
+    uiSnapshot.blocksKeyboard =
+        m_operatorUi->BlocksKeyboard() || facts.externalUiCapture.keyboard || facts.externalUiCapture.text;
+    uiSnapshot.blocksCameraMouse = m_operatorUi->BlocksCameraMouse() || facts.externalUiCapture.mouse;
+    uiSnapshot.wantsNativeCursor = m_operatorUi->WantsNativeMouseCursor();
+    m_inputRouter.PublishUiSnapshot( uiSnapshot );
     result.enterInteractiveScene = result.commands.ui.userInteracted;
     result.suppressWorldActionThisFrame = result.suppressWorldActionThisFrame || result.commands.ui.userInteracted;
 
     // Invariant: replay workspace tools execute during this input turn, before
     // the completed interaction policy exists. Publish current post-UI pointer
     // and key facts now; RunInputPhase republishes the final policy facts below.
-    inputRouter.PublishRuntimeSnapshot( RuntimeInteractionFrameInput {}, result.suppressWorldActionThisFrame );
-    replayRuntime
-        .TickWorkspace( ReplayWorkspaceFrameInput { windowHandle, ui.BlocksCameraMouse() || facts.externalUiCapture.mouse,
+    m_inputRouter.PublishRuntimeSnapshot( RuntimeInteractionFrameInput {}, result.suppressWorldActionThisFrame );
+    m_replayRuntime
+        .TickWorkspace( ReplayWorkspaceFrameInput { windowHandle,
+                                                    m_operatorUi->BlocksCameraMouse() || facts.externalUiCapture.mouse,
                                                     facts.gameUiActive, result.editorUnhandledWheelDelta, replayPointerRay,
                                                     facts.replayCurrentCameraMode, facts.replayRestoreCameraMode,
-                                                    attachedCamera.State().activeFollow, camera.director.grabbed,
-                                                    editorTools.Editor().editorModeEnabled,
-                                                    sceneController.State().isScenePhysics, ui.IsVisible(), ui.IsMinimized(),
-                                                    inputRouter.DeviceFrame().keys.IsDown( VK_SPACE ), window.ClientWidth(),
-                                                    window.ClientHeight(), camera.mouseRadiansPerPixel,
-                                                    timers.SimulationTotalSeconds(), facts.requestedReplayCauseRow },
-                        inputRouter, interaction, sceneController.Scene(), camera, attachedCamera,
-                        runtimeTools.MousePickup(), result.replayWorkspace );
+                                                    m_attachedCamera.State().activeFollow, m_camera.director.grabbed,
+                                                    m_editorTools.Editor().editorModeEnabled,
+                                                    m_sceneController.State().isScenePhysics, m_operatorUi->IsVisible(),
+                                                    m_operatorUi->IsMinimized(),
+                                                    m_inputRouter.DeviceFrame().keys.IsDown( VK_SPACE ),
+                                                    m_window.ClientWidth(), m_window.ClientHeight(),
+                                                    m_camera.mouseRadiansPerPixel, m_timers.SimulationTotalSeconds(),
+                                                    facts.requestedReplayCauseRow },
+                        m_inputRouter, m_interaction, m_sceneController.Scene(), m_camera, m_attachedCamera,
+                        m_runtimeTools.MousePickup(), result.replayWorkspace );
 
     result.enterInteractiveScene = result.enterInteractiveScene || result.replayWorkspace.enterInteractive;
     result.suppressWorldActionThisFrame = result.suppressWorldActionThisFrame || result.replayWorkspace.consumesMouse;
     runtimeInput.BeginFrame( true,
-                             ui.BlocksKeyboard() || facts.externalUiCapture.keyboard || facts.externalUiCapture.text ||
+                             m_operatorUi->BlocksKeyboard() || facts.externalUiCapture.keyboard ||
+                                 facts.externalUiCapture.text ||
                                  result.replayWorkspace.consumesKeyboard,
-                             ui.BlocksCameraMouse() || facts.externalUiCapture.mouse ||
+                             m_operatorUi->BlocksCameraMouse() || facts.externalUiCapture.mouse ||
                                  result.replayWorkspace.consumesMouse );
 
     return result;

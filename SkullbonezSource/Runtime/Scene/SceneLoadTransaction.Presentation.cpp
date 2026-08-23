@@ -29,6 +29,16 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
+void SceneLoadTransaction::AppendCaptureReaction( const SceneCaptureReaction& reaction )
+{
+    if ( m_outputs.captureReactions.count >= m_outputs.captureReactions.reactions.size() )
+    {
+        SB_FATAL( "Runtime/SceneLoadTransaction", "Fixed capture reaction capacity exhausted." );
+    }
+    m_outputs.captureReactions.reactions[m_outputs.captureReactions.count++] = reaction;
+}
+
+
 void SceneLoadTransaction::AppendDiagnosticsReaction( const SceneDiagnosticsReaction& reaction )
 {
     if ( m_outputs.diagnosticsReactions.count >= m_outputs.diagnosticsReactions.reactions.size() )

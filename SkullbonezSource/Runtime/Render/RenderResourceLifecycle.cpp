@@ -39,19 +39,17 @@ namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 namespace Rendering = SkullbonezCore::Rendering;
 
 RenderResourceLifecycle::RenderResourceLifecycle(
-    SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Rendering::Dx12RenderDevice& renderDevice,
-    Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12GraphTransientPool& renderGraph,
-    Rendering::Dx12ResourceBuilder& renderResources, Rendering::Dx12TextureOwner& renderTextures,
-    Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12Diagnostics& renderDiagnostics,
-    Rendering::Dx12RaytracingOwner& raytracing, bool raytracingAvailable, const RenderWorldView& world, int sceneIndex,
-    int sceneLoadCount )
-    : m_resultDiagnostics( resultDiagnostics ), m_renderDevice( renderDevice ), m_renderFrame( renderFrame ),
-      m_renderGraph( renderGraph ), m_renderResources( renderResources ), m_renderTextures( renderTextures ),
-      m_renderGeometry( renderGeometry ), m_renderDiagnostics( renderDiagnostics ), m_raytracing( raytracing ),
-      m_raytracingAvailable( raytracingAvailable ), m_lifecycleLog( &renderDevice, sceneIndex, sceneLoadCount ),
+    SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Rendering::RenderBackendDX12& backend,
+    const RenderWorldView& world, int sceneIndex, int sceneLoadCount )
+    : m_resultDiagnostics( resultDiagnostics ), m_renderDevice( backend.RenderDevice() ), m_renderFrame( backend.Frame() ),
+      m_renderGraph( backend.GraphTransients() ), m_renderResources( backend.ResourceBuilder() ),
+      m_renderTextures( backend.Textures() ), m_renderGeometry( backend.Geometry() ),
+      m_renderDiagnostics( backend.Diagnostics() ), m_raytracing( backend.Raytracing() ),
+      m_raytracingAvailable( backend.Diagnostics().GetCapabilities().supportsDxrReflection ),
+      m_lifecycleLog( &backend.RenderDevice(), sceneIndex, sceneLoadCount ),
       m_assets( world.assets ), m_textures( resultDiagnostics ), m_config( world.config ),
-      m_primitiveBatches( std::in_place, &renderResources, &renderTextures, &renderGeometry ),
-      m_gpuTiming( world.profiler, &renderDiagnostics ), m_uiTextPass( resultDiagnostics, world.profiler, m_gpuTiming )
+      m_primitiveBatches( std::in_place, &backend.ResourceBuilder(), &backend.Textures(), &backend.Geometry() ),
+      m_gpuTiming( world.profiler, &backend.Diagnostics() ), m_uiTextPass( resultDiagnostics, world.profiler, m_gpuTiming )
 {
 }
 

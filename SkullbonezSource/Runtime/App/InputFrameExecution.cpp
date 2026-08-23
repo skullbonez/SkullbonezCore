@@ -303,11 +303,12 @@ void Run::PrepareSceneScopedOwnersForTransition()
 }
 
 
-Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput )
+SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput,
+                                            bool& gameUiActive )
 {
     UI::InputCaptureIntent externalUiCapture;
     SkullbonezCore::UI::OperatorEditorCommandQueues externalEditorCommands;
-    bool gameUiActive = true;
+    gameUiActive = true;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     externalUiCapture = m_imguiEditor.ConsumeInputCaptureIntent();
     externalEditorCommands = m_imguiEditor.ConsumeOperatorEditorCommands();
@@ -414,7 +415,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
             liveStyleController.MarkStyleApplied();
         }
 
-        return FrameInputPhaseResult { proceedPolicy, gameUiActive };
+        return proceedPolicy;
     };
 
     const auto NormalizeCameraModeForCurrentScene = [&]( RunCameraMode mode )
@@ -709,12 +710,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
         const bool loaded = LoadSceneRequest( sceneLoad, request ).Ok();
 
         ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, sceneController.LifecyclePacket(), timers );
-        ApplySceneLoadRuntimeReactions( sceneLoad, launchOptions, *m_overlayDiagnostics, m_capture,
-                                        m_overlaySceneLifecycleObserver, sceneController,
-                                        m_inputSceneLifecycleObserver, inputRouter, interaction,
-                                        m_cameraSceneLifecycleObserver, camera,
-                                        m_attachedCameraSceneLifecycleObserver, attachedCamera, editorTools, runtimeTools,
-                                        replayRuntime );
+        ApplySceneLoadRuntimeReactions( sceneLoad );
 
         ApplySceneLoadPresentation( sceneLoad, window, ui, validationHarness, graphicsStress,
                                     graphicsStressSceneObserver, launchOptions, &renderer.RenderDevice(),
@@ -1289,9 +1285,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
                                                    gameUiActive,
                                                    requestedReplayCauseRow };
 
-    RuntimeUIFrameResult uiFrameResult = BeginRuntimeUIFrame( m_resultDiagnostics, window, inputRouter, camera, editorTools, runtimeTools,
-                                                              attachedCamera, interaction, ui, timers, sceneController,
-                                                              replayRuntime, replayPointerRay, uiSamplingFacts );
+    RuntimeUIFrameResult uiFrameResult = BeginRuntimeUIFrame( replayPointerRay, uiSamplingFacts );
 
     if ( uiFrameResult.frameActive )
     {
@@ -1440,11 +1434,9 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
     // owner can mutate selection, camera, or scene state. Consumers receive the
     // existing semantic pointer value plus only their focused leaf operands.
     const RuntimePointerRouteResult
-        pointerResult = inputRouter.RouteRuntimePointer( inputSnapshot.pointer, replayInput.inspectionActive,
-                                                         SkullbonezCore::Core::ActiveSceneObjectCapacity( config ), window,
-                                                         assets, editorTools, runtimeTools, attachedCamera, interaction, camera,
-                                                         sceneController, replayRuntime,
-                                                         NormalizeCameraModeForCurrentScene( replayInput.restoreCameraMode ) );
+        pointerResult = RouteRuntimePointer( inputSnapshot.pointer, replayInput.inspectionActive,
+                                             SkullbonezCore::Core::ActiveSceneObjectCapacity( config ),
+                                             NormalizeCameraModeForCurrentScene( replayInput.restoreCameraMode ) );
 
     if ( pointerResult.enteredInteractiveScene )
     {
@@ -1480,10 +1472,10 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
     {
         interaction.CancelCameraLookGesture();
         InputController::ResetMouseLook( camera );
-        camera.input.moveForward = false;
-        camera.input.moveBackward = false;
-        camera.input.moveLeft = false;
-        camera.input.moveRight = false;
+        camera.inputMoveForward = false;
+        camera.inputMoveBackward = false;
+        camera.inputMoveLeft = false;
+        camera.inputMoveRight = false;
         inputRouter.ApplyPointerPresentation( EvaluateRuntimePointerPresentation( inputRouter, editorTools.Editor(), replayRuntime.BuildInputView() ) );
     }
     else
@@ -1493,10 +1485,11 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
             m_overlayDiagnostics->PresentationSnapshot().GetSaveState(), replayRuntime.BuildInputView() );
         if ( captureActions.screenshotRequested )
         {
-            const EditorScreenshotRequest request = BuildEditorScreenshotRequest( true );
-            if ( request.requested )
+            const std::string path = BuildEditorScreenshotPath();
+
+            if ( !path.empty() )
             {
-                const SkullbonezCore::Core::SbResult queueResult = m_capture.QueueScreenshot( request.path.c_str() );
+                const SkullbonezCore::Core::SbResult queueResult = m_capture.QueueScreenshot( path.c_str() );
                 if ( !queueResult.Ok() )
                 {
                     std::fprintf( stderr, "%s: %s\n", queueResult.ErrorOwner(), queueResult.ErrorMessage() );
@@ -1552,12 +1545,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
     const bool processedScene = ExecutePendingSceneRequests( sceneLoad );
 
     ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, sceneController.LifecyclePacket(), timers );
-    ApplySceneLoadRuntimeReactions( sceneLoad, launchOptions, *m_overlayDiagnostics, m_capture,
-                                    m_overlaySceneLifecycleObserver, sceneController,
-                                    m_inputSceneLifecycleObserver, inputRouter, interaction,
-                                    m_cameraSceneLifecycleObserver, camera,
-                                    m_attachedCameraSceneLifecycleObserver, attachedCamera, editorTools, runtimeTools,
-                                    replayRuntime );
+    ApplySceneLoadRuntimeReactions( sceneLoad );
 
     ApplySceneLoadPresentation( sceneLoad, window, ui, validationHarness, graphicsStress,
                                 graphicsStressSceneObserver, launchOptions, &renderer.RenderDevice(),

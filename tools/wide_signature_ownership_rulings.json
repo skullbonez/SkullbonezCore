@@ -2,14 +2,6 @@
   "review_trigger_arity": 12,
   "rulings": [
     {
-      "file": "SkullbonezSource/Runtime/App/InputFrame.cpp",
-      "signature": "RuntimeUIFrameResult BeginRuntimeUIFrame( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, Window& window, InputRouter& inputRouter, CameraControlState& camera, RuntimeTools& runtimeTools, AttachedCameraController& attachedCamera, RuntimeInteractionController& interaction, SkullbonezCore::UI::InGameUI& ui, RunTimerState& timers, SceneController& sceneController, ReplayRuntime& replayRuntime, const ReplayPathPickInput& replayPointerRay, const RuntimeInputFrameFacts& facts )",
-      "owner": "Runtime/App composition root",
-      "disposition": "retain-owner",
-      "reason": "This operation establishes one post-UI frame order before keyboard commands; the diagnostic store and every participant borrow share that synchronous turn and expire when the returned frame result closes the call.",
-      "evidence": "git history: sbresult-compact-success-path-sr2-implementation (2026-07-28)"
-    },
-    {
       "file": "SkullbonezSource/Runtime/App/ReplayValidation.cpp",
       "signature": "bool ApplyReplayRestoreEventsForFrame( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, ReplayRestoreTransaction& transaction, SceneController& sceneController, RuntimeTools& runtimeTools, SkullbonezCore::Assets::AssetSystem& assets, int sceneObjectCapacity, const ReplayRestoreArtifactData& artifact, const ReplaySolverFrameSample& checkpoint, ReplayFrameIndex nextFrame, uint32_t& eventCursor, std::size_t& eventsApplied, std::size_t& unsupportedEvents )",
       "owner": "Replay restore event-application phase",
@@ -23,22 +15,6 @@
       "owner": "Replay restore target-step phase",
       "disposition": "retain-owner",
       "reason": "The operation owns one restore target step from checkpoint through target validation; every owner/store borrow is used synchronously and no participant or output crosses the phase boundary.",
-      "evidence": "git history: sbresult-compact-success-path-sr2-implementation (2026-07-28)"
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Render/RenderResourceLifecycle.h",
-      "signature": "RenderResourceLifecycle::RenderResourceLifecycle( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12GraphTransientPool& renderGraph, Rendering::Dx12ResourceBuilder& renderResources, Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner& raytracing, bool raytracingAvailable, const RenderWorldView& world, const SceneSessionState& scene )",
-      "owner": "RenderResourceLifecycle",
-      "disposition": "retain-owner",
-      "reason": "The lifecycle owner binds the concrete DX12 resource participants and world/session value owners that share its lifetime; the diagnostic store is the same App-owned lifetime borrow and a services aggregate would only hide this authority.",
-      "evidence": "git history: sbresult-compact-success-path-sr2-implementation (2026-07-28)"
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h",
-      "signature": "RuntimeRenderer::RuntimeRenderer( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12GraphTransientPool& renderGraph, Rendering::Dx12ResourceBuilder& renderResources, Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner& raytracing, bool raytracingAvailable, const RenderWorldView& world, SceneSessionState& scene )",
-      "owner": "RuntimeRenderer",
-      "disposition": "retain-owner",
-      "reason": "The renderer composition owner retains one lifetime-cohesive set of concrete render owners plus world/session views; the App-owned diagnostic store has the same lifetime and does not broaden renderer authority.",
       "evidence": "git history: sbresult-compact-success-path-sr2-implementation (2026-07-28)"
     },
     {
@@ -199,22 +175,6 @@
       "owner": "RuntimeTools mouse-pick gesture",
       "disposition": "retain-owner",
       "reason": "RuntimeTools owns the mouse-pick gesture and drag plane; ray/camera facts and world/router/interaction borrows are frame-local.",
-      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Scene/SceneController.Load.cpp",
-      "signature": "SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& request, SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions, const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender, const RunStartupState& startup, Assets::AssetSystem& assets, Threading::WorkerPool& workerPool, DiagnosticsRuntime& diagnosticsRuntime, Rendering::Dx12FrameOwner* renderFrame, Rendering::Dx12ResourceBuilder* renderResources, RuntimeRenderer& renderer, SceneLoadTransaction& transaction )",
-      "owner": "SceneController",
-      "disposition": "retain-owner",
-      "reason": "The public controller seam enters the invariant-owning scene-load transaction using explicit load participants and no replacement bag.",
-      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Scene/SceneController.Load.cpp",
-      "signature": "SkullbonezCore::Core::SbResult SceneLoadTransaction::Load( SceneController& sceneController, const SceneLoadRequest& request, SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions, const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender, const RunStartupState& startup, Assets::AssetSystem& assets, Threading::WorkerPool& workerPool, DiagnosticsRuntime& diagnosticsRuntime, Rendering::Dx12FrameOwner* renderFrame, Rendering::Dx12ResourceBuilder* renderResources, RuntimeRenderer& renderer )",
-      "owner": "SceneLoadTransaction",
-      "disposition": "retain-owner",
-      "reason": "The transaction enforces scene-load phase order while request/startup/config values and concrete load owners participate in that tested invariant.",
       "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {

@@ -216,25 +216,7 @@ int RunApp( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, Window* window
             return 1;
         };
 
-        const bool raytracingAvailable = renderBackend.Diagnostics().GetCapabilities().supportsDxrReflection;
-
-        std::optional<std::reference_wrapper<Dx12ShaderDevelopment>> shaderDevelopment {
-            std::ref( renderBackend.ShaderDevelopment() ) };
-
-        const SkullbonezCore::Core::SbResult bindResult = cRun->BindRenderBackend( renderBackend.RenderDevice(),
-                                                                                   renderBackend.Frame(),
-                                                                                   renderBackend.GraphTransients(),
-                                                                                   renderBackend.ResourceBuilder(),
-                                                                                   renderBackend.Textures(),
-                                                                                   renderBackend.Geometry(),
-                                                                                   renderBackend.Diagnostics(),
-                                                                                   renderBackend.Raytracing(),
-                                                                                   raytracingAvailable, shaderDevelopment
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-                                                                                   ,
-                                                                                   renderBackend.DevelopmentUiRenderer()
-#endif
-        );
+        const SkullbonezCore::Core::SbResult bindResult = cRun->BindRenderBackend( renderBackend );
 
         if ( !bindResult.Ok() )
         {

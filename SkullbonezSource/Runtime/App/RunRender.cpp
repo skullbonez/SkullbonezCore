@@ -84,26 +84,23 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     }
 
     const ReplayInputView replayInput = m_replayRuntime.BuildInputView();
-    const EditorOverlayFacts editorFacts = m_editorTools.BuildOverlayFacts( m_sceneController.Scene() );
+    RunEditorPlacementState& editor = m_editorTools.Editor();
     ToolEditorOverlayValues toolEditor;
-    toolEditor.editorModeEnabled = editorFacts.editorModeEnabled;
-    toolEditor.placementModeEnabled = editorFacts.placementModeEnabled;
-    toolEditor.placementPreviewVisible = editorFacts.placementPreviewVisible;
-    toolEditor.objectType = editorFacts.objectType;
-    toolEditor.hotGizmoAxis = editorFacts.hotGizmoAxis;
-    toolEditor.hotRotationAxis = editorFacts.hotRotationAxis;
-    toolEditor.placementTerrainPoint = editorFacts.placementTerrainPoint;
-    toolEditor.placementCenter = editorFacts.placementCenter;
-    toolEditor.placementRayOrigin = editorFacts.placementRayOrigin;
-    toolEditor.placementRayHit = editorFacts.placementRayHit;
-    toolEditor.placementScale = editorFacts.placementScale;
-    toolEditor.placementOrientation = editorFacts.placementOrientation;
-    toolEditor.selectionCount = editorFacts.selectionCount;
-    for ( std::size_t i = 0; i < editorFacts.selectionCount; ++i )
-    {
-        toolEditor.selectionBodies[i] = editorFacts.selectionBodies[i];
-        toolEditor.selectionColliders[i] = editorFacts.selectionColliders[i];
-    }
+    toolEditor.editorModeEnabled = editor.editorModeEnabled;
+    toolEditor.placementModeEnabled = editor.placementModeEnabled;
+    toolEditor.placementPreviewVisible = editor.placementPreviewVisible;
+    toolEditor.objectType = editor.objectType;
+    toolEditor.hotGizmoAxis = editor.hotGizmoAxis;
+    toolEditor.hotRotationAxis = editor.hotRotationAxis;
+    toolEditor.placementTerrainPoint = editor.placementTerrainPoint;
+    toolEditor.placementCenter = editor.placementCenter;
+    toolEditor.placementRayOrigin = editor.placementRayOrigin;
+    toolEditor.placementRayHit = editor.placementRayHit;
+    toolEditor.placementScale = editor.placementScale;
+    toolEditor.placementOrientation = editor.placementOrientation;
+    toolEditor.selectionCount = ProjectEditorOverlaySelection( editor, m_sceneController.Scene(),
+                                                               toolEditor.selectionBodies,
+                                                               toolEditor.selectionColliders );
 
     // Update the active camera selection and any transition/tween state before
     // rendering asks for view matrices.

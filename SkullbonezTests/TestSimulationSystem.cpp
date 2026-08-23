@@ -407,25 +407,20 @@ TEST_CASE( "SimulationSystem observes each cleared scene generation exactly once
     input.timeScale = 6.0f;
     CHECK( simulation.Tick( input ).droppedPhysicsTicks == 1 );
 
-    SimulationSceneLifecycleInput lifecycle;
-    lifecycle.generation = 1;
-    lifecycle.reachedAfterClear = false;
-    simulation.ObserveSceneLifecycle( lifecycle );
+    uint64_t generation = 1;
+    simulation.ObserveSceneLifecycle( generation, false );
     CHECK( simulation.DroppedPhysicsTickCount() == 1u );
 
-    lifecycle.reachedAfterClear = true;
-    simulation.ObserveSceneLifecycle( lifecycle );
+    simulation.ObserveSceneLifecycle( generation, true );
     CHECK( simulation.DroppedPhysicsTickCount() == 0u );
     CHECK( simulation.PhysicsHitchEventCount() == 0u );
 
     CHECK( simulation.Tick( input ).droppedPhysicsTicks == 1 );
-    lifecycle.reachedAfterClear = true;
-    simulation.ObserveSceneLifecycle( lifecycle );
+    simulation.ObserveSceneLifecycle( generation, true );
     CHECK( simulation.DroppedPhysicsTickCount() == 1u );
 
-    lifecycle.generation = 2;
-    lifecycle.reachedAfterClear = true;
-    simulation.ObserveSceneLifecycle( lifecycle );
+    generation = 2;
+    simulation.ObserveSceneLifecycle( generation, true );
     CHECK( simulation.DroppedPhysicsTickCount() == 0u );
     CHECK( simulation.PhysicsHitchEventCount() == 0u );
 }

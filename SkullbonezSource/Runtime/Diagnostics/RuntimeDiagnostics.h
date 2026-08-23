@@ -41,18 +41,41 @@ class PhysicsEngine;
 }
 namespace Runtime
 {
-struct RuntimeSceneDiagnosticFacts
+class RuntimeSceneDiagnosticFacts
 {
-    int currentSceneIndex = 0;
-    int loadCount = 0;
-    int manualResetCount = 0;
-    int currentFrame = 0;
-    int targetFrameCount = 0;
-    int modelCount = 0;
-    uint32_t rngSeed = 0;
-    bool fixedStep = false;
-    bool testComplete = false;
-    bool finishLogged = false;
+  public:
+    RuntimeSceneDiagnosticFacts( int currentSceneIndex = 0, int loadCount = 0, int manualResetCount = 0,
+                                 int currentFrame = 0, int targetFrameCount = 0, int modelCount = 0,
+                                 uint32_t rngSeed = 0, bool fixedStep = false, bool testComplete = false,
+                                 bool finishLogged = false )
+        : m_currentSceneIndex( currentSceneIndex ), m_loadCount( loadCount ), m_manualResetCount( manualResetCount ),
+          m_currentFrame( currentFrame ), m_targetFrameCount( targetFrameCount ), m_modelCount( modelCount ),
+          m_rngSeed( rngSeed ), m_fixedStep( fixedStep ), m_testComplete( testComplete ), m_finishLogged( finishLogged )
+    {
+    }
+
+    int CurrentSceneIndex() const { return m_currentSceneIndex; }
+    int LoadCount() const { return m_loadCount; }
+    int ManualResetCount() const { return m_manualResetCount; }
+    int CurrentFrame() const { return m_currentFrame; }
+    int TargetFrameCount() const { return m_targetFrameCount; }
+    int ModelCount() const { return m_modelCount; }
+    uint32_t RngSeed() const { return m_rngSeed; }
+    bool FixedStep() const { return m_fixedStep; }
+    bool TestComplete() const { return m_testComplete; }
+    bool FinishLogged() const { return m_finishLogged; }
+
+  private:
+    int m_currentSceneIndex = 0;
+    int m_loadCount = 0;
+    int m_manualResetCount = 0;
+    int m_currentFrame = 0;
+    int m_targetFrameCount = 0;
+    int m_modelCount = 0;
+    uint32_t m_rngSeed = 0;
+    bool m_fixedStep = false;
+    bool m_testComplete = false;
+    bool m_finishLogged = false;
 };
 
 struct RunPerfLogState

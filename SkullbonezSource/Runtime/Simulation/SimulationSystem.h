@@ -84,12 +84,6 @@ struct SimulationTickResult
     float presentationAlpha = 1.0f; // Wall-clock fraction, or exact-state 1.0 for lockstep and paused paths.
 };
 
-struct SimulationSceneLifecycleInput
-{
-    uint64_t generation = 0;
-    bool reachedAfterClear = false;
-};
-
 class SimulationSystem
 {
   public:
@@ -97,7 +91,7 @@ class SimulationSystem
 
     // Applies the pacing reset once after a scene transaction reaches clear;
     // SimulationSystem never needs to participate in scene population.
-    void ObserveSceneLifecycle( const SimulationSceneLifecycleInput& input );
+    void ObserveSceneLifecycle( uint64_t generation, bool reachedAfterClear );
     SimulationTickResult Tick( const SimulationTickInput& input );
 
     // Cumulative diagnostics since Reset; callers may sample them without

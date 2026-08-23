@@ -707,8 +707,8 @@ void ReplayRuntime::ApplyCauseInspectionTransition( const ReplayWorkspaceFrameIn
          view.mode == ReplayCauseInspectionMode::AftermathFollow )
     {
         const float mouseScale = pointerBlocked ? 0.0f : input.cameraMouseRadiansPerPixel;
-        const float yaw = static_cast<float>( camera.input.xMove ) * mouseScale;
-        const float pitch = static_cast<float>( camera.input.yMove ) * mouseScale;
+        const float yaw = static_cast<float>( camera.inputXMove ) * mouseScale;
+        const float pitch = static_cast<float>( camera.inputYMove ) * mouseScale;
         const int wheel = pointerBlocked ? 0 : input.wheelDelta;
         (void)attachedCamera.TickFocusedInspection( world, yaw, pitch, wheel, 1.0f );
     }

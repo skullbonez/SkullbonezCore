@@ -81,11 +81,11 @@ void SimulationSystem::Reset()
     m_physicsHitchEventCount = 0;
 }
 
-void SimulationSystem::ObserveSceneLifecycle( const SimulationSceneLifecycleInput& input )
+void SimulationSystem::ObserveSceneLifecycle( uint64_t generation, bool reachedAfterClear )
 {
-    if ( input.generation != 0 && input.generation != m_lastSceneResetGeneration && input.reachedAfterClear )
+    if ( generation != 0 && generation != m_lastSceneResetGeneration && reachedAfterClear )
     {
-        m_lastSceneResetGeneration = input.generation;
+        m_lastSceneResetGeneration = generation;
         Reset();
     }
 }

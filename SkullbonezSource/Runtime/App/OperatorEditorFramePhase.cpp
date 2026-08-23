@@ -69,10 +69,9 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-namespace OperatorEditorFrameComposer
+namespace
 {
-
-static UiCameraBadgeMode ProjectUiCameraBadgeMode( RunCameraMode mode )
+UiCameraBadgeMode ProjectUiCameraBadgeMode( RunCameraMode mode )
 {
     switch ( mode )
     {
@@ -93,7 +92,7 @@ static UiCameraBadgeMode ProjectUiCameraBadgeMode( RunCameraMode mode )
     }
 }
 
-static UiOverlayMode ProjectUiOverlayMode( OverlayMode mode )
+UiOverlayMode ProjectUiOverlayMode( OverlayMode mode )
 {
     switch ( mode )
     {
@@ -112,212 +111,11 @@ static UiOverlayMode ProjectUiOverlayMode( OverlayMode mode )
         return UiOverlayMode::None;
     }
 }
-
-static RuntimeViewModel BuildRuntimeViewModel( const SceneSessionState& scene, const SceneWorld& world, int sceneCount,
-                                               const RunScreenshotState& screenshot, bool presentationInterpolation,
-                                               bool presentationPinned, float presentationAlpha )
-{
-    RuntimeViewModel view;
-    const bool screenshotConfigured = screenshot.isScreenshotAndExit || screenshot.screenshotFrame >= 0 ||
-                                      screenshot.screenshotMs >= 0 || screenshot.screenshotPath[0] != '\0' ||
-                                      screenshot.screenshotInterval > 0;
-
-    view.sceneMode = scene.isSceneMode;
-    view.scenePhysics = scene.isScenePhysics;
-    view.sceneText = scene.isSceneText;
-    view.fixedStep = scene.isFixedStep;
-    view.screenshotPending = screenshotConfigured && !screenshot.isScreenshotSaved;
-    view.sceneIndex = scene.currentSceneIndex;
-    view.sceneCount = sceneCount;
-    view.frame = scene.currentFrame;
-    view.targetFrameCount = scene.targetFrameCount;
-
-    // Why: Physics body rows remain the runtime count authority; App copies
-    // the scalar before UI receives this detached presentation value.
-    view.modelCount = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( world.Physics() ).Count();
-    view.timeScale = scene.timeScale;
-    view.presentationInterpolation = presentationInterpolation;
-    view.presentationPinned = presentationPinned;
-    view.presentationAlpha = std::clamp( presentationAlpha, 0.0f, 1.0f );
-    return view;
-}
-
-static SkullbonezCore::UI::OperatorEditorForecastCause MapForecastCause( ContinuousOrbitalInstabilityCause cause ) noexcept
-{
-    using Cause = ContinuousOrbitalInstabilityCause;
-    using ViewCause = SkullbonezCore::UI::OperatorEditorForecastCause;
-
-    switch ( cause )
-    {
-    case Cause::InvalidContract:
-        return ViewCause::InvalidContract;
-    case Cause::NonFiniteState:
-        return ViewCause::NonFiniteState;
-    case Cause::PrivateStepFailure:
-        return ViewCause::PrivateStepFailure;
-    case Cause::InvalidPublication:
-        return ViewCause::InvalidPublication;
-    case Cause::InnerEnvelope:
-        return ViewCause::InnerEnvelope;
-    case Cause::OuterEnvelope:
-        return ViewCause::OuterEnvelope;
-    case Cause::SustainedEscape:
-        return ViewCause::SustainedEscape;
-    case Cause::Collision:
-        return ViewCause::Collision;
-    case Cause::None:
-    default:
-        return ViewCause::None;
-    }
-}
-
-static void FillOperatorRenderingParameters( SkullbonezCore::UI::OperatorEditorRenderingView& view,
-                                             const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary,
-                                             const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
-{
-    using SkullbonezCore::UI::UICinematicFeature;
-    using SkullbonezCore::UI::UICinematicParam;
-    using SkullbonezCore::UI::UIRenderParam;
-
-    // Invariant: every enum slot crosses the runtime/presentation boundary
-    // explicitly. The count assertions make a newly authored parameter fail
-    // the build until this bounded projection is updated.
-    static_assert( static_cast<int>( UIRenderParam::Count ) ==
-                   SkullbonezCore::UI::OperatorEditorRenderingView::ordinaryParameterCount );
-
-    static_assert( static_cast<int>( UICinematicParam::Count ) ==
-                   SkullbonezCore::UI::OperatorEditorRenderingView::cinematicParameterCount );
-
-    static_assert( static_cast<int>( UICinematicFeature::Count ) ==
-                   SkullbonezCore::UI::OperatorEditorRenderingView::cinematicFeatureCount );
-
-    const auto ordinaryValue = [&]( UIRenderParam parameter, float value )
-    { view.ordinaryParameters[static_cast<int>( parameter )] = value; };
-
-    ordinaryValue( UIRenderParam::SunIntensity, ordinary.sunIntensity );
-    ordinaryValue( UIRenderParam::SunRed, ordinary.sunColorR );
-    ordinaryValue( UIRenderParam::SunGreen, ordinary.sunColorG );
-    ordinaryValue( UIRenderParam::SunBlue, ordinary.sunColorB );
-    ordinaryValue( UIRenderParam::AmbientStrength, ordinary.ambientStrength );
-    ordinaryValue( UIRenderParam::SkyRed, ordinary.skyAmbientR );
-    ordinaryValue( UIRenderParam::SkyGreen, ordinary.skyAmbientG );
-    ordinaryValue( UIRenderParam::SkyBlue, ordinary.skyAmbientB );
-    ordinaryValue( UIRenderParam::GroundRed, ordinary.groundAmbientR );
-    ordinaryValue( UIRenderParam::GroundGreen, ordinary.groundAmbientG );
-    ordinaryValue( UIRenderParam::GroundBlue, ordinary.groundAmbientB );
-    ordinaryValue( UIRenderParam::ShadowStrength, ordinary.shadow.strength );
-    ordinaryValue( UIRenderParam::ShadowSoftness, ordinary.shadow.softness );
-    ordinaryValue( UIRenderParam::ShadowDepthBias, ordinary.shadow.depthBias );
-    ordinaryValue( UIRenderParam::ShadowSlopeBias, ordinary.shadow.slopeBias );
-    ordinaryValue( UIRenderParam::WaterRed, ordinary.waterTintR );
-    ordinaryValue( UIRenderParam::WaterGreen, ordinary.waterTintG );
-    ordinaryValue( UIRenderParam::WaterBlue, ordinary.waterTintB );
-    ordinaryValue( UIRenderParam::WaterAlpha, ordinary.waterAlpha );
-    ordinaryValue( UIRenderParam::WaterReflection, ordinary.waterReflectionStrength );
-    ordinaryValue( UIRenderParam::WaterFresnel, ordinary.waterFresnelF0 );
-    ordinaryValue( UIRenderParam::BallRoughness, ordinary.ballRoughnessScale );
-    ordinaryValue( UIRenderParam::BallSpecular, ordinary.ballSpecularScale );
-    ordinaryValue( UIRenderParam::BoxRoughness, ordinary.boxRoughnessScale );
-    ordinaryValue( UIRenderParam::BoxSpecular, ordinary.boxSpecularScale );
-    ordinaryValue( UIRenderParam::TrajectoryFutureWidth, ordinary.replayTrajectory.futureWidth );
-    ordinaryValue( UIRenderParam::TrajectoryFutureAlpha, ordinary.replayTrajectory.futureAlpha );
-    ordinaryValue( UIRenderParam::TrajectoryFutureEdgeFeather, ordinary.replayTrajectory.futureEdgeFeather );
-    ordinaryValue( UIRenderParam::TrajectoryCausalWidth, ordinary.replayTrajectory.causalWidth );
-    ordinaryValue( UIRenderParam::TrajectoryCausalAlpha, ordinary.replayTrajectory.causalAlpha );
-    ordinaryValue( UIRenderParam::TrajectoryCausalEdgeFeather, ordinary.replayTrajectory.causalEdgeFeather );
-    ordinaryValue( UIRenderParam::TrajectoryBaselineWidth, ordinary.replayTrajectory.baselineWidth );
-    ordinaryValue( UIRenderParam::TrajectoryBaselineAlpha, ordinary.replayTrajectory.baselineAlpha );
-    ordinaryValue( UIRenderParam::TrajectoryBaselineEdgeFeather, ordinary.replayTrajectory.baselineEdgeFeather );
-    ordinaryValue( UIRenderParam::TrajectoryMarkerWidth, ordinary.replayTrajectory.markerWidth );
-    ordinaryValue( UIRenderParam::TrajectoryMarkerAlpha, ordinary.replayTrajectory.markerAlpha );
-    ordinaryValue( UIRenderParam::TrajectoryMarkerEdgeFeather, ordinary.replayTrajectory.markerEdgeFeather );
-    ordinaryValue( UIRenderParam::TrajectorySelectedEmphasis, ordinary.replayTrajectory.selectedEmphasis );
-
-    const auto cinematicValue = [&]( UICinematicParam parameter, float value )
-    { view.cinematicParameters[static_cast<int>( parameter )] = value; };
-
-    cinematicValue( UICinematicParam::Exposure, cinematic.exposure );
-    cinematicValue( UICinematicParam::Gamma, cinematic.gamma );
-    cinematicValue( UICinematicParam::SkyMode, static_cast<float>( cinematic.skyMode ) );
-    cinematicValue( UICinematicParam::TerrainMode, static_cast<float>( cinematic.terrainMode ) );
-    cinematicValue( UICinematicParam::ObjectStyle, static_cast<float>( cinematic.objectStyle ) );
-    cinematicValue( UICinematicParam::WaterMode, static_cast<float>( cinematic.waterMode ) );
-    cinematicValue( UICinematicParam::StyleSaturation, cinematic.styleSaturation );
-    cinematicValue( UICinematicParam::StyleContrast, cinematic.styleContrast );
-    cinematicValue( UICinematicParam::StyleVignette, cinematic.styleVignette );
-    cinematicValue( UICinematicParam::SunAzimuth, cinematic.sunAzimuth );
-    cinematicValue( UICinematicParam::SunElevation, cinematic.sunElevation );
-    cinematicValue( UICinematicParam::SunBrightness, cinematic.sunIntensity );
-    cinematicValue( UICinematicParam::SunRed, cinematic.sunColorR );
-    cinematicValue( UICinematicParam::SunGreen, cinematic.sunColorG );
-    cinematicValue( UICinematicParam::SunBlue, cinematic.sunColorB );
-    cinematicValue( UICinematicParam::SkyGlow, cinematic.skyGlowStrength );
-    cinematicValue( UICinematicParam::HorizonRed, cinematic.skyHorizonR );
-    cinematicValue( UICinematicParam::HorizonGreen, cinematic.skyHorizonG );
-    cinematicValue( UICinematicParam::HorizonBlue, cinematic.skyHorizonB );
-    cinematicValue( UICinematicParam::ZenithRed, cinematic.skyZenithR );
-    cinematicValue( UICinematicParam::ZenithGreen, cinematic.skyZenithG );
-    cinematicValue( UICinematicParam::ZenithBlue, cinematic.skyZenithB );
-    cinematicValue( UICinematicParam::CloudCoverage, cinematic.cloudCoverage );
-    cinematicValue( UICinematicParam::CloudSoftness, cinematic.cloudSoftness );
-    cinematicValue( UICinematicParam::CloudScale, cinematic.cloudScale );
-    cinematicValue( UICinematicParam::CloudIntensity, cinematic.cloudIntensity );
-    cinematicValue( UICinematicParam::ShaftStrength, cinematic.sunShaftStrength );
-    cinematicValue( UICinematicParam::ShaftFalloff, cinematic.sunShaftFalloff );
-    cinematicValue( UICinematicParam::VolumetricStrength, cinematic.volumetricStrength );
-    cinematicValue( UICinematicParam::VolumetricDensity, cinematic.volumetricDensity );
-    cinematicValue( UICinematicParam::VolumetricDecay, cinematic.volumetricDecay );
-    cinematicValue( UICinematicParam::BloomThreshold, cinematic.bloomThreshold );
-    cinematicValue( UICinematicParam::BloomKnee, cinematic.bloomKnee );
-    cinematicValue( UICinematicParam::BloomStrength, cinematic.bloomStrength );
-    cinematicValue( UICinematicParam::BloomRadius, cinematic.bloomRadius );
-    cinematicValue( UICinematicParam::TerrainRelief, cinematic.terrainRelief );
-    cinematicValue( UICinematicParam::TerrainTintRed, cinematic.terrainTintR );
-    cinematicValue( UICinematicParam::TerrainTintGreen, cinematic.terrainTintG );
-    cinematicValue( UICinematicParam::TerrainTintBlue, cinematic.terrainTintB );
-    cinematicValue( UICinematicParam::TerrainAccentRed, cinematic.terrainAccentR );
-    cinematicValue( UICinematicParam::TerrainAccentGreen, cinematic.terrainAccentG );
-    cinematicValue( UICinematicParam::TerrainAccentBlue, cinematic.terrainAccentB );
-    cinematicValue( UICinematicParam::TerrainGridScale, cinematic.terrainGridScale );
-    cinematicValue( UICinematicParam::TerrainGridStrength, cinematic.terrainGridStrength );
-    cinematicValue( UICinematicParam::WaterTintRed, cinematic.waterTintR );
-    cinematicValue( UICinematicParam::WaterTintGreen, cinematic.waterTintG );
-    cinematicValue( UICinematicParam::WaterTintBlue, cinematic.waterTintB );
-    cinematicValue( UICinematicParam::WaterAlpha, cinematic.waterAlpha );
-    cinematicValue( UICinematicParam::WaterReflection, cinematic.waterReflectionStrength );
-    cinematicValue( UICinematicParam::WaterGlint, cinematic.waterGlintStrength );
-    cinematicValue( UICinematicParam::BasinCenterX, cinematic.basinCenterX );
-    cinematicValue( UICinematicParam::BasinCenterZ, cinematic.basinCenterZ );
-    cinematicValue( UICinematicParam::BasinRadiusX, cinematic.basinRadiusX );
-    cinematicValue( UICinematicParam::BasinRadiusZ, cinematic.basinRadiusZ );
-    cinematicValue( UICinematicParam::BasinFeather, cinematic.basinFeather );
-    cinematicValue( UICinematicParam::BasinDepth, cinematic.basinDepth );
-    cinematicValue( UICinematicParam::BasinRimLift, cinematic.basinRimLift );
-    cinematicValue( UICinematicParam::FogDensity, cinematic.fogDensity );
-    cinematicValue( UICinematicParam::FogOpacity, cinematic.fogMaxOpacity );
-    cinematicValue( UICinematicParam::FogStart, cinematic.fogStart );
-    cinematicValue( UICinematicParam::FogEnd, cinematic.fogEnd );
-    cinematicValue( UICinematicParam::FogRed, cinematic.fogColorR );
-    cinematicValue( UICinematicParam::FogGreen, cinematic.fogColorG );
-    cinematicValue( UICinematicParam::FogBlue, cinematic.fogColorB );
-
-    view.cinematicFeatures[static_cast<int>( UICinematicFeature::Sky )] = cinematic.skyAtmosphereEnabled;
-    view.cinematicFeatures[static_cast<int>( UICinematicFeature::Clouds )] = cinematic.cloudsEnabled;
-    view.cinematicFeatures[static_cast<int>( UICinematicFeature::GodRays )] = cinematic.godRaysEnabled;
-    view.cinematicFeatures[static_cast<int>( UICinematicFeature::VolumetricLight )] = cinematic.volumetricLightingEnabled;
-
-    view.cinematicFeatures[static_cast<int>( UICinematicFeature::Bloom )] = cinematic.bloomEnabled;
-    view.cinematicFeatures[static_cast<int>( UICinematicFeature::Fog )] = cinematic.fogEnabled;
-    view.cinematicFeatures[static_cast<int>( UICinematicFeature::TerrainRelief )] = cinematic.terrainReliefEnabled;
-    view.cinematicFeatures[static_cast<int>( UICinematicFeature::Shadows )] = cinematic.shadow.enabled;
-}
-
-} // namespace OperatorEditorFrameComposer
-
-using namespace OperatorEditorFrameComposer;
+} // namespace
 
 void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels,
-                                 const FramePresentationFacts& presentationFacts,
+                                 float presentationAlpha, bool capturePresentationPinned, double secondsPerFrame,
+                                 bool gameUiActive,
                                  const RuntimeFrameMetricsSnapshot& frameMetrics )
 {
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
@@ -350,10 +148,10 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
                                   RunCameraModeUsesLauncher( m_camera.mode ),
                                   m_interaction.Gesture().kind,
                                   m_interaction.Gesture().gizmoKind,
-                                  presentationFacts.presentationAlpha,
-                                  presentationFacts.capturePresentationPinned,
-                                  presentationFacts.secondsPerFrame,
-                                  presentationFacts.gameUiActive };
+                                  presentationAlpha,
+                                  capturePresentationPinned,
+                                  secondsPerFrame,
+                                  gameUiActive };
 
     operatorUiSnapshot.metrics = frameMetrics;
     operatorUiSnapshot.viewportWidth = m_window.ClientWidth();
@@ -404,136 +202,28 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
     const bool sharedShadows = sharedCinematicRendering ? sharedCinematic.shadow.enabled
                                                         : config.ordinaryRender.shadow.enabled;
 
-    // Invariant: build this common value once. The GameUI draw pass and the
-    // secondary editor receive this exact object, not independently sampled owners.
-    operatorEditorView.scene = { uiScenePath ? uiScenePath->c_str() : "",
-                                 uiSceneBrowser.namePtrs.empty() ? nullptr : uiSceneBrowser.namePtrs.data(),
-                                 uiSceneBrowser.CurrentIndexForPath( sceneController.CurrentPath() ),
-                                 static_cast<int>( uiSceneBrowser.namePtrs.size() ),
-                                 scene.currentFrame,
-                                 sceneController.Scene().SceneEntityCount(),
-                                 scene.timeScale,
-                                 uiScenePath && !uiScenePath->empty(),
-                                 false };
+    // Invariant: projection completes before either UI presenter observes the
+    // frame; Render receives only the completed detached values.
+    ProjectOperatorEditorScene( operatorEditorView, uiScenePath ? uiScenePath->c_str() : nullptr, uiSceneBrowser,
+                                uiSceneBrowser.CurrentIndexForPath( sceneController.CurrentPath() ), scene,
+                                sceneController.Scene() );
 
-    operatorEditorView.property = { sceneController.Scene().Environment().GetGravity(),
-                                    sceneController.Scene().Environment().GetFluidSurfaceHeight(),
-                                    sceneController.Scene().Environment().GetFluidDensity() };
-
-    SkullbonezCore::UI::OperatorEditorRenderingView& sharedRendering = operatorEditorView.rendering;
-    sharedRendering.vsyncEnabled = renderer.PresentationSettings().vsyncEnabled;
-    sharedRendering.shadowsEnabled = sharedShadows;
-    sharedRendering.cinematicRendering = sharedCinematicRendering;
-    sharedRendering.presentationInterpolation = config.runtimeRender.presentationInterpolation;
-    sharedRendering.presentationAlpha = uiTextFacts.presentationAlpha;
-    sharedRendering.terrainHidden = debug.isTerrainHidden;
-    sharedRendering.waterHidden = debug.isWaterHidden;
-    sharedRendering.waterFrozen = debug.isWaterFreezeDebug;
-    sharedRendering.waterFlat = debug.isWaterFlatDebug;
-    sharedRendering.waterReflectionMode = debug.isWaterNoReflect ? 2 : ( debug.isWaterRTReflect ? 1 : 0 );
-    FillOperatorRenderingParameters( sharedRendering, config.ordinaryRender, sharedCinematic );
-    const char* sharedGizmoMode = "translate";
-
-    if ( uiTextFacts.interactionGestureKind == RuntimeInteractionGestureKind::GizmoDrag )
-    {
-        switch ( uiTextFacts.interactionGizmoKind )
-        {
-        case RuntimeGizmoDragKind::Rotate:
-            sharedGizmoMode = "rotate";
-            break;
-        case RuntimeGizmoDragKind::Scale:
-            sharedGizmoMode = "scale";
-            break;
-        case RuntimeGizmoDragKind::Translate:
-        case RuntimeGizmoDragKind::None:
-        default:
-            break;
-        }
-    }
-
-    operatorEditorView.viewport = { uiTextFacts.cameraModeLabel, sharedGizmoMode, uiTextFacts.presentationPinned };
+    ProjectOperatorEditorRendering( operatorEditorView, renderer.PresentationSettings(), config, sharedCinematic, debug,
+                                    uiTextFacts, sharedCinematicRendering, sharedShadows );
 
     operatorEditorView.replay = { sharedReplayHud.memoryPreset,           sharedReplayHud.requestedRetentionSeconds,
                                   sharedReplayHud.requestedBudgetMiB,     sharedReplayHud.presentationRetentionSeconds,
                                   sharedReplayHud.solverRetentionSeconds, sharedReplayHud.memoryBudgetClamped,
                                   sharedReplayHud.solverWindowReduced };
 
-    const ContinuousOrbitalForecastView forecast = m_continuousForecast.View();
-    const bool blockingFailureFirst = forecast.stability.firstBlockingFailure.latched &&
-                                      ( !forecast.stability.firstAuxiliaryFailure.latched ||
-                                        forecast.stability.firstBlockingFailure.absoluteTick <=
-                                            forecast.stability.firstAuxiliaryFailure.absoluteTick );
-    const ContinuousOrbitalFailure& firstFailure = blockingFailureFirst ? forecast.stability.firstBlockingFailure
-                                                                        : forecast.stability.firstAuxiliaryFailure;
-    SkullbonezCore::UI::OperatorEditorForecastView& sharedForecast = operatorEditorView.forecast;
-    sharedForecast.simulatedSeconds = forecast.simulatedSeconds;
-    sharedForecast.simulatedSecondsPerRealSecond = forecast.simulatedSecondsPerRealSecond;
-    sharedForecast.rollingWindowAgeSeconds = forecast.rollingWindowAgeSeconds;
-    sharedForecast.energyDrift = forecast.stability.conservation.energyDrift;
-    sharedForecast.angularMomentumDrift = forecast.stability.conservation.angularMomentumDrift;
-    sharedForecast.maximumAbsoluteEnergyDrift = forecast.stability.conservation.maximumAbsoluteEnergyDrift;
-    sharedForecast.maximumAngularMomentumDrift = forecast.stability.conservation.maximumAngularMomentumDrift;
-    sharedForecast.firstFailureSeconds = firstFailure.simulatedSeconds;
-    sharedForecast.newestAbsoluteTick = forecast.newestAbsoluteTick;
-    sharedForecast.retainedBytes = static_cast<uint64_t>( forecast.retainedBytes );
-    sharedForecast.firstFailureSubject = firstFailure.subject.value;
-    sharedForecast.firstFailureOther = firstFailure.other.value;
-    sharedForecast.firstFailureCause = MapForecastCause( firstFailure.cause );
-    sharedForecast.available = forecast.available;
-    sharedForecast.active = forecast.active;
-    sharedForecast.workerInFlight = forecast.workerInFlight;
-    sharedForecast.failed = forecast.failed;
-    sharedForecast.configured = forecast.stability.configured;
-    sharedForecast.numericalHealthy = forecast.stability.numericalHealthy;
-    sharedForecast.systemOrbitalHealthy = forecast.stability.systemOrbitalHealthy;
-    sharedForecast.auxiliaryOrbitalHealthy = forecast.stability.auxiliaryOrbitalHealthy;
-    sharedForecast.energyDriftAvailable = forecast.stability.conservation.energyDriftAvailable;
-    sharedForecast.angularMomentumDriftAvailable = forecast.stability.conservation.angularMomentumDriftAvailable;
+    ProjectOperatorEditorForecast( operatorEditorView, m_continuousForecast.View() );
 
     operatorEditorView.surfaces = { ui.IsVisible(), operatorEditorView.surfaces.secondaryVisible };
 
     const RunEditorPlacementState& sharedEditor = editorTools.Editor();
-    operatorEditorView.scene.dirty = sharedEditor.history.IsDirty();
-    operatorEditorView.tools = { sharedEditor.editorModeEnabled,
-                                 sharedEditor.placementModeEnabled,
-                                 sharedEditor.placeStaticObject,
-                                 sceneController.CrossScenePauseLocked(),
-                                 scene.isFixedStep,
-                                 sharedEditor.autoTerrainAlign,
-                                 static_cast<int>( sharedEditor.history.UndoDepth() ),
-                                 static_cast<int>( sharedEditor.history.RedoDepth() ) };
-
-    const SceneEntityStore& hierarchyEntities = sceneController.Scene().Entities();
-    const int selectedHierarchyRow = PeekSelectedEditorModelIndex( sharedEditor, sceneController.Scene().BodyStore() );
-
-    operatorEditorView.hierarchy.totalRowCount = static_cast<uint32_t>( hierarchyEntities.Count() );
-    const uint32_t hierarchyRowCount = (std::min)( operatorEditorView.hierarchy.totalRowCount,
-                                                   SkullbonezCore::UI::OPERATOR_EDITOR_HIERARCHY_ROW_CAPACITY );
-
-    operatorEditorView.hierarchy.rowCount = hierarchyRowCount;
-    operatorEditorView.hierarchy.truncated = operatorEditorView.hierarchy.totalRowCount > hierarchyRowCount;
-
-    for ( uint32_t index = 0u; index < hierarchyRowCount; ++index )
-    {
-        const SceneEntityRecord& entity = hierarchyEntities.At( static_cast<int>( index ) );
-        SkullbonezCore::UI::OperatorEditorHierarchyRow& row = operatorEditorView.hierarchy.rows[index];
-        row.displayName = entity.displayName;
-        row.sceneObjectId = entity.sceneObjectId.value;
-        row.groupRootObjectId = entity.behaviorGroup.rootObjectId.value;
-        row.groupPartIndex = entity.behaviorGroup.partIndex;
-        row.assetBacked = entity.asset.isAssetBacked;
-        row.visible = entity.editorVisible;
-        row.locked = entity.editorLocked;
-        row.selected = static_cast<int>( index ) == selectedHierarchyRow;
-
-        if ( row.selected )
-        {
-            operatorEditorView.hierarchy.selectedSceneObjectId = row.sceneObjectId;
-        }
-    }
-
-    operatorEditorView.assets = { sharedEditor.objectType, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT,
-                                  m_assets.FindAssetLibrarySourceAsset( "assetlib.buildings" ) != nullptr };
+    const int selectedHierarchyRow = ProjectOperatorEditorHierarchy(
+        operatorEditorView, sharedEditor, sceneController.Scene(), sceneController.CrossScenePauseLocked(),
+        scene.isFixedStep, m_assets.FindAssetLibrarySourceAsset( "assetlib.buildings" ) != nullptr );
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     // Why: the GameUI surface does not consume secondary-editor contextual detail. Sampling
@@ -541,116 +231,8 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
     // visible keeps ordinary Profile and shipping frames on their prior path.
     if ( operatorEditorView.surfaces.secondaryVisible )
     {
-        SkullbonezCore::UI::OperatorEditorInspectorView& inspector = operatorEditorView.inspector;
-
-        if ( sharedEditor.selectedBody.IsValid() && selectedHierarchyRow < 0 )
-        {
-            // Hazard: a scene transition can invalidate the body handle before the
-            // presentation frame observes the cleared editor selection. Report the
-            // stale state; never repair identity from a dense-row guess in the UI.
-            inspector.selectionState = SkullbonezCore::UI::OperatorEditorInspectorSelectionState::Stale;
-        }
-        else if ( selectedHierarchyRow >= 0 )
-        {
-            const SceneEntityRecord* entity = hierarchyEntities.TryGet( selectedHierarchyRow );
-            const PhysicsBodyStore& bodyStore = sceneController.Scene().BodyStore();
-            const ColliderStore& colliderStore = sceneController.Scene().Colliders();
-            const std::span<const BuoyancyBodyFacts> buoyancyFacts = PhysicsEngine::ReadBuoyancyFacts(
-                sceneController.Scene().Physics() );
-
-            const PhysicsBodyRecord* body = entity ? bodyStore.RecordForHandle( entity->body ) : nullptr;
-            const PhysicsColliderHandle colliderHandle = entity ? colliderStore.HandleForBodyHandle( entity->body )
-                                                                : PhysicsColliderHandle {};
-
-            const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
-            const ColliderAuthoringRecord* colliderAuthoring = colliderStore.AuthoringRecordForHandle( colliderHandle );
-
-            if ( !entity || !body || !collider || !colliderAuthoring ||
-                 selectedHierarchyRow >= static_cast<int>( buoyancyFacts.size() ) )
-            {
-                inspector.selectionState = SkullbonezCore::UI::OperatorEditorInspectorSelectionState::Stale;
-            }
-            else
-            {
-                const PhysicsBodyHotFieldsConstView hot = bodyStore.HotFields();
-                const std::size_t row = static_cast<std::size_t>( selectedHierarchyRow );
-                const Vector3 position = PhysicsBodyPosition( hot, row );
-                const Quaternion orientation = PhysicsBodyOrientation( hot, row );
-                const Vector3 linearVelocity = PhysicsBodyLinearVelocity( hot, row );
-                const Vector3 angularVelocity = PhysicsBodyAngularVelocity( hot, row );
-                inspector.displayName = entity->displayName;
-                inspector.renderMaterialName = entity->renderMaterial.name[0] != '\0'
-                                                   ? entity->renderMaterial.name
-                                                   : SkullbonezCore::Rendering::RenderMaterialKindName(
-                                                         entity->renderMaterial.kind );
-
-                inspector.contactMaterialName = colliderAuthoring->contactMaterialName;
-                inspector.assetName = entity->asset.assetName;
-                inspector.assetInstanceName = entity->asset.instanceName;
-                inspector.assetPartName = entity->asset.partName;
-                inspector.selectionState = SkullbonezCore::UI::OperatorEditorInspectorSelectionState::Single;
-                inspector.sceneObjectId = entity->sceneObjectId.value;
-                inspector.selectionCount = 1u;
-                inspector.renderMaterialKind = static_cast<int>( entity->renderMaterial.kind );
-                inspector.colliderShapeKind = static_cast<int>( collider->shapeKind );
-                inspector.behaviorGroupKind = static_cast<int>( entity->behaviorGroup.kind );
-                inspector.behaviorPartIndex = entity->behaviorGroup.partIndex;
-                inspector.position[0] = position.x;
-                inspector.position[1] = position.y;
-                inspector.position[2] = position.z;
-                orientation.GetComponents( inspector.orientation[0], inspector.orientation[1], inspector.orientation[2],
-                                           inspector.orientation[3] );
-
-                inspector.linearVelocity[0] = linearVelocity.x;
-                inspector.linearVelocity[1] = linearVelocity.y;
-                inspector.linearVelocity[2] = linearVelocity.z;
-                inspector.angularVelocity[0] = angularVelocity.x;
-                inspector.angularVelocity[1] = angularVelocity.y;
-                inspector.angularVelocity[2] = angularVelocity.z;
-
-                for ( int channel = 0; channel < 4; ++channel )
-                {
-                    inspector.baseColor[channel] = entity->renderMaterial.baseColor[channel];
-                }
-
-                inspector.mass = body->mass;
-                inspector.volume = buoyancyFacts[row].volume;
-                inspector.boundingRadius = collider->boundingRadius;
-                inspector.dragCoefficient = collider->dragCoefficient;
-                inspector.friction = collider->friction;
-                inspector.restitution = collider->restitution;
-                inspector.roughness = entity->renderMaterial.roughness;
-                inspector.metallic = entity->renderMaterial.metallic;
-                inspector.specular = entity->renderMaterial.specular;
-                inspector.visible = entity->editorVisible;
-                inspector.locked = entity->editorLocked;
-                inspector.fixed = hot.fixed[row] != 0u;
-                inspector.sleeping = hot.awake[row] == 0u;
-                inspector.assetBacked = entity->asset.isAssetBacked;
-            }
-        }
-
-        const Gameplay::TornadoFieldConfig& tornado = sceneController.Scene().Tornado().GetFieldConfig();
-        operatorEditorView.world = { scene.modelCount,
-                                     config.runtimeCapacity.sceneObjectCapacity,
-                                     scene.solverBallCount,
-                                     scene.solverBoxCount,
-                                     static_cast<int>( scene.rngSeed ),
-                                     scene.timeScale,
-                                     sceneController.Scene().Environment().GetGravity(),
-                                     sceneController.Scene().Environment().GetFluidSurfaceHeight(),
-                                     sceneController.Scene().Environment().GetFluidDensity(),
-                                     config.physicsMaterial.frictionCoeff,
-                                     config.physicsMaterial.objectFrictionCoeff,
-                                     config.physicsMaterial.rollingFrictionCoeff,
-                                     tornado.radius,
-                                     tornado.height,
-                                     tornado.inwardAcceleration,
-                                     tornado.swirlAcceleration,
-                                     tornado.liftAcceleration,
-                                     scene.isFixedStep,
-                                     sceneController.Scene().Physics().IsSleepEnabled(),
-                                     tornado.enabled };
+        ProjectOperatorEditorInspectorAndWorld( operatorEditorView, sharedEditor, sceneController.Scene(),
+                                                selectedHierarchyRow, scene, config );
     }
 #endif
     RuntimeViewModel runtimeViewModel;
@@ -665,10 +247,10 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
         // Why: the secondary surface can be visible while GameUI is
         // hidden. Sample its bounded authoring/diagnostic values here instead
         // of making ImGui depend on whether the GameUI text pass happens to run.
-        runtimeViewModel = BuildRuntimeViewModel( sceneController.State(), sceneController.Scene(),
-                                                  sceneController.QueueSize(), m_capture.Screenshot(),
-                                                  config.runtimeRender.presentationInterpolation,
-                                                  uiTextFacts.presentationPinned, uiTextFacts.presentationAlpha );
+        runtimeViewModel = BuildOperatorRuntimeViewModel(
+            sceneController.State(), sceneController.Scene(), sceneController.QueueSize(), m_capture.Screenshot(),
+            config.runtimeRender.presentationInterpolation, uiTextFacts.presentationPinned,
+            uiTextFacts.presentationAlpha );
 
         renderTargetPreviews = renderer.ResourceLifecycle()
                                    .BuildRenderTargetPreviewSnapshot( sharedShadows, sharedCinematicRendering,
@@ -766,10 +348,10 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
 
     if ( renderer.ResourceLifecycle().ShouldRenderUiText( uiTextVisibility ) )
     {
-        runtimeViewModel = BuildRuntimeViewModel( sceneController.State(), sceneController.Scene(),
-                                                  sceneController.QueueSize(), m_capture.Screenshot(),
-                                                  config.runtimeRender.presentationInterpolation,
-                                                  uiTextFacts.presentationPinned, uiTextFacts.presentationAlpha );
+        runtimeViewModel = BuildOperatorRuntimeViewModel(
+            sceneController.State(), sceneController.Scene(), sceneController.QueueSize(), m_capture.Screenshot(),
+            config.runtimeRender.presentationInterpolation, uiTextFacts.presentationPinned,
+            uiTextFacts.presentationAlpha );
 
         const SkullbonezCore::Core::CinematicRenderConfig& uiCinematic = ActiveSceneCinematicConfig( scene, config );
         const bool uiCinematicRendering = IsSceneCinematicRenderingEnabled( scene, config, launchOptions, debug.isTextOnly,
@@ -910,7 +492,7 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
     const DevelopmentTools::ImGuiEditorFrameInput imguiFrameInput { m_window.ClientWidth(),
                                                                     m_window.ClientHeight(),
                                                                     dpiScale,
-                                                                    static_cast<float>( presentationFacts.secondsPerFrame ),
+                                                                    static_cast<float>( secondsPerFrame ),
                                                                     tracyStatus.initialized,
                                                                     tracyStatus.viewerConnected,
                                                                     tracyStatus.heavyMode };

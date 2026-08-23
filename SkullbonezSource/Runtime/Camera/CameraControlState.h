@@ -73,19 +73,15 @@ inline constexpr std::array<uint32_t, 3> DEMO_CAMERA_CYCLE_SLOTS = { CAMERA_SCEN
                                                                      CAMERA_FREE };
 
 class AttachedCameraController;
-struct CameraControlInput
-{
-    long xMove = 0;
-    long yMove = 0;
-    bool moveForward = false;
-    bool moveBackward = false;
-    bool moveLeft = false;
-    bool moveRight = false;
-};
 
 struct CameraControlState
 {
-    CameraControlInput input = {};                             // Focused movement facts consumed by camera controls this frame.
+    long inputXMove = 0;                                      // Mouse-look delta sampled for this camera frame.
+    long inputYMove = 0;
+    bool inputMoveForward = false;                             // Movement levels sampled for this camera frame.
+    bool inputMoveBackward = false;
+    bool inputMoveLeft = false;
+    bool inputMoveRight = false;
 
     int selectedCamera = 0;                                    // Keeps track of which camera is selected
     RunCameraMode mode = RunCameraMode::Demo;                  // Explicit operator camera mode shown in the minimized HUD.
@@ -120,7 +116,12 @@ struct CameraControlState
         autoCycleInterval = -1.0f;
         autoCycleAccum = 0.0f;
         autoCycleShotsTaken = 0;
-        input = {};
+        inputXMove = 0;
+        inputYMove = 0;
+        inputMoveForward = false;
+        inputMoveBackward = false;
+        inputMoveLeft = false;
+        inputMoveRight = false;
         selectedCamera = 0;
         cameraTime = 0.0f;
     }

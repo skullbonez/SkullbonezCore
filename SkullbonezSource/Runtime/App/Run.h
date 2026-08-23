@@ -10,13 +10,10 @@ Summary:
   operations receive only the concrete owners and values they use.
 
 Glossary:
-  Attached camera target: Runtime follow selection where Run owns the selected
-    identity while physics stores own live target pose and motion.
+  Attached camera target: Runtime follow selection where AttachedCameraController
+    owns the selected identity while physics stores own live target pose and motion.
   DX11/OpenGL: Retired runtime renderers. Their source backends have been
   removed; old command-line values now fail early.
-  Frame phase result: Small value-only decision passed between adjacent frame
-    phases; it is never retained as process or subsystem state.
-
 Invariants:
   - Run is the composition root for process-lifetime runtime systems.
   - Scene-lifetime camera, terrain, world, entity, model, and physics state
@@ -107,6 +104,7 @@ class Dx12RenderDevice;
 class Dx12ResourceBuilder;
 class Dx12ShaderDevelopment;
 class Dx12TextureOwner;
+class RenderBackendDX12;
 } // namespace Rendering
 namespace Threading
 {
@@ -223,23 +221,6 @@ class Run
     std::unique_ptr<RuntimeRenderer> m_renderer;                                                                  // Created once startup binds the concrete backend owners.
     std::optional<std::reference_wrapper<Rendering::Dx12ShaderDevelopment>> m_shaderDevelopment;                  // Explicit developer-only shader reload capability.
 
-    // Concept: these value-only results carry decisions between adjacent frame
-    // phases. They are stack state, not replacement owners or retained context.
-    struct FrameInputPhaseResult
-    {
-        SceneFrameProceedPolicy proceedPolicy;
-        bool gameUiActive = true;
-    };
-    struct FrameSimulationPhaseResult;
-    struct FrameRenderPhaseResult;
-    struct FramePresentationFacts
-    {
-        float presentationAlpha = 1.0f;
-        bool capturePresentationPinned = false;
-        double secondsPerFrame = 0.0;
-        bool gameUiActive = true;
-    };
-
     RuntimeRenderer& Renderer( const char* operation = "Run::Renderer" )
     {
         return *RequireRenderer( m_renderer.get(), operation );
@@ -261,15 +242,18 @@ class Run
     void CaptureInteractionRecordingTurn( double secondsPerFrame );                                               // Copies the routed device frame after input completes.
     void BeginFrameDiagnosticsPhase();                                                                            // Publishes prior GPU timing, then resets draw counters.
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
-    FrameInputPhaseResult RunAutomationAndInputPhase();
+    SceneFrameProceedPolicy RunAutomationAndInputPhase( bool& gameUiActive );
 #endif
-    FrameInputPhaseResult RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput );
-    FrameSimulationPhaseResult RunSimulationPhase( double secondsPerFrame, const SceneFrameProceedPolicy& proceedPolicy );
-    FrameRenderPhaseResult PrepareRenderPhase( bool gameUiActive, const FrameSimulationPhaseResult& simulation );
+    SceneFrameProceedPolicy RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput,
+                                           bool& gameUiActive );
+    float RunSimulationPhase( double secondsPerFrame, const SceneFrameProceedPolicy& proceedPolicy,
+                              bool& capturePresentationPinned );
+    float PrepareRenderPhase( bool gameUiActive, bool capturePresentationPinned, float interpolationAlpha );
     RuntimeRenderModelFrameView PublishRenderModelsPhase();
     void RenderWorldPhase( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha );
 
-    void RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels, const FramePresentationFacts& facts,
+    void RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha,
+                                bool capturePresentationPinned, double secondsPerFrame, bool gameUiActive,
                                 const RuntimeFrameMetricsSnapshot& frameMetrics );
     void RunPostDrawDiagnosticsPhase( bool gameUiActive );
     void FinishFrameWorkPhase( const SceneFrameProceedPolicy& proceedPolicy );
@@ -280,6 +264,10 @@ class Run
     // domain operations they call receive concrete operands only.
     RuntimeUIFrameResult ApplyInputCommandsPhase( RuntimeUIFrameResult result, bool keyboardToggleEditorMode,
                                                   const RuntimeInputFrameFacts& facts );
+    RuntimeUIFrameResult BeginRuntimeUIFrame( const ReplayPathPickInput& replayPointerRay,
+                                              const RuntimeInputFrameFacts& facts );
+    RuntimePointerRouteResult RouteRuntimePointer( const RuntimePointerEvent& pointer, bool replayInspectionActive,
+                                                   int activeModelCapacity, RunCameraMode replayRestoreCameraMode );
     void PublishLookLabStatusView();                                                                              // Pushes one changed detached status into the UI cache.
     bool ApplyLookLabSeed( uint64_t seed );                                                                       // Resolves and applies one presentation-only candidate.
     void BeginLookLabSave();                                                                                      // Starts one style/receipt/capture transaction for the current candidate.
@@ -290,6 +278,7 @@ class Run
     SkullbonezCore::Core::SbResult LoadSceneRequest( SceneLoadTransaction& transaction,
                                                      const SceneLoadRequest& request );
     bool ExecutePendingSceneRequests( SceneLoadTransaction& transaction );
+    void ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction );
     SkullbonezCore::Core::SbResult RunUIStressActions();
 
     void Render( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha );                      // Skips 3D in text-only runs, then records passes for the current camera state.
@@ -322,18 +311,7 @@ class Run
          SkullbonezCore::Core::EngineConfig& config, Threading::WorkerPool& workerPool,
          SkullbonezCore::Core::Profiler* profiler, Rendering::Dx12BackbufferCapture& backbufferCapture,
          SkullbonezCore::Core::DevelopmentTools::TracyClientOwner* tracyClientOwner = nullptr );                  // sceneQueue empty string selects generated demo mode.
-    SkullbonezCore::Core::SbResult
-    BindRenderBackend( Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame,
-                       Rendering::Dx12GraphTransientPool& renderGraph, Rendering::Dx12ResourceBuilder& renderResources,
-                       Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
-                       Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner& raytracing,
-                       bool raytracingAvailable,
-                       std::optional<std::reference_wrapper<Rendering::Dx12ShaderDevelopment>> shaderDevelopment
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-                       ,
-                       Rendering::Dx12ImGuiRendererOwner& developmentUiRenderer
-#endif
-    );
+    SkullbonezCore::Core::SbResult BindRenderBackend( Rendering::RenderBackendDX12& backend );
     ~Run();
     void Initialise();                                                                                            // Initialises shared resources and loads first scene
     const SkullbonezCore::Core::SbResult& LastSceneLoadResult() const;                                            // Initialise scene-load result for CLI startup checks.

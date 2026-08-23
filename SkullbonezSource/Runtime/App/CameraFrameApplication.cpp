@@ -141,10 +141,10 @@ void CameraControlState::TickControls( Runtime::SceneWorld& world, AttachedCamer
 
     if ( RunCameraModeIsAttached( mode ) )
     {
-        const float orbitYawDelta = static_cast<float>( input.xMove ) * CAMERA_MOUSE_REFERENCE_DT *
+        const float orbitYawDelta = static_cast<float>( inputXMove ) * CAMERA_MOUSE_REFERENCE_DT *
                                     config.camera.mouseSensitivity;
 
-        const float orbitPitchDelta = static_cast<float>( input.yMove ) * CAMERA_MOUSE_REFERENCE_DT *
+        const float orbitPitchDelta = static_cast<float>( inputYMove ) * CAMERA_MOUSE_REFERENCE_DT *
                                       config.camera.mouseSensitivity;
 
         (void)attachedCamera.TickFollow( world, orbitYawDelta, orbitPitchDelta, presentationAlpha );

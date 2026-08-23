@@ -153,15 +153,6 @@
       "destructures_at_entry": "no"
     },
     {
-      "key": "FramePresentationFacts",
-      "site": "SkullbonezSource/Runtime/App/Run.h:218",
-      "members": 4,
-      "verdict": "retain",
-      "owner": "NA2 / Runtime/App",
-      "reason": "Presentation alpha, capture pinning, frame duration, and active UI lane are sampled once after simulation and consumed by one frame publication; mixing ticks would publish mismatched visual and capture state.",
-      "destructures_at_entry": "no"
-    },
-    {
       "key": "FrameEntryContext",
       "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:218",
       "members": 8,

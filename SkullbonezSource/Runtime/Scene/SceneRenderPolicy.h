@@ -28,10 +28,5 @@ struct SceneRenderPolicyState
     bool pipelineSyncEnabled = false;
 };
 
-struct SceneRenderActivationRequest
-{
-    int sceneObjectCapacity = 0;
-    bool pending = false;
-};
 } // namespace Runtime
 } // namespace SkullbonezCore

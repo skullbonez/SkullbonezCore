@@ -457,26 +457,18 @@ void HandleEditorSceneSaveHotkey( SkullbonezCore::Core::SbDiagnosticStore& diagn
 }
 
 
-EditorScreenshotRequest BuildEditorScreenshotRequest( bool wasPressed )
+std::string BuildEditorScreenshotPath()
 {
-    EditorScreenshotRequest request;
-
-    if ( !wasPressed )
-    {
-        return request;
-    }
-
     static int sScreenshotSeq = 0;
     char path[256] = {};
 
     if ( RuntimeFileWriter::NextNumberedPath( path, sizeof( path ), "Screenshots", "screenshot_", ".bmp", sScreenshotSeq,
                                               100 ) )
     {
-        request.requested = true;
-        request.path = path;
+        return path;
     }
 
-    return request;
+    return {};
 }
 
 

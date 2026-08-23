@@ -648,7 +648,7 @@ bool DiagnosticsRuntime::WriteMainMemoryDump( const SkullbonezCore::Core::MainMe
              "    \"solver_retention_seconds\": %d,\n"
              "    \"memory_budget_clamped\": %s,\n"
              "    \"solver_window_reduced\": %s,\n",
-             scene.currentFrame, stats.sampleTimeSeconds, stats.process.available ? "true" : "false",
+             scene.CurrentFrame(), stats.sampleTimeSeconds, stats.process.available ? "true" : "false",
              stats.process.taskManagerMetricName, static_cast<unsigned long long>( stats.process.taskManagerBytes ),
              static_cast<unsigned long long>( stats.process.workingSetBytes ),
              static_cast<unsigned long long>( stats.process.privateWorkingSetBytes ),
@@ -730,8 +730,8 @@ bool DiagnosticsRuntime::WriteMainMemoryDump( const SkullbonezCore::Core::MainMe
              static_cast<unsigned long long>( stats.trackedOvershootBytes ),
              static_cast<unsigned long long>( stats.reconciledTotalBytes ),
              static_cast<unsigned long long>( stats.reconciliationDeltaBytes ),
-             static_cast<unsigned long long>( stats.foreignFreeCount ), scene.currentFrame, scene.targetFrameCount,
-             scene.modelCount, scene.testComplete ? "true" : "false" );
+             static_cast<unsigned long long>( stats.foreignFreeCount ), scene.CurrentFrame(), scene.TargetFrameCount(),
+             scene.ModelCount(), scene.TestComplete() ? "true" : "false" );
 
     fclose( file );
     fprintf( stdout, "[memory] Wrote main memory dump: %s\n", m_mainMemoryDumpPath );
@@ -825,8 +825,7 @@ void DiagnosticsRuntime::BeforeSceneUnload( int loadCount, int currentFrame, con
 {
     ReportStoreCapacityRows( loadCount, scenePath, "scene_unload" );
 #ifdef _DEBUG
-    RuntimeSceneDiagnosticFacts facts;
-    facts.currentFrame = currentFrame;
+    const RuntimeSceneDiagnosticFacts facts( 0, 0, 0, currentFrame );
     EndPhysicsDiagnosticsRun( facts, "scene_reload" );
 #else
     (void)currentFrame;

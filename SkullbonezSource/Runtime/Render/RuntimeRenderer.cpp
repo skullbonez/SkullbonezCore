@@ -1752,23 +1752,13 @@ RenderResourceContext RuntimeRenderer::BuildRenderResourceContext( bool cinemati
 
 
 RuntimeRenderer::RuntimeRenderer( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
-                                  Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame,
-                                  Rendering::Dx12GraphTransientPool& renderGraph,
-                                  Rendering::Dx12ResourceBuilder& renderResources,
-                                  Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
-                                  Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner& raytracing,
-                                  bool raytracingAvailable, const RenderWorldView& world, int sceneIndex, int sceneLoadCount
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-                                  ,
-                                  Rendering::Dx12ImGuiRendererOwner& developmentUiRenderer
-#endif
-                                  )
+                                  Rendering::RenderBackendDX12& backend, const RenderWorldView& world,
+                                  int sceneIndex, int sceneLoadCount )
     : m_resultDiagnostics( resultDiagnostics ),
-      m_resources( resultDiagnostics, renderDevice, renderFrame, renderGraph, renderResources, renderTextures,
-                   renderGeometry, renderDiagnostics, raytracing, raytracingAvailable, world, sceneIndex, sceneLoadCount ),
+      m_resources( resultDiagnostics, backend, world, sceneIndex, sceneLoadCount ),
       m_window( world.window ), m_world( world.worldEnvironment ), m_profiler( world.profiler ),
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-      m_developmentUiRenderer( &developmentUiRenderer ),
+      m_developmentUiRenderer( &backend.DevelopmentUiRenderer() ),
 #endif
       m_fullscreenQuadPass( m_resources.PassResources().fullscreen ),
       m_skyPass( m_resources.PassResources().sky, m_resources.PassResources().fullscreen, m_resources.SkyBoxOwner(),
@@ -1846,13 +1836,6 @@ void RuntimeRenderer::UpdateDebugVisualizers( float secondsPerFrame, const Runti
     PROFILE_END( "Frame/PostPhysics/PhysicsDebugVisualizer" );
 
     PROFILE_END( "Frame/PostPhysics" );
-}
-
-
-void RuntimeRenderer::ResetSceneRuntimePolicyFromConfig()
-{
-    SetVsyncEnabled( m_resources.Config().runtimeRender.vsyncEnabled );
-    SetPipelineSyncEnabled( m_resources.Config().runtimeRender.forcePipelineSync );
 }
 
 

@@ -57,18 +57,9 @@ struct RunLaunchOptions;
 
 inline RuntimeSceneDiagnosticFacts ProjectSceneDiagnosticFacts( const SceneSessionState& scene )
 {
-    RuntimeSceneDiagnosticFacts facts;
-    facts.currentSceneIndex = scene.currentSceneIndex;
-    facts.loadCount = scene.loadCount;
-    facts.manualResetCount = scene.manualResetCount;
-    facts.currentFrame = scene.currentFrame;
-    facts.targetFrameCount = scene.targetFrameCount;
-    facts.modelCount = scene.modelCount;
-    facts.rngSeed = scene.rngSeed;
-    facts.fixedStep = scene.isFixedStep;
-    facts.testComplete = scene.isTestComplete;
-    facts.finishLogged = scene.isFinishLogged;
-    return facts;
+    return RuntimeSceneDiagnosticFacts( scene.currentSceneIndex, scene.loadCount, scene.manualResetCount,
+                                        scene.currentFrame, scene.targetFrameCount, scene.modelCount, scene.rngSeed,
+                                        scene.isFixedStep, scene.isTestComplete, scene.isFinishLogged );
 }
 
 struct RuntimeFrameMetricsLifecycleActions
@@ -135,17 +126,6 @@ constexpr bool SceneRenderActivationCompletesTransition( bool sceneMutationSucce
 }
 
 ScenePresentationValues ProjectScenePresentationValues( const OverlayDebugState& presentation );
-
-void ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction, const RunLaunchOptions& launchOptions,
-                                     RuntimeOverlayDiagnostics& overlays, CaptureController& capture,
-                                     SceneLifecycleGenerationObserver& overlayLifecycle, SceneController& sceneController,
-                                     SceneLifecycleGenerationObserver& inputLifecycle, InputRouter& inputRouter,
-                                     RuntimeInteractionController& interaction,
-                                     SceneLifecycleGenerationObserver& cameraLifecycle, CameraControlState& camera,
-                                      SceneLifecycleGenerationObserver& attachedCameraLifecycle,
-                                      AttachedCameraController& attachedCamera,
-                                      EditorToolsOwner& editorTools, RuntimeTools& runtimeTools,
-                                      ReplayRuntime& replayRuntime );
 
 void ApplySceneLoadPresentation( SceneLoadTransaction& transaction, Window& window, UI::InGameUI& operatorUi,
                                  RuntimeValidationHarness& validationHarness, GraphicsStressController& graphicsStress,

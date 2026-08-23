@@ -46,6 +46,7 @@ Related:
 #include "../../Core/Log.h"
 #include "../../Physics/PhysicsTimestep.h"
 #include "../../Rendering/DX12/Dx12Diagnostics.h"
+#include "../../Rendering/DX12/RenderBackendDX12.h"
 #include "../../UI/UI.h"
 #include "../../World/Terrain.h"
 
@@ -313,40 +314,22 @@ Run::Run( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Window& wi
     m_startup.ApplyStartupConfig( cfg );
 }
 
-SkullbonezCore::Core::SbResult
-Run::BindRenderBackend( Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame,
-                        Rendering::Dx12GraphTransientPool& renderGraph, Rendering::Dx12ResourceBuilder& renderResources,
-                        Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
-                        Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner& raytracing,
-                        bool raytracingAvailable,
-                        std::optional<std::reference_wrapper<Rendering::Dx12ShaderDevelopment>> shaderDevelopment
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-                        ,
-                        Rendering::Dx12ImGuiRendererOwner& developmentUiRenderer
-#endif
-)
+SkullbonezCore::Core::SbResult Run::BindRenderBackend( Rendering::RenderBackendDX12& backend )
 {
-    auto renderer = std::make_unique<RuntimeRenderer>( m_resultDiagnostics, renderDevice, renderFrame, renderGraph,
-                                                       renderResources, renderTextures, renderGeometry, renderDiagnostics,
-                                                       raytracing, raytracingAvailable,
+    auto renderer = std::make_unique<RuntimeRenderer>( m_resultDiagnostics, backend,
                                                        RenderWorldView { m_assets, m_window, m_config,
                                                                          m_sceneController.Scene().Environment(),
                                                                          m_profiler },
                                                        m_sceneController.State().currentSceneIndex,
-                                                       m_sceneController.State().loadCount
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-                                                       ,
-                                                       developmentUiRenderer
-#endif
-    );
+                                                       m_sceneController.State().loadCount );
     m_renderer = std::move( renderer );
 
-    m_shaderDevelopment = shaderDevelopment;
+    m_shaderDevelopment = std::ref( backend.ShaderDevelopment() );
     Renderer().SetVsyncEnabled( m_config.runtimeRender.vsyncEnabled );
     Renderer().SetPipelineSyncEnabled( m_config.runtimeRender.forcePipelineSync );
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    const SkullbonezCore::Core::SbResult imguiStartResult = m_imguiEditor.Start( m_window.NativeWindowHandle(),
-                                                                                 &developmentUiRenderer );
+    const SkullbonezCore::Core::SbResult imguiStartResult =
+        m_imguiEditor.Start( m_window.NativeWindowHandle(), &backend.DevelopmentUiRenderer() );
 
     if ( !imguiStartResult.Ok() )
     {
@@ -787,11 +770,7 @@ void Run::Initialise()
     m_lastSceneLoadResult = LoadSceneRequest( sceneLoad, SceneLoadRequest::Load( 0, false, false, false ) );
 
     ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, m_sceneController.LifecyclePacket(), m_timers );
-    ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_capture,
-                                    m_overlaySceneLifecycleObserver, m_sceneController, m_inputSceneLifecycleObserver,
-                                    m_inputRouter, m_interaction, m_cameraSceneLifecycleObserver, m_camera,
-                                    m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_editorTools, m_runtimeTools,
-                                    m_replayRuntime );
+    ApplySceneLoadRuntimeReactions( sceneLoad );
 
     ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_graphicsStress,
                                 m_graphicsStressSceneObserver, m_launchOptions,
@@ -969,11 +948,7 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
                                                                                                     false ) );
 
         ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, m_sceneController.LifecyclePacket(), m_timers );
-        ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_capture,
-                                        m_overlaySceneLifecycleObserver, m_sceneController, m_inputSceneLifecycleObserver,
-                                        m_inputRouter, m_interaction, m_cameraSceneLifecycleObserver, m_camera,
-                                        m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_editorTools,
-                                        m_runtimeTools, m_replayRuntime );
+        ApplySceneLoadRuntimeReactions( sceneLoad );
 
         ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_graphicsStress,
                                     m_graphicsStressSceneObserver, m_launchOptions,
