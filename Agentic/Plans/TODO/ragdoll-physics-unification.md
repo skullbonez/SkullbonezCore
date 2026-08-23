@@ -4,7 +4,9 @@ Date: 2026-08-22
 Status: Active by explicit owner direction. 2/10 phases complete; FP2 active under motion-eligibility policy version 2.
 Impact area: collider local-offset correctness, deterministic Discrete simulation, automatic Swept TOI promotion, linear and angular motion eligibility, ragdoll point joints, joint compliance, shared constraint iteration, late speculative ragdoll contacts, physics baselines, determinism tests, and A/B performance evidence
 Owner: Physics contact and joint solver
-Priority: Binding first plan; execute FP2-FP9 in strict order ahead of Runtime Boundary Separation
+Priority: Binding second plan under the superseding 2026-08-23 owner direction;
+execute FP2-FP9 in strict internal order. This position allocates scarce slots
+and orders fan-in; it is not a Runtime or UI predecessor.
 Commit name: `RAGDOLL_PHYSICS`
 
 ## Owner Direction
@@ -13,6 +15,11 @@ The owner explicitly activated this plan on 2026-08-22, assigned the
 `RAGDOLL_PHYSICS` commit token, placed it ahead of every existing master-plan
 item, and approved FP0 as the first behavior transition. Later phases remain
 strictly gated by the acceptance boundary immediately before them.
+
+On 2026-08-23 the owner activated `ERROR_OBSERVABILITY` ahead of this plan.
+That later direction changes scarce-slot priority and coordinator fan-in only;
+it does not weaken FP2-FP9 internal order or make Physics a Runtime/UI
+predecessor.
 
 On 2026-08-23 the owner replaced FP1's thickness-scaled eligibility rule with
 motion-eligibility policy version 2. Linear centre travel and angular tip travel
@@ -38,6 +45,15 @@ global `*.exe` ignore rule otherwise hides this explicitly requested evidence.
 If a phase changes the Physics baseline, the manifest records both the prior
 and accepted digests; an unchanged phase records that no golden transition was
 needed.
+
+The 2026-08-23 FP1 launch audit proved that a lone retained executable is not a
+runnable artifact: FP0/FP1 import `WinPixEventRuntime.dll`, but their artifact
+directories do not contain it. `ERROR_OBSERVABILITY` E5 owns the deterministic
+bundle tool and FP0/FP1 backfill. FP2 source/focused evidence may proceed in a
+disjoint worktree, but FP2 cannot close until its artifact stages and hashes
+every non-system runtime and passes the isolated sanitized-`PATH` launch gate
+defined by `all-build-sb-error-observability.md`. Do not launch the current
+FP0/FP1 lone executable and accept the Windows loader dialog as Physics evidence.
 
 This is a major Physics-system transition, not only a ragdoll feature. Its
 non-negotiable order is:
@@ -408,6 +424,12 @@ scene-specific exceptions, or manual collision-mode authoring.
    outside this phase.
 7. Serialize configuration and stage-owned promotion state required for exact
    replay restore. Do not serialize a redundant authored projectile mode.
+8. Delete or explicitly adjudicate the test-only
+   `BoundingBox::TestCollision(BoundingSphere, ...)` and
+   `BoundingSphere::TestCollision(BoundingBox, ...)` legacy overloads. The live
+   object narrowphase routes both concrete orders through
+   `SweepSphereAgainstBox`; a symmetry-only unit test must not manufacture
+   production reachability for retired swept surface.
 
 ### Hazards And Required Tests
 
@@ -427,6 +449,9 @@ scene-specific exceptions, or manual collision-mode authoring.
   candidate expansion or TOI loop.
 - Replay capture and restore must reproduce promotion, demotion, impacts, and
   resolved paths byte-identically.
+- Strict compiled-symbol reachability must remove both temporary
+  sphere-box-overload `repair-plan` rows by deleting/adjudicating their retired
+  surface and preserving focused coverage at the live specialized sweep owner.
 
 ### FP2 Acceptance
 

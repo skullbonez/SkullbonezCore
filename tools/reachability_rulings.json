@@ -65,6 +65,24 @@
       "plan": ""
     },
     {
+      "file": "SkullbonezSource/Physics/BoundingBox.cpp",
+      "signature": "float BoundingBox::TestCollision( const BoundingSphere& target, const Ray& targetRay, const Ray& focusRay ) const",
+      "owner": "RAGDOLL_PHYSICS FP2 swept-pair surface",
+      "disposition": "repair-plan",
+      "reason": "The specialized sphere-against-box sweep bypasses this legacy overload in production; FP2 must delete or otherwise adjudicate the test-manufactured surface instead of retaining it for symmetry alone.",
+      "evidence": "ObjectContactManifold.cpp:2064-2090 routes both sphere-box orders through SweepSphereAgainstBox; CollisionShape.h::TestShapeCollision has no call site; TestBounds.cpp:115-125 is the only exact consumer. 2026-08-23 synchronized Automation/Debug/Profile census: classification=test-only; own_tu_calls=0; test_calls=1; required_arity=3/3.",
+      "plan": "Agentic/Plans/TODO/ragdoll-physics-unification.md"
+    },
+    {
+      "file": "SkullbonezSource/Physics/BoundingSphere.cpp",
+      "signature": "float BoundingSphere::TestCollision( const BoundingBox& target, const Ray& targetRay, const Ray& focusRay ) const",
+      "owner": "RAGDOLL_PHYSICS FP2 swept-pair surface",
+      "disposition": "repair-plan",
+      "reason": "The specialized sphere-against-box sweep bypasses this legacy overload in production; FP2 must delete or otherwise adjudicate the test-manufactured surface instead of retaining it for symmetry alone.",
+      "evidence": "ObjectContactManifold.cpp:2064-2090 routes both sphere-box orders through SweepSphereAgainstBox; CollisionShape.h::TestShapeCollision has no call site; TestBounds.cpp:115-125 is the only exact consumer. 2026-08-23 synchronized Automation/Debug/Profile census: classification=test-only; own_tu_calls=0; test_calls=1; required_arity=3/3.",
+      "plan": "Agentic/Plans/TODO/ragdoll-physics-unification.md"
+    },
+    {
       "file": "SkullbonezSource/Physics/SpatialGrid.cpp",
       "signature": "void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs, bool restrictToPairSourceCells )",
       "owner": "Math::CollisionDetection::SpatialGrid pure membership seam",
@@ -102,11 +120,11 @@
     },
     {
       "file": "SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.Execution.cpp",
-      "signature": "template <bool RetainPipelineRecords> void PhysicsNarrowphaseStage::ProcessObjectNarrowphaseIsland( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, PhysicsTerrainView terrain, std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<const std::pair<int, int>> candidatePairs, PhysicsNarrowphaseWakeAccess wakeAccess, std::span<float> timeRemaining, std::span<const PersistentContactCacheEntry> persistentContactCache, const ObjectNarrowphaseStepPolicy& policy, Core::Profiler* profiler, int islandIndex )",
+      "signature": "template <bool RetainPipelineRecords> void PhysicsNarrowphaseStage::ProcessObjectNarrowphaseIsland( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, PhysicsTerrainView terrain, std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<const std::pair<int, int>> candidatePairs, PhysicsNarrowphaseWakeAccess wakeAccess, std::span<float> timeRemaining, std::span<const uint8_t> motionEligibilityState, const ObjectNarrowphaseStepPolicy& policy, Core::Profiler* profiler, int islandIndex )",
       "owner": "Physics::PhysicsNarrowphaseStage island work item",
       "disposition": "retain-owner",
       "reason": "Each dispatched island delegates its bounded pair range to this operation.",
-      "evidence": "ObjectNarrowphaseIslandStage::operator() selects the full/count specialization once per island; WorkerPool::ParallelForNoAlloc dispatches that typed work item. 2026-07-31 synchronized Automation/Debug/Profile census: classification=no-reference; mapping=specialization-set; own_tu_calls=0; test_calls=0; ambiguous_production_calls=0; required_arity=11/11; symbols=ProcessObjectNarrowphaseIsland<true>, ProcessObjectNarrowphaseIsland<false>",
+      "evidence": "ObjectNarrowphaseIslandStage::operator() selects the full/count specialization once per island and passes the current motion-eligibility span; WorkerPool::ParallelForNoAlloc dispatches that typed work item. 2026-08-23 synchronized Automation/Debug/Profile census: classification=no-reference; mapping=specialization-set; own_tu_calls=0; test_calls=0; ambiguous_production_calls=0; required_arity=11/11; symbols=ProcessObjectNarrowphaseIsland<true>, ProcessObjectNarrowphaseIsland<false>",
       "plan": ""
     },
     {

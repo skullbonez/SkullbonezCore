@@ -1,14 +1,15 @@
 ---
 name: parallel-orchestrator
-description: Extend SkullbonezCore's repository orchestrator with a native multi-plan queue that actively runs as many dependency-ready plans, implementation lanes, tests, investigations, validations, and independent bug fixes as available agents can safely support, each on an isolated branch and worktree before main-orchestrator fan-in. Use when the user explicitly invokes the parallel orchestrator, asks to parallelize MASTER-PLAN or Agentic/Plans execution, requests multiple implementation agents or worktrees, asks to fix eligible master bug-report rows alongside planned work, or asks to reduce plan wall-clock time while preserving dependency, validation, review, commit, push, blocker, ledger, and handoff rules.
+description: Extend SkullbonezCore's repository orchestrator with a slot-saturating queue that runs at most one distinct plan per subsystem, supports multiple independent bugs across different unleased subsystems, and maps every active worker to an isolated branch and worktree before coordinator fan-in. Use when the user invokes the parallel orchestrator, asks to parallelize MASTER-PLAN or Agentic/Plans execution, requests multiple implementation agents or worktrees, asks to fix eligible master bug-report rows alongside planned work, or asks to reduce plan wall-clock time while preserving dependency, validation, review, commit, push, blocker, ledger, and handoff rules.
 ---
 
 # Parallel Orchestrator
 
-Run the normal repository orchestrator with a native multi-plan queue. Fill
-available slots with dependency-ready, merge-safe plans or lanes on isolated
-branches/worktrees, then fan them into the integration branch through the main
-orchestrator. Parallelism changes scheduling, not the delivery contract.
+Run the normal repository orchestrator with a native parallel queue. Fill every
+slot whose expected wall-clock saving exceeds its merge and validation overhead,
+give every occupied slot one isolated worktree, and fan accepted commits into
+the integration branch through the main orchestrator. Parallelism changes
+scheduling, not the delivery contract.
 
 ## Load And Preserve The Base Contract
 
@@ -29,10 +30,12 @@ wording does not disable this multi-plan policy.
 Replace the base skill's plain one-plan queue and implementation-sub-agent
 prohibition with this rule:
 
-> Sub-agents may own separate dependency-ready plans or independent lanes within
-> a plan. Every writer uses a fresh branch and isolated worktree. The coordinator
-> actively maximizes safe occupancy, while retaining dependency analysis, file
-> leases, integration, acceptance, validation selection, ledger truth, plan
+> Sub-agents may own separate dependency-ready plans, independent lanes within
+> one plan, or independent bug fixes. Every occupied agent slot owns exactly one
+> isolated writable worktree. Distinct active plans never share a subsystem
+> lease, and active bugs use different subsystems from every active plan and bug.
+> The coordinator maximizes useful occupancy while retaining dependency analysis,
+> file leases, integration, acceptance, validation selection, ledger truth, plan
 > progress, commits, pushes, blocker records, and final reporting.
 
 Invoking this skill explicitly supplies that sub-agent/worktree authorization.
@@ -49,8 +52,111 @@ It does not authorize any of the following:
 
 MASTER-PLAN position is priority, not a dependency edge. Use it to allocate
 scarce slots and order fan-in, but start a later-listed plan whenever no direct
-dependency or credible merge conflict requires waiting. Never leave an agent
-slot idle while dependency-ready, merge-safe work exists.
+dependency, subsystem lease, or credible merge conflict requires waiting. An
+idle slot is correct only when every remaining lane is blocked, conflicts with
+an active subsystem/resource lease, or is too small to repay fan-out/fan-in.
+
+### Reasonable Slot Saturation And Subsystem Leases
+
+Discover the live agent-slot capacity from the current runtime; never bake a
+slot count into this skill. The coordinator occupies one slot and owns the
+integration worktree. Map every other occupied slot one-to-one to one worker and
+one writable worktree for the complete lifetime of that lane. Never let two
+active agents share a worktree or one active agent write through two worktrees.
+
+Before dispatch, derive the currently dispatched phase or lane's lease set from
+its actual write scope, production owners, retained state, public contracts,
+tests, project metadata, fixtures, baselines, and generated files. Recompute it
+at every phase transition or scope expansion. Do not union future phases into a
+current lease, and do not turn a wholly read-only coverage path into a production
+owner lease. Use real ownership boundaries, not only the first directory in a
+path. A phase or lane leases every owner it can mutate during that dispatch.
+
+When the master bug report exists, parse the distinct non-empty `subsystem`
+values from `Agentic/Bugs/master_bug_report.csv` at the start of every wave and
+record that exact set in the wave manifest. Treat those strings as canonical
+bug-subsystem aliases, not a closed-world package list. Map a plan or bug to
+every matching alias. When a real affected owner has no current bug row, add a
+normalized path-owner lease such as `path-owner:Runtime/UI` or
+`path-owner:Runtime/Tools`; never coerce it into an unrelated CSV value. Add
+Add the applicable canonical `resource:repo:`, `resource:path:`, or
+`resource:facility:` lease for shared mutable build outputs, project manifests,
+GPU execution, baselines, or other exclusive facilities.
+
+Canonicalize every non-CSV lease before comparison:
+
+- For a source owner, start from its repository-relative owner root below
+  `SkullbonezSource/`, strip that prefix, use `/`, trim trailing separators, and
+  record `path-owner:<root>` (for example `path-owner:Runtime/UI`). On Windows,
+  compare case-insensitively. Equivalent roots and ancestor/descendant roots
+  collide, so `path-owner:Runtime` conflicts with `path-owner:Runtime/UI`.
+- For a shared tracked file, strip the worktree prefix and record its canonical
+  repository-relative path as `resource:repo:<path>`. Worktree location cannot
+  hide a merge collision.
+- For a mutable external output, record its resolved physical path as
+  `resource:path:<absolute-path>` using platform path-comparison semantics.
+  Different worktree-local outputs therefore remain distinct.
+- For a non-path facility, use one lower-kebab identity such as
+  `resource:facility:gpu-dx12` or `resource:facility:physics-baseline-writer`.
+
+Record the normalized lease set in the wave manifest and worker prompt. Reject
+an unnormalized, equivalent, or overlapping spelling before dispatch.
+
+Acquire a `resource:*` lease only for the exact edit or command window that can
+mutate it, and release it immediately after the output is stable. A plan does
+not retain GPU, baseline, performance, build-output, project-manifest, or
+terminal-validation resources merely because a future phase will use them.
+
+- Run at most one distinct active phase/lane whose production lease set contains
+  the same current CSV alias or a colliding canonical path-owner lease. Do not invent broad
+  aggregate aliases. When ownership is ambiguous, conservatively lease every
+  plausible exact alias and path owner. Concurrent commands or edit windows
+  sharing a `resource:*` lease remain serial even when their surrounding phases
+  continue. Git text-merge predictions never override either collision.
+- Permit multiple lanes inside the same active plan only after its shared
+  contract is frozen, write/test scopes are disjoint, and saved execution time
+  is likely to exceed integration and cumulative-validation cost.
+- After assigning dependency-ready plans from unleased subsystems, fill useful
+  remaining slots with eligible bugs from different unleased subsystems. Run at
+  most one active bug per subsystem.
+- Use a read-only investigation or evidence lane only when it advances a real
+  acceptance decision. Never manufacture work merely to display full occupancy.
+
+Treat `RAGDOLL_PHYSICS` and `GAME_UI_COMPONENTS` as parallel-compatible plan
+families whenever their phase-local direct prerequisites are satisfied. Physics
+normally leases `Physics`, adding `path-owner:Runtime/Tools` only while changing
+its instrumentation. UI normally leases `UI Library` plus the exact Runtime
+product packages established by UI0. Displaying a detached Physics value,
+linking both libraries into the application, or running a cross-subsystem gate
+does not by itself create a production lease. If either lane edits their shared
+UI/diagnostics contract, project/test manifests, or the other lane's package,
+expand the lease before editing. Serialize shared baseline, GPU, performance,
+and terminal validation after fan-in; do not serialize the whole plans for those
+command-level resources.
+
+Recompute dependencies, subsystem leases, machine-resource pressure, and
+expected merge overhead whenever a lane finishes or exposes new scope. Refill a
+freed slot promptly when a worthwhile safe lane exists.
+
+### Scheduling Regression Matrix
+
+Whenever this scheduling policy changes, review one frozen wave against these
+fixtures before dispatch:
+
+- accept one `RAGDOLL_PHYSICS` lane leasing `Physics` beside one UI1/UI2 lane
+  leasing `UI Library`, with separate agents, worktrees, and mutable outputs;
+- reject a second distinct Physics plan or second distinct UI plan in that wave;
+- reject a Replay bug beside UI3 when both lease `Runtime Replay`;
+- reject any otherwise-disjoint pair whose path-owner or mutable resource lease
+  intersects; and
+- reject aliasing spellings such as `Runtime/UI`,
+  `SkullbonezSource\Runtime\UI`, or case variants until they normalize to one
+  canonical lease;
+- accept disjoint builds only after resolving their intermediate, binary, PDB,
+  cache, report, and artifact paths inside separate worktrees.
+
+Record the pass/reject result in the wave manifest or handoff. These fixtures
+prove scheduler behavior; they do not waive the live plan/lease derivation.
 
 ### Reversible Decisions During Fan-Out
 
@@ -63,8 +169,8 @@ shapes, pin them with focused evidence, and report them for later revision.
 For example, an unspecified motion threshold may provisionally use `0.1`
 metres per Physics tick to promote and `0.075` metres to demote, independent of
 collider thickness. Keep the wave running and notify the user afterward. Pause
-only the affected lane for a true approval boundary; the dedicated bug lane and
-other independent lanes continue.
+only the affected lane for a true approval boundary; eligible bug-pool workers
+and other independent lanes continue.
 
 ### Out-Of-Plan Bug And Backlog Work
 
@@ -87,151 +193,28 @@ lane below. Any other out-of-plan campaign still requires separate user
 activation. Refresh the active plan's inventories and baseline evidence after
 an accepted side branch lands.
 
-## Concurrent Master Bug-Report Lane
+## Concurrent Master Bug-Report Pool
 
-When `Agentic/Bugs/master_bug_report.csv` exists, reserve one live sub-agent slot
-for an independent bug-fix lane. Keep that lane moving both while the
-coordinator advances the selected MASTER-PLAN task and while the selected task,
-phase, or plan is blocked. A primary-plan blocker never suspends an otherwise
-eligible bug. This is a side lane, not a second source of plan priority.
+When `Agentic/Bugs/master_bug_report.csv` exists, use as many remaining worker
+slots for independent bug fixes as the subsystem leases and fan-in cost justify.
+Multiple bugs may run concurrently, but each must lease a different subsystem
+that is not leased by an active plan or another bug. A primary-plan blocker does
+not suspend otherwise eligible bugs in other subsystems. The pool is a side
+lane, not a second source of plan priority, and it has no fixed reserved size.
 
-Run the bug lane through a separate agent on its own fresh branch and isolated
-worktree. Never execute it in the coordinator agent or worktree, attach it to a
-plan worker's branch, or consume its reserved slot with plan review or
-validation work. When one bug finishes, have the dedicated bug agent rerun its
-triage and begin the next eligible bug without waiting for the primary-plan
-blocker to clear.
+Run every bug through its own agent, fresh branch, and isolated worktree. Never
+execute a bug in the coordinator worktree or attach it to a plan worker's branch.
+When a bug finishes, preserve or integrate it at its declared checkpoint, then
+retriage the pool and refill any worthwhile safe slots.
 
-### Bug Agent Self-Triage
+Before using this pool, read `references/bug-pool.md` completely. It owns the
+eligibility forecast, ranking, coordinator-atomic assignment, lease-expansion
+stop, one-bug-per-branch execution contract, and safe checkpoint fan-in.
 
-The dedicated bug agent owns each selection. Re-read the CSV without trusting
-its `fixed` column alone. Cross-check active plans, SessionState, source, tests,
-relevant history, and coordinator-provided current/upcoming worker file leases,
-contracts, resources, and checkpoint. Start the highest-ranked eligible row
-without waiting for coordinator nomination.
-
-Before ranking bugs, build a conservative conflict forecast from:
-
-- every active `Agentic/Plans/TODO/` plan's impact area, phase worklists,
-  reference sites, intended source moves, project changes, tests, and closure
-  gates;
-- current dirty and untracked files in the coordinator tree;
-- CodeGraph impact/caller results for the reported symbols when CodeGraph is
-  current, confirmed against source;
-- project, generated-proof, baseline, fixture, and rule files affected by both
-  the bug and planned work; and
-- the intended checkpoint commit where the bug would merge.
-
-Treat direct file overlap, shared public-contract edits, planned file moves,
-common retained-state ownership, shared behavior-sensitive tests, and likely
-semantic conflict as conflicts even when Git could merge the text. If the
-forecast is uncertain, defer the bug. The purpose of the side lane is useful
-work that is reasonably expected to merge, not speculative work that must be
-ported by hand later.
-
-Choose a row only when all of these are true:
-
-- no active or future registered plan phase already owns the finding;
-- its source, tests, fixtures, baselines, project metadata, and generated files
-  do not overlap any active plan task or another pending bug branch;
-- the fix needs no unresolved owner, schema, dependency, baseline, or golden
-  decision;
-- one bounded regression test can mechanically express the expected behavior,
-  or the worker records why that is impractical;
-- its focused validation can run in the worker worktree without contending for
-  the coordinator's exclusive GPU, performance, or baseline resources; and
-- the branch can wait until the recorded integration checkpoint without
-  depending on uncommitted work from another lane.
-
-Require the expected fan-in to be mechanical: a normal merge should retain the
-bug's complete implementation and regression witness without choosing between
-two competing contracts. A bug that would require manual semantic transplant,
-plan redesign, baseline reinterpretation, or a conflict-resolution owner
-decision is ineligible.
-
-After hard eligibility filtering, rank by reported severity descending, then
-predicted clash risk across files, contracts, tests, metadata, fixtures, and
-validation resources, then stable id. Independence outranks severity: when a
-higher-severity row carries materially more integration risk, choose the safer
-row and record why. Return the ranked shortlist and deferrals for audit.
-
-Do not select:
-
-- a Physics finding already assigned to an FP phase;
-- Runtime package, App, operator-UI, or project-topology work owned by an active
-  boundary-separation plan;
-- UI foundation/product work owned by an active UI separation plan;
-- a row whose fix changes an owner-controlled baseline or golden;
-- a tooling row whose repair would change the active plan's required gate while
-  that plan is using the old gate as evidence; or
-- a broad cluster merely because its rows share a subsystem label.
-
-Record every skipped row that was seriously considered with the conflicting
-plan/phase, overlapping files or symbols, and safe reconsideration checkpoint.
-Do not repeatedly re-investigate the same ineligible row during one run unless
-the owning plan closes or its source scope materially changes.
-
-If no row is eligible, record the eligibility screen and why each seriously
-considered row was deferred. Leave the dedicated bug lane idle until an eligible
-row appears; do not repurpose its agent as a comment-audit worker. Never
-manufacture bug work to satisfy a concurrency target.
-
-### Execute One Bug Per Branch
-
-Use one separate agent, branch, and isolated worktree per active bug. Combine two
-rows only when they have one inseparable root cause and one acceptance witness.
-Prefer:
-
-```text
-codex/bug-<finding-id-lower>-<short-slug>
-```
-
-The bug worker follows the repository startup contract, diagnoses before
-editing, adds or updates the owning subsystem regression test, applies the
-comment and code standards, runs the cumulative focused validation mapped by
-`AGENTS.md`, commits locally, and returns the exact handoff required under
-Dispatch Contract.
-
-Bug commits use normal commit-message rules with the finding id; they do not
-claim MASTER-PLAN progress. The worker must not edit MASTER-PLAN, SessionState,
-the active plan, the live ledger, or the bug CSV unless that CSV's documented
-owner explicitly requires status mutation.
-
-### Hold And Integrate At A Safe Checkpoint
-
-Do not merge a completed bug branch into the middle of a plan phase whose
-baseline, determinism, performance, graph, or validation evidence is still
-being established. Preserve its commit and focused evidence, then continue the
-main lane.
-
-Default fan-in to the first checkpoint after every overlapping active plan has
-published coherent evidence and before a dependent plan captures its baseline.
-This keeps evidence coherent without waiting for unrelated plans. A more
-frequent checkpoint is allowed when it cannot invalidate accepted evidence.
-
-When the primary plan is blocked, treat its pushed documentation-only blocker
-record as the bug fan-in checkpoint. Integrate completed independent bug branches
-one at a time after focused review and validation, push the accepted commits,
-then dispatch the next eligible bug from a fresh branch and worktree. Do not
-hold safe bug fixes until the blocked plan completes.
-
-At the checkpoint:
-
-1. Recreate or refresh a clean integration worktree at the pushed coordinator
-   commit without rebasing worker history.
-2. Merge eligible bug branches one at a time in dependency order.
-3. Inspect and validate each integrated bug independently; retain separate
-   commits rather than collapsing unrelated fixes.
-4. Run the cumulative cross-subsystem gates for the combined tree.
-5. Push normally, record each full commit and result in the live ledger/handoff,
-   and delete a worker worktree only after its evidence and integration are
-   secure.
-6. Re-read MASTER-PLAN and refresh every newly ready plan's inventories from
-   the final combined commit.
-
-If a bug branch conflicts with accepted plan ownership or behavior at fan-in,
-do not guess through the conflict. Leave it unmerged, record the exact blocker
-and deletion/rework condition, and continue with other eligible branches.
+The coordinator assigns one exact finding and complete lease to each worker;
+workers never self-select from a shared pool. If the worker discovers another
+subsystem, it stops before editing that owner and requests expansion. Never fan
+in a bug while an overlapping plan is establishing behavior-sensitive evidence.
 
 ## Bootstrap Before Fan-Out
 
@@ -241,10 +224,14 @@ Complete the base orchestrator bootstrap first:
 2. Resolve and verify the Night Runner integration branch.
 3. Create or reuse the persistent orchestration goal.
 4. Start the base work ledger.
-5. Build the direct dependency/conflict graph for every unfinished live plan.
-6. Select as many dependency-ready, merge-safe plans as available slots permit.
-7. Start and account for every dispatched plan task, then read each plan deeply
-   enough to resolve acceptance, counts, risks, tests, baselines, and stops.
+5. Inventory the current exact subsystem vocabulary and read candidate plans
+   deeply enough to derive their complete lease sets.
+6. Build a dependency, subsystem-lease, resource, and merge-overhead graph for
+   every unfinished live plan.
+7. Select the largest worthwhile set whose dependency edges are satisfied,
+   subsystem lease sets are pairwise disjoint, resources are isolatable, and
+   expected savings exceed fan-out/fan-in cost.
+8. Start and account for every selected task before implementation dispatch.
 
 Do not create worker branches from uncommitted coordinator work. First preserve
 pre-existing dirty files as user-owned, then establish the exact clean commit
@@ -253,10 +240,14 @@ that every lane will use as its base.
 ## Build A Parallel Wave
 
 Treat the unfinished MASTER queue and each selected plan as one dependency
-graph. Fill every available slot with the highest-priority ready plan or lane;
-do not serialize independent plans merely because one appears later in MASTER.
-Give each plan its own branch and worktree, and merge completed branches only
-through the main orchestrator. Before dispatch, answer:
+graph. Fill worthwhile slots with the highest-priority ready plans from distinct
+subsystems, then safe lanes and bugs under the lease rules above. Do not
+serialize plans merely because one appears later in MASTER, but never run two
+distinct plans from the same subsystem concurrently. Give each dispatched
+worker lane its own branch and writable worktree. A plan with multiple permitted
+internal lanes therefore uses one worktree per occupied worker slot; lanes never
+share a plan-level worktree. Merge completed branches only through the main
+orchestrator. Before dispatch, answer:
 
 1. What contract or design decision must be frozen before implementation
    divides?
@@ -296,6 +287,7 @@ files, required evidence, and fan-in order.
 A lane may run concurrently only when:
 
 - every dependency that defines its inputs is already complete;
+- no distinct active plan or bug already leases any subsystem the lane needs;
 - its production write set is disjoint from every other active lane, or it is
   wholly read-only;
 - shared headers or value contracts it consumes are frozen at the base commit;
@@ -331,6 +323,12 @@ isolated. Run GPU launches, graphics stress, performance A/B measurements,
 baseline generation, and terminal plan-completion validation serially unless
 the repository provides an explicitly isolated facility.
 
+Before concurrent build or test commands, resolve every mutable intermediate,
+binary, PDB, cache, report, and artifact output path. Each must reside inside
+its worker worktree or be explicitly unique to that lane. If two lanes resolve
+any shared mutable path, lease that resource exclusively and serialize them.
+Never infer build isolation from Git worktree isolation alone.
+
 ## Ledger-Compatible Concurrency
 
 Preserve the base work ledger as the sole orchestration ledger. Never invent
@@ -339,19 +337,20 @@ token counts, costs, worker identities, or overlapping elapsed time.
 Do not treat the ledger's attached-worker arity as a worktree limit. Worktree
 capacity and live-agent concurrency are separate concerns:
 
-- create as many isolated worktrees as the dependency graph needs;
-- give each dispatched agent/skill lane at most one writable worktree;
-- keep additional prepared, waiting, completed, or integration worktrees even
-  when no agent is currently active in them; and
+- map each occupied agent slot to exactly one writable worktree, including the
+  coordinator slot's integration worktree;
+- retain a completed evidence worktree only until its evidence is preserved and
+  its branch is fanned in or explicitly deferred; and
 - bound simultaneous execution by available agent slots, machine resources,
   dependency safety, and the ledger's ability to account for every live
   session, not by a fixed worktree count in this skill.
 
-The maximum is one writable worktree per dispatched agent or lane, plus the
-coordinator and integration worktrees; there is no fixed plan or worktree
-ceiling. Open distinct task/step accounting for every live plan worker. A
+Every occupied slot has exactly one writable worktree and every writable
+worktree has at most one active agent. Do not precreate an unbounded waiting
+pool. A completed evidence tree may remain temporarily during fan-in, but it is
+not an active slot. Open distinct task/step accounting for every live worker. A
 single-active-task or single-worker ledger seam is a tooling defect to repair,
-not permission to serialize merge-safe plans. Never invent usage or reuse one
+not permission to serialize merge-safe work. Never invent usage or reuse one
 writable tree across agents.
 
 For every live worker, transition to an accountable step before dispatch,
@@ -366,10 +365,12 @@ commit. The next run opens a new task id for its new worker session.
 
 ## Create Worker Worktrees
 
-Create one isolated worktree for every dispatched lane, and create as many lane
-worktrees as the plan, bug side lane, review wave, and integration sequence
-need. Do not serialize work merely to conserve a fixed worktree count. Create
-each worker from the exact frozen integration commit on a fresh local branch.
+Create a worker worktree when its lane is ready to occupy a slot. Keep one
+integration worktree for the coordinator and exactly one writable worktree per
+active worker slot. A completed evidence tree may remain temporarily until
+fan-in, but do not precreate an unbounded waiting pool. Do not serialize safe
+work merely to conserve a fixed worktree count. Create each worker from the
+exact frozen integration commit on a fresh local branch.
 Use the repository's `codex/` branch prefix for worker branches unless the user
 specifies another name. Prefer a stable shape such as:
 
@@ -402,6 +403,7 @@ Integration branch: <branch>
 Worker branch/worktree: <branch and absolute path>
 Authority: <independent plan, plan lane, or master bug-report side lane>
 Tracking identity: <stable plan task id/title or bug finding id/title>
+Subsystem lease: <complete exclusive subsystem set for this lane>
 Commit convention: <resolved current DONE/TOTAL header or normal bug subject>
 Lane kind and objective: <bounded outcome>
 Dependencies already satisfied: <commits/evidence>
@@ -473,9 +475,9 @@ A failed worker lane does not automatically block its owning plan. The
 coordinator should inspect its evidence, retry with a narrower lane when safe,
 or complete the work locally. When the underlying plan task is genuinely
 blocked, follow the base orchestrator's Blocker Continuation procedure and keep
-advancing only dependency-safe work. Stop conflicting plan lanes, but keep the
-dedicated bug agent working from its separate branch and worktree whenever an
-eligible independent row exists.
+advancing only dependency-safe work. Stop conflicting plan lanes, but keep every
+eligible bug in an unleased subsystem working from its separate branch and
+worktree.
 
 Stop only the affected fan-out and return those plans to serial integration
 when the following applies; keep every unrelated ready plan running:

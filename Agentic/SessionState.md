@@ -2,7 +2,7 @@
 
 Date: 2026-08-23
 Branch: `nightrunner-22nd-AUG-26`
-Status: Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 91/118 tasks complete
+Status: All-Build SB Error Observability, Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 91/125 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -10,8 +10,17 @@ Truth Replacement CT0-CT5, Full Validation Time And Value Audit VTA0-VTA5, and R
 Hygiene Cleanup RC0-RC5 are 100% complete, reviewed, and closed.
 Causal C0-C8, Determinism T0-T8, Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7,
 and Continuous Orbital Forecast OF0-OF6 are complete.
+All-Build SB Error Observability And Launch Integrity E0-E6 is the binding
+first-slot plan by explicit owner direction. E0 is ready for the next parallel
+orchestrator run. It requires actionable descriptions for every existing error,
+message-first creation-site stacks for every recoverable/fatal SB error in all
+non-shipping builds, assertion expression/description/source/stack reporting,
+Debug-only warnings, minimal fatal-only Release logging, and verified runnable
+dependency bundles. Its phase-local priority is not a Physics or UI predecessor
+when leases are disjoint.
+
 Deterministic Collision Modes And Ragdoll Unification FP0-FP9 is the binding
-first plan by explicit owner direction. FP0-FP1 are complete; FP2-FP4 establish
+second plan. FP0-FP1 are complete; FP2-FP4 establish
 deterministic Discrete collision with automatic Swept TOI
 promotion and isolated A/B evidence; FP5-FP9 complete the ragdoll joint and late
 speculative-contact path. Runtime Boundary Separation And Project Topology
@@ -21,7 +30,9 @@ and evidence-driven Visual Studio project decomposition. Completed plan files
 remain deleted under the repository convention; Git history retains their phase
 evidence.
 
-Game UI Component Library Separation UI0-UI6 remains binding after RBS7.
+Game UI Component Library Separation UI0-UI6 has phase-local RBS prerequisites
+and no Physics predecessor. UI0-UI2 are ready independently; UI3/UI4/UI5/UI6
+consume RBS4/RBS5/RBS6/RBS7 respectively.
 Recorded Interaction Playback Cursor RIC0-RIC3 is registered after UI6; it adds
 only a fake recorded-playback overlay and explicitly forbids any hardware cursor
 or native capture change.
@@ -461,17 +472,21 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `RAGDOLL_PHYSICS` FP2: make Discrete the default collision path and
-route only automatically promoted linear motion through the retained Swept TOI
-path, without adding an authored collision-mode obligation or a
-`PhysicsBodyRecord` hot field. Motion policy version 2 uses absolute per-tick
-travel: `0.1` metres promotes and `0.075` metres demotes, independent of
-collider thickness. The registered plan is
-`Agentic/Plans/TODO/ragdoll-physics-unification.md`;
-`RUNTIME_BOUNDARIES` RBS0 remains the binding next plan after FP9.
+Give the first available subsystem-safe slot to `ERROR_OBSERVABILITY` E0 using
+`Agentic/Plans/TODO/all-build-sb-error-observability.md`. Other slots may resume
+`RAGDOLL_PHYSICS` FP2, `RUNTIME_BOUNDARIES` RBS0, and `GAME_UI_COMPONENTS` UI0
+when their current canonical subsystem, path-owner, worktree, and mutable
+resource leases are disjoint. FP2 retains motion policy version 2: `0.1` metres
+of absolute per-tick travel promotes and `0.075` metres demotes, independent of
+collider thickness.
 
 ## Blockers
 
+- Retained FP0/FP1 Physics artifact directories contain the Debug executable but
+  not its imported `WinPixEventRuntime.dll`. Launching the lone executable can
+  fail in the Windows loader before `WinMain`, so no Skullbonez logger can run.
+  `ERROR_OBSERVABILITY` E5 owns the runnable-bundle repair and isolated launch
+  gate; do not treat the modal OS dialog as acceptable error evidence.
 - FP0 pre-change `tools\validate_perf.bat` stops on 33 existing non-Physics
   allocation-policy findings before performance measurement. Preserve this as
   inherited evidence; do not weaken the policy or attribute the rows to FP0.

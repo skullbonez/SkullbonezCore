@@ -1,9 +1,20 @@
 # MASTER PLAN
 
 Date: 2026-08-23
-Status: Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 91/118 tasks complete
+Status: All-Build SB Error Observability, Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 91/125 tasks complete
 
 ## Owner Direction
+
+- All-Build SB Error Observability And Launch Integrity was activated by explicit
+  owner direction on 2026-08-23 and receives the first scarce slot. E0-E6 make
+  every existing error description actionable; emit every recoverable/fatal SB
+  error as message then creation-site stack in Debug, Profile, Profile-WPO, and
+  Automation; keep warnings Debug-only; make first-party runtime assertions emit
+  expression, description, source, and stack; and keep Release limited to a
+  minimal fatal SB owner/message record. The plan also makes retained runtimes
+  self-contained bundles so loader failures such as a missing
+  `WinPixEventRuntime.dll` fail validation before launch. Its priority is not a
+  Physics or UI predecessor when current leases and resources are disjoint.
 
 - Real-Time Physics Pacing is complete. `SIM_PACING` SP0-SP2 separate live
   wall-clock scheduling from deterministic render-frame lockstep, preserve the
@@ -18,10 +29,12 @@ Status: Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Compon
 
 - Deterministic Collision Modes And Ragdoll Unification was activated by
   explicit owner direction on 2026-08-22 and placed ahead of every existing
-  master-plan item. `RAGDOLL_PHYSICS` executes FP0 through FP9 in strict order:
-  correctness bugs first, then deterministic Discrete collision and automatic
-  Swept TOI promotion, then the completed ragdoll constraint/speculative path.
-  No later phase may bypass an earlier acceptance boundary.
+  master-plan item for scarce-slot priority and fan-in order, not as a Runtime
+  or UI predecessor. `RAGDOLL_PHYSICS` executes FP0 through FP9 in strict
+  internal order: correctness bugs first, then deterministic Discrete collision
+  and automatic Swept TOI promotion, then the completed ragdoll constraint/
+  speculative path. No later Physics phase may bypass an earlier acceptance
+  boundary.
   On 2026-08-23 the owner activated FP2 with motion policy version 2: absolute
   travel of `0.1` metres per Physics tick promotes, `0.075` metres demotes, and
   collider thickness does not participate.
@@ -33,16 +46,20 @@ Status: Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Compon
   frame metrics out of Rendering mutation, and adopt an evidence-driven acyclic
   Visual Studio project topology. No project-count or source-line target is
   authorized; separation is judged by ownership, direction, behavior, and
-  terminal validation.
+  terminal validation. RBS phases may run beside Physics when their exact
+  path-owner and mutable validation-resource leases are disjoint.
 
 - Game UI Component Library Separation was activated by owner direction on
-  2026-08-22 and is binding after RBS7. UI0-UI6 retain the existing
+  2026-08-22 with phase-local RBS prerequisites and no Physics predecessor.
+  The owner explicitly replaced the whole-plan RBS7 stop with this staged
+  concurrency ruling on 2026-08-23.
+  UI0-UI2 may run beside Physics/RBS; UI3 consumes RBS4, UI4 consumes RBS5, UI5
+  consumes RBS6, and UI6 consumes RBS7. The plan retains the existing
   `SKULLBONEZ_UI` static library as the reusable backend-neutral component
-  foundation, move Skullbonez-specific composition and commands above it, and
-  converge owner-local Runtime surfaces on shared component presentation. The
-  plan consumes RBS0/RBS4/RBS6/RBS7 results instead of duplicating package,
-  operator-phase, submission, or project-topology work. It creates no new
-  production project and does not modify the active Runtime plan.
+  foundation, moves Skullbonez-specific composition and commands above it, and
+  converges owner-local Runtime surfaces on shared component presentation. It
+  creates no new production project and does not modify an active RBS-owned
+  package before that phase's named output exists.
 
 - Recorded Interaction Playback Cursor was activated by owner direction on
   2026-08-22 and is binding after UI6. RIC0-RIC3 publish and draw a detached
@@ -279,6 +296,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
+| All-Build SB Error Observability And Launch Integrity | `ERROR_OBSERVABILITY` | 7 | 0 | `TODO/all-build-sb-error-observability.md` |
 | Deterministic Collision Modes And Ragdoll Unification | `RAGDOLL_PHYSICS` | 10 | 2 | `TODO/ragdoll-physics-unification.md` |
 | Runtime Boundary Separation And Project Topology | `RUNTIME_BOUNDARIES` | 8 | 0 | `TODO/runtime-boundary-separation.md` |
 | Game UI Component Library Separation | `GAME_UI_COMPONENTS` | 7 | 0 | `TODO/game-ui-component-library-separation.md` |
@@ -308,25 +326,36 @@ One detail in that table is recorded:
 
 ## Binding Order
 
-1. `RAGDOLL_PHYSICS` FP0 through FP9 - close verified Physics correctness bugs,
+1. `ERROR_OBSERVABILITY` E0 through E6 - make every existing error description
+   actionable, log every non-shipping recoverable/fatal SB error with its
+   creation-site stack, make assertions print their failure and stack, keep
+   Debug warnings separate, retain only fatal SB owner/message in Release, and
+   verify every runtime bundle before launch.
+2. `RAGDOLL_PHYSICS` FP0 through FP9 - close verified Physics correctness bugs,
    make Discrete the deterministic default with automatic Swept TOI promotion,
    prove its correctness and isolated performance, then complete the ragdoll
    joint and late speculative-contact path with independent determinism and cost
    evidence.
-2. `RUNTIME_BOUNDARIES` RBS0 through RBS7 - ratify and enforce an acyclic Runtime
+3. `RUNTIME_BOUNDARIES` RBS0 through RBS7 - ratify and enforce an acyclic Runtime
    package/project graph, remove every reverse Runtime/App dependency, separate
    native host and frame-metrics ownership, split operator projection/commands
    from GPU submission and process command application, close the logical `Run`
    surface, and adopt only VC project boundaries that strengthen ownership.
-3. `GAME_UI_COMPONENTS` UI0 through UI6 - consume the closed RBS ownership and
-   project graph, narrow the existing UI static library to reusable component
-   values/functions, migrate GameUI and owner-local Runtime surfaces to that
-   foundation, and move product composition above it without adding another
-   production project.
-4. `RECORDED_CURSOR` RIC0 through RIC3 - consume the final product-UI and
+4. `GAME_UI_COMPONENTS` UI0 through UI6 - close the component foundation in
+   UI0-UI2 while RBS/Physics may continue, then consume RBS4/RBS5/RBS6/RBS7 at
+   UI3/UI4/UI5/UI6 respectively; migrate GameUI and owner-local Runtime surfaces
+   without adding another production project.
+5. `RECORDED_CURSOR` RIC0 through RIC3 - consume the final product-UI and
    submission boundary, publish one detached recorded-pointer presentation
    value, draw a topmost fake cursor across GameUI and ImGui, and prove the
    hardware cursor and native capture path remain completely untouched.
+
+This order allocates scarce slots and orders coordinator fan-in; it is not an
+implicit dependency chain. Named phase prerequisites are the edges. In
+particular, ready `ERROR_OBSERVABILITY`, `RAGDOLL_PHYSICS`,
+`RUNTIME_BOUNDARIES`, and `GAME_UI_COMPONENTS` phases may occupy separate
+worktrees concurrently when their canonical subsystem, unmatched path-owner,
+and mutable resource leases are pairwise disjoint.
 
 `CAUSAL_INSPECT` no longer re-steps an old frame to regenerate solver detail, so
 it does not consume the tier-2 determinism guarantee and has no ordering
@@ -350,10 +379,10 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-91/118 tasks complete with Deterministic Collision Modes And Ragdoll
-Unification first, Runtime Boundary Separation And Project Topology second,
-Game UI Component Library Separation third, and Recorded Interaction Playback
-Cursor fourth.
+91/125 tasks complete with All-Build SB Error Observability And Launch Integrity
+first, Deterministic Collision Modes And Ragdoll Unification second, Runtime
+Boundary Separation And Project Topology third, Game UI Component Library
+Separation fourth, and Recorded Interaction Playback Cursor fifth.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
@@ -363,12 +392,15 @@ Replacement CT0-CT5 is complete. Full Validation Time And Value Audit VTA0-VTA5 
 Repository Hygiene Cleanup RC0-RC5 is complete.
 Core Engine Evidence-Driven Code Reduction CR0-CR5 is complete.
 Real-Time Physics Pacing SP0-SP2 is complete.
+All-Build SB Error Observability And Launch Integrity E0-E6 is active at 0/7;
+E0 is ready for the next parallel orchestrator run.
 Deterministic Collision Modes And Ragdoll Unification FP0-FP9 is active at 2/10;
 FP0-FP1 are complete and FP2 is active under the owner-directed absolute-travel
 threshold.
 Runtime Boundary Separation And Project Topology RBS0-RBS7 is active at 0/8.
-Game UI Component Library Separation UI0-UI6 is active at 0/7 and binding after
-RBS7.
+Game UI Component Library Separation UI0-UI6 is active at 0/7 with UI0 ready;
+UI3/UI4/UI5/UI6 consume RBS4/RBS5/RBS6/RBS7 respectively and no UI phase has a
+Physics predecessor.
 Recorded Interaction Playback Cursor RIC0-RIC3 is active at 0/4 and binding
 after UI6.
 Deterministic

@@ -1,16 +1,16 @@
 ---
 name: orchestrator
-description: Run SkullbonezCore's persistent MASTER-PLAN implementation queue in the main Codex or Antigravity agent, using a deterministic Night Runner branch and sub-agents only for rubber-duck review. Use when the user asks for the orchestrator, night runner, nightrunner, overnight runner, queued plan runner, MASTER-PLAN runner, or asks Codex/Antigravity to complete one or more Agentic/Plans items, then continue through blockers, validate, commit, and push each accepted plan.
+description: Run SkullbonezCore's persistent MASTER-PLAN implementation queue on a deterministic Night Runner branch, either serially in the main agent or as the integration owner for the parallel orchestrator. Use when the user asks for the orchestrator, night runner, nightrunner, overnight runner, queued plan runner, MASTER-PLAN runner, or asks Codex/Antigravity to complete one or more Agentic/Plans items, then continue through blockers, validate, commit, and push each accepted plan.
 ---
 
 # Orchestrator
 
 Coordinate the persistent SkullbonezCore MASTER-PLAN queue without the retired
 repository-owned JSON/Python state machine. Resolve the Night Runner branch and
-goal before edits, implement plans in the main agent, continue past documented
-blockers, save any independent `$rubber-duck` critique for a major completed
-plan or whole-job checkpoint, run required final gates, and commit/push one
-accepted slice or blocker record at a time.
+goal before edits, implement plans in the main agent unless the parallel skill
+is active, continue past documented blockers, save independent `$rubber-duck`
+critique for a major completed plan or whole-job checkpoint, run required final
+gates, and commit/push one accepted slice or blocker record at a time.
 
 ## Inputs
 
@@ -73,7 +73,7 @@ the orchestration run. After branch verification and before plan edits:
 3. Otherwise create this objective:
 
 ```text
-Complete Agentic/Plans/MASTER-PLAN.md on <branch> in direct dependency order; maximize merge-safe concurrency when the parallel policy is active; validate, commit, and push accepted slices; record genuine blockers and continue without stopping.
+Complete Agentic/Plans/MASTER-PLAN.md on <branch> in direct dependency order; maximize worthwhile dependency-ready, subsystem-lease-disjoint concurrency when the parallel policy is active; validate, commit, and push accepted slices; record genuine blockers and continue without stopping.
 ```
 
 4. If an unrelated unfinished goal prevents goal creation, record that tooling
@@ -87,11 +87,18 @@ Use `Agentic/Plans/MASTER-PLAN.md` as the live dependency graph. Read its
 Current Execution Priority, Portfolio Progress Ledger, plan-state tables, and
 linked `TODO/` plans. Plain orchestration selects the next unfinished,
 dependency-safe item in binding order. Explicit parallel-orchestrator
-invocation activates the native multi-plan queue policy: every unfinished plan
-whose direct prerequisites are satisfied may run concurrently. Binding order
-allocates scarce slots and orders fan-in; list position alone is not a
-dependency. Ignore `Agentic/Plans/WNF/` unless the owner reactivates an item,
-and re-read MASTER-PLAN after every pushed slice.
+invocation activates its native queue policy: fill as many slots as are worth
+the fan-out/fan-in cost, map every occupied agent slot to one isolated
+worktree, and lease each canonical bug subsystem and unmatched path owner to at
+most one distinct active write phase/lane. Recompute leases at every phase
+boundary; future phases and read-only coverage do not hold production leases.
+Acquire exclusive resource leases only around their exact edit/command windows.
+Lanes whose current lease sets intersect remain serial even when their file
+lists do not. Remaining slots may run eligible bugs concurrently only in
+different, unleased owners.
+Binding order allocates scarce slots and orders fan-in; list position alone is
+not a dependency. Ignore `Agentic/Plans/WNF/` unless the owner reactivates an
+item, and re-read MASTER-PLAN after every pushed slice.
 
 ## Reversible Decision Autonomy
 
@@ -266,21 +273,25 @@ leave it active and report the blocker inventory.
 
 ## Sub-Agent Tools
 
-Use sub-agents, Antigravity `invoke_subagent`, or Codex thread tools only for independent
-`$rubber-duck` review at the end of a major plan/checkpoint or whole job. Earlier
-review is allowed only when the user explicitly asks for one, or when the same
-failure mode has repeated and independent critique is the cheapest way to get unstuck.
-Do not run a review per edit, per checklist row, per source file, per commit, or per
-small slice. Do not dispatch plan implementation, cleanup, validation, staging,
-committing, or pushing to a sub-agent. If the tools are not already loaded,
-search for them: in Codex use names such as `create_thread`, `send_message_to_thread`,
-`read_thread`, `handoff_thread`, and `list_threads`; in Antigravity use `invoke_subagent`,
-`define_subagent`, and `send_message`.
+In plain mode, use sub-agents only for independent `$rubber-duck` review at the
+end of a major plan/checkpoint or whole job. Earlier review is allowed only when
+the user explicitly asks for one, or when the same failure mode has repeated and
+independent critique is the cheapest way to get unstuck. Do not run a review per
+edit, checklist row, source file, commit, or small slice, and do not dispatch
+plain-mode implementation, cleanup, validation, staging, committing, or pushing
+to a sub-agent.
 
-If a review tool creates a separate worktree, keep it read-only. Plain
-orchestration keeps one active implementation plan. Invoking the parallel
-orchestrator is the explicit different queue policy: run every dependency-ready,
-merge-safe plan that available agents and machine resources can support.
+When the parallel orchestrator is active, its dispatch contract replaces that
+plain-mode implementation prohibition. It may use sub-agents for plan lanes and
+independent bugs, with exactly one isolated writable worktree per occupied
+agent slot, no two distinct active plans leasing the same subsystem, and no bug
+sharing a subsystem with an active plan or bug. The main orchestrator remains
+the sole integration owner.
+
+Use hosted collaboration actions such as `spawn_agent`, `send_message`,
+`followup_task`, `wait_agent`, and `list_agents` for managed sub-agents. Use
+user-owned Codex thread tools only when the user explicitly requests a separate
+thread. If a review tool creates a separate worktree, keep it read-only.
 
 ### Ownership Evidence For The End-Of-Plan Review
 
@@ -469,8 +480,9 @@ Return findings with file/line references and a clear verdict.
 
 In plain mode, advance after the current item is reviewed, validated, committed,
 and pushed, or after its blocker record is pushed. In parallel mode, fan in any
-ready plan while other dependency-independent branches continue; one plan's
-review, validation, or blocker never idles unrelated work.
+ready plan while other dependency-, subsystem-lease-, and resource-independent
+branches continue; one plan's review, validation, or blocker never idles
+unrelated work.
 
 ## Validation Discipline
 

@@ -1,17 +1,24 @@
 # Game UI Component Library Separation Plan
 
 Date: 2026-08-22
-Status: Active by owner direction. 0/7 phases complete; binding after
-`RUNTIME_BOUNDARIES` RBS7.
+Status: Active by owner direction. 0/7 phases complete; phase-local Runtime
+Boundary Separation prerequisites apply.
 Impact area: `SkullbonezSource/UI/`, game-facing composition under
 `SkullbonezSource/Runtime/`, `SKULLBONEZ_UI.vcxproj`, focused UI tests,
 dependency/build enforcement, and documentation
 Owner: UI foundation plus the concrete Runtime product owners that compose it
-Priority: Third in the binding order, after `RAGDOLL_PHYSICS` and
-`RUNTIME_BOUNDARIES`
+Priority: Fourth for scarce-slot allocation and fan-in. `RAGDOLL_PHYSICS` is
+not a predecessor; UI phases may run beside Physics when their phase-local
+Runtime prerequisites and leases are satisfied.
 Commit name: `GAME_UI_COMPONENTS`
 
 ## Owner Direction
+
+On 2026-08-23 the owner directed the hardened parallel orchestrator to run UI
+and Physics plans concurrently by subsystem. This replaces the registration-
+time whole-plan RBS7 stop with phase-local prerequisites: UI0-UI2 have no RBS
+or Physics predecessor; UI3, UI4, UI5, and UI6 consume RBS4, RBS5, RBS6, and
+RBS7 respectively. Internal UI0-UI6 order remains binding.
 
 Separate the reusable, backend-neutral game UI component foundation from the
 Skullbonez-specific use of those components. Retain `SKULLBONEZ_UI` as the
@@ -36,27 +43,40 @@ component/product boundary.
 
 ## Coordination With Runtime Boundary Separation
 
-`Agentic/Plans/TODO/runtime-boundary-separation.md` is being implemented by
-another agent and must not be edited by this plan. This plan begins only after
-RBS7 closes, then measures the resulting source rather than assuming the
-registration-era layout still exists.
+`Agentic/Plans/TODO/runtime-boundary-separation.md` is implemented by another
+plan and must not be edited by this one. Dependencies are phase-local: UI0-UI2
+own the UI-foundation inventory and component contracts and may run while
+Physics and RBS continue; UI3 consumes the frozen RBS4 projection/submission
+seam, UI4 consumes the RBS5 package-owner result, UI5 consumes the RBS6 project
+topology, and UI6 consumes RBS7 terminal evidence. A phase never edits an RBS
+owner before its named output exists.
+
+`RAGDOLL_PHYSICS` has no direct dependency edge into this plan. Run ready UI
+and Physics phases concurrently in separate worktrees. Physics normally leases
+`Physics`, adding `path-owner:Runtime/Tools` only while changing instrumentation;
+UI normally leases `UI Library` plus the exact Runtime product packages its
+phase touches. Linking both libraries or displaying a detached Physics value is
+not a production lease collision. Expand and serialize before editing the
+shared UI/diagnostics Physics contract or common project/test manifests, and
+serialize shared GPU, baseline, performance, and terminal gates after fan-in.
 
 The following work is deliberately not duplicated:
 
 | Existing RBS ownership | Potential duplication | This plan's disposition |
 |---|---|---|
-| RBS0 package/project DAG and build-cost census | Re-inventorying or independently ratifying Runtime/package topology | Consume the RBS0/RBS7 graph and timings; UI0 inventories only the component-versus-product boundary left inside/above UI. |
+| RBS0 package/project DAG and build-cost census | Re-inventorying or independently ratifying Runtime/package topology | UI0 inventories the component foundation without ratifying Runtime topology. Product-placement rows record the latest RBS output and remain explicitly pending until their named RBS phase closes. |
 | RBS1 dependency-cycle enforcement | Building another include/SCC checker | Extend existing rule data or project ownership fixtures only where the narrowed UI boundary needs proof. Do not add a second graph tool. |
 | RBS3 immutable frame-metrics owner | Moving profiler/frame timing ownership while splitting UI views | Treat the RBS3 snapshot as a product input. Do not move, recalculate, or republish timing state. |
-| RBS4 operator projection, command application, and GPU submission separation | Reworking `Run::RenderOperatorUiPhase`, the seven-slice submission surface, process commands, or renderer ownership | RBS4 is a prerequisite. This plan consumes its detached views, command path, Runtime/UI owner, and Runtime/Render submission seam. |
-| RBS5 reverse-App and cycle removal | Moving UI files in a way that recreates App edges | Preserve the closed RBS package DAG; any proposed move that needs a reverse edge stops for owner review. |
-| RBS6 minimal VC topology | Creating another UI/product library or independently changing project policy | Retain the one existing `SKULLBONEZ_UI` library, move game-specific sources to the RBS-approved `SKULLBONEZ_CORE` package owner, and create no additional production project. |
-| RBS7 terminal architecture validation | Claiming those same Runtime ownership changes as GameUI closure | Record RBS7 as inherited baseline evidence. Re-run only gates affected by later GameUI source/API changes, then perform this plan's own terminal closure. |
+| RBS4 operator projection, command application, and GPU submission separation | Reworking `Run::RenderOperatorUiPhase`, the seven-slice submission surface, process commands, or renderer ownership | RBS4 is a prerequisite for UI3 and later product-surface adoption. UI0-UI2 do not edit that seam. UI3 consumes its detached views, command path, Runtime/UI owner, and Runtime/Render submission seam. |
+| RBS5 reverse-App and cycle removal | Moving UI files in a way that recreates App edges | RBS5 is a prerequisite for UI4 product moves. Preserve its closed package DAG; any proposed move that needs a reverse edge stops for owner review. |
+| RBS6 minimal VC topology | Creating another UI/product library or independently changing project policy | RBS6 is a prerequisite for UI5 project edits. Retain the one existing `SKULLBONEZ_UI` library, move game-specific sources to the approved `SKULLBONEZ_CORE` package owner, and create no additional production project. |
+| RBS7 terminal architecture validation | Claiming those same Runtime ownership changes as GameUI closure | RBS7 is a prerequisite for UI6 only. Record it as inherited baseline evidence, re-run gates affected by later GameUI changes, then perform this plan's terminal closure. |
 
-If RBS4 already moves or decomposes a type listed in this plan's initial
-worklist, UI0 marks that row `satisfied by RBS` and tests the resulting seam. It
-must not recreate, rename, or move the type a second time merely to match this
-registration document.
+If RBS4 already moved or decomposed a type when UI0 inventories it, UI0 marks
+that row `satisfied by RBS` and tests the resulting seam. If RBS4 is still
+active, UI0 marks the row `pending RBS4`; UI3 refreshes it before the first
+product-surface edit. Neither phase recreates, renames, or moves the type a
+second time merely to match this registration document.
 
 ---
 
@@ -65,8 +85,10 @@ registration document.
 Evidence measured on 2026-08-22 at `a00654873` on `main`. Concurrent Physics
 and Replay working-tree changes were user-owned and are outside this plan.
 CodeGraph was current during the initial UI analysis, then reported unrelated
-pending source changes during registration; UI0 must refresh its own baseline
-after RBS7 rather than treating these observations as closure counts.
+pending source changes during registration. UI0 refreshes the foundation
+baseline at its own frozen commit; UI3-UI6 refresh affected product/package,
+project, and terminal evidence after their named RBS prerequisites rather than
+treating these observations as closure counts.
 
 - `SKULLBONEZ_UI.vcxproj` is already a production static library, and
   `SKULLBONEZ_CORE.vcxproj` references it.
@@ -235,8 +257,10 @@ current owner.
 
 ## Initial Source-Disposition Worklist
 
-UI0 replaces this seed with an exact tracked-file inventory after RBS7. A file
-is ruled by responsibility, not name or desired line count.
+UI0 replaces this seed with an exact tracked-file inventory at its frozen base.
+Foundation rulings close in UI0; product-placement rows whose RBS output is not
+yet frozen remain explicitly `pending RBS<n>` and are refreshed by UI3-UI6. A
+file is ruled by responsibility, not name or desired line count.
 
 | Current family | Expected closure owner | Initial disposition |
 |---|---|---|
@@ -260,13 +284,14 @@ and deleting phase. No exception may survive UI6.
 
 ---
 
-## Phase UI0 - Ratify The Post-RBS Component/Product Boundary
+## Phase UI0 - Ratify The Component Foundation And Staged Product Map
 
-**Goal:** Measure the source after RBS7, classify every UI file and consumer,
-and freeze an owner-approved migration map before implementation.
+**Goal:** Classify every UI file and consumer, freeze the component-foundation
+contract used by UI1-UI2, and stage product-placement rows against their exact
+RBS prerequisites without waiting for unrelated Physics work.
 
-- [ ] Record branch, commit, dirty files, CodeGraph status, RBS7 handoff, and
-      inherited validation/baseline findings.
+- [ ] Record branch, commit, dirty files, CodeGraph status, available RBS
+      handoffs, pending RBS outputs, and inherited validation/baseline findings.
 - [ ] Inventory every tracked `SkullbonezSource/UI` source-bearing file with
       `git ls-files` and classify it as foundation, product composition,
       product value/command, backend submission, or exact exception.
@@ -278,18 +303,25 @@ and freeze an owner-approved migration map before implementation.
       CMake/source manifests, allocation behavior, draw capacities, and current
       visual fingerprints.
 - [ ] Mark every registration worklist row already completed by RBS as
-      `satisfied by RBS` with its resulting source path and test evidence.
-- [ ] Ratify the exact target paths and file move order without creating a new
-      project or changing the RBS DAG.
+      `satisfied by RBS` with its resulting source path and test evidence; mark
+      unresolved product rows `pending RBS4`, `pending RBS5`, or `pending RBS6`.
+- [ ] Ratify the exact foundation target paths and UI1-UI2 order. Record the
+      product move owner and prerequisite without guessing its post-RBS path.
 - [ ] Add focused pre-change witnesses for component states and repeated Runtime
       controls that lack behavioral coverage.
 
 **Acceptance:** Every tracked UI file and repeated product presentation path has
-one owner/disposition; all RBS overlap is resolved without duplicate work; the
-component API and source move order require no reverse edge, project addition,
-or broad context.
+one owner/disposition; the foundation contract and UI1-UI2 order are final; each
+unfrozen product-placement row names one exact RBS prerequisite and later UI
+phase; no duplicate work, reverse edge, project addition, or broad context is
+introduced.
 
 ## Phase UI1 - Establish Stateless Component Value Contracts
+
+**Prerequisite:** UI0. RBS and Physics may remain active because this phase is
+confined to rows UI0 ruled final component foundation and their focused tests.
+Do not edit a shell, command, frame-composition, product-presenter, or
+Runtime/Render row marked `pending RBS<n>`.
 
 **Goal:** Make the existing component foundation expressive enough for both the
 main GameUI shell and owner-local Runtime surfaces.
@@ -302,8 +334,9 @@ main GameUI shell and owner-local Runtime surfaces.
 - [ ] Make disabled, hovered, focused, active, selected, and checked behavior
       explicit where the existing product surfaces already use it.
 - [ ] Keep text measurement in `UIFontMetrics` and style in immutable
-      foundation values; eliminate renderer-side measurement from product
-      presentation touched by this phase.
+      foundation values. Eliminate renderer-side measurement only in final
+      foundation rows or stable caller adaptations not marked `pending RBS<n>`;
+      defer pending product presentation to UI3/UI4.
 - [ ] Preserve fixed capacities, ordered commands, copied text, clipping,
       fingerprints, and overflow reporting.
 - [ ] Add focused tests for every component state, hit/draw geometry equality,
@@ -316,10 +349,18 @@ or steady-state growth enters the new contracts.
 
 ## Phase UI2 - Converge The Existing GameUI Widgets
 
+**Prerequisite:** UI1. RBS and Physics may remain active; expand the lease before
+touching a product package, shared project manifest, or Physics presentation
+contract.
+
 **Goal:** Make the current GameUI use the authoritative component functions
 before moving product composition across the project boundary.
 
 - [ ] Route existing retained widget wrappers through UI1 component contracts.
+- [ ] Limit writes to UI0-final foundation rows and stable caller adaptations
+      not marked `pending RBS<n>`. Leave pending shell, command, frame-
+      composition, product-presenter, and Runtime/Render rows to UI3/UI4 even
+      when they still reside physically under `SkullbonezSource/UI`.
 - [ ] Keep persistent state only where a component owns a real interaction
       invariant such as popup open state or drag capture.
 - [ ] Delete wrapper-local duplicated drawing, hit testing, text measurement,
@@ -337,6 +378,9 @@ conversion causes no visual fingerprint, interaction, allocation, or command
 semantic change.
 
 ## Phase UI3 - Adopt Components In Owner-Local Runtime Surfaces
+
+**Prerequisites:** UI2 and RBS4. Refresh every `pending RBS4` row against the
+frozen projection, command-application, and submission owners before editing.
 
 **Goal:** Remove repeated raw component presentation from Runtime while leaving
 domain state, layout decisions, and action routing with their current owners.
@@ -361,6 +405,14 @@ cycle, callback bridge, or product-aware foundation API is introduced.
 
 ## Phase UI4 - Move Product Composition Above The Foundation
 
+**Prerequisites:** UI3 and RBS5. Consume the closed package DAG and refresh
+every `pending RBS5` owner/path before moving source.
+
+**Exclusive edit resource:** Acquire the exact project/filter/CMake/portable-
+manifest single-writer lease before changing or deleting any source membership,
+then release it after the coherent membership edit. This command window may not
+overlap RBS6 project-topology edits.
+
 **Goal:** Make physical source/project ownership match the component/product
 boundary.
 
@@ -384,6 +436,9 @@ it; every source compiles once; the UI project still links independently
 without Runtime, Rendering, or backend objects.
 
 ## Phase UI5 - Enforce Project, Dependency, And Test Boundaries
+
+**Prerequisites:** UI4 and RBS6. Project and portable-manifest files are
+single-writer resources during this phase.
 
 **Goal:** Make the narrowed UI foundation and product placement mechanically
 durable.
@@ -411,6 +466,10 @@ and include graphs enforce the direction; component and product behavior tests
 remain independently meaningful.
 
 ## Phase UI6 - Terminal Behavioral And Ownership Closure
+
+**Prerequisites:** UI5 and RBS7. Terminal GPU, performance, baseline, and full
+validation resources serialize with Physics closure on one frozen integration
+commit; read-only review and inventory may overlap Physics implementation.
 
 **Goal:** Prove the separation is reusable, behavioral, physical, and
 build-enforced.
@@ -478,12 +537,14 @@ Heavy validation remains concentrated in UI6.
 
 ## Stop Conditions
 
-Stop for owner review if RBS7 is incomplete or its graph/evidence is stale; a
+Stop only the affected phase for a missing or stale named RBS prerequisite:
+RBS4 for UI3, RBS5 for UI4, RBS6 for UI5, or RBS7 for UI6. Also stop if a
 component needs product vocabulary, Runtime/Rendering includes, callbacks,
 owner pointers, or backend handles; moving product UI creates a reverse edge;
 one interaction state would gain two owners; a new production project appears
 necessary; genericization would obscure a domain visualization; steady-state
 allocation grows; or a visual/behavioral golden refresh appears necessary.
+Unrelated ready UI-foundation or Physics work continues in its own worktree.
 
 ## Completion Reporting
 

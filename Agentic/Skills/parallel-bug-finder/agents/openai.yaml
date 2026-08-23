@@ -1,0 +1,7 @@
+interface:
+  display_name: "Parallel Bug Finder"
+  short_description: "Hunt bugs in isolated subsystem lanes"
+  default_prompt: >-
+    Use $parallel-bug-finder to search every current bug-report subsystem in
+    isolated parallel lanes and consolidate evidence-backed findings without
+    changing source code.
