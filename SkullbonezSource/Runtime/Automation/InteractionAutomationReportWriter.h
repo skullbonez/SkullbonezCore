@@ -38,7 +38,7 @@ Related:
 #include "../../Maths/Vector3.h"
 #include "../Camera/RuntimeCameraMode.h"
 #include "../Interaction/RuntimeInteractionController.h"
-#include "../Planning/ReplayOverlayRenderer.h"
+
 #include "../Prediction/ReplayPredictionDrawing.h"
 #include "../Prediction/ReplayPredictionPackets.h"
 #include "../Replay/ReplayTimelinePackets.h"

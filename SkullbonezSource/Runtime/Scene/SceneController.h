@@ -73,13 +73,10 @@ class WorkerPool;
 namespace Rendering
 {
 class Dx12FrameOwner;
-class Dx12RenderDevice;
 class Dx12ResourceBuilder;
 } // namespace Rendering
 namespace UI
 {
-class InGameUI;
-struct SceneNavigationModel;
 } // namespace UI
 namespace Scene
 {
@@ -88,19 +85,11 @@ struct StandaloneStyleSnapshot;
 namespace Runtime
 {
 class AuthoredScene;
-class AttachedCameraController;
 class DiagnosticsRuntime;
-class InputRouter;
-class ReplayRuntime;
-class RuntimeInteractionController;
-class RuntimeOverlayDiagnostics;
-class RuntimeValidationHarness;
 struct SceneAutomationGateStatus;
 class RuntimeRenderer;
-class RuntimeTools;
 class SceneLoadTransaction;
 class SimulationSystem;
-class Window;
 struct AttachedCameraState;
 struct CameraControlState;
 struct OverlayDebugState;

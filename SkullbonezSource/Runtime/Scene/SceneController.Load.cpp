@@ -36,20 +36,20 @@ Related:
 */
 #include "SceneController.h"
 #include "SceneLoadTransaction.h"
-#include "../Diagnostics/RuntimeOverlayDiagnostics.h"
-#include "../Automation/RuntimeValidationHarness.h"
+
+
 #include "../../Core/WindowConstants.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
-#include "../Camera/AttachedCameraController.h"
-#include "../Input/InputRouter.h"
-#include "../Input/Input.h"
-#include "../App/InputFrame.h"
-#include "../App/ReplayRuntime.h"
+
+
+
+
+
 #include "../Startup/RunStartupState.h"
 
-#include "../Startup/Window.h"
+
 #include "../Render/RuntimeRenderer.h"
 #include "../Simulation/SimulationSystem.h"
 #include "SceneLoadRequest.h"
@@ -65,7 +65,6 @@ Related:
 #include "../../Core/SbResult.h"
 #include "../../Core/WorkerPool.h"
 #include "../../Rendering/DX12/Dx12FrameOwner.h"
-#include "../../Rendering/DX12/RenderDeviceDX12.h"
 #include "../../Rendering/RenderRaytracingTypes.h"
 #include "../../Rendering/DX12/Dx12ResourceBuilder.h"
 #include "../../UI/UI.h"
@@ -73,6 +72,7 @@ Related:
 #include "../../World/Terrain.h"
 #include "../../World/WorldEnvironment.h"
 
+#include <fstream>
 #include <utility>
 
 #pragma warning( push, 0 )
@@ -80,7 +80,6 @@ Related:
 #pragma warning( pop )
 
 using namespace SkullbonezCore::Runtime;
-using namespace SkullbonezCore::Runtime::ReplayTimelineOperations;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
@@ -92,7 +91,6 @@ using SkullbonezCore::Gameplay::TornadoFieldConfig;
 using SkullbonezCore::Gameplay::TornadoSystemConfig;
 using SkullbonezCore::Geometry::Terrain;
 using SkullbonezCore::Geometry::XZBounds;
-using SkullbonezCore::Hardware::Input;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Rendering::MeshDX12;
 namespace CoreAllocation = SkullbonezCore::Core::Allocation;
@@ -505,7 +503,7 @@ void ApplyTornadoDefaultsForActiveScene( TornadoFieldConfig& field, WorldEnviron
 } // namespace
 
 
-void SceneLoadTransaction::Outputs::ResetForLoad()
+void SceneLoadResult::ResetForLoad()
 {
     uiActivation = SceneUiActivation {};
     automationGates.Reset();
@@ -606,169 +604,34 @@ void SceneLoadTransaction::PreserveInactiveDevelopmentUi()
 }
 
 
-void SceneLoadTransaction::ApplyRuntimeReactions( const RunLaunchOptions& launchOptions, RuntimeOverlayDiagnostics& overlays,
-                                                  SceneController& sceneController, InputRouter& inputRouter,
-                                                  RuntimeInteractionController& interaction, CameraControlState& camera,
-                                                  AttachedCameraController& attachedCamera, RuntimeTools& runtimeTools,
-                                                  ReplayRuntime& replayRuntime )
+const SceneLoadResult& SceneLoadTransaction::BeginRuntimeReactions()
 {
-    AdvanceOrFatal( SceneLoadPhaseCursor::Phase::RuntimeReactions, "ApplyRuntimeReactions" );
-    Outputs& outputs = m_outputs;
-
-    // Lifetime: lifecycle identity stays owned by SceneController. Consumers
-    // sample this reference synchronously and retain only their generation.
-    const SceneLifecyclePacket& lifecycle = sceneController.LifecyclePacket();
-
-    // Invariant: reactive owners consume the generation before external
-    // UI/validation effects. This preserves their former end-of-Load ordering
-    // without returning them to the transaction participant graph.
-    overlays.ObserveSceneLifecycle( lifecycle, outputs.presentation );
-
-    for ( std::size_t index = 0; index < outputs.completedWorldChangeCount; ++index )
-    {
-        const SceneLoadCompletedWorldChange& change = outputs.completedWorldChanges[index];
-        replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildWorldOverride( change.previousGravity, change.previousFluidHeight,
-                                                                                     change.previousFluidDensity, change.gravity,
-                                                                                     change.fluidHeight, change.fluidDensity ) );
-    }
-
-    runtimeTools.ObserveSceneLifecycle( lifecycle, sceneController.Scene(), inputRouter, interaction );
-    attachedCamera.ObserveSceneLifecycle( lifecycle );
-    replayRuntime.ObserveSceneLifecycleAfterClear( lifecycle, interaction, inputRouter );
-
-    // Invariant: ResetForSceneLoad first selects Scene/Demo. Only authored
-    // snapshot pause policy changes the detached result to Inspect, so the mode
-    // is the authoritative activation value and no parallel boolean is needed.
-    const bool enterInspectAfterActivation = outputs.camera.mode == RunCameraMode::Inspect;
-    interaction.ObserveSceneLifecycle( lifecycle, enterInspectAfterActivation );
-    camera.ObserveSceneLifecycle( lifecycle, outputs.camera );
-
-    if ( inputRouter.ObserveSceneLifecycle( lifecycle, enterInspectAfterActivation ) )
-    {
-        Hardware::Input::ResetMouseLookDeltas();
-    }
-
-    const auto replayRestoreMode = [&]()
-    {
-        RunCameraMode restoreMode = replayRuntime.BuildInputView().restoreCameraMode;
-
-        if ( sceneController.State().isSceneMode )
-        {
-            restoreMode = restoreMode == RunCameraMode::Demo ? RunCameraMode::Scene : restoreMode;
-        }
-        else if ( restoreMode == RunCameraMode::Scene )
-        {
-            restoreMode = sceneController.Scene().SceneEntityCount() > 0 ? RunCameraMode::Demo : RunCameraMode::Inspect;
-        }
-        else if ( restoreMode == RunCameraMode::Demo && sceneController.Scene().SceneEntityCount() <= 0 )
-        {
-            restoreMode = RunCameraMode::Inspect;
-        }
-
-        return restoreMode;
-    };
-
-    const ReplaySceneTimelineResetInput
-        timelineReset = DescribeReplaySceneTimeline( sceneController, outputs.navigation.overrides, sceneController.State(),
-                                                     sceneController.Scene().ActiveSceneObjectCapacity(),
-                                                     static_cast<uint32_t>( launchOptions.generatedObjectTypeOverride ) );
-
-    replayRuntime.ObserveSceneLifecycleAfterActivation( lifecycle, timelineReset, inputRouter, interaction,
-                                                        &sceneController.Scene().Cameras(),
-                                                        sceneController.Scene().Terrain().Get(), camera, replayRestoreMode(),
-                                                        attachedCamera.State().activeFollow, camera.director.grabbed );
-
-    if ( launchOptions.replayGuideArcsAtStartup && lifecycle.event == SceneRuntimeLifecycleEvent::AfterSceneActivated )
-    {
-        // Why: clear-phase processing restores the product's default-off state.
-        // An explicit cold CLI request is reapplied only after activation.
-        replayRuntime.SetGuideArcsEnabled( true );
-    }
-
-    // Invariant: only a successfully completed defaults write enters this
-    // batch, so a failed Recoverable-result save cannot advance the editor clean cursor.
-    for ( std::size_t index = 0; index < outputs.completedRequests.count; ++index )
-    {
-        if ( outputs.completedRequests.requests[index].type == SceneRequestType::SaveCurrentDefaults )
-        {
-            runtimeTools.Editor().history.MarkClean();
-            break;
-        }
-    }
-
-    for ( std::size_t index = 0; index < outputs.completedRequests.count; ++index )
-    {
-        const SceneRequest& request = outputs.completedRequests.requests[index];
-        ReplayOwnerEventCode eventCode = ReplayOwnerEventCode::SceneLoadBrowserIndex;
-
-        switch ( request.type )
-        {
-        case SceneRequestType::LoadBrowserIndex:
-            eventCode = ReplayOwnerEventCode::SceneLoadBrowserIndex;
-            break;
-        case SceneRequestType::LoadDemoScene:
-            eventCode = ReplayOwnerEventCode::SceneLoadDemo;
-            break;
-        case SceneRequestType::ResetCurrentScene:
-            eventCode = ReplayOwnerEventCode::SceneReset;
-            break;
-        case SceneRequestType::CreateScene:
-            eventCode = ReplayOwnerEventCode::SceneCreate;
-            break;
-        case SceneRequestType::SaveCurrentDefaults:
-            eventCode = ReplayOwnerEventCode::SceneSaveDefaults;
-            break;
-        }
-
-        replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildCommand( ReplayEventKind::OwnerAction, 0, true,
-                                                                               ReplaySceneRequestFlags( request ),
-                                                                               static_cast<int32_t>( eventCode ),
-                                                                               request.index, 0, 0, 0,
-                                                                               request.type == SceneRequestType::CreateScene
-                                                                                   ? request.text
-                                                                                   : ReplayOwnerEventName( eventCode ) ) );
-    }
+    AdvanceOrFatal( SceneLoadPhaseCursor::Phase::RuntimeReactions, "BeginRuntimeReactions" );
+    return m_outputs;
 }
 
 
-void SceneLoadTransaction::ApplyPresentationOutputs( Window& window, UI::InGameUI& operatorUi,
-                                                     RuntimeValidationHarness& validationHarness,
-                                                     const RunLaunchOptions& launchOptions,
-                                                     Rendering::Dx12RenderDevice* renderDevice, bool rendererVsyncEnabled,
-                                                     SceneController& sceneController )
+const SceneLoadResult& SceneLoadTransaction::BeginPresentation()
 {
-    AdvanceOrFatal( SceneLoadPhaseCursor::Phase::Presentation, "ApplyPresentationOutputs" );
-    Outputs& outputs = m_outputs;
-    const SceneLifecyclePacket& lifecycle = sceneController.LifecyclePacket();
-    validationHarness.SceneGates().ObserveSceneLifecycle( lifecycle, std::move( outputs.automationGates ) );
+    AdvanceOrFatal( SceneLoadPhaseCursor::Phase::Presentation, "BeginPresentation" );
+    return m_outputs;
+}
 
-    // Invariant: device swap policy commits only with a fully activated scene;
-    // partial loads may publish clear/populate reactions but not presentation.
-    if ( renderDevice && SceneLifecycleReached( lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneActivated ) )
+
+SceneAutomationGateConfiguration SceneLoadTransaction::TakeAutomationGates()
+{
+    if ( m_phase.Current() != SceneLoadPhaseCursor::Phase::Presentation )
     {
-        renderDevice->SetVsyncEnabled( rendererVsyncEnabled );
+        SB_FATAL( "Runtime/SceneLoadTransaction", "Automation gates taken outside presentation. current=%u",
+                  static_cast<unsigned int>( m_phase.Current() ) );
     }
 
-    if ( outputs.windowTitle[0] != '\0' )
-    {
-        window.SetTitleText( outputs.windowTitle );
-    }
+    return std::move( m_outputs.automationGates );
+}
 
-    if ( outputs.applyNavigation )
-    {
-        ApplySceneLoadNavigationState( operatorUi.SceneNavigation(), outputs.navigation );
-    }
 
-    if ( outputs.refreshSceneBrowser )
-    {
-        // Why: scene creation writes editor-authored IO inside the scene owner,
-        // but UI keeps display names and stable c-string views. Rebuild those
-        // views after the request batch returns to the UI boundary.
-        operatorUi.SceneNavigation().RefreshBrowserList();
-    }
-
-    ApplyUiActivation( operatorUi, outputs.uiActivation );
-    validationHarness.ObserveSceneLifecycle( lifecycle, launchOptions );
+void SceneLoadTransaction::CompletePresentation()
+{
     AdvanceOrFatal( SceneLoadPhaseCursor::Phase::Complete, "CompletePresentation" );
 }
 
@@ -778,7 +641,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
                                                       Rendering::Dx12FrameOwner* renderFrame, Rendering::Dx12ResourceBuilder* renderResources, RuntimeRenderer& renderer,
                                                       SceneLoadTransaction& transaction )
 {
-    SceneLoadTransaction::Outputs& consumerOutputs = transaction.m_outputs;
+    SceneLoadResult& consumerOutputs = transaction.m_outputs;
 
     // Lifetime: these aliases make cold scene mutation readable without
     // recovering a retained context. They refer only to synchronously borrowed
@@ -1389,9 +1252,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 
     if ( launchOptions.uiStress )
     {
-        diagnosticsRuntime.UIStress().enabled = true;
-        diagnosticsRuntime.UIStress().randomState = launchOptions.uiStressSeed;
-        diagnosticsRuntime.UIStress().actionsPerFrame = launchOptions.uiStressActions;
+        diagnosticsRuntime.UIStress().Configure( true, launchOptions.uiStressSeed, launchOptions.uiStressActions );
         consumerOutputs.uiActivation.nowSeconds = transaction.m_sceneTimeSeconds;
         consumerOutputs.uiActivation.forceVisible = true;
         consumerOutputs.uiActivation.forceUnminimized = true;

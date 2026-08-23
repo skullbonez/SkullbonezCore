@@ -52,6 +52,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "Run.h"
+#include "SceneLoadApplication.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "../Automation/RuntimeValidationHarness.h"
 #include "../RuntimeFrameViews.h"
@@ -68,7 +69,7 @@ Related:
 #include "../Scene/SceneSaveOperations.h"
 
 #include "../Capture/CaptureSystem.h"
-#include "../Capture/RuntimeStressController.h"
+#include "GraphicsStressApplication.h"
 #include "../Editor/EditorTools.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
@@ -670,11 +671,12 @@ Run::FrameRenderPhaseResult Run::PrepareRenderPhase( bool gameUiActive, const Fr
             }
 
             m_timers.ObserveSceneLifecycle( m_sceneController.LifecyclePacket() );
-            sceneLoad.ApplyRuntimeReactions( m_launchOptions, *m_overlayDiagnostics, m_sceneController, m_inputRouter,
-                                             m_interaction, m_camera, m_attachedCamera, m_runtimeTools, m_replayRuntime );
+            ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_sceneController,
+                                            m_inputRouter, m_interaction, m_camera, m_attachedCamera, m_runtimeTools,
+                                            m_replayRuntime );
 
-            sceneLoad.ApplyPresentationOutputs( m_window, *m_operatorUi, *m_validationHarness, m_launchOptions,
-                                                &Renderer().RenderDevice(), Renderer().VsyncEnabled(), m_sceneController );
+            ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_launchOptions,
+                                        &Renderer().RenderDevice(), Renderer().VsyncEnabled(), m_sceneController );
 
             if ( loaded )
             {
@@ -720,14 +722,22 @@ Run::FrameRenderPhaseResult Run::PrepareRenderPhase( bool gameUiActive, const Fr
             }
             else
             {
-                ApplyGraphicsStressRuntimeAction( action, graphicsStress, m_launchOptions, *m_overlayDiagnostics,
-                                                  m_sceneController, m_camera, *m_operatorUi, m_simulation, m_runtimeTools,
-                                                  m_replayRuntime );
+                const GraphicsStressRuntimeActionResult stressResult = ApplyGraphicsStressRuntimeAction(
+                    action, graphicsStress, m_launchOptions, *m_overlayDiagnostics, m_sceneController, m_camera,
+                    *m_operatorUi, m_simulation, m_runtimeTools );
+
+                if ( stressResult.worldOverrideChanged )
+                {
+                    m_replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildWorldOverride(
+                        stressResult.previousGravity, stressResult.previousFluidHeight,
+                        stressResult.previousFluidDensity, stressResult.gravity, stressResult.fluidHeight,
+                        stressResult.fluidDensity ) );
+                }
             }
         }
 
         FinishGraphicsStressFrame( graphicsStress, m_diagnosticsRuntime, m_timers.Publish(), m_sceneController,
-                                   m_replayRuntime, Renderer().RenderDiagnostics() );
+                                   m_replayRuntime.CollectMemoryStats(), Renderer().RenderDiagnostics() );
     }
 
     const float presentationAlpha = ResolvePresentationAlpha( m_config, simulation.capturePresentationPinned,
@@ -1335,11 +1345,12 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
                            .Ok();
 
             m_timers.ObserveSceneLifecycle( m_sceneController.LifecyclePacket() );
-            sceneLoad.ApplyRuntimeReactions( m_launchOptions, *m_overlayDiagnostics, m_sceneController, m_inputRouter,
-                                             m_interaction, m_camera, m_attachedCamera, m_runtimeTools, m_replayRuntime );
+            ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_sceneController,
+                                            m_inputRouter, m_interaction, m_camera, m_attachedCamera, m_runtimeTools,
+                                            m_replayRuntime );
 
-            sceneLoad.ApplyPresentationOutputs( m_window, *m_operatorUi, *m_validationHarness, m_launchOptions,
-                                                &Renderer().RenderDevice(), Renderer().VsyncEnabled(), m_sceneController );
+            ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_launchOptions,
+                                        &Renderer().RenderDevice(), Renderer().VsyncEnabled(), m_sceneController );
         }
 
         if ( !advanced )
@@ -1465,11 +1476,12 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
                             .Ok();
 
         m_timers.ObserveSceneLifecycle( m_sceneController.LifecyclePacket() );
-        sceneLoad.ApplyRuntimeReactions( m_launchOptions, *m_overlayDiagnostics, m_sceneController, m_inputRouter,
-                                         m_interaction, m_camera, m_attachedCamera, m_runtimeTools, m_replayRuntime );
+        ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_sceneController,
+                                        m_inputRouter, m_interaction, m_camera, m_attachedCamera, m_runtimeTools,
+                                        m_replayRuntime );
 
-        sceneLoad.ApplyPresentationOutputs( m_window, *m_operatorUi, *m_validationHarness, m_launchOptions,
-                                            &Renderer().RenderDevice(), Renderer().VsyncEnabled(), m_sceneController );
+        ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_launchOptions,
+                                    &Renderer().RenderDevice(), Renderer().VsyncEnabled(), m_sceneController );
     }
 
     if ( loadSucceeded && result.restartSimulationTimerAfterLoad )

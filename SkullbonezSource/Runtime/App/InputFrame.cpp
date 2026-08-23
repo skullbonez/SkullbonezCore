@@ -259,40 +259,6 @@ bool IsEditorWorldOwner( WorldInteractionOwner owner )
            owner == WorldInteractionOwner::InspectGizmo;
 }
 
-const char* ReplayOwnerEventName( ReplayOwnerEventCode code )
-{
-    switch ( code )
-    {
-    case ReplayOwnerEventCode::SceneLoadBrowserIndex:
-        return "SceneLoadBrowserIndex";
-    case ReplayOwnerEventCode::SceneLoadDemo:
-        return "SceneLoadDemo";
-    case ReplayOwnerEventCode::SceneReset:
-        return "SceneReset";
-    case ReplayOwnerEventCode::SceneCreate:
-        return "SceneCreate";
-    case ReplayOwnerEventCode::SceneSaveDefaults:
-        return "SceneSaveDefaults";
-    case ReplayOwnerEventCode::CaptureScreenshot:
-        return "CaptureScreenshot";
-    case ReplayOwnerEventCode::RenderSaveOrdinaryDefaults:
-        return "RenderSaveOrdinaryDefaults";
-    case ReplayOwnerEventCode::RenderSaveCinematicDefaults:
-        return "RenderSaveCinematicDefaults";
-    default:
-        return "UnknownOwnerEvent";
-    }
-}
-
-uint32_t ReplaySceneRequestFlags( const SceneRequest& request )
-{
-    uint32_t flags = 0;
-    flags |= request.preserveUIState ? 1u : 0u;
-    flags |= request.suppressExitOnComplete ? 2u : 0u;
-    flags |= request.preserveRuntimeState ? 4u : 0u;
-    return flags;
-}
-
 // Concept: UI command domains return accepted-command facts. These mappers keep
 // RuntimeInput transition recording in the original order without forcing each
 // domain helper to know about Run's input-mode history.

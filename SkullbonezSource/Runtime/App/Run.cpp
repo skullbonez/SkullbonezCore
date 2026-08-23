@@ -31,6 +31,7 @@ Related:
 #include "../Automation/InteractionRecordingBrowser.h"
 #include "../Camera/RuntimeCameraMode.h"
 #include "InputFrame.h"
+#include "SceneLoadApplication.h"
 #include "../Startup/Window.h"
 #include "../../Core/WindowConstants.h"
 #include "../Replay/ReplayRestoreTransactions.h"
@@ -743,11 +744,11 @@ void Run::Initialise()
                                             &Renderer().RenderResources(), Renderer() );
 
     m_timers.ObserveSceneLifecycle( m_sceneController.LifecyclePacket() );
-    sceneLoad.ApplyRuntimeReactions( m_launchOptions, *m_overlayDiagnostics, m_sceneController, m_inputRouter, m_interaction,
-                                     m_camera, m_attachedCamera, m_runtimeTools, m_replayRuntime );
+    ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_sceneController, m_inputRouter,
+                                    m_interaction, m_camera, m_attachedCamera, m_runtimeTools, m_replayRuntime );
 
-    sceneLoad.ApplyPresentationOutputs( m_window, *m_operatorUi, *m_validationHarness, m_launchOptions,
-                                        &Renderer().RenderDevice(), Renderer().VsyncEnabled(), m_sceneController );
+    ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_launchOptions,
+                                &Renderer().RenderDevice(), Renderer().VsyncEnabled(), m_sceneController );
 
     if ( !m_lastSceneLoadResult.Ok() )
     {
@@ -924,11 +925,11 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
                                                                           &Renderer().RenderResources(), Renderer() );
 
         m_timers.ObserveSceneLifecycle( m_sceneController.LifecyclePacket() );
-        sceneLoad.ApplyRuntimeReactions( m_launchOptions, *m_overlayDiagnostics, m_sceneController, m_inputRouter,
-                                         m_interaction, m_camera, m_attachedCamera, m_runtimeTools, m_replayRuntime );
+        ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_sceneController, m_inputRouter,
+                                        m_interaction, m_camera, m_attachedCamera, m_runtimeTools, m_replayRuntime );
 
-        sceneLoad.ApplyPresentationOutputs( m_window, *m_operatorUi, *m_validationHarness, m_launchOptions,
-                                            &Renderer().RenderDevice(), Renderer().VsyncEnabled(), m_sceneController );
+        ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_launchOptions,
+                                    &Renderer().RenderDevice(), Renderer().VsyncEnabled(), m_sceneController );
 
         if ( !loadResult.Ok() )
         {

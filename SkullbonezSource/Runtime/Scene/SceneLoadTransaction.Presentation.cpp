@@ -25,7 +25,6 @@ Related:
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../Diagnostics/OverlayDebugState.h"
 #include "../../Scene/AuthoredScene.h"
-#include "../../UI/UI.h"
 
 #include <algorithm>
 
@@ -52,136 +51,20 @@ void SceneLoadTransaction::PrepareUiOptions( DiagnosticsRuntime& diagnostics, Ov
 
     if ( options.hasStress )
     {
-        diagnostics.UIStress().enabled = options.stressEnabled;
+        diagnostics.UIStress().SetEnabled( options.stressEnabled );
     }
 
     if ( options.hasStressSeed )
     {
-        diagnostics.UIStress().randomState = options.stressSeed;
+        diagnostics.UIStress().SetRandomState( options.stressSeed );
     }
 
     if ( options.hasStressActions )
     {
-        diagnostics.UIStress().actionsPerFrame = std::clamp( options.stressActionsPerFrame, 1, 32 );
+        diagnostics.UIStress().SetActionsPerFrame( options.stressActionsPerFrame );
     }
 }
 
-
-void SceneLoadTransaction::ApplyUiActivation( UI::InGameUI& ui, const SceneUiActivation& activation )
-{
-    if ( activation.hasAuthoredOptions && !activation.preserveUIState )
-    {
-        const SceneUIOptions& options = activation.authoredOptions;
-
-        if ( !options.hasVisible )
-        {
-            if ( activation.automationScene && !options.hasSettings )
-            {
-                ui.SetVisible( false, activation.nowSeconds );
-            }
-            else if ( !options.hasSettings )
-            {
-                if ( !ui.IsVisible() )
-                {
-                    ui.SetVisible( true, activation.nowSeconds );
-                }
-
-                ui.SetMinimized( true, activation.nowSeconds );
-            }
-            else if ( !ui.IsVisible() )
-            {
-                ui.SetVisible( true, activation.nowSeconds );
-            }
-        }
-
-        if ( options.hasWindowRect )
-        {
-            ui.SetWindowBounds( options.windowX, options.windowY, options.windowW, options.windowH );
-
-            if ( !options.hasMinimized )
-            {
-                ui.SetMinimized( false, activation.nowSeconds );
-            }
-        }
-
-        if ( options.hasActiveTab )
-        {
-            ui.SetActiveTab( static_cast<UI::InGameUITab>( options.activeTab ) );
-        }
-
-        if ( options.hasBlur )
-        {
-            ui.SetBlurEnabled( options.blurEnabled );
-        }
-
-        if ( options.hasProfilerExpandAll )
-        {
-            ui.SetProfilerExpandAll( options.profilerExpandAll );
-        }
-
-        if ( options.hasProfilerTimeline )
-        {
-            ui.SetProfilerTimelineEnabled( options.profilerTimeline );
-        }
-
-        if ( options.hasPerformanceHistogram )
-        {
-            ui.SetPerformanceHistogramEnabled( options.performanceHistogram );
-        }
-
-        if ( options.hasHitboxOverlay )
-        {
-            ui.SetHitboxOverlayEnabled( options.hitboxOverlay );
-        }
-
-        if ( options.hasRendererComboOpen )
-        {
-            ui.SetRendererComboOpen( options.rendererComboOpen );
-        }
-
-        if ( options.hasWaterComboOpen )
-        {
-            ui.SetWaterComboOpen( options.waterComboOpen );
-        }
-
-        if ( options.hasSceneComboOpen )
-        {
-            ui.SetSceneComboOpen( options.sceneComboOpen );
-        }
-
-        if ( options.hasSceneFilter )
-        {
-            ui.SetSceneFilter( options.sceneFilter );
-        }
-
-        if ( options.hasScrollY )
-        {
-            ui.SetScrollY( options.scrollY );
-        }
-
-        ui.SetMouseOverride( options.hasMouseOverride, options.mouseX, options.mouseY );
-
-        if ( options.hasVisible )
-        {
-            ui.SetVisible( options.isVisible, activation.nowSeconds );
-        }
-
-        if ( options.hasMinimized )
-        {
-            ui.SetMinimized( options.isMinimized, 0.0 );
-        }
-    }
-
-    if ( activation.forceVisible )
-    {
-        ui.SetVisible( true, activation.nowSeconds );
-    }
-
-    if ( activation.forceUnminimized )
-    {
-        ui.SetMinimized( false, activation.nowSeconds );
-    }
-}
 
 } // namespace Runtime
 } // namespace SkullbonezCore

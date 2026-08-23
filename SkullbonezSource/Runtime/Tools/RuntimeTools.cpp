@@ -34,7 +34,7 @@ Related:
 
 #include "../../Core/Common.h"
 #include "../../Core/Log.h"
-#include "../Scene/SceneControllerState.h"
+
 #include "../Scene/SceneWorld.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/CollisionShape.h"

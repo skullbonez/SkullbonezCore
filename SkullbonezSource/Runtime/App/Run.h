@@ -267,7 +267,7 @@ class Run
     void CompleteLookLabPostRenderCaptures();                                                                     // Returns Capture results to the matching Look Lab transaction.
     void CancelPendingLookLabSave( const char* reason );                                                          // Finalizes a pending receipt before scene or process teardown.
     void PrepareSceneScopedOwnersForTransition();                                                                 // Joins forecast work and clears presentation candidates before load.
-    SkullbonezCore::Core::SbResult RunUIStressActions( RunCameraMode replayRestoreCameraMode );
+    SkullbonezCore::Core::SbResult RunUIStressActions();
 
     void Render( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha );                      // Skips 3D in text-only runs, then records passes for the current camera state.
     void UpdateLogic( float simulationDt, float cameraDt, float presentationAlpha );                              // Scaled frame logic and unscaled camera time; any solver ticks have

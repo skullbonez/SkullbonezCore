@@ -1,12 +1,11 @@
 /*
-File: SkullbonezSource/Runtime/Capture/RuntimeStressController.h
+File: SkullbonezSource/Runtime/App/GraphicsStressApplication.h
 Purpose:
-  Declares concrete graphics-stress operations used by the render phase.
+  Declares App-owned application of deterministic graphics-stress policy.
 
 Summary:
-  Graphics stress is split into deterministic planning, descriptor churn,
-  bounded action groups, and diagnostics. Run remains the ordered phase
-  coordinator and supplies only the concrete owners each operation needs.
+  Capture owns deterministic random state and cadence. App remains the ordered
+  phase coordinator and supplies only the concrete owners each operation needs.
   These functions are synchronous stress transactions, not a replacement
   runtime owner. They borrow their operands for one call, retain none, and
   return only value decisions needed by the next render-phase step.
@@ -24,7 +23,7 @@ Invariants:
   - No helper retains a borrowed runtime owner or republishes a service bag.
 
 Related:
-  - RuntimeStressController.cpp
+  - GraphicsStressApplication.cpp
   - ../App/RunFrame.cpp
   - GraphicsStressController.h
 */
@@ -41,6 +40,7 @@ class AssetSystem;
 namespace Core
 {
 class EngineConfig;
+struct MainMemoryReplayStats;
 struct CinematicRenderConfig;
 } // namespace Core
 namespace Rendering
@@ -57,7 +57,6 @@ class GraphicsStressController;
 class RuntimeOverlayDiagnostics;
 class RuntimeRenderer;
 class SceneController;
-class ReplayRuntime;
 class RuntimeTools;
 class SimulationSystem;
 class Window;
@@ -74,6 +73,17 @@ struct GraphicsStressSceneLoadPlan
     const char* selectedSceneSource = "none";
 };
 
+struct GraphicsStressRuntimeActionResult
+{
+    float previousGravity = 0.0f;
+    float previousFluidHeight = 0.0f;
+    float previousFluidDensity = 0.0f;
+    float gravity = 0.0f;
+    float fluidHeight = 0.0f;
+    float fluidDensity = 0.0f;
+    bool worldOverrideChanged = false;
+};
+
 bool PrepareGraphicsStressChurn( GraphicsStressController& stress, Window& window, RuntimeRenderer& renderer,
                                  const Rendering::Dx12Diagnostics& renderDiagnostics );
 GraphicsStressSceneLoadPlan PlanGraphicsStressSceneLoad( GraphicsStressController& stress, SceneController& sceneController,
@@ -84,12 +94,14 @@ void ApplyGraphicsStressPresentationAction( int action, GraphicsStressController
                                             const RuntimeFrameMetricsSnapshot& timers, UI::InGameUI& ui,
                                             const Core::CinematicRenderConfig& defaultCinematicRender,
                                             RuntimeRenderer& renderer );
-void ApplyGraphicsStressRuntimeAction( int action, GraphicsStressController& stress, RunLaunchOptions& launchOptions,
-                                       RuntimeOverlayDiagnostics& overlays, SceneController& sceneController,
-                                       CameraControlState& camera, UI::InGameUI& ui, SimulationSystem& simulation,
-                                       RuntimeTools& runtimeTools, ReplayRuntime& replayRuntime );
+GraphicsStressRuntimeActionResult
+ApplyGraphicsStressRuntimeAction( int action, GraphicsStressController& stress, RunLaunchOptions& launchOptions,
+                                  RuntimeOverlayDiagnostics& overlays, SceneController& sceneController,
+                                  CameraControlState& camera, UI::InGameUI& ui, SimulationSystem& simulation,
+                                  RuntimeTools& runtimeTools );
 void FinishGraphicsStressFrame( GraphicsStressController& stress, DiagnosticsRuntime& diagnosticsRuntime,
                                 const RuntimeFrameMetricsSnapshot& timers, SceneController& sceneController,
-                                ReplayRuntime& replayRuntime, const Rendering::Dx12Diagnostics& renderDiagnostics );
+                                const Core::MainMemoryReplayStats& replayMemory,
+                                const Rendering::Dx12Diagnostics& renderDiagnostics );
 } // namespace Runtime
 } // namespace SkullbonezCore

@@ -525,6 +525,12 @@
     <ClCompile Include="SkullbonezSource\Runtime\App\InputFrameExecution.cpp">
       <Filter>Source Files\Runtime\Input</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\App\RunUiStress.cpp">
+      <Filter>Source Files\Runtime\Lifecycle</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\App\SceneLoadApplication.cpp">
+      <Filter>Source Files\Runtime\Lifecycle</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsController.cpp">
       <Filter>Source Files\Runtime\Diagnostics</Filter>
     </ClCompile>
@@ -600,8 +606,8 @@
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.Load.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Capture\RuntimeStressController.cpp">
-      <Filter>Source Files\Runtime\Automation</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\App\GraphicsStressApplication.cpp">
+      <Filter>Source Files\Runtime\Lifecycle</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Simulation\SimulationSystem.cpp">
       <Filter>Source Files\Runtime\Lifecycle</Filter>
@@ -928,8 +934,8 @@
     <ClInclude Include="SkullbonezSource\Runtime\Capture\GraphicsStressController.h">
       <Filter>Header Files\Runtime\Automation</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Capture\RuntimeStressController.h">
-      <Filter>Header Files\Runtime\Automation</Filter>
+    <ClInclude Include="SkullbonezSource\Runtime\App\GraphicsStressApplication.h">
+      <Filter>Header Files\Runtime\Lifecycle</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\RuntimeOverlayDiagnostics.h">
       <Filter>Header Files\Runtime\Lifecycle</Filter>
@@ -966,6 +972,9 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\App\InputFrame.h">
       <Filter>Header Files\Runtime\Input</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\App\SceneLoadApplication.h">
+      <Filter>Header Files\Runtime\Lifecycle</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Direction\LiveStyleController.h">
       <Filter>Header Files\Runtime\Settings</Filter>
@@ -1082,6 +1091,9 @@
       <Filter>Header Files\Runtime\Diagnostics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.h">
+      <Filter>Header Files\Runtime\Diagnostics</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\UIStressPolicy.h">
       <Filter>Header Files\Runtime\Diagnostics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\SceneMemoryDiagnostics.h">

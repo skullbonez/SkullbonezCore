@@ -631,7 +631,7 @@ void DiagnosticsRuntime::ResetForSceneLoad( int completedPerfPass )
     ClosePerfLogWithMemoryCheckpoint( completedPerfPass, "end" );
     ResetPerfLogForSceneLoad();
     m_capture.ResetScreenshot();
-    m_uiStress = UIStressState {};
+    m_uiStress.Reset();
 }
 
 
@@ -1036,7 +1036,7 @@ void DiagnosticsRuntime::ReportStoreCapacityRows( const SceneSessionState& scene
 }
 
 
-DiagnosticsRuntime::UIStressState& DiagnosticsRuntime::UIStress()
+UIStressPolicyOwner& DiagnosticsRuntime::UIStress()
 {
     return m_uiStress;
 }

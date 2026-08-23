@@ -45,7 +45,7 @@ Related:
 #include "../Prediction/ReplayPrediction.h"
 #include "../Prediction/ReplayPredictionArchive.h"
 #include "../Planning/ReplayCauseInspection.h"
-#include "../Planning/ReplayOverlayRenderer.h"
+
 #include "../Replay/ReplayPresentation.h"
 #include "../Replay/ReplayV2Artifact.h"
 #include "../Camera/CameraControlState.h"

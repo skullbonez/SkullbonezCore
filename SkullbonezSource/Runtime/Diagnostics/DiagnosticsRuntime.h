@@ -28,6 +28,7 @@ Related:
 #pragma once
 
 #include "../Capture/CaptureController.h"
+#include "UIStressPolicy.h"
 #include "DiagnosticsController.h"
 
 namespace SkullbonezCore
@@ -136,17 +137,7 @@ class DiagnosticsRuntime
     void BeforeSceneUnload( const SceneSessionState& scene, const char* scenePath );
     void ReportStoreCapacityRows( const SceneSessionState& scene, const char* scenePath, const char* status );
 
-    // Invariant: UI stress state is deterministic scene-driven input churn.
-    // Keep it cheap and seed-based so validation can reproduce failures.
-    struct UIStressState
-    {
-        bool enabled = false;                                // Deterministic scene-driven UI stress runner
-        unsigned int randomState = 0x7F4A7C15u;              // LCG state, seeded from scene UI options
-        int actionsPerFrame = 4;                             // Cheap UI state mutations per rendered frame
-        int framesRun = 0;                                   // Stress-run frame counter independent of scene resets
-    };
-
-    UIStressState& UIStress();
+    UIStressPolicyOwner& UIStress();
 
   private:
     CaptureController m_capture;                             // Screenshot trigger and capture automation
@@ -157,7 +148,7 @@ class DiagnosticsRuntime
     // Cache-mode guard: a deep diagnostics caller cannot reuse a recent fast UI sample.
     bool m_lastMainMemorySampleUsedPrivateWorkingSetQuery = false;
     char m_mainMemoryDumpPath[260] = {};                     // CLI --memory-dump output path; empty disables shutdown dump.
-    UIStressState m_uiStress;                                // Deterministic UI stress run state
+    UIStressPolicyOwner m_uiStress;                          // Deterministic UI stress policy and random cursor
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

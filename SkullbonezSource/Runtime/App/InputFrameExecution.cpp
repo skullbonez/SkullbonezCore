@@ -33,6 +33,7 @@ Related:
 */
 #include "InputFrame.h"
 #include "Run.h"
+#include "SceneLoadApplication.h"
 #include "../Startup/Window.h"
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 #include "../DevelopmentTools/ImGuiEditorLayoutPolicy.h"
@@ -374,7 +375,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
         }
 
         presentationEdit.Commit();
-        const SkullbonezCore::Core::SbResult result = this->RunUIStressActions( NormalizeCameraModeForCurrentScene( replayRuntime.BuildInputView().restoreCameraMode ) );
+        const SkullbonezCore::Core::SbResult result = this->RunUIStressActions();
 
         presentationEdit.Refresh();
         return result;
@@ -638,11 +639,11 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
                                 .Ok();
 
         timers.ObserveSceneLifecycle( sceneController.LifecyclePacket() );
-        sceneLoad.ApplyRuntimeReactions( launchOptions, *m_overlayDiagnostics, sceneController, inputRouter, interaction,
-                                         camera, attachedCamera, runtimeTools, replayRuntime );
+        ApplySceneLoadRuntimeReactions( sceneLoad, launchOptions, *m_overlayDiagnostics, sceneController, inputRouter,
+                                        interaction, camera, attachedCamera, runtimeTools, replayRuntime );
 
-        sceneLoad.ApplyPresentationOutputs( window, ui, validationHarness, launchOptions, &renderer.RenderDevice(),
-                                            renderer.VsyncEnabled(), sceneController );
+        ApplySceneLoadPresentation( sceneLoad, window, ui, validationHarness, launchOptions, &renderer.RenderDevice(),
+                                    renderer.VsyncEnabled(), sceneController );
 
         presentationEdit.Refresh();
         return loaded;
@@ -1426,11 +1427,11 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
                                                                 &renderer.RenderResources(), renderer );
 
     timers.ObserveSceneLifecycle( sceneController.LifecyclePacket() );
-    sceneLoad.ApplyRuntimeReactions( launchOptions, *m_overlayDiagnostics, sceneController, inputRouter, interaction, camera,
-                                     attachedCamera, runtimeTools, replayRuntime );
+    ApplySceneLoadRuntimeReactions( sceneLoad, launchOptions, *m_overlayDiagnostics, sceneController, inputRouter,
+                                    interaction, camera, attachedCamera, runtimeTools, replayRuntime );
 
-    sceneLoad.ApplyPresentationOutputs( window, ui, validationHarness, launchOptions, &renderer.RenderDevice(),
-                                        renderer.VsyncEnabled(), sceneController );
+    ApplySceneLoadPresentation( sceneLoad, window, ui, validationHarness, launchOptions, &renderer.RenderDevice(),
+                                renderer.VsyncEnabled(), sceneController );
 
     presentationEdit.Refresh();
 

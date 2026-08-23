@@ -311,13 +311,16 @@ WORLD_PREFIXES = (
 
 RUNTIME_LIFECYCLE_PREFIXES = (
     "ApplicationExitState",
+    "GraphicsStressApplication",
     "Init",
     "OperatorEditorFramePhase",
     "Run",
     "RunFrame",
+    "RunUiStress",
     "RunTimerState",
     "RuntimeFrameViews",
     "RuntimeOverlayDiagnostics",
+    "SceneLoadApplication",
     "SimulationSystem",
 )
 
@@ -545,6 +548,7 @@ RUNTIME_DIAGNOSTICS_PREFIXES = (
     "RuntimeDiagnostics",
     "RuntimeFrameMetricsOwner",
     "SceneMemoryDiagnostics",
+    "UIStressPolicy",
 )
 
 # Why: shared runtime UI values have their own physical owner and Solution

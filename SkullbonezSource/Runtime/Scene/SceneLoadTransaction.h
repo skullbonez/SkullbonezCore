@@ -10,8 +10,8 @@ Summary:
   runtime owners are borrowed by the phase method that uses them and are never
   stored.
   The transaction is a one-way turnstile. Scene mutation fills its private
-  outputs, runtime owners consume the lifecycle generation, and only then may
-  external window/UI/validation presentation observe the result. A later
+  outputs, App applies runtime-owner reactions, and only then may external
+  window/UI/validation presentation observe the result. A later
   request in the same fixed batch asks this owner which detached value is
   current instead of reimplementing stale-versus-loaded arbitration.
 
@@ -53,6 +53,26 @@ namespace Runtime
 {
 struct SceneLoadTransactionTestAccess;
 struct SceneLoadBeginResult;
+
+// Detached result of one cold scene-load batch. App consumes these values at
+// the runtime-reaction and presentation checkpoints; Scene retains no borrow
+// of the owners that apply them.
+struct SceneLoadResult
+{
+    SceneUiActivation uiActivation;
+    SceneAutomationGateConfiguration automationGates;
+    SceneLoadNavigationState navigation;
+    OverlayDebugState presentation;
+    CameraControlState camera;
+    std::array<SceneLoadCompletedWorldChange, 2> completedWorldChanges = {};
+    std::size_t completedWorldChangeCount = 0;
+    SceneRequestBatch completedRequests;
+    char windowTitle[256] = {};
+    bool applyNavigation = false;
+    bool refreshSceneBrowser = false;
+
+    void ResetForLoad();
+};
 
 class SceneLoadPhaseCursor
 {
@@ -120,15 +140,12 @@ class SceneLoadTransaction
                                          Rendering::Dx12FrameOwner* renderFrame,
                                          Rendering::Dx12ResourceBuilder* renderResources, RuntimeRenderer& renderer );
 
-    void ApplyRuntimeReactions( const RunLaunchOptions& launchOptions, RuntimeOverlayDiagnostics& overlays,
-                                SceneController& sceneController, InputRouter& inputRouter,
-                                RuntimeInteractionController& interaction, CameraControlState& camera,
-                                AttachedCameraController& attachedCamera, RuntimeTools& runtimeTools,
-                                ReplayRuntime& replayRuntime );
-
-    void ApplyPresentationOutputs( Window& window, UI::InGameUI& operatorUi, RuntimeValidationHarness& validationHarness,
-                                   const RunLaunchOptions& launchOptions, Rendering::Dx12RenderDevice* renderDevice,
-                                   bool rendererVsyncEnabled, SceneController& sceneController );
+    // App advances each checkpoint and synchronously applies this immutable
+    // result to the concrete owners. The transaction retains values only.
+    const SceneLoadResult& BeginRuntimeReactions();
+    const SceneLoadResult& BeginPresentation();
+    SceneAutomationGateConfiguration TakeAutomationGates();
+    void CompletePresentation();
 
     const SceneLoadNavigationState& NavigationForFollowingRequest( const SceneLoadNavigationState& submitted ) const
     {
@@ -155,23 +172,6 @@ class SceneLoadTransaction
     }
 
   private:
-    struct Outputs
-    {
-        SceneUiActivation uiActivation;
-        SceneAutomationGateConfiguration automationGates;
-        SceneLoadNavigationState navigation;
-        OverlayDebugState presentation;
-        CameraControlState camera;
-        std::array<SceneLoadCompletedWorldChange, 2> completedWorldChanges = {};
-        std::size_t completedWorldChangeCount = 0;
-        SceneRequestBatch completedRequests;
-        char windowTitle[256] = {};
-        bool applyNavigation = false;
-        bool refreshSceneBrowser = false;
-
-        void ResetForLoad();
-    };
-
     friend class SceneController;
     friend struct SceneLoadTransactionTestAccess;
 
@@ -198,10 +198,8 @@ class SceneLoadTransaction
     static void PrepareUiOptions( DiagnosticsRuntime& diagnostics, OverlayDebugState& debug, SceneUiActivation& activation,
                                   const SceneUIOptions& options, double nowSeconds, bool preserveUIState,
                                   bool automationScene );
-    static void ApplyUiActivation( UI::InGameUI& ui, const SceneUiActivation& activation );
-
     SceneLoadRequest m_request = SceneLoadRequest::None();
-    Outputs m_outputs;
+    SceneLoadResult m_outputs;
     SceneLoadPhaseCursor m_phase;
     char m_rendererName[64] = "unknown";
     double m_sceneTimeSeconds = 0.0;

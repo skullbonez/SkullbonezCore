@@ -416,6 +416,8 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Input\InputRouter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\InputFrame.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\InputFrameExecution.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\App\RunUiStress.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\App\SceneLoadApplication.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorTools.cpp" />
     <ClCompile Include="SkullbonezSource\Core\LockOrderValidator.cpp" />
@@ -462,7 +464,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\App\RunRender.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Camera\CameraControlState.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.Load.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Capture\RuntimeStressController.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\App\GraphicsStressApplication.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Simulation\SimulationSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\RuntimeOverlayDiagnostics.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Automation\RuntimeValidationHarness.cpp" />
@@ -568,7 +570,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Core\StringHash.h" />
     <ClInclude Include="SkullbonezSource\Rendering\PrimitiveBatchRenderer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Capture\GraphicsStressController.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Capture\RuntimeStressController.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\App\GraphicsStressApplication.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\RuntimeOverlayDiagnostics.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Automation\RuntimeValidationHarness.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeFrameViews.h" />
@@ -614,6 +616,8 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\RuntimeDiagnostics.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsPhysicsUI.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\UIStressPolicy.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\App\SceneLoadApplication.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\SceneMemoryDiagnostics.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Interaction\OperatorCommandTransaction.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Interaction\RuntimeInteractionController.h" />

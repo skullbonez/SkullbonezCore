@@ -113,6 +113,7 @@
 #include "../SkullbonezSource/Rendering/PrimitiveBatchRenderer.h"
 #include "../SkullbonezSource/Core/TracyClientOwner.h"
 #include "../SkullbonezSource/Runtime/App/Run.h"
+#include "../SkullbonezSource/Runtime/Diagnostics/UIStressPolicy.h"
 #include "../SkullbonezSource/Runtime/Input/Input.h"
 #include "../SkullbonezSource/Runtime/Render/RuntimeRenderer.h"
 #include "../SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h"
@@ -2748,6 +2749,43 @@ TEST_CASE( "Persistent contact solve transaction enforces every phase edge throu
     CHECK( transaction.Phase() == Phase::Complete );
     static_assert( !std::is_copy_constructible_v<PersistentContactSolveTransaction> );
     static_assert( !std::is_copy_assignable_v<PersistentContactSolveTransaction> );
+}
+
+TEST_CASE( "UI stress policy publishes deterministic bounded commands without owner borrows" )
+{
+    using namespace SkullbonezCore::Runtime;
+
+    UIStressPolicyOwner disabled;
+    const UIStressFramePlan inactive = disabled.PlanFrame( 800, 600, 11 );
+    CHECK_FALSE( inactive.active );
+    CHECK( inactive.commandCount == 0u );
+
+    UIStressPolicyOwner first;
+    UIStressPolicyOwner replay;
+    first.Configure( true, 21u, 7 );
+    replay.Configure( true, 21u, 7 );
+
+    const UIStressFramePlan firstFrame = first.PlanFrame( 800, 600, 11 );
+    const UIStressFramePlan replayFrame = replay.PlanFrame( 800, 600, 11 );
+    CHECK( firstFrame.active );
+    CHECK( firstFrame.mouseX == 48 );
+    CHECK( firstFrame.mouseY == 375 );
+    CHECK( firstFrame.commandCount == 0u );
+    CHECK( first.RandomState() == 549390540u );
+    CHECK( replay.RandomState() == first.RandomState() );
+    CHECK( replayFrame.mouseX == firstFrame.mouseX );
+    CHECK( replayFrame.mouseY == firstFrame.mouseY );
+
+    const UIStressFramePlan secondFrame = first.PlanFrame( 800, 600, 11 );
+    REQUIRE( secondFrame.commandCount == 2u );
+    CHECK( secondFrame.mouseX == 91 );
+    CHECK( secondFrame.mouseY == 222 );
+    CHECK( secondFrame.commands[0].kind == UIStressCommandKind::SetActiveTab );
+    CHECK( secondFrame.commands[0].intValue == 1 );
+    CHECK( secondFrame.commands[1].kind == UIStressCommandKind::SetScrollY );
+    CHECK( secondFrame.commands[1].floatValue == doctest::Approx( 456.8734f ) );
+    CHECK( first.RandomState() == 1975722012u );
+    CHECK( first.FramesRun() == 2 );
 }
 
 TEST_CASE( "Operator command transaction enforces every phase edge through fatal invariant" )
