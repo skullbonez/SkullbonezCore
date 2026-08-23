@@ -53,6 +53,7 @@
 #include "../SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
 
+#include <algorithm>
 #include <array>
 #include <cstring>
 
@@ -610,8 +611,7 @@ TEST_CASE( "Replay cause solver detail: predicted rows require the exact immutab
     using SkullbonezCore::Physics::PhysicsPipelineStage;
     using SkullbonezCore::Physics::PhysicsSolverPersistentContactSample;
 
-    ReplayPredictionSolverEvidenceBanks banks;
-    const uint64_t epoch = banks.BeginBuild( 7u, ReplayPredictionDetailMode::High );
+    const uint64_t epoch = 23u;
     std::array<PhysicsSolverPersistentContactSample, 2> contacts;
     contacts[0].bodyA = 3;
     contacts[0].bodyB = 7;
@@ -627,11 +627,6 @@ TEST_CASE( "Replay cause solver detail: predicted rows require the exact immutab
                     .bodyB = 7,
                     .iteration = 0,
                     .featureId = 101u };
-    REQUIRE( banks.AppendBuildFrame( 84u, 3u, 900u, contacts, pipeline, 84 ) );
-    REQUIRE( banks.PromoteBuild() );
-    const ReplayPredictionSolverEvidenceFrame* frame = banks.Committed().PublishedFrame( 0u );
-    REQUIRE( frame != nullptr );
-
     RunReplayCauseTreeRow row;
     row.kind = RunReplayCauseTreeRowKind::Manifold;
     row.firstFrame = 84u;
@@ -651,9 +646,27 @@ TEST_CASE( "Replay cause solver detail: predicted rows require the exact immutab
     seek.availability = ReplayCauseSeekAvailability::Available;
     seek.source = ReplayCauseSeekSource::Prediction;
     seek.frame = 84u;
+    ReplayPredictionCauseEvidencePacket packet;
+    packet.identity = { 7u, ReplayPredictionDetailMode::High, epoch, 84u, 3u, 900u };
+    packet.query.identity = packet.identity;
+    packet.query.contactIndex = row.contactIndex;
+    packet.query.pipelineIndex = row.pipelineIndex;
+    packet.query.focusedBody = row.modelRow.value;
+    packet.query.counterpartBody = row.counterpartModelRow.value;
+    packet.query.featureId = row.featureId;
+    packet.query.terrain = row.terrain;
+    packet.query.sourceHighDetail = true;
+    std::copy( contacts.begin(), contacts.end(), packet.contacts.begin() );
+    std::copy( pipeline.begin(), pipeline.end(), packet.pipeline.begin() );
+    packet.contactCount = contacts.size();
+    packet.pipelineCount = pipeline.size();
+    packet.selectedContactRow = 0;
+    packet.bodyA = 3;
+    packet.bodyB = 7;
+    packet.available = true;
     ReplayCauseSolverDetailSource source;
     source.frame = 84u;
-    source.prediction = { &banks.Committed(), frame };
+    source.prediction = &packet;
 
     const ReplayCauseSolverDetailResult exact = EvaluateReplayCauseSolverDetail( row, seek, source );
     REQUIRE( exact.HasDetail() );
@@ -693,7 +706,7 @@ TEST_CASE( "Replay cause solver detail: predicted rows require the exact immutab
     const auto rejected = [&]( RunReplayCauseTreeRow candidate,
                                ReplayCauseSolverDetailSource candidateSource = ReplayCauseSolverDetailSource {} )
     {
-        if ( !candidateSource.prediction.Valid() )
+        if ( !candidateSource.prediction )
         {
             candidateSource = source;
         }
@@ -730,15 +743,14 @@ TEST_CASE( "Replay cause solver detail: predicted rows require the exact immutab
     wrongFrameSeek.frame = 85u;
     CHECK_FALSE( EvaluateReplayCauseSolverDetail( row, wrongFrameSeek, source ).HasDetail() );
 
-    const uint64_t replacementEpoch = banks.BeginBuild( 8u, ReplayPredictionDetailMode::High );
+    const uint64_t replacementEpoch = epoch + 1u;
     REQUIRE( replacementEpoch != epoch );
-    REQUIRE( banks.AppendBuildFrame( 84u, 4u, 901u, contacts, pipeline, 84 ) );
-    REQUIRE( banks.PromoteBuild() );
-    const ReplayPredictionSolverEvidenceFrame* replacement = banks.Committed().PublishedFrame( 0u );
-    REQUIRE( replacement != nullptr );
+    ReplayPredictionCauseEvidencePacket replacement = packet;
+    replacement.identity = { 8u, ReplayPredictionDetailMode::High, replacementEpoch, 84u, 4u, 901u };
+    replacement.query.identity = replacement.identity;
     ReplayCauseSolverDetailSource replacementSource;
     replacementSource.frame = 84u;
-    replacementSource.prediction = { &banks.Committed(), replacement };
+    replacementSource.prediction = &replacement;
     CHECK( rejected( row, replacementSource ) );
 }
 
@@ -1969,4 +1981,3 @@ TEST_CASE( "Cause hierarchy inspector: multi-contact selection assigns and consu
     CHECK( std::strstr( copyCmd.text, "Feature ID: 202" ) != nullptr );
     CHECK( std::strstr( copyCmd.text, "Feature ID: 201" ) == nullptr );
 }
-

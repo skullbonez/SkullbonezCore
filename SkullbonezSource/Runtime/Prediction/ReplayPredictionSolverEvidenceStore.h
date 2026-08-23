@@ -46,6 +46,7 @@ Related:
 #pragma once
 
 #include "ReplayPredictionPackets.h"
+#include "ReplayPredictionView.h"
 #include "../Replay/ReplayIdentity.h"
 #include "../../Physics/PhysicsDebugData.h"
 #include "../../Physics/PhysicsSolverSnapshot.h"
@@ -72,30 +73,6 @@ struct ReplayPredictionEvidenceRange
     uint32_t begin = 0;
     uint32_t count = 0;
 };
-
-struct ReplayPredictionEvidenceIdentity
-{
-    uint32_t generation = 0;
-    ReplayPredictionDetailMode mode = ReplayPredictionDetailMode::High;
-    uint64_t bankEpoch = 0;
-    ReplayFrameIndex frame = 0;
-    uint32_t topologyVersion = 0;
-    uint64_t publicationVersion = 0;
-};
-
-inline bool operator==( const ReplayPredictionEvidenceIdentity& left,
-                        const ReplayPredictionEvidenceIdentity& right ) noexcept
-{
-    return left.generation == right.generation && left.mode == right.mode && left.bankEpoch == right.bankEpoch &&
-           left.frame == right.frame && left.topologyVersion == right.topologyVersion &&
-           left.publicationVersion == right.publicationVersion;
-}
-
-inline bool operator!=( const ReplayPredictionEvidenceIdentity& left,
-                        const ReplayPredictionEvidenceIdentity& right ) noexcept
-{
-    return !( left == right );
-}
 
 struct ReplayPredictionSolverEvidenceFrame
 {

@@ -8,7 +8,8 @@ Summary:
   Planning stability analyzer, converts complete worker ticks into the authored
   cohort's bounded values, and publishes detached operator status. A separate
   double-buffered presentation owner converts logical ring rows into generic
-  Rendering ribbons and coherent authored-color head markers.
+  Rendering ribbons and coherent authored-color head markers. App resolves the
+  authored member colors before Start, so Planning never borrows Scene storage.
 
 Glossary:
   Window age: Simulated seconds between the oldest and newest retained complete
@@ -49,8 +50,6 @@ Related:
 
 namespace SkullbonezCore::Runtime
 {
-class SceneEntityStore;
-
 struct ContinuousOrbitalPresentationMember
 {
     std::size_t bodyRow = 0u;
@@ -151,11 +150,11 @@ class ContinuousOrbitalForecast final : private ContinuousPredictionTickObserver
     bool Start( const Physics::PhysicsEngine& liveEngine, const Gameplay::TornadoGameplay& liveTornado,
                 const Core::EngineConfig& config, const Physics::PhysicsWorldForces& worldForces,
                 Threading::WorkerPool& workerPool, const Scene::OrbitalStabilityContract& contract,
-                const SceneEntityStore& entities );
+                std::span<const ContinuousOrbitalPresentationMember> presentationMembers );
     bool Reset( const Physics::PhysicsEngine& liveEngine, const Gameplay::TornadoGameplay& liveTornado,
                 const Core::EngineConfig& config, const Physics::PhysicsWorldForces& worldForces,
                 Threading::WorkerPool& workerPool, const Scene::OrbitalStabilityContract& contract,
-                const SceneEntityStore& entities );
+                std::span<const ContinuousOrbitalPresentationMember> presentationMembers );
     void Stop() noexcept;
     bool AdvanceFrame( const std::chrono::steady_clock::time_point& frameBudgetStart ) noexcept;
     Rendering::RetainedGeometryPacket PreparePresentation() noexcept;

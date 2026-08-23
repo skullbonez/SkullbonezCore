@@ -20,9 +20,7 @@ dense rows are repairable hints.- Baseline capture precedes candidate mutation,
 #include "ReplayPlanningRuntime.h"
 
 #include "ReplayPlanningOverlayLayout.h"
-#include "../Input/InputRouter.h"
 #include "../Interaction/RuntimePickService.h"
-#include "../Scene/SceneEntityStore.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
@@ -45,18 +43,17 @@ float ColliderRadius( const Physics::ColliderStore& colliderStore, Physics::Phys
 
 // Concept: Planning treats the heaviest fixed body as the central guide body.
 // Stable scene identity is copied out; no body-store borrow survives this scan.
-bool ReadGuideBodyState( const SceneEntityStore& entities, const Physics::PhysicsBodyStore& bodyStore, int entityIndex,
+bool ReadGuideBodyState( const Physics::PhysicsBodyStore& bodyStore, Physics::PhysicsSceneObjectId id,
                          ReplayGuideBodyState& outState ) noexcept
 {
-    const SceneEntityRecord* entity = entities.TryGet( entityIndex );
-
-    if ( !entity )
+    if ( !id.IsValid() )
     {
         return false;
     }
 
-    Physics::ModelRowHint row { entityIndex };
-    const int resolvedRow = bodyStore.ResolveModelRow( entity->body, row );
+    const Physics::PhysicsBodyHandle handle = bodyStore.HandleForSceneObjectId( id );
+    Physics::ModelRowHint row;
+    const int resolvedRow = bodyStore.ResolveModelRow( handle, row );
     const std::span<const Physics::PhysicsBodyRecord> records = bodyStore.Records();
     const Physics::PhysicsBodyHotFieldsConstView hot = bodyStore.HotFields();
 
@@ -196,9 +193,19 @@ void ReplayPlanningRuntime::ResetTransientPlanState() noexcept
     m_causeInspection.Reset();
 }
 
-bool ReplayPlanningRuntime::CancelActivePlan( Physics::PhysicsEngine& physics, ReplayPrediction& predictionOwner )
+ReplayTripPlannerVelocityMutation ReplayPlanningRuntime::CancelActivePlan() noexcept
 {
-    return ApplyTripPlannerMutation( physics, m_tripPlanner.CancelActivePlan(), predictionOwner );
+    return m_tripPlanner.CancelActivePlan();
+}
+
+void ReplayPlanningRuntime::AbortTripPlannerMutation() noexcept
+{
+    m_tripPlanner.Abort();
+}
+
+void ReplayPlanningRuntime::ConfirmTripPlannerVelocityApplied() noexcept
+{
+    m_tripPlanner.ConfirmVelocityApplied();
 }
 
 ReplayGuideArcsView ReplayPlanningRuntime::GuideArcsView() const noexcept
@@ -244,15 +251,15 @@ bool ReplayPlanningRuntime::HasInterceptTarget() const noexcept
 
 const UI::UIDrawList& ReplayPlanningRuntime::ComposeOverlayDrawList(
     const ReplayOverlay::ReplayOverlayStateView& replay, bool gameUiSurfaceActive, bool scenePhysicsEnabled,
-    RuntimeInteractionGestureKind gesture, ReplayOverlay::ReplayOverlayViewport viewport, double nowSeconds )
+    ReplayOverlay::ReplayOverlayGestureView gesture, ReplayOverlay::ReplayOverlayViewport viewport, double nowSeconds )
 {
     return m_overlayDrawOwner.Compose( replay, gameUiSurfaceActive, scenePhysicsEnabled, gesture, viewport, nowSeconds );
 }
 
 
-bool ReplayPlanningRuntime::TickPointerSurface( bool uiBlocksMouse, int screenWidth, InputRouter& inputRouter )
+bool ReplayPlanningRuntime::TickPointerSurface( bool uiBlocksMouse, int screenWidth,
+                                                const ReplayPlanningPointerInput& pointer )
 {
-    const RuntimePointerEvent& pointer = inputRouter.RuntimeSnapshot().pointer;
     bool porkchopOwnsMouse = false;
 
     if ( m_porkchopPanel.Visible() && pointer.hasClientPosition )
@@ -272,7 +279,7 @@ bool ReplayPlanningRuntime::TickPointerSurface( bool uiBlocksMouse, int screenWi
 
         m_porkchopPanel.SetHoveredCell( hasCell ? static_cast<int>( cellIndex ) : -1 );
 
-        if ( hasCell && inputRouter.UiSnapshot().mouse.leftPressed && m_porkchopPanel.SelectCell( cellIndex ) )
+        if ( hasCell && pointer.leftPressed && m_porkchopPanel.SelectCell( cellIndex ) )
         {
             const ReplayPorkchopPanelView& selected = m_porkchopPanel.View();
             (void)m_tripPlanner.QueueCommand( { ReplayTripPlannerCommandKind::SetTimeOfFlight, selected.selectedTimeOfFlightSeconds } );
@@ -293,13 +300,13 @@ bool ReplayPlanningRuntime::TickPointerSurface( bool uiBlocksMouse, int screenWi
         surface.ResolvePointer( pointer.clientX, pointer.clientY, uiBlocksMouse || porkchopOwnsMouse );
         tripPlannerOwnsMouse = surface.consumesPointer;
 
-        if ( inputRouter.UiSnapshot().mouse.leftPressed && surface.hasHotControl )
+        if ( pointer.leftPressed && surface.hasHotControl )
         {
-            const RuntimeUiControl* control = surface.Find( surface.hotControl );
+            const ReplayOverlay::ReplayTripPlannerControlRow* control = surface.Find( surface.hotControl );
 
-            if ( control && control->action )
+            if ( control && control->action != ReplayTripPlannerCommandKind::None )
             {
-                (void)m_tripPlanner.QueueCommand( { static_cast<ReplayTripPlannerCommandKind>( control->action.value ) } );
+                (void)m_tripPlanner.QueueCommand( { control->action } );
             }
         }
     }
@@ -351,25 +358,25 @@ ReplayPathPickResult ReplayPlanningRuntime::TryPickInterceptTarget( const Replay
     return result;
 }
 
-void ReplayPlanningRuntime::BeginFrameBeforePrediction( Physics::PhysicsEngine& physics, const SceneEntityStore& entities,
-                                                        const Physics::PhysicsWorldForces& worldForces,
-                                                        const RunReplayPathVisualizerState& path,
-                                                        const ReplayPredictionPresentationView& prediction,
-                                                        bool liveAdvanceHeld, ReplayPrediction& predictionOwner )
+ReplayTripPlannerVelocityMutation ReplayPlanningRuntime::BeginFrameBeforePrediction(
+    Physics::PhysicsEngine& physics, const ReplayPlanningSceneView& scene,
+    const Physics::PhysicsWorldForces& worldForces, const RunReplayPathVisualizerState& path,
+    const ReplayPredictionPresentationView& prediction, bool liveAdvanceHeld )
 {
-    BeginTripPlannerFrame( physics, entities, worldForces, path, prediction, liveAdvanceHeld, predictionOwner );
+    return BeginTripPlannerFrame( physics, scene, worldForces, path, prediction, liveAdvanceHeld );
 }
 
-void ReplayPlanningRuntime::FinishFrameAfterPrediction( Physics::PhysicsEngine& physics, const SceneEntityStore& entities,
-                                                        const Physics::PhysicsWorldForces& worldForces, double nowSeconds,
-                                                        const RunReplayPathVisualizerState& path,
-                                                        const ReplayPredictionPresentationView& prediction,
-                                                        bool liveAdvanceHeld, ReplayPrediction& predictionOwner )
+ReplayTripPlannerVelocityMutation ReplayPlanningRuntime::FinishFrameAfterPrediction(
+    Physics::PhysicsEngine& physics, const ReplayPlanningSceneView& scene,
+    const Physics::PhysicsWorldForces& worldForces, double nowSeconds, const RunReplayPathVisualizerState& path,
+    const ReplayPredictionPresentationView& prediction, bool liveAdvanceHeld )
 {
     UpdateInterceptReadout( physics, worldForces.mutualGravity.enabled, path, prediction );
-    ObserveTripPlannerPrediction( physics, path, prediction, liveAdvanceHeld, predictionOwner );
-    UpdateGuideArcs( physics, entities, worldForces, nowSeconds );
-    UpdatePorkchopPanel( physics, entities, worldForces, nowSeconds );
+    const ReplayTripPlannerVelocityMutation mutation =
+        ObserveTripPlannerPrediction( path, prediction, liveAdvanceHeld );
+    UpdateGuideArcs( physics, scene, worldForces, nowSeconds );
+    UpdatePorkchopPanel( physics, scene, worldForces, nowSeconds );
+    return mutation;
 }
 
 void ReplayPlanningRuntime::UpdateInterceptReadout( Physics::PhysicsEngine& physics, bool mutualGravityEnabled,
@@ -407,7 +414,7 @@ void ReplayPlanningRuntime::UpdateInterceptReadout( Physics::PhysicsEngine& phys
     m_interceptReadout.Update( input );
 }
 
-void ReplayPlanningRuntime::UpdateGuideArcs( Physics::PhysicsEngine& physics, const SceneEntityStore& entities,
+void ReplayPlanningRuntime::UpdateGuideArcs( Physics::PhysicsEngine& physics, const ReplayPlanningSceneView& scene,
                                              const Physics::PhysicsWorldForces& worldForces, double nowSeconds )
 {
     ReplayGuideArcsUpdateInput input;
@@ -419,14 +426,14 @@ void ReplayPlanningRuntime::UpdateGuideArcs( Physics::PhysicsEngine& physics, co
     {
         const Physics::PhysicsBodyStore& bodyStore = Physics::PhysicsEngine::ReadBodies( physics );
         (void)ReadGuideSunState( bodyStore, input.sun );
-        (void)ReadGuideBodyState( entities, bodyStore, entities.FindByDisplayName( "earth" ), input.earth );
-        (void)ReadGuideBodyState( entities, bodyStore, entities.FindByDisplayName( "mars" ), input.mars );
+        (void)ReadGuideBodyState( bodyStore, scene.earthId, input.earth );
+        (void)ReadGuideBodyState( bodyStore, scene.marsId, input.mars );
     }
 
     m_guideArcs.Update( input );
 }
 
-void ReplayPlanningRuntime::UpdatePorkchopPanel( Physics::PhysicsEngine& physics, const SceneEntityStore& entities,
+void ReplayPlanningRuntime::UpdatePorkchopPanel( Physics::PhysicsEngine& physics, const ReplayPlanningSceneView& scene,
                                                  const Physics::PhysicsWorldForces& worldForces, double nowSeconds )
 {
     if ( !m_porkchopPanel.Visible() )
@@ -451,8 +458,8 @@ void ReplayPlanningRuntime::UpdatePorkchopPanel( Physics::PhysicsEngine& physics
             ReplayGuideBodyState earth;
             ReplayGuideBodyState target;
             (void)ReadGuideSunState( bodyStore, sun );
-            (void)ReadGuideBodyState( entities, bodyStore, entities.FindByDisplayName( "earth" ), earth );
-            (void)ReadGuideBodyState( entities, bodyStore, entities.FindBySceneObjectId( targetId ), target );
+            (void)ReadGuideBodyState( bodyStore, scene.earthId, earth );
+            (void)ReadGuideBodyState( bodyStore, scene.targetId, target );
             input.sun = PorkchopBody( sun );
             input.departure = PorkchopBody( earth );
             input.target = PorkchopBody( target );
@@ -464,15 +471,14 @@ void ReplayPlanningRuntime::UpdatePorkchopPanel( Physics::PhysicsEngine& physics
     m_porkchopPanel.AdvanceSweep( nowSeconds );
 }
 
-void ReplayPlanningRuntime::BeginTripPlannerFrame( Physics::PhysicsEngine& physics, const SceneEntityStore& entities,
-                                                   const Physics::PhysicsWorldForces& worldForces,
-                                                   const RunReplayPathVisualizerState& path,
-                                                   const ReplayPredictionPresentationView& prediction, bool liveAdvanceHeld,
-                                                   ReplayPrediction& predictionOwner )
+ReplayTripPlannerVelocityMutation ReplayPlanningRuntime::BeginTripPlannerFrame(
+    Physics::PhysicsEngine& physics, const ReplayPlanningSceneView& scene,
+    const Physics::PhysicsWorldForces& worldForces, const RunReplayPathVisualizerState& path,
+    const ReplayPredictionPresentationView& prediction, bool liveAdvanceHeld )
 {
     if ( !m_tripPlanner.RequiresLiveInput() )
     {
-        return;
+        return {};
     }
 
     const Physics::PhysicsBodyStore& bodyStore = Physics::PhysicsEngine::ReadBodies( physics );
@@ -485,22 +491,19 @@ void ReplayPlanningRuntime::BeginTripPlannerFrame( Physics::PhysicsEngine& physi
     (void)ReadPlannerSunState( bodyStore, input.sun );
     (void)ReadPlannerBodyState( bodyStore, path.targetId, input.ship );
     (void)ReadPlannerBodyState( bodyStore, m_interceptReadout.TargetId(), input.target );
-    const SceneEntityRecord* targetEntity = entities.TryGet( entities.FindBySceneObjectId( m_interceptReadout.TargetId() ) );
-
-    input.targetName = targetEntity ? targetEntity->displayName : nullptr;
-    (void)ApplyTripPlannerMutation( physics, m_tripPlanner.BeginFrame( input ), predictionOwner );
+    input.targetName = scene.targetName[0] != '\0' ? scene.targetName : nullptr;
+    return m_tripPlanner.BeginFrame( input );
 }
 
 // Invariant: baseline preparation precedes the first candidate write. A failed
 // candidate attempts rollback through the same Physics velocity seam before aborting.
-void ReplayPlanningRuntime::ObserveTripPlannerPrediction( Physics::PhysicsEngine& physics,
-                                                          const RunReplayPathVisualizerState& path,
-                                                          const ReplayPredictionPresentationView& prediction,
-                                                          bool liveAdvanceHeld, ReplayPrediction& predictionOwner )
+ReplayTripPlannerVelocityMutation ReplayPlanningRuntime::ObserveTripPlannerPrediction(
+    const RunReplayPathVisualizerState& path, const ReplayPredictionPresentationView& prediction,
+    bool liveAdvanceHeld )
 {
     if ( !m_tripPlanner.AwaitingPrediction() )
     {
-        return;
+        return {};
     }
 
     ReplayTripPlannerPredictionInput input;
@@ -513,64 +516,7 @@ void ReplayPlanningRuntime::ObserveTripPlannerPrediction( Physics::PhysicsEngine
     input.cancelled = !prediction.enabled;
     input.liveAdvanceHeld = liveAdvanceHeld;
     input.targetAvailable = path.hasTarget && m_interceptReadout.HasTarget();
-    (void)ApplyTripPlannerMutation( physics, m_tripPlanner.ObservePrediction( input ), predictionOwner );
-}
-
-bool ReplayPlanningRuntime::ApplyTripPlannerMutation( Physics::PhysicsEngine& physics,
-                                                      const ReplayTripPlannerVelocityMutation& mutation,
-                                                      ReplayPrediction& predictionOwner )
-{
-    if ( !mutation.requested )
-    {
-        return false;
-    }
-
-    if ( mutation.prepareBaseline && !predictionOwner.PrepareVelocityMutationBaseline() )
-    {
-        m_tripPlanner.Abort();
-        return false;
-    }
-
-    const Physics::PhysicsBodyStore& bodyStore = Physics::PhysicsEngine::ReadBodies( physics );
-    const Physics::PhysicsBodyHandle handle = bodyStore.HandleForSceneObjectId( mutation.bodyId );
-    Physics::ModelRowHint row;
-    const int bodyIndex = bodyStore.ResolveModelRow( handle, row );
-    const Physics::PhysicsBodyHotFieldsConstView hot = bodyStore.HotFields();
-
-    if ( bodyIndex < 0 || static_cast<std::size_t>( bodyIndex ) >= hot.angularVelocityX.size() )
-    {
-        std::fprintf( stderr, "ReplayTripPlanner: velocity mutation target %u is no longer available; plan cancelled.\n",
-                      mutation.bodyId.value );
-
-        m_tripPlanner.Abort();
-        return false;
-    }
-
-    const Math::Vector::Vector3 angularVelocity = Physics::PhysicsBodyAngularVelocity( hot, static_cast<std::size_t>( bodyIndex ) );
-
-    if ( !physics.SetBodyVelocity( handle, mutation.linearVelocity, angularVelocity, true ) )
-    {
-        if ( !mutation.restoresPrePlanVelocity )
-        {
-            const ReplayTripPlannerVelocityMutation restore = m_tripPlanner.CancelActivePlan();
-
-            if ( restore.requested && physics.SetBodyVelocity( handle, restore.linearVelocity, angularVelocity, true ) )
-            {
-                predictionOwner.CommitVelocityMutation();
-                return false;
-            }
-        }
-
-        std::fprintf( stderr, "ReplayTripPlanner: Physics rejected %s velocity mutation for scene object %u.\n",
-                      mutation.restoresPrePlanVelocity ? "rollback" : "candidate", mutation.bodyId.value );
-
-        m_tripPlanner.Abort();
-        return false;
-    }
-
-    predictionOwner.CommitVelocityMutation();
-    m_tripPlanner.ConfirmVelocityApplied();
-    return true;
+    return m_tripPlanner.ObservePrediction( input );
 }
 } // namespace Runtime
 } // namespace SkullbonezCore

@@ -93,21 +93,6 @@ struct ReplayOverlayBuildInput
     int sceneFrame = 0;
 };
 
-struct ReplayPathPickInput
-{
-    Math::Vector::Vector3 rayOrigin = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
-    bool hasWorldRay = false;
-    bool additive = false;
-    bool clearOnMiss = false;
-};
-
-struct ReplayPathPickResult
-{
-    bool picked = false;
-    bool exitInspectionCamera = false;
-};
-
 // Host-camera effect emitted by replay interaction phases. The action carries
 // no camera owner or frame data and is applied synchronously by ReplayRuntime.
 enum class ReplayInspectionCameraAction : uint8_t

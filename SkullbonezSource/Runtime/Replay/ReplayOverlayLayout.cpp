@@ -25,6 +25,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "ReplayOverlayLayout.h"
+#include "ReplayScrubber.h"
 #include "../../Core/FatalError.h"
 
 #include <algorithm>

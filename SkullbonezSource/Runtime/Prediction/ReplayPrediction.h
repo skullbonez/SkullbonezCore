@@ -1060,6 +1060,8 @@ class ReplayPrediction
     // Returns a synchronous exact-frame borrow from the currently presented
     // evidence bank. An invalid view means the frame is not sealed High detail.
     ReplayPredictionSolverEvidenceFrameView SolverEvidenceForPresentedFrame( ReplayFrameIndex frame ) const noexcept;
+    bool CopyCauseEvidence( const ReplayPredictionCauseEvidenceQuery& query,
+                            ReplayPredictionCauseEvidencePacket& outPacket ) const noexcept;
 
     // Internal worker/frame-thread commands keep the Physics diagnostics gate
     // paired with the evidence bank that consumes its exact rows.

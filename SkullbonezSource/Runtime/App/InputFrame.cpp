@@ -767,17 +767,43 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
             applyReplayTransport( disablePrediction );
         }
 
-        if ( !replayRuntime.BuildInputView().predictionEnabled )
-        {
-            const SceneWorld& scene = sceneController.Scene();
-            (void)( command.type == SkullbonezCore::UI::OperatorEditorForecastCommandType::Reset
-                        ? continuousForecast.Reset( scene.Physics(), scene.Tornado(), config,
-                                                    scene.Environment().GetPhysicsWorldForces(), workerPool,
-                                                    scene.OrbitalStabilityContract(), scene.Entities() )
-                        : continuousForecast.Start( scene.Physics(), scene.Tornado(), config,
-                                                    scene.Environment().GetPhysicsWorldForces(), workerPool,
-                                                    scene.OrbitalStabilityContract(), scene.Entities() ) );
-        }
+          if ( !replayRuntime.BuildInputView().predictionEnabled )
+          {
+              const SceneWorld& scene = sceneController.Scene();
+              const Scene::OrbitalStabilityContract& contract = scene.OrbitalStabilityContract();
+              std::array<ContinuousOrbitalPresentationMember, Scene::ORBITAL_STABILITY_MEMBER_CAPACITY>
+                  presentationMembers = {};
+              std::size_t presentationMemberCount = 0u;
+              const Physics::PhysicsBodyStore& bodies = Physics::PhysicsEngine::ReadBodies( scene.Physics() );
+
+              for ( std::size_t memberIndex = 0u; memberIndex < contract.memberCount; ++memberIndex )
+              {
+                  const Physics::PhysicsSceneObjectId id = contract.members[memberIndex].sceneObjectId;
+                  const int bodyRow = bodies.ModelIndexForHandle( bodies.HandleForSceneObjectId( id ) );
+                  const int entityRow = scene.Entities().FindBySceneObjectId( id );
+
+                  if ( bodyRow < 0 || entityRow < 0 )
+                  {
+                      presentationMemberCount = 0u;
+                      break;
+                  }
+
+                  const Rendering::RenderMaterial& material = scene.Entities().At( entityRow ).renderMaterial;
+                  presentationMembers[presentationMemberCount++] = {
+                      static_cast<std::size_t>( bodyRow ), id.value, material.baseColor[0], material.baseColor[1],
+                      material.baseColor[2] };
+              }
+
+              const std::span<const ContinuousOrbitalPresentationMember> presentationView(
+                  presentationMembers.data(), presentationMemberCount );
+              (void)( command.type == SkullbonezCore::UI::OperatorEditorForecastCommandType::Reset
+                         ? continuousForecast.Reset( scene.Physics(), scene.Tornado(), config,
+                                                      scene.Environment().GetPhysicsWorldForces(), workerPool,
+                                                      contract, presentationView )
+                         : continuousForecast.Start( scene.Physics(), scene.Tornado(), config,
+                                                      scene.Environment().GetPhysicsWorldForces(), workerPool,
+                                                      contract, presentationView ) );
+          }
     }
 
     const auto updateInputMode = [&]( RuntimeInputAction action, RuntimeInputActionSource source )

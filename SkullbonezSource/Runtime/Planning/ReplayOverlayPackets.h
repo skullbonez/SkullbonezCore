@@ -32,7 +32,6 @@ Related:
 #include "../Replay/ReplayPathPackets.h"
 #include "../Replay/ReplayPresentationPackets.h"
 #include "../Replay/ReplayTimelinePackets.h"
-#include "../Interaction/RuntimeInteractionController.h"
 
 namespace SkullbonezCore::Rendering
 {
@@ -64,6 +63,12 @@ struct ReplayOverlayViewport
     // call site; neither dimension has meaning without the other.
     int width = 1;
     int height = 1;
+};
+
+struct ReplayOverlayGestureView
+{
+    bool scrubDrag = false;
+    bool predictionHorizonDrag = false;
 };
 
 struct ReplayOverlayStateView

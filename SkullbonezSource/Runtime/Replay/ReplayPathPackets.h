@@ -4,8 +4,9 @@ Purpose:
   Publishes replay path-target and retained/future trajectory selection values without Presentation ownership.
 
 Summary:
-  Presentation owns target mutation and trajectory caches. Drawing, development
-  UI, and automation consume these bounded value records for one frame.
+  Presentation owns target mutation and trajectory caches. App, Planning,
+  drawing, development UI, and automation exchange bounded target, pick, and
+  trajectory values without borrowing Presentation.
 
 Glossary:
   Retained path: Solver-history trajectory for the selected replay body.
@@ -22,12 +23,28 @@ Related:
 #pragma once
 
 #include "../../Physics/PhysicsHandles.h"
+#include "../../Maths/Vector3.h"
 
 #include <cstdint>
 #include <vector>
 
 namespace SkullbonezCore::Runtime
 {
+struct ReplayPathPickInput
+{
+    Math::Vector::Vector3 rayOrigin = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
+    bool hasWorldRay = false;
+    bool additive = false;
+    bool clearOnMiss = false;
+};
+
+struct ReplayPathPickResult
+{
+    bool picked = false;
+    bool exitInspectionCamera = false;
+};
+
 struct RunReplayPathTarget
 {
     Physics::PhysicsSceneObjectId id;

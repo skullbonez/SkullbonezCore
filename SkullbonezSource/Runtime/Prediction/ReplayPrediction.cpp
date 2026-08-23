@@ -1456,6 +1456,159 @@ ReplayPrediction::SolverEvidenceForPresentedFrame( ReplayFrameIndex frame ) cons
     return {};
 }
 
+bool ReplayPrediction::CopyCauseEvidence( const ReplayPredictionCauseEvidenceQuery& query,
+                                          ReplayPredictionCauseEvidencePacket& outPacket ) const noexcept
+{
+    // Hazard: frame numbers can repeat after a bank flip. The complete identity
+    // must resolve in the currently presented bank before any row is copied.
+    outPacket = {};
+
+    if ( !query.sourceHighDetail || query.identity.mode != ReplayPredictionDetailMode::High ||
+         m_detailMode != ReplayPredictionDetailMode::High )
+    {
+        return false;
+    }
+
+    const ReplayPredictionSolverEvidenceStore& store = m_state.BuildPrefixShouldBePresented() ? m_solverEvidence.Build()
+                                                                                              : m_solverEvidence.Committed();
+    const ReplayPredictionSolverEvidenceFrame* frame = store.FindPublishedFrame( query.identity );
+
+    if ( !frame || !frame->complete || frame->identity != query.identity || query.contactIndex < 0 ||
+         query.pipelineIndex < 0 || static_cast<std::size_t>( query.contactIndex ) >= frame->contacts.count ||
+         static_cast<std::size_t>( query.pipelineIndex ) >= frame->pipeline.count )
+    {
+        return false;
+    }
+
+    const auto pairMatches = []( int bodyA, int bodyB, int expectedA, int expectedB, bool terrain )
+    {
+        if ( terrain )
+        {
+            return bodyA == expectedA && ( bodyB < 0 || bodyB == expectedB );
+        }
+
+        return ( bodyA == expectedA && bodyB == expectedB ) || ( bodyA == expectedB && bodyB == expectedA );
+    };
+    const auto contactMatches = [&]( const Physics::PhysicsSolverPersistentContactSample& contact, int bodyA, int bodyB,
+                                     bool terrain )
+    { return pairMatches( contact.bodyA, contact.bodyB, bodyA, bodyB, terrain ); };
+    const auto solverStage = []( Physics::PhysicsPipelineStage stage )
+    {
+        switch ( stage )
+        {
+        case Physics::PhysicsPipelineStage::ManifoldRow:
+        case Physics::PhysicsPipelineStage::WarmStart:
+        case Physics::PhysicsPipelineStage::SolverIteration:
+        case Physics::PhysicsPipelineStage::VelocityWriteback:
+        case Physics::PhysicsPipelineStage::PositionCorrection:
+        case Physics::PhysicsPipelineStage::CacheStore:
+            return true;
+        default:
+            return false;
+        }
+    };
+
+    const Physics::PhysicsSolverPersistentContactSample* anchor =
+        store.Contact( frame->contacts, static_cast<std::size_t>( query.contactIndex ) );
+    const Physics::PhysicsPipelineRecord* sequenceAnchor =
+        store.Pipeline( frame->pipeline, static_cast<std::size_t>( query.pipelineIndex ) );
+
+    if ( !anchor || !sequenceAnchor || query.featureId < 0 ||
+         static_cast<uint32_t>( query.featureId ) != anchor->featureId ||
+         ( anchor->isTerrain || anchor->bodyB < 0 ) != query.terrain ||
+         ( query.focusedBody != anchor->bodyA && query.focusedBody != anchor->bodyB ) )
+    {
+        return false;
+    }
+
+    const int otherBody = query.focusedBody == anchor->bodyA ? anchor->bodyB : anchor->bodyA;
+
+    if ( ( query.terrain ? query.counterpartBody >= 0 : query.counterpartBody != otherBody ) ||
+         !solverStage( sequenceAnchor->stage ) || sequenceAnchor->featureId != anchor->featureId ||
+         !pairMatches( sequenceAnchor->bodyA, sequenceAnchor->bodyB, anchor->bodyA, anchor->bodyB, query.terrain ) )
+    {
+        return false;
+    }
+
+    outPacket.identity = query.identity;
+    outPacket.query = query;
+    outPacket.bodyA = anchor->bodyA;
+    outPacket.bodyB = anchor->bodyB;
+    outPacket.terrain = query.terrain;
+
+    for ( std::size_t index = 0; index < frame->contacts.count; ++index )
+    {
+        const Physics::PhysicsSolverPersistentContactSample* contact = store.Contact( frame->contacts, index );
+
+        if ( !contact || !contactMatches( *contact, outPacket.bodyA, outPacket.bodyB, outPacket.terrain ) )
+        {
+            continue;
+        }
+
+        // Invariant: Planning's published detail owns the same eight-row cap.
+        // Refuse the packet instead of presenting a partial contact patch.
+        if ( outPacket.contactCount >= outPacket.contacts.size() )
+        {
+            outPacket = {};
+            return false;
+        }
+
+        if ( index == static_cast<std::size_t>( query.contactIndex ) || contact->featureId == anchor->featureId )
+        {
+            outPacket.selectedContactRow = static_cast<int>( outPacket.contactCount );
+        }
+
+        outPacket.contacts[outPacket.contactCount++] = *contact;
+    }
+
+    if ( outPacket.contactCount == 0u )
+    {
+        outPacket = {};
+        return false;
+    }
+
+    if ( outPacket.selectedContactRow < 0 )
+    {
+        outPacket.selectedContactRow = 0;
+    }
+
+    for ( std::size_t index = 0; index < frame->pipeline.count; ++index )
+    {
+        const Physics::PhysicsPipelineRecord* record = store.Pipeline( frame->pipeline, index );
+
+        if ( !record || !solverStage( record->stage ) )
+        {
+            continue;
+        }
+
+        const bool bodyMatch = record->stage == Physics::PhysicsPipelineStage::VelocityWriteback
+                                   ? ( record->bodyA == outPacket.bodyA ||
+                                       ( !outPacket.terrain && record->bodyA == outPacket.bodyB ) )
+                                   : pairMatches( record->bodyA, record->bodyB, outPacket.bodyA, outPacket.bodyB,
+                                                  outPacket.terrain );
+
+        if ( !bodyMatch )
+        {
+            continue;
+        }
+
+        const bool featureMatch = std::any_of( outPacket.contacts.begin(),
+                                               outPacket.contacts.begin() + outPacket.contactCount,
+                                               [&]( const auto& contact )
+                                               { return contact.featureId == record->featureId; } );
+
+        if ( !featureMatch || outPacket.pipelineCount >= outPacket.pipeline.size() )
+        {
+            continue;
+        }
+
+        outPacket.pipeline[outPacket.pipelineCount++] = *record;
+    }
+
+    outPacket.available = true;
+    return true;
+}
+
 bool ReplayPrediction::BeginSolverEvidenceBuild( uint32_t generation )
 {
     if ( !m_state.simulation.predictionEngine )

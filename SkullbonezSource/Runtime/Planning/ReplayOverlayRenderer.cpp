@@ -473,7 +473,7 @@ void RenderReplayCauseSolverDetailPanel( UI::UIDrawList& drawList, const UI::UID
 // creation. This pass samples the current state and turns it into UI quads and
 // text so rendering cannot accidentally advance or rewrite replay timelines.
 const UI::UIDrawList& ReplayOverlayDrawOwner::Compose( const ReplayOverlayStateView& replay, bool gameUiSurfaceActive,
-                                                       bool scenePhysicsEnabled, RuntimeInteractionGestureKind gesture,
+                                                       bool scenePhysicsEnabled, ReplayOverlayGestureView gesture,
                                                        ReplayOverlayViewport viewport, double nowSeconds )
 {
     m_drawList.Clear();
@@ -545,7 +545,10 @@ const UI::UIDrawList& ReplayOverlayDrawOwner::Compose( const ReplayOverlayStateV
 
     surfaceInput.screenW = screenW;
     surfaceInput.screenH = screenH;
-    surfaceInput.gesture = gesture;
+    surfaceInput.gesture = gesture.scrubDrag ? RuntimeInteractionGestureKind::ReplayScrubDrag
+                                            : ( gesture.predictionHorizonDrag
+                                                    ? RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag
+                                                    : RuntimeInteractionGestureKind::None );
     surfaceInput.predictionEnabled = replay.prediction.enabled;
     surfaceInput.predictionHighDetail = replay.prediction.detailMode == ReplayPredictionDetailMode::High;
     ReplayScrubberSurface surface;
@@ -760,7 +763,7 @@ const UI::UIDrawList& ReplayOverlayDrawOwner::Compose( const ReplayOverlayStateV
         const float fillW = (std::max)( REPLAY_SCRUBBER_TRACK_HEIGHT, track.w * rowT );
         const float knobX = track.x + track.w * rowT;
         const bool active = activeTrack == trackName;
-        const bool inactiveDuringScrub = ( gesture == RuntimeInteractionGestureKind::ReplayScrubDrag ||
+        const bool inactiveDuringScrub = ( gesture.scrubDrag ||
                                            scrubber.historicalSamplePaused ) &&
                                          !active;
 
@@ -863,7 +866,7 @@ const UI::UIDrawList& ReplayOverlayDrawOwner::Compose( const ReplayOverlayStateV
     const UI::UIRect pastPathToggle = control( ReplayScrubberControl::PastPath ).drawRect;
     const bool predictHover = predictionToolsEnabled &&
                               ( isHotControl( ReplayScrubberControl::PredictionHorizon ) ||
-                                gesture == RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag );
+                                gesture.predictionHorizonDrag );
 
     const bool predictEnabled = predictionToolsEnabled && replay.prediction.enabled;
     const bool ragdollVisualsEnabled = predictionToolsEnabled && replay.prediction.ragdollVisualsEnabled;
@@ -1103,9 +1106,9 @@ static void ComposeReplayTripPlannerOverlay( UI::UIDrawList& drawList, const Rep
     const UI::UIRect panel = ReplayTripPlannerPanelRect( screenW );
     draw.RoundedPanel( panel, radii.control, palette.windowSubtle, palette.innerBorder );
 
-    const auto control = [&]( ReplayTripPlannerControl id ) -> const RuntimeUiControl&
+    const auto control = [&]( ReplayTripPlannerControl id ) -> const ReplayTripPlannerControlRow&
     {
-        const RuntimeUiControl* row = surface.Find( ReplayTripPlannerControlId( id ) );
+        const ReplayTripPlannerControlRow* row = surface.Find( ReplayTripPlannerControlId( id ) );
 
         if ( !row )
         {
@@ -1118,7 +1121,7 @@ static void ComposeReplayTripPlannerOverlay( UI::UIDrawList& drawList, const Rep
 
     const auto button = [&]( ReplayTripPlannerControl id, const char* label )
     {
-        const RuntimeUiControl& row = control( id );
+        const ReplayTripPlannerControlRow& row = control( id );
 
         const UI::Style::UIColor fill = row.enabled ? palette.control : palette.windowSubtle;
         const UI::Style::UIColor text = row.enabled ? palette.textPrimary : palette.textMuted;

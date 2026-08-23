@@ -5,7 +5,8 @@ Purpose:
 
 Summary:
   ReplayPrediction builds and owns the future simulation; presentation,
-  rendering, automation, and validation consume these immutable rows and spans.
+  rendering, automation, and validation consume immutable rows, spans, and one
+  bounded copied cause-evidence packet.
 
 Glossary:
   Prediction frame: One future fixed-step sample and its optional contact evidence.
@@ -19,6 +20,7 @@ Glossary:
 Invariants:
   - Physics::PhysicsSceneObjectId is durable identity; ModelRowHint is only a staleable lookup hint.
   - View spans borrow prediction storage and must not survive owner mutation.
+  - Cause-evidence packets own their copied rows and never expose segmented-bank authority.
   - This header contains values only: no mutable owner, service, or callback.
 
 Related:
@@ -35,7 +37,10 @@ Related:
 #include "../Replay/ReplayVisualPacket.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Physics/PhysicsDebugData.h"
+#include "../../Physics/PhysicsSolverSnapshot.h"
+#include "../../Physics/PhysicsStageCapacity.h"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -43,6 +48,69 @@ Related:
 
 namespace SkullbonezCore::Runtime
 {
+struct ReplayPredictionEvidenceIdentity
+{
+    uint32_t generation = 0;
+    ReplayPredictionDetailMode mode = ReplayPredictionDetailMode::High;
+    uint64_t bankEpoch = 0;
+    ReplayFrameIndex frame = 0;
+    uint32_t topologyVersion = 0;
+    uint64_t publicationVersion = 0;
+};
+
+inline bool operator==( const ReplayPredictionEvidenceIdentity& left,
+                        const ReplayPredictionEvidenceIdentity& right ) noexcept
+{
+    return left.generation == right.generation && left.mode == right.mode && left.bankEpoch == right.bankEpoch &&
+           left.frame == right.frame && left.topologyVersion == right.topologyVersion &&
+           left.publicationVersion == right.publicationVersion;
+}
+
+inline bool operator!=( const ReplayPredictionEvidenceIdentity& left,
+                        const ReplayPredictionEvidenceIdentity& right ) noexcept
+{
+    return !( left == right );
+}
+
+struct ReplayPredictionCauseEvidenceQuery
+{
+    ReplayPredictionEvidenceIdentity identity;
+    int contactIndex = -1;
+    int pipelineIndex = -1;
+    int focusedBody = -1;
+    int counterpartBody = -1;
+    int featureId = -1;
+    bool terrain = false;
+    bool sourceHighDetail = false;
+};
+
+inline constexpr std::size_t REPLAY_PREDICTION_CAUSE_CONTACT_CAPACITY = 8u;
+
+struct ReplayPredictionCauseEvidencePacket
+{
+    ReplayPredictionEvidenceIdentity identity;
+    ReplayPredictionCauseEvidenceQuery query;
+    std::array<Physics::PhysicsSolverPersistentContactSample, REPLAY_PREDICTION_CAUSE_CONTACT_CAPACITY> contacts = {};
+    std::array<Physics::PhysicsPipelineRecord, Physics::PHYSICS_MAX_PIPELINE_TRACE_RECORDS> pipeline = {};
+    std::size_t contactCount = 0u;
+    std::size_t pipelineCount = 0u;
+    int selectedContactRow = -1;
+    int bodyA = -1;
+    int bodyB = -1;
+    bool terrain = false;
+    bool available = false;
+
+    std::span<const Physics::PhysicsSolverPersistentContactSample> ContactRows() const noexcept
+    {
+        return { contacts.data(), contactCount };
+    }
+
+    std::span<const Physics::PhysicsPipelineRecord> PipelineRows() const noexcept
+    {
+        return { pipeline.data(), pipelineCount };
+    }
+};
+
 struct RunReplayPredictionBodySample
 {
     Physics::PhysicsSceneObjectId id;

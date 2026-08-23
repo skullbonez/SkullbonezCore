@@ -55,7 +55,6 @@ Related:
 #include "../../Core/Profiler.h"
 #include "../Prediction/ReplayPredictionView.h"
 #include "../Replay/ReplayOverlayLayout.h"
-#include "../Replay/ReplayRecorder.h"
 
 #include <algorithm>
 #include <charconv>
@@ -795,32 +794,22 @@ bool ReplayCauseSolverDetailResult::HasDetail() const noexcept
 
 std::size_t ReplayCauseSolverDetailResult::SourceContactCount() const noexcept
 {
-    return predictionSource.Valid() ? predictionSource.ContactCount() : sourceContacts.size();
+    return sourceContacts.size();
 }
 
 std::size_t ReplayCauseSolverDetailResult::SourcePipelineCount() const noexcept
 {
-    return predictionSource.Valid() ? predictionSource.PipelineCount() : sourcePipelineRecords.size();
+    return sourcePipelineRecords.size();
 }
 
 const Physics::PhysicsSolverPersistentContactSample*
 ReplayCauseSolverDetailResult::SourceContactAt( std::size_t index ) const noexcept
 {
-    if ( predictionSource.Valid() )
-    {
-        return predictionSource.Contact( index );
-    }
-
     return index < sourceContacts.size() ? &sourceContacts[index] : nullptr;
 }
 
 const Physics::PhysicsPipelineRecord* ReplayCauseSolverDetailResult::SourcePipelineAt( std::size_t index ) const noexcept
 {
-    if ( predictionSource.Valid() )
-    {
-        return predictionSource.Pipeline( index );
-    }
-
     return index < sourcePipelineRecords.size() ? &sourcePipelineRecords[index] : nullptr;
 }
 
@@ -914,11 +903,28 @@ ReplayCauseSolverDetailResult EvaluateReplayCauseSolverDetail( const RunReplayCa
             row.firstFrame,       row.sourceTopologyVersion,        row.sourcePublicationVersion,
         };
 
-        if ( !row.sourceHighDetail || !source.prediction.Valid() || source.prediction.frame->identity != expected ||
-             source.prediction.store->FindPublishedFrame( expected ) != source.prediction.frame )
+        const ReplayPredictionCauseEvidenceQuery& query = source.prediction ? source.prediction->query
+                                                                            : ReplayPredictionCauseEvidenceQuery {};
+
+        if ( !source.prediction || !source.prediction->available || source.prediction->identity != expected ||
+             query.identity != expected || query.contactIndex != row.contactIndex ||
+             query.pipelineIndex != row.pipelineIndex || query.focusedBody != row.modelRow.value ||
+             query.counterpartBody != row.counterpartModelRow.value || query.featureId != row.featureId ||
+             query.terrain != row.terrain || !query.sourceHighDetail || !row.sourceHighDetail )
         {
             return result;
         }
+
+        result.sourceContacts = source.prediction->ContactRows();
+        result.sourcePipelineRecords = source.prediction->PipelineRows();
+        result.bodyA = source.prediction->bodyA;
+        result.bodyB = source.prediction->bodyB;
+        result.terrain = source.prediction->terrain;
+        result.selectedDetailContactRow = source.prediction->selectedContactRow;
+        result.contactRowCount = source.prediction->contactCount;
+        result.pipelineRecordCount = source.prediction->pipelineCount;
+        result.availability = ReplayCauseSolverDetailAvailability::Available;
+        return result;
     }
     else if ( source.frame != row.firstFrame )
     {
@@ -927,7 +933,6 @@ ReplayCauseSolverDetailResult EvaluateReplayCauseSolverDetail( const RunReplayCa
 
     result.sourceContacts = source.contacts;
     result.sourcePipelineRecords = source.pipelineRecords;
-    result.predictionSource = source.prediction;
 
     if ( row.contactIndex < 0 || static_cast<std::size_t>( row.contactIndex ) >= result.SourceContactCount() )
     {

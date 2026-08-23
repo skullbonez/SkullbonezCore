@@ -27,7 +27,6 @@ Related:
 
 #include "ReplayPorkchopPanel.h"
 #include "ReplayTripPlanner.h"
-#include "../UI/RuntimeUiSurface.h"
 #include "../../UI/UIDraw.h"
 
 #include <cstddef>
@@ -59,12 +58,33 @@ enum class ReplayTripPlannerControl : uint32_t
     Panel
 };
 
-inline RuntimeUiControlId ReplayTripPlannerControlId( ReplayTripPlannerControl control )
+inline ReplayTripPlannerControl ReplayTripPlannerControlId( ReplayTripPlannerControl control )
 {
-    return RuntimeUiControlId { static_cast<uint32_t>( control ) };
+    return control;
 }
 
-using ReplayTripPlannerSurface = RuntimeUiSurface<6>;
+struct ReplayTripPlannerControlRow
+{
+    ReplayTripPlannerControl id = ReplayTripPlannerControl::None;
+    ReplayTripPlannerCommandKind action = ReplayTripPlannerCommandKind::None;
+    UI::UIRect drawRect;
+    UI::UIRect hitRect;
+    bool enabled = false;
+};
+
+struct ReplayTripPlannerSurface
+{
+    ReplayTripPlannerControlRow controls[6] = {};
+    std::size_t controlCount = 0;
+    ReplayTripPlannerControl hotControl = ReplayTripPlannerControl::None;
+    bool hasHotControl = false;
+    bool consumesPointer = false;
+
+    void Reset() noexcept;
+    bool TryAdd( const ReplayTripPlannerControlRow& control ) noexcept;
+    const ReplayTripPlannerControlRow* Find( ReplayTripPlannerControl id ) const noexcept;
+    void ResolvePointer( int pointerX, int pointerY, bool pointerBlocked ) noexcept;
+};
 
 UI::UIRect ReplayInterceptReadoutRect( int screenW );
 UI::UIRect ReplayTripPlannerPanelRect( int screenW );

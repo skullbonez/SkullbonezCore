@@ -591,9 +591,9 @@ void ReplayRuntime::ApplyCauseTreeSelection( int requestedRow, const ReplayWorks
         const auto exactFrame = std::find_if( predictionFrames.begin(), predictionFrames.end(),
                                               [&]( const RunReplayPredictionFrame& frame )
                                               { return frame.frameIndex == seek.frame; } );
-        const ReplayPredictionSolverEvidenceFrameView evidence = m_predictionOwner.SolverEvidenceForPresentedFrame( seek.frame );
-        const ReplayCauseSolverDetailResult detail = EvaluateReplayCauseSolverDetail( selectedRow, seek,
-                                                                                      { seek.frame, {}, {}, evidence } );
+        const ReplayPredictionCauseEvidencePacket& evidence = CopyPredictionCauseEvidence( selectedRow );
+        const ReplayCauseSolverDetailResult detail =
+            EvaluateReplayCauseSolverDetail( selectedRow, seek, { seek.frame, {}, {}, &evidence } );
         const Rendering::ContactManifoldPresentation manifold = exactFrame != predictionFrames.end()
                                                                     ? BuildReplayCauseContactPresentation( detail,
                                                                                                            *exactFrame )
@@ -732,12 +732,10 @@ void ReplayRuntime::ApplyCauseInspectionTransition( const ReplayWorkspaceFrameIn
 
     if ( m_authoring.TryGetCauseTreeRow( view.selectedRow, selectedRow ) )
     {
-        const ReplayPredictionSolverEvidenceFrameView evidence = m_predictionOwner.SolverEvidenceForPresentedFrame( transport.targetFrame );
-        const ReplayCauseSolverDetailResult detail = EvaluateReplayCauseSolverDetail( selectedRow, predictionSeek,
-                                                                                      { transport.targetFrame,
-                                                                                        {},
-                                                                                        {},
-                                                                                        evidence } );
+        const ReplayPredictionCauseEvidencePacket& evidence = CopyPredictionCauseEvidence( selectedRow );
+        const ReplayCauseSolverDetailResult detail =
+            EvaluateReplayCauseSolverDetail( selectedRow, predictionSeek,
+                                             { transport.targetFrame, {}, {}, &evidence } );
         transition.PublishSolverDetail( transport.generation, detail,
                                         BuildReplayCauseContactPresentation( detail, *found ) );
     }
@@ -831,7 +829,12 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
         return;
     }
 
-    const bool planningOwnsMouse = m_planningOwner.TickPointerSurface( input.uiBlocksMouse, input.screenWidth, inputRouter );
+    const RuntimePointerEvent& planningPointerEvent = inputRouter.RuntimeSnapshot().pointer;
+    const ReplayPlanningPointerInput planningPointer { planningPointerEvent.clientX, planningPointerEvent.clientY,
+                                                       planningPointerEvent.hasClientPosition,
+                                                       inputRouter.UiSnapshot().mouse.leftPressed };
+    const bool planningOwnsMouse =
+        m_planningOwner.TickPointerSurface( input.uiBlocksMouse, input.screenWidth, planningPointer );
 
     const bool predictionCauseRows = !m_authoring.CauseTree().rows.empty() &&
                                      m_authoring.CauseTree().rows.front().prediction;

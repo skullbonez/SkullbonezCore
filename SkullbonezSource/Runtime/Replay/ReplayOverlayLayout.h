@@ -30,10 +30,10 @@ Related:
 */
 #pragma once
 
-#include "ReplayAuthoring.h"
+#include "ReplayAuthoringPackets.h"
+#include "ReplayCapturePackets.h"
 #include "ReplayOverlaySurface.h"
-#include "ReplayRecorder.h"
-#include "ReplayScrubber.h"
+#include "ReplayTimelinePackets.h"
 #include "../Interaction/RuntimeInteractionController.h"
 #include "../UI/RuntimeUiSurface.h"
 #include "../../UI/UIDraw.h"

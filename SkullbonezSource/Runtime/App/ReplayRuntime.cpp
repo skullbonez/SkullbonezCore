@@ -107,6 +107,49 @@ Vector3 ReplayRuntimeAuthoredPathColor( const SceneEntityStore& entities, Physic
                     entity->renderMaterial.baseColor[2] );
 }
 
+ReplayPlanningSceneView BuildReplayPlanningSceneView( const SceneEntityStore& entities,
+                                                       Physics::PhysicsSceneObjectId targetId ) noexcept
+{
+    // Invariant: Planning receives stable identities and copied text only; the
+    // Scene store borrow ends before any planning operation can retain state.
+    ReplayPlanningSceneView result;
+
+    const auto copyIdentity = [&]( const char* displayName, Physics::PhysicsSceneObjectId& outId )
+    {
+        const SceneEntityRecord* entity = entities.TryGet( entities.FindByDisplayName( displayName ) );
+        outId = entity ? entity->sceneObjectId : Physics::PhysicsSceneObjectId {};
+    };
+
+    copyIdentity( "earth", result.earthId );
+    copyIdentity( "mars", result.marsId );
+    result.targetId = targetId;
+
+    const SceneEntityRecord* target = entities.TryGet( entities.FindBySceneObjectId( targetId ) );
+
+    if ( target )
+    {
+        strncpy_s( result.targetName, target->displayName, _TRUNCATE );
+    }
+
+    return result;
+}
+
+ReplayPredictionCauseEvidenceQuery BuildReplayPredictionCauseEvidenceQuery(
+    const RunReplayCauseTreeRow& row ) noexcept
+{
+    ReplayPredictionCauseEvidenceQuery query;
+    query.identity = { row.sourceGeneration, ReplayPredictionDetailMode::High, row.sourceBankEpoch,
+                       row.firstFrame,       row.sourceTopologyVersion,        row.sourcePublicationVersion };
+    query.contactIndex = row.contactIndex;
+    query.pipelineIndex = row.pipelineIndex;
+    query.focusedBody = row.modelRow.value;
+    query.counterpartBody = row.counterpartModelRow.value;
+    query.featureId = row.featureId;
+    query.terrain = row.terrain;
+    query.sourceHighDetail = row.sourceHighDetail;
+    return query;
+}
+
 constexpr double REPLAY_PREDICTION_MAX_WORK_MILLISECONDS = 5.0;
 
 const ReplayPresentationSample*
@@ -763,8 +806,11 @@ const UI::UIDrawList& ReplayRuntime::ComposeOverlayDrawList( const ReplayOverlay
                                                              ReplayOverlay::ReplayOverlayViewport viewport,
                                                              double nowSeconds )
 {
-    return m_planningOwner.ComposeOverlayDrawList( replay, gameUiSurfaceActive, scenePhysicsEnabled, gesture, viewport,
-                                                    nowSeconds );
+    const ReplayOverlay::ReplayOverlayGestureView gestureView {
+        gesture == RuntimeInteractionGestureKind::ReplayScrubDrag,
+        gesture == RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag };
+    return m_planningOwner.ComposeOverlayDrawList( replay, gameUiSurfaceActive, scenePhysicsEnabled, gestureView,
+                                                   viewport, nowSeconds );
 }
 
 
@@ -1086,7 +1132,7 @@ bool ReplayRuntime::ApplyInteractionExit( const ReplayInteractionExitInput& inpu
 
     // Invariant: leaving Replay is a cancellation edge. Restore the pre-plan
     // velocity through the same typed mutation path before reset hides the owner.
-    (void)m_planningOwner.CancelActivePlan( physics, m_predictionOwner );
+    (void)ApplyPlanningVelocityMutation( physics, m_planningOwner.CancelActivePlan() );
 
     if ( ClearInteractionForRuntimeTransition( interaction, inputRouter ) )
     {
@@ -1826,8 +1872,11 @@ void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics, const Gameplay::To
     // applied after the worker/publication transition returns.
     const RunReplayPathVisualizerState& path = m_visualPresentation.PathVisualizer();
     const ReplayScrubberView scrubber = m_scrubberOwner.View();
-    m_planningOwner.BeginFrameBeforePrediction( physics, entities, worldForces, path, m_predictionOwner.PresentationView(),
-                                                scrubber.liveAdvanceHeld, m_predictionOwner );
+    const ReplayPlanningSceneView planningScene = BuildReplayPlanningSceneView( entities, m_planningOwner.InterceptView().targetId );
+    (void)ApplyPlanningVelocityMutation(
+        physics, m_planningOwner.BeginFrameBeforePrediction( physics, planningScene, worldForces, path,
+                                                             m_predictionOwner.PresentationView(),
+                                                             scrubber.liveAdvanceHeld ) );
 
     const ReplaySolverFrameSample* latestSolverSample = m_timeline.Solver().LatestSample();
     const float solverTrackPosition = m_scrubberOwner.TrackPosition( RunReplayTrack::Solver );
@@ -1882,9 +1931,75 @@ void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics, const Gameplay::To
 
     ApplyPredictionUpdateResult( result );
     PreparePredictionPresentation( physics, entities );
-    m_planningOwner.FinishFrameAfterPrediction( physics, entities, worldForces, simulationTotalTime, path,
-                                                m_predictionOwner.PresentationView(), scrubber.liveAdvanceHeld,
-                                                m_predictionOwner );
+    (void)ApplyPlanningVelocityMutation(
+        physics, m_planningOwner.FinishFrameAfterPrediction( physics, planningScene, worldForces, simulationTotalTime,
+                                                             path, m_predictionOwner.PresentationView(),
+                                                             scrubber.liveAdvanceHeld ) );
+}
+
+bool ReplayRuntime::ApplyPlanningVelocityMutation( Physics::PhysicsEngine& physics,
+                                                   const ReplayTripPlannerVelocityMutation& mutation )
+{
+    // Invariant: Prediction baseline preparation precedes Physics mutation;
+    // Prediction commit and Planning confirmation happen only after success.
+    if ( !mutation.requested )
+    {
+        return false;
+    }
+
+    if ( mutation.prepareBaseline && !m_predictionOwner.PrepareVelocityMutationBaseline() )
+    {
+        m_planningOwner.AbortTripPlannerMutation();
+        return false;
+    }
+
+    const Physics::PhysicsBodyStore& bodyStore = Physics::PhysicsEngine::ReadBodies( physics );
+    const Physics::PhysicsBodyHandle handle = bodyStore.HandleForSceneObjectId( mutation.bodyId );
+    Physics::ModelRowHint row;
+    const int bodyIndex = bodyStore.ResolveModelRow( handle, row );
+    const Physics::PhysicsBodyHotFieldsConstView hot = bodyStore.HotFields();
+
+    if ( bodyIndex < 0 || static_cast<std::size_t>( bodyIndex ) >= hot.angularVelocityX.size() )
+    {
+        std::fprintf( stderr, "ReplayTripPlanner: velocity mutation target %u is no longer available; plan cancelled.\n",
+                      mutation.bodyId.value );
+        m_planningOwner.AbortTripPlannerMutation();
+        return false;
+    }
+
+    const Math::Vector::Vector3 angularVelocity =
+        Physics::PhysicsBodyAngularVelocity( hot, static_cast<std::size_t>( bodyIndex ) );
+
+    if ( !physics.SetBodyVelocity( handle, mutation.linearVelocity, angularVelocity, true ) )
+    {
+        if ( !mutation.restoresPrePlanVelocity )
+        {
+            const ReplayTripPlannerVelocityMutation restore = m_planningOwner.CancelActivePlan();
+
+            if ( restore.requested && physics.SetBodyVelocity( handle, restore.linearVelocity, angularVelocity, true ) )
+            {
+                m_predictionOwner.CommitVelocityMutation();
+                return false;
+            }
+        }
+
+        std::fprintf( stderr, "ReplayTripPlanner: Physics rejected %s velocity mutation for scene object %u.\n",
+                      mutation.restoresPrePlanVelocity ? "rollback" : "candidate", mutation.bodyId.value );
+        m_planningOwner.AbortTripPlannerMutation();
+        return false;
+    }
+
+    m_predictionOwner.CommitVelocityMutation();
+    m_planningOwner.ConfirmTripPlannerVelocityApplied();
+    return true;
+}
+
+const ReplayPredictionCauseEvidencePacket&
+ReplayRuntime::CopyPredictionCauseEvidence( const RunReplayCauseTreeRow& row )
+{
+    (void)m_predictionOwner.CopyCauseEvidence( BuildReplayPredictionCauseEvidenceQuery( row ),
+                                               m_predictionCauseEvidenceScratch );
+    return m_predictionCauseEvidenceScratch;
 }
 
 

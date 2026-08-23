@@ -30,7 +30,6 @@ Related:
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Physics/PhysicsTimestep.h"
 #include "../../Core/SceneCapacity.h"
-#include "../Scene/SceneEntityStore.h"
 
 #include <algorithm>
 #include <limits>
@@ -307,7 +306,8 @@ ContinuousOrbitalForecast::~ContinuousOrbitalForecast()
 bool ContinuousOrbitalForecast::Start( const Physics::PhysicsEngine& liveEngine,
                                        const Gameplay::TornadoGameplay& liveTornado, const Core::EngineConfig& config,
                                        const Physics::PhysicsWorldForces& worldForces, Threading::WorkerPool& workerPool,
-                                       const Scene::OrbitalStabilityContract& contract, const SceneEntityStore& entities )
+                                       const Scene::OrbitalStabilityContract& contract,
+                                       std::span<const ContinuousOrbitalPresentationMember> presentationMembers )
 {
     Stop();
     m_contract = contract;
@@ -316,34 +316,16 @@ bool ContinuousOrbitalForecast::Start( const Physics::PhysicsEngine& liveEngine,
                   contract.memberCount <= Scene::ORBITAL_STABILITY_MEMBER_CAPACITY;
 
     std::array<ContinuousOrbitalBodySample, Scene::ORBITAL_STABILITY_MEMBER_CAPACITY> seedBodies = {};
-    std::array<ContinuousOrbitalPresentationMember, Scene::ORBITAL_STABILITY_MEMBER_CAPACITY> presentationMembers = {};
     std::size_t seedBodyCount = 0u;
     const Physics::PhysicsBodyStore& liveBodies = Physics::PhysicsEngine::ReadBodies( liveEngine );
 
-    bool presentationMembersValid = m_available;
-
-    for ( std::size_t memberIndex = 0u; presentationMembersValid && memberIndex < contract.memberCount; ++memberIndex )
-    {
-        const Physics::PhysicsSceneObjectId id = contract.members[memberIndex].sceneObjectId;
-        const Physics::PhysicsBodyHandle handle = liveBodies.HandleForSceneObjectId( id );
-        const int bodyRow = liveBodies.ModelIndexForHandle( handle );
-        const int entityRow = entities.FindBySceneObjectId( id );
-        presentationMembersValid = bodyRow >= 0 && entityRow >= 0;
-
-        if ( presentationMembersValid )
-        {
-            const Rendering::RenderMaterial& material = entities.At( entityRow ).renderMaterial;
-            presentationMembers[memberIndex] = { static_cast<std::size_t>( bodyRow ), id.value, material.baseColor[0],
-                                                 material.baseColor[1], material.baseColor[2] };
-        }
-    }
+    const bool presentationMembersValid = m_available && presentationMembers.size() == contract.memberCount;
 
     if ( !m_available || !presentationMembersValid || !CaptureConfiguredBodies( liveBodies, seedBodies, seedBodyCount ) ||
          !m_stability.Begin( contract, static_cast<double>( worldForces.mutualGravity.gravitationalConstant ),
                              static_cast<double>( worldForces.mutualGravity.softeningLength ),
                              std::span<const ContinuousOrbitalBodySample>( seedBodies.data(), seedBodyCount ) ) ||
-         !m_presentation.Begin( std::span<const ContinuousOrbitalPresentationMember>( presentationMembers.data(),
-                                                                                      contract.memberCount ),
+         !m_presentation.Begin( presentationMembers,
                                 static_cast<std::size_t>( liveBodies.Count() ) ) ||
          !m_producer.Begin( liveEngine, liveTornado, config, worldForces, workerPool,
                             ContinuousPredictionWindowRowCapacity(), this ) )
@@ -361,9 +343,10 @@ bool ContinuousOrbitalForecast::Start( const Physics::PhysicsEngine& liveEngine,
 bool ContinuousOrbitalForecast::Reset( const Physics::PhysicsEngine& liveEngine,
                                        const Gameplay::TornadoGameplay& liveTornado, const Core::EngineConfig& config,
                                        const Physics::PhysicsWorldForces& worldForces, Threading::WorkerPool& workerPool,
-                                       const Scene::OrbitalStabilityContract& contract, const SceneEntityStore& entities )
+                                       const Scene::OrbitalStabilityContract& contract,
+                                       std::span<const ContinuousOrbitalPresentationMember> presentationMembers )
 {
-    return Start( liveEngine, liveTornado, config, worldForces, workerPool, contract, entities );
+    return Start( liveEngine, liveTornado, config, worldForces, workerPool, contract, presentationMembers );
 }
 
 void ContinuousOrbitalForecast::Stop() noexcept

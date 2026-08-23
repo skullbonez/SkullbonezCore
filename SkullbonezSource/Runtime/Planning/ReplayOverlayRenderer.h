@@ -52,7 +52,7 @@ class ReplayOverlayDrawOwner
 {
   public:
     const UI::UIDrawList& Compose( const ReplayOverlayStateView& replay, bool gameUiSurfaceActive,
-                                   bool scenePhysicsEnabled, RuntimeInteractionGestureKind gesture,
+                                   bool scenePhysicsEnabled, ReplayOverlayGestureView gesture,
                                    ReplayOverlayViewport viewport, double nowSeconds );
 
   private:

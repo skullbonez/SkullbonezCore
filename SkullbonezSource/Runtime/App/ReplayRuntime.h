@@ -578,6 +578,9 @@ class ReplayRuntime
     void ApplyPredictionUpdateResult( const ReplayPredictionUpdateResult& result );
     void ApplyPastTrajectoryUpdate( const ReplayPastTrajectoryUpdate& update );
     void AppendSolverTrajectorySampleToStore( const ReplaySolverFrameSample& sample );
+    bool ApplyPlanningVelocityMutation( Physics::PhysicsEngine& physics,
+                                        const ReplayTripPlannerVelocityMutation& mutation );
+    const ReplayPredictionCauseEvidencePacket& CopyPredictionCauseEvidence( const RunReplayCauseTreeRow& row );
 #ifdef _DEBUG
     // Runs the configured Debug startup probes after product artifact loading
     // has completed; early probe failures are returned in the value result.
@@ -602,6 +605,7 @@ class ReplayRuntime
     ReplayAuthoring m_authoring;
     ReplayPrediction m_predictionOwner;
     ReplayPlanningRuntime m_planningOwner;
+    ReplayPredictionCauseEvidencePacket m_predictionCauseEvidenceScratch;
 
     // Invariant: App records both complete replay aggregates around the exact
     // synchronous evidence release; Prediction cannot observe sibling owners.
