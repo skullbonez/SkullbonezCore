@@ -21,7 +21,10 @@ Related:
 #pragma once
 
 #include "../Input/InputRouter.h"
+#include "../Diagnostics/RuntimeDiagnostics.h"
+#include "../Diagnostics/RuntimeFrameMetricsOwner.h"
 #include "../Scene/SceneLifecycle.h"
+#include "../Scene/SceneSessionState.h"
 
 namespace SkullbonezCore
 {
@@ -47,6 +50,64 @@ class SceneLoadTransaction;
 class Window;
 struct RunLaunchOptions;
 
+inline RuntimeSceneDiagnosticFacts ProjectSceneDiagnosticFacts( const SceneSessionState& scene )
+{
+    RuntimeSceneDiagnosticFacts facts;
+    facts.currentSceneIndex = scene.currentSceneIndex;
+    facts.loadCount = scene.loadCount;
+    facts.manualResetCount = scene.manualResetCount;
+    facts.currentFrame = scene.currentFrame;
+    facts.targetFrameCount = scene.targetFrameCount;
+    facts.modelCount = scene.modelCount;
+    facts.rngSeed = scene.rngSeed;
+    facts.fixedStep = scene.isFixedStep;
+    facts.testComplete = scene.isTestComplete;
+    facts.finishLogged = scene.isFinishLogged;
+    return facts;
+}
+
+struct RuntimeFrameMetricsLifecycleActions
+{
+    bool resetMeasurements = false;
+    bool restartClocks = false;
+};
+
+class RuntimeFrameMetricsLifecyclePolicy
+{
+  public:
+    RuntimeFrameMetricsLifecycleActions Observe( const SceneLifecyclePacket& packet )
+    {
+        return { m_resetObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ),
+                 m_activationObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneActivated ) };
+    }
+    uint64_t LastResetGeneration() const
+    {
+        return m_resetObserver.LastAppliedGeneration();
+    }
+    uint64_t LastActivationGeneration() const
+    {
+        return m_activationObserver.LastAppliedGeneration();
+    }
+
+  private:
+    SceneLifecycleGenerationObserver m_resetObserver;
+    SceneLifecycleGenerationObserver m_activationObserver;
+};
+
+inline void ApplyRuntimeFrameMetricsLifecycle( RuntimeFrameMetricsLifecyclePolicy& policy,
+                                               const SceneLifecyclePacket& packet, RuntimeFrameMetricsOwner& metrics )
+{
+    const RuntimeFrameMetricsLifecycleActions actions = policy.Observe( packet );
+    if ( actions.resetMeasurements )
+    {
+        metrics.ResetMeasurements();
+    }
+    if ( actions.restartClocks )
+    {
+        metrics.RestartClocks();
+    }
+}
+
 inline bool ApplySceneActivationInputReaction( const SceneLifecyclePacket& lifecycle, bool hideCursorAfterActivation,
                                                SceneLifecycleGenerationObserver& lifecycleObserver,
                                                InputRouter& inputRouter )
@@ -63,7 +124,8 @@ inline bool ApplySceneActivationInputReaction( const SceneLifecyclePacket& lifec
 }
 
 void ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction, const RunLaunchOptions& launchOptions,
-                                     RuntimeOverlayDiagnostics& overlays, SceneController& sceneController,
+                                     RuntimeOverlayDiagnostics& overlays,
+                                     SceneLifecycleGenerationObserver& overlayLifecycle, SceneController& sceneController,
                                      SceneLifecycleGenerationObserver& inputLifecycle, InputRouter& inputRouter,
                                      RuntimeInteractionController& interaction,
                                      SceneLifecycleGenerationObserver& cameraLifecycle, CameraControlState& camera,

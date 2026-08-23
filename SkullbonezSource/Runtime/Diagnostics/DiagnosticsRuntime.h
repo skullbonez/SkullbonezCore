@@ -41,10 +41,6 @@ namespace Physics
 {
 class PhysicsEngine;
 }
-namespace Runtime
-{
-class SceneController;
-}
 namespace Rendering
 {
 class Dx12Diagnostics;
@@ -55,7 +51,6 @@ class InGameUI;
 } // namespace UI
 namespace Runtime
 {
-class SceneController;
 class AuthoredScene;
 enum class RuntimeInputAction;
 struct OverlayDebugState;
@@ -65,13 +60,14 @@ struct DiagnosticsUIKeyboardShortcutResult
     bool handled = false;                                    // True when the action belongs to the diagnostics UI keyboard group.
     bool triggered = false;                                  // True when this frame captured the shortcut edge.
     bool releaseMouseToUI = false;                           // True when Run should refresh cursor ownership and release capture.
+    bool markInteractiveRun = false;
+    bool disableExitOnComplete = false;
 };
 
 bool HandleDiagnosticsKeyboardShortcut( OverlayDebugState& debug, int& cameraTrackBallIndex, int sceneEntityCount,
                                         const Rendering::Dx12Diagnostics* renderDiagnostics, bool sceneMode,
                                         double simulationSeconds, RuntimeInputAction action, bool wasPressed );
 DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( UI::InGameUI& ui, OverlayDebugState& debug,
-                                                                         SceneSessionState& scene,
                                                                          CaptureController& capture, double nowSeconds,
                                                                          RuntimeInputAction action, bool wasPressed );
 
@@ -111,7 +107,7 @@ class DiagnosticsRuntime
     bool MainMemoryDumpRequested() const;
     bool WriteMainMemoryDump( const SkullbonezCore::Core::MainMemoryReplayStats& replay,
                               const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects,
-                              const SceneSessionState& scene, const char* checkpoint, double nowSeconds );
+                              const RuntimeSceneDiagnosticFacts& scene, const char* checkpoint, double nowSeconds );
 
 #ifdef _DEBUG
     RunPhysicsDiagnosticsState& PhysicsDiagnostics();
@@ -120,22 +116,24 @@ class DiagnosticsRuntime
     void SetPhysicsCollisionTimeLogOverride( const char* path );
     void SetPhysicsDiagnosticsPath( Physics::PhysicsEngine& physics, const char* path,
                                     bool renderFrameLockstepForcedByDiagnostics );
-    void LogSceneFinished( SceneController& scene, const Rendering::Dx12Diagnostics* renderDiagnostics, const char* reason );
-    void BeginPhysicsDiagnosticsRun( Physics::PhysicsEngine& physics, const SceneSessionState& scene,
+    bool LogSceneFinished( const RuntimeSceneDiagnosticFacts& scene, const char* scenePath,
+                           const Rendering::Dx12Diagnostics* renderDiagnostics, const char* reason );
+    void BeginPhysicsDiagnosticsRun( Physics::PhysicsEngine& physics, const RuntimeSceneDiagnosticFacts& scene,
                                      const SkullbonezCore::Core::EngineConfig& config, const char* scenePath,
                                      const char* rendererName, bool explicitRenderFrameLockstep,
                                      bool effectiveRenderFrameLockstep );
-    void LogReplayScrubProbe( const SceneSessionState& scene, const ReplayScrubProbeDiagnostic& probe );
-    void LogReplayRestoreProbe( const SceneSessionState& scene, const ReplayRestoreProbeDiagnostic& probe );
-    void LogReplayRestoreResult( const SceneSessionState& scene, const ReplayRestoreResultDiagnostic& result );
-    void EndPhysicsDiagnosticsRun( const SceneSessionState& scene, const char* status );
+    void LogReplayScrubProbe( const RuntimeSceneDiagnosticFacts& scene, const ReplayScrubProbeDiagnostic& probe );
+    void LogReplayRestoreProbe( const RuntimeSceneDiagnosticFacts& scene, const ReplayRestoreProbeDiagnostic& probe );
+    void LogReplayRestoreResult( const RuntimeSceneDiagnosticFacts& scene,
+                                 const ReplayRestoreResultDiagnostic& result );
+    void EndPhysicsDiagnosticsRun( const RuntimeSceneDiagnosticFacts& scene, const char* status );
 #endif
 
     // Consumes BeforeSceneUnload while the old scene identity is still live.
     // Capacity rows are emitted in every build; SkullScope end emission remains
     // Debug-only.
-    void BeforeSceneUnload( const SceneSessionState& scene, const char* scenePath );
-    void ReportStoreCapacityRows( const SceneSessionState& scene, const char* scenePath, const char* status );
+    void BeforeSceneUnload( int loadCount, int currentFrame, const char* scenePath );
+    void ReportStoreCapacityRows( int loadCount, const char* scenePath, const char* status );
 
     UIStressPolicyOwner& UIStress();
 

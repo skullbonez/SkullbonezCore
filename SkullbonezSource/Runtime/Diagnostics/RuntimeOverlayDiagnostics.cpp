@@ -20,8 +20,8 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Diagnostics/RuntimeOverlayDiagnostics.h
-  - SkullbonezSource/Runtime/Scene/SceneWorld.h
-  - SkullbonezSource/Runtime/Render/RuntimeRenderFrameValues.h
+  - SkullbonezSource/Runtime/App/RunFrame.cpp
+  - SkullbonezSource/Runtime/App/RunRender.cpp
   - Agentic/Reference/engine-glossary.md
 */
 #include "RuntimeOverlayDiagnostics.h"
@@ -29,11 +29,13 @@ Related:
 #include <span>
 
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
-#include "../Render/RuntimeRenderFrameValues.h"
 #include "../Startup/RunLaunchOptions.h"
-#include "../Scene/SceneWorld.h"
 #include "../../Core/Profiler.h"
+#include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsApi.h"
+#include "../../Physics/PhysicsBodyStore.h"
+#include "../../Physics/PhysicsEngine.h"
+#include "../../Rendering/RenderInstanceStore.h"
 #include "../../UI/UI.h"
 
 using namespace SkullbonezCore::Runtime;
@@ -129,14 +131,16 @@ void RuntimeOverlayDiagnostics::ApplyStartupPolicy( const RunStartupOverrides& o
 }
 
 
-void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneWorld& scene, double secondsPerFrame )
+void RuntimeOverlayDiagnostics::UpdatePostPhysics( PhysicsEngine& physics, const PhysicsBodyStore& bodyStore,
+                                                   const ColliderStore& colliders,
+                                                   const Rendering::RenderInstanceStore& renderInstances,
+                                                   double secondsPerFrame )
 {
     PROFILE_BEGIN( "Frame/PostPhysics" );
 
     PROFILE_BEGIN( "Frame/PostPhysics/BroadphaseVisualizer" );
 
     m_renderResources.m_broadphaseOverlay.SetEnabled( m_presentationState.isBroadphaseOverlay );
-    PhysicsEngine& physics = scene.Physics();
     if ( m_presentationState.isBroadphaseOverlay )
     {
         m_renderResources.m_broadphaseOverlay.SetCellSize( PhysicsEngine::ReadBroadphaseCellSize( physics ) );
@@ -152,13 +156,13 @@ void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneWorld& scene, double sec
 
     PROFILE_BEGIN( "Frame/PostPhysics/CollisionVisualizer" );
     m_renderResources.m_collisionOverlay.SetEnabled( m_presentationState.isCollisionVisualizer );
-    const CollisionVisualizerFrameView collisionView { scene.BodyStore(),
-                                                       scene.Colliders(),
-                                                       scene.RenderInstances(),
+    const CollisionVisualizerFrameView collisionView { bodyStore,
+                                                       colliders,
+                                                       renderInstances,
                                                        PhysicsEngine::ReadCollisionVisualContacts( physics ),
                                                        PhysicsEngine::ReadSleepStates( physics ),
                                                        PhysicsEngine::ReadSleepIslandVisualIds( physics ),
-                                                       scene.BodyStore().Count() };
+                                                       bodyStore.Count() };
 
     m_renderResources.m_collisionOverlay.Update( static_cast<float>( secondsPerFrame ), collisionView );
     PROFILE_END( "Frame/PostPhysics/CollisionVisualizer" );
@@ -167,29 +171,26 @@ void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneWorld& scene, double sec
     m_renderResources.m_physicsDebugOverlay.SetFlags( m_presentationState.physicsDebugFlags );
     m_renderResources.m_physicsDebugOverlay.SetContactLingerSeconds( m_presentationState.physicsDebugContactLinger );
     m_renderResources.m_physicsDebugOverlay.SetPipelineStageCursor( m_presentationState.physicsDebugPipelineStageCursor );
-    const PhysicsDebugFrameView physicsDebugView { scene.BodyStore(),
-                                                   scene.Colliders(),
+    const PhysicsDebugFrameView physicsDebugView { bodyStore,
+                                                   colliders,
                                                    PhysicsEngine::ReadSleepStates( physics ),
                                                    PhysicsEngine::ReadSleepSupportedStates( physics ),
                                                    PhysicsEngine::ReadSleepInhibitedStates( physics ),
                                                    PhysicsEngine::ReadDebugContacts( physics ),
                                                    PhysicsEngine::ReadPipelineTrace( physics ),
-                                                   scene.BodyStore().Count() };
+                                                   bodyStore.Count() };
 
     m_renderResources.m_physicsDebugOverlay.Update( static_cast<float>( secondsPerFrame ), physicsDebugView );
     PROFILE_END( "Frame/PostPhysics/PhysicsDebugVisualizer" );
 
-    PROFILE_BEGIN( "Frame/PostPhysics/EndCollisionVisualFrame" );
-    scene.EndCollisionVisualFrame();
-    PROFILE_END( "Frame/PostPhysics/EndCollisionVisualFrame" );
     PROFILE_END( "Frame/PostPhysics" );
 }
 
 
-RuntimeRenderFramePolicy RuntimeOverlayDiagnostics::BuildFramePolicy( double simulationSeconds,
-                                                                      double totalSimulationSeconds ) const
+RuntimeOverlayFramePolicy RuntimeOverlayDiagnostics::BuildFramePolicy( double simulationSeconds,
+                                                                       double totalSimulationSeconds ) const
 {
-    RuntimeRenderFramePolicy policy;
+    RuntimeOverlayFramePolicy policy;
     policy.textOnly = m_presentationState.isTextOnly;
     policy.terrainHidden = m_presentationState.isTerrainHidden;
     policy.collisionVisualizer = m_presentationState.isCollisionVisualizer;
@@ -211,17 +212,8 @@ RuntimeRenderFramePolicy RuntimeOverlayDiagnostics::BuildFramePolicy( double sim
 }
 
 
-void RuntimeOverlayDiagnostics::ObserveSceneLifecycle( const SceneLifecyclePacket& packet,
-                                                       const OverlayDebugState& scenePresentation )
+void RuntimeOverlayDiagnostics::ApplyScenePresentation( const OverlayDebugState& scenePresentation )
 {
-    // Invariant: scene loading is synchronous. This boundary observes the final
-    // phase reached by the attempt, so the detached value already contains all
-    // authored overrides applied before success or recoverable failure.
-    if ( !m_scenePresentationObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
-    {
-        return;
-    }
-
     CommitPresentation( scenePresentation );
 }
 

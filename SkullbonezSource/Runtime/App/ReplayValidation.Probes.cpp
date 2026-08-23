@@ -30,6 +30,7 @@ Related:
 #include "../Replay/ReplayScrubber.h"
 #include "../Replay/ReplayTimeline.h"
 #include "ReplayRuntime.h"
+#include "SceneLoadApplication.h"
 #include "../Input/InputRouter.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../Scene/SceneController.h"
@@ -692,7 +693,7 @@ ReplayRuntime::TickProbes( SceneController& sceneController, OverlayDebugState& 
 
     if ( result.status.Ok() && scrubDiagnostic.bodyName )
     {
-        diagnosticsRuntime.LogReplayScrubProbe( scene, scrubDiagnostic );
+        diagnosticsRuntime.LogReplayScrubProbe( ProjectSceneDiagnosticFacts( scene ), scrubDiagnostic );
     }
 
     if ( result.status.Ok() )

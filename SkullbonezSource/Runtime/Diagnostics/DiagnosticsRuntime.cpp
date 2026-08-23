@@ -35,8 +35,6 @@ Related:
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
 #include "../Input/InputController.h"
 #include "OverlayDebugState.h"
-#include "../Scene/SceneSessionState.h"
-#include "../Scene/SceneController.h"
 #include "../../Physics/PhysicsDebugData.h"
 #include "../../Rendering/DX12/Dx12Diagnostics.h"
 #include "../../Scene/AuthoredScene.h"
@@ -58,6 +56,18 @@ DiagnosticsRuntime::DiagnosticsRuntime( SkullbonezCore::Core::SbDiagnosticStore&
 namespace
 {
 constexpr double MAIN_MEMORY_SAMPLE_INTERVAL_SECONDS = 1.0;
+
+const char* DiagnosticFileNameFromPath( const char* path )
+{
+    const char* forwardSlash = std::strrchr( path, '/' );
+    const char* backSlash = std::strrchr( path, '\\' );
+    const char* separator = forwardSlash;
+    if ( !separator || ( backSlash && backSlash > separator ) )
+    {
+        separator = backSlash;
+    }
+    return separator ? separator + 1 : path;
+}
 
 void WriteJsonString( FILE* file, const char* value )
 {
@@ -538,7 +548,6 @@ bool HandleDiagnosticsKeyboardShortcut( OverlayDebugState& debug, int& cameraTra
 
 
 DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( UI::InGameUI& ui, OverlayDebugState& debug,
-                                                                         SceneSessionState& scene,
                                                                          CaptureController& capture, double nowSeconds,
                                                                          RuntimeInputAction action, bool wasPressed )
 {
@@ -569,8 +578,8 @@ DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( UI::InG
 
         // Concept: The tabbed diagnostics UI owns overlay text once visible, so
         // the GameUI one-line overlay is cleared by the UI shortcut owner.
-        scene.isInteractiveRun = true;
-        scene.isExitOnComplete = false;
+        result.markInteractiveRun = true;
+        result.disableExitOnComplete = true;
         capture.Screenshot().isScreenshotAndExit = false;
         ui.ToggleVisible( nowSeconds );
         debug.overlayMode = OverlayMode::None;
@@ -784,7 +793,8 @@ bool DiagnosticsRuntime::MainMemoryDumpRequested() const
 
 bool DiagnosticsRuntime::WriteMainMemoryDump( const SkullbonezCore::Core::MainMemoryReplayStats& replay,
                                               const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects,
-                                              const SceneSessionState& scene, const char* checkpoint, double nowSeconds )
+                                              const RuntimeSceneDiagnosticFacts& scene, const char* checkpoint,
+                                              double nowSeconds )
 {
     if ( !MainMemoryDumpRequested() )
     {
@@ -925,7 +935,7 @@ bool DiagnosticsRuntime::WriteMainMemoryDump( const SkullbonezCore::Core::MainMe
              static_cast<unsigned long long>( stats.reconciledTotalBytes ),
              static_cast<unsigned long long>( stats.reconciliationDeltaBytes ),
              static_cast<unsigned long long>( stats.foreignFreeCount ), scene.currentFrame, scene.targetFrameCount,
-             scene.modelCount, scene.isTestComplete ? "true" : "false" );
+             scene.modelCount, scene.testComplete ? "true" : "false" );
 
     fclose( file );
     fprintf( stdout, "[memory] Wrote main memory dump: %s\n", m_mainMemoryDumpPath );
@@ -960,17 +970,16 @@ void DiagnosticsRuntime::SetPhysicsDiagnosticsPath( Physics::PhysicsEngine& phys
 }
 
 
-void DiagnosticsRuntime::LogSceneFinished( SceneController& scene, const Rendering::Dx12Diagnostics* renderDiagnostics,
-                                           const char* reason )
+bool DiagnosticsRuntime::LogSceneFinished( const RuntimeSceneDiagnosticFacts& scene, const char* scenePath,
+                                           const Rendering::Dx12Diagnostics* renderDiagnostics, const char* reason )
 {
-    const std::string* currentPath = scene.CurrentPath();
-    const char* scenePath = currentPath && !currentPath->empty() ? currentPath->c_str() : "generated";
     const char* rendererName = renderDiagnostics ? renderDiagnostics->GetRendererName() : "unknown";
-    RuntimeDiagnostics::LogSceneFinished( scene.State(), scenePath, rendererName, reason );
+    return RuntimeDiagnostics::LogSceneFinished( scene, scenePath, rendererName, reason );
 }
 
 
-void DiagnosticsRuntime::BeginPhysicsDiagnosticsRun( Physics::PhysicsEngine& physics, const SceneSessionState& scene,
+void DiagnosticsRuntime::BeginPhysicsDiagnosticsRun( Physics::PhysicsEngine& physics,
+                                                     const RuntimeSceneDiagnosticFacts& scene,
                                                      const SkullbonezCore::Core::EngineConfig& config, const char* scenePath,
                                                      const char* rendererName, bool explicitRenderFrameLockstep,
                                                      bool effectiveRenderFrameLockstep )
@@ -983,19 +992,21 @@ void DiagnosticsRuntime::BeginPhysicsDiagnosticsRun( Physics::PhysicsEngine& phy
 }
 
 
-void DiagnosticsRuntime::LogReplayScrubProbe( const SceneSessionState& scene, const ReplayScrubProbeDiagnostic& probe )
+void DiagnosticsRuntime::LogReplayScrubProbe( const RuntimeSceneDiagnosticFacts& scene,
+                                              const ReplayScrubProbeDiagnostic& probe )
 {
     RuntimeDiagnostics::LogReplayScrubProbe( m_diagnostics.PhysicsDiagnostics(), scene, probe );
 }
 
 
-void DiagnosticsRuntime::LogReplayRestoreProbe( const SceneSessionState& scene, const ReplayRestoreProbeDiagnostic& probe )
+void DiagnosticsRuntime::LogReplayRestoreProbe( const RuntimeSceneDiagnosticFacts& scene,
+                                                const ReplayRestoreProbeDiagnostic& probe )
 {
     RuntimeDiagnostics::LogReplayRestoreProbe( m_diagnostics.PhysicsDiagnostics(), scene, probe );
 }
 
 
-void DiagnosticsRuntime::LogReplayRestoreResult( const SceneSessionState& scene,
+void DiagnosticsRuntime::LogReplayRestoreResult( const RuntimeSceneDiagnosticFacts& scene,
                                                  const ReplayRestoreResultDiagnostic& result )
 {
     // Invariant: Replay restore diagnostics are forwarded with their exact
@@ -1005,7 +1016,7 @@ void DiagnosticsRuntime::LogReplayRestoreResult( const SceneSessionState& scene,
 }
 
 
-void DiagnosticsRuntime::EndPhysicsDiagnosticsRun( const SceneSessionState& scene, const char* status )
+void DiagnosticsRuntime::EndPhysicsDiagnosticsRun( const RuntimeSceneDiagnosticFacts& scene, const char* status )
 {
     RuntimeDiagnostics::EndPhysicsDiagnosticsRun( m_diagnostics.PhysicsDiagnostics(), scene, status );
 }
@@ -1014,24 +1025,26 @@ void DiagnosticsRuntime::EndPhysicsDiagnosticsRun( const SceneSessionState& scen
 #endif
 
 
-void DiagnosticsRuntime::BeforeSceneUnload( const SceneSessionState& scene, const char* scenePath )
+void DiagnosticsRuntime::BeforeSceneUnload( int loadCount, int currentFrame, const char* scenePath )
 {
-    ReportStoreCapacityRows( scene, scenePath, "scene_unload" );
+    ReportStoreCapacityRows( loadCount, scenePath, "scene_unload" );
 #ifdef _DEBUG
-    EndPhysicsDiagnosticsRun( scene, "scene_reload" );
+    RuntimeSceneDiagnosticFacts facts;
+    facts.currentFrame = currentFrame;
+    EndPhysicsDiagnosticsRun( facts, "scene_reload" );
 #else
-    (void)scene;
+    (void)currentFrame;
 #endif
 }
 
-void DiagnosticsRuntime::ReportStoreCapacityRows( const SceneSessionState& scene, const char* scenePath, const char* status )
+void DiagnosticsRuntime::ReportStoreCapacityRows( int loadCount, const char* scenePath, const char* status )
 {
-    if ( scene.loadCount <= 0 )
+    if ( loadCount <= 0 )
     {
         return;
     }
 
-    const char* sceneName = scenePath && scenePath[0] != '\0' ? SceneFileNameFromPath( scenePath ) : "<generated>";
+    const char* sceneName = scenePath && scenePath[0] != '\0' ? DiagnosticFileNameFromPath( scenePath ) : "<generated>";
     SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::PrintCapacityRows( stdout, sceneName, status );
 }
 

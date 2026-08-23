@@ -633,7 +633,9 @@ Run::FrameSimulationPhaseResult Run::RunSimulationPhase( double secondsPerFrame,
         (void)m_continuousForecast.AdvanceFrame( continuousForecastBudgetStart );
     }
     SceneWorld& scene = m_sceneController.Scene();
-    m_overlayDiagnostics->UpdatePostPhysics( scene, secondsPerFrame );
+    m_overlayDiagnostics->UpdatePostPhysics( scene.Physics(), scene.BodyStore(), scene.Colliders(), scene.RenderInstances(),
+                                             secondsPerFrame );
+    scene.EndCollisionVisualFrame();
 
     SceneAutomationGateTracker& sceneGates = m_validationHarness->SceneGates();
     if ( sceneGates.RequiresBroadphaseXCellObservation() )
@@ -683,8 +685,10 @@ Run::FrameRenderPhaseResult Run::PrepareRenderPhase( bool gameUiActive, const Fr
                 sceneLoad.PreserveInactiveDevelopmentUi();
             }
 
-            m_timers.ObserveSceneLifecycle( m_sceneController.LifecyclePacket() );
-            ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_sceneController,
+            ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, m_sceneController.LifecyclePacket(),
+                                               m_timers );
+            ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics,
+                                            m_overlaySceneLifecycleObserver, m_sceneController,
                                             m_inputSceneLifecycleObserver, m_inputRouter, m_interaction,
                                             m_cameraSceneLifecycleObserver, m_camera,
                                             m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_runtimeTools,
@@ -1267,6 +1271,21 @@ void Run::AfterPhysicsStep()
 }
 
 
+#ifdef _DEBUG
+void Run::LogSceneFinished( const char* reason )
+{
+    SceneSessionState& scene = m_sceneController.State();
+    const std::string* currentPath = m_sceneController.CurrentPath();
+    const char* scenePath = currentPath && !currentPath->empty() ? currentPath->c_str() : "generated";
+    if ( m_diagnosticsRuntime.LogSceneFinished( ProjectSceneDiagnosticFacts( scene ), scenePath,
+                                                &Renderer().RenderDiagnostics(), reason ) )
+    {
+        scene.isFinishLogged = true;
+    }
+}
+#endif
+
+
 bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
 {
     PROFILE_BEGIN( "Frame/PostDraw/Screenshots" );
@@ -1317,11 +1336,11 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
 
     if ( result.completion == RuntimeCaptureCompletion::ScreenshotAndExit )
     {
-        m_diagnosticsRuntime.LogSceneFinished( m_sceneController, &Renderer().RenderDiagnostics(), "screenshot_and_exit" );
+        LogSceneFinished( "screenshot_and_exit" );
     }
     else if ( result.completion == RuntimeCaptureCompletion::Screenshot )
     {
-        m_diagnosticsRuntime.LogSceneFinished( m_sceneController, &Renderer().RenderDiagnostics(), "screenshot" );
+        LogSceneFinished( "screenshot" );
     }
 #endif
 
@@ -1362,8 +1381,10 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
                                   Renderer() )
                            .Ok();
 
-            m_timers.ObserveSceneLifecycle( m_sceneController.LifecyclePacket() );
-            ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_sceneController,
+            ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, m_sceneController.LifecyclePacket(),
+                                               m_timers );
+            ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics,
+                                            m_overlaySceneLifecycleObserver, m_sceneController,
                                             m_inputSceneLifecycleObserver, m_inputRouter, m_interaction,
                                             m_cameraSceneLifecycleObserver, m_camera,
                                             m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_runtimeTools,
@@ -1431,7 +1452,7 @@ void Run::TickAutoCycle( const SceneFrameProceedPolicy& proceedPolicy )
     }
 
 #ifdef _DEBUG
-    m_diagnosticsRuntime.LogSceneFinished( m_sceneController, &Renderer().RenderDiagnostics(), "auto_cycle" );
+    LogSceneFinished( "auto_cycle" );
 #endif
 
     if ( result.automation == RuntimeCaptureAutomation::Quit )
@@ -1468,7 +1489,7 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
 
     if ( result.finishReason )
     {
-        m_diagnosticsRuntime.LogSceneFinished( m_sceneController, &Renderer().RenderDiagnostics(), result.finishReason );
+        LogSceneFinished( result.finishReason );
     }
 #endif
 
@@ -1495,8 +1516,9 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
                                    Renderer() )
                             .Ok();
 
-        m_timers.ObserveSceneLifecycle( m_sceneController.LifecyclePacket() );
-        ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_sceneController,
+        ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, m_sceneController.LifecyclePacket(), m_timers );
+        ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics,
+                                        m_overlaySceneLifecycleObserver, m_sceneController,
                                         m_inputSceneLifecycleObserver, m_inputRouter, m_interaction,
                                         m_cameraSceneLifecycleObserver, m_camera,
                                         m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_runtimeTools,

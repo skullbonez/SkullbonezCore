@@ -52,6 +52,7 @@ Related:
 #include "../../Assets/AssetSystem.h"
 #include "ApplicationExitState.h"
 #include "InputFrame.h"
+#include "SceneLoadApplication.h"
 #include "../Scene/AttachedCameraController.h"
 #include "../Direction/LookLabController.h"
 #include "../Input/InputRouter.h"
@@ -70,7 +71,6 @@ Related:
 #include "../Automation/InteractionAutomationController.h"
 #endif
 #include "../Startup/RunStartupState.h"
-#include "../Diagnostics/RuntimeFrameMetricsOwner.h"
 #include "ReplayRuntime.h"
 #include "../Planning/ContinuousOrbitalForecast.h"
 #include "../Scene/SceneController.h"
@@ -175,6 +175,8 @@ class Run
     // frame bindings borrow from these objects; they do not own them.
     DiagnosticsRuntime m_diagnosticsRuntime;                                                                      // Capture, perf, and queryable physics diagnostics owner.
     RuntimeFrameMetricsOwner m_timers;                                                                            // Sole owner of frame/simulation timing and metric publication.
+    RuntimeFrameMetricsLifecyclePolicy m_metricsSceneLifecyclePolicy;                                             // App maps Scene generations to timing reset/activation operations.
+    SceneLifecycleGenerationObserver m_overlaySceneLifecycleObserver;                                             // App publishes detached Scene presentation once after each clear.
     SceneLifecycleGenerationObserver m_inputSceneLifecycleObserver;                                               // App applies scene-activation input presentation once per generation.
     InputRouter m_inputRouter;                                                                                    // Owns keyboard/pointer edge memory and binding-context enforcement.
     RuntimeInteractionController m_interaction;                                                                   // Authoritative runtime workspace and world-input owner.
@@ -283,6 +285,9 @@ class Run
     bool TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy );                                         // Screenshot triggers; true restarts frame.
     void TickAutoCycle( const SceneFrameProceedPolicy& proceedPolicy );                                           // Auto-cycle capture; may post WM_QUIT.
     bool TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy );                                        // Completion/load policy; true restarts frame.
+#ifdef _DEBUG
+    void LogSceneFinished( const char* reason );
+#endif
 
     // Lifetime: replays the operator's scrubber/predict/target/pause sequence
     // once, then never runs again in this process. It cannot run from

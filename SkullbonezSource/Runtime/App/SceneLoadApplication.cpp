@@ -151,7 +151,8 @@ void ApplySceneUiActivation( UI::InGameUI& ui, const SceneUiActivation& activati
 
 
 void ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction, const RunLaunchOptions& launchOptions,
-                                     RuntimeOverlayDiagnostics& overlays, SceneController& sceneController,
+                                     RuntimeOverlayDiagnostics& overlays,
+                                     SceneLifecycleGenerationObserver& overlayLifecycle, SceneController& sceneController,
                                      SceneLifecycleGenerationObserver& inputLifecycle, InputRouter& inputRouter,
                                      RuntimeInteractionController& interaction,
                                      SceneLifecycleGenerationObserver& cameraLifecycle, CameraControlState& camera,
@@ -162,7 +163,10 @@ void ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction, const Ru
     const SceneLoadResult& outputs = transaction.BeginRuntimeReactions();
     const SceneLifecyclePacket& lifecycle = sceneController.LifecyclePacket();
 
-    overlays.ObserveSceneLifecycle( lifecycle, outputs.presentation );
+    if ( overlayLifecycle.ShouldApply( lifecycle, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
+    {
+        overlays.ApplyScenePresentation( outputs.presentation );
+    }
 
     for ( std::size_t index = 0; index < outputs.completedWorldChangeCount; ++index )
     {

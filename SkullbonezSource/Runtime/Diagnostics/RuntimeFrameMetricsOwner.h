@@ -16,46 +16,17 @@ Invariants:
 Related:
   - Runtime/App/RunFrame.cpp
   - Runtime/RuntimeFrameViews.h
-  - Runtime/Scene/SceneLifecycle.h
+  - Runtime/App/SceneLoadApplication.h
 */
 #pragma once
 
 #include "../../Core/Timer.h"
 #include "../RuntimeFrameViews.h"
-#include "../Scene/SceneLifecycle.h"
 
 #include <algorithm>
 
 namespace SkullbonezCore::Runtime
 {
-struct RuntimeFrameMetricsLifecycleActions
-{
-    bool resetMeasurements = false;
-    bool restartClocks = false;
-};
-
-class RuntimeFrameMetricsLifecyclePolicy
-{
-  public:
-    RuntimeFrameMetricsLifecycleActions Observe( const SceneLifecyclePacket& packet )
-    {
-        return { m_resetObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ),
-                 m_activationObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneActivated ) };
-    }
-    uint64_t LastResetGeneration() const
-    {
-        return m_resetObserver.LastAppliedGeneration();
-    }
-    uint64_t LastActivationGeneration() const
-    {
-        return m_activationObserver.LastAppliedGeneration();
-    }
-
-  private:
-    SceneLifecycleGenerationObserver m_resetObserver;
-    SceneLifecycleGenerationObserver m_activationObserver;
-};
-
 struct RuntimeFrameMetricSample
 {
     double secondsPerFrame = 0.0;
@@ -142,19 +113,20 @@ class RuntimeFrameMetricsOwner
         m_snapshot.uiDrawCalls = drawCalls;
     }
 
-    void ObserveSceneLifecycle( const SceneLifecyclePacket& packet )
+    void ResetMeasurements()
     {
-        const RuntimeFrameMetricsLifecycleActions actions = m_lifecyclePolicy.Observe( packet );
-        if ( actions.resetMeasurements )
-        {
-            ResetMeasurements();
-        }
-        if ( actions.restartClocks )
-        {
-            m_frameTimer.StartTimer();
-            m_workTimer.StartTimer();
-            m_simulationTimer.StartTimer();
-        }
+        m_snapshot = {};
+        m_elapsedAggregationSeconds = 0.0f;
+        m_sceneEnergyAccumulator = 0.0;
+        m_sceneEnergySampleCount = 0;
+        m_hasPublishedAggregate = false;
+    }
+
+    void RestartClocks()
+    {
+        m_frameTimer.StartTimer();
+        m_workTimer.StartTimer();
+        m_simulationTimer.StartTimer();
     }
 
     RuntimeFrameMetricsSnapshot Publish()
@@ -182,25 +154,7 @@ class RuntimeFrameMetricsOwner
     {
         m_simulationTimer.StartTimer();
     }
-    uint64_t LastSceneResetGeneration() const
-    {
-        return m_lifecyclePolicy.LastResetGeneration();
-    }
-    uint64_t LastSceneActivationGeneration() const
-    {
-        return m_lifecyclePolicy.LastActivationGeneration();
-    }
-
   private:
-    void ResetMeasurements()
-    {
-        m_snapshot = {};
-        m_elapsedAggregationSeconds = 0.0f;
-        m_sceneEnergyAccumulator = 0.0;
-        m_sceneEnergySampleCount = 0;
-        m_hasPublishedAggregate = false;
-    }
-
     Environment::Timer m_frameTimer;
     Environment::Timer m_workTimer;
     Environment::Timer m_simulationTimer;
@@ -209,6 +163,5 @@ class RuntimeFrameMetricsOwner
     double m_sceneEnergyAccumulator = 0.0;
     int m_sceneEnergySampleCount = 0;
     bool m_hasPublishedAggregate = false;
-    RuntimeFrameMetricsLifecyclePolicy m_lifecyclePolicy;
 };
 } // namespace SkullbonezCore::Runtime

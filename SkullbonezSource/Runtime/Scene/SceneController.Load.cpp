@@ -100,6 +100,22 @@ namespace
 using Json = nlohmann::ordered_json;
 constexpr float NO_WATER_TERRAIN_CLEARANCE = 100.0f;
 
+RuntimeSceneDiagnosticFacts ProjectSceneDiagnosticFacts( const SceneSessionState& scene )
+{
+    RuntimeSceneDiagnosticFacts facts;
+    facts.currentSceneIndex = scene.currentSceneIndex;
+    facts.loadCount = scene.loadCount;
+    facts.manualResetCount = scene.manualResetCount;
+    facts.currentFrame = scene.currentFrame;
+    facts.targetFrameCount = scene.targetFrameCount;
+    facts.modelCount = scene.modelCount;
+    facts.rngSeed = scene.rngSeed;
+    facts.fixedStep = scene.isFixedStep;
+    facts.testComplete = scene.isTestComplete;
+    facts.finishLogged = scene.isFinishLogged;
+    return facts;
+}
+
 TornadoFieldConfig ProjectAuthoredTornadoField( const AuthoredTornadoFieldConfig& authored )
 {
     TornadoFieldConfig projected;
@@ -727,7 +743,8 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     sceneController.BeginLoadAttempt( index, lifecyclePolicy );
     SceneLifecycleConsumerMask beforeUnloadConsumers = SceneLifecycleConsumerBit( SceneLifecycleConsumer::RenderDrain );
     const std::string* unloadingScenePath = sceneController.CurrentPath();
-    diagnosticsRuntime.BeforeSceneUnload( SceneState(), unloadingScenePath ? unloadingScenePath->c_str() : nullptr );
+    diagnosticsRuntime.BeforeSceneUnload( SceneState().loadCount, SceneState().currentFrame,
+                                          unloadingScenePath ? unloadingScenePath->c_str() : nullptr );
     beforeUnloadConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics );
     sceneController.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeSceneUnload, beforeUnloadConsumers );
     transaction.CommitLoad( sceneController, sceneNavigation, loadBegin );
@@ -1320,7 +1337,8 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
                       launchOptions.fixedStep ? 1 : 0, effectiveRenderFrameLockstep ? 1 : 0,
                       SceneState().isScenePhysics ? 1 : 0, SceneState().isSceneText ? 1 : 0, SceneState().modelCount );
 
-    diagnosticsRuntime.BeginPhysicsDiagnosticsRun( sceneController.Scene().Physics(), SceneState(), config,
+    diagnosticsRuntime.BeginPhysicsDiagnosticsRun( sceneController.Scene().Physics(),
+                                                   ProjectSceneDiagnosticFacts( SceneState() ), config,
                                                    scenePath.c_str(), rendererName, launchOptions.fixedStep,
                                                    effectiveRenderFrameLockstep );
 #endif

@@ -41,7 +41,19 @@ class PhysicsEngine;
 }
 namespace Runtime
 {
-struct SceneSessionState;
+struct RuntimeSceneDiagnosticFacts
+{
+    int currentSceneIndex = 0;
+    int loadCount = 0;
+    int manualResetCount = 0;
+    int currentFrame = 0;
+    int targetFrameCount = 0;
+    int modelCount = 0;
+    uint32_t rngSeed = 0;
+    bool fixedStep = false;
+    bool testComplete = false;
+    bool finishLogged = false;
+};
 
 struct RunPerfLogState
 {
@@ -179,19 +191,22 @@ class RuntimeDiagnostics
     // needs scene lifecycle, request, or world-presentation authority.
     static void SetPhysicsDiagnosticsPath( RunPhysicsDiagnosticsState& diagnostics, Physics::PhysicsEngine& physics,
                                            const char* path, bool renderFrameLockstepForcedByDiagnostics );
-    static void LogSceneFinished( SceneSessionState& scene, const char* scenePath, const char* rendererName,
-                                  const char* reason );
+    static bool LogSceneFinished( const RuntimeSceneDiagnosticFacts& scene, const char* scenePath,
+                                  const char* rendererName, const char* reason );
     static void BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics, Physics::PhysicsEngine& physics,
-                                            const SceneSessionState& scene, const SkullbonezCore::Core::EngineConfig& config,
+                                            const RuntimeSceneDiagnosticFacts& scene,
+                                            const SkullbonezCore::Core::EngineConfig& config,
                                             const char* scenePath, const char* rendererName,
                                             bool explicitRenderFrameLockstep, bool effectiveRenderFrameLockstep );
-    static void LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagnostics, const SceneSessionState& scene,
+    static void LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagnostics, const RuntimeSceneDiagnosticFacts& scene,
                                      const ReplayScrubProbeDiagnostic& probe );
-    static void LogReplayRestoreProbe( RunPhysicsDiagnosticsState& diagnostics, const SceneSessionState& scene,
+    static void LogReplayRestoreProbe( RunPhysicsDiagnosticsState& diagnostics, const RuntimeSceneDiagnosticFacts& scene,
                                        const ReplayRestoreProbeDiagnostic& probe );
-    static void LogReplayRestoreResult( RunPhysicsDiagnosticsState& diagnostics, const SceneSessionState& scene,
+    static void LogReplayRestoreResult( RunPhysicsDiagnosticsState& diagnostics,
+                                        const RuntimeSceneDiagnosticFacts& scene,
                                         const ReplayRestoreResultDiagnostic& result );
-    static void EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics, const SceneSessionState& scene,
+    static void EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,
+                                          const RuntimeSceneDiagnosticFacts& scene,
                                           const char* status );
 #endif
 };

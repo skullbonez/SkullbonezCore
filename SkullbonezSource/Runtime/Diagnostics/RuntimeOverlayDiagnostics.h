@@ -30,10 +30,10 @@ Related:
 */
 #pragma once
 
-#include "../Scene/SceneLifecycle.h"
-
 #include <cstdint>
 #include <memory>
+
+
 
 #include "../Debug/BroadphaseVisualizer.h"
 #include "../Debug/CollisionVisualizer.h"
@@ -50,14 +50,43 @@ namespace UI
 {
 class InGameUI;
 }
+namespace Rendering
+{
+class RenderInstanceStore;
+}
+namespace Physics
+{
+class ColliderStore;
+class PhysicsBodyStore;
+class PhysicsEngine;
+}
 namespace Runtime
 {
-class SceneWorld;
 class RuntimeOverlayDiagnostics;
 class RuntimeRenderer;
 struct RunLaunchOptions;
 struct RunStartupOverrides;
-struct RuntimeRenderFramePolicy;
+
+struct RuntimeOverlayFramePolicy
+{
+    bool textOnly = false;
+    bool terrainHidden = false;
+    bool collisionVisualizer = false;
+    bool physicsDebugTransparent = false;
+    float physicsDebugAlpha = 1.0f;
+    bool waterHidden = false;
+    bool waterFlatDebug = false;
+    bool waterNoReflect = false;
+    bool waterRTReflect = false;
+    bool waterFreezeDebug = false;
+    float frozenWaterTime = 0.0f;
+    bool broadphaseOverlay = false;
+    uint32_t physicsDebugFlags = 0u;
+    int physicsDebugPipelineStageCursor = 0;
+    float physicsDebugContactLinger = 0.0f;
+    double simulationSeconds = 0.0;
+    double totalSimulationSeconds = 0.0;
+};
 
 // Lifetime: this edit owns a copy, not a borrow into owner state. Its destructor
 // publishes the complete presentation value and synchronizes visualizer policy.
@@ -103,12 +132,12 @@ class RuntimeOverlayDiagnostics
 
     void ApplyStartupPolicy( const RunStartupOverrides& overrides, RunLaunchOptions& launchOptions,
                              UI::InGameUI& operatorUi );
-    void UpdatePostPhysics( SceneWorld& scene, double secondsPerFrame );
-    RuntimeRenderFramePolicy BuildFramePolicy( double simulationSeconds, double totalSimulationSeconds ) const;
+    void UpdatePostPhysics( Physics::PhysicsEngine& physics, const Physics::PhysicsBodyStore& bodyStore,
+                            const Physics::ColliderStore& colliders,
+                            const Rendering::RenderInstanceStore& renderInstances, double secondsPerFrame );
+    RuntimeOverlayFramePolicy BuildFramePolicy( double simulationSeconds, double totalSimulationSeconds ) const;
 
-    // Publishes the detached scene presentation once after a load generation
-    // reaches the clear boundary. The load transaction never receives this owner.
-    void ObserveSceneLifecycle( const SceneLifecyclePacket& packet, const OverlayDebugState& scenePresentation );
+    void ApplyScenePresentation( const OverlayDebugState& scenePresentation );
     OverlayDebugState PresentationSnapshot() const;
     RuntimeOverlayPresentationEdit EditPresentation();
     RuntimeOverlayRenderResources& RenderResources();
@@ -121,7 +150,6 @@ class RuntimeOverlayDiagnostics
     Core::Profiler* m_profiler;
     OverlayDebugState m_presentationState;
     RuntimeOverlayRenderResources m_renderResources;
-    SceneLifecycleGenerationObserver m_scenePresentationObserver;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

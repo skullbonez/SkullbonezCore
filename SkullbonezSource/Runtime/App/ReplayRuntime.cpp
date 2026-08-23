@@ -47,6 +47,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "ReplayRuntime.h"
+#include "SceneLoadApplication.h"
 #include "../../Assets/AssetKeys.h"
 #include "../Replay/ReplayOverlayLayout.h"
 #include "ReplayReserveInventory.h"
@@ -541,12 +542,14 @@ void ReplayRuntime::PublishRestoreDiagnostic( const ReplayRestoreTransaction& tr
     // synchronous write; neither DiagnosticsRuntime nor Scene is retained.
     if ( transaction.HasRestoreProbeDiagnostic() )
     {
-        diagnosticsRuntime.LogReplayRestoreProbe( scene, transaction.RestoreProbeDiagnostic() );
+        diagnosticsRuntime.LogReplayRestoreProbe( ProjectSceneDiagnosticFacts( scene ),
+                                                  transaction.RestoreProbeDiagnostic() );
     }
 
     if ( transaction.HasRestoreResultDiagnostic() )
     {
-        diagnosticsRuntime.LogReplayRestoreResult( scene, transaction.RestoreResultDiagnostic() );
+        diagnosticsRuntime.LogReplayRestoreResult( ProjectSceneDiagnosticFacts( scene ),
+                                                   transaction.RestoreResultDiagnostic() );
     }
 }
 #endif

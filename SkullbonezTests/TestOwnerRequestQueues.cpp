@@ -64,6 +64,7 @@ Related:
 #include "../SkullbonezSource/Runtime/Diagnostics/OverlayDebugState.h"
 #include "../SkullbonezSource/Runtime/Render/RenderDefaultsStore.h"
 #include "../SkullbonezSource/Runtime/Diagnostics/RuntimeFrameMetricsOwner.h"
+#include "../SkullbonezSource/Runtime/App/SceneLoadApplication.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorLayoutPolicy.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h"

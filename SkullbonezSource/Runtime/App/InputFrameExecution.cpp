@@ -637,8 +637,9 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
                                        &renderer.RenderResources(), renderer )
                                 .Ok();
 
-        timers.ObserveSceneLifecycle( sceneController.LifecyclePacket() );
-        ApplySceneLoadRuntimeReactions( sceneLoad, launchOptions, *m_overlayDiagnostics, sceneController,
+        ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, sceneController.LifecyclePacket(), timers );
+        ApplySceneLoadRuntimeReactions( sceneLoad, launchOptions, *m_overlayDiagnostics,
+                                        m_overlaySceneLifecycleObserver, sceneController,
                                         m_inputSceneLifecycleObserver, inputRouter, interaction,
                                         m_cameraSceneLifecycleObserver, camera,
                                         m_attachedCameraSceneLifecycleObserver, attachedCamera, runtimeTools,
@@ -1062,8 +1063,17 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
             }
 
             const DiagnosticsUIKeyboardShortcutResult
-                shortcutResult = HandleDiagnosticsUIKeyboardShortcut( ui, debug, SceneState(), diagnosticsRuntime.Capture(),
+                shortcutResult = HandleDiagnosticsUIKeyboardShortcut( ui, debug, diagnosticsRuntime.Capture(),
                                                                       timers.SimulationTotalSeconds(), event.action, true );
+
+            if ( shortcutResult.markInteractiveRun )
+            {
+                SceneState().isInteractiveRun = true;
+            }
+            if ( shortcutResult.disableExitOnComplete )
+            {
+                SceneState().isExitOnComplete = false;
+            }
 
             if ( shortcutResult.triggered )
             {
@@ -1428,8 +1438,9 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
                                                                 workerPool, diagnosticsRuntime, &renderer.RenderFrame(),
                                                                 &renderer.RenderResources(), renderer );
 
-    timers.ObserveSceneLifecycle( sceneController.LifecyclePacket() );
-    ApplySceneLoadRuntimeReactions( sceneLoad, launchOptions, *m_overlayDiagnostics, sceneController,
+    ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, sceneController.LifecyclePacket(), timers );
+    ApplySceneLoadRuntimeReactions( sceneLoad, launchOptions, *m_overlayDiagnostics,
+                                    m_overlaySceneLifecycleObserver, sceneController,
                                     m_inputSceneLifecycleObserver, inputRouter, interaction,
                                     m_cameraSceneLifecycleObserver, camera,
                                     m_attachedCameraSceneLifecycleObserver, attachedCamera, runtimeTools, replayRuntime );

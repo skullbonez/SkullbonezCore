@@ -758,7 +758,7 @@ void SkullbonezCore::Runtime::FinishGraphicsStressFrame( GraphicsStressControlle
     const SkullbonezCore::Core::MainMemoryStats&
         memoryStats = diagnosticsRuntime
                           .RefreshMainMemoryStats( replayMemory,
-                                                   CollectSceneMemoryStats( SceneMemoryDiagnosticsView { sceneController.Scene().Entities(),
+                                                   CollectSceneMemoryStats( SceneMemoryDiagnosticsView { sceneController.Scene().Entities().CapacityBytes(),
                                                                                                          sceneController.Scene()
                                                                                                              .CollectGameplayMemoryBytes(),
                                                                                                          sceneController.Scene()

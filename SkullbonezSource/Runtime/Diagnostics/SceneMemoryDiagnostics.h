@@ -4,7 +4,7 @@ Purpose:
   Declares aggregate scene-memory accounting over concrete const owners.
 
 Summary:
-  Diagnostics joins entity, Physics, and render owner capacity with precomputed
+  Diagnostics joins detached entity bytes, Physics, and render owner capacity with precomputed
   Gameplay byte values while building one value snapshot. No lifecycle
   controller or mutable cross-domain context is retained.
 
@@ -18,7 +18,6 @@ Invariants:
   - The returned snapshot owns no pointer or reference.
 
 Related:
-  - SkullbonezSource/Runtime/Scene/SceneEntityStore.h
   - SkullbonezSource/Physics/PhysicsEngine.h
   - SkullbonezSource/Rendering/RenderInstanceStore.h
   - Agentic/Reference/engine-glossary.md
@@ -39,11 +38,9 @@ class RenderInstanceStore;
 }
 namespace Runtime
 {
-class SceneEntityStore;
-
 struct SceneMemoryDiagnosticsView
 {
-    const SceneEntityStore& entities;
+    uint64_t entityCapacityBytes;
     uint64_t gameplayWorldBytes;
     uint64_t gameplayDebugBytes;
     const Physics::PhysicsEngine& physics;

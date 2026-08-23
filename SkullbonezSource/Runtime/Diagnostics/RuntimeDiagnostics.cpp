@@ -31,8 +31,6 @@ Related:
 #include "../../Core/Log.h"
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Core/Profiler.h"
-#include "../Replay/ReplayRecorder.h"
-#include "../Scene/SceneSessionState.h"
 #include "../../Core/PlatformWin32.h"
 
 #include <array>
@@ -465,12 +463,12 @@ void RuntimeDiagnostics::SetPhysicsDiagnosticsPath( RunPhysicsDiagnosticsState& 
     physics.SetPhysicsDiagnosticsPath( diagnostics.path );
 }
 
-void RuntimeDiagnostics::LogSceneFinished( SceneSessionState& scene, const char* scenePath, const char* rendererName,
-                                           const char* reason )
+bool RuntimeDiagnostics::LogSceneFinished( const RuntimeSceneDiagnosticFacts& scene, const char* scenePath,
+                                           const char* rendererName, const char* reason )
 {
-    if ( scene.isFinishLogged )
+    if ( scene.finishLogged )
     {
-        return;
+        return false;
     }
 
     SkullbonezCore::Core::Log()
@@ -479,13 +477,14 @@ void RuntimeDiagnostics::LogSceneFinished( SceneSessionState& scene, const char*
                       scene.currentSceneIndex, scene.loadCount, scenePath && scenePath[0] != '\0' ? scenePath : "generated",
                       reason && reason[0] != '\0' ? reason : "unknown", scene.currentFrame, scene.targetFrameCount,
                       rendererName && rendererName[0] != '\0' ? rendererName : "unknown", scene.modelCount,
-                      scene.isTestComplete ? 1 : 0 );
+                      scene.testComplete ? 1 : 0 );
 
-    scene.isFinishLogged = true;
+    return true;
 }
 
 void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,
-                                                     Physics::PhysicsEngine& physics, const SceneSessionState& scene,
+                                                     Physics::PhysicsEngine& physics,
+                                                     const RuntimeSceneDiagnosticFacts& scene,
                                                      const SkullbonezCore::Core::EngineConfig& config, const char* scenePath,
                                                      const char* rendererName, bool explicitRenderFrameLockstep,
                                                      bool effectiveRenderFrameLockstep )
@@ -525,8 +524,8 @@ void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState&
                  "sleep_linear_speed\":%.6f,\"physics_sleep_angular_speed\":%.6f,\"physics_sleep_frames\":%d}}\n",
                  diagnostics.currentRunId, escapedScene.c_str(), scene.currentSceneIndex, scene.loadCount,
                  scene.manualResetCount, escapedRenderer.c_str(), escapedSolver.c_str(), scene.rngSeed,
-                 scene.isFixedStep ? 1 : 0, diagnostics.renderFrameLockstepForcedByDiagnostics ? 1 : 0,
-                 scene.isFixedStep ? 1 : 0, explicitRenderFrameLockstep ? 1 : 0, effectiveRenderFrameLockstep ? 1 : 0,
+                 scene.fixedStep ? 1 : 0, diagnostics.renderFrameLockstepForcedByDiagnostics ? 1 : 0,
+                 scene.fixedStep ? 1 : 0, explicitRenderFrameLockstep ? 1 : 0, effectiveRenderFrameLockstep ? 1 : 0,
                  diagnostics.renderFrameLockstepForcedByDiagnostics ? 1 : 0, scene.targetFrameCount, scene.modelCount,
                  config.worldForces.gravity, config.bodySimulation.contactEpsilon,
                  config.bodySimulation.contactRestitutionThreshold, config.physicsMaterial.frictionCoeff,
@@ -538,7 +537,8 @@ void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState&
                  config.physicsSleep.linearSpeed, config.physicsSleep.angularSpeed, config.physicsSleep.frames );
 }
 
-void RuntimeDiagnostics::LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagnostics, const SceneSessionState& scene,
+void RuntimeDiagnostics::LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagnostics,
+                                              const RuntimeSceneDiagnosticFacts& scene,
                                               const ReplayScrubProbeDiagnostic& probe )
 {
     if ( !diagnostics.isEnabled || !diagnostics.isRunActive )
@@ -568,7 +568,8 @@ void RuntimeDiagnostics::LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagno
     SkullbonezCore::Core::Log().FlushAll();
 }
 
-void RuntimeDiagnostics::LogReplayRestoreProbe( RunPhysicsDiagnosticsState& diagnostics, const SceneSessionState& scene,
+void RuntimeDiagnostics::LogReplayRestoreProbe( RunPhysicsDiagnosticsState& diagnostics,
+                                                const RuntimeSceneDiagnosticFacts& scene,
                                                 const ReplayRestoreProbeDiagnostic& probe )
 {
     ReplayRestoreResultDiagnostic result;
@@ -593,7 +594,8 @@ void RuntimeDiagnostics::LogReplayRestoreProbe( RunPhysicsDiagnosticsState& diag
     LogReplayRestoreResult( diagnostics, scene, result );
 }
 
-void RuntimeDiagnostics::LogReplayRestoreResult( RunPhysicsDiagnosticsState& diagnostics, const SceneSessionState& scene,
+void RuntimeDiagnostics::LogReplayRestoreResult( RunPhysicsDiagnosticsState& diagnostics,
+                                                 const RuntimeSceneDiagnosticFacts& scene,
                                                  const ReplayRestoreResultDiagnostic& result )
 {
     if ( !diagnostics.isEnabled || !diagnostics.isRunActive )
@@ -629,7 +631,8 @@ void RuntimeDiagnostics::LogReplayRestoreResult( RunPhysicsDiagnosticsState& dia
     SkullbonezCore::Core::Log().FlushAll();
 }
 
-void RuntimeDiagnostics::EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics, const SceneSessionState& scene,
+void RuntimeDiagnostics::EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,
+                                                   const RuntimeSceneDiagnosticFacts& scene,
                                                    const char* status )
 {
     if ( !diagnostics.isEnabled || !diagnostics.isRunActive )

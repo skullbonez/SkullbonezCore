@@ -385,24 +385,26 @@ Run::~Run()
     }
 
     const std::string* currentScenePath = m_sceneController.CurrentPath();
-    m_diagnosticsRuntime.ReportStoreCapacityRows( m_sceneController.State(),
+    m_diagnosticsRuntime.ReportStoreCapacityRows( m_sceneController.State().loadCount,
                                                   currentScenePath ? currentScenePath->c_str() : nullptr, "process_end" );
 
 #ifdef _DEBUG
-    m_diagnosticsRuntime.EndPhysicsDiagnosticsRun( m_sceneController.State(), "process_end" );
+    m_diagnosticsRuntime.EndPhysicsDiagnosticsRun( ProjectSceneDiagnosticFacts( m_sceneController.State() ),
+                                                    "process_end" );
 #endif
 
     if ( m_diagnosticsRuntime.MainMemoryDumpRequested() )
     {
         m_diagnosticsRuntime
             .WriteMainMemoryDump( m_replayRuntime.CollectMemoryStats(),
-                                  CollectSceneMemoryStats( SceneMemoryDiagnosticsView { m_sceneController.Scene().Entities(),
+                                  CollectSceneMemoryStats( SceneMemoryDiagnosticsView { m_sceneController.Scene().Entities().CapacityBytes(),
                                                                                         m_sceneController.Scene().CollectGameplayMemoryBytes(),
                                                                                         m_sceneController.Scene()
                                                                                             .CollectGameplayDebugMemoryBytes(),
                                                                                         m_sceneController.Scene().Physics(),
                                                                                         m_sceneController.Scene().RenderInstances() } ),
-                                  m_sceneController.State(), "shutdown", m_timers.SimulationTotalSeconds() );
+                                  ProjectSceneDiagnosticFacts( m_sceneController.State() ), "shutdown",
+                                  m_timers.SimulationTotalSeconds() );
     }
 
     m_diagnosticsRuntime.ClosePerfLog();
@@ -748,8 +750,9 @@ void Run::Initialise()
                                             m_workerPool, m_diagnosticsRuntime, &Renderer().RenderFrame(),
                                             &Renderer().RenderResources(), Renderer() );
 
-    m_timers.ObserveSceneLifecycle( m_sceneController.LifecyclePacket() );
-    ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_sceneController,
+    ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, m_sceneController.LifecyclePacket(), m_timers );
+    ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics,
+                                    m_overlaySceneLifecycleObserver, m_sceneController,
                                     m_inputSceneLifecycleObserver, m_inputRouter, m_interaction,
                                     m_cameraSceneLifecycleObserver, m_camera,
                                     m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_runtimeTools,
@@ -932,8 +935,9 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
                                                                           &Renderer().RenderFrame(),
                                                                           &Renderer().RenderResources(), Renderer() );
 
-        m_timers.ObserveSceneLifecycle( m_sceneController.LifecyclePacket() );
-        ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_sceneController,
+        ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, m_sceneController.LifecyclePacket(), m_timers );
+        ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics,
+                                        m_overlaySceneLifecycleObserver, m_sceneController,
                                         m_inputSceneLifecycleObserver, m_inputRouter, m_interaction,
                                         m_cameraSceneLifecycleObserver, m_camera,
                                         m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_runtimeTools,

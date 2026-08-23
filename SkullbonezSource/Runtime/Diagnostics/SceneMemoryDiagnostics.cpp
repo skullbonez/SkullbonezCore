@@ -4,9 +4,8 @@ Purpose:
   Aggregates scene-owner memory capacity into one diagnostics value.
 
 Summary:
-  The diagnostics boundary reads concrete entity, Physics, and render owners,
-  then joins Gameplay byte values projected by SceneWorld. It replaces
-  SceneController memory forwarding without granting mutation authority.
+  The diagnostics boundary reads concrete Physics and render owners, then joins
+  entity and Gameplay byte values projected by the Scene owner.
 
 Glossary:
   Metadata bytes: Reserved SceneEntityStore and presentation-record capacity.
@@ -24,7 +23,6 @@ Related:
 */
 #include "SceneMemoryDiagnostics.h"
 
-#include "../Scene/SceneEntityStore.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsBodyStore.h"
@@ -46,7 +44,7 @@ SkullbonezCore::Core::MainMemoryGameObjectStats CollectSceneMemoryStats( const S
     stats.bodyStoreCapacity = bodyStore.RecordCapacity();
     stats.colliderStoreCapacity = colliderStore.RecordCapacity();
     stats.renderStoreCapacity = view.renderInstances.RecordCapacity();
-    stats.modelVectorBytes = view.renderInstances.PresentationCapacityBytes() + view.entities.CapacityBytes();
+    stats.modelVectorBytes = view.renderInstances.PresentationCapacityBytes() + view.entityCapacityBytes;
     stats.physicsStoreBytes = static_cast<uint64_t>( bodyStore.RecordCapacity() ) * sizeof( Physics::PhysicsBodyRecord ) +
                               static_cast<uint64_t>( Physics::PhysicsEngine::ReadBuoyancyFactCapacity( view.physics ) ) *
                                   sizeof( Physics::BuoyancyBodyFacts );

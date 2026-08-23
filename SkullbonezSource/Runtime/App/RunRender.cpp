@@ -44,6 +44,32 @@ using namespace SkullbonezCore::Runtime;
 using SkullbonezCore::Math::Vector::Vector3;
 namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
+namespace
+{
+RuntimeRenderFramePolicy ProjectRenderFramePolicy( const RuntimeOverlayFramePolicy& overlay )
+{
+    RuntimeRenderFramePolicy policy;
+    policy.textOnly = overlay.textOnly;
+    policy.terrainHidden = overlay.terrainHidden;
+    policy.collisionVisualizer = overlay.collisionVisualizer;
+    policy.physicsDebugTransparent = overlay.physicsDebugTransparent;
+    policy.physicsDebugAlpha = overlay.physicsDebugAlpha;
+    policy.waterHidden = overlay.waterHidden;
+    policy.waterFlatDebug = overlay.waterFlatDebug;
+    policy.waterNoReflect = overlay.waterNoReflect;
+    policy.waterRTReflect = overlay.waterRTReflect;
+    policy.waterFreezeDebug = overlay.waterFreezeDebug;
+    policy.frozenWaterTime = overlay.frozenWaterTime;
+    policy.broadphaseOverlay = overlay.broadphaseOverlay;
+    policy.physicsDebugFlags = overlay.physicsDebugFlags;
+    policy.physicsDebugPipelineStageCursor = overlay.physicsDebugPipelineStageCursor;
+    policy.physicsDebugContactLinger = overlay.physicsDebugContactLinger;
+    policy.simulationSeconds = overlay.simulationSeconds;
+    policy.totalSimulationSeconds = overlay.totalSimulationSeconds;
+    return policy;
+}
+} // namespace
+
 
 void Run::Render( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha )
 {
@@ -103,8 +129,9 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
                                               attachedTargetIndex,
                                               m_attachedCamera.State().activeFollow };
 
-    const RuntimeRenderFramePolicy framePolicy = m_overlayDiagnostics->BuildFramePolicy( m_timers.SceneElapsedSeconds(),
-                                                                                         m_timers.SimulationTotalSeconds() );
+    const RuntimeRenderFramePolicy framePolicy =
+        ProjectRenderFramePolicy( m_overlayDiagnostics->BuildFramePolicy( m_timers.SceneElapsedSeconds(),
+                                                                           m_timers.SimulationTotalSeconds() ) );
 
     // Invariant: Run owns the cross-domain ordering. Model interpolation must
     // finish before replay substitutes read-only historical/future poses, and
