@@ -47,10 +47,9 @@ namespace Assets
 {
 namespace
 {
-// Why: renderer-free tests omit CreateShader, the only consumer of this map.
-// Compile both in lockstep so portable warning-clean builds do not retain an
-// unused internal helper.
-#if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
+// Why: this source-owned map resolves logical names before Rendering receives
+// a direct base-name view. Renderer-free tests exercise the same resolution
+// order without linking GPU resource creation.
 const char* BuiltInShaderBaseNameForLogicalName( const char* logicalName )
 {
     struct BuiltInShaderName
@@ -100,7 +99,6 @@ const char* BuiltInShaderBaseNameForLogicalName( const char* logicalName )
 
     return nullptr;
 }
-#endif
 
 bool IsAbsolutePath( const std::string& path )
 {
@@ -396,22 +394,30 @@ const ShaderSourceAsset* AssetSystem::FindShaderSourceAsset( const char* logical
     return nullptr;
 }
 
+const char* AssetSystem::ResolveShaderBaseName( const char* logicalNameOrBaseName ) const
+{
+    if ( !logicalNameOrBaseName || logicalNameOrBaseName[0] == '\0' )
+    {
+        SB_FATAL( "AssetSystem", "ResolveShaderBaseName requires a logical name or base name." );
+    }
+
+    const ShaderSourceAsset* shader = FindShaderSourceAsset( logicalNameOrBaseName );
+
+    if ( shader )
+    {
+        return shader->baseName.c_str();
+    }
+
+    const char* builtInBaseName = BuiltInShaderBaseNameForLogicalName( logicalNameOrBaseName );
+    return builtInBaseName ? builtInBaseName : logicalNameOrBaseName;
+}
+
 
 #if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
 std::unique_ptr<Rendering::ShaderDX12> AssetSystem::CreateShader( Rendering::Dx12ResourceBuilder& renderResources,
                                                                   const char* logicalNameOrBaseName ) const
 {
-    // Invariant: empty shader keys are owner API violations. A non-empty miss
-    // can still use the built-in compatibility map or explicit base-name path.
-    if ( !logicalNameOrBaseName || logicalNameOrBaseName[0] == '\0' )
-    {
-        SB_FATAL( "AssetSystem", "CreateShader requires a logical name or base name." );
-    }
-
-    const ShaderSourceAsset* shader = FindShaderSourceAsset( logicalNameOrBaseName );
-    const char* fallbackBaseName = BuiltInShaderBaseNameForLogicalName( logicalNameOrBaseName );
-    return renderResources.CreateShader( shader ? shader->baseName.c_str()
-                                                : ( fallbackBaseName ? fallbackBaseName : logicalNameOrBaseName ) );
+    return renderResources.CreateShader( ResolveShaderBaseName( logicalNameOrBaseName ) );
 }
 #endif
 

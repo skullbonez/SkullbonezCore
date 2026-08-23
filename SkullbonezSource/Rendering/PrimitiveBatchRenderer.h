@@ -5,8 +5,8 @@ Purpose:
 
 Summary:
   PrimitiveBatchRenderer builds and retains sphere, box, pine, and convex-hull
-  GPU resources, then submits visible or shadow-depth batches through a typed
-  per-frame rendering context.
+  GPU resources, then submits visible or shadow-depth batches from focused
+  lighting, shader-path, geometry, and command values.
 
 Glossary:
   Instance buffer: CPU-built per-object payload uploaded so one mesh can draw
@@ -15,8 +15,8 @@ Glossary:
 Invariants:
   - Builder-owned meshes and shaders are backend resources; RuntimeRenderer
     destroys this owner before the backend device is destroyed.
-  - Primitive batch scopes borrow PrimitiveRenderContext until destruction and
-    flush their queued instances exactly once.
+  - Primitive batch scopes retain only their renderer and batch kind until
+    destruction, then flush queued instances exactly once.
   - A scope can submit only while active and only through the visible/shadow
     method matching its kind; resource-owner identity is fixed for its epoch.
 
@@ -49,10 +49,6 @@ namespace Core
 {
 struct CinematicRenderConfig;
 } // namespace Core
-namespace Assets
-{
-class AssetSystem;
-}
 namespace Rendering
 {
 class Dx12GeometryOwner;
@@ -72,20 +68,6 @@ namespace Rendering
 {
 class PrimitiveBatchRenderer;
 struct PrimitiveBatchRendererTestAccess;
-
-struct PrimitiveRenderContext
-{
-    // Lifetime: commands and diagnostics are borrowed only for the receiving
-    // call. PrimitiveBatchRenderer may remember the three concrete resource
-    // owners until its owner destroys the renderer for backend teardown/rebuild.
-    Rendering::Dx12ResourceBuilder& renderResources;
-    Rendering::Dx12TextureOwner& renderTextures;
-    Rendering::Dx12GeometryOwner& renderGeometry;
-    Rendering::Dx12Diagnostics& renderDiagnostics;
-    const Assets::AssetSystem& assets;
-    const SkullbonezCore::Core::EngineConfig& config;
-    PrimitiveBatchRenderer& renderer;
-};
 
 struct PrimitiveMeshGeometryView
 {
@@ -151,12 +133,12 @@ class PrimitiveBatchScopeLifecycle
 {
   public:
     PrimitiveBatchScopeLifecycle() = default;
-    PrimitiveBatchScopeLifecycle( const void* renderer, const void* context, PrimitiveBatchKind kind ) noexcept
-        : m_renderer( renderer ), m_context( context ), m_kind( kind ), m_active( true )
+    PrimitiveBatchScopeLifecycle( const void* renderer, PrimitiveBatchKind kind ) noexcept
+        : m_renderer( renderer ), m_kind( kind ), m_active( true )
     {
     }
     PrimitiveBatchScopeLifecycle( PrimitiveBatchScopeLifecycle&& other ) noexcept
-        : m_renderer( other.m_renderer ), m_context( other.m_context ), m_kind( other.m_kind ), m_active( other.m_active )
+        : m_renderer( other.m_renderer ), m_kind( other.m_kind ), m_active( other.m_active )
     {
         other.m_active = false;
     }
@@ -165,7 +147,6 @@ class PrimitiveBatchScopeLifecycle
         if ( this != &other )
         {
             m_renderer = other.m_renderer;
-            m_context = other.m_context;
             m_kind = other.m_kind;
             m_active = other.m_active;
             other.m_active = false;
@@ -205,17 +186,16 @@ class PrimitiveBatchScopeLifecycle
         const bool shadowKind = m_kind == PrimitiveBatchKind::ShadowSphere || m_kind == PrimitiveBatchKind::ShadowBox ||
                                 m_kind == PrimitiveBatchKind::ShadowPine;
 
-        if ( !m_active || !m_renderer || !m_context || ( shadowDraw ? !shadowKind : !visibleKind ) )
+        if ( !m_active || !m_renderer || ( shadowDraw ? !shadowKind : !visibleKind ) )
         {
             SB_FATAL( "Rendering/PrimitiveBatchScope",
-                      "Primitive batch scope misuse. active=%d renderer=%d context=%d kind=%u requested=%s",
-                      m_active ? 1 : 0, m_renderer ? 1 : 0, m_context ? 1 : 0, static_cast<unsigned int>( m_kind ),
+                      "Primitive batch scope misuse. active=%d renderer=%d kind=%u requested=%s",
+                      m_active ? 1 : 0, m_renderer ? 1 : 0, static_cast<unsigned int>( m_kind ),
                       shadowDraw ? "shadow" : "visible" );
         }
     }
 
     const void* m_renderer = nullptr;
-    const void* m_context = nullptr;
     PrimitiveBatchKind m_kind = PrimitiveBatchKind::Sphere;
     bool m_active = false;
 };
@@ -259,12 +239,12 @@ class PrimitiveBatchRenderer
     PrimitiveBatchRendererState m_state;                                                                                // Owned primitive render cache and batch scratch.
     PrimitiveResourceOwnerIdentity m_resourceOwnerIdentity;                                                             // Stable backend tuple for this renderer epoch.
 
-    void EnsureSphereShader( const PrimitiveRenderContext& context );
-    void EnsureShadowDepthShader( const PrimitiveRenderContext& context );
-    void BuildSphereMesh( const PrimitiveRenderContext& context, int slices, int stacks );                              // Generate UV sphere instanced mesh
-    void BuildLowPolySphereMesh( const PrimitiveRenderContext& context, int slices, int stacks );                       // Generate faceted sphere instanced mesh
-    void BuildBoxMesh( const PrimitiveRenderContext& context );                                                         // Generate unit cube instanced mesh
-    void BuildPineMesh( const PrimitiveRenderContext& context );                                                        // Generate unit low-poly pine tier mesh
+    void EnsureSphereShader( const char* shaderBaseName, const SkullbonezCore::Core::OrdinaryRenderConfig& lighting );
+    void EnsureShadowDepthShader( const char* shaderBaseName );
+    void BuildSphereMesh( int slices, int stacks );                                                                     // Generate UV sphere instanced mesh
+    void BuildLowPolySphereMesh( int slices, int stacks );                                                              // Generate faceted sphere instanced mesh
+    void BuildBoxMesh();                                                                                                // Generate unit cube instanced mesh
+    void BuildPineMesh();                                                                                               // Generate unit low-poly pine tier mesh
 
   public:
     explicit PrimitiveBatchRenderer( Rendering::Dx12ResourceBuilder* renderResources = nullptr,
@@ -290,97 +270,103 @@ class PrimitiveBatchRenderer
         friend class PrimitiveBatchRenderer;
         friend struct PrimitiveBatchRendererTestAccess;
 
-        PrimitiveBatchScope( PrimitiveBatchRenderer& renderer, const PrimitiveRenderContext& context,
-                             PrimitiveBatchKind kind );                                                                 // Batch scopes borrow their context until destruction.
+        PrimitiveBatchScope( PrimitiveBatchRenderer& renderer, PrimitiveBatchKind kind );
         void EndIfActive();
 
         PrimitiveBatchRenderer* m_renderer = nullptr;
-        const PrimitiveRenderContext* m_context = nullptr;
         PrimitiveBatchScopeLifecycle m_lifecycle;
     };
 
     void SetClipPlane( float x, float y, float z, float w );
     const float* GetClipPlane() const;
-    PrimitiveBatchScope BeginSphereBatch( const PrimitiveRenderContext& context, const Math::Transformation::Matrix4& view,
+    PrimitiveBatchScope BeginSphereBatch( const SkullbonezCore::Core::OrdinaryRenderConfig& lighting,
+                                          const char* shaderBaseName, const Math::Transformation::Matrix4& view,
                                           const Math::Transformation::Matrix4& proj, const float lightPos[4],
                                           bool isTransparent = false,
                                           const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
                                           const Rendering::ShadowFrameData* shadow = nullptr, float materialAlpha = 1.0f );
-    PrimitiveBatchScope BeginBoxBatch( const PrimitiveRenderContext& context, const Math::Transformation::Matrix4& view,
+    PrimitiveBatchScope BeginBoxBatch( const SkullbonezCore::Core::OrdinaryRenderConfig& lighting,
+                                       const char* shaderBaseName, const Math::Transformation::Matrix4& view,
                                        const Math::Transformation::Matrix4& proj, const float lightPos[4],
                                        bool isTransparent = false,
                                        const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
                                        const Rendering::ShadowFrameData* shadow = nullptr, float materialAlpha = 1.0f );
-    PrimitiveBatchScope BeginPineBatch( const PrimitiveRenderContext& context, const Math::Transformation::Matrix4& view,
+    PrimitiveBatchScope BeginPineBatch( const SkullbonezCore::Core::OrdinaryRenderConfig& lighting,
+                                        const char* shaderBaseName, const Math::Transformation::Matrix4& view,
                                         const Math::Transformation::Matrix4& proj, const float lightPos[4],
                                         bool isTransparent = false,
                                         const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
                                         const Rendering::ShadowFrameData* shadow = nullptr, float materialAlpha = 1.0f );
     PrimitiveBatchScope
-    BeginShadowDepthSphereBatch( const PrimitiveRenderContext& context, const Math::Transformation::Matrix4& view,
+    BeginShadowDepthSphereBatch( const char* shaderBaseName, const Math::Transformation::Matrix4& view,
                                  const Math::Transformation::Matrix4& proj,
                                  const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr );
-    PrimitiveBatchScope BeginShadowDepthBoxBatch( const PrimitiveRenderContext& context,
+    PrimitiveBatchScope BeginShadowDepthBoxBatch( const char* shaderBaseName,
                                                   const Math::Transformation::Matrix4& view,
                                                   const Math::Transformation::Matrix4& proj );
-    PrimitiveBatchScope BeginShadowDepthPineBatch( const PrimitiveRenderContext& context,
+    PrimitiveBatchScope BeginShadowDepthPineBatch( const char* shaderBaseName,
                                                    const Math::Transformation::Matrix4& view,
                                                    const Math::Transformation::Matrix4& proj );
-    void DrawConvexHullModel( const PrimitiveRenderContext& context, const Math::CollisionDetection::ConvexHullShape& hull,
+    void DrawConvexHullModel( const SkullbonezCore::Core::OrdinaryRenderConfig& lighting, const char* shaderBaseName,
+                              const Math::CollisionDetection::ConvexHullShape& hull,
                               const Math::Transformation::Matrix4& model, const Rendering::RenderMaterial& material,
                               const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj,
                               const float lightPos[4], bool isTransparent = false,
                               const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
                               const Rendering::ShadowFrameData* shadow = nullptr, float materialAlpha = 1.0f );
-    void DrawShadowDepthConvexHullModel( const PrimitiveRenderContext& context,
+    void DrawShadowDepthConvexHullModel( const char* shaderBaseName,
                                          const Math::CollisionDetection::ConvexHullShape& hull,
                                          const Math::Transformation::Matrix4& model,
                                          const Math::Transformation::Matrix4& view,
                                          const Math::Transformation::Matrix4& proj );
-    void EnsureSphereMesh( const PrimitiveRenderContext& context );                                                     // Create the shared sphere mesh before DXR BLAS
+    void EnsureSphereMesh();                                                                                           // Create the shared sphere mesh before DXR BLAS
 
     // construction needs its vertex data.
-    void EnsureShadowDepthPrimitiveResources( const PrimitiveRenderContext& context );                                  // Prewarm primitive shadow meshes and the shared depth shader.
+    void EnsureShadowDepthPrimitiveResources( const char* shaderBaseName );                                             // Prewarm primitive shadow meshes and the shared depth shader.
 
   private:
     void BindRenderResourceOwners( Rendering::Dx12ResourceBuilder& renderResources,
                                    Rendering::Dx12TextureOwner& renderTextures,
                                    Rendering::Dx12GeometryOwner& renderGeometry );
     void ReleaseOwnedRenderResources();                                                                                 // Destroy renderer-owned backend handles before factory teardown.
-    void DrawSphereBatchBegin( const PrimitiveRenderContext& context, const Math::Transformation::Matrix4& view,
+    void DrawSphereBatchBegin( const SkullbonezCore::Core::OrdinaryRenderConfig& lighting, const char* shaderBaseName,
+                               const Math::Transformation::Matrix4& view,
                                const Math::Transformation::Matrix4& proj, const float lightPos[4],
                                bool isTransparent = false,
                                const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
                                const Rendering::ShadowFrameData* shadow = nullptr, float materialAlpha = 1.0f );
     void DrawSphereBatchModel( const Math::Transformation::Matrix4& model, const Rendering::RenderMaterial& material ); // Append model matrix and material payload to instance buffer
-                               void DrawSphereBatchEnd( const PrimitiveRenderContext& context );
-                               void DrawBoxBatchBegin( const PrimitiveRenderContext& context, const Math::Transformation::Matrix4& view,
+                               void DrawSphereBatchEnd();
+                               void DrawBoxBatchBegin( const SkullbonezCore::Core::OrdinaryRenderConfig& lighting,
+                               const char* shaderBaseName, const Math::Transformation::Matrix4& view,
                                const Math::Transformation::Matrix4& proj, const float lightPos[4], bool isTransparent = false,
                                const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
                                const Rendering::ShadowFrameData* shadow = nullptr, float materialAlpha = 1.0f );
                                void DrawBoxBatchModel( const Math::Transformation::Matrix4& model,
                                                        const Rendering::RenderMaterial& material );                     // Append box model matrix and material payload to instance buffer
-                               void DrawBoxBatchEnd( const PrimitiveRenderContext& context );
-                               void DrawPineBatchBegin( const PrimitiveRenderContext& context, const Math::Transformation::Matrix4& view,
+                               void DrawBoxBatchEnd();
+                               void DrawPineBatchBegin( const SkullbonezCore::Core::OrdinaryRenderConfig& lighting,
+                               const char* shaderBaseName, const Math::Transformation::Matrix4& view,
                                const Math::Transformation::Matrix4& proj, const float lightPos[4], bool isTransparent = false,
                                const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
                                const Rendering::ShadowFrameData* shadow = nullptr, float materialAlpha = 1.0f );
                                void DrawPineBatchModel( const Math::Transformation::Matrix4& model,
                                                         const Rendering::RenderMaterial& material );                    // Append pine model matrix and material payload to instance buffer
-                               void DrawPineBatchEnd( const PrimitiveRenderContext& context );
-                               void DrawShadowDepthSphereBatchBegin( const PrimitiveRenderContext& context, const Math::Transformation::Matrix4& view,
+                               void DrawPineBatchEnd();
+                               void DrawShadowDepthSphereBatchBegin( const char* shaderBaseName,
+                               const Math::Transformation::Matrix4& view,
                                const Math::Transformation::Matrix4& proj,
                                const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr );
     void DrawShadowDepthSphereBatchModel( const Math::Transformation::Matrix4& model );
-    void DrawShadowDepthSphereBatchEnd( const PrimitiveRenderContext& context );
-    void DrawShadowDepthBoxBatchBegin( const PrimitiveRenderContext& context, const Math::Transformation::Matrix4& view,
+    void DrawShadowDepthSphereBatchEnd();
+    void DrawShadowDepthBoxBatchBegin( const char* shaderBaseName, const Math::Transformation::Matrix4& view,
                                        const Math::Transformation::Matrix4& proj );
     void DrawShadowDepthBoxBatchModel( const Math::Transformation::Matrix4& model );
-    void DrawShadowDepthBoxBatchEnd( const PrimitiveRenderContext& context );
-    void DrawShadowDepthPineBatchBegin( const PrimitiveRenderContext& context, const Math::Transformation::Matrix4& view,
+    void DrawShadowDepthBoxBatchEnd();
+    void DrawShadowDepthPineBatchBegin( const char* shaderBaseName, const Math::Transformation::Matrix4& view,
                                         const Math::Transformation::Matrix4& proj );
     void DrawShadowDepthPineBatchModel( const Math::Transformation::Matrix4& model );
-    void DrawShadowDepthPineBatchEnd( const PrimitiveRenderContext& context );
+    void DrawShadowDepthPineBatchEnd();
 
   public:
 

@@ -125,7 +125,10 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseProcessResourc
 SkullbonezCore::Core::SbResult RenderResourceLifecycle::EnsureUiTextResources( int screenW, int screenH )
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
-    return m_uiTextPass.EnsureGpuResources( m_renderResources, m_renderTextures, m_renderGeometry, m_assets, screenW,
+    return m_uiTextPass.EnsureGpuResources( m_renderResources, m_renderTextures, m_renderGeometry,
+                                            m_assets.ResolveShaderBaseName( "shader.text" ),
+                                            m_assets.ResolveShaderBaseName( "shader.solid_color" ),
+                                            m_assets.ResolveShaderBaseName( "shader.solid_color_batch" ), screenW,
                                             screenH );
 }
 
@@ -145,11 +148,7 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseSceneRayTracin
     if ( sphereGeometry.instancedMeshHandle == 0 )
     {
 
-        const Rendering::PrimitiveRenderContext primitiveContext { m_renderResources,   m_renderTextures, m_renderGeometry,
-                                                                   m_renderDiagnostics, m_assets,         m_config,
-                                                                   PrimitiveBatches() };
-
-        PrimitiveBatches().EnsureSphereMesh( primitiveContext );
+        PrimitiveBatches().EnsureSphereMesh();
         sphereGeometry = PrimitiveBatches().SphereGeometry();
     }
 

@@ -306,15 +306,6 @@
       "destructures_at_entry": "no"
     },
     {
-      "key": "PrimitiveRenderContext",
-      "site": "SkullbonezSource/Rendering/PrimitiveBatchRenderer.h:76",
-      "members": 7,
-      "verdict": "retain-prior",
-      "owner": "prior owner ruling carried by CA0",
-      "reason": "Render resources, textures, geometry, diagnostics, assets, config, and renderer belong to one primitive-renderer composition generation; issuing a batch across generations would bind incompatible resource owners.",
-      "destructures_at_entry": "no"
-    },
-    {
       "key": "ReflectionPassInputs",
       "site": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:291",
       "members": 22,

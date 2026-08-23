@@ -437,6 +437,13 @@
       "suffixes": [".cpp", ".h", ".hpp", ".inl"],
       "required_project": "SKULLBONEZ_UI.vcxproj",
       "forbidden_projects": ["SKULLBONEZ_CORE.vcxproj", "SKULLBONEZ_TESTS.vcxproj"]
+    },
+    {
+      "id": "rendering_single_project_ownership",
+      "path_prefix": "SkullbonezSource/Rendering/",
+      "suffixes": [".cpp", ".h", ".hpp", ".inl"],
+      "required_project": "SKULLBONEZ_RENDERING.vcxproj",
+      "forbidden_projects": ["SKULLBONEZ_CORE.vcxproj"]
     }
   ]
 }

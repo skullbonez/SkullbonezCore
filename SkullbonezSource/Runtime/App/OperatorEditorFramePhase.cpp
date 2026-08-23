@@ -953,10 +953,12 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
 
     // App alone applies process and native-surface effects after both UI
     // presenters have finished consuming the immutable phase snapshot.
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     if ( operatorUiPhase.Commands().surface == OperatorUiSurfaceCommand::ShowGameUi )
     {
         SelectDevelopmentUiSurface( DevelopmentUiMode::GameUI );
     }
+#endif
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     if ( operatorUiPhase.Commands().requestTracyStandardCapture )

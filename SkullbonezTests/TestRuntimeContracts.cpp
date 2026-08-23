@@ -560,9 +560,8 @@ TEST_CASE( "IH4 render lifecycle owners execute valid bind move and close transi
     CHECK_FALSE( textureEpoch.Active() );
 
     int rendererIdentity = 0;
-    int contextIdentity = 0;
     SkullbonezCore::Rendering::PrimitiveBatchScopeLifecycle
-        visibleScope( &rendererIdentity, &contextIdentity, SkullbonezCore::Rendering::PrimitiveBatchKind::Sphere );
+        visibleScope( &rendererIdentity, SkullbonezCore::Rendering::PrimitiveBatchKind::Sphere );
     visibleScope.RequireVisible();
     SkullbonezCore::Rendering::PrimitiveBatchScopeLifecycle movedScope( std::move( visibleScope ) );
     CHECK_FALSE( visibleScope.Active() );
@@ -570,7 +569,7 @@ TEST_CASE( "IH4 render lifecycle owners execute valid bind move and close transi
     movedScope.RequireVisible();
 
     SkullbonezCore::Rendering::PrimitiveBatchScopeLifecycle
-        shadowScope( &rendererIdentity, &contextIdentity, SkullbonezCore::Rendering::PrimitiveBatchKind::ShadowSphere );
+        shadowScope( &rendererIdentity, SkullbonezCore::Rendering::PrimitiveBatchKind::ShadowSphere );
     shadowScope.RequireShadow();
 
     int resourcesIdentity = 0;
@@ -1155,11 +1154,10 @@ bool RunRuntimeFatalCase( const char* caseName )
     if ( primitiveMoved || primitiveInactive || primitiveVisibleAsShadow || primitiveShadowAsVisible )
     {
         int rendererIdentity = 0;
-        int contextIdentity = 0;
         const SkullbonezCore::Rendering::PrimitiveBatchKind
             kind = primitiveShadowAsVisible ? SkullbonezCore::Rendering::PrimitiveBatchKind::ShadowSphere
                                             : SkullbonezCore::Rendering::PrimitiveBatchKind::Sphere;
-        SkullbonezCore::Rendering::PrimitiveBatchScopeLifecycle scope( &rendererIdentity, &contextIdentity, kind );
+        SkullbonezCore::Rendering::PrimitiveBatchScopeLifecycle scope( &rendererIdentity, kind );
 
         if ( primitiveMoved )
         {

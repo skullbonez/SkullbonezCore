@@ -100,6 +100,8 @@ void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& UIData, const ReplayHu
     }
 
     const SkullbonezCore::Core::Profiler& profiler = *profilerOwner;
+#else
+    (void)profilerOwner;
 #endif
     UIData.UIDrawCalls = metrics.uiDrawCalls;
     UIData.visibility = ProjectRenderVisibilityDiagnostics( renderDiagnostics.GetFrameVisibilityStats() );

@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Automation|x64"><Configuration>Automation</Configuration><Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Profile|x64"><Configuration>Profile</Configuration><Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Profile-WPO|x64"><Configuration>Profile-WPO</Configuration><Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{7FBD5A77-1E84-4E6D-9A61-2C8F0A2B0D33}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>SKULLBONEZ_RENDERING</RootNamespace>
+    <SkoreBuildTracyClient>true</SkoreBuildTracyClient>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Automation|x64'" Label="Configuration"><ConfigurationType>StaticLibrary</ConfigurationType><PlatformToolset>v145</PlatformToolset><CharacterSet>MultiByte</CharacterSet></PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration"><ConfigurationType>StaticLibrary</ConfigurationType><PlatformToolset>v145</PlatformToolset><CharacterSet>MultiByte</CharacterSet></PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Profile|x64'" Label="Configuration"><ConfigurationType>StaticLibrary</ConfigurationType><PlatformToolset>v145</PlatformToolset><CharacterSet>MultiByte</CharacterSet></PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Profile-WPO|x64'" Label="Configuration"><ConfigurationType>StaticLibrary</ConfigurationType><PlatformToolset>v145</PlatformToolset><CharacterSet>MultiByte</CharacterSet><WholeProgramOptimization>true</WholeProgramOptimization></PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration"><ConfigurationType>StaticLibrary</ConfigurationType><PlatformToolset>v145</PlatformToolset><CharacterSet>MultiByte</CharacterSet><WholeProgramOptimization>true</WholeProgramOptimization></PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings" />
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Automation|x64'" Label="PropertySheets"><Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" /></ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets"><Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" /></ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Profile|x64'" Label="PropertySheets"><Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" /></ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Profile-WPO|x64'" Label="PropertySheets"><Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" /></ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets"><Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" /></ImportGroup>
+  <Import Project="SkoreDevelopmentThirdParty.props" Condition="'$(Configuration)'=='Debug' Or '$(Configuration)'=='Profile' Or '$(Configuration)'=='Automation'" />
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <OutDir>$(Configuration)\</OutDir>
+    <IntDir>$(Configuration)\SKULLBONEZ_RENDERING\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile><FloatingPointModel>Precise</FloatingPointModel><Optimization>Disabled</Optimization><AdditionalIncludeDirectories>./ThirdPtySource/stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories><PreprocessorDefinitions>_HAS_EXCEPTIONS=0;_DEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;SKULLBONEZ_PLATFORM_PROFILER_PIX;USE_PIX;SKULLBONEZ_CAPTURE_EXECUTION;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions><ExceptionHandling>false</ExceptionHandling><BasicRuntimeChecks>Default</BasicRuntimeChecks><RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary><RuntimeTypeInfo>false</RuntimeTypeInfo><PrecompiledHeader /><WarningLevel>Level4</WarningLevel><TreatWarningAsError>true</TreatWarningAsError><DebugInformationFormat>ProgramDatabase</DebugInformationFormat><LanguageStandard>stdcpp20</LanguageStandard><MultiProcessorCompilation>true</MultiProcessorCompilation></ClCompile>
+    <Lib><OutputFile>$(OutDir)SKULLBONEZ_RENDERING.lib</OutputFile></Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Automation|x64'">
+    <ClCompile><FloatingPointModel>Precise</FloatingPointModel><AdditionalIncludeDirectories>./ThirdPtySource/stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories><PreprocessorDefinitions>_HAS_EXCEPTIONS=0;NDEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;SKULLBONEZ_PLATFORM_PROFILER_PIX;USE_PIX;SKULLBONEZ_AUTOMATION_DIAGNOSTICS;SKULLBONEZ_CAPTURE_EXECUTION;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions><ExceptionHandling>false</ExceptionHandling><BasicRuntimeChecks>Default</BasicRuntimeChecks><RuntimeLibrary>MultiThreaded</RuntimeLibrary><RuntimeTypeInfo>false</RuntimeTypeInfo><PrecompiledHeader /><WarningLevel>Level4</WarningLevel><TreatWarningAsError>true</TreatWarningAsError><DebugInformationFormat>ProgramDatabase</DebugInformationFormat><LanguageStandard>stdcpp20</LanguageStandard><MultiProcessorCompilation>true</MultiProcessorCompilation></ClCompile>
+    <Lib><OutputFile>$(OutDir)SKULLBONEZ_RENDERING.lib</OutputFile></Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">
+    <ClCompile><FloatingPointModel>Precise</FloatingPointModel><AdditionalIncludeDirectories>./ThirdPtySource/stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories><PreprocessorDefinitions>_HAS_EXCEPTIONS=0;NDEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;SKULLBONEZ_PLATFORM_PROFILER_PIX;USE_PIX;SKULLBONEZ_CAPTURE_EXECUTION;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions><ExceptionHandling>false</ExceptionHandling><BasicRuntimeChecks>Default</BasicRuntimeChecks><RuntimeLibrary>MultiThreaded</RuntimeLibrary><RuntimeTypeInfo>false</RuntimeTypeInfo><PrecompiledHeader /><WarningLevel>Level4</WarningLevel><TreatWarningAsError>true</TreatWarningAsError><DebugInformationFormat>ProgramDatabase</DebugInformationFormat><LanguageStandard>stdcpp20</LanguageStandard><MultiProcessorCompilation>true</MultiProcessorCompilation></ClCompile>
+    <Lib><OutputFile>$(OutDir)SKULLBONEZ_RENDERING.lib</OutputFile></Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Profile-WPO|x64'">
+    <ClCompile><FloatingPointModel>Precise</FloatingPointModel><AdditionalIncludeDirectories>./ThirdPtySource/stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories><PreprocessorDefinitions>_HAS_EXCEPTIONS=0;NDEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;SKULLBONEZ_PLATFORM_PROFILER_PIX;USE_PIX;SKULLBONEZ_CAPTURE_EXECUTION;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions><ExceptionHandling>false</ExceptionHandling><BasicRuntimeChecks>Default</BasicRuntimeChecks><RuntimeLibrary>MultiThreaded</RuntimeLibrary><RuntimeTypeInfo>false</RuntimeTypeInfo><PrecompiledHeader /><WarningLevel>Level4</WarningLevel><TreatWarningAsError>true</TreatWarningAsError><DebugInformationFormat>ProgramDatabase</DebugInformationFormat><LanguageStandard>stdcpp20</LanguageStandard><MultiProcessorCompilation>true</MultiProcessorCompilation></ClCompile>
+    <Lib><OutputFile>$(OutDir)SKULLBONEZ_RENDERING.lib</OutputFile></Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile><FloatingPointModel>Precise</FloatingPointModel><AdditionalIncludeDirectories>./ThirdPtySource/stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories><PreprocessorDefinitions>_HAS_EXCEPTIONS=0;NDEBUG;_WINDOWS;SKULLBONEZ_CAPTURE_EXECUTION;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions><ExceptionHandling>false</ExceptionHandling><BasicRuntimeChecks>Default</BasicRuntimeChecks><RuntimeLibrary>MultiThreaded</RuntimeLibrary><RuntimeTypeInfo>false</RuntimeTypeInfo><PrecompiledHeader /><WarningLevel>Level4</WarningLevel><TreatWarningAsError>true</TreatWarningAsError><DebugInformationFormat>ProgramDatabase</DebugInformationFormat><LanguageStandard>stdcpp20</LanguageStandard><MultiProcessorCompilation>true</MultiProcessorCompilation></ClCompile>
+    <Lib><OutputFile>$(OutDir)SKULLBONEZ_RENDERING.lib</OutputFile></Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup>
+    <ClCompile><ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Core\FloatingPointContract.h;%(ForcedIncludeFiles)</ForcedIncludeFiles></ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\BLASDX12.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12BackbufferCapture.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12DeferredReleaseOwner.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12DescriptorHeaps.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12Diagnostics.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12FrameOwner.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12GraphTransientPool.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12ImGuiRendererOwner.cpp"><ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12RenderGraphExecutor.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12ShaderDevelopment.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\FramebufferDX12.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\MeshDX12.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.DXR.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.DynamicGeometry.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.Pipeline.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.Resources.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.Textures.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderDeviceDX12.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\SBTDX12.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\ShaderBytecodeManifest.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\ShaderDX12.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\TLASDX12.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\DrawCallTrace.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\PrimitiveBatchRenderer.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\RenderGpuTimingOwner.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\RenderGraph.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\RenderInstanceRenderer.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\RenderInstanceStore.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\RenderPipeline.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\Text.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="SkullbonezSource\Rendering\ContactManifoldPresentation.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\BLASDX12.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12BackbufferCapture.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12DescriptorHeaps.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12Diagnostics.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12FrameOwner.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12GraphTransientPool.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12ImGuiRendererOwner.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12RenderGraphExecutor.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12ResourceBuilder.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12ShaderDevelopment.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12TextureRegistry.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\FramebufferDX12.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\MeshDX12.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.CommandRecordingState.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.PipelineState.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderDeviceDX12.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderGraphTransientDX12.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\SBTDX12.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\ShaderBytecodeManifest.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\ShaderDX12.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\TLASDX12.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DrawCallTrace.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\PrimitiveBatchRenderer.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\PrimitiveMeshBuilder.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\RenderCommandTypes.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\RenderDiagnosticsTypes.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\RenderGpuTimingOwner.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\RenderGraph.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\RenderInstanceRenderer.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\RenderInstanceStore.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\RenderMaterial.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\RenderPipeline.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\RenderRasterBindingContract.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\RenderRaytracingTypes.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\RenderResourceTypes.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\RenderSceneSnapshot.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\ShaderContracts.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\ShaderReflectionContracts.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\Shadow.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\Text.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\WorldRenderExtension.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="SKULLBONEZ_MATHS.vcxproj"><Project>{5D4A47DA-54C6-4142-9FA9-1A63E976BA2D}</Project></ProjectReference>
+    <ProjectReference Include="SKULLBONEZ_PHYSICS.vcxproj"><Project>{2CC512B8-5A21-49F4-AE75-9982116F5B62}</Project></ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ShaderBakeRasterSource Include="$(ProjectDir)SkullbonezData\shaders\*.hlsl" Exclude="$(ProjectDir)SkullbonezData\shaders\generate_mips.hlsl;$(ProjectDir)SkullbonezData\shaders\reflect.rt.hlsl" />
+    <ShaderBakeInput Include="$(ProjectDir)tools\bake_shaders.bat;$(ProjectDir)tools\bake_shaders.py;@(ShaderBakeRasterSource);$(ProjectDir)SkullbonezData\shaders\generate_mips.hlsl;$(WindowsSdkDir)bin\10.0.26100.0\x64\dxc.exe" />
+    <ShaderBakeOutput Include="@(ShaderBakeRasterSource-&gt;'%(RootDir)%(Directory)%(Filename).vs.dxil')" />
+    <ShaderBakeOutput Include="@(ShaderBakeRasterSource-&gt;'%(RootDir)%(Directory)%(Filename).ps.dxil')" />
+    <ShaderBakeOutput Include="$(ProjectDir)SkullbonezData\shaders\generate_mips.cs.dxil;$(ProjectDir)SkullbonezData\shaders\shader_manifest.json;$(ProjectDir)SkullbonezData\generated\GeneratedShaderReflection.h" />
+  </ItemGroup>
+  <Target Name="BakeShippingShaders" BeforeTargets="ClCompile" Inputs="@(ShaderBakeInput)" Outputs="@(ShaderBakeOutput)">
+    <Message Importance="High" Text="Shader inputs changed; baking shipping shaders and refreshing generated metadata..." />
+    <Exec Command="call &quot;$(ProjectDir)tools\bake_shaders.bat&quot;" />
+    <Touch Files="@(ShaderBakeOutput)" />
+  </Target>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+    <Import Project="packages\WinPixEventRuntime.1.0.240308001\build\WinPixEventRuntime.targets" Condition="Exists('packages\WinPixEventRuntime.1.0.240308001\build\WinPixEventRuntime.targets')" />
+  </ImportGroup>
+</Project>

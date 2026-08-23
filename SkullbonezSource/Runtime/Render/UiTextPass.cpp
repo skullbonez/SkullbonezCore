@@ -188,11 +188,16 @@ void RenderReplayDivergenceCounter( SkullbonezCore::Text::TextBatch& textBatch, 
 SkullbonezCore::Core::SbResult UiTextPass::EnsureGpuResources( Rendering::Dx12ResourceBuilder& renderResources,
                                                                Rendering::Dx12TextureOwner& renderTextures,
                                                                Rendering::Dx12GeometryOwner& renderGeometry,
-                                                               const Assets::AssetSystem& assets, int screenW, int screenH )
+                                                               const char* textShaderBaseName,
+                                                               const char* solidShaderBaseName,
+                                                               const char* solidBatchShaderBaseName, int screenW,
+                                                               int screenH )
 {
     const SkullbonezCore::Core::SbResult fontResult = Text2d::BuildFont( m_resultDiagnostics, m_textBatch, renderResources,
-                                                                         renderTextures, renderGeometry, assets, screenW,
-                                                                         screenH, "Verdana" );
+                                                                         renderTextures, renderGeometry,
+                                                                         textShaderBaseName, solidShaderBaseName,
+                                                                         solidBatchShaderBaseName, screenW, screenH,
+                                                                         "Verdana" );
 
     if ( !fontResult.Ok() )
     {
@@ -628,6 +633,11 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport, UiOverlay
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
     const SkullbonezCore::Core::Profiler& profiler = m_profilerLifecycle.Require( "RenderOverlayContent" );
     const UI::UIProfilerOverlayPresenter profilerOverlay;
+#else
+    (void)viewport;
+    (void)rollingFpsTime;
+    (void)renderTextures;
+    (void)renderDiagnostics;
 #endif
 
     // Overlay: None:

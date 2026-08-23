@@ -64,7 +64,6 @@ Related:
 
 using namespace SkullbonezCore::Runtime;
 using SkullbonezCore::Rendering::PrimitiveBatchRenderer;
-using SkullbonezCore::Rendering::PrimitiveRenderContext;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
@@ -849,7 +848,10 @@ ShadowPass::BuildObjectFrameData( const SkullbonezCore::Core::CinematicRenderCon
 }
 
 
-void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target, const PrimitiveRenderContext& primitiveContext,
+void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target,
+                                  Rendering::PrimitiveBatchRenderer& primitiveRenderer,
+                                  Rendering::Dx12Diagnostics& renderDiagnostics,
+                                  const char* shadowShaderBaseName,
                                   const Rendering::ShadowFrameData& shadowFrame,
                                   const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                   Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12TextureOwner& renderTextures,
@@ -860,7 +862,7 @@ void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target, const Prim
                                   Geometry::Terrain* terrain )
 {
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap" );
-    DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap" );
+    DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap" );
 
     if ( !shadowFrame.valid )
     {
@@ -890,7 +892,7 @@ void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target, const Prim
     if ( renderTerrain && cinematic.shadow.terrainCasts && !m_activeTerrainHidden && terrain )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters" );
-        DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters" );
+        DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters" );
 
         // Terrain must cast with the same optional render-only relief that the
         // visible terrain uses. Otherwise cinematic basin relief would receive
@@ -903,7 +905,7 @@ void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target, const Prim
     if ( cinematic.shadow.objectsCast && !m_activeCollisionVisualizerVisible )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
-        DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
+        DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
 
         // Balls, boxes, and pine-style box visuals all write depth here. The
         // prepared render store keeps separate instanced batches so each caster
@@ -915,16 +917,16 @@ void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target, const Prim
 
         if ( objectCasters )
         {
-            Rendering::RenderInstanceRenderer::SubmitShadowCasterBatches( m_profiler, primitiveContext, *objectCasters,
-                                                                          shadowFrame.lightView, shadowFrame.lightProjection,
-                                                                          &cinematic, visibilityView );
+            Rendering::RenderInstanceRenderer::SubmitShadowCasterBatches(
+                m_profiler, primitiveRenderer, renderDiagnostics, shadowShaderBaseName, *objectCasters,
+                shadowFrame.lightView, shadowFrame.lightProjection, &cinematic, visibilityView );
         }
         else
         {
-            Rendering::RenderInstanceRenderer::RenderShadowCasters( m_profiler, primitiveContext, renderInstances, colliders,
-                                                                    renderWorkerPool, shadowParallelPrep,
-                                                                    shadowFrame.lightView, shadowFrame.lightProjection,
-                                                                    &cinematic, visibilityView );
+            Rendering::RenderInstanceRenderer::RenderShadowCasters(
+                m_profiler, primitiveRenderer, renderDiagnostics, shadowShaderBaseName, renderInstances, colliders,
+                renderWorkerPool, shadowParallelPrep, shadowFrame.lightView, shadowFrame.lightProjection, &cinematic,
+                visibilityView );
         }
     }
 
@@ -981,7 +983,8 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
 
             if ( m_resources.terrainTarget )
             {
-                RenderShadowMap( *m_resources.terrainTarget, inputs.primitive, m_resources.terrainFrame, *inputs.cinematic,
+                RenderShadowMap( *m_resources.terrainTarget, inputs.primitiveRenderer, inputs.renderDiagnostics,
+                                 inputs.shadowShaderBaseName, m_resources.terrainFrame, *inputs.cinematic,
                                  inputs.renderFrame, inputs.renderTextures, inputs.models.renderInstances,
                                  inputs.models.colliders, inputs.models.renderWorkerPool, true,
                                  inputs.models.shadowParallelPrep, &objectCasters, inputs.terrain );
@@ -996,7 +999,8 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
 
             if ( m_resources.objectTarget )
             {
-                RenderShadowMap( *m_resources.objectTarget, inputs.primitive, m_resources.objectFrame, *inputs.cinematic,
+                RenderShadowMap( *m_resources.objectTarget, inputs.primitiveRenderer, inputs.renderDiagnostics,
+                                 inputs.shadowShaderBaseName, m_resources.objectFrame, *inputs.cinematic,
                                  inputs.renderFrame, inputs.renderTextures, inputs.models.renderInstances,
                                  inputs.models.colliders, inputs.models.renderWorkerPool, false,
                                  inputs.models.shadowParallelPrep, &objectCasters, inputs.terrain );
@@ -1190,7 +1194,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs 
         PROFILE_GPU_BEGIN( inputs.gpuTiming, "Frame/Render/Reflection/Skybox" );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "Frame/Render/Reflection/Skybox" );
-            m_skyPass.Render( inputs.camera, inputs.reflectionView, inputs.cinematic, inputs.primitive.renderGeometry,
+            m_skyPass.Render( inputs.camera, inputs.reflectionView, inputs.cinematic, inputs.renderGeometry,
                               inputs.renderTextures, SkyPassMode::CinematicIfEnabled );
         }
         PROFILE_GPU_END( inputs.gpuTiming, "Frame/Render/Reflection/Skybox" );
@@ -1200,7 +1204,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs 
         // below-surface visual from the main scene.
         PROFILE_GPU_BEGIN( inputs.gpuTiming, "Frame/Render/Reflection/Balls" );
         DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "Frame/Render/Reflection/Balls" );
-        inputs.primitive.renderer.SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.waterY );
+        inputs.primitiveRenderer.SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.waterY );
         m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.waterY );
 
         if ( inputs.collisionStateColorsVisible )
@@ -1213,8 +1217,8 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs 
             {
                 const CollisionVisualizerFrameView frameView = BuildCollisionVisualizerFrameView( inputs.models );
                 m_collisionVisualizer.SetAlphaOverride( inputs.collisionVisualizerAlphaOverride );
-                m_collisionVisualizer.Render( inputs.assets, inputs.primitive.renderResources,
-                                              inputs.primitive.renderGeometry, inputs.renderDiagnostics, frameView,
+                m_collisionVisualizer.Render( inputs.assets, inputs.renderResources,
+                                              inputs.renderGeometry, inputs.renderDiagnostics, frameView,
                                               inputs.reflectionView, inputs.camera.projection, inputs.camera.lightPosition );
 
                 m_collisionVisualizer.SetAlphaOverride( -1.0f );
@@ -1231,7 +1235,11 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs 
 
             if ( SelectRenderTexture( inputs.textures, TEXTURE_BOUNDING_SPHERE, "Frame/Render/Reflection/Balls" ) )
             {
-                Rendering::RenderInstanceRenderer::RenderReflectionModels( inputs.primitive, inputs.models.renderInstances,
+                Rendering::RenderInstanceRenderer::RenderReflectionModels( inputs.primitiveRenderer,
+                                                                           inputs.renderDiagnostics,
+                                                                           inputs.ordinaryLighting,
+                                                                           inputs.primitiveShaderBaseName,
+                                                                           inputs.models.renderInstances,
                                                                            inputs.models.colliders,
                                                                            inputs.models.renderCollisionVolumes,
                                                                            inputs.reflectionView, inputs.camera.projection,
@@ -1240,7 +1248,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs 
             }
         }
 
-        inputs.primitive.renderer.SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
+        inputs.primitiveRenderer.SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
         m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
         PROFILE_GPU_END( inputs.gpuTiming, "Frame/Render/Reflection/Balls" );
 
@@ -1276,7 +1284,7 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
         {
             const CollisionVisualizerFrameView frameView = BuildCollisionVisualizerFrameView( inputs.models );
             m_collisionVisualizer.SetAlphaOverride( inputs.collisionVisualizerAlphaOverride );
-            m_collisionVisualizer.Render( inputs.assets, inputs.primitive.renderResources, inputs.primitive.renderGeometry,
+            m_collisionVisualizer.Render( inputs.assets, inputs.renderResources, inputs.renderGeometry,
                                           inputs.renderDiagnostics, frameView, inputs.camera.baseView,
                                           inputs.camera.projection, inputs.camera.lightPosition );
 
@@ -1293,7 +1301,9 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
 
         if ( SelectRenderTexture( inputs.textures, TEXTURE_BOUNDING_SPHERE, passName ) )
         {
-            Rendering::RenderInstanceRenderer::RenderModels( inputs.primitive, inputs.models.renderInstances,
+            Rendering::RenderInstanceRenderer::RenderModels( inputs.primitiveRenderer, inputs.renderDiagnostics,
+                                                             inputs.ordinaryLighting, inputs.primitiveShaderBaseName,
+                                                             inputs.models.renderInstances,
                                                              inputs.models.colliders, inputs.models.renderCollisionVolumes,
                                                              inputs.camera.baseView, inputs.camera.projection,
                                                              inputs.camera.lightPosition, inputs.cinematic, inputs.shadow,

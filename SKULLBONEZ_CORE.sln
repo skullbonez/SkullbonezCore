@@ -12,6 +12,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SKULLBONEZ_TESTS", "SKULLBO
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SKULLBONEZ_UI", "SKULLBONEZ_UI.vcxproj", "{FE510761-8878-4B4F-8BDD-6485E6ACA7D4}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SKULLBONEZ_RENDERING", "SKULLBONEZ_RENDERING.vcxproj", "{7FBD5A77-1E84-4E6D-9A61-2C8F0A2B0D33}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Automation|x64 = Automation|x64
@@ -71,6 +73,16 @@ Global
 		{FE510761-8878-4B4F-8BDD-6485E6ACA7D4}.Profile-WPO|x64.Build.0 = Profile-WPO|x64
 		{FE510761-8878-4B4F-8BDD-6485E6ACA7D4}.Release|x64.ActiveCfg = Release|x64
 		{FE510761-8878-4B4F-8BDD-6485E6ACA7D4}.Release|x64.Build.0 = Release|x64
+		{7FBD5A77-1E84-4E6D-9A61-2C8F0A2B0D33}.Automation|x64.ActiveCfg = Automation|x64
+		{7FBD5A77-1E84-4E6D-9A61-2C8F0A2B0D33}.Automation|x64.Build.0 = Automation|x64
+		{7FBD5A77-1E84-4E6D-9A61-2C8F0A2B0D33}.Debug|x64.ActiveCfg = Debug|x64
+		{7FBD5A77-1E84-4E6D-9A61-2C8F0A2B0D33}.Debug|x64.Build.0 = Debug|x64
+		{7FBD5A77-1E84-4E6D-9A61-2C8F0A2B0D33}.Profile|x64.ActiveCfg = Profile|x64
+		{7FBD5A77-1E84-4E6D-9A61-2C8F0A2B0D33}.Profile|x64.Build.0 = Profile|x64
+		{7FBD5A77-1E84-4E6D-9A61-2C8F0A2B0D33}.Profile-WPO|x64.ActiveCfg = Profile-WPO|x64
+		{7FBD5A77-1E84-4E6D-9A61-2C8F0A2B0D33}.Profile-WPO|x64.Build.0 = Profile-WPO|x64
+		{7FBD5A77-1E84-4E6D-9A61-2C8F0A2B0D33}.Release|x64.ActiveCfg = Release|x64
+		{7FBD5A77-1E84-4E6D-9A61-2C8F0A2B0D33}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

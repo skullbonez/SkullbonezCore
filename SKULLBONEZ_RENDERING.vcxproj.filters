@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files"><UniqueIdentifier>{B3D72C2E-6E9A-46F0-86A7-8E75D762D483}</UniqueIdentifier></Filter>
+    <Filter Include="Header Files"><UniqueIdentifier>{E4D9BE08-5DA1-4578-9133-976A0E7BD57C}</UniqueIdentifier></Filter>
+    <Filter Include="Source Files\DX12"><UniqueIdentifier>{5A68B4B0-0B87-4E11-8F44-987FA65AA227}</UniqueIdentifier></Filter>
+    <Filter Include="Header Files\DX12"><UniqueIdentifier>{B5EA9AFB-D896-4855-9770-52B775407424}</UniqueIdentifier></Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\BLASDX12.cpp"><Filter>Source Files\DX12</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12BackbufferCapture.cpp"><Filter>Source Files\DX12</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.cpp"><Filter>Source Files\DX12</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12DeferredReleaseOwner.cpp"><Filter>Source Files\DX12</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12DescriptorHeaps.cpp"><Filter>Source Files\DX12</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12Diagnostics.cpp"><Filter>Source Files\DX12</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12FrameOwner.cpp"><Filter>Source Files\DX12</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12GraphTransientPool.cpp"><Filter>Source Files\DX12</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12ImGuiRendererOwner.cpp"><Filter>Source Files\DX12</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12RenderGraphExecutor.cpp"><Filter>Source Files\DX12</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12ShaderDevelopment.cpp"><Filter>Source Files\DX12</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\FramebufferDX12.cpp"><Filter>Source Files\DX12</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\MeshDX12.cpp"><Filter>Source Files\DX12</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.DXR.cpp"><Filter>Source Files\DX12</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.DynamicGeometry.cpp"><Filter>Source Files\DX12</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.Pipeline.cpp"><Filter>Source Files\DX12</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.Resources.cpp"><Filter>Source Files\DX12</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.Textures.cpp"><Filter>Source Files\DX12</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.cpp"><Filter>Source Files\DX12</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderDeviceDX12.cpp"><Filter>Source Files\DX12</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\SBTDX12.cpp"><Filter>Source Files\DX12</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\ShaderBytecodeManifest.cpp"><Filter>Source Files\DX12</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\ShaderDX12.cpp"><Filter>Source Files\DX12</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\TLASDX12.cpp"><Filter>Source Files\DX12</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DrawCallTrace.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\PrimitiveBatchRenderer.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\RenderGpuTimingOwner.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\RenderGraph.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\RenderInstanceRenderer.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\RenderInstanceStore.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\RenderPipeline.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\Text.cpp"><Filter>Source Files</Filter></ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="SkullbonezSource\Rendering\ContactManifoldPresentation.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\BLASDX12.h"><Filter>Header Files\DX12</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12BackbufferCapture.h"><Filter>Header Files\DX12</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.h"><Filter>Header Files\DX12</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12DescriptorHeaps.h"><Filter>Header Files\DX12</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12Diagnostics.h"><Filter>Header Files\DX12</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12FrameOwner.h"><Filter>Header Files\DX12</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12GraphTransientPool.h"><Filter>Header Files\DX12</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12ImGuiRendererOwner.h"><Filter>Header Files\DX12</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12RenderGraphExecutor.h"><Filter>Header Files\DX12</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12ResourceBuilder.h"><Filter>Header Files\DX12</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12ShaderDevelopment.h"><Filter>Header Files\DX12</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12TextureRegistry.h"><Filter>Header Files\DX12</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\FramebufferDX12.h"><Filter>Header Files\DX12</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\MeshDX12.h"><Filter>Header Files\DX12</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.CommandRecordingState.h"><Filter>Header Files\DX12</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.PipelineState.h"><Filter>Header Files\DX12</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.h"><Filter>Header Files\DX12</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderDeviceDX12.h"><Filter>Header Files\DX12</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderGraphTransientDX12.h"><Filter>Header Files\DX12</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\SBTDX12.h"><Filter>Header Files\DX12</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\ShaderBytecodeManifest.h"><Filter>Header Files\DX12</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\ShaderDX12.h"><Filter>Header Files\DX12</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\TLASDX12.h"><Filter>Header Files\DX12</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DrawCallTrace.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\PrimitiveBatchRenderer.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\PrimitiveMeshBuilder.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\RenderCommandTypes.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\RenderDiagnosticsTypes.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\RenderGpuTimingOwner.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\RenderGraph.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\RenderInstanceRenderer.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\RenderInstanceStore.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\RenderMaterial.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\RenderPipeline.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\RenderRasterBindingContract.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\RenderRaytracingTypes.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\RenderResourceTypes.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\RenderSceneSnapshot.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\ShaderContracts.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\ShaderReflectionContracts.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\Shadow.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\Text.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\WorldRenderExtension.h"><Filter>Header Files</Filter></ClInclude>
+  </ItemGroup>
+</Project>

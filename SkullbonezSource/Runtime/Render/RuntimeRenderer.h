@@ -284,7 +284,9 @@ class RuntimeRenderer
     {
         const RenderCameraLighting& camera;
         const RuntimeRenderModelFrameView& models;
-        const Rendering::PrimitiveRenderContext& primitive;
+        Rendering::PrimitiveBatchRenderer& primitiveRenderer;
+        const SkullbonezCore::Core::OrdinaryRenderConfig& ordinaryLighting;
+        const char* primitiveShaderBaseName;
         Textures::TextureCollection& textures;
         const ReplayVisualPacket& replayVisualPacket;
         bool useCinematicTarget = false;

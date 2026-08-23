@@ -140,7 +140,6 @@ class Terrain;
 namespace Rendering
 {
 class PrimitiveBatchRenderer;
-struct PrimitiveRenderContext;
 } // namespace Rendering
 
 namespace UI
@@ -259,8 +258,12 @@ struct ObjectPassInputs
     // caller.
     const RenderCameraLighting& camera;
     const RuntimeRenderModelFrameView& models;
-    const Rendering::PrimitiveRenderContext& primitive;
+    Rendering::PrimitiveBatchRenderer& primitiveRenderer;
+    const SkullbonezCore::Core::OrdinaryRenderConfig& ordinaryLighting;
+    const char* primitiveShaderBaseName;
     Assets::AssetSystem& assets;
+    Rendering::Dx12ResourceBuilder& renderResources;
+    Rendering::Dx12GeometryOwner& renderGeometry;
     Textures::TextureCollection& textures;
     Rendering::Dx12TextureOwner& renderTextures;
     Rendering::Dx12Diagnostics& renderDiagnostics;
@@ -301,8 +304,12 @@ struct ReflectionPassInputs
     // must return a texture handle and matching sample transform.
     const RenderCameraLighting& camera;
     const RuntimeRenderModelFrameView& models;
-    const Rendering::PrimitiveRenderContext& primitive;
+    Rendering::PrimitiveBatchRenderer& primitiveRenderer;
+    const SkullbonezCore::Core::OrdinaryRenderConfig& ordinaryLighting;
+    const char* primitiveShaderBaseName;
     Assets::AssetSystem& assets;
+    Rendering::Dx12ResourceBuilder& renderResources;
+    Rendering::Dx12GeometryOwner& renderGeometry;
     Textures::TextureCollection& textures;
     Rendering::Dx12TextureOwner& renderTextures;
     Rendering::Dx12FrameOwner& renderFrame;
@@ -528,7 +535,8 @@ struct ShadowPassInputs
     const RenderCameraLighting& camera;
     Geometry::Terrain* terrain = nullptr;
     const RuntimeRenderModelFrameView& models;
-    const Rendering::PrimitiveRenderContext& primitive;
+    Rendering::PrimitiveBatchRenderer& primitiveRenderer;
+    const char* shadowShaderBaseName;
     Rendering::Dx12FrameOwner& renderFrame;
     Rendering::Dx12TextureOwner& renderTextures;
     Rendering::Dx12Diagnostics& renderDiagnostics;
@@ -705,7 +713,8 @@ class ShadowPass
                                                      const Math::Vector::Vector3& focusHint,
                                                      const Rendering::RenderInstanceStore& renderInstances,
                                                      Threading::WorkerPool* renderWorkerPool, bool shadowParallelPrep );
-    void RenderShadowMap( Rendering::FramebufferDX12& target, const Rendering::PrimitiveRenderContext& primitiveContext,
+    void RenderShadowMap( Rendering::FramebufferDX12& target, Rendering::PrimitiveBatchRenderer& primitiveRenderer,
+                          Rendering::Dx12Diagnostics& renderDiagnostics, const char* shadowShaderBaseName,
                           const Rendering::ShadowFrameData& shadowFrame,
                           const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                           Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12TextureOwner& renderTextures,
@@ -971,7 +980,9 @@ class UiTextPass
     SkullbonezCore::Core::SbResult EnsureGpuResources( Rendering::Dx12ResourceBuilder& renderResources,
                                                        Rendering::Dx12TextureOwner& renderTextures,
                                                        Rendering::Dx12GeometryOwner& renderGeometry,
-                                                       const Assets::AssetSystem& assets, int screenW, int screenH );
+                                                       const char* textShaderBaseName,
+                                                       const char* solidShaderBaseName,
+                                                       const char* solidBatchShaderBaseName, int screenW, int screenH );
     void ReleaseGpuResources( Rendering::Dx12TextureOwner* renderTextures, Rendering::Dx12GeometryOwner* renderGeometry );
     bool ShouldRender( const UiTextVisibility& visibility ) const;
     void SetDxrReflectionPreviewTexture( uint32_t textureHandle );

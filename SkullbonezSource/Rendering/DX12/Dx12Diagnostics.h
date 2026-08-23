@@ -29,6 +29,7 @@ Related:
 
 #include "RenderDeviceDX12.h"
 #include "../RenderDiagnosticsTypes.h"
+#include "../../Core/StringHash.h"
 
 #include <cstdint>
 

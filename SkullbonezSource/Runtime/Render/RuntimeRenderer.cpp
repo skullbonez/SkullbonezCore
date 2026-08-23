@@ -64,7 +64,6 @@ Related:
 #include <cstdio>
 
 using SkullbonezCore::Rendering::PrimitiveBatchRenderer;
-using SkullbonezCore::Rendering::PrimitiveRenderContext;
 #include <cstddef>
 #include <fstream>
 #include <variant>
@@ -322,7 +321,9 @@ struct ReplayGhostGraphInvocation
     const ReplayVisualPacket* replayVisualPacket = nullptr;
     const RenderCameraLighting* camera = nullptr;
     const RuntimeRenderModelFrameView* models = nullptr;
-    const SkullbonezCore::Rendering::PrimitiveRenderContext* primitive = nullptr;
+    SkullbonezCore::Rendering::PrimitiveBatchRenderer* primitiveRenderer = nullptr;
+    const SkullbonezCore::Core::OrdinaryRenderConfig* ordinaryLighting = nullptr;
+    const char* primitiveShaderBaseName = nullptr;
     SkullbonezCore::Textures::TextureCollection* textures = nullptr;
     const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
     const SkullbonezCore::Rendering::ShadowFrameData* shadow = nullptr;
@@ -458,7 +459,9 @@ void ExecuteDebugOverlayGraphCallback( const SkullbonezCore::Rendering::RenderGr
 
 void RenderReplayPredictionGhosts( const ReplayVisualPacket& visualPacket, SkullbonezCore::Core::Profiler*,
                                    const RenderCameraLighting& camera, const RuntimeRenderModelFrameView& models,
-                                   const PrimitiveRenderContext& primitive, Textures::TextureCollection& textures,
+                                   Rendering::PrimitiveBatchRenderer& primitiveRenderer,
+                                   const SkullbonezCore::Core::OrdinaryRenderConfig& ordinaryLighting,
+                                   const char* primitiveShaderBaseName, Textures::TextureCollection& textures,
                                    const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                    const Rendering::ShadowFrameData* shadow )
 {
@@ -485,8 +488,9 @@ void RenderReplayPredictionGhosts( const ReplayVisualPacket& visualPacket, Skull
         return;
     }
 
-    auto boxBatch = primitive.renderer.BeginBoxBatch( primitive, camera.baseView, camera.projection, camera.lightPosition,
-                                                      true, cinematic, shadow, 1.0f );
+    auto boxBatch = primitiveRenderer.BeginBoxBatch( ordinaryLighting, primitiveShaderBaseName, camera.baseView,
+                                                      camera.projection, camera.lightPosition, true, cinematic, shadow,
+                                                      1.0f );
 
     for ( const ReplayPredictionGhostDrawRequest& request : visualPacket.ghostRequests )
     {
@@ -531,12 +535,14 @@ void RenderReplayPredictionGhosts( const ReplayVisualPacket& visualPacket, Skull
 void ExecuteReplayGhostGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
                                       ReplayGhostGraphInvocation& data )
 {
-    if ( !data.replayVisualPacket || !data.camera || !data.models || !data.primitive || !data.textures )
+    if ( !data.replayVisualPacket || !data.camera || !data.models || !data.primitiveRenderer ||
+         !data.ordinaryLighting || !data.primitiveShaderBaseName || !data.textures )
     {
         SB_FATAL( "RunRender", "ReplayPredictionGhostPass graph callback missing execution data." );
     }
 
-    RenderReplayPredictionGhosts( *data.replayVisualPacket, data.profiler, *data.camera, *data.models, *data.primitive,
+    RenderReplayPredictionGhosts( *data.replayVisualPacket, data.profiler, *data.camera, *data.models,
+                                  *data.primitiveRenderer, *data.ordinaryLighting, data.primitiveShaderBaseName,
                                   *data.textures, data.cinematic, data.shadow );
 }
 
@@ -1373,7 +1379,9 @@ void RuntimeRenderer::ExecuteReplayGhostsThroughRenderGraph( const ReplayGhostGr
     callbackData.replayVisualPacket = &inputs.replayVisualPacket;
     callbackData.camera = &inputs.camera;
     callbackData.models = &inputs.models;
-    callbackData.primitive = &inputs.primitive;
+    callbackData.primitiveRenderer = &inputs.primitiveRenderer;
+    callbackData.ordinaryLighting = &inputs.ordinaryLighting;
+    callbackData.primitiveShaderBaseName = inputs.primitiveShaderBaseName;
     callbackData.textures = &inputs.textures;
     callbackData.cinematic = inputs.cinematic;
     callbackData.shadow = objectShadow;
@@ -1990,13 +1998,12 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     const Matrix4 reflectionView = Matrix4::LookAt( reflectionEye, reflectionCenter, reflectionUp );
     const Matrix4 reflectionViewProjection = camera.projection * reflectionView;
     const RuntimeRenderModelFrameView& models = context.renderModels;
-    PrimitiveRenderContext primitive { renderResources,
-                                       renderTextures,
-                                       renderGeometry,
-                                       renderDiagnostics,
-                                       m_resources.Assets(),
-                                       m_resources.Config(),
-                                       m_resources.PrimitiveBatches() };
+    Rendering::PrimitiveBatchRenderer& primitiveRenderer = m_resources.PrimitiveBatches();
+    const SkullbonezCore::Core::OrdinaryRenderConfig& ordinaryLighting = m_resources.Config().ordinaryRender;
+    const char* primitiveShaderBaseName =
+        m_resources.Assets().ResolveShaderBaseName( "shader.lit_textured_instanced" );
+    const char* shadowShaderBaseName =
+        m_resources.Assets().ResolveShaderBaseName( "shader.shadow_depth_instanced" );
 
     // Why: these passes borrow subsystem-owned mesh/material resources. Keep
     // readiness checks beside their frame submissions so each draw observes the
@@ -2025,7 +2032,7 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     if ( activeShadowConfig )
     {
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
-        m_resources.PrimitiveBatches().EnsureShadowDepthPrimitiveResources( primitive );
+        primitiveRenderer.EnsureShadowDepthPrimitiveResources( shadowShaderBaseName );
 
         if ( Geometry::Terrain* terrain = context.terrain )
         {
@@ -2043,7 +2050,8 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
         const ShadowPassInputs shadowInputs { camera,
                                               context.terrain,
                                               models,
-                                              primitive,
+                                              primitiveRenderer,
+                                              shadowShaderBaseName,
                                               renderFrame,
                                               renderTextures,
                                               renderDiagnostics,
@@ -2112,8 +2120,12 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
         }
         const ReflectionPassInputs reflectionInputs { camera,
                                                       models,
-                                                      primitive,
+                                                      primitiveRenderer,
+                                                      ordinaryLighting,
+                                                      primitiveShaderBaseName,
                                                       m_resources.Assets(),
+                                                      renderResources,
+                                                      renderGeometry,
                                                       m_resources.Textures(),
                                                       renderTextures,
                                                       renderFrame,
@@ -2148,8 +2160,12 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     {
         const ObjectPassInputs objectInputs { camera,
                                               models,
-                                              primitive,
+                                              primitiveRenderer,
+                                              ordinaryLighting,
+                                              primitiveShaderBaseName,
                                               m_resources.Assets(),
+                                              renderResources,
+                                              renderGeometry,
                                               m_resources.Textures(),
                                               renderTextures,
                                               renderDiagnostics,
@@ -2208,8 +2224,12 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     {
         const ObjectPassInputs transparentInputs { camera,
                                                    models,
-                                                   primitive,
+                                                   primitiveRenderer,
+                                                   ordinaryLighting,
+                                                   primitiveShaderBaseName,
                                                    m_resources.Assets(),
+                                                   renderResources,
+                                                   renderGeometry,
                                                    m_resources.Textures(),
                                                    renderTextures,
                                                    renderDiagnostics,
@@ -2229,8 +2249,12 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     {
         const ObjectPassInputs fadedInputs { camera,
                                              models,
-                                             primitive,
+                                             primitiveRenderer,
+                                             ordinaryLighting,
+                                             primitiveShaderBaseName,
                                              m_resources.Assets(),
+                                             renderResources,
+                                             renderGeometry,
                                              m_resources.Textures(),
                                              renderTextures,
                                              renderDiagnostics,
@@ -2249,7 +2273,8 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
 
     {
         CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
-        ExecuteReplayGhostsThroughRenderGraph( { camera, models, primitive, m_resources.Textures(),
+        ExecuteReplayGhostsThroughRenderGraph( { camera, models, primitiveRenderer, ordinaryLighting,
+                                                 primitiveShaderBaseName, m_resources.Textures(),
                                                  *replayFrame.visualPacket, useCinematicTarget, activeCinematic,
                                                  objectShadowFrame } );
     }

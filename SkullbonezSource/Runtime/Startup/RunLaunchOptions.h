@@ -71,7 +71,6 @@ inline constexpr RuntimeRendererOption kRuntimeRendererOptions[] = {
 inline constexpr std::size_t kRuntimeRendererOptionCount = sizeof( kRuntimeRendererOptions ) /
                                                            sizeof( kRuntimeRendererOptions[0] );
 
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 enum class DevelopmentUiMode : uint8_t
 {
     GameUI = 0,
@@ -87,7 +86,6 @@ constexpr bool DevelopmentUiModeShowsImGui( DevelopmentUiMode mode ) noexcept
 {
     return mode == DevelopmentUiMode::ImGui;
 }
-#endif
 
 struct RunLaunchOptions
 {

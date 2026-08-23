@@ -34,6 +34,7 @@ namespace Core
 {
 class Profiler;
 struct CinematicRenderConfig;
+struct OrdinaryRenderConfig;
 } // namespace Core
 namespace Physics
 {
@@ -42,7 +43,7 @@ class ColliderStore;
 
 namespace Rendering
 {
-struct PrimitiveRenderContext;
+class PrimitiveBatchRenderer;
 class RenderInstanceStore;
 } // namespace Rendering
 
@@ -59,7 +60,10 @@ class RenderInstanceRenderer
 
     // Submits the main view. The optional mask chooses either the marked or
     // unmarked model rows; all borrows end before this call returns.
-    static void RenderModels( const Rendering::PrimitiveRenderContext& primitiveContext,
+    static void RenderModels( Rendering::PrimitiveBatchRenderer& primitiveRenderer,
+                              Rendering::Dx12Diagnostics& renderDiagnostics,
+                              const SkullbonezCore::Core::OrdinaryRenderConfig& lighting,
+                              const char* shaderBaseName,
                               const Rendering::RenderInstanceStore& renderStore, const Physics::ColliderStore& colliderStore,
                               bool renderCollisionVolumes, const Math::Transformation::Matrix4& view,
                               const Math::Transformation::Matrix4& projection, const float ( &lightPosition )[4],
@@ -69,7 +73,10 @@ class RenderInstanceRenderer
 
     // Submits the mirrored view. Reflection clipping is structural, so callers
     // cannot accidentally select main-view visibility or supply a model mask.
-    static void RenderReflectionModels( const Rendering::PrimitiveRenderContext& primitiveContext,
+    static void RenderReflectionModels( Rendering::PrimitiveBatchRenderer& primitiveRenderer,
+                                        Rendering::Dx12Diagnostics& renderDiagnostics,
+                                        const SkullbonezCore::Core::OrdinaryRenderConfig& lighting,
+                                        const char* shaderBaseName,
                                         const Rendering::RenderInstanceStore& renderStore,
                                         const Physics::ColliderStore& colliderStore, bool renderCollisionVolumes,
                                         const Math::Transformation::Matrix4& view,
@@ -80,13 +87,16 @@ class RenderInstanceRenderer
                                           const Physics::ColliderStore& colliderStore, Threading::WorkerPool* workerPool,
                                           bool useShadowParallelPrep, Rendering::ShadowCasterBatches& outBatches );
     static void SubmitShadowCasterBatches( Core::Profiler* profiler,
-                                           const Rendering::PrimitiveRenderContext& primitiveContext,
+                                           Rendering::PrimitiveBatchRenderer& primitiveRenderer,
+                                           Rendering::Dx12Diagnostics& renderDiagnostics,
+                                           const char* shaderBaseName,
                                            const Rendering::ShadowCasterBatches& batches,
                                            const Math::Transformation::Matrix4& view,
                                            const Math::Transformation::Matrix4& proj,
                                            const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                            Rendering::RenderVisibilityView visibilityView );
-    static void RenderShadowCasters( Core::Profiler* profiler, const Rendering::PrimitiveRenderContext& primitiveContext,
+    static void RenderShadowCasters( Core::Profiler* profiler, Rendering::PrimitiveBatchRenderer& primitiveRenderer,
+                                     Rendering::Dx12Diagnostics& renderDiagnostics, const char* shaderBaseName,
                                      const Rendering::RenderInstanceStore& renderStore,
                                      const Physics::ColliderStore& colliderStore, Threading::WorkerPool* workerPool,
                                      bool useShadowParallelPrep, const Math::Transformation::Matrix4& view,
