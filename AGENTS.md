@@ -181,10 +181,10 @@ owner-approved rule edit explicitly admits it.
 ### Generated Dependency Proof
 
 This is a deterministic projection of `tools/dependency_graph_rules.json`.
-A prefix matches the named normalized path and every descendant; an exact
-file matches only that normalized file. An allow row is closed-world only
-inside its target scope. Applicable broad deny rows still govern other
-engine-layer targets.
+Broad prefixes match the named normalized path and every descendant.
+Runtime package rows are different: rank constrains direction, but a
+cross-package include is legal only when its exact target file (or mixed
+exact source/target pair) is listed. Self-package includes remain legal.
 
 #### Broad And Boundary Include Rules
 
@@ -199,29 +199,47 @@ engine-layer targets.
 
 #### Runtime Package Rules
 
-| Source | Source kind | Policy | Allowed target prefixes | Allowed exact target files | Denied target prefixes |
-|---|---|---|---|---|---|
-| Runtime/App | prefix | closed allow inside Runtime | Runtime/App, Runtime/Automation, Runtime/Camera, Runtime/Capture, Runtime/Debug, Runtime/DevelopmentTools, Runtime/Diagnostics, Runtime/Direction, Runtime/Editor, Runtime/Input, Runtime/Interaction, Runtime/Planning, Runtime/Prediction, Runtime/Render, Runtime/Replay, Runtime/Scene, Runtime/Simulation, Runtime/Startup, Runtime/Tools, Runtime/UI | Runtime/RuntimeFrameViews.h | (none) |
-| Runtime/Automation | prefix | closed allow inside Runtime | Runtime/App, Runtime/Automation, Runtime/Camera, Runtime/Capture, Runtime/DevelopmentTools, Runtime/Diagnostics, Runtime/Direction, Runtime/Editor, Runtime/Input, Runtime/Interaction, Runtime/Planning, Runtime/Prediction, Runtime/Replay, Runtime/Scene, Runtime/Tools | Runtime/RuntimeFrameViews.h | (none) |
-| Runtime/Camera | prefix | closed allow inside Runtime | Runtime/App, Runtime/Camera, Runtime/Direction, Runtime/Input, Runtime/Interaction, Runtime/Scene | (none) | (none) |
-| Runtime/Capture | prefix | closed allow inside Runtime | Runtime/App, Runtime/Automation, Runtime/Camera, Runtime/Capture, Runtime/Diagnostics, Runtime/Input, Runtime/Interaction, Runtime/Render, Runtime/Replay, Runtime/Scene, Runtime/Simulation, Runtime/Tools | Runtime/RuntimeFrameViews.h | (none) |
-| Runtime/Debug | prefix | closed allow inside Runtime | Runtime/Debug | (none) | (none) |
-| Runtime/DevelopmentTools | prefix | closed allow inside Runtime | Runtime/App, Runtime/DevelopmentTools, Runtime/Input, Runtime/Planning, Runtime/Replay | (none) | (none) |
-| Runtime/Diagnostics | prefix | closed allow inside Runtime | Runtime/App, Runtime/Automation, Runtime/Capture, Runtime/Debug, Runtime/Diagnostics, Runtime/Input, Runtime/Render, Runtime/Replay, Runtime/Scene | (none) | (none) |
-| Runtime/Direction | prefix | closed allow inside Runtime | Runtime/Camera, Runtime/Capture, Runtime/Direction, Runtime/Scene, Runtime/Tools | (none) | (none) |
-| Runtime/Editor | prefix | closed allow inside Runtime | Runtime/App, Runtime/Camera, Runtime/Capture, Runtime/Diagnostics, Runtime/Editor, Runtime/Input, Runtime/Interaction, Runtime/Replay, Runtime/Scene, Runtime/Tools | Runtime/RuntimeFrameViews.h | (none) |
-| Runtime/RuntimeFrameViews.h | exact file | deny matching target prefixes | (none) | (none) | Runtime |
-| Runtime/Input | prefix | closed allow inside Runtime | Runtime/Camera, Runtime/Input, Runtime/Interaction | Runtime/App/Window.h, Runtime/Replay/ReplayEventCommand.h, Runtime/Scene/SceneLifecycle.h | (none) |
-| Runtime/Interaction | prefix | closed allow inside Runtime | Runtime/Camera, Runtime/Diagnostics, Runtime/Interaction, Runtime/Render, Runtime/Scene, Runtime/Simulation | (none) | (none) |
-| Runtime/Planning | prefix | closed allow inside Runtime | Runtime/Input, Runtime/Interaction, Runtime/Planning, Runtime/Prediction, Runtime/Render, Runtime/Replay, Runtime/Scene, Runtime/UI | (none) | (none) |
-| Runtime/Prediction | prefix | closed allow inside Runtime | Runtime/Camera, Runtime/Editor, Runtime/Input, Runtime/Prediction, Runtime/Replay, Runtime/Scene, Runtime/Tools | (none) | (none) |
-| Runtime/Render | prefix | closed allow inside Runtime | Runtime/App, Runtime/Camera, Runtime/Debug, Runtime/DevelopmentTools, Runtime/Diagnostics, Runtime/Input, Runtime/Interaction, Runtime/Planning, Runtime/Prediction, Runtime/Render, Runtime/Replay, Runtime/Scene, Runtime/Tools, Runtime/UI | Runtime/RuntimeFrameViews.h | (none) |
-| Runtime/Replay | prefix | closed allow inside Runtime | Runtime/Camera, Runtime/Diagnostics, Runtime/Editor, Runtime/Input, Runtime/Interaction, Runtime/Render, Runtime/Replay, Runtime/Scene, Runtime/Simulation, Runtime/Tools, Runtime/UI | (none) | (none) |
-| Runtime/Scene | prefix | closed allow inside Runtime | Runtime/App, Runtime/Automation, Runtime/Camera, Runtime/Debug, Runtime/Diagnostics, Runtime/Editor, Runtime/Input, Runtime/Interaction, Runtime/Planning, Runtime/Render, Runtime/Replay, Runtime/Scene, Runtime/Simulation, Runtime/Tools | (none) | (none) |
-| Runtime/Simulation | prefix | closed allow inside Runtime | Runtime/Interaction, Runtime/Scene, Runtime/Simulation | (none) | (none) |
-| Runtime/Startup | prefix | closed allow inside Runtime | Runtime/App, Runtime/Replay, Runtime/Scene, Runtime/Startup | (none) | (none) |
-| Runtime/Tools | prefix | closed allow inside Runtime | Runtime/Camera, Runtime/Editor, Runtime/Input, Runtime/Interaction, Runtime/Replay, Runtime/Scene, Runtime/Tools | (none) | (none) |
-| Runtime/UI | prefix | closed allow inside Runtime | Runtime/App, Runtime/Automation, Runtime/Capture, Runtime/Diagnostics, Runtime/Editor, Runtime/Planning, Runtime/Replay, Runtime/Scene, Runtime/UI | Runtime/RuntimeFrameViews.h | (none) |
+| Rank | Source package | Allowed exact cross-package target files |
+|---|---|---|
+| 0 | Runtime/Debug | (none) |
+| 1 | Runtime/RuntimeFrameViews.h | (none) |
+| 2 | Runtime/Startup | (none) |
+| 3 | Runtime/Camera | (none) |
+| 4 | Runtime/Interaction | Runtime/Camera/RuntimeCameraMode.h |
+| 5 | Runtime/Input | Runtime/Camera/CameraCollection.h, Runtime/Camera/CameraControlState.h, Runtime/Interaction/RuntimeInteractionController.h |
+| 6 | Runtime/Simulation | (none) |
+| 7 | Runtime/Scene | Runtime/Camera/AttachedCameraController.h, Runtime/Camera/CameraCollection.h, Runtime/Camera/CameraControlState.h, Runtime/Input/Input.h, Runtime/Input/InputRouter.h, Runtime/Simulation/SimulationSystem.h |
+| 8 | Runtime/Replay | Runtime/Camera/RuntimeCameraMode.h |
+| 9 | Runtime/Prediction | Runtime/Replay/ReplayIdentity.h, Runtime/Replay/ReplayPathPackets.h, Runtime/Replay/ReplayRetainedMemory.h, Runtime/Replay/ReplayTrajectoryPackets.h, Runtime/Replay/ReplayVisualPacket.h |
+| 10 | Runtime/Planning | Runtime/Interaction/RuntimePickService.h, Runtime/Prediction/ContinuousPredictionProducer.h, Runtime/Prediction/ReplayPredictionView.h, Runtime/Replay/ReplayAuthoringPackets.h, Runtime/Replay/ReplayCapturePackets.h, Runtime/Replay/ReplayPathPackets.h, Runtime/Replay/ReplayPresentationPackets.h, Runtime/Replay/ReplayTimelinePackets.h |
+| 11 | Runtime/Tools | Runtime/Camera/CameraCollection.h, Runtime/Camera/RuntimeCameraMode.h, Runtime/Input/InputRouter.h, Runtime/Interaction/RuntimeInteractionCommands.h, Runtime/Interaction/RuntimeInteractionController.h, Runtime/Replay/ReplayEventCommand.h, Runtime/Replay/ReplayToolPackets.h, Runtime/Replay/ReplayVisualPacket.h, Runtime/Scene/SceneLifecycle.h, Runtime/Scene/SceneSessionState.h, Runtime/Scene/SceneWorld.h |
+| 12 | Runtime/Editor | Runtime/Camera/CameraCollection.h, Runtime/Camera/RuntimeCameraMode.h, Runtime/Input/InputController.h, Runtime/Input/InputRouter.h, Runtime/Interaction/RuntimeInteractionCommands.h, Runtime/Interaction/RuntimeInteractionController.h, Runtime/Interaction/RuntimePickService.h, Runtime/Replay/ReplayAuthoringPackets.h, Runtime/Scene/SceneAuthoredSetup.h, Runtime/Scene/SceneController.h, Runtime/Scene/SceneControllerState.h, Runtime/Scene/SceneEntityStore.h, Runtime/Scene/SceneGeneratedSetup.h, Runtime/Scene/SceneSaveOperations.h, Runtime/Scene/SceneSessionState.h, Runtime/Scene/SceneWorld.h, Runtime/Tools/RuntimeFileWriter.h |
+| 13 | Runtime/Render | Runtime/Planning/ReplayOverlayPackets.h, Runtime/Replay/ReplayVisualPacket.h, Runtime/RuntimeFrameViews.h |
+| 14 | Runtime/Diagnostics | Runtime/Scene/SceneLifecycle.h |
+| 15 | Runtime/DevelopmentTools | Runtime/Planning/ReplayOverlayPackets.h |
+| 16 | Runtime/Capture | Runtime/Scene/SceneLoadRequest.h |
+| 17 | Runtime/Direction | Runtime/Tools/RuntimeFileWriter.h |
+| 18 | Runtime/Automation | Runtime/Camera/RuntimeCameraMode.h, Runtime/DevelopmentTools/ImGuiEditorOwner.h, Runtime/Direction/DemoDirector.h, Runtime/Direction/DemoDirectorPlayback.h, Runtime/Input/Input.h, Runtime/Interaction/RuntimePickService.h, Runtime/Prediction/ReplayPrediction.h, Runtime/Prediction/ReplayPredictionArchive.h, Runtime/Prediction/ReplayPredictionDrawing.h, Runtime/Prediction/ReplayPredictionPackets.h, Runtime/Replay/ReplayPresentation.h, Runtime/Replay/ReplayTimelinePackets.h, Runtime/Replay/ReplayV2Artifact.h, Runtime/Replay/ReplayVisualPacket.h, Runtime/Replay/ReplayVisualPacketFingerprint.h, Runtime/RuntimeFrameViews.h, Runtime/Scene/SceneAutomationGateConfiguration.h, Runtime/Scene/SceneLifecycle.h, Runtime/Scene/SceneSleepingDynamicBodyGatePolicy.h, Runtime/Tools/RuntimeFileWriter.h |
+| 19 | Runtime/UI | Runtime/Planning/ReplayOverlayPackets.h, Runtime/RuntimeFrameViews.h |
+| 20 | Runtime/App | Runtime/Automation/InteractionAutomationController.h, Runtime/Automation/InteractionAutomationRecorder.h, Runtime/Automation/InteractionRecordingBrowser.h, Runtime/Automation/RuntimeValidationHarness.h, Runtime/Camera/AttachedCameraController.h, Runtime/Camera/CameraCollection.h, Runtime/Camera/CameraControlState.h, Runtime/Camera/RuntimeCameraMode.h, Runtime/Capture/CaptureSystem.h, Runtime/Capture/RuntimeStressController.h, Runtime/DevelopmentTools/ImGuiEditorLayoutPolicy.h, Runtime/DevelopmentTools/ImGuiEditorOwner.h, Runtime/Diagnostics/DiagnosticsPhysicsUI.h, Runtime/Diagnostics/DiagnosticsRuntime.h, Runtime/Diagnostics/OverlayDebugState.h, Runtime/Diagnostics/RuntimeDiagnostics.h, Runtime/Diagnostics/RuntimeOverlayDiagnostics.h, Runtime/Diagnostics/SceneMemoryDiagnostics.h, Runtime/Direction/DemoDirectorPlayback.h, Runtime/Direction/LookLabController.h, Runtime/Editor/EditorTools.h, Runtime/Input/Input.h, Runtime/Input/InputController.Bindings.h, Runtime/Input/InputController.h, Runtime/Input/InputRouter.h, Runtime/Interaction/OperatorCommandTransaction.h, Runtime/Interaction/RuntimeInteractionCommands.h, Runtime/Interaction/RuntimeInteractionController.h, Runtime/Interaction/RuntimePickService.h, Runtime/Planning/ContinuousOrbitalForecast.h, Runtime/Planning/ReplayOverlayPackets.h, Runtime/Planning/ReplayOverlayRenderer.h, Runtime/Planning/ReplayPlanningRuntime.h, Runtime/Prediction/ReplayPrediction.h, Runtime/Prediction/ReplayPredictionRetainedGeometry.h, Runtime/Prediction/ReplayPredictionRetainedMemory.h, Runtime/Prediction/ReplayPredictionScheduling.h, Runtime/Prediction/TrajectoryStore.h, Runtime/Render/RenderDefaultsStore.h, Runtime/Render/RenderModelFramePublisher.h, Runtime/Render/RuntimeRenderHost.h, Runtime/Render/RuntimeRenderer.h, Runtime/Replay/ReplayAuthoring.h, Runtime/Replay/ReplayCoordination.h, Runtime/Replay/ReplayIdentity.h, Runtime/Replay/ReplayOverlayLayout.h, Runtime/Replay/ReplayPresentation.h, Runtime/Replay/ReplayPresentationPackets.h, Runtime/Replay/ReplayProbeState.h, Runtime/Replay/ReplayRecorder.h, Runtime/Replay/ReplayRestoreService.h, Runtime/Replay/ReplayRestoreTransactions.h, Runtime/Replay/ReplayRetainedMemory.h, Runtime/Replay/ReplayScrubber.h, Runtime/Replay/ReplayTimeline.h, Runtime/Replay/ReplayV2Artifact.h, Runtime/Replay/ReplayVisualPacket.h, Runtime/Replay/ReplayVisualPacketFingerprint.h, Runtime/RuntimeFrameViews.h, Runtime/Scene/SceneCinematicPolicy.h, Runtime/Scene/SceneController.h, Runtime/Scene/SceneGeneratedControlTransaction.h, Runtime/Scene/SceneGeneratedSetup.h, Runtime/Scene/SceneLifecycle.h, Runtime/Scene/SceneLoadTransaction.h, Runtime/Scene/SceneSaveOperations.h, Runtime/Scene/SceneWorld.h, Runtime/Simulation/SimulationSystem.h, Runtime/Startup/StartupCommandLine.h, Runtime/Startup/StartupCrashLogging.h, Runtime/Startup/StartupLaunchResolution.h, Runtime/Startup/StartupProbeHarnesses.h, Runtime/Tools/RuntimeFileWriter.h, Runtime/Tools/RuntimeTools.h, Runtime/UI/RuntimeViewModel.h |
+
+Composition root: `Runtime/App`.
+Every cross-package target must have a lower rank; rank alone never grants permission.
+
+#### Runtime Mixed Exact Edges
+
+| Exact source file | Exact target file |
+|---|---|
+| Runtime/Automation/InteractionAutomationController.cpp | Runtime/Capture/CaptureController.h |
+
+#### Runtime Repair-Plan Debt
+
+Current pre-separation debt is sealed in rule data by source, line, resolved
+target, include spelling, and policy fingerprint. The ordinary repository
+gate accepts only an exact current seal and reports it as repair-plan debt;
+a new, changed, shifted, or deleted site fails. `--check-runtime-graph`
+ignores every repair row and fails every forbidden site and multi-package SCC.
+Canonical repair-policy SHA-256: `396a362feb8d7e8a8d9cba94773f843e1c93fce2cc6a438f9d3c19bed4a28815`.
 
 #### Content Rules
 

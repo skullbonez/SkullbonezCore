@@ -1,7 +1,22 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "owner": "Build configuration and test-target composition",
   "evidence": "git history: build-configuration-parity-bp0-census (2026-07-30)",
+  "project_policy": {
+    "production_source_roots": ["SkullbonezSource"],
+    "production_source_suffixes": [".cpp"],
+    "projects": [
+      {"path": "SKULLBONEZ_CORE.vcxproj", "role": "production", "metadata_inventory": true},
+      {"path": "SKULLBONEZ_MATHS.vcxproj", "role": "production", "metadata_inventory": true},
+      {"path": "SKULLBONEZ_PHYSICS.vcxproj", "role": "production", "metadata_inventory": true},
+      {"path": "SKULLBONEZ_UI.vcxproj", "role": "production", "metadata_inventory": true},
+      {"path": "SKULLBONEZ_TESTS.vcxproj", "role": "test", "metadata_inventory": true},
+      {"path": "Agentic/Tests/Dx12ArchUnitTests/Dx12ArchUnitTests.vcxproj", "role": "test", "metadata_inventory": false},
+      {"path": "Agentic/Tests/RuntimeInteractionPolicyTests/RuntimeInteractionPolicyTests.vcxproj", "role": "test", "metadata_inventory": false},
+      {"path": "Agentic/Tests/SceneParserUnitTests/SceneParserUnitTests.vcxproj", "role": "test", "metadata_inventory": false},
+      {"path": "Agentic/Tests/UiBoundaryUnitTests/UiBoundaryUnitTests.vcxproj", "role": "test", "metadata_inventory": false}
+    ]
+  },
   "reasons": {
     "ExceptionHandling": "The engine disables unwind semantics while the doctest target retains /EHsc for REQUIRE; _HAS_EXCEPTIONS=0 and JSON_NOEXCEPTION keep shared engine code exception-free in both owners.",
     "PreprocessorDefinitions": "The engine and doctest targets intentionally carry distinct executable-role macros; their exception and JSON policy macros are aligned and all other inventoried compiler contracts are compared separately."
