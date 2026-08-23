@@ -8,11 +8,12 @@ Purpose:
 Summary:
   E0 needs a repeatable qualitative inventory, not a frozen count. This tool
   walks every tracked C++ file under SkullbonezSource, recognizes the bounded
-  lexical shapes that can create, hide, or present an error, and fingerprints
-  the exact source slice behind each row. Strict mode fails when a row is new,
-  edited, deleted, unclassified, or backed by an inadequate description that
-  has no named repair phase. Ignored CRT file outcomes are independent rows so
-  a write to an otherwise valid sink cannot silently lose durability evidence.
+  lexical shapes that can create, hide, or present an error, including code in
+  continued macro replacement bodies, and fingerprints the exact source slice
+  behind each row. Strict mode fails when a row is new, edited, deleted,
+  unclassified, or backed by an inadequate description that has no named repair
+  phase. Ignored CRT file outcomes are independent rows so a write to an
+  otherwise valid sink cannot silently lose durability evidence.
 
   Retained executables are part of the same surface because a missing imported
   runtime fails before engine code can report anything. The artifact pass
@@ -97,7 +98,31 @@ INADEQUATE_DESCRIPTIONS = {"generic", "code-only", "expression-only", "context-f
 REPAIR_PHASES = {"E1", "E2", "E3", "E4", "E5"}
 REVIEW_STATUSES = {"unreviewed", "ratified"}
 ADJUDICATION_STATUSES = {"unreviewed", "owner-reviewed"}
+RULING_SCHEMA_VERSION = 2
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
+TEXT_SITE_CLASSES = frozenset(
+    {
+        "counter-only",
+        "debugger-sink",
+        "dialog-sink",
+        "error-wrapper",
+        "event-sink",
+        "fatal-owner",
+        "ignored-crt-io-outcome",
+        "message-template",
+        "pre-entry-fatal",
+        "raw-stderr",
+        "recovery-operation",
+        "result-construction-owner",
+        "runtime-assertion",
+        "sb-fatal",
+        "sb-result-failure",
+        "static-assertion",
+        "status-only",
+        "status-presentation",
+    }
+)
+SITE_CLASSES = TEXT_SITE_CLASSES | {"bundle-import-mismatch"}
 
 # Concept: These are discovery signals, not policy budgets. A signal only asks
 # an owner to classify one exact current site; it never proves the site is an
@@ -137,11 +162,129 @@ GENERIC_WORDS = {
     "unavailable",
     "warning",
 }
+CONTEXT_FREE_WORDS = GENERIC_WORDS | {
+    "a",
+    "an",
+    "are",
+    "available",
+    "be",
+    "been",
+    "being",
+    "cannot",
+    "could",
+    "data",
+    "here",
+    "is",
+    "item",
+    "must",
+    "not",
+    "now",
+    "object",
+    "operation",
+    "recoverable",
+    "required",
+    "requires",
+    "resource",
+    "should",
+    "state",
+    "that",
+    "the",
+    "there",
+    "these",
+    "this",
+    "those",
+    "value",
+    "was",
+    "were",
+}
+STOCK_ADJUDICATION_WORDS = {
+    "action",
+    "according",
+    "adjudication",
+    "applies",
+    "available",
+    "basis",
+    "behavior",
+    "binds",
+    "boilerplate",
+    "branch",
+    "call",
+    "callsite",
+    "classification",
+    "classified",
+    "concrete",
+    "consequence",
+    "conditions",
+    "context",
+    "current",
+    "deliberately",
+    "description",
+    "decision",
+    "disposition",
+    "downstream",
+    "evidence",
+    "every",
+    "exact",
+    "executes",
+    "execution",
+    "field",
+    "generated",
+    "generic",
+    "identity",
+    "identifies",
+    "information",
+    "invariant",
+    "its",
+    "keeps",
+    "local",
+    "location",
+    "logic",
+    "operation",
+    "outcome",
+    "owner",
+    "owns",
+    "path",
+    "participants",
+    "performs",
+    "phase",
+    "preserve",
+    "preserves",
+    "prose",
+    "reason",
+    "remains",
+    "repair",
+    "review",
+    "reviewed",
+    "row",
+    "ruling",
+    "semantic",
+    "site",
+    "selected",
+    "source",
+    "specific",
+    "state",
+    "suggestion",
+    "suitable",
+    "structural",
+    "synchronous",
+    "template",
+    "text",
+    "token",
+    "use",
+    "with",
+    "wording",
+    "expected",
+    "routine",
+}
 PREDICATE_PREFIXES = ("is", "has", "can", "should", "needs", "supports", "enabled", "get")
 PROBE_NAME_RE = re.compile(r"(?:FailAutomation|Probe|Test|Harness|MutationControl|NegativeFixture)", re.IGNORECASE)
 
 CALL_TOKEN_RE = re.compile(
     r"(?P<callee>[A-Za-z_]\w*(?:(?:::|->|\.)[A-Za-z_]\w*)*)\s*(?P<open>\()"
+)
+MACRO_DEFINE_RE = re.compile(
+    r"^(?P<indent>[ \t]*)(?P<hash>\#)[ \t]*define[ \t]+(?P<name>[A-Za-z_]\w*)",
+    re.MULTILINE,
 )
 CONTROL_NAMES = {"if", "for", "while", "switch", "catch", "sizeof", "alignof", "decltype"}
 STDERR_WRITERS = {"fprintf", "vfprintf", "fputs", "fputc", "fwrite", "printf_s", "fprintf_s"}
@@ -406,9 +549,14 @@ def _classify_description(description: str, site_class: str) -> str:
         and PRINTF_RE.search(text) is not None
         and ERROR_TEXT_RE.search(without_formats) is not None
     )
+    context_words = [word for word in lowered if len(word) > 2 and word not in CONTEXT_FREE_WORDS]
+    has_specific_identifier = re.search(
+        r"(?:\b[A-Za-z]+[A-Z][A-Za-z0-9]*\b|\b[A-Za-z_]\w*(?:[.:/][A-Za-z_]\w*)+)",
+        without_formats,
+    ) is not None
     if len(lowered) < 4 or (
         STRONG_CONSTRAINT_TEXT_RE.search(without_formats) is None and not has_platform_result
-    ):
+    ) or (not has_platform_result and len(context_words) < 2 and not has_specific_identifier):
         return "context-free"
     return "actionable"
 
@@ -508,6 +656,107 @@ def _operation_name(operation: str) -> str:
     return re.split(r"::|->|\.", _operation_subject(operation))[-1]
 
 
+def _semantic_tokens(text: str) -> set[str]:
+    return {
+        token.lower()
+        for token in re.findall(r"[A-Za-z][A-Za-z0-9_-]*", text.replace("_", " "))
+        if len(token) > 2
+    }
+
+
+def _semantic_identity_tag(finding: Finding) -> str:
+    payload = json.dumps(list(finding.identity), separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    return _sha256_bytes(payload)[:16]
+
+
+def _semantic_operation_focus(finding: Finding) -> str:
+    """Return the readable operation whose behavior the ruling must explain."""
+    operation = finding.operation
+    if operation.startswith("retained-bundle-import:"):
+        return operation.removeprefix("retained-bundle-import:")
+    if operation.startswith("ignored-outcome:"):
+        operation = operation.removeprefix("ignored-outcome:")
+    if operation.startswith("status-return:"):
+        operation = operation.removeprefix("status-return:").rsplit(":", 1)[0]
+        return re.split(r"::|->|\.", operation)[-1]
+    elif operation.startswith("counter-mutation:"):
+        operation = operation.removeprefix("counter-mutation:").split(":=", 1)[0]
+    elif operation.startswith("status-message:"):
+        operation = operation.removeprefix("status-message:")
+    return _operation_name(operation)
+
+
+def _semantic_operation_role(finding: Finding) -> str:
+    """Name the source role without relying on a fingerprint or line number."""
+    if finding.operation.startswith("ignored-outcome:"):
+        return "discarded CRT call"
+    role = finding.operation.split(":", 1)[0]
+    return {
+        "call": "call",
+        "counter-mutation": "counter mutation",
+        "definition": "definition",
+        "retained-bundle-import": "PE import",
+        "status-message": "message assignment",
+        "status-return": "status return",
+    }.get(role, role.replace("-", " "))
+
+
+def _semantic_operation_participants(finding: Finding) -> str:
+    """Summarize call participants without copying the scanner excerpt verbatim."""
+    focus = _semantic_operation_focus(finding).lower()
+    operation = finding.operation
+    for prefix in (
+        "ignored-outcome:",
+        "retained-bundle-import:",
+        "counter-mutation:",
+        "status-return:",
+        "status-message:",
+        "definition:",
+        "call:",
+    ):
+        operation = operation.removeprefix(prefix)
+    ignored = {
+        "const",
+        "int",
+        "return",
+        "static",
+        "std",
+        "void",
+    }
+    participants: list[str] = []
+    for token in re.findall(r"[A-Za-z_][A-Za-z0-9_]*|\b\d+\b", operation):
+        if token.lower() == focus or token.lower() in ignored or token in participants:
+            continue
+        participants.append(f"literal-{token}" if token.isdigit() else token)
+    if "?" in operation:
+        participants.append("conditional-selection")
+    if "!=" in operation:
+        participants.append("inequality-comparison")
+    elif "==" in operation:
+        participants.append("equality-comparison")
+    elif re.search(r"\(\s*!", operation):
+        participants.append("negated-condition")
+    if "&" in operation:
+        participants.append("reference-argument")
+    if not participants:
+        return "the no-argument source branch"
+    return "participants " + ", ".join(participants[:20])
+
+
+def _semantic_invariant_anchor(finding: Finding) -> str:
+    leaf = PurePosixPath(finding.path).name
+    return (
+        f"Invariant: {leaf}'s {_semantic_operation_role(finding)} binds "
+        f"{_semantic_operation_participants(finding)}; "
+    )
+
+
+def _semantic_residual(semantic_evidence: str) -> str:
+    """Remove identity binding before novelty and cross-row conflict checks."""
+    residual = re.sub(r"^[^\r\n]+? behavior\[[0-9a-f]{16}\]:\s*", "", semantic_evidence, count=1)
+    return " ".join(residual.split())
+
+
 def _is_probe(path: str, operation: str) -> bool:
     # Invariant: argument text is never ownership evidence.  A normal event can
     # mention a test/probe value without becoming a deliberate-failure origin.
@@ -566,9 +815,66 @@ def _make_finding(
     )
 
 
+def _continued_directive_end(source: str, start: int) -> tuple[int, bool]:
+    cursor = start
+    continued = False
+    while cursor < len(source):
+        newline = source.find("\n", cursor)
+        if newline < 0:
+            return len(source), continued
+        back = newline - 1
+        while back >= cursor and source[back] == "\r":
+            back -= 1
+        if back < cursor or source[back] != "\\":
+            return newline + 1, continued
+        continued = True
+        cursor = newline + 1
+    return len(source), continued
+
+
+def _mask_with_executable_macros(source: str) -> str:
+    """Expose continued replacement bodies while retaining normal C++ masking."""
+    masked = list(mask_cpp(source))
+    macro_source = list(source)
+    body_ranges: list[tuple[int, int, int, int]] = []
+
+    for match in MACRO_DEFINE_RE.finditer(source):
+        directive_end, continued = _continued_directive_end(source, match.start())
+        if not continued:
+            continue
+        body_start = match.end("name")
+        if body_start < directive_end and source[body_start] == "(":
+            depth = 0
+            for index in range(body_start, directive_end):
+                if source[index] == "(":
+                    depth += 1
+                elif source[index] == ")":
+                    depth -= 1
+                    if depth == 0:
+                        body_start = index + 1
+                        break
+            else:
+                continue
+        macro_source[match.start("hash")] = " "
+        body_ranges.append((match.start("name"), match.end("name"), body_start, directive_end))
+
+    if not body_ranges:
+        return "".join(masked)
+
+    # Hazard: the shared mask intentionally erases every directive. A second
+    # pass with only selected '#' tokens neutralized exposes replacement code,
+    # while still blanking comments, ordinary strings, chars, and raw strings.
+    executable_mask = mask_cpp("".join(macro_source))
+    for name_start, name_end, start, end in body_ranges:
+        if executable_mask[name_start:name_end] != source[name_start:name_end]:
+            continue
+        masked[start:end] = executable_mask[start:end]
+    return "".join(masked)
+
+
 def scan_text(path: str, source: str) -> list[Finding]:
     """Return deterministic bounded lexical findings for one C++ source file."""
-    masked = mask_cpp(source)
+    masked = _mask_with_executable_macros(source)
     function_extents = _function_extents(masked)
     findings: dict[tuple[object, ...], Finding] = {}
     occupied_call_spans: list[tuple[int, int]] = []
@@ -668,9 +974,9 @@ def scan_text(path: str, source: str) -> list[Finding]:
             discovered = True
 
         if last_name in CRT_IO_OUTCOME_NAMES and _call_result_is_ignored(masked, match.start("callee"), closing):
-            # Hazard: these CRT calls report open/flush/close failure only in
-            # their return value. Discarding it can erase the last durable
-            # evidence that a diagnostic or artifact was not persisted.
+            # Hazard: these CRT calls report open/write/flush/close failure
+            # only in their return value. Discarding it can erase the last
+            # durable evidence that a diagnostic or artifact was not persisted.
             description = " ".join(value for argument in arguments for value in _strings(argument))
             add(
                 _make_finding(
@@ -959,6 +1265,8 @@ def _validate_ruling(row: object, index: int) -> tuple[dict[str, object] | None,
         "description_classification",
         "owner",
         "reason",
+        "source_context",
+        "semantic_evidence",
         "repair_phase",
         "adjudication",
     }
@@ -981,6 +1289,8 @@ def _validate_ruling(row: object, index: int) -> tuple[dict[str, object] | None,
         "description_classification",
         "owner",
         "reason",
+        "source_context",
+        "semantic_evidence",
         "repair_phase",
         "adjudication",
     ):
@@ -999,6 +1309,8 @@ def _validate_ruling(row: object, index: int) -> tuple[dict[str, object] | None,
         issues.append(RulingIssue(label, "source_fingerprint must be lowercase SHA-256"))
     if row["disposition"] not in DISPOSITIONS:
         issues.append(RulingIssue(label, f"unsupported disposition {row['disposition']!r}"))
+    if row["site_class"] not in SITE_CLASSES:
+        issues.append(RulingIssue(label, f"unsupported site_class {row['site_class']!r}"))
     if row["description_classification"] not in DESCRIPTION_CLASSIFICATIONS:
         issues.append(RulingIssue(label, f"unsupported description classification {row['description_classification']!r}"))
     if row["adjudication"] not in ADJUDICATION_STATUSES:
@@ -1030,8 +1342,8 @@ def load_rulings(path: Path) -> tuple[str, list[dict[str, object]], list[RulingI
         if extra_fields:
             details.append(f"unsupported fields: {', '.join(extra_fields)}")
         return "", [], [RulingIssue("*", "; ".join(details))]
-    if document.get("schema_version") != 1:
-        return "", [], [RulingIssue("*", "ruling schema_version must be 1")]
+    if document.get("schema_version") != RULING_SCHEMA_VERSION:
+        return "", [], [RulingIssue("*", f"ruling schema_version must be {RULING_SCHEMA_VERSION}")]
     review_status = document.get("review_status")
     if review_status not in REVIEW_STATUSES:
         return "", [], [RulingIssue("*", f"review_status must be one of {sorted(REVIEW_STATUSES)}")]
@@ -1081,6 +1393,7 @@ def evaluate(
     rulings_by_identity = {_ruling_identity(row): row for row in rulings}
     unruled = [finding for finding in findings if finding.identity not in rulings_by_identity]
     stale = [row for row in rulings if _ruling_identity(row) not in findings_by_identity]
+    semantic_groups: dict[str, list[tuple[Finding, dict[str, object]]]] = {}
 
     for finding in findings:
         row = rulings_by_identity.get(finding.identity)
@@ -1092,6 +1405,8 @@ def evaluate(
         identity_text = _identity_text(finding.identity)
         if row["description"] != finding.description:
             issues.append(RulingIssue(identity_text, "description evidence drifted from the current source slice"))
+        if row["source_context"] != finding.evidence:
+            issues.append(RulingIssue(identity_text, "source context is missing or drifted from the current finding"))
         if classification != finding.description_classification:
             issues.append(
                 RulingIssue(
@@ -1105,6 +1420,49 @@ def evaluate(
         suggested_fields = ("disposition", "description_classification", "owner", "reason", "repair_phase")
         if all(row[field] == suggestion[field] for field in suggested_fields):
             issues.append(RulingIssue(identity_text, "generated suggestion cannot masquerade as owner adjudication"))
+        semantic_evidence = str(row["semantic_evidence"])
+        semantic_residual = _semantic_residual(semantic_evidence)
+        generated_text = " ".join(
+            str(value) for field, value in row.items() if field != "semantic_evidence"
+        )
+        behavior_clause, invariant_separator, semantic_tail = semantic_residual.partition(" Invariant: ")
+        invariant_clause, description_separator, consequence_tail = semantic_tail.partition(" Description: ")
+        description_clause, consequence_separator, consequence_clause = consequence_tail.partition(" Consequence: ")
+        novel_behavior_tokens = (
+            _semantic_tokens(behavior_clause)
+            - _semantic_tokens(generated_text)
+            - STOCK_ADJUDICATION_WORDS
+        )
+        novel_consequence_tokens = (
+            _semantic_tokens(consequence_clause)
+            - _semantic_tokens(generated_text)
+            - STOCK_ADJUDICATION_WORDS
+        )
+        expected_semantic_prefix = f"{row['owner']} behavior[{_semantic_identity_tag(finding)}]: "
+        operation_focus = _semantic_operation_focus(finding)
+        expected_invariant_anchor = _semantic_invariant_anchor(finding)
+        if (
+            semantic_evidence in {str(row["reason"]), str(row["source_context"])}
+            or (bool(finding.evidence) and finding.evidence in semantic_evidence)
+            or not semantic_evidence.startswith(expected_semantic_prefix)
+            or not semantic_residual.startswith(f"Operation {operation_focus} ")
+            or not invariant_separator
+            or not invariant_clause.startswith(expected_invariant_anchor.removeprefix("Invariant: "))
+            or not description_separator
+            or not description_clause
+            or not consequence_separator
+            or not consequence_clause
+            or len(semantic_evidence) < 80
+            or len(novel_behavior_tokens) < 2
+            or len(novel_consequence_tokens) < 2
+        ):
+            issues.append(
+                RulingIssue(
+                    identity_text,
+                    "semantic evidence lacks a distinct owner-authored behavior/consequence basis for this exact identity",
+                )
+            )
+        semantic_groups.setdefault(semantic_residual, []).append((finding, row))
         reason = str(row["reason"])
         owner = str(row["owner"])
         operation_anchor = _operation_name(finding.operation)
@@ -1151,6 +1509,26 @@ def evaluate(
             "bundle-import-mismatch",
         } and disposition not in {"successful-fallback-value-state", "test-only-deliberate-failure"} and not repair_phase:
             issues.append(RulingIssue(identity_text, "non-central or silent site has no repair phase"))
+
+    for semantic_residual, group in semantic_groups.items():
+        semantic_identities = {
+            (
+                finding.site_class,
+                finding.operation,
+                finding.description,
+                str(row["disposition"]),
+                str(row["repair_phase"]),
+            )
+            for finding, row in group
+        }
+        if semantic_residual and len(semantic_identities) > 1:
+            first_finding = group[0][0]
+            issues.append(
+                RulingIssue(
+                    _identity_text(first_finding.identity),
+                    "identical semantic evidence is shared by different operation/description decisions",
+                )
+            )
 
     return Evaluation(issues=issues, unruled=unruled, stale=stale)
 
@@ -1265,6 +1643,8 @@ def _suggest_ruling(finding: Finding) -> dict[str, object]:
         "description_classification": classification,
         "owner": owner,
         "reason": reason,
+        "source_context": "",
+        "semantic_evidence": "",
         "repair_phase": repair_phase,
         "adjudication": "unreviewed",
     }
@@ -1274,7 +1654,7 @@ def write_unreviewed_template(path: Path, findings: Sequence[Finding]) -> None:
     if path.exists():
         raise FileExistsError(f"refusing to overwrite existing ruling file: {path}")
     document = {
-        "schema_version": 1,
+        "schema_version": RULING_SCHEMA_VERSION,
         "review_status": "unreviewed",
         "reference": REFERENCE_PATH,
         "repair_plan": REPAIR_PLAN,
@@ -1353,10 +1733,24 @@ def _render_text(payload: dict[str, object]) -> str:
 
 def _fixture_ruling(finding: Finding, *, disposition: str | None = None, repair_phase: str | None = None) -> dict[str, object]:
     row = _suggest_ruling(finding)
+    fixture_invariant = (
+        _compact(finding.description, 160)
+        if finding.description and (not finding.evidence or finding.evidence not in finding.description)
+        else _semantic_operation_participants(finding)
+    )
     row["adjudication"] = "owner-reviewed"
     row["reason"] = (
         f"{row['owner']} reviewed {finding.site_class} at {finding.operation}; "
         "the bounded self-test expectation owns this exact semantic classification."
+    )
+    row["source_context"] = finding.evidence
+    row["semantic_evidence"] = (
+        f"{row['owner']} behavior[{_semantic_identity_tag(finding)}]: Operation "
+        f"{_semantic_operation_focus(finding)} executes the bounded {finding.site_class} shape under its explicit "
+        f"self-test branch. {_semantic_invariant_anchor(finding)}the fixture isolates {fixture_invariant!r} from "
+        "decoy text. Description: the expected classification remains attached to the exact fixture diagnostic. "
+        "Consequence: evaluation must preserve the fixture's reviewed disposition and reject mechanically "
+        "substituted prose."
     )
     if disposition is not None:
         row["disposition"] = disposition
@@ -1398,15 +1792,28 @@ const char* decoy = "assert(false) and MessageBoxA are data";
 SbResult Build( SbDiagnosticStore& diagnostics )
 {
     FILE* rawFile = nullptr;
+    fopen( "fixture.log", "wb" );
     fopen_s( &rawFile, "fixture.log", "wb" );
     fprintf( rawFile, "fixture row=%d", row );
     vfprintf( rawFile, format, args );
     fputs( "fixture line", rawFile );
-    if ( fprintf( rawFile, "checked row=%d", row ) < 0 )
-        return false;
+    fputc( '\n', rawFile );
+    fwrite( payload, 1, payloadBytes, rawFile );
     fflush( rawFile );
     fclose( rawFile );
-    if ( fflush( rawFile ) != 0 )
+
+    FILE* checkedFopen = fopen( "checked-fopen.log", "wb" );
+    const errno_t checkedFopenS = fopen_s( &rawFile, "checked-fopen-s.log", "wb" );
+    const int checkedFprintf = fprintf( rawFile, "checked-fprintf row=%d", row );
+    const int checkedVfprintf = vfprintf( rawFile, checkedFormat, checkedArgs );
+    const int checkedFputs = fputs( "checked-fputs", rawFile );
+    const int checkedFputc = fputc( '\n', rawFile );
+    const size_t checkedFwrite = fwrite( payload, 1, payloadBytes, rawFile );
+    const int checkedFflush = fflush( rawFile );
+    const int checkedFclose = fclose( rawFile );
+    if ( checkedFopen == nullptr || checkedFopenS != 0 || checkedFprintf < 0 || checkedVfprintf < 0 ||
+         checkedFputs == EOF || checkedFputc == EOF || checkedFwrite != payloadBytes || checkedFflush != 0 ||
+         checkedFclose != 0 )
         return false;
     if ( badInput )
     {
@@ -1418,7 +1825,9 @@ SbResult Build( SbDiagnosticStore& diagnostics )
         return false;
     MarkSweptFallback( 1 );
     Log().WriteEventf( "projection diverged at frame=%d", frame );
-    std::fprintf( stderr, "failed\n" );
+    OutputDebugStringA( "fixture debugger sink" );
+    if ( std::fprintf( stderr, "failed\n" ) < 0 )
+        return false;
     MessageBoxA( nullptr, "Asset is missing", "Fixture", 0 );
     CopyStatusMessage( state, "device unavailable" );
     MarkFailed();
@@ -1430,7 +1839,16 @@ SbResult Build( SbDiagnosticStore& diagnostics )
     ApplyFallbackValue();
     assert( ready );
     static_assert( sizeof( int ) >= 4, "int storage must cover four bytes" );
+    SB_FATAL( "Fixture/Build", "Input width must remain positive. width=%d", width );
     return false;
+}
+SbResult SbDiagnosticStore::FailureV( const char* owner, const char* format, va_list args )
+{
+    return {};
+}
+[[noreturn]] void SbFatal( const char* owner, const char* format, ... )
+{
+    std::abort();
 }
 bool ValidateLoadedReflection()
 {
@@ -1449,28 +1867,55 @@ bool HashGraphicsDesc()
 '''
     findings = scan_text("SkullbonezSource/Fixture.cpp", fixture)
     classes = Counter(finding.site_class for finding in findings)
-    required_classes = {
-        "sb-result-failure",
-        "event-sink",
-        "raw-stderr",
-        "dialog-sink",
-        "status-presentation",
-        "counter-only",
-        "ignored-crt-io-outcome",
-        "recovery-operation",
-        "runtime-assertion",
-        "static-assertion",
-        "status-only",
-        "error-wrapper",
-        "pre-entry-fatal",
-    }
-    missing_classes = sorted(required_classes - set(classes))
-    if missing_classes:
-        failures.append(f"site-class fixtures missing: {missing_classes}")
+    observed_text_classes = set(classes)
+    if observed_text_classes != TEXT_SITE_CLASSES:
+        failures.append(
+            "text site-class fixtures differ from the bounded vocabulary: "
+            f"missing={sorted(TEXT_SITE_CLASSES - observed_text_classes)} "
+            f"unexpected={sorted(observed_text_classes - TEXT_SITE_CLASSES)}"
+        )
     if any("comment" in finding.evidence or "decoy" in finding.operation for finding in findings):
         failures.append("comments or string data created a call finding")
     if findings != scan_text("SkullbonezSource/Fixture.cpp", fixture):
         failures.append("same input did not produce deterministic findings")
+
+    macro_fixture = r'''
+#define CONFIG_INT( OUT, FIELD ) \
+    do { fprintf( OUT, "%s = %d\n", setting.name, cfg.FIELD ); } while ( false )
+#define CONFIG_FLOAT( OUT, FIELD ) \
+    do { fprintf( OUT, "%s = %.9g\n", setting.name, static_cast<double>( cfg.FIELD ) ); } while ( false )
+#define CONFIG_BOOL( OUT, FIELD ) \
+    do { fprintf( OUT, "%s = %d\n", setting.name, cfg.FIELD ? 1 : 0 ); } while ( false )
+#define CONFIG_STRING( OUT, FIELD ) \
+    do { fprintf( OUT, "%s = %s\n", setting.name, cfg.FIELD.c_str() ); } while ( false )
+#define FIXTURE_CHECKED_WRITE( OUT ) \
+    do { if ( fprintf( OUT, "checked macro row=%d", row ) < 0 ) return false; } while ( false )
+#define FIXTURE_STRING_DECOY( OUT ) \
+    "fprintf( OUT, decoy )"
+#define FIXTURE_COMMENT_DECOY( OUT ) \
+    /* fprintf( OUT, "decoy" ); */ ( OUT )
+const char* macro_text = R"(
+#define FIXTURE_RAW_STRING_DECOY( OUT ) \
+    fprintf( OUT, "raw decoy" );
+)";
+/*
+#define FIXTURE_BLOCK_COMMENT_DECOY( OUT ) \
+    fprintf( OUT, "block decoy" );
+*/
+'''
+    macro_findings = scan_text("SkullbonezSource/MacroFixture.cpp", macro_fixture)
+    ignored_macro_writes = [
+        finding for finding in macro_findings if finding.site_class == "ignored-crt-io-outcome"
+    ]
+    expected_macro_descriptions = Counter({"%s = %d": 2, "%s = %.9g": 1, "%s = %s": 1})
+    actual_macro_descriptions = Counter(finding.description for finding in ignored_macro_writes)
+    if actual_macro_descriptions != expected_macro_descriptions:
+        failures.append(
+            "continued Config-macro discovery drifted: "
+            f"actual={dict(sorted(actual_macro_descriptions.items()))}"
+        )
+    if any("checked macro" in finding.evidence or "decoy" in finding.evidence for finding in macro_findings):
+        failures.append("handled, comment, or string macro text created an ignored CRT outcome")
 
     mark_failed = next((finding for finding in findings if finding.operation == "call:MarkFailed()"), None)
     if mark_failed is None or _suggest_ruling(mark_failed)["disposition"] != "repair":
@@ -1489,8 +1934,11 @@ bool HashGraphicsDesc()
         failures.append("ordinary status formatter bypassed owner-specific adjudication")
 
     ignored_crt = [finding for finding in findings if finding.site_class == "ignored-crt-io-outcome"]
-    if len(ignored_crt) != 7:
-        failures.append(f"ignored CRT I/O fixture count was {len(ignored_crt)}, expected 7")
+    required_crt_matrix = {"fopen", "fopen_s", "fprintf", "vfprintf", "fputs", "fputc", "fwrite", "fflush", "fclose"}
+    if len(ignored_crt) != len(required_crt_matrix):
+        failures.append(
+            f"ignored CRT I/O fixture count was {len(ignored_crt)}, expected {len(required_crt_matrix)}"
+        )
     ignored_non_stderr_fprintf = [
         finding
         for finding in ignored_crt
@@ -1503,10 +1951,49 @@ bool HashGraphicsDesc()
         for finding in ignored_crt
         if (match := re.search(r"call:(?:std::)?([A-Za-z_]+)\(", finding.operation)) is not None
     }
-    if not {"fprintf", "vfprintf", "fputs", "fopen_s", "fflush", "fclose"}.issubset(ignored_operation_names):
-        failures.append("ignored CRT I/O fixtures did not cover Log/diagnostic write variants")
-    if any("checked row" in finding.description for finding in ignored_crt):
-        failures.append("handled fprintf outcome was inventoried as ignored")
+    if ignored_operation_names != required_crt_matrix:
+        failures.append(
+            "ignored CRT I/O fixture matrix drifted: "
+            f"missing={sorted(required_crt_matrix - ignored_operation_names)} "
+            f"unexpected={sorted(ignored_operation_names - required_crt_matrix)}"
+        )
+    if any("checked" in finding.evidence for finding in ignored_crt):
+        failures.append("handled CRT I/O result was inventoried as ignored")
+
+    crt_matrix_cases = {
+        "fopen": ('fopen( "ignored", "wb" );', 'FILE* result = fopen( "handled", "wb" );'),
+        "fopen_s": (
+            'fopen_s( &file, "ignored", "wb" );',
+            'const errno_t result = fopen_s( &file, "handled", "wb" );',
+        ),
+        "fprintf": ('fprintf( file, "ignored" );', 'const int result = fprintf( file, "handled" );'),
+        "vfprintf": ('vfprintf( file, format, args );', 'const int result = vfprintf( file, format, args );'),
+        "fputs": ('fputs( "ignored", file );', 'const int result = fputs( "handled", file );'),
+        "fputc": ("fputc( 'x', file );", "const int result = fputc( 'x', file );"),
+        "fwrite": (
+            'fwrite( payload, 1, payloadBytes, file );',
+            'const size_t result = fwrite( payload, 1, payloadBytes, file );',
+        ),
+        "fflush": ("fflush( file );", "const int result = fflush( file );"),
+        "fclose": ("fclose( file );", "const int result = fclose( file );"),
+    }
+    if set(crt_matrix_cases) != required_crt_matrix:
+        failures.append("ignored/handled CRT fixture cases differ from the required operation matrix")
+    for operation_name, (ignored_statement, handled_statement) in crt_matrix_cases.items():
+        ignored_rows = scan_text(
+            f"SkullbonezSource/CrtIgnored{operation_name}.cpp",
+            f"void Fixture() {{ {ignored_statement} }}",
+        )
+        handled_rows = scan_text(
+            f"SkullbonezSource/CrtHandled{operation_name}.cpp",
+            f"void Fixture() {{ {handled_statement} }}",
+        )
+        ignored_outcomes = [row for row in ignored_rows if row.site_class == "ignored-crt-io-outcome"]
+        handled_outcomes = [row for row in handled_rows if row.site_class == "ignored-crt-io-outcome"]
+        if len(ignored_outcomes) != 1 or operation_name not in ignored_outcomes[0].operation:
+            failures.append(f"ignored CRT fixture did not emit exactly one {operation_name} outcome")
+        if handled_outcomes:
+            failures.append(f"handled CRT fixture emitted an ignored {operation_name} outcome")
     failed_hresult = next((finding for finding in findings if finding.operation.startswith("call:FAILED(")), None)
     if failed_hresult is None or _suggest_ruling(failed_hresult)["disposition"] != "repair":
         failures.append("FAILED(HRESULT operation) was accepted as an ordinary predicate")
@@ -1541,6 +2028,24 @@ bool HashGraphicsDesc()
     for expected, actual in description_cases.items():
         if actual != expected:
             failures.append(f"description fixture {expected} classified as {actual}")
+    generic_constraint_phrases = (
+        "Recoverable operation must not fail",
+        "This operation is invalid now",
+        "Resource must be available here",
+    )
+    for phrase in generic_constraint_phrases:
+        if _classify_description(phrase, "sb-result-failure") != "context-free":
+            failures.append(f"generic constraint phrase was marked actionable: {phrase!r}")
+    context_bearing_phrases = (
+        "Input width must be positive. width=%d",
+        "Atomic text path is empty.",
+        "CreateProcessW failed with Win32 error %lu",
+        "setCameraPose must be an object",
+        "ui.stressActions must be >= 0",
+    )
+    for phrase in context_bearing_phrases:
+        if _classify_description(phrase, "sb-result-failure") != "actionable":
+            failures.append(f"context-bearing description lost actionability: {phrase!r}")
 
     with TemporaryDirectory() as temporary:
         repo = Path(temporary)
@@ -1550,7 +2055,7 @@ bool HashGraphicsDesc()
         (repo / REFERENCE_PATH).write_text("# fixture\n", encoding="utf-8")
         rulings = [_fixture_ruling(finding) for finding in findings]
         ruling_document = {
-            "schema_version": 1,
+            "schema_version": RULING_SCHEMA_VERSION,
             "review_status": "ratified",
             "reference": REFERENCE_PATH,
             "repair_plan": REPAIR_PLAN,
@@ -1606,6 +2111,101 @@ bool HashGraphicsDesc()
         if not any("lacks an owner-led" in issue.message for issue in transformed.issues):
             failures.append("mechanically transformed suggestions passed without owner-authored bases")
 
+        field_derived_rows = []
+        for finding in findings:
+            row = _suggest_ruling(finding)
+            generated_reason = str(row["reason"])
+            available_fields = " | ".join(
+                f"{field}={row[field]}"
+                for field in sorted(row)
+                if field not in {"adjudication", "reason", "semantic_evidence"}
+            )
+            row["adjudication"] = "owner-reviewed"
+            row["reason"] = (
+                f"{row['owner']} reviewed {row['site_class']} at {row['operation']} in {row['path']}; "
+                f"stock suggestion={generated_reason}; every generated field is available: {available_fields}."
+            )
+            row["source_context"] = finding.evidence
+            row["semantic_evidence"] = finding.evidence
+            field_derived_rows.append(row)
+        field_derived = evaluate(findings, "ratified", field_derived_rows, [], repo)
+        if not any("distinct owner-authored behavior/consequence" in issue.message for issue in field_derived.issues):
+            failures.append("field-derived rows plus copied scanner excerpts passed as semantic adjudication")
+
+        wrapped_copy_rows = []
+        for finding in findings:
+            row = _fixture_ruling(finding)
+            row["semantic_evidence"] += f" Copied scanner excerpt: {finding.evidence}"
+            wrapped_copy_rows.append(row)
+        wrapped_copies = evaluate(findings, "ratified", wrapped_copy_rows, [], repo)
+        wrapped_copy_issues = [
+            issue for issue in wrapped_copies.issues if "distinct owner-authored behavior/consequence" in issue.message
+        ]
+        if len(wrapped_copy_issues) != len(findings):
+            failures.append("wrapped scanner excerpts did not fail semantic adjudication for every fixture row")
+
+        generic_tag_rows = []
+        for finding in findings:
+            row = _fixture_ruling(finding)
+            row["semantic_evidence"] = (
+                f"{row['owner']} behavior[{_semantic_identity_tag(finding)}]: Operation "
+                f"{_semantic_operation_focus(finding)} behavior is source specific. "
+                f"{_semantic_invariant_anchor(finding)}reviewed classification. Description: reviewed "
+                "classification. Consequence: reviewed disposition applies."
+            )
+            generic_tag_rows.append(row)
+        generic_tags = evaluate(findings, "ratified", generic_tag_rows, [], repo)
+        generic_tag_issues = [
+            issue for issue in generic_tags.issues if "distinct owner-authored behavior/consequence" in issue.message
+        ]
+        if len(generic_tag_issues) != len(findings):
+            failures.append("correct identity tags made generic canned semantic prose pass owner review")
+
+        field_token_generic_rows = []
+        for finding in findings:
+            row = _fixture_ruling(finding)
+            emitted_tokens = sorted(
+                set().union(
+                    *(
+                        _semantic_tokens(str(value))
+                        for field, value in row.items()
+                        if field != "semantic_evidence"
+                    )
+                )
+            )
+            row["semantic_evidence"] = (
+                f"{row['owner']} behavior[{_semantic_identity_tag(finding)}]: Operation "
+                f"{_semantic_operation_focus(finding)} performs routine logic according to expected local conditions. "
+                f"{_semantic_invariant_anchor(finding)}selected wording identifies location and structural information. "
+                "Description: selected wording identifies every available field token: "
+                f"{', '.join(emitted_tokens)}. Consequence: decision remains suitable for downstream use."
+            )
+            field_token_generic_rows.append(row)
+        field_token_generics = evaluate(findings, "ratified", field_token_generic_rows, [], repo)
+        field_token_generic_issues = [
+            issue
+            for issue in field_token_generics.issues
+            if "distinct owner-authored behavior/consequence" in issue.message
+        ]
+        if len(field_token_generic_issues) != len(findings):
+            failures.append("all-field correct-tag canned semantics passed owner review")
+
+        conflicting_rows = list(rulings)
+        conflict_left = 0
+        conflict_right = next(
+            index
+            for index, finding in enumerate(findings[1:], start=1)
+            if (finding.site_class, finding.operation, finding.description)
+            != (findings[0].site_class, findings[0].operation, findings[0].description)
+        )
+        conflicting_rows[conflict_right] = {
+            **conflicting_rows[conflict_right],
+            "semantic_evidence": conflicting_rows[conflict_left]["semantic_evidence"],
+        }
+        conflicts = evaluate(findings, "ratified", conflicting_rows, [], repo)
+        if not any("shared by different operation/description" in issue.message for issue in conflicts.issues):
+            failures.append("identical semantic evidence across different decisions bypassed the conflict rule")
+
         missing = evaluate(findings, "ratified", rulings[:-1], [], repo)
         if len(missing.unruled) != 1:
             failures.append("missing ruling did not create one unruled row")
@@ -1621,6 +2221,12 @@ bool HashGraphicsDesc()
         description_drift = evaluate(findings, "ratified", description_edited, [], repo)
         if not any("description evidence drifted" in issue.message for issue in description_drift.issues):
             failures.append("description evidence drift was accepted")
+
+        source_context_edited = list(rulings)
+        source_context_edited[0] = {**source_context_edited[0], "source_context": "copied unrelated context"}
+        source_context_drift = evaluate(findings, "ratified", source_context_edited, [], repo)
+        if not any("source context is missing or drifted" in issue.message for issue in source_context_drift.issues):
+            failures.append("source-context drift was accepted")
 
         stale = evaluate(findings[:-1], "ratified", rulings, [], repo)
         if len(stale.stale) != 1:
@@ -1658,6 +2264,13 @@ bool HashGraphicsDesc()
             description="",
             evidence="imports runtime; sibling is absent",
         )
+        observed_site_classes = observed_text_classes | {bundle_finding.site_class}
+        if observed_site_classes != SITE_CLASSES:
+            failures.append(
+                "all self-test site classes differ from the bounded vocabulary: "
+                f"missing={sorted(SITE_CLASSES - observed_site_classes)} "
+                f"unexpected={sorted(observed_site_classes - SITE_CLASSES)}"
+            )
         bundle_row = _suggest_ruling(bundle_finding)
         if bundle_row["repair_phase"] != "E5" or bundle_row["disposition"] != "repair":
             failures.append("retained import mismatch was not assigned to E5 repair")
@@ -1697,8 +2310,8 @@ bool HashGraphicsDesc()
             print(f"SELF_TEST_FAIL: {failure}", file=sys.stderr)
         return 1
     print(
-        "SELF_TEST_PASS: site classes, ignored/handled CRT I/O, negative classification controls, "
-        "owner-adjudication isolation, stale/currentness, and normal/delay PE bundle discovery are enforced."
+        "SELF_TEST_PASS: complete site vocabulary, executable macros, ignored/handled CRT matrix, adversarial "
+        "descriptions/adjudication, stale/currentness, and normal/delay PE bundle discovery are enforced."
     )
     return 0
 

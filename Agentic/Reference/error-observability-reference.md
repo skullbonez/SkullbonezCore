@@ -103,9 +103,14 @@ context exists, the description answers:
    termination, or corrupted invariant?
 
 A bare `failed`, `unavailable`, numeric error code, source expression, or
-generic “recoverable operation failed” is not actionable. A stack supplements
-the description; it never substitutes for one. Messages must not expose
-secrets or copy unbounded external input.
+generic constraint such as `Recoverable operation must not fail`, `This
+operation is invalid now`, or `Resource must be available here` is not
+actionable. Four words plus `must` is not context. The bounded classifier also
+requires multiple domain-bearing words or a specific identifier such as
+`setCameraPose` or `ui.stressActions`; formatted platform failures retain the
+numeric/API-result exception. A stack supplements the description; it never
+substitutes for one. Messages must not expose secrets or copy unbounded
+external input.
 
 The inventory uses these exact description classifications:
 
@@ -190,7 +195,10 @@ assume unbounded text.
 `.hpp`, and `.inl` file under `SkullbonezSource` using `git ls-files`. It also
 parses tracked retained PE executables for known package-owned imports whose
 sibling runtime is absent. Comments and string data are masked with the shared
-`tools/cpp_source_scan.py` lexer before call-shape discovery.
+`tools/cpp_source_scan.py` lexer before call-shape discovery. Continued
+`#define` replacement bodies receive a second bounded pass: only a lexically
+real macro name and its executable body are restored, while comment, ordinary
+string, raw-string, and handled-result decoys remain masked.
 
 The current site classes cover failed-result creation, central result/fatal
 owners, failure/error wrappers, `SB_FATAL`, pre-entry termination, raw stderr,
@@ -201,7 +209,7 @@ import mismatches. An ignored outcome row is separate from any raw-stderr row
 at the same call: one records bypassed presentation, while the other records
 that the persistence result itself was discarded.
 
-Each ruling has this exact schema:
+Each schema-v2 ruling has this exact schema:
 
 | Field | Contract |
 |---|---|
@@ -213,6 +221,8 @@ Each ruling has this exact schema:
 | `description` | Exact bounded current-source description evidence used during review. |
 | `description_classification` | One classification from the table above. |
 | `owner`, `reason` | Concrete path owner and qualitative judgement. |
+| `source_context` | Exact bounded current finding excerpt. This is mechanical identity evidence, not semantic adjudication. |
+| `semantic_evidence` | Owner-authored operation behavior, source-bound invariant, description basis, and consequence. The identity tag binds currentness only; it contributes neither novelty nor uniqueness. |
 | `repair_phase` | Blank only when no repair remains; otherwise exactly E1-E5. |
 | `adjudication` | `owner-reviewed` only after a concrete owner has reviewed this exact identity; generated rows use `unreviewed`. |
 
@@ -223,14 +233,32 @@ and migration of non-central/silent sites; E5 owns runnable-bundle closure.
 
 Strict mode fails on malformed rows, duplicate identities, an unratified file,
 a missing durable reference/repair plan, a new unruled site, an edited or
-deleted stale ruling, description evidence/classification drift, an unreviewed
-row, an unchanged generator suggestion presented as adjudication, or an
+deleted stale ruling, description evidence/classification drift, copied or
+drifted source context, an unreviewed row, an unchanged generator suggestion
+presented as adjudication, a stock field-derived semantic basis, or an
 inadequate error/assertion without a repair phase. A successful fallback/value
 row must name its concrete owner plus operation or invariant basis. `FAILED`
 HRESULT checks and `Validate*`/`Hash*` failure returns cannot pass as value-only
 queries. Every reviewed reason begins with its exact owner and names the exact
-operation, site class, path, or current description evidence; removing a
-suggestion marker and flipping status fields is therefore still not review.
+operation, site class, path, or current description evidence.
+
+The semantic basis begins with the exact owner and fingerprint-bound
+`behavior[<tag>]`, then names the readable operation, its source file/role and
+participants, the description-classification basis, and the consequence of the
+decision. Strict mode strips the tag before checking novelty and cross-row
+conflicts. It rejects the complete non-empty scanner excerpt anywhere in the
+basis, equality with `reason` or `source_context`, canned behavior or
+consequence prose assembled only from emitted ruling fields, and identical
+tag-stripped prose shared by different operation/description/disposition/phase
+decisions. Genuinely identical semantic decisions may share prose; a hash or
+line number may never manufacture uniqueness.
+
+These checks prove identity/currentness and reject known copied or field-only
+mechanical transforms. They cannot prove that an owner-authored behavior,
+invariant, or consequence claim is true. Independent review remains the final
+semantic authority and may reopen any otherwise mechanical pass whose claim is
+wrong. Deleting the identity tag must still leave a readable explanation of
+why the exact operation received its disposition and repair phase.
 
 These are current qualitative rulings, not allowances. Row totals, class
 counts, and repair counts are measurements only and must never become ceilings,
@@ -250,8 +278,16 @@ fails strict mode. Changing only the document status or per-row adjudication
 spelling still fails because unchanged suggestion fields are not owner review;
 removing the suggestion prefix also fails the owner-led exact-basis rule. A
 human/agent owner reviews each disposition, exact description/class, owner,
-reason, and responsibility-correct repair phase before the document becomes
-`ratified`.
+reason, source context, semantic basis, and responsibility-correct repair phase
+before the document becomes `ratified`. The self-test exercises every bounded
+site class, all ignored/handled `fopen`, `fprintf`, `vfprintf`, `fputs`,
+`fputc`, `fwrite`, `fflush`, and `fclose` pairs plus `fopen_s`, the four Config
+writer-macro shapes, normal/delay PE imports, and adversarial stock
+adjudication/description cases. The adversarial adjudication cases include an
+unchanged suggestion, a field-derived rewrite with every emitted field
+available, a wrapped copy of the scanner excerpt, a correct-tag canned basis,
+a correct-tag canned basis containing every emitted field token, and
+tag-stripped prose reused by different decisions.
 
 ## Retained-Executable E5 Repair
 
