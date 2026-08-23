@@ -54,7 +54,7 @@ Related:
 #include "../Startup/RunLaunchOptions.h"
 #include "../../Core/SbResult.h"
 #include "../../Core/PlatformWin32.h"
-#include "../../UI/OperatorEditorExchange.h"
+#include "../Interaction/OperatorEditorExchange.h"
 #include "../../UI/UIInputCaptureIntent.h"
 
 #include <cstdint>

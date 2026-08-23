@@ -164,8 +164,6 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="SkullbonezSource\UI\OperatorEditorExchange.cpp" />
-    <ClCompile Include="SkullbonezSource\UI\UI.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIBackdropBlur.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIButton.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UICache.cpp" />
@@ -174,69 +172,36 @@
     <ClCompile Include="SkullbonezSource\UI\UIDraw.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIDrawList.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIDrawWidgets.cpp" />
-    <ClCompile Include="SkullbonezSource\UI\UIEditorMiniPalette.cpp" />
-    <ClCompile Include="SkullbonezSource\UI\UIEditorMiniPaletteDraw.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIFontMetrics.cpp" />
-    <ClCompile Include="SkullbonezSource\UI\UIFrameComposition.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIIconButton.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIInput.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UILayout.cpp" />
-    <ClCompile Include="SkullbonezSource\UI\UIProfilerOverlayPresenter.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIScrollBar.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UISlider.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIStyle.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UITabBar.cpp" />
-    <ClCompile Include="SkullbonezSource\UI\UITabCinematic.cpp" />
-    <ClCompile Include="SkullbonezSource\UI\UITabControls.cpp" />
-    <ClCompile Include="SkullbonezSource\UI\UITabEditor.cpp" />
-    <ClCompile Include="SkullbonezSource\UI\UITabMemory.cpp" />
-    <ClCompile Include="SkullbonezSource\UI\UITabOptions.cpp" />
-    <ClCompile Include="SkullbonezSource\UI\UITabPhysics.cpp" />
-    <ClCompile Include="SkullbonezSource\UI\UITabProfiler.cpp" />
-    <ClCompile Include="SkullbonezSource\UI\UITabProfilerHistogram.cpp" />
-    <ClCompile Include="SkullbonezSource\UI\UITabScene.cpp" />
-    <ClCompile Include="SkullbonezSource\UI\UITabSky.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIWindowChrome.cpp" />
-    <ClCompile Include="SkullbonezSource\UI\UIWindowInteractionOwner.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="SkullbonezSource\UI\OperatorEditorExchange.h" />
-    <ClInclude Include="SkullbonezSource\UI\UI.h" />
     <ClInclude Include="SkullbonezSource\UI\UIBackdropBlur.h" />
     <ClInclude Include="SkullbonezSource\UI\UIButton.h" />
     <ClInclude Include="SkullbonezSource\UI\UICache.h" />
     <ClInclude Include="SkullbonezSource\UI\UICheckBox.h" />
     <ClInclude Include="SkullbonezSource\UI\UIComboBox.h" />
-    <ClInclude Include="SkullbonezSource\UI\UICommands.h" />
     <ClInclude Include="SkullbonezSource\UI\UIDraw.h" />
     <ClInclude Include="SkullbonezSource\UI\UIDrawList.h" />
     <ClInclude Include="SkullbonezSource\UI\UIDrawWidgets.h" />
     <ClInclude Include="SkullbonezSource\UI\UIFontMetrics.h" />
-    <ClInclude Include="SkullbonezSource\UI\UIFrameComposition.h" />
     <ClInclude Include="SkullbonezSource\UI\UIIconButton.h" />
     <ClInclude Include="SkullbonezSource\UI\UIInput.h" />
     <ClInclude Include="SkullbonezSource\UI\UIInputCaptureIntent.h" />
     <ClInclude Include="SkullbonezSource\UI\UILayout.h" />
-    <ClInclude Include="SkullbonezSource\UI\UIProfilerOverlayPresenter.h" />
-    <ClInclude Include="SkullbonezSource\UI\UIRenderAuthoringCatalog.h" />
-    <ClInclude Include="SkullbonezSource\UI\UIRenderDiagnostics.h" />
-    <ClInclude Include="SkullbonezSource\UI\UISceneNavigationModel.h" />
     <ClInclude Include="SkullbonezSource\UI\UIScrollBar.h" />
     <ClInclude Include="SkullbonezSource\UI\UISlider.h" />
     <ClInclude Include="SkullbonezSource\UI\UIState.h" />
     <ClInclude Include="SkullbonezSource\UI\UIStyle.h" />
     <ClInclude Include="SkullbonezSource\UI\UITabBar.h" />
-    <ClInclude Include="SkullbonezSource\UI\UITabCinematic.h" />
-    <ClInclude Include="SkullbonezSource\UI\UITabControls.h" />
-    <ClInclude Include="SkullbonezSource\UI\UITabEditor.h" />
-    <ClInclude Include="SkullbonezSource\UI\UITabMemory.h" />
-    <ClInclude Include="SkullbonezSource\UI\UITabOptions.h" />
-    <ClInclude Include="SkullbonezSource\UI\UITabPhysics.h" />
-    <ClInclude Include="SkullbonezSource\UI\UITabProfiler.h" />
-    <ClInclude Include="SkullbonezSource\UI\UITabScene.h" />
-    <ClInclude Include="SkullbonezSource\UI\UITabSky.h" />
     <ClInclude Include="SkullbonezSource\UI\UIWindowChrome.h" />
-    <ClInclude Include="SkullbonezSource\UI\UIWindowInteractionOwner.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

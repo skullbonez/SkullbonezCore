@@ -39,7 +39,7 @@ Related:
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsMass.h"
 #include "../../Physics/Ragdoll.h"
-#include "../../UI/UITabEditor.h"
+#include "../Interaction/OperatorEditorObjectCatalog.h"
 #include "../../World/Terrain.h"
 #include "../../World/WorldEnvironment.h"
 

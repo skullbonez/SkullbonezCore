@@ -23,7 +23,7 @@ Related:
 */
 #pragma once
 
-#include "../../UI/UIRenderDiagnostics.h"
+#include "GameUI/UIRenderDiagnostics.h"
 
 namespace SkullbonezCore::Rendering
 {

@@ -25,7 +25,7 @@ Related:
 #include "EditorTerrainOrientation.h"
 #include "EditorTools.h"
 #include "../../Assets/AssetSystem.h"
-#include "../../UI/UITabEditor.h"
+#include "../Interaction/OperatorEditorObjectCatalog.h"
 
 #include <algorithm>
 #include <array>

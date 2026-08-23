@@ -42,7 +42,7 @@ Related:
 #include "../../Core/Log.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
-#include "../../UI/UI.h"
+#include "../UI/GameUI/UI.h"
 #include "../../UI/UILayout.h"
 
 #include <cstddef>

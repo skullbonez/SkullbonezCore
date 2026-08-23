@@ -11,8 +11,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="SkullbonezSource\UI\OperatorEditorExchange.cpp"><Filter>Source Files</Filter></ClCompile>
-    <ClCompile Include="SkullbonezSource\UI\UI.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UIBackdropBlur.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UIButton.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UICache.cpp"><Filter>Source Files</Filter></ClCompile>
@@ -21,68 +19,35 @@
     <ClCompile Include="SkullbonezSource\UI\UIDraw.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UIDrawList.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UIDrawWidgets.cpp"><Filter>Source Files</Filter></ClCompile>
-    <ClCompile Include="SkullbonezSource\UI\UIEditorMiniPalette.cpp"><Filter>Source Files</Filter></ClCompile>
-    <ClCompile Include="SkullbonezSource\UI\UIEditorMiniPaletteDraw.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UIFontMetrics.cpp"><Filter>Source Files</Filter></ClCompile>
-    <ClCompile Include="SkullbonezSource\UI\UIFrameComposition.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UIIconButton.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UIInput.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UILayout.cpp"><Filter>Source Files</Filter></ClCompile>
-    <ClCompile Include="SkullbonezSource\UI\UIProfilerOverlayPresenter.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UIScrollBar.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UISlider.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UIStyle.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UITabBar.cpp"><Filter>Source Files</Filter></ClCompile>
-    <ClCompile Include="SkullbonezSource\UI\UITabCinematic.cpp"><Filter>Source Files</Filter></ClCompile>
-    <ClCompile Include="SkullbonezSource\UI\UITabControls.cpp"><Filter>Source Files</Filter></ClCompile>
-    <ClCompile Include="SkullbonezSource\UI\UITabEditor.cpp"><Filter>Source Files</Filter></ClCompile>
-    <ClCompile Include="SkullbonezSource\UI\UITabMemory.cpp"><Filter>Source Files</Filter></ClCompile>
-    <ClCompile Include="SkullbonezSource\UI\UITabOptions.cpp"><Filter>Source Files</Filter></ClCompile>
-    <ClCompile Include="SkullbonezSource\UI\UITabPhysics.cpp"><Filter>Source Files</Filter></ClCompile>
-    <ClCompile Include="SkullbonezSource\UI\UITabProfiler.cpp"><Filter>Source Files</Filter></ClCompile>
-    <ClCompile Include="SkullbonezSource\UI\UITabProfilerHistogram.cpp"><Filter>Source Files</Filter></ClCompile>
-    <ClCompile Include="SkullbonezSource\UI\UITabScene.cpp"><Filter>Source Files</Filter></ClCompile>
-    <ClCompile Include="SkullbonezSource\UI\UITabSky.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UIWindowChrome.cpp"><Filter>Source Files</Filter></ClCompile>
-    <ClCompile Include="SkullbonezSource\UI\UIWindowInteractionOwner.cpp"><Filter>Source Files</Filter></ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="SkullbonezSource\UI\OperatorEditorExchange.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="SkullbonezSource\UI\UI.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIBackdropBlur.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIButton.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UICache.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UICheckBox.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIComboBox.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="SkullbonezSource\UI\UICommands.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIDraw.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIDrawList.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIDrawWidgets.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIFontMetrics.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="SkullbonezSource\UI\UIFrameComposition.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIIconButton.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIInput.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIInputCaptureIntent.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UILayout.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="SkullbonezSource\UI\UIProfilerOverlayPresenter.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="SkullbonezSource\UI\UIRenderAuthoringCatalog.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="SkullbonezSource\UI\UIRenderDiagnostics.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="SkullbonezSource\UI\UISceneNavigationModel.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIScrollBar.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UISlider.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIState.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIStyle.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UITabBar.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="SkullbonezSource\UI\UITabCinematic.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="SkullbonezSource\UI\UITabControls.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="SkullbonezSource\UI\UITabEditor.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="SkullbonezSource\UI\UITabMemory.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="SkullbonezSource\UI\UITabOptions.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="SkullbonezSource\UI\UITabPhysics.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="SkullbonezSource\UI\UITabProfiler.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="SkullbonezSource\UI\UITabScene.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="SkullbonezSource\UI\UITabSky.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIWindowChrome.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="SkullbonezSource\UI\UIWindowInteractionOwner.h"><Filter>Header Files</Filter></ClInclude>
   </ItemGroup>
 </Project>

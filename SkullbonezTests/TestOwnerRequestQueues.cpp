@@ -82,8 +82,8 @@ Related:
 #include "../SkullbonezSource/Runtime/Scene/SceneController.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneLoadRequest.h"
 #include "../SkullbonezSource/Physics/PhysicsDebugData.h"
-#include "../SkullbonezSource/UI/UICommands.h"
-#include "../SkullbonezSource/UI/UITabPhysics.h"
+#include "../SkullbonezSource/Runtime/Interaction/OperatorUiCommands.h"
+#include "../SkullbonezSource/Runtime/UI/GameUI/UITabPhysics.h"
 
 #include <algorithm>
 #include <array>

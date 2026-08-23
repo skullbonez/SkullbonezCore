@@ -35,7 +35,7 @@ Related:
 #include "../../Maths/Vector3.h"
 #include "../../Physics/CollisionShape.h"
 #include "../../Physics/PhysicsHandles.h"
-#include "../../UI/UITabEditor.h"
+#include "../Interaction/OperatorEditorObjectCatalog.h"
 
 #include <array>
 #include <cstddef>

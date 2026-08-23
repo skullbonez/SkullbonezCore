@@ -43,10 +43,6 @@ namespace Rendering
 {
 class Dx12Diagnostics;
 }
-namespace UI
-{
-class InGameUI;
-} // namespace UI
 namespace Runtime
 {
 struct OverlayDebugState;
@@ -68,8 +64,7 @@ struct DiagnosticsUIKeyboardShortcutResult
     bool disableCaptureAutomationExit = false;
 };
 
-DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( UI::InGameUI& ui, OverlayDebugState& debug,
-                                                                         double nowSeconds,
+DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( OverlayDebugState& debug,
                                                                          DiagnosticsUiKeyboardCommand command,
                                                                          bool wasPressed );
 

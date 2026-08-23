@@ -67,7 +67,7 @@ Related:
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../Simulation/SimulationSystem.h"
-#include "../../UI/UI.h"
+#include "../UI/GameUI/UI.h"
 #include "../../Rendering/DX12/Dx12Diagnostics.h"
 #include "../../Rendering/DX12/Dx12BackbufferCapture.h"
 #include "../../Rendering/DX12/Dx12ShaderDevelopment.h"
@@ -1147,9 +1147,22 @@ SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResu
                 requestDevelopmentUiSurfaceSwap = true;
             }
 
-            const DiagnosticsUIKeyboardShortcutResult
-                shortcutResult = HandleDiagnosticsUIKeyboardShortcut(
-                    ui, debug, timers.SimulationTotalSeconds(), ProjectDiagnosticsUiKeyboardCommand( event.action ), true );
+            const DiagnosticsUiKeyboardCommand diagnosticsCommand = ProjectDiagnosticsUiKeyboardCommand( event.action );
+            const DiagnosticsUIKeyboardShortcutResult shortcutResult =
+                HandleDiagnosticsUIKeyboardShortcut( debug, diagnosticsCommand, true );
+
+            switch ( diagnosticsCommand )
+            {
+            case DiagnosticsUiKeyboardCommand::ToggleVisibility:
+                ui.ToggleVisible( timers.SimulationTotalSeconds() );
+                break;
+            case DiagnosticsUiKeyboardCommand::TogglePerformanceHistogram:
+                ui.TogglePerformanceHistogramEnabled();
+                break;
+            case DiagnosticsUiKeyboardCommand::ToggleMemoryOverlay:
+                ui.ToggleMemoryOverlayEnabled();
+                break;
+            }
 
             if ( shortcutResult.markInteractiveRun )
             {

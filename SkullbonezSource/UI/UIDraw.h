@@ -41,6 +41,8 @@ struct UIRect
     bool Contains( int px, int py ) const;
 };
 
+UIRect IntersectRect( const UIRect& left, const UIRect& right );
+
 class UIDrawList;
 
 class UIDrawContext

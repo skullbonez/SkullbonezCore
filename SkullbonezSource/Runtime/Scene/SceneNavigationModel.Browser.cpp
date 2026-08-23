@@ -25,7 +25,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneNavigationModel.cpp
   - Agentic/Reference/engine-glossary.md
 */
-#include "../../UI/UISceneNavigationModel.h"
+#include "SceneNavigationModel.h"
 #include "../../Core/Log.h"
 #include "../../Core/WindowConstants.h"
 

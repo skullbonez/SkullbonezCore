@@ -27,7 +27,7 @@ Related:
 */
 #pragma once
 
-#include "../../UI/UICommands.h"
+#include "../Interaction/OperatorUiCommands.h"
 
 #include <cstdint>
 

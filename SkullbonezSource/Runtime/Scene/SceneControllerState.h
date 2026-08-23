@@ -25,7 +25,7 @@ Related:
 */
 #pragma once
 
-#include "../../UI/UISceneNavigationModel.h"
+#include "SceneNavigationModel.h"
 
 #include <string>
 #include <vector>

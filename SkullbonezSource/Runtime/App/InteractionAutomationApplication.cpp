@@ -91,7 +91,7 @@ Related:
 #include "../../Core/ByteView.h"
 #include "../../Rendering/RenderSceneSnapshot.h"
 #include "../../Rendering/DX12/Dx12BackbufferCapture.h"
-#include "../../UI/UI.h"
+#include "../UI/GameUI/UI.h"
 
 #pragma warning( push, 0 )
 #include "../../../ThirdPtySource/nlohmann/json.hpp"

@@ -31,10 +31,10 @@ Related:
 #include "../SkullbonezSource/UI/UIDraw.h"
 #include "../SkullbonezSource/UI/UIDrawList.h"
 #include "../SkullbonezSource/UI/UIFontMetrics.h"
-#include "../SkullbonezSource/UI/UIProfilerOverlayPresenter.h"
+#include "../SkullbonezSource/Runtime/Render/UIProfilerOverlayPresenter.h"
 #include "../SkullbonezSource/UI/UIStyle.h"
-#include "../SkullbonezSource/UI/UI.h"
-#include "../SkullbonezSource/UI/UIWindowInteractionOwner.h"
+#include "../SkullbonezSource/Runtime/UI/GameUI/UI.h"
+#include "../SkullbonezSource/Runtime/UI/GameUI/UIWindowInteractionOwner.h"
 
 #include <array>
 #include <cstdio>

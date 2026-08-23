@@ -41,7 +41,6 @@ Related:
 #include "../../UI/UIDraw.h"
 #include "../../UI/UIDrawList.h"
 #include "../../UI/UIDrawWidgets.h"
-#include "../../UI/UIFrameComposition.h"
 #include "../../UI/UIFontMetrics.h"
 #include "../../UI/UIStyle.h"
 

@@ -27,10 +27,8 @@ Related:
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../Startup/RunLaunchOptions.h"
 #include "../../Physics/PhysicsApi.h"
-#include "../../UI/UI.h"
 
 using namespace SkullbonezCore::Runtime;
-namespace SBUI = SkullbonezCore::UI;
 namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 
@@ -44,10 +42,11 @@ std::unique_ptr<RuntimeOverlayDiagnostics> RuntimeOverlayDiagnostics::CreateForS
 }
 
 
-void RuntimeOverlayDiagnostics::ApplyStartupPolicy( const RunStartupOverrides& overrides, RunLaunchOptions& launchOptions,
-                                                    UI::InGameUI& operatorUi )
+StartupOperatorUiPolicy RuntimeOverlayDiagnostics::ApplyStartupPolicy( const RunStartupOverrides& overrides,
+                                                                       RunLaunchOptions& launchOptions )
 {
     const RunLaunchOptions& launch = overrides.launch;
+    StartupOperatorUiPolicy operatorUiPolicy;
 
     if ( overrides.hasInitialOverlayMode )
     {
@@ -57,21 +56,21 @@ void RuntimeOverlayDiagnostics::ApplyStartupPolicy( const RunStartupOverrides& o
 
         if ( overlayMode != OverlayMode::None )
         {
-            operatorUi.SetVisible( true );
+            operatorUiPolicy.makeVisible = true;
         }
 
         switch ( overlayMode )
         {
         case OverlayMode::SceneStats:
-            operatorUi.SetActiveTab( SBUI::InGameUITab::Scene );
+            operatorUiPolicy.tab = StartupOperatorUiTab::Scene;
             break;
         case OverlayMode::Keys:
-            operatorUi.SetActiveTab( SBUI::InGameUITab::Keys );
+            operatorUiPolicy.tab = StartupOperatorUiTab::Keys;
             break;
         case OverlayMode::BarsNormalized:
         case OverlayMode::BarsAbsolute:
         case OverlayMode::Timers:
-            operatorUi.SetActiveTab( SBUI::InGameUITab::Profiler );
+            operatorUiPolicy.tab = StartupOperatorUiTab::Profiler;
             break;
         default:
             break;
@@ -118,6 +117,8 @@ void RuntimeOverlayDiagnostics::ApplyStartupPolicy( const RunStartupOverrides& o
                                                                       (std::min)( launch.physicsDebugContactLingerOverride,
                                                                                   5.0f ) );
     }
+
+    return operatorUiPolicy;
 }
 
 

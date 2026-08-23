@@ -50,9 +50,9 @@ Related:
 #include "../../Core/FatalError.h"
 #include "../../Core/SbDiagnosticStore.h"
 #include "../../Rendering/DX12/Dx12ImGuiRendererOwner.h"
-#include "../../UI/UITabEditor.h"
+#include "../Interaction/OperatorEditorObjectCatalog.h"
 #include "../../UI/UILayout.h"
-#include "../../UI/UIRenderAuthoringCatalog.h"
+#include "../Render/UIRenderAuthoringCatalog.h"
 #include "../../Physics/PhysicsDebugData.h"
 
 #include <imgui.h>

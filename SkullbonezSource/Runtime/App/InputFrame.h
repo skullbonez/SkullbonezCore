@@ -34,7 +34,7 @@ Related:
 #include "../Input/InputRouter.h"
 #include "../Input/InputFrameValues.h"
 #include "ReplayRuntime.h"
-#include "../../UI/UICommands.h"
+#include "../Interaction/OperatorUiCommands.h"
 #include "../../UI/UIInput.h"
 
 namespace SkullbonezCore

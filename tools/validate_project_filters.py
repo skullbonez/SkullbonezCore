@@ -390,6 +390,9 @@ RUNTIME_AUTOMATION_PREFIXES = (
 )
 
 RUNTIME_INTERACTION_PREFIXES = (
+    "OperatorEditorExchange",
+    "OperatorEditorObjectCatalog",
+    "OperatorUiCommands",
     "PhysicsAdvanceState",
     "RuntimeInteractionCommands",
     "RuntimeInteractionController",
@@ -531,6 +534,8 @@ RUNTIME_RENDER_PREFIXES = (
     "RuntimeRenderResources",
     "RuntimeRenderer",
     "UiDrawSubmission",
+    "UIProfilerOverlayPresenter",
+    "UIRenderAuthoringCatalog",
 )
 
 RUNTIME_EDITOR_PREFIXES = (
@@ -572,6 +577,23 @@ RUNTIME_DIAGNOSTICS_PREFIXES = (
 # Why: shared runtime UI values have their own physical owner and Solution
 # Explorer filter; keeping this explicit prevents them drifting into Runtime.
 RUNTIME_UI_PREFIXES = (
+    "UI",
+    "UIEditorMiniPalette",
+    "UIEditorMiniPaletteDraw",
+    "UIFrameComposition",
+    "UIRenderDiagnostics",
+    "UITabCinematic",
+    "UITabControls",
+    "UITabEditor",
+    "UITabMemory",
+    "UITabOptions",
+    "UITabPhysics",
+    "UITabProfiler",
+    "UITabProfilerHistogram",
+    "UITabScene",
+    "UITabSky",
+    "UIWindowInteractionOwner",
+    "UITab",
     "OperatorUiPhase",
     "UiTextPass",
     "RuntimeViewModel",

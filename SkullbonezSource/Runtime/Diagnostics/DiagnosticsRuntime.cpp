@@ -34,7 +34,6 @@ Related:
 #include "OverlayDebugState.h"
 #include "../../Physics/PhysicsDebugData.h"
 #include "../../Rendering/DX12/Dx12Diagnostics.h"
-#include "../../UI/UI.h"
 
 #include <cstddef>
 #include <cstdio>
@@ -381,8 +380,7 @@ void WriteReplayTrajectoryCounters( FILE* file, const SkullbonezCore::Core::Main
 }
 } // namespace
 
-DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( UI::InGameUI& ui, OverlayDebugState& debug,
-                                                                         double nowSeconds,
+DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( OverlayDebugState& debug,
                                                                          DiagnosticsUiKeyboardCommand command,
                                                                          bool wasPressed )
 {
@@ -407,17 +405,14 @@ DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( UI::InG
         result.markInteractiveRun = true;
         result.disableExitOnComplete = true;
         result.disableCaptureAutomationExit = true;
-        ui.ToggleVisible( nowSeconds );
         debug.overlayMode = OverlayMode::None;
         return result;
     case DiagnosticsUiKeyboardCommand::TogglePerformanceHistogram:
 
         // F5/F6 are lightweight diagnostic overlays; they do not implicitly open
         // or close the broader diagnostics window.
-        ui.TogglePerformanceHistogramEnabled();
         return result;
     case DiagnosticsUiKeyboardCommand::ToggleMemoryOverlay:
-        ui.ToggleMemoryOverlayEnabled();
         return result;
     }
 

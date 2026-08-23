@@ -49,7 +49,7 @@ Related:
 #include "../../Rendering/DX12/RenderBackendDX12.h"
 #include "../../Scene/AuthoredScene.h"
 #include "../../Core/WorkerPool.h"
-#include "../../UI/UI.h"
+#include "../UI/GameUI/UI.h"
 #include "../../Core/Profiler.h"
 
 #include <cstdio>

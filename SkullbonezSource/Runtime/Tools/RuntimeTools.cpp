@@ -41,7 +41,7 @@ Related:
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
-#include "../../UI/UICommands.h"
+#include "../Interaction/OperatorUiCommands.h"
 #include "../../UI/UILayout.h"
 #include "../Camera/CameraCollection.h"
 #include "../Input/InputRouter.h"

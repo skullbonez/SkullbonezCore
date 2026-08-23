@@ -35,15 +35,25 @@ namespace Core
 {
 class Profiler;
 }
-namespace UI
-{
-class InGameUI;
-}
 namespace Runtime
 {
 class RuntimeOverlayDiagnostics;
 struct RunLaunchOptions;
 struct RunStartupOverrides;
+
+enum class StartupOperatorUiTab : uint8_t
+{
+    Unchanged,
+    Scene,
+    Keys,
+    Profiler
+};
+
+struct StartupOperatorUiPolicy
+{
+    bool makeVisible = false;
+    StartupOperatorUiTab tab = StartupOperatorUiTab::Unchanged;
+};
 
 struct RuntimeOverlayFramePolicy
 {
@@ -91,8 +101,7 @@ class RuntimeOverlayDiagnostics
   public:
     static std::unique_ptr<RuntimeOverlayDiagnostics> CreateForStartup();
 
-    void ApplyStartupPolicy( const RunStartupOverrides& overrides, RunLaunchOptions& launchOptions,
-                             UI::InGameUI& operatorUi );
+    StartupOperatorUiPolicy ApplyStartupPolicy( const RunStartupOverrides& overrides, RunLaunchOptions& launchOptions );
     RuntimeOverlayFramePolicy BuildFramePolicy( double simulationSeconds, double totalSimulationSeconds ) const;
 
     void ApplyScenePresentation( const OverlayDebugState& scenePresentation );

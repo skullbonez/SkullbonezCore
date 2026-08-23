@@ -21,7 +21,7 @@ Related:
 
 #include "../Camera/RuntimeCameraMode.h"
 #include "InputRouter.h"
-#include "../../UI/OperatorEditorExchange.h"
+#include "../Interaction/OperatorEditorExchange.h"
 #include "../../UI/UIInput.h"
 
 namespace SkullbonezCore::Runtime

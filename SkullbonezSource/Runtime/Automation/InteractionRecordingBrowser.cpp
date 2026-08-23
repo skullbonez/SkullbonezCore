@@ -18,7 +18,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Automation/InteractionRecordingBrowser.h
-  - SkullbonezSource/UI/UISceneNavigationModel.h
+  - SkullbonezSource/Runtime/Scene/SceneNavigationModel.h
   - Agentic/Reference/engine-glossary.md
   - Agentic/Reference/runtime-reference.md
 */
@@ -27,7 +27,7 @@ Related:
 #include "../../Core/Log.h"
 #include "../../Core/PlatformWin32.h"
 #include "../../Core/SbDiagnosticStore.h"
-#include "../../UI/UISceneNavigationModel.h"
+#include "../Scene/SceneNavigationModel.h"
 
 #include <algorithm>
 #include <filesystem>

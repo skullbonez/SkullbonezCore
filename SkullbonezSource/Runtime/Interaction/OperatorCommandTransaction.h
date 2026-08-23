@@ -32,7 +32,7 @@ Related:
 */
 #pragma once
 
-#include "../../UI/UICommands.h"
+#include "OperatorUiCommands.h"
 #include "../../World/WorldEnvironment.h"
 
 #include <cstdint>

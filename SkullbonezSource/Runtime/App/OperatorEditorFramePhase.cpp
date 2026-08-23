@@ -50,8 +50,8 @@ Related:
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Rendering/RenderInstanceStore.h"
-#include "../../UI/UI.h"
-#include "../../UI/UITabEditor.h"
+#include "../UI/GameUI/UI.h"
+#include "../UI/GameUI/UITabEditor.h"
 
 #include <algorithm>
 #include <cstdint>

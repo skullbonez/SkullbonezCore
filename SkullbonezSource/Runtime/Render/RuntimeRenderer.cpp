@@ -51,7 +51,7 @@ Related:
 #include "../../Rendering/RenderGraph.h"
 #include "../../Rendering/RenderInstanceStore.h"
 #include "../../Rendering/RenderPipeline.h"
-#include "../../UI/UI.h"
+#include "../UI/GameUI/UI.h"
 #include "../../World/SkyBox.h"
 #include "../../World/Terrain.h"
 #include "../../World/WorldEnvironment.h"

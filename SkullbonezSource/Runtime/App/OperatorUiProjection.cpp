@@ -49,8 +49,8 @@ Related:
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Physics/PhysicsDebugData.h"
 #include "../../Rendering/DX12/Dx12Diagnostics.h"
-#include "../../UI/UI.h"
-#include "../../UI/UIFrameComposition.h"
+#include "../UI/GameUI/UI.h"
+#include "../UI/GameUI/UIFrameComposition.h"
 
 #include <algorithm>
 

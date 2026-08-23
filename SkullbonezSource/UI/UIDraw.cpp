@@ -37,6 +37,21 @@ bool UIRect::Contains( int px, int py ) const
            static_cast<float>( py ) <= y + h;
 }
 
+UIRect IntersectRect( const UIRect& leftRect, const UIRect& rightRect )
+{
+    const float left = (std::max)( leftRect.x, rightRect.x );
+    const float top = (std::max)( leftRect.y, rightRect.y );
+    const float right = (std::min)( leftRect.x + leftRect.w, rightRect.x + rightRect.w );
+    const float bottom = (std::min)( leftRect.y + leftRect.h, rightRect.y + rightRect.h );
+
+    if ( right <= left || bottom <= top )
+    {
+        return {};
+    }
+
+    return { left, top, right - left, bottom - top };
+}
+
 
 UIDrawContext::UIDrawContext( int screenW, int screenH, UIDrawList& drawList )
 {

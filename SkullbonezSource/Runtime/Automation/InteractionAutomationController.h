@@ -65,7 +65,7 @@ Related:
 #include "../Camera/DemoDirector.h"
 #include "../Camera/RuntimeCameraMode.h"
 #include "../Replay/ReplayCoordination.h"
-#include "../../UI/OperatorEditorExchange.h"
+#include "../Interaction/OperatorEditorExchange.h"
 
 #include <string>
 #include <string_view>

@@ -23,7 +23,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneNavigationModel.cpp
 */
 #include "SceneController.h"
-#include "../../UI/UICommands.h"
+#include "../Interaction/OperatorUiCommands.h"
 
 namespace SkullbonezCore
 {

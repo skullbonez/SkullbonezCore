@@ -47,13 +47,13 @@ Related:
 #include "../../Rendering/DX12/Dx12Diagnostics.h"
 #include "../../Rendering/DX12/RenderBackendDX12.h"
 #include "../../Rendering/Text.h"
-#include "../../UI/UI.h"
+#include "../UI/GameUI/UI.h"
 #include "../../UI/UIDraw.h"
 #include "../../UI/UIDrawList.h"
 #include "../../UI/UIDrawWidgets.h"
-#include "../../UI/UIFrameComposition.h"
+#include "../UI/GameUI/UIFrameComposition.h"
 #include "../../UI/UIFontMetrics.h"
-#include "../../UI/UIProfilerOverlayPresenter.h"
+#include "UIProfilerOverlayPresenter.h"
 #include "../../UI/UIStyle.h"
 
 #include <algorithm>

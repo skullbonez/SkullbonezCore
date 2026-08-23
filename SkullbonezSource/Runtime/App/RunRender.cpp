@@ -39,7 +39,7 @@ Related:
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
 #include "../Scene/SceneCinematicPolicy.h"
-#include "../../UI/UI.h"
+#include "../UI/GameUI/UI.h"
 
 using namespace SkullbonezCore::Runtime;
 using SkullbonezCore::Math::Vector::Vector3;

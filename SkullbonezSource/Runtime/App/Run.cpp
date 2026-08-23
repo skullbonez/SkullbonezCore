@@ -47,7 +47,7 @@ Related:
 #include "../../Physics/PhysicsTimestep.h"
 #include "../../Rendering/DX12/Dx12Diagnostics.h"
 #include "../../Rendering/DX12/RenderBackendDX12.h"
-#include "../../UI/UI.h"
+#include "../UI/GameUI/UI.h"
 #include "../../World/Terrain.h"
 
 #include <cmath>
@@ -546,7 +546,25 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
 #endif
         } );
 
-    m_overlayDiagnostics->ApplyStartupPolicy( overrides, m_launchOptions, *m_operatorUi );
+    const StartupOperatorUiPolicy startupUiPolicy = m_overlayDiagnostics->ApplyStartupPolicy( overrides, m_launchOptions );
+    if ( startupUiPolicy.makeVisible )
+    {
+        m_operatorUi->SetVisible( true );
+    }
+    switch ( startupUiPolicy.tab )
+    {
+    case StartupOperatorUiTab::Scene:
+        m_operatorUi->SetActiveTab( SkullbonezCore::UI::InGameUITab::Scene );
+        break;
+    case StartupOperatorUiTab::Keys:
+        m_operatorUi->SetActiveTab( SkullbonezCore::UI::InGameUITab::Keys );
+        break;
+    case StartupOperatorUiTab::Profiler:
+        m_operatorUi->SetActiveTab( SkullbonezCore::UI::InGameUITab::Profiler );
+        break;
+    case StartupOperatorUiTab::Unchanged:
+        break;
+    }
 #ifdef _DEBUG
     ApplyStartupDiagnosticsPolicy( overrides, m_diagnosticsRuntime, m_sceneController.Scene().Physics() );
 #endif

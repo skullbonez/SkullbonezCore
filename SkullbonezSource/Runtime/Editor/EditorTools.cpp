@@ -30,8 +30,7 @@ Related:
 #include "../../Scene/SceneSnapshotWriter.h"
 #include "../Scene/SceneController.h"
 #include "../Interaction/RuntimeInteractionCommands.h"
-#include "../../UI/UICommands.h"
-#include "../../UI/UITabEditor.h"
+#include "../Interaction/OperatorUiCommands.h"
 #include "../../World/WorldEnvironment.h"
 
 #include <algorithm>

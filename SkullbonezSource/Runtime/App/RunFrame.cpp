@@ -91,8 +91,8 @@ Related:
 #include "../../Physics/PhysicsTimestep.h"
 #include "../../Rendering/RenderInstanceStore.h"
 #include "../../Rendering/DX12/Dx12Diagnostics.h"
-#include "../../UI/UI.h"
-#include "../../UI/UITabEditor.h"
+#include "../UI/GameUI/UI.h"
+#include "../UI/GameUI/UITabEditor.h"
 
 #include <algorithm>
 #include <cmath>

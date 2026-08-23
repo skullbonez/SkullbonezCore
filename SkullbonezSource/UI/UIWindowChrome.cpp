@@ -15,7 +15,6 @@ File : SkullbonezSource / UI / UIWindowChrome.cpp Purpose : Implements window pl
         glossary.md*/
 #include "UIWindowChrome.h"
 #include "UIFontMetrics.h"
-#include "UI.h"
 #include "UIDrawWidgets.h"
 #include "UILayout.h"
 #include "UIStyle.h"
@@ -23,7 +22,6 @@ File : SkullbonezSource / UI / UIWindowChrome.cpp Purpose : Implements window pl
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
-#include <cstring>
 
 namespace SkullbonezCore
 {
@@ -31,62 +29,6 @@ namespace UI
 {
 namespace Chrome
 {
-// Invariant: title fitting preserves the newest suffix and always terminates in
-// the caller's bounded buffer, falling back to an ellipsis when nothing fits.
-void BuildWindowTitle( const InGameUIFrameData& data, char* out, size_t outSize )
-{
-    if ( outSize == 0 )
-    {
-        return;
-    }
-
-    if ( data.sceneMode && data.sceneName && data.sceneName[0] != '\0' )
-    {
-        const int displayedFrame = ( data.testComplete && data.targetFrameCount > 0 &&
-                                     data.currentFrame > data.targetFrameCount )
-                                       ? data.targetFrameCount
-                                       : data.currentFrame;
-
-        if ( data.testComplete )
-        {
-            if ( data.targetFrameCount > 0 )
-            {
-                snprintf( out, outSize, "%s  %d/%d complete", data.sceneName, displayedFrame, data.targetFrameCount );
-            }
-            else
-            {
-                snprintf( out, outSize, "%s  complete", data.sceneName );
-            }
-        }
-        else if ( data.targetFrameCount > 0 )
-        {
-            snprintf( out, outSize, "%s  %d/%d", data.sceneName, displayedFrame, data.targetFrameCount );
-        }
-        else
-        {
-            snprintf( out, outSize, "%s", data.sceneName );
-        }
-    }
-    else
-    {
-        snprintf( out, outSize, "Skullbonez Core" );
-    }
-
-    out[outSize - 1] = '\0';
-
-    const char* runtimeMode = data.runtimeInputModeLabel ? data.runtimeInputModeLabel : "";
-
-    if ( runtimeMode[0] != '\0' && std::strcmp( runtimeMode, "Scene" ) != 0 )
-    {
-        char base[192] = {};
-
-        strcpy_s( base, sizeof( base ), out );
-        snprintf( out, outSize, "%s  [%s]", base, runtimeMode );
-        out[outSize - 1] = '\0';
-    }
-}
-
-
 void FitTitleText( char* text, size_t textSize, float fontSize, float maxWidth )
 {
     if ( textSize == 0 || UIFontMetrics::MeasureText( fontSize, text ) <= maxWidth )

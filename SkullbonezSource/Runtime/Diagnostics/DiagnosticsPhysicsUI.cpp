@@ -25,7 +25,7 @@ Related:
 
 #include "OverlayDebugState.h"
 #include "../../Physics/PhysicsDebugData.h"
-#include "../../UI/UICommands.h"
+#include "../Interaction/OperatorUiCommands.h"
 
 #include <algorithm>
 #include <cstdint>

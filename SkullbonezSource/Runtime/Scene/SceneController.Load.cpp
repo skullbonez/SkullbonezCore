@@ -62,7 +62,7 @@ Related:
 #include "../../Rendering/DX12/Dx12FrameOwner.h"
 #include "../../Rendering/RenderRaytracingTypes.h"
 #include "../../Rendering/DX12/Dx12ResourceBuilder.h"
-#include "../../UI/UI.h"
+#include "SceneNavigationModel.h"
 #include "../../Scene/AuthoredScene.h"
 #include "../../Scene/SceneSnapshotWriter.h"
 #include "../../World/Terrain.h"

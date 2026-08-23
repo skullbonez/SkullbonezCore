@@ -28,8 +28,6 @@ namespace SkullbonezCore
 namespace UI
 {
 
-struct InGameUIFrameData;
-
 namespace Chrome
 {
 
@@ -40,7 +38,6 @@ struct TitleButtonRects
     UIRect close;
 };
 
-void BuildWindowTitle( const InGameUIFrameData& data, char* out, size_t outSize );
 void FitTitleText( char* text, size_t textSize, float fontSize, float maxWidth );
 
 UIRect WindowRect( const UIWindowState& window );

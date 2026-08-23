@@ -88,8 +88,6 @@ set(SKULLBONEZ_PORTABLE_CPU_SOURCES
     SkullbonezSource/Scene/AuthoredSceneParserPresentation.cpp
     SkullbonezSource/Scene/AuthoredSceneParserRuntime.cpp
     SkullbonezSource/Scene/StandaloneStyleWriter.cpp
-    SkullbonezSource/UI/OperatorEditorExchange.cpp
-    SkullbonezSource/UI/UI.cpp
     SkullbonezSource/UI/UIBackdropBlur.cpp
     SkullbonezSource/UI/UIButton.cpp
     SkullbonezSource/UI/UICache.cpp
@@ -98,30 +96,15 @@ set(SKULLBONEZ_PORTABLE_CPU_SOURCES
     SkullbonezSource/UI/UIDraw.cpp
     SkullbonezSource/UI/UIDrawList.cpp
     SkullbonezSource/UI/UIDrawWidgets.cpp
-    SkullbonezSource/UI/UIEditorMiniPalette.cpp
-    SkullbonezSource/UI/UIEditorMiniPaletteDraw.cpp
     SkullbonezSource/UI/UIFontMetrics.cpp
-    SkullbonezSource/UI/UIFrameComposition.cpp
     SkullbonezSource/UI/UIIconButton.cpp
     SkullbonezSource/UI/UIInput.cpp
     SkullbonezSource/UI/UILayout.cpp
-    SkullbonezSource/UI/UIProfilerOverlayPresenter.cpp
     SkullbonezSource/UI/UIScrollBar.cpp
     SkullbonezSource/UI/UISlider.cpp
     SkullbonezSource/UI/UIStyle.cpp
     SkullbonezSource/UI/UITabBar.cpp
-    SkullbonezSource/UI/UITabCinematic.cpp
-    SkullbonezSource/UI/UITabControls.cpp
-    SkullbonezSource/UI/UITabEditor.cpp
-    SkullbonezSource/UI/UITabMemory.cpp
-    SkullbonezSource/UI/UITabOptions.cpp
-    SkullbonezSource/UI/UITabPhysics.cpp
-    SkullbonezSource/UI/UITabProfiler.cpp
-    SkullbonezSource/UI/UITabProfilerHistogram.cpp
-    SkullbonezSource/UI/UITabScene.cpp
-    SkullbonezSource/UI/UITabSky.cpp
     SkullbonezSource/UI/UIWindowChrome.cpp
-    SkullbonezSource/UI/UIWindowInteractionOwner.cpp
     SkullbonezSource/World/Terrain.cpp
 )
 
@@ -152,7 +135,6 @@ set(SKULLBONEZ_PORTABLE_TEST_SOURCES
     SkullbonezTests/TestSolverBroadphaseStage.cpp
     SkullbonezTests/TestSpatialGrid.cpp
     SkullbonezTests/TestTerrain.cpp
-    SkullbonezTests/TestUIDrawValues.cpp
     SkullbonezTests/TestVector3.cpp
 )
 

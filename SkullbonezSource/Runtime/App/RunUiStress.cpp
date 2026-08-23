@@ -24,7 +24,7 @@ Related:
 #include "../Startup/Window.h"
 #include "../../Core/SbResult.h"
 #include "../../Rendering/DX12/RenderDeviceDX12.h"
-#include "../../UI/UI.h"
+#include "../UI/GameUI/UI.h"
 
 namespace SkullbonezCore::Runtime
 {

@@ -44,7 +44,7 @@ Related:
 #include "../../Rendering/DX12/FramebufferDX12.h"
 #include "../../Rendering/Shadow.h"
 #include "../../Rendering/Text.h"
-#include "../../UI/UI.h"
+#include "../UI/GameUI/UI.h"
 #include "../../UI/UIDrawList.h"
 #include "RenderPresentationSettings.h"
 #include "RuntimeRenderHost.h"
