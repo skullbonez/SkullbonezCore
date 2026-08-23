@@ -343,7 +343,6 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.Creation.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneGeneratedSetup.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.Navigation.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRequestExecution.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RenderDefaultsStore.Persistence.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneGeneratedControlTransaction.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneLoadTransaction.Preparation.cpp" />
@@ -656,6 +655,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneGeneratedControlTransaction.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneLoadPreparation.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneResetPreservation.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRenderPolicy.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneCinematicPolicy.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneLoadPresentation.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.h" />

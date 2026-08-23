@@ -64,6 +64,8 @@ struct SceneLoadResult
     SceneLoadNavigationState navigation;
     OverlayDebugState presentation;
     CameraControlState camera;
+    SceneRenderPolicyState renderPolicy;
+    SceneRenderActivationRequest renderActivation;
     std::array<SceneLoadCompletedWorldChange, 2> completedWorldChanges = {};
     std::size_t completedWorldChangeCount = 0;
     SceneRequestBatch completedRequests;
@@ -130,7 +132,8 @@ class SceneLoadTransaction
     // Captures detached per-batch values before any request is executed.
     // Concrete load owners are still borrowed only by Load below.
     void CaptureSubmittedState( const CameraControlState& camera, const SceneLoadNavigationState& navigation,
-                                const OverlayDebugState& debug, const char* rendererName, double sceneTimeSeconds );
+                                const OverlayDebugState& debug, SceneRenderPolicyState renderPolicy,
+                                const char* rendererName, double sceneTimeSeconds );
 
     SkullbonezCore::Core::SbResult Load( SceneController& sceneController, const SceneLoadRequest& request,
                                          SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions,
@@ -138,7 +141,27 @@ class SceneLoadTransaction
                                          const RunStartupState& startup, Assets::AssetSystem& assets,
                                          Threading::WorkerPool& workerPool, DiagnosticsRuntime& diagnosticsRuntime,
                                          Rendering::Dx12FrameOwner* renderFrame,
-                                         Rendering::Dx12ResourceBuilder* renderResources, RuntimeRenderer& renderer );
+                                         Rendering::Dx12ResourceBuilder* renderResources );
+
+    const SceneRenderPolicyState& RenderPolicy() const
+    {
+        return m_outputs.renderPolicy;
+    }
+    const SceneRenderActivationRequest& RenderActivation() const
+    {
+        return m_outputs.renderActivation;
+    }
+    void CompleteRenderActivation( SceneController& sceneController );
+    const CameraControlState& CurrentCamera() const
+    {
+        return m_outputs.camera;
+    }
+    void SetRefreshSceneBrowser( bool refresh )
+    {
+        m_outputs.refreshSceneBrowser = refresh;
+    }
+    void RecordCompletedRequest( const SceneRequest& request );
+    void FinishRequestBatch();
 
     // App advances each checkpoint and synchronously applies this immutable
     // result to the concrete owners. The transaction retains values only.
@@ -177,11 +200,10 @@ class SceneLoadTransaction
 
     // A request batch with no transition still completes a load phase so every
     // caller follows the same reaction/presentation schedule.
-    void FinishLoadPhase();
     void AdvanceOrFatal( SceneLoadPhaseCursor::Phase next, const char* operation );
     static SceneLoadBeginResult PrepareLoad( const SceneController& controller,
                                              const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                                             const RuntimeRenderer& renderer, const OverlayDebugState& debug,
+                                             SceneRenderPolicyState renderPolicy, const OverlayDebugState& debug,
                                              const CameraControlState& camera, Rendering::Dx12FrameOwner* renderFrame,
                                              bool interactiveSceneRunRequested, int index, bool suppressExitOnComplete,
                                              bool preserveRuntimeState );
@@ -189,10 +211,10 @@ class SceneLoadTransaction
                             const SceneLoadBeginResult& prepared );
     static SceneResetPreservationSnapshot
     CaptureResetSnapshot( const SceneController& controller, const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                          const RuntimeRenderer& renderer, const OverlayDebugState& debug,
+                          SceneRenderPolicyState renderPolicy, const OverlayDebugState& debug,
                           const CameraControlState& camera );
     static void RestoreResetSnapshot( SceneController& controller, SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                                      RuntimeRenderer& renderer, OverlayDebugState& debug, CameraControlState& camera,
+                                      SceneRenderPolicyState& renderPolicy, OverlayDebugState& debug, CameraControlState& camera,
                                       const SceneResetPreservationSnapshot& snapshot, bool suppressExitOnComplete );
     static void ClearUiOverrides( SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides );
     static void PrepareUiOptions( DiagnosticsRuntime& diagnostics, OverlayDebugState& debug, SceneUiActivation& activation,

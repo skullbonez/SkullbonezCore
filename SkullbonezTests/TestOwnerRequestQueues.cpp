@@ -126,6 +126,13 @@ struct SceneLoadTransactionTestAccess
     {
         return transaction.m_phase.TryAdvance( SceneLoadPhaseCursor::Phase::Load );
     }
+
+    static void SetRenderValues( SceneLoadTransaction& transaction, SceneRenderPolicyState policy,
+                                 SceneRenderActivationRequest activation )
+    {
+        transaction.m_outputs.renderPolicy = policy;
+        transaction.m_outputs.renderActivation = activation;
+    }
 };
 
 struct SceneGeneratedControlTransactionTestAccess
@@ -1073,6 +1080,32 @@ TEST_CASE( "Scene request batches stop after a failed transition" )
     CHECK_FALSE( SceneRequestBatchContinuesAfter( SceneRequestType::LoadBrowserIndex, false ) );
     CHECK_FALSE( SceneRequestBatchContinuesAfter( SceneRequestType::CreateScene, false ) );
     CHECK( SceneRequestBatchContinuesAfter( SceneRequestType::SaveCurrentDefaults, false ) );
+}
+
+TEST_CASE( "Scene render activation gates transition completion before a queued save" )
+{
+    CHECK_FALSE( SceneRenderActivationCompletesTransition( false, false, true ) );
+    CHECK( SceneRenderActivationCompletesTransition( true, false, false ) );
+    CHECK_FALSE( SceneRenderActivationCompletesTransition( true, true, false ) );
+    CHECK( SceneRenderActivationCompletesTransition( true, true, true ) );
+
+    CHECK_FALSE( SceneRequestBatchContinuesAfter(
+        SceneRequestType::LoadBrowserIndex,
+        SceneRenderActivationCompletesTransition( true, true, false ) ) );
+    CHECK( SceneRequestBatchContinuesAfter(
+        SceneRequestType::LoadBrowserIndex,
+        SceneRenderActivationCompletesTransition( true, true, true ) ) );
+}
+
+TEST_CASE( "Scene load transaction publishes detached render policy and activation capacity" )
+{
+    SceneLoadTransaction transaction;
+    SceneLoadTransactionTestAccess::SetRenderValues( transaction, { false, true }, { 8192, true } );
+
+    CHECK_FALSE( transaction.RenderPolicy().vsyncEnabled );
+    CHECK( transaction.RenderPolicy().pipelineSyncEnabled );
+    CHECK( transaction.RenderActivation().pending );
+    CHECK( transaction.RenderActivation().sceneObjectCapacity == 8192 );
 }
 
 TEST_CASE( "Scene request execution saves navigation committed by an earlier load" )

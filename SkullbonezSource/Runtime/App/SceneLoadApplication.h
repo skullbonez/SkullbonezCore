@@ -123,6 +123,12 @@ inline bool ApplySceneActivationInputReaction( const SceneLifecyclePacket& lifec
     return true;
 }
 
+constexpr bool SceneRenderActivationCompletesTransition( bool sceneMutationSucceeded, bool activationPending,
+                                                         bool renderActivationSucceeded )
+{
+    return sceneMutationSucceeded && ( !activationPending || renderActivationSucceeded );
+}
+
 void ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction, const RunLaunchOptions& launchOptions,
                                      RuntimeOverlayDiagnostics& overlays,
                                      SceneLifecycleGenerationObserver& overlayLifecycle, SceneController& sceneController,

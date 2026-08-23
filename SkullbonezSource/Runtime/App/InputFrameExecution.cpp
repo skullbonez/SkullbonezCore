@@ -287,7 +287,6 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
     InputRouter& inputRouter = m_inputRouter;
     SkullbonezCore::Core::EngineConfig& config = m_config;
     RunLaunchOptions& launchOptions = m_launchOptions;
-    const RunStartupState& startup = m_startup;
     RuntimeFrameMetricsOwner& timers = m_timers;
     CameraControlState& camera = m_camera;
     RuntimeOverlayPresentationEdit presentationEdit = m_overlayDiagnostics->EditPresentation();
@@ -629,13 +628,10 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
         presentationEdit.Commit();
         SceneLoadTransaction sceneLoad;
         sceneLoad.CaptureSubmittedState( camera, CaptureSceneLoadNavigationState( ui.SceneNavigation() ), debug,
+                                         { renderer.VsyncEnabled(), renderer.PipelineSyncEnabled() },
                                          renderer.RendererName(), timers.SimulationTotalSeconds() );
 
-        const bool loaded = sceneLoad
-                                .Load( sceneController, request, config, launchOptions, renderDefaults.CinematicBaseline(),
-                                       startup, assets, workerPool, diagnosticsRuntime, &renderer.RenderFrame(),
-                                       &renderer.RenderResources(), renderer )
-                                .Ok();
+        const bool loaded = LoadSceneRequest( sceneLoad, request ).Ok();
 
         ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, sceneController.LifecyclePacket(), timers );
         ApplySceneLoadRuntimeReactions( sceneLoad, launchOptions, *m_overlayDiagnostics,
@@ -1430,13 +1426,11 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
     }
 
     SceneLoadTransaction sceneLoad;
-    sceneLoad.CaptureSubmittedState( camera, sceneLoadNavigation, debug, renderer.RendererName(),
-                                     timers.SimulationTotalSeconds() );
+    sceneLoad.CaptureSubmittedState( camera, sceneLoadNavigation, debug,
+                                     { renderer.VsyncEnabled(), renderer.PipelineSyncEnabled() },
+                                     renderer.RendererName(), timers.SimulationTotalSeconds() );
 
-    const bool processedScene = sceneController.ExecutePending( sceneLoad, config, launchOptions,
-                                                                renderDefaults.CinematicBaseline(), startup, assets,
-                                                                workerPool, diagnosticsRuntime, &renderer.RenderFrame(),
-                                                                &renderer.RenderResources(), renderer );
+    const bool processedScene = ExecutePendingSceneRequests( sceneLoad );
 
     ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, sceneController.LifecyclePacket(), timers );
     ApplySceneLoadRuntimeReactions( sceneLoad, launchOptions, *m_overlayDiagnostics,

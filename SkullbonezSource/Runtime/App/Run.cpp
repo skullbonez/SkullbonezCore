@@ -743,12 +743,10 @@ void Run::Initialise()
 
     SceneLoadTransaction sceneLoad;
     sceneLoad.CaptureSubmittedState( m_camera, sceneLoadNavigation, m_overlayDiagnostics->PresentationSnapshot(),
+                                     { Renderer().VsyncEnabled(), Renderer().PipelineSyncEnabled() },
                                      Renderer().RendererName(), m_timers.SimulationTotalSeconds() );
 
-    m_lastSceneLoadResult = sceneLoad.Load( m_sceneController, SceneLoadRequest::Load( 0, false, false, false ), m_config,
-                                            m_launchOptions, m_renderDefaults.CinematicBaseline(), m_startup, m_assets,
-                                            m_workerPool, m_diagnosticsRuntime, &Renderer().RenderFrame(),
-                                            &Renderer().RenderResources(), Renderer() );
+    m_lastSceneLoadResult = LoadSceneRequest( sceneLoad, SceneLoadRequest::Load( 0, false, false, false ) );
 
     ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, m_sceneController.LifecyclePacket(), m_timers );
     ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics,
@@ -924,16 +922,13 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
     {
         SceneLoadTransaction sceneLoad;
         sceneLoad.CaptureSubmittedState( m_camera, CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
-                                         m_overlayDiagnostics->PresentationSnapshot(), Renderer().RendererName(),
+                                         m_overlayDiagnostics->PresentationSnapshot(),
+                                         { Renderer().VsyncEnabled(), Renderer().PipelineSyncEnabled() },
+                                         Renderer().RendererName(),
                                          m_timers.SimulationTotalSeconds() );
 
-        const SkullbonezCore::Core::SbResult loadResult = sceneLoad.Load( m_sceneController,
-                                                                          SceneLoadRequest::Load( i, false, false, false ),
-                                                                          m_config, m_launchOptions,
-                                                                          m_renderDefaults.CinematicBaseline(), m_startup,
-                                                                          m_assets, m_workerPool, m_diagnosticsRuntime,
-                                                                          &Renderer().RenderFrame(),
-                                                                          &Renderer().RenderResources(), Renderer() );
+        const SkullbonezCore::Core::SbResult loadResult =
+            LoadSceneRequest( sceneLoad, SceneLoadRequest::Load( i, false, false, false ) );
 
         ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, m_sceneController.LifecyclePacket(), m_timers );
         ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics,

@@ -21,9 +21,9 @@ Related:
 #pragma once
 
 #include "SceneControllerState.h"
+#include "SceneRenderPolicy.h"
 #include "../Camera/CameraControlState.h"
 #include "../Diagnostics/OverlayDebugState.h"
-#include "../Render/RenderPresentationSettings.h"
 #include "../../Gameplay/TornadoField.h"
 #include "../../Gameplay/TornadoVisualPass.h"
 #include "../../Core/Config.h"
@@ -39,14 +39,13 @@ class WorldEnvironment;
 namespace Runtime
 {
 class SceneController;
-class RuntimeRenderer;
 struct SceneSessionState;
 
 // Captures the part of a live run that belongs to the operator's current scene
 // configuration rather than the simulation instance.
 struct SceneResetPreservationSnapshot
 {
-    RenderPresentationSettings renderPresentation; // Renderer-owned values restored after the new scene is populated.
+    SceneRenderPolicyState renderPolicy;            // Detached render policy restored by App after population.
     bool physicsSleepEnabled = true;
     Gameplay::TornadoFieldConfig tornadoField;
     Gameplay::TornadoSystemConfig tornadoSystem;

@@ -87,7 +87,7 @@ class SceneRequestQueue
                                            const SceneRequest& request );
     SceneRequestBatch TakePending();
 
-    // Lets App cancel scene-local sibling state before ExecutePending begins a
+    // Lets App cancel scene-local sibling state before request execution begins a
     // queued transition; the queue and request values remain owned here.
     bool HasTransition() const;
     std::size_t Size() const;

@@ -116,7 +116,7 @@ int SceneBrowserIndexForPath( const std::vector<std::string>& browserPaths, cons
 
 SceneLoadBeginResult SceneLoadTransaction::PrepareLoad( const SceneController& controller,
                                                         const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                                                        const RuntimeRenderer& renderer, const OverlayDebugState& debug,
+                                                        SceneRenderPolicyState renderPolicy, const OverlayDebugState& debug,
                                                         const CameraControlState& camera,
                                                         Rendering::Dx12FrameOwner* renderFrame,
                                                         bool interactiveSceneRunRequested, int index,
@@ -152,7 +152,7 @@ SceneLoadBeginResult SceneLoadTransaction::PrepareLoad( const SceneController& c
     {
         // Lifetime: Snapshot before BeginLoad mutates scene bookkeeping so the
         // restore policy sees the live operator-owned state from the old run.
-        result.resetSnapshot = CaptureResetSnapshot( controller, uiOverrides, renderer, debug, camera );
+        result.resetSnapshot = CaptureResetSnapshot( controller, uiOverrides, renderPolicy, debug, camera );
     }
 
     result.shouldLoad = true;

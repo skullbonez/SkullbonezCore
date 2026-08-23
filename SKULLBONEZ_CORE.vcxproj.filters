@@ -306,9 +306,6 @@
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.Navigation.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRequestExecution.cpp">
-      <Filter>Source Files\Scene</Filter>
-    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Render\RenderDefaultsStore.Persistence.cpp">
       <Filter>Source Files\Runtime\Render</Filter>
     </ClCompile>
@@ -1205,6 +1202,9 @@
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneResetPreservation.h">
+      <Filter>Header Files\Runtime\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRenderPolicy.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneCinematicPolicy.h">

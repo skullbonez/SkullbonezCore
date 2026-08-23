@@ -670,15 +670,12 @@ Run::FrameRenderPhaseResult Run::PrepareRenderPhase( bool gameUiActive, const Fr
             PrepareSceneScopedOwnersForTransition();
             SceneLoadTransaction sceneLoad;
             sceneLoad.CaptureSubmittedState( m_camera, CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
-                                             m_overlayDiagnostics->PresentationSnapshot(), Renderer().RendererName(),
+                                             m_overlayDiagnostics->PresentationSnapshot(),
+                                             { Renderer().VsyncEnabled(), Renderer().PipelineSyncEnabled() },
+                                             Renderer().RendererName(),
                                              m_timers.SimulationTotalSeconds() );
 
-            const bool loaded = sceneLoad
-                                    .Load( m_sceneController, stressLoad.request, m_config, m_launchOptions,
-                                           m_renderDefaults.CinematicBaseline(), m_startup, m_assets, m_workerPool,
-                                           m_diagnosticsRuntime, &Renderer().RenderFrame(), &Renderer().RenderResources(),
-                                           Renderer() )
-                                    .Ok();
+            const bool loaded = LoadSceneRequest( sceneLoad, stressLoad.request ).Ok();
 
             if ( !gameUiActive )
             {
@@ -1371,15 +1368,12 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
             PrepareSceneScopedOwnersForTransition();
             SceneLoadTransaction sceneLoad;
             sceneLoad.CaptureSubmittedState( m_camera, CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
-                                             m_overlayDiagnostics->PresentationSnapshot(), Renderer().RendererName(),
+                                             m_overlayDiagnostics->PresentationSnapshot(),
+                                             { Renderer().VsyncEnabled(), Renderer().PipelineSyncEnabled() },
+                                             Renderer().RendererName(),
                                              m_timers.SimulationTotalSeconds() );
 
-            advanced = sceneLoad
-                           .Load( m_sceneController, request, m_config, m_launchOptions,
-                                  m_renderDefaults.CinematicBaseline(), m_startup, m_assets, m_workerPool,
-                                  m_diagnosticsRuntime, &Renderer().RenderFrame(), &Renderer().RenderResources(),
-                                  Renderer() )
-                           .Ok();
+            advanced = LoadSceneRequest( sceneLoad, request ).Ok();
 
             ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, m_sceneController.LifecyclePacket(),
                                                m_timers );
@@ -1506,15 +1500,12 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
         PrepareSceneScopedOwnersForTransition();
         SceneLoadTransaction sceneLoad;
         sceneLoad.CaptureSubmittedState( m_camera, CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
-                                         m_overlayDiagnostics->PresentationSnapshot(), Renderer().RendererName(),
+                                         m_overlayDiagnostics->PresentationSnapshot(),
+                                         { Renderer().VsyncEnabled(), Renderer().PipelineSyncEnabled() },
+                                         Renderer().RendererName(),
                                          m_timers.SimulationTotalSeconds() );
 
-        loadSucceeded = sceneLoad
-                            .Load( m_sceneController, result.loadRequest, m_config, m_launchOptions,
-                                   m_renderDefaults.CinematicBaseline(), m_startup, m_assets, m_workerPool,
-                                   m_diagnosticsRuntime, &Renderer().RenderFrame(), &Renderer().RenderResources(),
-                                   Renderer() )
-                            .Ok();
+        loadSucceeded = LoadSceneRequest( sceneLoad, result.loadRequest ).Ok();
 
         ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, m_sceneController.LifecyclePacket(), m_timers );
         ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics,

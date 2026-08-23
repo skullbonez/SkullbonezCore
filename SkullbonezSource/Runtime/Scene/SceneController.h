@@ -35,6 +35,7 @@ Related:
 #include "SceneSessionState.h"
 #include "SceneLoadRequest.h"
 #include "SceneLoadPresentation.h"
+#include "SceneRenderPolicy.h"
 #include "SceneWorld.h"
 #include "../Camera/CameraControlState.h"
 #include "../Diagnostics/OverlayDebugState.h"
@@ -87,7 +88,6 @@ namespace Runtime
 class AuthoredScene;
 class DiagnosticsRuntime;
 struct SceneAutomationGateStatus;
-class RuntimeRenderer;
 class SceneLoadTransaction;
 class SimulationSystem;
 struct AttachedCameraState;
@@ -127,7 +127,7 @@ struct SceneDefaultsSaveView
     // Lifetime: every owner is borrowed only for one synchronous cold save.
     // The writer retains no pointers across a scene reload.
     const OverlayDebugState& debug;
-    const RuntimeRenderer& renderer;
+    SceneRenderPolicyState renderPolicy;
     const CameraControlState& camera;
     const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides;
 };
@@ -181,15 +181,6 @@ class SceneController : public SceneSession
                              const Assets::AssetSystem& assets, SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
                              const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic );
 
-    // Executes the fixed pending batch inside the scene owner. Replay records
-    // only requests whose operation completes successfully. The transaction
-    // owns outputs and enforces the later reaction/presentation phases.
-    bool ExecutePending( SceneLoadTransaction& transaction, SkullbonezCore::Core::EngineConfig& config,
-                         RunLaunchOptions& launchOptions,
-                         const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender,
-                         const RunStartupState& startup, Assets::AssetSystem& assets, Threading::WorkerPool& workerPool,
-                         DiagnosticsRuntime& diagnosticsRuntime, Rendering::Dx12FrameOwner* renderFrame,
-                         Rendering::Dx12ResourceBuilder* renderResources, RuntimeRenderer& renderer );
     SkullbonezCore::Core::SbResult SaveCurrentDefaults( const SceneDefaultsSaveView& view ) const;
 
     // Scene request submission and ordered batch execution stay owner-specific;
@@ -220,7 +211,7 @@ class SceneController : public SceneSession
     Load( const SceneLoadRequest& request, SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions,
           const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender, const RunStartupState& startup,
           Assets::AssetSystem& assets, Threading::WorkerPool& workerPool, DiagnosticsRuntime& diagnosticsRuntime,
-          Rendering::Dx12FrameOwner* renderFrame, Rendering::Dx12ResourceBuilder* renderResources, RuntimeRenderer& renderer,
+          Rendering::Dx12FrameOwner* renderFrame, Rendering::Dx12ResourceBuilder* renderResources,
           SceneLoadTransaction& transaction );
 
     SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;

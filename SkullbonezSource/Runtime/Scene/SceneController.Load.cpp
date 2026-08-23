@@ -6,13 +6,12 @@ Purpose:
 Summary:
   SceneController owns cold scene mutation and borrows only the owners needed
 
-  while storage changes. SceneLoadTransaction owns the phase cursor
-  and detached outputs, then sequences idempotent reactions at the excluded
-  camera, input, interaction, tool, Replay, UI, and validation owners.
+  while storage changes. SceneLoadTransaction owns the phase cursor and
+  detached outputs; App applies Render activation before sequencing reactions.
 
 Glossary:
-  Render setup owners: Exact DX12 frame-drain and cold resource-build
-    capabilities plus the runtime renderer used during scene replacement.
+  Render setup values: Exact DX12 frame-drain/resource-build borrows plus the
+    detached policy and activation request returned to App.
   Required scene contact: Authored pair gate that marks a scenario objective
     once two bodies have produced an exact contact.
   Authored projection: Cold-load, field-by-field copy from parser DTOs into an
@@ -21,8 +20,7 @@ Glossary:
 Invariants:
   - Command-line and scene-file spellings are user-facing compatibility
     surface.
-  - DXR reflection setup may run only after RuntimeRenderer binds every concrete
-    DX12 owner needed by scene population.
+  - Scene activation is published only after App completes Render-owned DXR setup.
   - Scene/model/terrain destruction starts only after a successful GPU drain.
   - Load orchestration retains no caller pointer, callback, or mutable owner bag.
   - Tornado projection copies every authored field here so Gameplay never
@@ -50,7 +48,6 @@ Related:
 #include "../Startup/RunStartupState.h"
 
 
-#include "../Render/RuntimeRenderer.h"
 #include "../Simulation/SimulationSystem.h"
 #include "SceneLoadRequest.h"
 #include "SceneLoadPreparation.h"
@@ -526,6 +523,8 @@ void SceneLoadResult::ResetForLoad()
     navigation = SceneLoadNavigationState {};
     presentation = OverlayDebugState {};
     camera = CameraControlState {};
+    renderPolicy = SceneRenderPolicyState {};
+    renderActivation = SceneRenderActivationRequest {};
     completedWorldChanges = {};
     completedWorldChangeCount = 0;
     completedRequests = SceneRequestBatch {};
@@ -549,11 +548,11 @@ void SceneLoadTransaction::AdvanceOrFatal( SceneLoadPhaseCursor::Phase next, con
 }
 
 
-void SceneLoadTransaction::FinishLoadPhase()
+void SceneLoadTransaction::FinishRequestBatch()
 {
     if ( m_phase.Current() == SceneLoadPhaseCursor::Phase::Idle )
     {
-        AdvanceOrFatal( SceneLoadPhaseCursor::Phase::Load, "FinishLoadPhase" );
+        AdvanceOrFatal( SceneLoadPhaseCursor::Phase::Load, "FinishRequestBatch" );
         return;
     }
 
@@ -567,7 +566,8 @@ void SceneLoadTransaction::FinishLoadPhase()
 
 void SceneLoadTransaction::CaptureSubmittedState( const CameraControlState& camera,
                                                   const SceneLoadNavigationState& navigation, const OverlayDebugState& debug,
-                                                  const char* rendererName, double sceneTimeSeconds )
+                                                  SceneRenderPolicyState renderPolicy, const char* rendererName,
+                                                  double sceneTimeSeconds )
 {
     // Why: submitted navigation and presentation values own growable cold-load
     // storage. Attribute their copies to SceneLoad even when the transaction is
@@ -586,6 +586,7 @@ void SceneLoadTransaction::CaptureSubmittedState( const CameraControlState& came
     m_outputs.camera = camera;
     m_outputs.navigation = navigation;
     m_outputs.presentation = debug;
+    m_outputs.renderPolicy = renderPolicy;
     sprintf_s( m_rendererName, "%s", rendererName ? rendererName : "unknown" );
     m_sceneTimeSeconds = sceneTimeSeconds;
 }
@@ -597,12 +598,35 @@ SceneLoadTransaction::Load( SceneController& sceneController, const SceneLoadReq
                             const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender,
                             const RunStartupState& startup, Assets::AssetSystem& assets, Threading::WorkerPool& workerPool,
                             DiagnosticsRuntime& diagnosticsRuntime, Rendering::Dx12FrameOwner* renderFrame,
-                            Rendering::Dx12ResourceBuilder* renderResources, RuntimeRenderer& renderer )
+                            Rendering::Dx12ResourceBuilder* renderResources )
 {
     AdvanceOrFatal( SceneLoadPhaseCursor::Phase::Load, "Load" );
     m_request = request;
     return sceneController.Load( request, config, launchOptions, defaultCinematicRender, startup, assets, workerPool,
-                                 diagnosticsRuntime, renderFrame, renderResources, renderer, *this );
+                                 diagnosticsRuntime, renderFrame, renderResources, *this );
+}
+
+
+void SceneLoadTransaction::CompleteRenderActivation( SceneController& sceneController )
+{
+    if ( !m_outputs.renderActivation.pending || m_phase.Current() != SceneLoadPhaseCursor::Phase::Load )
+    {
+        SB_FATAL( "Runtime/SceneLoadTransaction", "Render activation completed without a pending Scene request." );
+    }
+
+    m_outputs.renderActivation.pending = false;
+    sceneController.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneActivated, 0 );
+}
+
+
+void SceneLoadTransaction::RecordCompletedRequest( const SceneRequest& request )
+{
+    if ( m_outputs.completedRequests.count >= SCENE_REQUEST_QUEUE_CAPACITY )
+    {
+        SB_FATAL( "Runtime/SceneLoadTransaction", "Fixed completed scene-request capacity exhausted." );
+    }
+
+    m_outputs.completedRequests.requests[m_outputs.completedRequests.count++] = request;
 }
 
 
@@ -654,7 +678,7 @@ void SceneLoadTransaction::CompletePresentation()
 SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& request, SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions,
                                                       const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender, const RunStartupState& startup,
                                                       Assets::AssetSystem& assets, Threading::WorkerPool& workerPool, DiagnosticsRuntime& diagnosticsRuntime,
-                                                      Rendering::Dx12FrameOwner* renderFrame, Rendering::Dx12ResourceBuilder* renderResources, RuntimeRenderer& renderer,
+                                                      Rendering::Dx12FrameOwner* renderFrame, Rendering::Dx12ResourceBuilder* renderResources,
                                                       SceneLoadTransaction& transaction )
 {
     SceneLoadResult& consumerOutputs = transaction.m_outputs;
@@ -714,7 +738,8 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     const auto SceneState = [this]() -> SceneSessionState& { return State(); };
 
     SkullbonezCore::Core::SbResult lastSceneLoadResult = SkullbonezCore::Core::SbResult::Success();
-    const SceneLoadBeginResult loadBegin = transaction.PrepareLoad( sceneController, sceneNavigation.overrides, renderer,
+    const SceneLoadBeginResult loadBegin = transaction.PrepareLoad( sceneController, sceneNavigation.overrides,
+                                                                    consumerOutputs.renderPolicy,
                                                                     debug, camera, renderFrame,
                                                                     request.enterInteractiveSceneRun ||
                                                                         launchOptions.interactiveSceneRun,
@@ -771,7 +796,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     SceneState().ResetForLoad( config.cinematicRender );
     diagnosticsRuntime.ResetForSceneLoad( m_perfPass + 1 );
     afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics );
-    renderer.ResetSceneRuntimePolicyFromConfig();
+    consumerOutputs.renderPolicy = { config.runtimeRender.vsyncEnabled, config.runtimeRender.forcePipelineSync };
 
     sceneController.Scene().Cameras().Reset();
     sceneController.Scene().Clear();
@@ -929,12 +954,12 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 
         if ( scene.HasVsyncOverride() )
         {
-            renderer.SetVsyncEnabled( scene.IsVsyncEnabled() );
+            consumerOutputs.renderPolicy.vsyncEnabled = scene.IsVsyncEnabled();
         }
 
         if ( scene.HasPipelineSyncOverride() )
         {
-            renderer.SetPipelineSyncEnabled( scene.IsPipelineSyncEnabled() );
+            consumerOutputs.renderPolicy.pipelineSyncEnabled = scene.IsPipelineSyncEnabled();
         }
 
         debug.isTextOnly = scene.IsTextOnly();
@@ -1181,7 +1206,8 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 
     if ( shouldPreserveRuntimeState )
     {
-        transaction.RestoreResetSnapshot( sceneController, sceneNavigation.overrides, renderer, debug, camera, resetSnapshot,
+        transaction.RestoreResetSnapshot( sceneController, sceneNavigation.overrides, consumerOutputs.renderPolicy,
+                                          debug, camera, resetSnapshot,
                                           suppressExitOnComplete );
     }
 
@@ -1343,15 +1369,9 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
                                                    effectiveRenderFrameLockstep );
 #endif
 
-    const SkullbonezCore::Core::SbResult rayTracingResult = renderer.ResourceLifecycle().InitialiseSceneRayTracing( SkullbonezCore::Core::ActiveSceneObjectCapacity( config ) );
-
-    if ( !rayTracingResult.Ok() )
-    {
-        lastSceneLoadResult = rayTracingResult;
-        return lastSceneLoadResult;
-    }
-
-    sceneController.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneActivated, 0 );
+    // App applies Render-owned cold activation synchronously, then calls
+    // CompleteRenderActivation before the request may be recorded or followed by a save.
+    consumerOutputs.renderActivation = { SkullbonezCore::Core::ActiveSceneObjectCapacity( config ), true };
     lastSceneLoadResult = SkullbonezCore::Core::SbResult::Success();
     return lastSceneLoadResult;
 }
@@ -1414,8 +1434,8 @@ SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const Scene
     simulation["physics"] = State().isScenePhysics;
     simulation["text"] = State().isSceneText;
     simulation["textOnly"] = view.debug.isTextOnly;
-    runtime["vsync"] = view.renderer.VsyncEnabled();
-    runtime["pipelineSync"] = view.renderer.PipelineSyncEnabled();
+    runtime["vsync"] = view.renderPolicy.vsyncEnabled;
+    runtime["pipelineSync"] = view.renderPolicy.pipelineSyncEnabled;
     playback["fixedStep"] = State().isFixedStep;
 
     if ( State().targetFrameCount > 0 )

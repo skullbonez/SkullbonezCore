@@ -22,12 +22,14 @@ Related:
 
 #include "InputFrame.h"
 #include "ReplayRuntime.h"
+#include "Run.h"
 #include "../Automation/RuntimeValidationHarness.h"
 #include "../Scene/AttachedCameraController.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "../Input/Input.h"
 #include "../Input/InputRouter.h"
 #include "../Scene/SceneLoadTransaction.h"
+#include "../Render/RuntimeRenderer.h"
 #include "../Startup/RunLaunchOptions.h"
 #include "../Startup/Window.h"
 #include "../Tools/RuntimeTools.h"
@@ -35,6 +37,7 @@ Related:
 #include "../../UI/UI.h"
 
 #include <cstddef>
+#include <cstdio>
 #include <utility>
 
 namespace SkullbonezCore
@@ -148,6 +151,118 @@ void ApplySceneUiActivation( UI::InGameUI& ui, const SceneUiActivation& activati
     }
 }
 } // namespace
+
+
+SkullbonezCore::Core::SbResult Run::LoadSceneRequest( SceneLoadTransaction& transaction,
+                                                      const SceneLoadRequest& request )
+{
+    RuntimeRenderer& renderer = Renderer( "Run::LoadSceneRequest" );
+    SkullbonezCore::Core::SbResult result = transaction.Load(
+        m_sceneController, request, m_config, m_launchOptions, m_renderDefaults.CinematicBaseline(), m_startup, m_assets,
+        m_workerPool, m_diagnosticsRuntime, &renderer.RenderFrame(), &renderer.RenderResources() );
+
+    const SceneRenderPolicyState& policy = transaction.RenderPolicy();
+    renderer.RestorePresentationSettings( RenderPresentationSettings { policy.vsyncEnabled,
+                                                                        policy.pipelineSyncEnabled } );
+
+    const bool sceneMutationSucceeded = result.Ok();
+    const bool activationPending = transaction.RenderActivation().pending;
+    if ( sceneMutationSucceeded && activationPending )
+    {
+        result = renderer.ResourceLifecycle().InitialiseSceneRayTracing(
+            transaction.RenderActivation().sceneObjectCapacity );
+        if ( SceneRenderActivationCompletesTransition( sceneMutationSucceeded, activationPending, result.Ok() ) )
+        {
+            // Invariant: activation becomes visible to lifecycle consumers only
+            // after the Render owner has accepted the populated Scene capacity.
+            transaction.CompleteRenderActivation( m_sceneController );
+        }
+    }
+
+    return result;
+}
+
+
+bool Run::ExecutePendingSceneRequests( SceneLoadTransaction& transaction )
+{
+    const SceneRequestBatch batch = m_sceneController.TakePendingRequests();
+
+    if ( batch.rejectedTransitionCount > 0 )
+    {
+        std::fprintf( stderr, "Runtime/SceneController: rejected %zu additional same-frame scene transition(s)\n",
+                      batch.rejectedTransitionCount );
+        std::fflush( stderr );
+    }
+
+    for ( std::size_t requestIndex = 0; requestIndex < batch.count; ++requestIndex )
+    {
+        const SceneRequest& request = batch.requests[requestIndex];
+        bool accepted = false;
+
+        switch ( request.type )
+        {
+        case SceneRequestType::LoadBrowserIndex:
+            accepted = LoadSceneRequest(
+                           transaction,
+                           transaction.NavigationForFollowingRequest( CaptureSceneLoadNavigationState(
+                               m_operatorUi->SceneNavigation() ) )
+                               .LoadSceneFromBrowserIndex( request.index, m_sceneController ) )
+                           .Ok();
+            break;
+        case SceneRequestType::LoadDemoScene:
+            accepted = LoadSceneRequest(
+                           transaction,
+                           transaction.NavigationForFollowingRequest( CaptureSceneLoadNavigationState(
+                               m_operatorUi->SceneNavigation() ) )
+                               .LoadDemoScene( m_sceneController ) )
+                           .Ok();
+            break;
+        case SceneRequestType::ResetCurrentScene:
+            accepted = LoadSceneRequest( transaction,
+                                         m_sceneController.ResetCurrentScene( request.preserveUIState,
+                                                                              request.suppressExitOnComplete,
+                                                                              request.preserveRuntimeState ) )
+                           .Ok();
+            break;
+        case SceneRequestType::CreateScene:
+        {
+            const SceneLoadRequest createRequest = m_sceneController.CreateScene( request.text );
+            accepted = LoadSceneRequest( transaction, createRequest ).Ok();
+            transaction.SetRefreshSceneBrowser( createRequest.accepted );
+            break;
+        }
+        case SceneRequestType::SaveCurrentDefaults:
+        {
+            const OverlayDebugState& presentation = transaction.PresentationForFollowingRequest(
+                m_overlayDiagnostics->PresentationSnapshot(), m_sceneController.LifecyclePacket() );
+            const SceneLoadNavigationState& navigation = transaction.NavigationForFollowingRequest(
+                CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ) );
+            const SkullbonezCore::Core::SbResult saveResult = m_sceneController.SaveCurrentDefaults(
+                SceneDefaultsSaveView { presentation, transaction.RenderPolicy(), transaction.CurrentCamera(),
+                                        navigation.overrides } );
+            if ( !saveResult.Ok() )
+            {
+                std::fprintf( stderr, "[%s] %s\n", saveResult.ErrorOwner(), saveResult.ErrorMessage() );
+                std::fflush( stderr );
+            }
+            accepted = saveResult.Ok();
+            break;
+        }
+        }
+
+        if ( accepted )
+        {
+            transaction.RecordCompletedRequest( request );
+        }
+        if ( !SceneRequestBatchContinuesAfter( request.type, accepted ) )
+        {
+            break;
+        }
+    }
+
+    transaction.FinishRequestBatch();
+    return batch.count > 0;
+}
 
 
 void ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction, const RunLaunchOptions& launchOptions,

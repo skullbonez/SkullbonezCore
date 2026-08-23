@@ -407,6 +407,7 @@ RUNTIME_SCENE_PREFIXES = (
     "SceneLoadTransaction",
     "SceneLoadPreparation",
     "SceneLoadPresentation",
+    "SceneRenderPolicy",
     "SceneResetPreservation",
     "SceneWorld",
     "SceneTerrain",
