@@ -39,11 +39,6 @@ class SbDiagnosticStore;
 struct ReplayTrajectoryAppearanceConfig;
 } // namespace SkullbonezCore::Core
 
-namespace SkullbonezCore::Rendering
-{
-class Dx12GeometryOwner;
-} // namespace SkullbonezCore::Rendering
-
 namespace SkullbonezCore::Runtime
 {
 class EditorTracer
@@ -81,17 +76,16 @@ class EditorTracer
     SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats m_cachedRibbonSubmissionStats;
     uint64_t m_replayGeometryRevision = 0;
 
-    void EmitLineTo( std::vector<float>& lineData, const Math::Vector::Vector3& a, const Math::Vector::Vector3& b,
-                     float r, float g, float bl );
+    void EmitLineTo( std::vector<float>& lineData, const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r,
+                     float g, float bl );
     void EmitLine( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float bl );
     void EmitArrow( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float bl );
     void EmitRing( const Math::Vector::Vector3& center, int axis, float radius, float r, float g, float bl );
     void EmitSphereTo( std::vector<float>& lineData, const Math::Vector::Vector3& center, float radius, float r, float g,
                        float bl );
     void EmitSphere( const Math::Vector::Vector3& center, float radius, float r, float g, float bl );
-    void EmitBoxTo( std::vector<float>& lineData, const Math::Vector::Vector3& center,
-                    const Math::Vector::Vector3& xAxis, const Math::Vector::Vector3& yAxis,
-                    const Math::Vector::Vector3& zAxis, float r, float g, float bl );
+    void EmitBoxTo( std::vector<float>& lineData, const Math::Vector::Vector3& center, const Math::Vector::Vector3& xAxis,
+                    const Math::Vector::Vector3& yAxis, const Math::Vector::Vector3& zAxis, float r, float g, float bl );
     void EmitBox( const Math::Vector::Vector3& center, const Math::Vector::Vector3& xAxis,
                   const Math::Vector::Vector3& yAxis, const Math::Vector::Vector3& zAxis, float r, float g, float bl );
     void EmitShapeOutlineTo( std::vector<float>& lineData, const Math::Vector::Vector3& position,
@@ -147,21 +141,20 @@ class EditorTracer
     void AddRayCastTestLine( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float alpha, bool hit );
     void AddReplayPathSegment( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float r, float g,
                                float b,
-                               SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane = SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureRoot,
+                               SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane =
+                                   SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureRoot,
                                float emphasis = 0.0f );
-    void AddReplayCausalTrailSegment( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float r,
-                                      float g, float b );
+    void AddReplayCausalTrailSegment( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float r, float g,
+                                      float b );
     void AddReplayBaselinePathSegment( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float r,
                                        float g, float b, float opacity = 1.0f );
     void AddReplayContactMarker( const Math::Vector::Vector3& point, const Math::Vector::Vector3& normal, float r, float g,
                                  float b );
-    void AddReplayImpulseVector( const Math::Vector::Vector3& point, const Math::Vector::Vector3& impulse, float r,
-                                 float g, float b );
-    void AddReplayCausalEntryMarker( const Math::Vector::Vector3& position,
-                                     const Math::Orientation::Quaternion& orientation,
+    void AddReplayImpulseVector( const Math::Vector::Vector3& point, const Math::Vector::Vector3& impulse, float r, float g,
+                                 float b );
+    void AddReplayCausalEntryMarker( const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation,
                                      const Math::CollisionDetection::CollisionShapeReference& shape );
-    void AddReplayCausalRestMarker( const Math::Vector::Vector3& position,
-                                    const Math::Orientation::Quaternion& orientation,
+    void AddReplayCausalRestMarker( const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation,
                                     const Math::CollisionDetection::CollisionShapeReference& shape );
     void AddReplayCausalHorizonMarker( const Math::Vector::Vector3& position,
                                        const Math::Orientation::Quaternion& orientation,
@@ -182,13 +175,9 @@ class EditorTracer
                               const Math::CollisionDetection::CollisionShapeReference& shape );
     void AddGizmo( const Math::Vector::Vector3& origin, float radius, int hotTranslateAxis, int hotRotationAxis,
                    int activeAxis, bool activeRotation, bool scaleMode, bool activeScale );
-    void AddReplayVelocityGizmo( const Math::Vector::Vector3& origin,
-                                 const Math::Orientation::Quaternion& orientation,
+    void AddReplayVelocityGizmo( const Math::Vector::Vector3& origin, const Math::Orientation::Quaternion& orientation,
                                  const Math::CollisionDetection::CollisionShapeReference& shape, float radius,
-                                 const Math::Vector::Vector3& linearVelocity,
-                                 const Math::Vector::Vector3& angularVelocity, int hotLinearAxis, int hotAngularAxis,
-                                 int activeAxis, bool activeAngular );
-    void Render( const ReplayVisualPacket& packet, const Math::Transformation::Matrix4& viewProjection,
-                 Rendering::Dx12GeometryOwner& renderCommands );
+                                 const Math::Vector::Vector3& linearVelocity, const Math::Vector::Vector3& angularVelocity,
+                                 int hotLinearAxis, int hotAngularAxis, int activeAxis, bool activeAngular );
 };
 } // namespace SkullbonezCore::Runtime

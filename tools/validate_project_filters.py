@@ -316,6 +316,8 @@ RUNTIME_LIFECYCLE_PREFIXES = (
     "Init",
     "OperatorCommandApplication",
     "OperatorEditorFramePhase",
+    "OperatorUiProjection",
+    "RenderModelFramePublisher",
     "Run",
     "RunFrame",
     "RunUiStress",
@@ -514,7 +516,6 @@ RUNTIME_REPLAY_PREFIXES = (
 
 RUNTIME_RENDER_PREFIXES = (
     *PHYSICS_DEBUG_PREFIXES,
-    "RenderModelFramePublisher",
     "RenderResourceLifecycle",
     "RenderDefaultsStore",
     "RenderPresentationSettings",

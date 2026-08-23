@@ -32,20 +32,13 @@ Related:
 #include "../../Rendering/DX12/RenderBackendDX12.h"
 #include "../../Assets/AssetKeys.h"
 #include "RuntimeRenderPasses.h"
-#include "../Camera/CameraCollection.h"
-#include "../Camera/CameraControlState.h"
 #include "../RuntimeFrameViews.h"
-#include "../Diagnostics/RuntimeDiagnostics.h"
 #include "BroadphaseVisualizer.h"
 #include "../Startup/Window.h"
-#include "../Tools/RuntimeTools.h"
 #include "CollisionVisualizer.h"
-#include "../Scene/SceneTerrain.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
 
-#include "../Scene/SceneCinematicPolicy.h"
-#include "../Scene/SceneController.h"
 #include "../../Assets/TextureCollection.h"
 #include "../../Core/FatalError.h"
 #include "../../Core/Log.h"
@@ -56,6 +49,7 @@ Related:
 #include "../../Rendering/DX12/Dx12FrameOwner.h"
 #include "../../Rendering/DX12/RenderDeviceDX12.h"
 #include "../../Rendering/RenderGraph.h"
+#include "../../Rendering/RenderInstanceStore.h"
 #include "../../Rendering/RenderPipeline.h"
 #include "../../UI/UI.h"
 #include "../../World/SkyBox.h"
@@ -240,17 +234,9 @@ struct UiChromeGraphInvocation
 {
     UiTextPass* pass = nullptr;
     Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
-    const OverlayDebugState* debug = nullptr;
-    bool crossScenePauseLocked = false;
-    const SceneSessionState* scene = nullptr;
-    const CameraControlState* camera = nullptr;
-    int sceneQueueSize = 0;
-    const char* cameraModeLabel = "";
-    const char* launcherFireModeLabel = "";
-    bool launcherCameraMode = false;
-    const ReplayHudStatus* replayHud = nullptr;
+    const UiChromeStatusValues* status = nullptr;
+    const UiChromeTailValues* tail = nullptr;
     UiTextViewport viewport;
-    double reproMessageAgeSeconds = 0.0;
     Rendering::Dx12TextureOwner* renderTextures = nullptr;
     Rendering::Dx12GeometryOwner* renderGeometry = nullptr;
     Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
@@ -307,7 +293,7 @@ struct UiOverlayGraphInvocation
     UiTextPass* pass = nullptr;
     SkullbonezCore::Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
     UiTextViewport viewport;
-    OverlayMode mode {};
+    UiOverlayMode mode {};
     int modelCount = 0;
     float rollingFpsTime = 0.0f;
     SkullbonezCore::Rendering::Dx12TextureOwner* renderTextures = nullptr;
@@ -322,7 +308,7 @@ struct UiFinalizeGraphInvocation
 {
     UiTextPass* pass = nullptr;
     SkullbonezCore::Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
-    OverlayMode mode {};
+    UiOverlayMode mode {};
     SkullbonezCore::Rendering::Dx12TextureOwner* renderTextures = nullptr;
     SkullbonezCore::Rendering::Dx12GeometryOwner* renderGeometry = nullptr;
     SkullbonezCore::Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
@@ -535,7 +521,8 @@ void RenderReplayPredictionGhosts( const ReplayVisualPacket& visualPacket, Skull
 
         material.baseColor[3] = request.alpha;
         const Math::Transformation::Matrix4 modelMatrix = box->GetModelMatrix( request.position,
-                                                                               Math::Transformation::Matrix4::FromQuaternion( request.orientation ) );
+                                                                               Math::Transformation::Matrix4::FromQuaternion(
+                                                                                   request.orientation ) );
 
         boxBatch.DrawModel( modelMatrix, material );
     }
@@ -596,19 +583,16 @@ void ExecuteSkyboxGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
 void ExecuteUiChromeGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                    UiChromeGraphInvocation& data )
 {
-    if ( !data.pass || !data.renderGraph || !data.debug || !data.scene || !data.camera || !data.replayHud ||
-         !data.renderTextures || !data.renderGeometry || !data.renderDiagnostics )
+    if ( !data.pass || !data.renderGraph || !data.status || !data.tail || !data.renderTextures || !data.renderGeometry ||
+         !data.renderDiagnostics )
     {
         SB_FATAL( "RunRender", "UI chrome graph callback missing execution data." );
     }
 
     (void)ExecuteRequiredGraphTransitions( context, data.renderGraph, data.compiled, data.expectedTransitionCount );
-    data.pass->RenderChromeStatus( data.viewport, *data.debug, data.crossScenePauseLocked, *data.scene, *data.camera,
-                                   data.sceneQueueSize, data.cameraModeLabel, *data.renderTextures, *data.renderGeometry,
+    data.pass->RenderChromeStatus( data.viewport, *data.status, *data.renderTextures, *data.renderGeometry,
                                    *data.renderDiagnostics );
-
-    data.pass->RenderChromeTail( *data.debug, *data.replayHud, data.launcherCameraMode, data.launcherFireModeLabel,
-                                 data.reproMessageAgeSeconds, *data.renderGeometry );
+    data.pass->RenderChromeTail( *data.tail, *data.renderGeometry );
 }
 
 void ExecuteUiOperatorPrepareGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
@@ -775,10 +759,11 @@ void ExecuteTonemapGraphCallback( const SkullbonezCore::Rendering::RenderGraphPa
                        data.state->volumetricRendered, graphVolumetric );
 }
 
-void WriteCinematicPostGraphEvidence( const SkullbonezCore::Rendering::RenderGraph& graph, const SkullbonezCore::Rendering::RenderGraphCompileResult& compiled,
-                                      const SkullbonezCore::Rendering::RenderGraphTransientMaterializationStats& materialization,
-                                      const SkullbonezCore::Rendering::RenderGraphTextureBinding& volumetricBinding, bool volumetricDeclared,
-                                      size_t volumetricTransitionCount, size_t tonemapTransitionCount )
+void WriteCinematicPostGraphEvidence(
+    const SkullbonezCore::Rendering::RenderGraph& graph, const SkullbonezCore::Rendering::RenderGraphCompileResult& compiled,
+    const SkullbonezCore::Rendering::RenderGraphTransientMaterializationStats& materialization,
+    const SkullbonezCore::Rendering::RenderGraphTextureBinding& volumetricBinding, bool volumetricDeclared,
+    size_t volumetricTransitionCount, size_t tonemapTransitionCount )
 {
     // Why: this human-readable file is diagnostic evidence, not frame storage.
     // The allocation phase must match that policy even when the cinematic post
@@ -1166,10 +1151,11 @@ ReflectionPassOutput RuntimeRenderer::ExecuteReflectionThroughRenderGraph( const
 }
 
 
-void RuntimeRenderer::ExecuteSceneTargetBeginThroughRenderGraph( const RenderCameraLighting& camera, const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                                                                 Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12TextureOwner& renderTextures,
-                                                                 Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12GraphTransientPool& renderGraph,
-                                                                 Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::RenderGpuTimingOwner& gpuTiming )
+void RuntimeRenderer::ExecuteSceneTargetBeginThroughRenderGraph(
+    const RenderCameraLighting& camera, const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+    Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12TextureOwner& renderTextures,
+    Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12GraphTransientPool& renderGraph,
+    Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::RenderGpuTimingOwner& gpuTiming )
 {
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     const GraphFramebufferResources
@@ -1343,8 +1329,9 @@ bool RuntimeRenderer::ExecuteWorldExtensionThroughRenderGraph( const WorldExtens
                                                  Rendering::RenderGraphResourceAccess::DepthWrite );
 
     const Rendering::WorldSurfaceHeightView
-        surfaceHeight = m_resources.Terrain().Get()
-                            ? Rendering::WorldSurfaceHeightView::Bind<Geometry::Terrain, &SampleWorldSurfaceHeight>( *m_resources.Terrain().Get() )
+        surfaceHeight = inputs.terrain
+                            ? Rendering::WorldSurfaceHeightView::Bind<Geometry::Terrain, &SampleWorldSurfaceHeight>(
+                                  *inputs.terrain )
                             : Rendering::WorldSurfaceHeightView();
 
     const Rendering::WorldRenderExtensionFrameView frameView { inputs.camera.viewProjection,
@@ -1442,6 +1429,7 @@ DebugOverlaySnapshot RuntimeRenderer::BuildDebugOverlaySnapshot( const RuntimeRe
     snapshot.physicsDebugFlags = policy.physicsDebugFlags;
     snapshot.physicsDebugPipelineStageCursor = policy.physicsDebugPipelineStageCursor;
     snapshot.editorOverlayWorkVisible = toolOverlay.editorOverlayWorkVisible;
+    snapshot.launcherShots = std::span( toolOverlay.launcherShots.data(), toolOverlay.launcherShotCount );
     return snapshot;
 }
 
@@ -1453,11 +1441,13 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const CinematicPostGrap
     Rendering::FramebufferDX12* sceneTarget = m_resources.PassResources().cinematicScene.hdrTarget.get();
     const Rendering::RenderGraphResourceHandle
         sceneColor = graph.AddExternalResource( "CinematicSceneColor", Rendering::RenderGraphResourceAccess::RenderTarget,
-                                                inputs.renderGraph.ResolveGraphResourceToken( sceneTarget->GetColorTextureHandle() ) );
+                                                inputs.renderGraph.ResolveGraphResourceToken(
+                                                    sceneTarget->GetColorTextureHandle() ) );
 
     const Rendering::RenderGraphResourceHandle
         sceneDepth = graph.AddExternalResource( "CinematicSceneDepth", Rendering::RenderGraphResourceAccess::DepthWrite,
-                                                inputs.renderGraph.ResolveGraphResourceToken( sceneTarget->GetDepthTextureHandle() ) );
+                                                inputs.renderGraph.ResolveGraphResourceToken(
+                                                    sceneTarget->GetDepthTextureHandle() ) );
 
     const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph, inputs.renderGraph );
     Rendering::RenderGraphResourceHandle volumetricLight;
@@ -1584,26 +1574,15 @@ int RuntimeRenderer::BeginUiTextFrame( const UiTextViewport& viewport )
 }
 
 
-void RuntimeRenderer::SubmitUiChrome( const UiTextViewport& viewport, const OverlayDebugState& debug,
-                                      bool crossScenePauseLocked, const SceneSessionState& scene,
-                                      const CameraControlState& camera, int sceneQueueSize, const char* cameraModeLabel,
-                                      const ReplayHudStatus& replayHud, bool launcherCameraMode,
-                                      const char* launcherFireModeLabel, double reproMessageAgeSeconds )
+void RuntimeRenderer::SubmitUiChrome( const UiTextViewport& viewport, const UiChromeStatusValues& status,
+                                      const UiChromeTailValues& tail )
 {
     UiChromeGraphInvocation invocation;
     invocation.pass = &m_resources.UiText();
     invocation.renderGraph = &m_resources.RenderGraph();
-    invocation.debug = &debug;
-    invocation.crossScenePauseLocked = crossScenePauseLocked;
-    invocation.scene = &scene;
-    invocation.camera = &camera;
-    invocation.sceneQueueSize = sceneQueueSize;
-    invocation.cameraModeLabel = cameraModeLabel;
-    invocation.launcherFireModeLabel = launcherFireModeLabel;
-    invocation.launcherCameraMode = launcherCameraMode;
-    invocation.replayHud = &replayHud;
+    invocation.status = &status;
+    invocation.tail = &tail;
     invocation.viewport = viewport;
-    invocation.reproMessageAgeSeconds = reproMessageAgeSeconds;
     invocation.renderTextures = &m_resources.RenderTextures();
     invocation.renderGeometry = &m_resources.RenderGeometry();
     invocation.renderDiagnostics = &m_resources.RenderDiagnostics();
@@ -1645,55 +1624,9 @@ void RuntimeRenderer::PrepareOperatorUiFrame( UI::InGameUIFrameData& uiData, con
 }
 
 
-void RuntimeRenderer::ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& uiData, const ReplayHudStatus& replayHud,
-                                                    const RuntimeFrameMetricsSnapshot& metrics,
-                                                    const RuntimeRenderModelFrameView& models,
-                                                    DiagnosticsRuntime& diagnosticsRuntime, UI::InGameUI& ui,
-                                                    Threading::WorkerPool* workerPool )
-{
-    m_resources.UiText().ProjectOperatorDiagnostics( uiData, replayHud, metrics, models, diagnosticsRuntime, ui,
-                                                     workerPool, m_resources.RenderDiagnostics() );
-}
-
-
-void RuntimeRenderer::ProjectOperatorUiSettings( UI::InGameUIFrameData& uiData, const OverlayDebugState& debug,
-                                                 const RenderPresentationSettings& presentation, const SceneWorld& world,
-                                                 const SkullbonezCore::Core::EngineConfig& config,
-                                                 const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                                                 bool cinematicRendering )
-{
-    m_resources.UiText().ProjectOperatorSettings( uiData, debug, presentation, world, config, cinematic,
-                                                  cinematicRendering );
-}
-
-
-void RuntimeRenderer::ProjectOperatorUiInteraction( UI::InGameUIFrameData& uiData, const RunRayCastTestState& rayCastTest,
-                                                    const RunEditorPlacementState& editor,
-                                                    const RuntimeInputContext& runtimeInput,
-                                                    const CameraControlState& camera, const UI::InGameUI& ui,
-                                                    uint32_t cameraModeEnabledMask, const char* cameraModeLabel )
-{
-    m_resources.UiText().ProjectOperatorInteraction( uiData, rayCastTest, editor, runtimeInput, camera, ui,
-                                                     cameraModeEnabledMask, cameraModeLabel );
-}
-
-
-void RuntimeRenderer::ProjectOperatorUiPresentation( UI::InGameUIFrameData& uiData, const SceneSessionState& scene,
-                                                     const RuntimeViewModel& runtimeViewModel,
-                                                     const UI::RunSceneBrowserState& sceneBrowser,
-                                                     const UI::OperatorEditorFrameView& operatorEditorView,
-                                                     bool sceneHasCurrentEntry, const char* currentScenePath,
-                                                     int currentSceneBrowserIndex, float sceneEnergyForDisplay )
-{
-    m_resources.UiText().ProjectOperatorPresentation( uiData, scene, runtimeViewModel, sceneBrowser, operatorEditorView,
-                                                      sceneHasCurrentEntry, currentScenePath, currentSceneBrowserIndex,
-                                                      sceneEnergyForDisplay );
-}
-
-
 void RuntimeRenderer::SubmitOperatorUiFrame( UI::InGameUIFrameData& uiData, UI::InGameUI& ui,
-                                             const RuntimeRenderTargetPreviewSnapshot& previews,
-                                             Assets::AssetSystem& assets, int uiPassDrawCallStart )
+                                             const RuntimeRenderTargetPreviewSnapshot& previews, Assets::AssetSystem& assets,
+                                             int uiPassDrawCallStart )
 {
     UiOperatorSubmissionGraphInvocation invocation;
     invocation.pass = &m_resources.UiText();
@@ -1721,7 +1654,7 @@ void RuntimeRenderer::SubmitOperatorUiFrame( UI::InGameUIFrameData& uiData, UI::
 }
 
 
-void RuntimeRenderer::SubmitUiOverlay( const UiTextViewport& viewport, OverlayMode mode, int modelCount,
+void RuntimeRenderer::SubmitUiOverlay( const UiTextViewport& viewport, UiOverlayMode mode, int modelCount,
                                        float rollingFpsTime, float sceneEnergyForDisplay )
 {
     UiOverlayGraphInvocation invocation;
@@ -1771,7 +1704,7 @@ void RuntimeRenderer::SubmitUiDrawList( const UI::UIDrawList& drawList, const Ui
 }
 
 
-void RuntimeRenderer::FinalizeUiOverlay( OverlayMode mode )
+void RuntimeRenderer::FinalizeUiOverlay( UiOverlayMode mode )
 {
     UiFinalizeGraphInvocation invocation;
     invocation.pass = &m_resources.UiText();
@@ -1816,16 +1749,16 @@ RuntimeRenderer::RuntimeRenderer( SkullbonezCore::Core::SbDiagnosticStore& resul
                                   Rendering::Dx12ResourceBuilder& renderResources,
                                   Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
                                   Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner& raytracing,
-                                  bool raytracingAvailable, const RenderWorldView& world, SceneSessionState& scene
+                                  bool raytracingAvailable, const RenderWorldView& world, int sceneIndex, int sceneLoadCount
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
                                   ,
                                   Rendering::Dx12ImGuiRendererOwner& developmentUiRenderer
 #endif
-)
+                                  )
     : m_resultDiagnostics( resultDiagnostics ),
       m_resources( resultDiagnostics, renderDevice, renderFrame, renderGraph, renderResources, renderTextures,
-                   renderGeometry, renderDiagnostics, raytracing, raytracingAvailable, world, scene ),
-      m_cameras( world.cameras ), m_window( world.window ), m_world( world.worldEnvironment ), m_profiler( world.profiler ),
+                   renderGeometry, renderDiagnostics, raytracing, raytracingAvailable, world, sceneIndex, sceneLoadCount ),
+      m_window( world.window ), m_world( world.worldEnvironment ), m_profiler( world.profiler ),
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
       m_developmentUiRenderer( &developmentUiRenderer ),
 #endif
@@ -1833,16 +1766,13 @@ RuntimeRenderer::RuntimeRenderer( SkullbonezCore::Core::SbDiagnosticStore& resul
       m_skyPass( m_resources.PassResources().sky, m_resources.PassResources().fullscreen, m_resources.SkyBoxOwner(),
                  m_resources.Config(), m_profiler ),
       m_sceneTargetPass( m_resources.PassResources().cinematicScene, m_skyPass, m_profiler ),
-      m_shadowPass( m_resources.PassResources().shadows, m_resources.Terrain(), m_resources.Config(), m_resources.Log(),
-                    m_profiler ),
+      m_shadowPass( m_resources.PassResources().shadows, m_resources.Config(), m_resources.Log(), m_profiler ),
       m_reflectionPass( m_resources.PassResources().reflection, m_collisionVisualizer, m_skyPass, m_resources.Config(),
                         m_dxrReflectionTransforms.data(), static_cast<int>( m_dxrReflectionTransforms.size() ),
                         m_resources.Log(), m_profiler ),
       m_objectPass( m_collisionVisualizer, m_resources.Config(), m_profiler ),
-      m_terrainPass( m_resources.Terrain(), m_resources.Config(), m_profiler ),
-      m_waterPass( m_world, m_resources.Config(), m_profiler ),
-      m_debugOverlayPass( m_broadphaseVisualizer, m_physicsDebugVisualizer, m_resources.Terrain(), m_resources.Assets(),
-                          m_profiler ),
+      m_terrainPass( m_resources.Config(), m_profiler ), m_waterPass( m_world, m_resources.Config(), m_profiler ),
+      m_debugOverlayPass( m_broadphaseVisualizer, m_physicsDebugVisualizer, m_resources.Assets(), m_profiler ),
       m_volumetricPass( m_resources.PassResources().cinematicScene, m_resources.PassResources().volumetricLight,
                         m_resources.PassResources().fullscreen, m_resources.Config(), m_profiler ),
       m_tonemapPass( m_resources.PassResources().cinematicScene, m_resources.PassResources().volumetricLight,
@@ -1880,24 +1810,20 @@ void RuntimeRenderer::UpdateDebugVisualizers( float secondsPerFrame, const Runti
         m_broadphaseVisualizer.SetCellSize( Physics::PhysicsEngine::ReadBroadphaseCellSize( models.physicsEngine ) );
         Physics::PhysicsBroadphaseActiveCell activeCells[Physics::PHYSICS_BROADPHASE_ACTIVE_CELL_CAPACITY];
         const int activeCellCount = Physics::PhysicsEngine::ReadBroadphaseActiveCells( models.physicsEngine, activeCells );
-        m_broadphaseVisualizer.Update(
-            secondsPerFrame,
-            std::span<const Physics::PhysicsBroadphaseActiveCell>( activeCells,
-                                                                   static_cast<std::size_t>( activeCellCount ) ),
-            Physics::PhysicsEngine::ReadCollisionCellKeys( models.physicsEngine ) );
+        m_broadphaseVisualizer.Update( secondsPerFrame,
+                                       std::span<const Physics::PhysicsBroadphaseActiveCell>( activeCells,
+                                                                                              static_cast<std::size_t>(
+                                                                                                  activeCellCount ) ),
+                                       Physics::PhysicsEngine::ReadCollisionCellKeys( models.physicsEngine ) );
     }
     PROFILE_END( "Frame/PostPhysics/BroadphaseVisualizer" );
 
     PROFILE_BEGIN( "Frame/PostPhysics/CollisionVisualizer" );
     m_collisionVisualizer.SetEnabled( policy.collisionVisualizer );
     m_collisionVisualizer.Update( secondsPerFrame,
-                                  CollisionVisualizerFrameView { models.bodyStore,
-                                                                 models.colliders,
-                                                                 models.renderInstances,
-                                                                 models.collisionVisualContacts,
-                                                                 models.sleepStates,
-                                                                 models.sleepIslandVisualIds,
-                                                                 models.modelCount } );
+                                  CollisionVisualizerFrameView { models.bodyStore, models.colliders, models.renderInstances,
+                                                                 models.collisionVisualContacts, models.sleepStates,
+                                                                 models.sleepIslandVisualIds, models.modelCount } );
     PROFILE_END( "Frame/PostPhysics/CollisionVisualizer" );
 
     PROFILE_BEGIN( "Frame/PostPhysics/PhysicsDebugVisualizer" );
@@ -1905,13 +1831,9 @@ void RuntimeRenderer::UpdateDebugVisualizers( float secondsPerFrame, const Runti
     m_physicsDebugVisualizer.SetContactLingerSeconds( policy.physicsDebugContactLinger );
     m_physicsDebugVisualizer.SetPipelineStageCursor( policy.physicsDebugPipelineStageCursor );
     m_physicsDebugVisualizer.Update( secondsPerFrame,
-                                     PhysicsDebugFrameView { models.bodyStore,
-                                                             models.colliders,
-                                                             models.sleepStates,
-                                                             models.sleepSupportedStates,
-                                                             models.sleepInhibitedStates,
-                                                             models.physicsDebugContacts,
-                                                             models.physicsPipelineTrace,
+                                     PhysicsDebugFrameView { models.bodyStore, models.colliders, models.sleepStates,
+                                                             models.sleepSupportedStates, models.sleepInhibitedStates,
+                                                             models.physicsDebugContacts, models.physicsPipelineTrace,
                                                              models.modelCount } );
     PROFILE_END( "Frame/PostPhysics/PhysicsDebugVisualizer" );
 
@@ -2018,7 +1940,6 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
 
     const RuntimeRenderFramePolicy& policy = context.framePolicy;
     const ReplayRenderFrameView& replayFrame = context.replayFrame;
-    RuntimeTools& runtimeTools = context.toolOverlay.tools;
     Rendering::Dx12RaytracingOwner& raytracing = m_resources.Raytracing();
     const bool raytracingAvailable = m_resources.RaytracingAvailable();
     m_resources.UiText().SetDxrReflectionPreviewTexture( raytracingAvailable ? raytracing.GetReflectionUAVTexture() : 0 );
@@ -2048,17 +1969,11 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     // Invariant: sample the interpolated render camera after SetCamera().
     // Concrete phases borrow this owner-free value so sky, reflection, water,
     // and overlays cannot diverge during camera transitions.
-    RenderCameraLighting camera;
-    camera.baseView = m_cameras.GetViewMatrix();
-    camera.projection = m_window.GetProjectionMatrix();
-    camera.viewProjection = camera.projection * camera.baseView;
-    camera.eye = m_cameras.GetRenderCameraTranslation();
-    camera.viewCenter = m_cameras.GetRenderCameraView();
-    camera.up = m_cameras.GetRenderCameraUp();
+    RenderCameraLighting camera = context.camera;
 
     if ( cinematicRender )
     {
-        const Vector3 sunDirection = CinematicSkySunDirection( renderConfig );
+        const Vector3 sunDirection = ResolveCinematicSunDirection( renderConfig );
         camera.lightPosition[0] = sunDirection.x;
         camera.lightPosition[1] = sunDirection.y;
         camera.lightPosition[2] = sunDirection.z;
@@ -2089,7 +2004,7 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     {
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
         m_objectPass.EnsureGpuResources( resourceContext );
-        m_terrainPass.EnsureGpuResources( resourceContext );
+        m_terrainPass.EnsureGpuResources( resourceContext, context.terrain );
         m_waterPass.EnsureGpuResources( resourceContext );
         m_debugOverlayPass.EnsureGpuResources( resourceContext );
     }
@@ -2112,12 +2027,12 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
         m_resources.PrimitiveBatches().EnsureShadowDepthPrimitiveResources( primitive );
 
-        if ( Geometry::Terrain* terrain = m_resources.Terrain().Get() )
+        if ( Geometry::Terrain* terrain = context.terrain )
         {
             terrain->EnsureShadowDepthResources();
         }
 
-        m_shadowPass.EnsureGpuResources( resourceContext, *activeShadowConfig );
+        m_shadowPass.EnsureGpuResources( resourceContext, *activeShadowConfig, context.terrain );
     }
 
     ShadowPassOutput shadowPass;
@@ -2126,6 +2041,7 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     if ( activeShadowConfig )
     {
         const ShadowPassInputs shadowInputs { camera,
+                                              context.terrain,
                                               models,
                                               primitive,
                                               renderFrame,
@@ -2253,6 +2169,7 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     // Terrain receives the broad shadow frame and provides the main world depth
     // that cinematic post passes read later.
     const TerrainPassInputs terrainInputs { camera,
+                                            context.terrain,
                                             m_resources.Textures(),
                                             renderTextures,
                                             renderDiagnostics,
@@ -2283,8 +2200,9 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
 
     ExecuteWaterThroughRenderGraph( { waterInputs, useCinematicTarget } );
 
-    const bool worldExtensionRendered = ExecuteWorldExtensionThroughRenderGraph( { camera, context.worldExtension, renderTextures, renderGeometry, renderDiagnostics, m_resources.GpuTiming(),
-                                                                                   useCinematicTarget } );
+    const bool worldExtensionRendered = ExecuteWorldExtensionThroughRenderGraph(
+        { camera, context.worldExtension, renderTextures, renderGeometry, renderDiagnostics, m_resources.GpuTiming(),
+          context.terrain, useCinematicTarget } );
 
     if ( debugTransparentBodyPass )
     {
@@ -2340,6 +2258,7 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
                                                                           policy );
 
     const DebugOverlayPassInputs debugInputs { camera,
+                                               context.terrain,
                                                models,
                                                m_resources.Assets(),
                                                renderResources,
@@ -2347,7 +2266,6 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
                                                renderDiagnostics,
                                                &m_resources.GpuTiming(),
                                                debugSnapshot,
-                                               runtimeTools,
                                                *replayFrame.visualPacket,
                                                context.retainedOverlay,
                                                replayFrame.contactPresentation };
@@ -2359,8 +2277,9 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
 
     if ( useCinematicTarget )
     {
-        cinematicPostOutput = ExecuteCinematicPostThroughRenderGraph( { camera, renderConfig, renderGeometry, renderTextures, renderFrame, renderGraph, renderDiagnostics,
-                                                                        m_resources.GpuTiming(), windowWidth, windowHeight } );
+        cinematicPostOutput = ExecuteCinematicPostThroughRenderGraph(
+            { camera, renderConfig, renderGeometry, renderTextures, renderFrame, renderGraph, renderDiagnostics,
+              m_resources.GpuTiming(), windowWidth, windowHeight } );
 
         volumetricReady = cinematicPostOutput.volumetricReady;
     }
@@ -2396,7 +2315,8 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
 }
 
 
-void RuntimeRenderer::ReleaseBackendOwnedResources( Rendering::Dx12GeometryOwner* renderGeometry )
+void RuntimeRenderer::ReleaseBackendOwnedResources( Rendering::Dx12GeometryOwner* renderGeometry,
+                                                    Geometry::Terrain* terrain )
 {
     // Lifetime: release pass-owned GPU resources while the renderer backend is
     // still alive. The order keeps consumers ahead of their producers, so cached
@@ -2407,7 +2327,8 @@ void RuntimeRenderer::ReleaseBackendOwnedResources( Rendering::Dx12GeometryOwner
     m_shadowPass.ReleaseGpuResources();
     m_reflectionPass.ReleaseGpuResources();
     m_waterPass.ReleaseGpuResources();
-    m_terrainPass.ReleaseGpuResources();
+    m_debugOverlayPass.ReleaseGpuResources( renderGeometry );
+    m_terrainPass.ReleaseGpuResources( terrain );
     m_skyPass.ReleaseGpuResources();
     m_fullscreenQuadPass.ReleaseGpuResources( renderGeometry );
     m_resources.ReleaseUiTextResources();
@@ -2422,13 +2343,10 @@ RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceRelea
         WorldEnvironment,
         HelperOwner,
         CollisionVisualizer,
-        UIResources,
         RenderPassResources,
         ProfilerQueries,
         TextureCollection,
-        CameraCollection,
         SkyBox,
-        LauncherLaser
     };
 
     struct BackendResourcePhase
@@ -2441,13 +2359,10 @@ RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceRelea
         { "world_environment", BackendResourceStep::WorldEnvironment },
         { "helper_owner", BackendResourceStep::HelperOwner },
         { "collision_visualizer", BackendResourceStep::CollisionVisualizer },
-        { "ui_resources", BackendResourceStep::UIResources },
         { "render_pass_resources", BackendResourceStep::RenderPassResources },
         { "profiler_queries", BackendResourceStep::ProfilerQueries },
         { "texture_collection", BackendResourceStep::TextureCollection },
-        { "camera_collection", BackendResourceStep::CameraCollection },
         { "skybox", BackendResourceStep::SkyBox },
-        { "launcher_laser", BackendResourceStep::LauncherLaser },
     };
 
     const auto logLifecycleStep = [&]( const char* step ) { m_resources.Log().Write( context.phaseName, step ); };
@@ -2480,11 +2395,8 @@ RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceRelea
         case BackendResourceStep::CollisionVisualizer:
             m_collisionVisualizer.ResetResources( &m_resources.RenderGeometry() );
             break;
-        case BackendResourceStep::UIResources:
-            context.ui.ResetPresentationState();
-            break;
         case BackendResourceStep::RenderPassResources:
-            ReleaseBackendOwnedResources( &m_resources.RenderGeometry() );
+            ReleaseBackendOwnedResources( &m_resources.RenderGeometry(), context.terrain );
             break;
         case BackendResourceStep::ProfilerQueries:
             m_resources.InvalidateProfilerResources();
@@ -2492,15 +2404,8 @@ RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceRelea
         case BackendResourceStep::TextureCollection:
             m_resources.ReleaseTextureResources();
             break;
-        case BackendResourceStep::CameraCollection:
-            m_cameras.Reset();
-            m_cameras.SetTerrain( nullptr );
-            break;
         case BackendResourceStep::SkyBox:
             m_resources.ReleaseSkyResources();
-            break;
-        case BackendResourceStep::LauncherLaser:
-            context.tools.Laser().ResetResources( &m_resources.RenderGeometry() );
             break;
         }
     }
@@ -2607,7 +2512,8 @@ void RuntimeRenderer::FinalizeFrameGraphInternal( const char* declarationOnlyPas
 
     CompileRenderPassGraph( graph );
 
-    const Rendering::RenderGraphExecutionContractResult contract = graph.ValidateFrameExecutionContract( declarationOnlyPassName );
+    const Rendering::RenderGraphExecutionContractResult contract = graph.ValidateFrameExecutionContract(
+        declarationOnlyPassName );
 
     if ( !contract.IsValid() || contract.callbackPassCount + contract.declarationOnlyPassCount != graph.Passes().size() )
     {
@@ -2619,7 +2525,8 @@ void RuntimeRenderer::FinalizeFrameGraphInternal( const char* declarationOnlyPas
     }
 
     {
-        CoreAllocation::RuntimeAllocationScope diagnosticsAllocationScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
+        CoreAllocation::RuntimeAllocationScope diagnosticsAllocationScope(
+            CoreAllocation::RuntimeAllocationPhase::Diagnostics );
         Rendering::RenderPipeline::DumpExecutedFrameGraphIfChanged( graph, m_frameGraphSnapshot );
     }
     graph.ReleaseCallbackPayloadBorrows();

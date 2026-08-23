@@ -29,6 +29,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "Run.h"
+#include "OperatorUiProjection.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "../Automation/RuntimeValidationHarness.h"
 #include "../RuntimeFrameViews.h"
@@ -70,6 +71,47 @@ namespace Runtime
 {
 namespace OperatorEditorFrameComposer
 {
+
+static UiCameraBadgeMode ProjectUiCameraBadgeMode( RunCameraMode mode )
+{
+    switch ( mode )
+    {
+    case RunCameraMode::Demo:
+    case RunCameraMode::Scene:
+    case RunCameraMode::Director:
+        return UiCameraBadgeMode::Quiet;
+    case RunCameraMode::Attach:
+        return UiCameraBadgeMode::Attach;
+    case RunCameraMode::Manipulator:
+        return UiCameraBadgeMode::Manipulator;
+    case RunCameraMode::Launcher:
+        return UiCameraBadgeMode::Launcher;
+    case RunCameraMode::Inspect:
+        return UiCameraBadgeMode::Inspect;
+    default:
+        return UiCameraBadgeMode::Other;
+    }
+}
+
+static UiOverlayMode ProjectUiOverlayMode( OverlayMode mode )
+{
+    switch ( mode )
+    {
+    case OverlayMode::SceneStats:
+        return UiOverlayMode::SceneStats;
+    case OverlayMode::BarsNormalized:
+        return UiOverlayMode::BarsNormalized;
+    case OverlayMode::BarsAbsolute:
+        return UiOverlayMode::BarsAbsolute;
+    case OverlayMode::Keys:
+        return UiOverlayMode::Keys;
+    case OverlayMode::Timers:
+        return UiOverlayMode::Timers;
+    case OverlayMode::None:
+    default:
+        return UiOverlayMode::None;
+    }
+}
 
 static RuntimeViewModel BuildRuntimeViewModel( const SceneSessionState& scene, const SceneWorld& world, int sceneCount,
                                                const RunScreenshotState& screenshot, bool presentationInterpolation,
@@ -357,8 +399,8 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
     const std::string* uiScenePath = sceneController.CurrentPath();
     const ReplayHudStatus sharedReplayHud = replayRuntime.BuildHudStatus( false );
     const SkullbonezCore::Core::CinematicRenderConfig& sharedCinematic = ActiveSceneCinematicConfig( scene, config );
-    const bool sharedCinematicRendering = IsSceneCinematicRenderingEnabled( scene, config, launchOptions,
-                                                                            debug.isTextOnly, true );
+    const bool sharedCinematicRendering = IsSceneCinematicRenderingEnabled( scene, config, launchOptions, debug.isTextOnly,
+                                                                            true );
     const bool sharedShadows = sharedCinematicRendering ? sharedCinematic.shadow.enabled
                                                         : config.ordinaryRender.shadow.enabled;
 
@@ -513,7 +555,8 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
             const SceneEntityRecord* entity = hierarchyEntities.TryGet( selectedHierarchyRow );
             const PhysicsBodyStore& bodyStore = sceneController.Scene().BodyStore();
             const ColliderStore& colliderStore = sceneController.Scene().Colliders();
-            const std::span<const BuoyancyBodyFacts> buoyancyFacts = PhysicsEngine::ReadBuoyancyFacts( sceneController.Scene().Physics() );
+            const std::span<const BuoyancyBodyFacts> buoyancyFacts = PhysicsEngine::ReadBuoyancyFacts(
+                sceneController.Scene().Physics() );
 
             const PhysicsBodyRecord* body = entity ? bodyStore.RecordForHandle( entity->body ) : nullptr;
             const PhysicsColliderHandle colliderHandle = entity ? colliderStore.HandleForBodyHandle( entity->body )
@@ -538,7 +581,8 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
                 inspector.displayName = entity->displayName;
                 inspector.renderMaterialName = entity->renderMaterial.name[0] != '\0'
                                                    ? entity->renderMaterial.name
-                                                   : SkullbonezCore::Rendering::RenderMaterialKindName( entity->renderMaterial.kind );
+                                                   : SkullbonezCore::Rendering::RenderMaterialKindName(
+                                                         entity->renderMaterial.kind );
 
                 inspector.contactMaterialName = colliderAuthoring->contactMaterialName;
                 inspector.assetName = entity->asset.assetName;
@@ -708,9 +752,19 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
     renderer.PrepareUiFrameTarget();
     int gameUiDrawCalls = 0;
 
-    if ( renderer.ResourceLifecycle().ShouldRenderUiText( debug, scene, sceneController.CrossScenePauseLocked(), camera, ui,
-                                                          replayOverlay.shouldRenderScrubber,
-                                                          replayPathVisualizerHasTarget ) )
+    const UiTextVisibility uiTextVisibility { debug.isTextOnly,
+                                              scene.isSceneMode,
+                                              scene.isSceneText,
+                                              debug.overlayMode != OverlayMode::None,
+                                              ui.NeedsUiTextPass(),
+                                              sceneController.CrossScenePauseLocked(),
+                                              debug.isTopTextHidden,
+                                              scene.isTestComplete,
+                                              replayOverlay.shouldRenderScrubber,
+                                              replayPathVisualizerHasTarget,
+                                              ProjectUiCameraBadgeMode( camera.mode ) != UiCameraBadgeMode::Quiet };
+
+    if ( renderer.ResourceLifecycle().ShouldRenderUiText( uiTextVisibility ) )
     {
         runtimeViewModel = BuildRuntimeViewModel( sceneController.State(), sceneController.Scene(),
                                                   sceneController.QueueSize(), m_capture.Screenshot(),
@@ -718,8 +772,8 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
                                                   uiTextFacts.presentationPinned, uiTextFacts.presentationAlpha );
 
         const SkullbonezCore::Core::CinematicRenderConfig& uiCinematic = ActiveSceneCinematicConfig( scene, config );
-        const bool uiCinematicRendering = IsSceneCinematicRenderingEnabled( scene, config, launchOptions,
-                                                                            debug.isTextOnly, true );
+        const bool uiCinematicRendering = IsSceneCinematicRenderingEnabled( scene, config, launchOptions, debug.isTextOnly,
+                                                                            true );
         const bool shadowsAvailable = uiCinematicRendering ? uiCinematic.shadow.enabled
                                                            : config.ordinaryRender.shadow.enabled;
 
@@ -740,18 +794,48 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
             CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Render );
             const RuntimeFrameMetricsSnapshot& metrics = operatorUiPhase.Snapshot().metrics;
             const int uiDrawCallStart = renderer.BeginUiTextFrame( uiViewport );
-            renderer.SubmitUiChrome( uiViewport, debug, sceneController.CrossScenePauseLocked(), scene, camera,
-                                     sceneController.QueueSize(), uiTextFacts.cameraModeLabel, replayHud,
-                                     uiTextFacts.isLauncherCameraMode, uiTextFacts.launcherFireModeLabel,
-                                     metrics.sceneElapsedSeconds );
+            UiChromeStatusValues chromeStatus;
+            chromeStatus.textOnly = debug.isTextOnly;
+            chromeStatus.topTextHidden = debug.isTopTextHidden;
+            chromeStatus.sceneMode = scene.isSceneMode;
+            chromeStatus.sceneTestComplete = scene.isTestComplete;
+            chromeStatus.crossScenePauseLocked = sceneController.CrossScenePauseLocked();
+            chromeStatus.currentFrame = scene.currentFrame;
+            chromeStatus.targetFrameCount = scene.targetFrameCount;
+            chromeStatus.currentSceneIndex = scene.currentSceneIndex;
+            chromeStatus.sceneQueueSize = sceneController.QueueSize();
+            chromeStatus.cameraMode = ProjectUiCameraBadgeMode( camera.mode );
+            chromeStatus.cameraModeLabel = uiTextFacts.cameraModeLabel;
+            chromeStatus.interactionRecording = debug.isInteractionRecording;
+            chromeStatus.interactionPlayback = debug.isInteractionPlayback;
+            chromeStatus.interactionFailure = debug.interactionRecordingFailure;
+            chromeStatus.interactionPlaybackTurn = debug.interactionPlaybackTurn;
+            chromeStatus.interactionPlaybackTurnCount = debug.interactionPlaybackTurnCount;
+            chromeStatus.interactionRecordingElapsedSeconds = debug.interactionRecordingElapsedSeconds;
+            chromeStatus.interactionRecordingMaximumMinutes = debug.interactionRecordingMaximumMinutes;
+            chromeStatus.interactionRecordingFrameCount = debug.interactionRecordingFrameCount;
+            chromeStatus.interactionRecordingFrameCapacity = debug.interactionRecordingFrameCapacity;
+
+            UiChromeTailValues chromeTail;
+            chromeTail.topTextHidden = debug.isTopTextHidden;
+            chromeTail.divergenceValid = replayHud.divergenceValid;
+            chromeTail.divergenceUnits = replayHud.divergenceUnits;
+            chromeTail.launcherCameraMode = uiTextFacts.isLauncherCameraMode;
+            chromeTail.launcherFireModeLabel = uiTextFacts.launcherFireModeLabel;
+#if defined( _DEBUG )
+            chromeTail.reproSnapshotMessage = debug.reproSnapshotMessage;
+            chromeTail.reproMessageAgeSeconds = metrics.sceneElapsedSeconds;
+            chromeTail.reproSnapshotMessageUntil = debug.reproSnapshotMessageUntil;
+#endif
+            renderer.SubmitUiChrome( uiViewport, chromeStatus, chromeTail );
 
             const bool textOnly = debug.isTextOnly;
             const bool operatorNeeded = ui.NeedsUiTextPass();
             const bool operatorVisible = ui.IsVisible();
             const bool profilerBars = debug.overlayMode == OverlayMode::BarsNormalized ||
                                       debug.overlayMode == OverlayMode::BarsAbsolute;
-            const OperatorUiSubmissionPlan submissionPlan = ResolveOperatorUiSubmissionPlan(
-                textOnly, operatorNeeded, operatorVisible, profilerBars );
+            const OperatorUiSubmissionPlan submissionPlan = ResolveOperatorUiSubmissionPlan( textOnly, operatorNeeded,
+                                                                                             operatorVisible, profilerBars );
 
             if ( submissionPlan.composeGameUi )
             {
@@ -759,40 +843,44 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
                 // touch the GPU, and each renderer callback borrow ends before
                 // the next focused operation begins.
                 SkullbonezCore::UI::InGameUIFrameData uiData;
+                SkullbonezCore::UI::UIRuntimeReserveCapacityRow
+                    reserveCapacityRows[SkullbonezCore::UI::UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX] = {};
                 renderer.PrepareOperatorUiFrame( uiData, uiViewport, debug.isUITestPattern );
-                renderer.ProjectOperatorUiDiagnostics( uiData, replayHud, metrics, renderModels, diagnosticsRuntime, ui,
-                                                        &workerPool );
-                renderer.ProjectOperatorUiSettings( uiData, debug, renderer.PresentationSettings(),
-                                                     sceneController.Scene(), config, uiCinematic,
-                                                     uiCinematicRendering );
-                renderer.ProjectOperatorUiInteraction( uiData, runtimeTools.RayCastTest(), editorTools.Editor(),
-                                                        runtimeInput, camera, ui, uiTextFacts.cameraModeEnabledMask,
-                                                        uiTextFacts.cameraModeLabel );
-                renderer.ProjectOperatorUiPresentation(
-                    uiData, scene, runtimeViewModel, uiSceneBrowser, operatorEditorView,
-                    sceneController.HasCurrentEntry(), uiScenePath ? uiScenePath->c_str() : nullptr,
-                    uiSceneBrowser.CurrentIndexForPath( sceneController.CurrentPath() ), metrics.sceneEnergy );
+                ProjectOperatorUiDiagnostics( uiData, replayHud, metrics, renderModels, diagnosticsRuntime, ui, &workerPool,
+                                              m_profiler, reserveCapacityRows, renderer.RenderDiagnostics() );
+                ProjectOperatorUiSettings( uiData, debug, renderer.PresentationSettings(), sceneController.Scene(), config,
+                                           uiCinematic, uiCinematicRendering );
+                ProjectOperatorUiInteraction( uiData, runtimeTools.RayCastTest(), editorTools.Editor(), runtimeInput, camera,
+                                              ui, uiTextFacts.cameraModeEnabledMask, uiTextFacts.cameraModeLabel );
+                ProjectOperatorUiPresentation( uiData, scene, runtimeViewModel, uiSceneBrowser, operatorEditorView,
+                                               sceneController.HasCurrentEntry(),
+                                               uiScenePath ? uiScenePath->c_str() : nullptr,
+                                               uiSceneBrowser.CurrentIndexForPath( sceneController.CurrentPath() ),
+                                               metrics.sceneEnergy );
                 renderer.SubmitOperatorUiFrame( uiData, ui, renderTargetPreviews, m_assets, uiDrawCallStart );
             }
 
             if ( submissionPlan.submitOverlay )
             {
                 const float rollingFps = metrics.rollingFrameSeconds > 0.0f ? 1.0f / metrics.rollingFrameSeconds : 0.0f;
-                renderer.SubmitUiOverlay( uiViewport, debug.overlayMode, scene.modelCount, rollingFps,
-                                          metrics.sceneEnergy );
+                renderer.SubmitUiOverlay( uiViewport, ProjectUiOverlayMode( debug.overlayMode ), scene.modelCount,
+                                          rollingFps, metrics.sceneEnergy );
             }
 
             if ( submissionPlan.submitReplay )
             {
-                const UI::UIDrawList& replayDrawList = replayRuntime.ComposeOverlayDrawList(
-                    replayOverlay, uiTextFacts.gameUiActive, scene.isScenePhysics, uiTextFacts.interactionGestureKind,
-                    { uiViewport.screenW, uiViewport.screenH }, metrics.simulationTotalSeconds );
+                const UI::UIDrawList&
+                    replayDrawList = replayRuntime.ComposeOverlayDrawList( replayOverlay, uiTextFacts.gameUiActive,
+                                                                           scene.isScenePhysics,
+                                                                           uiTextFacts.interactionGestureKind,
+                                                                           { uiViewport.screenW, uiViewport.screenH },
+                                                                           metrics.simulationTotalSeconds );
                 renderer.SubmitUiDrawList( replayDrawList, uiViewport );
             }
 
             if ( submissionPlan.finalizeOverlay )
             {
-                renderer.FinalizeUiOverlay( debug.overlayMode );
+                renderer.FinalizeUiOverlay( ProjectUiOverlayMode( debug.overlayMode ) );
             }
 
             gameUiDrawCalls = renderer.EndUiTextFrame( uiDrawCallStart );

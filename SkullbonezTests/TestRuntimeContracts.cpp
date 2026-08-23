@@ -117,6 +117,7 @@
 #include "../SkullbonezSource/Runtime/Input/Input.h"
 #include "../SkullbonezSource/Runtime/Render/RuntimeRenderer.h"
 #include "../SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h"
+#include "../SkullbonezSource/Runtime/App/OperatorUiProjection.h"
 #include "../SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h"
 #include "../SkullbonezSource/World/Terrain.h"
@@ -490,17 +491,6 @@ struct UiTextPassTestAccess
       private:
         UiTextPass::ProfilerLifecycle m_lifecycle;
     };
-
-    static SkullbonezCore::Core::MainMemoryStats ProjectMemoryTab( bool sourceValid, int& sampleCount,
-                                                                   const SkullbonezCore::Core::MainMemoryStats& sample )
-    {
-        return UiTextPass::ProjectMemoryTabStats( sourceValid,
-                                                  [&]()
-                                                  {
-                                                      ++sampleCount;
-                                                      return sample;
-                                                  } );
-    }
 };
 
 struct OperatorCommandTransactionTestAccess
@@ -660,19 +650,15 @@ TEST_CASE( "IH5 runtime lifecycle owners preserve valid and unavailable policy" 
     SkullbonezCore::Core::MainMemoryStats sampledMemory;
     sampledMemory.sampleTimeSeconds = 3.0;
     sampledMemory.replay.totalBytes = 31u;
-    int memorySampleCount = 0;
     const SkullbonezCore::Core::MainMemoryStats
-        unavailableMemory = UiTextPassTestAccess::ProjectMemoryTab( false, memorySampleCount, sampledMemory );
+        unavailableMemory = SkullbonezCore::Runtime::ProjectMemoryTabAvailability( false, sampledMemory );
     CHECK_FALSE( unavailableMemory.process.available );
     CHECK( unavailableMemory.replay.totalBytes == 0u );
-    CHECK( memorySampleCount == 0 );
 
-    const SkullbonezCore::Core::MainMemoryStats availableMemory = UiTextPassTestAccess::ProjectMemoryTab( true,
-                                                                                                          memorySampleCount,
-                                                                                                          sampledMemory );
+    const SkullbonezCore::Core::MainMemoryStats
+        availableMemory = SkullbonezCore::Runtime::ProjectMemoryTabAvailability( true, sampledMemory );
     CHECK( availableMemory.sampleTimeSeconds == doctest::Approx( 3.0 ) );
     CHECK( availableMemory.replay.totalBytes == 31u );
-    CHECK( memorySampleCount == 1 );
 
     int skyIdentity = 0;
     SkyPassTestAccess::Probe skyLease;

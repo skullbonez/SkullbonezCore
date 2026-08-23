@@ -148,9 +148,7 @@ SkullbonezCore::Core::CinematicRenderConfig& ActiveSceneCinematicConfig( SceneSe
 const SkullbonezCore::Core::CinematicRenderConfig&
 ActiveSceneCinematicConfig( const SceneSessionState& scene, const SkullbonezCore::Core::EngineConfig& config );
 bool IsSceneCinematicRenderingEnabled( const SceneSessionState& scene, const SkullbonezCore::Core::EngineConfig& config,
-                                       const RunLaunchOptions& launchOptions, bool textOnly,
-                                       bool graphicsReady );
-Math::Vector::Vector3 CinematicSkySunDirection( const SkullbonezCore::Core::CinematicRenderConfig& cinematic );
+                                       const RunLaunchOptions& launchOptions, bool textOnly, bool graphicsReady );
 void ApplyCinematicUIParam( SkullbonezCore::Core::CinematicRenderConfig& cinematic, SceneSessionState& scene,
                             UI::UICinematicParam param, float rawValue );
 void SetCinematicShadowsEnabledFromUI( SkullbonezCore::Core::CinematicRenderConfig& cinematic, SceneSessionState& scene,

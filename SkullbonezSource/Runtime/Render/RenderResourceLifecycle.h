@@ -65,18 +65,16 @@ class RenderResourceLifecycle
                              Rendering::Dx12GraphTransientPool& renderGraph, Rendering::Dx12ResourceBuilder& renderResources,
                              Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
                              Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner& raytracing,
-                             bool raytracingAvailable, const RenderWorldView& world, const SceneSessionState& scene );
+                             bool raytracingAvailable, const RenderWorldView& world, int sceneIndex, int sceneLoadCount );
     ~RenderResourceLifecycle();
 
     SkullbonezCore::Core::SbResult InitialiseProcessResources( bool dumpTextureAssets );
     SkullbonezCore::Core::SbResult EnsureUiTextResources( int screenW, int screenH );
-    SkullbonezCore::Core::SbResult InitialiseSceneRayTracing( int modelCapacity );
+    SkullbonezCore::Core::SbResult InitialiseSceneRayTracing( Geometry::Terrain* terrain, int modelCapacity );
     RuntimeRenderTargetPreviewSnapshot BuildRenderTargetPreviewSnapshot( bool shadowsAvailable,
                                                                          bool cinematicTargetsAvailable,
                                                                          bool volumetricAvailable ) const;
-    bool ShouldRenderUiText( const OverlayDebugState& debug, const SceneSessionState& scene, bool crossScenePauseLocked,
-                             const CameraControlState& camera, const UI::InGameUI& ui, bool replayScrubberVisible,
-                             bool replayPathVisualizerHasTarget ) const;
+    bool ShouldRenderUiText( const UiTextVisibility& visibility ) const;
     void SetUiTextDxrReflectionPreviewTexture( uint32_t textureHandle );
 
   private:
@@ -140,10 +138,6 @@ class RenderResourceLifecycle
     {
         return m_textures;
     }
-    SceneTerrain& Terrain()
-    {
-        return m_terrain;
-    }
     Geometry::SkyBox* SkyBox() const
     {
         return m_skyBox.get();
@@ -191,7 +185,6 @@ class RenderResourceLifecycle
     RenderResourceLifecycleLog m_lifecycleLog;
     Assets::AssetSystem& m_assets;
     Textures::TextureCollection m_textures;
-    SceneTerrain& m_terrain;
     std::unique_ptr<Geometry::SkyBox> m_skyBox;
     RuntimeRenderPassResources m_passResources;
     SkullbonezCore::Core::EngineConfig& m_config;

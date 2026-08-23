@@ -33,6 +33,7 @@ Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderHost.h
 */
 #include "Run.h"
+#include "../Startup/Window.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "../../Core/Profiler.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
@@ -115,11 +116,19 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     // reads one coherent eye/view/up triple for this frame.
     m_sceneController.Scene().Cameras().SetCamera();
 
+    RenderCameraLighting renderCamera;
+    renderCamera.baseView = m_sceneController.Scene().Cameras().GetViewMatrix();
+    renderCamera.projection = m_window.GetProjectionMatrix();
+    renderCamera.viewProjection = renderCamera.projection * renderCamera.baseView;
+    renderCamera.eye = m_sceneController.Scene().Cameras().GetRenderCameraTranslation();
+    renderCamera.viewCenter = m_sceneController.Scene().Cameras().GetRenderCameraView();
+    renderCamera.up = m_sceneController.Scene().Cameras().GetRenderCameraUp();
+
     const SkullbonezCore::Core::CinematicRenderConfig&
         activeCinematic = ActiveSceneCinematicConfig( m_sceneController.State(), m_config );
 
     const bool cinematicRequested = IsSceneCinematicRenderingEnabled( m_sceneController.State(), m_config, m_launchOptions,
-                                                                       debug.isTextOnly, true );
+                                                                      debug.isTextOnly, true );
 
     int attachedTargetIndex = -1;
 
@@ -134,21 +143,33 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
                                                                                   m_camera.mode ) ||
                                           m_runtimeTools.HasMousePickupOverlayWork( m_interaction.Gesture() ) ||
                                           replayInput.hasPathTarget || replayInput.hasCameraFocus ||
-                                          ( replayInput.velocityEditEnabled &&
-                                            !m_editorTools.Editor().editorModeEnabled ) ||
+                                          ( replayInput.velocityEditEnabled && !m_editorTools.Editor().editorModeEnabled ) ||
                                           m_runtimeTools.HasLauncherShots();
 
-    const RenderToolOverlayView toolOverlay { m_runtimeTools,
-                                              editorOverlayWorkVisible,
-                                              m_editorTools.InspectGizmoInteractionActive( m_camera.mode,
-                                                                                            replayInput.inspectionActive ),
-                                              m_inputRouter.RuntimeSnapshot().pointer.controlDown,
-                                              attachedTargetIndex,
-                                              m_attachedCamera.State().activeFollow };
+    const bool inspectGizmoInteractionActive = m_editorTools.InspectGizmoInteractionActive( m_camera.mode,
+                                                                                            replayInput.inspectionActive );
+    const bool controlDown = m_inputRouter.RuntimeSnapshot().pointer.controlDown;
+    RenderToolOverlayView toolOverlay;
+    toolOverlay.editorOverlayWorkVisible = editorOverlayWorkVisible;
+    const std::span<const LauncherLaserShotSnapshot> launcherShots = m_runtimeTools.Laser().PresentationShots();
+    toolOverlay.launcherShotCount = (std::min)( launcherShots.size(), toolOverlay.launcherShots.size() );
 
-    const RuntimeRenderFramePolicy framePolicy =
-        ProjectRenderFramePolicy( m_overlayDiagnostics->BuildFramePolicy( m_timers.SceneElapsedSeconds(),
-                                                                           m_timers.SimulationTotalSeconds() ) );
+    for ( std::size_t i = 0; i < toolOverlay.launcherShotCount; ++i )
+    {
+        const LauncherLaserShotSnapshot& source = launcherShots[i];
+        RenderToolOverlayView::LauncherShot& destination = toolOverlay.launcherShots[i];
+        destination.start = source.start;
+        destination.end = source.end;
+        destination.cameraRight = source.cameraRight;
+        destination.cameraUp = source.cameraUp;
+        destination.ageSeconds = source.ageSeconds;
+        destination.lifetimeSeconds = source.lifetimeSeconds;
+        destination.active = source.active;
+        destination.hit = source.hit;
+    }
+
+    const RuntimeRenderFramePolicy framePolicy = ProjectRenderFramePolicy(
+        m_overlayDiagnostics->BuildFramePolicy( m_timers.SceneElapsedSeconds(), m_timers.SimulationTotalSeconds() ) );
 
     // Invariant: Run owns the cross-domain ordering. Model interpolation must
     // finish before replay substitutes read-only historical/future poses, and
@@ -159,10 +180,9 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
 
     m_runtimeTools.PrepareOverlayTrace( m_sceneController.Scene(), toolEditor,
                                         ToolOverlayBuildInput { framePolicy.physicsDebugContactLinger,
-                                                                toolOverlay.inspectGizmoInteractionActive,
-                                                                toolOverlay.controlDown, m_interaction.Gesture(),
-                                                                toolOverlay.attachedTargetIndex,
-                                                                toolOverlay.attachedFollow } );
+                                                                inspectGizmoInteractionActive, controlDown,
+                                                                m_interaction.Gesture(), attachedTargetIndex,
+                                                                m_attachedCamera.State().activeFollow } );
     m_editorTools.AppendPlacementGhost( m_runtimeTools.Tracer(), m_assets );
 
     const uint64_t replayGrowthEventCount = CoreAllocation::RuntimeReserveAllocator::GrowthEventCount();
@@ -219,8 +239,10 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     // maximum during owner construction. Steady rendering receives no
     // allocation-phase exemption.
     worldExtension = m_sceneController.Scene().Tornado().PrepareVisualFrame( visualTime );
-    const bool replaySubmissionRendered = renderer.RenderFrameEntry( RuntimeRenderer::FrameEntryContext { renderModels, framePolicy, replayFrame, continuousOverlay, toolOverlay,
-                                                                                                          worldExtension, activeCinematic, cinematicRequested } );
+    const bool replaySubmissionRendered = renderer.RenderFrameEntry(
+        RuntimeRenderer::FrameEntryContext { renderModels, renderCamera, m_sceneController.Scene().Terrain().Get(),
+                                             framePolicy, replayFrame, continuousOverlay, toolOverlay, worldExtension,
+                                             activeCinematic, cinematicRequested } );
 
     m_replayRuntime.CompleteRenderFrame( replaySubmissionRendered, m_sceneController.State().currentFrame,
                                          replayGrowthEventCount, m_runtimeTools );

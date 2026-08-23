@@ -53,7 +53,6 @@ struct PhysicsPipelineRecord;
 
 namespace Environment
 {
-class CameraCollection;
 class WorldEnvironment;
 } // namespace Environment
 
@@ -90,7 +89,6 @@ class InGameUI;
 namespace Runtime
 {
 class Window;
-class RuntimeTools;
 struct ReplayRenderFrameView;
 struct RenderToolOverlayView;
 

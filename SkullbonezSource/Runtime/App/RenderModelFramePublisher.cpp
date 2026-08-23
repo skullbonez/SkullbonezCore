@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Render/RenderModelFramePublisher.cpp
+File: SkullbonezSource/Runtime/App/RenderModelFramePublisher.cpp
 Purpose:
   Projects scene-owned state into the render model frame view.
 
@@ -17,7 +17,7 @@ Invariants:
   - Collection performs no allocation and retains no owner reference.
 
 Related:
-  - SkullbonezSource/Runtime/Render/RenderModelFramePublisher.h
+  - SkullbonezSource/Runtime/App/RenderModelFramePublisher.h
   - SkullbonezSource/Runtime/Diagnostics/SceneMemoryDiagnostics.h
   - SkullbonezSource/Runtime/Scene/SceneWorld.h
   - Agentic/Reference/engine-glossary.md
@@ -26,6 +26,7 @@ Related:
 
 #include "../Diagnostics/SceneMemoryDiagnostics.h"
 #include "../Scene/SceneWorld.h"
+#include "../Render/RuntimeRenderFrameValues.h"
 #include "../../Core/Config.h"
 #include "../../Physics/PhysicsEngine.h"
 
@@ -55,10 +56,11 @@ RuntimeRenderModelFrameView PublishRenderModelFrame( SceneWorld& scene, Threadin
                                          config.runtimeRender.renderCollisionVolumes,
                                          config.runtimeRender.shadowParallelPrep,
                                          scene.GetSceneKineticEnergy(),
-                                         CollectSceneMemoryStats( SceneMemoryDiagnosticsView { scene.Entities().CapacityBytes(),
-                                                                                               scene.CollectGameplayMemoryBytes(),
-                                                                                               scene.CollectGameplayDebugMemoryBytes(), physics,
-                                                                                               scene.RenderInstances() } ) };
+                                         CollectSceneMemoryStats(
+                                             SceneMemoryDiagnosticsView { scene.Entities().CapacityBytes(),
+                                                                          scene.CollectGameplayMemoryBytes(),
+                                                                          scene.CollectGameplayDebugMemoryBytes(), physics,
+                                                                          scene.RenderInstances() } ) };
 }
 } // namespace Runtime
 } // namespace SkullbonezCore

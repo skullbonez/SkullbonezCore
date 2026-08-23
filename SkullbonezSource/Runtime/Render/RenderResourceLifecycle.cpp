@@ -23,7 +23,6 @@ Related:
 */
 #include "RenderResourceLifecycle.h"
 
-#include "../Scene/SceneTerrain.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/FatalError.h"
 #include "../../Rendering/DX12/Dx12Diagnostics.h"
@@ -39,17 +38,18 @@ using namespace SkullbonezCore::Runtime;
 namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 namespace Rendering = SkullbonezCore::Rendering;
 
-RenderResourceLifecycle::RenderResourceLifecycle( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Rendering::Dx12RenderDevice& renderDevice,
-                                                  Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12GraphTransientPool& renderGraph,
-                                                  Rendering::Dx12ResourceBuilder& renderResources, Rendering::Dx12TextureOwner& renderTextures,
-                                                  Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12Diagnostics& renderDiagnostics,
-                                                  Rendering::Dx12RaytracingOwner& raytracing, bool raytracingAvailable, const RenderWorldView& world,
-                                                  const SceneSessionState& scene )
+RenderResourceLifecycle::RenderResourceLifecycle(
+    SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Rendering::Dx12RenderDevice& renderDevice,
+    Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12GraphTransientPool& renderGraph,
+    Rendering::Dx12ResourceBuilder& renderResources, Rendering::Dx12TextureOwner& renderTextures,
+    Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12Diagnostics& renderDiagnostics,
+    Rendering::Dx12RaytracingOwner& raytracing, bool raytracingAvailable, const RenderWorldView& world, int sceneIndex,
+    int sceneLoadCount )
     : m_resultDiagnostics( resultDiagnostics ), m_renderDevice( renderDevice ), m_renderFrame( renderFrame ),
       m_renderGraph( renderGraph ), m_renderResources( renderResources ), m_renderTextures( renderTextures ),
       m_renderGeometry( renderGeometry ), m_renderDiagnostics( renderDiagnostics ), m_raytracing( raytracing ),
-      m_raytracingAvailable( raytracingAvailable ), m_lifecycleLog( &renderDevice, scene ), m_assets( world.assets ),
-      m_textures( resultDiagnostics ), m_terrain( world.terrain ), m_config( world.config ),
+      m_raytracingAvailable( raytracingAvailable ), m_lifecycleLog( &renderDevice, sceneIndex, sceneLoadCount ),
+      m_assets( world.assets ), m_textures( resultDiagnostics ), m_config( world.config ),
       m_primitiveBatches( std::in_place, &renderResources, &renderTextures, &renderGeometry ),
       m_gpuTiming( world.profiler, &renderDiagnostics ), m_uiTextPass( resultDiagnostics, world.profiler, m_gpuTiming )
 {
@@ -130,7 +130,8 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::EnsureUiTextResources( i
 }
 
 
-SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseSceneRayTracing( int modelCapacity )
+SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseSceneRayTracing( Geometry::Terrain* terrain,
+                                                                                   int modelCapacity )
 {
     if ( !m_raytracingAvailable )
     {
@@ -152,12 +153,12 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseSceneRayTracin
         sphereGeometry = PrimitiveBatches().SphereGeometry();
     }
 
-    if ( !m_terrain.Get() || !m_terrain.Get()->GetMesh() )
+    if ( !terrain || !terrain->GetMesh() )
     {
         return SkullbonezCore::Core::SbResult::Success();
     }
 
-    Rendering::MeshDX12* terrainMesh = m_terrain.Get()->GetMesh();
+    Rendering::MeshDX12* terrainMesh = terrain->GetMesh();
     const uint64_t terrainVBVA = terrainMesh->GetVertexBufferGPUVA();
     const uint32_t sphereHandle = sphereGeometry.instancedMeshHandle;
     const uint64_t sphereVBVA = rayTracing.GetInstancedMeshStaticVBVA( sphereHandle );
@@ -211,13 +212,9 @@ RenderResourceLifecycle::BuildRenderTargetPreviewSnapshot( bool shadowsAvailable
 }
 
 
-bool RenderResourceLifecycle::ShouldRenderUiText( const OverlayDebugState& debug, const SceneSessionState& scene,
-                                                  bool crossScenePauseLocked, const CameraControlState& camera,
-                                                  const UI::InGameUI& ui, bool replayScrubberVisible,
-                                                  bool replayPathVisualizerHasTarget ) const
+bool RenderResourceLifecycle::ShouldRenderUiText( const UiTextVisibility& visibility ) const
 {
-    return m_uiTextPass.ShouldRender( debug, scene, crossScenePauseLocked, camera, ui, replayScrubberVisible,
-                                      replayPathVisualizerHasTarget );
+    return m_uiTextPass.ShouldRender( visibility );
 }
 
 

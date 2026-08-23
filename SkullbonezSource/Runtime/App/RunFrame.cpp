@@ -57,7 +57,7 @@ Related:
 #include "../Automation/RuntimeValidationHarness.h"
 #include "../RuntimeFrameViews.h"
 #include "../UI/RuntimeViewModel.h"
-#include "../Render/RenderModelFramePublisher.h"
+#include "RenderModelFramePublisher.h"
 #include "../Startup/Window.h"
 #include "../Input/Input.h"
 #include "../../Core/WorkerPool.h"
@@ -167,8 +167,9 @@ void Run::ApplyDemoDirectorTickResult( const DemoDirectorTickResult& result )
     if ( result.applyStyle )
     {
         AuthoredScene styleScene;
-        const SkullbonezCore::Core::SbResult loadResult =
-            AuthoredScene::TryLoadStyleFromFile( m_resultDiagnostics, result.stylePath, m_assets, styleScene );
+        const SkullbonezCore::Core::SbResult loadResult = AuthoredScene::TryLoadStyleFromFile( m_resultDiagnostics,
+                                                                                               result.stylePath, m_assets,
+                                                                                               styleScene );
 
         if ( loadResult.Ok() )
         {
@@ -191,7 +192,7 @@ void Run::ApplyDemoDirectorTickResult( const DemoDirectorTickResult& result )
     if ( result.applyCameraPose )
     {
         m_sceneController.Scene().Cameras().SetPrimaryPose( result.cameraPose.eye, result.cameraPose.view,
-                                                           result.cameraPose.up );
+                                                            result.cameraPose.up );
     }
 }
 
@@ -280,7 +281,8 @@ bool Run::PumpFrameMessages( int& messageExitCode )
         {
             if ( message.id == WM_SETFOCUS )
             {
-                SkullbonezCore::Hardware::Input::SetSystemCursorVisible( SkullbonezCore::Hardware::Input::IsSystemCursorVisibleRequested() );
+                SkullbonezCore::Hardware::Input::SetSystemCursorVisible(
+                    SkullbonezCore::Hardware::Input::IsSystemCursorVisibleRequested() );
             }
             else if ( message.id == WM_KILLFOCUS )
             {
@@ -289,7 +291,8 @@ bool Run::PumpFrameMessages( int& messageExitCode )
             else if ( message.id == WM_SETCURSOR && LOWORD( message.lParam ) == HTCLIENT )
             {
                 const bool focused = GetForegroundWindow() == message.window;
-                SkullbonezCore::Hardware::Input::SetSystemCursorVisible( focused ? SkullbonezCore::Hardware::Input::IsSystemCursorVisibleRequested() : true );
+                SkullbonezCore::Hardware::Input::SetSystemCursorVisible(
+                    focused ? SkullbonezCore::Hardware::Input::IsSystemCursorVisibleRequested() : true );
                 route.engineCursorHandled = true;
             }
         }
@@ -519,15 +522,15 @@ Run::FrameInputPhaseResult Run::RunAutomationAndInputPhase()
                                                                                           m_config, m_sceneController,
                                                                                           m_timers.Publish(), m_camera,
                                                                                           m_inputRouter, m_interaction,
-                                                                                          m_editorTools, m_runtimeTools, *m_operatorUi,
+                                                                                          m_editorTools, m_runtimeTools,
+                                                                                          *m_operatorUi,
                                                                                           automationReplayView,
                                                                                           Renderer().FrameGraphSnapshot() );
 
     if ( result.applyDirectorCameraPose )
     {
-        m_sceneController.Scene().Cameras().SetPrimaryPose( result.directorCameraPose.eye,
-                                                           result.directorCameraPose.view,
-                                                           result.directorCameraPose.up );
+        m_sceneController.Scene().Cameras().SetPrimaryPose( result.directorCameraPose.eye, result.directorCameraPose.view,
+                                                            result.directorCameraPose.up );
     }
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
@@ -547,9 +550,8 @@ Run::FrameInputPhaseResult Run::RunAutomationAndInputPhase()
 
     if ( result.applyCameraMode )
     {
-        m_inputRouter.ApplyCameraMode( result.cameraMode, RuntimeInputActionSource::Runtime, m_editorTools,
-                                       m_runtimeTools, m_interaction,
-                                       m_attachedCamera, m_camera, m_sceneController, m_replayRuntime,
+        m_inputRouter.ApplyCameraMode( result.cameraMode, RuntimeInputActionSource::Runtime, m_editorTools, m_runtimeTools,
+                                       m_interaction, m_attachedCamera, m_camera, m_sceneController, m_replayRuntime,
                                        m_inputRouter.RuntimeContext() );
     }
 
@@ -574,8 +576,7 @@ Run::FrameInputPhaseResult Run::RunAutomationAndInputPhase()
                                                                                 cameraModeEnabledMask );
 
         m_inputRouter.SetWorldInteractionOwner( result.worldInteractionOwner, result.worldInteractionReason, m_editorTools,
-                                                m_runtimeTools,
-                                                m_interaction, m_attachedCamera, m_camera, m_sceneController,
+                                                m_runtimeTools, m_interaction, m_attachedCamera, m_camera, m_sceneController,
                                                 m_replayRuntime, normalizedRestoreMode );
     }
 
@@ -650,10 +651,9 @@ Run::FrameSimulationPhaseResult Run::RunSimulationPhase( double secondsPerFrame,
     // Invariant: capture pinning is fixed before physics and camera work. A
     // scheduled screenshot renders exact solver poses for this whole turn.
     const bool
-        capturePresentationPinned = m_capture
-                                        .RequiresDeterministicPresentation( m_sceneController.State().isSceneMode,
-                                                                            m_sceneController.State().currentFrame,
-                                                                            m_timers.SceneElapsedSeconds() * 1000.0 ) ||
+        capturePresentationPinned = m_capture.RequiresDeterministicPresentation( m_sceneController.State().isSceneMode,
+                                                                                 m_sceneController.State().currentFrame,
+                                                                                 m_timers.SceneElapsedSeconds() * 1000.0 ) ||
                                     ( m_sceneController.State().isSceneMode && m_camera.autoCycleInterval > 0.0f ) ||
                                     m_validationHarness->HasPendingLiveStyleCapture()
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
@@ -699,7 +699,8 @@ Run::FrameSimulationPhaseResult Run::RunSimulationPhase( double secondsPerFrame,
     }
     sceneGates.UpdateRequiredSleepingDynamicBodies( scene.BodyStore().HotFields().awake );
     sceneGates.UpdateRequiredContacts( SceneAutomationGatePhysicsView { scene.BodyStore(), scene.Colliders(),
-                                                                        PhysicsEngine::ReadDebugContacts( scene.Physics() ) },
+                                                                        PhysicsEngine::ReadDebugContacts(
+                                                                            scene.Physics() ) },
                                        m_config.bodySimulation.contactEpsilon );
 
     return FrameSimulationPhaseResult { interpolationAlpha, capturePresentationPinned };
@@ -724,8 +725,7 @@ Run::FrameRenderPhaseResult Run::PrepareRenderPhase( bool gameUiActive, const Fr
             sceneLoad.CaptureSubmittedState( m_camera, CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
                                              ProjectScenePresentationValues( m_overlayDiagnostics->PresentationSnapshot() ),
                                              { Renderer().VsyncEnabled(), Renderer().PipelineSyncEnabled() },
-                                             Renderer().RendererName(),
-                                             m_timers.SimulationTotalSeconds() );
+                                             Renderer().RendererName(), m_timers.SimulationTotalSeconds() );
 
             const bool loaded = LoadSceneRequest( sceneLoad, stressLoad.request ).Ok();
 
@@ -739,9 +739,8 @@ Run::FrameRenderPhaseResult Run::PrepareRenderPhase( bool gameUiActive, const Fr
             ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_capture,
                                             m_overlaySceneLifecycleObserver, m_sceneController,
                                             m_inputSceneLifecycleObserver, m_inputRouter, m_interaction,
-                                            m_cameraSceneLifecycleObserver, m_camera,
-                                            m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_editorTools, m_runtimeTools,
-                                            m_replayRuntime );
+                                            m_cameraSceneLifecycleObserver, m_camera, m_attachedCameraSceneLifecycleObserver,
+                                            m_attachedCamera, m_editorTools, m_runtimeTools, m_replayRuntime );
 
             ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_launchOptions,
                                         &Renderer().RenderDevice(), Renderer().VsyncEnabled(), m_sceneController );
@@ -790,16 +789,19 @@ Run::FrameRenderPhaseResult Run::PrepareRenderPhase( bool gameUiActive, const Fr
             }
             else
             {
-                const GraphicsStressRuntimeActionResult stressResult = ApplyGraphicsStressRuntimeAction(
-                    action, graphicsStress, m_launchOptions, *m_overlayDiagnostics, m_sceneController, m_camera,
-                    *m_operatorUi, m_simulation, m_runtimeTools );
+                const GraphicsStressRuntimeActionResult
+                    stressResult = ApplyGraphicsStressRuntimeAction( action, graphicsStress, m_launchOptions,
+                                                                     *m_overlayDiagnostics, m_sceneController, m_camera,
+                                                                     *m_operatorUi, m_simulation, m_runtimeTools );
 
                 if ( stressResult.worldOverrideChanged )
                 {
-                    m_replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildWorldOverride(
-                        stressResult.previousGravity, stressResult.previousFluidHeight,
-                        stressResult.previousFluidDensity, stressResult.gravity, stressResult.fluidHeight,
-                        stressResult.fluidDensity ) );
+                    m_replayRuntime.SubmitEvent(
+                        ReplayEventCommandOperations::BuildWorldOverride( stressResult.previousGravity,
+                                                                          stressResult.previousFluidHeight,
+                                                                          stressResult.previousFluidDensity,
+                                                                          stressResult.gravity, stressResult.fluidHeight,
+                                                                          stressResult.fluidDensity ) );
                 }
             }
         }
@@ -865,8 +867,9 @@ void Run::RunPostDrawDiagnosticsPhase( bool gameUiActive )
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Capture );
         if ( m_validationHarness->HasPendingLiveStyleCapture() )
         {
-            const SkullbonezCore::Core::SbResult captureResult = m_capture.SaveScreenshot(
-                BackbufferCapture(), m_validationHarness->PendingLiveStyleCapturePath() );
+            const SkullbonezCore::Core::SbResult
+                captureResult = m_capture.SaveScreenshot( BackbufferCapture(),
+                                                          m_validationHarness->PendingLiveStyleCapturePath() );
             m_validationHarness->CompleteLiveStyleCapture( captureResult );
         }
     }
@@ -882,15 +885,14 @@ void Run::RunPostDrawDiagnosticsPhase( bool gameUiActive )
 
 #endif
     const InteractionAutomationFrameResult
-        automationAfterRender = TickInteractionAutomationAfterRender( m_interactionAutomation, m_editorTools,
-                                                                      m_runtimeTools, m_interaction,
-                                                                      m_inputRouter, m_camera, *m_operatorUi,
+        automationAfterRender = TickInteractionAutomationAfterRender( m_interactionAutomation, m_editorTools, m_runtimeTools,
+                                                                      m_interaction, m_inputRouter, m_camera, *m_operatorUi,
                                                                       m_sceneController,
                                                                       m_replayRuntime.BuildAutomationView(),
                                                                       automationDevelopmentUiView,
                                                                       m_continuousForecast.View(),
-                                                                      Renderer().FrameGraphSnapshot(),
-                                                                      m_capture, BackbufferCapture() );
+                                                                      Renderer().FrameGraphSnapshot(), m_capture,
+                                                                      BackbufferCapture() );
 
     if ( !automationAfterRender.status.Ok() )
     {
@@ -1062,9 +1064,8 @@ SkullbonezCore::Core::SbResult Run::Execute()
         }
 
         RuntimeRenderModelFrameView models = PublishRenderModelsPhase();
-        const RuntimeRenderFramePolicy debugFramePolicy =
-            ProjectRenderFramePolicy( m_overlayDiagnostics->BuildFramePolicy( m_timers.SceneElapsedSeconds(),
-                                                                               m_timers.SimulationTotalSeconds() ) );
+        const RuntimeRenderFramePolicy debugFramePolicy = ProjectRenderFramePolicy(
+            m_overlayDiagnostics->BuildFramePolicy( m_timers.SceneElapsedSeconds(), m_timers.SimulationTotalSeconds() ) );
         Renderer().UpdateDebugVisualizers( static_cast<float>( secondsPerFrame ), models, debugFramePolicy );
         // Fixed boundary: diagnostics advance once from completed frame-model
         // facts before Render or either optional UI surface can branch.
@@ -1121,8 +1122,7 @@ float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned,
     // here keeps SimulationSystem out of every cold scene-load call surface.
     const SceneLifecyclePacket& lifecycle = m_sceneController.LifecyclePacket();
     m_simulation.ObserveSceneLifecycle(
-        { lifecycle.generation,
-          SceneLifecycleReached( lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneCleared ) } );
+        { lifecycle.generation, SceneLifecycleReached( lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneCleared ) } );
     const ReplayInputView replayInput = m_replayRuntime.BuildInputView();
 
     if ( replayInput.scrubPaused )
@@ -1140,7 +1140,8 @@ float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned,
 
     // Why: the saturated Replay count remains live every step, but payload rows
     // are observational work needed only by capture or pipeline presentation.
-    m_sceneController.Scene().Physics().SetPipelineTraceFullRecordConsumerActive( replayCapture || ( overlayPresentation.physicsDebugFlags & PHYSICS_DEBUG_PIPELINE ) != 0u );
+    m_sceneController.Scene().Physics().SetPipelineTraceFullRecordConsumerActive(
+        replayCapture || ( overlayPresentation.physicsDebugFlags & PHYSICS_DEBUG_PIPELINE ) != 0u );
 #ifdef _DEBUG
     const bool physicsCapture = m_diagnosticsRuntime.PerfLog().physicsRegressionLogOverride[0] != '\0' ||
                                 m_diagnosticsRuntime.PerfLog().physicsCollisionTimeLogOverride[0] != '\0' ||
@@ -1172,9 +1173,10 @@ float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned,
                                                                                sceneState.isFixedStep,
                                                                                sceneState.targetFrameCount,
                                                                                sceneState.isInteractiveRun );
-    const SimulationTickResult tick = m_simulation.Tick( SimulationTickInput { secondsPerFrame, policy.physicsTimeScale, m_sceneController.State().isSceneMode,
-                                                                               m_sceneController.State().isScenePhysics, pacingPolicy, policy.physicsAdvance, stepRequested,
-                                                                               canStepPhysics } );
+    const SimulationTickResult tick = m_simulation.Tick(
+        SimulationTickInput { secondsPerFrame, policy.physicsTimeScale, m_sceneController.State().isSceneMode,
+                              m_sceneController.State().isScenePhysics, pacingPolicy, policy.physicsAdvance, stepRequested,
+                              canStepPhysics } );
 
     const float presentationAlpha = ResolvePresentationAlpha( m_config, capturePresentationPinned, tick.presentationAlpha );
 
@@ -1244,9 +1246,10 @@ float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned,
         directorPrediction.revealAvailable = directorReplayInput.predictionRevealAvailable;
         directorPrediction.revealProgress = directorReplayInput.predictionRevealProgress;
         const DemoCameraPose currentPose = CaptureDemoDirectorPose( m_sceneController.Scene().Cameras() );
-        const DemoDirectorTickResult directorResult = DemoDirectorPlayback::Tick(
-            m_camera.director, m_camera.mode == RunCameraMode::Director, directorPrediction, currentPose,
-            static_cast<float>( secondsPerFrame ) );
+        const DemoDirectorTickResult directorResult = DemoDirectorPlayback::Tick( m_camera.director,
+                                                                                  m_camera.mode == RunCameraMode::Director,
+                                                                                  directorPrediction, currentPose,
+                                                                                  static_cast<float>( secondsPerFrame ) );
         ApplyDemoDirectorTickResult( directorResult );
     }
 
@@ -1292,8 +1295,8 @@ void Run::AfterPhysicsStep()
         // the application exit latch only preserves that first owned failure
         // while WM_QUIT unwinds the frame loop.
         const ReplayProbeTickResult probeResult = m_replayRuntime.TickProbes( m_sceneController, presentationEdit.State(),
-                                                                              m_editorTools, m_runtimeTools, m_config, m_assets,
-                                                                              timelineReset, m_diagnosticsRuntime,
+                                                                              m_editorTools, m_runtimeTools, m_config,
+                                                                              m_assets, timelineReset, m_diagnosticsRuntime,
                                                                               m_inputRouter, m_interaction, m_camera,
                                                                               normalizedRestoreMode,
                                                                               m_attachedCamera.State().activeFollow );
@@ -1346,13 +1349,12 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
     }
 
     const std::string* scenePath = m_sceneController.CurrentPath();
-    const RuntimeCaptureResult result = m_capture
-                                            .TickScreenshots( m_sceneController.State().isSceneMode,
-                                                              m_sceneController.State().isInteractiveRun,
-                                                              m_sceneController.State().currentFrame,
-                                                              m_timers.SceneElapsedSeconds() * 1000.0,
-                                                              scenePath ? scenePath->c_str() : nullptr,
-                                                              BackbufferCapture() );
+    const RuntimeCaptureResult result = m_capture.TickScreenshots( m_sceneController.State().isSceneMode,
+                                                                   m_sceneController.State().isInteractiveRun,
+                                                                   m_sceneController.State().currentFrame,
+                                                                   m_timers.SceneElapsedSeconds() * 1000.0,
+                                                                   scenePath ? scenePath->c_str() : nullptr,
+                                                                   BackbufferCapture() );
 
     if ( result.restartFrame )
     {
@@ -1422,8 +1424,7 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
             sceneLoad.CaptureSubmittedState( m_camera, CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
                                              ProjectScenePresentationValues( m_overlayDiagnostics->PresentationSnapshot() ),
                                              { Renderer().VsyncEnabled(), Renderer().PipelineSyncEnabled() },
-                                             Renderer().RendererName(),
-                                             m_timers.SimulationTotalSeconds() );
+                                             Renderer().RendererName(), m_timers.SimulationTotalSeconds() );
 
             advanced = LoadSceneRequest( sceneLoad, request ).Ok();
 
@@ -1432,9 +1433,8 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
             ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_capture,
                                             m_overlaySceneLifecycleObserver, m_sceneController,
                                             m_inputSceneLifecycleObserver, m_inputRouter, m_interaction,
-                                            m_cameraSceneLifecycleObserver, m_camera,
-                                            m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_editorTools, m_runtimeTools,
-                                            m_replayRuntime );
+                                            m_cameraSceneLifecycleObserver, m_camera, m_attachedCameraSceneLifecycleObserver,
+                                            m_attachedCamera, m_editorTools, m_runtimeTools, m_replayRuntime );
 
             ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_launchOptions,
                                         &Renderer().RenderDevice(), Renderer().VsyncEnabled(), m_sceneController );
@@ -1472,13 +1472,12 @@ void Run::TickAutoCycle( const SceneFrameProceedPolicy& proceedPolicy )
         return;
     }
 
-    const RuntimeCaptureResult result = m_capture
-                                            .TickAutoCycle( m_sceneController.State().isSceneMode,
-                                                            m_sceneController.State().isInteractiveRun,
-                                                            m_sceneController.Scene().SceneEntityCount(),
-                                                            m_camera.autoCycleInterval, m_camera.autoCycleAccum,
-                                                            m_camera.autoCycleShotsTaken, m_camera.trackBallRow.value,
-                                                            BackbufferCapture() );
+    const RuntimeCaptureResult result = m_capture.TickAutoCycle( m_sceneController.State().isSceneMode,
+                                                                 m_sceneController.State().isInteractiveRun,
+                                                                 m_sceneController.Scene().SceneEntityCount(),
+                                                                 m_camera.autoCycleInterval, m_camera.autoCycleAccum,
+                                                                 m_camera.autoCycleShotsTaken, m_camera.trackBallRow.value,
+                                                                 BackbufferCapture() );
 
     if ( !result.captureResult.Ok() )
     {
@@ -1554,18 +1553,16 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
         sceneLoad.CaptureSubmittedState( m_camera, CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
                                          ProjectScenePresentationValues( m_overlayDiagnostics->PresentationSnapshot() ),
                                          { Renderer().VsyncEnabled(), Renderer().PipelineSyncEnabled() },
-                                         Renderer().RendererName(),
-                                         m_timers.SimulationTotalSeconds() );
+                                         Renderer().RendererName(), m_timers.SimulationTotalSeconds() );
 
         loadSucceeded = LoadSceneRequest( sceneLoad, result.loadRequest ).Ok();
 
         ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, m_sceneController.LifecyclePacket(), m_timers );
         ApplySceneLoadRuntimeReactions( sceneLoad, m_launchOptions, *m_overlayDiagnostics, m_capture,
-                                        m_overlaySceneLifecycleObserver, m_sceneController,
-                                        m_inputSceneLifecycleObserver, m_inputRouter, m_interaction,
-                                        m_cameraSceneLifecycleObserver, m_camera,
-                                        m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_editorTools, m_runtimeTools,
-                                        m_replayRuntime );
+                                        m_overlaySceneLifecycleObserver, m_sceneController, m_inputSceneLifecycleObserver,
+                                        m_inputRouter, m_interaction, m_cameraSceneLifecycleObserver, m_camera,
+                                        m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_editorTools,
+                                        m_runtimeTools, m_replayRuntime );
 
         ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_launchOptions,
                                     &Renderer().RenderDevice(), Renderer().VsyncEnabled(), m_sceneController );
@@ -1602,8 +1599,9 @@ void Run::UpdateLogic( float simulationDt, float cameraDt, float presentationAlp
     directorPrediction.revealAvailable = replayInput.predictionRevealAvailable;
     directorPrediction.revealProgress = replayInput.predictionRevealProgress;
     const DemoCameraPose currentPose = CaptureDemoDirectorPose( m_sceneController.Scene().Cameras() );
-    const DemoDirectorTickResult directorResult = DemoDirectorPlayback::Tick(
-        m_camera.director, m_camera.mode == RunCameraMode::Director, directorPrediction, currentPose, cameraDt );
+    const DemoDirectorTickResult directorResult = DemoDirectorPlayback::Tick( m_camera.director,
+                                                                              m_camera.mode == RunCameraMode::Director,
+                                                                              directorPrediction, currentPose, cameraDt );
     ApplyDemoDirectorTickResult( directorResult );
 
     m_sceneController.Scene()

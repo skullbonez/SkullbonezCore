@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Render/RenderModelFramePublisher.h
+File: SkullbonezSource/Runtime/App/RenderModelFramePublisher.h
 Purpose:
   Declares the scene-to-render frame publication boundary.
 
@@ -20,7 +20,7 @@ Related:
 */
 #pragma once
 
-#include "RuntimeRenderFrameValues.h"
+#include "../Render/RuntimeRenderFrameValues.h"
 
 namespace SkullbonezCore
 {
