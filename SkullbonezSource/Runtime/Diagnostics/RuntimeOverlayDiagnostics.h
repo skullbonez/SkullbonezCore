@@ -53,7 +53,6 @@ class InGameUI;
 namespace Runtime
 {
 class SceneWorld;
-class RuntimeValidationHarness;
 class RuntimeOverlayDiagnostics;
 class RuntimeRenderer;
 struct RunLaunchOptions;
@@ -104,8 +103,7 @@ class RuntimeOverlayDiagnostics
 
     void ApplyStartupPolicy( const RunStartupOverrides& overrides, RunLaunchOptions& launchOptions,
                              UI::InGameUI& operatorUi );
-    void UpdatePostPhysics( SceneWorld& scene, RuntimeValidationHarness& validationHarness, float contactEpsilon,
-                            double secondsPerFrame );
+    void UpdatePostPhysics( SceneWorld& scene, double secondsPerFrame );
     RuntimeRenderFramePolicy BuildFramePolicy( double simulationSeconds, double totalSimulationSeconds ) const;
 
     // Publishes the detached scene presentation once after a load generation

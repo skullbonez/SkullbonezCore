@@ -21,7 +21,7 @@ Related:
 */
 #include "SceneController.h"
 #include "../../Core/SbDiagnosticStore.h"
-#include "../Automation/RuntimeValidationHarness.h"
+#include "SceneAutomationGateConfiguration.h"
 
 #include "../../Core/FatalError.h"
 #include "../../Core/Config.h"

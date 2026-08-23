@@ -26,7 +26,6 @@ Related:
 */
 #include "SceneController.h"
 #include "SceneLoadTransaction.h"
-#include "../Automation/RuntimeValidationHarness.h"
 #include "../Tools/RuntimeTools.h"
 #include "../../Core/FatalError.h"
 #include "../../UI/UI.h"

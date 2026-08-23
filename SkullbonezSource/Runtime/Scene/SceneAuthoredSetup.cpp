@@ -32,7 +32,6 @@ Related:
 #include "SceneAuthoredSetup.CameraSlots.h"
 #include "SceneAuthoredSetup.InitialImpulse.h"
 #include "SceneSleepingDynamicBodyGatePolicy.h"
-#include "../Automation/RuntimeValidationHarness.h"
 #include "../../Assets/AssetKeys.h"
 #include "../../Core/SbDiagnosticStore.h"
 #include "SceneSessionState.h"

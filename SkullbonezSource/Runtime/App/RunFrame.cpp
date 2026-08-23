@@ -632,8 +632,21 @@ Run::FrameSimulationPhaseResult Run::RunSimulationPhase( double secondsPerFrame,
         const auto continuousForecastBudgetStart = std::chrono::steady_clock::now();
         (void)m_continuousForecast.AdvanceFrame( continuousForecastBudgetStart );
     }
-    m_overlayDiagnostics->UpdatePostPhysics( m_sceneController.Scene(), *m_validationHarness,
-                                             m_config.bodySimulation.contactEpsilon, secondsPerFrame );
+    SceneWorld& scene = m_sceneController.Scene();
+    m_overlayDiagnostics->UpdatePostPhysics( scene, secondsPerFrame );
+
+    SceneAutomationGateTracker& sceneGates = m_validationHarness->SceneGates();
+    if ( sceneGates.RequiresBroadphaseXCellObservation() )
+    {
+        PhysicsBroadphaseActiveCell activeCells[PHYSICS_BROADPHASE_ACTIVE_CELL_CAPACITY];
+        const int activeCellCount = PhysicsEngine::ReadBroadphaseActiveCells( scene.Physics(), activeCells );
+        sceneGates.UpdateRequiredBroadphaseXCells(
+            std::span<const PhysicsBroadphaseActiveCell>( activeCells, static_cast<std::size_t>( activeCellCount ) ) );
+    }
+    sceneGates.UpdateRequiredSleepingDynamicBodies( scene.BodyStore().HotFields().awake );
+    sceneGates.UpdateRequiredContacts( SceneAutomationGatePhysicsView { scene.BodyStore(), scene.Colliders(),
+                                                                        PhysicsEngine::ReadDebugContacts( scene.Physics() ) },
+                                       m_config.bodySimulation.contactEpsilon );
 
     return FrameSimulationPhaseResult { interpolationAlpha, capturePresentationPinned };
 }

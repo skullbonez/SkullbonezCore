@@ -69,19 +69,11 @@ struct RunStartupOverrides;
 
 struct SceneAutomationGatePhysicsView
 {
-    // Lifetime: post-physics diagnostics constructs this immutable view for one
+    // Lifetime: App constructs this immutable post-physics view for one
     // synchronous observation; the tracker stores no scene or store pointer.
     const Physics::PhysicsBodyStore& bodyStore;
     const Physics::ColliderStore& colliderStore;
     std::span<const Physics::PhysicsDebugContact> debugContacts;
-};
-
-struct SceneAutomationGateStatus
-{
-    // Value-only completion facts consumed by scene advancement. Diagnostic
-    // row ownership and missing-requirement reporting remain in validation.
-    bool hasRequirements = false;
-    bool complete = true;
 };
 
 // Owner: validation harness. These rows are automation observations, not scene

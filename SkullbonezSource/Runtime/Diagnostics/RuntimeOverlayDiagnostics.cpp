@@ -15,10 +15,8 @@ Glossary:
 Invariants:
   - Construction is a single bounded startup allocation outside steady play.
   - Visualizer refresh occurs after physics commits and before render samples.
-  - Sleeping-body validation samples Physics-owned awake bytes in that same
-    post-physics phase; it does not infer rest from presentation values.
-  - A pending broadphase gate and a visible overlay consume the same active-cell
-    snapshot; no snapshot is copied when neither consumer needs one.
+  - Visualizer refresh samples committed Physics-owned values without retaining
+    scene or store borrows.
 
 Related:
   - SkullbonezSource/Runtime/Diagnostics/RuntimeOverlayDiagnostics.h
@@ -27,8 +25,6 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "RuntimeOverlayDiagnostics.h"
-#include "../Automation/RuntimeValidationHarness.h"
-
 #include <algorithm>
 #include <span>
 
@@ -133,8 +129,7 @@ void RuntimeOverlayDiagnostics::ApplyStartupPolicy( const RunStartupOverrides& o
 }
 
 
-void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneWorld& scene, RuntimeValidationHarness& validationHarness,
-                                                   float contactEpsilon, double secondsPerFrame )
+void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneWorld& scene, double secondsPerFrame )
 {
     PROFILE_BEGIN( "Frame/PostPhysics" );
 
@@ -142,13 +137,7 @@ void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneWorld& scene, RuntimeVal
 
     m_renderResources.m_broadphaseOverlay.SetEnabled( m_presentationState.isBroadphaseOverlay );
     PhysicsEngine& physics = scene.Physics();
-    const bool requiresBroadphaseCells = m_presentationState.isBroadphaseOverlay ||
-                                         validationHarness.SceneGates().RequiresBroadphaseXCellObservation();
-
-    // Why: copying every active cell is observable debug work. Retail frames
-    // pay it only for a visible overlay; automation pays it only until an
-    // authored broadphase requirement has been observed.
-    if ( requiresBroadphaseCells )
+    if ( m_presentationState.isBroadphaseOverlay )
     {
         m_renderResources.m_broadphaseOverlay.SetCellSize( PhysicsEngine::ReadBroadphaseCellSize( physics ) );
         PhysicsBroadphaseActiveCell activeCells[PHYSICS_BROADPHASE_ACTIVE_CELL_CAPACITY];
@@ -157,7 +146,6 @@ void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneWorld& scene, RuntimeVal
                                                                            static_cast<std::size_t>( activeCellCount ) );
         const std::span<const int64_t> collisionKeys = PhysicsEngine::ReadCollisionCellKeys( physics );
         m_renderResources.m_broadphaseOverlay.Update( static_cast<float>( secondsPerFrame ), activeCellView, collisionKeys );
-        validationHarness.SceneGates().UpdateRequiredBroadphaseXCells( activeCellView );
     }
 
     PROFILE_END( "Frame/PostPhysics/BroadphaseVisualizer" );
@@ -189,13 +177,6 @@ void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneWorld& scene, RuntimeVal
                                                    scene.BodyStore().Count() };
 
     m_renderResources.m_physicsDebugOverlay.Update( static_cast<float>( secondsPerFrame ), physicsDebugView );
-    const auto debugContacts = PhysicsEngine::ReadDebugContacts( physics );
-    validationHarness.SceneGates().UpdateRequiredSleepingDynamicBodies( scene.BodyStore().HotFields().awake );
-    validationHarness.SceneGates().UpdateRequiredContacts( SceneAutomationGatePhysicsView { scene.BodyStore(),
-                                                                                            scene.Colliders(),
-                                                                                            debugContacts },
-                                                           contactEpsilon );
-
     PROFILE_END( "Frame/PostPhysics/PhysicsDebugVisualizer" );
 
     PROFILE_BEGIN( "Frame/PostPhysics/EndCollisionVisualFrame" );
