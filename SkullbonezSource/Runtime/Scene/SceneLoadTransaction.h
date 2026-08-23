@@ -40,6 +40,7 @@ Related:
 #pragma once
 
 #include "SceneController.h"
+#include "SceneLoadPreparation.h"
 #include "SceneLoadPresentation.h"
 #include "SceneResetPreservation.h"
 
@@ -52,7 +53,6 @@ namespace SkullbonezCore
 namespace Runtime
 {
 struct SceneLoadTransactionTestAccess;
-struct SceneLoadBeginResult;
 
 enum class SceneCaptureReactionKind : uint8_t
 {
@@ -93,11 +93,12 @@ struct SceneLoadResult
     SceneUiActivation uiActivation;
     SceneAutomationGateConfiguration automationGates;
     SceneLoadNavigationState navigation;
-    OverlayDebugState presentation;
+    ScenePresentationValues presentation;
     CameraControlState camera;
     SceneRenderPolicyState renderPolicy;
     SceneRenderActivationRequest renderActivation;
     SceneCaptureReactionBatch captureReactions;
+    SceneDiagnosticsReactionBatch diagnosticsReactions;
     std::array<SceneLoadCompletedWorldChange, 2> completedWorldChanges = {};
     std::size_t completedWorldChangeCount = 0;
     SceneRequestBatch completedRequests;
@@ -164,14 +165,20 @@ class SceneLoadTransaction
     // Captures detached per-batch values before any request is executed.
     // Concrete load owners are still borrowed only by Load below.
     void CaptureSubmittedState( const CameraControlState& camera, const SceneLoadNavigationState& navigation,
-                                const OverlayDebugState& debug, SceneRenderPolicyState renderPolicy,
+                                const ScenePresentationValues& presentation, SceneRenderPolicyState renderPolicy,
                                 const char* rendererName, double sceneTimeSeconds );
+
+    const SceneLoadBeginResult& Prepare( SceneController& sceneController, const SceneLoadRequest& request,
+                                         Rendering::Dx12FrameOwner* renderFrame,
+                                         bool interactiveSceneRunRequested );
+    void CompleteBeforeUnloadDiagnostics();
 
     SkullbonezCore::Core::SbResult Load( SceneController& sceneController, const SceneLoadRequest& request,
                                          SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions,
                                          const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender,
                                          const RunStartupState& startup, Assets::AssetSystem& assets,
-                                         Threading::WorkerPool& workerPool, DiagnosticsRuntime& diagnosticsRuntime,
+                                         Threading::WorkerPool& workerPool,
+                                         const SceneDiagnosticsLoadInput& diagnosticsInput,
                                          Rendering::Dx12FrameOwner* renderFrame,
                                          Rendering::Dx12ResourceBuilder* renderResources );
 
@@ -182,6 +189,10 @@ class SceneLoadTransaction
     const SceneRenderActivationRequest& RenderActivation() const
     {
         return m_outputs.renderActivation;
+    }
+    const SceneDiagnosticsReactionBatch& DiagnosticsReactions() const
+    {
+        return m_outputs.diagnosticsReactions;
     }
     void CompleteRenderActivation( SceneController& sceneController );
     const CameraControlState& CurrentCamera() const
@@ -207,7 +218,7 @@ class SceneLoadTransaction
         return m_outputs.applyNavigation ? m_outputs.navigation : submitted;
     }
 
-    const OverlayDebugState& PresentationForFollowingRequest( const OverlayDebugState& submitted,
+    ScenePresentationValues PresentationForFollowingRequest( const ScenePresentationValues& submitted,
                                                               const SceneLifecyclePacket& lifecycle ) const
     {
         return m_request.HasLoad() && m_phase.Current() == SceneLoadPhaseCursor::Phase::Load
@@ -235,7 +246,8 @@ class SceneLoadTransaction
     void AdvanceOrFatal( SceneLoadPhaseCursor::Phase next, const char* operation );
     static SceneLoadBeginResult PrepareLoad( const SceneController& controller,
                                              const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                                             SceneRenderPolicyState renderPolicy, const OverlayDebugState& debug,
+                                             SceneRenderPolicyState renderPolicy,
+                                             const ScenePresentationValues& presentation,
                                              const CameraControlState& camera, Rendering::Dx12FrameOwner* renderFrame,
                                              bool interactiveSceneRunRequested, int index, bool suppressExitOnComplete,
                                              bool preserveRuntimeState );
@@ -243,18 +255,23 @@ class SceneLoadTransaction
                             const SceneLoadBeginResult& prepared );
     static SceneResetPreservationSnapshot
     CaptureResetSnapshot( const SceneController& controller, const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                          SceneRenderPolicyState renderPolicy, const OverlayDebugState& debug,
+                          SceneRenderPolicyState renderPolicy, const ScenePresentationValues& presentation,
                           const CameraControlState& camera );
     static void RestoreResetSnapshot( SceneController& controller, SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                                      SceneRenderPolicyState& renderPolicy, OverlayDebugState& debug, CameraControlState& camera,
+                                      SceneRenderPolicyState& renderPolicy, ScenePresentationValues& presentation,
+                                      CameraControlState& camera,
                                       const SceneResetPreservationSnapshot& snapshot, bool suppressExitOnComplete );
     static void ClearUiOverrides( SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides );
-    static void PrepareUiOptions( DiagnosticsRuntime& diagnostics, OverlayDebugState& debug, SceneUiActivation& activation,
-                                  const SceneUIOptions& options, double nowSeconds, bool preserveUIState,
-                                  bool automationScene );
+    void PrepareUiOptions( ScenePresentationValues& presentation, SceneUiActivation& activation,
+                           const SceneUIOptions& options, double nowSeconds, bool preserveUIState,
+                           bool automationScene );
+    void AppendDiagnosticsReaction( const SceneDiagnosticsReaction& reaction );
     SceneLoadRequest m_request = SceneLoadRequest::None();
+    SceneLoadBeginResult m_preparedLoad;
     SceneLoadResult m_outputs;
     SceneLoadPhaseCursor m_phase;
+    bool m_hasPreparedLoad = false;
+    bool m_beforeUnloadDiagnosticsComplete = false;
     char m_rendererName[64] = "unknown";
     double m_sceneTimeSeconds = 0.0;
 };

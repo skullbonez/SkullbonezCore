@@ -4,16 +4,14 @@ Purpose:
   Declares authored scene UI-option application outside Run.
 
 Summary:
-  Scene JSON may author the initial UI window, tab, stress, and test-pattern
-  state for automation scenes. Scene runtime produces an activation value while
-  applying diagnostics-owned fields; the UI owner consumes that value after the
-  scene transaction returns.
+  Scene JSON publishes detached presentation and diagnostics reactions. App
+  applies those values to the Diagnostics and UI owners after Scene mutation;
+  Scene retains no diagnostics type or mutable presentation owner.
 
 Invariants:
   - `preserveUIState` prevents authored scene UI from overriding live operator
     window/tab state during resets.
-  - Stress options are diagnostics state and remain applied even when visible UI
-    window state is preserved.
+  - Stress options remain ordered even when visible UI state is preserved.
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
@@ -24,6 +22,11 @@ Related:
 #pragma once
 
 #include "../../Scene/AuthoredScene.h"
+#include "../../Physics/PhysicsDebugData.h"
+
+#include <array>
+#include <cstddef>
+#include <cstdint>
 
 namespace SkullbonezCore
 {
@@ -33,8 +36,113 @@ class InGameUI;
 }
 namespace Runtime
 {
-class DiagnosticsRuntime;
-struct OverlayDebugState;
+// Scene-authored and reset-preserved presentation values. Operator-only HUD,
+// recording, and playback fields remain entirely Diagnostics-owned.
+struct ScenePresentationValues
+{
+    bool waterFreeze = false;
+    bool waterNoReflect = false;
+    bool waterRtReflect = false;
+    bool waterFlat = false;
+    bool terrainHidden = false;
+    bool waterHidden = false;
+    uint32_t physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE;
+    bool physicsDebugTransparent = false;
+    float physicsDebugAlpha = 0.28f;
+    float physicsDebugContactLinger = 0.45f;
+    int physicsDebugPipelineStageCursor = 0;
+    bool collisionVisualizer = false;
+    bool textOnly = false;
+    bool uiTestPattern = false;
+    bool broadphaseOverlay = false;
+    float frozenWaterTime = 0.0f;
+
+    void ResetForSceneLoad()
+    {
+        *this = {};
+    }
+};
+
+// Detached Diagnostics facts sampled by App before entering the cold Scene
+// load. Scene consumes values only and never borrows the diagnostics owner.
+struct SceneDiagnosticsLoadInput
+{
+    bool physicsDiagnosticsEnabled = false;
+    char physicsDiagnosticsPath[256] = {};
+    char physicsRegressionLogPath[256] = {};
+    char physicsCollisionTimeLogPath[256] = {};
+};
+
+enum class SceneDiagnosticsReactionKind : uint8_t
+{
+    ResetForSceneLoad,
+    ConfigurePerfLogFlush,
+    ApplyScenePerfLog,
+    SetUiStressEnabled,
+    SetUiStressSeed,
+    SetUiStressActions,
+    ConfigureUiStress,
+    ClosePerfLog,
+    ResetPerfLogForSceneLoad,
+    BeginPhysicsDiagnostics
+};
+
+struct SceneDiagnosticsReaction
+{
+    SceneDiagnosticsReactionKind kind = SceneDiagnosticsReactionKind::ResetForSceneLoad;
+    bool enabled = false;
+    int value = 0;
+    int secondaryValue = 0;
+    char path[256] = {};
+    char rendererName[64] = {};
+    bool explicitRenderFrameLockstep = false;
+    bool effectiveRenderFrameLockstep = false;
+};
+
+inline constexpr std::size_t SCENE_DIAGNOSTICS_REACTION_CAPACITY = 12;
+
+struct SceneDiagnosticsReactionBatch
+{
+    std::array<SceneDiagnosticsReaction, SCENE_DIAGNOSTICS_REACTION_CAPACITY> reactions = {};
+    std::size_t count = 0;
+};
+
+struct SceneUiOptionDiagnosticsProjection
+{
+    SceneDiagnosticsReactionBatch reactions;
+    bool applyTestPattern = false;
+    bool testPatternEnabled = false;
+};
+
+inline SceneUiOptionDiagnosticsProjection ProjectSceneUiOptionDiagnostics( const SceneUIOptions& options,
+                                                                            bool preserveUiState )
+{
+    SceneUiOptionDiagnosticsProjection projection;
+    projection.applyTestPattern = !preserveUiState && options.hasTestPattern;
+    projection.testPatternEnabled = options.testPatternEnabled;
+
+    if ( options.hasStress )
+    {
+        SceneDiagnosticsReaction& reaction = projection.reactions.reactions[projection.reactions.count++];
+        reaction.kind = SceneDiagnosticsReactionKind::SetUiStressEnabled;
+        reaction.enabled = options.stressEnabled;
+    }
+    if ( options.hasStressSeed )
+    {
+        SceneDiagnosticsReaction& reaction = projection.reactions.reactions[projection.reactions.count++];
+        reaction.kind = SceneDiagnosticsReactionKind::SetUiStressSeed;
+        reaction.value = static_cast<int>( options.stressSeed );
+    }
+    if ( options.hasStressActions )
+    {
+        SceneDiagnosticsReaction& reaction = projection.reactions.reactions[projection.reactions.count++];
+        reaction.kind = SceneDiagnosticsReactionKind::SetUiStressActions;
+        reaction.value = options.stressActionsPerFrame;
+    }
+
+    return projection;
+}
+
 struct SceneUiActivation
 {
     // Value-only copy of authored UI intent. The scene owner retains neither

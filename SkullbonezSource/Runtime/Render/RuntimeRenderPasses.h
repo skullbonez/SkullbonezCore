@@ -161,7 +161,7 @@ struct ReflectionPassResources;
 struct ReplayPresentationSample;
 struct ReplaySolverFrameSample;
 struct CameraControlState;
-enum class OverlayMode;
+enum class OverlayMode : int;
 struct OverlayDebugState;
 struct RunEditorPlacementState;
 struct RunRayCastTestState;

@@ -38,7 +38,6 @@ Related:
 #include "SceneRenderPolicy.h"
 #include "SceneWorld.h"
 #include "../Camera/CameraControlState.h"
-#include "../Diagnostics/OverlayDebugState.h"
 #include "../../Core/SbResult.h"
 #include "../../Maths/Vector3.h"
 
@@ -86,13 +85,11 @@ struct StandaloneStyleSnapshot;
 namespace Runtime
 {
 class AuthoredScene;
-class DiagnosticsRuntime;
 struct SceneAutomationGateStatus;
 class SceneLoadTransaction;
 class SimulationSystem;
 struct AttachedCameraState;
 struct CameraControlState;
-struct OverlayDebugState;
 struct RunLaunchOptions;
 struct RunStartupState;
 struct SceneFrameAdvanceResult
@@ -126,7 +123,7 @@ struct SceneDefaultsSaveView
 {
     // Lifetime: every owner is borrowed only for one synchronous cold save.
     // The writer retains no pointers across a scene reload.
-    const OverlayDebugState& debug;
+    const ScenePresentationValues& presentation;
     SceneRenderPolicyState renderPolicy;
     const CameraControlState& camera;
     const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides;
@@ -210,8 +207,9 @@ class SceneController : public SceneSession
     SkullbonezCore::Core::SbResult
     Load( const SceneLoadRequest& request, SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions,
           const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender, const RunStartupState& startup,
-          Assets::AssetSystem& assets, Threading::WorkerPool& workerPool, DiagnosticsRuntime& diagnosticsRuntime,
-          Rendering::Dx12FrameOwner* renderFrame, Rendering::Dx12ResourceBuilder* renderResources,
+          Assets::AssetSystem& assets, Threading::WorkerPool& workerPool,
+          const SceneDiagnosticsLoadInput& diagnosticsInput, Rendering::Dx12FrameOwner* renderFrame,
+          Rendering::Dx12ResourceBuilder* renderResources,
           SceneLoadTransaction& transaction );
 
     SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;

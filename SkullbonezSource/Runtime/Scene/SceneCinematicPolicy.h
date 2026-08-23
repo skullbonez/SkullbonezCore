@@ -44,7 +44,6 @@ namespace Runtime
 {
 class AuthoredScene;
 class SceneWorld;
-struct OverlayDebugState;
 
 inline void ApplyCinematicSceneOverrides( SkullbonezCore::Core::CinematicRenderConfig& target, uint64_t mask,
                                           const SkullbonezCore::Core::CinematicRenderConfig& source )
@@ -149,7 +148,7 @@ SkullbonezCore::Core::CinematicRenderConfig& ActiveSceneCinematicConfig( SceneSe
 const SkullbonezCore::Core::CinematicRenderConfig&
 ActiveSceneCinematicConfig( const SceneSessionState& scene, const SkullbonezCore::Core::EngineConfig& config );
 bool IsSceneCinematicRenderingEnabled( const SceneSessionState& scene, const SkullbonezCore::Core::EngineConfig& config,
-                                       const RunLaunchOptions& launchOptions, const OverlayDebugState& debug,
+                                       const RunLaunchOptions& launchOptions, bool textOnly,
                                        bool graphicsReady );
 Math::Vector::Vector3 CinematicSkySunDirection( const SkullbonezCore::Core::CinematicRenderConfig& cinematic );
 void ApplyCinematicUIParam( SkullbonezCore::Core::CinematicRenderConfig& cinematic, SceneSessionState& scene,

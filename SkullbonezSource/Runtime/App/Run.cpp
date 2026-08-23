@@ -741,7 +741,8 @@ void Run::Initialise()
     SceneLoadNavigationState sceneLoadNavigation = CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() );
 
     SceneLoadTransaction sceneLoad;
-    sceneLoad.CaptureSubmittedState( m_camera, sceneLoadNavigation, m_overlayDiagnostics->PresentationSnapshot(),
+    sceneLoad.CaptureSubmittedState( m_camera, sceneLoadNavigation,
+                                     ProjectScenePresentationValues( m_overlayDiagnostics->PresentationSnapshot() ),
                                      { Renderer().VsyncEnabled(), Renderer().PipelineSyncEnabled() },
                                      Renderer().RendererName(), m_timers.SimulationTotalSeconds() );
 
@@ -921,7 +922,7 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
     {
         SceneLoadTransaction sceneLoad;
         sceneLoad.CaptureSubmittedState( m_camera, CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
-                                         m_overlayDiagnostics->PresentationSnapshot(),
+                                         ProjectScenePresentationValues( m_overlayDiagnostics->PresentationSnapshot() ),
                                          { Renderer().VsyncEnabled(), Renderer().PipelineSyncEnabled() },
                                          Renderer().RendererName(),
                                          m_timers.SimulationTotalSeconds() );

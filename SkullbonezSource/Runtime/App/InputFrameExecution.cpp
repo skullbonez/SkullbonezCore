@@ -697,7 +697,8 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
         PrepareSceneScopedOwnersForTransition();
         presentationEdit.Commit();
         SceneLoadTransaction sceneLoad;
-        sceneLoad.CaptureSubmittedState( camera, CaptureSceneLoadNavigationState( ui.SceneNavigation() ), debug,
+        sceneLoad.CaptureSubmittedState( camera, CaptureSceneLoadNavigationState( ui.SceneNavigation() ),
+                                         ProjectScenePresentationValues( debug ),
                                          { renderer.VsyncEnabled(), renderer.PipelineSyncEnabled() },
                                          renderer.RendererName(), timers.SimulationTotalSeconds() );
 
@@ -1524,7 +1525,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
     }
 
     SceneLoadTransaction sceneLoad;
-    sceneLoad.CaptureSubmittedState( camera, sceneLoadNavigation, debug,
+    sceneLoad.CaptureSubmittedState( camera, sceneLoadNavigation, ProjectScenePresentationValues( debug ),
                                      { renderer.VsyncEnabled(), renderer.PipelineSyncEnabled() },
                                      renderer.RendererName(), timers.SimulationTotalSeconds() );
 

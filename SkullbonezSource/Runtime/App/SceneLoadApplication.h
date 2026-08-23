@@ -44,10 +44,12 @@ struct CameraControlState;
 class ReplayRuntime;
 class RuntimeInteractionController;
 class RuntimeOverlayDiagnostics;
+struct OverlayDebugState;
 class RuntimeTools;
 class RuntimeValidationHarness;
 class SceneController;
 class SceneLoadTransaction;
+struct ScenePresentationValues;
 class Window;
 struct RunLaunchOptions;
 
@@ -129,6 +131,8 @@ constexpr bool SceneRenderActivationCompletesTransition( bool sceneMutationSucce
 {
     return sceneMutationSucceeded && ( !activationPending || renderActivationSucceeded );
 }
+
+ScenePresentationValues ProjectScenePresentationValues( const OverlayDebugState& presentation );
 
 void ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction, const RunLaunchOptions& launchOptions,
                                      RuntimeOverlayDiagnostics& overlays, CaptureController& capture,

@@ -114,7 +114,7 @@ namespace Runtime
 struct SceneLoadTransactionTestAccess
 {
     static void SetLoadedValues( SceneLoadTransaction& transaction, const SceneLoadRequest& request,
-                                 const SceneLoadNavigationState& navigation, const OverlayDebugState& presentation,
+                                 const SceneLoadNavigationState& navigation, const ScenePresentationValues& presentation,
                                  bool applyNavigation )
     {
         transaction.m_request = request;
@@ -134,6 +134,7 @@ struct SceneLoadTransactionTestAccess
         transaction.m_outputs.renderPolicy = policy;
         transaction.m_outputs.renderActivation = activation;
     }
+
 };
 
 struct SceneGeneratedControlTransactionTestAccess
@@ -563,9 +564,9 @@ TEST_CASE( "Frame metric cadence is identical for hidden GameUI and ImGui surfac
 
 TEST_CASE( "Scene batch followers prefer presentation values emitted by a completed clear" )
 {
-    OverlayDebugState submitted;
+    ScenePresentationValues submitted;
     submitted.physicsDebugAlpha = 0.25f;
-    OverlayDebugState loaded;
+    ScenePresentationValues loaded;
     loaded.physicsDebugAlpha = 0.75f;
     SceneLoadNavigationState navigation;
     SceneLoadTransaction transaction;
@@ -573,14 +574,56 @@ TEST_CASE( "Scene batch followers prefer presentation values emitted by a comple
                                                      navigation, loaded, false );
 
     SceneLifecyclePacket lifecycle;
-    CHECK( &transaction.PresentationForFollowingRequest( submitted, lifecycle ) == &submitted );
+    CHECK( transaction.PresentationForFollowingRequest( submitted, lifecycle ).physicsDebugAlpha ==
+           doctest::Approx( 0.25f ) );
     REQUIRE( SceneLoadTransactionTestAccess::EnterLoadPhase( transaction ) );
-    CHECK( &transaction.PresentationForFollowingRequest( submitted, lifecycle ) == &submitted );
+    CHECK( transaction.PresentationForFollowingRequest( submitted, lifecycle ).physicsDebugAlpha ==
+           doctest::Approx( 0.25f ) );
     lifecycle.generation = 1;
     lifecycle.event = SceneRuntimeLifecycleEvent::AfterSceneCleared;
-    CHECK( &transaction.PresentationForFollowingRequest( submitted, lifecycle ) != &submitted );
     CHECK( transaction.PresentationForFollowingRequest( submitted, lifecycle ).physicsDebugAlpha ==
            doctest::Approx( 0.75f ) );
+}
+
+TEST_CASE( "Scene UI options publish ordered detached diagnostics reactions" )
+{
+    SceneUIOptions options;
+    options.hasTestPattern = true;
+    options.testPatternEnabled = true;
+    options.hasStress = true;
+    options.stressEnabled = true;
+    options.hasStressSeed = true;
+    options.stressSeed = 0x12345678u;
+    options.hasStressActions = true;
+    options.stressActionsPerFrame = 7;
+
+    const SceneUiOptionDiagnosticsProjection projection = ProjectSceneUiOptionDiagnostics( options, false );
+
+    CHECK( projection.applyTestPattern );
+    CHECK( projection.testPatternEnabled );
+    REQUIRE( projection.reactions.count == 3 );
+    CHECK( projection.reactions.reactions[0].kind == SceneDiagnosticsReactionKind::SetUiStressEnabled );
+    CHECK( projection.reactions.reactions[0].enabled );
+    CHECK( projection.reactions.reactions[1].kind == SceneDiagnosticsReactionKind::SetUiStressSeed );
+    CHECK( static_cast<unsigned int>( projection.reactions.reactions[1].value ) == 0x12345678u );
+    CHECK( projection.reactions.reactions[2].kind == SceneDiagnosticsReactionKind::SetUiStressActions );
+    CHECK( projection.reactions.reactions[2].value == 7 );
+}
+
+TEST_CASE( "Scene UI preservation keeps presentation while still publishing stress policy" )
+{
+    SceneUIOptions options;
+    options.hasTestPattern = true;
+    options.testPatternEnabled = true;
+    options.hasStress = true;
+    options.stressEnabled = true;
+
+    const SceneUiOptionDiagnosticsProjection projection = ProjectSceneUiOptionDiagnostics( options, true );
+
+    CHECK_FALSE( projection.applyTestPattern );
+    REQUIRE( projection.reactions.count == 1 );
+    CHECK( projection.reactions.reactions[0].kind == SceneDiagnosticsReactionKind::SetUiStressEnabled );
+    CHECK( projection.reactions.reactions[0].enabled );
 }
 
 TEST_CASE( "Scene load phase cursor accepts only the complete adjacent walk" )
@@ -1180,7 +1223,7 @@ TEST_CASE( "Scene request execution saves navigation committed by an earlier loa
     SceneLoadNavigationState loaded;
     loaded.overrides.timeScaleOverride = 0.5f;
     loaded.overrides.modelCountOverride = 24;
-    OverlayDebugState presentation;
+    ScenePresentationValues presentation;
     SceneLoadTransaction transaction;
     SceneLoadTransactionTestAccess::SetLoadedValues( transaction, SceneLoadRequest::Load( 0, false, false, false ), loaded,
                                                      presentation, false );

@@ -21,9 +21,9 @@ Related:
 #pragma once
 
 #include "SceneControllerState.h"
+#include "SceneLoadPresentation.h"
 #include "SceneRenderPolicy.h"
 #include "../Camera/CameraControlState.h"
-#include "../Diagnostics/OverlayDebugState.h"
 #include "../../Gameplay/TornadoField.h"
 #include "../../Gameplay/TornadoVisualPass.h"
 #include "../../Core/Config.h"
@@ -50,7 +50,7 @@ struct SceneResetPreservationSnapshot
     Gameplay::TornadoFieldConfig tornadoField;
     Gameplay::TornadoSystemConfig tornadoSystem;
     Gameplay::TornadoVisualSettings tornadoVisual;
-    OverlayDebugState debug;                       // Debug overlays/visualizers, including the C-key physics debug mode and associated alpha/linger knobs
+    ScenePresentationValues presentation;          // Scene-authored render/debug values restored by App after population.
     bool isScenePhysics = true;                    // Live scene simulation toggle; reset should rebuild the run, not silently re-enable
 
     // Preserved scene/session policy and presentation values.

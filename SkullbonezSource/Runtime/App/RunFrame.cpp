@@ -720,7 +720,7 @@ Run::FrameRenderPhaseResult Run::PrepareRenderPhase( bool gameUiActive, const Fr
             PrepareSceneScopedOwnersForTransition();
             SceneLoadTransaction sceneLoad;
             sceneLoad.CaptureSubmittedState( m_camera, CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
-                                             m_overlayDiagnostics->PresentationSnapshot(),
+                                             ProjectScenePresentationValues( m_overlayDiagnostics->PresentationSnapshot() ),
                                              { Renderer().VsyncEnabled(), Renderer().PipelineSyncEnabled() },
                                              Renderer().RendererName(),
                                              m_timers.SimulationTotalSeconds() );
@@ -1417,7 +1417,7 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
             PrepareSceneScopedOwnersForTransition();
             SceneLoadTransaction sceneLoad;
             sceneLoad.CaptureSubmittedState( m_camera, CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
-                                             m_overlayDiagnostics->PresentationSnapshot(),
+                                             ProjectScenePresentationValues( m_overlayDiagnostics->PresentationSnapshot() ),
                                              { Renderer().VsyncEnabled(), Renderer().PipelineSyncEnabled() },
                                              Renderer().RendererName(),
                                              m_timers.SimulationTotalSeconds() );
@@ -1549,7 +1549,7 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
         PrepareSceneScopedOwnersForTransition();
         SceneLoadTransaction sceneLoad;
         sceneLoad.CaptureSubmittedState( m_camera, CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
-                                         m_overlayDiagnostics->PresentationSnapshot(),
+                                         ProjectScenePresentationValues( m_overlayDiagnostics->PresentationSnapshot() ),
                                          { Renderer().VsyncEnabled(), Renderer().PipelineSyncEnabled() },
                                          Renderer().RendererName(),
                                          m_timers.SimulationTotalSeconds() );

@@ -356,7 +356,8 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
     const std::string* uiScenePath = sceneController.CurrentPath();
     const ReplayHudStatus sharedReplayHud = replayRuntime.BuildHudStatus( false );
     const SkullbonezCore::Core::CinematicRenderConfig& sharedCinematic = ActiveSceneCinematicConfig( scene, config );
-    const bool sharedCinematicRendering = IsSceneCinematicRenderingEnabled( scene, config, launchOptions, debug, true );
+    const bool sharedCinematicRendering = IsSceneCinematicRenderingEnabled( scene, config, launchOptions,
+                                                                            debug.isTextOnly, true );
     const bool sharedShadows = sharedCinematicRendering ? sharedCinematic.shadow.enabled
                                                         : config.ordinaryRender.shadow.enabled;
 
@@ -716,7 +717,8 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
                                                   uiTextFacts.presentationPinned, uiTextFacts.presentationAlpha );
 
         const SkullbonezCore::Core::CinematicRenderConfig& uiCinematic = ActiveSceneCinematicConfig( scene, config );
-        const bool uiCinematicRendering = IsSceneCinematicRenderingEnabled( scene, config, launchOptions, debug, true );
+        const bool uiCinematicRendering = IsSceneCinematicRenderingEnabled( scene, config, launchOptions,
+                                                                            debug.isTextOnly, true );
         const bool shadowsAvailable = uiCinematicRendering ? uiCinematic.shadow.enabled
                                                            : config.ordinaryRender.shadow.enabled;
 

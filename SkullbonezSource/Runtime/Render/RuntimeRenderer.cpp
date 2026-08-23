@@ -307,7 +307,7 @@ struct UiOverlayGraphInvocation
     UiTextPass* pass = nullptr;
     SkullbonezCore::Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
     UiTextViewport viewport;
-    OverlayMode mode = OverlayMode::None;
+    OverlayMode mode {};
     int modelCount = 0;
     float rollingFpsTime = 0.0f;
     SkullbonezCore::Rendering::Dx12TextureOwner* renderTextures = nullptr;
@@ -322,7 +322,7 @@ struct UiFinalizeGraphInvocation
 {
     UiTextPass* pass = nullptr;
     SkullbonezCore::Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
-    OverlayMode mode = OverlayMode::None;
+    OverlayMode mode {};
     SkullbonezCore::Rendering::Dx12TextureOwner* renderTextures = nullptr;
     SkullbonezCore::Rendering::Dx12GeometryOwner* renderGeometry = nullptr;
     SkullbonezCore::Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
@@ -607,11 +607,8 @@ void ExecuteUiChromeGraphCallback( const SkullbonezCore::Rendering::RenderGraphP
                                    data.sceneQueueSize, data.cameraModeLabel, *data.renderTextures, *data.renderGeometry,
                                    *data.renderDiagnostics );
 
-    if ( !data.debug->isTextOnly )
-    {
-        data.pass->RenderChromeTail( *data.debug, *data.replayHud, data.launcherCameraMode, data.launcherFireModeLabel,
-                                     data.reproMessageAgeSeconds, *data.renderGeometry );
-    }
+    data.pass->RenderChromeTail( *data.debug, *data.replayHud, data.launcherCameraMode, data.launcherFireModeLabel,
+                                 data.reproMessageAgeSeconds, *data.renderGeometry );
 }
 
 void ExecuteUiOperatorPrepareGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,

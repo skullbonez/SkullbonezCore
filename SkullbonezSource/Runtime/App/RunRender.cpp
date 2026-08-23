@@ -99,7 +99,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
         activeCinematic = ActiveSceneCinematicConfig( m_sceneController.State(), m_config );
 
     const bool cinematicRequested = IsSceneCinematicRenderingEnabled( m_sceneController.State(), m_config, m_launchOptions,
-                                                                      debug, true );
+                                                                       debug.isTextOnly, true );
 
     int attachedTargetIndex = -1;
 

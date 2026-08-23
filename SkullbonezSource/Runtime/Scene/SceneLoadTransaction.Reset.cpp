@@ -32,7 +32,8 @@ namespace SkullbonezCore
 namespace Runtime
 {
 SceneResetPreservationSnapshot SceneLoadTransaction::CaptureResetSnapshot( const SceneController& controller, const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                                                                           SceneRenderPolicyState renderPolicy, const OverlayDebugState& debug, const CameraControlState& camera )
+                                                                           SceneRenderPolicyState renderPolicy, const ScenePresentationValues& presentation,
+                                                                           const CameraControlState& camera )
 {
     SceneResetPreservationSnapshot snapshot;
     const SceneSessionState& scene = controller.State();
@@ -44,7 +45,7 @@ SceneResetPreservationSnapshot SceneLoadTransaction::CaptureResetSnapshot( const
     snapshot.tornadoField = controller.Scene().Tornado().GetFieldConfig();
     snapshot.tornadoSystem = controller.Scene().Tornado().GetSystemConfig();
     snapshot.tornadoVisual = controller.Scene().Tornado().VisualSettings();
-    snapshot.debug = debug;
+    snapshot.presentation = presentation;
     snapshot.isScenePhysics = scene.isScenePhysics;
     snapshot.isSceneText = scene.isSceneText;
     snapshot.isFixedStep = scene.isFixedStep;
@@ -79,7 +80,7 @@ SceneResetPreservationSnapshot SceneLoadTransaction::CaptureResetSnapshot( const
 
 void SceneLoadTransaction::RestoreResetSnapshot( SceneController& controller,
                                                  SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                                                 SceneRenderPolicyState& renderPolicy, OverlayDebugState& debug,
+                                                 SceneRenderPolicyState& renderPolicy, ScenePresentationValues& presentation,
                                                  CameraControlState& camera, const SceneResetPreservationSnapshot& snapshot,
                                                  bool suppressExitOnComplete )
 {
@@ -92,7 +93,7 @@ void SceneLoadTransaction::RestoreResetSnapshot( SceneController& controller,
     controller.Scene().Tornado().SetFieldConfig( snapshot.tornadoField );
     controller.Scene().Tornado().SetSystemConfig( snapshot.tornadoSystem );
     controller.Scene().Tornado().SetVisualSettings( snapshot.tornadoVisual );
-    debug = snapshot.debug;
+    presentation = snapshot.presentation;
     scene.isScenePhysics = snapshot.isScenePhysics;
     scene.isSceneText = snapshot.isSceneText;
     scene.timeScale = snapshot.timeScale;

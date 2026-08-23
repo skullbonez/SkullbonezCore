@@ -5,8 +5,7 @@ Purpose:
 
 Summary:
   Scene load chooses whether automation scenes hide UI, whether authored window
-  state wins, and which deterministic UI stress values should seed diagnostics.
-  Keep those decisions here so Run only supplies owners and timing.
+  state wins, and publishes deterministic UI stress reactions for App to apply.
 
 Invariants:
   - Authored visible/minimized/window settings apply in the same order as the
@@ -16,14 +15,12 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneLoadPresentation.h
-  - SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.h
+  - SkullbonezSource/Runtime/App/SceneLoadApplication.cpp
   - SkullbonezSource/UI/UI.h
   - Agentic/Reference/engine-glossary.md
 */
 #include "SceneLoadTransaction.h"
 #include "SceneLoadPresentation.h"
-#include "../Diagnostics/DiagnosticsRuntime.h"
-#include "../Diagnostics/OverlayDebugState.h"
 #include "../../Scene/AuthoredScene.h"
 
 #include <algorithm>
@@ -32,7 +29,18 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-void SceneLoadTransaction::PrepareUiOptions( DiagnosticsRuntime& diagnostics, OverlayDebugState& debug,
+void SceneLoadTransaction::AppendDiagnosticsReaction( const SceneDiagnosticsReaction& reaction )
+{
+    if ( m_outputs.diagnosticsReactions.count >= m_outputs.diagnosticsReactions.reactions.size() )
+    {
+        SB_FATAL( "Runtime/SceneLoadTransaction", "Fixed diagnostics reaction capacity exhausted." );
+    }
+
+    m_outputs.diagnosticsReactions.reactions[m_outputs.diagnosticsReactions.count++] = reaction;
+}
+
+
+void SceneLoadTransaction::PrepareUiOptions( ScenePresentationValues& presentation,
                                              SceneUiActivation& activation, const SceneUIOptions& options, double nowSeconds,
                                              bool preserveUIState, bool automationScene )
 {
@@ -42,26 +50,15 @@ void SceneLoadTransaction::PrepareUiOptions( DiagnosticsRuntime& diagnostics, Ov
     activation.preserveUIState = preserveUIState;
     activation.automationScene = automationScene;
 
-    // Why: diagnostics and debug values already have genuine load-phase owners;
-    // only window presentation crosses the returned activation value.
-    if ( !preserveUIState && options.hasTestPattern )
+    const SceneUiOptionDiagnosticsProjection projection = ProjectSceneUiOptionDiagnostics( options, preserveUIState );
+    if ( projection.applyTestPattern )
     {
-        debug.isUITestPattern = options.testPatternEnabled;
+        presentation.uiTestPattern = projection.testPatternEnabled;
     }
 
-    if ( options.hasStress )
+    for ( std::size_t index = 0; index < projection.reactions.count; ++index )
     {
-        diagnostics.UIStress().SetEnabled( options.stressEnabled );
-    }
-
-    if ( options.hasStressSeed )
-    {
-        diagnostics.UIStress().SetRandomState( options.stressSeed );
-    }
-
-    if ( options.hasStressActions )
-    {
-        diagnostics.UIStress().SetActionsPerFrame( options.stressActionsPerFrame );
+        AppendDiagnosticsReaction( projection.reactions.reactions[index] );
     }
 }
 

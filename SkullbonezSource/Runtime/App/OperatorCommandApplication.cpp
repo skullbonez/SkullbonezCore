@@ -32,6 +32,7 @@ Related:
 #include "../Interaction/OperatorCommandTransaction.h"
 #include "../Scene/SceneController.h"
 #include "../Scene/SceneCinematicPolicy.h"
+#include "../Diagnostics/OverlayDebugState.h"
 
 #include "../Render/RuntimeRenderer.h"
 #include "../Render/RenderDefaultsStore.h"
@@ -353,7 +354,7 @@ void OperatorCommandTransaction::ApplyRuntimePresentation( OverlayDebugState& de
 
     if ( sceneOptions.toggleShadows )
     {
-        if ( IsSceneCinematicRenderingEnabled( scene, config, launchOptions, debug, graphicsReady ) )
+        if ( IsSceneCinematicRenderingEnabled( scene, config, launchOptions, debug.isTextOnly, graphicsReady ) )
         {
             const bool shadowsActive = ActiveSceneCinematicConfig( scene, config ).shadow.enabled;
             launchOptions.hasCinematicShadowsOverride = false;

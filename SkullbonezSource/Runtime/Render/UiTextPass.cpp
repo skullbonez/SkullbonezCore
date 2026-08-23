@@ -300,6 +300,11 @@ void UiTextPass::RenderChromeStatus( const UiTextViewport& viewport, const Overl
                                      Rendering::Dx12GeometryOwner& renderCommands,
                                      Rendering::Dx12Diagnostics& renderDiagnostics )
 {
+    if ( debug.isTextOnly )
+    {
+        return;
+    }
+
     Text::TextBatch& textBatch = m_textBatch;
     const char* rendererName = renderDiagnostics.GetRendererName();
 

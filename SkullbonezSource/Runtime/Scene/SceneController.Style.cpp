@@ -27,7 +27,6 @@ Related:
 #include "SceneCinematicPolicy.h"
 #include "SceneController.h"
 #include "../../Core/WindowConstants.h"
-#include "../Diagnostics/OverlayDebugState.h"
 #include "SceneWorld.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Scene/AuthoredScene.h"
@@ -70,13 +69,13 @@ ActiveSceneCinematicConfig( const SceneSessionState& scene, const SkullbonezCore
 
 
 bool IsSceneCinematicRenderingEnabled( const SceneSessionState& scene, const SkullbonezCore::Core::EngineConfig& config,
-                                       const RunLaunchOptions& launchOptions, const OverlayDebugState& debug,
+                                       const RunLaunchOptions& launchOptions, bool textOnly,
                                        bool graphicsReady )
 {
     const bool enabled = launchOptions.hasCinematicRenderingOverride ? launchOptions.cinematicRendering
                                                                      : ActiveSceneCinematicConfig( scene, config ).enabled;
 
-    return enabled && graphicsReady && !debug.isTextOnly;
+    return enabled && graphicsReady && !textOnly;
 }
 
 

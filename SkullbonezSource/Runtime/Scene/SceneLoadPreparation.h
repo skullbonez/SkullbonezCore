@@ -37,7 +37,7 @@ namespace Runtime
 {
 class SceneController;
 struct CameraControlState;
-struct OverlayDebugState;
+struct ScenePresentationValues;
 struct SceneLoadBeginResult
 {
     // Recoverable error: a failed GPU drain leaves shouldLoad false so SceneController can
