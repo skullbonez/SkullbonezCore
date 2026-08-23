@@ -46,6 +46,7 @@ class UIDrawList;
 class UIDrawContext
 {
   public:
+
     // The dimensions identify the complete frame being authored. Geometry
     // remains in screen pixels, so recording does not need projection or
     // renderer state.

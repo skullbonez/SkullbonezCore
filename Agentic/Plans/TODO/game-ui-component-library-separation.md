@@ -1,7 +1,7 @@
 # Game UI Component Library Separation Plan
 
 Date: 2026-08-22
-Status: Active by owner direction. 2/7 phases complete; phase-local Runtime
+Status: Active by owner direction. 3/7 phases complete; phase-local Runtime
 Boundary Separation prerequisites apply.
 Impact area: `SkullbonezSource/UI/`, game-facing composition under
 `SkullbonezSource/Runtime/`, `SKULLBONEZ_UI.vcxproj`, focused UI tests,
@@ -547,26 +547,47 @@ contract.
 **Goal:** Make the current GameUI use the authoritative component functions
 before moving product composition across the project boundary.
 
-- [ ] Route existing retained widget wrappers through UI1 component contracts.
-- [ ] Limit writes to UI0-final foundation rows and stable caller adaptations
+- [x] Route existing retained widget wrappers through UI1 component contracts.
+- [x] Limit writes to UI0-final foundation rows and stable caller adaptations
       not marked `pending RBS<n>`. Leave pending shell, command, frame-
       composition, product-presenter, and Runtime/Render rows to UI3/UI4 even
       when they still reside physically under `SkullbonezSource/UI`.
-- [ ] Keep persistent state only where a component owns a real interaction
+- [x] Keep persistent state only where a component owns a real interaction
       invariant such as popup open state or drag capture.
-- [ ] Delete wrapper-local duplicated drawing, hit testing, text measurement,
+- [x] Delete wrapper-local duplicated drawing, hit testing, text measurement,
       and style decisions once all callers use the shared contract.
-- [ ] Convert common window chrome, footer controls, rows, tables, and tab
+- [x] Convert common window chrome, footer controls, rows, tables, and tab
       presentation proven reusable by UI0.
-- [ ] Preserve existing layout, pointer capture, automation anchors, draw order,
+- [x] Preserve existing layout, pointer capture, automation anchors, draw order,
       cache signatures, and public visual fingerprints.
-- [ ] Add focused false-pass controls proving hit geometry cannot diverge from
+- [x] Add focused false-pass controls proving hit geometry cannot diverge from
       draw geometry and product command values are unchanged.
 
 **Acceptance:** The current GameUI draws through the shared component
 foundation; retained wrappers have explicit ownership reasons; component
 conversion causes no visual fingerprint, interaction, allocation, or command
 semantic change.
+
+UI2 closure evidence on the PR tree:
+
+- the seven retained wrappers now resolve explicit stateless component state,
+  geometry, and presentation through the UI1 contracts; popup-open and drag-
+  capture state remain with their interaction owners;
+- `TabLayout` and `ComboLayout` name the established compatibility split
+  between interaction and visual bounds. The combo deletion condition records
+  all 18 production `HitBox` callers across the window owner and three product
+  tab owners;
+- disabled footer and established-combo rendering have command-level negative
+  witnesses, while wrapper/direct streams and all eleven detached product-
+  surface fingerprints remain unchanged;
+- the three phase-local test-only operations (`DrawPanel`,
+  `DrawLabelValueRow`, and `TabBounds`) were deleted instead of receiving
+  reachability rulings; and
+- `tools\validate_ui_boundary_tests.bat`, the dependency and ownership
+  inventories, all-config build validation, refreshed strict symbol
+  reachability, and `tools\validate_ui_stress.bat` pass. The allocation scan
+  retains the inherited 40 non-UI findings and reports zero UI rows. No visual
+  or allocation baseline was refreshed.
 
 ## Phase UI3 - Adopt Components In Owner-Local Runtime Surfaces
 
