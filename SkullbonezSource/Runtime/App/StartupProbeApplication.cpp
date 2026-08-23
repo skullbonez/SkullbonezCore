@@ -1,10 +1,11 @@
 /*
-File: StartupProbeHarnesses.cpp
+File: SkullbonezSource/Runtime/App/StartupProbeApplication.cpp
 Purpose:
-  Owns command-line early-exit probes that validate isolated startup subsystems.
+  Applies command-line early-exit probes that construct runtime owners.
 
 Summary:
-  Atlas generation and engine physics/runtime-handle validation execute
+  App owns early-exit probes that construct Scene and other runtime owners.
+  Atlas generation and engine physics/runtime-handle validation still execute
   before the ordinary window, renderer, worker, and Run owners are constructed.
 
 Glossary:
@@ -21,12 +22,12 @@ Invariants:
   - Physics probes finish before ordinary runtime ownership begins.
 
 Related:
-  - StartupProbeHarnesses.h
-  - StartupCommandLine.h
+  - SkullbonezSource/Runtime/Startup/StartupProbeHarnesses.h
+  - SkullbonezSource/Runtime/Startup/StartupCommandLine.h
   - Agentic/Reference/engine-glossary.md
 */
-#include "StartupProbeHarnesses.h"
-#include "StartupCommandLine.h"
+#include "../Startup/StartupProbeHarnesses.h"
+#include "../Startup/StartupCommandLine.h"
 #include "../../Assets/AssetKeys.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Common.h"

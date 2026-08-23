@@ -453,11 +453,11 @@
     <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupCrashLogging.cpp">
       <Filter>Source Files\Runtime\Startup</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupLaunchResolution.cpp">
-      <Filter>Source Files\Runtime\Startup</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\App\StartupLaunchApplication.cpp">
+      <Filter>Source Files\Runtime\Lifecycle</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupProbeHarnesses.cpp">
-      <Filter>Source Files\Runtime\Startup</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\App\StartupProbeApplication.cpp">
+      <Filter>Source Files\Runtime\Lifecycle</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Startup\RunStartupState.cpp">
       <Filter>Source Files\Runtime\Startup</Filter>

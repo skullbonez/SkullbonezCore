@@ -89,7 +89,7 @@ JSON_COLD_BOUNDARY_TRANSLATION_UNITS = frozenset(
         "Runtime/Replay/ReplayV2Artifact.cpp",
         "Runtime/Scene/SceneController.Load.cpp",
         "Runtime/Scene/SceneController.Creation.cpp",
-        "Runtime/Startup/StartupLaunchResolution.cpp",
+        "Runtime/App/StartupLaunchApplication.cpp",
         "Scene/AuthoredSceneParser.cpp",
         "Scene/AuthoredSceneParserAssets.cpp",
         "Scene/AuthoredSceneParserBodies.cpp",
@@ -323,6 +323,8 @@ RUNTIME_LIFECYCLE_PREFIXES = (
     "RuntimeOverlayDiagnostics",
     "SceneLoadApplication",
     "SimulationSystem",
+    "StartupLaunchApplication",
+    "StartupProbeApplication",
 )
 
 # Startup units are process-entry policy owners rather than Run lifecycle

@@ -1,13 +1,13 @@
 /*
-File: StartupLaunchResolution.cpp
+File: SkullbonezSource/Runtime/App/StartupLaunchApplication.cpp
 Purpose:
-  Owns scene/suite path resolution and the launch-policy packet passed to Run.
+  Applies Replay-aware launch defaults to Startup's parsed command values.
 
 Summary:
-  This unit resolves authored launch tokens, visualization-only physics-debug
-  overrides, suite JSON, recorded-interaction sidecars, run/replay/stress value
-  directives, and the final RunStartupOverrides value without retaining
-  command-line storage.
+  App owns launch composition that depends on Replay policy. Startup publishes
+  raw tokens and sentinel values; this unit validates Replay-specific bounds,
+  resolves Replay's retention default, and builds the final Run override packet
+  without retaining command-line storage.
 
 Glossary:
   Launch token: CLI value naming a scene, suite, built-in hero, or generated
@@ -24,14 +24,15 @@ Invariants:
     its directory; the automation controller verifies their content digests.
 
 Related:
-  - StartupLaunchResolution.h
-  - StartupCommandLine.h
+  - SkullbonezSource/Runtime/Startup/StartupLaunchResolution.h
+  - SkullbonezSource/Runtime/Startup/StartupCommandLine.h
   - Agentic/Reference/engine-glossary.md
 */
-#include "StartupLaunchResolution.h"
-#include "StartupCommandLine.h"
+#include "../Startup/StartupLaunchResolution.h"
+#include "../Startup/StartupCommandLine.h"
 #include "../../Core/Common.h"
-#include "RunLaunchOptions.h"
+#include "../Startup/RunLaunchOptions.h"
+#include "../Replay/ReplayCaptureLimits.h"
 #include "../Replay/ReplayOverlaySurface.h"
 #include "../../Core/WindowConstants.h"
 #include <algorithm>
@@ -56,6 +57,12 @@ namespace Startup
 namespace
 {
 using Json = nlohmann::ordered_json;
+
+int ResolveReplayRetentionSeconds( int requestedSeconds )
+{
+    return requestedSeconds > 0 ? requestedSeconds : REPLAY_PAST_BUFFER_SECONDS;
+}
+
 struct PhysicsDebugComponentDirective
 {
     const char* dashedName;
@@ -448,7 +455,7 @@ bool ApplyReplaySaveProbePath( const char* value, ParsedArgs& args )
     args.replaySaveProbe = true;
     args.replayRecording = true;
     args.replayExplicit = true;
-    args.replaySeconds = (std::max)( 1, args.replaySeconds );
+    args.replaySeconds = ResolveReplayRetentionSeconds( args.replaySeconds );
     args.fixedStep = true;
     args.suppressExitDialog = true;
     fprintf( stdout, "[replay] Save probe output: %s\n", args.replaySaveProbePath );
@@ -893,7 +900,7 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
 
     overrides.configureReplayRecording = replayEnabled || args.replayHashLogPath[0] != '\0';
     overrides.replayRecordingEnabled = true;
-    overrides.replayRetentionSeconds = args.replaySeconds;
+    overrides.replayRetentionSeconds = ResolveReplayRetentionSeconds( args.replaySeconds );
     overrides.replayHashLogPath = args.replayHashLogPath[0] != '\0' ? args.replayHashLogPath : nullptr;
     overrides.replayLoadPath = args.replayLoad ? args.replayLoadPath : nullptr;
     overrides.replayLoadProbe = args.replayLoadProbe;
@@ -1083,7 +1090,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               args.replayScrubProbeNormalized = normalized;
               args.replayRecording = true;
               args.replayExplicit = true;
-              args.replaySeconds = (std::max)( 1, args.replaySeconds );
+              args.replaySeconds = ResolveReplayRetentionSeconds( args.replaySeconds );
               args.fixedStep = true;
               args.suppressExitDialog = true;
               fprintf( stdout, "[replay] Scrub probe normalized position: %.3f\n", args.replayScrubProbeNormalized );
@@ -1104,7 +1111,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               args.replayRestoreProbeNormalized = normalized;
               args.replayRecording = true;
               args.replayExplicit = true;
-              args.replaySeconds = (std::max)( 1, args.replaySeconds );
+              args.replaySeconds = ResolveReplayRetentionSeconds( args.replaySeconds );
               args.fixedStep = true;
               args.suppressExitDialog = true;
               fprintf( stdout, "[replay] Restore probe normalized position: %.3f\n", args.replayRestoreProbeNormalized );

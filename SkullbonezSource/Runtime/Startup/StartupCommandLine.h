@@ -32,7 +32,6 @@ Related:
 */
 #pragma once
 
-#include "../Replay/ReplayCaptureLimits.h"
 #include "RunLaunchOptions.h"
 
 #include <cstddef>
@@ -91,7 +90,7 @@ struct ParsedArgs
         allocationGuardMode = SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Off;
     bool replayRecording = true;
     bool replayExplicit = false;
-    int replaySeconds = REPLAY_PAST_BUFFER_SECONDS;
+    int replaySeconds = 0;               // 0 = Replay owner resolves its default before Run construction.
     bool replayScrubProbe = false;
     float replayScrubProbeNormalized = 0.25f;
     bool replayRestoreProbe = false;

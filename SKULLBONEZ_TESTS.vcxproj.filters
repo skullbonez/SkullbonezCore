@@ -438,8 +438,8 @@
     <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupCommandLine.cpp">
       <Filter>Source Files\Runtime\Startup</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupLaunchResolution.cpp">
-      <Filter>Source Files\Runtime\Startup</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\App\StartupLaunchApplication.cpp">
+      <Filter>Source Files\Runtime\Lifecycle</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Tools\RuntimeFileWriter.cpp">
       <Filter>Source Files\Runtime\Tools</Filter>

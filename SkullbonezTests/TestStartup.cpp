@@ -20,7 +20,7 @@
 //
 // Related:
 //   - SkullbonezSource/Runtime/Startup/StartupCommandLine.cpp
-//   - SkullbonezSource/Runtime/Startup/StartupLaunchResolution.cpp
+//   - SkullbonezSource/Runtime/App/StartupLaunchApplication.cpp
 //   - Agentic/Reference/engine-glossary.md
 //
 
@@ -29,6 +29,7 @@
 #include "../SkullbonezSource/Core/Config.h"
 #include "../SkullbonezSource/Core/SbDiagnosticStore.h"
 #include "../SkullbonezSource/Core/WorkerPool.h"
+#include "../SkullbonezSource/Runtime/Replay/ReplayCaptureLimits.h"
 #include "../SkullbonezSource/Runtime/Startup/RunLaunchOptions.h"
 #include "../SkullbonezSource/Runtime/Startup/StartupCommandLine.h"
 #include "../SkullbonezSource/Runtime/Startup/StartupLaunchResolution.h"
@@ -520,7 +521,9 @@ TEST_CASE( "Startup launch packet: replay defaults and borrowed paths follow par
 
     ParsedArgs suiteDefaults;
     suiteDefaults.isSuiteOrSceneMode = true;
-    CHECK_FALSE( BuildRunStartupOverrides( suiteDefaults ).configureReplayRecording );
+    const RunStartupOverrides suiteOverrides = BuildRunStartupOverrides( suiteDefaults );
+    CHECK_FALSE( suiteOverrides.configureReplayRecording );
+    CHECK( suiteOverrides.replayRetentionSeconds == SkullbonezCore::Runtime::REPLAY_PAST_BUFFER_SECONDS );
     suiteDefaults.interactiveRun = true;
     CHECK( BuildRunStartupOverrides( suiteDefaults ).configureReplayRecording );
 }
