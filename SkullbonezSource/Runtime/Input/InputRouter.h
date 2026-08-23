@@ -57,6 +57,7 @@ Related:
 #include "InputController.Bindings.h"
 #include "../Interaction/RuntimeInteractionController.h"
 #include "../../Maths/Vector3.h"
+#include "../../UI/UIInputCaptureIntent.h"
 
 #include <array>
 #include <cstddef>
@@ -205,30 +206,6 @@ struct DeviceInputFrame
 };
 
 
-struct UiInputCaptureIntent
-{
-    // Value-only arbitration from an external tool UI. InputRouter filters the
-    // corresponding device class and resynchronizes held levels when ownership
-    // returns so a tool keystroke cannot become a gameplay press.
-    bool mouse = false;
-    bool keyboard = false;
-    bool text = false;
-    bool nativePointerStateTouched = false;
-
-    // Value-only fitted image rectangle from an external editor. Input
-    // composition maps the one captured client point through it before any
-    // world pick, placement, camera, or gizmo owner sees coordinates.
-    bool gameViewportMappingActive = false;
-    float gameViewportMinX = 0.0f;
-    float gameViewportMinY = 0.0f;
-    float gameViewportWidth = 0.0f;
-    float gameViewportHeight = 0.0f;
-    float gameViewportDpiScale = 1.0f;
-    int gameViewportSourceWidth = 0;
-    int gameViewportSourceHeight = 0;
-};
-
-
 struct UiInputHitSnapshot
 {
     // Lifetime: published once after UI hit testing and retained by InputRouter
@@ -336,7 +313,7 @@ class InputRouter
     // focus transitions. The output is reset here so subsequent RoutePhase
     // calls append one ordered frame result.
     void BeginFrame( const DeviceInputFrame& frame, RuntimeInputKeyBindingView bindings, InputActions& output,
-                     UiInputCaptureIntent capture = {} );
+                     UI::InputCaptureIntent capture = {} );
 
     // Emits the selected phase in binding-table order. activeContexts contains
     // current mode/UI facts; AfterUi/Capture phase bits are supplied by the

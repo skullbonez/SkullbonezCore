@@ -405,6 +405,8 @@ struct InteractionAutomationFrameResult
     UI::OperatorEditorForecastCommand operatorEditorForecastCommand;
     bool applyCameraMode = false;
     RunCameraMode cameraMode = RunCameraMode::Demo;
+    bool applyDirectorCameraPose = false;
+    DemoCameraPose directorCameraPose;
     bool setWorldInteractionOwner = false;
     WorldInteractionOwner worldInteractionOwner = WorldInteractionOwner::None;
     InteractionExitReason worldInteractionReason = InteractionExitReason::EnterReplay;

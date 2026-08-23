@@ -39,7 +39,6 @@ Related:
 
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/SbDiagnosticStore.h"
-#include "../Capture/CaptureController.h"
 #include "../Startup/RunLaunchOptions.h"
 #include "../Scene/SceneSleepingDynamicBodyGatePolicy.h"
 #include "../../Physics/ColliderStore.h"
@@ -413,14 +412,15 @@ void RuntimeValidationHarness::MarkLiveStyleReady()
 }
 
 
-void RuntimeValidationHarness::TickLiveStyle( RunLaunchOptions& launchOptions, SceneController& sceneController,
-                                              SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser,
-                                              const Assets::AssetSystem& assets,
-                                              SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
-                                              const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic )
+bool RuntimeValidationHarness::PollLiveStyle( const Assets::AssetSystem& assets, AuthoredScene& outStyle )
 {
-    m_liveStyle.Tick( m_resultDiagnostics, launchOptions, sceneController, sceneBrowser, assets, activeCinematic,
-                      defaultCinematic );
+    return m_liveStyle.Poll( m_resultDiagnostics, assets, outStyle );
+}
+
+
+void RuntimeValidationHarness::MarkLiveStyleApplied()
+{
+    m_liveStyle.MarkStyleApplied();
 }
 
 
@@ -430,10 +430,21 @@ bool RuntimeValidationHarness::HasPendingLiveStyleCapture() const
 }
 
 
-void RuntimeValidationHarness::SavePendingLiveStyleCapture( CaptureController& capture,
-                                                            Rendering::Dx12BackbufferCapture& backend )
+const char* RuntimeValidationHarness::PendingLiveStyleCapturePath() const
 {
-    m_liveStyle.SavePendingCapture( capture, backend );
+    return m_liveStyle.PendingScreenshotPath();
+}
+
+
+void RuntimeValidationHarness::CompleteLiveStyleCapture( const SkullbonezCore::Core::SbResult& result )
+{
+    if ( result.Ok() )
+    {
+        m_liveStyle.MarkCaptureSaved();
+        return;
+    }
+
+    m_liveStyle.MarkCaptureFailed( result.ErrorMessage() );
 }
 
 

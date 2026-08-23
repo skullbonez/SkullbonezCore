@@ -119,6 +119,7 @@ class Window;
 struct RunRendererLifecycleTestAccess;
 class RuntimeOverlayDiagnostics;
 class RuntimeValidationHarness;
+struct DemoDirectorTickResult;
 struct InteractionAutomationFrameResult;
 struct ReplayPathPickInput;
 struct RuntimeRenderModelFrameView;
@@ -271,6 +272,7 @@ class Run
     bool ApplyLookLabSeed( uint64_t seed );                                                                       // Resolves and applies one presentation-only candidate.
     void BeginLookLabSave();                                                                                      // Starts one style/receipt/capture transaction for the current candidate.
     void CompleteLookLabPostRenderCaptures();                                                                     // Returns Capture results to the matching Look Lab transaction.
+    void ApplyDemoDirectorTickResult( const DemoDirectorTickResult& result );                                    // Applies Direction's style/reveal/camera commands in authored order.
     void CancelPendingLookLabSave( const char* reason );                                                          // Finalizes a pending receipt before scene or process teardown.
     void PrepareSceneScopedOwnersForTransition();                                                                 // Joins forecast work and clears presentation candidates before load.
     SkullbonezCore::Core::SbResult LoadSceneRequest( SceneLoadTransaction& transaction,

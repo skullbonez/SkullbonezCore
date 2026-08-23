@@ -33,7 +33,7 @@ struct RuntimeInputFrameFacts
     uint32_t cameraModeEnabledMask = 0u;
     bool suppressWorldActionThisFrame = false;
     int sceneObjectCapacity = 0;
-    UiInputCaptureIntent externalUiCapture;
+    UI::InputCaptureIntent externalUiCapture;
     UI::OperatorEditorCommandQueues externalEditorCommands;
     bool gameUiActive = true;
     int requestedReplayCauseRow = -1;

@@ -263,7 +263,8 @@ TEST_CASE( "Input router: captured tool input requires release and repress befor
     InputActions output;
 
     router.BeginFrame( FocusedFrame( {} ), view, output );
-    router.BeginFrame( FocusedFrame( { 'A' }, true ), view, output, UiInputCaptureIntent { true, true, true } );
+    router.BeginFrame( FocusedFrame( { 'A' }, true ), view, output,
+                       SkullbonezCore::UI::InputCaptureIntent { true, true, true } );
     router.RoutePhase( view, InputActionPhase::PreUi, active, output );
     CHECK( output.Count() == 0 );
     CHECK_FALSE( output.mouse.leftPressed );

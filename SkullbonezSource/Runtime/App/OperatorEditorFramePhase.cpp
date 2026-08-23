@@ -38,6 +38,7 @@ Related:
 #include "../../Core/WorkerPool.h"
 #include "../Planning/ReplayOverlayPackets.h"
 #include "../Capture/CaptureSystem.h"
+#include "../Scene/SceneCinematicPolicy.h"
 #include "../Editor/EditorTools.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"

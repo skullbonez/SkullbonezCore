@@ -215,6 +215,7 @@
     <ClInclude Include="SkullbonezSource\UI\UIFrameComposition.h" />
     <ClInclude Include="SkullbonezSource\UI\UIIconButton.h" />
     <ClInclude Include="SkullbonezSource\UI\UIInput.h" />
+    <ClInclude Include="SkullbonezSource\UI\UIInputCaptureIntent.h" />
     <ClInclude Include="SkullbonezSource\UI\UILayout.h" />
     <ClInclude Include="SkullbonezSource\UI\UIProfilerOverlayPresenter.h" />
     <ClInclude Include="SkullbonezSource\UI\UIRenderAuthoringCatalog.h" />

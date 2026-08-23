@@ -60,6 +60,15 @@ using SkullbonezCore::Math::Vector::Vector3;
 
 namespace
 {
+DemoCameraPose CaptureDemoDirectorPose( const SkullbonezCore::Environment::CameraCollection& cameras )
+{
+    DemoCameraPose pose;
+    pose.eye = cameras.GetCameraTranslation();
+    pose.view = cameras.GetCameraView();
+    pose.up = cameras.GetCameraUp();
+    return pose;
+}
+
 RuntimeInputAction ResolveEditorPointerModeAction( EditorPointerModeAction action )
 {
     switch ( action )
@@ -475,7 +484,8 @@ void InputRouter::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource 
 
     if ( mode == RunCameraMode::Director && previousMode != RunCameraMode::Director )
     {
-        DemoDirectorPlayback::EnterMode( camera, m_sceneController.Scene().Cameras() );
+        DemoDirectorPlayback::EnterMode( camera.director,
+                                         CaptureDemoDirectorPose( m_sceneController.Scene().Cameras() ) );
     }
 
     const RuntimeInteractionTransition transition = EnterInteractionForCameraMode( interaction, mode );

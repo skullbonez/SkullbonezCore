@@ -233,7 +233,7 @@ InputActions& InputRouter::Actions()
 
 
 void InputRouter::BeginFrame( const DeviceInputFrame& frame, RuntimeInputKeyBindingView bindings, InputActions& output,
-                              UiInputCaptureIntent capture )
+                              UI::InputCaptureIntent capture )
 {
     const bool keyboardCaptured = capture.keyboard || capture.text;
     const bool captureReleased = ( m_keyboardCaptured && !keyboardCaptured ) || ( m_mouseCaptured && !capture.mouse );

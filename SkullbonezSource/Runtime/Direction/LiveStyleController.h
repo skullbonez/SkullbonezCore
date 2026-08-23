@@ -5,8 +5,8 @@ Purpose:
 
 Summary:
   The live style controller watches a small opt-in folder for `live.style.json`
-  and screenshot requests. It borrows the capture owner after rendering to save
-  the requested image and owns the matching harness status transition.
+  and screenshot requests. It publishes parsed style and bounded capture-path
+  values, then records the synchronous App receipt for each applied effect.
 
 Glossary:
   Control folder: Directory containing live.style.json, capture.txt, and
@@ -25,35 +25,34 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Direction/LiveStyleController.cpp
-  - SkullbonezSource/Runtime/Scene/SceneCinematicPolicy.h
+  - SkullbonezSource/Runtime/App/InputFrameExecution.cpp
 */
 #pragma once
-
-#include "../Scene/SceneCinematicPolicy.h"
 
 #include <cstdint>
 
 namespace SkullbonezCore
 {
-namespace Rendering
+namespace Assets
 {
-class Dx12BackbufferCapture;
+class AssetSystem;
+}
+namespace Core
+{
+class SbDiagnosticStore;
 }
 namespace Runtime
 {
-class CaptureController;
-class SceneController;
+class AuthoredScene;
 class LiveStyleController
 {
   public:
     bool ConfigureDirectory( const char* path );
     void MarkReady();
-    void Tick( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, RunLaunchOptions& launchOptions,
-               SceneController& sceneController, SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser,
-               const Assets::AssetSystem& assets, SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
-               const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic );
+    bool Poll( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, const Assets::AssetSystem& assets,
+               AuthoredScene& outStyle );
+    void MarkStyleApplied();
     bool HasPendingCapture() const;
-    void SavePendingCapture( CaptureController& capture, Rendering::Dx12BackbufferCapture& backend );
     const char* PendingScreenshotPath() const;
     void MarkCaptureSaved();
     void MarkCaptureFailed( const char* message );

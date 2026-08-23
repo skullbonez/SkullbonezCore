@@ -67,6 +67,7 @@ Related:
 #include "../Direction/DemoDirectorPlayback.h"
 #include "../Scene/SceneLoadTransaction.h"
 #include "../Scene/SceneSaveOperations.h"
+#include "../../Scene/AuthoredScene.h"
 
 #include "../Capture/CaptureSystem.h"
 #include "GraphicsStressApplication.h"
@@ -148,7 +149,51 @@ bool PublishInteractionSidecar( const std::filesystem::path& partial, const std:
     return false;
 }
 
+DemoCameraPose CaptureDemoDirectorPose( const SkullbonezCore::Environment::CameraCollection& cameras )
+{
+    DemoCameraPose pose;
+    pose.eye = cameras.GetCameraTranslation();
+    pose.view = cameras.GetCameraView();
+    pose.up = cameras.GetCameraUp();
+    return pose;
+}
+
 } // namespace
+
+void Run::ApplyDemoDirectorTickResult( const DemoDirectorTickResult& result )
+{
+    // Invariant: phase-entry style and reveal policy commit before the camera
+    // pose for that phase becomes visible to render and capture consumers.
+    if ( result.applyStyle )
+    {
+        AuthoredScene styleScene;
+        const SkullbonezCore::Core::SbResult loadResult =
+            AuthoredScene::TryLoadStyleFromFile( m_resultDiagnostics, result.stylePath, m_assets, styleScene );
+
+        if ( loadResult.Ok() )
+        {
+            m_sceneController.ApplyLiveStyle( m_launchOptions, m_operatorUi->SceneNavigation().browser,
+                                              ActiveSceneCinematicConfig( m_sceneController.State(), m_config ),
+                                              m_renderDefaults.CinematicBaseline(), styleScene );
+        }
+
+        DemoDirectorPlayback::CompleteStyleApplication( m_camera.director, loadResult.Ok(), loadResult.ErrorMessage() );
+    }
+
+    if ( result.applyRevealRate )
+    {
+        ReplayFrameIntent intent;
+        intent.applyPredictionRevealRate = true;
+        intent.predictionRevealRate = result.requestedRevealRate;
+        (void)m_replayRuntime.ApplyFrameIntent( intent );
+    }
+
+    if ( result.applyCameraPose )
+    {
+        m_sceneController.Scene().Cameras().SetPrimaryPose( result.cameraPose.eye, result.cameraPose.view,
+                                                           result.cameraPose.up );
+    }
+}
 
 namespace
 {
@@ -477,6 +522,13 @@ Run::FrameInputPhaseResult Run::RunAutomationAndInputPhase()
                                                                                           m_runtimeTools, *m_operatorUi,
                                                                                           automationReplayView,
                                                                                           Renderer().FrameGraphSnapshot() );
+
+    if ( result.applyDirectorCameraPose )
+    {
+        m_sceneController.Scene().Cameras().SetPrimaryPose( result.directorCameraPose.eye,
+                                                           result.directorCameraPose.view,
+                                                           result.directorCameraPose.up );
+    }
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     const InteractionAutomationDevelopmentUiApplyResult
@@ -811,7 +863,12 @@ void Run::RunPostDrawDiagnosticsPhase( bool gameUiActive )
     PROFILE_BEGIN( "Frame/PostDraw/LiveStyleCapture" );
     {
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Capture );
-        m_validationHarness->SavePendingLiveStyleCapture( m_diagnosticsRuntime.Capture(), BackbufferCapture() );
+        if ( m_validationHarness->HasPendingLiveStyleCapture() )
+        {
+            const SkullbonezCore::Core::SbResult captureResult = m_diagnosticsRuntime.Capture().SaveScreenshot(
+                BackbufferCapture(), m_validationHarness->PendingLiveStyleCapturePath() );
+            m_validationHarness->CompleteLiveStyleCapture( captureResult );
+        }
     }
     PROFILE_END( "Frame/PostDraw/LiveStyleCapture" );
 
@@ -1181,21 +1238,11 @@ float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned,
         DemoDirectorPredictionView directorPrediction;
         directorPrediction.revealAvailable = directorReplayInput.predictionRevealAvailable;
         directorPrediction.revealProgress = directorReplayInput.predictionRevealProgress;
-        const DemoDirectorTickResult
-            directorResult = DemoDirectorPlayback::Tick( m_resultDiagnostics, m_camera, directorPrediction, m_launchOptions,
-                                                         m_sceneController, m_operatorUi->SceneNavigation().browser,
-                                                         m_assets,
-                                                         ActiveSceneCinematicConfig( m_sceneController.State(), m_config ),
-                                                         m_renderDefaults.CinematicBaseline(),
-                                                         static_cast<float>( secondsPerFrame ) );
-
-        if ( directorResult.applyRevealRate )
-        {
-            ReplayFrameIntent intent;
-            intent.applyPredictionRevealRate = true;
-            intent.predictionRevealRate = directorResult.requestedRevealRate;
-            (void)m_replayRuntime.ApplyFrameIntent( intent );
-        }
+        const DemoCameraPose currentPose = CaptureDemoDirectorPose( m_sceneController.Scene().Cameras() );
+        const DemoDirectorTickResult directorResult = DemoDirectorPlayback::Tick(
+            m_camera.director, m_camera.mode == RunCameraMode::Director, directorPrediction, currentPose,
+            static_cast<float>( secondsPerFrame ) );
+        ApplyDemoDirectorTickResult( directorResult );
     }
 
     return tick.presentationAlpha;
@@ -1549,19 +1596,10 @@ void Run::UpdateLogic( float simulationDt, float cameraDt, float presentationAlp
     const ReplayInputView replayInput = m_replayRuntime.BuildInputView();
     directorPrediction.revealAvailable = replayInput.predictionRevealAvailable;
     directorPrediction.revealProgress = replayInput.predictionRevealProgress;
-    const DemoDirectorTickResult
-        directorResult = DemoDirectorPlayback::Tick( m_resultDiagnostics, m_camera, directorPrediction, m_launchOptions,
-                                                     m_sceneController, m_operatorUi->SceneNavigation().browser, m_assets,
-                                                     ActiveSceneCinematicConfig( m_sceneController.State(), m_config ),
-                                                     m_renderDefaults.CinematicBaseline(), cameraDt );
-
-    if ( directorResult.applyRevealRate )
-    {
-        ReplayFrameIntent intent;
-        intent.applyPredictionRevealRate = true;
-        intent.predictionRevealRate = directorResult.requestedRevealRate;
-        (void)m_replayRuntime.ApplyFrameIntent( intent );
-    }
+    const DemoCameraPose currentPose = CaptureDemoDirectorPose( m_sceneController.Scene().Cameras() );
+    const DemoDirectorTickResult directorResult = DemoDirectorPlayback::Tick(
+        m_camera.director, m_camera.mode == RunCameraMode::Director, directorPrediction, currentPose, cameraDt );
+    ApplyDemoDirectorTickResult( directorResult );
 
     m_sceneController.Scene()
         .Environment()

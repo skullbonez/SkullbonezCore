@@ -1104,16 +1104,21 @@ void FailAutomation( InteractionAutomationController& state, const char* message
 void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationController& state,
                                                      SkullbonezCore::Environment::CameraCollection& cameras,
                                                      CameraControlState& camera, RunInteractionAutomationAction& action,
-                                                     int frame )
+                                                     InteractionAutomationFrameResult& result, int frame )
 {
     // Concept: director/camera automation seeds the same camera and director
     // owners used by live authoring. Camera-mode transitions are routed by the
     // caller through InputRouter before this helper handles director-local work.
+    DemoCameraPose currentPose;
+    currentPose.eye = cameras.GetCameraTranslation();
+    currentPose.view = cameras.GetCameraView();
+    currentPose.up = cameras.GetCameraUp();
+
     switch ( action.type )
     {
     case RunInteractionAutomationActionType::LoadShotList:
     {
-        const bool loaded = DemoDirectorPlayback::LoadShotList( camera, cameras, action.path );
+        const bool loaded = DemoDirectorPlayback::LoadShotList( camera.director, currentPose, action.path );
 
         if ( !loaded )
         {
@@ -1127,7 +1132,7 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationContro
     }
     case RunInteractionAutomationActionType::DirectorAdvance:
     {
-        const bool advanced = DemoDirectorPlayback::AdvancePhase( camera, cameras );
+        const bool advanced = DemoDirectorPlayback::AdvancePhase( camera.director, currentPose );
 
         if ( !advanced )
         {
@@ -1141,7 +1146,15 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationContro
     }
     case RunInteractionAutomationActionType::DirectorGrab:
     {
-        const bool grabbed = DemoDirectorPlayback::BeginGrab( camera, cameras );
+        DemoDirectorCameraCommand cameraCommand;
+        const bool grabbed = DemoDirectorPlayback::BeginGrab(
+            camera.director, camera.mode == RunCameraMode::Director, currentPose, cameraCommand );
+
+        if ( cameraCommand.applyPose )
+        {
+            result.applyDirectorCameraPose = true;
+            result.directorCameraPose = cameraCommand.pose;
+        }
 
         if ( !grabbed )
         {
@@ -1155,7 +1168,8 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationContro
     }
     case RunInteractionAutomationActionType::DirectorRelease:
     {
-        const bool released = DemoDirectorPlayback::EndGrab( camera, cameras );
+        const bool released = DemoDirectorPlayback::EndGrab(
+            camera.director, camera.mode == RunCameraMode::Director, currentPose );
 
         if ( !released )
         {
@@ -1169,7 +1183,7 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationContro
     }
     case RunInteractionAutomationActionType::SetPhaseStyle:
     {
-        const bool applied = DemoDirectorPlayback::SetCurrentPhaseStyle( camera, action.path );
+        const bool applied = DemoDirectorPlayback::SetCurrentPhaseStyle( camera.director, action.path );
 
         if ( !applied )
         {
@@ -1187,7 +1201,8 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationContro
 
         // Why: pose-authoring proofs seed the current camera, then use normal
         // J/L key handling to write and save the shot list.
-        cameras.SetPrimaryPose( action.cameraPose.eye, action.cameraPose.view, action.cameraPose.up );
+        result.applyDirectorCameraPose = true;
+        result.directorCameraPose = action.cameraPose;
         AppendReportAction( state, frame, action.type, "", nullptr, applied,
                             applied ? "camera pose applied" : "camera unavailable" );
 
@@ -5359,7 +5374,8 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
         case RunInteractionAutomationActionType::DirectorRelease:
         case RunInteractionAutomationActionType::SetPhaseStyle:
         case RunInteractionAutomationActionType::SetCameraPose:
-            ApplyInteractionAutomationDirectorCameraAction( state, scene.Scene().Cameras(), camera, action, frame );
+            ApplyInteractionAutomationDirectorCameraAction( state, scene.Scene().Cameras(), camera, action, result,
+                                                            frame );
             action.processed = true;
             break;
         case RunInteractionAutomationActionType::ShowReplayScrubber:

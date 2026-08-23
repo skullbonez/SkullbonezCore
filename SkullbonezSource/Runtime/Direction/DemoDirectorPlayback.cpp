@@ -5,9 +5,8 @@ Purpose:
 
 Summary:
   The director never invents framing or looks. A loaded shot list owns authored
-  camera/style phases, CameraControlState owns playback timers, and this file
-  blends the selected phase into runtime camera/style/replay presentation owners
-  before rendering.
+  camera/style phases; this owner advances playback state and publishes bounded
+  commands that App applies to camera, scene-style, and replay presentation owners.
 
 Glossary:
   Phase pose: Authored eye, view target, and up vector stored in `.shot.json`.
@@ -23,12 +22,7 @@ Glossary:
 
 Invariants:
   - Director playback is presentation-only; it must not mutate physics state.
-  - Camera writes go through CameraCollection::SetPrimaryPose so render camera,
-    listener, replay, and screenshot paths keep using the normal camera owner.
-  - Camera and style writes derive from the same borrowed SceneWorld so phase
-    playback cannot combine presentation state from different scenes.
-  - Phase style writes go through SceneCinematicPolicy so material/cinematic
-    changes stay inside the existing render-facing scene owner.
+  - Direction emits camera/style values and never borrows their mutable owners.
   - Reveal-rate writes only affect replay overlay presentation timing; they
     must not mark prediction dirty or rebuild private physics state.
   - Empty or missing shot lists leave Director mode as a no-op.
@@ -36,15 +30,10 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Direction/DemoDirectorPlayback.h
   - SkullbonezSource/Runtime/Camera/DemoDirector.h
-  - SkullbonezSource/Runtime/Scene/SceneController.h
+  - SkullbonezSource/Runtime/App/RunFrame.cpp
   - Agentic/Reference/engine-glossary.md
 */
 #include "DemoDirectorPlayback.h"
-#include "../Scene/SceneCinematicPolicy.h"
-#include "../Scene/SceneController.h"
-#include "../Scene/SceneWorld.h"
-
-#include "../../Scene/AuthoredScene.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -83,18 +72,9 @@ float PhaseBlendAlpha( const DemoPhase& phase, float blendElapsedSeconds )
     return std::clamp( blendElapsedSeconds / phase.blendInSeconds, 0.0f, 1.0f );
 }
 
-DemoCameraPose CaptureCurrentPose( Environment::CameraCollection& cameras )
+void ResetBlendFromCurrentPose( DemoDirectorPlaybackState& director, const DemoCameraPose& currentPose )
 {
-    DemoCameraPose pose;
-    pose.eye = cameras.GetCameraTranslation();
-    pose.view = cameras.GetCameraView();
-    pose.up = cameras.GetCameraUp();
-    return pose;
-}
-
-void ResetBlendFromCurrentPose( DemoDirectorPlaybackState& director, Environment::CameraCollection& cameras )
-{
-    director.blendStartPose = CaptureCurrentPose( cameras );
+    director.blendStartPose = currentPose;
     director.blendElapsedSeconds = 0.0f;
 }
 
@@ -217,12 +197,7 @@ void ApplyPhaseRevealRateIfNeeded( DemoDirectorPlaybackState& director, DemoDire
                  director.currentPhaseIndex, phase.name[0] ? phase.name : "<unnamed>" );
 }
 
-void ApplyPhaseStyleIfNeeded( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
-                              DemoDirectorPlaybackState& director, RunLaunchOptions& launchOptions,
-                              SceneController& sceneController, SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser,
-                              const Assets::AssetSystem& assets,
-                              SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
-                              const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic )
+void PublishPhaseStyleIfNeeded( DemoDirectorPlaybackState& director, DemoDirectorTickResult& result )
 {
     if ( !IsCurrentPhaseValid( director ) )
     {
@@ -243,30 +218,15 @@ void ApplyPhaseStyleIfNeeded( SkullbonezCore::Core::SbDiagnosticStore& resultDia
         return;
     }
 
-    AuthoredScene styleScene;
-    const SkullbonezCore::Core::SbResult loadResult = AuthoredScene::TryLoadStyleFromFile( resultDiagnostics,
-                                                                                           phase.stylePath, assets,
-                                                                                           styleScene );
-
-    if ( loadResult.Ok() )
-    {
-        sceneController.ApplyLiveStyle( launchOptions, sceneBrowser, activeCinematic, defaultCinematic, styleScene );
-        ++director.appliedStyleCount;
-        std::printf( "[demo-director] applied style %s for phase %d (%s)\n", phase.stylePath, director.currentPhaseIndex,
-                     phase.name[0] ? phase.name : "<unnamed>" );
-    }
-    else
-    {
-        const char* message = loadResult.ErrorMessage()[0] != '\0' ? loadResult.ErrorMessage() : "style load failed";
-        std::fprintf( stderr, "[demo-director] style error for %s: %s\n", phase.stylePath, message );
-    }
+    std::snprintf( result.stylePath, sizeof( result.stylePath ), "%s", phase.stylePath );
+    result.applyStyle = true;
 }
 } // namespace
 
 namespace DemoDirectorPlayback
 {
 
-bool LoadShotList( CameraControlState& camera, Environment::CameraCollection& cameras, const char* path )
+bool LoadShotList( DemoDirectorPlaybackState& director, const DemoCameraPose& currentPose, const char* path )
 {
     DemoShotList loadedShotList;
 
@@ -280,10 +240,10 @@ bool LoadShotList( CameraControlState& camera, Environment::CameraCollection& ca
     nextState.activeShotList = loadedShotList;
     nextState.hasActiveShotList = true;
     nextState.currentPhaseIndex = 0;
-    nextState.blendStartPose = CaptureCurrentPose( cameras );
+    nextState.blendStartPose = currentPose;
     nextState.poseCapturedAtGrab = nextState.blendStartPose;
     CopyShotListPath( nextState, path );
-    camera.director = nextState;
+    director = nextState;
 
     std::printf( "[demo-director] loaded %d phase(s) from %s\n", loadedShotList.phaseCount,
                  path && path[0] ? path : "<null-path>" );
@@ -292,10 +252,8 @@ bool LoadShotList( CameraControlState& camera, Environment::CameraCollection& ca
 }
 
 
-bool AdvancePhase( CameraControlState& camera, Environment::CameraCollection& cameras )
+bool AdvancePhase( DemoDirectorPlaybackState& director, const DemoCameraPose& currentPose )
 {
-    DemoDirectorPlaybackState& director = camera.director;
-
     if ( !HasPlayableShotList( director ) )
     {
         return false;
@@ -316,17 +274,16 @@ bool AdvancePhase( CameraControlState& camera, Environment::CameraCollection& ca
     director.currentPhaseIndex = nextPhase;
     director.phaseElapsedSeconds = 0.0f;
     ResetPhaseEntryApplications( director );
-    ResetBlendFromCurrentPose( director, cameras );
+    ResetBlendFromCurrentPose( director, currentPose );
     return true;
 }
 
-void EnterMode( CameraControlState& camera, Environment::CameraCollection& cameras )
+void EnterMode( DemoDirectorPlaybackState& director, const DemoCameraPose& currentPose )
 {
-    DemoDirectorPlaybackState& director = camera.director;
     director.grabbed = false;
     director.phaseElapsedSeconds = 0.0f;
     ResetPhaseEntryApplications( director );
-    ResetBlendFromCurrentPose( director, cameras );
+    ResetBlendFromCurrentPose( director, currentPose );
 
     if ( director.hasActiveShotList &&
          ( director.currentPhaseIndex < 0 || director.currentPhaseIndex >= director.activeShotList.phaseCount ) )
@@ -335,54 +292,51 @@ void EnterMode( CameraControlState& camera, Environment::CameraCollection& camer
     }
 }
 
-bool BeginGrab( CameraControlState& camera, Environment::CameraCollection& cameras )
+bool BeginGrab( DemoDirectorPlaybackState& director, bool directorModeActive, const DemoCameraPose& currentPose,
+                DemoDirectorCameraCommand& outCommand )
 {
-    DemoDirectorPlaybackState& director = camera.director;
+    outCommand = DemoDirectorCameraCommand {};
 
-    if ( camera.mode != RunCameraMode::Director || director.grabbed || !HasPlayableShotList( director ) )
+    if ( !directorModeActive || director.grabbed || !HasPlayableShotList( director ) )
     {
         return false;
     }
 
-    const DemoCameraPose pose = CaptureCurrentPose( cameras );
-    director.poseCapturedAtGrab = pose;
-    director.blendStartPose = pose;
+    director.poseCapturedAtGrab = currentPose;
+    director.blendStartPose = currentPose;
     director.blendElapsedSeconds = 0.0f;
     director.grabbed = true;
-    cameras.SetPrimaryPose( pose.eye, pose.view, pose.up );
+    outCommand.pose = currentPose;
+    outCommand.applyPose = true;
     return true;
 }
 
-bool EndGrab( CameraControlState& camera, Environment::CameraCollection& cameras )
+bool EndGrab( DemoDirectorPlaybackState& director, bool directorModeActive, const DemoCameraPose& currentPose )
 {
-    DemoDirectorPlaybackState& director = camera.director;
-
-    if ( camera.mode != RunCameraMode::Director || !director.grabbed || !HasPlayableShotList( director ) )
+    if ( !directorModeActive || !director.grabbed || !HasPlayableShotList( director ) )
     {
         return false;
     }
 
-    director.poseCapturedAtGrab = CaptureCurrentPose( cameras );
+    director.poseCapturedAtGrab = currentPose;
     director.blendStartPose = director.poseCapturedAtGrab;
     director.blendElapsedSeconds = 0.0f;
     director.grabbed = false;
     return true;
 }
 
-bool SetCurrentPhasePose( CameraControlState& camera, Environment::CameraCollection& cameras )
+bool SetCurrentPhasePose( DemoDirectorPlaybackState& director, const DemoCameraPose& currentPose )
 {
-    DemoDirectorPlaybackState& director = camera.director;
 
     if ( !IsCurrentPhaseValid( director ) )
     {
         return false;
     }
 
-    const DemoCameraPose pose = CaptureCurrentPose( cameras );
     DemoPhase& phase = CurrentPhase( director );
-    phase.camera = pose;
-    director.poseCapturedAtGrab = pose;
-    director.blendStartPose = pose;
+    phase.camera = currentPose;
+    director.poseCapturedAtGrab = currentPose;
+    director.blendStartPose = currentPose;
     director.blendElapsedSeconds = 0.0f;
     std::printf( "[demo-director] captured pose for phase %d (%s)\n", director.currentPhaseIndex,
                  phase.name[0] ? phase.name : "<unnamed>" );
@@ -391,9 +345,8 @@ bool SetCurrentPhasePose( CameraControlState& camera, Environment::CameraCollect
 }
 
 
-bool SetCurrentPhaseStyle( CameraControlState& camera, const char* stylePath )
+bool SetCurrentPhaseStyle( DemoDirectorPlaybackState& director, const char* stylePath )
 {
-    DemoDirectorPlaybackState& director = camera.director;
 
     if ( !IsCurrentPhaseValid( director ) )
     {
@@ -414,9 +367,8 @@ bool SetCurrentPhaseStyle( CameraControlState& camera, const char* stylePath )
 }
 
 
-bool SelectNextPhaseForAuthoring( CameraControlState& camera, Environment::CameraCollection& cameras )
+bool SelectNextPhaseForAuthoring( DemoDirectorPlaybackState& director, const DemoCameraPose& currentPose )
 {
-    DemoDirectorPlaybackState& director = camera.director;
 
     if ( !HasPlayableShotList( director ) )
     {
@@ -433,7 +385,7 @@ bool SelectNextPhaseForAuthoring( CameraControlState& camera, Environment::Camer
     director.currentPhaseIndex = nextPhase;
     director.phaseElapsedSeconds = 0.0f;
     ResetPhaseEntryApplications( director );
-    ResetBlendFromCurrentPose( director, cameras );
+    ResetBlendFromCurrentPose( director, currentPose );
     const DemoPhase& phase = CurrentPhase( director );
     std::printf( "[demo-director] selected phase %d (%s)\n", director.currentPhaseIndex,
                  phase.name[0] ? phase.name : "<unnamed>" );
@@ -441,10 +393,8 @@ bool SelectNextPhaseForAuthoring( CameraControlState& camera, Environment::Camer
     return true;
 }
 
-bool SaveShotList( const CameraControlState& camera )
+bool SaveShotList( const DemoDirectorPlaybackState& director )
 {
-    const DemoDirectorPlaybackState& director = camera.director;
-
     if ( !HasPlayableShotList( director ) || !director.activeShotListPath[0] )
     {
         return false;
@@ -456,21 +406,12 @@ bool SaveShotList( const CameraControlState& camera )
     return saved;
 }
 
-DemoDirectorTickResult Tick( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, CameraControlState& camera,
-                             DemoDirectorPredictionView prediction, RunLaunchOptions& launchOptions,
-                             SceneController& sceneController, SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser,
-                             const Assets::AssetSystem& assets, SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
-                             const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic, float cameraDt )
+DemoDirectorTickResult Tick( DemoDirectorPlaybackState& director, bool directorModeActive,
+                             DemoDirectorPredictionView prediction, const DemoCameraPose& currentPose, float cameraDt )
 {
     DemoDirectorTickResult result;
-    DemoDirectorPlaybackState& director = camera.director;
-    SceneWorld& world = sceneController.Scene();
 
-    // Lifetime: the director's pose and style mutations derive from one world
-    // borrow, so phase playback cannot split authority across two scenes.
-    Environment::CameraCollection& cameras = world.Cameras();
-
-    if ( camera.mode != RunCameraMode::Director || !HasPlayableShotList( director ) )
+    if ( !directorModeActive || !HasPlayableShotList( director ) )
     {
         return result;
     }
@@ -480,14 +421,13 @@ DemoDirectorTickResult Tick( SkullbonezCore::Core::SbDiagnosticStore& resultDiag
         director.currentPhaseIndex = 0;
         director.phaseElapsedSeconds = 0.0f;
         ResetPhaseEntryApplications( director );
-        ResetBlendFromCurrentPose( director, cameras );
+        ResetBlendFromCurrentPose( director, currentPose );
     }
 
     // Why: Style JSON is cold phase-entry authoring data. Remembering the phase
     // and path keeps it out of the per-frame camera blend unless the phase or
     // authored style path actually changes.
-    ApplyPhaseStyleIfNeeded( resultDiagnostics, director, launchOptions, sceneController, sceneBrowser, assets,
-                             activeCinematic, defaultCinematic );
+    PublishPhaseStyleIfNeeded( director, result );
 
     ApplyPhaseRevealRateIfNeeded( director, result );
 
@@ -501,15 +441,29 @@ DemoDirectorTickResult Tick( SkullbonezCore::Core::SbDiagnosticStore& resultDiag
     director.blendElapsedSeconds += cameraDt;
 
     const float blendAlpha = PhaseBlendAlpha( phase, director.blendElapsedSeconds );
-    const DemoCameraPose pose = LerpPose( director.blendStartPose, phase.camera, blendAlpha );
-    cameras.SetPrimaryPose( pose.eye, pose.view, pose.up );
+    result.cameraPose = LerpPose( director.blendStartPose, phase.camera, blendAlpha );
+    result.applyCameraPose = true;
 
     if ( CurrentPhaseRequestsAdvance( director, prediction ) )
     {
-        AdvancePhase( camera, cameras );
+        AdvancePhase( director, result.cameraPose );
     }
 
     return result;
+}
+
+void CompleteStyleApplication( DemoDirectorPlaybackState& director, bool succeeded, const char* errorMessage )
+{
+    if ( succeeded )
+    {
+        ++director.appliedStyleCount;
+        std::printf( "[demo-director] applied style %s for phase %d\n", director.appliedStylePath,
+                     director.currentPhaseIndex );
+        return;
+    }
+
+    const char* message = errorMessage && errorMessage[0] != '\0' ? errorMessage : "style load failed";
+    std::fprintf( stderr, "[demo-director] style error for %s: %s\n", director.appliedStylePath, message );
 }
 } // namespace DemoDirectorPlayback
 } // namespace Runtime

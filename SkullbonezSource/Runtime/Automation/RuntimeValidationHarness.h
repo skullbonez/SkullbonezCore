@@ -49,11 +49,14 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Rendering
+namespace Assets
 {
-class Dx12BackbufferCapture;
-class Dx12Diagnostics;
-} // namespace Rendering
+class AssetSystem;
+}
+namespace Core
+{
+class SbResult;
+} // namespace Core
 namespace Physics
 {
 class ColliderStore;
@@ -61,7 +64,7 @@ class PhysicsBodyStore;
 } // namespace Physics
 namespace Runtime
 {
-class CaptureController;
+class AuthoredScene;
 class ReplayRuntime;
 class SceneController;
 struct RunLaunchOptions;
@@ -117,12 +120,11 @@ class RuntimeValidationHarness
 
     bool ConfigureStartup( const RunStartupOverrides& overrides, RunLaunchOptions& launchOptions );
     void MarkLiveStyleReady();
-    void TickLiveStyle( RunLaunchOptions& launchOptions, SceneController& sceneController,
-                        SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser, const Assets::AssetSystem& assets,
-                        SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
-                        const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic );
+    bool PollLiveStyle( const Assets::AssetSystem& assets, AuthoredScene& outStyle );
+    void MarkLiveStyleApplied();
     bool HasPendingLiveStyleCapture() const;
-    void SavePendingLiveStyleCapture( CaptureController& capture, Rendering::Dx12BackbufferCapture& backend );
+    const char* PendingLiveStyleCapturePath() const;
+    void CompleteLiveStyleCapture( const SkullbonezCore::Core::SbResult& result );
 
     void ObserveSceneLifecycle( const SceneLifecyclePacket& packet, const RunLaunchOptions& launchOptions );
     void PrintGraphicsStressExitSummary( int currentSceneFrame ) const;

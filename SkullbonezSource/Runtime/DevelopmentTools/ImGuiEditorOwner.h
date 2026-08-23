@@ -55,6 +55,7 @@ Related:
 #include "../../Core/SbResult.h"
 #include "../../Core/PlatformWin32.h"
 #include "../../UI/OperatorEditorExchange.h"
+#include "../../UI/UIInputCaptureIntent.h"
 
 #include <cstdint>
 
@@ -69,11 +70,6 @@ class Dx12ImGuiRendererOwner;
 namespace SkullbonezCore::Runtime::ReplayOverlay
 {
 struct ReplayOverlayStateView;
-}
-
-namespace SkullbonezCore::Runtime
-{
-struct UiInputCaptureIntent;
 }
 
 namespace SkullbonezCore::Runtime::DevelopmentTools
@@ -275,7 +271,7 @@ class ImGuiEditorOwner
 
     // Publishes the completed editor frame as the generic value consumed by
     // InputRouter; the input owner remains authoritative for arbitration.
-    UiInputCaptureIntent ConsumeInputCaptureIntent() noexcept;
+    UI::InputCaptureIntent ConsumeInputCaptureIntent() noexcept;
     void SetGameViewportInputState( bool hovered, bool focused ) noexcept;
 
     bool BeginFrame( const ImGuiEditorFrameInput& input );

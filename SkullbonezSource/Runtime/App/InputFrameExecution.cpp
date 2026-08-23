@@ -62,6 +62,7 @@ Related:
 #include "../Scene/SceneLoadTransaction.h"
 #include "../Scene/SceneCinematicPolicy.h"
 #include "../Scene/SceneController.h"
+#include "../../Scene/AuthoredScene.h"
 #include "../../Core/Log.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
@@ -88,6 +89,18 @@ using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::UI::Layout;
 using SkullbonezCore::Hardware::Input;
 using SkullbonezCore::UI::InGameUITab;
+
+namespace
+{
+DemoCameraPose CaptureDemoDirectorPose( const SkullbonezCore::Environment::CameraCollection& cameras )
+{
+    DemoCameraPose pose;
+    pose.eye = cameras.GetCameraTranslation();
+    pose.view = cameras.GetCameraView();
+    pose.up = cameras.GetCameraUp();
+    return pose;
+}
+} // namespace
 
 
 // Concept: the input turn is an orchestration boundary, not a new domain owner.
@@ -240,7 +253,7 @@ void Run::PrepareSceneScopedOwnersForTransition()
 
 Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput )
 {
-    UiInputCaptureIntent externalUiCapture;
+    UI::InputCaptureIntent externalUiCapture;
     SkullbonezCore::UI::OperatorEditorCommandQueues externalEditorCommands;
     bool gameUiActive = true;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
@@ -336,9 +349,15 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 #endif
         const SceneFrameProceedPolicy proceedPolicy = sceneController.BuildFrameProceedPolicy( inputRouter.RuntimeSnapshot().frameInput.stepHeld );
 
-        validationHarness.TickLiveStyle( launchOptions, sceneController, ui.SceneNavigation().browser, assets,
-                                         ActiveSceneCinematicConfig( sceneController.State(), config ),
-                                         renderDefaults.CinematicBaseline() );
+        AuthoredScene liveStyle;
+
+        if ( validationHarness.PollLiveStyle( assets, liveStyle ) )
+        {
+            sceneController.ApplyLiveStyle( launchOptions, ui.SceneNavigation().browser,
+                                            ActiveSceneCinematicConfig( sceneController.State(), config ),
+                                            renderDefaults.CinematicBaseline(), liveStyle );
+            validationHarness.MarkLiveStyleApplied();
+        }
 
         return FrameInputPhaseResult { proceedPolicy, gameUiActive };
     };
@@ -879,7 +898,9 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
             if ( camera.director.grabbed )
             {
-                if ( DemoDirectorPlayback::EndGrab( camera, sceneController.Scene().Cameras() ) )
+                const DemoCameraPose currentPose = CaptureDemoDirectorPose( sceneController.Scene().Cameras() );
+
+                if ( DemoDirectorPlayback::EndGrab( camera.director, true, currentPose ) )
                 {
                     ExitFlyModeCamera( inputRouter, camera, sceneController.Scene().Cameras(),
                                        *sceneController.Scene().Terrain().Get(), SceneState().isSceneMode );
@@ -891,16 +912,28 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
                                                   event.action, event.source );
                 }
             }
-            else if ( DemoDirectorPlayback::BeginGrab( camera, sceneController.Scene().Cameras() ) )
+            else
             {
-                EnterFlyModeCamera( inputRouter, camera, sceneController.Scene().Cameras(), SceneState().isSceneMode,
-                                    runtimeTools.Editor(), replayRuntime.BuildInputView() );
+                const DemoCameraPose currentPose = CaptureDemoDirectorPose( sceneController.Scene().Cameras() );
+                DemoDirectorCameraCommand cameraCommand;
 
-                inputRouter.ApplyPointerPresentation( EvaluateRuntimePointerPresentation( inputRouter, runtimeTools.Editor(),
-                                                                                          replayRuntime.BuildInputView() ) );
+                if ( DemoDirectorPlayback::BeginGrab( camera.director, true, currentPose, cameraCommand ) )
+                {
+                    if ( cameraCommand.applyPose )
+                    {
+                        sceneController.Scene().Cameras().SetPrimaryPose( cameraCommand.pose.eye, cameraCommand.pose.view,
+                                                                          cameraCommand.pose.up );
+                    }
 
-                inputRouter.RecordModeAction( camera, runtimeTools, interaction, attachedCamera, runtimeInput, event.action,
-                                              event.source );
+                    EnterFlyModeCamera( inputRouter, camera, sceneController.Scene().Cameras(), SceneState().isSceneMode,
+                                        runtimeTools.Editor(), replayRuntime.BuildInputView() );
+
+                    inputRouter.ApplyPointerPresentation( EvaluateRuntimePointerPresentation(
+                        inputRouter, runtimeTools.Editor(), replayRuntime.BuildInputView() ) );
+
+                    inputRouter.RecordModeAction( camera, runtimeTools, interaction, attachedCamera, runtimeInput,
+                                                  event.action, event.source );
+                }
             }
 
             break;
@@ -909,7 +942,8 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
             if ( ( camera.mode == RunCameraMode::Director ||
                    RunCameraModeUsesFlyControls( camera.mode, attachedCamera.State().activeFollow,
                                                  camera.director.grabbed ) ) &&
-                 DemoDirectorPlayback::SetCurrentPhasePose( camera, sceneController.Scene().Cameras() ) )
+                 DemoDirectorPlayback::SetCurrentPhasePose(
+                     camera.director, CaptureDemoDirectorPose( sceneController.Scene().Cameras() ) ) )
             {
                 inputRouter.RecordModeAction( camera, runtimeTools, interaction, attachedCamera, runtimeInput, event.action,
                                               event.source );
@@ -921,7 +955,8 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
             if ( ( camera.mode == RunCameraMode::Director ||
                    RunCameraModeUsesFlyControls( camera.mode, attachedCamera.State().activeFollow,
                                                  camera.director.grabbed ) ) &&
-                 DemoDirectorPlayback::SelectNextPhaseForAuthoring( camera, sceneController.Scene().Cameras() ) )
+                 DemoDirectorPlayback::SelectNextPhaseForAuthoring(
+                     camera.director, CaptureDemoDirectorPose( sceneController.Scene().Cameras() ) ) )
             {
                 inputRouter.RecordModeAction( camera, runtimeTools, interaction, attachedCamera, runtimeInput, event.action,
                                               event.source );
@@ -933,7 +968,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
             if ( ( camera.mode == RunCameraMode::Director ||
                    RunCameraModeUsesFlyControls( camera.mode, attachedCamera.State().activeFollow,
                                                  camera.director.grabbed ) ) &&
-                 DemoDirectorPlayback::SaveShotList( camera ) )
+                 DemoDirectorPlayback::SaveShotList( camera.director ) )
             {
                 inputRouter.RecordModeAction( camera, runtimeTools, interaction, attachedCamera, runtimeInput, event.action,
                                               event.source );

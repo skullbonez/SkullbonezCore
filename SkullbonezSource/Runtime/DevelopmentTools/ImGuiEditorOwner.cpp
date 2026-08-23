@@ -45,7 +45,6 @@ Related:
 */
 #include "ImGuiEditorOwner.h"
 #include "ImGuiEditorCausalityProjection.h"
-#include "../Input/InputRouter.h"
 
 #include "../../Core/Allocation/DevelopmentToolAllocation.h"
 #include "../../Core/FatalError.h"
@@ -727,14 +726,14 @@ ImGuiEditorInputFrameState ImGuiEditorOwner::ConsumeInputFrameState() noexcept
     return state;
 }
 
-UiInputCaptureIntent ImGuiEditorOwner::ConsumeInputCaptureIntent() noexcept
+UI::InputCaptureIntent ImGuiEditorOwner::ConsumeInputCaptureIntent() noexcept
 {
     const ImGuiEditorInputFrameState input = ConsumeInputFrameState();
 
     // Concept: the editor owns the fitted viewport geometry and completed-frame
     // capture request. Publish them together so Run does not reinterpret either.
-    UiInputCaptureIntent intent { input.capture.mouse, input.capture.keyboard, input.capture.text,
-                                  input.nativePointerStateTouched };
+    UI::InputCaptureIntent intent { input.capture.mouse, input.capture.keyboard, input.capture.text,
+                                    input.nativePointerStateTouched };
 
     intent.gameViewportMappingActive = input.gameViewport.valid;
     intent.gameViewportMinX = input.gameViewport.imageMinX;

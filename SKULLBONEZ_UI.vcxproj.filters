@@ -62,6 +62,7 @@
     <ClInclude Include="SkullbonezSource\UI\UIFrameComposition.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIIconButton.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIInput.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\UIInputCaptureIntent.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UILayout.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIProfilerOverlayPresenter.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIRenderAuthoringCatalog.h"><Filter>Header Files</Filter></ClInclude>

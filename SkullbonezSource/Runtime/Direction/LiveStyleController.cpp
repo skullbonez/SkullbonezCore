@@ -4,8 +4,8 @@ Purpose:
   Applies live style-harness updates without restarting physics or scene state.
 
 Summary:
-  LiveStyleController applies live style-harness updates without restarting
-  physics or scene state.
+  LiveStyleController parses live style-harness updates and publishes bounded
+  values without borrowing the Scene or Capture owners that apply them.
 
 Invariants:
   - Live style polling is opt-in and style-only; it must not reload scene
@@ -18,11 +18,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "LiveStyleController.h"
-#include "../Scene/SceneController.h"
 #include "../../Core/PlatformWin32.h"
-#include "../Capture/CaptureController.h"
-#include "../../Rendering/DX12/Dx12BackbufferCapture.h"
-#include "../Scene/SceneCinematicPolicy.h"
 #include "../../Scene/AuthoredScene.h"
 #include <cstdio>
 #include <cstring>
@@ -253,33 +249,27 @@ void LiveStyleController::MarkReady()
 }
 
 
-void LiveStyleController::Tick( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, RunLaunchOptions& launchOptions,
-                                SceneController& sceneController, SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser,
-                                const Assets::AssetSystem& assets,
-                                SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
-                                const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic )
+bool LiveStyleController::Poll( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
+                                const Assets::AssetSystem& assets, AuthoredScene& outStyle )
 {
     if ( !m_enabled )
     {
-        return;
+        return false;
     }
 
+    bool styleReady = false;
     const uint64_t styleStamp = FileStamp( m_stylePath );
 
     if ( styleStamp != 0 && styleStamp != m_styleStamp )
     {
         m_styleStamp = styleStamp;
-        AuthoredScene styleScene;
         const SkullbonezCore::Core::SbResult loadResult = AuthoredScene::TryLoadStyleFromFile( resultDiagnostics,
                                                                                                m_stylePath, assets,
-                                                                                               styleScene );
+                                                                                               outStyle );
 
         if ( loadResult.Ok() )
         {
-            sceneController.ApplyLiveStyle( launchOptions, sceneBrowser, activeCinematic, defaultCinematic, styleScene );
-            ++m_styleApplyCount;
-            WriteStatus( "style_applied", m_stylePath );
-            printf( "[style-harness] Applied %s\n", m_stylePath );
+            styleReady = true;
         }
         else
         {
@@ -316,6 +306,16 @@ void LiveStyleController::Tick( SkullbonezCore::Core::SbDiagnosticStore& resultD
             WriteStatus( "capture_ignored", "capture.txt contains no screenshot path" );
         }
     }
+
+    return styleReady;
+}
+
+
+void LiveStyleController::MarkStyleApplied()
+{
+    ++m_styleApplyCount;
+    WriteStatus( "style_applied", m_stylePath );
+    printf( "[style-harness] Applied %s\n", m_stylePath );
 }
 
 
@@ -348,23 +348,4 @@ void LiveStyleController::MarkCaptureFailed( const char* message )
     fprintf( stderr, "[style-harness] Capture error: %s\n", detail );
     m_pendingScreenshotPath[0] = '\0';
     m_hasPendingScreenshot = false;
-}
-
-
-void LiveStyleController::SavePendingCapture( CaptureController& capture, Rendering::Dx12BackbufferCapture& backend )
-{
-    if ( !HasPendingCapture() )
-    {
-        return;
-    }
-
-    const SkullbonezCore::Core::SbResult captureResult = capture.SaveScreenshot( backend, PendingScreenshotPath() );
-
-    if ( !captureResult.Ok() )
-    {
-        MarkCaptureFailed( captureResult.ErrorMessage() );
-        return;
-    }
-
-    MarkCaptureSaved();
 }
