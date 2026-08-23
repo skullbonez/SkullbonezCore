@@ -800,7 +800,10 @@ struct ReplayPredictionSolverEvidenceCaptureStats
     uint64_t sealedFrameCount = 0;
     uint64_t copiedContactCount = 0;
     uint64_t copiedPipelineCount = 0;
+    uint64_t capacityTruncationCount = 0;
+    ReplayFrameIndex firstTruncatedFrame = 0;
     bool consumerActive = false;
+    bool capacityTruncated = false;
 };
 
 class ReplayPrediction

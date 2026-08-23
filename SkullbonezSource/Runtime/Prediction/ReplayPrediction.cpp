@@ -498,8 +498,10 @@ bool CaptureReplayPredictionFrame( ReplayPrediction& predictionOwner, RunReplayP
         return false;
     }
 
-    // Invariant: the frame prefix is the outer publication edge. High-detail
-    // evidence has already copied and release-published every referenced row.
+    // Invariant: the frame prefix is the outer publication edge. Before an
+    // evidence bank reaches its hard cap, High detail has already copied and
+    // release-published the matching row; later frames deliberately expose no
+    // evidence view while the authoritative trajectory continues.
     prediction.PublishBuildFrameSlot( frameSlot );
     return true;
 }
@@ -1091,6 +1093,15 @@ bool StepReplayPredictionJob( ReplayPrediction& predictionOwner, RunReplayPredic
         return false;
     }
 
+    if ( prediction.revealClock.deterministicFrameEnabled )
+    {
+        // Invariant: an Automation frame owns exactly one fixed-size worker
+        // slice. Without this join, the headless frame loop can outrun the
+        // worker and reach its fixed reveal frame with an incomplete horizon;
+        // machine speed would then decide whether identical evidence passes.
+        prediction.build.schedule.WaitForIdle();
+    }
+
     if ( prediction.build.buildMode == ReplayPredictionBuildMode::Undecided )
     {
         const double measuredTicksPerMs = prediction.simulation.measuredTicksPerMs.load( std::memory_order_acquire );
@@ -1631,6 +1642,8 @@ bool ReplayPrediction::BeginSolverEvidenceBuild( uint32_t generation )
     // consumer. This keeps acquire/release accounting correct even if a future
     // restart path reaches Begin without an explicit CancelJob edge.
     CancelSolverEvidenceBuild();
+    m_solverEvidenceCaptureStats.capacityTruncated = false;
+    m_solverEvidenceCaptureStats.firstTruncatedFrame = 0;
 
     if ( m_detailMode == ReplayPredictionDetailMode::Low )
     {
@@ -1657,6 +1670,14 @@ bool ReplayPrediction::RefreshSolverEvidenceSource( PhysicsEngine& predictionEng
         return true;
     }
 
+    if ( m_solverEvidenceCaptureStats.capacityTruncated )
+    {
+        // Why: exact solver evidence is an optional High-detail prefix. Once
+        // its bounded bank is full, the authoritative trajectory continues
+        // without repeatedly capturing rows that cannot be published.
+        return true;
+    }
+
     if ( !m_solverEvidenceCaptureStats.consumerActive || m_state.simulation.predictionEngine.get() != &predictionEngine )
     {
         return false;
@@ -1677,25 +1698,51 @@ bool ReplayPrediction::SealSolverEvidenceFrame( ReplayFrameIndex frame )
         return true;
     }
 
+    if ( m_solverEvidenceCaptureStats.capacityTruncated )
+    {
+        return true;
+    }
+
     if ( !m_solverEvidenceCaptureStats.consumerActive )
     {
         return false;
     }
 
     const Physics::PhysicsSolverSnapshot& snapshot = m_state.simulation.predictionWorld.physics;
-    const bool appended = m_solverEvidence.AppendBuildFrame( frame, m_state.trajectoryBuild.topologyVersion,
-                                                             m_state.trajectoryStore.publicationVersion,
-                                                             snapshot.persistentContacts, snapshot.pipelineTrace,
-                                                             static_cast<int>( frame ) );
+    const ReplayPredictionEvidenceAppendResult
+        appendResult = m_solverEvidence.AppendBuildFrameResult( frame, m_state.trajectoryBuild.topologyVersion,
+                                                                m_state.trajectoryStore.publicationVersion,
+                                                                snapshot.persistentContacts, snapshot.pipelineTrace,
+                                                                static_cast<int>( frame ) );
 
-    if ( appended )
+    if ( appendResult == ReplayPredictionEvidenceAppendResult::Appended )
     {
         ++m_solverEvidenceCaptureStats.sealedFrameCount;
         m_solverEvidenceCaptureStats.copiedContactCount += snapshot.persistentContacts.size();
         m_solverEvidenceCaptureStats.copiedPipelineCount += snapshot.pipelineTrace.size();
+        return true;
     }
 
-    return appended;
+    if ( appendResult != ReplayPredictionEvidenceAppendResult::CapacityDenied )
+    {
+        return false;
+    }
+
+    // Hazard: treating optional evidence exhaustion as a failed prediction
+    // marks the unchanged source dirty and restarts the same doomed generation
+    // forever. Close the private Physics consumer once, retain the exact sealed
+    // prefix, and let the authoritative trajectory finish without more rows.
+    if ( m_state.simulation.predictionEngine )
+    {
+        m_state.simulation.predictionEngine->SetPipelineTraceFullRecordConsumerActive( false );
+    }
+
+    ++m_solverEvidenceCaptureStats.consumerReleaseCount;
+    ++m_solverEvidenceCaptureStats.capacityTruncationCount;
+    m_solverEvidenceCaptureStats.firstTruncatedFrame = frame;
+    m_solverEvidenceCaptureStats.consumerActive = false;
+    m_solverEvidenceCaptureStats.capacityTruncated = true;
+    return true;
 }
 
 bool ReplayPrediction::PromoteSolverEvidenceBuild() noexcept

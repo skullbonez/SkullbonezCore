@@ -10,6 +10,8 @@ Summary:
   flips bank identity without clearing the retired committed bank, so a reader
   that already observed it cannot race a storage reuse. Archive load uses the
   same physical-bank swap only after a cold candidate is fully validated.
+  Append results distinguish bounded-capacity denial from invalid bank identity
+  so live Prediction can retain a valid prefix without retrying a doomed build.
 
 Invariants:
   - A frame prefix advances only after all referenced rows and metadata are final.
@@ -17,6 +19,7 @@ Invariants:
   - Logical reset preserves segments; explicit release destroys them.
   - Current capacity is the exact sum of live segment allocations.
   - Archive swap performs no allocation and exposes no partially decoded bank.
+  - Capacity denial leaves the exact sealed prefix promotable.
 
 Related:
   - ReplayPredictionSolverEvidenceStore.h
@@ -223,14 +226,15 @@ bool ReplayPredictionSolverEvidenceStore::Reserve( std::size_t requiredFrameCoun
            EnsurePipelineSegments( requiredPipelineCount, frameNumber );
 }
 
-bool ReplayPredictionSolverEvidenceStore::AppendFrame( const ReplayPredictionEvidenceIdentity& identity,
-                                                       ReplayPredictionContactSpan contacts,
-                                                       ReplayPredictionPipelineSpan pipeline, int frameNumber )
+ReplayPredictionEvidenceAppendResult
+ReplayPredictionSolverEvidenceStore::AppendFrame( const ReplayPredictionEvidenceIdentity& identity,
+                                                  ReplayPredictionContactSpan contacts,
+                                                  ReplayPredictionPipelineSpan pipeline, int frameNumber )
 {
     if ( identity.generation != m_generation || identity.mode != ReplayPredictionDetailMode::High ||
          identity.mode != m_mode || identity.bankEpoch != m_bankEpoch )
     {
-        return false;
+        return ReplayPredictionEvidenceAppendResult::InvalidIdentity;
     }
 
     std::size_t requiredFrameCount = 0;
@@ -242,7 +246,7 @@ bool ReplayPredictionSolverEvidenceStore::AppendFrame( const ReplayPredictionEvi
          !CheckedAdd( m_pipelineCount, pipeline.size(), requiredPipelineCount ) ||
          !Reserve( requiredFrameCount, requiredContactCount, requiredPipelineCount, frameNumber ) )
     {
-        return false;
+        return ReplayPredictionEvidenceAppendResult::CapacityDenied;
     }
 
     const uint32_t contactBegin = static_cast<uint32_t>( m_contactCount );
@@ -271,7 +275,7 @@ bool ReplayPredictionSolverEvidenceStore::AppendFrame( const ReplayPredictionEvi
     // Invariant: the acquire/release prefix is the only publication boundary.
     // Every referenced segment row and the complete flag are final before it.
     m_publishedFrameCount.store( m_frameCount, std::memory_order_release );
-    return true;
+    return ReplayPredictionEvidenceAppendResult::Appended;
 }
 
 void ReplayPredictionSolverEvidenceStore::ResetPreservingCapacity() noexcept
@@ -466,10 +470,18 @@ bool ReplayPredictionSolverEvidenceBanks::AppendBuildFrame( ReplayFrameIndex fra
                                                             ReplayPredictionContactSpan contacts,
                                                             ReplayPredictionPipelineSpan pipeline, int frameNumber )
 {
+    return AppendBuildFrameResult( frame, topologyVersion, publicationVersion, contacts, pipeline, frameNumber ) ==
+           ReplayPredictionEvidenceAppendResult::Appended;
+}
+
+ReplayPredictionEvidenceAppendResult ReplayPredictionSolverEvidenceBanks::AppendBuildFrameResult(
+    ReplayFrameIndex frame, uint32_t topologyVersion, uint64_t publicationVersion, ReplayPredictionContactSpan contacts,
+    ReplayPredictionPipelineSpan pipeline, int frameNumber )
+{
     ReplayPredictionSolverEvidenceStore& build = m_banks[m_buildIndex];
     const ReplayPredictionEvidenceIdentity identity = { build.Generation(), build.Mode(),      build.BankEpoch(), frame,
                                                         topologyVersion,    publicationVersion };
-    const bool appended = build.AppendFrame( identity, contacts, pipeline, frameNumber );
+    const ReplayPredictionEvidenceAppendResult appended = build.AppendFrame( identity, contacts, pipeline, frameNumber );
     RefreshLifetimePeak();
     return appended;
 }

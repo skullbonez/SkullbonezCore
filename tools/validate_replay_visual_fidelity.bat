@@ -63,6 +63,8 @@ if errorlevel 1 exit /b %errorlevel%
 
 python tools\check_replay_visual_fidelity.py --report %REPORT% --negative-control
 if errorlevel 1 exit /b %errorlevel%
+python tools\check_replay_visual_fidelity.py --report %REPORT% --trajectory-count-control
+if errorlevel 1 exit /b %errorlevel%
 python tools\check_replay_visual_fidelity.py --report %REPORT% --incomplete-control
 if errorlevel 1 exit /b %errorlevel%
 python tools\check_replay_visual_fidelity.py --report %REPORT% --causal-activation-control

@@ -24,6 +24,8 @@ Invariants:
   - Reveal rows are contiguous ReplayFrameIndex values 0 through 2400.
   - All 200 authored wall bricks participate, every causal path reveals, and
     more than half the wall is grounded and sleeping throughout the final second.
+  - The dense High-detail evidence prefix truncates once at its 320 MiB bank
+    ceiling; that optional limit never restarts or shortens the trajectory.
   - The first differing field is reported, not merely a whole-file hash.
   - This checker is read-only and cannot start a second prediction generation.
 
@@ -73,6 +75,8 @@ EXPECTED_MIN_TOPPLED_WALL_BRICKS = EXPECTED_WALL_BRICKS // 2 + 1
 # golden's finalState, so this is a shape guard rather than a count budget.
 EXPECTED_MIN_SETTLED_WALL_BRICKS = EXPECTED_WALL_BRICKS * 9 // 10
 EXPECTED_START_FRAME = 900
+EXPECTED_EVIDENCE_FIRST_TRUNCATED_FRAME = 1215
+EXPECTED_EVIDENCE_BANK_HARD_BYTES = 320 * 1024 * 1024
 NEGATIVE_CONTROL_TICK = 1200
 REPLAY_VISUAL_FNV_OFFSET = 1469598103934665603
 REPLAY_VISUAL_FNV_PRIME = 1099511628211
@@ -221,6 +225,37 @@ def validate_report_shape(report: dict[str, Any]) -> list[dict[str, Any]]:
         raise ValueError(
             "visual gate must contain exactly one prediction generation: "
             f"actual={final.get('predictionGenerationCount')}"
+        )
+    if (
+        final.get("predictionEvidenceCapacityTruncated") is not True
+        or final.get("predictionEvidenceCapacityTruncationCount") != 1
+        or final.get("predictionEvidenceFirstTruncatedFrame")
+        != EXPECTED_EVIDENCE_FIRST_TRUNCATED_FRAME
+        or final.get("predictionEvidenceCommittedPublishedFrameCount")
+        != EXPECTED_EVIDENCE_FIRST_TRUNCATED_FRAME
+    ):
+        raise ValueError(
+            "bounded prediction evidence did not retain one deterministic exact prefix: "
+            f"truncated={final.get('predictionEvidenceCapacityTruncated')} "
+            f"count={final.get('predictionEvidenceCapacityTruncationCount')} "
+            f"first_frame={final.get('predictionEvidenceFirstTruncatedFrame')} "
+            f"committed_frames={final.get('predictionEvidenceCommittedPublishedFrameCount')}"
+        )
+    if final.get("predictionEvidenceCurrentCapacityBytes", EXPECTED_EVIDENCE_BANK_HARD_BYTES + 1) > EXPECTED_EVIDENCE_BANK_HARD_BYTES:
+        raise ValueError(
+            "prediction evidence exceeded its 320 MiB bank ceiling: "
+            f"actual={final.get('predictionEvidenceCurrentCapacityBytes')}"
+        )
+    if (
+        final.get("predictionEvidenceConsumerActive") is not False
+        or final.get("predictionEvidenceConsumerAcquireCount") != 1
+        or final.get("predictionEvidenceConsumerReleaseCount") != 1
+    ):
+        raise ValueError(
+            "capacity-truncated prediction evidence did not release its Physics consumer once: "
+            f"active={final.get('predictionEvidenceConsumerActive')} "
+            f"acquires={final.get('predictionEvidenceConsumerAcquireCount')} "
+            f"releases={final.get('predictionEvidenceConsumerReleaseCount')}"
         )
     for index, tick in enumerate(ticks):
         for field in (
@@ -1163,6 +1198,7 @@ def main() -> int:
     parser.add_argument("--working-base-commit", default="6a6ab4c65")
     parser.add_argument("--configuration", choices=("Debug", "Profile", "Automation"), default="Debug")
     parser.add_argument("--negative-control", action="store_true")
+    parser.add_argument("--trajectory-count-control", action="store_true")
     parser.add_argument("--incomplete-control", action="store_true")
     parser.add_argument("--causal-activation-control", action="store_true")
     parser.add_argument("--causal-topology-control", action="store_true")
@@ -1278,6 +1314,31 @@ def main() -> int:
         return 0
 
     baseline = load_json(args.baseline)
+    if args.trajectory_count_control:
+        # This control exercises the immutable live-report oracle in isolation.
+        # The offline archive may compact inactive scratch, but an approved raw
+        # row count of 802 must still reject 801 at the exact live-report field.
+        expected = {
+            "tickCount": baseline["tickCount"],
+            "finalState": baseline["finalState"],
+            "ticks": baseline["ticks"],
+        }
+        actual = copy.deepcopy(expected)
+        if actual["ticks"][0].get("trajectoryRecordCount") != 802:
+            print(
+                "FAIL trajectory-count control requires the immutable 802-row baseline: "
+                f"actual={actual['ticks'][0].get('trajectoryRecordCount')}"
+            )
+            return 1
+        actual["ticks"][0]["trajectoryRecordCount"] = 801
+        difference = first_difference(expected, actual)
+        expected_path = "ticks[0].trajectoryRecordCount"
+        if difference and expected_path in difference:
+            print(f"PASS trajectory-count control detected first divergence: {difference}")
+            return 0
+        print(f"FAIL trajectory-count control was not detected at the injected field: {difference}")
+        return 1
+
     if args.incomplete_control:
         report["replayVisualFidelity"]["ticks"].pop()
         try:

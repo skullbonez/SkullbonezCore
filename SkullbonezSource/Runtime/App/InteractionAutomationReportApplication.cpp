@@ -32,7 +32,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.h
-  - SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp
+  - SkullbonezSource/Runtime/Automation/InteractionAutomationController.h
   - tools/validate_replay_visual_fidelity.bat
   - Agentic/Reference/engine-glossary.md
 */
@@ -1932,6 +1932,12 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
                                   replay.predictionEvidenceCapture.copiedContactCount },
                                 { "predictionEvidenceCopiedPipelineCount",
                                   replay.predictionEvidenceCapture.copiedPipelineCount },
+                                { "predictionEvidenceCapacityTruncationCount",
+                                  replay.predictionEvidenceCapture.capacityTruncationCount },
+                                { "predictionEvidenceFirstTruncatedFrame",
+                                  replay.predictionEvidenceCapture.firstTruncatedFrame },
+                                { "predictionEvidenceCapacityTruncated",
+                                  replay.predictionEvidenceCapture.capacityTruncated },
                                 { "predictionEvidenceBuildPublishedFrameCount",
                                   replay.predictionEvidenceMemory.build.publishedFrameCount },
                                 { "predictionEvidenceCommittedPublishedFrameCount",
