@@ -24,7 +24,7 @@ Related:
   - SkullbonezSource/Runtime/Editor/EditorPlacementAssets.cpp
   - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
   - SkullbonezSource/Runtime/Editor/EditorObjectPlacement.cpp
-  - SkullbonezSource/Runtime/Editor/EditorTracer.cpp
+  - SkullbonezSource/Runtime/Tools/EditorTracer.cpp
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

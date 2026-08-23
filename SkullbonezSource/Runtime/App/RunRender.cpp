@@ -83,6 +83,26 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     }
 
     const ReplayInputView replayInput = m_replayRuntime.BuildInputView();
+    const EditorOverlayFacts editorFacts = m_editorTools.BuildOverlayFacts( m_sceneController.Scene() );
+    ToolEditorOverlayValues toolEditor;
+    toolEditor.editorModeEnabled = editorFacts.editorModeEnabled;
+    toolEditor.placementModeEnabled = editorFacts.placementModeEnabled;
+    toolEditor.placementPreviewVisible = editorFacts.placementPreviewVisible;
+    toolEditor.objectType = editorFacts.objectType;
+    toolEditor.hotGizmoAxis = editorFacts.hotGizmoAxis;
+    toolEditor.hotRotationAxis = editorFacts.hotRotationAxis;
+    toolEditor.placementTerrainPoint = editorFacts.placementTerrainPoint;
+    toolEditor.placementCenter = editorFacts.placementCenter;
+    toolEditor.placementRayOrigin = editorFacts.placementRayOrigin;
+    toolEditor.placementRayHit = editorFacts.placementRayHit;
+    toolEditor.placementScale = editorFacts.placementScale;
+    toolEditor.placementOrientation = editorFacts.placementOrientation;
+    toolEditor.selectionCount = editorFacts.selectionCount;
+    for ( std::size_t i = 0; i < editorFacts.selectionCount; ++i )
+    {
+        toolEditor.selectionBodies[i] = editorFacts.selectionBodies[i];
+        toolEditor.selectionColliders[i] = editorFacts.selectionColliders[i];
+    }
 
     // Update the active camera selection and any transition/tween state before
     // rendering asks for view matrices.
@@ -110,16 +130,17 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
 
     const float rayLinger = (std::max)( 0.0f, debug.physicsDebugContactLinger );
     const bool editorOverlayWorkVisible = m_runtimeTools.HasLingeredRayCastLine( rayLinger ) ||
-                                          m_runtimeTools.HasSelectionOverlayWork( renderModels.modelCount, m_camera.mode ) ||
+                                          m_runtimeTools.HasSelectionOverlayWork( toolEditor, renderModels.modelCount,
+                                                                                  m_camera.mode ) ||
                                           m_runtimeTools.HasMousePickupOverlayWork( m_interaction.Gesture() ) ||
                                           replayInput.hasPathTarget || replayInput.hasCameraFocus ||
                                           ( replayInput.velocityEditEnabled &&
-                                            !m_runtimeTools.Editor().editorModeEnabled ) ||
+                                            !m_editorTools.Editor().editorModeEnabled ) ||
                                           m_runtimeTools.HasLauncherShots();
 
     const RenderToolOverlayView toolOverlay { m_runtimeTools,
                                               editorOverlayWorkVisible,
-                                              m_runtimeTools.InspectGizmoInteractionActive( m_camera.mode,
+                                              m_editorTools.InspectGizmoInteractionActive( m_camera.mode,
                                                                                             replayInput.inspectionActive ),
                                               m_inputRouter.RuntimeSnapshot().pointer.controlDown,
                                               attachedTargetIndex,
@@ -136,12 +157,13 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     m_sceneController.Scene().PrepareRenderInstances( presentationAlpha );
     PROFILE_END( "Frame/Render/PrepareModels" );
 
-    m_runtimeTools.PrepareOverlayTrace( m_sceneController.Scene(), m_assets,
+    m_runtimeTools.PrepareOverlayTrace( m_sceneController.Scene(), toolEditor,
                                         ToolOverlayBuildInput { framePolicy.physicsDebugContactLinger,
                                                                 toolOverlay.inspectGizmoInteractionActive,
                                                                 toolOverlay.controlDown, m_interaction.Gesture(),
                                                                 toolOverlay.attachedTargetIndex,
                                                                 toolOverlay.attachedFollow } );
+    m_editorTools.AppendPlacementGhost( m_runtimeTools.Tracer(), m_assets );
 
     const uint64_t replayGrowthEventCount = CoreAllocation::RuntimeReserveAllocator::GrowthEventCount();
     const bool debugTransparentBodyPass = debug.isPhysicsDebugTransparent && debug.physicsDebugAlpha < 1.0f;
@@ -151,7 +173,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
 
     m_replayRuntime.PrepareRenderOverlay( m_sceneController.Scene().Physics(), m_sceneController.Scene().Entities(),
                                           m_runtimeTools.Tracer(), m_config.ordinaryRender.replayTrajectory,
-                                          m_runtimeTools.Editor().editorModeEnabled, m_interaction.Gesture(),
+                                          m_editorTools.Editor().editorModeEnabled, m_interaction.Gesture(),
                                           m_sceneController.State().currentFrame,
                                           m_sceneController.Scene().RenderPresentationRecords() );
 

@@ -327,7 +327,7 @@ void InjectReplaySaveProbeWorldCoverage( SkullbonezCore::Environment::WorldEnvir
 
 
 SkullbonezCore::Core::SbResult InjectReplaySaveProbePlacementCoverage( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                                                                       RuntimeTools& runtimeTools, SceneWorld& world,
+                                                                       EditorToolsOwner& editorTools, SceneWorld& world,
                                                                        SceneSessionState& scene,
                                                                        SkullbonezCore::Assets::AssetSystem& assets,
                                                                        int sceneObjectCapacity,
@@ -336,8 +336,8 @@ SkullbonezCore::Core::SbResult InjectReplaySaveProbePlacementCoverage( Skullbone
     const auto ReplayProbeFailure = [&diagnostics]( const char* message )
     { return diagnostics.Failure( REPLAY_PROBE_OWNER, "%s", message ); };
 
-    runtimeTools.Editor().placementScale = Vector3( 2.0f, 2.0f, 2.0f );
-    runtimeTools.Editor().autoTerrainAlign = false;
+    editorTools.Editor().placementScale = Vector3( 2.0f, 2.0f, 2.0f );
+    editorTools.Editor().autoTerrainAlign = false;
     PhysicsEngine& physics = world.Physics();
     const int modelCountBeforePlace = world.SceneEntityCount();
     EditorObjectPlacementRequest placementRequest { SkullbonezCore::UI::EditorTab::OBJECT_BOX, true,
@@ -348,7 +348,7 @@ SkullbonezCore::Core::SbResult InjectReplaySaveProbePlacementCoverage( Skullbone
     if ( CanPlaceEditorObjectAtTerrainPoint( world, assets, sceneObjectCapacity, placementRequest ) )
     {
         commands.requestInteractiveScene = true;
-        PlaceEditorObjectAtTerrainPoint( diagnostics, runtimeTools.Editor(), world, scene, assets, sceneObjectCapacity,
+        PlaceEditorObjectAtTerrainPoint( diagnostics, editorTools.Editor(), world, scene, assets, sceneObjectCapacity,
                                          placementRequest, placementResult );
     }
 
@@ -676,7 +676,8 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::ReplayProbeFailure( const char
 
 
 ReplayProbeTickResult
-ReplayRuntime::TickProbes( SceneController& sceneController, OverlayDebugState& debug, RuntimeTools& runtimeTools,
+ReplayRuntime::TickProbes( SceneController& sceneController, OverlayDebugState& debug, EditorToolsOwner& editorTools,
+                           RuntimeTools& runtimeTools,
                            const SkullbonezCore::Core::EngineConfig& config, SkullbonezCore::Assets::AssetSystem& assets,
                            const ReplaySceneTimelineResetInput& timelineReset, DiagnosticsRuntime& diagnosticsRuntime,
                            InputRouter& inputRouter, RuntimeInteractionController& interaction, CameraControlState& camera,
@@ -743,7 +744,7 @@ ReplayRuntime::TickProbes( SceneController& sceneController, OverlayDebugState& 
         {
             ReplaySaveProbeEventCommands commands;
             InjectReplaySaveProbeWorldCoverage( world.Environment(), commands );
-            result.status = InjectReplaySaveProbePlacementCoverage( m_resultDiagnostics, runtimeTools, world, scene, assets,
+            result.status = InjectReplaySaveProbePlacementCoverage( m_resultDiagnostics, editorTools, world, scene, assets,
                                                                     SkullbonezCore::Core::ActiveSceneObjectCapacity( config ),
                                                                     commands );
 
@@ -1144,7 +1145,8 @@ SkullbonezCore::Core::SbResult
 ReplayProbeRunner::VerifyLoadedPresentation( ReplayTimeline& timeline, ReplayScrubber& scrubber,
                                              ReplayPresentation& presentation, ReplayAuthoring& authoring,
                                              ReplayPrediction& prediction, const ReplayStartupLoadInput& loadInput,
-                                             SceneWorld& world, RuntimeTools& runtimeTools, float normalized )
+                                             SceneWorld& world, EditorToolsOwner& editorTools,
+                                             RuntimeTools& runtimeTools, float normalized )
 {
     if ( prediction.GenerationPermitted() )
     {
@@ -1241,7 +1243,7 @@ ReplayProbeRunner::VerifyLoadedPresentation( ReplayTimeline& timeline, ReplayScr
             ReplayVelocityOverlayCommand velocityOverlay;
 
             if ( authoring.BuildVelocityOverlayCommand( path.targetId, path.targetModelRow, world.Physics(),
-                                                        runtimeTools.Editor().editorModeEnabled,
+                                                        editorTools.Editor().editorModeEnabled,
                                                         RuntimeInteractionGesture {}, velocityOverlay ) )
             {
                 tracer.AddReplayVelocityGizmo( velocityOverlay.origin, velocityOverlay.orientation,
@@ -1776,7 +1778,7 @@ void ReplayProbeRunner::ConfigureDebug( const ReplayStartupRequest& request )
 }
 
 ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartupWorkflowState& startup, const ReplayStartupLoadInput& loadInput, SceneController& sceneController,
-                                                             DiagnosticsRuntime& diagnosticsRuntime, OverlayDebugState& debug, RuntimeTools& runtimeTools,
+                                                             DiagnosticsRuntime& diagnosticsRuntime, OverlayDebugState& debug, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools,
                                                              SimulationSystem& simulation, const SkullbonezCore::Core::EngineConfig& config,
                                                              SkullbonezCore::Assets::AssetSystem& assets, SkullbonezCore::Threading::WorkerPool& workerPool,
                                                              SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides, GeneratedObjectTypeOverride& generatedObjectTypeOverride )
@@ -1813,7 +1815,7 @@ ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartup
 
         if ( !acceptProbe( m_probeRunner.VerifyLoadedPresentation( m_timeline, m_scrubberOwner, m_visualPresentation,
                                                                    m_authoring, m_predictionOwner, loadInput, world,
-                                                                   runtimeTools, 0.25f ) ) )
+                                                                   editorTools, runtimeTools, 0.25f ) ) )
         {
             return result;
         }
@@ -1862,7 +1864,7 @@ ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartup
         restoreRequest.requestedFrame = ( std::numeric_limits<ReplayFrameIndex>::max )();
         ReplayRestoreTransaction transaction { timelineReset };
         const bool restored = RestoreV2ArtifactTargetState( transaction, restoreRequest, sceneController, debug,
-                                                            runtimeTools, simulation, config, assets, workerPool,
+                                                            editorTools, runtimeTools, simulation, config, assets, workerPool,
                                                             uiOverrides, generatedObjectTypeOverride );
 
         PublishRestoreDiagnostic( transaction, diagnosticsRuntime, scene );
@@ -1887,7 +1889,7 @@ ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartup
         {
             ReplayRestoreTransaction transaction { timelineReset };
             const bool restored = RestoreV2ArtifactTargetState( transaction, restoreRequest, sceneController, debug,
-                                                                runtimeTools, simulation, config, assets, workerPool,
+                                                                editorTools, runtimeTools, simulation, config, assets, workerPool,
                                                                 uiOverrides, generatedObjectTypeOverride );
 
             ReplayLiveRestoreOutcome outcome = ReplayLiveRestoreOperations::BuildOutcome( transaction, restoreRequest.kind,
@@ -1929,7 +1931,7 @@ ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartup
                 strncpy_s( restoreRequest.path, startup.failureProbePath, _TRUNCATE );
                 ReplayRestoreTransaction transaction { timelineReset };
                 step.succeeded = RestoreV2ArtifactTargetState( transaction, restoreRequest, sceneController, debug,
-                                                               runtimeTools, simulation, config, assets, workerPool,
+                                                               editorTools, runtimeTools, simulation, config, assets, workerPool,
                                                                uiOverrides, generatedObjectTypeOverride );
 
                 PublishRestoreDiagnostic( transaction, diagnosticsRuntime, scene );
@@ -1956,7 +1958,7 @@ ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartup
                 strncpy_s( restoreRequest.path, startup.failureProbePath, _TRUNCATE );
                 ReplayRestoreTransaction transaction { timelineReset };
                 step.succeeded = RestoreV2ArtifactTargetState( transaction, restoreRequest, sceneController, debug,
-                                                               runtimeTools, simulation, config, assets, workerPool,
+                                                               editorTools, runtimeTools, simulation, config, assets, workerPool,
                                                                uiOverrides, generatedObjectTypeOverride );
 
                 PublishRestoreDiagnostic( transaction, diagnosticsRuntime, scene );

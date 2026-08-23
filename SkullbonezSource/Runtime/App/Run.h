@@ -76,6 +76,7 @@ Related:
 #include "../Planning/ContinuousOrbitalForecast.h"
 #include "../Scene/SceneController.h"
 #include "../Simulation/SimulationSystem.h"
+#include "../Editor/EditorTools.h"
 #include "../Tools/RuntimeTools.h"
 
 
@@ -197,7 +198,8 @@ class Run
     SimulationSystem m_simulation;                                                                                // Simulation timestep policy and physics accumulators
     ReplayRuntime m_replayRuntime;                                                                                // Constructs and sequences the concrete replay domain owners.
     ContinuousOrbitalForecast m_continuousForecast;                                                               // Planning-owned private forecast lifecycle and detached diagnostics.
-    RuntimeTools m_runtimeTools;                                                                                  // Launcher, editor, manipulator state, and transient render feedback.
+    EditorToolsOwner m_editorTools;                                                                               // Retains editor placement, selection, gizmo, and history authority.
+    RuntimeTools m_runtimeTools;                                                                                  // Launcher, manipulator, and transient render feedback.
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     // Lifetime: the development editor owns only its ImGui CPU context and
     // presentation lifecycle; it receives no subsystem owner references.

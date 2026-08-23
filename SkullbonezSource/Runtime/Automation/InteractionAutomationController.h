@@ -98,6 +98,7 @@ struct ImGuiEditorStatus;
 } // namespace DevelopmentTools
 class AttachedCameraController;
 class CaptureController;
+class EditorToolsOwner;
 struct ContinuousOrbitalForecastView;
 class InputRouter;
 class RuntimeInteractionController;
@@ -466,9 +467,9 @@ SkullbonezCore::Core::SbResult InteractionAutomationResult( const InteractionAut
 void ClearInteractionAutomationInput( InteractionAutomationController& state );
 InteractionAutomationFrameResult TickInteractionAutomationBeforeInput( InteractionAutomationController& state, Window& window, const SkullbonezCore::Core::EngineConfig& config,
                                                                        SceneController& scene, const RuntimeFrameMetricsSnapshot& timers, CameraControlState& camera, InputRouter& inputRouter,
-                                                                       RuntimeInteractionController& interaction, RuntimeTools& runtimeTools, SkullbonezCore::UI::InGameUI& ui,
+                                                                       RuntimeInteractionController& interaction, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools, SkullbonezCore::UI::InGameUI& ui,
                                                                        const ReplayAutomationView& replayView, const Rendering::RenderSceneSnapshot& renderSnapshot );
-InteractionAutomationFrameResult TickInteractionAutomationAfterRender( InteractionAutomationController& state, RuntimeTools& runtimeTools, RuntimeInteractionController& interaction,
+InteractionAutomationFrameResult TickInteractionAutomationAfterRender( InteractionAutomationController& state, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools, RuntimeInteractionController& interaction,
                                                                        InputRouter& inputRouter, CameraControlState& camera, SkullbonezCore::UI::InGameUI& ui, SceneController& scene,
                                                                        const ReplayAutomationView& replayView, const InteractionAutomationDevelopmentUiView& developmentUiView,
                                                                        const ContinuousOrbitalForecastView& forecastView, const Rendering::RenderSceneSnapshot& renderSnapshot,

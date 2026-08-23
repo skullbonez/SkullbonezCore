@@ -335,10 +335,10 @@ struct EditorSelectionFingerprint
     bool hasTerrain = false;
 };
 
-EditorSelectionFingerprint BuildEditorSelectionFingerprint( RuntimeTools& runtimeTools, const SceneWorld& world )
+EditorSelectionFingerprint BuildEditorSelectionFingerprint( EditorToolsOwner& editorTools, const SceneWorld& world )
 {
     EditorSelectionFingerprint fingerprint;
-    const int modelIndex = PeekSelectedEditorModelIndex( runtimeTools.Editor(), world.BodyStore() );
+    const int modelIndex = PeekSelectedEditorModelIndex( editorTools.Editor(), world.BodyStore() );
 
     if ( modelIndex < 0 || modelIndex >= world.SceneEntityCount() )
     {
@@ -3386,7 +3386,7 @@ struct InteractionAutomationAssertionEvaluation
 };
 
 template <typename InspectGizmoInteractionActive>
-InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools, const InteractionAutomationController& automation, const ReplayAutomationView& replay,
+InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion( EditorToolsOwner& editorTools, RuntimeTools& runtimeTools, const InteractionAutomationController& automation, const ReplayAutomationView& replay,
                                                                                  RuntimeInteractionController& interaction, const InputRouter& inputRouter, CameraControlState& camera,
                                                                                  const SceneWorld& world, SkullbonezCore::UI::InGameUI& ui, const InteractionAutomationDevelopmentUiView& developmentUi,
                                                                                  const ContinuousOrbitalForecastView& forecast, const Rendering::RenderSceneSnapshot& renderSnapshot,
@@ -3402,7 +3402,7 @@ InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
     case RunInteractionAutomationAssertKind::SelectedObject:
     {
         evaluation.expected = action.text;
-        const int selectedIndex = PeekSelectedEditorModelIndex( runtimeTools.Editor(), world.BodyStore() );
+        const int selectedIndex = PeekSelectedEditorModelIndex( editorTools.Editor(), world.BodyStore() );
 
         if ( selectedIndex >= 0 && selectedIndex < world.SceneEntityCount() )
         {
@@ -4038,8 +4038,8 @@ InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
     }
     case RunInteractionAutomationAssertKind::GizmoVisible:
     {
-        const bool visible = runtimeTools.Editor().selectedBody.IsValid() &&
-                             ( runtimeTools.Editor().editorModeEnabled || inspectGizmoInteractionActive() );
+        const bool visible = editorTools.Editor().selectedBody.IsValid() &&
+                             ( editorTools.Editor().editorModeEnabled || inspectGizmoInteractionActive() );
 
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( visible );
@@ -4127,8 +4127,8 @@ InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
     case RunInteractionAutomationAssertKind::EditorRedoDepth:
     {
         const int actual = static_cast<int>( action.assertKind == RunInteractionAutomationAssertKind::EditorUndoDepth
-                                                 ? runtimeTools.Editor().history.UndoDepth()
-                                                 : runtimeTools.Editor().history.RedoDepth() );
+                                                 ? editorTools.Editor().history.UndoDepth()
+                                                 : editorTools.Editor().history.RedoDepth() );
 
         const int expected = static_cast<int>( action.numberValue );
         evaluation.expected = std::to_string( expected );
@@ -4139,7 +4139,7 @@ InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
     case RunInteractionAutomationAssertKind::EditorSelectionExists:
     case RunInteractionAutomationAssertKind::EditorSelectionHasTerrain:
     {
-        const EditorSelectionFingerprint fingerprint = BuildEditorSelectionFingerprint( runtimeTools, world );
+        const EditorSelectionFingerprint fingerprint = BuildEditorSelectionFingerprint( editorTools, world );
         const bool actual = action.assertKind == RunInteractionAutomationAssertKind::EditorSelectionExists
                                 ? fingerprint.valid
                                 : ( fingerprint.valid && fingerprint.hasTerrain );
@@ -4152,7 +4152,7 @@ InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
     case RunInteractionAutomationAssertKind::EditorSelectionMatchesCapture:
     {
         const int slot = static_cast<int>( action.numberValue );
-        const EditorSelectionFingerprint fingerprint = BuildEditorSelectionFingerprint( runtimeTools, world );
+        const EditorSelectionFingerprint fingerprint = BuildEditorSelectionFingerprint( editorTools, world );
         uint64_t capturedFingerprint = 0;
         const bool captureValid = automation.reportWriter.TryEditorSelectionCapture( slot, capturedFingerprint );
         evaluation.expected = captureValid ? InteractionAutomationReportWriter::FormatPredictionHash( capturedFingerprint )
@@ -5140,7 +5140,7 @@ SkullbonezCore::Runtime::InteractionAutomationResult( const InteractionAutomatio
 
 InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutomationController& state, Window& windowOwner, const SkullbonezCore::Core::EngineConfig& config,
                                                                                                 SceneController& scene, const RuntimeFrameMetricsSnapshot& timers, CameraControlState& camera, InputRouter& inputRouter,
-                                                                                                RuntimeInteractionController& interaction, RuntimeTools& runtimeTools, SkullbonezCore::UI::InGameUI& ui,
+                                                                                                RuntimeInteractionController& interaction, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools, SkullbonezCore::UI::InGameUI& ui,
                                                                                                 const ReplayAutomationView& replayView, const Rendering::RenderSceneSnapshot& renderSnapshot )
 {
     Window* window = &windowOwner;
@@ -5167,7 +5167,7 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
                                                                                       scene.CurrentPath()
                                                                                           ? scene.CurrentPath()->c_str()
                                                                                           : nullptr,
-                                                                                      runtimeTools, replayView, interaction,
+                                                                                      editorTools, runtimeTools, replayView, interaction,
                                                                                       camera, ui, renderSnapshot );
 
         if ( result.status.Ok() )
@@ -5201,11 +5201,11 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
             result.setWorldInteractionOwner = true;
             result.worldInteractionOwner = static_cast<WorldInteractionOwner>( baseline.worldInteractionOwner );
             result.worldInteractionReason = InteractionExitReason::EnterReplay;
-            runtimeTools.Editor().editorModeEnabled = baseline.editorModeEnabled;
-            runtimeTools.Editor().placementModeEnabled = baseline.editorModeEnabled && baseline.editorPlacementModeEnabled;
-            runtimeTools.Editor().placeStaticObject = baseline.editorPlaceStatic;
-            runtimeTools.Editor().autoTerrainAlign = baseline.editorTerrainAlign;
-            runtimeTools.Editor().objectType = baseline.editorObjectType;
+            editorTools.Editor().editorModeEnabled = baseline.editorModeEnabled;
+            editorTools.Editor().placementModeEnabled = baseline.editorModeEnabled && baseline.editorPlacementModeEnabled;
+            editorTools.Editor().placeStaticObject = baseline.editorPlaceStatic;
+            editorTools.Editor().autoTerrainAlign = baseline.editorTerrainAlign;
+            editorTools.Editor().objectType = baseline.editorObjectType;
 
             if ( baseline.editorSelectionName[0] != '\0' )
             {
@@ -5230,9 +5230,9 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
                     return result;
                 }
 
-                runtimeTools.Editor().selectedModelRow.value = selectedModel;
-                runtimeTools.Editor().selectedBody = selectedBody->handle;
-                runtimeTools.Editor().selectedCollider = selectedCollider;
+                editorTools.Editor().selectedModelRow.value = selectedModel;
+                editorTools.Editor().selectedBody = selectedBody->handle;
+                editorTools.Editor().selectedCollider = selectedCollider;
             }
 
             ui.SetVisible( baseline.uiVisible, timers.simulationTotalSeconds );
@@ -5475,7 +5475,7 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
         case RunInteractionAutomationActionType::CaptureEditorSelectionState:
         {
             const int slot = static_cast<int>( action.numberValue );
-            const EditorSelectionFingerprint fingerprint = BuildEditorSelectionFingerprint( runtimeTools, scene.Scene() );
+            const EditorSelectionFingerprint fingerprint = BuildEditorSelectionFingerprint( editorTools, scene.Scene() );
 
             state.reportWriter.CaptureEditorSelection( slot, fingerprint.hash, fingerprint.valid );
 
@@ -5794,7 +5794,7 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
     return result;
 }
 
-InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutomationController& state, RuntimeTools& runtimeTools, RuntimeInteractionController& interaction,
+InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutomationController& state, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools, RuntimeInteractionController& interaction,
                                                                                                 InputRouter& inputRouter, CameraControlState& camera, SkullbonezCore::UI::InGameUI& ui, SceneController& scene,
                                                                                                 const ReplayAutomationView& replayView, const InteractionAutomationDevelopmentUiView& developmentUiView,
                                                                                                 const ContinuousOrbitalForecastView& forecastView, const Rendering::RenderSceneSnapshot& renderSnapshot,
@@ -5842,7 +5842,7 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
                                                                                       scene.CurrentPath()
                                                                                           ? scene.CurrentPath()->c_str()
                                                                                           : nullptr,
-                                                                                      runtimeTools, replayView, interaction,
+                                                                                      editorTools, runtimeTools, replayView, interaction,
                                                                                       camera, ui, renderSnapshot );
 
         if ( result.status.Ok() )
@@ -5904,9 +5904,9 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
         assertion.frame = frame;
         strcpy_s( assertion.name, sizeof( assertion.name ), AssertName( action.assertKind ) );
 
-        const InteractionAutomationAssertionEvaluation evaluation = EvaluateInteractionAutomationAssertion( runtimeTools, state, replayView, interaction, inputRouter, camera, scene.Scene(), ui, developmentUiView,
+        const InteractionAutomationAssertionEvaluation evaluation = EvaluateInteractionAutomationAssertion( editorTools, runtimeTools, state, replayView, interaction, inputRouter, camera, scene.Scene(), ui, developmentUiView,
                                                                                                             forecastView, renderSnapshot, action,
-                                                                                                            [&]() { return runtimeTools.InspectGizmoInteractionActive( camera.mode, replayView.input.inspectionActive ); } );
+                                                                                                            [&]() { return editorTools.InspectGizmoInteractionActive( camera.mode, replayView.input.inspectionActive ); } );
 
         strcpy_s( assertion.expected, sizeof( assertion.expected ), evaluation.expected.c_str() );
         strcpy_s( assertion.actual, sizeof( assertion.actual ), evaluation.actual.c_str() );
@@ -5971,7 +5971,7 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
                                                                                       scene.CurrentPath()
                                                                                           ? scene.CurrentPath()->c_str()
                                                                                           : nullptr,
-                                                                                      runtimeTools, replayView, interaction,
+                                                                                      editorTools, runtimeTools, replayView, interaction,
                                                                                       camera, ui, renderSnapshot );
 
         if ( result.status.Ok() )

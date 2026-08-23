@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Editor/LauncherTools.cpp
+File: SkullbonezSource/Runtime/Tools/LauncherTools.cpp
 Purpose:
   Owns launcher-mode raycast, projectile, laser, and repro snapshot behavior.
 
@@ -23,9 +23,8 @@ Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/engine-glossary.md
 */
-#include "../Tools/RuntimeTools.h"
+#include "RuntimeTools.h"
 #include "../Camera/CameraCollection.h"
-#include "../Diagnostics/OverlayDebugState.h"
 #include "../Startup/RunLaunchOptions.h"
 #include "../Scene/SceneGeneratedSetup.h"
 #include "../Scene/SceneSessionState.h"
@@ -418,9 +417,9 @@ LauncherReproSnapshotStatus RuntimeTools::WriteLauncherReproSnapshot( const Laun
                  context.physicsSleepEnabled ? "" : " --no-sleep", generatedObjectArg );
     }
 
-    fprintf( f, "water_hidden,%d\n", context.debug.isWaterHidden ? 1 : 0 );
-    fprintf( f, "terrain_hidden,%d\n", context.debug.isTerrainHidden ? 1 : 0 );
-    fprintf( f, "collision_visualizer,%d\n", context.debug.isCollisionVisualizer ? 1 : 0 );
+    fprintf( f, "water_hidden,%d\n", context.waterHidden ? 1 : 0 );
+    fprintf( f, "terrain_hidden,%d\n", context.terrainHidden ? 1 : 0 );
+    fprintf( f, "collision_visualizer,%d\n", context.collisionVisualizer ? 1 : 0 );
     fprintf( f, "world_gravity,%.6f\n", context.world.Environment().GetGravity() );
     fprintf( f, "world_fluid_height,%.6f\n", context.world.Environment().GetFluidSurfaceHeight() );
     fprintf( f, "world_fluid_density,%.6f\n", context.world.Environment().GetFluidDensity() );
@@ -503,32 +502,29 @@ LauncherReproSnapshotStatus RuntimeTools::WriteLauncherReproSnapshot( const Laun
 }
 
 
-LauncherReproSnapshotStatus
-RuntimeTools::WriteLauncherReproSnapshotWithStatusMessage( const LauncherReproSnapshotContext& context,
-                                                           OverlayDebugState& debug ) const
+LauncherReproSnapshotResult
+RuntimeTools::WriteLauncherReproSnapshotWithStatusMessage( const LauncherReproSnapshotContext& context ) const
 {
-    // Why: the debug Enter shortcut should ask the launcher owner for both the
-    // cold snapshot artifact and the operator-facing status text, leaving Run to
-    // decide only whether the shortcut is currently allowed.
-    const LauncherReproSnapshotStatus snapshotStatus = WriteLauncherReproSnapshot( context );
+    LauncherReproSnapshotResult result;
+    result.status = WriteLauncherReproSnapshot( context );
     const char* snapshotMessage = "Failed to write repro snapshot";
 
-    if ( snapshotStatus == LauncherReproSnapshotStatus::Wrote )
+    if ( result.status == LauncherReproSnapshotStatus::Wrote )
     {
-        sprintf_s( debug.reproSnapshotMessage, sizeof( debug.reproSnapshotMessage ), "Repro snapshot: %s",
+        sprintf_s( result.message.data(), result.message.size(), "Repro snapshot: %s",
                    LAUNCHER_REPRO_SNAPSHOT_PATH );
     }
-    else if ( snapshotStatus == LauncherReproSnapshotStatus::NoTarget )
+    else if ( result.status == LauncherReproSnapshotStatus::NoTarget )
     {
         snapshotMessage = "No repro target under crosshair";
     }
 
-    if ( snapshotStatus != LauncherReproSnapshotStatus::Wrote )
+    if ( result.status != LauncherReproSnapshotStatus::Wrote )
     {
-        sprintf_s( debug.reproSnapshotMessage, sizeof( debug.reproSnapshotMessage ), "%s", snapshotMessage );
+        sprintf_s( result.message.data(), result.message.size(), "%s", snapshotMessage );
     }
 
-    debug.reproSnapshotMessageUntil = context.simulationSeconds + LAUNCHER_REPRO_MESSAGE_SECONDS;
-    return snapshotStatus;
+    result.messageUntil = context.simulationSeconds + LAUNCHER_REPRO_MESSAGE_SECONDS;
+    return result;
 }
 #endif

@@ -72,6 +72,7 @@ Related:
 #include "../../UI/UIProfilerOverlayPresenter.h"
 #include "../UI/RenderDiagnosticsProjection.h"
 #include "../../UI/UIStyle.h"
+#include "../Editor/EditorTools.h"
 
 #include <algorithm>
 #include <cstdio>

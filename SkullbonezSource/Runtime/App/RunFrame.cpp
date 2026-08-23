@@ -383,12 +383,12 @@ void Run::AdvanceInteractionRecordingBoundary()
         baseline.uiVisible = m_operatorUi->IsVisible();
         baseline.uiMinimized = m_operatorUi->IsMinimized();
         baseline.activeUiTab = static_cast<int>( m_operatorUi->GetActiveTab() );
-        baseline.editorModeEnabled = m_runtimeTools.Editor().editorModeEnabled;
-        baseline.editorPlacementModeEnabled = m_runtimeTools.Editor().placementModeEnabled;
-        baseline.editorPlaceStatic = m_runtimeTools.Editor().placeStaticObject;
-        baseline.editorTerrainAlign = m_runtimeTools.Editor().autoTerrainAlign;
-        baseline.editorObjectType = m_runtimeTools.Editor().objectType;
-        const int selectedEditorModel = PeekSelectedEditorModelIndex( m_runtimeTools.Editor(),
+        baseline.editorModeEnabled = m_editorTools.Editor().editorModeEnabled;
+        baseline.editorPlacementModeEnabled = m_editorTools.Editor().placementModeEnabled;
+        baseline.editorPlaceStatic = m_editorTools.Editor().placeStaticObject;
+        baseline.editorTerrainAlign = m_editorTools.Editor().autoTerrainAlign;
+        baseline.editorObjectType = m_editorTools.Editor().objectType;
+        const int selectedEditorModel = PeekSelectedEditorModelIndex( m_editorTools.Editor(),
                                                                       m_sceneController.Scene().BodyStore() );
 
         if ( selectedEditorModel >= 0 && selectedEditorModel < m_sceneController.Scene().SceneEntityCount() )
@@ -519,7 +519,7 @@ Run::FrameInputPhaseResult Run::RunAutomationAndInputPhase()
                                                                                           m_config, m_sceneController,
                                                                                           m_timers.Publish(), m_camera,
                                                                                           m_inputRouter, m_interaction,
-                                                                                          m_runtimeTools, *m_operatorUi,
+                                                                                          m_editorTools, m_runtimeTools, *m_operatorUi,
                                                                                           automationReplayView,
                                                                                           Renderer().FrameGraphSnapshot() );
 
@@ -547,7 +547,8 @@ Run::FrameInputPhaseResult Run::RunAutomationAndInputPhase()
 
     if ( result.applyCameraMode )
     {
-        m_inputRouter.ApplyCameraMode( result.cameraMode, RuntimeInputActionSource::Runtime, m_runtimeTools, m_interaction,
+        m_inputRouter.ApplyCameraMode( result.cameraMode, RuntimeInputActionSource::Runtime, m_editorTools,
+                                       m_runtimeTools, m_interaction,
                                        m_attachedCamera, m_camera, m_sceneController, m_replayRuntime,
                                        m_inputRouter.RuntimeContext() );
     }
@@ -572,7 +573,8 @@ Run::FrameInputPhaseResult Run::RunAutomationAndInputPhase()
                                                                                 sceneState.isSceneMode,
                                                                                 cameraModeEnabledMask );
 
-        m_inputRouter.SetWorldInteractionOwner( result.worldInteractionOwner, result.worldInteractionReason, m_runtimeTools,
+        m_inputRouter.SetWorldInteractionOwner( result.worldInteractionOwner, result.worldInteractionReason, m_editorTools,
+                                                m_runtimeTools,
                                                 m_interaction, m_attachedCamera, m_camera, m_sceneController,
                                                 m_replayRuntime, normalizedRestoreMode );
     }
@@ -738,7 +740,7 @@ Run::FrameRenderPhaseResult Run::PrepareRenderPhase( bool gameUiActive, const Fr
                                             m_overlaySceneLifecycleObserver, m_sceneController,
                                             m_inputSceneLifecycleObserver, m_inputRouter, m_interaction,
                                             m_cameraSceneLifecycleObserver, m_camera,
-                                            m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_runtimeTools,
+                                            m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_editorTools, m_runtimeTools,
                                             m_replayRuntime );
 
             ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_launchOptions,
@@ -880,7 +882,8 @@ void Run::RunPostDrawDiagnosticsPhase( bool gameUiActive )
 
 #endif
     const InteractionAutomationFrameResult
-        automationAfterRender = TickInteractionAutomationAfterRender( m_interactionAutomation, m_runtimeTools, m_interaction,
+        automationAfterRender = TickInteractionAutomationAfterRender( m_interactionAutomation, m_editorTools,
+                                                                      m_runtimeTools, m_interaction,
                                                                       m_inputRouter, m_camera, *m_operatorUi,
                                                                       m_sceneController,
                                                                       m_replayRuntime.BuildAutomationView(),
@@ -1152,7 +1155,7 @@ float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned,
     interactionFrameInput.replayLiveHeldAtCurrentFrame = replayLiveAdvanceHeld;
     interactionFrameInput.crossScenePauseLocked = proceedPolicy.crossScenePauseLocked;
     interactionFrameInput.rightMouseLookHeld = inputSnapshot.pointer.rightDown;
-    interactionFrameInput.editorViewportLookActive = m_runtimeTools.Editor().viewportLookActive;
+    interactionFrameInput.editorViewportLookActive = m_editorTools.Editor().viewportLookActive;
     interactionFrameInput.replayInspectionLookActive = inputSnapshot.frameInput.replayInspectionLookActive;
     interactionFrameInput.forcePhysicsRunning = physicsCapture;
     interactionFrameInput.sceneTimeScale = m_sceneController.State().timeScale;
@@ -1289,7 +1292,7 @@ void Run::AfterPhysicsStep()
         // the application exit latch only preserves that first owned failure
         // while WM_QUIT unwinds the frame loop.
         const ReplayProbeTickResult probeResult = m_replayRuntime.TickProbes( m_sceneController, presentationEdit.State(),
-                                                                              m_runtimeTools, m_config, m_assets,
+                                                                              m_editorTools, m_runtimeTools, m_config, m_assets,
                                                                               timelineReset, m_diagnosticsRuntime,
                                                                               m_inputRouter, m_interaction, m_camera,
                                                                               normalizedRestoreMode,
@@ -1430,7 +1433,7 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
                                             m_overlaySceneLifecycleObserver, m_sceneController,
                                             m_inputSceneLifecycleObserver, m_inputRouter, m_interaction,
                                             m_cameraSceneLifecycleObserver, m_camera,
-                                            m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_runtimeTools,
+                                            m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_editorTools, m_runtimeTools,
                                             m_replayRuntime );
 
             ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_launchOptions,
@@ -1561,7 +1564,7 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
                                         m_overlaySceneLifecycleObserver, m_sceneController,
                                         m_inputSceneLifecycleObserver, m_inputRouter, m_interaction,
                                         m_cameraSceneLifecycleObserver, m_camera,
-                                        m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_runtimeTools,
+                                        m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_editorTools, m_runtimeTools,
                                         m_replayRuntime );
 
         ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_launchOptions,
@@ -1590,8 +1593,8 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
 void Run::UpdateLogic( float simulationDt, float cameraDt, float presentationAlpha )
 {
     m_camera.AdvanceAutoCycleClock( m_sceneController.State().isSceneMode, simulationDt );
-    m_camera.TickControls( m_sceneController.Scene(), m_attachedCamera, m_config, m_runtimeTools.Editor().editorModeEnabled,
-                           m_runtimeTools.Editor().viewportLookActive, m_sceneController.State().isSceneMode, cameraDt,
+    m_camera.TickControls( m_sceneController.Scene(), m_attachedCamera, m_config, m_editorTools.Editor().editorModeEnabled,
+                           m_editorTools.Editor().viewportLookActive, m_sceneController.State().isSceneMode, cameraDt,
                            presentationAlpha );
 
     DemoDirectorPredictionView directorPrediction;

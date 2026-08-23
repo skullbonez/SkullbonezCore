@@ -71,6 +71,7 @@ class ReplayRuntime;
 class RuntimeInteractionController;
 class RuntimeRenderer;
 class RuntimeTools;
+class EditorToolsOwner;
 class SimulationSystem;
 struct RunEditorPlacementState;
 struct SceneRequest;
@@ -137,14 +138,15 @@ bool IsReplayWorldOwner( WorldInteractionOwner owner );
 bool IsEditorWorldOwner( WorldInteractionOwner owner );
 void ReportRuntimeInputFailure( const SkullbonezCore::Core::SbResult& result );
 RuntimeUIFrameResult BeginRuntimeUIFrame( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, Window& window,
-                                          InputRouter& inputRouter, CameraControlState& camera, RuntimeTools& runtimeTools,
+                                          InputRouter& inputRouter, CameraControlState& camera, EditorToolsOwner& editorTools,
+                                          RuntimeTools& runtimeTools,
                                           AttachedCameraController& attachedCamera,
                                           RuntimeInteractionController& interaction, UI::InGameUI& ui,
                                           RuntimeFrameMetricsOwner& timers, SceneController& sceneController,
                                           ReplayRuntime& replayRuntime, const ReplayPathPickInput& replayPointerRay,
                                           const RuntimeInputFrameFacts& facts );
 RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result, InputRouter& inputRouter,
-                                                  CameraControlState& camera, RuntimeTools& runtimeTools,
+                                                  CameraControlState& camera, EditorToolsOwner& editorTools,
                                                   RuntimeInteractionController& interaction,
                                                   AttachedCameraController& attachedCamera, UI::InGameUI& ui,
                                                   SceneController& sceneController, ReplayRuntime& replayRuntime,

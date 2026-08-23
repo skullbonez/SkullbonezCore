@@ -323,7 +323,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabGenerator.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Tools\LauncherLaser.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Editor\LauncherTools.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Tools\LauncherTools.cpp" />
     <ClCompile Include="SkullbonezSource\Core\AmortizedTask.cpp" />
     <ClCompile Include="SkullbonezSource\Core\FatalError.cpp" />
     <ClCompile Include="SkullbonezSource\Core\SbResult.cpp" />
@@ -425,14 +425,14 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Core\Config.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\Run.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorInteractionTools.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Tools\EditorCommandHistory.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorHistory.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorPlacementAssets.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorTerrainOrientation.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorGizmoTools.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Editor\MousePickupTools.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Tools\MousePickupTools.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorOverlayTools.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorTracer.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Tools\EditorTracer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorObjectPlacement.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\RunFrame.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Direction\DemoDirectorPlayback.cpp" />
@@ -549,7 +549,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Direction\LookLabController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Direction\LookLabGenerator.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorTools.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Tools\EditorCommandHistory.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorPlacementAssets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorTerrainOrientation.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorOverlayTools.h" />
@@ -719,6 +719,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayTrajectoryPackets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Prediction\TrajectoryStore.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayV2Artifact.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Tools\EditorTracer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Tools\RuntimeTools.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Tools\RuntimeFileWriter.h" />
     <ClInclude Include="SkullbonezSource\World\SkyBox.h" />

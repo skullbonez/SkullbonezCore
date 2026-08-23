@@ -64,6 +64,7 @@ namespace Runtime
 {
 class RuntimeInteractionController;
 class RuntimeTools;
+class EditorToolsOwner;
 class SceneWorld;
 struct SceneSessionState;
 struct ReplaySolverFrameSample;
@@ -229,7 +230,8 @@ class InteractionAutomationReportWriter
     // retains only its own bounded evidence and never stores scene/runtime/UI
     // owner addresses after this call returns.
     Core::SbResult Write( InteractionAutomationRunStatus& status, const char* scriptPath, const SceneWorld& world,
-                          const SceneSessionState& scene, const char* scenePath, const RuntimeTools& runtimeTools,
+                          const SceneSessionState& scene, const char* scenePath, const EditorToolsOwner& editorTools,
+                          const RuntimeTools& runtimeTools,
                           const ReplayAutomationView& replay, const RuntimeInteractionController& interaction,
                           const CameraControlState& camera, const UI::InGameUI& ui,
                           const Rendering::RenderSceneSnapshot& renderSnapshot );

@@ -15,7 +15,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Tools/LauncherLaser.cpp
-  - SkullbonezSource/Runtime/Editor/LauncherTools.cpp
+  - SkullbonezSource/Runtime/Tools/LauncherTools.cpp
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

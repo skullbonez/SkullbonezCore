@@ -20,14 +20,16 @@ Related:
 #include "EditorTools.h"
 
 #include "../Camera/CameraCollection.h"
-#include "../Capture/CaptureController.h"
 #include "../Input/InputController.h"
 #include "../Tools/RuntimeFileWriter.h"
 #include "../Scene/SceneSessionState.h"
-#include "../Tools/RuntimeTools.h"
 #include "../../Core/Common.h"
+#include "../../Core/Log.h"
+#include "../../Physics/ColliderStore.h"
+#include "../../Physics/PhysicsBodyStore.h"
 #include "../../Scene/SceneSnapshotWriter.h"
 #include "../Scene/SceneController.h"
+#include "../Interaction/RuntimeInteractionCommands.h"
 #include "../../UI/UICommands.h"
 #include "../../UI/UITabEditor.h"
 #include "../../World/WorldEnvironment.h"
@@ -455,11 +457,13 @@ void HandleEditorSceneSaveHotkey( SkullbonezCore::Core::SbDiagnosticStore& diagn
 }
 
 
-void HandleEditorScreenshotHotkey( CaptureController& capture, bool wasPressed )
+EditorScreenshotRequest BuildEditorScreenshotRequest( bool wasPressed )
 {
+    EditorScreenshotRequest request;
+
     if ( !wasPressed )
     {
-        return;
+        return request;
     }
 
     static int sScreenshotSeq = 0;
@@ -468,14 +472,120 @@ void HandleEditorScreenshotHotkey( CaptureController& capture, bool wasPressed )
     if ( RuntimeFileWriter::NextNumberedPath( path, sizeof( path ), "Screenshots", "screenshot_", ".bmp", sScreenshotSeq,
                                               100 ) )
     {
-        const SkullbonezCore::Core::SbResult queueResult = capture.QueueScreenshot( path );
-
-        if ( !queueResult.Ok() )
-        {
-            std::fprintf( stderr, "%s: %s\n", queueResult.ErrorOwner(), queueResult.ErrorMessage() );
-            std::fflush( stderr );
-        }
+        request.requested = true;
+        request.path = path;
     }
+
+    return request;
+}
+
+
+RunEditorPlacementState& EditorToolsOwner::Editor()
+{
+    return m_editor;
+}
+
+
+const RunEditorPlacementState& EditorToolsOwner::Editor() const
+{
+    return m_editor;
+}
+
+
+bool EditorToolsOwner::PrepareSelectionCommand( const RuntimeInteractionCommand& command, const SceneWorld& world,
+                                                RuntimeInteractionSelectionPlan& outPlan )
+{
+    outPlan = RuntimeInteractionSelectionPlan {};
+    if ( command.type != RuntimeInteractionCommandType::SetEditorSelection )
+    {
+        return false;
+    }
+
+    const Physics::PhysicsBodyStore& bodyStore = world.BodyStore();
+    const Physics::ColliderStore& colliderStore = world.Colliders();
+    Physics::PhysicsBodyHandle selectedBody;
+    Physics::PhysicsColliderHandle selectedCollider;
+    Physics::ModelRowHint selectedModelRow;
+    if ( command.body.IsValid() )
+    {
+        selectedBody = command.body;
+        selectedCollider = command.collider;
+        const Physics::PhysicsBodyRecord* body = bodyStore.RecordForHandle( selectedBody );
+        const Physics::ColliderRecord* collider = colliderStore.RecordForHandle( selectedCollider );
+        const int bodyRow = bodyStore.ModelIndexForHandle( selectedBody );
+        if ( !body || !collider || colliderStore.ModelIndexForHandle( selectedCollider ) != bodyRow ||
+             collider->body != selectedBody )
+        {
+            return false;
+        }
+        selectedModelRow.value = bodyRow;
+    }
+    else if ( command.collider.IsValid() )
+    {
+        return false;
+    }
+
+    if ( !m_editor.selectedBody.IsValid() )
+    {
+        m_editor.selectedModelRow.value = -1;
+        outPlan.previousModelRow.value = -1;
+    }
+    else
+    {
+        outPlan.previousModelRow.value = bodyStore.ResolveModelRow( m_editor.selectedBody, m_editor.selectedModelRow );
+    }
+    outPlan.modelRow = selectedModelRow;
+    outPlan.previousBody = m_editor.selectedBody;
+    outPlan.body = selectedBody;
+    outPlan.previousCollider = m_editor.selectedCollider;
+    outPlan.collider = selectedCollider;
+    outPlan.selectionScope = command.selectionScope;
+    outPlan.claimSelectionOwner = command.claimSelectionOwner;
+    return true;
+}
+
+
+bool EditorToolsOwner::CommitSelectionCommand( const RuntimeInteractionSelectionPlan& plan, RuntimeInteractionEvent& outEvent )
+{
+    outEvent = RuntimeInteractionEvent {};
+    m_editor.selectedModelRow = plan.modelRow;
+    m_editor.selectedBody = plan.body;
+    m_editor.selectedCollider = plan.collider;
+    if ( plan.previousModelRow.value != plan.modelRow.value || plan.previousBody != plan.body ||
+         plan.previousCollider != plan.collider )
+    {
+        outEvent.type = RuntimeInteractionEventType::SelectionChanged;
+        outEvent.previousModelRow = plan.previousModelRow;
+        outEvent.modelRow = plan.modelRow;
+        outEvent.previousBody = plan.previousBody;
+        outEvent.body = plan.body;
+        outEvent.previousCollider = plan.previousCollider;
+        outEvent.collider = plan.collider;
+        outEvent.selectionScope = plan.selectionScope;
+        SkullbonezCore::Core::Log().WriteEventf(
+            "runtime_interaction_command_event type=selection_changed scope=%s previous_model=%d model=%d",
+            outEvent.selectionScope == RuntimeInteractionSelectionScope::Inspect ? "inspect" : "editor",
+            outEvent.previousModelRow.value, outEvent.modelRow.value );
+    }
+    return true;
+}
+
+
+bool EditorToolsOwner::ApplySelectionCommand( const RuntimeInteractionCommand& command, const SceneWorld& world )
+{
+    if ( command.claimSelectionOwner )
+    {
+        return false;
+    }
+    RuntimeInteractionSelectionPlan plan;
+    RuntimeInteractionEvent event;
+    return PrepareSelectionCommand( command, world, plan ) && CommitSelectionCommand( plan, event );
+}
+
+
+bool EditorToolsOwner::InspectGizmoInteractionActive( RunCameraMode cameraMode, bool replayInspectionActive ) const
+{
+    return !m_editor.editorModeEnabled && cameraMode == RunCameraMode::Inspect && !replayInspectionActive;
 }
 
 

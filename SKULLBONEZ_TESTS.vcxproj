@@ -301,7 +301,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Input\InputRouter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Capture\CaptureController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Capture\CaptureSystem.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Tools\EditorCommandHistory.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorTerrainOrientation.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RenderDefaultsStore.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsPhysicsUI.cpp" />

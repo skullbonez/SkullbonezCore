@@ -27,6 +27,7 @@ Related:
 #include "../Scene/AttachedCameraController.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "../Diagnostics/OverlayDebugState.h"
+#include "../Editor/EditorTools.h"
 #include "../Input/Input.h"
 #include "../Input/InputRouter.h"
 #include "../Scene/SceneLoadTransaction.h"
@@ -408,9 +409,10 @@ void ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction, const Ru
                                      SceneLifecycleGenerationObserver& inputLifecycle, InputRouter& inputRouter,
                                      RuntimeInteractionController& interaction,
                                      SceneLifecycleGenerationObserver& cameraLifecycle, CameraControlState& camera,
-                                     SceneLifecycleGenerationObserver& attachedCameraLifecycle,
-                                     AttachedCameraController& attachedCamera,
-                                     RuntimeTools& runtimeTools, ReplayRuntime& replayRuntime )
+                                      SceneLifecycleGenerationObserver& attachedCameraLifecycle,
+                                      AttachedCameraController& attachedCamera,
+                                      EditorToolsOwner& editorTools, RuntimeTools& runtimeTools,
+                                      ReplayRuntime& replayRuntime )
 {
     const SceneLoadResult& outputs = transaction.BeginRuntimeReactions();
     const SceneLifecyclePacket& lifecycle = sceneController.LifecyclePacket();
@@ -429,7 +431,8 @@ void ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction, const Ru
             change.fluidHeight, change.fluidDensity ) );
     }
 
-    runtimeTools.ObserveSceneLifecycle( lifecycle, sceneController.Scene(), inputRouter, interaction );
+    runtimeTools.ObserveSceneLifecycle( lifecycle, inputRouter, interaction );
+    editorTools.ObserveSceneLifecycle( lifecycle, sceneController.Scene(), interaction );
     if ( attachedCameraLifecycle.ShouldApply( lifecycle, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
     {
         attachedCamera.ResetForSceneLoad();
@@ -485,7 +488,7 @@ void ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction, const Ru
     {
         if ( outputs.completedRequests.requests[index].type == SceneRequestType::SaveCurrentDefaults )
         {
-            runtimeTools.Editor().history.MarkClean();
+            editorTools.Editor().history.MarkClean();
             break;
         }
     }

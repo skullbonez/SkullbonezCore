@@ -1013,7 +1013,7 @@
       "removal_or_wrapper_plan": "Move editor staging to fixed tool buffers when editor runtime allocation policy is tightened."
     },
     {
-      "path": "SkullbonezSource/Runtime/Editor/EditorTracer.cpp",
+      "path": "SkullbonezSource/Runtime/Tools/EditorTracer.cpp",
       "patterns": [
         ".insert(",
         ".push_back(",

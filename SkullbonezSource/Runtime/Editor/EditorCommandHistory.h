@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Tools/EditorCommandHistory.h
+File: SkullbonezSource/Runtime/Editor/EditorCommandHistory.h
 Purpose:
   Defines the Tools-owned fixed-capacity inverse-command history used by Editor policy.
 

@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Editor/MousePickupTools.cpp
+File: SkullbonezSource/Runtime/Tools/MousePickupTools.cpp
 Purpose:
   Implements manipulator-mode mouse pickup capture, target tracking, and physics impulse application.
 
@@ -26,7 +26,7 @@ Related:
   - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
   - Agentic/Reference/engine-glossary.md
 */
-#include "../Tools/RuntimeTools.h"
+#include "RuntimeTools.h"
 #include "../Input/InputRouter.h"
 #include "../Interaction/RuntimeInteractionController.h"
 #include "../Interaction/RuntimeInteractionCommands.h"

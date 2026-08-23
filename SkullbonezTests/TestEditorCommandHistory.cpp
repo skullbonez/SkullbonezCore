@@ -15,11 +15,11 @@ Invariants:
   - Pending queries do not commit cursor movement.
 
 Related:
-  - SkullbonezSource/Runtime/Tools/EditorCommandHistory.h
+  - SkullbonezSource/Runtime/Editor/EditorCommandHistory.h
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 
-#include "../SkullbonezSource/Runtime/Tools/EditorCommandHistory.h"
+#include "../SkullbonezSource/Runtime/Editor/EditorCommandHistory.h"
 
 using namespace SkullbonezCore::Runtime;
 

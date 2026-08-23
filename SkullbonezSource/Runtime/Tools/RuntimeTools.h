@@ -4,17 +4,15 @@ Purpose:
   Owns transient runtime tool state while tool behavior moves out of Run.
 
 Summary:
-  RuntimeTools groups bounded editor, launcher, pickup, replay, and overlay
-  tool state and applies their commands through explicitly borrowed owners.
+  RuntimeTools groups bounded launcher, pickup, replay, and overlay tool state
+  and applies their commands through explicitly borrowed owners.
   RuntimeTools owns tool payload and render feedback instead of storing those
   values directly on Run. RuntimeInteractionController alone owns which
   gesture is active; tools retain only the start values needed to apply it.
 
 Glossary:
-  Tool state: Runtime-owned launcher, mouse-pickup, editor, and overlay-trace
-    data that persists between frames.
-  Gizmo drag group: Bounded set of selected model indices transformed as one
-    editor gesture.
+  Tool state: Runtime-owned launcher, mouse-pickup, and overlay-trace data that
+    persists between frames.
   Launcher tuning command: One-frame Physics-tab packet that edits launcher
     raycast visualization, impulse strength, or projectile speed.
 
@@ -26,8 +24,6 @@ Invariants:
     after model collection edits.
   - Mouse pickup stores only a physics body handle for live command paths; any
     model row used for gestures or UI is resolved locally from that handle.
-  - Editor payload never mirrors active placement/gizmo ownership, axis, or
-    transform mode outside RuntimeInteractionGesture.
   - Scene-clear observation cancels typed capture before clearing tool payload;
     it never retains the borrowed replacement world or interaction owners.
 
@@ -43,8 +39,8 @@ Related:
 
 #include "../../Core/Common.h"
 #include "../../Core/MainMemoryStats.h"
+#include "EditorTracer.h"
 #include "LauncherLaser.h"
-#include "EditorCommandHistory.h"
 #include "../Camera/RuntimeCameraMode.h"
 #include "../Scene/SceneLifecycle.h"
 #include "../Interaction/RuntimeInteractionController.h"
@@ -55,7 +51,6 @@ Related:
 #include "../../Maths/Vector3.h"
 #include "../../Physics/CollisionShape.h"
 #include "../../Physics/PhysicsHandles.h"
-#include "../../UI/UITabEditor.h"
 
 #include <array>
 #include <cstddef>
@@ -110,7 +105,6 @@ struct UIPhysicsCommands;
 
 namespace SkullbonezCore::Runtime
 {
-struct OverlayDebugState;
 struct RunLaunchOptions;
 struct SceneSessionState;
 struct ReplayLauncherVisualSample;
@@ -178,6 +172,26 @@ struct ToolOverlayBuildInput
     bool attachedCameraActiveFollow = false;
 };
 
+struct ToolEditorOverlayValues
+{
+    static constexpr std::size_t SELECTION_CAPACITY = 16;
+    bool editorModeEnabled = false;
+    bool placementModeEnabled = false;
+    bool placementPreviewVisible = false;
+    int objectType = 0;
+    int hotGizmoAxis = -1;
+    int hotRotationAxis = -1;
+    Math::Vector::Vector3 placementTerrainPoint = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 placementCenter = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 placementRayOrigin = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 placementRayHit = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 placementScale = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion placementOrientation = Math::Orientation::IDENTITY_QUATERNION;
+    std::array<Physics::PhysicsBodyHandle, SELECTION_CAPACITY> selectionBodies = {};
+    std::array<Physics::PhysicsColliderHandle, SELECTION_CAPACITY> selectionColliders = {};
+    std::size_t selectionCount = 0;
+};
+
 #ifdef _DEBUG
 // Lifetime: a synchronous Debug dump borrows SceneWorld once and resolves its
 // cameras, terrain, entities, and physics rows locally. Scalar process policy
@@ -193,7 +207,9 @@ struct LauncherReproSnapshotContext
     bool pipelineSyncEnabled;
     float contactEpsilon;                                                                          // Physics contact tolerance captured from Run config for repro output.
     float frictionCoeff;                                                                           // Physics friction setting captured from Run config for repro output.
-    const OverlayDebugState& debug;
+    bool waterHidden;
+    bool terrainHidden;
+    bool collisionVisualizer;
     const char* rendererName;
     double simulationSeconds;
 };
@@ -203,6 +219,13 @@ enum class LauncherReproSnapshotStatus
     Wrote,
     NoTarget,
     WriteFailed
+};
+
+struct LauncherReproSnapshotResult
+{
+    LauncherReproSnapshotStatus status = LauncherReproSnapshotStatus::WriteFailed;
+    std::array<char, 128> message = {};
+    double messageUntil = 0.0;
 };
 #endif
 
@@ -216,153 +239,6 @@ struct RunMousePickupState
     Math::Vector::Vector3 targetPoint = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 preservedAngularVelocity = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 lastImpulse = Math::Vector::ZERO_VECTOR;
-};
-
-struct EditorPointerPreviewInput
-{
-    // Lifetime: one post-UI pointer sample; world rays are values so the tool
-    // never reaches back into Window, CameraCollection, or InputRouter.
-    bool blocksCameraMouse = false;
-    bool inspectGizmoActive = false;
-    bool hasWorldRay = false;
-    bool controlDown = false;
-    Math::Vector::Vector3 rayOrigin = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
-};
-
-struct EditorPointerSelectionInput
-{
-    // Invariant: selection preparation is side-effect free. InputRouter applies
-    // the returned owner transition before CommitSelectionCommand mutates state.
-    bool inspectGizmoActive = false;
-    bool hasWorldRay = false;
-    Math::Vector::Vector3 rayOrigin = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
-};
-
-struct EditorPlacementScalePointerResult
-{
-    // Composition consumes these facts after the tool has atomically ended or
-    // committed the placement gesture; no callback reaches back into Run.
-    ReplayEventCommand replayEvent;
-    bool consumed = false;
-    bool enteredInteractiveScene = false;
-    bool endedGesture = false;
-    bool recordReplayEvent = false;
-};
-
-struct EditorGizmoDragPointerInput
-{
-    // Lifetime: one routed pointer frame. The sampled ray remains stable while
-    // the tool mutates physics and records the release event.
-    bool leftDown = false;
-    bool leftReleased = false;
-    bool suppressWorldAction = false;
-    bool hasWorldRay = false;
-    int selectedModelIndex = -1;
-    Math::Vector::Vector3 rayOrigin = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
-};
-
-struct EditorGizmoDragPointerResult
-{
-    // Composition publishes the input-mode edge after owner teardown.
-    ReplayEventCommandBatch replayEvents;
-    bool consumed = false;
-    bool endedGesture = false;
-};
-
-enum class EditorPointerModeAction
-{
-    EndPlacementScale,
-    EndGizmoDrag,
-    BeginGizmoScale,
-    BeginGizmoRotate,
-    BeginGizmoTranslate,
-    BeginPlacementScale
-};
-
-struct EditorPointerRouteResult
-{
-    static constexpr std::size_t MAX_MODE_ACTIONS = 2;
-    ReplayEventCommandBatch replayEvents;
-    RuntimeInteractionTransition interactionTransition;
-    bool consumed = false;
-    bool enteredInteractiveScene = false;
-    bool hasInteractionTransition = false;
-    std::array<EditorPointerModeAction, MAX_MODE_ACTIONS> modeActions = {};
-    std::size_t modeActionCount = 0;
-};
-
-enum class EditorGizmoGestureKind
-{
-    None,
-    Translate,
-    Rotate,
-    Scale
-};
-
-struct EditorGizmoGesturePlan
-{
-    // Invariant: preparation captures every value needed after InputRouter
-    // performs cross-owner cleanup; commit never reads a Run callback/context.
-    EditorGizmoGestureKind kind = EditorGizmoGestureKind::None;
-    WorldInteractionOwner owner;
-    InteractionExitReason reason;
-    Physics::PhysicsBodyHandle selectedBody;
-    int axis = -1;
-    int clientX = 0;
-    int clientY = 0;
-    float axisParameter = 0.0f;
-    Math::Vector::Vector3 startPosition = Math::Vector::ZERO_VECTOR;
-    Math::Orientation::Quaternion startOrientation;
-    Math::Vector::Vector3 dragPlaneNormal = Math::Vector::ZERO_VECTOR;
-    Math::CollisionDetection::CollisionShape startShape;
-};
-
-struct EditorGizmoGestureResult
-{
-    bool attempted = false;
-    bool consumed = false;
-    EditorGizmoGestureKind kind = EditorGizmoGestureKind::None;
-};
-
-struct EditorPlacementScaleStartResult
-{
-    // Composition publishes the semantic begin edge only for a started gesture.
-    bool consumed = false;
-    bool beganGesture = false;
-};
-
-struct EditorViewportPlacementInput
-{
-    // Lifetime: one post-UI device sample; wheel and pointer facts cannot be
-    // resampled while the tool mutates its durable placement state.
-    int unhandledWheelDelta = 0;
-    bool rightDown = false;
-    bool leftDown = false;
-    bool controlDown = false;
-    bool blocksCameraMouse = false;
-    bool hasClientPosition = false;
-    bool inputModeIsViewportLook = false;
-    RuntimeInteractionGestureKind gesture = RuntimeInteractionGestureKind::None;
-    int clientX = 0;
-    int clientY = 0;
-};
-
-enum class EditorViewportModeAction
-{
-    None,
-    Begin,
-    End
-};
-
-struct EditorViewportPlacementResult
-{
-    // Composition applies camera/input-mode effects after the tool mutation.
-    bool resetMouseLook = false;
-    bool enteredInteractiveScene = false;
-    EditorViewportModeAction modeAction = EditorViewportModeAction::None;
 };
 
 struct MousePickupPointerResult
@@ -388,236 +264,6 @@ struct LauncherPointerResult
     bool recordReplayEvent = false;
 };
 
-struct RunEditorPlacementState
-{
-    static constexpr std::size_t GIZMO_DRAG_GROUP_CAPACITY = 16;
-
-    EditorCommandHistory history;
-
-    bool editorModeEnabled = false;
-    bool placementModeEnabled = false;
-    bool placeStaticObject = false;
-    bool autoTerrainAlign = false;
-    RunCameraMode restoreCameraModeAfterEditor = RunCameraMode::Demo;
-    bool viewportLookActive = false;
-    bool placementPreviewVisible = false;
-    int objectType = UI::EditorTab::OBJECT_BOX;
-    int placedObjectSerial = 0;
-
-    // Lifetime: selectedBody/selectedCollider are live store identities. The
-    // row hint accelerates UI/report lookups but is repaired from selectedBody.
-    Physics::ModelRowHint selectedModelRow;
-    Physics::PhysicsBodyHandle selectedBody;
-    Physics::PhysicsColliderHandle selectedCollider;
-    int hotGizmoAxis = -1;
-    int hotRotationAxis = -1;
-    float gizmoDragStartAxisT = 0.0f;
-    float gizmoDragStartRotationAngle = 0.0f;
-    float placementYawRadians = 0.0f;
-    int placementAltitudeSteps = 0;
-    int placementScaleWheelSteps = 0;
-    Math::Vector::Vector3 placementTerrainPoint = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 placementCenter = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 placementRayOrigin = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 placementRayHit = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 placementScale = Math::Vector::Vector3( 6.0f, 6.0f, 6.0f );
-    Math::Vector::Vector3 placementScaleStart = Math::Vector::Vector3( 6.0f, 6.0f, 6.0f );
-    Math::Vector::Vector3 placementScaleTerrainPoint = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 placementScaleRayOrigin = Math::Vector::ZERO_VECTOR;
-    Math::Orientation::Quaternion placementOrientation = Math::Orientation::IDENTITY_QUATERNION;
-    POINT placementScaleStartClient = {};
-    Math::Vector::Vector3 gizmoDragStartPosition = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 gizmoDragPlaneNormal = Math::Vector::ZERO_VECTOR;                        // Unit normal frozen for an axis drag.
-    Math::Orientation::Quaternion gizmoDragStartOrientation = Math::Orientation::IDENTITY_QUATERNION;
-    Math::CollisionDetection::CollisionShape gizmoDragStartShape;
-
-    // Lifetime: Drag-group indices and start transforms are valid only for the
-    // active gesture that captured them.
-    int gizmoDragGroupCount = 0;
-    std::array<int, GIZMO_DRAG_GROUP_CAPACITY> gizmoDragGroupIndices = {};
-    std::array<Math::Vector::Vector3, GIZMO_DRAG_GROUP_CAPACITY> gizmoDragGroupStartPositions = {};
-    std::array<Math::Orientation::Quaternion, GIZMO_DRAG_GROUP_CAPACITY> gizmoDragGroupStartOrientations = {};
-};
-
-class EditorTracer
-{
-  private:
-    struct ReplayRibbonStyle
-    {
-        float width = 2.0f;                                                                        // Full screen-space width in pixels.
-        float alpha = 1.0f;                                                                        // Blend weight before analytic edge coverage.
-        float edgeFeather = 1.0f;                                                                  // Anti-aliasing feather scale; 1 means one pixel.
-        float emphasis = 0.0f;                                                                     // 0 = display-range; positive values reserve halo and bloom emphasis.
-    };
-
-    // Invariant: every generic path and marker uses zero emphasis. Only the
-    // selected-object treatment introduced at the presentation boundary may
-    // feed the shader's halo/bloom branch.
-    ReplayRibbonStyle m_replayPathStyle = { 1.25f, 1.0f, 1.0f, 0.0f };
-    ReplayRibbonStyle m_replayCausalStyle = { 1.25f, 1.0f, 1.0f, 0.0f };
-    ReplayRibbonStyle m_replayBaselineStyle = { 1.0f, 1.0f, 1.0f, 0.0f };
-    ReplayRibbonStyle m_replayMarkerStyle = { 1.5f, 1.0f, 1.0f, 0.0f };
-    float m_replaySelectedEmphasis = 0.45f;
-
-    // The first authoritative config application follows the same invalidation
-    // path as later live UI edits, even when its values match fallback defaults.
-    bool m_replayTrajectoryAppearanceInitialized = false;
-
-    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
-    std::vector<float> m_lineData;
-    std::vector<float> m_priorityLineData;
-    std::vector<float> m_renderLineData;
-    std::vector<float> m_replayRibbonSegments;                                                     // Packed 13-float replay segments before shader-side expansion.
-    std::vector<float> m_priorityReplayRibbonSegments;                                             // Retained yellow entry ribbon segments that survive path overflow.
-    std::vector<float> m_cachedReplayRibbonSegments;                                               // Previous frame's compact ordinary source used for exact reuse checks.
-    std::vector<float> m_cachedPriorityReplayRibbonSegments;                                       // Previous frame's compact priority source used for exact reuse checks.
-    std::vector<float> m_replayRibbonVertexData;                                                   // Ordinary packed 19-float adjacency vertices.
-    std::vector<float> m_priorityReplayRibbonVertexData;                                           // Priority packed vertices kept separate so ordinary appends never move them.
-    std::size_t m_expandedOrdinarySegmentCount = 0;
-    std::size_t m_expandedPrioritySegmentCount = 0;
-    bool m_replayRibbonCacheValid = false;                                                         // First packet seeds count-bearing hashes even when both lanes are empty.
-    SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats m_replaySubmissionStats;       // Frame-local submitted replay ribbon hash sampled after tracer render.
-    SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats m_cachedRibbonSubmissionStats; // Hash/count facts retained with the cached compact ribbon sources.
-    uint64_t m_replayGeometryRevision = 0;                                                         // Successful line/ribbon append serial for retained marker publication.
-
-    void EmitLineTo( std::vector<float>& lineData, const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r,
-                     float g, float bl );
-    void EmitLine( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float bl );
-    void EmitArrow( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float bl );
-    void EmitRing( const Math::Vector::Vector3& center, int axis, float radius, float r, float g, float bl );
-    void EmitSphereTo( std::vector<float>& lineData, const Math::Vector::Vector3& center, float radius, float r, float g,
-                       float bl );
-    void EmitSphere( const Math::Vector::Vector3& center, float radius, float r, float g, float bl );
-    void EmitBoxTo( std::vector<float>& lineData, const Math::Vector::Vector3& center, const Math::Vector::Vector3& xAxis,
-                    const Math::Vector::Vector3& yAxis, const Math::Vector::Vector3& zAxis, float r, float g, float bl );
-    void EmitBox( const Math::Vector::Vector3& center, const Math::Vector::Vector3& xAxis,
-                  const Math::Vector::Vector3& yAxis, const Math::Vector::Vector3& zAxis, float r, float g, float bl );
-    void EmitShapeOutlineTo( std::vector<float>& lineData, const Math::Vector::Vector3& position,
-                             const Math::Orientation::Quaternion& orientation,
-                             const Math::CollisionDetection::CollisionShapeReference& shape, float r, float g, float b );
-    void EmitShapeOutline( const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation,
-                           const Math::CollisionDetection::CollisionShapeReference& shape, float r, float g, float b );
-    void EmitReplayRibbonSegmentTo( std::vector<float>& ribbonData, const Math::Vector::Vector3& a,
-                                    const Math::Vector::Vector3& b, float r, float g, float bl,
-                                    const ReplayRibbonStyle& style,
-                                    SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane );
-    void EmitReplayRibbonGlowPairTo( std::vector<float>& ribbonData, const Math::Vector::Vector3& a,
-                                     const Math::Vector::Vector3& b, float r, float g, float bl,
-                                     const ReplayRibbonStyle& glow, const ReplayRibbonStyle& core,
-                                     SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane );
-    void EmitReplayRibbonShapeOutlineTo( std::vector<float>& ribbonData, const Math::Vector::Vector3& position,
-                                         const Math::Orientation::Quaternion& orientation,
-                                         const Math::CollisionDetection::CollisionShapeReference& shape, float r, float g,
-                                         float b, const ReplayRibbonStyle& style,
-                                         SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane );
-    void BuildReplayRibbonVertices( const Math::Vector::Vector3& cameraEye, const Math::Vector::Vector3& cameraUp );
-    SkullbonezCore::Core::MainMemoryReplayTrajectoryStats m_replayTrajectoryStats;                 // Frame-local replay ribbon counters sampled by replay composition.
-
-  public:
-    explicit EditorTracer( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics );
-
-    // Returns true when retained trajectory records must be rebuilt because
-    // their packed presentation values no longer match the active defaults.
-    bool SetReplayTrajectoryAppearance( const SkullbonezCore::Core::ReplayTrajectoryAppearanceConfig& appearance );
-    void Clear();
-
-    // Resets only the replay trajectory counters; callers use this before the
-    // replay pass so editor tool ribbons do not count as replay trajectory work.
-    void ClearReplayTrajectoryStats();
-
-    // Returns the current replay-pass counters without taking ownership.
-    const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& ReplayTrajectoryStats() const;
-    uint64_t ReplayGeometryRevision() const noexcept
-    {
-        return m_replayGeometryRevision;
-    }
-
-    // Records logical ribbon segments intentionally omitted by a caller-side
-    // quota before vertex emission, preserving lane-specific diagnostics.
-    void RecordReplayRibbonDroppedSegments( SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane,
-                                            std::size_t count = 1u );
-
-    // Prepares the exact frame-local spans later published by replay composition.
-    // Lifetime: returned spans borrow this tracer until its next Clear().
-    ReplayVisualPacket BuildReplayVisualPacket( const Math::Vector::Vector3& cameraEye,
-                                                const Math::Vector::Vector3& cameraUp );
-
-    // Invariant: replay path drawing budgets against ordinary ribbon slots
-    // before emitting segments, so the tracer's fixed reserve remains the
-    // single source of capacity truth.
-    std::size_t ReplayPathRibbonSegmentCapacityRemaining() const;
-    std::size_t ReplayPriorityRibbonSegmentCapacityRemaining() const;
-    void AddPlacementRay( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& hitPoint );
-    void AddPlacementGhost( int objectType, const Math::Vector::Vector3& center, const Math::Vector::Vector3& terrainPoint,
-                            const Math::Vector::Vector3& placementScale, const Math::Orientation::Quaternion& orientation,
-                            const Assets::AssetSystem& assets );
-    void AddRayCastTestLine( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float alpha, bool hit );
-    void AddReplayPathSegment( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float r, float g,
-                               float b,
-                               SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane = SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureRoot,
-                               float emphasis = 0.0f );
-    void AddReplayCausalTrailSegment( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float r, float g,
-                                      float b );
-
-    // Draws the cold baseline root path with its thinner comparison style. The
-    // presentation owner supplies color and bounded opacity so ordinary
-    // baselines retain their established style while teaching guides can fade.
-    void AddReplayBaselinePathSegment( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float r,
-                                       float g, float b, float opacity = 1.0f );
-    void AddReplayContactMarker( const Math::Vector::Vector3& point, const Math::Vector::Vector3& normal, float r, float g,
-                                 float b );
-    void AddReplayImpulseVector( const Math::Vector::Vector3& point, const Math::Vector::Vector3& impulse, float r, float g,
-                                 float b );
-
-    // Draws the yellow causal-entry outline: a predicted body's in-place pose
-    // at the prediction start (perfect formation for a wall brick). Pose comes
-    // from prediction samples, never from live model state.
-    void AddReplayCausalEntryMarker( const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation,
-                                     const Math::CollisionDetection::CollisionShapeReference& shape );
-
-    // Draws the grey causal-rest outline: a predicted body's final resting
-    // pose. Callers place it only when the completed prediction ends with the
-    // body at rest; bodies still moving at the horizon get no grey box.
-    void AddReplayCausalRestMarker( const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation,
-                                    const Math::CollisionDetection::CollisionShapeReference& shape );
-    void AddReplayCausalHorizonMarker( const Math::Vector::Vector3& position,
-                                       const Math::Orientation::Quaternion& orientation,
-                                       const Math::CollisionDetection::CollisionShapeReference& shape );
-
-    // Draws cold baseline entry/rest outlines from the retained old future.
-    // Callers pass explicit pose/shape; live model state is not consulted.
-    void AddReplayBaselineEntryMarker( const Math::Vector::Vector3& position,
-                                       const Math::Orientation::Quaternion& orientation,
-                                       const Math::CollisionDetection::CollisionShapeReference& shape );
-    void AddReplayBaselineRestMarker( const Math::Vector::Vector3& position,
-                                      const Math::Orientation::Quaternion& orientation,
-                                      const Math::CollisionDetection::CollisionShapeReference& shape );
-
-    // Draws a replay target marker from explicit store values. Replay may still
-    // resolve identity by model order, but marker geometry must not read legacy
-    // model-side body state.
-    void AddReplayTargetMarker( const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation,
-                                const Math::CollisionDetection::CollisionShapeReference& shape, float radius );
-    void AddAttachedCameraTargetMarker( const Math::Vector::Vector3& position,
-                                        const Math::Orientation::Quaternion& orientation,
-                                        const Math::CollisionDetection::CollisionShapeReference& shape, float radius,
-                                        bool activeFollow );
-
-    // Draws a shape-accurate outline from explicit pose/shape values. Replay
-    // velocity edit uses this so overlay drawing does not need legacy model-side
-    // body state.
-    void AddSelectionOutline( const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation,
-                              const Math::CollisionDetection::CollisionShapeReference& shape );
-    void AddGizmo( const Math::Vector::Vector3& origin, float radius, int hotTranslateAxis, int hotRotationAxis,
-                   int activeAxis, bool activeRotation, bool scaleMode, bool activeScale );
-    void AddReplayVelocityGizmo( const Math::Vector::Vector3& origin, const Math::Orientation::Quaternion& orientation,
-                                 const Math::CollisionDetection::CollisionShapeReference& shape, float radius,
-                                 const Math::Vector::Vector3& linearVelocity, const Math::Vector::Vector3& angularVelocity,
-                                 int hotLinearAxis, int hotAngularAxis, int activeAxis, bool activeAngular );
-    void Render( const ReplayVisualPacket& packet, const Math::Transformation::Matrix4& viewProjection,
-                 Rendering::Dx12GeometryOwner& renderCommands );
-};
-
 class RuntimeTools
 {
   public:
@@ -633,7 +279,7 @@ class RuntimeTools
     void AddRayCastTestLine( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, bool hit );
     void TickRayCastTestLines( float dt );
     bool HasLingeredRayCastLine( float maxAgeSeconds ) const;
-    bool HasSelectionOverlayWork( int modelCount, RunCameraMode cameraMode ) const;
+    bool HasSelectionOverlayWork( const ToolEditorOverlayValues& editor, int modelCount, RunCameraMode cameraMode ) const;
     bool HasMousePickupOverlayWork( const RuntimeInteractionGesture& gesture ) const;
     bool HasLauncherShots() const;
     const char* LauncherFireModeLabel() const;
@@ -661,8 +307,7 @@ class RuntimeTools
     bool PickLauncherReproTarget( const SceneWorld& world, int& outIndex, float& outRayT,
                                   float& outCrosshairDistance ) const;
     LauncherReproSnapshotStatus WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& context ) const;
-    LauncherReproSnapshotStatus WriteLauncherReproSnapshotWithStatusMessage( const LauncherReproSnapshotContext& context,
-                                                                             OverlayDebugState& debug ) const;
+    LauncherReproSnapshotResult WriteLauncherReproSnapshotWithStatusMessage( const LauncherReproSnapshotContext& context ) const;
 #endif
 
     LauncherLaser& Laser();
@@ -687,61 +332,22 @@ class RuntimeTools
                                       RuntimeInteractionController& interaction );
     void RestoreMousePickupAngularVelocity( SceneWorld& world, InputRouter& inputRouter,
                                             RuntimeInteractionController& interaction );
-    bool PrepareSelectionCommand( const RuntimeInteractionCommand& command, const SceneWorld& world,
-                                  RuntimeInteractionSelectionPlan& outPlan );
-    bool PrepareEditorPointerSelection( const EditorPointerSelectionInput& input, const SceneWorld& world,
-                                        RuntimeInteractionSelectionPlan& outPlan, WorldInteractionOwner& outOwner,
-                                        InteractionExitReason& outReason );
-    EditorPlacementScalePointerResult RouteEditorPlacementScalePointer( bool leftReleased, bool suppressWorldAction,
-                                                                        SceneWorld& world, SceneSessionState& scene,
-                                                                        Assets::AssetSystem& assets, int activeModelCapacity,
-                                                                        RuntimeInteractionController& interaction );
-    EditorGizmoDragPointerResult RouteEditorGizmoDragPointer( const EditorGizmoDragPointerInput& input, SceneWorld& world,
-                                                              RuntimeInteractionController& interaction );
-    void RecordEditorTransformHistory( SceneWorld& world, RuntimeGizmoDragKind gizmoKind, int selectedModelIndex );
-    void RecordEditorPlacementHistory( SceneWorld& world, int modelCountBefore, int modelCountAfter );
-    bool UndoEditorCommand( SceneWorld& world, SceneSessionState& scene );
-    bool RedoEditorCommand( SceneWorld& world, SceneSessionState& scene );
-    bool DuplicateEditorSelection( SceneWorld& world, SceneSessionState& scene );
-    bool DeleteEditorSelection( SceneWorld& world, SceneSessionState& scene );
-    void ClearEditorHistory();
-    bool PrepareEditorGizmoGesture( bool inspectGizmoActive, bool scaleMode, int selectedModelIndex, bool hasWorldRay,
-                                    const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection,
-                                    int clientX, int clientY, SceneWorld& world, RuntimeInteractionController& interaction,
-                                    EditorGizmoGesturePlan& outPlan );
-    EditorGizmoGestureResult CommitEditorGizmoGesture( const EditorGizmoGesturePlan& plan, SceneWorld& world,
-                                                       RuntimeInteractionController& interaction );
-    EditorPlacementScaleStartResult BeginEditorPlacementScalePointer( bool inspectGizmoActive, bool hasClientPosition,
-                                                                      int clientX, int clientY,
-                                                                      RuntimeInteractionController& interaction );
-    EditorViewportPlacementResult RouteEditorViewportPlacement( const EditorViewportPlacementInput& input );
-    bool CommitSelectionCommand( const RuntimeInteractionSelectionPlan& plan, RuntimeInteractionEvent& outEvent );
-    bool ApplySelectionCommand( const RuntimeInteractionCommand& command, const SceneWorld& world );
     void CancelMousePickup( InputRouter& inputRouter, RuntimeInteractionController& interaction );
-
-    RunEditorPlacementState& Editor();
-    const RunEditorPlacementState& Editor() const;
-    bool HasActiveEditorInteractionState( const RuntimeInteractionController& interaction ) const;
-    bool InspectGizmoInteractionActive( RunCameraMode cameraMode, bool replayInspectionActive ) const;
-    int RefreshEditorPointerPreview( const EditorPointerPreviewInput& input, SceneWorld& world,
-                                     RuntimeInteractionController& interaction, const Assets::AssetSystem& assets );
-    void ClearEditorInteractionForTransition( bool clearSelection, SceneWorld& world,
-                                              RuntimeInteractionController& interaction );
-    void ObserveSceneLifecycle( const SceneLifecyclePacket& packet, SceneWorld& world, InputRouter& inputRouter,
+    void ObserveSceneLifecycle( const SceneLifecyclePacket& packet, InputRouter& inputRouter,
                                 RuntimeInteractionController& interaction );
 
     EditorTracer& Tracer();
 
     // Rebuilds the fixed-capacity tool draw records before RuntimeRenderer
     // submits them. World/model/asset owners remain borrowed for this call.
-    void PrepareOverlayTrace( SceneWorld& world, const Assets::AssetSystem& assets, const ToolOverlayBuildInput& input );
+    void PrepareOverlayTrace( SceneWorld& world, const ToolEditorOverlayValues& editor,
+                              const ToolOverlayBuildInput& input );
 
   private:
     SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     RunRayCastTestState m_rayCastTest;
     LauncherLaser m_laser;
     RunMousePickupState m_mousePickup;
-    RunEditorPlacementState m_editor;
     EditorTracer m_editorTracer;
     SceneLifecycleGenerationObserver m_sceneLifecycleObserver;
 };

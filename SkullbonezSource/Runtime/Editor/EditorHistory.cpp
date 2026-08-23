@@ -21,11 +21,10 @@ Invariants:
     transforms remain explicitly unique.
 
 Related:
-  - SkullbonezSource/Runtime/Tools/EditorCommandHistory.h
+  - SkullbonezSource/Runtime/Editor/EditorCommandHistory.h
   - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
   - SkullbonezSource/Runtime/Scene/SceneWorld.cpp
 */
-#include "../Tools/RuntimeTools.h"
 
 #include "EditorTools.h"
 #include "../Scene/SceneControllerState.h"
@@ -354,7 +353,7 @@ bool ApplyHistoryEntry( SceneWorld& world, SceneSessionState& scene, const Edito
 } // namespace
 
 
-void RuntimeTools::RecordEditorTransformHistory( SceneWorld& world, RuntimeGizmoDragKind gizmoKind, int selectedModelIndex )
+void EditorToolsOwner::RecordEditorTransformHistory( SceneWorld& world, RuntimeGizmoDragKind gizmoKind, int selectedModelIndex )
 {
     if ( !m_editor.editorModeEnabled || selectedModelIndex < 0 )
     {
@@ -451,7 +450,7 @@ void RuntimeTools::RecordEditorTransformHistory( SceneWorld& world, RuntimeGizmo
 }
 
 
-void RuntimeTools::RecordEditorPlacementHistory( SceneWorld& world, int modelCountBefore, int modelCountAfter )
+void EditorToolsOwner::RecordEditorPlacementHistory( SceneWorld& world, int modelCountBefore, int modelCountAfter )
 {
     if ( !m_editor.editorModeEnabled || modelCountAfter <= modelCountBefore )
     {
@@ -473,7 +472,7 @@ void RuntimeTools::RecordEditorPlacementHistory( SceneWorld& world, int modelCou
 }
 
 
-bool RuntimeTools::UndoEditorCommand( SceneWorld& world, SceneSessionState& scene )
+bool EditorToolsOwner::UndoEditorCommand( SceneWorld& world, SceneSessionState& scene )
 {
     const EditorCommandEntry* entry = m_editor.history.PendingUndo();
     PhysicsBodyHandle body;
@@ -503,7 +502,7 @@ bool RuntimeTools::UndoEditorCommand( SceneWorld& world, SceneSessionState& scen
 }
 
 
-bool RuntimeTools::RedoEditorCommand( SceneWorld& world, SceneSessionState& scene )
+bool EditorToolsOwner::RedoEditorCommand( SceneWorld& world, SceneSessionState& scene )
 {
     const EditorCommandEntry* entry = m_editor.history.PendingRedo();
     PhysicsBodyHandle body;
@@ -533,7 +532,7 @@ bool RuntimeTools::RedoEditorCommand( SceneWorld& world, SceneSessionState& scen
 }
 
 
-bool RuntimeTools::DuplicateEditorSelection( SceneWorld& world, SceneSessionState& scene )
+bool EditorToolsOwner::DuplicateEditorSelection( SceneWorld& world, SceneSessionState& scene )
 {
     const int modelIndex = ResolveSelectedEditorModelIndex( m_editor, world.BodyStore() );
     EditorCommandEntry entry;
@@ -573,7 +572,7 @@ bool RuntimeTools::DuplicateEditorSelection( SceneWorld& world, SceneSessionStat
 }
 
 
-bool RuntimeTools::DeleteEditorSelection( SceneWorld& world, SceneSessionState& scene )
+bool EditorToolsOwner::DeleteEditorSelection( SceneWorld& world, SceneSessionState& scene )
 {
     const int modelIndex = ResolveSelectedEditorModelIndex( m_editor, world.BodyStore() );
     EditorCommandEntry entry;
@@ -597,7 +596,7 @@ bool RuntimeTools::DeleteEditorSelection( SceneWorld& world, SceneSessionState& 
 }
 
 
-void RuntimeTools::ClearEditorHistory()
+void EditorToolsOwner::ClearEditorHistory()
 {
     m_editor.history.Clear();
 }

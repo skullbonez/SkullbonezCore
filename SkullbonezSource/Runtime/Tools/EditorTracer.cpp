@@ -1,11 +1,11 @@
 /*
-File: SkullbonezSource/Runtime/Editor/EditorTracer.cpp
+File: SkullbonezSource/Runtime/Tools/EditorTracer.cpp
 Purpose:
-  Implements runtime editor overlay tracer primitives and draw submission.
+  Implements generic runtime overlay tracer primitives and draw submission.
 
 Summary:
-  The tracer turns editor/replay tool state into transient colored lines and
-  replay ribbons. A prediction-owned tracer may also retain append-only compact
+  The tracer turns detached geometry into transient colored lines and replay
+  ribbons. A prediction-owned tracer may also retain append-only compact
   ribbon chunks across frames; both forms observe state prepared elsewhere and
 
   do not mutate selection, physics, or replay ownership.
@@ -16,8 +16,6 @@ Glossary:
     collision-shape values supplied by the owning tool.
   Replay future marker: Shape-accurate downstream collision outline drawn at
     the latest visible predicted/retained pose, never from a broadphase radius substitute.
-  Placement ghost: Preview outline drawn before an editor placement commit; it
-    must match the primitive bodies that placement will actually spawn.
 
 Invariants:
   - Frame-local trace buffers are cleared every frame; the dedicated prediction
@@ -30,16 +28,12 @@ Invariants:
     buckets; overlay submission never borrows the prior pass's state.
 
 Related:
+  - SkullbonezSource/Runtime/Tools/EditorTracer.h
   - SkullbonezSource/Runtime/Tools/RuntimeTools.h
-  - SkullbonezSource/Runtime/Editor/EditorOverlayTools.h
-  - SkullbonezSource/Runtime/Editor/EditorPlacementAssets.h
-  - SkullbonezSource/Runtime/Editor/EditorTools.h
-  - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
   - Agentic/Reference/engine-glossary.md
 */
-#include "EditorPlacementAssets.h"
-#include "EditorTools.h"
-#include "../Tools/RuntimeTools.h"
+#include "EditorTracer.h"
+#include "../Replay/ReplayAuthoringPackets.h"
 #include "../../Physics/CollisionShape.h"
 #include "../../Physics/Ragdoll.h"
 #include "../../Core/Config.h"
@@ -60,10 +54,79 @@ using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::Ragdoll;
-using Json = SkullbonezCore::Runtime::EditorPlacementJson;
 
 namespace
 {
+Vector3 TraceAxisVector( int axis )
+{
+    if ( axis == 0 ) return Vector3( 1.0f, 0.0f, 0.0f );
+    if ( axis == 1 ) return Vector3( 0.0f, 1.0f, 0.0f );
+    if ( axis == 2 ) return Vector3( 0.0f, 0.0f, 1.0f );
+    return SkullbonezCore::Math::Vector::ZERO_VECTOR;
+}
+
+Vector3 TraceRingBasisA( int axis )
+{
+    if ( axis == 0 ) return Vector3( 0.0f, 1.0f, 0.0f );
+    if ( axis == 1 ) return Vector3( 0.0f, 0.0f, 1.0f );
+    return Vector3( 1.0f, 0.0f, 0.0f );
+}
+
+Vector3 TraceRingBasisB( int axis )
+{
+    if ( axis == 0 ) return Vector3( 0.0f, 0.0f, 1.0f );
+    if ( axis == 1 ) return Vector3( 1.0f, 0.0f, 0.0f );
+    return Vector3( 0.0f, 1.0f, 0.0f );
+}
+
+float TraceVelocityAxisComponent( const Vector3& value, int axis )
+{
+    return axis == 0 ? value.x : ( axis == 1 ? value.y : value.z );
+}
+
+float TraceVelocityLinearBaseLength( float radius )
+{
+    return (std::max)( 10.0f, radius + 7.0f );
+}
+
+float TraceVelocityLinearAxisT( float radius, float component )
+{
+    const float sign = component < 0.0f ? -1.0f : 1.0f;
+    const float heat = std::clamp( fabsf( component ) / SkullbonezCore::Runtime::REPLAY_VELOCITY_EDIT_LINEAR_MAX,
+                                   0.0f, 1.0f );
+    return sign * ( TraceVelocityLinearBaseLength( radius ) +
+                    heat * SkullbonezCore::Runtime::REPLAY_VELOCITY_EDIT_LINEAR_EXTRA );
+}
+
+float TraceVelocityAngularRadius( float radius, float component )
+{
+    const float heat = std::clamp( fabsf( component ) / SkullbonezCore::Runtime::REPLAY_VELOCITY_EDIT_ANGULAR_MAX,
+                                   0.0f, 1.0f );
+    return (std::max)( 11.0f, radius + 6.0f ) + heat * (std::max)( 5.0f, radius * 0.85f );
+}
+
+void TraceVelocityAxisColor( int axis, float heat, bool hot, bool active, float& r, float& g, float& b )
+{
+    r = axis == 0 ? 1.0f : 0.10f;
+    g = axis == 1 ? 0.95f : 0.16f;
+    b = axis == 2 ? 1.0f : 0.14f;
+    r = std::clamp( r + heat * 0.46f, 0.0f, 1.0f );
+    g = std::clamp( g + heat * 0.22f, 0.0f, 1.0f );
+    b = std::clamp( b - heat * 0.34f, 0.05f, 1.0f );
+    if ( hot || active )
+    {
+        r = (std::min)( 1.0f, r + 0.34f );
+        g = (std::min)( 1.0f, g + 0.34f );
+        b = (std::min)( 1.0f, b + 0.20f );
+    }
+    if ( active )
+    {
+        r = 1.0f;
+        g = 0.96f;
+        b = 0.18f;
+    }
+}
+
 constexpr std::size_t EDITOR_TRACER_LINE_FLOAT_CAPACITY = 262144;
 constexpr std::size_t EDITOR_TRACER_PRIORITY_LINE_FLOAT_CAPACITY = 524288;
 constexpr std::size_t EDITOR_TRACER_FLOATS_PER_LINE = 12;
@@ -404,8 +467,8 @@ void EditorTracer::EmitArrow( const Vector3& a, const Vector3& b, float r, float
 void EditorTracer::EmitRing( const Vector3& center, int axis, float radius, float r, float g, float bl )
 {
     constexpr int segments = 64;
-    const Vector3 basisA = EditorRotationRingBasisA( axis );
-    const Vector3 basisB = EditorRotationRingBasisB( axis );
+    const Vector3 basisA = TraceRingBasisA( axis );
+    const Vector3 basisB = TraceRingBasisB( axis );
     Vector3 previous = center + basisA * radius;
 
     for ( int i = 1; i <= segments; ++i )
@@ -962,175 +1025,26 @@ void EditorTracer::AddPlacementRay( const Vector3& rayOrigin, const Vector3& hit
     EmitLine( rayOrigin, hitPoint, 0.25f, 0.80f, 1.0f );
 }
 
-
-void EditorTracer::AddPlacementGhost( int objectType, const Vector3& center, const Vector3& terrainPoint,
-                                      const Vector3& placementScale, const Quaternion& orientation,
-                                      const Assets::AssetSystem& assets )
+void EditorTracer::AddLine( const Vector3& start, const Vector3& end, float r, float g, float b )
 {
-    const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
-    const Vector3 scale = EditorClampPlacementScale( type, placementScale );
-    Quaternion orientationCopy = orientation;
-    const RotationMatrix rotation = orientationCopy.GetOrientationMatrix();
-    constexpr float ghostR = 0.25f;
-    constexpr float ghostG = 1.0f;
-    constexpr float ghostB = 0.85f;
+    EmitLine( start, end, r, g, b );
+}
 
-    if ( const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type ) )
-    {
-        const Vector3 base = terrainPoint + rotation * Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
+void EditorTracer::AddBoxOutline( const Vector3& center, const Vector3& xAxis, const Vector3& yAxis,
+                                  const Vector3& zAxis, float r, float g, float b )
+{
+    EmitBox( center, xAxis, yAxis, zAxis, r, g, b );
+}
 
-        for ( int partIndex = 0; partIndex < tree->partCount; ++partIndex )
-        {
-            const EditorTreePartDefinition& part = tree->parts[partIndex];
-            const ConvexHullShape* hull = CachedEditorHullForAsset( m_resultDiagnostics, part.hullAsset );
+void EditorTracer::AddSphereOutline( const Vector3& center, float radius, float r, float g, float b )
+{
+    EmitSphere( center, radius, r, g, b );
+}
 
-            if ( !hull )
-            {
-                continue;
-            }
-
-            const Vector3 hullCenter = base + rotation * ( Vector3( part.offsetX, part.offsetY, part.offsetZ ) +
-                                                           HullAuthoredLocalOffset( *hull ) );
-
-            for ( uint16_t edgeIndex = 0; edgeIndex < hull->GetEdgeCount(); ++edgeIndex )
-            {
-                const ConvexHullEdge& edge = hull->GetEdge( edgeIndex );
-                EmitLine( hullCenter + rotation * hull->GetVertex( edge.vertexA ),
-                          hullCenter + rotation * hull->GetVertex( edge.vertexB ), ghostR, ghostG, ghostB );
-            }
-        }
-
-        return;
-    }
-
-    if ( EditorBuildingDefinitionForType( type ) )
-    {
-        const Vector3 base = terrainPoint + rotation * Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
-        ForEachEditorBuildingPart( type, assets,
-                                   [&]( const Json& part )
-                                   {
-                                       const Vector3 offset = EditorJsonVec3Or( part, "offset",
-                                                                                Vector3( 0.0f, 0.0f, 0.0f ) );
-
-                                       const Quaternion partOrientation = EditorBuildingPartOrientation( orientation, part );
-
-                                       Quaternion partCopy = partOrientation;
-                                       const RotationMatrix partRotation = partCopy.GetOrientationMatrix();
-                                       const Vector3 bodyCenter = base + rotation * offset;
-                                       const std::string primitiveType = EditorAssetPrimitiveType( part );
-
-                                       if ( primitiveType == "convexHull" )
-                                       {
-                                           const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
-                                           const ConvexHullShape* hull = hullPath.empty()
-                                                                             ? nullptr
-                                                                             : CachedEditorBuildingHull( m_resultDiagnostics,
-                                                                                                         hullPath );
-
-                                           if ( !hull )
-                                           {
-                                               return;
-                                           }
-
-                                           const Vector3 hullCenter = bodyCenter +
-                                                                      partRotation * ( hull->GetAuthoredCenterOfMass() +
-                                                                                       hull->GetPosition() );
-
-                                           for ( uint16_t edgeIndex = 0; edgeIndex < hull->GetEdgeCount(); ++edgeIndex )
-                                           {
-                                               const ConvexHullEdge& edge = hull->GetEdge( edgeIndex );
-                                               EmitLine( hullCenter + partRotation * hull->GetVertex( edge.vertexA ),
-                                                         hullCenter + partRotation * hull->GetVertex( edge.vertexB ), ghostR,
-                                                         ghostG, ghostB );
-                                           }
-
-                                           return;
-                                       }
-
-                                       if ( primitiveType == "box" )
-                                       {
-                                           Vector3 halfExtents;
-
-                                           if ( !TryReadEditorBoxHalfExtents( part, halfExtents ) )
-                                           {
-                                               return;
-                                           }
-
-                                           EmitBox( bodyCenter, partRotation * Vector3( halfExtents.x, 0.0f, 0.0f ),
-                                                    partRotation * Vector3( 0.0f, halfExtents.y, 0.0f ),
-                                                    partRotation * Vector3( 0.0f, 0.0f, halfExtents.z ), ghostR, ghostG,
-                                                    ghostB );
-
-                                           return;
-                                       }
-
-                                       if ( primitiveType == "sphere" )
-                                       {
-                                           float radius = 0.0f;
-
-                                           if ( TryReadEditorSphereRadius( part, radius ) )
-                                           {
-                                               EmitSphere( bodyCenter, radius, ghostR, ghostG, ghostB );
-                                           }
-                                       }
-                                   } );
-
-        return;
-    }
-
-    if ( const EditorHouseDefinition* house = EditorHouseDefinitionForType( type ) )
-    {
-        const Vector3 base = terrainPoint + rotation * Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
-
-        for ( int partIndex = 0; partIndex < house->partCount; ++partIndex )
-        {
-            const EditorHousePartDefinition& part = house->parts[partIndex];
-            const Vector3 partCenter = base + rotation * Vector3( part.offsetX, part.offsetY, part.offsetZ );
-            EmitBox( partCenter, rotation * Vector3( part.halfX, 0.0f, 0.0f ), rotation * Vector3( 0.0f, part.halfY, 0.0f ),
-                     rotation * Vector3( 0.0f, 0.0f, part.halfZ ), ghostR, ghostG, ghostB );
-        }
-
-        return;
-    }
-
-    switch ( type )
-    {
-    case SkullbonezCore::UI::EditorTab::OBJECT_BOX:
-        EmitBox( center, rotation * Vector3( scale.x, 0.0f, 0.0f ), rotation * Vector3( 0.0f, scale.y, 0.0f ),
-                 rotation * Vector3( 0.0f, 0.0f, scale.z ), ghostR, ghostG, ghostB );
-
-        break;
-    case SkullbonezCore::UI::EditorTab::OBJECT_BALL:
-        EmitSphere( center, scale.x, ghostR, ghostG, ghostB );
-        break;
-    case SkullbonezCore::UI::EditorTab::OBJECT_SPHERE:
-        EmitSphere( center, scale.x, ghostR, ghostG, ghostB );
-        break;
-    case SkullbonezCore::UI::EditorTab::OBJECT_RAGDOLL:
-    case SkullbonezCore::UI::EditorTab::OBJECT_RAGDOLL_SLEEP:
-        Ragdoll::AddPreviewLines( m_lineData, terrainPoint, scale.x, orientation, ghostR, ghostG, ghostB );
-        break;
-    default:
-    {
-        ConvexHullShape hull;
-
-        if ( !TryBuildScaledEditorHullForType( m_resultDiagnostics, type, scale, hull ) )
-        {
-            return;
-        }
-
-        const Vector3 hullCenter = center + rotation * hull.GetPosition();
-
-        for ( uint16_t edgeIndex = 0; edgeIndex < hull.GetEdgeCount(); ++edgeIndex )
-        {
-            const ConvexHullEdge& edge = hull.GetEdge( edgeIndex );
-            EmitLine( hullCenter + rotation * hull.GetVertex( edge.vertexA ),
-                      hullCenter + rotation * hull.GetVertex( edge.vertexB ), ghostR, ghostG, ghostB );
-        }
-
-        break;
-    }
-    }
+void EditorTracer::AddRagdollOutline( const Vector3& center, float scale, const Quaternion& orientation, float r,
+                                      float g, float b )
+{
+    Ragdoll::AddPreviewLines( m_lineData, center, scale, orientation, r, g, b );
 }
 
 
@@ -1302,7 +1216,7 @@ void EditorTracer::AddGizmo( const Vector3& origin, float radius, int hotTransla
     // Concept: Translate and scale share axis lines, while rotate owns rings.
     // Keeping both in one tracer method makes hover/active color priority
     // identical for editor placement and replay velocity overlays.
-    const float length = EditorGizmoAxisLength( radius );
+    const float length = (std::max)( 14.0f, radius + 12.0f );
 
     for ( int axis = 0; axis < 3; ++axis )
     {
@@ -1323,7 +1237,7 @@ void EditorTracer::AddGizmo( const Vector3& origin, float radius, int hotTransla
             b = (std::min)( 1.0f, b + 0.45f );
         }
 
-        const Vector3 axisVector = EditorAxisVector( axis );
+        const Vector3 axisVector = TraceAxisVector( axis );
         const Vector3 endpoint = origin + axisVector * length;
 
         if ( scaleMode || activeScale )
@@ -1344,7 +1258,7 @@ void EditorTracer::AddGizmo( const Vector3& origin, float radius, int hotTransla
         return;
     }
 
-    const float ringRadius = EditorGizmoRotationRadius( radius );
+    const float ringRadius = (std::max)( 12.0f, radius + 7.0f );
 
     for ( int axis = 0; axis < 3; ++axis )
     {
@@ -1377,21 +1291,21 @@ void EditorTracer::AddReplayVelocityGizmo( const Vector3& origin, const Quaterni
 {
     AddSelectionOutline( origin, orientation, shape );
 
-    const float baseLength = ReplayVelocityLinearBaseLength( radius );
+    const float baseLength = TraceVelocityLinearBaseLength( radius );
 
     for ( int axis = 0; axis < 3; ++axis )
     {
-        const Vector3 axisVector = EditorAxisVector( axis );
-        const float component = ReplayVelocityAxisComponent( linearVelocity, axis );
+        const Vector3 axisVector = TraceAxisVector( axis );
+        const float component = TraceVelocityAxisComponent( linearVelocity, axis );
         const float heat = std::clamp( fabsf( component ) / REPLAY_VELOCITY_EDIT_LINEAR_MAX, 0.0f, 1.0f );
         const bool hot = hotLinearAxis == axis;
         const bool active = !activeAngular && activeAxis == axis;
         float r = 0.0f;
         float g = 0.0f;
         float b = 0.0f;
-        ReplayVelocityAxisColor( axis, heat, hot, active, r, g, b );
+        TraceVelocityAxisColor( axis, heat, hot, active, r, g, b );
 
-        const float axisT = ReplayVelocityLinearVisualAxisT( radius, component );
+        const float axisT = TraceVelocityLinearAxisT( radius, component );
         const Vector3 endpoint = origin + axisVector * axisT;
         EmitLine( origin - axisVector * ( baseLength * 0.24f ), origin + axisVector * ( baseLength * 0.24f ), r * 0.34f,
                   g * 0.34f, b * 0.34f );
@@ -1401,15 +1315,15 @@ void EditorTracer::AddReplayVelocityGizmo( const Vector3& origin, const Quaterni
 
     for ( int axis = 0; axis < 3; ++axis )
     {
-        const float component = ReplayVelocityAxisComponent( angularVelocity, axis );
+        const float component = TraceVelocityAxisComponent( angularVelocity, axis );
         const float heat = std::clamp( fabsf( component ) / REPLAY_VELOCITY_EDIT_ANGULAR_MAX, 0.0f, 1.0f );
         const bool hot = hotAngularAxis == axis;
         const bool active = activeAngular && activeAxis == axis;
         float r = 0.0f;
         float g = 0.0f;
         float b = 0.0f;
-        ReplayVelocityAxisColor( axis, heat, hot, active, r, g, b );
-        EmitRing( origin, axis, ReplayVelocityAngularVisualRadius( radius, component ), r, g, b );
+        TraceVelocityAxisColor( axis, heat, hot, active, r, g, b );
+        EmitRing( origin, axis, TraceVelocityAngularRadius( radius, component ), r, g, b );
     }
 }
 

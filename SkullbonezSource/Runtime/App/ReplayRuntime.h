@@ -136,6 +136,7 @@ namespace Runtime
 class ReplayRuntime;
 class InputRouter;
 class RuntimeTools;
+class EditorToolsOwner;
 class SceneController;
 class SceneWorld;
 class AttachedCameraController;
@@ -207,7 +208,8 @@ class ReplayProbeRunner
                                                              ReplayPresentation& presentation, ReplayAuthoring& authoring,
                                                              ReplayPrediction& prediction,
                                                              const ReplayStartupLoadInput& loadInput, SceneWorld& world,
-                                                             RuntimeTools& runtimeTools, float normalized );
+                                                             EditorToolsOwner& editorTools, RuntimeTools& runtimeTools,
+                                                             float normalized );
     SkullbonezCore::Core::SbResult PrepareCheckpointFileProbe( const char* path, ReplaySolverFrameSample& outCheckpoint,
                                                                ReplayV2SolverCheckpointLoadResult& outLoadResult );
     SkullbonezCore::Core::SbResult CompleteCheckpointFileProbe( const char* path, const ReplaySolverFrameSample& checkpoint,
@@ -366,7 +368,7 @@ class ReplayRuntime
     // invariant. SceneController is borrowed as the concrete scene/session
     // owner; the focused restore phases retain no participant pointer.
     bool RestoreV2ArtifactTargetState( ReplayRestoreTransaction& transaction, const ReplayLiveRestoreRequest& request,
-                                       SceneController& sceneController, OverlayDebugState& debug,
+                                       SceneController& sceneController, OverlayDebugState& debug, EditorToolsOwner& editorTools,
                                        RuntimeTools& runtimeTools, SimulationSystem& simulation,
                                        const SkullbonezCore::Core::EngineConfig& config, Assets::AssetSystem& assets,
                                        Threading::WorkerPool& workerPool,
@@ -389,7 +391,8 @@ class ReplayRuntime
 #ifdef _DEBUG
     // Debug probes use the production phase transaction and receive concrete
     // owners only for the synchronous operation that needs them.
-    ReplayProbeTickResult TickProbes( SceneController& sceneController, OverlayDebugState& debug, RuntimeTools& runtimeTools,
+    ReplayProbeTickResult TickProbes( SceneController& sceneController, OverlayDebugState& debug,
+                                      EditorToolsOwner& editorTools, RuntimeTools& runtimeTools,
                                       const SkullbonezCore::Core::EngineConfig& config, Assets::AssetSystem& assets,
                                       const ReplaySceneTimelineResetInput& timelineReset,
                                       DiagnosticsRuntime& diagnosticsRuntime, InputRouter& inputRouter,
@@ -449,7 +452,8 @@ class ReplayRuntime
 #ifdef _DEBUG
                                              ,
                                              SceneController& sceneController, DiagnosticsRuntime& diagnosticsRuntime,
-                                             OverlayDebugState& debug, RuntimeTools& runtimeTools,
+                                             OverlayDebugState& debug, EditorToolsOwner& editorTools,
+                                             RuntimeTools& runtimeTools,
                                              SimulationSystem& simulation, const SkullbonezCore::Core::EngineConfig& config,
                                              Assets::AssetSystem& assets, Threading::WorkerPool& workerPool,
                                              SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
@@ -580,7 +584,8 @@ class ReplayRuntime
     ReplayStartupResult RunStartupProbeWorkflows( const ReplayStartupWorkflowState& startup,
                                                   const ReplayStartupLoadInput& loadInput, SceneController& sceneController,
                                                   DiagnosticsRuntime& diagnosticsRuntime, OverlayDebugState& debug,
-                                                  RuntimeTools& runtimeTools, SimulationSystem& simulation,
+                                                  EditorToolsOwner& editorTools, RuntimeTools& runtimeTools,
+                                                  SimulationSystem& simulation,
                                                   const SkullbonezCore::Core::EngineConfig& config,
                                                   Assets::AssetSystem& assets, Threading::WorkerPool& workerPool,
                                                   SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,

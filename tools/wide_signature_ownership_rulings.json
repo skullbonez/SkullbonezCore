@@ -194,7 +194,7 @@
       "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {
-      "file": "SkullbonezSource/Runtime/Editor/MousePickupTools.cpp",
+      "file": "SkullbonezSource/Runtime/Tools/MousePickupTools.cpp",
       "signature": "MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const RuntimePointerEvent& pointer, bool hasWorldRay, const Vector3& rayOrigin, const Vector3& rayDirection, bool hasClampedWorldRay, const Vector3& clampedRayOrigin, const Vector3& clampedRayDirection, const Vector3& cameraEye, const Vector3& cameraView, const SceneWorld& world, InputRouter& inputRouter, RuntimeInteractionController& interaction )",
       "owner": "RuntimeTools mouse-pick gesture",
       "disposition": "retain-owner",

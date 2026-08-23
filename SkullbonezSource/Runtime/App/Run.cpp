@@ -292,7 +292,8 @@ Run::Run( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Window& wi
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
       m_interactionAutomation( resultDiagnostics ),
 #endif
-      m_replayRuntime( resultDiagnostics, profiler ), m_continuousForecast( profiler ), m_runtimeTools( resultDiagnostics ),
+      m_replayRuntime( resultDiagnostics, profiler ), m_continuousForecast( profiler ), m_editorTools( resultDiagnostics ),
+      m_runtimeTools( resultDiagnostics ),
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
       m_imguiEditor( resultDiagnostics ),
 #endif
@@ -562,7 +563,7 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
                                                           m_sceneController.CurrentPath()
                                                               ? m_sceneController.CurrentPath()->c_str()
                                                               : nullptr,
-                                                          m_runtimeTools, replay, m_interaction, m_camera, *m_operatorUi,
+                                                          m_editorTools, m_runtimeTools, replay, m_interaction, m_camera, *m_operatorUi,
                                                           Renderer().FrameGraphSnapshot() );
     }
 
@@ -753,7 +754,7 @@ void Run::Initialise()
                                     m_overlaySceneLifecycleObserver, m_sceneController,
                                     m_inputSceneLifecycleObserver, m_inputRouter, m_interaction,
                                     m_cameraSceneLifecycleObserver, m_camera,
-                                    m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_runtimeTools,
+                                    m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_editorTools, m_runtimeTools,
                                     m_replayRuntime );
 
     ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_launchOptions,
@@ -800,7 +801,8 @@ void Run::Initialise()
     RuntimeOverlayPresentationEdit presentationEdit = m_overlayDiagnostics->EditPresentation();
     const ReplayStartupResult replayStartup = m_replayRuntime.RunStartupWorkflows( loadInput, m_sceneController,
                                                                                    m_diagnosticsRuntime,
-                                                                                   presentationEdit.State(), m_runtimeTools,
+                                                                                   presentationEdit.State(), m_editorTools,
+                                                                                   m_runtimeTools,
                                                                                    m_simulation, m_config, m_assets,
                                                                                    m_workerPool, sceneOverrides,
                                                                                    generatedObjectTypeOverride );
@@ -935,7 +937,7 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
                                         m_overlaySceneLifecycleObserver, m_sceneController,
                                         m_inputSceneLifecycleObserver, m_inputRouter, m_interaction,
                                         m_cameraSceneLifecycleObserver, m_camera,
-                                        m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_runtimeTools,
+                                        m_attachedCameraSceneLifecycleObserver, m_attachedCamera, m_editorTools, m_runtimeTools,
                                         m_replayRuntime );
 
         ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_launchOptions,

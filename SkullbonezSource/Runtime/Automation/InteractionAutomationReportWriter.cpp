@@ -1285,7 +1285,7 @@ ReplayVisualArchiveSample SkullbonezCore::Runtime::InteractionAutomationReportWr
 
 
 SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( InteractionAutomationRunStatus& status, const char* scriptPath, const SceneWorld& world, const SceneSessionState& scene,
-                                                                                                  const char* scenePath, const RuntimeTools& runtimeTools, const ReplayAutomationView& replay,
+                                                                                                  const char* scenePath, const EditorToolsOwner& editorTools, const RuntimeTools& runtimeTools, const ReplayAutomationView& replay,
                                                                                                   const RuntimeInteractionController& interaction, const CameraControlState& camera, const UI::InGameUI& ui,
                                                                                                   const Rendering::RenderSceneSnapshot& renderSnapshot )
 {
@@ -1554,7 +1554,7 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
                                               { "detail", row.detail } } );
     }
 
-    const int selectedIndex = PeekSelectedEditorModelIndex( runtimeTools.Editor(), world.BodyStore() );
+    const int selectedIndex = PeekSelectedEditorModelIndex( editorTools.Editor(), world.BodyStore() );
     const char* selectedName = "";
 
     if ( selectedIndex >= 0 && selectedIndex < world.SceneEntityCount() )
@@ -1563,8 +1563,8 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
     }
 
     const bool gizmoVisible = selectedIndex >= 0 &&
-                              ( runtimeTools.Editor().editorModeEnabled ||
-                                runtimeTools.InspectGizmoInteractionActive( camera.mode, replay.input.inspectionActive ) );
+                              ( editorTools.Editor().editorModeEnabled ||
+                                editorTools.InspectGizmoInteractionActive( camera.mode, replay.input.inspectionActive ) );
 
     const bool replayPastPathVisible = replay.path.hasTarget && replay.path.pastPathVisible;
     const std::size_t predictionVisibleFrameCount = VisiblePredictionFrameCount( replay );

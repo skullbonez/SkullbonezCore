@@ -80,7 +80,7 @@ JSON_COLD_BOUNDARY_TRANSLATION_UNITS = frozenset(
         "Runtime/Editor/EditorInteractionTools.cpp",
         "Runtime/Editor/EditorObjectPlacement.cpp",
         "Runtime/Editor/EditorPlacementAssets.cpp",
-        "Runtime/Editor/EditorTracer.cpp",
+        "Runtime/Editor/EditorOverlayTools.cpp",
         "Runtime/Automation/InteractionAutomationController.cpp",
         # Recorder parses no gameplay data; it emits the final manifest only
         # during the Diagnostics-owned stop/save publication boundary.
@@ -535,16 +535,16 @@ RUNTIME_EDITOR_PREFIXES = (
     "EditorTerrainOrientation",
     "EditorTools",
     "EditorOverlayTools",
-    "EditorTracer",
+    "EditorCommandHistory",
     "ImGuiEditorCausalityProjection",
     "ImGuiEditorLayoutPolicy",
-    "LauncherTools",
-    "MousePickupTools",
 )
 
 RUNTIME_TOOLS_PREFIXES = (
-    "EditorCommandHistory",
+    "EditorTracer",
     "LauncherLaser",
+    "LauncherTools",
+    "MousePickupTools",
     "RuntimeFileWriter",
     "RuntimeTools",
 )

@@ -468,7 +468,8 @@ void RecordSceneUIActions( const SceneUICommandSubmissionResult& commands, Recor
 // frame before mapped keyboard commands run. The returned commands are fixed
 // value records; no callback retains access to the application shell.
 RuntimeUIFrameResult BeginRuntimeUIFrame( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, Window& window,
-                                          InputRouter& inputRouter, CameraControlState& camera, RuntimeTools& runtimeTools,
+                                           InputRouter& inputRouter, CameraControlState& camera, EditorToolsOwner& editorTools,
+                                           RuntimeTools& runtimeTools,
                                           AttachedCameraController& attachedCamera,
                                           RuntimeInteractionController& interaction, SkullbonezCore::UI::InGameUI& ui,
                                           RuntimeFrameMetricsOwner& timers, SceneController& sceneController,
@@ -487,10 +488,10 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( SkullbonezCore::Core::SbDiagnosticStor
                                                                                             ui.InputOverride() );
 
     InGameUIInputResult UIResult = ui.UpdateInput( uiInput, window.ClientWidth(), window.ClientHeight(),
-                                                   timers.SimulationTotalSeconds(), runtimeTools.Editor().editorModeEnabled,
-                                                   runtimeTools.Editor().placementModeEnabled,
-                                                   runtimeTools.Editor().placeStaticObject,
-                                                   runtimeTools.Editor().autoTerrainAlign, static_cast<int>( camera.mode ),
+                                                   timers.SimulationTotalSeconds(), editorTools.Editor().editorModeEnabled,
+                                                   editorTools.Editor().placementModeEnabled,
+                                                   editorTools.Editor().placeStaticObject,
+                                                   editorTools.Editor().autoTerrainAlign, static_cast<int>( camera.mode ),
                                                    facts.cameraModeEnabledMask );
 
     switch ( UIResult.nativeMouseCapture )
@@ -539,7 +540,7 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( SkullbonezCore::Core::SbDiagnosticStor
                                                     facts.gameUiActive, result.editorUnhandledWheelDelta, replayPointerRay,
                                                     facts.replayCurrentCameraMode, facts.replayRestoreCameraMode,
                                                     attachedCamera.State().activeFollow, camera.director.grabbed,
-                                                    runtimeTools.Editor().editorModeEnabled,
+                                                    editorTools.Editor().editorModeEnabled,
                                                     sceneController.State().isScenePhysics, ui.IsVisible(), ui.IsMinimized(),
                                                     inputRouter.DeviceFrame().keys.IsDown( VK_SPACE ), window.ClientWidth(),
                                                     window.ClientHeight(), camera.mouseRadiansPerPixel,
@@ -566,6 +567,7 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
     InputRouter& inputRouter = m_inputRouter;
     RuntimeInputContext& runtimeInput = inputRouter.RuntimeContext();
     CameraControlState& camera = m_camera;
+    EditorToolsOwner& editorTools = m_editorTools;
     RuntimeTools& runtimeTools = m_runtimeTools;
     AttachedCameraController& attachedCamera = m_attachedCamera;
     RuntimeInteractionController& interaction = m_interaction;
@@ -781,7 +783,7 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
     const auto updateInputMode = [&]( RuntimeInputAction action, RuntimeInputActionSource source )
     {
         InputController::ApplyModeAction( runtimeInput,
-                                          InputController::ResolveMode( BuildRuntimeInputModeState( camera.mode, runtimeTools.Editor(),
+                                          InputController::ResolveMode( BuildRuntimeInputModeState( camera.mode, editorTools.Editor(),
                                                                                                     interaction.Gesture(),
                                                                                                     attachedCamera.State().activeFollow,
                                                                                                     camera.director.grabbed ) ),
@@ -795,21 +797,21 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
     {
         result.enterInteractiveScene = true;
 
-        const EditorPlacementModeChangeResult placementMode = toggle ? ToggleEditorPlacementMode( runtimeTools.Editor(),
+        const EditorPlacementModeChangeResult placementMode = toggle ? ToggleEditorPlacementMode( editorTools.Editor(),
                                                                                                   interaction )
-                                                                     : SetEditorPlacementMode( runtimeTools.Editor(),
+                                                                     : SetEditorPlacementMode( editorTools.Editor(),
                                                                                                interaction, true, false );
 
-        inputRouter.SetWorldInteractionOwner( placementMode.worldOwner, InteractionExitReason::EnterEdit, runtimeTools,
+        inputRouter.SetWorldInteractionOwner( placementMode.worldOwner, InteractionExitReason::EnterEdit, editorTools, runtimeTools,
                                               interaction, attachedCamera, camera, sceneController, replayRuntime,
                                               facts.replayRestoreCameraMode );
 
-        if ( inputRouter.ReleasePointerToUi( EvaluateRuntimePointerPresentation( inputRouter, runtimeTools.Editor(), replayRuntime.BuildInputView() ) ) )
+        if ( inputRouter.ReleasePointerToUi( EvaluateRuntimePointerPresentation( inputRouter, editorTools.Editor(), replayRuntime.BuildInputView() ) ) )
         {
             InputController::ResetMouseLook( camera );
         }
 
-        inputRouter.ApplyPointerPresentation( EvaluateRuntimePointerPresentation( inputRouter, runtimeTools.Editor(), replayRuntime.BuildInputView() ) );
+        inputRouter.ApplyPointerPresentation( EvaluateRuntimePointerPresentation( inputRouter, editorTools.Editor(), replayRuntime.BuildInputView() ) );
 
         updateInputMode( RuntimeInputAction::ToggleEditorTool, RuntimeInputActionSource::UI );
     };
@@ -818,18 +820,18 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
     {
         result.enterInteractiveScene = true;
 
-        const bool enteringEditor = !runtimeTools.Editor().editorModeEnabled;
+        const bool enteringEditor = !editorTools.Editor().editorModeEnabled;
 
         if ( enteringEditor )
         {
             const RuntimeInteractionTransition editorTransition = interaction.EnterEdit();
-            inputRouter.ApplyInteractionTransition( editorTransition, runtimeTools, interaction, attachedCamera, camera,
+            inputRouter.ApplyInteractionTransition( editorTransition, editorTools, runtimeTools, interaction, attachedCamera, camera,
                                                     sceneController, replayRuntime, facts.replayRestoreCameraMode );
 
             const bool wasFlyMode = RunCameraModeUsesFlyControls( camera.mode, attachedCamera.State().activeFollow,
                                                                   camera.director.grabbed );
 
-            EnterEditorModeState( runtimeTools.Editor(), interaction,
+            EnterEditorModeState( editorTools.Editor(), interaction,
                                   NormalizeRuntimeCameraMode( camera.mode, sceneController.State().isSceneMode,
                                                               facts.cameraModeEnabledMask ) );
 
@@ -839,7 +841,7 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
             if ( !wasFlyMode )
             {
                 EnterFlyModeCamera( inputRouter, camera, sceneController.Scene().Cameras(),
-                                    sceneController.State().isSceneMode, runtimeTools.Editor(),
+                                    sceneController.State().isSceneMode, editorTools.Editor(),
                                     replayRuntime.BuildInputView() );
             }
             else
@@ -849,18 +851,18 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
         }
         else
         {
-            const RunCameraMode restoreMode = NormalizeRuntimeCameraMode( runtimeTools.Editor().restoreCameraModeAfterEditor,
+            const RunCameraMode restoreMode = NormalizeRuntimeCameraMode( editorTools.Editor().restoreCameraModeAfterEditor,
                                                                           sceneController.State().isSceneMode,
                                                                           facts.cameraModeEnabledMask );
 
             const RuntimeInteractionTransition restoreTransition = EnterInteractionForCameraMode( interaction, restoreMode );
-            inputRouter.ApplyInteractionTransition( restoreTransition, runtimeTools, interaction, attachedCamera, camera,
+            inputRouter.ApplyInteractionTransition( restoreTransition, editorTools, runtimeTools, interaction, attachedCamera, camera,
                                                     sceneController, replayRuntime, facts.replayRestoreCameraMode );
 
             const bool wasFlyMode = RunCameraModeUsesFlyControls( camera.mode, attachedCamera.State().activeFollow,
                                                                   camera.director.grabbed );
 
-            ExitEditorModeState( runtimeTools.Editor(), interaction );
+            ExitEditorModeState( editorTools.Editor(), interaction );
             camera.mode = restoreMode;
 
             if ( wasFlyMode &&
@@ -875,7 +877,7 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
             }
         }
 
-        inputRouter.ApplyPointerPresentation( EvaluateRuntimePointerPresentation( inputRouter, runtimeTools.Editor(), replayRuntime.BuildInputView() ) );
+        inputRouter.ApplyPointerPresentation( EvaluateRuntimePointerPresentation( inputRouter, editorTools.Editor(), replayRuntime.BuildInputView() ) );
 
         updateInputMode( RuntimeInputAction::ToggleEditor, source );
     };
@@ -890,12 +892,12 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
     if ( operatorAcceptance.cameraModeAccepted )
     {
         inputRouter.ApplyCameraMode( static_cast<RunCameraMode>( operatorAcceptance.cameraModeIndex ),
-                                     RuntimeInputActionSource::UI, runtimeTools, interaction, attachedCamera, camera,
+                                     RuntimeInputActionSource::UI, editorTools, runtimeTools, interaction, attachedCamera, camera,
                                      sceneController, replayRuntime, runtimeInput );
     }
 
     const EditorPlacementPreModeUICommandResult
-        editorPreModeCommands = ApplyEditorPlacementPreModeUICommands( runtimeTools.Editor(), interaction,
+        editorPreModeCommands = ApplyEditorPlacementPreModeUICommands( editorTools.Editor(), interaction,
                                                                        uiCommands.editor );
 
     if ( editorPreModeCommands.setPlaceStatic )
@@ -926,7 +928,7 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
     }
 
     const EditorPlacementPostModeUICommandResult
-        editorPostModeCommands = ApplyEditorPlacementPostModeUICommands( runtimeTools.Editor(), interaction,
+        editorPostModeCommands = ApplyEditorPlacementPostModeUICommands( editorTools.Editor(), interaction,
                                                                          uiCommands.editor );
 
     if ( editorPostModeCommands.toggledPlaceStatic )
@@ -943,7 +945,7 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
 
     SceneWorld& editorWorld = sceneController.Scene();
 
-    if ( uiCommands.editor.requestSelectSceneObject && runtimeTools.Editor().editorModeEnabled )
+    if ( uiCommands.editor.requestSelectSceneObject && editorTools.Editor().editorModeEnabled )
     {
         PhysicsSceneObjectId sceneObjectId;
         sceneObjectId.value = uiCommands.editor.requestedSceneObjectId;
@@ -958,7 +960,7 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
             command.collider = editorWorld.Colliders().HandleForSceneObjectId( sceneObjectId );
             command.claimSelectionOwner = false;
 
-            if ( runtimeTools.ApplySelectionCommand( command, editorWorld ) )
+            if ( editorTools.ApplySelectionCommand( command, editorWorld ) )
             {
                 result.enterInteractiveScene = true;
             }
@@ -968,7 +970,7 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
     // Invariant: hierarchy metadata is a live editor concern. Typed secondary
     // commands cannot mutate scene presentation or edit locks while play mode
     // owns the frame, even if a stale packet crosses the mode transition.
-    if ( uiCommands.editor.requestSetEntityVisible && runtimeTools.Editor().editorModeEnabled )
+    if ( uiCommands.editor.requestSetEntityVisible && editorTools.Editor().editorModeEnabled )
     {
         PhysicsSceneObjectId sceneObjectId;
         sceneObjectId.value = uiCommands.editor.visibilitySceneObjectId;
@@ -977,7 +979,7 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
                                        result.enterInteractiveScene;
     }
 
-    if ( uiCommands.editor.requestSetEntityLocked && runtimeTools.Editor().editorModeEnabled )
+    if ( uiCommands.editor.requestSetEntityLocked && editorTools.Editor().editorModeEnabled )
     {
         PhysicsSceneObjectId sceneObjectId;
         sceneObjectId.value = uiCommands.editor.lockSceneObjectId;
@@ -986,28 +988,28 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
                                        result.enterInteractiveScene;
     }
 
-    if ( uiCommands.editor.requestDuplicateSelection && runtimeTools.Editor().editorModeEnabled &&
-         runtimeTools.DuplicateEditorSelection( editorWorld, sceneController.State() ) )
+    if ( uiCommands.editor.requestDuplicateSelection && editorTools.Editor().editorModeEnabled &&
+         editorTools.DuplicateEditorSelection( editorWorld, sceneController.State() ) )
     {
         result.enterInteractiveScene = true;
     }
 
-    if ( uiCommands.editor.requestDeleteSelection && runtimeTools.Editor().editorModeEnabled &&
-         runtimeTools.DeleteEditorSelection( editorWorld, sceneController.State() ) )
+    if ( uiCommands.editor.requestDeleteSelection && editorTools.Editor().editorModeEnabled &&
+         editorTools.DeleteEditorSelection( editorWorld, sceneController.State() ) )
     {
         result.enterInteractiveScene = true;
         recordUIAction( RuntimeInputAction::DeleteEditorSelection );
     }
 
-    if ( uiCommands.editor.requestUndo && runtimeTools.Editor().editorModeEnabled &&
-         runtimeTools.UndoEditorCommand( sceneController.Scene(), sceneController.State() ) )
+    if ( uiCommands.editor.requestUndo && editorTools.Editor().editorModeEnabled &&
+         editorTools.UndoEditorCommand( sceneController.Scene(), sceneController.State() ) )
     {
         result.enterInteractiveScene = true;
         recordUIAction( RuntimeInputAction::UndoEditor );
     }
 
-    if ( uiCommands.editor.requestRedo && runtimeTools.Editor().editorModeEnabled &&
-         runtimeTools.RedoEditorCommand( sceneController.Scene(), sceneController.State() ) )
+    if ( uiCommands.editor.requestRedo && editorTools.Editor().editorModeEnabled &&
+         editorTools.RedoEditorCommand( sceneController.Scene(), sceneController.State() ) )
     {
         result.enterInteractiveScene = true;
         recordUIAction( RuntimeInputAction::RedoEditor );
@@ -1282,8 +1284,8 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
 }
 
 RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result, InputRouter& inputRouter,
-                                                  CameraControlState& camera, RuntimeTools& runtimeTools,
-                                                  RuntimeInteractionController& interaction,
+                                                   CameraControlState& camera, EditorToolsOwner& editorTools,
+                                                   RuntimeInteractionController& interaction,
                                                   AttachedCameraController& attachedCamera, SkullbonezCore::UI::InGameUI& ui,
                                                   SceneController& sceneController, ReplayRuntime& replayRuntime,
                                                   RunCameraMode replayCurrentCameraMode )
@@ -1300,7 +1302,7 @@ RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result, I
     const auto updateInputMode = [&]( RuntimeInputAction action, RuntimeInputActionSource source )
     {
         InputController::ApplyModeAction( runtimeInput,
-                                          InputController::ResolveMode( BuildRuntimeInputModeState( camera.mode, runtimeTools.Editor(),
+                                          InputController::ResolveMode( BuildRuntimeInputModeState( camera.mode, editorTools.Editor(),
                                                                                                     interaction.Gesture(),
                                                                                                     attachedCamera.State().activeFollow,
                                                                                                     camera.director.grabbed ) ),
@@ -1314,7 +1316,7 @@ RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result, I
     }
 
     const DeviceInputFrame& editorDevice = inputRouter.DeviceFrame();
-    const EditorViewportPlacementResult editorPointerResult = runtimeTools.RouteEditorViewportPlacement( { result.editorUnhandledWheelDelta, editorDevice.rightDown, editorDevice.leftDown,
+    const EditorViewportPlacementResult editorPointerResult = editorTools.RouteEditorViewportPlacement( { result.editorUnhandledWheelDelta, editorDevice.rightDown, editorDevice.leftDown,
                                                                                                            editorDevice.keys.IsDown( VK_CONTROL ), ui.BlocksCameraMouse(), editorDevice.hasClientPosition,
                                                                                                            runtimeInput.CurrentMode() == RuntimeInputMode::EditorViewportLook, interaction.Gesture().kind,
                                                                                                            editorDevice.clientX, editorDevice.clientY } );
@@ -1340,10 +1342,10 @@ RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result, I
 
     const UiInputHitSnapshot& presentationUi = inputRouter.UiSnapshot();
     PointerPresentationPolicyInput presentationInput;
-    presentationInput.editorModeEnabled = runtimeTools.Editor().editorModeEnabled;
-    presentationInput.editorViewportLookActive = runtimeTools.Editor().viewportLookActive;
-    presentationInput.editorPlacementModeEnabled = runtimeTools.Editor().placementModeEnabled;
-    presentationInput.editorPlacementPreviewVisible = runtimeTools.Editor().placementPreviewVisible;
+    presentationInput.editorModeEnabled = editorTools.Editor().editorModeEnabled;
+    presentationInput.editorViewportLookActive = editorTools.Editor().viewportLookActive;
+    presentationInput.editorPlacementModeEnabled = editorTools.Editor().placementModeEnabled;
+    presentationInput.editorPlacementPreviewVisible = editorTools.Editor().placementPreviewVisible;
     const ReplayInputView replayInput = replayRuntime.BuildInputView();
     presentationInput.replayInspectionActive = replayInput.inspectionActive;
     presentationInput.replayInspectionLookActive = presentationInput.replayInspectionActive && editorDevice.rightDown &&

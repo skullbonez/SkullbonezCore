@@ -330,7 +330,7 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
     const RuntimeUiTextFrameFacts& uiTextFacts = operatorUiPhase.Snapshot().uiText;
 
     const ReplayOverlay::ReplayOverlayStateView
-        replayOverlay = m_replayRuntime.BuildOverlayStateView( m_runtimeTools.Editor().editorModeEnabled,
+        replayOverlay = m_replayRuntime.BuildOverlayStateView( m_editorTools.Editor().editorModeEnabled,
                                                                m_operatorUi->IsVisible(), m_operatorUi->IsMinimized(),
                                                                m_interaction.Gesture().kind,
                                                                renderModels.presentationRecords, renderModels.bodyStore );
@@ -342,6 +342,7 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
     SceneSessionState& scene = sceneController.State();
     SkullbonezCore::Core::EngineConfig& config = m_config;
     RuntimeTools& runtimeTools = m_runtimeTools;
+    EditorToolsOwner& editorTools = m_editorTools;
     SkullbonezCore::UI::InGameUI& ui = *m_operatorUi;
     RuntimeInputContext& runtimeInput = m_inputRouter.RuntimeContext();
     CameraControlState& camera = m_camera;
@@ -449,7 +450,7 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
 
     operatorEditorView.surfaces = { ui.IsVisible(), operatorEditorView.surfaces.secondaryVisible };
 
-    const RunEditorPlacementState& sharedEditor = runtimeTools.Editor();
+    const RunEditorPlacementState& sharedEditor = editorTools.Editor();
     operatorEditorView.scene.dirty = sharedEditor.history.IsDirty();
     operatorEditorView.tools = { sharedEditor.editorModeEnabled,
                                  sharedEditor.placementModeEnabled,
@@ -764,7 +765,7 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
                 renderer.ProjectOperatorUiSettings( uiData, debug, renderer.PresentationSettings(),
                                                      sceneController.Scene(), config, uiCinematic,
                                                      uiCinematicRendering );
-                renderer.ProjectOperatorUiInteraction( uiData, runtimeTools.RayCastTest(), runtimeTools.Editor(),
+                renderer.ProjectOperatorUiInteraction( uiData, runtimeTools.RayCastTest(), editorTools.Editor(),
                                                         runtimeInput, camera, ui, uiTextFacts.cameraModeEnabledMask,
                                                         uiTextFacts.cameraModeLabel );
                 renderer.ProjectOperatorUiPresentation(

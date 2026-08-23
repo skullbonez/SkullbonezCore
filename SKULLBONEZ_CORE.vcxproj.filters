@@ -468,8 +468,8 @@
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorInteractionTools.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Tools\EditorCommandHistory.cpp">
-      <Filter>Source Files\Runtime\Tools</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.cpp">
+      <Filter>Source Files\Runtime\Editor</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorHistory.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
@@ -483,14 +483,14 @@
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorGizmoTools.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Editor\MousePickupTools.cpp">
-      <Filter>Source Files\Runtime\Editor</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Tools\MousePickupTools.cpp">
+      <Filter>Source Files\Runtime\Tools</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorOverlayTools.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorTracer.cpp">
-      <Filter>Source Files\Runtime\Editor</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Tools\EditorTracer.cpp">
+      <Filter>Source Files\Runtime\Tools</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorObjectPlacement.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
@@ -816,8 +816,8 @@
     <ClCompile Include="SkullbonezSource\Runtime\Tools\LauncherLaser.cpp">
       <Filter>Source Files\Runtime\Tools</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Editor\LauncherTools.cpp">
-      <Filter>Source Files\Runtime\Editor</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Tools\LauncherTools.cpp">
+      <Filter>Source Files\Runtime\Tools</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Core\AmortizedTask.cpp">
       <Filter>Source Files\Core</Filter>
@@ -985,8 +985,8 @@
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorTools.h">
       <Filter>Header Files\Runtime\Editor</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Tools\EditorCommandHistory.h">
-      <Filter>Header Files\Runtime\Tools</Filter>
+    <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.h">
+      <Filter>Header Files\Runtime\Editor</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorPlacementAssets.h">
       <Filter>Header Files\Runtime\Editor</Filter>
@@ -1392,6 +1392,9 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayV2Artifact.h">
       <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Tools\EditorTracer.h">
+      <Filter>Header Files\Runtime\Tools</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Tools\RuntimeTools.h">
       <Filter>Header Files\Runtime\Tools</Filter>
