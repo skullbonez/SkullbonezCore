@@ -1,7 +1,7 @@
 # Runtime Boundary Separation And Project Topology Plan
 
 Date: 2026-08-22
-Status: Active by owner direction. 5/8 phases complete; RBS5 ready.
+Status: Active by owner direction. 6/8 phases complete; RBS6 ready.
 Impact area: `SkullbonezSource/Runtime/`, Runtime-facing Rendering/UI seams,
 Visual Studio project topology, dependency enforcement, tests, and documentation
 Owner: Runtime architecture, with each moved value or behavior retained by its
@@ -867,14 +867,14 @@ switching, editor, Replay, Tracy, and failure behavior remain covered.
 
 **Goal:** Close Scene, Capture, Automation, Camera, Diagnostics, and other cycles.
 
-- [ ] Process remaining edges in owner-aligned batches from RBS0.
-- [ ] Replace Scene access to InputFrame/ReplayRuntime/timers/startup/Window with
+- [x] Process remaining edges in owner-aligned batches from RBS0.
+- [x] Replace Scene access to InputFrame/ReplayRuntime/timers/startup/Window with
       typed load requests/results and App-applied reactions.
-- [ ] Move stress policy to a Capture/Diagnostics owner receiving explicit values
+- [x] Move stress policy to a Capture/Diagnostics owner receiving explicit values
       and emitting typed actions; it may not retain/access Run.
-- [ ] Keep Replay/Prediction/Planning siblings composed by App through values.
-- [ ] Remove all Run definitions outside Runtime/App.
-- [ ] Delete exceptions as each edge closes; invert non-App cycles similarly.
+- [x] Keep Replay/Prediction/Planning siblings composed by App through values.
+- [x] Remove all Run definitions outside Runtime/App.
+- [x] Delete exceptions as each edge closes; invert non-App cycles similarly.
 
 **Acceptance:** No non-App Runtime file includes Runtime/App; every SCC has one
 package; the exception table is empty; no replacement god owner exists.
