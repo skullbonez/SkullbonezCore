@@ -221,9 +221,7 @@ class RuntimeRenderer
                                 int uiPassDrawCallStart );
     void SubmitUiOverlay( const UiTextViewport& viewport, OverlayMode mode, int modelCount, float rollingFpsTime,
                           float sceneEnergyForDisplay );
-    void SubmitReplayUi( const ReplayOverlay::ReplayOverlayStateView& overlay, Core::Profiler* profiler,
-                         bool gameUiSurfaceActive, bool scenePhysicsEnabled, RuntimeInteractionGestureKind gesture,
-                         const UiTextViewport& viewport, double nowSeconds );
+    void SubmitUiDrawList( const UI::UIDrawList& drawList, const UiTextViewport& viewport );
     void FinalizeUiOverlay( OverlayMode mode );
     int EndUiTextFrame( int drawCallStart );
     RenderDiagnosticsReadout BuildDiagnosticsReadout() const;

@@ -69,6 +69,7 @@ Related:
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h"
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPrediction.h"
+#include "../SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayAuthoring.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h"
@@ -1983,6 +1984,20 @@ TEST_CASE( "Editor preferences round trip and recover stale layout identity" )
     CHECK( recovered.layoutResetRequired );
     CHECK( recovered.recoveredDefaults );
     CHECK( recovered.preferences.panelVisibilityMask == IMGUI_EDITOR_DEFAULT_PANEL_MASK );
+}
+
+TEST_CASE( "Planning fixes replay overlay composition order before generic render submission" )
+{
+    using namespace SkullbonezCore::Runtime::ReplayOverlay;
+
+    CHECK_FALSE( ShouldComposeReplayOverlay( false ) );
+    CHECK( ShouldComposeReplayOverlay( true ) );
+    REQUIRE( REPLAY_OVERLAY_COMPOSITION_ORDER.size() == 5u );
+    CHECK( REPLAY_OVERLAY_COMPOSITION_ORDER[0] == ReplayOverlaySurfaceKind::Intercept );
+    CHECK( REPLAY_OVERLAY_COMPOSITION_ORDER[1] == ReplayOverlaySurfaceKind::TripPlanner );
+    CHECK( REPLAY_OVERLAY_COMPOSITION_ORDER[2] == ReplayOverlaySurfaceKind::Porkchop );
+    CHECK( REPLAY_OVERLAY_COMPOSITION_ORDER[3] == ReplayOverlaySurfaceKind::CauseTree );
+    CHECK( REPLAY_OVERLAY_COMPOSITION_ORDER[4] == ReplayOverlaySurfaceKind::Scrubber );
 }
 
 TEST_CASE( "Compact causality projection is bounded and exposes explicit edge states" )

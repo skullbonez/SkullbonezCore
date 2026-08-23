@@ -33,6 +33,7 @@ Related:
 #include "ReplayTripPlanner.h"
 #include "../Prediction/ReplayPrediction.h"
 #include "../Replay/ReplayPresentation.h"
+#include "ReplayOverlayRenderer.h"
 
 namespace SkullbonezCore
 {
@@ -69,6 +70,10 @@ class ReplayPlanningRuntime
     ReplayCauseInspectionView CauseInspectionView() const noexcept;
     bool HasActiveState() const noexcept;
     bool HasInterceptTarget() const noexcept;
+    const UI::UIDrawList& ComposeOverlayDrawList( const ReplayOverlay::ReplayOverlayStateView& replay,
+                                                  bool gameUiSurfaceActive, bool scenePhysicsEnabled,
+                                                  RuntimeInteractionGestureKind gesture,
+                                                  ReplayOverlay::ReplayOverlayViewport viewport, double nowSeconds );
 
     // Returns whether either visible planning surface owns the pointer.
     bool TickPointerSurface( bool uiBlocksMouse, int screenWidth, InputRouter& inputRouter );
@@ -110,6 +115,7 @@ class ReplayPlanningRuntime
     ReplayPorkchopPanel m_porkchopPanel;
     ReplayTripPlanner m_tripPlanner;
     ReplayCauseInspection m_causeInspection;
+    ReplayOverlay::ReplayOverlayDrawOwner m_overlayDrawOwner;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

@@ -242,6 +242,13 @@ bool ReplayPlanningRuntime::HasInterceptTarget() const noexcept
     return m_interceptReadout.HasTarget();
 }
 
+const UI::UIDrawList& ReplayPlanningRuntime::ComposeOverlayDrawList(
+    const ReplayOverlay::ReplayOverlayStateView& replay, bool gameUiSurfaceActive, bool scenePhysicsEnabled,
+    RuntimeInteractionGestureKind gesture, ReplayOverlay::ReplayOverlayViewport viewport, double nowSeconds )
+{
+    return m_overlayDrawOwner.Compose( replay, gameUiSurfaceActive, scenePhysicsEnabled, gesture, viewport, nowSeconds );
+}
+
 
 bool ReplayPlanningRuntime::TickPointerSurface( bool uiBlocksMouse, int screenWidth, InputRouter& inputRouter )
 {

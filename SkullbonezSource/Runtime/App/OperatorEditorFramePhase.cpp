@@ -780,9 +780,10 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
 
             if ( submissionPlan.submitReplay )
             {
-                renderer.SubmitReplayUi( replayOverlay, m_profiler, uiTextFacts.gameUiActive, scene.isScenePhysics,
-                                         uiTextFacts.interactionGestureKind, uiViewport,
-                                         metrics.simulationTotalSeconds );
+                const UI::UIDrawList& replayDrawList = replayRuntime.ComposeOverlayDrawList(
+                    replayOverlay, uiTextFacts.gameUiActive, scene.isScenePhysics, uiTextFacts.interactionGestureKind,
+                    { uiViewport.screenW, uiViewport.screenH }, metrics.simulationTotalSeconds );
+                renderer.SubmitUiDrawList( replayDrawList, uiViewport );
             }
 
             if ( submissionPlan.finalizeOverlay )

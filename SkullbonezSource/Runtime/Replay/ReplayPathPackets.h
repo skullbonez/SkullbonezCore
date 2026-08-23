@@ -75,7 +75,24 @@ enum class ReplayPathColorMode : uint8_t
     CausalDepth
 };
 
-const char* ReplayPathColorModeName( ReplayPathColorMode mode ) noexcept;
+inline const char* ReplayPathColorModeName( ReplayPathColorMode mode ) noexcept
+{
+    switch ( mode )
+    {
+    case ReplayPathColorMode::LaneFlat:
+        return "Lane flat";
+    case ReplayPathColorMode::VelocityHeat:
+        return "Velocity heat";
+    case ReplayPathColorMode::TimeGradient:
+        return "Time gradient";
+    case ReplayPathColorMode::PerObjectHue:
+        return "Per-object hue";
+    case ReplayPathColorMode::CausalDepth:
+        return "Causal depth";
+    }
+
+    return "Lane flat";
+}
 
 struct RunReplayPathVisualizerState
 {

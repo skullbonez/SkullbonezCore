@@ -43,7 +43,7 @@ Related:
 #include "../Scene/SceneTerrain.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
-#include "../Planning/ReplayOverlayPackets.h"
+
 #include "../Scene/SceneCinematicPolicy.h"
 #include "../Scene/SceneController.h"
 #include "../../Assets/TextureCollection.h"
@@ -274,17 +274,12 @@ struct UiOperatorSubmissionGraphInvocation
     size_t expectedTransitionCount = 0;
 };
 
-struct UiReplayGraphInvocation
+struct UiDrawListGraphInvocation
 {
     UiTextPass* pass = nullptr;
     Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
-    const ReplayOverlay::ReplayOverlayStateView* overlay = nullptr;
-    SkullbonezCore::Core::Profiler* profiler = nullptr;
-    bool gameUiSurfaceActive = true;
-    bool scenePhysicsEnabled = false;
-    RuntimeInteractionGestureKind gesture = RuntimeInteractionGestureKind::None;
+    const SkullbonezCore::UI::UIDrawList* drawList = nullptr;
     UiTextViewport viewport;
-    double nowSeconds = 0.0;
     Rendering::Dx12TextureOwner* renderTextures = nullptr;
     Rendering::Dx12GeometryOwner* renderGeometry = nullptr;
     Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
@@ -661,19 +656,18 @@ void ExecuteUiOverlayGraphCallback( const SkullbonezCore::Rendering::RenderGraph
                                      *data.renderDiagnostics );
 }
 
-void ExecuteUiReplayGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
-                                   UiReplayGraphInvocation& data )
+void ExecuteUiDrawListGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
+                                     UiDrawListGraphInvocation& data )
 {
-    if ( !data.pass || !data.renderGraph || !data.overlay || !data.renderTextures || !data.renderGeometry ||
+    if ( !data.pass || !data.renderGraph || !data.drawList || !data.renderTextures || !data.renderGeometry ||
          !data.renderDiagnostics )
     {
-        SB_FATAL( "RunRender", "UI Replay graph callback missing execution data." );
+        SB_FATAL( "RunRender", "UI draw-list graph callback missing execution data." );
     }
 
     (void)ExecuteRequiredGraphTransitions( context, data.renderGraph, data.compiled, data.expectedTransitionCount );
-    data.pass->RenderReplay( *data.overlay, data.profiler, data.gameUiSurfaceActive, data.scenePhysicsEnabled, data.gesture,
-                             data.viewport, data.nowSeconds, *data.renderTextures, *data.renderGeometry,
-                             *data.renderDiagnostics );
+    data.pass->SubmitDrawList( *data.drawList, data.viewport, *data.renderTextures, *data.renderGeometry,
+                               *data.renderDiagnostics );
 }
 
 void ExecuteUiFinalizeGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
@@ -1756,34 +1750,26 @@ void RuntimeRenderer::SubmitUiOverlay( const UiTextViewport& viewport, OverlayMo
 }
 
 
-void RuntimeRenderer::SubmitReplayUi( const ReplayOverlay::ReplayOverlayStateView& overlay, Core::Profiler* profiler,
-                                      bool gameUiSurfaceActive, bool scenePhysicsEnabled,
-                                      RuntimeInteractionGestureKind gesture, const UiTextViewport& viewport,
-                                      double nowSeconds )
+void RuntimeRenderer::SubmitUiDrawList( const UI::UIDrawList& drawList, const UiTextViewport& viewport )
 {
-    UiReplayGraphInvocation invocation;
+    UiDrawListGraphInvocation invocation;
     invocation.pass = &m_resources.UiText();
     invocation.renderGraph = &m_resources.RenderGraph();
-    invocation.overlay = &overlay;
-    invocation.profiler = profiler;
-    invocation.gameUiSurfaceActive = gameUiSurfaceActive;
-    invocation.scenePhysicsEnabled = scenePhysicsEnabled;
-    invocation.gesture = gesture;
+    invocation.drawList = &drawList;
     invocation.viewport = viewport;
-    invocation.nowSeconds = nowSeconds;
     invocation.renderTextures = &m_resources.RenderTextures();
     invocation.renderGeometry = &m_resources.RenderGeometry();
     invocation.renderDiagnostics = &m_resources.RenderDiagnostics();
 
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph, m_resources.RenderGraph() );
-    const uint32_t pass = graph.AddPass( "UiReplay", Rendering::RenderGraphQueueType::Graphics );
+    const uint32_t pass = graph.AddPass( "UiDrawList", Rendering::RenderGraphQueueType::Graphics );
     graph.AddWrite( pass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
-    graph.SetPassCallback<ExecuteUiReplayGraphCallback>( pass, invocation, true, "Frame/UI/Replay" );
+    graph.SetPassCallback<ExecuteUiDrawListGraphCallback>( pass, invocation, true, "Frame/UI/DrawList" );
     const Rendering::RenderGraphCompileResult& compiled = CompileRenderPassGraph( graph );
     invocation.compiled = &compiled;
     invocation.expectedTransitionCount = CountCompiledTransitionsForPass( compiled, pass );
-    ExecuteGraphCallbacksOrFatal( graph, 1u, "UiReplay" );
+    ExecuteGraphCallbacksOrFatal( graph, 1u, "UiDrawList" );
 }
 
 

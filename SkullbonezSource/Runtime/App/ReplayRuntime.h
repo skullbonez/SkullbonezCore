@@ -282,6 +282,10 @@ class ReplayRuntime
     BuildOverlayStateView( bool editorModeEnabled, bool uiVisible, bool uiMinimized, RuntimeInteractionGestureKind gesture,
                            std::span<const Rendering::RenderInstancePresentationRecord> presentation,
                            const Physics::PhysicsBodyStore& bodyStore );
+    const UI::UIDrawList& ComposeOverlayDrawList( const ReplayOverlay::ReplayOverlayStateView& replay,
+                                                  bool gameUiSurfaceActive, bool scenePhysicsEnabled,
+                                                  RuntimeInteractionGestureKind gesture,
+                                                  ReplayOverlay::ReplayOverlayViewport viewport, double nowSeconds );
 
     // Selects at most one historical track plus the prediction preview for the
     // current render turn; returned sample pointers are frame-local borrows.

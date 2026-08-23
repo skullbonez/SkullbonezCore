@@ -214,7 +214,7 @@ exact source/target pair) is listed. Self-package includes remain legal.
 | 10 | Runtime/Planning | Runtime/Interaction/RuntimePickService.h, Runtime/Prediction/ContinuousPredictionProducer.h, Runtime/Prediction/ReplayPredictionView.h, Runtime/Replay/ReplayAuthoringPackets.h, Runtime/Replay/ReplayCapturePackets.h, Runtime/Replay/ReplayPathPackets.h, Runtime/Replay/ReplayPresentationPackets.h, Runtime/Replay/ReplayTimelinePackets.h |
 | 11 | Runtime/Tools | Runtime/Camera/CameraCollection.h, Runtime/Camera/RuntimeCameraMode.h, Runtime/Input/InputRouter.h, Runtime/Interaction/RuntimeInteractionCommands.h, Runtime/Interaction/RuntimeInteractionController.h, Runtime/Replay/ReplayEventCommand.h, Runtime/Replay/ReplayToolPackets.h, Runtime/Replay/ReplayVisualPacket.h, Runtime/Scene/SceneLifecycle.h, Runtime/Scene/SceneSessionState.h, Runtime/Scene/SceneWorld.h |
 | 12 | Runtime/Editor | Runtime/Camera/CameraCollection.h, Runtime/Camera/RuntimeCameraMode.h, Runtime/Input/InputController.h, Runtime/Input/InputRouter.h, Runtime/Interaction/RuntimeInteractionCommands.h, Runtime/Interaction/RuntimeInteractionController.h, Runtime/Interaction/RuntimePickService.h, Runtime/Replay/ReplayAuthoringPackets.h, Runtime/Scene/SceneAuthoredSetup.h, Runtime/Scene/SceneController.h, Runtime/Scene/SceneControllerState.h, Runtime/Scene/SceneEntityStore.h, Runtime/Scene/SceneGeneratedSetup.h, Runtime/Scene/SceneSaveOperations.h, Runtime/Scene/SceneSessionState.h, Runtime/Scene/SceneWorld.h, Runtime/Startup/RunLaunchOptions.h, Runtime/Startup/Window.h, Runtime/Tools/RuntimeFileWriter.h |
-| 13 | Runtime/Render | Runtime/Planning/ReplayOverlayPackets.h, Runtime/Replay/ReplayRuntimePackets.h, Runtime/Replay/ReplayVisualPacket.h, Runtime/RuntimeFrameViews.h, Runtime/Startup/Window.h |
+| 13 | Runtime/Render | Runtime/Replay/ReplayRuntimePackets.h, Runtime/Replay/ReplayVisualPacket.h, Runtime/RuntimeFrameViews.h, Runtime/Startup/Window.h |
 | 14 | Runtime/Diagnostics | Runtime/RuntimeFrameViews.h, Runtime/Scene/SceneLifecycle.h, Runtime/Startup/RunLaunchOptions.h |
 | 15 | Runtime/DevelopmentTools | Runtime/Planning/ReplayOverlayPackets.h, Runtime/Startup/RunLaunchOptions.h |
 | 16 | Runtime/Capture | Runtime/RuntimeFrameViews.h, Runtime/Scene/SceneLoadRequest.h, Runtime/Startup/RunLaunchOptions.h, Runtime/Startup/RunStartupState.h, Runtime/Startup/Window.h |
@@ -239,7 +239,7 @@ target, include spelling, and policy fingerprint. The ordinary repository
 gate accepts only an exact current seal and reports it as repair-plan debt;
 a new, changed, shifted, or deleted site fails. `--check-runtime-graph`
 ignores every repair row and fails every forbidden site and multi-package SCC.
-Canonical repair-policy SHA-256: `b30ff3ca2c0d4cbdaab0c22130f87a2ffe378ba0f762b39f21515ff90f72d7b5`.
+Canonical repair-policy SHA-256: `0fed566dce7633a28fc30cc156b61b338c3582d21c68495bc2f6709235c389fa`.
 
 #### Content Rules
 

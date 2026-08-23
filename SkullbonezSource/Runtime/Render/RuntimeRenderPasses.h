@@ -172,10 +172,6 @@ struct TonemapPassResources;
 struct VolumetricLightPassResources;
 struct ReplayHudStatus;
 struct ReplayVisualPacket;
-namespace ReplayOverlay
-{
-struct ReplayOverlayStateView;
-}
 struct RuntimeRenderModelFrameView;
 struct RuntimeViewModel;
 struct SceneSessionState;
@@ -931,10 +927,9 @@ class UiTextPass
     void RenderOverlayContent( const UiTextViewport& viewport, OverlayMode mode, int modelCount, float rollingFpsTime,
                                float sceneEnergyForDisplay, Rendering::Dx12TextureOwner& renderTextures,
                                Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12Diagnostics& renderDiagnostics );
-    void RenderReplay( const ReplayOverlay::ReplayOverlayStateView& overlay, Core::Profiler* profiler,
-                       bool gameUiSurfaceActive, bool scenePhysicsEnabled, RuntimeInteractionGestureKind gesture,
-                       const UiTextViewport& viewport, double nowSeconds, Rendering::Dx12TextureOwner& renderTextures,
-                       Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12Diagnostics& renderDiagnostics );
+    void SubmitDrawList( const UI::UIDrawList& drawList, const UiTextViewport& viewport,
+                         Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
+                         Rendering::Dx12Diagnostics& renderDiagnostics );
     void FinalizeOverlay( OverlayMode mode, Rendering::Dx12TextureOwner& renderTextures,
                           Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12Diagnostics& renderDiagnostics );
     void ReportRetainedDrawStats();
@@ -1013,8 +1008,8 @@ class UiTextPass
     // capacity never consumes nested Windows stack frames or grows at runtime.
     UI::UIDrawList m_testPatternDrawList;
     UI::UIDrawList m_badgeDrawList;
-    UI::UIDrawList m_replayDrawList;
     UI::UIDrawList m_profilerDrawList;
+    UI::UIDrawList::Stats m_detachedDrawStats;
 
     // Runtime owns the detached label/value snapshot. The frame packet lends
     // this fixed storage to UI only for the synchronous Memory-tab draw.

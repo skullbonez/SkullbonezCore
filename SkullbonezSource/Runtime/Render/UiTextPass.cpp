@@ -8,7 +8,7 @@ Summary:
   a late pass over the final window. This owner holds font/text-batch lifetime,
   profiler/timing and ray-tracing presentation capabilities, text-only output,
   HUD overlays, and the in-game UI frame publication. RuntimeRenderer schedules
-  focused metrics, chrome, operator projection/submission, Replay, and overlay
+  focused metrics, chrome, operator projection/submission, detached UI, and overlay
   operations.
 
 Glossary:
@@ -57,7 +57,7 @@ Related:
 #include "../../Core/TracyClientOwner.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../Diagnostics/DiagnosticsPhysicsUI.h"
-#include "../Planning/ReplayOverlayRenderer.h"
+#include "../Replay/ReplayRuntimePackets.h"
 #include "../../Core/WorkerPool.h"
 #include "../../Physics/PhysicsDebugData.h"
 #include "../../Core/Profiler.h"
@@ -89,8 +89,9 @@ class RetainedUIDrawStatsScope
 {
   public:
     RetainedUIDrawStatsScope( const SkullbonezCore::UI::UIDrawList& testPattern, const SkullbonezCore::UI::UIDrawList& badge,
-                              const SkullbonezCore::UI::UIDrawList& replay, const SkullbonezCore::UI::UIDrawList& profiler )
-        : m_testPattern( testPattern ), m_badge( badge ), m_replay( replay ), m_profiler( profiler )
+                              SkullbonezCore::UI::UIDrawList::Stats detached,
+                              const SkullbonezCore::UI::UIDrawList& profiler )
+        : m_testPattern( testPattern ), m_badge( badge ), m_detached( detached ), m_profiler( profiler )
     {
     }
 
@@ -109,27 +110,27 @@ class RetainedUIDrawStatsScope
 
         const SkullbonezCore::UI::UIDrawList::Stats testPatternStats = m_testPattern.GetStats();
         const SkullbonezCore::UI::UIDrawList::Stats badgeStats = m_badge.GetStats();
-        const SkullbonezCore::UI::UIDrawList::Stats replayStats = m_replay.GetStats();
+        const SkullbonezCore::UI::UIDrawList::Stats detachedStats = m_detached;
         const SkullbonezCore::UI::UIDrawList::Stats profilerStats = m_profiler.GetStats();
         const auto overflowed = []( const SkullbonezCore::UI::UIDrawList::Stats& stats )
         { return stats.commandOverflow || stats.textOverflow || stats.clipOverflow; };
 
-        const bool overflow = overflowed( testPatternStats ) || overflowed( badgeStats ) || overflowed( replayStats ) ||
+        const bool overflow = overflowed( testPatternStats ) || overflowed( badgeStats ) || overflowed( detachedStats ) ||
                               overflowed( profilerStats );
 
         std::fprintf( stderr,
-                      "[ui-retained-draw-stats] test=%d/%d badge=%d/%d replay=%d/%d profiler=%d/%d clip=%d/%d/%d/%d "
+                      "[ui-retained-draw-stats] test=%d/%d badge=%d/%d detached=%d/%d profiler=%d/%d clip=%d/%d/%d/%d "
                       "overflow=%d\n",
                       testPatternStats.commandCount, testPatternStats.textBytes, badgeStats.commandCount,
-                      badgeStats.textBytes, replayStats.commandCount, replayStats.textBytes, profilerStats.commandCount,
+                      badgeStats.textBytes, detachedStats.commandCount, detachedStats.textBytes, profilerStats.commandCount,
                       profilerStats.textBytes, testPatternStats.maxClipDepth, badgeStats.maxClipDepth,
-                      replayStats.maxClipDepth, profilerStats.maxClipDepth, overflow ? 1 : 0 );
+                      detachedStats.maxClipDepth, profilerStats.maxClipDepth, overflow ? 1 : 0 );
     }
 
   private:
     const SkullbonezCore::UI::UIDrawList& m_testPattern;
     const SkullbonezCore::UI::UIDrawList& m_badge;
-    const SkullbonezCore::UI::UIDrawList& m_replay;
+    SkullbonezCore::UI::UIDrawList::Stats m_detached;
     const SkullbonezCore::UI::UIDrawList& m_profiler;
 };
 
@@ -283,7 +284,7 @@ void UiTextPass::BeginFrame( int screenW, int screenH )
 {
     m_testPatternDrawList.Clear();
     m_badgeDrawList.Clear();
-    m_replayDrawList.Clear();
+    m_detachedDrawStats = {};
     m_profilerDrawList.Clear();
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
     static_cast<void>( m_profilerLifecycle.Require( "BeginFrame" ) );
@@ -1326,20 +1327,14 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport, OverlayMo
 }
 
 
-void UiTextPass::RenderReplay( const ReplayOverlay::ReplayOverlayStateView& overlay, Core::Profiler* profiler,
-                               bool gameUiSurfaceActive, bool scenePhysicsEnabled, RuntimeInteractionGestureKind gesture,
-                               const UiTextViewport& viewport, double nowSeconds,
-                               Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderCommands,
-                               Rendering::Dx12Diagnostics& renderDiagnostics )
+void UiTextPass::SubmitDrawList( const UI::UIDrawList& drawList, const UiTextViewport& viewport,
+                                 Rendering::Dx12TextureOwner& renderTextures,
+                                 Rendering::Dx12GeometryOwner& renderCommands,
+                                 Rendering::Dx12Diagnostics& renderDiagnostics )
 {
-    if ( !gameUiSurfaceActive )
-    {
-        return;
-    }
-
-    ReplayOverlay::RenderReplayScrubberOverlay( m_uiDrawSubmission, m_textBatch, m_replayDrawList, overlay, renderTextures,
-                                                renderCommands, renderDiagnostics, profiler, scenePhysicsEnabled, gesture,
-                                                { viewport.screenW, viewport.screenH }, nowSeconds );
+    m_detachedDrawStats = drawList.GetStats();
+    m_uiDrawSubmission.Submit( drawList, m_textBatch, nullptr, renderTextures, renderCommands, renderDiagnostics,
+                               viewport.screenW, viewport.screenH );
 }
 
 
@@ -1378,6 +1373,6 @@ void UiTextPass::ReportRetainedDrawStats()
 {
     // Lifetime: reporting runs after the complete UI graph, so every retained
     // stream reflects the same final command/text counts as the former scope.
-    const RetainedUIDrawStatsScope retainedDrawStats( m_testPatternDrawList, m_badgeDrawList, m_replayDrawList,
-                                                      m_profilerDrawList );
+    const RetainedUIDrawStatsScope retainedDrawStats( m_testPatternDrawList, m_badgeDrawList, m_detachedDrawStats,
+                                                       m_profilerDrawList );
 }

@@ -1,99 +1,64 @@
 /*
 File: SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.h
 Purpose:
-  Declares replay overlay drawing entry points used by the late UI/text pass.
+  Declares Planning's retained composer for the GameUI replay overlay.
 
 Summary:
-  RuntimeRenderer decides pass order, but replay owns UI drawing plus the
-  retained prediction command-list cursors used by the geometry pass.
-
-Glossary:
-  UI text pass: Late overlay pass that invokes replay overlay drawing after
-    scene rendering.
-  Replay overlay: UI draw pass for replay timeline, prediction controls, and
-    cause-tree inspection.
-  Retained prediction list: Append-only trajectory chunks reused until the
-    prediction generation, source bank, palette, or topology changes.
+  Planning projects one frame-local ReplayOverlayStateView into a bounded,
+  backend-neutral UIDrawList. App sequences that composition before handing the
+  immutable list to Runtime/Render for GPU submission.
 
 Invariants:
-  - Replay state reaches each draw operation only through the published overlay
-    view.
-  - Published references and sample pointers remain valid for one frame only.
-  - Overlay functions consume every publication and render borrow synchronously.
-  - A stable trajectory publication returns before traversing source records.
-  - GameUI scrubber and cause-tree pixels draw only while the GameUI
-    development surface owns presentation; ImGui consumes the same values in
-    its own exclusive surface.
+  - The owner retains only copied UI commands and text, never Replay, Prediction,
+    renderer, or backend capabilities.
+  - Compose clears the previous frame before appending surfaces in visual order.
+  - The returned list remains valid until the next Compose call on this owner.
+  - A hidden GameUI surface publishes an empty list.
 
 Related:
-  - SkullbonezSource/Runtime/Render/UiTextPass.cpp
-  - SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h
-  - Agentic/Reference/engine-glossary.md
+  - SkullbonezSource/Runtime/Planning/ReplayOverlayPackets.h
+  - SkullbonezSource/Runtime/App/OperatorEditorFramePhase.cpp
+  - SkullbonezSource/UI/UIDrawList.h
 */
 #pragma once
 
-#include "../Replay/ReplayAuthoring.h"
 #include "ReplayOverlayPackets.h"
-#include "../Replay/ReplayPresentation.h"
-#include "../Replay/ReplayScrubber.h"
+#include "../../UI/UIDrawList.h"
 
-namespace SkullbonezCore::Rendering
-{
-class Dx12GeometryOwner;
-class Dx12TextureOwner;
-} // namespace SkullbonezCore::Rendering
-
-namespace SkullbonezCore::Core
-{
-class Profiler;
-}
-
-namespace SkullbonezCore::Text
-{
-class TextBatch;
-}
-
-namespace SkullbonezCore::UI
-{
-class UIDrawList;
-} // namespace SkullbonezCore::UI
-
-namespace SkullbonezCore::Physics
-{
-class ColliderStore;
-class PhysicsBodyStore;
-class PhysicsEngine;
-} // namespace SkullbonezCore::Physics
-
-namespace SkullbonezCore::Runtime
-{
-class EditorTracer;
-class UiDrawSubmission;
-} // namespace SkullbonezCore::Runtime
+#include <array>
 
 namespace SkullbonezCore::Runtime::ReplayOverlay
 {
-void RenderReplayScrubberOverlay( UiDrawSubmission& submission, Text::TextBatch& textBatch, UI::UIDrawList& drawList,
-                                  const ReplayOverlayStateView& replay, Rendering::Dx12TextureOwner& renderTextures,
-                                  Rendering::Dx12GeometryOwner& renderCommands,
-                                  Rendering::Dx12Diagnostics& renderDiagnostics, Core::Profiler* profiler,
-                                  bool scenePhysicsEnabled, RuntimeInteractionGestureKind gesture,
-                                  ReplayOverlayViewport viewport, double nowSeconds );
-void RenderReplayInterceptOverlay( UiDrawSubmission& submission, Text::TextBatch& textBatch, UI::UIDrawList& drawList,
-                                   const ReplayOverlayStateView& replay, Rendering::Dx12TextureOwner& renderTextures,
-                                   Rendering::Dx12GeometryOwner& renderCommands,
-                                   Rendering::Dx12Diagnostics& renderDiagnostics, int screenW, int screenH );
-void RenderReplayTripPlannerOverlay( UiDrawSubmission& submission, Text::TextBatch& textBatch, UI::UIDrawList& drawList,
-                                     const ReplayOverlayStateView& replay, Rendering::Dx12TextureOwner& renderTextures,
-                                     Rendering::Dx12GeometryOwner& renderCommands,
-                                     Rendering::Dx12Diagnostics& renderDiagnostics, int screenW, int screenH );
-void RenderReplayPorkchopOverlay( UiDrawSubmission& submission, Text::TextBatch& textBatch, UI::UIDrawList& drawList,
-                                  const ReplayOverlayStateView& replay, Rendering::Dx12TextureOwner& renderTextures,
-                                  Rendering::Dx12GeometryOwner& renderCommands,
-                                  Rendering::Dx12Diagnostics& renderDiagnostics, int screenW, int screenH );
-void RenderReplayCauseTreeOverlay( UiDrawSubmission& submission, Text::TextBatch& textBatch, UI::UIDrawList& drawList,
-                                   const ReplayOverlayStateView& replay, Rendering::Dx12TextureOwner& renderTextures,
-                                   Rendering::Dx12GeometryOwner& renderCommands,
-                                   Rendering::Dx12Diagnostics& renderDiagnostics, Core::Profiler* profiler, int screenW,
-                                   int screenH );
+enum class ReplayOverlaySurfaceKind : uint8_t
+{
+    Intercept,
+    TripPlanner,
+    Porkchop,
+    CauseTree,
+    Scrubber
+};
+
+inline constexpr std::array<ReplayOverlaySurfaceKind, 5> REPLAY_OVERLAY_COMPOSITION_ORDER = {
+    ReplayOverlaySurfaceKind::Intercept, ReplayOverlaySurfaceKind::TripPlanner, ReplayOverlaySurfaceKind::Porkchop,
+    ReplayOverlaySurfaceKind::CauseTree, ReplayOverlaySurfaceKind::Scrubber
+};
+
+inline constexpr bool ShouldComposeReplayOverlay( bool gameUiSurfaceActive ) noexcept
+{
+    return gameUiSurfaceActive;
+}
+
+class ReplayOverlayDrawOwner
+{
+  public:
+    const UI::UIDrawList& Compose( const ReplayOverlayStateView& replay, bool gameUiSurfaceActive,
+                                   bool scenePhysicsEnabled, RuntimeInteractionGestureKind gesture,
+                                   ReplayOverlayViewport viewport, double nowSeconds );
+
+  private:
+    // Lifetime: retained Planning scratch avoids placing the fixed-capacity UI
+    // command storage on nested frame stacks. Render only borrows it during one
+    // synchronous App-sequenced submission.
+    UI::UIDrawList m_drawList;
+};
 } // namespace SkullbonezCore::Runtime::ReplayOverlay

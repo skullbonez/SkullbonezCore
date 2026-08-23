@@ -707,7 +707,7 @@ ReplayAutomationView ReplayRuntime::BuildAutomationView() const
 
 
 ReplayOverlay::ReplayOverlayStateView ReplayRuntime::BuildOverlayStateView( bool editorModeEnabled, bool uiVisible, bool uiMinimized, RuntimeInteractionGestureKind gesture,
-                                                                            std::span<const Rendering::RenderInstancePresentationRecord> presentation, const PhysicsBodyStore& bodyStore )
+                                                                             std::span<const Rendering::RenderInstancePresentationRecord> presentation, const PhysicsBodyStore& bodyStore )
 {
     int focusedCameraRow = -1;
     (void)m_predictionOwner.BuildCauseTreeRows( m_authoring, m_visualPresentation.PathVisualizer(),
@@ -739,6 +739,16 @@ ReplayOverlay::ReplayOverlayStateView ReplayRuntime::BuildOverlayStateView( bool
              m_timeline.RecordingConfigured(),
              m_timeline.RecordingEnabled(),
              m_timeline.RecordingLockedByHashLog() };
+}
+
+const UI::UIDrawList& ReplayRuntime::ComposeOverlayDrawList( const ReplayOverlay::ReplayOverlayStateView& replay,
+                                                             bool gameUiSurfaceActive, bool scenePhysicsEnabled,
+                                                             RuntimeInteractionGestureKind gesture,
+                                                             ReplayOverlay::ReplayOverlayViewport viewport,
+                                                             double nowSeconds )
+{
+    return m_planningOwner.ComposeOverlayDrawList( replay, gameUiSurfaceActive, scenePhysicsEnabled, gesture, viewport,
+                                                    nowSeconds );
 }
 
 
