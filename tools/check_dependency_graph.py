@@ -2,15 +2,17 @@
 #
 # File: tools/check_dependency_graph.py
 # Purpose:
-#   Enforce physical include direction, retired ownership vocabulary,
-#   single-project source ownership, and the generated human proof's freshness.
+#   Enforce physical include direction and retired ownership vocabulary, report
+#   current Runtime package topology, check single-project source ownership,
+#   and verify the generated human proof's freshness.
 #
 # Summary:
 #   Loads data-only package and content rules, resolves live repository include
-#   edges, scans bounded source scopes for explicitly retired concept names,
-#   checks Visual Studio project membership, and renders the same rules into a
-#   marked AGENTS.md block. The same evaluators run embedded positive/negative
-#   fixtures so new ownership rules require data, not checker branches.
+#   edges once for enforcement or a report-only Runtime package projection,
+#   scans bounded source scopes for explicitly retired concept names, checks
+#   Visual Studio project membership, and renders the same rules into a marked
+#   AGENTS.md block. Embedded fixtures exercise those production evaluators so
+#   new ownership rules require data, not checker branches.
 #
 # Glossary:
 #   Physical edge: Resolved quoted or angle-bracket include from one tracked or
@@ -24,6 +26,9 @@
 #     file columns preserve the checker's path-matching semantics.
 #   Fixture matrix: Synthetic include, content, project-file, and proof-drift
 #     cases that exercise the same evaluators used by the repository scan.
+#   Runtime package report: Current adjacency, strongly connected components,
+#     bidirectional pairs, and reverse App include sites. It is evidence, not a
+#     frozen count or an additional enforcement policy.
 #
 # Invariants:
 #   - Rules are qualitative package relationships, never frozen hit counts.
@@ -37,6 +42,8 @@
 #     byte outside it; malformed marker topology fails closed.
 #   - Include scanning is deliberately textual: bounded fixtures pin its macro,
 #     continuation, and local-first search-order limits.
+#   - Runtime graph counts are current measurements. The reporter never rejects
+#     a cycle or reverse edge and never turns repository counts into budgets.
 #
 # Related:
 #   - tools/dependency_graph_rules.json
@@ -69,6 +76,41 @@ class Finding:
     source: str
     target: str
     detail: str
+
+
+@dataclass(frozen=True)
+class ResolvedInclude:
+    source: str
+    target: str
+    line: int
+
+
+@dataclass(frozen=True)
+class RuntimePackageIncludeSite:
+    source_package: str
+    target_package: str
+    source: str
+    target: str
+    line: int
+
+
+@dataclass(frozen=True)
+class RuntimePackageEdge:
+    source_package: str
+    target_package: str
+    include_site_count: int
+
+
+@dataclass(frozen=True)
+class RuntimePackageGraph:
+    source_files: tuple[str, ...]
+    packages: tuple[str, ...]
+    edges: tuple[RuntimePackageEdge, ...]
+    include_sites: tuple[RuntimePackageIncludeSite, ...]
+    strongly_connected_components: tuple[tuple[str, ...], ...]
+    cyclic_components: tuple[tuple[str, ...], ...]
+    bidirectional_pairs: tuple[tuple[str, str], ...]
+    reverse_app_include_sites: tuple[RuntimePackageIncludeSite, ...]
 
 
 class ProofBlockError(ValueError):
@@ -436,13 +478,13 @@ def resolve_include(repo: Path, source_root: str, source: str, include: str) -> 
     return normalize(relative.as_posix())
 
 
-def scan_include_files(
+def scan_resolved_include_files(
     repo: Path,
     source_root: str,
-    rules: list[dict],
     tracked_files: list[str],
-) -> list[Finding]:
-    findings: list[Finding] = []
+) -> list[ResolvedInclude]:
+    """Resolve textual include sites once for enforcement and reporting."""
+    includes: list[ResolvedInclude] = []
     for tracked in tracked_files:
         path = repo / tracked
         source = normalize(Path(tracked).relative_to(source_root).as_posix())
@@ -451,12 +493,229 @@ def scan_include_files(
             target = resolve_include(repo, source_root, tracked, match.group(1))
             if target is None:
                 continue
-            findings.extend(evaluate_edge(rules, source, target))
+            includes.append(
+                ResolvedInclude(
+                    source=source,
+                    target=target,
+                    line=text.count("\n", 0, match.start()) + 1,
+                )
+            )
+    return includes
+
+
+def scan_include_files(
+    repo: Path,
+    source_root: str,
+    rules: list[dict],
+    tracked_files: list[str],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    for include in scan_resolved_include_files(repo, source_root, tracked_files):
+        findings.extend(evaluate_edge(rules, include.source, include.target))
     return findings
 
 
 def scan_includes(repo: Path, source_root: str, rules: list[dict]) -> list[Finding]:
     return scan_include_files(repo, source_root, rules, repository_source_files(repo, source_root))
+
+
+def runtime_package(path: str) -> str | None:
+    """Return a physical Runtime package or an exact top-level Runtime file."""
+    normalized = normalize(path)
+    parts = normalized.split("/")
+    if len(parts) < 2 or parts[0] != "Runtime":
+        return None
+    if len(parts) == 2:
+        return normalized
+    return "/".join(parts[:2])
+
+
+def strongly_connected_components(
+    packages: tuple[str, ...],
+    adjacency: dict[str, set[str]],
+) -> tuple[tuple[str, ...], ...]:
+    """Return a deterministic Tarjan partition of the package graph."""
+    next_index = 0
+    indices: dict[str, int] = {}
+    low_links: dict[str, int] = {}
+    stack: list[str] = []
+    on_stack: set[str] = set()
+    components: list[tuple[str, ...]] = []
+
+    def visit(package: str) -> None:
+        nonlocal next_index
+        indices[package] = next_index
+        low_links[package] = next_index
+        next_index += 1
+        stack.append(package)
+        on_stack.add(package)
+
+        for target in sorted(adjacency.get(package, set())):
+            if target not in indices:
+                visit(target)
+                low_links[package] = min(low_links[package], low_links[target])
+            elif target in on_stack:
+                low_links[package] = min(low_links[package], indices[target])
+
+        if low_links[package] != indices[package]:
+            return
+
+        component: list[str] = []
+        while True:
+            member = stack.pop()
+            on_stack.remove(member)
+            component.append(member)
+            if member == package:
+                break
+        components.append(tuple(sorted(component)))
+
+    for package in packages:
+        if package not in indices:
+            visit(package)
+    return tuple(sorted(components))
+
+
+def build_runtime_package_graph(
+    source_root: str,
+    tracked_files: list[str],
+    resolved_includes: list[ResolvedInclude],
+) -> RuntimePackageGraph:
+    """Project resolved file edges onto current physical Runtime owners."""
+    runtime_source_files: list[str] = []
+    packages: set[str] = set()
+    for tracked in tracked_files:
+        source = normalize(Path(tracked).relative_to(source_root).as_posix())
+        package = runtime_package(source)
+        if package is None:
+            continue
+        runtime_source_files.append(source)
+        packages.add(package)
+
+    include_sites: list[RuntimePackageIncludeSite] = []
+    edge_counts: dict[tuple[str, str], int] = {}
+    for include in resolved_includes:
+        source_package = runtime_package(include.source)
+        target_package = runtime_package(include.target)
+        if source_package is None or target_package is None or source_package == target_package:
+            continue
+
+        site = RuntimePackageIncludeSite(
+            source_package=source_package,
+            target_package=target_package,
+            source=include.source,
+            target=include.target,
+            line=include.line,
+        )
+        include_sites.append(site)
+        packages.update((source_package, target_package))
+        key = (source_package, target_package)
+        edge_counts[key] = edge_counts.get(key, 0) + 1
+
+    ordered_packages = tuple(sorted(packages))
+    edges = tuple(
+        RuntimePackageEdge(source, target, count)
+        for (source, target), count in sorted(edge_counts.items())
+    )
+    ordered_sites = tuple(
+        sorted(
+            include_sites,
+            key=lambda site: (
+                site.source_package,
+                site.target_package,
+                site.source,
+                site.line,
+                site.target,
+            ),
+        )
+    )
+    adjacency = {package: set() for package in ordered_packages}
+    for edge in edges:
+        adjacency[edge.source_package].add(edge.target_package)
+
+    components = strongly_connected_components(ordered_packages, adjacency)
+    cyclic_components = tuple(component for component in components if len(component) > 1)
+    edge_pairs = set(edge_counts)
+    bidirectional_pairs = tuple(
+        sorted(
+            (source, target)
+            for source, target in edge_pairs
+            if source < target and (target, source) in edge_pairs
+        )
+    )
+    reverse_app_sites = tuple(
+        site
+        for site in ordered_sites
+        if site.source_package != "Runtime/App" and site.target_package == "Runtime/App"
+    )
+
+    # Invariant: these measurements describe the live tree. Enforcement remains
+    # data-owned by dependency_graph_rules.json; no current count becomes a gate.
+    return RuntimePackageGraph(
+        source_files=tuple(sorted(runtime_source_files)),
+        packages=ordered_packages,
+        edges=edges,
+        include_sites=ordered_sites,
+        strongly_connected_components=components,
+        cyclic_components=cyclic_components,
+        bidirectional_pairs=bidirectional_pairs,
+        reverse_app_include_sites=reverse_app_sites,
+    )
+
+
+def scan_runtime_package_graph(repo: Path, source_root: str) -> RuntimePackageGraph:
+    """Build the Runtime report from the same repository include resolution as enforcement."""
+    tracked_files = repository_source_files(repo, source_root)
+    resolved_includes = scan_resolved_include_files(repo, source_root, tracked_files)
+    return build_runtime_package_graph(source_root, tracked_files, resolved_includes)
+
+
+def runtime_package_graph_document(report: RuntimePackageGraph) -> dict[str, object]:
+    """Serialize a stable, report-only package inventory for people and tools."""
+    edges_by_source: dict[str, list[RuntimePackageEdge]] = {
+        package: [] for package in report.packages
+    }
+    for edge in report.edges:
+        edges_by_source[edge.source_package].append(edge)
+
+    return {
+        "runtime_source_file_count": len(report.source_files),
+        "package_count": len(report.packages),
+        "directed_cross_package_edge_count": len(report.edges),
+        "directed_cross_package_include_site_count": len(report.include_sites),
+        "packages": list(report.packages),
+        "adjacency": [
+            {
+                "source_package": package,
+                "targets": [
+                    {
+                        "target_package": edge.target_package,
+                        "include_site_count": edge.include_site_count,
+                    }
+                    for edge in edges_by_source[package]
+                ],
+            }
+            for package in report.packages
+        ],
+        "strongly_connected_components": [
+            list(component) for component in report.strongly_connected_components
+        ],
+        "cyclic_components": [list(component) for component in report.cyclic_components],
+        "bidirectional_pairs": [
+            {"left_package": left, "right_package": right}
+            for left, right in report.bidirectional_pairs
+        ],
+        "non_app_to_app_include_site_count": len(report.reverse_app_include_sites),
+        "non_app_to_app_include_sites": [
+            {
+                "source_package": site.source_package,
+                "target_package": site.target_package,
+                "source": site.source,
+                "line": site.line,
+                "target": site.target,
+            }
+            for site in report.reverse_app_include_sites
+        ],
+    }
 
 
 def project_items(repo: Path, project_name: str) -> set[str]:
@@ -571,6 +830,178 @@ def include_parser_limit_self_test(config: dict) -> list[str]:
                     f"residual include-parser fixture {filename} returned {findings!r}; "
                     f"expected {expected!r}"
                 )
+    return errors
+
+
+def runtime_package_graph_fixture(
+    source_root: str,
+    sources: dict[str, str],
+) -> RuntimePackageGraph:
+    """Run one synthetic Runtime tree through the production parser and resolver."""
+    with tempfile.TemporaryDirectory(prefix="skore_runtime_graph_fixture_") as fixture_dir:
+        repo = Path(fixture_dir)
+        tracked_files: list[str] = []
+        for source, text in sorted(sources.items()):
+            tracked = normalize(f"{source_root}/{source}")
+            tracked_files.append(tracked)
+            path = repo / tracked
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text, encoding="utf-8")
+
+        resolved_includes = scan_resolved_include_files(repo, source_root, tracked_files)
+        return build_runtime_package_graph(source_root, tracked_files, resolved_includes)
+
+
+def runtime_package_graph_self_test(config: dict) -> list[str]:
+    """Exercise DAG, cycle, reverse-App, and exact top-level file projections."""
+    errors: list[str] = []
+    source_root = normalize(config["source_root"])
+    cases = [
+        {
+            "name": "legal DAG",
+            "sources": {
+                "Runtime/App/Main.cpp": '#include "../Feature/Feature.h"\n',
+                "Runtime/Feature/Feature.h": '#include "../Leaf/Leaf.h"\n',
+                "Runtime/Leaf/Leaf.h": "",
+            },
+            "edges": {
+                ("Runtime/App", "Runtime/Feature"): 1,
+                ("Runtime/Feature", "Runtime/Leaf"): 1,
+            },
+            "cyclic_components": set(),
+            "bidirectional_pairs": set(),
+            "reverse_sites": set(),
+            "required_packages": set(),
+        },
+        {
+            "name": "two-node cycle",
+            "sources": {
+                "Runtime/Alpha/Alpha.h": '#include "../Beta/Beta.h"\n',
+                "Runtime/Beta/Beta.h": '#include "../Alpha/Alpha.h"\n',
+            },
+            "edges": {
+                ("Runtime/Alpha", "Runtime/Beta"): 1,
+                ("Runtime/Beta", "Runtime/Alpha"): 1,
+            },
+            "cyclic_components": {("Runtime/Alpha", "Runtime/Beta")},
+            "bidirectional_pairs": {("Runtime/Alpha", "Runtime/Beta")},
+            "reverse_sites": set(),
+            "required_packages": set(),
+        },
+        {
+            "name": "long cycle",
+            "sources": {
+                "Runtime/Alpha/Alpha.h": '#include "../Beta/Beta.h"\n',
+                "Runtime/Beta/Beta.h": '#include "../Gamma/Gamma.h"\n',
+                "Runtime/Gamma/Gamma.h": '#include "../Alpha/Alpha.h"\n',
+            },
+            "edges": {
+                ("Runtime/Alpha", "Runtime/Beta"): 1,
+                ("Runtime/Beta", "Runtime/Gamma"): 1,
+                ("Runtime/Gamma", "Runtime/Alpha"): 1,
+            },
+            "cyclic_components": {
+                ("Runtime/Alpha", "Runtime/Beta", "Runtime/Gamma")
+            },
+            "bidirectional_pairs": set(),
+            "reverse_sites": set(),
+            "required_packages": set(),
+        },
+        {
+            "name": "reverse App edge",
+            "sources": {
+                "Runtime/App/Run.h": "",
+                "Runtime/Feature/Feature.cpp": '// fixture prelude\n#include "../App/Run.h"\n',
+            },
+            "edges": {("Runtime/Feature", "Runtime/App"): 1},
+            "cyclic_components": set(),
+            "bidirectional_pairs": set(),
+            "reverse_sites": {
+                ("Runtime/Feature/Feature.cpp", 2, "Runtime/App/Run.h")
+            },
+            "required_packages": set(),
+        },
+        {
+            "name": "top-level Runtime exact file",
+            "sources": {
+                "Runtime/App/Main.cpp": '#include "../RuntimeFrameViews.h"\n',
+                "Runtime/Feature/Value.h": "",
+                "Runtime/RuntimeFrameViews.h": '#include "Feature/Value.h"\n',
+            },
+            "edges": {
+                ("Runtime/App", "Runtime/RuntimeFrameViews.h"): 1,
+                ("Runtime/RuntimeFrameViews.h", "Runtime/Feature"): 1,
+            },
+            "cyclic_components": set(),
+            "bidirectional_pairs": set(),
+            "reverse_sites": set(),
+            "required_packages": {"Runtime/RuntimeFrameViews.h"},
+        },
+    ]
+
+    for case in cases:
+        report = runtime_package_graph_fixture(source_root, case["sources"])
+        actual_edges = {
+            (edge.source_package, edge.target_package): edge.include_site_count
+            for edge in report.edges
+        }
+        if actual_edges != case["edges"]:
+            errors.append(
+                f"Runtime package graph {case['name']} returned edges {actual_edges!r}; "
+                f"expected {case['edges']!r}"
+            )
+
+        actual_cyclic_components = set(report.cyclic_components)
+        if actual_cyclic_components != case["cyclic_components"]:
+            errors.append(
+                f"Runtime package graph {case['name']} returned cyclic components "
+                f"{actual_cyclic_components!r}; expected {case['cyclic_components']!r}"
+            )
+
+        actual_bidirectional_pairs = set(report.bidirectional_pairs)
+        if actual_bidirectional_pairs != case["bidirectional_pairs"]:
+            errors.append(
+                f"Runtime package graph {case['name']} returned bidirectional pairs "
+                f"{actual_bidirectional_pairs!r}; expected {case['bidirectional_pairs']!r}"
+            )
+
+        actual_reverse_sites = {
+            (site.source, site.line, site.target)
+            for site in report.reverse_app_include_sites
+        }
+        if actual_reverse_sites != case["reverse_sites"]:
+            errors.append(
+                f"Runtime package graph {case['name']} returned reverse App sites "
+                f"{actual_reverse_sites!r}; expected {case['reverse_sites']!r}"
+            )
+
+        missing_packages = case["required_packages"] - set(report.packages)
+        if missing_packages:
+            errors.append(
+                f"Runtime package graph {case['name']} omitted packages {missing_packages!r}"
+            )
+
+        component_members = sorted(
+            member
+            for component in report.strongly_connected_components
+            for member in component
+        )
+        if component_members != list(report.packages):
+            errors.append(
+                f"Runtime package graph {case['name']} did not partition every package exactly once"
+            )
+
+        document = runtime_package_graph_document(report)
+        if document["directed_cross_package_edge_count"] != len(report.edges):
+            errors.append(
+                f"Runtime package graph {case['name']} serialized the wrong edge count"
+            )
+        if document["non_app_to_app_include_site_count"] != len(
+            report.reverse_app_include_sites
+        ):
+            errors.append(
+                f"Runtime package graph {case['name']} serialized the wrong reverse App count"
+            )
     return errors
 
 
@@ -765,6 +1196,7 @@ def scan_content(repo: Path, source_root: str, rules: list[dict]) -> list[Findin
 def self_test(config: dict) -> list[str]:
     errors = proof_self_test(config)
     errors.extend(include_parser_limit_self_test(config))
+    errors.extend(runtime_package_graph_self_test(config))
     for rule in config["include_rules"]:
         sources = include_fixture_sources(rule)
         positive_targets = [normalize(rule["positive_target"])]
@@ -892,6 +1324,14 @@ def main() -> int:
     action.add_argument("--render-proof", action="store_true")
     action.add_argument("--check-proof", type=Path, metavar="MARKDOWN")
     action.add_argument("--write-proof", type=Path, metavar="MARKDOWN")
+    action.add_argument(
+        "--report-runtime-graph",
+        action="store_true",
+        help=(
+            "Emit deterministic JSON for the current Runtime package graph without "
+            "rejecting cycles or reverse App edges."
+        ),
+    )
     args = parser.parse_args()
 
     repo = args.repo.resolve()
@@ -929,11 +1369,16 @@ def main() -> int:
             f"{len(config.get('content_rules', []))} content rules with "
             f"{content_fixture_count} negative content fixtures and "
             f"{project_fixture_count} exact project-rule cases plus "
+            "5 Runtime package-graph cases, textual parser-limit cases, and "
             "generated-proof fixtures passed"
         )
         return 0
     if args.render_proof:
         print(rendered_proof)
+        return 0
+    if args.report_runtime_graph:
+        report = scan_runtime_package_graph(repo, config["source_root"])
+        print(json.dumps(runtime_package_graph_document(report), indent=2))
         return 0
 
     proof_path = args.check_proof or args.write_proof
