@@ -64,3 +64,16 @@ TEST_CASE( "AssetSystem: built-in asset libraries are registered for scene reuse
     CHECK( buildings->relativePath == "assets/buildings.assets.json" );
     CHECK( physicsProps->relativePath == "assets/physics_props.assets.json" );
 }
+
+
+TEST_CASE( "AssetSystem: shader base-name resolution preserves source ownership order" )
+{
+    AssetSystem assets;
+
+    CHECK( std::string( assets.ResolveShaderBaseName( "shaders/direct" ) ) == "shaders/direct" );
+    CHECK( std::string( assets.ResolveShaderBaseName( "shader.text" ) ) == "shaders/text" );
+
+    assets.RegisterShaderSourceAsset( "shader.text", "shaders/overridden_text" );
+    CHECK( std::string( assets.ResolveShaderBaseName( "shader.text" ) ) == "shaders/overridden_text" );
+    CHECK( std::string( assets.ResolveShaderBaseName( "shaders/overridden_text" ) ) == "shaders/overridden_text" );
+}

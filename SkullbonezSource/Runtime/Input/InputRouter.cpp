@@ -233,7 +233,7 @@ InputActions& InputRouter::Actions()
 
 
 void InputRouter::BeginFrame( const DeviceInputFrame& frame, RuntimeInputKeyBindingView bindings, InputActions& output,
-                              UiInputCaptureIntent capture )
+                              UI::InputCaptureIntent capture )
 {
     const bool keyboardCaptured = capture.keyboard || capture.text;
     const bool captureReleased = ( m_keyboardCaptured && !keyboardCaptured ) || ( m_mouseCaptured && !capture.mouse );
@@ -569,19 +569,6 @@ void InputRouter::ReleaseNativeCapture()
 void InputRouter::RequestCursorVisible( bool visible )
 {
     m_cursorVisibleRequested = visible;
-}
-
-
-bool InputRouter::ObserveSceneLifecycle( const SceneLifecyclePacket& packet, bool hideCursorAfterActivation )
-{
-    if ( m_sceneActivationObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneActivated ) &&
-         hideCursorAfterActivation )
-    {
-        RequestCursorVisible( false );
-        return true;
-    }
-
-    return false;
 }
 
 

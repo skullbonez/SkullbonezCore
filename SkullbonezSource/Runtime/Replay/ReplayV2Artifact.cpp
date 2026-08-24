@@ -40,11 +40,10 @@ Related:
 #include "ReplayArtifactSource.h"
 #include "../../Core/ByteView.h"
 
-#include "../Tools/RuntimeFileWriter.h"
-
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <limits>
 #include <string>
@@ -87,11 +86,30 @@ constexpr uint32_t REPLAY_V2_SOLVER_BODY_ENTRY_BYTES = 112;
 constexpr uint32_t REPLAY_V4_VISUAL_PACKET_ENTRY_BYTES = 296;
 constexpr char REPLAY_V2_MAGIC[8] = { 'S', 'K', 'R', 'E', 'P', 'V', '2', '\0' };
 
+bool EnsureReplayArtifactParentDirectory( const char* path )
+{
+    if ( !path || path[0] == '\0' )
+    {
+        return false;
+    }
+
+    const std::filesystem::path parent = std::filesystem::path( path ).parent_path();
+
+    if ( parent.empty() )
+    {
+        return true;
+    }
+
+    std::error_code error;
+    std::filesystem::create_directories( parent, error );
+    return !error;
+}
+
 enum ReplayV2WorldFlags : uint8_t
 {
     REPLAY_V2_WORLD_WATER_HIDDEN = 1u << 0,
     REPLAY_V2_WORLD_TERRAIN_HIDDEN = 1u << 1,
-    REPLAY_V2_WORLD_FIXED_STEP = 1u << 2,
+    REPLAY_V2_WORLD_FIXED_STEP = 1u << 2, // Compatibility bit for the saved scene/capture lockstep request.
     REPLAY_V2_WORLD_SCENE_PHYSICS_ENABLED = 1u << 3,
     REPLAY_V2_WORLD_SCENE_TEXT_ENABLED = 1u << 4
 };
@@ -2778,7 +2796,7 @@ bool ReplayV2Artifact::SavePresentation( const ReplayRecorder& recorder, const c
         return false;
     }
 
-    if ( !RuntimeFileWriter::EnsureParentDirectory( path ) )
+    if ( !EnsureReplayArtifactParentDirectory( path ) )
     {
         return false;
     }
@@ -2868,7 +2886,7 @@ bool SavePresentationWithTracks( const ReplayRecorder& recorder, const ReplaySol
         return false;
     }
 
-    if ( !RuntimeFileWriter::EnsureParentDirectory( path ) )
+    if ( !EnsureReplayArtifactParentDirectory( path ) )
     {
         return false;
     }

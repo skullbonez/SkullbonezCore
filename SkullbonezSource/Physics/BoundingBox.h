@@ -39,7 +39,6 @@ namespace Math
 {
 namespace CollisionDetection
 {
-class BoundingSphere;              // Forward declaration
 class ConvexHullShape;
 
 class BoundingBox
@@ -65,10 +64,7 @@ class BoundingBox
     const Vector::Vector3& GetHalfExtents() const;
 
     // Collision tests:
-    // Sphere-box sweep: broadphase-style time query; manifold generation owns exact resting contacts.
-    float TestCollision( const BoundingSphere& target, const Geometry::Ray& targetRay, const Geometry::Ray& focusRay ) const;
-
-    // Box/object sweeps keep the same visitor surface as BoundingSphere for CollisionShape dispatch.
+    // Box/object sweeps are conservative front-ends; manifold generation owns exact resting contacts.
     float TestCollision( const BoundingBox& target, const Geometry::Ray& targetRay, const Geometry::Ray& focusRay ) const;
     float TestCollision( const ConvexHullShape& target, const Geometry::Ray& targetRay,
                          const Geometry::Ray& focusRay ) const;

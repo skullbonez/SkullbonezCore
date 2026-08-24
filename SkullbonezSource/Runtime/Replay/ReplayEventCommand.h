@@ -67,6 +67,31 @@ enum class ReplayOwnerEventCode : int32_t
     RenderSaveCinematicDefaults = 3002,
 };
 
+inline const char* ReplayOwnerEventName( ReplayOwnerEventCode code ) noexcept
+{
+    switch ( code )
+    {
+    case ReplayOwnerEventCode::SceneLoadBrowserIndex:
+        return "SceneLoadBrowserIndex";
+    case ReplayOwnerEventCode::SceneLoadDemo:
+        return "SceneLoadDemo";
+    case ReplayOwnerEventCode::SceneReset:
+        return "SceneReset";
+    case ReplayOwnerEventCode::SceneCreate:
+        return "SceneCreate";
+    case ReplayOwnerEventCode::SceneSaveDefaults:
+        return "SceneSaveDefaults";
+    case ReplayOwnerEventCode::CaptureScreenshot:
+        return "CaptureScreenshot";
+    case ReplayOwnerEventCode::RenderSaveOrdinaryDefaults:
+        return "RenderSaveOrdinaryDefaults";
+    case ReplayOwnerEventCode::RenderSaveCinematicDefaults:
+        return "RenderSaveCinematicDefaults";
+    default:
+        return "UnknownOwnerEvent";
+    }
+}
+
 // Value-only event command accepted by replay composition. useNextFrame lets
 // the timeline attach its current cursor without exposing timeline ownership.
 struct ReplayEventCommand

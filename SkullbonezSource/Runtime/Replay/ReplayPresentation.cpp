@@ -25,39 +25,15 @@ Related:
   - SkullbonezSource/Runtime/App/ReplayRuntime.h
 */
 #include "ReplayPresentation.h"
-#include "../Interaction/RuntimePickService.h"
-#include "../Scene/SceneEntityStore.h"
-#include "../Tools/RuntimeTools.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Rendering/RenderInstanceStore.h"
 
 #include <algorithm>
-#include <cfloat>
-#include <cmath>
 #include <cstring>
 
 namespace SkullbonezCore::Runtime
 {
-const char* ReplayPathColorModeName( ReplayPathColorMode mode ) noexcept
-{
-    switch ( mode )
-    {
-    case ReplayPathColorMode::LaneFlat:
-        return "Lane flat";
-    case ReplayPathColorMode::VelocityHeat:
-        return "Velocity heat";
-    case ReplayPathColorMode::TimeGradient:
-        return "Time gradient";
-    case ReplayPathColorMode::PerObjectHue:
-        return "Per-object hue";
-    case ReplayPathColorMode::CausalDepth:
-        return "Causal depth";
-    default:
-        return "Lane flat";
-    }
-}
-
 ReplayPastTrajectoryView ReplayPresentation::PastTrajectoryView() const noexcept
 {
     ReplayPastTrajectoryView view;
@@ -74,36 +50,21 @@ ReplayPastTrajectoryView ReplayPresentation::PastTrajectoryView() const noexcept
     return view;
 }
 
-const ReplayLauncherVisualSample& ReplayPresentation::CaptureLauncherVisual( RuntimeTools& runtimeTools )
+void ReplayPresentation::ReserveLauncherVisualBackupBuffers()
 {
-    runtimeTools.BuildReplayLauncherVisualSample( m_launcherVisualCaptureScratch );
-    return m_launcherVisualCaptureScratch;
+    m_launcherVisualBackup.rayLines.reserve( REPLAY_LAUNCHER_RAY_LINE_CAPACITY );
+    m_launcherVisualBackup.laserShots.reserve( REPLAY_LAUNCHER_LASER_SHOT_CAPACITY );
 }
 
-void ReplayPresentation::ReserveLauncherVisualCaptureBuffers()
+void ReplayPresentation::StoreLauncherVisualBackup( const ReplayLauncherVisualSample& sample )
 {
-    constexpr std::size_t launcherLaserShotCapacity = 32;
-    m_launcherVisualCaptureScratch.rayLines.reserve( RunRayCastTestState::MAX_LINES );
-    m_launcherVisualCaptureScratch.laserShots.reserve( launcherLaserShotCapacity );
-    m_launcherVisualBackup.rayLines.reserve( RunRayCastTestState::MAX_LINES );
-    m_launcherVisualBackup.laserShots.reserve( launcherLaserShotCapacity );
-}
-
-void ReplayPresentation::StoreLauncherVisualBackupFrom( RuntimeTools& runtimeTools )
-{
-    runtimeTools.BuildReplayLauncherVisualSample( m_launcherVisualBackup );
+    m_launcherVisualBackup = sample;
     m_launcherVisualBackupActive = true;
 }
 
-void ReplayPresentation::RestoreAndClearLauncherVisualBackup( RuntimeTools& runtimeTools )
+const ReplayLauncherVisualSample& ReplayPresentation::LauncherVisualBackup() const noexcept
 {
-    if ( !m_launcherVisualBackupActive )
-    {
-        return;
-    }
-
-    runtimeTools.RestoreReplayLauncherVisualSample( m_launcherVisualBackup );
-    ClearLauncherVisualBackup();
+    return m_launcherVisualBackup;
 }
 
 namespace
@@ -111,62 +72,6 @@ namespace
 template <typename T> uint64_t ReplayPresentationVectorCapacityBytes( const std::vector<T>& values )
 {
     return static_cast<uint64_t>( values.capacity() * sizeof( T ) );
-}
-
-float ReplayQueryColliderRadiusForModelIndex( const Physics::ColliderStore& colliderStore, int modelIndex )
-{
-    const Physics::PhysicsColliderHandle colliderHandle = colliderStore.HandleForModelIndex( modelIndex );
-    const Physics::ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
-
-    if ( !collider || colliderStore.ModelIndexForHandle( colliderHandle ) != modelIndex )
-    {
-        return 1.0f;
-    }
-
-    return (std::max)( collider->boundingRadius > 0.0f ? collider->boundingRadius
-                                                       : Math::CollisionDetection::GetShapeBoundingRadius( collider->shape ),
-                       1.0f );
-}
-
-Physics::PhysicsSceneObjectId ReplayQueryBodyIdForModelIndex( const Physics::PhysicsBodyStore& bodyStore, int modelIndex )
-{
-    Physics::PhysicsSceneObjectId id;
-
-    if ( const Physics::PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex ) )
-    {
-        id = body->sceneObjectId;
-    }
-
-    return id;
-}
-
-bool ReplayQueryIntersectRaySphere( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection,
-                                    const Math::Vector::Vector3& center, float radius, float& outT )
-{
-    const Math::Vector::Vector3 offset = rayOrigin - center;
-    const float rayProjection = Dot( offset, rayDirection );
-    const float radialDistance = ( Dot( offset, offset ) ) - radius * radius;
-
-    if ( radialDistance > 0.0f && rayProjection > 0.0f )
-    {
-        return false;
-    }
-
-    const float discriminant = rayProjection * rayProjection - radialDistance;
-
-    if ( discriminant < 0.0f )
-    {
-        return false;
-    }
-
-    outT = -rayProjection - sqrtf( discriminant );
-
-    if ( outT < 0.0f )
-    {
-        outT = 0.0f;
-    }
-
-    return true;
 }
 
 const Physics::PhysicsBodyRecord* ReplayPresentationResolveReplayBody( const Physics::PhysicsBodyStore& bodyStore,
@@ -607,117 +512,27 @@ bool ReplayPresentation::SetPathTarget( Physics::PhysicsSceneObjectId id, Physic
 }
 
 
-ReplayPathPickResult
-ReplayPresentation::TryPickPathTarget( const ReplayPathPickInput& input, const SceneEntityStore& entities,
-                                       const Physics::PhysicsBodyStore& bodyStore,
-                                       const Physics::ColliderStore& colliderStore,
-                                       std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
-                                       const ReplaySolverFrameSample* currentSolverSample )
+ReplayPathPickResult ReplayPresentation::ApplyPathPickResult( const ReplayPathPickResult& resolved )
 {
-    ReplayPathPickResult result;
+    ReplayPathPickResult result = resolved;
 
-    if ( !input.hasWorldRay )
+    if ( !resolved.picked )
     {
-        if ( input.clearOnMiss )
+        if ( resolved.exitInspectionCamera )
         {
             ClearPathState();
-            result.exitInspectionCamera = true;
         }
 
         return result;
     }
 
-    const int modelCount = (std::min)( bodyStore.Count(), colliderStore.Count() );
-    const auto copyPresentationName = [&]( int modelIndex, char* outName, std::size_t outSize )
+    const Physics::PhysicsSceneObjectId pickedId = resolved.targetId;
+    const int pickedIndex = resolved.targetModelRow.value;
+    const char* pickedName = resolved.targetName;
+
+    if ( pickedId.value != 0 && pickedIndex >= 0 )
     {
-        if ( !outName || outSize == 0 )
-        {
-            return;
-        }
-
-        outName[0] = '\0';
-
-        if ( modelIndex >= 0 && modelIndex < static_cast<int>( presentationRecords.size() ) )
-        {
-            const char* displayName = presentationRecords[static_cast<std::size_t>( modelIndex )].displayName;
-
-            if ( displayName[0] != '\0' )
-            {
-                strncpy_s( outName, outSize, displayName, _TRUNCATE );
-            }
-        }
-    };
-
-    Physics::PhysicsSceneObjectId pickedId;
-    int pickedIndex = -1;
-    char pickedName[64] = {};
-
-    if ( currentSolverSample )
-    {
-        float bestT = FLT_MAX;
-
-        for ( const ReplaySolverBodySample& body : currentSolverSample->bodies )
-        {
-            float radius = 1.0f;
-
-            if ( body.modelRow.value >= 0 && body.modelRow.value < modelCount )
-            {
-                radius = ReplayQueryColliderRadiusForModelIndex( colliderStore, body.modelRow.value ) + 1.0f;
-            }
-
-            float rayT = 0.0f;
-
-            if ( ReplayQueryIntersectRaySphere( input.rayOrigin, input.rayDirection, body.position, radius, rayT ) &&
-                 rayT < bestT )
-            {
-                bestT = rayT;
-                pickedId = body.id;
-                pickedIndex = body.modelRow.value;
-
-                if ( body.name[0] != '\0' )
-                {
-                    strncpy_s( pickedName, sizeof( pickedName ), body.name, _TRUNCATE );
-                }
-            }
-        }
-    }
-    else
-    {
-        RuntimePickRequest request;
-        request.purpose = RuntimePickPurpose::ReplayPathTarget;
-        request.bodyStore = &bodyStore;
-        request.colliderStore = &colliderStore;
-        request.rayOrigin = input.rayOrigin;
-        request.rayDirection = input.rayDirection;
-
-        RuntimePickResult pick;
-
-        if ( RuntimePickService::TryPickModel( request, pick ) )
-        {
-            pickedIndex = pick.modelRow.value;
-            pickedId = ReplayQueryBodyIdForModelIndex( bodyStore, pickedIndex );
-            copyPresentationName( pickedIndex, pickedName, sizeof( pickedName ) );
-        }
-    }
-
-    if ( pickedIndex >= 0 && pickedIndex < modelCount )
-    {
-        const SceneEntityRecord* pickedEntity = entities.TryGet( pickedIndex );
-        const int collectionIndex = pickedEntity && pickedEntity->behaviorGroup.kind == SceneBehaviorGroupKind::SimpleRagdoll
-                                        ? entities.FindBySceneObjectId( pickedEntity->behaviorGroup.rootObjectId )
-                                        : pickedIndex;
-
-        if ( collectionIndex >= 0 && collectionIndex < modelCount && collectionIndex != pickedIndex )
-        {
-            pickedIndex = collectionIndex;
-            pickedId = ReplayQueryBodyIdForModelIndex( bodyStore, collectionIndex );
-            copyPresentationName( collectionIndex, pickedName, sizeof( pickedName ) );
-        }
-    }
-
-    if ( pickedId.value != 0 )
-    {
-        if ( !input.additive )
+        if ( !resolved.additive )
         {
             m_pathVisualizer.targets.clear();
         }
@@ -762,7 +577,9 @@ ReplayPresentation::TryPickPathTarget( const ReplayPathPickInput& input, const S
         return result;
     }
 
-    if ( input.clearOnMiss )
+    result.picked = false;
+
+    if ( result.exitInspectionCamera )
     {
         ClearPathState();
         result.exitInspectionCamera = true;
@@ -847,7 +664,7 @@ bool ReplayPresentation::PrepareRenderPoseBodyMatch( int modelCount ) noexcept
 }
 
 
-void ReplayPresentation::ClearLauncherVisualBackup()
+void ReplayPresentation::ClearLauncherVisualBackup() noexcept
 {
     // Invariant: historical rendering borrows this scratch every frame. Clear
     // semantic values while retaining startup capacity so entering inspection

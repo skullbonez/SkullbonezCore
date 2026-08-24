@@ -42,7 +42,7 @@ Invariants:
 Related:
   - Agentic/Reference/engine-glossary.md
   - SkullbonezSource/Runtime/Replay/ReplayVisualPacket.h
-  - SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp
+  - SkullbonezSource/Runtime/App/ReplayPredictionDrawing.cpp
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 
@@ -50,7 +50,7 @@ Related:
 #include "../SkullbonezSource/Runtime/Replay/ReplayVisualPacketFingerprint.h"
 #include "../SkullbonezSource/Physics/PhysicsEngine.h"
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPrediction.h"
-#include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.h"
+#include "../SkullbonezSource/Runtime/App/ReplayPredictionDrawing.h"
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.h"
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionPublicationOperations.h"
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.MarkerScan.inl"

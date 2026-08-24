@@ -60,10 +60,7 @@ namespace Runtime
 {
 class RuntimeInteractionController;
 class SceneWorld;
-class EditorTracer;
 struct RunEditorPlacementState;
-struct RunMousePickupState;
-struct RunRayCastTestState;
 
 
 struct EditorInteractionPreviewInput
@@ -82,24 +79,10 @@ struct EditorInteractionPreviewResult
     bool inspectSelectionScope = false;
 };
 
-struct EditorToolOverlayTraceInput
-{
-    float rayLingerSeconds = 0.0f;
-    bool inspectGizmoActive = false;
-    bool scaleMode = false;
-    RuntimeInteractionGesture gesture;
-    int attachedCameraTargetIndex = -1;
-    bool attachedCameraActiveFollow = false;
-};
-
 EditorInteractionPreviewResult UpdateEditorInteractionPreview( Core::SbDiagnosticStore& diagnostics,
                                                                RunEditorPlacementState& editor, SceneWorld& world,
                                                                RuntimeInteractionController& interaction,
                                                                const Assets::AssetSystem& assets,
                                                                const EditorInteractionPreviewInput& input );
-void BuildEditorToolOverlayTrace( const RunEditorPlacementState& editor, const RunRayCastTestState& rayCastTest,
-                                  const RunMousePickupState& mousePickup, const SceneWorld& world,
-                                  const Assets::AssetSystem& assets, EditorTracer& tracer,
-                                  const EditorToolOverlayTraceInput& input );
 } // namespace Runtime
 } // namespace SkullbonezCore

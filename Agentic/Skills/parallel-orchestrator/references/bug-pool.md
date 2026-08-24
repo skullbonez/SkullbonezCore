@@ -1,0 +1,136 @@
+# Master Bug-Report Pool
+
+Read this reference before assigning any row from
+`Agentic/Bugs/master_bug_report.csv`. The parallel orchestrator remains the
+authority for subsystem leases, worktrees, dispatch, fan-in, validation, and
+ledger state.
+
+## Triage And Atomic Assignment
+
+The coordinator, never a worker, performs global triage and atomically reserves
+one finding ID and its complete subsystem lease set. Re-read the CSV without
+trusting its `fixed` column alone. Treat the exact `subsystem` field as the
+mandatory initial lease, then expand it before assignment from `locations`,
+CodeGraph/source ownership, tests, fixtures, project metadata, and the required
+fix. Add `path-owner:<package>` for every affected owner absent from the CSV and
+`resource:<name>` for shared mutable facilities. Never narrow the CSV lease
+from file-level evidence or coerce an unmatched package into another alias.
+
+Cross-check active plans, active and pending bug leases, SessionState, source,
+tests, relevant history, current/upcoming file leases, contracts, resources,
+and the intended integration checkpoint. Assign the highest-ranked row whose
+complete lease is free.
+
+The worker revalidates only its assigned row. If new evidence reveals another
+subsystem, it stops before editing that owner and requests lease expansion.
+Grant expansion only when every added exact subsystem value is unleased;
+otherwise preserve the evidence and defer the lane. Workers never self-select
+from a shared pool.
+
+## Conflict Forecast
+
+Forecast conflict from:
+
+- every active `Agentic/Plans/TODO/` plan's impact area, worklists, reference
+  sites, intended moves, project changes, tests, and closure gates;
+- dirty and untracked coordinator files;
+- current CodeGraph impact/caller evidence, confirmed against source;
+- project, generated-proof, baseline, fixture, and rule files affected by both
+  planned work and the bug; and
+- the exact commit checkpoint where the bug would merge.
+
+Treat direct file overlap, shared public-contract edits, planned file moves,
+common retained-state ownership, shared behavior-sensitive tests, and likely
+semantic conflict as conflicts even when Git could merge the text. Defer an
+uncertain lane; the pool exists for useful work that should fan in mechanically,
+not speculative work that must later be ported by hand.
+
+Choose a row only when all of these are true:
+
+- no active or future registered plan phase already owns the finding;
+- its source, tests, fixtures, baselines, project metadata, and generated files
+  do not overlap an active plan task or another bug branch;
+- the fix needs no unresolved owner, schema, dependency, baseline, or golden
+  decision;
+- a bounded regression can mechanically express the expected behavior, or the
+  worker records why that is impractical;
+- focused validation is isolated from exclusive GPU, performance, baseline,
+  intermediate, binary, cache, report, and artifact resources; and
+- the branch can wait for its checkpoint without uncommitted work from another
+  lane.
+
+Require mechanical fan-in: a normal merge must retain the implementation and
+regression without choosing between competing contracts. Manual semantic
+transplant, plan redesign, baseline reinterpretation, or an owner decision
+makes the row ineligible for the pool.
+
+After hard filtering, rank by severity descending, predicted clash risk, then
+stable ID. Independence outranks severity: prefer a safer lower-severity row
+when the higher row has materially greater integration risk, and record why.
+Return the shortlist and deferrals for audit.
+
+Do not select:
+
+- a Physics finding already assigned to an active FP phase;
+- a Runtime, App, operator-UI, or project-topology row owned by an active
+  boundary-separation plan;
+- UI foundation/product work owned by an active UI separation plan;
+- a row whose fix changes an owner-controlled baseline or golden;
+- a tooling row that changes a gate while an active plan relies on that gate;
+  or
+- a broad cluster merely because its rows share a subsystem label.
+
+Record every seriously considered deferral with its conflicting owner, paths or
+symbols, and safe reconsideration checkpoint. Revisit only after that owner
+closes or the source scope materially changes. If no row is eligible, leave the
+slot idle or assign different useful work; never manufacture a bug or substitute
+a cosmetic audit.
+
+## Execute One Bug Per Branch
+
+Use one agent, branch, isolated worktree, and subsystem lease per active bug.
+Run no more than one active bug in a subsystem. Combine two rows only when they
+have one inseparable root cause and one acceptance witness. Prefer:
+
+```text
+codex/bug-<finding-id-lower>-<short-slug>
+```
+
+The worker follows repository startup, diagnoses before editing, adds or updates
+the owning subsystem regression, applies comment/code standards, runs cumulative
+focused validation, commits locally, and returns the main skill's complete
+dispatch handoff.
+
+Bug commits use normal commit rules and name the finding ID; they do not claim
+MASTER progress. A worker does not edit MASTER, SessionState, the active plan,
+the live ledger, or the bug CSV unless that file's documented owner explicitly
+assigns the mutation.
+
+## Hold And Integrate At A Safe Checkpoint
+
+Do not fan a bug into the middle of a plan phase that is establishing baseline,
+determinism, performance, graph, or validation evidence. Preserve the commit and
+focused evidence. Default fan-in to the first checkpoint after every overlapping
+active plan has published coherent evidence and before a dependent plan captures
+its baseline. A more frequent checkpoint is allowed when it cannot invalidate
+accepted evidence.
+
+When a primary plan is blocked, its pushed documentation-only blocker record is
+the bug fan-in checkpoint. Integrate safe independent bugs one at a time; do not
+hold them until the blocked plan completes.
+
+At fan-in:
+
+1. Require a clean integration worktree at the pushed coordinator commit; never
+   rebase worker history.
+2. Merge eligible branches one at a time in dependency order.
+3. Inspect and validate each integrated bug independently and preserve separate
+   commits for unrelated fixes.
+4. Run cumulative cross-subsystem gates on the combined tree.
+5. Push normally, record each full commit/result, and remove a worker worktree
+   only after its evidence and integration are secure.
+6. Re-read MASTER and refresh newly ready inventories from the combined commit.
+
+If a branch conflicts with accepted plan ownership or behavior, do not guess.
+Leave it unmerged, record the blocker and deletion/rework condition, and
+continue with eligible branches.

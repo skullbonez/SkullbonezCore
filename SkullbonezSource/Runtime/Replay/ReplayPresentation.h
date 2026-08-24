@@ -37,7 +37,6 @@ Related:
 #include "ReplayPresentationPackets.h"
 #include "ReplayRecorder.h"
 #include "../Camera/RuntimeCameraMode.h"
-#include "../Interaction/RuntimeInteractionController.h"
 #include "../../Assets/AssetKeys.h"
 #include "../../Core/Common.h"
 #include "../../Core/MainMemoryStats.h"
@@ -76,12 +75,10 @@ class Terrain;
 }
 namespace Runtime
 {
-class SceneEntityStore;
 class InputRouter;
 class ReplayAuthoring;
 class ReplayPresentation;
 class ReplayScrubber;
-class RuntimeTools;
 class EditorTracer;
 struct CameraControlState;
 struct RunMousePickupState;
@@ -90,23 +87,8 @@ struct RunReplayCauseTreeState;
 struct ReplayOverlayBuildInput
 {
     bool editorModeEnabled = false;
-    RuntimeInteractionGesture gesture;
+    ReplayToolGestureView gesture;
     int sceneFrame = 0;
-};
-
-struct ReplayPathPickInput
-{
-    Math::Vector::Vector3 rayOrigin = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
-    bool hasWorldRay = false;
-    bool additive = false;
-    bool clearOnMiss = false;
-};
-
-struct ReplayPathPickResult
-{
-    bool picked = false;
-    bool exitInspectionCamera = false;
 };
 
 // Host-camera effect emitted by replay interaction phases. The action carries
@@ -117,28 +99,6 @@ enum class ReplayInspectionCameraAction : uint8_t
     Enter,
     Exit
 };
-
-namespace ReplayPresentationOperations
-{
-// Stateless host-camera transitions shared by scrubber and authoring tools.
-// Every owner reference is a synchronous borrow; neither operation stores host
-// or replay authority after returning.
-void EnterInspectionCamera( ReplayPresentation& presentation, Environment::CameraCollection* cameras,
-                            CameraControlState& camera, RunCameraMode normalizedCurrentMode,
-                            RuntimeInteractionController& interaction, InputRouter& inputRouter,
-                            RunMousePickupState& mousePickup, uint32_t inspectionCameraHash = CAMERA_FREE );
-void ExitInspectionCamera( ReplayPresentation& presentation, const ReplayAuthoring& authoring,
-                           Environment::CameraCollection* cameras, Geometry::Terrain* terrain, CameraControlState& camera,
-                           RunCameraMode normalizedRestoreMode, bool attachedFollow, bool directorGrabbed,
-                           RuntimeInteractionController& interaction, InputRouter& inputRouter );
-
-// A committed load first releases gesture/camera ownership, then the caller
-// exits the host camera before arming the new scrub position. Keeping these
-// phases explicit prevents the load transaction from becoming a parameter bag.
-bool BeginLoadedPresentationActivation( bool hasLoadedPresentation, ReplayScrubber& scrubber,
-                                        ReplayPresentation& presentation, ReplayAuthoring& authoring,
-                                        RuntimeInteractionController& interaction, InputRouter& inputRouter );
-} // namespace ReplayPresentationOperations
 
 struct ReplayWorldPointerInput
 {
@@ -225,13 +185,10 @@ class ReplayPresentation
     ReplayPastTrajectoryView PastTrajectoryView() const noexcept;
     ReplayPresentationMemoryStats CollectMemoryStats() const noexcept;
     bool HasLauncherVisualBackup() const noexcept;
-    void ReserveLauncherVisualCaptureBuffers();
-
-    // Lifetime: the returned capture scratch remains valid until this owner
-    // builds the next launcher sample; ReplayRuntime consumes it synchronously.
-    const ReplayLauncherVisualSample& CaptureLauncherVisual( RuntimeTools& runtimeTools );
-    void StoreLauncherVisualBackupFrom( RuntimeTools& runtimeTools );
-    void RestoreAndClearLauncherVisualBackup( RuntimeTools& runtimeTools );
+    void ReserveLauncherVisualBackupBuffers();
+    void StoreLauncherVisualBackup( const ReplayLauncherVisualSample& sample );
+    const ReplayLauncherVisualSample& LauncherVisualBackup() const noexcept;
+    void ClearLauncherVisualBackup() noexcept;
     void BeginCameraInspection( RunCameraMode restoreMode, uint32_t restoreCameraHash,
                                 const Math::Vector::Vector3& restoreEye, const Math::Vector::Vector3& restoreView,
                                 const Math::Vector::Vector3& restoreUp ) noexcept;
@@ -262,13 +219,8 @@ class ReplayPresentation
     // trajectory records remain unchanged and are recolored on the next draw.
     ReplayPathColorMode CyclePathColorMode() noexcept;
     bool SetPathTarget( Physics::PhysicsSceneObjectId id, Physics::ModelRowHint modelRow, const char* name );
-    ReplayPathPickResult TryPickPathTarget( const ReplayPathPickInput& input, const SceneEntityStore& entities,
-                                            const Physics::PhysicsBodyStore& bodyStore,
-                                            const Physics::ColliderStore& colliderStore,
-                                            std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
-                                            const ReplaySolverFrameSample* currentSolverSample );
+    ReplayPathPickResult ApplyPathPickResult( const ReplayPathPickResult& resolved );
     bool PrepareRenderPoseBodyMatch( int modelCount ) noexcept;
-    void ClearLauncherVisualBackup();
     bool ApplyPresentationSampleForRender( Rendering::RenderInstanceStore& renderInstances,
                                            const Physics::PhysicsBodyStore& bodyStore,
                                            const Physics::ColliderStore& colliderStore,
@@ -281,7 +233,6 @@ class ReplayPresentation
     RunReplayCameraState m_camera;
     RunReplayPathVisualizerState m_pathVisualizer;
     ReplayLauncherVisualSample m_launcherVisualBackup;
-    ReplayLauncherVisualSample m_launcherVisualCaptureScratch;
 
     // Invariant: replay render pose matching is a per-frame mark table capped
     // by the live model budget, so scrub/prediction rendering never allocates.

@@ -48,10 +48,13 @@
 #include "../SkullbonezSource/World/Terrain.h"
 #include "TestCollisionShapeFixtures.h"
 
+#include <algorithm>
+#include <array>
 #include <cstring>
 #include <fstream>
 #include <limits>
 #include <memory>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -96,6 +99,21 @@ constexpr std::size_t kChunkEntryBytes = 28u;
 constexpr std::size_t kChunkSizeOffset = 12u;
 constexpr std::size_t kChunkRecordCountOffset = 20u;
 
+std::span<const char* const>
+BuildEntityDisplayNames( const SkullbonezCore::Runtime::SceneEntityStore& entities,
+                         std::array<const char*, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>& storage )
+{
+    const std::size_t count = (std::min)( static_cast<std::size_t>( entities.Count() ), storage.size() );
+
+    for ( std::size_t index = 0; index < count; ++index )
+    {
+        const SkullbonezCore::Runtime::SceneEntityRecord* entity = entities.TryGet( static_cast<int>( index ) );
+        storage[index] = entity ? entity->displayName : nullptr;
+    }
+
+    return { storage.data(), count };
+}
+
 // Invariant: the downgrade fixture edits the documented PRES ABI directly.
 // These offsets must move with the writer layout constants and its round-trip
 // assertions, or the legacy-hash test must fail rather than patch another row.
@@ -108,9 +126,9 @@ constexpr std::size_t kPresentationBodyOrientationOffset = 16u;
 std::string ArtifactPath( const char* leaf )
 {
 
-    // RuntimeFileWriter intentionally creates one parent directory rather than
-    // recursively interpreting an arbitrary path, so the fixture uses one
-    // owned directory directly beneath the existing TestOutput root.
+    // Replay artifact writing creates the requested parent directory before
+    // opening the binary output, so the fixture uses one owned directory under
+    // the existing TestOutput root.
     return std::string( "TestOutput/replay_artifact_unit/" ) + leaf;
 }
 
@@ -542,10 +560,10 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     ReplayWorldPresentationSample captureWorld;
     captureWorld.fixedStep = true;
     ReplayCameraSample captureCamera;
+    std::array<const char*, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> entityDisplayNames = {};
 
     solver.CaptureFrame( captureBranch, 3u, 20, 1.0f / 120.0f, captureWorld, captureCamera, launcher, engine,
-                         tornadoGameplay, entities, PhysicsEngine::ReadBodies( engine ),
-                         PhysicsEngine::ReadColliders( engine ) );
+                         tornadoGameplay, BuildEntityDisplayNames( entities, entityDisplayNames ) );
 
     const ReplaySolverFrameSample* sample = solver.LatestSample();
     REQUIRE( sample != nullptr );
@@ -566,8 +584,7 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     REQUIRE( hashVerifier.Configure( config ) );
     hashVerifier.ResetTimeline( "coverage-floor-hash" );
     hashVerifier.CaptureFrame( captureBranch, 3u, 20, 1.0f / 120.0f, captureWorld, captureCamera, launcher, engine,
-                               tornadoGameplay, entities, PhysicsEngine::ReadBodies( engine ),
-                               PhysicsEngine::ReadColliders( engine ) );
+                               tornadoGameplay, BuildEntityDisplayNames( entities, entityDisplayNames ) );
     REQUIRE( hashVerifier.LatestSample() != nullptr );
     CHECK( hashVerifier.LatestSample()->solverHash != capturedSolverHash );
     REQUIRE( engine.RestoreReplaySolverSnapshot(
@@ -579,8 +596,7 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
                                                  SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( 2 ) ) );
     hashVerifier.ResetTimeline( "coverage-floor-motion-eligibility-hash" );
     hashVerifier.CaptureFrame( captureBranch, 3u, 20, 1.0f / 120.0f, captureWorld, captureCamera, launcher, engine,
-                               tornadoGameplay, entities, PhysicsEngine::ReadBodies( engine ),
-                               PhysicsEngine::ReadColliders( engine ) );
+                               tornadoGameplay, BuildEntityDisplayNames( entities, entityDisplayNames ) );
     REQUIRE( hashVerifier.LatestSample() != nullptr );
     CHECK( hashVerifier.LatestSample()->solverHash != capturedSolverHash );
     REQUIRE( engine.RestoreReplaySolverSnapshot( sample->worldSnapshot.physics,
@@ -602,8 +618,7 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     REQUIRE( engine.RestoreReplaySolverSnapshot(
         changedDeltaSnapshot, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( 2 ) ) );
     solver.CaptureFrame( captureBranch, 4u, 21, 1.0f / 120.0f, captureWorld, captureCamera, launcher, engine,
-                         tornadoGameplay, entities, PhysicsEngine::ReadBodies( engine ),
-                         PhysicsEngine::ReadColliders( engine ) );
+                         tornadoGameplay, BuildEntityDisplayNames( entities, entityDisplayNames ) );
 
     sample = solver.LatestSample();
     REQUIRE( sample != nullptr );
@@ -717,8 +732,8 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     REQUIRE( expectedAfterRestoreRecorder.Configure( config ) );
     expectedAfterRestoreRecorder.ResetTimeline( "coverage-floor-cold-restore-expected" );
     expectedAfterRestoreRecorder.CaptureFrame(
-        captureBranch, 3u, 20, 1.0f / 120.0f, captureWorld, captureCamera, launcher, engine, tornadoGameplay, entities,
-        PhysicsEngine::ReadBodies( engine ), PhysicsEngine::ReadColliders( engine ) );
+        captureBranch, 3u, 20, 1.0f / 120.0f, captureWorld, captureCamera, launcher, engine, tornadoGameplay,
+        BuildEntityDisplayNames( entities, entityDisplayNames ) );
     REQUIRE( expectedAfterRestoreRecorder.LatestSample() != nullptr );
     const uint64_t expectedAfterRestoreHash = expectedAfterRestoreRecorder.LatestSample()->solverHash;
 
@@ -758,8 +773,8 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     REQUIRE( recreatedAfterRestoreRecorder.Configure( config ) );
     recreatedAfterRestoreRecorder.ResetTimeline( "coverage-floor-cold-restore-recreated" );
     recreatedAfterRestoreRecorder.CaptureFrame(
-        captureBranch, 3u, 20, 1.0f / 120.0f, captureWorld, captureCamera, launcher, engine, tornadoGameplay, entities,
-        PhysicsEngine::ReadBodies( engine ), PhysicsEngine::ReadColliders( engine ) );
+        captureBranch, 3u, 20, 1.0f / 120.0f, captureWorld, captureCamera, launcher, engine, tornadoGameplay,
+        BuildEntityDisplayNames( entities, entityDisplayNames ) );
     REQUIRE( recreatedAfterRestoreRecorder.LatestSample() != nullptr );
     CHECK( recreatedAfterRestoreRecorder.LatestSample()->solverHash == expectedAfterRestoreHash );
 

@@ -37,13 +37,13 @@ Related:
 #include "../../Core/SbDiagnosticStore.h"
 #include "../../Core/TracyClientOwner.h"
 #include "../Input/Input.h"
-#include "../Prediction/ReplayPredictionRetainedGeometry.h"
+#include "ReplayPredictionRetainedGeometry.h"
 #include "Run.h"
 #include "../Startup/StartupCommandLine.h"
 #include "../Startup/StartupCrashLogging.h"
 #include "../Startup/StartupLaunchResolution.h"
 #include "../Startup/StartupProbeHarnesses.h"
-#include "Window.h"
+#include "../Startup/Window.h"
 #include "../../Core/WindowConstants.h"
 #include <cstdio>
 #include <cstring>
@@ -216,25 +216,7 @@ int RunApp( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, Window* window
             return 1;
         };
 
-        const bool raytracingAvailable = renderBackend.Diagnostics().GetCapabilities().supportsDxrReflection;
-
-        std::optional<std::reference_wrapper<Dx12ShaderDevelopment>> shaderDevelopment {
-            std::ref( renderBackend.ShaderDevelopment() ) };
-
-        const SkullbonezCore::Core::SbResult bindResult = cRun->BindRenderBackend( renderBackend.RenderDevice(),
-                                                                                   renderBackend.Frame(),
-                                                                                   renderBackend.GraphTransients(),
-                                                                                   renderBackend.ResourceBuilder(),
-                                                                                   renderBackend.Textures(),
-                                                                                   renderBackend.Geometry(),
-                                                                                   renderBackend.Diagnostics(),
-                                                                                   renderBackend.Raytracing(),
-                                                                                   raytracingAvailable, shaderDevelopment
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-                                                                                   ,
-                                                                                   renderBackend.DevelopmentUiRenderer()
-#endif
-        );
+        const SkullbonezCore::Core::SbResult bindResult = cRun->BindRenderBackend( renderBackend );
 
         if ( !bindResult.Ok() )
         {
@@ -306,10 +288,9 @@ void CleanupWindow( Window* window, HINSTANCE instance, std::unique_ptr<RenderBa
     if ( windowHandle )
     {
         SkullbonezCore::Hardware::Input::UnbindCallbackBridge( windowHandle );
+        SkullbonezCore::Hardware::Input::UnbindNativeWindow( windowHandle );
     }
 
-    SkullbonezCore::Hardware::Input::UnbindWindow( *window );
-    window->SetResizeRenderFrameOwner( nullptr );
     renderBackend.reset();
 
     window->ReleaseDeviceContext();
@@ -476,6 +457,11 @@ int WINAPI WinMain( HINSTANCE instance, HINSTANCE previousInstance, PSTR command
         return ReportDiagnosticStoreSession( diagnostics, 1 );
     }
 
+    const HWND nativeWindow = window->NativeWindowHandle();
+    SkullbonezCore::Hardware::Input::BindNativeWindow( nativeWindow );
+    SkullbonezCore::Hardware::Input::BindCallbackBridge( nativeWindow );
+    SkullbonezCore::Hardware::Input::SetSystemCursorVisible( false );
+    (void)SkullbonezCore::Hardware::Input::RegisterRawMouseInput( nativeWindow );
     window->AcquireDeviceContext();
 
     std::unique_ptr<RenderBackendDX12> renderBackend;
@@ -493,8 +479,8 @@ int WINAPI WinMain( HINSTANCE instance, HINSTANCE previousInstance, PSTR command
         return ReportDiagnosticStoreSession( diagnostics, 1 );
     }
 
-    window->SetResizeRenderFrameOwner( &renderBackend->Frame() );
-    const SkullbonezCore::Core::SbResult initialResizeResult = window->HandleScreenResize();
+    const SkullbonezCore::Core::SbResult initialResizeResult = renderBackend->Frame().Resize( window->ClientWidth(),
+                                                                                              window->ClientHeight() );
 
     if ( !initialResizeResult.Ok() )
     {
@@ -507,6 +493,8 @@ int WINAPI WinMain( HINSTANCE instance, HINSTANCE previousInstance, PSTR command
         CoUninitialize();
         return ReportDiagnosticStoreSession( diagnostics, 1 );
     }
+
+    window->UpdateProjectionForCurrentClient();
 
     SkullbonezCore::Core::Profiler* profiler = nullptr;
 #if defined( SKULLBONEZ_PROFILE_ENABLED )

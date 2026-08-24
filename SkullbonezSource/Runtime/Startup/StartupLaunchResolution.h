@@ -19,7 +19,7 @@ Invariants:
 
 Related:
   - StartupCommandLine.h
-  - StartupLaunchResolution.cpp
+  - SkullbonezSource/Runtime/App/StartupLaunchApplication.cpp
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

@@ -27,7 +27,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Core/Profiler.cpp
-  - SkullbonezSource/UI/UIProfilerOverlayPresenter.cpp
+  - SkullbonezSource/Runtime/Render/UIProfilerOverlayPresenter.cpp
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/engine-glossary.md
 */

@@ -23,7 +23,7 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/SpatialGrid.h
   - SkullbonezSource/Physics/PhysicsEngine.h
-  - SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.h
+  - SkullbonezSource/Runtime/Render/BroadphaseVisualizer.h
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

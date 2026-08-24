@@ -56,7 +56,7 @@ Related:
 
 #include "../Replay/ReplayAuthoringPackets.h"
 #include "../Replay/ReplayCapturePackets.h"
-#include "../Prediction/ReplayPredictionSolverEvidenceStore.h"
+#include "../Prediction/ReplayPredictionView.h"
 #include "../../Physics/PhysicsSolverSnapshot.h"
 #include "../../Physics/PhysicsStageCapacity.h"
 #include "../../Rendering/ContactManifoldPresentation.h"
@@ -109,7 +109,7 @@ struct ReplayCauseSolverDetailSource
     ReplayFrameIndex frame = 0;
     std::span<const Physics::PhysicsSolverPersistentContactSample> contacts;
     std::span<const Physics::PhysicsPipelineRecord> pipelineRecords;
-    ReplayPredictionSolverEvidenceFrameView prediction;
+    const ReplayPredictionCauseEvidencePacket* prediction = nullptr;
 };
 
 struct ReplayCauseSolverDetailResult
@@ -118,7 +118,6 @@ struct ReplayCauseSolverDetailResult
     ReplayCauseSolverDetailAvailability availability = ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable;
     std::span<const Physics::PhysicsSolverPersistentContactSample> sourceContacts;
     std::span<const Physics::PhysicsPipelineRecord> sourcePipelineRecords;
-    ReplayPredictionSolverEvidenceFrameView predictionSource;
     int bodyA = -1;
     int bodyB = -1;
     bool terrain = false;

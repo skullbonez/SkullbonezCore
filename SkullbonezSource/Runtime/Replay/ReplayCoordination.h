@@ -310,7 +310,7 @@ struct ReplayKeyboardVelocityEditInput
 {
     bool altDown = false;
     bool toggleAllowed = true;                 // False records the key edge while the editor owns Alt.
-    WorldInteractionOwner currentWorldOwner = WorldInteractionOwner::None;
+    bool velocityEditOwnsWorld = false;
     double now = 0.0;
 };
 
@@ -327,7 +327,7 @@ struct ReplayKeyboardVelocityEditResult
     bool enterInteractive = false;
     ReplayKeyboardVelocityEditCameraAction cameraAction = ReplayKeyboardVelocityEditCameraAction::None;
     bool setWorldOwner = false;
-    WorldInteractionOwner worldOwner = WorldInteractionOwner::None;
+    ReplayWorldOwnerRequest worldOwner = ReplayWorldOwnerRequest::None;
 };
 
 #ifdef _DEBUG

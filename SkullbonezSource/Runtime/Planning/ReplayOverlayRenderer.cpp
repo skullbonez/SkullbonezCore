@@ -1,10 +1,10 @@
 /*
 File: SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.cpp
 Purpose:
-  Draws replay scrubber, cause-tree, and solver-detail overlays from owner views.
+  Composes replay scrubber, cause-tree, and solver-detail UI commands from owner views.
 
 Summary:
-  Replay overlay rendering is a late UI pass. Keep the same screen-space layout
+  Replay overlay composition produces one detached late-UI value. Keep the same screen-space layout
   and pointer eligibility as replay input by rebuilding the same fixed-capacity
   surfaces from ReplayOverlayLayout. The causal solver panel renders exact-frame
   copied evidence in a flush attached drawer projected from the cause-tree
@@ -30,7 +30,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "ReplayOverlayRenderer.h"
-#include "../Render/UiDrawSubmission.h"
+
 #include "ReplayPlanningOverlayLayout.h"
 #include "../../Core/FatalError.h"
 #include "../../Assets/AssetKeys.h"
@@ -38,10 +38,10 @@ Related:
 #include "../../Core/Common.h"
 #include "../../Core/Profiler.h"
 #include "../../Physics/PhysicsTimestep.h"
-#include "../../Rendering/Text.h"
 #include "../../UI/UIDraw.h"
 #include "../../UI/UIDrawList.h"
-#include "../../UI/UIFrameComposition.h"
+#include "../../UI/UIDrawWidgets.h"
+#include "../../UI/UIFontMetrics.h"
 #include "../../UI/UIStyle.h"
 
 #include <algorithm>
@@ -52,7 +52,15 @@ Related:
 namespace SkullbonezCore::Runtime::ReplayOverlay
 {
 using namespace ReplayScrubberOperations;
-using Text::Text2d;
+
+static void ComposeReplayInterceptOverlay( UI::UIDrawList& drawList, const ReplayOverlayStateView& replay, int screenW,
+                                           int screenH );
+static void ComposeReplayTripPlannerOverlay( UI::UIDrawList& drawList, const ReplayOverlayStateView& replay, int screenW,
+                                             int screenH );
+static void ComposeReplayPorkchopOverlay( UI::UIDrawList& drawList, const ReplayOverlayStateView& replay, int screenW,
+                                          int screenH );
+static void ComposeReplayCauseTreeOverlay( UI::UIDrawList& drawList, const ReplayOverlayStateView& replay, int screenW,
+                                           int screenH );
 
 namespace
 {
@@ -94,13 +102,6 @@ float ReplayOverlayTrackPosition( const ReplayScrubberView& scrubber, RunReplayT
     }
 
     return scrubber.position;
-}
-
-void FlushReplayDrawList( UiDrawSubmission& submission, const UI::UIDrawList& drawList, Text::TextBatch& textBatch,
-                          Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderCommands,
-                          Rendering::Dx12Diagnostics& renderDiagnostics, int screenW, int screenH )
-{
-    submission.Submit( drawList, textBatch, nullptr, renderTextures, renderCommands, renderDiagnostics, screenW, screenH );
 }
 
 const Physics::PhysicsPipelineRecord* FindSolverDetailRecord( const ReplayCauseInspectionView& inspection,
@@ -471,35 +472,51 @@ void RenderReplayCauseSolverDetailPanel( UI::UIDrawList& drawList, const UI::UID
 // Input code owns mutations such as dragging, toggling prediction, and branch
 // creation. This pass samples the current state and turns it into UI quads and
 // text so rendering cannot accidentally advance or rewrite replay timelines.
-void RenderReplayScrubberOverlay( UiDrawSubmission& submission, Text::TextBatch& textBatch, UI::UIDrawList& drawList,
-                                  const ReplayOverlayStateView& replay, Rendering::Dx12TextureOwner& renderTextures,
-                                  Rendering::Dx12GeometryOwner& renderCommands,
-                                  Rendering::Dx12Diagnostics& renderDiagnostics, Core::Profiler* profiler,
-                                  bool scenePhysicsEnabled, RuntimeInteractionGestureKind gesture,
-                                  ReplayOverlayViewport viewport, double nowSeconds )
+const UI::UIDrawList& ReplayOverlayDrawOwner::Compose( const ReplayOverlayStateView& replay, bool gameUiSurfaceActive,
+                                                       bool scenePhysicsEnabled, ReplayOverlayGestureView gesture,
+                                                       ReplayOverlayViewport viewport, double nowSeconds )
 {
+    m_drawList.Clear();
+
+    if ( !ShouldComposeReplayOverlay( gameUiSurfaceActive ) )
+    {
+        return m_drawList;
+    }
+
+    UI::UIDrawList& drawList = m_drawList;
     const int screenW = viewport.width;
     const int screenH = viewport.height;
     PROFILE_SCOPED( "Frame/Replay/ScrubberOverlay" );
-    RenderReplayInterceptOverlay( submission, textBatch, drawList, replay, renderTextures, renderCommands, renderDiagnostics,
-                                  screenW, screenH );
 
-    RenderReplayTripPlannerOverlay( submission, textBatch, drawList, replay, renderTextures, renderCommands,
-                                    renderDiagnostics, screenW, screenH );
+    for ( ReplayOverlaySurfaceKind surface : REPLAY_OVERLAY_COMPOSITION_ORDER )
+    {
+        switch ( surface )
+        {
+        case ReplayOverlaySurfaceKind::Intercept:
+            ComposeReplayInterceptOverlay( drawList, replay, screenW, screenH );
+            break;
+        case ReplayOverlaySurfaceKind::TripPlanner:
+            ComposeReplayTripPlannerOverlay( drawList, replay, screenW, screenH );
+            break;
+        case ReplayOverlaySurfaceKind::Porkchop:
+            ComposeReplayPorkchopOverlay( drawList, replay, screenW, screenH );
+            break;
+        case ReplayOverlaySurfaceKind::CauseTree:
 
-    RenderReplayPorkchopOverlay( submission, textBatch, drawList, replay, renderTextures, renderCommands, renderDiagnostics,
-                                 screenW, screenH );
+            // Why: the cause tree is an inspection tool, not a child of the
+            // scrubber. Compose it even when scrubber policy hides its surface.
+            ComposeReplayCauseTreeOverlay( drawList, replay, screenW, screenH );
+            break;
+        case ReplayOverlaySurfaceKind::Scrubber:
+            break;
+        }
+    }
 
     const ReplayScrubberView& scrubber = replay.scrubber;
 
-    // Why: the cause tree is an inspection tool, not a child of the scrubber.
-    // Draw it even when the scrubber itself is hidden by UI/editor policy.
-    RenderReplayCauseTreeOverlay( submission, textBatch, drawList, replay, renderTextures, renderCommands, renderDiagnostics,
-                                  profiler, screenW, screenH );
-
     if ( !replay.shouldRenderScrubber )
     {
-        return;
+        return m_drawList;
     }
 
     const bool loadedPresentation = replay.selection.loadedPresentation;
@@ -514,7 +531,7 @@ void RenderReplayScrubberOverlay( UiDrawSubmission& submission, Text::TextBatch&
 
     if ( screenW <= 0 || screenH <= 0 || ( !loadedPresentation && !solverReplayEnabled ) )
     {
-        return;
+        return m_drawList;
     }
 
     const RunReplayTrack activeTrack = loadedPresentation ? RunReplayTrack::Presentation : RunReplayTrack::Solver;
@@ -529,15 +546,17 @@ void RenderReplayScrubberOverlay( UiDrawSubmission& submission, Text::TextBatch&
 
     surfaceInput.screenW = screenW;
     surfaceInput.screenH = screenH;
-    surfaceInput.gesture = gesture;
+    surfaceInput.gesture = gesture.scrubDrag ? ReplayToolGestureKind::ScrubDrag
+                                             : ( gesture.predictionHorizonDrag ? ReplayToolGestureKind::PredictionHorizonDrag
+                                                                               : ReplayToolGestureKind::None );
     surfaceInput.predictionEnabled = replay.prediction.enabled;
     surfaceInput.predictionHighDetail = replay.prediction.detailMode == ReplayPredictionDetailMode::High;
     ReplayScrubberSurface surface;
     BuildReplayScrubberSurface( surfaceInput, surface );
     surface.ResolvePointer( scrubber.mouseX, scrubber.mouseY );
-    const auto control = [&]( ReplayScrubberControl id ) -> const RuntimeUiControl&
+    const auto control = [&]( ReplayScrubberControl id ) -> const ReplayOverlayControl&
     {
-        const RuntimeUiControl* row = surface.Find( ReplayScrubberControlId( id ) );
+        const ReplayOverlayControl* row = surface.Find( ReplayScrubberControlId( id ) );
 
         if ( !row )
         {
@@ -601,7 +620,6 @@ void RenderReplayScrubberOverlay( UiDrawSubmission& submission, Text::TextBatch&
         sprintf_s( timeLabel, sizeof( timeLabel ), "-%.1fs", secondsBack );
     }
 
-    drawList.Clear();
     const UI::UIDrawContext draw( screenW, screenH, drawList );
     const UI::UIRect panel = control( ReplayScrubberControl::Panel ).drawRect;
     const UI::Style::UIPalette& palette = UI::Style::Palette();
@@ -610,7 +628,7 @@ void RenderReplayScrubberOverlay( UiDrawSubmission& submission, Text::TextBatch&
 
     if ( fade <= REPLAY_SCRUBBER_FADE_EPSILON )
     {
-        return;
+        return m_drawList;
     }
 
     auto fadeA = [fade]( float alpha ) -> float { return alpha * fade; };
@@ -638,7 +656,7 @@ void RenderReplayScrubberOverlay( UiDrawSubmission& submission, Text::TextBatch&
     drawText( panel.x + 16.0f, panel.y + 19.0f, 10.5f, palette.textSecondary.r, palette.textSecondary.g,
               palette.textSecondary.b, sourceLabel );
 
-    const float labelW = Text2d::MeasureText( 11.0f, timeLabel );
+    const float labelW = UI::UIFontMetrics::MeasureText( 11.0f, timeLabel );
     drawText( panel.x + panel.w - labelW - 16.0f, panel.y + 18.0f, 11.0f, live ? palette.accent.r : palette.warningAccent.r,
               live ? palette.accent.g : palette.warningAccent.g, live ? palette.accent.b : palette.warningAccent.b,
               timeLabel );
@@ -745,9 +763,7 @@ void RenderReplayScrubberOverlay( UiDrawSubmission& submission, Text::TextBatch&
         const float fillW = (std::max)( REPLAY_SCRUBBER_TRACK_HEIGHT, track.w * rowT );
         const float knobX = track.x + track.w * rowT;
         const bool active = activeTrack == trackName;
-        const bool inactiveDuringScrub = ( gesture == RuntimeInteractionGestureKind::ReplayScrubDrag ||
-                                           scrubber.historicalSamplePaused ) &&
-                                         !active;
+        const bool inactiveDuringScrub = ( gesture.scrubDrag || scrubber.historicalSamplePaused ) && !active;
 
         const bool saveHover = saveEnabled && isHotControl( ReplayScrubberControl::Save );
         const bool saveFeedback = scrubber.saveMessage[0] != '\0' && scrubber.saveMessageUntil >= now;
@@ -838,10 +854,7 @@ void RenderReplayScrubberOverlay( UiDrawSubmission& submission, Text::TextBatch&
 
     if ( loadedPresentation )
     {
-        FlushReplayDrawList( submission, drawList, textBatch, renderTextures, renderCommands, renderDiagnostics, screenW,
-                             screenH );
-
-        return;
+        return m_drawList;
     }
 
     const UI::UIRect predictToggle = control( ReplayScrubberControl::PredictionToggle ).drawRect;
@@ -850,8 +863,7 @@ void RenderReplayScrubberOverlay( UiDrawSubmission& submission, Text::TextBatch&
     const UI::UIRect ragdollVisualToggle = control( ReplayScrubberControl::RagdollVisuals ).drawRect;
     const UI::UIRect pastPathToggle = control( ReplayScrubberControl::PastPath ).drawRect;
     const bool predictHover = predictionToolsEnabled &&
-                              ( isHotControl( ReplayScrubberControl::PredictionHorizon ) ||
-                                gesture == RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag );
+                              ( isHotControl( ReplayScrubberControl::PredictionHorizon ) || gesture.predictionHorizonDrag );
 
     const bool predictEnabled = predictionToolsEnabled && replay.prediction.enabled;
     const bool ragdollVisualsEnabled = predictionToolsEnabled && replay.prediction.ragdollVisualsEnabled;
@@ -1033,14 +1045,11 @@ void RenderReplayScrubberOverlay( UiDrawSubmission& submission, Text::TextBatch&
                   palette.warningAccent.b, "CONTACTS PARTIAL" );
     }
 
-    FlushReplayDrawList( submission, drawList, textBatch, renderTextures, renderCommands, renderDiagnostics, screenW,
-                         screenH );
+    return m_drawList;
 }
 
-void RenderReplayInterceptOverlay( UiDrawSubmission& submission, Text::TextBatch& textBatch, UI::UIDrawList& drawList,
-                                   const ReplayOverlayStateView& replay, Rendering::Dx12TextureOwner& renderTextures,
-                                   Rendering::Dx12GeometryOwner& renderCommands,
-                                   Rendering::Dx12Diagnostics& renderDiagnostics, int screenW, int screenH )
+static void ComposeReplayInterceptOverlay( UI::UIDrawList& drawList, const ReplayOverlayStateView& replay, int screenW,
+                                           int screenH )
 {
     // Why: closest approach is useful while the scrubber is hidden, so this
     // independent GameUI surface is invoked before scrubber visibility policy.
@@ -1051,11 +1060,9 @@ void RenderReplayInterceptOverlay( UiDrawSubmission& submission, Text::TextBatch
         return;
     }
 
-    drawList.Clear();
     const UI::UIDrawContext draw( screenW, screenH, drawList );
     const UI::UIRect panel = ReplayInterceptReadoutRect( screenW );
     const UI::Style::UIPalette& palette = UI::Style::Palette();
-    const UI::Style::UIRadii& radii = UI::Style::Radii();
     const UI::Style::UIColor accent = intercept.intercept ? palette.accentStrong : palette.warningAccent;
 
     char label[64] = {};
@@ -1069,17 +1076,14 @@ void RenderReplayInterceptOverlay( UiDrawSubmission& submission, Text::TextBatch
         sprintf_s( label, sizeof( label ), "MISS %.1fu  ETA %.1fs", intercept.missDistance, intercept.etaSeconds );
     }
 
-    draw.RoundedPanel( panel, radii.control, palette.windowSubtle, palette.innerBorder );
-    const float labelWidth = Text2d::MeasureText( 11.0f, label );
+    UI::Widgets::DrawPanel( draw, panel, UI::UIVisualState::Visible | UI::UIVisualState::Enabled,
+                            UI::Widgets::ComponentAppearance::Compact );
+    const float labelWidth = UI::UIFontMetrics::MeasureText( 11.0f, label );
     draw.Text( panel.x + ( panel.w - labelWidth ) * 0.5f, panel.y + 7.0f, 11.0f, accent.r, accent.g, accent.b, label );
-    FlushReplayDrawList( submission, drawList, textBatch, renderTextures, renderCommands, renderDiagnostics, screenW,
-                         screenH );
 }
 
-void RenderReplayTripPlannerOverlay( UiDrawSubmission& submission, Text::TextBatch& textBatch, UI::UIDrawList& drawList,
-                                     const ReplayOverlayStateView& replay, Rendering::Dx12TextureOwner& renderTextures,
-                                     Rendering::Dx12GeometryOwner& renderCommands,
-                                     Rendering::Dx12Diagnostics& renderDiagnostics, int screenW, int screenH )
+static void ComposeReplayTripPlannerOverlay( UI::UIDrawList& drawList, const ReplayOverlayStateView& replay, int screenW,
+                                             int screenH )
 {
     const ReplayTripPlannerView& planner = replay.tripPlanner;
 
@@ -1088,21 +1092,20 @@ void RenderReplayTripPlannerOverlay( UiDrawSubmission& submission, Text::TextBat
         return;
     }
 
-    drawList.Clear();
     const UI::UIDrawContext draw( screenW, screenH, drawList );
     const UI::Style::UIPalette& palette = UI::Style::Palette();
-    const UI::Style::UIRadii& radii = UI::Style::Radii();
 
     // Invariant: rendering consumes the same fixed control rectangles that
     // ReplayScrubberTools uses for hit testing; draw and input cannot drift.
     ReplayTripPlannerSurface surface;
     BuildReplayTripPlannerSurface( planner, screenW, surface );
     const UI::UIRect panel = ReplayTripPlannerPanelRect( screenW );
-    draw.RoundedPanel( panel, radii.control, palette.windowSubtle, palette.innerBorder );
+    UI::Widgets::DrawPanel( draw, panel, UI::UIVisualState::Visible | UI::UIVisualState::Enabled,
+                            UI::Widgets::ComponentAppearance::Compact );
 
-    const auto control = [&]( ReplayTripPlannerControl id ) -> const RuntimeUiControl&
+    const auto control = [&]( ReplayTripPlannerControl id ) -> const ReplayTripPlannerControlRow&
     {
-        const RuntimeUiControl* row = surface.Find( ReplayTripPlannerControlId( id ) );
+        const ReplayTripPlannerControlRow* row = surface.Find( ReplayTripPlannerControlId( id ) );
 
         if ( !row )
         {
@@ -1115,16 +1118,9 @@ void RenderReplayTripPlannerOverlay( UiDrawSubmission& submission, Text::TextBat
 
     const auto button = [&]( ReplayTripPlannerControl id, const char* label )
     {
-        const RuntimeUiControl& row = control( id );
-
-        const UI::Style::UIColor fill = row.enabled ? palette.control : palette.windowSubtle;
-        const UI::Style::UIColor text = row.enabled ? palette.textPrimary : palette.textMuted;
-        draw.RoundedRect( row.drawRect.x, row.drawRect.y, row.drawRect.w, row.drawRect.h, radii.smallButton, fill.r, fill.g,
-                          fill.b, row.enabled ? 0.92f : 0.45f );
-
-        const float width = Text2d::MeasureText( 9.0f, label );
-        draw.Text( row.drawRect.x + ( row.drawRect.w - width ) * 0.5f, row.drawRect.y + 7.0f, 9.0f, text.r, text.g, text.b,
-                   label );
+        const ReplayTripPlannerControlRow& row = control( id );
+        UI::Widgets::DrawButton( draw, row.drawRect, label, ReplayTripPlannerControlVisualState( row ),
+                                 UI::Widgets::ComponentAppearance::Compact );
     };
 
     const char* stateLabel = "IDLE";
@@ -1174,14 +1170,10 @@ void RenderReplayTripPlannerOverlay( UiDrawSubmission& submission, Text::TextBat
     button( ReplayTripPlannerControl::Plan, "PLAN" );
     button( ReplayTripPlannerControl::Commit, "COMMIT" );
     button( ReplayTripPlannerControl::Cancel, "CANCEL" );
-    FlushReplayDrawList( submission, drawList, textBatch, renderTextures, renderCommands, renderDiagnostics, screenW,
-                         screenH );
 }
 
-void RenderReplayPorkchopOverlay( UiDrawSubmission& submission, Text::TextBatch& textBatch, UI::UIDrawList& drawList,
-                                  const ReplayOverlayStateView& replay, Rendering::Dx12TextureOwner& renderTextures,
-                                  Rendering::Dx12GeometryOwner& renderCommands,
-                                  Rendering::Dx12Diagnostics& renderDiagnostics, int screenW, int screenH )
+static void ComposeReplayPorkchopOverlay( UI::UIDrawList& drawList, const ReplayOverlayStateView& replay, int screenW,
+                                          int screenH )
 {
     const ReplayPorkchopPanelView& porkchop = replay.porkchop;
 
@@ -1190,13 +1182,12 @@ void RenderReplayPorkchopOverlay( UiDrawSubmission& submission, Text::TextBatch&
         return;
     }
 
-    drawList.Clear();
     const UI::UIDrawContext draw( screenW, screenH, drawList );
     const UI::Style::UIPalette& palette = UI::Style::Palette();
-    const UI::Style::UIRadii& radii = UI::Style::Radii();
     const UI::UIRect panel = ReplayPorkchopPanelRect( screenW );
     const UI::UIRect grid = ReplayPorkchopGridRect( screenW );
-    draw.RoundedPanel( panel, radii.control, palette.windowSubtle, palette.innerBorder );
+    UI::Widgets::DrawPanel( draw, panel, UI::UIVisualState::Visible | UI::UIVisualState::Enabled,
+                            UI::Widgets::ComponentAppearance::Compact );
 
     char title[128] = {};
 
@@ -1312,15 +1303,10 @@ void RenderReplayPorkchopOverlay( UiDrawSubmission& submission, Text::TextBatch&
 
     draw.Text( panel.x + 14.0f, panel.y + panel.h - 28.0f, 10.0f, palette.accentStrong.r, palette.accentStrong.g,
                palette.accentStrong.b, readout );
-
-    FlushReplayDrawList( submission, drawList, textBatch, renderTextures, renderCommands, renderDiagnostics, screenW,
-                         screenH );
 }
 
-void RenderReplayCauseTreeOverlay( UiDrawSubmission& submission, Text::TextBatch& textBatch, UI::UIDrawList& drawList,
-                                   const ReplayOverlayStateView& replay, Rendering::Dx12TextureOwner& renderTextures,
-                                   Rendering::Dx12GeometryOwner& renderCommands,
-                                   Rendering::Dx12Diagnostics& renderDiagnostics, Core::Profiler*, int screenW, int screenH )
+static void ComposeReplayCauseTreeOverlay( UI::UIDrawList& drawList, const ReplayOverlayStateView& replay, int screenW,
+                                           int screenH )
 {
     PROFILE_SCOPED( "Frame/Replay/CauseTree/Overlay" );
     const bool predictionRows = !replay.causeTree.rows.empty() && replay.causeTree.rows.front().prediction;
@@ -1338,7 +1324,7 @@ void RenderReplayCauseTreeOverlay( UiDrawSubmission& submission, Text::TextBatch
     surface.ResolvePointer( replay.causeTree.mouseX, replay.causeTree.mouseY, replay.causeTree.pointerBlocked );
     const auto controlRect = [&]( ReplayCauseWindowControl id ) -> const UI::UIRect&
     {
-        const RuntimeUiControl* row = surface.Find( ReplayCauseWindowControlId( id ) );
+        const ReplayOverlayControl* row = surface.Find( ReplayCauseWindowControlId( id ) );
 
         if ( !row )
         {
@@ -1356,7 +1342,6 @@ void RenderReplayCauseTreeOverlay( UiDrawSubmission& submission, Text::TextBatch
     const UI::UIRect content = controlRect( ReplayCauseWindowControl::Content );
     const UI::UIRect resize = controlRect( ReplayCauseWindowControl::Resize );
 
-    drawList.Clear();
     const UI::UIDrawContext draw( screenW, screenH, drawList );
     const UI::Style::UIPalette& palette = UI::Style::Palette();
     RenderReplayCauseSolverDetailPanel( drawList, draw, replay, screenW, screenH );
@@ -1370,7 +1355,7 @@ void RenderReplayCauseTreeOverlay( UiDrawSubmission& submission, Text::TextBatch
                "CAUSE HIERARCHY" );
 
     const char* sourceLabel = predictionRows ? "PREDICT" : "REPLAY";
-    const float sourceW = Text2d::MeasureText( 9.5f, sourceLabel );
+    const float sourceW = UI::UIFontMetrics::MeasureText( 9.5f, sourceLabel );
     draw.RoundedRect( panel.x + panel.w - sourceW - 14.0f, panel.y + 8.0f, sourceW + 10.0f, 20.0f, 4.0f,
                       predictionRows ? CAUSE_SELECTED.r : CAUSE_NAVY_ALT.r,
                       predictionRows ? CAUSE_SELECTED.g : CAUSE_NAVY_ALT.g,
@@ -1642,8 +1627,5 @@ void RenderReplayCauseTreeOverlay( UiDrawSubmission& submission, Text::TextBatch
 
     draw.Rect( resize.x + resize.w - 5.0f, resize.y + 4.0f, 1.0f, resize.h - 7.0f, CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b,
                0.72f );
-
-    FlushReplayDrawList( submission, drawList, textBatch, renderTextures, renderCommands, renderDiagnostics, screenW,
-                         screenH );
 }
 } // namespace SkullbonezCore::Runtime::ReplayOverlay

@@ -41,6 +41,19 @@ const char* SafeText( const char* text )
 {
     return text ? text : "";
 }
+
+void PrintRawStack() noexcept
+{
+#if defined( _WIN32 )
+    void* frames[32] = {};
+    const USHORT count = CaptureStackBackTrace( 2u, 32u, frames, nullptr );
+
+    for ( USHORT index = 0; index < count; ++index )
+    {
+        std::fprintf( stderr, "STACK[%u]=%p\n", static_cast<unsigned>( index ), frames[index] );
+    }
+#endif
+}
 } // namespace
 
 
@@ -55,6 +68,7 @@ const char* SafeText( const char* text )
     const char* safeOwner = SafeText( owner );
     EngineLog::Get().WriteEventf( "fatal owner=\"%s\" message=\"%s\"", safeOwner, message );
     std::fprintf( stderr, "FATAL[%s]: %s\n", safeOwner, message );
+    PrintRawStack();
     std::fflush( stderr );
     EngineLog::Get().FlushAll();
 

@@ -113,9 +113,11 @@
 #include "../SkullbonezSource/Rendering/PrimitiveBatchRenderer.h"
 #include "../SkullbonezSource/Core/TracyClientOwner.h"
 #include "../SkullbonezSource/Runtime/App/Run.h"
+#include "../SkullbonezSource/Runtime/Diagnostics/UIStressPolicy.h"
 #include "../SkullbonezSource/Runtime/Input/Input.h"
 #include "../SkullbonezSource/Runtime/Render/RuntimeRenderer.h"
 #include "../SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h"
+#include "../SkullbonezSource/Runtime/App/OperatorUiProjection.h"
 #include "../SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h"
 #include "../SkullbonezSource/World/Terrain.h"
@@ -231,23 +233,23 @@ struct InputWindowBridgeTestAccess
       public:
         void Bind( const void* identity )
         {
-            m_bridge.Bind( reinterpret_cast<Runtime::Window*>( const_cast<void*>( identity ) ) );
+            m_bridge.Bind( reinterpret_cast<HWND>( const_cast<void*>( identity ) ) );
         }
         void Unbind( const void* identity )
         {
-            m_bridge.Unbind( reinterpret_cast<Runtime::Window*>( const_cast<void*>( identity ) ) );
+            m_bridge.Unbind( reinterpret_cast<HWND>( const_cast<void*>( identity ) ) );
         }
         bool IsBoundTo( const void* identity ) const
         {
-            return m_bridge.BoundWindow() == reinterpret_cast<const Runtime::Window*>( identity );
+            return m_bridge.BoundHandle() == reinterpret_cast<HWND>( const_cast<void*>( identity ) );
         }
         bool IsUnbound() const
         {
-            return m_bridge.BoundWindow() == nullptr;
+            return m_bridge.BoundHandle() == nullptr;
         }
 
       private:
-        Input::WindowBridge m_bridge;
+        Input::NativeWindowBinding m_bridge;
     };
 };
 } // namespace SkullbonezCore::Hardware
@@ -489,17 +491,6 @@ struct UiTextPassTestAccess
       private:
         UiTextPass::ProfilerLifecycle m_lifecycle;
     };
-
-    static SkullbonezCore::Core::MainMemoryStats ProjectMemoryTab( bool sourceValid, int& sampleCount,
-                                                                   const SkullbonezCore::Core::MainMemoryStats& sample )
-    {
-        return UiTextPass::ProjectMemoryTabStats( sourceValid,
-                                                  [&]()
-                                                  {
-                                                      ++sampleCount;
-                                                      return sample;
-                                                  } );
-    }
 };
 
 struct OperatorCommandTransactionTestAccess
@@ -569,9 +560,8 @@ TEST_CASE( "IH4 render lifecycle owners execute valid bind move and close transi
     CHECK_FALSE( textureEpoch.Active() );
 
     int rendererIdentity = 0;
-    int contextIdentity = 0;
     SkullbonezCore::Rendering::PrimitiveBatchScopeLifecycle
-        visibleScope( &rendererIdentity, &contextIdentity, SkullbonezCore::Rendering::PrimitiveBatchKind::Sphere );
+        visibleScope( &rendererIdentity, SkullbonezCore::Rendering::PrimitiveBatchKind::Sphere );
     visibleScope.RequireVisible();
     SkullbonezCore::Rendering::PrimitiveBatchScopeLifecycle movedScope( std::move( visibleScope ) );
     CHECK_FALSE( visibleScope.Active() );
@@ -579,7 +569,7 @@ TEST_CASE( "IH4 render lifecycle owners execute valid bind move and close transi
     movedScope.RequireVisible();
 
     SkullbonezCore::Rendering::PrimitiveBatchScopeLifecycle
-        shadowScope( &rendererIdentity, &contextIdentity, SkullbonezCore::Rendering::PrimitiveBatchKind::ShadowSphere );
+        shadowScope( &rendererIdentity, SkullbonezCore::Rendering::PrimitiveBatchKind::ShadowSphere );
     shadowScope.RequireShadow();
 
     int resourcesIdentity = 0;
@@ -659,19 +649,15 @@ TEST_CASE( "IH5 runtime lifecycle owners preserve valid and unavailable policy" 
     SkullbonezCore::Core::MainMemoryStats sampledMemory;
     sampledMemory.sampleTimeSeconds = 3.0;
     sampledMemory.replay.totalBytes = 31u;
-    int memorySampleCount = 0;
     const SkullbonezCore::Core::MainMemoryStats
-        unavailableMemory = UiTextPassTestAccess::ProjectMemoryTab( false, memorySampleCount, sampledMemory );
+        unavailableMemory = SkullbonezCore::Runtime::ProjectMemoryTabAvailability( false, sampledMemory );
     CHECK_FALSE( unavailableMemory.process.available );
     CHECK( unavailableMemory.replay.totalBytes == 0u );
-    CHECK( memorySampleCount == 0 );
 
-    const SkullbonezCore::Core::MainMemoryStats availableMemory = UiTextPassTestAccess::ProjectMemoryTab( true,
-                                                                                                          memorySampleCount,
-                                                                                                          sampledMemory );
+    const SkullbonezCore::Core::MainMemoryStats
+        availableMemory = SkullbonezCore::Runtime::ProjectMemoryTabAvailability( true, sampledMemory );
     CHECK( availableMemory.sampleTimeSeconds == doctest::Approx( 3.0 ) );
     CHECK( availableMemory.replay.totalBytes == 31u );
-    CHECK( memorySampleCount == 1 );
 
     int skyIdentity = 0;
     SkyPassTestAccess::Probe skyLease;
@@ -925,6 +911,17 @@ void ExpectFatalCase( const char* caseName, std::initializer_list<const char*> e
     {
         CHECK( child.output.find( expected ) != std::string::npos );
     }
+
+    const bool checksStack = std::any_of( expectedDiagnostics.begin(), expectedDiagnostics.end(),
+                                          []( const char* expected )
+                                          {
+                                              return expected &&
+                                                     std::strcmp( expected, "FATAL[Tests/WorkerFatalProbe]" ) == 0;
+                                          } );
+    if ( checksStack )
+    {
+        CHECK( child.output.find( "STACK[0]=" ) != std::string::npos );
+    }
 #endif
 }
 
@@ -1157,11 +1154,10 @@ bool RunRuntimeFatalCase( const char* caseName )
     if ( primitiveMoved || primitiveInactive || primitiveVisibleAsShadow || primitiveShadowAsVisible )
     {
         int rendererIdentity = 0;
-        int contextIdentity = 0;
         const SkullbonezCore::Rendering::PrimitiveBatchKind
             kind = primitiveShadowAsVisible ? SkullbonezCore::Rendering::PrimitiveBatchKind::ShadowSphere
                                             : SkullbonezCore::Rendering::PrimitiveBatchKind::Sphere;
-        SkullbonezCore::Rendering::PrimitiveBatchScopeLifecycle scope( &rendererIdentity, &contextIdentity, kind );
+        SkullbonezCore::Rendering::PrimitiveBatchScopeLifecycle scope( &rendererIdentity, kind );
 
         if ( primitiveMoved )
         {
@@ -1537,7 +1533,8 @@ bool RunRuntimeFatalCase( const char* caseName )
         }
 
         transaction.MarkCheckpointApplied();
-        transaction.MarkTargetStepped( 3u, 0u, 0u );
+        transaction.BeginTargetStep( 0u );
+        transaction.MarkTargetStepped( 3u );
         transaction.MarkTargetVerified();
         transaction.PrepareTimelineReset( 4u, 5, 0xA5u );
         transaction.Complete();
@@ -2600,8 +2597,7 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
                      { "FATAL: PhysicsFixedList capacity exceeded", "owner=SpatialGrid.entries", "requested=1033",
                        "runtime_capacity=1032", "compile_capacity=131076", "high_water=1032", "phase=physics" } );
 
-    ExpectCleanControlCase( "spatial-grid-overlay-entry-capacity",
-                            { "spatial-grid-overlay-fallback-complete" } );
+    ExpectCleanControlCase( "spatial-grid-overlay-entry-capacity", { "spatial-grid-overlay-fallback-complete" } );
 
     ExpectFatalCase( "spatial-grid-bucket-capacity", { "FATAL[Physics/SpatialGrid]", "bucket capacity exceeded",
                                                        "capacity=8192", "active=8192", "phase=steady_gameplay" } );
@@ -2738,6 +2734,43 @@ TEST_CASE( "Persistent contact solve transaction enforces every phase edge throu
     CHECK( transaction.Phase() == Phase::Complete );
     static_assert( !std::is_copy_constructible_v<PersistentContactSolveTransaction> );
     static_assert( !std::is_copy_assignable_v<PersistentContactSolveTransaction> );
+}
+
+TEST_CASE( "UI stress policy publishes deterministic bounded commands without owner borrows" )
+{
+    using namespace SkullbonezCore::Runtime;
+
+    UIStressPolicyOwner disabled;
+    const UIStressFramePlan inactive = disabled.PlanFrame( 800, 600, 11 );
+    CHECK_FALSE( inactive.active );
+    CHECK( inactive.commandCount == 0u );
+
+    UIStressPolicyOwner first;
+    UIStressPolicyOwner replay;
+    first.Configure( true, 21u, 7 );
+    replay.Configure( true, 21u, 7 );
+
+    const UIStressFramePlan firstFrame = first.PlanFrame( 800, 600, 11 );
+    const UIStressFramePlan replayFrame = replay.PlanFrame( 800, 600, 11 );
+    CHECK( firstFrame.active );
+    CHECK( firstFrame.mouseX == 48 );
+    CHECK( firstFrame.mouseY == 375 );
+    CHECK( firstFrame.commandCount == 0u );
+    CHECK( first.RandomState() == 549390540u );
+    CHECK( replay.RandomState() == first.RandomState() );
+    CHECK( replayFrame.mouseX == firstFrame.mouseX );
+    CHECK( replayFrame.mouseY == firstFrame.mouseY );
+
+    const UIStressFramePlan secondFrame = first.PlanFrame( 800, 600, 11 );
+    REQUIRE( secondFrame.commandCount == 2u );
+    CHECK( secondFrame.mouseX == 91 );
+    CHECK( secondFrame.mouseY == 222 );
+    CHECK( secondFrame.commands[0].kind == UIStressCommandKind::SetActiveTab );
+    CHECK( secondFrame.commands[0].intValue == 1 );
+    CHECK( secondFrame.commands[1].kind == UIStressCommandKind::SetScrollY );
+    CHECK( secondFrame.commands[1].floatValue == doctest::Approx( 456.8734f ) );
+    CHECK( first.RandomState() == 1975722012u );
+    CHECK( first.FramesRun() == 2 );
 }
 
 TEST_CASE( "Operator command transaction enforces every phase edge through fatal invariant" )

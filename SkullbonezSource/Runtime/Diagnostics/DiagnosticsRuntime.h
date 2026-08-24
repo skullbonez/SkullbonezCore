@@ -1,16 +1,15 @@
 /*
 File: SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.h
 Purpose:
-  Owns runtime diagnostics and capture controllers behind one diagnostics boundary.
+  Owns runtime diagnostics and publishes typed shortcut results.
 
 Summary:
-  DiagnosticsRuntime owns the process diagnostics lifecycle. Capture, perf,
-  memory, and SkullScope controllers keep their artifact-specific state behind
-  this boundary while frame code requests synchronous diagnostics operations.
+  DiagnosticsRuntime owns the perf, memory, and SkullScope lifecycle. Capture
+  remains a sibling owner composed by App; diagnostics shortcuts return bounded
+  actions instead of borrowing Input or Capture owners.
   Scene-end capacity tables are emitted while old scene identity remains live.
 
 Glossary:
-  Capture controller: Screenshot trigger and automation state.
   Diagnostics controller: Perf CSV and queryable physics diagnostic state.
   Capacity table: Resident-descending fixed-store rows emitted at scene unload
     and final process shutdown.
@@ -21,14 +20,14 @@ Invariants:
   - Capacity reporting is synchronous and retains no scene path or row span.
 
 Related:
-  - SkullbonezSource/Runtime/Capture/CaptureController.h
   - SkullbonezSource/Runtime/Diagnostics/DiagnosticsController.h
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
-#include "../Capture/CaptureController.h"
+#include "UIStressPolicy.h"
 #include "DiagnosticsController.h"
+#include "DiagnosticsKeyboardShortcuts.h"
 
 namespace SkullbonezCore
 {
@@ -40,47 +39,37 @@ namespace Physics
 {
 class PhysicsEngine;
 }
-namespace Runtime
-{
-class SceneController;
-}
 namespace Rendering
 {
 class Dx12Diagnostics;
 }
-namespace UI
-{
-class InGameUI;
-} // namespace UI
 namespace Runtime
 {
-class SceneController;
-class AuthoredScene;
-enum class RuntimeInputAction;
 struct OverlayDebugState;
+
+enum class DiagnosticsUiKeyboardCommand : uint8_t
+{
+    ToggleVisibility,
+    TogglePerformanceHistogram,
+    ToggleMemoryOverlay
+};
 
 struct DiagnosticsUIKeyboardShortcutResult
 {
     bool handled = false;                                    // True when the action belongs to the diagnostics UI keyboard group.
     bool triggered = false;                                  // True when this frame captured the shortcut edge.
     bool releaseMouseToUI = false;                           // True when Run should refresh cursor ownership and release capture.
+    bool markInteractiveRun = false;
+    bool disableExitOnComplete = false;
+    bool disableCaptureAutomationExit = false;
 };
 
-bool HandleDiagnosticsKeyboardShortcut( OverlayDebugState& debug, int& cameraTrackBallIndex, int sceneEntityCount,
-                                        const Rendering::Dx12Diagnostics* renderDiagnostics, bool sceneMode,
-                                        double simulationSeconds, RuntimeInputAction action, bool wasPressed );
-DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( UI::InGameUI& ui, OverlayDebugState& debug,
-                                                                         SceneSessionState& scene,
-                                                                         CaptureController& capture, double nowSeconds,
-                                                                         RuntimeInputAction action, bool wasPressed );
+DiagnosticsUIKeyboardShortcutResult
+HandleDiagnosticsUIKeyboardShortcut( OverlayDebugState& debug, DiagnosticsUiKeyboardCommand command, bool wasPressed );
 
 class DiagnosticsRuntime
 {
   public:
-    explicit DiagnosticsRuntime( SkullbonezCore::Core::SbDiagnosticStore& diagnostics ) noexcept;
-
-    CaptureController& Capture();
-
 
     // Startup binding that keeps perf CSV and frame-time diagnostics off the
     // global profiler accessor after initialization.
@@ -94,7 +83,7 @@ class DiagnosticsRuntime
     void ResetForSceneLoad( int completedPerfPass );
     void ConfigurePerfLogFlush( bool enabled, int interval );
     void OpenScenePerfLog( const char* path, int pass );
-    void ApplySceneAutomationOptions( const AuthoredScene& scene, bool suppressAutomationExit, int perfPass );
+    void ApplyScenePerfLogOptions( const char* path, int perfPass );
     bool PerfTestActive() const;
     void TickPerfLog( int pass, int frame, float physicsTimeSeconds, float renderTimeSeconds );
     RuntimeProfilerFrameTimes SampleProfilerFrameTimes() const;
@@ -110,44 +99,36 @@ class DiagnosticsRuntime
     bool MainMemoryDumpRequested() const;
     bool WriteMainMemoryDump( const SkullbonezCore::Core::MainMemoryReplayStats& replay,
                               const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects,
-                              const SceneSessionState& scene, const char* checkpoint, double nowSeconds );
+                              const RuntimeSceneDiagnosticFacts& scene, const char* checkpoint, double nowSeconds );
 
 #ifdef _DEBUG
     RunPhysicsDiagnosticsState& PhysicsDiagnostics();
 
     void SetPhysicsRegressionLogOverride( const char* path );
     void SetPhysicsCollisionTimeLogOverride( const char* path );
-    void SetPhysicsDiagnosticsPath( Physics::PhysicsEngine& physics, const char* path, bool fixedStepForcedByDiagnostics );
-    void LogSceneFinished( SceneController& scene, const Rendering::Dx12Diagnostics* renderDiagnostics, const char* reason );
-    void BeginPhysicsDiagnosticsRun( Physics::PhysicsEngine& physics, const SceneSessionState& scene,
+    void SetPhysicsDiagnosticsPath( Physics::PhysicsEngine& physics, const char* path,
+                                    bool renderFrameLockstepForcedByDiagnostics );
+    bool LogSceneFinished( const RuntimeSceneDiagnosticFacts& scene, const char* scenePath,
+                           const Rendering::Dx12Diagnostics* renderDiagnostics, const char* reason );
+    void BeginPhysicsDiagnosticsRun( Physics::PhysicsEngine& physics, const RuntimeSceneDiagnosticFacts& scene,
                                      const SkullbonezCore::Core::EngineConfig& config, const char* scenePath,
-                                     const char* rendererName );
-    void LogReplayScrubProbe( const SceneSessionState& scene, const ReplayScrubProbeDiagnostic& probe );
-    void LogReplayRestoreProbe( const SceneSessionState& scene, const ReplayRestoreProbeDiagnostic& probe );
-    void LogReplayRestoreResult( const SceneSessionState& scene, const ReplayRestoreResultDiagnostic& result );
-    void EndPhysicsDiagnosticsRun( const SceneSessionState& scene, const char* status );
+                                     const char* rendererName, bool explicitRenderFrameLockstep,
+                                     bool effectiveRenderFrameLockstep );
+    void LogReplayScrubProbe( const RuntimeSceneDiagnosticFacts& scene, const ReplayScrubProbeDiagnostic& probe );
+    void LogReplayRestoreProbe( const RuntimeSceneDiagnosticFacts& scene, const ReplayRestoreProbeDiagnostic& probe );
+    void LogReplayRestoreResult( const RuntimeSceneDiagnosticFacts& scene, const ReplayRestoreResultDiagnostic& result );
+    void EndPhysicsDiagnosticsRun( const RuntimeSceneDiagnosticFacts& scene, const char* status );
 #endif
 
     // Consumes BeforeSceneUnload while the old scene identity is still live.
     // Capacity rows are emitted in every build; SkullScope end emission remains
     // Debug-only.
-    void BeforeSceneUnload( const SceneSessionState& scene, const char* scenePath );
-    void ReportStoreCapacityRows( const SceneSessionState& scene, const char* scenePath, const char* status );
+    void BeforeSceneUnload( int loadCount, int currentFrame, const char* scenePath );
+    void ReportStoreCapacityRows( int loadCount, const char* scenePath, const char* status );
 
-    // Invariant: UI stress state is deterministic scene-driven input churn.
-    // Keep it cheap and seed-based so validation can reproduce failures.
-    struct UIStressState
-    {
-        bool enabled = false;                                // Deterministic scene-driven UI stress runner
-        unsigned int randomState = 0x7F4A7C15u;              // LCG state, seeded from scene UI options
-        int actionsPerFrame = 4;                             // Cheap UI state mutations per rendered frame
-        int framesRun = 0;                                   // Stress-run frame counter independent of scene resets
-    };
-
-    UIStressState& UIStress();
+    UIStressPolicyOwner& UIStress();
 
   private:
-    CaptureController m_capture;                             // Screenshot trigger and capture automation
     DiagnosticsController m_diagnostics;                     // Perf/test logs and queryable physics diagnostic trace
     SkullbonezCore::Core::MainMemoryStats m_mainMemoryStats; // Cached process/replay/model memory snapshot for UI and dumps.
     double m_lastMainMemorySampleSeconds = -1000.0;          // Coarse sampling guard so UI draw does not rescan every frame.
@@ -155,7 +136,7 @@ class DiagnosticsRuntime
     // Cache-mode guard: a deep diagnostics caller cannot reuse a recent fast UI sample.
     bool m_lastMainMemorySampleUsedPrivateWorkingSetQuery = false;
     char m_mainMemoryDumpPath[260] = {};                     // CLI --memory-dump output path; empty disables shutdown dump.
-    UIStressState m_uiStress;                                // Deterministic UI stress run state
+    UIStressPolicyOwner m_uiStress;                          // Deterministic UI stress policy and random cursor
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

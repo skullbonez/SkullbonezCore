@@ -24,7 +24,6 @@ Related:
 #include "../Core/SbDiagnosticStore.h"
 #include "../Core/PlatformWin32.h"
 #include "../Core/WindowConstants.h"
-#include "../Assets/AssetSystem.h"
 #include "RenderCommandTypes.h"
 #include "DX12/RenderBackendDX12.h"
 #include "DX12/Dx12ResourceBuilder.h"
@@ -514,8 +513,9 @@ bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPat
 SkullbonezCore::Core::SbResult Text2d::BuildFont( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
                                                   TextBatch& batch, Dx12ResourceBuilder& renderResources,
                                                   Dx12TextureOwner& renderTextures, Dx12GeometryOwner& renderGeometry,
-                                                  const SkullbonezCore::Assets::AssetSystem& assets, int screenW,
-                                                  int screenH, const char* fontName )
+                                                  const char* textShaderBaseName, const char* solidShaderBaseName,
+                                                  const char* solidBatchShaderBaseName, int screenW, int screenH,
+                                                  const char* fontName )
 {
     // Load the pre-generated SDF atlas if available.  To regenerate, run:
     //   SKULLBONEZ_CORE.exe --gen-atlas
@@ -558,13 +558,13 @@ SkullbonezCore::Core::SbResult Text2d::BuildFont( SkullbonezCore::Core::SbDiagno
                                                           QUAD_BATCH_MAX_QUADS * QUAD_BATCH_VERTS_PER_QUAD );
 
     // Compile the text shader and bind the atlas sampler slot once.
-    Text2d::pTextShader = assets.CreateShader( renderResources, "shader.text" );
+    Text2d::pTextShader = renderResources.CreateShader( textShaderBaseName );
 
     // Compile the solid-colour HUD quad shader (used by Render2dQuad — immediate, one draw per call)
-    Text2d::pSolidShader = assets.CreateShader( renderResources, "shader.solid_color" );
+    Text2d::pSolidShader = renderResources.CreateShader( solidShaderBaseName );
 
     // Compile the batched per-vertex-RGBA quad shader (used by FlushQuads — one draw for all quads)
-    Text2d::pSolidBatchShader = assets.CreateShader( renderResources, "shader.solid_color_batch" );
+    Text2d::pSolidBatchShader = renderResources.CreateShader( solidBatchShaderBaseName );
 
     // Recoverable error: text is required UI, not an optional effect. Returning success
     // with a missing shader makes every glyph draw quietly disappear while

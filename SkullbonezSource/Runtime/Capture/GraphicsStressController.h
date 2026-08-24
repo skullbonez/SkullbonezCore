@@ -21,13 +21,13 @@ Invariants:
     scene reload resumes an existing graphics-stress run.
 
 Related:
-  - SkullbonezSource/Runtime/Capture/RuntimeStressController.cpp
+  - SkullbonezSource/Runtime/App/GraphicsStressApplication.cpp
   - SkullbonezSource/Runtime/App/RunFrame.cpp
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
-#include "../../UI/UICommands.h"
+#include "../Interaction/OperatorUiCommands.h"
 
 #include <cstdint>
 

@@ -18,7 +18,7 @@ Invariants:
   - Cinematic filtering matches SceneController's filename rules.
 
 Related:
-  - SkullbonezSource/UI/UISceneNavigationModel.h
+  - SkullbonezSource/Runtime/Scene/SceneNavigationModel.h
   - SkullbonezSource/Runtime/Scene/SceneControllerState.h
   - SkullbonezSource/Runtime/Scene/SceneController.h
   - SkullbonezSource/Runtime/Scene/SceneLoadRequest.h

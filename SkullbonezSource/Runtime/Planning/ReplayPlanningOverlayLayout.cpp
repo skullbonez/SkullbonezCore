@@ -28,6 +28,74 @@ Related:
 
 namespace SkullbonezCore::Runtime::ReplayOverlay
 {
+void ReplayTripPlannerSurface::Reset() noexcept
+{
+    controlCount = 0;
+    hotControl = ReplayTripPlannerControl::None;
+    hasHotControl = false;
+    consumesPointer = false;
+}
+
+bool ReplayTripPlannerSurface::TryAdd( const ReplayTripPlannerControlRow& control ) noexcept
+{
+    if ( control.id == ReplayTripPlannerControl::None || controlCount >= std::size( controls ) || Find( control.id ) )
+    {
+        return false;
+    }
+
+    controls[controlCount++] = control;
+    return true;
+}
+
+const ReplayTripPlannerControlRow* ReplayTripPlannerSurface::Find( ReplayTripPlannerControl id ) const noexcept
+{
+    for ( std::size_t index = 0; index < controlCount; ++index )
+    {
+        if ( controls[index].id == id )
+        {
+            return &controls[index];
+        }
+    }
+
+    return nullptr;
+}
+
+void ReplayTripPlannerSurface::ResolvePointer( int pointerX, int pointerY, bool pointerBlocked ) noexcept
+{
+    hotControl = ReplayTripPlannerControl::None;
+    hasHotControl = false;
+    consumesPointer = false;
+
+    if ( pointerBlocked )
+    {
+        return;
+    }
+
+    const float x = static_cast<float>( pointerX );
+    const float y = static_cast<float>( pointerY );
+
+    for ( std::size_t index = 0; index < controlCount; ++index )
+    {
+        const ReplayTripPlannerControlRow& control = controls[index];
+        const UI::UIRect& hit = control.hitRect;
+
+        if ( x < hit.x || y < hit.y || x >= hit.x + hit.w || y >= hit.y + hit.h )
+        {
+            continue;
+        }
+
+        consumesPointer = true;
+
+        if ( control.enabled )
+        {
+            hotControl = control.id;
+            hasHotControl = true;
+        }
+
+        return;
+    }
+}
+
 UI::UIRect ReplayInterceptReadoutRect( int screenW )
 {
     const float width = (std::min)( REPLAY_INTERCEPT_READOUT_WIDTH, static_cast<float>( screenW ) );
@@ -112,17 +180,15 @@ void BuildReplayTripPlannerSurface( const ReplayTripPlannerView& planner, int sc
     const bool canCancel = awaiting || planner.state == ReplayTripPlannerState::Converged ||
                            planner.state == ReplayTripPlannerState::Failed;
 
-    const auto add = [&]( ReplayTripPlannerControl id, ReplayTripPlannerCommandKind action, RuntimeUiControlKind kind,
-                          const UI::UIRect& rect, bool enabled )
+    const auto add = [&]( ReplayTripPlannerControl id,
+                         ReplayTripPlannerCommandKind action, const UI::UIRect& rect, bool enabled )
     {
-        RuntimeUiControl control;
+        ReplayTripPlannerControlRow control;
 
         control.id = ReplayTripPlannerControlId( id );
-        control.action = RuntimeUiActionId { static_cast<uint32_t>( action ) };
-        control.kind = kind;
+        control.action = action;
         control.drawRect = rect;
         control.hitRect = rect;
-        control.visible = true;
         control.enabled = enabled;
 
         if ( !outSurface.TryAdd( control ) )
@@ -132,21 +198,19 @@ void BuildReplayTripPlannerSurface( const ReplayTripPlannerView& planner, int sc
         }
     };
 
-    add( ReplayTripPlannerControl::TimeOfFlightDecrease, ReplayTripPlannerCommandKind::DecreaseTimeOfFlight,
-         RuntimeUiControlKind::Button, decrease, idle );
+    add( ReplayTripPlannerControl::TimeOfFlightDecrease, ReplayTripPlannerCommandKind::DecreaseTimeOfFlight, decrease,
+         idle );
 
-    add( ReplayTripPlannerControl::TimeOfFlightIncrease, ReplayTripPlannerCommandKind::IncreaseTimeOfFlight,
-         RuntimeUiControlKind::Button, increase, idle );
+    add( ReplayTripPlannerControl::TimeOfFlightIncrease, ReplayTripPlannerCommandKind::IncreaseTimeOfFlight, increase,
+         idle );
 
-    add( ReplayTripPlannerControl::Plan, ReplayTripPlannerCommandKind::Plan, RuntimeUiControlKind::Button, plan,
-         planner.available && idle );
+    add( ReplayTripPlannerControl::Plan, ReplayTripPlannerCommandKind::Plan, plan, planner.available && idle );
 
-    add( ReplayTripPlannerControl::Commit, ReplayTripPlannerCommandKind::Commit, RuntimeUiControlKind::Button, commit,
+    add( ReplayTripPlannerControl::Commit, ReplayTripPlannerCommandKind::Commit, commit,
          planner.state == ReplayTripPlannerState::Converged );
 
-    add( ReplayTripPlannerControl::Cancel, ReplayTripPlannerCommandKind::Cancel, RuntimeUiControlKind::Button, cancel,
-         canCancel );
+    add( ReplayTripPlannerControl::Cancel, ReplayTripPlannerCommandKind::Cancel, cancel, canCancel );
 
-    add( ReplayTripPlannerControl::Panel, ReplayTripPlannerCommandKind::None, RuntimeUiControlKind::Panel, panel, true );
+    add( ReplayTripPlannerControl::Panel, ReplayTripPlannerCommandKind::None, panel, true );
 }
 } // namespace SkullbonezCore::Runtime::ReplayOverlay

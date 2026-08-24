@@ -1,26 +1,25 @@
 /*
 File: SkullbonezSource/UI/UICheckBox.cpp
 Purpose:
-  Implements checkbox geometry, hit testing, checked state, and drawing.
+  Adapts retained toggle bounds and caller-provided checked values to stateless
+  component operations.
 
 Summary:
-  Keeps toggle hit testing and
-  checked-state drawing on
-  one shared bounds rectangle.
+  UIDrawWidgets owns toggle geometry, visual-state mapping, style, and ordered
+  commands; this wrapper supplies only its bounds and disposable checked fact.
 
 Invariants:
-  - Draw geometry and hit testing must be derived from the same layout
-  constants.
+  - Draw and hit paths pass the same retained bounds to UIDrawWidgets.
 
 Related:
   - SkullbonezSource/UI/UICheckBox.h
+  - SkullbonezSource/UI/UIDrawWidgets.h
   - Agentic/Reference/engine-glossary.md
 */
 #include "UICheckBox.h"
 
+#include "UIDrawWidgets.h"
 #include "UIStyle.h"
-
-#include <algorithm>
 
 namespace SkullbonezCore
 {
@@ -41,34 +40,23 @@ UIRect UICheckBox::Bounds() const
 
 bool UICheckBox::HitTest( int mouseX, int mouseY ) const
 {
-    return m_bounds.Contains( mouseX, mouseY );
+    constexpr UIVisualState kState = UIVisualState::Visible | UIVisualState::Enabled;
+    return Widgets::CanActivateComponent( m_bounds, kState, mouseX, mouseY );
 }
 
 
 void UICheckBox::DrawToggle( const UIDrawContext& draw, const char* label, bool checked, float accentR, float accentG,
                              float accentB ) const
 {
-    const Style::UIPalette& palette = Style::Palette();
-    const Style::UIControlStyle& control = Style::Control();
-    const float switchW = control.switchW;
-    const float switchH = control.switchH;
-    const float switchX = m_bounds.x + (std::max)( 66.0f, m_bounds.w - switchW - 4.0f );
-    const float switchY = m_bounds.y + 4.0f;
-    const Style::UIColor offFill = { palette.control.r, palette.control.g, palette.control.b, 0.78f };
+    UIVisualState state = UIVisualState::Visible | UIVisualState::Enabled;
 
-    const Style::UIColor onFill = { accentR, accentG, accentB, 0.90f };
+    if ( checked )
+    {
+        state |= UIVisualState::Checked;
+    }
 
-    const Style::UIColor knobFill = checked ? palette.accentStrong : palette.textMuted;
-    const float knobSize = 10.0f;
-    const float knobX = switchX + ( checked ? switchW - knobSize - 3.0f : 3.0f );
-
-    draw.Text( m_bounds.x, m_bounds.y + 4.0f, 10.5f, palette.textSecondary.r, palette.textSecondary.g,
-               palette.textSecondary.b, label );
-
-    draw.RoundedPanel( { switchX, switchY, switchW, switchH }, switchH * 0.5f, checked ? onFill : offFill, palette.border );
-
-    draw.RoundedRect( knobX, switchY + 3.0f, knobSize, knobSize, knobSize * 0.5f, knobFill.r, knobFill.g, knobFill.b,
-                      0.98f );
+    Widgets::DrawToggle( draw, m_bounds, label, { accentR, accentG, accentB, 1.0f }, state,
+                         Widgets::ComponentAppearance::Established );
 }
 
 } // namespace UI

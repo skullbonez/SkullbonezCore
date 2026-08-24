@@ -16,6 +16,8 @@
 #
 # Invariants:
 #   - Known-risk scene behavior changes must be explicit baseline updates.
+#   - A Physics-plan update requires an exact candidate hash and retained-runtime
+#     transition manifest before this tool writes the committed oracle.
 #
 # Related:
 #   - tools/validate_physics.bat
@@ -29,9 +31,12 @@ import os
 from pathlib import Path
 import sys
 
+from check_physics_baseline_guard import sha256_bytes, validate_physics_plan_transition
+
 
 REPO = Path(os.environ.get("SKORE_REPO", Path(__file__).resolve().parents[1])).resolve()
 BASELINE = REPO / "TestOutput" / "baselines" / "physics_known_issue_signatures.json"
+EXE = REPO / "Debug" / "SKULLBONEZ_CORE.exe"
 
 KNOWN_ISSUES = [
     {
@@ -97,16 +102,37 @@ def canonical_json(packet):
     return json.dumps(packet, indent=2, sort_keys=True) + "\n"
 
 
-def compare_or_update(current_text, update):
-    if update:
+def compare_or_update(current_text, candidate_sha256, artifact_manifest):
+    if candidate_sha256 is not None:
+        if not BASELINE.exists():
+            raise RuntimeError("automated override requires a tracked predecessor baseline")
+        current_bytes = current_text.encode("utf-8")
+        current_digest = sha256_bytes(current_bytes)
+        if candidate_sha256.lower() != current_digest:
+            raise RuntimeError(
+                f"candidate SHA-256 does not match generated known-issue baseline: "
+                f"expected={current_digest} supplied={candidate_sha256.lower()}"
+            )
+        previous_digest = sha256_bytes(BASELINE.read_bytes())
+        validate_physics_plan_transition(
+            REPO,
+            artifact_manifest,
+            BASELINE.relative_to(REPO).as_posix(),
+            previous_digest,
+            current_digest,
+            EXE,
+            "Debug|x64",
+        )
         BASELINE.parent.mkdir(parents=True, exist_ok=True)
-        BASELINE.write_text(current_text, encoding="utf-8")
-        print(f"  UPDATED: {BASELINE.relative_to(REPO)}")
+        temporary = BASELINE.with_suffix(BASELINE.suffix + ".tmp")
+        temporary.write_bytes(current_bytes)
+        os.replace(temporary, BASELINE)
+        print(f"  AUTOMATED OVERRIDE: {BASELINE.relative_to(REPO)} ({current_digest})")
         return 0
 
     if not BASELINE.exists():
         print(f"  FAIL: missing committed baseline {BASELINE.relative_to(REPO)}")
-        print("        Run this checker with --update only when intentionally refreshing the known-issue signatures.")
+        print("        Restore the tracked baseline before running validation.")
         return 1
 
     expected_text = canonical_json(json.loads(BASELINE.read_text(encoding="utf-8")))
@@ -132,11 +158,27 @@ def compare_or_update(current_text, update):
 
 def main():
     parser = argparse.ArgumentParser(description="Check known physics issue CSV signatures against baseline.")
-    parser.add_argument("--update", action="store_true", help="Update the committed signature baseline.")
+    parser.add_argument(
+        "--automated-override-sha256",
+        help="exact candidate SHA-256 for an archived Physics-plan baseline transition",
+    )
+    parser.add_argument("--artifact-manifest", type=Path)
+    parser.add_argument("--update", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
+    if args.update:
+        parser.error(
+            "--update now requires the archived automated lane; use "
+            "--automated-override-sha256 and --artifact-manifest"
+        )
+    if (args.automated_override_sha256 is None) != (args.artifact_manifest is None):
+        parser.error("--automated-override-sha256 and --artifact-manifest are required together")
 
     try:
-        return compare_or_update(canonical_json(build_packet()), args.update)
+        return compare_or_update(
+            canonical_json(build_packet()),
+            args.automated_override_sha256,
+            args.artifact_manifest,
+        )
     except Exception as exc:
         print(f"  FAIL: {exc}")
         return 1

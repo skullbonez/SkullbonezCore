@@ -25,7 +25,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Tools/RuntimeTools.h
-  - SkullbonezSource/Runtime/Editor/LauncherTools.cpp
+  - SkullbonezSource/Runtime/Tools/LauncherTools.cpp
   - SkullbonezSource/Runtime/Replay/ReplayPresentation.h
   - Agentic/Reference/engine-glossary.md
 */
@@ -34,18 +34,16 @@ Related:
 
 #include "../../Core/Common.h"
 #include "../../Core/Log.h"
-#include "../Scene/SceneControllerState.h"
+
 #include "../Scene/SceneWorld.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/CollisionShape.h"
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
-#include "../../UI/UICommands.h"
+#include "../Interaction/OperatorUiCommands.h"
 #include "../../UI/UILayout.h"
 #include "../Camera/CameraCollection.h"
-#include "../Editor/EditorTools.h"
-#include "../Editor/EditorOverlayTools.h"
 #include "../Input/InputRouter.h"
 #include "../Interaction/RuntimeInteractionCommands.h"
 #include "../Interaction/RuntimeInteractionController.h"
@@ -60,148 +58,7 @@ Related:
 
 namespace SkullbonezCore::Runtime
 {
-bool RuntimeTools::PrepareSelectionCommand( const RuntimeInteractionCommand& command, const SceneWorld& world,
-                                            RuntimeInteractionSelectionPlan& outPlan )
-{
-    outPlan = RuntimeInteractionSelectionPlan {};
-
-    if ( command.type != RuntimeInteractionCommandType::SetEditorSelection )
-    {
-        return false;
-    }
-
-    const Physics::PhysicsBodyStore& bodyStore = world.BodyStore();
-    const Physics::ColliderStore& colliderStore = world.Colliders();
-    Physics::PhysicsBodyHandle selectedBody;
-    Physics::PhysicsColliderHandle selectedCollider;
-    Physics::ModelRowHint selectedModelRow;
-
-    if ( command.body.IsValid() )
-    {
-        selectedBody = command.body;
-        selectedCollider = command.collider;
-        const Physics::PhysicsBodyRecord* body = bodyStore.RecordForHandle( selectedBody );
-        const Physics::ColliderRecord* collider = colliderStore.RecordForHandle( selectedCollider );
-        const int bodyRow = bodyStore.ModelIndexForHandle( selectedBody );
-
-        if ( !body || !collider || colliderStore.ModelIndexForHandle( selectedCollider ) != bodyRow ||
-             collider->body != selectedBody )
-        {
-            return false;
-        }
-
-        selectedModelRow.value = bodyRow;
-    }
-    else if ( command.collider.IsValid() )
-    {
-        return false;
-    }
-
-    if ( !m_editor.selectedBody.IsValid() )
-    {
-        m_editor.selectedModelRow.value = -1;
-        outPlan.previousModelRow.value = -1;
-    }
-    else
-    {
-        outPlan.previousModelRow.value = bodyStore.ResolveModelRow( m_editor.selectedBody, m_editor.selectedModelRow );
-    }
-
-    outPlan.modelRow = selectedModelRow;
-    outPlan.previousBody = m_editor.selectedBody;
-    outPlan.body = selectedBody;
-    outPlan.previousCollider = m_editor.selectedCollider;
-    outPlan.collider = selectedCollider;
-    outPlan.selectionScope = command.selectionScope;
-    outPlan.claimSelectionOwner = command.claimSelectionOwner;
-    return true;
-}
-
-
-bool RuntimeTools::CommitSelectionCommand( const RuntimeInteractionSelectionPlan& plan, RuntimeInteractionEvent& outEvent )
-{
-    outEvent = RuntimeInteractionEvent {};
-
-    // Invariant: preparation and commit are synchronous around the optional
-    // owner transition. Transition cleanup may deliberately clear the previous
-    // selection; the prepared command still becomes the new authoritative one.
-    m_editor.selectedModelRow = plan.modelRow;
-    m_editor.selectedBody = plan.body;
-    m_editor.selectedCollider = plan.collider;
-
-    if ( plan.previousModelRow.value != plan.modelRow.value || plan.previousBody != plan.body ||
-         plan.previousCollider != plan.collider )
-    {
-        outEvent.type = RuntimeInteractionEventType::SelectionChanged;
-        outEvent.previousModelRow = plan.previousModelRow;
-        outEvent.modelRow = plan.modelRow;
-        outEvent.previousBody = plan.previousBody;
-        outEvent.body = plan.body;
-        outEvent.previousCollider = plan.previousCollider;
-        outEvent.collider = plan.collider;
-        outEvent.selectionScope = plan.selectionScope;
-        SkullbonezCore::Core::Log()
-            .WriteEventf( "runtime_interaction_command_event type=selection_changed scope=%s previous_model=%d model=%d",
-                          outEvent.selectionScope == RuntimeInteractionSelectionScope::Inspect ? "inspect" : "editor",
-                          outEvent.previousModelRow.value, outEvent.modelRow.value );
-    }
-
-    return true;
-}
-
-
-bool RuntimeTools::ApplySelectionCommand( const RuntimeInteractionCommand& command, const SceneWorld& world )
-{
-    // Why: owner-claiming commands need composition to apply transition cleanup
-    // between prepare and commit. The convenience path is intentionally limited
-    // to commands whose interaction owner is already established.
-    if ( command.claimSelectionOwner )
-    {
-        return false;
-    }
-
-    RuntimeInteractionSelectionPlan plan;
-    RuntimeInteractionEvent event;
-    return PrepareSelectionCommand( command, world, plan ) && CommitSelectionCommand( plan, event );
-}
-
-
-bool RuntimeTools::HasActiveEditorInteractionState( const RuntimeInteractionController& interaction ) const
-{
-    const RuntimeInteractionGestureKind gesture = interaction.Gesture().kind;
-    return m_editor.editorModeEnabled || m_editor.placementModeEnabled || m_editor.viewportLookActive ||
-           m_editor.placementPreviewVisible || gesture == RuntimeInteractionGestureKind::EditorPlacementScaleDrag ||
-           gesture == RuntimeInteractionGestureKind::GizmoDrag || m_editor.hotGizmoAxis >= 0 ||
-           m_editor.hotRotationAxis >= 0;
-}
-
-
-bool RuntimeTools::InspectGizmoInteractionActive( RunCameraMode cameraMode, bool replayInspectionActive ) const
-{
-    return !m_editor.editorModeEnabled && cameraMode == RunCameraMode::Inspect && !replayInspectionActive;
-}
-
-
-void RuntimeTools::ClearEditorInteractionForTransition( bool clearSelection, SceneWorld& world,
-                                                        RuntimeInteractionController& interaction )
-{
-    ClearEditorManipulationState( m_editor, interaction );
-    m_editor.viewportLookActive = false;
-    m_editor.placementModeEnabled = false;
-    m_editor.hotGizmoAxis = -1;
-    m_editor.hotRotationAxis = -1;
-
-    if ( clearSelection )
-    {
-        RuntimeInteractionCommand command;
-        command.type = RuntimeInteractionCommandType::SetEditorSelection;
-        command.claimSelectionOwner = false;
-        ApplySelectionCommand( command, world );
-    }
-}
-
-
-void RuntimeTools::ObserveSceneLifecycle( const SceneLifecyclePacket& packet, SceneWorld& world, InputRouter& inputRouter,
+void RuntimeTools::ObserveSceneLifecycle( const SceneLifecyclePacket& packet, InputRouter& inputRouter,
                                           RuntimeInteractionController& interaction )
 {
     if ( !m_sceneLifecycleObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
@@ -212,8 +69,6 @@ void RuntimeTools::ObserveSceneLifecycle( const SceneLifecyclePacket& packet, Sc
     // Invariant: clear typed gesture/capture state before the interaction owner
     // publishes its new-scene workspace policy.
     CancelMousePickup( inputRouter, interaction );
-    ClearEditorInteractionForTransition( false, world, interaction );
-    ClearEditorHistory();
     ClearRayCastTestLines();
 }
 
@@ -411,18 +266,17 @@ bool RuntimeTools::HasLingeredRayCastLine( float maxAgeSeconds ) const
     return false;
 }
 
-bool RuntimeTools::HasSelectionOverlayWork( int modelCount, RunCameraMode cameraMode ) const
+bool RuntimeTools::HasSelectionOverlayWork( const ToolEditorOverlayValues& editor, int modelCount,
+                                            RunCameraMode cameraMode ) const
 {
-    const bool selectedModelValid = m_editor.selectedBody.IsValid() && m_editor.selectedCollider.IsValid() &&
-                                    modelCount >= 0;
+    const bool selectedModelValid = editor.selectionCount > 0 && modelCount >= 0;
 
-    const bool placementPreview = m_editor.editorModeEnabled && m_editor.placementModeEnabled &&
-                                  m_editor.placementPreviewVisible;
+    const bool placementPreview = editor.editorModeEnabled && editor.placementModeEnabled && editor.placementPreviewVisible;
 
-    const bool editorSelection = m_editor.editorModeEnabled && !m_editor.placementModeEnabled && selectedModelValid;
-    const bool inspectSelection = !m_editor.editorModeEnabled && cameraMode == RunCameraMode::Inspect && selectedModelValid;
+    const bool editorSelection = editor.editorModeEnabled && !editor.placementModeEnabled && selectedModelValid;
+    const bool inspectSelection = !editor.editorModeEnabled && cameraMode == RunCameraMode::Inspect && selectedModelValid;
 
-    const bool attachSelection = !m_editor.editorModeEnabled && cameraMode == RunCameraMode::Attach && selectedModelValid;
+    const bool attachSelection = !editor.editorModeEnabled && cameraMode == RunCameraMode::Attach && selectedModelValid;
 
     return placementPreview || editorSelection || inspectSelection || attachSelection;
 }
@@ -868,15 +722,123 @@ RunMousePickupState& RuntimeTools::MousePickup()
 }
 
 
-RunEditorPlacementState& RuntimeTools::Editor()
+void RuntimeTools::PrepareOverlayTrace( SceneWorld& world, const ToolEditorOverlayValues& editor,
+                                        const ToolOverlayBuildInput& input )
 {
-    return m_editor;
+    m_editorTracer.Clear();
+    const float rayLinger = (std::max)( 0.0f, input.rayLingerSeconds );
+
+    for ( const RunRayCastTestLine& line : m_rayCastTest.lines )
+    {
+        if ( line.active && line.ageSeconds < rayLinger )
+        {
+            m_editorTracer.AddRayCastTestLine( line.start, line.end, 1.0f - line.ageSeconds / rayLinger, line.hit );
+        }
+    }
+
+    if ( editor.editorModeEnabled && editor.placementModeEnabled && editor.placementPreviewVisible )
+    {
+        m_editorTracer.AddPlacementRay( editor.placementRayOrigin, editor.placementRayHit );
+    }
+
+    const Physics::PhysicsBodyStore& bodyStore = world.BodyStore();
+    const Physics::ColliderStore& colliderStore = world.Colliders();
+
+    if ( ( editor.editorModeEnabled || input.inspectGizmoActive ) && !editor.placementModeEnabled &&
+         editor.selectionCount > 0 )
+    {
+        const auto hotFields = bodyStore.HotFields();
+        Math::Vector::Vector3 origin = Math::Vector::ZERO_VECTOR;
+        std::array<const Physics::ColliderRecord*, ToolEditorOverlayValues::SELECTION_CAPACITY> colliders = {};
+        std::size_t count = 0;
+
+        for ( ; count < editor.selectionCount && count < colliders.size(); ++count )
+        {
+            const Physics::PhysicsBodyRecord* body = bodyStore.RecordForHandle( editor.selectionBodies[count] );
+            const Physics::ColliderRecord* collider = colliderStore.RecordForHandle( editor.selectionColliders[count] );
+            const int modelIndex = bodyStore.ModelIndexForHandle( editor.selectionBodies[count] );
+
+            if ( !body || !collider || modelIndex < 0 || modelIndex >= world.SceneEntityCount() ||
+                 collider->body != editor.selectionBodies[count] )
+            {
+                count = 0;
+                break;
+            }
+
+            colliders[count] = collider;
+            origin += Physics::PhysicsBodyPosition( hotFields, static_cast<std::size_t>( modelIndex ) );
+        }
+
+        if ( count > 0 )
+        {
+            origin /= static_cast<float>( count );
+            float radius = 1.0f;
+
+            for ( std::size_t i = 0; i < count; ++i )
+            {
+                const int modelIndex = bodyStore.ModelIndexForHandle( editor.selectionBodies[i] );
+                const Math::Vector::Vector3 position = Physics::PhysicsBodyPosition( hotFields, static_cast<std::size_t>( modelIndex ) );
+                const Physics::ColliderRecord& collider = *colliders[i];
+                const float colliderRadius = (std::max)( collider.boundingRadius > 0.0f
+                                                             ? collider.boundingRadius
+                                                             : Math::CollisionDetection::GetShapeBoundingRadius( collider.shape ),
+                                                         1.0f );
+                radius = (std::max)( radius, Math::Vector::Distance( position, origin ) + colliderRadius );
+                m_editorTracer.AddSelectionOutline( position,
+                                                    Physics::PhysicsBodyOrientation( hotFields, static_cast<std::size_t>( modelIndex ) ),
+                                                    collider.shape );
+            }
+
+            const bool dragActive = input.gesture.kind == RuntimeInteractionGestureKind::GizmoDrag;
+            const bool scaleActive = dragActive && input.gesture.gizmoKind == RuntimeGizmoDragKind::Scale;
+            const bool rotateActive = dragActive && input.gesture.gizmoKind == RuntimeGizmoDragKind::Rotate;
+            m_editorTracer.AddGizmo( origin, radius, editor.hotGizmoAxis, editor.hotRotationAxis,
+                                     dragActive ? input.gesture.axis : -1, rotateActive, scaleActive || input.scaleMode,
+                                     scaleActive );
+        }
+    }
+
+    if ( input.gesture.kind == RuntimeInteractionGestureKind::MousePickupDrag && m_mousePickup.body.IsValid() )
+    {
+        const Physics::PhysicsBodyRecord* body = bodyStore.RecordForHandle( m_mousePickup.body );
+        const Physics::PhysicsColliderHandle colliderHandle = colliderStore.HandleForBodyHandle( m_mousePickup.body );
+        const Physics::ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
+        const int modelIndex = bodyStore.ModelIndexForHandle( m_mousePickup.body );
+
+        if ( body && collider && modelIndex >= 0 && modelIndex < world.SceneEntityCount() &&
+             collider->body == m_mousePickup.body )
+        {
+            const auto hotFields = bodyStore.HotFields();
+            const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
+            const Math::Vector::Vector3 bodyPosition = Physics::PhysicsBodyPosition( hotFields, bodyIndex );
+            const Math::Vector::Vector3 grabPoint = bodyPosition + m_mousePickup.grabOffset;
+            m_editorTracer.AddSelectionOutline( bodyPosition, Physics::PhysicsBodyOrientation( hotFields, bodyIndex ),
+                                                collider->shape );
+            m_editorTracer.AddReplayPathSegment( grabPoint, m_mousePickup.targetPoint, 0.1f, 0.95f, 1.0f );
+            m_editorTracer.AddReplayContactMarker( m_mousePickup.targetPoint, m_mousePickup.planeNormal, 0.1f, 0.95f, 1.0f );
+            m_editorTracer.AddReplayImpulseVector( grabPoint, m_mousePickup.lastImpulse, 0.1f, 0.95f, 1.0f );
+        }
+    }
+
+    if ( input.attachedCameraTargetIndex >= 0 && input.attachedCameraTargetIndex < world.SceneEntityCount() )
+    {
+        const Physics::PhysicsBodyHandle bodyHandle = bodyStore.HandleForModelIndex( input.attachedCameraTargetIndex );
+        const Physics::PhysicsBodyRecord* body = bodyStore.RecordForHandle( bodyHandle );
+        const Physics::PhysicsColliderHandle colliderHandle = colliderStore.HandleForBodyHandle( bodyHandle );
+        const Physics::ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
+
+        if ( body && collider && collider->body == bodyHandle )
+        {
+            const auto hotFields = bodyStore.HotFields();
+            const std::size_t bodyIndex = static_cast<std::size_t>( input.attachedCameraTargetIndex );
+            const float radius = (std::max)( collider->boundingRadius, 1.0f ) * 1.24f;
+            m_editorTracer.AddAttachedCameraTargetMarker( Physics::PhysicsBodyPosition( hotFields, bodyIndex ),
+                                                          Physics::PhysicsBodyOrientation( hotFields, bodyIndex ),
+                                                          collider->shape, radius, input.attachedCameraActiveFollow );
+        }
+    }
 }
 
-const RunEditorPlacementState& RuntimeTools::Editor() const
-{
-    return m_editor;
-}
 
 EditorTracer& RuntimeTools::Tracer()
 {
@@ -884,14 +846,4 @@ EditorTracer& RuntimeTools::Tracer()
 }
 
 
-void RuntimeTools::PrepareOverlayTrace( SceneWorld& world, const Assets::AssetSystem& assets,
-                                        const ToolOverlayBuildInput& input )
-{
-    // Invariant: one owner clears and rebuilds the shared tracer exactly once
-    // before replay appends its records for the same frame.
-    m_editorTracer.Clear();
-    BuildEditorToolOverlayTrace( m_editor, m_rayCastTest, m_mousePickup, world, assets, m_editorTracer,
-                                 { input.rayLingerSeconds, input.inspectGizmoActive, input.scaleMode, input.gesture,
-                                   input.attachedCameraTargetIndex, input.attachedCameraActiveFollow } );
-}
 } // namespace SkullbonezCore::Runtime

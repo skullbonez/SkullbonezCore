@@ -36,7 +36,7 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-enum class OverlayMode
+enum class OverlayMode : int
 {
     None,                                                     // Clean screen, nothing shown
     Timers,                                                   // Renderer name, model count, physics solver, profiler overlay

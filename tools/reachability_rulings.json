@@ -102,11 +102,11 @@
     },
     {
       "file": "SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.Execution.cpp",
-      "signature": "template <bool RetainPipelineRecords> void PhysicsNarrowphaseStage::ProcessObjectNarrowphaseIsland( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, PhysicsTerrainView terrain, std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<const std::pair<int, int>> candidatePairs, PhysicsNarrowphaseWakeAccess wakeAccess, std::span<float> timeRemaining, std::span<const PersistentContactCacheEntry> persistentContactCache, const ObjectNarrowphaseStepPolicy& policy, Core::Profiler* profiler, int islandIndex )",
+      "signature": "template <bool RetainPipelineRecords> void PhysicsNarrowphaseStage::ProcessObjectNarrowphaseIsland( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, PhysicsTerrainView terrain, std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<const std::pair<int, int>> candidatePairs, PhysicsNarrowphaseWakeAccess wakeAccess, std::span<float> timeRemaining, std::span<const uint8_t> motionEligibilityState, const ObjectNarrowphaseStepPolicy& policy, Core::Profiler* profiler, int islandIndex )",
       "owner": "Physics::PhysicsNarrowphaseStage island work item",
       "disposition": "retain-owner",
       "reason": "Each dispatched island delegates its bounded pair range to this operation.",
-      "evidence": "ObjectNarrowphaseIslandStage::operator() selects the full/count specialization once per island; WorkerPool::ParallelForNoAlloc dispatches that typed work item. 2026-07-31 synchronized Automation/Debug/Profile census: classification=no-reference; mapping=specialization-set; own_tu_calls=0; test_calls=0; ambiguous_production_calls=0; required_arity=11/11; symbols=ProcessObjectNarrowphaseIsland<true>, ProcessObjectNarrowphaseIsland<false>",
+      "evidence": "ObjectNarrowphaseIslandStage::operator() selects the full/count specialization once per island and passes the current motion-eligibility span; WorkerPool::ParallelForNoAlloc dispatches that typed work item. 2026-08-23 synchronized Automation/Debug/Profile census: classification=no-reference; mapping=specialization-set; own_tu_calls=0; test_calls=0; ambiguous_production_calls=0; required_arity=11/11; symbols=ProcessObjectNarrowphaseIsland<true>, ProcessObjectNarrowphaseIsland<false>",
       "plan": ""
     },
     {
@@ -416,24 +416,6 @@
       "plan": ""
     },
     {
-      "file": "SkullbonezSource/Runtime/App/Window.cpp",
-      "signature": "DevelopmentTools::ImGuiEditorNativeMessageRoute Window::RouteDevelopmentUiMessage( HWND window, UINT message, WPARAM wParam, LPARAM lParam )",
-      "owner": "Window native-message boundary",
-      "disposition": "retain-owner",
-      "reason": "Routes Win32 messages through the development-UI owner before engine input.",
-      "evidence": "Window.cpp WndProc calls this exact method under SKULLBONEZ_DEVELOPMENT_TOOLS. 2026-07-30 final synchronized Debug/Profile census: classification=own-tu-only; mapping=exact; own_tu_calls=1; test_calls=0; ambiguous_production_calls=0; required_arity=4/4; symbols=?RouteDevelopmentUiMessage@Window@Runtime@SkullbonezCore@@QEAA?AUImGuiEditorNativeMessageRoute@DevelopmentTools@23@PEAUHWND__@@I_K_J@Z",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/App/Window.cpp",
-      "signature": "void Window::SetWindowDimensions( int m_width, int m_height )",
-      "owner": "Window size lifecycle",
-      "disposition": "retain-owner",
-      "reason": "Publishes WM_SIZE client dimensions before resize handling.",
-      "evidence": "Window.cpp WndProc calls this exact integer overload with LOWORD/HIWORD(lParam). 2026-07-30 final synchronized Debug/Profile census: classification=own-tu-only; mapping=exact; own_tu_calls=1; test_calls=0; ambiguous_production_calls=0; required_arity=2/2; symbols=?SetWindowDimensions@Window@Runtime@SkullbonezCore@@QEAAXHH@Z",
-      "plan": ""
-    },
-    {
       "file": "SkullbonezSource/Runtime/Editor/EditorCommandHistory.cpp",
       "signature": "std::size_t EditorCommandHistory::StoredCount() const",
       "owner": "EditorCommandHistory bounded ring",
@@ -515,7 +497,7 @@
       "plan": ""
     },
     {
-      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp",
+      "file": "SkullbonezSource/Runtime/App/ReplayPredictionDrawing.cpp",
       "signature": "ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& context )",
       "owner": "Replay prediction path presentation",
       "disposition": "retain-owner",
@@ -620,15 +602,6 @@
       "disposition": "retain-owner",
       "reason": "Deliberate compatibility seam for presentation-only artifacts.",
       "evidence": "TestReplayArtifact creates deterministic, legacy, and adversarial presentation-only artifacts. 2026-07-30 final synchronized Debug/Profile census: classification=test-only; mapping=exact; own_tu_calls=0; test_calls=1; ambiguous_production_calls=0; required_arity=2/3; symbols=?SavePresentation@ReplayV2Artifact@Runtime@SkullbonezCore@@SA_NAEBVReplayRecorder@23@PEBDPEAUReplayV2SaveResult@23@@Z",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Scene/SceneController.Load.cpp",
-      "signature": "SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& request, SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions, const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender, const RunStartupState& startup, Assets::AssetSystem& assets, Threading::WorkerPool& workerPool, DiagnosticsRuntime& diagnosticsRuntime, Rendering::Dx12FrameOwner* renderFrame, Rendering::Dx12ResourceBuilder* renderResources, RuntimeRenderer& renderer, SceneLoadTransaction& transaction )",
-      "owner": "SceneLoadTransaction load phase",
-      "disposition": "retain-owner",
-      "reason": "Concrete load implementation borrowed by the invariant-owning transaction.",
-      "evidence": "SceneLoadTransaction::Load advances phase then calls this exact overload with itself. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=8; required_arity=12/12; symbols=?Load@SceneController@Runtime@SkullbonezCore@@AEAA?AVSbResult@Core@3@AEBUSceneLoadRequest@23@AEAVEngineConfig@53@AEAURunLaunchOptions@23@AEBUCinematicRenderConfig@53@AEBURunStartupState@23@AEAVAssetSystem@Assets@3@AEAVWorkerPool@Threading@3@AEAVDiagnosticsRuntime@23@PEAVDx12FrameOwner@Rendering@3@PEAVDx12ResourceBuilder@Rendering@3@AEAVRuntimeRenderer@23@AEAVSceneLoadTransaction@23@@Z",
       "plan": ""
     },
     {

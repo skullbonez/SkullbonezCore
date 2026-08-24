@@ -39,7 +39,7 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 | Authoring row | Cold scene round-trip text paired with one hot collider row. |
 | Auto-cycle | Screenshot automation that advances capture targets over time. |
 | Automation scene | Scene with screenshot/perf/exit behavior that should keep the UI hidden unless explicitly authored otherwise. |
-| Awake index list | Ascending dense body rows owned by the sleep controller and borrowed by work-producing stages for one sequenced fixed-step interval. |
+| Awake index list | Ascending dense body rows owned by the sleep controller and borrowed by work-producing stages for one sequenced Physics fixed-timestep interval. |
 | Awake slot | Dispatch position mapped to one ascending dynamic body index. |
 | Back buffer | Swap-chain image that will be presented to the window. |
 | Backdrop | Translucent panel drawn before chrome to separate controls from the world view. |
@@ -60,6 +60,7 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 | Capacity row | Fixed registry storage carrying one store's live sizing telemetry without building a heap-backed report. |
 | Capacity session | One loaded scene's live-usage window, ending immediately before its store rows are cleared or replaced. |
 | Capacity snapshot | Fixed value rows copied from the allocator registry only while the Memory tab is visible. |
+| Capture lockstep | Operator label for the scene/session render-frame-lockstep request; that request becomes effective only for a finite unattended capture, while explicit startup policy is separate. |
 | Capture owner | Concrete DX12 component that supplies screenshot readback. |
 | Capture result | Value outcome folded into the fixed accepted-request batch. |
 | Capture state | Window drag, resize, slider, and native-mouse ownership that can span multiple frames. |
@@ -118,7 +119,7 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 | Feature ID | Deterministic contact key used to match rows across frames for warm starting. |
 | Fence | GPU/CPU synchronization counter used to prove submitted command work has completed before memory is reused. |
 | FIFO (First In, First Out) | Ordering rule where requests drain in their original submission order. |
-| Fixed-step | Deterministic mode that advances physics by one fixed delta per requested tick instead of wall-clock time. |
+| Physics fixed timestep | Constant solver interval applied to every committed Physics tick, whether Runtime selects those ticks from elapsed wall time or render-frame lockstep. |
 | Fixed-tree release | Store-owned command that turns authored fixed props into dynamic bodies and wakes same-tree parts after an accepted impulse. |
 | Fluid surface | World-space Y plane where the fluid medium begins. |
 | Fluid surface adjustment | Typed signed velocity issued by input in world units. |
@@ -149,7 +150,7 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 | HDR (High Dynamic Range) | Floating-point scene color that can hold values brighter than display white until tonemapping resolves it. |
 | Heat | Per-cell collision count used only to darken the debug color. |
 | Hit box | Screen-space rectangle used to decide whether mouse input targets a widget. |
-| Hitch event | A fixed-step request whose whole-tick demand exceeds the per-frame catch-up cap; excess whole ticks are intentionally discarded. |
+| Hitch event | A scheduler call whose whole-tick demand exceeds its pacing policy's per-frame catch-up cap; excess whole ticks are intentionally discarded. |
 | Hold mode | Press-duration gesture that opens tree or ragdoll variants. |
 | Hot body fields | Physics-owned arrays holding fixed/sleep/velocity state for the current tick. |
 | Hot control | Pointer control when that row is enabled. |
@@ -204,7 +205,7 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 | Percentage-closer filtering (PCF) | Fixed pattern of depth-comparison samples averaged to soften a shadow edge deterministically. |
 | Perf log | CSV-style runtime performance artifact written during runs. |
 | Persistent contact | Solver row retained long enough to warm-start a matching contact feature on the next fixed tick. |
-| Persistent membership | Cell occupancy retained across fixed steps until a body's integer cell range changes. |
+| Persistent membership | Cell occupancy retained across Physics ticks until a body's integer cell range changes. |
 | Persistent tail | Fixed suffix excluded from ordinary frame resets so retained GPU geometry can reuse cold-created upload memory across frames. |
 | PGS (Projected Gauss-Seidel) | Iterative constraint-solver method used for bounded contact impulses. |
 | Phase cursor | Value that permits only the adjacent input-arbitration phase walk. |
@@ -226,7 +227,7 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 | Post-step output | Bounded physics facts borrowed synchronously by presentation. |
 | Prefix digest | Digest rebuilt from every currently published trajectory point. |
 | Prepared prefix | Published rows whose topology and trajectories were brought into coherence by the frame thread for one render pass. |
-| Presentation alpha | Bounded leftover accumulator fraction used only to display between the previous and current completed physics poses. |
+| Presentation alpha | Wall-clock accumulator fraction used only to display between completed Physics poses; lockstep and paused paths publish exact-state 1.0, and Runtime also pins 1.0 when interpolation is disabled or capture requires exact state. |
 | Presentation sample | Render-facing pose/state captured from a frame. |
 | Presentation state | Operator-selected overlay, water, terrain, and physics debug policy sampled into render values each frame. |
 | Presentation track | Body poses, camera, and world display fields used for smooth visual scrubbing. |
@@ -253,6 +254,7 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 | Render instance | CPU-side record describing one model's draw transform and material intent. |
 | Render pass | A named slice of frame rendering with explicit inputs, outputs, and GPU resource ownership. |
 | Render pose | The eye/view/up triple actually used for the current frame; it can differ from the selected camera slot while a tween is active. |
+| Render-frame lockstep | Deterministic pacing policy whose unit time scale commits one Physics tick per rendered frame, regardless of elapsed wall time, when Physics advancement is admitted. |
 | Replay growth | Registered capacity increase allowed only for its named replay owner, phase gate, and hard cap. |
 | Replay probe | Debug-only command-line workflow that validates one replay behavior and reports a machine-readable test probe result. |
 | Replay ribbon | Screen-space-width overlay stroke generated from replay path segments, with an analytic edge and optional selected-path halo. |
@@ -277,7 +279,7 @@ owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
 | Root signature | DX12 binding contract that declares which descriptor tables and constants shaders may access. |
 | RTV (Render Target View) | Descriptor row used when the GPU writes color pixels into a texture or back buffer. |
 | Run-value directive | Value-bearing Run, replay, UI-stress, or graphics-stress option whose result belongs to the launch-policy packet. |
-| Runtime settings snapshot | Physics-owned copy of process configuration stamped into fixed-step stage owners. |
+| Runtime settings snapshot | Physics-owned copy of process configuration stamped into fixed-timestep stage owners. |
 | RVIS | Ordered packet identity, typed counts, and exact render-buffer rows. |
 | RVPD | Bounded typed prediction state used by non-presenting round-trip checks. |
 | Save publication | Detached owner-produced value containing that owner's persisted fields; the world publication borrows stable stores synchronously. |

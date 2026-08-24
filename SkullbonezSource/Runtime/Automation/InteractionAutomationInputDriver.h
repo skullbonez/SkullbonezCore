@@ -23,7 +23,7 @@ Invariants:
     the target client area's inclusive pixel domain.
 
 Related:
-  - SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp
+  - SkullbonezSource/Runtime/App/InteractionAutomationApplication.cpp
   - SkullbonezSource/Runtime/Input/Input.h
 */
 #pragma once

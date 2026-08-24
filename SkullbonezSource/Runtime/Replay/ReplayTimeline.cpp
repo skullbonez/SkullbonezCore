@@ -29,7 +29,6 @@ Related:
 
 #include "ReplayV2Artifact.h"
 
-#include "../Tools/RuntimeFileWriter.h"
 
 #include <cstdio>
 #include <cstring>
@@ -210,12 +209,6 @@ void ReplayTimeline::InstallLoadedPresentation( const char* path, std::vector<Re
     strncpy_s( m_loadedPresentation.path, sizeof( m_loadedPresentation.path ), path, _TRUNCATE );
 }
 
-bool ReplayTimeline::NextPresentationSavePath( char* outPath, std::size_t outPathSize )
-{
-    return RuntimeFileWriter::NextNumberedPath( outPath, outPathSize, "replays", "replay_v2_", ".skreplay",
-                                                m_presentationSaveSequence );
-}
-
 void ReplayTimeline::RecordEvent( const ReplayEventInput& input )
 {
     if ( m_recordingEnabled && m_events.IsEnabled() )
@@ -343,8 +336,7 @@ const ReplaySolverFrameSample*
 ReplayTimeline::CaptureFrame( int sceneFrame, float physicsDt, const ReplayWorldPresentationSample& world,
                               const ReplayCameraSample& camera, const ReplayLauncherVisualSample& launcherVisual,
                               Physics::PhysicsEngine& physics, const Gameplay::TornadoGameplay& tornadoGameplay,
-                              const SceneEntityStore& entities, const Physics::PhysicsBodyStore& bodyStore,
-                              const Physics::ColliderStore& colliderStore, const ReplayBranchInfo& branch )
+                              std::span<const char* const> entityDisplayNames, const ReplayBranchInfo& branch )
 {
     if ( !m_recordingEnabled )
     {
@@ -357,7 +349,7 @@ ReplayTimeline::CaptureFrame( int sceneFrame, float physicsDt, const ReplayWorld
     {
         const ReplayFrameIndex expectedSolverFrame = m_solver.GetStats().nextFrameIndex;
         m_solver.CaptureFrame( branch, eventCursor, sceneFrame, physicsDt, world, camera, launcherVisual, physics,
-                               tornadoGameplay, entities, bodyStore, colliderStore );
+                               tornadoGameplay, entityDisplayNames );
 
         const ReplaySolverFrameSample* solverSample = m_solver.LatestSample();
 
@@ -379,8 +371,7 @@ ReplayTimeline::CaptureFrame( int sceneFrame, float physicsDt, const ReplayWorld
         }
     }
 
-    m_presentation.CaptureFrame( branch, eventCursor, sceneFrame, physicsDt, world, camera, physics, entities, bodyStore,
-                                 colliderStore );
+    m_presentation.CaptureFrame( branch, eventCursor, sceneFrame, physicsDt, world, camera, physics, entityDisplayNames );
 
     const ReplayPresentationSample* presentationSample = m_presentation.LatestSample();
 

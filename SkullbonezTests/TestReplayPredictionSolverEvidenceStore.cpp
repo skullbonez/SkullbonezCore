@@ -64,6 +64,7 @@ TEST_CASE( "Prediction evidence store: empty and Low banks allocate nothing" )
     banks.BeginBuild( 1u, ReplayPredictionDetailMode::Low );
     CHECK_FALSE( banks.ReserveBuild( 1u, 1u, 1u, 10 ) );
     CHECK_FALSE( banks.AppendBuildFrame( 1u, 1u, 1u, {}, {}, 10 ) );
+    CHECK( banks.AppendBuildFrameResult( 1u, 1u, 1u, {}, {}, 10 ) == ReplayPredictionEvidenceAppendResult::InvalidIdentity );
     CHECK( banks.CollectMemoryStats().currentCapacityBytes == 0u );
 }
 
@@ -73,7 +74,8 @@ TEST_CASE( "Prediction evidence store: sealed prefix and ranges survive concurre
     const uint64_t epoch = banks.BeginBuild( 7u, ReplayPredictionDetailMode::High );
     const std::array contacts = { ContactRow( 11u ), ContactRow( 12u ) };
     const std::array pipeline = { PipelineRow( 21u ), PipelineRow( 22u ) };
-    REQUIRE( banks.AppendBuildFrame( 40u, 3u, 100u, contacts, pipeline, 40 ) );
+    REQUIRE( banks.AppendBuildFrameResult( 40u, 3u, 100u, contacts, pipeline, 40 ) ==
+             ReplayPredictionEvidenceAppendResult::Appended );
 
     const ReplayPredictionSolverEvidenceFrame* first = banks.Build().PublishedFrame( 0u );
     REQUIRE( first != nullptr );

@@ -25,7 +25,6 @@ Related:
 #include "SceneResetPreservation.h"
 #include "SceneController.h"
 #include "SceneSessionState.h"
-#include "../Render/RuntimeRenderer.h"
 #include "../../World/WorldEnvironment.h"
 
 namespace SkullbonezCore
@@ -33,19 +32,19 @@ namespace SkullbonezCore
 namespace Runtime
 {
 SceneResetPreservationSnapshot SceneLoadTransaction::CaptureResetSnapshot( const SceneController& controller, const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                                                                           const RuntimeRenderer& renderer, const OverlayDebugState& debug, const CameraControlState& camera )
+                                                                           SceneRenderPolicyState renderPolicy, const ScenePresentationValues& presentation, const CameraControlState& camera )
 {
     SceneResetPreservationSnapshot snapshot;
     const SceneSessionState& scene = controller.State();
 
     // Invariant: Capture every field restored below. Adding a new preserved
     // runtime knob requires updating both sides of this snapshot contract.
-    snapshot.renderPresentation = renderer.PresentationSettings();
+    snapshot.renderPolicy = renderPolicy;
     snapshot.physicsSleepEnabled = controller.Scene().Physics().IsSleepEnabled();
     snapshot.tornadoField = controller.Scene().Tornado().GetFieldConfig();
     snapshot.tornadoSystem = controller.Scene().Tornado().GetSystemConfig();
     snapshot.tornadoVisual = controller.Scene().Tornado().VisualSettings();
-    snapshot.debug = debug;
+    snapshot.presentation = presentation;
     snapshot.isScenePhysics = scene.isScenePhysics;
     snapshot.isSceneText = scene.isSceneText;
     snapshot.isFixedStep = scene.isFixedStep;
@@ -80,7 +79,7 @@ SceneResetPreservationSnapshot SceneLoadTransaction::CaptureResetSnapshot( const
 
 void SceneLoadTransaction::RestoreResetSnapshot( SceneController& controller,
                                                  SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                                                 RuntimeRenderer& renderer, OverlayDebugState& debug,
+                                                 SceneRenderPolicyState& renderPolicy, ScenePresentationValues& presentation,
                                                  CameraControlState& camera, const SceneResetPreservationSnapshot& snapshot,
                                                  bool suppressExitOnComplete )
 {
@@ -88,12 +87,12 @@ void SceneLoadTransaction::RestoreResetSnapshot( SceneController& controller,
 
     // Why: Interactive resets preserve the user's run-control choices, but
     // suppressing exit also forces automation-safe non-exit behavior.
-    renderer.RestorePresentationSettings( snapshot.renderPresentation );
+    renderPolicy = snapshot.renderPolicy;
     controller.Scene().Physics().SetSleepEnabled( snapshot.physicsSleepEnabled );
     controller.Scene().Tornado().SetFieldConfig( snapshot.tornadoField );
     controller.Scene().Tornado().SetSystemConfig( snapshot.tornadoSystem );
     controller.Scene().Tornado().SetVisualSettings( snapshot.tornadoVisual );
-    debug = snapshot.debug;
+    presentation = snapshot.presentation;
     scene.isScenePhysics = snapshot.isScenePhysics;
     scene.isSceneText = snapshot.isSceneText;
     scene.timeScale = snapshot.timeScale;

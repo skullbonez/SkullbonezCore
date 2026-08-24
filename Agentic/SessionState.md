@@ -1,8 +1,8 @@
 # Session State
 
-Date: 2026-08-22
-Branch: `main`
-Status: Ragdoll Physics Unification, Runtime Boundary Separation, and Game UI Component Library Separation active; 88/111 tasks complete
+Date: 2026-08-24
+Branch: `nightrunner-22nd-AUG-26`
+Status: Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 103/118 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -11,15 +11,62 @@ Hygiene Cleanup RC0-RC5 are 100% complete, reviewed, and closed.
 Causal C0-C8, Determinism T0-T8, Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7,
 and Continuous Orbital Forecast OF0-OF6 are complete.
 Deterministic Collision Modes And Ragdoll Unification FP0-FP9 is the binding
-first plan by explicit owner direction. FP0-FP1 are complete; FP2-FP4 establish
 deterministic Discrete collision with automatic Swept TOI
-promotion and isolated A/B evidence; FP5-FP9 complete the ragdoll joint and late
-speculative-contact path. Runtime Boundary Separation And Project Topology
-RBS0-RBS7 remains active behind it and owns Runtime/App composition-root closure, package-cycle removal,
-native host and frame-metrics separation, operator UI/render command boundaries,
-and evidence-driven Visual Studio project decomposition. Completed plan files
-remain deleted under the repository convention; Git history retains their phase
-evidence.
+promotion and isolated A/B evidence. FP2's retired sphere-box test surface and
+two reachability repair rows are gone, both live orders retain the exact sweep
+owner, and focused/all-config evidence is green. FP2 is closed through the
+standing archive-bound automated Physics override: core, deep, and replay-
+visual gates pass, and the artifact manifest retains the prior and new
+executables, launch DLLs, hashes, and the 6,800-frame 200-box comparison. The
+replay witness runs one 2,401-tick generation, moves all 200 wall bricks,
+publishes 200 causal nodes, and rejects every registered false-pass control.
+FP3 is active.
+FP5-FP9 complete the ragdoll joint and late speculative-contact path. Runtime
+Boundary Separation And Project Topology
+RBS0-RBS7 remains active behind it; RBS0-RBS6 are complete and RBS7 is ready.
+Strict Runtime enforcement now passes with zero forbidden sites, zero repair
+debt, zero reverse-App edges, and no multi-package SCC. Runtime/App alone
+composes cross-owner effects; native host, frame metrics, operator UI projection,
+GPU submission, and domain owners exchange bounded values and commands. All
+ten tracked Visual Studio projects remain inside the closed topology policy.
+The approved Rendering library owns the exact Rendering source closure; all
+five configurations and the portable CPU build pass. RBS7 now performs terminal
+behavioral and ownership validation. Completed plan files remain deleted under the repository convention;
+Git history retains their phase evidence.
+
+Game UI Component Library Separation UI0-UI6 has phase-local RBS prerequisites
+and no Physics predecessor. UI0-UI3 are complete: all 70 tracked UI files have
+binding dispositions; explicit stateless geometry/state contracts cover the
+proved shared component families; and the seven retained wrappers now route
+through those contracts without changing product fingerprints, command values,
+or interaction geometry. Repeated Replay/Planning controls and fitting Runtime
+badges now use shared components without moving semantic owners. UI4's RBS5 and
+UI5's RBS6 prerequisites are satisfied; phase order requires UI4 next. UI6
+consumes RBS7.
+Recorded Interaction Playback Cursor RIC0-RIC3 is registered after UI6; it adds
+only a fake recorded-playback overlay and explicitly forbids any hardware cursor
+or native capture change.
+
+Real-Time Physics Pacing SP0-SP2 is complete. Live and unlimited scenes now
+schedule fixed-frequency Physics from elapsed wall time, while explicit startup
+intent and finite unattended capture can select deterministic render-frame
+lockstep. The scheduler retains fractional time across capped catch-up, reports
+dropped whole ticks and hitch events, and safely saturates enormous finite tick
+requests before integer conversion. VSync remains presentation-only.
+
+The focused SimulationSystem family passes 13/13 cases and 2,802 assertions;
+the UI fingerprint control passes 1/1 case and 51 assertions, and the standalone
+UI boundary probe renders all 11 detached surfaces. `validate_fast`, all 716
+unit cases and their assertions, `validate_physics`, Automation smoke, coverage,
+real DX12 validation, and `tools\agent_validate.bat --plan-completion` pass. The
+44,401-line Physics golden remains byte-identical at
+`debf57f744774d4e7c1eb5cc61f05ba6e41dc6dc997ad20db6c91b02b0958c32`.
+The Replay visual gate passes 18/18 typed-packet controls and 82 assertions,
+then reproduces the inherited reveal-0 `header.futureNodeCount` mismatch: the
+current corrected packet has 201 future nodes and 806 trajectory records while
+the preserved oracle expects the retired 200/802 topology. No Physics, Replay,
+or visual golden was refreshed. Independent review is blocker-free, and the
+touched-file comment audit checked 39/39 files with zero deferrals.
 
 CORE_REDUCTION CR0-CR5 are complete. Owner direction activated the plan without a
 new branch. The clean `cc194f9aa` baseline contains 615 tracked production
@@ -435,30 +482,42 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Execute `RAGDOLL_PHYSICS` FP2. Make Discrete the default collision path and
-route only FP1-promoted linear motion through the retained Swept TOI path,
-without adding an authored collision-mode obligation or a PhysicsBodyRecord hot field. The registered plan is
-`Agentic/Plans/TODO/ragdoll-physics-unification.md`; `RUNTIME_BOUNDARIES` RBS0
-remains the binding next plan after FP9.
+Continue `RAGDOLL_PHYSICS` with FP3 on a fresh worker. Other slots may continue
+`RUNTIME_BOUNDARIES` RBS7
+when their current canonical subsystem, path-owner, worktree, and mutable
+resource leases are disjoint. UI4 is ready after RBS5. FP2 retains motion policy version 2: `0.1` metres
+of absolute per-tick travel promotes and `0.075` metres demotes, independent of
+collider thickness.
 
 ## Blockers
 
 - FP0 pre-change `tools\validate_perf.bat` stops on 33 existing non-Physics
   allocation-policy findings before performance measurement. Preserve this as
   inherited evidence; do not weaken the policy or attribute the rows to FP0.
+- At the FP2 version-2 threshold checkpoint, `tools\validate_perf.bat` stops on
+  the same 40 rows as clean base `07c065f65`: seven pre-existing
+  PhysicsFixedList mutation spellings in `PhysicsMotionEligibilityStage.cpp`
+  plus 33 inherited non-Physics/tooling rows, one of which is a stale allowlist
+  diagnostic. Direct 520/2,000-body measurements were run without changing the
+  checker, an allowlist, or a performance baseline; the registered FP4 A/B owner
+  ruling remains the place to adjudicate the intended Discrete transition.
 - FP0 pre-change `tools\validate_replay_visual_fidelity.bat` builds and passes
   its 18 typed/false-pass controls, then the authoritative run stops at reveal 0
-  on `header.futureNodeCount`. Preserve the owner-controlled oracle.
+  on `header.futureNodeCount`. Preserve the oracle until the Physics phase
+  explains the transition, retains both launch payloads, and applies the exact
+  candidate through the archived automated lane.
 - The stale Physics CSV, noisy relative Physics performance sample, and
-  corrected-topology visual oracle remain validation findings. On 2026-08-22
-  the owner explicitly authorized required Physics-baseline transitions for
-  FP0-FP9 without another pause, subject to the exact-digest baseline guard and
-  atomic source/test/evidence commits. Replay, visual, SkullScope, and
-  performance oracles remain separately owner-controlled.
-- Every accepted FP phase preserves its final Debug executable and digest
-  manifest under
-  `Agentic/Plans/Artifacts/ragdoll-physics-unification/<phase>/`; the first
-  artifact was produced when FP0 passed terminal review.
+  corrected-topology visual oracle remain validation findings. Active Physics
+  plans now have standing authority for every golden they govern, including
+  Physics, replay, visual, causal, SkullScope, and performance transitions,
+  without another pause or interactive phrase. Every write remains exact-digest
+  and requires a new append-only old/new executable-and-DLL bundle plus atomic
+  source/test/evidence commits. Non-Physics golden policy is unchanged.
+- Every changed FP golden uses the manifest schema under
+  `Agentic/Plans/Artifacts/README.md`; the final new producer is retained for
+  the next old-versus-new comparison. Existing FP0/FP1 phase executables remain
+  historical evidence, while future transition bundles fail closed unless both
+  launch payloads are complete.
 
 ## FP0 Closure - 2026-08-22
 
@@ -480,12 +539,15 @@ is `cdefc1b53c3de37c0d75fdd9a423b61aac8df368b45919f8a312cf6dc73cc053`.
 
 ## FP1 Closure - 2026-08-22
 
-FP1 adds one deterministic post-force motion-eligibility pass, version-1
-promotion/demotion thresholds, collider-topology-owned thickness/farthest-point
-geometry, stage-owned hysteresis, conservative angular broadphase reach, and a
-version-4 Physics snapshot/replay tail. Angular expansion uses the resettable
-SpatialGrid overlay or complete-coverage fallback, so long blades do not inflate
-persistent membership or add fixed-step allocation.
+FP1 originally added one deterministic post-force motion-eligibility pass,
+version-1 thickness-scaled promotion/demotion thresholds, collider-topology-
+owned thickness/farthest-point geometry, stage-owned hysteresis, conservative
+angular broadphase reach, and a version-4 Physics snapshot/replay tail. On
+2026-08-23 the owner superseded only the threshold semantics with version 2:
+absolute `0.1`-metre promotion and `0.075`-metre demotion travel per Physics tick,
+independent of thickness. Angular expansion still uses cached farthest-point
+reach and the resettable SpatialGrid overlay or complete-coverage fallback, so
+long blades do not inflate persistent membership or add fixed-step allocation.
 
 The focused eligibility family passes 4/4 cases and 53/53 assertions in Debug
 and Profile; the real replay hysteresis-band continuation passes 1/1 case and

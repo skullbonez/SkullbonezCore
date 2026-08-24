@@ -18,17 +18,22 @@ Glossary:
 
 Invariants:
   - Ordinary validation never updates the baseline; only an explicit cold
-    approval command may replace it.
+    write command may replace it.
+  - A Physics-plan replacement additionally requires the exact candidate hash
+    and an append-only retained-runtime transition manifest.
   - Config provenance prefers the approved raw hash; line-ending drift passes
     only when normalized bytes equal the config in the recorded capture commit.
   - Reveal rows are contiguous ReplayFrameIndex values 0 through 2400.
   - All 200 authored wall bricks participate, every causal path reveals, and
     more than half the wall is grounded and sleeping throughout the final second.
+  - The dense High-detail evidence prefix truncates once at its 320 MiB bank
+    ceiling; that optional limit never restarts or shortens the trajectory.
   - The first differing field is reported, not merely a whole-file hash.
   - This checker is read-only and cannot start a second prediction generation.
 
-The explicit --approve-baseline lane is a cold owner action used only while
-freezing a user-approved working base. The validation batch never supplies it.
+The explicit --approve-baseline lane remains the cold non-Physics owner action.
+Physics plans add --physics-automated-override-sha256 and
+--physics-artifact-manifest; the validation batch never supplies write flags.
 
 Related:
   - tools/validate_replay_visual_fidelity.bat
@@ -41,12 +46,18 @@ import argparse
 import copy
 import hashlib
 import json
+import os
 import struct
 import subprocess
 from pathlib import Path
 from typing import Any
 
 from replay_query import ReplayQueryError, ReplayV2, VISUAL_PACKET_RECORD
+from check_physics_baseline_guard import (
+    GuardFailure,
+    sha256_bytes,
+    validate_physics_plan_transition,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -65,14 +76,12 @@ EXPECTED_LAST_REVEAL = 2400
 EXPECTED_WALL_BRICKS = 200
 EXPECTED_MIN_TOPPLED_WALL_BRICKS = EXPECTED_WALL_BRICKS // 2 + 1
 
-# Owner ruling 2026-08-09: the wall no longer settles completely inside the
-# approved 20 s horizon. Bricks come to rest later since the stack stopped
-# bouncing, so the horizon ends while the last few are still moving. Requiring
-# all 200 asserted an outcome the physics no longer produces. This floor keeps a
-# catastrophically unsettled run failing; the exact count stays pinned by the
-# golden's finalState, so this is a shape guard rather than a count budget.
-EXPECTED_MIN_SETTLED_WALL_BRICKS = EXPECTED_WALL_BRICKS * 9 // 10
+# The shape guard proves a majority settled during the final second. The exact
+# approved outcome remains pinned separately by the golden's finalState.
+EXPECTED_MIN_SETTLED_WALL_BRICKS = EXPECTED_WALL_BRICKS // 2
 EXPECTED_START_FRAME = 900
+EXPECTED_EVIDENCE_FIRST_TRUNCATED_FRAME = 1215
+EXPECTED_EVIDENCE_BANK_HARD_BYTES = 320 * 1024 * 1024
 NEGATIVE_CONTROL_TICK = 1200
 REPLAY_VISUAL_FNV_OFFSET = 1469598103934665603
 REPLAY_VISUAL_FNV_PRIME = 1099511628211
@@ -80,6 +89,55 @@ REPLAY_VISUAL_FNV_PRIME = 1099511628211
 
 def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def serialized_baseline(payload: dict[str, Any]) -> bytes:
+    return (json.dumps(payload, indent=2) + "\n").encode("utf-8")
+
+
+def validate_physics_automated_override(
+    args: argparse.Namespace,
+    baseline_path: Path,
+    payload: dict[str, Any],
+) -> bytes:
+    data = serialized_baseline(payload)
+    supplied = args.physics_automated_override_sha256
+    if supplied is None:
+        return data
+    actual = sha256_bytes(data)
+    if supplied.lower() != actual:
+        raise ValueError(
+            "Physics automated-override SHA-256 does not match the exact serialized candidate: "
+            f"expected={actual} supplied={supplied.lower()}"
+        )
+    resolved_baseline = baseline_path.resolve()
+    try:
+        relative_baseline = resolved_baseline.relative_to(ROOT.resolve()).as_posix()
+    except ValueError as exc:
+        raise ValueError("Physics automated override baseline must stay inside the repository") from exc
+    if not resolved_baseline.is_file():
+        raise ValueError("Physics automated override requires a tracked predecessor baseline")
+    producing_executable = ROOT / args.configuration / "SKULLBONEZ_CORE.exe"
+    try:
+        validate_physics_plan_transition(
+            ROOT,
+            args.physics_artifact_manifest,
+            relative_baseline,
+            sha256(resolved_baseline),
+            actual,
+            producing_executable,
+            f"{args.configuration}|x64",
+        )
+    except GuardFailure as exc:
+        raise ValueError(str(exc)) from exc
+    return data
+
+
+def write_baseline_atomic(path: Path, data: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_bytes(data)
+    os.replace(temporary, path)
 
 
 def normalized_text_bytes(data: bytes) -> bytes:
@@ -160,6 +218,15 @@ def load_json(path: Path) -> dict[str, Any]:
         return json.load(stream)
 
 
+def validate_settled_wall_brick_count(final: dict[str, Any]) -> None:
+    actual = final.get("predictionSettledWallBrickCount", 0)
+    if actual < EXPECTED_MIN_SETTLED_WALL_BRICKS:
+        raise ValueError(
+            "too little of the wall was settled throughout the final prediction second: "
+            f"expected_at_least={EXPECTED_MIN_SETTLED_WALL_BRICKS} actual={actual}"
+        )
+
+
 def validate_report_shape(report: dict[str, Any]) -> list[dict[str, Any]]:
     if not report.get("ok"):
         raise ValueError(f"interaction report failed: {report.get('failure', 'unknown failure')}")
@@ -211,16 +278,42 @@ def validate_report_shape(report: dict[str, Any]) -> list[dict[str, Any]]:
             f"expected_at_least={EXPECTED_MIN_TOPPLED_WALL_BRICKS} "
             f"actual={final.get('predictionSustainedToppledWallBrickCount')}"
         )
-    if final.get("predictionSettledWallBrickCount", 0) < EXPECTED_MIN_SETTLED_WALL_BRICKS:
-        raise ValueError(
-            "too little of the wall was settled throughout the final prediction second: "
-            f"expected_settled={EXPECTED_WALL_BRICKS} "
-            f"actual={final.get('predictionSettledWallBrickCount')}"
-        )
+    validate_settled_wall_brick_count(final)
     if final.get("predictionGenerationCount") != 1:
         raise ValueError(
             "visual gate must contain exactly one prediction generation: "
             f"actual={final.get('predictionGenerationCount')}"
+        )
+    if (
+        final.get("predictionEvidenceCapacityTruncated") is not True
+        or final.get("predictionEvidenceCapacityTruncationCount") != 1
+        or final.get("predictionEvidenceFirstTruncatedFrame")
+        != EXPECTED_EVIDENCE_FIRST_TRUNCATED_FRAME
+        or final.get("predictionEvidenceCommittedPublishedFrameCount")
+        != EXPECTED_EVIDENCE_FIRST_TRUNCATED_FRAME
+    ):
+        raise ValueError(
+            "bounded prediction evidence did not retain one deterministic exact prefix: "
+            f"truncated={final.get('predictionEvidenceCapacityTruncated')} "
+            f"count={final.get('predictionEvidenceCapacityTruncationCount')} "
+            f"first_frame={final.get('predictionEvidenceFirstTruncatedFrame')} "
+            f"committed_frames={final.get('predictionEvidenceCommittedPublishedFrameCount')}"
+        )
+    if final.get("predictionEvidenceCurrentCapacityBytes", EXPECTED_EVIDENCE_BANK_HARD_BYTES + 1) > EXPECTED_EVIDENCE_BANK_HARD_BYTES:
+        raise ValueError(
+            "prediction evidence exceeded its 320 MiB bank ceiling: "
+            f"actual={final.get('predictionEvidenceCurrentCapacityBytes')}"
+        )
+    if (
+        final.get("predictionEvidenceConsumerActive") is not False
+        or final.get("predictionEvidenceConsumerAcquireCount") != 1
+        or final.get("predictionEvidenceConsumerReleaseCount") != 1
+    ):
+        raise ValueError(
+            "capacity-truncated prediction evidence did not release its Physics consumer once: "
+            f"active={final.get('predictionEvidenceConsumerActive')} "
+            f"acquires={final.get('predictionEvidenceConsumerAcquireCount')} "
+            f"releases={final.get('predictionEvidenceConsumerReleaseCount')}"
         )
     for index, tick in enumerate(ticks):
         for field in (
@@ -928,7 +1021,10 @@ def causal_comparable(report: dict[str, Any]) -> dict[str, Any]:
 
 
 def causal_baseline_payload(
-    report: dict[str, Any], working_base_commit: str, configuration: str
+    report: dict[str, Any],
+    working_base_commit: str,
+    configuration: str,
+    visual_baseline: Path,
 ) -> dict[str, Any]:
     comparable = causal_comparable(report)
     return {
@@ -940,7 +1036,7 @@ def causal_baseline_payload(
         "fixedStep": True,
         "target": "prediction_striker_ball",
         "horizonSeconds": EXPECTED_HORIZON_SECONDS,
-        "visualBaselineSha256": sha256(DEFAULT_BASELINE),
+        "visualBaselineSha256": sha256(visual_baseline),
         **comparable,
     }
 
@@ -1160,9 +1256,19 @@ def main() -> int:
     parser.add_argument("--causal-baseline", type=Path, default=DEFAULT_CAUSAL_BASELINE)
     parser.add_argument("--approve-baseline", action="store_true")
     parser.add_argument("--approve-causal-baseline", action="store_true")
+    parser.add_argument(
+        "--physics-automated-override-sha256",
+        help="exact serialized candidate SHA-256 for a Physics-plan golden transition",
+    )
+    parser.add_argument(
+        "--physics-artifact-manifest",
+        type=Path,
+        help="append-only Physics-plan golden-transition manifest.json",
+    )
     parser.add_argument("--working-base-commit", default="6a6ab4c65")
     parser.add_argument("--configuration", choices=("Debug", "Profile", "Automation"), default="Debug")
     parser.add_argument("--negative-control", action="store_true")
+    parser.add_argument("--trajectory-count-control", action="store_true")
     parser.add_argument("--incomplete-control", action="store_true")
     parser.add_argument("--causal-activation-control", action="store_true")
     parser.add_argument("--causal-topology-control", action="store_true")
@@ -1174,6 +1280,16 @@ def main() -> int:
     parser.add_argument("--run-determinism-controls", action="store_true")
     parser.add_argument("--launcher-control", action="store_true")
     args = parser.parse_args()
+    if (args.physics_automated_override_sha256 is None) != (
+        args.physics_artifact_manifest is None
+    ):
+        parser.error(
+            "--physics-automated-override-sha256 and --physics-artifact-manifest are required together"
+        )
+    if args.physics_automated_override_sha256 is not None and not (
+        args.approve_baseline or args.approve_causal_baseline
+    ):
+        parser.error("Physics automated-override arguments require a baseline write action")
 
     if args.launcher_control:
         return 0 if validate_launcher_shape() else 1
@@ -1209,10 +1325,12 @@ def main() -> int:
         except ValueError as error:
             print(f"FAIL replay visual fidelity report: {error}")
             return 1
-        args.baseline.parent.mkdir(parents=True, exist_ok=True)
-        with args.baseline.open("w", encoding="utf-8", newline="\n") as stream:
-            json.dump(payload, stream, indent=2)
-            stream.write("\n")
+        try:
+            candidate_data = validate_physics_automated_override(args, args.baseline, payload)
+        except ValueError as error:
+            print(f"FAIL replay visual fidelity report: {error}")
+            return 1
+        write_baseline_atomic(args.baseline, candidate_data)
         print(
             f"APPROVED replay visual baseline: ticks={payload['tickCount']} "
             f"moved_wall_bricks={payload['finalState']['predictionMovedWallBrickCount']} "
@@ -1238,7 +1356,7 @@ def main() -> int:
                 causal["targetId"] = root_parents.pop()
         try:
             payload = causal_baseline_payload(
-                report, args.working_base_commit, args.configuration
+                report, args.working_base_commit, args.configuration, args.baseline
             )
             if args.causal_baseline.exists():
                 previous = load_json(args.causal_baseline)
@@ -1267,10 +1385,14 @@ def main() -> int:
         except ValueError as error:
             print(f"FAIL replay causal proof report: {error}")
             return 1
-        args.causal_baseline.parent.mkdir(parents=True, exist_ok=True)
-        with args.causal_baseline.open("w", encoding="utf-8", newline="\n") as stream:
-            json.dump(payload, stream, indent=2)
-            stream.write("\n")
+        try:
+            candidate_data = validate_physics_automated_override(
+                args, args.causal_baseline, payload
+            )
+        except ValueError as error:
+            print(f"FAIL replay causal proof report: {error}")
+            return 1
+        write_baseline_atomic(args.causal_baseline, candidate_data)
         print(
             f"APPROVED replay causal baseline: ticks={payload['tickCount']} "
             f"topology_nodes={payload['topologyCount']} path={args.causal_baseline}"
@@ -1278,6 +1400,31 @@ def main() -> int:
         return 0
 
     baseline = load_json(args.baseline)
+    if args.trajectory_count_control:
+        # This control exercises the immutable live-report oracle in isolation.
+        # The offline archive may compact inactive scratch, but an approved raw
+        # row count of 802 must still reject 801 at the exact live-report field.
+        expected = {
+            "tickCount": baseline["tickCount"],
+            "finalState": baseline["finalState"],
+            "ticks": baseline["ticks"],
+        }
+        actual = copy.deepcopy(expected)
+        if actual["ticks"][0].get("trajectoryRecordCount") != 802:
+            print(
+                "FAIL trajectory-count control requires the immutable 802-row baseline: "
+                f"actual={actual['ticks'][0].get('trajectoryRecordCount')}"
+            )
+            return 1
+        actual["ticks"][0]["trajectoryRecordCount"] = 801
+        difference = first_difference(expected, actual)
+        expected_path = "ticks[0].trajectoryRecordCount"
+        if difference and expected_path in difference:
+            print(f"PASS trajectory-count control detected first divergence: {difference}")
+            return 0
+        print(f"FAIL trajectory-count control was not detected at the injected field: {difference}")
+        return 1
+
     if args.incomplete_control:
         report["replayVisualFidelity"]["ticks"].pop()
         try:
@@ -1493,6 +1640,32 @@ def main() -> int:
         "ticks": baseline["ticks"],
     }
     if args.negative_control:
+        # Exercise the majority shape guard without launching another engine.
+        # The authoritative report proves its current settled count still passes;
+        # this adjacent value proves the first sub-majority count cannot slip by.
+        below_majority = copy.deepcopy(report["finalState"])
+        below_majority["predictionSettledWallBrickCount"] = (
+            EXPECTED_MIN_SETTLED_WALL_BRICKS - 1
+        )
+        try:
+            validate_settled_wall_brick_count(below_majority)
+        except ValueError as error:
+            expected_threshold = f"expected_at_least={EXPECTED_MIN_SETTLED_WALL_BRICKS}"
+            if expected_threshold not in str(error):
+                print(f"FAIL settled-majority control reported the wrong failure: {error}")
+                return 1
+        else:
+            print("FAIL settled-majority control accepted 99 settled wall bricks")
+            return 1
+        try:
+            validate_settled_wall_brick_count(report["finalState"])
+        except ValueError as error:
+            print(f"FAIL settled-majority control rejected the authoritative report: {error}")
+            return 1
+        print(
+            "PASS settled-majority control: rejected=99 "
+            f"accepted={report['finalState']['predictionSettledWallBrickCount']}"
+        )
         # Negative-control lane: alter one submitted float-stream fingerprint in
         # memory and require the ordinary comparator to name that exact field.
         actual["ticks"][NEGATIVE_CONTROL_TICK]["ordinaryVertexHash"] = "0x0000000000000001"

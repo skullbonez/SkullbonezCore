@@ -5,9 +5,10 @@ Purpose:
   plus the startup EngineConfig snapshot.
 
 Summary:
-  The parser preserves the historical table order and exact diagnostics. It
+  The parser preserves historical table order and exact validation errors. It
   delegates scene/suite, physics-debug, and run-value launch policy to the
-  launch-resolution unit while retaining generic option validation and flags.
+  launch-resolution unit while retaining generic option validation and flags;
+  informational status lines use current policy vocabulary.
 
 Glossary:
   Directive row: Fixed parser-table entry mapping an option spelling to a
@@ -15,8 +16,8 @@ Glossary:
   Build-lane option: Debug-only validation flag rejected in unsupported builds.
 
 Invariants:
-  - Parser order, output strings, defaults, aliases, and validation precedence
-    are frozen compatibility behavior.
+  - Parser order, validation-error strings, defaults, aliases, and validation
+    precedence are frozen compatibility behavior.
   - The fixed error buffer is owned here and read only after ParseCommandLine
     returns false.
   - No startup reference is retained after the synchronous parse.
@@ -30,9 +31,12 @@ Related:
 #include "StartupCommandLine.h"
 #include "StartupLaunchResolution.h"
 #include "../../Core/Common.h"
+#include "../../Core/Config.h"
 #include "../../Core/PlatformProfiler.h"
+#include "../../Core/SbDiagnosticStore.h"
+#include "../../Core/SceneCapacity.h"
 #include "../../Core/WorkerPool.h"
-#include "../App/RunLaunchOptions.Renderer.h"
+#include "RunLaunchOptions.h"
 #include "../../Core/WindowConstants.h"
 #include <cerrno>
 #include <climits>
@@ -296,7 +300,7 @@ void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out
 {
     static const CliFlagDirective kFlags[] = {
         { "--fixed-step", nullptr, []( ParsedArgs& args ) { args.fixedStep = true; },
-          "[fixed-step] Forced via command line." },
+          "[render-frame-lockstep] Enabled via --fixed-step." },
         { "--no-water", nullptr, []( ParsedArgs& args ) { args.noWater = true; },
           "[water] Fluid surface starts below terrain." },
         { "--no-sleep", nullptr, []( ParsedArgs& args ) { args.noSleep = true; },
@@ -1201,12 +1205,12 @@ bool ParseCommandLine( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, con
         if ( !out.fixedStep )
         {
             out.fixedStep = true;
-            out.fixedStepForcedByPhysicsDiagnostics = true;
-            fprintf( stdout, "[physics-diag] Enabled: forcing fixed_step for deterministic queryable trace.\n" );
+            out.renderFrameLockstepForcedByPhysicsDiagnostics = true;
+            fprintf( stdout, "[physics-diag] Enabled: forcing render-frame lockstep for deterministic queryable trace.\n" );
         }
         else
         {
-            fprintf( stdout, "[physics-diag] Enabled: fixed_step already active.\n" );
+            fprintf( stdout, "[physics-diag] Enabled: explicit render-frame lockstep already active.\n" );
         }
 
         fprintf( stdout, "[physics-diag] Output: %s\n", out.physicsDiagnosticsPath );

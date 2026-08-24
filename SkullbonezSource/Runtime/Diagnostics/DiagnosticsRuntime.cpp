@@ -4,10 +4,8 @@ Purpose:
   Provides the runtime diagnostics ownership boundary.
 
 Summary:
-  DiagnosticsRuntime sequences capture, performance, memory, and physics
-  diagnostic work. Artifact-specific controllers own their formats while this
-  owner retains the process memory cache, capacity-table scene-end seam, and
-  shutdown memory-dump lifecycle.
+  DiagnosticsRuntime sequences performance, memory, and physics diagnostic
+  work. Capture remains a sibling owner applied by App from typed results.
 
 Glossary:
   Reconciled memory: Tracked engine bytes plus any process memory not accounted
@@ -16,7 +14,7 @@ Glossary:
 
 Invariants:
   - DiagnosticsRuntime is a boundary; artifact schema and heavy logging formats
-    stay in RuntimeDiagnostics or CaptureController unless this file owns them.
+    stay in RuntimeDiagnostics unless this file owns them.
   - Memory sampling is cached for diagnostics reads; deep process samples are
     reserved for explicit dumps and stress/perf evidence.
   - Debug-only physics diagnostics stay behind _DEBUG.
@@ -33,14 +31,9 @@ Related:
 
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
-#include "../Input/InputController.h"
 #include "OverlayDebugState.h"
-#include "../Scene/SceneSessionState.h"
-#include "../Scene/SceneController.h"
 #include "../../Physics/PhysicsDebugData.h"
 #include "../../Rendering/DX12/Dx12Diagnostics.h"
-#include "../../Scene/AuthoredScene.h"
-#include "../../UI/UI.h"
 
 #include <cstddef>
 #include <cstdio>
@@ -50,14 +43,23 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-DiagnosticsRuntime::DiagnosticsRuntime( SkullbonezCore::Core::SbDiagnosticStore& diagnostics ) noexcept
-    : m_capture( diagnostics )
-{
-}
-
 namespace
 {
 constexpr double MAIN_MEMORY_SAMPLE_INTERVAL_SECONDS = 1.0;
+
+const char* DiagnosticFileNameFromPath( const char* path )
+{
+    const char* forwardSlash = std::strrchr( path, '/' );
+    const char* backSlash = std::strrchr( path, '\\' );
+    const char* separator = forwardSlash;
+
+    if ( !separator || ( backSlash && backSlash > separator ) )
+    {
+        separator = backSlash;
+    }
+
+    return separator ? separator + 1 : path;
+}
 
 void WriteJsonString( FILE* file, const char* value )
 {
@@ -380,180 +382,12 @@ void WriteReplayTrajectoryCounters( FILE* file, const SkullbonezCore::Core::Main
 }
 } // namespace
 
-bool HandleDiagnosticsKeyboardShortcut( OverlayDebugState& debug, int& cameraTrackBallIndex, int sceneEntityCount,
-                                        const Rendering::Dx12Diagnostics* renderDiagnostics, bool sceneMode,
-                                        double simulationSeconds, RuntimeInputAction action, bool wasPressed )
-{
-    if ( !wasPressed )
-    {
-        switch ( action )
-        {
-        case RuntimeInputAction::ToggleWaterFreeze:
-        case RuntimeInputAction::CycleWaterReflection:
-        case RuntimeInputAction::ToggleWaterFlat:
-        case RuntimeInputAction::ToggleTerrainHidden:
-        case RuntimeInputAction::ToggleWaterHidden:
-        case RuntimeInputAction::ToggleCollisionVisualizer:
-        case RuntimeInputAction::CyclePhysicsDebugOverlay:
-        case RuntimeInputAction::ToggleTerrainContactProbe:
-        case RuntimeInputAction::StepPhysicsPipelinePrevious:
-        case RuntimeInputAction::StepPhysicsPipelineNext:
-        case RuntimeInputAction::TogglePhysicsDebugTransparent:
-        case RuntimeInputAction::ReportRendererRuntimeRetired:
-        case RuntimeInputAction::ToggleBroadphaseOverlay:
-            return true;
-        default:
-            return false;
-        }
-    }
-
-
-    switch ( action )
-    {
-    case RuntimeInputAction::ToggleWaterFreeze:
-
-        // Numeric water and terrain toggles are visual diagnostics only; they
-        // must not feed back into simulation or scene ownership.
-        debug.isWaterFreezeDebug = !debug.isWaterFreezeDebug;
-
-        if ( debug.isWaterFreezeDebug )
-        {
-            debug.frozenWaterTime = static_cast<float>( simulationSeconds );
-        }
-
-        return true;
-    case RuntimeInputAction::CycleWaterReflection:
-    {
-        // Key '2' cycles FBO mirror rendering, DXR reflection when supported,
-        // no reflection, then back to FBO. Machines without DXR skip the
-        // unsupported mode instead of leaving the toggle in a dead state.
-        const bool dxrReflectionSupported = renderDiagnostics && renderDiagnostics->GetCapabilities().supportsDxrReflection;
-
-        if ( !debug.isWaterRTReflect && !debug.isWaterNoReflect )
-        {
-            if ( dxrReflectionSupported )
-            {
-                debug.isWaterRTReflect = true;
-            }
-            else
-            {
-                debug.isWaterNoReflect = true;
-            }
-        }
-        else if ( debug.isWaterRTReflect )
-        {
-            debug.isWaterRTReflect = false;
-            debug.isWaterNoReflect = true;
-        }
-        else
-        {
-            debug.isWaterNoReflect = false;
-        }
-
-        return true;
-    }
-    case RuntimeInputAction::ToggleWaterFlat:
-        debug.isWaterFlatDebug = !debug.isWaterFlatDebug;
-        return true;
-    case RuntimeInputAction::ToggleTerrainHidden:
-        debug.isTerrainHidden = !debug.isTerrainHidden;
-        return true;
-    case RuntimeInputAction::ToggleWaterHidden:
-        debug.isWaterHidden = !debug.isWaterHidden;
-        return true;
-    case RuntimeInputAction::ToggleCollisionVisualizer:
-        debug.isCollisionVisualizer = !debug.isCollisionVisualizer;
-        return true;
-    case RuntimeInputAction::CyclePhysicsDebugOverlay:
-
-        // C key: None -> Axes -> Contacts -> Sleep -> All -> None.
-        switch ( debug.physicsDebugFlags )
-        {
-        case Physics::PHYSICS_DEBUG_NONE:
-            debug.physicsDebugFlags = Physics::PHYSICS_DEBUG_AXES;
-            break;
-        case Physics::PHYSICS_DEBUG_AXES:
-            debug.physicsDebugFlags = Physics::PHYSICS_DEBUG_CONTACTS;
-            break;
-        case Physics::PHYSICS_DEBUG_CONTACTS:
-            debug.physicsDebugFlags = Physics::PHYSICS_DEBUG_SLEEP;
-            break;
-        case Physics::PHYSICS_DEBUG_SLEEP:
-            debug.physicsDebugFlags = Physics::PHYSICS_DEBUG_ALL;
-            break;
-        default:
-            debug.physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE;
-            break;
-        }
-
-        return true;
-    case RuntimeInputAction::ToggleTerrainContactProbe:
-
-        // O key layers the terrain polygon/contact probe over the C-key debug
-        // cycle, so it is toggled independently of the cycle state.
-        debug.physicsDebugFlags ^= Physics::PHYSICS_DEBUG_TERRAIN_CONTACT;
-        return true;
-    case RuntimeInputAction::StepPhysicsPipelinePrevious:
-
-        // F7/F8 inspect the bounded physics pipeline stage trace captured by
-        // the most recent physics tick; they do not advance simulation.
-        StepDiagnosticsPhysicsPipelineStage( debug, -1 );
-        return true;
-    case RuntimeInputAction::StepPhysicsPipelineNext:
-        StepDiagnosticsPhysicsPipelineStage( debug, 1 );
-        return true;
-    case RuntimeInputAction::TogglePhysicsDebugTransparent:
-
-        // Transparent volumes make contact rows readable inside bodies without
-        // changing the collision visualizer's solid debug pass.
-        debug.isPhysicsDebugTransparent = !debug.isPhysicsDebugTransparent;
-        return true;
-    case RuntimeInputAction::ReportRendererRuntimeRetired:
-
-        // Q used to cycle legacy renderers; keep the key as a bounded
-        // diagnostic report because DX12 is now the sole runtime backend.
-        fprintf( stderr, "Renderer switch ignored: DX12 is the only runtime renderer.\n" );
-        return true;
-    case RuntimeInputAction::ToggleBroadphaseOverlay:
-
-        // G cycles the tracked ball while the broadphase overlay is off; once
-        // the overlay is active, the same key owns overlay visibility.
-        if ( sceneMode && cameraTrackBallIndex >= 0 && !debug.isBroadphaseOverlay )
-        {
-            if ( sceneEntityCount > 0 )
-            {
-                cameraTrackBallIndex = ( cameraTrackBallIndex + 1 ) % sceneEntityCount;
-            }
-        }
-        else
-        {
-            debug.isBroadphaseOverlay = !debug.isBroadphaseOverlay;
-        }
-
-        return true;
-    default:
-        return false;
-    }
-}
-
-
-DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( UI::InGameUI& ui, OverlayDebugState& debug,
-                                                                         SceneSessionState& scene,
-                                                                         CaptureController& capture, double nowSeconds,
-                                                                         RuntimeInputAction action, bool wasPressed )
+DiagnosticsUIKeyboardShortcutResult
+HandleDiagnosticsUIKeyboardShortcut( OverlayDebugState& debug, DiagnosticsUiKeyboardCommand command, bool wasPressed )
 {
     DiagnosticsUIKeyboardShortcutResult result;
 
-    switch ( action )
-    {
-    case RuntimeInputAction::ToggleUIVisibility:
-    case RuntimeInputAction::TogglePerformanceHistogram:
-    case RuntimeInputAction::ToggleMemoryOverlay:
-        result.handled = true;
-        break;
-    default:
-        return result;
-    }
+    result.handled = true;
 
     if ( !wasPressed )
     {
@@ -563,36 +397,27 @@ DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( UI::InG
     result.triggered = true;
     result.releaseMouseToUI = true;
 
-    switch ( action )
+    switch ( command )
     {
-    case RuntimeInputAction::ToggleUIVisibility:
+    case DiagnosticsUiKeyboardCommand::ToggleVisibility:
 
         // Concept: The tabbed diagnostics UI owns overlay text once visible, so
         // the GameUI one-line overlay is cleared by the UI shortcut owner.
-        scene.isInteractiveRun = true;
-        scene.isExitOnComplete = false;
-        capture.Screenshot().isScreenshotAndExit = false;
-        ui.ToggleVisible( nowSeconds );
+        result.markInteractiveRun = true;
+        result.disableExitOnComplete = true;
+        result.disableCaptureAutomationExit = true;
         debug.overlayMode = OverlayMode::None;
         return result;
-    case RuntimeInputAction::TogglePerformanceHistogram:
+    case DiagnosticsUiKeyboardCommand::TogglePerformanceHistogram:
 
         // F5/F6 are lightweight diagnostic overlays; they do not implicitly open
         // or close the broader diagnostics window.
-        ui.TogglePerformanceHistogramEnabled();
         return result;
-    case RuntimeInputAction::ToggleMemoryOverlay:
-        ui.ToggleMemoryOverlayEnabled();
-        return result;
-    default:
+    case DiagnosticsUiKeyboardCommand::ToggleMemoryOverlay:
         return result;
     }
-}
 
-
-CaptureController& DiagnosticsRuntime::Capture()
-{
-    return m_capture;
+    return result;
 }
 
 
@@ -630,8 +455,7 @@ void DiagnosticsRuntime::ResetForSceneLoad( int completedPerfPass )
 {
     ClosePerfLogWithMemoryCheckpoint( completedPerfPass, "end" );
     ResetPerfLogForSceneLoad();
-    m_capture.ResetScreenshot();
-    m_uiStress = UIStressState {};
+    m_uiStress.Reset();
 }
 
 
@@ -647,34 +471,11 @@ void DiagnosticsRuntime::OpenScenePerfLog( const char* path, int pass )
 }
 
 
-void DiagnosticsRuntime::ApplySceneAutomationOptions( const AuthoredScene& scene, bool suppressAutomationExit, int perfPass )
+void DiagnosticsRuntime::ApplyScenePerfLogOptions( const char* path, int perfPass )
 {
-    // Concept: Scene-authored screenshot and perf-log directives are
-    // diagnostics automation. Keep the artifact state with DiagnosticsRuntime
-    // while scene loading decides when to call it.
-    RunScreenshotState& screenshot = m_capture.Screenshot();
-    screenshot.screenshotFrame = scene.GetScreenshotFrame();
-    screenshot.screenshotMs = scene.GetScreenshotMs();
-    screenshot.isScreenshotAndExit = suppressAutomationExit ? false : scene.IsScreenshotAndExit();
-
-    if ( scene.GetScreenshotPath()[0] != '\0' )
+    if ( path && path[0] != '\0' )
     {
-        strcpy_s( screenshot.screenshotPath, sizeof( screenshot.screenshotPath ), scene.GetScreenshotPath() );
-    }
-
-    screenshot.screenshotInterval = scene.GetScreenshotInterval();
-
-    if ( scene.GetScreenshotDir()[0] != '\0' )
-    {
-        strcpy_s( screenshot.screenshotDir, sizeof( screenshot.screenshotDir ), scene.GetScreenshotDir() );
-        CreateDirectoryA( screenshot.screenshotDir, nullptr );
-    }
-
-    const char* perfPath = scene.GetPerfLogPath();
-
-    if ( perfPath[0] != '\0' )
-    {
-        OpenScenePerfLog( perfPath, perfPass );
+        OpenScenePerfLog( path, perfPass );
     }
 }
 
@@ -784,7 +585,8 @@ bool DiagnosticsRuntime::MainMemoryDumpRequested() const
 
 bool DiagnosticsRuntime::WriteMainMemoryDump( const SkullbonezCore::Core::MainMemoryReplayStats& replay,
                                               const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects,
-                                              const SceneSessionState& scene, const char* checkpoint, double nowSeconds )
+                                              const RuntimeSceneDiagnosticFacts& scene, const char* checkpoint,
+                                              double nowSeconds )
 {
     if ( !MainMemoryDumpRequested() )
     {
@@ -842,7 +644,7 @@ bool DiagnosticsRuntime::WriteMainMemoryDump( const SkullbonezCore::Core::MainMe
              "    \"solver_retention_seconds\": %d,\n"
              "    \"memory_budget_clamped\": %s,\n"
              "    \"solver_window_reduced\": %s,\n",
-             scene.currentFrame, stats.sampleTimeSeconds, stats.process.available ? "true" : "false",
+             scene.CurrentFrame(), stats.sampleTimeSeconds, stats.process.available ? "true" : "false",
              stats.process.taskManagerMetricName, static_cast<unsigned long long>( stats.process.taskManagerBytes ),
              static_cast<unsigned long long>( stats.process.workingSetBytes ),
              static_cast<unsigned long long>( stats.process.privateWorkingSetBytes ),
@@ -924,8 +726,8 @@ bool DiagnosticsRuntime::WriteMainMemoryDump( const SkullbonezCore::Core::MainMe
              static_cast<unsigned long long>( stats.trackedOvershootBytes ),
              static_cast<unsigned long long>( stats.reconciledTotalBytes ),
              static_cast<unsigned long long>( stats.reconciliationDeltaBytes ),
-             static_cast<unsigned long long>( stats.foreignFreeCount ), scene.currentFrame, scene.targetFrameCount,
-             scene.modelCount, scene.isTestComplete ? "true" : "false" );
+             static_cast<unsigned long long>( stats.foreignFreeCount ), scene.CurrentFrame(), scene.TargetFrameCount(),
+             scene.ModelCount(), scene.TestComplete() ? "true" : "false" );
 
     fclose( file );
     fprintf( stdout, "[memory] Wrote main memory dump: %s\n", m_mainMemoryDumpPath );
@@ -953,47 +755,50 @@ void DiagnosticsRuntime::SetPhysicsCollisionTimeLogOverride( const char* path )
 
 
 void DiagnosticsRuntime::SetPhysicsDiagnosticsPath( Physics::PhysicsEngine& physics, const char* path,
-                                                    bool fixedStepForcedByDiagnostics )
+                                                    bool renderFrameLockstepForcedByDiagnostics )
 {
     RuntimeDiagnostics::SetPhysicsDiagnosticsPath( m_diagnostics.PhysicsDiagnostics(), physics, path,
-                                                   fixedStepForcedByDiagnostics );
+                                                   renderFrameLockstepForcedByDiagnostics );
 }
 
 
-void DiagnosticsRuntime::LogSceneFinished( SceneController& scene, const Rendering::Dx12Diagnostics* renderDiagnostics,
-                                           const char* reason )
+bool DiagnosticsRuntime::LogSceneFinished( const RuntimeSceneDiagnosticFacts& scene, const char* scenePath,
+                                           const Rendering::Dx12Diagnostics* renderDiagnostics, const char* reason )
 {
-    const std::string* currentPath = scene.CurrentPath();
-    const char* scenePath = currentPath && !currentPath->empty() ? currentPath->c_str() : "generated";
     const char* rendererName = renderDiagnostics ? renderDiagnostics->GetRendererName() : "unknown";
-    RuntimeDiagnostics::LogSceneFinished( scene.State(), scenePath, rendererName, reason );
+    return RuntimeDiagnostics::LogSceneFinished( scene, scenePath, rendererName, reason );
 }
 
 
-void DiagnosticsRuntime::BeginPhysicsDiagnosticsRun( Physics::PhysicsEngine& physics, const SceneSessionState& scene,
+void DiagnosticsRuntime::BeginPhysicsDiagnosticsRun( Physics::PhysicsEngine& physics,
+                                                     const RuntimeSceneDiagnosticFacts& scene,
                                                      const SkullbonezCore::Core::EngineConfig& config, const char* scenePath,
-                                                     const char* rendererName )
+                                                     const char* rendererName, bool explicitRenderFrameLockstep,
+                                                     bool effectiveRenderFrameLockstep )
 {
     // Lifetime: RuntimeDiagnostics owns the trace file/session. This boundary
     // only supplies current runtime state and never caches trace handles.
     RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( m_diagnostics.PhysicsDiagnostics(), physics, scene, config, scenePath,
-                                                    rendererName );
+                                                    rendererName, explicitRenderFrameLockstep,
+                                                    effectiveRenderFrameLockstep );
 }
 
 
-void DiagnosticsRuntime::LogReplayScrubProbe( const SceneSessionState& scene, const ReplayScrubProbeDiagnostic& probe )
+void DiagnosticsRuntime::LogReplayScrubProbe( const RuntimeSceneDiagnosticFacts& scene,
+                                              const ReplayScrubProbeDiagnostic& probe )
 {
     RuntimeDiagnostics::LogReplayScrubProbe( m_diagnostics.PhysicsDiagnostics(), scene, probe );
 }
 
 
-void DiagnosticsRuntime::LogReplayRestoreProbe( const SceneSessionState& scene, const ReplayRestoreProbeDiagnostic& probe )
+void DiagnosticsRuntime::LogReplayRestoreProbe( const RuntimeSceneDiagnosticFacts& scene,
+                                                const ReplayRestoreProbeDiagnostic& probe )
 {
     RuntimeDiagnostics::LogReplayRestoreProbe( m_diagnostics.PhysicsDiagnostics(), scene, probe );
 }
 
 
-void DiagnosticsRuntime::LogReplayRestoreResult( const SceneSessionState& scene,
+void DiagnosticsRuntime::LogReplayRestoreResult( const RuntimeSceneDiagnosticFacts& scene,
                                                  const ReplayRestoreResultDiagnostic& result )
 {
     // Invariant: Replay restore diagnostics are forwarded with their exact
@@ -1003,7 +808,7 @@ void DiagnosticsRuntime::LogReplayRestoreResult( const SceneSessionState& scene,
 }
 
 
-void DiagnosticsRuntime::EndPhysicsDiagnosticsRun( const SceneSessionState& scene, const char* status )
+void DiagnosticsRuntime::EndPhysicsDiagnosticsRun( const RuntimeSceneDiagnosticFacts& scene, const char* status )
 {
     RuntimeDiagnostics::EndPhysicsDiagnosticsRun( m_diagnostics.PhysicsDiagnostics(), scene, status );
 }
@@ -1012,29 +817,30 @@ void DiagnosticsRuntime::EndPhysicsDiagnosticsRun( const SceneSessionState& scen
 #endif
 
 
-void DiagnosticsRuntime::BeforeSceneUnload( const SceneSessionState& scene, const char* scenePath )
+void DiagnosticsRuntime::BeforeSceneUnload( int loadCount, int currentFrame, const char* scenePath )
 {
-    ReportStoreCapacityRows( scene, scenePath, "scene_unload" );
+    ReportStoreCapacityRows( loadCount, scenePath, "scene_unload" );
 #ifdef _DEBUG
-    EndPhysicsDiagnosticsRun( scene, "scene_reload" );
+    const RuntimeSceneDiagnosticFacts facts( 0, 0, 0, currentFrame );
+    EndPhysicsDiagnosticsRun( facts, "scene_reload" );
 #else
-    (void)scene;
+    (void)currentFrame;
 #endif
 }
 
-void DiagnosticsRuntime::ReportStoreCapacityRows( const SceneSessionState& scene, const char* scenePath, const char* status )
+void DiagnosticsRuntime::ReportStoreCapacityRows( int loadCount, const char* scenePath, const char* status )
 {
-    if ( scene.loadCount <= 0 )
+    if ( loadCount <= 0 )
     {
         return;
     }
 
-    const char* sceneName = scenePath && scenePath[0] != '\0' ? SceneFileNameFromPath( scenePath ) : "<generated>";
+    const char* sceneName = scenePath && scenePath[0] != '\0' ? DiagnosticFileNameFromPath( scenePath ) : "<generated>";
     SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::PrintCapacityRows( stdout, sceneName, status );
 }
 
 
-DiagnosticsRuntime::UIStressState& DiagnosticsRuntime::UIStress()
+UIStressPolicyOwner& DiagnosticsRuntime::UIStress()
 {
     return m_uiStress;
 }

@@ -4,8 +4,9 @@ Purpose:
   Publishes replay path-target and retained/future trajectory selection values without Presentation ownership.
 
 Summary:
-  Presentation owns target mutation and trajectory caches. Drawing, development
-  UI, and automation consume these bounded value records for one frame.
+  Presentation owns target mutation and trajectory caches. App, Planning,
+  drawing, development UI, and automation exchange bounded target, pick, and
+  trajectory values without borrowing Presentation.
 
 Glossary:
   Retained path: Solver-history trajectory for the selected replay body.
@@ -22,12 +23,32 @@ Related:
 #pragma once
 
 #include "../../Physics/PhysicsHandles.h"
+#include "../../Maths/Vector3.h"
 
 #include <cstdint>
 #include <vector>
 
 namespace SkullbonezCore::Runtime
 {
+struct ReplayPathPickInput
+{
+    Math::Vector::Vector3 rayOrigin = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
+    bool hasWorldRay = false;
+    bool additive = false;
+    bool clearOnMiss = false;
+};
+
+struct ReplayPathPickResult
+{
+    Physics::PhysicsSceneObjectId targetId;
+    Physics::ModelRowHint targetModelRow;
+    char targetName[64] = {};
+    bool picked = false;
+    bool exitInspectionCamera = false;
+    bool additive = false;
+};
+
 struct RunReplayPathTarget
 {
     Physics::PhysicsSceneObjectId id;
@@ -75,7 +96,24 @@ enum class ReplayPathColorMode : uint8_t
     CausalDepth
 };
 
-const char* ReplayPathColorModeName( ReplayPathColorMode mode ) noexcept;
+inline const char* ReplayPathColorModeName( ReplayPathColorMode mode ) noexcept
+{
+    switch ( mode )
+    {
+    case ReplayPathColorMode::LaneFlat:
+        return "Lane flat";
+    case ReplayPathColorMode::VelocityHeat:
+        return "Velocity heat";
+    case ReplayPathColorMode::TimeGradient:
+        return "Time gradient";
+    case ReplayPathColorMode::PerObjectHue:
+        return "Per-object hue";
+    case ReplayPathColorMode::CausalDepth:
+        return "Causal depth";
+    }
+
+    return "Lane flat";
+}
 
 struct RunReplayPathVisualizerState
 {

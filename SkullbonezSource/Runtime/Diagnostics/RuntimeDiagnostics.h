@@ -13,7 +13,8 @@ Glossary:
 
 Invariants:
   - Diagnostic artifacts are side-channel output; enabling them must not change
-  physics state except for explicitly forced fixed-step diagnostics.
+    physics state except for diagnostics' explicit render-frame-lockstep launch
+    policy.
 
 Related:
   - SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.cpp
@@ -40,32 +41,100 @@ class PhysicsEngine;
 }
 namespace Runtime
 {
-struct SceneSessionState;
+// Invariant: -1 is the only unloaded/unbounded sentinel. Counts, frame indices,
+// and model totals are otherwise non-negative in every immutable snapshot.
+class RuntimeSceneDiagnosticFacts
+{
+  public:
+    RuntimeSceneDiagnosticFacts( int currentSceneIndex = 0, int loadCount = 0, int manualResetCount = 0,
+                                 int currentFrame = 0, int targetFrameCount = 0, int modelCount = 0, uint32_t rngSeed = 0,
+                                 bool fixedStep = false, bool testComplete = false, bool finishLogged = false );
+
+    static constexpr bool ValuesAreValid( int currentSceneIndex, int loadCount, int manualResetCount, int currentFrame,
+                                          int targetFrameCount, int modelCount ) noexcept
+    {
+        return currentSceneIndex >= -1 && loadCount >= 0 && manualResetCount >= 0 && currentFrame >= 0 &&
+               targetFrameCount >= -1 && modelCount >= 0;
+    }
+
+    int CurrentSceneIndex() const
+    {
+        return m_currentSceneIndex;
+    }
+    int LoadCount() const
+    {
+        return m_loadCount;
+    }
+    int ManualResetCount() const
+    {
+        return m_manualResetCount;
+    }
+    int CurrentFrame() const
+    {
+        return m_currentFrame;
+    }
+    int TargetFrameCount() const
+    {
+        return m_targetFrameCount;
+    }
+    int ModelCount() const
+    {
+        return m_modelCount;
+    }
+    uint32_t RngSeed() const
+    {
+        return m_rngSeed;
+    }
+    bool FixedStep() const
+    {
+        return m_fixedStep;
+    }
+    bool TestComplete() const
+    {
+        return m_testComplete;
+    }
+    bool FinishLogged() const
+    {
+        return m_finishLogged;
+    }
+
+  private:
+    int m_currentSceneIndex = 0;
+    int m_loadCount = 0;
+    int m_manualResetCount = 0;
+    int m_currentFrame = 0;
+    int m_targetFrameCount = 0;
+    int m_modelCount = 0;
+    uint32_t m_rngSeed = 0;
+    bool m_fixedStep = false;
+    bool m_testComplete = false;
+    bool m_finishLogged = false;
+};
 
 struct RunPerfLogState
 {
-    bool isPerfTest = false;                        // Perf-suite mode; runtime writes pass/frame rows while scene advances.
-    bool perfHeaderWritten = false;                 // Prevents duplicate CSV headers across passes in one run.
-    char perfLogPath[256] = {};                     // Output path for perf CSV; empty disables file logging.
-    FILE* perfLogFile = nullptr;                    // Open perf CSV handle owned by RuntimeDiagnostics until ClosePerfLog.
-    bool isPerfLogFlushEnabled = false;             // Diagnostic mode: force flush after every perf write.
-    int perfLogFlushInterval = 0;                   // Flush every N writes; 0 means flush only at close.
-    int perfLogWritesSinceFlush = 0;                // Buffered perf-log rows since last explicit flush.
+    bool isPerfTest = false;                             // Perf-suite mode; runtime writes pass/frame rows while scene advances.
+    bool perfHeaderWritten = false;                      // Prevents duplicate CSV headers across passes in one run.
+    char perfLogPath[256] = {};                          // Output path for perf CSV; empty disables file logging.
+    FILE* perfLogFile = nullptr;                         // Open perf CSV handle owned by RuntimeDiagnostics until ClosePerfLog.
+    bool isPerfLogFlushEnabled = false;                  // Diagnostic mode: force flush after every perf write.
+    int perfLogFlushInterval = 0;                        // Flush every N writes; 0 means flush only at close.
+    int perfLogWritesSinceFlush = 0;                     // Buffered perf-log rows since last explicit flush.
 #ifdef _DEBUG
-    char physicsRegressionLogOverride[256] = {};    // CLI --physics-regression-log path (empty = disabled)
-    char physicsCollisionTimeLogOverride[256] = {}; // CLI --physics-collision-time-log path (empty = disabled)
+    char physicsRegressionLogOverride[256] = {};         // CLI --physics-regression-log path (empty = disabled)
+    char physicsCollisionTimeLogOverride[256] = {};      // CLI --physics-collision-time-log path (empty = disabled)
 #endif
 };
 
 #ifdef _DEBUG
 struct RunPhysicsDiagnosticsState
 {
-    char path[256] = {};                            // CLI --physics-diag path (empty = disabled)
-    char currentRunId[32] = {};                     // Stable per-load id written into NDJSON rows
-    bool isEnabled = false;                         // True when a diagnostics path was provided
-    bool isRunActive = false;                       // True after a run row and before the matching end row
-    bool fixedStepForcedByDiagnostics = false;      // True when --physics-diag forced fixed-step mode
-    int runSequence = 0;                            // Incremented on every scene/generated load
+    char path[256] = {};                                 // CLI --physics-diag path (empty = disabled)
+    char currentRunId[32] = {};                          // Stable per-load id written into NDJSON rows
+    bool isEnabled = false;                              // True when a diagnostics path was provided
+    bool isRunActive = false;                            // True after a run row and before the matching end row
+    bool renderFrameLockstepForcedByDiagnostics = false; // True when --physics-diag supplied the explicit lockstep request.
+    int runSequence = 0;                                 // Incremented on every scene/generated load
 };
 
 struct ReplayScrubProbeDiagnostic
@@ -177,19 +246,21 @@ class RuntimeDiagnostics
     // Diagnostics receives the physics owner directly; artifact setup never
     // needs scene lifecycle, request, or world-presentation authority.
     static void SetPhysicsDiagnosticsPath( RunPhysicsDiagnosticsState& diagnostics, Physics::PhysicsEngine& physics,
-                                           const char* path, bool fixedStepForcedByDiagnostics );
-    static void LogSceneFinished( SceneSessionState& scene, const char* scenePath, const char* rendererName,
+                                           const char* path, bool renderFrameLockstepForcedByDiagnostics );
+    static bool LogSceneFinished( const RuntimeSceneDiagnosticFacts& scene, const char* scenePath, const char* rendererName,
                                   const char* reason );
     static void BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics, Physics::PhysicsEngine& physics,
-                                            const SceneSessionState& scene, const SkullbonezCore::Core::EngineConfig& config,
-                                            const char* scenePath, const char* rendererName );
-    static void LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagnostics, const SceneSessionState& scene,
+                                            const RuntimeSceneDiagnosticFacts& scene,
+                                            const SkullbonezCore::Core::EngineConfig& config, const char* scenePath,
+                                            const char* rendererName, bool explicitRenderFrameLockstep,
+                                            bool effectiveRenderFrameLockstep );
+    static void LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagnostics, const RuntimeSceneDiagnosticFacts& scene,
                                      const ReplayScrubProbeDiagnostic& probe );
-    static void LogReplayRestoreProbe( RunPhysicsDiagnosticsState& diagnostics, const SceneSessionState& scene,
+    static void LogReplayRestoreProbe( RunPhysicsDiagnosticsState& diagnostics, const RuntimeSceneDiagnosticFacts& scene,
                                        const ReplayRestoreProbeDiagnostic& probe );
-    static void LogReplayRestoreResult( RunPhysicsDiagnosticsState& diagnostics, const SceneSessionState& scene,
+    static void LogReplayRestoreResult( RunPhysicsDiagnosticsState& diagnostics, const RuntimeSceneDiagnosticFacts& scene,
                                         const ReplayRestoreResultDiagnostic& result );
-    static void EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics, const SceneSessionState& scene,
+    static void EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics, const RuntimeSceneDiagnosticFacts& scene,
                                           const char* status );
 #endif
 };

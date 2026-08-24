@@ -29,8 +29,7 @@ Related:
 #include "../../Maths/Matrix4.h"
 #include "../../Maths/Vector3.h"
 #include "../../Rendering/Shadow.h"
-#include "../App/ReplayRuntimePackets.h"
-#include "../Tools/RuntimeTools.h"
+#include "../Replay/ReplayRuntimePackets.h"
 
 #include <array>
 #include <cstdint>
@@ -50,7 +49,6 @@ class AssetSystem;
 }
 namespace Environment
 {
-class CameraCollection;
 class WorldEnvironment;
 } // namespace Environment
 namespace Geometry
@@ -75,15 +73,10 @@ class InGameUI;
 namespace Runtime
 {
 class Window;
-class LauncherLaser;
 class RuntimeInputContext;
-class RuntimeOverlayRenderResources;
-class SceneTerrain;
 enum class RunCameraMode;
 struct ReplayPresentationSample;
 struct ReplaySolverFrameSample;
-struct CameraControlState;
-struct OverlayDebugState;
 struct RunEditorPlacementState;
 struct RunLaunchOptions;
 struct RunMousePickupState;
@@ -91,9 +84,7 @@ struct RunRayCastTestState;
 struct RunReplayPredictionFrame;
 struct RuntimeRenderPassResources;
 struct SceneSessionState;
-struct RunTimerState;
 struct RuntimeRenderModelFrameView;
-struct RuntimeViewModel;
 
 // Concept: RuntimeRenderer retains this immutable-at-the-boundary world view.
 // Each reference identifies one render-domain owner that outlives the renderer;
@@ -101,23 +92,31 @@ struct RuntimeViewModel;
 struct RenderWorldView
 {
     Assets::AssetSystem& assets;
-    Environment::CameraCollection& cameras;
-    SceneTerrain& terrain;
     Window& window;
     SkullbonezCore::Core::EngineConfig& config;
     Environment::WorldEnvironment& worldEnvironment;
-    RuntimeOverlayRenderResources& overlayResources;
     SkullbonezCore::Core::Profiler* profiler = nullptr;
 };
 
 struct RenderToolOverlayView
 {
-    RuntimeTools& tools;
+    struct LauncherShot
+    {
+        Math::Vector::Vector3 start = Math::Vector::ZERO_VECTOR;
+        Math::Vector::Vector3 end = Math::Vector::ZERO_VECTOR;
+        Math::Vector::Vector3 cameraRight = Math::Vector::Vector3( 1.0f, 0.0f, 0.0f );
+        Math::Vector::Vector3 cameraUp = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
+        float ageSeconds = 0.0f;
+        float lifetimeSeconds = 0.0f;
+        bool active = false;
+        bool hit = false;
+    };
+
+    static constexpr std::size_t LAUNCHER_SHOT_CAPACITY = 32;
+
     bool editorOverlayWorkVisible = false;
-    bool inspectGizmoInteractionActive = false;
-    bool controlDown = false;
-    int attachedTargetIndex = -1;
-    bool attachedFollow = false;
+    std::array<LauncherShot, LAUNCHER_SHOT_CAPACITY> launcherShots {};
+    std::size_t launcherShotCount = 0;
 };
 
 } // namespace Runtime

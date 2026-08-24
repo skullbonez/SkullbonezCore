@@ -49,6 +49,7 @@
 #include "../SkullbonezSource/Physics/ColliderStore.h"
 #include "../SkullbonezSource/Physics/ConvexHullShape.h"
 #include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
+#include "../SkullbonezSource/Physics/PhysicsMotionEligibility.h"
 #include "../SkullbonezSource/Physics/TerrainContactManifold.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsTerrainStage.h"
 #include "../SkullbonezSource/World/Terrain.h"
@@ -349,6 +350,7 @@ TEST_CASE( "Physics terrain stage: candidate rows preserve model order and eligi
     {
         PhysicsBodyCreateRecord body;
         body.hot.position = Vector3( static_cast<float>( bodyIndex ), 5.0f, 0.0f );
+        body.hot.linearVelocity = bodyIndex == 0 ? Vector3( 0.0f, -10.0f, 0.0f ) : Vector3( 0.0f, 0.0f, 0.0f );
         body.hot.fixed = bodyIndex == 1;
         const auto handle = bodies.CreateBodyRecord( body );
         ColliderRecord collider;
@@ -359,6 +361,11 @@ TEST_CASE( "Physics terrain stage: candidate rows preserve model order and eligi
     }
 
     const std::array<uint8_t, 3> sleepState = { 0u, 0u, 1u };
+    const std::array<uint8_t, 3> discreteState = {
+        SkullbonezCore::Physics::PhysicsMotionEligibilityNone,
+        SkullbonezCore::Physics::PhysicsMotionEligibilityNone,
+        SkullbonezCore::Physics::PhysicsMotionEligibilityNone,
+    };
     const std::array<float, 3> timeRemaining = { 0.5f, 0.5f, 0.5f };
     const std::array<SkullbonezCore::Physics::BuoyancyBodyFacts, 3> buoyancyFacts;
     SkullbonezCore::Physics::PhysicsExecutionSettings execution;
@@ -373,15 +380,29 @@ TEST_CASE( "Physics terrain stage: candidate rows preserve model order and eligi
     }
     const std::array<int, 1> awakeBodyIndices = { 0 };
 
-    stage.Detect( bodies, colliders, buoyancyFacts, terrain.PhysicsView(), physicsSettings, sleepState, timeRemaining,
-                  nullptr, awakeBodyIndices, execution, inlinePool );
+    stage.Detect( bodies, colliders, buoyancyFacts, terrain.PhysicsView(), physicsSettings, sleepState, discreteState,
+                  timeRemaining, nullptr, awakeBodyIndices, execution, inlinePool );
 
     const auto candidates = stage.GetDetectionCandidates();
     REQUIRE( candidates.size() == 3u );
     CHECK( candidates[0].tested == 1u );
     CHECK( candidates[0].availableTime == doctest::Approx( 0.5f ) );
+    CHECK_FALSE( candidates[0].sweep.hit );
     CHECK( candidates[1].tested == 0u );
     CHECK( candidates[2].tested == 0u );
+
+    const std::array<uint8_t, 3> promotedState = {
+        SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted,
+        SkullbonezCore::Physics::PhysicsMotionEligibilityNone,
+        SkullbonezCore::Physics::PhysicsMotionEligibilityNone,
+    };
+    stage.Detect( bodies, colliders, buoyancyFacts, terrain.PhysicsView(), physicsSettings, sleepState, promotedState,
+                  timeRemaining, nullptr, awakeBodyIndices, execution, inlinePool );
+
+    const auto promotedCandidates = stage.GetDetectionCandidates();
+    REQUIRE( promotedCandidates.size() == 3u );
+    REQUIRE( promotedCandidates[0].sweep.hit );
+    CHECK( promotedCandidates[0].sweep.collisionTime == doctest::Approx( 0.4f ).epsilon( 0.0001f ) );
 }
 
 

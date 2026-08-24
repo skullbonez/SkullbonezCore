@@ -4,7 +4,8 @@ Purpose:
   Owns object/object CCD event scratch and collision-independent island dispatch.
 
 Summary:
-  PhysicsNarrowphaseStage processes broadphase pairs into bounded value events,
+  PhysicsNarrowphaseStage selects translational Swept TOI from the immutable
+  motion-eligibility rows, processes broadphase pairs into bounded value events,
   builds disjoint pair islands when worker dispatch can help, and retains every
   island/event scratch array. PhysicsWorld commits typed events in original pair
   order because sleep, diagnostics, and broadphase each own the affected state.
@@ -19,6 +20,8 @@ Invariants:
   - Serial processing commits each event immediately before the next pair.
   - Parallel workers write one event per pair slot; the sequencer commits only
     after all islands complete, in ascending original pair order.
+  - Linear promotion selects Swept TOI; angular eligibility never selects exact
+    rotational sweep in this phase.
   - All seven retained lists commit scene/candidate capacities before play and
     fail rather than grow during steady gameplay.
   - Worker callables are stack-scoped; WorkerPool completes every borrowed
@@ -38,10 +41,10 @@ Related:
 #include <span>
 #include <utility>
 
-#include "../PersistentContactSolver.h"
 #include "../BuoyancySystem.h"
 #include "../PhysicsBodyStore.h"
 #include "../PhysicsDebugData.h"
+#include "../PhysicsMotionEligibility.h"
 #include "../PhysicsRuntimeSettings.h"
 #include "../PhysicsStageCapacity.h"
 #include "PhysicsSleepController.h"
@@ -103,7 +106,6 @@ struct ObjectNarrowphaseStepPolicy
     // be added here.
     float sleepLinearSq = 0.0f;
     float sleepAngularSq = 0.0f;
-    float contactSkin = 0.0f;
     float contactEpsilon = 0.0f;
     float invCellSize = 0.0f;
     float dt = 0.0f;
@@ -154,7 +156,7 @@ class PhysicsNarrowphaseStage
         std::span<const std::pair<int, int>> candidatePairs;
         PhysicsNarrowphaseWakeAccess wakeAccess;
         std::span<float> timeRemaining;
-        std::span<const PersistentContactCacheEntry> persistentContactCache;
+        std::span<const uint8_t> motionEligibilityState;
         ObjectNarrowphaseStepPolicy policy;
         Core::Profiler* profiler;
 
@@ -174,7 +176,7 @@ class PhysicsNarrowphaseStage
                                          PhysicsTerrainView terrain, std::span<BuoyancyBodyFacts> buoyancyFacts,
                                          std::span<const std::pair<int, int>> candidatePairs,
                                          PhysicsNarrowphaseWakeAccess wakeAccess, std::span<float> timeRemaining,
-                                         std::span<const PersistentContactCacheEntry> persistentContactCache,
+                                         std::span<const uint8_t> motionEligibilityState,
                                          const ObjectNarrowphaseStepPolicy& policy, Core::Profiler* profiler,
                                          int islandIndex );
     void BuildObjectNarrowphaseIslands( Core::Profiler* profiler, std::span<const std::pair<int, int>> candidatePairs,
@@ -192,15 +194,14 @@ class PhysicsNarrowphaseStage
                                        PhysicsTerrainView terrain, std::span<BuoyancyBodyFacts> buoyancyFacts,
                                        std::span<const std::pair<int, int>> candidatePairs,
                                        PhysicsNarrowphaseWakeAccess wakeAccess, std::span<float> timeRemaining,
-                                       std::span<const PersistentContactCacheEntry> persistentContactCache,
+                                       std::span<const uint8_t> motionEligibilityState,
                                        const ObjectNarrowphaseStepPolicy& policy, Core::Profiler* profiler, int pairIndex,
                                        ObjectNarrowphaseEvent& event );
     bool TryRunParallel( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, PhysicsTerrainView terrain,
                          std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<const std::pair<int, int>> candidatePairs,
                          PhysicsNarrowphaseWakeAccess wakeAccess, std::span<float> timeRemaining,
-                         std::span<const PersistentContactCacheEntry> persistentContactCache,
-                         const ObjectNarrowphaseStepPolicy& policy, Core::Profiler* profiler,
-                         Threading::WorkerPool& workerPool );
+                         std::span<const uint8_t> motionEligibilityState, const ObjectNarrowphaseStepPolicy& policy,
+                         Core::Profiler* profiler, Threading::WorkerPool& workerPool );
     std::span<const ObjectNarrowphaseEvent> GetEvents() const;
     uint64_t CollectDynamicMemoryBytes() const;
 };

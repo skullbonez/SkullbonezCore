@@ -313,11 +313,28 @@
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneNavigationModel.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RenderDefaultsStore.Persistence.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupCommandLine.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupLaunchResolution.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\App\StartupLaunchApplication.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Tools\RuntimeFileWriter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Automation\InteractionAutomationRecorder.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\RuntimeInteractionController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\OperatorCommandTransaction.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Interaction\OperatorEditorExchange.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Render\UIProfilerOverlayPresenter.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UI.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIEditorMiniPalette.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIEditorMiniPaletteDraw.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIFrameComposition.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UITabCinematic.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UITabControls.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UITabEditor.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UITabMemory.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UITabOptions.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UITabPhysics.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UITabProfiler.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UITabProfilerHistogram.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UITabScene.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UITabSky.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIWindowInteractionOwner.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayPlanningOverlayLayout.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayCauseInspection.cpp" />
@@ -368,6 +385,14 @@
     <ProjectReference Include="SKULLBONEZ_PHYSICS.vcxproj">
       <Project>{2CC512B8-5A21-49F4-AE75-9982116F5B62}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Product UI tests compile the moved sources with the same profiler ABI
+         as their SKULLBONEZ_CORE owner. Portable CPU builds omit it and retain
+         their separately asserted non-instrumented fingerprint. -->
+    <ClCompile Update="SkullbonezSource\Runtime\UI\GameUI\*.cpp">
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64' Or '$(Configuration)|$(Platform)'=='Profile|x64' Or '$(Configuration)|$(Platform)'=='Profile-WPO|x64'">SKULLBONEZ_PROFILE_ENABLED;TRACY_ENABLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets"></ImportGroup>

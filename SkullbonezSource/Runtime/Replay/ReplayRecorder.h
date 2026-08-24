@@ -46,6 +46,7 @@ Related:
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -55,7 +56,6 @@ Related:
 #include "../../Maths/Vector3.h"
 #include "../../Physics/PhysicsHandles.h"
 #include "../../Physics/PhysicsSolverSnapshot.h"
-#include "../Editor/LauncherLaser.h"
 #include "ReplayEventCommand.h"
 #include "ReplayToolPackets.h"
 #include "ReplayCaptureLimits.h"
@@ -65,7 +65,6 @@ namespace SkullbonezCore
 {
 namespace Environment
 {
-class CameraCollection;
 class WorldEnvironment;
 } // namespace Environment
 
@@ -79,7 +78,6 @@ class PhysicsBodyStore;
 namespace Runtime
 {
 class ReplayArtifactSource;
-class SceneEntityStore;
 
 struct ReplayBranchInfo
 {
@@ -112,7 +110,7 @@ struct ReplayWorldPresentationSample
     float fluidDensity = 0.0f;
     bool waterHidden = false;
     bool terrainHidden = false;
-    bool fixedStep = false;
+    bool fixedStep = false;         // Compatibility name: scene/capture lockstep request, not resolved pacing.
     bool scenePhysicsEnabled = true;
     bool sceneTextEnabled = true;
 };
@@ -472,8 +470,7 @@ class ReplayRecorder
     void ResetTimeline( const char* sceneLabel );
     void CaptureFrame( const ReplayBranchInfo& branch, uint32_t eventCursor, int sceneFrame, float physicsDt,
                        const ReplayWorldPresentationSample& world, const ReplayCameraSample& camera,
-                       Physics::PhysicsEngine& physics, const SceneEntityStore& entities,
-                       const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore );
+                       Physics::PhysicsEngine& physics, std::span<const char* const> entityDisplayNames );
 
     // Records the presentation track from an already captured solver sample.
     // Use this when both tracks are enabled so frame capture does one model walk.
@@ -549,8 +546,7 @@ class ReplaySolverRecorder
     void CaptureFrame( const ReplayBranchInfo& branch, uint32_t eventCursor, int sceneFrame, float physicsDt,
                        const ReplayWorldPresentationSample& world, const ReplayCameraSample& camera,
                        const ReplayLauncherVisualSample& launcherVisual, Physics::PhysicsEngine& physics,
-                       const Gameplay::TornadoGameplay& tornadoGameplay, const SceneEntityStore& entities,
-                       const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore );
+                       const Gameplay::TornadoGameplay& tornadoGameplay, std::span<const char* const> entityDisplayNames );
     bool IsEnabled() const;
     ReplayRecorderStats GetStats() const;
 

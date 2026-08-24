@@ -5,7 +5,7 @@
 @rem
 @rem Summary:
 @rem   Fast validation first proves that the deterministic physics golden still
-@rem   has the exact owner-approved digest, then checks source hygiene, project
+@rem   has the exact accepted digest, then checks source hygiene, project
 @rem   metadata, staged-file size, and current build evidence.
 @rem
 @rem Glossary:
@@ -51,7 +51,7 @@ echo   VALIDATE_FAST - Format + Metadata + Dependencies + Ownership + Size + Bui
 echo ========================================
 echo.
 
-echo [1/10] Checking owner-approved physics golden...
+echo [1/10] Checking accepted Physics golden and retained transitions...
 python "%~dp0check_physics_baseline_guard.py" --repo "%~dp0.."
 if errorlevel 1 exit /b 9
 

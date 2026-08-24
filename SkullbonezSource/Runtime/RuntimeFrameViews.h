@@ -44,5 +44,24 @@ struct RuntimeUiTextFrameFacts
     double secondsPerFrame = 0.0;
     bool gameUiActive = true;
 };
+
+// Immutable publication from the Diagnostics frame-metrics owner. All values
+// are copied, so UI, Render, Capture, and Automation cannot retain or mutate
+// the clocks and aggregation state that produced them.
+struct RuntimeFrameMetricsSnapshot
+{
+    double secondsPerFrame = 0.0;
+    double simulationTotalSeconds = 0.0;
+    double sceneElapsedSeconds = 0.0;
+    float physicsSeconds = 0.0f;
+    float renderSeconds = 0.0f;
+    float rollingPhysicsSeconds = 0.0f;
+    float rollingRenderSeconds = 0.0f;
+    float rollingFrameSeconds = 0.0f;
+    float sceneEnergy = 0.0f;
+    float cpuFrameWorkMs = 0.0f;
+    float gpuFrameWorkMs = 0.0f;
+    int uiDrawCalls = 0;
+};
 } // namespace Runtime
 } // namespace SkullbonezCore

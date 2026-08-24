@@ -4,39 +4,39 @@
   "tests": [
     {
       "artifact": "Debug/physics_regression_solver.csv",
-      "bytes": 2771479,
+      "bytes": 3097800,
       "lines": 20001,
       "name": "seeded_solver_distribution_watch",
       "risk": "Seeded mixed solver distribution drifts after the varied scene becomes the primary full CSV baseline.",
       "scene": "SkullbonezData/scenes/physics_regression_solver.scene.json",
-      "sha256": "73a7d07104419ce9099564bfb21000790a13920308dca180fe6aebfe3c72d756"
+      "sha256": "699a28380ed6848e4c69735e1082a0130471fa8008b02bdaac72f45713ad9583"
     },
     {
       "artifact": "Debug/physics_known_stacking.csv",
-      "bytes": 3074796,
+      "bytes": 3064521,
       "lines": 22501,
       "name": "stacking_stability_watch",
       "risk": "Stacking drift or topple in stacking.scene.json.",
       "scene": "SkullbonezData/scenes/stacking.scene.json",
-      "sha256": "62a03a65acee961e0bed32358300fc94764db737047f373937f2009a45adbe70"
+      "sha256": "b7fc2401b407d6d38632dd9711ae9af4564489c2cd1f3ca6f91de381a7714537"
     },
     {
       "artifact": "Debug/physics_known_at_rest.csv",
-      "bytes": 7631545,
-      "lines": 54001,
+      "bytes": 3924298,
+      "lines": 27841,
       "name": "at_rest_settling_watch",
       "risk": "Mixed ball/box resting jitter or interpenetration in at_rest.scene.json.",
       "scene": "SkullbonezData/scenes/at_rest.scene.json",
-      "sha256": "c91b03da690f2bb9d93299639a52acffb98820407b0c4df8ebd846af8de4a2fe"
+      "sha256": "5b2020d3b252b38d4f82570a3af2a2ad12f6ad972935cbac3fb5c7eb52cb03fc"
     },
     {
       "artifact": "Debug/physics_known_terrain_contact.csv",
-      "bytes": 18274,
+      "bytes": 18276,
       "lines": 121,
       "name": "terrain_contact_watch",
       "risk": "Terrain contact micro-bounce or support classification drift.",
       "scene": "SkullbonezData/scenes/terrain_contact_probe_debug.scene.json",
-      "sha256": "823d6756b9cdb11e973cdc7e38dd8efc1f32a00efc40b65f5cb207130c9e8631"
+      "sha256": "ba21969062f7c91d101a988ce9f5b857cfe8fa21344573754e79e065a9779f3f"
     }
   ]
 }

@@ -48,7 +48,7 @@ STAGE_MANIFEST = [
         "parent": "full",
         "name": "Phase 0B: Physics Validation - First Runtime Oracle",
         "command": "tools\\validate_physics.bat",
-        "defect_class": "Owner-approved golden integrity and byte-exact deterministic physics",
+        "defect_class": "Accepted golden integrity and byte-exact deterministic physics",
         "blocking": True
     },
     {
@@ -70,9 +70,9 @@ STAGE_MANIFEST = [
     {
         "id": "fast.1_physics_golden",
         "parent": "full.1_fast_preflight",
-        "name": "Fast 1/10: Owner-approved physics golden integrity",
+        "name": "Fast 1/10: Physics golden and retained-transition integrity",
         "command": "python tools/check_physics_baseline_guard.py --repo .",
-        "defect_class": "Unapproved or mismatched deterministic physics golden",
+        "defect_class": "Unbound or mismatched deterministic Physics golden",
         "blocking": True
     },
     {

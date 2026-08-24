@@ -11,13 +11,13 @@ Summary:
   immutable frame value.
 
 Glossary:
-  Input window bridge: Borrowed pointer to the active runtime window used by
-    frame capture to translate pointer positions through the current client area.
+  Native window handle: Detached Win32 identity used for focus, capture, and
+    pointer-coordinate queries without borrowing the Startup host owner.
 
 Invariants:
   - Process-local Win32 input accumulators are drained into one DeviceInputFrame;
     stale mouse deltas must not leak across focus/UI transitions.
-  - The input window bridge is bound before frame capture translates pointer
+  - The native handle is bound before frame capture translates pointer
     coordinates.
   - Wrong-window and repeated unbind requests retain the current binding in
     Release while Debug keeps the caller-contract tripwire.
@@ -34,8 +34,6 @@ Related:
 #include "Input.h"
 #include "../../Core/SbDiagnosticStore.h"
 #include "InputRouter.h"
-#include "../App/Window.h"
-
 #include "../../Core/FatalError.h"
 
 #include <cassert>
@@ -77,10 +75,8 @@ Input::AutomationState s_automationState;
 
 constexpr int RAW_MOUSE_ABSOLUTE_RANGE = 65535;
 
-[[noreturn]] void FatalInputWindowBridgeMissing( const char* functionName, Window* inputWindow )
+[[noreturn]] void FatalInputWindowBridgeMissing( const char* functionName, HWND inputWindow )
 {
-    // Why: printf-style %p requires a void pointer in this fatal diagnostic;
-    // the casts do not establish ownership or serve as runtime identity.
     SB_FATAL( "Input", "%s requires a bound input window bridge. inputWindow=%p callbackWindow=%p automation=%d",
               functionName, static_cast<void*>( inputWindow ), static_cast<void*>( s_callbackBridgeWindow ),
               s_automationState.enabled ? 1 : 0 );
@@ -136,20 +132,19 @@ long RawAbsoluteToPixels( long value, int extent )
 }
 } // namespace
 
-Input::WindowBridge Input::s_windowBridge;
+Input::NativeWindowBinding Input::s_nativeWindow;
 
 
 bool Input::IsAppFocused()
 {
-    Window* window = s_windowBridge.BoundWindow();
-    const HWND windowHandle = window ? window->NativeWindowHandle() : nullptr;
+    const HWND window = s_nativeWindow.BoundHandle();
 
-    if ( !windowHandle )
+    if ( !window )
     {
         return false;
     }
 
-    return GetForegroundWindow() == windowHandle;
+    return GetForegroundWindow() == window;
 }
 
 
@@ -261,8 +256,7 @@ SkullbonezCore::Core::SbResult Input::SetNativeMouseCapture( SkullbonezCore::Cor
 {
     // Recoverable error: InputRouter owns the decision, while this narrow hardware seam
     // verifies that Win32 accepted the requested capture transition.
-    Window* window = s_windowBridge.BoundWindow();
-    const HWND windowHandle = window ? window->NativeWindowHandle() : nullptr;
+    const HWND windowHandle = s_nativeWindow.BoundHandle();
 
     if ( !windowHandle )
     {
@@ -299,15 +293,15 @@ SkullbonezCore::Core::SbResult Input::SetNativeMouseCapture( SkullbonezCore::Cor
 }
 
 
-void Input::BindWindow( Window& window )
+void Input::BindNativeWindow( HWND window )
 {
-    s_windowBridge.Bind( &window );
+    s_nativeWindow.Bind( window );
 }
 
 
-void Input::UnbindWindow( Window& window )
+void Input::UnbindNativeWindow( HWND window )
 {
-    s_windowBridge.Unbind( &window );
+    s_nativeWindow.Unbind( window );
 }
 
 
@@ -412,34 +406,19 @@ void Input::ClearCallbackEventBuffer( HWND window )
 }
 
 
-void Input::AccumulateRawMouseDelta( HWND window, HRAWINPUT rawInput )
+void Input::AccumulateRawMouseSample( HWND window, long x, long y, bool absolute, bool virtualDesktop )
 {
-    if ( !IsCallbackBridgeBoundForWindow( window ) || !rawInput || !IsAppFocused() )
+    if ( !IsCallbackBridgeBoundForWindow( window ) || !IsAppFocused() )
     {
         return;
     }
 
-    RAWINPUT data = {};
-    UINT dataSize = sizeof( data );
-    const UINT bytesRead = GetRawInputData( rawInput, RID_INPUT, &data, &dataSize, sizeof( RAWINPUTHEADER ) );
-
-    if ( bytesRead == static_cast<UINT>( -1 ) || data.header.dwType != RIM_TYPEMOUSE )
+    if ( absolute )
     {
-        return;
-    }
-
-    const RAWMOUSE& mouse = data.data.mouse;
-
-    if ( ( mouse.usFlags & MOUSE_MOVE_ABSOLUTE ) != 0 )
-    {
-        const int width = ( mouse.usFlags & MOUSE_VIRTUAL_DESKTOP ) != 0 ? GetSystemMetrics( SM_CXVIRTUALSCREEN )
-                                                                         : GetSystemMetrics( SM_CXSCREEN );
-
-        const int height = ( mouse.usFlags & MOUSE_VIRTUAL_DESKTOP ) != 0 ? GetSystemMetrics( SM_CYVIRTUALSCREEN )
-                                                                          : GetSystemMetrics( SM_CYSCREEN );
-
-        const long currentX = RawAbsoluteToPixels( mouse.lLastX, width );
-        const long currentY = RawAbsoluteToPixels( mouse.lLastY, height );
+        const int width = GetSystemMetrics( virtualDesktop ? SM_CXVIRTUALSCREEN : SM_CXSCREEN );
+        const int height = GetSystemMetrics( virtualDesktop ? SM_CYVIRTUALSCREEN : SM_CYSCREEN );
+        const long currentX = RawAbsoluteToPixels( x, width );
+        const long currentY = RawAbsoluteToPixels( y, height );
 
         if ( g_rawMouseHasAbsolutePosition )
         {
@@ -453,8 +432,8 @@ void Input::AccumulateRawMouseDelta( HWND window, HRAWINPUT rawInput )
     }
     else
     {
-        g_rawMouseDeltaX += mouse.lLastX;
-        g_rawMouseDeltaY += mouse.lLastY;
+        g_rawMouseDeltaX += x;
+        g_rawMouseDeltaY += y;
         g_rawMouseHasAbsolutePosition = false;
     }
 }
@@ -542,7 +521,7 @@ Input::MouseCoordinatesResult Input::GetClientMouseCoordinates( SkullbonezCore::
         return mousePos;
     }
 
-    Window* window = s_windowBridge.BoundWindow();
+    const HWND window = s_nativeWindow.BoundHandle();
     assert( window && "Input client mouse coordinates require a bound window" );
 
     if ( !window )
@@ -552,7 +531,7 @@ Input::MouseCoordinatesResult Input::GetClientMouseCoordinates( SkullbonezCore::
 
     POINT clientCoordinates = mousePos.coordinates;
 
-    if ( !ScreenToClient( window->NativeWindowHandle(), &clientCoordinates ) )
+    if ( !ScreenToClient( window, &clientCoordinates ) )
     {
         result.result = diagnostics.Failure( "Runtime/Input",
                                              "ScreenToClient failed in Input::GetClientMouseCoordinates lastError=%lu",

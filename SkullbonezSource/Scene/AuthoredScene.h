@@ -376,7 +376,7 @@ struct SceneOptions
     int modelCapacity = -1;                                                                            // active game-model capacity (-1 = use startup/config capacity)
     int workerThreads = -2;                                                                            // -2 = use startup/config worker count, -1 = auto, 0 = disabled, >0 = explicit workers
     float timeScale = 1.0f;                                                                            // Physics time multiplier (1.0 = realtime)
-    bool isFixedStep = false;                                                                          // If true, each render frame triggers exactly one physics tick at PHYSICS_FIXED_DT
+    bool isFixedStep = false;                                                                          // Authored render-frame-lockstep request; Runtime admits it only for finite unattended capture.
     bool pauseSnapshotState = true;                                                                    // Start authored body-state scenes paused for inspection
     uint32_t physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE;                                          // Physics debug overlay mask.
     bool physicsDebugTransparent = false;                                                              // Translucent collision volumes while physics debug is visible.

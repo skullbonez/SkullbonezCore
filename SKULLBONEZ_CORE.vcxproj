@@ -308,10 +308,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
       <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorLayoutPolicy.cpp">
         <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
       </ClCompile>
-      <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12ImGuiRendererOwner.cpp">
-        <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
-      </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Camera\AttachedCameraController.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\AttachedCameraController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Camera\AttachedCameraController.InspectionPolicy.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Capture\CaptureController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Capture\CaptureSystem.cpp" />
@@ -322,14 +319,13 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabBundleWriter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabGenerator.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Editor\LauncherLaser.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Editor\LauncherTools.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Tools\LauncherLaser.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Tools\LauncherTools.cpp" />
     <ClCompile Include="SkullbonezSource\Core\AmortizedTask.cpp" />
     <ClCompile Include="SkullbonezSource\Core\FatalError.cpp" />
     <ClCompile Include="SkullbonezSource\Core\SbResult.cpp" />
     <ClCompile Include="SkullbonezSource\Core\AtomicTextFileWriter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneWorld.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\RenderInstanceRenderer.cpp" />
     <ClCompile Include="SkullbonezSource\Scene\SceneSnapshotWriter.cpp" />
     <ClCompile Include="SkullbonezSource\Scene\StandaloneStyleWriter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneAuthoredSetup.cpp" />
@@ -343,7 +339,6 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.Creation.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneGeneratedSetup.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.Navigation.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRequestExecution.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RenderDefaultsStore.Persistence.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneGeneratedControlTransaction.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneLoadTransaction.Preparation.cpp" />
@@ -367,7 +362,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionReserve.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionSolverEvidenceStore.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPresentation.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayCauseFocusSubmission.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\App\ReplayCauseFocusSubmission.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayTimeline.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\ReplayRuntime.cpp" />
@@ -386,35 +381,57 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayV2Artifact.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayAuthoringCauseTree.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\App\ReplayAuthoringCauseTree.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\App\ReplayPredictionComposition.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayAuthoringCauseTreeInput.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\ReplayScrubberTools.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\RuntimeDiagnostics.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsPhysicsUI.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.cpp" />
+    <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsKeyboardShortcuts.h" />
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\SceneMemoryDiagnostics.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Tools\RuntimeFileWriter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\RuntimeInteractionController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\RuntimePickGeometry.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\RuntimePickService.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Interaction\OperatorCommandTransaction.Commands.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\App\OperatorCommandApplication.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\OperatorCommandTransaction.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Interaction\OperatorEditorExchange.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Render\UIProfilerOverlayPresenter.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UI.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIEditorMiniPalette.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIEditorMiniPaletteDraw.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIFrameComposition.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UITabCinematic.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UITabControls.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UITabEditor.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UITabMemory.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UITabOptions.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UITabPhysics.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UITabProfiler.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UITabProfilerHistogram.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UITabScene.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UITabSky.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIWindowInteractionOwner.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\UI\RenderDiagnosticsProjection.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\UI\RuntimeViewModel.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\UI\OperatorEditorFrameComposer.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\App\OperatorEditorFramePhase.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\App\OperatorUiProjection.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\ApplicationExitState.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\PrimitiveBatchRenderer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\Init.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupCommandLine.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupCrashLogging.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupLaunchResolution.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupProbeHarnesses.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\App\StartupLaunchApplication.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\App\StartupProbeApplication.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Startup\RunStartupState.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Input\Input.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Input\InputController.Bindings.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Input\InputController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Input\InputRouter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\InputFrame.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\InputFrameExecution.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\App\RunUiStress.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\App\SceneLoadApplication.cpp" />
+    <ClInclude Include="SkullbonezSource\Runtime\App\SceneCaptureApplication.h" />
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorTools.cpp" />
     <ClCompile Include="SkullbonezSource\Core\LockOrderValidator.cpp" />
@@ -427,41 +444,41 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorPlacementAssets.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorTerrainOrientation.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorGizmoTools.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Editor\MousePickupTools.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Tools\MousePickupTools.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorOverlayTools.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorTracer.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Tools\EditorTracer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorObjectPlacement.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\RunFrame.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Direction\DemoDirectorPlayback.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Automation\InteractionAutomationController.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\App\InteractionAutomationApplication.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'!='Automation|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Automation\InteractionAutomationInputDriver.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'!='Automation|x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Automation\InteractionAutomationReportWriter.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\App\InteractionAutomationReportApplication.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'!='Automation|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Automation\InteractionAutomationRecorder.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Automation\InteractionRecordingBrowser.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\InputRouter.Interactions.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Direction\LiveStyleController.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Render\RenderModelFramePublisher.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\App\RenderModelFramePublisher.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RenderResourceLifecycle.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderPasses.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPrediction.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionPublication.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionPresentation.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\App\ReplayPredictionPresentation.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionScheduling.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionTopologyPublication.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionDrawing.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\App\ReplayPredictionDrawing.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayAuthoringVelocity.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Tools\RuntimeTools.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\RunRender.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Camera\CameraControlState.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\App\CameraFrameApplication.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.Load.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Capture\RuntimeStressController.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\App\GraphicsStressApplication.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Simulation\SimulationSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\RuntimeOverlayDiagnostics.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Automation\RuntimeValidationHarness.cpp" />
@@ -469,11 +486,9 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Render\UiTextPass.cpp" />
     <ClCompile Include="SkullbonezSource\World\SkyBox.cpp" />
     <ClCompile Include="SkullbonezSource\World\Terrain.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\Text.cpp" />
     <ClCompile Include="SkullbonezSource\Assets\TextureCollection.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Timer.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\DrawCallTrace.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\App\Window.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Startup\Window.cpp" />
     <ClCompile Include="SkullbonezSource\Core\WorkerPool.cpp" />
     <ClCompile Include="SkullbonezSource\World\WorldEnvironment.cpp" />
     <ClCompile Include="ThirdPtySource\stb\stb_image.cpp" />
@@ -485,36 +500,9 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Scene\AuthoredSceneParserRuntime.cpp" />
     <ClCompile Include="SkullbonezSource\Core\PlatformProfiler.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Profiler.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\RenderGpuTimingOwner.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\RenderInstanceStore.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\RenderGraph.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\RenderPipeline.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12RenderGraphExecutor.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12DeferredReleaseOwner.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12BackbufferCapture.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12GraphTransientPool.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12DescriptorHeaps.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12Diagnostics.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12ShaderDevelopment.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12FrameOwner.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.DXR.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.DynamicGeometry.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.Pipeline.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.Resources.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.Textures.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderDeviceDX12.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\DX12\ShaderBytecodeManifest.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\DX12\ShaderDX12.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\DX12\MeshDX12.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\DX12\FramebufferDX12.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\DX12\BLASDX12.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\DX12\TLASDX12.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\DX12\SBTDX12.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Debug\BroadphaseVisualizer.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Debug\CollisionVisualizer.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Debug\PhysicsDebugVisualizer.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Render\BroadphaseVisualizer.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Render\CollisionVisualizer.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Render\PhysicsDebugVisualizer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SkullbonezSource\Gameplay\TornadoField.h" />
@@ -531,15 +519,16 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
       <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorOwner.h" />
       <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorInputPolicy.h" />
       <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorLayoutPolicy.h" />
-      <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12ImGuiRendererOwner.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Camera\AttachedCameraController.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\AttachedCameraController.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Camera\AttachedCameraValues.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Camera\AttachedCameraController.InspectionPolicy.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Capture\CaptureController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Capture\CaptureSystem.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RenderDefaultsStore.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Camera\Camera.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Camera\CameraCollection.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Direction\DemoDirector.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Camera\DemoDirector.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Direction\DemoDirectorPersistence.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Direction\LookLabBundleWriter.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Direction\LookLabController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Direction\LookLabGenerator.h" />
@@ -548,8 +537,8 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorPlacementAssets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorTerrainOrientation.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorOverlayTools.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorHullAssets.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Editor\LauncherLaser.h" />
+    <ClInclude Include="SkullbonezSource\Assets\EditorHullAssets.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Tools\LauncherLaser.h" />
     <ClInclude Include="SkullbonezSource\Core\AmortizedTask.h" />
     <ClInclude Include="SkullbonezSource\Core\ByteView.h" />
     <ClInclude Include="SkullbonezSource\Core\Common.h" />
@@ -558,22 +547,21 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Core\PlatformWin32.h" />
     <ClInclude Include="SkullbonezSource\Core\FatalError.h" />
     <ClInclude Include="SkullbonezSource\Core\MainMemoryStats.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\DrawCallTrace.h" />
     <ClInclude Include="SkullbonezSource\Core\Fence.h" />
     <ClInclude Include="SkullbonezSource\Core\SceneCapacity.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\RenderInstanceRenderer.h" />
     <ClInclude Include="SkullbonezSource\Scene\SceneSnapshotWriter.h" />
     <ClInclude Include="SkullbonezSource\Scene\StandaloneStyleWriter.h" />
     <ClInclude Include="SkullbonezSource\Core\StringHash.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\PrimitiveBatchRenderer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Capture\GraphicsStressController.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Capture\RuntimeStressController.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\App\GraphicsStressApplication.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\RuntimeOverlayDiagnostics.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Automation\RuntimeValidationHarness.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeFrameViews.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\UI\OperatorUiPhase.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Simulation\SimulationSystem.h" />
     <ClInclude Include="SkullbonezSource\Runtime\App\ApplicationExitState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Input\Input.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Input\InputFrameValues.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Input\InputController.Bindings.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Input\InputController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Input\InputRouter.h" />
@@ -585,18 +573,19 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Core\SbDiagnosticStore.h" />
     <ClInclude Include="SkullbonezSource\Core\SbResult.h" />
     <ClInclude Include="SkullbonezSource\Core\AtomicTextFileWriter.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\PrimitiveMeshBuilder.h" />
     <ClInclude Include="SkullbonezSource\Core\Config.h" />
     <ClInclude Include="SkullbonezSource\Runtime\App\Run.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\App\InteractionAutomationApplication.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Camera\CameraControlState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Direction\DemoDirectorPlayback.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\OverlayDebugState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionAutomationController.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Automation\ReplayAutomationPackets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionAutomationInputDriver.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionAutomationReportWriter.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionAutomationRecorder.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionRecordingBrowser.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\App\RunLaunchOptions.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Startup\RunLaunchOptions.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Startup\StartupCommandLine.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Startup\StartupCrashLogging.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Startup\StartupLaunchResolution.h" />
@@ -604,23 +593,45 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayProbeState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\App\ReplayValidation.Internal.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RenderPresentationSettings.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\App\RunStartupState.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\App\RunTimerState.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Startup\RunStartupState.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\RuntimeFrameMetricsOwner.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Camera\RuntimeCameraMode.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Interaction\RuntimeInteractionCommands.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\RuntimeDiagnostics.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\App\RunLaunchOptions.Renderer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsPhysicsUI.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\UIStressPolicy.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\App\SceneLoadApplication.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\SceneMemoryDiagnostics.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Interaction\OperatorCommandTransaction.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Interaction\OperatorEditorExchange.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Interaction\OperatorEditorObjectCatalog.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Interaction\OperatorUiCommands.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Render\UIProfilerOverlayPresenter.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Render\UIRenderAuthoringCatalog.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneNavigationModel.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UI.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UIFrameComposition.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UIRenderDiagnostics.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UITabCinematic.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UITabControls.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UITabEditor.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UITabMemory.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UITabOptions.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UITabPhysics.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UITabProfiler.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UITabScene.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UITabSky.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UIWindowInteractionOwner.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Interaction\PhysicsAdvanceState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Interaction\RuntimeInteractionController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\UI\RuntimeUiSurface.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Interaction\RuntimePickGeometry.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Interaction\RuntimePickService.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderHost.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderFrameValues.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Render\RenderModelFramePublisher.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\App\OperatorUiProjection.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\App\RenderModelFramePublisher.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderPasses.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\UiDrawSubmission.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RenderResourceLifecycle.h" />
@@ -648,6 +659,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneGeneratedControlTransaction.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneLoadPreparation.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneResetPreservation.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRenderPolicy.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneCinematicPolicy.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneLoadPresentation.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.h" />
@@ -666,7 +678,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRetainedMemory.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayEventCommand.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRestoreService.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\App\ReplayRestoreOperations.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayAuthoring.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayCoordination.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayAuthoringPackets.h" />
@@ -686,9 +698,12 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPathPackets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionPackets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionView.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionPresentation.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\App\ReplayPredictionPresentation.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\App\ReplayAuthoringCauseTree.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\App\ReplayPredictionComposition.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPresentation.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPresentationPackets.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRuntimePackets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Planning\ReplayOverlayPackets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayOverlaySurface.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPresentationSubmission.h" />
@@ -697,26 +712,26 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayToolPackets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayTimelinePackets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\App\ReplayRuntime.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\App\ReplayRuntimePackets.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Automation\ReplayAutomationView.h" />
     <ClInclude Include="SkullbonezSource\Runtime\App\ReplayReserveInventory.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRestoreTransactions.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionArchive.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionDrawing.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionRetainedGeometry.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\App\ReplayPredictionDrawing.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\App\ReplayPredictionRetainedGeometry.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayVisualPacketFingerprint.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayVisualPacket.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayTrajectoryPackets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Prediction\TrajectoryStore.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayV2Artifact.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Tools\EditorTracer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Tools\RuntimeTools.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Tools\RuntimeFileWriter.h" />
     <ClInclude Include="SkullbonezSource\World\SkyBox.h" />
     <ClInclude Include="SkullbonezSource\World\Terrain.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\Text.h" />
     <ClInclude Include="SkullbonezSource\Assets\TextureCollection.h" />
     <ClInclude Include="SkullbonezSource\Core\Timer.h" />
     <ClInclude Include="SkullbonezSource\Core\WindowConstants.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\App\Window.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Startup\Window.h" />
     <ClInclude Include="SkullbonezSource\Core\WorkerPool.h" />
     <ClInclude Include="SkullbonezSource\World\WorldEnvironment.h" />
     <ClInclude Include="SkullbonezSource\World\FluidSurfaceAdjustment.h" />
@@ -726,49 +741,11 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Scene\AuthoredSceneParserSchema.h" />
     <ClInclude Include="SkullbonezSource\Core\PlatformProfiler.h" />
     <ClInclude Include="SkullbonezSource\Core\Profiler.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\RenderResourceTypes.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\RenderCommandTypes.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\ContactManifoldPresentation.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\RenderDiagnosticsTypes.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\RenderGpuTimingOwner.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\RenderRaytracingTypes.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12ResourceBuilder.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\RenderInstanceStore.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\RenderGraph.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\WorldRenderExtension.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\RenderPipeline.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\RenderRasterBindingContract.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\RenderSceneSnapshot.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.CommandRecordingState.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.PipelineState.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12RenderGraphExecutor.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12BackbufferCapture.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12GraphTransientPool.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12DescriptorHeaps.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12Diagnostics.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12ShaderDevelopment.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12FrameOwner.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\RenderMaterial.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12TextureRegistry.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderGraphTransientDX12.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderDeviceDX12.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\ShaderContracts.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\ShaderReflectionContracts.h" />
     <ClInclude Include="SkullbonezData\generated\GeneratedShaderReflection.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\Shadow.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\DX12\ShaderBytecodeManifest.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\DX12\ShaderDX12.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\DX12\MeshDX12.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\DX12\FramebufferDX12.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\DX12\BLASDX12.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\DX12\TLASDX12.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\DX12\SBTDX12.h" />
     <ClInclude Include="ThirdPtySource\nlohmann\json.hpp" />
-    <ClInclude Include="SkullbonezSource\Runtime\Debug\BroadphaseVisualizer.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Debug\CollisionVisualizer.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Debug\PhysicsDebugVisualizer.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Render\BroadphaseVisualizer.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Render\CollisionVisualizer.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Render\PhysicsDebugVisualizer.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="SKULLBONEZ_UI.vcxproj">
@@ -779,6 +756,9 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     </ProjectReference>
     <ProjectReference Include="SKULLBONEZ_PHYSICS.vcxproj">
       <Project>{2CC512B8-5A21-49F4-AE75-9982116F5B62}</Project>
+    </ProjectReference>
+    <ProjectReference Include="SKULLBONEZ_RENDERING.vcxproj">
+      <Project>{7FBD5A77-1E84-4E6D-9A61-2C8F0A2B0D33}</Project>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
@@ -991,22 +971,6 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <None Include="SkullbonezData\styles\_concept_base.style.json" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <ItemGroup>
-    <ShaderBakeRasterSource Include="$(ProjectDir)SkullbonezData\shaders\*.hlsl"
-                            Exclude="$(ProjectDir)SkullbonezData\shaders\generate_mips.hlsl;$(ProjectDir)SkullbonezData\shaders\reflect.rt.hlsl" />
-    <ShaderBakeInput Include="$(ProjectDir)tools\bake_shaders.bat;$(ProjectDir)tools\bake_shaders.py;@(ShaderBakeRasterSource);$(ProjectDir)SkullbonezData\shaders\generate_mips.hlsl;$(WindowsSdkDir)bin\10.0.26100.0\x64\dxc.exe" />
-    <ShaderBakeOutput Include="@(ShaderBakeRasterSource-&gt;'%(RootDir)%(Directory)%(Filename).vs.dxil')" />
-    <ShaderBakeOutput Include="@(ShaderBakeRasterSource-&gt;'%(RootDir)%(Directory)%(Filename).ps.dxil')" />
-    <ShaderBakeOutput Include="$(ProjectDir)SkullbonezData\shaders\generate_mips.cs.dxil;$(ProjectDir)SkullbonezData\shaders\shader_manifest.json;$(ProjectDir)SkullbonezData\generated\GeneratedShaderReflection.h" />
-  </ItemGroup>
-  <Target Name="BakeShippingShaders"
-          BeforeTargets="PrepareForBuild"
-          Inputs="@(ShaderBakeInput)"
-          Outputs="@(ShaderBakeOutput)">
-    <Message Importance="High" Text="Shader inputs changed; baking shipping shaders and refreshing generated metadata..." />
-    <Exec Command="call &quot;$(ProjectDir)tools\bake_shaders.bat&quot;" />
-    <Touch Files="@(ShaderBakeOutput)" />
-  </Target>
   <ImportGroup Label="ExtensionTargets">
     <Import Project="packages\WinPixEventRuntime.1.0.240308001\build\WinPixEventRuntime.targets" Condition="Exists('packages\WinPixEventRuntime.1.0.240308001\build\WinPixEventRuntime.targets')" />
   </ImportGroup>

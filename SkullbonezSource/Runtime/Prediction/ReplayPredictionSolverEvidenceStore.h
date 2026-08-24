@@ -12,6 +12,9 @@ Summary:
   build boundary. A 20/120-second representative scene matrix selected
   128-frame, 256-contact, and 1,024-pipeline-row segments with a 320 MiB
   per-bank cap; the dense 120-second witness measured 317,157,376 bytes.
+  A generation that reaches the bank ceiling retains its exact sealed prefix;
+  Prediction reports that truncation and completes its authoritative trajectory
+  instead of restarting an unchanged source.
   A frame view hides segment layout while preserving a synchronous borrow of
   one sealed frame for cause-tree construction and Planning inspection. A
   validated archive candidate can exchange complete bank state without copying
@@ -36,6 +39,8 @@ Invariants:
   - Archive commit swaps complete banks and never publishes a partially decoded prefix.
   - Frame views are valid only while their bank remains the selected published
     source; callers copy any retained result before promotion or replacement.
+  - Capacity denial is distinct from invalid identity so callers may truncate
+    optional evidence without masking publication-contract defects.
 
 Related:
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionReserve.h
@@ -46,6 +51,7 @@ Related:
 #pragma once
 
 #include "ReplayPredictionPackets.h"
+#include "ReplayPredictionView.h"
 #include "../Replay/ReplayIdentity.h"
 #include "../../Physics/PhysicsDebugData.h"
 #include "../../Physics/PhysicsSolverSnapshot.h"
@@ -67,35 +73,18 @@ inline constexpr uint64_t REPLAY_PREDICTION_EVIDENCE_BANK_HARD_BYTES = 320ull * 
 using ReplayPredictionContactSpan = std::span<const Physics::PhysicsSolverPersistentContactSample>;
 using ReplayPredictionPipelineSpan = std::span<const Physics::PhysicsPipelineRecord>;
 
+enum class ReplayPredictionEvidenceAppendResult : uint8_t
+{
+    Appended,
+    CapacityDenied,
+    InvalidIdentity
+};
+
 struct ReplayPredictionEvidenceRange
 {
     uint32_t begin = 0;
     uint32_t count = 0;
 };
-
-struct ReplayPredictionEvidenceIdentity
-{
-    uint32_t generation = 0;
-    ReplayPredictionDetailMode mode = ReplayPredictionDetailMode::High;
-    uint64_t bankEpoch = 0;
-    ReplayFrameIndex frame = 0;
-    uint32_t topologyVersion = 0;
-    uint64_t publicationVersion = 0;
-};
-
-inline bool operator==( const ReplayPredictionEvidenceIdentity& left,
-                        const ReplayPredictionEvidenceIdentity& right ) noexcept
-{
-    return left.generation == right.generation && left.mode == right.mode && left.bankEpoch == right.bankEpoch &&
-           left.frame == right.frame && left.topologyVersion == right.topologyVersion &&
-           left.publicationVersion == right.publicationVersion;
-}
-
-inline bool operator!=( const ReplayPredictionEvidenceIdentity& left,
-                        const ReplayPredictionEvidenceIdentity& right ) noexcept
-{
-    return !( left == right );
-}
 
 struct ReplayPredictionSolverEvidenceFrame
 {
@@ -167,8 +156,9 @@ class ReplayPredictionSolverEvidenceStore
     void BeginBank( uint32_t generation, ReplayPredictionDetailMode mode, uint64_t bankEpoch ) noexcept;
     bool Reserve( std::size_t requiredFrameCount, std::size_t requiredContactCount, std::size_t requiredPipelineCount,
                   int frameNumber );
-    bool AppendFrame( const ReplayPredictionEvidenceIdentity& identity, ReplayPredictionContactSpan contacts,
-                      ReplayPredictionPipelineSpan pipeline, int frameNumber );
+    ReplayPredictionEvidenceAppendResult AppendFrame( const ReplayPredictionEvidenceIdentity& identity,
+                                                      ReplayPredictionContactSpan contacts,
+                                                      ReplayPredictionPipelineSpan pipeline, int frameNumber );
     void ResetPreservingCapacity() noexcept;
     void ReleaseCapacity() noexcept;
 
@@ -235,6 +225,10 @@ class ReplayPredictionSolverEvidenceBanks
                        int frameNumber );
     bool AppendBuildFrame( ReplayFrameIndex frame, uint32_t topologyVersion, uint64_t publicationVersion,
                            ReplayPredictionContactSpan contacts, ReplayPredictionPipelineSpan pipeline, int frameNumber );
+    ReplayPredictionEvidenceAppendResult AppendBuildFrameResult( ReplayFrameIndex frame, uint32_t topologyVersion,
+                                                                 uint64_t publicationVersion,
+                                                                 ReplayPredictionContactSpan contacts,
+                                                                 ReplayPredictionPipelineSpan pipeline, int frameNumber );
     bool PromoteBuild() noexcept;
     void CancelBuild() noexcept;
     void ReleaseCapacity() noexcept;

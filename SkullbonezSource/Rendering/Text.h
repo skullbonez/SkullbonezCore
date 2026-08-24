@@ -36,10 +36,6 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Assets
-{
-class AssetSystem;
-}
 namespace Rendering
 {
 class Dx12GeometryOwner;
@@ -118,7 +114,8 @@ class Text2d
     static SkullbonezCore::Core::SbResult
     BuildFont( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, TextBatch& batch,
                Rendering::Dx12ResourceBuilder& renderResources, Rendering::Dx12TextureOwner& renderTextures,
-               Rendering::Dx12GeometryOwner& renderGeometry, const Assets::AssetSystem& assets, int screenW, int screenH,
+               Rendering::Dx12GeometryOwner& renderGeometry, const char* textShaderBaseName, const char* solidShaderBaseName,
+               const char* solidBatchShaderBaseName, int screenW, int screenH,
                const char* fontName );                                                        // Loads or generates SDF atlas resources for the active backend.
     static bool GenerateSdfAtlasToFile( const char* fontName, const char* outputPath );       // Offline SDF atlas writer used by --gen-atlas tooling.
     static void DeleteFont( TextBatch& batch, Rendering::Dx12TextureOwner* renderTextures,

@@ -20,7 +20,7 @@ Invariants:
 Related:
   - SkullbonezSource/Core/Profiler.h
   - SkullbonezSource/Core/PlatformProfiler.h
-  - SkullbonezSource/UI/UIProfilerOverlayPresenter.cpp
+  - SkullbonezSource/Runtime/Render/UIProfilerOverlayPresenter.cpp
   - Agentic/Reference/engine-glossary.md
 */
 #include "Profiler.h"

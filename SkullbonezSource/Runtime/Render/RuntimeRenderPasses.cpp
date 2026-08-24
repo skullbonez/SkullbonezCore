@@ -37,13 +37,10 @@ Related:
 #include "RuntimeRenderFrameValues.h"
 #include "../../Assets/AssetKeys.h"
 #include "RuntimeRenderResources.h"
-#include "../Debug/CollisionVisualizer.h"
-#include "../Debug/PhysicsDebugVisualizer.h"
-#include "../Debug/BroadphaseVisualizer.h"
+#include "CollisionVisualizer.h"
+#include "PhysicsDebugVisualizer.h"
+#include "BroadphaseVisualizer.h"
 #include "../Replay/ReplayVisualPacket.h"
-#include "../Tools/RuntimeTools.h"
-#include "../Scene/SceneTerrain.h"
-#include "../Scene/SceneCinematicPolicy.h"
 #include "../../Assets/TextureCollection.h"
 #include "../../Core/PlatformProfiler.h"
 #include "../../Core/Profiler.h"
@@ -63,10 +60,10 @@ Related:
 #include "../../World/WorldEnvironment.h"
 
 #include <cstdio>
+#include <cmath>
 
 using namespace SkullbonezCore::Runtime;
 using SkullbonezCore::Rendering::PrimitiveBatchRenderer;
-using SkullbonezCore::Rendering::PrimitiveRenderContext;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
@@ -76,6 +73,7 @@ using SkullbonezCore::Math::Vector::Vector3;
 
 namespace
 {
+namespace Rendering = SkullbonezCore::Rendering;
 constexpr int RENDER_TEXTURE_SLOT_COUNT = SkullbonezCore::Rendering::TEXTURE_SLOT_COUNT;
 constexpr unsigned int RENDER_TEXTURE_SLOT_0 = 1u << 0;
 constexpr unsigned int RENDER_TEXTURE_SLOT_1 = 1u << 1;
@@ -99,6 +97,116 @@ constexpr SkullbonezCore::Rendering::PassRasterStateBucket WATER_RASTER = Skullb
 
 constexpr SkullbonezCore::Rendering::PassRasterStateBucket
     TERRAIN_RASTER = SkullbonezCore::Rendering::MakePassRasterStateBucket( 0, { true, true, false } );
+constexpr SkullbonezCore::Rendering::PassRasterStateBucket REPLAY_RIBBON_DEPTH_HINT_RASTER = SkullbonezCore::Rendering::
+    MakePassRasterStateBucket( 0,
+                               { false, false, true, SkullbonezCore::Rendering::BlendFactor::SrcAlpha,
+                                 SkullbonezCore::Rendering::BlendFactor::One, SkullbonezCore::Rendering::CullMode::None } );
+constexpr SkullbonezCore::Rendering::PassRasterStateBucket REPLAY_RIBBON_VISIBLE_RASTER = SkullbonezCore::Rendering::
+    MakePassRasterStateBucket( 1,
+                               { true, false, true, SkullbonezCore::Rendering::BlendFactor::SrcAlpha,
+                                 SkullbonezCore::Rendering::BlendFactor::One, SkullbonezCore::Rendering::CullMode::None } );
+constexpr SkullbonezCore::Rendering::PassRasterStateBucket
+    REPLAY_LINE_RASTER = SkullbonezCore::Rendering::MakePassRasterStateBucket( 2, { false, false, false } );
+constexpr SkullbonezCore::Rendering::PassRasterStateBucket LAUNCHER_RASTER_BUCKET = SkullbonezCore::Rendering::
+    MakePassRasterStateBucket( 0,
+                               { false, false, true, SkullbonezCore::Rendering::BlendFactor::SrcAlpha,
+                                 SkullbonezCore::Rendering::BlendFactor::One, SkullbonezCore::Rendering::CullMode::None } );
+constexpr int LAUNCHER_MAX_VERTICES = static_cast<int>( RenderToolOverlayView::LAUNCHER_SHOT_CAPACITY * 96 );
+constexpr float LAUNCHER_AFTERIMAGE_HALF_WIDTH = 0.62f;
+constexpr float LAUNCHER_OUTER_HALF_WIDTH = 0.40f;
+constexpr float LAUNCHER_CORE_HALF_WIDTH = 0.12f;
+constexpr float LAUNCHER_IMPACT_HALF_SIZE = 1.45f;
+constexpr float LAUNCHER_IMPACT_DISC_HALF_SIZE = 0.68f;
+constexpr float LAUNCHER_MIN_SEGMENT_LENGTH = 0.25f;
+
+Vector3 NormalizeOr( const Vector3& value, const Vector3& fallback )
+{
+    const float lenSq = VectorMagSquared( value );
+    return lenSq <= TOLERANCE * TOLERANCE ? fallback : value * ( 1.0f / sqrtf( lenSq ) );
+}
+
+void RenderReplayVisualPacket( const ReplayVisualPacket& packet, const Matrix4& viewProjection,
+                               Rendering::Dx12GeometryOwner& renderCommands )
+{
+    if ( !packet.HasGeometry() )
+    {
+        return;
+    }
+
+    const Rendering::RetainedGeometryStreamToken retainedStream = { packet.retainedPredictionStreamId,
+                                                                    packet.retainedPredictionRevision };
+
+    if ( !packet.retainedPredictionOrdinaryLines.empty() )
+    {
+        renderCommands.DrawRetainedLinesColored( packet.retainedPredictionOrdinaryLines, retainedStream, false,
+                                                 viewProjection, REPLAY_LINE_RASTER );
+    }
+
+    if ( !packet.retainedPredictionPriorityLines.empty() )
+    {
+        renderCommands.DrawRetainedLinesColored( packet.retainedPredictionPriorityLines, retainedStream, true,
+                                                 viewProjection, REPLAY_LINE_RASTER );
+    }
+
+    if ( !packet.combinedLines.empty() )
+    {
+        renderCommands.DrawLinesColored( packet.combinedLines, viewProjection, REPLAY_LINE_RASTER );
+    }
+
+    if ( !packet.retainedPredictionRibbonVertices.empty() )
+    {
+        renderCommands.DrawRetainedGeometryRibbon( packet.retainedPredictionRibbonVertices, retainedStream, false,
+                                                   viewProjection,
+                                                   Rendering::TransientTriangleStyle::InstancedRibbonDepthHint,
+                                                   REPLAY_RIBBON_DEPTH_HINT_RASTER );
+        renderCommands.DrawRetainedGeometryRibbon( packet.retainedPredictionRibbonVertices, retainedStream, false,
+                                                   viewProjection, Rendering::TransientTriangleStyle::InstancedRibbon,
+                                                   REPLAY_RIBBON_VISIBLE_RASTER );
+    }
+
+    if ( !packet.retainedPredictionPriorityRibbonVertices.empty() )
+    {
+        renderCommands.DrawRetainedGeometryRibbon( packet.retainedPredictionPriorityRibbonVertices, retainedStream, true,
+                                                   viewProjection,
+                                                   Rendering::TransientTriangleStyle::InstancedRibbonDepthHint,
+                                                   REPLAY_RIBBON_DEPTH_HINT_RASTER );
+        renderCommands.DrawRetainedGeometryRibbon( packet.retainedPredictionPriorityRibbonVertices, retainedStream, true,
+                                                   viewProjection, Rendering::TransientTriangleStyle::InstancedRibbon,
+                                                   REPLAY_RIBBON_VISIBLE_RASTER );
+    }
+
+    if ( !packet.retainedPredictionRibbonRanges.empty() )
+    {
+        renderCommands.DrawRetainedGeometryRanges( packet.retainedPredictionCompactRibbonRecords,
+                                                   packet.retainedPredictionRibbonRanges, retainedStream, viewProjection,
+                                                   Rendering::TransientTriangleStyle::InstancedRibbonDepthHint,
+                                                   REPLAY_RIBBON_DEPTH_HINT_RASTER );
+        renderCommands.DrawRetainedGeometryRanges( packet.retainedPredictionCompactRibbonRecords,
+                                                   packet.retainedPredictionRibbonRanges, retainedStream, viewProjection,
+                                                   Rendering::TransientTriangleStyle::InstancedRibbon,
+                                                   REPLAY_RIBBON_VISIBLE_RASTER );
+    }
+
+    if ( !packet.expandedRibbonVertices.empty() )
+    {
+        renderCommands.DrawTransientColoredTriangles( packet.expandedRibbonVertices, viewProjection,
+                                                      Rendering::TransientTriangleStyle::InstancedRibbonDepthHint,
+                                                      REPLAY_RIBBON_DEPTH_HINT_RASTER );
+        renderCommands.DrawTransientColoredTriangles( packet.expandedRibbonVertices, viewProjection,
+                                                      Rendering::TransientTriangleStyle::InstancedRibbon,
+                                                      REPLAY_RIBBON_VISIBLE_RASTER );
+    }
+
+    if ( !packet.priorityExpandedRibbonVertices.empty() )
+    {
+        renderCommands.DrawTransientColoredTriangles( packet.priorityExpandedRibbonVertices, viewProjection,
+                                                      Rendering::TransientTriangleStyle::InstancedRibbonDepthHint,
+                                                      REPLAY_RIBBON_DEPTH_HINT_RASTER );
+        renderCommands.DrawTransientColoredTriangles( packet.priorityExpandedRibbonVertices, viewProjection,
+                                                      Rendering::TransientTriangleStyle::InstancedRibbon,
+                                                      REPLAY_RIBBON_VISIBLE_RASTER );
+    }
+}
 constexpr SkullbonezCore::Rendering::PassRasterStateBucket DEBUG_LINE_RASTER = SkullbonezCore::Rendering::
     MakePassRasterStateBucket( 0,
                                { false, false, false, SkullbonezCore::Rendering::BlendFactor::One,
@@ -261,7 +369,7 @@ struct ScreenSunPosition
 ScreenSunPosition ProjectCinematicSunToScreen( const Vector3& eye, const Matrix4& viewProjection,
                                                const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
 {
-    const Vector3 sunPoint = eye + CinematicSkySunDirection( cinematic ) * 1000.0f;
+    const Vector3 sunPoint = eye + ResolveCinematicSunDirection( cinematic ) * 1000.0f;
     const float clipX = viewProjection.m[0] * sunPoint.x + viewProjection.m[4] * sunPoint.y +
                         viewProjection.m[8] * sunPoint.z + viewProjection.m[12];
 
@@ -367,7 +475,7 @@ void RenderResourceLifecycleLog::Write( const char* phase, const char* step ) co
         .WriteEventf( "render_resource_lifecycle phase=%s step=%s gfx_ready=%d backend_width=%d backend_height=%d "
                       "scene_index=%d load=%d",
                       phase ? phase : "unknown", step ? step : "unknown", backendReady ? 1 : 0, backendWidth, backendHeight,
-                      m_scene.currentSceneIndex, m_scene.loadCount );
+                      m_sceneIndex, m_sceneLoadCount );
 }
 
 
@@ -524,7 +632,8 @@ void ReflectionPass::ReleaseGpuResources()
 
 
 void ShadowPass::EnsureGpuResources( const RenderResourceContext& resources,
-                                     const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
+                                     const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+                                     Geometry::Terrain* /*terrain*/ )
 {
     if ( !cinematic.shadow.enabled )
     {
@@ -619,13 +728,13 @@ void ShadowPass::ReleaseGpuResources()
 
 SkullbonezCore::Rendering::ShadowFrameData
 ShadowPass::BuildTerrainFrameData( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                                   const Math::Vector::Vector3& lightDirectionWorld ) const
+                                   const Math::Vector::Vector3& lightDirectionWorld, Geometry::Terrain* terrain ) const
 {
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildTerrainFrame" );
 
     Rendering::ShadowFrameData shadowFrame;
 
-    if ( !m_terrain.Get() || !m_resources.terrainTarget )
+    if ( !terrain || !m_resources.terrainTarget )
     {
         return shadowFrame;
     }
@@ -636,10 +745,10 @@ ShadowPass::BuildTerrainFrameData( const SkullbonezCore::Core::CinematicRenderCo
     // shadow visibility blocks the direct light the BRDF is actually shading.
     Vector3 lightDir = NormalizeShadowLightDirection( lightDirectionWorld );
 
-    const XZBounds terrainBounds = m_terrain.Get()->GetXZBounds();
+    const XZBounds terrainBounds = terrain->GetXZBounds();
     const float extentX = (std::max)( terrainBounds.m_xMax - terrainBounds.m_xMin, 1.0f );
     const float extentZ = (std::max)( terrainBounds.m_zMax - terrainBounds.m_zMin, 1.0f );
-    const float terrainHeightRange = (std::max)( m_terrain.Get()->GetMaxHeight() - m_terrain.Get()->GetMinHeight(), 64.0f );
+    const float terrainHeightRange = (std::max)( terrain->GetMaxHeight() - terrain->GetMinHeight(), 64.0f );
 
     const float terrainRadius = (std::max)( extentX, extentZ ) * 0.5f;
     const float shadowRadius = std::clamp( terrainRadius + 180.0f, 128.0f,
@@ -650,7 +759,7 @@ ShadowPass::BuildTerrainFrameData( const SkullbonezCore::Core::CinematicRenderCo
     // and makes screenshots deterministic, at the cost of spreading resolution
     // across the authored terrain bounds instead of using cascades.
     const Vector3 focus( ( terrainBounds.m_xMin + terrainBounds.m_xMax ) * 0.5f,
-                         ( m_terrain.Get()->GetMinHeight() + m_terrain.Get()->GetMaxHeight() ) * 0.5f,
+                         ( terrain->GetMinHeight() + terrain->GetMaxHeight() ) * 0.5f,
                          ( terrainBounds.m_zMin + terrainBounds.m_zMax ) * 0.5f );
     const float lightBackDistance = shadowRadius + terrainHeightRange + 650.0f;
     const Vector3 lightEye = focus + lightDir * lightBackDistance;
@@ -689,8 +798,7 @@ ShadowPass::BuildTerrainFrameData( const SkullbonezCore::Core::CinematicRenderCo
 SkullbonezCore::Rendering::ShadowFrameData
 ShadowPass::BuildObjectFrameData( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                   const Math::Vector::Vector3& lightDirectionWorld, const Math::Vector::Vector3& focusHint,
-                                  const Rendering::RenderInstanceStore& renderInstances,
-                                  SkullbonezCore::Threading::WorkerPool* renderWorkerPool, bool shadowParallelPrep )
+                                  Rendering::RenderInstanceRenderer& instanceRenderer )
 {
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildObjectFrame" );
 
@@ -706,9 +814,8 @@ ShadowPass::BuildObjectFrameData( const SkullbonezCore::Core::CinematicRenderCon
     float heightRange = 0.0f;
     const float objectSearchDistance = std::clamp( cinematic.shadow.maxDistance * 0.15f, 180.0f, 320.0f );
 
-    if ( !Rendering::RenderInstanceRenderer::GetObjectShadowBounds( m_profiler, renderInstances, renderWorkerPool,
-                                                                    shadowParallelPrep, focusHint, objectSearchDistance,
-                                                                    focus, shadowRadius, heightRange ) )
+    if ( !instanceRenderer.GetObjectShadowBounds( m_profiler, focusHint, objectSearchDistance, focus, shadowRadius,
+                                                  heightRange ) )
     {
         return shadowFrame;
     }
@@ -744,17 +851,16 @@ ShadowPass::BuildObjectFrameData( const SkullbonezCore::Core::CinematicRenderCon
 }
 
 
-void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target, const PrimitiveRenderContext& primitiveContext,
+void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target, Rendering::RenderInstanceRenderer& instanceRenderer,
+                                  Rendering::Dx12Diagnostics& renderDiagnostics, const char* shadowShaderBaseName,
                                   const Rendering::ShadowFrameData& shadowFrame,
                                   const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                   Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12TextureOwner& renderTextures,
-                                  const Rendering::RenderInstanceStore& renderInstances,
-                                  const Physics::ColliderStore& colliders,
-                                  SkullbonezCore::Threading::WorkerPool* renderWorkerPool, bool renderTerrain,
-                                  bool shadowParallelPrep, const Rendering::ShadowCasterBatches* objectCasters )
+                                  bool renderTerrain, const Rendering::ShadowCasterBatches* objectCasters,
+                                  Geometry::Terrain* terrain )
 {
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap" );
-    DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap" );
+    DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap" );
 
     if ( !shadowFrame.valid )
     {
@@ -781,23 +887,23 @@ void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target, const Prim
     // scene cannot leak into this off-screen pass.
     ClearAllRenderTextureSlots( renderTextures );
 
-    if ( renderTerrain && cinematic.shadow.terrainCasts && !m_activeTerrainHidden && m_terrain.Get() )
+    if ( renderTerrain && cinematic.shadow.terrainCasts && !m_activeTerrainHidden && terrain )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters" );
-        DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters" );
+        DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters" );
 
         // Terrain must cast with the same optional render-only relief that the
         // visible terrain uses. Otherwise cinematic basin relief would receive
         // shadows from the flat CPU height map and the contact would visibly
         // detach. With normal rendering the relief amount is zero by default.
-        m_terrain.Get()->RenderShadowDepth( m_profiler, shadowFrame.lightView, shadowFrame.lightProjection,
-                                            SHADOW_DEPTH_RASTER, &cinematic );
+        terrain->RenderShadowDepth( m_profiler, shadowFrame.lightView, shadowFrame.lightProjection, SHADOW_DEPTH_RASTER,
+                                    &cinematic );
     }
 
     if ( cinematic.shadow.objectsCast && !m_activeCollisionVisualizerVisible )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
-        DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
+        DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
 
         // Balls, boxes, and pine-style box visuals all write depth here. The
         // prepared render store keeps separate instanced batches so each caster
@@ -809,16 +915,14 @@ void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target, const Prim
 
         if ( objectCasters )
         {
-            Rendering::RenderInstanceRenderer::SubmitShadowCasterBatches( m_profiler, primitiveContext, *objectCasters,
-                                                                          shadowFrame.lightView, shadowFrame.lightProjection,
-                                                                          &cinematic, visibilityView );
+            instanceRenderer.SubmitShadowCasterBatches( m_profiler, shadowShaderBaseName, *objectCasters,
+                                                        shadowFrame.lightView, shadowFrame.lightProjection, &cinematic,
+                                                        visibilityView );
         }
         else
         {
-            Rendering::RenderInstanceRenderer::RenderShadowCasters( m_profiler, primitiveContext, renderInstances, colliders,
-                                                                    renderWorkerPool, shadowParallelPrep,
-                                                                    shadowFrame.lightView, shadowFrame.lightProjection,
-                                                                    &cinematic, visibilityView );
+            instanceRenderer.RenderShadowCasters( m_profiler, shadowShaderBaseName, shadowFrame.lightView,
+                                                  shadowFrame.lightProjection, &cinematic, visibilityView );
         }
     }
 
@@ -860,40 +964,33 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
 
             if ( shouldBuildObjectCasters )
             {
-                Rendering::RenderInstanceRenderer::BuildShadowCasterBatches( m_profiler, inputs.models.renderInstances,
-                                                                             inputs.models.colliders,
-                                                                             inputs.models.renderWorkerPool,
-                                                                             inputs.models.shadowParallelPrep,
-                                                                             objectCasters );
+                inputs.instanceRenderer.BuildShadowCasterBatches( m_profiler, objectCasters );
             }
 
             m_activeTerrainHidden = inputs.terrainHidden;
             m_activeCollisionVisualizerVisible = inputs.collisionVisualizerVisible;
             m_activeWindowWidth = inputs.windowWidth;
             m_activeWindowHeight = inputs.windowHeight;
-            m_resources.terrainFrame = BuildTerrainFrameData( *inputs.cinematic, lightDirection );
+            m_resources.terrainFrame = BuildTerrainFrameData( *inputs.cinematic, lightDirection, inputs.terrain );
 
             if ( m_resources.terrainTarget )
             {
-                RenderShadowMap( *m_resources.terrainTarget, inputs.primitive, m_resources.terrainFrame, *inputs.cinematic,
-                                 inputs.renderFrame, inputs.renderTextures, inputs.models.renderInstances,
-                                 inputs.models.colliders, inputs.models.renderWorkerPool, true,
-                                 inputs.models.shadowParallelPrep, &objectCasters );
+                RenderShadowMap( *m_resources.terrainTarget, inputs.instanceRenderer, inputs.renderDiagnostics,
+                                 inputs.shadowShaderBaseName, m_resources.terrainFrame, *inputs.cinematic,
+                                 inputs.renderFrame, inputs.renderTextures, true, &objectCasters, inputs.terrain );
             }
 
             // Anchor the tight object-shadow map to the render look target, not
             // the eye. Locked/inspect zoom moves the eye around a stable target;
             // using the eye makes nearby-object bounds pop as the user zooms.
             m_resources.objectFrame = BuildObjectFrameData( *inputs.cinematic, lightDirection, inputs.camera.viewCenter,
-                                                            inputs.models.renderInstances, inputs.models.renderWorkerPool,
-                                                            inputs.models.shadowParallelPrep );
+                                                            inputs.instanceRenderer );
 
             if ( m_resources.objectTarget )
             {
-                RenderShadowMap( *m_resources.objectTarget, inputs.primitive, m_resources.objectFrame, *inputs.cinematic,
-                                 inputs.renderFrame, inputs.renderTextures, inputs.models.renderInstances,
-                                 inputs.models.colliders, inputs.models.renderWorkerPool, false,
-                                 inputs.models.shadowParallelPrep, &objectCasters );
+                RenderShadowMap( *m_resources.objectTarget, inputs.instanceRenderer, inputs.renderDiagnostics,
+                                 inputs.shadowShaderBaseName, m_resources.objectFrame, *inputs.cinematic, inputs.renderFrame,
+                                 inputs.renderTextures, false, &objectCasters, inputs.terrain );
             }
         }
         PROFILE_GPU_END( inputs.gpuTiming, "Frame/Shadows/ShadowMap" );
@@ -1084,7 +1181,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs 
         PROFILE_GPU_BEGIN( inputs.gpuTiming, "Frame/Render/Reflection/Skybox" );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "Frame/Render/Reflection/Skybox" );
-            m_skyPass.Render( inputs.camera, inputs.reflectionView, inputs.cinematic, inputs.primitive.renderGeometry,
+            m_skyPass.Render( inputs.camera, inputs.reflectionView, inputs.cinematic, inputs.renderGeometry,
                               inputs.renderTextures, SkyPassMode::CinematicIfEnabled );
         }
         PROFILE_GPU_END( inputs.gpuTiming, "Frame/Render/Reflection/Skybox" );
@@ -1094,7 +1191,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs 
         // below-surface visual from the main scene.
         PROFILE_GPU_BEGIN( inputs.gpuTiming, "Frame/Render/Reflection/Balls" );
         DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "Frame/Render/Reflection/Balls" );
-        inputs.primitive.renderer.SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.waterY );
+        inputs.primitiveRenderer.SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.waterY );
         m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.waterY );
 
         if ( inputs.collisionStateColorsVisible )
@@ -1107,9 +1204,9 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs 
             {
                 const CollisionVisualizerFrameView frameView = BuildCollisionVisualizerFrameView( inputs.models );
                 m_collisionVisualizer.SetAlphaOverride( inputs.collisionVisualizerAlphaOverride );
-                m_collisionVisualizer.Render( inputs.assets, inputs.primitive.renderResources,
-                                              inputs.primitive.renderGeometry, inputs.renderDiagnostics, frameView,
-                                              inputs.reflectionView, inputs.camera.projection, inputs.camera.lightPosition );
+                m_collisionVisualizer.Render( inputs.assets, inputs.renderResources, inputs.renderGeometry,
+                                              inputs.renderDiagnostics, frameView, inputs.reflectionView,
+                                              inputs.camera.projection, inputs.camera.lightPosition );
 
                 m_collisionVisualizer.SetAlphaOverride( -1.0f );
             }
@@ -1125,16 +1222,13 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs 
 
             if ( SelectRenderTexture( inputs.textures, TEXTURE_BOUNDING_SPHERE, "Frame/Render/Reflection/Balls" ) )
             {
-                Rendering::RenderInstanceRenderer::RenderReflectionModels( inputs.primitive, inputs.models.renderInstances,
-                                                                           inputs.models.colliders,
-                                                                           inputs.models.renderCollisionVolumes,
-                                                                           inputs.reflectionView, inputs.camera.projection,
-                                                                           inputs.camera.lightPosition, inputs.cinematic,
-                                                                           inputs.objectShadow, inputs.bodyAlpha );
+                inputs.instanceRenderer.RenderReflectionModels( inputs.primitiveShaderBaseName, inputs.reflectionView,
+                                                                inputs.camera.projection, inputs.camera.lightPosition,
+                                                                inputs.cinematic, inputs.objectShadow, inputs.bodyAlpha );
             }
         }
 
-        inputs.primitive.renderer.SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
+        inputs.primitiveRenderer.SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
         m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
         PROFILE_GPU_END( inputs.gpuTiming, "Frame/Render/Reflection/Balls" );
 
@@ -1170,7 +1264,7 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
         {
             const CollisionVisualizerFrameView frameView = BuildCollisionVisualizerFrameView( inputs.models );
             m_collisionVisualizer.SetAlphaOverride( inputs.collisionVisualizerAlphaOverride );
-            m_collisionVisualizer.Render( inputs.assets, inputs.primitive.renderResources, inputs.primitive.renderGeometry,
+            m_collisionVisualizer.Render( inputs.assets, inputs.renderResources, inputs.renderGeometry,
                                           inputs.renderDiagnostics, frameView, inputs.camera.baseView,
                                           inputs.camera.projection, inputs.camera.lightPosition );
 
@@ -1187,11 +1281,10 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
 
         if ( SelectRenderTexture( inputs.textures, TEXTURE_BOUNDING_SPHERE, passName ) )
         {
-            Rendering::RenderInstanceRenderer::RenderModels( inputs.primitive, inputs.models.renderInstances,
-                                                             inputs.models.colliders, inputs.models.renderCollisionVolumes,
-                                                             inputs.camera.baseView, inputs.camera.projection,
-                                                             inputs.camera.lightPosition, inputs.cinematic, inputs.shadow,
-                                                             inputs.bodyAlpha, inputs.modelMask, inputs.drawMaskedModels );
+            inputs.instanceRenderer.RenderModels( inputs.primitiveShaderBaseName, inputs.camera.baseView,
+                                                  inputs.camera.projection, inputs.camera.lightPosition, inputs.cinematic,
+                                                  inputs.shadow, inputs.bodyAlpha, inputs.modelMask,
+                                                  inputs.drawMaskedModels );
         }
     }
 }
@@ -1206,7 +1299,7 @@ void ObjectPass::EnsureGpuResources( const RenderResourceContext& /*resources*/ 
 
 void TerrainPass::Render( const TerrainPassInputs& inputs )
 {
-    if ( inputs.terrainHidden || !m_terrain.Get() )
+    if ( inputs.terrainHidden || !inputs.terrain )
     {
         return;
     }
@@ -1225,31 +1318,31 @@ void TerrainPass::Render( const TerrainPassInputs& inputs )
 
     if ( SelectRenderTexture( inputs.textures, TEXTURE_GROUND, "Frame/Render/Terrain" ) )
     {
-        m_terrain.Get()->Render( inputs.camera.baseView, inputs.camera.projection, renderTextures,
-                                 inputs.camera.lightPosition, inputs.clipPlane, TERRAIN_RASTER, inputs.cinematic,
-                                 inputs.shadow, inputs.detailShadow );
+        inputs.terrain->Render( inputs.camera.baseView, inputs.camera.projection, renderTextures,
+                                inputs.camera.lightPosition, inputs.clipPlane, TERRAIN_RASTER, inputs.cinematic,
+                                inputs.shadow, inputs.detailShadow );
     }
 
     PROFILE_GPU_END( inputs.gpuTiming, "Frame/Render/Terrain" );
 }
 
 
-void TerrainPass::EnsureGpuResources( const RenderResourceContext& resources )
+void TerrainPass::EnsureGpuResources( const RenderResourceContext& resources, Geometry::Terrain* terrain )
 {
     // Terrain mesh/material resources live on Terrain; this pass owns ordering
     // and the receiver texture-slot contract.
-    if ( m_terrain.Get() )
+    if ( terrain )
     {
-        m_terrain.Get()->EnsureRenderResources( m_config, resources.assets, RenderResources( resources ) );
+        terrain->EnsureRenderResources( m_config, resources.assets, RenderResources( resources ) );
     }
 }
 
 
-void TerrainPass::ReleaseGpuResources()
+void TerrainPass::ReleaseGpuResources( Geometry::Terrain* terrain )
 {
-    if ( m_terrain.Get() )
+    if ( terrain )
     {
-        m_terrain.Get()->ReleaseRenderResources();
+        terrain->ReleaseRenderResources();
     }
 }
 
@@ -1370,12 +1463,10 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
         }
     }
 
-    EditorTracer& tracer = inputs.runtimeTools.Tracer();
-
     // Invariant: production submission and validation observe this same
     // replay-owned packet; neither may rebuild geometry from tracer internals.
     PROFILE_GPU_BEGIN( inputs.gpuTiming, "Frame/Render/DebugOverlay/ReplayVisuals" );
-    tracer.Render( inputs.replayVisualPacket, inputs.camera.viewProjection, inputs.renderGeometry );
+    RenderReplayVisualPacket( inputs.replayVisualPacket, inputs.camera.viewProjection, inputs.renderGeometry );
     PROFILE_GPU_END( inputs.gpuTiming, "Frame/Render/DebugOverlay/ReplayVisuals" );
 
     if ( inputs.retainedOverlay.HasGeometry() )
@@ -1406,8 +1497,7 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
         PROFILE_GPU_END( inputs.gpuTiming, "Frame/Render/DebugOverlay/RetainedOverlay" );
     }
 
-    inputs.runtimeTools.Laser().Render( inputs.camera.viewProjection, inputs.camera.eye, inputs.camera.up, inputs.assets,
-                                        inputs.renderResources, inputs.renderGeometry, inputs.renderGeometry );
+    RenderLauncherShots( inputs );
 
     if ( inputs.contactPresentation.HasGeometry() )
     {
@@ -1436,7 +1526,7 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
             // while renderer readiness/capability stays with this frame pass.
             const bool supportsDebugLines = inputs.renderDiagnostics.GetCapabilities().supportsDebugLines;
             m_physicsDebugVisualizer.Render( frameView, inputs.camera.viewProjection, inputs.renderGeometry,
-                                             supportsDebugLines, m_terrain.Get() );
+                                             supportsDebugLines, inputs.terrain );
         }
 
         if ( detailMarkers )
@@ -1490,6 +1580,17 @@ bool DebugOverlayPass::HasOverlayWork( const DebugOverlayPassInputs& inputs ) co
         return true;
     }
 
+    if ( !snapshot.launcherShots.empty() )
+    {
+        for ( const RenderToolOverlayView::LauncherShot& shot : snapshot.launcherShots )
+        {
+            if ( shot.active )
+            {
+                return true;
+            }
+        }
+    }
+
     return snapshot.editorOverlayWorkVisible;
 }
 
@@ -1498,6 +1599,154 @@ void DebugOverlayPass::EnsureGpuResources( const RenderResourceContext& /*resour
 {
     // Debug visualizers own their transient geometry; this pass owns late-frame
     // ordering so diagnostics draw over production geometry.
+}
+
+DebugOverlayPass::~DebugOverlayPass() = default;
+
+void DebugOverlayPass::ReleaseGpuResources( Rendering::Dx12GeometryOwner* renderGeometry )
+{
+    if ( renderGeometry && m_launcherDynamicVB != 0 )
+    {
+        renderGeometry->DestroyDynamicVB( m_launcherDynamicVB );
+    }
+
+    m_launcherDynamicVB = 0;
+    m_launcherShader.reset();
+    m_launcherRasterStatePrepared = false;
+    m_launcherVertices.clear();
+}
+
+void DebugOverlayPass::EmitLauncherVertex( const Vector3& point, float r, float g, float b, float a )
+{
+    m_launcherVertices.insert( m_launcherVertices.end(), { point.x, point.y, point.z, r, g, b, a } );
+}
+
+void DebugOverlayPass::EmitLauncherQuad( const Vector3& a, const Vector3& b, const Vector3& c, const Vector3& d, float r,
+                                         float g, float blue, float alpha )
+{
+    EmitLauncherVertex( a, r, g, blue, alpha );
+    EmitLauncherVertex( b, r, g, blue, alpha );
+    EmitLauncherVertex( c, r, g, blue, alpha );
+    EmitLauncherVertex( a, r, g, blue, alpha );
+    EmitLauncherVertex( c, r, g, blue, alpha );
+    EmitLauncherVertex( d, r, g, blue, alpha );
+}
+
+void DebugOverlayPass::EmitLauncherRibbon( const Vector3& a, const Vector3& b, const Vector3& widthAxis, float halfWidth,
+                                           float r, float g, float blue, float alpha )
+{
+    const Vector3 width = widthAxis * halfWidth;
+    EmitLauncherQuad( a - width, b - width, b + width, a + width, r, g, blue, alpha );
+}
+
+void DebugOverlayPass::EmitLauncherShot( const RenderToolOverlayView::LauncherShot& shot )
+{
+    if ( !shot.active || shot.lifetimeSeconds <= TOLERANCE )
+    {
+        return;
+    }
+
+    const Vector3 segment = shot.end - shot.start;
+    const float segmentLengthSquared = VectorMagSquared( segment );
+
+    if ( segmentLengthSquared <= LAUNCHER_MIN_SEGMENT_LENGTH * LAUNCHER_MIN_SEGMENT_LENGTH )
+    {
+        return;
+    }
+
+    const float normalizedAge = std::clamp( shot.ageSeconds / shot.lifetimeSeconds, 0.0f, 1.0f );
+    const float afterimageFade = std::sqrt( 1.0f - normalizedAge );
+    const float coreFade = ( 1.0f - normalizedAge ) * ( 1.0f - normalizedAge );
+
+    if ( afterimageFade <= 0.0f )
+    {
+        return;
+    }
+
+    const Vector3 direction = segment * ( 1.0f / sqrtf( segmentLengthSquared ) );
+    Vector3 screenRight = NormalizeOr( shot.cameraRight, CrossProduct( direction, Vector3( 0.0f, 1.0f, 0.0f ) ) );
+
+    if ( VectorMagSquared( screenRight ) <= TOLERANCE * TOLERANCE )
+    {
+        screenRight = CrossProduct( direction, Vector3( 0.0f, 1.0f, 0.0f ) );
+    }
+
+    screenRight = NormalizeOr( screenRight, Vector3( 1.0f, 0.0f, 0.0f ) );
+    const Vector3 screenUp = NormalizeOr( shot.cameraUp, NormalizeOr( CrossProduct( screenRight, direction ),
+                                                                      Vector3( 0.0f, 1.0f, 0.0f ) ) );
+
+    EmitLauncherRibbon( shot.start, shot.end, screenRight, LAUNCHER_AFTERIMAGE_HALF_WIDTH, 0.02f, 0.45f, 1.0f,
+                        0.12f * afterimageFade );
+    EmitLauncherRibbon( shot.start, shot.end, screenUp, LAUNCHER_AFTERIMAGE_HALF_WIDTH * 0.55f, 0.06f, 0.82f, 1.0f,
+                        0.08f * afterimageFade );
+    EmitLauncherRibbon( shot.start, shot.end, screenRight, LAUNCHER_OUTER_HALF_WIDTH, 0.05f, 0.96f, 1.0f,
+                        0.30f * afterimageFade );
+    EmitLauncherRibbon( shot.start, shot.end, screenUp, LAUNCHER_OUTER_HALF_WIDTH * 0.42f, 0.22f, 0.98f, 1.0f,
+                        0.22f * afterimageFade );
+    EmitLauncherRibbon( shot.start, shot.end, screenRight, LAUNCHER_CORE_HALF_WIDTH, 1.0f, 0.95f, 0.28f, 0.98f * coreFade );
+    EmitLauncherRibbon( shot.start, shot.end, screenUp, LAUNCHER_CORE_HALF_WIDTH * 0.72f, 1.0f, 0.58f, 0.16f,
+                        0.82f * coreFade );
+
+    if ( shot.hit )
+    {
+        const Vector3 x = screenRight * LAUNCHER_IMPACT_DISC_HALF_SIZE;
+        const Vector3 y = screenUp * LAUNCHER_IMPACT_DISC_HALF_SIZE;
+        EmitLauncherQuad( shot.end - x - y, shot.end + x - y, shot.end + x + y, shot.end - x + y, 1.0f, 0.72f, 0.18f,
+                          0.58f * afterimageFade );
+        EmitLauncherRibbon( shot.end - screenRight * LAUNCHER_IMPACT_HALF_SIZE,
+                            shot.end + screenRight * LAUNCHER_IMPACT_HALF_SIZE, screenUp, LAUNCHER_CORE_HALF_WIDTH * 1.5f,
+                            1.0f, 0.46f, 0.12f, 0.90f * coreFade );
+        EmitLauncherRibbon( shot.end - screenUp * LAUNCHER_IMPACT_HALF_SIZE, shot.end + screenUp * LAUNCHER_IMPACT_HALF_SIZE,
+                            screenRight, LAUNCHER_CORE_HALF_WIDTH * 1.5f, 1.0f, 0.84f, 0.22f, 0.82f * coreFade );
+    }
+}
+
+void DebugOverlayPass::RenderLauncherShots( const DebugOverlayPassInputs& inputs )
+{
+    m_launcherVertices.clear();
+
+    for ( const RenderToolOverlayView::LauncherShot& shot : inputs.snapshot.launcherShots )
+    {
+        EmitLauncherShot( shot );
+    }
+
+    if ( m_launcherVertices.empty() )
+    {
+        return;
+    }
+
+    if ( !m_launcherShader )
+    {
+        m_launcherShader = inputs.assets.CreateShader( inputs.renderResources, "shader.launcher_laser" );
+    }
+
+    if ( m_launcherDynamicVB == 0 )
+    {
+        const int attributes[] = { 3, 4 };
+        m_launcherDynamicVB = inputs.renderGeometry.CreateDynamicVB( attributes, 2, LAUNCHER_MAX_VERTICES );
+        m_launcherVertices.reserve( static_cast<std::size_t>( LAUNCHER_MAX_VERTICES ) * 7u );
+    }
+
+    if ( !m_launcherShader || m_launcherDynamicVB == 0 )
+    {
+        return;
+    }
+
+    m_launcherShader->Use();
+
+    if ( !m_launcherRasterStatePrepared )
+    {
+        m_launcherRasterStatePrepared = inputs.renderGeometry.PrecompileDynamicVBRasterState( m_launcherDynamicVB,
+                                                                                              LAUNCHER_RASTER_BUCKET );
+    }
+
+    if ( !m_launcherRasterStatePrepared )
+    {
+        return;
+    }
+
+    m_launcherShader->SetMat4( "uViewProj", inputs.camera.viewProjection );
+    inputs.renderGeometry.UploadAndDrawDynamicVB( m_launcherDynamicVB, m_launcherVertices, LAUNCHER_RASTER_BUCKET );
 }
 
 

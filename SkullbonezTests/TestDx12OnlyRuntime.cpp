@@ -22,7 +22,7 @@ Invariants:
   - Equal retained stream/revision tokens never schedule an upload.
 
 Related:
-  - SkullbonezSource/Runtime/App/RunLaunchOptions.Renderer.h owns the table.
+  - SkullbonezSource/Runtime/Startup/RunLaunchOptions.h owns the table.
   - SkullbonezSource/Rendering/RenderCommandTypes.h owns retained upload planning.
   - AGENTS.md documents the DX12-only runtime contract.
 */
@@ -30,7 +30,7 @@ Related:
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Rendering/RenderCommandTypes.h"
-#include "../SkullbonezSource/Runtime/App/RunLaunchOptions.Renderer.h"
+#include "../SkullbonezSource/Runtime/Startup/RunLaunchOptions.h"
 
 #include <string>
 

@@ -1,10 +1,10 @@
 /*
-File: DemoDirector.cpp
+File: SkullbonezSource/Runtime/Direction/DemoDirector.cpp
 Purpose:
   Loads and saves Demo Director `.shot.json` files.
 
 Summary:
-  The director parser is a cold authoring boundary. It validates human-authored
+  Direction owns the director's cold authoring boundary. It validates human-authored
   JSON into a temporary fixed-capacity record before publishing it, while the
   writer preserves the same stable schema.
 
@@ -19,11 +19,12 @@ Invariants:
   - Saved files use the same versioned field names accepted by the loader.
 
 Related:
-  - SkullbonezSource/Runtime/Direction/DemoDirector.h
+  - SkullbonezSource/Runtime/Direction/DemoDirectorPersistence.h
+  - SkullbonezSource/Runtime/Camera/DemoDirector.h
   - SkullbonezSource/Runtime/Tools/RuntimeFileWriter.h
   - Agentic/Reference/engine-glossary.md
 */
-#include "DemoDirector.h"
+#include "DemoDirectorPersistence.h"
 #include "../Tools/RuntimeFileWriter.h"
 
 #include <cstdio>

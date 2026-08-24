@@ -29,8 +29,7 @@ Related:
 #include "EditorPlacementAssets.h"
 #include "../../Assets/AssetKeys.h"
 #include "EditorTools.h"
-#include "EditorHullAssets.h"
-#include "../Tools/RuntimeTools.h"
+#include "../../Assets/EditorHullAssets.h"
 #include "../Scene/SceneControllerState.h"
 #include "../Scene/SceneSessionState.h"
 #include "../Scene/SceneAuthoredSetup.h"
@@ -40,7 +39,7 @@ Related:
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsMass.h"
 #include "../../Physics/Ragdoll.h"
-#include "../../UI/UITabEditor.h"
+#include "../Interaction/OperatorEditorObjectCatalog.h"
 #include "../../World/Terrain.h"
 #include "../../World/WorldEnvironment.h"
 

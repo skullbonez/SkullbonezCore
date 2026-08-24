@@ -23,7 +23,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Render/UiDrawSubmission.h
   - SkullbonezSource/UI/UIDrawList.h
-  - SkullbonezSource/UI/UIFrameComposition.cpp
+  - SkullbonezSource/UI/UIDraw.h
   - Agentic/Reference/engine-glossary.md
 */
 #include "UiDrawSubmission.h"
@@ -36,9 +36,8 @@ Related:
 #include "../../Rendering/DX12/RenderBackendDX12.h"
 #include "../../Rendering/RenderGpuTimingOwner.h"
 #include "../../Rendering/Text.h"
-#include "../../UI/UI.h"
+#include "../../UI/UIDraw.h"
 #include "../../UI/UIDrawList.h"
-#include "../../UI/UIFrameComposition.h"
 
 #include <algorithm>
 #include <cmath>
@@ -284,7 +283,7 @@ void UiDrawSubmission::SubmitCommands( const UI::UIDrawList& drawList, const Run
 
                 if ( clipDepth > 0 )
                 {
-                    clip = UI::FrameComposition::IntersectRect( clipStack[clipDepth - 1], clip );
+                    clip = UI::IntersectRect( clipStack[clipDepth - 1], clip );
                 }
 
                 clipStack[clipDepth++] = clip;
@@ -324,7 +323,7 @@ void UiDrawSubmission::SubmitCommands( const UI::UIDrawList& drawList, const Run
 
                 if ( m_previewShader && m_previewVertexBuffer != 0 )
                 {
-                    const UI::UIRect visible = UI::FrameComposition::IntersectRect( bounds, clip );
+                    const UI::UIRect visible = UI::IntersectRect( bounds, clip );
 
                     if ( visible.w > 1.0f && visible.h > 1.0f )
                     {

@@ -42,7 +42,7 @@ Related:
 #include "../../Assets/AssetSystem.h"
 #include "../../Core/WorkerPool.h"
 #include "../Editor/EditorTools.h"
-#include "../Replay/ReplayRestoreService.h"
+#include "ReplayRestoreOperations.h"
 #include "../Replay/ReplayRestoreTransactions.h"
 #include "ReplayValidation.Internal.h"
 #include "../Replay/ReplayV2Artifact.h"
@@ -293,7 +293,7 @@ bool DecodeReplayTransformPayload( const ReplayEventSample& event, Vector3& outP
 }
 
 
-const ReplayV2SolverHashSample* FindReplaySolverHashForFrame( const std::vector<ReplayV2SolverHashSample>& hashes,
+const ReplayV2SolverHashSample* FindReplaySolverHashForFrame( std::span<const ReplayV2SolverHashSample> hashes,
                                                               ReplayFrameIndex frameIndex )
 {
     for ( const ReplayV2SolverHashSample& hash : hashes )
@@ -307,7 +307,7 @@ const ReplayV2SolverHashSample* FindReplaySolverHashForFrame( const std::vector<
     return nullptr;
 }
 
-const ReplayPresentationSample* FindReplayPresentationForFrame( const std::vector<ReplayPresentationSample>& samples,
+const ReplayPresentationSample* FindReplayPresentationForFrame( std::span<const ReplayPresentationSample> samples,
                                                                 ReplayFrameIndex frameIndex )
 {
     for ( const ReplayPresentationSample& sample : samples )
@@ -412,7 +412,7 @@ bool TryApplyReplayRestoreWorldLauncherEvent( RuntimeTools& runtimeTools, SceneS
     }
 }
 
-bool ApplyReplayRestoreEditorPlaceEvent( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, RuntimeTools& runtimeTools,
+bool ApplyReplayRestoreEditorPlaceEvent( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, EditorToolsOwner& editorTools,
                                          SceneSessionState& scene, SkullbonezCore::Assets::AssetSystem& assets,
                                          SceneWorld& world, int sceneObjectCapacity, const ReplayEventSample& event,
                                          char* eventOutReason, std::size_t eventReasonSize, bool& requestInteractiveScene )
@@ -438,12 +438,12 @@ bool ApplyReplayRestoreEditorPlaceEvent( SkullbonezCore::Core::SbDiagnosticStore
         return false;
     }
 
-    const Vector3 previousPlacementScale = runtimeTools.Editor().placementScale;
-    const bool previousTerrainAlign = runtimeTools.Editor().autoTerrainAlign;
-    const float previousPlacementYawRadians = runtimeTools.Editor().placementYawRadians;
-    runtimeTools.Editor().placementScale = placementScale;
-    runtimeTools.Editor().autoTerrainAlign = ( event.flags & REPLAY_EDITOR_PLACE_TERRAIN_ALIGN ) != 0;
-    runtimeTools.Editor().placementYawRadians = placementYawRadians;
+    const Vector3 previousPlacementScale = editorTools.Editor().placementScale;
+    const bool previousTerrainAlign = editorTools.Editor().autoTerrainAlign;
+    const float previousPlacementYawRadians = editorTools.Editor().placementYawRadians;
+    editorTools.Editor().placementScale = placementScale;
+    editorTools.Editor().autoTerrainAlign = ( event.flags & REPLAY_EDITOR_PLACE_TERRAIN_ALIGN ) != 0;
+    editorTools.Editor().placementYawRadians = placementYawRadians;
     EditorObjectPlacementRequest placementRequest { event.value0, ( event.flags & REPLAY_EDITOR_PLACE_FIXED ) != 0,
                                                     terrainPoint };
 
@@ -453,13 +453,13 @@ bool ApplyReplayRestoreEditorPlaceEvent( SkullbonezCore::Core::SbDiagnosticStore
     if ( CanPlaceEditorObjectAtTerrainPoint( world, assets, sceneObjectCapacity, placementRequest ) )
     {
         requestInteractiveScene = true;
-        placed = PlaceEditorObjectAtTerrainPoint( diagnostics, runtimeTools.Editor(), world, scene, assets,
+        placed = PlaceEditorObjectAtTerrainPoint( diagnostics, editorTools.Editor(), world, scene, assets,
                                                   sceneObjectCapacity, placementRequest, placementResult );
     }
 
-    runtimeTools.Editor().placementScale = previousPlacementScale;
-    runtimeTools.Editor().autoTerrainAlign = previousTerrainAlign;
-    runtimeTools.Editor().placementYawRadians = previousPlacementYawRadians;
+    editorTools.Editor().placementScale = previousPlacementScale;
+    editorTools.Editor().autoTerrainAlign = previousTerrainAlign;
+    editorTools.Editor().placementYawRadians = previousPlacementYawRadians;
 
     if ( !placed )
     {
@@ -617,10 +617,11 @@ bool ApplyReplayRestoreEditorTransformEvent( SceneWorld& world, const ReplayEven
 // Concept: target restore replays only solver-relevant timeline events. Runtime
 // commands that would change scenes stay rejected here, while editor placement
 // emits an application-mode request to the owning replay transaction.
-bool ApplyReplayRestoreEventForTarget( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, RuntimeTools& runtimeTools,
-                                       SceneSessionState& scene, SkullbonezCore::Assets::AssetSystem& assets,
-                                       SceneWorld& world, int sceneObjectCapacity, const ReplayEventSample& event,
-                                       char* eventOutReason, std::size_t eventReasonSize, bool& requestInteractiveScene )
+bool ApplyReplayRestoreEventForTarget( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, EditorToolsOwner& editorTools,
+                                       RuntimeTools& runtimeTools, SceneSessionState& scene,
+                                       SkullbonezCore::Assets::AssetSystem& assets, SceneWorld& world,
+                                       int sceneObjectCapacity, const ReplayEventSample& event, char* eventOutReason,
+                                       std::size_t eventReasonSize, bool& requestInteractiveScene )
 {
     if ( event.payloadVersion != 1 )
     {
@@ -671,7 +672,7 @@ bool ApplyReplayRestoreEventForTarget( SkullbonezCore::Core::SbDiagnosticStore& 
         WriteReplayProbeReason( eventOutReason, eventReasonSize, "unsupported timeline mutation event" );
         return false;
     case ReplayEventKind::EditorPlace:
-        return ApplyReplayRestoreEditorPlaceEvent( diagnostics, runtimeTools, scene, assets, world, sceneObjectCapacity,
+        return ApplyReplayRestoreEditorPlaceEvent( diagnostics, editorTools, scene, assets, world, sceneObjectCapacity,
                                                    event, eventOutReason, eventReasonSize, requestInteractiveScene );
     case ReplayEventKind::EditorTransform:
         return ApplyReplayRestoreEditorTransformEvent( world, event, eventOutReason, eventReasonSize );
@@ -901,7 +902,7 @@ class ScopedReplayProbeProfilerFrame
 void FormatReplayRestoreDivergenceMessage( char* message, std::size_t messageSize, ReplayFrameIndex currentFrame,
                                            uint64_t restoredSolverHash, uint64_t restoredPresentationHash,
                                            std::size_t restoredBodyCount, const ReplayV2SolverHashSample& expectedHash,
-                                           const std::vector<ReplayPresentationSample>& presentationSamples,
+                                           std::span<const ReplayPresentationSample> presentationSamples,
                                            const SceneWorld& world, std::size_t eventsApplied )
 {
     const ReplayPresentationSample* expectedPresentation = FindReplayPresentationForFrame( presentationSamples,
@@ -962,31 +963,31 @@ void FormatReplayRestoreDivergenceMessage( char* message, std::size_t messageSiz
 // every concrete runtime owner remains a synchronous phase-call borrow.
 bool ApplyReplayRestoreEventsForFrame( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                        ReplayRestoreTransaction& transaction, SceneController& sceneController,
-                                       RuntimeTools& runtimeTools, SkullbonezCore::Assets::AssetSystem& assets,
-                                       int sceneObjectCapacity, const ReplayRestoreArtifactData& artifact,
-                                       const ReplaySolverFrameSample& checkpoint, ReplayFrameIndex nextFrame,
-                                       uint32_t& eventCursor, std::size_t& eventsApplied, std::size_t& unsupportedEvents )
+                                       EditorToolsOwner& editorTools, RuntimeTools& runtimeTools,
+                                       SkullbonezCore::Assets::AssetSystem& assets, int sceneObjectCapacity,
+                                       std::span<const ReplayEventSample> events, const ReplaySolverFrameSample& checkpoint,
+                                       ReplayFrameIndex nextFrame )
 {
     SceneSessionState& scene = sceneController.State();
     SceneWorld& world = sceneController.Scene();
 
-    for ( const ReplayEventSample& event : artifact.events )
+    for ( const ReplayEventSample& event : events )
     {
-        if ( event.frameIndex != nextFrame || event.sequence < eventCursor )
+        if ( event.frameIndex != nextFrame || event.sequence < transaction.EventCursor() )
         {
             continue;
         }
 
         if ( event.branch.branchId != checkpoint.branch.branchId )
         {
-            ++unsupportedEvents;
+            transaction.RecordUnsupportedTargetEvent();
             continue;
         }
 
         char eventReason[160] = {};
         bool requestInteractiveScene = false;
-        const bool eventApplied = ApplyReplayRestoreEventForTarget( diagnostics, runtimeTools, scene, assets, world,
-                                                                    sceneObjectCapacity, event, eventReason,
+        const bool eventApplied = ApplyReplayRestoreEventForTarget( diagnostics, editorTools, runtimeTools, scene, assets,
+                                                                    world, sceneObjectCapacity, event, eventReason,
                                                                     sizeof( eventReason ), requestInteractiveScene );
 
         if ( requestInteractiveScene )
@@ -1007,8 +1008,7 @@ bool ApplyReplayRestoreEventsForFrame( SkullbonezCore::Core::SbDiagnosticStore& 
             return false;
         }
 
-        eventCursor = (std::max)( eventCursor, event.sequence + 1u );
-        ++eventsApplied;
+        transaction.RecordAppliedTargetEvent( event.sequence );
     }
 
     return true;
@@ -1041,12 +1041,12 @@ void AdvanceReplayRestorePhysicsFrame( SceneController& sceneController, Runtime
 
 bool ValidateReplayRestoreSteppedFrame( ReplayRestoreTransaction& transaction, SceneController& sceneController,
                                         OverlayDebugState& debug, RuntimeTools& runtimeTools,
-                                        const ReplayRestoreArtifactData& artifact, const ReplaySolverFrameSample& checkpoint,
+                                        const ReplayRestoreStepView& restoreView, const ReplaySolverFrameSample& checkpoint,
                                         ReplayFrameIndex currentFrame, uint32_t eventCursor, std::size_t eventsApplied )
 {
     SceneSessionState& scene = sceneController.State();
     SceneWorld& world = sceneController.Scene();
-    const ReplayV2SolverHashSample* expectedHash = FindReplaySolverHashForFrame( artifact.hashes, currentFrame );
+    const ReplayV2SolverHashSample* expectedHash = FindReplaySolverHashForFrame( restoreView.hashes, currentFrame );
 
     if ( !expectedHash )
     {
@@ -1065,9 +1065,11 @@ bool ValidateReplayRestoreSteppedFrame( ReplayRestoreTransaction& transaction, S
     uint64_t stepSolverHash = 0;
     uint64_t stepPresentationHash = 0;
     std::size_t stepBodyCount = 0;
+    ReplayLauncherVisualSample launcherVisual;
+    runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
 
-    if ( !ReplayRestoreService::CaptureCurrentSolverHash( world, scene, debug, runtimeTools, stepReference, stepSolverHash,
-                                                          stepPresentationHash, stepBodyCount ) )
+    if ( !ReplayRestoreOperations::CaptureCurrentSolverHash( world, scene, debug, launcherVisual, stepReference,
+                                                             stepSolverHash, stepPresentationHash, stepBodyCount ) )
     {
         transaction.RecordFailure( "failed to capture stepped hash" );
         return false;
@@ -1078,63 +1080,13 @@ bool ValidateReplayRestoreSteppedFrame( ReplayRestoreTransaction& transaction, S
         char message[1024] = {};
 
         FormatReplayRestoreDivergenceMessage( message, sizeof( message ), currentFrame, stepSolverHash, stepPresentationHash,
-                                              stepBodyCount, *expectedHash, artifact.presentationSamples, world,
+                                              stepBodyCount, *expectedHash, restoreView.presentationSamples, world,
                                               eventsApplied );
 
         transaction.RecordFailure( message );
         return false;
     }
 
-    return true;
-}
-
-bool StepReplayRestoreTarget( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, ReplayRestoreTransaction& transaction,
-                              SceneController& sceneController, OverlayDebugState& debug, RuntimeTools& runtimeTools,
-                              SkullbonezCore::Assets::AssetSystem& assets, SkullbonezCore::Threading::WorkerPool& workerPool,
-                              int sceneObjectCapacity, const ReplayRestoreArtifactData& artifact,
-                              const ReplaySolverFrameSample& checkpoint, const ReplayV2SolverHashSample& target,
-                              SkullbonezCore::Core::Profiler* profiler )
-{
-    SceneSessionState& scene = sceneController.State();
-    ReplayFrameIndex currentFrame = checkpoint.frameIndex;
-    int currentSceneFrame = checkpoint.sceneFrame;
-    uint32_t eventCursor = checkpoint.eventCursor;
-    std::size_t eventsApplied = 0;
-    std::size_t unsupportedEvents = 0;
-    scene.currentFrame = currentSceneFrame;
-
-    // Invariant: SceneWorld::StepPhysics enters named profiler zones. The cold
-    // restore loop must establish the same frame lifetime as a live frame.
-    ScopedReplayProbeProfilerFrame profilerFrame( profiler );
-
-    while ( currentFrame < target.frameIndex )
-    {
-        const ReplayFrameIndex nextFrame = currentFrame + 1u;
-
-        if ( !ApplyReplayRestoreEventsForFrame( diagnostics, transaction, sceneController, runtimeTools, assets,
-                                                sceneObjectCapacity, artifact, checkpoint, nextFrame, eventCursor,
-                                                eventsApplied, unsupportedEvents ) )
-        {
-            return false;
-        }
-
-        AdvanceReplayRestorePhysicsFrame( sceneController, runtimeTools, workerPool, currentSceneFrame );
-        currentFrame = nextFrame;
-
-        if ( !ValidateReplayRestoreSteppedFrame( transaction, sceneController, debug, runtimeTools, artifact, checkpoint,
-                                                 currentFrame, eventCursor, eventsApplied ) )
-        {
-            return false;
-        }
-    }
-
-    if ( unsupportedEvents != 0 )
-    {
-        transaction.RecordFailure( "encountered unsupported branch events before target" );
-        return false;
-    }
-
-    transaction.MarkTargetStepped( currentFrame, eventCursor, eventsApplied );
     return true;
 }
 
@@ -1166,9 +1118,11 @@ bool CaptureAndValidateReplayRestoreTargetHash( const ReplayV2SolverHashSample& 
     reference.sceneFrame = target.sceneFrame;
     reference.simulationSeconds = target.simulationSeconds;
     reference.physicsDt = PHYSICS_FIXED_DT;
+    ReplayLauncherVisualSample launcherVisual;
+    runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
 
-    if ( !ReplayRestoreService::CaptureCurrentSolverHash( world, scene, debug, runtimeTools, reference, result.solverHash,
-                                                          result.presentationHash, result.bodyCount ) )
+    if ( !ReplayRestoreOperations::CaptureCurrentSolverHash( world, scene, debug, launcherVisual, reference,
+                                                             result.solverHash, result.presentationHash, result.bodyCount ) )
     {
         strncpy_s( failure.message, "failed to capture target hash", _TRUNCATE );
         failure.hashCaptured = false;
@@ -1224,7 +1178,7 @@ void RecordReplayRestoreTargetSuccess( ReplayRestoreTransaction& transaction, co
                                        const ReplayRestoreTargetHashResult& targetHash )
 {
 #ifdef _DEBUG
-    ReplayRestoreResultDiagnostic result;
+    ReplayRestoreResultPacket result;
     result.restoreSource = restoreSource;
     result.targetReplayFrame = target.frameIndex;
     result.targetSceneFrame = target.sceneFrame;
@@ -1424,9 +1378,8 @@ bool ApplyReplayRestoreCheckpoint( ReplayRestoreTransaction& transaction, SceneC
 {
     char checkpointReason[288] = {};
 
-    if ( !ReplayRestoreService::ApplySolverSampleState( sceneController.Scene(), sceneController.State(), debug,
-                                                        runtimeTools, checkpoint, checkpointReason,
-                                                        sizeof( checkpointReason ) ) )
+    if ( !ReplayRestoreOperations::ApplySolverSampleState( sceneController.Scene(), sceneController.State(), debug,
+                                                           checkpoint, checkpointReason, sizeof( checkpointReason ) ) )
     {
         if ( transaction.StateMutated() )
         {
@@ -1440,6 +1393,7 @@ bool ApplyReplayRestoreCheckpoint( ReplayRestoreTransaction& transaction, SceneC
         return false;
     }
 
+    runtimeTools.RestoreReplayLauncherVisualSample( checkpoint.launcherVisual );
     transaction.MarkCheckpointApplied();
     return true;
 }
@@ -1460,9 +1414,9 @@ bool RestoreReplayLiveBackupOrFatal( ReplayRestoreTransaction& transaction, Scen
     SceneWorld& world = sceneController.Scene();
     SceneSessionState& scene = sceneController.State();
     char fallbackReason[128] = {};
-    const bool fallbackRestored = ReplayRestoreService::ApplySolverSampleState( world, scene, debug, runtimeTools,
-                                                                                transaction.LiveBackup(), fallbackReason,
-                                                                                sizeof( fallbackReason ) );
+    const bool fallbackRestored = ReplayRestoreOperations::ApplySolverSampleState( world, scene, debug,
+                                                                                   transaction.LiveBackup(), fallbackReason,
+                                                                                   sizeof( fallbackReason ) );
 
     // Hazard: recoverable artifact errors must not return control with a
     // partially rebuilt scene. Failure to reapply the retained live sample is a
@@ -1473,13 +1427,17 @@ bool RestoreReplayLiveBackupOrFatal( ReplayRestoreTransaction& transaction, Scen
                   fallbackReason[0] != '\0' ? fallbackReason : "unknown rollback failure" );
     }
 
+    runtimeTools.RestoreReplayLauncherVisualSample( transaction.LiveBackup().launcherVisual );
+
     uint64_t rollbackSolverHash = 0;
     uint64_t rollbackPresentationHash = 0;
     std::size_t rollbackBodyCount = 0;
+    ReplayLauncherVisualSample launcherVisual;
+    runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
 
-    if ( !ReplayRestoreService::CaptureCurrentSolverHash( world, scene, debug, runtimeTools, transaction.LiveBackup(),
-                                                          rollbackSolverHash, rollbackPresentationHash,
-                                                          rollbackBodyCount ) ||
+    if ( !ReplayRestoreOperations::CaptureCurrentSolverHash( world, scene, debug, launcherVisual, transaction.LiveBackup(),
+                                                             rollbackSolverHash, rollbackPresentationHash,
+                                                             rollbackBodyCount ) ||
          rollbackSolverHash != transaction.LiveBackup().solverHash )
     {
         SB_FATAL( "Runtime/ReplayRestore", "V2 restore rollback hash mismatch: restored=0x%016llX expected=0x%016llX",
@@ -1491,6 +1449,53 @@ bool RestoreReplayLiveBackupOrFatal( ReplayRestoreTransaction& transaction, Scen
     return true;
 }
 } // namespace
+
+bool ReplayRuntime::StepRestoreTarget( ReplayRestoreTransaction& transaction, SceneController& sceneController,
+                                       OverlayDebugState& debug, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools,
+                                       SkullbonezCore::Assets::AssetSystem& assets,
+                                       SkullbonezCore::Threading::WorkerPool& workerPool, int sceneObjectCapacity,
+                                       const ReplayRestoreStepView& restoreView, const ReplaySolverFrameSample& checkpoint,
+                                       const ReplayV2SolverHashSample& target )
+{
+    SceneSessionState& scene = sceneController.State();
+    ReplayFrameIndex currentFrame = checkpoint.frameIndex;
+    int currentSceneFrame = checkpoint.sceneFrame;
+    transaction.BeginTargetStep( checkpoint.eventCursor );
+    scene.currentFrame = currentSceneFrame;
+
+    // Invariant: SceneWorld::StepPhysics enters named profiler zones. The cold
+    // restore loop must establish the same frame lifetime as a live frame.
+    ScopedReplayProbeProfilerFrame profilerFrame( SkullbonezCore::Core::Profiler::Active() );
+
+    while ( currentFrame < target.frameIndex )
+    {
+        const ReplayFrameIndex nextFrame = currentFrame + 1u;
+
+        if ( !ApplyReplayRestoreEventsForFrame( m_resultDiagnostics, transaction, sceneController, editorTools, runtimeTools,
+                                                assets, sceneObjectCapacity, restoreView.events, checkpoint, nextFrame ) )
+        {
+            return false;
+        }
+
+        AdvanceReplayRestorePhysicsFrame( sceneController, runtimeTools, workerPool, currentSceneFrame );
+        currentFrame = nextFrame;
+
+        if ( !ValidateReplayRestoreSteppedFrame( transaction, sceneController, debug, runtimeTools, restoreView, checkpoint,
+                                                 currentFrame, transaction.EventCursor(), transaction.EventsApplied() ) )
+        {
+            return false;
+        }
+    }
+
+    if ( transaction.UnsupportedEvents() != 0 )
+    {
+        transaction.RecordFailure( "encountered unsupported branch events before target" );
+        return false;
+    }
+
+    transaction.MarkTargetStepped( currentFrame );
+    return true;
+}
 
 bool ReplayProbeRunner::Configure( const ReplayStartupRequest& request )
 {
@@ -1520,15 +1525,7 @@ void ReplayRuntime::ConfigureStartupWorkflows( const ReplayStartupRequest& reque
 }
 
 
-ReplayStartupResult ReplayRuntime::RunStartupWorkflows( const ReplayStartupLoadInput& loadInput
-                                                    #ifdef _DEBUG
-                                                        ,
-                                                        SceneController& sceneController, DiagnosticsRuntime& diagnosticsRuntime, OverlayDebugState& debug,
-                                                        RuntimeTools& runtimeTools, SimulationSystem& simulation, const SkullbonezCore::Core::EngineConfig& config,
-                                                        SkullbonezCore::Assets::AssetSystem& assets, SkullbonezCore::Threading::WorkerPool& workerPool,
-                                                        SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides, GeneratedObjectTypeOverride& generatedObjectTypeOverride
-                                                    #endif
-                                                        )
+ReplayStartupResult ReplayRuntime::RunStartupWorkflows( const ReplayStartupLoadInput& loadInput )
 {
     ReplayStartupResult result;
     const ReplayStartupWorkflowState& startup = m_probeRunner.Startup();
@@ -1564,10 +1561,7 @@ ReplayStartupResult ReplayRuntime::RunStartupWorkflows( const ReplayStartupLoadI
         }
     }
 
-#ifdef _DEBUG
-    result = RunStartupProbeWorkflows( startup, loadInput, sceneController, diagnosticsRuntime, debug, runtimeTools,
-                                       simulation, config, assets, workerPool, uiOverrides, generatedObjectTypeOverride );
-#else
+#ifndef _DEBUG
 
     if ( startup.loadProbe )
     {
@@ -1578,12 +1572,16 @@ ReplayStartupResult ReplayRuntime::RunStartupWorkflows( const ReplayStartupLoadI
 }
 
 
-bool ReplayRuntime::RestoreV2ArtifactTargetState( ReplayRestoreTransaction& transaction, const ReplayLiveRestoreRequest& request, SceneController& sceneController,
-                                                  OverlayDebugState& debug, RuntimeTools& runtimeTools, SimulationSystem& simulation,
-                                                  const SkullbonezCore::Core::EngineConfig& config, SkullbonezCore::Assets::AssetSystem& assets,
-                                                  SkullbonezCore::Threading::WorkerPool& workerPool, SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+bool ReplayRuntime::RestoreV2ArtifactTargetState( ReplayRestoreTransaction& transaction, SceneController& sceneController,
+                                                  OverlayDebugState& debug, EditorToolsOwner& editorTools,
+                                                  RuntimeTools& runtimeTools, SimulationSystem& simulation,
+                                                  const SkullbonezCore::Core::EngineConfig& config,
+                                                  SkullbonezCore::Assets::AssetSystem& assets,
+                                                  SkullbonezCore::Threading::WorkerPool& workerPool,
+                                                  SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
                                                   GeneratedObjectTypeOverride& generatedObjectTypeOverride )
 {
+    const ReplayLiveRestoreRequest& request = transaction.ArtifactRequest();
     SceneWorld& world = sceneController.Scene();
     SceneSessionState& scene = sceneController.State();
 
@@ -1604,7 +1602,7 @@ bool ReplayRuntime::RestoreV2ArtifactTargetState( ReplayRestoreTransaction& tran
                                         bool fallbackRestored = false )
     {
 #ifdef _DEBUG
-        ReplayRestoreResultDiagnostic diagnostic;
+        ReplayRestoreResultPacket diagnostic;
         diagnostic.restoreSource = restoreSource;
         diagnostic.targetReplayFrame = diagnosticTarget ? diagnosticTarget->frameIndex
                                                         : ( request.requestedFrame == LATEST_NON_CHECKPOINT_TARGET
@@ -1673,8 +1671,11 @@ bool ReplayRuntime::RestoreV2ArtifactTargetState( ReplayRestoreTransaction& tran
 #endif
 
     ReplaySolverFrameSample liveBackup;
+    ReplayLauncherVisualSample launcherVisual;
+    runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
 
-    if ( !ReplayRestoreService::CaptureCurrentSolverSample( world, scene, debug, runtimeTools, *checkpoint, liveBackup ) )
+    if ( !ReplayRestoreOperations::CaptureCurrentSolverSample( world, scene, debug, launcherVisual, *checkpoint,
+                                                               liveBackup ) )
     {
         recordFailureDiagnostic( "failed to capture live state before restore", target, checkpoint );
         transaction.FailBeforeMutation( "failed to capture live state before restore" );
@@ -1726,9 +1727,10 @@ bool ReplayRuntime::RestoreV2ArtifactTargetState( ReplayRestoreTransaction& tran
         return false;
     }
 
-    if ( !StepReplayRestoreTarget( m_resultDiagnostics, transaction, sceneController, debug, runtimeTools, assets,
-                                   workerPool, SkullbonezCore::Core::ActiveSceneObjectCapacity( config ), artifact,
-                                   *checkpoint, *target, SkullbonezCore::Core::Profiler::Active() ) )
+    const ReplayRestoreStepView restoreView = { artifact.hashes, artifact.events, artifact.presentationSamples };
+
+    if ( !StepRestoreTarget( transaction, sceneController, debug, editorTools, runtimeTools, assets, workerPool,
+                             SkullbonezCore::Core::ActiveSceneObjectCapacity( config ), restoreView, *checkpoint, *target ) )
     {
         return failAfterMutation( transaction.FailureReason(), target );
     }

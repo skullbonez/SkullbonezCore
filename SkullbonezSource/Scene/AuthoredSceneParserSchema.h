@@ -36,7 +36,7 @@ Related:
 #include "../Physics/ConvexHullShape.h"
 #include "../Physics/PhysicsMass.h"
 #include "../Physics/Ragdoll.h"
-#include "../Runtime/Editor/EditorHullAssets.h"
+#include "../Assets/EditorHullAssets.h"
 
 #include <algorithm>
 #include <cctype>

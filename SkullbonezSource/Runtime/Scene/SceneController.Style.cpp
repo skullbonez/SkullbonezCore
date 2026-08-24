@@ -27,7 +27,6 @@ Related:
 #include "SceneCinematicPolicy.h"
 #include "SceneController.h"
 #include "../../Core/WindowConstants.h"
-#include "../Diagnostics/OverlayDebugState.h"
 #include "SceneWorld.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Scene/AuthoredScene.h"
@@ -44,17 +43,6 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-Math::Vector::Vector3 CinematicSkySunDirection( const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
-{
-    constexpr float twoPi = 6.28318530718f;
-    const float azimuth = std::clamp( cinematic.sunAzimuth, 0.0f, 1.0f ) * twoPi;
-    const float elevation = -0.08f + std::clamp( cinematic.sunElevation, 0.0f, 1.0f ) * 1.13f;
-    const float cosElevation = cosf( elevation );
-    Math::Vector::Vector3 direction( sinf( azimuth ) * cosElevation, sinf( elevation ), cosf( azimuth ) * cosElevation );
-    direction.Normalise();
-    return direction;
-}
-
 SkullbonezCore::Core::CinematicRenderConfig& ActiveSceneCinematicConfig( SceneSessionState& scene,
                                                                          SkullbonezCore::Core::EngineConfig& config )
 {
@@ -70,13 +58,12 @@ ActiveSceneCinematicConfig( const SceneSessionState& scene, const SkullbonezCore
 
 
 bool IsSceneCinematicRenderingEnabled( const SceneSessionState& scene, const SkullbonezCore::Core::EngineConfig& config,
-                                       const RunLaunchOptions& launchOptions, const OverlayDebugState& debug,
-                                       bool graphicsReady )
+                                       const RunLaunchOptions& launchOptions, bool textOnly, bool graphicsReady )
 {
     const bool enabled = launchOptions.hasCinematicRenderingOverride ? launchOptions.cinematicRendering
                                                                      : ActiveSceneCinematicConfig( scene, config ).enabled;
 
-    return enabled && graphicsReady && !debug.isTextOnly;
+    return enabled && graphicsReady && !textOnly;
 }
 
 

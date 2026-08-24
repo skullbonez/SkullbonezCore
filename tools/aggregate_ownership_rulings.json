@@ -10,21 +10,12 @@
   "aggregates": [
     {
       "key": "BackbufferAcquireGraphInputs",
-      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:351",
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:244",
       "members": 3,
       "verdict": "retain-prior",
       "owner": "PB0 / GV1 render graph ruling",
       "reason": "Distinct concrete render-graph node input; the graph nodes do not converge on one apply transaction.",
       "destructures_at_entry": "yes"
-    },
-    {
-      "key": "BackendResourceReleaseContext",
-      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:211",
-      "members": 3,
-      "verdict": "retain",
-      "owner": "CA0 / Runtime/Render",
-      "reason": "One backend teardown step must use the same phase label and the same optional UI/tools participants; splitting them permits lifecycle diagnostics and resource release to describe different retiring phases.",
-      "destructures_at_entry": "no"
     },
     {
       "key": "BuoyancyBodyFacts",
@@ -46,7 +37,7 @@
     },
     {
       "key": "CinematicPostGraphInputs",
-      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:338",
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:231",
       "members": 10,
       "verdict": "retain-prior",
       "owner": "PB0 / GV1 render graph ruling",
@@ -64,7 +55,7 @@
     },
     {
       "key": "DebugOverlayGraphInputs",
-      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:398",
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:294",
       "members": 2,
       "verdict": "retain-prior",
       "owner": "PB0 / GV1 render graph ruling",
@@ -73,7 +64,7 @@
     },
     {
       "key": "DebugOverlayPassInputs",
-      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:427",
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:509",
       "members": 12,
       "verdict": "retain-prior",
       "owner": "PB0 / GV1 render pass ruling",
@@ -81,17 +72,8 @@
       "destructures_at_entry": "yes"
     },
     {
-      "key": "EditorGizmoDragPointerInput",
-      "site": "SkullbonezSource/Runtime/Tools/RuntimeTools.h:254",
-      "members": 7,
-      "verdict": "retain",
-      "owner": "prior owner ruling carried by CA0",
-      "reason": "PB0 explicit retain: small consumer-specific command value with no mutable-owner grant.",
-      "destructures_at_entry": "no"
-    },
-    {
       "key": "EditorInteractionPreviewInput",
-      "site": "SkullbonezSource/Runtime/Editor/EditorOverlayTools.h:69",
+      "site": "SkullbonezSource/Runtime/Editor/EditorOverlayTools.h:66",
       "members": 6,
       "verdict": "retain",
       "owner": "CA0 / Runtime/Editor",
@@ -100,47 +82,11 @@
     },
     {
       "key": "EditorObjectPlacementRequest",
-      "site": "SkullbonezSource/Runtime/Editor/EditorTools.h:93",
+      "site": "SkullbonezSource/Runtime/Editor/EditorTools.h:285",
       "members": 3,
       "verdict": "retain",
       "owner": "CA0 / Runtime/Editor",
       "reason": "Object kind, fixed/dynamic policy, and terrain point constitute one placement command whose acceptance is atomic; applying only part would create the wrong body at the right location or vice versa.",
-      "destructures_at_entry": "no"
-    },
-    {
-      "key": "EditorPointerPreviewInput",
-      "site": "SkullbonezSource/Runtime/Tools/RuntimeTools.h:221",
-      "members": 6,
-      "verdict": "retain",
-      "owner": "prior owner ruling carried by CA0",
-      "reason": "PB0 explicit retain: small consumer-specific command value with no mutable-owner grant.",
-      "destructures_at_entry": "no"
-    },
-    {
-      "key": "EditorPointerSelectionInput",
-      "site": "SkullbonezSource/Runtime/Tools/RuntimeTools.h:233",
-      "members": 4,
-      "verdict": "retain",
-      "owner": "prior owner ruling carried by CA0",
-      "reason": "PB0 explicit retain: small consumer-specific command value with no mutable-owner grant.",
-      "destructures_at_entry": "no"
-    },
-    {
-      "key": "EditorToolOverlayTraceInput",
-      "site": "SkullbonezSource/Runtime/Editor/EditorOverlayTools.h:85",
-      "members": 6,
-      "verdict": "retain",
-      "owner": "CA0 / Runtime/Editor",
-      "reason": "Trace lifetime, gizmo gesture, scale mode, and attached-camera state are the single-frame conditions for one overlay trace; they must not be combined across arbitration frames.",
-      "destructures_at_entry": "no"
-    },
-    {
-      "key": "EditorViewportPlacementInput",
-      "site": "SkullbonezSource/Runtime/Tools/RuntimeTools.h:315",
-      "members": 10,
-      "verdict": "retain",
-      "owner": "CA0 / Runtime/Tools",
-      "reason": "Buttons, modifiers, client position, wheel delta, and viewport-capture state are one sampled pointer event; placement consumes them atomically so a coordinate cannot be paired with another event's buttons.",
       "destructures_at_entry": "no"
     },
     {
@@ -153,18 +99,9 @@
       "destructures_at_entry": "no"
     },
     {
-      "key": "FramePresentationFacts",
-      "site": "SkullbonezSource/Runtime/App/Run.h:218",
-      "members": 4,
-      "verdict": "retain",
-      "owner": "NA2 / Runtime/App",
-      "reason": "Presentation alpha, capture pinning, frame duration, and active UI lane are sampled once after simulation and consumed by one frame publication; mixing ticks would publish mismatched visual and capture state.",
-      "destructures_at_entry": "no"
-    },
-    {
       "key": "FrameEntryContext",
-      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:218",
-      "members": 8,
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:101",
+      "members": 10,
       "verdict": "retain",
       "owner": "PB0 / ORBIT_FORECAST OF5 renderer entry",
       "reason": "One synchronous renderer entry samples the scene, camera, UI, Replay, and generic retained presentation values for the same frame. The added packet is a detached value whose spans expire with this call; splitting or grouping the inputs elsewhere would recreate a frame service bag rather than enforce a new invariant.",
@@ -181,7 +118,7 @@
     },
     {
       "key": "ImGuiEditorFrameInput",
-      "site": "SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h:103",
+      "site": "SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h:100",
       "members": 7,
       "verdict": "retain",
       "owner": "CA0 / Runtime/DevelopmentTools",
@@ -190,7 +127,7 @@
     },
     {
       "key": "Input",
-      "site": "SkullbonezSource/Runtime/Input/Input.h:120",
+      "site": "SkullbonezSource/Runtime/Input/Input.h:118",
       "members": 1,
       "verdict": "retain",
       "owner": "NA2 / Runtime/Input",
@@ -199,16 +136,16 @@
     },
     {
       "key": "KeyboardContextFacts",
-      "site": "SkullbonezSource/Runtime/App/InputFrame.h:144",
+      "site": "SkullbonezSource/Runtime/Input/InputFrameValues.h:66",
       "members": 10,
       "verdict": "retain",
-      "owner": "CA0 / Runtime/App",
+      "owner": "CA0 / Runtime/Input",
       "reason": "Keyboard availability and the scene, camera, launcher, director, editor, replay, and UI arbitration outcomes are one input-turn snapshot; command routing must use a single arbitration result.",
       "destructures_at_entry": "no"
     },
     {
       "key": "LauncherPointerInput",
-      "site": "SkullbonezSource/Runtime/Tools/RuntimeTools.h:352",
+      "site": "SkullbonezSource/Runtime/Tools/RuntimeTools.h:251",
       "members": 5,
       "verdict": "retain",
       "owner": "prior owner ruling carried by CA0",
@@ -217,8 +154,8 @@
     },
     {
       "key": "LauncherReproSnapshotContext",
-      "site": "SkullbonezSource/Runtime/Tools/RuntimeTools.h:185",
-      "members": 12,
+      "site": "SkullbonezSource/Runtime/Tools/RuntimeTools.h:200",
+      "members": 14,
       "verdict": "retain",
       "owner": "CA0 / Runtime/Tools",
       "reason": "World/scene identity, launch options, physics/render switches, diagnostics, renderer identity, and elapsed simulation time are captured together to make one reproducible launcher snapshot.",
@@ -244,7 +181,7 @@
     },
     {
       "key": "ObjectGraphInputs",
-      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:362",
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:255",
       "members": 2,
       "verdict": "retain-prior",
       "owner": "PB0 / GV1 render graph ruling",
@@ -253,8 +190,8 @@
     },
     {
       "key": "ObjectPassInputs",
-      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:250",
-      "members": 16,
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:248",
+      "members": 21,
       "verdict": "retain-prior",
       "owner": "PB0 / GV1 render pass ruling",
       "reason": "Distinct concrete render-pass input; it is a pass boundary rather than a cross-domain authority bag.",
@@ -262,7 +199,7 @@
     },
     {
       "key": "ParsedArgs",
-      "site": "SkullbonezSource/Runtime/Startup/StartupCommandLine.h:56",
+      "site": "SkullbonezSource/Runtime/Startup/StartupCommandLine.h:58",
       "members": 87,
       "verdict": "retain",
       "owner": "CA0 / Runtime/Startup",
@@ -280,7 +217,7 @@
     },
     {
       "key": "PointerPresentationPolicyInput",
-      "site": "SkullbonezSource/Runtime/Input/InputRouter.h:269",
+      "site": "SkullbonezSource/Runtime/Input/InputRouter.h:245",
       "members": 6,
       "verdict": "retain",
       "owner": "CA0 / Runtime/Input",
@@ -297,27 +234,9 @@
       "destructures_at_entry": "no"
     },
     {
-      "key": "PrimitiveBatchShaderParams",
-      "site": "SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp:372",
-      "members": 11,
-      "verdict": "retain",
-      "owner": "CA0 / Rendering/PrimitiveBatchRenderer.cpp",
-      "reason": "Builder state, transforms, lighting, clipping, cinematic/shadow policy, primitive kind, and alpha bind one shader draw submission; partial reuse would issue geometry under mismatched render state.",
-      "destructures_at_entry": "no"
-    },
-    {
-      "key": "PrimitiveRenderContext",
-      "site": "SkullbonezSource/Rendering/PrimitiveBatchRenderer.h:76",
-      "members": 7,
-      "verdict": "retain-prior",
-      "owner": "prior owner ruling carried by CA0",
-      "reason": "Render resources, textures, geometry, diagnostics, assets, config, and renderer belong to one primitive-renderer composition generation; issuing a batch across generations would bind incompatible resource owners.",
-      "destructures_at_entry": "no"
-    },
-    {
       "key": "ReflectionPassInputs",
-      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:291",
-      "members": 22,
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:295",
+      "members": 27,
       "verdict": "retain-prior",
       "owner": "PB0 / GV1 render pass ruling",
       "reason": "Distinct concrete render-pass input; it is a pass boundary rather than a cross-domain authority bag.",
@@ -334,7 +253,7 @@
     },
     {
       "key": "RenderResourceContext",
-      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:236",
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:234",
       "members": 7,
       "verdict": "retain",
       "owner": "prior owner ruling carried by CA0",
@@ -343,7 +262,7 @@
     },
     {
       "key": "ReplayAuthoringPredictionRequest",
-      "site": "SkullbonezSource/Runtime/Replay/ReplayAuthoring.h:82",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayAuthoring.h:60",
       "members": 8,
       "verdict": "retain",
       "owner": "CA0 / Runtime/Replay",
@@ -352,7 +271,7 @@
     },
     {
       "key": "ReplayEventInput",
-      "site": "SkullbonezSource/Runtime/Replay/ReplayRecorder.h:443",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayRecorder.h:441",
       "members": 10,
       "verdict": "retain",
       "owner": "CA0 / Runtime/Replay",
@@ -370,8 +289,8 @@
     },
     {
       "key": "ReplayGhostGraphInputs",
-      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:387",
-      "members": 8,
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:281",
+      "members": 10,
       "verdict": "retain-prior",
       "owner": "PB0 / GV1 render graph ruling",
       "reason": "Distinct concrete render-graph node input; the graph nodes do not converge on one apply transaction.",
@@ -388,7 +307,7 @@
     },
     {
       "key": "ReplayCauseTransportRequest",
-      "site": "SkullbonezSource/Runtime/Planning/ReplayCauseInspection.h:180",
+      "site": "SkullbonezSource/Runtime/Planning/ReplayCauseInspection.h:179",
       "members": 4,
       "verdict": "retain",
       "owner": "C1 / Runtime/Planning",
@@ -433,7 +352,7 @@
     },
     {
       "key": "ReplayMemoryPolicyRequest",
-      "site": "SkullbonezSource/Runtime/Replay/ReplayTimeline.h:63",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayTimeline.h:64",
       "members": 3,
       "verdict": "retain",
       "owner": "CA0 / Runtime/Replay",
@@ -442,7 +361,7 @@
     },
     {
       "key": "ReplayOverlayBuildInput",
-      "site": "SkullbonezSource/Runtime/Replay/ReplayPresentation.h:90",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayPresentation.h:87",
       "members": 3,
       "verdict": "retain",
       "owner": "CA0 / Runtime/Replay",
@@ -451,20 +370,11 @@
     },
     {
       "key": "ReplayPathPickInput",
-      "site": "SkullbonezSource/Runtime/Replay/ReplayPresentation.h:97",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayPathPackets.h:33",
       "members": 5,
       "verdict": "retain",
       "owner": "prior owner ruling carried by CA0",
       "reason": "PB0 explicit retain: independently meaningful pick request with multiple domain consumers.",
-      "destructures_at_entry": "no"
-    },
-    {
-      "key": "ReplayPathVisualizerRenderContext",
-      "site": "SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.h:192",
-      "members": 9,
-      "verdict": "retain",
-      "owner": "CA0 / Runtime/Prediction",
-      "reason": "Prediction generation, profiler/path owners, physics/entities/tracer, present sample, and overlay flag bind one visualization submission; the sample-validity bit governs every participating owner.",
       "destructures_at_entry": "no"
     },
     {
@@ -478,7 +388,7 @@
     },
     {
       "key": "ReplayPredictionFutureContext",
-      "site": "SkullbonezSource/Runtime/Prediction/ReplayPredictionTopologyPublication.cpp:450",
+      "site": "SkullbonezSource/Runtime/Prediction/ReplayPredictionTopologyPublication.cpp:445",
       "members": 5,
       "verdict": "retain-prior",
       "owner": "prior owner ruling carried by CA0",
@@ -514,7 +424,7 @@
     },
     {
       "key": "ReplaySaveProbeArtifactContext",
-      "site": "SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp:472",
+      "site": "SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp:477",
       "members": 5,
       "verdict": "retain",
       "owner": "CA0 / Runtime/App",
@@ -532,20 +442,11 @@
     },
     {
       "key": "ReplayScrubberSurfaceInput",
-      "site": "SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h:99",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h:164",
       "members": 13,
       "verdict": "retain",
       "owner": "CA0 / Runtime/Replay",
       "reason": "Screen extent, track, gesture, loaded state, tool capabilities, target availability, and drag/hot-zone policy are one layout hit-test snapshot; geometry and interaction must share it.",
-      "destructures_at_entry": "no"
-    },
-    {
-      "key": "ReplayStartupLoadInput",
-      "site": "SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h:51",
-      "members": 11,
-      "verdict": "retain-prior",
-      "owner": "prior owner ruling carried by CA0",
-      "reason": "PB0 explicit retain: startup boundary excludes solver, topology, and diagnostic authority.",
       "destructures_at_entry": "no"
     },
     {
@@ -604,7 +505,7 @@
     },
     {
       "key": "ReplayWorldPointerInput",
-      "site": "SkullbonezSource/Runtime/Replay/ReplayPresentation.h:143",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayPresentation.h:103",
       "members": 9,
       "verdict": "retain-prior",
       "owner": "prior owner ruling carried by CA0",
@@ -631,16 +532,16 @@
     },
     {
       "key": "RuntimeInputFrameFacts",
-      "site": "SkullbonezSource/Runtime/App/InputFrame.h:97",
+      "site": "SkullbonezSource/Runtime/Input/InputFrameValues.h:29",
       "members": 9,
       "verdict": "retain",
-      "owner": "CA0 / Runtime/App",
+      "owner": "CA0 / Runtime/Input",
       "reason": "Replay camera modes, enabled-mask, action suppression, scene capacity, external command sources, and active UI lane are resolved once for one input frame; downstream routing reads one coherent verdict.",
       "destructures_at_entry": "no"
     },
     {
       "key": "RuntimeInteractionFrameInput",
-      "site": "SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h:177",
+      "site": "SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h:170",
       "members": 10,
       "verdict": "retain",
       "owner": "CA0 / Runtime/Interaction",
@@ -685,7 +586,7 @@
     },
     {
       "key": "SceneRequest",
-      "site": "SkullbonezSource/Runtime/Scene/SceneRequestQueue.h:43",
+      "site": "SkullbonezSource/Runtime/Scene/SceneRequestQueue.h:44",
       "members": 6,
       "verdict": "retain",
       "owner": "CA0 / Runtime/Scene",
@@ -703,8 +604,8 @@
     },
     {
       "key": "ShadowPassInputs",
-      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:446",
-      "members": 12,
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:528",
+      "members": 15,
       "verdict": "retain-prior",
       "owner": "PB0 / GV1 render pass ruling",
       "reason": "Distinct concrete render-pass input; it is a pass boundary rather than a cross-domain authority bag.",
@@ -712,11 +613,11 @@
     },
     {
       "key": "SimulationTickInput",
-      "site": "SkullbonezSource/Runtime/Simulation/SimulationSystem.h:35",
+      "site": "SkullbonezSource/Runtime/Simulation/SimulationSystem.h:62",
       "members": 8,
       "verdict": "retain",
       "owner": "CA0 / Runtime/Simulation",
-      "reason": "Frame duration, time scale, scene/fixed-step modes, advance intent, step request, and step permission determine one simulation tick; the scheduler resolves the full set before advancing.",
+      "reason": "Frame duration, time scale, scene mode, effective pacing policy, advance intent, step request, and step permission determine one simulation tick; the scheduler consumes the full synchronous decision before advancing.",
       "destructures_at_entry": "no"
     },
     {
@@ -730,7 +631,7 @@
     },
     {
       "key": "TerrainGraphInputs",
-      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:367",
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:260",
       "members": 2,
       "verdict": "retain-prior",
       "owner": "PB0 / GV1 render graph ruling",
@@ -739,8 +640,8 @@
     },
     {
       "key": "TerrainPassInputs",
-      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:275",
-      "members": 10,
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:278",
+      "members": 11,
       "verdict": "retain-prior",
       "owner": "PB0 / GV1 render pass ruling",
       "reason": "Distinct concrete render-pass input; it is a pass boundary rather than a cross-domain authority bag.",
@@ -748,7 +649,7 @@
     },
     {
       "key": "ToolOverlayBuildInput",
-      "site": "SkullbonezSource/Runtime/Tools/RuntimeTools.h:171",
+      "site": "SkullbonezSource/Runtime/Tools/RuntimeTools.h:166",
       "members": 6,
       "verdict": "retain",
       "owner": "CA0 / Runtime/Tools",
@@ -757,7 +658,7 @@
     },
     {
       "key": "UIDrawContext",
-      "site": "SkullbonezSource/UI/UIDraw.h:46",
+      "site": "SkullbonezSource/UI/UIDraw.h:48",
       "members": 5,
       "verdict": "retain-prior",
       "owner": "prior owner ruling carried by CA0",
@@ -766,7 +667,7 @@
     },
     {
       "key": "WaterGraphInputs",
-      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:372",
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:265",
       "members": 2,
       "verdict": "retain-prior",
       "owner": "PB0 / GV1 render graph ruling",
@@ -775,7 +676,7 @@
     },
     {
       "key": "WaterPassInputs",
-      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:330",
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:339",
       "members": 13,
       "verdict": "retain-prior",
       "owner": "PB0 / GV1 render pass ruling",
@@ -802,8 +703,8 @@
     },
     {
       "key": "WorldExtensionGraphInputs",
-      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:377",
-      "members": 7,
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:270",
+      "members": 8,
       "verdict": "retain-prior",
       "owner": "PB0 / GV1 render graph ruling",
       "reason": "Distinct concrete render-graph node input; the graph nodes do not converge on one apply transaction.",

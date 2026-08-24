@@ -18,8 +18,8 @@ Glossary:
     when the optional repository font asset is absent or invalid.
   Dock shell: Versioned single-window host with deterministic editor, viewport,
     utility, replay, and status regions.
-  DPI style epoch: Fresh base style rescaled from 1.0 whenever monitor scale
-    changes, avoiding cumulative rounding drift.
+  DPI (Dots Per Inch) style epoch: Fresh base style rescaled from 1.0 whenever
+    monitor scale changes, avoiding cumulative rounding drift.
   Preview/commit edit: Scalar drag state rendered locally while active, followed
     by one typed owner command when the item deactivates after an edit.
   Causality detail: Dockable, virtualized view of replay-owned immutable rows;
@@ -40,19 +40,19 @@ Related:
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorInputPolicy.h
   - SkullbonezSource/Runtime/App/RunFrame.cpp
-  - ThirdPtySource/imgui/imgui.h
+  - ThirdPtySource/imgui
+  - Agentic/Reference/engine-glossary.md
 */
 #include "ImGuiEditorOwner.h"
 #include "ImGuiEditorCausalityProjection.h"
-#include "../Input/InputRouter.h"
 
 #include "../../Core/Allocation/DevelopmentToolAllocation.h"
 #include "../../Core/FatalError.h"
 #include "../../Core/SbDiagnosticStore.h"
 #include "../../Rendering/DX12/Dx12ImGuiRendererOwner.h"
-#include "../../UI/UITabEditor.h"
+#include "../Interaction/OperatorEditorObjectCatalog.h"
 #include "../../UI/UILayout.h"
-#include "../../UI/UIRenderAuthoringCatalog.h"
+#include "../Render/UIRenderAuthoringCatalog.h"
 #include "../../Physics/PhysicsDebugData.h"
 
 #include <imgui.h>
@@ -69,7 +69,8 @@ Related:
 
 // The pinned backend intentionally hides this declaration behind #if 0 to
 // avoid forcing Windows types on every includer. This source already owns the
-// Win32 ABI boundary, so repeat the vendor-prescribed declaration here.
+// Win32 Application Binary Interface (ABI) boundary, so repeat the
+// vendor-prescribed declaration here.
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler( HWND window, UINT message, WPARAM wParam, LPARAM lParam );
 
 namespace CoreAllocation = SkullbonezCore::Core::Allocation;
@@ -725,14 +726,14 @@ ImGuiEditorInputFrameState ImGuiEditorOwner::ConsumeInputFrameState() noexcept
     return state;
 }
 
-UiInputCaptureIntent ImGuiEditorOwner::ConsumeInputCaptureIntent() noexcept
+UI::InputCaptureIntent ImGuiEditorOwner::ConsumeInputCaptureIntent() noexcept
 {
     const ImGuiEditorInputFrameState input = ConsumeInputFrameState();
 
     // Concept: the editor owns the fitted viewport geometry and completed-frame
     // capture request. Publish them together so Run does not reinterpret either.
-    UiInputCaptureIntent intent { input.capture.mouse, input.capture.keyboard, input.capture.text,
-                                  input.nativePointerStateTouched };
+    UI::InputCaptureIntent intent { input.capture.mouse, input.capture.keyboard, input.capture.text,
+                                    input.nativePointerStateTouched };
 
     intent.gameViewportMappingActive = input.gameViewport.valid;
     intent.gameViewportMinX = input.gameViewport.imageMinX;
@@ -2098,9 +2099,9 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
             if ( ImGui::CollapsingHeader( "Simulation", ImGuiTreeNodeFlags_DefaultOpen ) )
             {
-                bool fixedStep = world.fixedStep;
+                bool captureLockstepRequested = world.fixedStep;
 
-                if ( ImGui::Checkbox( "Fixed step", &fixedStep ) )
+                if ( ImGui::Checkbox( "Capture lockstep", &captureLockstepRequested ) )
                 {
                     submitProperty( UI::OperatorEditorPropertyCommandType::ToggleFixedStep );
                 }
@@ -3176,23 +3177,15 @@ ImGuiEditorFrameResult ImGuiEditorOwner::EndFrame()
 }
 
 
-SkullbonezCore::Core::SbResult ImGuiEditorOwner::RenderPreparedDrawData()
+ImGuiPreparedDrawDataView ImGuiEditorOwner::PreparedDrawData() noexcept
 {
-    // Lifetime: EndFrame publishes draw data inside this owned context; the
-    // live frame-graph callback consumes it synchronously before Present.
-    if ( !m_context || !m_renderer )
+    if ( !m_context )
     {
-        return m_resultDiagnostics.Failure( "DevelopmentTools/ImGui", "Completed frame has no DX12 draw-data target" );
+        return {};
     }
 
     ImGui::SetCurrentContext( m_context );
-
-    if ( !ImGui::GetDrawData() )
-    {
-        return m_resultDiagnostics.Failure( "DevelopmentTools/ImGui", "Completed frame has no DX12 draw data" );
-    }
-
-    return m_renderer->RenderDrawData( *m_context, *ImGui::GetDrawData() );
+    return ImGuiPreparedDrawDataView { m_context, ImGui::GetDrawData() };
 }
 
 ImGuiEditorStatus ImGuiEditorOwner::CopyStatus() const noexcept

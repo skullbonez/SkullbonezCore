@@ -23,6 +23,7 @@ Related:
 #include "../../Core/SbResult.h"
 
 #include <cstddef>
+#include <cstdint>
 
 namespace SkullbonezCore
 {
@@ -49,6 +50,15 @@ struct SceneRequest
     bool suppressExitOnComplete = true;
     bool preserveRuntimeState = true;
 };
+
+inline uint32_t SceneRequestFlags( const SceneRequest& request ) noexcept
+{
+    uint32_t flags = 0;
+    flags |= request.preserveUIState ? 1u : 0u;
+    flags |= request.suppressExitOnComplete ? 2u : 0u;
+    flags |= request.preserveRuntimeState ? 4u : 0u;
+    return flags;
+}
 
 struct SceneRequestBatch
 {
@@ -77,7 +87,7 @@ class SceneRequestQueue
                                            const SceneRequest& request );
     SceneRequestBatch TakePending();
 
-    // Lets App cancel scene-local sibling state before ExecutePending begins a
+    // Lets App cancel scene-local sibling state before request execution begins a
     // queued transition; the queue and request values remain owned here.
     bool HasTransition() const;
     std::size_t Size() const;

@@ -21,6 +21,15 @@ Before editing, all agents must read:
 5. Run `git status --short --branch` and treat any pre-existing dirty files as
    user-owned.
 
+For Codex sessions, verify before delegation that native multi-agent V2 exposes
+17 total session slots: one root coordinator plus 16 worker slots. Persist this
+as `features.multi_agent_v2.enabled = true` and
+`features.multi_agent_v2.max_concurrent_threads_per_session = 17` in the user
+Codex config. If the active host reports fewer slots, report the host/runtime
+clamp explicitly instead of treating four workers as repository policy. This is
+a capacity target, not an instruction to spawn workers when the task does not
+benefit from parallel execution.
+
 If this is a fresh machine or a required tool lookup fails, read
 `FIRST_TIME_SETUP.md`. Load deeper skills, plans, audits, reports, or reference
 files only when the current task calls for them.
@@ -181,10 +190,10 @@ owner-approved rule edit explicitly admits it.
 ### Generated Dependency Proof
 
 This is a deterministic projection of `tools/dependency_graph_rules.json`.
-A prefix matches the named normalized path and every descendant; an exact
-file matches only that normalized file. An allow row is closed-world only
-inside its target scope. Applicable broad deny rows still govern other
-engine-layer targets.
+Broad prefixes match the named normalized path and every descendant.
+Runtime package rows are different: rank constrains direction, but a
+cross-package include is legal only when its exact target file (or mixed
+exact source/target pair) is listed. Self-package includes remain legal.
 
 #### Broad And Boundary Include Rules
 
@@ -199,29 +208,46 @@ engine-layer targets.
 
 #### Runtime Package Rules
 
-| Source | Source kind | Policy | Allowed target prefixes | Allowed exact target files | Denied target prefixes |
-|---|---|---|---|---|---|
-| Runtime/App | prefix | closed allow inside Runtime | Runtime/App, Runtime/Automation, Runtime/Camera, Runtime/Capture, Runtime/Debug, Runtime/DevelopmentTools, Runtime/Diagnostics, Runtime/Direction, Runtime/Editor, Runtime/Input, Runtime/Interaction, Runtime/Planning, Runtime/Prediction, Runtime/Render, Runtime/Replay, Runtime/Scene, Runtime/Simulation, Runtime/Startup, Runtime/Tools, Runtime/UI | Runtime/RuntimeFrameViews.h | (none) |
-| Runtime/Automation | prefix | closed allow inside Runtime | Runtime/App, Runtime/Automation, Runtime/Camera, Runtime/Capture, Runtime/DevelopmentTools, Runtime/Diagnostics, Runtime/Direction, Runtime/Editor, Runtime/Input, Runtime/Interaction, Runtime/Planning, Runtime/Prediction, Runtime/Replay, Runtime/Scene, Runtime/Tools | Runtime/RuntimeFrameViews.h | (none) |
-| Runtime/Camera | prefix | closed allow inside Runtime | Runtime/App, Runtime/Camera, Runtime/Direction, Runtime/Input, Runtime/Interaction, Runtime/Scene | (none) | (none) |
-| Runtime/Capture | prefix | closed allow inside Runtime | Runtime/App, Runtime/Automation, Runtime/Camera, Runtime/Capture, Runtime/Diagnostics, Runtime/Input, Runtime/Interaction, Runtime/Render, Runtime/Replay, Runtime/Scene, Runtime/Simulation, Runtime/Tools | Runtime/RuntimeFrameViews.h | (none) |
-| Runtime/Debug | prefix | closed allow inside Runtime | Runtime/Debug | (none) | (none) |
-| Runtime/DevelopmentTools | prefix | closed allow inside Runtime | Runtime/App, Runtime/DevelopmentTools, Runtime/Input, Runtime/Planning, Runtime/Replay | (none) | (none) |
-| Runtime/Diagnostics | prefix | closed allow inside Runtime | Runtime/App, Runtime/Automation, Runtime/Capture, Runtime/Debug, Runtime/Diagnostics, Runtime/Input, Runtime/Render, Runtime/Replay, Runtime/Scene | (none) | (none) |
-| Runtime/Direction | prefix | closed allow inside Runtime | Runtime/Camera, Runtime/Capture, Runtime/Direction, Runtime/Scene, Runtime/Tools | (none) | (none) |
-| Runtime/Editor | prefix | closed allow inside Runtime | Runtime/App, Runtime/Camera, Runtime/Capture, Runtime/Diagnostics, Runtime/Editor, Runtime/Input, Runtime/Interaction, Runtime/Replay, Runtime/Scene, Runtime/Tools | Runtime/RuntimeFrameViews.h | (none) |
-| Runtime/RuntimeFrameViews.h | exact file | deny matching target prefixes | (none) | (none) | Runtime |
-| Runtime/Input | prefix | closed allow inside Runtime | Runtime/Camera, Runtime/Input, Runtime/Interaction | Runtime/App/Window.h, Runtime/Replay/ReplayEventCommand.h, Runtime/Scene/SceneLifecycle.h | (none) |
-| Runtime/Interaction | prefix | closed allow inside Runtime | Runtime/Camera, Runtime/Diagnostics, Runtime/Interaction, Runtime/Render, Runtime/Scene, Runtime/Simulation | (none) | (none) |
-| Runtime/Planning | prefix | closed allow inside Runtime | Runtime/Input, Runtime/Interaction, Runtime/Planning, Runtime/Prediction, Runtime/Render, Runtime/Replay, Runtime/Scene, Runtime/UI | (none) | (none) |
-| Runtime/Prediction | prefix | closed allow inside Runtime | Runtime/Camera, Runtime/Editor, Runtime/Input, Runtime/Prediction, Runtime/Replay, Runtime/Scene, Runtime/Tools | (none) | (none) |
-| Runtime/Render | prefix | closed allow inside Runtime | Runtime/App, Runtime/Camera, Runtime/Debug, Runtime/DevelopmentTools, Runtime/Diagnostics, Runtime/Input, Runtime/Interaction, Runtime/Planning, Runtime/Prediction, Runtime/Render, Runtime/Replay, Runtime/Scene, Runtime/Tools, Runtime/UI | Runtime/RuntimeFrameViews.h | (none) |
-| Runtime/Replay | prefix | closed allow inside Runtime | Runtime/Camera, Runtime/Diagnostics, Runtime/Editor, Runtime/Input, Runtime/Interaction, Runtime/Render, Runtime/Replay, Runtime/Scene, Runtime/Simulation, Runtime/Tools, Runtime/UI | (none) | (none) |
-| Runtime/Scene | prefix | closed allow inside Runtime | Runtime/App, Runtime/Automation, Runtime/Camera, Runtime/Debug, Runtime/Diagnostics, Runtime/Editor, Runtime/Input, Runtime/Interaction, Runtime/Planning, Runtime/Render, Runtime/Replay, Runtime/Scene, Runtime/Simulation, Runtime/Tools | (none) | (none) |
-| Runtime/Simulation | prefix | closed allow inside Runtime | Runtime/Interaction, Runtime/Scene, Runtime/Simulation | (none) | (none) |
-| Runtime/Startup | prefix | closed allow inside Runtime | Runtime/App, Runtime/Replay, Runtime/Scene, Runtime/Startup | (none) | (none) |
-| Runtime/Tools | prefix | closed allow inside Runtime | Runtime/Camera, Runtime/Editor, Runtime/Input, Runtime/Interaction, Runtime/Replay, Runtime/Scene, Runtime/Tools | (none) | (none) |
-| Runtime/UI | prefix | closed allow inside Runtime | Runtime/App, Runtime/Automation, Runtime/Capture, Runtime/Diagnostics, Runtime/Editor, Runtime/Planning, Runtime/Replay, Runtime/Scene, Runtime/UI | Runtime/RuntimeFrameViews.h | (none) |
+| Rank | Source package | Allowed exact cross-package target files |
+|---|---|---|
+| 0 | Runtime/Debug | (none) |
+| 1 | Runtime/RuntimeFrameViews.h | (none) |
+| 2 | Runtime/Startup | (none) |
+| 3 | Runtime/Camera | (none) |
+| 4 | Runtime/Interaction | (none) |
+| 5 | Runtime/Input | Runtime/Camera/CameraCollection.h, Runtime/Camera/CameraControlState.h, Runtime/Camera/RuntimeCameraMode.h, Runtime/Interaction/OperatorEditorExchange.h, Runtime/Interaction/RuntimeInteractionController.h |
+| 6 | Runtime/Simulation | Runtime/Interaction/PhysicsAdvanceState.h |
+| 7 | Runtime/Scene | Runtime/Camera/AttachedCameraController.InspectionPolicy.h, Runtime/Camera/AttachedCameraValues.h, Runtime/Camera/CameraCollection.h, Runtime/Camera/CameraControlState.h, Runtime/Input/Input.h, Runtime/Input/InputRouter.h, Runtime/Interaction/OperatorUiCommands.h, Runtime/Simulation/SimulationSystem.h, Runtime/Startup/RunLaunchOptions.h, Runtime/Startup/RunStartupState.h, Runtime/Startup/Window.h |
+| 8 | Runtime/Replay | Runtime/Camera/RuntimeCameraMode.h |
+| 9 | Runtime/Prediction | Runtime/Replay/ReplayIdentity.h, Runtime/Replay/ReplayPathPackets.h, Runtime/Replay/ReplayRetainedMemory.h, Runtime/Replay/ReplayTrajectoryPackets.h, Runtime/Replay/ReplayVisualPacket.h |
+| 10 | Runtime/Planning | Runtime/Interaction/RuntimePickService.h, Runtime/Prediction/ContinuousPredictionProducer.h, Runtime/Prediction/ReplayPredictionView.h, Runtime/Replay/ReplayAuthoringPackets.h, Runtime/Replay/ReplayCapturePackets.h, Runtime/Replay/ReplayOverlayLayout.h, Runtime/Replay/ReplayPathPackets.h, Runtime/Replay/ReplayPresentationPackets.h, Runtime/Replay/ReplayTimelinePackets.h |
+| 11 | Runtime/Tools | Runtime/Camera/CameraCollection.h, Runtime/Camera/RuntimeCameraMode.h, Runtime/Input/InputRouter.h, Runtime/Interaction/OperatorUiCommands.h, Runtime/Interaction/RuntimeInteractionCommands.h, Runtime/Interaction/RuntimeInteractionController.h, Runtime/Interaction/RuntimePickService.h, Runtime/Replay/ReplayAuthoringPackets.h, Runtime/Replay/ReplayEventCommand.h, Runtime/Replay/ReplayToolPackets.h, Runtime/Replay/ReplayVisualPacket.h, Runtime/Scene/SceneEntityStore.h, Runtime/Scene/SceneGeneratedSetup.h, Runtime/Scene/SceneLifecycle.h, Runtime/Scene/SceneSessionState.h, Runtime/Scene/SceneWorld.h, Runtime/Startup/RunLaunchOptions.h |
+| 12 | Runtime/Editor | Runtime/Camera/CameraCollection.h, Runtime/Camera/RuntimeCameraMode.h, Runtime/Input/InputController.h, Runtime/Input/InputRouter.h, Runtime/Interaction/OperatorEditorObjectCatalog.h, Runtime/Interaction/OperatorUiCommands.h, Runtime/Interaction/RuntimeInteractionCommands.h, Runtime/Interaction/RuntimeInteractionController.h, Runtime/Interaction/RuntimePickService.h, Runtime/Replay/ReplayAuthoringPackets.h, Runtime/Replay/ReplayEventCommand.h, Runtime/Scene/SceneAuthoredSetup.h, Runtime/Scene/SceneController.h, Runtime/Scene/SceneControllerState.h, Runtime/Scene/SceneEntityStore.h, Runtime/Scene/SceneGeneratedSetup.h, Runtime/Scene/SceneLifecycle.h, Runtime/Scene/SceneSaveOperations.h, Runtime/Scene/SceneSessionState.h, Runtime/Scene/SceneWorld.h, Runtime/Startup/RunLaunchOptions.h, Runtime/Startup/Window.h, Runtime/Tools/EditorTracer.h, Runtime/Tools/RuntimeFileWriter.h |
+| 13 | Runtime/Render | Runtime/Editor/EditorTools.h, Runtime/Interaction/OperatorUiCommands.h, Runtime/Replay/ReplayRuntimePackets.h, Runtime/Replay/ReplayVisualPacket.h, Runtime/RuntimeFrameViews.h, Runtime/Startup/Window.h |
+| 14 | Runtime/Diagnostics | Runtime/Interaction/OperatorUiCommands.h, Runtime/RuntimeFrameViews.h, Runtime/Scene/SceneLifecycle.h, Runtime/Startup/RunLaunchOptions.h |
+| 15 | Runtime/DevelopmentTools | Runtime/Interaction/OperatorEditorExchange.h, Runtime/Interaction/OperatorEditorObjectCatalog.h, Runtime/Planning/ReplayOverlayPackets.h, Runtime/Render/UIRenderAuthoringCatalog.h, Runtime/Startup/RunLaunchOptions.h |
+| 16 | Runtime/Capture | Runtime/Interaction/OperatorUiCommands.h, Runtime/RuntimeFrameViews.h, Runtime/Scene/SceneLoadRequest.h, Runtime/Startup/RunLaunchOptions.h, Runtime/Startup/RunStartupState.h, Runtime/Startup/Window.h |
+| 17 | Runtime/Direction | Runtime/Camera/DemoDirector.h, Runtime/Tools/RuntimeFileWriter.h |
+| 18 | Runtime/Automation | Runtime/Camera/DemoDirector.h, Runtime/Camera/RuntimeCameraMode.h, Runtime/DevelopmentTools/ImGuiEditorOwner.h, Runtime/Direction/DemoDirectorPlayback.h, Runtime/Input/Input.h, Runtime/Interaction/OperatorEditorExchange.h, Runtime/Interaction/RuntimePickService.h, Runtime/Planning/ReplayPlanningRuntime.h, Runtime/Prediction/ReplayPrediction.h, Runtime/Prediction/ReplayPredictionArchive.h, Runtime/Prediction/ReplayPredictionDrawing.h, Runtime/Prediction/ReplayPredictionPackets.h, Runtime/Replay/ReplayCoordination.h, Runtime/Replay/ReplayPresentation.h, Runtime/Replay/ReplayTimelinePackets.h, Runtime/Replay/ReplayV2Artifact.h, Runtime/Replay/ReplayVisualPacket.h, Runtime/Replay/ReplayVisualPacketFingerprint.h, Runtime/RuntimeFrameViews.h, Runtime/Scene/SceneAutomationGateConfiguration.h, Runtime/Scene/SceneLifecycle.h, Runtime/Scene/SceneNavigationModel.h, Runtime/Scene/SceneSleepingDynamicBodyGatePolicy.h, Runtime/Startup/RunLaunchOptions.h, Runtime/Startup/Window.h, Runtime/Tools/RuntimeFileWriter.h |
+| 19 | Runtime/UI | Runtime/Interaction/OperatorEditorObjectCatalog.h, Runtime/Interaction/OperatorUiCommands.h, Runtime/Planning/ReplayOverlayPackets.h, Runtime/Render/UIRenderAuthoringCatalog.h, Runtime/RuntimeFrameViews.h, Runtime/Scene/SceneNavigationModel.h, Runtime/Startup/Window.h |
+| 20 | Runtime/App | Runtime/Automation/InteractionAutomationController.h, Runtime/Automation/InteractionAutomationRecorder.h, Runtime/Automation/InteractionAutomationReportWriter.h, Runtime/Automation/InteractionRecordingBrowser.h, Runtime/Automation/ReplayAutomationPackets.h, Runtime/Automation/ReplayAutomationView.h, Runtime/Automation/RuntimeValidationHarness.h, Runtime/Camera/CameraCollection.h, Runtime/Camera/CameraControlState.h, Runtime/Camera/RuntimeCameraMode.h, Runtime/Capture/CaptureController.h, Runtime/Capture/CaptureSystem.h, Runtime/Capture/GraphicsStressController.h, Runtime/Capture/RuntimeStressController.h, Runtime/DevelopmentTools/ImGuiEditorLayoutPolicy.h, Runtime/DevelopmentTools/ImGuiEditorOwner.h, Runtime/Diagnostics/DiagnosticsPhysicsUI.h, Runtime/Diagnostics/DiagnosticsRuntime.h, Runtime/Diagnostics/OverlayDebugState.h, Runtime/Diagnostics/RuntimeDiagnostics.h, Runtime/Diagnostics/RuntimeFrameMetricsOwner.h, Runtime/Diagnostics/RuntimeOverlayDiagnostics.h, Runtime/Diagnostics/SceneMemoryDiagnostics.h, Runtime/Diagnostics/UIStressPolicy.h, Runtime/Direction/DemoDirectorPlayback.h, Runtime/Direction/LiveStyleController.h, Runtime/Direction/LookLabController.h, Runtime/Editor/EditorTools.h, Runtime/Input/Input.h, Runtime/Input/InputController.Bindings.h, Runtime/Input/InputController.h, Runtime/Input/InputFrameValues.h, Runtime/Input/InputRouter.h, Runtime/Interaction/OperatorCommandTransaction.h, Runtime/Interaction/OperatorUiCommands.h, Runtime/Interaction/RuntimeInteractionCommands.h, Runtime/Interaction/RuntimeInteractionController.h, Runtime/Interaction/RuntimePickService.h, Runtime/Planning/ContinuousOrbitalForecast.h, Runtime/Planning/ReplayCauseInspection.h, Runtime/Planning/ReplayOverlayPackets.h, Runtime/Planning/ReplayOverlayRenderer.h, Runtime/Planning/ReplayPlanningRuntime.h, Runtime/Prediction/ReplayPrediction.h, Runtime/Prediction/ReplayPredictionArchive.h, Runtime/Prediction/ReplayPredictionPublicationOperations.h, Runtime/Prediction/ReplayPredictionRetainedMemory.h, Runtime/Prediction/ReplayPredictionScheduling.h, Runtime/Prediction/ReplayPredictionView.h, Runtime/Prediction/TrajectoryStore.h, Runtime/Render/RenderDefaultsStore.h, Runtime/Render/RenderPresentationSettings.h, Runtime/Render/RuntimeRenderFrameValues.h, Runtime/Render/RuntimeRenderHost.h, Runtime/Render/RuntimeRenderer.h, Runtime/Replay/ReplayAuthoring.h, Runtime/Replay/ReplayCaptureLimits.h, Runtime/Replay/ReplayCoordination.h, Runtime/Replay/ReplayIdentity.h, Runtime/Replay/ReplayOverlayLayout.h, Runtime/Replay/ReplayOverlaySurface.h, Runtime/Replay/ReplayPathPackets.h, Runtime/Replay/ReplayPresentation.h, Runtime/Replay/ReplayPresentationPackets.h, Runtime/Replay/ReplayPresentationSubmission.h, Runtime/Replay/ReplayProbeState.h, Runtime/Replay/ReplayRecorder.h, Runtime/Replay/ReplayRestoreTransactions.h, Runtime/Replay/ReplayRetainedMemory.h, Runtime/Replay/ReplayRuntimePackets.h, Runtime/Replay/ReplayScrubber.h, Runtime/Replay/ReplayTimeline.h, Runtime/Replay/ReplayTrajectoryPackets.h, Runtime/Replay/ReplayV2Artifact.h, Runtime/Replay/ReplayVisualPacket.h, Runtime/Replay/ReplayVisualPacketFingerprint.h, Runtime/RuntimeFrameViews.h, Runtime/Scene/AttachedCameraController.h, Runtime/Scene/SceneAuthoredSetup.h, Runtime/Scene/SceneCinematicPolicy.h, Runtime/Scene/SceneController.h, Runtime/Scene/SceneControllerState.h, Runtime/Scene/SceneEntityStore.h, Runtime/Scene/SceneGeneratedControlTransaction.h, Runtime/Scene/SceneGeneratedSetup.h, Runtime/Scene/SceneLifecycle.h, Runtime/Scene/SceneLoadRequest.h, Runtime/Scene/SceneLoadTransaction.h, Runtime/Scene/SceneSaveOperations.h, Runtime/Scene/SceneSessionState.h, Runtime/Scene/SceneWorld.h, Runtime/Simulation/SimulationSystem.h, Runtime/Startup/RunLaunchOptions.h, Runtime/Startup/RunStartupState.h, Runtime/Startup/StartupCommandLine.h, Runtime/Startup/StartupCrashLogging.h, Runtime/Startup/StartupLaunchResolution.h, Runtime/Startup/StartupProbeHarnesses.h, Runtime/Startup/Window.h, Runtime/Tools/RuntimeFileWriter.h, Runtime/Tools/RuntimeTools.h, Runtime/UI/GameUI/UI.h, Runtime/UI/GameUI/UIFrameComposition.h, Runtime/UI/GameUI/UITabEditor.h, Runtime/UI/OperatorUiPhase.h, Runtime/UI/RenderDiagnosticsProjection.h, Runtime/UI/RuntimeViewModel.h |
+
+Composition root: `Runtime/App`.
+Every cross-package target must have a lower rank; rank alone never grants permission.
+
+#### Runtime Mixed Exact Edges
+
+| Exact source file | Exact target file |
+|---|---|
+
+#### Runtime Repair-Plan Debt
+
+Current pre-separation debt is sealed in rule data by source, line, resolved
+target, include spelling, and policy fingerprint. The ordinary repository
+gate accepts only an exact current seal and reports it as repair-plan debt;
+a new, changed, shifted, or deleted site fails. `--check-runtime-graph`
+ignores every repair row and fails every forbidden site and multi-package SCC.
+Canonical repair-policy SHA-256: `cecfc27976a237027863893b7a612a727d0d59729399a37eb148463ddb8971d1`.
 
 #### Content Rules
 
@@ -233,7 +259,9 @@ engine-layer targets.
 
 | Rule | Path prefix | Suffixes | Required project | Forbidden projects |
 |---|---|---|---|---|
-| ui_single_project_ownership | SkullbonezSource/UI | .cpp, .h, .hpp, .inl | SKULLBONEZ_UI.vcxproj | SKULLBONEZ_CORE.vcxproj, SKULLBONEZ_TESTS.vcxproj |
+| rendering_single_project_ownership | SkullbonezSource/Rendering | .cpp, .h, .hpp, .inl | SKULLBONEZ_RENDERING.vcxproj | SKULLBONEZ_CORE.vcxproj |
+| runtime_ui_product_project_ownership | SkullbonezSource/Runtime/UI | .cpp, .h, .hpp, .inl | SKULLBONEZ_CORE.vcxproj | SKULLBONEZ_MATHS.vcxproj, SKULLBONEZ_PHYSICS.vcxproj, SKULLBONEZ_RENDERING.vcxproj, SKULLBONEZ_UI.vcxproj |
+| ui_single_project_ownership | SkullbonezSource/UI | .cpp, .h, .hpp, .inl | SKULLBONEZ_UI.vcxproj | SKULLBONEZ_CORE.vcxproj, SKULLBONEZ_MATHS.vcxproj, SKULLBONEZ_PHYSICS.vcxproj, SKULLBONEZ_RENDERING.vcxproj, SKULLBONEZ_TESTS.vcxproj |
 
 #### Executable Proof
 
@@ -303,9 +331,12 @@ Either finding blocks the touching change.
 
 Comment quality is part of completion, not a follow-up nicety.
 
-- If a task touches source for meaningful work, inspect every touched
-  source-bearing file with `Agentic/Skills/comment-style-audit/skill.md` before
-  reporting done.
+- If a task touches source for meaningful work, the source-writing agent applies
+  `Agentic/Reference/comment-style-guide.md` once while implementing the file.
+  Do not schedule a separate comment-audit pass or worker for ordinary
+  implementation. The terminal rubber-duck reviews implementation-level truth
+  and may block materially false ownership, sequencing, lifetime, unit, or
+  hazard claims; it does not perform cosmetic wording review.
 - Do not treat "file has a learning header" as full compliance. The body of the
   file must also teach local vocabulary, non-obvious ownership/lifetime rules,
   invariants, hazards, units, and validation-sensitive behavior.
@@ -929,9 +960,16 @@ render, or tool gate; it does not replace it.
 - **Never claim validation success without command output.** Paste the validation output when validation is required.
 - **Never skip required pre-commit/PR validation** for code, tool, scene, shader, baseline, or runtime behavior changes unless the user explicitly says to.
 - **Documentation-only changes require no validation.** Do not run `validate_fast` for prose-only edits.
-- **Physics baselines are owner-controlled and immutable without explicit approval.** An agent must never regenerate, replace, or accept changed physics CSV, known-issue, or SkullScope goldens unless the owner explicitly approves that exact baseline transition after reviewing the behavior. A plan's divergence allowance, a passing determinism check, or an agent-authored closure report is not approval. When behavior differs without approval, restore the owner-approved oracle and repair the implementation.
-- **An owner-approved physics baseline refresh requires a final physics gate.** Regenerate CSV or SkullScope baselines only from the final Debug executable, scene files, and config that will be committed, then rerun the matching gate after the baseline files are updated: `tools\validate_physics.bat` for the core varied-scene baseline, or `tools\validate_physics_deep.bat` for bullet sweep, shooting, known-issue, or SkullScope baselines. A copied physics artifact is not trustworthy until the gate compares it byte-exactly against the committed baseline.
+### Physics Golden Governance
+
+- **Active Physics plans have standing automated golden-transition authority.** A phase may update every golden it governs, including Physics CSV, known-issue, SkullScope, replay, visual, causal, and performance goldens, without a per-update owner phrase, interactive terminal, or separate pre-approval. Non-Physics work retains its existing golden approval rules. This authority never permits a blind refresh merely to clear a gate: the phase must explain the behavior change, carry focused false-pass controls, and treat an unexplained difference as a bug.
+- **Every Physics-plan transition is content-bound and archive-bound.** Before replacing any tracked golden, create a new append-only bundle under `Agentic/Plans/Artifacts/<physics-plan>/<phase>/golden-transitions/<transition-id>/`. Preserve the exact old-behavior and new-producing executable sets plus every required non-system runtime DLL. `manifest.json` records the owning plan and phase, source commits, each golden's path and old/new SHA-256, and every executable/DLL path, byte size, SHA-256, dependency-scan command, and exact launch command. Never overwrite or delete an older transition bundle. Retain the new producer so it becomes the old-behavior comparison executable for the next transition; if the exact prior launch payload is unavailable, the golden cannot be replaced.
+- **Automated writers fail closed.** The core CSV lane is `tools/check_physics_baseline_guard.py --automated-override-output <output> --candidate-sha256 <sha256> --artifact-manifest <manifest.json>`. The candidate hash must match the exact serialized output, the manifest must bind both old and new golden hashes, the retained new executable must byte-match the producer, and all declared executable/DLL hashes must pass before any write. The staged guard repeats verification from Git-index bytes and rejects mutation of committed bundles. Physics-plan replay, visual, causal, known-issue, and SkullScope writers use their corresponding automated-override hash and manifest flags; deep CSV or performance files without a specialized writer use the guard's generic `--automated-override-file` lane. `Agentic/Plans/Artifacts/README.md` owns the exact schema and examples.
+- **A Physics golden transition requires its final mapped gate.** Regenerate CSV or SkullScope baselines only from the final Debug executable, scene files, and config that will be committed, then rerun the matching gate after the baseline files are updated: `tools\validate_physics.bat` for the core varied-scene baseline, `tools\validate_physics_deep.bat` for bullet sweep, shooting, known-issue, or SkullScope baselines, and the replay visual-fidelity gate for replay/visual/causal goldens. Source, tests, golden changes, and the complete transition bundle land atomically. A copied artifact is not trustworthy until the mapped gate compares it byte-exactly against the committed baseline.
 - **`tools\update_baselines.bat` is visual/perf only.** Do not use it for physics CSV or SkullScope baselines unless the script explicitly grows that support; use the Debug physics artifacts generated by the validation commands and rerun the matching physics gate.
+
+### General Validation Rules Continued
+
 - **Time all user-requested work.** Record elapsed wall-clock time for every task from the start of work to the final response. Report the time taken in the final answer, and call out timings for substantial sub-runs such as builds, validation scripts, game launches, SkullScope trace generation, or long investigations.
 - **Protect dirty worktrees.** Run `git status --short --branch` before edits and before commits. Treat pre-existing changes as user-owned. Never use `git reset --hard`, destructive `git clean`, checkout/discard commands, or broad formatter runs that touch unrelated files unless the user explicitly requested that operation.
 - **Keep physics debug data cheap for model analysis.** Use SkullScope. Do not paste or ingest whole physics CSV, NDJSON, or SQLite diagnostic files unless the user explicitly requests raw logs. When available, prefer the queryable diagnostics workflow in `Agentic/Reference/physics-query-reference.md` and load `Agentic/Skills/skore-skullscope/skill.md` for the compact runbook: generate a deterministic trace with `--physics-diag`, run `tools\physics_query.bat <trace> summary` and `tools\physics_query.bat <trace> events`, or expand a pre-baked question with `tools\physics_query.bat <trace> questions <name>`, then ask focused frame/body/contact/island queries. The deterministic physics CSV remains the byte-exact validation artifact.
@@ -983,10 +1021,11 @@ only when every condition below is satisfied:
 - the mapped gate is rerun against the reconciled metadata and passes.
 
 If any condition is unproved, if the config edit changes runtime behavior, or
-if any non-hash golden field moves, revert the reconciliation and obtain
-explicit owner approval under the normal baseline/golden rules. This standing
-ruling does not authorize golden refreshes or weaken replay's one-process,
-one-generation limits.
+if any non-hash golden field moves, revert the reconciliation and use the
+governing baseline/golden transition rule. An active Physics plan uses the
+content-bound retained-artifact lane above; non-Physics work obtains its normal
+owner approval. This provenance ruling does not authorize blind golden refreshes
+or weaken replay's one-process, one-generation limits.
 
 ---
 

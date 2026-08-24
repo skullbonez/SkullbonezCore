@@ -21,9 +21,9 @@ Related:
 #pragma once
 
 #include "SceneControllerState.h"
+#include "SceneLoadPresentation.h"
+#include "SceneRenderPolicy.h"
 #include "../Camera/CameraControlState.h"
-#include "../Diagnostics/OverlayDebugState.h"
-#include "../Render/RenderPresentationSettings.h"
 #include "../../Gameplay/TornadoField.h"
 #include "../../Gameplay/TornadoVisualPass.h"
 #include "../../Core/Config.h"
@@ -39,29 +39,28 @@ class WorldEnvironment;
 namespace Runtime
 {
 class SceneController;
-class RuntimeRenderer;
 struct SceneSessionState;
 
 // Captures the part of a live run that belongs to the operator's current scene
 // configuration rather than the simulation instance.
 struct SceneResetPreservationSnapshot
 {
-    RenderPresentationSettings renderPresentation; // Renderer-owned values restored after the new scene is populated.
+    SceneRenderPolicyState renderPolicy;  // Detached render policy restored by App after population.
     bool physicsSleepEnabled = true;
     Gameplay::TornadoFieldConfig tornadoField;
     Gameplay::TornadoSystemConfig tornadoSystem;
     Gameplay::TornadoVisualSettings tornadoVisual;
-    OverlayDebugState debug;                       // Debug overlays/visualizers, including the C-key physics debug mode and associated alpha/linger knobs
-    bool isScenePhysics = true;                    // Live scene simulation toggle; reset should rebuild the run, not silently re-enable
+    ScenePresentationValues presentation; // Scene-authored render/debug values restored by App after population.
+    bool isScenePhysics = true;           // Live scene simulation toggle; reset should rebuild the run, not silently re-enable
 
-    // physics
-    bool isSceneText = true;                       // Live text/HUD toggle from the scene controls
-    bool isFixedStep = false;                      // Live stepping mode; resetting the simulation should not change how it advances
-    bool isExitOnComplete = false;                 // Interactive reset preserves the user's automation/hold choice
-    bool isInteractiveRun = false;                 // Once a user owns the scene, a reset should not go back to CLI auto-quit behavior
-    int targetFrameCount = -1;                     // Live frame-count control from the UI
-    float timeScale = 1.0f;                        // Live time-scale control from the UI/scene controls
-    float worldGravity = 0.0f;                     // Live world/environment sliders
+    // Preserved scene/session policy and presentation values.
+    bool isSceneText = true;              // Live text/HUD toggle from the scene controls
+    bool isFixedStep = false;             // Scene/capture lockstep request; effective pacing resolves after reset
+    bool isExitOnComplete = false;        // Interactive reset preserves the user's automation/hold choice
+    bool isInteractiveRun = false;        // Once a user owns the scene, a reset should not go back to CLI auto-quit behavior
+    int targetFrameCount = -1;            // Live frame-count control from the UI
+    float timeScale = 1.0f;               // Live time-scale control from the UI/scene controls
+    float worldGravity = 0.0f;            // Live world/environment sliders
     float worldFluidHeight = 0.0f;
     float worldFluidDensity = 0.0f;
     bool hasCinematicRenderingOverride = false;
@@ -73,13 +72,13 @@ struct SceneResetPreservationSnapshot
     uint64_t cinematicOverrideMask = 0;
     uint64_t uiCinematicOverrideMask = 0;
     SkullbonezCore::Core::CinematicRenderConfig cinematicRender;
-    float uiTimeScaleOverride = 0.0f;              // UI overrides feed object setup during reload, so they must survive before the
+    float uiTimeScaleOverride = 0.0f;     // UI overrides feed object setup during reload, so they must survive before the
 
     // scene rebuilds
     int uiModelCountOverride = -1;
     int uiSolverBallCountOverride = -1;
     int uiSolverBoxCountOverride = -1;
-    Physics::ModelRowHint trackBallRow;            // Scene-tab camera tracking cache
+    Physics::ModelRowHint trackBallRow;   // Scene-tab camera tracking cache
     float trackHeight = 300.0f;
     float autoCycleInterval = -1.0f;
     float autoCycleAccum = 0.0f;

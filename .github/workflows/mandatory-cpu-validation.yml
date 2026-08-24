@@ -215,7 +215,7 @@ jobs:
           persist-credentials: false
           submodules: recursive
 
-      - name: Verify owner-approved physics golden before setup
+      - name: Verify Physics golden transition integrity before setup
         shell: pwsh
         run: |
           python tools/check_physics_baseline_guard.py --repo .

@@ -18,7 +18,6 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "BoundingSphere.h"
-#include "BoundingBox.h"
 #include "CollisionShape.h"
 #include "ConvexHullShape.h"
 #include <immintrin.h> // SSE intrinsics for scale pass in GetModelMatrix
@@ -128,8 +127,9 @@ float BoundingSphere::CollisionDetect( const BoundingSphere& target, const Ray& 
 
 float BoundingSphere::TestCollision( const BoundingSphere& target, const Ray& targetRay, const Ray& focusRay ) const
 {
-    // Public wrapper kept so CollisionShape's std::visit dispatch can call the
-    // same member name for every shape pair.
+    // Public wrapper for the generic sphere-sphere variant branch. Sphere-box
+    // intentionally has no matching member overload: ObjectContactManifold
+    // routes both orders through its exact SweepSphereAgainstBox owner.
     return CollisionDetect( target, targetRay, focusRay );
 }
 
@@ -211,54 +211,6 @@ float BoundingSphere::GetProjectedSurfaceArea() const
 {
     // Area of circle = PI * r^2
     return _PI * m_radius * m_radius;
-}
-
-
-// Sphere vs Box swept test: approximate box as bounding sphere for broadphase.
-// Precise OBB-sphere tests are done in the narrowphase collision response.
-float BoundingSphere::TestCollision( const BoundingBox& target, const Ray& targetRay, const Ray& focusRay ) const
-{
-    // This intentionally overestimates a box as a sphere that reaches its
-    // farthest corner. Broadphase prefers false positives over false negatives:
-    // it is fine to do one extra narrowphase test, but not fine to miss a hit.
-    float combinedRadius = m_radius + target.GetBoundingRadius();
-    float combinedRadiusSq = combinedRadius * combinedRadius;
-
-    Vector3 totalMovement = targetRay.vector3 - focusRay.vector3;
-    float totalMovementSq = VectorMagSquared( totalMovement );
-
-    if ( totalMovementSq < TOLERANCE )
-    {
-        Vector3 delta = ( targetRay.origin + target.GetPosition() ) - ( focusRay.origin + m_position );
-
-        if ( VectorMagSquared( delta ) <= combinedRadiusSq )
-        {
-            return 0.0f;
-        }
-
-        return NO_COLLISION;
-    }
-
-    Vector3 d = ( focusRay.origin + m_position ) - ( targetRay.origin + target.GetPosition() );
-    float totalMovementMag = sqrtf( totalMovementSq );
-    Vector3 moveDir = totalMovement / totalMovementMag;
-
-    float dDotMoveDir = Dot( d, moveDir );
-    float discriminant = dDotMoveDir * dDotMoveDir - ( VectorMagSquared( d ) - combinedRadiusSq );
-
-    if ( discriminant < 0.0f )
-    {
-        return NO_COLLISION;
-    }
-
-    float t = ( dDotMoveDir - sqrtf( discriminant ) ) / totalMovementMag;
-
-    if ( t < 0.0f || t > 1.0f )
-    {
-        return NO_COLLISION;
-    }
-
-    return t;
 }
 
 

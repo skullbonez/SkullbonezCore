@@ -80,16 +80,16 @@ JSON_COLD_BOUNDARY_TRANSLATION_UNITS = frozenset(
         "Runtime/Editor/EditorInteractionTools.cpp",
         "Runtime/Editor/EditorObjectPlacement.cpp",
         "Runtime/Editor/EditorPlacementAssets.cpp",
-        "Runtime/Editor/EditorTracer.cpp",
-        "Runtime/Automation/InteractionAutomationController.cpp",
+        "Runtime/Editor/EditorOverlayTools.cpp",
+        "Runtime/App/InteractionAutomationApplication.cpp",
         # Recorder parses no gameplay data; it emits the final manifest only
         # during the Diagnostics-owned stop/save publication boundary.
         "Runtime/Automation/InteractionAutomationRecorder.cpp",
-        "Runtime/Automation/InteractionAutomationReportWriter.cpp",
+        "Runtime/App/InteractionAutomationReportApplication.cpp",
         "Runtime/Replay/ReplayV2Artifact.cpp",
         "Runtime/Scene/SceneController.Load.cpp",
         "Runtime/Scene/SceneController.Creation.cpp",
-        "Runtime/Startup/StartupLaunchResolution.cpp",
+        "Runtime/App/StartupLaunchApplication.cpp",
         "Scene/AuthoredSceneParser.cpp",
         "Scene/AuthoredSceneParserAssets.cpp",
         "Scene/AuthoredSceneParserBodies.cpp",
@@ -106,6 +106,7 @@ DEFAULT_PRODUCTION_PROJECTS = (
     ("SKULLBONEZ_CORE.vcxproj", "SKULLBONEZ_CORE.vcxproj.filters"),
     ("SKULLBONEZ_MATHS.vcxproj", "SKULLBONEZ_MATHS.vcxproj.filters"),
     ("SKULLBONEZ_PHYSICS.vcxproj", "SKULLBONEZ_PHYSICS.vcxproj.filters"),
+    ("SKULLBONEZ_RENDERING.vcxproj", "SKULLBONEZ_RENDERING.vcxproj.filters"),
     ("SKULLBONEZ_UI.vcxproj", "SKULLBONEZ_UI.vcxproj.filters"),
 )
 # Concept: extracted single-area libraries already name their subsystem at the
@@ -114,6 +115,7 @@ DEFAULT_PRODUCTION_PROJECTS = (
 FLATTENED_LIBRARY_PROJECT_AREAS = {
     "SKULLBONEZ_MATHS.vcxproj": "Maths",
     "SKULLBONEZ_PHYSICS.vcxproj": "Physics",
+    "SKULLBONEZ_RENDERING.vcxproj": "Rendering",
     "SKULLBONEZ_UI.vcxproj": "UI",
 }
 # Concept: `.inl` files are source-bearing include slices, not build units.
@@ -141,6 +143,7 @@ MATH_PREFIXES = (
 ASSET_PREFIXES = (
     "AssetKeys",
     "AssetSystem",
+    "EditorHullAssets",
     "TextureCollection",
 )
 
@@ -230,9 +233,9 @@ PHYSICS_DEBUG_PREFIXES = (
     "PhysicsDebugVisualizer",
 )
 
-# Why: the visualizer filenames still describe physics overlays, but render
-# submission now lives under Runtime\Debug after the physics project split.
-RUNTIME_DEBUG_PREFIXES = (*PHYSICS_DEBUG_PREFIXES, "OverlayDebugState")
+# Why: OverlayDebugState remains a diagnostics presentation value; GPU-backed
+# visualizers are Render-owned and follow the render filter below.
+RUNTIME_DEBUG_PREFIXES = ("OverlayDebugState",)
 
 DX12_RENDERING_PREFIXES = (
     "BLASDX12",
@@ -311,30 +314,41 @@ WORLD_PREFIXES = (
 
 RUNTIME_LIFECYCLE_PREFIXES = (
     "ApplicationExitState",
+    "GraphicsStressApplication",
     "Init",
+    "OperatorCommandApplication",
+    "OperatorEditorFramePhase",
+    "OperatorUiProjection",
+    "RenderModelFramePublisher",
     "Run",
     "RunFrame",
-    "RunLaunchOptions",
-    "RunStartupState",
+    "RunUiStress",
     "RunTimerState",
     "RuntimeFrameViews",
     "RuntimeOverlayDiagnostics",
+    "SceneCaptureApplication",
+    "SceneLoadApplication",
     "SimulationSystem",
-    "Window",
+    "StartupLaunchApplication",
+    "StartupProbeApplication",
 )
 
 # Startup units are process-entry policy owners rather than Run lifecycle
 # implementations. Keep their physical directory and Solution Explorer filter
 # aligned as the Init decomposition adds each planned unit.
 RUNTIME_STARTUP_PREFIXES = (
+    "RunLaunchOptions",
+    "RunStartupState",
     "StartupCommandLine",
     "StartupCrashLogging",
     "StartupLaunchResolution",
     "StartupProbeHarnesses",
+    "Window",
 )
 
 RUNTIME_CAMERA_PREFIXES = (
     "AttachedCameraController",
+    "AttachedCameraValues",
     "Camera",
     "CameraCollection",
     "CameraControlState",
@@ -349,12 +363,14 @@ RUNTIME_CAPTURE_PREFIXES = (
 RUNTIME_DEMO_PREFIXES = (
     "DemoDirector",
     "DemoDirectorPlayback",
+    "DemoDirectorPersistence",
 )
 
 RUNTIME_INPUT_PREFIXES = (
     "Input",
     "InputController",
     "InputFrame",
+    "InputFrameValues",
     "InputFrameExecution",
     "InputRouter",
     "RunInput",
@@ -367,11 +383,17 @@ RUNTIME_AUTOMATION_PREFIXES = (
     "InteractionAutomationRecorder",
     "InteractionAutomationReportWriter",
     "InteractionRecordingBrowser",
+    "ReplayAutomationView",
+    "ReplayAutomationPackets",
     "RuntimeStressController",
     "RuntimeValidationHarness",
 )
 
 RUNTIME_INTERACTION_PREFIXES = (
+    "OperatorEditorExchange",
+    "OperatorEditorObjectCatalog",
+    "OperatorUiCommands",
+    "PhysicsAdvanceState",
     "RuntimeInteractionCommands",
     "RuntimeInteractionController",
     "RuntimePickGeometry",
@@ -395,6 +417,7 @@ RUNTIME_SCENE_PREFIXES = (
     "SceneLoadTransaction",
     "SceneLoadPreparation",
     "SceneLoadPresentation",
+    "SceneRenderPolicy",
     "SceneResetPreservation",
     "SceneWorld",
     "SceneTerrain",
@@ -420,17 +443,12 @@ CORE_ALLOCATION_PREFIXES = (
 RUNTIME_PREDICTION_PREFIXES = (
     "ContinuousPredictionProducer",
     "ContinuousPredictionSampleRing",
-    "ReplayAuthoringCauseTree",
-    "ReplayCauseFocusSubmission",
     "ReplayPredictionArchive",
     "ReplayPredictionPackets",
     "ReplayPrediction",
-    "ReplayPredictionDrawing",
-    "ReplayPredictionPresentation",
     "ReplayPredictionPublication",
     "ReplayPredictionPublicationOperations",
     "ReplayPredictionReserve",
-    "ReplayPredictionRetainedGeometry",
     "ReplayPredictionRetainedMemory",
     "ReplayPredictionScheduling",
     "ReplayPredictionSolverEvidenceStore",
@@ -454,9 +472,18 @@ RUNTIME_PLANNING_PREFIXES = (
 )
 
 RUNTIME_APP_PREFIXES = (
+    "CameraFrameApplication",
+    "InteractionAutomationApplication",
+    "InteractionAutomationReportApplication",
+    "ReplayAuthoringCauseTree",
+    "ReplayCauseFocusSubmission",
+    "ReplayPredictionComposition",
+    "ReplayPredictionDrawing",
+    "ReplayPredictionPresentation",
+    "ReplayPredictionRetainedGeometry",
     "ReplayReserveInventory",
+    "ReplayRestoreOperations",
     "ReplayRuntime",
-    "ReplayRuntimePackets",
     "ReplayScrubberTools",
     "ReplayValidation",
 )
@@ -480,10 +507,10 @@ RUNTIME_REPLAY_PREFIXES = (
     "ReplayPresentationSubmission",
     "ReplayPresentationPackets",
     "ReplayRetainedMemory",
+    "ReplayRuntimePackets",
     "ReplayRecorder",
     "ReplayPresentation",
     "ReplayProbeState",
-    "ReplayRestoreService",
     "ReplayRestoreTransactions",
     "ReplayScrubber",
     "ReplayTimeline",
@@ -496,7 +523,7 @@ RUNTIME_REPLAY_PREFIXES = (
 )
 
 RUNTIME_RENDER_PREFIXES = (
-    "RenderModelFramePublisher",
+    *PHYSICS_DEBUG_PREFIXES,
     "RenderResourceLifecycle",
     "RenderDefaultsStore",
     "RenderPresentationSettings",
@@ -507,10 +534,11 @@ RUNTIME_RENDER_PREFIXES = (
     "RuntimeRenderResources",
     "RuntimeRenderer",
     "UiDrawSubmission",
+    "UIProfilerOverlayPresenter",
+    "UIRenderAuthoringCatalog",
 )
 
 RUNTIME_EDITOR_PREFIXES = (
-    "EditorCommandHistory",
     "EditorGizmoTools",
     "EditorHistory",
     "EditorInteractionTools",
@@ -519,34 +547,54 @@ RUNTIME_EDITOR_PREFIXES = (
     "EditorTerrainOrientation",
     "EditorTools",
     "EditorOverlayTools",
-    "EditorTracer",
-    "EditorHullAssets",
+    "EditorCommandHistory",
     "ImGuiEditorCausalityProjection",
     "ImGuiEditorLayoutPolicy",
-    "LauncherLaser",
-    "LauncherTools",
-    "MousePickupTools",
 )
 
 RUNTIME_TOOLS_PREFIXES = (
+    "EditorTracer",
+    "LauncherLaser",
+    "LauncherTools",
+    "MousePickupTools",
     "RuntimeFileWriter",
     "RuntimeTools",
 )
 
 RUNTIME_DIAGNOSTICS_PREFIXES = (
     "DiagnosticsController",
+    "DiagnosticsKeyboardShortcuts",
     "DiagnosticsPhysicsUI",
     "DiagnosticsRuntime",
     "ImGuiEditorInputPolicy",
     "ImGuiEditorOwner",
     "RuntimeDiagnostics",
+    "RuntimeFrameMetricsOwner",
     "SceneMemoryDiagnostics",
+    "UIStressPolicy",
 )
 
 # Why: shared runtime UI values have their own physical owner and Solution
 # Explorer filter; keeping this explicit prevents them drifting into Runtime.
 RUNTIME_UI_PREFIXES = (
-    "OperatorEditorFrameComposer",
+    "UI",
+    "UIEditorMiniPalette",
+    "UIEditorMiniPaletteDraw",
+    "UIFrameComposition",
+    "UIRenderDiagnostics",
+    "UITabCinematic",
+    "UITabControls",
+    "UITabEditor",
+    "UITabMemory",
+    "UITabOptions",
+    "UITabPhysics",
+    "UITabProfiler",
+    "UITabProfilerHistogram",
+    "UITabScene",
+    "UITabSky",
+    "UIWindowInteractionOwner",
+    "UITab",
+    "OperatorUiPhase",
     "UiTextPass",
     "RuntimeViewModel",
     "RenderDiagnosticsProjection",

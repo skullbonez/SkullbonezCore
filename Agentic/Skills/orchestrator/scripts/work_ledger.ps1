@@ -5,11 +5,12 @@ Purpose:
   evidence beside the authoritative MASTER-PLAN.
 
 Summary:
-  A goal owns ordered task records, and each task owns a contiguous sequence of
-  steps. Every command captures the parent Codex session counter and atomically
-  rewrites a CSV ledger. Rubber-duck steps may add a second session counter,
-  keeping reviewer usage distinct while preserving exact combined usage and a
-  standard short-context API-cost estimate for the step, task, and goal.
+  A goal owns independently active task records, and each task owns a
+  contiguous sequence of steps from one primary agent session. Every command
+  captures the selected task session counter and atomically rewrites a CSV
+  ledger. Rubber-duck steps may add a second session counter, keeping reviewer
+  usage distinct while preserving exact combined usage and a standard
+  short-context API-cost estimate for the step, task, and goal.
 
 Glossary:
   Token snapshot: Monotonic cumulative counters from the latest token_count
@@ -18,9 +19,10 @@ Glossary:
     successor at the same timestamp and parent-session token snapshot.
 
 Invariants:
-  - One unfinished goal, task, and step may exist in a ledger at a time.
-  - Parent-session step boundaries are contiguous, so their deltas neither gap
-    nor overlap; reviewer-session deltas are added exactly once.
+  - One unfinished goal may contain multiple unfinished tasks, with exactly one
+    unfinished step per task and no primary session shared by live tasks.
+  - Per-task primary-session step boundaries are contiguous, so their deltas
+    neither gap nor overlap; reviewer-session deltas are added exactly once.
   - The CSV and its final embedded-state row are replaced together under a
     named mutex, so a reader never observes a partially written ledger.
   - Cached input is a subset of input. Cost charges uncached input at the input
@@ -36,7 +38,7 @@ Related:
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('start-goal', 'start-task', 'attach-worker', 'transition', 'finish-task', 'finish-goal', 'show', 'self-test')]
+    [ValidateSet('start-goal', 'start-task', 'attach-worker', 'transition', 'finish-task', 'stop-task', 'finish-goal', 'show', 'self-test')]
     [string]$Action = 'show',
 
     [string]$MasterPlanPath = 'Agentic/Plans/MASTER-PLAN.md',
@@ -52,6 +54,7 @@ param(
     [string]$Commit,
     [string]$MainThreadId,
     [string]$MainSessionFile,
+    [switch]$MainBaselineZero,
     [string]$WorkerThreadId,
     [string]$WorkerSessionFile,
     [switch]$WorkerBaselineZero,
@@ -470,13 +473,47 @@ function Get-ActiveRun {
 }
 
 function Get-ActiveTask {
-    param([Parameter(Mandatory)]$Run)
+    param(
+        [Parameter(Mandatory)]$Run,
+        [string]$TaskId
+    )
 
     $active = @($Run.Tasks | Where-Object { [string]::IsNullOrWhiteSpace([string]$_.FinishedAt) })
+    if (-not [string]::IsNullOrWhiteSpace($TaskId)) {
+        $matching = @($active | Where-Object { $_.Id -eq $TaskId })
+        if ($matching.Count -ne 1) {
+            throw "Expected one active ledger task named '$TaskId'; found $($matching.Count)."
+        }
+        return $matching[0]
+    }
     if ($active.Count -ne 1) {
-        throw "Expected one active ledger task; found $($active.Count)."
+        throw "Expected one active ledger task or an explicit -Task; found $($active.Count)."
     }
     return $active[0]
+}
+
+function Get-TaskMainSource {
+    param(
+        [Parameter(Mandatory)]$Run,
+        [Parameter(Mandatory)]$TaskRecord
+    )
+
+    # Compatibility: ledgers written before concurrent task support inherit
+    # the goal's primary session exactly as they did when created.
+    if ($null -ne $TaskRecord.PSObject.Properties['MainSource'] -and
+        $null -ne $TaskRecord.MainSource) {
+        return $TaskRecord.MainSource
+    }
+    return $Run.MainSource
+}
+
+function Get-SourceKey {
+    param([Parameter(Mandatory)]$Source)
+
+    if (-not [string]::IsNullOrWhiteSpace([string]$Source.SessionFile)) {
+        return 'file:' + [IO.Path]::GetFullPath([string]$Source.SessionFile).ToLowerInvariant()
+    }
+    return 'thread:' + ([string]$Source.ThreadId).ToLowerInvariant()
 }
 
 function Get-ActiveStep {
@@ -540,7 +577,8 @@ function Complete-ActiveStep {
     )
 
     $stepRecord = Get-ActiveStep -TaskRecord $TaskRecord
-    $mainEnd = Read-TokenSnapshot -Source $Run.MainSource
+    $taskMainSource = Get-TaskMainSource -Run $Run -TaskRecord $TaskRecord
+    $mainEnd = Read-TokenSnapshot -Source $taskMainSource
     $workerEnd = $null
     if ($null -ne $stepRecord.WorkerSource) {
         $workerEnd = Read-TokenSnapshot -Source $stepRecord.WorkerSource
@@ -608,22 +646,24 @@ function Get-StepDeltas {
     param(
         [Parameter(Mandatory)]$StepRecord,
         [Parameter(Mandatory)]$Run,
+        [Parameter(Mandatory)]$TaskRecord,
         [switch]$IncludeLive
     )
 
+    $taskMainSource = Get-TaskMainSource -Run $Run -TaskRecord $TaskRecord
     $mainEnd = $StepRecord.MainEnd
     $workerEnd = $StepRecord.WorkerEnd
     if ([string]::IsNullOrWhiteSpace([string]$StepRecord.FinishedAt)) {
         if (-not $IncludeLive) {
             return $null
         }
-        $mainEnd = Read-TokenSnapshot -Source $Run.MainSource
+        $mainEnd = Read-TokenSnapshot -Source $taskMainSource
         if ($null -ne $StepRecord.WorkerSource) {
             $workerEnd = Read-TokenSnapshot -Source $StepRecord.WorkerSource -EmptyAsZero:$([int64]$StepRecord.WorkerStart.Total -eq 0)
         }
     }
     $main = Get-TokenDelta -Start $StepRecord.MainStart -End $mainEnd
-    $mainModel = Get-DeltaModel -Delta $main -Source $Run.MainSource
+    $mainModel = Get-DeltaModel -Delta $main -Source $taskMainSource
     $mainCost = Get-UsageCost -Delta $main -Model $mainModel
     $main | Add-Member -NotePropertyName Cost -NotePropertyValue $mainCost.TotalCost
     $worker = $null
@@ -656,7 +696,7 @@ function Get-TaskTotals {
     )
 
     $stepDeltas = @($TaskRecord.Steps | ForEach-Object {
-        Get-StepDeltas -StepRecord $_ -Run $Run -IncludeLive:$IncludeLive
+        Get-StepDeltas -StepRecord $_ -Run $Run -TaskRecord $TaskRecord -IncludeLive:$IncludeLive
     } | Where-Object { $null -ne $_ })
     return Add-TokenDeltas -Deltas @($stepDeltas | ForEach-Object { $_.Combined })
 }
@@ -693,6 +733,9 @@ function Get-RunMainTotal {
     return [pscustomobject][ordered]@{ Delta = $delta; Cost = $cost }
 }
 
+# Invariant: the goal's primary session is counted once by Get-RunMainTotal.
+# Primary sessions owned by concurrent tasks therefore join the worker total,
+# alongside any secondary reviewer attached to a task step.
 function Get-RunWorkerTotal {
     param(
         [Parameter(Mandatory)]$Run,
@@ -701,8 +744,14 @@ function Get-RunWorkerTotal {
 
     $workerDeltas = @()
     foreach ($taskRecord in $Run.Tasks) {
+        $taskMainSource = Get-TaskMainSource -Run $Run -TaskRecord $taskRecord
+        $taskIsWorkerOwned = (Get-SourceKey -Source $taskMainSource) -ne
+            (Get-SourceKey -Source $Run.MainSource)
         foreach ($stepRecord in $taskRecord.Steps) {
-            $deltas = Get-StepDeltas -StepRecord $stepRecord -Run $Run -IncludeLive:$IncludeLive
+            $deltas = Get-StepDeltas -StepRecord $stepRecord -Run $Run -TaskRecord $taskRecord -IncludeLive:$IncludeLive
+            if ($null -ne $deltas -and $taskIsWorkerOwned) {
+                $workerDeltas += $deltas.Main
+            }
             if ($null -ne $deltas -and $null -ne $deltas.Worker) {
                 $workerDeltas += $deltas.Worker
             }
@@ -792,7 +841,7 @@ function Get-TaskUsage {
     $mainModels = @()
     $workerModels = @()
     foreach ($stepRecord in $TaskRecord.Steps) {
-        $deltas = Get-StepDeltas -StepRecord $stepRecord -Run $Run -IncludeLive:$IncludeLive
+        $deltas = Get-StepDeltas -StepRecord $stepRecord -Run $Run -TaskRecord $TaskRecord -IncludeLive:$IncludeLive
         if ($null -eq $deltas) { continue }
         $main += $deltas.Main
         $mainModels += $deltas.MainCost.Model
@@ -901,6 +950,7 @@ function Render-Ledger {
         $rows.Add((New-CsvRow -Values $runValues))
 
         foreach ($taskRecord in $run.Tasks) {
+            $taskMainSource = Get-TaskMainSource -Run $run -TaskRecord $taskRecord
             $taskEnd = if ([string]::IsNullOrWhiteSpace([string]$taskRecord.FinishedAt)) { $UpdatedAt } else { [DateTimeOffset]::Parse($taskRecord.FinishedAt) }
             $taskElapsed = $taskEnd - [DateTimeOffset]::Parse($taskRecord.StartedAt)
             $usage = Get-TaskUsage -TaskRecord $taskRecord -Run $run -IncludeLive
@@ -918,7 +968,7 @@ function Render-Ledger {
                 started_at = $taskRecord.StartedAt; finished_at = $taskRecord.FinishedAt
                 elapsed_seconds = [int64][Math]::Floor($taskElapsed.TotalSeconds)
                 elapsed_hms = Format-Elapsed -Value $taskElapsed
-                main_session = Get-SourceLabel -Source $run.MainSource
+                main_session = Get-SourceLabel -Source $taskMainSource
                 main_model = $usage.MainModel; reviewer_model = $usage.WorkerModel
                 pricing_tier = $script:PricingTier; pricing_context = $script:PricingContext
                 pricing_source = $script:PricingSource; duck_passes = $duckSteps.Count
@@ -942,7 +992,7 @@ function Render-Ledger {
             $rows.Add((New-CsvRow -Values $taskValues))
 
             foreach ($stepRecord in $taskRecord.Steps) {
-                $stepDeltas = Get-StepDeltas -StepRecord $stepRecord -Run $run -IncludeLive
+                $stepDeltas = Get-StepDeltas -StepRecord $stepRecord -Run $run -TaskRecord $taskRecord -IncludeLive
                 $stepElapsed = Get-StepElapsed -StepRecord $stepRecord -AsOf $UpdatedAt
                 $stepValues = @{
                     record_type = 'step'; run_id = $run.Id; goal = $run.Goal
@@ -953,7 +1003,7 @@ function Render-Ledger {
                     started_at = $stepRecord.StartedAt; finished_at = $stepRecord.FinishedAt
                     elapsed_seconds = [int64][Math]::Floor($stepElapsed.TotalSeconds)
                     elapsed_hms = Format-Elapsed -Value $stepElapsed
-                    main_session = Get-SourceLabel -Source $run.MainSource
+                    main_session = Get-SourceLabel -Source $taskMainSource
                     reviewer_session = $(if ($null -ne $stepRecord.WorkerSource) { Get-SourceLabel -Source $stepRecord.WorkerSource } else { $null })
                     pricing_tier = $script:PricingTier; pricing_context = $script:PricingContext
                     pricing_source = $script:PricingSource; findings = $stepRecord.Findings
@@ -1090,20 +1140,43 @@ function Invoke-LedgerAction {
                 }
                 Assert-StepFields
                 $run = Get-ActiveRun -State $state
-                $unfinished = @($run.Tasks | Where-Object { [string]::IsNullOrWhiteSpace([string]$_.FinishedAt) })
-                if ($unfinished.Count -ne 0) {
-                    throw 'Cannot start a task while another ledger task is unfinished.'
-                }
                 if (@($run.Tasks | Where-Object { $_.Id -eq $Task }).Count -ne 0) {
                     throw "Task id already exists in this goal run: $Task"
                 }
 
-                $mainStart = Read-TokenSnapshot -Source $run.MainSource
+                $hasExplicitMain = -not [string]::IsNullOrWhiteSpace($MainThreadId) -or
+                    -not [string]::IsNullOrWhiteSpace($MainSessionFile)
+                if ($MainBaselineZero -and -not $hasExplicitMain) {
+                    throw '-MainBaselineZero requires -MainThreadId or -MainSessionFile.'
+                }
+                $taskMainSource = if ($hasExplicitMain) {
+                    New-TokenSource -ThreadId $MainThreadId -SessionFile $MainSessionFile -Root $SessionRoot
+                } else {
+                    $run.MainSource
+                }
+                $taskSourceKey = Get-SourceKey -Source $taskMainSource
+                # Hazard: assigning one cumulative token stream to two live
+                # tasks would count the same agent usage twice.
+                foreach ($activeTask in @($run.Tasks | Where-Object { [string]::IsNullOrWhiteSpace([string]$_.FinishedAt) })) {
+                    $activeSource = Get-TaskMainSource -Run $run -TaskRecord $activeTask
+                    if ((Get-SourceKey -Source $activeSource) -eq $taskSourceKey) {
+                        throw "Primary session '$((Get-SourceLabel -Source $taskMainSource))' already owns active task '$($activeTask.Id)'."
+                    }
+                    foreach ($activeStep in @($activeTask.Steps | Where-Object { [string]::IsNullOrWhiteSpace([string]$_.FinishedAt) })) {
+                        if ($null -ne $activeStep.WorkerSource -and
+                            (Get-SourceKey -Source $activeStep.WorkerSource) -eq $taskSourceKey) {
+                            throw "Session '$((Get-SourceLabel -Source $taskMainSource))' is already attached to active task '$($activeTask.Id)'."
+                        }
+                    }
+                }
+
+                $mainStart = Read-TokenSnapshot -Source $taskMainSource -Zero:$MainBaselineZero
                 $taskRecord = [pscustomobject][ordered]@{
                     Id = $Task
                     Title = $Title
                     StartedAt = Format-Timestamp -Value $now
                     FinishedAt = $null
+                    MainSource = $taskMainSource
                     StartMain = $mainStart
                     EndMain = $null
                     Steps = @()
@@ -1122,16 +1195,26 @@ function Invoke-LedgerAction {
                     throw 'attach-worker requires -WorkerThreadId or -WorkerSessionFile.'
                 }
                 $run = Get-ActiveRun -State $state
-                $taskRecord = Get-ActiveTask -Run $run
+                $taskRecord = Get-ActiveTask -Run $run -TaskId $Task
                 $stepRecord = Get-ActiveStep -TaskRecord $taskRecord
-                if (-not [string]::IsNullOrWhiteSpace($Task) -and $Task -ne $taskRecord.Id) {
-                    throw "Active task is '$($taskRecord.Id)', not '$Task'."
-                }
                 if ($null -ne $stepRecord.WorkerSource) {
                     throw "Active step '$($stepRecord.Id)' already has a worker token source."
                 }
 
                 $workerSource = New-TokenSource -ThreadId $WorkerThreadId -SessionFile $WorkerSessionFile -Root $SessionRoot
+                $workerSourceKey = Get-SourceKey -Source $workerSource
+                foreach ($activeTask in @($run.Tasks | Where-Object { [string]::IsNullOrWhiteSpace([string]$_.FinishedAt) })) {
+                    $activeMainSource = Get-TaskMainSource -Run $run -TaskRecord $activeTask
+                    if ((Get-SourceKey -Source $activeMainSource) -eq $workerSourceKey) {
+                        throw "Worker session '$((Get-SourceLabel -Source $workerSource))' already owns active task '$($activeTask.Id)'."
+                    }
+                    foreach ($activeStep in @($activeTask.Steps | Where-Object { [string]::IsNullOrWhiteSpace([string]$_.FinishedAt) })) {
+                        if ($activeStep -ne $stepRecord -and $null -ne $activeStep.WorkerSource -and
+                            (Get-SourceKey -Source $activeStep.WorkerSource) -eq $workerSourceKey) {
+                            throw "Worker session '$((Get-SourceLabel -Source $workerSource))' is already attached to active task '$($activeTask.Id)'."
+                        }
+                    }
+                }
                 $workerStart = Read-TokenSnapshot -Source $workerSource -Zero:$WorkerBaselineZero
                 $stepRecord.WorkerSource = $workerSource
                 $stepRecord.WorkerStart = $workerStart
@@ -1142,10 +1225,7 @@ function Invoke-LedgerAction {
                 }
                 Assert-StepFields
                 $run = Get-ActiveRun -State $state
-                $taskRecord = Get-ActiveTask -Run $run
-                if (-not [string]::IsNullOrWhiteSpace($Task) -and $Task -ne $taskRecord.Id) {
-                    throw "Active task is '$($taskRecord.Id)', not '$Task'."
-                }
+                $taskRecord = Get-ActiveTask -Run $run -TaskId $Task
                 if (@($taskRecord.Steps | Where-Object { $_.Id -eq $Step }).Count -ne 0) {
                     throw "Step id already exists in task '$($taskRecord.Id)': $Step"
                 }
@@ -1161,10 +1241,7 @@ function Invoke-LedgerAction {
                     throw '-Commit is required for finish-task and must name the pushed task commit.'
                 }
                 $run = Get-ActiveRun -State $state
-                $taskRecord = Get-ActiveTask -Run $run
-                if (-not [string]::IsNullOrWhiteSpace($Task) -and $Task -ne $taskRecord.Id) {
-                    throw "Active task is '$($taskRecord.Id)', not '$Task'."
-                }
+                $taskRecord = Get-ActiveTask -Run $run -TaskId $Task
 
                 $mainEnd = Complete-ActiveStep -Run $run -TaskRecord $taskRecord -Now $now
                 $commitRecord = Resolve-CommitRecord -CommitValue $Commit
@@ -1173,6 +1250,20 @@ function Invoke-LedgerAction {
                 $taskRecord.Commits = @($taskRecord.Commits) + $commitRecord
                 $taskRecord.Outcome = $Outcome
                 $run.Commits = @($run.Commits) + $commitRecord
+            }
+            'stop-task' {
+                if ($null -eq $state) {
+                    throw 'No live ledger exists to stop.'
+                }
+                if ([string]::IsNullOrWhiteSpace($Outcome)) {
+                    throw '-Outcome is required for stop-task.'
+                }
+                $run = Get-ActiveRun -State $state
+                $taskRecord = Get-ActiveTask -Run $run -TaskId $Task
+                $mainEnd = Complete-ActiveStep -Run $run -TaskRecord $taskRecord -Now $now
+                $taskRecord.FinishedAt = Format-Timestamp -Value $now
+                $taskRecord.EndMain = $mainEnd
+                $taskRecord.Outcome = $Outcome
             }
             'finish-goal' {
                 if ($null -eq $state) {
@@ -1270,6 +1361,7 @@ function Invoke-SelfTest {
         $plan = Join-Path $testRoot 'MASTER-PLAN.md'
         $ledger = Join-Path $testRoot 'WORK_LEDGER.csv'
         $mainSession = Join-Path $testRoot 'main.jsonl'
+        $planWorkerSession = Join-Path $testRoot 'plan-worker.jsonl'
         $duckSession = Join-Path $testRoot 'duck.jsonl'
         $testPlan = @'
 # Test master plan
@@ -1281,6 +1373,7 @@ Status: One active plan; 2/5 tasks complete
 '@
         [IO.File]::WriteAllText($plan, $testPlan, [Text.UTF8Encoding]::new($false))
         [IO.File]::WriteAllText($mainSession, '', [Text.UTF8Encoding]::new($false))
+        [IO.File]::WriteAllText($planWorkerSession, '', [Text.UTF8Encoding]::new($false))
         [IO.File]::WriteAllText($duckSession, '', [Text.UTF8Encoding]::new($false))
 
         $repo = (& git -C $PSScriptRoot rev-parse --show-toplevel 2>$null)
@@ -1291,6 +1384,7 @@ Status: One active plan; 2/5 tasks complete
         $powershell = Join-Path $PSHOME 'powershell.exe'
 
         Write-FakeModelEvent -Path $mainSession
+        Write-FakeModelEvent -Path $planWorkerSession
         Write-FakeModelEvent -Path $duckSession
         Write-FakeTokenEvent -Path $mainSession -InputTokens 100 -CachedTokens 50 -OutputTokens 20
         $null = & $powershell -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath start-goal -MasterPlanPath $plan -LedgerPath $ledger -MainSessionFile $mainSession -At '2026-08-18T09:00:00+10:00'
@@ -1308,6 +1402,21 @@ Status: One active plan; 2/5 tasks complete
             $liveStep.combined_cached_input_tokens -ne '20' -or $liveStep.elapsed_seconds -ne '240') {
             throw 'Live show did not refresh the open step counters and elapsed time.'
         }
+
+        Write-FakeTokenEvent -Path $planWorkerSession -InputTokens 10 -CachedTokens 5 -OutputTokens 2
+        $null = & $powershell -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath start-task -MasterPlanPath $plan -LedgerPath $ledger -Task 'PLAN-T2' -Title 'Concurrent worker task' -Step implementation -Kind implementation -Label 'Concurrent implementation' -MainSessionFile $planWorkerSession -MainBaselineZero -At '2026-08-18T09:05:10+10:00'
+        if ($LASTEXITCODE -ne 0) { throw 'concurrent start-task self-test failed.' }
+
+        Write-FakeTokenEvent -Path $planWorkerSession -InputTokens 50 -CachedTokens 20 -OutputTokens 10
+        $null = & $powershell -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath show -MasterPlanPath $plan -LedgerPath $ledger -At '2026-08-18T09:06:00+10:00'
+        if ($LASTEXITCODE -ne 0) { throw 'concurrent live show self-test failed.' }
+        $liveTasks = @(Import-Csv -LiteralPath $ledger | Where-Object { $_.record_type -eq 'task' -and $_.status -eq 'in_progress' })
+        if ($liveTasks.Count -ne 2) {
+            throw 'Concurrent show did not preserve both independently active task rows.'
+        }
+
+        $null = & $powershell -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath stop-task -MasterPlanPath $plan -LedgerPath $ledger -Task 'PLAN-T2' -Outcome 'handed off without a commit' -At '2026-08-18T09:06:10+10:00'
+        if ($LASTEXITCODE -ne 0) { throw 'concurrent stop-task self-test failed.' }
 
         $ledgerBeforeFailure = [Convert]::ToBase64String([IO.File]::ReadAllBytes($ledger))
         Write-FakeTokenEvent -Path $mainSession -InputTokens 140 -CachedTokens 65 -OutputTokens 25
@@ -1363,11 +1472,13 @@ Status: One active plan; 2/5 tasks complete
 
         $rows = @(Import-Csv -LiteralPath $ledger)
         $taskRow = @($rows | Where-Object { $_.record_type -eq 'task' -and $_.task_id -eq 'PLAN-T1' })
+        $workerTaskRow = @($rows | Where-Object { $_.record_type -eq 'task' -and $_.task_id -eq 'PLAN-T2' })
         $duckRow = @($rows | Where-Object { $_.record_type -eq 'step' -and $_.step_id -eq 'rubber-duck-01' })
         $goalRow = @($rows | Where-Object { $_.record_type -eq 'goal' })
         $stateRow = @($rows | Where-Object { $_.record_type -eq 'state' })
-        if ($taskRow.Count -ne 1 -or $duckRow.Count -ne 1 -or $goalRow.Count -ne 1 -or $stateRow.Count -ne 1) {
-            throw 'CSV ledger did not render one goal, target task, duck step, and recovery-state row.'
+        if ($taskRow.Count -ne 1 -or $workerTaskRow.Count -ne 1 -or $duckRow.Count -ne 1 -or
+            $goalRow.Count -ne 1 -or $stateRow.Count -ne 1) {
+            throw 'CSV ledger did not render one goal, both tasks, the duck step, and recovery-state row.'
         }
         if ($taskRow[0].combined_input_tokens -ne '370' -or
             $taskRow[0].combined_output_tokens -ne '85' -or
@@ -1386,10 +1497,18 @@ Status: One active plan; 2/5 tasks complete
             $duckRow[0].combined_api_cost_usd -ne '0.001035' -or $duckRow[0].findings -ne '2') {
             throw 'CSV rubber-duck row did not preserve main/reviewer usage, cost, and findings.'
         }
-        if ($goalRow[0].combined_input_tokens -ne '430' -or
-            $goalRow[0].combined_output_tokens -ne '100' -or
-            $goalRow[0].combined_cached_input_tokens -ne '205' -or
-            $goalRow[0].combined_api_cost_usd -ne '0.004228' -or
+        if ($workerTaskRow[0].main_input_tokens -ne '50' -or
+            $workerTaskRow[0].main_output_tokens -ne '10' -or
+            $workerTaskRow[0].main_cached_input_tokens -ne '20' -or
+            $workerTaskRow[0].combined_api_cost_usd -ne '0.000460' -or
+            -not [string]::IsNullOrWhiteSpace($workerTaskRow[0].commit_hash) -or
+            $workerTaskRow[0].outcome -ne 'handed off without a commit') {
+            throw 'CSV concurrent worker task did not preserve its independent primary-session usage.'
+        }
+        if ($goalRow[0].combined_input_tokens -ne '480' -or
+            $goalRow[0].combined_output_tokens -ne '110' -or
+            $goalRow[0].combined_cached_input_tokens -ne '225' -or
+            $goalRow[0].combined_api_cost_usd -ne '0.004688' -or
             $goalRow[0].pricing_source -ne $script:PricingSource) {
             throw 'CSV goal row did not preserve complete usage, cost, and pricing provenance.'
         }
@@ -1397,7 +1516,7 @@ Status: One active plan; 2/5 tasks complete
             throw 'CSV recovery-state row is empty.'
         }
 
-        Write-Output 'PASS: live CSV work-ledger transitions, progress, API cost, reviewer accounting, findings, validation timing, and commit attribution.'
+        Write-Output 'PASS: concurrent live CSV work-ledger tasks, no-commit handoff, transitions, progress, API cost, reviewer accounting, findings, validation timing, and commit attribution.'
     } finally {
         if (Test-Path -LiteralPath $testRoot -PathType Container) {
             Remove-Item -LiteralPath $testRoot -Recurse -Force

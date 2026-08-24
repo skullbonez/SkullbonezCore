@@ -1,10 +1,11 @@
 # Deterministic Collision Modes And Ragdoll Unification
 
 Date: 2026-08-22
-Status: Active by explicit owner direction. 2/10 phases complete; FP0-FP1 complete, FP2 next.
+Status: Active by explicit owner direction. 3/10 phases complete; FP3 active after FP2 closed under motion-eligibility policy version 2.
 Impact area: collider local-offset correctness, deterministic Discrete simulation, automatic Swept TOI promotion, linear and angular motion eligibility, ragdoll point joints, joint compliance, shared constraint iteration, late speculative ragdoll contacts, physics baselines, determinism tests, and A/B performance evidence
 Owner: Physics contact and joint solver
-Priority: Binding first plan; FP0 through FP9 execute in strict order before Runtime Boundary Separation
+Priority: Binding first plan; execute FP2-FP9 in strict internal order. This position allocates scarce slots
+and orders fan-in; it is not a Runtime or UI predecessor.
 Commit name: `RAGDOLL_PHYSICS`
 
 ## Owner Direction
@@ -14,23 +15,35 @@ The owner explicitly activated this plan on 2026-08-22, assigned the
 item, and approved FP0 as the first behavior transition. Later phases remain
 strictly gated by the acceptance boundary immediately before them.
 
-On 2026-08-22 the owner also authorized any Physics-baseline updates required
-by the accepted FP0-FP9 behavior transitions and directed the orchestrator not
-to pause for another approval. A required Physics golden change still goes
-through `tools/check_physics_baseline_guard.py --approve-output` with the exact
-candidate digest and lands atomically with the source, regression tests, and
-phase evidence. This authorization does not extend to replay, visual,
-SkullScope, or performance goldens.
+On 2026-08-23 the owner replaced FP1's thickness-scaled eligibility rule with
+motion-eligibility policy version 2. Linear centre travel and angular tip travel
+use absolute distances travelled during one Physics tick: `0.1` metres promotes
+and `0.075` metres demotes. Promotion equality still promotes, demotion equality
+still demotes, and neither decision depends on collider thickness. This owner
+direction activates FP2 without changing the authoritative 200-box workload.
 
-Every accepted phase preserves the final Debug runtime executable at
-`Agentic/Plans/Artifacts/ragdoll-physics-unification/<phase>/SKULLBONEZ_CORE-Debug.exe`.
-The adjacent `manifest.md` records the phase, source commit parent, build
-configuration, executable SHA-256 and byte size, Physics-baseline SHA-256, and
-validation result. The executable is force-added because the repository's
-global `*.exe` ignore rule otherwise hides this explicitly requested evidence.
-If a phase changes the Physics baseline, the manifest records both the prior
-and accepted digests; an unchanged phase records that no golden transition was
-needed.
+Active Physics phases have standing authority to update every golden they
+govern without a per-transition prompt, exact phrase, or separate pre-approval.
+For this plan that includes Physics, SkullScope, replay, visual, causal, and
+performance goldens whose changes derive from the FP behavior. It does not
+extend Physics authority to a non-Physics change or permit an unexplained
+refresh merely to close a gate.
+
+Every changed golden uses an exact candidate digest and a new append-only bundle
+at `Agentic/Plans/Artifacts/ragdoll-physics-unification/<phase>/golden-transitions/<transition-id>/`.
+Before replacement, preserve both the exact prior behavior and the new producer:
+all executables needed for comparison, their non-system runtime DLLs, and a
+schema-1 `manifest.json` binding the owning phase, source commits, old/new golden
+hashes, artifact paths/sizes/hashes, dependency-scan commands, and launch
+commands. Never overwrite an older bundle. The new producer becomes the prior
+behavior executable for the next transition. Source, tests, golden changes, and
+the complete bundle land atomically through the automated writer documented in
+`Agentic/Plans/Artifacts/README.md`.
+
+The 2026-08-23 FP1 launch audit proved why this is required: a lone retained
+executable is not a runnable artifact. FP0/FP1 import `WinPixEventRuntime.dll`,
+but their original artifact directories do not contain it. Future transitions
+therefore fail closed if any declared executable/DLL hash is missing or differs.
 
 This is a major Physics-system transition, not only a ragdoll feature. Its
 non-negotiable order is:
@@ -102,7 +115,7 @@ tree:
 
 ### Registration Evidence — 2026-08-22, `4df765245` on `main`
 
-- `tools\validate_physics.bat` passed in 24.6 seconds. The owner-approved golden
+- `tools\validate_physics.bat` passed in 24.6 seconds. The registered golden
   digest `debf57f744774d4e7c1eb5cc61f05ba6e41dc6dc997ad20db6c91b02b0958c32`
   matched; Debug/Profile builds and the byte-exact Physics comparison passed.
 - `tools\validate_perf.bat` built Profile, then stopped before measurement on
@@ -245,11 +258,10 @@ performance comparison.
 
 ### What This Aims To Solve
 
-Swept TOI should be paid for only when a body's predicted fixed-tick motion can
-cross a meaningful part of its collision thickness. The classification must be
-cheap enough to run once per non-sleeping body per fixed Physics tick and exact
-enough to produce the same result across repetitions and supported worker
-counts.
+Swept TOI should be paid for only when a body's predicted fixed-tick motion
+crosses one simple absolute travel threshold. The classification must be cheap
+enough to run once per non-sleeping body per fixed Physics tick and exact enough
+to produce the same result across repetitions and supported worker counts.
 
 Long rotating shapes also need cheap conservative candidate coverage even when
 their centre barely moves. This phase covers angular eligibility and broadphase
@@ -262,18 +274,16 @@ rotational collision response.
    tick's velocities and before broadphase chooses its candidate paths.
 2. Skip fixed and sleeping bodies. Evaluate every awake dynamic body and every
    moving kinematic body exactly once per fixed tick.
-3. Resolve and cache two shape-owned geometric values when collider topology is
-   created or changed:
-   - minimum collision thickness `t_min`; and
-   - maximum radius from the centre of mass `r_max`.
-   Do not rediscover either value from vertices in the per-tick pass.
+3. Resolve and cache the maximum radius from the centre of mass `r_max` when
+   collider topology is created or changed. It supplies angular tip travel only;
+   linear eligibility consumes no collider-size or thickness fact.
 4. Evaluate linear motion without a square root:
 
    `linearTravelSq = |v|² * dt²`
 
-   Compare it with the exact squared promotion threshold:
+   Compare it with the exact squared absolute promotion threshold:
 
-   `linearPromoteSq = (alphaPromote * t_min)²`
+   `linearPromoteSq = promoteTravelPerTick²`
 
 5. Evaluate the cheap angular tip-motion bound without a square root:
 
@@ -282,10 +292,10 @@ rotational collision response.
    Angular eligibility expands conservative swept broadphase bounds so a long,
    rapidly rotating blade is not rejected solely because its centre moved
    little. Angular eligibility does not claim exact rotational TOI or response.
-6. Ratify exact, versioned values for `alphaPromote` and `alphaDemote`, with
-   `alphaDemote < alphaPromote`. Specify equality behavior explicitly and retain
-   the previous-tick promotion bit inside the stage-owned classification store
-   so near-threshold motion cannot chatter.
+6. Use the owner-ratified version-2 values `promoteTravelPerTick = 0.1 metres`
+   and `demoteTravelPerTick = 0.075 metres`. Specify equality behavior explicitly
+   and retain the previous-tick promotion bit inside the stage-owned
+   classification store so near-threshold motion cannot chatter.
 7. Define snapshot, restore, topology-change, sleep, wake, body removal, and
    replay behavior for the classification store. Promotion state must never be
    reconstructed through iteration-order-dependent discovery.
@@ -300,7 +310,7 @@ rotational collision response.
 - Equivalent 0/1/4-worker runs and repeated clean-process runs produce
   byte-identical classification streams.
 - Sphere, box, convex-hull, thin-projectile, and long-rotating-blade fixtures
-  prove cached `t_min` and `r_max` behavior.
+  prove thickness-independent absolute travel and cached `r_max` behavior.
 - The angular blade fixture proves conservative broadphase candidate retention
   without claiming impact-time or response correctness.
 - The one-pass classification timing and work counts are captured separately
@@ -351,6 +361,32 @@ rotational collision response.
 
 ---
 
+## FP2 Owner Resolution — 2026-08-23
+
+The owner confirmed that the authoritative 200-box striker is intentionally far
+faster than ordinary scene bodies and selected simple absolute per-tick travel
+thresholds: `0.1` metres promotes and `0.075` metres demotes. The checked-in
+striker travels `1.41669` metres per 120 Hz tick, so it promotes without a
+scene/name exception. Collider thickness no longer participates in either the
+linear or angular eligibility comparison. FP2 is active; focused tests and the
+phase performance evidence must measure how many additional bodies the simpler
+threshold promotes.
+
+The first version-2 checkpoint exposed a fixed SpatialGrid capacity ordering
+hazard in the 520-body tornado fixture: angular overlays could consume the
+shared 8,192-cell table before later bodies established persistent membership.
+Broadphase now commits all maintained persistent rows before admitting transient
+overlays, and the regression requires both classifications and actual
+overlay/fallback work in serial and parallel execution. On the same machine,
+the current 520-body measurement records Physics/Broadphase/GridMaintain means
+of `0.9809/0.3028/0.1769 ms` versus `0.8618/0.2322/0.1238 ms` at the accepted
+`07c065f65` base; this threshold/capacity checkpoint is intentionally not the
+FP4 Discrete A/B ruling. The current tree completes the 2,000-body scale run,
+while that base fatals at 8,192 active SpatialGrid cells. `validate_perf` still
+stops before runtime measurement on the same 40 static allocation-policy rows
+at both revisions, so these direct scale artifacts are evidence, not a green
+replacement gate or a baseline refresh.
+
 ## FP2 — Discrete Default & Automatic Swept TOI Promotion
 
 ### What This Aims To Solve
@@ -378,6 +414,12 @@ scene-specific exceptions, or manual collision-mode authoring.
    outside this phase.
 7. Serialize configuration and stage-owned promotion state required for exact
    replay restore. Do not serialize a redundant authored projectile mode.
+8. Delete or explicitly adjudicate the test-only
+   `BoundingBox::TestCollision(BoundingSphere, ...)` and
+   `BoundingSphere::TestCollision(BoundingBox, ...)` legacy overloads. The live
+   object narrowphase routes both concrete orders through
+   `SweepSphereAgainstBox`; a symmetry-only unit test must not manufacture
+   production reachability for retired swept surface.
 
 ### Hazards And Required Tests
 
@@ -385,6 +427,10 @@ scene-specific exceptions, or manual collision-mode authoring.
   worker-order drift.
 - Two bodies approaching in opposite directions must not tunnel while both are
   individually below the promotion threshold.
+- A ball that begins Discrete, receives a collision impulse above the promotion
+  threshold from a fast ball, and then reaches a thin wall must promote on the
+  following classification pass and use Swept TOI instead of tunnelling through
+  the wall.
 - Fast rotation must retain a broadphase candidate for a long hull corner, but
   no test may pretend that candidate retention proves rotational response.
 - Static friction and resting contact behavior must remain Discrete and must
@@ -393,6 +439,9 @@ scene-specific exceptions, or manual collision-mode authoring.
   candidate expansion or TOI loop.
 - Replay capture and restore must reproduce promotion, demotion, impacts, and
   resolved paths byte-identically.
+- Strict compiled-symbol reachability must remove both temporary
+  sphere-box-overload `repair-plan` rows by deleting/adjudicating their retired
+  surface and preserving focused coverage at the live specialized sweep owner.
 
 ### FP2 Acceptance
 
@@ -408,6 +457,38 @@ scene-specific exceptions, or manual collision-mode authoring.
   the same collision path, proving classification is Physics-owned rather than
   gameplay-owned.
 - Fast bouncy bodies preserve the existing exact Swept TOI baseline behavior.
+- The collision-driven promotion fixture proves the target ball starts
+  Discrete, is accelerated past `0.1` metres per tick by another ball, publishes
+  the promoted bit on the next tick, and collides with a thin wall without
+  tunnelling.
+
+### FP2 Closure - 2026-08-24
+
+The phase-local legacy-surface review deleted the test-only
+`BoundingBox::TestCollision(BoundingSphere, ...)` and
+`BoundingSphere::TestCollision(BoundingBox, ...)` overloads, the unused
+`TestShapeCollision` dispatcher, and the symmetry-only unit-test calls. Both
+live shape orders still converge on `SweepSphereAgainstBox` in
+`ObjectContactManifold`; the focused Bounds and Object CCD families pass 5/5
+and 3/3 cases respectively, including the both-order thin-wall witness.
+
+Fresh Automation, Debug, and Profile builds pass with zero warnings/errors.
+Strict compiled reachability now reports 87 current ruled rows and no blocking
+diagnostics after the two deleted repair rows were removed. Dependency,
+ownership, formatting, Related-path, and the broader focused promotion,
+eligibility, replay, wake, launcher, terrain, and SpatialGrid witnesses pass.
+Independent review found zero remaining implementation findings after one
+comment-truth correction.
+
+FP2 is closed. The standing Physics-plan automated override accepted the exact
+archived transitions, while the artifact manifest retains the prior and new
+producer executables, launch DLLs, hashes, and FP1-versus-FP2 200-box evidence.
+The core, deep, and replay-visual gates pass. The replay witness completes one
+2,401-tick prediction generation, moves all 200 wall bricks, publishes all 200
+causal nodes, and rejects the visual, causal, artifact, trajectory-count,
+determinism, and settled-majority false-pass controls. The exact visual and
+causal baseline digests are recorded in the FP2 artifact manifest. FP3 is now
+the active Physics phase.
 
 ---
 
@@ -433,8 +514,9 @@ closed independently.
    size changes and worker partition changes.
 5. Run the varied 211-body Physics regression, the 200-box wall cascade,
    projectile fixtures, dense contacts, terrain, and jointed bodies.
-6. Treat every byte difference as a behavior transition requiring owner review.
-   Do not refresh a golden merely to close this phase.
+6. Treat every byte difference as a behavior transition requiring explanation,
+   focused evidence, and the archived automated lane. Do not refresh a golden
+   merely to close this phase.
 
 ### FP3 Acceptance
 
@@ -474,8 +556,8 @@ same-workload A/B comparison.
 5. Include slow-body-heavy, mixed-speed, launcher-projectile, 200-box wall,
    dense-contact, and supported scale-matrix workloads.
 6. Require behavioral equivalence where the resolved collision path is intended
-   to be equivalent. Separately identify owner-approved differences caused by
-   removing unnecessary swept work.
+   to be equivalent. Separately identify accepted, evidence-backed differences
+   caused by removing unnecessary swept work.
 
 ### FP4 Acceptance
 
@@ -536,8 +618,8 @@ linear dimensions while still allowing the bodies to rotate around the joint.
   cases have focused tests.
 - Ragdoll sag, jitter, energy, and iteration cost are measured against both the
   pre-stage-(a) solver and the completed stage-(a) state.
-- The owner reviews the exact Physics and replay baseline transition before any
-  replacement golden is committed.
+- Every Physics or replay golden transition is exact-digest, behavior-explained,
+  and bound to an append-only old/new launch bundle before commit.
 
 ---
 
@@ -580,8 +662,8 @@ predictable across the supported fixed-step envelope.
   diagnostics.
 - Ragdoll load, free swing, impact recovery, and long-rest tests distinguish the
   new model from the removed ad-hoc multiplier.
-- Any authored-data migration and exact baseline transition receive separate
-  owner approval.
+- Any authored-data migration retains its separate schema ruling; an exact
+  golden transition uses the archived automated Physics lane.
 
 ---
 
@@ -634,7 +716,7 @@ so one convergence process owns the coupled constrained system.
 - Hot-path storage remains fixed or pre-reserved with no new runtime allocation
   privilege.
 - Physics, replay visual fidelity, and performance gates pass after any
-  owner-approved exact baseline transition.
+  archived exact golden transition.
 
 ---
 
@@ -736,7 +818,7 @@ solver changes.
 - The A/B evidence reports both cost and the correctness benefit; a cheaper
   tunnelling variant is not treated as a valid performance win.
 - Physics, replay visual fidelity, allocation, performance, and full validation
-  pass after separately approved behavior and baseline rulings.
+  pass after behavior evidence and any archived exact golden transition.
 - The owner accepts the final balance of Discrete gain, predictive cost,
   deterministic behavior, and ragdoll stability.
 
@@ -748,7 +830,7 @@ solver changes.
 - [x] **FP1 — Deterministic motion eligibility and instrumentation.** One cheap
   classification per awake/moving body per fixed tick, including conservative
   angular broadphase eligibility.
-- [ ] **FP2 — Discrete default and automatic Swept TOI promotion.** No projectile
+- [x] **FP2 — Discrete default and automatic Swept TOI promotion.** No projectile
   tags or scene-specific continuous modes.
 - [ ] **FP3 — Discrete correctness and determinism closure.** Mandatory blocker
   before any predictive implementation.

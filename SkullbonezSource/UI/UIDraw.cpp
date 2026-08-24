@@ -4,7 +4,7 @@ Purpose:
   Implements renderer-free GameUI draw-command recording.
 
 Summary:
-  Shapes and text remain in screen pixels and append to UIDrawList in caller
+  Shapes, clips, and text remain in screen pixels and append to UIDrawList in caller
   order. The coordinate helpers expose the same 45-degree projection math for
   passive layout calculations without borrowing TextBatch or a backend owner.
 
@@ -35,6 +35,21 @@ bool UIRect::Contains( int px, int py ) const
 {
     return static_cast<float>( px ) >= x && static_cast<float>( px ) <= x + w && static_cast<float>( py ) >= y &&
            static_cast<float>( py ) <= y + h;
+}
+
+UIRect IntersectRect( const UIRect& leftRect, const UIRect& rightRect )
+{
+    const float left = (std::max)( leftRect.x, rightRect.x );
+    const float top = (std::max)( leftRect.y, rightRect.y );
+    const float right = (std::min)( leftRect.x + leftRect.w, rightRect.x + rightRect.w );
+    const float bottom = (std::min)( leftRect.y + leftRect.h, rightRect.y + rightRect.h );
+
+    if ( right <= left || bottom <= top )
+    {
+        return {};
+    }
+
+    return { left, top, right - left, bottom - top };
 }
 
 
@@ -86,6 +101,18 @@ void UIDrawContext::RoundedPanel( const UIRect& bounds, float radius, const Styl
     RoundedRect( bounds.x + inset, bounds.y + inset, (std::max)( 0.0f, bounds.w - inset * 2.0f ),
                  (std::max)( 0.0f, bounds.h - inset * 2.0f ), (std::max)( 0.0f, radius - inset ), fill.r, fill.g, fill.b,
                  fill.a );
+}
+
+
+void UIDrawContext::PushClip( const UIRect& bounds ) const
+{
+    m_drawList->PushClip( bounds.x, bounds.y, bounds.w, bounds.h );
+}
+
+
+void UIDrawContext::PopClip() const
+{
+    m_drawList->PopClip();
 }
 
 

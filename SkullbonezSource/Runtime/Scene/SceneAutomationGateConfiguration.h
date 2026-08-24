@@ -75,6 +75,14 @@ struct SceneRequiredSleepingDynamicBodyGate
     bool sleeping = false;
 };
 
+struct SceneAutomationGateStatus
+{
+    // Value-only completion facts consumed by scene advancement. Validation
+    // retains the diagnostic rows and missing-requirement reporting.
+    bool hasRequirements = false;
+    bool complete = true;
+};
+
 // Concept: scene loading resolves authored requirements into a value record.
 // Validation adopts that record only after the scene owner completes the load,
 // so population code cannot retain or mutate the process-lifetime harness.

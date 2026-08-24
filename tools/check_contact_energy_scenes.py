@@ -2,14 +2,14 @@
 #
 # File: tools/check_contact_energy_scenes.py
 # Purpose:
-#   Enforce semantic energy, launch, support, cache, and sleep outcomes for the
-#   contact-energy tower, four-brick reproduction, and 200-box topple.
+#   Enforce semantic energy, launch, support, cache, sleep, and impact outcomes
+#   for the contact-energy tower, four-brick reproduction, and 200-box topple.
 #
 # Summary:
 #   SkullScope owns trace indexing and bounded SQL answers. This checker consumes
-#   only those compact JSON answer packets, merges their one-row metrics, and
-#   applies workload-specific physical contracts without freezing chaotic poses
-#   or accepting a replacement trace merely because it repeats.
+#   only those compact JSON answer packets. It applies workload-specific
+#   physical contracts and can compare a three-frame, named-body impact witness
+#   without freezing the wall's later chaotic poses.
 #
 # Glossary:
 #   Metric packet: Bounded JSON answer emitted by `physics_query.bat sql`; summary
@@ -17,6 +17,8 @@
 #     expected dynamic body.
 #   Launch reversal: A meaningful downward-to-upward velocity crossing measured
 #     with the workload's locked dead band.
+#   Impact witness: The striker's exact state and ordered contacts for the three
+#     frames centered on its first ragdoll contact, plus semantic wall activity.
 #
 # Invariants:
 #   - A truncated packet is never accepted as complete evidence.
@@ -27,6 +29,9 @@
 #   - Tower and four-brick acceptance constrain settling; wall acceptance leaves
 #     the chaotic final pose free while requiring retained, terrain-clear bodies
 #     and rejecting repeated full-body-height relaunch cycles.
+#   - The FP1/FP2 impact comparison gets its frame and state values from the
+#     retained FP1 packet. Fixed acceptance facts are only authored identities,
+#     the three-frame window, brick activation, and rebound direction.
 #   - `sleep_supported` is frame-local solver evidence. A sleeping stack retains
 #     its root support, but sleeping children need not repeat that flag forever.
 #   - `--expect-current-failure` requires the known authoritative defect codes;
@@ -37,6 +42,7 @@
 #   - SkullbonezData/scenes/box_vibration_t0.scene.json
 #   - SkullbonezData/scenes/prediction_ragdoll_wall_200.scene.json
 #   - tools/physics_query.bat
+#   - tools/check_replay_visual_fidelity.py
 #   - Agentic/Reference/engine-glossary.md
 #
 """Check compact SkullScope contact-energy metric packets."""
@@ -61,6 +67,8 @@ SCENE_ENERGY_EPSILON_SCALE = 128.0
 TOWER_LAST_FRAME = 2399
 FOUR_BRICK_LAST_FRAME = 1199
 WALL_LAST_FRAME = 6799
+WALL_BRICK_COUNT = 200
+WALL_RAGDOLL_PART_COUNT = 10
 MAX_SOLVER_ITERATIONS = 12
 MAX_SETTLED_UPWARD_SPEED = 0.25
 MAX_SETTLED_PENETRATION = 0.05
@@ -307,6 +315,133 @@ ORDER BY body_id
 """.strip().replace("\n", " ")
 
 
+# Why: FP2 closure needs an executable witness for the promoted fast striker,
+# but the post-wall cascade is intentionally chaotic. This query therefore
+# returns only the first-ragdoll-impact neighborhood while computing the named
+# post-impact wall activity over the complete trace inside SQLite.
+WALL200_IMPACT_QUESTION = """
+WITH bounds AS (
+    SELECT MIN(frame) first_frame FROM frames
+), named_bodies AS (
+    SELECT body_id, name
+    FROM bodies, bounds
+    WHERE frame = first_frame
+), striker AS (
+    SELECT body_id FROM named_bodies WHERE name = 'prediction_striker_ball'
+), ragdoll_bodies AS (
+    SELECT body_id FROM named_bodies WHERE name GLOB 'prediction_impact_ragdoll_*'
+), wall_bricks AS (
+    SELECT body_id FROM named_bodies WHERE name GLOB 'prediction_wall_brick_*'
+), ragdoll_impact AS (
+    SELECT MIN(contact.frame) impact_frame
+    FROM contacts contact, striker
+    WHERE (contact.body_a = striker.body_id AND contact.body_b IN (SELECT body_id FROM ragdoll_bodies))
+       OR (contact.body_b = striker.body_id AND contact.body_a IN (SELECT body_id FROM ragdoll_bodies))
+), wall_impact AS (
+    SELECT MIN(contact.frame) impact_frame
+    FROM contacts contact, striker
+    WHERE (contact.body_a = striker.body_id AND contact.body_b IN (SELECT body_id FROM wall_bricks))
+       OR (contact.body_b = striker.body_id AND contact.body_a IN (SELECT body_id FROM wall_bricks))
+), brick_activity AS (
+    SELECT COUNT(DISTINCT CASE WHEN body.sleeping = 0 THEN body.body_id END) awake_brick_count,
+           COUNT(DISTINCT CASE WHEN body.speed > 0.0 THEN body.body_id END) moving_brick_count
+    FROM bodies body
+    JOIN wall_bricks brick ON brick.body_id = body.body_id
+    CROSS JOIN ragdoll_impact
+    WHERE body.frame >= ragdoll_impact.impact_frame
+), striker_contacts AS (
+    SELECT contact.*,
+           CASE WHEN contact.body_a = striker.body_id THEN contact.body_b ELSE contact.body_a END partner_body_id
+    FROM contacts contact, striker, ragdoll_impact
+    WHERE (contact.body_a = striker.body_id OR contact.body_b = striker.body_id)
+      AND contact.frame BETWEEN ragdoll_impact.impact_frame - 1 AND ragdoll_impact.impact_frame + 1
+), ordered_contact_rows AS (
+    SELECT contact.frame,
+           contact.contact_id,
+           CASE WHEN ragdoll.body_id IS NOT NULL THEN 1 ELSE 0 END is_ragdoll,
+           CASE WHEN brick.body_id IS NOT NULL THEN 1 ELSE 0 END is_wall_brick,
+           json_object(
+               'contact_id', contact.contact_id,
+               'body_a', contact.body_a,
+               'body_b', contact.body_b,
+               'partner_body_id', contact.partner_body_id,
+               'partner_name', COALESCE(partner.name, '<terrain>'),
+               'contact_type', contact.contact_type,
+               'feature_id', contact.feature_id,
+               'point_count', contact.point_count,
+               'normal_x', contact.normal_x,
+               'normal_y', contact.normal_y,
+               'normal_z', contact.normal_z,
+               'penetration', contact.penetration,
+               'normal_impulse', contact.normal_impulse,
+               'separation_bias', contact.separation_bias,
+               'pre_solve_normal_speed', contact.pre_solve_normal_speed,
+               'pre_solve_closing_speed', contact.pre_solve_closing_speed,
+               'pre_solve_slip_speed', contact.pre_solve_slip_speed,
+               'tangent_impulse', contact.tangent_impulse,
+               'slip_speed', contact.slip_speed,
+               'rolling_residual', contact.rolling_residual,
+               'warm_started', contact.warm_started,
+               'supports_sleep', contact.supports_sleep
+           ) contact_row
+    FROM striker_contacts contact
+    LEFT JOIN named_bodies partner ON partner.body_id = contact.partner_body_id
+    LEFT JOIN ragdoll_bodies ragdoll ON ragdoll.body_id = contact.partner_body_id
+    LEFT JOIN wall_bricks brick ON brick.body_id = contact.partner_body_id
+    ORDER BY contact.frame, contact.contact_id
+), contact_windows AS (
+    SELECT frame,
+           COUNT(*) striker_contact_count,
+           SUM(is_ragdoll) striker_ragdoll_contact_count,
+           SUM(is_wall_brick) striker_wall_contact_count,
+           GROUP_CONCAT(contact_row, char(30) ORDER BY contact_id) contact_signature
+    FROM ordered_contact_rows
+    GROUP BY frame
+)
+SELECT (SELECT COUNT(*) FROM striker) named_striker_count,
+       (SELECT COUNT(*) FROM ragdoll_bodies) named_ragdoll_count,
+       (SELECT COUNT(*) FROM wall_bricks) named_wall_brick_count,
+       brick_activity.awake_brick_count,
+       brick_activity.moving_brick_count,
+       ragdoll_impact.impact_frame first_ragdoll_contact_frame,
+       wall_impact.impact_frame first_wall_contact_frame,
+       body.frame - ragdoll_impact.impact_frame impact_offset,
+       body.frame,
+       body.body_id,
+       body.name,
+       body.shape,
+       body.pos_x,
+       body.pos_y,
+       body.pos_z,
+       body.vel_x,
+       body.vel_y,
+       body.vel_z,
+       body.omega_x,
+       body.omega_y,
+       body.omega_z,
+       body.q_x,
+       body.q_y,
+       body.q_z,
+       body.q_w,
+       body.speed,
+       body.omega_mag,
+       body.sleeping,
+       body.sleep_supported,
+       body.sleep_inhibited,
+       body.sleep_counter,
+       body.island_id,
+       COALESCE(contact_windows.striker_contact_count, 0) striker_contact_count,
+       COALESCE(contact_windows.striker_ragdoll_contact_count, 0) striker_ragdoll_contact_count,
+       COALESCE(contact_windows.striker_wall_contact_count, 0) striker_wall_contact_count,
+       COALESCE(contact_windows.contact_signature, '') contact_signature
+FROM bodies body, striker, ragdoll_impact, wall_impact, brick_activity
+LEFT JOIN contact_windows ON contact_windows.frame = body.frame
+WHERE body.body_id = striker.body_id
+  AND body.frame BETWEEN ragdoll_impact.impact_frame - 1 AND ragdoll_impact.impact_frame + 1
+ORDER BY body.frame
+""".strip().replace("\n", " ")
+
+
 def print_questions(workload: str, trace: str) -> None:
     questions = [
         {
@@ -315,11 +450,17 @@ def print_questions(workload: str, trace: str) -> None:
         }
     ]
     if workload == "wall200":
-        questions.append(
-            {
-                "name": "wall200_final_bodies",
-                "command": f'tools\\physics_query.bat "{trace}" sql "{FINAL_BODY_QUESTION}" --limit 300',
-            }
+        questions.extend(
+            [
+                {
+                    "name": "wall200_final_bodies",
+                    "command": f'tools\\physics_query.bat "{trace}" sql "{FINAL_BODY_QUESTION}" --limit 300',
+                },
+                {
+                    "name": "wall200_impact_witness",
+                    "command": f'tools\\physics_query.bat "{trace}" sql "{WALL200_IMPACT_QUESTION}" --limit 5',
+                },
+            ]
         )
     print(json.dumps({"workload": workload, "questions": questions}, indent=2))
 
@@ -500,6 +641,170 @@ def load_body_packet(path: Path | None) -> list[dict[str, Any]]:
     if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
         raise ValueError(f"{path}: final-body packet rows must be objects")
     return rows
+
+
+WALL200_IMPACT_METADATA_FIELDS = (
+    "named_striker_count",
+    "named_ragdoll_count",
+    "named_wall_brick_count",
+    "awake_brick_count",
+    "moving_brick_count",
+    "first_ragdoll_contact_frame",
+    "first_wall_contact_frame",
+)
+WALL200_IMPACT_INTEGER_STATE_FIELDS = (
+    "impact_offset",
+    "frame",
+    "body_id",
+    "sleeping",
+    "sleep_supported",
+    "sleep_inhibited",
+    "sleep_counter",
+    "island_id",
+    "striker_contact_count",
+    "striker_ragdoll_contact_count",
+    "striker_wall_contact_count",
+)
+WALL200_IMPACT_FLOAT_STATE_FIELDS = (
+    "pos_x",
+    "pos_y",
+    "pos_z",
+    "vel_x",
+    "vel_y",
+    "vel_z",
+    "omega_x",
+    "omega_y",
+    "omega_z",
+    "q_x",
+    "q_y",
+    "q_z",
+    "q_w",
+    "speed",
+    "omega_mag",
+)
+WALL200_IMPACT_EXACT_SLICE_FIELDS = (
+    *WALL200_IMPACT_INTEGER_STATE_FIELDS,
+    "name",
+    "shape",
+    *WALL200_IMPACT_FLOAT_STATE_FIELDS,
+    "contact_signature",
+)
+
+
+def load_wall200_impact_packet(path: Path) -> list[dict[str, Any]]:
+    payload = read_packet(path)
+    if payload.get("truncated"):
+        raise ValueError(f"{path}: truncated wall200 impact packet is not admissible")
+    rows = payload.get("rows")
+    if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+        raise ValueError(f"{path}: wall200 impact packet rows must be objects")
+    return rows
+
+
+def evaluate_wall200_impact(rows: list[dict[str, Any]]) -> tuple[set[str], dict[str, Any]]:
+    failures: set[str] = set()
+    facts: dict[str, Any] = {}
+    if len(rows) != 3:
+        failures.add("impact_window_row_count")
+        return failures, facts
+
+    offsets: list[int | None] = []
+    for row in rows:
+        offsets.append(metric_int(row, "impact_offset", failures))
+        for field in WALL200_IMPACT_INTEGER_STATE_FIELDS[1:]:
+            metric_int(row, field, failures)
+        for field in WALL200_IMPACT_FLOAT_STATE_FIELDS:
+            metric_float(row, field, failures)
+        if row.get("name") != "prediction_striker_ball" or not isinstance(row.get("shape"), str):
+            failures.add("striker_identity")
+        if not isinstance(row.get("contact_signature"), str):
+            failures.add("missing_contact_signature")
+
+    # Invariant: row order is part of the compact packet contract. It prevents
+    # an unordered result from accidentally pairing different state frames.
+    if offsets != [-1, 0, 1]:
+        failures.add("impact_window_order")
+        return failures, facts
+
+    first_row = rows[0]
+    for field in WALL200_IMPACT_METADATA_FIELDS:
+        expected = first_row.get(field)
+        for row in rows:
+            if row.get(field) != expected:
+                failures.add(f"inconsistent_metadata:{field}")
+                break
+
+    named_striker_count = metric_int(first_row, "named_striker_count", failures)
+    named_ragdoll_count = metric_int(first_row, "named_ragdoll_count", failures)
+    named_wall_brick_count = metric_int(first_row, "named_wall_brick_count", failures)
+    awake_brick_count = metric_int(first_row, "awake_brick_count", failures)
+    moving_brick_count = metric_int(first_row, "moving_brick_count", failures)
+    ragdoll_impact = metric_int(first_row, "first_ragdoll_contact_frame", failures)
+    wall_impact = metric_int(first_row, "first_wall_contact_frame", failures)
+
+    if named_striker_count != 1:
+        failures.add("named_striker_count")
+    if named_ragdoll_count != WALL_RAGDOLL_PART_COUNT:
+        failures.add("named_ragdoll_count")
+    if named_wall_brick_count != WALL_BRICK_COUNT:
+        failures.add("named_wall_brick_count")
+    if awake_brick_count != WALL_BRICK_COUNT:
+        failures.add("awake_wall_bricks")
+    if moving_brick_count != WALL_BRICK_COUNT:
+        failures.add("moving_wall_bricks")
+
+    if ragdoll_impact is not None:
+        for row, offset in zip(rows, (-1, 0, 1), strict=True):
+            if metric_int(row, "frame", failures) != ragdoll_impact + offset:
+                failures.add("impact_window_frame")
+
+    ragdoll_contacts_at_impact = metric_int(rows[1], "striker_ragdoll_contact_count", failures)
+    if ragdoll_contacts_at_impact is None or ragdoll_contacts_at_impact < 1:
+        failures.add("ragdoll_contact_at_impact")
+    preimpact_velocity_y = metric_float(rows[0], "vel_y", failures)
+    postimpact_velocity_y = metric_float(rows[2], "vel_y", failures)
+    if preimpact_velocity_y is not None and preimpact_velocity_y >= 0.0:
+        failures.add("preimpact_downward_velocity")
+    if postimpact_velocity_y is not None and postimpact_velocity_y <= 0.0:
+        failures.add("postimpact_rebound_velocity")
+
+    facts.update(
+        {
+            "first_ragdoll_contact_frame": ragdoll_impact,
+            "first_wall_contact_frame": wall_impact,
+            "awake_brick_count": awake_brick_count,
+            "moving_brick_count": moving_brick_count,
+            "preimpact_velocity_y": preimpact_velocity_y,
+            "postimpact_velocity_y": postimpact_velocity_y,
+        }
+    )
+    return failures, facts
+
+
+def compare_wall200_impact(
+    reference_rows: list[dict[str, Any]], candidate_rows: list[dict[str, Any]]
+) -> tuple[set[str], dict[str, Any]]:
+    reference_failures, reference_facts = evaluate_wall200_impact(reference_rows)
+    candidate_failures, candidate_facts = evaluate_wall200_impact(candidate_rows)
+    failures = {f"reference:{failure}" for failure in reference_failures}
+    failures.update(f"candidate:{failure}" for failure in candidate_failures)
+
+    if len(reference_rows) == 3 and len(candidate_rows) == 3:
+        for field in ("first_ragdoll_contact_frame", "first_wall_contact_frame"):
+            if reference_rows[0].get(field) != candidate_rows[0].get(field):
+                failures.add(f"exact_mismatch:{field}")
+        for reference, candidate in zip(reference_rows, candidate_rows, strict=True):
+            offset = reference.get("impact_offset")
+            for field in WALL200_IMPACT_EXACT_SLICE_FIELDS:
+                if reference.get(field) != candidate.get(field):
+                    mismatch = (
+                        f"exact_mismatch:impact{offset:+}:{field}"
+                        if isinstance(offset, int)
+                        else f"exact_mismatch:{field}"
+                    )
+                    failures.add(mismatch)
+
+    return failures, {"reference": reference_facts, "candidate": candidate_facts}
 
 
 def quaternion_support_extent_y(row: dict[str, Any], failures: set[str]) -> float | None:
@@ -727,6 +1032,58 @@ def passing_body_rows(count: int) -> list[dict[str, Any]]:
     ]
 
 
+def passing_wall200_impact_rows(
+    *, impact_frame: int = 40, wall_contact_frame: int = 80
+) -> list[dict[str, Any]]:
+    # Sensitivity fixture only: these values exercise relative comparison and
+    # direction checks. Production acceptance never reads them as a golden.
+    rows: list[dict[str, Any]] = []
+    for offset in (-1, 0, 1):
+        rows.append(
+            {
+                "named_striker_count": 1,
+                "named_ragdoll_count": WALL_RAGDOLL_PART_COUNT,
+                "named_wall_brick_count": WALL_BRICK_COUNT,
+                "awake_brick_count": WALL_BRICK_COUNT,
+                "moving_brick_count": WALL_BRICK_COUNT,
+                "first_ragdoll_contact_frame": impact_frame,
+                "first_wall_contact_frame": wall_contact_frame,
+                "impact_offset": offset,
+                "frame": impact_frame + offset,
+                "body_id": 7,
+                "name": "prediction_striker_ball",
+                "shape": "sphere",
+                "pos_x": 100.0 + offset,
+                "pos_y": 20.0,
+                "pos_z": 30.0,
+                "vel_x": 50.0,
+                "vel_y": {-1: -2.0, 0: -1.0, 1: 2.0}[offset],
+                "vel_z": 0.0,
+                "omega_x": 0.0,
+                "omega_y": 0.0,
+                "omega_z": 0.0,
+                "q_x": 0.0,
+                "q_y": 0.0,
+                "q_z": 0.0,
+                "q_w": 1.0,
+                "speed": 50.0,
+                "omega_mag": 0.0,
+                "sleeping": 0,
+                "sleep_supported": 0,
+                "sleep_inhibited": 1,
+                "sleep_counter": 0,
+                "island_id": 3,
+                "striker_contact_count": 1 if offset == 0 else 0,
+                "striker_ragdoll_contact_count": 1 if offset == 0 else 0,
+                "striker_wall_contact_count": 0,
+                "contact_signature": '{"partner_name":"prediction_impact_ragdoll_torso"}'
+                if offset == 0
+                else "",
+            }
+        )
+    return rows
+
+
 def run_sql_negative_controls() -> None:
     # Sensitivity: a large first loss cannot buy headroom for two later injected
     # steps. This executes the same running-minimum CTE used by the real packet.
@@ -770,8 +1127,131 @@ def run_sql_negative_controls() -> None:
     connection.close()
 
 
+def run_wall200_impact_sql_control() -> None:
+    # Sensitivity: exercise the shipped SQL against a complete synthetic named
+    # topology. The frame values live only in this self-test and never become
+    # acceptance constants; the comparator obtains them from its FP1 packet.
+    connection = sqlite3.connect(":memory:")
+    connection.row_factory = sqlite3.Row
+    connection.executescript(
+        """
+        CREATE TABLE frames(frame INTEGER);
+        CREATE TABLE bodies(
+            frame INTEGER, body_id INTEGER, name TEXT, shape TEXT DEFAULT 'box',
+            pos_x REAL DEFAULT 0.0, pos_y REAL DEFAULT 0.0, pos_z REAL DEFAULT 0.0,
+            vel_x REAL DEFAULT 0.0, vel_y REAL DEFAULT 0.0, vel_z REAL DEFAULT 0.0,
+            omega_x REAL DEFAULT 0.0, omega_y REAL DEFAULT 0.0, omega_z REAL DEFAULT 0.0,
+            q_x REAL DEFAULT 0.0, q_y REAL DEFAULT 0.0, q_z REAL DEFAULT 0.0, q_w REAL DEFAULT 1.0,
+            speed REAL DEFAULT 0.0, omega_mag REAL DEFAULT 0.0,
+            sleeping INTEGER DEFAULT 0, sleep_supported INTEGER DEFAULT 0,
+            sleep_inhibited INTEGER DEFAULT 0, sleep_counter INTEGER DEFAULT 0,
+            island_id INTEGER DEFAULT 1
+        );
+        CREATE TABLE contacts(
+            frame INTEGER, contact_id TEXT, body_a INTEGER, body_b INTEGER,
+            contact_type TEXT DEFAULT 'body', feature_id INTEGER DEFAULT 0,
+            point_count INTEGER DEFAULT 1,
+            normal_x REAL DEFAULT 0.0, normal_y REAL DEFAULT 1.0, normal_z REAL DEFAULT 0.0,
+            penetration REAL DEFAULT 0.0, normal_impulse REAL DEFAULT 1.0,
+            separation_bias REAL DEFAULT 0.0, pre_solve_normal_speed REAL DEFAULT 0.0,
+            pre_solve_closing_speed REAL DEFAULT 0.0, pre_solve_slip_speed REAL DEFAULT 0.0,
+            tangent_impulse REAL DEFAULT 0.0, slip_speed REAL DEFAULT 0.0,
+            rolling_residual REAL DEFAULT 0.0, warm_started INTEGER DEFAULT 0,
+            supports_sleep INTEGER DEFAULT 0
+        );
+        INSERT INTO frames VALUES(0);
+        INSERT INTO bodies(frame, body_id, name, shape, sleeping)
+            VALUES(0, 1, 'prediction_striker_ball', 'sphere', 0);
+        """
+    )
+    connection.executemany(
+        "INSERT INTO bodies(frame, body_id, name, sleeping) VALUES(0, ?, ?, 1)",
+        [
+            (part + 2, f"prediction_impact_ragdoll_part_{part:02d}")
+            for part in range(WALL_RAGDOLL_PART_COUNT)
+        ],
+    )
+    connection.executemany(
+        "INSERT INTO bodies(frame, body_id, name, sleeping) VALUES(0, ?, ?, 1)",
+        [
+            (brick + 100, f"prediction_wall_brick_{brick:03d}")
+            for brick in range(WALL_BRICK_COUNT)
+        ],
+    )
+    connection.executemany(
+        "INSERT INTO bodies(frame, body_id, name, speed, sleeping) VALUES(30, ?, ?, 1.0, 0)",
+        [
+            (brick + 100, f"prediction_wall_brick_{brick:03d}")
+            for brick in range(WALL_BRICK_COUNT)
+        ],
+    )
+    connection.executemany(
+        """INSERT INTO bodies(
+               frame, body_id, name, shape, pos_x, pos_y, vel_x, vel_y, speed, sleep_inhibited)
+           VALUES(?, 1, 'prediction_striker_ball', 'sphere', ?, 20.0, 50.0, ?, 50.0, 1)""",
+        [(9, 99.0, -2.0), (10, 100.0, -1.0), (11, 101.0, 2.0)],
+    )
+    connection.executemany(
+        "INSERT INTO contacts(frame, contact_id, body_a, body_b) VALUES(?, ?, 1, ?)",
+        [(10, "striker-ragdoll", 2), (20, "striker-wall", 100)],
+    )
+
+    rows = [dict(row) for row in connection.execute(WALL200_IMPACT_QUESTION).fetchall()]
+    failures, facts = evaluate_wall200_impact(rows)
+    assert not failures, failures
+    assert facts["first_ragdoll_contact_frame"] == 10
+    assert facts["first_wall_contact_frame"] == 20
+    assert facts["awake_brick_count"] == WALL_BRICK_COUNT
+    assert facts["moving_brick_count"] == WALL_BRICK_COUNT
+    connection.close()
+
+
 def run_self_test() -> None:
     run_sql_negative_controls()
+    run_wall200_impact_sql_control()
+
+    impact_reference = passing_wall200_impact_rows()
+    failures, _ = compare_wall200_impact(impact_reference, json.loads(json.dumps(impact_reference)))
+    assert not failures, failures
+
+    shifted_impact = passing_wall200_impact_rows(impact_frame=41)
+    failures, _ = compare_wall200_impact(impact_reference, shifted_impact)
+    assert "exact_mismatch:first_ragdoll_contact_frame" in failures
+
+    shifted_wall = passing_wall200_impact_rows(wall_contact_frame=81)
+    failures, _ = compare_wall200_impact(impact_reference, shifted_wall)
+    assert "exact_mismatch:first_wall_contact_frame" in failures
+
+    changed_state = json.loads(json.dumps(impact_reference))
+    changed_state[1]["pos_x"] += 0.125
+    failures, _ = compare_wall200_impact(impact_reference, changed_state)
+    assert "exact_mismatch:impact+0:pos_x" in failures
+
+    changed_contacts = json.loads(json.dumps(impact_reference))
+    changed_contacts[1]["contact_signature"] += "-changed"
+    failures, _ = compare_wall200_impact(impact_reference, changed_contacts)
+    assert "exact_mismatch:impact+0:contact_signature" in failures
+
+    missing_cascade = json.loads(json.dumps(impact_reference))
+    for row in missing_cascade:
+        row["awake_brick_count"] = WALL_BRICK_COUNT - 1
+        row["moving_brick_count"] = WALL_BRICK_COUNT - 1
+    failures, _ = compare_wall200_impact(impact_reference, missing_cascade)
+    assert {"candidate:awake_wall_bricks", "candidate:moving_wall_bricks"}.issubset(failures)
+
+    wrong_approach = json.loads(json.dumps(impact_reference))
+    wrong_approach[0]["vel_y"] = 0.0
+    failures, _ = compare_wall200_impact(impact_reference, wrong_approach)
+    assert "candidate:preimpact_downward_velocity" in failures
+
+    missing_rebound = json.loads(json.dumps(impact_reference))
+    missing_rebound[2]["vel_y"] = 0.0
+    failures, _ = compare_wall200_impact(impact_reference, missing_rebound)
+    assert "candidate:postimpact_rebound_velocity" in failures
+
+    unordered_window = list(reversed(json.loads(json.dumps(impact_reference))))
+    failures, _ = compare_wall200_impact(impact_reference, unordered_window)
+    assert "candidate:impact_window_order" in failures
 
     wall_scene = read_packet(Path("SkullbonezData/scenes/prediction_ragdoll_wall_200.scene.json"))
     assert not validate_wall_scene_payload(wall_scene)
@@ -837,12 +1317,19 @@ def run_self_test() -> None:
 
     exact_float = struct.unpack("f", struct.pack("f", 1.0))[0]
     assert scene_energy_tolerance(exact_float) == SCENE_ENERGY_ABSOLUTE_FLOOR
-    print("SELF_TEST_PASS: contact-energy semantic checks reject every planted failure")
+    print("SELF_TEST_PASS: contact-energy and wall200 impact checks reject every planted failure")
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--self-test", action="store_true")
+    parser.add_argument(
+        "--compare-wall200-impact",
+        nargs=2,
+        type=Path,
+        metavar=("FP1_PACKET", "FP2_PACKET"),
+        help="Compare retained-FP1 and candidate-FP2 wall200 impact witness packets.",
+    )
     parser.add_argument("--workload", choices=sorted(CONTRACTS))
     parser.add_argument("--packet", action="append", type=Path, default=[])
     parser.add_argument("--bodies-packet", type=Path)
@@ -859,8 +1346,32 @@ def main() -> int:
     args = parse_args()
     if args.self_test:
         run_self_test()
-        if not args.workload:
+        if not args.workload and not args.compare_wall200_impact:
             return 0
+    if args.compare_wall200_impact:
+        reference_path, candidate_path = args.compare_wall200_impact
+        try:
+            reference_rows = load_wall200_impact_packet(reference_path)
+            candidate_rows = load_wall200_impact_packet(candidate_path)
+        except (OSError, ValueError, json.JSONDecodeError) as error:
+            print(f"ERROR: {error}", file=sys.stderr)
+            return 2
+        failures, facts = compare_wall200_impact(reference_rows, candidate_rows)
+        print(
+            json.dumps(
+                {
+                    "workload": "wall200_impact",
+                    "reference_packet": str(reference_path),
+                    "candidate_packet": str(candidate_path),
+                    "status": "pass" if not failures else "fail",
+                    "failures": sorted(failures),
+                    "facts": facts,
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+        )
+        return 0 if not failures else 1
     if args.print_questions:
         if not args.workload:
             print("ERROR: --print-questions requires --workload", file=sys.stderr)

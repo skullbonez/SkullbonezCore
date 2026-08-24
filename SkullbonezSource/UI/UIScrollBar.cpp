@@ -1,24 +1,24 @@
 /*
 File: SkullbonezSource/UI/UIScrollBar.cpp
 Purpose:
-  Implements scroll-track/thumb geometry, offset projection, dragging, and
-  drawing.
+  Adapts retained scrollbar track bounds and time-derived visibility to the
+  stateless scrollbar contract.
 
 Summary:
-  Projects content height and scroll offset
-  into one clipped viewport track and thumb.
+  UIDrawWidgets owns thumb projection, style, and command recording; this
+  wrapper retains only the track established by layout.
 
 Invariants:
-  - Draw geometry and hit testing must be derived from the same layout
-  constants.
+  - Visibility time is converted to one frame-local alpha before delegation.
 
 Related:
   - SkullbonezSource/UI/UIScrollBar.h
+  - SkullbonezSource/UI/UIDrawWidgets.h
   - Agentic/Reference/engine-glossary.md
 */
 #include "UIScrollBar.h"
 
-#include "UIStyle.h"
+#include "UIDrawWidgets.h"
 
 #include <algorithm>
 
@@ -42,28 +42,10 @@ UIRect UIScrollBar::Bounds() const
 void UIScrollBar::Draw( const UIDrawContext& draw, float contentHeight, float viewportHeight, float scrollY,
                         double visibleUntil, double now ) const
 {
-    const float maxScroll = (std::max)( 0.0f, contentHeight - viewportHeight );
-
-    if ( maxScroll <= 0.0f )
-    {
-        return;
-    }
-
     const float alpha = static_cast<float>( std::clamp( visibleUntil - now, 0.0, 0.74 ) );
-
-    if ( alpha <= 0.02f )
-    {
-        return;
-    }
-
-    const Style::UIPalette& palette = Style::Palette();
-    draw.RoundedRect( m_track.x, m_track.y, m_track.w, m_track.h, m_track.w * 0.5f, palette.control.r, palette.control.g,
-                      palette.control.b, alpha * 0.52f );
-
-    const float thumbH = (std::max)( 28.0f, viewportHeight * viewportHeight / contentHeight );
-    const float thumbY = m_track.y + ( viewportHeight - thumbH ) * ( scrollY / maxScroll );
-    draw.RoundedRect( m_track.x - 1.0f, thumbY, m_track.w + 2.0f, thumbH, ( m_track.w + 2.0f ) * 0.5f, palette.accent.r,
-                      palette.accent.g, palette.accent.b, alpha );
+    constexpr UIVisualState kState = UIVisualState::Visible | UIVisualState::Enabled;
+    Widgets::DrawScrollBar( draw, m_track, contentHeight, viewportHeight, scrollY, alpha, kState,
+                            Widgets::ComponentAppearance::Established );
 }
 
 } // namespace UI

@@ -4,9 +4,9 @@
 @rem   Documents and runs the validate_physics.bat developer/validation helper script.
 @rem
 @rem Summary:
-@rem   The owner-approved golden digest is checked before any build. The gate
-@rem   then builds or reuses Debug, proves the PhysicsEngine lifecycle, runs the
-@rem   authored deterministic scene, and performs a byte-exact comparison.
+@rem   The accepted golden digest is checked before any build. The gate
+@rem   then builds or reuses Debug, proves the PhysicsEngine lifecycle, and runs
+@rem   one authored scene in four clean processes for a byte-exact worker matrix.
 @rem
 @rem Glossary:
 @rem   SkullScope: Queryable physics diagnostics workflow backed by bounded trace
@@ -18,7 +18,7 @@
 @rem
 @rem Invariants:
 @rem   - A modified golden fails before build or launch unless its exact bytes
-@rem   have an owner approval record.
+@rem   have a content-bound transition receipt and immutable runtime archive.
 @rem   - The engine lifecycle smoke must run before the scene regression so
 @rem   owner-lifecycle failures are visible apart from scene loading or rendering.
 @rem   - Commit-gate and parent full-gate calls defer ready-build restoration;
@@ -35,7 +35,7 @@ setlocal enabledelayedexpansion
 REM ===============================================================
 REM  validate_physics.bat - Core physics determinism regression test.
 REM  Use for: normal physics, collision, solver, rigid body changes.
-REM  Runtime: engine lifecycle smoke, one authored varied-scene launch, and baseline comparison.
+REM  Runtime: engine lifecycle smoke, four authored varied-scene launches, and baseline comparison.
 REM ===============================================================
 
 set "COMMIT_GATE=0"
@@ -61,15 +61,23 @@ echo   VALIDATE_PHYSICS - Determinism Check
 echo ========================================
 echo.
 
-echo [1/6] Verifying owner-approved golden digest...
+echo [1/7] Verifying accepted golden digest and retained transitions...
 "%PYTHON_EXE%" "%~dp0check_physics_baseline_guard.py" --repo "%REPO%"
 if errorlevel 1 (
-    echo FAIL: Physics golden is missing owner approval or was modified.
+    echo FAIL: Physics golden acceptance or retained transition integrity failed.
     popd
     exit /b 3
 )
 
-echo [2/6] Ensuring Debug x64 build...
+echo [2/7] Running physics comparator self-tests...
+"%PYTHON_EXE%" "%~dp0check_physics_regression.py" --self-test
+if errorlevel 1 (
+    echo FAIL: Physics regression comparator self-tests failed.
+    popd
+    exit /b 2
+)
+
+echo [3/7] Ensuring Debug x64 build...
 if /I "%SKULLBONEZ_ASSUME_DEBUG_BUILT%"=="1" (
     echo PASS: Reusing prebuilt Debug x64.
 ) else (
@@ -77,34 +85,55 @@ if /I "%SKULLBONEZ_ASSUME_DEBUG_BUILT%"=="1" (
     if errorlevel 1 exit /b 1
 )
 
-echo [3/6] Running PhysicsEngine lifecycle smoke...
+echo [4/7] Running PhysicsEngine lifecycle smoke...
 "%REPO%\Debug\SKULLBONEZ_CORE.exe" --physics-standalone-smoke
 if errorlevel 1 (
     echo FAIL: PhysicsEngine lifecycle smoke failed.
     exit /b 2
 )
 
-echo [4/6] Running core physics regression scene...
+echo [5/7] Running clean-process core physics worker matrix...
 del /q "%REPO%\Debug\physics_regression_*.csv" 2>nul
 
-echo   Running physics_bench_varied...
-"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/physics_bench_varied.scene.json --physics-regression-log Debug/physics_regression_varied.csv
+echo   Running physics_bench_varied with workers=0 ^(primary^)...
+"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --workers 0 --scene SkullbonezData/scenes/physics_bench_varied.scene.json --physics-regression-log Debug/physics_regression_varied.csv
 if errorlevel 1 (
-    echo FAIL: physics_bench_varied crashed or errored.
+    echo FAIL: physics_bench_varied workers=0 primary crashed or errored.
     exit /b 2
 )
 
-echo [5/6] Comparing output against baselines...
-set "SKORE_REPO=%REPO%"
-"%PYTHON_EXE%" "%~dp0check_physics_regression.py"
+echo   Running physics_bench_varied with workers=0 ^(repeat^)...
+"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --workers 0 --scene SkullbonezData/scenes/physics_bench_varied.scene.json --physics-regression-log Debug/physics_regression_varied_workers_0_repeat.csv
 if errorlevel 1 (
-    echo FAIL: Physics regression detected. Output differs from baselines.
+    echo FAIL: physics_bench_varied workers=0 repeat crashed or errored.
+    exit /b 2
+)
+
+echo   Running physics_bench_varied with workers=1...
+"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --workers 1 --scene SkullbonezData/scenes/physics_bench_varied.scene.json --physics-regression-log Debug/physics_regression_varied_workers_1.csv
+if errorlevel 1 (
+    echo FAIL: physics_bench_varied workers=1 crashed or errored.
+    exit /b 2
+)
+
+echo   Running physics_bench_varied with workers=4...
+"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --workers 4 --scene SkullbonezData/scenes/physics_bench_varied.scene.json --physics-regression-log Debug/physics_regression_varied_workers_4.csv
+if errorlevel 1 (
+    echo FAIL: physics_bench_varied workers=4 crashed or errored.
+    exit /b 2
+)
+
+echo [6/7] Comparing clean-process worker matrix against itself and baseline...
+set "SKORE_REPO=%REPO%"
+"%PYTHON_EXE%" "%~dp0check_physics_regression.py" --worker-matrix
+if errorlevel 1 (
+    echo FAIL: Physics worker matrix differs between clean processes, worker counts, or baseline.
     echo       Baseline dir: TestOutput\baselines
     echo       Actual dir:   Debug
     exit /b 2
 )
 
-echo [6/6] Leaving Profile and Debug builds ready...
+echo [7/7] Leaving Profile and Debug builds ready...
 if "%COMMIT_GATE%"=="1" (
     echo       Deferred by commit gate; only the deterministic Debug proof is required.
     goto :ready_complete

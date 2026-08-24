@@ -27,7 +27,8 @@
 #     path is evaluated as a deleted source plus an added destination blob.
 #   - Gitlinks contribute zero parent-repository blob bytes; the checker still
 #     measures the ordinary .gitmodules blob that makes each pin reproducible.
-#   - Baselines and SkullbonezData are the only broad large-file locations.
+#   - Baselines and SkullbonezData are the only broad large-file locations;
+#     Physics plan executables are a narrow named artifact exception.
 #   - Self-tests run without touching the real git index.
 #
 # Related:
@@ -51,6 +52,7 @@ ALLOWLIST_PREFIXES = (
     "SkullbonezData/",
     "TestOutput/baselines/",
 )
+PHYSICS_EXECUTABLE_ARTIFACT_PREFIX = "Agentic/Plans/Artifacts/ragdoll-physics-unification/"
 
 
 @dataclass(frozen=True)
@@ -72,7 +74,12 @@ def repo_relative_path(path: str) -> str:
 
 def is_allowlisted(path: str) -> bool:
     normalized = repo_relative_path(path)
-    return any(normalized.startswith(prefix) for prefix in ALLOWLIST_PREFIXES)
+    if any(normalized.startswith(prefix) for prefix in ALLOWLIST_PREFIXES):
+        return True
+    artifact_name = normalized.rsplit("/", 1)[-1]
+    return normalized.startswith(PHYSICS_EXECUTABLE_ARTIFACT_PREFIX) and (
+        artifact_name.startswith("SKULLBONEZ_CORE-") and artifact_name.endswith(".exe")
+    )
 
 
 def check_entries(entries: list[CandidateFile], max_bytes: int) -> list[SizeViolation]:
@@ -218,6 +225,20 @@ def run_self_tests() -> list[str]:
     expect_clean("small source file", [CandidateFile("SkullbonezSource/Foo.cpp", max_bytes)])
     expect_clean("large baseline", [CandidateFile("TestOutput/baselines/large.png", large)])
     expect_clean("large data asset", [CandidateFile("SkullbonezData/assets/large.assets.json", large)])
+    expect_clean(
+        "retained physics executable",
+        [
+            CandidateFile(
+                "Agentic/Plans/Artifacts/ragdoll-physics-unification/FP2/SKULLBONEZ_CORE-Debug.exe",
+                large,
+            )
+        ],
+    )
+    expect_violation(
+        "unrelated plan executable",
+        [CandidateFile("Agentic/Plans/Artifacts/other-plan/SKULLBONEZ_CORE-Debug.exe", large)],
+        "Agentic/Plans/Artifacts/other-plan/SKULLBONEZ_CORE-Debug.exe",
+    )
     expect_violation("large temp report", [CandidateFile("Agentic/Temp/huge.txt", large)], "Agentic/Temp/huge.txt")
     expect_violation("large root file", [CandidateFile("huge.bin", large)], "huge.bin")
     if entry_mode("160000 deadbeef 0\tThirdPtySource/imgui", "ThirdPtySource/imgui") != "160000":

@@ -24,10 +24,9 @@ Glossary:
 Invariants:
   - This shelf stores camera intent and helper timers, not authoritative camera
     pose; pose writes still go through CameraCollection.
-  - `input` is frame-local memory captured by InputController and must not be
-    used as a long-lived hardware snapshot.
-  - Applying a detached scene camera preserves the owner's lifecycle observer,
-    so repeated sampling cannot replay the same generation.
+  - `input` contains only camera movement facts captured by InputController;
+    Camera never retains the broad device snapshot.
+  - App applies detached scene-camera state once per lifecycle generation.
 
 Related:
   - SkullbonezSource/Runtime/App/Run.h
@@ -38,12 +37,10 @@ Related:
 #pragma once
 
 #include "../../Core/PlatformWin32.h"
-
+#include "../../Core/Timer.h"
 #include "../../Core/Common.h"
-#include "../Direction/DemoDirector.h"
-#include "../Input/Input.h"
+#include "DemoDirector.h"
 #include "RuntimeCameraMode.h"
-#include "../Scene/SceneLifecycle.h"
 #include "../../Physics/PhysicsHandles.h"
 #include "../../Assets/AssetKeys.h"
 
@@ -76,10 +73,15 @@ inline constexpr std::array<uint32_t, 3> DEMO_CAMERA_CYCLE_SLOTS = { CAMERA_SCEN
                                                                      CAMERA_FREE };
 
 class AttachedCameraController;
-struct RunTimerState;
+
 struct CameraControlState
 {
-    Hardware::InputState input = {};                           // Snapshot consumed by camera controls for this frame.
+    long inputXMove = 0;                                       // Mouse-look delta sampled for this camera frame.
+    long inputYMove = 0;
+    bool inputMoveForward = false;                             // Movement levels sampled for this camera frame.
+    bool inputMoveBackward = false;
+    bool inputMoveLeft = false;
+    bool inputMoveRight = false;
 
     int selectedCamera = 0;                                    // Keeps track of which camera is selected
     RunCameraMode mode = RunCameraMode::Demo;                  // Explicit operator camera mode shown in the minimized HUD.
@@ -114,38 +116,32 @@ struct CameraControlState
         autoCycleInterval = -1.0f;
         autoCycleAccum = 0.0f;
         autoCycleShotsTaken = 0;
-        input = {};
+        inputXMove = 0;
+        inputYMove = 0;
+        inputMoveForward = false;
+        inputMoveBackward = false;
+        inputMoveLeft = false;
+        inputMoveRight = false;
         selectedCamera = 0;
         cameraTime = 0.0f;
     }
 
-    // Applies the detached camera policy emitted by a load once after clearing.
-    // The observer itself remains owner-local and is never copied back from the
-    // transaction value.
-    void ObserveSceneLifecycle( const SceneLifecyclePacket& packet, const CameraControlState& sceneState )
-    {
-        if ( !m_sceneLifecycleObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
-        {
-            return;
-        }
-
-        const SceneLifecycleGenerationObserver appliedObserver = m_sceneLifecycleObserver;
-        *this = sceneState;
-        m_sceneLifecycleObserver = appliedObserver;
-    }
-
     // Lifetime: each camera tick borrows SceneWorld once and derives Cameras and
     // Terrain locally, keeping subowner identity inside this cohesive boundary.
-    void UpdateViewingOrientation( RunTimerState& timers, Runtime::SceneWorld& world, bool replayCameraActive,
-                                   bool sceneMode, bool attachedActiveFollow, bool cameraLookCaptured,
-                                   float presentationAlpha, Core::Profiler* profiler );
+    Core::SbResult InitialiseTiming( Core::SbDiagnosticStore& diagnostics )
+    {
+        return m_cameraTimer.Initialise( diagnostics );
+    }
+    void UpdateViewingOrientation( Runtime::SceneWorld& world, bool replayCameraActive, bool sceneMode,
+                                   bool attachedActiveFollow, bool cameraLookCaptured, float presentationAlpha,
+                                   Core::Profiler* profiler );
     void AdvanceAutoCycleClock( bool sceneMode, float simulationDt );
     void TickControls( Runtime::SceneWorld& world, AttachedCameraController& attachedCamera,
                        const SkullbonezCore::Core::EngineConfig& config, bool editorModeEnabled, bool viewportLookActive,
                        bool sceneMode, float cameraDt, float presentationAlpha );
 
   private:
-    SceneLifecycleGenerationObserver m_sceneLifecycleObserver;
+    Environment::Timer m_cameraTimer;
 };
 
 } // namespace Runtime

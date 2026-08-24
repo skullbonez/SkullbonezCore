@@ -5,7 +5,7 @@ Purpose:
 
 Summary:
   The stage maintains persistent integer-range membership, adds a one-step
-  motion overlay for fast projectiles and angular shape reach, canonicalizes
+  motion overlay for awake translation and angular shape reach, canonicalizes
   solver-visible pair order, stamps cells reached by awake bodies, suppresses
   sleep-only work at emission, prunes fixed/joint pairs, and records bounded
   pipeline evidence.
@@ -21,6 +21,8 @@ Invariants:
     the old geometric-admission evidence at the emission skip.
   - Count-only tracing batches admitted pair cardinality without loading body
     positions; full tracing preserves the canonical sorted payload order.
+  - Every maintained persistent range is committed before any transient motion
+    overlay consumes shared SpatialGrid bucket rows.
   - No hot-path list operation may exceed its scene-load reservation.
 
 Related:
@@ -488,7 +490,13 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
     {
         PROFILE_SCOPED( "Frame/Physics/Broadphase/GridMaintain" );
         const bool fullSeed = !m_gridMembershipSeeded || m_gridMembershipBodyCount != modelCount;
-        auto maintainBody = [&]( int bodyIndex, bool isAwakeSource )
+        auto maintainPersistentBody = [&]( int bodyIndex )
+        {
+            const float baseRadius = SolverShapeRadius( colliderRecords, bodyIndex ) + contactSkin;
+            const Vector3 colliderCenter = SolverColliderCenter( hotFields, colliderRecords, bodyIndex );
+            m_spatialGrid.Insert( bodyIndex, colliderCenter, baseRadius );
+        };
+        auto admitMotionOverlayAndMarkSource = [&]( int bodyIndex )
         {
             const float baseRadius = SolverShapeRadius( colliderRecords, bodyIndex ) + contactSkin;
             const float angularExpansion = bodyIndex < static_cast<int>( angularBroadphaseExpansion.size() )
@@ -496,38 +504,45 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
                                                : 0.0f;
             const float radius = std::isfinite( angularExpansion ) ? baseRadius + (std::max)( 0.0f, angularExpansion )
                                                                    : ( std::numeric_limits<float>::quiet_NaN )();
-            const Vector3 colliderCenter = SolverColliderCenter( hotFields, colliderRecords, bodyIndex );
-
             const Vector3 displacement = PhysicsBodyLinearVelocity( hotFields, static_cast<size_t>( bodyIndex ) ) * dt;
-
             const float displacementSq = Vector::VectorMagSquared( displacement );
+            const bool hasLinearTravel = !std::isfinite( displacementSq ) || displacementSq > TOLERANCE * TOLERANCE;
 
-            if ( isAwakeSource &&
-                 ( displacementSq > baseRadius * baseRadius || !std::isfinite( radius ) || radius > baseRadius ) )
+            if ( hasLinearTravel || !std::isfinite( radius ) || radius > baseRadius )
             {
-                m_spatialGrid.InsertSwept( bodyIndex, colliderCenter, displacement, baseRadius, radius );
-            }
-            else
-            {
-                m_spatialGrid.Insert( bodyIndex, colliderCenter, radius );
+                const Vector3 colliderCenter = SolverColliderCenter( hotFields, colliderRecords, bodyIndex );
+                const float conservativeRadius = std::isfinite( displacementSq )
+                                                     ? radius
+                                                     : ( std::numeric_limits<float>::quiet_NaN )();
+
+                // Invariant: even individually Discrete bodies publish their
+                // short translational envelopes. Two opposing sub-threshold
+                // paths can therefore meet in one candidate cell before the
+                // pair-level relative-motion safety rule selects Swept TOI.
+                m_spatialGrid.InsertSweptOverlayAfterPersistent( bodyIndex, colliderCenter, displacement, baseRadius,
+                                                                 conservativeRadius );
             }
 
-            if ( isAwakeSource )
-            {
-                m_spatialGrid.MarkPairSourceCells( bodyIndex );
-            }
+            m_spatialGrid.MarkPairSourceCells( bodyIndex );
         };
 
         if ( fullSeed )
         {
-            // Cold boundary: seed every persistent membership once, but stamp
-            // only awake dynamic bodies as this frame's pair-work sources.
+            // Invariant: every authoritative current-position cell is admitted
+            // before any transient sweep can consume the shared bucket pool.
             for ( int bodyIndex = 0; bodyIndex < modelCount; ++bodyIndex )
             {
-                const bool isAwakeSource = !IsSolverBodyFixed( hotFields, bodyIndex ) &&
-                                           sleepState[static_cast<size_t>( bodyIndex )] == 0u;
+                maintainPersistentBody( bodyIndex );
+            }
 
-                maintainBody( bodyIndex, isAwakeSource );
+            // Cold boundary stamps only awake dynamic bodies as this frame's
+            // pair-work sources after persistent ownership is complete.
+            for ( int bodyIndex = 0; bodyIndex < modelCount; ++bodyIndex )
+            {
+                if ( !IsSolverBodyFixed( hotFields, bodyIndex ) && sleepState[static_cast<size_t>( bodyIndex )] == 0u )
+                {
+                    admitMotionOverlayAndMarkSource( bodyIndex );
+                }
             }
 
             m_gridMembershipSeeded = true;
@@ -539,7 +554,12 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
             // awake bodies can move, sweep, or source new narrowphase work.
             for ( int bodyIndex : awakeBodyIndices )
             {
-                maintainBody( bodyIndex, true );
+                maintainPersistentBody( bodyIndex );
+            }
+
+            for ( int bodyIndex : awakeBodyIndices )
+            {
+                admitMotionOverlayAndMarkSource( bodyIndex );
             }
         }
     }

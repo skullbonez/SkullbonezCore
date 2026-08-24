@@ -95,8 +95,9 @@ class SceneLifecycleGenerationObserver
     uint64_t m_lastAppliedGeneration = 0;
 };
 
-// Concept: lifecycle receipts keep the remaining transaction-time diagnostics
-// and pre-mutation render drain auditable. Reactive owner work is absent.
+// Concept: lifecycle receipts keep the synchronous pre-mutation diagnostics and
+// render drain auditable. Detached post-clear reactions are applied by App and
+// are not transaction-time consumers.
 enum class SceneLifecycleConsumer : uint32_t
 {
     Diagnostics = 1u << 0,
@@ -117,7 +118,7 @@ constexpr SceneLifecycleConsumerMask SceneLifecycleRequiredConsumers( SceneRunti
         return SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics ) |
                SceneLifecycleConsumerBit( SceneLifecycleConsumer::RenderDrain );
     case SceneRuntimeLifecycleEvent::AfterSceneCleared:
-        return SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics );
+        return 0;
     case SceneRuntimeLifecycleEvent::AfterSceneActivated:
     case SceneRuntimeLifecycleEvent::BeforeScenePopulate:
     case SceneRuntimeLifecycleEvent::AfterScenePopulate:

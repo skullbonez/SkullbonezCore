@@ -42,10 +42,12 @@ Related:
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Core/SbDiagnosticStore.h"
+#include "../SkullbonezSource/Runtime/App/SceneLoadApplication.h"
 #include "../SkullbonezSource/Runtime/Input/InputRouter.h"
-#include "../SkullbonezSource/Runtime/App/InputFrame.h"
+#include "../SkullbonezSource/Runtime/Input/InputFrameValues.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorInputPolicy.h"
 #include "../SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h"
+#include "../SkullbonezSource/Runtime/Scene/SceneLifecycle.h"
 
 #include <array>
 #include <initializer_list>
@@ -261,7 +263,8 @@ TEST_CASE( "Input router: captured tool input requires release and repress befor
     InputActions output;
 
     router.BeginFrame( FocusedFrame( {} ), view, output );
-    router.BeginFrame( FocusedFrame( { 'A' }, true ), view, output, UiInputCaptureIntent { true, true, true } );
+    router.BeginFrame( FocusedFrame( { 'A' }, true ), view, output,
+                       SkullbonezCore::UI::InputCaptureIntent { true, true, true } );
     router.RoutePhase( view, InputActionPhase::PreUi, active, output );
     CHECK( output.Count() == 0 );
     CHECK_FALSE( output.mouse.leftPressed );
@@ -806,15 +809,17 @@ TEST_CASE( "Input router: scene activation publishes cursor reset once per gener
     packet.generation = 1;
     packet.event = SceneRuntimeLifecycleEvent::AfterSceneCleared;
 
-    CHECK_FALSE( router.ObserveSceneLifecycle( packet, true ) );
+    SceneLifecycleGenerationObserver observer;
+
+    CHECK_FALSE( ApplySceneActivationInputReaction( packet, true, observer, router ) );
     CHECK( router.CursorVisibleRequested() );
 
     packet.event = SceneRuntimeLifecycleEvent::AfterSceneActivated;
-    CHECK( router.ObserveSceneLifecycle( packet, true ) );
+    CHECK( ApplySceneActivationInputReaction( packet, true, observer, router ) );
     CHECK_FALSE( router.CursorVisibleRequested() );
-    CHECK_FALSE( router.ObserveSceneLifecycle( packet, true ) );
+    CHECK_FALSE( ApplySceneActivationInputReaction( packet, true, observer, router ) );
 
     packet.generation = 2;
-    CHECK( router.ObserveSceneLifecycle( packet, true ) );
-    CHECK_FALSE( router.ObserveSceneLifecycle( packet, true ) );
+    CHECK( ApplySceneActivationInputReaction( packet, true, observer, router ) );
+    CHECK_FALSE( ApplySceneActivationInputReaction( packet, true, observer, router ) );
 }

@@ -32,10 +32,11 @@ Related:
 #include "ReplayAuthoringPackets.h"
 #include "ReplayRecorder.h"
 #include "../../Core/Common.h"
+#include "../../Maths/Quaternion.h"
+#include "../../Physics/CollisionShape.h"
 #include "../../Physics/PhysicsHandles.h"
 
 #include <vector>
-#include <span>
 
 namespace SkullbonezCore
 {
@@ -43,42 +44,19 @@ namespace Core
 {
 class Profiler;
 }
-namespace Environment
-{
-class CameraCollection;
-}
-namespace Geometry
-{
-class Terrain;
-}
-namespace Rendering
-{
-struct RenderInstancePresentationRecord;
-}
 namespace Physics
 {
 class PhysicsEngine;
-class PhysicsBodyStore;
-class ColliderStore;
 } // namespace Physics
 namespace Runtime
 {
-class InputRouter;
 class ReplayPresentation;
 class ReplayScrubber;
-class EditorTracer;
-class RuntimeInteractionController;
-class SceneEntityStore;
 struct ReplayPathPickInput;
+struct ReplayPathPickResult;
 struct ReplayKeyboardVelocityEditInput;
 struct ReplayKeyboardVelocityEditResult;
-struct RunReplayCameraState;
-struct RunReplayPathVisualizerState;
-struct CameraControlState;
-struct RunMousePickupState;
-enum class RunCameraMode;
 enum class ReplayInspectionCameraAction : uint8_t;
-struct RuntimeInteractionGesture;
 struct ReplayAuthoringPredictionRequest
 {
     Physics::PhysicsSceneObjectId velocityPreviewTargetId;
@@ -98,6 +76,22 @@ struct ReplayVelocityEditDragStart
     float angle = 0.0f;
     Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
+};
+
+// Lifetime: the shape reference borrows ColliderStore only until App applies
+// this command during the same overlay composition call.
+struct ReplayVelocityOverlayCommand
+{
+    Math::Vector::Vector3 origin = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
+    Math::CollisionDetection::CollisionShapeReference shape;
+    Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
+    float radius = 1.0f;
+    int hotLinearAxis = -1;
+    int hotAngularAxis = -1;
+    int activeAxis = -1;
+    bool activeAngular = false;
 };
 
 struct ReplayAuthoringMemoryStats
@@ -196,26 +190,22 @@ class ReplayAuthoring
     void BeginCauseTreeMove( int mouseX, int mouseY ) noexcept;
     bool TryGetCauseTreeRow( int rowIndex, RunReplayCauseTreeRow& outRow ) const noexcept;
     void SetCauseTreeFocus( int rowIndex, Physics::PhysicsSceneObjectId focusedId ) noexcept;
-    bool TickCauseTreeInput( ReplayPresentation& presentationOwner, ReplayScrubber& scrubberOwner, InputRouter& inputRouter,
-                             RuntimeInteractionController& interaction, bool rowsReady, bool uiBlocksMouse, int wheelDelta,
-                             bool editorModeEnabled, int screenWidth, int screenHeight, int& outFocusRow,
-                             bool& outExitInspectionCamera );
+    ReplayCauseTreeInputResult TickCauseTreeInput( ReplayPresentation& presentationOwner, ReplayScrubber& scrubberOwner,
+                                                   const ReplayCauseTreeInputFrame& frame );
 
     // Unwinds a stale drag when velocity editing cannot run this frame. The
     // following gizmo and target-pick phases are invoked only when this succeeds.
     bool PrepareVelocityEditInput( bool editorModeEnabled, bool scenePhysicsEnabled, int screenWidth, int screenHeight,
-                                   InputRouter& inputRouter, RuntimeInteractionController& interaction );
+                                   const ReplayToolGestureView& gesture, ReplayInteractionRequest& outInteraction );
     bool TickVelocityEditInput( ReplayPresentation& presentationOwner, ReplayScrubber& scrubberOwner,
                                 const ReplayPathPickInput& pointerRay, bool uiBlocksMouse, double now,
-                                InputRouter& inputRouter, RuntimeInteractionController& interaction,
-                                Physics::PhysicsEngine& physics, std::size_t entityCount, bool& outEnterInteractive,
-                                bool& outPathPickRequested, ReplayInspectionCameraAction& outInspectionCameraAction );
-    bool TryPickVelocityEditTarget( ReplayPresentation& presentationOwner, ReplayScrubber& scrubberOwner,
-                                    const ReplaySolverFrameSample* currentSolverSample, const SceneEntityStore& entities,
-                                    std::span<const Rendering::RenderInstancePresentationRecord> presentation,
-                                    Physics::PhysicsEngine& physics, const ReplayPathPickInput& pointerRay,
-                                    RuntimeInteractionController& interaction, double now, bool& outEnterInteractive,
-                                    ReplayInspectionCameraAction& outInspectionCameraAction );
+                                const ReplayVelocityInputFrame& frame, Physics::PhysicsEngine& physics,
+                                std::size_t entityCount, ReplayVelocityInputResult& outResult,
+                                ReplayInspectionCameraAction& outInspectionCameraAction );
+    bool ApplyVelocityEditTargetPick( ReplayPresentation& presentationOwner, ReplayScrubber& scrubberOwner,
+                                      const ReplayPathPickResult& pickResult, double now,
+                                      ReplayVelocityInputResult& outResult,
+                                      ReplayInspectionCameraAction& outInspectionCameraAction );
     ReplayKeyboardVelocityEditResult ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input,
                                                                 ReplayScrubber& scrubberOwner,
                                                                 const ReplayPresentation& presentationOwner );
@@ -335,11 +325,11 @@ class ReplayAuthoring
         return true;
     }
 
-    // Appends the authoring-owned velocity gizmo from value-selected replay
-    // identity. Presentation supplies the target but cannot mutate edit state.
-    void AppendVelocityEditOverlay( Physics::PhysicsSceneObjectId targetId, Physics::ModelRowHint targetModelRow,
-                                    Physics::PhysicsEngine& physics, bool editorModeEnabled,
-                                    const RuntimeInteractionGesture& gesture, EditorTracer& tracer ) const;
+    // Publishes the authoring-owned velocity gizmo from value-selected replay
+    // identity. App applies the detached command to its Tools sibling.
+    bool BuildVelocityOverlayCommand( Physics::PhysicsSceneObjectId targetId, Physics::ModelRowHint targetModelRow,
+                                      Physics::PhysicsEngine& physics, bool editorModeEnabled,
+                                      const ReplayToolGestureView& gesture, ReplayVelocityOverlayCommand& outCommand ) const;
 
     // Concept: authoring publishes a value command instead of holding a
     // prediction pointer or callback. Multiple edits before consumption fold

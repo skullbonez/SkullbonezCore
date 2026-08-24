@@ -23,7 +23,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/App/ReplayRuntime.h
-  - SkullbonezSource/Runtime/Replay/ReplayRestoreService.h
+  - SkullbonezSource/Runtime/App/ReplayRestoreOperations.h
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
@@ -32,10 +32,8 @@ Related:
 #include "ReplayRecorder.h"
 #include "ReplayScrubber.h"
 #include "../../Core/FatalError.h"
-#ifdef _DEBUG
-#include "../Diagnostics/RuntimeDiagnostics.h"
-#endif
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -45,22 +43,47 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-// Lifetime: startup presentation activation borrows input, interaction,
-// camera, and terrain owners only for the synchronous load call. Solver,
-// scene-rebuild, and diagnostic authority is intentionally excluded.
-struct ReplayStartupLoadInput
+// Detached restore evidence retained by Replay until App publishes it to the
+// diagnostics sibling. String pointers are copied into transaction storage.
+struct ReplayRestoreProbePacket
 {
-    double now = 0.0;
-    Environment::CameraCollection* cameras = nullptr;
-    RunMousePickupState& mousePickup;
-    RunCameraMode normalizedCurrentMode = RunCameraMode::Demo;
-    InputRouter& inputRouter;
-    RuntimeInteractionController& interaction;
-    Geometry::Terrain* terrain = nullptr;
-    CameraControlState& camera;
-    RunCameraMode normalizedRestoreMode = RunCameraMode::Demo;
-    bool attachedFollow = false;
-    bool directorGrabbed = false;
+    uint64_t targetReplayFrame = 0;
+    int targetSceneFrame = 0;
+    uint64_t targetSolverHash = 0;
+    uint64_t targetPresentationHash = 0;
+    std::size_t targetBodyCount = 0;
+    uint64_t restoredSolverHash = 0;
+    uint64_t restoredPresentationHash = 0;
+    std::size_t restoredBodyCount = 0;
+    uint16_t contactCount = 0;
+    uint16_t pipelineRecordCount = 0;
+    bool checkpointBoundary = false;
+    bool hashCaptured = false;
+    bool hashMatched = false;
+    bool fallbackAttempted = false;
+    bool fallbackRestored = false;
+};
+
+struct ReplayRestoreResultPacket
+{
+    const char* restoreSource = nullptr;
+    uint64_t targetReplayFrame = 0;
+    int targetSceneFrame = 0;
+    uint64_t checkpointReplayFrame = 0;
+    uint64_t targetSolverHash = 0;
+    uint64_t targetPresentationHash = 0;
+    std::size_t targetBodyCount = 0;
+    uint64_t restoredSolverHash = 0;
+    uint64_t restoredPresentationHash = 0;
+    std::size_t restoredBodyCount = 0;
+    uint16_t contactCount = 0;
+    uint16_t pipelineRecordCount = 0;
+    bool checkpointBoundary = false;
+    bool hashCaptured = false;
+    bool hashMatched = false;
+    bool fallbackAttempted = false;
+    bool fallbackRestored = false;
+    const char* failureReason = nullptr;
 };
 
 class ReplayRestorePhaseCursor
@@ -150,6 +173,32 @@ class ReplayRestoreTransaction
     ReplayRestoreTransaction( const ReplayRestoreTransaction& ) = delete;
     ReplayRestoreTransaction& operator=( const ReplayRestoreTransaction& ) = delete;
 
+    void SetArtifactRequest( const ReplayLiveRestoreRequest& request )
+    {
+        if ( m_phase.Current() != ReplayRestorePhaseCursor::Phase::Idle || m_hasArtifactRequest ||
+             request.kind != ReplayLiveRestoreKind::V2ArtifactTarget )
+        {
+            SB_FATAL( "Runtime/ReplayRestoreTransaction",
+                      "Artifact request must be bound once before restore selection. phase=%u bound=%u kind=%u",
+                      static_cast<unsigned int>( m_phase.Current() ), m_hasArtifactRequest ? 1u : 0u,
+                      static_cast<unsigned int>( request.kind ) );
+        }
+
+        m_artifactRequest = request;
+        m_artifactRequest.solverSample = nullptr;
+        m_hasArtifactRequest = true;
+    }
+
+    const ReplayLiveRestoreRequest& ArtifactRequest() const
+    {
+        if ( !m_hasArtifactRequest )
+        {
+            SB_FATAL( "Runtime/ReplayRestoreTransaction", "Artifact restore started without a bound request." );
+        }
+
+        return m_artifactRequest;
+    }
+
     void SelectArtifact( std::size_t checkpointIndex, std::size_t targetIndex )
     {
         AdvanceOrFatal( ReplayRestorePhaseCursor::Phase::ArtifactSelected, "SelectArtifact" );
@@ -181,12 +230,39 @@ class ReplayRestoreTransaction
         m_stateMutated = true;
     }
 
-    void MarkTargetStepped( ReplayFrameIndex frame, uint32_t eventCursor, std::size_t eventsApplied )
+    void BeginTargetStep( uint32_t eventCursor )
     {
+        if ( m_phase.Current() != ReplayRestorePhaseCursor::Phase::CheckpointApplied || m_targetStepStarted )
+        {
+            SB_FATAL( "Runtime/ReplayRestoreTransaction",
+                      "Target stepping began outside the applied-checkpoint phase. phase=%u already_started=%u",
+                      static_cast<unsigned int>( m_phase.Current() ), m_targetStepStarted ? 1u : 0u );
+        }
+
+        m_eventCursor = eventCursor;
+        m_eventsApplied = 0;
+        m_unsupportedEvents = 0;
+        m_targetStepStarted = true;
+    }
+
+    void RecordAppliedTargetEvent( uint32_t sequence )
+    {
+        RequireTargetStepStarted( "RecordAppliedTargetEvent" );
+        m_eventCursor = (std::max)( m_eventCursor, sequence + 1u );
+        ++m_eventsApplied;
+    }
+
+    void RecordUnsupportedTargetEvent()
+    {
+        RequireTargetStepStarted( "RecordUnsupportedTargetEvent" );
+        ++m_unsupportedEvents;
+    }
+
+    void MarkTargetStepped( ReplayFrameIndex frame )
+    {
+        RequireTargetStepStarted( "MarkTargetStepped" );
         AdvanceOrFatal( ReplayRestorePhaseCursor::Phase::TargetStepped, "MarkTargetStepped" );
         m_targetFrame = frame;
-        m_eventCursor = eventCursor;
-        m_eventsApplied = eventsApplied;
     }
 
     void MarkTargetVerified()
@@ -365,6 +441,11 @@ class ReplayRestoreTransaction
         return m_eventsApplied;
     }
 
+    std::size_t UnsupportedEvents() const
+    {
+        return m_unsupportedEvents;
+    }
+
     const char* FailureReason() const
     {
         return m_failureReason;
@@ -416,7 +497,7 @@ class ReplayRestoreTransaction
     }
 
 #ifdef _DEBUG
-    void RecordRestoreProbeDiagnostic( const ReplayRestoreProbeDiagnostic& diagnostic )
+    void RecordRestoreProbeDiagnostic( const ReplayRestoreProbePacket& diagnostic )
     {
         m_restoreProbeDiagnostic = diagnostic;
         m_hasRestoreProbeDiagnostic = true;
@@ -427,12 +508,12 @@ class ReplayRestoreTransaction
         return m_hasRestoreProbeDiagnostic;
     }
 
-    const ReplayRestoreProbeDiagnostic& RestoreProbeDiagnostic() const
+    const ReplayRestoreProbePacket& RestoreProbeDiagnostic() const
     {
         return m_restoreProbeDiagnostic;
     }
 
-    void RecordRestoreResultDiagnostic( const ReplayRestoreResultDiagnostic& diagnostic )
+    void RecordRestoreResultDiagnostic( const ReplayRestoreResultPacket& diagnostic )
     {
         m_restoreResultDiagnostic = diagnostic;
         strncpy_s( m_restoreSource, diagnostic.restoreSource ? diagnostic.restoreSource : "unknown", _TRUNCATE );
@@ -447,13 +528,23 @@ class ReplayRestoreTransaction
         return m_hasRestoreResultDiagnostic;
     }
 
-    const ReplayRestoreResultDiagnostic& RestoreResultDiagnostic() const
+    const ReplayRestoreResultPacket& RestoreResultDiagnostic() const
     {
         return m_restoreResultDiagnostic;
     }
 #endif
 
   private:
+    void RequireTargetStepStarted( const char* operation ) const
+    {
+        if ( m_phase.Current() != ReplayRestorePhaseCursor::Phase::CheckpointApplied || !m_targetStepStarted )
+        {
+            SB_FATAL( "Runtime/ReplayRestoreTransaction",
+                      "Target-step progress changed outside its transaction phase. operation=%s phase=%u started=%u",
+                      operation, static_cast<unsigned int>( m_phase.Current() ), m_targetStepStarted ? 1u : 0u );
+        }
+    }
+
     void AdvanceOrFatal( ReplayRestorePhaseCursor::Phase next, const char* operation )
     {
         const ReplayRestorePhaseCursor::Phase current = m_phase.Current();
@@ -473,6 +564,7 @@ class ReplayRestoreTransaction
     }
 
     ReplaySceneTimelineResetInput m_timelineReset;
+    ReplayLiveRestoreRequest m_artifactRequest;
     ReplaySolverFrameSample m_liveBackup;
     RunReplayV2TargetRestoreResult m_result;
     ReplayRestorePhaseCursor m_phase;
@@ -481,13 +573,16 @@ class ReplayRestoreTransaction
     ReplayFrameIndex m_targetFrame = 0;
     uint32_t m_eventCursor = 0;
     std::size_t m_eventsApplied = 0;
+    std::size_t m_unsupportedEvents = 0;
     bool m_hasLiveBackup = false;
+    bool m_hasArtifactRequest = false;
     bool m_stateMutated = false;
     bool m_generatedTopologyRebuilt = false;
     bool m_enterInteractiveRequested = false;
     bool m_timelineResetRequired = false;
     bool m_timelineResetApplied = false;
     bool m_liveBackupApplied = false;
+    bool m_targetStepStarted = false;
     uint32_t m_parentBranchId = 0;
     int m_branchSceneFrame = 0;
     uint64_t m_branchSolverHash = 0;
@@ -495,8 +590,8 @@ class ReplayRestoreTransaction
 #ifdef _DEBUG
     // Lifetime: diagnostic strings are copied into transaction-owned bounded
     // storage so publication never borrows an artifact or stack reason buffer.
-    ReplayRestoreProbeDiagnostic m_restoreProbeDiagnostic;
-    ReplayRestoreResultDiagnostic m_restoreResultDiagnostic;
+    ReplayRestoreProbePacket m_restoreProbeDiagnostic;
+    ReplayRestoreResultPacket m_restoreResultDiagnostic;
     char m_restoreSource[32] = {};
     char m_restoreFailureReason[320] = {};
     bool m_hasRestoreProbeDiagnostic = false;

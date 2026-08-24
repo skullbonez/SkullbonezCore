@@ -61,7 +61,6 @@ class EngineConfig;
 }
 namespace Physics
 {
-class PhysicsDebugVisualizer;
 struct PhysicsWorldForces;
 } // namespace Physics
 namespace Threading

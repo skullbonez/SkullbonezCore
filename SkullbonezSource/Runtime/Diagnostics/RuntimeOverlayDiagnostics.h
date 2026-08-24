@@ -1,26 +1,20 @@
 /*
 File: RuntimeOverlayDiagnostics.h
 Purpose:
-  Owns debug presentation policy and its physics visualization resources.
+  Owns debug presentation policy published to App and Render.
 
 Summary:
-  RuntimeOverlayDiagnostics is the cohesive process-lifetime owner for debug
-  presentation policy and its three visualizers. Mutations cross a stack-only
-  value transaction; renderer borrows cross one opaque resource capability.
+  RuntimeOverlayDiagnostics retains CPU presentation choices only. App copies
+  those choices into Render values; Render owns all visualizer caches and GPU
+  submission state.
 
 Glossary:
-  Debug visualizers: CPU-side broadphase, collision, and physics line data
-    refreshed after committed physics work and borrowed by RuntimeRenderer.
   Presentation edit: Stack-only copy committed atomically when its scope ends.
 
 Invariants:
-  - The owner is allocated only during the explicit Startup phase and lives
-    until renderer shutdown has released every borrowed backend resource.
-  - Post-physics refresh reads committed scene stores and publishes only
-    presentation data; it does not advance simulation or mutate topology.
+  - The owner is allocated only during the explicit Startup phase.
   - Renderer-facing policy is copied into a value record before submission.
-  - No caller receives the owner's mutable policy record or an individual
-    visualizer; edits and renderer resources cross typed capability boundaries.
+  - No caller receives the owner's mutable policy record.
 
 Related:
   - SkullbonezSource/Runtime/App/Run.cpp
@@ -30,14 +24,9 @@ Related:
 */
 #pragma once
 
-#include "../Scene/SceneLifecycle.h"
-
 #include <cstdint>
 #include <memory>
 
-#include "../Debug/BroadphaseVisualizer.h"
-#include "../Debug/CollisionVisualizer.h"
-#include "../Debug/PhysicsDebugVisualizer.h"
 #include "OverlayDebugState.h"
 
 namespace SkullbonezCore
@@ -46,19 +35,46 @@ namespace Core
 {
 class Profiler;
 }
-namespace UI
-{
-class InGameUI;
-}
 namespace Runtime
 {
-class SceneWorld;
-class RuntimeValidationHarness;
 class RuntimeOverlayDiagnostics;
-class RuntimeRenderer;
 struct RunLaunchOptions;
 struct RunStartupOverrides;
-struct RuntimeRenderFramePolicy;
+
+enum class StartupOperatorUiTab : uint8_t
+{
+    Unchanged,
+    Scene,
+    Keys,
+    Profiler
+};
+
+struct StartupOperatorUiPolicy
+{
+    bool makeVisible = false;
+    StartupOperatorUiTab tab = StartupOperatorUiTab::Unchanged;
+};
+
+struct RuntimeOverlayFramePolicy
+{
+    bool textOnly = false;
+    bool terrainHidden = false;
+    bool collisionVisualizer = false;
+    bool physicsDebugTransparent = false;
+    float physicsDebugAlpha = 1.0f;
+    bool waterHidden = false;
+    bool waterFlatDebug = false;
+    bool waterNoReflect = false;
+    bool waterRTReflect = false;
+    bool waterFreezeDebug = false;
+    float frozenWaterTime = 0.0f;
+    bool broadphaseOverlay = false;
+    uint32_t physicsDebugFlags = 0u;
+    int physicsDebugPipelineStageCursor = 0;
+    float physicsDebugContactLinger = 0.0f;
+    double simulationSeconds = 0.0;
+    double totalSimulationSeconds = 0.0;
+};
 
 // Lifetime: this edit owns a copy, not a borrow into owner state. Its destructor
 // publishes the complete presentation value and synchronizes visualizer policy.
@@ -80,50 +96,23 @@ class RuntimeOverlayPresentationEdit
     OverlayDebugState m_state;
 };
 
-// Capability: only RuntimeRenderer may unpack these process-lifetime resources.
-// Run can pass the binding but cannot recover the individual visualizers.
-class RuntimeOverlayRenderResources
-{
-  private:
-    friend class RuntimeOverlayDiagnostics;
-    friend class RuntimeRenderer;
-
-    Physics::BroadphaseVisualizer m_broadphaseOverlay;
-    Physics::CollisionVisualizer m_collisionOverlay;
-    Physics::PhysicsDebugVisualizer m_physicsDebugOverlay;
-};
-
 class RuntimeOverlayDiagnostics
 {
   public:
-    static std::unique_ptr<RuntimeOverlayDiagnostics> CreateForStartup( Core::Profiler* profiler );
+    static std::unique_ptr<RuntimeOverlayDiagnostics> CreateForStartup();
 
-    explicit RuntimeOverlayDiagnostics( Core::Profiler* profiler ) : m_profiler( profiler )
-    {
-    }
+    StartupOperatorUiPolicy ApplyStartupPolicy( const RunStartupOverrides& overrides, RunLaunchOptions& launchOptions );
+    RuntimeOverlayFramePolicy BuildFramePolicy( double simulationSeconds, double totalSimulationSeconds ) const;
 
-    void ApplyStartupPolicy( const RunStartupOverrides& overrides, RunLaunchOptions& launchOptions,
-                             UI::InGameUI& operatorUi );
-    void UpdatePostPhysics( SceneWorld& scene, RuntimeValidationHarness& validationHarness, float contactEpsilon,
-                            double secondsPerFrame );
-    RuntimeRenderFramePolicy BuildFramePolicy( double simulationSeconds, double totalSimulationSeconds ) const;
-
-    // Publishes the detached scene presentation once after a load generation
-    // reaches the clear boundary. The load transaction never receives this owner.
-    void ObserveSceneLifecycle( const SceneLifecyclePacket& packet, const OverlayDebugState& scenePresentation );
+    void ApplyScenePresentation( const OverlayDebugState& scenePresentation );
     OverlayDebugState PresentationSnapshot() const;
     RuntimeOverlayPresentationEdit EditPresentation();
-    RuntimeOverlayRenderResources& RenderResources();
 
   private:
     friend class RuntimeOverlayPresentationEdit;
     void CommitPresentation( const OverlayDebugState& state );
 
-    // Lifetime: startup-bound diagnostics borrow; null when profiling is disabled.
-    Core::Profiler* m_profiler;
     OverlayDebugState m_presentationState;
-    RuntimeOverlayRenderResources m_renderResources;
-    SceneLifecycleGenerationObserver m_scenePresentationObserver;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

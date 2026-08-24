@@ -27,8 +27,8 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/App/ReplayRuntime.h
-  - SkullbonezSource/Runtime/Prediction/ReplayPredictionPresentation.h
-  - SkullbonezSource/Runtime/Editor/EditorTracer.cpp
+  - SkullbonezSource/Runtime/App/ReplayPredictionPresentation.h
+  - SkullbonezSource/Runtime/Tools/EditorTracer.cpp
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp
   - Agentic/Reference/engine-glossary.md
 */

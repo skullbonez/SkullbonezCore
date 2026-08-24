@@ -1,11 +1,12 @@
 /*
 File: SkullbonezSource/Physics/Stages/PhysicsTerrainStage.h
 Purpose:
-  Owns swept-terrain detection scratch, contact manifolds, and rest-policy rows.
+  Owns Discrete/promoted terrain-detection scratch, contact manifolds, and rest-policy rows.
 
 Summary:
-  PhysicsTerrainStage detects one candidate per body and converts tested hits
-  into terrain manifolds. A typed two-phase commit lets PhysicsWorld preserve
+  PhysicsTerrainStage detects current contact for Discrete bodies and the full
+  remaining-time path for linearly promoted bodies, then converts hits into
+  terrain manifolds. A typed two-phase commit lets PhysicsWorld preserve
   the exact diagnostics and visual-emission point while the stage owns terrain
   storage and writes borrowed sleep-support outputs. Detection dispatch borrows
   the sleep owner's ascending awake index list.
@@ -99,8 +100,8 @@ class PhysicsTerrainStage
     void DetectTerrainAt( std::span<const PhysicsBodyRecord> bodyRecords, std::span<const BuoyancyBodyFacts> buoyancyFacts,
                           const PhysicsBodyHotFieldsConstView& hotFields, std::span<const ColliderRecord> colliderRecords,
                           PhysicsTerrainView terrain, const PhysicsRuntimeSettings& settings,
-                          std::span<const uint8_t> sleepState, std::span<const float> timeRemaining,
-                          Core::Profiler* profiler, int bodyIndex );
+                          std::span<const uint8_t> sleepState, std::span<const uint8_t> motionEligibilityState,
+                          std::span<const float> timeRemaining, Core::Profiler* profiler, int bodyIndex );
 
   public:
     PhysicsTerrainStage();
@@ -114,8 +115,9 @@ class PhysicsTerrainStage
     void Detect( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                  std::span<const BuoyancyBodyFacts> buoyancyFacts, PhysicsTerrainView terrain,
                  const PhysicsRuntimeSettings& settings, std::span<const uint8_t> sleepState,
-                 std::span<const float> timeRemaining, Core::Profiler* profiler, std::span<const int> awakeBodyIndices,
-                 const PhysicsExecutionSettings& execution, Threading::WorkerPool& workerPool );
+                 std::span<const uint8_t> motionEligibilityState, std::span<const float> timeRemaining,
+                 Core::Profiler* profiler, std::span<const int> awakeBodyIndices, const PhysicsExecutionSettings& execution,
+                 Threading::WorkerPool& workerPool );
 
     // Invariant: prepare performs body integration and manifold construction;
     // commit performs only the serial manifold/sleep publication after the

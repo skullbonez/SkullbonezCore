@@ -27,7 +27,6 @@ Related:
 
 #include "ReplayPorkchopPanel.h"
 #include "ReplayTripPlanner.h"
-#include "../UI/RuntimeUiSurface.h"
 #include "../../UI/UIDraw.h"
 
 #include <cstddef>
@@ -59,12 +58,40 @@ enum class ReplayTripPlannerControl : uint32_t
     Panel
 };
 
-inline RuntimeUiControlId ReplayTripPlannerControlId( ReplayTripPlannerControl control )
+inline ReplayTripPlannerControl ReplayTripPlannerControlId( ReplayTripPlannerControl control )
 {
-    return RuntimeUiControlId { static_cast<uint32_t>( control ) };
+    return control;
 }
 
-using ReplayTripPlannerSurface = RuntimeUiSurface<6>;
+struct ReplayTripPlannerControlRow
+{
+    ReplayTripPlannerControl id = ReplayTripPlannerControl::None;
+    ReplayTripPlannerCommandKind action = ReplayTripPlannerCommandKind::None;
+    UI::UIRect drawRect;
+    UI::UIRect hitRect;
+    bool enabled = false;
+};
+
+// Planning retains command identity and pointer order; the component receives
+// only the detached visibility/availability facts needed to draw this row.
+inline UI::UIVisualState ReplayTripPlannerControlVisualState( const ReplayTripPlannerControlRow& control ) noexcept
+{
+    return control.enabled ? UI::UIVisualState::Visible | UI::UIVisualState::Enabled : UI::UIVisualState::Visible;
+}
+
+struct ReplayTripPlannerSurface
+{
+    ReplayTripPlannerControlRow controls[6] = {};
+    std::size_t controlCount = 0;
+    ReplayTripPlannerControl hotControl = ReplayTripPlannerControl::None;
+    bool hasHotControl = false;
+    bool consumesPointer = false;
+
+    void Reset() noexcept;
+    bool TryAdd( const ReplayTripPlannerControlRow& control ) noexcept;
+    const ReplayTripPlannerControlRow* Find( ReplayTripPlannerControl id ) const noexcept;
+    void ResolvePointer( int pointerX, int pointerY, bool pointerBlocked ) noexcept;
+};
 
 UI::UIRect ReplayInterceptReadoutRect( int screenW );
 UI::UIRect ReplayTripPlannerPanelRect( int screenW );

@@ -33,7 +33,10 @@ Target command:
 Debug\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\at_rest.scene.json --physics-diag Debug\at_rest.physicsdiag.ndjson
 ```
 
-`--physics-diag` automatically forces deterministic fixed-step playback. The runtime should print a message when it does that.
+`--physics-diag` automatically forces deterministic render-frame lockstep. The runtime should print a message when it does that.
+Each imported run keeps the legacy `fixed_step` columns for query compatibility
+and also exposes the scene-session request, explicit request, effective
+render-frame-lockstep policy, and diagnostics-forced request as separate fields.
 
 The deterministic CSV logger remains separate:
 
@@ -235,7 +238,8 @@ tools\physics_query.bat Debug\scene.physicsdiag.ndjson solver --include-converge
 
 Those optional diagnostics are deliberately excluded from the default
 validated `solver` packet: changing an engineering projection is not authority
-to redefine an owner-controlled physics query oracle.
+to redefine the byte-exact physics query oracle. A governed Physics-plan update
+still needs the exact candidate and append-only old/new runtime bundle.
 
 ### Which bodies are moving fastest?
 

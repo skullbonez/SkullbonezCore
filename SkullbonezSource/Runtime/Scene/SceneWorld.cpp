@@ -42,8 +42,6 @@ Related:
 #include "../../Core/Config.h"
 
 #include "../../Core/FatalError.h"
-#include "../Debug/CollisionVisualizer.h"
-#include "../Debug/PhysicsDebugVisualizer.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsBodyStore.h"

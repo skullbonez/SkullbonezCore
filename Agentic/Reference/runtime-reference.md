@@ -57,11 +57,11 @@ consumer parameter.
 | `--dump-config` | flag | Print the resolved startup config after `engine.cfg` and command-line overrides. |
 | `--switch-interval` | retired | Rejected because DX12 is the only runtime renderer. |
 | `--time-scale` | float | Override simulation time multiplier. |
-| `--fixed-step` | flag | Run one deterministic physics tick per rendered frame. |
+| `--fixed-step` | flag | Explicitly select render-frame lockstep: deterministic physics ticks are driven by rendered frames instead of elapsed wall time. |
 | `--seed` | positive integer | Override the RNG seed for every loaded scene, including generated demo mode. Useful with launcher repro snapshots. |
 | `--replay` | optional `on`, `off` | Control bounded in-memory replay presentation capture. Generated/interactive runs enable the 30-second buffer by default; scene/suite automation opts in with `--replay on`, `--replay-seconds`, or `--replay-hashes`. |
 | `--replay-seconds` | `1..600` | Retention window for replay capture; default is 30 seconds at 120 Hz. Alias: `--replay_seconds`. |
-| `--replay-hashes` | path | Enable replay capture and write a CSV of replay frame hashes for fixed-step comparison runs. Alias: `--replay_hashes`. |
+| `--replay-hashes` | path | Enable replay capture and write a CSV of replay frame hashes for render-frame-lockstep comparison runs. Alias: `--replay_hashes`. |
 | `--replay-scrub-test` | Debug flag | Enable the CLI-only replay scrub SkullScope probe, select an older retained sample, emit one `replay_scrub` row, and exit after the probe passes. |
 | `--replay-restore-test` | Debug flag | Enable the CLI-only retained solver restore SkullScope probe, restore an older retained solver frame, emit one `replay_restore` row, and exit after the hash-verified restore passes. |
 | `--replay-save-probe` | Debug path | Enable the CLI-only replay v2 save probe, write a binary presentation `.skreplay` artifact after enough retained samples exist, and exit. Alias: `--replay_save_probe`. |
@@ -107,7 +107,7 @@ consumer parameter.
 | `--physics-debug-contact-linger` | seconds | Keep contact manifold visuals visible after contact rows disappear, `0.0` to `5.0`. |
 | `--physics-regression-log` | path | Write the byte-exact physics regression CSV in Debug builds. |
 | `--physics-collision-time-log` | path | Write a Debug-only swept collision event CSV with collision times for focused regression scenes. |
-| `--physics-diag` | path | Write queryable physics diagnostics NDJSON in Debug builds. Forces fixed-step playback and can be queried with `tools\physics_query.bat`. Alias: `--physics-diagnostics`. |
+| `--physics-diag` | path | Write queryable physics diagnostics NDJSON in Debug builds. Forces explicit render-frame lockstep and can be queried with `tools\physics_query.bat`. Alias: `--physics-diagnostics`. |
 | `--gen-atlas` | optional path | Generate the SDF font atlas and exit before GPU init. |
 
 Physics debug command-line arguments also accept underscore spellings matching scene directives, for example `--physics_debug all` and `--physics_debug_contact_linger 0.75`.
@@ -157,7 +157,7 @@ Profile\SKULLBONEZ_CORE.exe --hero
 Profile\SKULLBONEZ_CORE.exe --scene hero
 ```
 
-The dedicated `--hero` flag and the `--scene` aliases `hero`, `low_poly_hero`, and `low-poly-hero` resolve to `SkullbonezData\scenes\concept_12_low_poly_art_style.scene.json`. The hero scene is a live scene with physics on, `fixed_step`, and unlimited frames, so it keeps running until the window is closed. Bare scene names also resolve through `SkullbonezData\scenes\`, so `--scene stacking` loads `SkullbonezData\scenes\stacking.scene.json` when it exists.
+The dedicated `--hero` flag and the `--scene` aliases `hero`, `low_poly_hero`, and `low-poly-hero` resolve to `SkullbonezData\scenes\concept_12_low_poly_art_style.scene.json`. The hero scene is live with physics on and unlimited frames, so its legacy authored `playback.fixedStep` request is ignored and simulation stays wall-clock paced until the window is closed. Bare scene names also resolve through `SkullbonezData\scenes\`, so `--scene stacking` loads `SkullbonezData\scenes\stacking.scene.json` when it exists.
 
 Use this to keep the generated demo scene and physics population, but render it with the same low-poly hero style:
 
@@ -248,7 +248,7 @@ Press `Alt` outside editor mode, or click the scrubber's `ALT VEL` toggle, to en
 
 The scrubber's inline save-icon button writes the live replay buffer to binary v2 artifacts named `replays\replay_v2_####.skreplay`, incrementing like `Scenes\snapshot_####.scene.json` and `Screenshots\screenshot_####.bmp`. The adjacent `LOAD` button opens a `.skreplay` picker, loads a binary v2 artifact, and arms the file-backed `V2 FILE` scrub row for smooth backwards scrubbing. Binary v2 is the sole supported saved replay format.
 
-Use hash logging when a fixed-step scene needs cheap frame hashes:
+Use hash logging when a render-frame-lockstep run needs cheap frame hashes:
 
 ```bat
 Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\physics_regression_solver.scene.json --fixed-step --frames 240 --replay on --replay-hashes TestOutput\replay_hashes.csv
@@ -268,7 +268,7 @@ The v2 artifact gate builds Debug, launches `replay_v2_solver_one.scene.json` wi
 
 ## Runtime Facades And Streams
 
-`SceneRuntime` lives in `SkullbonezSource/Runtime/Scene/SceneRuntime.h/.cpp` and owns the active `SceneSessionState` plus the scene queue. `SimulationSystem` lives in `SkullbonezSource/Runtime/Simulation/SimulationSystem.h/.cpp` and owns timestep policy plus the fixed-step/variable-step physics accumulators. `ReplayRecorder` lives in `SkullbonezSource/Runtime/Replay/ReplayRecorder.h/.cpp` and owns the bounded presentation sample ring plus hash logging. `CaptureSystem` lives in `SkullbonezSource/Runtime/Capture/CaptureSystem.h/.cpp` and owns BMP readback plus scene screenshot/autocycle capture policy. `RuntimeDiagnostics` lives in `SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.h/.cpp` and owns perf CSV, scene-finished, and SkullScope run logging policy. `InputController` lives in `SkullbonezSource/Runtime/Input/InputController.h/.cpp` and owns runtime key-edge capture plus mouse-look reset/delta policy. `Run` still coordinates the broad scene load/reset side effects: object construction, terrain swaps, camera setup, UI override application, diagnostics context, input command application, capture completion actions, replay capture/scrub callbacks, and render/backend setup. Treat these as runtime subsystem extraction slices, not the final runtime split.
+`SceneRuntime` lives in `SkullbonezSource/Runtime/Scene/SceneRuntime.h/.cpp` and owns the active `SceneSessionState` plus the scene queue. `SimulationSystem` lives in `SkullbonezSource/Runtime/Simulation/SimulationSystem.h/.cpp` and owns wall-clock and render-frame-lockstep accumulators plus dropped-tick diagnostics. `ReplayRecorder` lives in `SkullbonezSource/Runtime/Replay/ReplayRecorder.h/.cpp` and owns the bounded presentation sample ring plus hash logging. `CaptureSystem` lives in `SkullbonezSource/Runtime/Capture/CaptureSystem.h/.cpp` and owns BMP readback plus scene screenshot/autocycle capture policy. `RuntimeDiagnostics` lives in `SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.h/.cpp` and owns perf CSV, scene-finished, and SkullScope run logging policy. `InputController` lives in `SkullbonezSource/Runtime/Input/InputController.h/.cpp` and owns runtime key-edge capture plus mouse-look reset/delta policy. `Run` still coordinates the broad scene load/reset side effects: object construction, terrain swaps, camera setup, UI override application, diagnostics context, input command application, capture completion actions, replay capture/scrub callbacks, and render/backend setup. Treat these as runtime subsystem extraction slices, not the final runtime split.
 
 The obsolete model wrappers have been deleted. `SceneController` coordinates
 scene-lifetime creation and prepares the physics-backed `RenderInstanceStore`
@@ -283,7 +283,7 @@ Scene files are JSON objects with `format: "skullbonez.scene.json"` and `version
 
 | Area | JSON fields |
 |------|------------|
-| Playback | `playback.frames`, `playback.exitOnComplete`, `playback.screenshotAndExit`, `playback.fixedStep`, `playback.pauseSnapshotState` |
+| Playback | `playback.frames`, `playback.exitOnComplete`, `playback.screenshotAndExit`, `playback.fixedStep` (legacy JSON name for a finite unattended render-frame-lockstep request), `playback.pauseSnapshotState` |
 | Capture | `capture.screenshot`, `capture.screenshotInterval` |
 | Logging | `logging.perfLog`, `logging.perfLogFlush`, `logging.perfLogFlushInterval` |
 | Simulation | `simulation.physics`, `simulation.timeScale`, `simulation.seed`, `simulation.world` |
@@ -465,5 +465,5 @@ The log singleton lazily opens files and compiles out in Release/Profile where t
 Runtime lifecycle events go to `Debug/runtime_events.log` in Debug builds. The engine records process start, scene start, scene finish, ignored retired renderer switches, fatal exceptions, and unhandled crash stack traces in that file.
 Use `Debug\SKULLBONEZ_CORE.exe --debug-crash-test` to intentionally exercise the crash stack logger.
 
-Debug builds also support launcher-mode repro snapshots. Press `N`, centre an object in the crosshair, then press Enter. Each snapshot appends the scene, frame, active RNG seed, fixed-step mode, DX12 renderer name, camera pose, object transform, velocities, shape data, sleep/contact state, and terrain support probes to `Debug/launcher_repro_snapshots.txt`.
+Debug builds also support launcher-mode repro snapshots. Press `N`, centre an object in the crosshair, then press Enter. Each snapshot appends the scene, frame, active RNG seed, legacy lockstep compatibility fields plus truthful request-source fields, DX12 renderer name, camera pose, object transform, velocities, shape data, sleep/contact state, and terrain support probes to `Debug/launcher_repro_snapshots.txt`.
 Snapshots also include scene load/reset counts and a `--seed` replay hint so an object can be reproduced from a fresh process.

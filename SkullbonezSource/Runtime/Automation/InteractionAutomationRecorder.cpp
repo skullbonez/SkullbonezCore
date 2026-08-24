@@ -18,13 +18,13 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Automation/InteractionAutomationRecorder.h
   - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h
-  - SkullbonezSource/Runtime/Startup/StartupLaunchResolution.cpp
+  - SkullbonezSource/Runtime/App/StartupLaunchApplication.cpp
 */
 #include "InteractionAutomationRecorder.h"
 
-#include "../Input/InputRouter.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
+#include "../../Core/PlatformWin32.h"
 #include "../../Core/SbDiagnosticStore.h"
 
 #include <algorithm>
@@ -261,7 +261,8 @@ Core::SbResult InteractionAutomationRecorder::AdvanceBoundary( Core::SbDiagnosti
 }
 
 void InteractionAutomationRecorder::CapturePendingTurn( double deltaSeconds, int sourceWidth, int sourceHeight,
-                                                        const DeviceInputFrame& frame, const char* semanticAnchor )
+                                                        const InteractionAutomationInputSample& frame,
+                                                        const char* semanticAnchor )
 {
     if ( m_state != InteractionRecordingState::Recording )
     {
@@ -271,12 +272,7 @@ void InteractionAutomationRecorder::CapturePendingTurn( double deltaSeconds, int
     m_pendingTurn = {};
     m_pendingTurn.turn = static_cast<uint64_t>( m_frames.size() );
     m_pendingTurn.deltaSeconds = std::clamp( deltaSeconds, 0.0, 0.05 );
-    const std::span<const uint64_t> words = frame.keys.Words();
-
-    for ( std::size_t index = 0u; index < m_pendingTurn.keyWords.size() && index < words.size(); ++index )
-    {
-        m_pendingTurn.keyWords[index] = words[index];
-    }
+    m_pendingTurn.keyWords = frame.keyWords;
 
     // F8 is recorder control, never replay input. Clearing the bit also covers
     // a slow release that spans the clean-boundary transition.

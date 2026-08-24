@@ -29,9 +29,9 @@ Invariants:
   - Backend resource release begins only after a successful GPU drain, then
     keeps consumer passes ahead of producer passes.
   - The world-extension registration is consumed before its stack scope ends.
-  - UI-text callers provide only operation-specific graph ABI records;
-    RuntimeRenderer injects its current resource, texture, geometry, and
-    diagnostics owners.
+  - UI-text callers compose product UI before submission. RuntimeRenderer sees
+    only foundation draw commands and the parallel renderer-owned preview
+    snapshot; graph callback ABI records and backend injection remain private.
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h
@@ -43,6 +43,9 @@ Related:
 #include "RuntimeRenderHost.h"
 #include "RuntimeRenderFrameValues.h"
 #include "RuntimeRenderPasses.h"
+#include "BroadphaseVisualizer.h"
+#include "CollisionVisualizer.h"
+#include "PhysicsDebugVisualizer.h"
 #include "RenderResourceLifecycle.h"
 #include "RenderPresentationSettings.h"
 #include "../../Rendering/RenderGraph.h"
@@ -55,12 +58,21 @@ Related:
 #include <cstdint>
 #include <vector>
 
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+struct ImDrawData;
+struct ImGuiContext;
+#endif
+
 namespace SkullbonezCore
 {
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-namespace Runtime::DevelopmentTools
+namespace Rendering
 {
-class ImGuiEditorOwner;
+class RenderBackendDX12;
+}
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+namespace Rendering
+{
+class Dx12ImGuiRendererOwner;
 }
 #endif
 namespace Runtime
@@ -74,150 +86,23 @@ struct RenderDiagnosticsReadout
     Rendering::RenderMemoryStats memory;
 };
 
-// Graph ABI: each record below is caller-owned until RenderUiText returns and
-// contains only the direct values/capabilities consumed by one focused pass.
-// Operation: draws text-only output or the ordered HUD chrome stream.
-struct UiChromeGraphInvocation
-{
-    UiTextPass* pass = nullptr;
-    Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
-    const OverlayDebugState* debug = nullptr;
-    bool crossScenePauseLocked = false;
-    const SceneSessionState* scene = nullptr;
-    const CameraControlState* camera = nullptr;
-    int sceneQueueSize = 0;
-    const char* cameraModeLabel = "";
-    const char* launcherFireModeLabel = "";
-    bool launcherCameraMode = false;
-    const ReplayHudStatus* replayHud = nullptr;
-    UiTextViewport viewport;
-    double reproMessageAgeSeconds = 0.0;
-    Rendering::Dx12TextureOwner* renderTextures = nullptr;
-    Rendering::Dx12GeometryOwner* renderGeometry = nullptr;
-    Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
-    const Rendering::RenderGraphCompileResult* compiled = nullptr;
-    size_t expectedTransitionCount = 0;
-};
-
-// Operation: copies bounded profiler, timing, memory, and Replay diagnostics.
-struct UiOperatorDiagnosticsGraphInvocation
-{
-    UiTextPass* pass = nullptr;
-    Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
-    UI::InGameUIFrameData* uiData = nullptr;
-    const ReplayHudStatus* replayHud = nullptr;
-    RunTimerState* timers = nullptr;
-    const RuntimeRenderModelFrameView* models = nullptr;
-    DiagnosticsRuntime* diagnosticsRuntime = nullptr;
-    UI::InGameUI* ui = nullptr;
-    Threading::WorkerPool* workerPool = nullptr;
-    double secondsPerFrame = 0.0;
-    Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
-    const Rendering::RenderGraphCompileResult* compiled = nullptr;
-    size_t expectedTransitionCount = 0;
-};
-
-// Operation: projects immutable render, world, physics, and cinematic settings.
-struct UiOperatorSettingsGraphInvocation
-{
-    UiTextPass* pass = nullptr;
-    Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
-    UI::InGameUIFrameData* uiData = nullptr;
-    const OverlayDebugState* debug = nullptr;
-    const RenderPresentationSettings* renderPresentation = nullptr;
-    const SceneWorld* world = nullptr;
-    const SkullbonezCore::Core::EngineConfig* config = nullptr;
-    const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
-    bool cinematicRendering = false;
-    const Rendering::RenderGraphCompileResult* compiled = nullptr;
-    size_t expectedTransitionCount = 0;
-};
-
-// Operation: projects input mode, camera, ray-cast, and editor interaction state.
-struct UiOperatorInteractionGraphInvocation
-{
-    UiTextPass* pass = nullptr;
-    Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
-    UI::InGameUIFrameData* uiData = nullptr;
-    const RunRayCastTestState* rayCastTest = nullptr;
-    const RunEditorPlacementState* editor = nullptr;
-    const RuntimeInputContext* runtimeInput = nullptr;
-    const CameraControlState* camera = nullptr;
-    const UI::InGameUI* ui = nullptr;
-    uint32_t cameraModeEnabledMask = 0u;
-    const char* cameraModeLabel = "";
-    const Rendering::RenderGraphCompileResult* compiled = nullptr;
-    size_t expectedTransitionCount = 0;
-};
-
-// Operation: publishes scene navigation and the shared operator editor view.
-struct UiOperatorPresentationGraphInvocation
-{
-    UiTextPass* pass = nullptr;
-    Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
-    UI::InGameUIFrameData* uiData = nullptr;
-    const SceneSessionState* scene = nullptr;
-    const RuntimeViewModel* runtimeViewModel = nullptr;
-    const UI::RunSceneBrowserState* sceneBrowser = nullptr;
-    const UI::OperatorEditorFrameView* operatorEditorView = nullptr;
-    bool sceneHasCurrentEntry = false;
-    const char* currentScenePath = nullptr;
-    int currentSceneBrowserIndex = 0;
-    float sceneEnergyForDisplay = 0.0f;
-    const Rendering::RenderGraphCompileResult* compiled = nullptr;
-    size_t expectedTransitionCount = 0;
-};
-
-// Operation: resolves preview resources, draws GameUI, and flushes text.
-struct UiOperatorSubmissionGraphInvocation
-{
-    UiTextPass* pass = nullptr;
-    Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
-    UI::InGameUIFrameData* uiData = nullptr;
-    UI::InGameUI* ui = nullptr;
-    const RuntimeRenderTargetPreviewSnapshot* renderTargetPreviews = nullptr;
-    Assets::AssetSystem* assets = nullptr;
-    Rendering::Dx12ResourceBuilder* renderResources = nullptr;
-    Rendering::Dx12TextureOwner* renderTextures = nullptr;
-    Rendering::Dx12GeometryOwner* renderGeometry = nullptr;
-    Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
-    int uiPassDrawCallStart = 0;
-    const Rendering::RenderGraphCompileResult* compiled = nullptr;
-    size_t expectedTransitionCount = 0;
-};
-
-// Operation: draws the Replay scrubber from its immutable publication.
-struct UiReplayGraphInvocation
-{
-    UiTextPass* pass = nullptr;
-    Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
-    const ReplayOverlay::ReplayOverlayStateView* overlay = nullptr;
-    Core::Profiler* profiler = nullptr;
-    bool gameUiSurfaceActive = true;
-    bool scenePhysicsEnabled = false;
-    RuntimeInteractionGestureKind gesture = RuntimeInteractionGestureKind::None;
-    UiTextViewport viewport;
-    double nowSeconds = 0.0;
-    Rendering::Dx12TextureOwner* renderTextures = nullptr;
-    Rendering::Dx12GeometryOwner* renderGeometry = nullptr;
-    Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
-    const Rendering::RenderGraphCompileResult* compiled = nullptr;
-    size_t expectedTransitionCount = 0;
-};
-
 class RuntimeRenderer
 {
   public:
+
+    // Invariant: the terrain participant is released under the same named
+    // backend lifecycle phase as the remaining renderer-owned resources.
     struct BackendResourceReleaseContext
     {
         const char* phaseName = nullptr;
-        UI::InGameUI& ui;
-        RuntimeTools& tools;
+        Geometry::Terrain* terrain = nullptr;
     };
 
     struct FrameEntryContext
     {
         const RuntimeRenderModelFrameView& renderModels;
+        const RenderCameraLighting& camera;
+        Geometry::Terrain* terrain = nullptr;
         RuntimeRenderFramePolicy framePolicy;
         const ReplayRenderFrameView& replayFrame;
         const Rendering::RetainedGeometryPacket& retainedOverlay;
@@ -227,17 +112,15 @@ class RuntimeRenderer
         bool cinematicRequested = false;
     };
 
-    RuntimeRenderer( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Rendering::Dx12RenderDevice& renderDevice,
-                     Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12GraphTransientPool& renderGraph,
-                     Rendering::Dx12ResourceBuilder& renderResources, Rendering::Dx12TextureOwner& renderTextures,
-                     Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12Diagnostics& renderDiagnostics,
-                     Rendering::Dx12RaytracingOwner& raytracing, bool raytracingAvailable, const RenderWorldView& world,
-                     SceneSessionState& scene );
+    RuntimeRenderer( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Rendering::RenderBackendDX12& backend,
+                     const RenderWorldView& world, int sceneIndex, int sceneLoadCount );
     ~RuntimeRenderer();
 
     // Runs after Core FrameBegin and before draw-call counters reset. This
     // reads completed GPU samples and publishes the preceding render counters.
     void BeginProfilerFrame();
+    void UpdateDebugVisualizers( float secondsPerFrame, const RuntimeRenderModelFrameView& models,
+                                 const RuntimeRenderFramePolicy& policy );
 
     const RenderPresentationSettings& PresentationSettings() const
     {
@@ -251,7 +134,10 @@ class RuntimeRenderer
     void SetVsyncEnabled( bool enabled );
     bool PipelineSyncEnabled() const;
     void SetPipelineSyncEnabled( bool enabled );
-    void ResetSceneRuntimePolicyFromConfig();
+    void SetSceneIdentity( int sceneIndex, int sceneLoadCount )
+    {
+        m_resources.Log().SetSceneIdentity( sceneIndex, sceneLoadCount );
+    }
 
     void EnsureFrameResources( const RenderResourceContext& resources );
     bool RenderFrameEntry( const FrameEntryContext& context );
@@ -299,7 +185,7 @@ class RuntimeRenderer
     const char* RendererName() const;
     void PrepareUiFrameTarget();
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    SkullbonezCore::Core::SbResult RenderDevelopmentUi( DevelopmentTools::ImGuiEditorOwner& editor );
+    SkullbonezCore::Core::SbResult RenderDevelopmentUi( ImGuiContext* context, ImDrawData* drawData );
 #endif
 
     // Adds the sole declaration-only Present edge and validates the submitted
@@ -310,14 +196,21 @@ class RuntimeRenderer
     // callback/resource borrow before capture automation can replace the scene.
     void FinalizeCaptureOnlyFrameGraph();
 
-    // Runs CPU frame preparation, then registers operation-specific callback
-    // ABI records in one graph compile/execute cycle.
-    int RenderUiText( RunTimerState& timers, const RuntimeRenderModelFrameView& models, double secondsPerFrame,
-                      UiChromeGraphInvocation& chrome, UiOperatorDiagnosticsGraphInvocation& operatorDiagnostics,
-                      UiOperatorSettingsGraphInvocation& operatorSettings,
-                      UiOperatorInteractionGraphInvocation& operatorInteraction,
-                      UiOperatorPresentationGraphInvocation& operatorPresentation,
-                      UiOperatorSubmissionGraphInvocation& operatorSubmission, UiReplayGraphInvocation& replay );
+    // Each operation consumes only its focused inputs. Renderer-local callback
+    // records borrow those inputs until that operation's graph completes.
+    int BeginUiTextFrame( const UiTextViewport& viewport );
+    void SubmitUiChrome( const UiTextViewport& viewport, const UiChromeStatusValues& status,
+                         const UiChromeTailValues& tail );
+    void PrepareOperatorUiSubmission( const UiTextViewport& viewport, bool drawTestPattern );
+    void AppendDxrReflectionPreview( RuntimeRenderTargetPreviewSnapshot& previews, const UiTextViewport& viewport,
+                                     bool available ) const;
+    void SubmitOperatorUiDrawList( const UI::UIDrawList& drawList, const RuntimeRenderTargetPreviewSnapshot& previews,
+                                   Assets::AssetSystem& assets, const UiTextViewport& viewport );
+    void SubmitUiOverlay( const UiTextViewport& viewport, UiOverlayMode mode, int modelCount, float rollingFpsTime,
+                          float sceneEnergyForDisplay );
+    void SubmitUiDrawList( const UI::UIDrawList& drawList, const UiTextViewport& viewport );
+    void FinalizeUiOverlay( UiOverlayMode mode );
+    int EndUiTextFrame( int drawCallStart );
     RenderDiagnosticsReadout BuildDiagnosticsReadout() const;
     const Rendering::RenderSceneSnapshot& FrameGraphSnapshot() const
     {
@@ -382,13 +275,16 @@ class RuntimeRenderer
         Rendering::Dx12GeometryOwner& renderGeometry;
         Rendering::Dx12Diagnostics& renderDiagnostics;
         Rendering::RenderGpuTimingOwner& gpuTiming;
+        Geometry::Terrain* terrain = nullptr;
         bool useCinematicTarget = false;
     };
     struct ReplayGhostGraphInputs
     {
         const RenderCameraLighting& camera;
         const RuntimeRenderModelFrameView& models;
-        const Rendering::PrimitiveRenderContext& primitive;
+        Rendering::PrimitiveBatchRenderer& primitiveRenderer;
+        const SkullbonezCore::Core::OrdinaryRenderConfig& ordinaryLighting;
+        const char* primitiveShaderBaseName;
         Textures::TextureCollection& textures;
         const ReplayVisualPacket& replayVisualPacket;
         bool useCinematicTarget = false;
@@ -426,23 +322,25 @@ class RuntimeRenderer
     void ExecuteReplayGhostsThroughRenderGraph( const ReplayGhostGraphInputs& inputs );
     bool ExecuteDebugOverlayThroughRenderGraph( const DebugOverlayGraphInputs& inputs );
     CinematicPostFrameOutput ExecuteCinematicPostThroughRenderGraph( const CinematicPostGraphInputs& inputs );
-    void ReleaseBackendOwnedResources( Rendering::Dx12GeometryOwner* renderGeometry );
+    void ReleaseBackendOwnedResources( Rendering::Dx12GeometryOwner* renderGeometry, Geometry::Terrain* terrain );
 
     // Owner: backend-epoch state and cold setup live behind one resource seam;
     // frame graph and pass scheduling below retain no duplicate backend borrows.
     SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     RenderResourceLifecycle m_resources;
-    Environment::CameraCollection& m_cameras;                                                                                     // Active render-camera owner.
     Window& m_window;                                                                                                             // Client dimensions sampled for render targets.
 
     // Owner: render presentation policy survives backend rebuilds here; physics
     // state remains in its respective owner.
     RenderPresentationSettings m_presentationSettings;
     Environment::WorldEnvironment& m_world;                                                                                       // Fluid surface and gravity owner for pass contexts.
-    Physics::CollisionVisualizer& m_collisionVisualizer;
-    Physics::BroadphaseVisualizer& m_broadphaseVisualizer;
-    Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;
+    CollisionVisualizer m_collisionVisualizer;
+    BroadphaseVisualizer m_broadphaseVisualizer;
+    PhysicsDebugVisualizer m_physicsDebugVisualizer;
     SkullbonezCore::Core::Profiler* m_profiler = nullptr;                                                                         // Startup-bound diagnostics source; null in non-profile builds.
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    Rendering::Dx12ImGuiRendererOwner* m_developmentUiRenderer = nullptr;
+#endif
     std::array<Math::Transformation::Matrix4, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_dxrReflectionTransforms = {}; // Scratch matrices for DXR Top-Level Acceleration Structure (TLAS) instance
 
     // upload.

@@ -24,6 +24,7 @@ Related:
 #include "ObjectContactManifold.h"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include "BoundingBox.h"
 #include "BoundingSphere.h"
@@ -207,6 +208,153 @@ Vector3 SphereCenter( const ObjectContactBodyView& body, const BoundingSphere& s
     //   orientation before building Catto-style world-space contact arms.
     const RotationMatrix rot = body.orientation.GetOrientationMatrix();
     return body.position + rot * sphere.GetPosition();
+}
+
+float SquaredDistanceFromPointToBoxAtFraction( const Vector3& startLocal, const Vector3& displacementLocal,
+                                               const Vector3& halfExtents, float fraction )
+{
+    float distanceSquared = 0.0f;
+
+    for ( int axis = 0; axis < 3; ++axis )
+    {
+        const float position = Component( startLocal, axis ) + Component( displacementLocal, axis ) * fraction;
+        const float extent = Component( halfExtents, axis );
+        const float outsideDistance = (std::max)( fabsf( position ) - extent, 0.0f );
+        distanceSquared += outsideDistance * outsideDistance;
+    }
+
+    return distanceSquared;
+}
+
+float SweepPointAgainstRoundedBox( const Vector3& startLocal, const Vector3& displacementLocal, const Vector3& halfExtents,
+                                   float radius )
+{
+    const float radiusSquared = radius * radius;
+
+    if ( SquaredDistanceFromPointToBoxAtFraction( startLocal, displacementLocal, halfExtents, 0.0f ) <= radiusSquared )
+    {
+        return 0.0f;
+    }
+
+    // Concept: a sphere swept against an OBB is a point swept against that box
+    // rounded by the sphere radius. Coordinate/face crossings split the point's
+    // squared distance to the box into at most seven quadratic intervals.
+    std::array<float, 8> intervalEdges = {};
+    int edgeCount = 0;
+    intervalEdges[edgeCount++] = 0.0f;
+    intervalEdges[edgeCount++] = 1.0f;
+
+    for ( int axis = 0; axis < 3; ++axis )
+    {
+        const float displacement = Component( displacementLocal, axis );
+
+        if ( fabsf( displacement ) <= TOLERANCE )
+        {
+            continue;
+        }
+
+        const float start = Component( startLocal, axis );
+        const float extent = Component( halfExtents, axis );
+        const float crossings[] = { ( -extent - start ) / displacement, ( extent - start ) / displacement };
+
+        for ( const float crossing : crossings )
+        {
+            if ( crossing > 0.0f && crossing < 1.0f )
+            {
+                intervalEdges[edgeCount++] = crossing;
+            }
+        }
+    }
+
+    std::sort( intervalEdges.begin(), intervalEdges.begin() + edgeCount );
+
+    for ( int intervalIndex = 0; intervalIndex + 1 < edgeCount; ++intervalIndex )
+    {
+        const float lo = intervalEdges[intervalIndex];
+        const float hi = intervalEdges[intervalIndex + 1];
+
+        if ( hi <= lo )
+        {
+            continue;
+        }
+
+        const float midpoint = ( lo + hi ) * 0.5f;
+        float quadraticA = 0.0f;
+        float quadraticB = 0.0f;
+        float quadraticC = -radiusSquared;
+
+        for ( int axis = 0; axis < 3; ++axis )
+        {
+            const float start = Component( startLocal, axis );
+            const float displacement = Component( displacementLocal, axis );
+            const float extent = Component( halfExtents, axis );
+            const float midpointPosition = start + displacement * midpoint;
+            float offset = 0.0f;
+
+            if ( midpointPosition < -extent )
+            {
+                offset = start + extent;
+            }
+            else if ( midpointPosition > extent )
+            {
+                offset = start - extent;
+            }
+            else
+            {
+                continue;
+            }
+
+            quadraticA += displacement * displacement;
+            quadraticB += 2.0f * displacement * offset;
+            quadraticC += offset * offset;
+        }
+
+        const float valueAtLo = ( quadraticA * lo + quadraticB ) * lo + quadraticC;
+
+        if ( valueAtLo <= 0.0f )
+        {
+            return lo;
+        }
+
+        // Hazard: quadraticA has squared-distance units. Comparing it with the
+        // engine's linear TOLERANCE rejects shallow but real oblique impacts.
+        if ( quadraticA <= 0.0f )
+        {
+            continue;
+        }
+
+        const float discriminant = quadraticB * quadraticB - 4.0f * quadraticA * quadraticC;
+
+        if ( discriminant < 0.0f )
+        {
+            continue;
+        }
+
+        const float root = ( -quadraticB - sqrtf( discriminant ) ) / ( 2.0f * quadraticA );
+
+        if ( root >= lo && root <= hi )
+        {
+            return root;
+        }
+    }
+
+    return NO_COLLISION;
+}
+
+float SweepSphereAgainstBox( const ObjectContactBodyView& sphereBody, const BoundingSphere& sphere,
+                             const Vector3& sphereVelocity, const ObjectContactBodyView& boxBody, const BoundingBox& box,
+                             const Vector3& boxVelocity, float changeInTime )
+{
+    const RotationMatrix boxRotation = boxBody.orientation.GetOrientationMatrix();
+    const BoxWorld boxWorld = MakeBoxWorld( boxBody, box );
+    const Vector3 startLocal = boxRotation.TransposeMultiply( SphereCenter( sphereBody, sphere ) - boxWorld.center );
+    const Vector3 relativeDisplacementLocal = boxRotation.TransposeMultiply( ( sphereVelocity - boxVelocity ) *
+                                                                             changeInTime );
+
+    // Invariant: FP2 exact translational CCD freezes orientation during this
+    // tick. Angular eligibility expands broadphase only; rotational TOI remains
+    // outside this phase.
+    return SweepPointAgainstRoundedBox( startLocal, relativeDisplacementLocal, box.GetHalfExtents(), sphere.GetRadius() );
 }
 
 uint32_t FaceId( int axis, float sign )
@@ -1913,7 +2061,35 @@ ObjectContactSweepResult SweepObjectContactImpl( const ObjectContactBodyView& a,
     const Vector3 targetOrigin = GetWorldShapeCenter( shapeB, b.position, rotationB ) - GetShapePosition( shapeB );
     const Ray targetRay( targetOrigin, linearVelocityB * changeInTime );
     const Ray focusRay( focusOrigin, linearVelocityA * changeInTime );
-    const float collisionTime = TestShapeCollision( shapeA, shapeB, focusRay, targetRay );
+    const float collisionTime = VisitCollisionShape( shapeA,
+                                                     [&]( const auto& concreteShapeA )
+                                                     {
+                                                     return VisitCollisionShape( shapeB,
+                                                     [&]( const auto& concreteShapeB )
+                                                     {
+                                                     using ConcreteShapeA = std::decay_t<decltype( concreteShapeA )>;
+                                                     using ConcreteShapeB = std::decay_t<decltype( concreteShapeB )>;
+
+                                                     if constexpr ( std::is_same_v<ConcreteShapeA, BoundingSphere> &&
+                                                     std::is_same_v<ConcreteShapeB, BoundingBox> )
+                                                     {
+                                                     return SweepSphereAgainstBox( a, concreteShapeA, linearVelocityA, b,
+                                                     concreteShapeB, linearVelocityB,
+                                                     changeInTime );
+                                            }
+                                            else if constexpr ( std::is_same_v<ConcreteShapeA, BoundingBox> &&
+                                                                std::is_same_v<ConcreteShapeB, BoundingSphere> )
+                                            {
+                                                return SweepSphereAgainstBox( b, concreteShapeB, linearVelocityB, a,
+                                                                              concreteShapeA, linearVelocityA,
+                                                                              changeInTime );
+                                            }
+                                            else
+                                            {
+                                                return concreteShapeA.TestCollision( concreteShapeB, targetRay, focusRay );
+                                            }
+                                        } );
+        } );
 
     if ( collisionTime > 1.0f || collisionTime < ZERO_TAKE_TOLERANCE )
     {

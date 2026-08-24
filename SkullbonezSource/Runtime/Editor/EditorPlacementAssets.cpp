@@ -18,14 +18,14 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Editor/EditorPlacementAssets.h
   - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
-  - SkullbonezSource/Runtime/Editor/EditorHullAssets.h
+  - SkullbonezSource/Assets/EditorHullAssets.h
   - Agentic/Reference/engine-glossary.md
 */
 #include "EditorPlacementAssets.h"
 #include "EditorTerrainOrientation.h"
 #include "EditorTools.h"
 #include "../../Assets/AssetSystem.h"
-#include "../../UI/UITabEditor.h"
+#include "../Interaction/OperatorEditorObjectCatalog.h"
 
 #include <algorithm>
 #include <array>

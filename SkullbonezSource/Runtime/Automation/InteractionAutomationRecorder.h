@@ -16,8 +16,8 @@ Glossary:
   Interaction baseline: Detached camera/tool/UI values not owned by scene JSON.
 
 Invariants:
-  - InputRouter remains the only retained input owner; recorded frames are
-    detached values copied after routing.
+  - InputRouter remains the only retained input owner; App copies its current
+    device state into one Automation-owned input sample after routing.
   - F8 control turns are never appended to the tape.
   - Capacity grows only in one-minute chunks through the named Diagnostics
     reserve owner and never beyond the configured 1..60 minute maximum.
@@ -47,7 +47,20 @@ class SbDiagnosticStore;
 }
 namespace Runtime
 {
-struct DeviceInputFrame;
+struct InteractionAutomationInputSample
+{
+    std::array<uint64_t, 4> keyWords = {};
+    int clientX = 0;
+    int clientY = 0;
+    long rawMouseX = 0;
+    long rawMouseY = 0;
+    int wheelDelta = 0;
+    bool hasClientPosition = false;
+    bool appFocused = true;
+    bool leftDown = false;
+    bool rightDown = false;
+    bool middleDown = false;
+};
 
 struct RecordedInputFrame
 {
@@ -150,8 +163,8 @@ class InteractionAutomationRecorder
     Core::SbResult AdvanceBoundary( Core::SbDiagnosticStore& diagnostics, uint64_t sceneGeneration );
 
     // Copies the routed device frame; publication is deferred until AdvanceBoundary.
-    void CapturePendingTurn( double deltaSeconds, int sourceWidth, int sourceHeight, const DeviceInputFrame& frame,
-                             const char* semanticAnchor = nullptr );
+    void CapturePendingTurn( double deltaSeconds, int sourceWidth, int sourceHeight,
+                             const InteractionAutomationInputSample& frame, const char* semanticAnchor = nullptr );
 
     // Saves the valid prefix and publishes the manifest last. Pending input is
     // included only when the caller has already proved it is not a control turn.

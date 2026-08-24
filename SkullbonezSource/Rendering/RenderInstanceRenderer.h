@@ -34,6 +34,7 @@ namespace Core
 {
 class Profiler;
 struct CinematicRenderConfig;
+struct OrdinaryRenderConfig;
 } // namespace Core
 namespace Physics
 {
@@ -42,7 +43,7 @@ class ColliderStore;
 
 namespace Rendering
 {
-struct PrimitiveRenderContext;
+class PrimitiveBatchRenderer;
 class RenderInstanceStore;
 } // namespace Rendering
 
@@ -56,47 +57,60 @@ namespace Rendering
 class RenderInstanceRenderer
 {
   public:
+    RenderInstanceRenderer( Rendering::PrimitiveBatchRenderer& primitiveRenderer,
+                            Rendering::Dx12Diagnostics& renderDiagnostics,
+                            const SkullbonezCore::Core::OrdinaryRenderConfig& lighting,
+                            const Rendering::RenderInstanceStore& renderStore, const Physics::ColliderStore& colliderStore,
+                            Threading::WorkerPool* workerPool, bool useShadowParallelPrep, bool renderCollisionVolumes )
+        : m_primitiveRenderer( primitiveRenderer ), m_renderDiagnostics( renderDiagnostics ), m_lighting( lighting ),
+          m_renderStore( renderStore ), m_colliderStore( colliderStore ), m_workerPool( workerPool ),
+          m_useShadowParallelPrep( useShadowParallelPrep ), m_renderCollisionVolumes( renderCollisionVolumes )
+    {
+    }
 
     // Submits the main view. The optional mask chooses either the marked or
     // unmarked model rows; all borrows end before this call returns.
-    static void RenderModels( const Rendering::PrimitiveRenderContext& primitiveContext,
-                              const Rendering::RenderInstanceStore& renderStore, const Physics::ColliderStore& colliderStore,
-                              bool renderCollisionVolumes, const Math::Transformation::Matrix4& view,
-                              const Math::Transformation::Matrix4& projection, const float ( &lightPosition )[4],
+    void RenderModels( const char* shaderBaseName, const Math::Transformation::Matrix4& view,
+                       const Math::Transformation::Matrix4& projection, const float ( &lightPosition )[4],
+                       const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
+                       const Rendering::ShadowFrameData* shadow, float materialAlpha, const std::vector<uint8_t>* modelMask,
+                       bool drawMaskedModels );
+
+    // Submits the mirrored view. Reflection clipping is structural, so callers
+    // cannot accidentally select main-view visibility or supply a model mask.
+    void RenderReflectionModels( const char* shaderBaseName, const Math::Transformation::Matrix4& view,
+                                 const Math::Transformation::Matrix4& projection, const float ( &lightPosition )[4],
+                                 const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
+                                 const Rendering::ShadowFrameData* shadow, float materialAlpha );
+    void BuildShadowCasterBatches( Core::Profiler* profiler, Rendering::ShadowCasterBatches& outBatches );
+    void SubmitShadowCasterBatches( Core::Profiler* profiler, const char* shaderBaseName,
+                                    const Rendering::ShadowCasterBatches& batches, const Math::Transformation::Matrix4& view,
+                                    const Math::Transformation::Matrix4& proj,
+                                    const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
+                                    Rendering::RenderVisibilityView visibilityView );
+    void RenderShadowCasters( Core::Profiler* profiler, const char* shaderBaseName,
+                              const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj,
+                              const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
+                              Rendering::RenderVisibilityView visibilityView );
+    bool GetObjectShadowBounds( Core::Profiler* profiler, const Math::Vector::Vector3& focus, float maxDistance,
+                                Math::Vector::Vector3& outCenter, float& outRadius, float& outHeightRange );
+
+  private:
+    void RenderModelsForView( Rendering::RenderVisibilityView visibilityView, const char* shaderBaseName,
+                              const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& projection,
+                              const float ( &lightPosition )[4],
                               const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                               const Rendering::ShadowFrameData* shadow, float materialAlpha,
                               const std::vector<uint8_t>* modelMask, bool drawMaskedModels );
 
-    // Submits the mirrored view. Reflection clipping is structural, so callers
-    // cannot accidentally select main-view visibility or supply a model mask.
-    static void RenderReflectionModels( const Rendering::PrimitiveRenderContext& primitiveContext,
-                                        const Rendering::RenderInstanceStore& renderStore,
-                                        const Physics::ColliderStore& colliderStore, bool renderCollisionVolumes,
-                                        const Math::Transformation::Matrix4& view,
-                                        const Math::Transformation::Matrix4& projection, const float ( &lightPosition )[4],
-                                        const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
-                                        const Rendering::ShadowFrameData* shadow, float materialAlpha );
-    static void BuildShadowCasterBatches( Core::Profiler* profiler, const Rendering::RenderInstanceStore& renderStore,
-                                          const Physics::ColliderStore& colliderStore, Threading::WorkerPool* workerPool,
-                                          bool useShadowParallelPrep, Rendering::ShadowCasterBatches& outBatches );
-    static void SubmitShadowCasterBatches( Core::Profiler* profiler,
-                                           const Rendering::PrimitiveRenderContext& primitiveContext,
-                                           const Rendering::ShadowCasterBatches& batches,
-                                           const Math::Transformation::Matrix4& view,
-                                           const Math::Transformation::Matrix4& proj,
-                                           const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
-                                           Rendering::RenderVisibilityView visibilityView );
-    static void RenderShadowCasters( Core::Profiler* profiler, const Rendering::PrimitiveRenderContext& primitiveContext,
-                                     const Rendering::RenderInstanceStore& renderStore,
-                                     const Physics::ColliderStore& colliderStore, Threading::WorkerPool* workerPool,
-                                     bool useShadowParallelPrep, const Math::Transformation::Matrix4& view,
-                                     const Math::Transformation::Matrix4& proj,
-                                     const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
-                                     Rendering::RenderVisibilityView visibilityView );
-    static bool GetObjectShadowBounds( Core::Profiler* profiler, const Rendering::RenderInstanceStore& renderStore,
-                                       Threading::WorkerPool* workerPool, bool useShadowParallelPrep,
-                                       const Math::Vector::Vector3& focus, float maxDistance,
-                                       Math::Vector::Vector3& outCenter, float& outRadius, float& outHeightRange );
+    Rendering::PrimitiveBatchRenderer& m_primitiveRenderer;
+    Rendering::Dx12Diagnostics& m_renderDiagnostics;
+    const SkullbonezCore::Core::OrdinaryRenderConfig& m_lighting;
+    const Rendering::RenderInstanceStore& m_renderStore;
+    const Physics::ColliderStore& m_colliderStore;
+    Threading::WorkerPool* m_workerPool = nullptr;
+    bool m_useShadowParallelPrep = false;
+    bool m_renderCollisionVolumes = false;
 };
 } // namespace Rendering
 } // namespace SkullbonezCore

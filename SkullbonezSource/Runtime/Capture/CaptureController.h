@@ -94,10 +94,11 @@ class CaptureController
   public:
     explicit CaptureController( SkullbonezCore::Core::SbDiagnosticStore& diagnostics ) noexcept;
     RunScreenshotState& Screenshot();
-    const RunScreenshotState& Screenshot() const;
 
     void ResetScreenshot();
     void DisableAutomationExit();
+    void ApplySceneAutomation( int screenshotFrame, int screenshotMs, bool screenshotAndExit, const char* screenshotPath,
+                               int screenshotInterval, const char* screenshotDirectory );
     bool RequiresDeterministicPresentation( bool isSceneMode, int currentFrame, double elapsedMs ) const;
     RuntimeCaptureResult TickScreenshots( bool isSceneMode, bool isInteractiveRun, int currentFrame, double elapsedMs,
                                           const char* currentScenePath, Rendering::Dx12BackbufferCapture& backend );

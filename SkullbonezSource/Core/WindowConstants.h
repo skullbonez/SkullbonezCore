@@ -22,7 +22,7 @@ Invariants:
   - WINDOW_NAME must match registration and unregistration paths.
 
 Related:
-  - SkullbonezSource/Runtime/App/Window.cpp consumes the window labels.
+  - SkullbonezSource/Runtime/Startup/Window.cpp consumes the window labels.
   - SkullbonezSource/Assets/AssetSystem.h consumes the shared data root.
 */
 #pragma once

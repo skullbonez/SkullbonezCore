@@ -5,8 +5,7 @@ Purpose:
 
 Summary:
   Scene load chooses whether automation scenes hide UI, whether authored window
-  state wins, and which deterministic UI stress values should seed diagnostics.
-  Keep those decisions here so Run only supplies owners and timing.
+  state wins, and publishes deterministic UI stress reactions for App to apply.
 
 Invariants:
   - Authored visible/minimized/window settings apply in the same order as the
@@ -16,16 +15,13 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneLoadPresentation.h
-  - SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.h
-  - SkullbonezSource/UI/UI.h
+  - SkullbonezSource/Runtime/App/SceneLoadApplication.cpp
+  - SkullbonezSource/Runtime/UI/GameUI/UI.h
   - Agentic/Reference/engine-glossary.md
 */
 #include "SceneLoadTransaction.h"
 #include "SceneLoadPresentation.h"
-#include "../Diagnostics/DiagnosticsRuntime.h"
-#include "../Diagnostics/OverlayDebugState.h"
 #include "../../Scene/AuthoredScene.h"
-#include "../../UI/UI.h"
 
 #include <algorithm>
 
@@ -33,9 +29,31 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-void SceneLoadTransaction::PrepareUiOptions( DiagnosticsRuntime& diagnostics, OverlayDebugState& debug,
-                                             SceneUiActivation& activation, const SceneUIOptions& options, double nowSeconds,
-                                             bool preserveUIState, bool automationScene )
+void SceneLoadTransaction::AppendCaptureReaction( const SceneCaptureReaction& reaction )
+{
+    if ( m_outputs.captureReactions.count >= m_outputs.captureReactions.reactions.size() )
+    {
+        SB_FATAL( "Runtime/SceneLoadTransaction", "Fixed capture reaction capacity exhausted." );
+    }
+
+    m_outputs.captureReactions.reactions[m_outputs.captureReactions.count++] = reaction;
+}
+
+
+void SceneLoadTransaction::AppendDiagnosticsReaction( const SceneDiagnosticsReaction& reaction )
+{
+    if ( m_outputs.diagnosticsReactions.count >= m_outputs.diagnosticsReactions.reactions.size() )
+    {
+        SB_FATAL( "Runtime/SceneLoadTransaction", "Fixed diagnostics reaction capacity exhausted." );
+    }
+
+    m_outputs.diagnosticsReactions.reactions[m_outputs.diagnosticsReactions.count++] = reaction;
+}
+
+
+void SceneLoadTransaction::PrepareUiOptions( ScenePresentationValues& presentation, SceneUiActivation& activation,
+                                             const SceneUIOptions& options, double nowSeconds, bool preserveUIState,
+                                             bool automationScene )
 {
     activation.authoredOptions = options;
     activation.nowSeconds = nowSeconds;
@@ -43,145 +61,19 @@ void SceneLoadTransaction::PrepareUiOptions( DiagnosticsRuntime& diagnostics, Ov
     activation.preserveUIState = preserveUIState;
     activation.automationScene = automationScene;
 
-    // Why: diagnostics and debug values already have genuine load-phase owners;
-    // only window presentation crosses the returned activation value.
-    if ( !preserveUIState && options.hasTestPattern )
+    const SceneUiOptionDiagnosticsProjection projection = ProjectSceneUiOptionDiagnostics( options, preserveUIState );
+
+    if ( projection.applyTestPattern )
     {
-        debug.isUITestPattern = options.testPatternEnabled;
+        presentation.uiTestPattern = projection.testPatternEnabled;
     }
 
-    if ( options.hasStress )
+    for ( std::size_t index = 0; index < projection.reactions.count; ++index )
     {
-        diagnostics.UIStress().enabled = options.stressEnabled;
-    }
-
-    if ( options.hasStressSeed )
-    {
-        diagnostics.UIStress().randomState = options.stressSeed;
-    }
-
-    if ( options.hasStressActions )
-    {
-        diagnostics.UIStress().actionsPerFrame = std::clamp( options.stressActionsPerFrame, 1, 32 );
+        AppendDiagnosticsReaction( projection.reactions.reactions[index] );
     }
 }
 
-
-void SceneLoadTransaction::ApplyUiActivation( UI::InGameUI& ui, const SceneUiActivation& activation )
-{
-    if ( activation.hasAuthoredOptions && !activation.preserveUIState )
-    {
-        const SceneUIOptions& options = activation.authoredOptions;
-
-        if ( !options.hasVisible )
-        {
-            if ( activation.automationScene && !options.hasSettings )
-            {
-                ui.SetVisible( false, activation.nowSeconds );
-            }
-            else if ( !options.hasSettings )
-            {
-                if ( !ui.IsVisible() )
-                {
-                    ui.SetVisible( true, activation.nowSeconds );
-                }
-
-                ui.SetMinimized( true, activation.nowSeconds );
-            }
-            else if ( !ui.IsVisible() )
-            {
-                ui.SetVisible( true, activation.nowSeconds );
-            }
-        }
-
-        if ( options.hasWindowRect )
-        {
-            ui.SetWindowBounds( options.windowX, options.windowY, options.windowW, options.windowH );
-
-            if ( !options.hasMinimized )
-            {
-                ui.SetMinimized( false, activation.nowSeconds );
-            }
-        }
-
-        if ( options.hasActiveTab )
-        {
-            ui.SetActiveTab( static_cast<UI::InGameUITab>( options.activeTab ) );
-        }
-
-        if ( options.hasBlur )
-        {
-            ui.SetBlurEnabled( options.blurEnabled );
-        }
-
-        if ( options.hasProfilerExpandAll )
-        {
-            ui.SetProfilerExpandAll( options.profilerExpandAll );
-        }
-
-        if ( options.hasProfilerTimeline )
-        {
-            ui.SetProfilerTimelineEnabled( options.profilerTimeline );
-        }
-
-        if ( options.hasPerformanceHistogram )
-        {
-            ui.SetPerformanceHistogramEnabled( options.performanceHistogram );
-        }
-
-        if ( options.hasHitboxOverlay )
-        {
-            ui.SetHitboxOverlayEnabled( options.hitboxOverlay );
-        }
-
-        if ( options.hasRendererComboOpen )
-        {
-            ui.SetRendererComboOpen( options.rendererComboOpen );
-        }
-
-        if ( options.hasWaterComboOpen )
-        {
-            ui.SetWaterComboOpen( options.waterComboOpen );
-        }
-
-        if ( options.hasSceneComboOpen )
-        {
-            ui.SetSceneComboOpen( options.sceneComboOpen );
-        }
-
-        if ( options.hasSceneFilter )
-        {
-            ui.SetSceneFilter( options.sceneFilter );
-        }
-
-        if ( options.hasScrollY )
-        {
-            ui.SetScrollY( options.scrollY );
-        }
-
-        ui.SetMouseOverride( options.hasMouseOverride, options.mouseX, options.mouseY );
-
-        if ( options.hasVisible )
-        {
-            ui.SetVisible( options.isVisible, activation.nowSeconds );
-        }
-
-        if ( options.hasMinimized )
-        {
-            ui.SetMinimized( options.isMinimized, 0.0 );
-        }
-    }
-
-    if ( activation.forceVisible )
-    {
-        ui.SetVisible( true, activation.nowSeconds );
-    }
-
-    if ( activation.forceUnminimized )
-    {
-        ui.SetMinimized( false, activation.nowSeconds );
-    }
-}
 
 } // namespace Runtime
 } // namespace SkullbonezCore

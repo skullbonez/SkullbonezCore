@@ -51,13 +51,15 @@ Related:
 
 #include "ImGuiEditorInputPolicy.h"
 #include "ImGuiEditorLayoutPolicy.h"
-#include "../App/RunLaunchOptions.h"
+#include "../Startup/RunLaunchOptions.h"
 #include "../../Core/SbResult.h"
 #include "../../Core/PlatformWin32.h"
-#include "../../UI/OperatorEditorExchange.h"
+#include "../Interaction/OperatorEditorExchange.h"
+#include "../../UI/UIInputCaptureIntent.h"
 
 #include <cstdint>
 
+struct ImDrawData;
 struct ImGuiContext;
 
 namespace SkullbonezCore::Rendering
@@ -68,11 +70,6 @@ class Dx12ImGuiRendererOwner;
 namespace SkullbonezCore::Runtime::ReplayOverlay
 {
 struct ReplayOverlayStateView;
-}
-
-namespace SkullbonezCore::Runtime
-{
-struct UiInputCaptureIntent;
 }
 
 namespace SkullbonezCore::Runtime::DevelopmentTools
@@ -122,6 +119,12 @@ struct ImGuiEditorFrameResult
 {
     ImGuiEditorCommands commands;
     SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
+};
+
+struct ImGuiPreparedDrawDataView
+{
+    ImGuiContext* context = nullptr;
+    ImDrawData* drawData = nullptr;
 };
 
 struct ImGuiEditorNativeMessageRoute
@@ -268,16 +271,16 @@ class ImGuiEditorOwner
 
     // Publishes the completed editor frame as the generic value consumed by
     // InputRouter; the input owner remains authoritative for arbitration.
-    UiInputCaptureIntent ConsumeInputCaptureIntent() noexcept;
+    UI::InputCaptureIntent ConsumeInputCaptureIntent() noexcept;
     void SetGameViewportInputState( bool hovered, bool focused ) noexcept;
 
     bool BeginFrame( const ImGuiEditorFrameInput& input );
     void BuildEditorShell( const UI::OperatorEditorFrameView& view, const ReplayOverlay::ReplayOverlayStateView& replay );
     ImGuiEditorFrameResult EndFrame();
 
-    // Records draw data published by EndFrame. The caller must invoke this
-    // synchronously from the current frame's graph callback before Present.
-    SkullbonezCore::Core::SbResult RenderPreparedDrawData();
+    // The returned vendor pointers remain valid only until the next BeginFrame
+    // and must be submitted synchronously before Present.
+    ImGuiPreparedDrawDataView PreparedDrawData() noexcept;
     ImGuiEditorStatus CopyStatus() const noexcept;
 
   private:

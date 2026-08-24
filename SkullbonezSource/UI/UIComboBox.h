@@ -1,20 +1,18 @@
 /*
 File: SkullbonezSource/UI/UIComboBox.h
 Purpose:
-  Declares dropdown open state, shared field/option geometry, hit testing,
-  and drawing.
+  Declares the retained popup-state adapter for stateless combo operations.
 
 Summary:
-  Owns dropdown state and derives
-  field, option hit testing, and
-  drawing from one bounds model.
+  Bounds, open state, popup direction, and label visibility form one persistent
+  combo invariant; selection, hover, disabled options, and commands do not.
 
 Invariants:
-  - Draw geometry and hit testing must be derived from the same layout
-  constants.
+  - UIDrawWidgets exclusively derives field, popup, and option geometry.
 
 Related:
   - SkullbonezSource/UI/UIComboBox.cpp
+  - SkullbonezSource/UI/UIDrawWidgets.h
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
@@ -48,9 +46,6 @@ class UIComboBox
                int optionCount, int selectedIndex, int mouseX, int mouseY, uint32_t disabledOptionMask = 0 ) const;
 
   private:
-    UIRect FieldRect() const;
-    UIRect DropdownRect( int optionCount ) const;
-
     UIRect m_bounds;
     bool m_isOpen = false;
     bool m_dropUp = false;

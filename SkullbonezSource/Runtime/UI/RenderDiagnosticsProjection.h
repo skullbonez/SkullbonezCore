@@ -17,13 +17,13 @@ Invariants:
   - Projection performs no allocation and has no side effects.
 
 Related:
-  - SkullbonezSource/UI/UIRenderDiagnostics.h
+  - SkullbonezSource/Runtime/UI/GameUI/UIRenderDiagnostics.h
   - SkullbonezSource/Rendering/RenderDiagnosticsTypes.h
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
-#include "../../UI/UIRenderDiagnostics.h"
+#include "GameUI/UIRenderDiagnostics.h"
 
 namespace SkullbonezCore::Rendering
 {

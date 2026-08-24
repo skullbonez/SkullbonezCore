@@ -32,8 +32,9 @@ Related:
 #pragma once
 
 #include "../Input/InputRouter.h"
+#include "../Input/InputFrameValues.h"
 #include "ReplayRuntime.h"
-#include "../../UI/UICommands.h"
+#include "../Interaction/OperatorUiCommands.h"
 #include "../../UI/UIInput.h"
 
 namespace SkullbonezCore
@@ -70,6 +71,7 @@ class ReplayRuntime;
 class RuntimeInteractionController;
 class RuntimeRenderer;
 class RuntimeTools;
+class EditorToolsOwner;
 class SimulationSystem;
 struct RunEditorPlacementState;
 struct SceneRequest;
@@ -77,7 +79,7 @@ struct CameraControlState;
 struct OverlayDebugState;
 struct RunLaunchOptions;
 struct RunStartupState;
-struct RunTimerState;
+class RuntimeFrameMetricsOwner;
 struct RuntimeViewModel;
 
 struct RuntimeUIFrameResult
@@ -88,71 +90,8 @@ struct RuntimeUIFrameResult
     bool suppressWorldActionThisFrame = false;
     bool frameActive = false;
     bool enterInteractiveScene = false;
-    bool requestSceneStep = false;    // One accepted paused-scene step for the later runtime-input snapshot.
+    bool requestSceneStep = false; // One accepted paused-scene step for the later runtime-input snapshot.
     int editorUnhandledWheelDelta = 0;
-};
-
-// Value facts shared by UI sampling and command application during one input
-// turn. Owner access remains in the narrow capability views passed separately.
-struct RuntimeInputFrameFacts
-{
-    RunCameraMode replayCurrentCameraMode = RunCameraMode::Inspect;
-    RunCameraMode replayRestoreCameraMode = RunCameraMode::Inspect;
-    uint32_t cameraModeEnabledMask = 0u;
-    bool suppressWorldActionThisFrame = false;
-    int sceneObjectCapacity = 0;
-    UiInputCaptureIntent externalUiCapture;
-
-    // Previous completed secondary-surface frame. This value queue is consumed
-    // synchronously and never retained by input orchestration.
-    UI::OperatorEditorCommandQueues externalEditorCommands;
-
-    // Invariant: only the selected GameUI surface may sample its pointer tools
-    // or scene-authored stress actions during this input turn.
-    bool gameUiActive = true;
-    int requestedReplayCauseRow = -1; // Automation-only typed equivalent of one cause-window row hit.
-};
-
-// Copies one sampled Runtime input turn into the passive UI-owned value. The
-// returned snapshot retains no router, device-frame, or UI-owner reference.
-inline UI::InputControl::UIInputSnapshot BuildUIInputSnapshot( const DeviceInputFrame& frame, const RuntimeMouseEdges& mouse,
-                                                               UI::InputControl::UIPointerOverride pointerOverride )
-{
-    UI::InputControl::UIInputSnapshot snapshot;
-    snapshot.keyWords = frame.keys.Words();
-    snapshot.wheelDelta = frame.wheelDelta;
-
-    if ( pointerOverride.enabled )
-    {
-        snapshot.mouseX = pointerOverride.x;
-        snapshot.mouseY = pointerOverride.y;
-    }
-    else if ( frame.hasClientPosition )
-    {
-        snapshot.mouseX = frame.clientX;
-        snapshot.mouseY = frame.clientY;
-    }
-
-    snapshot.leftDown = mouse.leftDown;
-    snapshot.leftPressed = mouse.leftPressed;
-    snapshot.leftReleased = mouse.leftReleased;
-    return snapshot;
-}
-
-// Shared value-policy helpers used by the stateless coordinator and the
-// InputRouter methods that commit accepted transitions.
-struct KeyboardContextFacts
-{
-    bool keyboardUnblocked = false;
-    bool scene = false;
-    bool flyCamera = false;
-    bool launcher = false;
-    bool attachedCamera = false;
-    bool director = false;
-    bool directorAuthoring = false;
-    bool editor = false;
-    bool replayRestoreNotConsumed = false;
-    bool uiNotInteracted = false;
 };
 
 RuntimeInputModeState BuildRuntimeInputModeState( RunCameraMode mode, const RunEditorPlacementState& editor,
@@ -162,6 +101,30 @@ PointerPresentationPolicy EvaluateRuntimePointerPresentation( const InputRouter&
                                                               const RunEditorPlacementState& editor,
                                                               const ReplayInputView& replayInput );
 RunCameraMode NormalizeRuntimeCameraMode( RunCameraMode mode, bool authoredScene, uint32_t enabledMask );
+inline RuntimeInteractionTransition EnterInteractionForCameraMode( RuntimeInteractionController& interaction,
+                                                                   RunCameraMode mode )
+{
+    // Camera owns the user-facing mode while Interaction owns workspace and
+    // gesture cleanup. App is the only owner allowed to translate between them.
+    switch ( mode )
+    {
+    case RunCameraMode::Demo:
+    case RunCameraMode::Scene:
+    case RunCameraMode::Director:
+        return interaction.EnterLive();
+    case RunCameraMode::Inspect:
+    case RunCameraMode::Attach:
+        return interaction.EnterInspect();
+    case RunCameraMode::Launcher:
+        return interaction.EnterLauncher();
+    case RunCameraMode::Manipulator:
+        return interaction.EnterManipulator();
+    case RunCameraMode::Count:
+        break;
+    }
+
+    return interaction.EnterLive();
+}
 
 // Computes camera capabilities from value facts captured at the frame boundary;
 // input policy cannot traverse scene lifecycle or world ownership.
@@ -173,17 +136,9 @@ void ExitFlyModeCamera( InputRouter& inputRouter, CameraControlState& camera, En
 RuntimeInputContextMask BuildKeyboardContextMask( const KeyboardContextFacts& facts );
 bool IsReplayWorldOwner( WorldInteractionOwner owner );
 bool IsEditorWorldOwner( WorldInteractionOwner owner );
-const char* ReplayOwnerEventName( ReplayOwnerEventCode code );
-uint32_t ReplaySceneRequestFlags( const SceneRequest& request );
 void ReportRuntimeInputFailure( const SkullbonezCore::Core::SbResult& result );
-RuntimeUIFrameResult BeginRuntimeUIFrame( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, Window& window,
-                                          InputRouter& inputRouter, CameraControlState& camera, RuntimeTools& runtimeTools,
-                                          AttachedCameraController& attachedCamera,
-                                          RuntimeInteractionController& interaction, UI::InGameUI& ui, RunTimerState& timers,
-                                          SceneController& sceneController, ReplayRuntime& replayRuntime,
-                                          const ReplayPathPickInput& replayPointerRay, const RuntimeInputFrameFacts& facts );
 RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result, InputRouter& inputRouter,
-                                                  CameraControlState& camera, RuntimeTools& runtimeTools,
+                                                  CameraControlState& camera, EditorToolsOwner& editorTools,
                                                   RuntimeInteractionController& interaction,
                                                   AttachedCameraController& attachedCamera, UI::InGameUI& ui,
                                                   SceneController& sceneController, ReplayRuntime& replayRuntime,

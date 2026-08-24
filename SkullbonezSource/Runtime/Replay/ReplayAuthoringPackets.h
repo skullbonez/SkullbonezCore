@@ -37,6 +37,8 @@ Related:
 #include "../../Physics/PhysicsHandles.h"
 
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <vector>
 
 namespace SkullbonezCore::Runtime
@@ -44,6 +46,179 @@ namespace SkullbonezCore::Runtime
 inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_MAX = 140.0f;
 inline constexpr float REPLAY_VELOCITY_EDIT_ANGULAR_MAX = 5.0f;
 inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_EXTRA = 36.0f;
+
+enum class ReplayToolGestureKind : uint8_t
+{
+    None,
+    ScrubDrag,
+    VelocityDrag,
+    PredictionHorizonDrag,
+    CauseTreeDrag
+};
+
+struct ReplayToolGestureView
+{
+    ReplayToolGestureKind kind = ReplayToolGestureKind::None;
+    Physics::PhysicsBodyHandle body;
+    int axis = -1;
+    bool angular = false;
+};
+
+enum class ReplayWorldOwnerRequest : uint8_t
+{
+    None,
+    Scrub,
+    VelocityEdit,
+    CauseTree
+};
+
+// Invariant: native capture begins and ends with the matching replay gesture.
+// A request can begin or end a gesture, never both.
+class ReplayInteractionRequest
+{
+  public:
+    void RequestWorldOwner( ReplayWorldOwnerRequest owner )
+    {
+        m_worldOwner = owner;
+    }
+
+    void BeginCauseTreeDrag( int startX, int startY, int axis )
+    {
+        BeginGesture( ReplayToolGestureKind::CauseTreeDrag, startX, startY, {}, axis, false );
+    }
+
+    void BeginVelocityDrag( int startX, int startY, Physics::PhysicsBodyHandle body, int axis, bool angular )
+    {
+        BeginGesture( ReplayToolGestureKind::VelocityDrag, startX, startY, body, axis, angular );
+    }
+
+    void EndGesture()
+    {
+        m_beginGesture = ReplayToolGestureKind::None;
+        m_endGesture = true;
+        m_requestNativeCapture = false;
+        m_releaseNativeCapture = true;
+    }
+
+    ReplayWorldOwnerRequest WorldOwner() const
+    {
+        return m_worldOwner;
+    }
+    ReplayToolGestureKind BeginGestureKind() const
+    {
+        return m_beginGesture;
+    }
+    int GestureStartX() const
+    {
+        return m_gestureStartX;
+    }
+    int GestureStartY() const
+    {
+        return m_gestureStartY;
+    }
+    int GestureAxis() const
+    {
+        return m_gestureAxis;
+    }
+    Physics::PhysicsBodyHandle GestureBody() const
+    {
+        return m_gestureBody;
+    }
+    bool GestureAngular() const
+    {
+        return m_gestureAngular;
+    }
+    bool EndsGesture() const
+    {
+        return m_endGesture;
+    }
+    bool RequestsNativeCapture() const
+    {
+        return m_requestNativeCapture;
+    }
+    bool ReleasesNativeCapture() const
+    {
+        return m_releaseNativeCapture;
+    }
+
+  private:
+    void BeginGesture( ReplayToolGestureKind kind, int startX, int startY, Physics::PhysicsBodyHandle body, int axis,
+                       bool angular )
+    {
+        m_beginGesture = kind;
+        m_gestureStartX = startX;
+        m_gestureStartY = startY;
+        m_gestureAxis = axis;
+        m_gestureBody = body;
+        m_gestureAngular = angular;
+        m_endGesture = false;
+        m_requestNativeCapture = true;
+        m_releaseNativeCapture = false;
+    }
+
+    ReplayWorldOwnerRequest m_worldOwner = ReplayWorldOwnerRequest::None;
+    ReplayToolGestureKind m_beginGesture = ReplayToolGestureKind::None;
+    int m_gestureStartX = 0;
+    int m_gestureStartY = 0;
+    int m_gestureAxis = -1;
+    Physics::PhysicsBodyHandle m_gestureBody;
+    bool m_gestureAngular = false;
+    bool m_endGesture = false;
+    bool m_requestNativeCapture = false;
+    bool m_releaseNativeCapture = false;
+};
+
+struct ReplayCauseTreeInputFrame
+{
+    ReplayToolGestureView gesture;
+    std::array<uint64_t, 4> currentFilterKeys = {};
+    std::array<char, 16> filterCharacters = {};
+    std::size_t filterCharacterCount = 0;
+    int mouseX = 0;
+    int mouseY = 0;
+    int wheelDelta = 0;
+    int screenWidth = 0;
+    int screenHeight = 0;
+    bool leftPressed = false;
+    bool leftReleased = false;
+    bool hasClientPosition = false;
+    bool filterBackspacePressed = false;
+    bool filterDeletePressed = false;
+    bool filterEscapePressed = false;
+    bool filterReturnPressed = false;
+    bool rowsReady = false;
+    bool uiBlocksMouse = false;
+    bool editorModeEnabled = false;
+};
+
+struct ReplayCauseTreeInputResult
+{
+    ReplayInteractionRequest interaction;
+    int focusRow = -1;
+    bool exitInspectionCamera = false;
+    bool consumesMouse = false;
+};
+
+struct ReplayVelocityInputFrame
+{
+    ReplayToolGestureView gesture;
+    bool replayToolOwnsWorld = false;
+    bool velocityEditOwnsWorld = false;
+    int mouseX = 0;
+    int mouseY = 0;
+    bool leftDown = false;
+    bool leftPressed = false;
+    bool leftReleased = false;
+    bool hasClientPosition = false;
+};
+
+struct ReplayVelocityInputResult
+{
+    ReplayInteractionRequest interaction;
+    bool enterInteractive = false;
+    bool pathPickRequested = false;
+    bool consumesMouse = false;
+};
 
 struct RunReplayCauseTreeRow
 {

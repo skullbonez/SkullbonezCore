@@ -4,13 +4,16 @@ Purpose:
   Defines the deterministic motion-path classification value contract.
 
 Summary:
-  One versioned threshold policy classifies awake body motion before broadphase.
-  The stage retains hysteresis bits; diagnostics publish bounded counts and the
-  independently measured pass duration without granting mutation authority.
+  One versioned absolute-travel policy classifies awake body motion before
+  broadphase. The stage retains hysteresis bits; diagnostics publish bounded
+  counts and the independently measured pass duration without granting mutation
+  authority.
 
 Invariants:
   - Promotion equality promotes; demotion equality demotes.
-  - Alpha demotion is strictly below alpha promotion.
+  - Per-tick demotion travel is strictly below per-tick promotion travel.
+  - Thresholds are absolute metres travelled during one Physics tick and do not
+    depend on collider thickness.
   - Linear promotion and angular broadphase expansion are independent bits.
 
 Related:
@@ -24,10 +27,11 @@ Related:
 
 namespace SkullbonezCore::Physics
 {
-inline constexpr uint32_t PHYSICS_MOTION_ELIGIBILITY_POLICY_VERSION = 1u;
-inline constexpr float PHYSICS_MOTION_ALPHA_PROMOTE = 0.5f;
-inline constexpr float PHYSICS_MOTION_ALPHA_DEMOTE = 0.375f;
-static_assert( PHYSICS_MOTION_ALPHA_DEMOTE < PHYSICS_MOTION_ALPHA_PROMOTE );
+inline constexpr uint32_t PHYSICS_MOTION_ELIGIBILITY_POLICY_VERSION = 2u;
+inline constexpr float PHYSICS_MOTION_PROMOTE_TRAVEL_PER_TICK = 0.1f;
+inline constexpr float PHYSICS_MOTION_DEMOTE_TRAVEL_PER_TICK = 0.075f;
+static_assert( PHYSICS_MOTION_DEMOTE_TRAVEL_PER_TICK > 0.0f );
+static_assert( PHYSICS_MOTION_DEMOTE_TRAVEL_PER_TICK < PHYSICS_MOTION_PROMOTE_TRAVEL_PER_TICK );
 
 enum PhysicsMotionEligibilityBit : uint8_t
 {

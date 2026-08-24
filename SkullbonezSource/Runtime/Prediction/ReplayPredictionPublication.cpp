@@ -20,11 +20,8 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "ReplayPredictionPublicationOperations.h"
-#include "../Scene/SceneEntityStore.h"
-#include "../Editor/EditorHullAssets.h"
-#include "../Replay/ReplayOverlayLayout.h"
+#include "../../Assets/EditorHullAssets.h"
 #include "ReplayPredictionReserve.h"
-#include "../Replay/ReplayScrubber.h"
 #include "../../Core/Config.h"
 #include "../../Core/SceneCapacity.h"
 #include "../../Physics/ColliderStore.h"
@@ -47,7 +44,6 @@ Related:
 
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Runtime::ReplayPredictionReserveOperations;
-using namespace SkullbonezCore::Runtime::ReplayScrubberOperations;
 namespace Gameplay = SkullbonezCore::Gameplay;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
@@ -154,29 +150,29 @@ Physics::PhysicsSceneObjectId ReplayPredictionBodyIdForModelIndex( const RunRepl
                                                                                                                modelIndex );
 }
 
-bool ReplayModelIndexIsRagdollPart( const SceneEntityStore& entities, int modelIndex )
+bool ReplayModelIndexIsRagdollPart( ReplayPredictionSceneView scene, int modelIndex )
 {
     // Hazard: physics debug contacts use -1 for terrain/world counterparts.
     // That sentinel is not a scene row and must never reach group metadata.
-    if ( modelIndex < 0 || modelIndex >= entities.Count() )
+    if ( modelIndex < 0 || modelIndex >= scene.Count() )
     {
         return false;
     }
 
-    const SceneEntityRecord* entity = entities.TryGet( modelIndex );
-    return entity && entity->behaviorGroup.kind == SceneBehaviorGroupKind::SimpleRagdoll;
+    const ReplayPredictionSceneEntityFact* entity = scene.TryGet( modelIndex );
+    return entity && entity->simpleRagdollPart;
 }
 
-int ReplayRagdollTorsoModelIndexForPart( const SceneEntityStore& entities, int modelIndex )
+int ReplayRagdollTorsoModelIndexForPart( ReplayPredictionSceneView scene, int modelIndex )
 {
-    const SceneEntityRecord* entity = entities.TryGet( modelIndex );
+    const ReplayPredictionSceneEntityFact* entity = scene.TryGet( modelIndex );
 
-    if ( !entity || entity->behaviorGroup.kind != SceneBehaviorGroupKind::SimpleRagdoll )
+    if ( !entity || !entity->simpleRagdollPart )
     {
         return modelIndex;
     }
 
-    const int rootRow = entities.FindBySceneObjectId( entity->behaviorGroup.rootObjectId );
+    const int rootRow = scene.FindBySceneObjectId( entity->ragdollRootId );
     return rootRow >= 0 ? rootRow : modelIndex;
 }
 
@@ -269,7 +265,7 @@ bool AppendReplayTrajectoryPoint( ReplayTrajectoryStore& store, ReplayTrajectory
     return true;
 }
 
-ReplayFrameIndex ReplayOldestFrameFromStats( const ReplayRecorderStats& stats )
+ReplayFrameIndex ReplayOldestFrameFromStats( ReplayPredictionRecorderWindow stats )
 {
     return stats.nextFrameIndex > static_cast<ReplayFrameIndex>( stats.sampleCount )
                ? stats.nextFrameIndex - static_cast<ReplayFrameIndex>( stats.sampleCount )
@@ -809,6 +805,15 @@ void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction
                                             const std::chrono::steady_clock::time_point& budgetStart,
                                             double budgetMilliseconds )
 {
+    if ( prediction.archivePresentationRestored )
+    {
+        // Invariant: RVPD serialized each record's reader-visible prefix. The
+        // retained point vector may contain a longer unpublished suffix, so an
+        // offline projection must present the archived count instead of treating
+        // that suffix as resumable live build work.
+        return;
+    }
+
     frameCount = (std::min)( frameCount, frames.size() );
 
     if ( rootId.value == 0 || frameCount < 2u )
@@ -1037,7 +1042,7 @@ std::size_t BuildReplayPredictionAffectedBodyTrails( std::span<const RunReplayPr
                                                      std::size_t frameCount, ReplayFrameIndex revealFrame,
                                                      Physics::PhysicsSceneObjectId rootId, int rootModelIndex,
                                                      std::span<const RunReplayPathTraceNode> futureNodes,
-                                                     const SceneEntityStore& entities,
+                                                     ReplayPredictionSceneView scene,
                                                      std::span<ReplayPredictionAffectedBodyTrail> outTrails )
 {
     frameCount = (std::min)( frameCount, frames.size() );
@@ -1075,7 +1080,7 @@ std::size_t BuildReplayPredictionAffectedBodyTrails( std::span<const RunReplayPr
 
         if ( initialBody.id.value == 0 || initialBody.id.value == rootId.value ||
              initialBody.modelRow.value == rootModelIndex || idIsAlreadyPublished( initialBody.id ) ||
-             ReplayModelIndexIsRagdollPart( entities, initialBody.modelRow.value ) )
+             ReplayModelIndexIsRagdollPart( scene, initialBody.modelRow.value ) )
         {
             continue;
         }

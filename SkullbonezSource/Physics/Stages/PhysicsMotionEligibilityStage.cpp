@@ -4,13 +4,15 @@ Purpose:
   Implements deterministic squared-threshold motion classification.
 
 Summary:
-  The stage reads force-resolved velocities and cold collider geometry facts in
-  dense model order. It writes disjoint fixed-capacity rows, retaining only the
-  previous classification bits required for hysteresis and replay.
+  The stage reads force-resolved velocities and the angular reach of each
+  collider in dense model order. It writes disjoint fixed-capacity rows,
+  retaining only the previous classification bits required for hysteresis and
+  replay.
 
 Invariants:
   - Squared comparisons avoid per-body square roots.
-  - Non-finite or invalid geometry promotes conservatively.
+  - Non-finite predicted travel promotes conservatively.
+  - Absolute travel thresholds are independent of collider thickness.
   - Timing observes the pass but never changes classification or ordering.
 
 Related:
@@ -35,19 +37,18 @@ template <typename T> uint64_t ListCapacityBytes( const T& values )
     return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( typename T::value_type ) );
 }
 
-bool ResolveEligibility( bool wasEligible, float travelSquared, float thickness )
+bool ResolveEligibility( bool wasEligible, float travelSquared )
 {
-    if ( !std::isfinite( travelSquared ) || !std::isfinite( thickness ) || thickness <= 0.0f )
+    if ( !std::isfinite( travelSquared ) )
     {
         return true;
     }
 
-    const float alpha = wasEligible ? PHYSICS_MOTION_ALPHA_DEMOTE : PHYSICS_MOTION_ALPHA_PROMOTE;
-    const float threshold = alpha * thickness;
+    const float threshold = wasEligible ? PHYSICS_MOTION_DEMOTE_TRAVEL_PER_TICK : PHYSICS_MOTION_PROMOTE_TRAVEL_PER_TICK;
     const float thresholdSquared = threshold * threshold;
 
-    // Equality is deliberately asymmetric: a cold row promotes at equality,
-    // while a hot row demotes at the lower equality boundary.
+    // Invariant: equality is deliberately asymmetric. A Discrete row promotes
+    // at the upper boundary, while a promoted row demotes at the lower boundary.
     return wasEligible ? travelSquared > thresholdSquared : travelSquared >= thresholdSquared;
 }
 } // namespace
@@ -142,8 +143,7 @@ void PhysicsMotionEligibilityStage::Run( const PhysicsBodyStore& bodyStore, cons
         const uint8_t previous = m_state[row];
         uint8_t resolved = 0u;
 
-        if ( ResolveEligibility( ( previous & PhysicsMotionEligibilityLinearPromoted ) != 0u, linearTravelSquared,
-                                 collider.minimumCollisionThickness ) )
+        if ( ResolveEligibility( ( previous & PhysicsMotionEligibilityLinearPromoted ) != 0u, linearTravelSquared ) )
         {
             resolved |= PhysicsMotionEligibilityLinearPromoted;
             ++m_stats.promotedBodies;
@@ -153,8 +153,7 @@ void PhysicsMotionEligibilityStage::Run( const PhysicsBodyStore& bodyStore, cons
             ++m_stats.discreteBodies;
         }
 
-        if ( ResolveEligibility( ( previous & PhysicsMotionEligibilityAngularExpanded ) != 0u, angularTravelSquared,
-                                 collider.minimumCollisionThickness ) )
+        if ( ResolveEligibility( ( previous & PhysicsMotionEligibilityAngularExpanded ) != 0u, angularTravelSquared ) )
         {
             resolved |= PhysicsMotionEligibilityAngularExpanded;
             ++m_stats.angularExpandedBodies;

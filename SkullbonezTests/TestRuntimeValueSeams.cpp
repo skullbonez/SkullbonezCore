@@ -35,12 +35,18 @@
 
 #include "../ThirdPtySource/doctest/doctest.h"
 
+#include "../SkullbonezSource/Runtime/App/InputFrame.h"
+#include "../SkullbonezSource/Runtime/Planning/ReplayPlanningOverlayLayout.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayArtifactSource.h"
 #include "../SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h"
 #include "../SkullbonezSource/Runtime/Interaction/RuntimeInteractionCommands.h"
 #include "../SkullbonezSource/Runtime/Render/RuntimeRenderFrameValues.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneController.h"
+#include "../SkullbonezSource/Runtime/UI/OperatorUiPhase.h"
+#include "../SkullbonezSource/Runtime/UI/RuntimeUiSurface.h"
+#include "../SkullbonezSource/UI/UIDrawList.h"
+#include "../SkullbonezSource/UI/UIDrawWidgets.h"
 
 #include <cmath>
 #include <cstring>
@@ -69,6 +75,110 @@ int RectCenterY( const SkullbonezCore::UI::UIRect& rect )
     return static_cast<int>( std::round( rect.y + rect.h * 0.5f ) );
 }
 } // namespace
+
+TEST_CASE( "Runtime composition maps camera modes into interaction-owned workspaces" )
+{
+    RuntimeInteractionController controller;
+
+    CHECK( EnterInteractionForCameraMode( controller, RunCameraMode::Demo ).workspace == RuntimeWorkspace::Live );
+    CHECK( EnterInteractionForCameraMode( controller, RunCameraMode::Scene ).workspace == RuntimeWorkspace::Live );
+    CHECK( EnterInteractionForCameraMode( controller, RunCameraMode::Director ).workspace == RuntimeWorkspace::Live );
+    CHECK( EnterInteractionForCameraMode( controller, RunCameraMode::Inspect ).workspace == RuntimeWorkspace::Inspect );
+    CHECK( EnterInteractionForCameraMode( controller, RunCameraMode::Attach ).workspace == RuntimeWorkspace::Inspect );
+    CHECK( EnterInteractionForCameraMode( controller, RunCameraMode::Launcher ).owner == WorldInteractionOwner::Launcher );
+    CHECK( EnterInteractionForCameraMode( controller, RunCameraMode::Manipulator ).owner ==
+           WorldInteractionOwner::Manipulator );
+}
+
+TEST_CASE( "Operator UI phase: detached facts and process commands cross one ordered frame" )
+{
+    OperatorUiFrameSnapshot snapshot;
+    snapshot.uiText.cameraModeLabel = "Orbit";
+    snapshot.uiText.presentationAlpha = 0.25f;
+    snapshot.metrics.uiDrawCalls = 9;
+    snapshot.viewportWidth = 1920;
+    snapshot.viewportHeight = 1080;
+    snapshot.secondarySurfaceVisible = true;
+
+    OperatorUiPhaseOwner phase;
+    REQUIRE( phase.Begin( snapshot ) );
+    snapshot.uiText.presentationAlpha = 0.75f;
+    snapshot.metrics.uiDrawCalls = 99;
+
+    CHECK( phase.Snapshot().uiText.presentationAlpha == doctest::Approx( 0.25f ) );
+    CHECK( phase.Snapshot().metrics.uiDrawCalls == 9 );
+    CHECK( phase.Snapshot().viewportWidth == 1920 );
+    CHECK( phase.Snapshot().secondarySurfaceVisible );
+    REQUIRE( phase.MarkComposed() );
+    REQUIRE( phase.RecordGpuSubmission( 7 ) );
+
+    OperatorUiProcessCommands commands;
+    commands.surface = OperatorUiSurfaceCommand::ShowGameUi;
+    commands.requestTracyStandardCapture = true;
+    REQUIRE( phase.EmitCommands( commands ) );
+    REQUIRE( phase.Complete() );
+
+    CHECK( phase.CurrentPhase() == OperatorUiPhaseOwner::Phase::Complete );
+    CHECK( phase.GameUiDrawCalls() == 7 );
+    CHECK( phase.Commands().surface == OperatorUiSurfaceCommand::ShowGameUi );
+    CHECK( phase.Commands().requestTracyStandardCapture );
+}
+
+TEST_CASE( "Operator UI phase: hidden GameUI and ImGui consume the same immutable facts" )
+{
+    OperatorUiFrameSnapshot shared;
+    shared.uiText.cameraModeEnabledMask = 0x5u;
+    shared.uiText.presentationPinned = true;
+    shared.metrics.sceneEnergy = 12.5f;
+
+    OperatorUiPhaseOwner hidden;
+    OperatorUiPhaseOwner gameUi;
+    OperatorUiPhaseOwner imgui;
+    REQUIRE( hidden.Begin( shared ) );
+    REQUIRE( gameUi.Begin( shared ) );
+    REQUIRE( imgui.Begin( shared ) );
+
+    CHECK( hidden.Snapshot().uiText.cameraModeEnabledMask == gameUi.Snapshot().uiText.cameraModeEnabledMask );
+    CHECK( gameUi.Snapshot().uiText.cameraModeEnabledMask == imgui.Snapshot().uiText.cameraModeEnabledMask );
+    CHECK( hidden.Snapshot().uiText.presentationPinned == imgui.Snapshot().uiText.presentationPinned );
+    CHECK( hidden.Snapshot().metrics.sceneEnergy == doctest::Approx( imgui.Snapshot().metrics.sceneEnergy ) );
+}
+
+TEST_CASE( "Operator UI phase: skipped operations cannot advance the owner cursor" )
+{
+    OperatorUiPhaseOwner phase;
+    CHECK_FALSE( phase.MarkComposed() );
+    CHECK_FALSE( phase.RecordGpuSubmission( 1 ) );
+    CHECK_FALSE( phase.EmitCommands( {} ) );
+    CHECK_FALSE( phase.Complete() );
+    CHECK( phase.CurrentPhase() == OperatorUiPhaseOwner::Phase::Idle );
+}
+
+TEST_CASE( "Operator UI phase: submission plan preserves text-only hidden and visible routing" )
+{
+    const OperatorUiSubmissionPlan textOnly = ResolveOperatorUiSubmissionPlan( true, true, true, false );
+    CHECK_FALSE( textOnly.composeGameUi );
+    CHECK_FALSE( textOnly.submitOverlay );
+    CHECK_FALSE( textOnly.submitReplay );
+    CHECK_FALSE( textOnly.finalizeOverlay );
+
+    const OperatorUiSubmissionPlan visible = ResolveOperatorUiSubmissionPlan( false, true, true, false );
+    CHECK( visible.composeGameUi );
+    CHECK_FALSE( visible.submitOverlay );
+    CHECK( visible.submitReplay );
+    CHECK_FALSE( visible.finalizeOverlay );
+
+    const OperatorUiSubmissionPlan hidden = ResolveOperatorUiSubmissionPlan( false, false, false, false );
+    CHECK_FALSE( hidden.composeGameUi );
+    CHECK( hidden.submitOverlay );
+    CHECK( hidden.submitReplay );
+    CHECK( hidden.finalizeOverlay );
+
+    const OperatorUiSubmissionPlan profiler = ResolveOperatorUiSubmissionPlan( false, false, false, true );
+    CHECK( profiler.submitOverlay );
+    CHECK( profiler.submitReplay );
+    CHECK_FALSE( profiler.finalizeOverlay );
+}
 
 TEST_CASE( "Render policy: unavailable raytracing cannot select DXR reflection" )
 {
@@ -418,6 +528,88 @@ TEST_CASE( "Replay overlay: scrubber geometry clamps compact and wide screens" )
     CHECK( ReplayScrubberPositionFromMouse( 4000, 1920, 1080, RunReplayTrack::Solver ) == 1.0f );
 }
 
+TEST_CASE( "Runtime UI components preserve pointer ownership and action identity" )
+{
+    RuntimeUiSurface<3> surface;
+    RuntimeUiControl disabled;
+    disabled.id = RuntimeUiControlId { 1u };
+    disabled.kind = RuntimeUiControlKind::Button;
+    disabled.action = RuntimeUiActionId { 41u };
+    disabled.drawRect = { 20.0f, 20.0f, 80.0f, 24.0f };
+    disabled.hitRect = disabled.drawRect;
+    disabled.enabled = false;
+    REQUIRE( surface.TryAdd( disabled ) );
+
+    RuntimeUiControl behind = disabled;
+    behind.id = RuntimeUiControlId { 2u };
+    behind.action = RuntimeUiActionId { 99u };
+    behind.enabled = true;
+    REQUIRE( surface.TryAdd( behind ) );
+
+    surface.ResolvePointer( 40, 30 );
+    CHECK( surface.consumesPointer );
+    CHECK( surface.hasPointerControl );
+    CHECK( surface.pointerControl == disabled.id );
+    CHECK_FALSE( surface.hasHotControl );
+    REQUIRE( surface.Find( disabled.id ) != nullptr );
+    CHECK( surface.Find( disabled.id )->action.value == 41u );
+    CHECK( surface.Find( behind.id )->action.value == 99u );
+}
+
+TEST_CASE( "Planning UI components render detached trip controls in owner order" )
+{
+    ReplayTripPlannerView planner;
+    planner.visible = true;
+    planner.available = true;
+    ReplayTripPlannerSurface surface;
+    BuildReplayTripPlannerSurface( planner, 1280, surface );
+    REQUIRE( surface.controlCount == 6u );
+
+    const ReplayTripPlannerControlRow* commit = surface.Find( ReplayTripPlannerControl::Commit );
+    REQUIRE( commit != nullptr );
+    CHECK( commit->action == ReplayTripPlannerCommandKind::Commit );
+    CHECK_FALSE( commit->enabled );
+    const SkullbonezCore::UI::UIVisualState commitState = ReplayTripPlannerControlVisualState( *commit );
+    CHECK( SkullbonezCore::UI::HasVisualState( commitState, SkullbonezCore::UI::UIVisualState::Visible ) );
+    CHECK_FALSE( SkullbonezCore::UI::HasVisualState( commitState, SkullbonezCore::UI::UIVisualState::Enabled ) );
+    surface.ResolvePointer( RectCenterX( commit->hitRect ), RectCenterY( commit->hitRect ), false );
+    CHECK( surface.consumesPointer );
+    CHECK_FALSE( surface.hasHotControl );
+
+    constexpr ReplayTripPlannerControl order[] = { ReplayTripPlannerControl::TimeOfFlightDecrease,
+                                                   ReplayTripPlannerControl::TimeOfFlightIncrease,
+                                                   ReplayTripPlannerControl::Plan, ReplayTripPlannerControl::Commit,
+                                                   ReplayTripPlannerControl::Cancel };
+    constexpr const char* labels[] = { "-", "+", "PLAN", "COMMIT", "CANCEL" };
+    SkullbonezCore::UI::UIDrawList drawList;
+    const SkullbonezCore::UI::UIDrawContext draw( 1280, 720, drawList );
+    SkullbonezCore::UI::Widgets::DrawPanel( draw, ReplayTripPlannerPanelRect( 1280 ),
+                                            SkullbonezCore::UI::UIVisualState::Visible |
+                                                SkullbonezCore::UI::UIVisualState::Enabled,
+                                            SkullbonezCore::UI::Widgets::ComponentAppearance::Compact );
+
+    for ( std::size_t index = 0; index < std::size( order ); ++index )
+    {
+        const ReplayTripPlannerControlRow* row = surface.Find( order[index] );
+        REQUIRE( row != nullptr );
+        SkullbonezCore::UI::Widgets::DrawButton( draw, row->drawRect, labels[index],
+                                                 ReplayTripPlannerControlVisualState( *row ),
+                                                 SkullbonezCore::UI::Widgets::ComponentAppearance::Compact );
+    }
+
+    const std::span<const SkullbonezCore::UI::UIDrawList::Command> commands = drawList.Commands();
+    REQUIRE( commands.size() == 12u );
+
+    for ( std::size_t index = 0; index < std::size( labels ); ++index )
+    {
+        const SkullbonezCore::UI::UIDrawList::Command& text = commands[3u + index * 2u];
+        CHECK( text.type == SkullbonezCore::UI::UIDrawList::CommandType::Text );
+        CHECK( std::strcmp( drawList.TextAt( text.textOffset ), labels[index] ) == 0 );
+    }
+
+    CHECK( drawList.Fingerprint() == 309035145945859501ull );
+}
+
 TEST_CASE( "Replay overlay: surface description publishes owner availability as values" )
 {
     ReplayScrubberView scrubber;
@@ -431,7 +623,7 @@ TEST_CASE( "Replay overlay: surface description publishes owner availability as 
                                                                            true );
     input.screenW = 1920;
     input.screenH = 1080;
-    input.gesture = RuntimeInteractionGestureKind::ReplayScrubDrag;
+    input.gesture = ReplayToolGestureKind::ScrubDrag;
     CHECK( input.track == RunReplayTrack::Solver );
     CHECK( input.solverToolsEnabled );
     CHECK( input.predictionToolsEnabled );
@@ -445,13 +637,13 @@ TEST_CASE( "Replay overlay: surface description publishes owner availability as 
     CHECK( surface.controlCount == 13u );
     CHECK( surface.hasActiveControl );
     CHECK( surface.activeControl == ReplayScrubberControlId( ReplayScrubberControl::ScrubTrack ) );
-    const RuntimeUiControl* active = surface.Find( surface.activeControl );
+    const ReplayOverlayControl* active = surface.Find( surface.activeControl );
     REQUIRE( active != nullptr );
     CHECK( active->active );
 
-    const RuntimeUiControl* highDetail = surface.Find( ReplayScrubberControlId( ReplayScrubberControl::HighDetail ) );
+    const ReplayOverlayControl* highDetail = surface.Find( ReplayScrubberControlId( ReplayScrubberControl::HighDetail ) );
     REQUIRE( highDetail != nullptr );
-    CHECK( highDetail->kind == RuntimeUiControlKind::Toggle );
+    CHECK( highDetail->kind == ReplayOverlayControlKind::Toggle );
     CHECK( highDetail->checked );
     CHECK( highDetail->drawRect.x == doctest::Approx( ReplayScrubberHighDetailToggleRect( 1920, 1080 ).x ) );
     CHECK( highDetail->drawRect.y == doctest::Approx( ReplayScrubberHighDetailToggleRect( 1920, 1080 ).y ) );
@@ -461,7 +653,7 @@ TEST_CASE( "Replay overlay: surface description publishes owner availability as 
     CHECK( surface.hasPointerControl );
     CHECK( surface.hasHotControl );
     CHECK( surface.hotControl == highDetail->id );
-    CHECK( surface.Find( surface.hotControl )->action.value ==
+    CHECK( surface.Find( surface.hotControl )->action ==
            static_cast<uint32_t>( ReplayScrubberAction::SetPredictionDetailMode ) );
 
     input.predictionHighDetail = false;
@@ -508,7 +700,7 @@ TEST_CASE( "Replay overlay: loaded and unavailable surfaces block invalid action
 
     ReplayScrubberSurface loadedSurface;
     BuildReplayScrubberSurface( loaded, loadedSurface );
-    const RuntimeUiControl* highDetail = loadedSurface.Find( ReplayScrubberControlId( ReplayScrubberControl::HighDetail ) );
+    const ReplayOverlayControl* highDetail = loadedSurface.Find( ReplayScrubberControlId( ReplayScrubberControl::HighDetail ) );
     REQUIRE( highDetail != nullptr );
     CHECK_FALSE( highDetail->visible );
 

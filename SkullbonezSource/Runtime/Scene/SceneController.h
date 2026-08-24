@@ -4,10 +4,10 @@ Purpose:
   Owns scene lifecycle, queue navigation, cold scene mutation, and scene requests.
 
 Summary:
-  SceneController owns the scene queue, cold mutation, frame completion policy,
-  and ordered request batch. SceneLoadTransaction separately enforces consumer
-  phase order. The controller composes one concrete SceneWorld for the active
-  scene; callers borrow it instead of reaching domains through forwarding.
+  SceneController owns the scene queue, active world, frame completion policy,
+  and ordered request batch. SceneLoadTransaction applies cold mutations through
+  that public Scene surface while enforcing consumer phase order. The controller
+  exposes no transaction backdoor or duplicated SceneWorld forwarding surface.
 
 Glossary:
   Scene world: Concrete owner for active-scene entities, physics, cameras,
@@ -35,9 +35,9 @@ Related:
 #include "SceneSessionState.h"
 #include "SceneLoadRequest.h"
 #include "SceneLoadPresentation.h"
+#include "SceneRenderPolicy.h"
 #include "SceneWorld.h"
 #include "../Camera/CameraControlState.h"
-#include "../Diagnostics/OverlayDebugState.h"
 #include "../../Core/SbResult.h"
 #include "../../Maths/Vector3.h"
 
@@ -48,38 +48,14 @@ namespace SkullbonezCore
 {
 namespace Core
 {
-class EngineConfig;
 struct CinematicRenderConfig;
 } // namespace Core
 namespace Assets
 {
 class AssetSystem;
 }
-namespace Environment
-{
-class CameraCollection;
-class WorldEnvironment;
-} // namespace Environment
-namespace Physics
-{
-class PhysicsEngine;
-class PhysicsDebugVisualizer;
-struct PhysicsWorldForces;
-} // namespace Physics
-namespace Threading
-{
-class WorkerPool;
-}
-namespace Rendering
-{
-class Dx12FrameOwner;
-class Dx12RenderDevice;
-class Dx12ResourceBuilder;
-} // namespace Rendering
 namespace UI
 {
-class InGameUI;
-struct SceneNavigationModel;
 } // namespace UI
 namespace Scene
 {
@@ -88,25 +64,9 @@ struct StandaloneStyleSnapshot;
 namespace Runtime
 {
 class AuthoredScene;
-class AttachedCameraController;
-class DiagnosticsRuntime;
-class InputRouter;
-class ReplayRuntime;
-class RuntimeInteractionController;
-class RuntimeOverlayDiagnostics;
-class RuntimeValidationHarness;
 struct SceneAutomationGateStatus;
-class RuntimeRenderer;
-class RuntimeTools;
-class SceneLoadTransaction;
-class SimulationSystem;
-class Window;
-struct AttachedCameraState;
 struct CameraControlState;
-struct OverlayDebugState;
 struct RunLaunchOptions;
-struct RunStartupState;
-struct RunTimerState;
 struct SceneFrameAdvanceResult
 {
     SceneLoadRequest loadRequest;
@@ -138,8 +98,8 @@ struct SceneDefaultsSaveView
 {
     // Lifetime: every owner is borrowed only for one synchronous cold save.
     // The writer retains no pointers across a scene reload.
-    const OverlayDebugState& debug;
-    const RuntimeRenderer& renderer;
+    const ScenePresentationValues& presentation;
+    SceneRenderPolicyState renderPolicy;
     const CameraControlState& camera;
     const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides;
 };
@@ -193,15 +153,6 @@ class SceneController : public SceneSession
                              const Assets::AssetSystem& assets, SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
                              const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic );
 
-    // Executes the fixed pending batch inside the scene owner. Replay records
-    // only requests whose operation completes successfully. The transaction
-    // owns outputs and enforces the later reaction/presentation phases.
-    bool ExecutePending( SceneLoadTransaction& transaction, SkullbonezCore::Core::EngineConfig& config,
-                         RunLaunchOptions& launchOptions,
-                         const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender,
-                         const RunStartupState& startup, Assets::AssetSystem& assets, Threading::WorkerPool& workerPool,
-                         DiagnosticsRuntime& diagnosticsRuntime, Rendering::Dx12FrameOwner* renderFrame,
-                         Rendering::Dx12ResourceBuilder* renderResources, RuntimeRenderer& renderer );
     SkullbonezCore::Core::SbResult SaveCurrentDefaults( const SceneDefaultsSaveView& view ) const;
 
     // Scene request submission and ordered batch execution stay owner-specific;
@@ -221,20 +172,6 @@ class SceneController : public SceneSession
     SceneRequestBatch TakePendingRequests();
 
   private:
-    friend class SceneLoadTransaction;
-
-    // Lifetime: cold load orchestration borrows each phase value only for this
-    // call. The transaction owns detached outputs; neither owner stores a Run
-    // backpointer or complete mutable context.
-    // Hazard: renderFrame proves old GPU use complete before scene mutation;
-    // renderResources is borrowed only afterward for cold terrain construction.
-    SkullbonezCore::Core::SbResult
-    Load( const SceneLoadRequest& request, SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions,
-          const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender, const RunStartupState& startup,
-          Assets::AssetSystem& assets, Threading::WorkerPool& workerPool, DiagnosticsRuntime& diagnosticsRuntime,
-          Rendering::Dx12FrameOwner* renderFrame, Rendering::Dx12ResourceBuilder* renderResources, RuntimeRenderer& renderer,
-          SceneLoadTransaction& transaction );
-
     SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     SceneRequestQueue m_requests;         // Fixed scene-only deferred intent ring.
     int m_perfPass = 0;                   // Scene navigation pass index for two-pass performance captures.

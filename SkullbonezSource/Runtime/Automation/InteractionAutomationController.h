@@ -37,12 +37,12 @@ Invariants:
     the normal cause-tree owner; they do not reconstruct solver evidence.
   - Continuous forecast actions cross the normal typed command queue; the
     sequencer stores no Planning owner reference or worker-ring span.
-  - Editor and window owners are borrowed only while one command batch is
-    applied; automation stores neither owner after the synchronous call.
+  - App applies editor and window commands synchronously; automation stores
+    neither owner while retaining script progress or report evidence.
   - Process-wide development-surface selection remains a typed request for Run.
 
 Related:
-  - SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp
+  - SkullbonezSource/Runtime/App/InteractionAutomationApplication.cpp
   - SkullbonezSource/Runtime/Automation/InteractionAutomationInputDriver.h
   - SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.h
   - SkullbonezSource/Runtime/Input/Input.h
@@ -53,19 +53,19 @@ Related:
 #include "../../Core/PlatformWin32.h"
 
 #include "../RuntimeFrameViews.h"
-#include "../App/ReplayRuntimePackets.h"
+#include "ReplayAutomationView.h"
 #include "InteractionAutomationInputDriver.h"
 #include "InteractionAutomationRecorder.h"
 #include "InteractionAutomationReportWriter.h"
-#include "../App/RunLaunchOptions.h"
+#include "../Startup/RunLaunchOptions.h"
 
 #include "../../Core/Common.h"
 #include "../../Core/SbResult.h"
 #include "../../Maths/Vector3.h"
-#include "../Direction/DemoDirector.h"
+#include "../Camera/DemoDirector.h"
 #include "../Camera/RuntimeCameraMode.h"
 #include "../Replay/ReplayCoordination.h"
-#include "../../UI/OperatorEditorExchange.h"
+#include "../Interaction/OperatorEditorExchange.h"
 
 #include <string>
 #include <string_view>
@@ -80,14 +80,8 @@ namespace Core
 class EngineConfig;
 class SbDiagnosticStore;
 } // namespace Core
-namespace Rendering
-{
-class Dx12BackbufferCapture;
-struct RenderSceneSnapshot;
-} // namespace Rendering
 namespace UI
 {
-class InGameUI;
 }
 namespace Runtime
 {
@@ -96,16 +90,7 @@ namespace DevelopmentTools
 class ImGuiEditorOwner;
 struct ImGuiEditorStatus;
 } // namespace DevelopmentTools
-class AttachedCameraController;
-class CaptureController;
-struct ContinuousOrbitalForecastView;
-class InputRouter;
-class RuntimeInteractionController;
-class RuntimeTools;
-class SceneController;
-class Window;
-struct CameraControlState;
-struct RunTimerState;
+struct RuntimeFrameMetricsSnapshot;
 enum class RunInteractionAutomationActionType
 {
     LoadShotList,
@@ -362,12 +347,6 @@ struct InteractionAutomationController
     InteractionAutomationInputDriver inputDriver;
     InteractionAutomationReportWriter reportWriter;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    // Applies the bounded editor/window commands for one automation turn. Run
-    // retains only the returned process-surface selection and failure boundary.
-    InteractionAutomationDevelopmentUiApplyResult
-    ApplyDevelopmentUiCommands( const InteractionAutomationFrameResult& frame, Window& window,
-                                DevelopmentTools::ImGuiEditorOwner& editor ) const;
-
     // Interprets the automation-owned replay command and submits it through
     // the same bounded queue used by real editor widgets.
     SkullbonezCore::Core::SbResult SubmitOperatorEditorReplayCommand( const InteractionAutomationFrameResult& frame,
@@ -405,9 +384,11 @@ struct InteractionAutomationFrameResult
     UI::OperatorEditorForecastCommand operatorEditorForecastCommand;
     bool applyCameraMode = false;
     RunCameraMode cameraMode = RunCameraMode::Demo;
+    bool applyDirectorCameraPose = false;
+    DemoCameraPose directorCameraPose;
     bool setWorldInteractionOwner = false;
-    WorldInteractionOwner worldInteractionOwner = WorldInteractionOwner::None;
-    InteractionExitReason worldInteractionReason = InteractionExitReason::EnterReplay;
+    int worldInteractionOwner = 0;
+    int worldInteractionReason = 0;
     bool restoreRecordedReplayBaseline = false;
     bool recordedReplayScrubPaused = false;
     bool recordedReplayLiveAdvanceHeld = false;
@@ -462,15 +443,6 @@ inline bool TryParseInteractionAutomationVirtualKey( const char* value, int& out
 }
 SkullbonezCore::Core::SbResult InteractionAutomationResult( const InteractionAutomationController& state );
 void ClearInteractionAutomationInput( InteractionAutomationController& state );
-InteractionAutomationFrameResult TickInteractionAutomationBeforeInput( InteractionAutomationController& state, Window& window, const SkullbonezCore::Core::EngineConfig& config,
-                                                                       SceneController& scene, RunTimerState& timers, CameraControlState& camera, InputRouter& inputRouter,
-                                                                       RuntimeInteractionController& interaction, RuntimeTools& runtimeTools, SkullbonezCore::UI::InGameUI& ui,
-                                                                       const ReplayAutomationView& replayView, const Rendering::RenderSceneSnapshot& renderSnapshot );
-InteractionAutomationFrameResult TickInteractionAutomationAfterRender( InteractionAutomationController& state, RuntimeTools& runtimeTools, RuntimeInteractionController& interaction,
-                                                                       InputRouter& inputRouter, CameraControlState& camera, SkullbonezCore::UI::InGameUI& ui, SceneController& scene,
-                                                                       const ReplayAutomationView& replayView, const InteractionAutomationDevelopmentUiView& developmentUiView,
-                                                                       const ContinuousOrbitalForecastView& forecastView, const Rendering::RenderSceneSnapshot& renderSnapshot,
-                                                                       CaptureController& capture, Rendering::Dx12BackbufferCapture& backbufferCapture );
 bool InteractionAutomationWillCaptureAfterRender( const InteractionAutomationController& state, int frame );
 } // namespace Runtime
 } // namespace SkullbonezCore

@@ -24,7 +24,7 @@ Related:
 
 #include "SceneControllerState.h"
 #include "SceneSessionState.h"
-#include "../App/RunLaunchOptions.h"
+#include "../Startup/RunLaunchOptions.h"
 #include "../../Scene/AuthoredScene.h"
 
 #include <cstdint>
@@ -44,7 +44,6 @@ namespace Runtime
 {
 class AuthoredScene;
 class SceneWorld;
-struct OverlayDebugState;
 
 inline void ApplyCinematicSceneOverrides( SkullbonezCore::Core::CinematicRenderConfig& target, uint64_t mask,
                                           const SkullbonezCore::Core::CinematicRenderConfig& source )
@@ -149,9 +148,7 @@ SkullbonezCore::Core::CinematicRenderConfig& ActiveSceneCinematicConfig( SceneSe
 const SkullbonezCore::Core::CinematicRenderConfig&
 ActiveSceneCinematicConfig( const SceneSessionState& scene, const SkullbonezCore::Core::EngineConfig& config );
 bool IsSceneCinematicRenderingEnabled( const SceneSessionState& scene, const SkullbonezCore::Core::EngineConfig& config,
-                                       const RunLaunchOptions& launchOptions, const OverlayDebugState& debug,
-                                       bool graphicsReady );
-Math::Vector::Vector3 CinematicSkySunDirection( const SkullbonezCore::Core::CinematicRenderConfig& cinematic );
+                                       const RunLaunchOptions& launchOptions, bool textOnly, bool graphicsReady );
 void ApplyCinematicUIParam( SkullbonezCore::Core::CinematicRenderConfig& cinematic, SceneSessionState& scene,
                             UI::UICinematicParam param, float rawValue );
 void SetCinematicShadowsEnabledFromUI( SkullbonezCore::Core::CinematicRenderConfig& cinematic, SceneSessionState& scene,

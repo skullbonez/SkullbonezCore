@@ -48,6 +48,8 @@ Invariants:
     bounded friend access; they do not duplicate those decisions in test code.
   - Taking editor frame status releases the editor-held lease while the
     returned Runtime copy retains the exact failure bytes.
+  - Replay interaction requests pair native capture with exactly one gesture
+    transition, and scene diagnostic snapshots reject invalid count domains.
 
 Related:
   - Agentic/Reference/engine-glossary.md
@@ -61,13 +63,16 @@ Related:
 
 #include "../SkullbonezSource/Runtime/Capture/CaptureController.h"
 #include "../SkullbonezSource/Runtime/Diagnostics/DiagnosticsPhysicsUI.h"
+#include "../SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.h"
 #include "../SkullbonezSource/Runtime/Diagnostics/OverlayDebugState.h"
 #include "../SkullbonezSource/Runtime/Render/RenderDefaultsStore.h"
-#include "../SkullbonezSource/Runtime/App/RunTimerState.h"
+#include "../SkullbonezSource/Runtime/Diagnostics/RuntimeFrameMetricsOwner.h"
+#include "../SkullbonezSource/Runtime/App/SceneLoadApplication.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorLayoutPolicy.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h"
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPrediction.h"
+#include "../SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayAuthoring.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h"
@@ -79,8 +84,8 @@ Related:
 #include "../SkullbonezSource/Runtime/Scene/SceneController.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneLoadRequest.h"
 #include "../SkullbonezSource/Physics/PhysicsDebugData.h"
-#include "../SkullbonezSource/UI/UICommands.h"
-#include "../SkullbonezSource/UI/UITabPhysics.h"
+#include "../SkullbonezSource/Runtime/Interaction/OperatorUiCommands.h"
+#include "../SkullbonezSource/Runtime/UI/GameUI/UITabPhysics.h"
 
 #include <algorithm>
 #include <array>
@@ -111,7 +116,7 @@ namespace Runtime
 struct SceneLoadTransactionTestAccess
 {
     static void SetLoadedValues( SceneLoadTransaction& transaction, const SceneLoadRequest& request,
-                                 const SceneLoadNavigationState& navigation, const OverlayDebugState& presentation,
+                                 const SceneLoadNavigationState& navigation, const ScenePresentationValues& presentation,
                                  bool applyNavigation )
     {
         transaction.m_request = request;
@@ -124,6 +129,15 @@ struct SceneLoadTransactionTestAccess
     {
         return transaction.m_phase.TryAdvance( SceneLoadPhaseCursor::Phase::Load );
     }
+
+    static void SetRenderValues( SceneLoadTransaction& transaction, SceneRenderPolicyState policy,
+                                 int activationSceneObjectCapacity, bool activationPending )
+    {
+        transaction.m_outputs.renderPolicy = policy;
+        transaction.m_outputs.renderActivationSceneObjectCapacity = activationSceneObjectCapacity;
+        transaction.m_outputs.renderActivationPending = activationPending;
+    }
+
 };
 
 struct SceneGeneratedControlTransactionTestAccess
@@ -182,6 +196,52 @@ struct SceneGeneratedControlTransactionTestAccess
 };
 } // namespace Runtime
 } // namespace SkullbonezCore
+
+
+TEST_CASE( "Replay interaction requests own gesture and native-capture pairing" )
+{
+    ReplayInteractionRequest request;
+    CHECK( request.WorldOwner() == ReplayWorldOwnerRequest::None );
+    CHECK( request.BeginGestureKind() == ReplayToolGestureKind::None );
+    CHECK_FALSE( request.EndsGesture() );
+    CHECK_FALSE( request.RequestsNativeCapture() );
+    CHECK_FALSE( request.ReleasesNativeCapture() );
+
+    const SkullbonezCore::Physics::PhysicsBodyHandle body{17u, 2u};
+    request.RequestWorldOwner( ReplayWorldOwnerRequest::VelocityEdit );
+    request.BeginVelocityDrag( 31, 47, body, 2, true );
+    CHECK( request.WorldOwner() == ReplayWorldOwnerRequest::VelocityEdit );
+    CHECK( request.BeginGestureKind() == ReplayToolGestureKind::VelocityDrag );
+    CHECK( request.GestureStartX() == 31 );
+    CHECK( request.GestureStartY() == 47 );
+    CHECK( request.GestureBody().index == body.index );
+    CHECK( request.GestureBody().generation == body.generation );
+    CHECK( request.GestureAxis() == 2 );
+    CHECK( request.GestureAngular() );
+    CHECK( request.RequestsNativeCapture() );
+    CHECK_FALSE( request.EndsGesture() );
+    CHECK_FALSE( request.ReleasesNativeCapture() );
+
+    request.EndGesture();
+    CHECK( request.BeginGestureKind() == ReplayToolGestureKind::None );
+    CHECK_FALSE( request.RequestsNativeCapture() );
+    CHECK( request.EndsGesture() );
+    CHECK( request.ReleasesNativeCapture() );
+}
+
+
+TEST_CASE( "Runtime scene diagnostic facts reject invalid sentinel and count domains" )
+{
+    CHECK( RuntimeSceneDiagnosticFacts::ValuesAreValid( -1, 0, 0, 0, -1, 0 ) );
+    CHECK( RuntimeSceneDiagnosticFacts::ValuesAreValid( 3, 4, 5, 6, 7, 8 ) );
+    CHECK_FALSE( RuntimeSceneDiagnosticFacts::ValuesAreValid( -2, 0, 0, 0, 0, 0 ) );
+    CHECK_FALSE( RuntimeSceneDiagnosticFacts::ValuesAreValid( 0, -1, 0, 0, 0, 0 ) );
+    CHECK_FALSE( RuntimeSceneDiagnosticFacts::ValuesAreValid( 0, 0, -1, 0, 0, 0 ) );
+    CHECK_FALSE( RuntimeSceneDiagnosticFacts::ValuesAreValid( 0, 0, 0, -1, 0, 0 ) );
+    CHECK_FALSE( RuntimeSceneDiagnosticFacts::ValuesAreValid( 0, 0, 0, 0, -2, 0 ) );
+    CHECK_FALSE( RuntimeSceneDiagnosticFacts::ValuesAreValid( 0, 0, 0, 0, 0, -1 ) );
+
+}
 
 
 TEST_CASE( "Operator editor frame status keeps its lease through owner reset" )
@@ -354,6 +414,24 @@ TEST_CASE( "Runtime applies Physics-tab diagnostics and publishes matching detac
     CHECK( status.contacts );
 }
 
+TEST_CASE( "Diagnostics keyboard commands mutate presentation without Input ownership" )
+{
+    OverlayDebugState debug;
+    int trackedEntity = 0;
+
+    CHECK( HandleDiagnosticsKeyboardShortcut( debug, trackedEntity, 1, false, true, 3.0,
+                                              DiagnosticsKeyboardCommand::ToggleCollisionVisualizer, true ) );
+    CHECK( debug.isCollisionVisualizer );
+
+    CHECK( HandleDiagnosticsKeyboardShortcut( debug, trackedEntity, 1, false, false, 3.0,
+                                              DiagnosticsKeyboardCommand::ToggleBroadphaseOverlay, true ) );
+    CHECK( debug.isBroadphaseOverlay );
+
+    CHECK( HandleDiagnosticsKeyboardShortcut( debug, trackedEntity, 1, false, false, 3.0,
+                                              DiagnosticsKeyboardCommand::ToggleBroadphaseOverlay, false ) );
+    CHECK( debug.isBroadphaseOverlay );
+}
+
 TEST_CASE( "Scene lifecycle accepts only ordered phases within one generation" )
 {
     CHECK( SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent::None,
@@ -388,9 +466,8 @@ TEST_CASE( "Scene lifecycle accepts only ordered phases within one generation" )
     const SceneLifecycleConsumerMask beforeUnload = SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics ) |
                                                     SceneLifecycleConsumerBit( SceneLifecycleConsumer::RenderDrain );
 
-    const SceneLifecycleConsumerMask afterClear = SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics );
     CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::BeforeSceneUnload ) == beforeUnload );
-    CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::AfterSceneCleared ) == afterClear );
+    CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::AfterSceneCleared ) == 0 );
     CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::BeforeScenePopulate ) == 0 );
     CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::AfterScenePopulate ) == 0 );
     CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::AfterSceneActivated ) == 0 );
@@ -451,14 +528,14 @@ TEST_CASE( "Scene lifecycle generations publish failures and repeated scene load
     CHECK( clearObserver.LastAppliedGeneration() == 2 );
 }
 
-TEST_CASE( "Run timers consume reset and activation once per lifecycle generation" )
+TEST_CASE( "Frame metrics lifecycle consumes reset and activation once per generation" )
 {
-    RunTimerSceneLifecyclePolicy timerPolicy;
+    RuntimeFrameMetricsLifecyclePolicy timerPolicy;
 
     SceneLifecyclePacket packet;
     packet.generation = 1;
     packet.event = SceneRuntimeLifecycleEvent::BeforeSceneUnload;
-    RunTimerSceneLifecycleActions actions = timerPolicy.Observe( packet );
+    RuntimeFrameMetricsLifecycleActions actions = timerPolicy.Observe( packet );
     CHECK_FALSE( actions.resetMeasurements );
     CHECK_FALSE( actions.restartClocks );
 
@@ -486,11 +563,58 @@ TEST_CASE( "Run timers consume reset and activation once per lifecycle generatio
     CHECK( timerPolicy.LastActivationGeneration() == 2 );
 }
 
+TEST_CASE( "Frame metrics publish first sample and aggregate on the half-second cadence" )
+{
+    RuntimeFrameMetricsOwner metrics;
+    metrics.RecordProfilerSample( 0.003f, 0.004f, 5.0f );
+    metrics.SampleFrame( { 0.1, 10.0 } );
+
+    RuntimeFrameMetricsSnapshot snapshot = metrics.MetricsSnapshot();
+    CHECK( snapshot.secondsPerFrame == doctest::Approx( 0.1 ) );
+    CHECK( snapshot.sceneEnergy == doctest::Approx( 10.0f ) );
+    CHECK( snapshot.rollingFrameSeconds == 0.0f );
+
+    metrics.SampleFrame( { 0.1, 20.0 } );
+    CHECK( metrics.MetricsSnapshot().sceneEnergy == doctest::Approx( 15.0f ) );
+
+    for ( int sample = 0; sample < 4; ++sample )
+    {
+        metrics.SampleFrame( { 0.1, 20.0 } );
+    }
+
+    snapshot = metrics.MetricsSnapshot();
+    CHECK( snapshot.rollingFrameSeconds == doctest::Approx( 0.1f ) );
+    CHECK( snapshot.rollingPhysicsSeconds == doctest::Approx( 0.003f ) );
+    CHECK( snapshot.rollingRenderSeconds == doctest::Approx( 0.004f ) );
+    CHECK( snapshot.sceneEnergy == doctest::Approx( 110.0 / 6.0 ) );
+}
+
+TEST_CASE( "Frame metric cadence is identical for hidden GameUI and ImGui surfaces" )
+{
+    std::array<RuntimeFrameMetricsOwner, 3> surfaceOwners;
+    for ( RuntimeFrameMetricsOwner& owner : surfaceOwners )
+    {
+        owner.SampleFrame( { 0.2, 3.0 } );
+        owner.SampleFrame( { 0.2, 6.0 } );
+        owner.SampleFrame( { 0.2, 9.0 } );
+    }
+
+    const RuntimeFrameMetricsSnapshot hidden = surfaceOwners[0].MetricsSnapshot();
+    const RuntimeFrameMetricsSnapshot gameUi = surfaceOwners[1].MetricsSnapshot();
+    const RuntimeFrameMetricsSnapshot imgui = surfaceOwners[2].MetricsSnapshot();
+    CHECK( hidden.secondsPerFrame == gameUi.secondsPerFrame );
+    CHECK( gameUi.secondsPerFrame == imgui.secondsPerFrame );
+    CHECK( hidden.rollingFrameSeconds == gameUi.rollingFrameSeconds );
+    CHECK( gameUi.rollingFrameSeconds == imgui.rollingFrameSeconds );
+    CHECK( hidden.sceneEnergy == gameUi.sceneEnergy );
+    CHECK( gameUi.sceneEnergy == imgui.sceneEnergy );
+}
+
 TEST_CASE( "Scene batch followers prefer presentation values emitted by a completed clear" )
 {
-    OverlayDebugState submitted;
+    ScenePresentationValues submitted;
     submitted.physicsDebugAlpha = 0.25f;
-    OverlayDebugState loaded;
+    ScenePresentationValues loaded;
     loaded.physicsDebugAlpha = 0.75f;
     SceneLoadNavigationState navigation;
     SceneLoadTransaction transaction;
@@ -498,14 +622,56 @@ TEST_CASE( "Scene batch followers prefer presentation values emitted by a comple
                                                      navigation, loaded, false );
 
     SceneLifecyclePacket lifecycle;
-    CHECK( &transaction.PresentationForFollowingRequest( submitted, lifecycle ) == &submitted );
+    CHECK( transaction.PresentationForFollowingRequest( submitted, lifecycle ).physicsDebugAlpha ==
+           doctest::Approx( 0.25f ) );
     REQUIRE( SceneLoadTransactionTestAccess::EnterLoadPhase( transaction ) );
-    CHECK( &transaction.PresentationForFollowingRequest( submitted, lifecycle ) == &submitted );
+    CHECK( transaction.PresentationForFollowingRequest( submitted, lifecycle ).physicsDebugAlpha ==
+           doctest::Approx( 0.25f ) );
     lifecycle.generation = 1;
     lifecycle.event = SceneRuntimeLifecycleEvent::AfterSceneCleared;
-    CHECK( &transaction.PresentationForFollowingRequest( submitted, lifecycle ) != &submitted );
     CHECK( transaction.PresentationForFollowingRequest( submitted, lifecycle ).physicsDebugAlpha ==
            doctest::Approx( 0.75f ) );
+}
+
+TEST_CASE( "Scene UI options publish ordered detached diagnostics reactions" )
+{
+    SceneUIOptions options;
+    options.hasTestPattern = true;
+    options.testPatternEnabled = true;
+    options.hasStress = true;
+    options.stressEnabled = true;
+    options.hasStressSeed = true;
+    options.stressSeed = 0x12345678u;
+    options.hasStressActions = true;
+    options.stressActionsPerFrame = 7;
+
+    const SceneUiOptionDiagnosticsProjection projection = ProjectSceneUiOptionDiagnostics( options, false );
+
+    CHECK( projection.applyTestPattern );
+    CHECK( projection.testPatternEnabled );
+    REQUIRE( projection.reactions.count == 3 );
+    CHECK( projection.reactions.reactions[0].kind == SceneDiagnosticsReactionKind::SetUiStressEnabled );
+    CHECK( projection.reactions.reactions[0].enabled );
+    CHECK( projection.reactions.reactions[1].kind == SceneDiagnosticsReactionKind::SetUiStressSeed );
+    CHECK( static_cast<unsigned int>( projection.reactions.reactions[1].value ) == 0x12345678u );
+    CHECK( projection.reactions.reactions[2].kind == SceneDiagnosticsReactionKind::SetUiStressActions );
+    CHECK( projection.reactions.reactions[2].value == 7 );
+}
+
+TEST_CASE( "Scene UI preservation keeps presentation while still publishing stress policy" )
+{
+    SceneUIOptions options;
+    options.hasTestPattern = true;
+    options.testPatternEnabled = true;
+    options.hasStress = true;
+    options.stressEnabled = true;
+
+    const SceneUiOptionDiagnosticsProjection projection = ProjectSceneUiOptionDiagnostics( options, true );
+
+    CHECK_FALSE( projection.applyTestPattern );
+    REQUIRE( projection.reactions.count == 1 );
+    CHECK( projection.reactions.reactions[0].kind == SceneDiagnosticsReactionKind::SetUiStressEnabled );
+    CHECK( projection.reactions.reactions[0].enabled );
 }
 
 TEST_CASE( "Scene load phase cursor accepts only the complete adjacent walk" )
@@ -623,7 +789,12 @@ TEST_CASE( "Replay restore transaction requires branch and rollback side-effect 
         transaction.CaptureLiveBackup( ReplaySolverFrameSample {} );
         transaction.MarkTopologyPrepared( false, false );
         transaction.MarkCheckpointApplied();
-        transaction.MarkTargetStepped( 17u, 3u, 2u );
+        transaction.BeginTargetStep( 1u );
+        transaction.RecordAppliedTargetEvent( 1u );
+        transaction.RecordAppliedTargetEvent( 2u );
+        transaction.MarkTargetStepped( 17u );
+        CHECK( transaction.EventCursor() == 3u );
+        CHECK( transaction.EventsApplied() == 2u );
         transaction.MarkTargetVerified();
     };
 
@@ -653,12 +824,40 @@ TEST_CASE( "Replay restore transaction requires branch and rollback side-effect 
     rollback.RequireScrubberPublicationTerminal( false );
 }
 
+TEST_CASE( "Replay restore transaction owns artifact request identity without retaining solver borrows" )
+{
+    ReplaySolverFrameSample borrowedSample;
+    ReplayLiveRestoreRequest request;
+    request.kind = ReplayLiveRestoreKind::V2ArtifactTarget;
+    request.solverSample = &borrowedSample;
+    request.requestedFrame = 41u;
+    request.makeLiveBranch = true;
+    request.enterInteractive = true;
+    request.messageTrack = RunReplayTrack::Presentation;
+    request.now = 12.5;
+    strcpy_s( request.path, "TestOutput\\artifact.skreplay" );
+
+    ReplayRestoreTransaction transaction;
+    transaction.SetArtifactRequest( request );
+    request.path[0] = '\0';
+
+    const ReplayLiveRestoreRequest& stored = transaction.ArtifactRequest();
+    CHECK( stored.kind == ReplayLiveRestoreKind::V2ArtifactTarget );
+    CHECK( stored.solverSample == nullptr );
+    CHECK( stored.requestedFrame == 41u );
+    CHECK( stored.makeLiveBranch );
+    CHECK( stored.enterInteractive );
+    CHECK( stored.messageTrack == RunReplayTrack::Presentation );
+    CHECK( stored.now == doctest::Approx( 12.5 ) );
+    CHECK( std::strcmp( stored.path, "TestOutput\\artifact.skreplay" ) == 0 );
+}
+
 #ifdef _DEBUG
 TEST_CASE( "Replay restore transaction detaches exact diagnostic values and text" )
 {
     ReplayRestoreTransaction transaction;
 
-    ReplayRestoreProbeDiagnostic probe;
+    ReplayRestoreProbePacket probe;
     probe.targetReplayFrame = 71;
     probe.targetSceneFrame = 19;
     probe.targetSolverHash = 0xA1u;
@@ -677,7 +876,7 @@ TEST_CASE( "Replay restore transaction detaches exact diagnostic values and text
     transaction.RecordRestoreProbeDiagnostic( probe );
 
     REQUIRE( transaction.HasRestoreProbeDiagnostic() );
-    const ReplayRestoreProbeDiagnostic& storedProbe = transaction.RestoreProbeDiagnostic();
+    const ReplayRestoreProbePacket& storedProbe = transaction.RestoreProbeDiagnostic();
     CHECK( storedProbe.targetReplayFrame == 71 );
     CHECK( storedProbe.targetSceneFrame == 19 );
     CHECK( storedProbe.targetSolverHash == 0xA1u );
@@ -696,7 +895,7 @@ TEST_CASE( "Replay restore transaction detaches exact diagnostic values and text
 
     char source[] = "v2_file_branch";
     char failure[] = "forced target hash mismatch";
-    ReplayRestoreResultDiagnostic result;
+    ReplayRestoreResultPacket result;
     result.restoreSource = source;
     result.targetReplayFrame = 91;
     result.targetSceneFrame = 23;
@@ -720,7 +919,7 @@ TEST_CASE( "Replay restore transaction detaches exact diagnostic values and text
     failure[0] = 'x';
 
     REQUIRE( transaction.HasRestoreResultDiagnostic() );
-    const ReplayRestoreResultDiagnostic& storedResult = transaction.RestoreResultDiagnostic();
+    const ReplayRestoreResultPacket& storedResult = transaction.RestoreResultDiagnostic();
     CHECK( std::strcmp( storedResult.restoreSource, "v2_file_branch" ) == 0 );
     CHECK( std::strcmp( storedResult.failureReason, "forced target hash mismatch" ) == 0 );
     CHECK( storedResult.targetReplayFrame == 91 );
@@ -763,6 +962,7 @@ TEST_CASE( "Generated-scene control transaction blocks mutation after a failed d
     CHECK_FALSE( SceneGeneratedControlTransactionTestAccess::MutationAllowedAfterDrain( transaction ) );
     CHECK( transaction.Phase() == SceneGeneratedControlPhaseCursor::Phase::DrainAndReset );
     CHECK_FALSE( SceneGeneratedControlTransactionTestAccess::Result( transaction ).action.status.Ok() );
+    CHECK_FALSE( SceneGeneratedControlTransactionTestAccess::Result( transaction ).action.clearToolRayHistory );
     CHECK_FALSE( SceneGeneratedControlTransactionTestAccess::Result( transaction ).action.resetReplayTimeline );
     CHECK_FALSE( SceneGeneratedControlTransactionTestAccess::Result( transaction ).action.scheduleProfileReset );
     CHECK( uiOverrides.solverBoxCountOverride == 40 );
@@ -785,8 +985,19 @@ TEST_CASE( "Generated-scene control transaction publishes follow-ups only for an
 
     CHECK( SceneGeneratedControlTransactionTestAccess::MutationAllowedAfterDrain( transaction ) );
     REQUIRE( SceneGeneratedControlTransactionTestAccess::PublishAfterRepopulation( transaction ) );
+    CHECK( SceneGeneratedControlTransactionTestAccess::Result( transaction ).action.clearToolRayHistory );
     CHECK( SceneGeneratedControlTransactionTestAccess::Result( transaction ).action.resetReplayTimeline );
     CHECK( SceneGeneratedControlTransactionTestAccess::Result( transaction ).action.scheduleProfileReset );
+
+    SceneGeneratedControlTransaction inactiveTransaction =
+        SceneGeneratedControlTransaction::ModelCount( 20, GeneratedObjectTypeOverride::Mixed, 100 );
+    REQUIRE( SceneGeneratedControlTransactionTestAccess::Resolve( inactiveTransaction, uiOverrides, sceneState ) );
+    REQUIRE( SceneGeneratedControlTransactionTestAccess::RecordDrain( inactiveTransaction, false,
+                                                                       SkullbonezCore::Core::SbResult::Success() ) );
+    REQUIRE( SceneGeneratedControlTransactionTestAccess::PublishAfterRepopulation( inactiveTransaction ) );
+    CHECK_FALSE( SceneGeneratedControlTransactionTestAccess::Result( inactiveTransaction ).action.clearToolRayHistory );
+    CHECK_FALSE( SceneGeneratedControlTransactionTestAccess::Result( inactiveTransaction ).action.resetReplayTimeline );
+    CHECK_FALSE( SceneGeneratedControlTransactionTestAccess::Result( inactiveTransaction ).action.scheduleProfileReset );
 }
 
 TEST_CASE( "Scene navigation returns value-only accepted load decisions" )
@@ -881,6 +1092,38 @@ TEST_CASE( "CaptureController rejects truncating paths before enqueue" )
     const SkullbonezCore::Core::SbResult tooLong = capture.QueueScreenshot( oversized );
     CHECK_FALSE( tooLong.Ok() );
     CHECK( capture.PendingScreenshotCount() == 1 );
+}
+
+TEST_CASE( "App applies scene capture reactions in published order" )
+{
+    CaptureController capture( diagnostics );
+    SceneCaptureReactionBatch reactions;
+    reactions.reactions[reactions.count++].kind = SceneCaptureReactionKind::ResetScreenshot;
+
+    SceneCaptureReaction& apply = reactions.reactions[reactions.count++];
+    apply.kind = SceneCaptureReactionKind::ApplyAutomation;
+    apply.automation.screenshotFrame = 17;
+    apply.automation.screenshotMs = 250;
+    apply.automation.screenshotAndExit = true;
+    apply.automation.screenshotInterval = 3;
+    strcpy_s( apply.automation.screenshotPath, "captures/scene.bmp" );
+
+    reactions.reactions[reactions.count++].kind = SceneCaptureReactionKind::DisableAutomationExit;
+    ApplySceneCaptureReactions( capture, reactions );
+
+    const RunScreenshotState& screenshot = capture.Screenshot();
+    CHECK_EQ( screenshot.screenshotFrame, 17 );
+    CHECK_EQ( screenshot.screenshotMs, 250 );
+    CHECK_EQ( screenshot.screenshotInterval, 3 );
+    CHECK_EQ( std::strcmp( screenshot.screenshotPath, "captures/scene.bmp" ), 0 );
+    CHECK_FALSE( screenshot.isScreenshotAndExit );
+
+    SceneCaptureReactionBatch trailingReset;
+    trailingReset.reactions[trailingReset.count++] = apply;
+    trailingReset.reactions[trailingReset.count++].kind = SceneCaptureReactionKind::ResetScreenshot;
+    ApplySceneCaptureReactions( capture, trailingReset );
+    CHECK_EQ( capture.Screenshot().screenshotFrame, -1 );
+    CHECK_EQ( capture.Screenshot().screenshotPath[0], '\0' );
 }
 
 TEST_CASE( "CaptureController owns a fixed request budget" )
@@ -1026,6 +1269,32 @@ TEST_CASE( "Scene request batches stop after a failed transition" )
     CHECK( SceneRequestBatchContinuesAfter( SceneRequestType::SaveCurrentDefaults, false ) );
 }
 
+TEST_CASE( "Scene render activation gates transition completion before a queued save" )
+{
+    CHECK_FALSE( SceneRenderActivationCompletesTransition( false, false, true ) );
+    CHECK( SceneRenderActivationCompletesTransition( true, false, false ) );
+    CHECK_FALSE( SceneRenderActivationCompletesTransition( true, true, false ) );
+    CHECK( SceneRenderActivationCompletesTransition( true, true, true ) );
+
+    CHECK_FALSE( SceneRequestBatchContinuesAfter(
+        SceneRequestType::LoadBrowserIndex,
+        SceneRenderActivationCompletesTransition( true, true, false ) ) );
+    CHECK( SceneRequestBatchContinuesAfter(
+        SceneRequestType::LoadBrowserIndex,
+        SceneRenderActivationCompletesTransition( true, true, true ) ) );
+}
+
+TEST_CASE( "Scene load transaction publishes detached render policy and activation capacity" )
+{
+    SceneLoadTransaction transaction;
+    SceneLoadTransactionTestAccess::SetRenderValues( transaction, { false, true }, 8192, true );
+
+    CHECK_FALSE( transaction.RenderPolicy().vsyncEnabled );
+    CHECK( transaction.RenderPolicy().pipelineSyncEnabled );
+    CHECK( transaction.RenderActivationPending() );
+    CHECK( transaction.RenderActivationSceneObjectCapacity() == 8192 );
+}
+
 TEST_CASE( "Scene request execution saves navigation committed by an earlier load" )
 {
     SceneLoadNavigationState submitted;
@@ -1035,7 +1304,7 @@ TEST_CASE( "Scene request execution saves navigation committed by an earlier loa
     SceneLoadNavigationState loaded;
     loaded.overrides.timeScaleOverride = 0.5f;
     loaded.overrides.modelCountOverride = 24;
-    OverlayDebugState presentation;
+    ScenePresentationValues presentation;
     SceneLoadTransaction transaction;
     SceneLoadTransactionTestAccess::SetLoadedValues( transaction, SceneLoadRequest::Load( 0, false, false, false ), loaded,
                                                      presentation, false );
@@ -1935,6 +2204,20 @@ TEST_CASE( "Editor preferences round trip and recover stale layout identity" )
     CHECK( recovered.layoutResetRequired );
     CHECK( recovered.recoveredDefaults );
     CHECK( recovered.preferences.panelVisibilityMask == IMGUI_EDITOR_DEFAULT_PANEL_MASK );
+}
+
+TEST_CASE( "Planning fixes replay overlay composition order before generic render submission" )
+{
+    using namespace SkullbonezCore::Runtime::ReplayOverlay;
+
+    CHECK_FALSE( ShouldComposeReplayOverlay( false ) );
+    CHECK( ShouldComposeReplayOverlay( true ) );
+    REQUIRE( REPLAY_OVERLAY_COMPOSITION_ORDER.size() == 5u );
+    CHECK( REPLAY_OVERLAY_COMPOSITION_ORDER[0] == ReplayOverlaySurfaceKind::Intercept );
+    CHECK( REPLAY_OVERLAY_COMPOSITION_ORDER[1] == ReplayOverlaySurfaceKind::TripPlanner );
+    CHECK( REPLAY_OVERLAY_COMPOSITION_ORDER[2] == ReplayOverlaySurfaceKind::Porkchop );
+    CHECK( REPLAY_OVERLAY_COMPOSITION_ORDER[3] == ReplayOverlaySurfaceKind::CauseTree );
+    CHECK( REPLAY_OVERLAY_COMPOSITION_ORDER[4] == ReplayOverlaySurfaceKind::Scrubber );
 }
 
 TEST_CASE( "Compact causality projection is bounded and exposes explicit edge states" )

@@ -17,8 +17,8 @@
 # Invariants:
 #   - Tool output should be bounded and readable because agents and humans use
 #   it for decisions.
-#   - This comparator is read-only; only the owner-interactive baseline guard
-#   may replace the committed core golden.
+#   - This comparator is read-only; only the content-bound, artifact-retaining
+#     Physics baseline guard may replace the committed core golden.
 #
 # Related:
 #   - AGENTS.md
@@ -35,6 +35,7 @@ exactly deterministic. Any single differing byte is a real regression.
 
 Exit 0 = all match, Exit 1 = regression detected or files missing.
 """
+import hashlib
 import os
 import sys
 
@@ -43,6 +44,13 @@ BASELINE_DIR = os.path.join(REPO, "TestOutput", "baselines")
 
 CORE_TESTS = [
     (os.path.join(REPO, "Debug", "physics_regression_varied.csv"), "physics_regression_varied.csv"),
+]
+
+WORKER_MATRIX_TESTS = [
+    (os.path.join(REPO, "Debug", "physics_regression_varied.csv"), "workers=0 primary"),
+    (os.path.join(REPO, "Debug", "physics_regression_varied_workers_0_repeat.csv"), "workers=0 repeat"),
+    (os.path.join(REPO, "Debug", "physics_regression_varied_workers_1.csv"), "workers=1"),
+    (os.path.join(REPO, "Debug", "physics_regression_varied_workers_4.csv"), "workers=4"),
 ]
 
 DEEP_TESTS = [
@@ -80,20 +88,123 @@ def canonical_complete_run(data, artifact_name):
     return runs[0], len(runs)
 
 
+def compare_worker_matrix_payloads(outputs, baseline_data):
+    """Return canonical worker rows and bounded byte-exact comparison failures."""
+    failures = []
+    rows = []
+
+    try:
+        baseline, baseline_run_count = canonical_complete_run(baseline_data, "physics_regression_varied.csv")
+    except ValueError as exc:
+        return rows, 0, [f"committed baseline is invalid: {exc}"]
+
+    for label, data in outputs:
+        try:
+            current, run_count = canonical_complete_run(data, label)
+        except ValueError as exc:
+            failures.append(str(exc))
+            continue
+        rows.append((label, current, run_count))
+
+    if len(rows) != len(outputs):
+        return rows, baseline_run_count, failures
+
+    reference_label, reference, _ = rows[0]
+    for label, current, _ in rows:
+        if current != reference:
+            failures.append(f"{label} differs byte-for-byte from {reference_label}")
+        if current != baseline:
+            failures.append(f"{label} differs byte-for-byte from the committed baseline")
+
+    return rows, baseline_run_count, failures
+
+
+def run_worker_matrix():
+    baseline_path = os.path.join(BASELINE_DIR, "physics_regression_varied.csv")
+    if not os.path.exists(baseline_path):
+        print("  FAIL: missing committed baseline physics_regression_varied.csv")
+        return 1
+
+    outputs = []
+    missing = False
+    for output_path, label in WORKER_MATRIX_TESTS:
+        if not os.path.exists(output_path):
+            print(f"  FAIL: {os.path.basename(output_path)} not produced ({label})")
+            missing = True
+            continue
+        with open(output_path, "rb") as stream:
+            outputs.append((label, stream.read()))
+
+    if missing:
+        return 1
+
+    with open(baseline_path, "rb") as stream:
+        baseline_data = stream.read()
+
+    rows, baseline_run_count, failures = compare_worker_matrix_payloads(outputs, baseline_data)
+    if failures:
+        for failure in failures[:8]:
+            print(f"  FAIL: {failure}")
+        return 1
+
+    canonical = rows[0][1]
+    digest = hashlib.sha256(canonical).hexdigest()
+    line_count = canonical.count(b"\n")
+    run_summary = ", ".join(f"{label}:runs={run_count}" for label, _, run_count in rows)
+    print(
+        f"  PASS: clean-process worker matrix ({line_count} lines, sha256={digest}; "
+        f"baseline runs={baseline_run_count}; {run_summary})"
+    )
+    return 0
+
+
+def run_self_test():
+    complete = b"frame,value\n0,alpha\n1,beta\n"
+    identical_outputs = [
+        ("workers=0 primary", complete),
+        ("workers=0 repeat", complete + complete),
+        ("workers=1", complete),
+        ("workers=4", complete),
+    ]
+    rows, _, failures = compare_worker_matrix_payloads(identical_outputs, complete)
+    if failures or len(rows) != len(identical_outputs):
+        raise RuntimeError("self-test rejected an identical clean-process worker matrix")
+
+    mutated_outputs = list(identical_outputs)
+    mutated_outputs[-1] = ("workers=4", b"frame,value\n0,alpha\n1,gamma\n")
+    _, _, failures = compare_worker_matrix_payloads(mutated_outputs, complete)
+    if not any("workers=4 differs byte-for-byte" in failure for failure in failures):
+        raise RuntimeError("self-test accepted a participating worker payload mutation")
+
+    divergent_repeat = complete + b"frame,value\n0,alpha\n1,gamma\n"
+    divergent_outputs = list(identical_outputs)
+    divergent_outputs[1] = ("workers=0 repeat", divergent_repeat)
+    _, _, failures = compare_worker_matrix_payloads(divergent_outputs, complete)
+    if not any("emitted 2 complete CSV runs that are not byte-identical" in failure for failure in failures):
+        raise RuntimeError("self-test accepted divergent appended runs")
+
+    print("PASS: physics regression comparator self-tests")
+    return 0
+
+
 def main():
-    deep = False
-    for arg in sys.argv[1:]:
-        if arg == "--deep":
-            deep = True
-        else:
-            print("usage: check_physics_regression.py [--deep]")
-            if arg == "--update":
-                print(
-                    "baseline updates require repository-owner approval: "
-                    "python tools/check_physics_baseline_guard.py --approve-output "
-                    "Debug/physics_regression_varied.csv"
-                )
-            return 2
+    args = sys.argv[1:]
+    if args == ["--self-test"]:
+        return run_self_test()
+    if args == ["--worker-matrix"]:
+        return run_worker_matrix()
+    if args not in ([], ["--deep"]):
+        print("usage: check_physics_regression.py [--deep | --worker-matrix | --self-test]")
+        if "--update" in args:
+            print(
+                "Physics-plan baseline updates require the archived automated lane: "
+                "python tools/check_physics_baseline_guard.py --automated-override-output "
+                "Debug/physics_regression_varied.csv --candidate-sha256 <sha256> "
+                "--artifact-manifest <manifest.json>"
+            )
+        return 2
+
+    deep = args == ["--deep"]
 
     tests = DEEP_TESTS if deep else CORE_TESTS
 
@@ -101,10 +212,6 @@ def main():
         print("  Checking deep physics regression baselines...")
     else:
         print("  Checking core physics regression baseline...")
-
-    if len(sys.argv) > 2:
-        print("usage: check_physics_regression.py [--deep]")
-        return 2
 
     all_pass = True
 

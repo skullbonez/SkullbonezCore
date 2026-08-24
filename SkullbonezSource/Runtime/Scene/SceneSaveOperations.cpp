@@ -5,12 +5,9 @@ Purpose:
   composition for editor, load-only, and editable-replacement entry points.
 
 Summary:
-  Each entry validates or selects its destination, composes one SceneSaveRequest
-  from the three owner publications, and performs one synchronous write.
-
-Glossary:
-  Numbered artifact: Editor snapshot whose sequence advances past existing
-    files so an operator save never overwrites an earlier snapshot.
+  Each Scene entry validates its caller-selected destination, composes one
+  SceneSaveRequest from the three owner publications, and performs one
+  synchronous write.
 
 Invariants:
   - Path policy is entry-specific, while serialized owner coverage is identical.
@@ -19,14 +16,13 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneSaveOperations.h
-  - SkullbonezSource/Runtime/Tools/RuntimeFileWriter.cpp
+  - SkullbonezSource/Runtime/Editor/EditorTools.cpp
   - SkullbonezSource/Scene/SceneSnapshotWriter.cpp
   - Agentic/Reference/engine-glossary.md
 */
 #include "SceneSaveOperations.h"
 
 #include "../../Core/SbDiagnosticStore.h"
-#include "../Tools/RuntimeFileWriter.h"
 
 using SkullbonezCore::GameObjects::PresentationSaveState;
 using SkullbonezCore::GameObjects::SceneSaveRequest;
@@ -50,22 +46,6 @@ Core::SbResult SaveCompletePublication( Core::SbDiagnosticStore& diagnostics, co
     return SceneSnapshotWriter::Save( diagnostics, SceneSaveRequest { path, world, session, presentation } );
 }
 } // namespace
-
-
-bool TrySaveNextEditorSceneSnapshot( Core::SbDiagnosticStore& diagnostics, int& sequence, const SceneWorldSaveState& world,
-                                     const SceneSessionSaveState& session, const PresentationSaveState& presentation,
-                                     Core::SbResult& outSaveResult )
-{
-    char path[256] = {};
-
-    if ( !RuntimeFileWriter::NextNumberedPath( path, sizeof( path ), "Scenes", "snapshot_", ".scene.json", sequence, 100 ) )
-    {
-        return false;
-    }
-
-    outSaveResult = SaveCompletePublication( diagnostics, path, world, session, presentation );
-    return true;
-}
 
 
 Core::SbResult SaveSceneLoadOnlySnapshot( Core::SbDiagnosticStore& diagnostics, const char* path,

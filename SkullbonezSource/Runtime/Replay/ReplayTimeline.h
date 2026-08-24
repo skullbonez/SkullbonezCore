@@ -31,6 +31,7 @@ Related:
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -245,13 +246,11 @@ class ReplayTimeline
     // Cold-I/O command: decode and install one retained presentation without
     // exposing temporary sample storage to the composition root.
     bool LoadPresentationArtifact( const char* path );
-    bool NextPresentationSavePath( char* outPath, std::size_t outPathSize );
     const ReplaySolverFrameSample*
     CaptureFrame( int sceneFrame, float physicsDt, const ReplayWorldPresentationSample& world,
                   const ReplayCameraSample& camera, const ReplayLauncherVisualSample& launcherVisual,
                   Physics::PhysicsEngine& physics, const Gameplay::TornadoGameplay& tornadoGameplay,
-                  const SceneEntityStore& entities, const Physics::PhysicsBodyStore& bodyStore,
-                  const Physics::ColliderStore& colliderStore, const ReplayBranchInfo& branch );
+                  std::span<const char* const> entityDisplayNames, const ReplayBranchInfo& branch );
     void RecordEvent( const ReplayEventInput& input );
 
     // Concept: event sequencing belongs to the timeline owner. The caller
@@ -277,7 +276,6 @@ class ReplayTimeline
     ReplayMemoryPolicy m_memoryPolicy;
     RunLoadedReplayPresentationState m_loadedPresentation;
     std::string m_recordingHashLogPath;
-    int m_presentationSaveSequence = 0;
     int m_recordingRuntimeBodyCapacity = 0;
     uint32_t m_captureMismatchReports = 0;
     bool m_captureMismatchSuppressed = false;

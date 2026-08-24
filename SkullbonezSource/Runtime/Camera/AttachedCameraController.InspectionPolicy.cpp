@@ -16,7 +16,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Camera/AttachedCameraController.InspectionPolicy.h
-  - SkullbonezSource/Runtime/Camera/AttachedCameraController.cpp
+  - SkullbonezSource/Runtime/Scene/AttachedCameraController.cpp
   - Agentic/Reference/engine-glossary.md
 */
 #include "AttachedCameraController.InspectionPolicy.h"

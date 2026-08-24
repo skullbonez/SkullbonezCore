@@ -31,10 +31,10 @@ Related:
 #include "../SkullbonezSource/UI/UIDraw.h"
 #include "../SkullbonezSource/UI/UIDrawList.h"
 #include "../SkullbonezSource/UI/UIFontMetrics.h"
-#include "../SkullbonezSource/UI/UIProfilerOverlayPresenter.h"
+#include "../SkullbonezSource/Runtime/Render/UIProfilerOverlayPresenter.h"
 #include "../SkullbonezSource/UI/UIStyle.h"
-#include "../SkullbonezSource/UI/UI.h"
-#include "../SkullbonezSource/UI/UIWindowInteractionOwner.h"
+#include "../SkullbonezSource/Runtime/UI/GameUI/UI.h"
+#include "../SkullbonezSource/Runtime/UI/GameUI/UIWindowInteractionOwner.h"
 
 #include <array>
 #include <cstdio>
@@ -343,10 +343,10 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
 #endif
         // Invariant: the Scene stream includes the newest-first replay selector plus
         // the existing continuous-forecast controls and stability rows.
-        17348968595161242269ull,
+        2399826200700883422ull, // Scene: render-frame lockstep is named as a capture request.
         643319089294822447ull,
         9774020997193876338ull,
-        3787874871094680490ull,
+        16562541090565446015ull, // Options: the same request is labelled Capture lockstep.
         13838569643518502325ull,
         1186693958027131891ull,
         5057719176066529734ull,
@@ -369,6 +369,7 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
 
         if ( tabs[surface] == InGameUITab::Scene )
         {
+            REQUIRE( FindDrawTextIndex( frame, "running / capture lockstep off" ) >= 0 );
             const int forecastTitleIndex = FindDrawTextIndex( frame, "Continuous orbital forecast" );
             const int forecastButtonIndex = FindDrawTextIndex( frame, "Rolling prediction" );
             REQUIRE( forecastTitleIndex >= 0 );
@@ -378,6 +379,11 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
             CHECK( forecastTitle.pxSize == doctest::Approx( 12.0f ) );
             CHECK( forecastButton.y0 - forecastTitle.y0 > 20.0f );
             CHECK( forecastButton.y0 - forecastTitle.y0 < 40.0f );
+        }
+
+        if ( tabs[surface] == InGameUITab::Options )
+        {
+            REQUIRE( FindDrawTextIndex( frame, "Capture lockstep" ) >= 0 );
         }
 
         CHECK( frame.Fingerprint() == expected[surface] );

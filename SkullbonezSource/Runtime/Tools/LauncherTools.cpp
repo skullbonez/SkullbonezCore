@@ -1,0 +1,529 @@
+/*
+File: SkullbonezSource/Runtime/Tools/LauncherTools.cpp
+Purpose:
+  Owns launcher-mode raycast, projectile, laser, and repro snapshot behavior.
+
+Summary:
+  Launcher tools translate launcher-mode intent into read-only picks,
+  projectile or impulse requests, laser presentation, and stable debug repro
+  snapshots without retaining scene or physics owners.
+
+Glossary:
+  Repro snapshot: Debug-only text dump of the object under the launcher
+    crosshair, including enough scene and physics state to recreate the issue.
+
+Invariants:
+  - Launcher repro output is a debugging interface; key names and numeric
+    precision should stay stable unless every downstream consumer is updated.
+  - Target picking is read-only and must not perturb physics, selection, or
+    launcher shot history.
+
+Related:
+  - SkullbonezSource/Runtime/Tools/LauncherLaser.h
+  - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/engine-glossary.md
+*/
+#include "RuntimeTools.h"
+#include "../Camera/CameraCollection.h"
+#include "../Startup/RunLaunchOptions.h"
+#include "../Scene/SceneGeneratedSetup.h"
+#include "../Scene/SceneSessionState.h"
+#include "../Scene/SceneWorld.h"
+#include "../../World/WorldEnvironment.h"
+#include "../Scene/SceneEntityStore.h"
+#include "../../Physics/ColliderStore.h"
+#include "../../Physics/PhysicsApi.h"
+#include "../../Physics/PhysicsBodyStore.h"
+#include "../../Physics/TerrainSupportClassifier.h"
+
+#include <cfloat>
+#include <memory>
+#include <time.h>
+
+using namespace SkullbonezCore::Runtime;
+using namespace SkullbonezCore::Math::CollisionDetection;
+using namespace SkullbonezCore::Math::Orientation;
+using namespace SkullbonezCore::Math::Transformation;
+using namespace SkullbonezCore::Physics;
+using SkullbonezCore::Environment::CameraCollection;
+using SkullbonezCore::Math::Vector::Dot;
+using SkullbonezCore::Math::Vector::Vector3;
+
+#ifdef _DEBUG
+namespace
+{
+constexpr const char* LAUNCHER_REPRO_SNAPSHOT_PATH = "Debug/launcher_repro_snapshots.txt";
+constexpr double LAUNCHER_REPRO_MESSAGE_SECONDS = 3.0;
+
+const char* LauncherReproShapeName( ColliderShapeKind kind )
+{
+    switch ( kind )
+    {
+    case ColliderShapeKind::Box:
+        return "box";
+    case ColliderShapeKind::ConvexHull:
+        return "convex_hull";
+    case ColliderShapeKind::Sphere:
+    default:
+        return "sphere";
+    }
+}
+
+
+float LauncherReproRadius( const ColliderRecord& collider )
+{
+    return collider.boundingRadius > 0.0f ? collider.boundingRadius : GetShapeBoundingRadius( collider.shape );
+}
+
+
+const ColliderRecord* LauncherReproColliderForModelIndex( const PhysicsBodyStore& bodyStore,
+                                                          const ColliderStore& colliderStore, int modelIndex )
+{
+    const PhysicsBodyHandle bodyHandle = bodyStore.HandleForModelIndex( modelIndex );
+    const PhysicsColliderHandle colliderHandle = colliderStore.HandleForBodyHandle( bodyHandle );
+    return colliderStore.RecordForHandle( colliderHandle );
+}
+
+
+const PhysicsBodyRecord* LauncherReproBodyForCollider( const PhysicsBodyStore& bodyStore, const ColliderRecord& collider )
+{
+    return bodyStore.RecordForHandle( collider.body );
+}
+} // namespace
+
+
+bool RuntimeTools::PickLauncherReproTarget( const SceneWorld& world, int& outIndex, float& outRayT,
+                                            float& outCrosshairDistance ) const
+{
+    outIndex = -1;
+    outRayT = 0.0f;
+    outCrosshairDistance = 0.0f;
+
+    const CameraCollection& cameras = world.Cameras();
+    const Vector3& camPos = cameras.GetCameraTranslation();
+    Vector3 rayDir = cameras.GetCameraView() - camPos;
+    float rayMagSq = VectorMagSquared( rayDir );
+
+    if ( rayMagSq < TOLERANCE )
+    {
+        return false;
+    }
+
+    rayDir = rayDir * ( 1.0f / sqrtf( rayMagSq ) );
+
+    float bestT = FLT_MAX;
+    float bestCrosshairDist = 0.0f;
+    int bestIndex = -1;
+
+    // Concept: Repro target picking approximates each model as a bounding
+    // sphere around its current physics body position, then chooses the nearest
+    // sphere pierced by the camera ray. The body record remains only the cold
+    // identity table for the eventual snapshot row.
+    const ColliderStore& colliderStore = world.Colliders();
+    const PhysicsBodyStore& bodyStore = world.BodyStore();
+    const auto colliders = colliderStore.Records();
+    const auto hotFields = bodyStore.HotFields();
+
+    for ( const ColliderRecord& collider : colliders )
+    {
+        const PhysicsBodyRecord* body = LauncherReproBodyForCollider( bodyStore, collider );
+
+        if ( !body )
+        {
+            continue;
+        }
+
+        const int modelIndex = colliderStore.ModelIndexForHandle( collider.handle );
+
+        if ( modelIndex < 0 )
+        {
+            continue;
+        }
+
+        Vector3 toModel = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( modelIndex ) ) - camPos;
+        float rayT = Dot( toModel, rayDir );
+
+        if ( rayT <= 0.0f )
+        {
+            continue;
+        }
+
+        float distSq = VectorMagSquared( toModel );
+        float crosshairDistSq = distSq - rayT * rayT;
+
+        if ( crosshairDistSq < 0.0f )
+        {
+            crosshairDistSq = 0.0f;
+        }
+
+        float radius = LauncherReproRadius( collider );
+
+        if ( crosshairDistSq > radius * radius )
+        {
+            continue;
+        }
+
+        float hitOffset = sqrtf( radius * radius - crosshairDistSq );
+        float hitT = rayT - hitOffset;
+
+        if ( hitT < 0.0f )
+        {
+            hitT = rayT;
+        }
+
+        if ( hitT < bestT )
+        {
+            bestT = hitT;
+            bestCrosshairDist = sqrtf( crosshairDistSq );
+            bestIndex = modelIndex;
+        }
+    }
+
+    if ( bestIndex < 0 )
+    {
+        return false;
+    }
+
+    outIndex = bestIndex;
+    outRayT = bestT;
+    outCrosshairDistance = bestCrosshairDist;
+    return true;
+}
+
+
+LauncherReproSnapshotStatus RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& context ) const
+{
+    int targetIndex = -1;
+    float rayT = 0.0f;
+    float crosshairDistance = 0.0f;
+
+    if ( !PickLauncherReproTarget( context.world, targetIndex, rayT, crosshairDistance ) )
+    {
+        return LauncherReproSnapshotStatus::NoTarget;
+    }
+
+    const ColliderStore& colliderStore = context.world.Colliders();
+    const PhysicsBodyStore& bodyStore = context.world.BodyStore();
+    const ColliderRecord* collider = LauncherReproColliderForModelIndex( bodyStore, colliderStore, targetIndex );
+
+    if ( !collider )
+    {
+        return LauncherReproSnapshotStatus::NoTarget;
+    }
+
+    const PhysicsBodyRecord* body = LauncherReproBodyForCollider( bodyStore, *collider );
+
+    if ( !body )
+    {
+        return LauncherReproSnapshotStatus::NoTarget;
+    }
+
+    const PhysicsBodyHotState hotState = LoadPhysicsBodyHotState( bodyStore.HotFields(),
+                                                                  static_cast<std::size_t>( targetIndex ) );
+
+    CreateDirectoryA( "Debug", nullptr );
+    FILE* rawFile = nullptr;
+
+    if ( fopen_s( &rawFile, LAUNCHER_REPRO_SNAPSHOT_PATH, "a" ) != 0 || !rawFile )
+    {
+        return LauncherReproSnapshotStatus::WriteFailed;
+    }
+
+    std::unique_ptr<FILE, decltype( &fclose )> file( rawFile, fclose );
+    FILE* f = file.get();
+
+    const Vector3& pos = hotState.position;
+    const Vector3& vel = hotState.linearVelocity;
+    const Vector3& omega = hotState.angularVelocity;
+    const Vector3& inertia = body->rotationalInertia;
+    const Vector3& invInertia = hotState.inverseRotationalInertia;
+    float qx = 0.0f, qy = 0.0f, qz = 0.0f, qw = 1.0f;
+    Quaternion orientation = hotState.orientation;
+    orientation.GetComponents( qx, qy, qz, qw );
+
+    const CollisionShapeReference& shape = collider->shape;
+    const BoundingSphere* sphereShape = GetShapeIf<BoundingSphere>( &shape );
+    const BoundingBox* boxShape = GetShapeIf<BoundingBox>( &shape );
+    const ConvexHullShape* hullShape = GetShapeIf<ConvexHullShape>( &shape );
+    bool isSphere = sphereShape != nullptr;
+    bool isBox = boxShape != nullptr;
+    const char* shapeName = LauncherReproShapeName( collider->shapeKind );
+    float boundingRadius = LauncherReproRadius( *collider );
+    float shapeVolume = GetShapeVolume( shape );
+    float shapeArea = collider->projectedSurfaceArea;
+    float shapeDrag = collider->dragCoefficient;
+    float mass = body->mass;
+    float restitution = collider->restitution;
+    const char* name = context.world.Entities().At( targetIndex ).displayName;
+
+    if ( !name || name[0] == '\0' )
+    {
+        name = "<unnamed>";
+    }
+
+    const char* scenePath = "<generated>";
+
+    if ( context.sceneState.isSceneMode )
+    {
+        if ( context.currentScenePath )
+        {
+            scenePath = context.currentScenePath->c_str();
+        }
+    }
+
+    const char* rendererName = context.rendererName && context.rendererName[0] != '\0' ? context.rendererName : "DirectX 12";
+
+    const char* rendererArg = "dx12";
+    const char* generatedObjectOverride = "mixed";
+    const char* generatedObjectArg = "";
+
+    if ( context.launchOptions.generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBalls )
+    {
+        generatedObjectOverride = "all_balls";
+        generatedObjectArg = " --all-balls";
+    }
+    else if ( context.launchOptions.generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBoxes )
+    {
+        generatedObjectOverride = "all_boxes";
+        generatedObjectArg = " --all-boxes";
+    }
+
+    const Vector3& camPos = context.world.Cameras().GetCameraTranslation();
+    const Vector3& camView = context.world.Cameras().GetCameraView();
+    const Vector3& camUp = context.world.Cameras().GetCameraUp();
+
+    int sleeping = 0;
+    int sleepSupported = 0;
+    int sleepInhibited = 0;
+    int collisionVisualContact = 0;
+    int sleepIslandVisualId = 0;
+    const Physics::PhysicsEngine& physics = context.world.Physics();
+    const auto sleepStates = PhysicsEngine::ReadSleepStates( physics );
+
+    if ( targetIndex < static_cast<int>( sleepStates.size() ) )
+    {
+        sleeping = sleepStates[targetIndex] ? 1 : 0;
+    }
+
+    const auto sleepSupportedStates = PhysicsEngine::ReadSleepSupportedStates( physics );
+
+    if ( targetIndex < static_cast<int>( sleepSupportedStates.size() ) )
+    {
+        sleepSupported = sleepSupportedStates[targetIndex] ? 1 : 0;
+    }
+
+    const auto sleepInhibitedStates = PhysicsEngine::ReadSleepInhibitedStates( physics );
+
+    if ( targetIndex < static_cast<int>( sleepInhibitedStates.size() ) )
+    {
+        sleepInhibited = sleepInhibitedStates[targetIndex] ? 1 : 0;
+    }
+
+    const auto collisionContacts = PhysicsEngine::ReadCollisionVisualContacts( physics );
+
+    if ( targetIndex < static_cast<int>( collisionContacts.size() ) )
+    {
+        collisionVisualContact = collisionContacts[targetIndex] ? 1 : 0;
+    }
+
+    const auto islandIds = PhysicsEngine::ReadSleepIslandVisualIds( physics );
+
+    if ( targetIndex < static_cast<int>( islandIds.size() ) )
+    {
+        sleepIslandVisualId = islandIds[targetIndex];
+    }
+
+    bool terrainAtCenter = false;
+    float terrainHeight = 0.0f;
+    Vector3 terrainNormal( 0.0f, 1.0f, 0.0f );
+    Geometry::Terrain* terrain = context.world.Terrain().Get();
+
+    if ( terrain && terrain->IsInBounds( pos.x, pos.z ) )
+    {
+        terrain->GetTerrainHeightAndNormalAt( pos.x, pos.z, terrainHeight, terrainNormal );
+        terrainAtCenter = true;
+    }
+
+    int boxTerrainSupportedVertices = -1;
+    float boxMinTerrainGap = 0.0f;
+    float boxMaxTerrainGap = 0.0f;
+
+    if ( boxShape && terrain )
+    {
+        Quaternion qCopy = hotState.orientation;
+        RotationMatrix orientMat = qCopy.GetOrientationMatrix();
+        const BoxTerrainVertexSupportProbe supportProbe = ProbeBoxTerrainVertices( nullptr, *boxShape, pos, orientMat,
+                                                                                   terrain->PhysicsView(),
+                                                                                   context.contactEpsilon, false );
+
+        if ( supportProbe.hasTerrainGaps )
+        {
+            boxTerrainSupportedVertices = supportProbe.supportedVertices;
+            boxMinTerrainGap = supportProbe.minTerrainGap;
+            boxMaxTerrainGap = supportProbe.maxTerrainGap;
+        }
+    }
+
+    time_t now = time( nullptr );
+
+    // Invariant: Snapshot keys are intentionally simple CSV-like rows. Keep
+    // names, order, and precision stable so copied repro blocks remain useful
+    // across debugging sessions and script revisions.
+    fprintf( f, "\n=== LAUNCHER REPRO SNAPSHOT ===\n" );
+    fprintf( f, "timestamp_epoch,%lld\n", static_cast<long long>( now ) );
+    fprintf( f, "snapshot_file,%s\n", LAUNCHER_REPRO_SNAPSHOT_PATH );
+    fprintf( f, "scene,%s\n", scenePath );
+    fprintf( f, "scene_mode,%d\n", context.sceneState.isSceneMode ? 1 : 0 );
+    fprintf( f, "scene_index,%d\n", context.sceneState.currentSceneIndex );
+    fprintf( f, "scene_load_count,%d\n", context.sceneState.loadCount );
+    fprintf( f, "manual_reset_count,%d\n", context.sceneState.manualResetCount );
+    fprintf( f, "scene_frame,%d\n", context.sceneState.currentFrame );
+    fprintf( f, "target_frame_count,%d\n", context.sceneState.targetFrameCount );
+    fprintf( f, "simulation_seconds,%.6f\n", context.simulationSeconds );
+    fprintf( f, "rng_seed,%u\n", context.sceneState.rngSeed );
+    fprintf( f, "cmd_seed_override,%u\n", context.launchOptions.seedOverride );
+    fprintf( f, "cmd_no_water,%d\n", context.launchOptions.noWater ? 1 : 0 );
+    fprintf( f, "cmd_no_sleep,%d\n", context.launchOptions.noSleep ? 1 : 0 );
+    fprintf( f, "physics_sleep_enabled,%d\n", context.physicsSleepEnabled ? 1 : 0 );
+
+    // Compatibility: retain the original two keys and their order for existing
+    // repro parsers. The new keys name request sources without repeating the
+    // legacy fixed_step_effective misnomer.
+    fprintf( f, "fixed_step_effective,%d\n", context.sceneState.isFixedStep ? 1 : 0 );
+    fprintf( f, "cmd_fixed_step_override,%d\n", context.launchOptions.fixedStep ? 1 : 0 );
+    fprintf( f, "scene_session_render_frame_lockstep_requested,%d\n", context.sceneState.isFixedStep ? 1 : 0 );
+    fprintf( f, "explicit_render_frame_lockstep,%d\n", context.launchOptions.fixedStep ? 1 : 0 );
+    fprintf( f, "time_scale,%.6f\n", context.sceneState.timeScale );
+    fprintf( f, "renderer,%s\n", rendererName );
+    fprintf( f, "generated_object_override,%s\n", generatedObjectOverride );
+    fprintf( f, "model_count,%d\n", context.world.SceneEntityCount() );
+    fprintf( f, "vsync_enabled,%d\n", context.vsyncEnabled ? 1 : 0 );
+    fprintf( f, "pipeline_sync_enabled,%d\n", context.pipelineSyncEnabled ? 1 : 0 );
+
+    if ( context.sceneState.isSceneMode )
+    {
+        fprintf( f,
+                 "repro_command_hint,Debug\\SKULLBONEZ_CORE.exe --renderer %s --scene \"%s\" --seed %u --time-scale "
+                 "%.6f%s%s%s%s\n",
+                 rendererArg, scenePath, context.sceneState.rngSeed, context.sceneState.timeScale,
+                 context.launchOptions.fixedStep ? " --fixed-step" : "", context.launchOptions.noWater ? " --no-water" : "",
+                 context.physicsSleepEnabled ? "" : " --no-sleep", generatedObjectArg );
+    }
+    else
+    {
+        fprintf( f, "repro_command_hint,Debug\\SKULLBONEZ_CORE.exe --renderer %s --seed %u --time-scale %.6f%s%s%s%s\n",
+                 rendererArg, context.sceneState.rngSeed, context.sceneState.timeScale,
+                 context.launchOptions.fixedStep ? " --fixed-step" : "", context.launchOptions.noWater ? " --no-water" : "",
+                 context.physicsSleepEnabled ? "" : " --no-sleep", generatedObjectArg );
+    }
+
+    fprintf( f, "water_hidden,%d\n", context.waterHidden ? 1 : 0 );
+    fprintf( f, "terrain_hidden,%d\n", context.terrainHidden ? 1 : 0 );
+    fprintf( f, "collision_visualizer,%d\n", context.collisionVisualizer ? 1 : 0 );
+    fprintf( f, "world_gravity,%.6f\n", context.world.Environment().GetGravity() );
+    fprintf( f, "world_fluid_height,%.6f\n", context.world.Environment().GetFluidSurfaceHeight() );
+    fprintf( f, "world_fluid_density,%.6f\n", context.world.Environment().GetFluidDensity() );
+    fprintf( f, "cfg_friction_coeff,%.6f\n", context.frictionCoeff );
+    fprintf( f, "cfg_contact_epsilon,%.6f\n", context.contactEpsilon );
+    fprintf( f, "camera_eye,%.6f,%.6f,%.6f\n", camPos.x, camPos.y, camPos.z );
+    fprintf( f, "camera_view,%.6f,%.6f,%.6f\n", camView.x, camView.y, camView.z );
+    fprintf( f, "camera_up,%.6f,%.6f,%.6f\n", camUp.x, camUp.y, camUp.z );
+    fprintf( f, "pick_index,%d\n", targetIndex );
+    fprintf( f, "pick_name,%s\n", name );
+    fprintf( f, "pick_shape,%s\n", shapeName );
+    fprintf( f, "pick_ray_t,%.6f\n", rayT );
+    fprintf( f, "pick_crosshair_distance,%.6f\n", crosshairDistance );
+    fprintf( f, "position,%.6f,%.6f,%.6f\n", pos.x, pos.y, pos.z );
+    fprintf( f, "velocity,%.6f,%.6f,%.6f\n", vel.x, vel.y, vel.z );
+    fprintf( f, "angular_velocity,%.6f,%.6f,%.6f\n", omega.x, omega.y, omega.z );
+    fprintf( f, "speed,%.6f\n", sqrtf( VectorMagSquared( vel ) ) );
+    fprintf( f, "omega_mag,%.6f\n", sqrtf( VectorMagSquared( omega ) ) );
+    fprintf( f, "orientation_q,%.8f,%.8f,%.8f,%.8f\n", qx, qy, qz, qw );
+    fprintf( f, "mass,%.6f\n", mass );
+    fprintf( f, "restitution,%.6f\n", restitution );
+    fprintf( f, "rotational_inertia,%.6f,%.6f,%.6f\n", inertia.x, inertia.y, inertia.z );
+    fprintf( f, "inverse_rotational_inertia,%.6f,%.6f,%.6f\n", invInertia.x, invInertia.y, invInertia.z );
+    fprintf( f, "shape_bounding_radius,%.6f\n", boundingRadius );
+    fprintf( f, "shape_volume,%.6f\n", shapeVolume );
+    fprintf( f, "shape_projected_area,%.6f\n", shapeArea );
+    fprintf( f, "shape_drag_coefficient,%.6f\n", shapeDrag );
+
+    if ( isSphere )
+    {
+        fprintf( f, "sphere_radius,%.6f\n", sphereShape->GetRadius() );
+    }
+    else if ( isBox )
+    {
+        const Vector3& he = boxShape->GetHalfExtents();
+        fprintf( f, "box_half_extents,%.6f,%.6f,%.6f\n", he.x, he.y, he.z );
+        fprintf( f, "box_terrain_supported_vertices,%d\n", boxTerrainSupportedVertices );
+        fprintf( f, "box_min_terrain_gap,%.6f\n", boxMinTerrainGap );
+        fprintf( f, "box_max_terrain_gap,%.6f\n", boxMaxTerrainGap );
+    }
+    else
+    {
+        fprintf( f, "hull_name,%s\n", hullShape->GetName() );
+        fprintf( f, "hull_vertices,%u\n", static_cast<unsigned>( hullShape->GetVertexCount() ) );
+        fprintf( f, "hull_faces,%u\n", static_cast<unsigned>( hullShape->GetFaceCount() ) );
+        fprintf( f, "hull_edges,%u\n", static_cast<unsigned>( hullShape->GetEdgeCount() ) );
+    }
+
+    fprintf( f, "sleeping,%d\n", sleeping );
+    fprintf( f, "sleep_supported_this_frame,%d\n", sleepSupported );
+    fprintf( f, "sleep_inhibited_this_frame,%d\n", sleepInhibited );
+    fprintf( f, "sleep_island_visual_id,%d\n", sleepIslandVisualId );
+    fprintf( f, "collision_visual_contact_this_frame,%d\n", collisionVisualContact );
+    fprintf( f, "terrain_at_center,%d\n", terrainAtCenter ? 1 : 0 );
+    fprintf( f, "terrain_height_at_center,%.6f\n", terrainHeight );
+    fprintf( f, "terrain_normal_at_center,%.6f,%.6f,%.6f\n", terrainNormal.x, terrainNormal.y, terrainNormal.z );
+    fprintf( f, "scene_object_line_hint,%s %s %.6f %.6f %.6f",
+             isSphere ? "ball_state/manual" : ( isBox ? "box/manual" : "convex_hull/manual" ), name, pos.x, pos.y, pos.z );
+
+    if ( isSphere )
+    {
+        fprintf( f, " radius=%.6f mass=%.6f restitution=%.6f", sphereShape->GetRadius(), mass, restitution );
+    }
+    else if ( isBox )
+    {
+        const Vector3& he = boxShape->GetHalfExtents();
+        fprintf( f, " halfExtents=%.6f,%.6f,%.6f mass=%.6f restitution=%.6f", he.x, he.y, he.z, mass, restitution );
+    }
+    else
+    {
+        fprintf( f, " hull=%s vertices=%u faces=%u edges=%u mass=%.6f restitution=%.6f", hullShape->GetName(),
+                 static_cast<unsigned>( hullShape->GetVertexCount() ), static_cast<unsigned>( hullShape->GetFaceCount() ),
+                 static_cast<unsigned>( hullShape->GetEdgeCount() ), mass, restitution );
+    }
+
+    fprintf( f, "\n" );
+    fprintf( f, "=== END LAUNCHER REPRO SNAPSHOT ===\n" );
+
+    return LauncherReproSnapshotStatus::Wrote;
+}
+
+
+LauncherReproSnapshotResult
+RuntimeTools::WriteLauncherReproSnapshotWithStatusMessage( const LauncherReproSnapshotContext& context ) const
+{
+    LauncherReproSnapshotResult result;
+    result.status = WriteLauncherReproSnapshot( context );
+    const char* snapshotMessage = "Failed to write repro snapshot";
+
+    if ( result.status == LauncherReproSnapshotStatus::Wrote )
+    {
+        sprintf_s( result.message.data(), result.message.size(), "Repro snapshot: %s", LAUNCHER_REPRO_SNAPSHOT_PATH );
+    }
+    else if ( result.status == LauncherReproSnapshotStatus::NoTarget )
+    {
+        snapshotMessage = "No repro target under crosshair";
+    }
+
+    if ( result.status != LauncherReproSnapshotStatus::Wrote )
+    {
+        sprintf_s( result.message.data(), result.message.size(), "%s", snapshotMessage );
+    }
+
+    result.messageUntil = context.simulationSeconds + LAUNCHER_REPRO_MESSAGE_SECONDS;
+    return result;
+}
+#endif

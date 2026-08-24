@@ -157,32 +157,6 @@ RuntimeInteractionTransition RuntimeInteractionController::EnterManipulator()
 }
 
 
-RuntimeInteractionTransition RuntimeInteractionController::EnterCameraMode( RunCameraMode mode )
-{
-    // Why: camera mode is the user-facing command, while workspace/owner is the
-    // interaction contract. Keeping this mapping here makes mode transitions use
-    // the same cleanup metadata as direct tool and replay owner transitions.
-    switch ( mode )
-    {
-    case RunCameraMode::Demo:
-    case RunCameraMode::Scene:
-    case RunCameraMode::Director:
-        return EnterLive();
-    case RunCameraMode::Inspect:
-    case RunCameraMode::Attach:
-        return EnterInspect();
-    case RunCameraMode::Launcher:
-        return EnterLauncher();
-    case RunCameraMode::Manipulator:
-        return EnterManipulator();
-    case RunCameraMode::Count:
-        break;
-    }
-
-    return EnterLive();
-}
-
-
 RuntimeWorkspace RuntimeInteractionController::WorkspaceForOwner( WorldInteractionOwner owner ) const
 {
     // Concept: workspace classification is interaction-domain vocabulary. Tool
@@ -379,17 +353,19 @@ RuntimeInteractionTransition RuntimeInteractionController::ResetForScene( Intera
 }
 
 
-void RuntimeInteractionController::ObserveSceneLifecycle( const SceneLifecyclePacket& packet,
-                                                          bool enterInspectAfterActivation )
+void RuntimeInteractionController::ObserveSceneLifecycle( uint64_t generation, bool reachedAfterClear,
+                                                          bool reachedAfterActivation, bool enterInspectAfterActivation )
 {
-    if ( m_sceneResetObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
+    if ( generation != 0 && generation != m_lastSceneResetGeneration && reachedAfterClear )
     {
+        m_lastSceneResetGeneration = generation;
         ResetForScene( InteractionExitReason::LoadScene );
     }
 
-    if ( enterInspectAfterActivation &&
-         m_sceneActivationObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneActivated ) )
+    if ( enterInspectAfterActivation && generation != 0 && generation != m_lastSceneActivationGeneration &&
+         reachedAfterActivation )
     {
+        m_lastSceneActivationGeneration = generation;
         EnterInspect();
     }
 }

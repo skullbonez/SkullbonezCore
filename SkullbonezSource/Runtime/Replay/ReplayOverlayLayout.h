@@ -24,22 +24,87 @@ Invariants:
     never duplicated evidence rows.
 
 Related:
-  - SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp
+  - SkullbonezSource/Runtime/App/ReplayPredictionDrawing.cpp
   - SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.h
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
-#include "ReplayAuthoring.h"
+#include "ReplayAuthoringPackets.h"
+#include "ReplayCapturePackets.h"
 #include "ReplayOverlaySurface.h"
-#include "ReplayRecorder.h"
-#include "ReplayScrubber.h"
-#include "../Interaction/RuntimeInteractionController.h"
-#include "../UI/RuntimeUiSurface.h"
+#include "ReplayTimelinePackets.h"
 #include "../../UI/UIDraw.h"
+
+#include <array>
+#include <cstddef>
+#include <cstdint>
 
 namespace SkullbonezCore::Runtime::ReplayOverlay
 {
+enum class ReplayOverlayControlKind : uint8_t
+{
+    Panel,
+    HotZone,
+    Button,
+    Toggle,
+    Slider,
+    Track,
+    ToolHandle
+};
+
+struct ReplayOverlayControlId
+{
+    uint32_t value = 0;
+
+    explicit operator bool() const noexcept
+    {
+        return value != 0;
+    }
+};
+
+inline bool operator==( ReplayOverlayControlId left, ReplayOverlayControlId right ) noexcept
+{
+    return left.value == right.value;
+}
+
+struct ReplayOverlayControl
+{
+    ReplayOverlayControlId id;
+    ReplayOverlayControlKind kind = ReplayOverlayControlKind::Panel;
+    uint32_t action = 0;
+    UI::UIRect drawRect;
+    UI::UIRect hitRect;
+    bool visible = true;
+    bool enabled = true;
+    bool hovered = false;
+    bool focused = false;
+    bool active = false;
+    bool checked = false;
+    bool requestsReveal = false;
+};
+
+// Replay has two overlay surfaces but one fixed maximum. The packet is rebuilt
+// every frame and carries no UI owner or callback.
+struct ReplayOverlaySurface
+{
+    static constexpr std::size_t CONTROL_CAPACITY = 13;
+    std::array<ReplayOverlayControl, CONTROL_CAPACITY> controls = {};
+    std::size_t controlCount = 0;
+    ReplayOverlayControlId hotControl;
+    ReplayOverlayControlId pointerControl;
+    ReplayOverlayControlId activeControl;
+    bool hasHotControl = false;
+    bool hasPointerControl = false;
+    bool hasActiveControl = false;
+    bool consumesPointer = false;
+
+    void Reset() noexcept;
+    bool TryAdd( const ReplayOverlayControl& control ) noexcept;
+    ReplayOverlayControl* Find( ReplayOverlayControlId id ) noexcept;
+    void ResolvePointer( int pointerX, int pointerY, bool pointerBlocked = false ) noexcept;
+};
+
 inline constexpr float REPLAY_SCRUBBER_HOT_ZONE_HEIGHT = 78.0f; // Bottom-screen hover strip that reveals replay controls.
 inline constexpr float REPLAY_SCRUBBER_PANEL_HEIGHT = 50.0f;
 inline constexpr float REPLAY_SCRUBBER_PANEL_MAX_WIDTH = 1080.0f;
@@ -91,9 +156,9 @@ enum class ReplayScrubberControl : uint32_t
     HotZone
 };
 
-inline RuntimeUiControlId ReplayScrubberControlId( ReplayScrubberControl control )
+inline ReplayOverlayControlId ReplayScrubberControlId( ReplayScrubberControl control )
 {
-    return RuntimeUiControlId { static_cast<uint32_t>( control ) };
+    return ReplayOverlayControlId { static_cast<uint32_t>( control ) };
 }
 
 struct ReplayScrubberSurfaceInput
@@ -101,7 +166,7 @@ struct ReplayScrubberSurfaceInput
     int screenW = 1;
     int screenH = 1;
     RunReplayTrack track = RunReplayTrack::Solver;
-    RuntimeInteractionGestureKind gesture = RuntimeInteractionGestureKind::None;
+    ReplayToolGestureKind gesture = ReplayToolGestureKind::None;
     bool loadedPresentation = false;
     bool solverToolsEnabled = false;
     bool predictionEnabled = false;
@@ -113,7 +178,7 @@ struct ReplayScrubberSurfaceInput
     bool hotZoneEnabled = true;
 };
 
-using ReplayScrubberSurface = RuntimeUiSurface<13>;
+using ReplayScrubberSurface = ReplayOverlaySurface;
 
 enum class ReplayCauseWindowControl : uint32_t
 {
@@ -129,12 +194,12 @@ enum class ReplayCauseWindowControl : uint32_t
     Panel
 };
 
-inline RuntimeUiControlId ReplayCauseWindowControlId( ReplayCauseWindowControl control )
+inline ReplayOverlayControlId ReplayCauseWindowControlId( ReplayCauseWindowControl control )
 {
-    return RuntimeUiControlId { static_cast<uint32_t>( control ) };
+    return ReplayOverlayControlId { static_cast<uint32_t>( control ) };
 }
 
-using ReplayCauseWindowSurface = RuntimeUiSurface<9>;
+using ReplayCauseWindowSurface = ReplayOverlaySurface;
 
 struct ReplayCauseWindowProjection
 {

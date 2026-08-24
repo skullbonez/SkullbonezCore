@@ -20,7 +20,7 @@ Invariants:
 Related:
   - SkullbonezSource/Core/Profiler.cpp
   - SkullbonezSource/Rendering/RenderGpuTimingOwner.h
-  - SkullbonezSource/UI/UIProfilerOverlayPresenter.cpp
+  - SkullbonezSource/Runtime/Render/UIProfilerOverlayPresenter.cpp
   - SkullbonezSource/Rendering/DX12/Dx12Diagnostics.h
   - Agentic/Reference/engine-glossary.md
 */

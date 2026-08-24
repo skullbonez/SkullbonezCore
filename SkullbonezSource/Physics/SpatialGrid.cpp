@@ -25,6 +25,8 @@ Invariants:
     first-seen bit is touched, so an ineligible visit cannot hide a later pair.
   - Swept coverage commits completely or enters the bounded fallback lane;
     aggregate capacity can neither truncate a path nor grow during a step.
+  - Broadphase establishes authoritative persistent membership before calling
+    the phase-only transient-overlay entry point.
 
 Related:
   - SkullbonezSource/Physics/SpatialGrid.h
@@ -939,6 +941,22 @@ void SpatialGrid::InsertSwept( int index, const Vector3& position, const Vector3
     // ordinary membership at persistentRadius prevents a large blade envelope
     // from consuming the fixed persistent grid on every later frame.
     Insert( index, position, persistentRadius );
+
+    InsertSweptOverlayAfterPersistent( index, position, displacement, persistentRadius, sweptRadius );
+}
+
+
+void SpatialGrid::InsertSweptOverlayAfterPersistent( int index, const Vector3& position, const Vector3& displacement,
+                                                     float persistentRadius, float sweptRadius )
+{
+    if ( index < 0 || index >= objectCount || static_cast<std::size_t>( index ) >= bodyMemberships.size() ||
+         !bodyMemberships[static_cast<std::size_t>( index )].active )
+    {
+        // Hazard: transient cells cannot replace authoritative current-position
+        // membership; accepting this call out of phase could omit resting pairs.
+        SB_FATAL( "Physics/SpatialGrid", "Swept overlay requires established persistent membership: body=%d count=%d.",
+                  index, objectCount );
+    }
 
     if ( !std::isfinite( sweptRadius ) || sweptRadius < persistentRadius )
     {

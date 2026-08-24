@@ -22,10 +22,7 @@ Related:
 */
 #include "ReplayPredictionPublicationOperations.h"
 #include "ReplayPredictionPublication.MarkerScan.inl"
-#include "../Scene/SceneEntityStore.h"
-#include "../Editor/EditorHullAssets.h"
-#include "../Replay/ReplayOverlayLayout.h"
-#include "../Replay/ReplayScrubber.h"
+#include "../../Assets/EditorHullAssets.h"
 #include "../../Core/Config.h"
 #include "../../Core/Profiler.h"
 #include "../../Core/SceneCapacity.h"
@@ -49,7 +46,6 @@ Related:
 
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Runtime::ReplayPredictionSchedulingOperations;
-using namespace SkullbonezCore::Runtime::ReplayScrubberOperations;
 namespace Gameplay = SkullbonezCore::Gameplay;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
@@ -221,7 +217,7 @@ uint32_t AllocateReplayFutureNodeTopologyVersion( RunReplayPredictionFutureNodeC
 
 template <typename ContactRange, typename BodyIdResolver, typename DepthResolver, typename NodeAdder, typename BudgetExpired>
 bool BuildReplayFutureNodesFromContacts( const ContactRange& contacts, ReplayFrameIndex frameIndex,
-                                         std::size_t startContactIndex, const SceneEntityStore* collection,
+                                         std::size_t startContactIndex, const ReplayPredictionSceneView* collection,
                                          bool includeRagdollVisuals, BodyIdResolver bodyIdForModelIndex,
                                          DepthResolver tryGetDepth, NodeAdder addNode, BudgetExpired budgetExpired,
                                          std::size_t& outNextContactIndex )
@@ -405,12 +401,11 @@ void RetainReplayPredictionAffectedBodyMarkers( const std::vector<RunReplayPredi
                                                 RunReplayPredictionState& prediction, ReplayFrameIndex revealFrame,
                                                 bool bufferComplete, Physics::PhysicsSceneObjectId rootId,
                                                 int rootModelIndex, const std::vector<RunReplayPathTraceNode>& futureNodes,
-                                                const SceneEntityStore& collection, const ColliderStore& colliderStore )
+                                                ReplayPredictionSceneView scene, const ColliderStore& colliderStore )
 {
     std::array<ReplayPredictionAffectedBodyTrail, REPLAY_PATH_MAX_FUTURE_NODES> trails = {};
     const std::size_t trailCount = BuildReplayPredictionAffectedBodyTrails( frames, frameCount, revealFrame, rootId,
-                                                                            rootModelIndex, futureNodes, collection,
-                                                                            trails );
+                                                                            rootModelIndex, futureNodes, scene, trails );
 
     frameCount = (std::min)( frameCount, frames.size() );
 
@@ -451,7 +446,7 @@ struct ReplayPredictionFutureContext
 {
     RunReplayPredictionState* prediction = nullptr;
     std::vector<RunReplayPathTraceNode>* nodes = nullptr;
-    const SceneEntityStore* collection = nullptr;
+    const ReplayPredictionSceneView* collection = nullptr;
     Physics::PhysicsSceneObjectId rootId;
     bool includeRagdollVisuals = true;
 };
@@ -632,11 +627,19 @@ bool BuildReplayPredictionAffectedFutureNodes( const std::vector<RunReplayPredic
 
 void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction,
                                             const std::vector<RunReplayPredictionFrame>& frames, std::size_t frameCount,
-                                            bool usingBuildFrames, const SceneEntityStore& collection,
+                                            bool usingBuildFrames, ReplayPredictionSceneView scene,
                                             Physics::PhysicsSceneObjectId rootId,
                                             const std::chrono::steady_clock::time_point& budgetStart,
                                             double budgetMilliseconds )
 {
+    if ( prediction.archivePresentationRestored )
+    {
+        // Invariant: the archive's visible topology is already canonical. Its
+        // live-build scratch vector is deliberately absent, so publishing that
+        // empty scratch would erase the restored nodes on the first reveal.
+        return;
+    }
+
     // Invariant: frameCount is the populated prefix of frames. buildFrames is
     // pre-sized for the whole prediction horizon, so using frames.size() while
     // building would scan empty rows and mark the future-node cache complete
@@ -713,7 +716,7 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
     ReplayPredictionFutureContext futureContext;
     futureContext.prediction = &prediction;
     futureContext.nodes = &prediction.futureNodeCache.futureNodeBuildScratch;
-    futureContext.collection = &collection;
+    futureContext.collection = &scene;
     futureContext.rootId = rootId;
     futureContext.includeRagdollVisuals = prediction.ragdollVisualsEnabled;
 
@@ -785,7 +788,7 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
 }
 
 
-void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const SceneEntityStore& modelCollection,
+void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, ReplayPredictionSceneView scene,
                                      const ColliderStore& colliderStore, Physics::PhysicsSceneObjectId targetId,
                                      ModelRowHint targetModelRow, bool targetAvailable, double budgetMilliseconds,
                                      ReplayPredictionUpdateResult& result )
@@ -887,7 +890,7 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const
         {
             PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/FutureNodeCache" );
             UpdateReplayPredictionFutureNodeCache( prediction, activePredictionFrames, activePredictionFrameCount,
-                                                   publicationUsingBuildFrames, modelCollection, publicationTargetId,
+                                                   publicationUsingBuildFrames, scene, publicationTargetId,
                                                    overlayBudgetStart, budgetMilliseconds );
         }
 
@@ -960,7 +963,7 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const
         RetainReplayPredictionAffectedBodyMarkers( activePredictionFrames, activePredictionFrameCount, prediction,
                                                    drawWindow.revealFrame, bufferComplete, publicationTargetId,
                                                    publicationTargetModelRow.value, prediction.futureNodeCache.futureNodes,
-                                                   modelCollection, colliderStore );
+                                                   scene, colliderStore );
     }
 
     if ( bufferComplete && !ReplayPredictionBudgetExpired( overlayBudgetStart, budgetMilliseconds ) )

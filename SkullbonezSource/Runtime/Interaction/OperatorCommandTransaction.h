@@ -27,13 +27,12 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/App/InputFrame.cpp
   - SkullbonezSource/Runtime/Scene/SceneCinematicPolicy.h
-  - SkullbonezSource/UI/UICommands.h
+  - SkullbonezSource/Runtime/Interaction/OperatorUiCommands.h
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
-#include "../Camera/RuntimeCameraMode.h"
-#include "../../UI/UICommands.h"
+#include "OperatorUiCommands.h"
 #include "../../World/WorldEnvironment.h"
 
 #include <cstdint>
@@ -74,7 +73,6 @@ class RuntimeRenderer;
 class SceneController;
 struct SceneSessionState;
 class SceneWorld;
-class SimulationSystem;
 struct OverlayDebugState;
 struct RunLaunchOptions;
 struct OperatorCommandTransactionTestAccess;
@@ -134,7 +132,7 @@ struct OperatorCommandAcceptanceLedger
 {
     bool toggledVsync = false;
     bool cameraModeAccepted = false;
-    RunCameraMode cameraMode = RunCameraMode::Demo;
+    int cameraModeIndex = -1;
 
     bool toggledPhysicsSleepPolicy = false;
     bool toggledTornado = false;
@@ -181,7 +179,7 @@ class OperatorCommandTransaction
     void ApplyPhysicsControl( SceneWorld& world );
     void ApplyRuntimePresentation( OverlayDebugState& debug, SceneSessionState& scene, Core::EngineConfig& config,
                                    RunLaunchOptions& launchOptions, RenderDefaultsStore& renderDefaults, bool graphicsReady,
-                                   double simulationSeconds, SimulationSystem& simulation );
+                                   double simulationSeconds );
     void ApplySimulationPolicy( SceneSessionState& scene, UI::RunSceneUIOverrideState& uiOverrides,
                                 Core::EngineConfig& config, Threading::WorkerPool& workerPool );
     void ApplyPhysicsMaterial( Core::EngineConfig& config, SceneWorld& world );

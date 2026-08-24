@@ -18,14 +18,14 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Diagnostics/DiagnosticsPhysicsUI.h
   - SkullbonezSource/Physics/PhysicsDebugData.h
-  - SkullbonezSource/UI/UICommands.h
+  - SkullbonezSource/Runtime/Interaction/OperatorUiCommands.h
   - Agentic/Reference/engine-glossary.md
 */
 #include "DiagnosticsPhysicsUI.h"
 
 #include "OverlayDebugState.h"
 #include "../../Physics/PhysicsDebugData.h"
-#include "../../UI/UICommands.h"
+#include "../Interaction/OperatorUiCommands.h"
 
 #include <algorithm>
 #include <cstdint>

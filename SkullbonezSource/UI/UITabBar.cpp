@@ -1,27 +1,24 @@
 /*
 File: SkullbonezSource/UI/UITabBar.cpp
 Purpose:
-  Implements tab-strip geometry, selection hit testing, and active-tab
-  drawing.
+  Adapts retained tab-strip bounds to stateless tab geometry, hit, and draw
+  operations.
 
 Summary:
-  Maps tab bounds to a selected index and
-  draws active labels from the same geometry.
+  UIDrawWidgets owns tab partitioning, text fitting, style, and ordered draw
+  commands; this wrapper supplies only bounds, labels, and disposable selection.
 
 Invariants:
-  - Draw geometry and hit testing must be derived from the same layout
-  constants.
+  - Hit routing and drawing select the same Established appearance profile.
 
 Related:
   - SkullbonezSource/UI/UITabBar.h
+  - SkullbonezSource/UI/UIDrawWidgets.h
   - Agentic/Reference/engine-glossary.md
 */
 #include "UITabBar.h"
 
-#include "UIFontMetrics.h"
-#include "UIStyle.h"
-
-#include <algorithm>
+#include "UIDrawWidgets.h"
 
 namespace SkullbonezCore
 {
@@ -42,64 +39,26 @@ UIRect UITabBar::Bounds() const
 
 int UITabBar::HitTest( int mouseX, int mouseY, int tabCount ) const
 {
-    if ( tabCount <= 0 || !m_bounds.Contains( mouseX, mouseY ) )
-    {
-        return -1;
-    }
-
-    const float tabW = m_bounds.w / static_cast<float>( tabCount );
-    const int index = static_cast<int>( ( static_cast<float>( mouseX ) - m_bounds.x ) / tabW );
-    return index >= 0 && index < tabCount ? index : -1;
+    constexpr UIVisualState kState = UIVisualState::Visible | UIVisualState::Enabled;
+    return Widgets::HitTestTab( m_bounds, kState, mouseX, mouseY, tabCount, Widgets::ComponentAppearance::Established );
 }
 
 
 void UITabBar::Draw( const UIDrawContext& draw, const char* const* labels, int tabCount, int activeIndex ) const
 {
-    if ( tabCount <= 0 )
+    for ( int tabIndex = 0; tabIndex < tabCount; ++tabIndex )
     {
-        return;
-    }
+        UIVisualState state = UIVisualState::Visible | UIVisualState::Enabled;
 
-    const float tabW = m_bounds.w / static_cast<float>( tabCount );
-    const Style::UIPalette& palette = Style::Palette();
-    const float radius = Style::Radii().control;
-
-    for ( int i = 0; i < tabCount; ++i )
-    {
-        const float tx = m_bounds.x + static_cast<float>( i ) * tabW;
-        const float ty = m_bounds.y + 11.0f;
-        const float pillX = tx + 2.0f;
-        const float pillW = tabW - 8.0f;
-        const bool active = i == activeIndex;
-
-        if ( active )
+        if ( tabIndex == activeIndex )
         {
-            draw.RoundedPanel( { pillX, ty, pillW, 30.0f }, radius, palette.windowRaised, palette.innerBorder );
-        }
-        else
-        {
-            draw.RoundedRect( pillX, ty, pillW, 30.0f, radius, palette.windowSubtle.r, palette.windowSubtle.g,
-                              palette.windowSubtle.b, 0.20f );
+            state |= UIVisualState::Selected;
         }
 
-        if ( active )
-        {
-            draw.Rect( pillX + 8.0f, ty + 29.0f, (std::max)( 1.0f, pillW - 16.0f ), 2.0f, palette.accent.r, palette.accent.g,
-                       palette.accent.b, 0.86f );
-        }
-
-        float textSize = 11.5f;
-
-        while ( textSize > 8.5f && UIFontMetrics::MeasureText( textSize, labels[i] ? labels[i] : "" ) > pillW - 10.0f )
-        {
-            textSize -= 0.5f;
-        }
-
-        const float labelW = UIFontMetrics::MeasureText( textSize, labels[i] ? labels[i] : "" );
-        const float labelX = pillX + (std::max)( 6.0f, ( pillW - labelW ) * 0.5f );
-        draw.Text( labelX, ty + 8.0f, textSize, active ? palette.textPrimary.r : palette.textSecondary.r,
-                   active ? palette.textPrimary.g : palette.textSecondary.g,
-                   active ? palette.textPrimary.b : palette.textSecondary.b, labels[i] );
+        const Widgets::TabLayout layout = Widgets::ResolveTabLayout( m_bounds, tabIndex, tabCount,
+                                                                     Widgets::ComponentAppearance::Established );
+        Widgets::DrawTab( draw, layout.visualBounds, labels ? labels[tabIndex] : nullptr, state,
+                          Widgets::ComponentAppearance::Established );
     }
 }
 

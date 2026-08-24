@@ -19,7 +19,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Automation/InteractionRecordingBrowser.cpp
-  - SkullbonezSource/UI/UISceneNavigationModel.h
+  - SkullbonezSource/Runtime/Scene/SceneNavigationModel.h
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

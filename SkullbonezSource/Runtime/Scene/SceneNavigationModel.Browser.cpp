@@ -21,11 +21,11 @@ Invariants:
   - An inaccessible directory clears the browser and reports a recoverable log.
 
 Related:
-  - SkullbonezSource/UI/UISceneNavigationModel.h
+  - SkullbonezSource/Runtime/Scene/SceneNavigationModel.h
   - SkullbonezSource/Runtime/Scene/SceneNavigationModel.cpp
   - Agentic/Reference/engine-glossary.md
 */
-#include "../../UI/UISceneNavigationModel.h"
+#include "SceneNavigationModel.h"
 #include "../../Core/Log.h"
 #include "../../Core/WindowConstants.h"
 

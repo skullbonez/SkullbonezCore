@@ -21,16 +21,26 @@ Related:
 */
 #pragma once
 
-
-#include "EditorHullAssets.h"
+#include "../../Core/PlatformWin32.h"
+#include "../../Assets/EditorHullAssets.h"
+#include "EditorCommandHistory.h"
 #include "../Replay/ReplayAuthoringPackets.h"
+#include "../Replay/ReplayEventCommand.h"
 #include "../Input/InputController.h"
 #include "../Camera/RuntimeCameraMode.h"
 #include "../Interaction/RuntimeInteractionController.h"
+#include "../Interaction/RuntimeInteractionCommands.h"
+#include "../Scene/SceneLifecycle.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Maths/Vector3.h"
 #include "../../Physics/CollisionShape.h"
 #include "../../Physics/PhysicsHandles.h"
+#include "../Interaction/OperatorEditorObjectCatalog.h"
+
+#include <array>
+#include <cstddef>
+#include <span>
+#include <string>
 
 namespace SkullbonezCore
 {
@@ -53,8 +63,9 @@ struct PresentationSaveState;
 }
 namespace Runtime
 {
+class EditorTracer;
 class SceneController;
-}
+} // namespace Runtime
 namespace Geometry
 {
 class Terrain;
@@ -75,13 +86,194 @@ struct UIEditorCommands;
 }
 namespace Runtime
 {
-class EditorTracer;
 class RuntimeInteractionController;
-class CaptureController;
 class SceneEntityStore;
 class SceneWorld;
-struct RunEditorPlacementState;
 struct SceneSessionState;
+
+// Invariant: pointer-ray validity and arbitration flags are sampled from one
+// frame so the preview never combines a ray with another turn's UI decision.
+struct EditorPointerPreviewInput
+{
+    bool blocksCameraMouse = false;
+    bool inspectGizmoActive = false;
+    bool hasWorldRay = false;
+    bool controlDown = false;
+    Math::Vector::Vector3 rayOrigin = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
+};
+
+// Invariant: selection consumes ray validity, origin, direction, and gizmo
+// ownership from the same routed pointer turn.
+struct EditorPointerSelectionInput
+{
+    bool inspectGizmoActive = false;
+    bool hasWorldRay = false;
+    Math::Vector::Vector3 rayOrigin = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
+};
+
+struct EditorPlacementScalePointerResult
+{
+    ReplayEventCommand replayEvent;
+    bool consumed = false;
+    bool enteredInteractiveScene = false;
+    bool endedGesture = false;
+    bool recordReplayEvent = false;
+};
+
+// Invariant: drag buttons, selection, and world ray describe one routed pointer
+// turn; mixing them can apply a gesture to the wrong body.
+struct EditorGizmoDragPointerInput
+{
+    bool leftDown = false;
+    bool leftReleased = false;
+    bool suppressWorldAction = false;
+    bool hasWorldRay = false;
+    int selectedModelIndex = -1;
+    Math::Vector::Vector3 rayOrigin = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
+};
+
+struct EditorGizmoDragPointerResult
+{
+    ReplayEventCommandBatch replayEvents;
+    bool consumed = false;
+    bool endedGesture = false;
+};
+
+enum class EditorPointerModeAction
+{
+    EndPlacementScale,
+    EndGizmoDrag,
+    BeginGizmoScale,
+    BeginGizmoRotate,
+    BeginGizmoTranslate,
+    BeginPlacementScale
+};
+
+struct EditorPointerRouteResult
+{
+    static constexpr std::size_t MAX_MODE_ACTIONS = 2;
+    ReplayEventCommandBatch replayEvents;
+    RuntimeInteractionTransition interactionTransition;
+    bool consumed = false;
+    bool enteredInteractiveScene = false;
+    bool hasInteractionTransition = false;
+    std::array<EditorPointerModeAction, MAX_MODE_ACTIONS> modeActions = {};
+    std::size_t modeActionCount = 0;
+};
+
+enum class EditorGizmoGestureKind
+{
+    None,
+    Translate,
+    Rotate,
+    Scale
+};
+
+struct EditorGizmoGesturePlan
+{
+    EditorGizmoGestureKind kind = EditorGizmoGestureKind::None;
+    WorldInteractionOwner owner;
+    InteractionExitReason reason;
+    Physics::PhysicsBodyHandle selectedBody;
+    int axis = -1;
+    int clientX = 0;
+    int clientY = 0;
+    float axisParameter = 0.0f;
+    Math::Vector::Vector3 startPosition = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion startOrientation;
+    Math::Vector::Vector3 dragPlaneNormal = Math::Vector::ZERO_VECTOR;
+    Math::CollisionDetection::CollisionShape startShape;
+};
+
+struct EditorGizmoGestureResult
+{
+    bool attempted = false;
+    bool consumed = false;
+    EditorGizmoGestureKind kind = EditorGizmoGestureKind::None;
+};
+
+struct EditorPlacementScaleStartResult
+{
+    bool consumed = false;
+    bool beganGesture = false;
+};
+
+// Invariant: buttons, modifiers, client position, wheel delta, and capture mode
+// are one sampled viewport event consumed atomically by placement routing.
+struct EditorViewportPlacementInput
+{
+    int unhandledWheelDelta = 0;
+    bool rightDown = false;
+    bool leftDown = false;
+    bool controlDown = false;
+    bool blocksCameraMouse = false;
+    bool hasClientPosition = false;
+    bool inputModeIsViewportLook = false;
+    RuntimeInteractionGestureKind gesture = RuntimeInteractionGestureKind::None;
+    int clientX = 0;
+    int clientY = 0;
+};
+
+enum class EditorViewportModeAction
+{
+    None,
+    Begin,
+    End
+};
+
+struct EditorViewportPlacementResult
+{
+    bool resetMouseLook = false;
+    bool enteredInteractiveScene = false;
+    EditorViewportModeAction modeAction = EditorViewportModeAction::None;
+};
+
+struct RunEditorPlacementState
+{
+    static constexpr std::size_t GIZMO_DRAG_GROUP_CAPACITY = 16;
+
+    EditorCommandHistory history;
+    bool editorModeEnabled = false;
+    bool placementModeEnabled = false;
+    bool placeStaticObject = false;
+    bool autoTerrainAlign = false;
+    RunCameraMode restoreCameraModeAfterEditor = RunCameraMode::Demo;
+    bool viewportLookActive = false;
+    bool placementPreviewVisible = false;
+    int objectType = UI::EditorTab::OBJECT_BOX;
+    int placedObjectSerial = 0;
+    Physics::ModelRowHint selectedModelRow;
+    Physics::PhysicsBodyHandle selectedBody;
+    Physics::PhysicsColliderHandle selectedCollider;
+    int hotGizmoAxis = -1;
+    int hotRotationAxis = -1;
+    float gizmoDragStartAxisT = 0.0f;
+    float gizmoDragStartRotationAngle = 0.0f;
+    float placementYawRadians = 0.0f;
+    int placementAltitudeSteps = 0;
+    int placementScaleWheelSteps = 0;
+    Math::Vector::Vector3 placementTerrainPoint = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 placementCenter = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 placementRayOrigin = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 placementRayHit = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 placementScale = Math::Vector::Vector3( 6.0f, 6.0f, 6.0f );
+    Math::Vector::Vector3 placementScaleStart = Math::Vector::Vector3( 6.0f, 6.0f, 6.0f );
+    Math::Vector::Vector3 placementScaleTerrainPoint = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 placementScaleRayOrigin = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion placementOrientation = Math::Orientation::IDENTITY_QUATERNION;
+    POINT placementScaleStartClient = {};
+    Math::Vector::Vector3 gizmoDragStartPosition = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 gizmoDragPlaneNormal = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion gizmoDragStartOrientation = Math::Orientation::IDENTITY_QUATERNION;
+    Math::CollisionDetection::CollisionShape gizmoDragStartShape;
+    int gizmoDragGroupCount = 0;
+    std::array<int, GIZMO_DRAG_GROUP_CAPACITY> gizmoDragGroupIndices = {};
+    std::array<Math::Vector::Vector3, GIZMO_DRAG_GROUP_CAPACITY> gizmoDragGroupStartPositions = {};
+    std::array<Math::Orientation::Quaternion, GIZMO_DRAG_GROUP_CAPACITY> gizmoDragGroupStartOrientations = {};
+};
 
 struct EditorTerrainPlacement
 {
@@ -149,6 +341,62 @@ struct EditorPlacementPostModeUICommandResult
     bool toggledTerrainAlign = false;
 };
 
+class EditorToolsOwner
+{
+  public:
+    explicit EditorToolsOwner( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics )
+        : m_resultDiagnostics( resultDiagnostics )
+    {
+    }
+
+    RunEditorPlacementState& Editor();
+    const RunEditorPlacementState& Editor() const;
+    void AppendPlacementGhost( EditorTracer& tracer, const Assets::AssetSystem& assets ) const;
+    bool PrepareSelectionCommand( const RuntimeInteractionCommand& command, const SceneWorld& world,
+                                  RuntimeInteractionSelectionPlan& outPlan );
+    bool CommitSelectionCommand( const RuntimeInteractionSelectionPlan& plan, RuntimeInteractionEvent& outEvent );
+    bool ApplySelectionCommand( const RuntimeInteractionCommand& command, const SceneWorld& world );
+    bool PrepareEditorPointerSelection( const EditorPointerSelectionInput& input, const SceneWorld& world,
+                                        RuntimeInteractionSelectionPlan& outPlan, WorldInteractionOwner& outOwner,
+                                        InteractionExitReason& outReason );
+    EditorPlacementScalePointerResult RouteEditorPlacementScalePointer( bool leftReleased, bool suppressWorldAction,
+                                                                        SceneWorld& world, SceneSessionState& scene,
+                                                                        Assets::AssetSystem& assets, int activeModelCapacity,
+                                                                        RuntimeInteractionController& interaction );
+    EditorGizmoDragPointerResult RouteEditorGizmoDragPointer( const EditorGizmoDragPointerInput& input, SceneWorld& world,
+                                                              RuntimeInteractionController& interaction );
+    void RecordEditorTransformHistory( SceneWorld& world, RuntimeGizmoDragKind gizmoKind, int selectedModelIndex );
+    void RecordEditorPlacementHistory( SceneWorld& world, int modelCountBefore, int modelCountAfter );
+    bool UndoEditorCommand( SceneWorld& world, SceneSessionState& scene );
+    bool RedoEditorCommand( SceneWorld& world, SceneSessionState& scene );
+    bool DuplicateEditorSelection( SceneWorld& world, SceneSessionState& scene );
+    bool DeleteEditorSelection( SceneWorld& world, SceneSessionState& scene );
+    void ClearEditorHistory();
+    bool PrepareEditorGizmoGesture( bool inspectGizmoActive, bool scaleMode, int selectedModelIndex, bool hasWorldRay,
+                                    const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection,
+                                    int clientX, int clientY, SceneWorld& world, RuntimeInteractionController& interaction,
+                                    EditorGizmoGesturePlan& outPlan );
+    EditorGizmoGestureResult CommitEditorGizmoGesture( const EditorGizmoGesturePlan& plan, SceneWorld& world,
+                                                       RuntimeInteractionController& interaction );
+    EditorPlacementScaleStartResult BeginEditorPlacementScalePointer( bool inspectGizmoActive, bool hasClientPosition,
+                                                                      int clientX, int clientY,
+                                                                      RuntimeInteractionController& interaction );
+    EditorViewportPlacementResult RouteEditorViewportPlacement( const EditorViewportPlacementInput& input );
+    bool HasActiveEditorInteractionState( const RuntimeInteractionController& interaction ) const;
+    bool InspectGizmoInteractionActive( RunCameraMode cameraMode, bool replayInspectionActive ) const;
+    int RefreshEditorPointerPreview( const EditorPointerPreviewInput& input, SceneWorld& world,
+                                     RuntimeInteractionController& interaction, const Assets::AssetSystem& assets );
+    void ClearEditorInteractionForTransition( bool clearSelection, SceneWorld& world,
+                                              RuntimeInteractionController& interaction );
+    void ObserveSceneLifecycle( const SceneLifecyclePacket& packet, SceneWorld& world,
+                                RuntimeInteractionController& interaction );
+
+  private:
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
+    RunEditorPlacementState m_editor;
+    SceneLifecycleGenerationObserver m_sceneLifecycleObserver;
+};
+
 int EditorMouseWheelSteps( int wheelDelta );
 Assets::EditorHullAsset EditorHullAssetForType( int objectType );
 bool EditorPlacementUsesUniformScale( int objectType );
@@ -185,6 +433,9 @@ void ClearEditorManipulationState( RunEditorPlacementState& editor, RuntimeInter
 // the tool boundary before UI-only code needs a temporary model row.
 int ResolveSelectedEditorModelIndex( RunEditorPlacementState& editor, const Physics::PhysicsBodyStore& bodyStore );
 int PeekSelectedEditorModelIndex( const RunEditorPlacementState& editor, const Physics::PhysicsBodyStore& bodyStore );
+std::size_t ProjectEditorOverlaySelection( RunEditorPlacementState& editor, const SceneWorld& world,
+                                           std::span<Physics::PhysicsBodyHandle> bodies,
+                                           std::span<Physics::PhysicsColliderHandle> colliders );
 
 // Concept: split editor tool translation units share this store-backed
 // transform vocabulary. Keep it narrow so gizmo math, overlay tracing, and
@@ -204,9 +455,6 @@ bool TryResolveEditorBodyCollider( const Physics::PhysicsBodyStore& bodyStore, c
 bool TryGetEditorSelectionFrame( const SceneWorld& world, Physics::PhysicsBodyHandle selectedBodyHandle,
                                  Physics::PhysicsColliderHandle selectedColliderHandle, int selectedIndex,
                                  Math::Vector::Vector3& outOrigin, float& outRadius );
-bool TryTraceEditorSelectionOverlayFromStores( const SceneWorld& world, Physics::PhysicsBodyHandle selectedBodyHandle,
-                                               Physics::PhysicsColliderHandle selectedColliderHandle, int selectedIndex,
-                                               EditorTracer& tracer, Math::Vector::Vector3& outOrigin, float& outRadius );
 void CaptureEditorGizmoDragGroupState( RunEditorPlacementState& editor, const SceneWorld& world, bool allowRagdollGroup );
 int ValidCapturedEditorGizmoGroupCount( const RunEditorPlacementState& editor, int modelCount );
 void WakeEditorPhysicsBody( SceneWorld& world, int modelIndex );
@@ -215,16 +463,6 @@ bool ResetEditorModelMotionAndWake( SceneWorld& world, int index, Physics::Physi
 bool ResetEditorModelMotionAndWake( SceneWorld& world, int index, Physics::PhysicsBodyUpdateDesc update,
                                     Physics::PhysicsColliderCreateDesc colliderDesc );
 
-// Concept: replay velocity gizmos share the editor axis/ring vocabulary so
-// scrub-time velocity edits and live editor gizmos draw comparable handles.
-float ReplayVelocityLinearBaseLength( float modelRadius );
-float ReplayVelocityLinearVisualAxisT( float modelRadius, float velocityComponent );
-float ReplayVelocityLinearUnitsPerWorld();
-float ReplayVelocityAngularBaseRadius( float modelRadius );
-float ReplayVelocityAngularVisualRadius( float modelRadius, float angularComponent );
-float ReplayVelocityAxisComponent( const Math::Vector::Vector3& value, int axis );
-void ReplayVelocitySetAxisComponent( Math::Vector::Vector3& value, int axis, float component );
-void ReplayVelocityAxisColor( int axis, float heat, bool hot, bool active, float& r, float& g, float& b );
 Math::Vector::Vector3 EditorRotationRingBasisA( int axis );
 Math::Vector::Vector3 EditorRotationRingBasisB( int axis );
 float WrapEditorAngleDelta( float delta );
@@ -282,6 +520,6 @@ void UpdateEditorGizmoHotAxes( RunEditorPlacementState& editor, SceneWorld& worl
 void HandleEditorSceneSaveHotkey( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, SceneWorld& world,
                                   const SceneSessionState& scene, const GameObjects::PresentationSaveState& presentation,
                                   bool wasPressed );
-void HandleEditorScreenshotHotkey( CaptureController& capture, bool wasPressed );
+std::string BuildEditorScreenshotPath();
 } // namespace Runtime
 } // namespace SkullbonezCore

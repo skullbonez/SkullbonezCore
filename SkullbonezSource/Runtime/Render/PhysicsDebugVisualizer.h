@@ -1,0 +1,133 @@
+/*
+File: SkullbonezSource/Runtime/Render/PhysicsDebugVisualizer.h
+Purpose:
+  Draws physics contacts, axes, sleep state, and pipeline diagnostics.
+
+Summary:
+  Render converts copied solver records into line primitives and owns the
+  short-lived contact cache. Detached values never give Scene or Diagnostics
+  access to cached or GPU state.
+
+Invariants:
+  - Physics-visible behavior must remain deterministic; byte-exact baselines
+    are the validation contract.
+  - Detached contact packets are consumed synchronously and never retained.
+
+Related:
+  - SkullbonezSource/Runtime/Render/PhysicsDebugVisualizer.cpp
+  - SkullbonezSource/Physics/PhysicsDebugData.h
+  - SkullbonezSource/Rendering/ContactManifoldPresentation.h
+  - Agentic/Reference/physics-overview.md
+  - Agentic/Reference/engine-glossary.md
+*/
+#pragma once
+
+#include <span>
+#include <vector>
+#include "../../Maths/Matrix4.h"
+#include "../../Maths/Vector3.h"
+#include "../../Physics/PhysicsDebugData.h"
+#include "../../Rendering/ContactManifoldPresentation.h"
+
+namespace SkullbonezCore
+{
+namespace Geometry
+{
+class Terrain;
+}
+
+namespace Rendering
+{
+class Dx12GeometryOwner;
+}
+
+namespace Physics
+{
+class ColliderStore;
+class PhysicsBodyStore;
+} // namespace Physics
+
+namespace Runtime
+{
+
+struct PhysicsDebugFrameView
+{
+    const Physics::PhysicsBodyStore& bodies;
+    const Physics::ColliderStore& colliders;
+    std::span<const uint8_t> sleepStates;
+    std::span<const uint8_t> sleepSupportedStates;
+    std::span<const uint8_t> sleepInhibitedStates;
+    std::span<const Physics::PhysicsDebugContact> debugContacts;
+    std::span<const Physics::PhysicsPipelineRecord> pipelineTrace;
+    int modelCount = 0;
+};
+
+class PhysicsDebugVisualizer
+{
+  private:
+    struct TrackedContact
+    {
+        // Contact visuals linger briefly after the solver row disappears so a
+        // human can actually see a one-frame impact. This is display-only state.
+        Physics::PhysicsDebugContact contact;
+        float remainingSeconds = 0.0f;
+        float lifetimeSeconds = 0.0f;
+    };
+
+    uint32_t m_flags = Physics::PHYSICS_DEBUG_NONE;
+    int m_pipelineStageCursor = 0;
+    float m_contactLingerSeconds = 0.45f;
+    std::vector<float> m_lineData;
+    std::vector<TrackedContact> m_trackedContacts;
+
+    TrackedContact* FindTrackedContact( const Physics::PhysicsDebugContact& contact );
+    float ContactFade( const TrackedContact& contact ) const;
+    void EmitLine( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float bl );
+    void EmitCross( const Math::Vector::Vector3& p, float size, float r, float g, float bl );
+    void EmitArrow( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float bl );
+    void EmitContactGlyph( const Rendering::ContactPointPresentation& point, float normalImpulse, float fade );
+    void EmitRingXZ( const Math::Vector::Vector3& center, float radius, float yOffset, float r, float g, float bl );
+    void EmitObjectAxes( const PhysicsDebugFrameView& view );
+    void EmitConvexHullWireframes( const PhysicsDebugFrameView& view );
+    void EmitContacts( const PhysicsDebugFrameView& view );
+    void EmitSleepState( const PhysicsDebugFrameView& view );
+    void EmitPipelineStage( const PhysicsDebugFrameView& view );
+    void EmitTerrainContactProbe( const PhysicsDebugFrameView& view, Geometry::Terrain* terrain );
+
+  public:
+    PhysicsDebugVisualizer();
+
+    void SetFlags( uint32_t flags )
+    {
+        m_flags = flags & Physics::PHYSICS_DEBUG_ALL;
+
+        if ( ( m_flags & Physics::PHYSICS_DEBUG_CONTACTS ) == 0 )
+        {
+            m_trackedContacts.clear();
+        }
+    }
+    uint32_t GetFlags() const
+    {
+        return m_flags;
+    }
+    bool IsEnabled() const
+    {
+        return m_flags != Physics::PHYSICS_DEBUG_NONE;
+    }
+    void SetContactLingerSeconds( float seconds );
+    void SetPipelineStageCursor( int cursor );
+    void Update( float dt, const PhysicsDebugFrameView& view );
+
+    // The caller owns renderer readiness and debug-line capability for the frame.
+    void Render( const PhysicsDebugFrameView& view, const Math::Transformation::Matrix4& viewProj,
+                 Rendering::Dx12GeometryOwner& renderCommands, bool supportsDebugLines,
+                 Geometry::Terrain* terrain = nullptr );
+
+    // Reuses the contact glyph path for an upper-layer-owned detached patch.
+    // The packet is consumed synchronously and never enters the linger cache.
+    void RenderContactManifold( const Rendering::ContactManifoldPresentation& presentation,
+                                const Math::Transformation::Matrix4& viewProj, Rendering::Dx12GeometryOwner& renderCommands,
+                                bool supportsDebugLines );
+};
+} // namespace Runtime
+} // namespace SkullbonezCore
