@@ -16,7 +16,7 @@ Invariants:
   constants.
 
 Related:
-  - SkullbonezSource/UI/UITabScene.cpp
+  - SkullbonezSource/Runtime/UI/GameUI/UITabScene.cpp
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

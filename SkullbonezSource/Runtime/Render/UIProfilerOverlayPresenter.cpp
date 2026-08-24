@@ -21,7 +21,7 @@ Invariants:
   - UI records values only; Runtime/Render owns submission and GPU lifetime.
 
 Related:
-  - SkullbonezSource/UI/UIProfilerOverlayPresenter.h
+  - SkullbonezSource/Runtime/Render/UIProfilerOverlayPresenter.h
   - SkullbonezSource/UI/UIFontMetrics.h
   - SkullbonezSource/Runtime/Render/UiDrawSubmission.cpp
 */

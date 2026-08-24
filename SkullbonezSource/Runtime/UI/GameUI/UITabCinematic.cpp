@@ -13,7 +13,7 @@ Invariants:
     constants.
 
 Related:
-  - SkullbonezSource/UI/UITabCinematic.h
+  - SkullbonezSource/Runtime/UI/GameUI/UITabCinematic.h
   - Agentic/Reference/engine-glossary.md
 */
 #include "UITabCinematic.h"

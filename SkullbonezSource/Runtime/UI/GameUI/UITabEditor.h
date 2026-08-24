@@ -16,7 +16,7 @@ Invariants:
   - UIEditorTabState owns widget state only; runtime owns scene mutation.
 
 Related:
-  - SkullbonezSource/UI/UITabEditor.cpp
+  - SkullbonezSource/Runtime/UI/GameUI/UITabEditor.cpp
   - SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp
   - Agentic/Reference/engine-glossary.md
 */

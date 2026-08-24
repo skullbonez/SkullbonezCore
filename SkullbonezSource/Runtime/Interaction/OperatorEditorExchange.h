@@ -32,7 +32,7 @@ Invariants:
   - Projection produces at most one established owner request per action type.
 
 Related:
-  - SkullbonezSource/UI/UICommands.h
+  - SkullbonezSource/Runtime/Interaction/OperatorUiCommands.h
   - SkullbonezSource/Runtime/App/InputFrame.cpp
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h
   - Agentic/Reference/engine-glossary.md

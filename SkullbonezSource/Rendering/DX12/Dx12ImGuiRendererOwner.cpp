@@ -29,7 +29,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Rendering/DX12/Dx12ImGuiRendererOwner.h
-  - ThirdPtySource/imgui/backends/imgui_impl_dx12.cpp
+  - ThirdPtySource/imgui
   - SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp
 */
 #include "Dx12ImGuiRendererOwner.h"

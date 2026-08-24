@@ -17,9 +17,9 @@ Invariants:
   - Metadata has static storage and cannot allocate or retain runtime owners.
 
 Related:
-  - SkullbonezSource/UI/UICommands.h
-  - SkullbonezSource/UI/UIFrameComposition.h
-  - SkullbonezSource/UI/UITabCinematic.cpp
+  - SkullbonezSource/Runtime/Interaction/OperatorUiCommands.h
+  - SkullbonezSource/Runtime/UI/GameUI/UIFrameComposition.h
+  - SkullbonezSource/Runtime/UI/GameUI/UITabCinematic.cpp
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

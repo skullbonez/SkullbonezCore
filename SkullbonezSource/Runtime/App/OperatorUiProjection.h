@@ -16,7 +16,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/App/OperatorEditorFramePhase.cpp
   - SkullbonezSource/Runtime/Render/UiTextPass.cpp
-  - SkullbonezSource/UI/UI.h
+  - SkullbonezSource/Runtime/UI/GameUI/UI.h
 */
 #pragma once
 

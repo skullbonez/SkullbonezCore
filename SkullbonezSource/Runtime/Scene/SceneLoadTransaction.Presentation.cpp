@@ -16,7 +16,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/SceneLoadPresentation.h
   - SkullbonezSource/Runtime/App/SceneLoadApplication.cpp
-  - SkullbonezSource/UI/UI.h
+  - SkullbonezSource/Runtime/UI/GameUI/UI.h
   - Agentic/Reference/engine-glossary.md
 */
 #include "SceneLoadTransaction.h"

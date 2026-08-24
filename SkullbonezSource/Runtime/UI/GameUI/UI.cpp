@@ -18,8 +18,8 @@ Invariants:
     resolution, resource operation, and GPU timing scope.
 
 Related:
-  - SkullbonezSource/UI/UI.h
-  - SkullbonezSource/UI/UIWindowInteractionOwner.h
+  - SkullbonezSource/Runtime/UI/GameUI/UI.h
+  - SkullbonezSource/Runtime/UI/GameUI/UIWindowInteractionOwner.h
   - Agentic/Reference/engine-glossary.md
 */
 #include "UI.h"

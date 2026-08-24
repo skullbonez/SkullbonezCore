@@ -13,7 +13,7 @@ Invariants:
   - Capture lockstep is displayed as a scene request, not as live pacing state.
 
 Related:
-  - SkullbonezSource/UI/UITabOptions.h
+  - SkullbonezSource/Runtime/UI/GameUI/UITabOptions.h
   - Agentic/Reference/engine-glossary.md
 */
 #include "UITabOptions.h"

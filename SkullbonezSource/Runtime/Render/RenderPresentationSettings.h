@@ -19,7 +19,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.h
-  - SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.Commands.cpp
+  - SkullbonezSource/Runtime/App/OperatorCommandApplication.cpp
 */
 #pragma once
 

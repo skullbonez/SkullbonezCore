@@ -17,7 +17,7 @@ Invariants:
     publish Runtime authority back into UI.
 
 Related:
-  - SkullbonezSource/UI/UI.h
+  - SkullbonezSource/Runtime/UI/GameUI/UI.h
   - SkullbonezSource/Runtime/Scene/SceneControllerState.h
   - Agentic/Reference/engine-glossary.md
 */

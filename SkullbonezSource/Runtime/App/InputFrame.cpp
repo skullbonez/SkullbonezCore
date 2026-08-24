@@ -23,7 +23,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/App/InputFrameExecution.cpp owns the fixed frame sequence.
   - SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.h
-  - SkullbonezSource/Runtime/Scene/SceneRequestExecution.cpp owns scene-request execution.
+  - SkullbonezSource/Runtime/App/SceneLoadApplication.cpp owns scene-request execution.
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/engine-glossary.md
 */

@@ -16,7 +16,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - SkullbonezSource/Scene/AuthoredScene.h
-  - SkullbonezSource/UI/UI.h
+  - SkullbonezSource/Runtime/UI/GameUI/UI.h
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

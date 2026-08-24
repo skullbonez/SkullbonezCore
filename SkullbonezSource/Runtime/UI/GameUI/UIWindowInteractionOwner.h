@@ -17,8 +17,8 @@ Invariants:
 
 Related:
   - Agentic/Reference/engine-glossary.md
-  - SkullbonezSource/UI/UI.cpp
-  - SkullbonezSource/UI/UIWindowInteractionOwner.cpp
+  - SkullbonezSource/Runtime/UI/GameUI/UI.cpp
+  - SkullbonezSource/Runtime/UI/GameUI/UIWindowInteractionOwner.cpp
 */
 #pragma once
 

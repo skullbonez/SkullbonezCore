@@ -34,7 +34,7 @@ Invariants:
 Related:
   - SkullbonezSource/Core/TracyClientOwner.cpp
   - SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h
-  - ThirdPtySource/tracy/manual/tracy.md
+  - ThirdPtySource/tracy
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

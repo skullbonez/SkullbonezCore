@@ -28,8 +28,8 @@ Invariants:
     them only for the synchronous draw and retains no allocator span.
 
 Related:
-  - SkullbonezSource/UI/UI.cpp
-  - SkullbonezSource/UI/UIWindowInteractionOwner.h
+  - SkullbonezSource/Runtime/UI/GameUI/UI.cpp
+  - SkullbonezSource/Runtime/UI/GameUI/UIWindowInteractionOwner.h
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

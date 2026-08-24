@@ -16,7 +16,7 @@ Invariants:
   constants.
 
 Related:
-  - SkullbonezSource/UI/UITabScene.h
+  - SkullbonezSource/Runtime/UI/GameUI/UITabScene.h
   - Agentic/Reference/engine-glossary.md
 */
 #include "UITabScene.h"

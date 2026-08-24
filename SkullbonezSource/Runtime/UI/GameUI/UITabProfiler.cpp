@@ -22,8 +22,8 @@ Invariants:
     retained-state or heap growth.
 
 Related:
-  - SkullbonezSource/UI/UITabProfiler.h
-  - SkullbonezSource/UI/UITabProfilerHistogram.cpp
+  - SkullbonezSource/Runtime/UI/GameUI/UITabProfiler.h
+  - SkullbonezSource/Runtime/UI/GameUI/UITabProfilerHistogram.cpp
   - Agentic/Reference/engine-glossary.md
 */
 #include "UITabProfiler.h"

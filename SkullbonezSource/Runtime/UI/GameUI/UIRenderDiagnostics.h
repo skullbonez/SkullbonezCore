@@ -23,7 +23,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/UI/RenderDiagnosticsProjection.h
   - SkullbonezSource/Rendering/RenderDiagnosticsTypes.h
-  - SkullbonezSource/UI/UITabMemory.cpp
+  - SkullbonezSource/Runtime/UI/GameUI/UITabMemory.cpp
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

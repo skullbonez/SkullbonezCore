@@ -40,7 +40,7 @@ Related:
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorInputPolicy.h
   - SkullbonezSource/Runtime/App/RunFrame.cpp
-  - ThirdPtySource/imgui/imgui.h
+  - ThirdPtySource/imgui
   - Agentic/Reference/engine-glossary.md
 */
 #include "ImGuiEditorOwner.h"

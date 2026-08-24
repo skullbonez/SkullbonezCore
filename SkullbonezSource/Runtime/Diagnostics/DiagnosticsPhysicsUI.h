@@ -17,7 +17,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Diagnostics/DiagnosticsPhysicsUI.cpp
-  - SkullbonezSource/UI/UICommands.h
+  - SkullbonezSource/Runtime/Interaction/OperatorUiCommands.h
   - SkullbonezSource/Runtime/Diagnostics/OverlayDebugState.h
 */
 #pragma once

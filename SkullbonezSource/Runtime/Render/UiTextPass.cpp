@@ -38,7 +38,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.h
-  - SkullbonezSource/UI/UI.h
+  - SkullbonezSource/Runtime/UI/GameUI/UI.h
   - Agentic/Reference/engine-glossary.md
 */
 #include "RuntimeRenderPasses.h"

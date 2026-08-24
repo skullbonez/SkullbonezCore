@@ -20,8 +20,8 @@ Invariants:
   - Sampling and rendering allocate no runtime storage.
 
 Related:
-  - SkullbonezSource/UI/UITabProfiler.h
-  - SkullbonezSource/UI/UITabProfiler.cpp
+  - SkullbonezSource/Runtime/UI/GameUI/UITabProfiler.h
+  - SkullbonezSource/Runtime/UI/GameUI/UITabProfiler.cpp
 */
 #include "UITabProfiler.h"
 

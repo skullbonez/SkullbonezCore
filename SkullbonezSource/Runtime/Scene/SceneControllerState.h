@@ -20,7 +20,7 @@ Invariants:
     decision and retain no presentation authority.
 
 Related:
-  - SkullbonezSource/UI/UISceneNavigationModel.h
+  - SkullbonezSource/Runtime/Scene/SceneNavigationModel.h
   - SkullbonezSource/Runtime/Scene/SceneLoadPreparation.h
 */
 #pragma once

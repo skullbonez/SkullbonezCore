@@ -16,7 +16,7 @@ Invariants:
   - The tab emits command intents only; it never mutates scene objects directly.
 
 Related:
-  - SkullbonezSource/UI/UITabEditor.h
+  - SkullbonezSource/Runtime/UI/GameUI/UITabEditor.h
   - SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp
   - Agentic/Reference/engine-glossary.md
 */

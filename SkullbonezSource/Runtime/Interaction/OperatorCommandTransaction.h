@@ -27,7 +27,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/App/InputFrame.cpp
   - SkullbonezSource/Runtime/Scene/SceneCinematicPolicy.h
-  - SkullbonezSource/UI/UICommands.h
+  - SkullbonezSource/Runtime/Interaction/OperatorUiCommands.h
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

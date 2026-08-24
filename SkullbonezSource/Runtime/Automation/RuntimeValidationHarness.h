@@ -22,7 +22,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/App/Run.cpp
   - SkullbonezSource/Runtime/App/RunFrame.cpp
-  - SkullbonezSource/Runtime/Capture/RuntimeStressController.cpp
+  - SkullbonezSource/Runtime/App/GraphicsStressApplication.cpp
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reference/engine-glossary.md
 */

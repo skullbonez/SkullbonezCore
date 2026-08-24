@@ -19,8 +19,8 @@ Invariants:
   - Float payloads must be finite before they enter a queue.
 
 Related:
-  - SkullbonezSource/UI/OperatorEditorExchange.h
-  - SkullbonezSource/UI/UICommands.h
+  - SkullbonezSource/Runtime/Interaction/OperatorEditorExchange.h
+  - SkullbonezSource/Runtime/Interaction/OperatorUiCommands.h
   - SkullbonezTests/TestOwnerRequestQueues.cpp
   - Agentic/Reference/engine-glossary.md
 */

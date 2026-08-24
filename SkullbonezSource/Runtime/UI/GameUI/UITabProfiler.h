@@ -19,7 +19,7 @@ Invariants:
     producers without Tracy leave its capability flags false.
 
 Related:
-  - SkullbonezSource/UI/UITabProfiler.cpp
+  - SkullbonezSource/Runtime/UI/GameUI/UITabProfiler.cpp
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

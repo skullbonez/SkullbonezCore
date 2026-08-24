@@ -21,7 +21,7 @@ Invariants:
     larger patch; consumers must not present that prefix as the complete patch.
 
 Related:
-  - SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.h
+  - SkullbonezSource/Runtime/Render/PhysicsDebugVisualizer.h
   - SkullbonezSource/Runtime/Planning/ReplayCauseInspection.h
   - SkullbonezSource/Physics/ObjectContactManifold.h
 */

@@ -17,8 +17,8 @@ Invariants:
   - Anchor resolution uses current window bounds and never retains a viewport pointer.
 
 Related:
-  - SkullbonezSource/UI/UIWindowInteractionOwner.h
-  - SkullbonezSource/UI/UI.cpp
+  - SkullbonezSource/Runtime/UI/GameUI/UIWindowInteractionOwner.h
+  - SkullbonezSource/Runtime/UI/GameUI/UI.cpp
   - Agentic/Reference/engine-glossary.md
 */
 #include "UI.h"

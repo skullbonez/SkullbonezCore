@@ -17,7 +17,7 @@ Invariants:
   - True always publishes the probe's final process exit code.
 
 Related:
-  - StartupProbeHarnesses.cpp
+  - SkullbonezSource/Runtime/App/StartupProbeApplication.cpp
   - StartupCommandLine.h
   - Agentic/Reference/engine-glossary.md
 */

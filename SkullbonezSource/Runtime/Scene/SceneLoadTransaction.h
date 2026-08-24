@@ -34,7 +34,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/SceneController.h
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
-  - SkullbonezSource/Runtime/Scene/SceneRequestExecution.cpp
+  - SkullbonezSource/Runtime/App/SceneLoadApplication.cpp
   - SkullbonezTests/TestOwnerRequestQueues.cpp
 */
 #pragma once

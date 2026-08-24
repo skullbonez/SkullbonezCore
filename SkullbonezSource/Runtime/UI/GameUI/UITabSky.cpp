@@ -16,8 +16,8 @@ Invariants:
   - The tab emits commands only; render config is mutated by runtime code.
 
 Related:
-  - SkullbonezSource/UI/UITabSky.h
-  - SkullbonezSource/UI/UITabCinematic.cpp
+  - SkullbonezSource/Runtime/UI/GameUI/UITabSky.h
+  - SkullbonezSource/Runtime/UI/GameUI/UITabCinematic.cpp
   - Agentic/Reference/engine-glossary.md
 */
 #include "UITabSky.h"

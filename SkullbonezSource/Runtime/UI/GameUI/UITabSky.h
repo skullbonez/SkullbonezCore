@@ -17,8 +17,8 @@ Invariants:
     intents handled by runtime code.
 
 Related:
-  - SkullbonezSource/UI/UITabSky.cpp
-  - SkullbonezSource/UI/UITabCinematic.h
+  - SkullbonezSource/Runtime/UI/GameUI/UITabSky.cpp
+  - SkullbonezSource/Runtime/UI/GameUI/UITabCinematic.h
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

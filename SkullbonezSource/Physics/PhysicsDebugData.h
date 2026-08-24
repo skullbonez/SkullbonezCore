@@ -15,7 +15,7 @@ Invariants:
     SkullScope summaries read these values.
 
 Related:
-  - SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.h
+  - SkullbonezSource/Runtime/Render/PhysicsDebugVisualizer.h
   - SkullbonezSource/Physics/PhysicsWorld.cpp
   - Agentic/Reference/engine-glossary.md
 */

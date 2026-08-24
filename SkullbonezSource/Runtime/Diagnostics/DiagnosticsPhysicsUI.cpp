@@ -18,7 +18,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Diagnostics/DiagnosticsPhysicsUI.h
   - SkullbonezSource/Physics/PhysicsDebugData.h
-  - SkullbonezSource/UI/UICommands.h
+  - SkullbonezSource/Runtime/Interaction/OperatorUiCommands.h
   - Agentic/Reference/engine-glossary.md
 */
 #include "DiagnosticsPhysicsUI.h"

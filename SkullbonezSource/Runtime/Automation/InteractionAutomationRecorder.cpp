@@ -18,7 +18,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Automation/InteractionAutomationRecorder.h
   - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h
-  - SkullbonezSource/Runtime/Startup/StartupLaunchResolution.cpp
+  - SkullbonezSource/Runtime/App/StartupLaunchApplication.cpp
 */
 #include "InteractionAutomationRecorder.h"
 

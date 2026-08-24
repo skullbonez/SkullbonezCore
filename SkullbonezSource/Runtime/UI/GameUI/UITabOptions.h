@@ -13,7 +13,7 @@ Invariants:
   constants.
 
 Related:
-  - SkullbonezSource/UI/UITabOptions.cpp
+  - SkullbonezSource/Runtime/UI/GameUI/UITabOptions.cpp
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

@@ -12,7 +12,7 @@ Invariants:
   constants.
 
 Related:
-  - SkullbonezSource/UI/UITabPhysics.h
+  - SkullbonezSource/Runtime/UI/GameUI/UITabPhysics.h
   - Agentic/Reference/engine-glossary.md
 */
 #include "UITabPhysics.h"

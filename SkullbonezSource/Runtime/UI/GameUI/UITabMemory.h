@@ -28,7 +28,7 @@ Invariants:
     steady gameplay diagnostics do not allocate while reporting allocations.
 
 Related:
-  - SkullbonezSource/UI/UITabMemory.cpp
+  - SkullbonezSource/Runtime/UI/GameUI/UITabMemory.cpp
   - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h
   - Agentic/Reference/engine-glossary.md
 */

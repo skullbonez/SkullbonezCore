@@ -30,8 +30,8 @@ Invariants:
     scroll/layout transaction; there is no independent owner seam to extract.
 
 Related:
-  - SkullbonezSource/UI/UITabMemory.h
-  - SkullbonezSource/UI/UI.h
+  - SkullbonezSource/Runtime/UI/GameUI/UITabMemory.h
+  - SkullbonezSource/Runtime/UI/GameUI/UI.h
   - Agentic/Reference/engine-glossary.md
 */
 #include "UITabMemory.h"
