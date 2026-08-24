@@ -1525,16 +1525,7 @@ void ReplayRuntime::ConfigureStartupWorkflows( const ReplayStartupRequest& reque
 }
 
 
-ReplayStartupResult ReplayRuntime::RunStartupWorkflows( const ReplayStartupLoadInput& loadInput
-                                                    #ifdef _DEBUG
-                                                        ,
-                                                        SceneController& sceneController, DiagnosticsRuntime& diagnosticsRuntime, OverlayDebugState& debug,
-                                                        EditorToolsOwner& editorTools, RuntimeTools& runtimeTools, SimulationSystem& simulation,
-                                                        const SkullbonezCore::Core::EngineConfig& config, SkullbonezCore::Assets::AssetSystem& assets,
-                                                        SkullbonezCore::Threading::WorkerPool& workerPool, SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                                                        GeneratedObjectTypeOverride& generatedObjectTypeOverride
-                                                    #endif
-                                                        )
+ReplayStartupResult ReplayRuntime::RunStartupWorkflows( const ReplayStartupLoadInput& loadInput )
 {
     ReplayStartupResult result;
     const ReplayStartupWorkflowState& startup = m_probeRunner.Startup();
@@ -1570,11 +1561,7 @@ ReplayStartupResult ReplayRuntime::RunStartupWorkflows( const ReplayStartupLoadI
         }
     }
 
-#ifdef _DEBUG
-    result = RunStartupProbeWorkflows( startup, loadInput, sceneController, diagnosticsRuntime, debug, editorTools,
-                                       runtimeTools, simulation, config, assets, workerPool, uiOverrides,
-                                       generatedObjectTypeOverride );
-#else
+#ifndef _DEBUG
 
     if ( startup.loadProbe )
     {
@@ -1585,12 +1572,16 @@ ReplayStartupResult ReplayRuntime::RunStartupWorkflows( const ReplayStartupLoadI
 }
 
 
-bool ReplayRuntime::RestoreV2ArtifactTargetState( ReplayRestoreTransaction& transaction, const ReplayLiveRestoreRequest& request, SceneController& sceneController,
-                                                  OverlayDebugState& debug, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools, SimulationSystem& simulation,
-                                                  const SkullbonezCore::Core::EngineConfig& config, SkullbonezCore::Assets::AssetSystem& assets,
-                                                  SkullbonezCore::Threading::WorkerPool& workerPool, SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+bool ReplayRuntime::RestoreV2ArtifactTargetState( ReplayRestoreTransaction& transaction, SceneController& sceneController,
+                                                  OverlayDebugState& debug, EditorToolsOwner& editorTools,
+                                                  RuntimeTools& runtimeTools, SimulationSystem& simulation,
+                                                  const SkullbonezCore::Core::EngineConfig& config,
+                                                  SkullbonezCore::Assets::AssetSystem& assets,
+                                                  SkullbonezCore::Threading::WorkerPool& workerPool,
+                                                  SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
                                                   GeneratedObjectTypeOverride& generatedObjectTypeOverride )
 {
+    const ReplayLiveRestoreRequest& request = transaction.ArtifactRequest();
     SceneWorld& world = sceneController.Scene();
     SceneSessionState& scene = sceneController.State();
 

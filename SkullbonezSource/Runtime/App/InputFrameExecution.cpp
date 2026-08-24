@@ -1369,9 +1369,10 @@ SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResu
 
         if ( restoreRequest.kind == ReplayLiveRestoreKind::V2ArtifactTarget )
         {
-            restored = replayRuntime.RestoreV2ArtifactTargetState( transaction, restoreRequest, sceneController, debug,
-                                                                   editorTools, runtimeTools, simulation, config, assets,
-                                                                   workerPool, ui.SceneNavigation().overrides,
+            transaction.SetArtifactRequest( restoreRequest );
+            restored = replayRuntime.RestoreV2ArtifactTargetState( transaction, sceneController, debug, editorTools,
+                                                                   runtimeTools, simulation, config, assets, workerPool,
+                                                                   ui.SceneNavigation().overrides,
                                                                    launchOptions.generatedObjectTypeOverride );
         }
         else if ( restoreRequest.kind == ReplayLiveRestoreKind::SolverSample && restoreRequest.solverSample )

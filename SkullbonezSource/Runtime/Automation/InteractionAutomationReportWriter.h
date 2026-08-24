@@ -198,7 +198,7 @@ class InteractionAutomationReportWriter
     {
     }
 
-    void Configure( const char* reportPath );
+    void Configure( const char* reportPath, const char* scriptPath );
     void ReserveForActions( std::size_t actionCount );
     void AppendAction( int frame, const char* type, const char* target, const POINT* mouse, bool consumed,
                        const char* detail );
@@ -227,11 +227,11 @@ class InteractionAutomationReportWriter
     // Lifetime: every borrowed operand is consumed synchronously. The writer
     // retains only its own bounded evidence and never stores scene/runtime/UI
     // owner addresses after this call returns.
-    Core::SbResult Write( InteractionAutomationRunStatus& status, const char* scriptPath, const SceneWorld& world,
-                          const SceneSessionState& scene, const char* scenePath, const EditorToolsOwner& editorTools,
-                          const RuntimeTools& runtimeTools, const ReplayAutomationView& replay,
-                          const RuntimeInteractionController& interaction, const CameraControlState& camera,
-                          const UI::InGameUI& ui, const Rendering::RenderSceneSnapshot& renderSnapshot );
+    Core::SbResult Write( InteractionAutomationRunStatus& status, const SceneWorld& world, const SceneSessionState& scene,
+                          const char* scenePath, const EditorToolsOwner& editorTools, const RuntimeTools& runtimeTools,
+                          const ReplayAutomationView& replay, const RuntimeInteractionController& interaction,
+                          const CameraControlState& camera, const UI::InGameUI& ui,
+                          const Rendering::RenderSceneSnapshot& renderSnapshot );
 
     // Report facts are centralized here so live assertions and final JSON use
     // one implementation of every validation-sensitive calculation.
@@ -272,6 +272,7 @@ class InteractionAutomationReportWriter
     Core::SbDiagnosticStore& m_resultDiagnostics;
     bool m_written = false;
     char m_path[260] = {};
+    char m_scriptPath[260] = {};
     std::vector<RunInteractionAutomationReportAction> m_actionReports;
     std::vector<RunInteractionAutomationReportAssertion> m_assertionReports;
     std::vector<std::string> m_screenshots;

@@ -437,9 +437,8 @@ class ReplayRuntime
     // Restores one selected artifact target through the transaction's phase
     // invariant. SceneController is borrowed as the concrete scene/session
     // owner; the focused restore phases retain no participant pointer.
-    bool RestoreV2ArtifactTargetState( ReplayRestoreTransaction& transaction, const ReplayLiveRestoreRequest& request,
-                                       SceneController& sceneController, OverlayDebugState& debug,
-                                       EditorToolsOwner& editorTools, RuntimeTools& runtimeTools,
+    bool RestoreV2ArtifactTargetState( ReplayRestoreTransaction& transaction, SceneController& sceneController,
+                                       OverlayDebugState& debug, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools,
                                        SimulationSystem& simulation, const SkullbonezCore::Core::EngineConfig& config,
                                        Assets::AssetSystem& assets, Threading::WorkerPool& workerPool,
                                        SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
@@ -517,18 +516,13 @@ class ReplayRuntime
                                                    RuntimeInteractionController& interaction, SceneWorld& world,
                                                    AttachedCameraController& attachedCamera, CameraControlState& camera,
                                                    RunMousePickupState& mousePickup );
-    ReplayStartupResult RunStartupWorkflows( const ReplayStartupLoadInput& loadInput
+    ReplayStartupResult RunStartupWorkflows( const ReplayStartupLoadInput& loadInput );
 #ifdef _DEBUG
-                                             ,
-                                             SceneController& sceneController, DiagnosticsRuntime& diagnosticsRuntime,
-                                             OverlayDebugState& debug, EditorToolsOwner& editorTools,
-                                             RuntimeTools& runtimeTools, SimulationSystem& simulation,
-                                             const SkullbonezCore::Core::EngineConfig& config, Assets::AssetSystem& assets,
-                                             Threading::WorkerPool& workerPool,
-                                             SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                                             GeneratedObjectTypeOverride& generatedObjectTypeOverride
+    ReplayStartupResult RunStartupProbeWorkflows( const ReplayStartupLoadInput& loadInput, SceneController& sceneController, DiagnosticsRuntime& diagnosticsRuntime,
+                                                  OverlayDebugState& debug, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools, SimulationSystem& simulation,
+                                                  const SkullbonezCore::Core::EngineConfig& config, Assets::AssetSystem& assets, Threading::WorkerPool& workerPool,
+                                                  SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides, GeneratedObjectTypeOverride& generatedObjectTypeOverride );
 #endif
-    );
 
     // Advances and publishes the private prediction during frame update.
     // Callers must complete this before any replay overlay traversal begins.
@@ -657,15 +651,6 @@ class ReplayRuntime
     void AppendSolverTrajectorySampleToStore( const ReplaySolverFrameSample& sample );
     bool ApplyPlanningVelocityMutation( Physics::PhysicsEngine& physics, const ReplayTripPlannerVelocityMutation& mutation );
     const ReplayPredictionCauseEvidencePacket& CopyPredictionCauseEvidence( const RunReplayCauseTreeRow& row );
-#ifdef _DEBUG
-    // Runs the configured Debug startup probes after product artifact loading
-    // has completed; early probe failures are returned in the value result.
-    ReplayStartupResult RunStartupProbeWorkflows( const ReplayStartupWorkflowState& startup, const ReplayStartupLoadInput& loadInput, SceneController& sceneController,
-                                                  DiagnosticsRuntime& diagnosticsRuntime, OverlayDebugState& debug, EditorToolsOwner& editorTools,
-                                                  RuntimeTools& runtimeTools, SimulationSystem& simulation, const SkullbonezCore::Core::EngineConfig& config,
-                                                  Assets::AssetSystem& assets, Threading::WorkerPool& workerPool,
-                                                  SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides, GeneratedObjectTypeOverride& generatedObjectTypeOverride );
-#endif
 
     // Lifetime: startup-bound diagnostics borrow shared only with concrete replay owners.
     Core::SbDiagnosticStore& m_resultDiagnostics;

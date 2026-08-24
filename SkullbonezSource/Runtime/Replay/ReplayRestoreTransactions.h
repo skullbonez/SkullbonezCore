@@ -173,6 +173,32 @@ class ReplayRestoreTransaction
     ReplayRestoreTransaction( const ReplayRestoreTransaction& ) = delete;
     ReplayRestoreTransaction& operator=( const ReplayRestoreTransaction& ) = delete;
 
+    void SetArtifactRequest( const ReplayLiveRestoreRequest& request )
+    {
+        if ( m_phase.Current() != ReplayRestorePhaseCursor::Phase::Idle || m_hasArtifactRequest ||
+             request.kind != ReplayLiveRestoreKind::V2ArtifactTarget )
+        {
+            SB_FATAL( "Runtime/ReplayRestoreTransaction",
+                      "Artifact request must be bound once before restore selection. phase=%u bound=%u kind=%u",
+                      static_cast<unsigned int>( m_phase.Current() ), m_hasArtifactRequest ? 1u : 0u,
+                      static_cast<unsigned int>( request.kind ) );
+        }
+
+        m_artifactRequest = request;
+        m_artifactRequest.solverSample = nullptr;
+        m_hasArtifactRequest = true;
+    }
+
+    const ReplayLiveRestoreRequest& ArtifactRequest() const
+    {
+        if ( !m_hasArtifactRequest )
+        {
+            SB_FATAL( "Runtime/ReplayRestoreTransaction", "Artifact restore started without a bound request." );
+        }
+
+        return m_artifactRequest;
+    }
+
     void SelectArtifact( std::size_t checkpointIndex, std::size_t targetIndex )
     {
         AdvanceOrFatal( ReplayRestorePhaseCursor::Phase::ArtifactSelected, "SelectArtifact" );
@@ -538,6 +564,7 @@ class ReplayRestoreTransaction
     }
 
     ReplaySceneTimelineResetInput m_timelineReset;
+    ReplayLiveRestoreRequest m_artifactRequest;
     ReplaySolverFrameSample m_liveBackup;
     RunReplayV2TargetRestoreResult m_result;
     ReplayRestorePhaseCursor m_phase;
@@ -548,6 +575,7 @@ class ReplayRestoreTransaction
     std::size_t m_eventsApplied = 0;
     std::size_t m_unsupportedEvents = 0;
     bool m_hasLiveBackup = false;
+    bool m_hasArtifactRequest = false;
     bool m_stateMutated = false;
     bool m_generatedTopologyRebuilt = false;
     bool m_enterInteractiveRequested = false;

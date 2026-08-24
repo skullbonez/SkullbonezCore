@@ -5086,7 +5086,7 @@ SkullbonezCore::Runtime::ConfigureInteractionAutomation( InteractionAutomationCo
     state.recordedBaseline = {};
     state.status = {};
     state.inputDriver.Reset();
-    state.reportWriter.Configure( reportPath );
+    state.reportWriter.Configure( reportPath, scriptPath );
 
     if ( !scriptPath || scriptPath[0] == '\0' )
     {
@@ -5163,8 +5163,8 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
         // report writer is another recoverable boundary, so it also cannot replace
         // the earlier script failure if both operations fail.
         result.status = InteractionAutomationResult( state );
-        const SkullbonezCore::Core::SbResult reportResult = state.reportWriter.Write( state.status, state.scriptPath,
-                                                                                      scene.Scene(), scene.State(),
+        const SkullbonezCore::Core::SbResult reportResult = state.reportWriter.Write( state.status, scene.Scene(),
+                                                                                      scene.State(),
                                                                                       scene.CurrentPath()
                                                                                           ? scene.CurrentPath()->c_str()
                                                                                           : nullptr,
@@ -5839,8 +5839,8 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
         state.finished = true;
         ClearInteractionAutomationInput( state );
         result.status = InteractionAutomationResult( state );
-        const SkullbonezCore::Core::SbResult reportResult = state.reportWriter.Write( state.status, state.scriptPath,
-                                                                                      scene.Scene(), scene.State(),
+        const SkullbonezCore::Core::SbResult reportResult = state.reportWriter.Write( state.status, scene.Scene(),
+                                                                                      scene.State(),
                                                                                       scene.CurrentPath()
                                                                                           ? scene.CurrentPath()->c_str()
                                                                                           : nullptr,
@@ -5969,8 +5969,8 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
 
         // Invariant: assertion failure retains precedence over report IO.
         result.status = InteractionAutomationResult( state );
-        const SkullbonezCore::Core::SbResult reportResult = state.reportWriter.Write( state.status, state.scriptPath,
-                                                                                      scene.Scene(), scene.State(),
+        const SkullbonezCore::Core::SbResult reportResult = state.reportWriter.Write( state.status, scene.Scene(),
+                                                                                      scene.State(),
                                                                                       scene.CurrentPath()
                                                                                           ? scene.CurrentPath()->c_str()
                                                                                           : nullptr,

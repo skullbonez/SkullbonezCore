@@ -405,7 +405,7 @@ SkullbonezCore::Runtime::InteractionAutomationRunStatus::Result( Core::SbDiagnos
     return diagnostics.Failure( "InteractionAutomation", failure[0] != '\0' ? failure : "interaction automation failed" );
 }
 
-void SkullbonezCore::Runtime::InteractionAutomationReportWriter::Configure( const char* reportPath )
+void SkullbonezCore::Runtime::InteractionAutomationReportWriter::Configure( const char* reportPath, const char* scriptPath )
 {
     // Reconfiguration is a cold Automation operation. Clear the complete
     // previous report epoch while retaining the fixed store-bound tracer owner.
@@ -433,6 +433,10 @@ void SkullbonezCore::Runtime::InteractionAutomationReportWriter::Configure( cons
 
     strcpy_s( m_path, sizeof( m_path ),
               reportPath && reportPath[0] != '\0' ? reportPath : "TestOutput\\interaction\\interaction_report.json" );
+
+    // Invariant: the report metadata names the same script epoch as every
+    // action and assertion retained after this reset.
+    strcpy_s( m_scriptPath, sizeof( m_scriptPath ), scriptPath ? scriptPath : "" );
 }
 
 void SkullbonezCore::Runtime::InteractionAutomationReportWriter::ReserveForActions( std::size_t actionCount )
@@ -1283,10 +1287,10 @@ ReplayVisualArchiveSample SkullbonezCore::Runtime::InteractionAutomationReportWr
 }
 
 
-SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( InteractionAutomationRunStatus& status, const char* scriptPath, const SceneWorld& world, const SceneSessionState& scene,
-                                                                                                  const char* scenePath, const EditorToolsOwner& editorTools, const RuntimeTools& runtimeTools,
-                                                                                                  const ReplayAutomationView& replay, const RuntimeInteractionController& interaction, const CameraControlState& camera,
-                                                                                                  const UI::InGameUI& ui, const Rendering::RenderSceneSnapshot& renderSnapshot )
+SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( InteractionAutomationRunStatus& status, const SceneWorld& world, const SceneSessionState& scene, const char* scenePath,
+                                                                                                  const EditorToolsOwner& editorTools, const RuntimeTools& runtimeTools, const ReplayAutomationView& replay,
+                                                                                                  const RuntimeInteractionController& interaction, const CameraControlState& camera, const UI::InGameUI& ui,
+                                                                                                  const Rendering::RenderSceneSnapshot& renderSnapshot )
 {
     CoreAllocation::RuntimeAllocationScope diagnosticsScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
 
@@ -1840,7 +1844,7 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
     Json report;
     report["ok"] = !status.failed;
     report["scene"] = scenePath ? scenePath : "";
-    report["script"] = scriptPath;
+    report["script"] = m_scriptPath;
     report["framesRun"] = scene.currentFrame;
     report["actions"] = actions;
     report["assertions"] = assertions;

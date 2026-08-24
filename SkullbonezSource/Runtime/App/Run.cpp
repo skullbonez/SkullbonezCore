@@ -828,17 +828,18 @@ void Run::Initialise()
                                              m_attachedCamera.State().activeFollow,
                                              m_camera.director.grabbed };
 
-#ifdef _DEBUG
-    RuntimeOverlayPresentationEdit presentationEdit = m_overlayDiagnostics->EditPresentation();
-    const ReplayStartupResult replayStartup = m_replayRuntime.RunStartupWorkflows( loadInput, m_sceneController,
-                                                                                   m_diagnosticsRuntime,
-                                                                                   presentationEdit.State(), m_editorTools,
-                                                                                   m_runtimeTools, m_simulation, m_config,
-                                                                                   m_assets, m_workerPool, sceneOverrides,
-                                                                                   generatedObjectTypeOverride );
+    ReplayStartupResult replayStartup = m_replayRuntime.RunStartupWorkflows( loadInput );
 
-#else
-    const ReplayStartupResult replayStartup = m_replayRuntime.RunStartupWorkflows( loadInput );
+#ifdef _DEBUG
+
+    if ( replayStartup.status.Ok() )
+    {
+        RuntimeOverlayPresentationEdit presentationEdit = m_overlayDiagnostics->EditPresentation();
+        replayStartup = m_replayRuntime.RunStartupProbeWorkflows( loadInput, m_sceneController, m_diagnosticsRuntime,
+                                                                  presentationEdit.State(), m_editorTools, m_runtimeTools,
+                                                                  m_simulation, m_config, m_assets, m_workerPool,
+                                                                  sceneOverrides, generatedObjectTypeOverride );
+    }
 #endif
 
     if ( !replayStartup.status.Ok() )

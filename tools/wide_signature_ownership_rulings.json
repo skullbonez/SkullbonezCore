@@ -18,28 +18,12 @@
       "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {
-      "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",
-      "signature": "template <typename InspectGizmoInteractionActive> InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools, const InteractionAutomationController& automation, const ReplayAutomationView& replay, RuntimeInteractionController& interaction, const InputRouter& inputRouter, CameraControlState& camera, const SceneWorld& world, SkullbonezCore::UI::InGameUI& ui, const InteractionAutomationDevelopmentUiView& developmentUi, const ContinuousOrbitalForecastView& forecast, const Rendering::RenderSceneSnapshot& renderSnapshot, const RunInteractionAutomationAction& action, InspectGizmoInteractionActive inspectGizmoInteractionActive )",
+      "file": "SkullbonezSource/Runtime/App/InteractionAutomationApplication.cpp",
+      "signature": "template <typename InspectGizmoInteractionActive> InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion( EditorToolsOwner& editorTools, RuntimeTools& runtimeTools, const InteractionAutomationController& automation, const ReplayAutomationView& replay, RuntimeInteractionController& interaction, const InputRouter& inputRouter, CameraControlState& camera, const SceneWorld& world, SkullbonezCore::UI::InGameUI& ui, const InteractionAutomationDevelopmentUiView& developmentUi, const ContinuousOrbitalForecastView& forecast, const Rendering::RenderSceneSnapshot& renderSnapshot, const RunInteractionAutomationAction& action, InspectGizmoInteractionActive inspectGizmoInteractionActive )",
       "owner": "Interaction automation assertion phase",
       "disposition": "retain-owner",
       "reason": "The action and detached views identify one assertion while live owners are inspected or applied synchronously and are not retained; the added forecast view is the same post-render observation lifetime, not a new authority. Grouping these operands would create an assertion context bag that the callee immediately destructures.",
       "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28); ORBIT_FORECAST OF5 rolling-window assertion review (2026-08-19)"
-    },
-    {
-      "file": "SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp",
-      "signature": "bool InputRouter::DispatchAfterUiDismiss( InputActions& actions, bool uiUserInteracted, double nowSeconds, bool gameUiActive, DiagnosticsRuntime& diagnosticsRuntime, CameraControlState& camera, AttachedCameraController& attachedCamera, RuntimeTools& runtimeTools, UI::InGameUI& ui, SceneController& sceneController, RuntimeOverlayDiagnostics& overlays, const ReplayInputView& replayInput )",
-      "owner": "InputRouter",
-      "disposition": "retain-owner",
-      "reason": "The sole retained input-routing owner controls after-UI command order and quick-exit arbitration using synchronous participant borrows.",
-      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
-    },
-    {
-      "file": "SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp",
-      "signature": "RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointerEvent& pointer, bool replayInspectionActive, int activeModelCapacity, const Window& window, Assets::AssetSystem& assets, RuntimeTools& runtimeTools, AttachedCameraController& attachedCamera, RuntimeInteractionController& interaction, CameraControlState& camera, SceneController& models, ReplayRuntime& replayRuntime, RunCameraMode replayRestoreCameraMode )",
-      "owner": "InputRouter",
-      "disposition": "retain-owner",
-      "reason": "The sole retained input-routing owner consumes pointer facts and borrows participating owners for one route decision without retaining them.",
-      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {
       "file": "SkullbonezSource/Physics/PersistentContactSolver.cpp",
@@ -74,32 +58,8 @@
       "evidence": "RAGDOLL_PHYSICS FP2 qualitative owner review (2026-08-23)"
     },
     {
-      "file": "SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.cpp",
-      "signature": "void RenderReplayScrubberOverlay( UiDrawSubmission& submission, Text::TextBatch& textBatch, UI::UIDrawList& drawList, const ReplayOverlayStateView& replay, Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderCommands, Rendering::Dx12Diagnostics& renderDiagnostics, Core::Profiler* profiler, bool scenePhysicsEnabled, RuntimeInteractionGestureKind gesture, ReplayOverlayViewport viewport, double nowSeconds )",
-      "owner": "Planning replay-overlay presentation",
-      "disposition": "retain-owner",
-      "reason": "One detached Replay view and synchronous render/UI owners produce one overlay submission without mutating Replay state or retaining owners.",
-      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Replay/ReplayAuthoringCauseTreeInput.cpp",
-      "signature": "bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner, ReplayScrubber& scrubberOwner, InputRouter& inputRouter, RuntimeInteractionController& interaction, bool rowsReady, bool uiBlocksMouse, int wheelDelta, bool editorModeEnabled, int screenWidth, int screenHeight, int& outFocusRow, bool& outExitInspectionCamera )",
-      "owner": "ReplayAuthoring cause-tree input",
-      "disposition": "retain-owner",
-      "reason": "The authoring owner arbitrates one cause-tree input turn; mutable participants and explicit outputs are not retained beyond the call.",
-      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Replay/ReplayAuthoringVelocity.cpp",
-      "signature": "bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwner, ReplayScrubber& scrubberOwner, const ReplayPathPickInput& pointerRay, bool uiBlocksMouse, double now, InputRouter& inputRouter, RuntimeInteractionController& interaction, PhysicsEngine& velocityPhysics, std::size_t entityCount, bool& outEnterInteractive, bool& outPathPickRequested, ReplayInspectionCameraAction& outInspectionCameraAction )",
-      "owner": "ReplayAuthoring velocity-edit input",
-      "disposition": "retain-owner",
-      "reason": "The authoring owner controls one velocity-edit input turn and its physics/interaction arbitration; outputs are decisions for that same turn.",
-      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
-    },
-    {
       "file": "SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp",
-      "signature": "ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartupWorkflowState& startup, const ReplayStartupLoadInput& loadInput, SceneController& sceneController, DiagnosticsRuntime& diagnosticsRuntime, OverlayDebugState& debug, RuntimeTools& runtimeTools, SimulationSystem& simulation, const SkullbonezCore::Core::EngineConfig& config, SkullbonezCore::Assets::AssetSystem& assets, SkullbonezCore::Threading::WorkerPool& workerPool, SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides, GeneratedObjectTypeOverride& generatedObjectTypeOverride )",
+      "signature": "ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartupLoadInput& loadInput, SceneController& sceneController, DiagnosticsRuntime& diagnosticsRuntime, OverlayDebugState& debug, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools, SimulationSystem& simulation, const SkullbonezCore::Core::EngineConfig& config, SkullbonezCore::Assets::AssetSystem& assets, SkullbonezCore::Threading::WorkerPool& workerPool, SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides, GeneratedObjectTypeOverride& generatedObjectTypeOverride )",
       "owner": "Replay startup-probe phase",
       "disposition": "retain-owner",
       "reason": "Startup probe execution is one Replay phase; startup/load values and concrete composition owners are used synchronously and not repackaged.",
@@ -107,7 +67,7 @@
     },
     {
       "file": "SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp",
-      "signature": "ReplayProbeTickResult ReplayRuntime::TickProbes( SceneController& sceneController, OverlayDebugState& debug, RuntimeTools& runtimeTools, const SkullbonezCore::Core::EngineConfig& config, SkullbonezCore::Assets::AssetSystem& assets, const ReplaySceneTimelineResetInput& timelineReset, DiagnosticsRuntime& diagnosticsRuntime, InputRouter& inputRouter, RuntimeInteractionController& interaction, CameraControlState& camera, RunCameraMode restoreMode, bool attachedFollow )",
+      "signature": "ReplayProbeTickResult ReplayRuntime::TickProbes( SceneController& sceneController, OverlayDebugState& debug, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools, const SkullbonezCore::Core::EngineConfig& config, SkullbonezCore::Assets::AssetSystem& assets, const ReplaySceneTimelineResetInput& timelineReset, DiagnosticsRuntime& diagnosticsRuntime, InputRouter& inputRouter, RuntimeInteractionController& interaction, CameraControlState& camera, RunCameraMode restoreMode, bool attachedFollow )",
       "owner": "Replay probe-orchestration phase",
       "disposition": "retain-owner",
       "reason": "Replay probe orchestration is one diagnostic phase at the App composition level; concrete owner borrows expire synchronously.",
@@ -122,16 +82,16 @@
       "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {
-      "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",
-      "signature": "InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutomationController& state, RuntimeTools& runtimeTools, RuntimeInteractionController& interaction, InputRouter& inputRouter, CameraControlState& camera, SkullbonezCore::UI::InGameUI& ui, SceneController& scene, const ReplayAutomationView& replayView, const InteractionAutomationDevelopmentUiView& developmentUiView, const ContinuousOrbitalForecastView& forecastView, const Rendering::RenderSceneSnapshot& renderSnapshot, CaptureController& capture, Rendering::Dx12BackbufferCapture& backbufferCapture )",
+      "file": "SkullbonezSource/Runtime/App/InteractionAutomationApplication.cpp",
+      "signature": "InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutomationController& state, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools, RuntimeInteractionController& interaction, InputRouter& inputRouter, CameraControlState& camera, SkullbonezCore::UI::InGameUI& ui, SceneController& scene, const ReplayAutomationView& replayView, const InteractionAutomationDevelopmentUiView& developmentUiView, const ContinuousOrbitalForecastView& forecastView, const Rendering::RenderSceneSnapshot& renderSnapshot, CaptureController& capture, Rendering::Dx12BackbufferCapture& backbufferCapture )",
       "owner": "Interaction automation after-render phase",
       "disposition": "retain-owner",
       "reason": "Automation owns this ordered after-render phase, including capture evidence and detached forecast metrics; every participant shares one synchronous evidence turn and no cross-phase owner pointer or services aggregate is retained. A shorter signature would hide the same borrows in a frame context rather than move ownership.",
       "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28); ORBIT_FORECAST OF5 post-render evidence review (2026-08-19)"
     },
     {
-      "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",
-      "signature": "InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutomationController& state, Window& windowOwner, const SkullbonezCore::Core::EngineConfig& config, SceneController& scene, RunTimerState& timers, CameraControlState& camera, InputRouter& inputRouter, RuntimeInteractionController& interaction, RuntimeTools& runtimeTools, SkullbonezCore::UI::InGameUI& ui, const ReplayAutomationView& replayView, const Rendering::RenderSceneSnapshot& renderSnapshot )",
+      "file": "SkullbonezSource/Runtime/App/InteractionAutomationApplication.cpp",
+      "signature": "InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutomationController& state, Window& windowOwner, const SkullbonezCore::Core::EngineConfig& config, SceneController& scene, const RuntimeFrameMetricsSnapshot& timers, CameraControlState& camera, InputRouter& inputRouter, RuntimeInteractionController& interaction, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools, SkullbonezCore::UI::InGameUI& ui, const ReplayAutomationView& replayView, const Rendering::RenderSceneSnapshot& renderSnapshot )",
       "owner": "Interaction automation before-input phase",
       "disposition": "retain-owner",
       "reason": "Automation owns this named phase and its ordering relative to input; concrete composition participants are borrowed only for the phase call.",

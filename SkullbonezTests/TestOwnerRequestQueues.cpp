@@ -824,6 +824,34 @@ TEST_CASE( "Replay restore transaction requires branch and rollback side-effect 
     rollback.RequireScrubberPublicationTerminal( false );
 }
 
+TEST_CASE( "Replay restore transaction owns artifact request identity without retaining solver borrows" )
+{
+    ReplaySolverFrameSample borrowedSample;
+    ReplayLiveRestoreRequest request;
+    request.kind = ReplayLiveRestoreKind::V2ArtifactTarget;
+    request.solverSample = &borrowedSample;
+    request.requestedFrame = 41u;
+    request.makeLiveBranch = true;
+    request.enterInteractive = true;
+    request.messageTrack = RunReplayTrack::Presentation;
+    request.now = 12.5;
+    strcpy_s( request.path, "TestOutput\\artifact.skreplay" );
+
+    ReplayRestoreTransaction transaction;
+    transaction.SetArtifactRequest( request );
+    request.path[0] = '\0';
+
+    const ReplayLiveRestoreRequest& stored = transaction.ArtifactRequest();
+    CHECK( stored.kind == ReplayLiveRestoreKind::V2ArtifactTarget );
+    CHECK( stored.solverSample == nullptr );
+    CHECK( stored.requestedFrame == 41u );
+    CHECK( stored.makeLiveBranch );
+    CHECK( stored.enterInteractive );
+    CHECK( stored.messageTrack == RunReplayTrack::Presentation );
+    CHECK( stored.now == doctest::Approx( 12.5 ) );
+    CHECK( std::strcmp( stored.path, "TestOutput\\artifact.skreplay" ) == 0 );
+}
+
 #ifdef _DEBUG
 TEST_CASE( "Replay restore transaction detaches exact diagnostic values and text" )
 {

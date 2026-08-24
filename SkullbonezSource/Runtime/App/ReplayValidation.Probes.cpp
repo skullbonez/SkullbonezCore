@@ -1775,13 +1775,14 @@ void ReplayProbeRunner::ConfigureDebug( const ReplayStartupRequest& request )
     }
 }
 
-ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartupWorkflowState& startup, const ReplayStartupLoadInput& loadInput, SceneController& sceneController,
-                                                             DiagnosticsRuntime& diagnosticsRuntime, OverlayDebugState& debug, EditorToolsOwner& editorTools,
-                                                             RuntimeTools& runtimeTools, SimulationSystem& simulation, const SkullbonezCore::Core::EngineConfig& config,
-                                                             SkullbonezCore::Assets::AssetSystem& assets, SkullbonezCore::Threading::WorkerPool& workerPool,
-                                                             SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides, GeneratedObjectTypeOverride& generatedObjectTypeOverride )
+ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartupLoadInput& loadInput, SceneController& sceneController, DiagnosticsRuntime& diagnosticsRuntime,
+                                                             OverlayDebugState& debug, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools, SimulationSystem& simulation,
+                                                             const SkullbonezCore::Core::EngineConfig& config, SkullbonezCore::Assets::AssetSystem& assets,
+                                                             SkullbonezCore::Threading::WorkerPool& workerPool, SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+                                                             GeneratedObjectTypeOverride& generatedObjectTypeOverride )
 {
     ReplayStartupResult result;
+    const ReplayStartupWorkflowState& startup = m_probeRunner.Startup();
     SceneWorld& world = sceneController.Scene();
     SceneSessionState& scene = sceneController.State();
     const ReplaySceneTimelineResetInput timelineReset = ReplayTimelineOperations::
@@ -1861,9 +1862,10 @@ ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartup
         strncpy_s( restoreRequest.path, startup.targetProbePath, _TRUNCATE );
         restoreRequest.requestedFrame = ( std::numeric_limits<ReplayFrameIndex>::max )();
         ReplayRestoreTransaction transaction { timelineReset };
-        const bool restored = RestoreV2ArtifactTargetState( transaction, restoreRequest, sceneController, debug, editorTools,
-                                                            runtimeTools, simulation, config, assets, workerPool,
-                                                            uiOverrides, generatedObjectTypeOverride );
+        transaction.SetArtifactRequest( restoreRequest );
+        const bool restored = RestoreV2ArtifactTargetState( transaction, sceneController, debug, editorTools, runtimeTools,
+                                                            simulation, config, assets, workerPool, uiOverrides,
+                                                            generatedObjectTypeOverride );
 
         PublishRestoreDiagnostic( transaction, diagnosticsRuntime, scene );
 
@@ -1886,9 +1888,10 @@ ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartup
         if ( probeResult.Ok() )
         {
             ReplayRestoreTransaction transaction { timelineReset };
-            const bool restored = RestoreV2ArtifactTargetState( transaction, restoreRequest, sceneController, debug,
-                                                                editorTools, runtimeTools, simulation, config, assets,
-                                                                workerPool, uiOverrides, generatedObjectTypeOverride );
+            transaction.SetArtifactRequest( restoreRequest );
+            const bool restored = RestoreV2ArtifactTargetState( transaction, sceneController, debug, editorTools,
+                                                                runtimeTools, simulation, config, assets, workerPool,
+                                                                uiOverrides, generatedObjectTypeOverride );
 
             ReplayLiveRestoreOutcome outcome = ReplayLiveRestoreOperations::BuildOutcome( transaction, restoreRequest.kind,
                                                                                           restored );
@@ -1928,9 +1931,10 @@ ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartup
                 restoreRequest.requestedFrame = request.targetFrame;
                 strncpy_s( restoreRequest.path, startup.failureProbePath, _TRUNCATE );
                 ReplayRestoreTransaction transaction { timelineReset };
-                step.succeeded = RestoreV2ArtifactTargetState( transaction, restoreRequest, sceneController, debug,
-                                                               editorTools, runtimeTools, simulation, config, assets,
-                                                               workerPool, uiOverrides, generatedObjectTypeOverride );
+                transaction.SetArtifactRequest( restoreRequest );
+                step.succeeded = RestoreV2ArtifactTargetState( transaction, sceneController, debug, editorTools,
+                                                               runtimeTools, simulation, config, assets, workerPool,
+                                                               uiOverrides, generatedObjectTypeOverride );
 
                 PublishRestoreDiagnostic( transaction, diagnosticsRuntime, scene );
                 strncpy_s( reason, transaction.FailureReason(), _TRUNCATE );
@@ -1955,9 +1959,10 @@ ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartup
                 restoreRequest.injectTargetHashMismatchForProbe = request.forceHashMismatch;
                 strncpy_s( restoreRequest.path, startup.failureProbePath, _TRUNCATE );
                 ReplayRestoreTransaction transaction { timelineReset };
-                step.succeeded = RestoreV2ArtifactTargetState( transaction, restoreRequest, sceneController, debug,
-                                                               editorTools, runtimeTools, simulation, config, assets,
-                                                               workerPool, uiOverrides, generatedObjectTypeOverride );
+                transaction.SetArtifactRequest( restoreRequest );
+                step.succeeded = RestoreV2ArtifactTargetState( transaction, sceneController, debug, editorTools,
+                                                               runtimeTools, simulation, config, assets, workerPool,
+                                                               uiOverrides, generatedObjectTypeOverride );
 
                 PublishRestoreDiagnostic( transaction, diagnosticsRuntime, scene );
                 strncpy_s( reason, transaction.FailureReason(), _TRUNCATE );
