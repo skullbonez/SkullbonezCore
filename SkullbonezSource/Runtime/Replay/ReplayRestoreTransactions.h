@@ -33,6 +33,7 @@ Related:
 #include "ReplayScrubber.h"
 #include "../../Core/FatalError.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -203,12 +204,39 @@ class ReplayRestoreTransaction
         m_stateMutated = true;
     }
 
-    void MarkTargetStepped( ReplayFrameIndex frame, uint32_t eventCursor, std::size_t eventsApplied )
+    void BeginTargetStep( uint32_t eventCursor )
     {
+        if ( m_phase.Current() != ReplayRestorePhaseCursor::Phase::CheckpointApplied || m_targetStepStarted )
+        {
+            SB_FATAL( "Runtime/ReplayRestoreTransaction",
+                      "Target stepping began outside the applied-checkpoint phase. phase=%u already_started=%u",
+                      static_cast<unsigned int>( m_phase.Current() ), m_targetStepStarted ? 1u : 0u );
+        }
+
+        m_eventCursor = eventCursor;
+        m_eventsApplied = 0;
+        m_unsupportedEvents = 0;
+        m_targetStepStarted = true;
+    }
+
+    void RecordAppliedTargetEvent( uint32_t sequence )
+    {
+        RequireTargetStepStarted( "RecordAppliedTargetEvent" );
+        m_eventCursor = ( std::max )( m_eventCursor, sequence + 1u );
+        ++m_eventsApplied;
+    }
+
+    void RecordUnsupportedTargetEvent()
+    {
+        RequireTargetStepStarted( "RecordUnsupportedTargetEvent" );
+        ++m_unsupportedEvents;
+    }
+
+    void MarkTargetStepped( ReplayFrameIndex frame )
+    {
+        RequireTargetStepStarted( "MarkTargetStepped" );
         AdvanceOrFatal( ReplayRestorePhaseCursor::Phase::TargetStepped, "MarkTargetStepped" );
         m_targetFrame = frame;
-        m_eventCursor = eventCursor;
-        m_eventsApplied = eventsApplied;
     }
 
     void MarkTargetVerified()
@@ -387,6 +415,11 @@ class ReplayRestoreTransaction
         return m_eventsApplied;
     }
 
+    std::size_t UnsupportedEvents() const
+    {
+        return m_unsupportedEvents;
+    }
+
     const char* FailureReason() const
     {
         return m_failureReason;
@@ -476,6 +509,16 @@ class ReplayRestoreTransaction
 #endif
 
   private:
+    void RequireTargetStepStarted( const char* operation ) const
+    {
+        if ( m_phase.Current() != ReplayRestorePhaseCursor::Phase::CheckpointApplied || !m_targetStepStarted )
+        {
+            SB_FATAL( "Runtime/ReplayRestoreTransaction",
+                      "Target-step progress changed outside its transaction phase. operation=%s phase=%u started=%u",
+                      operation, static_cast<unsigned int>( m_phase.Current() ), m_targetStepStarted ? 1u : 0u );
+        }
+    }
+
     void AdvanceOrFatal( ReplayRestorePhaseCursor::Phase next, const char* operation )
     {
         const ReplayRestorePhaseCursor::Phase current = m_phase.Current();
@@ -503,6 +546,7 @@ class ReplayRestoreTransaction
     ReplayFrameIndex m_targetFrame = 0;
     uint32_t m_eventCursor = 0;
     std::size_t m_eventsApplied = 0;
+    std::size_t m_unsupportedEvents = 0;
     bool m_hasLiveBackup = false;
     bool m_stateMutated = false;
     bool m_generatedTopologyRebuilt = false;
@@ -510,6 +554,7 @@ class ReplayRestoreTransaction
     bool m_timelineResetRequired = false;
     bool m_timelineResetApplied = false;
     bool m_liveBackupApplied = false;
+    bool m_targetStepStarted = false;
     uint32_t m_parentBranchId = 0;
     int m_branchSceneFrame = 0;
     uint64_t m_branchSolverHash = 0;

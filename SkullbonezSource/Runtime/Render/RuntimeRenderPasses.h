@@ -133,6 +133,7 @@ class Terrain;
 namespace Rendering
 {
 class PrimitiveBatchRenderer;
+class RenderInstanceRenderer;
 } // namespace Rendering
 
 namespace UI
@@ -251,6 +252,7 @@ struct ObjectPassInputs
     // caller.
     const RenderCameraLighting& camera;
     const RuntimeRenderModelFrameView& models;
+    Rendering::RenderInstanceRenderer& instanceRenderer;
     Rendering::PrimitiveBatchRenderer& primitiveRenderer;
     const SkullbonezCore::Core::OrdinaryRenderConfig& ordinaryLighting;
     const char* primitiveShaderBaseName;
@@ -297,6 +299,7 @@ struct ReflectionPassInputs
     // must return a texture handle and matching sample transform.
     const RenderCameraLighting& camera;
     const RuntimeRenderModelFrameView& models;
+    Rendering::RenderInstanceRenderer& instanceRenderer;
     Rendering::PrimitiveBatchRenderer& primitiveRenderer;
     const SkullbonezCore::Core::OrdinaryRenderConfig& ordinaryLighting;
     const char* primitiveShaderBaseName;
@@ -529,6 +532,7 @@ struct ShadowPassInputs
     const RenderCameraLighting& camera;
     Geometry::Terrain* terrain = nullptr;
     const RuntimeRenderModelFrameView& models;
+    Rendering::RenderInstanceRenderer& instanceRenderer;
     Rendering::PrimitiveBatchRenderer& primitiveRenderer;
     const char* shadowShaderBaseName;
     Rendering::Dx12FrameOwner& renderFrame;
@@ -705,16 +709,15 @@ class ShadowPass
     Rendering::ShadowFrameData BuildObjectFrameData( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                                      const Math::Vector::Vector3& lightDirectionWorld,
                                                      const Math::Vector::Vector3& focusHint,
-                                                     const Rendering::RenderInstanceStore& renderInstances,
-                                                     Threading::WorkerPool* renderWorkerPool, bool shadowParallelPrep );
-    void RenderShadowMap( Rendering::FramebufferDX12& target, Rendering::PrimitiveBatchRenderer& primitiveRenderer,
+                                                     Rendering::RenderInstanceRenderer& instanceRenderer );
+    void RenderShadowMap( Rendering::FramebufferDX12& target,
+                          Rendering::RenderInstanceRenderer& instanceRenderer,
                           Rendering::Dx12Diagnostics& renderDiagnostics, const char* shadowShaderBaseName,
                           const Rendering::ShadowFrameData& shadowFrame,
                           const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                           Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12TextureOwner& renderTextures,
-                          const Rendering::RenderInstanceStore& renderInstances, const Physics::ColliderStore& colliders,
-                          Threading::WorkerPool* renderWorkerPool, bool renderTerrain, bool shadowParallelPrep,
-                          const Rendering::ShadowCasterBatches* objectCasters, Geometry::Terrain* terrain );
+                          bool renderTerrain, const Rendering::ShadowCasterBatches* objectCasters,
+                          Geometry::Terrain* terrain );
 
     ShadowPassResources& m_resources;
     const SkullbonezCore::Core::EngineConfig& m_config;

@@ -2,22 +2,6 @@
   "review_trigger_arity": 12,
   "rulings": [
     {
-      "file": "SkullbonezSource/Runtime/App/ReplayValidation.cpp",
-      "signature": "bool ApplyReplayRestoreEventsForFrame( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, ReplayRestoreTransaction& transaction, SceneController& sceneController, RuntimeTools& runtimeTools, SkullbonezCore::Assets::AssetSystem& assets, int sceneObjectCapacity, const ReplayRestoreArtifactData& artifact, const ReplaySolverFrameSample& checkpoint, ReplayFrameIndex nextFrame, uint32_t& eventCursor, std::size_t& eventsApplied, std::size_t& unsupportedEvents )",
-      "owner": "Replay restore event-application phase",
-      "disposition": "retain-owner",
-      "reason": "One replay-restore phase applies the next frame's immutable event range and advances its three explicit outputs; diagnostics and concrete owners are synchronous borrows, while grouping them would create a courier rather than a new invariant owner.",
-      "evidence": "git history: sbresult-compact-success-path-sr2-implementation (2026-07-28)"
-    },
-    {
-      "file": "SkullbonezSource/Runtime/App/ReplayValidation.cpp",
-      "signature": "bool StepReplayRestoreTarget( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, ReplayRestoreTransaction& transaction, SceneController& sceneController, OverlayDebugState& debug, RuntimeTools& runtimeTools, SkullbonezCore::Assets::AssetSystem& assets, SkullbonezCore::Threading::WorkerPool& workerPool, int sceneObjectCapacity, const ReplayRestoreArtifactData& artifact, const ReplaySolverFrameSample& checkpoint, const ReplayV2SolverHashSample& target, SkullbonezCore::Core::Profiler* profiler )",
-      "owner": "Replay restore target-step phase",
-      "disposition": "retain-owner",
-      "reason": "The operation owns one restore target step from checkpoint through target validation; every owner/store borrow is used synchronously and no participant or output crosses the phase boundary.",
-      "evidence": "git history: sbresult-compact-success-path-sr2-implementation (2026-07-28)"
-    },
-    {
       "file": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp",
       "signature": "uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticVertices, int staticVertexCount, int staticFloatsPerVertex, int instanceFloats, int instanceStartAttribute, std::span<const int> instanceAttributeSizes, std::span<const int> staticAttributeSizes, ID3D12Device* device, ID3D12GraphicsCommandList* commandList, ID3D12Resource* uploadResource, D3D12_GPU_VIRTUAL_ADDRESS uploadAddress, uint8_t* uploadPointer )",
       "owner": "Dx12GeometryOwner",
@@ -90,22 +74,6 @@
       "evidence": "RAGDOLL_PHYSICS FP2 qualitative owner review (2026-08-23)"
     },
     {
-      "file": "SkullbonezSource/Rendering/RenderInstanceRenderer.cpp",
-      "signature": "void RenderInstanceRenderer::RenderModels( const PrimitiveRenderContext& primitiveContext, const RenderInstanceStore& renderStore, const SkullbonezCore::Physics::ColliderStore& colliderStore, bool renderCollisionVolumes, const Matrix4& view, const Matrix4& projection, const float ( &lightPosition )[4], const SkullbonezCore::Core::CinematicRenderConfig* cinematic, const ShadowFrameData* shadow, float materialAlpha, const std::vector<uint8_t>* modelMask, bool drawMaskedModels )",
-      "owner": "RenderInstanceRenderer",
-      "disposition": "retain-owner",
-      "reason": "This stable main-view entry seam delegates one render submission to a compile-time visibility implementation without collecting or retaining authority.",
-      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
-    },
-    {
-      "file": "SkullbonezSource/Rendering/RenderInstanceRenderer.cpp",
-      "signature": "template <RenderVisibilityView visibilityView> void RenderModelsForView( const PrimitiveRenderContext& primitiveContext, const RenderInstanceStore& renderStore, const SkullbonezCore::Physics::ColliderStore& colliderStore, bool renderCollisionVolumes, const Matrix4& view, const Matrix4& proj, const float lightPos[4], const SkullbonezCore::Core::CinematicRenderConfig* cinematic, const ShadowFrameData* shadow, float materialAlpha, const std::vector<uint8_t>* modelMask, bool drawMaskedModels )",
-      "owner": "RenderModelsForView visibility specialization",
-      "disposition": "retain-owner",
-      "reason": "The compile-time visibility policy and explicit render values drive one model submission pass; the helper does not unpack a courier.",
-      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
-    },
-    {
       "file": "SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.cpp",
       "signature": "void RenderReplayScrubberOverlay( UiDrawSubmission& submission, Text::TextBatch& textBatch, UI::UIDrawList& drawList, const ReplayOverlayStateView& replay, Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderCommands, Rendering::Dx12Diagnostics& renderDiagnostics, Core::Profiler* profiler, bool scenePhysicsEnabled, RuntimeInteractionGestureKind gesture, ReplayOverlayViewport viewport, double nowSeconds )",
       "owner": "Planning replay-overlay presentation",
@@ -151,14 +119,6 @@
       "owner": "ReplayRuntime scrubber-input phase",
       "disposition": "retain-owner",
       "reason": "Replay owns scrubber input arbitration; scalar UI/frame facts and router, interaction, camera, and output borrows expire at return.",
-      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp",
-      "signature": "void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target, const PrimitiveRenderContext& primitiveContext, const Rendering::ShadowFrameData& shadowFrame, const SkullbonezCore::Core::CinematicRenderConfig& cinematic, Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12TextureOwner& renderTextures, const Rendering::RenderInstanceStore& renderInstances, const Physics::ColliderStore& colliders, SkullbonezCore::Threading::WorkerPool* renderWorkerPool, bool renderTerrain, bool shadowParallelPrep, const Rendering::ShadowCasterBatches* objectCasters )",
-      "owner": "ShadowPass",
-      "disposition": "retain-owner",
-      "reason": "One shadow-pass owner consumes synchronous render resources, stores, optional worker policy, and caster batches for one map submission.",
       "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {

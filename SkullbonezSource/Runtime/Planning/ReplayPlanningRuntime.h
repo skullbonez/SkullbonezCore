@@ -49,15 +49,6 @@ struct PhysicsWorldForces;
 } // namespace Physics
 namespace Runtime
 {
-struct ReplayPlanningPointerInput
-{
-    // Lifetime: App copies one published pointer snapshot; Planning retains none of it.
-    int clientX = 0;
-    int clientY = 0;
-    bool hasClientPosition = false;
-    bool leftPressed = false;
-};
-
 struct ReplayPlanningSceneView
 {
     // Stable identities and bounded display text replace a mutable Scene-store borrow.
@@ -96,7 +87,8 @@ class ReplayPlanningRuntime
                                                   ReplayOverlay::ReplayOverlayViewport viewport, double nowSeconds );
 
     // Returns whether either visible planning surface owns the pointer.
-    bool TickPointerSurface( bool uiBlocksMouse, int screenWidth, const ReplayPlanningPointerInput& pointer );
+    bool TickPointerSurface( bool uiBlocksMouse, int screenWidth, int clientX, int clientY, bool hasClientPosition,
+                             bool leftPressed );
     ReplayPathPickResult TryPickInterceptTarget( const ReplayPathPickInput& input,
                                                  const Physics::PhysicsBodyStore& bodyStore,
                                                  const Physics::ColliderStore& colliderStore );

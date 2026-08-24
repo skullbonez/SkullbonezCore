@@ -1122,34 +1122,47 @@ void PrimitiveBatchRenderer::DrawShadowDepthBoxBatchEnd()
     m_state.boxBatchReady = false;
 }
 
-void PrimitiveBatchRenderer::DrawConvexHullModel( const SkullbonezCore::Core::OrdinaryRenderConfig& lighting,
-                                                  const char* shaderBaseName, const ConvexHullShape& hull,
-                                                  const Matrix4& model, const RenderMaterial& material, const Matrix4& view,
-                                                  const Matrix4& proj, const float lightPos[4], bool isTransparent,
-                                                  const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
-                                                  const ShadowFrameData* shadow, float materialAlpha )
+void PrimitiveBatchRenderer::BeginConvexHullBatch(
+    const SkullbonezCore::Core::OrdinaryRenderConfig& lighting, const char* shaderBaseName, const Matrix4& view,
+    const Matrix4& proj, const float lightPos[4], bool isTransparent,
+    const SkullbonezCore::Core::CinematicRenderConfig* cinematic, const ShadowFrameData* shadow, float materialAlpha )
 {
     EnsureConvexHullDynamicVB( m_state );
-    const std::array<float, INSTANCE_FLOATS> instancePayload = BuildSingleMaterialInstancePayload( model, material );
-    const int vertexCount = BuildConvexHullDynamicVertices( hull, instancePayload, m_state );
+    EnsureSphereShader( shaderBaseName, lighting );
+    m_state.convexHullBatchTransparent = isTransparent;
+    m_state.convexHullBatchReady = m_state.convexHullDynamicVB != 0 && m_state.sphereShader &&
+                                   BindShader( *m_state.sphereShader, lighting, view, proj, lightPos, cinematic, shadow,
+                                               PRIMITIVE_SHAPE_MESH, shadow ? shadow->objectsReceive : false,
+                                               materialAlpha );
+}
 
-    if ( m_state.convexHullDynamicVB == 0 || vertexCount <= 0 )
+void PrimitiveBatchRenderer::DrawConvexHullModel( const ConvexHullShape& hull, const Matrix4& model,
+                                                  const RenderMaterial& material )
+{
+    if ( !m_state.convexHullBatchReady )
     {
         return;
     }
 
-    EnsureSphereShader( shaderBaseName, lighting );
-    const bool ready = BindShader( *m_state.sphereShader, lighting, view, proj, lightPos, cinematic, shadow,
-                                   PRIMITIVE_SHAPE_MESH, shadow ? shadow->objectsReceive : false, materialAlpha );
+    const std::array<float, INSTANCE_FLOATS> instancePayload = BuildSingleMaterialInstancePayload( model, material );
+    const int vertexCount = BuildConvexHullDynamicVertices( hull, instancePayload, m_state );
 
-    if ( ready )
+    if ( vertexCount <= 0 )
     {
-        Commands( m_state ).UploadAndDrawDynamicVB( m_state.convexHullDynamicVB,
-                                                    std::span<const float>( m_state.convexHullVertexData.data(),
-                                                                            static_cast<size_t>( vertexCount ) *
-                                                                                HULL_DYNAMIC_FLOATS_PER_VERTEX ),
-                                                    PrimitiveVisibleRasterState( isTransparent ) );
+        return;
     }
+
+    Commands( m_state ).UploadAndDrawDynamicVB( m_state.convexHullDynamicVB,
+                                                std::span<const float>( m_state.convexHullVertexData.data(),
+                                                                        static_cast<size_t>( vertexCount ) *
+                                                                            HULL_DYNAMIC_FLOATS_PER_VERTEX ),
+                                                PrimitiveVisibleRasterState( m_state.convexHullBatchTransparent ) );
+}
+
+void PrimitiveBatchRenderer::EndConvexHullBatch()
+{
+    m_state.convexHullBatchReady = false;
+    m_state.convexHullBatchTransparent = false;
 }
 
 void PrimitiveBatchRenderer::DrawShadowDepthConvexHullModel( const char* shaderBaseName,

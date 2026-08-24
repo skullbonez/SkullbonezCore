@@ -158,6 +158,17 @@ struct RunMousePickupState;
 class RuntimeRenderer;
 struct SceneSessionState;
 struct ReplayV2SaveResult;
+struct ReplayV2SolverHashSample;
+
+// Immutable artifact rows needed while App advances one restore target. The
+// checkpoint-selection tables remain in the loading phase and cannot be
+// recovered through this stepping view.
+struct ReplayRestoreStepView
+{
+    std::span<const ReplayV2SolverHashSample> hashes;
+    std::span<const ReplayEventSample> events;
+    std::span<const ReplayPresentationSample> presentationSamples;
+};
 #ifdef _DEBUG
 struct ReplayScrubProbeDiagnostic;
 #endif
@@ -574,6 +585,14 @@ class ReplayRuntime
                                bool directorGrabbed, RuntimeInteractionController& interaction, InputRouter& inputRouter );
 
   private:
+    // Advances one selected restore target through event application, fixed
+    // stepping, and hash validation while the transaction owns progress.
+    bool StepRestoreTarget( ReplayRestoreTransaction& transaction, SceneController& sceneController,
+                            OverlayDebugState& debug, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools,
+                            Assets::AssetSystem& assets, Threading::WorkerPool& workerPool, int sceneObjectCapacity,
+                            const ReplayRestoreStepView& restoreView, const ReplaySolverFrameSample& checkpoint,
+                            const ReplayV2SolverHashSample& target );
+
     // Writes the current presentation, solver hashes/checkpoints, and event
     // stream to an explicit cold-I/O binary v2 path.
     bool SavePresentationWithSolverHashes( const char* path, ReplayV2SaveResult* result = nullptr,

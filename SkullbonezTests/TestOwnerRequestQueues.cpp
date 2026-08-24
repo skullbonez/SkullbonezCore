@@ -741,7 +741,12 @@ TEST_CASE( "Replay restore transaction requires branch and rollback side-effect 
         transaction.CaptureLiveBackup( ReplaySolverFrameSample {} );
         transaction.MarkTopologyPrepared( false, false );
         transaction.MarkCheckpointApplied();
-        transaction.MarkTargetStepped( 17u, 3u, 2u );
+        transaction.BeginTargetStep( 1u );
+        transaction.RecordAppliedTargetEvent( 1u );
+        transaction.RecordAppliedTargetEvent( 2u );
+        transaction.MarkTargetStepped( 17u );
+        CHECK( transaction.EventCursor() == 3u );
+        CHECK( transaction.EventsApplied() == 2u );
         transaction.MarkTargetVerified();
     };
 

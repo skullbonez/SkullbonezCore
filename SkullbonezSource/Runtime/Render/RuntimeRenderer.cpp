@@ -29,6 +29,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "RuntimeRenderer.h"
+#include "../../Rendering/RenderInstanceRenderer.h"
 #include "../../Rendering/DX12/RenderBackendDX12.h"
 #include "../../Assets/AssetKeys.h"
 #include "RuntimeRenderPasses.h"
@@ -2021,6 +2022,9 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
 
     const SkullbonezCore::Core::CinematicRenderConfig* activeCinematic = cinematicRender ? &renderConfig : nullptr;
     const SkullbonezCore::Core::CinematicRenderConfig* activeShadowConfig = shadowMapsEnabled ? &activeShadowStyle : nullptr;
+    Rendering::RenderInstanceRenderer instanceRenderer(
+        primitiveRenderer, renderDiagnostics, ordinaryLighting, models.renderInstances, models.colliders,
+        models.renderWorkerPool, models.shadowParallelPrep, models.renderCollisionVolumes );
 
     if ( activeShadowConfig )
     {
@@ -2043,6 +2047,7 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
         const ShadowPassInputs shadowInputs { camera,
                                               context.terrain,
                                               models,
+                                              instanceRenderer,
                                               primitiveRenderer,
                                               shadowShaderBaseName,
                                               renderFrame,
@@ -2113,6 +2118,7 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
         }
         const ReflectionPassInputs reflectionInputs { camera,
                                                       models,
+                                                      instanceRenderer,
                                                       primitiveRenderer,
                                                       ordinaryLighting,
                                                       primitiveShaderBaseName,
@@ -2153,6 +2159,7 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     {
         const ObjectPassInputs objectInputs { camera,
                                               models,
+                                              instanceRenderer,
                                               primitiveRenderer,
                                               ordinaryLighting,
                                               primitiveShaderBaseName,
@@ -2217,6 +2224,7 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     {
         const ObjectPassInputs transparentInputs { camera,
                                                    models,
+                                                   instanceRenderer,
                                                    primitiveRenderer,
                                                    ordinaryLighting,
                                                    primitiveShaderBaseName,
@@ -2242,6 +2250,7 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     {
         const ObjectPassInputs fadedInputs { camera,
                                              models,
+                                             instanceRenderer,
                                              primitiveRenderer,
                                              ordinaryLighting,
                                              primitiveShaderBaseName,

@@ -623,7 +623,8 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( ReplayRestoreTransaction& transac
                                                                                    m_launcherVisualCaptureScratch, sample,
                                                                                    restoredSample );
 
-    transaction.MarkTargetStepped( sample.frameIndex, sample.eventCursor, 0 );
+    transaction.BeginTargetStep( sample.eventCursor );
+    transaction.MarkTargetStepped( sample.frameIndex );
 
     const uint64_t restoredSolverHash = hashCaptured ? restoredSample.solverHash : 0;
     const uint64_t restoredPresentationHash = hashCaptured ? restoredSample.presentationHash : 0;

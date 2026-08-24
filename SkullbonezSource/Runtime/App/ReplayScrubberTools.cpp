@@ -897,11 +897,11 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
     }
 
     const RuntimePointerEvent& planningPointerEvent = inputRouter.RuntimeSnapshot().pointer;
-    const ReplayPlanningPointerInput planningPointer { planningPointerEvent.clientX, planningPointerEvent.clientY,
-                                                       planningPointerEvent.hasClientPosition,
-                                                       inputRouter.UiSnapshot().mouse.leftPressed };
     const bool planningOwnsMouse = m_planningOwner.TickPointerSurface( input.uiBlocksMouse, input.screenWidth,
-                                                                       planningPointer );
+                                                                       planningPointerEvent.clientX,
+                                                                       planningPointerEvent.clientY,
+                                                                       planningPointerEvent.hasClientPosition,
+                                                                       inputRouter.UiSnapshot().mouse.leftPressed );
 
     const bool predictionCauseRows = !m_authoring.CauseTree().rows.empty() &&
                                      m_authoring.CauseTree().rows.front().prediction;

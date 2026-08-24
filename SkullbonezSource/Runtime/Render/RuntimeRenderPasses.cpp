@@ -793,8 +793,7 @@ ShadowPass::BuildTerrainFrameData( const SkullbonezCore::Core::CinematicRenderCo
 SkullbonezCore::Rendering::ShadowFrameData
 ShadowPass::BuildObjectFrameData( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                   const Math::Vector::Vector3& lightDirectionWorld, const Math::Vector::Vector3& focusHint,
-                                  const Rendering::RenderInstanceStore& renderInstances,
-                                  SkullbonezCore::Threading::WorkerPool* renderWorkerPool, bool shadowParallelPrep )
+                                  Rendering::RenderInstanceRenderer& instanceRenderer )
 {
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildObjectFrame" );
 
@@ -810,9 +809,8 @@ ShadowPass::BuildObjectFrameData( const SkullbonezCore::Core::CinematicRenderCon
     float heightRange = 0.0f;
     const float objectSearchDistance = std::clamp( cinematic.shadow.maxDistance * 0.15f, 180.0f, 320.0f );
 
-    if ( !Rendering::RenderInstanceRenderer::GetObjectShadowBounds( m_profiler, renderInstances, renderWorkerPool,
-                                                                    shadowParallelPrep, focusHint, objectSearchDistance,
-                                                                    focus, shadowRadius, heightRange ) )
+    if ( !instanceRenderer.GetObjectShadowBounds( m_profiler, focusHint, objectSearchDistance, focus, shadowRadius,
+                                                  heightRange ) )
     {
         return shadowFrame;
     }
@@ -849,16 +847,13 @@ ShadowPass::BuildObjectFrameData( const SkullbonezCore::Core::CinematicRenderCon
 
 
 void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target,
-                                  Rendering::PrimitiveBatchRenderer& primitiveRenderer,
+                                  Rendering::RenderInstanceRenderer& instanceRenderer,
                                   Rendering::Dx12Diagnostics& renderDiagnostics,
                                   const char* shadowShaderBaseName,
                                   const Rendering::ShadowFrameData& shadowFrame,
                                   const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                   Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12TextureOwner& renderTextures,
-                                  const Rendering::RenderInstanceStore& renderInstances,
-                                  const Physics::ColliderStore& colliders,
-                                  SkullbonezCore::Threading::WorkerPool* renderWorkerPool, bool renderTerrain,
-                                  bool shadowParallelPrep, const Rendering::ShadowCasterBatches* objectCasters,
+                                  bool renderTerrain, const Rendering::ShadowCasterBatches* objectCasters,
                                   Geometry::Terrain* terrain )
 {
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap" );
@@ -917,16 +912,14 @@ void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target,
 
         if ( objectCasters )
         {
-            Rendering::RenderInstanceRenderer::SubmitShadowCasterBatches(
-                m_profiler, primitiveRenderer, renderDiagnostics, shadowShaderBaseName, *objectCasters,
-                shadowFrame.lightView, shadowFrame.lightProjection, &cinematic, visibilityView );
+            instanceRenderer.SubmitShadowCasterBatches( m_profiler, shadowShaderBaseName, *objectCasters,
+                                                        shadowFrame.lightView, shadowFrame.lightProjection, &cinematic,
+                                                        visibilityView );
         }
         else
         {
-            Rendering::RenderInstanceRenderer::RenderShadowCasters(
-                m_profiler, primitiveRenderer, renderDiagnostics, shadowShaderBaseName, renderInstances, colliders,
-                renderWorkerPool, shadowParallelPrep, shadowFrame.lightView, shadowFrame.lightProjection, &cinematic,
-                visibilityView );
+            instanceRenderer.RenderShadowCasters( m_profiler, shadowShaderBaseName, shadowFrame.lightView,
+                                                   shadowFrame.lightProjection, &cinematic, visibilityView );
         }
     }
 
@@ -968,11 +961,7 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
 
             if ( shouldBuildObjectCasters )
             {
-                Rendering::RenderInstanceRenderer::BuildShadowCasterBatches( m_profiler, inputs.models.renderInstances,
-                                                                             inputs.models.colliders,
-                                                                             inputs.models.renderWorkerPool,
-                                                                             inputs.models.shadowParallelPrep,
-                                                                             objectCasters );
+                inputs.instanceRenderer.BuildShadowCasterBatches( m_profiler, objectCasters );
             }
 
             m_activeTerrainHidden = inputs.terrainHidden;
@@ -983,27 +972,22 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
 
             if ( m_resources.terrainTarget )
             {
-                RenderShadowMap( *m_resources.terrainTarget, inputs.primitiveRenderer, inputs.renderDiagnostics,
+                RenderShadowMap( *m_resources.terrainTarget, inputs.instanceRenderer, inputs.renderDiagnostics,
                                  inputs.shadowShaderBaseName, m_resources.terrainFrame, *inputs.cinematic,
-                                 inputs.renderFrame, inputs.renderTextures, inputs.models.renderInstances,
-                                 inputs.models.colliders, inputs.models.renderWorkerPool, true,
-                                 inputs.models.shadowParallelPrep, &objectCasters, inputs.terrain );
+                                 inputs.renderFrame, inputs.renderTextures, true, &objectCasters, inputs.terrain );
             }
 
             // Anchor the tight object-shadow map to the render look target, not
             // the eye. Locked/inspect zoom moves the eye around a stable target;
             // using the eye makes nearby-object bounds pop as the user zooms.
             m_resources.objectFrame = BuildObjectFrameData( *inputs.cinematic, lightDirection, inputs.camera.viewCenter,
-                                                            inputs.models.renderInstances, inputs.models.renderWorkerPool,
-                                                            inputs.models.shadowParallelPrep );
+                                                            inputs.instanceRenderer );
 
             if ( m_resources.objectTarget )
             {
-                RenderShadowMap( *m_resources.objectTarget, inputs.primitiveRenderer, inputs.renderDiagnostics,
+                RenderShadowMap( *m_resources.objectTarget, inputs.instanceRenderer, inputs.renderDiagnostics,
                                  inputs.shadowShaderBaseName, m_resources.objectFrame, *inputs.cinematic,
-                                 inputs.renderFrame, inputs.renderTextures, inputs.models.renderInstances,
-                                 inputs.models.colliders, inputs.models.renderWorkerPool, false,
-                                 inputs.models.shadowParallelPrep, &objectCasters, inputs.terrain );
+                                 inputs.renderFrame, inputs.renderTextures, false, &objectCasters, inputs.terrain );
             }
         }
         PROFILE_GPU_END( inputs.gpuTiming, "Frame/Shadows/ShadowMap" );
@@ -1235,16 +1219,9 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs 
 
             if ( SelectRenderTexture( inputs.textures, TEXTURE_BOUNDING_SPHERE, "Frame/Render/Reflection/Balls" ) )
             {
-                Rendering::RenderInstanceRenderer::RenderReflectionModels( inputs.primitiveRenderer,
-                                                                           inputs.renderDiagnostics,
-                                                                           inputs.ordinaryLighting,
-                                                                           inputs.primitiveShaderBaseName,
-                                                                           inputs.models.renderInstances,
-                                                                           inputs.models.colliders,
-                                                                           inputs.models.renderCollisionVolumes,
-                                                                           inputs.reflectionView, inputs.camera.projection,
-                                                                           inputs.camera.lightPosition, inputs.cinematic,
-                                                                           inputs.objectShadow, inputs.bodyAlpha );
+                inputs.instanceRenderer.RenderReflectionModels(
+                    inputs.primitiveShaderBaseName, inputs.reflectionView, inputs.camera.projection,
+                    inputs.camera.lightPosition, inputs.cinematic, inputs.objectShadow, inputs.bodyAlpha );
             }
         }
 
@@ -1301,13 +1278,10 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
 
         if ( SelectRenderTexture( inputs.textures, TEXTURE_BOUNDING_SPHERE, passName ) )
         {
-            Rendering::RenderInstanceRenderer::RenderModels( inputs.primitiveRenderer, inputs.renderDiagnostics,
-                                                             inputs.ordinaryLighting, inputs.primitiveShaderBaseName,
-                                                             inputs.models.renderInstances,
-                                                             inputs.models.colliders, inputs.models.renderCollisionVolumes,
-                                                             inputs.camera.baseView, inputs.camera.projection,
-                                                             inputs.camera.lightPosition, inputs.cinematic, inputs.shadow,
-                                                             inputs.bodyAlpha, inputs.modelMask, inputs.drawMaskedModels );
+            inputs.instanceRenderer.RenderModels( inputs.primitiveShaderBaseName, inputs.camera.baseView,
+                                                   inputs.camera.projection, inputs.camera.lightPosition,
+                                                   inputs.cinematic, inputs.shadow, inputs.bodyAlpha, inputs.modelMask,
+                                                   inputs.drawMaskedModels );
         }
     }
 }

@@ -109,6 +109,8 @@ struct PrimitiveBatchRendererState
     bool sphereBatchReady = false;
     bool boxBatchReady = false;
     bool pineBatchReady = false;
+    bool convexHullBatchReady = false;
+    bool convexHullBatchTransparent = false;
     Rendering::Dx12ResourceBuilder* renderResources = nullptr;                                                          // Backend factory borrowed while helper handles are live.
     Rendering::Dx12TextureOwner* renderTextures = nullptr;
     Rendering::Dx12GeometryOwner* renderGeometry = nullptr;
@@ -312,13 +314,15 @@ class PrimitiveBatchRenderer
     PrimitiveBatchScope BeginShadowDepthPineBatch( const char* shaderBaseName,
                                                    const Math::Transformation::Matrix4& view,
                                                    const Math::Transformation::Matrix4& proj );
-    void DrawConvexHullModel( const SkullbonezCore::Core::OrdinaryRenderConfig& lighting, const char* shaderBaseName,
-                              const Math::CollisionDetection::ConvexHullShape& hull,
-                              const Math::Transformation::Matrix4& model, const Rendering::RenderMaterial& material,
-                              const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj,
-                              const float lightPos[4], bool isTransparent = false,
-                              const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
-                              const Rendering::ShadowFrameData* shadow = nullptr, float materialAlpha = 1.0f );
+    void BeginConvexHullBatch( const SkullbonezCore::Core::OrdinaryRenderConfig& lighting, const char* shaderBaseName,
+                               const Math::Transformation::Matrix4& view,
+                               const Math::Transformation::Matrix4& proj, const float lightPos[4], bool isTransparent,
+                               const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
+                               const Rendering::ShadowFrameData* shadow, float materialAlpha );
+    void DrawConvexHullModel( const Math::CollisionDetection::ConvexHullShape& hull,
+                              const Math::Transformation::Matrix4& model,
+                              const Rendering::RenderMaterial& material );
+    void EndConvexHullBatch();
     void DrawShadowDepthConvexHullModel( const char* shaderBaseName,
                                          const Math::CollisionDetection::ConvexHullShape& hull,
                                          const Math::Transformation::Matrix4& model,

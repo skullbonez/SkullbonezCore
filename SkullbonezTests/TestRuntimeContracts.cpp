@@ -1533,7 +1533,8 @@ bool RunRuntimeFatalCase( const char* caseName )
         }
 
         transaction.MarkCheckpointApplied();
-        transaction.MarkTargetStepped( 3u, 0u, 0u );
+        transaction.BeginTargetStep( 0u );
+        transaction.MarkTargetStepped( 3u );
         transaction.MarkTargetVerified();
         transaction.PrepareTimelineReset( 4u, 5, 0xA5u );
         transaction.Complete();

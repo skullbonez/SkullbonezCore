@@ -257,29 +257,29 @@ const UI::UIDrawList& ReplayPlanningRuntime::ComposeOverlayDrawList(
 }
 
 
-bool ReplayPlanningRuntime::TickPointerSurface( bool uiBlocksMouse, int screenWidth,
-                                                const ReplayPlanningPointerInput& pointer )
+bool ReplayPlanningRuntime::TickPointerSurface( bool uiBlocksMouse, int screenWidth, int clientX, int clientY,
+                                                bool hasClientPosition, bool leftPressed )
 {
     bool porkchopOwnsMouse = false;
 
-    if ( m_porkchopPanel.Visible() && pointer.hasClientPosition )
+    if ( m_porkchopPanel.Visible() && hasClientPosition )
     {
         const ReplayPorkchopPanelView& porkchop = m_porkchopPanel.View();
         const UI::UIRect panel = ReplayOverlay::ReplayPorkchopPanelRect( screenWidth );
-        const float pointerX = static_cast<float>( pointer.clientX );
-        const float pointerY = static_cast<float>( pointer.clientY );
+        const float pointerX = static_cast<float>( clientX );
+        const float pointerY = static_cast<float>( clientY );
         porkchopOwnsMouse = !uiBlocksMouse && pointerX >= panel.x && pointerY >= panel.y && pointerX < panel.x + panel.w &&
                             pointerY < panel.y + panel.h;
 
         std::size_t cellIndex = 0u;
         const bool hasCell = porkchopOwnsMouse &&
-                             ReplayOverlay::ReplayPorkchopCellAtPointer( screenWidth, pointer.clientX, pointer.clientY,
+                             ReplayOverlay::ReplayPorkchopCellAtPointer( screenWidth, clientX, clientY,
                                                                          cellIndex ) &&
                              cellIndex < porkchop.completedCells;
 
         m_porkchopPanel.SetHoveredCell( hasCell ? static_cast<int>( cellIndex ) : -1 );
 
-        if ( hasCell && pointer.leftPressed && m_porkchopPanel.SelectCell( cellIndex ) )
+        if ( hasCell && leftPressed && m_porkchopPanel.SelectCell( cellIndex ) )
         {
             const ReplayPorkchopPanelView& selected = m_porkchopPanel.View();
             (void)m_tripPlanner.QueueCommand( { ReplayTripPlannerCommandKind::SetTimeOfFlight, selected.selectedTimeOfFlightSeconds } );
@@ -293,14 +293,14 @@ bool ReplayPlanningRuntime::TickPointerSurface( bool uiBlocksMouse, int screenWi
     bool tripPlannerOwnsMouse = false;
     const ReplayTripPlannerView& planner = m_tripPlanner.View();
 
-    if ( planner.visible && planner.available && pointer.hasClientPosition )
+    if ( planner.visible && planner.available && hasClientPosition )
     {
         ReplayOverlay::ReplayTripPlannerSurface surface;
         ReplayOverlay::BuildReplayTripPlannerSurface( planner, screenWidth, surface );
-        surface.ResolvePointer( pointer.clientX, pointer.clientY, uiBlocksMouse || porkchopOwnsMouse );
+        surface.ResolvePointer( clientX, clientY, uiBlocksMouse || porkchopOwnsMouse );
         tripPlannerOwnsMouse = surface.consumesPointer;
 
-        if ( pointer.leftPressed && surface.hasHotControl )
+        if ( leftPressed && surface.hasHotControl )
         {
             const ReplayOverlay::ReplayTripPlannerControlRow* control = surface.Find( surface.hotControl );
 
