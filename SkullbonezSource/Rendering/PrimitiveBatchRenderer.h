@@ -241,6 +241,11 @@ class PrimitiveBatchRenderer
 
     void EnsureSphereShader( const char* shaderBaseName, const SkullbonezCore::Core::OrdinaryRenderConfig& lighting );
     void EnsureShadowDepthShader( const char* shaderBaseName );
+    bool BindShader( Rendering::ShaderDX12& shader, const SkullbonezCore::Core::OrdinaryRenderConfig& lighting,
+                     const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& projection,
+                     const float lightPosition[4], const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
+                     const Rendering::ShadowFrameData* shadow, int primitiveShape, bool receiveShadows,
+                     float materialAlpha );
     void BuildSphereMesh( int slices, int stacks );                                                                     // Generate UV sphere instanced mesh
     void BuildLowPolySphereMesh( int slices, int stacks );                                                              // Generate faceted sphere instanced mesh
     void BuildBoxMesh();                                                                                                // Generate unit cube instanced mesh

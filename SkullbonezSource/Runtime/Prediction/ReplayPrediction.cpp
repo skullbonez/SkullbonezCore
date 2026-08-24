@@ -773,8 +773,8 @@ ReplayPredictionSourcePreparation
 ReplayPrediction::BeginFrameSource( PhysicsEngine& physicsEngine, const SkullbonezCore::Core::EngineConfig& config,
                                     bool scenePhysics, double fallbackSourceSimulationSeconds, double simulationTotalSeconds,
                                     const ReplaySolverFrameSample* latestSolverSample,
-                                    Physics::PhysicsSceneObjectId requestedTargetId, ModelRowHint requestedTargetModelRow,
-                                    bool targetAvailable, const std::chrono::steady_clock::time_point& budgetStart,
+                                    const ReplayPastTrajectoryView& requestedPath,
+                                    const std::chrono::steady_clock::time_point& budgetStart,
                                     double budgetMilliseconds, ReplayPredictionUpdateResult& result )
 {
     ReplayPrediction& predictionOwner = *this;
@@ -804,14 +804,14 @@ ReplayPrediction::BeginFrameSource( PhysicsEngine& physicsEngine, const Skullbon
     const uint64_t sourceSolverHash = latestSolverSample ? latestSolverSample->solverHash : 0;
     const ReplayFrameIndex previousSourceFrameIndex = prediction.simulation.sourceFrameIndex;
     const uint64_t previousSourceSolverHash = prediction.simulation.sourceSolverHash;
-    const bool preserveCommittedFuture = prediction.enabled && scenePhysics && requestedTargetId.value != 0 &&
-                                         prediction.simulation.targetId.value == requestedTargetId.value &&
+    const bool preserveCommittedFuture = prediction.enabled && scenePhysics && requestedPath.targetId.value != 0 &&
+                                         prediction.simulation.targetId.value == requestedPath.targetId.value &&
                                          prediction.HasCommittedFramePrefix();
 
     const std::size_t
         buildPresentationFrameCount = preserveCommittedFuture
                                           ? ReplayPredictionBuildPresentationFrameCountForRefresh( prediction,
-                                                                                                   requestedTargetId )
+                                                                                                   requestedPath.targetId )
                                           : 2u;
 
     const bool clearSamplesOnCancel = !preserveCommittedFuture;
@@ -842,7 +842,7 @@ ReplayPrediction::BeginFrameSource( PhysicsEngine& physicsEngine, const Skullbon
         prediction.revealClock.anchorValid = true;
     }
 
-    prediction.simulation.targetId = requestedTargetId;
+    prediction.simulation.targetId = requestedPath.targetId;
     prediction.build.dirty = false;
 
     if ( !prediction.enabled || !scenePhysics )
@@ -884,9 +884,9 @@ ReplayPrediction::BeginFrameSource( PhysicsEngine& physicsEngine, const Skullbon
     prediction.build.buildPresentationFrameCount = buildPresentationFrameCount;
     const PhysicsBodyStore& liveBodyStore = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physicsEngine );
 
-    if ( targetAvailable && requestedTargetId.value != 0 )
+    if ( requestedPath.hasTarget && requestedPath.targetId.value != 0 )
     {
-        ModelRowHint targetHint = requestedTargetModelRow;
+        ModelRowHint targetHint = requestedPath.targetModelRow;
         int targetIndex = -1;
 
         if ( ReplayPredictionBudgetExpiredForPass( result, SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionBegin,
@@ -896,7 +896,7 @@ ReplayPrediction::BeginFrameSource( PhysicsEngine& physicsEngine, const Skullbon
             return ReplayPredictionSourcePreparation::Declined;
         }
 
-        if ( !TryResolveReplayBodyModelIndex( liveBodyStore, requestedTargetId, targetHint, modelCount, targetIndex ) )
+        if ( !TryResolveReplayBodyModelIndex( liveBodyStore, requestedPath.targetId, targetHint, modelCount, targetIndex ) )
         {
             result.repairedTargetModelRow = targetHint;
             result.targetModelRowRepaired = true;

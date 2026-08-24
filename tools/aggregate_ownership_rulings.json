@@ -288,15 +288,6 @@
       "destructures_at_entry": "no"
     },
     {
-      "key": "PrimitiveBatchShaderParams",
-      "site": "SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp:372",
-      "members": 11,
-      "verdict": "retain",
-      "owner": "CA0 / Rendering/PrimitiveBatchRenderer.cpp",
-      "reason": "Builder state, transforms, lighting, clipping, cinematic/shadow policy, primitive kind, and alpha bind one shader draw submission; partial reuse would issue geometry under mismatched render state.",
-      "destructures_at_entry": "no"
-    },
-    {
       "key": "ReflectionPassInputs",
       "site": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:291",
       "members": 22,

@@ -1613,7 +1613,6 @@ void ReplayRuntime::AppendSolverTrajectorySampleToStore( const ReplaySolverFrame
 void ReplayRuntime::CaptureFrame( int sceneFrame, float physicsDt, const ReplayWorldPresentationSample& world,
                                   const ReplayCameraSample& camera, Physics::PhysicsEngine& physics,
                                   const Gameplay::TornadoGameplay& tornadoGameplay, const SceneEntityStore& entities,
-                                  const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore,
                                   RuntimeTools& runtimeTools )
 {
     // Invariant: presentation, solver, and event timelines share the same
@@ -1634,7 +1633,7 @@ void ReplayRuntime::CaptureFrame( int sceneFrame, float physicsDt, const ReplayW
                                                 physics, tornadoGameplay,
                                                 std::span<const char* const>( m_captureEntityNamesScratch.data(),
                                                                               entityNameCount ),
-                                                bodyStore, colliderStore, m_authoring.Branch() );
+                                                m_authoring.Branch() );
 
     if ( solverSample )
     {
@@ -2055,6 +2054,7 @@ void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics, const Gameplay::To
     // advances without a ReplayRuntime reach-back. Its value-only result is
     // applied after the worker/publication transition returns.
     const RunReplayPathVisualizerState& path = m_visualPresentation.PathVisualizer();
+    const ReplayPastTrajectoryView pathView = m_visualPresentation.PastTrajectoryView();
     const ReplayScrubberView scrubber = m_scrubberOwner.View();
     const ReplayPlanningSceneView planningScene = BuildReplayPlanningSceneView( entities,
                                                                                 m_planningOwner.InterceptView().targetId );
@@ -2092,8 +2092,7 @@ void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics, const Gameplay::To
             const ReplayPredictionSourcePreparation
                 preparation = m_predictionOwner.BeginFrameSource( physics, config, scenePhysicsEnabled,
                                                                   simulationTimeSinceLastStart, simulationTotalTime,
-                                                                  latestSolverSample, path.targetId, path.targetModelRow,
-                                                                  path.hasTarget, budgetStart,
+                                                                  latestSolverSample, pathView, budgetStart,
                                                                   REPLAY_PREDICTION_MAX_WORK_MILLISECONDS, result );
 
             const bool began = preparation != ReplayPredictionSourcePreparation::Declined &&

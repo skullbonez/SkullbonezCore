@@ -2290,7 +2290,6 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
 
     const bool debugOverlayRendered = ExecuteDebugOverlayThroughRenderGraph( { debugInputs, useCinematicTarget } );
 
-    bool volumetricReady = false;
     CinematicPostFrameOutput cinematicPostOutput;
 
     if ( useCinematicTarget )
@@ -2298,11 +2297,10 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
         cinematicPostOutput = ExecuteCinematicPostThroughRenderGraph(
             { camera, renderConfig, renderGeometry, renderTextures, renderFrame, renderGraph, renderDiagnostics,
               m_resources.GpuTiming(), windowWidth, windowHeight } );
-
-        volumetricReady = cinematicPostOutput.volumetricReady;
     }
 
-    Rendering::RenderSceneSnapshot frameSnapshot;
+    m_frameGraphSnapshot = {};
+    Rendering::RenderSceneSnapshot& frameSnapshot = m_frameGraphSnapshot;
     frameSnapshot.cinematicRender = cinematicRender;
     frameSnapshot.useCinematicTarget = useCinematicTarget;
     frameSnapshot.terrainShadowValid = terrainShadowFrame && terrainShadowFrame->valid;
@@ -2319,16 +2317,15 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
 
     frameSnapshot.worldExtensionRendered = worldExtensionRendered;
     frameSnapshot.volumetricPassExecuted = cinematicPostOutput.volumetricPassExecuted;
-    frameSnapshot.volumetricReady = volumetricReady;
+    frameSnapshot.volumetricReady = cinematicPostOutput.volumetricReady;
 
-    if ( volumetricReady )
+    if ( cinematicPostOutput.volumetricReady )
     {
         frameSnapshot.volumetricTextureHandle = cinematicPostOutput.volumetricTextureHandle;
         frameSnapshot.volumetricWidth = cinematicPostOutput.volumetricWidth;
         frameSnapshot.volumetricHeight = cinematicPostOutput.volumetricHeight;
     }
 
-    m_frameGraphSnapshot = frameSnapshot;
     return debugOverlayRendered;
 }
 

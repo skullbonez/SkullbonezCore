@@ -84,6 +84,7 @@ class AssetSystem;
 
 namespace SkullbonezCore::Geometry
 {
+class Ray;
 class Terrain;
 }
 
@@ -320,9 +321,8 @@ class RuntimeTools
     // before the method returns; pickup retains only its typed body handle and
     // camera-plane values.
     MousePickupPointerResult
-    RouteMousePickupPointer( const RuntimePointerEvent& pointer, bool hasWorldRay, const Math::Vector::Vector3& rayOrigin,
-                             const Math::Vector::Vector3& rayDirection, bool hasClampedWorldRay,
-                             const Math::Vector::Vector3& clampedRayOrigin, const Math::Vector::Vector3& clampedRayDirection,
+    RouteMousePickupPointer( const RuntimePointerEvent& pointer, bool hasWorldRay, const Geometry::Ray& worldRay,
+                             bool hasClampedWorldRay, const Geometry::Ray& clampedWorldRay,
                              const Math::Vector::Vector3& cameraEye, const Math::Vector::Vector3& cameraView,
                              const SceneWorld& world, InputRouter& inputRouter, RuntimeInteractionController& interaction );
 

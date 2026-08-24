@@ -40,6 +40,7 @@ Related:
 #include "../Scene/SceneGeneratedControlTransaction.h"
 #include "../Scene/SceneCinematicPolicy.h"
 #include "../../Core/Log.h"
+#include "../../Maths/GeometricStructures.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../UI/GameUI/UI.h"
@@ -327,10 +328,10 @@ Run::RouteRuntimePointer( const RuntimePointerEvent& pointer, bool replayInspect
         else if ( m_interaction.Gesture().kind == RuntimeInteractionGestureKind::MousePickupDrag || pointer.leftPressed )
         {
             const MousePickupPointerResult pickupResult = m_runtimeTools.RouteMousePickupPointer( pointer, hasWorldRay,
-                                                                                                rayOrigin, rayDirection,
+                                                                                                Geometry::Ray( rayOrigin, rayDirection ),
                                                                                                 hasClampedWorldRay,
-                                                                                                clampedRayOrigin,
-                                                                                                clampedRayDirection,
+                                                                                                Geometry::Ray( clampedRayOrigin,
+                                                                                                               clampedRayDirection ),
                                                                                                 cameraEye, cameraView,
                                                                                                 m_sceneController.Scene(),
                                                                                                 inputRouter, m_interaction );

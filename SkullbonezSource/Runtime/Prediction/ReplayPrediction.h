@@ -1021,8 +1021,7 @@ class ReplayPrediction
     ReplayPredictionSourcePreparation
     BeginFrameSource( Physics::PhysicsEngine& physicsEngine, const SkullbonezCore::Core::EngineConfig& config,
                       bool scenePhysics, double fallbackSourceSimulationSeconds, double simulationTotalSeconds,
-                      const ReplaySolverFrameSample* latestSolverSample, Physics::PhysicsSceneObjectId requestedTargetId,
-                      Physics::ModelRowHint requestedTargetModelRow, bool targetAvailable,
+                      const ReplaySolverFrameSample* latestSolverSample, const ReplayPastTrajectoryView& requestedPath,
                       const std::chrono::steady_clock::time_point& budgetStart, double budgetMilliseconds,
                       ReplayPredictionUpdateResult& result );
     bool BeginFrameSimulation( Physics::PhysicsEngine& physicsEngine, const Gameplay::TornadoGameplay& tornadoGameplay,

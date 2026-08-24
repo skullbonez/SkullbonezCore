@@ -130,14 +130,6 @@
       "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {
-      "file": "SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp",
-      "signature": "ReplayPredictionSourcePreparation ReplayPrediction::BeginFrameSource( PhysicsEngine& physicsEngine, const SkullbonezCore::Core::EngineConfig& config, bool scenePhysics, double fallbackSourceSimulationSeconds, double simulationTotalSeconds, const ReplaySolverFrameSample* latestSolverSample, Physics::PhysicsSceneObjectId requestedTargetId, ModelRowHint requestedTargetModelRow, bool targetAvailable, const std::chrono::steady_clock::time_point& budgetStart, double budgetMilliseconds, ReplayPredictionUpdateResult& result )",
-      "owner": "ReplayPrediction source-selection phase",
-      "disposition": "retain-owner",
-      "reason": "Prediction owns source selection and calibration for one build frame; source facts and result output belong to that phase.",
-      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
-    },
-    {
       "file": "SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp",
       "signature": "ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartupWorkflowState& startup, const ReplayStartupLoadInput& loadInput, SceneController& sceneController, DiagnosticsRuntime& diagnosticsRuntime, OverlayDebugState& debug, RuntimeTools& runtimeTools, SimulationSystem& simulation, const SkullbonezCore::Core::EngineConfig& config, SkullbonezCore::Assets::AssetSystem& assets, SkullbonezCore::Threading::WorkerPool& workerPool, SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides, GeneratedObjectTypeOverride& generatedObjectTypeOverride )",
       "owner": "Replay startup-probe phase",
@@ -159,22 +151,6 @@
       "owner": "ReplayRuntime scrubber-input phase",
       "disposition": "retain-owner",
       "reason": "Replay owns scrubber input arbitration; scalar UI/frame facts and router, interaction, camera, and output borrows expire at return.",
-      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
-      "signature": "void ReplaySolverRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_t eventCursor, int sceneFrame, float physicsDt, const ReplayWorldPresentationSample& world, const ReplayCameraSample& camera, const ReplayLauncherVisualSample& launcherVisual, Physics::PhysicsEngine& physics, const Gameplay::TornadoGameplay& tornadoGameplay, const SceneEntityStore& entities, const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore )",
-      "owner": "ReplaySolverRecorder",
-      "disposition": "retain-owner",
-      "reason": "The recorder owns one frame capture; event/time samples and source stores form one immutable capture snapshot consumed before return.",
-      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Tools/MousePickupTools.cpp",
-      "signature": "MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const RuntimePointerEvent& pointer, bool hasWorldRay, const Vector3& rayOrigin, const Vector3& rayDirection, bool hasClampedWorldRay, const Vector3& clampedRayOrigin, const Vector3& clampedRayDirection, const Vector3& cameraEye, const Vector3& cameraView, const SceneWorld& world, InputRouter& inputRouter, RuntimeInteractionController& interaction )",
-      "owner": "RuntimeTools mouse-pick gesture",
-      "disposition": "retain-owner",
-      "reason": "RuntimeTools owns the mouse-pick gesture and drag plane; ray/camera facts and world/router/interaction borrows are frame-local.",
       "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {

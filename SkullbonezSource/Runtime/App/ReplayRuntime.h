@@ -466,7 +466,6 @@ class ReplayRuntime
     void CaptureFrame( int sceneFrame, float physicsDt, const ReplayWorldPresentationSample& world,
                        const ReplayCameraSample& camera, Physics::PhysicsEngine& physics,
                        const Gameplay::TornadoGameplay& tornadoGameplay, const SceneEntityStore& entities,
-                       const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore,
                        RuntimeTools& runtimeTools );
     SkullbonezCore::Core::MainMemoryReplayStats CollectMemoryStats() const;
 

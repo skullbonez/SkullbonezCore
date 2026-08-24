@@ -250,8 +250,7 @@ class ReplayTimeline
     CaptureFrame( int sceneFrame, float physicsDt, const ReplayWorldPresentationSample& world,
                   const ReplayCameraSample& camera, const ReplayLauncherVisualSample& launcherVisual,
                   Physics::PhysicsEngine& physics, const Gameplay::TornadoGameplay& tornadoGameplay,
-                  std::span<const char* const> entityDisplayNames, const Physics::PhysicsBodyStore& bodyStore,
-                  const Physics::ColliderStore& colliderStore, const ReplayBranchInfo& branch );
+                  std::span<const char* const> entityDisplayNames, const ReplayBranchInfo& branch );
     void RecordEvent( const ReplayEventInput& input );
 
     // Concept: event sequencing belongs to the timeline owner. The caller

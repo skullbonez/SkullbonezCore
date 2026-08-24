@@ -32,6 +32,7 @@ Related:
 #include "../Interaction/RuntimeInteractionCommands.h"
 #include "../Interaction/RuntimePickService.h"
 #include "../Scene/SceneWorld.h"
+#include "../../Maths/GeometricStructures.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
 
@@ -52,8 +53,8 @@ using Math::Vector::VectorMagSquared;
 using Physics::PhysicsBodyRecord;
 using Physics::PhysicsBodyStore;
 
-MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const RuntimePointerEvent& pointer, bool hasWorldRay, const Vector3& rayOrigin, const Vector3& rayDirection,
-                                                                bool hasClampedWorldRay, const Vector3& clampedRayOrigin, const Vector3& clampedRayDirection, const Vector3& cameraEye,
+MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const RuntimePointerEvent& pointer, bool hasWorldRay, const Geometry::Ray& worldRay,
+                                                                bool hasClampedWorldRay, const Geometry::Ray& clampedWorldRay, const Vector3& cameraEye,
                                                                 const Vector3& cameraView, const SceneWorld& world, InputRouter& inputRouter, RuntimeInteractionController& interaction )
 {
     MousePickupPointerResult routeResult;
@@ -81,21 +82,21 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const RuntimePoi
         m_mousePickup.planeNormal = cameraNormal;
         m_mousePickup.planePoint = cameraEye + cameraNormal * m_mousePickup.cameraPlaneDistance;
 
-        const float denom = Dot( clampedRayDirection, cameraNormal );
+        const float denom = Dot( clampedWorldRay.vector3, cameraNormal );
 
         if ( fabsf( denom ) <= 1.0e-5f )
         {
             return false;
         }
 
-        const float planeT = ( Dot( ( m_mousePickup.planePoint - clampedRayOrigin ), cameraNormal ) ) / denom;
+        const float planeT = ( Dot( ( m_mousePickup.planePoint - clampedWorldRay.origin ), cameraNormal ) ) / denom;
 
         if ( planeT < 0.0f )
         {
             return false;
         }
 
-        m_mousePickup.targetPoint = clampedRayOrigin + clampedRayDirection * planeT;
+        m_mousePickup.targetPoint = clampedWorldRay.origin + clampedWorldRay.vector3 * planeT;
         return true;
     };
 
@@ -134,8 +135,8 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const RuntimePoi
     request.purpose = RuntimePickPurpose::ManipulatorPickup;
     request.bodyStore = &world.BodyStore();
     request.colliderStore = &world.Colliders();
-    request.rayOrigin = rayOrigin;
-    request.rayDirection = rayDirection;
+    request.rayOrigin = worldRay.origin;
+    request.rayDirection = worldRay.vector3;
 
     RuntimePickResult result;
 
@@ -163,7 +164,7 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const RuntimePoi
 
     cameraNormal *= 1.0f / sqrtf( normalLenSq );
 
-    const Vector3 grabPoint = rayOrigin + rayDirection * result.rayT;
+    const Vector3 grabPoint = worldRay.origin + worldRay.vector3 * result.rayT;
     const float cameraPlaneDistance = Dot( ( grabPoint - cameraEye ), cameraNormal );
 
     if ( cameraPlaneDistance <= TOLERANCE )

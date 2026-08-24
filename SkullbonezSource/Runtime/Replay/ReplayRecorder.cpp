@@ -1978,8 +1978,7 @@ void ReplayRecorder::ResetTimeline( const char* sceneLabel )
 void ReplayRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_t eventCursor, int sceneFrame, float physicsDt,
                                    const ReplayWorldPresentationSample& world, const ReplayCameraSample& camera,
                                    Physics::PhysicsEngine& physics,
-                                   std::span<const char* const> entityDisplayNames,
-                                   const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore )
+                                   std::span<const char* const> entityDisplayNames )
 {
     if ( !m_config.enabled )
     {
@@ -2015,6 +2014,8 @@ void ReplayRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_t even
                                   0 );
 
     sample.camera = camera;
+    const Physics::PhysicsBodyStore& bodyStore = Physics::PhysicsEngine::ReadBodies( physics );
+    const Physics::ColliderStore& colliderStore = Physics::PhysicsEngine::ReadColliders( physics );
     const int modelCount = bodyStore.Count();
     const std::size_t modelCountSize = static_cast<std::size_t>( modelCount );
     m_captureBodyScratch.clear();
@@ -2701,9 +2702,7 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_
                                          float physicsDt, const ReplayWorldPresentationSample& world,
                                          const ReplayCameraSample& camera, const ReplayLauncherVisualSample& launcherVisual,
                                          Physics::PhysicsEngine& physics, const Gameplay::TornadoGameplay& tornadoGameplay,
-                                         std::span<const char* const> entityDisplayNames,
-                                         const Physics::PhysicsBodyStore& bodyStore,
-                                         const Physics::ColliderStore& colliderStore )
+                                         std::span<const char* const> entityDisplayNames )
 {
     if ( !m_config.enabled )
     {
@@ -2738,6 +2737,8 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_
                                   0 );
 
     sample.camera = camera;
+    const Physics::PhysicsBodyStore& bodyStore = Physics::PhysicsEngine::ReadBodies( physics );
+    const Physics::ColliderStore& colliderStore = Physics::PhysicsEngine::ReadColliders( physics );
     const int modelCount = bodyStore.Count();
     const std::size_t modelCountSize = static_cast<std::size_t>( modelCount );
     m_solverCaptureBodies.clear();

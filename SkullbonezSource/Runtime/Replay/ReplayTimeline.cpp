@@ -336,9 +336,7 @@ const ReplaySolverFrameSample*
 ReplayTimeline::CaptureFrame( int sceneFrame, float physicsDt, const ReplayWorldPresentationSample& world,
                               const ReplayCameraSample& camera, const ReplayLauncherVisualSample& launcherVisual,
                               Physics::PhysicsEngine& physics, const Gameplay::TornadoGameplay& tornadoGameplay,
-                              std::span<const char* const> entityDisplayNames,
-                              const Physics::PhysicsBodyStore& bodyStore,
-                              const Physics::ColliderStore& colliderStore, const ReplayBranchInfo& branch )
+                              std::span<const char* const> entityDisplayNames, const ReplayBranchInfo& branch )
 {
     if ( !m_recordingEnabled )
     {
@@ -351,7 +349,7 @@ ReplayTimeline::CaptureFrame( int sceneFrame, float physicsDt, const ReplayWorld
     {
         const ReplayFrameIndex expectedSolverFrame = m_solver.GetStats().nextFrameIndex;
         m_solver.CaptureFrame( branch, eventCursor, sceneFrame, physicsDt, world, camera, launcherVisual, physics,
-                               tornadoGameplay, entityDisplayNames, bodyStore, colliderStore );
+                               tornadoGameplay, entityDisplayNames );
 
         const ReplaySolverFrameSample* solverSample = m_solver.LatestSample();
 
@@ -374,7 +372,7 @@ ReplayTimeline::CaptureFrame( int sceneFrame, float physicsDt, const ReplayWorld
     }
 
     m_presentation.CaptureFrame( branch, eventCursor, sceneFrame, physicsDt, world, camera, physics,
-                                 entityDisplayNames, bodyStore, colliderStore );
+                                 entityDisplayNames );
 
     const ReplayPresentationSample* presentationSample = m_presentation.LatestSample();
 

@@ -470,8 +470,7 @@ class ReplayRecorder
     void ResetTimeline( const char* sceneLabel );
     void CaptureFrame( const ReplayBranchInfo& branch, uint32_t eventCursor, int sceneFrame, float physicsDt,
                        const ReplayWorldPresentationSample& world, const ReplayCameraSample& camera,
-                       Physics::PhysicsEngine& physics, std::span<const char* const> entityDisplayNames,
-                       const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore );
+                       Physics::PhysicsEngine& physics, std::span<const char* const> entityDisplayNames );
 
     // Records the presentation track from an already captured solver sample.
     // Use this when both tracks are enabled so frame capture does one model walk.
@@ -548,8 +547,7 @@ class ReplaySolverRecorder
                        const ReplayWorldPresentationSample& world, const ReplayCameraSample& camera,
                        const ReplayLauncherVisualSample& launcherVisual, Physics::PhysicsEngine& physics,
                        const Gameplay::TornadoGameplay& tornadoGameplay,
-                       std::span<const char* const> entityDisplayNames,
-                       const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore );
+                       std::span<const char* const> entityDisplayNames );
     bool IsEnabled() const;
     ReplayRecorderStats GetStats() const;
 

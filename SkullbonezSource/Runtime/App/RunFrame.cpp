@@ -229,8 +229,7 @@ void CaptureReplayPostStep( RuntimeTools& runtimeTools, SkullbonezCore::Runtime:
     cameraSample.up = cameras.GetCameraUp();
 
     replayRuntime.CaptureFrame( scene.currentFrame, PHYSICS_FIXED_DT, worldSample, cameraSample, physics,
-                                sceneController.Scene().Tornado(), entities, sceneController.Scene().BodyStore(),
-                                sceneController.Scene().Colliders(), runtimeTools );
+                                sceneController.Scene().Tornado(), entities, runtimeTools );
 }
 
 } // namespace

@@ -275,8 +275,7 @@ class ReplayRestoreOperations
         verifier.CaptureFrame( reference.branch, reference.eventCursor, reference.sceneFrame,
                                reference.physicsDt > 0.0f ? reference.physicsDt : PHYSICS_FIXED_DT, worldSample,
                                cameraSample, launcherVisual, world.Physics(), world.Tornado(),
-                               std::span<const char* const>( entityDisplayNames.data(), entityNameCount ),
-                               world.BodyStore(), world.Colliders() );
+                               std::span<const char* const>( entityDisplayNames.data(), entityNameCount ) );
 
         const ReplaySolverFrameSample* verified = verifier.LatestSample();
 
