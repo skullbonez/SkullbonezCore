@@ -585,6 +585,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionAutomationController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Automation\ReplayAutomationPackets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionAutomationInputDriver.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Automation\RecordedCursorFrame.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionAutomationReportWriter.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionAutomationRecorder.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionRecordingBrowser.h" />

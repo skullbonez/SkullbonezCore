@@ -959,6 +959,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionAutomationInputDriver.h">
       <Filter>Header Files\Runtime\Automation</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Automation\RecordedCursorFrame.h">
+      <Filter>Header Files\Runtime\Automation</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionAutomationReportWriter.h">
       <Filter>Header Files\Runtime\Automation</Filter>
     </ClInclude>

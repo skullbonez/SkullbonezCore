@@ -22,11 +22,14 @@ Invariants:
   - Passive Replay inspection and ordinary UI capture remain cursor-bearing.
 
 Related:
+  - SkullbonezSource/Runtime/Automation/RecordedCursorFrame.h
   - SkullbonezSource/Runtime/Automation/InteractionAutomationInputDriver.h
   - SkullbonezSource/Runtime/Input/InputRouter.h
   - SkullbonezSource/Runtime/App/OperatorEditorFramePhase.cpp
 */
 #pragma once
+
+#include "../Automation/RecordedCursorFrame.h"
 
 #include <cstdint>
 
@@ -55,6 +58,69 @@ enum class RecordedCursorPointerDisposition : std::uint8_t
     ToolGestureCapture
 };
 
+constexpr RecordedCursorPlaybackPhase ClassifyRecordedCursorPlaybackPhase( bool automationEnabled, bool recordedManifest,
+                                                                           bool automationFailed, bool automationFinished,
+                                                                           bool framePublished,
+                                                                           bool publishedRealTurn ) noexcept
+{
+    if ( !automationEnabled || !recordedManifest )
+    {
+        return RecordedCursorPlaybackPhase::Inactive;
+    }
+
+    if ( automationFailed )
+    {
+        return RecordedCursorPlaybackPhase::Failed;
+    }
+
+    if ( automationFinished )
+    {
+        return RecordedCursorPlaybackPhase::Completed;
+    }
+
+    if ( !framePublished )
+    {
+        return RecordedCursorPlaybackPhase::Inactive;
+    }
+
+    return publishedRealTurn ? RecordedCursorPlaybackPhase::PublishedRealTurn
+                             : RecordedCursorPlaybackPhase::NeutralBaselineFrame;
+}
+
+// Invariant: capture owners outrank mode labels because a tool or camera can
+// retain a cursorless gesture while UI and replay modes transition around it.
+constexpr RecordedCursorPointerDisposition
+ClassifyRecordedCursorPointerDisposition( bool cameraLookCaptured, bool toolGestureCaptured, bool editorViewportLook,
+                                          bool replayInspectionLook, bool placementPreview, bool mouseLook ) noexcept
+{
+    if ( cameraLookCaptured )
+    {
+        return RecordedCursorPointerDisposition::CameraLookCapture;
+    }
+
+    if ( toolGestureCaptured )
+    {
+        return RecordedCursorPointerDisposition::ToolGestureCapture;
+    }
+
+    if ( editorViewportLook )
+    {
+        return RecordedCursorPointerDisposition::EditorViewportLook;
+    }
+
+    if ( replayInspectionLook )
+    {
+        return RecordedCursorPointerDisposition::ReplayInspectionLook;
+    }
+
+    if ( placementPreview )
+    {
+        return RecordedCursorPointerDisposition::PlacementPreview;
+    }
+
+    return mouseLook ? RecordedCursorPointerDisposition::MouseLook : RecordedCursorPointerDisposition::CursorBearing;
+}
+
 constexpr bool ShouldPresentRecordedCursor( RecordedCursorPlaybackPhase phase, RecordedCursorPointerDisposition disposition,
                                             bool pointerResolved, bool recordedAppFocused,
                                             bool positionInsideClient ) noexcept
@@ -62,5 +128,22 @@ constexpr bool ShouldPresentRecordedCursor( RecordedCursorPlaybackPhase phase, R
     return phase == RecordedCursorPlaybackPhase::PublishedRealTurn &&
            disposition == RecordedCursorPointerDisposition::CursorBearing && pointerResolved && recordedAppFocused &&
            positionInsideClient;
+}
+
+constexpr RecordedCursorFrame FilterRecordedCursorFrame( const RecordedCursorFrame& frame, RecordedCursorPlaybackPhase phase,
+                                                         RecordedCursorPointerDisposition disposition, int clientWidth,
+                                                         int clientHeight, bool sceneReplaced, bool frameFailed ) noexcept
+{
+    const bool positionInsideClient = frame.pointerResolved && clientWidth > 0 && clientHeight > 0 && frame.clientX >= 0 &&
+                                      frame.clientY >= 0 && frame.clientX < clientWidth && frame.clientY < clientHeight;
+
+    if ( sceneReplaced || frameFailed || !frame.publishedRealTurn ||
+         !ShouldPresentRecordedCursor( phase, disposition, frame.pointerResolved, frame.recordedAppFocused,
+                                       positionInsideClient ) )
+    {
+        return {};
+    }
+
+    return frame;
 }
 } // namespace SkullbonezCore::Runtime

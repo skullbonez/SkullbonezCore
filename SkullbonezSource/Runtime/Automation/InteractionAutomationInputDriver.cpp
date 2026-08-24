@@ -157,35 +157,13 @@ void SkullbonezCore::Runtime::InteractionAutomationInputDriver::PublishFrame()
     }
 }
 
-void SkullbonezCore::Runtime::InteractionAutomationInputDriver::PublishRecordedFrame( const RecordedInputFrame& frame,
-                                                                                      int targetWidth, int targetHeight,
-                                                                                      const POINT* semanticPosition )
+SkullbonezCore::Runtime::RecordedCursorFrame SkullbonezCore::Runtime::InteractionAutomationInputDriver::PublishRecordedFrame(
+    const RecordedInputFrame& frame, int targetWidth, int targetHeight, bool publishedRealTurn,
+    const POINT* semanticPosition )
 {
     Input::AutomationState inputState;
-    inputState.enabled = true;
-    inputState.overrideAppFocused = true;
-    inputState.appFocused = frame.appFocused;
-    inputState.hasMouseClientPosition = frame.hasPointer;
-
-    if ( semanticPosition )
-    {
-        inputState.hasMouseClientPosition = true;
-        inputState.mouseClientPosition = *semanticPosition;
-    }
-    else if ( frame.hasPointer )
-    {
-        const int targetMaxX = (std::max)( 0, targetWidth - 1 );
-        const int targetMaxY = (std::max)( 0, targetHeight - 1 );
-        inputState.mouseClientPosition.x = static_cast<LONG>( std::lround( std::clamp( frame.normalizedX, 0.0f, 1.0f ) * static_cast<float>( targetMaxX ) ) );
-        inputState.mouseClientPosition.y = static_cast<LONG>( std::lround( std::clamp( frame.normalizedY, 0.0f, 1.0f ) * static_cast<float>( targetMaxY ) ) );
-    }
-
-    inputState.leftMouseDown = frame.leftDown;
-    inputState.rightMouseDown = frame.rightDown;
-    inputState.middleMouseDown = frame.middleDown;
-    inputState.mouseWheelDelta = frame.wheelDelta;
-    inputState.rawMouseDeltaX = frame.rawMouseX;
-    inputState.rawMouseDeltaY = frame.rawMouseY;
-    inputState.keyWords = frame.keyWords;
+    const RecordedCursorFrame cursor = BuildRecordedFramePublication( frame, inputState, targetWidth, targetHeight,
+                                                                      publishedRealTurn, semanticPosition );
     Input::SetAutomationState( inputState );
+    return cursor;
 }

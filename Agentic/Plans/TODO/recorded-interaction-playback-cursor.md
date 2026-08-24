@@ -1,7 +1,7 @@
 # Recorded Interaction Playback Cursor Plan
 
 Date: 2026-08-22
-Status: Active by explicit owner direction. 1/4 phases complete.
+Status: Active by explicit owner direction. 2/4 phases complete.
 Impact area: recorded interaction-manifest playback, detached Runtime/Automation
 presentation values, GameUI/ImGui draw ordering, DX12 UI submission, tests, and
 documentation
@@ -336,27 +336,50 @@ renderer feature contract needs to change.
 **Goal:** Carry the already resolved playback pointer into presentation without
 creating another input owner.
 
-- [ ] Define the smallest trivially copyable frame value needed to draw the fake
-      cursor, including availability, resolved client position, and only the
-      recorded button facts used by approved presentation.
-- [ ] Build that value from the current recorded turn after semantic-anchor or
+- [x] Define the smallest trivially copyable frame value needed to draw the fake
+      cursor: real-turn publication, pointer availability, resolved client
+      position, and recorded focus, with no button or styling facts.
+- [x] Build that value from the current recorded turn after semantic-anchor or
       normalized-coordinate resolution.
-- [ ] Evaluate visibility from RIC0's pure logical policy and current replayed
+- [x] Evaluate visibility from RIC0's pure logical policy and current replayed
       mode facts without reading or applying native cursor state.
-- [ ] Clear the value deterministically on absent pointer, focus loss,
+- [x] Clear the value deterministically on absent pointer, focus loss,
       cursorless mode, failure, completion, scene replacement, and automation
       shutdown.
-- [ ] Keep normal `Input::AutomationState`, `InputRouter`, UI hit testing,
+- [x] Keep normal `Input::AutomationState`, `InputRouter`, UI hit testing,
       camera, world interaction, and recorded timing unchanged.
-- [ ] Extend focused tests for coordinate mapping, semantic-anchor precedence,
-      mode transitions, button values, and terminal clearing.
-- [ ] Prove no interaction-manifest schema, sidecar digest behavior, Replay
+- [x] Extend focused tests for coordinate mapping, semantic-anchor precedence,
+      mode transitions, exact normal-input equivalence, native-state byte
+      equality, and terminal clearing.
+- [x] Prove no interaction-manifest schema, sidecar digest behavior, Replay
       storage, reserve privilege, or steady-state allocation changed.
 
 **Acceptance:** Presentation receives one exact detached value per published
 recorded turn; all clearing and cursorless transitions are deterministic; the
 input and artifact paths are byte-for-byte unchanged outside the new value;
 native cursor/capture evidence matches the pre-feature path.
+
+### RIC1 Publication Evidence
+
+Automation owns `RecordedCursorFrame`, a trivially copyable five-field value
+projected from the same `Input::AutomationState` assembled by
+`PublishRecordedFrame`. Semantic positions override mapped coordinates only
+when the selected turn has a real pointer. `RunFrame` keeps one stack-local
+copy, joins replayed logical capture/input/editor facts, filters through the
+RIC0 policy, and retains no generation or pointer owner. RIC1 deliberately
+terminates at that final-draw-seam local; RIC2 consumes it after development UI
+and before screenshots/Present, then removes the temporary non-consumption
+cast.
+
+Focused Profile tests passed 6/6 cases and 91/91 assertions for production
+mapping, semantic precedence, exact normal-input equivalence, policy priority,
+all clear paths, and native desired/committed byte equality. Profile and
+Automation builds passed with zero warnings and errors. Dependency
+proof/fixtures/repository scan, allocation self-test/repository scan, project
+filters, build-configuration consistency, and affected ownership inventories
+passed. No manifest/schema/sidecar/Replay/native API, baseline, golden, or
+tracked artifact changed; ImGui and Tracy were initialized locally at their
+pinned commits with zero gitlink diff.
 
 ## Phase RIC2 - Draw The Topmost Fake Cursor
 

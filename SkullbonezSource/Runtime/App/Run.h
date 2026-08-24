@@ -244,7 +244,7 @@ class Run
     void CaptureInteractionRecordingTurn( double secondsPerFrame );                                               // Copies the routed device frame after input completes.
     void BeginFrameDiagnosticsPhase();                                                                            // Publishes prior GPU timing, then resets draw counters.
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
-    SceneFrameProceedPolicy RunAutomationAndInputPhase( bool& gameUiActive );
+    SceneFrameProceedPolicy RunAutomationAndInputPhase( bool& gameUiActive, RecordedCursorFrame& recordedCursor );
 #endif
     SceneFrameProceedPolicy RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput,
                                            bool& gameUiActive );

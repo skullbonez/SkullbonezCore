@@ -210,11 +210,11 @@
     {
       "file": "SkullbonezSource/Runtime/App/InteractionAutomationApplication.cpp",
       "signature": "InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutomationController& state, Window& windowOwner, const SkullbonezCore::Core::EngineConfig& config, SceneController& scene, const RuntimeFrameMetricsSnapshot& timers, CameraControlState& camera, InputRouter& inputRouter, RuntimeInteractionController& interaction, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools, SkullbonezCore::UI::InGameUI& ui, const ReplayAutomationView& replayView, const Rendering::RenderSceneSnapshot& renderSnapshot )",
-      "body_sha256": "b8b771acc20999cb67dc5dde08c480d114e0873aa63bb6726221d2cf5c9b664b",
+      "body_sha256": "edfae93f62a2f95316fe3cd4a7acdbcc61073023ed6e74414b03dce2400fbc07",
       "owner": "Pre-input interaction automation tick",
       "disposition": "retain-owner",
       "reason": "One pre-input automation phase interprets either the next legacy scene-frame action or one recorded full-device turn across the exact App-composed owners before normal device routing. Frame timing crosses as a detached metrics snapshot and EditorTools is now explicit; both paths remain one mutually exclusive automation state machine, and extraction would preserve caller-ordered dispatch rather than create a separate owner.",
-      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); recorded-manifest full-device playback review (2026-08-22); RUNTIME_BOUNDARIES RBS7 snapshot and EditorTools ownership re-review (2026-08-24)",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); recorded-manifest full-device playback review (2026-08-22); RUNTIME_BOUNDARIES RBS7 snapshot and EditorTools ownership re-review (2026-08-24); RECORDED_CURSOR RIC1 frame-local recorded-cursor publication (2026-08-25)",
       "plan": "",
       "body_lines": 650,
       "max_brace_depth": 7,

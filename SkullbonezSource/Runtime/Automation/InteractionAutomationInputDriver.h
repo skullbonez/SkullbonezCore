@@ -29,13 +29,60 @@ Related:
 #pragma once
 
 #include "../../Core/PlatformWin32.h"
+#include "../Input/Input.h"
+#include "InteractionAutomationRecorder.h"
+#include "RecordedCursorFrame.h"
 
+#include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdint>
 
 namespace SkullbonezCore::Runtime
 {
-struct RecordedInputFrame;
+inline RecordedCursorFrame BuildRecordedFramePublication( const RecordedInputFrame& frame,
+                                                          SkullbonezCore::Hardware::Input::AutomationState& inputState,
+                                                          int targetWidth, int targetHeight, bool publishedRealTurn,
+                                                          const POINT* semanticPosition = nullptr )
+{
+    inputState = {};
+    inputState.enabled = true;
+    inputState.overrideAppFocused = true;
+    inputState.appFocused = frame.appFocused;
+    inputState.hasMouseClientPosition = frame.hasPointer;
+
+    // Invariant: an anchor may relocate a real pointer, but cannot fabricate
+    // availability for a malformed pointerless recorded turn.
+    if ( frame.hasPointer && semanticPosition )
+    {
+        inputState.mouseClientPosition = *semanticPosition;
+    }
+    else if ( frame.hasPointer )
+    {
+        const int targetMaxX = (std::max)( 0, targetWidth - 1 );
+        const int targetMaxY = (std::max)( 0, targetHeight - 1 );
+        inputState.mouseClientPosition.x = static_cast<LONG>(
+            std::lround( std::clamp( frame.normalizedX, 0.0f, 1.0f ) * static_cast<float>( targetMaxX ) ) );
+        inputState.mouseClientPosition.y = static_cast<LONG>(
+            std::lround( std::clamp( frame.normalizedY, 0.0f, 1.0f ) * static_cast<float>( targetMaxY ) ) );
+    }
+
+    inputState.leftMouseDown = frame.leftDown;
+    inputState.rightMouseDown = frame.rightDown;
+    inputState.middleMouseDown = frame.middleDown;
+    inputState.mouseWheelDelta = frame.wheelDelta;
+    inputState.rawMouseDeltaX = frame.rawMouseX;
+    inputState.rawMouseDeltaY = frame.rawMouseY;
+    inputState.keyWords = frame.keyWords;
+
+    RecordedCursorFrame cursor;
+    cursor.clientX = inputState.hasMouseClientPosition ? inputState.mouseClientPosition.x : 0;
+    cursor.clientY = inputState.hasMouseClientPosition ? inputState.mouseClientPosition.y : 0;
+    cursor.publishedRealTurn = publishedRealTurn;
+    cursor.pointerResolved = inputState.hasMouseClientPosition;
+    cursor.recordedAppFocused = inputState.appFocused;
+    return cursor;
+}
 
 class InteractionAutomationInputDriver
 {
@@ -51,8 +98,8 @@ class InteractionAutomationInputDriver
 
     // Publishes a complete recorded device frame. semanticPosition, when
     // supplied, wins over normalized absolute coordinates for this turn.
-    void PublishRecordedFrame( const RecordedInputFrame& frame, int targetWidth, int targetHeight,
-                               const POINT* semanticPosition = nullptr );
+    RecordedCursorFrame PublishRecordedFrame( const RecordedInputFrame& frame, int targetWidth, int targetHeight,
+                                              bool publishedRealTurn, const POINT* semanticPosition = nullptr );
 
   private:
     POINT m_mouseClientPosition = {};

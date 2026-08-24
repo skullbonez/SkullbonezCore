@@ -382,6 +382,7 @@ RUNTIME_AUTOMATION_PREFIXES = (
     "InteractionAutomationRecorder",
     "InteractionAutomationReportWriter",
     "InteractionRecordingBrowser",
+    "RecordedCursorFrame",
     "ReplayAutomationView",
     "ReplayAutomationPackets",
     "RuntimeStressController",
