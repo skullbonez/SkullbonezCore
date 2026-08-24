@@ -3010,14 +3010,17 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             {
                 float revealSpeed = static_cast<float>( replay.prediction.revealSecondsPerSecond );
 
-                if ( ImGui::SliderFloat( "Reveal speed", &revealSpeed, 0.25f, 4.0f, "%.2fx" ) )
+                if ( ImGui::SliderFloat( "Reveal speed", &revealSpeed,
+                                         static_cast<float>( replay.prediction.revealRateMinimum ),
+                                         static_cast<float>( replay.prediction.revealRateMaximum ), "%.2fx" ) )
                 {
                     submitReplay( UI::OperatorEditorReplayCommandType::SetRevealSpeed, revealSpeed );
                 }
 
                 float horizon = replay.prediction.horizonSeconds;
 
-                if ( ImGui::SliderFloat( "Prediction horizon", &horizon, 1.0f, 20.0f, "%.1fs" ) )
+                if ( ImGui::SliderFloat( "Prediction horizon", &horizon, replay.predictionHorizonMinimum,
+                                         replay.predictionHorizonMaximum, "%.1fs" ) )
                 {
                     submitReplay( UI::OperatorEditorReplayCommandType::SetPredictionHorizon, horizon );
                 }

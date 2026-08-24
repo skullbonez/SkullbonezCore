@@ -1,8 +1,8 @@
 # Game UI Component Library Separation Plan
 
 Date: 2026-08-22
-Status: Active by owner direction. 6/7 phases complete; phase-local Runtime
-Boundary Separation prerequisites apply.
+Status: Complete by owner direction. 7/7 phases complete; phase-local Runtime
+Boundary Separation prerequisites were satisfied.
 Impact area: `SkullbonezSource/UI/`, game-facing composition under
 `SkullbonezSource/Runtime/`, `SKULLBONEZ_UI.vcxproj`, focused UI tests,
 dependency/build enforcement, and documentation
@@ -820,31 +820,31 @@ commit; read-only review and inventory may overlap Physics implementation.
 **Goal:** Prove the separation is reusable, behavioral, physical, and
 build-enforced.
 
-- [ ] Re-run the UI0 tracked-file and consumer inventories and reconcile every
+- [x] Re-run the UI0 tracked-file and consumer inventories and reconcile every
       disposition and exception.
-- [ ] Review all foundation public types for product vocabulary, owner reach-
+- [x] Review all foundation public types for product vocabulary, owner reach-
       back, callbacks, resource handles, broad contexts, and avoidable retained
       state.
-- [ ] Review product presenters for duplicated component implementation and
+- [x] Review product presenters for duplicated component implementation and
       component APIs for leaked product semantics.
-- [ ] Audit every touched source-bearing file with the comment-style audit and
+- [x] Audit every touched source-bearing file with the comment-style audit and
       reconcile the exact `git ls-files` checklist.
-- [ ] Run all governance inventories affected by moved signatures, bodies,
+- [x] Run all governance inventories affected by moved signatures, bodies,
       aggregates, reachability, build configuration, and glossary terms.
-- [ ] Run dependency/project/filter, UI foundation, product UI, interaction,
+- [x] Run dependency/project/filter, UI foundation, product UI, interaction,
       allocation, portable build, Automation, Replay visual, DX12, graphics
       stress, performance, and cumulative repository gates.
-- [ ] Compare representative final GameUI and Replay surfaces against the
+- [x] Compare representative final GameUI and Replay surfaces against the
       pre-change captures/fingerprints without refreshing visual baselines.
-- [ ] Obtain independent component-boundary and product-ownership review after
+- [x] Obtain independent component-boundary and product-ownership review after
       fixes, then run `tools\agent_validate.bat --plan-completion` once.
-- [ ] Record final source/project graphs, build timings, component migrations,
+- [x] Record final source/project graphs, build timings, component migrations,
       validation, review fixes, baseline disposition, and the empty exception
       table.
 
 ### UI6 terminal-audit findings
 
-- [ ] Reconcile the Replay popup controls in
+- [x] Reconcile the Replay popup controls in
       `SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp` and the
       matching live validators in
       `SkullbonezSource/Runtime/Interaction/OperatorEditorExchange.cpp` with
@@ -857,6 +857,117 @@ build-enforced.
       project both owners' values through the post-RBS7 package graph so widget
       and live validator agree, rather than adding a DevelopmentTools shortcut
       or copying either policy into `OperatorControlPolicy`.
+
+### UI6 terminal evidence - 2026-08-25
+
+UI6 started from the pushed RBS7 integration commit `7a3e952d2`; RBS7's
+post-separation Runtime DAG is inherited rather than reimplemented here. The
+refreshed tracked inventories contain 36 foundation files under
+`SkullbonezSource/UI` (17 implementations and 19 headers) and 37 product files
+under `SkullbonezSource/Runtime/UI` (18 implementations and 19 headers). The
+two-file increase from UI5's 35-file product inventory is exactly the RBS7
+addition of `OperatorUiProjection.cpp/.h`. All 86 shared-component call sites
+in the product tree were reviewed. Remaining raw draw sites are domain graphs,
+tables, charts, icon artwork, or bounded submitter fixtures rather than another
+generic control implementation. The final `UIDrawContext` construction
+inventory is 13 sites: four in GameUI `UI.cpp`, four in Runtime/Render
+`UiTextPass.cpp`, and five in Planning `ReplayOverlayRenderer.cpp`.
+
+Foundation public types have no Runtime or Rendering include, product owner,
+callback, backend handle, broad context, or product semantic contract. Product
+presenters retain their typed domain actions and detached state. Project/filter
+ownership passes all 861 items; the dependency scan reports zero forbidden
+edges, reverse-App edges, repair debt, or SCC findings. The exception table
+remains empty, no production project or compatibility facade was added, and
+the change creates no growth privilege or retained allocation.
+
+Prediction now publishes detached `1.0..1000.0` reveal-rate presentation
+bounds while retaining finite-positive normalization. Planning carries two
+detached horizon scalars; App composes Replay's canonical `1.0..120.0` interval;
+DevelopmentTools consumes both owners' values; and Interaction rejects only
+non-finite or non-positive transport values before the canonical owners apply
+normalization or clamping. Values beyond the presentation endpoints remain
+accepted at the queue boundary, preventing a second hidden policy. No reveal
+or horizon rule entered `OperatorControlPolicy`, and DevelopmentTools gained no
+shortcut, owner pointer, context, callback bag, or retained state.
+
+The exact touched-source comment checklist is the five production source files
+plus `SkullbonezTests/TestOwnerRequestQueues.cpp`: 6/6 checked, zero deferred.
+The updated complexity ruling describes the same immediate-mode owner after
+its body fingerprint changed. Terminal inventories report build topology with
+zero blockers; 84 reachable-symbol rows with zero blockers; 1,382 aggregate
+candidates with 77 ruled and zero unruled; one ruled extraction scar and zero
+unruled; all wide signatures reviewed; 7,155 functions with all 41 triggered
+bodies ruled; and 975 glossary definitions with zero multi-file definitions or
+drift. The allocation inventory reports 54 direct-heap, 94 STL-member, and 720
+growth findings with zero allowlist errors.
+
+Focused transport validation passes 1/1 case and 20/20 assertions. Fresh
+Automation, Debug, Profile, and Release builds pass with zero warnings or
+errors; the Release build completed in 93.3 seconds. The full Profile suite
+passes 760/760 cases with one skipped and 2,684,994 assertions; coverage is
+74.58%, and Debug/Release interaction, scene parser, renderer-free UI boundary,
+DX12 architecture CPU, allocation, Automation, portable CMake/CTest,
+`validate_fast`, and cumulative CPU/full/fast gates pass. The portable tree is
+recoverable outside the worktree at
+`C:\Users\sesch\AppData\Local\Temp\SkullbonezCore-ui6-portable-20260825`;
+configure/generate took 2.0/0.1 seconds and CTest passed in 2.23 seconds.
+
+The explicit UI suite's Profile/Automation builds, DX12 InfoQueue, all 21
+screenshot states, blur/brightness/glyph/clipping checks, and production UI
+fingerprints pass. Its overall `validate_ui.bat` result remains **FAILED** at
+the later inherited causal-tree live oracle and is not reported as green. Both
+fresh UI6 attempts produced the identical report SHA-256
+`203dea3073ad3b6b6101f0415bd30ee7f475389542ef53844be3444f0d68459d`:
+the report is otherwise successful, both physical clicks are consumed, replay
+stays paused, but the fixture produces seven rows at depth two while the
+checker requires depth four. The failed command, checker
+(`495166b1fbe33535969d4a0eea1e30ddb580a431025e6056ceb9ed510167847f`),
+interaction fixture
+(`65f3400eaa60b0702e6af912bb46ae4295d2174636e5dae043baf5055a9f3012`),
+scene (`c79f02333c936c3f585a1eb28565e42465052cc914f0498c8a810d00eaf305ee`),
+and causal source surface are unchanged from `7a3e952d2`. The final RBS7
+predecessor and an older root artifact already record the same depth-two class.
+Independent current production witnesses remain deep: Replay visual records
+1,188 rows at depth 22 and allocation records 374 rows at depth five. This is
+an external stale fixture/oracle disposition, not a UI6 pass or waiver; UI6 has
+no authority to edit or refresh it.
+
+UI stress, standalone DX12 renderer validation, one-minute graphics stress,
+and Replay visual fidelity pass. DX12 InfoQueue reports zero errors and all
+three committed comparisons pass without a refresh; the candidate manifest is
+`TestOutput/validation/dx12_renderer/20260824T185159Z/manifest.json` at SHA-256
+`58a6dc84c27d62c47fd73dc6a517e2a83c1391c9d870537a9533a61b93cc24f2`.
+Replay visual passes its 2,401-tick, 200-causal-node artifact and every
+registered false-pass control. The 11 committed GameUI stream fingerprints
+remain exact. No UI, DX12, Replay, Physics, performance, or other golden was
+changed.
+
+`validate_perf.bat` remains **FAILED** only against the stale `843f10da`
+Physics baseline. The preserved direct-predecessor JSON at `f7a27bb0d` has
+SHA-256 `9567ee90b02fc083b26a3757acd1dd1f43b74fdb7007cafa979799dd2eeb2909`
+and its producing Profile executable has SHA-256
+`0e584d1aaeaa1f00b0753911735879e3c012401f780de3a2a35b1f0c6f734905`.
+It and the UI6 candidate use 2,340 frames on the same machine and have exactly
+identical five Physics workload-counter tuples. UI6 is 0.4% faster for
+Physics/Step average and 0.3% faster at p50; `Frame/UI/Input` is unchanged.
+Performance therefore remains external FP4 `OPEN/HOLD`, not a passed gate,
+golden waiver, or authority to start FP5.
+
+Independent reviewer thread `01a03529-b219-7d82-9550-fef25af0fe31` returned
+`CLEAN` with zero blocking or material findings across the eight mandatory UI6
+boundary questions. Its one advisory notes that the focused test injects and
+reads the horizon view endpoints rather than probing App-to-ImGui composition
+directly; direct code inspection plus focused, integration, UI, and stress
+evidence cover the current path, and no new test was required. The exactly-once
+`tools\agent_validate.bat --plan-completion` run exited zero with
+`VALIDATE_FULL: PLAN COMPLETION GATE PASSED`. Its mandatory CPU umbrella passed
+760 of 760 test cases and 2,685,294 assertions with one skipped case, all
+coverage floors passed with 74.58% whole-product coverage, the Automation smoke
+passed, and the DX12 renderer gate passed with zero InfoQueue errors and no
+baseline refresh. UI6 is complete with an empty exception table; the inherited
+causal-tree fixture/oracle and FP4 performance baseline dispositions above
+remain external owner obligations rather than hidden green results.
 
 **Terminal acceptance:** `SKULLBONEZ_UI` is the sole reusable component
 foundation project; it contains no product workflow or Runtime/Rendering

@@ -84,6 +84,11 @@ struct ReplayOverlayStateView
     ReplayCauseInspectionView causeInspection;
     ReplayRecorderStats solverStats;
 
+    // Replay owns this presentation interval. Planning carries the two scalar
+    // values only so sibling operator surfaces cannot recover Replay authority.
+    float predictionHorizonMinimum = 0.0f;
+    float predictionHorizonMaximum = 0.0f;
+
     // Concept: overlay consumers receive the lower Presentation selection plus
     // the sibling Prediction row selected by App. Planning retains neither.
     ReplayPresentationSelection selection;

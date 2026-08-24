@@ -5,11 +5,11 @@
     {
       "file": "SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp",
       "signature": "void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view, const ReplayOverlay::ReplayOverlayStateView& replay )",
-      "body_sha256": "355f7c1e81b4de458b74ee3442480b43b20327cdd59788884dd8e53a3cfb9257",
+      "body_sha256": "2e2e99f8dc8a06fc466ffa29b82eb5e3a52fe70fe1fa406cb2f043268547e057",
       "owner": "ImGuiEditorOwner development-shell frame pass",
       "disposition": "retain-owner",
-      "reason": "One immediate-mode development-shell composition pass consumes detached frame views, including bounded Look Lab and continuous-forecast status, and emits only typed one-frame commands; its window and tree branches plus local widget values all expire at return. UI4 projects shared diagnostic ranges and drag speeds through OperatorControlPolicy and render controls through UIRenderAuthoringCatalog; App owns authoritative grid normalization, so this body adds neither retained state nor a second phase.",
-      "evidence": "git history: look-lab-random-style-authoring-ll4-input-capture (2026-08-01); ORBIT_FORECAST OF4 shared operator-surface review (2026-08-19); CR1 GameUI naming-only surface review (2026-08-22); SIM_PACING capture-lockstep label-only review (2026-08-23); GAME_UI_COMPONENTS UI4 shared-control-policy review (2026-08-24)",
+      "reason": "One immediate-mode development-shell composition pass consumes detached frame views, including bounded Look Lab, continuous-forecast status, Prediction-owned reveal presentation bounds, and Replay-owned horizon presentation bounds, and emits only typed one-frame commands; its window and tree branches plus local widget values all expire at return. UI4 projects shared diagnostic ranges and drag speeds through OperatorControlPolicy and render controls through UIRenderAuthoringCatalog; App composes authoritative grid and Replay popup bounds, so this body adds neither retained state nor a second phase.",
+      "evidence": "git history: look-lab-random-style-authoring-ll4-input-capture (2026-08-01); ORBIT_FORECAST OF4 shared operator-surface review (2026-08-19); CR1 GameUI naming-only surface review (2026-08-22); SIM_PACING capture-lockstep label-only review (2026-08-23); GAME_UI_COMPONENTS UI4 shared-control-policy review (2026-08-24); GAME_UI_COMPONENTS UI6 terminal popup-policy review (2026-08-25)",
       "plan": ""
     },
     {

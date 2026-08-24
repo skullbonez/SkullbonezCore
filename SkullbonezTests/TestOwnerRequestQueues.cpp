@@ -1676,11 +1676,11 @@ TEST_CASE( "Operator editor replay transport validates values and arbitrates one
                .Ok() );
 
     CHECK( SubmitOperatorEditorCommand( diagnostics, valid,
-                                        replayCommand( OperatorEditorReplayCommandType::SetRevealSpeed, 2.0f ) )
+                                        replayCommand( OperatorEditorReplayCommandType::SetRevealSpeed, 1000.0f ) )
                .Ok() );
 
     CHECK( SubmitOperatorEditorCommand( diagnostics, valid,
-                                        replayCommand( OperatorEditorReplayCommandType::SetPredictionHorizon, 3.0f ) )
+                                        replayCommand( OperatorEditorReplayCommandType::SetPredictionHorizon, 120.0f ) )
                .Ok() );
 
     CHECK( SubmitOperatorEditorCommand( diagnostics, valid,
@@ -1689,6 +1689,22 @@ TEST_CASE( "Operator editor replay transport validates values and arbitrates one
 
     CHECK( valid.count == 5u );
 
+    // The exchange validates transport shape only. Prediction and Replay own
+    // normalization/clamping, so a frontend cannot create a second policy by
+    // narrowing this queue boundary to its current slider endpoints. Isolate
+    // these submissions because the queue separately rejects conflicting
+    // payloads for one action identity.
+    OperatorEditorReplayCommandQueue abovePresentationEndpoints;
+    CHECK( SubmitOperatorEditorCommand( diagnostics, abovePresentationEndpoints,
+                                        replayCommand( OperatorEditorReplayCommandType::SetRevealSpeed, 1001.0f ) )
+               .Ok() );
+
+    CHECK( SubmitOperatorEditorCommand( diagnostics, abovePresentationEndpoints,
+                                        replayCommand( OperatorEditorReplayCommandType::SetPredictionHorizon, 121.0f ) )
+               .Ok() );
+
+    CHECK( abovePresentationEndpoints.count == 2u );
+
     OperatorEditorReplayCommandQueue invalid;
     CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, invalid,
                                               replayCommand( OperatorEditorReplayCommandType::Scrub,
@@ -1696,11 +1712,11 @@ TEST_CASE( "Operator editor replay transport validates values and arbitrates one
                      .Ok() );
 
     CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, invalid,
-                                              replayCommand( OperatorEditorReplayCommandType::SetRevealSpeed, 10.0f ) )
+                                              replayCommand( OperatorEditorReplayCommandType::SetRevealSpeed, 0.0f ) )
                      .Ok() );
 
     CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, invalid,
-                                              replayCommand( OperatorEditorReplayCommandType::SetPredictionHorizon, 0.0f ) )
+                                              replayCommand( OperatorEditorReplayCommandType::SetPredictionHorizon, -1.0f ) )
                      .Ok() );
 
     CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, invalid,
@@ -2278,8 +2294,13 @@ TEST_CASE( "Compact causality projection is bounded and exposes explicit edge st
     RunReplayVelocityEditState velocity;
     RunReplayCauseTreeState tree;
     ReplayRecorderStats solverStats;
-    ReplayOverlayStateView replay { scrubber, prediction, intercept, porkchop, planner,
-                                    path,     velocity,   tree,      {},       solverStats };
+    ReplayOverlayStateView replay { scrubber, prediction, intercept, porkchop, planner, path,
+                                    velocity, tree,       {},        solverStats, 1.0f,  120.0f };
+
+    CHECK( replay.prediction.revealRateMinimum == doctest::Approx( 1.0 ) );
+    CHECK( replay.prediction.revealRateMaximum == doctest::Approx( 1000.0 ) );
+    CHECK( replay.predictionHorizonMinimum == doctest::Approx( 1.0f ) );
+    CHECK( replay.predictionHorizonMaximum == doctest::Approx( 120.0f ) );
 
     ImGuiEditorCausalityContext context = BuildImGuiEditorCausalityContext( replay );
     CHECK( context.state == ImGuiEditorCausalityState::Empty );

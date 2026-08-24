@@ -481,9 +481,11 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( SkullbonezCore::Core
     }
     case OperatorEditorReplayCommandType::SetRevealSpeed:
 
-        if ( !std::isfinite( command.value ) || command.value < 0.25f || command.value > 4.0f )
+        // Prediction owns rate normalization. This boundary rejects malformed
+        // transport values without copying either frontend's slider interval.
+        if ( !std::isfinite( command.value ) || command.value <= 0.0f )
         {
-            return diagnostics.Failure( OWNER, "Replay reveal speed must be within 0.25x..4x" );
+            return diagnostics.Failure( OWNER, "Replay reveal speed must be finite and positive" );
         }
 
         break;
@@ -497,9 +499,11 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( SkullbonezCore::Core
         break;
     case OperatorEditorReplayCommandType::SetPredictionHorizon:
 
-        if ( !std::isfinite( command.value ) || command.value < 1.0f || command.value > 20.0f )
+        // Replay owns the canonical horizon clamp. The exchange only verifies
+        // that the typed command is meaningful before queueing it.
+        if ( !std::isfinite( command.value ) || command.value <= 0.0f )
         {
-            return diagnostics.Failure( OWNER, "Replay prediction horizon must be 1..20 seconds" );
+            return diagnostics.Failure( OWNER, "Replay prediction horizon must be finite and positive" );
         }
 
         break;
