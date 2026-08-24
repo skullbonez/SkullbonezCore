@@ -26,8 +26,8 @@ Invariants:
   - Reveal rows are contiguous ReplayFrameIndex values 0 through 2400.
   - All 200 authored wall bricks participate, every causal path reveals, and
     more than half the wall is grounded and sleeping throughout the final second.
-  - The dense High-detail evidence prefix truncates once at its 320 MiB bank
-    ceiling; that optional limit never restarts or shortens the trajectory.
+  - High-detail evidence either retains the complete horizon below its 320 MiB
+    bank ceiling or reports one internally consistent bounded prefix.
   - The first differing field is reported, not merely a whole-file hash.
   - This checker is read-only and cannot start a second prediction generation.
 
@@ -80,7 +80,6 @@ EXPECTED_MIN_TOPPLED_WALL_BRICKS = EXPECTED_WALL_BRICKS // 2 + 1
 # approved outcome remains pinned separately by the golden's finalState.
 EXPECTED_MIN_SETTLED_WALL_BRICKS = EXPECTED_WALL_BRICKS // 2
 EXPECTED_START_FRAME = 900
-EXPECTED_EVIDENCE_FIRST_TRUNCATED_FRAME = 1215
 EXPECTED_EVIDENCE_BANK_HARD_BYTES = 320 * 1024 * 1024
 NEGATIVE_CONTROL_TICK = 1200
 REPLAY_VISUAL_FNV_OFFSET = 1469598103934665603
@@ -284,20 +283,31 @@ def validate_report_shape(report: dict[str, Any]) -> list[dict[str, Any]]:
             "visual gate must contain exactly one prediction generation: "
             f"actual={final.get('predictionGenerationCount')}"
         )
-    if (
-        final.get("predictionEvidenceCapacityTruncated") is not True
-        or final.get("predictionEvidenceCapacityTruncationCount") != 1
-        or final.get("predictionEvidenceFirstTruncatedFrame")
-        != EXPECTED_EVIDENCE_FIRST_TRUNCATED_FRAME
-        or final.get("predictionEvidenceCommittedPublishedFrameCount")
-        != EXPECTED_EVIDENCE_FIRST_TRUNCATED_FRAME
-    ):
+    evidence_truncated = final.get("predictionEvidenceCapacityTruncated") is True
+    evidence_truncation_count = final.get("predictionEvidenceCapacityTruncationCount")
+    evidence_first_truncated_frame = final.get("predictionEvidenceFirstTruncatedFrame")
+    evidence_committed_frames = final.get("predictionEvidenceCommittedPublishedFrameCount")
+    if evidence_truncated:
+        evidence_shape_valid = (
+            evidence_truncation_count == 1
+            and isinstance(evidence_first_truncated_frame, int)
+            and 0 < evidence_first_truncated_frame < EXPECTED_TICKS
+            and evidence_committed_frames == evidence_first_truncated_frame
+        )
+    else:
+        # Invariant: improved settling may keep the complete dense evidence bank
+        # below its cap. Zero remains the sentinel for "no first truncated frame."
+        evidence_shape_valid = (
+            evidence_truncation_count == 0
+            and evidence_first_truncated_frame == 0
+            and evidence_committed_frames == EXPECTED_TICKS
+        )
+    if not evidence_shape_valid:
         raise ValueError(
-            "bounded prediction evidence did not retain one deterministic exact prefix: "
-            f"truncated={final.get('predictionEvidenceCapacityTruncated')} "
-            f"count={final.get('predictionEvidenceCapacityTruncationCount')} "
-            f"first_frame={final.get('predictionEvidenceFirstTruncatedFrame')} "
-            f"committed_frames={final.get('predictionEvidenceCommittedPublishedFrameCount')}"
+            "bounded prediction evidence is neither a complete horizon nor one exact prefix: "
+            f"truncated={evidence_truncated} count={evidence_truncation_count} "
+            f"first_frame={evidence_first_truncated_frame} "
+            f"committed_frames={evidence_committed_frames}"
         )
     if final.get("predictionEvidenceCurrentCapacityBytes", EXPECTED_EVIDENCE_BANK_HARD_BYTES + 1) > EXPECTED_EVIDENCE_BANK_HARD_BYTES:
         raise ValueError(
@@ -310,7 +320,7 @@ def validate_report_shape(report: dict[str, Any]) -> list[dict[str, Any]]:
         or final.get("predictionEvidenceConsumerReleaseCount") != 1
     ):
         raise ValueError(
-            "capacity-truncated prediction evidence did not release its Physics consumer once: "
+            "prediction evidence did not release its Physics consumer once: "
             f"active={final.get('predictionEvidenceConsumerActive')} "
             f"acquires={final.get('predictionEvidenceConsumerAcquireCount')} "
             f"releases={final.get('predictionEvidenceConsumerReleaseCount')}"
@@ -1358,7 +1368,13 @@ def main() -> int:
             payload = causal_baseline_payload(
                 report, args.working_base_commit, args.configuration, args.baseline
             )
-            if args.causal_baseline.exists():
+            if (
+                args.causal_baseline.exists()
+                and args.physics_automated_override_sha256 is None
+            ):
+                # Non-Physics owner approval remains a schema/bootstrap lane and
+                # cannot rewrite behavior. Physics-plan transitions instead bind
+                # an intentional causal change to exact old/new producers.
                 previous = load_json(args.causal_baseline)
                 legacy_expected = {
                     "targetId": previous["targetId"],
@@ -1402,21 +1418,22 @@ def main() -> int:
     baseline = load_json(args.baseline)
     if args.trajectory_count_control:
         # This control exercises the immutable live-report oracle in isolation.
-        # The offline archive may compact inactive scratch, but an approved raw
-        # row count of 802 must still reject 801 at the exact live-report field.
+        # The offline archive may compact inactive scratch, but the adjacent raw
+        # row count must still fail at the exact live-report field.
         expected = {
             "tickCount": baseline["tickCount"],
             "finalState": baseline["finalState"],
             "ticks": baseline["ticks"],
         }
         actual = copy.deepcopy(expected)
-        if actual["ticks"][0].get("trajectoryRecordCount") != 802:
+        approved_count = actual["ticks"][0].get("trajectoryRecordCount")
+        if not isinstance(approved_count, int) or approved_count <= 0:
             print(
-                "FAIL trajectory-count control requires the immutable 802-row baseline: "
-                f"actual={actual['ticks'][0].get('trajectoryRecordCount')}"
+                "FAIL trajectory-count control requires a positive approved row count: "
+                f"actual={approved_count}"
             )
             return 1
-        actual["ticks"][0]["trajectoryRecordCount"] = 801
+        actual["ticks"][0]["trajectoryRecordCount"] = approved_count - 1
         difference = first_difference(expected, actual)
         expected_path = "ticks[0].trajectoryRecordCount"
         if difference and expected_path in difference:

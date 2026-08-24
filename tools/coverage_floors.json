@@ -173,11 +173,11 @@
       "ratified_floor_percent": 70.0,
       "include_globs": [
         "SkullbonezSource/Runtime/Startup/StartupCommandLine.*",
-        "SkullbonezSource/Runtime/Startup/StartupLaunchResolution.*"
+        "SkullbonezSource/Runtime/App/StartupLaunchApplication.*"
       ],
       "required_instrumented_sources": [
         "SkullbonezSource/Runtime/Startup/StartupCommandLine.cpp",
-        "SkullbonezSource/Runtime/Startup/StartupLaunchResolution.cpp"
+        "SkullbonezSource/Runtime/App/StartupLaunchApplication.cpp"
       ]
     },
     {

@@ -13,12 +13,12 @@
     },
     {
       "artifact": "Debug/physics_known_stacking.csv",
-      "bytes": 3064521,
+      "bytes": 3068436,
       "lines": 22501,
       "name": "stacking_stability_watch",
       "risk": "Stacking drift or topple in stacking.scene.json.",
       "scene": "SkullbonezData/scenes/stacking.scene.json",
-      "sha256": "b7fc2401b407d6d38632dd9711ae9af4564489c2cd1f3ca6f91de381a7714537"
+      "sha256": "32ca684a42f5129442dbacc419946b9c730533102af26d9b4b68e3a23e76718e"
     },
     {
       "artifact": "Debug/physics_known_at_rest.csv",

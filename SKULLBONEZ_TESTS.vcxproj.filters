@@ -88,6 +88,9 @@
     <Filter Include="Source Files\Runtime\Diagnostics">
       <UniqueIdentifier>{8CC136D9-D141-47F9-AD18-4B33CD3AD0F3}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Runtime\UI">
+      <UniqueIdentifier>{6F3838BB-E832-4AAF-A874-8540402E60F3}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Scene">
       <UniqueIdentifier>{B4027C52-533E-4F44-9B93-8775E7F77737}</UniqueIdentifier>
     </Filter>
