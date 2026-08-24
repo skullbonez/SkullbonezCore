@@ -53,9 +53,12 @@ using Math::Vector::VectorMagSquared;
 using Physics::PhysicsBodyRecord;
 using Physics::PhysicsBodyStore;
 
-MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const RuntimePointerEvent& pointer, bool hasWorldRay, const Geometry::Ray& worldRay,
-                                                                bool hasClampedWorldRay, const Geometry::Ray& clampedWorldRay, const Vector3& cameraEye,
-                                                                const Vector3& cameraView, const SceneWorld& world, InputRouter& inputRouter, RuntimeInteractionController& interaction )
+MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const RuntimePointerEvent& pointer, bool hasWorldRay,
+                                                                const Geometry::Ray& worldRay, bool hasClampedWorldRay,
+                                                                const Geometry::Ray& clampedWorldRay,
+                                                                const Vector3& cameraEye, const Vector3& cameraView,
+                                                                const SceneWorld& world, InputRouter& inputRouter,
+                                                                RuntimeInteractionController& interaction )
 {
     MousePickupPointerResult routeResult;
     const auto updatePickupTarget = [&]() -> bool

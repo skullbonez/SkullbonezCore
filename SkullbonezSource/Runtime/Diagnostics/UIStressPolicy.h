@@ -67,9 +67,18 @@ class UIStressPolicyOwner
         m_framesRun = 0;
     }
 
-    void SetEnabled( bool enabled ) { m_enabled = enabled; }
-    void SetRandomState( unsigned int seed ) { m_randomState = seed; }
-    void SetActionsPerFrame( int count ) { m_actionsPerFrame = std::clamp( count, 1, 32 ); }
+    void SetEnabled( bool enabled )
+    {
+        m_enabled = enabled;
+    }
+    void SetRandomState( unsigned int seed )
+    {
+        m_randomState = seed;
+    }
+    void SetActionsPerFrame( int count )
+    {
+        m_actionsPerFrame = std::clamp( count, 1, 32 );
+    }
 
     void Configure( bool enabled, unsigned int seed, int actionsPerFrame )
     {
@@ -78,10 +87,22 @@ class UIStressPolicyOwner
         SetActionsPerFrame( actionsPerFrame );
     }
 
-    bool Enabled() const { return m_enabled; }
-    unsigned int RandomState() const { return m_randomState; }
-    int ActionsPerFrame() const { return m_actionsPerFrame; }
-    int FramesRun() const { return m_framesRun; }
+    bool Enabled() const
+    {
+        return m_enabled;
+    }
+    unsigned int RandomState() const
+    {
+        return m_randomState;
+    }
+    int ActionsPerFrame() const
+    {
+        return m_actionsPerFrame;
+    }
+    int FramesRun() const
+    {
+        return m_framesRun;
+    }
 
     UIStressFramePlan PlanFrame( int screenWidth, int screenHeight, int tabCount )
     {

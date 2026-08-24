@@ -353,7 +353,8 @@ bool ApplyHistoryEntry( SceneWorld& world, SceneSessionState& scene, const Edito
 } // namespace
 
 
-void EditorToolsOwner::RecordEditorTransformHistory( SceneWorld& world, RuntimeGizmoDragKind gizmoKind, int selectedModelIndex )
+void EditorToolsOwner::RecordEditorTransformHistory( SceneWorld& world, RuntimeGizmoDragKind gizmoKind,
+                                                     int selectedModelIndex )
 {
     if ( !m_editor.editorModeEnabled || selectedModelIndex < 0 )
     {

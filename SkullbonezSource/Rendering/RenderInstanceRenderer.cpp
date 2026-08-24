@@ -309,10 +309,11 @@ RenderMaterial MaterialWithContactHighlights( const RenderInstanceRecord& instan
 
 // Concept: one stack-scoped submission owner carries the renderer, diagnostics,
 // configuration, and prepared model borrows across every object pass in a frame.
-void RenderInstanceRenderer::RenderModelsForView(
-    RenderVisibilityView visibilityView, const char* shaderBaseName, const Matrix4& view, const Matrix4& proj,
-    const float ( &lightPos )[4], const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
-    const ShadowFrameData* shadow, float materialAlpha, const std::vector<uint8_t>* modelMask, bool drawMaskedModels )
+void RenderInstanceRenderer::RenderModelsForView( RenderVisibilityView visibilityView, const char* shaderBaseName,
+                                                  const Matrix4& view, const Matrix4& proj, const float ( &lightPos )[4],
+                                                  const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
+                                                  const ShadowFrameData* shadow, float materialAlpha,
+                                                  const std::vector<uint8_t>* modelMask, bool drawMaskedModels )
 {
     const auto instances = m_renderStore.Records();
 
@@ -406,8 +407,7 @@ void RenderInstanceRenderer::RenderModelsForView(
     {
         DRAW_CALL_TRACE_SCOPE( m_renderDiagnostics, "Spheres" );
         auto sphereBatch = m_primitiveRenderer.BeginSphereBatch( m_lighting, shaderBaseName, view, proj, lightPos,
-                                                                 alphaBlendedPass, cinematic, shadow,
-                                                                 clampedMaterialAlpha );
+                                                                 alphaBlendedPass, cinematic, shadow, clampedMaterialAlpha );
 
         for ( int visibleIndex = 0; visibleIndex < visibleCount; ++visibleIndex )
         {
@@ -484,8 +484,7 @@ void RenderInstanceRenderer::RenderModelsForView(
     {
         DRAW_CALL_TRACE_SCOPE( m_renderDiagnostics, "Pines" );
         auto pineBatch = m_primitiveRenderer.BeginPineBatch( m_lighting, shaderBaseName, view, proj, lightPos,
-                                                             alphaBlendedPass, cinematic, shadow,
-                                                             clampedMaterialAlpha );
+                                                             alphaBlendedPass, cinematic, shadow, clampedMaterialAlpha );
 
         appendBoxLikeModels( true, pineBatch );
     }
@@ -606,8 +605,7 @@ void RenderInstanceRenderer::BuildShadowCasterBatches( SkullbonezCore::Core::Pro
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/OrderedWorkerCollect" );
 
-        if ( BuildShadowCasterBatchesWithWorkers( profiler, instances, colliders, *m_workerPool, modelCount,
-                                                  outBatches ) )
+        if ( BuildShadowCasterBatchesWithWorkers( profiler, instances, colliders, *m_workerPool, modelCount, outBatches ) )
         {
             return;
         }
@@ -617,8 +615,7 @@ void RenderInstanceRenderer::BuildShadowCasterBatches( SkullbonezCore::Core::Pro
 }
 
 
-void RenderInstanceRenderer::SubmitShadowCasterBatches( SkullbonezCore::Core::Profiler*,
-                                                        const char* shaderBaseName,
+void RenderInstanceRenderer::SubmitShadowCasterBatches( SkullbonezCore::Core::Profiler*, const char* shaderBaseName,
                                                         const ShadowCasterBatches& batches, const Matrix4& view,
                                                         const Matrix4& proj,
                                                         const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
@@ -712,14 +709,13 @@ void RenderInstanceRenderer::SubmitShadowCasterBatches( SkullbonezCore::Core::Pr
         }
     }
 
-    m_renderDiagnostics.RecordVisibility(
-        visibilityView, candidates, submitted, candidates - submitted,
-        (std::max)( 0, m_renderDiagnostics.GetFrameDrawCallCount() - drawCountBefore ) );
+    m_renderDiagnostics.RecordVisibility( visibilityView, candidates, submitted, candidates - submitted,
+                                          (std::max)( 0, m_renderDiagnostics.GetFrameDrawCallCount() - drawCountBefore ) );
 }
 
 
-void RenderInstanceRenderer::RenderShadowCasters( SkullbonezCore::Core::Profiler* profiler,
-                                                  const char* shaderBaseName, const Matrix4& view, const Matrix4& proj,
+void RenderInstanceRenderer::RenderShadowCasters( SkullbonezCore::Core::Profiler* profiler, const char* shaderBaseName,
+                                                  const Matrix4& view, const Matrix4& proj,
                                                   const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                                   Rendering::RenderVisibilityView visibilityView )
 {
@@ -729,9 +725,9 @@ void RenderInstanceRenderer::RenderShadowCasters( SkullbonezCore::Core::Profiler
 }
 
 
-bool RenderInstanceRenderer::GetObjectShadowBounds( SkullbonezCore::Core::Profiler* profiler,
-                                                    const Vector3& focus, float maxDistance,
-                                                    Vector3& outCenter, float& outRadius, float& outHeightRange )
+bool RenderInstanceRenderer::GetObjectShadowBounds( SkullbonezCore::Core::Profiler* profiler, const Vector3& focus,
+                                                    float maxDistance, Vector3& outCenter, float& outRadius,
+                                                    float& outHeightRange )
 {
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildObjectFrame/ObjectBounds" );
 
@@ -824,10 +820,10 @@ bool RenderInstanceRenderer::GetObjectShadowBounds( SkullbonezCore::Core::Profil
             m_workerPool->ParallelForChunksNoAlloc( chunks, chunkCount,
                                                     [&]( int chunkIndex, int begin, int end )
                                                     {
-                                                        PROFILE_WORKER_SCOPED(
-                                                            profiler, "Frame/Shadows/ShadowMap/BuildObjectFrame/"
-                                                                      "ObjectBounds/"
-                                                                      "OrderedWorkerCollect/WorkerScanBounds" );
+                                                        PROFILE_WORKER_SCOPED( profiler,
+                                                                               "Frame/Shadows/ShadowMap/BuildObjectFrame/"
+                                                                               "ObjectBounds/"
+                                                                               "OrderedWorkerCollect/WorkerScanBounds" );
 
                                                         scanBoundsRange( begin, end, chunkOutputs[chunkIndex] );
                                                     } );

@@ -105,7 +105,7 @@ struct SceneUiOptionDiagnosticsProjection
 };
 
 inline SceneUiOptionDiagnosticsProjection ProjectSceneUiOptionDiagnostics( const SceneUIOptions& options,
-                                                                            bool preserveUiState )
+                                                                           bool preserveUiState )
 {
     SceneUiOptionDiagnosticsProjection projection;
     projection.applyTestPattern = !preserveUiState && options.hasTestPattern;
@@ -117,12 +117,14 @@ inline SceneUiOptionDiagnosticsProjection ProjectSceneUiOptionDiagnostics( const
         reaction.kind = SceneDiagnosticsReactionKind::SetUiStressEnabled;
         reaction.enabled = options.stressEnabled;
     }
+
     if ( options.hasStressSeed )
     {
         SceneDiagnosticsReaction& reaction = projection.reactions.reactions[projection.reactions.count++];
         reaction.kind = SceneDiagnosticsReactionKind::SetUiStressSeed;
         reaction.value = static_cast<int>( options.stressSeed );
     }
+
     if ( options.hasStressActions )
     {
         SceneDiagnosticsReaction& reaction = projection.reactions.reactions[projection.reactions.count++];

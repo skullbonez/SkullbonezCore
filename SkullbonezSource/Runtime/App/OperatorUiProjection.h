@@ -73,27 +73,23 @@ inline Core::MainMemoryStats ProjectMemoryTabAvailability( bool sourceValid, con
 }
 
 RuntimeViewModel BuildOperatorRuntimeViewModel( const SceneSessionState& scene, const SceneWorld& world, int sceneCount,
-                                                const RunScreenshotState& screenshot,
-                                                bool presentationInterpolation, bool presentationPinned,
-                                                float presentationAlpha );
+                                                const RunScreenshotState& screenshot, bool presentationInterpolation,
+                                                bool presentationPinned, float presentationAlpha );
 void ProjectOperatorEditorScene( UI::OperatorEditorFrameView& view, const char* currentScenePath,
                                  const UI::RunSceneBrowserState& sceneBrowser, int currentSceneBrowserIndex,
                                  const SceneSessionState& scene, const SceneWorld& world );
-void ProjectOperatorEditorRendering( UI::OperatorEditorFrameView& view,
-                                     const RenderPresentationSettings& presentation,
+void ProjectOperatorEditorRendering( UI::OperatorEditorFrameView& view, const RenderPresentationSettings& presentation,
                                      const Core::EngineConfig& config, const Core::CinematicRenderConfig& cinematic,
                                      const OverlayDebugState& debug, const RuntimeUiTextFrameFacts& uiTextFacts,
                                      bool cinematicRendering, bool shadowsEnabled );
-void ProjectOperatorEditorForecast( UI::OperatorEditorFrameView& view,
-                                    const ContinuousOrbitalForecastView& forecast );
+void ProjectOperatorEditorForecast( UI::OperatorEditorFrameView& view, const ContinuousOrbitalForecastView& forecast );
 int ProjectOperatorEditorHierarchy( UI::OperatorEditorFrameView& view, const RunEditorPlacementState& editor,
                                     const SceneWorld& world, bool crossScenePauseLocked, bool fixedStep,
                                     bool buildingAssetsAvailable );
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-void ProjectOperatorEditorInspectorAndWorld( UI::OperatorEditorFrameView& view,
-                                             const RunEditorPlacementState& editor, const SceneWorld& world,
-                                             int selectedHierarchyRow, const SceneSessionState& scene,
-                                             const Core::EngineConfig& config );
+void ProjectOperatorEditorInspectorAndWorld( UI::OperatorEditorFrameView& view, const RunEditorPlacementState& editor,
+                                             const SceneWorld& world, int selectedHierarchyRow,
+                                             const SceneSessionState& scene, const Core::EngineConfig& config );
 #endif
 
 void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& uiData, const ReplayHudStatus& replayHud,

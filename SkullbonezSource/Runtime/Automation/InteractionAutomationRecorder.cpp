@@ -261,8 +261,8 @@ Core::SbResult InteractionAutomationRecorder::AdvanceBoundary( Core::SbDiagnosti
 }
 
 void InteractionAutomationRecorder::CapturePendingTurn( double deltaSeconds, int sourceWidth, int sourceHeight,
-                                                         const InteractionAutomationInputSample& frame,
-                                                         const char* semanticAnchor )
+                                                        const InteractionAutomationInputSample& frame,
+                                                        const char* semanticAnchor )
 {
     if ( m_state != InteractionRecordingState::Recording )
     {

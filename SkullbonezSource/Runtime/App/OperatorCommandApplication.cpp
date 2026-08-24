@@ -408,7 +408,6 @@ void OperatorCommandTransaction::ApplyRuntimePresentation( OverlayDebugState& de
         debug.isWaterNoReflect = mode == 2;
         m_acceptance.setWaterReflectionMode = true;
     }
-
 }
 
 void OperatorCommandTransaction::ApplySimulationPolicy( SceneSessionState& scene,

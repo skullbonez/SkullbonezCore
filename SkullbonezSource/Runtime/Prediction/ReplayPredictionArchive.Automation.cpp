@@ -299,10 +299,14 @@ bool VerifyReplayPredictionArchiveRoundTrip( std::span<const uint8_t> bytes, cha
             return false;
         }
 
-        ReplayPredictionPublicationOperations::UpdateReplayPredictionTrajectoryStore(
-            prefixPrediction, prefixPrediction.simulation.frames, prefixPrediction.CommittedFrameCount(),
-            prefixPrediction.trajectoryBuild.usingBuildFrames, prefixPrediction.simulation.targetId,
-            std::chrono::steady_clock::now(), 0.0 );
+        ReplayPredictionPublicationOperations::UpdateReplayPredictionTrajectoryStore( prefixPrediction,
+                                                                                      prefixPrediction.simulation.frames,
+                                                                                      prefixPrediction.CommittedFrameCount(),
+                                                                                      prefixPrediction.trajectoryBuild
+                                                                                          .usingBuildFrames,
+                                                                                      prefixPrediction.simulation.targetId,
+                                                                                      std::chrono::steady_clock::now(),
+                                                                                      0.0 );
         std::vector<uint8_t> projectedPrefixBytes;
 
         if ( !BuildReplayPredictionArchive( prefixPathVisualizer, prefixPrediction, ReplayPredictionDetailMode::High,

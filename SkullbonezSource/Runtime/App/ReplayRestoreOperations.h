@@ -230,8 +230,7 @@ class ReplayRestoreOperations
     // Captures the live stores through a one-frame verifier recorder so hash
     // calculation uses the exact same field order as normal replay capture.
     static bool CaptureCurrentSolverSample( SceneWorld& world, const SceneSessionState& scene,
-                                            const OverlayDebugState& debug,
-                                            const ReplayLauncherVisualSample& launcherVisual,
+                                            const OverlayDebugState& debug, const ReplayLauncherVisualSample& launcherVisual,
                                             const ReplaySolverFrameSample& reference, ReplaySolverFrameSample& outSample )
     {
         ReplayRecorderConfig config;
@@ -290,8 +289,8 @@ class ReplayRestoreOperations
 
     static bool CaptureCurrentSolverHash( SceneWorld& world, const SceneSessionState& scene, const OverlayDebugState& debug,
                                           const ReplayLauncherVisualSample& launcherVisual,
-                                          const ReplaySolverFrameSample& reference,
-                                          uint64_t& outSolverHash, uint64_t& outPresentationHash, std::size_t& outBodyCount )
+                                          const ReplaySolverFrameSample& reference, uint64_t& outSolverHash,
+                                          uint64_t& outPresentationHash, std::size_t& outBodyCount )
     {
         ReplaySolverFrameSample verified;
 

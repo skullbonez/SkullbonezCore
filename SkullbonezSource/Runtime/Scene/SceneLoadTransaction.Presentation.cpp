@@ -35,6 +35,7 @@ void SceneLoadTransaction::AppendCaptureReaction( const SceneCaptureReaction& re
     {
         SB_FATAL( "Runtime/SceneLoadTransaction", "Fixed capture reaction capacity exhausted." );
     }
+
     m_outputs.captureReactions.reactions[m_outputs.captureReactions.count++] = reaction;
 }
 
@@ -50,9 +51,9 @@ void SceneLoadTransaction::AppendDiagnosticsReaction( const SceneDiagnosticsReac
 }
 
 
-void SceneLoadTransaction::PrepareUiOptions( ScenePresentationValues& presentation,
-                                             SceneUiActivation& activation, const SceneUIOptions& options, double nowSeconds,
-                                             bool preserveUIState, bool automationScene )
+void SceneLoadTransaction::PrepareUiOptions( ScenePresentationValues& presentation, SceneUiActivation& activation,
+                                             const SceneUIOptions& options, double nowSeconds, bool preserveUIState,
+                                             bool automationScene )
 {
     activation.authoredOptions = options;
     activation.nowSeconds = nowSeconds;
@@ -61,6 +62,7 @@ void SceneLoadTransaction::PrepareUiOptions( ScenePresentationValues& presentati
     activation.automationScene = automationScene;
 
     const SceneUiOptionDiagnosticsProjection projection = ProjectSceneUiOptionDiagnostics( options, preserveUIState );
+
     if ( projection.applyTestPattern )
     {
         presentation.uiTestPattern = projection.testPatternEnabled;

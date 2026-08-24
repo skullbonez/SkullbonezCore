@@ -38,10 +38,8 @@ enum class ReplayOverlaySurfaceKind : uint8_t
     Scrubber
 };
 
-inline constexpr std::array<ReplayOverlaySurfaceKind, 5> REPLAY_OVERLAY_COMPOSITION_ORDER = {
-    ReplayOverlaySurfaceKind::Intercept, ReplayOverlaySurfaceKind::TripPlanner, ReplayOverlaySurfaceKind::Porkchop,
-    ReplayOverlaySurfaceKind::CauseTree, ReplayOverlaySurfaceKind::Scrubber
-};
+inline constexpr std::array<ReplayOverlaySurfaceKind, 5> REPLAY_OVERLAY_COMPOSITION_ORDER = { ReplayOverlaySurfaceKind::Intercept, ReplayOverlaySurfaceKind::TripPlanner, ReplayOverlaySurfaceKind::Porkchop,
+      ReplayOverlaySurfaceKind::CauseTree, ReplayOverlaySurfaceKind::Scrubber };
 
 inline constexpr bool ShouldComposeReplayOverlay( bool gameUiSurfaceActive ) noexcept
 {
@@ -51,11 +49,11 @@ inline constexpr bool ShouldComposeReplayOverlay( bool gameUiSurfaceActive ) noe
 class ReplayOverlayDrawOwner
 {
   public:
-    const UI::UIDrawList& Compose( const ReplayOverlayStateView& replay, bool gameUiSurfaceActive,
-                                   bool scenePhysicsEnabled, ReplayOverlayGestureView gesture,
-                                   ReplayOverlayViewport viewport, double nowSeconds );
+    const UI::UIDrawList& Compose( const ReplayOverlayStateView& replay, bool gameUiSurfaceActive, bool scenePhysicsEnabled,
+                                   ReplayOverlayGestureView gesture, ReplayOverlayViewport viewport, double nowSeconds );
 
   private:
+
     // Lifetime: retained Planning scratch avoids placing the fixed-capacity UI
     // command storage on nested frame stacks. Render only borrows it during one
     // synchronous App-sequenced submission.

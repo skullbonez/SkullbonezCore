@@ -727,6 +727,7 @@ void RuntimeTools::PrepareOverlayTrace( SceneWorld& world, const ToolEditorOverl
 {
     m_editorTracer.Clear();
     const float rayLinger = (std::max)( 0.0f, input.rayLingerSeconds );
+
     for ( const RunRayCastTestLine& line : m_rayCastTest.lines )
     {
         if ( line.active && line.ageSeconds < rayLinger )
@@ -742,6 +743,7 @@ void RuntimeTools::PrepareOverlayTrace( SceneWorld& world, const ToolEditorOverl
 
     const Physics::PhysicsBodyStore& bodyStore = world.BodyStore();
     const Physics::ColliderStore& colliderStore = world.Colliders();
+
     if ( ( editor.editorModeEnabled || input.inspectGizmoActive ) && !editor.placementModeEnabled &&
          editor.selectionCount > 0 )
     {
@@ -749,17 +751,20 @@ void RuntimeTools::PrepareOverlayTrace( SceneWorld& world, const ToolEditorOverl
         Math::Vector::Vector3 origin = Math::Vector::ZERO_VECTOR;
         std::array<const Physics::ColliderRecord*, ToolEditorOverlayValues::SELECTION_CAPACITY> colliders = {};
         std::size_t count = 0;
+
         for ( ; count < editor.selectionCount && count < colliders.size(); ++count )
         {
             const Physics::PhysicsBodyRecord* body = bodyStore.RecordForHandle( editor.selectionBodies[count] );
             const Physics::ColliderRecord* collider = colliderStore.RecordForHandle( editor.selectionColliders[count] );
             const int modelIndex = bodyStore.ModelIndexForHandle( editor.selectionBodies[count] );
+
             if ( !body || !collider || modelIndex < 0 || modelIndex >= world.SceneEntityCount() ||
                  collider->body != editor.selectionBodies[count] )
             {
                 count = 0;
                 break;
             }
+
             colliders[count] = collider;
             origin += Physics::PhysicsBodyPosition( hotFields, static_cast<std::size_t>( modelIndex ) );
         }
@@ -768,27 +773,28 @@ void RuntimeTools::PrepareOverlayTrace( SceneWorld& world, const ToolEditorOverl
         {
             origin /= static_cast<float>( count );
             float radius = 1.0f;
+
             for ( std::size_t i = 0; i < count; ++i )
             {
                 const int modelIndex = bodyStore.ModelIndexForHandle( editor.selectionBodies[i] );
-                const Math::Vector::Vector3 position =
-                    Physics::PhysicsBodyPosition( hotFields, static_cast<std::size_t>( modelIndex ) );
+                const Math::Vector::Vector3 position = Physics::PhysicsBodyPosition( hotFields, static_cast<std::size_t>( modelIndex ) );
                 const Physics::ColliderRecord& collider = *colliders[i];
-                const float colliderRadius =
-                    (std::max)( collider.boundingRadius > 0.0f ? collider.boundingRadius
-                                                              : Math::CollisionDetection::GetShapeBoundingRadius( collider.shape ),
-                                1.0f );
+                const float colliderRadius = (std::max)( collider.boundingRadius > 0.0f
+                                                             ? collider.boundingRadius
+                                                             : Math::CollisionDetection::GetShapeBoundingRadius( collider.shape ),
+                                                         1.0f );
                 radius = (std::max)( radius, Math::Vector::Distance( position, origin ) + colliderRadius );
-                m_editorTracer.AddSelectionOutline(
-                    position, Physics::PhysicsBodyOrientation( hotFields, static_cast<std::size_t>( modelIndex ) ),
-                    collider.shape );
+                m_editorTracer.AddSelectionOutline( position,
+                                                    Physics::PhysicsBodyOrientation( hotFields, static_cast<std::size_t>( modelIndex ) ),
+                                                    collider.shape );
             }
+
             const bool dragActive = input.gesture.kind == RuntimeInteractionGestureKind::GizmoDrag;
             const bool scaleActive = dragActive && input.gesture.gizmoKind == RuntimeGizmoDragKind::Scale;
             const bool rotateActive = dragActive && input.gesture.gizmoKind == RuntimeGizmoDragKind::Rotate;
             m_editorTracer.AddGizmo( origin, radius, editor.hotGizmoAxis, editor.hotRotationAxis,
-                                     dragActive ? input.gesture.axis : -1, rotateActive,
-                                     scaleActive || input.scaleMode, scaleActive );
+                                     dragActive ? input.gesture.axis : -1, rotateActive, scaleActive || input.scaleMode,
+                                     scaleActive );
         }
     }
 
@@ -798,6 +804,7 @@ void RuntimeTools::PrepareOverlayTrace( SceneWorld& world, const ToolEditorOverl
         const Physics::PhysicsColliderHandle colliderHandle = colliderStore.HandleForBodyHandle( m_mousePickup.body );
         const Physics::ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
         const int modelIndex = bodyStore.ModelIndexForHandle( m_mousePickup.body );
+
         if ( body && collider && modelIndex >= 0 && modelIndex < world.SceneEntityCount() &&
              collider->body == m_mousePickup.body )
         {
@@ -808,8 +815,7 @@ void RuntimeTools::PrepareOverlayTrace( SceneWorld& world, const ToolEditorOverl
             m_editorTracer.AddSelectionOutline( bodyPosition, Physics::PhysicsBodyOrientation( hotFields, bodyIndex ),
                                                 collider->shape );
             m_editorTracer.AddReplayPathSegment( grabPoint, m_mousePickup.targetPoint, 0.1f, 0.95f, 1.0f );
-            m_editorTracer.AddReplayContactMarker( m_mousePickup.targetPoint, m_mousePickup.planeNormal, 0.1f, 0.95f,
-                                                   1.0f );
+            m_editorTracer.AddReplayContactMarker( m_mousePickup.targetPoint, m_mousePickup.planeNormal, 0.1f, 0.95f, 1.0f );
             m_editorTracer.AddReplayImpulseVector( grabPoint, m_mousePickup.lastImpulse, 0.1f, 0.95f, 1.0f );
         }
     }
@@ -820,6 +826,7 @@ void RuntimeTools::PrepareOverlayTrace( SceneWorld& world, const ToolEditorOverl
         const Physics::PhysicsBodyRecord* body = bodyStore.RecordForHandle( bodyHandle );
         const Physics::PhysicsColliderHandle colliderHandle = colliderStore.HandleForBodyHandle( bodyHandle );
         const Physics::ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
+
         if ( body && collider && collider->body == bodyHandle )
         {
             const auto hotFields = bodyStore.HotFields();

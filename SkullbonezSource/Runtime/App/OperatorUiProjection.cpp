@@ -241,9 +241,8 @@ void FillOperatorRenderingParameters( SkullbonezCore::UI::OperatorEditorRenderin
 } // namespace
 
 RuntimeViewModel BuildOperatorRuntimeViewModel( const SceneSessionState& scene, const SceneWorld& world, int sceneCount,
-                                                const RunScreenshotState& screenshot,
-                                                bool presentationInterpolation, bool presentationPinned,
-                                                float presentationAlpha )
+                                                const RunScreenshotState& screenshot, bool presentationInterpolation,
+                                                bool presentationPinned, float presentationAlpha )
 {
     RuntimeViewModel view;
     const bool screenshotConfigured = screenshot.isScreenshotAndExit || screenshot.screenshotFrame >= 0 ||
@@ -283,8 +282,7 @@ void ProjectOperatorEditorScene( UI::OperatorEditorFrameView& view, const char* 
                       world.Environment().GetFluidDensity() };
 }
 
-void ProjectOperatorEditorRendering( UI::OperatorEditorFrameView& view,
-                                     const RenderPresentationSettings& presentation,
+void ProjectOperatorEditorRendering( UI::OperatorEditorFrameView& view, const RenderPresentationSettings& presentation,
                                      const Core::EngineConfig& config, const Core::CinematicRenderConfig& cinematic,
                                      const OverlayDebugState& debug, const RuntimeUiTextFrameFacts& uiTextFacts,
                                      bool cinematicRendering, bool shadowsEnabled )
@@ -303,6 +301,7 @@ void ProjectOperatorEditorRendering( UI::OperatorEditorFrameView& view,
     FillOperatorRenderingParameters( rendering, config.ordinaryRender, cinematic );
 
     const char* gizmoMode = "translate";
+
     if ( uiTextFacts.interactionGestureKind == RuntimeInteractionGestureKind::GizmoDrag )
     {
         if ( uiTextFacts.interactionGizmoKind == RuntimeGizmoDragKind::Rotate )
@@ -314,11 +313,11 @@ void ProjectOperatorEditorRendering( UI::OperatorEditorFrameView& view,
             gizmoMode = "scale";
         }
     }
+
     view.viewport = { uiTextFacts.cameraModeLabel, gizmoMode, uiTextFacts.presentationPinned };
 }
 
-void ProjectOperatorEditorForecast( UI::OperatorEditorFrameView& view,
-                                    const ContinuousOrbitalForecastView& forecast )
+void ProjectOperatorEditorForecast( UI::OperatorEditorFrameView& view, const ContinuousOrbitalForecastView& forecast )
 {
     const bool blockingFailureFirst = forecast.stability.firstBlockingFailure.latched &&
                                       ( !forecast.stability.firstAuxiliaryFailure.latched ||
@@ -357,16 +356,21 @@ int ProjectOperatorEditorHierarchy( UI::OperatorEditorFrameView& view, const Run
                                     bool buildingAssetsAvailable )
 {
     view.scene.dirty = editor.history.IsDirty();
-    view.tools = { editor.editorModeEnabled, editor.placementModeEnabled, editor.placeStaticObject,
-                   crossScenePauseLocked, fixedStep, editor.autoTerrainAlign,
-                   static_cast<int>( editor.history.UndoDepth() ), static_cast<int>( editor.history.RedoDepth() ) };
+    view.tools = { editor.editorModeEnabled,
+                   editor.placementModeEnabled,
+                   editor.placeStaticObject,
+                   crossScenePauseLocked,
+                   fixedStep,
+                   editor.autoTerrainAlign,
+                   static_cast<int>( editor.history.UndoDepth() ),
+                   static_cast<int>( editor.history.RedoDepth() ) };
 
     const SceneEntityStore& entities = world.Entities();
     const int selectedRow = PeekSelectedEditorModelIndex( editor, world.BodyStore() );
     view.hierarchy.totalRowCount = static_cast<uint32_t>( entities.Count() );
-    view.hierarchy.rowCount = (std::min)( view.hierarchy.totalRowCount,
-                                          UI::OPERATOR_EDITOR_HIERARCHY_ROW_CAPACITY );
+    view.hierarchy.rowCount = (std::min)( view.hierarchy.totalRowCount, UI::OPERATOR_EDITOR_HIERARCHY_ROW_CAPACITY );
     view.hierarchy.truncated = view.hierarchy.totalRowCount > view.hierarchy.rowCount;
+
     for ( uint32_t index = 0u; index < view.hierarchy.rowCount; ++index )
     {
         const SceneEntityRecord& entity = entities.At( static_cast<int>( index ) );
@@ -379,22 +383,24 @@ int ProjectOperatorEditorHierarchy( UI::OperatorEditorFrameView& view, const Run
         row.visible = entity.editorVisible;
         row.locked = entity.editorLocked;
         row.selected = static_cast<int>( index ) == selectedRow;
+
         if ( row.selected )
         {
             view.hierarchy.selectedSceneObjectId = row.sceneObjectId;
         }
     }
+
     view.assets = { editor.objectType, UI::EditorTab::OBJECT_TYPE_COUNT, buildingAssetsAvailable };
     return selectedRow;
 }
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-void ProjectOperatorEditorInspectorAndWorld( UI::OperatorEditorFrameView& view,
-                                             const RunEditorPlacementState& editor, const SceneWorld& world,
-                                             int selectedHierarchyRow, const SceneSessionState& scene,
-                                             const Core::EngineConfig& config )
+void ProjectOperatorEditorInspectorAndWorld( UI::OperatorEditorFrameView& view, const RunEditorPlacementState& editor,
+                                             const SceneWorld& world, int selectedHierarchyRow,
+                                             const SceneSessionState& scene, const Core::EngineConfig& config )
 {
     UI::OperatorEditorInspectorView& inspector = view.inspector;
+
     if ( editor.selectedBody.IsValid() && selectedHierarchyRow < 0 )
     {
         inspector.selectionState = UI::OperatorEditorInspectorSelectionState::Stale;
@@ -404,14 +410,13 @@ void ProjectOperatorEditorInspectorAndWorld( UI::OperatorEditorFrameView& view,
         const SceneEntityRecord* entity = world.Entities().TryGet( selectedHierarchyRow );
         const Physics::PhysicsBodyStore& bodyStore = world.BodyStore();
         const Physics::ColliderStore& colliderStore = world.Colliders();
-        const std::span<const Physics::BuoyancyBodyFacts> buoyancyFacts =
-            Physics::PhysicsEngine::ReadBuoyancyFacts( world.Physics() );
+        const std::span<const Physics::BuoyancyBodyFacts> buoyancyFacts = Physics::PhysicsEngine::ReadBuoyancyFacts( world.Physics() );
         const Physics::PhysicsBodyRecord* body = entity ? bodyStore.RecordForHandle( entity->body ) : nullptr;
         const Physics::PhysicsColliderHandle colliderHandle = entity ? colliderStore.HandleForBodyHandle( entity->body )
-                                                                    : Physics::PhysicsColliderHandle {};
+                                                                     : Physics::PhysicsColliderHandle {};
         const Physics::ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
-        const Physics::ColliderAuthoringRecord* colliderAuthoring =
-            colliderStore.AuthoringRecordForHandle( colliderHandle );
+        const Physics::ColliderAuthoringRecord* colliderAuthoring = colliderStore.AuthoringRecordForHandle( colliderHandle );
+
         if ( !entity || !body || !collider || !colliderAuthoring ||
              selectedHierarchyRow >= static_cast<int>( buoyancyFacts.size() ) )
         {
@@ -451,10 +456,12 @@ void ProjectOperatorEditorInspectorAndWorld( UI::OperatorEditorFrameView& view,
             inspector.angularVelocity[0] = angularVelocity.x;
             inspector.angularVelocity[1] = angularVelocity.y;
             inspector.angularVelocity[2] = angularVelocity.z;
+
             for ( int channel = 0; channel < 4; ++channel )
             {
                 inspector.baseColor[channel] = entity->renderMaterial.baseColor[channel];
             }
+
             inspector.mass = body->mass;
             inspector.volume = buoyancyFacts[row].volume;
             inspector.boundingRadius = collider->boundingRadius;
@@ -520,6 +527,7 @@ void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& UIData, const ReplayHu
                                    Rendering::Dx12Diagnostics& renderDiagnostics )
 {
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
+
     if ( !profilerOwner )
     {
         SB_FATAL( "Runtime/App/OperatorUiProjection", "Profile UI projection requires the startup-bound profiler." );
@@ -705,19 +713,18 @@ void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& UIData, const ReplayHu
         }
 #endif
         const SkullbonezCore::UI::Style::UIColor& mainColor = SkullbonezCore::UI::Style::Palette().accent;
-        addMarkerOption(
-            SkullbonezCore::UI::UIProfilerMarkerOption { .name = "Frame Total",
-                                                         .leafName = "Frame Total",
-                                                         .hash = SkullbonezCore::UI::UI_PROFILER_FRAME_TOTAL_HASH,
-                                                         .cpuMs = UIData.cpuFrameMs,
-                                                         .cpuAverageMs = frameAverageMs,
-                                                         .gpuMs = UIData.gpuFrameMs,
-                                                         .colorR = mainColor.r,
-                                                         .colorG = mainColor.g,
-                                                         .colorB = mainColor.b,
-                                                         .hasGpu = true,
-                                                         .sampleValid = true,
-                                                         .isFrameTotal = true } );
+        addMarkerOption( SkullbonezCore::UI::UIProfilerMarkerOption { .name = "Frame Total",
+                                                                      .leafName = "Frame Total",
+                                                                      .hash = SkullbonezCore::UI::UI_PROFILER_FRAME_TOTAL_HASH,
+                                                                      .cpuMs = UIData.cpuFrameMs,
+                                                                      .cpuAverageMs = frameAverageMs,
+                                                                      .gpuMs = UIData.gpuFrameMs,
+                                                                      .colorR = mainColor.r,
+                                                                      .colorG = mainColor.g,
+                                                                      .colorB = mainColor.b,
+                                                                      .hasGpu = true,
+                                                                      .sampleValid = true,
+                                                                      .isFrameTotal = true } );
 
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
         auto addProfilerMarker = [&]( const SkullbonezCore::Core::Profiler::Marker& marker )
@@ -726,24 +733,23 @@ void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& UIData, const ReplayHu
                 color = SkullbonezCore::Core::Profiler::BAR_PALETTE[marker.colorIndex %
                                                                     SkullbonezCore::Core::Profiler::BAR_PALETTE_SIZE];
 
-            addMarkerOption(
-                SkullbonezCore::UI::UIProfilerMarkerOption { .name = marker.name,
-                                                             .leafName = marker.leafName,
-                                                             .hash = marker.hash,
-                                                             .cpuMs = marker.lastFrameMs,
-                                                             .cpuAverageMs = marker.avgMs > 0.0f ? marker.avgMs
-                                                                                                 : marker.lastFrameMs,
-                                                             .workerMs = marker.lastFrameWorkerMs,
-                                                             .workerAverageMs = marker.workerAvgMs > 0.0f
-                                                                                    ? marker.workerAvgMs
-                                                                                    : marker.lastFrameWorkerMs,
-                                                             .gpuMs = marker.hasGpu ? marker.gpuLastFrameMs : 0.0f,
-                                                             .colorR = color.r,
-                                                             .colorG = color.g,
-                                                             .colorB = color.b,
-                                                             .hasGpu = marker.hasGpu,
-                                                             .sampleValid = true,
-                                                             .isFrameTotal = false } );
+            addMarkerOption( SkullbonezCore::UI::UIProfilerMarkerOption { .name = marker.name,
+                                                                          .leafName = marker.leafName,
+                                                                          .hash = marker.hash,
+                                                                          .cpuMs = marker.lastFrameMs,
+                                                                          .cpuAverageMs = marker.avgMs > 0.0f ? marker.avgMs
+                                                                                                              : marker.lastFrameMs,
+                                                                          .workerMs = marker.lastFrameWorkerMs,
+                                                                          .workerAverageMs = marker.workerAvgMs > 0.0f
+                                                                                                 ? marker.workerAvgMs
+                                                                                                 : marker.lastFrameWorkerMs,
+                                                                          .gpuMs = marker.hasGpu ? marker.gpuLastFrameMs : 0.0f,
+                                                                          .colorR = color.r,
+                                                                          .colorG = color.g,
+                                                                          .colorB = color.b,
+                                                                          .hasGpu = marker.hasGpu,
+                                                                          .sampleValid = true,
+                                                                          .isFrameTotal = false } );
         };
 
         static constexpr uint32_t kPinnedMarkerHashes[] = { ::HashStr( "Frame/Physics" ), ::HashStr( "Frame/Physics/Step" ),
@@ -976,6 +982,7 @@ void ProjectOperatorUiInteraction( UI::InGameUIFrameData& UIData, const RunRayCa
     UIData.editorUndoDepth = static_cast<int>( editor.history.UndoDepth() );
     UIData.editorRedoDepth = static_cast<int>( editor.history.RedoDepth() );
 }
+
 // PROJECTION_FUNCTIONS
 
 } // namespace Runtime

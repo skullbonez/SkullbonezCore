@@ -300,8 +300,7 @@ Run::Run( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Window& wi
 #endif
       m_operatorUi( CreateOperatorUiForStartup( profiler ) ),
       m_overlayDiagnostics( RuntimeOverlayDiagnostics::CreateForStartup() ),
-      m_validationHarness( RuntimeValidationHarness::CreateForStartup() ),
-      m_backbufferCapture( backbufferCapture )
+      m_validationHarness( RuntimeValidationHarness::CreateForStartup() ), m_backbufferCapture( backbufferCapture )
 {
     const SkullbonezCore::Core::EngineConfig& cfg = m_config;
     m_diagnosticsRuntime.BindProfiler( profiler );
@@ -328,8 +327,8 @@ SkullbonezCore::Core::SbResult Run::BindRenderBackend( Rendering::RenderBackendD
     Renderer().SetVsyncEnabled( m_config.runtimeRender.vsyncEnabled );
     Renderer().SetPipelineSyncEnabled( m_config.runtimeRender.forcePipelineSync );
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    const SkullbonezCore::Core::SbResult imguiStartResult =
-        m_imguiEditor.Start( m_window.NativeWindowHandle(), &backend.DevelopmentUiRenderer() );
+    const SkullbonezCore::Core::SbResult imguiStartResult = m_imguiEditor.Start( m_window.NativeWindowHandle(),
+                                                                                 &backend.DevelopmentUiRenderer() );
 
     if ( !imguiStartResult.Ok() )
     {
@@ -379,13 +378,12 @@ Run::~Run()
     {
         m_diagnosticsRuntime
             .WriteMainMemoryDump( m_replayRuntime.CollectMemoryStats(),
-                                  CollectSceneMemoryStats(
-                                      SceneMemoryDiagnosticsView { m_sceneController.Scene().Entities().CapacityBytes(),
-                                                                   m_sceneController.Scene().CollectGameplayMemoryBytes(),
-                                                                   m_sceneController.Scene()
-                                                                       .CollectGameplayDebugMemoryBytes(),
-                                                                   m_sceneController.Scene().Physics(),
-                                                                   m_sceneController.Scene().RenderInstances() } ),
+                                  CollectSceneMemoryStats( SceneMemoryDiagnosticsView { m_sceneController.Scene().Entities().CapacityBytes(),
+                                                                                        m_sceneController.Scene().CollectGameplayMemoryBytes(),
+                                                                                        m_sceneController.Scene()
+                                                                                            .CollectGameplayDebugMemoryBytes(),
+                                                                                        m_sceneController.Scene().Physics(),
+                                                                                        m_sceneController.Scene().RenderInstances() } ),
                                   ProjectSceneDiagnosticFacts( m_sceneController.State() ), "shutdown",
                                   m_timers.SimulationTotalSeconds() );
     }
@@ -424,11 +422,10 @@ Run::~Run()
     // its first release so no owner can destroy resources after a failed wait.
     const SkullbonezCore::Core::SbResult
         releaseResult = Renderer( "Shutdown" )
-                            .ReleaseBackendOwnedRuntimeResources(
-                                RuntimeRenderer::BackendResourceReleaseContext { "shutdown_release",
-                                                                                 m_sceneController.Scene()
-                                                                                     .Terrain()
-                                                                                     .Get() } );
+                            .ReleaseBackendOwnedRuntimeResources( RuntimeRenderer::BackendResourceReleaseContext { "shutdown_release",
+                                                                                                                   m_sceneController.Scene()
+                                                                                                                       .Terrain()
+                                                                                                                       .Get() } );
 
     if ( !releaseResult.Ok() )
     {
@@ -492,18 +489,16 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
         m_launchOptions.graphicsStress = true;
         m_launchOptions.graphicsStressSeed = resolvedSeed;
         m_launchOptions.graphicsStressActions = std::clamp( launch.graphicsStressActions, 1, 64 );
-        m_launchOptions.graphicsStressSceneIntervalFrames =
-            std::clamp( launch.graphicsStressSceneIntervalFrames, 1, 600 );
-        m_launchOptions.graphicsStressMemoryIntervalFrames =
-            std::clamp( launch.graphicsStressMemoryIntervalFrames, 0, 36000 );
+        m_launchOptions.graphicsStressSceneIntervalFrames = std::clamp( launch.graphicsStressSceneIntervalFrames, 1, 600 );
+        m_launchOptions.graphicsStressMemoryIntervalFrames = std::clamp( launch.graphicsStressMemoryIntervalFrames, 0,
+                                                                         36000 );
         m_launchOptions.interactiveSceneRun = true;
         m_graphicsStress.Configure( resolvedSeed, m_launchOptions.graphicsStressActions,
                                     m_launchOptions.graphicsStressSceneIntervalFrames,
                                     m_launchOptions.graphicsStressMemoryIntervalFrames );
     }
 
-    const bool liveStyleConfigured = overrides.liveStyleControlDirectory &&
-                                     overrides.liveStyleControlDirectory[0] != '\0' &&
+    const bool liveStyleConfigured = overrides.liveStyleControlDirectory && overrides.liveStyleControlDirectory[0] != '\0' &&
                                      m_liveStyle.ConfigureDirectory( overrides.liveStyleControlDirectory );
 
     if ( liveStyleConfigured )
@@ -535,22 +530,23 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
                                               m_camera.director.grabbed, m_interaction, m_inputRouter );
     }
 
-    m_replayRuntime.ConfigureStartupWorkflows(
-        ReplayStartupRequest { overrides.replayLoadPath, overrides.replayLoadProbe,
-#ifdef _DEBUG
-                               overrides.replayRestoreFileProbePath, overrides.replayRestoreTargetFileProbePath,
-                               overrides.replayRestoreBranchFileProbePath, overrides.replayRestoreFailureFileProbePath,
-                               overrides.replayScrubProbe, overrides.replayScrubProbeNormalized,
-                               overrides.replayRestoreProbe, overrides.replayRestoreProbeNormalized,
-                               overrides.replaySaveProbe, overrides.replaySaveProbePath
-#endif
-        } );
+    m_replayRuntime.ConfigureStartupWorkflows( ReplayStartupRequest { overrides.replayLoadPath, overrides.replayLoadProbe,
+                                       #ifdef _DEBUG
+                                                                      overrides.replayRestoreFileProbePath, overrides.replayRestoreTargetFileProbePath,
+                                                                      overrides.replayRestoreBranchFileProbePath, overrides.replayRestoreFailureFileProbePath,
+                                                                      overrides.replayScrubProbe, overrides.replayScrubProbeNormalized,
+                                                                      overrides.replayRestoreProbe, overrides.replayRestoreProbeNormalized,
+                                                                      overrides.replaySaveProbe, overrides.replaySaveProbePath
+                                       #endif
+                                               } );
 
     const StartupOperatorUiPolicy startupUiPolicy = m_overlayDiagnostics->ApplyStartupPolicy( overrides, m_launchOptions );
+
     if ( startupUiPolicy.makeVisible )
     {
         m_operatorUi->SetVisible( true );
     }
+
     switch ( startupUiPolicy.tab )
     {
     case StartupOperatorUiTab::Scene:
@@ -565,6 +561,7 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
     case StartupOperatorUiTab::Unchanged:
         break;
     }
+
 #ifdef _DEBUG
     ApplyStartupDiagnosticsPolicy( overrides, m_diagnosticsRuntime, m_sceneController.Scene().Physics() );
 #endif
@@ -715,6 +712,7 @@ void Run::Initialise()
     }
 
     const SkullbonezCore::Core::SbResult cameraTimerStartupResult = m_camera.InitialiseTiming( m_resultDiagnostics );
+
     if ( !cameraTimerStartupResult.Ok() )
     {
         m_lastSceneLoadResult = cameraTimerStartupResult;
@@ -731,8 +729,7 @@ void Run::Initialise()
     const SkullbonezCore::Core::EngineConfig& cfg = m_config;
 
     // Build renderer-owned resources from source asset records.
-    const SkullbonezCore::Core::SbResult rebuildResourcesResult = Renderer().ResourceLifecycle().InitialiseProcessResources(
-        m_launchOptions.dumpTextureAssets );
+    const SkullbonezCore::Core::SbResult rebuildResourcesResult = Renderer().ResourceLifecycle().InitialiseProcessResources( m_launchOptions.dumpTextureAssets );
 
     if ( !rebuildResourcesResult.Ok() )
     {
@@ -791,8 +788,8 @@ void Run::Initialise()
     ApplySceneLoadRuntimeReactions( sceneLoad );
 
     ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_graphicsStress,
-                                m_graphicsStressSceneObserver, m_launchOptions,
-                                &Renderer().RenderDevice(), Renderer().VsyncEnabled(), m_sceneController );
+                                m_graphicsStressSceneObserver, m_launchOptions, &Renderer().RenderDevice(),
+                                Renderer().VsyncEnabled(), m_sceneController );
 
     if ( !m_lastSceneLoadResult.Ok() )
     {
@@ -969,8 +966,8 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
         ApplySceneLoadRuntimeReactions( sceneLoad );
 
         ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_graphicsStress,
-                                    m_graphicsStressSceneObserver, m_launchOptions,
-                                    &Renderer().RenderDevice(), Renderer().VsyncEnabled(), m_sceneController );
+                                    m_graphicsStressSceneObserver, m_launchOptions, &Renderer().RenderDevice(),
+                                    Renderer().VsyncEnabled(), m_sceneController );
 
         if ( !loadResult.Ok() )
         {

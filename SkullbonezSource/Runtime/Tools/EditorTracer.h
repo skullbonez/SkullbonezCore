@@ -141,8 +141,7 @@ class EditorTracer
     void AddRayCastTestLine( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float alpha, bool hit );
     void AddReplayPathSegment( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float r, float g,
                                float b,
-                               SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane =
-                                   SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureRoot,
+                               SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane = SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureRoot,
                                float emphasis = 0.0f );
     void AddReplayCausalTrailSegment( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float r, float g,
                                       float b );

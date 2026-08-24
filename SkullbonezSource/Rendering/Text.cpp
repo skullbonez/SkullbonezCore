@@ -513,8 +513,7 @@ bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPat
 SkullbonezCore::Core::SbResult Text2d::BuildFont( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
                                                   TextBatch& batch, Dx12ResourceBuilder& renderResources,
                                                   Dx12TextureOwner& renderTextures, Dx12GeometryOwner& renderGeometry,
-                                                  const char* textShaderBaseName,
-                                                  const char* solidShaderBaseName,
+                                                  const char* textShaderBaseName, const char* solidShaderBaseName,
                                                   const char* solidBatchShaderBaseName, int screenW, int screenH,
                                                   const char* fontName )
 {

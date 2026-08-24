@@ -141,7 +141,7 @@ struct RunReplayPredictionRevealClock
     // down for a deliberate unfold.
     // Invariant: overlay pacing never feeds physics, replay samples, or solver
     // restores, so steady_clock here cannot affect deterministic simulation.
-    double secondsPerSecond = 1000.0; // Causal-unfold speed; 1.0 = real-time, large = effectively immediate.
+    double secondsPerSecond = 1000.0;        // Causal-unfold speed; 1.0 = real-time, large = effectively immediate.
     std::chrono::steady_clock::time_point anchor = {};
     ReplayFrameIndex presentedFrame = 0;     // Last common reveal clamp consumed by replay presentation.
     ReplayFrameIndex deterministicFrame = 0; // Automation-owned cursor; ignored outside fidelity capture.
@@ -519,7 +519,7 @@ struct ReplayPredictionCommittedPublicationState
 struct RunReplayPredictionBuildState
 {
     bool dirty = true;
-    uint32_t generationBeginCount = 0; // Successful future-simulation generations in this process.
+    uint32_t generationBeginCount = 0;       // Successful future-simulation generations in this process.
 
     // Concept: dirty requests do not form a queue. While a worker job is in
     // flight, this bit remembers only that the newest source state needs one
@@ -585,7 +585,7 @@ struct ReplayPredictionIsolatedSimulation
     // deletion condition: none, this is the end-state isolation boundary;
     // checker budget: 960 MiB hard cap registered by ReplayPredictionReserveOwner().
     std::unique_ptr<Physics::PhysicsEngine> predictionEngine;
-    int predictionEngineReserveBytes = 0; // Monotonic approved byte budget retained with predictionEngine.
+    int predictionEngineReserveBytes = 0;    // Monotonic approved byte budget retained with predictionEngine.
     Gameplay::TornadoGameplay predictionTornadoGameplay;
     Physics::PhysicsWorldForces predictionWorldForces;
     bool predictionEngineReady = false;
@@ -871,8 +871,7 @@ class ReplayPrediction
                 visibleBank = predictionState.committedPublication.visibleFramesUseBuildBank
                                   ? std::span<const RunReplayPredictionFrame>( predictionState.build.buildFrames )
                                   : predictionState.CommittedFrames();
-            view.frames = visibleBank.first(
-                (std::min)( predictionState.committedPublication.visibleFrameCount, visibleBank.size() ) );
+            view.frames = visibleBank.first( (std::min)( predictionState.committedPublication.visibleFrameCount, visibleBank.size() ) );
         }
         else
         {
@@ -880,8 +879,7 @@ class ReplayPrediction
         }
 
         view.futureNodes = usingVisibleSnapshot
-                               ? std::span<const RunReplayPathTraceNode>(
-                                     predictionState.committedPublication.visibleFutureNodes )
+                               ? std::span<const RunReplayPathTraceNode>( predictionState.committedPublication.visibleFutureNodes )
                                : std::span<const RunReplayPathTraceNode>( predictionState.futureNodeCache.futureNodes );
         view.trajectoryRecords = predictionState.trajectoryStore.ActiveRecords();
         view.retainedMarkers = usingVisibleSnapshot
@@ -1092,6 +1090,7 @@ class ReplayPrediction
     void CancelSolverEvidenceBuild() noexcept;
 
   private:
+
     // Lifetime: startup-bound diagnostics borrow; worker slices retain no owner state.
     Core::Profiler* m_profiler;
     RunReplayPredictionState m_state;

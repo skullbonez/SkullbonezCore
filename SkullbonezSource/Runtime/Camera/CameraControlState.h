@@ -76,7 +76,7 @@ class AttachedCameraController;
 
 struct CameraControlState
 {
-    long inputXMove = 0;                                      // Mouse-look delta sampled for this camera frame.
+    long inputXMove = 0;                                       // Mouse-look delta sampled for this camera frame.
     long inputYMove = 0;
     bool inputMoveForward = false;                             // Movement levels sampled for this camera frame.
     bool inputMoveBackward = false;

@@ -93,9 +93,11 @@ void ApplySceneDiagnosticsReactions( const SceneDiagnosticsReactionBatch& reacti
     (void)sceneController;
     (void)config;
 #endif
+
     for ( std::size_t index = 0; index < reactions.count; ++index )
     {
         const SceneDiagnosticsReaction& reaction = reactions.reactions[index];
+
         switch ( reaction.kind )
         {
         case SceneDiagnosticsReactionKind::ResetForSceneLoad:
@@ -186,38 +188,47 @@ void ApplySceneUiActivation( UI::InGameUI& ui, const SceneUiActivation& activati
         {
             ui.SetBlurEnabled( options.blurEnabled );
         }
+
         if ( options.hasProfilerExpandAll )
         {
             ui.SetProfilerExpandAll( options.profilerExpandAll );
         }
+
         if ( options.hasProfilerTimeline )
         {
             ui.SetProfilerTimelineEnabled( options.profilerTimeline );
         }
+
         if ( options.hasPerformanceHistogram )
         {
             ui.SetPerformanceHistogramEnabled( options.performanceHistogram );
         }
+
         if ( options.hasHitboxOverlay )
         {
             ui.SetHitboxOverlayEnabled( options.hitboxOverlay );
         }
+
         if ( options.hasRendererComboOpen )
         {
             ui.SetRendererComboOpen( options.rendererComboOpen );
         }
+
         if ( options.hasWaterComboOpen )
         {
             ui.SetWaterComboOpen( options.waterComboOpen );
         }
+
         if ( options.hasSceneComboOpen )
         {
             ui.SetSceneComboOpen( options.sceneComboOpen );
         }
+
         if ( options.hasSceneFilter )
         {
             ui.SetSceneFilter( options.sceneFilter );
         }
+
         if ( options.hasScrollY )
         {
             ui.SetScrollY( options.scrollY );
@@ -229,6 +240,7 @@ void ApplySceneUiActivation( UI::InGameUI& ui, const SceneUiActivation& activati
         {
             ui.SetVisible( options.isVisible, activation.nowSeconds );
         }
+
         if ( options.hasMinimized )
         {
             ui.SetMinimized( options.isMinimized, 0.0 );
@@ -239,6 +251,7 @@ void ApplySceneUiActivation( UI::InGameUI& ui, const SceneUiActivation& activati
     {
         ui.SetVisible( true, activation.nowSeconds );
     }
+
     if ( activation.forceUnminimized )
     {
         ui.SetMinimized( false, activation.nowSeconds );
@@ -276,6 +289,7 @@ SkullbonezCore::Core::SbResult Run::LoadSceneRequest( SceneLoadTransaction& tran
     const SceneLoadBeginResult& preparation = transaction.Prepare( m_sceneController, request, &renderer.RenderFrame(),
                                                                    request.enterInteractiveSceneRun ||
                                                                        m_launchOptions.interactiveSceneRun );
+
     if ( preparation.status.Ok() && preparation.shouldLoad )
     {
         const std::string* unloadingScenePath = m_sceneController.CurrentPath();
@@ -285,10 +299,10 @@ SkullbonezCore::Core::SbResult Run::LoadSceneRequest( SceneLoadTransaction& tran
     }
 
     CaptureSceneDiagnosticsLoad( transaction, m_diagnosticsRuntime );
-    SkullbonezCore::Core::SbResult result = transaction.Load(
-        m_sceneController, request, m_resultDiagnostics, m_config, m_launchOptions,
-        m_renderDefaults.CinematicBaseline(), m_startup, m_assets, m_workerPool, &renderer.RenderFrame(),
-        &renderer.RenderResources() );
+    SkullbonezCore::Core::SbResult result = transaction.Load( m_sceneController, request, m_resultDiagnostics, m_config,
+                                                              m_launchOptions, m_renderDefaults.CinematicBaseline(),
+                                                              m_startup, m_assets, m_workerPool, &renderer.RenderFrame(),
+                                                              &renderer.RenderResources() );
 
     ApplySceneDiagnosticsReactions( transaction.DiagnosticsReactions(), m_diagnosticsRuntime, m_sceneController, m_config );
 
@@ -297,12 +311,13 @@ SkullbonezCore::Core::SbResult Run::LoadSceneRequest( SceneLoadTransaction& tran
 
     const bool sceneMutationSucceeded = result.Ok();
     const bool activationPending = transaction.RenderActivationPending();
+
     if ( sceneMutationSucceeded && activationPending )
     {
         renderer.SetSceneIdentity( m_sceneController.State().currentSceneIndex, m_sceneController.State().loadCount );
-        result = renderer.ResourceLifecycle()
-                     .InitialiseSceneRayTracing( m_sceneController.Scene().Terrain().Get(),
-                                                 transaction.RenderActivationSceneObjectCapacity() );
+        result = renderer.ResourceLifecycle().InitialiseSceneRayTracing( m_sceneController.Scene().Terrain().Get(),
+                                                                         transaction.RenderActivationSceneObjectCapacity() );
+
         if ( SceneRenderActivationCompletesTransition( sceneMutationSucceeded, activationPending, result.Ok() ) )
         {
             // Invariant: activation becomes visible to lifecycle consumers only
@@ -335,15 +350,13 @@ bool Run::ExecutePendingSceneRequests( SceneLoadTransaction& transaction )
         {
         case SceneRequestType::LoadBrowserIndex:
             accepted = LoadSceneRequest( transaction, transaction
-                                                          .NavigationForFollowingRequest( CaptureSceneLoadNavigationState(
-                                                              m_operatorUi->SceneNavigation() ) )
+                                                          .NavigationForFollowingRequest( CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ) )
                                                           .LoadSceneFromBrowserIndex( request.index, m_sceneController ) )
                            .Ok();
             break;
         case SceneRequestType::LoadDemoScene:
             accepted = LoadSceneRequest( transaction, transaction
-                                                          .NavigationForFollowingRequest( CaptureSceneLoadNavigationState(
-                                                              m_operatorUi->SceneNavigation() ) )
+                                                          .NavigationForFollowingRequest( CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ) )
                                                           .LoadDemoScene( m_sceneController ) )
                            .Ok();
             break;
@@ -364,19 +377,18 @@ bool Run::ExecutePendingSceneRequests( SceneLoadTransaction& transaction )
         {
             const ScenePresentationValues
                 presentation = transaction
-                                   .PresentationForFollowingRequest( ProjectScenePresentationValues(
-                                                                         m_overlayDiagnostics->PresentationSnapshot() ),
+                                   .PresentationForFollowingRequest( ProjectScenePresentationValues( m_overlayDiagnostics->PresentationSnapshot() ),
                                                                      m_sceneController.LifecyclePacket() );
-            const SceneLoadNavigationState& navigation = transaction.NavigationForFollowingRequest(
-                CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ) );
-            const SkullbonezCore::Core::SbResult saveResult = m_sceneController.SaveCurrentDefaults(
-                SceneDefaultsSaveView { presentation, transaction.RenderPolicy(), transaction.CurrentCamera(),
-                                        navigation.overrides } );
+            const SceneLoadNavigationState& navigation = transaction.NavigationForFollowingRequest( CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ) );
+            const SkullbonezCore::Core::SbResult saveResult = m_sceneController.SaveCurrentDefaults( SceneDefaultsSaveView { presentation, transaction.RenderPolicy(), transaction.CurrentCamera(),
+                                                                                                                             navigation.overrides } );
+
             if ( !saveResult.Ok() )
             {
                 std::fprintf( stderr, "[%s] %s\n", saveResult.ErrorOwner(), saveResult.ErrorMessage() );
                 std::fflush( stderr );
             }
+
             accepted = saveResult.Ok();
             break;
         }
@@ -386,6 +398,7 @@ bool Run::ExecutePendingSceneRequests( SceneLoadTransaction& transaction )
         {
             transaction.RecordCompletedRequest( request );
         }
+
         if ( !SceneRequestBatchContinuesAfter( request.type, accepted ) )
         {
             break;
@@ -411,26 +424,29 @@ void Run::ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction )
     for ( std::size_t index = 0; index < outputs.completedWorldChangeCount; ++index )
     {
         const SceneLoadCompletedWorldChange& change = outputs.completedWorldChanges[index];
-        m_replayRuntime.SubmitEvent(
-            ReplayEventCommandOperations::BuildWorldOverride( change.previousGravity, change.previousFluidHeight,
-                                                              change.previousFluidDensity, change.gravity,
-                                                              change.fluidHeight, change.fluidDensity ) );
+        m_replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildWorldOverride( change.previousGravity, change.previousFluidHeight,
+                                                                                       change.previousFluidDensity, change.gravity,
+                                                                                       change.fluidHeight, change.fluidDensity ) );
     }
 
     m_runtimeTools.ObserveSceneLifecycle( lifecycle, m_inputRouter, m_interaction );
     m_editorTools.ObserveSceneLifecycle( lifecycle, m_sceneController.Scene(), m_interaction );
-    if ( m_attachedCameraSceneLifecycleObserver.ShouldApply( lifecycle,
-                                                             SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
+
+    if ( m_attachedCameraSceneLifecycleObserver.ShouldApply( lifecycle, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
     {
         m_attachedCamera.ResetForSceneLoad();
     }
+
     m_replayRuntime.ObserveSceneLifecycleAfterClear( lifecycle, m_interaction, m_inputRouter );
 
     const bool enterInspectAfterActivation = outputs.camera.mode == RunCameraMode::Inspect;
-    m_interaction.ObserveSceneLifecycle(
-        lifecycle.generation, SceneLifecycleReached( lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneCleared ),
-        SceneLifecycleReached( lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneActivated ),
-        enterInspectAfterActivation );
+    m_interaction.ObserveSceneLifecycle( lifecycle.generation,
+                                         SceneLifecycleReached( lifecycle.event,
+                                                                SceneRuntimeLifecycleEvent::AfterSceneCleared ),
+                                         SceneLifecycleReached( lifecycle.event,
+                                                                SceneRuntimeLifecycleEvent::AfterSceneActivated ),
+                                         enterInspectAfterActivation );
+
     if ( m_cameraSceneLifecycleObserver.ShouldApply( lifecycle, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
     {
         m_camera = outputs.camera;
@@ -443,6 +459,7 @@ void Run::ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction )
     }
 
     RunCameraMode restoreMode = m_replayRuntime.BuildInputView().restoreCameraMode;
+
     if ( m_sceneController.State().isSceneMode )
     {
         restoreMode = restoreMode == RunCameraMode::Demo ? RunCameraMode::Scene : restoreMode;
@@ -461,13 +478,12 @@ void Run::ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction )
                                      m_sceneController.Scene().ActiveSceneObjectCapacity(),
                                      static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
 
-    m_replayRuntime.ObserveSceneLifecycleAfterActivation(
-        lifecycle, timelineReset, m_inputRouter, m_interaction, &m_sceneController.Scene().Cameras(),
-        m_sceneController.Scene().Terrain().Get(), m_camera, restoreMode, m_attachedCamera.State().activeFollow,
-        m_camera.director.grabbed );
+    m_replayRuntime.ObserveSceneLifecycleAfterActivation( lifecycle, timelineReset, m_inputRouter, m_interaction,
+                                                          &m_sceneController.Scene().Cameras(),
+                                                          m_sceneController.Scene().Terrain().Get(), m_camera, restoreMode,
+                                                          m_attachedCamera.State().activeFollow, m_camera.director.grabbed );
 
-    if ( m_launchOptions.replayGuideArcsAtStartup &&
-         lifecycle.event == SceneRuntimeLifecycleEvent::AfterSceneActivated )
+    if ( m_launchOptions.replayGuideArcsAtStartup && lifecycle.event == SceneRuntimeLifecycleEvent::AfterSceneActivated )
     {
         m_replayRuntime.SetGuideArcsEnabled( true );
     }
@@ -505,12 +521,11 @@ void Run::ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction )
             break;
         }
 
-        m_replayRuntime.SubmitEvent(
-            ReplayEventCommandOperations::BuildCommand( ReplayEventKind::OwnerAction, 0, true, SceneRequestFlags( request ),
-                                                        static_cast<int32_t>( eventCode ), request.index, 0, 0, 0,
-                                                        request.type == SceneRequestType::CreateScene
-                                                            ? request.text
-                                                            : ReplayOwnerEventName( eventCode ) ) );
+        m_replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildCommand( ReplayEventKind::OwnerAction, 0, true, SceneRequestFlags( request ),
+                                                                                 static_cast<int32_t>( eventCode ), request.index, 0, 0, 0,
+                                                                                 request.type == SceneRequestType::CreateScene
+                                                                                     ? request.text
+                                                                                     : ReplayOwnerEventName( eventCode ) ) );
     }
 }
 
@@ -518,9 +533,8 @@ void Run::ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction )
 void ApplySceneLoadPresentation( SceneLoadTransaction& transaction, Window& window, UI::InGameUI& operatorUi,
                                  RuntimeValidationHarness& validationHarness, GraphicsStressController& graphicsStress,
                                  SceneLifecycleGenerationObserver& graphicsStressSceneObserver,
-                                 const RunLaunchOptions& launchOptions,
-                                 Rendering::Dx12RenderDevice* renderDevice, bool rendererVsyncEnabled,
-                                 SceneController& sceneController )
+                                 const RunLaunchOptions& launchOptions, Rendering::Dx12RenderDevice* renderDevice,
+                                 bool rendererVsyncEnabled, SceneController& sceneController )
 {
     const SceneLoadResult& outputs = transaction.BeginPresentation();
     const SceneLifecyclePacket& lifecycle = sceneController.LifecyclePacket();
@@ -535,24 +549,28 @@ void ApplySceneLoadPresentation( SceneLoadTransaction& transaction, Window& wind
     {
         window.SetTitleText( outputs.windowTitle );
     }
+
     if ( outputs.applyNavigation )
     {
         ApplySceneLoadNavigationState( operatorUi.SceneNavigation(), outputs.navigation );
     }
+
     if ( outputs.refreshSceneBrowser )
     {
         operatorUi.SceneNavigation().RefreshBrowserList();
     }
 
     ApplySceneUiActivation( operatorUi, outputs.uiActivation );
+
     // Invariant: a reload may be sampled more than once, but the Capture-owned
     // random stream and cadence resume exactly once after population commits.
     if ( launchOptions.graphicsStress &&
          graphicsStressSceneObserver.ShouldApply( lifecycle, SceneRuntimeLifecycleEvent::AfterScenePopulate ) )
     {
         graphicsStress.ResumeAfterSceneLoad( launchOptions.graphicsStressSeed, launchOptions.graphicsStressActions,
-                                              launchOptions.graphicsStressSceneIntervalFrames );
+                                             launchOptions.graphicsStressSceneIntervalFrames );
     }
+
     transaction.CompletePresentation();
 }
 } // namespace Runtime

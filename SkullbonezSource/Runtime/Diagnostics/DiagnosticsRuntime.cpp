@@ -52,10 +52,12 @@ const char* DiagnosticFileNameFromPath( const char* path )
     const char* forwardSlash = std::strrchr( path, '/' );
     const char* backSlash = std::strrchr( path, '\\' );
     const char* separator = forwardSlash;
+
     if ( !separator || ( backSlash && backSlash > separator ) )
     {
         separator = backSlash;
     }
+
     return separator ? separator + 1 : path;
 }
 
@@ -380,9 +382,8 @@ void WriteReplayTrajectoryCounters( FILE* file, const SkullbonezCore::Core::Main
 }
 } // namespace
 
-DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( OverlayDebugState& debug,
-                                                                         DiagnosticsUiKeyboardCommand command,
-                                                                         bool wasPressed )
+DiagnosticsUIKeyboardShortcutResult
+HandleDiagnosticsUIKeyboardShortcut( OverlayDebugState& debug, DiagnosticsUiKeyboardCommand command, bool wasPressed )
 {
     DiagnosticsUIKeyboardShortcutResult result;
 

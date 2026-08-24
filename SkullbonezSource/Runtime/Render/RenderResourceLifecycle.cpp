@@ -38,16 +38,16 @@ using namespace SkullbonezCore::Runtime;
 namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 namespace Rendering = SkullbonezCore::Rendering;
 
-RenderResourceLifecycle::RenderResourceLifecycle(
-    SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Rendering::RenderBackendDX12& backend,
-    const RenderWorldView& world, int sceneIndex, int sceneLoadCount )
+RenderResourceLifecycle::RenderResourceLifecycle( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
+                                                  Rendering::RenderBackendDX12& backend, const RenderWorldView& world,
+                                                  int sceneIndex, int sceneLoadCount )
     : m_resultDiagnostics( resultDiagnostics ), m_renderDevice( backend.RenderDevice() ), m_renderFrame( backend.Frame() ),
       m_renderGraph( backend.GraphTransients() ), m_renderResources( backend.ResourceBuilder() ),
       m_renderTextures( backend.Textures() ), m_renderGeometry( backend.Geometry() ),
       m_renderDiagnostics( backend.Diagnostics() ), m_raytracing( backend.Raytracing() ),
       m_raytracingAvailable( backend.Diagnostics().GetCapabilities().supportsDxrReflection ),
-      m_lifecycleLog( &backend.RenderDevice(), sceneIndex, sceneLoadCount ),
-      m_assets( world.assets ), m_textures( resultDiagnostics ), m_config( world.config ),
+      m_lifecycleLog( &backend.RenderDevice(), sceneIndex, sceneLoadCount ), m_assets( world.assets ),
+      m_textures( resultDiagnostics ), m_config( world.config ),
       m_primitiveBatches( std::in_place, &backend.ResourceBuilder(), &backend.Textures(), &backend.Geometry() ),
       m_gpuTiming( world.profiler, &backend.Diagnostics() ), m_uiTextPass( resultDiagnostics, world.profiler, m_gpuTiming )
 {
@@ -126,8 +126,7 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::EnsureUiTextResources( i
     return m_uiTextPass.EnsureGpuResources( m_renderResources, m_renderTextures, m_renderGeometry,
                                             m_assets.ResolveShaderBaseName( "shader.text" ),
                                             m_assets.ResolveShaderBaseName( "shader.solid_color" ),
-                                            m_assets.ResolveShaderBaseName( "shader.solid_color_batch" ), screenW,
-                                            screenH );
+                                            m_assets.ResolveShaderBaseName( "shader.solid_color_batch" ), screenW, screenH );
 }
 
 

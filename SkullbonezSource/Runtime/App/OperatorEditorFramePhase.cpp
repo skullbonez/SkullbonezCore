@@ -113,9 +113,8 @@ UiOverlayMode ProjectUiOverlayMode( OverlayMode mode )
 }
 } // namespace
 
-void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels,
-                                 float presentationAlpha, bool capturePresentationPinned, double secondsPerFrame,
-                                 bool gameUiActive,
+void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha,
+                                 bool capturePresentationPinned, double secondsPerFrame, bool gameUiActive,
                                  const RuntimeFrameMetricsSnapshot& frameMetrics )
 {
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
@@ -221,9 +220,11 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
     operatorEditorView.surfaces = { ui.IsVisible(), operatorEditorView.surfaces.secondaryVisible };
 
     const RunEditorPlacementState& sharedEditor = editorTools.Editor();
-    const int selectedHierarchyRow = ProjectOperatorEditorHierarchy(
-        operatorEditorView, sharedEditor, sceneController.Scene(), sceneController.CrossScenePauseLocked(),
-        scene.isFixedStep, m_assets.FindAssetLibrarySourceAsset( "assetlib.buildings" ) != nullptr );
+    const int selectedHierarchyRow = ProjectOperatorEditorHierarchy( operatorEditorView, sharedEditor,
+                                                                     sceneController.Scene(),
+                                                                     sceneController.CrossScenePauseLocked(),
+                                                                     scene.isFixedStep,
+                                                                     m_assets.FindAssetLibrarySourceAsset( "assetlib.buildings" ) != nullptr );
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     // Why: the GameUI surface does not consume secondary-editor contextual detail. Sampling
@@ -247,10 +248,10 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
         // Why: the secondary surface can be visible while GameUI is
         // hidden. Sample its bounded authoring/diagnostic values here instead
         // of making ImGui depend on whether the GameUI text pass happens to run.
-        runtimeViewModel = BuildOperatorRuntimeViewModel(
-            sceneController.State(), sceneController.Scene(), sceneController.QueueSize(), m_capture.Screenshot(),
-            config.runtimeRender.presentationInterpolation, uiTextFacts.presentationPinned,
-            uiTextFacts.presentationAlpha );
+        runtimeViewModel = BuildOperatorRuntimeViewModel( sceneController.State(), sceneController.Scene(),
+                                                          sceneController.QueueSize(), m_capture.Screenshot(),
+                                                          config.runtimeRender.presentationInterpolation,
+                                                          uiTextFacts.presentationPinned, uiTextFacts.presentationAlpha );
 
         renderTargetPreviews = renderer.ResourceLifecycle()
                                    .BuildRenderTargetPreviewSnapshot( sharedShadows, sharedCinematicRendering,
@@ -348,10 +349,10 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
 
     if ( renderer.ResourceLifecycle().ShouldRenderUiText( uiTextVisibility ) )
     {
-        runtimeViewModel = BuildOperatorRuntimeViewModel(
-            sceneController.State(), sceneController.Scene(), sceneController.QueueSize(), m_capture.Screenshot(),
-            config.runtimeRender.presentationInterpolation, uiTextFacts.presentationPinned,
-            uiTextFacts.presentationAlpha );
+        runtimeViewModel = BuildOperatorRuntimeViewModel( sceneController.State(), sceneController.Scene(),
+                                                          sceneController.QueueSize(), m_capture.Screenshot(),
+                                                          config.runtimeRender.presentationInterpolation,
+                                                          uiTextFacts.presentationPinned, uiTextFacts.presentationAlpha );
 
         const SkullbonezCore::Core::CinematicRenderConfig& uiCinematic = ActiveSceneCinematicConfig( scene, config );
         const bool uiCinematicRendering = IsSceneCinematicRenderingEnabled( scene, config, launchOptions, debug.isTextOnly,
@@ -446,23 +447,21 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
                 uiData.rendererName = operatorDiagnostics.rendererName.data();
                 uiData.drawCallsBeforeUI = uiDrawCallStart;
 
-                const SkullbonezCore::UI::InteractionRecordingBrowserState& recordings =
-                    ui.SceneNavigation().recordings;
+                const SkullbonezCore::UI::InteractionRecordingBrowserState& recordings = ui.SceneNavigation().recordings;
                 uiData.interactionRecordingOptions = recordings.namePtrs.empty() ? nullptr : recordings.namePtrs.data();
                 uiData.interactionRecordingOptionCount = static_cast<int>( recordings.namePtrs.size() );
                 uiData.selectedInteractionRecordingOption = recordings.paths.empty() ? -1 : recordings.selectedIndex;
 
                 renderer.AppendDxrReflectionPreview( renderTargetPreviews, uiViewport,
                                                      uiData.waterRTReflect && !uiData.waterNoReflect );
-                uiData.renderTargetPreviewCount =
-                    (std::min)( renderTargetPreviews.count, SkullbonezCore::UI::UI_RENDER_TARGET_PREVIEW_MAX );
+                uiData.renderTargetPreviewCount = (std::min)( renderTargetPreviews.count,
+                                                              SkullbonezCore::UI::UI_RENDER_TARGET_PREVIEW_MAX );
 
                 for ( int index = 0; index < uiData.renderTargetPreviewCount; ++index )
                 {
-                    const RuntimeRenderTargetPreview& source =
-                        renderTargetPreviews.targets[static_cast<std::size_t>( index )];
-                    SkullbonezCore::UI::UIRenderTargetPreviewResource& destination =
-                        uiData.renderTargetPreviews[index];
+                    const RuntimeRenderTargetPreview& source = renderTargetPreviews
+                                                                   .targets[static_cast<std::size_t>( index )];
+                    SkullbonezCore::UI::UIRenderTargetPreviewResource& destination = uiData.renderTargetPreviews[index];
                     destination.label = source.label;
                     destination.width = source.width;
                     destination.height = source.height;
@@ -569,6 +568,7 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
     // App alone applies process and native-surface effects after both UI
     // presenters have finished consuming the immutable phase snapshot.
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+
     if ( operatorUiPhase.Commands().surface == OperatorUiSurfaceCommand::ShowGameUi )
     {
         SelectDevelopmentUiSurface( DevelopmentUiMode::GameUI );
@@ -576,6 +576,7 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
 #endif
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+
     if ( operatorUiPhase.Commands().requestTracyStandardCapture )
     {
         bool tracyStarted = false;

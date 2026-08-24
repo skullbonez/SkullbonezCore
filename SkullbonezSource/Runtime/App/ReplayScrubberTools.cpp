@@ -293,10 +293,9 @@ void SkullbonezCore::Runtime::ReplayInteractionOperations::CancelToolDragState( 
 }
 
 
-void SkullbonezCore::Runtime::ReplayPresentationOperations::EnterInspectionCamera(
-    ReplayPresentation& presentation, Environment::CameraCollection* cameras, CameraControlState& camera,
-    RunCameraMode normalizedCurrentMode, RuntimeInteractionController& interaction, InputRouter& inputRouter,
-    RunMousePickupState& mousePickup, uint32_t inspectionCameraHash )
+void SkullbonezCore::Runtime::ReplayPresentationOperations::EnterInspectionCamera( ReplayPresentation& presentation, Environment::CameraCollection* cameras, CameraControlState& camera,
+                                                                                   RunCameraMode normalizedCurrentMode, RuntimeInteractionController& interaction, InputRouter& inputRouter,
+                                                                                   RunMousePickupState& mousePickup, uint32_t inspectionCameraHash )
 {
     // Lifetime: Replay camera activation captures the current camera/mode so
     // exiting scrub/velocity/cause inspection can restore the operator's view.
@@ -384,10 +383,9 @@ void SkullbonezCore::Runtime::ReplayPresentationOperations::EnterInspectionCamer
 }
 
 
-void SkullbonezCore::Runtime::ReplayPresentationOperations::ExitInspectionCamera(
-    ReplayPresentation& presentation, const ReplayAuthoring& authoring, Environment::CameraCollection* cameras,
-    Geometry::Terrain* terrain, CameraControlState& camera, RunCameraMode normalizedRestoreMode, bool attachedFollow,
-    bool directorGrabbed, RuntimeInteractionController& interaction, InputRouter& inputRouter )
+void SkullbonezCore::Runtime::ReplayPresentationOperations::ExitInspectionCamera( ReplayPresentation& presentation, const ReplayAuthoring& authoring, Environment::CameraCollection* cameras,
+                                                                                  Geometry::Terrain* terrain, CameraControlState& camera, RunCameraMode normalizedRestoreMode, bool attachedFollow,
+                                                                                  bool directorGrabbed, RuntimeInteractionController& interaction, InputRouter& inputRouter )
 {
     const RunReplayCameraState replayCamera = presentation.CameraView();
 
@@ -458,9 +456,8 @@ void SkullbonezCore::Runtime::ReplayPresentationOperations::ExitInspectionCamera
     InputController::ResetMouseLook( camera );
 }
 
-bool SkullbonezCore::Runtime::ReplayPresentationOperations::BeginLoadedPresentationActivation(
-    bool hasLoadedPresentation, ReplayScrubber& scrubber, ReplayPresentation& presentation, ReplayAuthoring& authoring,
-    RuntimeInteractionController& interaction, InputRouter& inputRouter )
+bool SkullbonezCore::Runtime::ReplayPresentationOperations::BeginLoadedPresentationActivation( bool hasLoadedPresentation, ReplayScrubber& scrubber, ReplayPresentation& presentation, ReplayAuthoring& authoring,
+                                                                                               RuntimeInteractionController& interaction, InputRouter& inputRouter )
 {
     if ( !hasLoadedPresentation )
     {
@@ -495,9 +492,8 @@ bool SkullbonezCore::Runtime::ReplayPresentationOperations::BeginLoadedPresentat
     return true;
 }
 
-void SkullbonezCore::Runtime::ReplayPresentationOperations::ArmLoadedPresentation(
-    float normalized, double now, ReplayScrubber& scrubber, ReplayPresentation& presentation, ReplayAuthoring& authoring,
-    ReplayPrediction& prediction, RuntimeInteractionController& interaction )
+void SkullbonezCore::Runtime::ReplayPresentationOperations::ArmLoadedPresentation( float normalized, double now, ReplayScrubber& scrubber, ReplayPresentation& presentation, ReplayAuthoring& authoring,
+                                                                                   ReplayPrediction& prediction, RuntimeInteractionController& interaction )
 {
     // Invariant: the host camera has exited the previous inspection before the
     // new loaded-track state becomes visible.
@@ -1822,8 +1818,7 @@ ReplayScrubberPointerDecision ReplayScrubber::ResolvePointerAction( const Replay
     const ReplayOverlayControl* pointerControl = surface.hasPointerControl ? surface.Find( surface.pointerControl )
                                                                            : nullptr;
 
-    const ReplayOverlayControl* horizonControl = surface.Find(
-        ReplayScrubberControlId( ReplayScrubberControl::PredictionHorizon ) );
+    const ReplayOverlayControl* horizonControl = surface.Find( ReplayScrubberControlId( ReplayScrubberControl::PredictionHorizon ) );
 
     // Invariant: the fixed scrubber builder always publishes the horizon row;
     // disabled state changes eligibility, not the geometry table.
@@ -1917,8 +1912,7 @@ ReplayRuntime::ApplyPredictionDetailModeCommand( ReplayPredictionDetailMode requ
         before = CollectMemoryStats();
     }
 
-    const ReplayPredictionDetailTransitionAction actions = m_predictionOwner.ApplyDetailModeCommand(
-        ReplayPredictionDetailModeCommand { requestedMode } );
+    const ReplayPredictionDetailTransitionAction actions = m_predictionOwner.ApplyDetailModeCommand( ReplayPredictionDetailModeCommand { requestedMode } );
 
     if ( releasesEvidence )
     {
@@ -1929,10 +1923,8 @@ ReplayRuntime::ApplyPredictionDetailModeCommand( ReplayPredictionDetailMode requ
         // between the two complete replay snapshots.
         m_predictionEvidenceReleaseBeforeReplayTotalBytes = before.totalBytes;
         m_predictionEvidenceReleaseAfterReplayTotalBytes = after.totalBytes;
-        m_predictionEvidenceReleaseBeforeCategoryTotalBytes = SkullbonezCore::Core::MainMemoryReplayCategoryTotalBytes(
-            before.categoryBytes );
-        m_predictionEvidenceReleaseAfterCategoryTotalBytes = SkullbonezCore::Core::MainMemoryReplayCategoryTotalBytes(
-            after.categoryBytes );
+        m_predictionEvidenceReleaseBeforeCategoryTotalBytes = SkullbonezCore::Core::MainMemoryReplayCategoryTotalBytes( before.categoryBytes );
+        m_predictionEvidenceReleaseAfterCategoryTotalBytes = SkullbonezCore::Core::MainMemoryReplayCategoryTotalBytes( after.categoryBytes );
     }
 
     return actions;
@@ -2123,8 +2115,7 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayTransportCommand& command
         break;
     }
     case ReplayTransportAction::SetPredictionHorizon:
-        m_predictionOwner.SetHorizonSeconds(
-            std::clamp( command.value, REPLAY_PREDICTION_MIN_SECONDS, REPLAY_PREDICTION_MAX_SECONDS ) );
+        m_predictionOwner.SetHorizonSeconds( std::clamp( command.value, REPLAY_PREDICTION_MIN_SECONDS, REPLAY_PREDICTION_MAX_SECONDS ) );
         KeepReplayScrubberVisible( m_scrubberOwner, host.now );
         break;
     case ReplayTransportAction::RestoreBranch:

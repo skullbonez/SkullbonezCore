@@ -155,6 +155,7 @@ class AssetSystem
                                                         ShaderProgramKind kind = ShaderProgramKind::Unknown,
                                                         ShaderProgramContract contract = {} );
     const ShaderSourceAsset* FindShaderSourceAsset( const char* logicalNameOrBaseName ) const;
+
     // Lifetime: the returned name may alias registry, static, or caller storage;
     // consume it synchronously before registry mutation or caller-buffer reuse.
     const char* ResolveShaderBaseName( const char* logicalNameOrBaseName ) const;

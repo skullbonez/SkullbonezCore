@@ -346,8 +346,7 @@ void SceneAutomationGateTracker::PrintMissingRequirements() const
 }
 
 
-std::unique_ptr<RuntimeValidationHarness>
-RuntimeValidationHarness::CreateForStartup()
+std::unique_ptr<RuntimeValidationHarness> RuntimeValidationHarness::CreateForStartup()
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Startup );
 

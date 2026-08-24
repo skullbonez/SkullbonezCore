@@ -503,19 +503,18 @@ bool BuildReplayPredictionFutureNodes( const RunReplayPredictionFrame& frame, Re
                                        const std::chrono::steady_clock::time_point& budgetStart, double budgetMilliseconds,
                                        std::size_t& outNextContactIndex )
 {
-    return BuildReplayFutureNodesFromContacts(
-        frame.debugContacts, frame.frameIndex, startContactIndex, context.collection, context.includeRagdollVisuals,
-        [&]( int modelIndex ) { return ReplayPredictionBodyIdForModelIndex( frame, modelIndex ); },
-        [&]( Physics::PhysicsSceneObjectId id, ReplayFrameIndex frameIndex, int& outDepth )
-        { return TryGetReplayPredictionFutureDepth( context, id, frameIndex, outDepth ); },
-        [&]( Physics::PhysicsSceneObjectId parentId, int parentModelIndex, Physics::PhysicsSceneObjectId id, int modelIndex,
-             ReplayFrameIndex firstFrame, const Vector3& contactPoint, const Vector3& contactNormal, int depth,
-             bool contactDerived )
-        {
-            AddReplayPredictionFutureNode( context, parentId, parentModelIndex, id, modelIndex, firstFrame, contactPoint,
-                                           contactNormal, depth, contactDerived );
-        },
-        [&]() { return ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ); }, outNextContactIndex );
+    return BuildReplayFutureNodesFromContacts( frame.debugContacts, frame.frameIndex, startContactIndex, context.collection, context.includeRagdollVisuals,
+                                               [&]( int modelIndex ) { return ReplayPredictionBodyIdForModelIndex( frame, modelIndex ); },
+                                               [&]( Physics::PhysicsSceneObjectId id, ReplayFrameIndex frameIndex, int& outDepth )
+                                               { return TryGetReplayPredictionFutureDepth( context, id, frameIndex, outDepth ); },
+                                               [&]( Physics::PhysicsSceneObjectId parentId, int parentModelIndex, Physics::PhysicsSceneObjectId id, int modelIndex,
+                                                    ReplayFrameIndex firstFrame, const Vector3& contactPoint, const Vector3& contactNormal, int depth,
+                                                    bool contactDerived )
+                                               {
+                                                   AddReplayPredictionFutureNode( context, parentId, parentModelIndex, id, modelIndex, firstFrame, contactPoint,
+                                                                                  contactNormal, depth, contactDerived );
+                                               },
+                                               [&]() { return ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ); }, outNextContactIndex );
 }
 
 bool ReplayPredictionBodyReachedActivationDisplacement( const RunReplayPredictionBodySample& initialBody,
@@ -697,13 +696,11 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
                 // snapshot. Every budget slice shares one replacement token;
                 // only the coherent-ready flip makes it reader-visible.
                 prediction.futureNodeCache
-                    .futureNodesTopologyVersion = prediction.committedPublication.AcquireReplacementTopologyVersion(
-                    [&prediction]() { return AllocateReplayFutureNodeTopologyVersion( prediction.futureNodeCache ); } );
+                    .futureNodesTopologyVersion = prediction.committedPublication.AcquireReplacementTopologyVersion( [&prediction]() { return AllocateReplayFutureNodeTopologyVersion( prediction.futureNodeCache ); } );
             }
             else
             {
-                prediction.futureNodeCache.futureNodesTopologyVersion = AllocateReplayFutureNodeTopologyVersion(
-                    prediction.futureNodeCache );
+                prediction.futureNodeCache.futureNodesTopologyVersion = AllocateReplayFutureNodeTopologyVersion( prediction.futureNodeCache );
             }
         }
     };
@@ -812,10 +809,8 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, Repla
     // Lifetime: a target click is allowed to queue the next generation while
     // the promoted prediction is still being duplicated. Every hidden phase
     // must nevertheless use the promoted snapshot's source through the flip.
-    const Physics::PhysicsSceneObjectId publicationTargetId = prediction.committedPublication.PublicationTargetId(
-        targetId );
-    const ModelRowHint publicationTargetModelRow = prediction.committedPublication.PublicationTargetModelRow(
-        targetModelRow );
+    const Physics::PhysicsSceneObjectId publicationTargetId = prediction.committedPublication.PublicationTargetId( targetId );
+    const ModelRowHint publicationTargetModelRow = prediction.committedPublication.PublicationTargetModelRow( targetModelRow );
     const bool publicationTargetAvailable = prediction.committedPublication.PublicationTargetAvailable( targetAvailable );
     const bool publicationUsingBuildFrames = committedPublicationPending
                                                  ? prediction.committedPublication.ReplacementTrajectoryBank() ==

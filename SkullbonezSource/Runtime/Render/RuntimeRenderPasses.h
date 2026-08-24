@@ -170,14 +170,14 @@ struct RunReplayPredictionFrame;
 // each pass, while GPU resources stay in RuntimeRenderPassResources.
 enum class SkyPassMode
 {
-    CubemapOnly,       // Force the authored cube-map skybox path.
-    CinematicIfEnabled // Allow the procedural cinematic sky when the active config requests it.
+    CubemapOnly,                                     // Force the authored cube-map skybox path.
+    CinematicIfEnabled                               // Allow the procedural cinematic sky when the active config requests it.
 };
 
 enum class ObjectPassMode
 {
-    Opaque,     // Normal body draw before water.
-    Transparent // Debug alpha body draw after water so overlays remain readable.
+    Opaque,                                          // Normal body draw before water.
+    Transparent                                      // Debug alpha body draw after water so overlays remain readable.
 };
 
 // Concrete renderer diagnostic owner shared by resource-producing passes. It
@@ -241,8 +241,8 @@ struct RenderResourceContext
     Rendering::Dx12ResourceBuilder& renderResources;
     Rendering::Dx12TextureOwner& renderTextures;
     Rendering::Dx12GeometryOwner& renderGeometry;
-    int windowWidth = 1;  // Active render-target width used for resize-sensitive GPU objects.
-    int windowHeight = 1; // Active render-target height used for resize-sensitive GPU objects.
+    int windowWidth = 1;                             // Active render-target width used for resize-sensitive GPU objects.
+    int windowHeight = 1;                            // Active render-target height used for resize-sensitive GPU objects.
 };
 
 struct ObjectPassInputs
@@ -268,11 +268,11 @@ struct ObjectPassInputs
     ObjectPassMode mode;
     const SkullbonezCore::Core::CinematicRenderConfig* cinematic;
     const Rendering::ShadowFrameData* shadow;
-    bool collisionStateColorsVisible;       // Route bodies through collision-state visualization instead of materials.
-    float collisionVisualizerAlphaOverride; // -1 keeps visualizer defaults; otherwise overrides debug alpha.
-    float bodyAlpha;                        // 1 for opaque bodies; debug alpha for the transparent object pass.
-    const std::vector<uint8_t>* modelMask;  // Optional replay focus mask for split opaque/faded body rendering.
-    bool drawMaskedModels;                  // True draws only masked bodies; false draws everything outside the mask.
+    bool collisionStateColorsVisible;                // Route bodies through collision-state visualization instead of materials.
+    float collisionVisualizerAlphaOverride;          // -1 keeps visualizer defaults; otherwise overrides debug alpha.
+    float bodyAlpha;                                 // 1 for opaque bodies; debug alpha for the transparent object pass.
+    const std::vector<uint8_t>* modelMask;           // Optional replay focus mask for split opaque/faded body rendering.
+    bool drawMaskedModels;                           // True draws only masked bodies; false draws everything outside the mask.
 };
 
 struct TerrainPassInputs
@@ -288,8 +288,8 @@ struct TerrainPassInputs
     const SkullbonezCore::Core::CinematicRenderConfig* cinematic;
     const Rendering::ShadowFrameData* shadow;
     const Rendering::ShadowFrameData* detailShadow;
-    const float* clipPlane = nullptr; // Borrowed from PrimitiveBatchRenderer for this terrain draw.
-    bool terrainHidden;               // Frame snapshot of the debug/scene visibility flag.
+    const float* clipPlane = nullptr;                // Borrowed from PrimitiveBatchRenderer for this terrain draw.
+    bool terrainHidden;                              // Frame snapshot of the debug/scene visibility flag.
 };
 
 struct ReflectionPassInputs
@@ -312,7 +312,7 @@ struct ReflectionPassInputs
     Rendering::Dx12Diagnostics& renderDiagnostics;
     Rendering::RenderGpuTimingOwner* gpuTiming = nullptr;
     Rendering::Dx12RaytracingOwner& rayTracing;
-    bool useDxrReflection = false; // Composition capability and frame policy resolved by RuntimeRenderer.
+    bool useDxrReflection = false;                   // Composition capability and frame policy resolved by RuntimeRenderer.
     Math::Transformation::Matrix4 reflectionView;
     Math::Transformation::Matrix4 reflectionViewProjection;
     float waterY = 0.0f;
@@ -320,20 +320,20 @@ struct ReflectionPassInputs
     int windowHeight = 1;
     const SkullbonezCore::Core::CinematicRenderConfig* cinematic;
     const Rendering::ShadowFrameData* objectShadow;
-    bool collisionStateColorsVisible;       // Reflection must match the selected body visualization mode.
-    float collisionVisualizerAlphaOverride; // Forwarded to reflected collision-state geometry.
-    float bodyAlpha;                        // Forwarded to reflected production body rendering.
-    float simulationTimeSeconds;            // Timer sample consumed by the DXR reflection shader.
+    bool collisionStateColorsVisible;                // Reflection must match the selected body visualization mode.
+    float collisionVisualizerAlphaOverride;          // Forwarded to reflected collision-state geometry.
+    float bodyAlpha;                                 // Forwarded to reflected production body rendering.
+    float simulationTimeSeconds;                     // Timer sample consumed by the DXR reflection shader.
 };
 
 struct ReflectionPassOutput
 {
-    uint32_t reflectionTextureHandle = 0; // Engine texture handle consumed by WorldEnvironment::RenderFluid.
+    uint32_t reflectionTextureHandle = 0;            // Engine texture handle consumed by WorldEnvironment::RenderFluid.
 
     // Matrix used by water to project the current surface pixel into the
     // reflection texture returned by this pass.
     Math::Transformation::Matrix4 reflectionSampleViewProjection;
-    bool usedDxr = false; // True when the texture came from the DXR dispatch instead of the planar target.
+    bool usedDxr = false;                            // True when the texture came from the DXR dispatch instead of the planar target.
 };
 
 struct WaterPassInputs
@@ -348,12 +348,12 @@ struct WaterPassInputs
     const ReflectionPassOutput& reflection;
     const SkullbonezCore::Core::CinematicRenderConfig* cinematic;
     bool cinematicEnabled = false;
-    bool waterHidden;    // Caller-controlled debug visibility; reflection resources stay outside this flag.
-    bool flatWater;      // Debug water style: flat shading instead of animated waves.
-    bool noReflection;   // Debug override: keep water visible but force the no-reflection shader path.
-    bool freezeTime;     // Debug override: hold wave animation at frozenTime.
-    float frozenTime;    // Simulation time captured when water animation was frozen.
-    float liveWaterTime; // Current simulation time used when water animation is not frozen.
+    bool waterHidden;                                // Caller-controlled debug visibility; reflection resources stay outside this flag.
+    bool flatWater;                                  // Debug water style: flat shading instead of animated waves.
+    bool noReflection;                               // Debug override: keep water visible but force the no-reflection shader path.
+    bool freezeTime;                                 // Debug override: hold wave animation at frozenTime.
+    float frozenTime;                                // Simulation time captured when water animation was frozen.
+    float liveWaterTime;                             // Current simulation time used when water animation is not frozen.
 };
 
 struct RuntimeRenderTargetPreview
@@ -542,8 +542,8 @@ struct ShadowPassInputs
     int windowWidth = 1;
     int windowHeight = 1;
     const SkullbonezCore::Core::CinematicRenderConfig* cinematic;
-    bool terrainHidden;              // Frame snapshot of debug/scene terrain visibility.
-    bool collisionVisualizerVisible; // Collision-color mode disables object shadow casters.
+    bool terrainHidden;                              // Frame snapshot of debug/scene terrain visibility.
+    bool collisionVisualizerVisible;                 // Collision-color mode disables object shadow casters.
 };
 
 struct ShadowPassOutput
@@ -644,7 +644,7 @@ class SkyPass
     // backend teardown can replace the object without rebinding the pass.
     std::unique_ptr<Geometry::SkyBox>& m_skyBox;
     const SkullbonezCore::Core::EngineConfig& m_config;
-    SkullbonezCore::Core::Profiler* m_profiler; // Startup-bound diagnostics borrow; null when profiling is disabled.
+    SkullbonezCore::Core::Profiler* m_profiler;      // Startup-bound diagnostics borrow; null when profiling is disabled.
     WorldViewLease m_worldViewLease;
 };
 
@@ -674,7 +674,7 @@ class SceneTargetPass
   private:
     CinematicScenePassResources& m_resources;
     SkyPass& m_skyPass;
-    SkullbonezCore::Core::Profiler* m_profiler; // Startup-bound diagnostics borrow; null when profiling is disabled.
+    SkullbonezCore::Core::Profiler* m_profiler;      // Startup-bound diagnostics borrow; null when profiling is disabled.
 };
 
 /*
@@ -710,8 +710,7 @@ class ShadowPass
                                                      const Math::Vector::Vector3& lightDirectionWorld,
                                                      const Math::Vector::Vector3& focusHint,
                                                      Rendering::RenderInstanceRenderer& instanceRenderer );
-    void RenderShadowMap( Rendering::FramebufferDX12& target,
-                          Rendering::RenderInstanceRenderer& instanceRenderer,
+    void RenderShadowMap( Rendering::FramebufferDX12& target, Rendering::RenderInstanceRenderer& instanceRenderer,
                           Rendering::Dx12Diagnostics& renderDiagnostics, const char* shadowShaderBaseName,
                           const Rendering::ShadowFrameData& shadowFrame,
                           const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
@@ -722,7 +721,7 @@ class ShadowPass
     ShadowPassResources& m_resources;
     const SkullbonezCore::Core::EngineConfig& m_config;
     RenderResourceLifecycleLog& m_lifecycleLog;
-    SkullbonezCore::Core::Profiler* m_profiler; // Startup-bound diagnostics borrow; null when profiling is disabled.
+    SkullbonezCore::Core::Profiler* m_profiler;      // Startup-bound diagnostics borrow; null when profiling is disabled.
     bool m_activeTerrainHidden = false;
     bool m_activeCollisionVisualizerVisible = false;
     int m_activeWindowWidth = 1;
@@ -762,7 +761,7 @@ class ReflectionPass
     Math::Transformation::Matrix4* m_dxrReflectionTransforms = nullptr;
     int m_dxrReflectionTransformCapacity = 0;
     RenderResourceLifecycleLog& m_lifecycleLog;
-    SkullbonezCore::Core::Profiler* m_profiler; // Startup-bound diagnostics borrow; null when profiling is disabled.
+    SkullbonezCore::Core::Profiler* m_profiler;      // Startup-bound diagnostics borrow; null when profiling is disabled.
 };
 
 /*
@@ -787,7 +786,7 @@ class ObjectPass
   private:
     CollisionVisualizer& m_collisionVisualizer;
     const SkullbonezCore::Core::EngineConfig& m_config;
-    SkullbonezCore::Core::Profiler* m_profiler; // Startup-bound diagnostics borrow; null when profiling is disabled.
+    SkullbonezCore::Core::Profiler* m_profiler;      // Startup-bound diagnostics borrow; null when profiling is disabled.
 };
 
 /*
@@ -810,7 +809,7 @@ class TerrainPass
 
   private:
     const SkullbonezCore::Core::EngineConfig& m_config;
-    SkullbonezCore::Core::Profiler* m_profiler; // Startup-bound diagnostics borrow; null when profiling is disabled.
+    SkullbonezCore::Core::Profiler* m_profiler;      // Startup-bound diagnostics borrow; null when profiling is disabled.
 };
 
 /*
@@ -839,7 +838,7 @@ class WaterPass
   private:
     Environment::WorldEnvironment& m_world;
     const SkullbonezCore::Core::EngineConfig& m_config;
-    SkullbonezCore::Core::Profiler* m_profiler; // Startup-bound diagnostics borrow; null when profiling is disabled.
+    SkullbonezCore::Core::Profiler* m_profiler;      // Startup-bound diagnostics borrow; null when profiling is disabled.
     WaterPassDebugInfo m_debugInfo;
 };
 
@@ -880,7 +879,7 @@ class DebugOverlayPass
     PhysicsDebugVisualizer& m_physicsDebugVisualizer;
 
     Assets::AssetSystem& m_assets;
-    SkullbonezCore::Core::Profiler* m_profiler; // Startup-bound diagnostics borrow; null when profiling is disabled.
+    SkullbonezCore::Core::Profiler* m_profiler;      // Startup-bound diagnostics borrow; null when profiling is disabled.
     std::vector<float> m_launcherVertices;
     std::unique_ptr<Rendering::ShaderDX12> m_launcherShader;
     uint32_t m_launcherDynamicVB = 0;
@@ -918,7 +917,7 @@ class VolumetricPass
     VolumetricLightPassResources& m_volumetricResources;
     FullscreenPassResources& m_fullscreenResources;
     const SkullbonezCore::Core::EngineConfig& m_config;
-    SkullbonezCore::Core::Profiler* m_profiler; // Startup-bound diagnostics borrow; null when profiling is disabled.
+    SkullbonezCore::Core::Profiler* m_profiler;      // Startup-bound diagnostics borrow; null when profiling is disabled.
 };
 
 /*
@@ -954,7 +953,7 @@ class TonemapPass
     TonemapPassResources& m_tonemapResources;
     FullscreenPassResources& m_fullscreenResources;
     const SkullbonezCore::Core::EngineConfig& m_config;
-    SkullbonezCore::Core::Profiler* m_profiler; // Startup-bound diagnostics borrow; null when profiling is disabled.
+    SkullbonezCore::Core::Profiler* m_profiler;      // Startup-bound diagnostics borrow; null when profiling is disabled.
 };
 
 /*
@@ -977,8 +976,7 @@ class UiTextPass
     SkullbonezCore::Core::SbResult EnsureGpuResources( Rendering::Dx12ResourceBuilder& renderResources,
                                                        Rendering::Dx12TextureOwner& renderTextures,
                                                        Rendering::Dx12GeometryOwner& renderGeometry,
-                                                       const char* textShaderBaseName,
-                                                       const char* solidShaderBaseName,
+                                                       const char* textShaderBaseName, const char* solidShaderBaseName,
                                                        const char* solidBatchShaderBaseName, int screenW, int screenH );
     void ReleaseGpuResources( Rendering::Dx12TextureOwner* renderTextures, Rendering::Dx12GeometryOwner* renderGeometry );
     bool ShouldRender( const UiTextVisibility& visibility ) const;
@@ -997,10 +995,9 @@ class UiTextPass
                                     Rendering::Dx12GeometryOwner& renderGeometry,
                                     Rendering::Dx12Diagnostics& renderDiagnostics );
     void SubmitOperatorDrawList( const UI::UIDrawList& drawList,
-                                 const RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews,
-                                 Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources,
-                                 Rendering::Dx12TextureOwner& renderTextures,
-                                 Rendering::Dx12GeometryOwner& renderGeometry,
+                                 const RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews, Assets::AssetSystem& assets,
+                                 Rendering::Dx12ResourceBuilder& renderResources,
+                                 Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
                                  Rendering::Dx12Diagnostics& renderDiagnostics, const UiTextViewport& viewport );
     void RenderOverlayContent( const UiTextViewport& viewport, UiOverlayMode mode, int modelCount, float rollingFpsTime,
                                float sceneEnergyForDisplay, Rendering::Dx12TextureOwner& renderTextures,

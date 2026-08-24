@@ -59,7 +59,6 @@ Related:
 #include "../Planning/ContinuousOrbitalForecast.h"
 
 
-
 #include "../Capture/CaptureController.h"
 #include "../Input/InputRouter.h"
 #include "../Interaction/RuntimeInteractionController.h"
@@ -1148,8 +1147,8 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationContro
     case RunInteractionAutomationActionType::DirectorGrab:
     {
         DemoDirectorCameraCommand cameraCommand;
-        const bool grabbed = DemoDirectorPlayback::BeginGrab(
-            camera.director, camera.mode == RunCameraMode::Director, currentPose, cameraCommand );
+        const bool grabbed = DemoDirectorPlayback::BeginGrab( camera.director, camera.mode == RunCameraMode::Director,
+                                                              currentPose, cameraCommand );
 
         if ( cameraCommand.applyPose )
         {
@@ -1169,8 +1168,8 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationContro
     }
     case RunInteractionAutomationActionType::DirectorRelease:
     {
-        const bool released = DemoDirectorPlayback::EndGrab(
-            camera.director, camera.mode == RunCameraMode::Director, currentPose );
+        const bool released = DemoDirectorPlayback::EndGrab( camera.director, camera.mode == RunCameraMode::Director,
+                                                             currentPose );
 
         if ( !released )
         {
@@ -3387,11 +3386,12 @@ struct InteractionAutomationAssertionEvaluation
 };
 
 template <typename InspectGizmoInteractionActive>
-InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion( EditorToolsOwner& editorTools, RuntimeTools& runtimeTools, const InteractionAutomationController& automation, const ReplayAutomationView& replay,
-                                                                                 RuntimeInteractionController& interaction, const InputRouter& inputRouter, CameraControlState& camera,
-                                                                                 const SceneWorld& world, SkullbonezCore::UI::InGameUI& ui, const InteractionAutomationDevelopmentUiView& developmentUi,
-                                                                                 const ContinuousOrbitalForecastView& forecast, const Rendering::RenderSceneSnapshot& renderSnapshot,
-                                                                                 const RunInteractionAutomationAction& action, InspectGizmoInteractionActive inspectGizmoInteractionActive )
+InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion( EditorToolsOwner& editorTools, RuntimeTools& runtimeTools, const InteractionAutomationController& automation,
+                                                                                 const ReplayAutomationView& replay, RuntimeInteractionController& interaction, const InputRouter& inputRouter,
+                                                                                 CameraControlState& camera, const SceneWorld& world, SkullbonezCore::UI::InGameUI& ui,
+                                                                                 const InteractionAutomationDevelopmentUiView& developmentUi, const ContinuousOrbitalForecastView& forecast,
+                                                                                 const Rendering::RenderSceneSnapshot& renderSnapshot, const RunInteractionAutomationAction& action,
+                                                                                 InspectGizmoInteractionActive inspectGizmoInteractionActive )
 {
     // Concept: after-render assertions are read-only probes over owner state.
     // The context keeps that state explicit so the Run tick only schedules,
@@ -4853,10 +4853,8 @@ bool LoadScript( InteractionAutomationController& state )
 } // namespace
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-InteractionAutomationDevelopmentUiApplyResult
-SkullbonezCore::Runtime::ApplyInteractionAutomationDevelopmentUiCommands(
-    const InteractionAutomationController& state, const InteractionAutomationFrameResult& frame, Window& window,
-    DevelopmentTools::ImGuiEditorOwner& editor )
+InteractionAutomationDevelopmentUiApplyResult SkullbonezCore::Runtime::ApplyInteractionAutomationDevelopmentUiCommands( const InteractionAutomationController& state, const InteractionAutomationFrameResult& frame, Window& window,
+                                                                                                                        DevelopmentTools::ImGuiEditorOwner& editor )
 {
     InteractionAutomationDevelopmentUiApplyResult result;
 
@@ -4884,8 +4882,8 @@ SkullbonezCore::Runtime::ApplyInteractionAutomationDevelopmentUiCommands(
             if ( !DevelopmentTools::TryParseImGuiEditorPanel( command.target, panel ) )
             {
                 commandStatus = state.resultDiagnostics.Failure( "DevelopmentTools/ImGuiAutomation",
-                                                           "Interaction script names an unknown ImGui panel: %s",
-                                                           command.target );
+                                                                 "Interaction script names an unknown ImGui panel: %s",
+                                                                 command.target );
 
                 break;
             }
@@ -4932,8 +4930,8 @@ SkullbonezCore::Runtime::ApplyInteractionAutomationDevelopmentUiCommands(
                                 SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE ) )
             {
                 commandStatus = state.resultDiagnostics.Failure( "DevelopmentTools/ImGuiAutomation",
-                                                           "Failed to resize the automation client area to %dx%d",
-                                                           command.width, command.height );
+                                                                 "Failed to resize the automation client area to %dx%d",
+                                                                 command.width, command.height );
             }
 
             break;
@@ -5142,8 +5140,9 @@ SkullbonezCore::Runtime::InteractionAutomationResult( const InteractionAutomatio
 
 InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutomationController& state, Window& windowOwner, const SkullbonezCore::Core::EngineConfig& config,
                                                                                                 SceneController& scene, const RuntimeFrameMetricsSnapshot& timers, CameraControlState& camera, InputRouter& inputRouter,
-                                                                                                RuntimeInteractionController& interaction, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools, SkullbonezCore::UI::InGameUI& ui,
-                                                                                                const ReplayAutomationView& replayView, const Rendering::RenderSceneSnapshot& renderSnapshot )
+                                                                                                RuntimeInteractionController& interaction, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools,
+                                                                                                SkullbonezCore::UI::InGameUI& ui, const ReplayAutomationView& replayView,
+                                                                                                const Rendering::RenderSceneSnapshot& renderSnapshot )
 {
     Window* window = &windowOwner;
     InteractionAutomationFrameResult result;
@@ -5169,8 +5168,9 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
                                                                                       scene.CurrentPath()
                                                                                           ? scene.CurrentPath()->c_str()
                                                                                           : nullptr,
-                                                                                      editorTools, runtimeTools, replayView, interaction,
-                                                                                      camera, ui, renderSnapshot );
+                                                                                      editorTools, runtimeTools, replayView,
+                                                                                      interaction, camera, ui,
+                                                                                      renderSnapshot );
 
         if ( result.status.Ok() )
         {
@@ -5376,8 +5376,7 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
         case RunInteractionAutomationActionType::DirectorRelease:
         case RunInteractionAutomationActionType::SetPhaseStyle:
         case RunInteractionAutomationActionType::SetCameraPose:
-            ApplyInteractionAutomationDirectorCameraAction( state, scene.Scene().Cameras(), camera, action, result,
-                                                            frame );
+            ApplyInteractionAutomationDirectorCameraAction( state, scene.Scene().Cameras(), camera, action, result, frame );
             action.processed = true;
             break;
         case RunInteractionAutomationActionType::ShowReplayScrubber:
@@ -5796,11 +5795,12 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
     return result;
 }
 
-InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutomationController& state, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools, RuntimeInteractionController& interaction,
-                                                                                                InputRouter& inputRouter, CameraControlState& camera, SkullbonezCore::UI::InGameUI& ui, SceneController& scene,
-                                                                                                const ReplayAutomationView& replayView, const InteractionAutomationDevelopmentUiView& developmentUiView,
-                                                                                                const ContinuousOrbitalForecastView& forecastView, const Rendering::RenderSceneSnapshot& renderSnapshot,
-                                                                                                CaptureController& capture, Rendering::Dx12BackbufferCapture& backbufferCapture )
+InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutomationController& state, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools,
+                                                                                                RuntimeInteractionController& interaction, InputRouter& inputRouter, CameraControlState& camera,
+                                                                                                SkullbonezCore::UI::InGameUI& ui, SceneController& scene, const ReplayAutomationView& replayView,
+                                                                                                const InteractionAutomationDevelopmentUiView& developmentUiView, const ContinuousOrbitalForecastView& forecastView,
+                                                                                                const Rendering::RenderSceneSnapshot& renderSnapshot, CaptureController& capture,
+                                                                                                Rendering::Dx12BackbufferCapture& backbufferCapture )
 {
     InteractionAutomationFrameResult result;
 
@@ -5844,8 +5844,9 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
                                                                                       scene.CurrentPath()
                                                                                           ? scene.CurrentPath()->c_str()
                                                                                           : nullptr,
-                                                                                      editorTools, runtimeTools, replayView, interaction,
-                                                                                      camera, ui, renderSnapshot );
+                                                                                      editorTools, runtimeTools, replayView,
+                                                                                      interaction, camera, ui,
+                                                                                      renderSnapshot );
 
         if ( result.status.Ok() )
         {
@@ -5906,8 +5907,8 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
         assertion.frame = frame;
         strcpy_s( assertion.name, sizeof( assertion.name ), AssertName( action.assertKind ) );
 
-        const InteractionAutomationAssertionEvaluation evaluation = EvaluateInteractionAutomationAssertion( editorTools, runtimeTools, state, replayView, interaction, inputRouter, camera, scene.Scene(), ui, developmentUiView,
-                                                                                                            forecastView, renderSnapshot, action,
+        const InteractionAutomationAssertionEvaluation evaluation = EvaluateInteractionAutomationAssertion( editorTools, runtimeTools, state, replayView, interaction, inputRouter, camera, scene.Scene(), ui,
+                                                                                                            developmentUiView, forecastView, renderSnapshot, action,
                                                                                                             [&]() { return editorTools.InspectGizmoInteractionActive( camera.mode, replayView.input.inspectionActive ); } );
 
         strcpy_s( assertion.expected, sizeof( assertion.expected ), evaluation.expected.c_str() );
@@ -5973,8 +5974,9 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
                                                                                       scene.CurrentPath()
                                                                                           ? scene.CurrentPath()->c_str()
                                                                                           : nullptr,
-                                                                                      editorTools, runtimeTools, replayView, interaction,
-                                                                                      camera, ui, renderSnapshot );
+                                                                                      editorTools, runtimeTools, replayView,
+                                                                                      interaction, camera, ui,
+                                                                                      renderSnapshot );
 
         if ( result.status.Ok() )
         {

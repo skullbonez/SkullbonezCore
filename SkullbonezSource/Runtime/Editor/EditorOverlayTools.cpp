@@ -59,76 +59,95 @@ void EditorToolsOwner::AppendPlacementGhost( EditorTracer& tracer, const Assets:
     if ( const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type ) )
     {
         const Vector3 base = terrainPoint + rotation * Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
+
         for ( int partIndex = 0; partIndex < tree->partCount; ++partIndex )
         {
             const EditorTreePartDefinition& part = tree->parts[partIndex];
+
             if ( const ConvexHullShape* hull = CachedEditorHullForAsset( m_resultDiagnostics, part.hullAsset ) )
             {
-                appendHull( *hull, base + rotation * ( Vector3( part.offsetX, part.offsetY, part.offsetZ ) +
-                                                       HullAuthoredLocalOffset( *hull ) ), rotation );
+                appendHull( *hull,
+                            base + rotation * ( Vector3( part.offsetX, part.offsetY, part.offsetZ ) +
+                                                HullAuthoredLocalOffset( *hull ) ),
+                            rotation );
             }
         }
+
         return;
     }
 
     if ( EditorBuildingDefinitionForType( type ) )
     {
         const Vector3 base = terrainPoint + rotation * Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
-        ForEachEditorBuildingPart( type, assets, [&]( const EditorPlacementJson& part )
-        {
-            const Vector3 bodyCenter = base + rotation * EditorJsonVec3Or( part, "offset", Vector3( 0.0f, 0.0f, 0.0f ) );
-            Quaternion partOrientation = EditorBuildingPartOrientation( orientation, part );
-            const RotationMatrix partRotation = partOrientation.GetOrientationMatrix();
-            const std::string primitiveType = EditorAssetPrimitiveType( part );
-            if ( primitiveType == "convexHull" )
-            {
-                const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
-                if ( const ConvexHullShape* hull = hullPath.empty() ? nullptr : CachedEditorBuildingHull( m_resultDiagnostics, hullPath ) )
-                {
-                    appendHull( *hull, bodyCenter + partRotation * ( hull->GetAuthoredCenterOfMass() + hull->GetPosition() ),
-                                partRotation );
-                }
-            }
-            else if ( primitiveType == "box" )
-            {
-                Vector3 halfExtents;
-                if ( TryReadEditorBoxHalfExtents( part, halfExtents ) )
-                {
-                    tracer.AddBoxOutline( bodyCenter, partRotation * Vector3( halfExtents.x, 0.0f, 0.0f ),
-                                          partRotation * Vector3( 0.0f, halfExtents.y, 0.0f ),
-                                          partRotation * Vector3( 0.0f, 0.0f, halfExtents.z ), ghostR, ghostG, ghostB );
-                }
-            }
-            else if ( primitiveType == "sphere" )
-            {
-                float radius = 0.0f;
-                if ( TryReadEditorSphereRadius( part, radius ) )
-                {
-                    tracer.AddSphereOutline( bodyCenter, radius, ghostR, ghostG, ghostB );
-                }
-            }
-        } );
+        ForEachEditorBuildingPart( type, assets,
+                                   [&]( const EditorPlacementJson& part )
+                                   {
+                                       const Vector3 bodyCenter = base +
+                                                                  rotation * EditorJsonVec3Or( part, "offset",
+                                                                                               Vector3( 0.0f, 0.0f, 0.0f ) );
+                                       Quaternion partOrientation = EditorBuildingPartOrientation( orientation, part );
+                                       const RotationMatrix partRotation = partOrientation.GetOrientationMatrix();
+                                       const std::string primitiveType = EditorAssetPrimitiveType( part );
+
+                                       if ( primitiveType == "convexHull" )
+                                       {
+                                           const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
+
+                                           if ( const ConvexHullShape*
+                                                    hull = hullPath.empty()
+                                                               ? nullptr
+                                                               : CachedEditorBuildingHull( m_resultDiagnostics, hullPath ) )
+                                           {
+                                               appendHull( *hull,
+                                                           bodyCenter + partRotation * ( hull->GetAuthoredCenterOfMass() +
+                                                                                         hull->GetPosition() ),
+                                                           partRotation );
+                                           }
+                                       }
+                                       else if ( primitiveType == "box" )
+                                       {
+                                           Vector3 halfExtents;
+
+                                           if ( TryReadEditorBoxHalfExtents( part, halfExtents ) )
+                                           {
+                                               tracer.AddBoxOutline( bodyCenter,
+                                                                     partRotation * Vector3( halfExtents.x, 0.0f, 0.0f ),
+                                                                     partRotation * Vector3( 0.0f, halfExtents.y, 0.0f ),
+                                                                     partRotation * Vector3( 0.0f, 0.0f, halfExtents.z ),
+                                                                     ghostR, ghostG, ghostB );
+                                           }
+                                       }
+                                       else if ( primitiveType == "sphere" )
+                                       {
+                                           float radius = 0.0f;
+
+                                           if ( TryReadEditorSphereRadius( part, radius ) )
+                                           {
+                                               tracer.AddSphereOutline( bodyCenter, radius, ghostR, ghostG, ghostB );
+                                           }
+                                       }
+                                   } );
         return;
     }
 
     if ( const EditorHouseDefinition* house = EditorHouseDefinitionForType( type ) )
     {
         const Vector3 base = terrainPoint + rotation * Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
+
         for ( int partIndex = 0; partIndex < house->partCount; ++partIndex )
         {
             const EditorHousePartDefinition& part = house->parts[partIndex];
             tracer.AddBoxOutline( base + rotation * Vector3( part.offsetX, part.offsetY, part.offsetZ ),
-                                  rotation * Vector3( part.halfX, 0.0f, 0.0f ),
-                                  rotation * Vector3( 0.0f, part.halfY, 0.0f ),
+                                  rotation * Vector3( part.halfX, 0.0f, 0.0f ), rotation * Vector3( 0.0f, part.halfY, 0.0f ),
                                   rotation * Vector3( 0.0f, 0.0f, part.halfZ ), ghostR, ghostG, ghostB );
         }
+
         return;
     }
 
     if ( type == UI::EditorTab::OBJECT_BOX )
     {
-        tracer.AddBoxOutline( center, rotation * Vector3( scale.x, 0.0f, 0.0f ),
-                              rotation * Vector3( 0.0f, scale.y, 0.0f ),
+        tracer.AddBoxOutline( center, rotation * Vector3( scale.x, 0.0f, 0.0f ), rotation * Vector3( 0.0f, scale.y, 0.0f ),
                               rotation * Vector3( 0.0f, 0.0f, scale.z ), ghostR, ghostG, ghostB );
     }
     else if ( type == UI::EditorTab::OBJECT_BALL || type == UI::EditorTab::OBJECT_SPHERE )
@@ -142,6 +161,7 @@ void EditorToolsOwner::AppendPlacementGhost( EditorTracer& tracer, const Assets:
     else
     {
         ConvexHullShape hull;
+
         if ( TryBuildScaledEditorHullForType( m_resultDiagnostics, type, scale, hull ) )
         {
             appendHull( hull, center + rotation * hull.GetPosition(), rotation );
@@ -183,6 +203,7 @@ void EditorToolsOwner::ObserveSceneLifecycle( const SceneLifecyclePacket& packet
     {
         return;
     }
+
     ClearEditorInteractionForTransition( false, world, interaction );
     ClearEditorHistory();
 }
@@ -212,22 +233,26 @@ EditorInteractionPreviewResult UpdateEditorInteractionPreview( Core::SbDiagnosti
         const bool scaleActive = interaction.Gesture().kind == RuntimeInteractionGestureKind::EditorPlacementScaleDrag;
         EditorTerrainPlacement terrainPlacement;
         const EditorTerrainPlacement* placement = nullptr;
+
         if ( !scaleActive && input.hasMouseRay &&
              TryGetEditorTerrainPlacement( terrain, input.mouseRayOrigin, input.mouseRayDirection, terrainPlacement ) )
         {
             placement = &terrainPlacement;
         }
+
         editor.placementPreviewVisible = TryUpdateEditorPlacementPreview( diagnostics, editor, terrain, assets, scaleActive,
                                                                           editor.objectType, placement );
     }
 
     const int selectedModelIndex = ResolveSelectedEditorModelIndex( editor, bodyStore );
     bool selectionHandlesValid = false;
+
     if ( selectedModelIndex >= 0 && editor.selectedBody.IsValid() && editor.selectedCollider.IsValid() )
     {
         const Physics::PhysicsBodyRecord* body = bodyStore.RecordForHandle( editor.selectedBody );
         const Physics::ColliderRecord* collider = colliderStore.RecordForHandle( editor.selectedCollider );
-        selectionHandlesValid = body && collider && bodyStore.ModelIndexForHandle( editor.selectedBody ) == selectedModelIndex &&
+        selectionHandlesValid = body && collider &&
+                                bodyStore.ModelIndexForHandle( editor.selectedBody ) == selectedModelIndex &&
                                 colliderStore.ModelIndexForHandle( editor.selectedCollider ) == selectedModelIndex &&
                                 collider->body == editor.selectedBody;
     }
@@ -245,6 +270,7 @@ EditorInteractionPreviewResult UpdateEditorInteractionPreview( Core::SbDiagnosti
     {
         UpdateEditorGizmoHotAxes( editor, world, input.mouseRayOrigin, input.mouseRayDirection, input.scaleMode );
     }
+
     return result;
 }
 } // namespace SkullbonezCore::Runtime

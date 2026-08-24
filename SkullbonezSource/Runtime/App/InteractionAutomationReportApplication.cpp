@@ -768,9 +768,9 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
     std::deque<ReplayPresentation> offlinePresentations;
     offlinePresentations.emplace_back();
     ReplayPresentation& offlinePresentation = offlinePresentations.front();
-    std::vector<ReplayPredictionSceneEntityFact> predictionSceneFacts(
-        static_cast<std::size_t>( world.SceneEntityCount() ) );
-    const ReplayPredictionSceneView predictionScene = BuildReplayPredictionSceneView( world.Entities(), predictionSceneFacts );
+    std::vector<ReplayPredictionSceneEntityFact> predictionSceneFacts( static_cast<std::size_t>( world.SceneEntityCount() ) );
+    const ReplayPredictionSceneView predictionScene = BuildReplayPredictionSceneView( world.Entities(),
+                                                                                      predictionSceneFacts );
     offlinePrediction.EnterOfflineVerification();
     offlinePredictionPresentation.ResetTrajectoryVisualStats();
     char archiveReason[192] = {};
@@ -814,6 +814,7 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
         tracer.Clear();
         const RunReplayPathVisualizerState& path = offlinePresentation.PathVisualizer();
         ReplayPredictionUpdateResult update;
+
         // Hazard: a wall-clock budget makes archive verification depend on how
         // many canonicalized trajectory rows this machine can rebuild before
         // five milliseconds elapse. Zero disables the production frame budget
@@ -831,8 +832,7 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
         {
             for ( uint32_t count = 0; count < update.budgetExpiries[passIndex]; ++count )
             {
-                offlinePredictionPresentation.RecordTrajectoryBudgetExpiry(
-                    static_cast<Core::MainMemoryReplayBudgetPass>( passIndex ) );
+                offlinePredictionPresentation.RecordTrajectoryBudgetExpiry( static_cast<Core::MainMemoryReplayBudgetPass>( passIndex ) );
             }
         }
 
@@ -840,8 +840,7 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
         {
             for ( uint32_t count = 0; count < update.rebuildCauses[causeIndex]; ++count )
             {
-                offlinePredictionPresentation.RecordTrajectoryRebuildCause(
-                    static_cast<Core::MainMemoryReplayRebuildCause>( causeIndex ) );
+                offlinePredictionPresentation.RecordTrajectoryRebuildCause( static_cast<Core::MainMemoryReplayRebuildCause>( causeIndex ) );
             }
         }
 
@@ -851,12 +850,12 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
                                                             latestSolverSample, world.Physics(), world.Entities(), tracer );
 
         (void)offlinePredictionPresentation.BuildGhostDrawRequests( prediction, world.RenderPresentationRecords(),
-                                                                   world.BodyStore() );
+                                                                    world.BodyStore() );
 
         ReplayVisualPacket projected = tracer.BuildReplayVisualPacket( expected.cameraEye, expected.cameraUp );
         offlinePredictionPresentation.PublishVisualPacket( projected, prediction,
-                                                            offlinePresentation.PathVisualizer().targetId,
-                                                            latestSolverSample, expected.replayReserveGrowthEvents );
+                                                           offlinePresentation.PathVisualizer().targetId, latestSolverSample,
+                                                           expected.replayReserveGrowthEvents );
 
         projected = offlinePredictionPresentation.PublishedVisualPacketView();
         projected.header.topologyVersion = projectedTopologyVersions.Observe( projected.header.topologyVersion );
@@ -1158,6 +1157,7 @@ const char* SkullbonezCore::Runtime::InteractionAutomationReportWriter::CameraMo
 const char* SkullbonezCore::Runtime::InteractionAutomationReportWriter::WorkspaceName( int workspaceValue )
 {
     const RuntimeWorkspace workspace = static_cast<RuntimeWorkspace>( workspaceValue );
+
     switch ( workspace )
     {
     case RuntimeWorkspace::Live:
@@ -1176,6 +1176,7 @@ const char* SkullbonezCore::Runtime::InteractionAutomationReportWriter::Workspac
 const char* SkullbonezCore::Runtime::InteractionAutomationReportWriter::OwnerName( int ownerValue )
 {
     const WorldInteractionOwner owner = static_cast<WorldInteractionOwner>( ownerValue );
+
     switch ( owner )
     {
     case WorldInteractionOwner::None:
@@ -1283,9 +1284,9 @@ ReplayVisualArchiveSample SkullbonezCore::Runtime::InteractionAutomationReportWr
 
 
 SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( InteractionAutomationRunStatus& status, const char* scriptPath, const SceneWorld& world, const SceneSessionState& scene,
-                                                                                                  const char* scenePath, const EditorToolsOwner& editorTools, const RuntimeTools& runtimeTools, const ReplayAutomationView& replay,
-                                                                                                  const RuntimeInteractionController& interaction, const CameraControlState& camera, const UI::InGameUI& ui,
-                                                                                                  const Rendering::RenderSceneSnapshot& renderSnapshot )
+                                                                                                  const char* scenePath, const EditorToolsOwner& editorTools, const RuntimeTools& runtimeTools,
+                                                                                                  const ReplayAutomationView& replay, const RuntimeInteractionController& interaction, const CameraControlState& camera,
+                                                                                                  const UI::InGameUI& ui, const Rendering::RenderSceneSnapshot& renderSnapshot )
 {
     CoreAllocation::RuntimeAllocationScope diagnosticsScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
 

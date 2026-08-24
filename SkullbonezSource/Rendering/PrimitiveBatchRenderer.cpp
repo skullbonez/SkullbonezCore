@@ -358,8 +358,7 @@ static void FillShadowReceiverConstants( PrimitiveBatchShaderConstants& constant
     Textures( state ).BindTexture( enabled ? shadow->depthTextureHandle : 0, SHADOW_TEXTURE_SLOT );
 }
 
-bool PrimitiveBatchRenderer::BindShader( ShaderDX12& shader,
-                                         const SkullbonezCore::Core::OrdinaryRenderConfig& lighting,
+bool PrimitiveBatchRenderer::BindShader( ShaderDX12& shader, const SkullbonezCore::Core::OrdinaryRenderConfig& lighting,
                                          const Matrix4& view, const Matrix4& projection, const float lightPosition[4],
                                          const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                          const ShadowFrameData* shadow, int primitiveShape, bool receiveShadows,
@@ -443,8 +442,7 @@ PrimitiveBatchRenderer::~PrimitiveBatchRenderer()
 }
 
 
-PrimitiveBatchRenderer::PrimitiveBatchScope::PrimitiveBatchScope( PrimitiveBatchRenderer& renderer,
-                                                                  PrimitiveBatchKind kind )
+PrimitiveBatchRenderer::PrimitiveBatchScope::PrimitiveBatchScope( PrimitiveBatchRenderer& renderer, PrimitiveBatchKind kind )
     : m_renderer( &renderer ), m_lifecycle( &renderer, kind )
 {
 }
@@ -551,37 +549,27 @@ void PrimitiveBatchRenderer::PrimitiveBatchScope::EndIfActive()
 }
 
 
-PrimitiveBatchRenderer::PrimitiveBatchScope
-PrimitiveBatchRenderer::BeginSphereBatch( const SkullbonezCore::Core::OrdinaryRenderConfig& lighting,
-                                          const char* shaderBaseName, const Matrix4& view, const Matrix4& proj,
-                                          const float lightPos[4], bool isTransparent,
-                                          const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
-                                          const ShadowFrameData* shadow, float materialAlpha )
+PrimitiveBatchRenderer::PrimitiveBatchScope PrimitiveBatchRenderer::BeginSphereBatch( const SkullbonezCore::Core::OrdinaryRenderConfig& lighting, const char* shaderBaseName, const Matrix4& view,
+                                                                                      const Matrix4& proj, const float lightPos[4], bool isTransparent,
+                                                                                      const SkullbonezCore::Core::CinematicRenderConfig* cinematic, const ShadowFrameData* shadow, float materialAlpha )
 {
-    DrawSphereBatchBegin( lighting, shaderBaseName, view, proj, lightPos, isTransparent, cinematic, shadow,
-                          materialAlpha );
+    DrawSphereBatchBegin( lighting, shaderBaseName, view, proj, lightPos, isTransparent, cinematic, shadow, materialAlpha );
     return PrimitiveBatchScope( *this, PrimitiveBatchKind::Sphere );
 }
 
 
-PrimitiveBatchRenderer::PrimitiveBatchScope
-PrimitiveBatchRenderer::BeginBoxBatch( const SkullbonezCore::Core::OrdinaryRenderConfig& lighting,
-                                       const char* shaderBaseName, const Matrix4& view, const Matrix4& proj,
-                                       const float lightPos[4], bool isTransparent,
-                                       const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
-                                       const ShadowFrameData* shadow, float materialAlpha )
+PrimitiveBatchRenderer::PrimitiveBatchScope PrimitiveBatchRenderer::BeginBoxBatch( const SkullbonezCore::Core::OrdinaryRenderConfig& lighting, const char* shaderBaseName, const Matrix4& view,
+                                                                                   const Matrix4& proj, const float lightPos[4], bool isTransparent,
+                                                                                   const SkullbonezCore::Core::CinematicRenderConfig* cinematic, const ShadowFrameData* shadow, float materialAlpha )
 {
     DrawBoxBatchBegin( lighting, shaderBaseName, view, proj, lightPos, isTransparent, cinematic, shadow, materialAlpha );
     return PrimitiveBatchScope( *this, PrimitiveBatchKind::Box );
 }
 
 
-PrimitiveBatchRenderer::PrimitiveBatchScope
-PrimitiveBatchRenderer::BeginPineBatch( const SkullbonezCore::Core::OrdinaryRenderConfig& lighting,
-                                        const char* shaderBaseName, const Matrix4& view, const Matrix4& proj,
-                                        const float lightPos[4], bool isTransparent,
-                                        const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
-                                        const ShadowFrameData* shadow, float materialAlpha )
+PrimitiveBatchRenderer::PrimitiveBatchScope PrimitiveBatchRenderer::BeginPineBatch( const SkullbonezCore::Core::OrdinaryRenderConfig& lighting, const char* shaderBaseName, const Matrix4& view,
+                                                                                    const Matrix4& proj, const float lightPos[4], bool isTransparent,
+                                                                                    const SkullbonezCore::Core::CinematicRenderConfig* cinematic, const ShadowFrameData* shadow, float materialAlpha )
 {
     DrawPineBatchBegin( lighting, shaderBaseName, view, proj, lightPos, isTransparent, cinematic, shadow, materialAlpha );
     return PrimitiveBatchScope( *this, PrimitiveBatchKind::Pine );
@@ -589,8 +577,7 @@ PrimitiveBatchRenderer::BeginPineBatch( const SkullbonezCore::Core::OrdinaryRend
 
 
 PrimitiveBatchRenderer::PrimitiveBatchScope
-PrimitiveBatchRenderer::BeginShadowDepthSphereBatch( const char* shaderBaseName, const Matrix4& view,
-                                                     const Matrix4& proj,
+PrimitiveBatchRenderer::BeginShadowDepthSphereBatch( const char* shaderBaseName, const Matrix4& view, const Matrix4& proj,
                                                      const SkullbonezCore::Core::CinematicRenderConfig* cinematic )
 {
     DrawShadowDepthSphereBatchBegin( shaderBaseName, view, proj, cinematic );
@@ -599,8 +586,7 @@ PrimitiveBatchRenderer::BeginShadowDepthSphereBatch( const char* shaderBaseName,
 
 
 PrimitiveBatchRenderer::PrimitiveBatchScope
-PrimitiveBatchRenderer::BeginShadowDepthBoxBatch( const char* shaderBaseName, const Matrix4& view,
-                                                  const Matrix4& proj )
+PrimitiveBatchRenderer::BeginShadowDepthBoxBatch( const char* shaderBaseName, const Matrix4& view, const Matrix4& proj )
 {
     DrawShadowDepthBoxBatchBegin( shaderBaseName, view, proj );
     return PrimitiveBatchScope( *this, PrimitiveBatchKind::ShadowBox );
@@ -608,8 +594,7 @@ PrimitiveBatchRenderer::BeginShadowDepthBoxBatch( const char* shaderBaseName, co
 
 
 PrimitiveBatchRenderer::PrimitiveBatchScope
-PrimitiveBatchRenderer::BeginShadowDepthPineBatch( const char* shaderBaseName, const Matrix4& view,
-                                                   const Matrix4& proj )
+PrimitiveBatchRenderer::BeginShadowDepthPineBatch( const char* shaderBaseName, const Matrix4& view, const Matrix4& proj )
 {
     DrawShadowDepthPineBatchBegin( shaderBaseName, view, proj );
     return PrimitiveBatchScope( *this, PrimitiveBatchKind::ShadowPine );
@@ -703,7 +688,7 @@ void PrimitiveBatchRenderer::ReleaseOwnedRenderResources()
 
 
 void PrimitiveBatchRenderer::EnsureSphereShader( const char* shaderBaseName,
-                                                  const SkullbonezCore::Core::OrdinaryRenderConfig& lighting )
+                                                 const SkullbonezCore::Core::OrdinaryRenderConfig& lighting )
 {
     if ( !m_state.sphereShader )
     {
@@ -829,8 +814,8 @@ void PrimitiveBatchRenderer::BuildLowPolySphereMesh( int slices, int stacks )
 
 
 void PrimitiveBatchRenderer::DrawSphereBatchBegin( const SkullbonezCore::Core::OrdinaryRenderConfig& lighting,
-                                                   const char* shaderBaseName, const Matrix4& view,
-                                                   const Matrix4& proj, const float lightPos[4], bool isTransparent,
+                                                   const char* shaderBaseName, const Matrix4& view, const Matrix4& proj,
+                                                   const float lightPos[4], bool isTransparent,
                                                    const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                                    const ShadowFrameData* shadow, float materialAlpha )
 {
@@ -1017,8 +1002,8 @@ void PrimitiveBatchRenderer::BuildBoxMesh()
 
 
 void PrimitiveBatchRenderer::DrawBoxBatchBegin( const SkullbonezCore::Core::OrdinaryRenderConfig& lighting,
-                                                const char* shaderBaseName, const Matrix4& view,
-                                                const Matrix4& proj, const float lightPos[4], bool isTransparent,
+                                                const char* shaderBaseName, const Matrix4& view, const Matrix4& proj,
+                                                const float lightPos[4], bool isTransparent,
                                                 const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                                 const ShadowFrameData* shadow, float materialAlpha )
 {
@@ -1122,10 +1107,11 @@ void PrimitiveBatchRenderer::DrawShadowDepthBoxBatchEnd()
     m_state.boxBatchReady = false;
 }
 
-void PrimitiveBatchRenderer::BeginConvexHullBatch(
-    const SkullbonezCore::Core::OrdinaryRenderConfig& lighting, const char* shaderBaseName, const Matrix4& view,
-    const Matrix4& proj, const float lightPos[4], bool isTransparent,
-    const SkullbonezCore::Core::CinematicRenderConfig* cinematic, const ShadowFrameData* shadow, float materialAlpha )
+void PrimitiveBatchRenderer::BeginConvexHullBatch( const SkullbonezCore::Core::OrdinaryRenderConfig& lighting,
+                                                   const char* shaderBaseName, const Matrix4& view, const Matrix4& proj,
+                                                   const float lightPos[4], bool isTransparent,
+                                                   const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
+                                                   const ShadowFrameData* shadow, float materialAlpha )
 {
     EnsureConvexHullDynamicVB( m_state );
     EnsureSphereShader( shaderBaseName, lighting );
@@ -1165,9 +1151,8 @@ void PrimitiveBatchRenderer::EndConvexHullBatch()
     m_state.convexHullBatchTransparent = false;
 }
 
-void PrimitiveBatchRenderer::DrawShadowDepthConvexHullModel( const char* shaderBaseName,
-                                                             const ConvexHullShape& hull, const Matrix4& model,
-                                                             const Matrix4& view, const Matrix4& proj )
+void PrimitiveBatchRenderer::DrawShadowDepthConvexHullModel( const char* shaderBaseName, const ConvexHullShape& hull,
+                                                             const Matrix4& model, const Matrix4& view, const Matrix4& proj )
 {
     EnsureConvexHullDynamicVB( m_state );
     const std::array<float, INSTANCE_FLOATS> instancePayload = BuildSingleMatrixPayload( model );
@@ -1231,8 +1216,8 @@ void PrimitiveBatchRenderer::BuildPineMesh()
 
 
 void PrimitiveBatchRenderer::DrawPineBatchBegin( const SkullbonezCore::Core::OrdinaryRenderConfig& lighting,
-                                                 const char* shaderBaseName, const Matrix4& view,
-                                                 const Matrix4& proj, const float lightPos[4], bool isTransparent,
+                                                 const char* shaderBaseName, const Matrix4& view, const Matrix4& proj,
+                                                 const float lightPos[4], bool isTransparent,
                                                  const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                                  const ShadowFrameData* shadow, float materialAlpha )
 {

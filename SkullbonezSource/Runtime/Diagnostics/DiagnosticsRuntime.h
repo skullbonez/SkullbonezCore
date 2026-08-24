@@ -64,13 +64,13 @@ struct DiagnosticsUIKeyboardShortcutResult
     bool disableCaptureAutomationExit = false;
 };
 
-DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( OverlayDebugState& debug,
-                                                                         DiagnosticsUiKeyboardCommand command,
-                                                                         bool wasPressed );
+DiagnosticsUIKeyboardShortcutResult
+HandleDiagnosticsUIKeyboardShortcut( OverlayDebugState& debug, DiagnosticsUiKeyboardCommand command, bool wasPressed );
 
 class DiagnosticsRuntime
 {
   public:
+
     // Startup binding that keeps perf CSV and frame-time diagnostics off the
     // global profiler accessor after initialization.
     void BindProfiler( SkullbonezCore::Core::Profiler* profiler );
@@ -116,8 +116,7 @@ class DiagnosticsRuntime
                                      bool effectiveRenderFrameLockstep );
     void LogReplayScrubProbe( const RuntimeSceneDiagnosticFacts& scene, const ReplayScrubProbeDiagnostic& probe );
     void LogReplayRestoreProbe( const RuntimeSceneDiagnosticFacts& scene, const ReplayRestoreProbeDiagnostic& probe );
-    void LogReplayRestoreResult( const RuntimeSceneDiagnosticFacts& scene,
-                                 const ReplayRestoreResultDiagnostic& result );
+    void LogReplayRestoreResult( const RuntimeSceneDiagnosticFacts& scene, const ReplayRestoreResultDiagnostic& result );
     void EndPhysicsDiagnosticsRun( const RuntimeSceneDiagnosticFacts& scene, const char* status );
 #endif
 

@@ -107,6 +107,7 @@ class RuntimeOverlayDiagnostics
     void ApplyScenePresentation( const OverlayDebugState& scenePresentation );
     OverlayDebugState PresentationSnapshot() const;
     RuntimeOverlayPresentationEdit EditPresentation();
+
   private:
     friend class RuntimeOverlayPresentationEdit;
     void CommitPresentation( const OverlayDebugState& state );

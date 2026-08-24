@@ -155,7 +155,7 @@ struct RunReplayPredictionBodySample
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
     Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR; // m/s-equivalent simulation units.
-    bool sleeping = false; // Solver sleep state used by whole-cascade outcome validation.
+    bool sleeping = false;                                            // Solver sleep state used by whole-cascade outcome validation.
 };
 
 struct RunReplayPredictionFrame
@@ -204,10 +204,10 @@ struct ReplayPredictionPresentationView
     Physics::PhysicsSceneObjectId trajectoryBuildRootId;
     ReplayFrameIndex sourceFrame = 0;
     ReplayFrameIndex revealFrame = 0;
-    uint32_t generation = 0; // Successful private-simulation generation owning this published prefix.
+    uint32_t generation = 0;                                          // Successful private-simulation generation owning this published prefix.
     uint32_t topologyVersion = 0;
     uint32_t trajectoryBuildTopologyVersion = 0;
-    uint64_t trajectoryPublicationVersion = 0; // O(1) invalidation token for retained trajectory draw lists.
+    uint64_t trajectoryPublicationVersion = 0;                        // O(1) invalidation token for retained trajectory draw lists.
     std::size_t trajectoryBuiltNodeCount = 0;
     std::size_t trajectoryChildFrameCount = 0;
     ReplayPredictionBuildMode buildMode = ReplayPredictionBuildMode::Undecided;

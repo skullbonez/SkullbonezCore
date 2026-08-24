@@ -194,10 +194,9 @@ void SkullbonezCore::Runtime::ApplyGraphicsStressPresentationAction( int action,
     }
 }
 
-GraphicsStressRuntimeActionResult SkullbonezCore::Runtime::ApplyGraphicsStressRuntimeAction(
-    int action, GraphicsStressController& stress, RunLaunchOptions& launchOptions, RuntimeOverlayDiagnostics& overlays,
-    SceneController& sceneController, CameraControlState& camera, SkullbonezCore::UI::InGameUI& ui,
-    SimulationSystem& simulation, RuntimeTools& runtimeTools )
+GraphicsStressRuntimeActionResult SkullbonezCore::Runtime::ApplyGraphicsStressRuntimeAction( int action, GraphicsStressController& stress, RunLaunchOptions& launchOptions, RuntimeOverlayDiagnostics& overlays,
+                                                                                             SceneController& sceneController, CameraControlState& camera, SkullbonezCore::UI::InGameUI& ui,
+                                                                                             SimulationSystem& simulation, RuntimeTools& runtimeTools )
 {
     GraphicsStressRuntimeActionResult result;
     RuntimeOverlayPresentationEdit presentationEdit = overlays.EditPresentation();
@@ -759,7 +758,9 @@ void SkullbonezCore::Runtime::FinishGraphicsStressFrame( GraphicsStressControlle
     const SkullbonezCore::Core::MainMemoryStats&
         memoryStats = diagnosticsRuntime
                           .RefreshMainMemoryStats( replayMemory,
-                                                   CollectSceneMemoryStats( SceneMemoryDiagnosticsView { sceneController.Scene().Entities().CapacityBytes(),
+                                                   CollectSceneMemoryStats( SceneMemoryDiagnosticsView { sceneController.Scene()
+                                                                                                             .Entities()
+                                                                                                             .CapacityBytes(),
                                                                                                          sceneController.Scene()
                                                                                                              .CollectGameplayMemoryBytes(),
                                                                                                          sceneController.Scene()

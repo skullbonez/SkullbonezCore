@@ -164,8 +164,7 @@ class InteractionAutomationRecorder
 
     // Copies the routed device frame; publication is deferred until AdvanceBoundary.
     void CapturePendingTurn( double deltaSeconds, int sourceWidth, int sourceHeight,
-                             const InteractionAutomationInputSample& frame,
-                             const char* semanticAnchor = nullptr );
+                             const InteractionAutomationInputSample& frame, const char* semanticAnchor = nullptr );
 
     // Saves the valid prefix and publishes the manifest last. Pending input is
     // included only when the caller has already proved it is not a control turn.

@@ -98,8 +98,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     toolEditor.placementRayHit = editor.placementRayHit;
     toolEditor.placementScale = editor.placementScale;
     toolEditor.placementOrientation = editor.placementOrientation;
-    toolEditor.selectionCount = ProjectEditorOverlaySelection( editor, m_sceneController.Scene(),
-                                                               toolEditor.selectionBodies,
+    toolEditor.selectionCount = ProjectEditorOverlaySelection( editor, m_sceneController.Scene(), toolEditor.selectionBodies,
                                                                toolEditor.selectionColliders );
 
     // Update the active camera selection and any transition/tween state before
@@ -165,8 +164,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
         destination.hit = source.hit;
     }
 
-    const RuntimeRenderFramePolicy framePolicy = ProjectRenderFramePolicy(
-        m_overlayDiagnostics->BuildFramePolicy( m_timers.SceneElapsedSeconds(), m_timers.SimulationTotalSeconds() ) );
+    const RuntimeRenderFramePolicy framePolicy = ProjectRenderFramePolicy( m_overlayDiagnostics->BuildFramePolicy( m_timers.SceneElapsedSeconds(), m_timers.SimulationTotalSeconds() ) );
 
     // Invariant: Run owns the cross-domain ordering. Model interpolation must
     // finish before replay substitutes read-only historical/future poses, and
@@ -236,10 +234,9 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     // maximum during owner construction. Steady rendering receives no
     // allocation-phase exemption.
     worldExtension = m_sceneController.Scene().Tornado().PrepareVisualFrame( visualTime );
-    const bool replaySubmissionRendered = renderer.RenderFrameEntry(
-        RuntimeRenderer::FrameEntryContext { renderModels, renderCamera, m_sceneController.Scene().Terrain().Get(),
-                                             framePolicy, replayFrame, continuousOverlay, toolOverlay, worldExtension,
-                                             activeCinematic, cinematicRequested } );
+    const bool replaySubmissionRendered = renderer.RenderFrameEntry( RuntimeRenderer::FrameEntryContext { renderModels, renderCamera, m_sceneController.Scene().Terrain().Get(),
+                                                                                                          framePolicy, replayFrame, continuousOverlay, toolOverlay, worldExtension,
+                                                                                                          activeCinematic, cinematicRequested } );
 
     m_replayRuntime.CompleteRenderFrame( replaySubmissionRendered, m_sceneController.State().currentFrame,
                                          replayGrowthEventCount, m_runtimeTools );

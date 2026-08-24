@@ -474,9 +474,8 @@ bool ReplayPredictionSolverEvidenceBanks::AppendBuildFrame( ReplayFrameIndex fra
            ReplayPredictionEvidenceAppendResult::Appended;
 }
 
-ReplayPredictionEvidenceAppendResult ReplayPredictionSolverEvidenceBanks::AppendBuildFrameResult(
-    ReplayFrameIndex frame, uint32_t topologyVersion, uint64_t publicationVersion, ReplayPredictionContactSpan contacts,
-    ReplayPredictionPipelineSpan pipeline, int frameNumber )
+ReplayPredictionEvidenceAppendResult ReplayPredictionSolverEvidenceBanks::AppendBuildFrameResult( ReplayFrameIndex frame, uint32_t topologyVersion, uint64_t publicationVersion, ReplayPredictionContactSpan contacts,
+                                                                                                  ReplayPredictionPipelineSpan pipeline, int frameNumber )
 {
     ReplayPredictionSolverEvidenceStore& build = m_banks[m_buildIndex];
     const ReplayPredictionEvidenceIdentity identity = { build.Generation(), build.Mode(),      build.BankEpoch(), frame,

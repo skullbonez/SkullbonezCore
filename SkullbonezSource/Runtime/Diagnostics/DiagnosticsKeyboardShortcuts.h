@@ -57,12 +57,15 @@ inline bool HandleDiagnosticsKeyboardShortcut( OverlayDebugState& debug, int& ca
     {
     case DiagnosticsKeyboardCommand::ToggleWaterFreeze:
         debug.isWaterFreezeDebug = !debug.isWaterFreezeDebug;
+
         if ( debug.isWaterFreezeDebug )
         {
             debug.frozenWaterTime = static_cast<float>( simulationSeconds );
         }
+
         return true;
     case DiagnosticsKeyboardCommand::CycleWaterReflection:
+
         if ( !debug.isWaterRTReflect && !debug.isWaterNoReflect )
         {
             if ( dxrReflectionSupported )
@@ -83,6 +86,7 @@ inline bool HandleDiagnosticsKeyboardShortcut( OverlayDebugState& debug, int& ca
         {
             debug.isWaterNoReflect = false;
         }
+
         return true;
     case DiagnosticsKeyboardCommand::ToggleWaterFlat:
         debug.isWaterFlatDebug = !debug.isWaterFlatDebug;
@@ -97,6 +101,7 @@ inline bool HandleDiagnosticsKeyboardShortcut( OverlayDebugState& debug, int& ca
         debug.isCollisionVisualizer = !debug.isCollisionVisualizer;
         return true;
     case DiagnosticsKeyboardCommand::CyclePhysicsDebugOverlay:
+
         switch ( debug.physicsDebugFlags )
         {
         case Physics::PHYSICS_DEBUG_NONE:
@@ -115,6 +120,7 @@ inline bool HandleDiagnosticsKeyboardShortcut( OverlayDebugState& debug, int& ca
             debug.physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE;
             break;
         }
+
         return true;
     case DiagnosticsKeyboardCommand::ToggleTerrainContactProbe:
         debug.physicsDebugFlags ^= Physics::PHYSICS_DEBUG_TERRAIN_CONTACT;
@@ -132,6 +138,7 @@ inline bool HandleDiagnosticsKeyboardShortcut( OverlayDebugState& debug, int& ca
         fprintf( stderr, "Renderer switch ignored: DX12 is the only runtime renderer.\n" );
         return true;
     case DiagnosticsKeyboardCommand::ToggleBroadphaseOverlay:
+
         if ( sceneMode && cameraTrackBallIndex >= 0 && !debug.isBroadphaseOverlay )
         {
             if ( sceneEntityCount > 0 )
@@ -143,6 +150,7 @@ inline bool HandleDiagnosticsKeyboardShortcut( OverlayDebugState& debug, int& ca
         {
             debug.isBroadphaseOverlay = !debug.isBroadphaseOverlay;
         }
+
         return true;
     }
 

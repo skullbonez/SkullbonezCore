@@ -141,11 +141,13 @@ void RenderReplayVisualPacket( const ReplayVisualPacket& packet, const Matrix4& 
         renderCommands.DrawRetainedLinesColored( packet.retainedPredictionOrdinaryLines, retainedStream, false,
                                                  viewProjection, REPLAY_LINE_RASTER );
     }
+
     if ( !packet.retainedPredictionPriorityLines.empty() )
     {
         renderCommands.DrawRetainedLinesColored( packet.retainedPredictionPriorityLines, retainedStream, true,
                                                  viewProjection, REPLAY_LINE_RASTER );
     }
+
     if ( !packet.combinedLines.empty() )
     {
         renderCommands.DrawLinesColored( packet.combinedLines, viewProjection, REPLAY_LINE_RASTER );
@@ -161,6 +163,7 @@ void RenderReplayVisualPacket( const ReplayVisualPacket& packet, const Matrix4& 
                                                    viewProjection, Rendering::TransientTriangleStyle::InstancedRibbon,
                                                    REPLAY_RIBBON_VISIBLE_RASTER );
     }
+
     if ( !packet.retainedPredictionPriorityRibbonVertices.empty() )
     {
         renderCommands.DrawRetainedGeometryRibbon( packet.retainedPredictionPriorityRibbonVertices, retainedStream, true,
@@ -171,6 +174,7 @@ void RenderReplayVisualPacket( const ReplayVisualPacket& packet, const Matrix4& 
                                                    viewProjection, Rendering::TransientTriangleStyle::InstancedRibbon,
                                                    REPLAY_RIBBON_VISIBLE_RASTER );
     }
+
     if ( !packet.retainedPredictionRibbonRanges.empty() )
     {
         renderCommands.DrawRetainedGeometryRanges( packet.retainedPredictionCompactRibbonRecords,
@@ -192,6 +196,7 @@ void RenderReplayVisualPacket( const ReplayVisualPacket& packet, const Matrix4& 
                                                       Rendering::TransientTriangleStyle::InstancedRibbon,
                                                       REPLAY_RIBBON_VISIBLE_RASTER );
     }
+
     if ( !packet.priorityExpandedRibbonVertices.empty() )
     {
         renderCommands.DrawTransientColoredTriangles( packet.priorityExpandedRibbonVertices, viewProjection,
@@ -846,10 +851,8 @@ ShadowPass::BuildObjectFrameData( const SkullbonezCore::Core::CinematicRenderCon
 }
 
 
-void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target,
-                                  Rendering::RenderInstanceRenderer& instanceRenderer,
-                                  Rendering::Dx12Diagnostics& renderDiagnostics,
-                                  const char* shadowShaderBaseName,
+void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target, Rendering::RenderInstanceRenderer& instanceRenderer,
+                                  Rendering::Dx12Diagnostics& renderDiagnostics, const char* shadowShaderBaseName,
                                   const Rendering::ShadowFrameData& shadowFrame,
                                   const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                   Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12TextureOwner& renderTextures,
@@ -919,7 +922,7 @@ void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target,
         else
         {
             instanceRenderer.RenderShadowCasters( m_profiler, shadowShaderBaseName, shadowFrame.lightView,
-                                                   shadowFrame.lightProjection, &cinematic, visibilityView );
+                                                  shadowFrame.lightProjection, &cinematic, visibilityView );
         }
     }
 
@@ -986,8 +989,8 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
             if ( m_resources.objectTarget )
             {
                 RenderShadowMap( *m_resources.objectTarget, inputs.instanceRenderer, inputs.renderDiagnostics,
-                                 inputs.shadowShaderBaseName, m_resources.objectFrame, *inputs.cinematic,
-                                 inputs.renderFrame, inputs.renderTextures, false, &objectCasters, inputs.terrain );
+                                 inputs.shadowShaderBaseName, m_resources.objectFrame, *inputs.cinematic, inputs.renderFrame,
+                                 inputs.renderTextures, false, &objectCasters, inputs.terrain );
             }
         }
         PROFILE_GPU_END( inputs.gpuTiming, "Frame/Shadows/ShadowMap" );
@@ -1201,9 +1204,9 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs 
             {
                 const CollisionVisualizerFrameView frameView = BuildCollisionVisualizerFrameView( inputs.models );
                 m_collisionVisualizer.SetAlphaOverride( inputs.collisionVisualizerAlphaOverride );
-                m_collisionVisualizer.Render( inputs.assets, inputs.renderResources,
-                                              inputs.renderGeometry, inputs.renderDiagnostics, frameView,
-                                              inputs.reflectionView, inputs.camera.projection, inputs.camera.lightPosition );
+                m_collisionVisualizer.Render( inputs.assets, inputs.renderResources, inputs.renderGeometry,
+                                              inputs.renderDiagnostics, frameView, inputs.reflectionView,
+                                              inputs.camera.projection, inputs.camera.lightPosition );
 
                 m_collisionVisualizer.SetAlphaOverride( -1.0f );
             }
@@ -1219,9 +1222,9 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs 
 
             if ( SelectRenderTexture( inputs.textures, TEXTURE_BOUNDING_SPHERE, "Frame/Render/Reflection/Balls" ) )
             {
-                inputs.instanceRenderer.RenderReflectionModels(
-                    inputs.primitiveShaderBaseName, inputs.reflectionView, inputs.camera.projection,
-                    inputs.camera.lightPosition, inputs.cinematic, inputs.objectShadow, inputs.bodyAlpha );
+                inputs.instanceRenderer.RenderReflectionModels( inputs.primitiveShaderBaseName, inputs.reflectionView,
+                                                                inputs.camera.projection, inputs.camera.lightPosition,
+                                                                inputs.cinematic, inputs.objectShadow, inputs.bodyAlpha );
             }
         }
 
@@ -1279,9 +1282,9 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
         if ( SelectRenderTexture( inputs.textures, TEXTURE_BOUNDING_SPHERE, passName ) )
         {
             inputs.instanceRenderer.RenderModels( inputs.primitiveShaderBaseName, inputs.camera.baseView,
-                                                   inputs.camera.projection, inputs.camera.lightPosition,
-                                                   inputs.cinematic, inputs.shadow, inputs.bodyAlpha, inputs.modelMask,
-                                                   inputs.drawMaskedModels );
+                                                  inputs.camera.projection, inputs.camera.lightPosition, inputs.cinematic,
+                                                  inputs.shadow, inputs.bodyAlpha, inputs.modelMask,
+                                                  inputs.drawMaskedModels );
         }
     }
 }
@@ -1645,6 +1648,7 @@ void DebugOverlayPass::EmitLauncherShot( const RenderToolOverlayView::LauncherSh
 
     const Vector3 segment = shot.end - shot.start;
     const float segmentLengthSquared = VectorMagSquared( segment );
+
     if ( segmentLengthSquared <= LAUNCHER_MIN_SEGMENT_LENGTH * LAUNCHER_MIN_SEGMENT_LENGTH )
     {
         return;
@@ -1653,6 +1657,7 @@ void DebugOverlayPass::EmitLauncherShot( const RenderToolOverlayView::LauncherSh
     const float normalizedAge = std::clamp( shot.ageSeconds / shot.lifetimeSeconds, 0.0f, 1.0f );
     const float afterimageFade = std::sqrt( 1.0f - normalizedAge );
     const float coreFade = ( 1.0f - normalizedAge ) * ( 1.0f - normalizedAge );
+
     if ( afterimageFade <= 0.0f )
     {
         return;
@@ -1660,10 +1665,12 @@ void DebugOverlayPass::EmitLauncherShot( const RenderToolOverlayView::LauncherSh
 
     const Vector3 direction = segment * ( 1.0f / sqrtf( segmentLengthSquared ) );
     Vector3 screenRight = NormalizeOr( shot.cameraRight, CrossProduct( direction, Vector3( 0.0f, 1.0f, 0.0f ) ) );
+
     if ( VectorMagSquared( screenRight ) <= TOLERANCE * TOLERANCE )
     {
         screenRight = CrossProduct( direction, Vector3( 0.0f, 1.0f, 0.0f ) );
     }
+
     screenRight = NormalizeOr( screenRight, Vector3( 1.0f, 0.0f, 0.0f ) );
     const Vector3 screenUp = NormalizeOr( shot.cameraUp, NormalizeOr( CrossProduct( screenRight, direction ),
                                                                       Vector3( 0.0f, 1.0f, 0.0f ) ) );
@@ -1697,10 +1704,12 @@ void DebugOverlayPass::EmitLauncherShot( const RenderToolOverlayView::LauncherSh
 void DebugOverlayPass::RenderLauncherShots( const DebugOverlayPassInputs& inputs )
 {
     m_launcherVertices.clear();
+
     for ( const RenderToolOverlayView::LauncherShot& shot : inputs.snapshot.launcherShots )
     {
         EmitLauncherShot( shot );
     }
+
     if ( m_launcherVertices.empty() )
     {
         return;
@@ -1710,23 +1719,27 @@ void DebugOverlayPass::RenderLauncherShots( const DebugOverlayPassInputs& inputs
     {
         m_launcherShader = inputs.assets.CreateShader( inputs.renderResources, "shader.launcher_laser" );
     }
+
     if ( m_launcherDynamicVB == 0 )
     {
         const int attributes[] = { 3, 4 };
         m_launcherDynamicVB = inputs.renderGeometry.CreateDynamicVB( attributes, 2, LAUNCHER_MAX_VERTICES );
         m_launcherVertices.reserve( static_cast<std::size_t>( LAUNCHER_MAX_VERTICES ) * 7u );
     }
+
     if ( !m_launcherShader || m_launcherDynamicVB == 0 )
     {
         return;
     }
 
     m_launcherShader->Use();
+
     if ( !m_launcherRasterStatePrepared )
     {
         m_launcherRasterStatePrepared = inputs.renderGeometry.PrecompileDynamicVBRasterState( m_launcherDynamicVB,
                                                                                               LAUNCHER_RASTER_BUCKET );
     }
+
     if ( !m_launcherRasterStatePrepared )
     {
         return;

@@ -327,7 +327,6 @@ bool EndGrab( DemoDirectorPlaybackState& director, bool directorModeActive, cons
 
 bool SetCurrentPhasePose( DemoDirectorPlaybackState& director, const DemoCameraPose& currentPose )
 {
-
     if ( !IsCurrentPhaseValid( director ) )
     {
         return false;
@@ -347,7 +346,6 @@ bool SetCurrentPhasePose( DemoDirectorPlaybackState& director, const DemoCameraP
 
 bool SetCurrentPhaseStyle( DemoDirectorPlaybackState& director, const char* stylePath )
 {
-
     if ( !IsCurrentPhaseValid( director ) )
     {
         return false;
@@ -369,7 +367,6 @@ bool SetCurrentPhaseStyle( DemoDirectorPlaybackState& director, const char* styl
 
 bool SelectNextPhaseForAuthoring( DemoDirectorPlaybackState& director, const DemoCameraPose& currentPose )
 {
-
     if ( !HasPlayableShotList( director ) )
     {
         return false;

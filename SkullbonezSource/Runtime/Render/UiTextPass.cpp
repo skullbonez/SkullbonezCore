@@ -182,19 +182,16 @@ void RenderReplayDivergenceCounter( SkullbonezCore::Text::TextBatch& textBatch, 
 }
 } // namespace
 
-SkullbonezCore::Core::SbResult UiTextPass::EnsureGpuResources( Rendering::Dx12ResourceBuilder& renderResources,
-                                                               Rendering::Dx12TextureOwner& renderTextures,
-                                                               Rendering::Dx12GeometryOwner& renderGeometry,
-                                                               const char* textShaderBaseName,
-                                                               const char* solidShaderBaseName,
-                                                               const char* solidBatchShaderBaseName, int screenW,
-                                                               int screenH )
+SkullbonezCore::Core::SbResult
+UiTextPass::EnsureGpuResources( Rendering::Dx12ResourceBuilder& renderResources, Rendering::Dx12TextureOwner& renderTextures,
+                                Rendering::Dx12GeometryOwner& renderGeometry, const char* textShaderBaseName,
+                                const char* solidShaderBaseName, const char* solidBatchShaderBaseName, int screenW,
+                                int screenH )
 {
     const SkullbonezCore::Core::SbResult fontResult = Text2d::BuildFont( m_resultDiagnostics, m_textBatch, renderResources,
-                                                                         renderTextures, renderGeometry,
-                                                                         textShaderBaseName, solidShaderBaseName,
-                                                                         solidBatchShaderBaseName, screenW, screenH,
-                                                                         "Verdana" );
+                                                                         renderTextures, renderGeometry, textShaderBaseName,
+                                                                         solidShaderBaseName, solidBatchShaderBaseName,
+                                                                         screenW, screenH, "Verdana" );
 
     if ( !fontResult.Ok() )
     {
@@ -553,8 +550,7 @@ void UiTextPass::SubmitOperatorDrawList( const UI::UIDrawList& drawList,
                                          Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources,
                                          Rendering::Dx12TextureOwner& renderTextures,
                                          Rendering::Dx12GeometryOwner& renderCommands,
-                                         Rendering::Dx12Diagnostics& renderDiagnostics,
-                                         const UiTextViewport& viewport )
+                                         Rendering::Dx12Diagnostics& renderDiagnostics, const UiTextViewport& viewport )
 {
     Text::TextBatch& textBatch = m_textBatch;
     PROFILE_END( "Frame/UI/BuildData" );

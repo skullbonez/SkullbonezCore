@@ -57,9 +57,9 @@ struct RunLaunchOptions;
 
 inline RuntimeSceneDiagnosticFacts ProjectSceneDiagnosticFacts( const SceneSessionState& scene )
 {
-    return RuntimeSceneDiagnosticFacts( scene.currentSceneIndex, scene.loadCount, scene.manualResetCount,
-                                        scene.currentFrame, scene.targetFrameCount, scene.modelCount, scene.rngSeed,
-                                        scene.isFixedStep, scene.isTestComplete, scene.isFinishLogged );
+    return RuntimeSceneDiagnosticFacts( scene.currentSceneIndex, scene.loadCount, scene.manualResetCount, scene.currentFrame,
+                                        scene.targetFrameCount, scene.modelCount, scene.rngSeed, scene.isFixedStep,
+                                        scene.isTestComplete, scene.isFinishLogged );
 }
 
 struct RuntimeFrameMetricsLifecycleActions
@@ -94,10 +94,12 @@ inline void ApplyRuntimeFrameMetricsLifecycle( RuntimeFrameMetricsLifecyclePolic
                                                const SceneLifecyclePacket& packet, RuntimeFrameMetricsOwner& metrics )
 {
     const RuntimeFrameMetricsLifecycleActions actions = policy.Observe( packet );
+
     if ( actions.resetMeasurements )
     {
         metrics.ResetMeasurements();
     }
+
     if ( actions.restartClocks )
     {
         metrics.RestartClocks();
@@ -108,8 +110,8 @@ inline bool ApplySceneActivationInputReaction( const SceneLifecyclePacket& lifec
                                                SceneLifecycleGenerationObserver& lifecycleObserver,
                                                InputRouter& inputRouter )
 {
-    const bool applyActivation =
-        lifecycleObserver.ShouldApply( lifecycle, SceneRuntimeLifecycleEvent::AfterSceneActivated );
+    const bool applyActivation = lifecycleObserver.ShouldApply( lifecycle, SceneRuntimeLifecycleEvent::AfterSceneActivated );
+
     if ( !applyActivation || !hideCursorAfterActivation )
     {
         return false;
@@ -130,8 +132,7 @@ ScenePresentationValues ProjectScenePresentationValues( const OverlayDebugState&
 void ApplySceneLoadPresentation( SceneLoadTransaction& transaction, Window& window, UI::InGameUI& operatorUi,
                                  RuntimeValidationHarness& validationHarness, GraphicsStressController& graphicsStress,
                                  SceneLifecycleGenerationObserver& graphicsStressSceneObserver,
-                                 const RunLaunchOptions& launchOptions,
-                                 Rendering::Dx12RenderDevice* renderDevice, bool rendererVsyncEnabled,
-                                 SceneController& sceneController );
+                                 const RunLaunchOptions& launchOptions, Rendering::Dx12RenderDevice* renderDevice,
+                                 bool rendererVsyncEnabled, SceneController& sceneController );
 } // namespace Runtime
 } // namespace SkullbonezCore

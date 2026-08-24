@@ -532,8 +532,7 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
     const bool leftDown = frame.leftDown;
     const bool leftPressed = frame.leftPressed;
     const bool leftReleased = frame.leftReleased;
-    const auto velocityDragActive = [&]()
-    { return frame.gesture.kind == ReplayToolGestureKind::VelocityDrag; };
+    const auto velocityDragActive = [&]() { return frame.gesture.kind == ReplayToolGestureKind::VelocityDrag; };
 
     const auto finishVelocityDrag = [&]()
     {
@@ -589,8 +588,7 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
 
         const ReplayToolGestureView& gesture = frame.gesture;
 
-        if ( !tryResolveVelocityBody( body ) || gesture.kind != ReplayToolGestureKind::VelocityDrag ||
-             gesture.axis < 0 )
+        if ( !tryResolveVelocityBody( body ) || gesture.kind != ReplayToolGestureKind::VelocityDrag || gesture.axis < 0 )
         {
             finishVelocityDrag();
             return;
@@ -806,8 +804,7 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
 }
 
 
-bool ReplayAuthoring::ApplyVelocityEditTargetPick( ReplayPresentation& presentationOwner,
-                                                   ReplayScrubber& scrubberOwner,
+bool ReplayAuthoring::ApplyVelocityEditTargetPick( ReplayPresentation& presentationOwner, ReplayScrubber& scrubberOwner,
                                                    const ReplayPathPickResult& pickResult, double now,
                                                    ReplayVelocityInputResult& outResult,
                                                    ReplayInspectionCameraAction& outInspectionCameraAction )

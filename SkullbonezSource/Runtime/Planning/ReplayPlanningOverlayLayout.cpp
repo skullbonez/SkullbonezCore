@@ -180,8 +180,8 @@ void BuildReplayTripPlannerSurface( const ReplayTripPlannerView& planner, int sc
     const bool canCancel = awaiting || planner.state == ReplayTripPlannerState::Converged ||
                            planner.state == ReplayTripPlannerState::Failed;
 
-    const auto add = [&]( ReplayTripPlannerControl id, ReplayTripPlannerCommandKind action, const UI::UIRect& rect,
-                          bool enabled )
+    const auto add = [&]( ReplayTripPlannerControl id,
+                         ReplayTripPlannerCommandKind action, const UI::UIRect& rect, bool enabled )
     {
         ReplayTripPlannerControlRow control;
 
@@ -198,9 +198,11 @@ void BuildReplayTripPlannerSurface( const ReplayTripPlannerView& planner, int sc
         }
     };
 
-    add( ReplayTripPlannerControl::TimeOfFlightDecrease, ReplayTripPlannerCommandKind::DecreaseTimeOfFlight, decrease, idle );
+    add( ReplayTripPlannerControl::TimeOfFlightDecrease, ReplayTripPlannerCommandKind::DecreaseTimeOfFlight, decrease,
+         idle );
 
-    add( ReplayTripPlannerControl::TimeOfFlightIncrease, ReplayTripPlannerCommandKind::IncreaseTimeOfFlight, increase, idle );
+    add( ReplayTripPlannerControl::TimeOfFlightIncrease, ReplayTripPlannerCommandKind::IncreaseTimeOfFlight, increase,
+         idle );
 
     add( ReplayTripPlannerControl::Plan, ReplayTripPlannerCommandKind::Plan, plan, planner.available && idle );
 

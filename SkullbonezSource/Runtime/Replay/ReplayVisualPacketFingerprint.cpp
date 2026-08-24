@@ -617,7 +617,6 @@ bool ReplayVisualPacketMatchesArchiveSample( const ReplayVisualPacket& packet, c
     // The immutable runtime report still pins the raw record count; this
     // offline visual comparison instead verifies the participating trajectory
     // hash and every renderer-bound byte below.
-
     if ( packet.futureNodes.size() != expected.futureNodeCount )
     {
         return fail( "futureNodeCount" );

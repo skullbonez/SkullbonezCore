@@ -427,8 +427,8 @@ void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, Replay
                 ReplayOverlayControlKind::Toggle, highDetail, highDetail, !input.loadedPresentation,
                 input.predictionToolsEnabled, input.predictionHighDetail );
 
-    addControl( ReplayScrubberControl::VelocityEdit, ReplayScrubberAction::ToggleVelocityEdit, ReplayOverlayControlKind::Toggle,
-                velocity, velocity, !input.loadedPresentation, input.solverToolsEnabled );
+    addControl( ReplayScrubberControl::VelocityEdit, ReplayScrubberAction::ToggleVelocityEdit,
+                ReplayOverlayControlKind::Toggle, velocity, velocity, !input.loadedPresentation, input.solverToolsEnabled );
 
     addControl( ReplayScrubberControl::PredictionToggle, ReplayScrubberAction::TogglePrediction,
                 ReplayOverlayControlKind::Toggle, predictionToggle, predictionToggle, !input.loadedPresentation,
@@ -439,7 +439,8 @@ void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, Replay
                 input.predictionToolsEnabled );
 
     addControl( ReplayScrubberControl::RagdollVisuals, ReplayScrubberAction::ToggleRagdollVisuals,
-                ReplayOverlayControlKind::Toggle, ragdoll, ragdoll, !input.loadedPresentation, input.predictionToolsEnabled );
+                ReplayOverlayControlKind::Toggle, ragdoll, ragdoll, !input.loadedPresentation,
+                input.predictionToolsEnabled );
 
     addControl( ReplayScrubberControl::PastPath, ReplayScrubberAction::TogglePastPath, ReplayOverlayControlKind::Toggle,
                 pastPath, pastPath, !input.loadedPresentation, input.pastPathToolsEnabled );
@@ -450,17 +451,17 @@ void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, Replay
     addControl( ReplayScrubberControl::Load, ReplayScrubberAction::Load, ReplayOverlayControlKind::Button, load, load, true,
                 true );
 
-    addControl( ReplayScrubberControl::ScrubTrack, ReplayScrubberAction::Scrub, ReplayOverlayControlKind::Track, track, track,
-                true, input.scrubTrackDragEnabled );
+    addControl( ReplayScrubberControl::ScrubTrack, ReplayScrubberAction::Scrub, ReplayOverlayControlKind::Track, track,
+                track, true, input.scrubTrackDragEnabled );
 
     addControl( ReplayScrubberControl::PredictionPanel, ReplayScrubberAction::None, ReplayOverlayControlKind::Panel,
                 predictionPanel, predictionPanel, !input.loadedPresentation, input.predictionToolsEnabled );
 
-    addControl( ReplayScrubberControl::Panel, ReplayScrubberAction::None, ReplayOverlayControlKind::Panel, panel, panel, true,
-                true );
+    addControl( ReplayScrubberControl::Panel, ReplayScrubberAction::None, ReplayOverlayControlKind::Panel, panel, panel,
+                true, true );
 
-    addControl( ReplayScrubberControl::HotZone, ReplayScrubberAction::None, ReplayOverlayControlKind::HotZone, hotZone, hotZone,
-                input.hotZoneEnabled, true );
+    addControl( ReplayScrubberControl::HotZone, ReplayScrubberAction::None, ReplayOverlayControlKind::HotZone, hotZone,
+                hotZone, input.hotZoneEnabled, true );
 
     ReplayScrubberControl active = ReplayScrubberControl::None;
 
@@ -536,8 +537,10 @@ void BuildReplayCauseWindowSurface( const RunReplayCauseTreeState& state, Replay
     // panel background. Specific controls publish before their containing rows.
     add( ReplayCauseWindowControl::Resize, ReplayOverlayControlKind::ToolHandle, ReplayCauseWindowResizeRect( state ) );
     add( ReplayCauseWindowControl::Title, ReplayOverlayControlKind::Track, ReplayCauseWindowTitleRect( state ) );
-    add( ReplayCauseWindowControl::FilterField, ReplayOverlayControlKind::Button, ReplayCauseWindowFilterFieldRect( state ) );
-    add( ReplayCauseWindowControl::FilterFunnel, ReplayOverlayControlKind::Button, ReplayCauseWindowFilterFunnelRect( state ) );
+    add( ReplayCauseWindowControl::FilterField, ReplayOverlayControlKind::Button,
+         ReplayCauseWindowFilterFieldRect( state ) );
+    add( ReplayCauseWindowControl::FilterFunnel, ReplayOverlayControlKind::Button,
+         ReplayCauseWindowFilterFunnelRect( state ) );
     add( ReplayCauseWindowControl::FilterAll, ReplayOverlayControlKind::Button,
          ReplayCauseWindowFilterChipRect( state, RunReplayCauseTreeFilter::All ) );
     add( ReplayCauseWindowControl::FilterPrediction, ReplayOverlayControlKind::Button,

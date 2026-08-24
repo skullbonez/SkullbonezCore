@@ -511,8 +511,7 @@ RuntimeTools::WriteLauncherReproSnapshotWithStatusMessage( const LauncherReproSn
 
     if ( result.status == LauncherReproSnapshotStatus::Wrote )
     {
-        sprintf_s( result.message.data(), result.message.size(), "Repro snapshot: %s",
-                   LAUNCHER_REPRO_SNAPSHOT_PATH );
+        sprintf_s( result.message.data(), result.message.size(), "Repro snapshot: %s", LAUNCHER_REPRO_SNAPSHOT_PATH );
     }
     else if ( result.status == LauncherReproSnapshotStatus::NoTarget )
     {

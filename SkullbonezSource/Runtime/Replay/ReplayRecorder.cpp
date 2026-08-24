@@ -1977,8 +1977,7 @@ void ReplayRecorder::ResetTimeline( const char* sceneLabel )
 
 void ReplayRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_t eventCursor, int sceneFrame, float physicsDt,
                                    const ReplayWorldPresentationSample& world, const ReplayCameraSample& camera,
-                                   Physics::PhysicsEngine& physics,
-                                   std::span<const char* const> entityDisplayNames )
+                                   Physics::PhysicsEngine& physics, std::span<const char* const> entityDisplayNames )
 {
     if ( !m_config.enabled )
     {

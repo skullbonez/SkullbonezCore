@@ -178,7 +178,7 @@ class Run
 
     // Subsystem owners below are ordered by lifetime dependency. Renderer and
     // frame bindings borrow from these objects; they do not own them.
-    CaptureController m_capture;                                                                                 // Capture-owned screenshot and automation state.
+    CaptureController m_capture;                                                                                  // Capture-owned screenshot and automation state.
     GraphicsStressController m_graphicsStress;                                                                    // Capture-owned deterministic render/runtime churn policy.
     LiveStyleController m_liveStyle;                                                                              // Direction-owned live presentation command source.
     DiagnosticsRuntime m_diagnosticsRuntime;                                                                      // Perf, memory, and queryable physics diagnostics owner.
@@ -194,8 +194,8 @@ class Run
     InteractionAutomationController m_interactionAutomation;                                                      // Automation-build CLI harness that injects runtime mouse input for regression tests.
 #endif
     CameraControlState m_camera;                                                                                  // Camera/input state and ball-tracking settings
-    SceneLifecycleGenerationObserver m_cameraSceneLifecycleObserver;                                             // App applies detached camera state once after each clear.
-    SceneLifecycleGenerationObserver m_attachedCameraSceneLifecycleObserver;                                     // App resets the Scene-owned attach target once after each clear.
+    SceneLifecycleGenerationObserver m_cameraSceneLifecycleObserver;                                              // App applies detached camera state once after each clear.
+    SceneLifecycleGenerationObserver m_attachedCameraSceneLifecycleObserver;                                      // App resets the Scene-owned attach target once after each clear.
     AttachedCameraController m_attachedCamera;                                                                    // Owns non-serialized Attach target/orbit/follow state.
     LookLabController m_lookLab;                                                                                  // Owns the current presentation-only authoring candidate.
     SimulationSystem m_simulation;                                                                                // Simulation timestep policy and physics accumulators
@@ -272,11 +272,10 @@ class Run
     bool ApplyLookLabSeed( uint64_t seed );                                                                       // Resolves and applies one presentation-only candidate.
     void BeginLookLabSave();                                                                                      // Starts one style/receipt/capture transaction for the current candidate.
     void CompleteLookLabPostRenderCaptures();                                                                     // Returns Capture results to the matching Look Lab transaction.
-    void ApplyDemoDirectorTickResult( const DemoDirectorTickResult& result );                                    // Applies Direction's style/reveal/camera commands in authored order.
+    void ApplyDemoDirectorTickResult( const DemoDirectorTickResult& result );                                     // Applies Direction's style/reveal/camera commands in authored order.
     void CancelPendingLookLabSave( const char* reason );                                                          // Finalizes a pending receipt before scene or process teardown.
     void PrepareSceneScopedOwnersForTransition();                                                                 // Joins forecast work and clears presentation candidates before load.
-    SkullbonezCore::Core::SbResult LoadSceneRequest( SceneLoadTransaction& transaction,
-                                                     const SceneLoadRequest& request );
+    SkullbonezCore::Core::SbResult LoadSceneRequest( SceneLoadTransaction& transaction, const SceneLoadRequest& request );
     bool ExecutePendingSceneRequests( SceneLoadTransaction& transaction );
     void ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction );
     SkullbonezCore::Core::SbResult RunUIStressActions();

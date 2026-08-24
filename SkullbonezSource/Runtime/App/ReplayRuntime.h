@@ -203,6 +203,7 @@ void ExitInspectionCamera( ReplayPresentation& presentation, const ReplayAuthori
 bool BeginLoadedPresentationActivation( bool hasLoadedPresentation, ReplayScrubber& scrubber,
                                         ReplayPresentation& presentation, ReplayAuthoring& authoring,
                                         RuntimeInteractionController& interaction, InputRouter& inputRouter );
+
 // App-level activation closes both lower Replay presentation state and the
 // sibling Prediction owner before arming the loaded scrub position.
 void ArmLoadedPresentation( float normalized, double now, ReplayScrubber& scrubber, ReplayPresentation& presentation,
@@ -273,10 +274,10 @@ class ReplayProbeRunner
     SkullbonezCore::Core::SbResult CurrentFailure() const;
     void RecordFailure( const SkullbonezCore::Core::SbResult& result );
     SkullbonezCore::Core::SbResult VerifyLoadedPresentation( ReplayTimeline& timeline, ReplayScrubber& scrubber,
-                                                              ReplayPresentation& presentation, ReplayAuthoring& authoring,
-                                                              ReplayPrediction& prediction,
-                                                              ReplayPredictionPresentation& predictionPresentation,
-                                                              const ReplayStartupLoadInput& loadInput, SceneWorld& world,
+                                                             ReplayPresentation& presentation, ReplayAuthoring& authoring,
+                                                             ReplayPrediction& prediction,
+                                                             ReplayPredictionPresentation& predictionPresentation,
+                                                             const ReplayStartupLoadInput& loadInput, SceneWorld& world,
                                                              EditorToolsOwner& editorTools, RuntimeTools& runtimeTools,
                                                              float normalized );
     SkullbonezCore::Core::SbResult PrepareCheckpointFileProbe( const char* path, ReplaySolverFrameSample& outCheckpoint,
@@ -585,6 +586,7 @@ class ReplayRuntime
                                bool directorGrabbed, RuntimeInteractionController& interaction, InputRouter& inputRouter );
 
   private:
+
     // Advances one selected restore target through event application, fixed
     // stepping, and hash validation while the transaction owns progress.
     bool StepRestoreTarget( ReplayRestoreTransaction& transaction, SceneController& sceneController,
@@ -658,12 +660,11 @@ class ReplayRuntime
 #ifdef _DEBUG
     // Runs the configured Debug startup probes after product artifact loading
     // has completed; early probe failures are returned in the value result.
-    ReplayStartupResult RunStartupProbeWorkflows(
-        const ReplayStartupWorkflowState& startup, const ReplayStartupLoadInput& loadInput, SceneController& sceneController,
-        DiagnosticsRuntime& diagnosticsRuntime, OverlayDebugState& debug, EditorToolsOwner& editorTools,
-        RuntimeTools& runtimeTools, SimulationSystem& simulation, const SkullbonezCore::Core::EngineConfig& config,
-        Assets::AssetSystem& assets, Threading::WorkerPool& workerPool,
-        SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides, GeneratedObjectTypeOverride& generatedObjectTypeOverride );
+    ReplayStartupResult RunStartupProbeWorkflows( const ReplayStartupWorkflowState& startup, const ReplayStartupLoadInput& loadInput, SceneController& sceneController,
+                                                  DiagnosticsRuntime& diagnosticsRuntime, OverlayDebugState& debug, EditorToolsOwner& editorTools,
+                                                  RuntimeTools& runtimeTools, SimulationSystem& simulation, const SkullbonezCore::Core::EngineConfig& config,
+                                                  Assets::AssetSystem& assets, Threading::WorkerPool& workerPool,
+                                                  SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides, GeneratedObjectTypeOverride& generatedObjectTypeOverride );
 #endif
 
     // Lifetime: startup-bound diagnostics borrow shared only with concrete replay owners.

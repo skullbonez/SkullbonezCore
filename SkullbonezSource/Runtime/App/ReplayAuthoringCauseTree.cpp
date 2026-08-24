@@ -320,11 +320,10 @@ bool ReplayPipelineRecordAnchorsContact( const PhysicsPipelineRecord& record,
 }
 } // namespace
 
-bool SkullbonezCore::Runtime::BuildReplayCauseTreeRows(
-    const ReplayPrediction& predictionOwner, ReplayAuthoring& authoring, const RunReplayPathVisualizerState& path,
-    const ReplaySolverFrameSample* solverSample,
-    std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords, const PhysicsBodyStore& bodyStore,
-    const RunReplayCameraState& camera, int& outCameraFocusedRow )
+bool SkullbonezCore::Runtime::BuildReplayCauseTreeRows( const ReplayPrediction& predictionOwner, ReplayAuthoring& authoring, const RunReplayPathVisualizerState& path,
+                                                        const ReplaySolverFrameSample* solverSample,
+                                                        std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords, const PhysicsBodyStore& bodyStore,
+                                                        const RunReplayCameraState& camera, int& outCameraFocusedRow )
 {
     const RunReplayPredictionState& prediction = predictionOwner.State();
     const std::span<const RunReplayPredictionFrame> activePredictionFrames = predictionOwner.ActiveFrames();
@@ -785,8 +784,7 @@ bool SkullbonezCore::Runtime::BuildReplayCauseTreeRows(
             manifoldRow.modelRow.value = bodyRow.modelRow.value;
             manifoldRow.counterpartModelRow.value = group.otherModelIndex;
             manifoldRow.contactIndex = firstContactIndex;
-            const Physics::PhysicsSolverPersistentContactSample* firstContact = sourceContactAt(
-                static_cast<std::size_t>( firstContactIndex ) );
+            const Physics::PhysicsSolverPersistentContactSample* firstContact = sourceContactAt( static_cast<std::size_t>( firstContactIndex ) );
             manifoldRow.pipelineIndex = firstContact ? sourcePipelineIndexForContact( *firstContact ) : -1;
 
             if ( usePrediction && manifoldRow.pipelineIndex < 0 )
@@ -883,8 +881,7 @@ bool SkullbonezCore::Runtime::BuildReplayCauseTreeRows(
 
                 if ( solverRow.pipelineIndex >= 0 )
                 {
-                    const PhysicsPipelineRecord* record = sourcePipelineAt(
-                        static_cast<std::size_t>( solverRow.pipelineIndex ) );
+                    const PhysicsPipelineRecord* record = sourcePipelineAt( static_cast<std::size_t>( solverRow.pipelineIndex ) );
 
                     traceStage = record ? PhysicsPipelineStageName( record->stage ) : "";
                 }
@@ -1066,11 +1063,10 @@ bool SkullbonezCore::Runtime::BuildReplayCauseTreeRows(
 }
 
 
-bool SkullbonezCore::Runtime::ActivateReplayCauseTreeRow(
-    const ReplayPrediction& predictionOwner, ReplayAuthoring& authoring, int rowIndex, ReplayPresentation& presentationOwner,
-    ReplayScrubber& scrubberOwner, const ReplaySolverFrameSample* currentSolverSample, const PhysicsBodyStore& bodyStore,
-    const ColliderStore& colliderStore, RuntimeInteractionController& interaction, Vector3& outTargetPosition,
-    float& outTargetRadius )
+bool SkullbonezCore::Runtime::ActivateReplayCauseTreeRow( const ReplayPrediction& predictionOwner, ReplayAuthoring& authoring, int rowIndex, ReplayPresentation& presentationOwner,
+                                                          ReplayScrubber& scrubberOwner, const ReplaySolverFrameSample* currentSolverSample, const PhysicsBodyStore& bodyStore,
+                                                          const ColliderStore& colliderStore, RuntimeInteractionController& interaction, Vector3& outTargetPosition,
+                                                          float& outTargetRadius )
 {
     const RunReplayPredictionState& prediction = predictionOwner.State();
     const std::span<const RunReplayPredictionFrame> activePredictionFrames = predictionOwner.ActiveFrames();

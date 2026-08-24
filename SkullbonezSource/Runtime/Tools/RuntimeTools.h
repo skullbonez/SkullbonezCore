@@ -86,7 +86,7 @@ namespace SkullbonezCore::Geometry
 {
 class Ray;
 class Terrain;
-}
+} // namespace SkullbonezCore::Geometry
 
 namespace SkullbonezCore::Environment
 {
@@ -206,8 +206,8 @@ struct LauncherReproSnapshotContext
     bool physicsSleepEnabled;
     bool vsyncEnabled;
     bool pipelineSyncEnabled;
-    float contactEpsilon;                                                                          // Physics contact tolerance captured from Run config for repro output.
-    float frictionCoeff;                                                                           // Physics friction setting captured from Run config for repro output.
+    float contactEpsilon;             // Physics contact tolerance captured from Run config for repro output.
+    float frictionCoeff;              // Physics friction setting captured from Run config for repro output.
     bool waterHidden;
     bool terrainHidden;
     bool collisionVisualizer;
@@ -235,7 +235,7 @@ struct RunMousePickupState
     Physics::PhysicsBodyHandle body;
     Math::Vector::Vector3 planePoint = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 planeNormal = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
-    float cameraPlaneDistance = 0.0f;                                                              // World units from camera eye to the camera-facing pickup plane.
+    float cameraPlaneDistance = 0.0f; // World units from camera eye to the camera-facing pickup plane.
     Math::Vector::Vector3 grabOffset = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 targetPoint = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 preservedAngularVelocity = Math::Vector::ZERO_VECTOR;
@@ -244,8 +244,8 @@ struct RunMousePickupState
 
 struct MousePickupPointerResult
 {
-    bool consumed = false;                                                                         // Prevents later world owners from seeing this pointer gesture.
-    bool enteredInteractive = false;                                                               // Composition disables automation quit after a successful grab begins.
+    bool consumed = false;            // Prevents later world owners from seeing this pointer gesture.
+    bool enteredInteractive = false;  // Composition disables automation quit after a successful grab begins.
 };
 
 struct LauncherPointerInput
@@ -308,7 +308,8 @@ class RuntimeTools
     bool PickLauncherReproTarget( const SceneWorld& world, int& outIndex, float& outRayT,
                                   float& outCrosshairDistance ) const;
     LauncherReproSnapshotStatus WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& context ) const;
-    LauncherReproSnapshotResult WriteLauncherReproSnapshotWithStatusMessage( const LauncherReproSnapshotContext& context ) const;
+    LauncherReproSnapshotResult
+    WriteLauncherReproSnapshotWithStatusMessage( const LauncherReproSnapshotContext& context ) const;
 #endif
 
     LauncherLaser& Laser();
@@ -320,11 +321,12 @@ class RuntimeTools
     // proves manipulator mode is the active world owner. All borrows expire
     // before the method returns; pickup retains only its typed body handle and
     // camera-plane values.
-    MousePickupPointerResult
-    RouteMousePickupPointer( const RuntimePointerEvent& pointer, bool hasWorldRay, const Geometry::Ray& worldRay,
-                             bool hasClampedWorldRay, const Geometry::Ray& clampedWorldRay,
-                             const Math::Vector::Vector3& cameraEye, const Math::Vector::Vector3& cameraView,
-                             const SceneWorld& world, InputRouter& inputRouter, RuntimeInteractionController& interaction );
+    MousePickupPointerResult RouteMousePickupPointer( const RuntimePointerEvent& pointer, bool hasWorldRay,
+                                                      const Geometry::Ray& worldRay, bool hasClampedWorldRay,
+                                                      const Geometry::Ray& clampedWorldRay,
+                                                      const Math::Vector::Vector3& cameraEye,
+                                                      const Math::Vector::Vector3& cameraView, const SceneWorld& world,
+                                                      InputRouter& inputRouter, RuntimeInteractionController& interaction );
 
     // Applies the manipulator spring at the fixed-step boundary. Tool state is
     // owned here; scene physics and input/interaction owners are synchronous borrows.
@@ -340,8 +342,7 @@ class RuntimeTools
 
     // Rebuilds the fixed-capacity tool draw records before RuntimeRenderer
     // submits them. World/model/asset owners remain borrowed for this call.
-    void PrepareOverlayTrace( SceneWorld& world, const ToolEditorOverlayValues& editor,
-                              const ToolOverlayBuildInput& input );
+    void PrepareOverlayTrace( SceneWorld& world, const ToolEditorOverlayValues& editor, const ToolOverlayBuildInput& input );
 
   private:
     SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;

@@ -546,8 +546,7 @@ class ReplaySolverRecorder
     void CaptureFrame( const ReplayBranchInfo& branch, uint32_t eventCursor, int sceneFrame, float physicsDt,
                        const ReplayWorldPresentationSample& world, const ReplayCameraSample& camera,
                        const ReplayLauncherVisualSample& launcherVisual, Physics::PhysicsEngine& physics,
-                       const Gameplay::TornadoGameplay& tornadoGameplay,
-                       std::span<const char* const> entityDisplayNames );
+                       const Gameplay::TornadoGameplay& tornadoGameplay, std::span<const char* const> entityDisplayNames );
     bool IsEnabled() const;
     ReplayRecorderStats GetStats() const;
 

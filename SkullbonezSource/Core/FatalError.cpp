@@ -47,6 +47,7 @@ void PrintRawStack() noexcept
 #if defined( _WIN32 )
     void* frames[32] = {};
     const USHORT count = CaptureStackBackTrace( 2u, 32u, frames, nullptr );
+
     for ( USHORT index = 0; index < count; ++index )
     {
         std::fprintf( stderr, "STACK[%u]=%p\n", static_cast<unsigned>( index ), frames[index] );

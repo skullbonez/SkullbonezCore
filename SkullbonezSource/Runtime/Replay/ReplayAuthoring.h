@@ -190,8 +190,7 @@ class ReplayAuthoring
     void BeginCauseTreeMove( int mouseX, int mouseY ) noexcept;
     bool TryGetCauseTreeRow( int rowIndex, RunReplayCauseTreeRow& outRow ) const noexcept;
     void SetCauseTreeFocus( int rowIndex, Physics::PhysicsSceneObjectId focusedId ) noexcept;
-    ReplayCauseTreeInputResult TickCauseTreeInput( ReplayPresentation& presentationOwner,
-                                                   ReplayScrubber& scrubberOwner,
+    ReplayCauseTreeInputResult TickCauseTreeInput( ReplayPresentation& presentationOwner, ReplayScrubber& scrubberOwner,
                                                    const ReplayCauseTreeInputFrame& frame );
 
     // Unwinds a stale drag when velocity editing cannot run this frame. The
@@ -330,8 +329,7 @@ class ReplayAuthoring
     // identity. App applies the detached command to its Tools sibling.
     bool BuildVelocityOverlayCommand( Physics::PhysicsSceneObjectId targetId, Physics::ModelRowHint targetModelRow,
                                       Physics::PhysicsEngine& physics, bool editorModeEnabled,
-                                      const ReplayToolGestureView& gesture,
-                                      ReplayVelocityOverlayCommand& outCommand ) const;
+                                      const ReplayToolGestureView& gesture, ReplayVelocityOverlayCommand& outCommand ) const;
 
     // Concept: authoring publishes a value command instead of holding a
     // prediction pointer or callback. Multiple edits before consumption fold

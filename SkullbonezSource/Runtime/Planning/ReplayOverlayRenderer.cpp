@@ -502,6 +502,7 @@ const UI::UIDrawList& ReplayOverlayDrawOwner::Compose( const ReplayOverlayStateV
             ComposeReplayPorkchopOverlay( drawList, replay, screenW, screenH );
             break;
         case ReplayOverlaySurfaceKind::CauseTree:
+
             // Why: the cause tree is an inspection tool, not a child of the
             // scrubber. Compose it even when scrubber policy hides its surface.
             ComposeReplayCauseTreeOverlay( drawList, replay, screenW, screenH );
@@ -546,9 +547,8 @@ const UI::UIDrawList& ReplayOverlayDrawOwner::Compose( const ReplayOverlayStateV
     surfaceInput.screenW = screenW;
     surfaceInput.screenH = screenH;
     surfaceInput.gesture = gesture.scrubDrag ? ReplayToolGestureKind::ScrubDrag
-                                            : ( gesture.predictionHorizonDrag
-                                                    ? ReplayToolGestureKind::PredictionHorizonDrag
-                                                    : ReplayToolGestureKind::None );
+                                             : ( gesture.predictionHorizonDrag ? ReplayToolGestureKind::PredictionHorizonDrag
+                                                                               : ReplayToolGestureKind::None );
     surfaceInput.predictionEnabled = replay.prediction.enabled;
     surfaceInput.predictionHighDetail = replay.prediction.detailMode == ReplayPredictionDetailMode::High;
     ReplayScrubberSurface surface;
@@ -763,9 +763,7 @@ const UI::UIDrawList& ReplayOverlayDrawOwner::Compose( const ReplayOverlayStateV
         const float fillW = (std::max)( REPLAY_SCRUBBER_TRACK_HEIGHT, track.w * rowT );
         const float knobX = track.x + track.w * rowT;
         const bool active = activeTrack == trackName;
-        const bool inactiveDuringScrub = ( gesture.scrubDrag ||
-                                           scrubber.historicalSamplePaused ) &&
-                                         !active;
+        const bool inactiveDuringScrub = ( gesture.scrubDrag || scrubber.historicalSamplePaused ) && !active;
 
         const bool saveHover = saveEnabled && isHotControl( ReplayScrubberControl::Save );
         const bool saveFeedback = scrubber.saveMessage[0] != '\0' && scrubber.saveMessageUntil >= now;
@@ -865,8 +863,7 @@ const UI::UIDrawList& ReplayOverlayDrawOwner::Compose( const ReplayOverlayStateV
     const UI::UIRect ragdollVisualToggle = control( ReplayScrubberControl::RagdollVisuals ).drawRect;
     const UI::UIRect pastPathToggle = control( ReplayScrubberControl::PastPath ).drawRect;
     const bool predictHover = predictionToolsEnabled &&
-                              ( isHotControl( ReplayScrubberControl::PredictionHorizon ) ||
-                                gesture.predictionHorizonDrag );
+                              ( isHotControl( ReplayScrubberControl::PredictionHorizon ) || gesture.predictionHorizonDrag );
 
     const bool predictEnabled = predictionToolsEnabled && replay.prediction.enabled;
     const bool ragdollVisualsEnabled = predictionToolsEnabled && replay.prediction.ragdollVisualsEnabled;
@@ -1306,7 +1303,6 @@ static void ComposeReplayPorkchopOverlay( UI::UIDrawList& drawList, const Replay
 
     draw.Text( panel.x + 14.0f, panel.y + panel.h - 28.0f, 10.0f, palette.accentStrong.r, palette.accentStrong.g,
                palette.accentStrong.b, readout );
-
 }
 
 static void ComposeReplayCauseTreeOverlay( UI::UIDrawList& drawList, const ReplayOverlayStateView& replay, int screenW,
@@ -1631,6 +1627,5 @@ static void ComposeReplayCauseTreeOverlay( UI::UIDrawList& drawList, const Repla
 
     draw.Rect( resize.x + resize.w - 5.0f, resize.y + 4.0f, 1.0f, resize.h - 7.0f, CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b,
                0.72f );
-
 }
 } // namespace SkullbonezCore::Runtime::ReplayOverlay

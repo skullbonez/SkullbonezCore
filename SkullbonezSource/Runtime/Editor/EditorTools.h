@@ -65,7 +65,7 @@ namespace Runtime
 {
 class EditorTracer;
 class SceneController;
-}
+} // namespace Runtime
 namespace Geometry
 {
 class Terrain;

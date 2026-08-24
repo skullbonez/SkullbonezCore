@@ -93,19 +93,15 @@ class ReplayPlanningRuntime
                                                  const Physics::PhysicsBodyStore& bodyStore,
                                                  const Physics::ColliderStore& colliderStore );
 
-    ReplayTripPlannerVelocityMutation BeginFrameBeforePrediction( Physics::PhysicsEngine& physics,
-                                                                  const ReplayPlanningSceneView& scene,
-                                                                  const Physics::PhysicsWorldForces& worldForces,
-                                                                  const RunReplayPathVisualizerState& path,
-                                                                  const ReplayPredictionPresentationView& prediction,
-                                                                  bool liveAdvanceHeld );
-    ReplayTripPlannerVelocityMutation FinishFrameAfterPrediction( Physics::PhysicsEngine& physics,
-                                                                  const ReplayPlanningSceneView& scene,
-                                                                  const Physics::PhysicsWorldForces& worldForces,
-                                                                  double nowSeconds,
-                                                                  const RunReplayPathVisualizerState& path,
-                                                                  const ReplayPredictionPresentationView& prediction,
-                                                                  bool liveAdvanceHeld );
+    ReplayTripPlannerVelocityMutation
+    BeginFrameBeforePrediction( Physics::PhysicsEngine& physics, const ReplayPlanningSceneView& scene,
+                                const Physics::PhysicsWorldForces& worldForces, const RunReplayPathVisualizerState& path,
+                                const ReplayPredictionPresentationView& prediction, bool liveAdvanceHeld );
+    ReplayTripPlannerVelocityMutation
+    FinishFrameAfterPrediction( Physics::PhysicsEngine& physics, const ReplayPlanningSceneView& scene,
+                                const Physics::PhysicsWorldForces& worldForces, double nowSeconds,
+                                const RunReplayPathVisualizerState& path, const ReplayPredictionPresentationView& prediction,
+                                bool liveAdvanceHeld );
 
   private:
     void UpdateInterceptReadout( Physics::PhysicsEngine& physics, bool mutualGravityEnabled,
@@ -115,12 +111,10 @@ class ReplayPlanningRuntime
                           const Physics::PhysicsWorldForces& worldForces, double nowSeconds );
     void UpdatePorkchopPanel( Physics::PhysicsEngine& physics, const ReplayPlanningSceneView& scene,
                               const Physics::PhysicsWorldForces& worldForces, double nowSeconds );
-    ReplayTripPlannerVelocityMutation BeginTripPlannerFrame( Physics::PhysicsEngine& physics,
-                                                              const ReplayPlanningSceneView& scene,
-                                                              const Physics::PhysicsWorldForces& worldForces,
-                                                              const RunReplayPathVisualizerState& path,
-                                                              const ReplayPredictionPresentationView& prediction,
-                                                              bool liveAdvanceHeld );
+    ReplayTripPlannerVelocityMutation
+    BeginTripPlannerFrame( Physics::PhysicsEngine& physics, const ReplayPlanningSceneView& scene,
+                           const Physics::PhysicsWorldForces& worldForces, const RunReplayPathVisualizerState& path,
+                           const ReplayPredictionPresentationView& prediction, bool liveAdvanceHeld );
     ReplayTripPlannerVelocityMutation ObserveTripPlannerPrediction( const RunReplayPathVisualizerState& path,
                                                                     const ReplayPredictionPresentationView& prediction,
                                                                     bool liveAdvanceHeld );

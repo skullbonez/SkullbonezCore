@@ -30,6 +30,7 @@ inline void ApplySceneCaptureReactions( CaptureController& capture, const SceneC
     for ( std::size_t index = 0; index < reactions.count; ++index )
     {
         const SceneCaptureReaction& reaction = reactions.reactions[index];
+
         switch ( reaction.kind )
         {
         case SceneCaptureReactionKind::DisableAutomationExit:
@@ -41,8 +42,7 @@ inline void ApplySceneCaptureReactions( CaptureController& capture, const SceneC
         case SceneCaptureReactionKind::ApplyAutomation:
             capture.ApplySceneAutomation( reaction.automation.screenshotFrame, reaction.automation.screenshotMs,
                                           reaction.automation.screenshotAndExit, reaction.automation.screenshotPath,
-                                          reaction.automation.screenshotInterval,
-                                          reaction.automation.screenshotDirectory );
+                                          reaction.automation.screenshotInterval, reaction.automation.screenshotDirectory );
             break;
         }
     }

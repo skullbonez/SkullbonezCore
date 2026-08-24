@@ -54,12 +54,12 @@ namespace Core
 {
 class EngineConfig;
 class SbDiagnosticStore;
-}
+} // namespace Core
 namespace Rendering
 {
 class Dx12FrameOwner;
 class Dx12ResourceBuilder;
-}
+} // namespace Rendering
 namespace Threading
 {
 class WorkerPool;
@@ -188,8 +188,7 @@ class SceneLoadTransaction
                                  const char* physicsRegressionLogPath, const char* physicsCollisionTimeLogPath );
 
     const SceneLoadBeginResult& Prepare( SceneController& sceneController, const SceneLoadRequest& request,
-                                         Rendering::Dx12FrameOwner* renderFrame,
-                                         bool interactiveSceneRunRequested );
+                                         Rendering::Dx12FrameOwner* renderFrame, bool interactiveSceneRunRequested );
     void CompleteBeforeUnloadDiagnostics();
 
     SkullbonezCore::Core::SbResult Load( SceneController& sceneController, const SceneLoadRequest& request,
@@ -257,7 +256,7 @@ class SceneLoadTransaction
     }
 
     ScenePresentationValues PresentationForFollowingRequest( const ScenePresentationValues& submitted,
-                                                              const SceneLifecyclePacket& lifecycle ) const
+                                                             const SceneLifecyclePacket& lifecycle ) const
     {
         return m_request.HasLoad() && m_phase.Current() == SceneLoadPhaseCursor::Phase::Load
                    ? ( SceneLifecycleReached( lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneCleared )
@@ -284,10 +283,9 @@ class SceneLoadTransaction
     static SceneLoadBeginResult PrepareLoad( const SceneController& controller,
                                              const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
                                              SceneRenderPolicyState renderPolicy,
-                                             const ScenePresentationValues& presentation,
-                                             const CameraControlState& camera, Rendering::Dx12FrameOwner* renderFrame,
-                                             bool interactiveSceneRunRequested, int index, bool suppressExitOnComplete,
-                                             bool preserveRuntimeState );
+                                             const ScenePresentationValues& presentation, const CameraControlState& camera,
+                                             Rendering::Dx12FrameOwner* renderFrame, bool interactiveSceneRunRequested,
+                                             int index, bool suppressExitOnComplete, bool preserveRuntimeState );
     static void CommitLoad( SceneController& controller, SceneLoadNavigationState& navigation,
                             const SceneLoadBeginResult& prepared );
     static SceneResetPreservationSnapshot
@@ -296,8 +294,8 @@ class SceneLoadTransaction
                           const CameraControlState& camera );
     static void RestoreResetSnapshot( SceneController& controller, SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
                                       SceneRenderPolicyState& renderPolicy, ScenePresentationValues& presentation,
-                                      CameraControlState& camera,
-                                      const SceneResetPreservationSnapshot& snapshot, bool suppressExitOnComplete );
+                                      CameraControlState& camera, const SceneResetPreservationSnapshot& snapshot,
+                                      bool suppressExitOnComplete );
     static void ClearUiOverrides( SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides );
     SkullbonezCore::Core::SbResult
     LoadGeneratedScene( SceneController& sceneController, SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
@@ -313,22 +311,21 @@ class SceneLoadTransaction
                        bool retainedPhysicsSleepEnabled );
     void ApplyAuthoredValues( SceneController& sceneController, SkullbonezCore::Core::EngineConfig& config,
                               RunLaunchOptions& launchOptions, const AuthoredScene& scene, unsigned int rngSeed );
-    SkullbonezCore::Core::SbResult
-    BuildAuthoredTerrain( SceneController& sceneController, SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                          SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions,
-                          Assets::AssetSystem& assets, const AuthoredScene& scene,
-                          Rendering::Dx12FrameOwner* renderFrame, Rendering::Dx12ResourceBuilder* renderResources );
-    SkullbonezCore::Core::SbResult
-    PopulateAuthoredEntities( SceneController& sceneController, SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                              SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions,
-                              const AuthoredScene& scene );
+    SkullbonezCore::Core::SbResult BuildAuthoredTerrain( SceneController& sceneController,
+                                                         SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                         SkullbonezCore::Core::EngineConfig& config,
+                                                         RunLaunchOptions& launchOptions, Assets::AssetSystem& assets,
+                                                         const AuthoredScene& scene, Rendering::Dx12FrameOwner* renderFrame,
+                                                         Rendering::Dx12ResourceBuilder* renderResources );
+    SkullbonezCore::Core::SbResult PopulateAuthoredEntities( SceneController& sceneController,
+                                                             SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                             SkullbonezCore::Core::EngineConfig& config,
+                                                             RunLaunchOptions& launchOptions, const AuthoredScene& scene );
     void FinalizeLoadedScene( SceneController& sceneController, SkullbonezCore::Core::EngineConfig& config,
                               RunLaunchOptions& launchOptions, bool retainedPhysicsSleepEnabled,
-                              bool sceneMutualGravityEnabled,
-                              const AuthoredTornadoSystemConfig* sceneTornadoSystem );
+                              bool sceneMutualGravityEnabled, const AuthoredTornadoSystemConfig* sceneTornadoSystem );
     void PrepareUiOptions( ScenePresentationValues& presentation, SceneUiActivation& activation,
-                           const SceneUIOptions& options, double nowSeconds, bool preserveUIState,
-                           bool automationScene );
+                           const SceneUIOptions& options, double nowSeconds, bool preserveUIState, bool automationScene );
     void AppendCaptureReaction( const SceneCaptureReaction& reaction );
     void AppendDiagnosticsReaction( const SceneDiagnosticsReaction& reaction );
     SceneLoadRequest m_request = SceneLoadRequest::None();

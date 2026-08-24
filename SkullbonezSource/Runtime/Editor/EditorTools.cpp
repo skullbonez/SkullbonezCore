@@ -446,8 +446,11 @@ void HandleEditorSceneSaveHotkey( SkullbonezCore::Core::SbDiagnosticStore& diagn
         return;
     }
 
-    const SkullbonezCore::Core::SbResult saveResult = GameObjects::SceneSnapshotWriter::Save(
-        diagnostics, GameObjects::SceneSaveRequest { path, world.GetSaveState(), scene.GetSaveState(), presentation } );
+    const SkullbonezCore::Core::SbResult
+        saveResult = GameObjects::SceneSnapshotWriter::Save( diagnostics,
+                                                             GameObjects::SceneSaveRequest { path, world.GetSaveState(),
+                                                                                             scene.GetSaveState(),
+                                                                                             presentation } );
 
     if ( !saveResult.Ok() )
     {
@@ -487,6 +490,7 @@ bool EditorToolsOwner::PrepareSelectionCommand( const RuntimeInteractionCommand&
                                                 RuntimeInteractionSelectionPlan& outPlan )
 {
     outPlan = RuntimeInteractionSelectionPlan {};
+
     if ( command.type != RuntimeInteractionCommandType::SetEditorSelection )
     {
         return false;
@@ -497,6 +501,7 @@ bool EditorToolsOwner::PrepareSelectionCommand( const RuntimeInteractionCommand&
     Physics::PhysicsBodyHandle selectedBody;
     Physics::PhysicsColliderHandle selectedCollider;
     Physics::ModelRowHint selectedModelRow;
+
     if ( command.body.IsValid() )
     {
         selectedBody = command.body;
@@ -504,11 +509,13 @@ bool EditorToolsOwner::PrepareSelectionCommand( const RuntimeInteractionCommand&
         const Physics::PhysicsBodyRecord* body = bodyStore.RecordForHandle( selectedBody );
         const Physics::ColliderRecord* collider = colliderStore.RecordForHandle( selectedCollider );
         const int bodyRow = bodyStore.ModelIndexForHandle( selectedBody );
+
         if ( !body || !collider || colliderStore.ModelIndexForHandle( selectedCollider ) != bodyRow ||
              collider->body != selectedBody )
         {
             return false;
         }
+
         selectedModelRow.value = bodyRow;
     }
     else if ( command.collider.IsValid() )
@@ -525,6 +532,7 @@ bool EditorToolsOwner::PrepareSelectionCommand( const RuntimeInteractionCommand&
     {
         outPlan.previousModelRow.value = bodyStore.ResolveModelRow( m_editor.selectedBody, m_editor.selectedModelRow );
     }
+
     outPlan.modelRow = selectedModelRow;
     outPlan.previousBody = m_editor.selectedBody;
     outPlan.body = selectedBody;
@@ -536,12 +544,14 @@ bool EditorToolsOwner::PrepareSelectionCommand( const RuntimeInteractionCommand&
 }
 
 
-bool EditorToolsOwner::CommitSelectionCommand( const RuntimeInteractionSelectionPlan& plan, RuntimeInteractionEvent& outEvent )
+bool EditorToolsOwner::CommitSelectionCommand( const RuntimeInteractionSelectionPlan& plan,
+                                               RuntimeInteractionEvent& outEvent )
 {
     outEvent = RuntimeInteractionEvent {};
     m_editor.selectedModelRow = plan.modelRow;
     m_editor.selectedBody = plan.body;
     m_editor.selectedCollider = plan.collider;
+
     if ( plan.previousModelRow.value != plan.modelRow.value || plan.previousBody != plan.body ||
          plan.previousCollider != plan.collider )
     {
@@ -553,11 +563,12 @@ bool EditorToolsOwner::CommitSelectionCommand( const RuntimeInteractionSelection
         outEvent.previousCollider = plan.previousCollider;
         outEvent.collider = plan.collider;
         outEvent.selectionScope = plan.selectionScope;
-        SkullbonezCore::Core::Log().WriteEventf(
-            "runtime_interaction_command_event type=selection_changed scope=%s previous_model=%d model=%d",
-            outEvent.selectionScope == RuntimeInteractionSelectionScope::Inspect ? "inspect" : "editor",
-            outEvent.previousModelRow.value, outEvent.modelRow.value );
+        SkullbonezCore::Core::Log()
+            .WriteEventf( "runtime_interaction_command_event type=selection_changed scope=%s previous_model=%d model=%d",
+                          outEvent.selectionScope == RuntimeInteractionSelectionScope::Inspect ? "inspect" : "editor",
+                          outEvent.previousModelRow.value, outEvent.modelRow.value );
     }
+
     return true;
 }
 
@@ -568,6 +579,7 @@ bool EditorToolsOwner::ApplySelectionCommand( const RuntimeInteractionCommand& c
     {
         return false;
     }
+
     RuntimeInteractionSelectionPlan plan;
     RuntimeInteractionEvent event;
     return PrepareSelectionCommand( command, world, plan ) && CommitSelectionCommand( plan, event );

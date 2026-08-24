@@ -60,9 +60,8 @@ class RenderInstanceRenderer
     RenderInstanceRenderer( Rendering::PrimitiveBatchRenderer& primitiveRenderer,
                             Rendering::Dx12Diagnostics& renderDiagnostics,
                             const SkullbonezCore::Core::OrdinaryRenderConfig& lighting,
-                            const Rendering::RenderInstanceStore& renderStore,
-                            const Physics::ColliderStore& colliderStore, Threading::WorkerPool* workerPool,
-                            bool useShadowParallelPrep, bool renderCollisionVolumes )
+                            const Rendering::RenderInstanceStore& renderStore, const Physics::ColliderStore& colliderStore,
+                            Threading::WorkerPool* workerPool, bool useShadowParallelPrep, bool renderCollisionVolumes )
         : m_primitiveRenderer( primitiveRenderer ), m_renderDiagnostics( renderDiagnostics ), m_lighting( lighting ),
           m_renderStore( renderStore ), m_colliderStore( colliderStore ), m_workerPool( workerPool ),
           m_useShadowParallelPrep( useShadowParallelPrep ), m_renderCollisionVolumes( renderCollisionVolumes )
@@ -74,8 +73,8 @@ class RenderInstanceRenderer
     void RenderModels( const char* shaderBaseName, const Math::Transformation::Matrix4& view,
                        const Math::Transformation::Matrix4& projection, const float ( &lightPosition )[4],
                        const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
-                       const Rendering::ShadowFrameData* shadow, float materialAlpha,
-                       const std::vector<uint8_t>* modelMask, bool drawMaskedModels );
+                       const Rendering::ShadowFrameData* shadow, float materialAlpha, const std::vector<uint8_t>* modelMask,
+                       bool drawMaskedModels );
 
     // Submits the mirrored view. Reflection clipping is structural, so callers
     // cannot accidentally select main-view visibility or supply a model mask.
@@ -85,14 +84,12 @@ class RenderInstanceRenderer
                                  const Rendering::ShadowFrameData* shadow, float materialAlpha );
     void BuildShadowCasterBatches( Core::Profiler* profiler, Rendering::ShadowCasterBatches& outBatches );
     void SubmitShadowCasterBatches( Core::Profiler* profiler, const char* shaderBaseName,
-                                    const Rendering::ShadowCasterBatches& batches,
-                                    const Math::Transformation::Matrix4& view,
+                                    const Rendering::ShadowCasterBatches& batches, const Math::Transformation::Matrix4& view,
                                     const Math::Transformation::Matrix4& proj,
                                     const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                     Rendering::RenderVisibilityView visibilityView );
     void RenderShadowCasters( Core::Profiler* profiler, const char* shaderBaseName,
-                              const Math::Transformation::Matrix4& view,
-                              const Math::Transformation::Matrix4& proj,
+                              const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj,
                               const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                               Rendering::RenderVisibilityView visibilityView );
     bool GetObjectShadowBounds( Core::Profiler* profiler, const Math::Vector::Vector3& focus, float maxDistance,
@@ -100,8 +97,8 @@ class RenderInstanceRenderer
 
   private:
     void RenderModelsForView( Rendering::RenderVisibilityView visibilityView, const char* shaderBaseName,
-                              const Math::Transformation::Matrix4& view,
-                              const Math::Transformation::Matrix4& projection, const float ( &lightPosition )[4],
+                              const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& projection,
+                              const float ( &lightPosition )[4],
                               const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                               const Rendering::ShadowFrameData* shadow, float materialAlpha,
                               const std::vector<uint8_t>* modelMask, bool drawMaskedModels );

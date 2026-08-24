@@ -371,8 +371,7 @@ ReplayTimeline::CaptureFrame( int sceneFrame, float physicsDt, const ReplayWorld
         }
     }
 
-    m_presentation.CaptureFrame( branch, eventCursor, sceneFrame, physicsDt, world, camera, physics,
-                                 entityDisplayNames );
+    m_presentation.CaptureFrame( branch, eventCursor, sceneFrame, physicsDt, world, camera, physics, entityDisplayNames );
 
     const ReplayPresentationSample* presentationSample = m_presentation.LatestSample();
 

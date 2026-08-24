@@ -77,29 +77,28 @@ ReplayPastTrajectoryUpdate RefreshReplayPastTrajectory( ReplayPrediction& predic
     bool hasSample = false;
     ReplayFrameIndex firstFrame = 0;
     Physics::ModelRowHint targetModelRow;
-    const bool traversalOk = solver.ForEachBodyPositionChronological(
-        path.targetId,
-        [&]( ReplayFrameIndex frame, Physics::ModelRowHint modelRow, const Math::Vector::Vector3& position )
-        {
-            if ( !appendOk )
-            {
-                return;
-            }
+    const bool traversalOk = solver.ForEachBodyPositionChronological( path.targetId,
+                                                                      [&]( ReplayFrameIndex frame, Physics::ModelRowHint modelRow, const Math::Vector::Vector3& position )
+                                                                      {
+                                                                      if ( !appendOk )
+                                                                      {
+                                                                      return;
+                                                                      }
 
-            appendOk = prediction.AppendPastTrajectoryRefreshPoint( path.targetId, frame, modelRow, position );
+                                                                      appendOk = prediction.AppendPastTrajectoryRefreshPoint( path.targetId, frame, modelRow, position );
 
-            if ( appendOk )
-            {
-                if ( !hasSample )
-                {
-                    firstFrame = frame;
-                    hasSample = true;
-                }
+                                                                      if ( appendOk )
+                                                                      {
+                                                                      if ( !hasSample )
+                                                                      {
+                                                                      firstFrame = frame;
+                                                                      hasSample = true;
+                                                                      }
 
-                targetModelRow = modelRow;
-            }
-        } );
+                                                                      targetModelRow = modelRow;
+                                                                      }
+                                                                      } );
 
-    return prediction.CompletePastTrajectoryRefresh( plan, traversalOk && appendOk, hasSample, firstFrame, targetModelRow );
-}
-} // namespace SkullbonezCore::Runtime
+                                                                      return prediction.CompletePastTrajectoryRefresh( plan, traversalOk && appendOk, hasSample, firstFrame, targetModelRow );
+                                                                      }
+                                                                      } // namespace SkullbonezCore::Runtime

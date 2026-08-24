@@ -31,7 +31,7 @@ namespace Rendering
 {
 class Dx12BackbufferCapture;
 struct RenderSceneSnapshot;
-}
+} // namespace Rendering
 namespace UI
 {
 class InGameUI;
@@ -51,28 +51,21 @@ struct ContinuousOrbitalForecastView;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 InteractionAutomationDevelopmentUiApplyResult
 ApplyInteractionAutomationDevelopmentUiCommands( const InteractionAutomationController& state,
-                                                  const InteractionAutomationFrameResult& frame, Window& window,
-                                                  DevelopmentTools::ImGuiEditorOwner& editor );
+                                                 const InteractionAutomationFrameResult& frame, Window& window,
+                                                 DevelopmentTools::ImGuiEditorOwner& editor );
 #endif
 
-InteractionAutomationFrameResult
-TickInteractionAutomationBeforeInput( InteractionAutomationController& state, Window& window,
-                                      const SkullbonezCore::Core::EngineConfig& config, SceneController& scene,
-                                      const RuntimeFrameMetricsSnapshot& timers, CameraControlState& camera,
-                                      InputRouter& inputRouter, RuntimeInteractionController& interaction,
-                                      EditorToolsOwner& editorTools, RuntimeTools& runtimeTools,
-                                      SkullbonezCore::UI::InGameUI& ui, const ReplayAutomationView& replayView,
-                                      const Rendering::RenderSceneSnapshot& renderSnapshot );
+InteractionAutomationFrameResult TickInteractionAutomationBeforeInput( InteractionAutomationController& state, Window& window, const SkullbonezCore::Core::EngineConfig& config,
+                                                                       SceneController& scene, const RuntimeFrameMetricsSnapshot& timers, CameraControlState& camera, InputRouter& inputRouter,
+                                                                       RuntimeInteractionController& interaction, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools,
+                                                                       SkullbonezCore::UI::InGameUI& ui, const ReplayAutomationView& replayView,
+                                                                       const Rendering::RenderSceneSnapshot& renderSnapshot );
 
-InteractionAutomationFrameResult
-TickInteractionAutomationAfterRender( InteractionAutomationController& state, EditorToolsOwner& editorTools,
-                                      RuntimeTools& runtimeTools, RuntimeInteractionController& interaction,
-                                      InputRouter& inputRouter, CameraControlState& camera,
-                                      SkullbonezCore::UI::InGameUI& ui, SceneController& scene,
-                                      const ReplayAutomationView& replayView,
-                                      const InteractionAutomationDevelopmentUiView& developmentUiView,
-                                      const ContinuousOrbitalForecastView& forecastView,
-                                      const Rendering::RenderSceneSnapshot& renderSnapshot, CaptureController& capture,
-                                      Rendering::Dx12BackbufferCapture& backbufferCapture );
+InteractionAutomationFrameResult TickInteractionAutomationAfterRender( InteractionAutomationController& state, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools,
+                                                                       RuntimeInteractionController& interaction, InputRouter& inputRouter, CameraControlState& camera,
+                                                                       SkullbonezCore::UI::InGameUI& ui, SceneController& scene, const ReplayAutomationView& replayView,
+                                                                       const InteractionAutomationDevelopmentUiView& developmentUiView, const ContinuousOrbitalForecastView& forecastView,
+                                                                       const Rendering::RenderSceneSnapshot& renderSnapshot, CaptureController& capture,
+                                                                       Rendering::Dx12BackbufferCapture& backbufferCapture );
 } // namespace Runtime
 } // namespace SkullbonezCore

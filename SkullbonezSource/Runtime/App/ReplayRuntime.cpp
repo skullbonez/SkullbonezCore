@@ -544,9 +544,8 @@ bool ReplayRuntime::SaveInteractionRecordingBaseline( const char* path ) const
 }
 
 
-ReplaySceneTimelineResetInput ReplayTimelineOperations::DescribeReplaySceneTimeline(
-    const SceneController& sceneController, const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-    const SceneSessionState& scene, int sceneObjectCapacity, uint32_t generatedObjectTypeOverride )
+ReplaySceneTimelineResetInput ReplayTimelineOperations::DescribeReplaySceneTimeline( const SceneController& sceneController, const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+                                                                                     const SceneSessionState& scene, int sceneObjectCapacity, uint32_t generatedObjectTypeOverride )
 {
     const std::string* scenePath = sceneController.CurrentPath();
     const char* sceneLabel = scenePath && !scenePath->empty() ? scenePath->c_str() : "generated";
@@ -934,9 +933,8 @@ ReplayAutomationView ReplayRuntime::BuildAutomationView() const
 #endif
 
 
-ReplayOverlay::ReplayOverlayStateView ReplayRuntime::BuildOverlayStateView(
-    bool editorModeEnabled, bool uiVisible, bool uiMinimized, RuntimeInteractionGestureKind gesture,
-    std::span<const Rendering::RenderInstancePresentationRecord> presentation, const PhysicsBodyStore& bodyStore )
+ReplayOverlay::ReplayOverlayStateView ReplayRuntime::BuildOverlayStateView( bool editorModeEnabled, bool uiVisible, bool uiMinimized, RuntimeInteractionGestureKind gesture,
+                                                                            std::span<const Rendering::RenderInstancePresentationRecord> presentation, const PhysicsBodyStore& bodyStore )
 {
     int focusedCameraRow = -1;
     (void)BuildReplayCauseTreeRows( m_predictionOwner, m_authoring, m_visualPresentation.PathVisualizer(),
@@ -1001,9 +999,8 @@ ReplayFrameSelection ReplayRuntime::BuildPresentationSelection() const
     selection.replay.latestPresentation = loadedPresentation ? LoadedPresentationLatestSample() : nullptr;
     selection.replay.selectedSolver = ( loadedPresentation || futureSelected )
                                           ? nullptr
-                                          : m_timeline.Solver().SampleAtNormalized(
-                                                ReplaySolverNormalizedFromTrack( trackPosition,
-                                                                                 solverPresentTrackPosition ) );
+                                          : m_timeline.Solver().SampleAtNormalized( ReplaySolverNormalizedFromTrack( trackPosition,
+                                                                                                                     solverPresentTrackPosition ) );
 
     selection.replay.latestSolver = loadedPresentation ? nullptr : m_timeline.Solver().LatestSample();
     selection.selectedPrediction = futureSelected ? CurrentPredictionScrubFrame() : nullptr;
@@ -1030,8 +1027,7 @@ ReplayFrameSelection ReplayRuntime::ApplyRenderPose( Rendering::RenderInstanceSt
     const ReplaySolverFrameSample* solverSample = selection.replay.currentSolver;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope replayAllocationScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope replayAllocationScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay );
 
         if ( predictionFrame )
         {
@@ -1124,8 +1120,7 @@ ReplayRenderFrameView ReplayRuntime::BuildRenderFrameView( const ReplayFrameSele
 
     if ( !inputView.predictionEnabled && !collisionVisualizer && !debugTransparentBodyPass )
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope replayAllocationScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope replayAllocationScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay );
         const std::span<const RunReplayPathTraceNode> focusNodes = prediction.enabled
                                                                        ? prediction.futureNodes
                                                                        : std::span<const RunReplayPathTraceNode> {};
@@ -1373,10 +1368,9 @@ void ReplayRuntime::ObserveSceneLifecycleAfterClear( const SceneLifecyclePacket&
 }
 
 
-void ReplayRuntime::ObserveSceneLifecycleAfterActivation(
-    const SceneLifecyclePacket& packet, const ReplaySceneTimelineResetInput& input, InputRouter& inputRouter,
-    RuntimeInteractionController& interaction, Environment::CameraCollection* cameras, Geometry::Terrain* terrain,
-    CameraControlState& camera, RunCameraMode normalizedRestoreMode, bool attachedFollow, bool directorGrabbed )
+void ReplayRuntime::ObserveSceneLifecycleAfterActivation( const SceneLifecyclePacket& packet, const ReplaySceneTimelineResetInput& input, InputRouter& inputRouter,
+                                                          RuntimeInteractionController& interaction, Environment::CameraCollection* cameras, Geometry::Terrain* terrain,
+                                                          CameraControlState& camera, RunCameraMode normalizedRestoreMode, bool attachedFollow, bool directorGrabbed )
 {
     if ( m_sceneActivationObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneActivated ) )
     {
@@ -1817,8 +1811,7 @@ const RunReplayPredictionFrame* ReplayRuntime::CurrentPredictionScrubFrame() con
     }
 
     const float predictionT = ReplayPredictionNormalizedFromTrack( position, presentT );
-    const std::size_t frameIndex = (std::min)( frameCount - 1, static_cast<std::size_t>( std::round(
-                                                                   predictionT * static_cast<float>( frameCount - 1 ) ) ) );
+    const std::size_t frameIndex = (std::min)( frameCount - 1, static_cast<std::size_t>( std::round( predictionT * static_cast<float>( frameCount - 1 ) ) ) );
 
     return &frames[frameIndex];
 }
@@ -2156,8 +2149,7 @@ bool ReplayRuntime::ApplyPlanningVelocityMutation( Physics::PhysicsEngine& physi
         return false;
     }
 
-    const Math::Vector::Vector3 angularVelocity = Physics::PhysicsBodyAngularVelocity( hot, static_cast<std::size_t>(
-                                                                                                bodyIndex ) );
+    const Math::Vector::Vector3 angularVelocity = Physics::PhysicsBodyAngularVelocity( hot, static_cast<std::size_t>( bodyIndex ) );
 
     if ( !physics.SetBodyVelocity( handle, mutation.linearVelocity, angularVelocity, true ) )
     {
@@ -2212,8 +2204,7 @@ void ReplayRuntime::ApplyPredictionUpdateResult( const ReplayPredictionUpdateRes
     {
         for ( uint32_t count = 0; count < result.budgetExpiries[passIndex]; ++count )
         {
-            m_predictionPresentation.RecordTrajectoryBudgetExpiry(
-                static_cast<SkullbonezCore::Core::MainMemoryReplayBudgetPass>( passIndex ) );
+            m_predictionPresentation.RecordTrajectoryBudgetExpiry( static_cast<SkullbonezCore::Core::MainMemoryReplayBudgetPass>( passIndex ) );
         }
     }
 
@@ -2221,8 +2212,7 @@ void ReplayRuntime::ApplyPredictionUpdateResult( const ReplayPredictionUpdateRes
     {
         for ( uint32_t count = 0; count < result.rebuildCauses[causeIndex]; ++count )
         {
-            m_predictionPresentation.RecordTrajectoryRebuildCause(
-                static_cast<SkullbonezCore::Core::MainMemoryReplayRebuildCause>( causeIndex ) );
+            m_predictionPresentation.RecordTrajectoryRebuildCause( static_cast<SkullbonezCore::Core::MainMemoryReplayRebuildCause>( causeIndex ) );
         }
     }
 }

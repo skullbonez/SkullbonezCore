@@ -32,8 +32,7 @@ namespace SkullbonezCore
 namespace Runtime
 {
 SceneResetPreservationSnapshot SceneLoadTransaction::CaptureResetSnapshot( const SceneController& controller, const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                                                                           SceneRenderPolicyState renderPolicy, const ScenePresentationValues& presentation,
-                                                                           const CameraControlState& camera )
+                                                                           SceneRenderPolicyState renderPolicy, const ScenePresentationValues& presentation, const CameraControlState& camera )
 {
     SceneResetPreservationSnapshot snapshot;
     const SceneSessionState& scene = controller.State();

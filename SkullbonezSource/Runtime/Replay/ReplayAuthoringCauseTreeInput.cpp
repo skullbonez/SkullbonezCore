@@ -130,9 +130,7 @@ ReplayCauseTreeInputResult ReplayAuthoring::TickCauseTreeInput( ReplayPresentati
     const int screenW = frame.screenWidth;
     const int screenH = frame.screenHeight;
     const auto causeTreeDragMode = [&]()
-    {
-        return frame.gesture.kind == ReplayToolGestureKind::CauseTreeDrag ? frame.gesture.axis : -1;
-    };
+    { return frame.gesture.kind == ReplayToolGestureKind::CauseTreeDrag ? frame.gesture.axis : -1; };
 
     const auto endCauseTreeDragIfReleased = [&]()
     {
@@ -157,6 +155,7 @@ ReplayCauseTreeInputResult ReplayAuthoring::TickCauseTreeInput( ReplayPresentati
     }
 
     EnsureCauseTreeWindowPlacement( screenW, screenH );
+
     if ( !frame.hasClientPosition )
     {
         endCauseTreeDragIfReleased();
@@ -173,8 +172,7 @@ ReplayCauseTreeInputResult ReplayAuthoring::TickCauseTreeInput( ReplayPresentati
     const auto isHotControl = [&]( ReplayOverlay::ReplayCauseWindowControl control )
     { return surface.hasHotControl && surface.hotControl == ReplayOverlay::ReplayCauseWindowControlId( control ); };
 
-    const ReplayOverlay::ReplayOverlayControl* contentControl =
-        surface.Find( ReplayOverlay::ReplayCauseWindowControlId( ReplayOverlay::ReplayCauseWindowControl::Content ) );
+    const ReplayOverlay::ReplayOverlayControl* contentControl = surface.Find( ReplayOverlay::ReplayCauseWindowControlId( ReplayOverlay::ReplayCauseWindowControl::Content ) );
 
     if ( !contentControl )
     {
@@ -197,8 +195,7 @@ ReplayCauseTreeInputResult ReplayAuthoring::TickCauseTreeInput( ReplayPresentati
 
     if ( m_causeTree.filterFocused )
     {
-        const std::size_t characterCount = (std::min)( frame.filterCharacterCount,
-                                                       frame.filterCharacters.size() );
+        const std::size_t characterCount = (std::min)( frame.filterCharacterCount, frame.filterCharacters.size() );
 
         for ( std::size_t characterIndex = 0; characterIndex < characterCount; ++characterIndex )
         {

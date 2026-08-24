@@ -114,14 +114,10 @@ int SceneBrowserIndexForPath( const std::vector<std::string>& browserPaths, cons
 } // namespace
 
 
-SceneLoadBeginResult SceneLoadTransaction::PrepareLoad( const SceneController& controller,
-                                                        const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                                                        SceneRenderPolicyState renderPolicy,
-                                                        const ScenePresentationValues& presentation,
-                                                        const CameraControlState& camera,
-                                                        Rendering::Dx12FrameOwner* renderFrame,
-                                                        bool interactiveSceneRunRequested, int index,
-                                                        bool suppressExitOnComplete, bool preserveRuntimeState )
+SceneLoadBeginResult SceneLoadTransaction::PrepareLoad( const SceneController& controller, const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+                                                        SceneRenderPolicyState renderPolicy, const ScenePresentationValues& presentation, const CameraControlState& camera,
+                                                        Rendering::Dx12FrameOwner* renderFrame, bool interactiveSceneRunRequested, int index, bool suppressExitOnComplete,
+                                                        bool preserveRuntimeState )
 {
     SceneLoadBeginResult result;
 

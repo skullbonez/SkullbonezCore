@@ -633,8 +633,7 @@ void RuntimeDiagnostics::LogReplayRestoreResult( RunPhysicsDiagnosticsState& dia
 }
 
 void RuntimeDiagnostics::EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,
-                                                   const RuntimeSceneDiagnosticFacts& scene,
-                                                   const char* status )
+                                                   const RuntimeSceneDiagnosticFacts& scene, const char* status )
 {
     if ( !diagnostics.isEnabled || !diagnostics.isRunActive )
     {

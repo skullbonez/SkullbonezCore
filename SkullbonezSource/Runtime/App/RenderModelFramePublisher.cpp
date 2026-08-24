@@ -56,11 +56,10 @@ RuntimeRenderModelFrameView PublishRenderModelFrame( SceneWorld& scene, Threadin
                                          config.runtimeRender.renderCollisionVolumes,
                                          config.runtimeRender.shadowParallelPrep,
                                          scene.GetSceneKineticEnergy(),
-                                         CollectSceneMemoryStats(
-                                             SceneMemoryDiagnosticsView { scene.Entities().CapacityBytes(),
-                                                                          scene.CollectGameplayMemoryBytes(),
-                                                                          scene.CollectGameplayDebugMemoryBytes(), physics,
-                                                                          scene.RenderInstances() } ) };
+                                         CollectSceneMemoryStats( SceneMemoryDiagnosticsView { scene.Entities().CapacityBytes(),
+                                                                                               scene.CollectGameplayMemoryBytes(),
+                                                                                               scene.CollectGameplayDebugMemoryBytes(), physics,
+                                                                                               scene.RenderInstances() } ) };
 }
 } // namespace Runtime
 } // namespace SkullbonezCore

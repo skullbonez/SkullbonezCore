@@ -55,8 +55,8 @@ struct OperatorUiSubmissionPlan
     bool finalizeOverlay = false;
 };
 
-inline OperatorUiSubmissionPlan ResolveOperatorUiSubmissionPlan( bool textOnly, bool gameUiNeedsTextPass,
-                                                                 bool gameUiVisible, bool profilerBars )
+inline OperatorUiSubmissionPlan ResolveOperatorUiSubmissionPlan( bool textOnly, bool gameUiNeedsTextPass, bool gameUiVisible,
+                                                                 bool profilerBars )
 {
     if ( textOnly )
     {
@@ -85,11 +85,15 @@ class OperatorUiPhaseOwner
         {
             return false;
         }
+
         m_snapshot = snapshot;
         return true;
     }
 
-    bool MarkComposed() { return Advance( Phase::Snapshot, Phase::Composed ); }
+    bool MarkComposed()
+    {
+        return Advance( Phase::Snapshot, Phase::Composed );
+    }
 
     bool RecordGpuSubmission( int gameUiDrawCalls )
     {
@@ -97,6 +101,7 @@ class OperatorUiPhaseOwner
         {
             return false;
         }
+
         m_gameUiDrawCalls = gameUiDrawCalls;
         return true;
     }
@@ -107,15 +112,31 @@ class OperatorUiPhaseOwner
         {
             return false;
         }
+
         m_commands = commands;
         return true;
     }
 
-    bool Complete() { return Advance( Phase::CommandsEmitted, Phase::Complete ); }
-    Phase CurrentPhase() const { return m_phase; }
-    const OperatorUiFrameSnapshot& Snapshot() const { return m_snapshot; }
-    const OperatorUiProcessCommands& Commands() const { return m_commands; }
-    int GameUiDrawCalls() const { return m_gameUiDrawCalls; }
+    bool Complete()
+    {
+        return Advance( Phase::CommandsEmitted, Phase::Complete );
+    }
+    Phase CurrentPhase() const
+    {
+        return m_phase;
+    }
+    const OperatorUiFrameSnapshot& Snapshot() const
+    {
+        return m_snapshot;
+    }
+    const OperatorUiProcessCommands& Commands() const
+    {
+        return m_commands;
+    }
+    int GameUiDrawCalls() const
+    {
+        return m_gameUiDrawCalls;
+    }
 
   private:
     bool Advance( Phase expected, Phase next )
@@ -124,6 +145,7 @@ class OperatorUiPhaseOwner
         {
             return false;
         }
+
         m_phase = next;
         return true;
     }

@@ -325,8 +325,7 @@ bool ContinuousOrbitalForecast::Start( const Physics::PhysicsEngine& liveEngine,
          !m_stability.Begin( contract, static_cast<double>( worldForces.mutualGravity.gravitationalConstant ),
                              static_cast<double>( worldForces.mutualGravity.softeningLength ),
                              std::span<const ContinuousOrbitalBodySample>( seedBodies.data(), seedBodyCount ) ) ||
-         !m_presentation.Begin( presentationMembers,
-                                static_cast<std::size_t>( liveBodies.Count() ) ) ||
+         !m_presentation.Begin( presentationMembers, static_cast<std::size_t>( liveBodies.Count() ) ) ||
          !m_producer.Begin( liveEngine, liveTornado, config, worldForces, workerPool,
                             ContinuousPredictionWindowRowCapacity(), this ) )
     {

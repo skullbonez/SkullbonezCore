@@ -45,25 +45,54 @@ class RuntimeSceneDiagnosticFacts
 {
   public:
     RuntimeSceneDiagnosticFacts( int currentSceneIndex = 0, int loadCount = 0, int manualResetCount = 0,
-                                 int currentFrame = 0, int targetFrameCount = 0, int modelCount = 0,
-                                 uint32_t rngSeed = 0, bool fixedStep = false, bool testComplete = false,
-                                 bool finishLogged = false )
+                                 int currentFrame = 0, int targetFrameCount = 0, int modelCount = 0, uint32_t rngSeed = 0,
+                                 bool fixedStep = false, bool testComplete = false, bool finishLogged = false )
         : m_currentSceneIndex( currentSceneIndex ), m_loadCount( loadCount ), m_manualResetCount( manualResetCount ),
           m_currentFrame( currentFrame ), m_targetFrameCount( targetFrameCount ), m_modelCount( modelCount ),
           m_rngSeed( rngSeed ), m_fixedStep( fixedStep ), m_testComplete( testComplete ), m_finishLogged( finishLogged )
     {
     }
 
-    int CurrentSceneIndex() const { return m_currentSceneIndex; }
-    int LoadCount() const { return m_loadCount; }
-    int ManualResetCount() const { return m_manualResetCount; }
-    int CurrentFrame() const { return m_currentFrame; }
-    int TargetFrameCount() const { return m_targetFrameCount; }
-    int ModelCount() const { return m_modelCount; }
-    uint32_t RngSeed() const { return m_rngSeed; }
-    bool FixedStep() const { return m_fixedStep; }
-    bool TestComplete() const { return m_testComplete; }
-    bool FinishLogged() const { return m_finishLogged; }
+    int CurrentSceneIndex() const
+    {
+        return m_currentSceneIndex;
+    }
+    int LoadCount() const
+    {
+        return m_loadCount;
+    }
+    int ManualResetCount() const
+    {
+        return m_manualResetCount;
+    }
+    int CurrentFrame() const
+    {
+        return m_currentFrame;
+    }
+    int TargetFrameCount() const
+    {
+        return m_targetFrameCount;
+    }
+    int ModelCount() const
+    {
+        return m_modelCount;
+    }
+    uint32_t RngSeed() const
+    {
+        return m_rngSeed;
+    }
+    bool FixedStep() const
+    {
+        return m_fixedStep;
+    }
+    bool TestComplete() const
+    {
+        return m_testComplete;
+    }
+    bool FinishLogged() const
+    {
+        return m_finishLogged;
+    }
 
   private:
     int m_currentSceneIndex = 0;
@@ -214,22 +243,20 @@ class RuntimeDiagnostics
     // needs scene lifecycle, request, or world-presentation authority.
     static void SetPhysicsDiagnosticsPath( RunPhysicsDiagnosticsState& diagnostics, Physics::PhysicsEngine& physics,
                                            const char* path, bool renderFrameLockstepForcedByDiagnostics );
-    static bool LogSceneFinished( const RuntimeSceneDiagnosticFacts& scene, const char* scenePath,
-                                  const char* rendererName, const char* reason );
+    static bool LogSceneFinished( const RuntimeSceneDiagnosticFacts& scene, const char* scenePath, const char* rendererName,
+                                  const char* reason );
     static void BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics, Physics::PhysicsEngine& physics,
                                             const RuntimeSceneDiagnosticFacts& scene,
-                                            const SkullbonezCore::Core::EngineConfig& config,
-                                            const char* scenePath, const char* rendererName,
-                                            bool explicitRenderFrameLockstep, bool effectiveRenderFrameLockstep );
+                                            const SkullbonezCore::Core::EngineConfig& config, const char* scenePath,
+                                            const char* rendererName, bool explicitRenderFrameLockstep,
+                                            bool effectiveRenderFrameLockstep );
     static void LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagnostics, const RuntimeSceneDiagnosticFacts& scene,
                                      const ReplayScrubProbeDiagnostic& probe );
     static void LogReplayRestoreProbe( RunPhysicsDiagnosticsState& diagnostics, const RuntimeSceneDiagnosticFacts& scene,
                                        const ReplayRestoreProbeDiagnostic& probe );
-    static void LogReplayRestoreResult( RunPhysicsDiagnosticsState& diagnostics,
-                                        const RuntimeSceneDiagnosticFacts& scene,
+    static void LogReplayRestoreResult( RunPhysicsDiagnosticsState& diagnostics, const RuntimeSceneDiagnosticFacts& scene,
                                         const ReplayRestoreResultDiagnostic& result );
-    static void EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,
-                                          const RuntimeSceneDiagnosticFacts& scene,
+    static void EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics, const RuntimeSceneDiagnosticFacts& scene,
                                           const char* status );
 #endif
 };

@@ -39,15 +39,19 @@ class RuntimeFrameMetricsOwner
     Core::SbResult Initialise( Core::SbDiagnosticStore& diagnostics )
     {
         Core::SbResult result = m_frameTimer.Initialise( diagnostics );
+
         if ( !result.Ok() )
         {
             return result;
         }
+
         result = m_workTimer.Initialise( diagnostics );
+
         if ( !result.Ok() )
         {
             return result;
         }
+
         return m_simulationTimer.Initialise( diagnostics );
     }
 
@@ -154,6 +158,7 @@ class RuntimeFrameMetricsOwner
     {
         m_simulationTimer.StartTimer();
     }
+
   private:
     Environment::Timer m_frameTimer;
     Environment::Timer m_workTimer;

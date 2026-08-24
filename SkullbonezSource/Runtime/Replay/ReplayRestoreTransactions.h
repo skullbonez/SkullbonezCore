@@ -222,7 +222,7 @@ class ReplayRestoreTransaction
     void RecordAppliedTargetEvent( uint32_t sequence )
     {
         RequireTargetStepStarted( "RecordAppliedTargetEvent" );
-        m_eventCursor = ( std::max )( m_eventCursor, sequence + 1u );
+        m_eventCursor = (std::max)( m_eventCursor, sequence + 1u );
         ++m_eventsApplied;
     }
 
