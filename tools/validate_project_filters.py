@@ -602,6 +602,7 @@ RUNTIME_UI_PREFIXES = (
     "UITab",
     "OperatorUiPhase",
     "OperatorUiProjection",
+    "RecordedCursorPresentationPolicy",
     "UiTextPass",
     "RuntimeViewModel",
     "RenderDiagnosticsProjection",

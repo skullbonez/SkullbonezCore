@@ -1,7 +1,7 @@
 # Recorded Interaction Playback Cursor Plan
 
 Date: 2026-08-22
-Status: Active by explicit owner direction. 0/4 phases complete.
+Status: Active by explicit owner direction. 1/4 phases complete.
 Impact area: recorded interaction-manifest playback, detached Runtime/Automation
 presentation values, GameUI/ImGui draw ordering, DX12 UI submission, tests, and
 documentation
@@ -189,25 +189,142 @@ deleting phase. No exception may survive RIC3.
 **Goal:** Freeze the precise product contract and negative controls before
 adding presentation code.
 
-- [ ] Record branch, commit, dirty files, CodeGraph status, inherited validation
+- [x] Record branch, commit, dirty files, CodeGraph status, inherited validation
       findings, and the post-UI6 source/project ownership map.
-- [ ] Inventory the recorded-frame capture, semantic-anchor resolution,
+- [x] Inventory the recorded-frame capture, semantic-anchor resolution,
       playback publication, input routing, native cursor/capture, GameUI,
       replay-overlay, ImGui, screenshot, and Present paths.
-- [ ] Build an explicit fake-cursor visibility matrix for focused/unfocused,
+- [x] Build an explicit fake-cursor visibility matrix for focused/unfocused,
       pointer present/absent, ordinary cursor mode, free-look/mouse-look,
       editor viewport look, replay inspection look, tool capture, playback
       failure, and playback completion.
-- [ ] Identify the final draw point that is above both GameUI and ImGui and is
+- [x] Identify the final draw point that is above both GameUI and ImGui and is
       included in backbuffer screenshots.
-- [ ] Add focused pure-policy tests and false-pass controls for the visibility
+- [x] Add focused pure-policy tests and false-pass controls for the visibility
       matrix.
-- [ ] Add a hardware-cursor non-interference seam or observation that proves
+- [x] Add a hardware-cursor non-interference seam or observation that proves
       fake-cursor decisions do not change native cursor visibility/capture
       requests or commits.
-- [ ] Ratify the exact detached value, source placement, project ownership, and
+- [x] Ratify the exact detached value, source placement, project ownership, and
       draw geometry without a new retained owner or feature-specific Rendering
       vocabulary.
+
+### RIC0 Baseline And Ownership Evidence
+
+RIC0 started from pushed integration commit `3269f3f9026974186a50ea358994ea76e07174ff`
+on isolated branch `codex/ric0-contract`. The worktree was clean. The shared
+repository CodeGraph index was current at 1,216 files, 37,937 nodes, and 114,637
+edges; the isolated worktree intentionally had no second ignored `.codegraph/`
+copy. The inherited causal-depth oracle and historical Physics performance
+baseline remain external recorded failures. RIC0 neither owns nor refreshes
+either baseline.
+
+The post-UI6 ownership map is:
+
+| Responsibility | Current owner | Project | RIC constraint |
+|---|---|---|---|
+| Recorded device-frame capture and manifest tape | `Runtime/Automation` | `SKULLBONEZ_CORE` | Preserve schema, reserve, and sidecar behavior. |
+| Semantic-anchor resolution and selected-turn publication | Automation plus App composition | `SKULLBONEZ_CORE` | Reuse the exact resolved client position published to normal input. |
+| Retained input, logical pointer policy, and native desired/committed state | `Runtime/Input/InputRouter` | `SKULLBONEZ_CORE` | Observe detached logical facts only; add no second retained owner. |
+| Product fake-cursor visibility and bounded geometry | `Runtime/UI` | `SKULLBONEZ_CORE` | Pure frame policy and component-neutral draw values only. |
+| Generic UI draw submission and frame-graph order | `Runtime/Render` | `SKULLBONEZ_CORE` | Print an existing `UIDrawList`; add no feature contract below Runtime. |
+| Backend-neutral fixed-capacity draw commands | `UI/UIDrawList` | `SKULLBONEZ_UI` | Reuse unchanged generic triangles; no cursor vocabulary enters UI foundation. |
+| DX12 graph execution, backbuffer capture, and Present | `Rendering/DX12` | `SKULLBONEZ_RENDERING` | No RIC source, descriptor, texture, or backend API enters Rendering. |
+| Focused behavioral and negative-control coverage | `SkullbonezTests` | `SKULLBONEZ_TESTS` | CPU-only policy/non-interference tests in RIC0. |
+
+### RIC0 Source-Path Inventory
+
+The selected-turn path is fixed as follows:
+
+1. `Run::CaptureInteractionRecordingTurn` copies the single
+   `InputRouter::DeviceFrame()` after normal routing and asks GameUI for an
+   optional semantic anchor only when a real client pointer exists.
+2. `InteractionAutomationRecorder::CapturePendingTurn` stores normalized
+   coordinates, pointer availability, recorded focus, buttons, wheel, raw
+   deltas, complete key words, and the optional anchor. An anchor cannot create
+   a pointer sample.
+3. `TickInteractionAutomationBeforeInput` selects exactly one recorded turn,
+   resolves its anchor through `InGameUI::ResolveInteractionAnchor`, and passes
+   that point to `InteractionAutomationInputDriver::PublishRecordedFrame`.
+4. `PublishRecordedFrame` gives the semantic point precedence; otherwise it
+   maps normalized coordinates into the inclusive current-client pixel domain
+   `[0,width-1] x [0,height-1]`. It publishes only `Input::AutomationState` and
+   never moves the operating-system pointer.
+5. Normal `Input`/`InputRouter` routing publishes device, UI, runtime-mode, and
+   `PointerPresentationPolicy` facts. `InputRouter` remains the sole owner of
+   native capture/cursor requests and commits; App remains the sole caller of
+   `Input::SetNativeMouseCapture` and `Input::SetSystemCursorVisible`.
+
+The late presentation order is world, GameUI operator draw list, generic UI
+overlay, Planning replay overlay, UI finalization, and then the selected ImGui
+surface. The approved RIC2 insertion point is one generic `UIDrawList` graph
+pass immediately after `RuntimeRenderer::RenderDevelopmentUi` returns and
+before `RunPostDrawDiagnosticsPhase`, `TickScreenshots`, frame-graph
+finalization, and Present. It is therefore above both operator surfaces and is
+already part of every backbuffer screenshot path without a second capture or
+Present.
+
+### RIC0 Visibility Matrix
+
+`PublishedRealTurn` means a selected manifest turn exists; the neutral
+zero-turn baseline publication is not a real turn. `CursorBearing` is a pure
+classification of existing runtime mode, pointer-presentation, and interaction
+capture facts. It never reads live hardware state.
+
+| Playback/focus/pointer/mode row | Fake cursor | Rationale |
+|---|---:|---|
+| Published real turn, focused, resolved in-client pointer, ordinary cursor-bearing mode | Visible | Canonical playback-viewing state. |
+| Published real turn with live hardware cursor at the same point | Visible | Live and fake cursors are independent additive surfaces. |
+| Published real turn while UI owns an ordinary click/drag | Visible | The cursor must remain visible over the action it demonstrates. |
+| Passive replay inspection with no inspection-look gesture | Visible | Inspection alone is cursor-bearing. |
+| Playback inactive or not a recorded manifest | Hidden | No recorded-turn evidence exists. |
+| Neutral zero-turn baseline publication | Hidden | Baseline application is not a recorded pointer turn. |
+| Playback failed | Hidden | Terminal failure clears presentation. |
+| Playback completed | Hidden | Completion clears the synthetic frame. |
+| Selected turn has no pointer | Hidden | An anchor cannot fabricate pointer availability. |
+| Semantic/fallback position is unresolved or outside the active client | Hidden | Drawing cannot reinterpret the input coordinate. |
+| Recorded application focus is false | Hidden | Fake visibility follows recorded focus, not desktop focus. |
+| Ordinary right-held free-look/mouse-look | Hidden | Camera look owns the replayed pointer. |
+| Fly-camera mouse-look | Hidden | Fly look is cursorless even when a client point is present. |
+| Editor viewport look | Hidden | The editor viewport owns mouse-look presentation. |
+| Replay inspection look | Hidden | Replay camera look owns the pointer for that turn. |
+| Placement-preview native-cursor suppression | Hidden | Existing logical pointer policy classifies the turn cursorless. |
+| `CameraLook` interaction capture | Hidden | Camera capture is cursorless. |
+| `ToolGesture` interaction capture | Hidden | A tool-captured pointer is not a demonstrative free cursor. |
+
+RIC0 approves no button-dependent styling. The later detached value therefore
+needs no recorded button fields: it is a trivially copyable frame value carrying
+only real-turn publication, resolved client `x/y`, pointer availability, and
+recorded focus. Automation produces it from the same mapping used by
+`PublishRecordedFrame`; App joins existing mode/capture facts; Runtime/UI alone
+decides visibility.
+
+The approved geometry is two fixed-capacity triangles: a dark outer arrow and a
+smaller light fill, with the recorded hot point at their shared tip. Near the
+right or bottom edge the arrow body flips horizontally or vertically so it
+stays inside the viewport; the hot point never moves. The command high water is
+exactly two, with no text, texture, descriptor, animation, or click-feedback
+state.
+
+### RIC0 Validation Evidence
+
+- `clang-format 21.1.8 --dry-run --Werror` passed for the new policy header and
+  focused test; `git diff --check` passed; exact write scope was 8/8 approved
+  paths.
+- `tools\validate_project_filters.bat` passed with 0 errors across 862
+  production project and filter items. The partial `SKULLBONEZ_TESTS` project
+  check passed with 0 errors across 174 project and filter items.
+- `tools\validate_dependency_graph.bat` passed with the generated proof current,
+  0 repair-plan debt, and 0 findings.
+- The Profile `SKULLBONEZ_TESTS.vcxproj` build passed with the configured v145
+  toolset, 0 warnings, and 0 errors.
+- `Profile\SKULLBONEZ_TESTS.exe "--test-case=Recorded cursor presentation*"
+  --no-skip --no-colors` passed 3 test cases and 27 assertions, including
+  false-pass controls for both native capture and visibility observations.
+- No baseline, golden, manifest/schema, Replay storage/reserve, Rendering/UI
+  foundation, native cursor API, hardware capture policy, or GPU artifact was
+  changed. The registered ImGui and Tracy submodules were initialized at their
+  pinned commits for the local build with zero superproject gitlink diff.
 
 **Acceptance:** Every relevant mode has one expected fake-cursor outcome; the
 topmost draw point is identified for both operator surfaces; negative controls

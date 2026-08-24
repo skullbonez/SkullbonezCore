@@ -635,6 +635,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderHost.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderFrameValues.h" />
     <ClInclude Include="SkullbonezSource\Runtime\UI\OperatorUiProjection.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\UI\RecordedCursorPresentationPolicy.h" />
     <ClInclude Include="SkullbonezSource\Runtime\App\RenderModelFramePublisher.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderPasses.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\UiDrawSubmission.h" />
