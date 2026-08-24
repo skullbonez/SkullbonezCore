@@ -101,10 +101,13 @@ the owning subsystem regression, applies comment/code standards, runs cumulative
 focused validation, commits locally, and returns the main skill's complete
 dispatch handoff.
 
-Bug commits use normal commit rules and name the finding ID; they do not claim
-MASTER progress. A worker does not edit MASTER, SessionState, the active plan,
-the live ledger, or the bug CSV unless that file's documented owner explicitly
-assigns the mutation.
+Bug commits use exactly `BUG <FINDING_ID> — <ACTION SUMMARY>`, followed by the
+base orchestrator's required `Why:`, `Ownership:`, `What:`, `Validation:`,
+`Baselines/Artifacts:`, and `Review:` body sections. The worker sends the full
+message for coordinator approval, runs the deterministic message gate, and
+commits from that same file. Bug commits do not claim MASTER progress. A worker
+does not edit MASTER, SessionState, the active plan, the live ledger, or the bug
+CSV unless that file's documented owner explicitly assigns the mutation.
 
 ## Hold And Integrate At A Safe Checkpoint
 
