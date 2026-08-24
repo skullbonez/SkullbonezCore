@@ -18,7 +18,8 @@ Glossary:
 
 Invariants:
   - Every public phase advances its one legal cursor edge before mutation.
-  - Render and cinematic UI values are clamped before they mutate live config.
+  - Shared operator values use OperatorControlPolicy ranges before they mutate
+    live config; render-only and cinematic values retain owner-local bounds.
   - Scene override masks must be updated with the value they describe.
   - Tornado commands mutate Gameplay-owned field/system/visual values in place.
   - A scene lockstep request only toggles Scene state; App compares the previous
@@ -424,14 +425,18 @@ void OperatorCommandTransaction::ApplySimulationPolicy( SceneSessionState& scene
 
     if ( m_commands.sceneOptions.requestedTimeScale > 0.0f )
     {
-        uiOverrides.timeScaleOverride = std::clamp( m_commands.sceneOptions.requestedTimeScale, 0.10f, 10.00f );
+        uiOverrides.timeScaleOverride = std::clamp( m_commands.sceneOptions.requestedTimeScale,
+                                                    UI::OperatorControlPolicy::UI_TIME_SCALE_MIN,
+                                                    UI::OperatorControlPolicy::UI_TIME_SCALE_MAX );
         scene.timeScale = uiOverrides.timeScaleOverride;
         m_acceptance.setTimeScale = true;
     }
 
     if ( m_commands.run.requestedSeed > 0 )
     {
-        scene.rngSeed = static_cast<unsigned int>( std::clamp( m_commands.run.requestedSeed, 1, 999999 ) );
+        scene.rngSeed = static_cast<unsigned int>( std::clamp( m_commands.run.requestedSeed,
+                                                               UI::OperatorControlPolicy::UI_SEED_MIN,
+                                                               UI::OperatorControlPolicy::UI_SEED_MAX ) );
         scene.rngState = scene.rngSeed;
         m_acceptance.setRunSeed = true;
     }
@@ -514,9 +519,16 @@ void OperatorCommandTransaction::ApplyWorldPolicy( WorldEnvironment& world )
     const float fluidDensity = commands.requestWorldFluidDensity ? commands.requestedWorldFluidDensity
                                                                  : world.GetFluidDensity();
 
-    m_acceptance.worldOverride = world.ApplyOverride( std::clamp( gravity, -100.0f, 0.0f ),
-                                                      std::clamp( fluidHeight, -100.0f, 200.0f ),
-                                                      std::clamp( fluidDensity, 0.0f, 5.0f ) );
+    // Gravity is stored as a signed world-Y acceleration while the operator
+    // policy exposes a positive strength interval. Negating max/min preserves
+    // ascending clamp bounds without duplicating the domain range.
+    m_acceptance.worldOverride =
+        world.ApplyOverride( std::clamp( gravity, -UI::OperatorControlPolicy::UI_WORLD_GRAVITY_MAX,
+                                        -UI::OperatorControlPolicy::UI_WORLD_GRAVITY_MIN ),
+                             std::clamp( fluidHeight, UI::OperatorControlPolicy::UI_WORLD_FLUID_HEIGHT_MIN,
+                                         UI::OperatorControlPolicy::UI_WORLD_FLUID_HEIGHT_MAX ),
+                             std::clamp( fluidDensity, UI::OperatorControlPolicy::UI_WORLD_FLUID_DENSITY_MIN,
+                                         UI::OperatorControlPolicy::UI_WORLD_FLUID_DENSITY_MAX ) );
 
     m_acceptance.worldOverrideAccepted = true;
 }

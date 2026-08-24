@@ -1,5 +1,5 @@
 /*
-File: TestOwnerRequestQueues.cpp
+File: SkullbonezTests/TestOwnerRequestQueues.cpp
 Purpose:
   Verifies fixed scene, capture, render-default, and operator-editor request contracts.
 
@@ -56,7 +56,7 @@ Related:
   - SkullbonezSource/Runtime/Capture/CaptureController.h
   - SkullbonezSource/Runtime/Scene/SceneRequestQueue.h
   - SkullbonezSource/Runtime/Render/RenderDefaultsStore.h
-  - SkullbonezSource/UI/OperatorEditorExchange.h
+  - SkullbonezSource/Runtime/Interaction/OperatorEditorExchange.h
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h
 */
 #include "../ThirdPtySource/doctest/doctest.h"
@@ -395,16 +395,18 @@ TEST_CASE( "Runtime applies Physics-tab diagnostics and publishes matching detac
     CHECK( status.pipelineStageName[0] != '\0' );
 
     commands = {};
-    commands.requestedPhysicsDebugAlpha = 2.0f;
-    commands.requestedPhysicsDebugContactLinger = 8.0f;
+    commands.requestedPhysicsDebugAlpha = OperatorControlPolicy::UI_PHYSICS_ALPHA_MAX +
+                                          OperatorControlPolicy::UI_PHYSICS_ALPHA_STEP;
+    commands.requestedPhysicsDebugContactLinger = OperatorControlPolicy::UI_CONTACT_LINGER_MAX +
+                                                  OperatorControlPolicy::UI_CONTACT_LINGER_STEP;
     const DiagnosticsPhysicsDebugValueUICommandResult valueResult = ApplyDiagnosticsPhysicsDebugValueUICommands( debug,
                                                                                                                  commands );
 
     CHECK( valueResult.setAlpha );
     CHECK( valueResult.setContactLinger );
     status = BuildDiagnosticsPhysicsUIStatus( debug );
-    CHECK( status.alpha == doctest::Approx( 1.0f ) );
-    CHECK( status.contactLinger == doctest::Approx( 5.0f ) );
+    CHECK( status.alpha == doctest::Approx( OperatorControlPolicy::UI_PHYSICS_ALPHA_MAX ) );
+    CHECK( status.contactLinger == doctest::Approx( OperatorControlPolicy::UI_CONTACT_LINGER_MAX ) );
 
     commands = {};
     commands.physicsDebugOverlayToToggle = UIPhysicsDebugOverlay::Axes;
