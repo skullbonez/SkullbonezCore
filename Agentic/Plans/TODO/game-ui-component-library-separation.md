@@ -1,7 +1,7 @@
 # Game UI Component Library Separation Plan
 
 Date: 2026-08-22
-Status: Active by owner direction. 5/7 phases complete; phase-local Runtime
+Status: Active by owner direction. 6/7 phases complete; phase-local Runtime
 Boundary Separation prerequisites apply.
 Impact area: `SkullbonezSource/UI/`, game-facing composition under
 `SkullbonezSource/Runtime/`, `SKULLBONEZ_UI.vcxproj`, focused UI tests,
@@ -710,27 +710,106 @@ single-writer resources during this phase.
 **Goal:** Make the narrowed UI foundation and product placement mechanically
 durable.
 
-- [ ] Update `SKULLBONEZ_UI.vcxproj` and filters to the exact foundation source
+- [x] Update `SKULLBONEZ_UI.vcxproj` and filters to the exact foundation source
       inventory; update Core/Test/CMake manifests for moved product sources.
-- [ ] Extend the existing dependency/project rule data and fixtures for exact
+- [x] Extend the existing dependency/project rule data and fixtures for exact
       source ownership and legal downward use; do not add a second checker or
       count budget.
-- [ ] Replace the current all-product-tab UI boundary fixture with a true
+- [x] Replace the current all-product-tab UI boundary fixture with a true
       foundation-only component/link probe.
-- [ ] Retain product UI fingerprints and interaction tests in the owning Core
+- [x] Retain product UI fingerprints and interaction tests in the owning Core
       test lane so moving them out of the foundation does not weaken behavior
       coverage.
-- [ ] Add negative fixtures proving foundation-to-Runtime/Rendering and
+- [x] Add negative fixtures proving foundation-to-Runtime/Rendering and
       duplicate project ownership fail.
-- [ ] Reconcile build flags, PCH, FP contract, warnings, include paths, filters,
+- [x] Reconcile build flags, PCH, FP contract, warnings, include paths, filters,
       portable build manifests, and build-config rulings.
-- [ ] Compare clean/incremental UI and application build/link timings to UI0;
+- [x] Compare clean/incremental UI and application build/link timings to UI0;
       review material regressions without changing the project count.
 
 **Acceptance:** The existing UI project is a standalone component library;
 product composition belongs to the RBS-approved application package; project
 and include graphs enforce the direction; component and product behavior tests
 remain independently meaningful.
+
+### UI5 Implementation Evidence - 2026-08-24
+
+UI5 closes the current tree without adding another production project. The
+tracked inventory is 36 foundation files under `SkullbonezSource/UI` (17
+implementations and 19 headers) and 35 product files under
+`SkullbonezSource/Runtime/UI`. `SKULLBONEZ_UI.vcxproj` and its filters own every
+foundation file exactly once and no product source; Core owns every Runtime/UI
+product source, while Tests compiles the 16 GameUI implementations only in its
+test role. Portable CMake lists all 17 foundation implementations and its
+complete-domain guard prevents omissions. Current-tree project/filter validation
+reconciled 861 project items with 861 filter items across the five production
+projects in 2.858 seconds. A separate exact XML reconciliation found the new
+test source/header pair once each in the Tests project and filters under
+`Source Files\Tests` and `Header Files\Tests`; the CPU gate's Tests-specific
+filter scan reconciled all 173 project items with 173 filter items.
+
+The existing dependency checker remains the sole enforcement owner. Its three
+project rules require single UI-project ownership for the foundation, Core
+ownership for Runtime/UI product sources, and Rendering-project ownership for
+Rendering. Separate negative fixtures reject UI-to-Runtime, UI-to-Rendering,
+and duplicate project ownership. `tools\validate_dependency_graph.bat` passed
+the final current-tree rerun in 3.971 seconds with six include rules, one
+content rule, three project rules,
+zero repair-plan debt, and zero findings. The true foundation-only
+`UiBoundaryUnitTests` project references only `SKULLBONEZ_UI` and compiles the
+Core FatalError, Log, and SbResult floor required to link it. It passed in 4.095
+seconds and reported deterministic component rendering without product,
+Runtime, or Rendering.
+
+Product behavior remains in the Core test lane. The focused production frame-
+stream fingerprint witness passed 51/51 assertions in 0.021 seconds. The final
+focused multithreaded determinism witness passed one case and 171,991 assertions
+after the Profile x64 test build compiled both changed translation units. The
+current-tree six-lane CPU umbrella passed all 755 cases and 2,685,526 assertions
+plus coverage, Runtime interaction Debug/Release, scene parser, UI boundary, and
+DX12 architecture lanes in 225.813 seconds; `validate_fast.bat` passed in
+259.294 seconds. The independent pre-validation boundary review reported zero
+findings. Fresh final reviewer `01a033e9-53fe-76d0-bd46-97c9c8290737`
+confirmed the implementation and metadata clean, blocking only on the stale
+phase count and review-placeholder wording corrected in this evidence record.
+
+The final build-configuration self-test and repository inventory passed together
+in 1.239 seconds with zero topology or blocking diagnostics. The VS-bundled
+CMake 4.3.1 portable configure
+first exposed a stale portable classification after FP3 added a direct
+`Runtime/Replay/ReplayRecorder.h` dependency and production Replay hash call to
+`TestDeterminism.cpp`. The coverage-preserving repair keeps all 31 unconditional
+determinism cases in portable CTest and moves only the production Replay hash
+helper and assertion into the MSVC-only `TestReplaySolverHashWitness.cpp`.
+`TestDeterminism.cpp` now includes no Runtime or Rendering header; its portable
+lane retains direct byte-exact Physics comparisons, while the full MSVC lane
+invokes the Runtime-owned production hash without duplicating that logic or
+moving Replay authority downward. A fresh Visual Studio 18 2026 Release
+configure/build in a new temp tree passed in 102.870 wall seconds (CMake reported
+2.0 seconds configure and 0.1 seconds generate); verbose CTest restored all 314
+portable cases and passed 2,553,880 assertions in 2.05 seconds.
+
+On this host, Profile x64 clean/incremental measurements were 1.216/0.401
+seconds for UI and 33.840/0.987 seconds for the application. Against the UI0
+clean baselines of 2.185 seconds for UI and 32.223 seconds for the application,
+the narrowed UI rebuild improved by 44.3 percent and the application rebuild
+increased by 5.0 percent. That application variance is not a material topology
+regression: the project count and reference graph are unchanged, and the
+immediate incremental application build remained below one second.
+
+No Physics, visual, replay, or other golden baseline was refreshed; the
+accepted Physics SHA-256 remained
+`19698d3c37bcf1e0199b539e99b2de0d0ec33ceb7fc5db2e2eee36bcc434b038`.
+Earlier generated portable build output was moved out of the repository,
+without deletion, to the recoverable local path
+`C:\Users\sesch\AppData\Local\Temp\SkullbonezCore-ui5-portable-build-20260824`
+so generated Visual Studio projects could not contaminate the topology scan.
+The final portable rerun created a second recoverable temp-only tree at
+`C:\Users\sesch\AppData\Local\Temp\SkullbonezCore-ui5-portable-retest-20260824`;
+neither tree is tracked or inside the worktree.
+No executable, DLL, vendor file, project-toolset metadata, or submodule pointer
+is part of this change. The UI5 exception table is empty; UI6 remains future
+terminal closure work after RBS7.
 
 ## Phase UI6 - Terminal Behavioral And Ownership Closure
 

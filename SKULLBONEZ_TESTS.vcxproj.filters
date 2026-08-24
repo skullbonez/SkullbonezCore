@@ -123,6 +123,9 @@
     <ClCompile Include="SkullbonezTests\TestDeterminism.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestReplaySolverHashWitness.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestReplayDeterminism.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
@@ -585,6 +588,9 @@
       <Filter>Header Files\Tests</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezTests\TestFixedSeed.h">
+      <Filter>Header Files\Tests</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezTests\TestReplaySolverHashWitness.h">
       <Filter>Header Files\Tests</Filter>
     </ClInclude>
   </ItemGroup>

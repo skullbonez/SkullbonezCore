@@ -58,10 +58,12 @@
 //   - SkullbonezSource/Physics/PhysicsMotionEligibility.h
 //   - SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.cpp
 //   - SkullbonezTests/TestReplayDeterminism.cpp
+//   - SkullbonezTests/TestReplaySolverHashWitness.cpp
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
 #include "TestResultLoadFixtures.h"
+#include "TestReplaySolverHashWitness.h"
 #include "../SkullbonezSource/Physics/PhysicsTimestep.h"
 
 #include "../SkullbonezSource/Assets/AssetSystem.h"
@@ -80,7 +82,6 @@
 #include "../SkullbonezSource/Physics/SpatialGrid.h"
 #include "../SkullbonezSource/Gameplay/TornadoGameplay.h"
 #include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
-#include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
 #include "../SkullbonezSource/Scene/AuthoredScene.h"
 #include "../SkullbonezSource/World/Terrain.h"
 
@@ -947,17 +948,6 @@ void CheckPhysicsPipelineTraceBytesEqual( const PhysicsEngine& lhs, const Physic
     }
 }
 
-uint64_t CaptureSolverReplayHash( const PhysicsEngine& engine )
-{
-    SkullbonezCore::Runtime::ReplaySolverFrameSample sample;
-    const int bodyCount = PhysicsEngine::ReadBodies( engine ).Count();
-    sample.contactCount = static_cast<uint16_t>( PhysicsEngine::ReadDebugContacts( engine ).size() );
-    sample.pipelineRecordCount = static_cast<uint16_t>( PhysicsEngine::ReadPipelineRecordCount( engine ) );
-    engine.CaptureReplaySolverSnapshot( sample.worldSnapshot.physics,
-                                        MakePhysicsBodyCountFromNonNegativeInt( bodyCount ) );
-    return SkullbonezCore::Runtime::ReplaySolverHashForSample( sample );
-}
-
 void CheckContactIdentityOrderEqual( const PhysicsEngine& lhs, const PhysicsEngine& rhs )
 {
     const auto left = lhs.GetDiagnosticsView().persistentContacts;
@@ -1085,12 +1075,18 @@ void CheckEngineWorkerDeterministicStateEqual( const PhysicsEngine& lhs, const P
            rightDiagnostics.motionEligibilityStats.angularExpandedBodies );
 
     // Invariant: worker equality owns ordered collision work and the complete
-    // Replay-restorable solver record, not only poses and summary counters.
+    // replay-restorable solver record, not only poses and summary counters.
+    // The MSVC Runtime lane adds the production Replay hash assertion through
+    // its test-only witness; portable builds retain every renderer-free case
+    // without acquiring Runtime authority. All comparisons remain byte-exact
+    // and affect determinism validation rather than a Physics golden baseline.
     CheckContactIdentityOrderEqual( lhs, rhs );
     CheckTerrainManifoldOrderEqual( lhs, rhs );
     CheckPointJointOrderEqual( lhs, rhs );
     CheckPhysicsPipelineTraceBytesEqual( lhs, rhs );
-    CHECK( CaptureSolverReplayHash( lhs ) == CaptureSolverReplayHash( rhs ) );
+#if !defined( SKULLBONEZ_PORTABLE_CPU )
+    SkullbonezTests::CheckProductionReplaySolverHashEqual( lhs, rhs );
+#endif
 }
 } // namespace
 

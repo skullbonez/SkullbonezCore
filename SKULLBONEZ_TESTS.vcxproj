@@ -206,6 +206,7 @@
     <ClCompile Include="SkullbonezTests\TestConvexHull.cpp" />
     <ClCompile Include="SkullbonezTests\TestDeterministicMath.cpp" />
     <ClCompile Include="SkullbonezTests\TestDeterminism.cpp" />
+    <ClCompile Include="SkullbonezTests\TestReplaySolverHashWitness.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayDeterminism.cpp" />
     <ClCompile Include="SkullbonezTests\TestDx12OnlyRuntime.cpp" />
     <ClCompile Include="SkullbonezTests\TestDx12CachedPsoStore.cpp" />
@@ -372,6 +373,7 @@
     <ClInclude Include="ThirdPtySource\doctest\doctest.h" />
     <ClInclude Include="SkullbonezTests\TestCollisionShapeFixtures.h" />
     <ClInclude Include="SkullbonezTests\TestFixedSeed.h" />
+    <ClInclude Include="SkullbonezTests\TestReplaySolverHashWitness.h" />
     <ClInclude Include="SkullbonezTests\TestFatalCases.h" />
     <ClInclude Include="SkullbonezTests\TestSbResultAccess.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.h" />
