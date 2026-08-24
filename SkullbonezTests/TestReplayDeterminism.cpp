@@ -6,7 +6,8 @@
 // Summary:
 //   Replay records Physics-owned solver state beside detached body rows. This
 //   test restores that combined record and proves the recaptured future sample
-//   is byte-exact without placing Replay types in the portable Physics suite.
+//   is byte-exact through Replay's production fingerprint without constructing
+//   SceneController or presentation owners.
 //
 // Glossary:
 //   Replay restore point: Solver snapshot and body rows captured at one fixed
@@ -34,6 +35,7 @@
 #include "../SkullbonezSource/Physics/PhysicsApi.h"
 #include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
 #include "../SkullbonezSource/Physics/PhysicsEngine.h"
+#include "../SkullbonezSource/Physics/PhysicsMotionEligibility.h"
 #include "../SkullbonezSource/Physics/PhysicsTimestep.h"
 #include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
@@ -188,90 +190,6 @@ void StepReplayWorld( PhysicsEngine& engine, int ticks )
     }
 }
 
-void HashBytes( uint64_t& hash, const void* data, std::size_t byteCount )
-{
-    const auto* bytes = static_cast<const uint8_t*>( data );
-    for ( std::size_t index = 0; index < byteCount; ++index )
-    {
-        hash ^= static_cast<uint64_t>( bytes[index] );
-        hash *= 1099511628211ull;
-    }
-}
-
-template <typename T> void HashValue( uint64_t& hash, const T& value )
-{
-    HashBytes( hash, &value, sizeof( value ) );
-}
-
-template <typename T> void HashVector( uint64_t& hash, const std::vector<T>& values )
-{
-    HashValue( hash, values.size() );
-    for ( const T& value : values )
-    {
-        HashValue( hash, value );
-    }
-}
-
-void HashSolverBody( uint64_t& hash, const ReplaySolverBodySample& body )
-{
-    HashValue( hash, body.id.value );
-    HashValue( hash, body.modelRow.value );
-    HashValue( hash, body.shapeKind );
-    HashValue( hash, body.position );
-    HashValue( hash, body.linearVelocity );
-    HashValue( hash, body.angularVelocity );
-    HashBytes( hash, body.orientation, sizeof( body.orientation ) );
-    HashValue( hash, body.mass );
-    HashValue( hash, body.inverseMass );
-    HashValue( hash, body.rotationalInertia );
-    HashValue( hash, body.inverseRotationalInertia );
-    HashValue( hash, body.fixed );
-    HashValue( hash, body.sleeping );
-    HashValue( hash, body.sleepSupported );
-    HashValue( hash, body.sleepInhibited );
-    HashValue( hash, body.collisionContact );
-    HashValue( hash, body.sleepIslandVisualId );
-    HashValue( hash, body.contactCount );
-    HashValue( hash, body.maxPenetration );
-    HashValue( hash, body.normalImpulseSum );
-}
-
-uint64_t HashReplaySample( const ReplaySolverFrameSample& sample )
-{
-    // Concept: this is a unit-level solver replay hash. Production replay
-    // hashes need the SceneController-owned recorder. This fixture hashes the
-    // same detached record it restores without constructing presentation owners.
-    uint64_t hash = 1469598103934665603ull;
-    HashValue( hash, sample.frameIndex );
-    HashValue( hash, sample.sceneFrame );
-    HashValue( hash, sample.simulationSeconds );
-    HashValue( hash, sample.physicsDt );
-    HashValue( hash, sample.world.gravity );
-    HashValue( hash, sample.world.fluidHeight );
-    HashValue( hash, sample.world.fluidDensity );
-    HashValue( hash, sample.world.fixedStep );
-    HashValue( hash, sample.world.scenePhysicsEnabled );
-    HashValue( hash, sample.world.sceneTextEnabled );
-    HashValue( hash, sample.worldSnapshot.physics.version );
-    HashValue( hash, sample.worldSnapshot.physics.modelCount );
-    HashValue( hash, sample.worldSnapshot.physics.sleepEnabled );
-    HashVector( hash, sample.worldSnapshot.physics.timeRemaining );
-    HashVector( hash, sample.worldSnapshot.physics.sleepState );
-    HashVector( hash, sample.worldSnapshot.physics.sleepCounter );
-    HashVector( hash, sample.worldSnapshot.physics.collisionVisualContacts );
-    HashVector( hash, sample.worldSnapshot.physics.sleepIslandParent );
-    HashVector( hash, sample.worldSnapshot.physics.sleepIslandRank );
-    HashValue( hash, sample.contactCount );
-    HashValue( hash, sample.pipelineRecordCount );
-    HashValue( hash, sample.bodies.size() );
-
-    for ( const ReplaySolverBodySample& body : sample.bodies )
-    {
-        HashSolverBody( hash, body );
-    }
-    return hash != 0u ? hash : 1u;
-}
-
 ReplaySolverFrameSample CaptureReplaySample( const PhysicsEngine& engine, ReplayFrameIndex frameIndex )
 {
     ReplaySolverFrameSample sample;
@@ -325,7 +243,9 @@ ReplaySolverFrameSample CaptureReplaySample( const PhysicsEngine& engine, Replay
         sample.bodies.push_back( body );
     }
 
-    sample.solverHash = HashReplaySample( sample );
+    // Invariant: the unit oracle uses the production Replay hash so promotion
+    // bits, contacts, joints, solver rows, and cell keys cannot bypass it.
+    sample.solverHash = SkullbonezCore::Runtime::ReplaySolverHashForSample( sample );
     sample.presentationHash = sample.solverHash;
     return sample;
 }
@@ -451,6 +371,14 @@ TEST_CASE( "Replay solver sample restore: recorded frame reproduces future frame
     StepReplayWorld( expected, kReplayWindowTicks );
     const ReplaySolverFrameSample expectedFuture =
         CaptureReplaySample( expected, kSnapshotFrame + kReplayWindowTicks );
+
+    // Hazard: the previous unit-only hash omitted motion eligibility and could
+    // accept a replay that restored a different Discrete/Swept future.
+    ReplaySolverFrameSample promotionMutation = expectedFuture;
+    REQUIRE_FALSE( promotionMutation.worldSnapshot.physics.motionEligibilityState.empty() );
+    promotionMutation.worldSnapshot.physics.motionEligibilityState[0] ^=
+        SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted;
+    CHECK( SkullbonezCore::Runtime::ReplaySolverHashForSample( promotionMutation ) != expectedFuture.solverHash );
 
     StepReplayWorld( restored, kReplayWindowTicks );
     RestoreReplaySample( restored, restorePoint );

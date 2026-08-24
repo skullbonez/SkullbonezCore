@@ -32,8 +32,8 @@
 //   Parallel gravity field: Forty-body fixture above the mutual-gravity worker
 //     threshold whose exact kinematics are compared at 0, 1, and 4 workers.
 //   Parallel contact field: 520-body fixture above the ordinary physics worker
-//     threshold whose contact, terrain, integration, and sleep state is compared
-//     at 0, 1, and 4 workers.
+//     threshold whose contact, terrain, joint, integration, and sleep state is
+//     compared at 0, 1, and 4 workers.
 //   Large gravity field: 520-body fixture above the pair-scratch threshold that
 //     proves the exact serial fallback ignores worker availability.
 //
@@ -50,7 +50,8 @@
 //     terrain view survives its terrain or construction config.
 //   - Reconstructing alternating flat/deep fixtures yields the same exact hash
 //     for each terrain, independent of the fixture that ran immediately before.
-//   - Worker scheduling must not change any kinematic or sleep-state byte.
+//   - Worker scheduling must not change kinematics, ordered collision work,
+//     point-joint rows, or replay-restorable solver state.
 //
 // Related:
 //   - SkullbonezSource/Physics/PhysicsEngine.h
@@ -79,6 +80,7 @@
 #include "../SkullbonezSource/Physics/SpatialGrid.h"
 #include "../SkullbonezSource/Gameplay/TornadoGameplay.h"
 #include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
+#include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
 #include "../SkullbonezSource/Scene/AuthoredScene.h"
 #include "../SkullbonezSource/World/Terrain.h"
 
@@ -119,10 +121,10 @@ namespace
 {
 SkullbonezCore::Core::SbDiagnosticStore resultDiagnostics;
 
-void ReserveTestPhysicsCapacity( PhysicsEngine& engine, std::size_t capacity )
+void ReserveTestPhysicsCapacity( PhysicsEngine& engine, std::size_t capacity, std::size_t pointJointCapacity = 0u )
 {
     SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
-    engine.ReserveAuthoredBodyCapacity( capacity );
+    engine.ReserveAuthoredBodyCapacity( capacity, 0u, 0u, 0u, pointJointCapacity );
 }
 
 constexpr int kMicroBodyCount = 3;
@@ -295,9 +297,9 @@ void AddMicroBody( PhysicsEngine& engine, PhysicsTerrainView terrainView, uint32
 }
 
 void AddSupportedSleepBody( PhysicsEngine& engine, PhysicsTerrainView terrainView, uint32_t sceneObjectIdValue,
-                            const Vector3& position )
+                            const Vector3& position, std::size_t pointJointCapacity = 0u )
 {
-    ReserveTestPhysicsCapacity( engine, kParallelContactBodyCount );
+    ReserveTestPhysicsCapacity( engine, kParallelContactBodyCount, pointJointCapacity );
     engine.SetTerrainView( terrainView );
     const float radius = 1.0f;
     const float mass = 2.0f;
@@ -358,7 +360,8 @@ void SeedParallelContactSleepWorld( PhysicsEngine& engine, PhysicsTerrainView te
         const float pairOffset = ( bodyIndex & 1 ) == 0 ? -pairHalfSeparation : pairHalfSeparation;
         AddSupportedSleepBody( engine, terrainView, static_cast<uint32_t>( 1000 + bodyIndex ),
                                Vector3( static_cast<float>( pairColumn * 8 - 76 ) + pairOffset, 1.0f,
-                                        static_cast<float>( pairRow * 8 - 48 ) ) );
+                                        static_cast<float>( pairRow * 8 - 48 ) ),
+                               2u );
     }
 
     REQUIRE( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).Count() == kParallelContactBodyCount );
@@ -678,6 +681,20 @@ PhysicsBodyHandle RequireBodyHandle( const PhysicsEngine& engine, int modelIndex
     return RequireBodyRecord( engine, modelIndex ).handle;
 }
 
+void SeedParallelDeterminismPointJoints( PhysicsEngine& engine )
+{
+    constexpr std::pair<int, int> jointBodies[] = { { 512, 513 }, { 514, 515 } };
+
+    for ( const auto [bodyA, bodyB] : jointBodies )
+    {
+        SkullbonezCore::Physics::PhysicsPointJointCreateDesc joint;
+        joint.bodyA = RequireBodyHandle( engine, bodyA );
+        joint.bodyB = RequireBodyHandle( engine, bodyB );
+        joint.slack = 5.0f;
+        REQUIRE( engine.CreatePointJoint( joint ).IsValid() );
+    }
+}
+
 float VectorMagnitudeSquared( const Vector3& value )
 {
     return value.x * value.x + value.y * value.y + value.z * value.z;
@@ -930,6 +947,71 @@ void CheckPhysicsPipelineTraceBytesEqual( const PhysicsEngine& lhs, const Physic
     }
 }
 
+uint64_t CaptureSolverReplayHash( const PhysicsEngine& engine )
+{
+    SkullbonezCore::Runtime::ReplaySolverFrameSample sample;
+    const int bodyCount = PhysicsEngine::ReadBodies( engine ).Count();
+    sample.contactCount = static_cast<uint16_t>( PhysicsEngine::ReadDebugContacts( engine ).size() );
+    sample.pipelineRecordCount = static_cast<uint16_t>( PhysicsEngine::ReadPipelineRecordCount( engine ) );
+    engine.CaptureReplaySolverSnapshot( sample.worldSnapshot.physics,
+                                        MakePhysicsBodyCountFromNonNegativeInt( bodyCount ) );
+    return SkullbonezCore::Runtime::ReplaySolverHashForSample( sample );
+}
+
+void CheckContactIdentityOrderEqual( const PhysicsEngine& lhs, const PhysicsEngine& rhs )
+{
+    const auto left = lhs.GetDiagnosticsView().persistentContacts;
+    const auto right = rhs.GetDiagnosticsView().persistentContacts;
+    REQUIRE( left.size() == right.size() );
+
+    for ( std::size_t index = 0; index < left.size(); ++index )
+    {
+        CHECK( left[index].bodyA == right[index].bodyA );
+        CHECK( left[index].bodyB == right[index].bodyB );
+        CHECK( left[index].featureId == right[index].featureId );
+        CHECK( left[index].key == right[index].key );
+    }
+}
+
+void CheckTerrainManifoldOrderEqual( const PhysicsEngine& lhs, const PhysicsEngine& rhs )
+{
+    const auto left = lhs.GetDiagnosticsView().terrainContactManifolds;
+    const auto right = rhs.GetDiagnosticsView().terrainContactManifolds;
+    REQUIRE( left.size() == right.size() );
+
+    for ( std::size_t manifoldIndex = 0; manifoldIndex < left.size(); ++manifoldIndex )
+    {
+        const auto& leftManifold = left[manifoldIndex];
+        const auto& rightManifold = right[manifoldIndex];
+        CHECK( leftManifold.bodyA == rightManifold.bodyA );
+        CHECK( leftManifold.bodyB == rightManifold.bodyB );
+        CheckVectorBytesEqual( leftManifold.normal, rightManifold.normal );
+        CheckVectorBytesEqual( leftManifold.tangent1, rightManifold.tangent1 );
+        CheckVectorBytesEqual( leftManifold.tangent2, rightManifold.tangent2 );
+        REQUIRE( leftManifold.pointCount == rightManifold.pointCount );
+
+        for ( uint8_t pointIndex = 0; pointIndex < leftManifold.pointCount; ++pointIndex )
+        {
+            const auto& leftPoint = leftManifold.points[pointIndex];
+            const auto& rightPoint = rightManifold.points[pointIndex];
+            CheckVectorBytesEqual( leftPoint.point, rightPoint.point );
+            CheckVectorBytesEqual( leftPoint.rA, rightPoint.rA );
+            CHECK( std::memcmp( &leftPoint.penetration, &rightPoint.penetration,
+                                sizeof( leftPoint.penetration ) ) == 0 );
+            CHECK( leftPoint.featureId == rightPoint.featureId );
+        }
+
+        CHECK( std::memcmp( &leftManifold.timeOfImpact, &rightManifold.timeOfImpact,
+                            sizeof( leftManifold.timeOfImpact ) ) == 0 );
+        CHECK( leftManifold.sweptHit == rightManifold.sweptHit );
+        CHECK( leftManifold.supportsRestingPolicy == rightManifold.supportsRestingPolicy );
+        CHECK( leftManifold.allowsTangentFriction == rightManifold.allowsTangentFriction );
+        CHECK( leftManifold.inhibitsSleep == rightManifold.inhibitsSleep );
+        CHECK( leftManifold.terrainCellId == rightManifold.terrainCellId );
+        CHECK( leftManifold.materialId == rightManifold.materialId );
+    }
+}
+
 void CheckEngineWorkerDeterministicStateEqual( const PhysicsEngine& lhs, const PhysicsEngine& rhs )
 {
     CheckEngineKinematicsEqual( lhs, rhs );
@@ -961,6 +1043,8 @@ void CheckEngineWorkerDeterministicStateEqual( const PhysicsEngine& lhs, const P
 
     const auto leftDiagnostics = lhs.GetDiagnosticsView();
     const auto rightDiagnostics = rhs.GetDiagnosticsView();
+    checkRowsEqual( leftDiagnostics.candidatePairs, rightDiagnostics.candidatePairs );
+    checkRowsEqual( leftDiagnostics.collisionCellKeys, rightDiagnostics.collisionCellKeys );
     checkRowsEqual( leftDiagnostics.motionEligibilityState, rightDiagnostics.motionEligibilityState );
     checkRowsEqual( leftDiagnostics.linearTravelSquared, rightDiagnostics.linearTravelSquared );
     checkRowsEqual( leftDiagnostics.angularTravelSquared, rightDiagnostics.angularTravelSquared );
@@ -974,6 +1058,13 @@ void CheckEngineWorkerDeterministicStateEqual( const PhysicsEngine& lhs, const P
            rightDiagnostics.motionEligibilityStats.promotedBodies );
     CHECK( leftDiagnostics.motionEligibilityStats.angularExpandedBodies ==
            rightDiagnostics.motionEligibilityStats.angularExpandedBodies );
+
+    // Invariant: worker equality owns ordered collision work and the complete
+    // Replay-restorable solver record, not only poses and summary counters.
+    CheckContactIdentityOrderEqual( lhs, rhs );
+    CheckTerrainManifoldOrderEqual( lhs, rhs );
+    CheckPhysicsPipelineTraceBytesEqual( lhs, rhs );
+    CHECK( CaptureSolverReplayHash( lhs ) == CaptureSolverReplayHash( rhs ) );
 }
 } // namespace
 
@@ -1019,6 +1110,33 @@ TEST_CASE( "Physics motion promotion: ordinary slow micro-world body-ticks remai
     CHECK( discreteBodyTicks == measuredTicks * kMicroBodyCount );
     CHECK( promotedBodyTicks == 0 );
     CHECK( discreteBodyTicks > evaluatedBodyTicks - discreteBodyTicks );
+}
+
+
+TEST_CASE( "Physics motion promotion: fixed-step force integration promotes in the same tick" )
+{
+    DeterminismTerrainFixture fixture( kDeepSpaceTerrainBaseY );
+    PhysicsEngine& engine = fixture.Engine();
+    EngineConfig config = MakeDeterministicConfig();
+    config.worldForces.gravity = -2400.0f;
+    engine.Clear();
+    engine.ApplyRuntimeConfig( config );
+    engine.SetSleepEnabled( false );
+    ReserveTestPhysicsCapacity( engine, 1u );
+    AddPromotionFixtureBody( engine, fixture.TerrainView(), 3101u, MakeSphereShape( 1.0f ),
+                             Vector3( 0.0f, 10.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ),
+                             Vector3( 0.4f, 0.4f, 0.4f ), 1.0f, 0.0f,
+                             PhysicsBodyMotionKind::Dynamic, "force-promoted-sphere" );
+
+    PhysicsWorldForces forces = NoGravityForces();
+    forces.gravity = config.worldForces.gravity;
+    StepMicroWorldWith( engine, 1, forces );
+
+    const auto diagnostics = engine.GetDiagnosticsView();
+    REQUIRE( diagnostics.motionEligibilityState.size() == 1u );
+    CHECK( ( diagnostics.motionEligibilityState[0] &
+             SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) != 0u );
+    CHECK( diagnostics.motionEligibilityStats.promotedBodies == 1 );
 }
 
 
@@ -1137,6 +1255,10 @@ TEST_CASE( "PhysicsEngine multithreaded determinism: contact and sleep pipeline 
     SeedParallelContactSleepWorld( serial, serialFixture.TerrainView(), config );
     SeedParallelContactSleepWorld( oneWorker, oneWorkerFixture.TerrainView(), config );
     SeedParallelContactSleepWorld( fourWorkers, fourWorkersFixture.TerrainView(), config );
+    SeedParallelDeterminismPointJoints( serial );
+    SeedParallelDeterminismPointJoints( oneWorker );
+    SeedParallelDeterminismPointJoints( fourWorkers );
+
     const Vector3 promotedVelocity( 13.0f, 0.0f, 0.0f );
     const Vector3 zeroAngularVelocity( 0.0f, 0.0f, 0.0f );
     REQUIRE( serial.SetBodyVelocity( RequireBodyHandle( serial, 0 ), promotedVelocity, zeroAngularVelocity, true ) );
@@ -1155,6 +1277,7 @@ TEST_CASE( "PhysicsEngine multithreaded determinism: contact and sleep pipeline 
     // worker-count comparison pass through the serial fallback.
     CHECK( oneWorker.GetDiagnosticsView().candidatePairs.size() == 256u );
     CHECK( fourWorkers.GetDiagnosticsView().candidatePairs.size() == 256u );
+    CHECK( PhysicsEngine::ReadPointJointConstraints( serial ).size() == 2u );
     CHECK( serial.GetDiagnosticsView().motionEligibilityStats.promotedBodies >= 1 );
     CHECK( ( serial.GetDiagnosticsView().motionEligibilityState[0] &
              SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) != 0u );

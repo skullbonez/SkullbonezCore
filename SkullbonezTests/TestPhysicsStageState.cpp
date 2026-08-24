@@ -227,7 +227,13 @@ TEST_CASE( "Physics motion eligibility: exact thresholds hysteresis sleep wake a
     PhysicsBodyStore& bodies = StageBodyStore();
     ColliderStore& colliders = StageColliderStore();
     const CollisionShape sphere = UnitSphere();
-    const float linearSpeeds[] = { 0.099f, 0.1f, 0.101f, 0.0f, 10.0f };
+    constexpr float promoteThreshold = 0.1f;
+    constexpr float demoteThreshold = 0.075f;
+    const float belowPromote = std::nextafter( promoteThreshold, 0.0f );
+    const float abovePromote = std::nextafter( promoteThreshold, std::numeric_limits<float>::infinity() );
+    const float belowDemote = std::nextafter( demoteThreshold, 0.0f );
+    const float aboveDemote = std::nextafter( demoteThreshold, std::numeric_limits<float>::infinity() );
+    const float linearSpeeds[] = { belowPromote, promoteThreshold, abovePromote, 0.0f, 10.0f };
 
     for ( int bodyIndex = 0; bodyIndex < 5; ++bodyIndex )
     {
@@ -236,7 +242,7 @@ TEST_CASE( "Physics motion eligibility: exact thresholds hysteresis sleep wake a
         body.hot.inverseMass = 1.0f;
         body.hot.fixed = bodyIndex == 4;
         body.hot.linearVelocity = Vector3( linearSpeeds[bodyIndex], 0.0f, 0.0f );
-        body.hot.angularVelocity = bodyIndex == 3 ? Vector3( 0.0f, 0.1f, 0.0f )
+        body.hot.angularVelocity = bodyIndex == 3 ? Vector3( 0.0f, promoteThreshold, 0.0f )
                                                   : SkullbonezCore::Math::Vector::ZERO_VECTOR;
         const auto handle = bodies.CreateBodyRecord( body );
         ColliderRecord collider;
@@ -269,25 +275,41 @@ TEST_CASE( "Physics motion eligibility: exact thresholds hysteresis sleep wake a
     const uint64_t committedBytes = stage.CollectDynamicMemoryBytes();
 
     auto hot = bodies.MutableHotFields();
-    hot.linearVelocityX[0] = 0.08f;   // Previously Discrete: remains below the promotion threshold.
-    hot.linearVelocityX[1] = 0.08f;   // Previously promoted: remains above the demotion threshold.
-    hot.angularVelocityY[3] = 0.075f; // Exact angular demotion equality.
+    hot.linearVelocityX[0] = belowPromote;
+    hot.linearVelocityX[1] = aboveDemote;
+    hot.angularVelocityY[3] = aboveDemote;
     stage.Run( bodies, colliders, sleep, 1.0f );
     CHECK( stage.CollectDynamicMemoryBytes() == committedBytes );
     CHECK( ( stage.State()[0] & SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) == 0u );
     CHECK( ( stage.State()[1] & SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) != 0u );
-    CHECK( ( stage.State()[3] & SkullbonezCore::Physics::PhysicsMotionEligibilityAngularExpanded ) == 0u );
+    CHECK( ( stage.State()[3] & SkullbonezCore::Physics::PhysicsMotionEligibilityAngularExpanded ) != 0u );
 
-    hot.linearVelocityX[1] = 0.075f; // Exact demotion equality.
+    hot.linearVelocityX[1] = demoteThreshold;
+    hot.angularVelocityY[3] = demoteThreshold;
     sleep[2] = 1u;
     stage.Run( bodies, colliders, sleep, 1.0f );
     CHECK( ( stage.State()[1] & SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) == 0u );
     CHECK( stage.State()[2] == SkullbonezCore::Physics::PhysicsMotionEligibilityNone );
+    CHECK( ( stage.State()[3] & SkullbonezCore::Physics::PhysicsMotionEligibilityAngularExpanded ) == 0u );
 
     sleep[2] = 0u;
-    hot.linearVelocityX[2] = 0.101f;
+    hot.linearVelocityX[1] = promoteThreshold;
+    hot.linearVelocityX[2] = abovePromote;
+    hot.angularVelocityY[3] = abovePromote;
     stage.Run( bodies, colliders, sleep, 1.0f );
+    CHECK( ( stage.State()[1] & SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) != 0u );
     CHECK( ( stage.State()[2] & SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) != 0u );
+    CHECK( ( stage.State()[3] & SkullbonezCore::Physics::PhysicsMotionEligibilityAngularExpanded ) != 0u );
+
+    hot.linearVelocityX[1] = belowDemote;
+    hot.angularVelocityY[3] = belowDemote;
+    stage.Run( bodies, colliders, sleep, 1.0f );
+    CHECK( ( stage.State()[1] & SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) == 0u );
+    CHECK( ( stage.State()[3] & SkullbonezCore::Physics::PhysicsMotionEligibilityAngularExpanded ) == 0u );
+
+    hot.angularVelocityY[3] = belowPromote;
+    stage.Run( bodies, colliders, sleep, 1.0f );
+    CHECK( ( stage.State()[3] & SkullbonezCore::Physics::PhysicsMotionEligibilityAngularExpanded ) == 0u );
 
     hot.linearVelocityX[2] = 0.08f;
     stage.InvalidateBodyTopology();
