@@ -5,12 +5,13 @@ Purpose:
 
 Summary:
   App synchronously samples domain owners, combines those facts in one bounded
-  OperatorEditorFrameView, and applies typed process commands after UI and GPU
-  work complete. Runtime/UI owns the value-only phase cursor and snapshot.
+  OperatorEditorFrameView, and returns typed process commands after UI and GPU
+  work complete. Runtime/UI owns the snapshot, submission-policy decision,
+  presenter-command arbitration, and ordered phase walk.
   Run::RenderOperatorUiPhase is the owner-approved top-level phase coordinator.
   It reaches process-owned members for one ordered UI phase, builds one shared
-  value projection, submits GameUI and ImGui presentation, and retains no frame
-  values after returning to the frame sequencer.
+  value projection, applies the phase owner's submission plan, and retains no
+  frame values after returning commands to the frame sequencer.
 
 Glossary:
   Cold detail: Inspector and diagnostics data sampled only while ImGui is shown.
@@ -226,9 +227,10 @@ void Run::ApplyOperatorUiProcessCommands( const OperatorUiProcessCommands& comma
 #endif
 }
 
-void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha,
-                                 bool capturePresentationPinned, double secondsPerFrame, bool gameUiActive,
-                                 const RuntimeFrameMetricsSnapshot& frameMetrics )
+OperatorUiProcessCommands Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels,
+                                                      float presentationAlpha, bool capturePresentationPinned,
+                                                      double secondsPerFrame, bool gameUiActive,
+                                                      const RuntimeFrameMetricsSnapshot& frameMetrics )
 {
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     // Invariant: copy the completed world backbuffer before either operator
@@ -242,7 +244,7 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
             m_timers.FinishPresentedFrame();
             PROFILE_FRAME_END( m_profiler );
             m_applicationExit.RequestPhaseFailure( viewportCapture );
-            return;
+            return {};
         }
     }
 #endif
@@ -273,11 +275,7 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
 #endif
 
     OperatorUiPhaseOwner operatorUiPhase;
-
-    if ( !operatorUiPhase.Begin( operatorUiSnapshot ) )
-    {
-        SB_FATAL( "OperatorUI", "Operator UI phase failed to accept its detached frame snapshot." );
-    }
+    operatorUiPhase.Begin( operatorUiSnapshot );
 
     const RuntimeUiTextFrameFacts& uiTextFacts = operatorUiPhase.Snapshot().uiText;
 
@@ -365,10 +363,12 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
 
     const bool replayPathVisualizerHasTarget = replayRuntime.BuildInputView().hasPathTarget;
 
-    if ( !operatorUiPhase.MarkComposed() )
-    {
-        SB_FATAL( "OperatorUI", "Operator UI phase skipped composition." );
-    }
+    const bool profilerBars = debug.overlayMode == OverlayMode::BarsNormalized ||
+                              debug.overlayMode == OverlayMode::BarsAbsolute;
+
+    operatorUiPhase.Compose( debug.isTextOnly, ui.NeedsUiTextPass(), ui.IsVisible(), profilerBars );
+
+    const OperatorUiSubmissionPlan& submissionPlan = operatorUiPhase.SubmissionPlan();
 
     renderer.PrepareUiFrameTarget();
     int gameUiDrawCalls = 0;
@@ -449,14 +449,6 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
             chromeTail.reproSnapshotMessageUntil = debug.reproSnapshotMessageUntil;
 #endif
             renderer.SubmitUiChrome( uiViewport, chromeStatus, chromeTail );
-
-            const bool textOnly = debug.isTextOnly;
-            const bool operatorNeeded = ui.NeedsUiTextPass();
-            const bool operatorVisible = ui.IsVisible();
-            const bool profilerBars = debug.overlayMode == OverlayMode::BarsNormalized ||
-                                      debug.overlayMode == OverlayMode::BarsAbsolute;
-            const OperatorUiSubmissionPlan submissionPlan = ResolveOperatorUiSubmissionPlan( textOnly, operatorNeeded,
-                                                                                             operatorVisible, profilerBars );
 
             if ( submissionPlan.composeGameUi )
             {
@@ -544,14 +536,12 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
         gameUiDrawCalls = 0;
     }
 
-    if ( !operatorUiPhase.RecordGpuSubmission( gameUiDrawCalls ) )
-    {
-        SB_FATAL( "OperatorUI", "Operator UI phase recorded GPU submission out of order." );
-    }
+    operatorUiPhase.RecordGpuSubmission( gameUiDrawCalls );
 
     m_timers.RecordUiDrawCalls( operatorUiPhase.GameUiDrawCalls() );
 
-    OperatorUiProcessCommands uiProcessCommands;
+    bool requestSurfaceSwap = false;
+    bool requestTracyStandardCapture = false;
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     const UINT windowDpi = GetDpiForWindow( m_window.NativeWindowHandle() );
@@ -583,27 +573,25 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
             m_timers.FinishPresentedFrame();
             PROFILE_FRAME_END( m_profiler );
             m_applicationExit.RequestPhaseFailure( imguiResult.status );
-            return;
+            return {};
         }
 
         if ( imguiResult.commands.requestSurfaceSwap )
         {
-            uiProcessCommands.surface = OperatorUiSurfaceCommand::ShowGameUi;
+            requestSurfaceSwap = true;
         }
 
         if ( imguiResult.commands.requestTracyStandardCapture )
         {
-            uiProcessCommands.requestTracyStandardCapture = true;
+            requestTracyStandardCapture = true;
         }
     }
 #endif
 
-    if ( !operatorUiPhase.EmitCommands( uiProcessCommands ) || !operatorUiPhase.Complete() )
-    {
-        SB_FATAL( "OperatorUI", "Operator UI phase failed to complete after command emission." );
-    }
+    operatorUiPhase.EmitCommands( requestSurfaceSwap, requestTracyStandardCapture );
+    operatorUiPhase.Complete();
 
-    ApplyOperatorUiProcessCommands( operatorUiPhase.Commands() );
+    return operatorUiPhase.Commands();
 }
 
 

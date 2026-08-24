@@ -57,6 +57,7 @@ Related:
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "../Automation/RuntimeValidationHarness.h"
 #include "../RuntimeFrameViews.h"
+#include "../UI/OperatorUiPhase.h"
 #include "../UI/RuntimeViewModel.h"
 #include "RenderModelFramePublisher.h"
 #include "../Startup/Window.h"
@@ -1089,13 +1090,19 @@ SkullbonezCore::Core::SbResult Run::Execute()
         m_timers.SampleFrame( { secondsPerFrame, models.sceneKineticEnergy } );
         const RuntimeFrameMetricsSnapshot frameMetrics = m_timers.Publish();
         RenderWorldPhase( models, presentationAlpha );
-        RenderOperatorUiPhase( models, presentationAlpha, capturePresentationPinned, secondsPerFrame, gameUiActive,
-                               frameMetrics );
+        const OperatorUiProcessCommands operatorUiCommands = RenderOperatorUiPhase( models, presentationAlpha,
+                                                                                    capturePresentationPinned,
+                                                                                    secondsPerFrame, gameUiActive,
+                                                                                    frameMetrics );
 
         if ( m_applicationExit.ExitRequested() )
         {
             return m_applicationExit.Resolve( 0 );
         }
+
+        // App applies process effects only after every presenter has released
+        // the phase owner's detached values and returned its typed commands.
+        ApplyOperatorUiProcessCommands( operatorUiCommands );
 
         RunPostDrawDiagnosticsPhase( gameUiActive );
 

@@ -253,9 +253,10 @@ class Run
     RuntimeRenderModelFrameView PublishRenderModelsPhase();
     void RenderWorldPhase( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha );
 
-    void RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha,
-                                bool capturePresentationPinned, double secondsPerFrame, bool gameUiActive,
-                                const RuntimeFrameMetricsSnapshot& frameMetrics );
+    OperatorUiProcessCommands RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels,
+                                                     float presentationAlpha, bool capturePresentationPinned,
+                                                     double secondsPerFrame, bool gameUiActive,
+                                                     const RuntimeFrameMetricsSnapshot& frameMetrics );
     void ProjectSecondaryOperatorDiagnostics( UI::OperatorEditorFrameView& view, const RuntimeFrameMetricsSnapshot& frameMetrics,
                                               const RuntimeUiTextFrameFacts& uiTextFacts, const OverlayDebugState& debug, bool shadowsEnabled,
                                               bool cinematicRendering, const Core::CinematicRenderConfig& cinematic, RuntimeViewModel& runtimeViewModel,
